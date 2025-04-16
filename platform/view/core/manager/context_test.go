@@ -10,16 +10,16 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"go.opentelemetry.io/otel/trace/noop"
-	"golang.org/x/net/context"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver/mock"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel/trace/noop"
+	"golang.org/x/net/context"
 )
 
 var emptyTracer = noop.NewTracerProvider().Tracer("empty")
@@ -71,6 +71,7 @@ func TestContextRace(t *testing.T) {
 	assert.NoError(t, registry.RegisterService(idProvider))
 	assert.NoError(t, registry.RegisterService(&mock2.CommLayer{}))
 	resolver := &mock.EndpointService{}
+	resolver.ResolveReturns(&endpoint.Resolver{Id: []byte("alice")}, nil, nil)
 	resolver.GetIdentityReturns([]byte("bob"), nil)
 	assert.NoError(t, registry.RegisterService(resolver))
 	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
