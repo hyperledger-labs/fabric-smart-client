@@ -18,7 +18,7 @@ type MetadataPersistence struct {
 }
 
 func NewMetadataPersistence(opts Opts) (*MetadataPersistence, error) {
-	readDB, writeDB, err := openRWDBs(opts)
+	readDB, writeDB, err := OpenRWDBs(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}

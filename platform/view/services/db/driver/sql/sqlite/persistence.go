@@ -45,19 +45,14 @@ type Opts struct {
 	TableNameParams []string
 }
 
-func openRWDBs(opts Opts) (*sql.DB, *sql.DB, error) {
-	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
-	return readDB, writeDB, err
-}
-
-func OpenRWDBs(dataSourceName string, maxOpenConns int, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool) (*sql.DB, *sql.DB, error) {
-	logger.Debugf("Opening read db [%v]", dataSourceName)
-	readDB, err := OpenDB(dataSourceName, maxOpenConns, maxIdleConns, maxIdleTime, skipPragmas)
+func OpenRWDBs(opts Opts) (*sql.DB, *sql.DB, error) {
+	logger.Debugf("Opening read db [%v]", opts.DataSource)
+	readDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't open read %s database: %w", driverName, err)
 	}
-	logger.Debugf("Opening write db [%v]", dataSourceName)
-	writeDB, err := OpenDB(dataSourceName, 1, maxIdleConnsWrite, maxIdleTimeWrite, skipPragmas)
+	logger.Debugf("Opening write db [%v]", opts.DataSource)
+	writeDB, err := OpenDB(opts.DataSource, 1, maxIdleConnsWrite, maxIdleTimeWrite, opts.SkipPragmas)
 	if err != nil {
 		return nil, nil, fmt.Errorf("can't open write %s database: %w", driverName, err)
 	}

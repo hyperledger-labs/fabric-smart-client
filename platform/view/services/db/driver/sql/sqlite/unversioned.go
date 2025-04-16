@@ -20,7 +20,7 @@ type UnversionedPersistence struct {
 }
 
 func NewUnversionedPersistence(opts Opts) (*UnversionedPersistence, error) {
-	readDB, writeDB, err := openRWDBs(opts)
+	readDB, writeDB, err := OpenRWDBs(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
@@ -29,7 +29,7 @@ func NewUnversionedPersistence(opts Opts) (*UnversionedPersistence, error) {
 }
 
 func NewUnversionedNotifier(opts Opts, table string) (*notifier.UnversionedPersistenceNotifier, error) {
-	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
+	readDB, writeDB, err := OpenRWDBs(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
