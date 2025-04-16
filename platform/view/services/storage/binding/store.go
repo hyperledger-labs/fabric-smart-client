@@ -13,5 +13,5 @@ import (
 )
 
 func NewStore(cp driver.Config, d multiplexed.Driver, params ...string) (driver.BindingPersistence, error) {
-	return d.NewBinding(db.CreateTableName("bind", params...), db.NewPrefixConfig(cp, "fsc.binding.persistence"))
+	return d.NewBinding(db.NewPrefixConfig(cp, "fsc.binding.persistence"), params...)
 }

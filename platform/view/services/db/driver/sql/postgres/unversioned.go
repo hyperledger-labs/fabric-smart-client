@@ -60,12 +60,13 @@ func (db *UnversionedPersistence) GetStateSetIterator(ns driver.Namespace, keys 
 	return decodeUnversionedReadIterator(db.UnversionedPersistence.GetStateSetIterator(ns, encoded...))
 }
 
-func NewUnversionedPersistence(opts Opts, table string) (*UnversionedPersistence, error) {
+func NewUnversionedPersistence(opts Opts) (*UnversionedPersistence, error) {
 	readWriteDB, err := openDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newUnversionedPersistence(readWriteDB, table), nil
+	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	return newUnversionedPersistence(readWriteDB, tables.KVS), nil
 }
 
 type unversionedPersistenceNotifier struct {
@@ -80,14 +81,15 @@ func (db *unversionedPersistenceNotifier) CreateSchema() error {
 	return db.Notifier.CreateSchema()
 }
 
-func NewUnversionedNotifier(opts Opts, table string) (*unversionedPersistenceNotifier, error) {
+func NewUnversionedNotifier(opts Opts) (*unversionedPersistenceNotifier, error) {
 	readWriteDB, err := openDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
+	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
 	return &unversionedPersistenceNotifier{
-		UnversionedPersistence: newUnversionedPersistence(readWriteDB, table),
-		Notifier:               NewNotifier(readWriteDB, table, opts.DataSource, AllOperations, primaryKey{"ns", identity}, primaryKey{"pkey", decode}),
+		UnversionedPersistence: newUnversionedPersistence(readWriteDB, tables.KVS),
+		Notifier:               NewNotifier(readWriteDB, tables.KVS, opts.DataSource, AllOperations, primaryKey{"ns", identity}, primaryKey{"pkey", decode}),
 	}, nil
 }
 

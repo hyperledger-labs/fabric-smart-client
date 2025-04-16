@@ -27,14 +27,15 @@ type VaultPersistence struct {
 	pi      common.PaginationInterpreter
 }
 
-func NewVaultPersistence(opts Opts, tablePrefix string) (*VaultPersistence, error) {
+func NewVaultPersistence(opts Opts) (*VaultPersistence, error) {
 	readWriteDB, err := openDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
+	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
 	return newVaultPersistence(readWriteDB, common.VaultTables{
-		StateTable:  fmt.Sprintf("%s_state", tablePrefix),
-		StatusTable: fmt.Sprintf("%s_status", tablePrefix),
+		StateTable:  tables.State,
+		StatusTable: tables.Status,
 	}), nil
 }
 

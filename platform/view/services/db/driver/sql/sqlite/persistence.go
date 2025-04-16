@@ -36,11 +36,13 @@ const driverName = "sqlite"
 var logger = logging.MustGetLogger("view-sdk.db.sqlite")
 
 type Opts struct {
-	DataSource   string
-	SkipPragmas  bool
-	MaxOpenConns int
-	MaxIdleConns int
-	MaxIdleTime  time.Duration
+	DataSource      string
+	SkipPragmas     bool
+	MaxOpenConns    int
+	MaxIdleConns    int
+	MaxIdleTime     time.Duration
+	TablePrefix     string
+	TableNameParams []string
 }
 
 func openRWDBs(opts Opts) (*sql.DB, *sql.DB, error) {

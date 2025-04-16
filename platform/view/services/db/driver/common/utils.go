@@ -9,7 +9,7 @@ package common
 type DBObject interface {
 	CreateSchema() error
 }
-type PersistenceConstructor[O any, V DBObject] func(O, string) (V, error)
+type PersistenceConstructor[O any, V DBObject] func(O) (V, error)
 
 func CopyPtr[T any](t T) *T {
 	v := t

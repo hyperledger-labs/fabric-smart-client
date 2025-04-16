@@ -55,7 +55,7 @@ func newVersionedPersistence(dir string) (driver.UnversionedPersistence, error) 
 		MaxIdleConns: 2,
 		MaxIdleTime:  2 * time.Minute,
 	}
-	p, err := NewUnversionedPersistence(o, "test")
+	p, err := NewUnversionedPersistence(o)
 	if err != nil {
 		return nil, err
 	}

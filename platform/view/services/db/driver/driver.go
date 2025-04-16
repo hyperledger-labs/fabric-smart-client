@@ -107,21 +107,21 @@ type NamedDriver = driver.NamedDriver[Driver]
 
 type Driver interface {
 	// NewKVS returns a new UnversionedPersistence for the passed data source and config
-	NewKVS(string, Config) (UnversionedPersistence, error)
+	NewKVS(Config, ...string) (UnversionedPersistence, error)
 	// NewBinding returns a new BindingPersistence for the passed data source and config
-	NewBinding(string, Config) (BindingPersistence, error)
+	NewBinding(Config, ...string) (BindingPersistence, error)
 	// NewSignerInfo returns a new SignerInfoPersistence for the passed data source and config
-	NewSignerInfo(string, Config) (SignerInfoPersistence, error)
+	NewSignerInfo(Config, ...string) (SignerInfoPersistence, error)
 	// NewAuditInfo returns a new AuditInfoPersistence for the passed data source and config
-	NewAuditInfo(string, Config) (AuditInfoPersistence, error)
+	NewAuditInfo(Config, ...string) (AuditInfoPersistence, error)
 	// NewEndorseTx returns a new EndorseTxPersistence for the passed data source and config
-	NewEndorseTx(string, Config) (EndorseTxPersistence, error)
+	NewEndorseTx(Config, ...string) (EndorseTxPersistence, error)
 	// NewMetadata returns a new MetadataPersistence for the passed data source and config
-	NewMetadata(string, Config) (MetadataPersistence, error)
+	NewMetadata(Config, ...string) (MetadataPersistence, error)
 	// NewEnvelope returns a new EnvelopePersistence for the passed data source and config
-	NewEnvelope(string, Config) (EnvelopePersistence, error)
+	NewEnvelope(Config, ...string) (EnvelopePersistence, error)
 	// NewVault returns a new VaultPersistence for the passed data source and config
-	NewVault(string, Config) (driver.VaultStore, error)
+	NewVault(Config, ...string) (driver.VaultStore, error)
 }
 
 type (

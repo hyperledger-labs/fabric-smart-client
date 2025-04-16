@@ -17,7 +17,7 @@ type identifier interface {
 }
 
 func NewStore[K identifier](cp driver.Config, d multiplexed.Driver, params ...string) (*envelopeStore[K], error) {
-	e, err := d.NewEnvelope(db.CreateTableName("env", params...), db.NewPrefixConfig(cp, "fsc.envelope.persistence"))
+	e, err := d.NewEnvelope(db.NewPrefixConfig(cp, "fsc.envelope.persistence"), params...)
 	if err != nil {
 		return nil, err
 	}

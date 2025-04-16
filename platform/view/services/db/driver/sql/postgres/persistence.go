@@ -20,10 +20,12 @@ var logger = logging.MustGetLogger("view-sdk.db.postgres")
 const driverName = "pgx"
 
 type Opts struct {
-	DataSource   string
-	MaxOpenConns int
-	MaxIdleConns int
-	MaxIdleTime  time.Duration
+	DataSource      string
+	MaxOpenConns    int
+	MaxIdleConns    int
+	MaxIdleTime     time.Duration
+	TablePrefix     string
+	TableNameParams []string
 }
 
 func openDB(opts Opts) (*sql.DB, error) {

@@ -34,10 +34,10 @@ func TestPostgres(t *testing.T) {
 	cp := common.MockConfig(Config{
 		DataSource: pgConnStr,
 	})
-	common2.TestCases(t, func(name string) (driver.UnversionedPersistence, error) {
-		return NewPersistenceWithOpts(name, cp, NewUnversionedPersistence)
-	}, func(name string) (driver.UnversionedNotifier, error) {
-		return NewPersistenceWithOpts(name, cp, NewUnversionedNotifier)
+	common2.TestCases(t, func(string) (driver.UnversionedPersistence, error) {
+		return NewPersistenceWithOpts(cp, NewUnversionedPersistence)
+	}, func(string) (driver.UnversionedNotifier, error) {
+		return NewPersistenceWithOpts(cp, NewUnversionedNotifier)
 	}, func(p driver.UnversionedPersistence) *common2.UnversionedPersistence {
 		return p.(*UnversionedPersistence).UnversionedPersistence
 	})

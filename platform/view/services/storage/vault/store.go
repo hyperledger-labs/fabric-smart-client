@@ -13,5 +13,5 @@ import (
 )
 
 func NewStore(cp driver.Config, d multiplexed.Driver, params ...string) (driver.VaultPersistence, error) {
-	return d.NewVault(db.CreateTableName("txcode", params...), db.NewPrefixConfig(cp, "vault.persistence"))
+	return d.NewVault(db.NewPrefixConfig(cp, "vault.persistence"), params...)
 }

@@ -23,7 +23,7 @@ func TestSqlite(t *testing.T) {
 		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, "benchmark")),
 	}
 	common2.TestCases(t, func(name string) (driver.UnversionedPersistence, error) {
-		p, err := NewUnversionedPersistence(o, "test")
+		p, err := NewUnversionedPersistence(o)
 		assert.NoError(t, err)
 		assert.NoError(t, p.CreateSchema())
 		return p, nil
@@ -49,6 +49,6 @@ func TestFolderDoesNotExistError(t *testing.T) {
 	o := Opts{
 		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join("/this/folder/does/not/exist", "folder-does-not-exist")),
 	}
-	_, err := NewUnversionedPersistence(o, "test")
+	_, err := NewUnversionedPersistence(o)
 	assert.Error(t, err, "error opening db: can't open sqlite database, does the folder exist?")
 }

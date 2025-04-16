@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 	"github.com/pkg/errors"
 )
 
@@ -31,8 +30,6 @@ type Config struct {
 	MaxIdleTime     *time.Duration
 	SkipCreateTable bool
 }
-
-var tnc = db.NewTableNameCreator()
 
 func newConfigProvider(config config) *configProvider {
 	return &configProvider{config: config}

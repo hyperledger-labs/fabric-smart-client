@@ -17,12 +17,13 @@ type EndorseTxPersistence struct {
 	*common.EndorseTxPersistence
 }
 
-func NewEndorseTxPersistence(opts Opts, table string) (*EndorseTxPersistence, error) {
+func NewEndorseTxPersistence(opts Opts) (*EndorseTxPersistence, error) {
 	readWriteDB, err := openDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newEndorseTxPersistence(readWriteDB, readWriteDB, table), nil
+	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	return newEndorseTxPersistence(readWriteDB, readWriteDB, tables.EndorseTx), nil
 }
 
 func newEndorseTxPersistence(readDB, writeDB *sql.DB, table string) *EndorseTxPersistence {

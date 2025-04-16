@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/pkg/errors"
 )
@@ -39,7 +40,11 @@ func NewTableNameCreator() *TableNameCreator {
 	})}
 }
 
-func (c *TableNameCreator) CreateTableName(escapedName, tablePrefix string) (string, error) {
+func (c *TableNameCreator) MustCreateTableName(tablePrefix, name string, params ...string) string {
+	return utils.MustGet(c.CreateTableName(tablePrefix, name, params...))
+}
+
+func (c *TableNameCreator) CreateTableName(tablePrefix, name string, params ...string) (string, error) {
 	if tablePrefix == "" {
 		tablePrefix = "fsc"
 	}
@@ -48,6 +53,7 @@ func (c *TableNameCreator) CreateTableName(escapedName, tablePrefix string) (str
 		return "", err
 	}
 
+	escapedName := fmt.Sprintf("%s_%s", escapeForTableName(params...), name)
 	tableName, valid := nc.Format(escapedName)
 	if !valid {
 		return "", fmt.Errorf("invalid table name [%s]: only letters and underscores allowed", escapedName)
