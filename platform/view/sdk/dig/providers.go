@@ -9,7 +9,6 @@ package sdk
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver"
@@ -29,13 +28,6 @@ func newKVS(driver multiplexed.Driver, config driver.ConfigService) (*kvs.KVS, e
 		return nil, err
 	}
 	return kvs.New(utils.MustGet(kvss, err), "_default", size)
-}
-
-func newCommonDbDriver(in struct {
-	dig.In
-	Drivers []driver2.NamedDriver `group:"db-drivers"`
-}) multiplexed.Driver {
-	return in.Drivers
 }
 
 func newKMSDriver(in struct {

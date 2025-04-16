@@ -28,7 +28,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -229,26 +228,50 @@ func NewChannelProvider(in struct {
 	)
 }
 
-func NewEndorseTxStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.EndorseTxStore, error) {
-	return endorsetx.NewEndorseTx[driver.Key](config, drivers, "default")
+func NewEndorseTxStore(in struct {
+	dig.In
+	Config  vdriver.ConfigService
+	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
+}) (driver.EndorseTxStore, error) {
+	return endorsetx.NewStore[driver.Key](in.Config, in.Drivers, "default")
 }
 
-func NewMetadataStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.MetadataStore, error) {
-	return metadata.NewStore[driver.Key, driver.TransientMap](config, drivers, "default")
+func NewMetadataStore(in struct {
+	dig.In
+	Config  vdriver.ConfigService
+	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
+}) (driver.MetadataStore, error) {
+	return metadata.NewStore[driver.Key, driver.TransientMap](in.Config, in.Drivers, "default")
 }
 
-func NewEnvelopeStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.EnvelopeStore, error) {
-	return envelope.NewEnvelope[driver.Key](config, drivers, "default")
+func NewEnvelopeStore(in struct {
+	dig.In
+	Config  vdriver.ConfigService
+	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
+}) (driver.EnvelopeStore, error) {
+	return envelope.NewStore[driver.Key](in.Config, in.Drivers, "default")
 }
 
-func NewBindingStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver2.BindingStore, error) {
-	return binding.NewStore(config, drivers, "default")
+func NewBindingStore(in struct {
+	dig.In
+	Config  vdriver.ConfigService
+	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
+}) (driver2.BindingStore, error) {
+	return binding.NewStore(in.Config, in.Drivers, "default")
 }
 
-func NewSignerInfoStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver2.SignerInfoStore, error) {
-	return signerinfo.NewStore(config, drivers, "default")
+func NewSignerInfoStore(in struct {
+	dig.In
+	Config  vdriver.ConfigService
+	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
+}) (driver2.SignerInfoStore, error) {
+	return signerinfo.NewStore(in.Config, in.Drivers, "default")
 }
 
-func NewAuditInfoStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver2.AuditInfoStore, error) {
-	return auditinfo.NewStore(config, drivers, "default")
+func NewAuditInfoStore(in struct {
+	dig.In
+	Config  vdriver.ConfigService
+	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
+}) (driver2.AuditInfoStore, error) {
+	return auditinfo.NewStore(in.Config, in.Drivers, "default")
 }

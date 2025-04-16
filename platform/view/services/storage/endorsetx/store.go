@@ -16,7 +16,7 @@ type identifier interface {
 	UniqueKey() string
 }
 
-func NewEndorseTx[K identifier](cp driver.Config, d multiplexed.Driver, params ...string) (*endorseTxStore[K], error) {
+func NewStore[K identifier](cp driver.Config, d multiplexed.Driver, params ...string) (*endorseTxStore[K], error) {
 	e, err := d.NewEndorseTx(db.CreateTableName("etx", params...), db.NewPrefixConfig(cp, "fsc.endorsetx.persistence"))
 	if err != nil {
 		return nil, err
@@ -31,9 +31,11 @@ type endorseTxStore[K identifier] struct {
 func (s *endorseTxStore[K]) GetEndorseTx(key K) ([]byte, error) {
 	return s.e.GetEndorseTx(key.UniqueKey())
 }
+
 func (s *endorseTxStore[K]) ExistsEndorseTx(key K) (bool, error) {
 	return s.e.ExistsEndorseTx(key.UniqueKey())
 }
+
 func (s *endorseTxStore[K]) PutEndorseTx(key K, etx []byte) error {
 	return s.e.PutEndorseTx(key.UniqueKey(), etx)
 }

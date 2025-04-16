@@ -41,9 +41,11 @@ func (s *store[K, M]) GetMetadata(key K) (M, error) {
 	}
 	return m, nil
 }
+
 func (s *store[K, M]) ExistMetadata(key K) (bool, error) {
 	return s.m.ExistMetadata(key.UniqueKey())
 }
+
 func (s *store[K, M]) PutMetadata(key K, m M) error {
 	data, err := json.Marshal(m)
 	if err != nil {

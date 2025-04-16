@@ -12,11 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 )
 
-const (
-	DefaultMaxIdleConns = common.DefaultMaxIdleConns
-	DefaultMaxIdleTime  = common.DefaultMaxIdleTime
-)
-
 var (
 	tnc = &tableNameCreator{}
 	op  = &optsProvider{}
@@ -26,8 +21,8 @@ var memOpts = sqlite.Opts{
 	DataSource:   "file::memory:?cache=shared",
 	SkipPragmas:  false,
 	MaxOpenConns: 10,
-	MaxIdleConns: DefaultMaxIdleConns,
-	MaxIdleTime:  DefaultMaxIdleTime,
+	MaxIdleConns: common.DefaultMaxIdleConns,
+	MaxIdleTime:  common.DefaultMaxIdleTime,
 }
 
 type tableNameCreator struct{}

@@ -95,7 +95,6 @@ func (p *SDK) Install() error {
 		p.Container().Provide(sig2.NewDeserializer),
 		p.Container().Provide(sig2.NewService, dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry))),
 		p.Container().Provide(view.NewSigService, dig.As(new(view3.VerifierProvider), new(view3.SignerProvider))),
-		p.Container().Provide(newCommonDbDriver),
 		p.Container().Provide(endpoint.NewService),
 		p.Container().Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
 		p.Container().Provide(view.NewEndpointService),

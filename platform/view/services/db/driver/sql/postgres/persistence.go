@@ -26,14 +26,6 @@ type Opts struct {
 	MaxIdleTime  time.Duration
 }
 
-type DbOpts interface {
-	DataSource() string
-	SkipCreateTable() bool
-	MaxOpenConns() int
-	MaxIdleConns() int
-	MaxIdleTime() time.Duration
-}
-
 func openDB(opts Opts) (*sql.DB, error) {
 	return OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
 }

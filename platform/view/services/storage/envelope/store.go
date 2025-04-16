@@ -16,7 +16,7 @@ type identifier interface {
 	UniqueKey() string
 }
 
-func NewEnvelope[K identifier](cp driver.Config, d multiplexed.Driver, params ...string) (*envelopeStore[K], error) {
+func NewStore[K identifier](cp driver.Config, d multiplexed.Driver, params ...string) (*envelopeStore[K], error) {
 	e, err := d.NewEnvelope(db.CreateTableName("env", params...), db.NewPrefixConfig(cp, "fsc.envelope.persistence"))
 	if err != nil {
 		return nil, err
@@ -31,9 +31,11 @@ type envelopeStore[K identifier] struct {
 func (s *envelopeStore[K]) GetEnvelope(key K) ([]byte, error) {
 	return s.e.GetEnvelope(key.UniqueKey())
 }
+
 func (s *envelopeStore[K]) ExistsEnvelope(key K) (bool, error) {
 	return s.e.ExistsEnvelope(key.UniqueKey())
 }
+
 func (s *envelopeStore[K]) PutEnvelope(key K, etx []byte) error {
 	return s.e.PutEnvelope(key.UniqueKey(), etx)
 }
