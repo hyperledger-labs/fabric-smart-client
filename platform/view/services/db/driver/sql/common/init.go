@@ -24,14 +24,14 @@ type TableNames struct {
 
 func GetTableNames(prefix string, params ...string) TableNames {
 	return TableNames{
-		KVS:        nc.MustCreateTableName(prefix, "kvs", params...),
-		Binding:    nc.MustCreateTableName(prefix, "bind", params...),
-		SignerInfo: nc.MustCreateTableName(prefix, "sign", params...),
-		AuditInfo:  nc.MustCreateTableName(prefix, "aud", params...),
-		EndorseTx:  nc.MustCreateTableName(prefix, "etx", params...),
-		Metadata:   nc.MustCreateTableName(prefix, "meta", params...),
-		Envelope:   nc.MustCreateTableName(prefix, "env", params...),
-		State:      nc.MustCreateTableName(prefix, "vstate", params...),
-		Status:     nc.MustCreateTableName(prefix, "vstatus", params...),
+		KVS:        nc.MustGetTableName(prefix, "kvs", params...),
+		Binding:    nc.MustGetTableName(prefix, "bind", params...),
+		SignerInfo: nc.MustGetTableName(prefix, "sign", params...),
+		AuditInfo:  nc.MustGetTableName(prefix, "aud", params...),
+		EndorseTx:  nc.MustGetTableName(prefix, "etx", params...),
+		Metadata:   nc.MustGetTableName(prefix, "meta", params...),
+		Envelope:   nc.MustGetTableName(prefix, "env", params...),
+		State:      nc.MustGetTableName(prefix, "vstate", params...),
+		Status:     nc.MustGetTableName(prefix, "vstatus", params...),
 	}
 }

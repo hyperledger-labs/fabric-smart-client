@@ -40,7 +40,7 @@ func NewTableNameCreator() *TableNameCreator {
 	})}
 }
 
-func (c *TableNameCreator) MustCreateTableName(tablePrefix, name string, params ...string) string {
+func (c *TableNameCreator) MustGetTableName(tablePrefix, name string, params ...string) string {
 	return utils.MustGet(c.CreateTableName(tablePrefix, name, params...))
 }
 
