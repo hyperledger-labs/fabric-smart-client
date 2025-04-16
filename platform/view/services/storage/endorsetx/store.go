@@ -17,7 +17,7 @@ type identifier interface {
 }
 
 func NewStore[K identifier](cp driver.Config, d multiplexed.Driver, params ...string) (*endorseTxStore[K], error) {
-	e, err := d.NewEndorseTx(db.CreateTableName("etx", params...), db.NewPrefixConfig(cp, "fsc.endorsetx.persistence"))
+	e, err := d.NewEndorseTx(db.NewPrefixConfig(cp, "fsc.endorsetx.persistence"), params...)
 	if err != nil {
 		return nil, err
 	}

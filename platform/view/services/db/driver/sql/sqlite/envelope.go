@@ -17,12 +17,13 @@ type EnvelopePersistence struct {
 	*common.EnvelopePersistence
 }
 
-func NewEnvelopePersistence(opts Opts, table string) (*EnvelopePersistence, error) {
-	readDB, writeDB, err := openRWDBs(opts)
+func NewEnvelopePersistence(opts Opts) (*EnvelopePersistence, error) {
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newEnvelopePersistence(readDB, NewRetryWriteDB(writeDB), table), nil
+	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	return newEnvelopePersistence(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.Envelope), nil
 }
 
 func newEnvelopePersistence(readDB *sql.DB, writeDB common.WriteDB, table string) *EnvelopePersistence {

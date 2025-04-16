@@ -159,7 +159,7 @@ func TestMemory(t *testing.T) {
 	RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead { return items }
 	artifactProvider := &testArtifactProvider{}
 	for _, c := range SingleDBCases {
-		ddb, err := vault.OpenMemoryVault()
+		ddb, err := vault.OpenMemoryVault(c.Name)
 		assert.NoError(t, err)
 		assert.NotNil(t, ddb)
 		t.Run(c.Name, func(xt *testing.T) {
@@ -169,9 +169,9 @@ func TestMemory(t *testing.T) {
 	}
 
 	for _, c := range DoubleDBCases {
-		db1, err := vault.OpenMemoryVault()
+		db1, err := vault.OpenMemoryVault(c.Name)
 		assert.NoError(t, err)
-		db2, err := vault.OpenMemoryVault()
+		db2, err := vault.OpenMemoryVault(c.Name)
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer db1.Close()

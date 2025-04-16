@@ -36,30 +36,13 @@ const driverName = "sqlite"
 var logger = logging.MustGetLogger("view-sdk.db.sqlite")
 
 type Opts struct {
-	DataSource   string
-	SkipPragmas  bool
-	MaxOpenConns int
-	MaxIdleConns int
-	MaxIdleTime  time.Duration
-}
-
-func openRWDBs(opts Opts) (*sql.DB, *sql.DB, error) {
-	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
-	return readDB, writeDB, err
-}
-
-func OpenRWDBs(dataSourceName string, maxOpenConns int, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool) (*sql.DB, *sql.DB, error) {
-	logger.Debugf("Opening read db [%v]", dataSourceName)
-	readDB, err := OpenDB(dataSourceName, maxOpenConns, maxIdleConns, maxIdleTime, skipPragmas)
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't open read %s database: %w", driverName, err)
-	}
-	logger.Debugf("Opening write db [%v]", dataSourceName)
-	writeDB, err := OpenDB(dataSourceName, 1, maxIdleConnsWrite, maxIdleTimeWrite, skipPragmas)
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't open write %s database: %w", driverName, err)
-	}
-	return readDB, writeDB, nil
+	DataSource      string
+	SkipPragmas     bool
+	MaxOpenConns    int
+	MaxIdleConns    int
+	MaxIdleTime     time.Duration
+	TablePrefix     string
+	TableNameParams []string
 }
 
 func OpenDB(dataSourceName string, maxOpenConns int, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool) (*sql.DB, error) {

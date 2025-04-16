@@ -13,5 +13,5 @@ import (
 )
 
 func NewStore(cp driver.Config, d multiplexed.Driver, params ...string) (driver.SignerInfoPersistence, error) {
-	return d.NewSignerInfo(db.CreateTableName("sign", params...), db.NewPrefixConfig(cp, "fsc.signerinfo.persistence"))
+	return d.NewSignerInfo(db.NewPrefixConfig(cp, "fsc.signerinfo.persistence"), params...)
 }
