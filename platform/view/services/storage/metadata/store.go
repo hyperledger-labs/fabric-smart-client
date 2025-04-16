@@ -19,7 +19,7 @@ type identifier interface {
 }
 
 func NewStore[K identifier, M any](cp driver.Config, d multiplexed.Driver, params ...string) (*store[K, M], error) {
-	m, err := d.NewMetadata(db.CreateTableName("meta", params...), db.NewPrefixConfig(cp, "fsc.metadata.persistence"))
+	m, err := d.NewMetadata(db.NewPrefixConfig(cp, "fsc.metadata.persistence"), params...)
 	if err != nil {
 		return nil, err
 	}

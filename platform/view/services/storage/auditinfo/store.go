@@ -13,5 +13,5 @@ import (
 )
 
 func NewStore(cp driver.Config, d multiplexed.Driver, params ...string) (driver.AuditInfoPersistence, error) {
-	return d.NewAuditInfo(db.CreateTableName("aud", params...), db.NewPrefixConfig(cp, "fsc.auditinfo.persistence"))
+	return d.NewAuditInfo(db.NewPrefixConfig(cp, "fsc.auditinfo.persistence"), params...)
 }

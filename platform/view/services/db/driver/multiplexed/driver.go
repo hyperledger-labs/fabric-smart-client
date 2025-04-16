@@ -18,72 +18,72 @@ import (
 
 type Driver []driver2.NamedDriver
 
-func (d Driver) NewKVS(name string, cfg driver2.Config) (driver2.UnversionedPersistence, error) {
+func (d Driver) NewKVS(cfg driver2.Config, params ...string) (driver2.UnversionedPersistence, error) {
 	dr, err := d.getDriver(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewKVS(name, cfg)
+	return dr.NewKVS(cfg, params...)
 }
 
-func (d Driver) NewBinding(name string, cfg driver2.Config) (driver2.BindingPersistence, error) {
+func (d Driver) NewBinding(cfg driver2.Config, params ...string) (driver2.BindingPersistence, error) {
 	dr, err := d.getDriver(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewBinding(name, cfg)
+	return dr.NewBinding(cfg, params...)
 }
 
-func (d Driver) NewSignerInfo(name string, cfg driver2.Config) (driver2.SignerInfoPersistence, error) {
+func (d Driver) NewSignerInfo(cfg driver2.Config, params ...string) (driver2.SignerInfoPersistence, error) {
 	dr, err := d.getDriver(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewSignerInfo(name, cfg)
+	return dr.NewSignerInfo(cfg, params...)
 }
 
-func (d Driver) NewAuditInfo(name string, cfg driver2.Config) (driver2.AuditInfoPersistence, error) {
+func (d Driver) NewAuditInfo(cfg driver2.Config, params ...string) (driver2.AuditInfoPersistence, error) {
 	dr, err := d.getDriver(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewAuditInfo(name, cfg)
+	return dr.NewAuditInfo(cfg, params...)
 }
 
-func (d Driver) NewEndorseTx(name string, cfg driver2.Config) (driver2.EndorseTxPersistence, error) {
+func (d Driver) NewEndorseTx(cfg driver2.Config, params ...string) (driver2.EndorseTxPersistence, error) {
 	dr, err := d.getDriver(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewEndorseTx(name, cfg)
+	return dr.NewEndorseTx(cfg, params...)
 }
 
-func (d Driver) NewMetadata(name string, cfg driver2.Config) (driver2.MetadataPersistence, error) {
+func (d Driver) NewMetadata(cfg driver2.Config, params ...string) (driver2.MetadataPersistence, error) {
 	dr, err := d.getDriver(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewMetadata(name, cfg)
+	return dr.NewMetadata(cfg, params...)
 }
 
-func (d Driver) NewEnvelope(name string, cfg driver2.Config) (driver2.EnvelopePersistence, error) {
+func (d Driver) NewEnvelope(cfg driver2.Config, params ...string) (driver2.EnvelopePersistence, error) {
 	dr, err := d.getDriver(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewEnvelope(name, cfg)
+	return dr.NewEnvelope(cfg, params...)
 }
 
-func (d Driver) NewVault(name string, cfg driver2.Config) (driver.VaultStore, error) {
+func (d Driver) NewVault(cfg driver2.Config, params ...string) (driver.VaultStore, error) {
 	dr, err := d.getDriver(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewVault(name, cfg)
+	return dr.NewVault(cfg, params...)
 }
 
 func (d Driver) getDriver(c driver2.Config) (driver2.Driver, error) {
-	t, err := getDriverType(c)
+	t, err := GetDriverType(c)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (d Driver) getDriver(c driver2.Config) (driver2.Driver, error) {
 	return nil, errors.Errorf("driver %s not found", t)
 }
 
-func getDriverType(c driver2.Config) (driver.PersistenceType, error) {
+func GetDriverType(c driver2.Config) (driver.PersistenceType, error) {
 	var d driver.PersistenceType
 	if err := c.UnmarshalKey("type", &d); err != nil {
 		return "", err
@@ -103,7 +103,7 @@ func getDriverType(c driver2.Config) (driver.PersistenceType, error) {
 	if len(d) == 0 || d == mem.Persistence {
 		return mem.Persistence, nil
 	}
-	if d != sql.SQLPersistence {
+	if d != sql.SQLPersistence && d != "unity" {
 		return "", errors.Errorf("unknown persistence type: [%s]", d)
 	}
 	var t driver2.SQLDriverType

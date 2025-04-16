@@ -19,21 +19,21 @@ type UnversionedPersistence struct {
 	*common.UnversionedPersistence
 }
 
-func NewUnversionedPersistence(opts Opts, table string) (*UnversionedPersistence, error) {
-	logger.Debugf("Creating table... [%s]", table)
-	readDB, writeDB, err := openRWDBs(opts)
+func NewUnversionedPersistence(opts Opts) (*UnversionedPersistence, error) {
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newUnversioned(readDB, writeDB, table), nil
+	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	return newUnversioned(dbs.ReadDB, dbs.WriteDB, tables.KVS), nil
 }
 
 func NewUnversionedNotifier(opts Opts, table string) (*notifier.UnversionedPersistenceNotifier, error) {
-	readDB, writeDB, err := OpenRWDBs(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return notifier.NewUnversioned(newUnversioned(readDB, writeDB, table)), nil
+	return notifier.NewUnversioned(newUnversioned(dbs.ReadDB, dbs.WriteDB, table)), nil
 }
 
 func newUnversioned(readDB *sql.DB, writeDB common.WriteDB, table string) *UnversionedPersistence {

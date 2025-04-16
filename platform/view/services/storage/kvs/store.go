@@ -13,5 +13,5 @@ import (
 )
 
 func NewStore(cp driver.Config, d multiplexed.Driver, params ...string) (driver.UnversionedPersistence, error) {
-	return d.NewKVS(db.CreateTableName("kvs", params...), db.NewPrefixConfig(cp, "fsc.kvs.persistence"))
+	return d.NewKVS(db.NewPrefixConfig(cp, "fsc.kvs.persistence"), params...)
 }

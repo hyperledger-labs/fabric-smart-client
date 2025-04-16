@@ -60,12 +60,13 @@ func (db *UnversionedPersistence) GetStateSetIterator(ns driver.Namespace, keys 
 	return decodeUnversionedReadIterator(db.UnversionedPersistence.GetStateSetIterator(ns, encoded...))
 }
 
-func NewUnversionedPersistence(opts Opts, table string) (*UnversionedPersistence, error) {
-	readWriteDB, err := openDB(opts)
+func NewUnversionedPersistence(opts Opts) (*UnversionedPersistence, error) {
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newUnversionedPersistence(readWriteDB, table), nil
+	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	return newUnversionedPersistence(dbs.ReadDB, dbs.WriteDB, tables.KVS), nil
 }
 
 type unversionedPersistenceNotifier struct {
@@ -80,22 +81,23 @@ func (db *unversionedPersistenceNotifier) CreateSchema() error {
 	return db.Notifier.CreateSchema()
 }
 
-func NewUnversionedNotifier(opts Opts, table string) (*unversionedPersistenceNotifier, error) {
-	readWriteDB, err := openDB(opts)
+func NewUnversionedNotifier(opts Opts) (*unversionedPersistenceNotifier, error) {
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
+	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
 	return &unversionedPersistenceNotifier{
-		UnversionedPersistence: newUnversionedPersistence(readWriteDB, table),
-		Notifier:               NewNotifier(readWriteDB, table, opts.DataSource, AllOperations, primaryKey{"ns", identity}, primaryKey{"pkey", decode}),
+		UnversionedPersistence: newUnversionedPersistence(dbs.ReadDB, dbs.WriteDB, tables.KVS),
+		Notifier:               NewNotifier(dbs.WriteDB, tables.KVS, opts.DataSource, AllOperations, primaryKey{"ns", identity}, primaryKey{"pkey", decode}),
 	}, nil
 }
 
-func newUnversionedPersistence(readWriteDB *sql.DB, table string) *UnversionedPersistence {
+func newUnversionedPersistence(readDB, writeDB *sql.DB, table string) *UnversionedPersistence {
 	ci := NewInterpreter()
 	errorWrapper := &errorMapper{}
 	return &UnversionedPersistence{
-		UnversionedPersistence: common.NewUnversionedPersistence(readWriteDB, readWriteDB, table, errorWrapper, ci),
+		UnversionedPersistence: common.NewUnversionedPersistence(readDB, writeDB, table, errorWrapper, ci),
 		table:                  table,
 		ci:                     ci,
 		errorWrapper:           errorWrapper,

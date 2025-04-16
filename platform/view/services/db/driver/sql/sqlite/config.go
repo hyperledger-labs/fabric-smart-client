@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 	"github.com/pkg/errors"
 )
 
@@ -30,11 +29,10 @@ type Config struct {
 	MaxIdleConns    *int
 	MaxIdleTime     *time.Duration
 	SkipCreateTable bool
+	TableNameParams []string
 }
 
-var tnc = db.NewTableNameCreator()
-
-func newConfigProvider(config config) *configProvider {
+func NewConfigProvider(config config) *configProvider {
 	return &configProvider{config: config}
 }
 
@@ -42,7 +40,7 @@ type configProvider struct {
 	config config
 }
 
-func (r *configProvider) GetOpts() (*Config, error) {
+func (r *configProvider) GetOpts(params ...string) (*Config, error) {
 	o := &Config{}
 	if err := r.config.UnmarshalKey("opts", o); err != nil {
 		return nil, err
@@ -56,5 +54,6 @@ func (r *configProvider) GetOpts() (*Config, error) {
 	if o.MaxIdleTime == nil {
 		o.MaxIdleTime = common.CopyPtr(common.DefaultMaxIdleTime)
 	}
+	o.TableNameParams = params
 	return o, nil
 }

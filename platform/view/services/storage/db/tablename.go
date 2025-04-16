@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/pkg/errors"
 )
@@ -19,12 +20,15 @@ type TableNameCreator struct {
 	formatterProvider lazy.Provider[string, *tableNameFormatter]
 }
 
-func NewTableNameCreator() *TableNameCreator {
+func NewTableNameCreator(defaultPrefix string) *TableNameCreator {
 	return &TableNameCreator{formatterProvider: lazy.NewProvider(func(prefix string) (*tableNameFormatter, error) {
 		if len(prefix) > 100 {
 			return nil, errors.New("table prefix must be shorter than 100 characters")
 		}
 		r := regexp.MustCompile("^[a-zA-Z_]+$")
+		if len(prefix) == 0 {
+			prefix = defaultPrefix
+		}
 		if len(prefix) == 0 {
 			return &tableNameFormatter{r: r}, nil
 		}
@@ -39,7 +43,15 @@ func NewTableNameCreator() *TableNameCreator {
 	})}
 }
 
-func (c *TableNameCreator) CreateTableName(escapedName, tablePrefix string) (string, error) {
+func (c *TableNameCreator) GetFormatter(prefix string) (*tableNameFormatter, error) {
+	return c.formatterProvider.Get(prefix)
+}
+
+func (c *TableNameCreator) MustGetTableName(tablePrefix, name string, params ...string) string {
+	return utils.MustGet(c.CreateTableName(tablePrefix, name, params...))
+}
+
+func (c *TableNameCreator) CreateTableName(tablePrefix, name string, params ...string) (string, error) {
 	if tablePrefix == "" {
 		tablePrefix = "fsc"
 	}
@@ -48,15 +60,7 @@ func (c *TableNameCreator) CreateTableName(escapedName, tablePrefix string) (str
 		return "", err
 	}
 
-	tableName, valid := nc.Format(escapedName)
-	if !valid {
-		return "", fmt.Errorf("invalid table name [%s]: only letters and underscores allowed", escapedName)
-	}
-	return tableName, nil
-}
-
-func CreateTableName(name string, params ...string) string {
-	return fmt.Sprintf("%s_%s", escapeForTableName(params...), name)
+	return nc.Format(name, params...)
 }
 
 var validName = regexp.MustCompile(`^[a-zA-Z_]+$`) // Thread safe
@@ -76,11 +80,18 @@ type tableNameFormatter struct {
 	r      *regexp.Regexp
 }
 
-func (c *tableNameFormatter) Format(name string) (string, bool) {
-	if !c.r.MatchString(name) {
-		return "", false
+func (c *tableNameFormatter) MustFormat(name string, params ...string) string {
+	return utils.MustGet(c.Format(name, params...))
+}
+
+func (c *tableNameFormatter) Format(name string, params ...string) (string, error) {
+	if len(params) > 0 {
+		name = fmt.Sprintf("%s_%s", escapeForTableName(params...), name)
 	}
-	return fmt.Sprintf("%s%s", c.prefix, name), true
+	if !c.r.MatchString(name) {
+		return "", fmt.Errorf("invalid table name [%s]: only letters and underscores allowed", name)
+	}
+	return fmt.Sprintf("%s%s", c.prefix, name), nil
 }
 
 func newReplacer(escaped, repl string) *replacer {

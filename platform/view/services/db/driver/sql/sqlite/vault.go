@@ -30,14 +30,15 @@ type VaultPersistence struct {
 	pi common.PaginationInterpreter
 }
 
-func NewVaultPersistence(opts Opts, tablePrefix string) (*VaultPersistence, error) {
-	readDB, writeDB, err := openRWDBs(opts)
+func NewVaultPersistence(opts Opts) (*VaultPersistence, error) {
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newTxCodePersistence(readDB, NewRetryWriteDB(writeDB), common.VaultTables{
-		StateTable:  fmt.Sprintf("%s_state", tablePrefix),
-		StatusTable: fmt.Sprintf("%s_status", tablePrefix),
+	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	return newTxCodePersistence(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), common.VaultTables{
+		StateTable:  tables.State,
+		StatusTable: tables.Status,
 	}), nil
 }
 

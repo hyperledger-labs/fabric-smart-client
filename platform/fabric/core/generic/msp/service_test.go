@@ -27,11 +27,11 @@ import (
 )
 
 func newAuditInfo() driver.AuditInfoPersistence {
-	return utils.MustGet((&mem.Driver{}).NewAuditInfo("", nil))
+	return utils.MustGet((&mem.Driver{}).NewAuditInfo(nil))
 }
 
 func newSignerInfo() driver.SignerInfoPersistence {
-	return utils.MustGet((&mem.Driver{}).NewSignerInfo("", nil))
+	return utils.MustGet((&mem.Driver{}).NewSignerInfo(nil))
 }
 
 func TestRegisterIdemixLocalMSP(t *testing.T) {
