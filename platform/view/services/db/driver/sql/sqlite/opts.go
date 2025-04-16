@@ -41,7 +41,7 @@ type configProvider struct {
 
 func (r *configProvider) GetOpts() (*Config, error) {
 	o := &Config{}
-	if err := r.config.UnmarshalKey("", o); err != nil {
+	if err := r.config.UnmarshalKey("opts", o); err != nil {
 		return nil, err
 	}
 	if len(o.DataSource) == 0 {

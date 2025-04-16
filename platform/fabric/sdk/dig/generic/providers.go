@@ -226,14 +226,14 @@ func NewChannelProvider(in struct {
 	)
 }
 
-func NewEndorseTxStore(config dbdriver.Config, drivers common2.Driver) (driver.EndorseTxStore, error) {
+func NewEndorseTxStore(config vdriver.ConfigService, drivers common2.Driver) (driver.EndorseTxStore, error) {
 	return endorsetx.NewEndorseTx[driver.Key](config, drivers, "default")
 }
 
-func NewMetadataStore(config dbdriver.Config, drivers common2.Driver) (driver.MetadataStore, error) {
+func NewMetadataStore(config vdriver.ConfigService, drivers common2.Driver) (driver.MetadataStore, error) {
 	return metadata.NewStore[driver.Key, driver.TransientMap](config, drivers, "default")
 }
 
-func NewEnvelopeStore(config dbdriver.Config, drivers common2.Driver) (driver.EnvelopeStore, error) {
+func NewEnvelopeStore(config vdriver.ConfigService, drivers common2.Driver) (driver.EnvelopeStore, error) {
 	return envelope.NewEnvelope[driver.Key](config, drivers, "default")
 }

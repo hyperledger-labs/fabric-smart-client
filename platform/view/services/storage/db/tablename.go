@@ -39,7 +39,7 @@ func NewTableNameCreator() *TableNameCreator {
 	})}
 }
 
-func (c *TableNameCreator) CreateTableName(tablePrefix string, escapedName string) (string, error) {
+func (c *TableNameCreator) CreateTableName(escapedName, tablePrefix string) (string, error) {
 	if tablePrefix == "" {
 		tablePrefix = "fsc"
 	}
