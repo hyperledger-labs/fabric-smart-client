@@ -80,9 +80,6 @@ func (p *SDK) Install() error {
 		p.Container().Provide(newMetadataStore),
 		p.Container().Provide(newEndorseTxStore),
 		p.Container().Provide(newEnvelopeStore),
-		p.Container().Provide(newBindingStore),
-		p.Container().Provide(newSignerInfoStore),
-		p.Container().Provide(newAuditInfoStore),
 	)
 	if err != nil {
 		return err

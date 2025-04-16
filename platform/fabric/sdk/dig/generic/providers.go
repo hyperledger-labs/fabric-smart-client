@@ -32,12 +32,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/endorsetx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/envelope"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/metadata"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"go.opentelemetry.io/otel/trace"
@@ -250,28 +247,4 @@ func NewEnvelopeStore(in struct {
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
 }) (driver.EnvelopeStore, error) {
 	return envelope.NewStore[driver.Key](in.Config, in.Drivers, "default")
-}
-
-func NewBindingStore(in struct {
-	dig.In
-	Config  vdriver.ConfigService
-	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) (driver2.BindingStore, error) {
-	return binding.NewStore(in.Config, in.Drivers, "default")
-}
-
-func NewSignerInfoStore(in struct {
-	dig.In
-	Config  vdriver.ConfigService
-	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) (driver2.SignerInfoStore, error) {
-	return signerinfo.NewStore(in.Config, in.Drivers, "default")
-}
-
-func NewAuditInfoStore(in struct {
-	dig.In
-	Config  vdriver.ConfigService
-	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) (driver2.AuditInfoStore, error) {
-	return auditinfo.NewStore(in.Config, in.Drivers, "default")
 }

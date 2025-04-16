@@ -74,9 +74,6 @@ func (p *SDK) Install() error {
 		p.Container().Provide(generic2.NewMetadataStore),
 		p.Container().Provide(generic2.NewEnvelopeStore),
 		p.Container().Provide(generic2.NewEndorseTxStore),
-		p.Container().Provide(generic2.NewBindingStore),
-		p.Container().Provide(generic2.NewAuditInfoStore),
-		p.Container().Provide(generic2.NewSignerInfoStore),
 	)
 	if err != nil {
 		return err
