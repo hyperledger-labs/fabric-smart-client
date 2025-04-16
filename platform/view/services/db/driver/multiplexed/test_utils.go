@@ -44,12 +44,3 @@ func MockTypeConfig[T any](typ driver.PersistenceType, config T) *mock.ConfigPro
 	})
 	return cp
 }
-
-func MockConfig[T any](config T) *mock.ConfigProvider {
-	cp := &mock.ConfigProvider{}
-	cp.UnmarshalKeyCalls(func(_ string, val interface{}) error {
-		*val.(*T) = config
-		return nil
-	})
-	return cp
-}

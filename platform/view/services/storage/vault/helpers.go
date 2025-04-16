@@ -11,6 +11,7 @@ import (
 	"path"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
@@ -23,7 +24,7 @@ func OpenMemoryVault() (driver.VaultPersistence, error) {
 }
 
 func OpenSqliteVault(key, tempDir string) (driver.VaultPersistence, error) {
-	cp := common2.MockConfig(sqlite.Config{
+	cp := common.MockConfig(sqlite.Config{
 		DataSource: fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)),
 	})
 	return sqlite.NewPersistenceWithOpts("test_table", cp, sqlite.NewVaultPersistence)
@@ -36,7 +37,7 @@ func OpenPostgresVault(name string) (driver.VaultPersistence, func(), error) {
 		return nil, nil, err
 	}
 
-	cp := common2.MockConfig(postgres.Config{
+	cp := common.MockConfig(postgres.Config{
 		DataSource:   postgresConfig.DataSource(),
 		MaxOpenConns: 50,
 	})
