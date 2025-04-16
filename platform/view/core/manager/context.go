@@ -202,74 +202,47 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 	ctx.sessionsLock.Lock()
 	defer ctx.sessionsLock.Unlock()
 
+	// is there already a session?
+	s, lookupKey, err := ctx.lookupSession(f, party)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to lookup session for [%s:%s]", getViewIdentifier(f), party)
+	}
+
+	create := false
+	if s == nil {
+		// no, one must be created
+		create = true
+	} else if s.Info().Closed {
+		// yes, but the session is closed, therefore create a new one
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("removing session [%s], it is closed [%v]", lookupKey, create)
+		}
+		delete(ctx.sessions, lookupKey)
+		create = true
+	}
+
+	// a session is available, return it
+	if !create {
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[%s] Reusing session [%s:%s]", ctx.me, getViewIdentifier(f), party)
+		}
+		return s, nil
+	}
+
+	// create a session
+	if f == nil {
+		// return an error, a session should already exist
+		return nil, errors.Errorf("a session should already exist, passed nil view")
+	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("get session for [%s:%s]", getViewIdentifier(f), party.UniqueID())
+		logger.Debugf("[%s] Creating new session [$s:%s]", ctx.me, getViewIdentifier(f), party)
 	}
-
-	var err error
-	id := party
-	contextSessionIdentifier := getViewIdentifier(f) + id.UniqueID()
-	s, ok := ctx.sessions[contextSessionIdentifier]
-	if !ok {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("session for [%s] does not exists, resolve", contextSessionIdentifier)
-		}
-
-		id, _, _, err = view2.GetEndpointService(ctx).Resolve(party)
-		if err == nil {
-			contextSessionIdentifier = getViewIdentifier(f) + id.UniqueID()
-			s, ok = ctx.sessions[contextSessionIdentifier]
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("session resolved for [%s] exists? [%v]", contextSessionIdentifier, ok)
-			}
-		} else {
-			// give it a second chance, check if party can be resolved as an identity
-			partyIdentity := view2.GetIdentityProvider(ctx).Identity(string(party))
-			if !partyIdentity.IsNone() {
-				id, _, _, err = view2.GetEndpointService(ctx).Resolve(partyIdentity)
-				if err == nil {
-					contextSessionIdentifier = getViewIdentifier(f) + id.UniqueID()
-					s, ok = ctx.sessions[contextSessionIdentifier]
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("session resolved for [%s] exists? [%v]", contextSessionIdentifier, ok)
-					}
-				}
-			}
-		}
-	} else {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("session for [%s] found", id.UniqueID())
-		}
+	s, err = ctx.newSession(f, ctx.id, party)
+	if err != nil {
+		return nil, err
 	}
-
-	if ok && s.Info().Closed {
-		// Remove this session cause it is closed
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("removing session [%s], it is closed [%v]", contextSessionIdentifier, ok)
-		}
-		delete(ctx.sessions, contextSessionIdentifier)
-		ok = false
-	}
-
-	if !ok {
-		if f == nil {
-			// return an error, a session should already exist
-			return nil, errors.Errorf("a session should already exist, passed nil view")
-		}
-
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] Creating new session [to:%s]", ctx.me, id)
-		}
-		s, err = ctx.newSession(f, ctx.id, id)
-		if err != nil {
-			return nil, err
-		}
-		ctx.sessions[contextSessionIdentifier] = s
-	} else {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] Reusing session [to:%s]", ctx.me, id)
-		}
-	}
+	contextSessionIdentifier := getViewIdentifier(f) + party.UniqueID()
+	ctx.sessions[contextSessionIdentifier] = s
 	return s, nil
 }
 
@@ -402,6 +375,44 @@ func (ctx *ctx) safeInvoke(f func()) {
 		}
 	}()
 	f()
+}
+
+func (ctx *ctx) lookupSession(f view.View, id view.Identity) (view.Session, string, error) {
+	contextSessionIdentifier := getViewIdentifier(f) + id.UniqueID()
+	logger.Debugf("lookup session  session for [%s]", contextSessionIdentifier)
+	s, ok := ctx.sessions[contextSessionIdentifier]
+	if ok {
+		logger.Debugf("session for [%s] found with identifier [%s]", id, contextSessionIdentifier)
+		return s, contextSessionIdentifier, nil
+	}
+
+	logger.Debugf("session for [%s] does not exists, resolve", contextSessionIdentifier)
+
+	resolvedID, _, _, err := view2.GetEndpointService(ctx).Resolve(id)
+	if err == nil {
+		contextSessionIdentifier := getViewIdentifier(f) + resolvedID.UniqueID()
+		s, ok = ctx.sessions[contextSessionIdentifier]
+		if ok {
+			logger.Debugf("session for resolved [%s] found with identifier [%s]", resolvedID, contextSessionIdentifier)
+			return s, contextSessionIdentifier, nil
+		}
+	}
+
+	// give it a second chance, check if party can be resolved as an identity
+	partyIdentity := view2.GetIdentityProvider(ctx).Identity(string(id))
+	if !partyIdentity.IsNone() {
+		id, _, _, err := view2.GetEndpointService(ctx).Resolve(partyIdentity)
+		if err == nil {
+			contextSessionIdentifier := getViewIdentifier(f) + id.UniqueID()
+			s, ok = ctx.sessions[contextSessionIdentifier]
+			if ok {
+				logger.Debugf("session for resolved as string [%s] found with identifier [%s]", resolvedID, contextSessionIdentifier)
+				return s, contextSessionIdentifier, nil
+			}
+		}
+	}
+
+	return nil, "", nil
 }
 
 type localContext interface {
