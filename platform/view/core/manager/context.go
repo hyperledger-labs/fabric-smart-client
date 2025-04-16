@@ -216,8 +216,8 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 		}
 
 		id, _, _, err = view2.GetEndpointService(ctx).Resolve(party)
-		contextSessionIdentifier = getViewIdentifier(f) + id.UniqueID()
 		if err == nil {
+			contextSessionIdentifier = getViewIdentifier(f) + id.UniqueID()
 			s, ok = ctx.sessions[contextSessionIdentifier]
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("session resolved for [%s] exists? [%v]", contextSessionIdentifier, ok)
@@ -227,8 +227,8 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 			partyIdentity := view2.GetIdentityProvider(ctx).Identity(string(party))
 			if !partyIdentity.IsNone() {
 				id, _, _, err = view2.GetEndpointService(ctx).Resolve(partyIdentity)
-				contextSessionIdentifier = getViewIdentifier(f) + id.UniqueID()
 				if err == nil {
+					contextSessionIdentifier = getViewIdentifier(f) + id.UniqueID()
 					s, ok = ctx.sessions[contextSessionIdentifier]
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
 						logger.Debugf("session resolved for [%s] exists? [%v]", contextSessionIdentifier, ok)
