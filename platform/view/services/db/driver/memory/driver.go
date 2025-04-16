@@ -14,13 +14,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 )
 
-const MemoryPersistence driver2.PersistenceType = "memory"
+const Persistence driver2.PersistenceType = "memory"
 
 type Driver struct{}
 
 func NewDriver() driver.NamedDriver {
 	return driver.NamedDriver{
-		Name:   MemoryPersistence,
+		Name:   Persistence,
 		Driver: &Driver{},
 	}
 }

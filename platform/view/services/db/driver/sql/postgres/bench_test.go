@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
 
@@ -19,7 +20,7 @@ func BenchmarkReadExistingPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	cp := common2.MockConfig(Config{
+	cp := multiplexed.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	})
@@ -39,7 +40,7 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 	}
 	defer terminate()
 
-	cp := common2.MockConfig(Config{
+	cp := multiplexed.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	})
@@ -59,7 +60,7 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 	}
 	defer terminate()
 
-	cp := common2.MockConfig(Config{
+	cp := multiplexed.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	})
@@ -78,7 +79,7 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	cp := common2.MockConfig(Config{
+	cp := multiplexed.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	})
@@ -97,7 +98,7 @@ func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	cp := common2.MockConfig(Config{
+	cp := multiplexed.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 		MaxIdleConns: common2.CopyPtr(50),

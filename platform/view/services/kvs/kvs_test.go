@@ -164,7 +164,7 @@ func TestMemoryKVS(t *testing.T) {
 }
 
 func TestSQLiteKVS(t *testing.T) {
-	cp := common.MockConfig(sqlite.Config{
+	cp := multiplexed.MockTypeConfig(sqlite.Persistence, sqlite.Config{
 		DataSource:      fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(t.TempDir(), "sqlite_test")),
 		TablePrefix:     "",
 		SkipCreateTable: false,
@@ -193,7 +193,7 @@ func TestPostgresKVS(t *testing.T) {
 	defer terminate()
 	t.Log("postgres ready")
 
-	cp := common.MockConfig(postgres.Config{
+	cp := multiplexed.MockTypeConfig(postgres.Persistence, postgres.Config{
 		DataSource:      pgConnStr,
 		TablePrefix:     "",
 		SkipCreateTable: false,

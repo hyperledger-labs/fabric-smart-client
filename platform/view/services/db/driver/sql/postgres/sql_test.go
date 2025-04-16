@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	_ "modernc.org/sqlite"
 )
@@ -31,7 +31,7 @@ func TestPostgres(t *testing.T) {
 	defer terminate()
 	t.Log("postgres ready")
 
-	cp := common.MockConfig(Config{
+	cp := multiplexed.MockConfig(Config{
 		DataSource: pgConnStr,
 	})
 	common2.TestCases(t, func(name string) (driver.UnversionedPersistence, error) {
