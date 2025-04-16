@@ -9,7 +9,7 @@ package sdk
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -18,12 +18,16 @@ import (
 	"go.uber.org/dig"
 )
 
-func newKVS(driver multiplexed.Driver, config driver.ConfigService) (*kvs.KVS, error) {
-	size, err := kvs.CacheSizeFromConfig(config)
+func newKVS(in struct {
+	dig.In
+	Config  driver.ConfigService
+	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
+}) (*kvs.KVS, error) {
+	size, err := kvs.CacheSizeFromConfig(in.Config)
 	if err != nil {
 		return nil, err
 	}
-	kvss, err := kvs2.NewStore(config, driver)
+	kvss, err := kvs2.NewStore(in.Config, in.Drivers)
 	if err != nil {
 		return nil, err
 	}
