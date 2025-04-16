@@ -71,9 +71,12 @@ func (p *SDK) Install() error {
 		p.Container().Provide(vault.NewService, dig.As(new(state.VaultService))),
 		p.Container().Provide(generic2.NewEndorserTransactionHandlerProvider),
 		p.Container().Provide(committer2.NewSerialDependencyResolver, dig.As(new(committer2.DependencyResolver))),
-		p.Container().Provide(generic2.NewMetadataStore, dig.As(new(driver.MetadataStore))),
-		p.Container().Provide(generic2.NewEnvelopeStore, dig.As(new(driver.EnvelopeStore))),
-		p.Container().Provide(generic2.NewEndorseTxStore, dig.As(new(driver.EndorseTxStore))),
+		p.Container().Provide(generic2.NewMetadataStore),
+		p.Container().Provide(generic2.NewEnvelopeStore),
+		p.Container().Provide(generic2.NewEndorseTxStore),
+		p.Container().Provide(generic2.NewBindingStore),
+		p.Container().Provide(generic2.NewAuditInfoStore),
+		p.Container().Provide(generic2.NewSignerInfoStore),
 	)
 	if err != nil {
 		return err

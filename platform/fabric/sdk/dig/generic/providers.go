@@ -28,14 +28,17 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/endorsetx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/envelope"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/metadata"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"go.opentelemetry.io/otel/trace"
@@ -226,14 +229,26 @@ func NewChannelProvider(in struct {
 	)
 }
 
-func NewEndorseTxStore(config vdriver.ConfigService, drivers common2.Driver) (driver.EndorseTxStore, error) {
+func NewEndorseTxStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.EndorseTxStore, error) {
 	return endorsetx.NewEndorseTx[driver.Key](config, drivers, "default")
 }
 
-func NewMetadataStore(config vdriver.ConfigService, drivers common2.Driver) (driver.MetadataStore, error) {
+func NewMetadataStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.MetadataStore, error) {
 	return metadata.NewStore[driver.Key, driver.TransientMap](config, drivers, "default")
 }
 
-func NewEnvelopeStore(config vdriver.ConfigService, drivers common2.Driver) (driver.EnvelopeStore, error) {
+func NewEnvelopeStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.EnvelopeStore, error) {
 	return envelope.NewEnvelope[driver.Key](config, drivers, "default")
+}
+
+func NewBindingStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver2.BindingStore, error) {
+	return binding.NewStore(config, drivers, "default")
+}
+
+func NewSignerInfoStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver2.SignerInfoStore, error) {
+	return signerinfo.NewStore(config, drivers, "default")
+}
+
+func NewAuditInfoStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver2.AuditInfoStore, error) {
+	return auditinfo.NewStore(config, drivers, "default")
 }

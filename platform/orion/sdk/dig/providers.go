@@ -7,22 +7,38 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
+	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/endorsetx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/envelope"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/metadata"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 )
 
-func NewEndorseTxStore(config driver2.ConfigService, drivers common2.Driver) (driver.EndorseTxStore, error) {
+func newEndorseTxStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver.EndorseTxStore, error) {
 	return endorsetx.NewEndorseTx[driver.Key](config, drivers, "default")
 }
 
-func NewMetadataStore(config driver2.ConfigService, drivers common2.Driver) (driver.MetadataStore, error) {
+func newMetadataStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver.MetadataStore, error) {
 	return metadata.NewStore[driver.Key, driver.TransientMap](config, drivers, "default")
 }
 
-func NewEnvelopeStore(config driver2.ConfigService, drivers common2.Driver) (driver.EnvelopeStore, error) {
+func newEnvelopeStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver.EnvelopeStore, error) {
 	return envelope.NewEnvelope[driver.Key](config, drivers, "default")
+}
+
+func newBindingStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver3.BindingStore, error) {
+	return binding.NewStore(config, drivers, "default")
+}
+
+func newSignerInfoStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver3.SignerInfoStore, error) {
+	return signerinfo.NewStore(config, drivers, "default")
+}
+
+func newAuditInfoStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver3.AuditInfoStore, error) {
+	return auditinfo.NewStore(config, drivers, "default")
 }
