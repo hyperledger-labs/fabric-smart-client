@@ -58,7 +58,7 @@ func (d *Driver) NewVault(driver.Config, ...string) (driver2.VaultStore, error) 
 }
 
 func newPersistenceWithOpts[V common.DBObject](constructor common.PersistenceConstructor[sqlite.Opts, V]) (V, error) {
-	p, err := constructor(op.GetOpts())
+	p, err := constructor(Op.GetOpts())
 	if err != nil {
 		return utils.Zero[V](), err
 	}

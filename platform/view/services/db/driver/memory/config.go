@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 )
 
-var op = &optsProvider{}
+var Op = &optsProvider{}
 
 var memOpts = sqlite.Opts{
 	DataSource:   "file::memory:?cache=shared",
