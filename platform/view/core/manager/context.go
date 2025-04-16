@@ -9,6 +9,7 @@ package manager
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"runtime/debug"
 	"sync"
 
@@ -201,33 +202,36 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 	ctx.sessionsLock.Lock()
 	defer ctx.sessionsLock.Unlock()
 
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("get session for [%s:%s]", getViewIdentifier(f), party.UniqueID())
+	}
+
 	var err error
 	id := party
-
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("get session for [%s:%s]", id.UniqueID(), registry2.GetIdentifier(f))
-	}
-	s, ok := ctx.sessions[id.UniqueID()]
+	contextSessionIdentifier := getViewIdentifier(f) + id.UniqueID()
+	s, ok := ctx.sessions[contextSessionIdentifier]
 	if !ok {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("session for [%s] does not exists, resolve", id.UniqueID())
+			logger.Debugf("session for [%s] does not exists, resolve", contextSessionIdentifier)
 		}
 
 		id, _, _, err = view2.GetEndpointService(ctx).Resolve(party)
+		contextSessionIdentifier = getViewIdentifier(f) + id.UniqueID()
 		if err == nil {
-			s, ok = ctx.sessions[id.UniqueID()]
+			s, ok = ctx.sessions[contextSessionIdentifier]
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("session resolved for [%s] exists? [%v]", id.UniqueID(), ok)
+				logger.Debugf("session resolved for [%s] exists? [%v]", contextSessionIdentifier, ok)
 			}
 		} else {
 			// give it a second chance, check if party can be resolved as an identity
 			partyIdentity := view2.GetIdentityProvider(ctx).Identity(string(party))
 			if !partyIdentity.IsNone() {
 				id, _, _, err = view2.GetEndpointService(ctx).Resolve(partyIdentity)
+				contextSessionIdentifier = getViewIdentifier(f) + id.UniqueID()
 				if err == nil {
-					s, ok = ctx.sessions[id.UniqueID()]
+					s, ok = ctx.sessions[contextSessionIdentifier]
 					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("session resolved for [%s] exists? [%v]", id.UniqueID(), ok)
+						logger.Debugf("session resolved for [%s] exists? [%v]", contextSessionIdentifier, ok)
 					}
 				}
 			}
@@ -241,9 +245,9 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 	if ok && s.Info().Closed {
 		// Remove this session cause it is closed
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("removing session [%s], it is closed", id.UniqueID(), ok)
+			logger.Debugf("removing session [%s], it is closed [%v]", contextSessionIdentifier, ok)
 		}
-		delete(ctx.sessions, id.UniqueID())
+		delete(ctx.sessions, contextSessionIdentifier)
 		ok = false
 	}
 
@@ -260,7 +264,7 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 		if err != nil {
 			return nil, err
 		}
-		ctx.sessions[id.UniqueID()] = s
+		ctx.sessions[contextSessionIdentifier] = s
 	} else {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("[%s] Reusing session [to:%s]", ctx.me, id)
@@ -403,4 +407,15 @@ func (ctx *ctx) safeInvoke(f func()) {
 type localContext interface {
 	disposableContext
 	cleanup()
+}
+
+func getViewIdentifier(f view.View) string {
+	if f == nil {
+		return ""
+	}
+	t := reflect.TypeOf(f)
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return t.PkgPath() + "/" + t.Name()
 }
