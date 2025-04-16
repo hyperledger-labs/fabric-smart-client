@@ -11,16 +11,9 @@ import (
 	"fmt"
 	"runtime/debug"
 	"strings"
-	"time"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/pkg/errors"
-)
-
-const (
-	DefaultMaxIdleConns = 2
-	DefaultMaxIdleTime  = time.Minute
 )
 
 type WriteDB interface {
@@ -102,11 +95,6 @@ func QueryUnique[T any](db *sql.DB, query string, args ...any) (T, error) {
 	return result, err
 }
 
-func CopyPtr[T any](t T) *T {
-	v := t
-	return &v
-}
-
 func GenerateParamSet(offset int, rows, cols int) string {
 	sb := strings.Builder{}
 
@@ -126,27 +114,4 @@ func GenerateParamSet(offset int, rows, cols int) string {
 	}
 
 	return sb.String()
-}
-
-type dbObject interface {
-	CreateSchema() error
-}
-
-type dbOpts interface {
-	SkipCreateTable() bool
-}
-
-type PersistenceConstructor[O any, V dbObject] func(O, string) (V, error)
-
-func NewPersistenceWithOpts[O dbOpts, V dbObject](table string, opts O, constructor PersistenceConstructor[O, V]) (V, error) {
-	p, err := constructor(opts, table)
-	if err != nil {
-		return utils.Zero[V](), err
-	}
-	if !opts.SkipCreateTable() {
-		if err := p.CreateSchema(); err != nil {
-			return utils.Zero[V](), err
-		}
-	}
-	return p, nil
 }

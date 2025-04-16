@@ -4,12 +4,13 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package sqlite
+package postgres
 
 import (
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 	"github.com/pkg/errors"
 )
 
@@ -24,12 +25,13 @@ type config interface {
 type Config struct {
 	TablePrefix     string
 	DataSource      string
-	SkipPragmas     bool
 	MaxOpenConns    int
 	MaxIdleConns    *int
 	MaxIdleTime     *time.Duration
 	SkipCreateTable bool
 }
+
+var tnc = db.NewTableNameCreator()
 
 func newConfigProvider(config config) *configProvider {
 	return &configProvider{config: config}

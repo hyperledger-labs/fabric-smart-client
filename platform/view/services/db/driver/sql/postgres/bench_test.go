@@ -9,25 +9,17 @@ package postgres
 import (
 	"testing"
 
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
 )
 
-func mockConfig[T any](config T) *mock.ConfigProvider {
-	cp := &mock.ConfigProvider{}
-	cp.UnmarshalKeyCalls(func(s string, i interface{}) error {
-		*i.(*T) = config
-		return nil
-	})
-	return cp
-}
 func BenchmarkReadExistingPostgres(b *testing.B) {
 	terminate, pgConnStr, err := StartPostgres(b, false)
 	if err != nil {
 		b.Fatal(err)
 	}
 	defer terminate()
-	cp := mockConfig(Config{
+	cp := common2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	})
@@ -47,7 +39,7 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 	}
 	defer terminate()
 
-	cp := mockConfig(Config{
+	cp := common2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	})
@@ -67,7 +59,7 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 	}
 	defer terminate()
 
-	cp := mockConfig(Config{
+	cp := common2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	})
@@ -86,7 +78,7 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	cp := mockConfig(Config{
+	cp := common2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	})
@@ -105,10 +97,10 @@ func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	cp := mockConfig(Config{
+	cp := common2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
-		MaxIdleConns: common.CopyPtr(50),
+		MaxIdleConns: common2.CopyPtr(50),
 	})
 	db, err := NewPersistenceWithOpts("benchmark", cp, NewUnversionedPersistence)
 	if err != nil {

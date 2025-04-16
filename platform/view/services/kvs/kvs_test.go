@@ -16,9 +16,9 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
@@ -164,7 +164,7 @@ func TestMemoryKVS(t *testing.T) {
 }
 
 func TestSQLiteKVS(t *testing.T) {
-	cp := mockConfig(sqlite.Config{
+	cp := common.MockConfig(sqlite.Config{
 		DataSource:      fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(t.TempDir(), "sqlite_test")),
 		TablePrefix:     "",
 		SkipCreateTable: false,
@@ -193,7 +193,7 @@ func TestPostgresKVS(t *testing.T) {
 	defer terminate()
 	t.Log("postgres ready")
 
-	cp := mockConfig(postgres.Config{
+	cp := common.MockConfig(postgres.Config{
 		DataSource:      pgConnStr,
 		TablePrefix:     "",
 		SkipCreateTable: false,
@@ -202,17 +202,8 @@ func TestPostgresKVS(t *testing.T) {
 		MaxIdleConns: common.CopyPtr(10),
 		MaxIdleTime:  common.CopyPtr(time.Minute),
 	})
-	//d := postgres.NewTestDriver("hw", pgConnStr)
+
 	d := postgres.NewDriver()
 	testRound(t, d, cp)
 	testParallelWrites(t, d, cp)
-}
-
-func mockConfig[T any](config T) *mock.ConfigProvider {
-	cp := &mock.ConfigProvider{}
-	cp.UnmarshalKeyCalls(func(s string, i interface{}) error {
-		*i.(*T) = config
-		return nil
-	})
-	return cp
 }

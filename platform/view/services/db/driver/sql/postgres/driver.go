@@ -10,8 +10,7 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 )
 
 const (
@@ -59,16 +58,13 @@ func (d *Driver) NewVault(tableName string, cfg driver.Config) (driver.VaultPers
 	return NewPersistenceWithOpts(tableName, cfg, NewVaultPersistence)
 }
 
-type dbObject interface {
-	CreateSchema() error
-}
-
-func NewPersistenceWithOpts[V dbObject](tableName string, cfg driver.Config, constructor common.PersistenceConstructor[Opts, V]) (V, error) {
+func NewPersistenceWithOpts[V common.DBObject](tableName string, cfg driver.Config, constructor common.PersistenceConstructor[Opts, V]) (V, error) {
 	o, err := newConfigProvider(cfg).GetOpts()
 	if err != nil {
 		return utils.Zero[V](), err
 	}
-	table, err := db.NewTableNameCreator().CreateTableName(tableName, o.TablePrefix)
+
+	table, err := tnc.CreateTableName(tableName, o.TablePrefix)
 	if err != nil {
 		return utils.Zero[V](), err
 	}
