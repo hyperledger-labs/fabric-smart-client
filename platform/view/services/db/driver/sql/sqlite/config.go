@@ -31,7 +31,7 @@ type Config struct {
 	SkipCreateTable bool
 }
 
-func newConfigProvider(config config) *configProvider {
+func NewConfigProvider(config config) *configProvider {
 	return &configProvider{config: config}
 }
 
