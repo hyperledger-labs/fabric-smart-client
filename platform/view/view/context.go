@@ -106,7 +106,7 @@ type Context interface {
 	// GetSession returns a session to the passed remote
 	// party for the given view caller.
 	// Cashing may be be used.
-	GetSession(caller View, party Identity) (Session, error)
+	GetSession(caller View, party Identity, aliases ...View) (Session, error)
 
 	// GetSessionByID returns a session to the passed remote party and id.
 	// Cashing may be used.

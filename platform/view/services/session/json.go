@@ -69,7 +69,11 @@ func (j *jsonSession) ReceiveWithTimeout(state interface{}, d time.Duration) err
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(raw, state)
+	err = json.Unmarshal(raw, state)
+	if err != nil {
+		return errors.Wrapf(err, "failed unmarshalling state, len [%d]", len(raw))
+	}
+	return nil
 }
 
 func (j *jsonSession) ReceiveRaw() ([]byte, error) {
@@ -88,6 +92,9 @@ func (j *jsonSession) ReceiveRawWithTimeout(d time.Duration) ([]byte, error) {
 	select {
 	case msg := <-ch:
 		span.AddEvent("Received message")
+		if msg == nil {
+			return nil, errors.New("received message is nil")
+		}
 		if msg.Status == view.ERROR {
 			return nil, errors.Errorf("received error from remote [%s]", string(msg.Payload))
 		}

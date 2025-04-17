@@ -9,6 +9,7 @@ package manager
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"runtime/debug"
 	"sync"
 
@@ -23,6 +24,12 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 )
+
+type localContext interface {
+	disposableContext
+	cleanup()
+	PutSession(caller view.View, party view.Identity, session view.Session) error
+}
 
 type ctx struct {
 	context        context.Context
@@ -41,16 +48,6 @@ type ctx struct {
 	errorCallbackFuncs []func()
 
 	tracer trace.Tracer
-}
-
-func (ctx *ctx) StartSpan(name string, opts ...trace.SpanStartOption) trace.Span {
-	newCtx, span := ctx.StartSpanFrom(ctx.context, name, opts...)
-	ctx.context = newCtx
-	return span
-}
-
-func (ctx *ctx) StartSpanFrom(c context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
-	return ctx.tracer.Start(c, name, opts...)
 }
 
 func NewContextForInitiator(contextID string, context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, initiator view.View, tracer trace.Tracer) (*ctx, error) {
@@ -89,6 +86,16 @@ func NewContext(context context.Context, sp driver.ServiceProvider, contextID st
 	return ctx, nil
 }
 
+func (ctx *ctx) StartSpan(name string, opts ...trace.SpanStartOption) trace.Span {
+	newCtx, span := ctx.StartSpanFrom(ctx.context, name, opts...)
+	ctx.context = newCtx
+	return span
+}
+
+func (ctx *ctx) StartSpanFrom(c context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+	return ctx.tracer.Start(c, name, opts...)
+}
+
 func (ctx *ctx) ID() string {
 	return ctx.id
 }
@@ -99,83 +106,6 @@ func (ctx *ctx) Initiator() view.View {
 
 func (ctx *ctx) RunView(v view.View, opts ...view.RunViewOption) (res interface{}, err error) {
 	return runViewOn(v, opts, ctx)
-}
-
-func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res interface{}, err error) {
-	options, err := view.CompileRunViewOptions(opts...)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed compiling options")
-	}
-	var initiator view.View
-	if options.AsInitiator {
-		initiator = v
-	}
-
-	newCtx, span := ctx.StartSpanFrom(ctx.Context(), registry2.GetName(v), tracing.WithAttributes(
-		tracing.String(ViewLabel, registry2.GetIdentifier(v)),
-		tracing.String(InitiatorViewLabel, registry2.GetIdentifier(initiator)),
-	), trace.WithSpanKind(trace.SpanKindInternal))
-	defer span.End()
-
-	var cc localContext
-	if options.SameContext {
-		cc = wrapContext(ctx, newCtx)
-	} else {
-		cc = &childContext{
-			ParentContext: wrapContext(ctx, newCtx),
-			session:       options.Session,
-			initiator:     initiator,
-		}
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			cc.cleanup()
-			res = nil
-
-			logger.Errorf("caught panic while running view with [%v][%s]", r, debug.Stack())
-
-			switch e := r.(type) {
-			case error:
-				err = errors.WithMessage(e, "caught panic")
-			case string:
-				err = errors.New(e)
-			default:
-				err = errors.Errorf("caught panic [%v]", e)
-			}
-		}
-	}()
-
-	if v == nil && options.Call == nil {
-		return nil, errors.Errorf("no view passed")
-	}
-	if options.Call != nil {
-		res, err = options.Call(cc)
-	} else {
-		res, err = v.Call(cc)
-	}
-	span.SetAttributes(attribute.Bool(SuccessLabel, err != nil))
-	if err != nil {
-		cc.cleanup()
-		return nil, err
-	}
-	return res, err
-}
-
-func wrapContext(ctx localContext, newCtx context.Context) localContext {
-	return &tempCtx{
-		localContext: ctx,
-		newCtx:       newCtx,
-	}
-}
-
-type tempCtx struct {
-	localContext
-	newCtx context.Context
-}
-
-func (c *tempCtx) Context() context.Context {
-	return c.newCtx
 }
 
 func (ctx *ctx) Me() view.Identity {
@@ -195,78 +125,49 @@ func (ctx *ctx) Caller() view.Identity {
 	return ctx.caller
 }
 
-func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, error) {
+func (ctx *ctx) GetSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
 	// TODO: we need a mechanism to close all the sessions opened in this ctx,
 	// when the ctx goes out of scope
 	ctx.sessionsLock.Lock()
 	defer ctx.sessionsLock.Unlock()
 
-	var err error
-	id := party
+	// is there already a session?
+	s, targetIdentity, lookupKey, err := ctx.lookupSession(caller, party)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to lookup session for [%s:%s]", getViewIdentifier(caller), party)
+	}
 
+	create := false
+	if s == nil {
+		// no, one must be created
+		create = true
+	} else if s.Info().Closed {
+		// yes, but the session is closed, therefore create a new one
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("removing session [%s], it is closed [%v]", lookupKey, create)
+		}
+		delete(ctx.sessions, lookupKey)
+		create = true
+	}
+
+	// a session is available, return it
+	if !create {
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("[%s] Reusing session [%s:%s]", ctx.me, getViewIdentifier(caller), party)
+		}
+		return s, nil
+	}
+
+	// create a session
+	if caller == nil {
+		// return an error, a session should already exist
+		return nil, errors.Errorf("a session should already exist, passed nil view")
+	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("get session for [%s:%s]", id.UniqueID(), registry2.GetIdentifier(f))
-	}
-	s, ok := ctx.sessions[id.UniqueID()]
-	if !ok {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("session for [%s] does not exists, resolve", id.UniqueID())
-		}
-
-		id, _, _, err = view2.GetEndpointService(ctx).Resolve(party)
-		if err == nil {
-			s, ok = ctx.sessions[id.UniqueID()]
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("session resolved for [%s] exists? [%v]", id.UniqueID(), ok)
-			}
-		} else {
-			// give it a second chance, check if party can be resolved as an identity
-			partyIdentity := view2.GetIdentityProvider(ctx).Identity(string(party))
-			if !partyIdentity.IsNone() {
-				id, _, _, err = view2.GetEndpointService(ctx).Resolve(partyIdentity)
-				if err == nil {
-					s, ok = ctx.sessions[id.UniqueID()]
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("session resolved for [%s] exists? [%v]", id.UniqueID(), ok)
-					}
-				}
-			}
-		}
-	} else {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("session for [%s] found", id.UniqueID())
-		}
+		logger.Debugf("[%s] Creating new session [%s:%s]", ctx.me, getViewIdentifier(caller), party)
 	}
 
-	if ok && s.Info().Closed {
-		// Remove this session cause it is closed
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("removing session [%s], it is closed", id.UniqueID(), ok)
-		}
-		delete(ctx.sessions, id.UniqueID())
-		ok = false
-	}
-
-	if !ok {
-		if f == nil {
-			// return an error, a session should already exist
-			return nil, errors.Errorf("a session should already exist, passed nil view")
-		}
-
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] Creating new session [to:%s]", ctx.me, id)
-		}
-		s, err = ctx.newSession(f, ctx.id, id)
-		if err != nil {
-			return nil, err
-		}
-		ctx.sessions[id.UniqueID()] = s
-	} else {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] Reusing session [to:%s]", ctx.me, id)
-		}
-	}
-	return s, nil
+	return ctx.createSession(caller, targetIdentity, aliases...)
 }
 
 func (ctx *ctx) GetSessionByID(id string, party view.Identity) (view.Session, error) {
@@ -400,7 +301,179 @@ func (ctx *ctx) safeInvoke(f func()) {
 	f()
 }
 
-type localContext interface {
-	disposableContext
-	cleanup()
+func (ctx *ctx) lookupSession(f view.View, id view.Identity) (view.Session, view.Identity, string, error) {
+	contextSessionIdentifier := getViewIdentifier(f) + id.UniqueID()
+	logger.Debugf("lookup session  session for [%s]", contextSessionIdentifier)
+	s, ok := ctx.sessions[contextSessionIdentifier]
+	if ok {
+		logger.Debugf("session for [%s] found with identifier [%s]", id, contextSessionIdentifier)
+		return s, id, contextSessionIdentifier, nil
+	}
+
+	targetIdentity := id
+	logger.Debugf("session for [%s] does not exists, resolve", contextSessionIdentifier)
+
+	resolvedID, _, _, err := view2.GetEndpointService(ctx).Resolve(id)
+	if err == nil {
+		contextSessionIdentifier := getViewIdentifier(f) + resolvedID.UniqueID()
+		s, ok = ctx.sessions[contextSessionIdentifier]
+		if ok {
+			logger.Debugf("session for resolved [%s] found with identifier [%s]", resolvedID, contextSessionIdentifier)
+			return s, resolvedID, contextSessionIdentifier, nil
+		}
+		targetIdentity = resolvedID
+	}
+
+	// give it a second chance, check if party can be resolved as an identity
+	partyIdentity := view2.GetIdentityProvider(ctx).Identity(string(id))
+	if !partyIdentity.IsNone() {
+		resolvedPartyID, _, _, err := view2.GetEndpointService(ctx).Resolve(partyIdentity)
+		if err == nil {
+			contextSessionIdentifier := getViewIdentifier(f) + resolvedPartyID.UniqueID()
+			s, ok = ctx.sessions[contextSessionIdentifier]
+			if ok {
+				logger.Debugf("session for resolved as string [%s] found with identifier [%s]", resolvedID, contextSessionIdentifier)
+				return s, resolvedPartyID, contextSessionIdentifier, nil
+			}
+			targetIdentity = resolvedPartyID
+		}
+	}
+
+	return nil, targetIdentity, "", nil
+}
+
+func (ctx *ctx) createSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
+	logger.Infof("create session [%s][%s], [%s:%s]", ctx.me, ctx.id, getViewIdentifier(caller), party)
+
+	s, err := ctx.newSession(caller, ctx.id, party)
+	if err != nil {
+		return nil, err
+	}
+	partyUniqueID := party.UniqueID()
+	contextSessionIdentifier := getViewIdentifier(caller) + partyUniqueID
+	ctx.sessions[contextSessionIdentifier] = s
+
+	// add aliases as well
+	for _, alias := range aliases {
+		if alias == nil {
+			continue
+		}
+		aliasContextSessionIdentifier := getViewIdentifier(alias) + partyUniqueID
+		ctx.sessions[aliasContextSessionIdentifier] = s
+	}
+	return s, nil
+}
+
+func (ctx *ctx) PutSession(caller view.View, party view.Identity, session view.Session) error {
+	ctx.sessionsLock.Lock()
+	defer ctx.sessionsLock.Unlock()
+
+	partyUniqueID := party.UniqueID()
+	contextSessionIdentifier := getViewIdentifier(caller) + partyUniqueID
+	ctx.sessions[contextSessionIdentifier] = session
+
+	return nil
+}
+
+type tempCtx struct {
+	localContext
+	newCtx context.Context
+}
+
+func (c *tempCtx) Context() context.Context {
+	return c.newCtx
+}
+
+func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res interface{}, err error) {
+	options, err := view.CompileRunViewOptions(opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed compiling options")
+	}
+	var initiator view.View
+	if options.AsInitiator {
+		initiator = v
+	}
+
+	newCtx, span := ctx.StartSpanFrom(ctx.Context(), registry2.GetName(v), tracing.WithAttributes(
+		tracing.String(ViewLabel, registry2.GetIdentifier(v)),
+		tracing.String(InitiatorViewLabel, registry2.GetIdentifier(initiator)),
+	), trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+
+	var cc localContext
+	if options.SameContext {
+		cc = wrapContext(ctx, newCtx)
+	} else {
+		if options.AsInitiator {
+			cc = &childContext{
+				ParentContext: wrapContext(ctx, newCtx),
+				initiator:     initiator,
+			}
+			// register options.Session under initiator
+			contextSession := ctx.Session()
+			if contextSession == nil {
+				return nil, errors.Errorf("cannot convert a non-responder context to an initiator context")
+			}
+			if err := cc.PutSession(initiator, contextSession.Info().Caller, contextSession); err != nil {
+				return nil, errors.Wrapf(err, "failed registering default session as initiated by [%s:%s]", initiator, contextSession.Info().Caller)
+			}
+		} else {
+			cc = &childContext{
+				ParentContext: wrapContext(ctx, newCtx),
+				session:       options.Session,
+				initiator:     initiator,
+			}
+		}
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			cc.cleanup()
+			res = nil
+
+			logger.Errorf("caught panic while running view with [%v][%s]", r, debug.Stack())
+
+			switch e := r.(type) {
+			case error:
+				err = errors.WithMessage(e, "caught panic")
+			case string:
+				err = errors.New(e)
+			default:
+				err = errors.Errorf("caught panic [%v]", e)
+			}
+		}
+	}()
+
+	if v == nil && options.Call == nil {
+		return nil, errors.Errorf("no view passed")
+	}
+	if options.Call != nil {
+		res, err = options.Call(cc)
+	} else {
+		res, err = v.Call(cc)
+	}
+	span.SetAttributes(attribute.Bool(SuccessLabel, err != nil))
+	if err != nil {
+		cc.cleanup()
+		return nil, err
+	}
+	return res, err
+}
+
+func wrapContext(ctx localContext, newCtx context.Context) localContext {
+	return &tempCtx{
+		localContext: ctx,
+		newCtx:       newCtx,
+	}
+}
+
+func getViewIdentifier(f view.View) string {
+	if f == nil {
+		return ""
+	}
+	t := reflect.TypeOf(f)
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return t.PkgPath() + "/" + t.Name()
 }
