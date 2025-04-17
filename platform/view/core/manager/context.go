@@ -203,7 +203,7 @@ func (ctx *ctx) GetSession(caller view.View, party view.Identity, aliases ...vie
 	defer ctx.sessionsLock.Unlock()
 
 	// is there already a session?
-	s, lookupKey, err := ctx.lookupSession(caller, party)
+	s, targetIdentity, lookupKey, err := ctx.lookupSession(caller, party)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to lookup session for [%s:%s]", getViewIdentifier(caller), party)
 	}
@@ -238,26 +238,7 @@ func (ctx *ctx) GetSession(caller view.View, party view.Identity, aliases ...vie
 		logger.Debugf("[%s] Creating new session [%s:%s]", ctx.me, getViewIdentifier(caller), party)
 	}
 
-	logger.Infof("create session [%s][%s], [%s:%s]", ctx.me, ctx.id, getViewIdentifier(caller), party)
-
-	s, err = ctx.newSession(caller, ctx.id, party)
-	if err != nil {
-		return nil, err
-	}
-	partyUniqueID := party.UniqueID()
-	contextSessionIdentifier := getViewIdentifier(caller) + partyUniqueID
-	ctx.sessions[contextSessionIdentifier] = s
-
-	// add aliases as well
-	for _, alias := range aliases {
-		if alias == nil {
-			continue
-		}
-		aliasContextSessionIdentifier := getViewIdentifier(alias) + partyUniqueID
-		ctx.sessions[aliasContextSessionIdentifier] = s
-	}
-
-	return s, nil
+	return ctx.createSession(caller, targetIdentity, aliases...)
 }
 
 func (ctx *ctx) GetSessionByID(id string, party view.Identity) (view.Session, error) {
@@ -391,15 +372,16 @@ func (ctx *ctx) safeInvoke(f func()) {
 	f()
 }
 
-func (ctx *ctx) lookupSession(f view.View, id view.Identity) (view.Session, string, error) {
+func (ctx *ctx) lookupSession(f view.View, id view.Identity) (view.Session, view.Identity, string, error) {
 	contextSessionIdentifier := getViewIdentifier(f) + id.UniqueID()
 	logger.Debugf("lookup session  session for [%s]", contextSessionIdentifier)
 	s, ok := ctx.sessions[contextSessionIdentifier]
 	if ok {
 		logger.Debugf("session for [%s] found with identifier [%s]", id, contextSessionIdentifier)
-		return s, contextSessionIdentifier, nil
+		return s, id, contextSessionIdentifier, nil
 	}
 
+	targetIdentity := id
 	logger.Debugf("session for [%s] does not exists, resolve", contextSessionIdentifier)
 
 	resolvedID, _, _, err := view2.GetEndpointService(ctx).Resolve(id)
@@ -408,25 +390,49 @@ func (ctx *ctx) lookupSession(f view.View, id view.Identity) (view.Session, stri
 		s, ok = ctx.sessions[contextSessionIdentifier]
 		if ok {
 			logger.Debugf("session for resolved [%s] found with identifier [%s]", resolvedID, contextSessionIdentifier)
-			return s, contextSessionIdentifier, nil
+			return s, resolvedID, contextSessionIdentifier, nil
 		}
+		targetIdentity = resolvedID
 	}
 
 	// give it a second chance, check if party can be resolved as an identity
 	partyIdentity := view2.GetIdentityProvider(ctx).Identity(string(id))
 	if !partyIdentity.IsNone() {
-		id, _, _, err := view2.GetEndpointService(ctx).Resolve(partyIdentity)
+		resolvedPartyID, _, _, err := view2.GetEndpointService(ctx).Resolve(partyIdentity)
 		if err == nil {
-			contextSessionIdentifier := getViewIdentifier(f) + id.UniqueID()
+			contextSessionIdentifier := getViewIdentifier(f) + resolvedPartyID.UniqueID()
 			s, ok = ctx.sessions[contextSessionIdentifier]
 			if ok {
 				logger.Debugf("session for resolved as string [%s] found with identifier [%s]", resolvedID, contextSessionIdentifier)
-				return s, contextSessionIdentifier, nil
+				return s, resolvedPartyID, contextSessionIdentifier, nil
 			}
+			targetIdentity = resolvedPartyID
 		}
 	}
 
-	return nil, "", nil
+	return nil, targetIdentity, "", nil
+}
+
+func (ctx *ctx) createSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
+	logger.Infof("create session [%s][%s], [%s:%s]", ctx.me, ctx.id, getViewIdentifier(caller), party)
+
+	s, err := ctx.newSession(caller, ctx.id, party)
+	if err != nil {
+		return nil, err
+	}
+	partyUniqueID := party.UniqueID()
+	contextSessionIdentifier := getViewIdentifier(caller) + partyUniqueID
+	ctx.sessions[contextSessionIdentifier] = s
+
+	// add aliases as well
+	for _, alias := range aliases {
+		if alias == nil {
+			continue
+		}
+		aliasContextSessionIdentifier := getViewIdentifier(alias) + partyUniqueID
+		ctx.sessions[aliasContextSessionIdentifier] = s
+	}
+	return s, nil
 }
 
 type localContext interface {
