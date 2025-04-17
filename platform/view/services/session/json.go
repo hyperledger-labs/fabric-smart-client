@@ -88,6 +88,9 @@ func (j *jsonSession) ReceiveRawWithTimeout(d time.Duration) ([]byte, error) {
 	select {
 	case msg := <-ch:
 		span.AddEvent("Received message")
+		if msg == nil {
+			return nil, errors.New("received message is nil")
+		}
 		if msg.Status == view.ERROR {
 			return nil, errors.Errorf("received error from remote [%s]", string(msg.Payload))
 		}
