@@ -83,7 +83,7 @@ func (d Driver) NewVault(cfg driver2.Config, params ...string) (driver.VaultStor
 }
 
 func (d Driver) getDriver(c driver2.Config) (driver2.Driver, error) {
-	t, err := getDriverType(c)
+	t, err := GetDriverType(c)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (d Driver) getDriver(c driver2.Config) (driver2.Driver, error) {
 	return nil, errors.Errorf("driver %s not found", t)
 }
 
-func getDriverType(c driver2.Config) (driver.PersistenceType, error) {
+func GetDriverType(c driver2.Config) (driver.PersistenceType, error) {
 	var d driver.PersistenceType
 	if err := c.UnmarshalKey("type", &d); err != nil {
 		return "", err
