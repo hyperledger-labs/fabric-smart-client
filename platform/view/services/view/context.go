@@ -87,7 +87,7 @@ func (c *MockContext) OnError(callback func()) {
 	c.Ctx.OnError(callback)
 }
 
-func (c *MockContext) GetSession(caller view.View, party view.Identity) (view.Session, error) {
+func (c *MockContext) GetSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
 	for _, responder := range c.responders {
 		if responder.InitiatorView == caller && responder.ResponderID.Equal(party) {
 			responder.Lock.RLock()

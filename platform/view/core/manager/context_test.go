@@ -25,7 +25,7 @@ import (
 var emptyTracer = noop.NewTracerProvider().Tracer("empty")
 
 type Context interface {
-	GetSession(f view.View, party view.Identity) (view.Session, error)
+	GetSession(f view.View, party view.Identity, aliases ...view.View) (view.Session, error)
 	GetSessionByID(id string, party view.Identity) (view.Session, error)
 }
 
