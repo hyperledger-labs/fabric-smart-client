@@ -33,7 +33,7 @@ func (p *optsProvider) GetConfig(params ...string) sqlite.Config {
 		DataSource:      "file::memory:?cache=shared",
 		SkipPragmas:     false,
 		MaxOpenConns:    10,
-		MaxIdleConns:    common.CopyPtr(common.DefaultMaxIdleConns)
+		MaxIdleConns:    common.CopyPtr(common.DefaultMaxIdleConns),
 		MaxIdleTime:     common.CopyPtr(common.DefaultMaxIdleTime),
 		SkipCreateTable: false,
 		TablePrefix:     utils.GenerateUUIDOnlyLetters(),
