@@ -237,6 +237,9 @@ func (ctx *ctx) GetSession(caller view.View, party view.Identity, aliases ...vie
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("[%s] Creating new session [%s:%s]", ctx.me, getViewIdentifier(caller), party)
 	}
+
+	logger.Infof("create session [%s][%s], [%s:%s]", ctx.me, ctx.id, getViewIdentifier(caller), party)
+
 	s, err = ctx.newSession(caller, ctx.id, party)
 	if err != nil {
 		return nil, err
