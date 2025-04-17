@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package mem
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 )
@@ -23,7 +22,7 @@ func (p *optsProvider) GetOpts(params ...string) sqlite.Opts {
 		MaxOpenConns:    10,
 		MaxIdleConns:    common.DefaultMaxIdleConns,
 		MaxIdleTime:     common.DefaultMaxIdleTime,
-		TablePrefix:     utils.GenerateUUIDOnlyLetters(),
+		TablePrefix:     "",
 		TableNameParams: params,
 	}
 }
@@ -36,7 +35,7 @@ func (p *optsProvider) GetConfig(params ...string) sqlite.Config {
 		MaxIdleConns:    common.CopyPtr(common.DefaultMaxIdleConns),
 		MaxIdleTime:     common.CopyPtr(common.DefaultMaxIdleTime),
 		SkipCreateTable: false,
-		TablePrefix:     utils.GenerateUUIDOnlyLetters(),
+		TablePrefix:     "",
 		TableNameParams: params,
 	}
 }
