@@ -59,7 +59,7 @@ func (d *Driver) NewVault(cfg driver.Config, params ...string) (driver2.VaultSto
 }
 
 func NewPersistenceWithOpts[V common.DBObject](cfg driver.Config, constructor common.PersistenceConstructor[Opts, V], params ...string) (V, error) {
-	o, err := NewConfigProvider(cfg).GetOpts()
+	o, err := NewConfigProvider(cfg).GetOpts(params...)
 	if err != nil {
 		return utils.Zero[V](), err
 	}
@@ -71,7 +71,7 @@ func NewPersistenceWithOpts[V common.DBObject](cfg driver.Config, constructor co
 		MaxIdleConns:    *o.MaxIdleConns,
 		MaxIdleTime:     *o.MaxIdleTime,
 		TablePrefix:     o.TablePrefix,
-		TableNameParams: params,
+		TableNameParams: o.TableNameParams,
 	})
 	if err != nil {
 		return utils.Zero[V](), err

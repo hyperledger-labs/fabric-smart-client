@@ -14,15 +14,16 @@ import (
 
 var Op = &optsProvider{}
 
-var memOpts = sqlite.Opts{
-	DataSource:   "file::memory:?cache=shared",
-	SkipPragmas:  false,
-	MaxOpenConns: 10,
-	MaxIdleConns: common.DefaultMaxIdleConns,
-	MaxIdleTime:  common.DefaultMaxIdleTime,
-	TablePrefix:  utils.GenerateUUIDOnlyLetters(),
-}
-
 type optsProvider struct{}
 
-func (p *optsProvider) GetOpts() sqlite.Opts { return memOpts }
+func (p *optsProvider) GetOpts(params ...string) sqlite.Opts {
+	return sqlite.Opts{
+		DataSource:      "file::memory:?cache=shared",
+		SkipPragmas:     false,
+		MaxOpenConns:    10,
+		MaxIdleConns:    common.DefaultMaxIdleConns,
+		MaxIdleTime:     common.DefaultMaxIdleTime,
+		TablePrefix:     utils.GenerateUUIDOnlyLetters(),
+		TableNameParams: params,
+	}
+}
