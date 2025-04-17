@@ -103,7 +103,7 @@ func GetDriverType(c driver2.Config) (driver.PersistenceType, error) {
 	if len(d) == 0 || d == mem.Persistence {
 		return mem.Persistence, nil
 	}
-	if d != sql.SQLPersistence {
+	if d != sql.SQLPersistence && d != "unity" {
 		return "", errors.Errorf("unknown persistence type: [%s]", d)
 	}
 	var t driver2.SQLDriverType
