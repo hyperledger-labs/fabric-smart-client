@@ -103,6 +103,10 @@ func (w *childContext) Dispose() {
 	}
 }
 
+func (w *childContext) PutSession(caller view.View, party view.Identity, session view.Session) error {
+	return w.ParentContext.PutSession(caller, party, session)
+}
+
 func (w *childContext) cleanup() {
 	logger.Debugf("cleaning up child context [%s][%d]", w.ID(), len(w.errorCallbackFuncs))
 	for _, callbackFunc := range w.errorCallbackFuncs {
