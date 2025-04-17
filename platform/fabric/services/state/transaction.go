@@ -133,7 +133,7 @@ func (f *receiveTransactionView) Call(context view.Context) (interface{}, error)
 	if f.party.IsNone() {
 		ch = context.Session().Receive()
 	} else {
-		s, err := context.GetSession(f, f.party, context.Initiator())
+		s, err := context.GetSession(context.Initiator(), f.party, f)
 		if err != nil {
 			return nil, err
 		}
