@@ -18,7 +18,9 @@ func evict[K comparable, V any](keys []K, m map[K]V, onEvict func(map[K]V)) {
 			logger.Debugf("No need to evict [%k]. Was already deleted.")
 		}
 	}
-	onEvict(evicted)
+	if onEvict != nil {
+		onEvict(evicted)
+	}
 }
 
 type evictionCache[K comparable, V any] struct {
