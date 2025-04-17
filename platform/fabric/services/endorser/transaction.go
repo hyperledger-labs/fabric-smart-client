@@ -10,17 +10,20 @@ import (
 	"bytes"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
 
 type Transaction struct {
-	view2.ServiceProvider
+	fnsProvider *fabric.NetworkServiceProvider
 
 	Transaction       *fabric.Transaction
 	verifierProviders []fabric.VerifierProvider
+}
+
+func (t *Transaction) NetworkServiceProvider() *fabric.NetworkServiceProvider {
+	return t.fnsProvider
 }
 
 func (t *Transaction) ID() string {
