@@ -73,6 +73,7 @@ func (j *jsonSession) ReceiveWithTimeout(state interface{}, d time.Duration) err
 	if err != nil {
 		return errors.Wrapf(err, "failed unmarshalling state [%s]", string(raw))
 	}
+	return nil
 }
 
 func (j *jsonSession) ReceiveRaw() ([]byte, error) {
