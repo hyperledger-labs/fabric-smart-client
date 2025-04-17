@@ -247,6 +247,9 @@ func (ctx *ctx) GetSession(caller view.View, party view.Identity, aliases ...vie
 
 	// add aliases as well
 	for _, alias := range aliases {
+		if alias == nil {
+			continue
+		}
 		aliasContextSessionIdentifier := getViewIdentifier(alias) + partyUniqueID
 		ctx.sessions[aliasContextSessionIdentifier] = s
 	}

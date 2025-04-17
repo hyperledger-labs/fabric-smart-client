@@ -133,11 +133,7 @@ func (f *receiveTransactionView) Call(context view.Context) (interface{}, error)
 	if f.party.IsNone() {
 		ch = context.Session().Receive()
 	} else {
-		// In this case we expect context.Initiator() to be populated
-		if context.Initiator() == nil {
-			return nil, errors.Errorf("expect context.Initiator() to be populated, party set to [%s]", f.party)
-		}
-		s, err := context.GetSession(context.Initiator(), f.party)
+		s, err := context.GetSession(f, f.party, context.Initiator())
 		if err != nil {
 			return nil, err
 		}
