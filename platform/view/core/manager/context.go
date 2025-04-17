@@ -25,6 +25,12 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+type localContext interface {
+	disposableContext
+	cleanup()
+	PutSession(caller view.View, party view.Identity, session view.Session) error
+}
+
 type ctx struct {
 	context        context.Context
 	sp             driver.ServiceProvider
@@ -42,16 +48,6 @@ type ctx struct {
 	errorCallbackFuncs []func()
 
 	tracer trace.Tracer
-}
-
-func (ctx *ctx) StartSpan(name string, opts ...trace.SpanStartOption) trace.Span {
-	newCtx, span := ctx.StartSpanFrom(ctx.context, name, opts...)
-	ctx.context = newCtx
-	return span
-}
-
-func (ctx *ctx) StartSpanFrom(c context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
-	return ctx.tracer.Start(c, name, opts...)
 }
 
 func NewContextForInitiator(contextID string, context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, initiator view.View, tracer trace.Tracer) (*ctx, error) {
@@ -90,6 +86,16 @@ func NewContext(context context.Context, sp driver.ServiceProvider, contextID st
 	return ctx, nil
 }
 
+func (ctx *ctx) StartSpan(name string, opts ...trace.SpanStartOption) trace.Span {
+	newCtx, span := ctx.StartSpanFrom(ctx.context, name, opts...)
+	ctx.context = newCtx
+	return span
+}
+
+func (ctx *ctx) StartSpanFrom(c context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+	return ctx.tracer.Start(c, name, opts...)
+}
+
 func (ctx *ctx) ID() string {
 	return ctx.id
 }
@@ -100,83 +106,6 @@ func (ctx *ctx) Initiator() view.View {
 
 func (ctx *ctx) RunView(v view.View, opts ...view.RunViewOption) (res interface{}, err error) {
 	return runViewOn(v, opts, ctx)
-}
-
-func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res interface{}, err error) {
-	options, err := view.CompileRunViewOptions(opts...)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed compiling options")
-	}
-	var initiator view.View
-	if options.AsInitiator {
-		initiator = v
-	}
-
-	newCtx, span := ctx.StartSpanFrom(ctx.Context(), registry2.GetName(v), tracing.WithAttributes(
-		tracing.String(ViewLabel, registry2.GetIdentifier(v)),
-		tracing.String(InitiatorViewLabel, registry2.GetIdentifier(initiator)),
-	), trace.WithSpanKind(trace.SpanKindInternal))
-	defer span.End()
-
-	var cc localContext
-	if options.SameContext {
-		cc = wrapContext(ctx, newCtx)
-	} else {
-		cc = &childContext{
-			ParentContext: wrapContext(ctx, newCtx),
-			session:       options.Session,
-			initiator:     initiator,
-		}
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			cc.cleanup()
-			res = nil
-
-			logger.Errorf("caught panic while running view with [%v][%s]", r, debug.Stack())
-
-			switch e := r.(type) {
-			case error:
-				err = errors.WithMessage(e, "caught panic")
-			case string:
-				err = errors.New(e)
-			default:
-				err = errors.Errorf("caught panic [%v]", e)
-			}
-		}
-	}()
-
-	if v == nil && options.Call == nil {
-		return nil, errors.Errorf("no view passed")
-	}
-	if options.Call != nil {
-		res, err = options.Call(cc)
-	} else {
-		res, err = v.Call(cc)
-	}
-	span.SetAttributes(attribute.Bool(SuccessLabel, err != nil))
-	if err != nil {
-		cc.cleanup()
-		return nil, err
-	}
-	return res, err
-}
-
-func wrapContext(ctx localContext, newCtx context.Context) localContext {
-	return &tempCtx{
-		localContext: ctx,
-		newCtx:       newCtx,
-	}
-}
-
-type tempCtx struct {
-	localContext
-	newCtx context.Context
-}
-
-func (c *tempCtx) Context() context.Context {
-	return c.newCtx
 }
 
 func (ctx *ctx) Me() view.Identity {
@@ -435,9 +364,98 @@ func (ctx *ctx) createSession(caller view.View, party view.Identity, aliases ...
 	return s, nil
 }
 
-type localContext interface {
-	disposableContext
-	cleanup()
+func (ctx *ctx) PutSession(caller view.View, party view.Identity, session view.Session) error {
+	ctx.sessionsLock.Lock()
+	defer ctx.sessionsLock.Unlock()
+
+	partyUniqueID := party.UniqueID()
+	contextSessionIdentifier := getViewIdentifier(caller) + partyUniqueID
+	ctx.sessions[contextSessionIdentifier] = session
+
+	return nil
+}
+
+type tempCtx struct {
+	localContext
+	newCtx context.Context
+}
+
+func (c *tempCtx) Context() context.Context {
+	return c.newCtx
+}
+
+func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res interface{}, err error) {
+	options, err := view.CompileRunViewOptions(opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed compiling options")
+	}
+	var initiator view.View
+	if options.AsInitiator {
+		initiator = v
+	}
+
+	newCtx, span := ctx.StartSpanFrom(ctx.Context(), registry2.GetName(v), tracing.WithAttributes(
+		tracing.String(ViewLabel, registry2.GetIdentifier(v)),
+		tracing.String(InitiatorViewLabel, registry2.GetIdentifier(initiator)),
+	), trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+
+	var cc localContext
+	if options.SameContext {
+		cc = wrapContext(ctx, newCtx)
+	} else {
+		cc = &childContext{
+			ParentContext: wrapContext(ctx, newCtx),
+			session:       options.Session,
+			initiator:     initiator,
+		}
+		if options.AsInitiator {
+			// register options.Session under initiator,
+			if err := cc.PutSession(initiator, options.Session.Info().Caller, options.Session); err != nil {
+				return nil, errors.Wrapf(err, "failed registering default session as initiated by [%s:%s]", initiator, options.Session.Info().Caller)
+			}
+		}
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			cc.cleanup()
+			res = nil
+
+			logger.Errorf("caught panic while running view with [%v][%s]", r, debug.Stack())
+
+			switch e := r.(type) {
+			case error:
+				err = errors.WithMessage(e, "caught panic")
+			case string:
+				err = errors.New(e)
+			default:
+				err = errors.Errorf("caught panic [%v]", e)
+			}
+		}
+	}()
+
+	if v == nil && options.Call == nil {
+		return nil, errors.Errorf("no view passed")
+	}
+	if options.Call != nil {
+		res, err = options.Call(cc)
+	} else {
+		res, err = v.Call(cc)
+	}
+	span.SetAttributes(attribute.Bool(SuccessLabel, err != nil))
+	if err != nil {
+		cc.cleanup()
+		return nil, err
+	}
+	return res, err
+}
+
+func wrapContext(ctx localContext, newCtx context.Context) localContext {
+	return &tempCtx{
+		localContext: ctx,
+		newCtx:       newCtx,
+	}
 }
 
 func getViewIdentifier(f view.View) string {
