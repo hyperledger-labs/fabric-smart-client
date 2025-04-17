@@ -55,8 +55,8 @@ func (w *childContext) IsMe(id view.Identity) bool {
 	return w.ParentContext.IsMe(id)
 }
 
-func (w *childContext) GetSession(caller view.View, party view.Identity) (view.Session, error) {
-	return w.ParentContext.GetSession(caller, party)
+func (w *childContext) GetSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
+	return w.ParentContext.GetSession(caller, party, aliases...)
 }
 
 func (w *childContext) GetSessionByID(id string, party view.Identity) (view.Session, error) {

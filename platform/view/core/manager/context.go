@@ -196,16 +196,16 @@ func (ctx *ctx) Caller() view.Identity {
 	return ctx.caller
 }
 
-func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, error) {
+func (ctx *ctx) GetSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
 	// TODO: we need a mechanism to close all the sessions opened in this ctx,
 	// when the ctx goes out of scope
 	ctx.sessionsLock.Lock()
 	defer ctx.sessionsLock.Unlock()
 
 	// is there already a session?
-	s, lookupKey, err := ctx.lookupSession(f, party)
+	s, lookupKey, err := ctx.lookupSession(caller, party)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to lookup session for [%s:%s]", getViewIdentifier(f), party)
+		return nil, errors.WithMessagef(err, "failed to lookup session for [%s:%s]", getViewIdentifier(caller), party)
 	}
 
 	create := false
@@ -224,25 +224,33 @@ func (ctx *ctx) GetSession(f view.View, party view.Identity) (view.Session, erro
 	// a session is available, return it
 	if !create {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] Reusing session [%s:%s]", ctx.me, getViewIdentifier(f), party)
+			logger.Debugf("[%s] Reusing session [%s:%s]", ctx.me, getViewIdentifier(caller), party)
 		}
 		return s, nil
 	}
 
 	// create a session
-	if f == nil {
+	if caller == nil {
 		// return an error, a session should already exist
 		return nil, errors.Errorf("a session should already exist, passed nil view")
 	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] Creating new session [$s:%s]", ctx.me, getViewIdentifier(f), party)
+		logger.Debugf("[%s] Creating new session [%s:%s]", ctx.me, getViewIdentifier(caller), party)
 	}
-	s, err = ctx.newSession(f, ctx.id, party)
+	s, err = ctx.newSession(caller, ctx.id, party)
 	if err != nil {
 		return nil, err
 	}
-	contextSessionIdentifier := getViewIdentifier(f) + party.UniqueID()
+	partyUniqueID := party.UniqueID()
+	contextSessionIdentifier := getViewIdentifier(caller) + partyUniqueID
 	ctx.sessions[contextSessionIdentifier] = s
+
+	// add aliases as well
+	for _, alias := range aliases {
+		aliasContextSessionIdentifier := getViewIdentifier(alias) + partyUniqueID
+		ctx.sessions[aliasContextSessionIdentifier] = s
+	}
+
 	return s, nil
 }
 
