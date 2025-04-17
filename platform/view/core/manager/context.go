@@ -404,15 +404,24 @@ func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res in
 	if options.SameContext {
 		cc = wrapContext(ctx, newCtx)
 	} else {
-		cc = &childContext{
-			ParentContext: wrapContext(ctx, newCtx),
-			session:       options.Session,
-			initiator:     initiator,
-		}
 		if options.AsInitiator {
-			// register options.Session under initiator,
-			if err := cc.PutSession(initiator, options.Session.Info().Caller, options.Session); err != nil {
-				return nil, errors.Wrapf(err, "failed registering default session as initiated by [%s:%s]", initiator, options.Session.Info().Caller)
+			cc = &childContext{
+				ParentContext: wrapContext(ctx, newCtx),
+				initiator:     initiator,
+			}
+			// register options.Session under initiator
+			contextSession := ctx.Session()
+			if contextSession == nil {
+				return nil, errors.Errorf("cannot convert a non-responder context to an initiator context")
+			}
+			if err := cc.PutSession(initiator, contextSession.Info().Caller, contextSession); err != nil {
+				return nil, errors.Wrapf(err, "failed registering default session as initiated by [%s:%s]", initiator, contextSession.Info().Caller)
+			}
+		} else {
+			cc = &childContext{
+				ParentContext: wrapContext(ctx, newCtx),
+				session:       options.Session,
+				initiator:     initiator,
 			}
 		}
 	}
