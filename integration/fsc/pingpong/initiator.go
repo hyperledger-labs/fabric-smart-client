@@ -15,7 +15,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Initiator struct{}
+type Message struct {
+	Payload []byte
+}
+
+type Initiator struct {
+	Message
+}
 
 func (p *Initiator) Call(context view.Context) (interface{}, error) {
 	// Retrieve responder identity
@@ -25,7 +31,11 @@ func (p *Initiator) Call(context view.Context) (interface{}, error) {
 	session, err := context.GetSession(context.Initiator(), responder)
 	assert.NoError(err) // Send a ping
 
-	err = session.Send([]byte("ping"))
+	if len(p.Payload) == 0 {
+		p.Payload = []byte("ping")
+	}
+
+	err = session.Send(p.Payload)
 	assert.NoError(err) // Wait for the pong
 	ch := session.Receive()
 	select {
