@@ -44,7 +44,7 @@ func (p *dbProvider) OpenDB(opts Opts) (*common.RWDB, error) {
 	return open(opts)
 }
 
-func (p *dbProvider) getOrOpen(opts Opts) (*common.RWDB, error) {
+func (p *dbProvider) GetOrOpen(opts Opts) (*common.RWDB, error) {
 	if _, ok := p.p.Peek(opts); ok {
 		logger.Infof("DB [%s] already exists. Returning cached DB", opts.DataSource)
 	} else {
