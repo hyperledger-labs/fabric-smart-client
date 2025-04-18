@@ -16,113 +16,95 @@ import (
 	"github.com/pkg/errors"
 )
 
-type tableNameFormatterProvider struct {
-	lazy.Provider[string, *tableNameFormatter]
+type TableNameCreator struct {
+	formatterProvider lazy.Provider[string, *tableNameFormatter]
 }
 
-func NewTableNameCreator() tableNameFormatterProvider {
-	return newTableNameCreatorWithDefaultPrefix("fsc")
+func NewTableNameCreator() *TableNameCreator {
+	return &TableNameCreator{formatterProvider: lazy.NewProvider(func(prefix string) (*tableNameFormatter, error) {
+		if len(prefix) > 100 {
+			return nil, errors.New("table prefix must be shorter than 100 characters")
+		}
+		r := regexp.MustCompile("^[a-zA-Z_]+$")
+		if len(prefix) == 0 {
+			return &tableNameFormatter{r: r}, nil
+		}
+
+		if !r.MatchString(prefix) {
+			return nil, errors.New("illegal character in table prefix, only letters and underscores allowed")
+		}
+		return &tableNameFormatter{
+			prefix: strings.ToLower(prefix) + "_",
+			r:      r,
+		}, nil
+	})}
 }
 
-func newTableNameCreatorWithDefaultPrefix(defaultPrefix string) tableNameFormatterProvider {
-	return tableNameFormatterProvider{
-		Provider: lazy.NewProvider(func(prefix string) (*tableNameFormatter, error) {
-			if len(prefix) == 0 {
-				prefix = defaultPrefix
-			}
-			if len(prefix) > 100 {
-				return nil, errors.New("table prefix must be shorter than 100 characters")
-			}
-			return newTableNameFormatter(prefix)
-		}),
+func (c *TableNameCreator) MustGetTableName(tablePrefix, name string, params ...string) string {
+	return utils.MustGet(c.CreateTableName(tablePrefix, name, params...))
+}
+
+func (c *TableNameCreator) CreateTableName(tablePrefix, name string, params ...string) (string, error) {
+	if tablePrefix == "" {
+		tablePrefix = "fsc"
 	}
+	nc, err := c.formatterProvider.Get(tablePrefix)
+	if err != nil {
+		return "", err
+	}
+
+	escapedName := fmt.Sprintf("%s_%s", escapeForTableName(params...), name)
+	tableName, valid := nc.Format(escapedName)
+	if !valid {
+		return "", fmt.Errorf("invalid table name [%s]: only letters and underscores allowed", escapedName)
+	}
+	return tableName, nil
 }
 
-func (c *tableNameFormatterProvider) GetFormatter(prefix string) (*tableNameFormatter, error) {
-	return c.Get(prefix)
+func CreateTableName(name string, params ...string) string {
+	return fmt.Sprintf("%s_%s", escapeForTableName(params...), name)
 }
 
-// Sanitizer
+var validName = regexp.MustCompile(`^[a-zA-Z_]+$`) // Thread safe
+var replacers = []*replacer{
+	newReplacer("_", "__"),
+	newReplacer("-", "_d"),
+	newReplacer("\\.", "_f"),
+}
 
-var defaultSanitizer = newSanitizer(map[string]string{
-	"_":   "__",
-	"-":   "_d",
-	"\\.": "_f",
-})
-
-type replacement struct {
+type replacer struct {
 	regex *regexp.Regexp
 	repl  string
 }
 
-type sanitizer struct {
-	replacers []replacement
-}
-
-func newSanitizer(replacementMap map[string]string) *sanitizer {
-	rs := make([]replacement, 0, len(replacementMap))
-	for escaped, repl := range replacementMap {
-		rs = append(rs, replacement{
-			regex: regexp.MustCompile(escaped),
-			repl:  repl,
-		})
-	}
-	return &sanitizer{replacers: rs}
-}
-
-// Formatter
-
-func (e *sanitizer) Encode(name string) string {
-	for _, r := range e.replacers {
-		name = r.Escape(name)
-	}
-	return name
-}
-
-func newTableNameFormatter(prefix string) (*tableNameFormatter, error) {
-	validName := regexp.MustCompile(`^[a-zA-Z_]+$`) // Thread safe
-	if len(prefix) > 0 && !validName.MatchString(prefix) {
-		return nil, errors.New("illegal character in table prefix, only letters and underscores allowed")
-	}
-	if len(prefix) > 0 {
-		prefix = strings.ToLower(prefix) + "_"
-	}
-
-	return &tableNameFormatter{
-		prefix:    prefix,
-		validName: validName,
-		sanitizer: defaultSanitizer,
-	}, nil
-}
-
 type tableNameFormatter struct {
-	prefix    string
-	validName *regexp.Regexp
-	sanitizer *sanitizer
+	prefix string
+	r      *regexp.Regexp
 }
 
-func (c *tableNameFormatter) Format(name string, params ...string) (string, error) {
-	if len(params) > 0 {
-		name = fmt.Sprintf("%s_%s", c.escapeForTableName(params...), name)
+func (c *tableNameFormatter) Format(name string) (string, bool) {
+	if !c.r.MatchString(name) {
+		return "", false
 	}
+	return fmt.Sprintf("%s%s", c.prefix, name), true
+}
 
-	if !c.validName.MatchString(name) {
-		return "", fmt.Errorf("invalid table name [%s]: only letters and underscores allowed", name)
+func newReplacer(escaped, repl string) *replacer {
+	return &replacer{
+		regex: regexp.MustCompile(escaped),
+		repl:  repl,
 	}
-	return fmt.Sprintf("%s%s", c.prefix, name), nil
 }
-
-func (c *tableNameFormatter) MustFormat(name string, params ...string) string {
-	return utils.MustGet(c.Format(name, params...))
-}
-func (r *replacement) Escape(s string) string {
+func (r *replacer) Escape(s string) string {
 	return r.regex.ReplaceAllString(s, r.repl)
 }
 
-func (c *tableNameFormatter) escapeForTableName(params ...string) string {
-	name := c.sanitizer.Encode(strings.Join(params, "_"))
-
-	if len(name) > 0 && !c.validName.MatchString(name) {
+func escapeForTableName(params ...string) string {
+	name := strings.Join(params, "_")
+	for _, r := range replacers {
+		name = r.Escape(name)
+	}
+	if len(name) > 0 && !validName.MatchString(name) {
 		panic("unsupported chars found: " + name)
 	}
 	return name
