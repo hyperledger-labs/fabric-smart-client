@@ -6,9 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 package common
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
+)
 
-var nc = db.NewTableNameCreator()
+var tnc = db.NewTableNameCreator()
 
 type TableNames struct {
 	KVS        string
@@ -23,15 +26,17 @@ type TableNames struct {
 }
 
 func GetTableNames(prefix string, params ...string) TableNames {
+	nc := utils.MustGet(tnc.GetFormatter(prefix))
+
 	return TableNames{
-		KVS:        nc.MustGetTableName(prefix, "kvs", params...),
-		Binding:    nc.MustGetTableName(prefix, "bind", params...),
-		SignerInfo: nc.MustGetTableName(prefix, "sign", params...),
-		AuditInfo:  nc.MustGetTableName(prefix, "aud", params...),
-		EndorseTx:  nc.MustGetTableName(prefix, "etx", params...),
-		Metadata:   nc.MustGetTableName(prefix, "meta", params...),
-		Envelope:   nc.MustGetTableName(prefix, "env", params...),
-		State:      nc.MustGetTableName(prefix, "vstate", params...),
-		Status:     nc.MustGetTableName(prefix, "vstatus", params...),
+		KVS:        nc.MustFormat("kvs", params...),
+		Binding:    nc.MustFormat("bind", params...),
+		SignerInfo: nc.MustFormat("sign", params...),
+		AuditInfo:  nc.MustFormat("aud", params...),
+		EndorseTx:  nc.MustFormat("etx", params...),
+		Metadata:   nc.MustFormat("meta", params...),
+		Envelope:   nc.MustFormat("env", params...),
+		State:      nc.MustFormat("vstate", params...),
+		Status:     nc.MustFormat("vstatus", params...),
 	}
 }
