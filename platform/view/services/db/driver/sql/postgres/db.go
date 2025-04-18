@@ -47,6 +47,11 @@ func open(opts Opts) (*common.RWDB, error) {
 }
 
 func (p *dbProvider) OpenDB(opts Opts) (*common.RWDB, error) {
+	if _, ok := p.p.Peek(opts); ok {
+		logger.Infof("DB [%s] already exists. Returning cached DB", opts.DataSource)
+	} else {
+		logger.Infof("Creating new DB for [%s]", opts.DataSource)
+	}
 	return p.p.Get(opts)
 }
 
