@@ -23,20 +23,21 @@ type BindingPersistence struct {
 	errorWrapper driver.SQLErrorWrapper
 }
 
-func NewBindingPersistence(opts common.Opts, table string) (*BindingPersistence, error) {
-	readWriteDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
+func NewBindingPersistence(opts Opts) (*BindingPersistence, error) {
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return newBindingPersistence(readWriteDB, table), nil
+	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	return newBindingPersistence(dbs.ReadDB, dbs.WriteDB, tables.Binding), nil
 }
 
-func newBindingPersistence(readWriteDB *sql.DB, table string) *BindingPersistence {
+func newBindingPersistence(readDB, writeDB *sql.DB, table string) *BindingPersistence {
 	errorWrapper := &errorMapper{}
 	return &BindingPersistence{
-		BindingPersistence: common.NewBindingPersistence(readWriteDB, readWriteDB, table, errorWrapper, NewInterpreter()),
+		BindingPersistence: common.NewBindingPersistence(readDB, writeDB, table, errorWrapper, NewInterpreter()),
 		table:              table,
-		writeDB:            readWriteDB,
+		writeDB:            writeDB,
 		errorWrapper:       errorWrapper,
 	}
 }

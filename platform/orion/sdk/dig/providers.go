@@ -7,33 +7,35 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/services"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
+	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/endorsetx"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/envelope"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/metadata"
 	"go.uber.org/dig"
 )
 
-func NewEndorseTxStore(in struct {
+func newEndorseTxStore(in struct {
 	dig.In
-	Config  driver.ConfigService
+	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) (driver3.EndorseTxStore, error) {
-	return services.NewDBBasedEndorseTxStore(in.Drivers, in.Config, "default")
+}) (driver.EndorseTxStore, error) {
+	return endorsetx.NewStore[driver.Key](in.Config, in.Drivers, "default")
 }
 
-func NewMetadataStore(in struct {
+func newMetadataStore(in struct {
 	dig.In
-	Config  driver.ConfigService
+	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) (driver3.MetadataStore, error) {
-	return services.NewDBBasedMetadataStore(in.Drivers, in.Config, "default")
+}) (driver.MetadataStore, error) {
+	return metadata.NewStore[driver.Key, driver.TransientMap](in.Config, in.Drivers, "default")
 }
 
-func NewEnvelopeStore(in struct {
+func newEnvelopeStore(in struct {
 	dig.In
-	Config  driver.ConfigService
+	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) (driver3.EnvelopeStore, error) {
-	return services.NewDBBasedEnvelopeStore(in.Drivers, in.Config, "default")
+}) (driver.EnvelopeStore, error) {
+	return envelope.NewStore[driver.Key](in.Config, in.Drivers, "default")
 }

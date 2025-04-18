@@ -21,7 +21,6 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
@@ -140,18 +139,7 @@ func NewNetwork(
 	n.transactionManager = transaction.NewManager(n.sessionManager)
 	n.transactionService = transaction.NewEndorseTransactionService(endorseTxKVS, name)
 
-	var d driver2.Driver
-	for _, driver := range drivers {
-		if driver.Name == n.config.VaultPersistenceType() {
-			d = driver.Driver
-			break
-		}
-	}
-	if d == nil {
-		return nil, errors.Errorf("driver %s not found in config", n.config.VaultPersistenceType())
-	}
-
-	vaultStore, err := vault.NewWithConfig(drivers, storage.NewPrefixConfig(n.config, n.config.VaultPersistencePrefix()), name)
+	vaultStore, err := vault.NewStore(n.config, drivers, name)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating vault")
 	}
