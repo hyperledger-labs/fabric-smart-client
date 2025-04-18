@@ -21,10 +21,10 @@ type tableNameFormatterProvider struct {
 }
 
 func NewTableNameCreator() tableNameFormatterProvider {
-	return newTableNameCreatorWithDefaultPrefix("fsc")
+	return NewTableNameCreatorWithDefaultPrefix("fsc")
 }
 
-func newTableNameCreatorWithDefaultPrefix(defaultPrefix string) tableNameFormatterProvider {
+func NewTableNameCreatorWithDefaultPrefix(defaultPrefix string) tableNameFormatterProvider {
 	return tableNameFormatterProvider{
 		Provider: lazy.NewProvider(func(prefix string) (*tableNameFormatter, error) {
 			if len(prefix) == 0 {
