@@ -18,12 +18,12 @@ type SignerInfoPersistence struct {
 }
 
 func NewSignerInfoPersistence(opts Opts) (*SignerInfoPersistence, error) {
-	readWriteDB, err := OpenDB(opts)
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newSignerInfoPersistence(readWriteDB, readWriteDB, tables.SignerInfo), nil
+	return newSignerInfoPersistence(dbs.ReadDB, dbs.WriteDB, tables.SignerInfo), nil
 }
 
 func newSignerInfoPersistence(readDB, writeDB *sql.DB, table string) *SignerInfoPersistence {

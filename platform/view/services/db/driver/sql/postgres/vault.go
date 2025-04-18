@@ -28,24 +28,24 @@ type VaultPersistence struct {
 }
 
 func NewVaultPersistence(opts Opts) (*VaultPersistence, error) {
-	readWriteDB, err := OpenDB(opts)
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newVaultPersistence(readWriteDB, common.VaultTables{
+	return newVaultPersistence(dbs.ReadDB, dbs.WriteDB, common.VaultTables{
 		StateTable:  tables.State,
 		StatusTable: tables.Status,
 	}), nil
 }
 
-func newVaultPersistence(readWriteDB *sql.DB, tables common.VaultTables) *VaultPersistence {
+func newVaultPersistence(readDB, writeDB *sql.DB, tables common.VaultTables) *VaultPersistence {
 	ci := NewInterpreter()
 	pi := NewPaginatedInterpreter()
 	return &VaultPersistence{
-		VaultPersistence: common.NewVaultPersistence(readWriteDB, readWriteDB, tables, &errorMapper{}, ci, pi, NewSanitizer(), isolationLevels),
+		VaultPersistence: common.NewVaultPersistence(writeDB, readDB, tables, &errorMapper{}, ci, pi, NewSanitizer(), isolationLevels),
 		tables:           tables,
-		writeDB:          readWriteDB,
+		writeDB:          writeDB,
 		ci:               ci,
 		pi:               pi,
 	}

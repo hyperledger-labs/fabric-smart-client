@@ -45,20 +45,6 @@ type Opts struct {
 	TableNameParams []string
 }
 
-func OpenRWDBs(opts Opts) (*sql.DB, *sql.DB, error) {
-	logger.Debugf("Opening read db [%v]", opts.DataSource)
-	readDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't open read %s database: %w", driverName, err)
-	}
-	logger.Debugf("Opening write db [%v]", opts.DataSource)
-	writeDB, err := OpenDB(opts.DataSource, 1, maxIdleConnsWrite, maxIdleTimeWrite, opts.SkipPragmas)
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't open write %s database: %w", driverName, err)
-	}
-	return readDB, writeDB, nil
-}
-
 func OpenDB(dataSourceName string, maxOpenConns int, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool) (*sql.DB, error) {
 	// Create directories if they do not exist to avoid error "out of memory (14)", see below
 	path := getDir(dataSourceName)

@@ -18,12 +18,12 @@ type EnvelopePersistence struct {
 }
 
 func NewEnvelopePersistence(opts Opts) (*EnvelopePersistence, error) {
-	readWriteDB, err := OpenDB(opts)
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newEnvelopePersistence(readWriteDB, readWriteDB, tables.Envelope), nil
+	return newEnvelopePersistence(dbs.ReadDB, dbs.WriteDB, tables.Envelope), nil
 }
 
 func newEnvelopePersistence(readDB, writeDB *sql.DB, table string) *EnvelopePersistence {

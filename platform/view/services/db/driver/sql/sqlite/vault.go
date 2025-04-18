@@ -31,12 +31,12 @@ type VaultPersistence struct {
 }
 
 func NewVaultPersistence(opts Opts) (*VaultPersistence, error) {
-	readDB, writeDB, err := OpenRWDBs(opts)
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newTxCodePersistence(readDB, NewRetryWriteDB(writeDB), common.VaultTables{
+	return newTxCodePersistence(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), common.VaultTables{
 		StateTable:  tables.State,
 		StatusTable: tables.Status,
 	}), nil

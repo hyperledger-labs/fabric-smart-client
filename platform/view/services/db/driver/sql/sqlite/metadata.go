@@ -18,12 +18,12 @@ type MetadataPersistence struct {
 }
 
 func NewMetadataPersistence(opts Opts) (*MetadataPersistence, error) {
-	readDB, writeDB, err := OpenRWDBs(opts)
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newMetadataPersistence(readDB, NewRetryWriteDB(writeDB), tables.Metadata), nil
+	return newMetadataPersistence(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.Metadata), nil
 }
 
 func newMetadataPersistence(readDB *sql.DB, writeDB common.WriteDB, table string) *MetadataPersistence {

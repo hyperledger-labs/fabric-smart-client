@@ -24,20 +24,20 @@ type BindingPersistence struct {
 }
 
 func NewBindingPersistence(opts Opts) (*BindingPersistence, error) {
-	readWriteDB, err := OpenDB(opts)
+	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newBindingPersistence(readWriteDB, tables.Binding), nil
+	return newBindingPersistence(dbs.ReadDB, dbs.WriteDB, tables.Binding), nil
 }
 
-func newBindingPersistence(readWriteDB *sql.DB, table string) *BindingPersistence {
+func newBindingPersistence(readDB, writeDB *sql.DB, table string) *BindingPersistence {
 	errorWrapper := &errorMapper{}
 	return &BindingPersistence{
-		BindingPersistence: common.NewBindingPersistence(readWriteDB, readWriteDB, table, errorWrapper, NewInterpreter()),
+		BindingPersistence: common.NewBindingPersistence(readDB, writeDB, table, errorWrapper, NewInterpreter()),
 		table:              table,
-		writeDB:            readWriteDB,
+		writeDB:            writeDB,
 		errorWrapper:       errorWrapper,
 	}
 }
