@@ -20,28 +20,32 @@ type dbProvider struct {
 }
 
 func newDBProvider() *dbProvider {
-	return &dbProvider{
-		p: lazy.NewProviderWithKeyMapper(key, func(opts Opts) (*common.RWDB, error) {
-			logger.Debugf("Opening read db [%v]", opts.DataSource)
-			readDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
-			if err != nil {
-				return nil, fmt.Errorf("can't open read %s database: %w", driverName, err)
-			}
-			logger.Debugf("Opening write db [%v]", opts.DataSource)
-			writeDB, err := OpenDB(opts.DataSource, 1, maxIdleConnsWrite, maxIdleTimeWrite, opts.SkipPragmas)
-			if err != nil {
-				return nil, fmt.Errorf("can't open write %s database: %w", driverName, err)
-			}
-			return &common.RWDB{
-				ReadDB:  readDB,
-				WriteDB: writeDB,
-			}, nil
-		}),
+	return &dbProvider{p: lazy.NewProviderWithKeyMapper(key, open)}
+}
+
+func open(opts Opts) (*common.RWDB, error) {
+	logger.Debugf("Opening read db [%v]", opts.DataSource)
+	readDB, err := OpenDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
+	if err != nil {
+		return nil, fmt.Errorf("can't open read %s database: %w", driverName, err)
 	}
+	logger.Debugf("Opening write db [%v]", opts.DataSource)
+	writeDB, err := OpenDB(opts.DataSource, 1, maxIdleConnsWrite, maxIdleTimeWrite, opts.SkipPragmas)
+	if err != nil {
+		return nil, fmt.Errorf("can't open write %s database: %w", driverName, err)
+	}
+	return &common.RWDB{
+		ReadDB:  readDB,
+		WriteDB: writeDB,
+	}, nil
 }
 
 func (p *dbProvider) OpenDB(opts Opts) (*common.RWDB, error) {
 	return p.p.Get(opts)
+}
+
+func (p *dbProvider) OpenNewDB(opts Opts) (*common.RWDB, error) {
+	return open(opts)
 }
 
 func key(o Opts) string {

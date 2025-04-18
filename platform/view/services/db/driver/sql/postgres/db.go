@@ -21,33 +21,37 @@ type dbProvider struct {
 }
 
 func newDBProvider() *dbProvider {
-	return &dbProvider{
-		p: lazy.NewProviderWithKeyMapper(key, func(opts Opts) (*common.RWDB, error) {
-			db, err := sql.Open(driverName, opts.DataSource)
-			if err != nil {
-				logger.Error(err)
-				return nil, fmt.Errorf("can't open %s database: %w", driverName, err)
-			}
+	return &dbProvider{p: lazy.NewProviderWithKeyMapper(key, open)}
+}
 
-			db.SetMaxOpenConns(opts.MaxOpenConns)
-			db.SetMaxIdleConns(opts.MaxIdleConns)
-			db.SetConnMaxIdleTime(opts.MaxIdleTime)
-
-			if err = db.Ping(); err != nil {
-				return nil, err
-			}
-			logger.Debugf("connected to [%s] for reads, max open connections: %d, max idle connections: %d, max idle time: %v", driverName, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
-
-			return &common.RWDB{
-				ReadDB:  db,
-				WriteDB: db,
-			}, nil
-		}),
+func open(opts Opts) (*common.RWDB, error) {
+	db, err := sql.Open(driverName, opts.DataSource)
+	if err != nil {
+		logger.Error(err)
+		return nil, fmt.Errorf("can't open %s database: %w", driverName, err)
 	}
+
+	db.SetMaxOpenConns(opts.MaxOpenConns)
+	db.SetMaxIdleConns(opts.MaxIdleConns)
+	db.SetConnMaxIdleTime(opts.MaxIdleTime)
+
+	if err = db.Ping(); err != nil {
+		return nil, err
+	}
+	logger.Debugf("connected to [%s] for reads, max open connections: %d, max idle connections: %d, max idle time: %v", driverName, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
+
+	return &common.RWDB{
+		ReadDB:  db,
+		WriteDB: db,
+	}, nil
 }
 
 func (p *dbProvider) OpenDB(opts Opts) (*common.RWDB, error) {
 	return p.p.Get(opts)
+}
+
+func (p *dbProvider) OpenNewDB(opts Opts) (*common.RWDB, error) {
+	return open(opts)
 }
 
 func key(o Opts) string {
