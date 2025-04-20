@@ -116,7 +116,7 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	}
 	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(c))
 
-	viewContext, err := NewContextForInitiator("", ctx, cm.sp, cm.commLayer, cm.endpointService, id, view, cm.viewTracer)
+	viewContext, err := NewContextForInitiator("", ctx, cm.sp, cm.commLayer, cm.endpointService, cm.identityProvider, id, view, cm.viewTracer)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func (cm *manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 	if id.IsNone() {
 		id = cm.me()
 	}
-	viewContext, err := NewContextForInitiator(contextID, ctx, cm.sp, cm.commLayer, cm.endpointService, id, view, cm.viewTracer)
+	viewContext, err := NewContextForInitiator(contextID, ctx, cm.sp, cm.commLayer, cm.endpointService, cm.identityProvider, id, view, cm.viewTracer)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +316,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		return nil, false, err
 	}
 	ctx := trace.ContextWithSpanContext(cm.ctx, trace.SpanContextFromContext(msg.Ctx))
-	newCtx, err := NewContext(ctx, cm.sp, contextID, cm.commLayer, cm.endpointService, id, backend, caller, cm.viewTracer)
+	newCtx, err := NewContext(ctx, cm.sp, contextID, cm.commLayer, cm.endpointService, cm.identityProvider, id, backend, caller, cm.viewTracer)
 	if err != nil {
 		return nil, false, err
 	}

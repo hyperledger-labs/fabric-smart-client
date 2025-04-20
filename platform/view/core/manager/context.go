@@ -42,6 +42,7 @@ type ctx struct {
 	caller         view.Identity
 	resolver       driver.EndpointService
 	sessionFactory SessionFactory
+	idProvider     driver.IdentityProvider
 
 	sessionsLock       sync.RWMutex
 	sessions           map[string]view.Session
@@ -50,11 +51,11 @@ type ctx struct {
 	tracer trace.Tracer
 }
 
-func NewContextForInitiator(contextID string, context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, initiator view.View, tracer trace.Tracer) (*ctx, error) {
+func NewContextForInitiator(contextID string, context context.Context, sp driver.ServiceProvider, sessionFactory SessionFactory, resolver driver.EndpointService, idProvider driver.IdentityProvider, party view.Identity, initiator view.View, tracer trace.Tracer) (*ctx, error) {
 	if len(contextID) == 0 {
 		contextID = GenerateUUID()
 	}
-	ctx, err := NewContext(context, sp, contextID, sessionFactory, resolver, party, nil, nil, tracer)
+	ctx, err := NewContext(context, sp, contextID, sessionFactory, resolver, idProvider, party, nil, nil, tracer)
 	if err != nil {
 		return nil, err
 	}
@@ -63,12 +64,13 @@ func NewContextForInitiator(contextID string, context context.Context, sp driver
 	return ctx, nil
 }
 
-func NewContext(context context.Context, sp driver.ServiceProvider, contextID string, sessionFactory SessionFactory, resolver driver.EndpointService, party view.Identity, session view.Session, caller view.Identity, tracer trace.Tracer) (*ctx, error) {
+func NewContext(context context.Context, sp driver.ServiceProvider, contextID string, sessionFactory SessionFactory, resolver driver.EndpointService, idProvider driver.IdentityProvider, party view.Identity, session view.Session, caller view.Identity, tracer trace.Tracer) (*ctx, error) {
 	ctx := &ctx{
 		context:        context,
 		id:             contextID,
 		resolver:       resolver,
 		sessionFactory: sessionFactory,
+		idProvider:     idProvider,
 		session:        session,
 		me:             party,
 		sessions:       map[string]view.Session{},
@@ -313,8 +315,9 @@ func (ctx *ctx) lookupSession(f view.View, id view.Identity) (view.Session, view
 	targetIdentity := id
 	logger.Debugf("session for [%s] does not exists, resolve", contextSessionIdentifier)
 
-	resolvedID, _, _, err := view2.GetEndpointService(ctx).Resolve(id)
+	resolver, _, err := ctx.resolver.Resolve(id)
 	if err == nil {
+		resolvedID := resolver.GetId()
 		contextSessionIdentifier := getViewIdentifier(f) + resolvedID.UniqueID()
 		s, ok = ctx.sessions[contextSessionIdentifier]
 		if ok {
@@ -325,14 +328,15 @@ func (ctx *ctx) lookupSession(f view.View, id view.Identity) (view.Session, view
 	}
 
 	// give it a second chance, check if party can be resolved as an identity
-	partyIdentity := view2.GetIdentityProvider(ctx).Identity(string(id))
+	partyIdentity := ctx.idProvider.Identity(string(id))
 	if !partyIdentity.IsNone() {
-		resolvedPartyID, _, _, err := view2.GetEndpointService(ctx).Resolve(partyIdentity)
+		resolver, _, err := ctx.resolver.Resolve(partyIdentity)
 		if err == nil {
+			resolvedPartyID := resolver.GetId()
 			contextSessionIdentifier := getViewIdentifier(f) + resolvedPartyID.UniqueID()
 			s, ok = ctx.sessions[contextSessionIdentifier]
 			if ok {
-				logger.Debugf("session for resolved as string [%s] found with identifier [%s]", resolvedID, contextSessionIdentifier)
+				logger.Debugf("session for resolved as string [%s] found with identifier [%s]", resolvedPartyID, contextSessionIdentifier)
 				return s, resolvedPartyID, contextSessionIdentifier, nil
 			}
 			targetIdentity = resolvedPartyID
