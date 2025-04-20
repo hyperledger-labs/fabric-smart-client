@@ -9,10 +9,13 @@ package manager
 import (
 	"context"
 	"fmt"
+	"io"
 	"reflect"
 	"runtime/debug"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
@@ -304,46 +307,45 @@ func (ctx *ctx) safeInvoke(f func()) {
 }
 
 func (ctx *ctx) lookupSession(f view.View, id view.Identity) (view.Session, view.Identity, string, error) {
-	contextSessionIdentifier := getViewIdentifier(f) + id.UniqueID()
-	logger.Debugf("lookup session  session for [%s]", contextSessionIdentifier)
-	s, ok := ctx.sessions[contextSessionIdentifier]
-	if ok {
-		logger.Debugf("session for [%s] found with identifier [%s]", id, contextSessionIdentifier)
-		return s, id, contextSessionIdentifier, nil
+	viewIdentifier := getViewIdentifier(f)
+	it := ctx.alternativeIds(id)
+	defer it.Close()
+
+	var targetId view.Identity
+	for currId, err := it.Next(); !errors.Is(err, io.EOF); currId, err = it.Next() {
+		if err != nil {
+			continue
+		}
+
+		contextSessionIdentifier := viewIdentifier + currId.UniqueID()
+		if s, ok := ctx.sessions[contextSessionIdentifier]; ok {
+			logger.Debugf("session for [%s] found with identifier [%s]", id, contextSessionIdentifier)
+			return s, currId, contextSessionIdentifier, nil
+		}
+		targetId = currId
 	}
+	return nil, targetId, "", nil
+}
 
-	targetIdentity := id
-	logger.Debugf("session for [%s] does not exists, resolve", contextSessionIdentifier)
+func (ctx *ctx) alternativeIds(id view.Identity) collections.Iterator[view.Identity] {
+	return lazy.NewIterator(
+		func() (view.Identity, error) { return id, nil },
+		func() (view.Identity, error) { return ctx.resolveId(id) },
+		func() (view.Identity, error) {
+			return ctx.resolveId(ctx.idProvider.Identity(string(id)))
+		},
+	)
+}
 
+func (ctx *ctx) resolveId(id view.Identity) (view.Identity, error) {
+	if id.IsNone() {
+		return nil, errors.New("no id provided")
+	}
 	resolver, _, err := ctx.resolver.Resolve(id)
-	if err == nil {
-		resolvedID := resolver.GetId()
-		contextSessionIdentifier := getViewIdentifier(f) + resolvedID.UniqueID()
-		s, ok = ctx.sessions[contextSessionIdentifier]
-		if ok {
-			logger.Debugf("session for resolved [%s] found with identifier [%s]", resolvedID, contextSessionIdentifier)
-			return s, resolvedID, contextSessionIdentifier, nil
-		}
-		targetIdentity = resolvedID
+	if err != nil {
+		return nil, err
 	}
-
-	// give it a second chance, check if party can be resolved as an identity
-	partyIdentity := ctx.idProvider.Identity(string(id))
-	if !partyIdentity.IsNone() {
-		resolver, _, err := ctx.resolver.Resolve(partyIdentity)
-		if err == nil {
-			resolvedPartyID := resolver.GetId()
-			contextSessionIdentifier := getViewIdentifier(f) + resolvedPartyID.UniqueID()
-			s, ok = ctx.sessions[contextSessionIdentifier]
-			if ok {
-				logger.Debugf("session for resolved as string [%s] found with identifier [%s]", resolvedPartyID, contextSessionIdentifier)
-				return s, resolvedPartyID, contextSessionIdentifier, nil
-			}
-			targetIdentity = resolvedPartyID
-		}
-	}
-
-	return nil, targetIdentity, "", nil
+	return resolver.GetId(), nil
 }
 
 func (ctx *ctx) createSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
