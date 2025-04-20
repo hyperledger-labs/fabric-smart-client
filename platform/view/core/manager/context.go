@@ -126,7 +126,7 @@ func (ctx *ctx) Caller() view.Identity {
 	return ctx.caller
 }
 
-func (ctx *ctx) GetSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
+func (ctx *ctx) GetSession(caller view.View, party view.Identity, boundToViews ...view.View) (view.Session, error) {
 	viewId := getViewIdentifier(caller)
 	// TODO: we need a mechanism to close all the sessions opened in this ctx,
 	// when the ctx goes out of scope
@@ -152,7 +152,7 @@ func (ctx *ctx) GetSession(caller view.View, party view.Identity, aliases ...vie
 		return nil, errors.Errorf("a session should already exist, passed nil view")
 	}
 
-	return ctx.createSession(caller, targetIdentity, aliases...)
+	return ctx.createSession(caller, targetIdentity, boundToViews...)
 }
 
 func (ctx *ctx) GetSessionByID(id string, party view.Identity) (view.Session, error) {

@@ -103,16 +103,14 @@ type Context interface {
 	// Initiator returns the View that initiate a call
 	Initiator() View
 
-	// GetSession returns a session to the passed remote
-	// party for the given view caller.
-	// Cashing may be be used.
-	GetSession(caller View, party Identity, aliases ...View) (Session, error)
+	// GetSession returns a session to the passed remote party for the given view caller.
+	// Sessions are scoped by the caller view and cached.
+	// The session can be bound to other caller views by passing them as additional parameters.
+	GetSession(caller View, party Identity, boundToViews ...View) (Session, error)
 
 	// GetSessionByID returns a session to the passed remote party and id.
 	// Cashing may be used.
 	GetSessionByID(id string, party Identity) (Session, error)
-
-	ResetSessions() error
 
 	// Session returns the session created to respond to a
 	// remote party, nil if the context was created
