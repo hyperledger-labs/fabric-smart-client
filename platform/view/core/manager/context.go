@@ -9,12 +9,9 @@ package manager
 import (
 	"context"
 	"fmt"
-	"io"
 	"reflect"
 	"runtime/debug"
-	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/registry"
@@ -47,8 +44,7 @@ type ctx struct {
 	sessionFactory SessionFactory
 	idProvider     driver.IdentityProvider
 
-	sessionsLock       sync.RWMutex
-	sessions           map[string]view.Session
+	sessions           *Sessions
 	errorCallbackFuncs []func()
 
 	tracer trace.Tracer
@@ -76,7 +72,7 @@ func NewContext(context context.Context, sp driver.ServiceProvider, contextID st
 		idProvider:     idProvider,
 		session:        session,
 		me:             party,
-		sessions:       map[string]view.Session{},
+		sessions:       newSessions(),
 		caller:         caller,
 		sp:             sp,
 		localSP:        registry.New(),
@@ -85,7 +81,7 @@ func NewContext(context context.Context, sp driver.ServiceProvider, contextID st
 	}
 	if session != nil {
 		// Register default session
-		ctx.sessions[session.Info().Caller.UniqueID()] = session
+		ctx.sessions.PutDefault(session.Info().Caller, session)
 	}
 
 	return ctx, nil
@@ -131,35 +127,22 @@ func (ctx *ctx) Caller() view.Identity {
 }
 
 func (ctx *ctx) GetSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
+	viewId := getViewIdentifier(caller)
 	// TODO: we need a mechanism to close all the sessions opened in this ctx,
 	// when the ctx goes out of scope
-	ctx.sessionsLock.Lock()
-	defer ctx.sessionsLock.Unlock()
+	ctx.sessions.Lock()
+	defer ctx.sessions.Unlock()
 
 	// is there already a session?
-	s, targetIdentity, lookupKey, err := ctx.lookupSession(caller, party)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to lookup session for [%s:%s]", getViewIdentifier(caller), party)
-	}
-
-	create := false
-	if s == nil {
-		// no, one must be created
-		create = true
-	} else if s.Info().Closed {
-		// yes, but the session is closed, therefore create a new one
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("removing session [%s], it is closed [%v]", lookupKey, create)
-		}
-		delete(ctx.sessions, lookupKey)
-		create = true
-	}
+	s, targetIdentity := ctx.sessions.GetFirstOpen(viewId, lazy.NewIterator(
+		func() (view.Identity, error) { return party, nil },
+		func() (view.Identity, error) { return ctx.resolve(party) },
+		func() (view.Identity, error) { return ctx.resolve(ctx.idProvider.Identity(string(party))) },
+	))
 
 	// a session is available, return it
-	if !create {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] Reusing session [%s:%s]", ctx.me, getViewIdentifier(caller), party)
-		}
+	if s != nil {
+		logger.Debugf("[%s] Reusing session [%s:%s]", ctx.me, viewId, party)
 		return s, nil
 	}
 
@@ -168,22 +151,18 @@ func (ctx *ctx) GetSession(caller view.View, party view.Identity, aliases ...vie
 		// return an error, a session should already exist
 		return nil, errors.Errorf("a session should already exist, passed nil view")
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] Creating new session [%s:%s]", ctx.me, getViewIdentifier(caller), party)
-	}
 
 	return ctx.createSession(caller, targetIdentity, aliases...)
 }
 
 func (ctx *ctx) GetSessionByID(id string, party view.Identity) (view.Session, error) {
-	ctx.sessionsLock.Lock()
-	defer ctx.sessionsLock.Unlock()
+	ctx.sessions.Lock()
+	defer ctx.sessions.Unlock()
 
 	// TODO: do we need to resolve?
 	var err error
-	key := id + "." + party.UniqueID()
-	s, ok := ctx.sessions[key]
-	if !ok {
+	s := ctx.sessions.Get(id, party)
+	if s == nil {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.Debugf("[%s] Creating new session with given id [id:%s][to:%s]", ctx.me, id, party)
 		}
@@ -191,7 +170,7 @@ func (ctx *ctx) GetSessionByID(id string, party view.Identity) (view.Session, er
 		if err != nil {
 			return nil, err
 		}
-		ctx.sessions[key] = s
+		ctx.sessions.Put(id, party, s)
 	} else {
 		span := trace.SpanFromContext(ctx.context)
 		span.AddEvent(fmt.Sprintf("Reuse session to %s", string(party)))
@@ -216,9 +195,9 @@ func (ctx *ctx) Session() view.Session {
 }
 
 func (ctx *ctx) ResetSessions() error {
-	ctx.sessionsLock.Lock()
-	defer ctx.sessionsLock.Unlock()
-	ctx.sessions = map[string]view.Session{}
+	ctx.sessions.Lock()
+	defer ctx.sessions.Unlock()
+	ctx.sessions.Reset()
 
 	return nil
 }
@@ -248,19 +227,19 @@ func (ctx *ctx) Dispose() {
 	span := trace.SpanFromContext(ctx.context)
 	span.AddEvent("Dispose sessions")
 	// dispose all sessions
-	ctx.sessionsLock.Lock()
-	defer ctx.sessionsLock.Unlock()
+	ctx.sessions.Lock()
+	defer ctx.sessions.Unlock()
 
 	if ctx.session != nil {
 		span.AddEvent(fmt.Sprintf("Delete one session to %s", string(ctx.session.Info().Caller)))
 		ctx.sessionFactory.DeleteSessions(ctx.Context(), ctx.session.Info().ID)
 	}
 
-	for _, s := range ctx.sessions {
-		span.AddEvent(fmt.Sprintf("Delete session to %s", string(s.Info().Caller)))
-		ctx.sessionFactory.DeleteSessions(ctx.Context(), s.Info().ID)
+	for _, id := range ctx.sessions.GetSessionIDs() {
+		span.AddEvent(fmt.Sprintf("Delete session %s", id))
+		ctx.sessionFactory.DeleteSessions(ctx.Context(), id)
 	}
-	ctx.sessions = map[string]view.Session{}
+	ctx.sessions.Reset()
 }
 
 func (ctx *ctx) newSession(view view.View, contextID string, party view.Identity) (view.Session, error) {
@@ -306,38 +285,7 @@ func (ctx *ctx) safeInvoke(f func()) {
 	f()
 }
 
-func (ctx *ctx) lookupSession(f view.View, id view.Identity) (view.Session, view.Identity, string, error) {
-	viewIdentifier := getViewIdentifier(f)
-	it := ctx.alternativeIds(id)
-	defer it.Close()
-
-	var targetId view.Identity
-	for currId, err := it.Next(); !errors.Is(err, io.EOF); currId, err = it.Next() {
-		if err != nil {
-			continue
-		}
-
-		contextSessionIdentifier := viewIdentifier + currId.UniqueID()
-		if s, ok := ctx.sessions[contextSessionIdentifier]; ok {
-			logger.Debugf("session for [%s] found with identifier [%s]", id, contextSessionIdentifier)
-			return s, currId, contextSessionIdentifier, nil
-		}
-		targetId = currId
-	}
-	return nil, targetId, "", nil
-}
-
-func (ctx *ctx) alternativeIds(id view.Identity) collections.Iterator[view.Identity] {
-	return lazy.NewIterator(
-		func() (view.Identity, error) { return id, nil },
-		func() (view.Identity, error) { return ctx.resolveId(id) },
-		func() (view.Identity, error) {
-			return ctx.resolveId(ctx.idProvider.Identity(string(id)))
-		},
-	)
-}
-
-func (ctx *ctx) resolveId(id view.Identity) (view.Identity, error) {
+func (ctx *ctx) resolve(id view.Identity) (view.Identity, error) {
 	if id.IsNone() {
 		return nil, errors.New("no id provided")
 	}
@@ -355,28 +303,24 @@ func (ctx *ctx) createSession(caller view.View, party view.Identity, aliases ...
 	if err != nil {
 		return nil, err
 	}
-	partyUniqueID := party.UniqueID()
-	contextSessionIdentifier := getViewIdentifier(caller) + partyUniqueID
-	ctx.sessions[contextSessionIdentifier] = s
+
+	ctx.sessions.Put(getViewIdentifier(caller), party, s)
 
 	// add aliases as well
 	for _, alias := range aliases {
 		if alias == nil {
 			continue
 		}
-		aliasContextSessionIdentifier := getViewIdentifier(alias) + partyUniqueID
-		ctx.sessions[aliasContextSessionIdentifier] = s
+		ctx.sessions.Put(getViewIdentifier(alias), party, s)
 	}
 	return s, nil
 }
 
 func (ctx *ctx) PutSession(caller view.View, party view.Identity, session view.Session) error {
-	ctx.sessionsLock.Lock()
-	defer ctx.sessionsLock.Unlock()
+	ctx.sessions.Lock()
+	defer ctx.sessions.Unlock()
 
-	partyUniqueID := party.UniqueID()
-	contextSessionIdentifier := getViewIdentifier(caller) + partyUniqueID
-	ctx.sessions[contextSessionIdentifier] = session
+	ctx.sessions.Put(getViewIdentifier(caller), party, session)
 
 	return nil
 }
