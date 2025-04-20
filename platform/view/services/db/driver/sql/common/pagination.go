@@ -154,32 +154,32 @@ func NewPaginationInterpreter() *paginationInterpreter {
 }
 
 type PaginationInterpreter interface {
-	Interpret(p driver.Pagination, sql SqlQuery) (SqlQuery, error)
+	Interpret(p driver.Pagination, sql driver.SqlQuery) (driver.SqlQuery, error)
 }
 
 type paginationInterpreter struct{}
 
-func (i *paginationInterpreter) Interpret(p driver.Pagination, sql SqlQuery) (SqlQuery, error) {
+func (i *paginationInterpreter) Interpret(p driver.Pagination, sql driver.SqlQuery) (driver.SqlQuery, error) {
 	switch pagination := p.(type) {
 	case *NoPagination:
 		return sql, nil
 	case *OffsetPagination:
-		sql.limit = fmt.Sprintf("%d", pagination.pageSize)
-		sql.offset = fmt.Sprintf("%d", pagination.offset)
+		sql.SetLimit(fmt.Sprintf("%d", pagination.pageSize))
+		sql.SetOffset(fmt.Sprintf("%d", pagination.offset))
 		return sql, nil
 	case *KeysetPagination:
-		sql.order = fmt.Sprintf("%s ASC", pagination.sqlIdName)
-		sql.limit = fmt.Sprintf("%d", pagination.pageSize)
+		sql.SetOrder(fmt.Sprintf("%s ASC", pagination.sqlIdName))
+		sql.SetLimit(fmt.Sprintf("%d", pagination.pageSize))
 		if (pagination.lastOffset != -1) && (pagination.offset == pagination.lastOffset+pagination.pageSize) {
-			lastId := sql.AddParam(fmt.Sprintf("%d", pagination.lastId))
-			sql.where = append(sql.where, fmt.Sprintf("%s>'$%d'", pagination.sqlIdName, lastId))
+			lastId := sql.AddParam(pagination.lastId)
+			sql.AddWhere(fmt.Sprintf("%s>$%d", pagination.sqlIdName, lastId))
 		} else {
-			sql.offset = fmt.Sprintf("%d", pagination.offset)
+			sql.SetOffset(fmt.Sprintf("%d", pagination.offset))
 		}
 		return sql, nil
 	case *EmptyPagination:
-		sql.limit = "0"
-		sql.offset = "0"
+		sql.SetLimit("0")
+		sql.SetOffset("0")
 		return sql, nil
 	default:
 		return sql, errors.Errorf("invalid pagination option %+v", pagination)
