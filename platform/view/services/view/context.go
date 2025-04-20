@@ -70,11 +70,6 @@ func (c *MockContext) GetSessionByID(id string, party view.Identity) (view.Sessi
 	return c.Ctx.GetSessionByID(id, party)
 }
 
-func (c *MockContext) ResetSessions() error {
-	// TODO: clean responder channels
-	return c.Ctx.ResetSessions()
-}
-
 func (c *MockContext) Session() view.Session {
 	return c.Ctx.Session()
 }
@@ -87,7 +82,7 @@ func (c *MockContext) OnError(callback func()) {
 	c.Ctx.OnError(callback)
 }
 
-func (c *MockContext) GetSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
+func (c *MockContext) GetSession(caller view.View, party view.Identity, boundToViews ...view.View) (view.Session, error) {
 	for _, responder := range c.responders {
 		if responder.InitiatorView == caller && responder.ResponderID.Equal(party) {
 			responder.Lock.RLock()
