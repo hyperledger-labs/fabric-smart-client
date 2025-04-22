@@ -78,12 +78,12 @@ func (q *SqlQuery) SetTable(t string) {
 	q.table = t
 }
 
-func (q *SqlQuery) SetLimit(l string) {
-	q.limit = l
+func (q *SqlQuery) SetLimit(l int) {
+	q.limit = fmt.Sprintf("%d", l)
 }
 
-func (q *SqlQuery) SetOffset(o string) {
-	q.offset = o
+func (q *SqlQuery) SetOffset(o int) {
+	q.offset = fmt.Sprintf("%d", o)
 }
 
 func (q *SqlQuery) SetOrder(o string) {
