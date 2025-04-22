@@ -103,10 +103,6 @@ fabric:
           - name: iou
             private: false
     vault:
-      persistence:
-        type: file
-        opts:
-          path: /home/vagrant/testdata/fsc/nodes/approver/fabric.default/vault
       txidstore:
         cache:
           # Sets the maximum number of cached items

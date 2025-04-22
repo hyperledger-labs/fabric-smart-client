@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	driverb "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	drivera "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	driverb "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -201,16 +201,6 @@ type ConfigProvider struct {
 	keepAliveClientTimeoutReturnsOnCall map[int]struct {
 		result1 time.Duration
 	}
-	MSPCacheSizeStub        func() int
-	mSPCacheSizeMutex       sync.RWMutex
-	mSPCacheSizeArgsForCall []struct {
-	}
-	mSPCacheSizeReturns struct {
-		result1 int
-	}
-	mSPCacheSizeReturnsOnCall map[int]struct {
-		result1 int
-	}
 	NetworkNameStub        func() string
 	networkNameMutex       sync.RWMutex
 	networkNameArgsForCall []struct {
@@ -381,25 +371,15 @@ type ConfigProvider struct {
 	unmarshalKeyReturnsOnCall map[int]struct {
 		result1 error
 	}
-	VaultPersistencePrefixStub        func() string
-	vaultPersistencePrefixMutex       sync.RWMutex
-	vaultPersistencePrefixArgsForCall []struct {
+	VaultPersistenceNameStub        func() driverb.PersistenceName
+	vaultPersistenceNameMutex       sync.RWMutex
+	vaultPersistenceNameArgsForCall []struct {
 	}
-	vaultPersistencePrefixReturns struct {
-		result1 string
+	vaultPersistenceNameReturns struct {
+		result1 driverb.PersistenceName
 	}
-	vaultPersistencePrefixReturnsOnCall map[int]struct {
-		result1 string
-	}
-	VaultPersistenceTypeStub        func() driverb.PersistenceType
-	vaultPersistenceTypeMutex       sync.RWMutex
-	vaultPersistenceTypeArgsForCall []struct {
-	}
-	vaultPersistenceTypeReturns struct {
-		result1 driverb.PersistenceType
-	}
-	vaultPersistenceTypeReturnsOnCall map[int]struct {
-		result1 driverb.PersistenceType
+	vaultPersistenceNameReturnsOnCall map[int]struct {
+		result1 driverb.PersistenceName
 	}
 	VaultTXStoreCacheSizeStub        func() int
 	vaultTXStoreCacheSizeMutex       sync.RWMutex
@@ -1441,59 +1421,6 @@ func (fake *ConfigProvider) KeepAliveClientTimeoutReturnsOnCall(i int, result1 t
 	}{result1}
 }
 
-func (fake *ConfigProvider) MSPCacheSize() int {
-	fake.mSPCacheSizeMutex.Lock()
-	ret, specificReturn := fake.mSPCacheSizeReturnsOnCall[len(fake.mSPCacheSizeArgsForCall)]
-	fake.mSPCacheSizeArgsForCall = append(fake.mSPCacheSizeArgsForCall, struct {
-	}{})
-	stub := fake.MSPCacheSizeStub
-	fakeReturns := fake.mSPCacheSizeReturns
-	fake.recordInvocation("MSPCacheSize", []interface{}{})
-	fake.mSPCacheSizeMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ConfigProvider) MSPCacheSizeCallCount() int {
-	fake.mSPCacheSizeMutex.RLock()
-	defer fake.mSPCacheSizeMutex.RUnlock()
-	return len(fake.mSPCacheSizeArgsForCall)
-}
-
-func (fake *ConfigProvider) MSPCacheSizeCalls(stub func() int) {
-	fake.mSPCacheSizeMutex.Lock()
-	defer fake.mSPCacheSizeMutex.Unlock()
-	fake.MSPCacheSizeStub = stub
-}
-
-func (fake *ConfigProvider) MSPCacheSizeReturns(result1 int) {
-	fake.mSPCacheSizeMutex.Lock()
-	defer fake.mSPCacheSizeMutex.Unlock()
-	fake.MSPCacheSizeStub = nil
-	fake.mSPCacheSizeReturns = struct {
-		result1 int
-	}{result1}
-}
-
-func (fake *ConfigProvider) MSPCacheSizeReturnsOnCall(i int, result1 int) {
-	fake.mSPCacheSizeMutex.Lock()
-	defer fake.mSPCacheSizeMutex.Unlock()
-	fake.MSPCacheSizeStub = nil
-	if fake.mSPCacheSizeReturnsOnCall == nil {
-		fake.mSPCacheSizeReturnsOnCall = make(map[int]struct {
-			result1 int
-		})
-	}
-	fake.mSPCacheSizeReturnsOnCall[i] = struct {
-		result1 int
-	}{result1}
-}
-
 func (fake *ConfigProvider) NetworkName() string {
 	fake.networkNameMutex.Lock()
 	ret, specificReturn := fake.networkNameReturnsOnCall[len(fake.networkNameArgsForCall)]
@@ -2394,15 +2321,15 @@ func (fake *ConfigProvider) UnmarshalKeyReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *ConfigProvider) VaultPersistencePrefix() string {
-	fake.vaultPersistencePrefixMutex.Lock()
-	ret, specificReturn := fake.vaultPersistencePrefixReturnsOnCall[len(fake.vaultPersistencePrefixArgsForCall)]
-	fake.vaultPersistencePrefixArgsForCall = append(fake.vaultPersistencePrefixArgsForCall, struct {
+func (fake *ConfigProvider) VaultPersistenceName() driverb.PersistenceName {
+	fake.vaultPersistenceNameMutex.Lock()
+	ret, specificReturn := fake.vaultPersistenceNameReturnsOnCall[len(fake.vaultPersistenceNameArgsForCall)]
+	fake.vaultPersistenceNameArgsForCall = append(fake.vaultPersistenceNameArgsForCall, struct {
 	}{})
-	stub := fake.VaultPersistencePrefixStub
-	fakeReturns := fake.vaultPersistencePrefixReturns
-	fake.recordInvocation("VaultPersistencePrefix", []interface{}{})
-	fake.vaultPersistencePrefixMutex.Unlock()
+	stub := fake.VaultPersistenceNameStub
+	fakeReturns := fake.vaultPersistenceNameReturns
+	fake.recordInvocation("VaultPersistenceName", []interface{}{})
+	fake.vaultPersistenceNameMutex.Unlock()
 	if stub != nil {
 		return stub()
 	}
@@ -2412,91 +2339,38 @@ func (fake *ConfigProvider) VaultPersistencePrefix() string {
 	return fakeReturns.result1
 }
 
-func (fake *ConfigProvider) VaultPersistencePrefixCallCount() int {
-	fake.vaultPersistencePrefixMutex.RLock()
-	defer fake.vaultPersistencePrefixMutex.RUnlock()
-	return len(fake.vaultPersistencePrefixArgsForCall)
+func (fake *ConfigProvider) VaultPersistenceNameCallCount() int {
+	fake.vaultPersistenceNameMutex.RLock()
+	defer fake.vaultPersistenceNameMutex.RUnlock()
+	return len(fake.vaultPersistenceNameArgsForCall)
 }
 
-func (fake *ConfigProvider) VaultPersistencePrefixCalls(stub func() string) {
-	fake.vaultPersistencePrefixMutex.Lock()
-	defer fake.vaultPersistencePrefixMutex.Unlock()
-	fake.VaultPersistencePrefixStub = stub
+func (fake *ConfigProvider) VaultPersistenceNameCalls(stub func() driverb.PersistenceName) {
+	fake.vaultPersistenceNameMutex.Lock()
+	defer fake.vaultPersistenceNameMutex.Unlock()
+	fake.VaultPersistenceNameStub = stub
 }
 
-func (fake *ConfigProvider) VaultPersistencePrefixReturns(result1 string) {
-	fake.vaultPersistencePrefixMutex.Lock()
-	defer fake.vaultPersistencePrefixMutex.Unlock()
-	fake.VaultPersistencePrefixStub = nil
-	fake.vaultPersistencePrefixReturns = struct {
-		result1 string
+func (fake *ConfigProvider) VaultPersistenceNameReturns(result1 driverb.PersistenceName) {
+	fake.vaultPersistenceNameMutex.Lock()
+	defer fake.vaultPersistenceNameMutex.Unlock()
+	fake.VaultPersistenceNameStub = nil
+	fake.vaultPersistenceNameReturns = struct {
+		result1 driverb.PersistenceName
 	}{result1}
 }
 
-func (fake *ConfigProvider) VaultPersistencePrefixReturnsOnCall(i int, result1 string) {
-	fake.vaultPersistencePrefixMutex.Lock()
-	defer fake.vaultPersistencePrefixMutex.Unlock()
-	fake.VaultPersistencePrefixStub = nil
-	if fake.vaultPersistencePrefixReturnsOnCall == nil {
-		fake.vaultPersistencePrefixReturnsOnCall = make(map[int]struct {
-			result1 string
+func (fake *ConfigProvider) VaultPersistenceNameReturnsOnCall(i int, result1 driverb.PersistenceName) {
+	fake.vaultPersistenceNameMutex.Lock()
+	defer fake.vaultPersistenceNameMutex.Unlock()
+	fake.VaultPersistenceNameStub = nil
+	if fake.vaultPersistenceNameReturnsOnCall == nil {
+		fake.vaultPersistenceNameReturnsOnCall = make(map[int]struct {
+			result1 driverb.PersistenceName
 		})
 	}
-	fake.vaultPersistencePrefixReturnsOnCall[i] = struct {
-		result1 string
-	}{result1}
-}
-
-func (fake *ConfigProvider) VaultPersistenceType() driverb.PersistenceType {
-	fake.vaultPersistenceTypeMutex.Lock()
-	ret, specificReturn := fake.vaultPersistenceTypeReturnsOnCall[len(fake.vaultPersistenceTypeArgsForCall)]
-	fake.vaultPersistenceTypeArgsForCall = append(fake.vaultPersistenceTypeArgsForCall, struct {
-	}{})
-	stub := fake.VaultPersistenceTypeStub
-	fakeReturns := fake.vaultPersistenceTypeReturns
-	fake.recordInvocation("VaultPersistenceType", []interface{}{})
-	fake.vaultPersistenceTypeMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ConfigProvider) VaultPersistenceTypeCallCount() int {
-	fake.vaultPersistenceTypeMutex.RLock()
-	defer fake.vaultPersistenceTypeMutex.RUnlock()
-	return len(fake.vaultPersistenceTypeArgsForCall)
-}
-
-func (fake *ConfigProvider) VaultPersistenceTypeCalls(stub func() driverb.PersistenceType) {
-	fake.vaultPersistenceTypeMutex.Lock()
-	defer fake.vaultPersistenceTypeMutex.Unlock()
-	fake.VaultPersistenceTypeStub = stub
-}
-
-func (fake *ConfigProvider) VaultPersistenceTypeReturns(result1 driverb.PersistenceType) {
-	fake.vaultPersistenceTypeMutex.Lock()
-	defer fake.vaultPersistenceTypeMutex.Unlock()
-	fake.VaultPersistenceTypeStub = nil
-	fake.vaultPersistenceTypeReturns = struct {
-		result1 driverb.PersistenceType
-	}{result1}
-}
-
-func (fake *ConfigProvider) VaultPersistenceTypeReturnsOnCall(i int, result1 driverb.PersistenceType) {
-	fake.vaultPersistenceTypeMutex.Lock()
-	defer fake.vaultPersistenceTypeMutex.Unlock()
-	fake.VaultPersistenceTypeStub = nil
-	if fake.vaultPersistenceTypeReturnsOnCall == nil {
-		fake.vaultPersistenceTypeReturnsOnCall = make(map[int]struct {
-			result1 driverb.PersistenceType
-		})
-	}
-	fake.vaultPersistenceTypeReturnsOnCall[i] = struct {
-		result1 driverb.PersistenceType
+	fake.vaultPersistenceNameReturnsOnCall[i] = struct {
+		result1 driverb.PersistenceName
 	}{result1}
 }
 
@@ -2592,8 +2466,6 @@ func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	defer fake.keepAliveClientIntervalMutex.RUnlock()
 	fake.keepAliveClientTimeoutMutex.RLock()
 	defer fake.keepAliveClientTimeoutMutex.RUnlock()
-	fake.mSPCacheSizeMutex.RLock()
-	defer fake.mSPCacheSizeMutex.RUnlock()
 	fake.networkNameMutex.RLock()
 	defer fake.networkNameMutex.RUnlock()
 	fake.newDefaultChannelConfigMutex.RLock()
@@ -2626,10 +2498,8 @@ func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	defer fake.translatePathMutex.RUnlock()
 	fake.unmarshalKeyMutex.RLock()
 	defer fake.unmarshalKeyMutex.RUnlock()
-	fake.vaultPersistencePrefixMutex.RLock()
-	defer fake.vaultPersistencePrefixMutex.RUnlock()
-	fake.vaultPersistenceTypeMutex.RLock()
-	defer fake.vaultPersistenceTypeMutex.RUnlock()
+	fake.vaultPersistenceNameMutex.RLock()
+	defer fake.vaultPersistenceNameMutex.RUnlock()
 	fake.vaultTXStoreCacheSizeMutex.RLock()
 	defer fake.vaultTXStoreCacheSizeMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}

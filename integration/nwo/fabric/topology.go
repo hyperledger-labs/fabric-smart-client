@@ -12,7 +12,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 )
 
@@ -183,18 +184,37 @@ func NewTopologyWithName(name string) *topology.Topology {
 	}
 }
 
-const VaultPersistencePrefix = network.VaultPersistencePrefix
+const VaultPersistencePrefix = network.VaultPersistenceKey
 
-// WithPostgresPersistence is a configuration with SQL persistence
-func WithPostgresPersistence(config postgres.DataSourceProvider, prefixes ...string) node.Option {
+func WithDefaultPostgresPersistence(config postgres.DataSourceProvider) node.Option {
+	return WithPostgresPersistence(common.DefaultPersistence, config)
+}
+
+func WithPostgresPersistence(name driver.PersistenceName, config postgres.DataSourceProvider) node.Option {
 	return func(o *node.Options) error {
 		if config != nil {
-			for _, prefix := range prefixes {
-				o.PutSQLPersistence(prefix, node.SQLOpts{
-					DataSource: config.DataSource(),
-					DriverType: sql.Postgres,
-				})
-			}
+			o.PutPostgresPersistence(name, node.SQLOpts{
+				DataSource: config.DataSource(),
+			})
+		}
+		return nil
+	}
+}
+
+// WithPostgresPersistenceNames is a configuration with SQL persistence
+func WithPostgresPersistenceNames(name driver.PersistenceName, prefixes ...node.PersistenceKey) node.Option {
+	return func(o *node.Options) error {
+		for _, prefix := range prefixes {
+			o.PutPostgresPersistenceName(prefix, name)
+		}
+		return nil
+	}
+}
+
+func WithSqlitePersistences(prefixes ...node.PersistenceKey) node.Option {
+	return func(o *node.Options) error {
+		for _, prefix := range prefixes {
+			o.PutPersistenceKey(prefix)
 		}
 		return nil
 	}

@@ -20,14 +20,14 @@ import (
 )
 
 func OpenMemoryVault(params ...string) (driver.VaultPersistence, error) {
-	return NewStore(&mock.ConfigProvider{}, multiplexed.Driver{mem.NewDriver()}, params...)
+	return NewStore("", multiplexed.NewDriver(&mock.ConfigProvider{}, mem.NewNamedDriver()), params...)
 }
 
 func OpenSqliteVault(key, tempDir string) (driver.VaultPersistence, error) {
-	cp := common.MockConfig(sqlite.Config{
+	cp := sqlite.NewConfigProvider(common.MockConfig(sqlite.Config{
 		DataSource: fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)),
-	})
-	return sqlite.NewPersistenceWithOpts(cp, sqlite.NewVaultPersistence)
+	}))
+	return sqlite.NewPersistenceWithOpts(cp, "", sqlite.NewVaultPersistence)
 }
 
 func OpenPostgresVault(name string) (driver.VaultPersistence, func(), error) {
@@ -37,11 +37,11 @@ func OpenPostgresVault(name string) (driver.VaultPersistence, func(), error) {
 		return nil, nil, err
 	}
 
-	cp := common.MockConfig(postgres.Config{
+	cp := postgres.NewConfigProvider(common.MockConfig(postgres.Config{
 		DataSource:   postgresConfig.DataSource(),
 		MaxOpenConns: 50,
-	})
-	persistence, err := postgres.NewPersistenceWithOpts(cp, postgres.NewVaultPersistence)
+	}))
+	persistence, err := postgres.NewPersistenceWithOpts(cp, "", postgres.NewVaultPersistence)
 	if err != nil {
 		return nil, nil, err
 	}

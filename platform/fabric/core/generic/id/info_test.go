@@ -14,13 +14,8 @@ import (
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	x5092 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
-	kvs2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	msp2 "github.com/hyperledger/fabric/msp"
 	"github.com/stretchr/testify/assert"
 )
@@ -28,11 +23,12 @@ import (
 func TestInfoIdemix(t *testing.T) {
 	registry := registry2.New()
 
-	persistence, err := kvs2.NewStore(&mock.ConfigProvider{}, multiplexed.Driver{mem.NewDriver()})
+	driver := mem.NewDriver()
+	persistence, err := driver.NewKVS("")
 	assert.NoError(t, err)
-	auditInfo, err := auditinfo.NewStore(&mock.ConfigProvider{}, multiplexed.Driver{mem.NewDriver()})
+	auditInfo, err := driver.NewAuditInfo("")
 	assert.NoError(t, err)
-	signerInfo, err := signerinfo.NewStore(&mock.ConfigProvider{}, multiplexed.Driver{mem.NewDriver()})
+	signerInfo, err := driver.NewSignerInfo("")
 	assert.NoError(t, err)
 	kvss, err := kvs.New(persistence, "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)

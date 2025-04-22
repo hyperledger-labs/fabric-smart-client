@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/pkg/errors"
 )
 
@@ -106,6 +107,10 @@ func (c *Config) Identities() ([]Identity, error) {
 		return nil, err
 	}
 	return identities, nil
+}
+
+func (c *Config) VaultPersistenceName() driver2.PersistenceName {
+	return driver2.PersistenceName(c.configService.GetString("orion." + c.prefix + "vault.persistence"))
 }
 
 func (c *Config) VaultPersistenceType() driver.PersistenceType {

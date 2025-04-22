@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/pkg/errors"
 )
@@ -24,7 +24,6 @@ const (
 	defaultMSPCacheSize               = 3
 	defaultBroadcastNumRetries        = 3
 	defaultBroadcastRetryInterval     = 500 * time.Millisecond
-	vaultPersistenceOptsKey           = "vault.persistence.opts"
 	defaultOrderingConnectionPoolSize = 10
 	defaultNumRetries                 = 3
 	defaultRetrySleep                 = 1 * time.Second
@@ -216,12 +215,8 @@ func (s *Service) Orderers() []*grpc.ConnectionConfig {
 	return s.orderers
 }
 
-func (s *Service) VaultPersistenceType() cdriver.PersistenceType {
-	return cdriver.PersistenceType(s.GetString("vault.persistence.type"))
-}
-
-func (s *Service) VaultPersistencePrefix() string {
-	return vaultPersistenceOptsKey
+func (s *Service) VaultPersistenceName() driver2.PersistenceName {
+	return driver2.PersistenceName(s.GetString("vault.persistence"))
 }
 
 func (s *Service) VaultTXStoreCacheSize() int {

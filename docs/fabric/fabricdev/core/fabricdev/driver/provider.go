@@ -14,6 +14,7 @@ import (
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger/fabric-protos-go/common"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -66,11 +66,12 @@ func NewProvider(
 	publisher events.Publisher,
 	hasher hash.Hasher,
 	tracerProvider trace.TracerProvider,
-	Drivers []dbdriver.NamedDriver,
+	Drivers multiplexed.Driver,
 ) *Provider {
 	return &Provider{
 		configProvider: configProvider,
 		channelProvider: fabricdev.NewChannelProvider(
+			configProvider,
 			envelopeKVS,
 			metadataKVS,
 			endorseTxKVS,

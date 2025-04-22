@@ -67,10 +67,11 @@ fsc:
       routing:
         # The path to the file that contains the routing, if the routing is static
         path: ./../../routing-config.yaml
+  persistences:
+    default:
+      type: memory
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
-    persistence:
-      type: memory
     cache:
         # Sets the maximum number of cached items 
         size: 200

@@ -19,11 +19,11 @@ func BenchmarkReadExistingPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	cp := common2.MockConfig(Config{
+	cp := NewConfigProvider(common2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
-	})
-	db, err := NewPersistenceWithOpts(cp, NewUnversionedPersistence)
+	}))
+	db, err := NewPersistenceWithOpts(cp, "", NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -39,11 +39,11 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 	}
 	defer terminate()
 
-	cp := common2.MockConfig(Config{
+	cp := NewConfigProvider(common2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
-	})
-	db, err := NewPersistenceWithOpts(cp, NewUnversionedPersistence)
+	}))
+	db, err := NewPersistenceWithOpts(cp, "", NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -59,11 +59,11 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 	}
 	defer terminate()
 
-	cp := common2.MockConfig(Config{
+	cp := NewConfigProvider(common2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
-	})
-	db, err := NewPersistenceWithOpts(cp, NewUnversionedPersistence)
+	}))
+	db, err := NewPersistenceWithOpts(cp, "", NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -78,11 +78,11 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	cp := common2.MockConfig(Config{
+	cp := NewConfigProvider(common2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
-	})
-	db, err := NewPersistenceWithOpts(cp, NewUnversionedPersistence)
+	}))
+	db, err := NewPersistenceWithOpts(cp, "", NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -97,12 +97,12 @@ func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer terminate()
-	cp := common2.MockConfig(Config{
+	cp := NewConfigProvider(common2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 		MaxIdleConns: common2.CopyPtr(50),
-	})
-	db, err := NewPersistenceWithOpts(cp, NewUnversionedPersistence)
+	}))
+	db, err := NewPersistenceWithOpts(cp, "", NewUnversionedPersistence)
 	if err != nil {
 		b.Fatal(err)
 	}

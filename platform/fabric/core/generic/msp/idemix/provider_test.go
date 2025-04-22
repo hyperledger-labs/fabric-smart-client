@@ -18,13 +18,8 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
-	kvs2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	msp2 "github.com/hyperledger/fabric/msp"
 	"github.com/stretchr/testify/assert"
 )
@@ -55,16 +50,15 @@ func TestProvider(t *testing.T) {
 }
 
 func newSignerInfo() driver.SignerInfoPersistence {
-	return utils.MustGet(signerinfo.NewStore(&mock.ConfigProvider{}, multiplexed.Driver{mem.NewDriver()}))
+	return utils.MustGet(mem.NewDriver().NewSignerInfo(""))
 }
 
 func newAuditInfo() driver.AuditInfoPersistence {
-
-	return utils.MustGet(auditinfo.NewStore(&mock.ConfigProvider{}, multiplexed.Driver{mem.NewDriver()}))
+	return utils.MustGet(mem.NewDriver().NewAuditInfo(""))
 }
 
 func newKVS() driver.UnversionedPersistence {
-	return utils.MustGet(kvs2.NewStore(&mock.ConfigProvider{}, multiplexed.Driver{mem.NewDriver()}))
+	return utils.MustGet(mem.NewDriver().NewKVS(""))
 }
 
 func TestIdentityWithEidRhNymPolicy(t *testing.T) {

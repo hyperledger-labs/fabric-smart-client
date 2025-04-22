@@ -84,129 +84,61 @@ fsc:
         # The path to the file that contains the routing, if the routing is static
         path: {{ .RoutingConfigPath }}
         {{- end }}
-  # The Key-Value Store is used to store various information related to the FSC node
-  kvs:
-    persistence:
-      type: {{ KVSOpts.Type }}
+  persistences: {{ range $key, $value := Persistences }}
+    {{ $key }}:
+      type: {{ $value.Type }}
       opts:
-        {{- if eq KVSOpts.Type "sql" }}
-        driver: {{ KVSOpts.SQL.DriverType }}
-        dataSource: {{ KVSOpts.SQL.DataSource }}
-        createSchema: {{ KVSOpts.SQL.CreateSchema }}
-        tablePrefix: {{ KVSOpts.SQL.TablePrefix }}    
-        maxOpenConns: {{ KVSOpts.SQL.MaxOpenConns }}
+        {{- if eq $value.Type "postgres" }}
+        dataSource: {{ $value.SQL.DataSource }}
+        tablePrefix:
+        maxOpenConns: 200
         maxIdleConns: 3
         maxIdleTime: 45s
-        {{- else if eq KVSOpts.Type "memory" }}
+        skipCreateTable: false
+        {{- else if eq $value.Type "sqlite" }}
+        dataSource: {{ $value.SQL.DataSource }}
+        tablePrefix:    
+        maxOpenConns: 200
+        maxIdleConns: 3
+        maxIdleTime: 45s
+        skipCreateTable: false
+        skipPragmas: false
+        {{- else if eq $value.Type "memory" }}
         # Memory has hard-coded opts
         {{- else }}
-        # Unknown type {{ KVSOpts.Type }}
+        # Unknown type {{ $value.Type }}
         {{- end }}
+  {{- end }}
+  # The Key-Value Store is used to store various information related to the FSC node
+  kvs:
+    persistence: {{ KVSPersistence }}
     cache:
         # Sets the maximum number of cached items 
         size: 200
+{{- if ne BindingPersistence "" }}
   binding:
-    persistence:
-      type: {{ BindingOpts.Type }}
-      opts:
-        {{- if eq BindingOpts.Type "sql" }}
-        driver: {{ BindingOpts.SQL.DriverType }}
-        dataSource: {{ BindingOpts.SQL.DataSource }}
-        createSchema: {{ BindingOpts.SQL.CreateSchema }}
-        tablePrefix: {{ BindingOpts.SQL.TablePrefix }}    
-        maxOpenConns: {{ BindingOpts.SQL.MaxOpenConns }}
-        maxIdleConns: 3
-        maxIdleTime: 45s
-        {{- else if eq BindingOpts.Type "memory" }}
-        # Memory has hard-coded opts
-        {{- else }}
-        # Unknown type {{ BindingOpts.Type }}
-        {{- end }}
+    persistence: {{ BindingPersistence }}
+{{- end }}
+{{- if ne SignerInfoPersistence "" }}
   signerinfo:
-    persistence:
-      type: {{ SignerInfoOpts.Type }}
-      opts:
-        {{- if eq SignerInfoOpts.Type "sql" }}
-        driver: {{ SignerInfoOpts.SQL.DriverType }}
-        dataSource: {{ SignerInfoOpts.SQL.DataSource }}
-        createSchema: {{ SignerInfoOpts.SQL.CreateSchema }}
-        tablePrefix: {{ SignerInfoOpts.SQL.TablePrefix }}    
-        maxOpenConns: {{ SignerInfoOpts.SQL.MaxOpenConns }}
-        maxIdleConns: 3
-        maxIdleTime: 45s
-        {{- else if eq SignerInfoOpts.Type "memory" }}
-        # Memory has hard-coded opts
-        {{- else }}
-        # Unknown type {{ SignerInfoOpts.Type }}
-        {{- end }}
+    persistence: {{ SignerInfoPersistence }}
+{{- end }}
+{{- if ne AuditInfoPersistence "" }}
   auditinfo:
-    persistence:
-      type: {{ AuditInfoOpts.Type }}
-      opts:
-        {{- if eq AuditInfoOpts.Type "sql" }}
-        driver: {{ AuditInfoOpts.SQL.DriverType }}
-        dataSource: {{ AuditInfoOpts.SQL.DataSource }}
-        createSchema: {{ AuditInfoOpts.SQL.CreateSchema }}
-        tablePrefix: {{ AuditInfoOpts.SQL.TablePrefix }}    
-        maxOpenConns: {{ AuditInfoOpts.SQL.MaxOpenConns }}
-        maxIdleConns: 3
-        maxIdleTime: 45s
-        {{- else if eq AuditInfoOpts.Type "memory" }}
-        # Memory has hard-coded opts
-        {{- else }}
-        # Unknown type {{ AuditInfoOpts.Type }}
-        {{- end }}
+    persistence: {{ AuditInfoPersistence }}
+{{- end }}
+{{- if ne EndorseTxPersistence "" }}
   endorsetx:
-    persistence:
-      type: {{ EndorseTxOpts.Type }}
-      opts:
-        {{- if eq EndorseTxOpts.Type "sql" }}
-        driver: {{ EndorseTxOpts.SQL.DriverType }}
-        dataSource: {{ EndorseTxOpts.SQL.DataSource }}
-        createSchema: {{ EndorseTxOpts.SQL.CreateSchema }}
-        tablePrefix: {{ EndorseTxOpts.SQL.TablePrefix }}    
-        maxOpenConns: {{ EndorseTxOpts.SQL.MaxOpenConns }}
-        maxIdleConns: 3
-        maxIdleTime: 45s
-        {{- else if eq EndorseTxOpts.Type "memory" }}
-        # Memory has hard-coded opts
-        {{- else }}
-        # Unknown type {{ EndorseTxOpts.Type }}
-        {{- end }}
+    persistence: {{ EndorseTxPersistence }}
+{{- end }}
+{{- if ne EnvelopePersistence "" }}
   envelope:
-    persistence:
-      type: {{ EnvelopeOpts.Type }}
-      opts:
-        {{- if eq EnvelopeOpts.Type "sql" }}
-        driver: {{ EnvelopeOpts.SQL.DriverType }}
-        dataSource: {{ EnvelopeOpts.SQL.DataSource }}
-        createSchema: {{ EnvelopeOpts.SQL.CreateSchema }}
-        tablePrefix: {{ EnvelopeOpts.SQL.TablePrefix }}    
-        maxOpenConns: {{ EnvelopeOpts.SQL.MaxOpenConns }}
-        maxIdleConns: 3
-        maxIdleTime: 45s
-        {{- else if eq EnvelopeOpts.Type "memory" }}
-        # Memory has hard-coded opts
-        {{- else }}
-        # Unknown type {{ EnvelopeOpts.Type }}
-        {{- end }}
+    persistence: {{ EnvelopePersistence }}
+{{- end }}
+{{- if ne MetadataPersistence "" }}
   metadata:
-    persistence:
-      type: {{ MetadataOpts.Type }}
-      opts:
-        {{- if eq MetadataOpts.Type "sql" }}
-        driver: {{ MetadataOpts.SQL.DriverType }}
-        dataSource: {{ MetadataOpts.SQL.DataSource }}
-        createSchema: {{ MetadataOpts.SQL.CreateSchema }}
-        tablePrefix: {{ MetadataOpts.SQL.TablePrefix }}    
-        maxOpenConns: {{ MetadataOpts.SQL.MaxOpenConns }}
-        maxIdleConns: 3
-        maxIdleTime: 45s
-        {{- else if eq MetadataOpts.Type "memory" }}
-        # Memory has hard-coded opts
-        {{- else }}
-        # Unknown type {{ MetadataOpts.Type }}
-        {{- end }}
+    persistence: {{ MetadataPersistence }}
+{{- end }}
   # HTML Server configuration for REST calls
   web:
     enabled: {{ WebEnabled }}

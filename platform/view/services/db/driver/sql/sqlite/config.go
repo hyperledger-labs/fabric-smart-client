@@ -9,16 +9,14 @@ package sqlite
 import (
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/pkg/errors"
 )
 
 // config models the DB configuration
 type config interface {
-	// IsSet checks to see if the key has been set in any of the data locations
-	IsSet(key string) bool
-	// UnmarshalKey takes a single key and unmarshals it into a Struct
-	UnmarshalKey(key string, rawVal interface{}) error
+	UnmarshalDriverOpts(name driver.PersistenceName, v any) error
 }
 
 type Config struct {
@@ -40,9 +38,9 @@ type configProvider struct {
 	config config
 }
 
-func (r *configProvider) GetOpts(params ...string) (*Config, error) {
+func (r *configProvider) GetOpts(name driver.PersistenceName, params ...string) (*Config, error) {
 	o := &Config{}
-	if err := r.config.UnmarshalKey("opts", o); err != nil {
+	if err := r.config.UnmarshalDriverOpts(name, o); err != nil {
 		return nil, err
 	}
 	if len(o.DataSource) == 0 {

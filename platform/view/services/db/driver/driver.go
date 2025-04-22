@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
-	"time"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/pkg/errors"
@@ -95,6 +93,23 @@ type UnversionedWriteTransaction interface {
 	Discard() error
 }
 
+// PersistenceName is the key of a persistence configuration in the core.yaml under fsc.persistences
+// Each store has a property "persistence" that references to a persistence config by its name
+// If the persistence property is not populated, the "default" persistence name is implied (if this is defined under fsc.persistences).
+type PersistenceName string
+
+// PersistenceConfig reads the section under fsc.persistences in the core.yaml
+type PersistenceConfig interface {
+	// GetDriverType returns the persistence type (memory, postgres, sqlite) of a specific persistence config
+	// Corresponds to fsc.persistences.{{persistence_name}}.type
+	GetDriverType(PersistenceName) (driver.PersistenceType, error)
+
+	// UnmarshalDriverOpts retrieves the persistence options of a specific persistence config
+	// The actual options may vary depending on the persistence type
+	// Corresponds to fsc.persistences.{{persistence_name}}.opts
+	UnmarshalDriverOpts(name PersistenceName, v any) error
+}
+
 // Config provides access to the underlying configuration
 type Config interface {
 	// IsSet checks to see if the key has been set in any of the data locations
@@ -107,21 +122,21 @@ type NamedDriver = driver.NamedDriver[Driver]
 
 type Driver interface {
 	// NewKVS returns a new UnversionedPersistence for the passed data source and config
-	NewKVS(Config, ...string) (UnversionedPersistence, error)
+	NewKVS(PersistenceName, ...string) (UnversionedPersistence, error)
 	// NewBinding returns a new BindingPersistence for the passed data source and config
-	NewBinding(Config, ...string) (BindingPersistence, error)
+	NewBinding(PersistenceName, ...string) (BindingPersistence, error)
 	// NewSignerInfo returns a new SignerInfoPersistence for the passed data source and config
-	NewSignerInfo(Config, ...string) (SignerInfoPersistence, error)
+	NewSignerInfo(PersistenceName, ...string) (SignerInfoPersistence, error)
 	// NewAuditInfo returns a new AuditInfoPersistence for the passed data source and config
-	NewAuditInfo(Config, ...string) (AuditInfoPersistence, error)
+	NewAuditInfo(PersistenceName, ...string) (AuditInfoPersistence, error)
 	// NewEndorseTx returns a new EndorseTxPersistence for the passed data source and config
-	NewEndorseTx(Config, ...string) (EndorseTxPersistence, error)
+	NewEndorseTx(PersistenceName, ...string) (EndorseTxPersistence, error)
 	// NewMetadata returns a new MetadataPersistence for the passed data source and config
-	NewMetadata(Config, ...string) (MetadataPersistence, error)
+	NewMetadata(PersistenceName, ...string) (MetadataPersistence, error)
 	// NewEnvelope returns a new EnvelopePersistence for the passed data source and config
-	NewEnvelope(Config, ...string) (EnvelopePersistence, error)
+	NewEnvelope(PersistenceName, ...string) (EnvelopePersistence, error)
 	// NewVault returns a new VaultPersistence for the passed data source and config
-	NewVault(Config, ...string) (driver.VaultStore, error)
+	NewVault(PersistenceName, ...string) (driver.VaultStore, error)
 }
 
 type (
@@ -147,26 +162,4 @@ type Notifier interface {
 type UnversionedNotifier interface {
 	UnversionedPersistence
 	Notifier
-}
-
-type SQLDriverType string
-
-type ConfigProvider interface {
-	GetConfig(configKey string, name string, params ...string) (TableOpts, error)
-}
-
-type TableOpts interface {
-	TableName() string
-	DriverType() driver.PersistenceType
-	DbOpts() DbOpts
-}
-
-type DbOpts interface {
-	Driver() SQLDriverType
-	DataSource() string
-	SkipCreateTable() bool
-	SkipPragmas() bool
-	MaxOpenConns() int
-	MaxIdleConns() int
-	MaxIdleTime() time.Duration
 }

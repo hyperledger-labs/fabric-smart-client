@@ -17,49 +17,55 @@ const (
 	Persistence driver2.PersistenceType = "sqlite"
 )
 
-func NewDriver() driver.NamedDriver {
+func NewNamedDriver(config driver.Config) driver.NamedDriver {
 	return driver.NamedDriver{
 		Name:   Persistence,
-		Driver: &Driver{},
+		Driver: NewDriver(config),
 	}
 }
 
-type Driver struct{}
-
-func (d *Driver) NewKVS(cfg driver.Config, params ...string) (driver.UnversionedPersistence, error) {
-	return NewPersistenceWithOpts(cfg, NewUnversionedPersistence, params...)
+func NewDriver(config driver.Config) *Driver {
+	return &Driver{cp: NewConfigProvider(common.NewConfig(config))}
 }
 
-func (d *Driver) NewBinding(cfg driver.Config, params ...string) (driver.BindingPersistence, error) {
-	return NewPersistenceWithOpts(cfg, NewBindingPersistence, params...)
+type Driver struct {
+	cp *configProvider
 }
 
-func (d *Driver) NewSignerInfo(cfg driver.Config, params ...string) (driver.SignerInfoPersistence, error) {
-	return NewPersistenceWithOpts(cfg, NewSignerInfoPersistence, params...)
+func (d *Driver) NewKVS(name driver.PersistenceName, params ...string) (driver.UnversionedPersistence, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewUnversionedPersistence, params...)
 }
 
-func (d *Driver) NewAuditInfo(cfg driver.Config, params ...string) (driver.AuditInfoPersistence, error) {
-	return NewPersistenceWithOpts(cfg, NewAuditInfoPersistence, params...)
+func (d *Driver) NewBinding(name driver.PersistenceName, params ...string) (driver.BindingPersistence, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewBindingPersistence, params...)
 }
 
-func (d *Driver) NewEndorseTx(cfg driver.Config, params ...string) (driver.EndorseTxPersistence, error) {
-	return NewPersistenceWithOpts(cfg, NewEndorseTxPersistence, params...)
+func (d *Driver) NewSignerInfo(name driver.PersistenceName, params ...string) (driver.SignerInfoPersistence, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewSignerInfoPersistence, params...)
 }
 
-func (d *Driver) NewMetadata(cfg driver.Config, params ...string) (driver.MetadataPersistence, error) {
-	return NewPersistenceWithOpts(cfg, NewMetadataPersistence, params...)
+func (d *Driver) NewAuditInfo(name driver.PersistenceName, params ...string) (driver.AuditInfoPersistence, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewAuditInfoPersistence, params...)
 }
 
-func (d *Driver) NewEnvelope(cfg driver.Config, params ...string) (driver.EnvelopePersistence, error) {
-	return NewPersistenceWithOpts(cfg, NewEnvelopePersistence, params...)
+func (d *Driver) NewEndorseTx(name driver.PersistenceName, params ...string) (driver.EndorseTxPersistence, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewEndorseTxPersistence, params...)
 }
 
-func (d *Driver) NewVault(cfg driver.Config, params ...string) (driver2.VaultStore, error) {
-	return NewPersistenceWithOpts(cfg, NewVaultPersistence, params...)
+func (d *Driver) NewMetadata(name driver.PersistenceName, params ...string) (driver.MetadataPersistence, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewMetadataPersistence, params...)
 }
 
-func NewPersistenceWithOpts[V common.DBObject](cfg driver.Config, constructor common.PersistenceConstructor[Opts, V], params ...string) (V, error) {
-	o, err := NewConfigProvider(cfg).GetOpts(params...)
+func (d *Driver) NewEnvelope(name driver.PersistenceName, params ...string) (driver.EnvelopePersistence, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewEnvelopePersistence, params...)
+}
+
+func (d *Driver) NewVault(name driver.PersistenceName, params ...string) (driver2.VaultStore, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewVaultPersistence, params...)
+}
+
+func NewPersistenceWithOpts[V common.DBObject](cfg *configProvider, name driver.PersistenceName, constructor common.PersistenceConstructor[Opts, V], params ...string) (V, error) {
+	o, err := cfg.GetOpts(name, params...)
 	if err != nil {
 		return utils.Zero[V](), err
 	}

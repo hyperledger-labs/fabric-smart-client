@@ -470,10 +470,12 @@ fsc:
     listenAddress: /ip4/127.0.0.1/tcp/20001
     # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
     bootstrapNode: 
+  persistences:
+    default:
+      type: memory
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
     persistence:
-      type: memory
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
   endpoint:

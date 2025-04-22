@@ -10,8 +10,8 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 )
 
 type identifier interface {
@@ -19,7 +19,7 @@ type identifier interface {
 }
 
 func NewStore[K identifier, M any](cp driver.Config, d multiplexed.Driver, params ...string) (*store[K, M], error) {
-	m, err := d.NewMetadata(db.NewPrefixConfig(cp, "fsc.metadata.persistence"), params...)
+	m, err := d.NewMetadata(common.GetPersistenceName(cp, "fsc.metadata.persistence"), params...)
 	if err != nil {
 		return nil, err
 	}

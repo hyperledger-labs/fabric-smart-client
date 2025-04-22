@@ -102,10 +102,33 @@ fsc:
       # Sets the maximum number of cached items
       # If not specified, default is 100 (TBD: What is the scale here ?, what does 0 mean)
       size:
+    # persistence references one of the keys under 'fsc.persistences'. Defaults to 'default', if a default persistence is defined
     persistence:
-      # type can be memory or sql
-      type: memory
 
+  # ------------------- Persistence Configuration -------------------------
+  # All persistence configurations of the application are defined here
+  # Then each store chooses a configuration by referencing it by the key (e.g. my_sqlite_persistence)
+  # If a store does not define one, the 'default' will be picked if it is defined 
+  persistences:
+    # The default persistence configuration for all stores that do not define one.
+    # A default persistence is not mandatory
+    default:
+      # The type can be memory, sqlite, postgres
+      type: memory
+    # The persistence configuration for all stores that define the option
+    # persistence: my_sqlite_persistence
+    # See more details on available options below
+    my_sqlite_persistence:
+      type: sqlite
+      opts:
+        dataSource: /path/to/sqlite
+        maxIdleConns: 10
+        skipPragmas: false
+    my_postgres_persistence:
+      type: postgres
+      opts:
+        dataSource: host=localhost port=5432 user=postgres password=example dbname=tokendb sslmode=disable
+        maxOpenConns: 20
   # ------------------- Web Server Configuration -------------------------
   # Web server must be enabled to support healthz, version and prometheus /metrics
   # end points.
@@ -379,9 +402,7 @@ fabric:
     # ----------------------- Fabric Driver Configuration ---------------------------
     # Internal vault used to keep track of the RW sets assembed by this node during in progress transactions
     vault:
-      persistence:
-        # type can be sql or memory. See below for sql configuration options.
-        type: memory
+      persistence: my_postgres_persistence
       txidstore:
         cache:
           # TBD: What does this cache, what does 0 mean and what is the scale
@@ -433,7 +454,7 @@ And so on.
 In order to use a hardware HSM for x.509 identities, you have to build the application with
 `CGO_ENABLED=1 go build -tags pkcs11` and configure the PKCS11 settings as describe above.
 
-## Persistence: sql
+## Persistence: sqlite/postgres
 
 You can select a golang/sql compatible driver. Although the data in Fabric Smart Client is key/value and not relational,
 reasons to choose sql may include:
@@ -457,9 +478,8 @@ Simple:
 
 ```yaml
 persistence:
-  type: sql
+  type: sqlite
   opts:
-    driver: sqlite
     dataSource: /some/path/fsc.sqlite
 ```
 
@@ -471,9 +491,8 @@ Advanced, more customized settings:
 
 ```yaml
 persistence:
-  type: sql
+  type: sqlite
   opts:
-    driver: sqlite
     dataSource: file:/some/path/fsc.sqlite&_txlock=immediate
     tablePrefix: fsc  # optional
     skipCreateTable: true # tells FSC _not_ to create a table when starting up (because it already exists).
@@ -505,9 +524,8 @@ and the sqlite pragmas don't apply.
 
 ```yaml
 persistence:
-  type: sql
+  type: postgres
   opts:
-    driver: postgres
     dataSource: host=localhost port=5432 user=postgres password=example dbname=tokendb sslmode=disable
     maxOpenConns: 25  # optional: max open read connections to the database. Defaults to unlimited. 
     maxIdleConns: 25  # optional: max idle read connections to the database. Defaults to 2.

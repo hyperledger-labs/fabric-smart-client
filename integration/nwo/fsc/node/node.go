@@ -15,15 +15,15 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"gopkg.in/yaml.v2"
 )
+
+type PersistenceKey string
 
 // Factory is used to create instances of the View interface
 type Factory interface {
@@ -60,11 +60,7 @@ func (o *Options) Get(k string) interface{} {
 }
 
 type SQLOpts struct {
-	DataSource   string
-	DriverType   common.SQLDriverType
-	CreateSchema bool
-	TablePrefix  string
-	MaxOpenConns int
+	DataSource string
 }
 
 type PersistenceOpts struct {
@@ -72,40 +68,61 @@ type PersistenceOpts struct {
 	SQL  *SQLOpts
 }
 
-func (o *Options) PutSQLPersistence(k string, p SQLOpts) {
-	if persistences := o.Get("persistences"); persistences != nil {
-		o.Put("persistences", append(persistences.([]string), k))
+func (o *Options) PutPersistenceKey(k PersistenceKey) {
+	if persistences := o.Get("all_persistence_keys"); persistences != nil {
+		o.Put("all_persistence_keys", append(persistences.([]PersistenceKey), k))
 	} else {
-		o.Put("persistences", []string{k})
+		o.Put("all_persistence_keys", []PersistenceKey{k})
 	}
-
-	o.Put(k+".persistence.sql", p.DataSource)
-	o.Put(k+".persistence.driver", p.DriverType)
-	o.Put(k+"persistence.createSchema", p.CreateSchema)
-	o.Put(k+"persistence.tablePrefix", p.TablePrefix)
-	o.Put(k+"persistence.maxOpenConns", p.MaxOpenConns)
 }
 
-func (o *Options) GetPersistences() map[string]*SQLOpts {
-	persistences := o.Get("persistences")
+func (o *Options) PutPostgresPersistenceName(k PersistenceKey, p driver2.PersistenceName) {
+	o.PutPersistenceKey(k)
+
+	o.Put(fmt.Sprintf("%s.persistence", k), p)
+}
+
+func (o *Options) GetAllPersistenceKeys() []PersistenceKey {
+	persistences := o.Get("all_persistence_keys")
+	if persistences == nil {
+		return []PersistenceKey{}
+	}
+	return persistences.([]PersistenceKey)
+}
+
+func (o *Options) GetPersistenceName(k PersistenceKey) (driver2.PersistenceName, bool) {
+	if name := o.Get(fmt.Sprintf("%s.persistence", k)); name != nil {
+		return name.(driver2.PersistenceName), true
+	}
+	return "", false
+}
+
+func (o *Options) PutPostgresPersistence(k driver2.PersistenceName, p SQLOpts) {
+	if persistences := o.Get("postgres_persistences"); persistences != nil {
+		o.Put("postgres_persistences", append(persistences.([]driver2.PersistenceName), k))
+	} else {
+		o.Put("postgres_persistences", []driver2.PersistenceName{k})
+	}
+
+	o.Put(fmt.Sprintf("fsc.persistences.%s.persistence.sql", k), p.DataSource)
+}
+
+func (o *Options) GetPostgresPersistences() map[driver2.PersistenceName]*SQLOpts {
+	persistences := o.Get("postgres_persistences")
 	if persistences == nil {
 		return nil
 	}
-	r := make(map[string]*SQLOpts)
-	for _, prefix := range persistences.([]string) {
-		r[prefix] = o.GetPersistence(prefix)
+	r := make(map[driver2.PersistenceName]*SQLOpts)
+	for _, k := range persistences.([]driver2.PersistenceName) {
+		r[k] = o.GetPostgresPersistence(k)
 	}
 	return r
 }
 
-func (o *Options) GetPersistence(k string) *SQLOpts {
-	if v := o.Get(k + ".persistence.sql"); v != nil {
+func (o *Options) GetPostgresPersistence(k driver2.PersistenceName) *SQLOpts {
+	if v := o.Get(fmt.Sprintf("fsc.persistences.%s.persistence.sql", k)); v != nil {
 		return &SQLOpts{
-			DataSource:   v.(string),
-			DriverType:   common.SQLDriverType(utils.DefaultString(o.Get(k+".persistence.driver"), string(sql.Postgres))),
-			CreateSchema: utils.DefaultZero[bool](o.Get(k + ".persistence.createSchema")),
-			TablePrefix:  utils.DefaultZero[string](o.Get(k + ".persistence.tablePrefix")),
-			MaxOpenConns: utils.DefaultInt(o.Get(k+".persistence.maxOpenConns"), 200),
+			DataSource: v.(string),
 		}
 	}
 	return nil

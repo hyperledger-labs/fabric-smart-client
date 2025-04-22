@@ -31,13 +31,13 @@ func TestPostgres(t *testing.T) {
 	defer terminate()
 	t.Log("postgres ready")
 
-	cp := common.MockConfig(Config{
+	cp := NewConfigProvider(common.MockConfig(Config{
 		DataSource: pgConnStr,
-	})
+	}))
 	common2.TestCases(t, func(string) (driver.UnversionedPersistence, error) {
-		return NewPersistenceWithOpts(cp, NewUnversionedPersistence)
+		return NewPersistenceWithOpts(cp, "", NewUnversionedPersistence)
 	}, func(string) (driver.UnversionedNotifier, error) {
-		return NewPersistenceWithOpts(cp, NewUnversionedNotifier)
+		return NewPersistenceWithOpts(cp, "", NewUnversionedNotifier)
 	}, func(p driver.UnversionedPersistence) *common2.UnversionedPersistence {
 		return p.(*UnversionedPersistence).UnversionedPersistence
 	})

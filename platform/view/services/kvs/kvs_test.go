@@ -23,8 +23,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
-	kvs2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,8 +33,8 @@ type stuff struct {
 	I int    `json:"i"`
 }
 
-func testRound(t *testing.T, driver driver.NamedDriver, cp kvs.ConfigProvider) {
-	kvstore, err := kvs.New(utils.MustGet(kvs2.NewStore(cp, multiplexed.Driver{driver})), "_default", kvs.DefaultCacheSize)
+func testRound(t *testing.T, driver driver.Driver) {
+	kvstore, err := kvs.New(utils.MustGet(driver.NewKVS("")), "_default", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	defer kvstore.Stop()
 
@@ -121,8 +119,8 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 	return sanitizer.Encode(k)
 }
 
-func testParallelWrites(t *testing.T, driver driver.NamedDriver, cp kvs.ConfigProvider) {
-	kvstore, err := kvs.New(utils.MustGet(kvs2.NewStore(cp, multiplexed.Driver{driver})), "_default", kvs.DefaultCacheSize)
+func testParallelWrites(t *testing.T, driver driver.Driver) {
+	kvstore, err := kvs.New(utils.MustGet(driver.NewKVS("")), "_default", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	defer kvstore.Stop()
 
@@ -157,10 +155,9 @@ func testParallelWrites(t *testing.T, driver driver.NamedDriver, cp kvs.ConfigPr
 }
 
 func TestMemoryKVS(t *testing.T) {
-	cp := &mock.ConfigProvider{}
 	d := mem.NewDriver()
-	testRound(t, d, cp)
-	testParallelWrites(t, d, cp)
+	testRound(t, d)
+	testParallelWrites(t, d)
 }
 
 func TestSQLiteKVS(t *testing.T) {
@@ -173,9 +170,9 @@ func TestSQLiteKVS(t *testing.T) {
 		MaxIdleConns:    common.CopyPtr(2),
 		MaxIdleTime:     common.CopyPtr(time.Minute),
 	})
-	d := sqlite.NewDriver()
-	testRound(t, d, cp)
-	testParallelWrites(t, d, cp)
+	d := sqlite.NewDriver(cp)
+	testRound(t, d)
+	testParallelWrites(t, d)
 }
 
 func TestPostgresKVS(t *testing.T) {
@@ -203,7 +200,7 @@ func TestPostgresKVS(t *testing.T) {
 		MaxIdleTime:  common.CopyPtr(time.Minute),
 	})
 
-	d := postgres.NewDriver()
-	testRound(t, d, cp)
-	testParallelWrites(t, d, cp)
+	d := postgres.NewDriver(cp)
+	testRound(t, d)
+	testParallelWrites(t, d)
 }

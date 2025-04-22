@@ -95,7 +95,7 @@ func getAllTxStatuses(store driver.VaultStore, pagination driver.Pagination) ([]
 	return statuses, nil
 }
 
-func testPagination(t *testing.T, store driver.VaultStore) {
+func testPagination(store driver.VaultStore) {
 	RegisterFailHandler(Fail)
 	err := store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "",
 		"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025")
@@ -138,7 +138,7 @@ func TestPaginationStoreMem(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
-	testPagination(t, db)
+	testPagination(db)
 }
 
 func TestPaginationStoreSqlite(t *testing.T) {
@@ -146,7 +146,7 @@ func TestPaginationStoreSqlite(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
-	testPagination(t, db)
+	testPagination(db)
 }
 
 func TestPaginationStoreSPostgres(t *testing.T) {
@@ -155,7 +155,7 @@ func TestPaginationStoreSPostgres(t *testing.T) {
 	assert.NotNil(t, db)
 	defer terminate()
 
-	testPagination(t, db)
+	testPagination(db)
 }
 
 func TestVaultStoreMem(t *testing.T) {

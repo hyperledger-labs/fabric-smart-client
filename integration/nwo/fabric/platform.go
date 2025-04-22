@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -188,7 +189,7 @@ func (p *Platform) DeleteVault(id string) {
 	fscPeer := p.Network.FSCPeerByName(id)
 	Expect(fscPeer).ToNot(BeNil())
 	for _, uniqueName := range fscPeer.FSCNode.ReplicaUniqueNames() {
-		Expect(os.RemoveAll(p.Network.FSCNodeStorageDir(uniqueName, "vault"))).ToNot(HaveOccurred())
+		Expect(os.RemoveAll(fsc.SqlitePath(p.Network.NodeStorages(uniqueName), network.VaultPersistenceKey))).ToNot(HaveOccurred())
 	}
 }
 

@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/orion-server/config"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
 	. "github.com/onsi/gomega"
@@ -222,7 +223,7 @@ func (p *Platform) DeleteVault(id string) {
 	for _, node := range fscTopology.Nodes {
 		if strings.Contains(node.Name, id) {
 			for _, uniqueName := range node.ReplicaUniqueNames() {
-				Expect(os.RemoveAll(p.FSCNodeVaultDir(uniqueName))).ToNot(HaveOccurred())
+				Expect(os.RemoveAll(fsc.SqlitePath(p.NodeStorages(uniqueName), network.VaultPersistenceKey))).ToNot(HaveOccurred())
 			}
 			found = true
 		}
@@ -264,6 +265,8 @@ func (p *Platform) generateExtension() {
 			continue
 		}
 
+		persistenceNames := fsc.GetPersistenceNames(node.Options, network.VaultPersistenceKey)
+
 		for _, uniqueName := range node.ReplicaUniqueNames() {
 			t, err := template.New("view_extension").Funcs(template.FuncMap{
 				"Name":       func() string { return p.Name() },
@@ -279,7 +282,7 @@ func (p *Platform) generateExtension() {
 						},
 					}
 				},
-				"FSCNodeVaultPath": func() string { return p.FSCNodeVaultDir(uniqueName) },
+				"VaultPersistence": func() driver2.PersistenceName { return persistenceNames[network.VaultPersistenceKey] },
 			}).Parse(ExtensionTemplate)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -537,6 +540,6 @@ func (p *Platform) saveServerUrl(url *url.URL) {
 	serverUrlFile.Close()
 }
 
-func (p *Platform) FSCNodeVaultDir(uniqueName string) string {
-	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", uniqueName, "vault")
+func (p *Platform) NodeStorages(uniqueName string) string {
+	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", uniqueName)
 }

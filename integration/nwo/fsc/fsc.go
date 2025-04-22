@@ -37,8 +37,9 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/miracl/conflate"
 	"github.com/onsi/ginkgo/v2"
@@ -213,14 +214,13 @@ func (p *Platform) PreRun() {
 	// Start DBs
 	configs := map[string]*postgres.ContainerConfig{}
 	for _, node := range p.Peers {
-		for _, sqlOpts := range node.Options.GetPersistences() {
-			if sqlOpts.DriverType == sql.Postgres {
-				if _, ok := configs[sqlOpts.DataSource]; !ok {
-					c, err := postgres.ReadDataSource(sqlOpts.DataSource)
-					Expect(err).ToNot(HaveOccurred())
-					configs[sqlOpts.DataSource] = c
-				}
+		for _, sqlOpts := range node.Options.GetPostgresPersistences() {
+			if _, ok := configs[sqlOpts.DataSource]; !ok {
+				c, err := postgres.ReadDataSource(sqlOpts.DataSource)
+				Expect(err).ToNot(HaveOccurred())
+				configs[sqlOpts.DataSource] = c
 			}
+
 		}
 	}
 	logger.Infof("Starting DBs for following data sources: [%s]...", logging.Keys(configs))
@@ -509,37 +509,27 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		}
 	}
 
+	persistences := GetPersistences(peer.Options, p.NodeStorages(peer.UniqueName))
+	persistenceNames := GetPersistenceNames(peer.Options, AllPrefixes...)
+
 	t, err := template.New("peer").Funcs(template.FuncMap{
-		"Replica":    func() *node2.Replica { return peer },
-		"Peer":       func() *node2.Peer { return peer.Peer },
-		"NetworkID":  func() string { return p.NetworkID },
-		"Topology":   func() *Topology { return p.Topology },
-		"Extensions": func() []string { return extensions },
-		"ToLower":    func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll": func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
-		"KVSOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(KvsPersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "kvs"))
-		},
-		"BindingOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(BindingPersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "bind"))
-		},
-		"SignerInfoOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(SignerInfoPersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "sig"))
-		},
-		"AuditInfoOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(AuditInfoPersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "aud"))
-		},
-		"EndorseTxOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(EndorseTxPersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "etx"))
-		},
-		"EnvelopeOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(EnvelopePersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "env"))
-		},
-		"MetadataOpts": func() node2.PersistenceOpts {
-			return PersistenceOpts(MetadataPersistencePrefix, peer.Options, p.NodeStorageDir(peer.UniqueName, "mtd"))
-		},
-		"Resolvers":  func() []*Resolver { return resolvers },
-		"WebEnabled": func() bool { return p.Topology.WebEnabled },
+		"Replica":               func() *node2.Replica { return peer },
+		"Peer":                  func() *node2.Peer { return peer.Peer },
+		"NetworkID":             func() string { return p.NetworkID },
+		"Topology":              func() *Topology { return p.Topology },
+		"Extensions":            func() []string { return extensions },
+		"ToLower":               func(s string) string { return strings.ToLower(s) },
+		"ReplaceAll":            func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
+		"KVSPersistence":        func() driver.PersistenceName { return persistenceNames[KvsPersistencePrefix] },
+		"BindingPersistence":    func() driver.PersistenceName { return persistenceNames[BindingPersistencePrefix] },
+		"SignerInfoPersistence": func() driver.PersistenceName { return persistenceNames[SignerInfoPersistencePrefix] },
+		"AuditInfoPersistence":  func() driver.PersistenceName { return persistenceNames[AuditInfoPersistencePrefix] },
+		"EndorseTxPersistence":  func() driver.PersistenceName { return persistenceNames[EndorseTxPersistencePrefix] },
+		"EnvelopePersistence":   func() driver.PersistenceName { return persistenceNames[EnvelopePersistencePrefix] },
+		"MetadataPersistence":   func() driver.PersistenceName { return persistenceNames[MetadataPersistencePrefix] },
+		"Persistences":          func() map[driver.PersistenceName]node2.PersistenceOpts { return persistences },
+		"Resolvers":             func() []*Resolver { return resolvers },
+		"WebEnabled":            func() bool { return p.Topology.WebEnabled },
 		"TracingEndpoint": func() string {
 			return utils.DefaultString(p.Topology.Monitoring.TracingEndpoint, fmt.Sprintf("0.0.0.0:%d", optl.JaegerCollectorPort))
 		},
@@ -551,20 +541,53 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 
 }
 
-func PersistenceOpts(prefix string, o *node2.Options, dir string) node2.PersistenceOpts {
-	if sqlOpts := o.GetPersistence(prefix); sqlOpts != nil {
-		return node2.PersistenceOpts{
-			Type: sql.SQLPersistence,
-			SQL:  sqlOpts,
+func GetPersistenceNames(o *node2.Options, prefixes ...node2.PersistenceKey) map[node2.PersistenceKey]driver.PersistenceName {
+	names := make(map[node2.PersistenceKey]driver.PersistenceName, len(prefixes))
+	// Complete all missing persistences with ad hoc sqlite local persistences
+	for _, prefix := range prefixes {
+		if name, ok := o.GetPersistenceName(prefix); !ok {
+			names[prefix] = sqliteName(prefix)
+		} else {
+			names[prefix] = name
 		}
 	}
-	return node2.PersistenceOpts{
-		Type: sql.SQLPersistence,
-		SQL: &node2.SQLOpts{
-			DriverType:   sql.SQLite,
-			DataSource:   fmt.Sprintf("%s.sqlite", dir),
-			CreateSchema: true,
-		}}
+
+	return names
+}
+
+func GetPersistences(o *node2.Options, dir string) map[driver.PersistenceName]node2.PersistenceOpts {
+	// First map all existing postgres configurations
+	ps := o.GetPostgresPersistences()
+	persistences := make(map[driver.PersistenceName]node2.PersistenceOpts, len(ps))
+	for name, opt := range ps {
+		persistences[name] = node2.PersistenceOpts{
+			Type: postgres.Persistence,
+			SQL:  opt,
+		}
+	}
+	prefixes := o.GetAllPersistenceKeys()
+
+	// Complete all missing persistences with ad hoc sqlite local persistences
+	for _, prefix := range prefixes {
+		if _, ok := o.GetPersistenceName(prefix); !ok {
+			persistences[sqliteName(prefix)] = node2.PersistenceOpts{
+				Type: sqlite.Persistence,
+				SQL: &node2.SQLOpts{
+					DataSource: SqlitePath(dir, prefix),
+				},
+			}
+		}
+	}
+
+	return persistences
+}
+
+func SqlitePath(storages string, prefix node2.PersistenceKey) string {
+	return path.Join(storages, fmt.Sprintf("%s.sqlite", prefix))
+}
+
+func sqliteName(prefix node2.PersistenceKey) driver.PersistenceName {
+	return driver.PersistenceName(fmt.Sprintf("%s_persistence", prefix))
 }
 
 func (p *Platform) BootstrapViewNodeGroupRunner() ifrit.Runner {
