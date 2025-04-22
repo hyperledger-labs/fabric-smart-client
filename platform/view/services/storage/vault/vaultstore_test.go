@@ -191,27 +191,29 @@ func testPagination(t *testing.T, store driver.VaultStore) {
 		// test that we read everything
 		Expect(page).To(BeNumerically("==", len(item.matcher)))
 
-		// Do we want to test Prev()?
-		// Test that Prev() work. Start by moving the pagination pointer forward
-		// pagination = item.pagination
-		// for page := 0; page < len(item.matcher)-1; page++ {
-		// 	pagination, err = pagination.Next()
-		// 	Expect(err).ToNot(HaveOccurred())
-		// }
-		// for page := len(item.matcher) - 1; page >= 0; page-- {
-		// 	sql := common.SqlQuery{}
-		// 	sql, err := interpreter.Interpret(pagination, sql)
-		// 	Expect(err).ToNot(HaveOccurred())
-		// 	fmt.Printf("sql (backward) = %s\n", sql.FormatQuery())
-		// 	Expect(sql.FormatQuery()).To(Equal(item.sqlBackward[page]))
-		// 	statuses, err := getAllTxStatuses(store, pagination)
-		// 	Expect(err).ToNot(HaveOccurred())
-		// 	Expect(statuses).To(item.matcher[page])
-		// 	if page > 0 {
-		// 		pagination, err = pagination.Prev()
-		// 		Expect(err).ToNot(HaveOccurred())
-		// 	}
-		// }
+		// Test that Prev() work. Start by advancing the pagination pointer 2 steps forward
+		if len(item.matcher) < 2 {
+			continue
+		}
+		pagination = item.pagination
+		for page = 0; page < 2; page++ {
+			pagination, err = pagination.Next()
+			Expect(err).ToNot(HaveOccurred())
+		}
+		for ; page >= 0; page-- {
+			sql := driver.SqlQuery{}
+			sql.SetTable("test")
+			sql, err := interpreter.Interpret(pagination, sql)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sql.FormatQuery()).To(Equal(item.sqlBackward[page]))
+			statuses, err := getAllTxStatuses(store, sql, &pagination)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(statuses).To(item.matcher[page])
+			if page > 0 {
+				pagination, err = pagination.Prev()
+				Expect(err).ToNot(HaveOccurred())
+			}
+		}
 	}
 }
 
