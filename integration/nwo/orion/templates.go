@@ -20,8 +20,5 @@ orion:
         key: {{ .Key }}
 	{{- end }}
     vault:
-      persistence:
-        type: memory
-        opts:
-          path: {{ FSCNodeVaultPath }}
+      persistence: {{ VaultPersistence }}
 `

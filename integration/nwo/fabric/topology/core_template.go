@@ -317,17 +317,7 @@ fabric:
         {{- end }}
     {{- end }}
     vault:
-      persistence:
-        type: {{ VaultOpts.Type }}
-        opts:
-          {{- if eq VaultOpts.Type "sql" }}
-          driver: {{ VaultOpts.SQL.DriverType }}
-          dataSource: {{ VaultOpts.SQL.DataSource }}
-          {{- else if eq VaultOpts.Type "memory" }}
-          # Memory has hard-coded opts
-          {{- else }}
-          # Unknown type {{ VaultOpts.Type }}
-          {{- end }}
+      persistence: {{ VaultPersistence }}
       txidstore:
         cache:
           # Sets the maximum number of cached items 

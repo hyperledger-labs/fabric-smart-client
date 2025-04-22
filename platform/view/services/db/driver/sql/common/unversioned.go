@@ -256,5 +256,3 @@ func (db *UnversionedPersistence) CreateSchema() error {
 		PRIMARY KEY (pkey, ns)
 	);`, db.table))
 }
-
-type SQLDriverType = driver.SQLDriverType

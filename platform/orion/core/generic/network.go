@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
@@ -104,7 +104,8 @@ func NewNetwork(
 	metricsProvider metrics.Provider,
 	tracerProvider trace.TracerProvider,
 	config *config2.Config,
-	name string, drivers []driver2.NamedDriver,
+	name string,
+	drivers multiplexed.Driver,
 	networkConfig driver.NetworkConfig,
 	listenerManager driver.ListenerManager,
 ) (*network, error) {
@@ -139,7 +140,7 @@ func NewNetwork(
 	n.transactionManager = transaction.NewManager(n.sessionManager)
 	n.transactionService = transaction.NewEndorseTransactionService(endorseTxKVS, name)
 
-	vaultStore, err := vault.NewStore(n.config, drivers, name)
+	vaultStore, err := vault.NewStore(n.config.VaultPersistenceName(), drivers, name)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating vault")
 	}

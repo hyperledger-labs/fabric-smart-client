@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/provider"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
@@ -42,6 +43,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
@@ -68,7 +72,7 @@ func NewSDKFrom(baseSDK dig2.SDK, registry node.Registry) *SDK {
 		sdk.Container().Provide(func() node.Registry { return registry }),
 		sdk.Container().Provide(digutils.Identity[node.Registry](), dig.As(new(driver.ServiceProvider), new(node.Registry), new(view.ServiceProvider), new(finality.Registry))),
 		sdk.Container().Provide(func() *view.ConfigService { return view.GetConfigService(registry) }),
-		sdk.Container().Provide(digutils.Identity[*view.ConfigService](), dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint.ConfigService))),
+		sdk.Container().Provide(digutils.Identity[*view.ConfigService](), dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint.ConfigService), new(dbdriver.Config))),
 		sdk.Container().Provide(view.NewRegistry),
 	)
 	if err != nil {
@@ -87,18 +91,19 @@ func (p *SDK) Install() error {
 		p.Container().Provide(crypto.NewProvider, dig.As(new(hash.Hasher))),
 		p.Container().Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
 		p.Container().Provide(func(system events.EventSystem) *events.Service { return &events.Service{EventSystem: system} }),
-		p.Container().Provide(postgres.NewDriver, dig.Group("db-drivers")),
-		p.Container().Provide(sqlite.NewDriver, dig.Group("db-drivers")),
-		p.Container().Provide(mem.NewDriver, dig.Group("db-drivers")),
+		p.Container().Provide(postgres.NewNamedDriver, dig.Group("db-drivers")),
+		p.Container().Provide(sqlite.NewNamedDriver, dig.Group("db-drivers")),
+		p.Container().Provide(mem.NewNamedDriver, dig.Group("db-drivers")),
+		p.Container().Provide(newMultiplexedDriver),
 		p.Container().Provide(file.NewDriver, dig.Group("kms-drivers")),
 		p.Container().Provide(newKVS),
 		p.Container().Provide(sig2.NewDeserializer),
 		p.Container().Provide(sig2.NewService, dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry))),
 		p.Container().Provide(view.NewSigService, dig.As(new(view3.VerifierProvider), new(view3.SignerProvider))),
 		p.Container().Provide(endpoint.NewService),
-		p.Container().Provide(newBindingStore),
-		p.Container().Provide(newSignerInfoStore),
-		p.Container().Provide(newAuditInfoStore),
+		p.Container().Provide(binding.NewDefaultStore),
+		p.Container().Provide(signerinfo.NewDefaultStore),
+		p.Container().Provide(auditinfo.NewDefaultStore),
 		p.Container().Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
 		p.Container().Provide(view.NewEndpointService),
 		p.Container().Provide(digutils.Identity[*view.EndpointService](), dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint.Backend))),

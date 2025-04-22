@@ -8,10 +8,10 @@ package signerinfo
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 )
 
-func NewStore(cp driver.Config, d multiplexed.Driver, params ...string) (driver.SignerInfoPersistence, error) {
-	return d.NewSignerInfo(db.NewPrefixConfig(cp, "fsc.signerinfo.persistence"), params...)
+func NewDefaultStore(cp driver.Config, d multiplexed.Driver) (driver.SignerInfoPersistence, error) {
+	return d.NewSignerInfo(common.GetPersistenceName(cp, "fsc.signerinfo.persistence"), "default")
 }

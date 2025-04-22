@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/pkg/errors"
@@ -38,7 +38,7 @@ type ONSProvider struct {
 
 	networksMutex           sync.Mutex
 	networks                map[string]driver.OrionNetworkService
-	drivers                 []driver3.NamedDriver
+	drivers                 multiplexed.Driver
 	metricsProvider         metrics.Provider
 	tracerProvider          trace.TracerProvider
 	networkConfigProvider   driver.NetworkConfigProvider
@@ -55,7 +55,7 @@ func NewOrionNetworkServiceProvider(
 	subscriber events.Subscriber,
 	metricsProvider metrics.Provider,
 	tracerProvider trace.TracerProvider,
-	drivers []driver3.NamedDriver,
+	drivers multiplexed.Driver,
 	networkConfigProvider driver.NetworkConfigProvider,
 	listenerManagerProvider driver.ListenerManagerProvider,
 ) (*ONSProvider, error) {

@@ -8,11 +8,11 @@ package common
 
 import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
 
-func MockConfig[T any](config T) *mock.ConfigProvider {
+func MockConfig[T any](config T) *config {
 	cp := &mock.ConfigProvider{}
 	cp.UnmarshalKeyCalls(func(_ string, val interface{}) error {
 		*val.(*T) = config
 		return nil
 	})
-	return cp
+	return NewConfig(cp)
 }

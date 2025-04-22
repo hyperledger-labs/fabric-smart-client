@@ -9,9 +9,8 @@ package vault
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 )
 
-func NewStore(cp driver.Config, d multiplexed.Driver, params ...string) (driver.VaultPersistence, error) {
-	return d.NewVault(db.NewPrefixConfig(cp, "vault.persistence"), params...)
+func NewStore(name driver.PersistenceName, d multiplexed.Driver, params ...string) (driver.VaultPersistence, error) {
+	return d.NewVault(name, params...)
 }

@@ -18,42 +18,46 @@ const Persistence driver2.PersistenceType = "memory"
 
 type Driver struct{}
 
-func NewDriver() driver.NamedDriver {
+func NewNamedDriver() driver.NamedDriver {
 	return driver.NamedDriver{
 		Name:   Persistence,
-		Driver: &Driver{},
+		Driver: NewDriver(),
 	}
 }
 
-func (d *Driver) NewKVS(_ driver.Config, params ...string) (driver.UnversionedPersistence, error) {
+func NewDriver() *Driver {
+	return &Driver{}
+}
+
+func (d *Driver) NewKVS(_ driver.PersistenceName, params ...string) (driver.UnversionedPersistence, error) {
 	return newPersistenceWithOpts(sqlite.NewUnversionedPersistence, params...)
 }
 
-func (d *Driver) NewBinding(_ driver.Config, params ...string) (driver.BindingPersistence, error) {
+func (d *Driver) NewBinding(_ driver.PersistenceName, params ...string) (driver.BindingPersistence, error) {
 	return newPersistenceWithOpts(sqlite.NewBindingPersistence, params...)
 }
 
-func (d *Driver) NewSignerInfo(_ driver.Config, params ...string) (driver.SignerInfoPersistence, error) {
+func (d *Driver) NewSignerInfo(_ driver.PersistenceName, params ...string) (driver.SignerInfoPersistence, error) {
 	return newPersistenceWithOpts(sqlite.NewSignerInfoPersistence, params...)
 }
 
-func (d *Driver) NewAuditInfo(_ driver.Config, params ...string) (driver.AuditInfoPersistence, error) {
+func (d *Driver) NewAuditInfo(_ driver.PersistenceName, params ...string) (driver.AuditInfoPersistence, error) {
 	return newPersistenceWithOpts(sqlite.NewAuditInfoPersistence, params...)
 }
 
-func (d *Driver) NewEndorseTx(_ driver.Config, params ...string) (driver.EndorseTxPersistence, error) {
+func (d *Driver) NewEndorseTx(_ driver.PersistenceName, params ...string) (driver.EndorseTxPersistence, error) {
 	return newPersistenceWithOpts(sqlite.NewEndorseTxPersistence, params...)
 }
 
-func (d *Driver) NewMetadata(_ driver.Config, params ...string) (driver.MetadataPersistence, error) {
+func (d *Driver) NewMetadata(_ driver.PersistenceName, params ...string) (driver.MetadataPersistence, error) {
 	return newPersistenceWithOpts(sqlite.NewMetadataPersistence, params...)
 }
 
-func (d *Driver) NewEnvelope(_ driver.Config, params ...string) (driver.EnvelopePersistence, error) {
+func (d *Driver) NewEnvelope(_ driver.PersistenceName, params ...string) (driver.EnvelopePersistence, error) {
 	return newPersistenceWithOpts(sqlite.NewEnvelopePersistence, params...)
 }
 
-func (d *Driver) NewVault(_ driver.Config, params ...string) (driver2.VaultStore, error) {
+func (d *Driver) NewVault(_ driver.PersistenceName, params ...string) (driver2.VaultStore, error) {
 	return newPersistenceWithOpts(sqlite.NewVaultPersistence, params...)
 }
 

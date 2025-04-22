@@ -11,8 +11,8 @@ Although these methods have different names and return different stores, their s
 
 ```go
 type Driver interface {
-    NewBindingStore(string, Config) (BindingStore, error)
-    NewAuditInfoStore(string, Config) (AuditInfoStore, error)
+    NewBindingStore(name PersistenceName, params ...string) (BindingStore, error)
+    NewAuditInfoStore(name PersistenceName, params ...string) (AuditInfoStore, error)
 	...
 }
 
@@ -47,9 +47,8 @@ This configuration might be at any level in the `core.yaml` file, but must have 
 ```yaml
 key1:
   key2:
-    type: sql
+    type: sqlite
     opts:
-      driver: sqlite
       dataSource: /my/file/system
       maxOpenConns: 10
       maxIdleTimeout: 1m
@@ -63,10 +62,10 @@ If you want to add a new store (e.g. `TransactionStore`), you will need to:
 * extend the `Driver` interface with one more method that has the same inputs
 ```go
 type Driver interface {
-    NewBindingStore(string, Config) (BindingStore, error)
-    NewAuditInfoStore(string, Config) (AuditInfoStore, error)
+    NewBindingStore(name PersistenceName, params ...string) (BindingStore, error)
+    NewAuditInfoStore(name PersistenceName, params ...string) (AuditInfoStore, error)
     ...
-	NewTransactionStore(string, Config) (TransactionStore, error)
+	NewTransactionStore(name PersistenceName, params ...string) (TransactionStore, error)
 }
 ```
 * implement it for all 4 drivers (DB specific and multiplexed)

@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"go.opentelemetry.io/otel/trace"
@@ -164,7 +164,7 @@ func newOrionNetworkServiceProvider(in struct {
 	Config                  *core.Config
 	MetricsProvider         metrics.Provider
 	TracerProvider          trace.TracerProvider
-	Drivers                 []driver3.NamedDriver `group:"db-drivers"`
+	Drivers                 multiplexed.Driver
 	NetworkConfigProvider   driver2.NetworkConfigProvider
 	ListenerManagerProvider driver2.ListenerManagerProvider
 }) (*core.ONSProvider, error) {

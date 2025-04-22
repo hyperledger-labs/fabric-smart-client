@@ -8,10 +8,10 @@ package binding
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 )
 
-func NewStore(cp driver.Config, d multiplexed.Driver, params ...string) (driver.BindingPersistence, error) {
-	return d.NewBinding(db.NewPrefixConfig(cp, "fsc.binding.persistence"), params...)
+func NewDefaultStore(cp driver.Config, d multiplexed.Driver) (driver.BindingPersistence, error) {
+	return d.NewBinding(common.GetPersistenceName(cp, "fsc.binding.persistence"), "default")
 }

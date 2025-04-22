@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -105,8 +106,7 @@ type ConfigService interface {
 	OrdererConnectionPoolSize() int
 	PickPeer(funcType PeerFunctionType) *grpc.ConnectionConfig
 	IsChannelQuiet(name string) bool
-	VaultPersistenceType() driver.PersistenceType
-	VaultPersistencePrefix() string
+	VaultPersistenceName() driver2.PersistenceName
 	VaultTXStoreCacheSize() int
 	TLSServerHostOverride() string
 	ClientConnTimeout() time.Duration

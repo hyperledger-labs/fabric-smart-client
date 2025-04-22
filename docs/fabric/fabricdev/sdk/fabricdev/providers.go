@@ -14,7 +14,7 @@ import (
 	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -39,7 +39,7 @@ func NewDriver(in struct {
 	Publisher           events.Publisher
 	Hasher              hash.Hasher
 	TracerProvider      trace.TracerProvider
-	Drivers             []dbdriver.NamedDriver `group:"db-drivers"`
+	Drivers             multiplexed.Driver
 }) core.NamedDriver {
 	d := core.NamedDriver{
 		Name: "fabricdev",

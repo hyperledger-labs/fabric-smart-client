@@ -8,8 +8,8 @@ package endorsetx
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 )
 
 type identifier interface {
@@ -17,7 +17,7 @@ type identifier interface {
 }
 
 func NewStore[K identifier](cp driver.Config, d multiplexed.Driver, params ...string) (*endorseTxStore[K], error) {
-	e, err := d.NewEndorseTx(db.NewPrefixConfig(cp, "fsc.endorsetx.persistence"), params...)
+	e, err := d.NewEndorseTx(common.GetPersistenceName(cp, "fsc.endorsetx.persistence"), params...)
 	if err != nil {
 		return nil, err
 	}

@@ -27,7 +27,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -95,10 +95,11 @@ func NewChannelProvider(in struct {
 	Publisher       events.Publisher
 	Hasher          hash.Hasher
 	TracerProvider  trace.TracerProvider
-	Drivers         []dbdriver.NamedDriver `group:"db-drivers"`
+	Drivers         multiplexed.Driver
 	MetricsProvider metrics.Provider
 }) generic.ChannelProvider {
 	return generic.NewChannelProvider(
+		in.ConfigProvider,
 		in.EnvelopeKVS,
 		in.MetadataKVS,
 		in.EndorseTxKVS,
@@ -225,26 +226,14 @@ func NewChannelProvider(in struct {
 	)
 }
 
-func NewEndorseTxStore(in struct {
-	dig.In
-	Config  vdriver.ConfigService
-	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) (driver.EndorseTxStore, error) {
-	return endorsetx.NewStore[driver.Key](in.Config, in.Drivers, "default")
+func NewEndorseTxStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.EndorseTxStore, error) {
+	return endorsetx.NewStore[driver.Key](config, drivers, "default")
 }
 
-func NewMetadataStore(in struct {
-	dig.In
-	Config  vdriver.ConfigService
-	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) (driver.MetadataStore, error) {
-	return metadata.NewStore[driver.Key, driver.TransientMap](in.Config, in.Drivers, "default")
+func NewMetadataStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.MetadataStore, error) {
+	return metadata.NewStore[driver.Key, driver.TransientMap](config, drivers, "default")
 }
 
-func NewEnvelopeStore(in struct {
-	dig.In
-	Config  vdriver.ConfigService
-	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) (driver.EnvelopeStore, error) {
-	return envelope.NewStore[driver.Key](in.Config, in.Drivers, "default")
+func NewEnvelopeStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.EnvelopeStore, error) {
+	return envelope.NewStore[driver.Key](config, drivers, "default")
 }

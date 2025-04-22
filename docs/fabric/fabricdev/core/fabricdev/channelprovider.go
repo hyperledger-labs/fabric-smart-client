@@ -16,13 +16,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
@@ -35,6 +36,7 @@ import (
 var logger = logging.MustGetLogger("fabric-sdk.core")
 
 type provider struct {
+	configProvider          config.Provider
 	envelopeKVS             driver.EnvelopeStore
 	metadataKVS             driver.MetadataStore
 	endorseTxKVS            driver.EndorseTxStore
@@ -44,13 +46,14 @@ type provider struct {
 	tracerProvider          trace.TracerProvider
 	metricsProvider         metrics.Provider
 	dependencyResolver      committer.DependencyResolver
-	drivers                 []driver2.NamedDriver
+	drivers                 multiplexed.Driver
 	channelConfigProvider   driver.ChannelConfigProvider
 	listenerManagerProvider driver.ListenerManagerProvider
 	acceptedHeaderTypes     []common.HeaderType
 }
 
 func NewChannelProvider(
+	configProvider config.Provider,
 	envelopeKVS driver.EnvelopeStore,
 	metadataKVS driver.MetadataStore,
 	endorseTxKVS driver.EndorseTxStore,
@@ -58,7 +61,7 @@ func NewChannelProvider(
 	hasher hash.Hasher,
 	tracerProvider trace.TracerProvider,
 	metricsProvider metrics.Provider,
-	drivers []driver2.NamedDriver,
+	drivers multiplexed.Driver,
 	newVault generic.VaultConstructor,
 	channelConfigProvider driver.ChannelConfigProvider,
 	listenerManagerProvider driver.ListenerManagerProvider,
@@ -66,6 +69,7 @@ func NewChannelProvider(
 	acceptedHeaderTypes []common.HeaderType,
 ) *provider {
 	return &provider{
+		configProvider:          configProvider,
 		envelopeKVS:             envelopeKVS,
 		metadataKVS:             metadataKVS,
 		endorseTxKVS:            endorseTxKVS,
@@ -95,7 +99,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	}
 
 	// Vault
-	vaultStore, err := vault.NewStore(nw.ConfigService(), p.drivers, nw.Name(), channelName)
+	vaultStore, err := vault.NewStore(nw.ConfigService().VaultPersistenceName(), p.drivers, nw.Name(), channelName)
 	if err != nil {
 		return nil, err
 	}

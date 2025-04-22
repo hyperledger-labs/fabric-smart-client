@@ -8,10 +8,10 @@ package auditinfo
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 )
 
-func NewStore(cp driver.Config, d multiplexed.Driver, params ...string) (driver.AuditInfoPersistence, error) {
-	return d.NewAuditInfo(db.NewPrefixConfig(cp, "fsc.auditinfo.persistence"), params...)
+func NewDefaultStore(cp driver.Config, d multiplexed.Driver) (driver.AuditInfoPersistence, error) {
+	return d.NewAuditInfo(common.GetPersistenceName(cp, "fsc.auditinfo.persistence"), "default")
 }

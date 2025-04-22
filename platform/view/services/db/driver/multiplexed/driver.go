@@ -9,112 +9,101 @@ package multiplexed
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/pkg/errors"
 )
 
-type Driver []driver2.NamedDriver
+func NewDriver(config driver2.Config, ds ...driver2.NamedDriver) Driver {
+	drivers := make(map[driver.PersistenceType]driver2.Driver, len(ds))
+	for _, d := range ds {
+		drivers[d.Name] = d.Driver
+	}
+	return Driver{
+		drivers: drivers,
+		config:  common.NewConfig(config),
+	}
+}
 
-func (d Driver) NewKVS(cfg driver2.Config, params ...string) (driver2.UnversionedPersistence, error) {
-	dr, err := d.getDriver(cfg)
+type Driver struct {
+	drivers map[driver.PersistenceType]driver2.Driver
+	config  driver2.PersistenceConfig
+}
+
+func (d Driver) NewKVS(name driver2.PersistenceName, params ...string) (driver2.UnversionedPersistence, error) {
+	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewKVS(cfg, params...)
+	return dr.NewKVS(name, params...)
 }
 
-func (d Driver) NewBinding(cfg driver2.Config, params ...string) (driver2.BindingPersistence, error) {
-	dr, err := d.getDriver(cfg)
+func (d Driver) NewBinding(name driver2.PersistenceName, params ...string) (driver2.BindingPersistence, error) {
+	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewBinding(cfg, params...)
+	return dr.NewBinding(name, params...)
 }
 
-func (d Driver) NewSignerInfo(cfg driver2.Config, params ...string) (driver2.SignerInfoPersistence, error) {
-	dr, err := d.getDriver(cfg)
+func (d Driver) NewSignerInfo(name driver2.PersistenceName, params ...string) (driver2.SignerInfoPersistence, error) {
+	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewSignerInfo(cfg, params...)
+	return dr.NewSignerInfo(name, params...)
 }
 
-func (d Driver) NewAuditInfo(cfg driver2.Config, params ...string) (driver2.AuditInfoPersistence, error) {
-	dr, err := d.getDriver(cfg)
+func (d Driver) NewAuditInfo(name driver2.PersistenceName, params ...string) (driver2.AuditInfoPersistence, error) {
+	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewAuditInfo(cfg, params...)
+	return dr.NewAuditInfo(name, params...)
 }
 
-func (d Driver) NewEndorseTx(cfg driver2.Config, params ...string) (driver2.EndorseTxPersistence, error) {
-	dr, err := d.getDriver(cfg)
+func (d Driver) NewEndorseTx(name driver2.PersistenceName, params ...string) (driver2.EndorseTxPersistence, error) {
+	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewEndorseTx(cfg, params...)
+	return dr.NewEndorseTx(name, params...)
 }
 
-func (d Driver) NewMetadata(cfg driver2.Config, params ...string) (driver2.MetadataPersistence, error) {
-	dr, err := d.getDriver(cfg)
+func (d Driver) NewMetadata(name driver2.PersistenceName, params ...string) (driver2.MetadataPersistence, error) {
+	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewMetadata(cfg, params...)
+	return dr.NewMetadata(name, params...)
 }
 
-func (d Driver) NewEnvelope(cfg driver2.Config, params ...string) (driver2.EnvelopePersistence, error) {
-	dr, err := d.getDriver(cfg)
+func (d Driver) NewEnvelope(name driver2.PersistenceName, params ...string) (driver2.EnvelopePersistence, error) {
+	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewEnvelope(cfg, params...)
+	return dr.NewEnvelope(name, params...)
 }
 
-func (d Driver) NewVault(cfg driver2.Config, params ...string) (driver.VaultStore, error) {
-	dr, err := d.getDriver(cfg)
+func (d Driver) NewVault(name driver2.PersistenceName, params ...string) (driver.VaultStore, error) {
+	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
 	}
-	return dr.NewVault(cfg, params...)
+	return dr.NewVault(name, params...)
 }
 
-func (d Driver) getDriver(c driver2.Config) (driver2.Driver, error) {
-	t, err := GetDriverType(c)
+func (d Driver) getDriver(name driver2.PersistenceName) (driver2.Driver, error) {
+	t, err := d.config.GetDriverType(name)
 	if err != nil {
 		return nil, err
 	}
-	for _, dr := range d {
-		if dr.Name == t {
-			return dr.Driver, nil
-		}
+	if len(t) == 0 {
+		t = mem.Persistence
 	}
-	return nil, errors.Errorf("driver %s not found", t)
-}
-
-func GetDriverType(c driver2.Config) (driver.PersistenceType, error) {
-	var d driver.PersistenceType
-	if err := c.UnmarshalKey("type", &d); err != nil {
-		return "", err
+	if dr, ok := d.drivers[t]; ok {
+		return dr, nil
 	}
-	if len(d) == 0 || d == mem.Persistence {
-		return mem.Persistence, nil
-	}
-	if d != sql.SQLPersistence && d != "unity" {
-		return "", errors.Errorf("unknown persistence type: [%s]", d)
-	}
-	var t driver2.SQLDriverType
-	if err := c.UnmarshalKey("opts.driver", &t); err != nil {
-		return "", err
-	}
-	if t == sql.SQLite {
-		return sqlite.Persistence, nil
-	}
-	if t == sql.Postgres {
-		return postgres.Persistence, nil
-	}
-	return "", errors.Errorf("type [%s] not defined", t)
+	return nil, errors.Errorf("driver %s not found [%s]", t, name)
 }

@@ -27,7 +27,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -1369,7 +1369,7 @@ const (
 	AdminPort      api.PortName = "Admin"
 )
 
-const VaultPersistencePrefix = "fabric.vault"
+const VaultPersistenceKey = "fabric_vault"
 
 // PeerPortNames returns the list of ports that need to be reserved for a Peer.
 func PeerPortNames() []api.PortName {
@@ -1469,7 +1469,11 @@ func (n *Network) nextColor() string {
 }
 
 func (n *Network) FSCNodeStorages(uniqueName string) string {
-	return filepath.Join(n.Context.RootDir(), "fsc", "nodes", uniqueName, n.Prefix)
+	return filepath.Join(n.NodeStorages(uniqueName), n.Prefix)
+}
+
+func (n *Network) NodeStorages(uniqueName string) string {
+	return filepath.Join(n.Context.RootDir(), "fsc", "nodes", uniqueName)
 }
 
 func (n *Network) FSCNodeStorageDir(uniqueName string, suffix string) string {
@@ -1607,6 +1611,8 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			}
 		}
 
+		persistenceNames := fsc.GetPersistenceNames(p.FSCNode.Options, VaultPersistenceKey)
+
 		for _, uniqueName := range p.FSCNode.ReplicaUniqueNames() {
 			t, err := template.New("peer").Funcs(template.FuncMap{
 				"Peer":                      func() *topology.Peer { return p },
@@ -1618,14 +1624,12 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 				"OrdererAddress":            func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
 				"PeerAddress":               func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
 				"CACertsBundlePath":         func() string { return n.CACertsBundlePath() },
-				"VaultOpts": func() node.PersistenceOpts {
-					return fsc.PersistenceOpts(VaultPersistencePrefix, p.FSCNode.Options, n.FSCNodeStorageDir(uniqueName, "vault"))
-				},
-				"FabricName":     func() string { return n.topology.Name() },
-				"DefaultNetwork": func() bool { return defaultNetwork },
-				"Driver":         func() string { return driver },
-				"Chaincodes":     func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
-				"TLSEnabled":     func() bool { return tlsEnabled },
+				"VaultPersistence":          func() driver2.PersistenceName { return persistenceNames[VaultPersistenceKey] },
+				"FabricName":                func() string { return n.topology.Name() },
+				"DefaultNetwork":            func() bool { return defaultNetwork },
+				"Driver":                    func() string { return driver },
+				"Chaincodes":                func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
+				"TLSEnabled":                func() bool { return tlsEnabled },
 			}).Parse(coreTemplate)
 			Expect(err).NotTo(HaveOccurred())
 
