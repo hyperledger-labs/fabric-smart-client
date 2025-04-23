@@ -345,11 +345,11 @@ func (db *txVaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID
 	return db.vr.GetTxStatuses(ctx, txIDs...)
 }
 
-func (db *txVaultReader) GetAllTxStatuses(ctx context.Context, pagination driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
+func (db *txVaultReader) GetAllTxStatuses(ctx context.Context, sql driver.SqlQuery, pagination driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
 	if err := db.setVaultReader(); err != nil {
 		return nil, err
 	}
-	return db.vr.GetAllTxStatuses(ctx, pagination)
+	return db.vr.GetAllTxStatuses(ctx, sql, pagination)
 }
 
 func (db *txVaultReader) Done() error {
@@ -440,11 +440,16 @@ func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
 	span.AddEvent("start_get_last")
 	defer span.AddEvent("end_get_last")
 	it, err := db.queryStatus(fmt.Sprintf("WHERE pos=(SELECT max(pos) FROM %s WHERE code!=$1)", db.tables.StatusTable), []any{driver.Busy}, "")
+	// sql := SqlQuery{}
+	// driverBusy := sql.AddParam(driver.Busy)
+	// sql.AddWhere(fmt.Sprintf("WHERE pos=(SELECT max(pos) FROM %s WHERE code!=$%d)", db.tables.StatusTable, driverBusy))
+	// it, err := db.queryStatus(sql)
 	if err != nil {
 		return nil, err
 	}
 	return collections.GetUnique(it)
 }
+
 func (db *vaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_tx_status")
@@ -466,19 +471,21 @@ func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) 
 	were, any := Where(db.ci.InStrings("tx_id", txIDs))
 	return db.queryStatus(were, any, "")
 }
-func (db *vaultReader) GetAllTxStatuses(ctx context.Context, pagination driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
-	if pagination == nil {
-		return nil, fmt.Errorf("invalid input pagination: %+v", pagination)
-	}
-	limit, err := db.pi.Interpret(pagination)
+
+func (db *vaultReader) GetAllTxStatuses(ctx context.Context, sql driver.SqlQuery, pagination driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
+	sql.AddFields([]string{"tx_id", "code", "message"})
+	sql, err := db.pi.Interpret(pagination, sql)
 	if err != nil {
 		return nil, err
 	}
-	txStatusIterator, err := db.queryStatus("", []any{}, limit)
+	txStatusIterator, err := db.queryStatusWithPagination(sql)
 	if err != nil {
 		return nil, err
 	}
-	return (&driver.PageIterator[*driver.TxStatus]{Items: txStatusIterator, Pagination: pagination}), nil
+	pu := NewPaginationUpdater[driver.TxStatus]()
+	pageIt := driver.PageIterator[*driver.TxStatus]{Items: txStatusIterator, Pagination: pagination}
+	pageIt, err = pu.Update(pageIt)
+	return &pageIt, err
 }
 
 func (db *vaultReader) queryStatus(where string, params []any, limit string) (driver.TxStatusIterator, error) {
@@ -486,6 +493,18 @@ func (db *vaultReader) queryStatus(where string, params []any, limit string) (dr
 	logger.Debug(query, params)
 
 	rows, err := db.readDB.Query(query, params...)
+	if err != nil {
+		return nil, err
+	}
+	return &TxCodeIterator{rows: rows}, nil
+}
+
+func (db *vaultReader) queryStatusWithPagination(sql driver.SqlQuery) (driver.TxStatusIterator, error) {
+	sql.SetTable(db.tables.StatusTable)
+	query := sql.FormatQuery()
+	logger.Debug(query, sql.GetParams())
+
+	rows, err := db.readDB.Query(query, sql.GetParams()...)
 	if err != nil {
 		return nil, err
 	}

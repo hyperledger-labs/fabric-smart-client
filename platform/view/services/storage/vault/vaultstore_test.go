@@ -32,13 +32,17 @@ const (
 )
 
 type matrixItem struct {
-	pagination driver.Pagination
-	matcher    []types.GomegaMatcher
+	pagination  driver.Pagination
+	matcher     []types.GomegaMatcher
+	sqlForward  []string
+	sqlBackward []string
 }
 
 var matrix = []matrixItem{
 	{
-		pagination: common.NewNoPagination(),
+		pagination:  common.NewNoPagination(),
+		sqlForward:  []string{"SELECT * FROM test", "SELECT * FROM test LIMIT 0 OFFSET 0"},
+		sqlBackward: []string{},
 		matcher: []types.GomegaMatcher{
 			ConsistOf(
 				HaveField("TxID", Equal("txid1")),
@@ -54,6 +58,15 @@ var matrix = []matrixItem{
 	},
 	{
 		pagination: NewOffsetPagination(0, 2),
+		sqlForward: []string{
+			"SELECT * FROM test LIMIT 2 OFFSET 0",
+			"SELECT * FROM test LIMIT 2 OFFSET 2",
+			"SELECT * FROM test LIMIT 2 OFFSET 4",
+			"SELECT * FROM test LIMIT 2 OFFSET 6",
+			"SELECT * FROM test LIMIT 2 OFFSET 8",
+			"SELECT * FROM test LIMIT 0 OFFSET 0",
+		},
+		sqlBackward: []string{},
 		matcher: []types.GomegaMatcher{
 			ConsistOf(
 				HaveField("TxID", Equal("txid1")),
@@ -73,6 +86,43 @@ var matrix = []matrixItem{
 			),
 		},
 	},
+	{
+		pagination: NewKeysetPagination(0, 2, "tx_id", "TxID"),
+		sqlForward: []string{
+			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 0",
+			"SELECT * FROM test WHERE tx_id>$1 ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test WHERE tx_id>$1 ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test WHERE tx_id>$1 ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test WHERE tx_id>$1 ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test LIMIT 0 OFFSET 0",
+		},
+		sqlBackward: []string{
+			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 0",
+			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 2",
+			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 4",
+			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 6",
+			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 8",
+			"SELECT * FROM test LIMIT 0 OFFSET 0",
+		},
+		matcher: []types.GomegaMatcher{
+			ConsistOf(
+				HaveField("TxID", Equal("txid1")),
+				HaveField("TxID", Equal("txid10")),
+			),
+			ConsistOf(
+				HaveField("TxID", Equal("txid100")),
+				HaveField("TxID", Equal("txid1025")),
+			),
+			ConsistOf(
+				HaveField("TxID", Equal("txid12")),
+				HaveField("TxID", Equal("txid2")),
+			),
+			ConsistOf(
+				HaveField("TxID", Equal("txid200")),
+				HaveField("TxID", Equal("txid21")),
+			),
+		},
+	},
 }
 
 func NewOffsetPagination(offset int, pageSize int) *common.OffsetPagination {
@@ -83,8 +133,16 @@ func NewOffsetPagination(offset int, pageSize int) *common.OffsetPagination {
 	return offsetPagination
 }
 
-func getAllTxStatuses(store driver.VaultStore, pagination driver.Pagination) ([]driver.TxStatus, error) {
-	p, err := store.GetAllTxStatuses(context.Background(), pagination)
+func NewKeysetPagination(offset int, pageSize int, sqlIdName string, idFieldName string) *common.KeysetPagination {
+	keysetPagination, err := common.NewKeysetPagination(offset, pageSize, sqlIdName, idFieldName)
+	if err != nil {
+		Expect(err).ToNot(HaveOccurred())
+	}
+	return keysetPagination
+}
+
+func getAllTxStatuses(store driver.VaultStore, sql driver.SqlQuery, pagination *driver.Pagination) ([]driver.TxStatus, error) {
+	p, err := store.GetAllTxStatuses(context.Background(), sql, *pagination)
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +150,7 @@ func getAllTxStatuses(store driver.VaultStore, pagination driver.Pagination) ([]
 	if err != nil {
 		return nil, err
 	}
+	*pagination = p.Pagination
 	return statuses, nil
 }
 
@@ -101,34 +160,59 @@ func testPagination(t *testing.T, store driver.VaultStore) {
 		"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025")
 	Expect(err).ToNot(HaveOccurred())
 
-	for _, item := range matrix {
-		for page := 0; page < len(item.matcher); page++ {
-			statuses, err := getAllTxStatuses(store, item.pagination)
-			Expect(err).ToNot(HaveOccurred())
-			if len(statuses) == 0 {
-				break
-			}
-			Expect(statuses).To(item.matcher[page])
-			item.pagination, err = item.pagination.Next()
-			Expect(err).ToNot(HaveOccurred())
-		}
-		for page := len(item.matcher) - 1; 0 <= page; page-- {
-			item.pagination, err = item.pagination.Prev()
-			Expect(err).ToNot(HaveOccurred())
-			statuses, err := getAllTxStatuses(store, item.pagination)
-			Expect(err).ToNot(HaveOccurred())
-			if len(statuses) == 0 {
-				break
-			}
-			Expect(statuses).To(item.matcher[page])
-		}
+	interpreter := common.NewPaginationInterpreter()
 
-		item.pagination, err = item.pagination.Prev()
-		Expect(err).ToNot(HaveOccurred())
-		statuses, err := getAllTxStatuses(store, item.pagination)
-		Expect(err).ToNot(HaveOccurred())
-		if len(statuses) == 0 {
-			break
+	for _, item := range matrix {
+		if len(item.sqlBackward) == 0 {
+			item.sqlBackward = item.sqlForward
+		}
+		pagination := item.pagination
+		page := 0
+		for ; true; page++ {
+			sql := driver.SqlQuery{}
+			sql.SetTable("test")
+			// Simulate the pagination interpretation to be checked
+			sql2, err := interpreter.Interpret(pagination, sql)
+			Expect(err).ToNot(HaveOccurred())
+			// fmt.Printf("sql (forward) = %s\n", sql2.FormatQuery())
+			Expect(sql2.FormatQuery()).To(Equal(item.sqlForward[page]))
+			statuses, err := getAllTxStatuses(store, sql, &pagination)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
+			// Test we get 0 statuses when we reach the end
+			if len(statuses) == 0 {
+				break
+			}
+			Expect(page).To(BeNumerically("<", len(item.matcher)))
+			Expect(statuses).To(item.matcher[page])
+			pagination, err = pagination.Next()
+			Expect(err).ToNot(HaveOccurred())
+		}
+		// test that we read everything
+		Expect(page).To(BeNumerically("==", len(item.matcher)))
+
+		// Test that Prev() work. Start by advancing the pagination pointer 2 steps forward
+		if len(item.matcher) < 2 {
+			continue
+		}
+		pagination = item.pagination
+		for page = 0; page < 2; page++ {
+			pagination, err = pagination.Next()
+			Expect(err).ToNot(HaveOccurred())
+		}
+		for ; page >= 0; page-- {
+			sql := driver.SqlQuery{}
+			sql.SetTable("test")
+			sql, err := interpreter.Interpret(pagination, sql)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sql.FormatQuery()).To(Equal(item.sqlBackward[page]))
+			statuses, err := getAllTxStatuses(store, sql, &pagination)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(statuses).To(item.matcher[page])
+			if page > 0 {
+				pagination, err = pagination.Prev()
+				Expect(err).ToNot(HaveOccurred())
+			}
 		}
 	}
 }
@@ -231,7 +315,9 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 }
 
 func fetchAll(store driver.VaultStore) ([]driver.TxID, error) {
-	pageIt, err := store.GetAllTxStatuses(context.Background(), common.NewNoPagination())
+	sql := driver.SqlQuery{}
+	sql.SetTable("test")
+	pageIt, err := store.GetAllTxStatuses(context.Background(), sql, common.NewNoPagination())
 	if err != nil {
 		return nil, err
 	}

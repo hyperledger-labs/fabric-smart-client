@@ -8,6 +8,8 @@ package driver
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
@@ -61,6 +63,84 @@ type TxStatusIterator = collections.Iterator[*TxStatus]
 type TxStateIterator = collections.Iterator[*VaultRead]
 
 type VersionedResultsIterator = collections.Iterator[*VaultRead]
+
+type SqlQuery struct {
+	table  string
+	fields []string
+	where  []string
+	limit  string
+	offset string
+	order  string
+	params []any
+}
+
+func (q *SqlQuery) SetTable(t string) {
+	q.table = t
+}
+
+func (q *SqlQuery) SetLimit(l int) {
+	q.limit = fmt.Sprintf("%d", l)
+}
+
+func (q *SqlQuery) SetOffset(o int) {
+	q.offset = fmt.Sprintf("%d", o)
+}
+
+func (q *SqlQuery) SetOrder(o string) {
+	q.order = o
+}
+
+func (q *SqlQuery) AddWhere(p string) {
+	q.where = append(q.where, p)
+}
+
+func (q *SqlQuery) AddFields(f []string) {
+	q.fields = append(q.fields, f...)
+}
+
+func (q *SqlQuery) AddParam(p any) int {
+	q.params = append(q.params, p)
+	return len(q.params)
+}
+
+func (q *SqlQuery) GetParams() []any {
+	return q.params
+}
+
+func (q *SqlQuery) FormatQuery() string {
+	if q.table == "" {
+		return ""
+	}
+
+	// SELECT fields
+	fields := "*"
+	if len(q.fields) > 0 {
+		fields = strings.Join(q.fields, ", ")
+	}
+	query := fmt.Sprintf("SELECT %s FROM %s", fields, q.table)
+
+	// WHERE clause
+	if len(q.where) > 0 {
+		query += " WHERE " + strings.Join(q.where, " AND ")
+	}
+
+	// ORDER BY
+	if q.order != "" {
+		query += " ORDER BY " + q.order
+	}
+
+	// LIMIT
+	if q.limit != "" {
+		query += " LIMIT " + q.limit
+	}
+
+	// OFFSET
+	if q.offset != "" {
+		query += " OFFSET " + q.offset
+	}
+
+	return query
+}
 
 type QueryExecutor interface {
 	GetState(ctx context.Context, namespace Namespace, key PKey) (*VaultRead, error)
@@ -138,7 +218,7 @@ type VaultReader interface {
 	GetTxStatuses(ctx context.Context, txIDs ...TxID) (TxStatusIterator, error)
 
 	// GetAllTxStatuses returns the statuses of the all transactions in the vault
-	GetAllTxStatuses(ctx context.Context, pagination Pagination) (*PageIterator[*TxStatus], error)
+	GetAllTxStatuses(ctx context.Context, sql SqlQuery, pagination Pagination) (*PageIterator[*TxStatus], error)
 }
 
 // LockedVaultReader is a VaultReader with a lock on some or all entries
