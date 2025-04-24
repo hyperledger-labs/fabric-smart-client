@@ -25,7 +25,7 @@ type dbTransaction interface {
 	Exec(query string, args ...any) (sql.Result, error)
 }
 
-type UnversionedPersistence struct {
+type KeyValueStore struct {
 	*common.BaseDB[*sql.Tx]
 	writeDB WriteDB
 	readDB  *sql.DB
@@ -35,8 +35,8 @@ type UnversionedPersistence struct {
 	ci           Interpreter
 }
 
-func NewUnversionedPersistence(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *UnversionedPersistence {
-	return &UnversionedPersistence{
+func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *KeyValueStore {
+	return &KeyValueStore{
 		BaseDB:       common.NewBaseDB(func() (*sql.Tx, error) { return writeDB.Begin() }),
 		readDB:       readDB,
 		writeDB:      writeDB,
@@ -46,7 +46,7 @@ func NewUnversionedPersistence(writeDB WriteDB, readDB *sql.DB, table string, er
 	}
 }
 
-func (db *UnversionedPersistence) GetStateRangeScanIterator(ns driver2.Namespace, startKey, endKey driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
+func (db *KeyValueStore) GetStateRangeScanIterator(ns driver2.Namespace, startKey, endKey driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
 	where, args := Where(db.ci.And(
 		db.ci.Cmp("ns", "=", ns),
 		db.ci.BetweenStrings("pkey", startKey, endKey),
@@ -62,7 +62,7 @@ func (db *UnversionedPersistence) GetStateRangeScanIterator(ns driver2.Namespace
 	return &readIterator{txs: rows}, nil
 }
 
-func (db *UnversionedPersistence) GetState(namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
+func (db *KeyValueStore) GetState(namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
 	where, args := Where(db.hasKey(namespace, key))
 	query := fmt.Sprintf("SELECT val FROM %s %s", db.table, where)
 	logger.Debug(query, args)
@@ -70,7 +70,7 @@ func (db *UnversionedPersistence) GetState(namespace driver2.Namespace, key driv
 	return QueryUnique[driver.UnversionedValue](db.readDB, query, args...)
 }
 
-func (db *UnversionedPersistence) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
+func (db *KeyValueStore) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*driver.UnversionedRead](), nil
 	}
@@ -89,7 +89,7 @@ func (db *UnversionedPersistence) GetStateSetIterator(ns driver2.Namespace, keys
 	return &readIterator{txs: rows}, nil
 }
 
-func (db *UnversionedPersistence) Close() error {
+func (db *KeyValueStore) Close() error {
 	logger.Info("closing database")
 
 	// TODO: what to do with db.Txn if it's not nil?
@@ -102,22 +102,22 @@ func (db *UnversionedPersistence) Close() error {
 	return nil
 }
 
-func (db *UnversionedPersistence) DeleteState(ns driver2.Namespace, key driver2.PKey) error {
+func (db *KeyValueStore) DeleteState(ns driver2.Namespace, key driver2.PKey) error {
 	return db.DeleteStateWithTx(db.Txn, ns, key)
 }
 
-func (db *UnversionedPersistence) DeleteStateWithTx(tx dbTransaction, ns driver2.Namespace, key driver2.PKey) error {
+func (db *KeyValueStore) DeleteStateWithTx(tx dbTransaction, ns driver2.Namespace, key driver2.PKey) error {
 	if errs := db.DeleteStatesWithTx(tx, ns, key); errs != nil {
 		return errs[key]
 	}
 	return nil
 }
 
-func (db *UnversionedPersistence) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+func (db *KeyValueStore) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
 	return db.DeleteStatesWithTx(db.Txn, namespace, keys...)
 }
 
-func (db *UnversionedPersistence) DeleteStatesWithTx(tx dbTransaction, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+func (db *KeyValueStore) DeleteStatesWithTx(tx dbTransaction, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
 	if db.IsTxnNil() {
 		logger.Debug("No ongoing transaction. Using db")
 		tx = db.writeDB
@@ -141,29 +141,29 @@ func (db *UnversionedPersistence) DeleteStatesWithTx(tx dbTransaction, namespace
 	return nil
 }
 
-func (db *UnversionedPersistence) hasKeys(ns driver2.Namespace, pkeys []driver2.PKey) Condition {
+func (db *KeyValueStore) hasKeys(ns driver2.Namespace, pkeys []driver2.PKey) Condition {
 	return db.ci.And(
 		db.ci.Cmp("ns", "=", ns),
 		db.ci.InStrings("pkey", pkeys),
 	)
 }
 
-func (db *UnversionedPersistence) SetState(ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
+func (db *KeyValueStore) SetState(ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
 	return db.SetStateWithTx(db.Txn, ns, pkey, value)
 }
 
-func (db *UnversionedPersistence) SetStates(ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
+func (db *KeyValueStore) SetStates(ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
 	return db.SetStatesWithTx(db.Txn, ns, kvs)
 }
 
-func (db *UnversionedPersistence) SetStateWithTx(tx dbTransaction, ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
+func (db *KeyValueStore) SetStateWithTx(tx dbTransaction, ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
 	if errs := db.SetStatesWithTx(tx, ns, map[driver2.PKey]driver.UnversionedValue{pkey: value}); errs != nil {
 		return errs[pkey]
 	}
 	return nil
 }
 
-func (db *UnversionedPersistence) SetStatesWithTx(tx dbTransaction, ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
+func (db *KeyValueStore) SetStatesWithTx(tx dbTransaction, ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
 	if db.IsTxnNil() {
 		logger.Debug("No ongoing transaction. Using db")
 		tx = db.writeDB
@@ -193,7 +193,7 @@ func (db *UnversionedPersistence) SetStatesWithTx(tx dbTransaction, ns driver2.N
 	return errs
 }
 
-func (db *UnversionedPersistence) upsertStatesWithTx(tx dbTransaction, ns driver2.Namespace, vals map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
+func (db *KeyValueStore) upsertStatesWithTx(tx dbTransaction, ns driver2.Namespace, vals map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
 	query := fmt.Sprintf("INSERT INTO %s (ns, pkey, val) "+
 		"VALUES %s "+
 		"ON CONFLICT (ns, pkey) DO UPDATE "+
@@ -212,18 +212,18 @@ func (db *UnversionedPersistence) upsertStatesWithTx(tx dbTransaction, ns driver
 	return nil
 }
 
-func (db *UnversionedPersistence) Exec(query string, args ...any) (sql.Result, error) {
+func (db *KeyValueStore) Exec(query string, args ...any) (sql.Result, error) {
 	return db.Txn.Exec(query, args...)
 }
 
-func (db *UnversionedPersistence) hasKey(ns driver2.Namespace, pkey string) Condition {
+func (db *KeyValueStore) hasKey(ns driver2.Namespace, pkey string) Condition {
 	return db.ci.And(
 		db.ci.Cmp("ns", "=", ns),
 		db.ci.Cmp("pkey", "=", pkey),
 	)
 }
 
-func (db *UnversionedPersistence) Stats() any {
+func (db *KeyValueStore) Stats() any {
 	if db.readDB != nil {
 		return db.readDB.Stats()
 	}
@@ -247,7 +247,7 @@ func (t *readIterator) Next() (*driver.UnversionedRead, error) {
 	return &r, err
 }
 
-func (db *UnversionedPersistence) CreateSchema() error {
+func (db *KeyValueStore) CreateSchema() error {
 	return InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		ns TEXT NOT NULL,

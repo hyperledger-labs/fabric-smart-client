@@ -13,19 +13,19 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
 
-type EnvelopePersistence struct {
-	*common.EnvelopePersistence
+type EnvelopeStore struct {
+	*common.EnvelopeStore
 }
 
-func NewEnvelopePersistence(opts Opts) (*EnvelopePersistence, error) {
+func NewEnvelopeStore(opts Opts) (*EnvelopeStore, error) {
 	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newEnvelopePersistence(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.Envelope), nil
+	return newEnvelopeStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.Envelope), nil
 }
 
-func newEnvelopePersistence(readDB *sql.DB, writeDB common.WriteDB, table string) *EnvelopePersistence {
-	return &EnvelopePersistence{EnvelopePersistence: common.NewEnvelopePersistence(writeDB, readDB, table, &errorMapper{}, NewInterpreter())}
+func newEnvelopeStore(readDB *sql.DB, writeDB common.WriteDB, table string) *EnvelopeStore {
+	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(writeDB, readDB, table, &errorMapper{}, NewInterpreter())}
 }

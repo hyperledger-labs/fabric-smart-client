@@ -19,18 +19,18 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs/mock"
 )
 
-func OpenMemoryVault(params ...string) (driver.VaultPersistence, error) {
+func OpenMemoryVault(params ...string) (driver.VaultStore, error) {
 	return NewStore("", multiplexed.NewDriver(&mock.ConfigProvider{}, mem.NewNamedDriver()), params...)
 }
 
-func OpenSqliteVault(key, tempDir string) (driver.VaultPersistence, error) {
+func OpenSqliteVault(key, tempDir string) (driver.VaultStore, error) {
 	cp := sqlite.NewConfigProvider(common.MockConfig(sqlite.Config{
 		DataSource: fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)),
 	}))
-	return sqlite.NewPersistenceWithOpts(cp, "", sqlite.NewVaultPersistence)
+	return sqlite.NewPersistenceWithOpts(cp, "", sqlite.NewVaultStore)
 }
 
-func OpenPostgresVault(name string) (driver.VaultPersistence, func(), error) {
+func OpenPostgresVault(name string) (driver.VaultStore, func(), error) {
 	postgresConfig := postgres.DefaultConfig(fmt.Sprintf("%s-db", name))
 	terminate, err := postgres.StartPostgresWithFmt([]*postgres.ContainerConfig{postgresConfig})
 	if err != nil {
@@ -41,7 +41,7 @@ func OpenPostgresVault(name string) (driver.VaultPersistence, func(), error) {
 		DataSource:   postgresConfig.DataSource(),
 		MaxOpenConns: 50,
 	}))
-	persistence, err := postgres.NewPersistenceWithOpts(cp, "", postgres.NewVaultPersistence)
+	persistence, err := postgres.NewPersistenceWithOpts(cp, "", postgres.NewVaultStore)
 	if err != nil {
 		return nil, nil, err
 	}

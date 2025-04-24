@@ -33,22 +33,22 @@ type SQLErrorWrapper interface {
 	WrapError(error) error
 }
 
-type BindingPersistence = driver.BindingStore
+type BindingStore = driver.BindingStore
 
-type SignerInfoPersistence = driver.SignerInfoStore
+type SignerInfoStore = driver.SignerInfoStore
 
-type AuditInfoPersistence = driver.AuditInfoStore
+type AuditInfoStore = driver.AuditInfoStore
 
-type EndorseTxPersistence = driver.EndorseTxStore[string]
+type EndorseTxStore = driver.EndorseTxStore[string]
 
-type MetadataPersistence = driver.MetadataStore[string, []byte]
+type MetadataStore = driver.MetadataStore[string, []byte]
 
-type EnvelopePersistence = driver.EnvelopeStore[string]
+type EnvelopeStore = driver.EnvelopeStore[string]
 
-type VaultPersistence = driver.VaultStore
+type VaultStore = driver.VaultStore
 
-// UnversionedPersistence models a key-value storage place
-type UnversionedPersistence interface {
+// KeyValueStore models a key-value storage place
+type KeyValueStore interface {
 	// SetState sets the given value for the given namespace, key, and version
 	SetState(namespace driver.Namespace, key driver.PKey, value driver.UnversionedValue) error
 	// SetStates sets the given values for the given namespace, key, and version
@@ -80,7 +80,7 @@ type UnversionedPersistence interface {
 }
 
 // VersionedPersistence models a versioned key-value storage place
-type VersionedPersistence = UnversionedPersistence
+type VersionedPersistence = KeyValueStore
 
 type UnversionedWriteTransaction interface {
 	// SetState sets the given value for the given namespace, key
@@ -121,21 +121,21 @@ type Config interface {
 type NamedDriver = driver.NamedDriver[Driver]
 
 type Driver interface {
-	// NewKVS returns a new UnversionedPersistence for the passed data source and config
-	NewKVS(PersistenceName, ...string) (UnversionedPersistence, error)
-	// NewBinding returns a new BindingPersistence for the passed data source and config
-	NewBinding(PersistenceName, ...string) (BindingPersistence, error)
-	// NewSignerInfo returns a new SignerInfoPersistence for the passed data source and config
-	NewSignerInfo(PersistenceName, ...string) (SignerInfoPersistence, error)
-	// NewAuditInfo returns a new AuditInfoPersistence for the passed data source and config
-	NewAuditInfo(PersistenceName, ...string) (AuditInfoPersistence, error)
-	// NewEndorseTx returns a new EndorseTxPersistence for the passed data source and config
-	NewEndorseTx(PersistenceName, ...string) (EndorseTxPersistence, error)
-	// NewMetadata returns a new MetadataPersistence for the passed data source and config
-	NewMetadata(PersistenceName, ...string) (MetadataPersistence, error)
-	// NewEnvelope returns a new EnvelopePersistence for the passed data source and config
-	NewEnvelope(PersistenceName, ...string) (EnvelopePersistence, error)
-	// NewVault returns a new VaultPersistence for the passed data source and config
+	// NewKVS returns a new KeyValueStore for the passed data source and config
+	NewKVS(PersistenceName, ...string) (KeyValueStore, error)
+	// NewBinding returns a new BindingStore for the passed data source and config
+	NewBinding(PersistenceName, ...string) (BindingStore, error)
+	// NewSignerInfo returns a new SignerInfoStore for the passed data source and config
+	NewSignerInfo(PersistenceName, ...string) (SignerInfoStore, error)
+	// NewAuditInfo returns a new AuditInfoStore for the passed data source and config
+	NewAuditInfo(PersistenceName, ...string) (AuditInfoStore, error)
+	// NewEndorseTx returns a new EndorseTxStore for the passed data source and config
+	NewEndorseTx(PersistenceName, ...string) (EndorseTxStore, error)
+	// NewMetadata returns a new MetadataStore for the passed data source and config
+	NewMetadata(PersistenceName, ...string) (MetadataStore, error)
+	// NewEnvelope returns a new EnvelopeStore for the passed data source and config
+	NewEnvelope(PersistenceName, ...string) (EnvelopeStore, error)
+	// NewVault returns a new VaultStore for the passed data source and config
 	NewVault(PersistenceName, ...string) (driver.VaultStore, error)
 }
 
@@ -160,6 +160,6 @@ type Notifier interface {
 }
 
 type UnversionedNotifier interface {
-	UnversionedPersistence
+	KeyValueStore
 	Notifier
 }

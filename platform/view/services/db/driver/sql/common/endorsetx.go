@@ -12,26 +12,26 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
-func NewEndorseTxPersistence(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *EndorseTxPersistence {
-	return &EndorseTxPersistence{p: newSimpleKeyDataPersistence(writeDB, readDB, table, errorWrapper, ci)}
+func NewEndorseTxStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *EndorseTxStore {
+	return &EndorseTxStore{p: newSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
 }
 
-type EndorseTxPersistence struct {
-	p *simpleKeyDataPersistence
+type EndorseTxStore struct {
+	p *simpleKeyDataStore
 }
 
-func (db *EndorseTxPersistence) GetEndorseTx(key string) ([]byte, error) {
+func (db *EndorseTxStore) GetEndorseTx(key string) ([]byte, error) {
 	return db.p.GetData(key)
 }
 
-func (db *EndorseTxPersistence) ExistsEndorseTx(key string) (bool, error) {
+func (db *EndorseTxStore) ExistsEndorseTx(key string) (bool, error) {
 	return db.p.ExistData(key)
 }
 
-func (db *EndorseTxPersistence) PutEndorseTx(key string, data []byte) error {
+func (db *EndorseTxStore) PutEndorseTx(key string, data []byte) error {
 	return db.p.PutData(key, data)
 }
 
-func (db *EndorseTxPersistence) CreateSchema() error {
+func (db *EndorseTxStore) CreateSchema() error {
 	return db.p.CreateSchema()
 }

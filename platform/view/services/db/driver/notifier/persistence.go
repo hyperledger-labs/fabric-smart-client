@@ -15,7 +15,7 @@ import (
 // We treat update/inserts as the same, because we don't need the operation type.
 // Distinguishing the two cases for sqlite would require more logic.
 
-func NewUnversioned(persistence driver.UnversionedPersistence) *UnversionedPersistenceNotifier {
+func NewUnversioned(persistence driver.KeyValueStore) *UnversionedPersistenceNotifier {
 	return &UnversionedPersistenceNotifier{
 		Persistence: persistence,
 		Notifier:    NewNotifier(),
@@ -23,7 +23,7 @@ func NewUnversioned(persistence driver.UnversionedPersistence) *UnversionedPersi
 }
 
 type UnversionedPersistenceNotifier struct {
-	Persistence driver.UnversionedPersistence
+	Persistence driver.KeyValueStore
 	*Notifier
 }
 

@@ -22,18 +22,18 @@ func TestSqlite(t *testing.T) {
 	o := Opts{
 		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, "benchmark")),
 	}
-	common2.TestCases(t, func(name string) (driver.UnversionedPersistence, error) {
-		p, err := NewUnversionedPersistence(o)
+	common2.TestCases(t, func(name string) (driver.KeyValueStore, error) {
+		p, err := NewKeyValueStore(o)
 		assert.NoError(t, err)
 		assert.NoError(t, p.CreateSchema())
 		return p, nil
 	}, func(name string) (driver.UnversionedNotifier, error) {
-		p, err := NewUnversionedNotifier(o, "test")
+		p, err := NewKeyValueStoreNotifier(o, "test")
 		assert.NoError(t, err)
-		assert.NoError(t, p.Persistence.(*UnversionedPersistence).CreateSchema())
+		assert.NoError(t, p.Persistence.(*KeyValueStore).CreateSchema())
 		return p, nil
-	}, func(p driver.UnversionedPersistence) *common2.UnversionedPersistence {
-		return p.(*UnversionedPersistence).UnversionedPersistence
+	}, func(p driver.KeyValueStore) *common2.KeyValueStore {
+		return p.(*KeyValueStore).KeyValueStore
 	})
 }
 
@@ -49,6 +49,6 @@ func TestFolderDoesNotExistError(t *testing.T) {
 	o := Opts{
 		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join("/this/folder/does/not/exist", "folder-does-not-exist")),
 	}
-	_, err := NewUnversionedPersistence(o)
+	_, err := NewKeyValueStore(o)
 	assert.Error(t, err, "error opening db: can't open sqlite database, does the folder exist?")
 }

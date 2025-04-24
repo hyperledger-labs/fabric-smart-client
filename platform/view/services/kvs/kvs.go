@@ -55,14 +55,14 @@ type Iterator interface {
 
 type KVS struct {
 	namespace string
-	store     driver.UnversionedPersistence
+	store     driver.KeyValueStore
 
 	putMutex sync.RWMutex
 	cache    cache
 }
 
 // New returns a new KVS instance for the passed namespace using the passed driver and config provider
-func New(persistence driver.UnversionedPersistence, namespace string, cacheSize int) (*KVS, error) {
+func New(persistence driver.KeyValueStore, namespace string, cacheSize int) (*KVS, error) {
 	return &KVS{
 		namespace: namespace,
 		store:     persistence,

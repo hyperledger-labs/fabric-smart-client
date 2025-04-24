@@ -27,7 +27,7 @@ func NewStore[K identifier, M any](cp driver.Config, d multiplexed.Driver, param
 }
 
 type store[K identifier, M any] struct {
-	m driver.MetadataPersistence
+	m driver.MetadataStore
 }
 
 func (s *store[K, M]) GetMetadata(key K) (M, error) {

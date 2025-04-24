@@ -23,7 +23,7 @@ func BenchmarkReadExistingPostgres(b *testing.B) {
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	}))
-	db, err := NewPersistenceWithOpts(cp, "", NewUnversionedPersistence)
+	db, err := NewPersistenceWithOpts(cp, "", NewKeyValueStore)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	}))
-	db, err := NewPersistenceWithOpts(cp, "", NewUnversionedPersistence)
+	db, err := NewPersistenceWithOpts(cp, "", NewKeyValueStore)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	}))
-	db, err := NewPersistenceWithOpts(cp, "", NewUnversionedPersistence)
+	db, err := NewPersistenceWithOpts(cp, "", NewKeyValueStore)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	}))
-	db, err := NewPersistenceWithOpts(cp, "", NewUnversionedPersistence)
+	db, err := NewPersistenceWithOpts(cp, "", NewKeyValueStore)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
 		MaxOpenConns: 50,
 		MaxIdleConns: common2.CopyPtr(50),
 	}))
-	db, err := NewPersistenceWithOpts(cp, "", NewUnversionedPersistence)
+	db, err := NewPersistenceWithOpts(cp, "", NewKeyValueStore)
 	if err != nil {
 		b.Fatal(err)
 	}

@@ -30,7 +30,7 @@ type Driver struct {
 	config  driver2.PersistenceConfig
 }
 
-func (d Driver) NewKVS(name driver2.PersistenceName, params ...string) (driver2.UnversionedPersistence, error) {
+func (d Driver) NewKVS(name driver2.PersistenceName, params ...string) (driver2.KeyValueStore, error) {
 	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func (d Driver) NewKVS(name driver2.PersistenceName, params ...string) (driver2.
 	return dr.NewKVS(name, params...)
 }
 
-func (d Driver) NewBinding(name driver2.PersistenceName, params ...string) (driver2.BindingPersistence, error) {
+func (d Driver) NewBinding(name driver2.PersistenceName, params ...string) (driver2.BindingStore, error) {
 	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (d Driver) NewBinding(name driver2.PersistenceName, params ...string) (driv
 	return dr.NewBinding(name, params...)
 }
 
-func (d Driver) NewSignerInfo(name driver2.PersistenceName, params ...string) (driver2.SignerInfoPersistence, error) {
+func (d Driver) NewSignerInfo(name driver2.PersistenceName, params ...string) (driver2.SignerInfoStore, error) {
 	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (d Driver) NewSignerInfo(name driver2.PersistenceName, params ...string) (d
 	return dr.NewSignerInfo(name, params...)
 }
 
-func (d Driver) NewAuditInfo(name driver2.PersistenceName, params ...string) (driver2.AuditInfoPersistence, error) {
+func (d Driver) NewAuditInfo(name driver2.PersistenceName, params ...string) (driver2.AuditInfoStore, error) {
 	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func (d Driver) NewAuditInfo(name driver2.PersistenceName, params ...string) (dr
 	return dr.NewAuditInfo(name, params...)
 }
 
-func (d Driver) NewEndorseTx(name driver2.PersistenceName, params ...string) (driver2.EndorseTxPersistence, error) {
+func (d Driver) NewEndorseTx(name driver2.PersistenceName, params ...string) (driver2.EndorseTxStore, error) {
 	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func (d Driver) NewEndorseTx(name driver2.PersistenceName, params ...string) (dr
 	return dr.NewEndorseTx(name, params...)
 }
 
-func (d Driver) NewMetadata(name driver2.PersistenceName, params ...string) (driver2.MetadataPersistence, error) {
+func (d Driver) NewMetadata(name driver2.PersistenceName, params ...string) (driver2.MetadataStore, error) {
 	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (d Driver) NewMetadata(name driver2.PersistenceName, params ...string) (dri
 	return dr.NewMetadata(name, params...)
 }
 
-func (d Driver) NewEnvelope(name driver2.PersistenceName, params ...string) (driver2.EnvelopePersistence, error) {
+func (d Driver) NewEnvelope(name driver2.PersistenceName, params ...string) (driver2.EnvelopeStore, error) {
 	dr, err := d.getDriver(name)
 	if err != nil {
 		return nil, err

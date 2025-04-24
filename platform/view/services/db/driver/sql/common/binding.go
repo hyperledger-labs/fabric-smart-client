@@ -15,8 +15,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewBindingPersistence(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *BindingPersistence {
-	return &BindingPersistence{
+func NewBindingStore(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *BindingStore {
+	return &BindingStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
@@ -25,7 +25,7 @@ func NewBindingPersistence(readDB *sql.DB, writeDB WriteDB, table string, errorW
 	}
 }
 
-type BindingPersistence struct {
+type BindingStore struct {
 	table        string
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
@@ -33,7 +33,7 @@ type BindingPersistence struct {
 	ci           Interpreter
 }
 
-func (db *BindingPersistence) GetLongTerm(ephemeral view.Identity) (view.Identity, error) {
+func (db *BindingStore) GetLongTerm(ephemeral view.Identity) (view.Identity, error) {
 	where, params := Where(db.ci.Cmp("ephemeral_hash", "=", ephemeral.UniqueID()))
 	query := fmt.Sprintf("SELECT long_term_id FROM %s %s", db.table, where)
 	logger.Debug(query, params)
@@ -44,7 +44,7 @@ func (db *BindingPersistence) GetLongTerm(ephemeral view.Identity) (view.Identit
 	logger.Debugf("found wallet id for identity [%v]: %v", ephemeral, result)
 	return result, nil
 }
-func (db *BindingPersistence) HaveSameBinding(this, that view.Identity) (bool, error) {
+func (db *BindingStore) HaveSameBinding(this, that view.Identity) (bool, error) {
 	where, params := Where(db.ci.InStrings("ephemeral_hash", []string{this.UniqueID(), that.UniqueID()}))
 	query := fmt.Sprintf("SELECT long_term_id FROM %s %s", db.table, where)
 	logger.Debug(query, params)
@@ -69,7 +69,7 @@ func (db *BindingPersistence) HaveSameBinding(this, that view.Identity) (bool, e
 	return longTermIds[0].Equal(longTermIds[1]), nil
 }
 
-func (db *BindingPersistence) CreateSchema() error {
+func (db *BindingStore) CreateSchema() error {
 	return InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		ephemeral_hash TEXT NOT NULL PRIMARY KEY,

@@ -12,6 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 )
 
-func NewDefaultStore(cp driver.Config, d multiplexed.Driver) (driver.BindingPersistence, error) {
+func NewDefaultStore(cp driver.Config, d multiplexed.Driver) (driver.BindingStore, error) {
 	return d.NewBinding(common.GetPersistenceName(cp, "fsc.binding.persistence"), "default")
 }

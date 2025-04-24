@@ -45,7 +45,7 @@ type notCachedStore struct {
 
 func (s *notCachedStore) Invalidate(...driver.TxID) {}
 
-func NewCachedVault(backed driver2.VaultPersistence, cacheSize int) CachedVaultStore {
+func NewCachedVault(backed driver2.VaultStore, cacheSize int) CachedVaultStore {
 	if cacheSize <= 0 {
 		logger.Debugf("txID store without cache selected")
 		return &notCachedStore{VaultStore: backed}

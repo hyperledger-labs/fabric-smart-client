@@ -42,14 +42,14 @@ var VCProvider = driver.NewValidationCodeProvider(map[ValidationCode]driver.TxSt
 })
 
 type artifactsProvider interface {
-	NewCachedVault(ddb driver2.VaultPersistence) (*Vault[ValidationCode], error)
-	NewNonCachedVault(ddb driver2.VaultPersistence) (*Vault[ValidationCode], error)
+	NewCachedVault(ddb driver2.VaultStore) (*Vault[ValidationCode], error)
+	NewNonCachedVault(ddb driver2.VaultStore) (*Vault[ValidationCode], error)
 	NewMarshaller() Marshaller
 }
 
 var SingleDBCases = []struct {
 	Name string
-	Fn   func(*testing.T, driver2.VaultPersistence, artifactsProvider)
+	Fn   func(*testing.T, driver2.VaultStore, artifactsProvider)
 }{
 	{"Merge", TTestMerge},
 	{"Inspector", TTestInspector},
@@ -62,19 +62,19 @@ var SingleDBCases = []struct {
 
 var ReadCommittedDBCases = []struct {
 	Name string
-	Fn   func(*testing.T, driver2.VaultPersistence, artifactsProvider)
+	Fn   func(*testing.T, driver2.VaultStore, artifactsProvider)
 }{
 	{"InterceptorConcurrencyNoConsistency", TTestInterceptorConcurrencyNoConsistency},
 }
 
 var DoubleDBCases = []struct {
 	Name string
-	Fn   func(*testing.T, driver2.VaultPersistence, driver2.VaultPersistence, artifactsProvider)
+	Fn   func(*testing.T, driver2.VaultStore, driver2.VaultStore, artifactsProvider)
 }{
 	{"Run", TTestRun},
 }
 
-func TTestInterceptorErr(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
+func TTestInterceptorErr(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	vault1, err := vp.NewNonCachedVault(ddb)
 	assert.NoError(t, err)
 	rws, err := vault1.NewRWSet(context.Background(), "txid")
@@ -120,7 +120,7 @@ func TTestInterceptorErr(t *testing.T, ddb driver2.VaultPersistence, vp artifact
 	rws.Done()
 }
 
-func TTestInterceptorConcurrency(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
+func TTestInterceptorConcurrency(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	ns := "namespace"
 	k := "key1"
 
@@ -150,7 +150,7 @@ func TTestInterceptorConcurrency(t *testing.T, ddb driver2.VaultPersistence, vp 
 	assert.Equal(t, []byte("val"), state.Raw)
 }
 
-func TTestInterceptorConcurrencyNoConsistency(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
+func TTestInterceptorConcurrencyNoConsistency(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	ns := "namespace"
 	k := "key1"
 	mk := "meyakey1"
@@ -195,7 +195,7 @@ func TTestInterceptorConcurrencyNoConsistency(t *testing.T, ddb driver2.VaultPer
 	assert.EqualError(t, err, "invalid metadata read: previous value returned at version [[]], current value at version [[0 0 0 36 0 0 0 1]]")
 }
 
-func TTestQueryExecutor(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
+func TTestQueryExecutor(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	ns := "namespace"
 
 	aVault, err := vp.NewNonCachedVault(ddb)
@@ -265,7 +265,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultPersistence, vp artifacts
 	assert.Equal(t, expected, res)
 }
 
-func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
+func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	ns := "namespace"
 	k1 := "key1"
 	k2 := "key2"
@@ -388,7 +388,7 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultPersistence, vp artifac
 	assert.Len(t, aVault.interceptors, 0)
 }
 
-func TTestVaultErr(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
+func TTestVaultErr(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	vault1, err := vp.NewNonCachedVault(ddb)
 	assert.NoError(t, err)
 	err = vault1.CommitTX(context.TODO(), "non-existent", 0, 0)
@@ -435,7 +435,7 @@ func TTestVaultErr(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvi
 	assert.Equal(t, unknown, code)
 }
 
-func TTestMerge(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
+func TTestMerge(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	ns := "namespace"
 	k1 := "key1"
 	k2 := "key2"
@@ -563,7 +563,7 @@ func TTestMerge(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider
 	assert.EqualError(t, err, "duplicate metadata write entry for key namespace:key3")
 }
 
-func TTestInspector(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProvider) {
+func TTestInspector(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	txid := "txid"
 	ns := "ns"
 	k1 := "\x00k1"
@@ -630,7 +630,7 @@ func TTestInspector(t *testing.T, ddb driver2.VaultPersistence, vp artifactsProv
 	i.Done()
 }
 
-func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvider) {
+func TTestRun(t *testing.T, db1, db2 driver2.VaultStore, vp artifactsProvider) {
 	ns := "namespace"
 	k1 := "key1"
 	k1Meta := "key1Meta"
@@ -1028,7 +1028,7 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultPersistence, vp artifactsProvi
 	assert.Equal(t, t1, t2)
 }
 
-func compare(t *testing.T, ns string, db1, db2 driver2.VaultPersistence) {
+func compare(t *testing.T, ns string, db1, db2 driver2.VaultStore) {
 	// we expect the underlying databases to be identical
 	itr, err := db1.GetAllStates(context.Background(), ns)
 	assert.NoError(t, err)

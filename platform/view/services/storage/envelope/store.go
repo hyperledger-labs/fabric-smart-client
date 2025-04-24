@@ -25,7 +25,7 @@ func NewStore[K identifier](cp driver.Config, d multiplexed.Driver, params ...st
 }
 
 type envelopeStore[K identifier] struct {
-	e driver.EnvelopePersistence
+	e driver.EnvelopeStore
 }
 
 func (s *envelopeStore[K]) GetEnvelope(key K) ([]byte, error) {

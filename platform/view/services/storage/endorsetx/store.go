@@ -25,7 +25,7 @@ func NewStore[K identifier](cp driver.Config, d multiplexed.Driver, params ...st
 }
 
 type endorseTxStore[K identifier] struct {
-	e driver.EndorseTxPersistence
+	e driver.EndorseTxStore
 }
 
 func (s *endorseTxStore[K]) GetEndorseTx(key K) ([]byte, error) {

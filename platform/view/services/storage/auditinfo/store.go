@@ -12,6 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 )
 
-func NewDefaultStore(cp driver.Config, d multiplexed.Driver) (driver.AuditInfoPersistence, error) {
+func NewDefaultStore(cp driver.Config, d multiplexed.Driver) (driver.AuditInfoStore, error) {
 	return d.NewAuditInfo(common.GetPersistenceName(cp, "fsc.auditinfo.persistence"), "default")
 }

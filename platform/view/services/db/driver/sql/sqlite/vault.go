@@ -19,8 +19,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type VaultPersistence struct {
-	*common.VaultPersistence
+type VaultStore struct {
+	*common.VaultStore
 
 	tables  common.VaultTables
 	writeDB common.WriteDB
@@ -30,31 +30,31 @@ type VaultPersistence struct {
 	pi common.PaginationInterpreter
 }
 
-func NewVaultPersistence(opts Opts) (*VaultPersistence, error) {
+func NewVaultStore(opts Opts) (*VaultStore, error) {
 	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newTxCodePersistence(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), common.VaultTables{
+	return newVaultStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), common.VaultTables{
 		StateTable:  tables.State,
 		StatusTable: tables.Status,
 	}), nil
 }
 
-func newTxCodePersistence(readDB *sql.DB, writeDB common.WriteDB, tables common.VaultTables) *VaultPersistence {
+func newVaultStore(readDB *sql.DB, writeDB common.WriteDB, tables common.VaultTables) *VaultStore {
 	ci := NewInterpreter()
 	pi := NewPaginatedInterpreter()
-	return &VaultPersistence{
-		VaultPersistence: common.NewVaultPersistence(writeDB, readDB, tables, &errorMapper{}, ci, pi, newSanitizer(), isolationLevels),
-		tables:           tables,
-		writeDB:          writeDB,
-		ci:               ci,
-		pi:               pi,
+	return &VaultStore{
+		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &errorMapper{}, ci, pi, newSanitizer(), isolationLevels),
+		tables:     tables,
+		writeDB:    writeDB,
+		ci:         ci,
+		pi:         pi,
 	}
 }
 
-func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
+func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("Start store")
 	defer span.AddEvent("End store")
@@ -105,7 +105,7 @@ func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writ
 	return nil
 }
 
-func (db *VaultPersistence) CreateSchema() error {
+func (db *VaultStore) CreateSchema() error {
 	return common.InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		pos INTEGER PRIMARY KEY,
