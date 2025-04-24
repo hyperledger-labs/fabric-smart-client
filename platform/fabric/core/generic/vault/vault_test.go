@@ -24,11 +24,11 @@ import (
 
 type artifactsProvider struct{}
 
-func (p *artifactsProvider) NewCachedVault(ddb dbdriver.VaultPersistence) (*vault.Vault[fdriver.ValidationCode], error) {
+func (p *artifactsProvider) NewCachedVault(ddb dbdriver.VaultStore) (*vault.Vault[fdriver.ValidationCode], error) {
 	return NewVault(dbhelper.NewCachedVault(ddb, 100), &disabled.Provider{}, &noop.TracerProvider{}), nil
 }
 
-func (p *artifactsProvider) NewNonCachedVault(ddb dbdriver.VaultPersistence) (*vault.Vault[fdriver.ValidationCode], error) {
+func (p *artifactsProvider) NewNonCachedVault(ddb dbdriver.VaultStore) (*vault.Vault[fdriver.ValidationCode], error) {
 	return NewVault(dbhelper.NewCachedVault(ddb, 0), &disabled.Provider{}, &noop.TracerProvider{}), nil
 }
 

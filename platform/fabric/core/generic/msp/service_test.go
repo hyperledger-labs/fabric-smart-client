@@ -24,11 +24,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newAuditInfo() driver.AuditInfoPersistence {
+func newAuditInfo() driver.AuditInfoStore {
 	return utils.MustGet((&mem.Driver{}).NewAuditInfo(""))
 }
 
-func newSignerInfo() driver.SignerInfoPersistence {
+func newSignerInfo() driver.SignerInfoStore {
 	return utils.MustGet((&mem.Driver{}).NewSignerInfo(""))
 }
 

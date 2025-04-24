@@ -30,9 +30,9 @@ type VaultTables struct {
 
 type stateRow = [5]any
 
-func NewVaultPersistence(writeDB WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci Interpreter, pi PaginationInterpreter, sanitizer Sanitizer, il IsolationLevelMapper) *VaultPersistence {
+func NewVaultStore(writeDB WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci Interpreter, pi PaginationInterpreter, sanitizer Sanitizer, il IsolationLevelMapper) *VaultStore {
 	vaultSanitizer := newSanitizer(sanitizer)
-	return &VaultPersistence{
+	return &VaultStore{
 		vaultReader: &vaultReader{
 			readDB:    readDB,
 			ci:        ci,
@@ -50,7 +50,7 @@ func NewVaultPersistence(writeDB WriteDB, readDB *sql.DB, tables VaultTables, er
 	}
 }
 
-type VaultPersistence struct {
+type VaultStore struct {
 	*vaultReader
 	tables       VaultTables
 	errorWrapper driver2.SQLErrorWrapper
@@ -63,7 +63,7 @@ type VaultPersistence struct {
 	il           IsolationLevelMapper
 }
 
-func (db *VaultPersistence) NewTxLockVaultReader(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (driver.LockedVaultReader, error) {
+func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (driver.LockedVaultReader, error) {
 	logger.Debugf("Acquire tx id lock for [%s]", txID)
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("Start acquire TxID read lock")
@@ -83,7 +83,7 @@ func (db *VaultPersistence) NewTxLockVaultReader(ctx context.Context, txID drive
 	}), nil
 }
 
-func (db *VaultPersistence) newTxLockVaultReader(ctx context.Context, isolationLevel driver.IsolationLevel) (*vaultReader, releaseFunc, error) {
+func (db *VaultStore) newTxLockVaultReader(ctx context.Context, isolationLevel driver.IsolationLevel) (*vaultReader, releaseFunc, error) {
 	il, err := db.il.Map(isolationLevel)
 	if err != nil {
 		return nil, nil, err
@@ -104,14 +104,14 @@ func (db *VaultPersistence) newTxLockVaultReader(ctx context.Context, isolationL
 	}, tx.Commit, nil
 }
 
-func (db *VaultPersistence) NewGlobalLockVaultReader(ctx context.Context) (driver.LockedVaultReader, error) {
+func (db *VaultStore) NewGlobalLockVaultReader(ctx context.Context) (driver.LockedVaultReader, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("Start acquire global lock")
 	defer span.AddEvent("End acquire global lock")
 	return newTxVaultReader(db.newGlobalLockVaultReader), nil
 }
 
-func (db *VaultPersistence) newGlobalLockVaultReader() (*vaultReader, releaseFunc, error) {
+func (db *VaultStore) newGlobalLockVaultReader() (*vaultReader, releaseFunc, error) {
 	db.GlobalLock.Lock()
 	release := func() error {
 		db.GlobalLock.Unlock()
@@ -126,7 +126,7 @@ func (db *VaultPersistence) newGlobalLockVaultReader() (*vaultReader, releaseFun
 	}, release, nil
 }
 
-func (db *VaultPersistence) SetStatuses(ctx context.Context, code driver.TxStatusCode, message string, txIDs ...driver.TxID) error {
+func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode, message string, txIDs ...driver.TxID) error {
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
 	span := trace.SpanFromContext(ctx)
@@ -155,7 +155,7 @@ func (db *VaultPersistence) SetStatuses(ctx context.Context, code driver.TxStatu
 	return nil
 }
 
-func (db *VaultPersistence) SetStatusesBusy(txIDs []driver.TxID, offset int) (string, []any) {
+func (db *VaultStore) SetStatusesBusy(txIDs []driver.TxID, offset int) (string, []any) {
 	params := make([]any, 0, len(txIDs)*2+1)
 	for _, txID := range txIDs {
 		params = append(params, txID, driver.Busy)
@@ -173,7 +173,7 @@ func (db *VaultPersistence) SetStatusesBusy(txIDs []driver.TxID, offset int) (st
 	return query, params
 }
 
-func (db *VaultPersistence) UpsertStates(writes driver.Writes, metaWrites driver.MetaWrites, offset int) (string, []any, error) {
+func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaWrites, offset int) (string, []any, error) {
 	states, err := db.convertStateRows(writes, metaWrites)
 	if err != nil {
 		return "", nil, err
@@ -192,7 +192,7 @@ func (db *VaultPersistence) UpsertStates(writes driver.Writes, metaWrites driver
 	return query, params, nil
 }
 
-func (db *VaultPersistence) SetStatusesValid(txIDs []driver.TxID, offset int) (string, []any) {
+func (db *VaultStore) SetStatusesValid(txIDs []driver.TxID, offset int) (string, []any) {
 	params := append([]any{driver.Valid}, ToAnys(txIDs)...)
 	query := fmt.Sprintf(`
 		UPDATE %s
@@ -203,7 +203,7 @@ func (db *VaultPersistence) SetStatusesValid(txIDs []driver.TxID, offset int) (s
 		db.ci.InStrings("tx_id", txIDs).ToString(common.CopyPtr(offset+1)))
 	return query, params
 }
-func (db *VaultPersistence) convertStateRows(writes driver.Writes, metaWrites driver.MetaWrites) ([]stateRow, error) {
+func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.MetaWrites) ([]stateRow, error) {
 	states := make([]stateRow, 0, len(writes))
 	for ns, write := range writes {
 		metaWrite, ok := metaWrites[ns]
@@ -492,7 +492,7 @@ func (db *vaultReader) queryStatus(where string, params []any, limit string) (dr
 	return &TxCodeIterator{rows: rows}, nil
 }
 
-func (db *VaultPersistence) Close() error {
+func (db *VaultStore) Close() error {
 	return errors2.Join(db.writeDB.Close(), db.readDB.Close())
 }
 

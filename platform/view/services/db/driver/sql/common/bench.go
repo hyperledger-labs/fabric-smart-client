@@ -21,7 +21,7 @@ var (
 	payload     = []byte("hallo")
 )
 
-func ReadExisting(b *testing.B, db driver.UnversionedPersistence) {
+func ReadExisting(b *testing.B, db driver.KeyValueStore) {
 	assert.NoError(b, db.BeginUpdate())
 	assert.NoError(b, db.SetState(namespace, key, payload))
 	assert.NoError(b, db.Commit())
@@ -38,7 +38,7 @@ func ReadExisting(b *testing.B, db driver.UnversionedPersistence) {
 	b.Logf("%.0f reads per second from same key", float64(b.N)/b.Elapsed().Seconds())
 }
 
-func ReadNonExisting(b *testing.B, db driver.UnversionedPersistence) {
+func ReadNonExisting(b *testing.B, db driver.KeyValueStore) {
 	var v []byte
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -51,7 +51,7 @@ func ReadNonExisting(b *testing.B, db driver.UnversionedPersistence) {
 	b.Logf("%.0f reads per second to nonexistent keys", float64(b.N)/b.Elapsed().Seconds())
 }
 
-func WriteOne(b *testing.B, db driver.UnversionedPersistence) {
+func WriteOne(b *testing.B, db driver.KeyValueStore) {
 	var err error
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -67,7 +67,7 @@ func WriteOne(b *testing.B, db driver.UnversionedPersistence) {
 	b.Logf("%.0f writes per second to same key", float64(b.N)/b.Elapsed().Seconds())
 }
 
-func WriteMany(b *testing.B, db driver.UnversionedPersistence) {
+func WriteMany(b *testing.B, db driver.KeyValueStore) {
 	var err error
 	var k string
 	b.Logf("before: %+v", db.Stats())
@@ -93,7 +93,7 @@ func WriteMany(b *testing.B, db driver.UnversionedPersistence) {
 	b.Logf("after: %+v", db.Stats())
 }
 
-func WriteParallel(b *testing.B, db driver.UnversionedPersistence) {
+func WriteParallel(b *testing.B, db driver.KeyValueStore) {
 	var err error
 	var k string
 	var i int

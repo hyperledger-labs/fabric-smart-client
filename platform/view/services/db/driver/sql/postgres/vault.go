@@ -18,8 +18,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type VaultPersistence struct {
-	*common.VaultPersistence
+type VaultStore struct {
+	*common.VaultStore
 
 	tables  common.VaultTables
 	writeDB *sql.DB
@@ -27,31 +27,31 @@ type VaultPersistence struct {
 	pi      common.PaginationInterpreter
 }
 
-func NewVaultPersistence(opts Opts) (*VaultPersistence, error) {
+func NewVaultStore(opts Opts) (*VaultStore, error) {
 	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newVaultPersistence(dbs.ReadDB, dbs.WriteDB, common.VaultTables{
+	return newVaultStore(dbs.ReadDB, dbs.WriteDB, common.VaultTables{
 		StateTable:  tables.State,
 		StatusTable: tables.Status,
 	}), nil
 }
 
-func newVaultPersistence(readDB, writeDB *sql.DB, tables common.VaultTables) *VaultPersistence {
+func newVaultStore(readDB, writeDB *sql.DB, tables common.VaultTables) *VaultStore {
 	ci := NewInterpreter()
 	pi := NewPaginatedInterpreter()
-	return &VaultPersistence{
-		VaultPersistence: common.NewVaultPersistence(writeDB, readDB, tables, &errorMapper{}, ci, pi, NewSanitizer(), isolationLevels),
-		tables:           tables,
-		writeDB:          writeDB,
-		ci:               ci,
-		pi:               pi,
+	return &VaultStore{
+		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &errorMapper{}, ci, pi, NewSanitizer(), isolationLevels),
+		tables:     tables,
+		writeDB:    writeDB,
+		ci:         ci,
+		pi:         pi,
 	}
 }
 
-func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
+func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
 
@@ -65,13 +65,13 @@ func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writ
 	}
 
 	if len(txIDs) > 0 {
-		query, params := db.VaultPersistence.SetStatusesBusy(txIDs, 1)
+		query, params := db.VaultStore.SetStatusesBusy(txIDs, 1)
 		if err := execOrRollback(tx, query, params); err != nil {
 			return errors.Wrapf(err, "failed setting tx to busy")
 		}
 	}
 	if len(writes) > 0 || len(metaWrites) > 0 {
-		query, params, err := db.VaultPersistence.UpsertStates(writes, metaWrites, 1)
+		query, params, err := db.VaultStore.UpsertStates(writes, metaWrites, 1)
 		if err != nil {
 			return err
 		}
@@ -80,7 +80,7 @@ func (db *VaultPersistence) Store(ctx context.Context, txIDs []driver.TxID, writ
 		}
 	}
 	if len(txIDs) > 0 {
-		query, params := db.VaultPersistence.SetStatusesValid(txIDs, 1)
+		query, params := db.VaultStore.SetStatusesValid(txIDs, 1)
 		if err := execOrRollback(tx, query, params); err != nil {
 			return errors.Wrapf(err, "failed setting tx to valid")
 		}
@@ -108,7 +108,7 @@ func execOrRollback(tx *sql.Tx, query string, params []any) error {
 	return nil
 }
 
-func (db *VaultPersistence) CreateSchema() error {
+func (db *VaultStore) CreateSchema() error {
 	return common.InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		pos SERIAL PRIMARY KEY,

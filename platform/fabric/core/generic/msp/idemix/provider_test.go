@@ -49,15 +49,15 @@ func TestProvider(t *testing.T) {
 	assert.NotNil(t, p)
 }
 
-func newSignerInfo() driver.SignerInfoPersistence {
+func newSignerInfo() driver.SignerInfoStore {
 	return utils.MustGet(mem.NewDriver().NewSignerInfo(""))
 }
 
-func newAuditInfo() driver.AuditInfoPersistence {
+func newAuditInfo() driver.AuditInfoStore {
 	return utils.MustGet(mem.NewDriver().NewAuditInfo(""))
 }
 
-func newKVS() driver.UnversionedPersistence {
+func newKVS() driver.KeyValueStore {
 	return utils.MustGet(mem.NewDriver().NewKVS(""))
 }
 

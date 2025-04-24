@@ -26,9 +26,10 @@ import (
 )
 
 // This file exposes functions that db drivers can use for integration tests
+
 var Cases = []struct {
 	Name string
-	Fn   func(*testing.T, driver.UnversionedPersistence)
+	Fn   func(*testing.T, driver.KeyValueStore)
 }{
 	{"RangeQueries", TTestRangeQueries},
 	{"SimpleReadWrite", TTestSimpleReadWrite},
@@ -43,7 +44,7 @@ var Cases = []struct {
 
 var UnversionedCases = []struct {
 	Name string
-	Fn   func(*testing.T, driver.UnversionedPersistence)
+	Fn   func(*testing.T, driver.KeyValueStore)
 }{
 	{"UnversionedSimple", TTestUnversionedSimple},
 	{"UnversionedRange", TTestUnversionedRange},
@@ -83,7 +84,7 @@ func TTestDuplicate(t *testing.T, _ *sql.DB, writeDB WriteDB, errorWrapper drive
 	assert.NoError(t, err, "should rollback")
 }
 
-func TTestRangeQueries(t *testing.T, db driver.UnversionedPersistence) {
+func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 	populateForRangeQueries(t, db, ns)
 
@@ -148,7 +149,7 @@ func TTestRangeQueries(t *testing.T, db driver.UnversionedPersistence) {
 	}
 }
 
-func TTestSimpleReadWrite(t *testing.T, db driver.UnversionedPersistence) {
+func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 	ns := "ns"
 	key := "key"
 
@@ -207,7 +208,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.UnversionedPersistence) {
 	assert.Equal(t, driver.UnversionedValue{}, vv)
 }
 
-func populateDB(t *testing.T, db driver.UnversionedPersistence, ns, key, keyWithSuffix string) {
+func populateDB(t *testing.T, db driver.KeyValueStore, ns, key, keyWithSuffix string) {
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
 
@@ -237,7 +238,7 @@ func populateDB(t *testing.T, db driver.UnversionedPersistence, ns, key, keyWith
 	assert.Equal(t, driver.UnversionedValue{}, vv)
 }
 
-func populateForRangeQueries(t *testing.T, db driver.UnversionedPersistence, ns string) {
+func populateForRangeQueries(t *testing.T, db driver.KeyValueStore, ns string) {
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
 
@@ -254,7 +255,7 @@ func populateForRangeQueries(t *testing.T, db driver.UnversionedPersistence, ns 
 	assert.NoError(t, err)
 }
 
-func TTestGetNonExistent(t *testing.T, db driver.UnversionedPersistence) {
+func TTestGetNonExistent(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 	key := "foo"
 
@@ -263,7 +264,7 @@ func TTestGetNonExistent(t *testing.T, db driver.UnversionedPersistence) {
 	assert.Equal(t, driver.UnversionedValue{}, vv)
 }
 
-func TTestDB1(t *testing.T, db driver.UnversionedPersistence) {
+func TTestDB1(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 	key := "foo"
 	keyWithSuffix := key + "/suffix"
@@ -283,7 +284,7 @@ func TTestDB1(t *testing.T, db driver.UnversionedPersistence) {
 	assert.NoError(t, err)
 }
 
-func TTestDB2(t *testing.T, db driver.UnversionedPersistence) {
+func TTestDB2(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 	key := "foo"
 	keyWithSuffix := key + "/suffix"
@@ -303,7 +304,7 @@ func TTestDB2(t *testing.T, db driver.UnversionedPersistence) {
 	assert.NoError(t, err)
 }
 
-func TTestRangeQueries1(t *testing.T, db driver.UnversionedPersistence) {
+func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 
 	err := db.BeginUpdate()
@@ -345,7 +346,7 @@ func TTestRangeQueries1(t *testing.T, db driver.UnversionedPersistence) {
 	}, res)
 }
 
-func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.UnversionedPersistence) {
+func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 	assert.NoError(t, db.BeginUpdate())
 
@@ -424,7 +425,7 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.UnversionedPersiste
 	assert.Equal(t, expected, res)
 }
 
-func TTestMultiWrites(t *testing.T, db driver.UnversionedPersistence) {
+func TTestMultiWrites(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 	var wg sync.WaitGroup
 	n := 20
@@ -471,7 +472,7 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 	return ck, nil
 }
 
-func TTestCompositeKeys(t *testing.T, db driver.UnversionedPersistence) {
+func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 	keyPrefix := "prefix"
 
@@ -539,7 +540,7 @@ func TTestCompositeKeys(t *testing.T, db driver.UnversionedPersistence) {
 
 // Postgres doesn't like non-utf8 in TEXT fields, so we made it a BYTEA.
 // cannot check if key exists: pq: invalid byte sequence for encoding "UTF8": 0xc2 0x32]
-func TTestNonUTF8keys(t *testing.T, db driver.UnversionedPersistence) {
+func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 
 	// adapted from https://www.php.net/manual/en/reference.pcre.pattern.modifiers.php#54805
@@ -601,7 +602,7 @@ var (
 	key       = "test_key"
 )
 
-func TTestUnversionedRange(t *testing.T, db driver.UnversionedPersistence) {
+func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 	var err error
 
 	ns := "namespace"
@@ -672,7 +673,7 @@ func TTestUnversionedRange(t *testing.T, db driver.UnversionedPersistence) {
 	}
 }
 
-func TTestUnversionedSimple(t *testing.T, db driver.UnversionedPersistence) {
+func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 	ns := "ns"
 	key := "key"
 

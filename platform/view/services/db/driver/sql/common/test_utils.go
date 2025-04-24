@@ -16,9 +16,9 @@ import (
 type provider[V any] func(name string) (V, error)
 
 func TestCases(t *testing.T,
-	unversionedProvider provider[driver.UnversionedPersistence],
+	unversionedProvider provider[driver.KeyValueStore],
 	unversionedNotifierProvider provider[driver.UnversionedNotifier],
-	baseUnpacker func(p driver.UnversionedPersistence) *UnversionedPersistence) {
+	baseUnpacker func(p driver.KeyValueStore) *KeyValueStore) {
 	for _, c := range UnversionedCases {
 		un, err := unversionedProvider(c.Name)
 		if err != nil {

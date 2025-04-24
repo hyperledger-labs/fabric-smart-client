@@ -16,32 +16,32 @@ import (
 	"github.com/pkg/errors"
 )
 
-type BindingPersistence struct {
-	*common.BindingPersistence
+type BindingStore struct {
+	*common.BindingStore
 	table        string
 	writeDB      *sql.DB
 	errorWrapper driver.SQLErrorWrapper
 }
 
-func NewBindingPersistence(opts Opts) (*BindingPersistence, error) {
+func NewBindingStore(opts Opts) (*BindingStore, error) {
 	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newBindingPersistence(dbs.ReadDB, dbs.WriteDB, tables.Binding), nil
+	return newBindingStore(dbs.ReadDB, dbs.WriteDB, tables.Binding), nil
 }
 
-func newBindingPersistence(readDB, writeDB *sql.DB, table string) *BindingPersistence {
+func newBindingStore(readDB, writeDB *sql.DB, table string) *BindingStore {
 	errorWrapper := &errorMapper{}
-	return &BindingPersistence{
-		BindingPersistence: common.NewBindingPersistence(readDB, writeDB, table, errorWrapper, NewInterpreter()),
-		table:              table,
-		writeDB:            writeDB,
-		errorWrapper:       errorWrapper,
+	return &BindingStore{
+		BindingStore: common.NewBindingStore(readDB, writeDB, table, errorWrapper, NewInterpreter()),
+		table:        table,
+		writeDB:      writeDB,
+		errorWrapper: errorWrapper,
 	}
 }
-func (db *BindingPersistence) PutBinding(ephemeral, longTerm view.Identity) error {
+func (db *BindingStore) PutBinding(ephemeral, longTerm view.Identity) error {
 	logger.Debugf("Put binding for pair [%s:%s]", ephemeral.UniqueID(), longTerm.UniqueID())
 	if lt, err := db.GetLongTerm(longTerm); err != nil {
 		return err

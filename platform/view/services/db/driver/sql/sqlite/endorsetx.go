@@ -13,19 +13,19 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
 
-type EndorseTxPersistence struct {
-	*common.EndorseTxPersistence
+type EndorseTxStore struct {
+	*common.EndorseTxStore
 }
 
-func NewEndorseTxPersistence(opts Opts) (*EndorseTxPersistence, error) {
+func NewEndorseTxStore(opts Opts) (*EndorseTxStore, error) {
 	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newEndorseTxPersistence(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.EndorseTx), nil
+	return newEndorseTxStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.EndorseTx), nil
 }
 
-func newEndorseTxPersistence(readDB *sql.DB, writeDB common.WriteDB, table string) *EndorseTxPersistence {
-	return &EndorseTxPersistence{EndorseTxPersistence: common.NewEndorseTxPersistence(writeDB, readDB, table, &errorMapper{}, NewInterpreter())}
+func newEndorseTxStore(readDB *sql.DB, writeDB common.WriteDB, table string) *EndorseTxStore {
+	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(writeDB, readDB, table, &errorMapper{}, NewInterpreter())}
 }

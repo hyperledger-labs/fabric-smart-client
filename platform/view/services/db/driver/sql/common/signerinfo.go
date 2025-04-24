@@ -15,8 +15,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewSignerInfoPersistence(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *SignerInfoPersistence {
-	return &SignerInfoPersistence{
+func NewSignerInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *SignerInfoStore {
+	return &SignerInfoStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
@@ -25,7 +25,7 @@ func NewSignerInfoPersistence(writeDB WriteDB, readDB *sql.DB, table string, err
 	}
 }
 
-type SignerInfoPersistence struct {
+type SignerInfoStore struct {
 	table        string
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
@@ -33,7 +33,7 @@ type SignerInfoPersistence struct {
 	ci           Interpreter
 }
 
-func (db *SignerInfoPersistence) FilterExistingSigners(ids ...view.Identity) ([]view.Identity, error) {
+func (db *SignerInfoStore) FilterExistingSigners(ids ...view.Identity) ([]view.Identity, error) {
 	idHashes := make([]string, len(ids))
 	inverseMap := make(map[string]view.Identity, len(ids))
 	for i, id := range ids {
@@ -63,7 +63,7 @@ func (db *SignerInfoPersistence) FilterExistingSigners(ids ...view.Identity) ([]
 	return existingSigners, nil
 }
 
-func (db *SignerInfoPersistence) PutSigner(id view.Identity) error {
+func (db *SignerInfoStore) PutSigner(id view.Identity) error {
 	query := fmt.Sprintf("INSERT INTO %s (id) VALUES ($1)", db.table)
 	logger.Debug(query, id)
 	_, err := db.writeDB.Exec(query, id.UniqueID())
@@ -79,7 +79,7 @@ func (db *SignerInfoPersistence) PutSigner(id view.Identity) error {
 	return errors.Wrapf(err, "failed executing query [%s]", query)
 }
 
-func (db *SignerInfoPersistence) CreateSchema() error {
+func (db *SignerInfoStore) CreateSchema() error {
 	return InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		id TEXT NOT NULL PRIMARY KEY

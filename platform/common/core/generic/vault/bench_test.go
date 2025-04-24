@@ -48,7 +48,7 @@ func BenchmarkSqliteVault(b *testing.B) {
 	BenchTestSetStateCommit(b, ddb)
 }
 
-func BenchTestSetStateCommit(b *testing.B, ddb driver.VaultPersistence) {
+func BenchTestSetStateCommit(b *testing.B, ddb driver.VaultStore) {
 	vault, err := (&testArtifactProvider{}).NewNonCachedVault(ddb)
 	assert.NoError(b, err)
 	defer func() { assert.NoError(b, ddb.Close()) }()

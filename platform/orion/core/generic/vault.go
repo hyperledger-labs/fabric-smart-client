@@ -34,7 +34,7 @@ type lastTxGetter interface {
 	GetLast(ctx context.Context) (*driver3.TxStatus, error)
 }
 
-func NewVault(network Network, vaultStore driver2.VaultPersistence, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*Vault, error) {
+func NewVault(network Network, vaultStore driver2.VaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*Vault, error) {
 	return &Vault{
 		Vault:      vault.New(vaultStore, metricsProvider, tracerProvider),
 		network:    network,

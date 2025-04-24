@@ -18,7 +18,7 @@ import (
 )
 
 func BenchmarkReadExistingSqlite(b *testing.B) {
-	db, err := newVersionedPersistence(b.TempDir())
+	db, err := newTestKeyValueStore(b.TempDir())
 	assert.NoError(b, err)
 	defer db.Close()
 
@@ -26,7 +26,7 @@ func BenchmarkReadExistingSqlite(b *testing.B) {
 }
 
 func BenchmarkReadNonExistingSqlite(b *testing.B) {
-	db, err := newVersionedPersistence(b.TempDir())
+	db, err := newTestKeyValueStore(b.TempDir())
 	assert.NoError(b, err)
 	defer db.Close()
 
@@ -34,7 +34,7 @@ func BenchmarkReadNonExistingSqlite(b *testing.B) {
 }
 
 func BenchmarkWriteOneSqlite(b *testing.B) {
-	db, err := newVersionedPersistence(b.TempDir())
+	db, err := newTestKeyValueStore(b.TempDir())
 	assert.NoError(b, err)
 	defer db.Close()
 
@@ -42,20 +42,20 @@ func BenchmarkWriteOneSqlite(b *testing.B) {
 }
 
 func BenchmarkWriteManySqlite(b *testing.B) {
-	db, err := newVersionedPersistence(b.TempDir())
+	db, err := newTestKeyValueStore(b.TempDir())
 	assert.NoError(b, err)
 	defer db.Close()
 
 	common.WriteMany(b, db)
 }
 
-func newVersionedPersistence(dir string) (driver.UnversionedPersistence, error) {
+func newTestKeyValueStore(dir string) (driver.KeyValueStore, error) {
 	o := Opts{
 		DataSource:   fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(dir, "benchmark")),
 		MaxIdleConns: 2,
 		MaxIdleTime:  2 * time.Minute,
 	}
-	p, err := NewUnversionedPersistence(o)
+	p, err := NewKeyValueStore(o)
 	if err != nil {
 		return nil, err
 	}

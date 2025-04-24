@@ -32,36 +32,36 @@ type Driver struct {
 	cp *configProvider
 }
 
-func (d *Driver) NewKVS(name driver.PersistenceName, params ...string) (driver.UnversionedPersistence, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewUnversionedPersistence, params...)
+func (d *Driver) NewKVS(name driver.PersistenceName, params ...string) (driver.KeyValueStore, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewKeyValueStore, params...)
 }
 
-func (d *Driver) NewBinding(name driver.PersistenceName, params ...string) (driver.BindingPersistence, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewBindingPersistence, params...)
+func (d *Driver) NewBinding(name driver.PersistenceName, params ...string) (driver.BindingStore, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewBindingStore, params...)
 }
 
-func (d *Driver) NewSignerInfo(name driver.PersistenceName, params ...string) (driver.SignerInfoPersistence, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewSignerInfoPersistence, params...)
+func (d *Driver) NewSignerInfo(name driver.PersistenceName, params ...string) (driver.SignerInfoStore, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewSignerInfoStore, params...)
 }
 
-func (d *Driver) NewAuditInfo(name driver.PersistenceName, params ...string) (driver.AuditInfoPersistence, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewAuditInfoPersistence, params...)
+func (d *Driver) NewAuditInfo(name driver.PersistenceName, params ...string) (driver.AuditInfoStore, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewAuditInfoStore, params...)
 }
 
-func (d *Driver) NewEndorseTx(name driver.PersistenceName, params ...string) (driver.EndorseTxPersistence, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewEndorseTxPersistence, params...)
+func (d *Driver) NewEndorseTx(name driver.PersistenceName, params ...string) (driver.EndorseTxStore, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewEndorseTxStore, params...)
 }
 
-func (d *Driver) NewMetadata(name driver.PersistenceName, params ...string) (driver.MetadataPersistence, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewMetadataPersistence, params...)
+func (d *Driver) NewMetadata(name driver.PersistenceName, params ...string) (driver.MetadataStore, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewMetadataStore, params...)
 }
 
-func (d *Driver) NewEnvelope(name driver.PersistenceName, params ...string) (driver.EnvelopePersistence, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewEnvelopePersistence, params...)
+func (d *Driver) NewEnvelope(name driver.PersistenceName, params ...string) (driver.EnvelopeStore, error) {
+	return NewPersistenceWithOpts(d.cp, name, NewEnvelopeStore, params...)
 }
 
 func (d *Driver) NewVault(name driver.PersistenceName, params ...string) (driver2.VaultStore, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewVaultPersistence, params...)
+	return NewPersistenceWithOpts(d.cp, name, NewVaultStore, params...)
 }
 
 func NewPersistenceWithOpts[V common.DBObject](cfg *configProvider, name driver.PersistenceName, constructor common.PersistenceConstructor[Opts, V], params ...string) (V, error) {

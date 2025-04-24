@@ -15,30 +15,30 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
 
-type UnversionedPersistence struct {
-	*common.UnversionedPersistence
+type KeyValueStore struct {
+	*common.KeyValueStore
 }
 
-func NewUnversionedPersistence(opts Opts) (*UnversionedPersistence, error) {
+func NewKeyValueStore(opts Opts) (*KeyValueStore, error) {
 	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newUnversioned(dbs.ReadDB, dbs.WriteDB, tables.KVS), nil
+	return newKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS), nil
 }
 
-func NewUnversionedNotifier(opts Opts, table string) (*notifier.UnversionedPersistenceNotifier, error) {
+func NewKeyValueStoreNotifier(opts Opts, table string) (*notifier.UnversionedPersistenceNotifier, error) {
 	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
-	return notifier.NewUnversioned(newUnversioned(dbs.ReadDB, dbs.WriteDB, table)), nil
+	return notifier.NewUnversioned(newKeyValueStore(dbs.ReadDB, dbs.WriteDB, table)), nil
 }
 
-func newUnversioned(readDB *sql.DB, writeDB common.WriteDB, table string) *UnversionedPersistence {
+func newKeyValueStore(readDB *sql.DB, writeDB common.WriteDB, table string) *KeyValueStore {
 	var wrapper driver.SQLErrorWrapper = &errorMapper{}
-	return &UnversionedPersistence{
-		UnversionedPersistence: common.NewUnversionedPersistence(writeDB, readDB, table, wrapper, NewInterpreter()),
+	return &KeyValueStore{
+		KeyValueStore: common.NewKeyValueStore(writeDB, readDB, table, wrapper, NewInterpreter()),
 	}
 }

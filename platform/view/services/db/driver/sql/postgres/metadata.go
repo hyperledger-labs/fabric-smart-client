@@ -13,19 +13,19 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
 
-type MetadataPersistence struct {
-	*common.MetadataPersistence
+type MetadataStore struct {
+	*common.MetadataStore
 }
 
-func NewMetadataPersistence(opts Opts) (*MetadataPersistence, error) {
+func NewMetadataStore(opts Opts) (*MetadataStore, error) {
 	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newMetadataPersistence(dbs.ReadDB, dbs.WriteDB, tables.Metadata), nil
+	return newMetadataStore(dbs.ReadDB, dbs.WriteDB, tables.Metadata), nil
 }
 
-func newMetadataPersistence(readDB, writeDB *sql.DB, table string) *MetadataPersistence {
-	return &MetadataPersistence{MetadataPersistence: common.NewMetadataPersistence(readDB, writeDB, table, &errorMapper{}, NewInterpreter())}
+func newMetadataStore(readDB, writeDB *sql.DB, table string) *MetadataStore {
+	return &MetadataStore{MetadataStore: common.NewMetadataStore(readDB, writeDB, table, &errorMapper{}, NewInterpreter())}
 }

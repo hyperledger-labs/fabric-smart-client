@@ -12,26 +12,26 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
-func NewEnvelopePersistence(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *EnvelopePersistence {
-	return &EnvelopePersistence{p: newSimpleKeyDataPersistence(writeDB, readDB, table, errorWrapper, ci)}
+func NewEnvelopeStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *EnvelopeStore {
+	return &EnvelopeStore{p: newSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
 }
 
-type EnvelopePersistence struct {
-	p *simpleKeyDataPersistence
+type EnvelopeStore struct {
+	p *simpleKeyDataStore
 }
 
-func (db *EnvelopePersistence) GetEnvelope(key string) ([]byte, error) {
+func (db *EnvelopeStore) GetEnvelope(key string) ([]byte, error) {
 	return db.p.GetData(key)
 }
 
-func (db *EnvelopePersistence) ExistsEnvelope(key string) (bool, error) {
+func (db *EnvelopeStore) ExistsEnvelope(key string) (bool, error) {
 	return db.p.ExistData(key)
 }
 
-func (db *EnvelopePersistence) PutEnvelope(key string, data []byte) error {
+func (db *EnvelopeStore) PutEnvelope(key string, data []byte) error {
 	return db.p.PutData(key, data)
 }
 
-func (db *EnvelopePersistence) CreateSchema() error {
+func (db *EnvelopeStore) CreateSchema() error {
 	return db.p.CreateSchema()
 }

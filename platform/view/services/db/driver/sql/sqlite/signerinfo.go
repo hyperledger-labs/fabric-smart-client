@@ -13,19 +13,19 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
 
-type SignerInfoPersistence struct {
-	*common.SignerInfoPersistence
+type SignerInfoStore struct {
+	*common.SignerInfoStore
 }
 
-func NewSignerInfoPersistence(opts Opts) (*SignerInfoPersistence, error) {
+func NewSignerInfoStore(opts Opts) (*SignerInfoStore, error) {
 	dbs, err := DbProvider.OpenDB(opts)
 	if err != nil {
 		return nil, fmt.Errorf("error opening db: %w", err)
 	}
 	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
-	return newSignerInfoPersistence(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.SignerInfo), nil
+	return newSignerInfoStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.SignerInfo), nil
 }
 
-func newSignerInfoPersistence(readDB *sql.DB, writeDB common.WriteDB, table string) *SignerInfoPersistence {
-	return &SignerInfoPersistence{SignerInfoPersistence: common.NewSignerInfoPersistence(writeDB, readDB, table, &errorMapper{}, NewInterpreter())}
+func newSignerInfoStore(readDB *sql.DB, writeDB common.WriteDB, table string) *SignerInfoStore {
+	return &SignerInfoStore{SignerInfoStore: common.NewSignerInfoStore(writeDB, readDB, table, &errorMapper{}, NewInterpreter())}
 }
