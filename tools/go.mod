@@ -1,6 +1,7 @@
 module tools
+go 1.24.1
 
-go 1.22.6
+
 
 require (
 	github.com/client9/misspell v0.3.4
