@@ -1,6 +1,8 @@
 module github.com/hyperledger-labs/fabric-smart-client
 
-go 1.24.0
+go 1.23
+
+toolchain go1.24.1
 
 require (
 	github.com/IBM/idemix v0.0.2-0.20240816143710-3dce4618d760
@@ -75,7 +77,6 @@ require (
 	github.com/cncf/xds/go v0.0.0-20240905190251-b4127c9b8d78 // indirect
 	github.com/envoyproxy/go-control-plane v0.13.1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.1.0 // indirect
-	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/libp2p/go-libp2p-routing-helpers v0.7.4 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
