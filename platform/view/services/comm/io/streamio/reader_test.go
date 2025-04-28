@@ -57,7 +57,7 @@ func TestRead(t *testing.T) {
 			t.Errorf("Expected err to be nil but was %v", err)
 		}
 
-		if !(n > 0 && n <= len(buf)) {
+		if n <= 0 || n > len(buf) {
 			t.Errorf("The returned length should be > 0 and <= %v, but was %v", len(buf), n)
 		}
 
