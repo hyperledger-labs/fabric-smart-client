@@ -99,9 +99,9 @@ func (m *txInfoMapper) MapTxData(ctx context.Context, tx []byte, block *common.B
 		return nil, errors.Wrapf(err, "failed mapping finality event")
 	}
 
-	txInfos := make(map[driver2.Namespace]txInfo, len(rwSet.WriteSet.Writes))
-	m.logger.Debugf("TX [%s] has %d namespaces", chdr.TxId, len(rwSet.WriteSet.Writes))
-	for ns, write := range rwSet.WriteSet.Writes {
+	txInfos := make(map[driver2.Namespace]txInfo, len(rwSet.Writes))
+	m.logger.Debugf("TX [%s] has %d namespaces", chdr.TxId, len(rwSet.Writes))
+	for ns, write := range rwSet.Writes {
 		m.logger.Debugf("TX [%s:%s] has %d writes", chdr.TxId, ns, len(write))
 		txInfos[ns] = txInfo{
 			txID:    chdr.TxId,

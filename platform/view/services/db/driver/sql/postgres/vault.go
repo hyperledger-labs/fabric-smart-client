@@ -65,13 +65,13 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	}
 
 	if len(txIDs) > 0 {
-		query, params := db.VaultStore.SetStatusesBusy(txIDs, 1)
+		query, params := db.SetStatusesBusy(txIDs, 1)
 		if err := execOrRollback(tx, query, params); err != nil {
 			return errors.Wrapf(err, "failed setting tx to busy")
 		}
 	}
 	if len(writes) > 0 || len(metaWrites) > 0 {
-		query, params, err := db.VaultStore.UpsertStates(writes, metaWrites, 1)
+		query, params, err := db.UpsertStates(writes, metaWrites, 1)
 		if err != nil {
 			return err
 		}
@@ -80,7 +80,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 		}
 	}
 	if len(txIDs) > 0 {
-		query, params := db.VaultStore.SetStatusesValid(txIDs, 1)
+		query, params := db.SetStatusesValid(txIDs, 1)
 		if err := execOrRollback(tx, query, params); err != nil {
 			return errors.Wrapf(err, "failed setting tx to valid")
 		}

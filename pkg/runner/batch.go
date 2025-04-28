@@ -109,7 +109,7 @@ func NewBatchExecutor[I any, O any](executor ExecuteFunc[I, Output[O]], capacity
 }
 
 func (r *batchExecutor[I, O]) Execute(input I) (O, error) {
-	o := r.batcher.call(input)
+	o := r.call(input)
 	return o.Val, o.Err
 }
 
