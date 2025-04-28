@@ -101,7 +101,7 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 
 	for i, conn := range clientConns {
 		gt.Expect(closedConn.AddCallCount()).Should(Equal(i))
-		conn.Close()
+		utils.IgnoreErrorFunc(conn.Close)
 		gt.Eventually(closedConn.AddCallCount, time.Second).Should(Equal(i + 1))
 	}
 }

@@ -160,8 +160,7 @@ var _ = Describe("Server", func() {
 			buff, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(strings.Trim(string(buff), "\n")).To(Equal(`{"status":"OK"}`))
-			resp.Body.Close()
-
+			utils.IgnoreErrorFunc(resp.Body.Close)
 		})
 	})
 
@@ -197,7 +196,7 @@ var _ = Describe("Server", func() {
 		buff, err := io.ReadAll(resp.Body)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(buff)).To(Equal("secure"))
-		resp.Body.Close()
+		utils.IgnoreErrorFunc(resp.Body.Close)
 	})
 
 	Context("when TLS is disabled", func() {
@@ -214,7 +213,7 @@ var _ = Describe("Server", func() {
 			resp, err := client.Get(addApiURL)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
-			resp.Body.Close()
+			utils.IgnoreErrorFunc(resp.Body.Close)
 		})
 	})
 
@@ -231,7 +230,7 @@ var _ = Describe("Server", func() {
 		})
 
 		AfterEach(func() {
-			listener.Close()
+			utils.IgnoreErrorFunc(listener.Close)
 		})
 
 		It("returns an error", func() {

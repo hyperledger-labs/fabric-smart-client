@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -48,7 +49,7 @@ func (c *Stream) RecvProtoMsg(m interface{}) error {
 }
 
 func (c *Stream) Result() ([]byte, error) {
-	defer c.conn.Close()
+	defer utils.IgnoreErrorFunc(c.conn.Close)
 	scr, err := c.scc.Recv()
 	if err != nil {
 		return nil, err

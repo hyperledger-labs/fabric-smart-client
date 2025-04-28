@@ -150,12 +150,12 @@ func (p *Platform) GenerateArtifacts() {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	_, err = rootCACertFile.Write(rootCAPemCert)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	rootCACertFile.Close()
+	utils.IgnoreErrorFunc(rootCACertFile.Close)
 	rootCAKeyFile, err := os.Create(path.Join(cryptoDir, "CA", "CA.key"))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	_, err = rootCAKeyFile.Write(rootCAPemCert)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	rootCAKeyFile.Close()
+	utils.IgnoreErrorFunc(rootCAKeyFile.Close)
 
 	// Roles
 	for _, name := range roles {
@@ -537,7 +537,7 @@ func (p *Platform) saveServerUrl(url *url.URL) {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	_, err = serverUrlFile.WriteString(url.String())
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	serverUrlFile.Close()
+	utils.IgnoreErrorFunc(serverUrlFile.Close)
 }
 
 func (p *Platform) NodeStorages(uniqueName string) string {

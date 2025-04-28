@@ -112,7 +112,7 @@ func invokeEmptyCall(address string, dialOptions ...grpc.DialOption) (*testpb.Em
 	if err != nil {
 		return nil, err
 	}
-	defer clientConn.Close()
+	defer utils.IgnoreErrorFunc(clientConn.Close)
 
 	// create GRPC client
 	client := testpb.NewEmptyServiceClient(clientConn)
@@ -135,7 +135,7 @@ func invokeEmptyStream(address string, dialOptions ...grpc.DialOption) (*testpb.
 	if err != nil {
 		return nil, err
 	}
-	defer clientConn.Close()
+	defer utils.IgnoreErrorFunc(clientConn.Close)
 
 	stream, err := testpb.NewEmptyServiceClient(clientConn).EmptyStream(ctx)
 	if err != nil {
@@ -426,7 +426,7 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	// address in use
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err, "failed to create listener")
-	defer lis.Close()
+	defer utils.IgnoreErrorFunc(lis.Close)
 
 	_, err = grpc3.NewGRPCServerFromListener(
 		lis,
@@ -676,7 +676,7 @@ func TestVerifyCertificateCallback(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		conn.Close()
+		utils.IgnoreErrorFunc(conn.Close)
 		return nil
 	}
 
@@ -956,7 +956,7 @@ func TestSetClientRootCAs(t *testing.T) {
 	serverConfig := testOrgs[0].testServers([][]byte{})[0].config
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err, "listen failed")
-	defer lis.Close()
+	defer utils.IgnoreErrorFunc(lis.Close)
 	address := lis.Addr().String()
 
 	// create a GRPCServer

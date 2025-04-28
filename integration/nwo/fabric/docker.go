@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -95,7 +96,7 @@ func WaitUntilReady(ctx context.Context, grpcEndpoint string) error {
 	if err != nil {
 		return fmt.Errorf("grpc Dial(%q) failed: %w", grpcEndpoint, err)
 	}
-	defer conn.Close()
+	defer utils.IgnoreErrorFunc(conn.Close)
 
 	healthClient := healthgrpc.NewHealthClient(conn)
 	res, err := healthClient.Check(ctx, &healthgrpc.HealthCheckRequest{

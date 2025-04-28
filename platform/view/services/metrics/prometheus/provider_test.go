@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	commonmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
 	. "github.com/onsi/ginkgo/v2"
@@ -70,7 +71,7 @@ var _ = Describe("Provider", func() {
 
 			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer utils.IgnoreErrorFunc(resp.Body.Close)
 
 			bytes, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
@@ -91,7 +92,7 @@ var _ = Describe("Provider", func() {
 
 				resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
 				Expect(err).NotTo(HaveOccurred())
-				defer resp.Body.Close()
+				defer utils.IgnoreErrorFunc(resp.Body.Close)
 
 				bytes, err := io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
@@ -122,7 +123,7 @@ var _ = Describe("Provider", func() {
 
 			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer utils.IgnoreErrorFunc(resp.Body.Close)
 
 			bytes, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
@@ -156,7 +157,7 @@ var _ = Describe("Provider", func() {
 
 			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer utils.IgnoreErrorFunc(resp.Body.Close)
 
 			bytes, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
@@ -187,7 +188,7 @@ var _ = Describe("Provider", func() {
 
 			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer utils.IgnoreErrorFunc(resp.Body.Close)
 
 			bytes, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
@@ -221,7 +222,7 @@ var _ = Describe("Provider", func() {
 				counter.With("alpha", "a", "beta").Add(1)
 				resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
 				Expect(err).NotTo(HaveOccurred())
-				defer resp.Body.Close()
+				defer utils.IgnoreErrorFunc(resp.Body.Close)
 
 				bytes, err := io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())

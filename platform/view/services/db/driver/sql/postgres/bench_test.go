@@ -9,6 +9,7 @@ package postgres
 import (
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
@@ -27,7 +28,7 @@ func BenchmarkReadExistingPostgres(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer db.Close()
+	defer utils.IgnoreErrorFunc(db.Close)
 
 	common.ReadExisting(b, db)
 }
@@ -47,7 +48,7 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer db.Close()
+	defer utils.IgnoreErrorFunc(db.Close)
 
 	common.ReadNonExisting(b, db)
 }
@@ -67,7 +68,7 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer db.Close()
+	defer utils.IgnoreErrorFunc(db.Close)
 
 	common.WriteOne(b, db)
 }
@@ -86,7 +87,7 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer db.Close()
+	defer utils.IgnoreErrorFunc(db.Close)
 
 	common.WriteMany(b, db)
 }
@@ -106,7 +107,7 @@ func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer db.Close()
+	defer utils.IgnoreErrorFunc(db.Close)
 
 	common.WriteParallel(b, db)
 }

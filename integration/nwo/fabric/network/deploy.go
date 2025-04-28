@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger/fabric-protos-go/peer/lifecycle"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -25,7 +26,7 @@ func PackageAndInstallChaincode(n *Network, chaincode *topology.Chaincode, peers
 	if chaincode.PackageFile == "" {
 		tempFile, err := os.CreateTemp("", "chaincode-package")
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		tempFile.Close()
+		utils.IgnoreErrorFunc(tempFile.Close)
 		defer os.Remove(tempFile.Name())
 		chaincode.PackageFile = tempFile.Name()
 	}
