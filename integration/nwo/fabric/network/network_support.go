@@ -1011,8 +1011,8 @@ func (n *Network) PeerGroupRunner() ifrit.Runner {
 		if p.SkipRunning {
 			continue
 		}
-		switch {
-		case p.Type == topology.FabricPeer:
+		switch p.Type {
+		case topology.FabricPeer:
 			members = append(members, grouper.Member{Name: p.ID(), Runner: n.PeerRunner(p)})
 		}
 	}
@@ -1236,8 +1236,8 @@ func (n *Network) IdemixOrgs() []*topology.Organization {
 func (n *Network) PeersWithChannel(chanName string) []*topology.Peer {
 	var peers []*topology.Peer
 	for _, p := range n.Peers {
-		switch {
-		case p.Type == topology.FabricPeer:
+		switch p.Type {
+		case topology.FabricPeer:
 			for _, c := range p.Channels {
 				if c.Name == chanName {
 					peers = append(peers, p)
@@ -1264,8 +1264,8 @@ func (n *Network) PeersWithChannel(chanName string) []*topology.Peer {
 func (n *Network) AnchorsForChannel(chanName string) []*topology.Peer {
 	anchors := []*topology.Peer{}
 	for _, p := range n.Peers {
-		switch {
-		case p.Type == topology.FabricPeer:
+		switch p.Type {
+		case topology.FabricPeer:
 			for _, pc := range p.Channels {
 				if pc.Name == chanName && pc.Anchor {
 					anchors = append(anchors, p)
