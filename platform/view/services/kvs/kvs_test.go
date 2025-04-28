@@ -67,13 +67,14 @@ func testRound(t *testing.T, driver driver.Driver) {
 		val = &stuff{}
 		key, err := it.Next(val)
 		assert.NoError(t, err)
-		if ctr == 0 {
+		switch ctr {
+		case 0:
 			assert.Equal(t, k1, key)
 			assert.Equal(t, &stuff{"santa", 1}, val)
-		} else if ctr == 1 {
+		case 1:
 			assert.Equal(t, k2, key)
 			assert.Equal(t, &stuff{"claws", 2}, val)
-		} else {
+		default:
 			assert.Fail(t, "expected 2 entries in the range, found more")
 		}
 	}
