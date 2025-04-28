@@ -147,7 +147,7 @@ var _ = Describe("Provider", func() {
 			buf := &bytes.Buffer{}
 			_, err := s.WriteTo(buf)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(strings.SplitN(buf.String(), "\n", -1)).To(ConsistOf(
+			Expect(strings.Split(buf.String(), "\n")).To(ConsistOf(
 				Equal("namespace.subsystem.name.x.b:6.000000|g"),
 				Equal("namespace.subsystem.name.y.b:6.000000|g"),
 				Equal("namespace.subsystem.name.z.b:6.000000|g"),

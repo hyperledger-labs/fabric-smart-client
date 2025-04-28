@@ -31,8 +31,8 @@ func (rd *Dispatcher) HandleRequest(context *ReqContext) (response interface{}, 
 	}
 
 	viewID := context.Vars["View"]
-	escapedViewID := strings.Replace(viewID, "\n", "", -1)
-	escapedViewID = strings.Replace(escapedViewID, "\r", "", -1)
+	escapedViewID := strings.ReplaceAll(viewID, "\n", "")
+	escapedViewID = strings.ReplaceAll(escapedViewID, "\r", "")
 
 	res, err := rd.vc.CallView(context, escapedViewID, context.Query.([]byte))
 	if err != nil {
