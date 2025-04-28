@@ -89,7 +89,7 @@ func (s *client) CallView(vid string, input []byte, ctx context.Context) (interf
 		tracing.WithAttributes(tracing.String(vidLabel, vid)),
 		trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
-	s.logger.Debugf("Call view [%s] on input [%v]", vid, string(input))
+	s.Debugf("Call view [%s] on input [%v]", vid, string(input))
 
 	span.AddEvent("new_view")
 	f, err := s.viewManager.NewView(vid, input)
@@ -99,13 +99,13 @@ func (s *client) CallView(vid string, input []byte, ctx context.Context) (interf
 	span.AddEvent("initiate_view")
 	raw, err := s.viewManager.InitiateView(f, newCtx)
 	if err == nil {
-		s.logger.Debugf("Finished call view [%s] on input [%v]", vid, string(input))
+		s.Debugf("Finished call view [%s] on input [%v]", vid, string(input))
 	}
 	return raw, err
 }
 
 func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request *http.Request) error {
-	s.logger.Debugf("Call view [%s]", vid)
+	s.Debugf("Call view [%s]", vid)
 
 	// we need to retrieve the input to the factory from the web socket
 	stream, err := NewWSStream(s.logger, writer, request)
@@ -146,7 +146,7 @@ func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request 
 			return errors.Errorf("failed marshalling result produced by view [%s], err [%s]", vid, err)
 		}
 	}
-	s.logger.Debugf("Finished call view [%s] on input [%v]", vid, string(input))
+	s.Debugf("Finished call view [%s] on input [%v]", vid, string(input))
 
 	// write back the result
 	return stream.WriteResult(raw)

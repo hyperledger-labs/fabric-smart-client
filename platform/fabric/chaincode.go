@@ -142,7 +142,7 @@ type ChaincodeInvocation struct {
 // the other functions on this struct.
 // It no error occurs, it returns the transaction id and the response payload of the chaincode invocation.
 func (i *ChaincodeInvocation) Call() (string, []byte, error) {
-	return i.ChaincodeInvocation.Submit()
+	return i.Submit()
 }
 
 func (i *ChaincodeInvocation) WithContext(context context.Context) *ChaincodeInvocation {
@@ -169,7 +169,7 @@ func (i *ChaincodeInvocation) WithEndorsersFromMyOrg() *ChaincodeInvocation {
 }
 
 func (i *ChaincodeInvocation) WithInvokerIdentity(id view.Identity) *ChaincodeInvocation {
-	i.ChaincodeInvocation.WithSignerIdentity(id)
+	i.WithSignerIdentity(id)
 	return i
 }
 
@@ -190,7 +190,7 @@ type ChaincodeQuery struct {
 }
 
 func (i *ChaincodeQuery) Call() ([]byte, error) {
-	return i.ChaincodeInvocation.Query()
+	return i.Query()
 }
 
 func (i *ChaincodeQuery) WithContext(context context.Context) *ChaincodeQuery {
@@ -224,7 +224,7 @@ func (i *ChaincodeQuery) WithEndorsersFromMyOrg() *ChaincodeQuery {
 }
 
 func (i *ChaincodeQuery) WithInvokerIdentity(id view.Identity) *ChaincodeQuery {
-	i.ChaincodeInvocation.WithSignerIdentity(id)
+	i.WithSignerIdentity(id)
 	return i
 }
 

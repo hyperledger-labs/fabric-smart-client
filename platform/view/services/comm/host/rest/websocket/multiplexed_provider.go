@@ -187,7 +187,7 @@ func (c *multiplexedClientConn) readIncoming() {
 		for _, sc := range subConns {
 			sc.reads <- streamEOF
 		}
-		err := c.Conn.Close()
+		err := c.Close()
 		logger.Debugf("Client connection closed: %v", err)
 	}()
 	var mm MultiplexedMessage
@@ -235,7 +235,7 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 		for _, sc := range subConns {
 			sc.reads <- streamEOF
 		}
-		err := c.Conn.Close()
+		err := c.Close()
 		logger.Debugf("Connection closed: %v", err)
 	}()
 	var mm MultiplexedMessage

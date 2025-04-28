@@ -107,7 +107,7 @@ func (m *marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string
 	namespaces := collections.NewSet(nss...)
 
 	// readset
-	for ns, reads := range source.ReadSet.Reads {
+	for ns, reads := range source.Reads {
 		if len(nss) != 0 && !namespaces.Contains(ns) {
 			continue
 		}
@@ -122,7 +122,7 @@ func (m *marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string
 	destination.OrderedReads = source.OrderedReads
 
 	// writeset
-	for ns, writes := range source.WriteSet.Writes {
+	for ns, writes := range source.Writes {
 		if len(nss) != 0 && !namespaces.Contains(ns) {
 			continue
 		}
@@ -138,7 +138,7 @@ func (m *marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string
 	destination.OrderedWrites = source.OrderedWrites
 
 	// meta writes
-	for ns, writes := range source.MetaWriteSet.MetaWrites {
+	for ns, writes := range source.MetaWrites {
 		if len(nss) != 0 && !namespaces.Contains(ns) {
 			continue
 		}

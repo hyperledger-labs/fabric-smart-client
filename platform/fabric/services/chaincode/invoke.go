@@ -106,17 +106,17 @@ func (i *invokeChaincodeView) WithTransientEntry(k string, v interface{}) *invok
 }
 
 func (i *invokeChaincodeView) WithNetwork(name string) *invokeChaincodeView {
-	i.InvokeCall.Network = name
+	i.Network = name
 	return i
 }
 
 func (i *invokeChaincodeView) WithChannel(name string) *invokeChaincodeView {
-	i.InvokeCall.Channel = name
+	i.Channel = name
 	return i
 }
 
 func (i *invokeChaincodeView) WithEndorsersByMSPIDs(mspIDs ...string) *invokeChaincodeView {
-	i.InvokeCall.EndorsersMSPIDs = mspIDs
+	i.EndorsersMSPIDs = mspIDs
 	return i
 }
 

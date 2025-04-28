@@ -170,7 +170,7 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 
 	if len(info.RemotePeerAddress) != 0 && !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
 		// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
-		ps := h.Host.Peerstore()
+		ps := h.Peerstore()
 		current := ps.Addrs(ID)
 
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -212,7 +212,7 @@ func (h *host) startFinder() {
 		}
 
 		for peer := range peerChan {
-			if peer.ID == h.Host.ID() {
+			if peer.ID == h.ID() {
 				continue
 			}
 
@@ -244,7 +244,7 @@ func (h *host) start(failAdv bool, newStreamCallback func(stream host2.P2PStream
 		logger.Warnf("error while announcing [%s]", err)
 	}
 
-	h.Host.SetStreamHandler(viewProtocol, func(s network.Stream) {
+	h.SetStreamHandler(viewProtocol, func(s network.Stream) {
 		uuid := utils2.GenerateUUID()
 		newStreamCallback(
 			&stream{

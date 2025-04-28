@@ -88,22 +88,22 @@ func (i *queryChaincodeView) WithTransientEntry(k string, v interface{}) *queryC
 }
 
 func (i *queryChaincodeView) WithNetwork(name string) *queryChaincodeView {
-	i.InvokeCall.Network = name
+	i.Network = name
 	return i
 }
 
 func (i *queryChaincodeView) WithChannel(name string) *queryChaincodeView {
-	i.InvokeCall.Channel = name
+	i.Channel = name
 	return i
 }
 
 func (i *queryChaincodeView) WithMatchEndorsementPolicy() *queryChaincodeView {
-	i.InvokeCall.MatchEndorsementPolicy = true
+	i.MatchEndorsementPolicy = true
 	return i
 }
 
 func (i *queryChaincodeView) WithEndorsersByMSPIDs(mspIDs ...string) *queryChaincodeView {
-	i.InvokeCall.EndorsersMSPIDs = mspIDs
+	i.EndorsersMSPIDs = mspIDs
 	return i
 }
 

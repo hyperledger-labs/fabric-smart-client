@@ -96,17 +96,17 @@ func (i *endorseChaincodeView) WithTransientEntry(k string, v interface{}) *endo
 }
 
 func (i *endorseChaincodeView) WithNetwork(name string) *endorseChaincodeView {
-	i.InvokeCall.Network = name
+	i.Network = name
 	return i
 }
 
 func (i *endorseChaincodeView) WithChannel(name string) *endorseChaincodeView {
-	i.InvokeCall.Channel = name
+	i.Channel = name
 	return i
 }
 
 func (i *endorseChaincodeView) WithEndorsersByMSPIDs(mspIDs ...string) *endorseChaincodeView {
-	i.InvokeCall.EndorsersMSPIDs = mspIDs
+	i.EndorsersMSPIDs = mspIDs
 	return i
 }
 
@@ -116,7 +116,7 @@ func (i *endorseChaincodeView) WithEndorsersFromMyOrg() *endorseChaincodeView {
 }
 
 func (i *endorseChaincodeView) WithSignerIdentity(id view.Identity) *endorseChaincodeView {
-	i.InvokeCall.InvokerIdentity = id
+	i.InvokerIdentity = id
 	return i
 }
 
