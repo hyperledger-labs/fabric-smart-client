@@ -235,7 +235,7 @@ func (n *NWO) storePIDs(f *os.File, members grouper.Members) {
 		switch r := member.Runner.(type) {
 		case Process:
 			path, pid := r.PID()
-			_, err := f.WriteString(fmt.Sprintf("%s %d\n", path, pid))
+			_, err := fmt.Fprintf(f, "%s %d\n", path, pid)
 			Expect(err).NotTo(HaveOccurred())
 		case Group:
 			n.storePIDs(f, r.Members())
