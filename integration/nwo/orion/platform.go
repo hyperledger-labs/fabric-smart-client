@@ -252,7 +252,7 @@ func (p *Platform) InitOrionServer() error {
 	if err != nil {
 		return err
 	}
-	return c.InitConfig.Init()
+	return c.Init()
 }
 
 func (p *Platform) generateExtension() {

@@ -72,21 +72,21 @@ func (i *Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) 
 	}
 
 	return &NymSignatureVerifier{
-		CSP:   i.Idemix.Csp,
-		IPK:   i.Idemix.IssuerPublicKey,
+		CSP:   i.Csp,
+		IPK:   i.IssuerPublicKey,
 		NymPK: identity.NymPublicKey,
 	}, nil
 }
 
 func (i *Deserializer) DeserializeVerifierAgainstNymEID(raw []byte, nymEID []byte) (driver.Verifier, error) {
-	identity, err := i.Idemix.DeserializeAgainstNymEID(raw, true, nymEID)
+	identity, err := i.DeserializeAgainstNymEID(raw, true, nymEID)
 	if err != nil {
 		return nil, err
 	}
 
 	return &NymSignatureVerifier{
-		CSP:   i.Idemix.Csp,
-		IPK:   i.Idemix.IssuerPublicKey,
+		CSP:   i.Csp,
+		IPK:   i.IssuerPublicKey,
 		NymPK: identity.NymPublicKey,
 	}, nil
 }

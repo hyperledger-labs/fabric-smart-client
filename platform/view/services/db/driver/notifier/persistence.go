@@ -35,7 +35,7 @@ func (db *UnversionedPersistenceNotifier) SetState(ns driver2.Namespace, key dri
 	if len(val) == 0 {
 		op = driver.Delete
 	}
-	db.Notifier.EnqueueEvent(op, map[driver.ColumnKey]string{"ns": ns, "pkey": key})
+	db.EnqueueEvent(op, map[driver.ColumnKey]string{"ns": ns, "pkey": key})
 	return nil
 }
 
@@ -48,7 +48,7 @@ func (db *UnversionedPersistenceNotifier) SetStates(ns driver2.Namespace, kvs ma
 			if len(val) == 0 {
 				op = driver.Delete
 			}
-			db.Notifier.EnqueueEvent(op, map[driver.ColumnKey]string{"ns": ns, "pkey": key})
+			db.EnqueueEvent(op, map[driver.ColumnKey]string{"ns": ns, "pkey": key})
 		}
 	}
 
@@ -77,7 +77,7 @@ func (db *UnversionedPersistenceNotifier) DeleteState(ns driver2.Namespace, key 
 	if err := db.Persistence.DeleteState(ns, key); err != nil {
 		return err
 	}
-	db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": ns, "pkey": key})
+	db.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": ns, "pkey": key})
 	return nil
 }
 
@@ -86,7 +86,7 @@ func (db *UnversionedPersistenceNotifier) DeleteStates(namespace driver2.Namespa
 
 	for _, key := range keys {
 		if _, ok := errs[key]; !ok {
-			db.Notifier.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": namespace, "pkey": key})
+			db.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": namespace, "pkey": key})
 		}
 	}
 
