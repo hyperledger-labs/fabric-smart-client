@@ -149,13 +149,13 @@ func (b *buildHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err := a.build(b.args...); err != nil {
 		// logger.Infof("ServeHTTP %v, failed %s", req.URL, err)
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "%s", err)
+		_, _ = fmt.Fprintf(w, "%s", err)
 		return
 	}
 	// logger.Infof("ServeHTTP %v, done %s", req.URL, a.output)
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "%s", a.output)
+	_, _ = fmt.Fprintf(w, "%s", a.output)
 }
 
 func (b *buildHandler) artifact(input string) *artifact {
