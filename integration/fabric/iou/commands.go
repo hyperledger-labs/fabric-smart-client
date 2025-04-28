@@ -10,13 +10,12 @@ import (
 	"context"
 	"time"
 
-	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/prometheus/common/model"
 )
 
@@ -35,15 +34,15 @@ func CreateIOUWithBorrower(ii *integration.Infrastructure, borrower, identityLab
 			Approver: ii.Identity(approver),
 		}),
 	)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(res).NotTo(BeNil())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(res).NotTo(gomega.BeNil())
 	return common.JSONUnmarshalString(res)
 }
 
 func CheckState(ii *integration.Infrastructure, partyID, iouStateID string, expected int) {
 	res, err := ii.CLI(partyID).CallView("query", common.JSONMarshall(&views.Query{LinearID: iouStateID}))
-	Expect(err).NotTo(HaveOccurred())
-	Expect(common.JSONUnmarshalInt(res)).To(BeEquivalentTo(expected))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(common.JSONUnmarshalInt(res)).To(gomega.BeEquivalentTo(expected))
 }
 
 func UpdateIOU(ii *integration.Infrastructure, iouStateID string, amount uint, approver string) {
@@ -58,21 +57,21 @@ func UpdateIOUWithBorrower(ii *integration.Infrastructure, borrower, iouStateID 
 			Approver: ii.Identity(approver),
 		}),
 	)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	txID := common.JSONUnmarshalString(txIDBoxed)
 	_, err = ii.Client("lender").CallView("finality", common.JSONMarshall(cviews.Finality{TxID: txID}))
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func InitApprover(ii *integration.Infrastructure, approver string) {
 	_, err := ii.Client(approver).CallView("init", nil)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func CheckLocalMetrics(ii *integration.Infrastructure, user string, viewName string) {
 	metrics, err := ii.WebClient(user).Metrics()
-	Expect(err).To(BeNil())
-	Expect(metrics).NotTo(BeEmpty())
+	gomega.Expect(err).To(gomega.BeNil())
+	gomega.Expect(metrics).NotTo(gomega.BeEmpty())
 
 	var sum float64
 	for _, m := range metrics["fsc_view_operations"].GetMetric() {
@@ -84,25 +83,25 @@ func CheckLocalMetrics(ii *integration.Infrastructure, user string, viewName str
 	}
 
 	logger.Infof("Received in total %f view operations for [%s] for user %s: %v", sum, viewName, user, metrics["fsc_view_operations"].GetMetric())
-	Expect(sum).NotTo(BeZero())
+	gomega.Expect(sum).NotTo(gomega.BeZero())
 }
 
 func CheckPrometheusMetrics(ii *integration.Infrastructure, viewName string) {
 	cli, err := ii.NWO.PrometheusAPI()
-	Expect(err).To(BeNil())
+	gomega.Expect(err).To(gomega.BeNil())
 	metric := model.Metric{
 		"__name__": model.LabelValue("fsc_view_operations"),
 		"view":     model.LabelValue(viewName),
 	}
 	val, warnings, err := cli.Query(context.Background(), metric.String(), time.Now())
-	Expect(warnings).To(BeEmpty())
-	Expect(err).To(BeNil())
-	Expect(val.Type()).To(Equal(model.ValVector))
+	gomega.Expect(warnings).To(gomega.BeEmpty())
+	gomega.Expect(err).To(gomega.BeNil())
+	gomega.Expect(val.Type()).To(gomega.Equal(model.ValVector))
 
 	logger.Infof("Received prometheus metrics for view [%s]: %s", viewName, val)
 
 	vector, ok := val.(model.Vector)
-	Expect(ok).To(BeTrue())
-	Expect(vector).To(HaveLen(1))
-	Expect(vector[0].Value).NotTo(Equal(model.SampleValue(0)))
+	gomega.Expect(ok).To(gomega.BeTrue())
+	gomega.Expect(vector).To(gomega.HaveLen(1))
+	gomega.Expect(vector[0].Value).NotTo(gomega.Equal(model.SampleValue(0)))
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 var NoReplication = &ReplicationOptions{}
@@ -60,7 +60,7 @@ func (s *TestSuite) TearDown() {
 func (s *TestSuite) Setup() {
 	// Create the integration ii
 	ii, err := s.generator()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	s.II = ii
 	// Start the integration ii
 	ii.Start()

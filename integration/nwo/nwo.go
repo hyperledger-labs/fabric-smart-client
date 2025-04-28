@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
@@ -63,7 +63,7 @@ func New(ctx *context.Context, platforms ...api.Platform) *NWO {
 func (n *NWO) KillFSC() {
 	for _, process := range n.FSCProcesses {
 		process.Signal(syscall.SIGTERM)
-		Eventually(process.Wait(), n.StopEventuallyTimeout).Should(Receive())
+		gomega.Eventually(process.Wait(), n.StopEventuallyTimeout).Should(gomega.Receive())
 	}
 }
 
@@ -121,11 +121,11 @@ func (n *NWO) Start() {
 
 	// store PIDs of all processes
 	f, err := os.Create(filepath.Join(n.ctx.RootDir(), "pids.txt"))
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer func() {
 		// write PIDs to file
-		Expect(f.Sync()).NotTo(HaveOccurred())
-		Expect(f.Close()).NotTo(HaveOccurred())
+		gomega.Expect(f.Sync()).NotTo(gomega.HaveOccurred())
+		gomega.Expect(f.Close()).NotTo(gomega.HaveOccurred())
 	}()
 
 	logger.Infof("Run platform nodes...")
@@ -140,7 +140,7 @@ func (n *NWO) Start() {
 	Runner := grouper.NewOrdered(n.TerminationSignal, members)
 	process := ifrit.Invoke(Runner)
 	n.Processes = append(n.Processes, process)
-	Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
+	gomega.Eventually(process.Ready(), n.StartEventuallyTimeout).Should(gomega.BeClosed())
 	n.storePIDs(f, members)
 
 	logger.Infof("Post execution for nodes...")
@@ -169,7 +169,7 @@ func (n *NWO) Start() {
 
 		runner := grouper.NewOrdered(n.TerminationSignal, []grouper.Member{member})
 		process := ifrit.Invoke(runner)
-		Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
+		gomega.Eventually(process.Ready(), n.StartEventuallyTimeout).Should(gomega.BeClosed())
 		n.Processes = append(n.Processes, process)
 		n.FSCProcesses = append(n.FSCProcesses, process)
 	}
@@ -189,7 +189,7 @@ func (n *NWO) Stop() {
 		logger.Infof("Sending sigterm signal...")
 		for _, process := range n.Processes {
 			process.Signal(syscall.SIGTERM)
-			Eventually(process.Wait(), n.StopEventuallyTimeout).Should(Receive())
+			gomega.Eventually(process.Wait(), n.StopEventuallyTimeout).Should(gomega.Receive())
 		}
 	}
 
@@ -221,7 +221,7 @@ func (n *NWO) StartFSCNode(id string) {
 			member.Runner = member.Runner.(*runner.Runner).Clone()
 			n.ViewMembers[i] = member
 			process := ifrit.Invoke(member.Runner)
-			Eventually(process.Ready(), n.StartEventuallyTimeout).Should(BeClosed())
+			gomega.Eventually(process.Ready(), n.StartEventuallyTimeout).Should(gomega.BeClosed())
 			n.Processes = append(n.Processes, process)
 			logger.Infof("FSC node [%s:%s] started", member.Name, id)
 			return
@@ -236,7 +236,7 @@ func (n *NWO) storePIDs(f *os.File, members grouper.Members) {
 		case Process:
 			path, pid := r.PID()
 			_, err := fmt.Fprintf(f, "%s %d\n", path, pid)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		case Group:
 			n.storePIDs(f, r.Members())
 		}

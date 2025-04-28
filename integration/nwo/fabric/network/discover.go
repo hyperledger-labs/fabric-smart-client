@@ -12,8 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -43,12 +42,12 @@ func DiscoverPeers(n *Network, p *topology.Peer, user, channelName string) func(
 			peers.ClientKey = filepath.Join(n.PeerUserTLSDir(p, user), "client.key")
 		}
 		sess, err := n.Discover(peers)
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 		var discovered []DiscoveredPeer
 		err = json.Unmarshal(sess.Out.Contents(), &discovered)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		return discovered
 	}
 }

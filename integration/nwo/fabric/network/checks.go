@@ -11,7 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 // CheckTopology checks the topology of the network
@@ -220,7 +220,7 @@ func NewX509PeerIdentity(id, eid, path string, org opts.Organization, bccspDefau
 	}
 	if Default {
 		if len(path) != 0 {
-			Expect(bccspDefault).To(Equal("SW"))
+			gomega.Expect(bccspDefault).To(gomega.Equal("SW"))
 			pid.Path = path
 		}
 	}
