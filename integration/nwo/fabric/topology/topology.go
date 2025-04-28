@@ -272,10 +272,7 @@ func (t *Topology) AddNamespaceWithOneOutOfN(name string, orgs ...string) {
 }
 
 func (t *Topology) AddManagedNamespace(name string, policy string, chaincode string, ctor string, peers ...string) {
-	InitRequired := true
-	if len(ctor) == 0 {
-		InitRequired = false
-	}
+	InitRequired := len(ctor) != 0
 
 	cc := &ChannelChaincode{
 		Chaincode: Chaincode{
