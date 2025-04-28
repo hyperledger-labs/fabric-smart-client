@@ -20,7 +20,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 const (
@@ -36,10 +36,10 @@ var RequiredImages = []string{
 func (n *Extension) startContainer() {
 	// getting our docker helper, check required images exists and launch a docker network
 	d, err := docker.GetInstance()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = d.CheckImagesExist(RequiredImages...)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	logger.Infof("Run Prometheus...")
 	n.startPrometheus()
@@ -55,19 +55,19 @@ func (n *Extension) startContainer() {
 func (n *Extension) startPrometheus() {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// getting our docker helper, check required images exists and launch a docker network
 	d, err := docker.GetInstance()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	net, err := d.Client.NetworkInfo(n.platform.NetworkID())
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	containerName := n.platform.NetworkID() + "-prometheus"
 
 	localIP, err := d.LocalIP(n.platform.NetworkID())
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	port := strconv.Itoa(n.platform.PrometheusPort())
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
@@ -108,14 +108,14 @@ func (n *Extension) startPrometheus() {
 		},
 	}, nil, containerName,
 	)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
 		NetworkID: n.platform.NetworkID(),
 	})
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(HaveOccurred())
+	gomega.Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(gomega.HaveOccurred())
 
 	dockerLogger := logging.MustGetLogger("prometheus.container")
 	go func() {
@@ -125,7 +125,7 @@ func (n *Extension) startPrometheus() {
 			Follow:     true,
 			Timestamps: false,
 		})
-		Expect(err).ToNot(HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		defer reader.Close()
 
 		scanner := bufio.NewScanner(reader)
@@ -140,13 +140,13 @@ func (n *Extension) startPrometheus() {
 func (n *Extension) startGrafana() {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	d, err := docker.GetInstance()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	net, err := d.Client.NetworkInfo(n.platform.NetworkID())
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	containerName := n.platform.NetworkID() + "-grafana"
 
@@ -192,14 +192,14 @@ func (n *Extension) startGrafana() {
 			},
 		}, nil, containerName,
 	)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
 		NetworkID: n.platform.NetworkID(),
 	})
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(HaveOccurred())
+	gomega.Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(gomega.HaveOccurred())
 	time.Sleep(3 * time.Second)
 
 	dockerLogger := logging.MustGetLogger("grafana.container")
@@ -210,7 +210,7 @@ func (n *Extension) startGrafana() {
 			Follow:     true,
 			Timestamps: false,
 		})
-		Expect(err).ToNot(HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		defer reader.Close()
 
 		scanner := bufio.NewScanner(reader)

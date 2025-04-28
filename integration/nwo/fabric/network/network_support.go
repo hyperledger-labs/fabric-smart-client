@@ -29,7 +29,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/gstruct"
 	"github.com/onsi/gomega/matchers"
@@ -116,10 +116,10 @@ func (n *Network) OrdererConfigPath(o *topology.Orderer) string {
 func (n *Network) ReadOrdererConfig(o *topology.Orderer) *fabricconfig.Orderer {
 	var orderer fabricconfig.Orderer
 	ordererBytes, err := os.ReadFile(n.OrdererConfigPath(o))
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = yaml.Unmarshal(ordererBytes, &orderer)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	return &orderer
 }
@@ -128,10 +128,10 @@ func (n *Network) ReadOrdererConfig(o *topology.Orderer) *fabricconfig.Orderer {
 // orderer's orderer.yaml document.
 func (n *Network) WriteOrdererConfig(o *topology.Orderer, config *fabricconfig.Orderer) {
 	ordererBytes, err := yaml.Marshal(config)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = os.WriteFile(n.OrdererConfigPath(o), ordererBytes, 0644)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 // ReadConfigTxConfig  unmarshals the configtx.yaml and returns an
@@ -139,10 +139,10 @@ func (n *Network) WriteOrdererConfig(o *topology.Orderer, config *fabricconfig.O
 func (n *Network) ReadConfigTxConfig() *fabricconfig.ConfigTx {
 	var configtx fabricconfig.ConfigTx
 	configtxBytes, err := os.ReadFile(n.ConfigTxConfigPath())
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = yaml.Unmarshal(configtxBytes, &configtx)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	return &configtx
 }
@@ -150,10 +150,10 @@ func (n *Network) ReadConfigTxConfig() *fabricconfig.ConfigTx {
 // WriteConfigTxConfig serializes the provided configuration to configtx.yaml.
 func (n *Network) WriteConfigTxConfig(config *fabricconfig.ConfigTx) {
 	configtxBytes, err := yaml.Marshal(config)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = os.WriteFile(n.ConfigTxConfigPath(), configtxBytes, 0644)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func (n *Network) ConfigDir() string {
@@ -182,10 +182,10 @@ func (n *Network) PeerLedgerDir(p *topology.Peer) string {
 func (n *Network) ReadPeerConfig(p *topology.Peer) *fabricconfig.Core {
 	var core fabricconfig.Core
 	coreBytes, err := os.ReadFile(n.PeerConfigPath(p))
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = yaml.Unmarshal(coreBytes, &core)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	return &core
 }
@@ -194,17 +194,17 @@ func (n *Network) ReadPeerConfig(p *topology.Peer) *fabricconfig.Core {
 // peer's core.yaml document.
 func (n *Network) WritePeerConfig(p *topology.Peer, config *fabricconfig.Core) {
 	coreBytes, err := yaml.Marshal(config)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = os.WriteFile(n.PeerConfigPath(p), coreBytes, 0644)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 // peerUserCryptoDir returns the path to the directory containing the
 // certificates and keys for the specified user of the peer.
 func (n *Network) peerUserCryptoDir(p *topology.Peer, user, cryptoMaterialType string) string {
 	org := n.Organization(p.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return n.userCryptoDir(org, "peerOrganizations", user, cryptoMaterialType)
 }
@@ -213,7 +213,7 @@ func (n *Network) peerUserCryptoDir(p *topology.Peer, user, cryptoMaterialType s
 // certificates and keys for the specified user of the orderer.
 func (n *Network) ordererUserCryptoDir(o *topology.Orderer, user, cryptoMaterialType string) string {
 	org := n.Organization(o.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return n.userCryptoDir(org, "ordererOrganizations", user, cryptoMaterialType)
 }
@@ -330,7 +330,7 @@ func (n *Network) PeerUserTLSDir(p *topology.Peer, user string) string {
 // the peer organization.
 func (n *Network) PeerUserCert(p *topology.Peer, user string) string {
 	org := n.Organization(p.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return filepath.Join(
 		n.PeerUserMSPDir(p, user),
@@ -343,7 +343,7 @@ func (n *Network) PeerUserCert(p *topology.Peer, user string) string {
 // the orderer organization.
 func (n *Network) OrdererUserCert(o *topology.Orderer, user string) string {
 	org := n.Organization(o.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return filepath.Join(
 		n.OrdererUserMSPDir(o, user),
@@ -356,7 +356,7 @@ func (n *Network) OrdererUserCert(o *topology.Orderer, user string) string {
 // the peer organization.
 func (n *Network) PeerUserKey(p *topology.Peer, user string) string {
 	org := n.Organization(p.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return filepath.Join(
 		n.PeerUserMSPDir(p, user),
@@ -367,7 +367,7 @@ func (n *Network) PeerUserKey(p *topology.Peer, user string) string {
 
 func (n *Network) PeerKey(p *topology.Peer) string {
 	org := n.Organization(p.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return filepath.Join(
 		n.PeerLocalMSPDir(p),
@@ -380,7 +380,7 @@ func (n *Network) PeerKey(p *topology.Peer) string {
 // the orderer organization.
 func (n *Network) OrdererUserKey(o *topology.Orderer, user string) string {
 	org := n.Organization(o.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return filepath.Join(
 		n.OrdererUserMSPDir(o, user),
@@ -392,7 +392,7 @@ func (n *Network) OrdererUserKey(o *topology.Orderer, user string) string {
 // peerLocalCryptoDir returns the path to the local crypto directory for the peer.
 func (n *Network) peerLocalCryptoDir(p *topology.Peer, cryptoType string) string {
 	org := n.Organization(p.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return filepath.Join(
 		n.Context.RootDir(),
@@ -408,7 +408,7 @@ func (n *Network) peerLocalCryptoDir(p *topology.Peer, cryptoType string) string
 
 func (n *Network) peerUserLocalCryptoDir(p *topology.Peer, user, cryptoType string) string {
 	org := n.Organization(p.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return filepath.Join(
 		n.Context.RootDir(),
@@ -477,7 +477,7 @@ func (n *Network) PeerLocalTLSDir(p *topology.Peer) string {
 // PeerCert returns the path to the peer's certificate.
 func (n *Network) PeerCert(p *topology.Peer) string {
 	org := n.Organization(p.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return filepath.Join(
 		n.PeerLocalMSPDir(p),
@@ -544,7 +544,7 @@ func (n *Network) OrdererOrgMSPDir(o *topology.Organization) string {
 // Orderer.
 func (n *Network) OrdererLocalCryptoDir(o *topology.Orderer, cryptoType string) string {
 	org := n.Organization(o.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return filepath.Join(
 		n.Context.RootDir(),
@@ -601,8 +601,8 @@ func (n *Network) bootstrapIdemix() {
 			NetworkPrefix: n.Prefix,
 			Output:        output,
 		})
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}
 }
 
@@ -622,12 +622,12 @@ func (n *Network) bootstrapExtraIdentities() {
 					EnrollmentID:     identity.EnrollmentID,
 					RevocationHandle: fmt.Sprintf("1%d%d", i, j),
 				})
-				Expect(err).NotTo(HaveOccurred())
-				Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 			case "bccsp":
 				// Nothing to do here cause the extra identities are generated by crypto gen.
 			default:
-				Expect(identity.MSPType).To(Equal("idemix"))
+				gomega.Expect(identity.MSPType).To(gomega.Equal("idemix"))
 			}
 		}
 	}
@@ -639,7 +639,7 @@ func (n *Network) ConcatenateTLSCACertificates() {
 	bundle := &bytes.Buffer{}
 	for _, tlsCertPath := range n.ListTLSCACertificates() {
 		certBytes, err := os.ReadFile(tlsCertPath)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		bundle.Write(certBytes)
 	}
 	if len(bundle.Bytes()) == 0 {
@@ -647,14 +647,14 @@ func (n *Network) ConcatenateTLSCACertificates() {
 	}
 
 	err := os.WriteFile(n.CACertsBundlePath(), bundle.Bytes(), 0660)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 // ListTLSCACertificates returns the paths of all TLS CA certificates in the
 // network, across all organizations.
 func (n *Network) ListTLSCACertificates() []string {
 	fileName2Path := make(map[string]string)
-	Expect(filepath.Walk(filepath.Join(n.Context.RootDir(), n.Prefix, "crypto"), func(path string, info os.FileInfo, err error) error {
+	gomega.Expect(filepath.Walk(filepath.Join(n.Context.RootDir(), n.Prefix, "crypto"), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -664,7 +664,7 @@ func (n *Network) ListTLSCACertificates() []string {
 			fileName2Path[info.Name()] = path
 		}
 		return nil
-	})).ToNot(HaveOccurred())
+	})).ToNot(gomega.HaveOccurred())
 
 	var tlsCACertificates []string
 	for _, path := range fileName2Path {
@@ -703,7 +703,7 @@ func (n *Network) CreateAndJoinChannel(o *topology.Orderer, channelName string) 
 // the update transactions to the orderer.
 func (n *Network) UpdateChannelAnchors(o *topology.Orderer, channelName string) {
 	tempFile, err := os.CreateTemp("", "update-anchors")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	tempFile.Close()
 	defer os.Remove(tempFile.Name())
 
@@ -722,8 +722,8 @@ func (n *Network) UpdateChannelAnchors(o *topology.Orderer, channelName string) 
 			AsOrg:                   orgName,
 		}
 		sess, err := n.ConfigTxGen(anchorUpdate)
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 		sess, err = n.PeerAdminSession(p, commands.ChannelUpdate{
 			NetworkPrefix: n.Prefix,
@@ -732,8 +732,8 @@ func (n *Network) UpdateChannelAnchors(o *topology.Orderer, channelName string) 
 			File:          tempFile.Name(),
 			ClientAuth:    n.ClientAuthRequired,
 		})
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}
 }
 
@@ -747,7 +747,7 @@ func (n *Network) VerifyMembership(expectedPeers []*topology.Peer, channel strin
 		expectedDiscoveredPeerMatchers[i] = n.DiscoveredPeerMatcher(peer, chaincodes...) // n.DiscoveredPeer(peer, chaincodes...)
 	}
 	for _, peer := range expectedPeers {
-		Eventually(DiscoverPeers(n, peer, "User1", channel), n.EventuallyTimeout).Should(ConsistOf(expectedDiscoveredPeerMatchers))
+		gomega.Eventually(DiscoverPeers(n, peer, "User1", channel), n.EventuallyTimeout).Should(gomega.ConsistOf(expectedDiscoveredPeerMatchers))
 	}
 }
 
@@ -771,10 +771,10 @@ func (n *Network) CreateChannel(channelName string, o *topology.Orderer, p *topo
 			OutputBlock:   "/dev/null",
 			ClientAuth:    n.ClientAuthRequired,
 		})
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		return sess.Wait(n.EventuallyTimeout).ExitCode()
 	}
-	Eventually(createChannel, n.EventuallyTimeout).Should(Equal(0))
+	gomega.Eventually(createChannel, n.EventuallyTimeout).Should(gomega.Equal(0))
 }
 
 // CreateChannelExitCode will submit an existing create channel transaction to
@@ -795,7 +795,7 @@ func (n *Network) CreateChannelExitCode(channelName string, o *topology.Orderer,
 		OutputBlock:   "/dev/null",
 		ClientAuth:    n.ClientAuthRequired,
 	})
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	return sess.Wait(n.EventuallyTimeout).ExitCode()
 }
 
@@ -808,8 +808,8 @@ func (n *Network) signConfigTransaction(channelTxPath string, submittingPeer *to
 				File:          channelTxPath,
 				ClientAuth:    n.ClientAuthRequired,
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 		case *topology.Orderer:
 			sess, err := n.OrdererAdminSession(signer, submittingPeer, commands.SignConfigTx{
@@ -817,8 +817,8 @@ func (n *Network) signConfigTransaction(channelTxPath string, submittingPeer *to
 				File:          channelTxPath,
 				ClientAuth:    n.ClientAuthRequired,
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 		default:
 			panic(fmt.Sprintf("unknown signer type %T, expect Peer or Orderer", signer))
@@ -836,7 +836,7 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 	}
 
 	tempFile, err := os.CreateTemp("", "genesis-block")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	tempFile.Close()
 	defer os.Remove(tempFile.Name())
 
@@ -848,8 +848,8 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 		OutputFile:    tempFile.Name(),
 		ClientAuth:    n.ClientAuthRequired,
 	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 	for _, p := range peers {
 		if p.SkipInit {
@@ -860,8 +860,8 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 			BlockPath:     tempFile.Name(),
 			ClientAuth:    n.ClientAuthRequired,
 		})
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}
 }
 
@@ -883,7 +883,7 @@ func (n *Network) Idemixgen(command common.Command) (*gexec.Session, error) {
 // ConfigTxGen starts a gexec.Session for the provided configtxgen command.
 func (n *Network) ConfigTxGen(command common.Command) (*gexec.Session, error) {
 	cmdPath := findCmdAtEnv(configtxgenCMD)
-	Expect(cmdPath).NotTo(Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
+	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
 
 	cmd := common.NewCommand(cmdPath, command)
 	return n.StartSession(cmd, command.SessionName())
@@ -892,7 +892,7 @@ func (n *Network) ConfigTxGen(command common.Command) (*gexec.Session, error) {
 // Discover starts a gexec.Session for the provided discover command.
 func (n *Network) Discover(command common.Command) (*gexec.Session, error) {
 	cmdPath := findCmdAtEnv(discoverCMD)
-	Expect(cmdPath).NotTo(Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
+	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
 
 	cmd := common.NewCommand(cmdPath, command)
 	cmd.Args = append(cmd.Args, "--peerTLSCA", n.CACertsBundlePath())
@@ -903,7 +903,7 @@ func (n *Network) Discover(command common.Command) (*gexec.Session, error) {
 // can be used to start and manage an orderer process.
 func (n *Network) OrdererRunner(o *topology.Orderer) *runner2.Runner {
 	cmdPath := findCmdAtEnv(ordererCMD)
-	Expect(cmdPath).NotTo(Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
+	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
 
 	cmd := exec.Command(cmdPath)
 	cmd.Env = os.Environ()
@@ -920,14 +920,14 @@ func (n *Network) OrdererRunner(o *topology.Orderer) *runner2.Runner {
 
 	if n.Topology().LogOrderersToFile {
 		// set stdout to a file
-		Expect(os.MkdirAll(n.OrdererLogsFolder(), 0755)).ToNot(HaveOccurred())
+		gomega.Expect(os.MkdirAll(n.OrdererLogsFolder(), 0755)).ToNot(gomega.HaveOccurred())
 		f, err := os.Create(
 			filepath.Join(
 				n.OrdererLogsFolder(),
 				fmt.Sprintf("%s-%s.log", o.Name, n.Organization(o.Organization).Domain),
 			),
 		)
-		Expect(err).ToNot(HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		config.Stdout = f
 		config.Stderr = f
 	}
@@ -970,14 +970,14 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 	}
 	if n.Topology().LogPeersToFile {
 		// set stdout to a file
-		Expect(os.MkdirAll(n.PeerLogsFolder(), 0755)).ToNot(HaveOccurred())
+		gomega.Expect(os.MkdirAll(n.PeerLogsFolder(), 0755)).ToNot(gomega.HaveOccurred())
 		f, err := os.Create(
 			filepath.Join(
 				n.PeerLogsFolder(),
 				fmt.Sprintf("%s-%s.log", p.Name, n.Organization(p.Organization).Domain),
 			),
 		)
-		Expect(err).ToNot(HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		config.Stdout = f
 		config.Stderr = f
 	}
@@ -1024,7 +1024,7 @@ func (n *Network) PeerGroupRunner() ifrit.Runner {
 
 func (n *Network) peerCommand(command common.Command, tlsDir string, env ...string) *exec.Cmd {
 	cmdPath := findCmdAtEnv(peerCMD)
-	Expect(cmdPath).NotTo(Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
+	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
 	logger.Debugf("Found %s => %s", peerCMD, cmdPath)
 
 	cmd := common.NewCommand(cmdPath, command)
@@ -1124,7 +1124,7 @@ func (n *Network) Peer(orgName, peerName string) *topology.Peer {
 // passed as arguments.
 func (n *Network) DiscoveredPeer(p *topology.Peer, chaincodes ...string) DiscoveredPeer {
 	peerCert, err := os.ReadFile(n.PeerCert(p))
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	return DiscoveredPeer{
 		MSPID:      n.Organization(p.Organization).MSPID,
@@ -1136,12 +1136,12 @@ func (n *Network) DiscoveredPeer(p *topology.Peer, chaincodes ...string) Discove
 
 func (n *Network) DiscoveredPeerMatcher(p *topology.Peer, chaincodes ...string) types.GomegaMatcher {
 	peerCert, err := os.ReadFile(n.PeerCert(p))
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	return gstruct.MatchAllFields(gstruct.Fields{
-		"MSPID":      Equal(n.Organization(p.Organization).MSPID),
-		"Endpoint":   Equal(n.PeerAddress(p, ListenPort)),
-		"Identity":   Equal(string(peerCert)),
+		"MSPID":      gomega.Equal(n.Organization(p.Organization).MSPID),
+		"Endpoint":   gomega.Equal(n.PeerAddress(p, ListenPort)),
+		"Identity":   gomega.Equal(string(peerCert)),
 		"Chaincodes": containElements(chaincodes...),
 	})
 }
@@ -1395,14 +1395,14 @@ func (n *Network) OrdererAddress(o *topology.Orderer, portName api.PortName) str
 // OrdererPort returns the named port reserved for the Orderer instance.
 func (n *Network) OrdererPort(o *topology.Orderer, portName api.PortName) uint16 {
 	ordererPorts := n.Context.PortsByOrdererID(n.Prefix, o.ID())
-	Expect(ordererPorts).NotTo(BeNil(), "expected orderer ports to be initialized [%s]", o.ID())
+	gomega.Expect(ordererPorts).NotTo(gomega.BeNil(), "expected orderer ports to be initialized [%s]", o.ID())
 	return ordererPorts[portName]
 }
 
 // OrdererHost returns the hostname of the Orderer instance.
 func (n *Network) OrdererHost(o *topology.Orderer) string {
 	ordererHost := n.Context.HostByOrdererID(n.Prefix, o.ID())
-	Expect(ordererHost).NotTo(BeNil(), "expected orderer host to be initialized [%s]", o.ID())
+	gomega.Expect(ordererHost).NotTo(gomega.BeNil(), "expected orderer host to be initialized [%s]", o.ID())
 	return ordererHost
 }
 
@@ -1429,20 +1429,20 @@ func (n *Network) PeerPort(p *topology.Peer, portName api.PortName) uint16 {
 	if peerPorts == nil {
 		fmt.Printf("PeerPort [%s,%s] not found", p.ID(), portName)
 	}
-	Expect(peerPorts).NotTo(BeNil(), "PeerPort [%s,%s] not found", p.ID(), portName)
+	gomega.Expect(peerPorts).NotTo(gomega.BeNil(), "PeerPort [%s,%s] not found", p.ID(), portName)
 	return peerPorts[portName]
 }
 
 // PeerHost returns the hostname of the Peer instance.
 func (n *Network) PeerHost(o *topology.Peer) string {
 	peerHost := n.Context.HostByPeerID(n.Prefix, o.ID())
-	Expect(peerHost).NotTo(BeNil(), "expected host host to be initialized [%s]", o.ID())
+	gomega.Expect(peerHost).NotTo(gomega.BeNil(), "expected host host to be initialized [%s]", o.ID())
 	return peerHost
 }
 
 func (n *Network) PeerPortByName(p *topology.Peer, portName api.PortName) uint16 {
 	peerPorts := n.Context.PortsByPeerID(n.Prefix, p.Name)
-	Expect(peerPorts).NotTo(BeNil())
+	gomega.Expect(peerPorts).NotTo(gomega.BeNil())
 	return peerPorts[portName]
 }
 
@@ -1514,38 +1514,38 @@ func (n *Network) StartSession(cmd *exec.Cmd, name string) (*gexec.Session, erro
 }
 
 func (n *Network) GenerateCryptoConfig() {
-	Expect(os.MkdirAll(n.CryptoPath(), 0770)).NotTo(HaveOccurred())
+	gomega.Expect(os.MkdirAll(n.CryptoPath(), 0770)).NotTo(gomega.HaveOccurred())
 	crypto, err := os.Create(n.CryptoConfigPath())
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer crypto.Close()
 
 	t, err := template.New("crypto").Parse(n.Templates.CryptoTemplate())
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// pw := gexec.NewPrefixedWriter("[crypto-config.yaml] ", ginkgo.GinkgoWriter)
 	err = t.Execute(io.MultiWriter(crypto), n)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func (n *Network) GenerateConfigTxConfig() {
 	config, err := os.Create(n.ConfigTxConfigPath())
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer config.Close()
 
 	t, err := template.New("configtx").Parse(n.Templates.ConfigTxTemplate())
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// pw := gexec.NewPrefixedWriter("[configtx.yaml] ", ginkgo.GinkgoWriter)
 	err = t.Execute(io.MultiWriter(config), n)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
 	err := os.MkdirAll(n.OrdererDir(o), 0755)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	orderer, err := os.Create(n.OrdererConfigPath(o))
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer orderer.Close()
 	tlsEnabled := n.topology.TLSEnabled
 	t, err := template.New("orderer").Funcs(template.FuncMap{
@@ -1554,21 +1554,21 @@ func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
 		"ReplaceAll": func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
 		"TLSEnabled": func() bool { return tlsEnabled },
 	}).Parse(n.Templates.OrdererTemplate())
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	pw := gexec.NewPrefixedWriter(fmt.Sprintf("[%s#orderer.yaml] ", o.ID()), ginkgo.GinkgoWriter)
 	err = t.Execute(io.MultiWriter(orderer, pw), n)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 	switch p.Type {
 	case topology.FabricPeer:
 		err := os.MkdirAll(n.PeerDir(p), 0755)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		core, err := os.Create(n.PeerConfigPath(p))
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		defer core.Close()
 
 		coreTemplate := n.Templates.CoreTemplate()
@@ -1580,15 +1580,15 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"ToLower":                   func(s string) string { return strings.ToLower(s) },
 			"ReplaceAll":                func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
 		}).Parse(coreTemplate)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		extension := bytes.NewBuffer([]byte{})
 		err = t.Execute(io.MultiWriter(core, extension), n)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		n.Context.AddExtension(p.ID(), api.FabricExtension, extension.String())
 	case topology.FSCPeer:
 		err := os.MkdirAll(n.PeerDir(p), 0755)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		var refPeers []*topology.Peer
 		coreTemplate := n.Templates.CoreTemplate()
@@ -1631,11 +1631,11 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 				"Chaincodes":                func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
 				"TLSEnabled":                func() bool { return tlsEnabled },
 			}).Parse(coreTemplate)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			extension := bytes.NewBuffer([]byte{})
 			err = t.Execute(io.MultiWriter(extension), n)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			n.Context.AddExtension(uniqueName, api.FabricExtension, extension.String())
 		}
 	}
@@ -1734,7 +1734,7 @@ func BCCSPOpts(defaultProvider string) *topology.BCCSP {
 	}
 	if defaultProvider == pkcs11.Provider {
 		lib, pin, label, err := pkcs11.FindPKCS11Lib()
-		Expect(err).ToNot(HaveOccurred(), "cannot find PKCS11 lib")
+		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "cannot find PKCS11 lib")
 		bccsp.PKCS11.Pin = pin
 		bccsp.PKCS11.Label = label
 		bccsp.PKCS11.Library = lib

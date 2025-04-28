@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/pkg/errors"
@@ -138,8 +138,8 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 
 		case <-startCheckTimeout:
 			// clean up hanging process
-			Expect(r.Command.Process.Signal(syscall.SIGKILL)).ToNot(HaveOccurred())
-			EventuallyWithOffset(1, r).Should(gexec.Exit())
+			gomega.Expect(r.Command.Process.Signal(syscall.SIGKILL)).ToNot(gomega.HaveOccurred())
+			gomega.EventuallyWithOffset(1, r).Should(gexec.Exit())
 
 			// fail to start
 			return errors.Errorf(

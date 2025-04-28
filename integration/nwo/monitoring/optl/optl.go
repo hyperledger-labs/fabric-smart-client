@@ -12,7 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 var logger = logging.MustGetLogger("integration.nwo.monitoring.optl")
@@ -46,9 +46,9 @@ func (n *Extension) GenerateArtifacts() {
 		return
 	}
 
-	Expect(os.MkdirAll(n.configFileDir(), 0o777)).NotTo(HaveOccurred())
-	Expect(os.WriteFile(n.configFilePath(), []byte(ConfigTemplate), 0o644)).NotTo(HaveOccurred())
-	Expect(os.WriteFile(n.jaegerHostsPath(), []byte(JaegerHosts), 0o644)).NotTo(HaveOccurred())
+	gomega.Expect(os.MkdirAll(n.configFileDir(), 0o777)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(os.WriteFile(n.configFilePath(), []byte(ConfigTemplate), 0o644)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(os.WriteFile(n.jaegerHostsPath(), []byte(JaegerHosts), 0o644)).NotTo(gomega.HaveOccurred())
 }
 
 func (n *Extension) PostRun(bool) {

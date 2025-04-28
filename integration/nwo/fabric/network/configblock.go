@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go/msp"
 	protosorderer "github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/hyperledger/fabric/protoutil"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 )
@@ -26,7 +26,7 @@ import (
 // GetConfigBlock retrieves the current config block for a channel.
 func GetConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel string) *common.Block {
 	tempDir, err := os.MkdirTemp(filepath.Join(n.Context.RootDir(), n.Prefix), "getConfigBlock")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer os.RemoveAll(tempDir)
 
 	// fetch the config block
@@ -39,9 +39,9 @@ func GetConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer, 
 		OutputFile:    output,
 		ClientAuth:    n.ClientAuthRequired,
 	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-	Expect(sess.Err).To(gbytes.Say("Received block: "))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	gomega.Expect(sess.Err).To(gbytes.Say("Received block: "))
 
 	// unmarshal the config block bytes
 	configBlock := UnmarshalBlockFromFile(output)
@@ -53,16 +53,16 @@ func GetConfig(n *Network, peer *topology.Peer, orderer *topology.Orderer, chann
 	configBlock := GetConfigBlock(n, peer, orderer, channel)
 	// unmarshal the envelope bytes
 	envelope, err := protoutil.GetEnvelopeFromBlock(configBlock.Data.Data[0])
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// unmarshal the payload bytes
 	payload, err := protoutil.UnmarshalPayload(envelope.Payload)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// unmarshal the config envelope bytes
 	configEnv := &common.ConfigEnvelope{}
 	err = proto.Unmarshal(payload.Data, configEnv)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// clone the config
 	return configEnv.Config
@@ -72,12 +72,12 @@ func GetConfig(n *Network, peer *topology.Peer, orderer *topology.Orderer, chann
 // for the update to complete.
 func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current, updated *common.Config, getConfigBlockFromOrderer bool, submitter *topology.Peer, additionalSigners ...*topology.Peer) {
 	tempDir, err := os.MkdirTemp("", "updateConfig")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer os.RemoveAll(tempDir)
 
 	// compute update
 	configUpdate, err := Compute(current, updated)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	configUpdate.ChannelId = channel
 
 	signedEnvelope, err := protoutil.CreateSignedEnvelope(
@@ -88,12 +88,12 @@ func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current
 		0, // message version
 		0, // epoch
 	)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(signedEnvelope).NotTo(BeNil())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(signedEnvelope).NotTo(gomega.BeNil())
 
 	updateFile := filepath.Join(tempDir, "update.pb")
 	err = os.WriteFile(updateFile, protoutil.MarshalOrPanic(signedEnvelope), 0600)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	for _, signer := range additionalSigners {
 		sess, err := n.PeerAdminSession(signer, commands.SignConfigTx{
@@ -101,8 +101,8 @@ func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current
 			File:          updateFile,
 			ClientAuth:    n.ClientAuthRequired,
 		})
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}
 
 	var currentBlockNumber uint64
@@ -120,20 +120,20 @@ func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current
 		File:          updateFile,
 		ClientAuth:    n.ClientAuthRequired,
 	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-	Expect(sess.Err).To(gbytes.Say("Successfully submitted channel update"))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	gomega.Expect(sess.Err).To(gbytes.Say("Successfully submitted channel update"))
 
 	if getConfigBlockFromOrderer {
 		ccb := func() uint64 { return CurrentConfigBlockNumber(n, submitter, orderer, channel) }
-		Eventually(ccb, n.EventuallyTimeout).Should(BeNumerically(">", currentBlockNumber))
+		gomega.Eventually(ccb, n.EventuallyTimeout).Should(gomega.BeNumerically(">", currentBlockNumber))
 		return
 	}
 	// wait for the block to be committed to all peers that
 	// have joined the channel
 	for _, peer := range n.PeersWithChannel(channel) {
 		ccb := func() uint64 { return CurrentConfigBlockNumber(n, peer, nil, channel) }
-		Eventually(ccb, n.EventuallyTimeout).Should(BeNumerically(">", currentBlockNumber))
+		gomega.Eventually(ccb, n.EventuallyTimeout).Should(gomega.BeNumerically(">", currentBlockNumber))
 	}
 }
 
@@ -143,7 +143,7 @@ func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current
 // be fetched from the peer.
 func CurrentConfigBlockNumber(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel string) uint64 {
 	tempDir, err := os.MkdirTemp(filepath.Join(n.Context.RootDir(), n.Prefix), "currentConfigBlock")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer os.RemoveAll(tempDir)
 
 	// fetch the config block
@@ -170,9 +170,9 @@ func CurrentConfigBlockNumberFromPeer(n *Network, peer *topology.Peer, channel, 
 		OutputFile:    output,
 		ClientAuth:    n.ClientAuthRequired,
 	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-	Expect(sess.Err).To(gbytes.Say("Received block: "))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	gomega.Expect(sess.Err).To(gbytes.Say("Received block: "))
 
 	configBlock := UnmarshalBlockFromFile(output)
 
@@ -190,28 +190,28 @@ func FetchConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer
 			OutputFile:    output,
 			ClientAuth:    n.ClientAuthRequired,
 		})
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		code := sess.Wait(n.EventuallyTimeout).ExitCode()
 		if code == 0 {
-			Expect(sess.Err).To(gbytes.Say("Received block: "))
+			gomega.Expect(sess.Err).To(gbytes.Say("Received block: "))
 		}
 		return code
 	}
-	Eventually(fetch, n.EventuallyTimeout).Should(Equal(0))
+	gomega.Eventually(fetch, n.EventuallyTimeout).Should(gomega.Equal(0))
 }
 
 // UpdateOrdererConfig computes, signs, and submits a configuration update
 // which requires orderers signature and waits for the update to complete.
 func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, current, updated *common.Config, submitter *topology.Peer, additionalSigners ...*topology.Orderer) {
 	tempDir, err := os.MkdirTemp(filepath.Join(n.Context.RootDir(), n.Prefix), "updateConfig")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	updateFile := filepath.Join(tempDir, "update.pb")
 	defer os.RemoveAll(tempDir)
 
 	currentBlockNumber := CurrentConfigBlockNumber(n, submitter, orderer, channel)
 	ComputeUpdateOrdererConfig(updateFile, n, channel, current, updated, submitter, additionalSigners...)
 
-	Eventually(func() bool {
+	gomega.Eventually(func() bool {
 		sess, err := n.OrdererAdminSession(orderer, submitter, commands.ChannelUpdate{
 			NetworkPrefix: n.Prefix,
 			ChannelID:     channel,
@@ -219,7 +219,7 @@ func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, 
 			File:          updateFile,
 			ClientAuth:    n.ClientAuthRequired,
 		})
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		sess.Wait(n.EventuallyTimeout)
 		if sess.ExitCode() != 0 {
@@ -227,11 +227,11 @@ func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, 
 		}
 
 		return strings.Contains(string(sess.Err.Contents()), "Successfully submitted channel update")
-	}, n.EventuallyTimeout).Should(BeTrue())
+	}, n.EventuallyTimeout).Should(gomega.BeTrue())
 
 	// wait for the block to be committed
 	ccb := func() uint64 { return CurrentConfigBlockNumber(n, submitter, orderer, channel) }
-	Eventually(ccb, n.EventuallyTimeout).Should(BeNumerically(">", currentBlockNumber))
+	gomega.Eventually(ccb, n.EventuallyTimeout).Should(gomega.BeNumerically(">", currentBlockNumber))
 }
 
 // UpdateOrdererConfigSession computes, signs, and submits a configuration
@@ -239,7 +239,7 @@ func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, 
 // returned seession retrieve the exit code.
 func UpdateOrdererConfigSession(n *Network, orderer *topology.Orderer, channel string, current, updated *common.Config, submitter *topology.Peer, additionalSigners ...*topology.Orderer) *gexec.Session {
 	tempDir, err := os.MkdirTemp(filepath.Join(n.Context.RootDir(), n.Prefix), "updateConfig")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	updateFile := filepath.Join(tempDir, "update.pb")
 
 	ComputeUpdateOrdererConfig(updateFile, n, channel, current, updated, submitter, additionalSigners...)
@@ -252,14 +252,14 @@ func UpdateOrdererConfigSession(n *Network, orderer *topology.Orderer, channel s
 		File:          updateFile,
 		ClientAuth:    n.ClientAuthRequired,
 	})
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	return sess
 }
 
 func ComputeUpdateOrdererConfig(updateFile string, n *Network, channel string, current, updated *common.Config, submitter *topology.Peer, additionalSigners ...*topology.Orderer) {
 	// compute update
 	configUpdate, err := Compute(current, updated)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	configUpdate.ChannelId = channel
 
 	signedEnvelope, err := protoutil.CreateSignedEnvelope(
@@ -270,29 +270,29 @@ func ComputeUpdateOrdererConfig(updateFile string, n *Network, channel string, c
 		0, // message version
 		0, // epoch
 	)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(signedEnvelope).NotTo(BeNil())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(signedEnvelope).NotTo(gomega.BeNil())
 
 	err = os.WriteFile(updateFile, protoutil.MarshalOrPanic(signedEnvelope), 0600)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	for _, signer := range additionalSigners {
 		sess, err := n.OrdererAdminSession(signer, submitter, commands.SignConfigTx{
 			NetworkPrefix: n.Prefix,
 			File:          updateFile,
 		})
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}
 }
 
 // UnmarshalBlockFromFile unmarshals a proto encoded block from a file.
 func UnmarshalBlockFromFile(blockFile string) *common.Block {
 	blockBytes, err := os.ReadFile(blockFile)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	block, err := protoutil.UnmarshalBlock(blockBytes)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	return block
 }
@@ -312,7 +312,7 @@ func UpdateConsensusMetadata(network *Network, peer *topology.Peer, orderer *top
 	consensusTypeConfigValue := updatedConfig.ChannelGroup.Groups["Orderer"].Values["ConsensusType"]
 	consensusTypeValue := &protosorderer.ConsensusType{}
 	err := proto.Unmarshal(consensusTypeConfigValue.Value, consensusTypeValue)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	consensusTypeValue.Metadata = mutateMetadata(consensusTypeValue.Metadata)
 
@@ -332,11 +332,11 @@ func UpdateOrdererMSP(network *Network, peer *topology.Peer, orderer *topology.O
 	rawMSPConfig := updatedConfig.ChannelGroup.Groups["Orderer"].Groups[orgID].Values["MSP"]
 	mspConfig := &msp.MSPConfig{}
 	err := proto.Unmarshal(rawMSPConfig.Value, mspConfig)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	fabricConfig := &msp.FabricMSPConfig{}
 	err = proto.Unmarshal(mspConfig.Config, fabricConfig)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Mutate it as we are asked
 	*fabricConfig = mutateMSP(*fabricConfig)

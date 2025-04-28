@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger/fabric-protos-go/peer/lifecycle"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/gstruct"
@@ -24,7 +24,7 @@ func PackageAndInstallChaincode(n *Network, chaincode *topology.Chaincode, peers
 	// create temp file for chaincode package if not provided
 	if chaincode.PackageFile == "" {
 		tempFile, err := os.CreateTemp("", "chaincode-package")
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		tempFile.Close()
 		defer os.Remove(tempFile.Name())
 		chaincode.PackageFile = tempFile.Name()
@@ -38,7 +38,7 @@ func PackageAndInstallChaincode(n *Network, chaincode *topology.Chaincode, peers
 		default:
 			packager := n.PackagerFactory()
 			err := packager.PackageChaincode(chaincode.Path, chaincode.Lang, chaincode.Label, chaincode.PackageFile, nil)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		}
 	}
 
@@ -55,8 +55,8 @@ func PackageChaincode(n *Network, chaincode *topology.Chaincode, peer *topology.
 		OutputFile:    chaincode.PackageFile,
 		ClientAuth:    n.ClientAuthRequired,
 	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 }
 
 func InstallChaincode(n *Network, chaincode *topology.Chaincode, peers ...*topology.Peer) {
@@ -70,8 +70,8 @@ func InstallChaincode(n *Network, chaincode *topology.Chaincode, peers ...*topol
 			PackageFile:   chaincode.PackageFile,
 			ClientAuth:    n.ClientAuthRequired,
 		})
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
 		EnsureInstalled(n, chaincode.Label, chaincode.PackageID, p)
 	}
@@ -102,10 +102,10 @@ func ApproveChaincodeForMyOrg(n *Network, channel string, orderer *topology.Orde
 				CollectionsConfig:   chaincode.CollectionsConfig,
 				ClientAuth:          n.ClientAuthRequired,
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 			approvedOrgs[p.Organization] = true
-			Eventually(sess.Err, n.EventuallyTimeout).Should(gbytes.Say(`\Qcommitted with status (VALID)\E`))
+			gomega.Eventually(sess.Err, n.EventuallyTimeout).Should(gbytes.Say(`\Qcommitted with status (VALID)\E`))
 		}
 	}
 }
@@ -114,9 +114,9 @@ func CheckCommitReadinessUntilReady(n *Network, channel string, chaincode *topol
 	for _, p := range peers {
 		keys := gstruct.Keys{}
 		for _, org := range checkOrgs {
-			keys[org.MSPID] = BeTrue()
+			keys[org.MSPID] = gomega.BeTrue()
 		}
-		Eventually(checkCommitReadiness(n, p, channel, chaincode), n.EventuallyTimeout).Should(gstruct.MatchKeys(gstruct.IgnoreExtras, keys))
+		gomega.Eventually(checkCommitReadiness(n, p, channel, chaincode), n.EventuallyTimeout).Should(gstruct.MatchKeys(gstruct.IgnoreExtras, keys))
 	}
 }
 
@@ -147,10 +147,10 @@ func CommitChaincode(n *Network, channel string, orderer *topology.Orderer, chai
 		PeerAddresses:       peerAddresses,
 		ClientAuth:          n.ClientAuthRequired,
 	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	for i := 0; i < len(peerAddresses); i++ {
-		Eventually(sess.Err, n.EventuallyTimeout).Should(gbytes.Say(`\Qcommitted with status (VALID)\E`))
+		gomega.Eventually(sess.Err, n.EventuallyTimeout).Should(gbytes.Say(`\Qcommitted with status (VALID)\E`))
 	}
 	checkOrgs := []*topology.Organization{}
 	for org := range commitOrgs {
@@ -164,15 +164,15 @@ func CommitChaincode(n *Network, channel string, orderer *topology.Orderer, chai
 func EnsureChaincodeCommitted(n *Network, channel, name, version, sequence string, checkOrgs []*topology.Organization, peers ...*topology.Peer) {
 	for _, p := range peers {
 		sequenceInt, err := strconv.ParseInt(sequence, 10, 64)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		approvedKeys := gstruct.Keys{}
 		for _, org := range checkOrgs {
-			approvedKeys[org.MSPID] = BeTrue()
+			approvedKeys[org.MSPID] = gomega.BeTrue()
 		}
-		Eventually(listCommitted(n, p, channel, name), n.EventuallyTimeout).Should(
+		gomega.Eventually(listCommitted(n, p, channel, name), n.EventuallyTimeout).Should(
 			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"Version":   Equal(version),
-				"Sequence":  Equal(sequenceInt),
+				"Version":   gomega.Equal(version),
+				"Sequence":  gomega.Equal(sequenceInt),
 				"Approvals": gstruct.MatchKeys(gstruct.IgnoreExtras, approvedKeys),
 			}),
 		)
@@ -201,21 +201,21 @@ func InitChaincode(n *Network, channel string, orderer *topology.Orderer, chainc
 		IsInit:        true,
 		ClientAuth:    n.ClientAuthRequired,
 	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	for i := 0; i < len(peerAddresses); i++ {
-		Eventually(sess.Err, n.EventuallyTimeout).Should(gbytes.Say(`\Qcommitted with status (VALID)\E`))
+		gomega.Eventually(sess.Err, n.EventuallyTimeout).Should(gbytes.Say(`\Qcommitted with status (VALID)\E`))
 	}
-	Expect(sess.Err).To(gbytes.Say("Chaincode invoke successful. result: status:200"))
+	gomega.Expect(sess.Err).To(gbytes.Say("Chaincode invoke successful. result: status:200"))
 }
 
 func EnsureInstalled(n *Network, label, packageID string, peers ...*topology.Peer) {
 	for _, p := range peers {
-		Eventually(QueryInstalled(n, p), n.EventuallyTimeout).Should(
-			ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras,
+		gomega.Eventually(QueryInstalled(n, p), n.EventuallyTimeout).Should(
+			gomega.ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras,
 				gstruct.Fields{
-					"Label":     Equal(label),
-					"PackageId": Equal(packageID),
+					"Label":     gomega.Equal(label),
+					"PackageId": gomega.Equal(packageID),
 				},
 			)),
 		)
@@ -231,14 +231,14 @@ func QueryInstalledReferences(n *Network, channel, label, packageID string, chec
 		}
 	}
 
-	Expect(QueryInstalled(n, checkPeer)()).To(
-		ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras,
+	gomega.Expect(QueryInstalled(n, checkPeer)()).To(
+		gomega.ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras,
 			gstruct.Fields{
-				"Label":     Equal(label),
-				"PackageId": Equal(packageID),
-				"References": HaveKeyWithValue(channel, gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras,
+				"Label":     gomega.Equal(label),
+				"PackageId": gomega.Equal(packageID),
+				"References": gomega.HaveKeyWithValue(channel, gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras,
 					gstruct.Fields{
-						"Chaincodes": ConsistOf(chaincodes),
+						"Chaincodes": gomega.ConsistOf(chaincodes),
 					},
 				))),
 			},
@@ -256,11 +256,11 @@ func QueryInstalled(n *Network, peer *topology.Peer) func() []lifecycle.QueryIns
 			NetworkPrefix: n.Prefix,
 			ClientAuth:    n.ClientAuthRequired,
 		})
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 		output := &queryInstalledOutput{}
 		err = json.Unmarshal(sess.Out.Contents(), output)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		return output.InstalledChaincodes
 	}
 }
@@ -285,11 +285,11 @@ func checkCommitReadiness(n *Network, peer *topology.Peer, channel string, chain
 			CollectionsConfig:   chaincode.CollectionsConfig,
 			ClientAuth:          n.ClientAuthRequired,
 		})
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 		output := &checkCommitReadinessOutput{}
 		err = json.Unmarshal(sess.Out.Contents(), output)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		return output.Approvals
 	}
 }
@@ -311,15 +311,15 @@ func listCommitted(n *Network, peer *topology.Peer, channel, name string) func()
 			Name:          name,
 			ClientAuth:    n.ClientAuthRequired,
 		})
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit())
 		output := &queryCommittedOutput{}
 		if sess.ExitCode() == 1 {
 			// don't try to unmarshal the output as JSON if the query failed
 			return *output
 		}
 		err = json.Unmarshal(sess.Out.Contents(), output)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		return *output
 	}
 }

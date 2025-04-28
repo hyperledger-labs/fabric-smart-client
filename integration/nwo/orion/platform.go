@@ -29,7 +29,7 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/orion-server/config"
 	"github.com/hyperledger-labs/orion-server/pkg/server/testutils"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/tedsuo/ifrit/grouper"
 	"gopkg.in/yaml.v2"
 )
@@ -99,7 +99,7 @@ func (p *Platform) GenerateConfigTree() {
 
 func (p *Platform) GenerateArtifacts() {
 	for _, subdir := range []string{"crypto", "database", "config", "ledger", "txs", "wal", "snap"} {
-		Expect(os.MkdirAll(filepath.Join(p.rootDir(), subdir), 0o755)).NotTo(HaveOccurred())
+		gomega.Expect(os.MkdirAll(filepath.Join(p.rootDir(), subdir), 0o755)).NotTo(gomega.HaveOccurred())
 	}
 
 	p.writeConfigFile()
@@ -137,47 +137,47 @@ func (p *Platform) GenerateArtifacts() {
 	// 	}
 	// }
 	for _, role := range roles {
-		Expect(os.MkdirAll(p.roleCryptoDir(role), 0o755)).NotTo(HaveOccurred())
+		gomega.Expect(os.MkdirAll(p.roleCryptoDir(role), 0o755)).NotTo(gomega.HaveOccurred())
 	}
 
 	// CA
-	Expect(os.MkdirAll(p.roleCryptoDir("CA"), 0o755)).NotTo(HaveOccurred())
+	gomega.Expect(os.MkdirAll(p.roleCryptoDir("CA"), 0o755)).NotTo(gomega.HaveOccurred())
 	cryptoDir := p.cryptoDir()
 	rootCAPemCert, caPrivKey, err := testutils.GenerateRootCA("RootCA", "127.0.0.1")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	rootCACertFile, err := os.Create(path.Join(cryptoDir, "CA", "CA.pem"))
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	_, err = rootCACertFile.Write(rootCAPemCert)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	rootCACertFile.Close()
 	rootCAKeyFile, err := os.Create(path.Join(cryptoDir, "CA", "CA.key"))
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	_, err = rootCAKeyFile.Write(rootCAPemCert)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	rootCAKeyFile.Close()
 
 	// Roles
 	for _, name := range roles {
 		keyPair, err := tls.X509KeyPair(rootCAPemCert, caPrivKey)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		pemCert, privKey, err := testutils.IssueCertificate("Client "+name, "127.0.0.1", keyPair)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		pemCertFile, err := os.Create(path.Join(cryptoDir, name, name+".pem"))
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		_, err = pemCertFile.Write(pemCert)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		err = pemCertFile.Close()
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		pemPrivKeyFile, err := os.Create(path.Join(cryptoDir, name, name+".key"))
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		_, err = pemPrivKeyFile.Write(privKey)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		err = pemPrivKeyFile.Close()
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	}
 
 	p.generateExtension()
@@ -194,27 +194,27 @@ func (p *Platform) PostRun(load bool) {
 
 	// getting our docker helper, check required images exists and launch a docker network
 	d, err := docker.GetInstance()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = d.CheckImagesExist(RequiredImages...)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = d.CreateNetwork(p.NetworkID)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	p.StartOrionServer()
 	err = p.InitOrionServer()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func (p *Platform) Cleanup() {
 	dockerClient, err := docker.GetInstance()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = dockerClient.Cleanup(p.NetworkID, func(name string) bool {
 		return strings.HasPrefix(name, "/"+p.NetworkID)
 	})
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func (p *Platform) DeleteVault(id string) {
@@ -223,12 +223,12 @@ func (p *Platform) DeleteVault(id string) {
 	for _, node := range fscTopology.Nodes {
 		if strings.Contains(node.Name, id) {
 			for _, uniqueName := range node.ReplicaUniqueNames() {
-				Expect(os.RemoveAll(fsc.SqlitePath(p.NodeStorages(uniqueName), network.VaultPersistenceKey))).ToNot(HaveOccurred())
+				gomega.Expect(os.RemoveAll(fsc.SqlitePath(p.NodeStorages(uniqueName), network.VaultPersistenceKey))).ToNot(gomega.HaveOccurred())
 			}
 			found = true
 		}
 	}
-	Expect(found).To(BeTrue(), "cannot find node [%s]", id)
+	gomega.Expect(found).To(gomega.BeTrue(), "cannot find node [%s]", id)
 }
 
 func (p *Platform) replaceForDocker(origin string) string {
@@ -284,11 +284,11 @@ func (p *Platform) generateExtension() {
 				},
 				"VaultPersistence": func() driver2.PersistenceName { return persistenceNames[network.VaultPersistenceKey] },
 			}).Parse(ExtensionTemplate)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			extension := bytes.NewBuffer([]byte{})
 			err = t.Execute(io.MultiWriter(extension), p)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			p.Context.AddExtension(uniqueName, api2.OrionExtension, extension.String())
 		}
@@ -383,22 +383,22 @@ func (p *Platform) writeConfigFile() {
 	}
 
 	c, err := yaml.Marshal(p.localConfig)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	err = os.WriteFile(p.configFile(), c, 0644)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	b, err := yaml.Marshal(bootstrap)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	err = os.WriteFile(p.boostrapSharedConfig(), b, 0644)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	p.serverUrl, err = url.Parse(fmt.Sprintf("http://%s:%d", nodeHost, p.nodePort))
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	p.saveServerUrl(p.serverUrl)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	certPaths := map[string]string{}
 	for _, db := range p.Topology.DBs {
@@ -418,10 +418,10 @@ func (p *Platform) writeConfigFile() {
 	}
 
 	i, err := yaml.Marshal(HelperConfig{InitConfig: init})
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	Expect(os.MkdirAll(p.configDir(), 0766)).To(Succeed())
-	Expect(os.WriteFile(p.HelperConfigPath(), i, 0766)).To(Succeed())
+	gomega.Expect(os.MkdirAll(p.configDir(), 0766)).To(gomega.Succeed())
+	gomega.Expect(os.WriteFile(p.HelperConfigPath(), i, 0766)).To(gomega.Succeed())
 }
 
 func (p *Platform) ServerUrl() string {
@@ -534,9 +534,9 @@ func (p *Platform) configFile() string {
 
 func (p *Platform) saveServerUrl(url *url.URL) {
 	serverUrlFile, err := os.Create(filepath.Join(p.rootDir(), "server.url"))
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	_, err = serverUrlFile.WriteString(url.String())
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	serverUrlFile.Close()
 }
 

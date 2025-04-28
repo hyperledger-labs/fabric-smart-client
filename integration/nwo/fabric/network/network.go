@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/ifrit/grouper"
 )
@@ -148,21 +148,21 @@ func (n *Network) GenerateArtifacts() {
 		Config:        n.CryptoConfigPath(),
 		Output:        n.CryptoPath(),
 	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	n.bootstrapIdemix()
 	n.bootstrapExtraIdentities()
 
 	if n.SystemChannel != nil && len(n.SystemChannel.Name) != 0 {
 		sess, err = n.ConfigTxGen(n.systemChannelParams(n.SystemChannel))
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}
 
 	for _, c := range n.Channels {
 		sess, err = n.ConfigTxGen(n.createChannelConfig(c))
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}
 
 	n.ConcatenateTLSCACertificates()
@@ -302,10 +302,10 @@ func (n *Network) UpdateChaincode(chaincodeId string, version string, path strin
 			break
 		}
 	}
-	Expect(cc).ToNot(BeNil(), "failed to find chaincode [%s]", chaincodeId)
+	gomega.Expect(cc).ToNot(gomega.BeNil(), "failed to find chaincode [%s]", chaincodeId)
 
 	seq, err := strconv.Atoi(cc.Chaincode.Sequence)
-	Expect(err).NotTo(HaveOccurred(), "failed to parse chaincode sequence [%s]", cc.Chaincode.Sequence)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to parse chaincode sequence [%s]", cc.Chaincode.Sequence)
 
 	newCC := &topology.ChannelChaincode{
 		Chaincode: topology.Chaincode{

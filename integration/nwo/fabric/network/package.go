@@ -14,8 +14,7 @@ import (
 	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 // PackageChaincodeBinary is a helper function to package
@@ -23,7 +22,7 @@ import (
 // specified by Chaincode.PackageFile.
 func PackageChaincodeBinary(c *topology.Chaincode) {
 	file, err := os.Create(c.PackageFile)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer file.Close()
 	writeTarGz(c, file)
 }
@@ -51,7 +50,7 @@ func writeMetadataJSON(tw *tar.Writer, path, ccType, label string) {
 		Type:  ccType,
 		Label: label,
 	})
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// write it to the package as metadata.json
 	err = tw.WriteHeader(&tar.Header{
@@ -59,15 +58,15 @@ func writeMetadataJSON(tw *tar.Writer, path, ccType, label string) {
 		Size: int64(len(metadata)),
 		Mode: 0100644,
 	})
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	_, err = tw.Write(metadata)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func writeCodeTarGz(tw *tar.Writer, codeFiles map[string]string) {
 	// create temp file to hold code.tar.gz
 	tempfile, err := os.CreateTemp("", "code.tar.gz")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer os.Remove(tempfile.Name())
 
 	gzipWriter := gzip.NewWriter(tempfile)
@@ -75,7 +74,7 @@ func writeCodeTarGz(tw *tar.Writer, codeFiles map[string]string) {
 
 	for source, target := range codeFiles {
 		file, err := os.Open(source)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		writeFileToTar(tarWriter, file, target)
 		file.Close()
 	}
@@ -88,23 +87,23 @@ func writeCodeTarGz(tw *tar.Writer, codeFiles map[string]string) {
 
 func writeFileToTar(tw *tar.Writer, file *os.File, name string) {
 	_, err := file.Seek(0, 0)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	fi, err := file.Stat()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	header, err := tar.FileInfoHeader(fi, "")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	header.Name = name
 	err = tw.WriteHeader(header)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	_, err = io.Copy(tw, file)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func closeAll(closers ...io.Closer) {
 	for _, c := range closers {
-		Expect(c.Close()).To(Succeed())
+		gomega.Expect(c.Close()).To(gomega.Succeed())
 	}
 }

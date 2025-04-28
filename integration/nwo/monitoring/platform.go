@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	prom_api "github.com/prometheus/client_golang/api"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/tedsuo/ifrit/grouper"
@@ -111,11 +111,11 @@ func (p *Platform) PostRun(load bool) {
 	logger.Infof("Post execution [%s]...", p.Prefix)
 
 	d, err := docker.GetInstance()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// create a container network used for our monitoring services
 	err = d.CreateNetwork(p.networkID)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Extensions
 	for _, extension := range p.Extensions {
@@ -129,13 +129,13 @@ func (p *Platform) PostRun(load bool) {
 
 func (p *Platform) Cleanup() {
 	d, err := docker.GetInstance()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// cleanup all monitoring services associated with our network ID
 	err = d.Cleanup(p.networkID, func(name string) bool {
 		return strings.HasPrefix(name, "/"+p.networkID)
 	})
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func (p *Platform) PrometheusAPI() prom_v1.API {

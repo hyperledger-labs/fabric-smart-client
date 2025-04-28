@@ -43,7 +43,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/miracl/conflate"
 	"github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"github.com/spf13/viper"
 	"github.com/tedsuo/ifrit"
@@ -130,8 +130,8 @@ func (p *Platform) GenerateArtifacts() {
 		Config: p.CryptoConfigPath(),
 		Output: p.CryptoPath(),
 	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, p.EventuallyTimeout).Should(gexec.Exit(0))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, p.EventuallyTimeout).Should(gexec.Exit(0))
 
 	p.ConcatenateTLSCACertificates()
 
@@ -160,7 +160,7 @@ func (p *Platform) GenerateArtifacts() {
 				KeyPath:      p.LocalMSPPrivateKey(peer.Peer),
 			},
 		}
-		Expect(c.ToFile(p.NodeClientConfigPath(peer))).ToNot(HaveOccurred())
+		gomega.Expect(c.ToFile(p.NodeClientConfigPath(peer))).ToNot(gomega.HaveOccurred())
 	}
 
 	// Generate commands
@@ -181,15 +181,15 @@ func (p *Platform) setIdentities(address string, peer *node2.Replica) {
 	p.Context.SetConnectionConfig(peer.UniqueName, cc)
 
 	clientID, err := p.GetSigningIdentity(peer.Peer)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	p.Context.SetClientSigningIdentity(peer.Name, clientID)
 
 	adminID, err := p.GetAdminSigningIdentity(peer.Peer)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	p.Context.SetAdminSigningIdentity(peer.Name, adminID)
 
 	cert, err := os.ReadFile(p.LocalMSPIdentityCert(peer.Peer))
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	p.Context.SetViewIdentity(peer.Name, cert)
 }
 
@@ -217,7 +217,7 @@ func (p *Platform) PreRun() {
 		for _, sqlOpts := range node.Options.GetPostgresPersistences() {
 			if _, ok := configs[sqlOpts.DataSource]; !ok {
 				c, err := postgres.ReadDataSource(sqlOpts.DataSource)
-				Expect(err).ToNot(HaveOccurred())
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 				configs[sqlOpts.DataSource] = c
 			}
 
@@ -225,7 +225,7 @@ func (p *Platform) PreRun() {
 	}
 	logger.Infof("Starting DBs for following data sources: [%s]...", logging.Keys(configs))
 	close, err := postgres.StartPostgresWithFmt(collections.Values(configs))
-	Expect(err).ToNot(HaveOccurred(), "failed to start dbs")
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to start dbs")
 	p.cleanDB = close
 }
 
@@ -265,7 +265,7 @@ func (p *Platform) PostRun(bool) {
 			crypto.NewProvider(),
 			tracerProvider,
 		)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		p.Context.SetViewClient(node.Name, grpcClient)
 		p.Context.SetViewClient(node.ID(), grpcClient)
 		for _, identity := range p.Context.GetViewIdentityAliases(node.ID()) {
@@ -280,9 +280,9 @@ func (p *Platform) PostRun(bool) {
 
 		// Web Client
 		webClientConfig, err := client.NewWebClientConfigFromFSC(p.NodeDir(node))
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		webClient, err := web.NewClient(webClientConfig)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		p.Context.SetWebClient(node.Name, webClient)
 		p.Context.SetWebClient(node.ID(), webClient)
 		for _, identity := range p.Context.GetViewIdentityAliases(node.ID()) {
@@ -316,7 +316,7 @@ func (p *Platform) viper(peer *node2.Replica) *viper.Viper {
 	v := viper.New()
 	v.SetConfigFile(p.NodeConfigPath(peer))
 	err := v.ReadInConfig() // Find and read the config file
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	return v
 }
 
@@ -454,35 +454,35 @@ func (p *Platform) RoutingConfigPath() string {
 }
 
 func (p *Platform) GenerateCryptoConfig() {
-	Expect(os.MkdirAll(p.CryptoPath(), 0755)).NotTo(HaveOccurred())
+	gomega.Expect(os.MkdirAll(p.CryptoPath(), 0755)).NotTo(gomega.HaveOccurred())
 
 	crypto, err := os.Create(p.CryptoConfigPath())
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer crypto.Close()
 
 	t, err := template.New("crypto").Parse(p.Topology.Templates.CryptoTemplate())
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	Expect(t.Execute(io.MultiWriter(crypto), p)).NotTo(HaveOccurred())
+	gomega.Expect(t.Execute(io.MultiWriter(crypto), p)).NotTo(gomega.HaveOccurred())
 }
 
 func (p *Platform) GenerateRoutingConfig() {
 	routing, err := os.Create(p.RoutingConfigPath())
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer routing.Close()
 
 	t, err := template.New("routing").Parse(node2.RoutingTemplate)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	Expect(t.Execute(io.MultiWriter(routing), p)).NotTo(HaveOccurred())
+	gomega.Expect(t.Execute(io.MultiWriter(routing), p)).NotTo(gomega.HaveOccurred())
 }
 
 func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 	err := os.MkdirAll(p.NodeDir(peer), 0755)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	core, err := os.Create(p.NodeConfigPath(peer))
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer core.Close()
 
 	var extensions []string
@@ -491,10 +491,10 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		if len(extensionsByPeerID) > 1 {
 			c := conflate.New()
 			for _, ext := range extensionsByPeerID {
-				Expect(c.AddData([]byte(ext))).NotTo(HaveOccurred())
+				gomega.Expect(c.AddData([]byte(ext))).NotTo(gomega.HaveOccurred())
 			}
 			bs, err := c.MarshalYAML()
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			extensions = append(extensions, string(bs))
 		} else {
 			extensions = append(extensions, extensionsByPeerID...)
@@ -536,8 +536,8 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"SamplingRatio": func() float64 { return p.Topology.Monitoring.TracingSamplingRatio },
 	}).
 		Parse(p.Topology.Templates.CoreTemplate())
-	Expect(err).NotTo(HaveOccurred())
-	Expect(t.Execute(io.MultiWriter(core), p)).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(t.Execute(io.MultiWriter(core), p)).NotTo(gomega.HaveOccurred())
 
 }
 
@@ -619,14 +619,14 @@ func (p *Platform) FSCNodeRunner(node *node2.Replica, env ...string) *runner2.Ru
 	if p.Topology.LogToFile {
 		logDir := filepath.Join(p.NodeDir(node), "logs")
 		// set stdout to a file
-		Expect(os.MkdirAll(logDir, 0755)).ToNot(HaveOccurred())
+		gomega.Expect(os.MkdirAll(logDir, 0755)).ToNot(gomega.HaveOccurred())
 		f, err := os.Create(
 			filepath.Join(
 				logDir,
 				fmt.Sprintf("%s.log", node.Name),
 			),
 		)
-		Expect(err).ToNot(HaveOccurred())
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		config.Stdout = f
 		config.Stderr = f
 	}
@@ -665,11 +665,11 @@ func (p *Platform) fscNodeCommand(node *node2.Replica, command common.Command, t
 
 func (p *Platform) GenerateCmd(output io.Writer, node *node2.Replica) string {
 	err := os.MkdirAll(p.NodeCmdDir(node), 0755)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	if output == nil {
 		main, err := os.Create(p.NodeCmdPath(node))
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		output = main
 		defer main.Close()
 	}
@@ -678,12 +678,12 @@ func (p *Platform) GenerateCmd(output io.Writer, node *node2.Replica) string {
 		"Alias":       func(s string) string { return node.Node.Alias(s) },
 		"InstallView": func() bool { return len(node.Node.Responders) != 0 || len(node.Node.Factories) != 0 },
 	}).Parse(p.Topology.Templates.NodeTemplate())
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	Expect(t.Execute(io.MultiWriter(output), struct {
+	gomega.Expect(t.Execute(io.MultiWriter(output), struct {
 		*Platform
 		*node2.Replica
-	}{p, node})).NotTo(HaveOccurred())
+	}{p, node})).NotTo(gomega.HaveOccurred())
 
 	return p.NodeCmdPackage(node)
 }
@@ -710,7 +710,7 @@ func (p *Platform) NodeConfigPath(peer *node2.Replica) string {
 
 func (p *Platform) NodeCmdDir(peer *node2.Replica) string {
 	wd, err := os.Getwd()
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	return filepath.Join(wd, "cmd", peer.Name)
 }
@@ -718,7 +718,7 @@ func (p *Platform) NodeCmdDir(peer *node2.Replica) string {
 func (p *Platform) NodeCmdPackage(peer *node2.Replica) string {
 	gopath := os.Getenv("GOPATH")
 	wd, err := os.Getwd()
-	Expect(err).ToNot(HaveOccurred(), "Failed to get working directory: %s", err)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "Failed to get working directory: %s", err)
 
 	// if gopath is set to path within codebase, node command package will be relative within the codebase
 	// if gopath is not set or not within codebase, then it will be absolute path where the fsc node code is
@@ -738,7 +738,7 @@ func (p *Platform) NodeCmdPath(peer *node2.Replica) string {
 
 func (p *Platform) NodePort(node *node2.Replica, portName api.PortName) uint16 {
 	peerPorts := p.Context.PortsByPeerID("fsc", node.ID())
-	Expect(peerPorts).NotTo(BeNil(), "cannot find ports for [%s][%v]", node.ID(), p.Context.PortsByPeerID)
+	gomega.Expect(peerPorts).NotTo(gomega.BeNil(), "cannot find ports for [%s][%v]", node.ID(), p.Context.PortsByPeerID)
 	return peerPorts[portName]
 }
 
@@ -823,7 +823,7 @@ func (p *Platform) ConcatenateTLSCACertificates() {
 	bundle := &bytes.Buffer{}
 	for _, tlsCertPath := range p.listTLSCACertificates() {
 		certBytes, err := os.ReadFile(tlsCertPath)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		bundle.Write(certBytes)
 	}
 	if len(bundle.Bytes()) == 0 {
@@ -831,7 +831,7 @@ func (p *Platform) ConcatenateTLSCACertificates() {
 	}
 
 	err := os.WriteFile(p.CACertsBundlePath(), bundle.Bytes(), 0660)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func (p *Platform) PeerOrgs() []*node2.Organization {
@@ -878,7 +878,7 @@ func (p *Platform) GetReplicas(peer *node2.Peer) []*node2.Replica {
 
 func (p *Platform) PeerPort(peer *node2.Replica, portName api.PortName) uint16 {
 	peerPorts := p.Context.PortsByPeerID("fsc", peer.ID())
-	Expect(peerPorts).NotTo(BeNil())
+	gomega.Expect(peerPorts).NotTo(gomega.BeNil())
 	return peerPorts[portName]
 }
 
@@ -901,7 +901,7 @@ func (p *Platform) GetAdminSigningIdentity(peer *node2.Peer) (view.SigningIdenti
 
 func (p *Platform) listTLSCACertificates() []string {
 	fileName2Path := make(map[string]string)
-	Expect(filepath.Walk(filepath.Join(p.Context.RootDir(), "fsc", "crypto"), func(path string, info os.FileInfo, err error) error {
+	gomega.Expect(filepath.Walk(filepath.Join(p.Context.RootDir(), "fsc", "crypto"), func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -911,7 +911,7 @@ func (p *Platform) listTLSCACertificates() []string {
 			fileName2Path[info.Name()] = path
 		}
 		return nil
-	})).ToNot(HaveOccurred())
+	})).ToNot(gomega.HaveOccurred())
 
 	var tlsCACertificates []string
 	for _, path := range fileName2Path {
@@ -922,7 +922,7 @@ func (p *Platform) listTLSCACertificates() []string {
 
 func (p *Platform) peerLocalCryptoDir(peer *node2.Peer, cryptoType string) string {
 	org := p.Organization(peer.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return filepath.Join(
 		p.Context.RootDir(),
@@ -938,7 +938,7 @@ func (p *Platform) peerLocalCryptoDir(peer *node2.Peer, cryptoType string) strin
 
 func (p *Platform) userLocalCryptoDir(peer *node2.Peer, user, cryptoMaterialType string) string {
 	org := p.Organization(peer.Organization)
-	Expect(org).NotTo(BeNil())
+	gomega.Expect(org).NotTo(gomega.BeNil())
 
 	return filepath.Join(
 		p.Context.RootDir(),

@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/ifrit/grouper"
@@ -149,7 +149,7 @@ func (p *Platform) Members() []grouper.Member {
 func (p *Platform) PostRun(load bool) {
 	// set up our docker environment for chaincode containers
 	err := p.Docker.Setup()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	p.Network.PostRun(load)
 	if load {
 		return
@@ -166,7 +166,7 @@ func (p *Platform) PostRun(load bool) {
 				invocation.Args...,
 			)
 			if invocation.ExpectedResult != nil {
-				Expect(res).To(BeEquivalentTo(invocation.ExpectedResult))
+				gomega.Expect(res).To(gomega.BeEquivalentTo(invocation.ExpectedResult))
 			}
 		}
 	}
@@ -178,7 +178,7 @@ func (p *Platform) Cleanup() {
 
 	// cleanup docker environment
 	err := p.Docker.Cleanup()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func (p *Platform) DeployChaincode(chaincode *topology.ChannelChaincode) {
@@ -187,9 +187,9 @@ func (p *Platform) DeployChaincode(chaincode *topology.ChannelChaincode) {
 
 func (p *Platform) DeleteVault(id string) {
 	fscPeer := p.Network.FSCPeerByName(id)
-	Expect(fscPeer).ToNot(BeNil())
+	gomega.Expect(fscPeer).ToNot(gomega.BeNil())
 	for _, uniqueName := range fscPeer.FSCNode.ReplicaUniqueNames() {
-		Expect(os.RemoveAll(fsc.SqlitePath(p.Network.NodeStorages(uniqueName), network.VaultPersistenceKey))).ToNot(HaveOccurred())
+		gomega.Expect(os.RemoveAll(fsc.SqlitePath(p.Network.NodeStorages(uniqueName), network.VaultPersistenceKey))).ToNot(gomega.HaveOccurred())
 	}
 }
 
@@ -253,7 +253,7 @@ func (p *Platform) PeersByOrg(fabricHost string, orgName string, includeAll bool
 			})
 		} else {
 			_, port, err := net.SplitHostPort(p.Network.PeerAddress(peer, network.OperationsPort))
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			peers = append(peers, &fabric.Peer{
 				Name:             peer.Name,
@@ -342,7 +342,7 @@ func (p *Platform) Orderers() []*fabric.Orderer {
 		org := p.Network.Organization(orderer.Organization)
 
 		_, port, err := net.SplitHostPort(p.Network.OrdererAddress(orderer, network.OperationsPort))
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		orderers = append(orderers, &fabric.Orderer{
 			Name:             orderer.Name,
@@ -405,7 +405,7 @@ func (p *Platform) InvokeChaincode(cc *topology.ChannelChaincode, method string,
 		s.Args = append(s.Args, string(arg))
 	}
 	ctor, err := json.Marshal(s)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	sess, err := p.Network.PeerUserSession(peer, "User1", commands.ChaincodeInvoke{
 		ChannelID: cc.Channel,
@@ -413,9 +413,9 @@ func (p *Platform) InvokeChaincode(cc *topology.ChannelChaincode, method string,
 		Name:      cc.Chaincode.Name,
 		Ctor:      string(ctor),
 	})
-	Expect(err).NotTo(HaveOccurred())
-	Eventually(sess, p.Network.EventuallyTimeout).Should(gexec.Exit(0))
-	Expect(sess.Err).To(gbytes.Say("Chaincode invoke successful. result: status:200"))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, p.Network.EventuallyTimeout).Should(gexec.Exit(0))
+	gomega.Expect(sess.Err).To(gbytes.Say("Chaincode invoke successful. result: status:200"))
 
 	return sess.Buffer().Contents()
 }
@@ -456,10 +456,10 @@ func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionPr
 			}
 		} else {
 			signCert, err := os.ReadFile(p.Network.PeerUserCert(p.Network.PeerByName(peers[0].Name), "Admin"))
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			adminPrivateKey, err := os.ReadFile(p.Network.PeerUserKey(p.Network.PeerByName(peers[0].Name), "Admin"))
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			cp.Organizations[org.Name] = network.Organization{
 				MSPID: org.MSPID,
@@ -483,13 +483,13 @@ func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionPr
 		}
 		for _, peer := range peers {
 			_, port, err := net.SplitHostPort(peer.ListeningAddress)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			bb := bytes.Buffer{}
 
 			for _, cert := range peer.TLSCACerts {
 				raw, err := os.ReadFile(cert)
-				Expect(err).NotTo(HaveOccurred())
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				bb.WriteString(string(raw))
 			}
 
@@ -514,13 +514,13 @@ func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionPr
 	var ordererFullNames []string
 	for _, orderer := range fabricNetwork.Orderers() {
 		_, port, err := net.SplitHostPort(orderer.ListeningAddress)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		bb := bytes.Buffer{}
 
 		for _, cert := range orderer.TLSCACerts {
 			raw, err := os.ReadFile(cert)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			bb.WriteString(string(raw))
 		}
 

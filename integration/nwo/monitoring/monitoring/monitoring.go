@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 )
 
@@ -68,19 +68,19 @@ func (n *Extension) GenerateArtifacts() {
 
 	// store prometheus configuration
 	configYAML, err := yaml.Marshal(prometheusConfig)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(os.MkdirAll(n.configFileDir(), 0o755)).NotTo(HaveOccurred())
-	Expect(os.MkdirAll(n.prometheusConfigDir(), 0o755)).NotTo(HaveOccurred())
-	Expect(os.WriteFile(n.prometheusConfigFilePath(), configYAML, 0o644)).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(os.MkdirAll(n.configFileDir(), 0o755)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(os.MkdirAll(n.prometheusConfigDir(), 0o755)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(os.WriteFile(n.prometheusConfigFilePath(), configYAML, 0o644)).NotTo(gomega.HaveOccurred())
 
 	// store grafana configuration
 	for _, dir := range n.grafanaDirPaths() {
-		Expect(os.MkdirAll(dir, 0o755)).NotTo(HaveOccurred())
+		gomega.Expect(os.MkdirAll(dir, 0o755)).NotTo(gomega.HaveOccurred())
 	}
-	Expect(os.WriteFile(n.grafanaProvisioningDashboardFilePath(), []byte(DashboardTemplate), 0o644)).NotTo(HaveOccurred())
-	Expect(os.WriteFile(n.grafanaProvisioningDatasourceFilePath(), []byte(DatasourceTemplate), 0o644)).NotTo(HaveOccurred())
-	Expect(os.WriteFile(n.grafanaDashboardFabricBackendFilePath(), []byte(DashboardFabricBackendTemplate), 0o644)).NotTo(HaveOccurred())
-	Expect(os.WriteFile(n.grafanaDashboardFabricBusinessFilePath(), []byte(DashboardFabricBusinessTemplate), 0o644)).NotTo(HaveOccurred())
+	gomega.Expect(os.WriteFile(n.grafanaProvisioningDashboardFilePath(), []byte(DashboardTemplate), 0o644)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(os.WriteFile(n.grafanaProvisioningDatasourceFilePath(), []byte(DatasourceTemplate), 0o644)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(os.WriteFile(n.grafanaDashboardFabricBackendFilePath(), []byte(DashboardFabricBackendTemplate), 0o644)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(os.WriteFile(n.grafanaDashboardFabricBusinessFilePath(), []byte(DashboardFabricBusinessTemplate), 0o644)).NotTo(gomega.HaveOccurred())
 }
 
 func (n *Extension) PostRun(bool) {
