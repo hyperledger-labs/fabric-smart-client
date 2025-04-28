@@ -458,7 +458,7 @@ func (p *Platform) GenerateCryptoConfig() {
 
 	crypto, err := os.Create(p.CryptoConfigPath())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer crypto.Close()
+	defer utils.IgnoreErrorFunc(crypto.Close)
 
 	t, err := template.New("crypto").Parse(p.Topology.Templates.CryptoTemplate())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -469,7 +469,7 @@ func (p *Platform) GenerateCryptoConfig() {
 func (p *Platform) GenerateRoutingConfig() {
 	routing, err := os.Create(p.RoutingConfigPath())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer routing.Close()
+	defer utils.IgnoreErrorFunc(routing.Close)
 
 	t, err := template.New("routing").Parse(node2.RoutingTemplate)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -483,7 +483,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 
 	core, err := os.Create(p.NodeConfigPath(peer))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer core.Close()
+	defer utils.IgnoreErrorFunc(core.Close)
 
 	var extensions []string
 	for _, extensionsByPeerID := range p.Context.ExtensionsByPeerID(peer.UniqueName) {
@@ -671,7 +671,7 @@ func (p *Platform) GenerateCmd(output io.Writer, node *node2.Replica) string {
 		main, err := os.Create(p.NodeCmdPath(node))
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		output = main
-		defer main.Close()
+		defer utils.IgnoreErrorFunc(main.Close)
 	}
 
 	t, err := template.New("node").Funcs(template.FuncMap{

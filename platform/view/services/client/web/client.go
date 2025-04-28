@@ -18,6 +18,7 @@ import (
 	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/pkg/errors"
 	dto "github.com/prometheus/client_model/go"
@@ -169,7 +170,7 @@ func (c *Client) CallViewWithContext(ctx context.Context, fid string, in []byte)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to call [%s]", fid)
 	}
-	defer body.Close()
+	defer utils.IgnoreErrorFunc(body.Close)
 	buff, err := io.ReadAll(body)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read response from http request to [%s], input length [%d]", url, len(in))
@@ -208,7 +209,7 @@ func (c *Client) ServerVersion() (string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", errors.Errorf("failed to process http request to [%s], status code [%d], status [%s]", url, resp.StatusCode, resp.Status)
 	}
-	defer resp.Body.Close()
+	defer utils.IgnoreErrorFunc(resp.Body.Close)
 	buff, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to read response from http request to [%s]", url)

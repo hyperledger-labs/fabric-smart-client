@@ -24,6 +24,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/ccmetadata"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/core/chaincode/platforms/util"
 	"github.com/pkg/errors"
@@ -480,7 +481,7 @@ func WriteBytesToPackage(raw []byte, localpath string, packagepath string, tw *t
 	if err != nil {
 		return fmt.Errorf("%s: %s", localpath, err)
 	}
-	defer fd.Close()
+	defer utils.IgnoreErrorFunc(fd.Close)
 
 	fi, err := fd.Stat()
 	if err != nil {

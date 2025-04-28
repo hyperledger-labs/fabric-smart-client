@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
@@ -122,7 +123,7 @@ func queryAgreementsByType(ctx contractapi.TransactionContextInterface, agreeTyp
 	if err != nil {
 		return nil, fmt.Errorf("failed to read from private data collection: %v", err)
 	}
-	defer agreementsIterator.Close()
+	defer utils.IgnoreErrorFunc(agreementsIterator.Close)
 
 	var agreements []Agreement
 	for agreementsIterator.HasNext() {
@@ -149,7 +150,7 @@ func (s *SmartContract) QueryAssetHistory(ctx contractapi.TransactionContextInte
 	if err != nil {
 		return nil, err
 	}
-	defer resultsIterator.Close()
+	defer utils.IgnoreErrorFunc(resultsIterator.Close)
 
 	var results []QueryResult
 	for resultsIterator.HasNext() {

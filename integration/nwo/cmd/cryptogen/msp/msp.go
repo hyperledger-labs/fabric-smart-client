@@ -16,6 +16,7 @@ import (
 	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
 	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/pkcs11"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	fabricmsp "github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -283,7 +284,7 @@ func pemExport(path, pemType string, bytes []byte) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer utils.IgnoreErrorFunc(file.Close)
 
 	return pem.Encode(file, &pem.Block{Type: pemType, Bytes: bytes})
 }
@@ -321,7 +322,7 @@ func exportConfig(mspDir, caFile string, enable bool) error {
 		return err
 	}
 
-	defer file.Close()
+	defer utils.IgnoreErrorFunc(file.Close)
 	_, err = file.WriteString(string(configBytes))
 
 	return err

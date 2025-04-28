@@ -20,6 +20,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/onsi/gomega"
 )
 
@@ -117,7 +118,7 @@ func (p *Platform) StartOrionServer() {
 			Timestamps: false,
 		})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		defer reader.Close()
+		defer utils.IgnoreErrorFunc(reader.Close)
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {

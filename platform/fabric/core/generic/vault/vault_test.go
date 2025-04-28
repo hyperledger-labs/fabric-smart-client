@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
@@ -43,7 +44,7 @@ func TestMemory(t *testing.T) {
 		ddb, err := dbhelper.OpenMemoryVault(c.Name)
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer ddb.Close()
+			defer utils.IgnoreErrorFunc(ddb.Close)
 			c.Fn(xt, ddb, ap)
 		})
 	}
@@ -54,8 +55,8 @@ func TestMemory(t *testing.T) {
 		db2, err := dbhelper.OpenMemoryVault(c.Name)
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer db1.Close()
-			defer db2.Close()
+			defer utils.IgnoreErrorFunc(db1.Close)
+			defer utils.IgnoreErrorFunc(db2.Close)
 			c.Fn(xt, db1, db2, ap)
 		})
 	}
@@ -70,7 +71,7 @@ func TestSqlite(t *testing.T) {
 		ddb, err := dbhelper.OpenSqliteVault("node1", t.TempDir())
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer ddb.Close()
+			defer utils.IgnoreErrorFunc(ddb.Close)
 			c.Fn(xt, ddb, ap)
 		})
 	}
@@ -81,8 +82,8 @@ func TestSqlite(t *testing.T) {
 		db2, err := dbhelper.OpenSqliteVault("node2", t.TempDir())
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer db1.Close()
-			defer db2.Close()
+			defer utils.IgnoreErrorFunc(db1.Close)
+			defer utils.IgnoreErrorFunc(db2.Close)
 			c.Fn(xt, db1, db2, ap)
 		})
 	}
@@ -97,7 +98,7 @@ func TestPostgres(t *testing.T) {
 		ddb, terminate, err := dbhelper.OpenPostgresVault("fabric-sdk-node1")
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer ddb.Close()
+			defer utils.IgnoreErrorFunc(ddb.Close)
 			defer terminate()
 			c.Fn(xt, ddb, ap)
 		})
@@ -109,8 +110,8 @@ func TestPostgres(t *testing.T) {
 		db2, terminate2, err := dbhelper.OpenPostgresVault("fabric-sdk-node2")
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer db1.Close()
-			defer db2.Close()
+			defer utils.IgnoreErrorFunc(db1.Close)
+			defer utils.IgnoreErrorFunc(db2.Close)
 			defer terminate1()
 			defer terminate2()
 			c.Fn(xt, db1, db2, ap)

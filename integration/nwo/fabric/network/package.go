@@ -14,6 +14,7 @@ import (
 	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/onsi/gomega"
 )
 
@@ -23,7 +24,7 @@ import (
 func PackageChaincodeBinary(c *topology.Chaincode) {
 	file, err := os.Create(c.PackageFile)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer file.Close()
+	defer utils.IgnoreErrorFunc(file.Close)
 	writeTarGz(c, file)
 }
 
@@ -76,7 +77,7 @@ func writeCodeTarGz(tw *tar.Writer, codeFiles map[string]string) {
 		file, err := os.Open(source)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		writeFileToTar(tarWriter, file, target)
-		file.Close()
+		utils.IgnoreErrorFunc(file.Close)
 	}
 
 	// close down the inner tar

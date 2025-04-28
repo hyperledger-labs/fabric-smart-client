@@ -67,7 +67,7 @@ func TestTLSCA(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		conn.Close()
+		utils.IgnoreErrorFunc(conn.Close)
 		return nil
 	}
 

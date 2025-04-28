@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -704,7 +705,7 @@ func (n *Network) CreateAndJoinChannel(o *topology.Orderer, channelName string) 
 func (n *Network) UpdateChannelAnchors(o *topology.Orderer, channelName string) {
 	tempFile, err := os.CreateTemp("", "update-anchors")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	tempFile.Close()
+	utils.IgnoreErrorFunc(tempFile.Close)
 	defer os.Remove(tempFile.Name())
 
 	peersByOrg := map[string]*topology.Peer{}
@@ -837,7 +838,7 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 
 	tempFile, err := os.CreateTemp("", "genesis-block")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	tempFile.Close()
+	utils.IgnoreErrorFunc(tempFile.Close)
 	defer os.Remove(tempFile.Name())
 
 	sess, err := n.PeerAdminSession(peers[0], commands.ChannelFetch{
@@ -1517,7 +1518,7 @@ func (n *Network) GenerateCryptoConfig() {
 	gomega.Expect(os.MkdirAll(n.CryptoPath(), 0770)).NotTo(gomega.HaveOccurred())
 	crypto, err := os.Create(n.CryptoConfigPath())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer crypto.Close()
+	defer utils.IgnoreErrorFunc(crypto.Close)
 
 	t, err := template.New("crypto").Parse(n.Templates.CryptoTemplate())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -1530,7 +1531,7 @@ func (n *Network) GenerateCryptoConfig() {
 func (n *Network) GenerateConfigTxConfig() {
 	config, err := os.Create(n.ConfigTxConfigPath())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer config.Close()
+	defer utils.IgnoreErrorFunc(config.Close)
 
 	t, err := template.New("configtx").Parse(n.Templates.ConfigTxTemplate())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -1546,7 +1547,7 @@ func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
 
 	orderer, err := os.Create(n.OrdererConfigPath(o))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer orderer.Close()
+	defer utils.IgnoreErrorFunc(orderer.Close)
 	tlsEnabled := n.topology.TLSEnabled
 	t, err := template.New("orderer").Funcs(template.FuncMap{
 		"Orderer":    func() *topology.Orderer { return o },
@@ -1569,7 +1570,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 
 		core, err := os.Create(n.PeerConfigPath(p))
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		defer core.Close()
+		defer utils.IgnoreErrorFunc(core.Close)
 
 		coreTemplate := n.Templates.CoreTemplate()
 
