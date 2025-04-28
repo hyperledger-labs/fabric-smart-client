@@ -125,7 +125,7 @@ var _ = Describe("Server", func() {
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(tempDir)
+		utils.IgnoreErrorWithOneArg(os.RemoveAll, tempDir)
 		if server != nil {
 			utils.IgnoreError(server.Stop())
 		}

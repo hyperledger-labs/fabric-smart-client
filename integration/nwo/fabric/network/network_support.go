@@ -706,7 +706,7 @@ func (n *Network) UpdateChannelAnchors(o *topology.Orderer, channelName string) 
 	tempFile, err := os.CreateTemp("", "update-anchors")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	utils.IgnoreErrorFunc(tempFile.Close)
-	defer os.Remove(tempFile.Name())
+	defer utils.IgnoreErrorWithOneArg(os.Remove, tempFile.Name())
 
 	peersByOrg := map[string]*topology.Peer{}
 	for _, p := range n.AnchorsForChannel(channelName) {
@@ -839,7 +839,7 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 	tempFile, err := os.CreateTemp("", "genesis-block")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	utils.IgnoreErrorFunc(tempFile.Close)
-	defer os.Remove(tempFile.Name())
+	defer utils.IgnoreErrorWithOneArg(os.Remove, tempFile.Name())
 
 	sess, err := n.PeerAdminSession(peers[0], commands.ChannelFetch{
 		NetworkPrefix: n.Prefix,
@@ -1493,7 +1493,7 @@ func (n *Network) OrdererBootstrapFile() string {
 // command line tools that are expected to run to completion.
 func (n *Network) StartSession(cmd *exec.Cmd, name string) (*gexec.Session, error) {
 	ansiColorCode := n.nextColor()
-	fmt.Fprintf(
+	_, _ = fmt.Fprintf(
 		ginkgo.GinkgoWriter,
 		"\x1b[33m[d]\x1b[%s[%s]\x1b[0m starting %s %s\n",
 		ansiColorCode,

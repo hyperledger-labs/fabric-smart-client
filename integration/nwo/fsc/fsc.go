@@ -417,7 +417,7 @@ func (p *Platform) Cryptogen(command common.Command) (*gexec.Session, error) {
 
 func (p *Platform) StartSession(cmd *exec.Cmd, name string) (*gexec.Session, error) {
 	ansiColorCode := p.nextColor()
-	fmt.Fprintf(
+	_, _ = fmt.Fprintf(
 		ginkgo.GinkgoWriter,
 		"\x1b[33m[d]\x1b[%s[%s]\x1b[0m starting %s %s\n",
 		ansiColorCode,

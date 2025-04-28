@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -42,7 +43,7 @@ func TestLoadCertificateECDSA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
-	defer os.RemoveAll(testDir)
+	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
 
 	// generate private key
 	certDir, err := os.MkdirTemp(testDir, "certs")
@@ -84,7 +85,7 @@ func TestLoadCertificateECDSA(t *testing.T) {
 func TestLoadCertificateECDSA_wrongEncoding(t *testing.T) {
 	testDir, err := os.MkdirTemp("", "wrongEncoding")
 	require.NoError(t, err, "failed to create test directory")
-	defer os.RemoveAll(testDir)
+	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
 
 	filename := filepath.Join(testDir, "wrong_encoding.pem")
 	err = os.WriteFile(filename, []byte("wrong_encoding"), 0644) // Wrong encoded cert
@@ -98,7 +99,7 @@ func TestLoadCertificateECDSA_wrongEncoding(t *testing.T) {
 func TestLoadCertificateECDSA_empty_DER_cert(t *testing.T) {
 	testDir, err := os.MkdirTemp("", "ca-test")
 	require.NoError(t, err, "failed to create test directory")
-	defer os.RemoveAll(testDir)
+	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
 
 	filename := filepath.Join(testDir, "empty.pem")
 	empty_cert := "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----"
@@ -116,7 +117,7 @@ func TestNewCA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
-	defer os.RemoveAll(testDir)
+	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
 
 	caDir := filepath.Join(testDir, "ca")
 	rootCA, err := ca2.NewCA(
@@ -161,7 +162,7 @@ func TestGenerateSignCertificate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
-	defer os.RemoveAll(testDir)
+	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
 
 	// generate private key
 	certDir, err := os.MkdirTemp(testDir, "certs")

@@ -27,7 +27,7 @@ func PackageAndInstallChaincode(n *Network, chaincode *topology.Chaincode, peers
 		tempFile, err := os.CreateTemp("", "chaincode-package")
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		utils.IgnoreErrorFunc(tempFile.Close)
-		defer os.Remove(tempFile.Name())
+		defer utils.IgnoreErrorWithOneArg(os.Remove, tempFile.Name())
 		chaincode.PackageFile = tempFile.Name()
 	}
 

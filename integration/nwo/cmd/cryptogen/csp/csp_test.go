@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/assert"
 
 	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
@@ -30,7 +31,7 @@ func TestLoadPrivateKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
-	defer os.RemoveAll(testDir)
+	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
 	priv, err := csp2.GeneratePrivateKey(testDir)
 	if err != nil {
 		t.Fatalf("Failed to generate private key: %s", err)
@@ -49,7 +50,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
-	defer os.RemoveAll(testDir)
+	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
 
 	badPEMFile := filepath.Join(testDir, "badpem_sk")
 
@@ -102,7 +103,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) {
 			}
 			_, err = csp2.LoadPrivateKey(badPEMFile)
 			assert.Contains(t, err.Error(), test.errMsg)
-			os.Remove(badPEMFile)
+			utils.IgnoreErrorWithOneArg(os.Remove, badPEMFile)
 		})
 	}
 }
@@ -112,7 +113,7 @@ func TestGeneratePrivateKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
-	defer os.RemoveAll(testDir)
+	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
 
 	expectedFile := filepath.Join(testDir, "priv_sk")
 	priv, err := csp2.GeneratePrivateKey(testDir)

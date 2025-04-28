@@ -68,7 +68,7 @@ func writeCodeTarGz(tw *tar.Writer, codeFiles map[string]string) {
 	// create temp file to hold code.tar.gz
 	tempfile, err := os.CreateTemp("", "code.tar.gz")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	defer os.Remove(tempfile.Name())
+	defer utils.IgnoreErrorWithOneArg(os.Remove, tempfile.Name())
 
 	gzipWriter := gzip.NewWriter(tempfile)
 	tarWriter := tar.NewWriter(gzipWriter)

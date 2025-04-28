@@ -53,14 +53,14 @@ func TestReadFile(t *testing.T) {
 }
 
 func TestEnvSubstitution(t *testing.T) {
-	os.Setenv("CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE", "new data source")
-	os.Setenv("CORE_STR", "new=string=with=characters.\\AND.CAPS")
-	os.Setenv("CORE_NUMBER", "10")
-	os.Setenv("CORE_DURATION", "10s")
-	os.Setenv("CORE_PATH_RELATIVE", "newfile.name")
-	os.Setenv("CORE_PATH_ABSOLUTE", "") // empty env vars are disregarded
-	os.Setenv("CORE_NON_EXISTENT_KEY", "new")
-	os.Setenv("CORE_NESTED_KEYS", "should not be able to replace for string")
+	_ = os.Setenv("CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE", "new data source")
+	_ = os.Setenv("CORE_STR", "new=string=with=characters.\\AND.CAPS")
+	_ = os.Setenv("CORE_NUMBER", "10")
+	_ = os.Setenv("CORE_DURATION", "10s")
+	_ = os.Setenv("CORE_PATH_RELATIVE", "newfile.name")
+	_ = os.Setenv("CORE_PATH_ABSOLUTE", "") // empty env vars are disregarded
+	_ = os.Setenv("CORE_NON_EXISTENT_KEY", "new")
+	_ = os.Setenv("CORE_NESTED_KEYS", "should not be able to replace for string")
 
 	p, err := NewProvider("./testdata")
 	assert.NoError(t, err)

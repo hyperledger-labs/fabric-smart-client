@@ -226,7 +226,7 @@ func GenerateVerifyingMSP(
 
 	ksDir := filepath.Join(baseDir, "keystore")
 	err = os.Mkdir(ksDir, 0755)
-	defer os.RemoveAll(ksDir)
+	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, ksDir)
 	if err != nil {
 		return errors.WithMessage(err, "failed to create keystore directory")
 	}
