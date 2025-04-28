@@ -151,7 +151,7 @@ func TestNewConnection(t *testing.T) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	badAddress := l.Addr().String()
-	defer l.Close()
+	defer utils.IgnoreErrorFunc(l.Close)
 
 	certPool := x509.NewCertPool()
 	ok := certPool.AppendCertsFromPEM(testCerts.caPEM)
@@ -336,7 +336,7 @@ func TestNewConnection(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error creating server for test: %v", err)
 			}
-			defer lis.Close()
+			defer utils.IgnoreErrorFunc(lis.Close)
 			serverOpts := []grpc.ServerOption{}
 			if test.serverTLS != nil {
 				serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(test.serverTLS)))
@@ -390,7 +390,7 @@ func TestSetServerRootCAs(t *testing.T) {
 	address := lis.Addr().String()
 	t.Logf("server listening on [%s]", lis.Addr().String())
 	t.Logf("client will use [%s]", address)
-	defer lis.Close()
+	defer utils.IgnoreErrorFunc(lis.Close)
 	srv := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{testCerts.serverCert},
 	})))
@@ -405,7 +405,7 @@ func TestSetServerRootCAs(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, conn)
 	if conn != nil {
-		conn.Close()
+		utils.IgnoreErrorFunc(conn.Close)
 	}
 
 	// no root testCerts
@@ -425,7 +425,7 @@ func TestSetServerRootCAs(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, conn)
 	if conn != nil {
-		conn.Close()
+		utils.IgnoreErrorFunc(conn.Close)
 	}
 
 	// bad root cert
@@ -504,7 +504,7 @@ func TestSetMessageSize(t *testing.T) {
 			}
 			conn, err := client.NewConnection(address)
 			assert.NoError(t, err)
-			defer conn.Close()
+			defer utils.IgnoreErrorFunc(conn.Close)
 			// create service client from conn
 			svcClient := testpb.NewEchoServiceClient(conn)
 			callCtx := context.Background()

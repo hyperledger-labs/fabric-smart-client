@@ -61,7 +61,7 @@ func testRound(t *testing.T, driver driver.Driver) {
 
 	it, err := kvstore.GetByPartialCompositeID("k", []string{})
 	assert.NoError(t, err)
-	defer it.Close()
+	defer utils.IgnoreErrorFunc(it.Close)
 
 	for ctr := 0; it.HasNext(); ctr++ {
 		val = &stuff{}

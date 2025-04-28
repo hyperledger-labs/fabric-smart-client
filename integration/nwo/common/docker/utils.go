@@ -20,6 +20,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/pkg/errors"
 )
 
@@ -237,7 +238,7 @@ func StartLogs(cli *client.Client, containerID string, loggerName string) error 
 	}
 
 	go func() {
-		defer reader.Close()
+		defer utils.IgnoreErrorFunc(reader.Close)
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
 			dockerLogger.Debugf("%s", scanner.Text())

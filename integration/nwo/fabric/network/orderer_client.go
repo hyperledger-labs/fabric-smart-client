@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 
@@ -33,7 +34,7 @@ func Broadcast(n *Network, o *topology.Orderer, env *common.Envelope) (*orderer.
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer utils.IgnoreErrorFunc(conn.Close)
 
 	broadcaster, err := orderer.NewAtomicBroadcastClient(conn).Broadcast(context.Background())
 	if err != nil {
@@ -65,7 +66,7 @@ func Deliver(n *Network, o *topology.Orderer, env *common.Envelope) (*common.Blo
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer utils.IgnoreErrorFunc(conn.Close)
 
 	deliverer, err := orderer.NewAtomicBroadcastClient(conn).Deliver(context.Background())
 	if err != nil {
