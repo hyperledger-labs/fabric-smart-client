@@ -16,7 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -237,9 +237,9 @@ func NewNodeFromTemplate(name string, template *Node) *Node {
 		Synthesizer: Synthesizer{},
 	}
 	raw, err := json.Marshal(template)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = json.Unmarshal(raw, newNode)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	newNode.Name = name
 	newNode.Options = cloneOptions(template.Options)
 	return newNode

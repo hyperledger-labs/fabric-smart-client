@@ -14,7 +14,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 const (
@@ -31,10 +31,10 @@ var RequiredImages = []string{
 
 func (n *Extension) startContainer() {
 	d, err := docker.GetInstance()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = d.CheckImagesExist(RequiredImages...)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	logger.Infof("Run jaeger-all-in-one...")
 	n.startJaeger()
@@ -44,13 +44,13 @@ func (n *Extension) startContainer() {
 func (n *Extension) startJaeger() {
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	d, err := docker.GetInstance()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	net, err := d.Client.NetworkInfo(n.platform.NetworkID())
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	containerName := n.platform.NetworkID() + "-jaegertracing.mynetwork.com"
 
@@ -81,15 +81,15 @@ func (n *Extension) startJaeger() {
 			},
 		}, nil, containerName,
 	)
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
 		NetworkID: n.platform.NetworkID(),
 	})
-	Expect(err).ToNot(HaveOccurred())
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(HaveOccurred())
+	gomega.Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(gomega.HaveOccurred())
 
 	logger.Infof("Follow the traces on localhost:%d", JaegerUIPort)
-	Expect(docker.StartLogs(cli, resp.ID, "monitoring.optl.jaegertracing.container")).ToNot(HaveOccurred())
+	gomega.Expect(docker.StartLogs(cli, resp.ID, "monitoring.optl.jaegertracing.container")).ToNot(gomega.HaveOccurred())
 }

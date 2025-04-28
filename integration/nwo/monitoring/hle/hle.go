@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	nnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 var logger = logging.MustGetLogger("integration.nwo.fabric.hle")
@@ -68,10 +68,10 @@ func (n *Extension) GenerateArtifacts() {
 
 		// marshal config
 		configJSON, err := json.MarshalIndent(config, "", "  ")
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		// write config to file
-		Expect(os.MkdirAll(n.configFileDir(), 0o755)).NotTo(HaveOccurred())
-		Expect(os.WriteFile(n.configFilePath(), configJSON, 0o644)).NotTo(HaveOccurred())
+		gomega.Expect(os.MkdirAll(n.configFileDir(), 0o755)).NotTo(gomega.HaveOccurred())
+		gomega.Expect(os.WriteFile(n.configFilePath(), configJSON, 0o644)).NotTo(gomega.HaveOccurred())
 
 		// Generate and store connection profile
 		cp := fabricPlatform.ConnectionProfile(fabricPlatform.Topology().Name(), false)
@@ -93,10 +93,10 @@ func (n *Extension) GenerateArtifacts() {
 			},
 		}
 		cpJSON, err := json.MarshalIndent(cp, "", "  ")
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		// write cp to file
-		Expect(os.MkdirAll(n.cpFileDir(), 0o755)).NotTo(HaveOccurred())
-		Expect(os.WriteFile(n.cpFilePath(fabricPlatform.Topology().Name()), cpJSON, 0o644)).NotTo(HaveOccurred())
+		gomega.Expect(os.MkdirAll(n.cpFileDir(), 0o755)).NotTo(gomega.HaveOccurred())
+		gomega.Expect(os.WriteFile(n.cpFilePath(fabricPlatform.Topology().Name()), cpJSON, 0o644)).NotTo(gomega.HaveOccurred())
 	}
 }
 
