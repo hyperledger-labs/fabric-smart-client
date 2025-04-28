@@ -131,7 +131,7 @@ func (n *Extension) fscScrapes(p *Prometheus) {
 	platform := n.platform.GetContext().PlatformsByType(fsc.TopologyName)[0].(*fsc.Platform)
 	for _, peer := range platform.Peers {
 		replace := func(s string) string {
-			return strings.Replace(s, n.fscCryptoDir(), "/etc/prometheus/fsc/crypto", -1)
+			return strings.ReplaceAll(s, n.fscCryptoDir(), "/etc/prometheus/fsc/crypto")
 		}
 		sc := ScrapeConfig{
 			JobName: "FSC Node " + peer.Name,
