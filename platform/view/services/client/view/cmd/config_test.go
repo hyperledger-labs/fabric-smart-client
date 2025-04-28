@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,7 +38,7 @@ func TestConfig(t *testing.T) {
 		}
 
 		err := c.ToFile(configFilePath)
-		defer os.RemoveAll(configFilePath)
+		defer utils.IgnoreErrorWithOneArg(os.RemoveAll, configFilePath)
 		require.NoError(t, err)
 
 		c2, err := ConfigFromFile(configFilePath)

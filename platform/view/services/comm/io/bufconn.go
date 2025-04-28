@@ -47,7 +47,7 @@ func (c *commSCCBufConn) Write(data []byte) (n int, err error) {
 func (c *commSCCBufConn) Read(p []byte) (n int, err error) {
 	logger.Debugf("commSCCBufConn.Read %v bytes (%v - %v)...\n", len(p), c.targetPeer, c.sessionID)
 	// Flush before read
-	c.Flush()
+	_ = c.Flush()
 	return c.r.Read(p)
 }
 

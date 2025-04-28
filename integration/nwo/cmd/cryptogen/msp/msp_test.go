@@ -13,6 +13,7 @@ import (
 
 	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
 	msp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/msp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	fabricmsp "github.com/hyperledger/fabric/msp"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
@@ -212,7 +213,7 @@ func TestExportConfig(t *testing.T) {
 }
 
 func cleanup(dir string) {
-	os.RemoveAll(dir)
+	utils.IgnoreErrorWithOneArg(os.RemoveAll, dir)
 }
 
 func checkForFile(file string) bool {
