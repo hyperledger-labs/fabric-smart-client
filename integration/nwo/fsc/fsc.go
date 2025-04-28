@@ -519,7 +519,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"Topology":              func() *Topology { return p.Topology },
 		"Extensions":            func() []string { return extensions },
 		"ToLower":               func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll":            func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
+		"ReplaceAll":            func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
 		"KVSPersistence":        func() driver.PersistenceName { return persistenceNames[KvsPersistencePrefix] },
 		"BindingPersistence":    func() driver.PersistenceName { return persistenceNames[BindingPersistencePrefix] },
 		"SignerInfoPersistence": func() driver.PersistenceName { return persistenceNames[SignerInfoPersistencePrefix] },

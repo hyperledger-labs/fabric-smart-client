@@ -1551,7 +1551,7 @@ func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
 	t, err := template.New("orderer").Funcs(template.FuncMap{
 		"Orderer":    func() *topology.Orderer { return o },
 		"ToLower":    func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll": func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
+		"ReplaceAll": func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
 		"TLSEnabled": func() bool { return tlsEnabled },
 	}).Parse(n.Templates.OrdererTemplate())
 	Expect(err).NotTo(HaveOccurred())
@@ -1578,7 +1578,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"Orderer":                   func() *topology.Orderer { return n.Orderers[0] },
 			"PeerLocalExtraIdentityDir": func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
 			"ToLower":                   func(s string) string { return strings.ToLower(s) },
-			"ReplaceAll":                func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
+			"ReplaceAll":                func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
 		}).Parse(coreTemplate)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -1619,7 +1619,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 				"Orderers":                  func() []*topology.Orderer { return n.Orderers },
 				"PeerLocalExtraIdentityDir": func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
 				"ToLower":                   func(s string) string { return strings.ToLower(s) },
-				"ReplaceAll":                func(s, old, new string) string { return strings.Replace(s, old, new, -1) },
+				"ReplaceAll":                func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
 				"Peers":                     func() []*topology.Peer { return refPeers },
 				"OrdererAddress":            func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
 				"PeerAddress":               func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
