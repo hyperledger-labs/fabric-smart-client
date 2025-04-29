@@ -57,7 +57,7 @@ func createWebsocketConnections() []*connection {
 
 	var nodes []*Node
 	for nodeNum := 0; nodeNum < numOfNodes; nodeNum++ {
-		service := NewWebsocketCommService(&router, configs[nodeNum].RestConfig())
+		service := NewWebsocketCommService(&router, configs[nodeNum])
 		service.Start(context.Background())
 		node := Node{
 			commService: service,
