@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	numOfNodes    int = 5
-	numOfSessions int = 1
-	numOfMsgs     int = 1
+	numOfNodes    int = 10
+	numOfSessions int = 10
+	numOfMsgs     int = 10
 )
 
 type connection struct {
@@ -136,12 +136,14 @@ func testNodesExchange(connections []*connection, protocol string) {
 	metricsMap := map[string]benchmarkMetrics{}
 
 	mainwg := sync.WaitGroup{}
+	metricMu := sync.Mutex{}
+
 	startTime := time.Now()
 
 	connNum := 0
 	for _, connection := range connections {
 		mainwg.Add(1)
-		go testExchangeMsgs(connNum, *connection.senderNode, *connection.receiverNode, metricsMap, &mainwg)
+		go testExchangeMsgs(connNum, *connection.senderNode, *connection.receiverNode, metricsMap, &metricMu, &mainwg)
 		connNum++
 	}
 	mainwg.Wait()
@@ -164,7 +166,7 @@ func BenchmarkTestWebsocket(b *testing.B) {
 // 	testNodesExchange(createLibp2pNodes(), "LipP2P")
 // }
 
-func testExchangeMsgs(connNum int, senderNode, receiverNode Node, metricsMap map[string]benchmarkMetrics, mainwg *sync.WaitGroup) {
+func testExchangeMsgs(connNum int, senderNode, receiverNode Node, metricsMap map[string]benchmarkMetrics, metricMu *sync.Mutex, mainwg *sync.WaitGroup) {
 	defer mainwg.Done()
 
 	wg := sync.WaitGroup{}
@@ -174,21 +176,21 @@ func testExchangeMsgs(connNum int, senderNode, receiverNode Node, metricsMap map
 
 	for sessId := 0; sessId < numOfSessions; sessId++ {
 		wg.Add(1)
-		go senderExchangeMsgs(connNum, senderNode, receiverNode, sessId, &sessions, metricsMap, &mu, &wg)
+		go senderExchangeMsgs(connNum, senderNode, receiverNode, sessId, &sessions, metricsMap, &mu, metricMu, &wg)
 	}
 	go receiverExchangeMsgs(connNum, receiverNode, &sessions, &mu, &wg)
 
-	logger.Infof("Waiting on execution...")
+	logger.Infof("ConnNum = %d ---> Waiting on execution...", connNum)
 
 	wg.Wait()
 
-	logger.Infof("Execution finished. Closing sessions")
+	logger.Infof("ConnNum = %d ---> Execution finished. Closing sessions", connNum)
 	for _, s := range sessions {
 		s.Close()
 	}
 }
 
-func senderExchangeMsgs(connNum int, senderNode, receiverNode Node, sessId int, sessions *[]view.Session, metricsMap map[string]benchmarkMetrics, mu *sync.Mutex, wg *sync.WaitGroup) {
+func senderExchangeMsgs(connNum int, senderNode, receiverNode Node, sessId int, sessions *[]view.Session, metricsMap map[string]benchmarkMetrics, mu *sync.Mutex, metricMu *sync.Mutex, wg *sync.WaitGroup) {
 	defer wg.Done()
 	logger.Infof("ConnNum = %d ---> Create new session # %d", connNum, sessId)
 	senderSession, err := senderNode.commService.NewSession("", "", rest.ConvertAddress(receiverNode.address), receiverNode.pkID)
@@ -213,11 +215,13 @@ func senderExchangeMsgs(connNum int, senderNode, receiverNode Node, sessId int, 
 		Expect(string(response.Payload)).To(Equal(fmt.Sprintf("response-%d-%d", sessId, msgId)))
 		logger.Infof("ConnNum = %d ---> Sender: received message: [%s]", connNum, string(response.Payload))
 
+		metricMu.Lock()
 		_, ok := metricsMap[strconv.Itoa(connNum)+senderSession.Info().ID+strconv.Itoa(sessId)+strconv.Itoa(msgId)]
 		if ok {
 			Expect(ok).To(BeFalse(), "Metrics map keys should be unique")
 		}
 		metricsMap[strconv.Itoa(connNum)+senderSession.Info().ID+strconv.Itoa(sessId)+strconv.Itoa(msgId)] = benchmarkMetrics{latency: elapsed}
+		metricMu.Unlock()
 	}
 	logger.Infof("Send EOF")
 	Expect(senderSession.Send([]byte("EOF"))).To(Succeed())
@@ -228,9 +232,9 @@ func receiverExchangeMsgs(connNum int, receiverNode Node, sessions *[]view.Sessi
 	receiverMasterSession, err := receiverNode.commService.MasterSession()
 	Expect(err).ToNot(HaveOccurred())
 
-	mu.Lock()
-	*sessions = append(*sessions, receiverMasterSession)
-	mu.Unlock()
+	// mu.Lock()
+	// *sessions = append(*sessions, receiverMasterSession)
+	// mu.Unlock()
 	sessionMap := map[string]struct{}{}
 
 	logger.Infof("ConnNum = %d ---> Receiver: start receiving on master session", connNum)
@@ -278,6 +282,7 @@ func receiverSessionExchangeMsgs(connNum int, sessId int, session view.Session, 
 		Expect(session.Send([]byte(payload))).To(Succeed())
 		logger.Infof("ConnNum = %d ---> Receiver: Sent message [%s]", connNum, payload)
 	}
+	panic("Finished before receiving EOF")
 }
 
 func displayMetrics(duration time.Duration, metricsMap map[string]benchmarkMetrics, protocol string) {
