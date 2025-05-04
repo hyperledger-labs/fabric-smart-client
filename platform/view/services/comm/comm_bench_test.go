@@ -38,8 +38,7 @@ type benchmarkMetrics struct {
 	latency time.Duration
 }
 
-func createWebsocketConnections() []*connection {
-
+func createWebsocketNodes() []*Node {
 	router := routing.StaticIDRouter{}
 	var configs []*Config
 	var nodeIds []string
@@ -67,7 +66,18 @@ func createWebsocketConnections() []*connection {
 		nodes = append(nodes, &node)
 	}
 
-	// Mesh
+	return nodes
+}
+
+// Connect nodes in a mesh topology
+// e.g., for 3 nodes (A, B, C)
+// A -> B
+// A -> C
+// B -> A
+// B -> C
+// C -> A
+// C -> B
+func connectNodesMesh(nodes []*Node) []*connection {
 	var connections []*connection
 	for senderNodeNum := 0; senderNodeNum < numOfNodes; senderNodeNum++ {
 		sender := nodes[senderNodeNum]
@@ -79,17 +89,6 @@ func createWebsocketConnections() []*connection {
 			connections = append(connections, &connection{senderNode: sender, receiverNode: receiver})
 		}
 	}
-
-	// Mesh
-	// A-->B, C
-	// B-->A, C
-	// C-->B, A
-
-	// Star
-	// A, B, C
-	// A ->B, C
-	// B ->A
-	// C ->A
 
 	return connections
 }
@@ -158,7 +157,9 @@ func testNodesExchange(connections []*connection, protocol string) {
 
 func BenchmarkTestWebsocket(b *testing.B) {
 	RegisterTestingT(b)
-	testNodesExchange(createWebsocketConnections(), "Websocket")
+	nodes := createWebsocketNodes()
+	connections := connectNodesMesh(nodes)
+	testNodesExchange(connections, "Websocket")
 }
 
 // func BenchmarkTestLibp2p(b *testing.B) {
@@ -292,14 +293,24 @@ func displayMetrics(duration time.Duration, metricsMap map[string]benchmarkMetri
 		latency = latency + metric.latency
 	}
 
-	averageLatency := latency / time.Duration(len(metricsMap))
-	throughput := float64(2*numOfMsgs) / float64(duration.Seconds())
+	averageLatency := ""
+	if time.Duration(len(metricsMap)) == 0 {
+		averageLatency = "Inf"
+	} else {
+		averageLatency = fmt.Sprintf("%v", latency/time.Duration(len(metricsMap)))
+	}
+	throughput := ""
+	if duration.Seconds() == 0 {
+		throughput = "Inf"
+	} else {
+		throughput = fmt.Sprintf("%f", float64(2*numOfMsgs)/float64(duration.Seconds()))
+	}
 
 	logger.Infof("============================= %s Metrics =============================\n", protocol)
 	logger.Infof("Number of nodes: %d\n", numOfNodes)
 	logger.Infof("Number of sessions per node: %d\n", numOfSessions)
 	logger.Infof("Number of Msgs per session: %d\n", 2*numOfMsgs)
-	logger.Infof("Average latency: %v\n", averageLatency)
-	logger.Infof("Throughput: %f messages per second \n", throughput)
+	logger.Infof("Average latency: %s\n", averageLatency)
+	logger.Infof("Throughput: %s messages per second \n", throughput)
 	logger.Infof("Total run time: %v\n", duration)
 }
