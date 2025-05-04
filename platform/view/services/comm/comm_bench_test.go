@@ -38,6 +38,12 @@ type benchmarkMetrics struct {
 	latency time.Duration
 }
 
+// MetricsContainer holds the metrics map and a mutex for synchronization.
+type MetricsContainer struct {
+	MetricsMap map[string]benchmarkMetrics
+	Mutex      sync.Mutex
+}
+
 func createWebsocketNodes() []*Node {
 	router := routing.StaticIDRouter{}
 	var configs []*Config
@@ -131,35 +137,57 @@ func connectNodesMesh(nodes []*Node) []*connection {
 // 	return nodes
 // }
 
-func testNodesExchange(connections []*connection, protocol string) {
-	metricsMap := map[string]benchmarkMetrics{}
+// Main test:
+// 1. Create a thread for each connection
+// 2. wait for all threads to finish
+// 3. close all connections
+func testNodesExchange(nodes []*Node, connections []*connection, protocol string) {
+	metricsMap := MetricsContainer{
+		MetricsMap: map[string]benchmarkMetrics{},
+		Mutex:      sync.Mutex{},
+	}
 
 	mainwg := sync.WaitGroup{}
-	metricMu := sync.Mutex{}
+
+	// start all receiving sockets
+	receivingServiceWG := sync.WaitGroup{}
+	for n := range nodes {
+		receivingServiceWG.Add(1)
+		go receiverServiceThread(n, *nodes[n], &receivingServiceWG, &mainwg)
+	}
+
+	// wait for services to start
+	receivingServiceWG.Wait()
 
 	startTime := time.Now()
-
-	connNum := 0
-	for _, connection := range connections {
-		mainwg.Add(1)
-		go testExchangeMsgs(connNum, *connection.senderNode, *connection.receiverNode, metricsMap, &metricMu, &mainwg)
-		connNum++
+	// start connections between each pair
+	for pair := range connections {
+		for sessId := range numOfSessions {
+			mainwg.Add(1)
+			go singleConnectionThread(pair,
+				sessId,
+				*connections[pair].senderNode,
+				*connections[pair].receiverNode,
+				&metricsMap,
+				&mainwg)
+		}
 	}
 	mainwg.Wait()
 	endTime := time.Now()
 
-	for connNum := 0; connNum < len(connections); connNum = (connNum + numOfNodes - 1) {
-		connections[connNum].senderNode.commService.Stop()
+	// Stop receiver services
+	for n := range nodes {
+		nodes[n].commService.Stop()
 	}
 
-	displayMetrics(endTime.Sub(startTime), metricsMap, protocol)
+	displayMetrics(endTime.Sub(startTime), metricsMap.MetricsMap, protocol)
 }
 
 func BenchmarkTestWebsocket(b *testing.B) {
 	RegisterTestingT(b)
 	nodes := createWebsocketNodes()
 	connections := connectNodesMesh(nodes)
-	testNodesExchange(connections, "Websocket")
+	testNodesExchange(nodes, connections, "Websocket")
 }
 
 // func BenchmarkTestLibp2p(b *testing.B) {
@@ -167,81 +195,58 @@ func BenchmarkTestWebsocket(b *testing.B) {
 // 	testNodesExchange(createLibp2pNodes(), "LipP2P")
 // }
 
-func testExchangeMsgs(connNum int, senderNode, receiverNode Node, metricsMap map[string]benchmarkMetrics, metricMu *sync.Mutex, mainwg *sync.WaitGroup) {
-	defer mainwg.Done()
-
-	wg := sync.WaitGroup{}
-
-	var sessions []view.Session
-	mu := sync.Mutex{}
-
-	for sessId := 0; sessId < numOfSessions; sessId++ {
-		wg.Add(1)
-		go senderExchangeMsgs(connNum, senderNode, receiverNode, sessId, &sessions, metricsMap, &mu, metricMu, &wg)
-	}
-	go receiverExchangeMsgs(connNum, receiverNode, &sessions, &mu, &wg)
-
-	logger.Infof("ConnNum = %d ---> Waiting on execution...", connNum)
-
-	wg.Wait()
-
-	logger.Infof("ConnNum = %d ---> Execution finished. Closing sessions", connNum)
-	for _, s := range sessions {
-		s.Close()
-	}
-}
-
-func senderExchangeMsgs(connNum int, senderNode, receiverNode Node, sessId int, sessions *[]view.Session, metricsMap map[string]benchmarkMetrics, mu *sync.Mutex, metricMu *sync.Mutex, wg *sync.WaitGroup) {
+// Test connections between a single sender-receiver pain.
+// Gets a sender-node and a receiver-node then:
+// 1. starts a single connection between them
+// 2. pass messages on the connection
+// 3. closes the connection
+func singleConnectionThread(iPair int, iSession int, senderNode, receiverNode Node, metricsMap *MetricsContainer, wg *sync.WaitGroup) {
 	defer wg.Done()
-	logger.Infof("ConnNum = %d ---> Create new session # %d", connNum, sessId)
+	logger.Infof("Pair = %d ---> Create new session # %d", iPair, iSession)
 	senderSession, err := senderNode.commService.NewSession("", "", rest.ConvertAddress(receiverNode.address), receiverNode.pkID)
 	Expect(err).ToNot(HaveOccurred())
-	mu.Lock()
-	*sessions = append(*sessions, senderSession)
-	mu.Unlock()
 	Expect(senderSession.Info().Endpoint).To(Equal(rest.ConvertAddress(receiverNode.address)))
 	Expect(senderSession.Info().EndpointPKID).To(Equal(receiverNode.pkID.Bytes()))
-	logger.Infof("ConnNum = %d ---> Created new session # %d [%v]", connNum, sessId, senderSession.Info())
+	logger.Infof("Pair = %d ---> Created new session # %d [%v]", iPair, iSession, senderSession.Info())
 
-	for msgId := 0; msgId < numOfMsgs; msgId++ {
-		payload := fmt.Sprintf("request-%d-%d", sessId, msgId)
-		logger.Infof("ConnNum = %d ---> Sender: sends message [%s]", connNum, payload)
+	for msgId := range numOfMsgs {
+		payload := fmt.Sprintf("request-%d-%d", iSession, msgId)
+		logger.Infof("Pair = %d, Connection = %d ---> Sender: sends message [%s]", iPair, iSession, payload)
 		start := time.Now()
 		Expect(senderSession.Send([]byte(payload))).To(Succeed())
-		logger.Infof("ConnNum = %d ---> Sender: sent message [%s]", connNum, payload)
+		logger.Infof("Pair = %d, Connection = %d ---> Sender: sent message [%s]", iPair, iSession, payload)
 		response := <-senderSession.Receive()
 		end := time.Now()
 		elapsed := end.Sub(start)
 		Expect(response).ToNot(BeNil())
-		Expect(string(response.Payload)).To(Equal(fmt.Sprintf("response-%d-%d", sessId, msgId)))
-		logger.Infof("ConnNum = %d ---> Sender: received message: [%s]", connNum, string(response.Payload))
+		Expect(string(response.Payload)).To(Equal(fmt.Sprintf("response-%d-%d", iSession, msgId)))
+		logger.Infof("Pair = %d, Connection = %d ---> Sender: received message: [%s]", iPair, iSession, string(response.Payload))
 
-		metricMu.Lock()
-		_, ok := metricsMap[strconv.Itoa(connNum)+senderSession.Info().ID+strconv.Itoa(sessId)+strconv.Itoa(msgId)]
+		metricsMap.Mutex.Lock()
+		key := strconv.Itoa(iPair) + senderSession.Info().ID + strconv.Itoa(iSession) + strconv.Itoa(msgId)
+		_, ok := metricsMap.MetricsMap[key]
 		if ok {
 			Expect(ok).To(BeFalse(), "Metrics map keys should be unique")
 		}
-		metricsMap[strconv.Itoa(connNum)+senderSession.Info().ID+strconv.Itoa(sessId)+strconv.Itoa(msgId)] = benchmarkMetrics{latency: elapsed}
-		metricMu.Unlock()
+		metricsMap.MetricsMap[key] = benchmarkMetrics{latency: elapsed}
+		metricsMap.Mutex.Unlock()
 	}
-	logger.Infof("Send EOF")
+	logger.Infof("Pair = %d, Connection = %d ---> Sender: sending EOF", iPair, iSession)
 	Expect(senderSession.Send([]byte("EOF"))).To(Succeed())
-	logger.Infof("Sent EOF")
+	senderSession.Close()
 }
 
-func receiverExchangeMsgs(connNum int, receiverNode Node, sessions *[]view.Session, mu *sync.Mutex, wg *sync.WaitGroup) {
+func receiverServiceThread(nodeNum int, receiverNode Node, servicewg *sync.WaitGroup, wg *sync.WaitGroup) {
 	receiverMasterSession, err := receiverNode.commService.MasterSession()
 	Expect(err).ToNot(HaveOccurred())
+	servicewg.Done()
 
-	// mu.Lock()
-	// *sessions = append(*sessions, receiverMasterSession)
-	// mu.Unlock()
 	sessionMap := map[string]struct{}{}
 
-	logger.Infof("ConnNum = %d ---> Receiver: start receiving on master session", connNum)
+	logger.Infof("Node = %d ---> Receiver: start receiving on master session", nodeNum)
 	for response := range receiverMasterSession.Receive() {
 		Expect(response).ToNot(BeNil())
-		logger.Infof("ConnNum = %d ---> Receiver: received message [%s]", connNum, string(response.Payload))
+		logger.Infof("Node = %d ---> Receiver: received message [%s]", nodeNum, string(response.Payload))
 		Expect(string(response.Payload)).To(ContainSubstring("request"))
 		elements := strings.Split(string(response.Payload), "-")
 		Expect(elements).To(HaveLen(3))
@@ -250,38 +255,36 @@ func receiverExchangeMsgs(connNum int, receiverNode Node, sessions *[]view.Sessi
 
 		_, ok := sessionMap[response.SessionID]
 		Expect(ok).To(BeFalse(), "we should not receive a second message on the master session [%s]", string(response.Payload))
-		logger.Infof("ConnNum = %d ---> Receiver: open session [%d]", connNum, sessId)
+		logger.Infof("Node = %d ---> Receiver: open session [%d]", nodeNum, sessId)
 		session, err := receiverNode.commService.NewSessionWithID(response.SessionID, "", response.FromEndpoint, response.FromPKID, nil, nil)
 		Expect(err).To(BeNil())
-		logger.Infof("ConnNum = %d ---> Receiver: opened session [%d] [%v]", connNum, sessId, session.Info())
+		logger.Infof("Node = %d ---> Receiver: opened session [%d] [%v]", nodeNum, sessId, session.Info())
 		sessionMap[response.SessionID] = struct{}{}
-		mu.Lock()
-		*sessions = append(*sessions, session)
-		mu.Unlock()
 		wg.Add(1)
-		go receiverSessionExchangeMsgs(connNum, sessId, session, wg)
+		go receiverSessionThread(nodeNum, sessId, session, wg)
 	}
-	logger.Infof("ConnNum = %d ---> Receiver: End receiving on master session", connNum)
+	logger.Infof("Node = %d ---> Receiver: End receiving on master session", nodeNum)
 }
 
-func receiverSessionExchangeMsgs(connNum int, sessId int, session view.Session, wg *sync.WaitGroup) {
+func receiverSessionThread(nodeNum int, sessId int, session view.Session, wg *sync.WaitGroup) {
 	defer wg.Done()
 	payload := fmt.Sprintf("response-%d-0", sessId)
-	logger.Infof("ConnNum = %d ---> Receiver: Send message [%s]", connNum, payload)
+	logger.Infof("Node = %d, Connection = %d ---> Receiver: Send message [%s]", nodeNum, sessId, payload)
 	Expect(session.Send([]byte(payload))).To(Succeed())
-	logger.Infof("ConnNum = %d ---> Receiver: Sent message [%s]", connNum, payload)
+	logger.Infof("Node = %d, Connection = %d ---> Receiver: Sent message [%s]", nodeNum, sessId)
 	for response := range session.Receive() {
 		if string(response.Payload) == "EOF" {
-			logger.Infof("ConnNum = %d ---> Receiver: Received EOF on [%d]", connNum, sessId)
+			logger.Infof("Node = %d, Connection = %d ---> Receiver: Received EOF", nodeNum, sessId)
+			session.Close()
 			return
 		}
 		elements := strings.Split(string(response.Payload), "-")
 		Expect(elements).To(HaveLen(3))
 		sessId, msgId := utils.MustGet(strconv.Atoi(elements[1])), utils.MustGet(strconv.Atoi(elements[2]))
 		payload := fmt.Sprintf("response-%d-%d", sessId, msgId)
-		logger.Infof("ConnNum = %d ---> Receiver: Send message [%s]", connNum, payload)
+		logger.Infof("Node = %d, Connection = %d ---> Receiver: Send message [%s]", nodeNum, sessId, payload)
 		Expect(session.Send([]byte(payload))).To(Succeed())
-		logger.Infof("ConnNum = %d ---> Receiver: Sent message [%s]", connNum, payload)
+		logger.Infof("Node = %d, Connection = %d ---> Receiver: Sent message [%s]", nodeNum, sessId, payload)
 	}
 	panic("Finished before receiving EOF")
 }
