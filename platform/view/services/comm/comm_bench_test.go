@@ -20,13 +20,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	. "github.com/onsi/gomega"
 )
 
 const (
-	numOfNodes    int = 10
-	numOfSessions int = 10
-	numOfMsgs     int = 10
+	numOfNodes    int = 3
+	numOfSessions int = 1
+	numOfMsgs     int = 1
 )
 
 type connection struct {
@@ -44,13 +45,44 @@ type MetricsContainer struct {
 	Mutex      sync.Mutex
 }
 
+func createLibp2pNodes() []*Node {
+	var nodes []*Node
+	for iNode := 0; iNode < numOfNodes; iNode++ {
+		nodeId := fmt.Sprintf("Node_%d", iNode)
+		config := GetConfig("initiator")
+
+		logger.Infof("Creating node=%s, address=%s", nodeId, config.ListenAddress)
+
+		var service *Service
+		var servicePkId view2.Identity
+		var resolver BootstrapNodeResolver
+		if iNode == 0 {
+			service, servicePkId = NewLibP2PCommService(config, nil)
+			resolver = BootstrapNodeResolver{nodeID: servicePkId, nodeAddress: config.ListenAddress}
+		} else {
+			config.BootstrapNode = "node0"
+			service, servicePkId = NewLibP2PCommService(config, &resolver)
+		}
+
+		service.Start(context.Background())
+		node := Node{
+			commService: service,
+			address:     config.ListenAddress,
+			pkID:        []byte(servicePkId),
+		}
+		nodes = append(nodes, &node)
+	}
+
+	return nodes
+}
+
 func createWebsocketNodes() []*Node {
 	router := routing.StaticIDRouter{}
 	var configs []*Config
 	var nodeIds []string
 
-	for nodeNum := 0; nodeNum < numOfNodes; nodeNum++ {
-		nodeId := fmt.Sprintf("Node_%d", nodeNum)
+	for iNode := 0; iNode < numOfNodes; iNode++ {
+		nodeId := fmt.Sprintf("Node_%d", iNode)
 		nodeIds = append(nodeIds, nodeId)
 		config := GetConfig("initiator")
 
@@ -61,13 +93,13 @@ func createWebsocketNodes() []*Node {
 	}
 
 	var nodes []*Node
-	for nodeNum := 0; nodeNum < numOfNodes; nodeNum++ {
-		service := NewWebsocketCommService(&router, configs[nodeNum])
+	for iNode := 0; iNode < numOfNodes; iNode++ {
+		service := NewWebsocketCommService(&router, configs[iNode])
 		service.Start(context.Background())
 		node := Node{
 			commService: service,
-			address:     configs[nodeNum].ListenAddress,
-			pkID:        []byte(nodeIds[nodeNum]),
+			address:     configs[iNode].ListenAddress,
+			pkID:        []byte(nodeIds[iNode]),
 		}
 		nodes = append(nodes, &node)
 	}
@@ -142,6 +174,7 @@ func connectNodesMesh(nodes []*Node) []*connection {
 // 2. wait for all threads to finish
 // 3. close all connections
 func testNodesExchange(nodes []*Node, connections []*connection, protocol string) {
+	logger.Info("Starting the tests")
 	metricsMap := MetricsContainer{
 		MetricsMap: map[string]benchmarkMetrics{},
 		Mutex:      sync.Mutex{},
@@ -162,8 +195,10 @@ func testNodesExchange(nodes []*Node, connections []*connection, protocol string
 	startTime := time.Now()
 	// start connections between each pair
 	for pair := range connections {
+		logger.Infof("Doing Pair = %d", pair)
 		for sessId := range numOfSessions {
 			mainwg.Add(1)
+			logger.Infof("starting thread for Pair = %d, Connection = %d", pair, sessId)
 			go singleConnectionThread(pair,
 				sessId,
 				*connections[pair].senderNode,
@@ -184,16 +219,22 @@ func testNodesExchange(nodes []*Node, connections []*connection, protocol string
 }
 
 func BenchmarkTestWebsocket(b *testing.B) {
+	logger.Info("Starting websocket benchmark")
 	RegisterTestingT(b)
 	nodes := createWebsocketNodes()
 	connections := connectNodesMesh(nodes)
 	testNodesExchange(nodes, connections, "Websocket")
+	logger.Info("Finished websocket benchmark")
 }
 
-// func BenchmarkTestLibp2p(b *testing.B) {
-// 	RegisterTestingT(b)
-// 	testNodesExchange(createLibp2pNodes(), "LipP2P")
-// }
+func BenchmarkTestLibp2p(b *testing.B) {
+	logger.Info("Started libp2p benchmark")
+	RegisterTestingT(b)
+	nodes := createLibp2pNodes()
+	connections := connectNodesMesh(nodes)
+	testNodesExchange(nodes, connections, "LibP2P")
+	logger.Info("Finished libp2p benchmark")
+}
 
 // Test connections between a single sender-receiver pain.
 // Gets a sender-node and a receiver-node then:
