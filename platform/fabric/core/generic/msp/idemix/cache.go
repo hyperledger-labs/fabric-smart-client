@@ -54,9 +54,7 @@ func (c *IdentityCache) Identity(opts *driver.IdentityOptions) (view.Identity, [
 		}
 	})
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("fetching identity from cache...")
-	}
+	logger.Debugf("fetching identity from cache...")
 
 	return c.fetchIdentityFromCache(opts)
 
@@ -102,16 +100,12 @@ func (c *IdentityCache) fetchIdentityFromCache(opts *driver.IdentityOptions) (vi
 }
 
 func (c *IdentityCache) fetchIdentityFromBackend(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("fetching identity from backend")
-	}
+	logger.Debugf("fetching identity from backend")
 	id, audit, err := c.backed(opts)
 	if err != nil {
 		return nil, nil, err
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("fetch identity from backend done [%s][%d]", id, len(audit))
-	}
+	logger.Debugf("fetch identity from backend done [%s][%d]", id, len(audit))
 
 	return id, audit, nil
 }
@@ -124,9 +118,7 @@ func (c *IdentityCache) provisionIdentities() {
 			logger.Errorf("failed to provision identity [%s]", err)
 			continue
 		}
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("generated new idemix identity [%d]", count)
-		}
+		logger.Debugf("generated new idemix identity [%d]", count)
 		c.cache <- identityCacheEntry{Identity: id, Audit: audit}
 	}
 }

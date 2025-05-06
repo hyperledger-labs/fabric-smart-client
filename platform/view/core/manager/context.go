@@ -163,9 +163,7 @@ func (ctx *ctx) GetSessionByID(id string, party view.Identity) (view.Session, er
 	var err error
 	s := ctx.sessions.Get(id, party)
 	if s == nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] Creating new session with given id [id:%s][to:%s]", ctx.me, id, party)
-		}
+		logger.Debugf("[%s] Creating new session with given id [id:%s][to:%s]", ctx.me, id, party)
 		s, err = ctx.newSessionByID(id, ctx.id, party)
 		if err != nil {
 			return nil, err
@@ -174,18 +172,14 @@ func (ctx *ctx) GetSessionByID(id string, party view.Identity) (view.Session, er
 	} else {
 		span := trace.SpanFromContext(ctx.context)
 		span.AddEvent(fmt.Sprintf("Reuse session to %s", string(party)))
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] Reusing session with given id [id:%s][to:%s]", id, ctx.me, party)
-		}
+		logger.Debugf("[%s] Reusing session with given id [id:%s][to:%s]", id, ctx.me, party)
 	}
 	return s, nil
 }
 
 func (ctx *ctx) Session() view.Session {
 	if ctx.session == nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] No default current Session", ctx.me)
-		}
+		logger.Debugf("[%s] No default current Session", ctx.me)
 		return nil
 	}
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
@@ -277,9 +271,7 @@ func (ctx *ctx) cleanup() {
 func (ctx *ctx) safeInvoke(f func()) {
 	defer func() {
 		if r := recover(); r != nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("function [%s] panicked [%s]", f, r)
-			}
+			logger.Debugf("function [%s] panicked [%s]", f, r)
 		}
 	}()
 	f()

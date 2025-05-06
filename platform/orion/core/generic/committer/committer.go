@@ -22,7 +22,6 @@ import (
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -244,9 +243,7 @@ func (c *committer) DiscardTX(ctx context.Context, txID string, blockNum uint64,
 func (c *committer) IsFinal(ctx context.Context, txID string) error {
 	newCtx, span := c.tracer.Start(ctx, "finality_check", tracing.WithAttributes(tracing.String(txIdLabel, txID)))
 	defer span.End()
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Is [%s] final?", txID)
-	}
+	logger.Debugf("Is [%s] final?", txID)
 
 	skipLoop := false
 	for iter := 0; iter < c.finalityNumRetries; iter++ {
@@ -255,24 +252,16 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 		if err == nil {
 			switch vd {
 			case driver.Valid:
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is valid", txID)
-				}
+				logger.Debugf("Tx [%s] is valid", txID)
 				return nil
 			case driver.Invalid:
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is not valid", txID)
-				}
+				logger.Debugf("Tx [%s] is not valid", txID)
 				return errors.Errorf("transaction [%s] is not valid", txID)
 			case driver.Busy:
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is known", txID)
-				}
+				logger.Debugf("Tx [%s] is known", txID)
 			case driver.Unknown:
 				if c.em.Exists(txID) {
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("found an envelope for [%s], consider it as known", txID)
-					}
+					logger.Debugf("found an envelope for [%s], consider it as known", txID)
 					skipLoop = true
 					break
 				}
@@ -281,9 +270,7 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 				if iter >= c.finalityNumRetries-1 {
 					return errors2.Wrapf(ErrUnknownTX, "transaction [%s] is unknown", txID)
 				}
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
-				}
+				logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
 				time.Sleep(c.finalitySleepTime)
 			default:
 				panic(fmt.Sprintf("invalid status code, got %c", vd))
@@ -380,9 +367,7 @@ func (c *committer) notifyFinality(ctx context.Context, event TxEvent) {
 	}
 
 	listeners := c.listeners[event.TxID]
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
-	}
+	logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
 
 	for _, listener := range listeners {
 		span.AddEvent("notify_listener")
@@ -394,9 +379,7 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_listen_to_finality")
 	defer span.AddEvent("end_listen_to_finality")
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Listen to finality of [%s]", txID)
-	}
+	logger.Debugf("Listen to finality of [%s]", txID)
 
 	// notice that adding the listener can happen after the event we are looking for has already happened
 	// therefore we need to check more often before the timeout happens
@@ -420,43 +403,31 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 			stop = true
 		case event := <-ch:
 			span.AddEvent("receive_listener_event")
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Got an answer to finality of [%s]: [%s]", txID, event.Err)
-			}
+			logger.Debugf("Got an answer to finality of [%s]: [%s]", txID, event.Err)
 			timeout.Stop()
 			return event.Err
 		case <-timeout.C:
 			span.AddEvent("check_vault")
 			timeout.Stop()
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
-			}
+			logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
 			vd, _, err := c.vault.Status(ctx, txID)
 			if err == nil {
 				switch vd {
 				case driver.Valid:
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("Listen to finality of [%s]. VALID", txID)
-					}
+					logger.Debugf("Listen to finality of [%s]. VALID", txID)
 					return nil
 				case driver.Invalid:
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("Listen to finality of [%s]. NOT VALID", txID)
-					}
+					logger.Debugf("Listen to finality of [%s]. NOT VALID", txID)
 					return errors.Errorf("transaction [%s] is not valid", txID)
 				}
 			}
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("Is [%s] final? not available yet, wait [err:%s, vc:%d]", txID, err, vd)
-			}
+			logger.Debugf("Is [%s] final? not available yet, wait [err:%s, vc:%d]", txID, err, vd)
 		}
 		if stop {
 			break
 		}
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txID)
-	}
+	logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txID)
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
 }
 

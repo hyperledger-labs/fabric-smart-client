@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/websocket"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
-	"go.uber.org/zap/zapcore"
 )
 
 type connection interface {
@@ -133,9 +132,7 @@ func (s *stream) Write(p []byte) (int, error) {
 }
 
 func (s *stream) Close() error {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Close connection for context [%s]: %s", s.ContextID())
-	}
+	logger.Debugf("Close connection for context [%s]: %s", s.ContextID())
 	s.cancel()
 	return s.conn.Close()
 }

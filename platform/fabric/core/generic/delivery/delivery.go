@@ -26,7 +26,6 @@ import (
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 )
 
 var logger = logging.MustGetLogger("fabric-sdk.delivery")
@@ -243,9 +242,7 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 				case *pb.DeliverResponse_Block:
 					span.SetAttributes(tracing.String(messageTypeLabel, block))
 					if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
-						if logger.IsEnabledFor(zapcore.DebugLevel) {
-							logger.Debugf("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.NetworkName, d.channel)
-						}
+						logger.Debugf("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.NetworkName, d.channel)
 						span.RecordError(errors.New("nil block"))
 						time.Sleep(waitTime)
 						if dfCancel != nil {
@@ -254,9 +251,7 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 						df = nil
 					}
 
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("delivery service [%s:%s:%s], commit block [%d]", d.client.Address(), d.NetworkName, d.channel, r.Block.Header.Number)
-					}
+					logger.Debugf("delivery service [%s:%s:%s], commit block [%d]", d.client.Address(), d.NetworkName, d.channel, r.Block.Header.Number)
 					d.lastBlockReceived = r.Block.Header.Number
 
 					span.AddEvent(fmt.Sprintf("push_%d_to_channel", r.Block.Header.Number))
@@ -309,9 +304,7 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 	peerConnConf := d.ConfigService.PickPeer(driver.PeerForDelivery)
 
 	address := peerConnConf.Address
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("connecting to deliver service at [%s] for [%s:%s]", address, d.NetworkName, d.channel)
-	}
+	logger.Debugf("connecting to deliver service at [%s] for [%s:%s]", address, d.NetworkName, d.channel)
 	var err error
 	d.client, err = d.Services.NewPeerClient(*peerConnConf)
 	if err != nil {
@@ -345,17 +338,13 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 		return nil, nil, errors.Wrapf(err, "failed sending seek envelope to [%s]", address)
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("connected to deliver service at [%s]", address)
-	}
+	logger.Debugf("connected to deliver service at [%s]", address)
 	return stream, cancel, nil
 }
 
 func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
 	if d.lastBlockReceived != 0 {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("restarting from the last block received [%d]", d.lastBlockReceived)
-		}
+		logger.Debugf("restarting from the last block received [%d]", d.lastBlockReceived)
 
 		return &ab.SeekPosition{
 			Type: &ab.SeekPosition_Specified{
@@ -366,9 +355,7 @@ func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
 		}
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("no last block received set [%d], check last TxID in the vault", d.lastBlockReceived)
-	}
+	logger.Debugf("no last block received set [%d], check last TxID in the vault", d.lastBlockReceived)
 
 	lastBlock, err := d.vault.GetLastBlock(ctx)
 	if err == nil && lastBlock != 0 {
@@ -389,9 +376,7 @@ func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
 			logger.Errorf("failed getting block number for transaction [%s], restart from genesis: error: %v", lastTxID, err)
 			return StartGenesis
 		}
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTxID)
-		}
+		logger.Debugf("restarting from block [%d], tx [%s]", blockNumber, lastTxID)
 
 		return SeekPosition(blockNumber)
 	}

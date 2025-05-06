@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"go.uber.org/zap/zapcore"
 )
 
 type MultipleEventsView struct {
@@ -36,9 +35,7 @@ func (c *MultipleEventsView) Call(context view.Context) (interface{}, error) {
 
 	// Register for events
 	callBack := func(event *chaincode.Event) (bool, error) {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("Chaincode Event Received in callback %s", event.EventName)
-		}
+		logger.Debugf("Chaincode Event Received in callback %s", event.EventName)
 		eventReceived = append(eventReceived, event)
 		defer wg.Done()
 		if len(eventReceived) != int(c.EventCount) {

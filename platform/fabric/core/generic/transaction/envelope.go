@@ -14,7 +14,6 @@ import (
 	"github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
 
 type Envelope struct {
@@ -182,28 +181,26 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 		return nil, chdr.Type, errors.Wrap(err, "failed to unmarshal chaincode action")
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("envelope info: "+
-			"len(env.Payload) [%d] - "+
-			"len(payl.Header.ChannelHeader) [%d] - "+
-			"len(payl.Header.SignatureHeader) [%d] - "+
-			"len(payl.Data) [%d] - "+
-			"len(tx.Actions[0].Payload) [%d] - "+
-			"len(cap.ChaincodeProposalPayload) [%d] - "+
-			"len(cpp.Input) [%d] - "+
-			"len(cap.Action.ProposalResponsePayload) [%d] - "+
-			"len(pRespPayload.Extension) [%d]",
-			len(payloadRaw),
-			len(payl.Header.ChannelHeader),
-			len(payl.Header.SignatureHeader),
-			len(payl.Data),
-			len(tx.Actions[0].Payload),
-			len(cap.ChaincodeProposalPayload),
-			len(cpp.Input),
-			len(cap.Action.ProposalResponsePayload),
-			len(pRespPayload.Extension),
-		)
-	}
+	logger.Debugf("envelope info: "+
+		"len(env.Payload) [%d] - "+
+		"len(payl.Header.ChannelHeader) [%d] - "+
+		"len(payl.Header.SignatureHeader) [%d] - "+
+		"len(payl.Data) [%d] - "+
+		"len(tx.Actions[0].Payload) [%d] - "+
+		"len(cap.ChaincodeProposalPayload) [%d] - "+
+		"len(cpp.Input) [%d] - "+
+		"len(cap.Action.ProposalResponsePayload) [%d] - "+
+		"len(pRespPayload.Extension) [%d]",
+		len(payloadRaw),
+		len(payl.Header.ChannelHeader),
+		len(payl.Header.SignatureHeader),
+		len(payl.Data),
+		len(tx.Actions[0].Payload),
+		len(cap.ChaincodeProposalPayload),
+		len(cpp.Input),
+		len(cap.Action.ProposalResponsePayload),
+		len(pRespPayload.Extension),
+	)
 
 	var args []string
 	for i := 1; i < len(cis.ChaincodeSpec.Input.Args); i++ {

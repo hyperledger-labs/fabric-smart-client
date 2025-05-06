@@ -55,17 +55,13 @@ type ViewServiceClientImpl struct {
 }
 
 func (pc *ViewServiceClientImpl) CreateViewClient() (*grpc.ClientConn, protos.ViewServiceClient, error) {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("opening connection to [%s]", pc.Address)
-	}
+	logger.Debugf("opening connection to [%s]", pc.Address)
 	conn, err := pc.GRPCClient.NewConnection(pc.Address)
 	if err != nil {
 		logger.Errorf("failed creating connection to [%s]: [%s]", pc.Address, err)
 		return conn, nil, errors.Wrapf(err, "failed creating connection to [%s]", pc.Address)
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("opening connection to [%s], done.", pc.Address)
-	}
+	logger.Debugf("opening connection to [%s], done.", pc.Address)
 
 	return conn, protos.NewViewServiceClient(conn), nil
 }
@@ -163,17 +159,11 @@ func (s *client) StreamCallView(fid string, input []byte) (*Stream, error) {
 
 // processCommand calls view client to send grpc request and returns a CommandResponse
 func (s *client) processCommand(ctx context.Context, sc *protos.SignedCommand) (*protos.CommandResponse, error) {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("get view service client...")
-	}
+	logger.Debugf("get view service client...")
 	conn, client, err := s.ViewServiceClient.CreateViewClient()
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("get view service client...done")
-	}
+	logger.Debugf("get view service client...done")
 	if conn != nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("get view service client...got a connection")
-		}
+		logger.Debugf("get view service client...got a connection")
 		defer conn.Close()
 	}
 	if err != nil {
@@ -212,17 +202,11 @@ func (s *client) processCommand(ctx context.Context, sc *protos.SignedCommand) (
 
 // streamCommand calls view client to send grpc request and returns a CommandResponse
 func (s *client) streamCommand(ctx context.Context, sc *protos.SignedCommand) (*grpc.ClientConn, protos.ViewService_StreamCommandClient, error) {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("get view service client...")
-	}
+	logger.Debugf("get view service client...")
 	conn, client, err := s.ViewServiceClient.CreateViewClient()
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("get view service client...done")
-	}
+	logger.Debugf("get view service client...done")
 	if conn != nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("get view service client...got a connection")
-		}
+		logger.Debugf("get view service client...got a connection")
 	}
 	if err != nil {
 		logger.Errorf("failed creating view client [%s]", err)

@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
 
 var logger = logging.MustGetLogger("view-provider")
@@ -44,9 +43,7 @@ func NewViewProvider() *ViewProvider {
 }
 
 func (cm *ViewProvider) RegisterFactory(id string, factory driver.Factory) error {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Register View Factory [%s,%t]", id, factory)
-	}
+	logger.Debugf("Register View Factory [%s,%t]", id, factory)
 	cm.factoriesSync.Lock()
 	defer cm.factoriesSync.Unlock()
 	cm.factories[id] = factory

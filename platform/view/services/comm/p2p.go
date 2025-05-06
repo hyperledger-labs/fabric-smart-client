@@ -102,9 +102,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 		select {
 		case msg, ok := <-p.incomingMessages:
 			if !ok {
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("channel closed, returning")
-				}
+				logger.Debugf("channel closed, returning")
 				return
 			}
 
@@ -116,14 +114,10 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 
 			p.sessionsMutex.Lock()
 			internalSessionID := computeInternalSessionID(msg.message.SessionID, msg.message.FromPKID)
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("dispatch message on internal session [%s]", internalSessionID)
-			}
+			logger.Debugf("dispatch message on internal session [%s]", internalSessionID)
 			session, in := p.sessions[internalSessionID]
 			if in {
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("internal session exists [%s]", internalSessionID)
-				}
+				logger.Debugf("internal session exists [%s]", internalSessionID)
 				session.mutex.Lock()
 				session.callerViewID = msg.message.Caller
 				session.contextID = msg.message.ContextID
@@ -152,16 +146,12 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 				//	nil,
 				// )
 
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("internal session does not exists [%s], dispatching to master session", internalSessionID)
-				}
+				logger.Debugf("internal session does not exists [%s], dispatching to master session", internalSessionID)
 				session, _ = p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
 			}
 			p.dispatchMutex.Unlock()
 
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
-			}
+			logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
 			session.incoming <- msg.message
 		case <-ctx.Done():
 			logger.Info("closing p2p comm...")
@@ -284,9 +274,7 @@ func (s *streamHandler) handleIncoming() {
 		err := s.reader.ReadMsg(msg)
 		if err != nil {
 			if s.isStopping() {
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("error reading message while closing, ignoring [%s]", err)
-				}
+				logger.Debugf("error reading message while closing, ignoring [%s]", err)
 				break
 			}
 
@@ -315,9 +303,7 @@ func (s *streamHandler) handleIncoming() {
 			// this should never happen!
 			panic("couldn't find stream handler to remove")
 		}
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("incoming message for context [%s] from [%s] on session [%s]", msg.ContextID, msg.Caller, msg.SessionID)
-		}
+		logger.Debugf("incoming message for context [%s] from [%s] on session [%s]", msg.ContextID, msg.Caller, msg.SessionID)
 
 		s.node.incomingMessages <- &messageWithStream{
 			message: &view.Message{

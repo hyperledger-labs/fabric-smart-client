@@ -186,16 +186,12 @@ func (o *Service) AreMe(identities ...view.Identity) []string {
 func (o *Service) Info(id view.Identity) string {
 	auditInfo, err := o.GetAuditInfo(id)
 	if err != nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("failed getting audit info for [%s]", id)
-		}
+		logger.Debugf("failed getting audit info for [%s]", id)
 		return fmt.Sprintf("unable to identify identity : [%s][%s]", id.UniqueID(), string(id))
 	}
 	info, err := o.deserializer.Info(id, auditInfo)
 	if err != nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("failed getting info for [%s]", id)
-		}
+		logger.Debugf("failed getting info for [%s]", id)
 		return fmt.Sprintf("unable to identify identity : [%s][%s]", id.UniqueID(), string(id))
 	}
 	return info
@@ -203,16 +199,12 @@ func (o *Service) Info(id view.Identity) string {
 
 func (o *Service) GetSigner(identity view.Identity) (driver.Signer, error) {
 	idHash := identity.UniqueID()
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("get signer for [%s]", idHash)
-	}
+	logger.Debugf("get signer for [%s]", idHash)
 	o.mutex.RLock()
 	entry, ok := o.signers[idHash]
 	o.mutex.RUnlock()
 	if !ok {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("signer for [%s] not found, try to deserialize", idHash)
-		}
+		logger.Debugf("signer for [%s] not found, try to deserialize", idHash)
 		// ask the deserializer
 		if o.deserializer == nil {
 			return nil, errors.Errorf("cannot find signer for [%s], no deserializer set", identity)
@@ -241,9 +233,7 @@ func (o *Service) GetSigner(identity view.Identity) (driver.Signer, error) {
 			o.mutex.Unlock()
 		}
 	} else {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("signer for [%s] found", idHash)
-		}
+		logger.Debugf("signer for [%s] found", idHash)
 	}
 	return entry.Signer, nil
 }

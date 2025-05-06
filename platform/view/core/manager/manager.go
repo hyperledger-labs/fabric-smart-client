@@ -188,9 +188,7 @@ func (cm *manager) Start(ctx context.Context) {
 		case msg := <-ch:
 			go cm.callView(msg)
 		case <-ctx.Done():
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("received done signal, stopping listening to messages on the master session")
-			}
+			logger.Debugf("received done signal, stopping listening to messages on the master session")
 			return
 		}
 	}
@@ -272,9 +270,7 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		res, err = ctx.RunView(responder)
 	}
 	if err != nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
-		}
+		logger.Debugf("[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
 	}
 	return ctx, res, err
 }
@@ -332,9 +328,7 @@ func (cm *manager) deleteContext(id view.Identity, contextID string) {
 	cm.contextsSync.Lock()
 	defer cm.contextsSync.Unlock()
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] Delete context [contextID:%s]\n", id, contextID)
-	}
+	logger.Debugf("[%s] Delete context [contextID:%s]\n", id, contextID)
 	// dispose context
 	if context, ok := cm.contexts[contextID]; ok {
 		context.Dispose()
@@ -364,16 +358,12 @@ func (cm *manager) callView(msg *view.Message) {
 	if err != nil {
 		logger.Errorf("failed responding [%v, %v], err: [%s]", registry.GetIdentifier(responder), msg.String(), err)
 		if ctx == nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("no context set, returning")
-			}
+			logger.Debugf("no context set, returning")
 			return
 		}
 
 		// Return the error to the caller
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("return the error to the caller [%s]", err)
-		}
+		logger.Debugf("return the error to the caller [%s]", err)
 		err = ctx.Session().SendError([]byte(err.Error()))
 		if err != nil {
 			logger.Errorf(err.Error())
