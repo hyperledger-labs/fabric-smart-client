@@ -16,7 +16,6 @@ import (
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 )
 
 type ValidationFlags []uint8
@@ -25,9 +24,7 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_handle_endorser_transaction")
 	defer span.AddEvent("end_handle_endorser_transaction")
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] EndorserClient transaction received: %s", c.ChannelConfig.ID(), tx.TxID)
-	}
+	logger.Debugf("[%s] EndorserClient transaction received: %s", c.ChannelConfig.ID(), tx.TxID)
 	fabricValidationCode, event, err := MapFinalityEvent(ctx, block, tx.TxNum, tx.TxID)
 	if err != nil {
 		return nil, err
@@ -86,9 +83,7 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum driver2.Bl
 		return errors.Wrapf(err, "error reading chaincode event")
 	}
 	if chaincodeEvent != nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("Chaincode Event Received: ", chaincodeEvent)
-		}
+		logger.Debugf("Chaincode Event Received: ", chaincodeEvent)
 		c.notifyChaincodeListeners(chaincodeEvent)
 	}
 	return nil
@@ -101,9 +96,7 @@ func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, 
 	span.AddEvent("start_commit_endorser_transaction")
 	defer span.AddEvent("end_commit_endorser_transaction")
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
-	}
+	logger.Debugf("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
 
 	event.Block = blockNum
 	event.IndexInBlock = indexInBlock
@@ -116,15 +109,11 @@ func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, 
 
 	switch vc {
 	case driver.Valid:
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("transaction [%s] in block [%d] is already marked as valid, skipping", txID, blockNum)
-		}
+		logger.Debugf("transaction [%s] in block [%d] is already marked as valid, skipping", txID, blockNum)
 		// Nothing to commit
 		return true, nil
 	case driver.Invalid:
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
-		}
+		logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
 		// Nothing to commit
 		return true, nil
 	}
@@ -141,9 +130,7 @@ func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string,
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_discard_endorser_transaction")
 	defer span.AddEvent("end_discard_endorser_transaction")
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, event.ValidationCode)
-	}
+	logger.Debugf("transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, event.ValidationCode)
 
 	vc, _, err := c.Status(ctx, txID)
 	if err != nil {
@@ -155,9 +142,7 @@ func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string,
 		logger.Warnf("transaction [%s] in block [%d] is marked as valid but for fabric is invalid", txID, blockNum)
 		return nil
 	case driver.Invalid:
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
-		}
+		logger.Debugf("transaction [%s] in block [%d] is marked as invalid, skipping", txID, blockNum)
 		// Nothing to commit
 		return nil
 	case driver.Unknown:

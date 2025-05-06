@@ -11,7 +11,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 )
 
 type disposableContext interface {
@@ -117,9 +116,7 @@ func (w *childContext) cleanup() {
 func (w *childContext) safeInvoke(f func()) {
 	defer func() {
 		if r := recover(); r != nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("function [%s] panicked [%s]", f, r)
-			}
+			logger.Debugf("function [%s] panicked [%s]", f, r)
 		}
 	}()
 	f()

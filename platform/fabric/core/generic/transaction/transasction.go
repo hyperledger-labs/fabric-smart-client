@@ -362,9 +362,7 @@ func (t *Transaction) Done() error {
 }
 
 func (t *Transaction) Close() {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("closing transaction [%s,%v]", t.ID(), t.rwset != nil)
-	}
+	logger.Debugf("closing transaction [%s,%v]", t.ID(), t.rwset != nil)
 	if t.rwset != nil {
 		t.rwset.Done()
 		t.rwset = nil

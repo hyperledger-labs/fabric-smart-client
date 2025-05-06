@@ -91,23 +91,17 @@ func (n *NetworkStreamSession) closeInternal() {
 		}
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("closing session [%s]'s streams [%d]", n.sessionID, len(toClose))
-	}
+	logger.Debugf("closing session [%s]'s streams [%d]", n.sessionID, len(toClose))
 	for _, stream := range toClose {
 		stream.close(context.TODO())
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("closing session [%s]'s streams [%d] done", n.sessionID, len(toClose))
-	}
+	logger.Debugf("closing session [%s]'s streams [%d] done", n.sessionID, len(toClose))
 	close(n.incoming)
 	n.closed = true
 	n.streams = make(map[*streamHandler]struct{})
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("closing session [%s] done", n.sessionID)
-	}
+	logger.Debugf("closing session [%s] done", n.sessionID)
 }
 
 func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byte, status int32) error {

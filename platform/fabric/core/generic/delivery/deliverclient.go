@@ -190,21 +190,15 @@ read:
 		case *pb.DeliverResponse_FilteredBlock:
 			filteredTransactions := r.FilteredBlock.FilteredTransactions
 			for i, tx := range filteredTransactions {
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("transaction [%s] in block [%d]", tx.Txid, r.FilteredBlock.Number)
-				}
+				logger.Debugf("transaction [%s] in block [%d]", tx.Txid, r.FilteredBlock.Number)
 				if tx.Txid == txid {
 					if tx.TxValidationCode == pb.TxValidationCode_VALID {
-						if logger.IsEnabledFor(zapcore.DebugLevel) {
-							logger.Debugf("transaction [%s] in block [%d] is valid", tx.Txid, r.FilteredBlock.Number)
-						}
+						logger.Debugf("transaction [%s] in block [%d] is valid", tx.Txid, r.FilteredBlock.Number)
 						event.Committed = true
 						event.Block = r.FilteredBlock.Number
 						event.IndexInBlock = i
 					} else {
-						if logger.IsEnabledFor(zapcore.DebugLevel) {
-							logger.Debugf("transaction [%s] in block [%d] is not valid [%s]", tx.Txid, r.FilteredBlock.Number, tx.TxValidationCode)
-						}
+						logger.Debugf("transaction [%s] in block [%d] is not valid [%s]", tx.Txid, r.FilteredBlock.Number, tx.TxValidationCode)
 						event.Err = errors.Errorf("transaction [%s] status is not valid: %s", tx.Txid, tx.TxValidationCode)
 					}
 					break read

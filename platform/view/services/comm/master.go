@@ -20,13 +20,9 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	defer p.sessionsMutex.Unlock()
 
 	internalSessionID := computeInternalSessionID(sessionID, endpointID)
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("looking up session [%s]", internalSessionID)
-	}
+	logger.Debugf("looking up session [%s]", internalSessionID)
 	if session, in := p.sessions[internalSessionID]; in {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("session [%s] exists, returning it", internalSessionID)
-		}
+		logger.Debugf("session [%s] exists, returning it", internalSessionID)
 		session.callerViewID = callerViewID
 		session.contextID = contextID
 		session.caller = caller
@@ -48,22 +44,16 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	}
 
 	if msg != nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("pushing first message to [%s], [%s]", internalSessionID, msg)
-		}
+		logger.Debugf("pushing first message to [%s], [%s]", internalSessionID, msg)
 		s.incoming <- msg
 	} else {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("no first message to push to [%s]", internalSessionID)
-		}
+		logger.Debugf("no first message to push to [%s]", internalSessionID)
 	}
 
 	p.sessions[internalSessionID] = s
 	p.m.Sessions.Set(float64(len(p.sessions)))
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("session [%s] as internal session [%s] ready", sessionID, internalSessionID)
-	}
+	logger.Debugf("session [%s] as internal session [%s] ready", sessionID, internalSessionID)
 	return s, nil
 }
 
@@ -94,9 +84,7 @@ func (p *P2PNode) DeleteSessions(_ context.Context, sessionID string) {
 	for key, session := range p.sessions {
 		// if key starts with sessionID, delete it
 		if strings.HasPrefix(key, sessionID) {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("deleting session [%s]", key)
-			}
+			logger.Debugf("deleting session [%s]", key)
 			session.closeInternal()
 			delete(p.sessions, key)
 		}

@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id/x509"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
 
 type Deserializer = driver2.SigDeserializer
@@ -40,20 +39,14 @@ func (d *MultiplexDeserializer) DeserializeVerifier(raw []byte) (driver.Verifier
 
 	copyDeserial := d.threadSafeCopyDeserializers()
 	for _, des := range copyDeserial {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("trying deserialization with [%v]", des)
-		}
+		logger.Debugf("trying deserialization with [%v]", des)
 		v, err := des.DeserializeVerifier(raw)
 		if err == nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("trying deserialization with [%v] succeeded", des)
-			}
+			logger.Debugf("trying deserialization with [%v] succeeded", des)
 			return v, nil
 		}
 
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("trying deserialization with [%v] failed", des)
-		}
+		logger.Debugf("trying deserialization with [%v] failed", des)
 		errs = append(errs, err)
 	}
 
@@ -65,20 +58,14 @@ func (d *MultiplexDeserializer) DeserializeSigner(raw []byte) (driver.Signer, er
 
 	copyDeserial := d.threadSafeCopyDeserializers()
 	for _, des := range copyDeserial {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("trying signer deserialization with [%s]", des)
-		}
+		logger.Debugf("trying signer deserialization with [%s]", des)
 		v, err := des.DeserializeSigner(raw)
 		if err == nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("trying signer deserialization with [%s] succeeded", des)
-			}
+			logger.Debugf("trying signer deserialization with [%s] succeeded", des)
 			return v, nil
 		}
 
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("trying signer deserialization with [%s] failed [%s]", des, err)
-		}
+		logger.Debugf("trying signer deserialization with [%s] failed [%s]", des, err)
 		errs = append(errs, err)
 	}
 
@@ -90,20 +77,14 @@ func (d *MultiplexDeserializer) Info(raw []byte, auditInfo []byte) (string, erro
 
 	copyDeserial := d.threadSafeCopyDeserializers()
 	for _, des := range copyDeserial {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("trying info deserialization with [%v]", des)
-		}
+		logger.Debugf("trying info deserialization with [%v]", des)
 		v, err := des.Info(raw, auditInfo)
 		if err == nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("trying info deserialization with [%v] succeeded", des)
-			}
+			logger.Debugf("trying info deserialization with [%v] succeeded", des)
 			return v, nil
 		}
 
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("trying info deserialization with [%v] failed", des)
-		}
+		logger.Debugf("trying info deserialization with [%v] failed", des)
 		errs = append(errs, err)
 	}
 

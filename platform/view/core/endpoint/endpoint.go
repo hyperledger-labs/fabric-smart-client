@@ -239,9 +239,7 @@ func (r *Service) ExtractPKI(id []byte) []byte {
 
 	for _, extractor := range r.publicKeyExtractors {
 		if pk, err := extractor.ExtractPublicKey(id); pk != nil {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("pki resolved for [%s]", id)
-			}
+			logger.Debugf("pki resolved for [%s]", id)
 			return r.publicKeyIDSynthesizer.PublicKeyID(pk)
 		} else {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {

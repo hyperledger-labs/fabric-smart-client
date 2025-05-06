@@ -19,7 +19,6 @@ import (
 	common2 "github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 	context2 "golang.org/x/net/context"
 )
 
@@ -97,24 +96,18 @@ func (o *Service) Broadcast(ctx context2.Context, blob interface{}) error {
 	var err error
 	switch b := blob.(type) {
 	case Transaction:
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("new transaction to broadcast...")
-		}
+		logger.Debugf("new transaction to broadcast...")
 		span.AddEvent("Create Fabric Endorse Transaction Envelope")
 		env, err = o.createFabricEndorseTransactionEnvelope(b)
 		if err != nil {
 			return err
 		}
 	case TransactionWithEnvelope:
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("new envelope to broadcast (boxed)...")
-		}
+		logger.Debugf("new envelope to broadcast (boxed)...")
 		span.AddEvent("Extract Fabric Endorse Transaction Envelope")
 		env = b.Envelope()
 	case *common2.Envelope:
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("new envelope to broadcast...")
-		}
+		logger.Debugf("new envelope to broadcast...")
 		span.AddEvent("Cast Fabric Endorse Transaction Envelope")
 		env = blob.(*common2.Envelope)
 	default:

@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/orion-sdk-go/pkg/bcdb"
 	"github.com/hyperledger-labs/orion-server/pkg/types"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
 
 var logger = logging.MustGetLogger("orion-sdk.delivery")
@@ -99,23 +98,17 @@ func (d *delivery) Run(ctx context.Context) error {
 			return errors.New("context done")
 		default:
 			if df == nil {
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("deliver service [%s:%s], connecting...", d.networkName, d.me)
-				}
+				logger.Debugf("deliver service [%s:%s], connecting...", d.networkName, d.me)
 				df, err = d.connect()
 				if err != nil {
 					logger.Errorf("failed connecting to delivery service [%s:%s] [%s]. Wait 10 sec before reconnecting", d.networkName, d.me, err)
 					time.Sleep(10 * time.Second)
-					if logger.IsEnabledFor(zapcore.DebugLevel) {
-						logger.Debugf("reconnecting to delivery service [%s:%s]", d.networkName, d.me)
-					}
+					logger.Debugf("reconnecting to delivery service [%s:%s]", d.networkName, d.me)
 					continue
 				}
 			}
 
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("deliver service [%s:%s], receiving...", d.networkName, d.me)
-			}
+			logger.Debugf("deliver service [%s:%s], receiving...", d.networkName, d.me)
 			resp := df.Receive()
 			if resp == nil {
 				df = nil
@@ -124,14 +117,10 @@ func (d *delivery) Run(ctx context.Context) error {
 				continue
 			}
 
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("deliver service [%s:%s], received response [%+v]", d.networkName, d.me, resp)
-			}
+			logger.Debugf("deliver service [%s:%s], received response [%+v]", d.networkName, d.me, resp)
 			switch r := resp.(type) {
 			case *types.AugmentedBlockHeader:
-				if logger.IsEnabledFor(zapcore.DebugLevel) {
-					logger.Debugf("delivery service [%s:%s], commit block [%d]", d.networkName, d.me, r.Header.BaseHeader.Number)
-				}
+				logger.Debugf("delivery service [%s:%s], commit block [%d]", d.networkName, d.me, r.Header.BaseHeader.Number)
 
 				stop, err := d.callback(r)
 				if err != nil {

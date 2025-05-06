@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
@@ -340,9 +339,7 @@ func (client *Client) NewConnection(address string, tlsOptions ...TLSOption) (*g
 }
 
 func (client *Client) Close() {
-	if commLogger.IsEnabledFor(zapcore.DebugLevel) {
-		commLogger.Debugf("closing %d grpc connections", len(client.grpcConns))
-	}
+	commLogger.Debugf("closing %d grpc connections", len(client.grpcConns))
 	for _, grpcCon := range client.grpcConns {
 		if err := grpcCon.Close(); err != nil {
 			commLogger.Warningf("unable to close grpc conn but continue. Reason: %s", err.Error())
