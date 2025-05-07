@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
@@ -30,13 +31,13 @@ func NewHostProvider(config driver.ConfigService, endpointService *endpoint.Serv
 	if p2pCommType := config.GetString("fsc.p2p.type"); strings.EqualFold(p2pCommType, fsc.WebSocket) {
 		return newWebSocketHostProvider(config, endpointService, tracerProvider, metricsProvider)
 	} else {
-		return newLibP2PHostProvider(endpointService, metricsProvider), nil
+		return newLibP2PHostProvider(config, endpointService, metricsProvider), nil
 	}
 }
 
-func newLibP2PHostProvider(endpointService *endpoint.Service, metricsProvider metrics.Provider) host.GeneratorProvider {
+func newLibP2PHostProvider(config driver.ConfigService, endpointService *endpoint.Service, metricsProvider metrics.Provider) host.GeneratorProvider {
 	endpointService.SetPublicKeyIDSynthesizer(&libp2p.PKIDSynthesizer{})
-	return libp2p.NewHostGeneratorProvider(metricsProvider)
+	return libp2p.NewHostGeneratorProvider(libp2p.NewConfig(config), metricsProvider, view.NewEndpointService(endpointService))
 }
 
 func newWebSocketHostProvider(config driver.ConfigService, endpointService *endpoint.Service, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (host.GeneratorProvider, error) {
@@ -47,5 +48,5 @@ func newWebSocketHostProvider(config driver.ConfigService, endpointService *endp
 	}
 	discovery := routing.NewServiceDiscovery(r, routing.Random[host.PeerIPAddress]())
 	endpointService.SetPublicKeyIDSynthesizer(&rest.PKIDSynthesizer{})
-	return rest.NewEndpointBasedProvider(endpointService, discovery, tracerProvider, websocket.NewMultiplexedProvider(tracerProvider, metricsProvider)), nil
+	return rest.NewEndpointBasedProvider(rest.NewConfig(config), endpointService, discovery, tracerProvider, websocket.NewMultiplexedProvider(tracerProvider, metricsProvider)), nil
 }

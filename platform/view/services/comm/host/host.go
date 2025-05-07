@@ -17,8 +17,7 @@ type StreamHash = string
 
 // GeneratorProvider provides the hosts and generates their PKs
 type GeneratorProvider interface {
-	NewBootstrapHost(listenAddress PeerIPAddress, privateKeyPath string, certPath string) (P2PHost, error)
-	NewHost(listenAddress PeerIPAddress, privateKeyPath string, certPath string, bootstrapListenAddress PeerIPAddress) (P2PHost, error)
+	GetNewHost() (P2PHost, error)
 }
 
 type StreamInfo struct {

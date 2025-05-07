@@ -46,8 +46,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	var res []*node
 
 	// Setup master
-	provider := newHostProvider(&disabled.Provider{})
-	bootstrapNode, err := newBootstrapNode(port, provider)
+	bootstrapNode, err := newBootstrapNode(port)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +55,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	var nodes []*node
 	for i := 0; i < numNodes-1; i++ {
 		port++
-		n, err := newNode(port, bootstrapNode, provider)
+		n, err := newNode(port, bootstrapNode)
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +102,7 @@ func id(pk crypto.PubKey) (string, error) {
 	return ID.String(), nil
 }
 
-func newBootstrapNode(port int, provider *hostProvider) (*node, error) {
+func newBootstrapNode(port int) (*node, error) {
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err
@@ -114,7 +113,7 @@ func newBootstrapNode(port int, provider *hostProvider) (*node, error) {
 	}
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/" + strconv.Itoa(port)
 	nodeDHTEndpoint := nodeEndpoint + "/p2p/" + nodeID
-	h, err := provider.NewBootstrapHost(nodeEndpoint, sk)
+	h, err := newLibP2PHost(nodeEndpoint, sk, newMetrics(&disabled.Provider{}), true, "")
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +130,7 @@ func newBootstrapNode(port int, provider *hostProvider) (*node, error) {
 	}, nil
 }
 
-func newNode(port int, bootstrapNode *node, provider *hostProvider) (*node, error) {
+func newNode(port int, bootstrapNode *node) (*node, error) {
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err
@@ -142,7 +141,7 @@ func newNode(port int, bootstrapNode *node, provider *hostProvider) (*node, erro
 	}
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/" + strconv.Itoa(port)
 
-	h, err := provider.NewHost(nodeEndpoint, bootstrapNode.dhtEndpoint, sk)
+	h, err := newLibP2PHost(nodeEndpoint, sk, newMetrics(&disabled.Provider{}), false, bootstrapNode.dhtEndpoint)
 	if err != nil {
 		return nil, err
 	}
