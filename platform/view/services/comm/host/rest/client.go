@@ -26,24 +26,6 @@ type client struct {
 	streamProvider clientStreamProvider
 }
 
-func newClient(streamProvider clientStreamProvider, nodeID host2.PeerID, rootCAs []string, tlsEnabled bool) (*client, error) {
-	logger.Debugf("Creating p2p client for node ID [%s] with tlsEnabled = %v", nodeID, tlsEnabled)
-	caCertPool, err := newRootCACertPool(rootCAs)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read root CA certs")
-	}
-	c := &client{
-		tlsConfig: &tls.Config{
-			InsecureSkipVerify: tlsEnabled && caCertPool == nil,
-			RootCAs:            caCertPool,
-		},
-		nodeID:         nodeID,
-		streamProvider: streamProvider,
-	}
-	logger.Debugf("Created p2p client for node ID [%s] with %d root CAs and InsecureSkipVerify = %v", nodeID, len(rootCAs), c.tlsConfig.InsecureSkipVerify)
-	return c, nil
-}
-
 func newRootCACertPool(rootCAs []string) (*x509.CertPool, error) {
 	if len(rootCAs) == 0 {
 		return nil, nil
