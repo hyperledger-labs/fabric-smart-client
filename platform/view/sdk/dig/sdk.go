@@ -26,7 +26,6 @@ import (
 	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/provider"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -135,9 +134,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(manager.New, dig.As(new(ViewManager), new(node.ViewManager), new(driver.ViewManager), new(driver.Registry))),
 		p.Container().Provide(view.NewManager),
 
-		p.Container().Provide(func(hostProvider host.GeneratorProvider, configProvider driver.ConfigService, endpointService *view.EndpointService, tracerProvider trace.TracerProvider, metricsProvider metrics2.Provider) (*comm.Service, error) {
-			return comm.NewService(hostProvider, endpointService, configProvider, tracerProvider, metricsProvider)
-		}),
+		p.Container().Provide(comm.NewService),
 		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(manager.CommLayer))),
 		p.Container().Provide(provider.NewHostProvider),
 		p.Container().Provide(view.NewSigService),

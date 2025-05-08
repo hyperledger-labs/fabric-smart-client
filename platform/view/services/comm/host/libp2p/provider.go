@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type libp2pConfig interface {
+type Config interface {
 	PrivateKeyPath() string
 	Bootstrap() bool
 	ListenAddress() host2.PeerIPAddress
@@ -39,10 +39,18 @@ type config struct {
 }
 
 func NewConfig(cs configService) *config {
+	return NewConfigFromProperties(
+		cs.GetString("fsc.p2p.listenAddress"),
+		cs.GetString("fsc.p2p.opts.bootstrapNode"),
+		cs.GetPath("fsc.identity.key.file"),
+	)
+}
+
+func NewConfigFromProperties(listenAddress host2.PeerIPAddress, bootstrapListenAddress host2.PeerIPAddress, privateKeyPath string) *config {
 	return &config{
-		listenAddress:          cs.GetString("fsc.p2p.listenAddress"),
-		bootstrapListenAddress: cs.GetString("fsc.p2p.opts.bootstrapNode"),
-		privateKeyPath:         cs.GetPath("fsc.identity.key.file"),
+		listenAddress:          listenAddress,
+		bootstrapListenAddress: bootstrapListenAddress,
+		privateKeyPath:         privateKeyPath,
 	}
 }
 
@@ -53,11 +61,11 @@ type endpointService interface {
 
 type hostGeneratorProvider struct {
 	metrics         *metrics
-	config          libp2pConfig
+	config          Config
 	endpointService endpointService
 }
 
-func NewHostGeneratorProvider(config libp2pConfig, provider metrics2.Provider, endpointService endpointService) *hostGeneratorProvider {
+func NewHostGeneratorProvider(config Config, provider metrics2.Provider, endpointService endpointService) *hostGeneratorProvider {
 	return &hostGeneratorProvider{
 		metrics:         newMetrics(provider),
 		config:          config,

@@ -11,14 +11,21 @@ import (
 	"sync"
 	"testing"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
 )
 
 type HostNode struct {
 	*P2PNode
-	ID      host2.PeerID
-	Address host2.PeerIPAddress
+	ID      host.PeerID
+	Address host.PeerIPAddress
+}
+
+type Node struct {
+	commService *Service
+	address     string
+	pkID        view2.Identity
 }
 
 func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
@@ -28,7 +35,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 		defer wg.Done()
 		messages := bootstrapNode.incomingMessages
 
-		info := host2.StreamInfo{
+		info := host.StreamInfo{
 			RemotePeerID:      node.ID,
 			RemotePeerAddress: node.Address,
 			ContextID:         "context",
@@ -54,7 +61,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 	assert.NotNil(t, msg)
 	assert.Equal(t, []byte("msg2"), msg.message.Payload)
 
-	info := host2.StreamInfo{
+	info := host.StreamInfo{
 		RemotePeerID:      bootstrapNode.ID,
 		RemotePeerAddress: bootstrapNode.Address,
 		ContextID:         "context",
