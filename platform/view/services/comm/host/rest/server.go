@@ -63,14 +63,14 @@ func (s *server) Start(newStreamCallback func(stream host2.P2PStream)) error {
 
 	var err error
 	if s.srv.TLSConfig == nil {
-		logger.Debugf("Starting up REST server without TLS on [%s]...", s.srv.Addr)
+		logger.Infof("Starting up REST server without TLS on [%s]...", s.srv.Addr)
 		err = s.srv.ListenAndServe()
 	} else {
-		logger.Debugf("Starting up REST server with TLS on [%s]...", s.srv.Addr)
+		logger.Infof("Starting up REST server with TLS [%v] on [%s]...", s.srv.TLSConfig, s.srv.Addr)
 		err = s.srv.ListenAndServeTLS("", "")
 	}
 	if !errors.Is(err, http.ErrServerClosed) {
-		return err
+		return errors.Wrapf(err, "failed to start http server")
 	}
 	return nil
 }
