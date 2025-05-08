@@ -59,6 +59,7 @@ func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing rou
 
 func serverTLSConfig(tlsConfig *tls.Config) *tls.Config {
 	if tlsConfig == nil {
+
 		return nil
 	}
 	return &tls.Config{Certificates: tlsConfig.Certificates}
