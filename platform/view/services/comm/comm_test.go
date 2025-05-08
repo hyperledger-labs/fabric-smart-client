@@ -286,7 +286,6 @@ func (c *Config) Libp2pConfig(bootstrap host.PeerIPAddress) libp2p.Config {
 
 func GetConfig(name string) *Config {
 	rootPath, ok := os.LookupEnv("GOPATH")
-	rootPath, ok = "/Users/lio/go", true
 	if !ok {
 		panic("gopath not set")
 	}
