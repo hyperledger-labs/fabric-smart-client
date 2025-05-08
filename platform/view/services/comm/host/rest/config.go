@@ -67,9 +67,10 @@ func newTLSConfig(rootCACertFiles []string, keyFile, certFile string) (*tls.Conf
 
 	var certs []tls.Certificate
 	if certFile != "" || keyFile != "" {
+		logger.Infof("Loading certificates from [%s,%s]", keyFile, certFile)
 		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to load x509 certificates from [%s,%s]", keyFile, certFile)
 		}
 		certs = []tls.Certificate{cert}
 	}

@@ -46,7 +46,7 @@ func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 	nodeID := string(p.pkiExtractor.ExtractPKI(raw))
 	tlsConfig, err := p.config.TLSConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed getting new host for [%s]", p.config.ListenAddress())
 	}
 	return NewHost(nodeID, convertAddress(p.config.ListenAddress()), p.routing, p.tracerProvider, p.streamProvider, tlsConfig), nil
 }
