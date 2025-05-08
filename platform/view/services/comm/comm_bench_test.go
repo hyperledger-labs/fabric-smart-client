@@ -23,7 +23,13 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type routerNodes struct {
+const (
+	numOfNodes    int = 2
+	numOfSessions int = 1
+	numOfMsgs     int = 1
+)
+
+type Nodes struct {
 	sender       *Service
 	senderNode   Node
 	receiverNode Node
@@ -34,86 +40,106 @@ type benchmarkMetrics struct {
 	latency time.Duration
 }
 
-const (
-	numOfRoutes   int = 2
-	numOfSessions int = 10
-	numOfMsgs     int = 10
-)
+func createWebsocketNodes() []Nodes {
 
-func createWebsocketRoutes() []routerNodes {
-	routersNodes := make([]routerNodes, numOfRoutes)
+	var nodes []Nodes
 
-	for routeNum := 0; routeNum < numOfRoutes; routeNum++ {
+	for senderNodeNum := 0; senderNodeNum < numOfNodes; senderNodeNum++ {
+
 		senderConfig := GetConfig("initiator")
-		receiverConfig := GetConfig("responder")
+
+		var receiverConfigs []*Config
+		var receivesIPAddress []host.PeerIPAddress
+		for receivedNodeNum := 0; receivedNodeNum < numOfNodes; receivedNodeNum++ {
+			if senderNodeNum == receivedNodeNum {
+				continue
+			}
+
+			receiverConfig := GetConfig("responder")
+			receivesIPAddress = append(receivesIPAddress, rest.ConvertAddress(receiverConfig.ListenAddress))
+			receiverConfigs = append(receiverConfigs, receiverConfig)
+		}
 
 		router := &routing.StaticIDRouter{
 			"sender":   []host.PeerIPAddress{rest.ConvertAddress(senderConfig.ListenAddress)},
-			"receiver": []host.PeerIPAddress{rest.ConvertAddress(receiverConfig.ListenAddress)},
-		}
+			"receiver": receivesIPAddress}
 
 		sender := NewWebsocketCommService(router, senderConfig.RestConfig())
 		sender.Start(context.Background())
-		receiver := NewWebsocketCommService(router, receiverConfig.RestConfig())
-		receiver.Start(context.Background())
 
 		senderNode := Node{
 			commService: sender,
 			address:     senderConfig.ListenAddress,
 			pkID:        []byte("sender"),
 		}
-		receiverNode := Node{
-			commService: receiver,
-			address:     receiverConfig.ListenAddress,
-			pkID:        []byte("receiver"),
-		}
-		routersNodes[routeNum] = routerNodes{sender: sender, senderNode: senderNode, receiver: receiver, receiverNode: receiverNode}
-	}
 
-	return routersNodes
+		for _, receiverConfig := range receiverConfigs {
+			receiver := NewWebsocketCommService(router, receiverConfig.RestConfig())
+			receiver.Start(context.Background())
+			receiverNode := Node{
+				commService: receiver,
+				address:     receiverConfig.ListenAddress,
+				pkID:        []byte("receiver"),
+			}
+			nodes = append(nodes, Nodes{sender: sender, senderNode: senderNode, receiver: receiver, receiverNode: receiverNode})
+		}
+	}
+	return nodes
 }
 
-func createLibp2pRoutes() []routerNodes {
-	routersNodes := make([]routerNodes, numOfRoutes)
-	for routeNum := 0; routeNum < numOfRoutes; routeNum++ {
+func createLibp2pNodes() []Nodes {
+
+	var nodes []Nodes
+
+	for senderNodeNum := 0; senderNodeNum < numOfNodes; senderNodeNum++ {
+
 		senderConfig := GetConfig("initiator")
-		receiverConfig := GetConfig("responder")
 
-		sender, senderPkID := NewLibP2PCommService(senderConfig.Libp2pConfig(""), senderConfig.CertFile, nil)
-		sender.Start(context.Background())
-		receiver, receiverPkID := NewLibP2PCommService(receiverConfig.Libp2pConfig("sender"), receiverConfig.CertFile, &BootstrapNodeResolver{nodeID: senderPkID, nodeAddress: senderConfig.ListenAddress})
-		receiver.Start(context.Background())
+		for receivedNodeNum := 0; receivedNodeNum < numOfNodes; receivedNodeNum++ {
+			if senderNodeNum == receivedNodeNum {
+				continue
+			}
 
-		senderNode := Node{
-			commService: sender,
-			address:     senderConfig.ListenAddress,
-			pkID:        senderPkID,
+			receiverConfig := GetConfig("responder")
+			sender, senderPkID := NewLibP2PCommService(senderConfig.Libp2pConfig(""), senderConfig.CertFile, nil)
+			sender.Start(context.Background())
+			receiver, receiverPkID := NewLibP2PCommService(receiverConfig.Libp2pConfig("sender"), receiverConfig.CertFile, &BootstrapNodeResolver{nodeID: senderPkID, nodeAddress: senderConfig.ListenAddress})
+			receiver.Start(context.Background())
+
+			senderNode := Node{
+				commService: sender,
+				address:     senderConfig.ListenAddress,
+				pkID:        senderPkID,
+			}
+
+			receiverNode := Node{
+				commService: receiver,
+				address:     receiverConfig.ListenAddress,
+				pkID:        receiverPkID,
+			}
+			nodes = append(nodes, Nodes{sender: sender, senderNode: senderNode, receiver: receiver, receiverNode: receiverNode})
 		}
-
-		receiverNode := Node{
-			commService: receiver,
-			address:     receiverConfig.ListenAddress,
-			pkID:        receiverPkID,
-		}
-		routersNodes[routeNum] = routerNodes{sender: sender, senderNode: senderNode, receiver: receiver, receiverNode: receiverNode}
 	}
 
-	return routersNodes
+	return nodes
 }
 
-func testNodesExchange(routersNodes []routerNodes, protocol string) {
+func testNodesExchange(nodes []Nodes, protocol string) {
 	metricsMap := map[string]benchmarkMetrics{}
 
+	mainwg := sync.WaitGroup{}
 	startTime := time.Now()
-	for routeNum := 0; routeNum < numOfRoutes; routeNum++ {
-		testExchangeMsgs(routersNodes[routeNum].senderNode, routersNodes[routeNum].receiverNode, metricsMap)
-	}
 
+	for _, exchangeNodes := range nodes {
+		mainwg.Add(1)
+		go testExchangeMsgs(exchangeNodes.senderNode, exchangeNodes.receiverNode, metricsMap, &mainwg)
+	}
+	mainwg.Wait()
 	endTime := time.Now()
 
-	for routeNum := 0; routeNum < numOfRoutes; routeNum++ {
-		routersNodes[routeNum].sender.Stop()
-		routersNodes[routeNum].receiver.Stop()
+	for _, exchangeNodes := range nodes {
+		exchangeNodes.sender.Stop()
+		exchangeNodes.receiver.Stop()
 	}
 
 	displayMetrics(endTime.Sub(startTime), metricsMap, protocol)
@@ -121,65 +147,74 @@ func testNodesExchange(routersNodes []routerNodes, protocol string) {
 
 func BenchmarkTestWebsocket(b *testing.B) {
 	RegisterTestingT(b)
-	testNodesExchange(createWebsocketRoutes(), "Websocket")
+	testNodesExchange(createWebsocketNodes(), "Websocket")
 }
 
 func BenchmarkTestLibp2p(b *testing.B) {
 	RegisterTestingT(b)
-	testNodesExchange(createLibp2pRoutes(), "LipP2P")
+	testNodesExchange(createLibp2pNodes(), "LipP2P")
 }
 
-func testExchangeMsgs(senderNode, receiverNode Node, metricsMap map[string]benchmarkMetrics) {
+func testExchangeMsgs(senderNode, receiverNode Node, metricsMap map[string]benchmarkMetrics, mainwg *sync.WaitGroup) {
+	defer mainwg.Done()
+
 	wg := sync.WaitGroup{}
 	wg.Add(2 * numOfSessions)
 
-	sessions := make([]view.Session, 0, 2*numOfSessions+1)
+	//sessions := make([]view.Session, 0, 2*numOfSessions+1)
+	var sessions []view.Session
 	mu := sync.Mutex{}
 
-	go senderExchangeMsgs(senderNode, receiverNode, &sessions, metricsMap, &mu, &wg)
+	for sessId := 0; sessId < numOfSessions; sessId++ {
+		go senderExchangeMsgs(senderNode, receiverNode, sessId, &sessions, metricsMap, &mu, &wg)
+	}
 	go receiverExchangeMsgs(receiverNode, &sessions, &mu, &wg)
 
 	logger.Infof("Waiting on execution...")
 
 	wg.Wait()
+
 	logger.Infof("Execution finished. Closing sessions")
 	for _, s := range sessions {
 		s.Close()
 	}
 }
 
-func senderExchangeMsgs(senderNode, receiverNode Node, sessions *[]view.Session, metricsMap map[string]benchmarkMetrics, mu *sync.Mutex, wg *sync.WaitGroup) {
-	for sessId := 0; sessId < numOfSessions; sessId++ {
-		defer wg.Done()
-		logger.Infof("---> Create new session # %d", sessId)
-		senderSession, err := senderNode.commService.NewSession("", "", rest.ConvertAddress(receiverNode.address), receiverNode.pkID)
-		Expect(err).ToNot(HaveOccurred())
-		mu.Lock()
-		*sessions = append(*sessions, senderSession)
-		mu.Unlock()
-		Expect(senderSession.Info().Endpoint).To(Equal(rest.ConvertAddress(receiverNode.address)))
-		Expect(senderSession.Info().EndpointPKID).To(Equal(receiverNode.pkID.Bytes()))
-		logger.Infof("---> Created new session # %d [%v]", sessId, senderSession.Info())
+func senderExchangeMsgs(senderNode, receiverNode Node, sessId int, sessions *[]view.Session, metricsMap map[string]benchmarkMetrics, mu *sync.Mutex, wg *sync.WaitGroup) {
+	logger.Infof("---> Create new session # %d", sessId)
+	senderSession, err := senderNode.commService.NewSession("", "", rest.ConvertAddress(receiverNode.address), receiverNode.pkID)
+	Expect(err).ToNot(HaveOccurred())
+	mu.Lock()
+	*sessions = append(*sessions, senderSession)
+	mu.Unlock()
+	Expect(senderSession.Info().Endpoint).To(Equal(rest.ConvertAddress(receiverNode.address)))
+	Expect(senderSession.Info().EndpointPKID).To(Equal(receiverNode.pkID.Bytes()))
+	logger.Infof("---> Created new session # %d [%v]", sessId, senderSession.Info())
 
-		for msgId := 0; msgId < numOfMsgs; msgId++ {
-			payload := fmt.Sprintf("request-%d-%d", sessId, msgId)
-			logger.Infof("---> Sender: sends message [%s]", payload)
-			start := time.Now()
-			Expect(senderSession.Send([]byte(payload))).To(Succeed())
-			logger.Infof("---> Sender: sent message [%s]", payload)
-			response := <-senderSession.Receive()
-			end := time.Now()
-			elapsed := end.Sub(start)
-			Expect(response).ToNot(BeNil())
-			Expect(string(response.Payload)).To(Equal(fmt.Sprintf("response-%d-%d", sessId, msgId)))
-			logger.Infof("---> Sender: received message: [%s]", string(response.Payload))
+	for msgId := 0; msgId < numOfMsgs; msgId++ {
+		payload := fmt.Sprintf("request-%d-%d", sessId, msgId)
+		logger.Infof("---> Sender: sends message [%s]", payload)
+		start := time.Now()
+		Expect(senderSession.Send([]byte(payload))).To(Succeed())
+		logger.Infof("---> Sender: sent message [%s]", payload)
+		response := <-senderSession.Receive()
+		end := time.Now()
+		elapsed := end.Sub(start)
+		Expect(response).ToNot(BeNil())
+		Expect(string(response.Payload)).To(Equal(fmt.Sprintf("response-%d-%d", sessId, msgId)))
+		logger.Infof("---> Sender: received message: [%s]", string(response.Payload))
 
-			metricsMap[senderSession.Info().ID+strconv.Itoa(sessId)+strconv.Itoa(msgId)] = benchmarkMetrics{latency: elapsed}
+		_, ok := metricsMap[senderSession.Info().ID+strconv.Itoa(sessId)+strconv.Itoa(msgId)]
+		if ok {
+			Expect(ok).To(BeFalse(), "Metrics map keys should be unique")
 		}
-		logger.Infof("Send EOF")
-		Expect(senderSession.Send([]byte("EOF"))).To(Succeed())
-		logger.Infof("Sent EOF")
+
+		metricsMap[senderSession.Info().ID+strconv.Itoa(sessId)+strconv.Itoa(msgId)] = benchmarkMetrics{latency: elapsed}
 	}
+	logger.Infof("Send EOF")
+	Expect(senderSession.Send([]byte("EOF"))).To(Succeed())
+	logger.Infof("Sent EOF")
+	defer wg.Done()
 }
 
 func receiverExchangeMsgs(receiverNode Node, sessions *[]view.Session, mu *sync.Mutex, wg *sync.WaitGroup) {
@@ -212,7 +247,7 @@ func receiverExchangeMsgs(receiverNode Node, sessions *[]view.Session, mu *sync.
 		*sessions = append(*sessions, session)
 		mu.Unlock()
 
-		go receiverSessionExchangeMsgs(sessId, session, wg)
+		receiverSessionExchangeMsgs(sessId, session, wg)
 	}
 }
 
@@ -238,22 +273,20 @@ func receiverSessionExchangeMsgs(sessId int, session view.Session, wg *sync.Wait
 }
 
 func displayMetrics(duration time.Duration, metricsMap map[string]benchmarkMetrics, protocol string) {
-	var latency int64 = 0
+	var latency time.Duration = 0
 
 	for _, metric := range metricsMap {
-		latency = latency + int64(metric.latency)
+		latency = latency + metric.latency
 	}
 
-	averageLatency := latency / int64(len(metricsMap))
-	averageThrouput := int64(duration) / int64(2*numOfMsgs)
-	// Expect(senderSession.Info().EndpointPKID).To(Equal(receiverNode.pkID.Bytes()))
+	averageLatency := latency / time.Duration(len(metricsMap))
+	throughput := float64(2*numOfMsgs) / float64(duration.Seconds())
 
-	fmt.Printf("============================= %s Metrics =============================\n", protocol)
-	fmt.Printf("Number of routes: %d\n", numOfRoutes)
-	fmt.Printf("Number of nodes: %d\n", numOfRoutes*2)
-	fmt.Printf("Number of sessions per node: %d\n", numOfSessions)
-	fmt.Printf("Number of Msgs per session: %d\n", 2*numOfMsgs)
-	fmt.Printf("Average latency: %d (ms) \n", averageLatency)
-	fmt.Printf("Average throuput: %d (msg/ms) \n", averageThrouput)
-	fmt.Printf("Total run time: %d (ms) \n", duration)
+	logger.Infof("============================= %s Metrics =============================\n", protocol)
+	logger.Infof("Number of nodes: %d\n", numOfNodes*2)
+	logger.Infof("Number of sessions per node: %d\n", numOfSessions)
+	logger.Infof("Number of Msgs per session: %d\n", 2*numOfMsgs)
+	logger.Infof("Average latency: %v\n", averageLatency)
+	logger.Infof("Throughput: %f messages per second \n", throughput)
+	logger.Infof("Total run time: %v\n", duration)
 }
