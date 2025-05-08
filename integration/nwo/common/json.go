@@ -10,18 +10,18 @@ import (
 	"encoding/json"
 	"fmt"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 func JSONMarshall(v interface{}) []byte {
 	raw, err := json.Marshal(v)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	return raw
 }
 
 func JSONUnmarshal(raw []byte, v interface{}) interface{} {
 	err := json.Unmarshal(raw, v)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	return v
 }
 
@@ -30,10 +30,10 @@ func JSONUnmarshalString(v interface{}) string {
 	switch vv := v.(type) {
 	case []byte:
 		err := json.Unmarshal(vv, &s)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	case string:
 		err := json.Unmarshal([]byte(vv), &s)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	}
 	return s
 }
@@ -43,10 +43,10 @@ func JSONUnmarshalInt(v interface{}) int {
 	switch v := v.(type) {
 	case []byte:
 		err := json.Unmarshal(v, &s)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	case string:
 		err := json.Unmarshal([]byte(v), &s)
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	default:
 		panic(fmt.Sprintf("type not recognized [%T]", v))
 	}

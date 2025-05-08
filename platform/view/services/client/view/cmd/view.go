@@ -144,7 +144,7 @@ func loadConfig(file string) Config {
 }
 
 func out(a ...interface{}) {
-	fmt.Fprintln(outWriter, a...)
+	_, _ = fmt.Fprintln(outWriter, a...)
 }
 
 func invoke() error {

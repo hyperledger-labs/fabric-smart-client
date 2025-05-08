@@ -22,7 +22,7 @@ type AgreeToSellView struct {
 }
 
 func (a *AgreeToSellView) Call(context view.Context) (interface{}, error) {
-	assetPrice, err := a.AssetPrice.Bytes()
+	assetPrice, err := a.Bytes()
 	assert.NoError(err, "failed marshalling assetPrice")
 
 	_, err = context.RunView(

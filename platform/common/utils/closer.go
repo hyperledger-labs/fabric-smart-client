@@ -28,3 +28,7 @@ func IgnoreError(err error) {
 func IgnoreErrorFunc(f func() error) {
 	_ = f()
 }
+
+func IgnoreErrorWithOneArg[T any](fn func(t T) error, t T) {
+	_ = fn(t)
+}

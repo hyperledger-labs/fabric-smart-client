@@ -26,9 +26,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/orion"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 var logger = logging.MustGetLogger("fsc.integration")
@@ -51,7 +52,7 @@ type Infrastructure struct {
 }
 
 func New(startPort int, path string, topologies ...api.Topology) (*Infrastructure, error) {
-	RegisterFailHandler(failMe)
+	gomega.RegisterFailHandler(failMe)
 	defer ginkgo.GinkgoRecover()
 
 	var testDir string
@@ -190,7 +191,7 @@ func (i *Infrastructure) Stop() {
 	}
 	defer i.BuildServer.Shutdown(i.DeleteOnStop)
 	if i.DeleteOnStop {
-		defer os.RemoveAll(i.TestDir)
+		defer utils.IgnoreErrorWithOneArg(os.RemoveAll, i.TestDir)
 	}
 	i.NWO.Stop()
 }
@@ -295,7 +296,7 @@ func (i *Infrastructure) initNWO() {
 		default:
 			logger.Infof("Register %s", label)
 			factory, ok := i.PlatformFactories[label]
-			Expect(ok).To(BeTrue(), "expected to find platform [%s]", label)
+			gomega.Expect(ok).To(gomega.BeTrue(), "expected to find platform [%s]", label)
 			platforms = append(platforms, factory.New(i.Ctx, topology, i.BuildServer.Client()))
 		}
 	}

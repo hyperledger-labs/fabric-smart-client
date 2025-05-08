@@ -33,7 +33,7 @@ func (db *KeyValueStore) SetStates(ns driver.Namespace, kvs map[driver.PKey]driv
 		decodeMap[enc] = k
 	}
 
-	errs := db.KeyValueStore.SetStatesWithTx(db.Txn, ns, encoded)
+	errs := db.SetStatesWithTx(db.Txn, ns, encoded)
 	decodedErrs := make(map[driver.PKey]error, len(errs))
 	for k, err := range errs {
 		decodedErrs[decodeMap[k]] = err
@@ -42,7 +42,7 @@ func (db *KeyValueStore) SetStates(ns driver.Namespace, kvs map[driver.PKey]driv
 }
 
 func (db *KeyValueStore) SetStateWithTx(tx *sql.Tx, ns driver.Namespace, pkey driver.PKey, value driver.UnversionedValue) error {
-	if errs := db.KeyValueStore.SetStatesWithTx(tx, ns, map[driver.PKey]driver.UnversionedValue{encode(pkey): value}); errs != nil {
+	if errs := db.SetStatesWithTx(tx, ns, map[driver.PKey]driver.UnversionedValue{encode(pkey): value}); errs != nil {
 		return errs[encode(pkey)]
 	}
 	return nil

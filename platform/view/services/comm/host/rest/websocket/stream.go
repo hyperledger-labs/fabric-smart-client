@@ -11,6 +11,7 @@ import (
 	"io"
 
 	"github.com/gorilla/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
 	"go.uber.org/zap/zapcore"
@@ -66,7 +67,7 @@ func (s *stream) readMessages(ctx context.Context) {
 			if err != nil && (websocket.IsCloseError(err, websocket.CloseAbnormalClosure)) {
 				logger.Debugf("Websocket connection closed unexpectedly")
 				s.reads <- streamEOF
-				s.Close()
+				utils.IgnoreErrorFunc(s.Close)
 				return
 			}
 			logger.Debugf("Read message of length [%d] on [%s]. Error encountered: %w", len(msg), s.Hash(), err)

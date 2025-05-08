@@ -9,6 +9,7 @@ package common
 import (
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	_ "modernc.org/sqlite"
 )
@@ -25,7 +26,7 @@ func TestCases(t *testing.T,
 			t.Fatal(err)
 		}
 		t.Run(c.Name, func(xt *testing.T) {
-			defer un.Close()
+			defer utils.IgnoreErrorFunc(un.Close)
 			c.Fn(xt, un)
 		})
 	}
@@ -36,7 +37,7 @@ func TestCases(t *testing.T,
 		}
 		b := baseUnpacker(un)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer un.Close()
+			defer utils.IgnoreErrorFunc(un.Close)
 			c.Fn(xt, b.readDB, b.writeDB, b.errorWrapper, b.table)
 		})
 	}
@@ -46,7 +47,7 @@ func TestCases(t *testing.T,
 			t.Fatal(err)
 		}
 		t.Run(c.Name, func(xt *testing.T) {
-			defer un.Close()
+			defer utils.IgnoreErrorFunc(un.Close)
 			c.Fn(xt, un)
 		})
 	}

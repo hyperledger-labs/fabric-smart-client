@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/stretchr/testify/assert"
 )
@@ -64,7 +65,7 @@ func TestCreds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to start listener [%s]", err)
 	}
-	defer lis.Close()
+	defer utils.IgnoreErrorFunc(lis.Close)
 
 	_, port, err := net.SplitHostPort(lis.Addr().String())
 	assert.NoError(t, err)

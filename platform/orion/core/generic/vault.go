@@ -66,9 +66,9 @@ func (v *Vault) Status(ctx context.Context, txID driver3.TxID) (driver.Validatio
 	if err != nil {
 		return driver.Unknown, "", err
 	}
-	//if vc == driver.Busy {
+	// if vc == driver.Busy {
 	//	return vc, "", nil
-	//}
+	// }
 	if vc != driver.Unknown {
 		return vc, message, nil
 	}
@@ -114,7 +114,7 @@ func (v *Vault) DiscardTx(ctx context.Context, txID driver3.TxID, message string
 		return v.Vault.DiscardTx(ctx, txID, message)
 	}
 	logger.Debugf("discarding transaction [%s], tx is unknown, set status to invalid", txID)
-	if err := v.Vault.SetDiscarded(ctx, txID, message); err != nil {
+	if err := v.SetDiscarded(ctx, txID, message); err != nil {
 		logger.Errorf("failed setting tx discarded [%s] in vault: %s", txID, err)
 	}
 	return nil

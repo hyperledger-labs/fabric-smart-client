@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/pkg/errors"
 
 	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
@@ -86,7 +87,7 @@ func NewCA(
 	}
 
 	template := x509Template()
-	//this is a CA
+	// this is a CA
 	template.IsCA = true
 	template.KeyUsage |= x509.KeyUsageDigitalSignature |
 		x509.KeyUsageKeyEncipherment | x509.KeyUsageCertSign |
@@ -96,7 +97,7 @@ func NewCA(
 		x509.ExtKeyUsageServerAuth,
 	}
 
-	//set the organization for the subject
+	// set the organization for the subject
 	subject := subjectTemplateAdditional(country, province, locality, orgUnit, streetAddress, postalCode)
 	subject.Organization = []string{org}
 	subject.CommonName = name
@@ -195,7 +196,7 @@ func (ca *CA) SignCertificate(baseDir, name string, orgUnits, alternateNames []s
 	template.KeyUsage = ku
 	template.ExtKeyUsage = eku
 
-	//set the organization for the subject
+	// set the organization for the subject
 	subject := subjectTemplateAdditional(
 		ca.Country,
 		ca.Province,
@@ -330,7 +331,7 @@ func x509Template() x509.Certificate {
 	// round minute and backdate 5 minutes
 	notBefore := time.Now().Round(time.Minute).Add(-5 * time.Minute).UTC()
 
-	//basic template to use
+	// basic template to use
 	x509 := x509.Certificate{
 		SerialNumber:          serialNumber,
 		NotBefore:             notBefore,
@@ -351,21 +352,21 @@ func genCertificateECDSA(
 	priv interface{},
 ) (*x509.Certificate, error) {
 
-	//create the x509 public cert
+	// create the x509 public cert
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pub, priv)
 	if err != nil {
 		return nil, err
 	}
 
-	//write cert out to file
+	// write cert out to file
 	fileName := filepath.Join(baseDir, name+"-cert.pem")
 	certFile, err := os.Create(fileName)
 	if err != nil {
 		return nil, err
 	}
-	//pem encode the cert
+	// pem encode the cert
 	err = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
-	certFile.Close()
+	utils.IgnoreErrorFunc(certFile.Close)
 	if err != nil {
 		return nil, err
 	}

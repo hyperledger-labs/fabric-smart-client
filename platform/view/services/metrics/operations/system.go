@@ -15,6 +15,7 @@ import (
 	kitstatsd "github.com/go-kit/kit/metrics/statsd"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd"
@@ -206,7 +207,7 @@ func (s *System) startMetricsTickers(m *Statsd) error {
 		if err != nil {
 			return err
 		}
-		c.Close()
+		utils.IgnoreErrorFunc(c.Close)
 
 		writeInterval := m.WriteInterval
 

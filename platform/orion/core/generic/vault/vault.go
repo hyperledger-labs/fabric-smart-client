@@ -63,7 +63,7 @@ func newInterceptor(
 }
 
 func (i *Interceptor) AppendRWSet([]byte, ...string) error {
-	if i.Interceptor.IsClosed() {
+	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
 	return nil

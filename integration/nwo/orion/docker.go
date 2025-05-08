@@ -20,7 +20,8 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	. "github.com/onsi/gomega"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/onsi/gomega"
 )
 
 const ServerImage = "orionbcdb/orion-server:latest"
@@ -35,7 +36,7 @@ func (p *Platform) StartOrionServer() {
 	}
 
 	d, err := docker.GetInstance()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	net, err := d.Client.NetworkInfo(p.NetworkID)
 	if err != nil {
@@ -100,9 +101,9 @@ func (p *Platform) StartOrionServer() {
 		panic(err)
 	}
 
-	Expect(cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
+	gomega.Expect(cli.NetworkConnect(context.Background(), p.NetworkID, resp.ID, &network.EndpointSettings{
 		NetworkID: p.NetworkID,
-	})).ToNot(HaveOccurred())
+	})).ToNot(gomega.HaveOccurred())
 
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		panic(err)
@@ -116,8 +117,8 @@ func (p *Platform) StartOrionServer() {
 			Follow:     true,
 			Timestamps: false,
 		})
-		Expect(err).ToNot(HaveOccurred())
-		defer reader.Close()
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		defer utils.IgnoreErrorFunc(reader.Close)
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {

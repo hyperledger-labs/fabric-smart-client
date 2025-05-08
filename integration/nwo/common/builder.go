@@ -18,7 +18,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -29,16 +29,16 @@ type BuilderClient struct {
 }
 
 func (c *BuilderClient) Build(path string) string {
-	Expect(c.ServerAddress).NotTo(BeEmpty(), "build server address is empty")
+	gomega.Expect(c.ServerAddress).NotTo(gomega.BeEmpty(), "build server address is empty")
 
 	resp, err := http.Get(fmt.Sprintf("http://%s/%s", c.ServerAddress, path))
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	body, err := io.ReadAll(resp.Body)
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	if resp.StatusCode != http.StatusOK {
-		Expect(resp.StatusCode).To(Equal(http.StatusOK), string(body))
+		gomega.Expect(resp.StatusCode).To(gomega.Equal(http.StatusOK), string(body))
 	}
 
 	return string(body)
@@ -62,7 +62,7 @@ func NewBuildServer(args ...string) *BuildServer {
 
 func (s *BuildServer) Serve() {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	s.lis = lis
 	go utils.IgnoreErrorFunc(func() error {
@@ -81,7 +81,7 @@ func (s *BuildServer) Shutdown(deleteOnStop bool) {
 }
 
 func (s *BuildServer) Client() *BuilderClient {
-	Expect(s.lis).NotTo(BeNil())
+	gomega.Expect(s.lis).NotTo(gomega.BeNil())
 
 	return &BuilderClient{
 		ServerAddress: s.lis.Addr().String(),
@@ -143,19 +143,19 @@ func (b *buildHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// logger.Infof("ServeHTTP %v", req.URL)
 
 	input := strings.TrimPrefix(req.URL.Path, "/")
-	input = strings.Replace(input, "\n", "", -1)
-	input = strings.Replace(input, "\r", "", -1)
+	input = strings.ReplaceAll(input, "\n", "")
+	input = strings.ReplaceAll(input, "\r", "")
 	a := b.artifact(input)
 	if err := a.build(b.args...); err != nil {
 		// logger.Infof("ServeHTTP %v, failed %s", req.URL, err)
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "%s", err)
+		_, _ = fmt.Fprintf(w, "%s", err)
 		return
 	}
 	// logger.Infof("ServeHTTP %v, done %s", req.URL, a.output)
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "%s", a.output)
+	_, _ = fmt.Fprintf(w, "%s", a.output)
 }
 
 func (b *buildHandler) artifact(input string) *artifact {

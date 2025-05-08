@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,7 @@ import (
 func BenchmarkReadExistingSqlite(b *testing.B) {
 	db, err := newTestKeyValueStore(b.TempDir())
 	assert.NoError(b, err)
-	defer db.Close()
+	defer utils.IgnoreErrorFunc(db.Close)
 
 	common.ReadExisting(b, db)
 }
@@ -28,7 +29,7 @@ func BenchmarkReadExistingSqlite(b *testing.B) {
 func BenchmarkReadNonExistingSqlite(b *testing.B) {
 	db, err := newTestKeyValueStore(b.TempDir())
 	assert.NoError(b, err)
-	defer db.Close()
+	defer utils.IgnoreErrorFunc(db.Close)
 
 	common.ReadNonExisting(b, db)
 }
@@ -36,7 +37,7 @@ func BenchmarkReadNonExistingSqlite(b *testing.B) {
 func BenchmarkWriteOneSqlite(b *testing.B) {
 	db, err := newTestKeyValueStore(b.TempDir())
 	assert.NoError(b, err)
-	defer db.Close()
+	defer utils.IgnoreErrorFunc(db.Close)
 
 	common.WriteOne(b, db)
 }
@@ -44,7 +45,7 @@ func BenchmarkWriteOneSqlite(b *testing.B) {
 func BenchmarkWriteManySqlite(b *testing.B) {
 	db, err := newTestKeyValueStore(b.TempDir())
 	assert.NoError(b, err)
-	defer db.Close()
+	defer utils.IgnoreErrorFunc(db.Close)
 
 	common.WriteMany(b, db)
 }

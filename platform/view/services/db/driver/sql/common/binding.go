@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -52,7 +53,7 @@ func (db *BindingStore) HaveSameBinding(this, that view.Identity) (bool, error) 
 	if err != nil {
 		return false, errors.Wrapf(err, "error querying db")
 	}
-	defer rows.Close()
+	defer utils.IgnoreErrorFunc(rows.Close)
 
 	longTermIds := make([]view.Identity, 0, 2)
 	for rows.Next() {
