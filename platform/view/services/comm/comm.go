@@ -30,9 +30,7 @@ type ConfigService interface {
 }
 
 type Service struct {
-	HostProvider    host.GeneratorProvider
-	EndpointService EndpointService
-	ConfigService   ConfigService
+	HostProvider host.GeneratorProvider
 
 	Node            *P2PNode
 	NodeSync        sync.RWMutex
@@ -40,11 +38,9 @@ type Service struct {
 	metricsProvider metrics.Provider
 }
 
-func NewService(hostProvider host.GeneratorProvider, endpointService EndpointService, configService ConfigService, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (*Service, error) {
+func NewService(hostProvider host.GeneratorProvider, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (*Service, error) {
 	s := &Service{
 		HostProvider:    hostProvider,
-		EndpointService: endpointService,
-		ConfigService:   configService,
 		tracerProvider:  tracerProvider,
 		metricsProvider: metricsProvider,
 	}

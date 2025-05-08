@@ -48,10 +48,10 @@ func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting new host for [%s]", p.config.ListenAddress())
 	}
-	return NewHost(nodeID, convertAddress(p.config.ListenAddress()), p.routing, p.tracerProvider, p.streamProvider, tlsConfig), nil
+	return NewHost(nodeID, ConvertAddress(p.config.ListenAddress()), p.routing, p.tracerProvider, p.streamProvider, tlsConfig), nil
 }
 
-func convertAddress(addr string) string {
+func ConvertAddress(addr string) string {
 	parts := strings.Split(addr, "/")
 	if len(parts) != 5 {
 		panic("unexpected address found: " + addr)

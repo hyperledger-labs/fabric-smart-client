@@ -41,7 +41,7 @@ func TestPKIResolveConcurrency(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		go func() {
 			defer wg.Done()
-			svc.pkiResolve(resolver)
+			svc.pkiExtractor.PkiResolve(resolver)
 		}()
 	}
 	wg.Wait()
