@@ -44,11 +44,7 @@ func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 		return nil, errors.Wrapf(err, "failed to load identity in [%s]", p.config.CertPath())
 	}
 	nodeID := string(p.pkiExtractor.ExtractPKI(raw))
-	tlsConfig, err := p.config.TLSConfig()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting new host for [%s]", p.config.ListenAddress())
-	}
-	return NewHost(nodeID, convertAddress(p.config.ListenAddress()), p.routing, p.tracerProvider, p.streamProvider, tlsConfig), nil
+	return NewHost(nodeID, convertAddress(p.config.ListenAddress()), p.routing, p.tracerProvider, p.streamProvider, p.config.ClientTLSConfig(), p.config.ServerTLSConfig()), nil
 }
 
 func convertAddress(addr string) string {

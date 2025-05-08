@@ -34,18 +34,18 @@ type StreamProvider interface {
 	NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error
 }
 
-func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider, streamProvider StreamProvider, tlsConfig *tls.Config) *host {
-	logger.Debugf("Create p2p client for node ID [%s] with TLS config [%v]", nodeID, tlsConfig)
+func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider, streamProvider StreamProvider, clientConfig, serverConfig *tls.Config) *host {
+	logger.Debugf("Create p2p client for node ID [%s] with TLS config [server: %v] [client: %v]", nodeID, serverConfig, clientConfig)
 	return &host{
 		server: &server{
 			srv: &http.Server{
 				Addr:      listenAddress,
-				TLSConfig: serverTLSConfig(tlsConfig),
+				TLSConfig: serverConfig,
 			},
 			streamProvider: streamProvider,
 		},
 		client: &client{
-			tlsConfig:      clientTLSConfig(tlsConfig),
+			tlsConfig:      clientConfig,
 			nodeID:         nodeID,
 			streamProvider: streamProvider,
 		},
@@ -55,20 +55,6 @@ func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing rou
 			LabelNames: []tracing.LabelName{},
 		})),
 	}
-}
-
-func serverTLSConfig(tlsConfig *tls.Config) *tls.Config {
-	if tlsConfig == nil {
-		return nil
-	}
-	return &tls.Config{Certificates: tlsConfig.Certificates}
-}
-
-func clientTLSConfig(tlsConfig *tls.Config) *tls.Config {
-	if tlsConfig == nil {
-		return nil
-	}
-	return &tls.Config{InsecureSkipVerify: tlsConfig.InsecureSkipVerify, RootCAs: tlsConfig.RootCAs}
 }
 
 func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
