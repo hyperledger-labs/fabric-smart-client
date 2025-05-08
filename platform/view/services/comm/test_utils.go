@@ -8,12 +8,9 @@ package comm
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 
-	"github.com/hashicorp/consul/sdk/freeport"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
@@ -174,8 +171,4 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNo
 
 	bootstrapNode.Stop()
 	node.Stop()
-}
-
-func freeAddress() string {
-	return fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", utils.MustGet(freeport.Take(1))[0])
 }
