@@ -8,6 +8,8 @@ package rest
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	"os"
 
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/pkg/errors"
@@ -55,6 +57,9 @@ func (c *config) TLSConfig() (*tls.Config, error) {
 func (c *config) CertPath() string { return c.certPath }
 
 func newTLSConfig(rootCACertFiles []string, keyFile, certFile string) (*tls.Config, error) {
+	if len(rootCACertFiles) == 0 && len(keyFile) == 0 && len(certFile) == 0 {
+		return nil, nil
+	}
 	caCertPool, err := newRootCACertPool(rootCACertFiles)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to read root CA certs")
@@ -75,4 +80,21 @@ func newTLSConfig(rootCACertFiles []string, keyFile, certFile string) (*tls.Conf
 		RootCAs:            caCertPool,
 		Certificates:       certs,
 	}, nil
+}
+
+func newRootCACertPool(rootCAs []string) (*x509.CertPool, error) {
+	if len(rootCAs) == 0 {
+		return nil, nil
+	}
+	caCertPool := x509.NewCertPool()
+	for _, rootCA := range rootCAs {
+		caCert, err := os.ReadFile(rootCA)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to read PEM cert in [%s]", caCert)
+		}
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, errors.Errorf("failed to append cert from [%s]", caCert)
+		}
+	}
+	return caCertPool, nil
 }
