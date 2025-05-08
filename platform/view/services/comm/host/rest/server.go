@@ -23,18 +23,8 @@ type serverStreamProvider interface {
 }
 
 type server struct {
-	srv               *http.Server
-	keyFile, certFile string
-	streamProvider    serverStreamProvider
-}
-
-func newServer(streamProvider serverStreamProvider, listenAddress host2.PeerIPAddress, keyFile, certFile string) *server {
-	return &server{
-		srv:            &http.Server{Addr: listenAddress},
-		certFile:       certFile,
-		keyFile:        keyFile,
-		streamProvider: streamProvider,
-	}
+	srv            *http.Server
+	streamProvider serverStreamProvider
 }
 
 func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stream host2.P2PStream)) *gin.Engine {
@@ -72,15 +62,15 @@ func (s *server) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	s.srv.Handler = newHandler(s.streamProvider, newStreamCallback)
 
 	var err error
-	if len(s.certFile) == 0 || len(s.keyFile) == 0 {
-		logger.Debugf("Starting up REST server without TLS on [%s]...", s.srv.Addr)
+	if s.srv.TLSConfig == nil {
+		logger.Infof("Starting up REST server without TLS on [%s]...", s.srv.Addr)
 		err = s.srv.ListenAndServe()
 	} else {
-		logger.Debugf("Starting up REST server with TLS on [%s]...", s.srv.Addr)
-		err = s.srv.ListenAndServeTLS(s.certFile, s.keyFile)
+		logger.Infof("Starting up REST server with TLS [%v] on [%s]...", s.srv.TLSConfig, s.srv.Addr)
+		err = s.srv.ListenAndServeTLS("", "")
 	}
 	if !errors.Is(err, http.ErrServerClosed) {
-		return err
+		return errors.Wrapf(err, "failed to start http server")
 	}
 	return nil
 }

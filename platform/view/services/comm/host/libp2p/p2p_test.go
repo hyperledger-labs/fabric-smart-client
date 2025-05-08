@@ -64,13 +64,11 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 		}
 	}()
 
-	provider := newHostProvider(&disabled.Provider{})
-
 	bootstrapNodePrivBytes, err := os.ReadFile(bootstrapNodeSK)
 	assert.NoError(t, err)
 	bootstrapHostKey, err := crypto.UnmarshalECDSAPrivateKey(bootstrapNodePrivBytes)
 	assert.NoError(t, err)
-	bootstrapHost, err := provider.NewBootstrapHost(bootstrapNodeEndpoint, bootstrapHostKey)
+	bootstrapHost, err := newLibP2PHost(bootstrapNodeEndpoint, bootstrapHostKey, newMetrics(&disabled.Provider{}), true, "")
 	assert.NoError(t, err)
 	bootstrapNode, err := comm.NewNode(bootstrapHost, noop.NewTracerProvider(), &disabled.Provider{})
 	assert.NoError(t, err)
@@ -80,7 +78,7 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 	assert.NoError(t, err)
 	anotherHostKey, err := crypto.UnmarshalECDSAPrivateKey(anotherHostPrivBytes)
 	assert.NoError(t, err)
-	anotherHost, err := provider.NewHost(nodeEndpoint, bootstrapNodeEndpoint+"/p2p/"+bootstrapNodeID, anotherHostKey)
+	anotherHost, err := newLibP2PHost(nodeEndpoint, anotherHostKey, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapNodeID)
 	assert.NoError(t, err)
 	anotherNode, err := comm.NewNode(anotherHost, noop.NewTracerProvider(), &disabled.Provider{})
 	assert.NoError(t, err)

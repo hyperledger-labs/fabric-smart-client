@@ -89,7 +89,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 		span.End()
 	}()
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
-	tlsEnabled := config.InsecureSkipVerify || config.RootCAs != nil
+	tlsEnabled := config != nil && (config.InsecureSkipVerify || config.RootCAs != nil)
 	url := url.URL{Scheme: schemes[tlsEnabled], Host: info.RemotePeerAddress, Path: "/p2p"}
 	// We use the background context instead of passing the existing context,
 	// because the net/http server doesn't monitor connections upgraded to WebSocket.
@@ -283,7 +283,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	// Propagating the request context will not make a difference (see comment in newClientStream)
 	spanContext, err := tracing.UnmarshalContext(meta.SpanContext)
 	if err != nil {
-		logger.Errorf("failed to unmarshal span context: %v", err)
+		logger.Debugf("failed to unmarshal span context: %v", err)
 	}
 	ctx, span := c.tracer.Start(trace.ContextWithRemoteSpanContext(context.Background(), spanContext), "IncomingViewInvocation", tracing.WithAttributes(
 		tracing.String(contextIDLabel, meta.ContextID)))

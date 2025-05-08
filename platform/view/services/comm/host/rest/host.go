@@ -34,22 +34,41 @@ type StreamProvider interface {
 	NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error
 }
 
-func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider, streamProvider StreamProvider, keyFile, certFile string, rootCACertFiles []string) (*host, error) {
-	logger.Debugf("Creating new host for node [%s] on [%s] with key, cert at: [%s], [%s]", nodeID, listenAddress, keyFile, certFile)
-	p2pClient, err := newClient(streamProvider, nodeID, rootCACertFiles, len(keyFile) > 0 && len(certFile) > 0)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create client")
-	}
-	p2pServer := newServer(streamProvider, listenAddress, keyFile, certFile)
+func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider, streamProvider StreamProvider, tlsConfig *tls.Config) *host {
+	logger.Debugf("Create p2p client for node ID [%s] with TLS config [%v]", nodeID, tlsConfig)
 	return &host{
-		server:  p2pServer,
-		client:  p2pClient,
+		server: &server{
+			srv: &http.Server{
+				Addr:      listenAddress,
+				TLSConfig: serverTLSConfig(tlsConfig),
+			},
+			streamProvider: streamProvider,
+		},
+		client: &client{
+			tlsConfig:      clientTLSConfig(tlsConfig),
+			nodeID:         nodeID,
+			streamProvider: streamProvider,
+		},
 		routing: routing,
 		tracer: tracerProvider.Tracer("host", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "viewsdk",
 			LabelNames: []tracing.LabelName{},
 		})),
-	}, nil
+	}
+}
+
+func serverTLSConfig(tlsConfig *tls.Config) *tls.Config {
+	if tlsConfig == nil {
+		return nil
+	}
+	return &tls.Config{Certificates: tlsConfig.Certificates}
+}
+
+func clientTLSConfig(tlsConfig *tls.Config) *tls.Config {
+	if tlsConfig == nil {
+		return nil
+	}
+	return &tls.Config{InsecureSkipVerify: tlsConfig.InsecureSkipVerify, RootCAs: tlsConfig.RootCAs}
 }
 
 func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {

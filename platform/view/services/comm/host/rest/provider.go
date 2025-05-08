@@ -21,14 +21,16 @@ type pkiExtractor interface {
 }
 
 type endpointServiceBasedProvider struct {
+	config         Config
 	pkiExtractor   pkiExtractor
 	routing        routing2.ServiceDiscovery
 	tracerProvider trace.TracerProvider
 	streamProvider StreamProvider
 }
 
-func NewEndpointBasedProvider(extractor pkiExtractor, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider, streamProvider StreamProvider) *endpointServiceBasedProvider {
+func NewEndpointBasedProvider(config Config, extractor pkiExtractor, routing routing2.ServiceDiscovery, tracerProvider trace.TracerProvider, streamProvider StreamProvider) *endpointServiceBasedProvider {
 	return &endpointServiceBasedProvider{
+		config:         config,
 		pkiExtractor:   extractor,
 		routing:        routing,
 		tracerProvider: tracerProvider,
@@ -36,17 +38,17 @@ func NewEndpointBasedProvider(extractor pkiExtractor, routing routing2.ServiceDi
 	}
 }
 
-func (p *endpointServiceBasedProvider) NewBootstrapHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string) (host2.P2PHost, error) {
-	raw, err := id.LoadIdentity(certPath)
+func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
+	raw, err := id.LoadIdentity(p.config.CertPath())
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load identity in [%s]", certPath)
+		return nil, errors.Wrapf(err, "failed to load identity in [%s]", p.config.CertPath())
 	}
 	nodeID := string(p.pkiExtractor.ExtractPKI(raw))
-	return NewHost(nodeID, convertAddress(listenAddress), p.routing, p.tracerProvider, p.streamProvider, privateKeyPath, certPath, nil)
-}
-
-func (p *endpointServiceBasedProvider) NewHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string, _ host2.PeerIPAddress) (host2.P2PHost, error) {
-	return p.NewBootstrapHost(listenAddress, privateKeyPath, certPath)
+	tlsConfig, err := p.config.TLSConfig()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed getting new host for [%s]", p.config.ListenAddress())
+	}
+	return NewHost(nodeID, convertAddress(p.config.ListenAddress()), p.routing, p.tracerProvider, p.streamProvider, tlsConfig), nil
 }
 
 func convertAddress(addr string) string {

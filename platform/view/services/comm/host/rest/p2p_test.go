@@ -42,21 +42,24 @@ func TestSessionsForMPCTestRound(t *testing.T) {
 func setupTwoNodes(t *testing.T, port int) (*comm.HostNode, *comm.HostNode) {
 	bootstrapAddress := fmt.Sprintf("127.0.0.1:%d", port)
 	otherAddress := fmt.Sprintf("127.0.0.1:%d", port+1)
-	provider := newStaticRouteHostProvider(&routing.StaticIDRouter{
+	routes := &routing.StaticIDRouter{
 		"bootstrap": []host2.PeerIPAddress{bootstrapAddress},
 		"other":     []host2.PeerIPAddress{otherAddress},
-	})
-	bootstrap, _ := provider.NewHost(bootstrapAddress,
+	}
+
+	bootstrap, _ := newStaticRouteHostProvider(routes, rest.NewConfigFromProperties(
+		bootstrapAddress,
 		"../libp2p/testdata/msp/user1/keystore/priv_sk",
 		"../libp2p/testdata/msp/user1/signcerts/User1@org1.example.com-cert.pem",
-		"")
+	)).GetNewHost()
 	bootstrapNode, err := comm.NewNode(bootstrap, noop.NewTracerProvider(), &disabled.Provider{})
 	assert.NoError(t, err)
 
-	other, _ := provider.NewHost(otherAddress,
+	other, _ := newStaticRouteHostProvider(routes, rest.NewConfigFromProperties(
+		otherAddress,
 		"../libp2p/testdata/msp/user2/keystore/priv_sk",
 		"../libp2p/testdata/msp/user2/signcerts/User2@org1.example.com-cert.pem",
-		"")
+	)).GetNewHost()
 	otherNode, err := comm.NewNode(other, noop.NewTracerProvider(), &disabled.Provider{})
 	assert.NoError(t, err)
 
@@ -66,18 +69,19 @@ func setupTwoNodes(t *testing.T, port int) (*comm.HostNode, *comm.HostNode) {
 
 type staticRoutHostProvider struct {
 	routes *routing.StaticIDRouter
+	config rest.Config
 }
 
-func newStaticRouteHostProvider(routes *routing.StaticIDRouter) *staticRoutHostProvider {
-	return &staticRoutHostProvider{routes: routes}
+func newStaticRouteHostProvider(routes *routing.StaticIDRouter, config rest.Config) *staticRoutHostProvider {
+	return &staticRoutHostProvider{routes: routes, config: config}
 }
 
-func (p *staticRoutHostProvider) NewBootstrapHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string) (host2.P2PHost, error) {
-	nodeID, _ := p.routes.ReverseLookup(listenAddress)
+func (p *staticRoutHostProvider) GetNewHost() (host2.P2PHost, error) {
+	nodeID, _ := p.routes.ReverseLookup(p.config.ListenAddress())
 	discovery := routing.NewServiceDiscovery(p.routes, routing.RoundRobin[host2.PeerIPAddress]())
-	return rest.NewHost(nodeID, listenAddress, discovery, noop.NewTracerProvider(), websocket.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}), privateKeyPath, certPath, nil)
-}
-
-func (p *staticRoutHostProvider) NewHost(listenAddress host2.PeerIPAddress, privateKeyPath, certPath string, _ host2.PeerIPAddress) (host2.P2PHost, error) {
-	return p.NewBootstrapHost(listenAddress, privateKeyPath, certPath)
+	tlsConfig, err := p.config.TLSConfig()
+	if err != nil {
+		return nil, err
+	}
+	return rest.NewHost(nodeID, p.config.ListenAddress(), discovery, noop.NewTracerProvider(), websocket.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}), tlsConfig), nil
 }
