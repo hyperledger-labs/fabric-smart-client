@@ -57,11 +57,10 @@ func createLibp2pNodes() []*Node {
 		var servicePkId view2.Identity
 		var resolver BootstrapNodeResolver
 		if iNode == 0 {
-			service, servicePkId = NewLibP2PCommService(config, nil)
+			service, servicePkId = NewLibP2PCommService(config.Libp2pConfig(""), config.CertFile, nil)
 			resolver = BootstrapNodeResolver{nodeID: servicePkId, nodeAddress: config.ListenAddress}
 		} else {
-			config.BootstrapNode = "node0"
-			service, servicePkId = NewLibP2PCommService(config, &resolver)
+			service, servicePkId = NewLibP2PCommService(config.Libp2pConfig("node0"), config.CertFile, &resolver)
 		}
 
 		service.Start(context.Background())
@@ -94,7 +93,7 @@ func createWebsocketNodes() []*Node {
 
 	var nodes []*Node
 	for iNode := 0; iNode < numOfNodes; iNode++ {
-		service := NewWebsocketCommService(&router, configs[iNode])
+		service := NewWebsocketCommService(&router, configs[iNode].RestConfig())
 		service.Start(context.Background())
 		node := Node{
 			commService: service,
