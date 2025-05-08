@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"os"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/pkg/errors"
 )
@@ -22,7 +23,8 @@ type configService interface {
 
 type Config interface {
 	ListenAddress() host2.PeerIPAddress
-	TLSConfig() (*tls.Config, error)
+	ClientTLSConfig() *tls.Config
+	ServerTLSConfig() *tls.Config
 	CertPath() string
 }
 
@@ -50,11 +52,27 @@ type config struct {
 
 func (c *config) ListenAddress() host2.PeerIPAddress { return c.listenAddress }
 
-func (c *config) TLSConfig() (*tls.Config, error) {
-	return newTLSConfig(nil, c.privateKeyPath, c.certPath)
+func (c *config) CertPath() string { return c.certPath }
+
+func (c *config) ClientTLSConfig() *tls.Config {
+	tlsConfig := c.tlsConfig()
+	if tlsConfig == nil {
+		return nil
+	}
+	return &tls.Config{InsecureSkipVerify: tlsConfig.InsecureSkipVerify, RootCAs: tlsConfig.RootCAs}
 }
 
-func (c *config) CertPath() string { return c.certPath }
+func (c *config) ServerTLSConfig() *tls.Config {
+	tlsConfig := c.tlsConfig()
+	if tlsConfig == nil {
+		return nil
+	}
+	return &tls.Config{Certificates: tlsConfig.Certificates}
+}
+
+func (c *config) tlsConfig() *tls.Config {
+	return utils.MustGet(newTLSConfig(nil, c.privateKeyPath, c.certPath))
+}
 
 func newTLSConfig(rootCACertFiles []string, keyFile, certFile string) (*tls.Config, error) {
 	if len(rootCACertFiles) == 0 && len(keyFile) == 0 && len(certFile) == 0 {

@@ -79,9 +79,5 @@ func newStaticRouteHostProvider(routes *routing.StaticIDRouter, config rest.Conf
 func (p *staticRoutHostProvider) GetNewHost() (host2.P2PHost, error) {
 	nodeID, _ := p.routes.ReverseLookup(p.config.ListenAddress())
 	discovery := routing.NewServiceDiscovery(p.routes, routing.RoundRobin[host2.PeerIPAddress]())
-	tlsConfig, err := p.config.TLSConfig()
-	if err != nil {
-		return nil, err
-	}
-	return rest.NewHost(nodeID, p.config.ListenAddress(), discovery, noop.NewTracerProvider(), websocket.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}), tlsConfig), nil
+	return rest.NewHost(nodeID, p.config.ListenAddress(), discovery, noop.NewTracerProvider(), websocket.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}), p.config.ClientTLSConfig(), p.config.ServerTLSConfig()), nil
 }
