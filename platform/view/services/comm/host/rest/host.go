@@ -40,12 +40,12 @@ func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing rou
 		server: &server{
 			srv: &http.Server{
 				Addr:      listenAddress,
-				TLSConfig: clientTLSConfig(tlsConfig),
+				TLSConfig: serverTLSConfig(tlsConfig),
 			},
 			streamProvider: streamProvider,
 		},
 		client: &client{
-			tlsConfig:      serverTLSConfig(tlsConfig),
+			tlsConfig:      clientTLSConfig(tlsConfig),
 			nodeID:         nodeID,
 			streamProvider: streamProvider,
 		},
