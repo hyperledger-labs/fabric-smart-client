@@ -14,7 +14,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	endpoint2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
@@ -40,25 +39,25 @@ type node struct {
 func TestWebsocketSession(t *testing.T) {
 	RegisterTestingT(t)
 
-	aliceConfig, bobConfig := getConfig("initiator"), getConfig("responder")
+	aliceConfig, bobConfig := GetConfig("initiator"), GetConfig("responder")
 
 	router := &routing.StaticIDRouter{
-		"alice": []host.PeerIPAddress{rest.ConvertAddress(aliceConfig.listenAddress)},
-		"bob":   []host.PeerIPAddress{rest.ConvertAddress(bobConfig.listenAddress)},
+		"alice": []host.PeerIPAddress{rest.ConvertAddress(aliceConfig.ListenAddress)},
+		"bob":   []host.PeerIPAddress{rest.ConvertAddress(bobConfig.ListenAddress)},
 	}
-	alice := newWebsocketCommService(router, aliceConfig.RestConfig())
+	alice := NewWebsocketCommService(router, aliceConfig.RestConfig())
 	alice.Start(context.Background())
-	bob := newWebsocketCommService(router, bobConfig.RestConfig())
+	bob := NewWebsocketCommService(router, bobConfig.RestConfig())
 	bob.Start(context.Background())
 
 	aliceNode := node{
 		commService: alice,
-		address:     aliceConfig.listenAddress,
+		address:     aliceConfig.ListenAddress,
 		pkID:        []byte("alice"),
 	}
 	bobNode := node{
 		commService: bob,
-		address:     bobConfig.listenAddress,
+		address:     bobConfig.ListenAddress,
 		pkID:        []byte("bob"),
 	}
 
@@ -68,21 +67,21 @@ func TestWebsocketSession(t *testing.T) {
 func TestLibp2pSession(t *testing.T) {
 	RegisterTestingT(t)
 
-	aliceConfig, bobConfig := getConfig("initiator"), getConfig("responder")
+	aliceConfig, bobConfig := GetConfig("initiator"), GetConfig("responder")
 
-	alice, alicePkID := newLibP2PCommService(aliceConfig.Libp2pConfig(""), aliceConfig.certFile, nil)
+	alice, alicePkID := NewLibP2PCommService(aliceConfig.Libp2pConfig(""), aliceConfig.CertFile, nil)
 	alice.Start(context.Background())
-	bob, bobPkID := newLibP2PCommService(bobConfig.Libp2pConfig("alice"), bobConfig.certFile, &bootstrapNodeResolver{nodeID: alicePkID, nodeAddress: aliceConfig.listenAddress})
+	bob, bobPkID := NewLibP2PCommService(bobConfig.Libp2pConfig("alice"), bobConfig.CertFile, &BootstrapNodeResolver{nodeID: alicePkID, nodeAddress: aliceConfig.ListenAddress})
 	bob.Start(context.Background())
 
 	aliceNode := node{
 		commService: alice,
-		address:     aliceConfig.listenAddress,
+		address:     aliceConfig.ListenAddress,
 		pkID:        alicePkID,
 	}
 	bobNode := node{
 		commService: bob,
-		address:     bobConfig.listenAddress,
+		address:     bobConfig.ListenAddress,
 		pkID:        bobPkID,
 	}
 
@@ -127,11 +126,7 @@ func testExchange(aliceNode, bobNode node) {
 	wg.Wait()
 }
 
-func freeAddress() string {
-	return fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", utils.MustGet(freeport.Take(1))[0])
-}
-
-func newWebsocketCommService(addresses *routing.StaticIDRouter, config rest.Config) *Service {
+func NewWebsocketCommService(addresses *routing.StaticIDRouter, config rest.Config) *Service {
 	discovery := routing.NewServiceDiscovery(addresses, routing.Random[host.PeerIPAddress]())
 
 	pkiExtractor := endpoint.NewPKIExtractor()
@@ -143,7 +138,7 @@ func newWebsocketCommService(addresses *routing.StaticIDRouter, config rest.Conf
 	return utils.MustGet(NewService(hostProvider, noop.NewTracerProvider(), &disabled.Provider{}))
 }
 
-func newLibP2PCommService(config libp2p.Config, certPath string, resolver EndpointService) (*Service, view2.Identity) {
+func NewLibP2PCommService(config libp2p.Config, certPath string, resolver EndpointService) (*Service, view2.Identity) {
 	pkiExtractor := endpoint.NewPKIExtractor()
 	utils.Must(pkiExtractor.AddPublicKeyExtractor(&PKExtractor{}))
 	utils.Must(pkiExtractor.AddPublicKeyExtractor(endpoint2.PublicKeyExtractor{}))
@@ -156,41 +151,41 @@ func newLibP2PCommService(config libp2p.Config, certPath string, resolver Endpoi
 	return utils.MustGet(NewService(hostProvider, noop.NewTracerProvider(), &disabled.Provider{})), pkID
 }
 
-type bootstrapNodeResolver struct {
+type BootstrapNodeResolver struct {
 	nodeAddress string
 	nodeID      []byte
 }
 
-func (r *bootstrapNodeResolver) Resolve(view2.Identity) (view2.Identity, map[view.PortName]string, []byte, error) {
+func (r *BootstrapNodeResolver) Resolve(view2.Identity) (view2.Identity, map[view.PortName]string, []byte, error) {
 	return nil, map[view.PortName]string{view.P2PPort: rest.ConvertAddress(r.nodeAddress)}, r.nodeID, nil
 }
 
-func (r *bootstrapNodeResolver) GetIdentity(string, []byte) (view2.Identity, error) {
+func (r *BootstrapNodeResolver) GetIdentity(string, []byte) (view2.Identity, error) {
 	return view2.Identity("bstpnd"), nil
 }
 
 type Config struct {
-	listenAddress host.PeerIPAddress
-	keyFile       string
-	certFile      string
+	ListenAddress  host.PeerIPAddress
+	PrivateKeyFile string
+	CertFile       string
 }
 
 func (c *Config) RestConfig() rest.Config {
-	return rest.NewConfigFromProperties(c.listenAddress, c.keyFile, c.certFile)
+	return rest.NewConfigFromProperties(c.ListenAddress, c.PrivateKeyFile, c.CertFile)
 }
 
 func (c *Config) Libp2pConfig(bootstrap host.PeerIPAddress) libp2p.Config {
-	return libp2p.NewConfigFromProperties(c.listenAddress, bootstrap, c.keyFile)
+	return libp2p.NewConfigFromProperties(c.ListenAddress, bootstrap, c.PrivateKeyFile)
 }
 
-func getConfig(name string) *Config {
+func GetConfig(name string) *Config {
 	rootPath, ok := os.LookupEnv("GOPATH")
 	Expect(ok).To(BeTrue(), "GOPATH is not set")
 	projectPath := path.Join(rootPath, "src", "github.com", "hyperledger-labs", "fabric-smart-client")
 	mspDir := path.Join(projectPath, "integration", "fsc", "pingpong", "testdata", "fsc", "crypto", "peerOrganizations", "fsc.example.com", "peers", fmt.Sprintf("%s.fsc.example.com", name), "msp")
 	return &Config{
-		listenAddress: freeAddress(),
-		keyFile:       path.Join(mspDir, "keystore", "priv_sk"),
-		certFile:      path.Join(mspDir, "signcerts", fmt.Sprintf("%s.fsc.example.com-cert.pem", name)),
+		ListenAddress:  freeAddress(),
+		PrivateKeyFile: path.Join(mspDir, "keystore", "priv_sk"),
+		CertFile:       path.Join(mspDir, "signcerts", fmt.Sprintf("%s.fsc.example.com-cert.pem", name)),
 	}
 }
