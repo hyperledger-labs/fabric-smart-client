@@ -40,12 +40,12 @@ func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing rou
 		server: &server{
 			srv: &http.Server{
 				Addr:      listenAddress,
-				TLSConfig: tlsConfig,
+				TLSConfig: clientTLSConfig(tlsConfig),
 			},
 			streamProvider: streamProvider,
 		},
 		client: &client{
-			tlsConfig:      tlsConfig,
+			tlsConfig:      serverTLSConfig(tlsConfig),
 			nodeID:         nodeID,
 			streamProvider: streamProvider,
 		},
@@ -55,6 +55,20 @@ func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing rou
 			LabelNames: []tracing.LabelName{},
 		})),
 	}
+}
+
+func serverTLSConfig(tlsConfig *tls.Config) *tls.Config {
+	if tlsConfig == nil {
+		return nil
+	}
+	return &tls.Config{Certificates: tlsConfig.Certificates}
+}
+
+func clientTLSConfig(tlsConfig *tls.Config) *tls.Config {
+	if tlsConfig == nil {
+		return nil
+	}
+	return &tls.Config{InsecureSkipVerify: tlsConfig.InsecureSkipVerify, RootCAs: tlsConfig.RootCAs}
 }
 
 func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
