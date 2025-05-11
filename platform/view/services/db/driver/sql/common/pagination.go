@@ -169,12 +169,12 @@ func (i *paginationInterpreter) Interpret(p driver.Pagination, sql driver.SqlQue
 	case *NoPagination:
 		return sql, nil
 	case *OffsetPagination:
-		sql.SetLimit(pagination.pageSize)
+		sql = sql.Limit(pagination.pageSize)
 		sql.SetOffset(pagination.offset)
 		return sql, nil
 	case *KeysetPagination:
 		sql.SetOrder(fmt.Sprintf("%s ASC", pagination.sqlIdName))
-		sql.SetLimit(pagination.pageSize)
+		sql = sql.Limit(pagination.pageSize)
 		if pagination.firstId != "" {
 			lastId := sql.AddParam(pagination.firstId)
 			sql.AddWhere(fmt.Sprintf("%s>$%d", pagination.sqlIdName, lastId))
@@ -183,7 +183,7 @@ func (i *paginationInterpreter) Interpret(p driver.Pagination, sql driver.SqlQue
 		}
 		return sql, nil
 	case *EmptyPagination:
-		sql.SetLimit(0)
+		sql = sql.Limit(0)
 		sql.SetOffset(0)
 		return sql, nil
 	default:

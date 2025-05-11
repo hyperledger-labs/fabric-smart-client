@@ -74,12 +74,14 @@ type SqlQuery struct {
 	params []any
 }
 
-func (q *SqlQuery) From(t string) {
+func (q SqlQuery) From(t string) SqlQuery {
 	q.table = t
+	return q
 }
 
-func (q *SqlQuery) SetLimit(l int) {
+func (q SqlQuery) Limit(l int) SqlQuery {
 	q.limit = fmt.Sprintf("%d", l)
+	return q
 }
 
 func (q *SqlQuery) SetOffset(o int) {
