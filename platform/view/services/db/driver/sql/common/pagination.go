@@ -169,8 +169,7 @@ func (i *paginationInterpreter) Interpret(p driver.Pagination, sql driver.SqlQue
 	case *NoPagination:
 		return sql, nil
 	case *OffsetPagination:
-		sql = sql.Limit(pagination.pageSize)
-		sql.SetOffset(pagination.offset)
+		sql = sql.Limit(pagination.pageSize).Offset(pagination.offset)
 		return sql, nil
 	case *KeysetPagination:
 		sql.SetOrder(fmt.Sprintf("%s ASC", pagination.sqlIdName))
@@ -179,12 +178,11 @@ func (i *paginationInterpreter) Interpret(p driver.Pagination, sql driver.SqlQue
 			lastId := sql.AddParam(pagination.firstId)
 			sql.AddWhere(fmt.Sprintf("%s>$%d", pagination.sqlIdName, lastId))
 		} else {
-			sql.SetOffset(pagination.offset)
+			sql = sql.Offset(pagination.offset)
 		}
 		return sql, nil
 	case *EmptyPagination:
-		sql = sql.Limit(0)
-		sql.SetOffset(0)
+		sql = sql.Limit(0).Offset(0)
 		return sql, nil
 	default:
 		return sql, errors.Errorf("invalid pagination option %+v", pagination)

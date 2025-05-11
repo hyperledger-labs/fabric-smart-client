@@ -84,8 +84,9 @@ func (q SqlQuery) Limit(l int) SqlQuery {
 	return q
 }
 
-func (q *SqlQuery) SetOffset(o int) {
+func (q SqlQuery) Offset(o int) SqlQuery {
 	q.offset = fmt.Sprintf("%d", o)
+	return q
 }
 
 func (q *SqlQuery) SetOrder(o string) {
