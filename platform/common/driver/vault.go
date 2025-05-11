@@ -74,7 +74,7 @@ type SqlQuery struct {
 	params []any
 }
 
-func (q *SqlQuery) SetTable(t string) {
+func (q *SqlQuery) From(t string) {
 	q.table = t
 }
 

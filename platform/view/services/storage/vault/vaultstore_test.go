@@ -170,7 +170,7 @@ func testPagination(t *testing.T, store driver.VaultStore) {
 		page := 0
 		for ; true; page++ {
 			sql := driver.SqlQuery{}
-			sql.SetTable("test")
+			sql.From("test")
 			// Simulate the pagination interpretation to be checked
 			sql2, err := interpreter.Interpret(pagination, sql)
 			Expect(err).ToNot(HaveOccurred())
@@ -202,7 +202,7 @@ func testPagination(t *testing.T, store driver.VaultStore) {
 		}
 		for ; page >= 0; page-- {
 			sql := driver.SqlQuery{}
-			sql.SetTable("test")
+			sql.From("test")
 			sql, err := interpreter.Interpret(pagination, sql)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sql.FormatQuery()).To(Equal(item.sqlBackward[page]))
@@ -316,7 +316,7 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 
 func fetchAll(store driver.VaultStore) ([]driver.TxID, error) {
 	sql := driver.SqlQuery{}
-	sql.SetTable("test")
+	sql.From("test")
 	pageIt, err := store.GetAllTxStatuses(context.Background(), sql, common.NewNoPagination())
 	if err != nil {
 		return nil, err

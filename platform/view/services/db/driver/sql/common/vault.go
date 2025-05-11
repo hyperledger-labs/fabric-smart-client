@@ -500,7 +500,7 @@ func (db *vaultReader) queryStatus(where string, params []any, limit string) (dr
 }
 
 func (db *vaultReader) queryStatusWithPagination(sql driver.SqlQuery) (driver.TxStatusIterator, error) {
-	sql.SetTable(db.tables.StatusTable)
+	sql.From(db.tables.StatusTable)
 	query := sql.FormatQuery()
 	logger.Debug(query, sql.GetParams())
 
