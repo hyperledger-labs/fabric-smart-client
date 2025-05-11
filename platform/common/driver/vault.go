@@ -89,16 +89,19 @@ func (q SqlQuery) Offset(o int) SqlQuery {
 	return q
 }
 
-func (q *SqlQuery) SetOrder(o string) {
+func (q SqlQuery) Order(o string) SqlQuery {
 	q.order = o
+	return q
 }
 
-func (q *SqlQuery) AddWhere(p string) {
+func (q SqlQuery) Where(p string) SqlQuery {
 	q.where = append(q.where, p)
+	return q
 }
 
-func (q *SqlQuery) AddFields(f []string) {
+func (q SqlQuery) Select(f []string) SqlQuery {
 	q.fields = append(q.fields, f...)
+	return q
 }
 
 func (q *SqlQuery) AddParam(p any) int {

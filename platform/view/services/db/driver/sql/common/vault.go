@@ -473,7 +473,7 @@ func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) 
 }
 
 func (db *vaultReader) GetAllTxStatuses(ctx context.Context, sql driver.SqlQuery, pagination driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
-	sql.AddFields([]string{"tx_id", "code", "message"})
+	sql = sql.Select([]string{"tx_id", "code", "message"})
 	sql, err := db.pi.Interpret(pagination, sql)
 	if err != nil {
 		return nil, err
