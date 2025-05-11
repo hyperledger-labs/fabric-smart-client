@@ -91,7 +91,7 @@ type KeysetPagination struct {
 	offset   int
 	pageSize int
 	// name of the field in the database that is a unique id of the records
-	sqlIdName string
+	sqlIdName FieldName
 	// name of the field in the struct that is returned from the database
 	idFieldName string
 	// the first and last id values in the page
@@ -111,8 +111,6 @@ func NewKeysetPagination(offset int, pageSize int, sqlIdName string, idFieldName
 		pageSize:    pageSize,
 		sqlIdName:   sqlIdName,
 		idFieldName: idFieldName,
-		firstId:     "",
-		lastId:      "",
 	}, nil
 }
 
@@ -127,7 +125,6 @@ func (p *KeysetPagination) GoToOffset(offset int) (driver.Pagination, error) {
 			sqlIdName:   p.sqlIdName,
 			idFieldName: p.idFieldName,
 			firstId:     p.lastId,
-			lastId:      "",
 		}, nil
 	} else {
 		return &KeysetPagination{
@@ -135,8 +132,6 @@ func (p *KeysetPagination) GoToOffset(offset int) (driver.Pagination, error) {
 			pageSize:    p.pageSize,
 			sqlIdName:   p.sqlIdName,
 			idFieldName: p.idFieldName,
-			firstId:     "",
-			lastId:      "",
 		}, nil
 	}
 }
