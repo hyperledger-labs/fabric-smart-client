@@ -19,7 +19,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = logging.MustGetLogger("orion-sdk.delivery")
+var logger = logging.MustGetLogger()
 
 var (
 	ErrComm = errors.New("communication issue")

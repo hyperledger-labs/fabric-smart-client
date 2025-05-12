@@ -22,7 +22,7 @@ const (
 	BCCSPOptField = "bccsp" // viper converts map keys to lowercase
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.msp.x509")
+var logger = logging.MustGetLogger()
 
 type IdentityLoader struct{}
 

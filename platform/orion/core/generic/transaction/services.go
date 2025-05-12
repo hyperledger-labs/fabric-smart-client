@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = logging.MustGetLogger("orion-sdk.core")
+var logger = logging.MustGetLogger()
 
 type mds struct {
 	metadataKVS driver.MetadataStore

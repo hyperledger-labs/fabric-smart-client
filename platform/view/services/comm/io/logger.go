@@ -8,4 +8,4 @@ package io
 
 import "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 
-var logger = logging.MustGetLogger("view-sdk.services.comm.io")
+var logger = logging.MustGetLogger()

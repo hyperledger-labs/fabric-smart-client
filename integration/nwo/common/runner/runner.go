@@ -31,7 +31,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = logging.MustGetLogger("nwo.runner")
+var logger = logging.MustGetLogger()
 
 // Config defines a Runner.
 type Config struct {

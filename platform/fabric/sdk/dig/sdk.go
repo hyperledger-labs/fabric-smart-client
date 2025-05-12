@@ -34,7 +34,7 @@ import (
 	"go.uber.org/dig"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk")
+var logger = logging.MustGetLogger()
 
 type SDK struct {
 	dig2.SDK

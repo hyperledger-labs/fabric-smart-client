@@ -19,7 +19,7 @@ import (
 	"github.com/prometheus/common/model"
 )
 
-var logger = logging.MustGetLogger("iou-test")
+var logger = logging.MustGetLogger()
 
 func CreateIOU(ii *integration.Infrastructure, identityLabel string, amount uint, approver string) string {
 	return CreateIOUWithBorrower(ii, "borrower", identityLabel, amount, approver)

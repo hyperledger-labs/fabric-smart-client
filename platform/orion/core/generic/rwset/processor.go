@@ -16,7 +16,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var logger = logging.MustGetLogger("orion-sdk.rwset")
+var logger = logging.MustGetLogger()
 
 type Network interface {
 	Name() string

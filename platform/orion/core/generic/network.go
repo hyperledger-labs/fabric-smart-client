@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	logger              = logging.MustGetLogger("orion-sdk.core")
+	logger              = logging.MustGetLogger()
 	waitForEventTimeout = 300 * time.Second
 )
 

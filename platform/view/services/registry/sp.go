@@ -18,7 +18,7 @@ import (
 
 var (
 	ServiceNotFound = errors.New("service not found")
-	logger          = logging.MustGetLogger("view-sdk.eregistry")
+	logger          = logging.MustGetLogger()
 )
 
 type ServiceProvider struct {

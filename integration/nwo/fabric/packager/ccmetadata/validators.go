@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
-var logger = logging.MustGetLogger("chaincode.platform.metadata")
+var logger = logging.MustGetLogger()
 
 // fileValidators are used as handlers to validate specific metadata directories
 type fileValidator func(fileName string, fileBytes []byte) error

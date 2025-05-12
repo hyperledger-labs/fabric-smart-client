@@ -21,7 +21,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var logger = logging.MustGetLogger("common-sdk.sig")
+var logger = logging.MustGetLogger()
 
 type VerifierEntry struct {
 	Verifier   driver.Verifier

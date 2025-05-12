@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = logging.MustGetLogger("view-sdk.db.driver.common")
+var logger = logging.MustGetLogger()
 
 type DBTransaction interface {
 	Commit() error

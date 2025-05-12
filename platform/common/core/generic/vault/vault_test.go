@@ -29,7 +29,7 @@ import (
 type testArtifactProvider struct{}
 
 func (p *testArtifactProvider) NewCachedVault(ddb driver.VaultStore) (*Vault[ValidationCode], error) {
-	vaultLogger := logging.MustGetLogger("vault-logger")
+	vaultLogger := logging.MustGetLogger()
 	return New[ValidationCode](
 		vaultLogger,
 		vault.NewCachedVault(ddb, 100),
@@ -44,7 +44,7 @@ func (p *testArtifactProvider) NewCachedVault(ddb driver.VaultStore) (*Vault[Val
 
 func (p *testArtifactProvider) NewNonCachedVault(ddb driver.VaultStore) (*Vault[ValidationCode], error) {
 	return New[ValidationCode](
-		logging.MustGetLogger("vault"),
+		logging.MustGetLogger(),
 		vault.NewCachedVault(ddb, 0),
 		VCProvider,
 		newInterceptor,

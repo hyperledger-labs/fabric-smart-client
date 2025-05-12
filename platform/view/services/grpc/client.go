@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-var commLogger = logging.MustGetLogger("view-sdk.comm")
+var commLogger = logging.MustGetLogger()
 
 type TLSOption func(tlsConfig *tls.Config)
 

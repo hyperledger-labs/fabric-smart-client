@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
-var logger = logging.MustGetLogger("postgres-db")
+var logger = logging.MustGetLogger()
 
 type pendingOperation struct {
 	operation driver.Operation

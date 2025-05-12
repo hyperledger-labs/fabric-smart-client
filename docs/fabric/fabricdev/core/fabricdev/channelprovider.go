@@ -33,7 +33,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.core")
+var logger = logging.MustGetLogger()
 
 type provider struct {
 	configProvider          config.Provider

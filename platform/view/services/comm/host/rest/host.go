@@ -20,7 +20,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var logger = logging.MustGetLogger("view-sdk.services.comm.rest-p2p-host")
+var logger = logging.MustGetLogger()
 
 type host struct {
 	routing routing2.ServiceDiscovery

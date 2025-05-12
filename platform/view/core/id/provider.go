@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-var logger = logging.MustGetLogger("view-sdk.id")
+var logger = logging.MustGetLogger()
 
 //go:generate counterfeiter -o mock/config_provider.go -fake-name ConfigProvider . ConfigProvider
 

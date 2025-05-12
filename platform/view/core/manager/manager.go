@@ -30,7 +30,7 @@ const (
 	InitiatorViewLabel tracing.LabelName = "initiator_view"
 )
 
-var logger = logging.MustGetLogger("view-sdk.manager")
+var logger = logging.MustGetLogger()
 
 type manager struct {
 	sp driver.ServiceProvider

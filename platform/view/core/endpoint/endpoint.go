@@ -23,7 +23,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-var logger = logging.MustGetLogger("view-sdk.endpoint")
+var logger = logging.MustGetLogger()
 
 type Resolver struct {
 	Name           string

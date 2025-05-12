@@ -16,7 +16,7 @@ import (
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-var logger = logging.MustGetLogger("fabric.iou")
+var logger = logging.MustGetLogger()
 
 type FinalityListener struct {
 	ExpectedTxID string

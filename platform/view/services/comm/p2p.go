@@ -36,7 +36,7 @@ const (
 
 var errStreamNotFound = errors.New("stream not found")
 
-var logger = logging.MustGetLogger("view-sdk.services.comm")
+var logger = logging.MustGetLogger()
 
 type messageWithStream struct {
 	message *view.Message

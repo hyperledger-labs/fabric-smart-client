@@ -30,7 +30,7 @@ const (
 	Solo ConsensusType = "solo"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.ordering")
+var logger = logging.MustGetLogger()
 
 type Transaction interface {
 	Channel() string

@@ -17,7 +17,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = logging.MustGetLogger("fsc.node.start")
+var logger = logging.MustGetLogger()
 
 const DefaultMemProfileRate = 409
 

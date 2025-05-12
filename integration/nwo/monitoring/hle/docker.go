@@ -106,7 +106,7 @@ func (n *Extension) startExplorerDB() {
 
 	gomega.Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(gomega.HaveOccurred())
 
-	dockerLogger := logging.MustGetLogger("monitoring.hle.db.container")
+	dockerLogger := logging.MustGetLogger()
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,
@@ -224,7 +224,7 @@ func (n *Extension) startExplorer() {
 	gomega.Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(gomega.HaveOccurred())
 	time.Sleep(3 * time.Second)
 
-	dockerLogger := logging.MustGetLogger("monitoring.hle.container")
+	dockerLogger := logging.MustGetLogger()
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,

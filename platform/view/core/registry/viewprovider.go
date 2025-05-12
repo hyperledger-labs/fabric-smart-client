@@ -17,7 +17,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = logging.MustGetLogger("view-provider")
+var logger = logging.MustGetLogger()
 
 type viewEntry struct {
 	View      view.View

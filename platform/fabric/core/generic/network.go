@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.core")
+var logger = logging.MustGetLogger()
 
 type NewChannelFunc = func(network driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
 

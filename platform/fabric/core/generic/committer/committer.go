@@ -49,7 +49,7 @@ const (
 var (
 	// TODO: introduced due to a race condition in idemix.
 	commitConfigMutex = &sync.Mutex{}
-	logger            = logging.MustGetLogger("fabric-sdk.Committer")
+	logger            = logging.MustGetLogger()
 	// ErrDiscardTX this error can be used to signal that a valid transaction should be discarded anyway
 	ErrDiscardTX = errors.New("discard tx")
 )

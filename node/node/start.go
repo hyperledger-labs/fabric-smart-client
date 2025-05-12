@@ -33,7 +33,7 @@ type Node interface {
 }
 
 var (
-	logger = logging.MustGetLogger("fsc.node.start")
+	logger = logging.MustGetLogger()
 	node   Node
 )
 

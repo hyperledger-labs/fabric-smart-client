@@ -15,7 +15,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-var logger = logging.MustGetLogger("view-sdk.db.postgres")
+var logger = logging.MustGetLogger()
 
 const driverName = "pgx"
 

@@ -109,7 +109,7 @@ func (p *Platform) StartOrionServer() {
 		panic(err)
 	}
 
-	dockerLogger := logging.MustGetLogger("orion.container." + containerName)
+	dockerLogger := logging.MustGetLogger()
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,

@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.core.generic.chaincode")
+var logger = logging.MustGetLogger()
 
 type Services interface {
 	NewPeerClient(cc grpc.ConnectionConfig) (services.PeerClient, error)

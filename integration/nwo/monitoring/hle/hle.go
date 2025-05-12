@@ -19,7 +19,7 @@ import (
 	"github.com/onsi/gomega"
 )
 
-var logger = logging.MustGetLogger("integration.nwo.fabric.hle")
+var logger = logging.MustGetLogger()
 
 type Platform interface {
 	HyperledgerExplorer() bool

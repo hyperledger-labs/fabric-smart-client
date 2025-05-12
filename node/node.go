@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var logger = logging.MustGetLogger("fsc")
+var logger = logging.MustGetLogger()
 
 type ExecuteCallbackFunc = func() error
 

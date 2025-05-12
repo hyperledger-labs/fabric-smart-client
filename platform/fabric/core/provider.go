@@ -23,7 +23,7 @@ import (
 
 var (
 	fabricNetworkServiceType = reflect.TypeOf((*driver.FabricNetworkServiceProvider)(nil))
-	logger                   = logging.MustGetLogger("fabric-sdk.core")
+	logger                   = logging.MustGetLogger()
 )
 
 type NamedDriver struct {

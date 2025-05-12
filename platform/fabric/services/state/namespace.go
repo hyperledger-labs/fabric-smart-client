@@ -21,7 +21,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.state")
+var logger = logging.MustGetLogger()
 
 type EndorseTransaction interface {
 }

@@ -32,7 +32,7 @@ import (
 	"github.com/onsi/gomega"
 )
 
-var logger = logging.MustGetLogger("fsc.integration")
+var logger = logging.MustGetLogger()
 
 type Configuration struct {
 	StartPort int

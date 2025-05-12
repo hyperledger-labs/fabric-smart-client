@@ -27,7 +27,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-var logger = logging.MustGetLogger("view-sdk.client")
+var logger = logging.MustGetLogger()
 
 type TimeFunc func() time.Time
 

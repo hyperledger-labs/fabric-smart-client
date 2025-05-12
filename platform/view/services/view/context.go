@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
-var logger = logging.MustGetLogger("view-sdk.session.mock")
+var logger = logging.MustGetLogger()
 
 type Responders struct {
 	InitiatorView view.View

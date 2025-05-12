@@ -26,7 +26,7 @@ const (
 	BccspMSPFolder  = "bccsp-folder"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.msp")
+var logger = logging.MustGetLogger()
 
 type KVS interface {
 	Exists(id string) bool

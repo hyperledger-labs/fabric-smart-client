@@ -31,7 +31,7 @@ import (
 
 const CCEnvDefaultImage = "hyperledger/fabric-ccenv:latest"
 
-var logger = logging.MustGetLogger("nwo.fabric")
+var logger = logging.MustGetLogger()
 
 type Orderer struct {
 	Name             string

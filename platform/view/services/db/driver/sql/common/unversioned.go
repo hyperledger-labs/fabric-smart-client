@@ -20,7 +20,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = logging.MustGetLogger("view-sdk.db.driver.sql")
+var logger = logging.MustGetLogger()
 
 type dbTransaction interface {
 	Exec(query string, args ...any) (sql.Result, error)

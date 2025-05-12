@@ -15,7 +15,7 @@ import (
 	"github.com/onsi/gomega"
 )
 
-var logger = logging.MustGetLogger("integration.nwo.monitoring.optl")
+var logger = logging.MustGetLogger()
 
 type Platform interface {
 	GetContext() api.Context

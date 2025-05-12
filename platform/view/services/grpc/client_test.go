@@ -617,7 +617,7 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 	assert.NoError(t, err)
 
 	server, err := grpc3.NewGRPCServer("127.0.0.1:0", grpc3.ServerConfig{
-		Logger: logging.MustGetLogger("test"),
+		Logger: logging.MustGetLogger(),
 		SecOpts: grpc3.SecureOptions{
 			UseTLS:      true,
 			Key:         serverKP.Key,

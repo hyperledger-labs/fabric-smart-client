@@ -25,7 +25,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.msp.idemix")
+var logger = logging.MustGetLogger()
 
 const (
 	EIDIndex = 2

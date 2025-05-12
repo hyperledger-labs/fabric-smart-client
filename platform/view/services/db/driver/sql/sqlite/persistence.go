@@ -33,7 +33,7 @@ const sqlitePragmas = `
 
 const driverName = "sqlite"
 
-var logger = logging.MustGetLogger("view-sdk.db.sqlite")
+var logger = logging.MustGetLogger()
 
 type Opts struct {
 	DataSource      string

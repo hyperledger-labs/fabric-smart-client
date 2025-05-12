@@ -27,7 +27,7 @@ func (l *operationsLogger) Log(keyvals ...interface{}) error {
 
 func NewOperationsLogger(l Logger) *operationsLogger {
 	if l == nil {
-		l = logging.MustGetLogger("operations.runner")
+		l = logging.MustGetLogger()
 	}
 	return &operationsLogger{Logger: l}
 }

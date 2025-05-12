@@ -32,7 +32,7 @@ const (
 	Provider = "PKCS11"
 )
 
-var logger = logging.MustGetLogger("nwo.common.pkcs11")
+var logger = logging.MustGetLogger()
 
 // GeneratePrivateKey creates a private key in the HSM and returns its corresponding public key
 func GeneratePrivateKey() (*ecdsa.PublicKey, error) {
