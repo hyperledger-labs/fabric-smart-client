@@ -25,7 +25,7 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 )
 
-var logger = logging.MustGetLogger("fsc.integration.monitoring")
+var logger = logging.MustGetLogger()
 
 const (
 	TopologyName = "monitoring"

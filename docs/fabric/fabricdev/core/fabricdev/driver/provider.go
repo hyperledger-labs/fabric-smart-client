@@ -37,7 +37,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.core.generic.driver")
+var logger = logging.MustGetLogger()
 
 type Provider struct {
 	configProvider      config.Provider

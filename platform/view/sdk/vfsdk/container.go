@@ -19,7 +19,7 @@ import (
 	"go.uber.org/dig"
 )
 
-var logger = logging.MustGetLogger("base-container")
+var logger = logging.MustGetLogger()
 
 var viewFactoryInterface = reflect.TypeOf(new(view.Factory)).Elem()
 var errorInterface = reflect.TypeOf(new(error)).Elem()

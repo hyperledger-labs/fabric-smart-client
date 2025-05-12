@@ -19,7 +19,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = logging.MustGetLogger("view-events")
+var logger = logging.MustGetLogger()
 
 type EventsView struct {
 	*Events

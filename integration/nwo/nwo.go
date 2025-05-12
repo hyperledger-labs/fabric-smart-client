@@ -25,7 +25,7 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 )
 
-var logger = logging.MustGetLogger("fsc.integration")
+var logger = logging.MustGetLogger()
 
 type Process interface {
 	PID() (string, int)

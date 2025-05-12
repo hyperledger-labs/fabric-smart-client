@@ -32,7 +32,7 @@ type Server interface {
 	Stop() error
 }
 
-var logger = logging.MustGetLogger("view-sdk")
+var logger = logging.MustGetLogger()
 
 func NewServer(configProvider driver.ConfigService, viewManager *view.Manager, tracerProvider trace.TracerProvider) Server {
 	if !configProvider.GetBool("fsc.web.enabled") {
@@ -118,12 +118,12 @@ func NewServerConfig(configProvider driver.ConfigService) (grpc2.ServerConfig, e
 		SecOpts: grpc2.SecureOptions{
 			UseTLS: configProvider.GetBool("fsc.grpc.tls.enabled"),
 		},
-		Logger: logging.MustGetLogger("core.comm").With("server", "PeerServer"),
+		Logger: logging.MustGetLogger().With("server", "PeerServer"),
 		UnaryInterceptors: []grpc.UnaryServerInterceptor{
-			glogging.UnaryServerInterceptor(logging.MustGetLogger("comm.grpc.server").Zap()),
+			glogging.UnaryServerInterceptor(logging.MustGetLogger().Zap()),
 		},
 		StreamInterceptors: []grpc.StreamServerInterceptor{
-			glogging.StreamServerInterceptor(logging.MustGetLogger("comm.grpc.server").Zap()),
+			glogging.StreamServerInterceptor(logging.MustGetLogger().Zap()),
 		},
 
 		ServerStatsHandler: otelgrpc.NewServerHandler(),

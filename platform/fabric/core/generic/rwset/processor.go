@@ -16,7 +16,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.rwset")
+var logger = logging.MustGetLogger()
 
 type ChannelProvider interface {
 	Channel(name string) (driver.Channel, error)

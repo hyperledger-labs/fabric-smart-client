@@ -24,7 +24,7 @@ type (
 )
 
 var (
-	logger = logging.MustGetLogger("nwo.network")
+	logger = logging.MustGetLogger()
 
 	path     string
 	topology string

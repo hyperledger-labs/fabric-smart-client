@@ -26,7 +26,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-var logger = logging.MustGetLogger("view-sdk.web.client")
+var logger = logging.MustGetLogger()
 
 // Config models the configuration for the web client
 type Config struct {

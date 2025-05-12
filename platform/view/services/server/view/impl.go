@@ -21,7 +21,7 @@ import (
 
 const successLabel tracing.LabelName = "success"
 
-var logger = logging.MustGetLogger("view-sdk.server")
+var logger = logging.MustGetLogger()
 
 //go:generate counterfeiter -o mock/marshaler.go -fake-name Marshaler . Marshaler
 

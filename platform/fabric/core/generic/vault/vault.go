@@ -29,7 +29,7 @@ type Vault = vault.Vault[fdriver.ValidationCode]
 // NewVault returns a new instance of Vault
 func NewVault(vaultStore vault2.CachedVaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) *Vault {
 	return vault.New[fdriver.ValidationCode](
-		logging.MustGetLogger("fabric-sdk.generic.vault"),
+		logging.MustGetLogger(),
 		vaultStore,
 		fdriver.ValidationCodeProvider,
 		newInterceptor,

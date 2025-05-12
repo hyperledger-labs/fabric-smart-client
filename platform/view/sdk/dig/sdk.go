@@ -51,7 +51,7 @@ import (
 	"go.uber.org/dig"
 )
 
-var logger = logging.MustGetLogger("view-sdk")
+var logger = logging.MustGetLogger()
 
 type SDK struct {
 	dig2.SDK

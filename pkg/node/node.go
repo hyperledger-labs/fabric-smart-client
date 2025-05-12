@@ -29,7 +29,7 @@ const (
 	fidLabel tracing.LabelName = "fid"
 )
 
-var logger = logging.MustGetLogger("fsc")
+var logger = logging.MustGetLogger()
 
 type ExecuteCallbackFunc = func() error
 

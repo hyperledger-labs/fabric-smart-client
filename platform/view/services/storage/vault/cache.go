@@ -16,7 +16,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var logger = logging.MustGetLogger("viewsdk.cached-vault")
+var logger = logging.MustGetLogger()
 
 type CachedVaultStore interface {
 	driver.VaultStore

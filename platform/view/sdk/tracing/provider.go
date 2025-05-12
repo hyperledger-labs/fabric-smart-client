@@ -57,7 +57,7 @@ type OtplConfig struct {
 	Address string `mapstructure:"address"`
 }
 
-var logger = logging.MustGetLogger("view-sdk.tracing")
+var logger = logging.MustGetLogger()
 
 func NewTracerProvider(confService driver.ConfigService) (trace.TracerProvider, error) {
 	c := Config{}

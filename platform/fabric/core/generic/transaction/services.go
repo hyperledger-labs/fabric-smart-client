@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.core")
+var logger = logging.MustGetLogger()
 
 type mds struct {
 	metadataKVS driver.MetadataStore

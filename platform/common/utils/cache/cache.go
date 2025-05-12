@@ -8,7 +8,7 @@ package cache
 
 import "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 
-var logger = logging.MustGetLogger("fabric-sdk.cache")
+var logger = logging.MustGetLogger()
 
 type Map[K comparable, V any] interface {
 	Get(K) (V, bool)

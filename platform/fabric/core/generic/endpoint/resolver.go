@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.endpoint")
+var logger = logging.MustGetLogger()
 
 type Resolver struct {
 	config.Resolver

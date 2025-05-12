@@ -50,7 +50,7 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 )
 
-var logger = logging.MustGetLogger("fsc.nwo")
+var logger = logging.MustGetLogger()
 
 func init() {
 	// define the unmarshallers for the given file extensions, blank extension is the global unmarshaller

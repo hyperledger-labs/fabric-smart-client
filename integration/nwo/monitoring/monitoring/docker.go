@@ -118,7 +118,7 @@ func (n *Extension) startPrometheus() {
 
 	gomega.Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(gomega.HaveOccurred())
 
-	dockerLogger := logging.MustGetLogger("prometheus.container")
+	dockerLogger := logging.MustGetLogger()
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,
@@ -203,7 +203,7 @@ func (n *Extension) startGrafana() {
 	gomega.Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(gomega.HaveOccurred())
 	time.Sleep(3 * time.Second)
 
-	dockerLogger := logging.MustGetLogger("grafana.container")
+	dockerLogger := logging.MustGetLogger()
 	go func() {
 		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
 			ShowStdout: true,

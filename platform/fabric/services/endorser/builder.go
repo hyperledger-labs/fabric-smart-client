@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.services.endorser")
+var logger = logging.MustGetLogger()
 
 type Builder struct {
 	sp view2.ServiceProvider

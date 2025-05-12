@@ -31,7 +31,7 @@ import (
 	"go.uber.org/dig"
 )
 
-var logger = logging.MustGetLogger("orion-sdk")
+var logger = logging.MustGetLogger()
 
 type Registry interface {
 	GetService(v interface{}) (interface{}, error)

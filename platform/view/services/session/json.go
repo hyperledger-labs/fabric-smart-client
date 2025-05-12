@@ -21,7 +21,7 @@ import (
 
 const defaultReceiveTimeout = 10 * time.Second
 
-var logger = logging.MustGetLogger("view-sdk.session.json")
+var logger = logging.MustGetLogger()
 
 type Session = view.Session
 

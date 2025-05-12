@@ -20,7 +20,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var logger = logging.MustGetLogger("integration.nwo.fabric.monitoring")
+var logger = logging.MustGetLogger()
 
 type Platform interface {
 	HyperledgerExplorer() bool

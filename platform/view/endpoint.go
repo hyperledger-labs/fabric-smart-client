@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-var logger = logging.MustGetLogger("view-sdk")
+var logger = logging.MustGetLogger()
 
 // PortName is the type variable for the socket ports
 type PortName string

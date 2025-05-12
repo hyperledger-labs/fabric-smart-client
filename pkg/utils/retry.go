@@ -60,7 +60,7 @@ func NewRetryRunner(maxTimes int, delay time.Duration, expBackoff bool) *retryRu
 		delay:      delay,
 		expBackoff: expBackoff,
 		maxTimes:   maxTimes,
-		logger:     logging.MustGetLogger("retry-runner"),
+		logger:     logging.MustGetLogger(),
 	}
 	rr.getNextDelay = rr.deterministicDelay
 	return rr
@@ -73,7 +73,7 @@ func NewProbabilisticRetryRunner(maxTimes int, interval int64, expBackoff bool) 
 		expBackoff: expBackoff,
 		maxTimes:   maxTimes,
 		interval:   interval,
-		logger:     logging.MustGetLogger("retry-runner"),
+		logger:     logging.MustGetLogger(),
 	}
 	rr.getNextDelay = rr.probabilisticDelay
 	return rr

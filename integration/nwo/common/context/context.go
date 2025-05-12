@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-var logger = logging.MustGetLogger("fsc.integration")
+var logger = logging.MustGetLogger()
 
 type Builder interface {
 	Build(path string) string

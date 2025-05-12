@@ -22,7 +22,7 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-var logger = logging.MustGetLogger("nwo.builder")
+var logger = logging.MustGetLogger()
 
 type BuilderClient struct {
 	ServerAddress string `json:"server_address"`

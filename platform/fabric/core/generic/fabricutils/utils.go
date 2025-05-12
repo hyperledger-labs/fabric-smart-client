@@ -20,7 +20,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.utils")
+var logger = logging.MustGetLogger()
 
 type SerializableSigner interface {
 	Sign(message []byte) ([]byte, error)

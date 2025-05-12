@@ -34,7 +34,7 @@ const (
 	GenericDriver = "generic"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.core.generic.config")
+var logger = logging.MustGetLogger()
 
 var funcTypeMap = map[string]driver.PeerFunctionType{
 	"":          driver.PeerForAnything,

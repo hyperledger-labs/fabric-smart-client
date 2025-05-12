@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	logger = logging.MustGetLogger("orion-sdk.core")
+	logger = logging.MustGetLogger()
 )
 
 type ONSProvider struct {

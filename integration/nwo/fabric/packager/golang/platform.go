@@ -30,7 +30,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// var logger = logging.MustGetLogger("nwo.fabric")
+// var logger = logging.MustGetLogger()
 
 // Platform for chaincodes written in Go
 type Platform struct{}

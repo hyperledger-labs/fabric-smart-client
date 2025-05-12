@@ -24,7 +24,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = logging.MustGetLogger("fsc.integration.fabric")
+var logger = logging.MustGetLogger()
 
 // Docker is a helper to manage container related actions within nwo.
 type Docker struct {
@@ -226,7 +226,7 @@ func PortBindings(ports ...int) nat.PortMap {
 }
 
 func StartLogs(cli *client.Client, containerID string, loggerName string) error {
-	dockerLogger := logging.MustGetLogger(loggerName)
+	dockerLogger := logging.MustGetLogger()
 	reader, err := cli.ContainerLogs(context.Background(), containerID, container.LogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,

@@ -20,7 +20,7 @@ import (
 
 var (
 	networkServiceProviderType = reflect.TypeOf((*NetworkServiceProvider)(nil))
-	logger                     = logging.MustGetLogger("fabric-sdk")
+	logger                     = logging.MustGetLogger()
 )
 
 // NetworkService models a Fabric Network

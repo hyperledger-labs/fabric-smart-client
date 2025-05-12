@@ -39,7 +39,7 @@ func (m *VersionInfoHandler) sendResponse(resp http.ResponseWriter, code int, pa
 	}
 	js, err := json.Marshal(payload)
 	if err != nil {
-		logger := logging.MustGetLogger("operations.runner")
+		logger := logging.MustGetLogger()
 		logger.Errorw("failed to encode payload", "error", err)
 		resp.WriteHeader(http.StatusInternalServerError)
 		return

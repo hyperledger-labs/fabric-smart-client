@@ -11,7 +11,7 @@ import (
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
-var logger = logging.MustGetLogger("view-sdk.services.comm.rest.host")
+var logger = logging.MustGetLogger()
 
 // StreamMeta is the first message sent from the websocket client to transmit metadata information
 type StreamMeta struct {

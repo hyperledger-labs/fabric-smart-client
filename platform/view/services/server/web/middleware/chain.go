@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
-var logger = logging.MustGetLogger("middleware")
+var logger = logging.MustGetLogger()
 
 type Middleware func(http.Handler) http.Handler
 

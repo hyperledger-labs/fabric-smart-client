@@ -24,7 +24,7 @@ import (
 	"github.com/tedsuo/ifrit/grouper"
 )
 
-var logger = logging.MustGetLogger("fsc.integration.fabric")
+var logger = logging.MustGetLogger()
 
 type ChaincodeProcessor interface {
 	Process(network *Network, cc *topology.ChannelChaincode) *topology.ChannelChaincode

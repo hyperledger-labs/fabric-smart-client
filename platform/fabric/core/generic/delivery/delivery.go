@@ -28,7 +28,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var logger = logging.MustGetLogger("fabric-sdk.delivery")
+var logger = logging.MustGetLogger()
 
 var (
 	StartGenesis = &ab.SeekPosition{

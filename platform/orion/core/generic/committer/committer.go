@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	logger = logging.MustGetLogger("orion-sdk.committer")
+	logger = logging.MustGetLogger()
 	// ErrDiscardTX this error can be used to signal that a valid transaction should be discarded anyway
 	ErrDiscardTX = errors.New("discard tx")
 	// ErrUnknownTX this erro can be used to signal that a transaction is unknown

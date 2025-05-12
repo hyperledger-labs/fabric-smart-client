@@ -39,7 +39,7 @@ type Registry struct {
 	Platforms map[string]Platform
 }
 
-var logger = logging.MustGetLogger("chaincode.platform")
+var logger = logging.MustGetLogger()
 
 func NewRegistry(platformTypes ...Platform) *Registry {
 	platforms := make(map[string]Platform)

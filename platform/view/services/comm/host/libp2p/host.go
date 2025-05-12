@@ -34,7 +34,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var logger = logging.MustGetLogger("view-sdk.services.comm.libp2p-host")
+var logger = logging.MustGetLogger()
 
 const (
 	viewProtocol     = "/fsc/view/1.0.0"

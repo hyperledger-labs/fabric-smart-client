@@ -40,7 +40,7 @@ const (
 	OrdererPortID = "orderer"
 )
 
-var logger = logging.MustGetLogger("nwo.orion")
+var logger = logging.MustGetLogger()
 
 type Identity struct {
 	Name string

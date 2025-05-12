@@ -8,11 +8,14 @@ package logging
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/hyperledger/fabric-lib-go/common/flogging/floggingtest"
@@ -54,8 +57,45 @@ func Named(loggerName string) Option {
 	}
 }
 
-func MustGetLogger(loggerName string) Logger {
-	return &logger{FabricLogger: flogging.MustGetLogger(loggerName)}
+func MustGetLogger(params ...string) Logger {
+	return utils.MustGet(GetLogger(params...))
+}
+
+func GetLogger(params ...string) (Logger, error) {
+	return GetLoggerWithReplacements(map[string]string{"github.com.hyperledger-labs.fabric-smart-client.platform": "fsc"}, params)
+}
+
+func GetLoggerWithReplacements(replacements map[string]string, params []string) (Logger, error) {
+	fullPkgName, err := GetPackageName()
+	if err != nil {
+		return nil, err
+	}
+	return &logger{FabricLogger: flogging.MustGetLogger(loggerName(fullPkgName, replacements, params...))}, nil
+}
+
+func GetPackageName() (string, error) {
+	pc, _, _, ok := runtime.Caller(4)
+	if !ok {
+		return "", errors.New("failed to get caller package name")
+	}
+	fn := runtime.FuncForPC(pc)
+	if fn == nil {
+		return "", errors.New("failed to get caller package name")
+	}
+	fullFuncName := fn.Name()
+	lastSlash := strings.LastIndex(fullFuncName, "/")
+	dotAfterSlash := strings.Index(fullFuncName[lastSlash:], ".")
+	return fullFuncName[:lastSlash+dotAfterSlash], nil
+}
+
+func loggerName(fullPkgName string, replacements map[string]string, params ...string) string {
+	nameParts := append(strings.Split(fullPkgName, "/"), params...)
+	name := strings.Join(nameParts, ".")
+
+	for old, newVal := range replacements {
+		name = strings.ReplaceAll(name, old, newVal)
+	}
+	return name
 }
 
 func NewTestLogger(tb testing.TB, options ...Option) (Logger, *Recorder) {

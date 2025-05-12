@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	logger = logging.MustGetLogger("view-sdk.kvs")
+	logger = logging.MustGetLogger()
 )
 
 const (
