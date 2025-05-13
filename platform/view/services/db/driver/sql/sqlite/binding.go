@@ -35,7 +35,7 @@ func NewBindingStore(opts Opts) (*BindingStore, error) {
 func newBindingStore(readDB *sql.DB, writeDB common.WriteDB, table string) *BindingStore {
 	errorWrapper := &errorMapper{}
 	return &BindingStore{
-		BindingStore: common.NewBindingStore(readDB, writeDB, table, errorWrapper, NewInterpreter()),
+		BindingStore: common.NewBindingStore(readDB, writeDB, table, errorWrapper, NewConditionInterpreter()),
 		table:        table,
 		writeDB:      writeDB,
 		errorWrapper: errorWrapper,

@@ -27,5 +27,5 @@ func NewMetadataStore(opts Opts) (*MetadataStore, error) {
 }
 
 func newMetadataStore(readDB *sql.DB, writeDB common.WriteDB, table string) *MetadataStore {
-	return &MetadataStore{MetadataStore: common.NewMetadataStore(writeDB, readDB, table, &errorMapper{}, NewInterpreter())}
+	return &MetadataStore{MetadataStore: common.NewMetadataStore(writeDB, readDB, table, &errorMapper{}, NewConditionInterpreter())}
 }

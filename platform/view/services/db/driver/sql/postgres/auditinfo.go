@@ -27,5 +27,5 @@ func NewAuditInfoStore(opts Opts) (*AuditInfoStore, error) {
 }
 
 func newAuditInfoStore(readDB, writeDB *sql.DB, table string) *AuditInfoStore {
-	return &AuditInfoStore{AuditInfoStore: common.NewAuditInfoStore(readDB, writeDB, table, &errorMapper{}, NewInterpreter())}
+	return &AuditInfoStore{AuditInfoStore: common.NewAuditInfoStore(readDB, writeDB, table, &errorMapper{}, NewConditionInterpreter())}
 }

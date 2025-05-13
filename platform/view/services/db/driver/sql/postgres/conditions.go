@@ -7,49 +7,27 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 )
 
-type interpreter struct {
-	common.Interpreter
+func NewConditionInterpreter() *interpreter {
+	return &interpreter{}
 }
 
-func NewInterpreter() *interpreter {
-	return &interpreter{Interpreter: common.NewInterpreter()}
-}
+type interpreter struct{}
 
-func (i *interpreter) In(field common.FieldName, vals []any) common.Condition {
-	tuples := make([]common.Tuple, len(vals))
-	for i, val := range vals {
-		tuples[i] = common.Tuple{val}
-	}
-	return i.InTuple([]common.FieldName{field}, tuples)
-}
-func (i *interpreter) InStrings(field common.FieldName, vals []string) common.Condition {
-	tuples := make([]common.Tuple, len(vals))
-	for i, val := range vals {
-		tuples[i] = common.Tuple{val}
-	}
-	return i.InTuple([]common.FieldName{field}, tuples)
-}
-func (i *interpreter) InInts(field common.FieldName, vals []int) common.Condition {
-	tuples := make([]common.Tuple, len(vals))
-	for i, val := range vals {
-		tuples[i] = common.Tuple{val}
-	}
-	return i.InTuple([]common.FieldName{field}, tuples)
-}
-func (i *interpreter) InTuple(fields []common.FieldName, vals []common.Tuple) common.Condition {
+func (i *interpreter) InTuple(fields []common.Serializable, vals []common.Tuple, sb common.Builder) {
 	if len(vals) == 0 || len(fields) == 0 {
-		return common.EmptyCondition
+		return
 	}
-	ors := make([]common.Condition, len(vals))
+	ors := make([]cond.Condition, len(vals))
 	for j, tuple := range vals {
-		ands := make([]common.Condition, len(tuple))
+		ands := make([]cond.Condition, len(tuple))
 		for k, val := range tuple {
-			ands[k] = i.Cmp(fields[k], "=", val)
+			ands[k] = cond.CmpVal(fields[k], "=", val)
 		}
-		ors[j] = i.And(ands...)
+		ors[j] = cond.And(ands...)
 	}
-	return i.Or(ors...)
+	sb.WriteConditionSerializable(cond.Or(ors...), i)
 }

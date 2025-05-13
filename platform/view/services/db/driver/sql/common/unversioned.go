@@ -17,6 +17,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
+	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 	"github.com/pkg/errors"
 )
 
@@ -33,10 +36,10 @@ type KeyValueStore struct {
 	table   string
 
 	errorWrapper driver.SQLErrorWrapper
-	ci           Interpreter
+	ci           common2.CondInterpreter
 }
 
-func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *KeyValueStore {
+func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common2.CondInterpreter) *KeyValueStore {
 	return &KeyValueStore{
 		BaseDB:       common.NewBaseDB(func() (*sql.Tx, error) { return writeDB.Begin() }),
 		readDB:       readDB,
@@ -48,14 +51,15 @@ func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrappe
 }
 
 func (db *KeyValueStore) GetStateRangeScanIterator(ns driver2.Namespace, startKey, endKey driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
-	where, args := Where(db.ci.And(
-		db.ci.Cmp("ns", "=", ns),
-		db.ci.BetweenStrings("pkey", startKey, endKey),
-	))
-	query := fmt.Sprintf("SELECT pkey, val FROM %s %s ORDER BY pkey;", db.table, where)
-	logger.Debug(query, ns, startKey, endKey)
+	query, params := q.Select("pkey", "val").
+		From(q.Table(db.table)).
+		Where(cond.And(cond.Eq("ns", ns), cond.BetweenStrings(common2.FieldName("pkey"), startKey, endKey))).
+		OrderBy(q.Asc(common2.FieldName("pkey"))).
+		Format(db.ci, nil)
 
-	rows, err := db.readDB.Query(query, args...)
+	logger.Debug(query, params)
+
+	rows, err := db.readDB.Query(query, params...)
 	if err != nil {
 		return nil, errors2.Wrapf(err, "query error: %s", query)
 	}
@@ -64,30 +68,36 @@ func (db *KeyValueStore) GetStateRangeScanIterator(ns driver2.Namespace, startKe
 }
 
 func (db *KeyValueStore) GetState(namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
-	where, args := Where(db.hasKey(namespace, key))
-	query := fmt.Sprintf("SELECT val FROM %s %s", db.table, where)
-	logger.Debug(query, args)
+	query, params := q.Select("val").
+		From(q.Table(db.table)).
+		Where(HasKeys(namespace, key)).
+		Format(db.ci, nil)
+	logger.Debug(query, params)
 
-	return QueryUnique[driver.UnversionedValue](db.readDB, query, args...)
+	return QueryUnique[driver.UnversionedValue](db.readDB, query, params...)
 }
 
 func (db *KeyValueStore) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*driver.UnversionedRead](), nil
 	}
-	where, args := Where(db.ci.And(
-		db.ci.Cmp("ns", "=", ns),
-		db.ci.InStrings("pkey", keys),
-	))
-	query := fmt.Sprintf("SELECT pkey, val FROM %s %s", db.table, where)
+	query, params := q.Select("pkey", "val").
+		From(q.Table(db.table)).
+		Where(HasKeys(ns, keys...)).
+		Format(db.ci, nil)
+
 	logger.Debug(query[:30] + "...")
 
-	rows, err := db.readDB.Query(query, args...)
+	rows, err := db.readDB.Query(query, params...)
 	if err != nil {
 		return nil, errors2.Wrapf(err, "query error: %s", query)
 	}
 
 	return &readIterator{txs: rows}, nil
+}
+
+func HasKeys(ns driver2.Namespace, keys ...driver2.PKey) cond.Condition {
+	return cond.And(cond.Eq("ns", ns), cond.In("pkey", keys...))
 }
 
 func (db *KeyValueStore) Close() error {
@@ -127,10 +137,12 @@ func (db *KeyValueStore) DeleteStatesWithTx(tx dbTransaction, namespace driver2.
 	if len(namespace) == 0 {
 		return collections.RepeatValue(keys, errors.New("ns or key is empty"))
 	}
-	where, args := Where(db.hasKeys(namespace, keys))
-	query := fmt.Sprintf("DELETE FROM %s %s", db.table, where)
-	logger.Debug(query, args)
-	_, err := tx.Exec(query, args...)
+	query, params := q.DeleteFrom(db.table).
+		Where(HasKeys(namespace, keys...)).
+		Format(db.ci)
+
+	logger.Debug(query, params)
+	_, err := tx.Exec(query, params...)
 	if err != nil {
 		errs := make(map[driver2.PKey]error)
 		for _, key := range keys {
@@ -140,13 +152,6 @@ func (db *KeyValueStore) DeleteStatesWithTx(tx dbTransaction, namespace driver2.
 	}
 
 	return nil
-}
-
-func (db *KeyValueStore) hasKeys(ns driver2.Namespace, pkeys []driver2.PKey) Condition {
-	return db.ci.And(
-		db.ci.Cmp("ns", "=", ns),
-		db.ci.InStrings("pkey", pkeys),
-	)
 }
 
 func (db *KeyValueStore) SetState(ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
@@ -195,19 +200,18 @@ func (db *KeyValueStore) SetStatesWithTx(tx dbTransaction, ns driver2.Namespace,
 }
 
 func (db *KeyValueStore) upsertStatesWithTx(tx dbTransaction, ns driver2.Namespace, vals map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
-	query := fmt.Sprintf("INSERT INTO %s (ns, pkey, val) "+
-		"VALUES %s "+
-		"ON CONFLICT (ns, pkey) DO UPDATE "+
-		"SET val=excluded.val",
-		db.table,
-		CreateParamsMatrix(3, len(vals), 1))
-
-	args := make([]any, 0, 3*len(vals))
+	rows := make([]common2.Tuple, 0, len(vals))
 	for pkey, val := range vals {
-		args = append(args, ns, pkey, val)
+		rows = append(rows, common2.Tuple{ns, pkey, val})
 	}
-	logger.Debug(query, args)
-	if _, err := tx.Exec(query, args...); err != nil {
+	query, params := q.InsertInto(db.table).
+		Fields("ns", "pkey", "val").
+		Rows(rows).
+		OnConflict([]common2.FieldName{"ns", "pkey"}, q.OverwriteValue("val")).
+		Format()
+
+	logger.Debug(query, params)
+	if _, err := tx.Exec(query, params...); err != nil {
 		return collections.RepeatValue(collections.Keys(vals), errors2.Wrapf(db.errorWrapper.WrapError(err), "could not upsert"))
 	}
 	return nil
@@ -215,13 +219,6 @@ func (db *KeyValueStore) upsertStatesWithTx(tx dbTransaction, ns driver2.Namespa
 
 func (db *KeyValueStore) Exec(query string, args ...any) (sql.Result, error) {
 	return db.Txn.Exec(query, args...)
-}
-
-func (db *KeyValueStore) hasKey(ns driver2.Namespace, pkey string) Condition {
-	return db.ci.And(
-		db.ci.Cmp("ns", "=", ns),
-		db.ci.Cmp("pkey", "=", pkey),
-	)
 }
 
 func (db *KeyValueStore) Stats() any {

@@ -27,5 +27,5 @@ func NewEndorseTxStore(opts Opts) (*EndorseTxStore, error) {
 }
 
 func newEndorseTxStore(readDB *sql.DB, writeDB common.WriteDB, table string) *EndorseTxStore {
-	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(writeDB, readDB, table, &errorMapper{}, NewInterpreter())}
+	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(writeDB, readDB, table, &errorMapper{}, NewConditionInterpreter())}
 }

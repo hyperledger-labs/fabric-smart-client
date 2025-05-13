@@ -27,5 +27,5 @@ func NewSignerInfoStore(opts Opts) (*SignerInfoStore, error) {
 }
 
 func newSignerInfoStore(readDB, writeDB *sql.DB, table string) *SignerInfoStore {
-	return &SignerInfoStore{SignerInfoStore: common.NewSignerInfoStore(readDB, writeDB, table, &errorMapper{}, NewInterpreter())}
+	return &SignerInfoStore{SignerInfoStore: common.NewSignerInfoStore(readDB, writeDB, table, &errorMapper{}, NewConditionInterpreter())}
 }

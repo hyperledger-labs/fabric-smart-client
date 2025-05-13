@@ -12,11 +12,14 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
 
-func NewBindingStore(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *BindingStore {
+func NewBindingStore(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *BindingStore {
 	return &BindingStore{
 		table:        table,
 		errorWrapper: errorWrapper,
@@ -31,12 +34,15 @@ type BindingStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
-	ci           Interpreter
+	ci           common.CondInterpreter
 }
 
 func (db *BindingStore) GetLongTerm(ephemeral view.Identity) (view.Identity, error) {
-	where, params := Where(db.ci.Cmp("ephemeral_hash", "=", ephemeral.UniqueID()))
-	query := fmt.Sprintf("SELECT long_term_id FROM %s %s", db.table, where)
+	query, params := q.Select("long_term_id").
+		From(q.Table(db.table)).
+		Where(cond.Eq("ephemeral_hash", ephemeral.UniqueID())).
+		Format(db.ci, nil)
+
 	logger.Debug(query, params)
 	result, err := QueryUnique[view.Identity](db.readDB, query, params...)
 	if err != nil {
@@ -45,9 +51,13 @@ func (db *BindingStore) GetLongTerm(ephemeral view.Identity) (view.Identity, err
 	logger.Debugf("found wallet id for identity [%v]: %v", ephemeral, result)
 	return result, nil
 }
+
 func (db *BindingStore) HaveSameBinding(this, that view.Identity) (bool, error) {
-	where, params := Where(db.ci.InStrings("ephemeral_hash", []string{this.UniqueID(), that.UniqueID()}))
-	query := fmt.Sprintf("SELECT long_term_id FROM %s %s", db.table, where)
+	query, params := q.Select("long_term_id").
+		From(q.Table(db.table)).
+		Where(cond.In("ephemeral_hash", this.UniqueID(), that.UniqueID())).
+		Format(db.ci, nil)
+
 	logger.Debug(query, params)
 	rows, err := db.readDB.Query(query, params...)
 	if err != nil {

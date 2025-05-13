@@ -14,13 +14,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 )
 
 type KeyValueStore struct {
 	*common.KeyValueStore
 
 	table        string
-	ci           common.Interpreter
+	ci           common2.CondInterpreter
 	errorWrapper driver2.SQLErrorWrapper
 }
 
@@ -94,7 +95,7 @@ func NewKeyValueStoreNotifier(opts Opts) (*keyValueStoreNotifier, error) {
 }
 
 func newKeyValueStore(readDB, writeDB *sql.DB, table string) *KeyValueStore {
-	ci := NewInterpreter()
+	ci := NewConditionInterpreter()
 	errorWrapper := &errorMapper{}
 	return &KeyValueStore{
 		KeyValueStore: common.NewKeyValueStore(readDB, writeDB, table, errorWrapper, ci),

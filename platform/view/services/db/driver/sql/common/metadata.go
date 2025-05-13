@@ -10,9 +10,10 @@ import (
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 )
 
-func NewMetadataStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *MetadataStore {
+func NewMetadataStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *MetadataStore {
 	return &MetadataStore{p: newSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
 }
 

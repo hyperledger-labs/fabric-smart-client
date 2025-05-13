@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -25,9 +26,8 @@ type VaultStore struct {
 	tables  common.VaultTables
 	writeDB common.WriteDB
 
-	ci common.Interpreter
-
-	pi common.PaginationInterpreter
+	ci common2.CondInterpreter
+	pi common2.PagInterpreter
 }
 
 func NewVaultStore(opts Opts) (*VaultStore, error) {
@@ -43,8 +43,8 @@ func NewVaultStore(opts Opts) (*VaultStore, error) {
 }
 
 func newVaultStore(readDB *sql.DB, writeDB common.WriteDB, tables common.VaultTables) *VaultStore {
-	ci := NewInterpreter()
-	pi := NewPaginatedInterpreter()
+	ci := NewConditionInterpreter()
+	pi := NewPaginationInterpreter()
 	return &VaultStore{
 		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &errorMapper{}, ci, pi, newSanitizer(), isolationLevels),
 		tables:     tables,
@@ -73,6 +73,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 		q, ps := db.SetStatusesBusy(txIDs, len(params)+1)
 		params = append(params, ps...)
 		queryBuilder.WriteString(q)
+		queryBuilder.WriteRune(';')
 	}
 
 	if len(writes) > 0 || len(metaWrites) > 0 {
@@ -82,12 +83,14 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 		}
 		params = append(params, ps...)
 		queryBuilder.WriteString(q)
+		queryBuilder.WriteRune(';')
 	}
 
 	if len(txIDs) > 0 {
 		q, ps := db.SetStatusesValid(txIDs, len(params)+1)
 		params = append(params, ps...)
 		queryBuilder.WriteString(q)
+		queryBuilder.WriteRune(';')
 	}
 
 	queryBuilder.WriteString(`
