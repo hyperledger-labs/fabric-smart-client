@@ -1,0 +1,64 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package _select_test
+
+import (
+	"testing"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
+	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/pagination"
+	. "github.com/onsi/gomega"
+)
+
+func TestSelectSimple(t *testing.T) {
+	RegisterTestingT(t)
+
+	myTable := q.Table("my_table")
+	query, params := q.Select("id", "name").
+		From(myTable).
+		Where(cond.CmpVal(myTable.Field("id"), ">", 5)).
+		OrderBy(q.Asc(common.FieldName("id"))).
+		Limit(2).
+		Offset(1).
+		Format(postgres.NewConditionInterpreter(), pagination.NewDefaultInterpreter())
+
+	Expect(query).To(Equal("SELECT id, name " +
+		"FROM my_table AS my_table " +
+		"WHERE my_table.id > $1 " +
+		"ORDER BY id ASC " +
+		"LIMIT $2 " +
+		"OFFSET $3"))
+	Expect(params).To(ConsistOf(5, 2, 1))
+}
+
+func TestSelectJoin(t *testing.T) {
+	RegisterTestingT(t)
+
+	myTable, yourTable, theirTable := q.Table("my_table"), q.Table("your_table"), q.Table("their_table")
+	query, params := q.SelectFields(myTable.Field("name"), yourTable.Field("id")).
+		From(myTable.
+			Join(yourTable, cond.Cmp(myTable.Field("id"), "=", yourTable.Field("my_id"))).
+			Join(theirTable, cond.Cmp(myTable.Field("id"), ">", theirTable.Field("their_id")))).
+		Where(cond.CmpVal(myTable.Field("id"), ">", 5)).
+		OrderBy(q.Desc(yourTable.Field("date"))).
+		Limit(2).
+		Offset(1).
+		Format(postgres.NewConditionInterpreter(), pagination.NewDefaultInterpreter())
+
+	Expect(query).To(Equal("SELECT my_table.name, your_table.id " +
+		"FROM my_table AS my_table " +
+		"JOIN your_table AS your_table ON my_table.id = your_table.my_id " +
+		"JOIN their_table AS their_table ON my_table.id > their_table.their_id " +
+		"WHERE my_table.id > $1 " +
+		"ORDER BY your_table.date DESC " +
+		"LIMIT $2 " +
+		"OFFSET $3"))
+	Expect(params).To(ConsistOf(5, 2, 1))
+}
