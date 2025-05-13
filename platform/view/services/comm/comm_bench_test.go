@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	numOfNodes    int = 3
+	numOfNodes    int = 2
 	numOfSessions int = 1
 	numOfMsgs     int = 1
 )
@@ -47,6 +47,8 @@ type MetricsContainer struct {
 
 func createLibp2pNodes() []*Node {
 	var nodes []*Node
+	var resolver BootstrapNodeResolver
+
 	for iNode := 0; iNode < numOfNodes; iNode++ {
 		nodeId := fmt.Sprintf("Node_%d", iNode)
 		config := GetConfig("initiator")
@@ -55,12 +57,12 @@ func createLibp2pNodes() []*Node {
 
 		var service *Service
 		var servicePkId view2.Identity
-		var resolver BootstrapNodeResolver
 		if iNode == 0 {
 			service, servicePkId = NewLibP2PCommService(config.Libp2pConfig(""), config.CertFile, nil)
 			resolver = BootstrapNodeResolver{nodeID: servicePkId, nodeAddress: config.ListenAddress}
 		} else {
-			service, servicePkId = NewLibP2PCommService(config.Libp2pConfig("node0"), config.CertFile, &resolver)
+			logger.Infof("%s: config.ListenAddress = %s", nodeId, config.ListenAddress)
+			service, servicePkId = NewLibP2PCommService(config.Libp2pConfig(nodeId), config.CertFile, &resolver)
 		}
 
 		service.Start(context.Background())
@@ -129,44 +131,6 @@ func connectNodesMesh(nodes []*Node) []*connection {
 
 	return connections
 }
-
-// func createLibp2pNodes() []Nodes {
-
-// 	var nodes []Nodes
-
-// 	for senderNodeNum := 0; senderNodeNum < numOfNodes; senderNodeNum++ {
-
-// 		senderConfig := GetConfig("initiator")
-
-// 		for receivedNodeNum := 0; receivedNodeNum < numOfNodes; receivedNodeNum++ {
-// 			if senderNodeNum == receivedNodeNum {
-// 				continue
-// 			}
-
-// 			receiverConfig := GetConfig("responder")
-// 			receiverConfig.BootstrapNode = "sender"
-// 			sender, senderPkID := NewLibP2PCommService(senderConfig, nil)
-// 			sender.Start(context.Background())
-// 			receiver, receiverPkID := NewLibP2PCommService(receiverConfig, &BootstrapNodeResolver{nodeID: senderPkID, nodeAddress: senderConfig.ListenAddress})
-// 			receiver.Start(context.Background())
-
-// 			senderNode := Node{
-// 				commService: sender,
-// 				address:     senderConfig.ListenAddress,
-// 				pkID:        senderPkID,
-// 			}
-
-// 			receiverNode := Node{
-// 				commService: receiver,
-// 				address:     receiverConfig.ListenAddress,
-// 				pkID:        receiverPkID,
-// 			}
-// 			nodes = append(nodes, Nodes{sender: sender, senderNode: senderNode, receiver: receiver, receiverNode: receiverNode})
-// 		}
-// 	}
-
-// 	return nodes
-// }
 
 // Main test:
 // 1. Create a thread for each connection
