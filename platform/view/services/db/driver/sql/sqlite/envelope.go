@@ -27,5 +27,5 @@ func NewEnvelopeStore(opts Opts) (*EnvelopeStore, error) {
 }
 
 func newEnvelopeStore(readDB *sql.DB, writeDB common.WriteDB, table string) *EnvelopeStore {
-	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(writeDB, readDB, table, &errorMapper{}, NewInterpreter())}
+	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(writeDB, readDB, table, &errorMapper{}, NewConditionInterpreter())}
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/pagination"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -36,9 +36,10 @@ type matrixItem struct {
 	matcher    []types.GomegaMatcher
 }
 
+var r driver.Pagination = pagination.None()
 var matrix = []matrixItem{
 	{
-		pagination: common.NewNoPagination(),
+		pagination: r,
 		matcher: []types.GomegaMatcher{
 			ConsistOf(
 				HaveField("TxID", Equal("txid1")),
@@ -75,8 +76,8 @@ var matrix = []matrixItem{
 	},
 }
 
-func NewOffsetPagination(offset int, pageSize int) *common.OffsetPagination {
-	offsetPagination, err := common.NewOffsetPagination(offset, pageSize)
+func NewOffsetPagination(offset int, pageSize int) driver.Pagination {
+	offsetPagination, err := pagination.Offset(offset, pageSize)
 	if err != nil {
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -231,7 +232,8 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 }
 
 func fetchAll(store driver.VaultStore) ([]driver.TxID, error) {
-	pageIt, err := store.GetAllTxStatuses(context.Background(), common.NewNoPagination())
+	var r2 driver.Pagination = pagination.None()
+	pageIt, err := store.GetAllTxStatuses(context.Background(), r2)
 	if err != nil {
 		return nil, err
 	}

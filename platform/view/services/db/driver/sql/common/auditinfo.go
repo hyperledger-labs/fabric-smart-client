@@ -11,11 +11,14 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
 
-func NewAuditInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *AuditInfoStore {
+func NewAuditInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *AuditInfoStore {
 	return &AuditInfoStore{
 		table:        table,
 		errorWrapper: errorWrapper,
@@ -30,21 +33,27 @@ type AuditInfoStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
-	ci           Interpreter
+	ci           common.CondInterpreter
 }
 
 func (db *AuditInfoStore) GetAuditInfo(id view.Identity) ([]byte, error) {
-	where, params := Where(db.ci.Cmp("id", "=", id.UniqueID()))
-	query := fmt.Sprintf("SELECT audit_info FROM %s %s", db.table, where)
+	query, params := q.Select("audit_info").
+		From(q.Table(db.table)).
+		Where(cond.Eq("id", id.UniqueID())).
+		Format(db.ci, nil)
 	logger.Debug(query, params)
 
 	return QueryUnique[[]byte](db.readDB, query, params...)
 }
 
 func (db *AuditInfoStore) PutAuditInfo(id view.Identity, info []byte) error {
-	query := fmt.Sprintf("INSERT INTO %s (id, audit_info) VALUES ($1, $2)", db.table)
-	logger.Debugf(query, id, info)
-	_, err := db.writeDB.Exec(query, id.UniqueID(), info)
+	query, params := q.InsertInto(db.table).
+		Fields("id", "audit_info").
+		Row(id.UniqueID(), info).
+		Format()
+
+	logger.Debug(query, params)
+	_, err := db.writeDB.Exec(query, params...)
 	if err != nil && errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
 		logger.Warnf("Audit info [%s] already in db. Skipping...", id)
 		return nil

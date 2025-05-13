@@ -10,9 +10,10 @@ import (
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 )
 
-func NewEnvelopeStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *EnvelopeStore {
+func NewEnvelopeStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *EnvelopeStore {
 	return &EnvelopeStore{p: newSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
 }
 

@@ -10,9 +10,10 @@ import (
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 )
 
-func NewEndorseTxStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *EndorseTxStore {
+func NewEndorseTxStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *EndorseTxStore {
 	return &EndorseTxStore{p: newSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
 }
 

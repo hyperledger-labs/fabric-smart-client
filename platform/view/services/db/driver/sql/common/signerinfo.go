@@ -12,11 +12,14 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
 
-func NewSignerInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci Interpreter) *SignerInfoStore {
+func NewSignerInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *SignerInfoStore {
 	return &SignerInfoStore{
 		table:        table,
 		errorWrapper: errorWrapper,
@@ -31,7 +34,7 @@ type SignerInfoStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
-	ci           Interpreter
+	ci           common.CondInterpreter
 }
 
 func (db *SignerInfoStore) FilterExistingSigners(ids ...view.Identity) ([]view.Identity, error) {
@@ -42,8 +45,11 @@ func (db *SignerInfoStore) FilterExistingSigners(ids ...view.Identity) ([]view.I
 		idHashes[i] = idHash
 		inverseMap[idHash] = id
 	}
-	where, params := Where(db.ci.InStrings("id", idHashes))
-	query := fmt.Sprintf("SELECT id FROM %s %s", db.table, where)
+
+	query, params := q.Select("id").
+		From(q.Table(db.table)).
+		Where(cond.In("id", idHashes...)).
+		Format(db.ci, nil)
 	logger.Debug(query, params)
 
 	rows, err := db.readDB.Query(query, params...)
@@ -65,9 +71,13 @@ func (db *SignerInfoStore) FilterExistingSigners(ids ...view.Identity) ([]view.I
 }
 
 func (db *SignerInfoStore) PutSigner(id view.Identity) error {
-	query := fmt.Sprintf("INSERT INTO %s (id) VALUES ($1)", db.table)
-	logger.Debug(query, id)
-	_, err := db.writeDB.Exec(query, id.UniqueID())
+	query, params := q.InsertInto(db.table).
+		Fields("id").
+		Row(id.UniqueID()).
+		Format()
+
+	logger.Debug(query, params)
+	_, err := db.writeDB.Exec(query, params...)
 	if err == nil {
 		logger.Debugf("Signer [%s] registered", id)
 		return nil
