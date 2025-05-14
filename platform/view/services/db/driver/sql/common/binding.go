@@ -38,7 +38,7 @@ type BindingStore struct {
 }
 
 func (db *BindingStore) GetLongTerm(ephemeral view.Identity) (view.Identity, error) {
-	query, params := q.Select("long_term_id").
+	query, params := q.Select().FieldsByName("long_term_id").
 		From(q.Table(db.table)).
 		Where(cond.Eq("ephemeral_hash", ephemeral.UniqueID())).
 		Format(db.ci, nil)
@@ -53,7 +53,7 @@ func (db *BindingStore) GetLongTerm(ephemeral view.Identity) (view.Identity, err
 }
 
 func (db *BindingStore) HaveSameBinding(this, that view.Identity) (bool, error) {
-	query, params := q.Select("long_term_id").
+	query, params := q.Select().FieldsByName("long_term_id").
 		From(q.Table(db.table)).
 		Where(cond.In("ephemeral_hash", this.UniqueID(), that.UniqueID())).
 		Format(db.ci, nil)

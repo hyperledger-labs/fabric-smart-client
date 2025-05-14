@@ -37,7 +37,7 @@ type AuditInfoStore struct {
 }
 
 func (db *AuditInfoStore) GetAuditInfo(id view.Identity) ([]byte, error) {
-	query, params := q.Select("audit_info").
+	query, params := q.Select().FieldsByName("audit_info").
 		From(q.Table(db.table)).
 		Where(cond.Eq("id", id.UniqueID())).
 		Format(db.ci, nil)

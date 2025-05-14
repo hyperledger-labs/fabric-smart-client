@@ -51,9 +51,9 @@ func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrappe
 }
 
 func (db *KeyValueStore) GetStateRangeScanIterator(ns driver2.Namespace, startKey, endKey driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
-	query, params := q.Select("pkey", "val").
+	query, params := q.Select().FieldsByName("pkey", "val").
 		From(q.Table(db.table)).
-		Where(cond.And(cond.Eq("ns", ns), cond.BetweenStrings(common2.FieldName("pkey"), startKey, endKey))).
+		Where(cond.And(cond.Eq("ns", ns), cond.BetweenStrings("pkey", startKey, endKey))).
 		OrderBy(q.Asc(common2.FieldName("pkey"))).
 		Format(db.ci, nil)
 
@@ -68,7 +68,7 @@ func (db *KeyValueStore) GetStateRangeScanIterator(ns driver2.Namespace, startKe
 }
 
 func (db *KeyValueStore) GetState(namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
-	query, params := q.Select("val").
+	query, params := q.Select().FieldsByName("val").
 		From(q.Table(db.table)).
 		Where(HasKeys(namespace, key)).
 		Format(db.ci, nil)
@@ -81,7 +81,7 @@ func (db *KeyValueStore) GetStateSetIterator(ns driver2.Namespace, keys ...drive
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*driver.UnversionedRead](), nil
 	}
-	query, params := q.Select("pkey", "val").
+	query, params := q.Select().FieldsByName("pkey", "val").
 		From(q.Table(db.table)).
 		Where(HasKeys(ns, keys...)).
 		Format(db.ci, nil)

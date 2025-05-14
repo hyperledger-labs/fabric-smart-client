@@ -12,8 +12,19 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 )
 
-// Query is the query state after SELECT
 type Query interface {
+	// AllFields selects all fields
+	AllFields() fieldsQuery
+	// Fields selects fully-qualified fields (table name and column)
+	// Useful in case of conflicting names with joined tables
+	Fields(...common.Field) fieldsQuery
+	// FieldsByName selects fields only with their name
+	// More handy for most cases
+	FieldsByName(names ...common.FieldName) fieldsQuery
+}
+
+// Query is the query state after SELECT
+type fieldsQuery interface {
 	// From specifies a table (possibly with Joins)
 	From(common.JoinedTable) fromQuery
 }
@@ -28,11 +39,14 @@ type fromQuery interface {
 
 // whereQuery is the query state after WHERE
 type whereQuery interface {
-	orderByQuery
-	offsetQuery
+	paginatedQuery
 
 	// Paginated specifies the pagination details
-	Paginated(driver.Pagination) offsetQuery
+	Paginated(driver.Pagination) paginatedQuery
+}
+
+type paginatedQuery interface {
+	orderByQuery
 
 	// OrderBy specifies the order by clause
 	OrderBy(...OrderBy) orderByQuery
@@ -50,6 +64,7 @@ type orderByQuery interface {
 // limitQuery is the query state after LIMIT
 type limitQuery interface {
 	// Offset specifies the offset
+	offsetQuery
 	Offset(int) offsetQuery
 }
 

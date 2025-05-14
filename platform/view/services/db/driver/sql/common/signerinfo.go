@@ -46,7 +46,7 @@ func (db *SignerInfoStore) FilterExistingSigners(ids ...view.Identity) ([]view.I
 		inverseMap[idHash] = id
 	}
 
-	query, params := q.Select("id").
+	query, params := q.Select().FieldsByName("id").
 		From(q.Table(db.table)).
 		Where(cond.In("id", idHashes...)).
 		Format(db.ci, nil)
