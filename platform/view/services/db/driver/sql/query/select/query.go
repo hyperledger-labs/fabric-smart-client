@@ -13,12 +13,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 )
 
-func NewQuery() *query {
-	return &query{}
+func NewQuery(distinct bool) *query {
+	return &query{distinct: distinct}
 }
 
 type query struct {
 	table      common.JoinedTable
+	distinct   bool
 	fields     []common.Field
 	where      cond.Condition
 	limit      int
@@ -27,11 +28,11 @@ type query struct {
 	pagination driver.Pagination
 }
 
-func (q *query) AllFields() Query {
+func (q *query) AllFields() fieldsQuery {
 	return q
 }
 
-func (q *query) FieldsByName(names ...common.FieldName) Query {
+func (q *query) FieldsByName(names ...common.FieldName) fieldsQuery {
 	fields := make([]common.Field, len(names))
 	for i, n := range names {
 		fields[i] = n
@@ -39,7 +40,7 @@ func (q *query) FieldsByName(names ...common.FieldName) Query {
 	return q.Fields(fields...)
 }
 
-func (q *query) Fields(fields ...common.Field) Query {
+func (q *query) Fields(fields ...common.Field) fieldsQuery {
 	q.fields = fields
 	return q
 }
@@ -69,7 +70,7 @@ func (q *query) Where(p cond.Condition) whereQuery {
 	return q
 }
 
-func (q *query) Paginated(p driver.Pagination) offsetQuery {
+func (q *query) Paginated(p driver.Pagination) paginatedQuery {
 	q.pagination = p
 	return q
 }
@@ -80,6 +81,10 @@ func (q *query) Format(ci common.CondInterpreter, pi common.PagInterpreter) (str
 
 func (q *query) FormatWithOffset(ci common.CondInterpreter, pi common.PagInterpreter, pc *int) (string, []any) {
 	sb := common.NewBuilderWithOffset(pc).WriteString("SELECT ")
+
+	if q.distinct {
+		sb.WriteString("DISTINCT ")
+	}
 
 	if len(q.fields) > 0 {
 		sb.WriteSerializables(common.ToSerializables(q.fields)...)

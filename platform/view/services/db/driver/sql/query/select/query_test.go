@@ -21,7 +21,7 @@ func TestSelectSimple(t *testing.T) {
 	RegisterTestingT(t)
 
 	myTable := q.Table("my_table")
-	query, params := q.Select("id", "name").
+	query, params := q.Select().FieldsByName("id", "name").
 		From(myTable).
 		Where(cond.CmpVal(myTable.Field("id"), ">", 5)).
 		OrderBy(q.Asc(common.FieldName("id"))).
@@ -42,7 +42,7 @@ func TestSelectJoin(t *testing.T) {
 	RegisterTestingT(t)
 
 	myTable, yourTable, theirTable := q.Table("my_table"), q.Table("your_table"), q.Table("their_table")
-	query, params := q.SelectFields(myTable.Field("name"), yourTable.Field("id")).
+	query, params := q.Select().Fields(myTable.Field("name"), yourTable.Field("id")).
 		From(myTable.
 			Join(yourTable, cond.Cmp(myTable.Field("id"), "=", yourTable.Field("my_id"))).
 			Join(theirTable, cond.Cmp(myTable.Field("id"), ">", theirTable.Field("their_id")))).

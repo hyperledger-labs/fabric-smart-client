@@ -24,6 +24,16 @@ type testCase struct {
 
 var testMatrix = []testCase{
 	{
+		condition:      cond.And(cond.AlwaysTrue, cond.AlwaysTrue),
+		expectedQuery:  "1 = 1",
+		expectedParams: []common.Param{},
+	},
+	{
+		condition:      cond.Or(cond.AlwaysFalse, cond.Eq("field", 1)),
+		expectedQuery:  "(field = $0)",
+		expectedParams: []common.Param{1},
+	},
+	{
 		condition:      cond.Cmp(common.NewAliasedTable("tab1").Field("id"), ">", common.NewAliasedTable("tab2").Field("id2")),
 		expectedQuery:  "tab1.id > tab2.id2",
 		expectedParams: []common.Param{},

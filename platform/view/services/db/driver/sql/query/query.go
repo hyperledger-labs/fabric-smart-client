@@ -14,17 +14,11 @@ import (
 	_update "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/update"
 )
 
-// SelectAll initiates a SELECT * query
-func SelectAll() _select.Query { return _select.NewQuery().AllFields() }
+// Select initiates a SELECT query
+func Select() _select.Query { return _select.NewQuery(false) }
 
-// Select initiates a SELECT query using simple field names
-func Select(names ...common.FieldName) _select.Query {
-	return _select.NewQuery().FieldsByName(names...)
-}
-
-// SelectFields initiates a SELECT query using fully qualified field names
-// Useful in case of conflicting names with joined tables
-func SelectFields(fields ...common.Field) _select.Query { return _select.NewQuery().Fields(fields...) }
+// SelectDistinct initiates a SELECT DISTINCT query
+func SelectDistinct() _select.Query { return _select.NewQuery(true) }
 
 // Table creates a Table instance without assigning any alias
 func Table(name string) common.Table { return common.NewAliasedTable(common.TableName(name)) }

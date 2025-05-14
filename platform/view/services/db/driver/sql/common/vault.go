@@ -376,7 +376,7 @@ func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Names
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("Start get state range")
 	defer span.AddEvent("End get state range")
-	return db.queryState(cond.And(cond.Eq("ns", namespace), cond.BetweenStrings(common2.FieldName("pkey"), startKey, endKey)))
+	return db.queryState(cond.And(cond.Eq("ns", namespace), cond.BetweenStrings("pkey", startKey, endKey)))
 }
 
 func (db *vaultReader) GetAllStates(_ context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
@@ -384,7 +384,7 @@ func (db *vaultReader) GetAllStates(_ context.Context, namespace driver.Namespac
 }
 
 func (db *vaultReader) queryState(where cond.Condition) (driver.TxStateIterator, error) {
-	query, params := q.Select("pkey", "kversion", "val").
+	query, params := q.Select().FieldsByName("pkey", "kversion", "val").
 		From(q.Table(db.tables.StateTable)).
 		Where(where).
 		Format(db.ci, db.pi)
@@ -413,7 +413,7 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 		return nil, nil, err
 	}
 
-	query, params := q.Select("metadata", "kversion").
+	query, params := q.Select().FieldsByName("metadata", "kversion").
 		From(q.Table(db.tables.StateTable)).
 		Where(cond.And(cond.Eq("ns", namespace), cond.Eq("pkey", key))).
 		Format(db.ci, db.pi)
@@ -497,7 +497,7 @@ func (db *vaultReader) GetAllTxStatuses(ctx context.Context, pagination driver.P
 }
 
 func (db *vaultReader) queryStatus(where cond.Condition, pagination driver.Pagination) (driver.TxStatusIterator, error) {
-	query, params := q.Select("tx_id", "code", "message").
+	query, params := q.Select().FieldsByName("tx_id", "code", "message").
 		From(q.Table(db.tables.StatusTable)).
 		Where(where).
 		Paginated(pagination).

@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package cond
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
+import (
+	"fmt"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
+)
 
 func Constant(s string) *constant {
 	c := constant(s)
@@ -41,15 +45,22 @@ func (c *andOr) WriteString(in common.CondInterpreter, sb common.Builder) {
 }
 
 func And(cs ...Condition) Condition {
-	if len(cs) == 0 {
-		return AlwaysTrue
-	}
-	return &andOr{cs: cs, operator: ") AND ("}
+	return newAndOr(cs, AlwaysTrue, "AND")
 }
 
 func Or(cs ...Condition) Condition {
-	if len(cs) == 0 {
-		return AlwaysFalse
+	return newAndOr(cs, AlwaysFalse, "OR")
+}
+
+func newAndOr(conditions []Condition, trivialCondition Condition, operator string) Condition {
+	nonTrivial := make([]Condition, 0, len(conditions))
+	for _, c := range conditions {
+		if c != trivialCondition {
+			nonTrivial = append(nonTrivial, c)
+		}
 	}
-	return &andOr{cs: cs, operator: ") OR ("}
+	if len(nonTrivial) == 0 {
+		return trivialCondition
+	}
+	return &andOr{cs: nonTrivial, operator: fmt.Sprintf(") %s (", operator)}
 }

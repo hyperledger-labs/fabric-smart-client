@@ -14,6 +14,9 @@ type inTuple struct {
 }
 
 func FieldIn[V common.Param](field common.Serializable, vals ...V) Condition {
+	if len(vals) == 0 {
+		return AlwaysTrue
+	}
 	tuples := make([]Tuple, len(vals))
 	for i, val := range vals {
 		tuples[i] = Tuple{val}
