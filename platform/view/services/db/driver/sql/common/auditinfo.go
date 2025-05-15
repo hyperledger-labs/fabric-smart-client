@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -36,7 +37,7 @@ type AuditInfoStore struct {
 	ci           common.CondInterpreter
 }
 
-func (db *AuditInfoStore) GetAuditInfo(id view.Identity) ([]byte, error) {
+func (db *AuditInfoStore) GetAuditInfo(ctx context.Context, id view.Identity) ([]byte, error) {
 	query, params := q.Select().FieldsByName("audit_info").
 		From(q.Table(db.table)).
 		Where(cond.Eq("id", id.UniqueID())).
@@ -46,7 +47,7 @@ func (db *AuditInfoStore) GetAuditInfo(id view.Identity) ([]byte, error) {
 	return QueryUnique[[]byte](db.readDB, query, params...)
 }
 
-func (db *AuditInfoStore) PutAuditInfo(id view.Identity, info []byte) error {
+func (db *AuditInfoStore) PutAuditInfo(ctx context.Context, id view.Identity, info []byte) error {
 	query, params := q.InsertInto(db.table).
 		Fields("id", "audit_info").
 		Row(id.UniqueID(), info).

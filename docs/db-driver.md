@@ -44,8 +44,8 @@ type BindingStore interface {
 }
 
 type AuditInfoStore interface {
-    GetAuditInfo(id view.Identity) ([]byte, error)
-    PutAuditInfo(id view.Identity, info []byte) error
+    GetAuditInfo(ctx context.Context, id view.Identity) ([]byte, error)
+    PutAuditInfo(ctx context.Context, id view.Identity, info []byte) error
 }
 ```
 
