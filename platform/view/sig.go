@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -70,13 +72,13 @@ type SigService struct {
 }
 
 // RegisterAuditInfo binds the passed audit info to the passed identity
-func (s *SigService) RegisterAuditInfo(identity view.Identity, info []byte) error {
-	return s.auditRegistry.RegisterAuditInfo(identity, info)
+func (s *SigService) RegisterAuditInfo(ctx context.Context, identity view.Identity, info []byte) error {
+	return s.auditRegistry.RegisterAuditInfo(ctx, identity, info)
 }
 
 // GetAuditInfo returns the audit info associated to the passed identity, nil if not found
-func (s *SigService) GetAuditInfo(identity view.Identity) ([]byte, error) {
-	return s.auditRegistry.GetAuditInfo(identity)
+func (s *SigService) GetAuditInfo(ctx context.Context, identity view.Identity) ([]byte, error) {
+	return s.auditRegistry.GetAuditInfo(ctx, identity)
 }
 
 // RegisterSigner binds the passed identity to the passed signer and verifier

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package sig
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"runtime/debug"
@@ -142,12 +143,12 @@ func (o *Service) RegisterVerifier(identity view.Identity, verifier driver.Verif
 	return nil
 }
 
-func (o *Service) RegisterAuditInfo(identity view.Identity, info []byte) error {
-	return o.auditInfoKVS.PutAuditInfo(identity, info)
+func (o *Service) RegisterAuditInfo(ctx context.Context, identity view.Identity, info []byte) error {
+	return o.auditInfoKVS.PutAuditInfo(ctx, identity, info)
 }
 
-func (o *Service) GetAuditInfo(identity view.Identity) ([]byte, error) {
-	return o.auditInfoKVS.GetAuditInfo(identity)
+func (o *Service) GetAuditInfo(ctx context.Context, identity view.Identity) ([]byte, error) {
+	return o.auditInfoKVS.GetAuditInfo(ctx, identity)
 }
 
 func (o *Service) IsMe(identity view.Identity) bool {
@@ -183,8 +184,8 @@ func (o *Service) AreMe(identities ...view.Identity) []string {
 	return result.ToSlice()
 }
 
-func (o *Service) Info(id view.Identity) string {
-	auditInfo, err := o.GetAuditInfo(id)
+func (o *Service) Info(ctx context.Context, id view.Identity) string {
+	auditInfo, err := o.GetAuditInfo(ctx, id)
 	if err != nil {
 		logger.Debugf("failed getting audit info for [%s]", id)
 		return fmt.Sprintf("unable to identify identity : [%s][%s]", id.UniqueID(), string(id))
