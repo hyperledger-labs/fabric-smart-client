@@ -67,7 +67,7 @@ func (t joinedTable) Join(other Table, ons ConditionSerializable) JoinedTable {
 func (t joinedTable) WriteString(in CondInterpreter, sb Builder) {
 	sb.WriteConditionSerializable(t.tables[0], in)
 	for i, tt := range t.tables[1:] {
-		sb.WriteString(" JOIN ").
+		sb.WriteString(" LEFT JOIN ").
 			WriteConditionSerializable(tt, in).
 			WriteString(" ON ").
 			WriteConditionSerializable(t.conditions[i], in)

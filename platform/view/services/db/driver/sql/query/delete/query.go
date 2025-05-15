@@ -40,7 +40,7 @@ func (q *query) FormatWithOffset(ci common.CondInterpreter, pc *int) (string, []
 		WriteString("DELETE FROM ").
 		WriteString(string(q.table))
 
-	if q.where != nil {
+	if q.where != nil && q.where != cond.AlwaysTrue {
 		sb.WriteString(" WHERE ").
 			WriteConditionSerializable(q.where, ci)
 	}

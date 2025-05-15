@@ -54,8 +54,8 @@ func TestSelectJoin(t *testing.T) {
 
 	Expect(query).To(Equal("SELECT my_table.name, your_table.id " +
 		"FROM my_table AS my_table " +
-		"JOIN your_table AS your_table ON my_table.id = your_table.my_id " +
-		"JOIN their_table AS their_table ON my_table.id > their_table.their_id " +
+		"LEFT JOIN your_table AS your_table ON my_table.id = your_table.my_id " +
+		"LEFT JOIN their_table AS their_table ON my_table.id > their_table.their_id " +
 		"WHERE my_table.id > $1 " +
 		"ORDER BY your_table.date DESC " +
 		"LIMIT $2 " +

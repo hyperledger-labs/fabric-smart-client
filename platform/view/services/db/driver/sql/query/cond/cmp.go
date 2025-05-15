@@ -66,43 +66,44 @@ func Gt[P comparable](f common.FieldName, val P) Condition { return CmpVal(f, ">
 
 func Gte[P comparable](f common.FieldName, val P) Condition { return CmpVal(f, ">=", val) }
 
-type between[T comparable] struct {
-	f          common.Serializable
-	start, end T
-	isNone     func(T) bool
-}
-
-func BetweenInts(f common.FieldName, start, end int) *between[int] {
+func BetweenInts(f common.FieldName, start, end int) Condition {
 	return FieldBetweenInts(f, start, end)
 }
 
-func FieldBetweenInts(f common.Serializable, start, end int) *between[int] {
-	return &between[int]{f: f, start: start, end: end, isNone: func(t int) bool { return t == NoIntLimit }}
+func FieldBetweenInts(f common.Serializable, start, end int) Condition {
+	return fieldBetween(f, start, end, func(t int) bool { return t == NoIntLimit })
 }
 
-func BetweenStrings(f common.FieldName, start, end string) *between[string] {
+func BetweenStrings(f common.FieldName, start, end string) Condition {
 	return FieldBetweenStrings(f, start, end)
 }
 
-func FieldBetweenStrings(f common.Serializable, start, end string) *between[string] {
-	return &between[string]{f: f, start: start, end: end, isNone: func(t string) bool { return t == NoStringLimit }}
+func FieldBetweenStrings(f common.Serializable, start, end string) Condition {
+	return fieldBetween(f, start, end, func(t string) bool { return t == NoStringLimit })
 }
 
-func BetweenTimestamps(f common.FieldName, start, end *time.Time) *between[*time.Time] {
+func BetweenTimestamps(f common.FieldName, start, end time.Time) Condition {
 	return FieldBetweenTimestamps(f, start, end)
 }
 
-func FieldBetweenTimestamps(f common.Serializable, start, end *time.Time) *between[*time.Time] {
-	return &between[*time.Time]{f: f, start: start, end: end, isNone: func(t *time.Time) bool { return t == nil || t.IsZero() }}
+func FieldBetweenTimestamps(f common.Serializable, start, end time.Time) Condition {
+	var conds []Condition
+	if !start.IsZero() {
+		conds = append(conds, CmpVal(f, ">=", start))
+	}
+	if !end.IsZero() {
+		conds = append(conds, CmpVal(f, "<=", end))
+	}
+	return And(conds...)
 }
 
-func (c *between[T]) WriteString(in common.CondInterpreter, sb common.Builder) {
+func fieldBetween[T comparable](f common.Serializable, start, end T, isNone func(T) bool) Condition {
 	var conds []Condition
-	if !c.isNone(c.start) {
-		conds = append(conds, CmpVal(c.f, ">=", c.start))
+	if !isNone(start) {
+		conds = append(conds, CmpVal(f, ">=", start))
 	}
-	if !c.isNone(c.end) {
-		conds = append(conds, CmpVal(c.f, "<", c.end))
+	if !isNone(end) {
+		conds = append(conds, CmpVal(f, "<", end))
 	}
-	sb.WriteConditionSerializable(And(conds...), in)
+	return And(conds...)
 }
