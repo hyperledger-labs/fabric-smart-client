@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	numOfNodes    int = 2
+	numOfNodes    int = 3
 	numOfSessions int = 1
 	numOfMsgs     int = 1
 )
@@ -33,6 +33,8 @@ const (
 type connection struct {
 	senderNode   *Node
 	receiverNode *Node
+	senderId     int
+	receiverId   int
 }
 
 type benchmarkMetrics struct {
@@ -48,10 +50,15 @@ type MetricsContainer struct {
 func createLibp2pNodes() []*Node {
 	var nodes []*Node
 	var resolver BootstrapNodeResolver
+	var config *Config
 
 	for iNode := 0; iNode < numOfNodes; iNode++ {
 		nodeId := fmt.Sprintf("Node_%d", iNode)
-		config := GetConfig("initiator")
+		if iNode == 0 {
+			config = GetConfig("initiator")
+		} else {
+			config = GetConfig("responder")
+		}
 
 		logger.Infof("Creating node=%s, address=%s", nodeId, config.ListenAddress)
 
@@ -118,14 +125,14 @@ func createWebsocketNodes() []*Node {
 // C -> B
 func connectNodesMesh(nodes []*Node) []*connection {
 	var connections []*connection
-	for senderNodeNum := 0; senderNodeNum < numOfNodes; senderNodeNum++ {
-		sender := nodes[senderNodeNum]
-		for receiverNodeNum := 0; receiverNodeNum < numOfNodes; receiverNodeNum++ {
-			if senderNodeNum == receiverNodeNum {
+	for iSender := 0; iSender < numOfNodes; iSender++ {
+		sender := nodes[iSender]
+		for iReceiver := 0; iReceiver < numOfNodes; iReceiver++ {
+			if iSender == iReceiver {
 				continue
 			}
-			receiver := nodes[receiverNodeNum]
-			connections = append(connections, &connection{senderNode: sender, receiverNode: receiver})
+			receiver := nodes[iReceiver]
+			connections = append(connections, &connection{senderNode: sender, receiverNode: receiver, senderId: iSender, receiverId: iReceiver})
 		}
 	}
 
@@ -144,22 +151,26 @@ func testNodesExchange(nodes []*Node, connections []*connection, protocol string
 	}
 
 	mainwg := sync.WaitGroup{}
+	logger.Info("mainwg: initializing")
 
 	// start all receiving sockets
 	receivingServiceWG := sync.WaitGroup{}
 	for n := range nodes {
+		// receiverServiceThread marks receivingServiceWG as done after the service is up.
+		// It does NOT mark mainwg as done. mainwg is forwarded to the threads it creates (that handle the sessions)
 		receivingServiceWG.Add(1)
 		go receiverServiceThread(n, *nodes[n], &receivingServiceWG, &mainwg)
 	}
 
-	// wait for services to start
+	// wait for all services to start
 	receivingServiceWG.Wait()
 
 	startTime := time.Now()
 	// start connections between each pair
 	for pair := range connections {
-		logger.Infof("Doing Pair = %d", pair)
+		logger.Infof("Doing Pair = %d from Node %d to Node %d", pair, connections[pair].senderId, connections[pair].receiverId)
 		for sessId := range numOfSessions {
+			logger.Info("mainwg: increasing by 1")
 			mainwg.Add(1)
 			logger.Infof("starting thread for Pair = %d, Connection = %d", pair, sessId)
 			go singleConnectionThread(pair,
@@ -172,6 +183,8 @@ func testNodesExchange(nodes []*Node, connections []*connection, protocol string
 	}
 	mainwg.Wait()
 	endTime := time.Now()
+
+	logger.Info("All threads have finished. Stopping services")
 
 	// Stop receiver services
 	for n := range nodes {
@@ -199,13 +212,14 @@ func BenchmarkTestLibp2p(b *testing.B) {
 	logger.Info("Finished libp2p benchmark")
 }
 
-// Test connections between a single sender-receiver pain.
+// Test connections between a single sender-receiver pair.
 // Gets a sender-node and a receiver-node then:
 // 1. starts a single connection between them
 // 2. pass messages on the connection
 // 3. closes the connection
-func singleConnectionThread(iPair int, iSession int, senderNode, receiverNode Node, metricsMap *MetricsContainer, wg *sync.WaitGroup) {
-	defer wg.Done()
+func singleConnectionThread(iPair int, iSession int, senderNode, receiverNode Node, metricsMap *MetricsContainer, mainwg *sync.WaitGroup) {
+	defer mainwg.Done()
+	defer logger.Infof("mainwg: singleConnectionThread Pair = %d, iSession = %d, decreasing by 1", iPair, iSession)
 	logger.Infof("Pair = %d ---> Create new session # %d", iPair, iSession)
 	senderSession, err := senderNode.commService.NewSession("", "", rest.ConvertAddress(receiverNode.address), receiverNode.pkID)
 	Expect(err).ToNot(HaveOccurred())
@@ -214,10 +228,11 @@ func singleConnectionThread(iPair int, iSession int, senderNode, receiverNode No
 	logger.Infof("Pair = %d ---> Created new session # %d [%v]", iPair, iSession, senderSession.Info())
 
 	for msgId := range numOfMsgs {
-		payload := fmt.Sprintf("request-%d-%d", iSession, msgId)
+		payload := fmt.Sprintf("request-%d-%d-%d", iPair, iSession, msgId)
 		logger.Infof("Pair = %d, Connection = %d ---> Sender: sends message [%s]", iPair, iSession, payload)
 		start := time.Now()
 		Expect(senderSession.Send([]byte(payload))).To(Succeed())
+		logger.Infof("Pair = %d ---> Sent on session # %d [%v]", iPair, iSession, senderSession.Info())
 		logger.Infof("Pair = %d, Connection = %d ---> Sender: sent message [%s]", iPair, iSession, payload)
 		response := <-senderSession.Receive()
 		end := time.Now()
@@ -240,7 +255,7 @@ func singleConnectionThread(iPair int, iSession int, senderNode, receiverNode No
 	senderSession.Close()
 }
 
-func receiverServiceThread(nodeNum int, receiverNode Node, servicewg *sync.WaitGroup, wg *sync.WaitGroup) {
+func receiverServiceThread(nodeNum int, receiverNode Node, servicewg *sync.WaitGroup, mainwg *sync.WaitGroup) {
 	receiverMasterSession, err := receiverNode.commService.MasterSession()
 	Expect(err).ToNot(HaveOccurred())
 	servicewg.Done()
@@ -253,32 +268,33 @@ func receiverServiceThread(nodeNum int, receiverNode Node, servicewg *sync.WaitG
 		logger.Infof("Node = %d ---> Receiver: received message [%s]", nodeNum, string(response.Payload))
 		Expect(string(response.Payload)).To(ContainSubstring("request"))
 		elements := strings.Split(string(response.Payload), "-")
-		Expect(elements).To(HaveLen(3))
-		sessId, msgId := utils.MustGet(strconv.Atoi(elements[1])), utils.MustGet(strconv.Atoi(elements[2]))
+		Expect(elements).To(HaveLen(4))
+		pairId, sessId, msgId := utils.MustGet(strconv.Atoi(elements[1])), utils.MustGet(strconv.Atoi(elements[2])), utils.MustGet(strconv.Atoi(elements[3]))
 		Expect(msgId).To(Equal(0))
 
 		_, ok := sessionMap[response.SessionID]
 		Expect(ok).To(BeFalse(), "we should not receive a second message on the master session [%s]", string(response.Payload))
-		logger.Infof("Node = %d ---> Receiver: open session [%d]", nodeNum, sessId)
+		logger.Infof("Pair = %d, Node = %d ---> Receiver: open session [%d]", pairId, nodeNum, sessId)
 		session, err := receiverNode.commService.NewSessionWithID(response.SessionID, "", response.FromEndpoint, response.FromPKID, nil, nil)
 		Expect(err).To(BeNil())
-		logger.Infof("Node = %d ---> Receiver: opened session [%d] [%v]", nodeNum, sessId, session.Info())
+		logger.Infof("Pair = %d, Node = %d ---> Receiver: opened session [%d] [%v]", pairId, nodeNum, sessId, session.Info())
 		sessionMap[response.SessionID] = struct{}{}
-		wg.Add(1)
-		go receiverSessionThread(nodeNum, sessId, session, wg)
+		mainwg.Add(1)
+		logger.Info("mainwg: increasing by 1")
+		go receiverSessionThread(nodeNum, pairId, sessId, session, mainwg)
 	}
 	logger.Infof("Node = %d ---> Receiver: End receiving on master session", nodeNum)
 }
 
-func receiverSessionThread(nodeNum int, sessId int, session view.Session, wg *sync.WaitGroup) {
-	defer wg.Done()
+func receiverSessionThread(nodeNum int, pairId int, sessId int, session view.Session, mainwg *sync.WaitGroup) {
+	defer mainwg.Done()
+	defer logger.Infof("mainwg: receiverSessionThread Node = %d, Pair = %d, Connection = %d, decreasing by 1", nodeNum, pairId, sessId)
 	payload := fmt.Sprintf("response-%d-0", sessId)
-	logger.Infof("Node = %d, Connection = %d ---> Receiver: Send message [%s]", nodeNum, sessId, payload)
+	logger.Infof("Node = %d, Pair = %d, Connection = %d ---> Receiver: Send message [%s]", nodeNum, pairId, sessId, payload)
 	Expect(session.Send([]byte(payload))).To(Succeed())
-	logger.Infof("Node = %d, Connection = %d ---> Receiver: Sent message [%s]", nodeNum, sessId)
 	for response := range session.Receive() {
 		if string(response.Payload) == "EOF" {
-			logger.Infof("Node = %d, Connection = %d ---> Receiver: Received EOF", nodeNum, sessId)
+			logger.Infof("Node = %d, Pair = %d, Connection = %d ---> Receiver: Received EOF", nodeNum, pairId, sessId)
 			session.Close()
 			return
 		}
@@ -286,9 +302,9 @@ func receiverSessionThread(nodeNum int, sessId int, session view.Session, wg *sy
 		Expect(elements).To(HaveLen(3))
 		sessId, msgId := utils.MustGet(strconv.Atoi(elements[1])), utils.MustGet(strconv.Atoi(elements[2]))
 		payload := fmt.Sprintf("response-%d-%d", sessId, msgId)
-		logger.Infof("Node = %d, Connection = %d ---> Receiver: Send message [%s]", nodeNum, sessId, payload)
+		logger.Infof("Node = %d, Pair = %d, Connection = %d ---> Receiver: Send message [%s]", nodeNum, pairId, sessId, payload)
 		Expect(session.Send([]byte(payload))).To(Succeed())
-		logger.Infof("Node = %d, Connection = %d ---> Receiver: Sent message [%s]", nodeNum, sessId, payload)
+		logger.Infof("Node = %d, Pair = %d, Connection = %d ---> Receiver: Sent message [%s]", nodeNum, pairId, sessId, payload)
 	}
 	panic("Finished before receiving EOF")
 }
@@ -315,8 +331,8 @@ func displayMetrics(duration time.Duration, metricsMap map[string]benchmarkMetri
 
 	logger.Infof("============================= %s Metrics =============================\n", protocol)
 	logger.Infof("Number of nodes: %d\n", numOfNodes)
-	logger.Infof("Number of sessions per node: %d\n", numOfSessions)
-	logger.Infof("Number of Msgs per session: %d\n", 2*numOfMsgs)
+	logger.Infof("Number of sessions per directed pair of nodes: %d\n", numOfSessions)
+	logger.Infof("Number of Msgs (in each direction) per session: %d\n", numOfMsgs)
 	logger.Infof("Average latency: %s\n", averageLatency)
 	logger.Infof("Throughput: %s messages per second \n", throughput)
 	logger.Infof("Total run time: %v\n", duration)
