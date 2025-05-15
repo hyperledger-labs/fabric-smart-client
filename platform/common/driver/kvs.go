@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -21,8 +23,8 @@ type SignerInfoStore interface {
 }
 
 type AuditInfoStore interface {
-	GetAuditInfo(id view.Identity) ([]byte, error)
-	PutAuditInfo(id view.Identity, info []byte) error
+	GetAuditInfo(ctx context.Context, id view.Identity) ([]byte, error)
+	PutAuditInfo(ctx context.Context, id view.Identity, info []byte) error
 }
 
 type BindingStore interface {
