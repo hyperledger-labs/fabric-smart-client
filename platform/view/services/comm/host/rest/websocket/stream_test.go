@@ -29,6 +29,8 @@ func newMockStream(conn *mockConn) host.P2PStream {
 type mockConn struct {
 	written chan []byte
 	read    chan []byte
+
+	once sync.Once
 }
 
 func (c *mockConn) ReadMessage() (int, []byte, error) {
@@ -39,8 +41,10 @@ func (c *mockConn) WriteMessage(_ int, data []byte) error {
 	return nil
 }
 func (c *mockConn) Close() error {
-	close(c.read)
-	close(c.written)
+	c.once.Do(func() {
+		close(c.read)
+		close(c.written)
+	})
 	return nil
 }
 func (c *mockConn) ReadValue(message proto.Message) error {
