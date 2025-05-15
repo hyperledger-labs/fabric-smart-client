@@ -94,7 +94,7 @@ func (q *query) FormatWithOffset(ci common.CondInterpreter, pi common.PagInterpr
 
 	sb.WriteString(" FROM ").WriteConditionSerializable(q.table, ci)
 
-	if q.where != nil {
+	if q.where != nil && q.where != cond.AlwaysTrue {
 		sb.WriteString(" WHERE ").WriteConditionSerializable(q.where, ci)
 	}
 

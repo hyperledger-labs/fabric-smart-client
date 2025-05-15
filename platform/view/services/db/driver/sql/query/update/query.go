@@ -57,7 +57,7 @@ func (q *query) FormatWithOffset(ci common.CondInterpreter, pc *int) (string, []
 		WriteString(" SET ").
 		WriteSerializables(common.ToSerializables(q.sets)...)
 
-	if q.where != nil {
+	if q.where != nil && q.where != cond.AlwaysTrue {
 		sb.WriteString(" WHERE ").WriteConditionSerializable(q.where, ci)
 	}
 
