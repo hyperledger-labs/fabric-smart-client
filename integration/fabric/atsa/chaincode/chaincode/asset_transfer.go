@@ -381,60 +381,75 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 // transferAssetState performs the public and private state updates for the transferred asset
 func transferAssetState(ctx contractapi.TransactionContextInterface, asset *Asset, immutablePropertiesJSON []byte, clientOrgID string, buyerOrgID string, price int) error {
 	asset.OwnerOrg = buyerOrgID
+
+	if err := updateAssetState(ctx, asset); err != nil {
+		return err
+	}
+
+	collectionSeller := buildCollectionName(clientOrgID)
+	collectionBuyer := buildCollectionName(buyerOrgID)
+
+	if err := updatePrivateDataCollections(ctx, asset.ID, immutablePropertiesJSON, collectionSeller, collectionBuyer); err != nil {
+		return err
+	}
+
+	if err := deleteAssetPrices(ctx, asset.ID, collectionSeller, collectionBuyer); err != nil {
+		return err
+	}
+
+	if err := recordReceipts(ctx, asset.ID, collectionSeller, collectionBuyer, price); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func updateAssetState(ctx contractapi.TransactionContextInterface, asset *Asset) error {
 	updatedAsset, err := json.Marshal(asset)
 	if err != nil {
 		return err
 	}
-
-	err = ctx.GetStub().PutState(asset.ID, updatedAsset)
-	if err != nil {
+	if err := ctx.GetStub().PutState(asset.ID, updatedAsset); err != nil {
 		return fmt.Errorf("failed to write asset for buyer: %v", err)
 	}
-
-	// Change the endorsement policy to the new owner
-	err = setAssetStateBasedEndorsement(ctx, asset.ID, buyerOrgID)
-	if err != nil {
+	if err := setAssetStateBasedEndorsement(ctx, asset.ID, asset.OwnerOrg); err != nil {
 		return fmt.Errorf("failed setting state based endorsement for new owner: %v", err)
 	}
+	return nil
+}
 
-	// Transfer the private properties (delete from seller collection, create in buyer collection)
-	collectionSeller := buildCollectionName(clientOrgID)
-	err = ctx.GetStub().DelPrivateData(collectionSeller, asset.ID)
-	if err != nil {
+func updatePrivateDataCollections(ctx contractapi.TransactionContextInterface, assetID string, data []byte, collectionSeller, collectionBuyer string) error {
+	if err := ctx.GetStub().DelPrivateData(collectionSeller, assetID); err != nil {
 		return fmt.Errorf("failed to delete Asset private details from seller: %v", err)
 	}
 
-	collectionBuyer := buildCollectionName(buyerOrgID)
-	err = ctx.GetStub().PutPrivateData(collectionBuyer, asset.ID, immutablePropertiesJSON)
-	if err != nil {
+	if err := ctx.GetStub().PutPrivateData(collectionBuyer, assetID, data); err != nil {
 		return fmt.Errorf("failed to put Asset private properties for buyer: %v", err)
 	}
+	return nil
+}
 
-	// Delete the price records for seller
-	assetPriceKey, err := ctx.GetStub().CreateCompositeKey(typeAssetForSale, []string{asset.ID})
+func deleteAssetPrices(ctx contractapi.TransactionContextInterface, assetID, collectionSeller, collectionBuyer string) error {
+	assetPriceKey, err := ctx.GetStub().CreateCompositeKey(typeAssetForSale, []string{assetID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key for seller: %v", err)
 	}
-
-	err = ctx.GetStub().DelPrivateData(collectionSeller, assetPriceKey)
-	if err != nil {
+	if err := ctx.GetStub().DelPrivateData(collectionSeller, assetPriceKey); err != nil {
 		return fmt.Errorf("failed to delete asset price from implicit private data collection for seller: %v", err)
 	}
 
-	// Delete the price records for buyer
-	assetPriceKey, err = ctx.GetStub().CreateCompositeKey(typeAssetBid, []string{asset.ID})
+	assetPriceKey, err = ctx.GetStub().CreateCompositeKey(typeAssetBid, []string{assetID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key for buyer: %v", err)
 	}
-
-	err = ctx.GetStub().DelPrivateData(collectionBuyer, assetPriceKey)
-	if err != nil {
+	if err := ctx.GetStub().DelPrivateData(collectionBuyer, assetPriceKey); err != nil {
 		return fmt.Errorf("failed to delete asset price from implicit private data collection for buyer: %v", err)
 	}
+	return nil
+}
 
-	// Keep record for a 'receipt' in both buyers and sellers private data collection to record the sale price and date.
-	// Persist the agreed to price in a collection sub-namespace based on receipt key prefix.
-	receiptBuyKey, err := ctx.GetStub().CreateCompositeKey(typeAssetBuyReceipt, []string{asset.ID, ctx.GetStub().GetTxID()})
+func recordReceipts(ctx contractapi.TransactionContextInterface, assetID, collectionSeller, collectionBuyer string, price int) error {
+	receiptBuyKey, err := ctx.GetStub().CreateCompositeKey(typeAssetBuyReceipt, []string{assetID, ctx.GetStub().GetTxID()})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key for receipt: %v", err)
 	}
@@ -463,7 +478,7 @@ func transferAssetState(ctx contractapi.TransactionContextInterface, asset *Asse
 		return fmt.Errorf("failed to put private asset receipt for buyer: %v", err)
 	}
 
-	receiptSaleKey, err := ctx.GetStub().CreateCompositeKey(typeAssetSaleReceipt, []string{ctx.GetStub().GetTxID(), asset.ID})
+	receiptSaleKey, err := ctx.GetStub().CreateCompositeKey(typeAssetSaleReceipt, []string{ctx.GetStub().GetTxID(), assetID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key for receipt: %v", err)
 	}
