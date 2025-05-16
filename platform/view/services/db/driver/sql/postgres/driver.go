@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"fmt"
+
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
 
 const (
@@ -25,59 +28,69 @@ func NewNamedDriver(config driver.Config) driver.NamedDriver {
 }
 
 func NewDriver(config driver.Config) *Driver {
-	return &Driver{cp: NewConfigProvider(common.NewConfig(config))}
+	return &Driver{
+		cp:         NewConfigProvider(common.NewConfig(config)),
+		dbProvider: NewDbProvider(),
+	}
 }
 
 type Driver struct {
-	cp *configProvider
+	cp         *configProvider
+	dbProvider DbProvider
 }
 
 func (d *Driver) NewKVS(name driver.PersistenceName, params ...string) (driver.KeyValueStore, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewKeyValueStore, params...)
+	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewKeyValueStore, params...)
 }
 
 func (d *Driver) NewBinding(name driver.PersistenceName, params ...string) (driver.BindingStore, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewBindingStore, params...)
+	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewBindingStore, params...)
 }
 
 func (d *Driver) NewSignerInfo(name driver.PersistenceName, params ...string) (driver.SignerInfoStore, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewSignerInfoStore, params...)
+	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewSignerInfoStore, params...)
 }
 
 func (d *Driver) NewAuditInfo(name driver.PersistenceName, params ...string) (driver.AuditInfoStore, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewAuditInfoStore, params...)
+	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewAuditInfoStore, params...)
 }
 
 func (d *Driver) NewEndorseTx(name driver.PersistenceName, params ...string) (driver.EndorseTxStore, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewEndorseTxStore, params...)
+	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewEndorseTxStore, params...)
 }
 
 func (d *Driver) NewMetadata(name driver.PersistenceName, params ...string) (driver.MetadataStore, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewMetadataStore, params...)
+	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewMetadataStore, params...)
 }
 
 func (d *Driver) NewEnvelope(name driver.PersistenceName, params ...string) (driver.EnvelopeStore, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewEnvelopeStore, params...)
+	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewEnvelopeStore, params...)
 }
 
 func (d *Driver) NewVault(name driver.PersistenceName, params ...string) (driver2.VaultStore, error) {
-	return NewPersistenceWithOpts(d.cp, name, NewVaultStore, params...)
+	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewVaultStore, params...)
 }
 
-func NewPersistenceWithOpts[V common.DBObject](cfg *configProvider, name driver.PersistenceName, constructor common.PersistenceConstructor[Opts, V], params ...string) (V, error) {
+func NewPersistenceWithOpts[V common.DBObject](cfg *configProvider, dbProvider DbProvider, name driver.PersistenceName, constructor common2.PersistenceConstructor[V], params ...string) (V, error) {
 	o, err := cfg.GetOpts(name, params...)
 	if err != nil {
 		return utils.Zero[V](), err
 	}
 
-	p, err := constructor(Opts{
+	opts := Opts{
 		DataSource:      o.DataSource,
 		MaxOpenConns:    o.MaxOpenConns,
 		MaxIdleConns:    *o.MaxIdleConns,
 		MaxIdleTime:     *o.MaxIdleTime,
 		TablePrefix:     o.TablePrefix,
 		TableNameParams: o.TableNameParams,
-	})
+	}
+	dbs, err := dbProvider.Get(opts)
+	if err != nil {
+		return utils.Zero[V](), fmt.Errorf("error opening db: %w", err)
+	}
+	tables := common2.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+	p, err := constructor(dbs, tables)
 	if err != nil {
 		return utils.Zero[V](), err
 	}

@@ -8,9 +8,7 @@ package common
 
 import (
 	"database/sql"
-	"fmt"
 	"runtime/debug"
-	"strings"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/pkg/errors"
@@ -93,25 +91,4 @@ func QueryUnique[T any](db *sql.DB, query string, args ...any) (T, error) {
 		return result, nil
 	}
 	return result, err
-}
-
-func GenerateParamSet(offset int, rows, cols int) string {
-	sb := strings.Builder{}
-
-	for i := 0; i < rows; i++ {
-		if i > 0 {
-			sb.WriteRune(',')
-		}
-		sb.WriteRune('(')
-		for j := 0; j < cols; j++ {
-			if j > 0 {
-				sb.WriteRune(',')
-			}
-			sb.WriteString(fmt.Sprintf("$%d", offset))
-			offset++
-		}
-		sb.WriteString(")")
-	}
-
-	return sb.String()
 }

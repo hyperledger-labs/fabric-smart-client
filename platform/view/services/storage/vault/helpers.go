@@ -27,7 +27,7 @@ func OpenSqliteVault(key, tempDir string) (driver.VaultStore, error) {
 	cp := sqlite.NewConfigProvider(common.MockConfig(sqlite.Config{
 		DataSource: fmt.Sprintf("%s.sqlite", path.Join(tempDir, key)),
 	}))
-	return sqlite.NewPersistenceWithOpts(cp, "", sqlite.NewVaultStore)
+	return sqlite.NewPersistenceWithOpts(cp, sqlite.NewDbProvider(), "", sqlite.NewVaultStore)
 }
 
 func OpenPostgresVault(name string) (driver.VaultStore, func(), error) {
@@ -41,7 +41,7 @@ func OpenPostgresVault(name string) (driver.VaultStore, func(), error) {
 		DataSource:   postgresConfig.DataSource(),
 		MaxOpenConns: 50,
 	}))
-	persistence, err := postgres.NewPersistenceWithOpts(cp, "", postgres.NewVaultStore)
+	persistence, err := postgres.NewPersistenceWithOpts(cp, postgres.NewDbProvider(), "", postgres.NewVaultStore)
 	if err != nil {
 		return nil, nil, err
 	}

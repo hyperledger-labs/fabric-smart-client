@@ -56,7 +56,7 @@ func newTestKeyValueStore(dir string) (driver.KeyValueStore, error) {
 		MaxIdleConns: 2,
 		MaxIdleTime:  2 * time.Minute,
 	}
-	p, err := NewKeyValueStore(o)
+	p, err := NewKeyValueStore(utils.MustGet(open(o)), common.GetTableNames(o.TablePrefix, o.TableNameParams...))
 	if err != nil {
 		return nil, err
 	}

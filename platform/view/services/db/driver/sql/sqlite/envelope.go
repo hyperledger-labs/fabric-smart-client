@@ -8,8 +8,8 @@ package sqlite
 
 import (
 	"database/sql"
-	"fmt"
 
+	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
 
@@ -17,12 +17,7 @@ type EnvelopeStore struct {
 	*common.EnvelopeStore
 }
 
-func NewEnvelopeStore(opts Opts) (*EnvelopeStore, error) {
-	dbs, err := DbProvider.OpenDB(opts)
-	if err != nil {
-		return nil, fmt.Errorf("error opening db: %w", err)
-	}
-	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+func NewEnvelopeStore(dbs *common3.RWDB, tables common.TableNames) (*EnvelopeStore, error) {
 	return newEnvelopeStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.Envelope), nil
 }
 
