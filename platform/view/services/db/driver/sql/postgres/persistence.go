@@ -14,7 +14,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/uptrace/opentelemetry-go-extra/otelsql"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
 var logger = logging.MustGetLogger()
@@ -28,7 +31,7 @@ func NewDbProvider() DbProvider { return lazy.NewProviderWithKeyMapper(key, open
 func key(o Opts) string { return o.DataSource }
 
 func open(opts Opts) (*common.RWDB, error) {
-	db, err := sql.Open(driverName, opts.DataSource)
+	db, err := sqlOpen(opts.DataSource, opts.Tracing)
 	if err != nil {
 		logger.Error(err)
 		return nil, fmt.Errorf("can't open %s database: %w", driverName, err)
@@ -49,6 +52,13 @@ func open(opts Opts) (*common.RWDB, error) {
 	}, nil
 }
 
+func sqlOpen(dataSourceName string, tracing *common2.TracingConfig) (*sql.DB, error) {
+	if tracing == nil {
+		return sql.Open(driverName, dataSourceName)
+	}
+	return otelsql.Open(driverName, dataSourceName, otelsql.WithAttributes(semconv.DBSystemPostgreSQL))
+}
+
 type Opts struct {
 	DataSource      string
 	MaxOpenConns    int
@@ -56,4 +66,5 @@ type Opts struct {
 	MaxIdleTime     time.Duration
 	TablePrefix     string
 	TableNameParams []string
+	Tracing         *common2.TracingConfig
 }

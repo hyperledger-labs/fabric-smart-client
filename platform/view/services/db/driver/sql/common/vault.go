@@ -266,6 +266,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 type dbReader interface {
 	Query(query string, args ...any) (*sql.Rows, error)
 	QueryRow(query string, args ...any) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 func newTxVaultReader(newVaultReader func() (*vaultReader, releaseFunc, error)) *txVaultReader {
@@ -419,7 +420,7 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 		Format(db.ci, db.pi)
 	logger.Debug(query, params)
 
-	row := db.readDB.QueryRow(query, params...)
+	row := db.readDB.QueryRowContext(ctx, query, params...)
 	var m []byte
 	var kversion driver.RawVersion
 	err = row.Scan(&m, &kversion)

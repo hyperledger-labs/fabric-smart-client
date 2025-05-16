@@ -85,6 +85,7 @@ func NewPersistenceWithOpts[V common.DBObject](cfg *configProvider, dbProvider D
 		MaxIdleTime:     *o.MaxIdleTime,
 		TablePrefix:     o.TablePrefix,
 		TableNameParams: o.TableNameParams,
+		Tracing:         o.Tracing,
 	}
 	dbs, err := dbProvider.Get(opts)
 	if err != nil {

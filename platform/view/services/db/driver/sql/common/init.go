@@ -16,6 +16,8 @@ var ncProvider = db.NewTableNameCreator("fsc")
 
 type PersistenceConstructor[V common.DBObject] func(*common.RWDB, TableNames) (V, error)
 
+type TracingConfig struct{}
+
 type TableNames struct {
 	KVS        string
 	Binding    string
