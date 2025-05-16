@@ -8,8 +8,8 @@ package sqlite
 
 import (
 	"database/sql"
-	"fmt"
 
+	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 )
 
@@ -17,12 +17,7 @@ type AuditInfoStore struct {
 	*common.AuditInfoStore
 }
 
-func NewAuditInfoStore(opts Opts) (*AuditInfoStore, error) {
-	dbs, err := DbProvider.OpenDB(opts)
-	if err != nil {
-		return nil, fmt.Errorf("error opening db: %w", err)
-	}
-	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+func NewAuditInfoStore(dbs *common3.RWDB, tables common.TableNames) (*AuditInfoStore, error) {
 	return newAuditInfoStore(dbs.ReadDB, dbs.WriteDB, tables.AuditInfo), nil
 }
 

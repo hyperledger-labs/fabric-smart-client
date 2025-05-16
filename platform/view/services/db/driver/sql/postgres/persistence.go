@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -19,16 +21,13 @@ var logger = logging.MustGetLogger()
 
 const driverName = "pgx"
 
-type Opts struct {
-	DataSource      string
-	MaxOpenConns    int
-	MaxIdleConns    int
-	MaxIdleTime     time.Duration
-	TablePrefix     string
-	TableNameParams []string
-}
+type DbProvider = lazy.Provider[Opts, *common.RWDB]
 
-func OpenDB(opts Opts) (*sql.DB, error) {
+func NewDbProvider() DbProvider { return lazy.NewProviderWithKeyMapper(key, open) }
+
+func key(o Opts) string { return o.DataSource }
+
+func open(opts Opts) (*common.RWDB, error) {
 	db, err := sql.Open(driverName, opts.DataSource)
 	if err != nil {
 		logger.Error(err)
@@ -44,7 +43,17 @@ func OpenDB(opts Opts) (*sql.DB, error) {
 	}
 	logger.Debugf("connected to [%s] for reads, max open connections: %d, max idle connections: %d, max idle time: %v", driverName, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
 
-	logger.Debug("using same db for writes")
+	return &common.RWDB{
+		ReadDB:  db,
+		WriteDB: db,
+	}, nil
+}
 
-	return db, nil
+type Opts struct {
+	DataSource      string
+	MaxOpenConns    int
+	MaxIdleConns    int
+	MaxIdleTime     time.Duration
+	TablePrefix     string
+	TableNameParams []string
 }

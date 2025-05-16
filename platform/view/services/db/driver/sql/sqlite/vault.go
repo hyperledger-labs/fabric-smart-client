@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/pkg/errors"
@@ -30,12 +31,7 @@ type VaultStore struct {
 	pi common2.PagInterpreter
 }
 
-func NewVaultStore(opts Opts) (*VaultStore, error) {
-	dbs, err := DbProvider.OpenDB(opts)
-	if err != nil {
-		return nil, fmt.Errorf("error opening db: %w", err)
-	}
-	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+func NewVaultStore(dbs *common3.RWDB, tables common.TableNames) (*VaultStore, error) {
 	return newVaultStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), common.VaultTables{
 		StateTable:  tables.State,
 		StatusTable: tables.Status,

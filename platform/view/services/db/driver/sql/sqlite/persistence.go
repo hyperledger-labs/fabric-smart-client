@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 )
 
 const (
@@ -35,6 +37,12 @@ const driverName = "sqlite"
 
 var logger = logging.MustGetLogger()
 
+type DbProvider = lazy.Provider[Opts, *common.RWDB]
+
+func NewDbProvider() DbProvider { return lazy.NewProviderWithKeyMapper(key, open) }
+
+func key(o Opts) string { return o.DataSource }
+
 type Opts struct {
 	DataSource      string
 	SkipPragmas     bool
@@ -45,7 +53,24 @@ type Opts struct {
 	TableNameParams []string
 }
 
-func OpenDB(dataSourceName string, maxOpenConns int, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool) (*sql.DB, error) {
+func open(opts Opts) (*common.RWDB, error) {
+	logger.Debugf("Opening read db [%v]", opts.DataSource)
+	readDB, err := openDB(opts.DataSource, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime, opts.SkipPragmas)
+	if err != nil {
+		return nil, fmt.Errorf("can't open read %s database: %w", driverName, err)
+	}
+	logger.Debugf("Opening write db [%v]", opts.DataSource)
+	writeDB, err := openDB(opts.DataSource, 1, maxIdleConnsWrite, maxIdleTimeWrite, opts.SkipPragmas)
+	if err != nil {
+		return nil, fmt.Errorf("can't open write %s database: %w", driverName, err)
+	}
+	return &common.RWDB{
+		ReadDB:  readDB,
+		WriteDB: writeDB,
+	}, nil
+}
+
+func openDB(dataSourceName string, maxOpenConns int, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool) (*sql.DB, error) {
 	// Create directories if they do not exist to avoid error "out of memory (14)", see below
 	path := getDir(dataSourceName)
 	if err := os.MkdirAll(path, 0777); err != nil {
