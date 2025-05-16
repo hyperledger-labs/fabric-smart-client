@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -23,12 +24,7 @@ type BindingStore struct {
 	errorWrapper driver.SQLErrorWrapper
 }
 
-func NewBindingStore(opts Opts) (*BindingStore, error) {
-	dbs, err := DbProvider.OpenDB(opts)
-	if err != nil {
-		return nil, fmt.Errorf("error opening db: %w", err)
-	}
-	tables := common.GetTableNames(opts.TablePrefix, opts.TableNameParams...)
+func NewBindingStore(dbs *common2.RWDB, tables common.TableNames) (*BindingStore, error) {
 	return newBindingStore(dbs.ReadDB, dbs.WriteDB, tables.Binding), nil
 }
 

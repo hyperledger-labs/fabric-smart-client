@@ -8,10 +8,13 @@ package common
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
 )
 
 var ncProvider = db.NewTableNameCreator("fsc")
+
+type PersistenceConstructor[V common.DBObject] func(*common.RWDB, TableNames) (V, error)
 
 type TableNames struct {
 	KVS        string
