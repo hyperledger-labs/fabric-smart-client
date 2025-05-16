@@ -24,6 +24,7 @@ func (p *optsProvider) GetOpts(params ...string) sqlite.Opts {
 		MaxIdleTime:     common.DefaultMaxIdleTime,
 		TablePrefix:     "",
 		TableNameParams: params,
+		Tracing:         nil,
 	}
 }
 
