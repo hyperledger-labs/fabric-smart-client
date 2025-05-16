@@ -35,9 +35,15 @@ func TestPostgres(t *testing.T) {
 		DataSource: pgConnStr,
 	}))
 	common2.TestCases(t, func(string) (driver.KeyValueStore, error) {
-		return NewPersistenceWithOpts(cp, "", NewKeyValueStore)
+		return NewPersistenceWithOpts(cp, NewDbProvider(), "", NewKeyValueStore)
 	}, func(string) (driver.UnversionedNotifier, error) {
-		return NewPersistenceWithOpts(cp, "", NewKeyValueStoreNotifier)
+		return NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables common2.TableNames) (*KeyValueStoreNotifier, error) {
+			return &KeyValueStoreNotifier{
+				KeyValueStore: newKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
+				Notifier:      NewNotifier(dbs.WriteDB, tables.KVS, pgConnStr, AllOperations, primaryKey{"ns", identity}, primaryKey{"pkey", decode}),
+			}, nil
+
+		})
 	}, func(p driver.KeyValueStore) *common2.KeyValueStore {
 		return p.(*KeyValueStore).KeyValueStore
 	})

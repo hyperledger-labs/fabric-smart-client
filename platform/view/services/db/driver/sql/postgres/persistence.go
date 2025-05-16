@@ -12,24 +12,26 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/uptrace/opentelemetry-go-extra/otelsql"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
 var logger = logging.MustGetLogger()
 
 const driverName = "pgx"
 
-type Opts struct {
-	DataSource      string
-	MaxOpenConns    int
-	MaxIdleConns    int
-	MaxIdleTime     time.Duration
-	TablePrefix     string
-	TableNameParams []string
-}
+type DbProvider = lazy.Provider[Opts, *common.RWDB]
 
-func OpenDB(opts Opts) (*sql.DB, error) {
-	db, err := sql.Open(driverName, opts.DataSource)
+func NewDbProvider() DbProvider { return lazy.NewProviderWithKeyMapper(key, open) }
+
+func key(o Opts) string { return o.DataSource }
+
+func open(opts Opts) (*common.RWDB, error) {
+	db, err := sqlOpen(opts.DataSource, opts.Tracing)
 	if err != nil {
 		logger.Error(err)
 		return nil, fmt.Errorf("can't open %s database: %w", driverName, err)
@@ -44,7 +46,25 @@ func OpenDB(opts Opts) (*sql.DB, error) {
 	}
 	logger.Debugf("connected to [%s] for reads, max open connections: %d, max idle connections: %d, max idle time: %v", driverName, opts.MaxOpenConns, opts.MaxIdleConns, opts.MaxIdleTime)
 
-	logger.Debug("using same db for writes")
+	return &common.RWDB{
+		ReadDB:  db,
+		WriteDB: db,
+	}, nil
+}
 
-	return db, nil
+func sqlOpen(dataSourceName string, tracing *common2.TracingConfig) (*sql.DB, error) {
+	if tracing == nil {
+		return sql.Open(driverName, dataSourceName)
+	}
+	return otelsql.Open(driverName, dataSourceName, otelsql.WithAttributes(semconv.DBSystemPostgreSQL))
+}
+
+type Opts struct {
+	DataSource      string
+	MaxOpenConns    int
+	MaxIdleConns    int
+	MaxIdleTime     time.Duration
+	TablePrefix     string
+	TableNameParams []string
+	Tracing         *common2.TracingConfig
 }

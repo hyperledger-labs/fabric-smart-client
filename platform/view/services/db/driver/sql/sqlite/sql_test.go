@@ -11,6 +11,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/stretchr/testify/assert"
@@ -23,12 +24,12 @@ func TestSqlite(t *testing.T) {
 		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, "benchmark")),
 	}
 	common2.TestCases(t, func(name string) (driver.KeyValueStore, error) {
-		p, err := NewKeyValueStore(o)
+		p, err := NewKeyValueStore(utils.MustGet(open(o)), common2.GetTableNames(o.TablePrefix, o.TableNameParams...))
 		assert.NoError(t, err)
 		assert.NoError(t, p.CreateSchema())
 		return p, nil
 	}, func(name string) (driver.UnversionedNotifier, error) {
-		p, err := NewKeyValueStoreNotifier(o, "test")
+		p, err := NewKeyValueStoreNotifier(utils.MustGet(open(o)), "test")
 		assert.NoError(t, err)
 		assert.NoError(t, p.Persistence.(*KeyValueStore).CreateSchema())
 		return p, nil
@@ -49,6 +50,6 @@ func TestFolderDoesNotExistError(t *testing.T) {
 	o := Opts{
 		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join("/this/folder/does/not/exist", "folder-does-not-exist")),
 	}
-	_, err := NewKeyValueStore(o)
+	_, err := open(o)
 	assert.Error(t, err, "error opening db: can't open sqlite database, does the folder exist?")
 }

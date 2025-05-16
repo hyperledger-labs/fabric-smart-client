@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	"github.com/pkg/errors"
 )
 
@@ -27,6 +28,7 @@ type Config struct {
 	MaxIdleTime     *time.Duration
 	SkipCreateTable bool
 	TableNameParams []string
+	Tracing         *common2.TracingConfig
 }
 
 func NewConfigProvider(config config) *configProvider {
@@ -52,5 +54,6 @@ func (r *configProvider) GetOpts(name driver.PersistenceName, params ...string) 
 		o.MaxIdleTime = common.CopyPtr(common.DefaultMaxIdleTime)
 	}
 	o.TableNameParams = params
+	o.Tracing = &common2.TracingConfig{}
 	return o, nil
 }

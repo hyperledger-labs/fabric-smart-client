@@ -156,9 +156,8 @@ func testParallelWrites(t *testing.T, driver driver.Driver) {
 }
 
 func TestMemoryKVS(t *testing.T) {
-	d := mem.NewDriver()
-	testRound(t, d)
-	testParallelWrites(t, d)
+	testRound(t, mem.NewDriver())
+	testParallelWrites(t, mem.NewDriver())
 }
 
 func TestSQLiteKVS(t *testing.T) {
@@ -171,9 +170,8 @@ func TestSQLiteKVS(t *testing.T) {
 		MaxIdleConns:    common.CopyPtr(2),
 		MaxIdleTime:     common.CopyPtr(time.Minute),
 	})
-	d := sqlite.NewDriver(cp)
-	testRound(t, d)
-	testParallelWrites(t, d)
+	testRound(t, sqlite.NewDriver(cp))
+	testParallelWrites(t, sqlite.NewDriver(cp))
 }
 
 func TestPostgresKVS(t *testing.T) {
@@ -201,7 +199,6 @@ func TestPostgresKVS(t *testing.T) {
 		MaxIdleTime:  common.CopyPtr(time.Minute),
 	})
 
-	d := postgres.NewDriver(cp)
-	testRound(t, d)
-	testParallelWrites(t, d)
+	testRound(t, postgres.NewDriver(cp))
+	testParallelWrites(t, postgres.NewDriver(cp))
 }
