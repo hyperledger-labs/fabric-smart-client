@@ -28,6 +28,8 @@ type UnversionedValue = driver.UnversionedValue
 
 type QueryExecutor = driver.QueryExecutor
 
+//go:generate counterfeiter -o sql/query/common/mock/error_wrapper.go -fake-name SQLErrorWrapper . SQLErrorWrapper
+
 // SQLErrorWrapper transforms the different errors returned by various SQL implementations into an SQLError that is common
 type SQLErrorWrapper interface {
 	WrapError(error) error
