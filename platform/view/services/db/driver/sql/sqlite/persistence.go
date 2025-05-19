@@ -40,7 +40,9 @@ const driverName = "sqlite"
 
 var logger = logging.MustGetLogger()
 
-type DbProvider = lazy.Provider[Opts, *common.RWDB]
+type DbProvider interface {
+	Get(Opts) (*common.RWDB, error)
+}
 
 func NewDbProvider() DbProvider { return lazy.NewProviderWithKeyMapper(key, open) }
 
