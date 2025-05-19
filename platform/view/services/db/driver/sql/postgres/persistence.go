@@ -24,13 +24,15 @@ var logger = logging.MustGetLogger()
 
 const driverName = "pgx"
 
-type DbProvider = lazy.Provider[Opts, *common.RWDB]
+type DbProvider interface {
+	Get(Opts) (*common.RWDB, error)
+}
 
-func NewDbProvider() DbProvider { return lazy.NewProviderWithKeyMapper(key, open) }
+func NewDbProvider() DbProvider { return lazy.NewProviderWithKeyMapper(key, Open) }
 
 func key(o Opts) string { return o.DataSource }
 
-func open(opts Opts) (*common.RWDB, error) {
+func Open(opts Opts) (*common.RWDB, error) {
 	db, err := sqlOpen(opts.DataSource, opts.Tracing)
 	if err != nil {
 		logger.Error(err)
