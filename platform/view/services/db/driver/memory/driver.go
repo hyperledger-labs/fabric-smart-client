@@ -23,15 +23,19 @@ type Driver struct {
 	dbProvider sqlite.DbProvider
 }
 
-func NewNamedDriver() driver.NamedDriver {
+func NewNamedDriver(dbProvider sqlite.DbProvider) driver.NamedDriver {
 	return driver.NamedDriver{
 		Name:   Persistence,
-		Driver: NewDriver(),
+		Driver: NewDriverWithDbProvider(dbProvider),
 	}
 }
 
 func NewDriver() *Driver {
-	return &Driver{dbProvider: sqlite.NewDbProvider()}
+	return NewDriverWithDbProvider(sqlite.NewDbProvider())
+}
+
+func NewDriverWithDbProvider(dbProvider sqlite.DbProvider) *Driver {
+	return &Driver{dbProvider: dbProvider}
 }
 
 func (d *Driver) NewKVS(_ driver.PersistenceName, params ...string) (driver.KeyValueStore, error) {
