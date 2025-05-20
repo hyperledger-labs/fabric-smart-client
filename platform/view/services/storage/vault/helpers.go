@@ -20,7 +20,7 @@ import (
 )
 
 func OpenMemoryVault(params ...string) (driver.VaultStore, error) {
-	return NewStore("", multiplexed.NewDriver(&mock.ConfigProvider{}, mem.NewNamedDriver()), params...)
+	return NewStore("", multiplexed.NewDriver(&mock.ConfigProvider{}, mem.NewNamedDriver(sqlite.NewDbProvider())), params...)
 }
 
 func OpenSqliteVault(key, tempDir string) (driver.VaultStore, error) {
