@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common_test
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestGetAuditInfo(t *testing.T) {
 		WithArgs(input.UniqueID()).
 		WillReturnRows(mockDB.NewRows([]string{"audit_info"}).AddRow(output))
 
-	info, err := mockAuditInfoStore(db).GetAuditInfo(input)
+	info, err := mockAuditInfoStore(db).GetAuditInfo(context.Background(), input)
 
 	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
 	Expect(err).ToNot(HaveOccurred())
@@ -47,7 +48,7 @@ func TestPutAuditInfo(t *testing.T) {
 		WithArgs(input.UniqueID(), output).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	err = mockAuditInfoStore(db).PutAuditInfo(input, output)
+	err = mockAuditInfoStore(db).PutAuditInfo(context.Background(), input, output)
 
 	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
 	Expect(err).ToNot(HaveOccurred())
