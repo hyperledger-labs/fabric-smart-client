@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"context"
 	"database/sql"
 	"runtime/debug"
 
@@ -17,6 +18,7 @@ import (
 type WriteDB interface {
 	Begin() (*sql.Tx, error)
 	Exec(query string, args ...any) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 	Close() error
 }
 
@@ -83,8 +85,12 @@ func InitSchema(db WriteDB, schemas ...string) (err error) {
 }
 
 func QueryUnique[T any](db *sql.DB, query string, args ...any) (T, error) {
+	return QueryUniqueContext[T](context.Background(), db, query, args...)
+}
+
+func QueryUniqueContext[T any](ctx context.Context, db *sql.DB, query string, args ...any) (T, error) {
 	logger.Debug(query, args)
-	row := db.QueryRow(query, args...)
+	row := db.QueryRowContext(ctx, query, args...)
 	var result T
 	var err error
 	if err = row.Scan(&result); err != nil && errors.Is(err, sql.ErrNoRows) {
