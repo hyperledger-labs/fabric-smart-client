@@ -181,11 +181,31 @@ We have the following main cases where the span context has to be transmitted:
    3. using sessions (case 3, when bob collects endorsements using the session factory)
 
 For all the above cases (except 1.ii), the span-context propagated is taken care of in the background by the application.
-
 The developer must however make sure that the context is propagated between invocations of services.
-Below some implementation details on how to add traces in services and views.
 
-#### In a Service
+#### Add Events
+
+**You will not need to add new spans, but only add events to the existing spans.**
+
+* The simplest way to add an event to an existing context is using the loggers methods.
+In the following cases, both events will be added, but the log will be logged only if we have debug logs enabled.
+```go
+logger.DebugfContext(ctx, "here is a debug event")
+logger.InfofContext(ctx, "here is an info event.")
+```
+
+* Otherwise, for more control and flexibility, you can retrieve the span from the context and add the event:
+```go
+span := trace.SpanFromContext(ctx)
+span.AddEvent("here is an event")
+```
+
+#### Add traces and spans
+
+It will not be necessary to add new traces or spans, so you can skip this part.
+However, if this is indeed necessary, below some implementation details on how to add traces in services and views.
+
+##### Add traces/spans in a Service
 
 To start new spans within a service:
 * Add the `trace.Tracer` as a field of your service struct
@@ -245,9 +265,10 @@ func (s *MyService) Transfer(ctx context.Context, ... OtherParams) error {
 }
 ```
 
-#### In a View
+##### Add traces/spans in a View
+In views, you can add events to the existing context as shown above. In most (or all) of the cases you will not need to create your own span, but use the existing one. 
 
-Since views do not have a proper dependency injection mechanism and creating a new tracer would be inefficient for each view call, you can use the following methods of `view.Context`:
+If you though want to create one, since views do not have a proper dependency injection mechanism and creating a new tracer would be inefficient for each view call, you can use the following methods of `view.Context`:
 ```go
 type Context interface {
 	StartSpanFrom(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span)
