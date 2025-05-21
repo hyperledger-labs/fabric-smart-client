@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package common
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+import (
+	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+)
 
 // FieldName is the name of the DB column
 type FieldName string
@@ -20,6 +24,8 @@ type Param = any
 // CondInterpreter is the condition interpreter for the WHERE clauses
 // It specifies the behaviors that differ among different DBs
 type CondInterpreter interface {
+	// TimeOffset appends NOW() - '10 seconds'
+	TimeOffset(duration time.Duration, sb Builder)
 	// InTuple creates the condition (field1, field2, ...) IN ((val1, val2, ...), (val3, val4, ...))
 	InTuple(fields []Serializable, vals []Tuple, sb Builder)
 }

@@ -8,6 +8,7 @@ package cond_test
 
 import (
 	"testing"
+	"time"
 
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
@@ -60,6 +61,21 @@ var testMatrix = []testCase{
 		condition:      cond.InTuple([]common.Serializable{common.NewAliasedTable("tab").Field("id"), common.NewAliasedTable("tab").Field("id2")}, []cond.Tuple{{10, "a"}, {20, "b"}, {30, "c"}}),
 		expectedQuery:  "((tab.id = $0) AND (tab.id2 = $1)) OR ((tab.id = $2) AND (tab.id2 = $3)) OR ((tab.id = $4) AND (tab.id2 = $5))",
 		expectedParams: []common.Param{10, "a", 20, "b", 30, "c"},
+	},
+	{
+		condition:      cond.OlderThan(common.FieldName("field"), 5*time.Minute),
+		expectedQuery:  "field < NOW() - INTERVAL '$0 seconds'",
+		expectedParams: []common.Param{300},
+	},
+	{
+		condition:      cond.AfterNext(common.FieldName("field"), 10*time.Minute),
+		expectedQuery:  "field > NOW() + INTERVAL '$0 seconds'",
+		expectedParams: []common.Param{600},
+	},
+	{
+		condition:      cond.InPast(common.FieldName("field")),
+		expectedQuery:  "field < NOW()",
+		expectedParams: []common.Param{},
 	},
 }
 

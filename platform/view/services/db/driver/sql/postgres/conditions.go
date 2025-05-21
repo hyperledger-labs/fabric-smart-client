@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 )
@@ -16,6 +18,22 @@ func NewConditionInterpreter() *interpreter {
 }
 
 type interpreter struct{}
+
+func (i *interpreter) TimeOffset(duration time.Duration, sb common.Builder) {
+	sb.WriteString("NOW()")
+	if duration == 0 {
+		return
+	}
+	if duration < 0 {
+		duration *= -1
+		sb.WriteString(" -")
+	} else {
+		sb.WriteString(" +")
+	}
+	sb.WriteString(" INTERVAL '").
+		WriteParam(int(duration.Seconds())).
+		WriteString(" seconds'")
+}
 
 func (i *interpreter) InTuple(fields []common.Serializable, vals []common.Tuple, sb common.Builder) {
 	if len(vals) == 0 || len(fields) == 0 {
