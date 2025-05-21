@@ -100,9 +100,12 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/sykesm/zap-logfmt v0.0.4 // indirect
 	github.com/uptrace/opentelemetry-go-extra/otelsql v0.3.2 // indirect
+	github.com/uptrace/opentelemetry-go-extra/otelutil v0.3.2 // indirect
+	github.com/uptrace/opentelemetry-go-extra/otelzap v0.3.2 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.29.0 // indirect
+	go.opentelemetry.io/otel/log v0.6.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.29.0 // indirect
 )
 
