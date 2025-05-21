@@ -7,16 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package logging
 
 import (
-	"encoding/base64"
 	"errors"
-	"fmt"
 	"net/http"
 	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/hyperledger/fabric-lib-go/common/flogging/floggingtest"
 	"github.com/hyperledger/fabric-lib-go/common/flogging/httpadmin"
@@ -24,8 +21,27 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+type logger struct {
+	fabricLogger
+	otelLogger
+}
+
+type (
+	Config   = flogging.Config
+	Recorder = floggingtest.Recorder
+	Option   = floggingtest.Option
+)
+
 // Logger provides logging API
 type Logger interface {
+	fabricLogger
+	otelLogger
+
+	With(args ...interface{}) Logger
+	Named(name string) Logger
+}
+
+type fabricLogger interface {
 	Debug(args ...interface{})
 	Debugf(format string, args ...interface{})
 	Error(args ...interface{})
@@ -39,17 +55,11 @@ type Logger interface {
 	Warn(args ...interface{})
 	Warnf(format string, args ...interface{})
 	IsEnabledFor(level zapcore.Level) bool
-	Named(name string) Logger
 	Warnw(format string, args ...interface{})
 	Warningf(format string, args ...interface{})
 	Errorw(format string, args ...interface{})
-	With(args ...interface{}) Logger
 	Zap() *zap.Logger
 }
-
-type Recorder = floggingtest.Recorder
-
-type Option = floggingtest.Option
 
 func Named(loggerName string) Option {
 	return func(r *floggingtest.RecordingCore, l *zap.Logger) *zap.Logger {
@@ -65,12 +75,28 @@ func GetLogger(params ...string) (Logger, error) {
 	return GetLoggerWithReplacements(map[string]string{"github.com.hyperledger-labs.fabric-smart-client.platform": "fsc"}, params)
 }
 
+func (l *logger) Named(name string) Logger {
+	return newLogger(l.Zap().Named(name))
+}
+
+func (l *logger) With(args ...interface{}) Logger {
+	return newLogger(l.Zap().Sugar().With(args...).Desugar())
+}
+
 func GetLoggerWithReplacements(replacements map[string]string, params []string) (Logger, error) {
 	fullPkgName, err := GetPackageName()
 	if err != nil {
 		return nil, err
 	}
-	return &logger{FabricLogger: flogging.MustGetLogger(loggerName(fullPkgName, replacements, params...))}, nil
+	name := loggerName(fullPkgName, replacements, params...)
+	return newLogger(flogging.Global.ZapLogger(name)), nil
+}
+
+func newLogger(zapLogger *zap.Logger) *logger {
+	return &logger{
+		fabricLogger: flogging.NewFabricLogger(zapLogger),
+		otelLogger:   NewOtelLogger(zapLogger),
+	}
 }
 
 func GetPackageName() (string, error) {
@@ -100,47 +126,13 @@ func loggerName(fullPkgName string, replacements map[string]string, params ...st
 
 func NewTestLogger(tb testing.TB, options ...Option) (Logger, *Recorder) {
 	l, r := floggingtest.NewTestLogger(tb, options...)
-	return &logger{FabricLogger: l}, r
+	return &logger{fabricLogger: l}, r
 }
 
 func NewSpecHandler() http.Handler {
 	return httpadmin.NewSpecHandler()
 }
 
-type Config = flogging.Config
-
 func Init(c Config) {
 	flogging.Init(c)
-}
-
-type logger struct {
-	*flogging.FabricLogger
-}
-
-func (l *logger) Named(name string) Logger {
-	return &logger{FabricLogger: l.FabricLogger.Named(name)}
-}
-
-func (l *logger) With(args ...interface{}) Logger {
-	return &logger{FabricLogger: l.FabricLogger.With(args...)}
-}
-
-func Keys[K comparable, V any](m map[K]V) fmt.Stringer {
-	return keys[K, V](m)
-}
-
-type keys[K comparable, V any] map[K]V
-
-func (k keys[K, V]) String() string {
-	return fmt.Sprintf(strings.Join(collections.Repeat("%v", len(k)), ", "), collections.Keys(k))
-}
-
-func Base64(b []byte) base64Enc {
-	return b
-}
-
-type base64Enc []byte
-
-func (b base64Enc) String() string {
-	return base64.StdEncoding.EncodeToString(b)
 }
