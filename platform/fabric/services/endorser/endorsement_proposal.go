@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type Response struct {
@@ -37,31 +36,29 @@ func NewParallelCollectEndorsementsOnProposalView(tx *Transaction, parties ...vi
 	return &parallelCollectEndorsementsOnProposalView{tx: tx, parties: parties}
 }
 
-func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (interface{}, error) {
-	span := trace.SpanFromContext(context.Context())
-
+func (c *parallelCollectEndorsementsOnProposalView) Call(ctx view.Context) (interface{}, error) {
 	// send Transaction to each party and wait for their responses
 	stateRaw, err := c.tx.Bytes()
 	if err != nil {
 		return nil, err
 	}
 	answerChannel := make(chan *answer, len(c.parties))
-	span.AddEvent("collect_endorsements")
-	logger.Debugf("Collect endorsements from %d parties for TX [%s]", len(c.parties), c.tx.ID())
+
+	logger.DebugfContext(ctx.Context(), "Collect endorsements from %d parties for TX [%s]", len(c.parties), c.tx.ID())
 	for _, party := range c.parties {
-		go c.collectEndorsement(context, party, stateRaw, answerChannel)
+		go c.collectEndorsement(ctx, party, stateRaw, answerChannel)
 	}
 
-	fns, err := fabric.GetFabricNetworkService(context, c.tx.Network())
+	fns, err := fabric.GetFabricNetworkService(ctx, c.tx.Network())
 	if err != nil {
 		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", c.tx.Network())
 	}
 	tm := fns.TransactionManager()
 	for i := 0; i < len(c.parties); i++ {
-		span.AddEvent("wait_for_endorsement")
+		logger.DebugfContext(ctx.Context(), "Wait for endorsement")
 		// TODO: put a timeout
 		a := <-answerChannel
-		span.AddEvent("received_endorsement")
+		logger.DebugfContext(ctx.Context(), "Received endorsement")
 		if a.err != nil {
 			return nil, errors.Wrapf(a.err, "got failure [%s] from [%s]", a.party.String(), a.err)
 		}
@@ -69,7 +66,7 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (
 		logger.Debugf("answer from [%s] contains [%d] responses, adding them", a.party, len(a.prs))
 
 		for _, pr := range a.prs {
-			span.AddEvent("new_proposal_from_bytes")
+			logger.DebugfContext(ctx.Context(), "New proposal from bytes")
 			proposalResponse, err := tm.NewProposalResponseFromBytes(pr)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed unmarshalling received proposal response")
@@ -77,7 +74,7 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(context view.Context) (
 
 			// TODO: check the validity of the response
 
-			span.AddEvent("append_proposal")
+			logger.DebugfContext(ctx.Context(), "Appended proposal")
 			err = c.tx.AppendProposalResponse(proposalResponse)
 			if err != nil {
 				return nil, errors.Wrapf(a.err, "failed appending response from [%s]", a.party.String())
