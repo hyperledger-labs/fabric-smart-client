@@ -13,8 +13,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/pagination"
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/stretchr/testify/assert"
@@ -32,14 +33,17 @@ const (
 )
 
 type matrixItem struct {
-	pagination driver.Pagination
-	matcher    []types.GomegaMatcher
+	pagination  driver.Pagination
+	matcher     []types.GomegaMatcher
+	sqlForward  []string
+	sqlBackward []string
 }
 
-var r driver.Pagination = pagination.None()
 var matrix = []matrixItem{
 	{
-		pagination: r,
+		pagination:  pagination.None(),
+		sqlForward:  []string{"SELECT * FROM test AS test", "SELECT * FROM test AS test LIMIT 0 OFFSET 0"},
+		sqlBackward: []string{},
 		matcher: []types.GomegaMatcher{
 			ConsistOf(
 				HaveField("TxID", Equal("txid1")),
@@ -55,6 +59,15 @@ var matrix = []matrixItem{
 	},
 	{
 		pagination: NewOffsetPagination(0, 2),
+		sqlForward: []string{
+			"SELECT * FROM test AS test LIMIT 2 OFFSET 0",
+			"SELECT * FROM test AS test LIMIT 2 OFFSET 2",
+			"SELECT * FROM test AS test LIMIT 2 OFFSET 4",
+			"SELECT * FROM test AS test LIMIT 2 OFFSET 6",
+			"SELECT * FROM test AS test LIMIT 2 OFFSET 8",
+			"SELECT * FROM test AS test LIMIT 0 OFFSET 0",
+		},
+		sqlBackward: []string{},
 		matcher: []types.GomegaMatcher{
 			ConsistOf(
 				HaveField("TxID", Equal("txid1")),
@@ -74,6 +87,43 @@ var matrix = []matrixItem{
 			),
 		},
 	},
+	{
+		pagination: NewKeysetPagination(0, 2, "tx_id", "TxID"),
+		sqlForward: []string{
+			"SELECT * FROM test AS test ORDER BY tx_id ASC LIMIT 2 OFFSET 0",
+			"SELECT * FROM test AS test WHERE tx_id>$1 ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test AS test WHERE tx_id>$1 ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test AS test WHERE tx_id>$1 ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test AS test WHERE tx_id>$1 ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test AS test LIMIT 0 OFFSET 0",
+		},
+		sqlBackward: []string{
+			"SELECT * FROM test AS test ORDER BY tx_id ASC LIMIT 2 OFFSET 0",
+			"SELECT * FROM test AS test ORDER BY tx_id ASC LIMIT 2 OFFSET 2",
+			"SELECT * FROM test AS test ORDER BY tx_id ASC LIMIT 2 OFFSET 4",
+			"SELECT * FROM test AS test ORDER BY tx_id ASC LIMIT 2 OFFSET 6",
+			"SELECT * FROM test AS test ORDER BY tx_id ASC LIMIT 2 OFFSET 8",
+			"SELECT * FROM test AS test LIMIT 0 OFFSET 0",
+		},
+		matcher: []types.GomegaMatcher{
+			ConsistOf(
+				HaveField("TxID", Equal("txid1")),
+				HaveField("TxID", Equal("txid10")),
+			),
+			ConsistOf(
+				HaveField("TxID", Equal("txid100")),
+				HaveField("TxID", Equal("txid1025")),
+			),
+			ConsistOf(
+				HaveField("TxID", Equal("txid12")),
+				HaveField("TxID", Equal("txid2")),
+			),
+			ConsistOf(
+				HaveField("TxID", Equal("txid200")),
+				HaveField("TxID", Equal("txid21")),
+			),
+		},
+	},
 }
 
 func NewOffsetPagination(offset int, pageSize int) driver.Pagination {
@@ -84,57 +134,78 @@ func NewOffsetPagination(offset int, pageSize int) driver.Pagination {
 	return offsetPagination
 }
 
-func getAllTxStatuses(store driver.VaultStore, pagination driver.Pagination) ([]driver.TxStatus, error) {
-	p, err := store.GetAllTxStatuses(context.Background(), pagination)
+func NewKeysetPagination(offset int, pageSize int, sqlIdName common2.FieldName, idFieldName pagination.PropertyName[string]) driver.Pagination {
+	keysetPagination, err := pagination.KeysetWithField[string](offset, pageSize, sqlIdName, idFieldName)
 	if err != nil {
-		return nil, err
+		Expect(err).ToNot(HaveOccurred())
 	}
-	statuses, err := collections.ReadAll(p.Items)
-	if err != nil {
-		return nil, err
-	}
-	return statuses, nil
+	return keysetPagination
 }
 
 func testPagination(store driver.VaultStore) {
-	RegisterFailHandler(Fail)
 	err := store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "",
 		"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025")
 	Expect(err).ToNot(HaveOccurred())
 
-	for _, item := range matrix {
-		for page := 0; page < len(item.matcher); page++ {
-			statuses, err := getAllTxStatuses(store, item.pagination)
-			Expect(err).ToNot(HaveOccurred())
-			if len(statuses) == 0 {
-				break
-			}
-			Expect(statuses).To(item.matcher[page])
-			item.pagination, err = item.pagination.Next()
-			Expect(err).ToNot(HaveOccurred())
-		}
-		for page := len(item.matcher) - 1; 0 <= page; page-- {
-			item.pagination, err = item.pagination.Prev()
-			Expect(err).ToNot(HaveOccurred())
-			statuses, err := getAllTxStatuses(store, item.pagination)
-			Expect(err).ToNot(HaveOccurred())
-			if len(statuses) == 0 {
-				break
-			}
-			Expect(statuses).To(item.matcher[page])
-		}
+	pi := pagination.NewDefaultInterpreter()
 
-		item.pagination, err = item.pagination.Prev()
-		Expect(err).ToNot(HaveOccurred())
-		statuses, err := getAllTxStatuses(store, item.pagination)
-		Expect(err).ToNot(HaveOccurred())
-		if len(statuses) == 0 {
-			break
+	for _, item := range matrix {
+		if len(item.sqlBackward) == 0 {
+			item.sqlBackward = item.sqlForward
+		}
+		pagination := item.pagination
+		page := 0
+		for ; true; page++ {
+			query, _ := q.Select().AllFields().From(q.Table("test")).Paginated(pagination).Format(nil, pi)
+
+			Expect(err).ToNot(HaveOccurred())
+			// fmt.Printf("sql (forward) = %s\n", sql2.FormatQuery())
+			Expect(query).To(Equal(item.sqlForward[page]))
+			p, err := store.GetAllTxStatuses(context.Background(), pagination)
+			Expect(err).ToNot(HaveOccurred())
+			pagination = p.Pagination
+			statuses, err := collections.ReadAll(p.Items)
+			Expect(err).ToNot(HaveOccurred())
+			// Test we get 0 statuses when we reach the end
+			if len(statuses) == 0 {
+				break
+			}
+			Expect(page).To(BeNumerically("<", len(item.matcher)))
+			Expect(statuses).To(item.matcher[page])
+			pagination, err = pagination.Next()
+			Expect(err).ToNot(HaveOccurred())
+		}
+		// test that we read everything
+		Expect(page).To(BeNumerically("==", len(item.matcher)))
+
+		// Test that Prev() work. Start by advancing the pagination pointer 2 steps forward
+		if len(item.matcher) < 2 {
+			continue
+		}
+		pagination = item.pagination
+		for page = 0; page < 2; page++ {
+			pagination, err = pagination.Next()
+			Expect(err).ToNot(HaveOccurred())
+		}
+		for ; page >= 0; page-- {
+			query, _ := q.Select().AllFields().From(q.Table("test")).Paginated(pagination).Format(nil, pi)
+			Expect(query).To(Equal(item.sqlBackward[page]))
+			p, err := store.GetAllTxStatuses(context.Background(), pagination)
+			Expect(err).ToNot(HaveOccurred())
+			pagination = p.Pagination
+			statuses, err := collections.ReadAll(p.Items)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(statuses).To(item.matcher[page])
+			if page > 0 {
+				pagination, err = pagination.Prev()
+				Expect(err).ToNot(HaveOccurred())
+			}
 		}
 	}
 }
 
 func TestPaginationStoreMem(t *testing.T) {
+	RegisterTestingT(t)
 	db, err := OpenMemoryVault(utils.GenerateUUIDOnlyLetters())
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -143,6 +214,7 @@ func TestPaginationStoreMem(t *testing.T) {
 }
 
 func TestPaginationStoreSqlite(t *testing.T) {
+	RegisterTestingT(t)
 	db, err := OpenSqliteVault("testdb", t.TempDir())
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -151,6 +223,7 @@ func TestPaginationStoreSqlite(t *testing.T) {
 }
 
 func TestPaginationStoreSPostgres(t *testing.T) {
+	RegisterTestingT(t)
 	db, terminate, err := OpenPostgresVault("testdb")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -160,6 +233,7 @@ func TestPaginationStoreSPostgres(t *testing.T) {
 }
 
 func TestVaultStoreMem(t *testing.T) {
+	RegisterTestingT(t)
 	db, err := OpenMemoryVault(utils.GenerateUUIDOnlyLetters())
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -169,6 +243,7 @@ func TestVaultStoreMem(t *testing.T) {
 }
 
 func TestVaultStoreSqlite(t *testing.T) {
+	RegisterTestingT(t)
 	db, err := OpenSqliteVault("testdb", t.TempDir())
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -179,6 +254,7 @@ func TestVaultStoreSqlite(t *testing.T) {
 }
 
 func TestVaultStorePostgres(t *testing.T) {
+	RegisterTestingT(t)
 	db, terminate, err := OpenPostgresVault("testdb")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
@@ -232,8 +308,7 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 }
 
 func fetchAll(store driver.VaultStore) ([]driver.TxID, error) {
-	var r2 driver.Pagination = pagination.None()
-	pageIt, err := store.GetAllTxStatuses(context.Background(), r2)
+	pageIt, err := store.GetAllTxStatuses(context.Background(), pagination.None())
 	if err != nil {
 		return nil, err
 	}

@@ -13,7 +13,7 @@ type Pagination interface {
 	Next() (Pagination, error)
 }
 
-type PageIterator[R comparable] struct {
+type PageIterator[R any] struct {
 	Items      collections.Iterator[R]
 	Pagination Pagination
 }
