@@ -20,7 +20,6 @@ import (
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
-	"github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -172,7 +171,7 @@ func TestRefresh(t *testing.T) {
 	}
 
 	// copy new identity and refresh
-	assert.NoError(t, copy.Copy("./testdata/manager@org2.example.com", "./testdata/x509typefolder/msps/manager@org2.example.com"))
+	assert.NoError(t, os.CopyFS("./testdata/x509typefolder/msps/manager@org2.example.com", os.DirFS("./testdata/manager@org2.example.com")))
 
 	assert.NoError(t, mspService.Refresh())
 	assert.Equal(t, []string{
