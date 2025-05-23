@@ -79,7 +79,20 @@ func (q *query) Format(ci common.CondInterpreter, pi common.PagInterpreter) (str
 	return q.FormatWithOffset(ci, pi, common2.CopyPtr(1))
 }
 
+func (q *query) AddField(field common.Field) { q.Fields(append(q.fields, field)...) }
+
+func (q *query) AddWhere(c cond.Condition) { q.Where(cond.And(q.where, c)) }
+
+func (q *query) AddOrderBy(os OrderBy) { q.OrderBy(append(q.orderBy, os)...) }
+
+func (q *query) AddLimit(l int) { q.Limit(l) }
+
+func (q *query) AddOffset(o int) { q.Offset(o) }
+
 func (q *query) FormatWithOffset(ci common.CondInterpreter, pi common.PagInterpreter, pc *int) (string, []any) {
+	if q.pagination != nil {
+		pi.PreProcess(q.pagination, q)
+	}
 	sb := common.NewBuilderWithOffset(pc).WriteString("SELECT ")
 
 	if q.distinct {
@@ -100,11 +113,6 @@ func (q *query) FormatWithOffset(ci common.CondInterpreter, pi common.PagInterpr
 
 	if len(q.orderBy) > 0 {
 		sb.WriteString(" ORDER BY ").WriteSerializables(common.ToSerializables(q.orderBy)...)
-	}
-
-	if q.pagination != nil {
-		pi.Interpret(q.pagination, sb)
-		return sb.Build()
 	}
 
 	if q.limit > 0 {
