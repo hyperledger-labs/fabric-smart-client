@@ -52,7 +52,7 @@ type IdentityService interface {
 
 type Backend interface {
 	Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error
-	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
+	AddResolver(ctx context.Context, name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
 }
 
 type ResolverService struct {
@@ -73,7 +73,7 @@ func NewResolverService(config ConfigService, backend Backend, is IdentityServic
 
 func (r *ResolverService) LoadResolvers(ctx context.Context) error {
 	// add default
-	_, err := r.backend.AddResolver(
+	_, err := r.backend.AddResolver(ctx,
 		r.config.GetString("fsc.id"),
 		"",
 		map[string]string{
@@ -111,7 +111,7 @@ func (r *ResolverService) LoadResolvers(ctx context.Context) error {
 			)
 
 			// Add entry
-			if _, err := r.backend.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id); err != nil {
+			if _, err := r.backend.AddResolver(ctx, resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id); err != nil {
 				return errors.Wrapf(err, "failed adding resolver")
 			}
 
