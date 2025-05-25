@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package msp_test
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -50,7 +51,7 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	sigService := sig.NewService(des, newAuditInfo(), newSignerInfo())
 	assert.NoError(t, registry.RegisterService(sigService))
 
-	assert.NoError(t, mspService.RegisterIdemixMSP("apple", "./idemix/testdata/idemix", "idemix"))
+	assert.NoError(t, mspService.RegisterIdemixMSP(context.Background(), "apple", "./idemix/testdata/idemix", "idemix"))
 	ii := mspService.GetIdentityInfoByLabel(msp2.IdemixMSP, "apple")
 	assert.NotNil(t, ii)
 	assert.Equal(t, "apple", ii.ID)
@@ -80,7 +81,7 @@ func TestIdemixTypeFolder(t *testing.T) {
 	sigService := sig.NewService(des, newAuditInfo(), newSignerInfo())
 	assert.NoError(t, registry.RegisterService(sigService))
 
-	assert.NoError(t, mspService.Load())
+	assert.NoError(t, mspService.Load(context.Background()))
 	assert.Equal(t, []string{"idemix", "manager.id1", "manager.id2", "manager.id3", "apple"}, mspService.Msps())
 
 	for _, s := range mspService.Msps()[:4] {
@@ -107,7 +108,7 @@ func TestRegisterX509LocalMSP(t *testing.T) {
 	sigService := sig.NewService(des, newAuditInfo(), newSignerInfo())
 	assert.NoError(t, registry.RegisterService(sigService))
 
-	assert.NoError(t, mspService.RegisterX509MSP("apple", "./x509/testdata/msp", "x509"))
+	assert.NoError(t, mspService.RegisterX509MSP(context.Background(), "apple", "./x509/testdata/msp", "x509"))
 	ii := mspService.GetIdentityInfoByLabel(msp2.BccspMSP, "apple")
 	assert.NotNil(t, ii)
 	assert.Equal(t, "apple", ii.ID)
@@ -137,7 +138,7 @@ func TestX509TypeFolder(t *testing.T) {
 	sigService := sig.NewService(des, newAuditInfo(), newSignerInfo())
 	assert.NoError(t, registry.RegisterService(sigService))
 
-	assert.NoError(t, mspService.Load())
+	assert.NoError(t, mspService.Load(context.Background()))
 	assert.Equal(t, []string{"Admin@org1.example.com", "auditor@org1.example.com", "issuer.id1@org1.example.com"}, mspService.Msps())
 
 	for _, s := range mspService.Msps() {
@@ -164,7 +165,7 @@ func TestRefresh(t *testing.T) {
 	sigService := sig.NewService(des, newAuditInfo(), newSignerInfo())
 	assert.NoError(t, registry.RegisterService(sigService))
 
-	assert.NoError(t, mspService.Load())
+	assert.NoError(t, mspService.Load(context.Background()))
 	assert.Equal(t, []string{"Admin@org1.example.com", "auditor@org1.example.com", "issuer.id1@org1.example.com"}, mspService.Msps())
 
 	for _, s := range mspService.Msps() {
@@ -174,7 +175,7 @@ func TestRefresh(t *testing.T) {
 	// copy new identity and refresh
 	assert.NoError(t, copy.Copy("./testdata/manager@org2.example.com", "./testdata/x509typefolder/msps/manager@org2.example.com"))
 
-	assert.NoError(t, mspService.Refresh())
+	assert.NoError(t, mspService.Refresh(context.Background()))
 	assert.Equal(t, []string{
 		"Admin@org1.example.com",
 		"auditor@org1.example.com",
@@ -188,7 +189,7 @@ func TestRefresh(t *testing.T) {
 
 	assert.NoError(t, os.RemoveAll("./testdata/x509typefolder/msps/manager@org2.example.com"))
 
-	assert.NoError(t, mspService.Refresh())
+	assert.NoError(t, mspService.Refresh(context.Background()))
 	assert.Equal(t, []string{
 		"Admin@org1.example.com",
 		"auditor@org1.example.com",

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -66,7 +67,7 @@ func NewProvider(
 	}
 }
 
-func (d *Provider) New(network string, _ bool) (fdriver.FabricNetworkService, error) {
+func (d *Provider) New(ctx context.Context, network string, _ bool) (fdriver.FabricNetworkService, error) {
 	logger.Debugf("creating new fabric network service for network [%s]", network)
 
 	idProvider, err := d.identityProvider.New(network)
@@ -80,7 +81,7 @@ func (d *Provider) New(network string, _ bool) (fdriver.FabricNetworkService, er
 		return nil, err
 	}
 
-	mspService, err := d.mspManagerProvider.New(network)
+	mspService, err := d.mspManagerProvider.New(ctx, network)
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ package endpoint
 
 import (
 	"bytes"
+	"context"
 	"net"
 	"reflect"
 	"strings"
@@ -84,26 +85,26 @@ func NewService(bindingKVS driver2.BindingStore) (*Service, error) {
 	return er, nil
 }
 
-func (r *Service) Resolve(party view.Identity) (driver.Resolver, []byte, error) {
-	resolver, err := r.resolver(party)
+func (r *Service) Resolve(ctx context.Context, party view.Identity) (driver.Resolver, []byte, error) {
+	resolver, err := r.resolver(ctx, party)
 	if err != nil {
 		return nil, nil, err
 	}
 	return resolver, r.pkiResolve(resolver), nil
 }
 
-func (r *Service) GetResolver(party view.Identity) (driver.Resolver, error) {
-	return r.resolver(party)
+func (r *Service) GetResolver(ctx context.Context, party view.Identity) (driver.Resolver, error) {
+	return r.resolver(ctx, party)
 }
 
-func (r *Service) resolver(party view.Identity) (*Resolver, error) {
+func (r *Service) resolver(ctx context.Context, party view.Identity) (*Resolver, error) {
 	// We can skip this check, but in case the long term was passed directly, this is going to spare us a DB lookup
 	resolver, err := r.rootEndpoint(party)
 	if err == nil {
 		return resolver, nil
 	}
 	logger.Debugf("resolving via binding for %s", party)
-	party, err = r.bindingKVS.GetLongTerm(party)
+	party, err = r.bindingKVS.GetLongTerm(ctx, party)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +117,7 @@ func (r *Service) resolver(party view.Identity) (*Resolver, error) {
 	return resolver, nil
 }
 
-func (r *Service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
+func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error {
 	if longTerm.Equal(ephemeral) {
 		logger.Debugf("cannot bind [%s] to [%s], they are the same", longTerm, ephemeral)
 		return nil
@@ -124,15 +125,15 @@ func (r *Service) Bind(longTerm view.Identity, ephemeral view.Identity) error {
 
 	logger.Debugf("bind [%s] to [%s]", ephemeral, longTerm)
 
-	if err := r.bindingKVS.PutBinding(ephemeral, longTerm); err != nil {
+	if err := r.bindingKVS.PutBinding(ctx, ephemeral, longTerm); err != nil {
 		return errors.WithMessagef(err, "failed storing binding of [%s]  to [%s]", ephemeral.UniqueID(), longTerm.UniqueID())
 	}
 
 	return nil
 }
 
-func (r *Service) IsBoundTo(a view.Identity, b view.Identity) bool {
-	ok, err := r.bindingKVS.HaveSameBinding(a, b)
+func (r *Service) IsBoundTo(ctx context.Context, a view.Identity, b view.Identity) bool {
+	ok, err := r.bindingKVS.HaveSameBinding(ctx, a, b)
 	if err != nil {
 		logger.Errorf("error fetching entries [%s] and [%s]: %v", a, b, err)
 	}
@@ -164,7 +165,7 @@ func (r *Service) matchesResolver(endpoint string, pkID []byte, resolver *Resolv
 		bytes.Equal(pkID, r.pkiResolve(resolver)))
 }
 
-func (r *Service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
+func (r *Service) AddResolver(ctx context.Context, name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
 	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
 
 	// is there a resolver with the same name or clashing aliases?
@@ -175,7 +176,7 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 
 			// Then bind
 			r.resolversMutex.RUnlock()
-			return resolver.Id, r.Bind(resolver.Id, id)
+			return resolver.Id, r.Bind(ctx, resolver.Id, id)
 		}
 		for _, alias := range resolver.Aliases {
 			if slices.Contains(aliases, alias) {

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -37,9 +38,9 @@ func newBindingStore(readDB *sql.DB, writeDB common.WriteDB, table string) *Bind
 		errorWrapper: errorWrapper,
 	}
 }
-func (db *BindingStore) PutBinding(ephemeral, longTerm view.Identity) error {
+func (db *BindingStore) PutBinding(ctx context.Context, ephemeral, longTerm view.Identity) error {
 	logger.Debugf("Put binding for pair [%s:%s]", ephemeral.UniqueID(), longTerm.UniqueID())
-	if lt, err := db.GetLongTerm(longTerm); err != nil {
+	if lt, err := db.GetLongTerm(ctx, longTerm); err != nil {
 		return err
 	} else if lt != nil && !lt.IsNone() {
 		logger.Debugf("Replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())

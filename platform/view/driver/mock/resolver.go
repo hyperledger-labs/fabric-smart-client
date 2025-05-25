@@ -2,6 +2,7 @@
 package mock
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/identity"
@@ -173,7 +174,7 @@ func (fake *EndpointService) AddPublicKeyExtractorReturnsOnCall(i int, result1 e
 	}{result1}
 }
 
-func (fake *EndpointService) AddResolver(arg1 string, arg2 string, arg3 map[string]string, arg4 []string, arg5 []byte) (identity.Identity, error) {
+func (fake *EndpointService) AddResolver(ctx context.Context, arg1 string, arg2 string, arg3 map[string]string, arg4 []string, arg5 []byte) (identity.Identity, error) {
 	var arg4Copy []string
 	if arg4 != nil {
 		arg4Copy = make([]string, len(arg4))
@@ -251,7 +252,7 @@ func (fake *EndpointService) AddResolverReturnsOnCall(i int, result1 identity.Id
 	}{result1, result2}
 }
 
-func (fake *EndpointService) Bind(arg1 identity.Identity, arg2 identity.Identity) error {
+func (fake *EndpointService) Bind(ctx context.Context, arg1 identity.Identity, arg2 identity.Identity) error {
 	fake.bindMutex.Lock()
 	ret, specificReturn := fake.bindReturnsOnCall[len(fake.bindArgsForCall)]
 	fake.bindArgsForCall = append(fake.bindArgsForCall, struct {
@@ -383,7 +384,7 @@ func (fake *EndpointService) GetIdentityReturnsOnCall(i int, result1 identity.Id
 	}{result1, result2}
 }
 
-func (fake *EndpointService) GetResolver(arg1 identity.Identity) (driver.Resolver, error) {
+func (fake *EndpointService) GetResolver(ctx context.Context, arg1 identity.Identity) (driver.Resolver, error) {
 	fake.getResolverMutex.Lock()
 	ret, specificReturn := fake.getResolverReturnsOnCall[len(fake.getResolverArgsForCall)]
 	fake.getResolverArgsForCall = append(fake.getResolverArgsForCall, struct {
@@ -447,7 +448,7 @@ func (fake *EndpointService) GetResolverReturnsOnCall(i int, result1 driver.Reso
 	}{result1, result2}
 }
 
-func (fake *EndpointService) IsBoundTo(arg1 identity.Identity, arg2 identity.Identity) bool {
+func (fake *EndpointService) IsBoundTo(ctx context.Context, arg1 identity.Identity, arg2 identity.Identity) bool {
 	fake.isBoundToMutex.Lock()
 	ret, specificReturn := fake.isBoundToReturnsOnCall[len(fake.isBoundToArgsForCall)]
 	fake.isBoundToArgsForCall = append(fake.isBoundToArgsForCall, struct {
@@ -509,7 +510,7 @@ func (fake *EndpointService) IsBoundToReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
-func (fake *EndpointService) Resolve(arg1 identity.Identity) (driver.Resolver, []byte, error) {
+func (fake *EndpointService) Resolve(ctx context.Context, arg1 identity.Identity) (driver.Resolver, []byte, error) {
 	fake.resolveMutex.Lock()
 	ret, specificReturn := fake.resolveReturnsOnCall[len(fake.resolveArgsForCall)]
 	fake.resolveArgsForCall = append(fake.resolveArgsForCall, struct {

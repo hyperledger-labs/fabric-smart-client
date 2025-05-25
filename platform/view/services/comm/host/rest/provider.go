@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package rest
 
 import (
+	"context"
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
@@ -38,7 +39,7 @@ func NewEndpointBasedProvider(config Config, extractor pkiExtractor, routing rou
 	}
 }
 
-func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
+func (p *endpointServiceBasedProvider) GetNewHost(ctx context.Context) (host2.P2PHost, error) {
 	raw, err := id.LoadIdentity(p.config.CertPath())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load identity in [%s]", p.config.CertPath())

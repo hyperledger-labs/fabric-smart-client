@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -47,23 +48,23 @@ type Resolver interface {
 type EndpointService interface {
 	// Resolve returns the identity the passed identity is bound to.
 	// It returns also: the endpoints and the pkiID
-	Resolve(party view.Identity) (Resolver, []byte, error)
+	Resolve(ctx context.Context, party view.Identity) (Resolver, []byte, error)
 	// GetResolver returns the identity the passed identity is bound to
-	GetResolver(party view.Identity) (Resolver, error)
+	GetResolver(ctx context.Context, party view.Identity) (Resolver, error)
 	// GetIdentity returns an identity bound to either the passed label or public-key identifier.
 	GetIdentity(label string, pkiID []byte) (view.Identity, error)
 
 	// Bind binds b to identity a
-	Bind(b view.Identity, a view.Identity) error
+	Bind(ctx context.Context, b view.Identity, a view.Identity) error
 
 	// IsBoundTo returns true if b was bound to a
-	IsBoundTo(a view.Identity, b view.Identity) bool
+	IsBoundTo(ctx context.Context, a view.Identity, b view.Identity) bool
 
 	// AddResolver adds a resolver for tha passed parameters. The passed id can be retrieved by using the passed name in a call to GetIdentity method.
 	// The addresses can retrieved by passing the identity in a call to Resolve.
 	// If a resolver is already bound to the passed name, then the passed identity is linked to the already existing identity. The already existing
 	// identity is returned
-	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
+	AddResolver(ctx context.Context, name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
 
 	// AddPublicKeyExtractor add a new PK extractor
 	AddPublicKeyExtractor(pkExtractor PublicKeyExtractor) error

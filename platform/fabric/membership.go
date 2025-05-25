@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -61,12 +63,12 @@ type LocalMembership struct {
 	network driver.FabricNetworkService
 }
 
-func (s *LocalMembership) RegisterIdemixMSP(id string, path string, mspID string) error {
-	return s.network.LocalMembership().RegisterIdemixMSP(id, path, mspID)
+func (s *LocalMembership) RegisterIdemixMSP(ctx context.Context, id string, path string, mspID string) error {
+	return s.network.LocalMembership().RegisterIdemixMSP(ctx, id, path, mspID)
 }
 
-func (s *LocalMembership) RegisterX509MSP(id string, path string, mspID string) error {
-	return s.network.LocalMembership().RegisterX509MSP(id, path, mspID)
+func (s *LocalMembership) RegisterX509MSP(ctx context.Context, id string, path string, mspID string) error {
+	return s.network.LocalMembership().RegisterX509MSP(ctx, id, path, mspID)
 }
 
 func (s *LocalMembership) DefaultSigningIdentity() SigningIdentity {
@@ -81,8 +83,8 @@ func (s *LocalMembership) IsMe(id view.Identity) bool {
 	return s.network.LocalMembership().IsMe(id)
 }
 
-func (s *LocalMembership) AnonymousIdentity() (view.Identity, error) {
-	return s.network.LocalMembership().AnonymousIdentity()
+func (s *LocalMembership) AnonymousIdentity(ctx context.Context) (view.Identity, error) {
+	return s.network.LocalMembership().AnonymousIdentity(ctx)
 }
 
 func (s *LocalMembership) GetIdentityByID(id string) (view.Identity, error) {
@@ -130,8 +132,8 @@ func (s *LocalMembership) GetIdentityInfoByIdentity(mspType string, id view.Iden
 	}
 }
 
-func (s *LocalMembership) Refresh() error {
-	return s.network.LocalMembership().Refresh()
+func (s *LocalMembership) Refresh(ctx context.Context) error {
+	return s.network.LocalMembership().Refresh(ctx)
 }
 
 // Verifier is an interface which wraps the Verify method.

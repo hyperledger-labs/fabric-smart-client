@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package libp2p
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -22,21 +23,21 @@ import (
 )
 
 func TestP2PLayerTestRound(t *testing.T) {
-	bootstrapNode, node := setupTwoNodesFromFiles(t)
+	bootstrapNode, node := setupTwoNodesFromFiles(context.Background(), t)
 	comm.P2PLayerTestRound(t, bootstrapNode, node)
 }
 
 func TestSessionsTestRound(t *testing.T) {
-	bootstrapNode, node := setupTwoNodesFromFiles(t)
+	bootstrapNode, node := setupTwoNodesFromFiles(context.Background(), t)
 	comm.SessionsTestRound(t, bootstrapNode, node)
 }
 
 func TestSessionsForMPCTestRound(t *testing.T) {
-	bootstrapNode, node := setupTwoNodesFromFiles(t)
+	bootstrapNode, node := setupTwoNodesFromFiles(context.Background(), t)
 	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
 }
 
-func setupTwoNodesFromFiles(t *testing.T) (*comm.HostNode, *comm.HostNode) {
+func setupTwoNodesFromFiles(ctx context.Context, t *testing.T) (*comm.HostNode, *comm.HostNode) {
 	bootstrapNodePK := "testdata/dht.pub"
 	bootstrapNodeSK := "testdata/dht.priv"
 	bootstrapNodeID := idForParty(t, bootstrapNodePK)
@@ -46,14 +47,14 @@ func setupTwoNodesFromFiles(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 	bootstrapNodeEndpoint := "/ip4/127.0.0.1/tcp/1234"
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/1235"
 
-	bootstrapNode, anotherNode, err := setupTwoNodes(t, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint, bootstrapNodeSK, nodeSK)
+	bootstrapNode, anotherNode, err := setupTwoNodes(ctx, t, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint, bootstrapNodeSK, nodeSK)
 	assert2.NoError(err)
 
 	return &comm.HostNode{P2PNode: bootstrapNode, ID: bootstrapNodeID, Address: ""},
 		&comm.HostNode{P2PNode: anotherNode, ID: nodeID, Address: ""}
 }
 
-func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint string, bootstrapNodeSK, nodeSK string) (*comm.P2PNode, *comm.P2PNode, error) {
+func setupTwoNodes(ctx context.Context, t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID, nodeEndpoint string, bootstrapNodeSK, nodeSK string) (*comm.P2PNode, *comm.P2PNode, error) {
 	// catch panic and return error
 	var err error
 	defer func() {
@@ -85,12 +86,12 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 	assert.NotNil(t, anotherNode)
 
 	assert.Eventually(t, func() bool {
-		addrs, ok := bootstrapNode.Lookup(nodeID)
+		addrs, ok := bootstrapNode.Lookup(ctx, nodeID)
 		return ok && slices.Contains(addrs, nodeEndpoint)
 	}, 60*time.Second, 500*time.Millisecond)
 
 	assert.Eventually(t, func() bool {
-		addrs, ok := anotherNode.Lookup(bootstrapNodeID)
+		addrs, ok := anotherNode.Lookup(ctx, bootstrapNodeID)
 		return ok && slices.Contains(addrs, bootstrapNodeEndpoint)
 	}, 60*time.Second, 500*time.Millisecond)
 

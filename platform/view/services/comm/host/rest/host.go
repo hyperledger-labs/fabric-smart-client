@@ -72,7 +72,7 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 	defer span.AddEvent("New stream opened")
 	// if len(address) == 0 { //TODO
 	logger.Debugf("No address passed for peer [%s]. Resolving...", info.RemotePeerID)
-	if info.RemotePeerAddress = h.routing.Lookup(info.RemotePeerID); len(info.RemotePeerAddress) == 0 {
+	if info.RemotePeerAddress = h.routing.Lookup(ctx, info.RemotePeerID); len(info.RemotePeerAddress) == 0 {
 		return nil, errors.Errorf("no address found for peer [%s]", info.RemotePeerID)
 	}
 	logger.Debugf("Resolved address of peer [%s]: %s", info.RemotePeerID, info.RemotePeerAddress)
@@ -80,8 +80,8 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 	return h.client.OpenStream(info, ctx)
 }
 
-func (h *host) Lookup(peerID host2.PeerID) ([]host2.PeerIPAddress, bool) {
-	return h.routing.LookupAll(peerID)
+func (h *host) Lookup(ctx context.Context, peerID host2.PeerID) ([]host2.PeerIPAddress, bool) {
+	return h.routing.LookupAll(ctx, peerID)
 }
 
 func (h *host) StreamHash(info host2.StreamInfo) string {

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package libp2p
 
 import (
+	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ import (
 type Network []*node
 
 func TestSessionTwoParties(t *testing.T) {
-	network, err := NewVirtualNetwork(12345, 2)
+	network, err := NewVirtualNetwork(context.Background(), 12345, 2)
 	assert.NoError(t, err)
 
 	io.SessionTwoParties(t, network[0], network[1])
@@ -42,7 +43,7 @@ func (n *node) ID() string {
 	return n.id
 }
 
-func NewVirtualNetwork(port int, numNodes int) (Network, error) {
+func NewVirtualNetwork(ctx context.Context, port int, numNodes int) (Network, error) {
 	var res []*node
 
 	// Setup master
@@ -66,7 +67,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	for _, node := range nodes {
 		err := eventually(
 			func() bool {
-				addrs, ok := bootstrapNode.Lookup(node.id)
+				addrs, ok := bootstrapNode.Lookup(ctx, node.id)
 				return ok && slices.Contains(addrs, node.endpoint)
 			},
 			60*time.Second,
@@ -80,7 +81,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	for _, node := range nodes {
 		err := eventually(
 			func() bool {
-				addrs, ok := node.Lookup(bootstrapNode.id)
+				addrs, ok := node.Lookup(ctx, bootstrapNode.id)
 				return ok && slices.Contains(addrs, bootstrapNode.endpoint)
 			},
 			60*time.Second,

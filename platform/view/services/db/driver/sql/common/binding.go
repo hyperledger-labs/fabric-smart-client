@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -37,7 +38,7 @@ type BindingStore struct {
 	ci           common.CondInterpreter
 }
 
-func (db *BindingStore) GetLongTerm(ephemeral view.Identity) (view.Identity, error) {
+func (db *BindingStore) GetLongTerm(ctx context.Context, ephemeral view.Identity) (view.Identity, error) {
 	query, params := q.Select().FieldsByName("long_term_id").
 		From(q.Table(db.table)).
 		Where(cond.Eq("ephemeral_hash", ephemeral.UniqueID())).
@@ -52,7 +53,7 @@ func (db *BindingStore) GetLongTerm(ephemeral view.Identity) (view.Identity, err
 	return result, nil
 }
 
-func (db *BindingStore) HaveSameBinding(this, that view.Identity) (bool, error) {
+func (db *BindingStore) HaveSameBinding(ctx context.Context, this, that view.Identity) (bool, error) {
 	query, params := q.Select().FieldsByName("long_term_id").
 		From(q.Table(db.table)).
 		Where(cond.In("ephemeral_hash", this.UniqueID(), that.UniqueID())).

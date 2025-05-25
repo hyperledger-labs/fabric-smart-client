@@ -6,8 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 package config
 
+import "context"
+
 // Resolver models a Fabric identity resolver
 type Resolver struct {
+	// context of the resolver
+	Ctx context.Context
 	// Name of the resolver
 	Name string `yaml:"name,omitempty"`
 	// Domain is option

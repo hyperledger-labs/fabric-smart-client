@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package x509
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -26,7 +27,7 @@ var logger = logging.MustGetLogger()
 
 type IdentityLoader struct{}
 
-func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
+func (i *IdentityLoader) Load(ctx context.Context, manager driver.Manager, c config.MSP) error {
 	var bccspOpts *config.BCCSP
 	if c.Opts != nil {
 		logger.Debugf("Options [%v]", c.Opts)
@@ -57,7 +58,7 @@ func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 	}
 
 	manager.AddDeserializer(provider)
-	if err := manager.AddMSP(c.ID, c.MSPType, provider.EnrollmentID(), provider.Identity); err != nil {
+	if err := manager.AddMSP(ctx, c.ID, c.MSPType, provider.EnrollmentID(), provider.Identity); err != nil {
 		return errors.WithMessagef(err, "failed adding MSP [%s]", c.ID)
 	}
 
@@ -79,7 +80,7 @@ type FolderIdentityLoader struct {
 	*IdentityLoader
 }
 
-func (f *FolderIdentityLoader) Load(manager driver.Manager, c config.MSP) error {
+func (f *FolderIdentityLoader) Load(ctx context.Context, manager driver.Manager, c config.MSP) error {
 	entries, err := os.ReadDir(manager.Config().TranslatePath(c.Path))
 	if err != nil {
 		logger.Warnf("failed reading from [%s]: [%s]", manager.Config().TranslatePath(c.Path), err)
@@ -91,7 +92,7 @@ func (f *FolderIdentityLoader) Load(manager driver.Manager, c config.MSP) error 
 		}
 		id := entry.Name()
 
-		if err := f.IdentityLoader.Load(manager, config.MSP{
+		if err := f.IdentityLoader.Load(ctx, manager, config.MSP{
 			ID:      id,
 			MSPType: MSPType,
 			MSPID:   id,

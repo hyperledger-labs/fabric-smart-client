@@ -17,7 +17,7 @@ type StreamHash = string
 
 // GeneratorProvider provides the hosts and generates their PKs
 type GeneratorProvider interface {
-	GetNewHost() (P2PHost, error)
+	GetNewHost(ctx context.Context) (P2PHost, error)
 }
 
 type StreamInfo struct {
@@ -40,7 +40,7 @@ type P2PHost interface {
 	// returned by P2PHost.StreamHash using the same StreamInfo as input.
 	NewStream(ctx context.Context, info StreamInfo) (P2PStream, error)
 	// Lookup resolves all IP addresses that belong to a specific peerID
-	Lookup(peerID PeerID) ([]PeerIPAddress, bool)
+	Lookup(ctx context.Context, peerID PeerID) ([]PeerIPAddress, bool)
 	// StreamHash calculates the hash of a session. Must be identical to the one calculated by P2PStream.Hash.
 	// Sessions that share the same stream hash will be multiplexed into the same stream.
 	// If the hash is empty, a new stream must be created

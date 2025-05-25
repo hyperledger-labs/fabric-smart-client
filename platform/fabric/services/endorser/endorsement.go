@@ -139,7 +139,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 
 			// Check the validity of the response
 			span.AddEvent("Check response validity")
-			if view2.GetEndpointService(context).IsBoundTo(endorser, party) {
+			if view2.GetEndpointService(context).IsBoundTo(context.Context(), endorser, party) {
 				found = true
 			}
 

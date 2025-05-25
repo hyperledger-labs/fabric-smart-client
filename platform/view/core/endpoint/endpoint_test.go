@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package endpoint
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -16,9 +17,13 @@ import (
 
 type mockKVS struct{}
 
-func (k mockKVS) GetLongTerm(ephemeral view.Identity) (view.Identity, error) { return nil, nil }
-func (k mockKVS) HaveSameBinding(this, that view.Identity) (bool, error)     { return false, nil }
-func (k mockKVS) PutBinding(ephemeral, longTerm view.Identity) error         { return nil }
+func (k mockKVS) GetLongTerm(ctx context.Context, ephemeral view.Identity) (view.Identity, error) {
+	return nil, nil
+}
+func (k mockKVS) HaveSameBinding(ctx context.Context, this, that view.Identity) (bool, error) {
+	return false, nil
+}
+func (k mockKVS) PutBinding(ctx context.Context, ephemeral, longTerm view.Identity) error { return nil }
 
 type mockExtractor struct{}
 
@@ -52,7 +57,7 @@ func TestGetIdentity(t *testing.T) {
 	assert.NoError(err)
 
 	ext := mockExtractor{}
-	_, err = svc.AddResolver("getbyname", "", map[string]string{}, []string{}, []byte("id"))
+	_, err = svc.AddResolver(context.Background(), "getbyname", "", map[string]string{}, []string{}, []byte("id"))
 	assert.NoError(err)
 
 	err = svc.AddPublicKeyExtractor(ext)

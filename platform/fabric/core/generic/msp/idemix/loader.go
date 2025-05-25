@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package idemix
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -25,7 +26,7 @@ type IdentityLoader struct {
 	SignerService driver.SignerService
 }
 
-func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
+func (i *IdentityLoader) Load(ctx context.Context, manager driver.Manager, c config.MSP) error {
 	conf, err := msp2.GetLocalMspConfigWithType(manager.Config().TranslatePath(c.Path), nil, c.MSPID, c.MSPType)
 	if err != nil {
 		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", manager.Config().TranslatePath(c.Path))
@@ -39,7 +40,7 @@ func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 	if c.CacheSize > 0 {
 		cacheSize = c.CacheSize
 	}
-	if err := manager.AddMSP(c.ID, c.MSPType, provider.EnrollmentID(), NewIdentityCache(provider.Identity, cacheSize, nil).Identity); err != nil {
+	if err := manager.AddMSP(ctx, c.ID, c.MSPType, provider.EnrollmentID(), NewIdentityCache(provider.Identity, cacheSize, nil).Identity); err != nil {
 		return errors.Wrapf(err, "failed adding idemix msp [%s]", manager.Config().TranslatePath(c.Path))
 	}
 	logger.Debugf("added %s msp for id %s with cache of size %d", c.MSPType, c.ID+"@"+provider.EnrollmentID(), cacheSize)
@@ -51,7 +52,7 @@ type FolderIdentityLoader struct {
 	*IdentityLoader
 }
 
-func (f *FolderIdentityLoader) Load(manager driver.Manager, c config.MSP) error {
+func (f *FolderIdentityLoader) Load(ctx context.Context, manager driver.Manager, c config.MSP) error {
 	entries, err := os.ReadDir(manager.Config().TranslatePath(c.Path))
 	if err != nil {
 		logger.Warnf("failed reading from [%s]: [%s]", manager.Config().TranslatePath(c.Path), err)
@@ -63,7 +64,7 @@ func (f *FolderIdentityLoader) Load(manager driver.Manager, c config.MSP) error 
 		}
 		id := entry.Name()
 
-		if err := f.IdentityLoader.Load(manager, config.MSP{
+		if err := f.IdentityLoader.Load(ctx, manager, config.MSP{
 			ID:      id,
 			MSPType: MSPType,
 			MSPID:   id,

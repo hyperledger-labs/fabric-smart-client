@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package routing
 
 import (
+	"context"
 	"math/rand"
 	"sync/atomic"
 
@@ -45,11 +46,11 @@ type serviceDiscovery struct {
 	strategy EndpointSelector
 }
 
-func (d *serviceDiscovery) LookupAll(id host2.PeerID) ([]host2.PeerIPAddress, bool) {
-	return d.router.Lookup(id)
+func (d *serviceDiscovery) LookupAll(ctx context.Context, id host2.PeerID) ([]host2.PeerIPAddress, bool) {
+	return d.router.Lookup(ctx, id)
 }
-func (d *serviceDiscovery) Lookup(id host2.PeerID) host2.PeerIPAddress {
-	if endpoints, ok := d.router.Lookup(id); ok && len(endpoints) > 0 {
+func (d *serviceDiscovery) Lookup(ctx context.Context, id host2.PeerID) host2.PeerIPAddress {
+	if endpoints, ok := d.router.Lookup(ctx, id); ok && len(endpoints) > 0 {
 		return d.strategy(endpoints)
 	}
 	return ""

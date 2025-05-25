@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package identity
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
@@ -23,7 +24,7 @@ type NamedIdentityLoader struct {
 }
 
 type MSPManagerProvider interface {
-	New(network string) (fdriver.LocalMembership, error)
+	New(ctx context.Context, network string) (fdriver.LocalMembership, error)
 }
 
 type localMSPManagerProvider struct {
@@ -56,7 +57,7 @@ func NewMSPManagerProvider(
 	}
 }
 
-func (p *localMSPManagerProvider) New(network string) (fdriver.LocalMembership, error) {
+func (p *localMSPManagerProvider) New(ctx context.Context, network string) (fdriver.LocalMembership, error) {
 	genericConfig, err := p.configProvider.GetConfig(network)
 	if err != nil {
 		return nil, err
@@ -75,7 +76,7 @@ func (p *localMSPManagerProvider) New(network string) (fdriver.LocalMembership, 
 	for _, loader := range p.identityLoaders {
 		mspService.PutIdentityLoader(loader.Name, loader.IdentityLoader)
 	}
-	if err := mspService.Load(); err != nil {
+	if err := mspService.Load(ctx); err != nil {
 		return nil, fmt.Errorf("failed loading local msp service: %w", err)
 	}
 	return mspService, nil

@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
+
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -35,7 +37,7 @@ type SignerService interface {
 }
 
 type BinderService interface {
-	Bind(longTerm view.Identity, ephemeral view.Identity) error
+	Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error
 	GetIdentity(label string, pkiID []byte) (view.Identity, error)
 }
 
@@ -51,7 +53,7 @@ type DeserializerManager interface {
 
 type Manager interface {
 	AddDeserializer(deserializer Deserializer)
-	AddMSP(name string, mspType string, enrollmentID string, idGetter driver.GetIdentityFunc) error
+	AddMSP(ctx context.Context, name string, mspType string, enrollmentID string, idGetter driver.GetIdentityFunc) error
 	Config() Config
 	DefaultMSP() string
 	SignerService() SignerService
@@ -60,7 +62,7 @@ type Manager interface {
 }
 
 type IdentityLoader interface {
-	Load(manager Manager, config config.MSP) error
+	Load(ctx context.Context, manager Manager, config config.MSP) error
 }
 
 // Identity refers to the creator of a tx;

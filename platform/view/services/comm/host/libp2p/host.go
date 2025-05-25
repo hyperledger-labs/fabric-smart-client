@@ -57,7 +57,7 @@ func (h *host) Wait() {
 	h.finderWg.Wait()
 }
 
-func (h *host) Lookup(peerID string) ([]host2.PeerIPAddress, bool) {
+func (h *host) Lookup(ctx context.Context, peerID string) ([]host2.PeerIPAddress, bool) {
 	h.peersMutex.RLock()
 	defer h.peersMutex.RUnlock()
 

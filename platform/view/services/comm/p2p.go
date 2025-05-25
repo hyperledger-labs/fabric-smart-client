@@ -237,8 +237,8 @@ func (p *P2PNode) handleStream(stream host2.P2PStream) {
 	go sh.handleIncoming()
 }
 
-func (p *P2PNode) Lookup(peerID string) ([]string, bool) {
-	return p.host.Lookup(peerID)
+func (p *P2PNode) Lookup(ctx context.Context, peerID string) ([]string, bool) {
+	return p.host.Lookup(ctx, peerID)
 }
 
 type streamHandler struct {

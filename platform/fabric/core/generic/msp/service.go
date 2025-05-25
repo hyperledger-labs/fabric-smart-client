@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package msp
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -129,12 +130,12 @@ func (s *service) DefaultIdentity() view.Identity {
 	return s.defaultIdentity
 }
 
-func (s *service) AnonymousIdentity() (view.Identity, error) {
+func (s *service) AnonymousIdentity(ctx context.Context) (view.Identity, error) {
 	id, err := s.Identity("idemix")
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to get default anonymous identity labelled `idemix`")
 	}
-	if err := s.binderService.Bind(s.defaultViewIdentity, id); err != nil {
+	if err := s.binderService.Bind(ctx, s.defaultViewIdentity, id); err != nil {
 		return nil, errors.WithMessagef(err, "failed to bind identity [%s] to default [%s]", id, s.defaultViewIdentity)
 	}
 	return id, nil
@@ -240,7 +241,7 @@ func (s *service) GetIdentityByID(id string) (view.Identity, error) {
 	return identity, nil
 }
 
-func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error {
+func (s *service) RegisterIdemixMSP(ctx context.Context, id string, path string, mspID string) error {
 	s.mspsMutex.Lock()
 	defer s.mspsMutex.Unlock()
 
@@ -254,14 +255,14 @@ func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error 
 	}
 
 	s.deserializerManager.AddDeserializer(provider)
-	if err := s.AddMSP(id, IdemixMSP, provider.EnrollmentID(), idemix.NewIdentityCache(provider.Identity, s.cacheSize, nil).Identity); err != nil {
+	if err := s.AddMSP(ctx, id, IdemixMSP, provider.EnrollmentID(), idemix.NewIdentityCache(provider.Identity, s.cacheSize, nil).Identity); err != nil {
 		return errors.Wrapf(err, "failed adding idemix msp [%s] to [%s]", id, path)
 	}
 	logger.Debugf("added IdemixMSP msp for id %s with cache of size %d", id+"@"+provider.EnrollmentID(), s.cacheSize)
 	return nil
 }
 
-func (s *service) RegisterX509MSP(id string, path string, mspID string) error {
+func (s *service) RegisterX509MSP(ctx context.Context, id string, path string, mspID string) error {
 	s.mspsMutex.Lock()
 	defer s.mspsMutex.Unlock()
 
@@ -271,14 +272,14 @@ func (s *service) RegisterX509MSP(id string, path string, mspID string) error {
 	}
 
 	s.deserializerManager.AddDeserializer(provider)
-	if err := s.AddMSP(id, BccspMSP, provider.EnrollmentID(), provider.Identity); err != nil {
+	if err := s.AddMSP(ctx, id, BccspMSP, provider.EnrollmentID(), provider.Identity); err != nil {
 		return errors.Wrapf(err, "failed adding bccsp msp [%s] to [%s]", id, path)
 	}
 
 	return nil
 }
 
-func (s *service) Refresh() error {
+func (s *service) Refresh(ctx context.Context) error {
 	s.mspsMutex.Lock()
 	defer s.mspsMutex.Unlock()
 
@@ -290,20 +291,20 @@ func (s *service) Refresh() error {
 	s.mspsByName = map[string]*driver.MSP{}
 
 	// reload
-	if err := s.loadLocalMSPs(); err != nil {
+	if err := s.loadLocalMSPs(ctx); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (s *service) AddMSP(name string, mspType string, enrollmentID string, IdentityGetter fdriver.GetIdentityFunc) error {
+func (s *service) AddMSP(ctx context.Context, name string, mspType string, enrollmentID string, IdentityGetter fdriver.GetIdentityFunc) error {
 	if mspType == BccspMSP && s.binderService != nil {
 		id, _, err := IdentityGetter(nil)
 		if err != nil {
 			return errors.Wrapf(err, "cannot get identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err)
 		}
-		if err := s.binderService.Bind(s.defaultViewIdentity, id); err != nil {
+		if err := s.binderService.Bind(ctx, s.defaultViewIdentity, id); err != nil {
 			return errors.Wrapf(err, "cannot bind identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err)
 		}
 	}
@@ -340,11 +341,11 @@ func (s *service) PutIdentityLoader(idType string, loader driver.IdentityLoader)
 	s.identityLoaders[idType] = loader
 }
 
-func (s *service) Load() error {
+func (s *service) Load(ctx context.Context) error {
 	s.mspsMutex.Lock()
 	defer s.mspsMutex.Unlock()
 
-	if err := s.loadLocalMSPs(); err != nil {
+	if err := s.loadLocalMSPs(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -361,7 +362,7 @@ func (s *service) Msps() []string {
 	return res
 }
 
-func (s *service) loadLocalMSPs() error {
+func (s *service) loadLocalMSPs(ctx context.Context) error {
 	configs, err := s.config.MSPs()
 	if err != nil {
 		return errors.WithMessagef(err, "failed loading local MSP configs")
@@ -382,7 +383,7 @@ func (s *service) loadLocalMSPs() error {
 			logger.Warnf("msp type [%s] not recognized, skipping", config.MSPType)
 			continue
 		}
-		if err := loader.Load(s, config); err != nil {
+		if err := loader.Load(ctx, s, config); err != nil {
 			return errors.WithMessagef(err, "failed to load msp [%s:%s] at [%s]", config.ID, config.MSPType, config.Path)
 		}
 	}

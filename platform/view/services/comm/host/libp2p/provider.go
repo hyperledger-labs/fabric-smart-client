@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package libp2p
 
 import (
+	"context"
+
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
@@ -47,7 +49,7 @@ func NewConfig(cs configService) *config {
 }
 
 type endpointService interface {
-	Resolve(party view.Identity) (view.Identity, map[view2.PortName]string, []byte, error)
+	Resolve(ctx context.Context, party view.Identity) (view.Identity, map[view2.PortName]string, []byte, error)
 	GetIdentity(label string, pkID []byte) (view.Identity, error)
 }
 
@@ -65,7 +67,7 @@ func NewHostGeneratorProvider(config libp2pConfig, provider metrics2.Provider, e
 	}
 }
 
-func (p *hostGeneratorProvider) GetNewHost() (host2.P2PHost, error) {
+func (p *hostGeneratorProvider) GetNewHost(ctx context.Context) (host2.P2PHost, error) {
 	k, err := newCryptoPrivKeyFromMSP(p.config.PrivateKeyPath())
 	if err != nil {
 		return nil, err
@@ -74,19 +76,19 @@ func (p *hostGeneratorProvider) GetNewHost() (host2.P2PHost, error) {
 		return newLibP2PHost(p.config.ListenAddress(), k, p.metrics, true, "")
 	}
 
-	bootstrap, err := p.getPeerAddress(p.config.BootstrapListenAddress())
+	bootstrap, err := p.getPeerAddress(ctx, p.config.BootstrapListenAddress())
 	if err != nil {
 		return nil, err
 	}
 	return newLibP2PHost(p.config.ListenAddress(), k, p.metrics, false, bootstrap)
 }
 
-func (p *hostGeneratorProvider) getPeerAddress(address host2.PeerIPAddress) (host2.PeerIPAddress, error) {
+func (p *hostGeneratorProvider) getPeerAddress(ctx context.Context, address host2.PeerIPAddress) (host2.PeerIPAddress, error) {
 	bootstrapNodeID, err := p.endpointService.GetIdentity(address, nil)
 	if err != nil {
 		return "", errors.WithMessagef(err, "failed to get p2p bootstrap node's resolver entry [%s]", address)
 	}
-	_, endpoints, pkID, err := p.endpointService.Resolve(bootstrapNodeID)
+	_, endpoints, pkID, err := p.endpointService.Resolve(ctx, bootstrapNodeID)
 	if err != nil {
 		return "", errors.WithMessagef(err, "failed to resolve bootstrap node id [%s:%s]", address, bootstrapNodeID)
 	}

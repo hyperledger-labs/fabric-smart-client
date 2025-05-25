@@ -131,7 +131,7 @@ func (p *SDK) PostStart(ctx context.Context) error {
 
 	go func() {
 		<-ctx.Done()
-		if err := p.fnsProvider.Stop(); err != nil {
+		if err := p.fnsProvider.Stop(ctx); err != nil {
 			logger.Errorf("failed stopping fabric network service provider [%s]", err)
 		}
 	}()
@@ -189,14 +189,14 @@ func registerProcessorsForDrivers(in struct {
 	return nil
 }
 
-func registerRWSetLoaderHandlerProviders(in struct {
+func registerRWSetLoaderHandlerProviders(ctx context.Context, in struct {
 	dig.In
 	FSNProvider      *core.FSNProvider
 	CoreConfig       *core.Config
 	HandlerProviders []generic2.RWSetPayloadHandlerProvider `group:"handler-providers"`
 }) error {
 	for _, network := range in.CoreConfig.Names() {
-		fsn, err := in.FSNProvider.FabricNetworkService(network)
+		fsn, err := in.FSNProvider.FabricNetworkService(ctx, network)
 		if err != nil {
 			return e.Wrapf(err, "could not find network service for %s", network)
 		}

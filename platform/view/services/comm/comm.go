@@ -20,7 +20,7 @@ import (
 )
 
 type EndpointService interface {
-	Resolve(party view2.Identity) (view2.Identity, map[view.PortName]string, []byte, error)
+	Resolve(ctx context.Context, party view2.Identity) (view2.Identity, map[view.PortName]string, []byte, error)
 	GetIdentity(label string, pkID []byte) (view2.Identity, error)
 }
 
@@ -55,7 +55,7 @@ func (s *Service) Start(ctx context.Context) {
 	go func() {
 		for {
 			logger.Debugf("start communication service...")
-			if err := s.init(); err != nil {
+			if err := s.init(ctx); err != nil {
 				logger.Errorf("failed to initialize communication service [%s], wait a bit and try again", err)
 				time.Sleep(10 * time.Second)
 				continue
@@ -67,37 +67,37 @@ func (s *Service) Start(ctx context.Context) {
 	}()
 }
 
-func (s *Service) Stop() {
-	if err := s.init(); err != nil {
+func (s *Service) Stop(ctx context.Context) {
+	if err := s.init(ctx); err != nil {
 		logger.Warnf("communication service not ready [%s], cannot stop", err)
 		return
 	}
 	s.Node.Stop()
 }
 
-func (s *Service) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view2.Identity, msg *view2.Message) (view2.Session, error) {
-	if err := s.init(); err != nil {
+func (s *Service) NewSessionWithID(ctx context.Context, sessionID, contextID, endpoint string, pkid []byte, caller view2.Identity, msg *view2.Message) (view2.Session, error) {
+	if err := s.init(ctx); err != nil {
 		return nil, errors.Errorf("communication service not ready [%s]", err)
 	}
 	return s.Node.NewSessionWithID(sessionID, contextID, endpoint, pkid, caller, msg)
 }
 
-func (s *Service) NewSession(caller string, contextID string, endpoint string, pkid []byte) (view2.Session, error) {
-	if err := s.init(); err != nil {
+func (s *Service) NewSession(ctx context.Context, caller string, contextID string, endpoint string, pkid []byte) (view2.Session, error) {
+	if err := s.init(ctx); err != nil {
 		return nil, errors.Errorf("communication service not ready [%s]", err)
 	}
 	return s.Node.NewSession(caller, contextID, endpoint, pkid)
 }
 
-func (s *Service) MasterSession() (view2.Session, error) {
-	if err := s.init(); err != nil {
+func (s *Service) MasterSession(ctx context.Context) (view2.Session, error) {
+	if err := s.init(ctx); err != nil {
 		return nil, errors.Errorf("communication service not ready [%s]", err)
 	}
 	return s.Node.MasterSession()
 }
 
 func (s *Service) DeleteSessions(ctx context.Context, sessionID string) {
-	if err := s.init(); err != nil {
+	if err := s.init(ctx); err != nil {
 		logger.Warnf("communication service not ready [%s], cannot delete any session", err)
 		return
 	}
@@ -109,7 +109,7 @@ func (s *Service) Addresses(id view2.Identity) ([]string, error) {
 	return nil, nil
 }
 
-func (s *Service) init() error {
+func (s *Service) init(ctx context.Context) error {
 	s.NodeSync.RLock()
 	if s.Node != nil {
 		s.NodeSync.RUnlock()
@@ -122,7 +122,7 @@ func (s *Service) init() error {
 		return nil
 	}
 
-	h, err := s.HostProvider.GetNewHost()
+	h, err := s.HostProvider.GetNewHost(ctx)
 	if err != nil {
 		return err
 	}

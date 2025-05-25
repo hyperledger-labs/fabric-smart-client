@@ -63,7 +63,7 @@ func (p *FSNProvider) Start(ctx context.Context) error {
 	// What's the default network?
 	// TODO: add listener to fabric service when a channel is opened.
 	for _, name := range p.config.Names() {
-		fns, err := p.FabricNetworkService(name)
+		fns, err := p.FabricNetworkService(ctx, name)
 		if err != nil {
 			return errors.Wrapf(err, "failed to start fabric network service [%s]", name)
 		}
@@ -86,9 +86,9 @@ func (p *FSNProvider) Start(ctx context.Context) error {
 	return nil
 }
 
-func (p *FSNProvider) Stop() error {
+func (p *FSNProvider) Stop(ctx context.Context) error {
 	for _, networkName := range p.config.Names() {
-		fns, err := p.FabricNetworkService(networkName)
+		fns, err := p.FabricNetworkService(ctx, networkName)
 		if err != nil {
 			return err
 		}
@@ -113,7 +113,7 @@ func (p *FSNProvider) DefaultName() string {
 	return p.config.DefaultName()
 }
 
-func (p *FSNProvider) FabricNetworkService(network string) (driver.FabricNetworkService, error) {
+func (p *FSNProvider) FabricNetworkService(ctx context.Context, network string) (driver.FabricNetworkService, error) {
 	p.networksMutex.Lock()
 	defer p.networksMutex.Unlock()
 
@@ -124,7 +124,7 @@ func (p *FSNProvider) FabricNetworkService(network string) (driver.FabricNetwork
 	net, ok := p.networks[network]
 	if !ok {
 		var err error
-		net, err = p.newFNS(network)
+		net, err = p.newFNS(ctx, network)
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +148,7 @@ func (p *FSNProvider) InitFabricLogging() {
 	})
 }
 
-func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error) {
+func (p *FSNProvider) newFNS(ctx context.Context, network string) (driver.FabricNetworkService, error) {
 	fnsConfig, err := NewConfig(p.configService)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to load configuration")
@@ -165,7 +165,7 @@ func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error
 		if !ok {
 			return nil, errors.Errorf("driver [%s] is not registered", netConfig.Driver)
 		}
-		nw, err := driver.New(network, network == p.config.defaultName)
+		nw, err := driver.New(ctx, network, network == p.config.defaultName)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create network [%s]", network)
 		}
@@ -176,7 +176,7 @@ func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error
 
 	// try all available drivers
 	for _, d := range p.drivers {
-		nw, err := d.New(network, network == p.config.defaultName)
+		nw, err := d.New(ctx, network, network == p.config.defaultName)
 		if err != nil {
 			logger.Warningf("failed to create network [%s]: %s", network, err)
 			continue

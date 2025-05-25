@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
 	"fmt"
 
 	vault3 "github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/vault"
@@ -104,7 +105,7 @@ func (d *Provider) RegisterIdentityLoader(typ string, loader driver.IdentityLoad
 	d.identityLoaders[typ] = loader
 }
 
-func (d *Provider) New(network string, _ bool) (fdriver.FabricNetworkService, error) {
+func (d *Provider) New(ctx context.Context, network string, _ bool) (fdriver.FabricNetworkService, error) {
 	logger.Debugf("creating new fabric network service for network [%s]", network)
 
 	idProvider, err := d.identityProvider.New(network)
@@ -131,7 +132,7 @@ func (d *Provider) New(network string, _ bool) (fdriver.FabricNetworkService, er
 	for idType, loader := range d.identityLoaders {
 		mspService.PutIdentityLoader(idType, loader)
 	}
-	if err := mspService.Load(); err != nil {
+	if err := mspService.Load(ctx); err != nil {
 		return nil, fmt.Errorf("failed loading local msp service: %w", err)
 	}
 
