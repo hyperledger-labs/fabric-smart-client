@@ -123,7 +123,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 		}
 
 		found := true
-		fns, err := fabric.GetFabricNetworkService(context, c.tx.Network())
+		fns, err := fabric.GetFabricNetworkService(context.Context(), context, c.tx.Network())
 		if err != nil {
 			return nil, errors.WithMessagef(err, "fabric network service [%s] not found", c.tx.Network())
 		}
@@ -202,7 +202,7 @@ type endorseView struct {
 
 func (s *endorseView) Call(context view.Context) (interface{}, error) {
 	if len(s.identities) == 0 {
-		fns, err := fabric.GetFabricNetworkService(context, s.tx.Network())
+		fns, err := fabric.GetFabricNetworkService(context.Context(), context, s.tx.Network())
 		if err != nil {
 			return nil, errors.WithMessagef(err, "fabric network service [%s] not found", s.tx.Network())
 		}
@@ -227,7 +227,7 @@ func (s *endorseView) Call(context view.Context) (interface{}, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed marshalling tx")
 	}
-	fns, err := fabric.GetDefaultFNS(context)
+	fns, err := fabric.GetDefaultFNS(context.Context(), context)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed getting default network")
 	}

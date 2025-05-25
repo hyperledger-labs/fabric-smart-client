@@ -178,7 +178,7 @@ func (cm *manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 
 func (cm *manager) Start(ctx context.Context) {
 	cm.ctx = ctx
-	session, err := cm.commLayer.MasterSession()
+	session, err := cm.commLayer.MasterSession(ctx)
 	if err != nil {
 		return
 	}
@@ -307,7 +307,7 @@ func (cm *manager) newContext(id view.Identity, msg *view.Message) (view.Context
 	}
 
 	logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", id, msg.ContextID)
-	backend, err := cm.commLayer.NewSessionWithID(msg.SessionID, contextID, msg.FromEndpoint, msg.FromPKID, caller, msg)
+	backend, err := cm.commLayer.NewSessionWithID(cm.ctx, msg.SessionID, contextID, msg.FromEndpoint, msg.FromPKID, caller, msg)
 	if err != nil {
 		return nil, false, err
 	}

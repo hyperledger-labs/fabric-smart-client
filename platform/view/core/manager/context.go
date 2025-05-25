@@ -243,7 +243,7 @@ func (ctx *ctx) newSession(view view.View, contextID string, party view.Identity
 		return nil, err
 	}
 	span.AddEvent(fmt.Sprintf("Open new session to %s", resolver.GetName()))
-	return ctx.sessionFactory.NewSession(registry2.GetIdentifier(view), contextID, resolver.GetAddress(driver.P2PPort), pkid)
+	return ctx.sessionFactory.NewSession(ctx.context, registry2.GetIdentifier(view), contextID, resolver.GetAddress(driver.P2PPort), pkid)
 }
 
 func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity) (view.Session, error) {
@@ -258,7 +258,7 @@ func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity)
 		span.AddEvent(fmt.Sprintf("Open new session by id to %s", resolver.GetName()))
 	}
 	span.AddEvent(fmt.Sprintf("Open new session by id to %s", endpoint))
-	return ctx.sessionFactory.NewSessionWithID(sessionID, contextID, endpoint, pkid, nil, nil)
+	return ctx.sessionFactory.NewSessionWithID(ctx.context, sessionID, contextID, endpoint, pkid, nil, nil)
 }
 
 func (ctx *ctx) cleanup() {

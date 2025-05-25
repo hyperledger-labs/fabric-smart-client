@@ -78,7 +78,7 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	// Check committer events
 	var wg sync.WaitGroup
 	wg.Add(1)
-	_, ch, err := fabric.GetDefaultChannel(context)
+	_, ch, err := fabric.GetDefaultChannel(context.Context(), context)
 	assert.NoError(err)
 	committer := ch.Committer()
 	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
@@ -100,7 +100,7 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 type ApproverInitView struct{}
 
 func (a *ApproverInitView) Call(context view.Context) (interface{}, error) {
-	_, ch, err := fabric.GetDefaultChannel(context)
+	_, ch, err := fabric.GetDefaultChannel(context.Context(), context)
 	assert.NoError(err)
 	assert.NoError(ch.Committer().ProcessNamespace("iou"), "failed to setup namespace to process")
 	return nil, nil

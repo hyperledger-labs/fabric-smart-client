@@ -40,7 +40,7 @@ func TestError(t *testing.T) {
 	assert.NoError(c.Provide(func() (*myFactory, error) { return nil, errors.New("error occurred") }))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
-	assert.NoError(sdk.Install())
+	assert.NoError(sdk.Install(context.Background()))
 	assert.NoError(sdk.Start(context.Background()))
 }
 
@@ -50,7 +50,7 @@ func TestNoReturnError(t *testing.T) {
 	assert.NoError(c.Provide(func() *myFactory { return &myFactory{} }))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
-	assert.NoError(sdk.Install())
+	assert.NoError(sdk.Install(context.Background()))
 	assert.NoError(sdk.Start(context.Background()))
 }
 
@@ -61,7 +61,7 @@ func TestInterdependentFactories(t *testing.T) {
 	assert.NoError(c.Provide(func() (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("b")))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
-	assert.NoError(sdk.Install())
+	assert.NoError(sdk.Install(context.Background()))
 	assert.NoError(sdk.Start(context.Background()))
 }
 
@@ -71,7 +71,7 @@ func TestRegisterWithoutParams(t *testing.T) {
 	assert.NoError(c.Provide(func() (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("abc"), vfsdk.WithInitiators("in1", "in2")))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
-	assert.NoError(sdk.Install())
+	assert.NoError(sdk.Install(context.Background()))
 	assert.NoError(sdk.Start(context.Background()))
 }
 
@@ -82,6 +82,6 @@ func TestRegisterWithParams(t *testing.T) {
 	assert.NoError(c.Provide(func(_ *myInput) (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("abc"), vfsdk.WithInitiators("in1", "in2")))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
-	assert.NoError(sdk.Install())
+	assert.NoError(sdk.Install(context.Background()))
 	assert.NoError(sdk.Start(context.Background()))
 }

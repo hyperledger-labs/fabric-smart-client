@@ -29,7 +29,7 @@ func NewDummySDK() *DummySDK {
 	return &DummySDK{}
 }
 
-func (d *DummySDK) Install() error {
+func (d *DummySDK) Install(ctx context.Context) error {
 	panic("implement me")
 }
 

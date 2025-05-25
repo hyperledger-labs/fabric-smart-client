@@ -139,7 +139,7 @@ func getChaincode(context view.Context, info *info) (*fabric.Chaincode, error) {
 		return nil, errors.Errorf("no chaincode specified")
 	}
 
-	fNetwork, err := fabric.GetFabricNetworkService(context, info.network)
+	fNetwork, err := fabric.GetFabricNetworkService(context.Context(), context, info.network)
 	if err != nil {
 		return nil, err
 	}

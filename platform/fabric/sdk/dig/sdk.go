@@ -53,9 +53,9 @@ func (p *SDK) FabricEnabled() bool {
 	return p.ConfigService().GetBool("fabric.enabled")
 }
 
-func (p *SDK) Install() error {
+func (p *SDK) Install(ctx context.Context) error {
 	if !p.FabricEnabled() {
-		return p.SDK.Install()
+		return p.SDK.Install(ctx)
 	}
 	err := errors.Join(
 		p.Container().Provide(config.NewCore),
@@ -79,7 +79,7 @@ func (p *SDK) Install() error {
 		return err
 	}
 
-	if err := p.SDK.Install(); err != nil {
+	if err := p.SDK.Install(ctx); err != nil {
 		return err
 	}
 
@@ -149,7 +149,7 @@ func registerFinalityHandlers(in struct {
 	}
 }
 
-func registerProcessorsForDrivers(in struct {
+func registerProcessorsForDrivers(ctx context.Context, in struct {
 	dig.In
 	CoreConfig             *core.Config
 	NetworkServiceProvider *fabric.NetworkServiceProvider
@@ -165,7 +165,7 @@ func registerProcessorsForDrivers(in struct {
 			logger.Infof("Skipping registration of default network, because its driver is %s. We are registering %s", c.Driver, d.Name)
 			return nil
 		}
-		defaultFns, err := in.NetworkServiceProvider.FabricNetworkService("")
+		defaultFns, err := in.NetworkServiceProvider.FabricNetworkService(ctx, "")
 		if err != nil {
 			return fmt.Errorf("could not find default FNS: %w", err)
 		}
@@ -176,7 +176,7 @@ func registerProcessorsForDrivers(in struct {
 			} else {
 				logger.Infof("did not skip: %s", c.Driver)
 			}
-			fns, err := in.NetworkServiceProvider.FabricNetworkService(name)
+			fns, err := in.NetworkServiceProvider.FabricNetworkService(ctx, name)
 			if err != nil {
 				return fmt.Errorf("could not find FNS [%s]: %w", name, err)
 			}

@@ -34,9 +34,9 @@ func (p *SDK) FabricEnabled() bool {
 	return p.ConfigService().GetBool("fabric.enabled")
 }
 
-func (p *SDK) Install() error {
+func (p *SDK) Install(ctx context.Context) error {
 	if !p.FabricEnabled() {
-		return p.SDK.Install()
+		return p.SDK.Install(ctx)
 	}
 	err := errors.Join(
 		// Register the new fabric platform driver
@@ -46,7 +46,7 @@ func (p *SDK) Install() error {
 		return err
 	}
 
-	if err := p.SDK.Install(); err != nil {
+	if err := p.SDK.Install(ctx); err != nil {
 		return err
 	}
 

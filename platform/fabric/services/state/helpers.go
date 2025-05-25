@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -21,12 +22,12 @@ func GetVaultService(ctx view2.ServiceProvider) (VaultService, error) {
 	return s.(VaultService), nil
 }
 
-func GetVault(ctx view2.ServiceProvider) (Vault, error) {
-	vs, err := GetVaultService(ctx)
+func GetVault(ctx context.Context, sp view2.ServiceProvider) (Vault, error) {
+	vs, err := GetVaultService(sp)
 	if err != nil {
 		return nil, err
 	}
-	fsc, ch, err := fabric.GetDefaultChannel(ctx)
+	fsc, ch, err := fabric.GetDefaultChannel(ctx, sp)
 	if err != nil {
 		return nil, err
 	}
@@ -37,12 +38,12 @@ func GetVault(ctx view2.ServiceProvider) (Vault, error) {
 	return ws, nil
 }
 
-func GetVaultForChannel(ctx view2.ServiceProvider, channel string) (Vault, error) {
-	vs, err := GetVaultService(ctx)
+func GetVaultForChannel(ctx context.Context, sp view2.ServiceProvider, channel string) (Vault, error) {
+	vs, err := GetVaultService(sp)
 	if err != nil {
 		return nil, err
 	}
-	fns, err := fabric.GetDefaultFNS(ctx)
+	fns, err := fabric.GetDefaultFNS(ctx, sp)
 	if err != nil {
 		return nil, err
 	}

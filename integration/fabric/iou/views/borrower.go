@@ -71,7 +71,7 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// Check committer events
 	var wg sync.WaitGroup
 	wg.Add(1)
-	_, ch, err := fabric.GetDefaultChannel(context)
+	_, ch, err := fabric.GetDefaultChannel(context.Context(), context)
 	assert.NoError(err)
 	committer := ch.Committer()
 	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
@@ -119,7 +119,7 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 
 	// To update the state, the borrower, first add a dependency to the IOU state of interest.
 	iouState := &states.IOU{}
-	assert.NoError(tx.AddInputByLinearID(u.LinearID, iouState))
+	assert.NoError(tx.AddInputByLinearID(context.Context(), u.LinearID, iouState))
 	// The borrower sets the command to the operation to be performed
 	assert.NoError(tx.AddCommand("update", iouState.Owners()...))
 
@@ -139,7 +139,7 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 	// Check committer events
 	var wg sync.WaitGroup
 	wg.Add(1)
-	_, ch, err := fabric.GetDefaultChannel(context)
+	_, ch, err := fabric.GetDefaultChannel(context.Context(), context)
 	assert.NoError(err)
 	committer := ch.Committer()
 	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")

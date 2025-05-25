@@ -15,7 +15,7 @@ func NewSDK() *SDK {
 	return &SDK{}
 }
 
-func (d *SDK) Install() error {
+func (d *SDK) Install(ctx context.Context) error {
 	panic("implement me")
 }
 

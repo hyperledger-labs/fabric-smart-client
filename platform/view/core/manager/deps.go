@@ -17,11 +17,11 @@ import (
 //go:generate counterfeiter -o mock/comm_layer.go -fake-name CommLayer . CommLayer
 
 type CommLayer interface {
-	NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error)
+	NewSessionWithID(ctx context.Context, sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error)
 
-	NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error)
+	NewSession(ctx context.Context, caller string, contextID string, endpoint string, pkid []byte) (view.Session, error)
 
-	MasterSession() (view.Session, error)
+	MasterSession(ctx context.Context) (view.Session, error)
 
 	DeleteSessions(ctx context.Context, sessionID string)
 }
@@ -38,9 +38,9 @@ func GetCommLayer(sp driver.ServiceProvider) CommLayer {
 
 // SessionFactory is used to create new communication sessions
 type SessionFactory interface {
-	NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error)
+	NewSessionWithID(ctx context.Context, sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error)
 
-	NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error)
+	NewSession(ctx context.Context, caller string, contextID string, endpoint string, pkid []byte) (view.Session, error)
 
 	DeleteSessions(ctx context.Context, sessionID string)
 }

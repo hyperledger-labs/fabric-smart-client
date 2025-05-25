@@ -37,7 +37,7 @@ func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, 
 		return nil, errors.Errorf("no chaincode specified")
 	}
 
-	fNetwork, err := fabric.GetFabricNetworkService(context, i.Network)
+	fNetwork, err := fabric.GetFabricNetworkService(context.Context(), context, i.Network)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", i.Network)
 	}

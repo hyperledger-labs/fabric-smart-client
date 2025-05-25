@@ -56,9 +56,9 @@ type TransferView struct {
 }
 
 func (a *TransferView) Call(ctx view.Context) (interface{}, error) {
-	_, ch, err := fabric.GetDefaultChannel(ctx)
+	_, ch, err := fabric.GetDefaultChannel(ctx.Context(), ctx)
 	assert.NoError(err)
-	fns, err := fabric.GetDefaultFNS(ctx)
+	fns, err := fabric.GetDefaultFNS(ctx.Context(), ctx)
 	assert.NoError(err)
 
 	senderMSPID, err := ch.MSPManager().GetMSPIdentifier(

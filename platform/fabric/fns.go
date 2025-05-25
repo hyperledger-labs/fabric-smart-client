@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
+	"context"
 	"reflect"
 	"sync"
 
@@ -123,7 +124,7 @@ func NewNetworkServiceProvider(fnsProvider driver.FabricNetworkServiceProvider, 
 	return &NetworkServiceProvider{fnsProvider: fnsProvider, subscriber: subscriber, networkServices: make(map[string]*NetworkService)}
 }
 
-func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkService, error) {
+func (nsp *NetworkServiceProvider) FabricNetworkService(ctx context.Context, id string) (*NetworkService, error) {
 	nsp.mutex.RLock()
 	ns, ok := nsp.networkServices[id]
 	nsp.mutex.RUnlock()
@@ -138,7 +139,7 @@ func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkServ
 		return ns, nil
 	}
 
-	internalFns, err := nsp.fnsProvider.FabricNetworkService(id)
+	internalFns, err := nsp.fnsProvider.FabricNetworkService(ctx, id)
 	if err != nil {
 		logger.Errorf("Failed to get Fabric Network Service for id [%s]: [%s]", id, err)
 		return nil, errors.WithMessagef(err, "Failed to get Fabric Network Service for id [%s]", id)
@@ -172,12 +173,12 @@ func GetFabricNetworkNames(sp view2.ServiceProvider) ([]string, error) {
 }
 
 // GetFabricNetworkService returns the Fabric Network Service for the passed id, nil if not found
-func GetFabricNetworkService(sp view2.ServiceProvider, id string) (*NetworkService, error) {
+func GetFabricNetworkService(ctx context.Context, sp view2.ServiceProvider, id string) (*NetworkService, error) {
 	provider, err := GetNetworkServiceProvider(sp)
 	if err != nil {
 		return nil, err
 	}
-	fns, err := provider.FabricNetworkService(id)
+	fns, err := provider.FabricNetworkService(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -185,13 +186,13 @@ func GetFabricNetworkService(sp view2.ServiceProvider, id string) (*NetworkServi
 }
 
 // GetDefaultFNS returns the default Fabric Network Service
-func GetDefaultFNS(sp view2.ServiceProvider) (*NetworkService, error) {
-	return GetFabricNetworkService(sp, "")
+func GetDefaultFNS(ctx context.Context, sp view2.ServiceProvider) (*NetworkService, error) {
+	return GetFabricNetworkService(ctx, sp, "")
 }
 
 // GetDefaultChannel returns the default channel of the default fns
-func GetDefaultChannel(sp view2.ServiceProvider) (*NetworkService, *Channel, error) {
-	network, err := GetDefaultFNS(sp)
+func GetDefaultChannel(ctx context.Context, sp view2.ServiceProvider) (*NetworkService, *Channel, error) {
+	network, err := GetDefaultFNS(ctx, sp)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -203,8 +204,8 @@ func GetDefaultChannel(sp view2.ServiceProvider) (*NetworkService, *Channel, err
 }
 
 // GetChannel returns the requested channel for the passed network
-func GetChannel(sp view2.ServiceProvider, network, channel string) (*NetworkService, *Channel, error) {
-	fns, err := GetFabricNetworkService(sp, network)
+func GetChannel(ctx context.Context, sp view2.ServiceProvider, network, channel string) (*NetworkService, *Channel, error) {
+	fns, err := GetFabricNetworkService(ctx, sp, network)
 	if err != nil {
 		return nil, nil, err
 	}

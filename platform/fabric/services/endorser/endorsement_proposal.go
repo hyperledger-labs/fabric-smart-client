@@ -49,7 +49,7 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(ctx view.Context) (inte
 		go c.collectEndorsement(ctx, party, stateRaw, answerChannel)
 	}
 
-	fns, err := fabric.GetFabricNetworkService(ctx, c.tx.Network())
+	fns, err := fabric.GetFabricNetworkService(ctx.Context(), ctx, c.tx.Network())
 	if err != nil {
 		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", c.tx.Network())
 	}
@@ -128,7 +128,7 @@ func NewEndorsementOnProposalResponderView(tx *Transaction, identities ...view.I
 
 func (s *endorsementsOnProposalResponderView) Call(context view.Context) (interface{}, error) {
 	if len(s.identities) == 0 {
-		fns, err := fabric.GetFabricNetworkService(context, s.tx.Network())
+		fns, err := fabric.GetFabricNetworkService(context.Context(), context, s.tx.Network())
 		if err != nil {
 			return nil, errors.WithMessagef(err, "fabric network service [%s] not found", s.tx.Network())
 		}

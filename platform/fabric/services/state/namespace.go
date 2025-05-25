@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -133,7 +134,7 @@ func (n *Namespace) AddCommand(command string, ids ...view.Identity) error {
 // In addition, the function pupulates the passed state with the content of state associated to the passed id and
 // stored in the vault.
 // Options can be passed to change the behaviour of the function.
-func (n *Namespace) AddInputByLinearID(id string, state interface{}, opts ...AddInputOption) error {
+func (n *Namespace) AddInputByLinearID(ctx context.Context, id string, state interface{}, opts ...AddInputOption) error {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
 		return errors.Wrap(err, "filed getting rw set")
@@ -176,7 +177,7 @@ func (n *Namespace) AddInputByLinearID(id string, state interface{}, opts ...Add
 		}
 	}
 	if addInputOptions.certification {
-		if err := n.certifyInput(id); err != nil {
+		if err := n.certifyInput(ctx, id); err != nil {
 			return errors.Wrapf(err, "failed certifying input [%s, %s] [%s]", n.namespace(), id, string(raw))
 		}
 	}

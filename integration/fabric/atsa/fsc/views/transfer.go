@@ -40,12 +40,12 @@ func (f *TransferView) Call(context view.Context) (interface{}, error) {
 	tx.SetNamespace("asset_transfer")
 
 	agreementToSell := &states.AgreementToSell{}
-	assert.NoError(tx.AddInputByLinearID(f.AgreementId, agreementToSell, state.WithCertification()), "failed adding input")
+	assert.NoError(tx.AddInputByLinearID(context.Context(), f.AgreementId, agreementToSell, state.WithCertification()), "failed adding input")
 	asset := &states.Asset{ID: f.AssetId}
 	assetID, err := asset.GetLinearID()
 	assert.NoError(err, "cannot compute linear state's id")
 
-	assert.NoError(tx.AddInputByLinearID(assetID, asset, state.WithCertification()), "failed adding input")
+	assert.NoError(tx.AddInputByLinearID(context.Context(), assetID, asset, state.WithCertification()), "failed adding input")
 	assert.NoError(tx.AddCommand("transfer", asset.Owner, assetOwner), "failed adding issue command")
 	asset.Owner = assetOwner
 	assert.NoError(tx.AddOutput(asset), "failed adding output")
@@ -62,10 +62,10 @@ func (f *TransferView) Call(context view.Context) (interface{}, error) {
 
 	agreementToBuy := &states.AgreementToBuy{}
 	inputState := tx2.Inputs().Filter(state.InputHasIDPrefixFilter(states.TypeAssetBid)).At(0)
-	assert.NoError(inputState.VerifyCertification(), "failed certifying agreement to buy")
+	assert.NoError(inputState.VerifyCertification(context.Context()), "failed certifying agreement to buy")
 	assert.NoError(inputState.State(agreementToBuy), "failed unmarshalling agreement to buy")
 
-	fns, err := fabric.GetDefaultFNS(context)
+	fns, err := fabric.GetDefaultFNS(context.Context(), context)
 	assert.NoError(err)
 	_, err = context.RunView(state.NewCollectEndorsementsView(tx2, fns.IdentityProvider().DefaultIdentity(), assetOwner))
 	assert.NoError(err, "failed collecting endorsement")
@@ -120,12 +120,12 @@ func (t *TransferResponderView) Call(context view.Context) (interface{}, error) 
 
 		agreementToSell := &states.AgreementToSell{}
 		inputState := tx.Inputs().Filter(state.InputHasIDPrefixFilter(states.TypeAssetForSale)).At(0)
-		assert.NoError(inputState.VerifyCertification(), "failed certifying agreement to sell")
+		assert.NoError(inputState.VerifyCertification(context.Context()), "failed certifying agreement to sell")
 		assert.NoError(inputState.State(agreementToSell), "failed unmarshalling agreement to sell")
 
 		assetIn := &states.Asset{}
 		inputState = tx.Inputs().Filter(state.InputHasIDPrefixFilter(states.TypeAsset)).At(0)
-		assert.NoError(inputState.VerifyCertification(), "failed certifying asset in")
+		assert.NoError(inputState.VerifyCertification(context.Context()), "failed certifying asset in")
 		assert.NoError(inputState.State(assetIn), "failed unmarshalling asset in")
 
 		assetOut := &states.Asset{}
@@ -145,7 +145,7 @@ func (t *TransferResponderView) Call(context view.Context) (interface{}, error) 
 
 		// check the agreements
 		// Add reference to agreement to buy and delete it
-		assert.NoError(tx.AddInputByLinearID(agreementToBuyID, agreementToBuy, state.WithCertification()))
+		assert.NoError(tx.AddInputByLinearID(context.Context(), agreementToBuyID, agreementToBuy, state.WithCertification()))
 		assert.Equal(agreementToBuy.ID, agreementToSell.ID)
 		assert.Equal(agreementToBuy.TradeID, agreementToSell.TradeID)
 		assert.Equal(agreementToBuy.Price, agreementToSell.Price)

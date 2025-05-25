@@ -26,7 +26,7 @@ func (f *handler) IsFinal(ctx context.Context, network, channel, txID string) er
 	if f.nsp == nil {
 		return fmt.Errorf("cannot find fabric network provider")
 	}
-	fns, err := f.nsp.FabricNetworkService(network)
+	fns, err := f.nsp.FabricNetworkService(ctx, network)
 	if fns == nil || err != nil {
 		return fmt.Errorf("cannot find fabric network [%s]: %w", network, err)
 	}

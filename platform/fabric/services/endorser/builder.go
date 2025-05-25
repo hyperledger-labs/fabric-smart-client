@@ -94,7 +94,7 @@ func (t *Builder) newTransactionWithType(ctx context.Context, creator []byte, ne
 	logger.Debugf("NewTransaction [%s,%s,%s]", view.Identity(creator).UniqueID(), channel, hash.Hashable(raw).String())
 	defer logger.Debugf("NewTransaction...done.")
 
-	fNetwork, err := fabric.GetFabricNetworkService(t.sp, network)
+	fNetwork, err := fabric.GetFabricNetworkService(ctx, t.sp, network)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", network)
 	}

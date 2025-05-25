@@ -37,7 +37,7 @@ func NewFrom(sdk dig2.SDK) *SDK {
 	return &SDK{SDK: sdk}
 }
 
-func (p *SDK) Install() error {
+func (p *SDK) Install(ctx context.Context) error {
 	err := errors.Join(
 		p.Container().Provide(digutils.Identity[*registry.ViewProvider](), dig.As(new(factoryRegisterer))),
 	)
@@ -45,7 +45,7 @@ func (p *SDK) Install() error {
 		return err
 	}
 
-	return p.SDK.Install()
+	return p.SDK.Install(ctx)
 }
 
 func (p *SDK) Start(ctx context.Context) error {

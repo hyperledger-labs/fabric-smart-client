@@ -146,7 +146,7 @@ func (s *RespondRequestRecipientIdentityView) Call(context view.Context) (interf
 	}
 
 	if s.Identity.IsNone() {
-		fns, err := fabric.GetFabricNetworkService(context, rr.Network)
+		fns, err := fabric.GetFabricNetworkService(context.Context(), context, rr.Network)
 		if err != nil {
 			return nil, err
 		}
@@ -225,7 +225,7 @@ func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{
 		return nil, err
 	}
 
-	fns, err := fabric.GetFabricNetworkService(context, f.Network)
+	fns, err := fabric.GetFabricNetworkService(context.Context(), context, f.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +320,7 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (int
 		return nil, err
 	}
 
-	fns, err := fabric.GetFabricNetworkService(context, s.Network)
+	fns, err := fabric.GetFabricNetworkService(context.Context(), context, s.Network)
 	if err != nil {
 		return nil, err
 	}

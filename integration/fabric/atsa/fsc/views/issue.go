@@ -43,7 +43,7 @@ func (f *IssueView) Call(context view.Context) (interface{}, error) {
 	tx.SetNamespace("asset_transfer")
 
 	f.Asset.Owner = assetOwner
-	fns, err := fabric.GetDefaultFNS(context)
+	fns, err := fabric.GetDefaultFNS(context.Context(), context)
 	assert.NoError(err)
 	me := fns.IdentityProvider().DefaultIdentity()
 

@@ -29,7 +29,7 @@ type finalityView struct {
 }
 
 func (f *finalityView) Call(ctx view.Context) (interface{}, error) {
-	fns, err := fabric.GetFabricNetworkService(ctx, f.Network)
+	fns, err := fabric.GetFabricNetworkService(ctx.Context(), ctx, f.Network)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", f.Network)
 	}

@@ -44,7 +44,7 @@ type BaseSDK struct {
 	cfg driver.ConfigService
 }
 
-func (s *BaseSDK) Install() error { return nil }
+func (s *BaseSDK) Install(ctx context.Context) error { return nil }
 
 func (s *BaseSDK) Start(context.Context) error { return nil }
 

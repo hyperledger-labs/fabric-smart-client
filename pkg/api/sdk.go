@@ -11,7 +11,7 @@ import (
 )
 
 type SDK interface {
-	Install() error
+	Install(ctx context.Context) error
 
 	Start(ctx context.Context) error
 }

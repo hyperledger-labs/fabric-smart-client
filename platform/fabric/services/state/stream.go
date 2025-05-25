@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 )
 
@@ -190,8 +192,8 @@ type input struct {
 	key       ID
 }
 
-func (i *input) VerifyCertification() error {
-	return i.namespace.VerifyInputCertificationAt(i.index, string(i.key))
+func (i *input) VerifyCertification(ctx context.Context) error {
+	return i.namespace.VerifyInputCertificationAt(ctx, i.index, string(i.key))
 }
 
 func (i *input) State(state interface{}) error {

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package twonets
 
 import (
+	"context"
 	"errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
@@ -24,8 +25,8 @@ func NewSDK(registry node.Registry) *SDK {
 	return &SDK{SDK: fabricsdk.NewSDK(registry)}
 }
 
-func (p *SDK) Install() error {
-	if err := p.SDK.Install(); err != nil {
+func (p *SDK) Install(ctx context.Context) error {
+	if err := p.SDK.Install(ctx); err != nil {
 		return err
 	}
 

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package sdk
 
 import (
+	"context"
 	"testing"
 
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
@@ -15,5 +16,5 @@ import (
 )
 
 func TestWiring(t *testing.T) {
-	assert.NoError(DryRunWiring(digutils.Identity[dig2.SDK]()))
+	assert.NoError(DryRunWiring(context.Background(), digutils.Identity[dig2.SDK]()))
 }

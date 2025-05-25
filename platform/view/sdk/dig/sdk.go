@@ -86,7 +86,7 @@ type ViewManager interface {
 	Start(ctx context.Context)
 }
 
-func (p *SDK) Install() error {
+func (p *SDK) Install(ctx context.Context) error {
 	err := errors.Join(
 		p.Container().Provide(crypto.NewProvider, dig.As(new(hash.Hasher))),
 		p.Container().Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
@@ -151,7 +151,7 @@ func (p *SDK) Install() error {
 		return err
 	}
 
-	if err := p.SDK.Install(); err != nil {
+	if err := p.SDK.Install(ctx); err != nil {
 		return err
 	}
 
@@ -166,7 +166,7 @@ func (p *SDK) Install() error {
 		return err
 	}
 
-	if err := p.Container().Invoke(func(resolverService *endpoint.ResolverService) error { return resolverService.LoadResolvers() }); err != nil {
+	if err := p.Container().Invoke(func(resolverService *endpoint.ResolverService) error { return resolverService.LoadResolvers(ctx) }); err != nil {
 		return err
 	}
 	return nil

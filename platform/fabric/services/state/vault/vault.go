@@ -98,8 +98,8 @@ func NewService(sp driver3.ServiceProvider, fnsp driver2.FabricNetworkServicePro
 	return &service{sp: sp, fnsp: fnsp}
 }
 
-func (w *service) Vault(network string, channel string) (state.Vault, error) {
-	fns, err := w.fnsp.FabricNetworkService(network)
+func (w *service) Vault(ctx context.Context, network string, channel string) (state.Vault, error) {
+	fns, err := w.fnsp.FabricNetworkService(ctx, network)
 	if err != nil {
 		return nil, err
 	}

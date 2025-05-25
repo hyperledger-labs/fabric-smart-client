@@ -53,7 +53,7 @@ type SessionFactory struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SessionFactory) NewSessionWithID(sessionID string, contextID string, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error) {
+func (fake *SessionFactory) NewSessionWithID(ctx context.Context, sessionID string, contextID string, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error) {
 	var pkidCopy []byte
 	if pkid != nil {
 		pkidCopy = make([]byte, len(pkid))
@@ -114,7 +114,7 @@ func (fake *SessionFactory) NewSessionWithIDReturnsOnCall(i int, result1 view.Se
 	}{result1, result2}
 }
 
-func (fake *SessionFactory) NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error) {
+func (fake *SessionFactory) NewSession(ctx context.Context, caller string, contextID string, endpoint string, pkid []byte) (view.Session, error) {
 	var pkidCopy []byte
 	if pkid != nil {
 		pkidCopy = make([]byte, len(pkid))

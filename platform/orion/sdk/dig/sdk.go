@@ -61,10 +61,10 @@ func (p *SDK) OrionEnabled() bool {
 	return p.ConfigService().GetBool("orion.enabled")
 }
 
-func (p *SDK) Install() error {
+func (p *SDK) Install(ctx context.Context) error {
 	if !p.OrionEnabled() {
 		logger.Infof("Orion platform not enabled, skipping")
-		return p.SDK.Install()
+		return p.SDK.Install(ctx)
 	}
 
 	logger.Infof("Orion platform enabled, installing...")
@@ -85,7 +85,7 @@ func (p *SDK) Install() error {
 		return err
 	}
 
-	if err := p.SDK.Install(); err != nil {
+	if err := p.SDK.Install(ctx); err != nil {
 		return err
 	}
 

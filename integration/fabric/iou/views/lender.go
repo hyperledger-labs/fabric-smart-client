@@ -102,7 +102,7 @@ func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error)
 		assert.True(inState.Owners().Match(outState.Owners()), "invalid owners, input and output should have the same owners")
 		assert.Equal(2, inState.Owners().Count(), "invalid state, expected 2 identities, was [%d]", inState.Owners().Count())
 		// Is the lender one of the owners?
-		fns, err := fabric.GetDefaultFNS(context)
+		fns, err := fabric.GetDefaultFNS(context.Context(), context)
 		assert.NoError(err)
 		lenderFound := fns.LocalMembership().IsMe(inState.Owners()[0]) != fns.LocalMembership().IsMe(inState.Owners()[1])
 		assert.True(lenderFound, "lender identity not found")

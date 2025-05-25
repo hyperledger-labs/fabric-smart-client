@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
 	"reflect"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
@@ -45,7 +46,7 @@ type FabricNetworkServiceProvider interface {
 	Names() []string
 	DefaultName() string
 	// FabricNetworkService returns a FabricNetworkService instance for the passed parameters
-	FabricNetworkService(id string) (FabricNetworkService, error)
+	FabricNetworkService(ctx context.Context, id string) (FabricNetworkService, error)
 }
 
 func GetFabricManagementService(ctx view2.ServiceProvider) FabricNetworkServiceProvider {

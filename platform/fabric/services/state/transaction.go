@@ -53,7 +53,7 @@ func NewTransaction(context view.Context) (*Transaction, error) {
 // NewAnonymousTransaction returns a new instance of a state-based transaction that embeds a single namespace and is signed
 // by an anonymous identity
 func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
-	fns, err := fabric.GetDefaultFNS(context)
+	fns, err := fabric.GetDefaultFNS(context.Context(), context)
 	if err != nil {
 		return nil, err
 	}

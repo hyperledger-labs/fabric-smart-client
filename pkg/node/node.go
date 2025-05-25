@@ -105,7 +105,7 @@ func (n *node) Start() (err error) {
 	// Install
 	logger.Infof("Installing sdks...")
 	for _, p := range n.sdks {
-		if err := p.Install(); err != nil {
+		if err := p.Install(n.context); err != nil {
 			logger.Errorf("Failed installing platform [%s]", err)
 			return err
 		}
