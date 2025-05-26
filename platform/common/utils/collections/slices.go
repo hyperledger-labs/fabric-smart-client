@@ -6,45 +6,17 @@ SPDX-License-Identifier: Apache-2.0
 
 package collections
 
-func Remove[T comparable](items []T, toRemove T) ([]T, bool) {
-	if items == nil {
-		return nil, false
-	}
-	for i, l := range items {
-		if l == toRemove {
-			return append(items[:i], items[i+1:]...), true
-		}
-	}
-	return items, false
-}
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/slices"
+)
 
-func Difference[V comparable](a, b []V) []V {
-	return NewSet(a...).Minus(NewSet(b...)).ToSlice()
-}
+func Remove[T comparable](items []T, toRemove T) ([]T, bool) { return slices.Remove(items, toRemove) }
 
-func Intersection[V comparable](a, b []V) []V {
-	//if len(a) > len(b) {
-	//	a, b = b, a
-	//}
-	aSet := NewSet(a...)
-	var res []V
-	for _, k := range b {
-		if aSet.Contains(k) {
-			res = append(res, k)
-		}
-	}
-	return res
-}
+func Difference[V comparable](a, b []V) []V { return slices.Difference(a, b) }
 
-func Repeat[T any](item T, times int) []T {
-	items := make([]T, times)
-	for i := 0; i < times; i++ {
-		items[i] = item
-	}
-	return items
-}
+func Intersection[V comparable](a, b []V) []V { return slices.Intersection(a, b) }
 
-func GetUnique[T any](vs Iterator[T]) (T, error) {
-	defer vs.Close()
-	return vs.Next()
-}
+func Repeat[T any](item T, times int) []T { return slices.Repeat(item, times) }
+
+func GetUnique[T any](vs iterators.Iterator[T]) (T, error) { return iterators.GetUnique(vs) }
