@@ -398,7 +398,13 @@ func (db *vaultReader) queryState(where cond.Condition) (driver.TxStateIterator,
 	if err != nil {
 		return nil, err
 	}
-	return &TxStateIterator{rows: rows, decoder: db.sanitizer}, nil
+	return NewIterator(rows, func(r *driver.VaultRead) error {
+		if err := rows.Scan(&r.Key, &r.Version, &r.Raw); err != nil {
+			return err
+		}
+		r.Key, err = db.sanitizer.Decode(r.Key)
+		return err
+	}), nil
 }
 
 func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
@@ -509,53 +515,11 @@ func (db *vaultReader) queryStatus(where cond.Condition, pagination driver.Pagin
 	if err != nil {
 		return nil, err
 	}
-	return &TxCodeIterator{rows: rows}, nil
+	return NewIterator(rows, func(s *driver.TxStatus) error { return rows.Scan(&s.TxID, &s.Code, &s.Message) }), nil
 }
 
 func (db *VaultStore) Close() error {
 	return errors2.Join(db.writeDB.Close(), db.readDB.Close())
-}
-
-type TxCodeIterator struct {
-	rows *sql.Rows
-}
-
-func (it *TxCodeIterator) Close() {
-	_ = it.rows.Close()
-}
-
-func (it *TxCodeIterator) Next() (*driver.TxStatus, error) {
-	var r driver.TxStatus
-	if !it.rows.Next() {
-		return nil, nil
-	}
-	err := it.rows.Scan(&r.TxID, &r.Code, &r.Message)
-	return &r, err
-}
-
-type TxStateIterator struct {
-	decoder decoder
-	rows    *sql.Rows
-}
-
-func (it *TxStateIterator) Close() {
-	_ = it.rows.Close()
-}
-
-func (it *TxStateIterator) Next() (*driver.VaultRead, error) {
-	var r driver.VaultRead
-	if !it.rows.Next() {
-		return nil, nil
-	}
-	err := it.rows.Scan(&r.Key, &r.Version, &r.Raw)
-	if err != nil {
-		return nil, err
-	}
-	r.Key, err = it.decoder.Decode(r.Key)
-	if err != nil {
-		return nil, err
-	}
-	return &r, nil
 }
 
 // Data marshal/unmarshal
