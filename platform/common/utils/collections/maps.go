@@ -6,71 +6,20 @@ SPDX-License-Identifier: Apache-2.0
 
 package collections
 
-func CopyMap[K comparable, V any](to map[K]V, from map[K]V) {
-	if from == nil {
-		return
-	}
-	for k, v := range from {
-		to[k] = v
-	}
-}
+import "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/maps"
 
-func InverseMap[K comparable, V comparable](in map[K]V) map[V]K {
-	out := make(map[V]K, len(in))
-	for k, v := range in {
-		out[v] = k
-	}
-	return out
-}
+func CopyMap[K comparable, V any](to map[K]V, from map[K]V) { maps.Copy(to, from) }
 
-func Values[K comparable, V any](m map[K]V) []V {
-	res := make([]V, len(m))
-	i := 0
-	for _, v := range m {
-		res[i] = v
-		i++
-	}
+func InverseMap[K comparable, V comparable](in map[K]V) map[V]K { return maps.Inverse(in) }
 
-	return res
-}
+func Values[K comparable, V any](m map[K]V) []V { return maps.Values(m) }
 
 func ContainsValue[K, V comparable](haystack map[K]V, needle V) bool {
-	for _, v := range haystack {
-		if v == needle {
-			return true
-		}
-	}
-	return false
+	return maps.ContainsValue(haystack, needle)
 }
 
-func Keys[K comparable, V any](m map[K]V) []K {
-	res := make([]K, len(m))
-	i := 0
-	for k := range m {
-		res[i] = k
-		i++
-	}
+func Keys[K comparable, V any](m map[K]V) []K { return maps.Keys(m) }
 
-	return res
-}
+func SubMap[K comparable, V any](m map[K]V, ks ...K) (map[K]V, []K) { return maps.SubMap(m, ks...) }
 
-func SubMap[K comparable, V any](m map[K]V, ks ...K) (map[K]V, []K) {
-	found := make(map[K]V, len(ks))
-	notFound := make([]K, 0, len(ks))
-	for _, k := range ks {
-		if v, ok := m[k]; ok {
-			found[k] = v
-		} else {
-			notFound = append(notFound, k)
-		}
-	}
-	return found, notFound
-}
-
-func RepeatValue[K comparable, V any](keys []K, val V) map[K]V {
-	res := make(map[K]V, len(keys))
-	for _, k := range keys {
-		res[k] = val
-	}
-	return res
-}
+func RepeatValue[K comparable, V any](keys []K, val V) map[K]V { return maps.RepeatValue(keys, val) }
