@@ -39,23 +39,23 @@ type fromQuery interface {
 
 // whereQuery is the query state after WHERE
 type whereQuery interface {
-	paginatedQuery
-
-	// Paginated specifies the pagination details
-	Paginated(driver.Pagination) paginatedQuery
-}
-
-type paginatedQuery interface {
 	orderByQuery
 
 	// OrderBy specifies the order by clause
 	OrderBy(...OrderBy) orderByQuery
 }
 
+type paginatedQuery interface {
+	offsetQuery
+}
+
 // orderByQuery is the query state after ORDER BY
 type orderByQuery interface {
 	limitQuery
 	offsetQuery
+
+	// Paginated specifies the pagination details
+	Paginated(driver.Pagination) paginatedQuery
 
 	// Limit specifies the limit
 	Limit(int) limitQuery
