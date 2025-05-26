@@ -12,6 +12,7 @@ import (
 	"runtime/debug"
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/pkg/errors"
 )
 
@@ -24,10 +25,6 @@ type WriteDB interface {
 
 type Sanitizer interface {
 	Encode(string) (string, error)
-	Decode(string) (string, error)
-}
-
-type decoder interface {
 	Decode(string) (string, error)
 }
 
@@ -97,4 +94,26 @@ func QueryUniqueContext[T any](ctx context.Context, db *sql.DB, query string, ar
 		return result, nil
 	}
 	return result, err
+}
+
+func NewIterator[V any](rows *sql.Rows, scan func(*V) error) iterators.Iterator[*V] {
+	return &rowIterator[V]{rows: rows, scan: scan}
+}
+
+type rowIterator[V any] struct {
+	rows *sql.Rows
+	scan func(*V) error
+}
+
+func (it *rowIterator[V]) Close() {
+	_ = it.rows.Close()
+}
+
+func (it *rowIterator[V]) Next() (*V, error) {
+	if !it.rows.Next() {
+		return nil, nil
+	}
+	var r V
+	err := it.scan(&r)
+	return &r, err
 }

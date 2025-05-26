@@ -13,7 +13,6 @@ import (
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
@@ -64,7 +63,7 @@ func (db *KeyValueStore) GetStateRangeScanIterator(ns driver2.Namespace, startKe
 		return nil, errors2.Wrapf(err, "query error: %s", query)
 	}
 
-	return &readIterator{txs: rows}, nil
+	return NewIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }), nil
 }
 
 func (db *KeyValueStore) GetState(namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
@@ -93,7 +92,7 @@ func (db *KeyValueStore) GetStateSetIterator(ns driver2.Namespace, keys ...drive
 		return nil, errors2.Wrapf(err, "query error: %s", query)
 	}
 
-	return &readIterator{txs: rows}, nil
+	return NewIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }), nil
 }
 
 func HasKeys(ns driver2.Namespace, keys ...driver2.PKey) cond.Condition {
@@ -226,23 +225,6 @@ func (db *KeyValueStore) Stats() any {
 		return db.readDB.Stats()
 	}
 	return nil
-}
-
-type readIterator struct {
-	txs *sql.Rows
-}
-
-func (t *readIterator) Close() {
-	utils.IgnoreErrorFunc(t.txs.Close)
-}
-
-func (t *readIterator) Next() (*driver.UnversionedRead, error) {
-	if !t.txs.Next() {
-		return nil, nil
-	}
-	var r driver.UnversionedRead
-	err := t.txs.Scan(&r.Key, &r.Raw)
-	return &r, err
 }
 
 func (db *KeyValueStore) CreateSchema() error {
