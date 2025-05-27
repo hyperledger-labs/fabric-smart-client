@@ -14,6 +14,7 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
@@ -49,7 +50,7 @@ func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrappe
 	}
 }
 
-func (db *KeyValueStore) GetStateRangeScanIterator(ns driver2.Namespace, startKey, endKey driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
+func (db *KeyValueStore) GetStateRangeScanIterator(ns driver2.Namespace, startKey, endKey driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	query, params := q.Select().FieldsByName("pkey", "val").
 		From(q.Table(db.table)).
 		Where(cond.And(cond.Eq("ns", ns), cond.BetweenStrings("pkey", startKey, endKey))).
@@ -76,7 +77,7 @@ func (db *KeyValueStore) GetState(namespace driver2.Namespace, key driver2.PKey)
 	return QueryUnique[driver.UnversionedValue](db.readDB, query, params...)
 }
 
-func (db *KeyValueStore) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
+func (db *KeyValueStore) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*driver.UnversionedRead](), nil
 	}

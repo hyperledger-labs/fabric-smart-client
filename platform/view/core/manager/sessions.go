@@ -10,7 +10,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
@@ -40,7 +40,7 @@ func (s *Sessions) Get(viewId string, party view.Identity) view.Session {
 	return s.s[lookupKey(viewId, party)]
 }
 
-func (s *Sessions) GetFirstOpen(viewId string, parties collections.Iterator[view.Identity]) (view.Session, view.Identity) {
+func (s *Sessions) GetFirstOpen(viewId string, parties iterators.Iterator[view.Identity]) (view.Session, view.Identity) {
 	defer parties.Close()
 	var targetId view.Identity
 	for party, err := parties.Next(); !errors.Is(err, io.EOF); party, err = parties.Next() {

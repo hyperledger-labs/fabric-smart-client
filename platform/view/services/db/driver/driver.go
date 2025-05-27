@@ -8,7 +8,7 @@ package driver
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/pkg/errors"
 )
 
@@ -65,10 +65,10 @@ type KeyValueStore interface {
 	// startKey is included in the results and endKey is excluded. An empty startKey refers to the first available key
 	// and an empty endKey refers to the last available key. For scanning all the keys, both the startKey and the endKey
 	// can be supplied as empty strings. However, a full scan should be used judiciously for performance reasons.
-	GetStateRangeScanIterator(namespace driver.Namespace, startKey, endKey driver.PKey) (collections.Iterator[*driver.UnversionedRead], error)
+	GetStateRangeScanIterator(namespace driver.Namespace, startKey, endKey driver.PKey) (iterators.Iterator[*driver.UnversionedRead], error)
 	// GetStateSetIterator returns an iterator that contains all the values for the passed keys.
 	// The order is not respected.
-	GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (collections.Iterator[*driver.UnversionedRead], error)
+	GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (iterators.Iterator[*driver.UnversionedRead], error)
 	// Close closes this persistence instance
 	Close() error
 	// BeginUpdate starts the session
