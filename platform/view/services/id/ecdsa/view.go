@@ -80,11 +80,11 @@ func (f twoPartyCollectEphemeralKeyView) Call(context view.Context) (interface{}
 
 		// Update the Endpoint Resolver
 		resolver := view2.GetEndpointService(context)
-		err = resolver.Bind(context.Me(), id)
+		err = resolver.Bind(context.Context(), context.Me(), id)
 		if err != nil {
 			return nil, err
 		}
-		err = resolver.Bind(f.Other, id2)
+		err = resolver.Bind(context.Context(), f.Other, id2)
 		if err != nil {
 			return nil, err
 		}
@@ -133,11 +133,11 @@ func (s *twoPartyEphemeralKeyResponderView) Call(context view.Context) (interfac
 
 	// Update the Endpoint Resolver
 	resolver := view2.GetEndpointService(context)
-	err = resolver.Bind(context.Me(), id)
+	err = resolver.Bind(context.Context(), context.Me(), id)
 	if err != nil {
 		return nil, err
 	}
-	err = resolver.Bind(session.Info().Caller, id2)
+	err = resolver.Bind(context.Context(), session.Info().Caller, id2)
 	if err != nil {
 		return nil, err
 	}

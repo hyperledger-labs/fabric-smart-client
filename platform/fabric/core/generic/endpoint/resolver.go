@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package endpoint
 
 import (
+	"context"
 	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -37,7 +38,7 @@ func (r *Resolver) GetIdentity() (view.Identity, error) {
 }
 
 type Service interface {
-	Bind(longTerm view.Identity, ephemeral view.Identity) error
+	Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error
 	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
 	AddPublicKeyExtractor(extractor view2.PublicKeyExtractor) error
 }
@@ -121,7 +122,7 @@ func (r *ResolverService) LoadResolvers() error {
 		// Bind Aliases
 		for _, alias := range resolver.Aliases {
 			logger.Debugf("binding [%s] to [%s]", resolver.Name, alias)
-			if err := r.service.Bind(resolver.Id, []byte(alias)); err != nil {
+			if err := r.service.Bind(context.Background(), resolver.Id, []byte(alias)); err != nil {
 				return errors.WithMessagef(err, "failed binding identity [%s] to alias [%s]", resolver.Name, alias)
 			}
 		}

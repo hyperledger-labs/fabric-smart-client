@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -37,9 +38,9 @@ func newBindingStore(readDB, writeDB *sql.DB, table string) *BindingStore {
 		errorWrapper: errorWrapper,
 	}
 }
-func (db *BindingStore) PutBinding(ephemeral, longTerm view.Identity) error {
+func (db *BindingStore) PutBinding(ctx context.Context, ephemeral, longTerm view.Identity) error {
 	logger.Debugf("Put binding for pair [%s:%s]", ephemeral.UniqueID(), longTerm.UniqueID())
-	if lt, err := db.GetLongTerm(longTerm); err != nil {
+	if lt, err := db.GetLongTerm(ctx, longTerm); err != nil {
 		return err
 	} else if lt != nil && !lt.IsNone() {
 		logger.Debugf("Replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())
@@ -53,7 +54,7 @@ func (db *BindingStore) PutBinding(ephemeral, longTerm view.Identity) error {
 		ON CONFLICT DO NOTHING
 		`, db.table)
 	logger.Debug(query, ephemeral.UniqueID(), longTerm.UniqueID())
-	_, err := db.writeDB.Exec(query, ephemeral.UniqueID(), longTerm, longTerm.UniqueID(), longTerm)
+	_, err := db.writeDB.ExecContext(ctx, query, ephemeral.UniqueID(), longTerm, longTerm.UniqueID(), longTerm)
 	if err == nil {
 		logger.Debugf("Long-term and ephemeral ids registered [%s,%s]", longTerm, ephemeral)
 		return nil

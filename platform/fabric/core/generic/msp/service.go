@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package msp
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -134,7 +135,7 @@ func (s *service) AnonymousIdentity() (view.Identity, error) {
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to get default anonymous identity labelled `idemix`")
 	}
-	if err := s.binderService.Bind(s.defaultViewIdentity, id); err != nil {
+	if err := s.binderService.Bind(context.Background(), s.defaultViewIdentity, id); err != nil {
 		return nil, errors.WithMessagef(err, "failed to bind identity [%s] to default [%s]", id, s.defaultViewIdentity)
 	}
 	return id, nil
@@ -303,7 +304,7 @@ func (s *service) AddMSP(name string, mspType string, enrollmentID string, Ident
 		if err != nil {
 			return errors.Wrapf(err, "cannot get identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err)
 		}
-		if err := s.binderService.Bind(s.defaultViewIdentity, id); err != nil {
+		if err := s.binderService.Bind(context.Background(), s.defaultViewIdentity, id); err != nil {
 			return errors.Wrapf(err, "cannot bind identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err)
 		}
 	}

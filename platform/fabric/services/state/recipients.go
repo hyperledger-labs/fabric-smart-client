@@ -117,7 +117,7 @@ func (f RequestRecipientIdentityView) Call(context view.Context) (interface{}, e
 	}
 
 	// Update the Endpoint Resolver
-	if err := view2.GetEndpointService(context).Bind(f.Other, recipientData.Identity); err != nil {
+	if err := view2.GetEndpointService(context).Bind(context.Context(), f.Other, recipientData.Identity); err != nil {
 		return nil, err
 	}
 
@@ -169,7 +169,7 @@ func (s *RespondRequestRecipientIdentityView) Call(context view.Context) (interf
 
 	// Update the Endpoint Resolver
 	resolver := view2.GetEndpointService(context)
-	err = resolver.Bind(context.Me(), recipientData.Identity)
+	err = resolver.Bind(context.Context(), context.Me(), recipientData.Identity)
 	if err != nil {
 		return nil, err
 	}
@@ -271,13 +271,13 @@ func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{
 	// Update the Endpoint Resolver
 	logger.Debugf("bind [%s] to other [%s]", recipientData.Identity, f.Other)
 	resolver := view2.GetEndpointService(context)
-	err = resolver.Bind(f.Other, recipientData.Identity)
+	err = resolver.Bind(context.Context(), f.Other, recipientData.Identity)
 	if err != nil {
 		return nil, err
 	}
 
 	logger.Debugf("bind me [%s] to [%s]", me, context.Me())
-	err = resolver.Bind(context.Me(), me)
+	err = resolver.Bind(context.Context(), context.Me(), me)
 	if err != nil {
 		return nil, err
 	}
@@ -353,11 +353,11 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (int
 
 	// Update the Endpoint Resolver
 	resolver := view2.GetEndpointService(context)
-	err = resolver.Bind(context.Me(), me)
+	err = resolver.Bind(context.Context(), context.Me(), me)
 	if err != nil {
 		return nil, err
 	}
-	err = resolver.Bind(session.Info().Caller, other)
+	err = resolver.Bind(context.Context(), session.Info().Caller, other)
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package routing
 
 import (
+	"context"
 	"strings"
 	"sync"
 
@@ -18,8 +19,8 @@ import (
 
 type endpointService interface {
 	GetIdentity(endpoint string, pkID []byte) (view2.Identity, error)
-	Resolve(party view2.Identity) (driver.Resolver, []byte, error)
-	GetResolver(party view2.Identity) (driver.Resolver, error)
+	Resolve(ctx context.Context, party view2.Identity) (driver.Resolver, []byte, error)
+	GetResolver(ctx context.Context, party view2.Identity) (driver.Resolver, error)
 }
 
 // endpointServiceIDRouter resolves the IP addresses using the resolvers of the endpoint service.
@@ -38,7 +39,7 @@ func (r *endpointServiceIDRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress
 		logger.Errorf("failed getting identity for peer [%s]", id)
 		return []host2.PeerIPAddress{}, false
 	}
-	resolver, err := r.es.GetResolver(identity)
+	resolver, err := r.es.GetResolver(context.Background(), identity)
 	if err != nil {
 		logger.Errorf("failed resolving [%s]: %v", id, err)
 		return []host2.PeerIPAddress{}, false
@@ -131,7 +132,7 @@ func (r *labelResolver) getLabel(peerID host2.PeerID) (string, error) {
 		return "", errors.Wrapf(err, "failed to find identity for peer [%s]", peerID)
 	}
 
-	resolver, pkid, err := r.es.Resolve(identity)
+	resolver, pkid, err := r.es.Resolve(context.Background(), identity)
 	if pkid == nil && err != nil {
 		return "", errors.Wrapf(err, "failed to resolve identity [%s] for label [%s]", identity, resolver.GetName())
 	}

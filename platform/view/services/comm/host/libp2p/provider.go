@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package libp2p
 
 import (
+	"context"
+
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
@@ -47,7 +49,7 @@ func NewConfig(cs configService) *config {
 }
 
 type endpointService interface {
-	Resolve(party view.Identity) (view.Identity, map[view2.PortName]string, []byte, error)
+	Resolve(ctx context.Context, party view.Identity) (view.Identity, map[view2.PortName]string, []byte, error)
 	GetIdentity(label string, pkID []byte) (view.Identity, error)
 }
 
@@ -86,7 +88,7 @@ func (p *hostGeneratorProvider) getPeerAddress(address host2.PeerIPAddress) (hos
 	if err != nil {
 		return "", errors.WithMessagef(err, "failed to get p2p bootstrap node's resolver entry [%s]", address)
 	}
-	_, endpoints, pkID, err := p.endpointService.Resolve(bootstrapNodeID)
+	_, endpoints, pkID, err := p.endpointService.Resolve(context.Background(), bootstrapNodeID)
 	if err != nil {
 		return "", errors.WithMessagef(err, "failed to resolve bootstrap node id [%s:%s]", address, bootstrapNodeID)
 	}

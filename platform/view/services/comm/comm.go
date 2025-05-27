@@ -20,7 +20,7 @@ import (
 )
 
 type EndpointService interface {
-	Resolve(party view2.Identity) (view2.Identity, map[view.PortName]string, []byte, error)
+	Resolve(ctx context.Context, party view2.Identity) (view2.Identity, map[view.PortName]string, []byte, error)
 	GetIdentity(label string, pkID []byte) (view2.Identity, error)
 }
 

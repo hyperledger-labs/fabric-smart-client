@@ -238,7 +238,7 @@ func (ctx *ctx) Dispose() {
 
 func (ctx *ctx) newSession(view view.View, contextID string, party view.Identity) (view.Session, error) {
 	span := trace.SpanFromContext(ctx.context)
-	resolver, pkid, err := ctx.resolver.Resolve(party)
+	resolver, pkid, err := ctx.resolver.Resolve(ctx.context, party)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func (ctx *ctx) newSession(view view.View, contextID string, party view.Identity
 
 func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity) (view.Session, error) {
 	span := trace.SpanFromContext(ctx.context)
-	resolver, pkid, err := ctx.resolver.Resolve(party)
+	resolver, pkid, err := ctx.resolver.Resolve(ctx.context, party)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +281,7 @@ func (ctx *ctx) resolve(id view.Identity) (view.Identity, error) {
 	if id.IsNone() {
 		return nil, errors.New("no id provided")
 	}
-	resolver, _, err := ctx.resolver.Resolve(id)
+	resolver, _, err := ctx.resolver.Resolve(ctx.context, id)
 	if err != nil {
 		return nil, err
 	}
