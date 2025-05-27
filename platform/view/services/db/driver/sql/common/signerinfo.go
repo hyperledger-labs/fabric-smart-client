@@ -10,7 +10,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
@@ -39,11 +39,11 @@ type SignerInfoStore struct {
 
 func (db *SignerInfoStore) FilterExistingSigners(ids ...view.Identity) ([]view.Identity, error) {
 	idHashes := make([]string, len(ids))
-	inverseMap := make(map[string]view.Identity, len(ids))
+	inverseMap := make(map[string]*view.Identity, len(ids))
 	for i, id := range ids {
 		idHash := id.UniqueID()
 		idHashes[i] = idHash
-		inverseMap[idHash] = id
+		inverseMap[idHash] = &id
 	}
 
 	query, params := q.Select().FieldsByName("id").
@@ -56,18 +56,10 @@ func (db *SignerInfoStore) FilterExistingSigners(ids ...view.Identity) ([]view.I
 	if err != nil {
 		return nil, errors.Wrapf(err, "error querying db")
 	}
-	defer utils.IgnoreErrorFunc(rows.Close)
 
-	existingSigners := make([]view.Identity, 0)
-	for rows.Next() {
-		var idHash string
-		if err := rows.Scan(&idHash); err != nil {
-			return nil, errors.Wrapf(err, "failed scanning row")
-		}
-		existingSigners = append(existingSigners, inverseMap[idHash])
-	}
-	logger.Debugf("Found %d out of %d signers", len(existingSigners), len(ids))
-	return existingSigners, nil
+	it := NewIterator(rows, func(idHash *string) error { return rows.Scan(idHash) })
+	existingSigners := iterators.Map(it, func(h *string) (*view.Identity, error) { return inverseMap[*h], nil })
+	return iterators.ReadAllValues(existingSigners)
 }
 
 func (db *SignerInfoStore) PutSigner(id view.Identity) error {
