@@ -7,7 +7,7 @@ package chaincode
 import (
 	"fmt"
 
-	"github.com/hyperledger/fabric-contract-api-go/contractapi"
+	"github.com/hyperledger/fabric-contract-api-go/v2/contractapi"
 )
 
 // SmartContract provides functions for Event Listening
