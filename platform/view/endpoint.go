@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
@@ -46,8 +48,8 @@ func NewEndpointService(es driver.EndpointService) *EndpointService {
 // Resolve returns the endpoints of the passed identity.
 // If the passed identity does not have any endpoint set, the service checks
 // if the passed identity is bound to another identity that is returned together with its endpoints and public-key identifier.
-func (e *EndpointService) Resolve(party view.Identity) (view.Identity, map[PortName]string, []byte, error) {
-	resolver, raw, err := e.es.Resolve(party)
+func (e *EndpointService) Resolve(ctx context.Context, party view.Identity) (view.Identity, map[PortName]string, []byte, error) {
+	resolver, raw, err := e.es.Resolve(ctx, party)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -84,13 +86,13 @@ func (e *EndpointService) GetIdentity(label string, pkiID []byte) (view.Identity
 
 // Bind associated a 'long term' identity to an 'ephemeral' one.
 // In more general terms, Bind binds any identity to another.
-func (e *EndpointService) Bind(longTerm view.Identity, ephemeral view.Identity) error {
-	return e.es.Bind(longTerm, ephemeral)
+func (e *EndpointService) Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error {
+	return e.es.Bind(ctx, longTerm, ephemeral)
 }
 
 // IsBoundTo returns true if b was bound to a
-func (e *EndpointService) IsBoundTo(a view.Identity, b view.Identity) bool {
-	return e.es.IsBoundTo(a, b)
+func (e *EndpointService) IsBoundTo(ctx context.Context, a view.Identity, b view.Identity) bool {
+	return e.es.IsBoundTo(ctx, a, b)
 }
 
 // AddResolver adds a resolver for tha passed parameters. The passed id can be retrieved by using the passed name in a call to GetIdentity method.
