@@ -19,6 +19,7 @@ import (
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
 	"github.com/pkg/errors"
@@ -501,13 +502,10 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 
 	itr, err := db.GetStateRangeScanIterator(ns, startKey, endKey)
 	assert.NoError(t, err)
-	defer itr.Close()
 
-	res := make([]driver.UnversionedRead, 0, 4)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	res, err := iterators.ReadAllValues(itr)
+	assert.NoError(t, err)
+
 	assert.Len(t, res, 4)
 	assert.Equal(t, []driver.UnversionedRead{
 		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}},
@@ -523,13 +521,10 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 
 	itr, err = db.GetStateRangeScanIterator(ns, startKey, endKey)
 	assert.NoError(t, err)
-	defer itr.Close()
 
-	res = make([]driver.UnversionedRead, 0, 2)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	res, err = iterators.ReadAllValues(itr)
+	assert.NoError(t, err)
+
 	assert.Len(t, res, 3)
 	assert.Equal(t, []driver.UnversionedRead{
 		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}},
@@ -624,13 +619,10 @@ func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 
 	itr, err := db.GetStateRangeScanIterator(ns, "", "")
 	assert.NoError(t, err)
-	defer itr.Close()
 
-	res := make([]driver.UnversionedRead, 0, 4)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	res, err := iterators.ReadAllValues(itr)
+	assert.NoError(t, err)
+
 	assert.Len(t, res, 4)
 	assert.Equal(t, []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
@@ -641,13 +633,9 @@ func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 
 	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
 	assert.NoError(t, err)
-	defer itr.Close()
 
-	res = make([]driver.UnversionedRead, 0, 3)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+	res, err = iterators.ReadAllValues(itr)
+	assert.NoError(t, err)
 	assert.Len(t, res, 3)
 	assert.Equal(t, []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
@@ -657,12 +645,9 @@ func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 
 	itr, err = db.GetStateSetIterator(ns, "k1", "k2")
 	assert.NoError(t, err)
-	defer itr.Close()
-	res = make([]driver.UnversionedRead, 0, 2)
-	for n, err := itr.Next(); n != nil; n, err = itr.Next() {
-		assert.NoError(t, err)
-		res = append(res, *n)
-	}
+
+	res, err = iterators.ReadAllValues(itr)
+	assert.NoError(t, err)
 	assert.Len(t, res, 2)
 	expected := []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
