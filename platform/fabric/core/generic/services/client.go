@@ -10,9 +10,9 @@ import (
 	"context"
 	"crypto/tls"
 
-	"github.com/hyperledger/fabric-protos-go/discovery"
-	ab "github.com/hyperledger/fabric-protos-go/orderer"
-	"github.com/hyperledger/fabric-protos-go/peer"
+	"github.com/hyperledger/fabric-protos-go-apiv2/discovery"
+	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
+	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	dclient "github.com/hyperledger/fabric/discovery/client"
 )
 

@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hyperledger/fabric-chaincode-go/shim"
-	pb "github.com/hyperledger/fabric-protos-go/peer"
+	"github.com/hyperledger/fabric-chaincode-go/v2/shim"
+	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 )
 
 const (
@@ -21,13 +21,13 @@ const (
 type CC struct {
 }
 
-func (cc *CC) Init(stub shim.ChaincodeStubInterface) pb.Response {
+func (cc *CC) Init(stub shim.ChaincodeStubInterface) *pb.Response {
 	fmt.Println("Init...")
 
 	return shim.Success(nil)
 }
 
-func (cc *CC) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
+func (cc *CC) Invoke(stub shim.ChaincodeStubInterface) *pb.Response {
 	fn, _ := stub.GetFunctionAndParameters()
 
 	fmt.Printf("Invoke function [%s]...\n", fn)

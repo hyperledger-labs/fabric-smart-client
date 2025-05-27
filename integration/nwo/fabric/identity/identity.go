@@ -9,7 +9,7 @@ package identity
 import (
 	"path/filepath"
 
-	"github.com/hyperledger/fabric/bccsp/sw"
+	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
 )
