@@ -51,7 +51,7 @@ func NewService(deserializer Deserializer, auditInfoKVS driver2.AuditInfoStore, 
 	}
 }
 
-func (o *Service) RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error {
+func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, signer driver.Signer, verifier driver.Verifier) error {
 	if signer == nil {
 		return errors.New("invalid signer, expected a valid instance")
 	}
@@ -85,7 +85,7 @@ func (o *Service) RegisterSigner(identity view.Identity, signer driver.Signer, v
 	o.mutex.Unlock()
 
 	if o.signerKVS != nil {
-		if err := o.signerKVS.PutSigner(identity); err != nil {
+		if err := o.signerKVS.PutSigner(ctx, identity); err != nil {
 			o.deleteSigner(idHash)
 			return errors.Wrap(err, "failed to store entry in kvs for the passed signer")
 		}
@@ -151,11 +151,11 @@ func (o *Service) GetAuditInfo(ctx context.Context, identity view.Identity) ([]b
 	return o.auditInfoKVS.GetAuditInfo(ctx, identity)
 }
 
-func (o *Service) IsMe(identity view.Identity) bool {
-	return len(o.AreMe(identity)) > 0
+func (o *Service) IsMe(ctx context.Context, identity view.Identity) bool {
+	return len(o.AreMe(ctx, identity)) > 0
 }
 
-func (o *Service) AreMe(identities ...view.Identity) []string {
+func (o *Service) AreMe(ctx context.Context, identities ...view.Identity) []string {
 	result := collections.NewSet[string]()
 	notFound := make([]view.Identity, 0)
 	// check local cache
@@ -173,7 +173,7 @@ func (o *Service) AreMe(identities ...view.Identity) []string {
 	}
 	// check kvs
 
-	if existing, err := o.signerKVS.FilterExistingSigners(notFound...); err != nil {
+	if existing, err := o.signerKVS.FilterExistingSigners(ctx, notFound...); err != nil {
 		logger.Errorf("failed getting existing signers: %v", err)
 	} else {
 		for _, id := range existing {

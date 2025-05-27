@@ -44,7 +44,7 @@ func (f twoPartyCollectEphemeralKeyView) Call(context view.Context) (interface{}
 		return nil, err
 	}
 	sigService := driver.GetSigRegistry(context)
-	err = sigService.RegisterSigner(id, signer, verifier)
+	err = sigService.RegisterSigner(context.Context(), id, signer, verifier)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (s *twoPartyEphemeralKeyResponderView) Call(context view.Context) (interfac
 	if err != nil {
 		return nil, err
 	}
-	err = sigService.RegisterSigner(id, signer, verifier)
+	err = sigService.RegisterSigner(context.Context(), id, signer, verifier)
 	if err != nil {
 		return nil, err
 	}

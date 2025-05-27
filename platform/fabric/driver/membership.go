@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -26,7 +28,7 @@ type IdentityInfo struct {
 type LocalMembership interface {
 	DefaultIdentity() view.Identity
 	AnonymousIdentity() (view.Identity, error)
-	IsMe(id view.Identity) bool
+	IsMe(ctx context.Context, id view.Identity) bool
 	DefaultSigningIdentity() SigningIdentity
 	RegisterX509MSP(id string, path string, mspID string) error
 	RegisterIdemixMSP(id string, path string, mspID string) error

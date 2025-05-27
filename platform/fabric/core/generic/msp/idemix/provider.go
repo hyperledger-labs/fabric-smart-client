@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package idemix
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -301,7 +302,7 @@ func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte
 	}
 
 	if p.SignerService != nil {
-		if err := p.SignerService.RegisterSigner(raw, sID, sID); err != nil {
+		if err := p.SignerService.RegisterSigner(context.Background(), raw, sID, sID); err != nil {
 			return nil, nil, err
 		}
 	}

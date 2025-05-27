@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -37,7 +38,7 @@ type SignerInfoStore struct {
 	ci           common.CondInterpreter
 }
 
-func (db *SignerInfoStore) FilterExistingSigners(ids ...view.Identity) ([]view.Identity, error) {
+func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...view.Identity) ([]view.Identity, error) {
 	idHashes := make([]string, len(ids))
 	inverseMap := make(map[string]view.Identity, len(ids))
 	for i, id := range ids {
@@ -52,7 +53,7 @@ func (db *SignerInfoStore) FilterExistingSigners(ids ...view.Identity) ([]view.I
 		Format(db.ci, nil)
 	logger.Debug(query, params)
 
-	rows, err := db.readDB.Query(query, params...)
+	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error querying db")
 	}
@@ -70,14 +71,14 @@ func (db *SignerInfoStore) FilterExistingSigners(ids ...view.Identity) ([]view.I
 	return existingSigners, nil
 }
 
-func (db *SignerInfoStore) PutSigner(id view.Identity) error {
+func (db *SignerInfoStore) PutSigner(ctx context.Context, id view.Identity) error {
 	query, params := q.InsertInto(db.table).
 		Fields("id").
 		Row(id.UniqueID()).
 		Format()
 
 	logger.Debug(query, params)
-	_, err := db.writeDB.Exec(query, params...)
+	_, err := db.writeDB.ExecContext(ctx, query, params...)
 	if err == nil {
 		logger.Debugf("Signer [%s] registered", id)
 		return nil
