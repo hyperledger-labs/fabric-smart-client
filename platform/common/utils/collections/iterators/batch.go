@@ -8,6 +8,8 @@ package iterators
 
 import "math"
 
+// Batch lazily batches the elements of an iterator into groups of {{batchSize}} sized batches
+// Each element of the output Iterator will now be a batch, i.e. a slice of the initial elements
 func Batch[V any](it Iterator[*V], batchSize uint32) Iterator[*[]*V] {
 	batchCap := batchSize
 	if batchSize == 0 {

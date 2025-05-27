@@ -8,7 +8,8 @@ package iterators
 
 import "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 
-func NewEmpty[K any]() *empty[K] { return &empty[K]{zero: utils.Zero[K]()} }
+// Empty returns an empty Iterator
+func Empty[K any]() Iterator[K] { return &empty[K]{zero: utils.Zero[K]()} }
 
 type empty[K any] struct{ zero K }
 

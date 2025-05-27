@@ -10,6 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/sets"
 )
 
+// Remove removes the first occurrence of the input item from the input slice
 func Remove[T comparable](items []T, toRemove T) ([]T, bool) {
 	if items == nil {
 		return nil, false
@@ -22,10 +23,12 @@ func Remove[T comparable](items []T, toRemove T) ([]T, bool) {
 	return items, false
 }
 
+// Difference returns a slice that contains all elements of the first input slice without the elements of the second input slice
 func Difference[V comparable](a, b []V) []V {
 	return sets.New(a...).Minus(sets.New(b...)).ToSlice()
 }
 
+// Intersection returns a slice that contains all elements that are contained in both slices
 func Intersection[V comparable](a, b []V) []V {
 	//if len(a) > len(b) {
 	//	a, b = b, a
@@ -40,6 +43,7 @@ func Intersection[V comparable](a, b []V) []V {
 	return res
 }
 
+// Repeat returns a slice with the same element repeated {{times}} times
 func Repeat[T any](item T, times int) []T {
 	items := make([]T, times)
 	for i := 0; i < times; i++ {

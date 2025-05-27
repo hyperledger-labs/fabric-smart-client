@@ -13,7 +13,7 @@ import (
 type Iterator[V any] iterators.Iterator[V]
 
 func NewPermutatedIterator[T any](it iterators.Iterator[*T]) (iterators.Iterator[*T], error) {
-	return iterators.NewPermutated(it)
+	return iterators.Permutate(it)
 }
 
 func CopyIterator[T any](it iterators.Iterator[*T]) (iterators.Iterator[*T], error) {
@@ -29,11 +29,11 @@ func ReadAll[T any](it iterators.Iterator[*T]) ([]T, error) {
 }
 
 func NewSingleIterator[T any](item T) iterators.Iterator[T] {
-	return iterators.NewSingle(item)
+	return iterators.From(item)
 }
 
 func NewSliceIterator[T any](items []T) iterators.Iterator[T] {
-	return iterators.NewSlice(items)
+	return iterators.Slice(items)
 }
 
 func Map[A any, B any](iterator iterators.Iterator[A], transformer func(A) (B, error)) iterators.Iterator[B] {
@@ -44,4 +44,4 @@ func Filter[A any](iterator iterators.Iterator[*A], filter iterators.Predicate[*
 	return iterators.Filter(iterator, filter)
 }
 
-func NewEmptyIterator[K any]() iterators.Iterator[K] { return iterators.NewEmpty[K]() }
+func NewEmptyIterator[K any]() iterators.Iterator[K] { return iterators.Empty[K]() }

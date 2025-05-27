@@ -12,17 +12,19 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
-func NewPermutated[T any](it Iterator[*T]) (*slice[*T], error) {
+// Permutate creates a new Iterator that contains the elements of the input Iterator permutated
+func Permutate[T any](it Iterator[*T]) (Iterator[*T], error) {
 	items, err := ReadAllPointers(it)
 	if err != nil {
 		return nil, err
 	}
 	rand.Shuffle(len(items), func(i, j int) { items[i], items[j] = items[j], items[i] })
-	return NewSlice(items), nil
+	return Slice(items), nil
 }
 
-func NewSingle[T any](item T) *slice[T] {
-	return NewSlice[T]([]T{item})
+// From creates an Iterator containing the passed elements
+func From[T any](items ...T) Iterator[T] {
+	return Slice[T](items)
 }
 
 type slice[T any] struct {
@@ -30,7 +32,8 @@ type slice[T any] struct {
 	items []T
 }
 
-func NewSlice[T any](items []T) *slice[T] { return &slice[T]{items: items} }
+// Slice creates an iterator from the elements of the passed slice
+func Slice[T any](items []T) Iterator[T] { return &slice[T]{items: items} }
 
 func (it *slice[T]) Next() (T, error) {
 	if !it.HasNext() {

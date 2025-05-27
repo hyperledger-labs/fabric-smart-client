@@ -49,7 +49,7 @@ func TestBatchedIterator(t *testing.T) {
 	RegisterTestingT(t)
 
 	for _, testCase := range testMatrix {
-		it := iterators.NewSlice(toPointerSlice(testCase.items))
+		it := iterators.Slice(toPointerSlice(testCase.items))
 		batched := iterators.Batch[any](it, testCase.batchSize)
 		actual, err := iterators.ReadAllPointers(batched)
 		Expect(err).ToNot(HaveOccurred())
