@@ -10,7 +10,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
@@ -63,11 +63,15 @@ func (db *BindingStore) HaveSameBinding(this, that view.Identity) (bool, error) 
 	if err != nil {
 		return false, errors.Wrapf(err, "error querying db")
 	}
-	it := NewIterator(rows, func(longTerm *view.Identity) error { return rows.Scan(longTerm) })
+	defer utils.IgnoreErrorFunc(rows.Close)
 
-	longTermIds, err := iterators.ReadAllValues(it)
-	if err != nil {
-		return false, err
+	longTermIds := make([]view.Identity, 0, 2)
+	for rows.Next() {
+		var longTerm view.Identity
+		if err := rows.Scan(&longTerm); err != nil {
+			return false, err
+		}
+		longTermIds = append(longTermIds, longTerm)
 	}
 	if len(longTermIds) != 2 {
 		return false, errors.Errorf("%d entries found instead of 2", len(longTermIds))
