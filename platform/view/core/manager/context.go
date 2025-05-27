@@ -119,7 +119,7 @@ func (ctx *ctx) Identity(ref string) (view.Identity, error) {
 }
 
 func (ctx *ctx) IsMe(id view.Identity) bool {
-	return view2.GetSigService(ctx).IsMe(id)
+	return view2.GetSigService(ctx).IsMe(ctx.context, id)
 }
 
 func (ctx *ctx) Caller() view.Identity {

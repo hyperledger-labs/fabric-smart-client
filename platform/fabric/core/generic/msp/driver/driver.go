@@ -32,8 +32,8 @@ type Config interface {
 }
 
 type SignerService interface {
-	RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
-	IsMe(id view.Identity) bool
+	RegisterSigner(ctx context.Context, identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
+	IsMe(ctx context.Context, id view.Identity) bool
 }
 
 type BinderService interface {

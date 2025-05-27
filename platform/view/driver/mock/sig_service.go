@@ -2,6 +2,7 @@
 package mock
 
 import (
+	"context"
 	"sync"
 
 	drivera "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -75,7 +76,7 @@ type SigService struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SigService) AreMe(arg1 ...identity.Identity) []string {
+func (fake *SigService) AreMe(ctx context.Context, arg1 ...identity.Identity) []string {
 	fake.areMeMutex.Lock()
 	ret, specificReturn := fake.areMeReturnsOnCall[len(fake.areMeArgsForCall)]
 	fake.areMeArgsForCall = append(fake.areMeArgsForCall, struct {
@@ -328,7 +329,7 @@ func (fake *SigService) GetVerifierReturnsOnCall(i int, result1 drivera.Verifier
 	}{result1, result2}
 }
 
-func (fake *SigService) IsMe(arg1 identity.Identity) bool {
+func (fake *SigService) IsMe(ctx context.Context, arg1 identity.Identity) bool {
 	fake.isMeMutex.Lock()
 	ret, specificReturn := fake.isMeReturnsOnCall[len(fake.isMeArgsForCall)]
 	fake.isMeArgsForCall = append(fake.isMeArgsForCall, struct {

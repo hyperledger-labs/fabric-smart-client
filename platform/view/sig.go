@@ -82,18 +82,18 @@ func (s *SigService) GetAuditInfo(ctx context.Context, identity view.Identity) (
 }
 
 // RegisterSigner binds the passed identity to the passed signer and verifier
-func (s *SigService) RegisterSigner(identity view.Identity, signer Signer, verifier Verifier) error {
-	return s.sigRegistry.RegisterSigner(identity, signer, verifier)
+func (s *SigService) RegisterSigner(ctx context.Context, identity view.Identity, signer Signer, verifier Verifier) error {
+	return s.sigRegistry.RegisterSigner(ctx, identity, signer, verifier)
 }
 
 // IsMe returns true if a signer was ever registered for the passed identity
-func (s *SigService) IsMe(identity view.Identity) bool {
-	return s.sigService.IsMe(identity)
+func (s *SigService) IsMe(ctx context.Context, identity view.Identity) bool {
+	return s.sigService.IsMe(ctx, identity)
 }
 
 // AreMe returns the hashes of the passed identities that have a signer registered before
-func (s *SigService) AreMe(identities ...view.Identity) []string {
-	return s.sigService.AreMe(identities...)
+func (s *SigService) AreMe(ctx context.Context, identities ...view.Identity) []string {
+	return s.sigService.AreMe(ctx, identities...)
 }
 
 // RegisterVerifier binds the passed identity to the passed verifier

@@ -18,8 +18,8 @@ type SignerEntry struct {
 }
 
 type SignerInfoStore interface {
-	FilterExistingSigners(ids ...view.Identity) ([]view.Identity, error)
-	PutSigner(id view.Identity) error
+	FilterExistingSigners(ctx context.Context, ids ...view.Identity) ([]view.Identity, error)
+	PutSigner(ctx context.Context, id view.Identity) error
 }
 
 type AuditInfoStore interface {

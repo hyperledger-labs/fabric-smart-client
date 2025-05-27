@@ -149,8 +149,8 @@ func (s *service) Identity(label string) (view.Identity, error) {
 	return id, nil
 }
 
-func (s *service) IsMe(id view.Identity) bool {
-	return s.signerService.IsMe(id)
+func (s *service) IsMe(ctx context.Context, id view.Identity) bool {
+	return s.signerService.IsMe(ctx, id)
 }
 
 func (s *service) DefaultSigningIdentity() fdriver.SigningIdentity {

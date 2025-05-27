@@ -2,6 +2,7 @@
 package mock
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
@@ -27,7 +28,7 @@ type SigService struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SigService) RegisterSigner(arg1 view.Identity, arg2 driver.Signer, arg3 driver.Verifier) error {
+func (fake *SigService) RegisterSigner(ctx context.Context, arg1 view.Identity, arg2 driver.Signer, arg3 driver.Verifier) error {
 	fake.registerSignerMutex.Lock()
 	ret, specificReturn := fake.registerSignerReturnsOnCall[len(fake.registerSignerArgsForCall)]
 	fake.registerSignerArgsForCall = append(fake.registerSignerArgsForCall, struct {

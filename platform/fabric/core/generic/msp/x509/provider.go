@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package x509
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 
@@ -20,7 +21,7 @@ import (
 )
 
 type SignerService interface {
-	RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
+	RegisterSigner(ctx context.Context, identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
 }
 
 type Provider struct {
@@ -66,7 +67,7 @@ func newProvider(mspConfigPath, keyStorePath, mspID string, signerService Signer
 		return nil, err
 	}
 	if signerService != nil {
-		err = signerService.RegisterSigner(idRaw, sID, sID)
+		err = signerService.RegisterSigner(context.Background(), idRaw, sID, sID)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed registering x509 signer")
 		}

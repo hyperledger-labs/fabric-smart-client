@@ -104,12 +104,12 @@ func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error)
 		// Is the lender one of the owners?
 		fns, err := fabric.GetDefaultFNS(context)
 		assert.NoError(err)
-		lenderFound := fns.LocalMembership().IsMe(inState.Owners()[0]) != fns.LocalMembership().IsMe(inState.Owners()[1])
+		lenderFound := fns.LocalMembership().IsMe(context.Context(), inState.Owners()[0]) != fns.LocalMembership().IsMe(context.Context(), inState.Owners()[1])
 		assert.True(lenderFound, "lender identity not found")
 		// Did the borrower sign?
 		assert.NoError(tx.HasBeenEndorsedBy(inState.Owners().Filter(
 			func(identity view.Identity) bool {
-				return !fns.LocalMembership().IsMe(identity)
+				return !fns.LocalMembership().IsMe(context.Context(), identity)
 			})...), "the borrower has not endorsed")
 	default:
 		return nil, errors.Errorf("invalid command, expected [create], was [%s]", command.Name)

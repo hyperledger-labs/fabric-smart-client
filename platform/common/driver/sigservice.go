@@ -55,10 +55,10 @@ type SigService interface {
 	GetSigningIdentity(identity view.Identity) (SigningIdentity, error)
 
 	// IsMe returns true if a signer was ever registered for the passed identity
-	IsMe(identity view.Identity) bool
+	IsMe(ctx context.Context, identity view.Identity) bool
 
 	// AreMe returns the hashes of the passed identities that have a signer registered before
-	AreMe(identities ...view.Identity) []string
+	AreMe(ctx context.Context, identities ...view.Identity) []string
 }
 
 // AuditRegistry models a repository of identities' audit information
@@ -72,7 +72,7 @@ type AuditRegistry interface {
 
 type SigRegistry interface {
 	// RegisterSigner binds the passed identity to the passed signer and verifier
-	RegisterSigner(identity view.Identity, signer Signer, verifier Verifier) error
+	RegisterSigner(ctx context.Context, identity view.Identity, signer Signer, verifier Verifier) error
 
 	// RegisterVerifier binds the passed identity to the passed verifier
 	RegisterVerifier(identity view.Identity, verifier Verifier) error

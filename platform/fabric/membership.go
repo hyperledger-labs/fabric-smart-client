@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package fabric
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -77,8 +79,8 @@ func (s *LocalMembership) DefaultIdentity() view.Identity {
 	return s.network.LocalMembership().DefaultIdentity()
 }
 
-func (s *LocalMembership) IsMe(id view.Identity) bool {
-	return s.network.LocalMembership().IsMe(id)
+func (s *LocalMembership) IsMe(ctx context.Context, id view.Identity) bool {
+	return s.network.LocalMembership().IsMe(ctx, id)
 }
 
 func (s *LocalMembership) AnonymousIdentity() (view.Identity, error) {

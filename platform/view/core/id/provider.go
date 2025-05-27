@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package id
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -28,7 +30,7 @@ type ConfigProvider interface {
 //go:generate counterfeiter -o mock/sig_service.go -fake-name SigService . SigService
 
 type SigService interface {
-	RegisterSigner(identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
+	RegisterSigner(ctx context.Context, identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
 }
 
 type EndpointService interface {
@@ -97,7 +99,7 @@ func (p *Provider) loadDefaultIdentity() error {
 		return errors.Wrapf(err, "failed loading default signer")
 	}
 
-	if err := p.sigService.RegisterSigner(id, signer, verifier); err != nil {
+	if err := p.sigService.RegisterSigner(context.Background(), id, signer, verifier); err != nil {
 		return errors.Wrapf(err, "failed registering default identity signer")
 	}
 	p.defaultID = id
