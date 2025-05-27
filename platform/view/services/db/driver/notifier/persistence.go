@@ -8,7 +8,7 @@ package notifier
 
 import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
@@ -97,11 +97,11 @@ func (db *UnversionedPersistenceNotifier) GetState(namespace driver2.Namespace, 
 	return db.Persistence.GetState(namespace, key)
 }
 
-func (db *UnversionedPersistenceNotifier) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
+func (db *UnversionedPersistenceNotifier) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	return db.Persistence.GetStateRangeScanIterator(namespace, startKey, endKey)
 }
 
-func (db *UnversionedPersistenceNotifier) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
+func (db *UnversionedPersistenceNotifier) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	return db.Persistence.GetStateSetIterator(ns, keys...)
 }
 

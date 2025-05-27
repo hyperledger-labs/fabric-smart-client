@@ -10,16 +10,17 @@ import (
 	"encoding/hex"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
 func identity(a string) (string, error) { return a, nil }
 
-func decodeUnversionedReadIterator(it collections.Iterator[*driver2.UnversionedRead], err error) (collections.Iterator[*driver2.UnversionedRead], error) {
+func decodeUnversionedReadIterator(it iterators.Iterator[*driver2.UnversionedRead], err error) (iterators.Iterator[*driver2.UnversionedRead], error) {
 	return decodeIterator(it, err, decodeUnversionedRead)
 }
 
-func decodeIterator[R any](it collections.Iterator[*R], err error, transformer func(v *R) (*R, error)) (collections.Iterator[*R], error) {
+func decodeIterator[R any](it iterators.Iterator[*R], err error, transformer func(v *R) (*R, error)) (iterators.Iterator[*R], error) {
 	if err != nil {
 		return nil, err
 	}

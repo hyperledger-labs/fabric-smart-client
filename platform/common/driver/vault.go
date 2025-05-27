@@ -9,7 +9,7 @@ package driver
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 )
 
 type (
@@ -57,10 +57,10 @@ type TxStatus struct {
 	Message string
 }
 
-type TxStatusIterator = collections.Iterator[*TxStatus]
-type TxStateIterator = collections.Iterator[*VaultRead]
+type TxStatusIterator = iterators.Iterator[*TxStatus]
+type TxStateIterator = iterators.Iterator[*VaultRead]
 
-type VersionedResultsIterator = collections.Iterator[*VaultRead]
+type VersionedResultsIterator = iterators.Iterator[*VaultRead]
 
 type QueryExecutor interface {
 	GetState(ctx context.Context, namespace Namespace, key PKey) (*VaultRead, error)

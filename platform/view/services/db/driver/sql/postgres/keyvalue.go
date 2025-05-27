@@ -10,7 +10,7 @@ import (
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
@@ -49,11 +49,11 @@ func (db *KeyValueStore) SetStateWithTx(tx *sql.Tx, ns driver.Namespace, pkey dr
 	return nil
 }
 
-func (db *KeyValueStore) GetStateRangeScanIterator(ns driver.Namespace, startKey, endKey string) (collections.Iterator[*driver.UnversionedRead], error) {
+func (db *KeyValueStore) GetStateRangeScanIterator(ns driver.Namespace, startKey, endKey string) (iterators.Iterator[*driver.UnversionedRead], error) {
 	return decodeUnversionedReadIterator(db.KeyValueStore.GetStateRangeScanIterator(ns, encode(startKey), encode(endKey)))
 }
 
-func (db *KeyValueStore) GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (collections.Iterator[*driver.UnversionedRead], error) {
+func (db *KeyValueStore) GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	encoded := make([]driver.PKey, len(keys))
 	for i, k := range keys {
 		encoded[i] = encode(k)
