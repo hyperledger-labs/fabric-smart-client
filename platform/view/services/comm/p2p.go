@@ -212,8 +212,8 @@ func (p *P2PNode) handleIncomingStream(stream host2.P2PStream) {
 func (p *P2PNode) handleStream(stream host2.P2PStream) {
 	sh := &streamHandler{
 		stream: stream,
-		reader: io.NewDelimitedReader(stream, 655360*2),
-		writer: io.NewDelimitedWriter(stream),
+		reader: io.NewVarintProtoReader(stream, 655360*2),
+		writer: io.NewVarintProtoWriter(stream),
 		node:   p,
 	}
 
@@ -240,8 +240,8 @@ func (p *P2PNode) Lookup(peerID string) ([]string, bool) {
 type streamHandler struct {
 	lock   sync.Mutex
 	stream host2.P2PStream
-	reader io.ReadCloser
-	writer io.WriteCloser
+	reader io.ProtoReaderCloser
+	writer io.ProtoWriterCloser
 	node   *P2PNode
 	wg     sync.WaitGroup
 	refCtr int

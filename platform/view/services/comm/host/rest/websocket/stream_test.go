@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -69,7 +70,7 @@ func TestWriter(t *testing.T) {
 		read:    make(chan []byte, 100),
 	}
 	stream := newMockStream(conn)
-	w := io.NewDelimitedWriter(stream)
+	w := io.NewVarintProtoWriter(stream)
 
 	input := []proto.Message{
 		messageOfSize(12),
@@ -93,6 +94,7 @@ func TestWriter(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		m.RLock()
 		defer m.RUnlock()
+		fmt.Printf("input: %v\noutput: %v\n\n", input, output)
 		return len(input) == len(output)
 	}, 5*time.Second, time.Second)
 }
@@ -103,7 +105,7 @@ func TestReader(t *testing.T) {
 		read:    make(chan []byte, 100),
 	}
 	stream := newMockStream(conn)
-	r := io.NewDelimitedReader(stream, 2)
+	r := io.NewVarintProtoReader(stream, 2)
 
 	input := []proto.Message{
 		messageOfSize(12),
