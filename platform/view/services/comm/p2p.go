@@ -7,17 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package comm
 
 import (
-	"bufio"
 	"context"
-	"encoding/binary"
-	io2 "io"
 	"runtime/debug"
 	"sync"
 
-	"github.com/gogo/protobuf/io"
-	"github.com/gogo/protobuf/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	proto2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/io"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -216,7 +212,7 @@ func (p *P2PNode) handleIncomingStream(stream host2.P2PStream) {
 func (p *P2PNode) handleStream(stream host2.P2PStream) {
 	sh := &streamHandler{
 		stream: stream,
-		reader: NewDelimitedReader(stream, 655360*2),
+		reader: io.NewDelimitedReader(stream, 655360*2),
 		writer: io.NewDelimitedWriter(stream),
 		node:   p,
 	}
@@ -327,55 +323,4 @@ func (s *streamHandler) close(context.Context) {
 		logger.Errorf("error closing stream [%s]: [%s]", s.stream.Hash(), err)
 	}
 	s.node.m.ClosedStreams.Add(1)
-}
-
-func NewDelimitedReader(r io2.Reader, maxSize int) io.ReadCloser {
-	var closer io2.Closer
-	if c, ok := r.(io2.Closer); ok {
-		closer = c
-	}
-	return &varintReader{r: bufio.NewReader(r), closer: closer, maxSize: maxSize}
-}
-
-type varintReader struct {
-	r       *bufio.Reader
-	buf     []byte
-	closer  io2.Closer
-	maxSize int
-}
-
-func (r *varintReader) ReadMsg(msg proto.Message) error {
-	length64, err := binary.ReadUvarint(r.r)
-	if err != nil {
-		return err
-	}
-	length := int(length64)
-	if length < 0 {
-		return io2.ErrShortBuffer
-	}
-	if len(r.buf) < length {
-		r.buf = make([]byte, length)
-	}
-	if len(r.buf) >= r.maxSize {
-		logger.Warnf("reading message length [%d]", length64)
-	}
-	buf := r.buf[:length]
-	n, err := io2.ReadFull(r.r, buf)
-	if err != nil {
-		return errors.Wrapf(err, "error reading message of length [%d]", length)
-	}
-	if n != length {
-		return errors.Errorf("failed to read [%d] bytes", length)
-	}
-	if err := proto2.Unmarshal(buf, msg); err != nil {
-		return errors.Wrapf(err, "error unmarshalling message of length [%d]", length)
-	}
-	return nil
-}
-
-func (r *varintReader) Close() error {
-	if r.closer != nil {
-		return r.closer.Close()
-	}
-	return nil
 }

@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/io"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/io"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -103,7 +103,7 @@ func TestReader(t *testing.T) {
 		read:    make(chan []byte, 100),
 	}
 	stream := newMockStream(conn)
-	r := comm.NewDelimitedReader(stream, 2)
+	r := io.NewDelimitedReader(stream, 2)
 
 	input := []proto.Message{
 		messageOfSize(12),
