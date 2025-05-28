@@ -13,7 +13,6 @@ import (
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/pagination"
 	. "github.com/onsi/gomega"
 )
 
@@ -27,7 +26,7 @@ func TestSelectSimple(t *testing.T) {
 		OrderBy(q.Asc(common.FieldName("id"))).
 		Limit(2).
 		Offset(1).
-		Format(postgres.NewConditionInterpreter(), pagination.NewDefaultInterpreter())
+		Format(postgres.NewConditionInterpreter())
 
 	Expect(query).To(Equal("SELECT id, name " +
 		"FROM my_table AS my_table " +
@@ -50,7 +49,7 @@ func TestSelectJoin(t *testing.T) {
 		OrderBy(q.Desc(yourTable.Field("date"))).
 		Limit(2).
 		Offset(1).
-		Format(postgres.NewConditionInterpreter(), pagination.NewDefaultInterpreter())
+		Format(postgres.NewConditionInterpreter())
 
 	Expect(query).To(Equal("SELECT my_table.name, your_table.id " +
 		"FROM my_table AS my_table " +

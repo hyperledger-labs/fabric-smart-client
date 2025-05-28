@@ -55,7 +55,7 @@ func (db *KeyValueStore) GetStateRangeScanIterator(ns driver2.Namespace, startKe
 		From(q.Table(db.table)).
 		Where(cond.And(cond.Eq("ns", ns), cond.BetweenStrings("pkey", startKey, endKey))).
 		OrderBy(q.Asc(common2.FieldName("pkey"))).
-		Format(db.ci, nil)
+		Format(db.ci)
 
 	logger.Debug(query, params)
 
@@ -71,7 +71,7 @@ func (db *KeyValueStore) GetState(namespace driver2.Namespace, key driver2.PKey)
 	query, params := q.Select().FieldsByName("val").
 		From(q.Table(db.table)).
 		Where(HasKeys(namespace, key)).
-		Format(db.ci, nil)
+		Format(db.ci)
 	logger.Debug(query, params)
 
 	return QueryUnique[driver.UnversionedValue](db.readDB, query, params...)
@@ -84,7 +84,7 @@ func (db *KeyValueStore) GetStateSetIterator(ns driver2.Namespace, keys ...drive
 	query, params := q.Select().FieldsByName("pkey", "val").
 		From(q.Table(db.table)).
 		Where(HasKeys(ns, keys...)).
-		Format(db.ci, nil)
+		Format(db.ci)
 
 	logger.Debug(query[:30] + "...")
 

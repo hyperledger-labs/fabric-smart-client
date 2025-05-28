@@ -39,7 +39,7 @@ func (db *simpleKeyDataStore) GetData(key string) ([]byte, error) {
 	query, params := q.Select().FieldsByName("data").
 		From(q.Table(db.table)).
 		Where(cond.Eq("key", key)).
-		Format(db.ci, nil)
+		Format(db.ci)
 	logger.Debug(query, params)
 
 	return QueryUnique[[]byte](db.readDB, query, params...)

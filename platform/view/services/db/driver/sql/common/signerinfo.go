@@ -49,7 +49,7 @@ func (db *SignerInfoStore) FilterExistingSigners(ids ...view.Identity) ([]view.I
 	query, params := q.Select().FieldsByName("id").
 		From(q.Table(db.table)).
 		Where(cond.In("id", idHashes...)).
-		Format(db.ci, nil)
+		Format(db.ci)
 	logger.Debug(query, params)
 
 	rows, err := db.readDB.Query(query, params...)
