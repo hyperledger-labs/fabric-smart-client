@@ -43,14 +43,13 @@ type whereQuery interface {
 
 	// OrderBy specifies the order by clause
 	OrderBy(...OrderBy) orderByQuery
-
-	// Paginated specifies the pagination details
-	Paginated(driver.Pagination) paginatedQuery
 }
 
 type paginatedQuery interface {
+	// FormatPaginated composes the query and the params to pass to the DB
 	FormatPaginated(common.CondInterpreter, common.PagInterpreter) (string, []common.Param)
 
+	// FormatPaginatedWithOffset composes the query and the params to pass to the DB with an offset for the numbered params
 	FormatPaginatedWithOffset(ci common.CondInterpreter, pi common.PagInterpreter, pc *int) (string, []any)
 }
 
@@ -58,6 +57,9 @@ type paginatedQuery interface {
 type orderByQuery interface {
 	limitQuery
 	offsetQuery
+
+	// Paginated specifies the pagination details
+	Paginated(driver.Pagination) paginatedQuery
 
 	// Limit specifies the limit
 	Limit(int) limitQuery
