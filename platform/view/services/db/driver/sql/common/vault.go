@@ -388,7 +388,7 @@ func (db *vaultReader) queryState(where cond.Condition) (driver.TxStateIterator,
 	query, params := q.Select().FieldsByName("pkey", "kversion", "val").
 		From(q.Table(db.tables.StateTable)).
 		Where(where).
-		Format(db.ci, db.pi)
+		Format(db.ci)
 	params, err := db.sanitizer.EncodeAll(params)
 	if err != nil {
 		return nil, err
@@ -423,7 +423,7 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 	query, params := q.Select().FieldsByName("metadata", "kversion").
 		From(q.Table(db.tables.StateTable)).
 		Where(cond.And(cond.Eq("ns", namespace), cond.Eq("pkey", key))).
-		Format(db.ci, db.pi)
+		Format(db.ci)
 	logger.Debug(query, params)
 
 	row := db.readDB.QueryRowContext(ctx, query, params...)
@@ -508,7 +508,7 @@ func (db *vaultReader) queryStatus(where cond.Condition, pagination driver.Pagin
 		From(q.Table(db.tables.StatusTable)).
 		Where(where).
 		Paginated(pagination).
-		Format(db.ci, db.pi)
+		FormatPaginated(db.ci, db.pi)
 	logger.Infof(query, params)
 
 	rows, err := db.readDB.Query(query, params...)

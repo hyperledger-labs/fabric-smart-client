@@ -39,17 +39,19 @@ type fromQuery interface {
 
 // whereQuery is the query state after WHERE
 type whereQuery interface {
-	paginatedQuery
+	orderByQuery
+
+	// OrderBy specifies the order by clause
+	OrderBy(...OrderBy) orderByQuery
 
 	// Paginated specifies the pagination details
 	Paginated(driver.Pagination) paginatedQuery
 }
 
 type paginatedQuery interface {
-	orderByQuery
+	FormatPaginated(common.CondInterpreter, common.PagInterpreter) (string, []common.Param)
 
-	// OrderBy specifies the order by clause
-	OrderBy(...OrderBy) orderByQuery
+	FormatPaginatedWithOffset(ci common.CondInterpreter, pi common.PagInterpreter, pc *int) (string, []any)
 }
 
 // orderByQuery is the query state after ORDER BY
@@ -71,8 +73,8 @@ type limitQuery interface {
 // offsetQuery is the query state after OFFSET
 type offsetQuery interface {
 	// Format composes the query and the params to pass to the DB
-	Format(common.CondInterpreter, common.PagInterpreter) (string, []common.Param)
+	Format(common.CondInterpreter) (string, []common.Param)
 
 	// FormatWithOffset composes the query and the params to pass to the DB with an offset for the numbered params
-	FormatWithOffset(common.CondInterpreter, common.PagInterpreter, *int) (string, []common.Param)
+	FormatWithOffset(common.CondInterpreter, *int) (string, []common.Param)
 }

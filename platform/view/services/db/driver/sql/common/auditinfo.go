@@ -41,7 +41,7 @@ func (db *AuditInfoStore) GetAuditInfo(ctx context.Context, id view.Identity) ([
 	query, params := q.Select().FieldsByName("audit_info").
 		From(q.Table(db.table)).
 		Where(cond.Eq("id", id.UniqueID())).
-		Format(db.ci, nil)
+		Format(db.ci)
 	logger.Debug(query, params)
 
 	return QueryUnique[[]byte](db.readDB, query, params...)

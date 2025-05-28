@@ -75,11 +75,19 @@ func (q *query) Paginated(p driver.Pagination) paginatedQuery {
 	return q
 }
 
-func (q *query) Format(ci common.CondInterpreter, pi common.PagInterpreter) (string, []any) {
-	return q.FormatWithOffset(ci, pi, common2.CopyPtr(1))
+func (q *query) Format(ci common.CondInterpreter) (string, []any) {
+	return q.FormatPaginated(ci, nil)
 }
 
-func (q *query) FormatWithOffset(ci common.CondInterpreter, pi common.PagInterpreter, pc *int) (string, []any) {
+func (q *query) FormatWithOffset(ci common.CondInterpreter, pc *int) (string, []any) {
+	return q.FormatPaginatedWithOffset(ci, nil, pc)
+}
+
+func (q *query) FormatPaginated(ci common.CondInterpreter, pi common.PagInterpreter) (string, []any) {
+	return q.FormatPaginatedWithOffset(ci, pi, common2.CopyPtr(1))
+}
+
+func (q *query) FormatPaginatedWithOffset(ci common.CondInterpreter, pi common.PagInterpreter, pc *int) (string, []any) {
 	sb := common.NewBuilderWithOffset(pc).WriteString("SELECT ")
 
 	if q.distinct {

@@ -42,7 +42,7 @@ func (db *BindingStore) GetLongTerm(ctx context.Context, ephemeral view.Identity
 	query, params := q.Select().FieldsByName("long_term_id").
 		From(q.Table(db.table)).
 		Where(cond.Eq("ephemeral_hash", ephemeral.UniqueID())).
-		Format(db.ci, nil)
+		Format(db.ci)
 
 	logger.Debug(query, params)
 	result, err := QueryUnique[view.Identity](db.readDB, query, params...)
@@ -57,7 +57,7 @@ func (db *BindingStore) HaveSameBinding(ctx context.Context, this, that view.Ide
 	query, params := q.Select().FieldsByName("long_term_id").
 		From(q.Table(db.table)).
 		Where(cond.In("ephemeral_hash", this.UniqueID(), that.UniqueID())).
-		Format(db.ci, nil)
+		Format(db.ci)
 
 	logger.Debug(query, params)
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
