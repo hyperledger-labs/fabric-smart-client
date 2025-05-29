@@ -105,8 +105,9 @@ func NewProvider(conf1 *m.MSPConfig, signerService mspdriver.SignerService, sigT
 		return nil, errors.Errorf("setup error: nil conf reference")
 	}
 
+	// note that the idemix protos are still using proto v1
 	var conf idemixmsp.IdemixMSPConfig
-	err := proto.Unmarshal(conf1.Config, &conf)
+	err := proto.UnmarshalV1(conf1.Config, &conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed unmarshalling idemix provider config")
 	}

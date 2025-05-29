@@ -35,7 +35,9 @@ import (
 
 const testTimeout = 1 * time.Second // conservative
 
-type echoServer struct{}
+type echoServer struct {
+	testpb.UnimplementedEchoServiceServer
+}
 
 func (es *echoServer) EchoCall(ctx context.Context,
 	echo *testpb.Echo) (*testpb.Echo, error) {

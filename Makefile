@@ -63,6 +63,14 @@ install-fsccli: ## Install fsccli
 	@go install ./cmd/fsccli
 
 #########################
+# Generate protos
+#########################
+
+.PHONY: protos
+protos: ## Build all proto files
+	./scripts/compile_proto.sh
+
+#########################
 # Container
 #########################
 
