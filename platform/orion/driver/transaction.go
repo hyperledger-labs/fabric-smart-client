@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+import (
+	"context"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+)
 
 type ValidationCode = int
 
@@ -49,19 +53,19 @@ type TransactionManager interface {
 type TransientMap map[string][]byte
 
 type MetadataService interface {
-	Exists(txid string) bool
-	StoreTransient(txid string, transientMap TransientMap) error
-	LoadTransient(txid string) (TransientMap, error)
+	Exists(ctx context.Context, txid string) bool
+	StoreTransient(ctx context.Context, txid string, transientMap TransientMap) error
+	LoadTransient(ctx context.Context, txid string) (TransientMap, error)
 }
 
 type EnvelopeService interface {
-	Exists(txid string) bool
-	StoreEnvelope(txid string, env interface{}) error
-	LoadEnvelope(txid string) ([]byte, error)
+	Exists(ctx context.Context, txid string) bool
+	StoreEnvelope(ctx context.Context, txid string, env interface{}) error
+	LoadEnvelope(ctx context.Context, txid string) ([]byte, error)
 }
 
 type TransactionService interface {
-	Exists(txid string) bool
-	StoreTransaction(txid string, raw []byte) error
-	LoadTransaction(txid string) ([]byte, error)
+	Exists(ctx context.Context, txid string) bool
+	StoreTransaction(ctx context.Context, txid string, raw []byte) error
+	LoadTransaction(ctx context.Context, txid string) ([]byte, error)
 }

@@ -61,11 +61,11 @@ func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver
 	span.AddEvent("start_get_rwset_from_evn")
 	defer span.AddEvent("end_get_rwset_from_evn")
 
-	if !c.EnvelopeService.Exists(txID) {
+	if !c.EnvelopeService.Exists(ctx, txID) {
 		return nil, nil, errors.Errorf("envelope does not exists for [%s]", txID)
 	}
 
-	rawEnv, err := c.EnvelopeService.LoadEnvelope(txID)
+	rawEnv, err := c.EnvelopeService.LoadEnvelope(ctx, txID)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot load envelope [%s]", txID)
 	}
@@ -98,11 +98,11 @@ func (c *Loader) GetRWSetFromETx(ctx context.Context, txID driver2.TxID) (driver
 	span.AddEvent("start_get_rwset_from_etx")
 	defer span.AddEvent("end_get_rwset_from_etx")
 
-	if !c.TransactionService.Exists(txID) {
+	if !c.TransactionService.Exists(ctx, txID) {
 		return nil, nil, errors.Errorf("transaction does not exists for [%s]", txID)
 	}
 
-	raw, err := c.TransactionService.LoadTransaction(txID)
+	raw, err := c.TransactionService.LoadTransaction(ctx, txID)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot load etx [%s]", txID)
 	}

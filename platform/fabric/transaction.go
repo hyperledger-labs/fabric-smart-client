@@ -464,16 +464,16 @@ type MetadataService struct {
 	ms driver.MetadataService
 }
 
-func (m *MetadataService) Exists(txid string) bool {
-	return m.ms.Exists(txid)
+func (m *MetadataService) Exists(ctx context.Context, txid string) bool {
+	return m.ms.Exists(ctx, txid)
 }
 
-func (m *MetadataService) StoreTransient(txid string, transientMap TransientMap) error {
-	return m.ms.StoreTransient(txid, driver.TransientMap(transientMap))
+func (m *MetadataService) StoreTransient(ctx context.Context, txid string, transientMap TransientMap) error {
+	return m.ms.StoreTransient(ctx, txid, driver.TransientMap(transientMap))
 }
 
-func (m *MetadataService) LoadTransient(txid string) (TransientMap, error) {
-	res, err := m.ms.LoadTransient(txid)
+func (m *MetadataService) LoadTransient(ctx context.Context, txid string) (TransientMap, error) {
+	res, err := m.ms.LoadTransient(ctx, txid)
 	if err != nil {
 		return nil, err
 	}
@@ -484,6 +484,6 @@ type EnvelopeService struct {
 	ms driver.EnvelopeService
 }
 
-func (m *EnvelopeService) Exists(txid string) bool {
-	return m.ms.Exists(txid)
+func (m *EnvelopeService) Exists(ctx context.Context, txid string) bool {
+	return m.ms.Exists(ctx, txid)
 }

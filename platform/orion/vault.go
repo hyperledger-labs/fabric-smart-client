@@ -31,9 +31,9 @@ func (r *RWSet) Equals(rws interface{}, nss ...string) error {
 }
 
 type Vault interface {
-	StoreEnvelope(txID driver2.TxID, env interface{}) error
-	StoreTransaction(txID driver2.TxID, raw []byte) error
-	StoreTransient(txID driver2.TxID, tm driver.TransientMap) error
+	StoreEnvelope(ctx context.Context, txID driver2.TxID, env interface{}) error
+	StoreTransaction(ctx context.Context, txID driver2.TxID, raw []byte) error
+	StoreTransient(ctx context.Context, txID driver2.TxID, tm driver.TransientMap) error
 	Status(ctx context.Context, txID driver2.TxID) (driver.ValidationCode, string, error)
 	DiscardTx(ctx context.Context, txID driver2.TxID, message string) error
 	GetLastTxID(context.Context) (driver2.TxID, error)

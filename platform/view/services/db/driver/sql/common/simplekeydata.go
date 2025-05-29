@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -35,29 +36,28 @@ type simpleKeyDataStore struct {
 	ci           common2.CondInterpreter
 }
 
-func (db *simpleKeyDataStore) GetData(key string) ([]byte, error) {
+func (db *simpleKeyDataStore) GetData(ctx context.Context, key string) ([]byte, error) {
 	query, params := q.Select().FieldsByName("data").
 		From(q.Table(db.table)).
 		Where(cond.Eq("key", key)).
 		Format(db.ci)
-	logger.Debug(query, params)
 
-	return QueryUnique[[]byte](db.readDB, query, params...)
+	return QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
 }
 
-func (db *simpleKeyDataStore) ExistData(key string) (bool, error) {
-	data, err := db.GetData(key)
+func (db *simpleKeyDataStore) ExistData(ctx context.Context, key string) (bool, error) {
+	data, err := db.GetData(ctx, key)
 	return len(data) > 0, err
 }
 
-func (db *simpleKeyDataStore) PutData(key string, data []byte) error {
+func (db *simpleKeyDataStore) PutData(ctx context.Context, key string, data []byte) error {
 	query, params := q.InsertInto(db.table).
 		Fields("key", "data").
 		Row(key, data).
 		OnConflictDoNothing().
 		Format()
 	logger.Debug(query, params)
-	result, err := db.writeDB.Exec(query, params...)
+	result, err := db.writeDB.ExecContext(ctx, query, params...)
 	if err != nil {
 		return errors.Wrapf(err, "failed executing query [%s]", query)
 	}

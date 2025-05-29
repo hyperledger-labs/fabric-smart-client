@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package metadata
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -30,9 +31,9 @@ type store[K identifier, M any] struct {
 	m driver.MetadataStore
 }
 
-func (s *store[K, M]) GetMetadata(key K) (M, error) {
+func (s *store[K, M]) GetMetadata(ctx context.Context, key K) (M, error) {
 	var m M
-	data, err := s.m.GetMetadata(key.UniqueKey())
+	data, err := s.m.GetMetadata(ctx, key.UniqueKey())
 	if err != nil {
 		return m, err
 	}
@@ -42,14 +43,14 @@ func (s *store[K, M]) GetMetadata(key K) (M, error) {
 	return m, nil
 }
 
-func (s *store[K, M]) ExistMetadata(key K) (bool, error) {
-	return s.m.ExistMetadata(key.UniqueKey())
+func (s *store[K, M]) ExistMetadata(ctx context.Context, key K) (bool, error) {
+	return s.m.ExistMetadata(ctx, key.UniqueKey())
 }
 
-func (s *store[K, M]) PutMetadata(key K, m M) error {
+func (s *store[K, M]) PutMetadata(ctx context.Context, key K, m M) error {
 	data, err := json.Marshal(m)
 	if err != nil {
 		return err
 	}
-	return s.m.PutMetadata(key.UniqueKey(), data)
+	return s.m.PutMetadata(ctx, key.UniqueKey(), data)
 }

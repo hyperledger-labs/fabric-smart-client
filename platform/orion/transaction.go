@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package orion
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -268,16 +269,16 @@ type MetadataService struct {
 	ms driver.MetadataService
 }
 
-func (m *MetadataService) Exists(txid string) bool {
-	return m.ms.Exists(txid)
+func (m *MetadataService) Exists(ctx context.Context, txid string) bool {
+	return m.ms.Exists(ctx, txid)
 }
 
-func (m *MetadataService) StoreTransient(txid string, transientMap TransientMap) error {
-	return m.ms.StoreTransient(txid, driver.TransientMap(transientMap))
+func (m *MetadataService) StoreTransient(ctx context.Context, txid string, transientMap TransientMap) error {
+	return m.ms.StoreTransient(ctx, txid, driver.TransientMap(transientMap))
 }
 
-func (m *MetadataService) LoadTransient(txid string) (TransientMap, error) {
-	res, err := m.ms.LoadTransient(txid)
+func (m *MetadataService) LoadTransient(ctx context.Context, txid string) (TransientMap, error) {
+	res, err := m.ms.LoadTransient(ctx, txid)
 	if err != nil {
 		return nil, err
 	}
@@ -288,14 +289,14 @@ type EnvelopeService struct {
 	es driver.EnvelopeService
 }
 
-func (e *EnvelopeService) Exists(txid string) bool {
-	return e.es.Exists(txid)
+func (e *EnvelopeService) Exists(ctx context.Context, txid string) bool {
+	return e.es.Exists(ctx, txid)
 }
 
-func (e *EnvelopeService) StoreEnvelope(txid string, env interface{}) error {
-	return e.es.StoreEnvelope(txid, env)
+func (e *EnvelopeService) StoreEnvelope(ctx context.Context, txid string, env interface{}) error {
+	return e.es.StoreEnvelope(ctx, txid, env)
 }
 
-func (e *EnvelopeService) LoadEnvelope(txid string) ([]byte, error) {
-	return e.es.LoadEnvelope(txid)
+func (e *EnvelopeService) LoadEnvelope(ctx context.Context, txid string) ([]byte, error) {
+	return e.es.LoadEnvelope(ctx, txid)
 }

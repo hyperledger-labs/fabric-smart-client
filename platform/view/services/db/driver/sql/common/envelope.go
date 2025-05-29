@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -21,16 +22,16 @@ type EnvelopeStore struct {
 	p *simpleKeyDataStore
 }
 
-func (db *EnvelopeStore) GetEnvelope(key string) ([]byte, error) {
-	return db.p.GetData(key)
+func (db *EnvelopeStore) GetEnvelope(ctx context.Context, key string) ([]byte, error) {
+	return db.p.GetData(ctx, key)
 }
 
-func (db *EnvelopeStore) ExistsEnvelope(key string) (bool, error) {
-	return db.p.ExistData(key)
+func (db *EnvelopeStore) ExistsEnvelope(ctx context.Context, key string) (bool, error) {
+	return db.p.ExistData(ctx, key)
 }
 
-func (db *EnvelopeStore) PutEnvelope(key string, data []byte) error {
-	return db.p.PutData(key, data)
+func (db *EnvelopeStore) PutEnvelope(ctx context.Context, key string, data []byte) error {
+	return db.p.PutData(ctx, key, data)
 }
 
 func (db *EnvelopeStore) CreateSchema() error {

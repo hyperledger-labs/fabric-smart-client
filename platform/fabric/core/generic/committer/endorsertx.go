@@ -152,7 +152,7 @@ func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string,
 		}
 		if ok {
 			// so, we must remember that this transaction was discarded
-			if err := c.EnvelopeService.StoreEnvelope(txID, envRaw); err != nil {
+			if err := c.EnvelopeService.StoreEnvelope(ctx, txID, envRaw); err != nil {
 				return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 			}
 			rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)

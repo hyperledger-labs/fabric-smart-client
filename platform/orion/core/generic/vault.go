@@ -74,8 +74,8 @@ func (v *Vault) Status(ctx context.Context, txID driver3.TxID) (driver.Validatio
 	}
 
 	// give it a second chance
-	if v.network.EnvelopeService().Exists(txID) {
-		if err := v.extractStoredEnvelopeToVault(txID); err != nil {
+	if v.network.EnvelopeService().Exists(ctx, txID) {
+		if err := v.extractStoredEnvelopeToVault(ctx, txID); err != nil {
 			return driver.Unknown, "", errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 		}
 		return driver.Busy, message, nil
@@ -120,9 +120,9 @@ func (v *Vault) DiscardTx(ctx context.Context, txID driver3.TxID, message string
 	return nil
 }
 
-func (v *Vault) extractStoredEnvelopeToVault(txID string) error {
+func (v *Vault) extractStoredEnvelopeToVault(ctx context.Context, txID string) error {
 	// extract envelope
-	envRaw, err := v.network.EnvelopeService().LoadEnvelope(txID)
+	envRaw, err := v.network.EnvelopeService().LoadEnvelope(ctx, txID)
 	if err != nil {
 		return errors.WithMessagef(err, "failed to load fabric envelope for [%s]", txID)
 	}
