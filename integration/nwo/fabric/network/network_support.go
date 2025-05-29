@@ -939,10 +939,16 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 		NetworkPrefix: n.Prefix,
 		PeerID:        p.ID(),
 		DevMode:       p.DevMode,
-	}, "", fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)), fmt.Sprintf("CORE_PEER_ID=%s", fmt.Sprintf("%s.%s", p.Name, n.Organization(p.Organization).Domain)))
+	}, "")
 
 	cmd.Env = append(cmd.Env, env...)
-	// cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Env = append(cmd.Env, fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("CORE_PEER_ID=%s.%s", p.Name, n.Organization(p.Organization).Domain))
+
+	// we want to re-use the host's docker endpoint if set
+	if dockerEndpoint, ok := os.LookupEnv("DOCKER_HOST"); ok {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("CORE_VM_ENDPOINT=%s", dockerEndpoint))
+	}
 
 	config := runner2.Config{
 		AnsiColorCode:     n.nextColor(),
