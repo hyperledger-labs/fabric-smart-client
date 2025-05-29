@@ -6,8 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
-option go_package = "./protos";
-option cc_generic_services = true;
+option go_package = "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos";
 
 package protos;
 

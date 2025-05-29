@@ -1,0 +1,27 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+syntax = "proto3";
+
+option go_package = "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb";
+
+package testpb;
+
+message Empty {
+}
+
+service EmptyService {
+  rpc EmptyCall(Empty) returns (Empty);
+  rpc EmptyStream(stream Empty) returns (stream Empty);
+}
+
+message Echo {
+  bytes payload = 1;
+}
+
+service EchoService {
+  rpc EchoCall(Echo) returns (Echo);
+}

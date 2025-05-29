@@ -4,7 +4,7 @@ checks: licensecheck gofmt goimports govet misspell ineffassign staticcheck
 .PHONY: licensecheck
 licensecheck:
 	@echo Running license check
-	@find . -name '*.go' | xargs addlicense -check || (echo "Missing license headers"; exit 1)
+	@find . -name '*.go' | grep -v .pb.go | xargs addlicense -check || (echo "Missing license headers"; exit 1)
 
 .PHONY: gofmt
 gofmt:
@@ -23,7 +23,7 @@ gofmt:
 goimports:
 	@echo Running goimports
 	@{ \
-	OUTPUT="$$(goimports -l .)"; \
+	OUTPUT="$$(find . -name '*.go' | grep -v pb.go | xargs goimports -l)"; \
 	if [ -n "$$OUTPUT" ]; then \
     	echo "The following files contain goimports errors"; \
     	echo "$$OUTPUT"; \
