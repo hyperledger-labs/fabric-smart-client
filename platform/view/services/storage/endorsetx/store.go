@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package endorsetx
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
@@ -28,14 +30,14 @@ type endorseTxStore[K identifier] struct {
 	e driver.EndorseTxStore
 }
 
-func (s *endorseTxStore[K]) GetEndorseTx(key K) ([]byte, error) {
-	return s.e.GetEndorseTx(key.UniqueKey())
+func (s *endorseTxStore[K]) GetEndorseTx(ctx context.Context, key K) ([]byte, error) {
+	return s.e.GetEndorseTx(ctx, key.UniqueKey())
 }
 
-func (s *endorseTxStore[K]) ExistsEndorseTx(key K) (bool, error) {
-	return s.e.ExistsEndorseTx(key.UniqueKey())
+func (s *endorseTxStore[K]) ExistsEndorseTx(ctx context.Context, key K) (bool, error) {
+	return s.e.ExistsEndorseTx(ctx, key.UniqueKey())
 }
 
-func (s *endorseTxStore[K]) PutEndorseTx(key K, etx []byte) error {
-	return s.e.PutEndorseTx(key.UniqueKey(), etx)
+func (s *endorseTxStore[K]) PutEndorseTx(ctx context.Context, key K, etx []byte) error {
+	return s.e.PutEndorseTx(ctx, key.UniqueKey(), etx)
 }

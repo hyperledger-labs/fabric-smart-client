@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package envelope
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
@@ -28,14 +30,14 @@ type envelopeStore[K identifier] struct {
 	e driver.EnvelopeStore
 }
 
-func (s *envelopeStore[K]) GetEnvelope(key K) ([]byte, error) {
-	return s.e.GetEnvelope(key.UniqueKey())
+func (s *envelopeStore[K]) GetEnvelope(ctx context.Context, key K) ([]byte, error) {
+	return s.e.GetEnvelope(ctx, key.UniqueKey())
 }
 
-func (s *envelopeStore[K]) ExistsEnvelope(key K) (bool, error) {
-	return s.e.ExistsEnvelope(key.UniqueKey())
+func (s *envelopeStore[K]) ExistsEnvelope(ctx context.Context, key K) (bool, error) {
+	return s.e.ExistsEnvelope(ctx, key.UniqueKey())
 }
 
-func (s *envelopeStore[K]) PutEnvelope(key K, etx []byte) error {
-	return s.e.PutEnvelope(key.UniqueKey(), etx)
+func (s *envelopeStore[K]) PutEnvelope(ctx context.Context, key K, etx []byte) error {
+	return s.e.PutEnvelope(ctx, key.UniqueKey(), etx)
 }

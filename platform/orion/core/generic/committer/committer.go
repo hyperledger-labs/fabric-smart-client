@@ -189,7 +189,7 @@ func (c *committer) CommitTX(ctx context.Context, txID driver2.TxID, bn driver.B
 		logger.Debugf("tx %s is already invalid", txID)
 		return errors.Errorf("tx %s is already invalid but it is marked as valid by orion", txID)
 	case driver.Unknown:
-		if !c.em.Exists(txID) {
+		if !c.em.Exists(ctx, txID) {
 			logger.Debugf("tx %s is unknown, check the transaction filters...", txID)
 			return c.commitWithFilter(ctx, txID)
 		}
@@ -260,7 +260,7 @@ func (c *committer) IsFinal(ctx context.Context, txID string) error {
 			case driver.Busy:
 				logger.Debugf("Tx [%s] is known", txID)
 			case driver.Unknown:
-				if c.em.Exists(txID) {
+				if c.em.Exists(ctx, txID) {
 					logger.Debugf("found an envelope for [%s], consider it as known", txID)
 					skipLoop = true
 					break

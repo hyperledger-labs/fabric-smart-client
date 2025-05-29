@@ -62,12 +62,12 @@ func (r *processorManager) ProcessByID(ctx context.Context, txID driver2.TxID) e
 	var tx driver.ProcessTransaction
 	var err error
 	switch {
-	case r.network.EnvelopeService().Exists(txID):
-		rws, tx, err = r.getTxFromEvn(txID)
+	case r.network.EnvelopeService().Exists(ctx, txID):
+		rws, tx, err = r.getTxFromEvn(ctx, txID)
 		if err != nil {
 			return errors.Wrapf(err, "failed extraction from envelope [%s]", txID)
 		}
-	case r.network.TransactionService().Exists(txID):
+	case r.network.TransactionService().Exists(ctx, txID):
 		rws, tx, err = r.getTxFromETx(txID)
 		if err != nil {
 			return errors.Wrapf(err, "failed extraction from transaction [%s]", txID)
@@ -111,8 +111,8 @@ func (r *processorManager) SetDefaultProcessor(processor driver.Processor) error
 	return nil
 }
 
-func (r *processorManager) getTxFromEvn(txid string) (driver.RWSet, driver.ProcessTransaction, error) {
-	rawEnv, err := r.network.EnvelopeService().LoadEnvelope(txid)
+func (r *processorManager) getTxFromEvn(ctx context.Context, txid string) (driver.RWSet, driver.ProcessTransaction, error) {
+	rawEnv, err := r.network.EnvelopeService().LoadEnvelope(ctx, txid)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot load envelope [%s]", txid)
 	}

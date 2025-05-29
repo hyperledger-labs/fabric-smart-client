@@ -165,15 +165,15 @@ func (c *Vault) InspectRWSet(ctx context.Context, rwset []byte, namespaces ...dr
 }
 
 func (c *Vault) StoreEnvelope(ctx context.Context, id driver.TxID, env []byte) error {
-	return c.envelopeService.StoreEnvelope(id, env)
+	return c.envelopeService.StoreEnvelope(ctx, id, env)
 }
 
 func (c *Vault) StoreTransaction(ctx context.Context, id driver.TxID, raw []byte) error {
-	return c.transactionService.StoreTransaction(id, raw)
+	return c.transactionService.StoreTransaction(ctx, id, raw)
 }
 
 func (c *Vault) StoreTransient(ctx context.Context, id driver.TxID, tm TransientMap) error {
-	return c.metadataService.StoreTransient(id, fdriver.TransientMap(tm))
+	return c.metadataService.StoreTransient(ctx, id, fdriver.TransientMap(tm))
 }
 
 // DiscardTx discards the transaction with the given transaction id.

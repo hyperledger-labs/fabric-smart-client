@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
+	"context"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/pkg/errors"
@@ -32,7 +34,7 @@ func (r *RWSetProcessor) Process(req fabric.Request, tx fabric.ProcessTransactio
 		return errors.Wrapf(err, "failed getting channel [%s]", tx.Channel())
 	}
 
-	if !ch.MetadataService().Exists(txID) {
+	if !ch.MetadataService().Exists(context.Background(), txID) {
 		logger.Debugf("transaction [%s] is not known to this node, no need to extract state information", txID)
 		return nil
 	}
@@ -56,7 +58,7 @@ func (r *RWSetProcessor) Process(req fabric.Request, tx fabric.ProcessTransactio
 		}
 
 		// extrate state info from metadata service
-		transientMap, err := ch.MetadataService().LoadTransient(txID)
+		transientMap, err := ch.MetadataService().LoadTransient(context.Background(), txID)
 		if err != nil {
 			return err
 		}

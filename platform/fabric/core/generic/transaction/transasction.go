@@ -548,7 +548,7 @@ func (t *Transaction) ProposalHasBeenEndorsedBy(party view.Identity) error {
 
 func (t *Transaction) StoreTransient() error {
 	logger.Debugf("Storing transient for [%s]", t.ID())
-	return t.channel.MetadataService().StoreTransient(t.ID(), t.TTransient)
+	return t.channel.MetadataService().StoreTransient(t.ctx, t.ID(), t.TTransient)
 }
 
 func (t *Transaction) ProposalResponses() ([]driver.ProposalResponse, error) {

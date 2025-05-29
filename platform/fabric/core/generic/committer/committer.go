@@ -206,7 +206,7 @@ func (c *Committer) Status(ctx context.Context, txID driver2.TxID) (driver.Valid
 	}
 	if vc == driver.Unknown {
 		// give it a second chance
-		if c.EnvelopeService.Exists(txID) {
+		if c.EnvelopeService.Exists(ctx, txID) {
 			if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
 				return driver.Unknown, "", errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
@@ -236,7 +236,7 @@ func (c *Committer) DiscardTx(ctx context.Context, txID string, message string) 
 	}
 	if vc == driver.Unknown {
 		// give it a second chance
-		if c.EnvelopeService.Exists(txID) {
+		if c.EnvelopeService.Exists(ctx, txID) {
 			if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
 				return errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
 			}
@@ -758,7 +758,7 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 			return err
 		}
 		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
-			if !c.Vault.RWSExists(ctx, txID) && c.EnvelopeService.Exists(txID) {
+			if !c.Vault.RWSExists(ctx, txID) && c.EnvelopeService.Exists(ctx, txID) {
 				// Then match rwsets
 				span.AddEvent("extract_stored_env_to_vault")
 				if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
@@ -776,7 +776,7 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 					return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 				}
 				span.AddEvent("store_env")
-				if err := c.EnvelopeService.StoreEnvelope(txID, envelopeRaw); err != nil {
+				if err := c.EnvelopeService.StoreEnvelope(ctx, txID, envelopeRaw); err != nil {
 					return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 				}
 				span.AddEvent("get_rwset_from_evn")
@@ -811,7 +811,7 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 
 func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
 	// if an envelope exists for the passed txID, then commit it
-	if c.EnvelopeService.Exists(txID) {
+	if c.EnvelopeService.Exists(ctx, txID) {
 		return c.commitStoredEnvelope(ctx, txID, block, indexInBlock)
 	}
 
@@ -837,7 +837,7 @@ func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64
 		return nil
 	}
 
-	if err := c.EnvelopeService.StoreEnvelope(txID, envelopeRaw); err != nil {
+	if err := c.EnvelopeService.StoreEnvelope(ctx, txID, envelopeRaw); err != nil {
 		return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 	}
 	rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
