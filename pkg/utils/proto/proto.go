@@ -8,7 +8,7 @@ package proto
 
 import (
 	//lint:ignore SA1019 Dependency to be updated to google.golang.org/protobuf/proto
-	protoV1 "github.com/golang/protobuf/proto" //nolint:all
+	protoV1 "google.golang.org/protobuf/proto" //nolint:all
 )
 
 /*
