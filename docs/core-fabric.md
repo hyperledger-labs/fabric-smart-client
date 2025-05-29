@@ -8,7 +8,7 @@ The following example provides descriptions for the various keys required for a 
 logging:
   # format is same as fabric [<logger>[,<logger>...]=]<level>[:[<logger>[,<logger>...]=]<level>...]
   format: '%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} %{level:.4s}%{color:reset} %{message}'
-  spec: debug
+  spec: grpc=error:debug
 
 # ------------------- FSC Node Configuration -------------------------
 fsc:
