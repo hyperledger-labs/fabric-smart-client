@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package kvs
 
 import (
+	"context"
 	"encoding/json"
 	"sync"
 
@@ -70,7 +71,7 @@ func New(persistence driver.KeyValueStore, namespace string, cacheSize int) (*KV
 	}, nil
 }
 
-func (o *KVS) GetExisting(ids ...string) []string {
+func (o *KVS) GetExisting(ctx context.Context, ids ...string) []string {
 	result := make([]string, 0)
 	notFound := make([]string, 0)
 	// is in cache?
@@ -108,7 +109,7 @@ func (o *KVS) GetExisting(ids ...string) []string {
 
 	ids = notFound
 	// get from store and store in cache
-	it, err := o.store.GetStateSetIterator(o.namespace, ids...)
+	it, err := o.store.GetStateSetIterator(ctx, o.namespace, ids...)
 	if err != nil {
 		return result
 	}
@@ -126,11 +127,11 @@ func (o *KVS) GetExisting(ids ...string) []string {
 	return result
 }
 
-func (o *KVS) Exists(id string) bool {
-	return len(o.GetExisting(id)) > 0
+func (o *KVS) Exists(ctx context.Context, id string) bool {
+	return len(o.GetExisting(ctx, id)) > 0
 }
 
-func (o *KVS) Put(id string, state interface{}) error {
+func (o *KVS) Put(ctx context.Context, id string, state interface{}) error {
 	raw, err := json.Marshal(state)
 	if err != nil {
 		return errors.Wrapf(err, "cannot marshal state with id [%s]", id)
@@ -150,7 +151,7 @@ func (o *KVS) Put(id string, state interface{}) error {
 	return nil
 }
 
-func (o *KVS) Get(id string, state interface{}) error {
+func (o *KVS) Get(ctx context.Context, id string, state interface{}) error {
 	o.putMutex.RLock()
 	defer o.putMutex.RUnlock()
 
@@ -160,7 +161,7 @@ func (o *KVS) Get(id string, state interface{}) error {
 	if cachedRaw != nil && ok {
 		raw = cachedRaw.([]byte)
 	} else if !ok {
-		raw, err = o.store.GetState(o.namespace, id)
+		raw, err = o.store.GetState(ctx, o.namespace, id)
 		if err != nil {
 			logger.Debugf("failed retrieving state [%s,%s]", o.namespace, id)
 			return errors.Wrapf(err, "failed retrieving state [%s,%s]", o.namespace, id)
@@ -192,7 +193,7 @@ func (o *KVS) Delete(id string) error {
 	return nil
 }
 
-func (o *KVS) GetByPartialCompositeID(prefix string, attrs []string) (Iterator, error) {
+func (o *KVS) GetByPartialCompositeID(ctx context.Context, prefix string, attrs []string) (Iterator, error) {
 	partialCompositeKey, err := CreateCompositeKey(prefix, attrs)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed building composite key")
@@ -201,7 +202,7 @@ func (o *KVS) GetByPartialCompositeID(prefix string, attrs []string) (Iterator, 
 	startKey := partialCompositeKey
 	endKey := partialCompositeKey + string(maxUnicodeRuneValue)
 
-	itr, err := o.store.GetStateRangeScanIterator(o.namespace, startKey, endKey)
+	itr, err := o.store.GetStateRangeScanIterator(ctx, o.namespace, startKey, endKey)
 	if err != nil {
 		return nil, errors.Wrapf(err, "store access failure for GetStateRangeScanIterator, ns [%s] range [%s,%s]", o.namespace, startKey, endKey)
 	}

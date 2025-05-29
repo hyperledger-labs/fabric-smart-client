@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
@@ -29,7 +30,7 @@ func ReadExisting(b *testing.B, db driver.KeyValueStore) {
 	var v []byte
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		vv, _ := db.GetState(namespace, key)
+		vv, _ := db.GetState(context.Background(), namespace, key)
 		v = vv
 	}
 	b.StopTimer()
@@ -42,7 +43,7 @@ func ReadNonExisting(b *testing.B, db driver.KeyValueStore) {
 	var v []byte
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		vv, _ := db.GetState(namespace, key)
+		vv, _ := db.GetState(context.Background(), namespace, key)
 		v = vv
 	}
 	b.StopTimer()

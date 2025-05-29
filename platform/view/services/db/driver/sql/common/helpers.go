@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"context"
 	"database/sql"
 	"encoding/binary"
 	"fmt"
@@ -89,7 +90,7 @@ func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 	populateForRangeQueries(t, db, ns)
 
-	itr, err := db.GetStateRangeScanIterator(ns, "", "")
+	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, "", "")
 	assert.NoError(t, err)
 	res, err := collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -101,7 +102,7 @@ func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 		{Key: "k3", Raw: []byte("k3_value")},
 	}, res)
 
-	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
+	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
 	assert.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -113,7 +114,7 @@ func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	assert.Len(t, res, 3)
 	assert.Equal(t, expected, res)
 
-	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
+	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
 	assert.NoError(t, err)
 	res, err = collections.ReadFirst(itr, 2)
 	assert.NoError(t, err)
@@ -129,7 +130,7 @@ func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
 	}
-	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
+	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
 	assert.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -140,7 +141,7 @@ func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k3", Raw: []byte("k3_value")},
 	}
-	itr, err = db.GetStateSetIterator(ns, "k1", "k3")
+	itr, err = db.GetStateSetIterator(context.Background(), ns, "k1", "k3")
 	assert.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -155,7 +156,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 	key := "key"
 
 	// empty state
-	vv, err := db.GetState(ns, key)
+	vv, err := db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, driver.UnversionedValue{}, vv)
 
@@ -164,7 +165,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 	assert.NoError(t, err)
 
 	// get data
-	vv, err = db.GetState(ns, key)
+	vv, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, driver.UnversionedValue("val"), vv)
 
@@ -175,14 +176,14 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 	err = db.SetState(ns, key, driver.UnversionedValue("val1"))
 	assert.NoError(t, err)
 
-	vv, err = db.GetState(ns, key)
+	vv, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, driver.UnversionedValue("val"), vv)
 	err = db.Commit()
 	assert.NoError(t, err)
 
 	t.Logf("get state after tx [%s]", key)
-	vv, err = db.GetState(ns, key)
+	vv, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, driver.UnversionedValue("val1"), vv)
 
@@ -195,7 +196,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 	assert.NoError(t, err)
 
 	// Expect state to be same as before the rollback
-	vv, err = db.GetState(ns, key)
+	vv, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, driver.UnversionedValue("val1"), vv)
 
@@ -204,7 +205,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 	assert.NoError(t, err)
 
 	// expect state to be empty
-	vv, err = db.GetState(ns, key)
+	vv, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, driver.UnversionedValue{}, vv)
 }
@@ -222,19 +223,19 @@ func populateDB(t *testing.T, db driver.KeyValueStore, ns, key, keyWithSuffix st
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	vv, err := db.GetState(ns, key)
+	vv, err := db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, driver.UnversionedValue("bar"), vv)
 
-	vv, err = db.GetState(ns, keyWithSuffix)
+	vv, err = db.GetState(context.Background(), ns, keyWithSuffix)
 	assert.NoError(t, err)
 	assert.Equal(t, driver.UnversionedValue("bar1"), vv)
 
-	vv, err = db.GetState(ns, "barf")
+	vv, err = db.GetState(context.Background(), ns, "barf")
 	assert.NoError(t, err)
 	assert.Equal(t, driver.UnversionedValue{}, vv)
 
-	vv, err = db.GetState("barf", "barf")
+	vv, err = db.GetState(context.Background(), "barf", "barf")
 	assert.NoError(t, err)
 	assert.Equal(t, driver.UnversionedValue{}, vv)
 }
@@ -260,7 +261,7 @@ func TTestGetNonExistent(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 	key := "foo"
 
-	vv, err := db.GetState(ns, key)
+	vv, err := db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, driver.UnversionedValue{}, vv)
 }
@@ -323,7 +324,7 @@ func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	itr, err := db.GetStateRangeScanIterator(ns, "", "")
+	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, "", "")
 	assert.NoError(t, err)
 	res, err := collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -335,7 +336,7 @@ func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
 		{Key: "k3", Raw: []byte("k3_value")},
 	}, res)
 
-	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
+	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
 	assert.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -378,7 +379,7 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	}()
 	wg.Wait()
 
-	itr, err := db.GetStateRangeScanIterator(ns, "", "")
+	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, "", "")
 	assert.NoError(t, err)
 	res, err := collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -390,7 +391,7 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 		{Key: "k3", Raw: []byte("k3_value")},
 	}, res)
 
-	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
+	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
 	assert.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -402,7 +403,7 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	assert.Len(t, res, 3)
 	assert.Equal(t, expected, res)
 
-	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
+	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
 	assert.NoError(t, err)
 	res, err = collections.ReadFirst(itr, 2)
 	assert.NoError(t, err)
@@ -418,7 +419,7 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
 	}
-	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
+	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
 	assert.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	assert.NoError(t, err)
@@ -500,7 +501,7 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 	startKey := partialCompositeKey
 	endKey := partialCompositeKey + string(maxUnicodeRuneValue)
 
-	itr, err := db.GetStateRangeScanIterator(ns, startKey, endKey)
+	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, startKey, endKey)
 	assert.NoError(t, err)
 
 	res, err := iterators.ReadAllValues(itr)
@@ -519,7 +520,7 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 	startKey = partialCompositeKey
 	endKey = partialCompositeKey + string(maxUnicodeRuneValue)
 
-	itr, err = db.GetStateRangeScanIterator(ns, startKey, endKey)
+	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, startKey, endKey)
 	assert.NoError(t, err)
 
 	res, err = iterators.ReadAllValues(itr)
@@ -582,12 +583,12 @@ func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
 	}
 
 	for name, key := range utf8 {
-		v, err := db.GetState(ns, string(key))
+		v, err := db.GetState(context.Background(), ns, string(key))
 		assert.NoError(t, err, fmt.Sprintf("%s should be retrieved (%v)", name, key))
 		assert.Equal(t, key, v)
 	}
 
-	v, err := db.GetState(ns, key)
+	v, err := db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(nil), v)
 }
@@ -617,7 +618,7 @@ func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	itr, err := db.GetStateRangeScanIterator(ns, "", "")
+	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, "", "")
 	assert.NoError(t, err)
 
 	res, err := iterators.ReadAllValues(itr)
@@ -631,7 +632,7 @@ func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 		{Key: "k3", Raw: []byte("k3_value")},
 	}, res)
 
-	itr, err = db.GetStateRangeScanIterator(ns, "k1", "k3")
+	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
 	assert.NoError(t, err)
 
 	res, err = iterators.ReadAllValues(itr)
@@ -643,7 +644,7 @@ func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 		{Key: "k2", Raw: []byte("k2_value")},
 	}, res)
 
-	itr, err = db.GetStateSetIterator(ns, "k1", "k2")
+	itr, err = db.GetStateSetIterator(context.Background(), ns, "k1", "k2")
 	assert.NoError(t, err)
 
 	res, err = iterators.ReadAllValues(itr)
@@ -662,7 +663,7 @@ func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 	ns := "ns"
 	key := "key"
 
-	v, err := db.GetState(ns, key)
+	v, err := db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(nil), v)
 
@@ -673,7 +674,7 @@ func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	v, err = db.GetState(ns, key)
+	v, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val"), v)
 
@@ -683,14 +684,14 @@ func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 	err = db.SetState(ns, key, []byte("val1"))
 	assert.NoError(t, err)
 
-	v, err = db.GetState(ns, key)
+	v, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val"), v)
 
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	v, err = db.GetState(ns, key)
+	v, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val1"), v)
 
@@ -703,7 +704,7 @@ func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 	assert.NoError(t, err)
 
 	// Expect state to be same as before the rollback
-	v, err = db.GetState(ns, key)
+	v, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val1"), v)
 
@@ -714,7 +715,7 @@ func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	v, err = db.GetState(ns, key)
+	v, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(nil), v)
 }
@@ -768,7 +769,7 @@ func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier)
 	ns := "ns"
 	key := "key"
 
-	v, err := db.GetState(ns, key)
+	v, err := db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(nil), v)
 
@@ -779,7 +780,7 @@ func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier)
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	v, err = db.GetState(ns, key)
+	v, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val"), v)
 
@@ -789,14 +790,14 @@ func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier)
 	err = db.SetState(ns, key, []byte("val1"))
 	assert.NoError(t, err)
 
-	v, err = db.GetState(ns, key)
+	v, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val"), v)
 
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	v, err = db.GetState(ns, key)
+	v, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val1"), v)
 
@@ -809,7 +810,7 @@ func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier)
 	assert.NoError(t, err)
 
 	// Expect state to be same as before the rollback
-	v, err = db.GetState(ns, key)
+	v, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("val1"), v)
 
@@ -820,7 +821,7 @@ func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier)
 	err = db.Commit()
 	assert.NoError(t, err)
 
-	v, err = db.GetState(ns, key)
+	v, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(nil), v)
 

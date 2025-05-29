@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -50,7 +51,7 @@ func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrappe
 	}
 }
 
-func (db *KeyValueStore) GetStateRangeScanIterator(ns driver2.Namespace, startKey, endKey driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
+func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns driver2.Namespace, startKey, endKey driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	query, params := q.Select().FieldsByName("pkey", "val").
 		From(q.Table(db.table)).
 		Where(cond.And(cond.Eq("ns", ns), cond.BetweenStrings("pkey", startKey, endKey))).
@@ -59,7 +60,7 @@ func (db *KeyValueStore) GetStateRangeScanIterator(ns driver2.Namespace, startKe
 
 	logger.Debug(query, params)
 
-	rows, err := db.readDB.Query(query, params...)
+	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, errors2.Wrapf(err, "query error: %s", query)
 	}
@@ -67,17 +68,16 @@ func (db *KeyValueStore) GetStateRangeScanIterator(ns driver2.Namespace, startKe
 	return NewIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }), nil
 }
 
-func (db *KeyValueStore) GetState(namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
+func (db *KeyValueStore) GetState(ctx context.Context, namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
 	query, params := q.Select().FieldsByName("val").
 		From(q.Table(db.table)).
 		Where(HasKeys(namespace, key)).
 		Format(db.ci)
-	logger.Debug(query, params)
 
-	return QueryUnique[driver.UnversionedValue](db.readDB, query, params...)
+	return QueryUniqueContext[driver.UnversionedValue](ctx, db.readDB, query, params...)
 }
 
-func (db *KeyValueStore) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
+func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns driver2.Namespace, keys ...driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*driver.UnversionedRead](), nil
 	}
@@ -88,7 +88,7 @@ func (db *KeyValueStore) GetStateSetIterator(ns driver2.Namespace, keys ...drive
 
 	logger.Debug(query[:30] + "...")
 
-	rows, err := db.readDB.Query(query, params...)
+	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, errors2.Wrapf(err, "query error: %s", query)
 	}

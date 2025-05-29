@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -49,16 +50,16 @@ func (db *KeyValueStore) SetStateWithTx(tx *sql.Tx, ns driver.Namespace, pkey dr
 	return nil
 }
 
-func (db *KeyValueStore) GetStateRangeScanIterator(ns driver.Namespace, startKey, endKey string) (iterators.Iterator[*driver.UnversionedRead], error) {
-	return decodeUnversionedReadIterator(db.KeyValueStore.GetStateRangeScanIterator(ns, encode(startKey), encode(endKey)))
+func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns driver.Namespace, startKey, endKey string) (iterators.Iterator[*driver.UnversionedRead], error) {
+	return decodeUnversionedReadIterator(db.KeyValueStore.GetStateRangeScanIterator(ctx, ns, encode(startKey), encode(endKey)))
 }
 
-func (db *KeyValueStore) GetStateSetIterator(ns driver.Namespace, keys ...driver.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
+func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns driver.Namespace, keys ...driver.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	encoded := make([]driver.PKey, len(keys))
 	for i, k := range keys {
 		encoded[i] = encode(k)
 	}
-	return decodeUnversionedReadIterator(db.KeyValueStore.GetStateSetIterator(ns, encoded...))
+	return decodeUnversionedReadIterator(db.KeyValueStore.GetStateSetIterator(ctx, ns, encoded...))
 }
 
 func NewKeyValueStore(dbs *common3.RWDB, tables common.TableNames) (*KeyValueStore, error) {
