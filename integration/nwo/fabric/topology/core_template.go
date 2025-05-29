@@ -8,34 +8,31 @@ package topology
 
 const DefaultCoreTemplate = `---
 logging:
-  spec: {{ .Logging.Spec }} 
-  format: {{ .Logging.Format }}
+  format: '%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'
 
 peer:
   id: {{ Peer.ID }}
   networkId: {{ .NetworkID }}
-  address: {{ .PeerAddress Peer "Listen" }}
+  address: 127.0.0.1:{{ .PeerPort Peer "Listen" }}
   addressAutoDetect: true
-  listenAddress: 0.0.0.0:{{ .PeerPort Peer "Listen" }}
-  chaincodeListenAddress: {{ if gt (.PeerPort Peer "Chaincode") 0 }}0.0.0.0:{{ .PeerPort Peer "Chaincode" }}{{ end }}
+  listenAddress: 127.0.0.1:{{ .PeerPort Peer "Listen" }}
+  chaincodeListenAddress: 0.0.0.0:{{ .PeerPort Peer "Chaincode" }}
   keepalive:
     minInterval: 60s
-    interval: 300s
-    timeout: 600s
     client:
       interval: 60s
-      timeout: 600s
+      timeout: 20s
     deliveryClient:
       interval: 60s
       timeout: 20s
   gossip:
-    bootstrap: {{ .PeerAddress Peer "Listen" }}
-    endpoint: {{ .PeerAddress Peer "Listen" }}
-    externalEndpoint: {{ .PeerAddress Peer "Listen" }}
-    useLeaderElection: true
-    orgLeader: false
+    bootstrap: 127.0.0.1:{{ .PeerPort Peer "Listen" }}
+    endpoint: 127.0.0.1:{{ .PeerPort Peer "Listen" }}
+    externalEndpoint: 127.0.0.1:{{ .PeerPort Peer "Listen" }}
+    useLeaderElection: false
+    orgLeader: true
     membershipTrackerInterval: 5s
-    maxBlockCountToStore: 100
+    maxBlockCountToStore: 10
     maxPropagationBurstLatency: 10ms
     maxPropagationBurstSize: 10
     propagateIterations: 1
@@ -63,29 +60,32 @@ peer:
       leaderElectionDuration: 5s
     pvtData:
       pullRetryThreshold: 7s
-      transientstoreMaxBlockRetention: 1000
+      transientstoreMaxBlockRetention: 20000
       pushAckTimeout: 3s
       btlPullMargin: 10
       reconcileBatchSize: 10
-      reconcileSleepInterval: 10s
+      reconcileSleepInterval: 5s
       reconciliationEnabled: true
       skipPullingInvalidTransactionsDuringCommit: false
+      implicitCollectionDisseminationPolicy:
+        requiredPeerCount: 0
+        maxPeerCount: 1
     state:
-       enabled: true
+       enabled: false
        checkInterval: 10s
        responseTimeout: 3s
        batchSize: 10
-       blockBufferSize: 100
+       blockBufferSize: 20
        maxRetries: 3
   events:
-    address: {{ .PeerAddress Peer "Events" }}
+    address: 127.0.0.1:{{ .PeerPort Peer "Events" }}
     buffersize: 100
     timeout: 10ms
     timewindow: 15m
     keepalive:
       minInterval: 60s
   tls:
-    enabled:  {{ .TLSEnabled }}
+    enabled: {{ .TLSEnabled }}
     clientAuthRequired: {{ .ClientAuthRequired }}
     cert:
       file: {{ .PeerLocalTLSDir Peer }}/server.crt
@@ -114,14 +114,16 @@ peer:
   localMspId: {{ (.Organization Peer.Organization).MSPID }}
   deliveryclient:
     reconnectTotalTimeThreshold: 3600s
+    policy: {{ .PeerDeliveryClientPolicy }}
   localMspType: bccsp
   profile:
     enabled:     false
-    listenAddress: {{ .PeerAddress Peer "ProfilePort" }}
+    listenAddress: 127.0.0.1:{{ .PeerPort Peer "ProfilePort" }}
   handlers:
     authFilters:
     - name: DefaultAuth
     - name: ExpirationCheck
+    - name: TimeWindowCheck
     decorators:
     - name: DefaultDecorator
     endorsers:
@@ -130,15 +132,6 @@ peer:
     validators:
       vscc:
         name: DefaultValidation
-      {{ if .PvtTxSupport }}vscc_pvt:
-        name: DefaultPvtValidation
-        library: {{ end }}
-      {{ if .MSPvtTxSupport }}vscc_mspvt:
-        name: DefaultMSPvtValidation
-        library: {{ end }}
-      {{ if .FabTokenSupport }}vscc_token:
-        name: DefaultTokenValidation
-        library: {{ end }}
   validatorPoolSize:
   discovery:
     enabled: true
@@ -148,7 +141,10 @@ peer:
     orgMembersAllowedAccess: false
   limits:
     concurrency:
-      qscc: 500
+      endorserService: 100
+      deliverService: 100
+  gateway:
+    enabled: {{ .GatewayEnabled }}
 
 vm:
   endpoint: unix:///var/run/docker.sock
@@ -177,15 +173,13 @@ chaincode:
   golang:
     runtime: $(DOCKER_NS)/fabric-baseos:latest
     dynamicLink: false
-  car:
-    runtime: $(DOCKER_NS)/fabric-baseos:latest
   java:
     runtime: $(DOCKER_NS)/fabric-javaenv:latest
   node:
     runtime: $(DOCKER_NS)/fabric-nodeenv:latest
-  installTimeout: 1200s
-  startuptimeout: 1200s
-  executetimeout: 1200s
+  installTimeout: 300s
+  startuptimeout: 300s
+  executetimeout: 30s
   mode: net
   keepalive: 0
   system:
@@ -193,9 +187,14 @@ chaincode:
     cscc:       enable
     lscc:       enable
     qscc:       enable
+  runtimeParams:
+    useWriteBatch: {{ .UseWriteBatch }}
+    maxSizeWriteBatch: 1000
+    useGetMultipleKeys: {{ .UseGetMultipleKeys }}
+    maxSizeGetMultipleKeys: 1000
   logging:
-    level:  debug
-    shim:   debug
+    level:  info
+    shim:   warning
     format: '%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'
   externalBuilders: {{ range .ExternalBuilders }}
     - path: {{ .Path }}
@@ -210,7 +209,7 @@ ledger:
   state:
     stateDatabase: goleveldb
     couchDBConfig:
-      couchDBAddress: 0.0.0.0:5984
+      couchDBAddress: 127.0.0.1:5984
       username:
       password:
       maxRetries: 3
@@ -218,14 +217,16 @@ ledger:
       requestTimeout: 35s
       queryLimit: 10000
       maxBatchUpdateSize: 1000
-      warmIndexesAfterNBlocks: 1
   history:
     enableHistoryDatabase: true
+  pvtdataStore:
+    deprioritizedDataReconcilerInterval: 60m
+    purgeInterval: 1
 
 operations:
-  listenAddress: {{ .PeerAddress Peer "Operations" }}
+  listenAddress: 127.0.0.1:{{ .PeerPort Peer "Operations" }}
   tls:
-    enabled: false
+    enabled: {{ .TLSEnabled }}
     cert:
       file: {{ .PeerLocalTLSDir Peer }}/server.crt
     key:
@@ -237,8 +238,13 @@ operations:
 metrics:
   provider: {{ .MetricsProvider }}
   statsd:
+    {{- if .StatsdEndpoint }}
+    network: tcp
+    address: {{ .StatsdEndpoint }}
+    {{- else }}
     network: udp
-    address: {{ if .StatsdEndpoint }}{{ .StatsdEndpoint }}{{ else }}0.0.0.0:8125{{ end }}
+    address: 127.0.0.1:8125
+    {{- end }}
     writeInterval: 5s
     prefix: {{ ReplaceAll (ToLower Peer.ID) "." "_" }}
 `

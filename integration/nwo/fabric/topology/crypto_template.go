@@ -20,12 +20,8 @@ OrdererOrgs:{{ range .OrdererOrgs }}
   Specs:{{ range $w.OrderersInOrg .Name }}
   - Hostname: {{ .Name }}
     SANS:
-    - {{ $w.OrdererHost . }}
-    - 0.0.0.0
     - localhost
     - 127.0.0.1
-    - host.docker.internal
-    - fabric
     - ::1
   {{- end }}
 {{- end }}
@@ -38,7 +34,6 @@ PeerOrgs:{{ range .PeerOrgs }}
   CA:{{ if .CA.Hostname }}
     hostname: {{ .CA.Hostname }}
     SANS:
-    - 0.0.0.0
     - localhost
     - 127.0.0.1
     - ::1
@@ -52,18 +47,41 @@ PeerOrgs:{{ range .PeerOrgs }}
       HSM: {{ .HSM }}
     {{- end }}
     {{- end }}
-
   Specs:{{ range $w.PeersInOrg .Name }}
   - Hostname: {{ .Name }}
     SANS:
-    - {{ $w.PeerHost . }}
-    - 0.0.0.0
     - localhost
     - 127.0.0.1
     - ::1
-    - fabric
-    - host.docker.internal
   {{- end }}
 {{- end }}
 {{- end }}
+`
+
+const OrgUpdateCryptoTemplate = `---
+{{ with $w := . -}}
+PeerOrgs:{{ range .PeerOrgs }}
+- Name: {{ .Name }}
+  Domain: {{ .Domain }}
+  EnableNodeOUs: {{ .EnableNodeOUs }}
+  {{- if .CA }}
+  CA:{{ if .CA.Hostname }}
+    hostname: {{ .CA.Hostname }}
+    SANS:
+    - localhost
+    - 127.0.0.1
+    - ::1
+  {{- end }}
+  {{- end }}
+  Users:
+    Count: {{ .Users }}
+  Specs:{{ range $w.PeersInOrg .Name }}
+  - Hostname: {{ .Name }}
+    SANS:
+    - localhost
+    - 127.0.0.1
+    - ::1
+  {{- end }}
+{{- end }}
+{{ end }}
 `
