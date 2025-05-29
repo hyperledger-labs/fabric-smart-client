@@ -38,9 +38,20 @@ const (
 )
 
 type KVS interface {
-	Exists(id string) bool
-	Put(id string, state interface{}) error
-	Get(id string, state interface{}) error
+	Exists(ctx context.Context, id string) bool
+	Put(ctx context.Context, id string, state interface{}) error
+	Get(ctx context.Context, id string, state interface{}) error
+}
+
+type kvsAdapter struct {
+	kvs KVS
+}
+
+func (k *kvsAdapter) Put(id string, state interface{}) error {
+	return k.kvs.Put(context.Background(), id, state)
+}
+func (k *kvsAdapter) Get(id string, state interface{}) error {
+	return k.kvs.Get(context.Background(), id, state)
 }
 
 type Provider struct {
@@ -66,7 +77,7 @@ func NewProviderWithAnyPolicy(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerSe
 }
 
 func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService, curveID math.CurveID) (*Provider, error) {
-	cryptoProvider, err := NewKSVBCCSP(KVS, curveID, false)
+	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{KVS}, curveID, false)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +85,7 @@ func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.
 }
 
 func NewProviderWithSigType(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService, sigType bccsp.SignatureType) (*Provider, error) {
-	cryptoProvider, err := NewKSVBCCSP(KVS, math.FP256BN_AMCL, false)
+	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{KVS}, math.FP256BN_AMCL, false)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +93,7 @@ func NewProviderWithSigType(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerServ
 }
 
 func NewProviderWithSigTypeAncCurve(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {
-	cryptoProvider, err := NewKSVBCCSP(KVS, curveID, false)
+	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{KVS}, curveID, false)
 	if err != nil {
 		return nil, err
 	}

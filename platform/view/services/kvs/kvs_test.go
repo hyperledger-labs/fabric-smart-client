@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package kvs_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -43,23 +44,23 @@ func testRound(t *testing.T, driver driver.Driver) {
 	k2, err := createCompositeKey("k", []string{"2"})
 	assert.NoError(t, err)
 
-	err = kvstore.Put(k1, &stuff{"santa", 1})
+	err = kvstore.Put(context.Background(), k1, &stuff{"santa", 1})
 	assert.NoError(t, err)
 
 	val := &stuff{}
-	err = kvstore.Get(k1, val)
+	err = kvstore.Get(context.Background(), k1, val)
 	assert.NoError(t, err)
 	assert.Equal(t, &stuff{"santa", 1}, val)
 
-	err = kvstore.Put(k2, &stuff{"claws", 2})
+	err = kvstore.Put(context.Background(), k2, &stuff{"claws", 2})
 	assert.NoError(t, err)
 
 	val = &stuff{}
-	err = kvstore.Get(k2, val)
+	err = kvstore.Get(context.Background(), k2, val)
 	assert.NoError(t, err)
 	assert.Equal(t, &stuff{"claws", 2}, val)
 
-	it, err := kvstore.GetByPartialCompositeID("k", []string{})
+	it, err := kvstore.GetByPartialCompositeID(context.Background(), "k", []string{})
 	assert.NoError(t, err)
 	defer utils.IgnoreErrorFunc(it.Close)
 
@@ -80,9 +81,9 @@ func testRound(t *testing.T, driver driver.Driver) {
 	}
 
 	assert.NoError(t, kvstore.Delete(k2))
-	assert.False(t, kvstore.Exists(k2))
+	assert.False(t, kvstore.Exists(context.Background(), k2))
 	val = &stuff{}
-	err = kvstore.Get(k2, val)
+	err = kvstore.Get(context.Background(), k2, val)
 	assert.Error(t, err)
 
 	for ctr := 0; it.HasNext(); ctr++ {
@@ -103,13 +104,13 @@ func testRound(t *testing.T, driver driver.Driver) {
 	}
 	k, err := sanitizer.Encode(hash.Hashable("Hello World").RawString())
 	assert.NoError(t, err)
-	assert.NoError(t, kvstore.Put(k, val))
-	assert.True(t, kvstore.Exists(k))
+	assert.NoError(t, kvstore.Put(context.Background(), k, val))
+	assert.True(t, kvstore.Exists(context.Background(), k))
 	val2 := &stuff{}
-	assert.NoError(t, kvstore.Get(k, val2))
+	assert.NoError(t, kvstore.Get(context.Background(), k, val2))
 	assert.Equal(t, val, val2)
 	assert.NoError(t, kvstore.Delete(k))
-	assert.False(t, kvstore.Exists(k))
+	assert.False(t, kvstore.Exists(context.Background(), k))
 }
 
 func createCompositeKey(objectType string, attributes []string) (string, error) {
@@ -133,7 +134,7 @@ func testParallelWrites(t *testing.T, driver driver.Driver) {
 		go func(i int) {
 			k1, err := createCompositeKey("parallel_key_1_", []string{fmt.Sprintf("%d", i)})
 			assert.NoError(t, err)
-			err = kvstore.Put(k1, &stuff{"santa", i})
+			err = kvstore.Put(context.Background(), k1, &stuff{"santa", i})
 			assert.NoError(t, err)
 			defer wg.Done()
 		}(i)
@@ -147,7 +148,7 @@ func testParallelWrites(t *testing.T, driver driver.Driver) {
 	assert.NoError(t, err)
 	for i := 0; i < n; i++ {
 		go func(i int) {
-			err := kvstore.Put(k1, &stuff{"santa", 1})
+			err := kvstore.Put(context.Background(), k1, &stuff{"santa", 1})
 			assert.NoError(t, err)
 			defer wg.Done()
 		}(i)

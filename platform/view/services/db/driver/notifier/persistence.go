@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package notifier
 
 import (
+	"context"
+
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
@@ -93,16 +95,16 @@ func (db *UnversionedPersistenceNotifier) DeleteStates(namespace driver2.Namespa
 	return errs
 }
 
-func (db *UnversionedPersistenceNotifier) GetState(namespace driver2.Namespace, key driver2.PKey) (driver2.RawValue, error) {
-	return db.Persistence.GetState(namespace, key)
+func (db *UnversionedPersistenceNotifier) GetState(ctx context.Context, namespace driver2.Namespace, key driver2.PKey) (driver2.RawValue, error) {
+	return db.Persistence.GetState(ctx, namespace, key)
 }
 
-func (db *UnversionedPersistenceNotifier) GetStateRangeScanIterator(namespace driver2.Namespace, startKey, endKey driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
-	return db.Persistence.GetStateRangeScanIterator(namespace, startKey, endKey)
+func (db *UnversionedPersistenceNotifier) GetStateRangeScanIterator(ctx context.Context, namespace driver2.Namespace, startKey, endKey driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
+	return db.Persistence.GetStateRangeScanIterator(ctx, namespace, startKey, endKey)
 }
 
-func (db *UnversionedPersistenceNotifier) GetStateSetIterator(ns driver2.Namespace, keys ...driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
-	return db.Persistence.GetStateSetIterator(ns, keys...)
+func (db *UnversionedPersistenceNotifier) GetStateSetIterator(ctx context.Context, ns driver2.Namespace, keys ...driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
+	return db.Persistence.GetStateSetIterator(ctx, ns, keys...)
 }
 
 func (db *UnversionedPersistenceNotifier) Close() error { return db.Persistence.Close() }

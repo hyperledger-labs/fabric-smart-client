@@ -30,9 +30,9 @@ const (
 var logger = logging.MustGetLogger()
 
 type KVS interface {
-	Exists(id string) bool
-	Put(id string, state interface{}) error
-	Get(id string, state interface{}) error
+	Exists(ctx context.Context, id string) bool
+	Put(ctx context.Context, id string, state interface{}) error
+	Get(ctx context.Context, id string, state interface{}) error
 }
 
 type service struct {
