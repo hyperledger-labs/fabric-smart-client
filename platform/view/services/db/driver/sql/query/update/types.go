@@ -32,6 +32,6 @@ type whereQuery interface {
 	// Format composes the query and the params to pass to the DB
 	Format(common.CondInterpreter) (string, []common.Param)
 
-	// FormatWithOffset composes the query and the params to pass to the DB with an offset for the numbered params
-	FormatWithOffset(common.CondInterpreter, *int) (string, []common.Param)
+	// FormatTo composes the query and the params to pass to the DB with an offset for the numbered params
+	FormatTo(common.CondInterpreter, common.Builder)
 }

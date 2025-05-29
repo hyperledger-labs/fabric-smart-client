@@ -10,7 +10,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -59,46 +58,38 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 		return nil
 	}
 
-	params := make([]any, 0)
-	queryBuilder := strings.Builder{}
-	queryBuilder.WriteString(`
+	sb := common2.NewBuilder().
+		WriteString(`
 		BEGIN;
-	`)
+`)
 
 	if len(txIDs) > 0 {
-		q, ps := db.SetStatusesBusy(txIDs, len(params)+1)
-		params = append(params, ps...)
-		queryBuilder.WriteString(q)
-		queryBuilder.WriteRune(';')
+		db.SetStatusesBusy(txIDs, sb)
+		sb.WriteRune(';')
 	}
 
 	if len(writes) > 0 || len(metaWrites) > 0 {
-		q, ps, err := db.UpsertStates(writes, metaWrites, len(params)+1)
-		if err != nil {
+		if err := db.UpsertStates(writes, metaWrites, sb); err != nil {
 			return err
 		}
-		params = append(params, ps...)
-		queryBuilder.WriteString(q)
-		queryBuilder.WriteRune(';')
+		sb.WriteRune(';')
 	}
 
 	if len(txIDs) > 0 {
-		q, ps := db.SetStatusesValid(txIDs, len(params)+1)
-		params = append(params, ps...)
-		queryBuilder.WriteString(q)
-		queryBuilder.WriteRune(';')
+		db.SetStatusesValid(txIDs, sb)
+		sb.WriteRune(';')
 	}
 
-	queryBuilder.WriteString(`
+	sb.WriteString(`
 		COMMIT;
-	`)
+`)
 
-	query := queryBuilder.String()
+	query, args := sb.Build()
 
 	logger.Debug(query, txIDs, logging.Keys(writes))
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
-	if _, err := db.writeDB.Exec(query, params...); err != nil {
+	if _, err := db.writeDB.Exec(query, args...); err != nil {
 		return errors.Wrapf(err, "failed to store writes and metawrites for %d txs", len(txIDs))
 	}
 	return nil

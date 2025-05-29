@@ -41,6 +41,6 @@ type onConflictQuery interface {
 	// Format composes the query and the params to pass to the DB
 	Format() (string, []common.Param)
 
-	// FormatWithOffset composes the query and the params to pass to the DB with an offset for the numbered params
-	FormatWithOffset(*int) (string, []common.Param)
+	// FormatTo composes the query and the params to pass to the DB with an offset for the numbered params
+	FormatTo(common.Builder)
 }

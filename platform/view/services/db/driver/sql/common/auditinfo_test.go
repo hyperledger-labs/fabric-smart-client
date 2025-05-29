@@ -26,7 +26,7 @@ func TestGetAuditInfo(t *testing.T) {
 
 	input, output := view.Identity("an_id"), []byte("some_result")
 	mockDB.
-		ExpectQuery("SELECT audit_info FROM audit_info AS audit_info WHERE id = \\$1").
+		ExpectQuery("SELECT audit_info FROM audit_info WHERE id = \\$1").
 		WithArgs(input.UniqueID()).
 		WillReturnRows(mockDB.NewRows([]string{"audit_info"}).AddRow(output))
 

@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package _delete
 
 import (
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 )
@@ -32,18 +31,17 @@ func (q *query) Where(where cond.Condition) whereQuery {
 }
 
 func (q *query) Format(ci common.CondInterpreter) (string, []common.Param) {
-	return q.FormatWithOffset(ci, common2.CopyPtr(1))
+	sb := common.NewBuilder()
+	q.FormatTo(ci, sb)
+	return sb.Build()
 }
 
-func (q *query) FormatWithOffset(ci common.CondInterpreter, pc *int) (string, []common.Param) {
-	sb := common.NewBuilderWithOffset(pc).
-		WriteString("DELETE FROM ").
+func (q *query) FormatTo(ci common.CondInterpreter, sb common.Builder) {
+	sb.WriteString("DELETE FROM ").
 		WriteString(string(q.table))
 
 	if q.where != nil && q.where != cond.AlwaysTrue {
 		sb.WriteString(" WHERE ").
 			WriteConditionSerializable(q.where, ci)
 	}
-
-	return sb.Build()
 }

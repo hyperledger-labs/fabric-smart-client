@@ -35,42 +35,42 @@ var testMatrix = []testCase{
 		expectedParams: []common.Param{1},
 	},
 	{
-		condition:      cond.Cmp(common.NewAliasedTable("tab1").Field("id"), ">", common.NewAliasedTable("tab2").Field("id2")),
+		condition:      cond.Cmp(common.NewTable("tab1").Field("id"), ">", common.NewTable("tab2").Field("id2")),
 		expectedQuery:  "tab1.id > tab2.id2",
 		expectedParams: []common.Param{},
 	},
 	{
-		condition:      cond.CmpVal(common.NewAliasedTable("tab").Field("id"), "=", 10),
+		condition:      cond.CmpVal(common.NewTable("tab").Field("id"), "=", 10),
 		expectedQuery:  "tab.id = $0",
 		expectedParams: []common.Param{10},
 	},
 	{
 		condition: cond.And(
-			cond.Cmp(common.NewAliasedTable("tab1").Field("id"), ">", common.NewAliasedTable("tab2").Field("id2")),
-			cond.CmpVal(common.NewAliasedTable("tab").Field("id"), "=", 10),
+			cond.Cmp(common.NewTable("tab1").Field("id"), ">", common.NewTable("tab2").Field("id2")),
+			cond.CmpVal(common.NewTable("tab").Field("id"), "=", 10),
 		),
 		expectedQuery:  "(tab1.id > tab2.id2) AND (tab.id = $0)",
 		expectedParams: []common.Param{10},
 	},
 	{
-		condition:      cond.InTuple([]common.Serializable{common.NewAliasedTable("tab").Field("id")}, []cond.Tuple{{10}, {20}, {30}}),
+		condition:      cond.InTuple([]common.Serializable{common.NewTable("tab").Field("id")}, []cond.Tuple{{10}, {20}, {30}}),
 		expectedQuery:  "((tab.id = $0)) OR ((tab.id = $1)) OR ((tab.id = $2))",
 		expectedParams: []common.Param{10, 20, 30},
 	},
 	{
-		condition:      cond.InTuple([]common.Serializable{common.NewAliasedTable("tab").Field("id"), common.NewAliasedTable("tab").Field("id2")}, []cond.Tuple{{10, "a"}, {20, "b"}, {30, "c"}}),
+		condition:      cond.InTuple([]common.Serializable{common.NewTable("tab").Field("id"), common.NewTable("tab").Field("id2")}, []cond.Tuple{{10, "a"}, {20, "b"}, {30, "c"}}),
 		expectedQuery:  "((tab.id = $0) AND (tab.id2 = $1)) OR ((tab.id = $2) AND (tab.id2 = $3)) OR ((tab.id = $4) AND (tab.id2 = $5))",
 		expectedParams: []common.Param{10, "a", 20, "b", 30, "c"},
 	},
 	{
 		condition:      cond.OlderThan(common.FieldName("field"), 5*time.Minute),
-		expectedQuery:  "field < NOW() - INTERVAL '$0 seconds'",
-		expectedParams: []common.Param{300},
+		expectedQuery:  "field < NOW() - INTERVAL '300 seconds'",
+		expectedParams: []common.Param{},
 	},
 	{
 		condition:      cond.AfterNext(common.FieldName("field"), 10*time.Minute),
-		expectedQuery:  "field > NOW() + INTERVAL '$0 seconds'",
-		expectedParams: []common.Param{600},
+		expectedQuery:  "field > NOW() + INTERVAL '600 seconds'",
+		expectedParams: []common.Param{},
 	},
 	{
 		condition:      cond.InPast(common.FieldName("field")),

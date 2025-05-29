@@ -29,7 +29,7 @@ func TestSelectSimple(t *testing.T) {
 		Format(postgres.NewConditionInterpreter())
 
 	Expect(query).To(Equal("SELECT id, name " +
-		"FROM my_table AS my_table " +
+		"FROM my_table " +
 		"WHERE my_table.id > $1 " +
 		"ORDER BY id ASC " +
 		"LIMIT $2 " +
@@ -40,7 +40,7 @@ func TestSelectSimple(t *testing.T) {
 func TestSelectJoin(t *testing.T) {
 	RegisterTestingT(t)
 
-	myTable, yourTable, theirTable := q.Table("my_table"), q.Table("your_table"), q.Table("their_table")
+	myTable, yourTable, theirTable := q.Table("my_table"), q.Table("your_table"), q.AliasedTable("their_table", "tt")
 	query, params := q.Select().Fields(myTable.Field("name"), yourTable.Field("id")).
 		From(myTable.
 			Join(yourTable, cond.Cmp(myTable.Field("id"), "=", yourTable.Field("my_id"))).
@@ -52,9 +52,9 @@ func TestSelectJoin(t *testing.T) {
 		Format(postgres.NewConditionInterpreter())
 
 	Expect(query).To(Equal("SELECT my_table.name, your_table.id " +
-		"FROM my_table AS my_table " +
-		"LEFT JOIN your_table AS your_table ON my_table.id = your_table.my_id " +
-		"LEFT JOIN their_table AS their_table ON my_table.id > their_table.their_id " +
+		"FROM my_table " +
+		"LEFT JOIN your_table ON my_table.id = your_table.my_id " +
+		"LEFT JOIN their_table AS tt ON my_table.id > tt.their_id " +
 		"WHERE my_table.id > $1 " +
 		"ORDER BY your_table.date DESC " +
 		"LIMIT $2 " +
