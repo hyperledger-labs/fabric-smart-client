@@ -62,23 +62,28 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	}
 
 	if len(txIDs) > 0 {
-		query, params := db.SetStatusesBusy(txIDs, 1)
-		if err := execOrRollback(tx, query, params); err != nil {
+		sb := common2.NewBuilder()
+		db.SetStatusesBusy(txIDs, sb)
+		query, args := sb.Build()
+		if err := execOrRollback(tx, query, args); err != nil {
 			return errors.Wrapf(err, "failed setting tx to busy")
 		}
 	}
 	if len(writes) > 0 || len(metaWrites) > 0 {
-		query, params, err := db.UpsertStates(writes, metaWrites, 1)
-		if err != nil {
+		sb := common2.NewBuilder()
+		if err := db.UpsertStates(writes, metaWrites, sb); err != nil {
 			return err
 		}
-		if err := execOrRollback(tx, query, params); err != nil {
+		query, args := sb.Build()
+		if err := execOrRollback(tx, query, args); err != nil {
 			return errors.Wrapf(err, "failed writing state")
 		}
 	}
 	if len(txIDs) > 0 {
-		query, params := db.SetStatusesValid(txIDs, 1)
-		if err := execOrRollback(tx, query, params); err != nil {
+		sb := common2.NewBuilder()
+		db.SetStatusesValid(txIDs, sb)
+		query, args := sb.Build()
+		if err := execOrRollback(tx, query, args); err != nil {
 			return errors.Wrapf(err, "failed setting tx to valid")
 		}
 	}

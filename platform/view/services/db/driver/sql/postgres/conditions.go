@@ -7,11 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
+	"math"
+	"strconv"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 )
+
+var signs = map[bool]rune{true: '+', false: '-'}
 
 func NewConditionInterpreter() *interpreter {
 	return &interpreter{}
@@ -24,14 +28,11 @@ func (i *interpreter) TimeOffset(duration time.Duration, sb common.Builder) {
 	if duration == 0 {
 		return
 	}
-	if duration < 0 {
-		duration *= -1
-		sb.WriteString(" -")
-	} else {
-		sb.WriteString(" +")
-	}
-	sb.WriteString(" INTERVAL '").
-		WriteParam(int(duration.Seconds())).
+
+	sb.WriteRune(' ').
+		WriteRune(signs[duration > 0]).
+		WriteString(" INTERVAL '").
+		WriteString(strconv.Itoa(int(math.Abs(duration.Seconds())))).
 		WriteString(" seconds'")
 }
 

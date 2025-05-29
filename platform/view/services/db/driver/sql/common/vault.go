@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/pagination"
 	"go.opentelemetry.io/otel/trace"
@@ -31,7 +31,7 @@ type VaultTables struct {
 	StatusTable string
 }
 
-func NewVaultStore(writeDB WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci common2.CondInterpreter, pi common2.PagInterpreter, sanitizer Sanitizer, il IsolationLevelMapper) *VaultStore {
+func NewVaultStore(writeDB WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci common.CondInterpreter, pi common.PagInterpreter, sanitizer Sanitizer, il IsolationLevelMapper) *VaultStore {
 	vaultSanitizer := newSanitizer(sanitizer)
 	return &VaultStore{
 		vaultReader: &vaultReader{
@@ -57,8 +57,8 @@ type VaultStore struct {
 	errorWrapper driver2.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
-	ci           common2.CondInterpreter
-	pi           common2.PagInterpreter
+	ci           common.CondInterpreter
+	pi           common.PagInterpreter
 	GlobalLock   sync.RWMutex
 	sanitizer    *sanitizer
 	il           IsolationLevelMapper
@@ -138,15 +138,15 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 	span.AddEvent("Start set statuses")
 	defer span.AddEvent("End set statuses")
 
-	rows := make([]common2.Tuple, len(txIDs))
+	rows := make([]common.Tuple, len(txIDs))
 	for i, txID := range txIDs {
-		rows[i] = common2.Tuple{txID, code, message}
+		rows[i] = common.Tuple{txID, code, message}
 	}
 
 	query, params := q.InsertInto(db.tables.StatusTable).
 		Fields("tx_id", "code", "message").
 		Rows(rows).
-		OnConflict([]common2.FieldName{"tx_id"},
+		OnConflict([]common.FieldName{"tx_id"},
 			q.SetValue("code", code),
 			q.SetValue("message", message),
 		).
@@ -160,44 +160,45 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 	return nil
 }
 
-func (db *VaultStore) SetStatusesBusy(txIDs []driver.TxID, offset int) (string, []any) {
-	rows := make([]common2.Tuple, len(txIDs))
+func (db *VaultStore) SetStatusesBusy(txIDs []driver.TxID, sb common.Builder) {
+	rows := make([]common.Tuple, len(txIDs))
 	for i, txID := range txIDs {
-		rows[i] = common2.Tuple{txID, driver.Busy}
+		rows[i] = common.Tuple{txID, driver.Busy}
 	}
 
-	return q.InsertInto(db.tables.StatusTable).
+	q.InsertInto(db.tables.StatusTable).
 		Fields("tx_id", "code").
 		Rows(rows).
-		OnConflict([]common2.FieldName{"tx_id"}, q.SetValue("code", driver.Busy)).
-		FormatWithOffset(&offset)
+		OnConflict([]common.FieldName{"tx_id"}, q.SetValue("code", driver.Busy)).
+		FormatTo(sb)
 }
 
-func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaWrites, offset int) (string, []any, error) {
+func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaWrites, sb common.Builder) error {
 	states, err := db.convertStateRows(writes, metaWrites)
 	if err != nil {
-		return "", nil, err
+		return err
 	}
-	query, params := q.InsertInto(db.tables.StateTable).
+	q.InsertInto(db.tables.StateTable).
 		Fields("ns", "pkey", "val", "kversion", "metadata").
 		Rows(states).
-		OnConflict([]common2.FieldName{"ns", "pkey"},
+		OnConflict([]common.FieldName{"ns", "pkey"},
 			q.OverwriteValue("val"),
 			q.OverwriteValue("kversion"),
 			q.OverwriteValue("metadata"),
 		).
-		FormatWithOffset(&offset)
-	return query, params, nil
+		FormatTo(sb)
+	return nil
 }
 
-func (db *VaultStore) SetStatusesValid(txIDs []driver.TxID, offset int) (string, []any) {
-	return q.Update(db.tables.StatusTable).
+func (db *VaultStore) SetStatusesValid(txIDs []driver.TxID, sb common.Builder) {
+	q.Update(db.tables.StatusTable).
 		Set("code", driver.Valid).
 		Where(cond.In("tx_id", txIDs...)).
-		FormatWithOffset(db.ci, &offset)
+		FormatTo(db.ci, sb)
 }
-func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.MetaWrites) ([]common2.Tuple, error) {
-	states := make([]common2.Tuple, 0, len(writes))
+
+func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.MetaWrites) ([]common.Tuple, error) {
+	states := make([]common.Tuple, 0, len(writes))
 	for ns, write := range writes {
 		metaWrite, ok := metaWrites[ns]
 		if !ok {
@@ -230,7 +231,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 			if err != nil {
 				return nil, err
 			}
-			states = append(states, common2.Tuple{ns, pkey, val.Raw, val.Version, metadata})
+			states = append(states, common.Tuple{ns, pkey, val.Raw, val.Version, metadata})
 		}
 	}
 
@@ -256,7 +257,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 			if err != nil {
 				return nil, err
 			}
-			states = append(states, common2.Tuple{ns, pkey, []byte{}, metaVal.Version, metadata})
+			states = append(states, common.Tuple{ns, pkey, []byte{}, metaVal.Version, metadata})
 
 		}
 	}
@@ -352,8 +353,8 @@ func (db *txVaultReader) Done() error {
 
 type vaultReader struct {
 	readDB    dbReader
-	ci        common2.CondInterpreter
-	pi        common2.PagInterpreter
+	ci        common.CondInterpreter
+	pi        common.PagInterpreter
 	sanitizer *sanitizer
 	tables    VaultTables
 }
@@ -448,22 +449,22 @@ func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_last")
 	defer span.AddEvent("end_get_last")
-	it, err := db.queryStatus(IsLast(common2.TableName(db.tables.StatusTable)), pagination.None())
+	it, err := db.queryStatus(IsLast(common.TableName(db.tables.StatusTable)), pagination.None())
 	if err != nil {
 		return nil, err
 	}
 	return collections.GetUnique(it)
 }
 
-func IsLast(tableName common2.TableName) *isLast {
+func IsLast(tableName common.TableName) *isLast {
 	return &isLast{tableName: tableName}
 }
 
 type isLast struct {
-	tableName common2.TableName
+	tableName common.TableName
 }
 
-func (c *isLast) WriteString(_ common2.CondInterpreter, sb common2.Builder) {
+func (c *isLast) WriteString(_ common.CondInterpreter, sb common.Builder) {
 	sb.WriteString("pos=(SELECT max(pos) FROM ").
 		WriteString(string(c.tableName)).WriteString(" WHERE code!=").
 		WriteParam(driver.Busy).

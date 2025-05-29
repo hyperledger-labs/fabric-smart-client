@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package _insert
 
 import (
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 )
 
@@ -64,12 +63,13 @@ func (q *query) OnConflictDoNothing() onConflictQuery {
 }
 
 func (q *query) Format() (string, []common.Param) {
-	return q.FormatWithOffset(common2.CopyPtr(1))
+	sb := common.NewBuilder()
+	q.FormatTo(sb)
+	return sb.Build()
 }
 
-func (q *query) FormatWithOffset(pc *int) (string, []common.Param) {
-	sb := common.NewBuilderWithOffset(pc).
-		WriteString("INSERT INTO ").
+func (q *query) FormatTo(sb common.Builder) {
+	sb.WriteString("INSERT INTO ").
 		WriteString(string(q.table)).
 		WriteString(" (").
 		WriteSerializables(common.ToSerializables(q.fields)...).
@@ -77,7 +77,8 @@ func (q *query) FormatWithOffset(pc *int) (string, []common.Param) {
 		WriteTuples(q.rows)
 
 	if q.ignoreConflict {
-		return sb.WriteString(" ON CONFLICT DO NOTHING").Build()
+		sb.WriteString(" ON CONFLICT DO NOTHING")
+		return
 	}
 	if q.conflictFields != nil {
 		sb.WriteString(" ON CONFLICT (").
@@ -85,5 +86,4 @@ func (q *query) FormatWithOffset(pc *int) (string, []common.Param) {
 			WriteString(") DO UPDATE SET ").
 			WriteSerializables(common.ToSerializables(q.onConflicts)...)
 	}
-	return sb.Build()
 }

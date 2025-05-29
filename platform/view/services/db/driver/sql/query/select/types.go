@@ -49,8 +49,8 @@ type paginatedQuery interface {
 	// FormatPaginated composes the query and the params to pass to the DB
 	FormatPaginated(common.CondInterpreter, common.PagInterpreter) (string, []common.Param)
 
-	// FormatPaginatedWithOffset composes the query and the params to pass to the DB with an offset for the numbered params
-	FormatPaginatedWithOffset(ci common.CondInterpreter, pi common.PagInterpreter, pc *int) (string, []any)
+	// FormatPaginatedTo composes the query and the params to pass to the DB with an offset for the numbered params
+	FormatPaginatedTo(common.CondInterpreter, common.PagInterpreter, common.Builder)
 }
 
 // orderByQuery is the query state after ORDER BY
@@ -77,6 +77,6 @@ type offsetQuery interface {
 	// Format composes the query and the params to pass to the DB
 	Format(common.CondInterpreter) (string, []common.Param)
 
-	// FormatWithOffset composes the query and the params to pass to the DB with an offset for the numbered params
-	FormatWithOffset(common.CondInterpreter, *int) (string, []common.Param)
+	// FormatTo composes the query and the params to pass to the DB with an offset for the numbered params
+	FormatTo(common.CondInterpreter, common.Builder)
 }

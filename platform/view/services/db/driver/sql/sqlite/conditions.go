@@ -7,11 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package sqlite
 
 import (
+	"math"
+	"strconv"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 )
+
+var signs = map[bool]rune{true: '+', false: '-'}
 
 func NewConditionInterpreter() common.CondInterpreter {
 	return &interpreter{}
@@ -25,14 +29,9 @@ func (i *interpreter) TimeOffset(duration time.Duration, sb common.Builder) {
 		sb.WriteRune(')')
 		return
 	}
-	sb.WriteString(", '")
-	if duration < 0 {
-		duration *= -1
-		sb.WriteRune('-')
-	} else {
-		sb.WriteRune('+')
-	}
-	sb.WriteParam(int(duration.Seconds())).
+	sb.WriteString(", '").
+		WriteRune(signs[duration > 0]).
+		WriteString(strconv.Itoa(int(math.Abs(duration.Seconds())))).
 		WriteString(" seconds')")
 }
 

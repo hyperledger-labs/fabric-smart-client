@@ -8,7 +8,6 @@ package _select
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 )
@@ -79,16 +78,18 @@ func (q *query) Format(ci common.CondInterpreter) (string, []any) {
 	return q.FormatPaginated(ci, nil)
 }
 
-func (q *query) FormatWithOffset(ci common.CondInterpreter, pc *int) (string, []any) {
-	return q.FormatPaginatedWithOffset(ci, nil, pc)
+func (q *query) FormatTo(ci common.CondInterpreter, sb common.Builder) {
+	q.FormatPaginatedTo(ci, nil, sb)
 }
 
 func (q *query) FormatPaginated(ci common.CondInterpreter, pi common.PagInterpreter) (string, []any) {
-	return q.FormatPaginatedWithOffset(ci, pi, common2.CopyPtr(1))
+	sb := common.NewBuilder()
+	q.FormatPaginatedTo(ci, pi, sb)
+	return sb.Build()
 }
 
-func (q *query) FormatPaginatedWithOffset(ci common.CondInterpreter, pi common.PagInterpreter, pc *int) (string, []any) {
-	sb := common.NewBuilderWithOffset(pc).WriteString("SELECT ")
+func (q *query) FormatPaginatedTo(ci common.CondInterpreter, pi common.PagInterpreter, sb common.Builder) {
+	sb.WriteString("SELECT ")
 
 	if q.distinct {
 		sb.WriteString("DISTINCT ")
@@ -112,7 +113,7 @@ func (q *query) FormatPaginatedWithOffset(ci common.CondInterpreter, pi common.P
 
 	if q.pagination != nil {
 		pi.Interpret(q.pagination, sb)
-		return sb.Build()
+		return
 	}
 
 	if q.limit > 0 {
@@ -122,6 +123,4 @@ func (q *query) FormatPaginatedWithOffset(ci common.CondInterpreter, pi common.P
 	if q.offset > 0 {
 		sb.WriteString(" OFFSET ").WriteParam(q.offset)
 	}
-
-	return sb.Build()
 }

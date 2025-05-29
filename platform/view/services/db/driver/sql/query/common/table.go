@@ -9,10 +9,14 @@ package common
 type TableName string
 
 // TODO: Support new alias per table in case a table is selected twice in the same query (for different joins)
-func NewAliasedTable(name TableName) aliasedTable {
+func NewTable(name TableName) aliasedTable {
+	return NewAliasedTable(name, TableAlias(name))
+}
+
+func NewAliasedTable(name TableName, alias TableAlias) aliasedTable {
 	return aliasedTable{
 		name:  name,
-		alias: tableAlias(name),
+		alias: alias,
 	}
 }
 
@@ -26,16 +30,16 @@ type JoinedTable interface {
 	Join(Table, ConditionSerializable) JoinedTable
 }
 
-type tableAlias string
+type TableAlias string
 
 type aliasedTable struct {
 	name  TableName
-	alias tableAlias
+	alias TableAlias
 }
 
 func (a aliasedTable) WriteString(_ CondInterpreter, sb Builder) {
 	sb.WriteString(string(a.name))
-	if len(a.alias) > 0 {
+	if len(a.alias) > 0 && string(a.alias) != string(a.name) {
 		sb.WriteString(" AS ").WriteString(string(a.alias))
 	}
 }
@@ -44,7 +48,7 @@ func (a aliasedTable) Field(name FieldName) Field {
 	return field{table: &a, name: name}
 }
 
-func (a aliasedTable) Alias() tableAlias { return a.alias }
+func (a aliasedTable) Alias() TableAlias { return a.alias }
 
 func (a aliasedTable) Join(other Table, ons ConditionSerializable) JoinedTable {
 	return joinedTable{

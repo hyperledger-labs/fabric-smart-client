@@ -21,7 +21,12 @@ func Select() _select.Query { return _select.NewQuery(false) }
 func SelectDistinct() _select.Query { return _select.NewQuery(true) }
 
 // Table creates a Table instance without assigning any alias
-func Table(name string) common.Table { return common.NewAliasedTable(common.TableName(name)) }
+func Table(name string) common.Table { return common.NewTable(common.TableName(name)) }
+
+// AliasedTable creates a Table instance assigning any alias
+func AliasedTable(name, alias string) common.Table {
+	return common.NewAliasedTable(common.TableName(name), common.TableAlias(alias))
+}
 
 // Asc creates an ORDER BY field ASC clause
 func Asc(name common.Field) _select.OrderBy { return _select.Asc(name) }
