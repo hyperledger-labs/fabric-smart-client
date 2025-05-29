@@ -22,6 +22,7 @@ const (
 	idemixgenCMD         = "idemixgen"
 	ordererCMD           = "orderer"
 	peerCMD              = "peer"
+	osnadminCMD          = "osnadmin"
 )
 
 func pathExists(path string) bool {
