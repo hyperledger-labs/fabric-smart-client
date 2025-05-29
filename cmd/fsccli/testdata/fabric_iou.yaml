@@ -65,28 +65,26 @@ topologies:
     - Org1
     - Org2
     - Org3
-  system_channel:
-    name: systemchannel
-    profile: OrgsOrdererGenesis
   channels:
   - name: testchannel
     profile: OrgsChannel
     default: true
   consensus:
-    type: solo
+    type: etcdraft
   orderers:
   - name: orderer
     organization: OrdererOrg
   profiles:
-  - name: OrgsOrdererGenesis
-    orderers:
-    - orderer
   - name: OrgsChannel
+    orderers:
+      - orderer
     consortium: SampleConsortium
     organizations:
     - Org1
     - Org2
     - Org3
+    app_capabilities:
+      - V2_5
     policies:
     - name: Readers
       type: ImplicitMeta

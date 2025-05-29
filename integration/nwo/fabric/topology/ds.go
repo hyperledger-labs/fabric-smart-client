@@ -58,15 +58,7 @@ type Consortium struct {
 // Consensus indicates the orderer types (we only support SOLO for testing)
 type Consensus struct {
 	Type                        string `yaml:"type,omitempty"`
-	BootstrapMethod             string `yaml:"bootstrap_method,omitempty"`
 	ChannelParticipationEnabled bool   `yaml:"channel_participation_enabled,omitempty"`
-}
-
-// The SystemChannel declares the name of the network system channel and its
-// associated configtxgen profile name.
-type SystemChannel struct {
-	Name    string `yaml:"name,omitempty"`
-	Profile string `yaml:"profile,omitempty"`
 }
 
 // Channel associates a channel name with a configtxgen profile name.
@@ -191,4 +183,20 @@ type Profile struct {
 	AppCapabilities     []string  `yaml:"app_capabilities,omitempty"`
 	ChannelCapabilities []string  `yaml:"channel_capabilities,omitempty"`
 	Policies            []*Policy `yaml:"policies,omitempty"`
+	Blocks              *Blocks   `yaml:"blocks,omitempty"`
+	SmartBFT            *SmartBFT `yaml:"smart_bft,omitempty"`
+}
+
+// Blocks defines block cutting config.
+type Blocks struct {
+	BatchTimeout      int `yaml:"batch_timeout,omitempty"`
+	MaxMessageCount   int `yaml:"max_message_count,omitempty"`
+	AbsoluteMaxBytes  int `yaml:"absolute_max_bytes,omitempty"`
+	PreferredMaxBytes int `yaml:"preferred_max_bytes,omitempty"`
+}
+
+// SmartBFT defines the configuration of smartBFT options.
+type SmartBFT struct {
+	LeaderHeartbeatTimeout int `yaml:"leader_heartbeat_timeout,omitempty"`
+	LeaderHeartbeatCount   int `yaml:"leader_heartbeat_count,omitempty"`
 }
