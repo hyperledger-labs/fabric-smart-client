@@ -43,18 +43,23 @@ type Packager interface {
 type PackagerFactory = func() Packager
 
 type Network struct {
-	Context            api.Context
-	topology           *topology.Topology
-	RootDir            string
-	Prefix             string
-	Builder            *Builder
-	ExternalBuilders   []fabricconfig.ExternalBuilder
-	NetworkID          string
-	EventuallyTimeout  time.Duration
-	MetricsProvider    string
-	StatsdEndpoint     string
-	TLSEnabled         bool
-	ClientAuthRequired bool
+	Context                  api.Context
+	topology                 *topology.Topology
+	RootDir                  string
+	Prefix                   string
+	Builder                  *Builder
+	ExternalBuilders         []fabricconfig.ExternalBuilder
+	NetworkID                string
+	EventuallyTimeout        time.Duration
+	MetricsProvider          string
+	StatsdEndpoint           string
+	TLSEnabled               bool
+	ClientAuthRequired       bool
+	GatewayEnabled           bool
+	OrdererReplicationPolicy string
+	PeerDeliveryClientPolicy string
+	UseWriteBatch            bool
+	UseGetMultipleKeys       bool
 
 	Logging           *topology.Logging
 	PvtTxSupport      bool
@@ -65,7 +70,6 @@ type Network struct {
 	FabTokenCCSupport bool
 	GRPCLogging       bool
 	Organizations     []*topology.Organization
-	SystemChannel     *topology.SystemChannel
 	Channels          []*topology.Channel
 	Consensus         *topology.Consensus
 	Orderers          []*topology.Orderer
@@ -102,7 +106,6 @@ func New(reg api.Context, topology *topology.Topology, builderClient BuilderClie
 		Consensus:          topology.Consensus,
 		Orderers:           topology.Orderers,
 		Peers:              topology.Peers,
-		SystemChannel:      topology.SystemChannel,
 		Channels:           topology.Channels,
 		Profiles:           topology.Profiles,
 		Consortiums:        topology.Consortiums,
@@ -130,6 +133,7 @@ func (n *Network) GenerateConfigTree() {
 	n.CheckTopology()
 	n.GenerateCryptoConfig()
 	if len(n.Channels) != 0 {
+		// We should always have a channel no?
 		n.GenerateConfigTxConfig()
 	}
 	for _, o := range n.Orderers {
@@ -153,14 +157,8 @@ func (n *Network) GenerateArtifacts() {
 	n.bootstrapIdemix()
 	n.bootstrapExtraIdentities()
 
-	if n.SystemChannel != nil && len(n.SystemChannel.Name) != 0 {
-		sess, err = n.ConfigTxGen(n.systemChannelParams(n.SystemChannel))
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-	}
-
 	for _, c := range n.Channels {
-		sess, err = n.ConfigTxGen(n.createChannelConfig(c))
+		sess, err = n.ConfigTxGen(n.createChannelBlock(c))
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}
@@ -180,21 +178,7 @@ func (n *Network) GenerateArtifacts() {
 	}
 }
 
-func (n *Network) createChannelConfig(c *topology.Channel) common.Command {
-	if n.SystemChannel == nil {
-		return n.systemChannelParams(&topology.SystemChannel{Name: c.Name, Profile: c.Profile})
-	}
-	return commands.CreateChannelTx{
-		NetworkPrefix:         n.Prefix,
-		ChannelID:             c.Name,
-		Profile:               c.Profile,
-		BaseProfile:           c.BaseProfile,
-		ConfigPath:            filepath.Join(n.Context.RootDir(), n.Prefix),
-		OutputCreateChannelTx: n.CreateChannelTxPath(c.Name),
-	}
-}
-
-func (n *Network) systemChannelParams(c *topology.SystemChannel) commands.OutputBlock {
+func (n *Network) createChannelBlock(c *topology.Channel) common.Command {
 	return commands.OutputBlock{
 		NetworkPrefix: n.Prefix,
 		ChannelID:     c.Name,
@@ -225,8 +209,11 @@ func (n *Network) PostRun(load bool) {
 	if !load {
 		orderer := n.Orderer("orderer")
 		for _, channel := range n.Channels {
-			n.CreateAndJoinChannel(orderer, channel.Name)
-			n.UpdateChannelAnchors(orderer, channel.Name)
+			// orderer join the channel
+			n.OrdererJoinChannel(channel.Name, orderer)
+
+			// peers join the channel
+			n.JoinChannel(channel.Name, orderer, n.PeersWithChannel(channel.Name)...)
 		}
 
 		// Wait a few second to make peers discovering each other
@@ -327,4 +314,30 @@ func (n *Network) UpdateChaincode(chaincodeId string, version string, path strin
 		newCC.Chaincode.PackageFile = packageFile
 	}
 	n.DeployChaincode(newCC)
+}
+
+func (n *Network) OrdererJoinChannel(channelID string, orderer *topology.Orderer) {
+	cmd := commands.OSNAdminChannelJoin{
+		NetworkPrefix:  n.Prefix,
+		OrdererAddress: n.OrdererAddress(orderer, AdminPort),
+		ChannelID:      channelID,
+		BlockPath:      n.OutputBlockPath(channelID),
+	}
+
+	if n.TLSEnabled {
+		tlsdir := n.OrdererLocalTLSDir(orderer)
+		cmd.CAFile = filepath.Join(tlsdir, "ca.crt")
+		cmd.ClientCert = filepath.Join(tlsdir, "server.crt")
+		cmd.ClientKey = filepath.Join(tlsdir, "server.key")
+	}
+
+	sess, err := n.Osnadmin(cmd)
+
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+
+	time.Sleep(4 * time.Second)
+	// TODO: get the orderer process so we can check when the msg has been processed
+	//gomega.Eventually(ordererRunner.Err(), n.EventuallyTimeout, time.Second).Should(
+	//	gbytes.Say(fmt.Sprintf("Raft leader changed: 0 -> 1 channel=%s node=1", channelID)))
 }

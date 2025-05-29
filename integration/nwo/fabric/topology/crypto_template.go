@@ -52,11 +52,14 @@ PeerOrgs:{{ range .PeerOrgs }}
       HSM: {{ .HSM }}
     {{- end }}
     {{- end }}
-
   Specs:{{ range $w.PeersInOrg .Name }}
   - Hostname: {{ .Name }}
     SANS:
-    - {{ $w.PeerHost . }}
+    {{- with $host := $w.PeerHost . }}
+    {{- if $host }}
+    - {{ $host }}
+    {{- end }}
+    {{- end }}
     - 0.0.0.0
     - localhost
     - 127.0.0.1

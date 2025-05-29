@@ -11,8 +11,15 @@ const DefaultOrdererTemplate = `---
 General:
   ListenAddress: 0.0.0.0
   ListenPort: {{ .OrdererPort Orderer "Listen" }}
+  Throttling:
+   # Rate is the maximum rate for all clients combined.
+    Rate: 0
+   # InactivityTimeout defines the time frame after which
+   # inactive clients are pruned from memory and are not considered
+   # when allocating the budget for throttling per client.
+    InactivityTimeout: 5s
   TLS:
-    Enabled: {{ TLSEnabled }}
+    Enabled: {{ .TLSEnabled }}
     PrivateKey: {{ $w.OrdererLocalTLSDir Orderer }}/server.key
     Certificate: {{ $w.OrdererLocalTLSDir Orderer }}/server.crt
     RootCAs:
@@ -24,6 +31,7 @@ General:
     ClientPrivateKey: {{ $w.OrdererLocalTLSDir Orderer }}/server.key
     ServerCertificate: {{ $w.OrdererLocalTLSDir Orderer }}/server.crt
     ServerPrivateKey: {{ $w.OrdererLocalTLSDir Orderer }}/server.key
+    ReplicationPolicy: {{ .OrdererReplicationPolicy }}
     DialTimeout: 5s
     RPCTimeout: 7s
     ReplicationBufferSize: 20971520
@@ -35,12 +43,11 @@ General:
     ServerMinInterval: 60s
     ServerInterval: 7200s
     ServerTimeout: 20s
-  {{ if not $w.SystemChannel -}}
-  BootstrapMethod: none
-  {{ else -}}
-  BootstrapMethod: file
-  BootstrapFile: {{ $w.OrdererBootstrapFile }}
-  {{ end -}}
+  Backoff:
+    BaseDelay: 1s
+    Multiplier: 1.6
+    MaxDelay: 2m
+  BootstrapMethod: "none"
   LocalMSPDir: {{ $w.OrdererLocalMSPDir Orderer }}
   LocalMSPID: {{ ($w.Organization Orderer.Organization).MSPID }}
   Profile:
@@ -55,8 +62,6 @@ General:
         KeyStore:
   Authentication:
     TimeWindow: 15m
-Admin:
-  ListenAddress: 0.0.0.0:{{ .OrdererPort Orderer "Admin" }}
 FileLedger:
   Location: {{ .OrdererDir Orderer }}/system
 Debug:
@@ -65,12 +70,11 @@ Debug:
 Consensus:
   WALDir: {{ .OrdererDir Orderer }}/etcdraft/wal
   SnapDir: {{ .OrdererDir Orderer }}/etcdraft/snapshot
-  EvictionSuspicion: 10s
-  Type: {{ $w.Consensus.Type }}
+  EvictionSuspicion: 5s
 Operations:
   ListenAddress: 0.0.0.0:{{ .OrdererPort Orderer "Operations" }}
   TLS:
-    Enabled: false
+    Enabled: {{ .TLSEnabled }}
     PrivateKey: {{ $w.OrdererLocalTLSDir Orderer }}/server.key
     Certificate: {{ $w.OrdererLocalTLSDir Orderer }}/server.crt
     RootCAs:
@@ -81,12 +85,28 @@ Operations:
 Metrics:
   Provider: {{ .MetricsProvider }}
   Statsd:
+    {{- if .StatsdEndpoint }}
+    Network: tcp
+    Address: {{ .StatsdEndpoint }}
+    {{- else }}
     Network: udp
-    Address: {{ if .StatsdEndpoint }}{{ .StatsdEndpoint }}{{ else }}0.0.0.0:8125{{ end }}
+    Address: 0.0.0.0:8125
+    {{- end }}
     WriteInterval: 5s
     Prefix: {{ ReplaceAll (ToLower Orderer.ID) "." "_" }}
+Admin:
+  ListenAddress: 0.0.0.0:{{ .OrdererPort Orderer "Admin" }}
+  TLS:
+    Enabled: {{ .TLSEnabled }}
+    PrivateKey: {{ $w.OrdererLocalTLSDir Orderer }}/server.key
+    Certificate: {{ $w.OrdererLocalTLSDir Orderer }}/server.crt
+    RootCAs:
+    -  {{ $w.OrdererLocalTLSDir Orderer }}/ca.crt
+    ClientAuthRequired: true
+    ClientRootCAs:
+    -  {{ $w.OrdererLocalTLSDir Orderer }}/ca.crt
 {{- end }}
 ChannelParticipation:
   Enabled: true
-  MaxRequestBodySize: 100000000
+  MaxRequestBodySize: 1 MB
 `

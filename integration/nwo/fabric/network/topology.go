@@ -17,7 +17,6 @@ func NewEmptyTopology() *topology.Topology {
 		Organizations: []*topology.Organization{},
 		Consortiums:   []*topology.Consortium{},
 		Consensus:     &topology.Consensus{},
-		SystemChannel: &topology.SystemChannel{},
 		Orderers:      []*topology.Orderer{},
 		Channels:      []*topology.Channel{},
 		Profiles:      []*topology.Profile{},
