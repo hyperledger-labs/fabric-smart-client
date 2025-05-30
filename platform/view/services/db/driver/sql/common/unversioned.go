@@ -28,6 +28,7 @@ var logger = logging.MustGetLogger()
 
 type dbTransaction interface {
 	Exec(query string, args ...any) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
 type KeyValueStore struct {
@@ -113,22 +114,22 @@ func (db *KeyValueStore) Close() error {
 	return nil
 }
 
-func (db *KeyValueStore) DeleteState(ns driver2.Namespace, key driver2.PKey) error {
-	return db.DeleteStateWithTx(db.Txn, ns, key)
+func (db *KeyValueStore) DeleteState(ctx context.Context, ns driver2.Namespace, key driver2.PKey) error {
+	return db.DeleteStateWithTx(ctx, db.Txn, ns, key)
 }
 
-func (db *KeyValueStore) DeleteStateWithTx(tx dbTransaction, ns driver2.Namespace, key driver2.PKey) error {
-	if errs := db.DeleteStatesWithTx(tx, ns, key); errs != nil {
+func (db *KeyValueStore) DeleteStateWithTx(ctx context.Context, tx dbTransaction, ns driver2.Namespace, key driver2.PKey) error {
+	if errs := db.DeleteStatesWithTx(ctx, tx, ns, key); errs != nil {
 		return errs[key]
 	}
 	return nil
 }
 
-func (db *KeyValueStore) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
-	return db.DeleteStatesWithTx(db.Txn, namespace, keys...)
+func (db *KeyValueStore) DeleteStates(ctx context.Context, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	return db.DeleteStatesWithTx(ctx, db.Txn, namespace, keys...)
 }
 
-func (db *KeyValueStore) DeleteStatesWithTx(tx dbTransaction, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+func (db *KeyValueStore) DeleteStatesWithTx(ctx context.Context, tx dbTransaction, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
 	if db.IsTxnNil() {
 		logger.Debug("No ongoing transaction. Using db")
 		tx = db.writeDB
@@ -142,7 +143,7 @@ func (db *KeyValueStore) DeleteStatesWithTx(tx dbTransaction, namespace driver2.
 		Format(db.ci)
 
 	logger.Debug(query, params)
-	_, err := tx.Exec(query, params...)
+	_, err := tx.ExecContext(ctx, query, params...)
 	if err != nil {
 		errs := make(map[driver2.PKey]error)
 		for _, key := range keys {
@@ -154,22 +155,22 @@ func (db *KeyValueStore) DeleteStatesWithTx(tx dbTransaction, namespace driver2.
 	return nil
 }
 
-func (db *KeyValueStore) SetState(ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
-	return db.SetStateWithTx(db.Txn, ns, pkey, value)
+func (db *KeyValueStore) SetState(ctx context.Context, ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
+	return db.SetStateWithTx(ctx, db.Txn, ns, pkey, value)
 }
 
-func (db *KeyValueStore) SetStates(ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
-	return db.SetStatesWithTx(db.Txn, ns, kvs)
+func (db *KeyValueStore) SetStates(ctx context.Context, ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
+	return db.SetStatesWithTx(ctx, db.Txn, ns, kvs)
 }
 
-func (db *KeyValueStore) SetStateWithTx(tx dbTransaction, ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
-	if errs := db.SetStatesWithTx(tx, ns, map[driver2.PKey]driver.UnversionedValue{pkey: value}); errs != nil {
+func (db *KeyValueStore) SetStateWithTx(ctx context.Context, tx dbTransaction, ns driver2.Namespace, pkey driver2.PKey, value driver.UnversionedValue) error {
+	if errs := db.SetStatesWithTx(ctx, tx, ns, map[driver2.PKey]driver.UnversionedValue{pkey: value}); errs != nil {
 		return errs[pkey]
 	}
 	return nil
 }
 
-func (db *KeyValueStore) SetStatesWithTx(tx dbTransaction, ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
+func (db *KeyValueStore) SetStatesWithTx(ctx context.Context, tx dbTransaction, ns driver2.Namespace, kvs map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
 	if db.IsTxnNil() {
 		logger.Debug("No ongoing transaction. Using db")
 		tx = db.writeDB
@@ -191,15 +192,15 @@ func (db *KeyValueStore) SetStatesWithTx(tx dbTransaction, ns driver2.Namespace,
 
 	errs := make(map[driver2.PKey]error)
 	if len(deleted) > 0 {
-		collections.CopyMap(errs, db.DeleteStatesWithTx(tx, ns, deleted...))
+		collections.CopyMap(errs, db.DeleteStatesWithTx(ctx, tx, ns, deleted...))
 	}
 	if len(upserted) > 0 {
-		collections.CopyMap(errs, db.upsertStatesWithTx(tx, ns, upserted))
+		collections.CopyMap(errs, db.upsertStatesWithTx(ctx, tx, ns, upserted))
 	}
 	return errs
 }
 
-func (db *KeyValueStore) upsertStatesWithTx(tx dbTransaction, ns driver2.Namespace, vals map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
+func (db *KeyValueStore) upsertStatesWithTx(ctx context.Context, tx dbTransaction, ns driver2.Namespace, vals map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
 	rows := make([]common2.Tuple, 0, len(vals))
 	for pkey, val := range vals {
 		rows = append(rows, common2.Tuple{ns, pkey, val})
@@ -211,14 +212,14 @@ func (db *KeyValueStore) upsertStatesWithTx(tx dbTransaction, ns driver2.Namespa
 		Format()
 
 	logger.Debug(query, params)
-	if _, err := tx.Exec(query, params...); err != nil {
+	if _, err := tx.ExecContext(ctx, query, params...); err != nil {
 		return collections.RepeatValue(collections.Keys(vals), errors2.Wrapf(db.errorWrapper.WrapError(err), "could not upsert"))
 	}
 	return nil
 }
 
-func (db *KeyValueStore) Exec(query string, args ...any) (sql.Result, error) {
-	return db.Txn.Exec(query, args...)
+func (db *KeyValueStore) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return db.Txn.ExecContext(ctx, query, args...)
 }
 
 func (db *KeyValueStore) Stats() any {

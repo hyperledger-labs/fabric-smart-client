@@ -161,7 +161,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 	assert.Equal(t, driver.UnversionedValue{}, vv)
 
 	// add data
-	err = db.SetState(ns, key, driver.UnversionedValue("val"))
+	err = db.SetState(context.Background(), ns, key, driver.UnversionedValue("val"))
 	assert.NoError(t, err)
 
 	// get data
@@ -173,7 +173,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 	t.Logf("get state [%s] during set state tx", key)
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.SetState(ns, key, driver.UnversionedValue("val1"))
+	err = db.SetState(context.Background(), ns, key, driver.UnversionedValue("val1"))
 	assert.NoError(t, err)
 
 	vv, err = db.GetState(context.Background(), ns, key)
@@ -190,7 +190,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 	// Discard an update
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.SetState(ns, key, driver.UnversionedValue("val0"))
+	err = db.SetState(context.Background(), ns, key, driver.UnversionedValue("val0"))
 	assert.NoError(t, err)
 	err = db.Discard()
 	assert.NoError(t, err)
@@ -201,7 +201,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 	assert.Equal(t, driver.UnversionedValue("val1"), vv)
 
 	// deleteOp state
-	err = db.DeleteState(ns, key)
+	err = db.DeleteState(context.Background(), ns, key)
 	assert.NoError(t, err)
 
 	// expect state to be empty
@@ -214,10 +214,10 @@ func populateDB(t *testing.T, db driver.KeyValueStore, ns, key, keyWithSuffix st
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
 
-	err = db.SetState(ns, key, driver.UnversionedValue("bar"))
+	err = db.SetState(context.Background(), ns, key, driver.UnversionedValue("bar"))
 	assert.NoError(t, err)
 
-	err = db.SetState(ns, keyWithSuffix, driver.UnversionedValue("bar1"))
+	err = db.SetState(context.Background(), ns, keyWithSuffix, driver.UnversionedValue("bar1"))
 	assert.NoError(t, err)
 
 	err = db.Commit()
@@ -244,13 +244,13 @@ func populateForRangeQueries(t *testing.T, db driver.KeyValueStore, ns string) {
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
 
-	err = db.SetState(ns, "k2", driver.UnversionedValue("k2_value"))
+	err = db.SetState(context.Background(), ns, "k2", driver.UnversionedValue("k2_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k3", driver.UnversionedValue("k3_value"))
+	err = db.SetState(context.Background(), ns, "k3", driver.UnversionedValue("k3_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k1", driver.UnversionedValue("k1_value"))
+	err = db.SetState(context.Background(), ns, "k1", driver.UnversionedValue("k1_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k111", driver.UnversionedValue("k111_value"))
+	err = db.SetState(context.Background(), ns, "k111", driver.UnversionedValue("k111_value"))
 	assert.NoError(t, err)
 
 	err = db.Commit()
@@ -276,10 +276,10 @@ func TTestDB1(t *testing.T, db driver.KeyValueStore) {
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
 
-	err = db.DeleteState(ns, keyWithSuffix)
+	err = db.DeleteState(context.Background(), ns, keyWithSuffix)
 	assert.NoError(t, err)
 
-	err = db.DeleteState(ns, key)
+	err = db.DeleteState(context.Background(), ns, key)
 	assert.NoError(t, err)
 
 	err = db.Commit()
@@ -296,10 +296,10 @@ func TTestDB2(t *testing.T, db driver.KeyValueStore) {
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
 
-	err = db.DeleteState(ns, key)
+	err = db.DeleteState(context.Background(), ns, key)
 	assert.NoError(t, err)
 
-	err = db.DeleteState(ns, keyWithSuffix)
+	err = db.DeleteState(context.Background(), ns, keyWithSuffix)
 	assert.NoError(t, err)
 
 	err = db.Commit()
@@ -312,13 +312,13 @@ func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
 
-	err = db.SetState(ns, "k2", driver.UnversionedValue("k2_value"))
+	err = db.SetState(context.Background(), ns, "k2", driver.UnversionedValue("k2_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k3", driver.UnversionedValue("k3_value"))
+	err = db.SetState(context.Background(), ns, "k3", driver.UnversionedValue("k3_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k1", driver.UnversionedValue("k1_value"))
+	err = db.SetState(context.Background(), ns, "k1", driver.UnversionedValue("k1_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k111", driver.UnversionedValue("k111_value"))
+	err = db.SetState(context.Background(), ns, "k111", driver.UnversionedValue("k111_value"))
 	assert.NoError(t, err)
 
 	err = db.Commit()
@@ -352,29 +352,29 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 	assert.NoError(t, db.BeginUpdate())
 
-	assert.NoError(t, db.SetState(ns, "k2", driver.UnversionedValue("k2_value")))
-	assert.NoError(t, db.SetState(ns, "k3", driver.UnversionedValue("k3_value")))
-	assert.NoError(t, db.SetState(ns, "k1", driver.UnversionedValue("k1_value")))
-	assert.NoError(t, db.SetState(ns, "k111", driver.UnversionedValue("k111_value")))
+	assert.NoError(t, db.SetState(context.Background(), ns, "k2", driver.UnversionedValue("k2_value")))
+	assert.NoError(t, db.SetState(context.Background(), ns, "k3", driver.UnversionedValue("k3_value")))
+	assert.NoError(t, db.SetState(context.Background(), ns, "k1", driver.UnversionedValue("k1_value")))
+	assert.NoError(t, db.SetState(context.Background(), ns, "k111", driver.UnversionedValue("k111_value")))
 
 	assert.NoError(t, db.Commit())
 
 	var wg sync.WaitGroup
 	wg.Add(4)
 	go func() {
-		assert.NoError(t, db.SetState(ns, key, []byte("k2_value")))
+		assert.NoError(t, db.SetState(context.Background(), ns, key, []byte("k2_value")))
 		wg.Done()
 	}()
 	go func() {
-		assert.NoError(t, db.SetState(ns, key, []byte("k3_value")))
+		assert.NoError(t, db.SetState(context.Background(), ns, key, []byte("k3_value")))
 		wg.Done()
 	}()
 	go func() {
-		assert.NoError(t, db.SetState(ns, key, []byte("k1_value")))
+		assert.NoError(t, db.SetState(context.Background(), ns, key, []byte("k1_value")))
 		wg.Done()
 	}()
 	go func() {
-		assert.NoError(t, db.SetState(ns, key, []byte("k111_value")))
+		assert.NoError(t, db.SetState(context.Background(), ns, key, []byte("k111_value")))
 		wg.Done()
 	}()
 	wg.Wait()
@@ -434,7 +434,7 @@ func TTestMultiWrites(t *testing.T, db driver.KeyValueStore) {
 	wg.Add(n)
 	for i := 0; i < n; i++ {
 		go func(i int) {
-			assert.NoError(t, db.SetState(ns, key, []byte(fmt.Sprintf("TTestMultiWrites_value_%d", i))))
+			assert.NoError(t, db.SetState(context.Background(), ns, key, []byte(fmt.Sprintf("TTestMultiWrites_value_%d", i))))
 			wg.Done()
 		}(i)
 	}
@@ -489,7 +489,7 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 	} {
 		k, err := createCompositeKey(keyPrefix, comps)
 		assert.NoError(t, err)
-		err = db.SetState(ns, k, driver.UnversionedValue(k))
+		err = db.SetState(context.Background(), ns, k, driver.UnversionedValue(k))
 		assert.NoError(t, err)
 	}
 
@@ -563,7 +563,7 @@ func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
 	for name, key := range utf8 {
-		err = db.SetState(ns, string(key), key)
+		err = db.SetState(context.Background(), ns, string(key), key)
 		assert.NoError(t, err, fmt.Sprintf("%s should be stored (%v)", name, key))
 	}
 	err = db.Commit()
@@ -574,7 +574,7 @@ func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
 	for name, key := range utf8 {
-		err = db.SetState(ns, string(key), key)
+		err = db.SetState(context.Background(), ns, string(key), key)
 		assert.NoError(t, err, fmt.Sprintf("%s should be updated (%v)", name, key))
 	}
 	err = db.Commit()
@@ -606,13 +606,13 @@ func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
 
-	err = db.SetState(ns, "k2", []byte("k2_value"))
+	err = db.SetState(context.Background(), ns, "k2", []byte("k2_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k3", []byte("k3_value"))
+	err = db.SetState(context.Background(), ns, "k3", []byte("k3_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k1", []byte("k1_value"))
+	err = db.SetState(context.Background(), ns, "k1", []byte("k1_value"))
 	assert.NoError(t, err)
-	err = db.SetState(ns, "k111", []byte("k111_value"))
+	err = db.SetState(context.Background(), ns, "k111", []byte("k111_value"))
 	assert.NoError(t, err)
 
 	err = db.Commit()
@@ -669,7 +669,7 @@ func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.SetState(ns, key, []byte("val"))
+	err = db.SetState(context.Background(), ns, key, []byte("val"))
 	assert.NoError(t, err)
 	err = db.Commit()
 	assert.NoError(t, err)
@@ -681,7 +681,7 @@ func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
 
-	err = db.SetState(ns, key, []byte("val1"))
+	err = db.SetState(context.Background(), ns, key, []byte("val1"))
 	assert.NoError(t, err)
 
 	v, err = db.GetState(context.Background(), ns, key)
@@ -698,7 +698,7 @@ func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 	// Discard an update
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.SetState(ns, key, []byte("val0"))
+	err = db.SetState(context.Background(), ns, key, []byte("val0"))
 	assert.NoError(t, err)
 	err = db.Discard()
 	assert.NoError(t, err)
@@ -710,7 +710,7 @@ func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.DeleteState(ns, key)
+	err = db.DeleteState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	err = db.Commit()
 	assert.NoError(t, err)
@@ -775,7 +775,7 @@ func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier)
 
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.SetState(ns, key, []byte("val"))
+	err = db.SetState(context.Background(), ns, key, []byte("val"))
 	assert.NoError(t, err)
 	err = db.Commit()
 	assert.NoError(t, err)
@@ -787,7 +787,7 @@ func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier)
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
 
-	err = db.SetState(ns, key, []byte("val1"))
+	err = db.SetState(context.Background(), ns, key, []byte("val1"))
 	assert.NoError(t, err)
 
 	v, err = db.GetState(context.Background(), ns, key)
@@ -804,7 +804,7 @@ func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier)
 	// Discard an update
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.SetState(ns, key, []byte("val0"))
+	err = db.SetState(context.Background(), ns, key, []byte("val0"))
 	assert.NoError(t, err)
 	err = db.Discard()
 	assert.NoError(t, err)
@@ -816,7 +816,7 @@ func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier)
 
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
-	err = db.DeleteState(ns, key)
+	err = db.DeleteState(context.Background(), ns, key)
 	assert.NoError(t, err)
 	err = db.Commit()
 	assert.NoError(t, err)

@@ -89,7 +89,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	logger.Debug(query, txIDs, logging.Keys(writes))
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
-	if _, err := db.writeDB.Exec(query, args...); err != nil {
+	if _, err := db.writeDB.ExecContext(ctx, query, args...); err != nil {
 		return errors.Wrapf(err, "failed to store writes and metawrites for %d txs", len(txIDs))
 	}
 	return nil

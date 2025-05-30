@@ -65,7 +65,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 		sb := common2.NewBuilder()
 		db.SetStatusesBusy(txIDs, sb)
 		query, args := sb.Build()
-		if err := execOrRollback(tx, query, args); err != nil {
+		if err := execOrRollback(ctx, tx, query, args); err != nil {
 			return errors.Wrapf(err, "failed setting tx to busy")
 		}
 	}
@@ -75,7 +75,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 			return err
 		}
 		query, args := sb.Build()
-		if err := execOrRollback(tx, query, args); err != nil {
+		if err := execOrRollback(ctx, tx, query, args); err != nil {
 			return errors.Wrapf(err, "failed writing state")
 		}
 	}
@@ -83,7 +83,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 		sb := common2.NewBuilder()
 		db.SetStatusesValid(txIDs, sb)
 		query, args := sb.Build()
-		if err := execOrRollback(tx, query, args); err != nil {
+		if err := execOrRollback(ctx, tx, query, args); err != nil {
 			return errors.Wrapf(err, "failed setting tx to valid")
 		}
 	}
@@ -98,10 +98,10 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	return nil
 }
 
-func execOrRollback(tx *sql.Tx, query string, params []any) error {
+func execOrRollback(ctx context.Context, tx *sql.Tx, query string, params []any) error {
 	logger.Debug(query, len(params), params)
 
-	if _, err := tx.Exec(query, params...); err != nil {
+	if _, err := tx.ExecContext(ctx, query, params...); err != nil {
 		if err2 := tx.Rollback(); err2 != nil {
 			return errors2.Join(err, err2)
 		}
