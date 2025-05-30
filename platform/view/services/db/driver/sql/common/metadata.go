@@ -15,11 +15,11 @@ import (
 )
 
 func NewMetadataStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *MetadataStore {
-	return &MetadataStore{p: newSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
+	return &MetadataStore{p: NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
 }
 
 type MetadataStore struct {
-	p *simpleKeyDataStore
+	p *SimpleKeyDataStore
 }
 
 func (db *MetadataStore) GetMetadata(ctx context.Context, key string) ([]byte, error) {
