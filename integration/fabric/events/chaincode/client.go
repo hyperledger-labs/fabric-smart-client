@@ -33,7 +33,7 @@ func (c *Client) EventsView(chaincodeFunction string, eventName string) (interfa
 	return event, err
 }
 
-func (c *Client) MultipleListenersView(chaincodeFunction string, eventName string, listenerCount uint8) (interface{}, error) {
+func (c *Client) MultipleListenersView(chaincodeFunction string, eventName string, listenerCount int) (interface{}, error) {
 	event, err := c.c.CallView("MultipleListenersView", common.JSONMarshall(&views.MultipleListeners{
 		Function:      chaincodeFunction,
 		EventName:     eventName,

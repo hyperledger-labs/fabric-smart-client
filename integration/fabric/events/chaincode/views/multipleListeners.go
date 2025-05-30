@@ -9,6 +9,7 @@ package views
 import (
 	context2 "context"
 	"encoding/json"
+	"math/rand/v2"
 	"strings"
 	"sync"
 	"time"
@@ -25,7 +26,7 @@ type MultipleListenersView struct {
 type MultipleListeners struct {
 	Function      string
 	EventName     string
-	ListenerCount uint8
+	ListenerCount int
 }
 
 type MultipleListenersReceived struct {
@@ -33,35 +34,35 @@ type MultipleListenersReceived struct {
 }
 
 func (c *MultipleListenersView) Call(context view.Context) (interface{}, error) {
-	wg := sync.WaitGroup{}
-	wg.Add(int(c.ListenerCount))
-
-	mtx := sync.Mutex{}
 	eventReceived := make([]*chaincode.Event, c.ListenerCount)
 	cancels := make([]context2.CancelFunc, c.ListenerCount)
 
-	rec := uint8(0)
+	eventCh := make(chan struct{}, c.ListenerCount)
+	defer close(eventCh)
 
-	for i := 0; i < int(c.ListenerCount); i++ {
+	closeCh := make(chan struct{}, c.ListenerCount)
+	defer close(closeCh)
+
+	logger.Infof("Register %v event listener", c.ListenerCount)
+	var wg sync.WaitGroup
+	for i := 0; i < c.ListenerCount; i++ {
+		wg.Add(1)
+		// we first setup n (ListenerCounter) event listener
 		go func(i int) {
+			defer wg.Done()
 			callBack := func(event *chaincode.Event) (bool, error) {
 				// simulate processing, to test concurrency issues
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(rand.N(500 * time.Millisecond))
+
 				if event.Err != nil && strings.Contains(event.Err.Error(), "context done") {
-					logger.Infof(">>>> close %d", i)
+					// the listener received a close event
+					closeCh <- struct{}{}
 					return false, nil
 				}
 
-				logger.Debugf("Chaincode Event Received in callback %s", event.EventName)
-				mtx.Lock()
+				// store the event and notify
 				eventReceived[i] = event
-				// don't call done too often
-				if rec < c.ListenerCount {
-					wg.Done()
-				}
-				rec++
-				mtx.Unlock()
-
+				eventCh <- struct{}{}
 				return false, nil
 			}
 
@@ -71,49 +72,75 @@ func (c *MultipleListenersView) Call(context view.Context) (interface{}, error) 
 			assert.NoError(err, "failed to listen to events")
 		}(i)
 	}
+	// wait until all event listeners are registered
+	wg.Wait()
 
 	// Invoke the chaincode to trigger all the listeners once
 	_, err := context.RunView(chaincode.NewInvokeView("events", c.Function))
 	assert.NoError(err, "Failed Running Invoke View")
-	wg.Wait()
+
+	logger.Infof("Waiting for all listeners to complete the event ...")
+	for range c.ListenerCount {
+		<-eventCh
+	}
+
+	// next, we create a steady load of 10 transactions per second
+	// after a few transaction invoked we cancel all active listeners
 
 	invokes := 50
 	continueAfter := 20
 
-	// create a steady load of 10 transactions per second
-	wg.Add(continueAfter)
-	for i := 0; i < invokes; i++ {
-		go func(j int) {
-			time.Sleep(100 * time.Millisecond)
-			_, err := context.RunView(
-				chaincode.NewInvokeView(
-					"events",
-					c.Function,
-				),
-			)
-			assert.NoError(err, "Failed Running Invoke View")
-			if j < continueAfter {
-				wg.Done()
+	done := make(chan struct{})
+	invCh := make(chan struct{}, invokes)
+	defer close(invCh)
+
+	// create a another consumer
+	go func() {
+		for {
+			select {
+			case <-eventCh:
+			case <-done:
+				return
 			}
-		}(i)
+		}
+	}()
+
+	logger.Infof("Start transacting ...")
+	go func() {
+		for i := 0; i < invokes; i++ {
+			time.Sleep(100 * time.Millisecond)
+			_, err := context.RunView(chaincode.NewInvokeView("events", c.Function))
+			assert.NoError(err, "Failed Running Invoke View")
+			invCh <- struct{}{}
+		}
+		// we sent all our transactions
+		close(done)
+	}()
+
+	logger.Infof("Wait for %v transaction to be invoked", continueAfter)
+	// wait for the first events to arrive
+	for range continueAfter {
+		<-invCh
 	}
 
-	// wait for the first events to arrive
-	wg.Wait()
-
+	logger.Infof("Start canceling ...")
 	// cancel subscriptions while new transactions are still coming in
-	wg.Add(int(c.ListenerCount))
 	for _, cancel := range cancels {
 		go func(cn context2.CancelFunc) {
 			cn()
-			wg.Done()
 		}(cancel)
 	}
-	_, err = context.RunView(chaincode.NewInvokeView("events", c.Function))
-	assert.NoError(err, "Failed Running Invoke View")
 
-	wg.Wait()
+	logger.Infof("Wait for a close events triggered via callbacks")
+	// all listener should eventually receive a close event
+	for range c.ListenerCount {
+		<-closeCh
+	}
 
+	logger.Infof("waiting for all our transactions to finish")
+	<-done
+
+	logger.Infof("done for today")
 	return &MultipleEventsReceived{
 		Events: eventReceived,
 	}, nil
