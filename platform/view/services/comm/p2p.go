@@ -20,7 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -51,7 +50,7 @@ type P2PNode struct {
 	m                *Metrics
 }
 
-func NewNode(h host2.P2PHost, _ trace.TracerProvider, metricsProvider metrics.Provider) (*P2PNode, error) {
+func NewNode(h host2.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error) {
 	p := &P2PNode{
 		host:             h,
 		incomingMessages: make(chan *messageWithStream),
