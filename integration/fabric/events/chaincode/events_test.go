@@ -20,16 +20,6 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	Describe("Events (With Chaincode) With LibP2P", func() {
-		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("clients listening to single chaincode events", s.TestSingleChaincodeEvents)
-		It("client listening to multiple chaincode events", s.TestMultipleChaincodeEvents)
-		It("multiple clients unsubscribing", s.TestMultipleListenersAndUnsubscribe)
-		It("Upgrade Chaincode", s.TestUpgradeChaincode)
-	})
-
 	Describe("Events (With Chaincode) With Websockets", func() {
 		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
 		BeforeEach(s.Setup)
@@ -92,7 +82,7 @@ func (s *TestSuite) TestMultipleChaincodeEvents() {
 }
 
 func (s *TestSuite) TestMultipleListenersAndUnsubscribe() {
-	n := uint8(20)
+	n := 20
 	alice := chaincode.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
 
 	// - Operate from Alice (Org1)
@@ -103,7 +93,7 @@ func (s *TestSuite) TestMultipleListenersAndUnsubscribe() {
 	err = json.Unmarshal(events.([]byte), eventsReceived)
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(len(eventsReceived.Events)).To(Equal(int(n)))
+	Expect(len(eventsReceived.Events)).To(Equal(n))
 	for _, event := range eventsReceived.Events {
 		Expect(event).To(Not(BeNil()))
 		Expect(string(event.Payload)).To(Equal("Invoked Create Asset Successfully"))
