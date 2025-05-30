@@ -34,7 +34,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/envelope"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/metadata"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
-	"github.com/hyperledger/fabric-protos-go/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
