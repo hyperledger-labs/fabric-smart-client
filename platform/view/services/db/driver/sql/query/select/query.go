@@ -74,6 +74,16 @@ func (q *query) Paginated(p driver.Pagination) paginatedQuery {
 	return q
 }
 
+func (q *query) AddField(field common.Field) { q.Fields(append(q.fields, field)...) }
+
+func (q *query) AddWhere(c cond.Condition) { q.Where(cond.And(q.where, c)) }
+
+func (q *query) AddOrderBy(os OrderBy) { q.OrderBy(append(q.orderBy, os)...) }
+
+func (q *query) AddLimit(l int) { q.Limit(l) }
+
+func (q *query) AddOffset(o int) { q.Offset(o) }
+
 func (q *query) Format(ci common.CondInterpreter) (string, []any) {
 	return q.FormatPaginated(ci, nil)
 }
@@ -89,6 +99,9 @@ func (q *query) FormatPaginated(ci common.CondInterpreter, pi common.PagInterpre
 }
 
 func (q *query) FormatPaginatedTo(ci common.CondInterpreter, pi common.PagInterpreter, sb common.Builder) {
+	if q.pagination != nil {
+		pi.PreProcess(q.pagination, q)
+	}
 	sb.WriteString("SELECT ")
 
 	if q.distinct {
@@ -109,11 +122,6 @@ func (q *query) FormatPaginatedTo(ci common.CondInterpreter, pi common.PagInterp
 
 	if len(q.orderBy) > 0 {
 		sb.WriteString(" ORDER BY ").WriteSerializables(common.ToSerializables(q.orderBy)...)
-	}
-
-	if q.pagination != nil {
-		pi.Interpret(q.pagination, sb)
-		return
 	}
 
 	if q.limit > 0 {
