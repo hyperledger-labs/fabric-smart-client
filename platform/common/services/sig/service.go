@@ -9,7 +9,6 @@ package sig
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"runtime/debug"
 	"sync"
 
@@ -62,7 +61,7 @@ func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, si
 	s, ok := o.signers[idHash]
 	o.mutex.RUnlock()
 	if ok {
-		logger.Debugf("another signer bound to [%s]:[%s][%s] from [%s]", identity, GetIdentifier(s), GetIdentifier(signer), string(s.DebugStack))
+		logger.Debugf("another signer bound to [%s]:[%s][%s] from [%s]", identity, logging.Identifier(s), logging.Identifier(signer), string(s.DebugStack))
 		return nil
 	}
 
@@ -73,7 +72,7 @@ func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, si
 	s, ok = o.signers[idHash]
 	if ok {
 		o.mutex.Unlock()
-		logger.Debugf("another signer bound to [%s]:[%s][%s] from [%s]", identity, GetIdentifier(s), GetIdentifier(signer), string(s.DebugStack))
+		logger.Debugf("another signer bound to [%s]:[%s][%s] from [%s]", identity, logging.Identifier(s), logging.Identifier(signer), string(s.DebugStack))
 		return nil
 	}
 
@@ -97,9 +96,7 @@ func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, si
 			return err
 		}
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("signer for [%s][%s] registered, no verifier passed", idHash, GetIdentifier(signer))
-	}
+	logger.Debugf("signer for [%s][%s] registered, no verifier passed", idHash, logging.Identifier(signer))
 	return nil
 }
 
@@ -114,7 +111,7 @@ func (o *Service) RegisterVerifier(identity view.Identity, verifier driver.Verif
 	v, ok := o.verifiers[idHash]
 	o.mutex.RUnlock()
 	if ok {
-		logger.Warnf("another verifier bound to [%s]:[%s][%s] from [%s]", idHash, GetIdentifier(v), GetIdentifier(verifier), string(v.DebugStack))
+		logger.Warnf("another verifier bound to [%s]:[%s][%s] from [%s]", idHash, logging.Identifier(v), logging.Identifier(verifier), string(v.DebugStack))
 		return nil
 	}
 
@@ -125,7 +122,7 @@ func (o *Service) RegisterVerifier(identity view.Identity, verifier driver.Verif
 	v, ok = o.verifiers[idHash]
 	if ok {
 		o.mutex.Unlock()
-		logger.Warnf("another verifier bound to [%s]:[%s][%s] from [%s]", idHash, GetIdentifier(v), GetIdentifier(verifier), string(v.DebugStack))
+		logger.Warnf("another verifier bound to [%s]:[%s][%s] from [%s]", idHash, logging.Identifier(v), logging.Identifier(verifier), string(v.DebugStack))
 		return nil
 	}
 
@@ -136,9 +133,7 @@ func (o *Service) RegisterVerifier(identity view.Identity, verifier driver.Verif
 	o.verifiers[idHash] = entry
 	o.mutex.Unlock()
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("register verifier to [%s]:[%s]", idHash, GetIdentifier(verifier))
-	}
+	logger.Debugf("register verifier to [%s]:[%s]", idHash, logging.Identifier(verifier))
 
 	return nil
 }
@@ -259,8 +254,8 @@ func (o *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 		newEntry := VerifierEntry{Verifier: verifier}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			entry.DebugStack = debug.Stack()
-			logger.Debugf("add deserialized verifier for [%s]:[%s]", idHash, GetIdentifier(verifier))
 		}
+		logger.Debugf("add deserialized verifier for [%s]:[%s]", idHash, logging.Identifier(verifier))
 		// write lock
 		o.mutex.Lock()
 
@@ -320,15 +315,4 @@ func (s *si) Sign(bytes []byte) ([]byte, error) {
 
 func (s *si) Serialize() ([]byte, error) {
 	return s.id, nil
-}
-
-func GetIdentifier(f any) string {
-	if f == nil {
-		return "<nil>"
-	}
-	t := reflect.TypeOf(f)
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	return t.PkgPath() + "/" + t.Name()
 }

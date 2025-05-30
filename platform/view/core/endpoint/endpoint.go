@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"net"
-	"reflect"
 	"strings"
 	"sync"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/slices"
 )
 
@@ -243,9 +241,7 @@ func (r *Service) ExtractPKI(id []byte) []byte {
 			logger.Debugf("pki resolved for [%s]", id)
 			return r.publicKeyIDSynthesizer.PublicKeyID(pk)
 		} else {
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("pki not resolved by [%s] for [%s]: [%s]", getIdentifier(extractor), id, err)
-			}
+			logger.Debugf("pki not resolved by [%s] for [%s]: [%s]", logging.Identifier(extractor), id, err)
 		}
 	}
 	logger.Warnf("cannot resolve pki for [%s]", id)
@@ -294,15 +290,4 @@ func LookupIPv4(endpoint string) string {
 	}
 	port := s[1]
 	return net.JoinHostPort(addrS, port)
-}
-
-func getIdentifier(f any) string {
-	if f == nil {
-		return "<nil view>"
-	}
-	t := reflect.TypeOf(f)
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	return t.PkgPath() + "/" + t.Name()
 }

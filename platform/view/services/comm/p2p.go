@@ -21,7 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -103,9 +102,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 				return
 			}
 
-			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("dispatch message for context [%s] from [%s,%s] on session [%s]", msg.message.ContextID, msg.message.FromEndpoint, view.Identity(msg.message.FromPKID).String(), msg.message.SessionID)
-			}
+			logger.Debugf("dispatch message for context [%s] from [%s,%s] on session [%s]", msg.message.ContextID, msg.message.FromEndpoint, view.Identity(msg.message.FromPKID), msg.message.SessionID)
 
 			p.dispatchMutex.Lock()
 

@@ -173,8 +173,8 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 		ps := h.Peerstore()
 		current := ps.Addrs(ID)
 
+		logger.Debugf("sendTo, reprogram address [%s:%s]", info.RemotePeerID, info.RemotePeerAddress)
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("sendTo, reprogram address [%s:%s]", info.RemotePeerID, info.RemotePeerAddress)
 			for _, m := range current {
 				logger.Debugf("sendTo, current address [%s:%s]", info.RemotePeerID, m)
 			}

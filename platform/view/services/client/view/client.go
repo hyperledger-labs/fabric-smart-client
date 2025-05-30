@@ -22,7 +22,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -172,18 +171,14 @@ func (s *client) processCommand(ctx context.Context, sc *protos.SignedCommand) (
 		return nil, errors.Wrap(err, "failed creating view client")
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("process command [%s]", sc.String())
-	}
+	logger.Debugf("process command [%s]", sc)
 	scr, err := client.ProcessCommand(ctx, sc)
 	if err != nil {
 		logger.Errorf("failed view client process command [%s]", err)
 		return nil, errors.Wrap(err, "failed view client process command")
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("parse answer [%s]", hash.Hashable(scr.Response).String())
-	}
+	logger.Debugf("parse answer [%s]", hash.Hashable(scr.Response))
 	commandResp := &protos.CommandResponse{}
 	err = proto.Unmarshal(scr.Response, commandResp)
 	if err != nil {
@@ -195,9 +190,7 @@ func (s *client) processCommand(ctx context.Context, sc *protos.SignedCommand) (
 		return nil, errors.Errorf("error from view during process command: %s", commandResp.GetErr().GetMessage())
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("process command [%s] done", sc.String())
-	}
+	logger.Debugf("process command [%s] done", sc)
 	return commandResp, nil
 }
 
@@ -214,9 +207,7 @@ func (s *client) streamCommand(ctx context.Context, sc *protos.SignedCommand) (*
 		return nil, nil, errors.Wrap(err, "failed creating view client")
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("stream command [%s]", sc.String())
-	}
+	logger.Debugf("stream command [%s]", sc)
 	streamCommandClient, err := client.StreamCommand(ctx)
 	if err != nil {
 		logger.Errorf("failed view client stream command [%s]", err)

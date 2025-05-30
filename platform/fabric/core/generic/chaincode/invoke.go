@@ -9,12 +9,12 @@ package chaincode
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -24,7 +24,6 @@ import (
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
 
 type Invoke struct {
@@ -419,22 +418,16 @@ func (i *Invoke) createChaincodeProposalWithTxIDAndTransient(typ common.HeaderTy
 		i.TxID.Creator = creator
 	}
 	if len(i.TxID.Nonce) == 0 {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("generate nonce and tx-id for [%s,%s]", view.Identity(i.TxID.Creator).String(), base64.StdEncoding.EncodeToString(nonce))
-		}
+		logger.Debugf("generate nonce and tx-id for [%s,%s]", view.Identity(i.TxID.Creator), logging.Base64(nonce))
 		txID = transaction.ComputeTxID(&i.TxID)
 		nonce = i.TxID.Nonce
 	} else {
 		nonce = i.TxID.Nonce
 		txID = transaction.ComputeTxID(&i.TxID)
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("no need to generate nonce and tx-id [%s,%s]", base64.StdEncoding.EncodeToString(nonce), txID)
-		}
+		logger.Debugf("no need to generate nonce and tx-id [%s,%s]", logging.Base64(nonce), txID)
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("create chaincode proposal with tx id [%s], nonce [%s]", txID, base64.StdEncoding.EncodeToString(nonce))
-	}
+	logger.Debugf("create chaincode proposal with tx id [%s], nonce [%s]", txID, logging.Base64(nonce))
 
 	return protoutil.CreateChaincodeProposalWithTxIDNonceAndTransient(txID, typ, channelID, cis, nonce, creator, transientMap)
 }

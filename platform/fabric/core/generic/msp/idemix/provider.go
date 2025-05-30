@@ -23,7 +23,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	m "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
 
 var logger = logging.MustGetLogger()
@@ -335,9 +334,7 @@ func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte
 				[]byte(rh),
 			},
 		}
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("new idemix identity generated with [%s:%s]", enrollmentID, hash.Hashable(auditInfo.Attributes[3]).String())
-		}
+		logger.Debugf("new idemix identity generated with [%s:%s]", enrollmentID, hash.Hashable(rh))
 		infoRaw, err = auditInfo.Bytes()
 		if err != nil {
 			return nil, nil, err

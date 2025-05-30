@@ -9,7 +9,9 @@ package logging
 import (
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"strings"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
@@ -34,4 +36,34 @@ type base64Enc []byte
 
 func (b base64Enc) String() string {
 	return base64.StdEncoding.EncodeToString(b)
+}
+
+// Identifier logs lazily the identifier of any object
+func Identifier(f any) identifier { return identifier{f} }
+
+type identifier struct{ f any }
+
+func (t identifier) String() string {
+	if t.f == nil {
+		return "<nil>"
+	}
+	tt := reflect.TypeOf(t.f)
+	for tt.Kind() == reflect.Ptr {
+		tt = tt.Elem()
+	}
+	return tt.PkgPath() + "/" + tt.Name()
+}
+
+func Eval[V any](f func() V) eval[V] { return f }
+
+type eval[V any] func() V
+
+func (e eval[V]) String() string { return fmt.Sprintf("%v", e()) }
+
+func Since(t time.Time) since { return since(t) }
+
+type since time.Time
+
+func (s since) String() string {
+	return time.Since(time.Time(s)).String()
 }
