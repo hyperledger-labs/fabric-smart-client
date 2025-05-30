@@ -17,7 +17,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
-	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/exp/slices"
 )
 
@@ -70,7 +69,7 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 	assert.NoError(t, err)
 	bootstrapHost, err := newLibP2PHost(bootstrapNodeEndpoint, bootstrapHostKey, newMetrics(&disabled.Provider{}), true, "")
 	assert.NoError(t, err)
-	bootstrapNode, err := comm.NewNode(bootstrapHost, noop.NewTracerProvider(), &disabled.Provider{})
+	bootstrapNode, err := comm.NewNode(bootstrapHost, &disabled.Provider{})
 	assert.NoError(t, err)
 	assert.NotNil(t, bootstrapNode)
 
@@ -80,7 +79,7 @@ func setupTwoNodes(t *testing.T, bootstrapNodeID, bootstrapNodeEndpoint, nodeID,
 	assert.NoError(t, err)
 	anotherHost, err := newLibP2PHost(nodeEndpoint, anotherHostKey, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapNodeID)
 	assert.NoError(t, err)
-	anotherNode, err := comm.NewNode(anotherHost, noop.NewTracerProvider(), &disabled.Provider{})
+	anotherNode, err := comm.NewNode(anotherHost, &disabled.Provider{})
 	assert.NoError(t, err)
 	assert.NotNil(t, anotherNode)
 

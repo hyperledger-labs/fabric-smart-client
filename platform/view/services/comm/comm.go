@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type EndpointService interface {
@@ -36,16 +35,14 @@ type Service struct {
 
 	Node            *P2PNode
 	NodeSync        sync.RWMutex
-	tracerProvider  trace.TracerProvider
 	metricsProvider metrics.Provider
 }
 
-func NewService(hostProvider host.GeneratorProvider, endpointService EndpointService, configService ConfigService, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (*Service, error) {
+func NewService(hostProvider host.GeneratorProvider, endpointService EndpointService, configService ConfigService, metricsProvider metrics.Provider) (*Service, error) {
 	s := &Service{
 		HostProvider:    hostProvider,
 		EndpointService: endpointService,
 		ConfigService:   configService,
-		tracerProvider:  tracerProvider,
 		metricsProvider: metricsProvider,
 	}
 	return s, nil
@@ -126,6 +123,6 @@ func (s *Service) init() error {
 	if err != nil {
 		return err
 	}
-	s.Node, err = NewNode(h, s.tracerProvider, s.metricsProvider)
+	s.Node, err = NewNode(h, s.metricsProvider)
 	return err
 }

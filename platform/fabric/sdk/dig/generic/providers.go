@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
-	"time"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -80,7 +78,6 @@ func NewDriver(in struct {
 			in.SignerKVS,
 			in.AuditInfoKVS,
 			in.KVS,
-			in.TracerProvider,
 		),
 	}
 	return d
@@ -98,23 +95,20 @@ func NewChannelProvider(in struct {
 	Drivers         multiplexed.Driver
 	MetricsProvider metrics.Provider
 }) generic.ChannelProvider {
+	flmProvider := committer2.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider)
+	channelConfigProvider := generic.NewChannelConfigProvider(in.ConfigProvider)
 	return generic.NewChannelProvider(
 		in.ConfigProvider,
 		in.EnvelopeKVS,
 		in.MetadataKVS,
 		in.EndorseTxKVS,
-		in.Publisher,
 		in.Hasher,
-		in.TracerProvider,
-		in.MetricsProvider,
 		in.Drivers,
-		func(_ string, configService driver.ConfigService, vaultStore driver2.VaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*vault.Vault, error) {
+		func(_ string, configService driver.ConfigService, vaultStore driver2.VaultStore) (*vault.Vault, error) {
 			cachedVault := vault2.NewCachedVault(vaultStore, configService.VaultTXStoreCacheSize())
-			return vault.NewVault(cachedVault, metricsProvider, tracerProvider), nil
+			return vault.NewVault(cachedVault, in.MetricsProvider, in.TracerProvider), nil
 		},
-		generic.NewChannelConfigProvider(in.ConfigProvider),
-		committer2.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider),
-		committer.NewSerialDependencyResolver(),
+		channelConfigProvider,
 		func(
 			channelName string,
 			nw driver.FabricNetworkService,
@@ -127,8 +121,7 @@ func NewChannelProvider(in struct {
 				nw.ConfigService(),
 				nw.TransactionManager(),
 			), nil
-		},
-		func(
+		}, func(
 			channel string,
 			nw driver.FabricNetworkService,
 			envelopeService driver.EnvelopeService,
@@ -143,28 +136,25 @@ func NewChannelProvider(in struct {
 				nw.TransactionManager(),
 				vault,
 			), nil
-		},
-		func(
+		}, func(
 			nw driver.FabricNetworkService,
-			channelConfig driver.ChannelConfig,
+			channelName string,
 			vault driver.Vault,
 			envelopeService driver.EnvelopeService,
 			ledger driver.Ledger,
 			rwsetLoaderService driver.RWSetLoader,
-			eventsPublisher events.Publisher,
 			channelMembershipService *membership.Service,
 			fabricFinality committer.FabricFinality,
-			dependencyResolver committer.DependencyResolver,
 			quiet bool,
-			listenerManager driver.ListenerManager,
-			tracerProvider trace.TracerProvider,
-			metricsProvider metrics.Provider,
 		) (generic.CommitterService, error) {
 			os, ok := nw.OrderingService().(committer.OrderingService)
 			if !ok {
 				return nil, errors.New("ordering service is not a committer.OrderingService")
 			}
-
+			channelConfig, err := channelConfigProvider.GetChannelConfig(nw.Name(), channelName)
+			if err != nil {
+				return nil, err
+			}
 			return committer.New(
 				nw.ConfigService(),
 				channelConfig,
@@ -173,57 +163,46 @@ func NewChannelProvider(in struct {
 				ledger,
 				rwsetLoaderService,
 				nw.ProcessorManager(),
-				eventsPublisher,
+				in.Publisher,
 				channelMembershipService,
 				os,
 				fabricFinality,
 				nw.TransactionManager(),
-				dependencyResolver,
+				committer.NewSerialDependencyResolver(),
 				quiet,
-				listenerManager,
-				tracerProvider,
-				metricsProvider,
+				flmProvider.NewManager(),
+				in.TracerProvider,
+				in.MetricsProvider,
 			), nil
-		},
-		// delivery service constructor
-		func(
+		}, func(
+			nw driver.FabricNetworkService,
 			channel string,
-			channelConfig driver.ChannelConfig,
-			hasher hash.Hasher,
-			networkName string,
-			localMembership driver.LocalMembership,
-			configService driver.ConfigService,
 			peerManager delivery.Services,
 			ledger driver.Ledger,
-			waitForEventTimeout time.Duration,
 			vault delivery.Vault,
-			transactionManager driver.TransactionManager,
 			callback driver.BlockCallback,
-			tracerProvider trace.TracerProvider,
-			metricsProvider metrics.Provider,
-			acceptedHeaderTypes []common.HeaderType,
 		) (generic.DeliveryService, error) {
+			channelConfig, err := channelConfigProvider.GetChannelConfig(nw.Name(), channel)
+			if err != nil {
+				return nil, err
+			}
 			return delivery.NewService(
 				channel,
 				channelConfig,
-				hasher,
-				networkName,
-				localMembership,
-				configService,
+				in.Hasher,
+				nw.Name(),
+				nw.LocalMembership(),
+				nw.ConfigService(),
 				peerManager,
 				ledger,
-				waitForEventTimeout,
 				vault,
-				transactionManager,
+				nw.TransactionManager(),
 				callback,
-				tracerProvider,
-				metricsProvider,
-				acceptedHeaderTypes,
+				in.TracerProvider,
+				in.MetricsProvider,
+				[]common.HeaderType{common.HeaderType_ENDORSER_TRANSACTION},
 			)
-		},
-		true,
-		[]common.HeaderType{common.HeaderType_ENDORSER_TRANSACTION},
-	)
+		}, true)
 }
 
 func NewEndorseTxStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.EndorseTxStore, error) {

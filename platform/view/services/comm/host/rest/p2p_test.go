@@ -52,7 +52,7 @@ func setupTwoNodes(t *testing.T, port int) (*comm.HostNode, *comm.HostNode) {
 		"../libp2p/testdata/msp/user1/keystore/priv_sk",
 		"../libp2p/testdata/msp/user1/signcerts/User1@org1.example.com-cert.pem",
 	)).GetNewHost()
-	bootstrapNode, err := comm.NewNode(bootstrap, noop.NewTracerProvider(), &disabled.Provider{})
+	bootstrapNode, err := comm.NewNode(bootstrap, &disabled.Provider{})
 	assert.NoError(t, err)
 
 	other, _ := newStaticRouteHostProvider(routes, rest.NewConfigFromProperties(
@@ -60,7 +60,7 @@ func setupTwoNodes(t *testing.T, port int) (*comm.HostNode, *comm.HostNode) {
 		"../libp2p/testdata/msp/user2/keystore/priv_sk",
 		"../libp2p/testdata/msp/user2/signcerts/User2@org1.example.com-cert.pem",
 	)).GetNewHost()
-	otherNode, err := comm.NewNode(other, noop.NewTracerProvider(), &disabled.Provider{})
+	otherNode, err := comm.NewNode(other, &disabled.Provider{})
 	assert.NoError(t, err)
 
 	return &comm.HostNode{P2PNode: bootstrapNode, ID: "bootstrap", Address: bootstrapAddress},
@@ -79,5 +79,5 @@ func newStaticRouteHostProvider(routes *routing.StaticIDRouter, config rest.Conf
 func (p *staticRoutHostProvider) GetNewHost() (host2.P2PHost, error) {
 	nodeID, _ := p.routes.ReverseLookup(p.config.ListenAddress())
 	discovery := routing.NewServiceDiscovery(p.routes, routing.RoundRobin[host2.PeerIPAddress]())
-	return rest.NewHost(nodeID, p.config.ListenAddress(), discovery, noop.NewTracerProvider(), websocket.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}), p.config.ClientTLSConfig(), p.config.ServerTLSConfig()), nil
+	return rest.NewHost(nodeID, p.config.ListenAddress(), discovery, websocket.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}), p.config.ClientTLSConfig(), p.config.ServerTLSConfig()), nil
 }
