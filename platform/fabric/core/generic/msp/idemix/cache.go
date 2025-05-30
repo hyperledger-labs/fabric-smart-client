@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.uber.org/zap/zapcore"
@@ -79,9 +80,7 @@ func (c *IdentityCache) fetchIdentityFromCache(opts *driver.IdentityOptions) (vi
 		identity = entry.Identity
 		audit = entry.Audit
 
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("fetching identity from cache [%s][%d] took %v", identity, len(audit), time.Since(start))
-		}
+		logger.Debugf("fetching identity from cache [%s][%d] took %v", identity, len(audit), logging.Since(start))
 
 	case <-timeout.C:
 		id, a, err := c.backed(opts)
@@ -91,9 +90,7 @@ func (c *IdentityCache) fetchIdentityFromCache(opts *driver.IdentityOptions) (vi
 		identity = id
 		audit = a
 
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("fetching identity from backend after a timeout [%s][%d] took %v", identity, len(audit), time.Since(start))
-		}
+		logger.Debugf("fetching identity from backend after a timeout [%s][%d] took %v", identity, len(audit), logging.Since(start))
 	}
 
 	return identity, audit, nil

@@ -47,11 +47,6 @@ This project provides the following SDKs as a base:
   * Identity providers
   * Endorser transaction handling
   * Vault
-* **Orion SDK:** Built on top of ViewSDK, it adds following functionality:
-  * Config service for Orion
-  * Network provider for connection to the Orion network
-  * Finality handlers
-  * Identity providers
 
 ## Developing new SDKs
 
@@ -149,12 +144,7 @@ func GetService1(ctx view.ServiceProvider) (myapp.Service1, error) {
 }
 ```
 
-Note that multiple SDKs can also be combined and used as a base:
-```go
-func NewSDK(registry node.Registry) *SDK {
-	return &SDK{SDK: fabricsdk.NewFrom(orionsdk.NewFrom(viewsdk.NewSDK(registry)))}
-}
-```
+Note that multiple SDKs can also be combined and used as a base.
 The order in which the SDKs is not relevant when it comes to dependency injection, but it may be important for the logic of `Start` and `PostStart`.
 
 For further supported functionality and details on dependency injection, consult the [`dig` documentation](https://github.com/uber-go/dig).

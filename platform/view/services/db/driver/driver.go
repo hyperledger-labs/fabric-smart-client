@@ -54,15 +54,15 @@ type VaultStore = driver.VaultStore
 // KeyValueStore models a key-value storage place
 type KeyValueStore interface {
 	// SetState sets the given value for the given namespace, key, and version
-	SetState(namespace driver.Namespace, key driver.PKey, value driver.UnversionedValue) error
+	SetState(ctx context.Context, namespace driver.Namespace, key driver.PKey, value driver.UnversionedValue) error
 	// SetStates sets the given values for the given namespace, key, and version
-	SetStates(namespace driver.Namespace, kvs map[driver.PKey]driver.UnversionedValue) map[driver.PKey]error
+	SetStates(ctx context.Context, namespace driver.Namespace, kvs map[driver.PKey]driver.UnversionedValue) map[driver.PKey]error
 	// GetState gets the value and version for given namespace and key
 	GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.UnversionedValue, error)
 	// DeleteState deletes the given namespace and key
-	DeleteState(namespace driver.Namespace, key driver.PKey) error
+	DeleteState(ctx context.Context, namespace driver.Namespace, key driver.PKey) error
 	// DeleteStates deletes the given namespace and keys
-	DeleteStates(namespace driver.Namespace, keys ...driver.PKey) map[driver.PKey]error
+	DeleteStates(ctx context.Context, namespace driver.Namespace, keys ...driver.PKey) map[driver.PKey]error
 	// GetStateRangeScanIterator returns an iterator that contains all the key-values between given key ranges.
 	// startKey is included in the results and endKey is excluded. An empty startKey refers to the first available key
 	// and an empty endKey refers to the last available key. For scanning all the keys, both the startKey and the endKey

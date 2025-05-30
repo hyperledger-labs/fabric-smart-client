@@ -84,9 +84,7 @@ func (sp *ServiceProvider) RegisterService(service interface{}) error {
 	sp.lock.Lock()
 	defer sp.lock.Unlock()
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("Register Service [%s]", getIdentifier(service))
-	}
+	logger.Debugf("Register Service [%s]", logging.Identifier(service))
 	sp.services = append(sp.services, service)
 
 	return nil
@@ -95,15 +93,7 @@ func (sp *ServiceProvider) RegisterService(service interface{}) error {
 func (sp *ServiceProvider) String() string {
 	res := "services ["
 	for _, service := range sp.services {
-		res += getIdentifier(service) + ", "
+		res += logging.Identifier(service).String() + ", "
 	}
 	return res + "]"
-}
-
-func getIdentifier(v interface{}) string {
-	t := reflect.TypeOf(v)
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	return t.PkgPath() + "/" + t.Name()
 }

@@ -21,7 +21,7 @@ func Copy[T any](it Iterator[*T]) (Iterator[*T], error) {
 func ReadAllPointers[T any](it Iterator[*T]) ([]*T, error) {
 	defer it.Close()
 	items := make([]*T, 0)
-	for item, err := it.Next(); item != nil && err == nil; item, err = it.Next() {
+	for item, err := it.Next(); item != nil || err != nil; item, err = it.Next() {
 		if err != nil {
 			return nil, err
 		}

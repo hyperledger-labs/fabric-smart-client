@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = logging.MustGetLogger()
@@ -66,18 +65,16 @@ func (s *cachedStore) Invalidate(txIDs ...driver.TxID) {
 }
 
 func (s *cachedStore) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_get_tx_status")
-	defer span.AddEvent("end_get_tx_status")
+	logger.DebugfContext(ctx, "Get tx status")
 	if e, ok := s.cache.Get(txID); ok && e != nil { // Deleted entries return ok
-		logger.Debugf("Found value for [%s] in cache: %v", txID, e.Code)
+		logger.DebugfContext(ctx, "Found value for [%s] in cache: %v", txID, e.Code)
 		return &driver.TxStatus{
 			TxID:    txID,
 			Code:    e.Code,
 			Message: e.Message,
 		}, nil
 	}
-
+	defer logger.DebugfContext(ctx, "Force got tx status")
 	return s.forceGet(ctx, txID)
 }
 

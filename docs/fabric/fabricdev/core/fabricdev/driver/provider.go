@@ -80,7 +80,7 @@ func NewProvider(
 			tracerProvider,
 			metricsProvider,
 			Drivers,
-			func(_ string, configService fdriver.ConfigService, vaultStore cdriver.VaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (*vault2.Vault, error) {
+			func(_ string, configService fdriver.ConfigService, vaultStore cdriver.VaultStore) (*vault2.Vault, error) {
 				cachedVault := vault.NewCachedVault(vaultStore, configService.VaultTXStoreCacheSize())
 				return vault3.NewVault(cachedVault, metricsProvider, tracerProvider), nil
 			},

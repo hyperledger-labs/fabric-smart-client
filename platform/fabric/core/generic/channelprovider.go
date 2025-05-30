@@ -8,7 +8,6 @@ package generic
 
 import (
 	"context"
-	"time"
 
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
@@ -22,21 +21,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type VaultConstructor = func(
 	channelName string,
 	configService driver.ConfigService,
 	vaultStore driver3.VaultStore,
-	metricsProvider metrics.Provider,
-	tracerProvider trace.TracerProvider,
 ) (*vault.Vault, error)
 
 type LedgerConstructor func(
@@ -55,37 +49,23 @@ type RWSetLoaderConstructor func(
 
 type CommitterConstructor func(
 	nw driver.FabricNetworkService,
-	channelConfig driver.ChannelConfig,
+	channel string,
 	vault driver.Vault,
 	envelopeService driver.EnvelopeService,
 	ledger driver.Ledger,
 	rwsetLoaderService driver.RWSetLoader,
-	eventsPublisher events.Publisher,
 	channelMembershipService *membership.Service,
 	fabricFinality committer.FabricFinality,
-	dependencyResolver committer.DependencyResolver,
 	quiet bool,
-	listenerManager driver.ListenerManager,
-	tracerProvider trace.TracerProvider,
-	metricsProvider metrics.Provider,
 ) (CommitterService, error)
 
 type DeliveryConstructor func(
+	nw driver.FabricNetworkService,
 	channel string,
-	channelConfig driver.ChannelConfig,
-	hasher hash.Hasher,
-	networkName string,
-	localMembership driver.LocalMembership,
-	configService driver.ConfigService,
 	peerManager delivery.Services,
 	ledger driver.Ledger,
-	waitForEventTimeout time.Duration,
 	vault delivery.Vault,
-	transactionManager driver.TransactionManager,
 	callback driver.BlockCallback,
-	tracerProvider trace.TracerProvider,
-	metricsProvider metrics.Provider,
-	acceptedHeaderTypes []common.HeaderType,
 ) (DeliveryService, error)
 
 type ChannelProvider interface {
@@ -93,25 +73,19 @@ type ChannelProvider interface {
 }
 
 type provider struct {
-	configProvider          config.Provider
-	envelopeKVS             driver.EnvelopeStore
-	metadataKVS             driver.MetadataStore
-	endorserTxKVS           driver.EndorseTxStore
-	publisher               events.Publisher
-	hasher                  hash.Hasher
-	newVault                VaultConstructor
-	tracerProvider          trace.TracerProvider
-	metricsProvider         metrics.Provider
-	dependencyResolver      committer.DependencyResolver
-	drivers                 multiplexed.Driver
-	channelConfigProvider   driver.ChannelConfigProvider
-	listenerManagerProvider driver.ListenerManagerProvider
-	newLedger               LedgerConstructor
-	newRWSetLoader          RWSetLoaderConstructor
-	newCommitter            CommitterConstructor
-	newDelivery             DeliveryConstructor
-	useFilteredDelivery     bool
-	acceptedHeaderTypes     []common.HeaderType
+	configProvider        config.Provider
+	envelopeKVS           driver.EnvelopeStore
+	metadataKVS           driver.MetadataStore
+	endorserTxKVS         driver.EndorseTxStore
+	hasher                hash.Hasher
+	newVault              VaultConstructor
+	drivers               multiplexed.Driver
+	channelConfigProvider driver.ChannelConfigProvider
+	newLedger             LedgerConstructor
+	newRWSetLoader        RWSetLoaderConstructor
+	newCommitter          CommitterConstructor
+	newDelivery           DeliveryConstructor
+	useFilteredDelivery   bool
 }
 
 func NewChannelProvider(
@@ -119,42 +93,30 @@ func NewChannelProvider(
 	envelopeKVS driver.EnvelopeStore,
 	metadataKVS driver.MetadataStore,
 	endorserTxKVS driver.EndorseTxStore,
-	publisher events.Publisher,
 	hasher hash.Hasher,
-	tracerProvider trace.TracerProvider,
-	metricsProvider metrics.Provider,
 	drivers multiplexed.Driver,
 	newVault VaultConstructor,
 	channelConfigProvider driver.ChannelConfigProvider,
-	listenerManagerProvider driver.ListenerManagerProvider,
-	dependencyResolver committer.DependencyResolver,
 	newLedger LedgerConstructor,
 	newRWSetLoader RWSetLoaderConstructor,
 	newCommitter CommitterConstructor,
 	newDelivery DeliveryConstructor,
 	useFilteredDelivery bool,
-	acceptedHeaderTypes []common.HeaderType,
 ) *provider {
 	return &provider{
-		configProvider:          configProvider,
-		envelopeKVS:             envelopeKVS,
-		metadataKVS:             metadataKVS,
-		endorserTxKVS:           endorserTxKVS,
-		publisher:               publisher,
-		hasher:                  hasher,
-		newVault:                newVault,
-		tracerProvider:          tracerProvider,
-		metricsProvider:         metricsProvider,
-		drivers:                 drivers,
-		channelConfigProvider:   channelConfigProvider,
-		listenerManagerProvider: listenerManagerProvider,
-		dependencyResolver:      dependencyResolver,
-		newLedger:               newLedger,
-		newRWSetLoader:          newRWSetLoader,
-		newCommitter:            newCommitter,
-		newDelivery:             newDelivery,
-		useFilteredDelivery:     useFilteredDelivery,
-		acceptedHeaderTypes:     acceptedHeaderTypes,
+		configProvider:        configProvider,
+		envelopeKVS:           envelopeKVS,
+		metadataKVS:           metadataKVS,
+		endorserTxKVS:         endorserTxKVS,
+		hasher:                hasher,
+		newVault:              newVault,
+		drivers:               drivers,
+		channelConfigProvider: channelConfigProvider,
+		newLedger:             newLedger,
+		newRWSetLoader:        newRWSetLoader,
+		newCommitter:          newCommitter,
+		newDelivery:           newDelivery,
+		useFilteredDelivery:   useFilteredDelivery,
 	}
 }
 
@@ -170,7 +132,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		return nil, err
 	}
 
-	vault, err := p.newVault(channelName, nw.ConfigService(), vaultStore, p.metricsProvider, p.tracerProvider)
+	vault, err := p.newVault(channelName, nw.ConfigService(), vaultStore)
 	if err != nil {
 		return nil, err
 	}
@@ -234,19 +196,14 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 
 	committerService, err := p.newCommitter(
 		nw,
-		channelConfig,
+		channelName,
 		vault,
 		envelopeService,
 		ledgerService,
 		rwSetLoaderService,
-		p.publisher,
 		channelMembershipService,
 		fabricFinality,
-		p.dependencyResolver,
 		quiet,
-		p.listenerManagerProvider.NewManager(),
-		p.tracerProvider,
-		p.metricsProvider,
 	)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed creating committer for channel [%s]", channelName)
@@ -258,24 +215,15 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 
 	// Delivery
 	deliveryService, err := p.newDelivery(
+		nw,
 		channelName,
-		channelConfig,
-		p.hasher,
-		nw.Name(),
-		nw.LocalMembership(),
-		nw.ConfigService(),
 		peerService,
 		ledgerService,
-		channelConfig.CommitterWaitForEventTimeout(),
 		&vaultDeliveryWrapper{vaultStore: vaultStore},
-		nw.TransactionManager(),
 		func(ctx context.Context, block *common.Block) (bool, error) {
 			// commit the block, if an error occurs then retry
 			return false, committerService.Commit(ctx, block)
 		},
-		p.tracerProvider,
-		p.metricsProvider,
-		p.acceptedHeaderTypes,
 	)
 	if err != nil {
 		return nil, err

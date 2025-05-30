@@ -104,7 +104,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		return nil, err
 	}
 
-	vault, err := p.newVault(channelName, nw.ConfigService(), vaultStore, p.metricsProvider, p.tracerProvider)
+	vault, err := p.newVault(channelName, nw.ConfigService(), vaultStore)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +186,6 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		nw.ConfigService(),
 		peerService,
 		ledgerService,
-		channelConfig.CommitterWaitForEventTimeout(),
 		&vaultDeliveryWrapper{vaultStore: vaultStore},
 		nw.TransactionManager(),
 		func(ctx context.Context, block *common.Block) (bool, error) {

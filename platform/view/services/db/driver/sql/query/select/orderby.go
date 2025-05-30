@@ -8,7 +8,7 @@ package _select
 
 import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 
-type OrderBy common.Serializable
+type OrderBy = common.OrderBy
 
 type orderBy struct {
 	asc   bool

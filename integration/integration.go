@@ -24,7 +24,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	smartclient "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/orion"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -90,7 +89,6 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 		PlatformFactories: map[string]api.PlatformFactory{
 			"fabric":     fabric.NewPlatformFactory(),
 			"monitoring": monitoring.NewPlatformFactory(),
-			"orion":      orion.NewPlatformFactory(),
 		},
 	}
 	return n, nil

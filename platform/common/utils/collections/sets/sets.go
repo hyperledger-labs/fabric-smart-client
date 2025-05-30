@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package sets
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/maps"
+import (
+	"fmt"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/maps"
+)
 
 type set[V comparable] map[V]struct{}
 
@@ -62,6 +66,10 @@ func (s *set[V]) Length() int {
 // Empty returns true if the set contains no elements
 func (s *set[V]) Empty() bool {
 	return s.Length() == 0
+}
+
+func (s *set[V]) String() string {
+	return fmt.Sprintf("%v", s.ToSlice())
 }
 
 // Set is a collection of unique comparable items

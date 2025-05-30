@@ -138,7 +138,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(view.NewManager),
 
 		p.Container().Provide(func(hostProvider host.GeneratorProvider, configProvider driver.ConfigService, endpointService *view.EndpointService, tracerProvider trace.TracerProvider, metricsProvider metrics2.Provider) (*comm.Service, error) {
-			return comm.NewService(hostProvider, endpointService, configProvider, tracerProvider, metricsProvider)
+			return comm.NewService(hostProvider, endpointService, configProvider, metricsProvider)
 		}),
 		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(manager.CommLayer))),
 		p.Container().Provide(provider.NewHostProvider),

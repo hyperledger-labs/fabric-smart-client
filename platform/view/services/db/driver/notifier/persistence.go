@@ -29,8 +29,8 @@ type UnversionedPersistenceNotifier struct {
 	*Notifier
 }
 
-func (db *UnversionedPersistenceNotifier) SetState(ns driver2.Namespace, key driver2.PKey, val driver2.RawValue) error {
-	if err := db.Persistence.SetState(ns, key, val); err != nil {
+func (db *UnversionedPersistenceNotifier) SetState(ctx context.Context, ns driver2.Namespace, key driver2.PKey, val driver2.RawValue) error {
+	if err := db.Persistence.SetState(ctx, ns, key, val); err != nil {
 		return err
 	}
 	op := driver.Update
@@ -41,8 +41,8 @@ func (db *UnversionedPersistenceNotifier) SetState(ns driver2.Namespace, key dri
 	return nil
 }
 
-func (db *UnversionedPersistenceNotifier) SetStates(ns driver2.Namespace, kvs map[driver2.PKey]driver2.RawValue) map[driver2.PKey]error {
-	errs := db.Persistence.SetStates(ns, kvs)
+func (db *UnversionedPersistenceNotifier) SetStates(ctx context.Context, ns driver2.Namespace, kvs map[driver2.PKey]driver2.RawValue) map[driver2.PKey]error {
+	errs := db.Persistence.SetStates(ctx, ns, kvs)
 
 	for key, val := range kvs {
 		if _, ok := errs[key]; !ok {
@@ -75,16 +75,16 @@ func (db *UnversionedPersistenceNotifier) Discard() error {
 	return nil
 }
 
-func (db *UnversionedPersistenceNotifier) DeleteState(ns driver2.Namespace, key driver2.PKey) error {
-	if err := db.Persistence.DeleteState(ns, key); err != nil {
+func (db *UnversionedPersistenceNotifier) DeleteState(ctx context.Context, ns driver2.Namespace, key driver2.PKey) error {
+	if err := db.Persistence.DeleteState(ctx, ns, key); err != nil {
 		return err
 	}
 	db.EnqueueEvent(driver.Delete, map[driver.ColumnKey]string{"ns": ns, "pkey": key})
 	return nil
 }
 
-func (db *UnversionedPersistenceNotifier) DeleteStates(namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
-	errs := db.Persistence.DeleteStates(namespace, keys...)
+func (db *UnversionedPersistenceNotifier) DeleteStates(ctx context.Context, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
+	errs := db.Persistence.DeleteStates(ctx, namespace, keys...)
 
 	for _, key := range keys {
 		if _, ok := errs[key]; !ok {
