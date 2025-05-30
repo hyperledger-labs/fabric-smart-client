@@ -35,6 +35,8 @@ func handleKeysetPreProcess[T comparable](pagination *keyset[T, any], query comm
 func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQuery) {
 	switch pagination := p.(type) {
 	case *none:
+		query.AddLimit(0)
+		query.AddOffset(0)
 		return
 
 	case *offset:
