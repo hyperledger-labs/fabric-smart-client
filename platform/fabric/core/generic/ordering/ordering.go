@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	common2 "github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
+	context2 "golang.org/x/net/context"
 )
 
 type ConsensusType = string
@@ -83,7 +84,7 @@ func NewService(
 	return s
 }
 
-func (o *Service) Broadcast(ctx context.Context, blob interface{}) error {
+func (o *Service) Broadcast(ctx context2.Context, blob interface{}) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}

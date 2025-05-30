@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/cache/secondcache"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 )
 
 var logger = logging.MustGetLogger()

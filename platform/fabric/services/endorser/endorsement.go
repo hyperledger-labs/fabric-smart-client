@@ -133,7 +133,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 
 			// Check the validity of the response
 			logger.DebugfContext(context.Context(), "Check response validity")
-			if endpoint.GetService(context).IsBoundTo(context.Context(), endorser, party) {
+			if view2.GetEndpointService(context).IsBoundTo(context.Context(), endorser, party) {
 				found = true
 			}
 

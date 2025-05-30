@@ -28,10 +28,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/pagination"
 )
 
-var (
-	logger = logging.MustGetLogger()
-)
-
 type VaultTables struct {
 	StateTable  string
 	StatusTable string
