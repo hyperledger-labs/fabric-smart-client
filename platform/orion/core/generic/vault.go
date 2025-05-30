@@ -59,9 +59,7 @@ func (v *Vault) NewRWSetFromBytes(ctx context.Context, id string, results []byte
 }
 
 func (v *Vault) Status(ctx context.Context, txID driver3.TxID) (driver.ValidationCode, string, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_status")
-	defer span.AddEvent("end_status")
+	logger.DebugfContext(ctx, "Get Status")
 	vc, message, err := v.Vault.Status(ctx, txID)
 	if err != nil {
 		return driver.Unknown, "", err
@@ -101,10 +99,7 @@ func (v *Vault) Statuses(ctx context.Context, ids ...driver3.TxID) ([]driver.TxV
 }
 
 func (v *Vault) DiscardTx(ctx context.Context, txID driver3.TxID, message string) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_discard_tx")
-	defer span.AddEvent("end_discard_tx")
-
+	logger.DebugfContext(ctx, "Discard tx")
 	vc, _, err := v.Vault.Status(ctx, txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status in state db [%s]", txID)

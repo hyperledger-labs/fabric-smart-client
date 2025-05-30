@@ -8,7 +8,6 @@ package manager
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"runtime/debug"
 
@@ -163,16 +162,14 @@ func (ctx *ctx) GetSessionByID(id string, party view.Identity) (view.Session, er
 	var err error
 	s := ctx.sessions.Get(id, party)
 	if s == nil {
-		logger.Debugf("[%s] Creating new session with given id [id:%s][to:%s]", ctx.me, id, party)
+		logger.DebugfContext(ctx.context, "[%s] Creating new session with given id [id:%s][to:%s]", ctx.me, id, party)
 		s, err = ctx.newSessionByID(id, ctx.id, party)
 		if err != nil {
 			return nil, err
 		}
 		ctx.sessions.Put(id, party, s)
 	} else {
-		span := trace.SpanFromContext(ctx.context)
-		span.AddEvent(fmt.Sprintf("Reuse session to %s", string(party)))
-		logger.Debugf("[%s] Reusing session with given id [id:%s][to:%s]", id, ctx.me, party)
+		logger.DebugfContext(ctx.context, "[%s] Reusing session with given id [id:%s][to:%s]", id, ctx.me, party)
 	}
 	return s, nil
 }
@@ -216,36 +213,34 @@ func (ctx *ctx) Context() context.Context {
 }
 
 func (ctx *ctx) Dispose() {
-	span := trace.SpanFromContext(ctx.context)
-	span.AddEvent("Dispose sessions")
+	logger.DebugfContext(ctx.context, "Dispose sessions")
 	// dispose all sessions
 	ctx.sessions.Lock()
 	defer ctx.sessions.Unlock()
 
 	if ctx.session != nil {
-		span.AddEvent(fmt.Sprintf("Delete one session to %s", string(ctx.session.Info().Caller)))
-		ctx.sessionFactory.DeleteSessions(ctx.Context(), ctx.session.Info().ID)
+		info := ctx.session.Info()
+		logger.DebugfContext(ctx.context, "Delete one session to %s", string(info.Caller))
+		ctx.sessionFactory.DeleteSessions(ctx.Context(), info.ID)
 	}
 
 	for _, id := range ctx.sessions.GetSessionIDs() {
-		span.AddEvent(fmt.Sprintf("Delete session %s", id))
+		logger.DebugfContext(ctx.context, "Delete session %s", id)
 		ctx.sessionFactory.DeleteSessions(ctx.Context(), id)
 	}
 	ctx.sessions.Reset()
 }
 
 func (ctx *ctx) newSession(view view.View, contextID string, party view.Identity) (view.Session, error) {
-	span := trace.SpanFromContext(ctx.context)
 	resolver, pkid, err := ctx.resolver.Resolve(ctx.context, party)
 	if err != nil {
 		return nil, err
 	}
-	span.AddEvent(fmt.Sprintf("Open new session to %s", resolver.GetName()))
+	logger.DebugfContext(ctx.context, "Open new session to %s", resolver.GetName())
 	return ctx.sessionFactory.NewSession(registry2.GetIdentifier(view), contextID, resolver.GetAddress(driver.P2PPort), pkid)
 }
 
 func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity) (view.Session, error) {
-	span := trace.SpanFromContext(ctx.context)
 	resolver, pkid, err := ctx.resolver.Resolve(ctx.context, party)
 	if err != nil {
 		return nil, err
@@ -253,9 +248,9 @@ func (ctx *ctx) newSessionByID(sessionID, contextID string, party view.Identity)
 	var endpoint string
 	if resolver != nil {
 		endpoint = resolver.GetAddress(driver.P2PPort)
-		span.AddEvent(fmt.Sprintf("Open new session by id to %s", resolver.GetName()))
+		logger.DebugfContext(ctx.context, "Open new session by id to %s", resolver.GetName())
 	}
-	span.AddEvent(fmt.Sprintf("Open new session by id to %s", endpoint))
+	logger.DebugfContext(ctx.context, "Open new session by id to %s", endpoint)
 	return ctx.sessionFactory.NewSessionWithID(sessionID, contextID, endpoint, pkid, nil, nil)
 }
 

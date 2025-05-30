@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type Loader struct {
@@ -57,9 +56,8 @@ func (c *Loader) AddHandlerProvider(headerType common.HeaderType, handlerProvide
 }
 
 func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_get_rwset_from_evn")
-	defer span.AddEvent("end_get_rwset_from_evn")
+	logger.DebugfContext(ctx, "Get RWSet from evn")
+	defer logger.DebugfContext(ctx, "Got RWSet from evn")
 
 	if !c.EnvelopeService.Exists(ctx, txID) {
 		return nil, nil, errors.Errorf("envelope does not exists for [%s]", txID)
@@ -94,9 +92,8 @@ func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver
 }
 
 func (c *Loader) GetRWSetFromETx(ctx context.Context, txID driver2.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_get_rwset_from_etx")
-	defer span.AddEvent("end_get_rwset_from_etx")
+	logger.DebugfContext(ctx, "Get RWSet from etx")
+	defer logger.DebugfContext(ctx, "Got RWSet from etx")
 
 	if !c.TransactionService.Exists(ctx, txID) {
 		return nil, nil, errors.Errorf("transaction does not exists for [%s]", txID)
@@ -118,7 +115,7 @@ func (c *Loader) GetRWSetFromETx(ctx context.Context, txID driver2.TxID) (driver
 }
 
 func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID driver2.TxID, envelopeRaw []byte) (driver.RWSet, driver.ProcessTransaction, error) {
-	logger.Debugf("unmarshal envelope [%s,%s]", c.Channel, txID)
+	logger.DebugfContext(ctx, "unmarshal envelope [%s,%s]", c.Channel, txID)
 	env := &common.Envelope{}
 	err := proto.Unmarshal(envelopeRaw, env)
 	if err != nil {

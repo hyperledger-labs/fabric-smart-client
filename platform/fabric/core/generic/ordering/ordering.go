@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	common2 "github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 	context2 "golang.org/x/net/context"
 )
 
@@ -86,43 +85,39 @@ func NewService(
 }
 
 func (o *Service) Broadcast(ctx context2.Context, blob interface{}) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("Start broadcast")
-	defer span.AddEvent("End broadcast")
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	defer logger.DebugfContext(ctx, "Done broadcasting")
 	var env *common2.Envelope
 	var err error
 	switch b := blob.(type) {
 	case Transaction:
-		logger.Debugf("new transaction to broadcast...")
-		span.AddEvent("Create Fabric Endorse Transaction Envelope")
+		logger.DebugfContext(ctx, "new transaction to broadcast...")
 		env, err = o.createFabricEndorseTransactionEnvelope(b)
 		if err != nil {
 			return err
 		}
 	case TransactionWithEnvelope:
-		logger.Debugf("new envelope to broadcast (boxed)...")
-		span.AddEvent("Extract Fabric Endorse Transaction Envelope")
+		logger.DebugfContext(ctx, "new envelope to broadcast (boxed)...")
 		env = b.Envelope()
 	case *common2.Envelope:
-		logger.Debugf("new envelope to broadcast...")
-		span.AddEvent("Cast Fabric Endorse Transaction Envelope")
+		logger.DebugfContext(ctx, "new envelope to broadcast...")
 		env = blob.(*common2.Envelope)
 	default:
+		logger.ErrorfContext(ctx, "invalid blob type [%T]", blob)
 		return errors.Errorf("invalid blob's type, got [%T]", blob)
 	}
 
 	o.BroadcastMutex.RLock()
-	span.AddEvent("Acquire broadcaster")
+	logger.DebugfContext(ctx, "Acquire broadcaster")
 	broadcaster := o.Broadcaster
 	o.BroadcastMutex.RUnlock()
 	if broadcaster == nil {
 		return errors.Errorf("cannot broadcast yet, no consensus type set")
 	}
 
-	span.AddEvent("Broadcast")
+	logger.DebugfContext(ctx, "Broadcast")
 	return broadcaster(ctx, env)
 }
 

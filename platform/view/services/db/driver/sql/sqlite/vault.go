@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type VaultStore struct {
@@ -50,11 +49,8 @@ func newVaultStore(readDB *sql.DB, writeDB common.WriteDB, tables common.VaultTa
 }
 
 func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("Start store")
-	defer span.AddEvent("End store")
 	if len(txIDs) == 0 && len(writes) == 0 && len(metaWrites) == 0 {
-		logger.Debugf("Nothing to write")
+		logger.DebugfContext(ctx, "Nothing to write")
 		return nil
 	}
 

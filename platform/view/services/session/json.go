@@ -9,14 +9,12 @@ package session
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 const defaultReceiveTimeout = 10 * time.Second
@@ -55,8 +53,7 @@ func JSON(context view.Context) *jsonSession {
 }
 
 func newJSONSession(s Session, context context.Context) *jsonSession {
-	span := trace.SpanFromContext(context)
-	span.AddEvent(fmt.Sprintf("Open json session to [%s:%s]", string(s.Info().Caller), s.Info().CallerViewID))
+	logger.DebugfContext(context, "Open json session to [%s]", logging.Eval(s.Info))
 	return &jsonSession{s: s, context: context}
 }
 
@@ -81,34 +78,32 @@ func (j *jsonSession) ReceiveRaw() ([]byte, error) {
 }
 
 func (j *jsonSession) ReceiveRawWithTimeout(d time.Duration) ([]byte, error) {
-	span := trace.SpanFromContext(j.context)
 	timeout := time.NewTimer(d)
 	defer timeout.Stop()
 
 	// TODO: use opts
-	span.AddEvent("Wait to receive")
+	logger.DebugfContext(j.context, "Wait to receive")
 	ch := j.s.Receive()
 	var raw []byte
 	select {
 	case msg := <-ch:
-		span.AddEvent("Received message")
 		if msg == nil {
+			logger.ErrorfContext(j.context, "Received nil message")
 			return nil, errors.New("received message is nil")
 		}
 		if msg.Status == view.ERROR {
+			logger.ErrorfContext(j.context, "Received error message")
 			return nil, errors.Errorf("received error from remote [%s]", string(msg.Payload))
 		}
 		raw = msg.Payload
 	case <-timeout.C:
-		err := errors.New("time out reached")
-		span.RecordError(err)
-		return nil, err
+		logger.ErrorfContext(j.context, "timeout reached")
+		return nil, errors.New("time out reached")
 	case <-j.context.Done():
-		err := errors.Errorf("context done [%s]", j.context.Err())
-		span.RecordError(err)
-		return nil, err
+		logger.ErrorfContext(j.context, "context done: %w", j.context.Err())
+		return nil, errors.Errorf("context done [%s]", j.context.Err())
 	}
-	logger.Debugf("json session, received message [%s]", hash.Hashable(raw))
+	logger.DebugfContext(j.context, "json session, received message [%s]", hash.Hashable(raw))
 	return raw, nil
 }
 
@@ -135,9 +130,7 @@ func (j *jsonSession) SendError(err string) error {
 }
 
 func (j *jsonSession) SendErrorWithContext(ctx context.Context, err string) error {
-	span := trace.SpanFromContext(ctx)
-	span.RecordError(errors.New(err))
-	logger.Debugf("json session, send error [%s]", err)
+	logger.ErrorfContext(ctx, "json session, send error: %w", err)
 	return j.s.SendErrorWithContext(ctx, []byte(err))
 }
 

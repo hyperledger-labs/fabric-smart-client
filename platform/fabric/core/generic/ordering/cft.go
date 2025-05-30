@@ -15,7 +15,6 @@ import (
 	common2 "github.com/hyperledger/fabric-protos-go/common"
 	ab "github.com/hyperledger/fabric-protos-go/orderer"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc/status"
 )
@@ -43,9 +42,8 @@ func NewCFTBroadcaster(configService driver.ConfigService, clientFactory Service
 }
 
 func (o *CFTBroadcaster) Broadcast(context context.Context, env *common2.Envelope) error {
-	span := trace.SpanFromContext(context)
-	span.AddEvent("Start CFT Broadcast")
-	defer span.AddEvent("End CFT Broadcast")
+	logger.DebugfContext(context, "Start CFT Broadcast")
+	defer logger.DebugfContext(context, "End CFT Broadcast")
 	// send the envelope for ordering
 	var status *ab.BroadcastResponse
 	var connection *Connection
@@ -56,7 +54,7 @@ func (o *CFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 	for i := 0; i < retries; i++ {
 		if connection != nil {
 			// throw away this connection
-			span.AddEvent("Discard connection")
+			logger.DebugfContext(context, "Discard connection")
 			o.discardConnection(connection)
 		}
 		if i > 0 {
@@ -68,8 +66,7 @@ func (o *CFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 			forceConnect = false
 			connection, err = o.getConnection(context)
 			if err != nil {
-				span.RecordError(err)
-				logger.Warnf("failed to get connection to orderer [%s]", err)
+				logger.WarnfContext(context, "failed to get connection to orderer [%s]", err)
 				continue
 			}
 		}
@@ -83,7 +80,7 @@ func (o *CFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 			continue
 		}
 		if status.GetStatus() != common2.Status_SUCCESS {
-			span.AddEvent("Release connection")
+			logger.DebugfContext(context, "Release connection")
 			o.releaseConnection(connection)
 			return errors.Wrapf(err, "failed broadcasting, status %s", common2.Status_name[int32(status.GetStatus())])
 		}
@@ -101,27 +98,27 @@ func (o *CFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 }
 
 func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error) {
-	span := trace.SpanFromContext(ctx)
-	defer span.AddEvent("End get connection")
+
+	defer logger.DebugfContext(ctx, "End get connection")
 	for {
-		span.AddEvent("Try acquire connection")
+		logger.DebugfContext(ctx, "Try acquire connection")
 		select {
 		case connection := <-o.connections:
-			span.AddEvent("Acquired connection")
+			logger.DebugfContext(ctx, "Acquired connection")
 			// if there is a connection available, return it
 			return connection, nil
 		default:
-			span.AddEvent("Wait for semaphore")
+			logger.DebugfContext(ctx, "Wait for semaphore")
 			// Try to acquire the right to create a new connection.
 			// If this fails, retry with an existing connection
 			semContext, cancel := context.WithTimeout(ctx, 1*time.Second)
 			if err := o.connSem.Acquire(semContext, 1); err != nil {
-				span.RecordError(err)
+				logger.WarnfContext(ctx, "error while waiting: %w", err)
 				cancel()
 				break
 			}
 			cancel()
-			span.AddEvent("Got a semaphore")
+			logger.DebugfContext(ctx, "Got a semaphore")
 
 			// create connection
 			to := o.ConfigService.PickOrderer()

@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/orion/driver"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = logging.MustGetLogger()
@@ -49,11 +48,7 @@ func NewProcessorManager(network Network, defaultProcessor driver.Processor) *pr
 }
 
 func (r *processorManager) ProcessByID(ctx context.Context, txID driver2.TxID) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_process_by_id")
-	defer span.AddEvent("end_process_by_id")
-
-	logger.Debugf("process transaction [%s]", txID)
+	logger.DebugfContext(ctx, "process transaction [%s]", txID)
 
 	req := &request{id: txID}
 	logger.Debugf("load transaction content [%s]", txID)

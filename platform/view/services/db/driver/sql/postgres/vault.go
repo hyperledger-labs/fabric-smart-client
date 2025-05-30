@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type VaultStore struct {
@@ -51,10 +50,6 @@ func newVaultStore(readDB, writeDB *sql.DB, tables common.VaultTables) *VaultSto
 func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes driver.Writes, metaWrites driver.MetaWrites) error {
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
-
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("Start store")
-	defer span.AddEvent("End store")
 
 	tx, err := db.writeDB.Begin()
 	if err != nil {
