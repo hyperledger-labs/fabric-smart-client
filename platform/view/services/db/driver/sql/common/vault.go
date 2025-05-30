@@ -492,16 +492,16 @@ func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) 
 
 	return db.queryStatus(cond.In("tx_id", txIDs...), pagination.None())
 }
-func (db *vaultReader) GetAllTxStatuses(ctx context.Context, pagination driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
-	if pagination == nil {
-		return nil, fmt.Errorf("invalid input pagination: %+v", pagination)
+func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
+	if p == nil {
+		return nil, fmt.Errorf("invalid input pagination: %+v", p)
 	}
 
-	txStatusIterator, err := db.queryStatus(nil, pagination)
+	txStatusIterator, err := db.queryStatus(nil, p)
 	if err != nil {
 		return nil, err
 	}
-	return &driver.PageIterator[*driver.TxStatus]{Items: txStatusIterator, Pagination: pagination}, nil
+	return pagination.NewPage(txStatusIterator, p)
 }
 
 func (db *vaultReader) queryStatus(where cond.Condition, pagination driver.Pagination) (driver.TxStatusIterator, error) {
