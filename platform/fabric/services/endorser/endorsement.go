@@ -15,7 +15,6 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type collectEndorsementsView struct {
@@ -26,7 +25,6 @@ type collectEndorsementsView struct {
 }
 
 func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error) {
-	span := trace.SpanFromContext(context.Context())
 	// Prepare verifiers
 	ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
 	if err != nil {
@@ -40,34 +38,30 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 	vProviders = append(vProviders, &verifierProviderWrapper{m: mspManager})
 
 	// Get results to send
-	span.AddEvent("Get results to send")
+	logger.DebugfContext(context.Context(), "Get results to send")
 	res, err := c.tx.Results()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting tx results")
 	}
 
 	// Contact sequantially all parties.
-	logger.Debugf("Collect Endorsements from [%d] parties [%v]", len(c.parties), c.parties)
-	span.AddEvent("Start collecting endorsement")
+	logger.DebugfContext(context.Context(), "Collect Endorsements from [%d] parties [%v]", len(c.parties), c.parties)
 	for _, party := range c.parties {
-		span.AddEvent("Collect endorsement iteration")
-		logger.Debugf("Collect Endorsements On Simulation from [%s]", party)
+		logger.DebugfContext(context.Context(), "Collect Endorsements On Simulation from [%s]", party)
 
 		var err error
 		if context.IsMe(party) {
-			span.AddEvent("Start endorsing locally")
-			logger.Debugf("This is me %s, endorse locally.", party)
+			logger.DebugfContext(context.Context(), "This is me %s, endorse locally.", party)
 			// Endorse it
 			err = c.tx.EndorseWithIdentity(party)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed endorsing transaction")
 			}
-			span.AddEvent("Finish endorsing locally")
 			continue
 		}
 
 		var txRaw []byte
-		span.AddEvent("Get transaction bytes")
+		logger.DebugfContext(context.Context(), "Get transaction bytes")
 		if c.deleteTransient {
 			txRaw, err = c.tx.BytesNoTransient()
 			if err != nil {
@@ -80,18 +74,18 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			}
 		}
 
-		span.AddEvent("Get session with party")
+		logger.DebugfContext(context.Context(), "Get session with party")
 		session, err := context.GetSession(context.Initiator(), party)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed getting session")
 		}
 
 		// Get a channel to receive the answer
-		span.AddEvent("Start receiving from party")
+		logger.DebugfContext(context.Context(), "Start receiving from party")
 		ch := session.Receive()
 
 		// Send transaction
-		span.AddEvent("Send raw transaction to party")
+		logger.DebugfContext(context.Context(), "Send raw transaction to party")
 		err = session.SendWithContext(context.Context(), txRaw)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed sending transaction content")
@@ -99,7 +93,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 
 		timeout := time.NewTimer(time.Minute)
 
-		span.AddEvent("Wait for transaction")
+		logger.DebugfContext(context.Context(), "Wait for transaction")
 		// Wait for the answer
 		var msg *view.Message
 		select {
@@ -109,7 +103,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			timeout.Stop()
 			return nil, errors.Errorf("Timeout from party %s", party)
 		}
-		span.AddEvent("Received transaction from party")
+		logger.DebugfContext(context.Context(), "Received transaction from party")
 		if msg.Status == view.ERROR {
 			return nil, errors.New(string(msg.Payload))
 		}
@@ -129,7 +123,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 		}
 		tm := fns.TransactionManager()
 		for _, response := range responses {
-			span.AddEvent("Parse proposal response")
+			logger.DebugfContext(context.Context(), "Parse proposal response")
 			proposalResponse, err := tm.NewProposalResponseFromBytes(response)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed unmarshalling received proposal response")
@@ -138,24 +132,23 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			endorser := view.Identity(proposalResponse.Endorser())
 
 			// Check the validity of the response
-			span.AddEvent("Check response validity")
+			logger.DebugfContext(context.Context(), "Check response validity")
 			if view2.GetEndpointService(context).IsBoundTo(context.Context(), endorser, party) {
 				found = true
 			}
 
 			// TODO: check the verifier providers, if any
 			verified := false
-			span.AddEvent("Start verification with providers")
+			logger.DebugfContext(context.Context(), "Start verification with providers")
 			for _, provider := range vProviders {
-				span.AddEvent("Verify endorsement")
+				logger.DebugfContext(context.Context(), "Verify endorsement")
 				err := proposalResponse.VerifyEndorsement(provider)
-				span.AddEvent("Verified endorsement")
 				if err == nil {
-					logger.Debugf("endorsement [%s] is valid", endorser)
+					logger.DebugfContext(context.Context(), "endorsement [%s] is valid", endorser)
 					verified = true
 					break
 				}
-				logger.Debugf("endorsement [%s] is invalid, reason [%s]", endorser, err)
+				logger.DebugfContext(context.Context(), "endorsement [%s] is invalid, reason [%s]", endorser, err)
 			}
 			if !verified {
 				return nil, errors.Errorf("failed to verify signature for party [%s][%s]", endorser.String(), string(endorser))
@@ -166,10 +159,9 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 				return nil, errors.Errorf("received different results")
 			}
 
-			logger.Debugf("append response from party [%s]", party)
-			span.AddEvent("Append proposal response")
+			logger.DebugfContext(context.Context(), "append response from party [%s]", party)
 			err = c.tx.AppendProposalResponse(proposalResponse)
-			span.AddEvent("Appended proposal response")
+			logger.DebugfContext(context.Context(), "Appended proposal response")
 			if err != nil {
 				return nil, errors.Wrap(err, "failed appending received proposal response")
 			}

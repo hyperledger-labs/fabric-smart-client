@@ -21,7 +21,6 @@ import (
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type Proposal struct {
@@ -303,13 +302,9 @@ func (t *Transaction) ResetTransient() {
 }
 
 func (t *Transaction) SetRWSet() error {
-	span := trace.SpanFromContext(t.ctx)
-	span.AddEvent("set_rwset")
-	defer span.AddEvent("done_rwset")
 	switch {
 	case len(t.TProposalResponses) != 0:
-		span.AddEvent("from_proposal")
-		logger.Debugf("populate rws from proposal response")
+		logger.DebugfContext(t.ctx, "populate rws from proposal response")
 		results, err := t.Results()
 		if err != nil {
 			return errors.WithMessagef(err, "failed to get rws from proposal response")
@@ -319,22 +314,21 @@ func (t *Transaction) SetRWSet() error {
 			return errors.WithMessagef(err, "failed to populate rws from proposal response")
 		}
 	case len(t.RWSet) != 0:
-		span.AddEvent("from_rwset")
-		logger.Debugf("populate rws from rwset")
+		logger.DebugfContext(t.ctx, "populate rws from rwset")
 		var err error
 		t.rwset, err = t.channel.Vault().NewRWSetFromBytes(t.ctx, t.ID(), t.RWSet)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to populate rws from existing rws")
 		}
 	default:
-		span.AddEvent("from_scratch")
-		logger.Debugf("populate rws from scratch")
+		logger.DebugfContext(t.ctx, "populate rws from scratch")
 		var err error
 		t.rwset, err = t.channel.Vault().NewRWSet(t.ctx, t.ID())
 		if err != nil {
 			return errors.WithMessagef(err, "failed to create fresh rws")
 		}
 	}
+	logger.DebugfContext(t.ctx, "Done setting RWSet")
 	return nil
 }
 

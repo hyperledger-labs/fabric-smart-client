@@ -20,8 +20,6 @@ import (
 type Responder struct{}
 
 func (p *Responder) Call(context view.Context) (interface{}, error) {
-	span := trace.SpanFromContext(context.Context())
-
 	// Retrieve the session opened by the initiator
 	session := context.Session()
 
@@ -35,7 +33,7 @@ func (p *Responder) Call(context view.Context) (interface{}, error) {
 		payload = msg.Payload
 		rcvCtx, rcvSpan = context.StartSpanFrom(msg.Ctx, "responder_receive", trace.WithSpanKind(trace.SpanKindServer))
 		defer rcvSpan.End()
-		rcvSpan.AddLink(trace.Link{SpanContext: span.SpanContext()})
+		rcvSpan.AddLink(trace.Link{SpanContext: trace.SpanContextFromContext(context.Context())})
 	case <-time.After(5 * time.Second):
 		return nil, errors.New("time out reached")
 	}

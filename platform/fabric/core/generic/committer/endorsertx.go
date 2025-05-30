@@ -15,16 +15,12 @@ import (
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type ValidationFlags []uint8
 
 func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common.BlockMetadata, tx CommitTx) (*FinalityEvent, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_handle_endorser_transaction")
-	defer span.AddEvent("end_handle_endorser_transaction")
-	logger.Debugf("[%s] EndorserClient transaction received: %s", c.ChannelConfig.ID(), tx.TxID)
+	logger.DebugfContext(ctx, "[%s] EndorserClient transaction received: %s", c.ChannelConfig.ID(), tx.TxID)
 	fabricValidationCode, event, err := MapFinalityEvent(ctx, block, tx.TxNum, tx.TxID)
 	if err != nil {
 		return nil, err
@@ -47,12 +43,14 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 				return nil, errors.Wrapf(err, "failed to publish chaincode events [%s]", event.TxID)
 			}
 		}
+		c.logger.DebugfContext(ctx, "Processed transaction")
 		return event, nil
 	}
 
 	if err := c.DiscardEndorserTransaction(ctx, event.TxID, tx.BlkNum, tx.Raw, event); err != nil {
 		return nil, errors.Wrapf(err, "failed discarding transaction [%s]", event.TxID)
 	}
+	c.logger.DebugfContext(ctx, "Discarded transaction")
 	return event, nil
 }
 
@@ -92,16 +90,11 @@ func (c *Committer) GetChaincodeEvents(env *common.Envelope, blockNum driver2.Bl
 // CommitEndorserTransaction commits the transaction to the vault.
 // It returns true, if the transaction was already processed, false otherwise.
 func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, blockNum driver2.BlockNum, indexInBlock uint64, env *common.Envelope, event *FinalityEvent) (bool, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_commit_endorser_transaction")
-	defer span.AddEvent("end_commit_endorser_transaction")
-
-	logger.Debugf("transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
+	logger.DebugfContext(ctx, "transaction [%s] in block [%d] is valid for fabric, commit!", txID, blockNum)
 
 	event.Block = blockNum
 	event.IndexInBlock = indexInBlock
 
-	span.AddEvent("fetch_tx_status")
 	vc, _, err := c.Status(ctx, txID)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed getting tx's status [%s]", txID)
@@ -118,7 +111,6 @@ func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, 
 		return true, nil
 	}
 
-	span.AddEvent("commit_tx")
 	if err := c.CommitTX(ctx, event.TxID, event.Block, event.IndexInBlock, env); err != nil {
 		return false, errors.Wrapf(err, "failed committing transaction [%s]", txID)
 	}
@@ -127,10 +119,7 @@ func (c *Committer) CommitEndorserTransaction(ctx context.Context, txID string, 
 
 // DiscardEndorserTransaction discards the transaction from the vault
 func (c *Committer) DiscardEndorserTransaction(ctx context.Context, txID string, blockNum driver2.BlockNum, envRaw []byte, event *FinalityEvent) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_discard_endorser_transaction")
-	defer span.AddEvent("end_discard_endorser_transaction")
-	logger.Debugf("transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, event.ValidationCode)
+	logger.DebugfContext(ctx, "transaction [%s] in block [%d] is not valid for fabric [%s], discard!", txID, blockNum, event.ValidationCode)
 
 	vc, _, err := c.Status(ctx, txID)
 	if err != nil {

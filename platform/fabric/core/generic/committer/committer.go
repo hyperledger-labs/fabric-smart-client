@@ -292,9 +292,8 @@ func (c *Committer) RemoveFinalityListener(txID string, listener driver.Finality
 
 // CommitConfig is used to validate and apply configuration transactions for a Channel.
 func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver2.BlockNum, raw []byte, env *common.Envelope) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_commit_config")
-	defer span.AddEvent("end_commit_config")
+	logger.DebugfContext(ctx, "Start commit config")
+	defer logger.DebugfContext(ctx, "End commit config")
 	commitConfigMutex.Lock()
 	defer commitConfigMutex.Unlock()
 
@@ -644,9 +643,8 @@ func (c *Committer) notifyFinality(event FinalityEvent) {
 		c.logger.Warnf("An error occurred for tx [%s], event: [%v]", event.TxID, event)
 	}
 
-	trace.SpanFromContext(event.Ctx).AddEvent("notify_listeners")
 	listeners := c.listeners[event.TxID]
-	c.logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
+	c.logger.DebugfContext(event.Ctx, "Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
 	for _, listener := range listeners {
 		listener <- event
 	}
@@ -684,8 +682,7 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 		case event := <-ch:
 			span.AddEvent("receive_channel_result")
 			span.AddLink(trace.LinkFromContext(event.Ctx))
-			trace.SpanFromContext(event.Ctx).AddEvent("return_channel_result")
-			c.logger.Debugf("Got an answer to finality of [%s]: [%s]", txID, event.Err)
+			c.logger.DebugfContext(event.Ctx, "Got an answer to finality of [%s]: [%s]", txID, event.Err)
 			timeout.Stop()
 			return event.Err
 		case <-timeout.C:
@@ -740,18 +737,14 @@ func (c *Committer) commitConfig(ctx context.Context, txID driver2.TxID, blockNu
 }
 
 func (c *Committer) commit(ctx context.Context, txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_commit")
-	defer span.AddEvent("end_commit")
 	// This is a normal transaction, validated by Fabric.
 	// Commit it cause Fabric says it is valid.
-	c.logger.Debugf("[%s] committing", txID)
+	c.logger.DebugfContext(ctx, "[%s] committing", txID)
 
 	// Match rwsets if envelope is not empty
 	if envelope != nil {
-		c.logger.Debugf("[%s] matching rwsets", txID)
+		c.logger.DebugfContext(ctx, "[%s] matching rwsets", txID)
 
-		span.AddEvent("new_tx_from_payload")
 		pt, headerType, err := c.TransactionManager.NewProcessedTransactionFromEnvelopePayload(envelope.Payload)
 		if err != nil && headerType == -1 {
 			c.logger.Errorf("[%s] failed to unmarshal envelope [%s]", txID, err)
@@ -760,11 +753,11 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 		if headerType == int32(common.HeaderType_ENDORSER_TRANSACTION) {
 			if !c.Vault.RWSExists(ctx, txID) && c.EnvelopeService.Exists(ctx, txID) {
 				// Then match rwsets
-				span.AddEvent("extract_stored_env_to_vault")
+				c.logger.DebugfContext(ctx, "Extract stored env to vault")
 				if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
 					return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
 				}
-				span.AddEvent("match_rwset")
+				c.logger.DebugfContext(ctx, "Match RWSet")
 				if err := c.Vault.Match(ctx, txID, pt.Results()); err != nil {
 					c.logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
 					return errors2.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
@@ -775,11 +768,9 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 				if err != nil {
 					return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 				}
-				span.AddEvent("store_env")
 				if err := c.EnvelopeService.StoreEnvelope(ctx, txID, envelopeRaw); err != nil {
 					return errors.WithMessagef(err, "failed to store unknown envelope for [%s]", txID)
 				}
-				span.AddEvent("get_rwset_from_evn")
 				rws, _, err := c.RWSetLoaderService.GetRWSetFromEvn(ctx, txID)
 				if err != nil {
 					return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
@@ -790,17 +781,15 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 	}
 
 	// Post-Processes
-	c.logger.Debugf("[%s] post process rwset", txID)
+	c.logger.DebugfContext(ctx, "[%s] post process rwset", txID)
 
-	span.AddEvent("post_process_tx")
 	if err := c.postProcessTx(ctx, txID); err != nil {
 		// This should generate a panic
 		return err
 	}
 
 	// Commit
-	c.logger.Debugf("[%s] commit in vault", txID)
-	span.AddEvent("commit_to_vault")
+	c.logger.DebugfContext(ctx, "[%s] commit in vault", txID)
 	if err := c.Vault.CommitTX(ctx, txID, block, indexInBlock); err != nil {
 		// This should generate a panic
 		return err
@@ -944,9 +933,6 @@ func (c *Committer) fetchEnvelope(txID string) ([]byte, error) {
 }
 
 func (c *Committer) filterUnknownEnvelope(ctx context.Context, txID string, envelope []byte) (bool, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_filter_unknown_envelope")
-	defer span.AddEvent("end_filter_unknown_envelope")
 	rws, _, err := c.RWSetLoaderService.GetInspectingRWSetFromEvn(ctx, txID, envelope)
 	if err != nil {
 		return false, errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
@@ -954,7 +940,7 @@ func (c *Committer) filterUnknownEnvelope(ctx context.Context, txID string, enve
 	defer rws.Done()
 
 	// check namespaces
-	c.logger.Debugf("[%s] contains namespaces [%v] or `initialized` key", txID, rws.Namespaces())
+	c.logger.DebugfContext(ctx, "[%s] contains namespaces [%v] or `initialized` key", txID, rws.Namespaces())
 	for _, ns := range rws.Namespaces() {
 		for _, namespace := range c.ProcessNamespaces {
 			if namespace == ns {

@@ -23,7 +23,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/pagination"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type VaultTables struct {
@@ -65,12 +64,8 @@ type VaultStore struct {
 }
 
 func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (driver.LockedVaultReader, error) {
-	logger.Debugf("Acquire tx id lock for [%s]", txID)
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("Start acquire TxID read lock")
-	defer span.AddEvent("End acquire TxID read lock")
+	logger.DebugfContext(ctx, "Acquire tx id lock for [%s]", txID)
 
-	logger.Debugf("Attempt to acquire lock for [%s]", txID)
 	// Ignore conflicts in case replicas create the same entry when receiving the envelope
 	query, params := q.InsertInto(db.tables.StatusTable).
 		Fields("tx_id", "code").
@@ -110,9 +105,8 @@ func (db *VaultStore) newTxLockVaultReader(ctx context.Context, isolationLevel d
 }
 
 func (db *VaultStore) NewGlobalLockVaultReader(ctx context.Context) (driver.LockedVaultReader, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("Start acquire global lock")
-	defer span.AddEvent("End acquire global lock")
+	logger.DebugfContext(ctx, "Start acquire global lock")
+	defer logger.DebugfContext(ctx, "End acquire global lock")
 	return newTxVaultReader(db.newGlobalLockVaultReader), nil
 }
 
@@ -134,9 +128,6 @@ func (db *VaultStore) newGlobalLockVaultReader() (*vaultReader, releaseFunc, err
 func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode, message string, txIDs ...driver.TxID) error {
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("Start set statuses")
-	defer span.AddEvent("End set statuses")
 
 	rows := make([]common.Tuple, len(txIDs))
 	for i, txID := range txIDs {
@@ -369,16 +360,10 @@ func (db *vaultReader) GetState(ctx context.Context, namespace driver.Namespace,
 }
 
 func (db *vaultReader) GetStates(ctx context.Context, namespace driver.Namespace, keys ...driver.PKey) (driver.TxStateIterator, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("Start get states")
-	defer span.AddEvent("End get states")
 	return db.queryState(ctx, cond.And(cond.Eq("ns", namespace), cond.In("pkey", keys...)))
 }
 
 func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("Start get state range")
-	defer span.AddEvent("End get state range")
 	return db.queryState(ctx, cond.And(cond.Eq("ns", namespace), cond.BetweenStrings("pkey", startKey, endKey)))
 }
 
@@ -411,9 +396,6 @@ func (db *vaultReader) queryState(ctx context.Context, where cond.Condition) (dr
 }
 
 func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("Start get state metadata")
-	defer span.AddEvent("End get state metadata")
 	namespace, err := db.sanitizer.Encode(namespace)
 	if err != nil {
 		return nil, nil, err
@@ -448,9 +430,6 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 }
 
 func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_get_last")
-	defer span.AddEvent("end_get_last")
 	it, err := db.queryStatus(ctx, IsLast(common.TableName(db.tables.StatusTable)), pagination.None())
 	if err != nil {
 		return nil, err
@@ -474,10 +453,6 @@ func (c *isLast) WriteString(_ common.CondInterpreter, sb common.Builder) {
 }
 
 func (db *vaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_get_tx_status")
-	defer span.AddEvent("end_get_tx_status")
-
 	it, err := db.queryStatus(ctx, cond.Eq("tx_id", txID), pagination.None())
 	if err != nil {
 		return nil, err
@@ -485,9 +460,6 @@ func (db *vaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driv
 	return collections.GetUnique(it)
 }
 func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) (driver.TxStatusIterator, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_get_tx_statuses")
-	defer span.AddEvent("end_get_tx_statuses")
 	if len(txIDs) == 0 {
 		return collections.NewEmptyIterator[*driver.TxStatus](), nil
 	}

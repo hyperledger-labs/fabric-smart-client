@@ -170,11 +170,7 @@ func (c *committer) Commit(block *types.AugmentedBlockHeader) error {
 }
 
 func (c *committer) CommitTX(ctx context.Context, txID driver2.TxID, bn driver.BlockNum, index driver.TxNum, event *TxEvent) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_commit_tx")
-	defer span.AddEvent("end_commit_tx")
-
-	logger.Debugf("transaction [%s] in block [%d] is valid for orion", txID, bn)
+	logger.DebugfContext(ctx, "transaction [%s] in block [%d] is valid for orion", txID, bn)
 
 	// if is already committed, do nothing
 	vc, _, err := c.vault.Status(ctx, txID)
@@ -183,27 +179,25 @@ func (c *committer) CommitTX(ctx context.Context, txID driver2.TxID, bn driver.B
 	}
 	switch vc {
 	case driver.Valid:
-		logger.Debugf("tx %s is already committed", txID)
+		logger.DebugfContext(ctx, "tx %s is already committed", txID)
 		return nil
 	case driver.Invalid:
-		logger.Debugf("tx %s is already invalid", txID)
+		logger.DebugfContext(ctx, "tx %s is already invalid", txID)
 		return errors.Errorf("tx %s is already invalid but it is marked as valid by orion", txID)
 	case driver.Unknown:
 		if !c.em.Exists(ctx, txID) {
 			logger.Debugf("tx %s is unknown, check the transaction filters...", txID)
 			return c.commitWithFilter(ctx, txID)
 		}
-		logger.Debugf("tx %s is unknown, but it was found its envelope has been found, process it", txID)
+		logger.DebugfContext(ctx, "tx %s is unknown, but it was found its envelope has been found, process it", txID)
 	}
 
 	// post process
-	span.AddEvent("process_by_id")
 	if err := c.pm.ProcessByID(ctx, txID); err != nil {
 		return errors.Wrapf(err, "failed to process tx %s", txID)
 	}
 
 	// commit
-	span.AddEvent("commit_to_vault")
 	if err := c.vault.CommitTX(ctx, txID, bn, index); err != nil {
 		return errors.WithMessagef(err, "failed to commit tx %s", txID)
 	}
@@ -212,10 +206,7 @@ func (c *committer) CommitTX(ctx context.Context, txID driver2.TxID, bn driver.B
 }
 
 func (c *committer) DiscardTX(ctx context.Context, txID string, blockNum uint64, event *TxEvent) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_discard_tx")
-	defer span.AddEvent("end_discard_tx")
-	logger.Debugf("transaction [%s] in block [%d] is not valid for orion [%s], discard!", txID, blockNum, event.ValidationCode)
+	logger.DebugfContext(ctx, "transaction [%s] in block [%d] is not valid for orion [%s], discard!", txID, blockNum, event.ValidationCode)
 
 	vc, _, err := c.vault.Status(ctx, txID)
 	if err != nil {
@@ -353,13 +344,10 @@ func (c *committer) deleteFinalityListener(txid string, ch chan TxEvent) {
 }
 
 func (c *committer) notifyFinality(ctx context.Context, event TxEvent) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_notify_finality")
-	defer span.AddEvent("end_notify_finality")
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	span.AddEvent("post_finality")
+	logger.DebugfContext(ctx, "Post finality")
 	c.postFinality(ctx, event.TxID, event.ValidationCode, event.ValidationMessage)
 
 	if event.Err != nil && !c.quietNotifier {
@@ -369,17 +357,14 @@ func (c *committer) notifyFinality(ctx context.Context, event TxEvent) {
 	listeners := c.listeners[event.TxID]
 	logger.Debugf("Notify the finality of [%s] to [%d] listeners, event: [%v]", event.TxID, len(listeners), event)
 
-	for _, listener := range listeners {
-		span.AddEvent("notify_listener")
+	for i, listener := range listeners {
+		logger.DebugfContext(ctx, "Notify listener [%d]", i)
 		listener <- event
 	}
 }
 
 func (c *committer) listenToFinality(ctx context.Context, txID string, timeout time.Duration) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_listen_to_finality")
-	defer span.AddEvent("end_listen_to_finality")
-	logger.Debugf("Listen to finality of [%s]", txID)
+	logger.DebugfContext(ctx, "Listen to finality of [%s]", txID)
 
 	// notice that adding the listener can happen after the event we are looking for has already happened
 	// therefore we need to check more often before the timeout happens
@@ -392,24 +377,22 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 		iterations = 1
 	}
 	for i := 0; i < iterations; i++ {
-		span.AddEvent("start_iteration")
+		logger.DebugfContext(ctx, "Start iteration [%d]", i)
 		timeout := time.NewTimer(c.pollingTimeout)
 
 		stop := false
 		select {
 		case <-ctx.Done():
-			span.AddEvent("cancel_context")
+			logger.DebugfContext(ctx, "Cancel context")
 			timeout.Stop()
 			stop = true
 		case event := <-ch:
-			span.AddEvent("receive_listener_event")
-			logger.Debugf("Got an answer to finality of [%s]: [%s]", txID, event.Err)
+			logger.DebugfContext(ctx, "Got an answer to finality of [%s]: [%s]", txID, event.Err)
 			timeout.Stop()
 			return event.Err
 		case <-timeout.C:
-			span.AddEvent("check_vault")
 			timeout.Stop()
-			logger.Debugf("Got a timeout for finality of [%s], check the status", txID)
+			logger.DebugfContext(ctx, "Got a timeout for finality of [%s], check the status", txID)
 			vd, _, err := c.vault.Status(ctx, txID)
 			if err == nil {
 				switch vd {
@@ -427,7 +410,7 @@ func (c *committer) listenToFinality(ctx context.Context, txID string, timeout t
 			break
 		}
 	}
-	logger.Debugf("Is [%s] final? Failed to listen to transaction for timeout", txID)
+	logger.DebugfContext(ctx, "Is [%s] final? Failed to listen to transaction for timeout", txID)
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
 }
 

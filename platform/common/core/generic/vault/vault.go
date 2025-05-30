@@ -114,9 +114,6 @@ func (db *Vault[V]) NewQueryExecutor(ctx context.Context) (dbdriver.QueryExecuto
 }
 
 func (db *Vault[V]) Status(ctx context.Context, txID driver.TxID) (V, string, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_status")
-	defer span.AddEvent("end_status")
 	tx, err := db.vaultStore.GetTxStatus(ctx, txID)
 	if err != nil || tx == nil {
 		return db.vcProvider.FromInt32(driver.Unknown), "", err
@@ -125,9 +122,6 @@ func (db *Vault[V]) Status(ctx context.Context, txID driver.TxID) (V, string, er
 }
 
 func (db *Vault[V]) DiscardTx(ctx context.Context, txID driver.TxID, message string) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_discard_tx")
-	defer span.AddEvent("end_discard_tx")
 	db.interceptorsLock.Lock()
 	defer db.interceptorsLock.Unlock()
 
@@ -213,7 +207,7 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 
 func (db *Vault[V]) commitRWs(ctx context.Context, inputs ...commitInput) error {
 	for _, input := range inputs {
-		trace.SpanFromContext(input.ctx).AddEvent("begin_update")
+		db.logger.DebugfContext(input.ctx, "Begin update for tx [%d:%d][%s]", input.block, input.indexInBloc, input.txID)
 	}
 
 	db.logger.Debugf("extract txids from [%d] inputs", len(inputs))
@@ -265,10 +259,6 @@ func (db *Vault[V]) NewRWSetFromBytes(ctx context.Context, txID driver.TxID, rws
 }
 
 func (db *Vault[V]) newRWSet(ctx context.Context, txID driver.TxID, rws ReadWriteSet, isolationLevel driver.IsolationLevel) (driver.RWSet, error) {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("Start new RW set")
-	defer span.AddEvent("End new RW set")
-
 	qe, err := db.vaultStore.NewTxLockVaultReader(ctx, txID, isolationLevel)
 	if err != nil {
 		return nil, err

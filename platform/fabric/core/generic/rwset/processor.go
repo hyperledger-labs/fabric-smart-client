@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = logging.MustGetLogger()
@@ -54,10 +53,8 @@ func NewProcessorManager(
 }
 
 func (r *processorManager) ProcessByID(ctx context.Context, channel string, txID driver2.TxID) error {
-	span := trace.SpanFromContext(ctx)
-	span.AddEvent("start_process_by_id")
-	defer span.AddEvent("end_process_by_id")
-	logger.Debugf("process transaction [%s,%s]", channel, txID)
+	logger.DebugfContext(ctx, "process transaction [%s,%s]", channel, txID)
+	defer logger.DebugfContext(ctx, "Done process by id")
 
 	ch, err := r.channelProvider.Channel(channel)
 	if err != nil {
@@ -75,7 +72,7 @@ func (r *processorManager) ProcessByID(ctx context.Context, channel string, txID
 	case ch.TransactionService().Exists(ctx, txID):
 		rws, tx, err = ch.RWSetLoader().GetRWSetFromETx(ctx, txID)
 	default:
-		logger.Debugf("no entry found for [%s,%s]", channel, txID)
+		logger.DebugfContext(ctx, "no entry found for [%s,%s]", channel, txID)
 		return nil
 	}
 	if err != nil {
