@@ -45,7 +45,7 @@ func (db *BindingStore) GetLongTerm(ctx context.Context, ephemeral view.Identity
 		Format(db.ci)
 
 	logger.Debug(query, params)
-	result, err := QueryUnique[view.Identity](db.readDB, query, params...)
+	result, err := QueryUniqueContext[view.Identity](ctx, db.readDB, query, params...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting wallet id for identity [%v]", ephemeral)
 	}

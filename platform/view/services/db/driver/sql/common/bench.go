@@ -24,7 +24,7 @@ var (
 
 func ReadExisting(b *testing.B, db driver.KeyValueStore) {
 	assert.NoError(b, db.BeginUpdate())
-	assert.NoError(b, db.SetState(namespace, key, payload))
+	assert.NoError(b, db.SetState(context.Background(), namespace, key, payload))
 	assert.NoError(b, db.Commit())
 
 	var v []byte
@@ -58,7 +58,7 @@ func WriteOne(b *testing.B, db driver.KeyValueStore) {
 	for i := 0; i < b.N; i++ {
 		err = db.BeginUpdate()
 		_ = err
-		err = db.SetState(namespace, key, payload)
+		err = db.SetState(context.Background(), namespace, key, payload)
 		_ = err
 		err = db.Commit()
 	}
@@ -79,7 +79,7 @@ func WriteMany(b *testing.B, db driver.KeyValueStore) {
 
 		err = db.BeginUpdate()
 		_ = err
-		err = db.SetState(namespace, k, payload)
+		err = db.SetState(context.Background(), namespace, k, payload)
 		_ = err
 		err = db.Commit()
 
@@ -110,7 +110,7 @@ func WriteParallel(b *testing.B, db driver.KeyValueStore) {
 				b.Logf("    mid (%d): %+v", int(mid), db.Stats())
 			}
 
-			if err := db.SetState(namespace, k, payload); err != nil {
+			if err := db.SetState(context.Background(), namespace, k, payload); err != nil {
 				b.Error(err)
 			}
 		}

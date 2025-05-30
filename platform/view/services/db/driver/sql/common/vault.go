@@ -79,7 +79,7 @@ func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID
 		Format()
 	logger.Debug(query, params)
 
-	if _, err := db.writeDB.Exec(query, params...); err != nil {
+	if _, err := db.writeDB.ExecContext(ctx, query, params...); err != nil {
 		return nil, db.errorWrapper.WrapError(err)
 	}
 
@@ -154,7 +154,7 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 
 	logger.Debug(query, params)
 
-	if _, err := db.writeDB.Exec(query, params...); err != nil {
+	if _, err := db.writeDB.ExecContext(ctx, query, params...); err != nil {
 		return errors.Wrapf(err, "failed updating statuses for %d txids", len(txIDs))
 	}
 	return nil
@@ -266,6 +266,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 
 type dbReader interface {
 	Query(query string, args ...any) (*sql.Rows, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 	QueryRow(query string, args ...any) *sql.Row
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
@@ -371,21 +372,21 @@ func (db *vaultReader) GetStates(ctx context.Context, namespace driver.Namespace
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("Start get states")
 	defer span.AddEvent("End get states")
-	return db.queryState(cond.And(cond.Eq("ns", namespace), cond.In("pkey", keys...)))
+	return db.queryState(ctx, cond.And(cond.Eq("ns", namespace), cond.In("pkey", keys...)))
 }
 
 func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("Start get state range")
 	defer span.AddEvent("End get state range")
-	return db.queryState(cond.And(cond.Eq("ns", namespace), cond.BetweenStrings("pkey", startKey, endKey)))
+	return db.queryState(ctx, cond.And(cond.Eq("ns", namespace), cond.BetweenStrings("pkey", startKey, endKey)))
 }
 
-func (db *vaultReader) GetAllStates(_ context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
-	return db.queryState(cond.Eq("ns", namespace))
+func (db *vaultReader) GetAllStates(ctx context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
+	return db.queryState(ctx, cond.Eq("ns", namespace))
 }
 
-func (db *vaultReader) queryState(where cond.Condition) (driver.TxStateIterator, error) {
+func (db *vaultReader) queryState(ctx context.Context, where cond.Condition) (driver.TxStateIterator, error) {
 	query, params := q.Select().FieldsByName("pkey", "kversion", "val").
 		From(q.Table(db.tables.StateTable)).
 		Where(where).
@@ -394,8 +395,9 @@ func (db *vaultReader) queryState(where cond.Condition) (driver.TxStateIterator,
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof(query, params)
-	rows, err := db.readDB.Query(query, params...)
+
+	logger.Debug(query, params)
+	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -449,7 +451,7 @@ func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
 	span := trace.SpanFromContext(ctx)
 	span.AddEvent("start_get_last")
 	defer span.AddEvent("end_get_last")
-	it, err := db.queryStatus(IsLast(common.TableName(db.tables.StatusTable)), pagination.None())
+	it, err := db.queryStatus(ctx, IsLast(common.TableName(db.tables.StatusTable)), pagination.None())
 	if err != nil {
 		return nil, err
 	}
@@ -476,7 +478,7 @@ func (db *vaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driv
 	span.AddEvent("start_get_tx_status")
 	defer span.AddEvent("end_get_tx_status")
 
-	it, err := db.queryStatus(cond.Eq("tx_id", txID), pagination.None())
+	it, err := db.queryStatus(ctx, cond.Eq("tx_id", txID), pagination.None())
 	if err != nil {
 		return nil, err
 	}
@@ -490,21 +492,21 @@ func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) 
 		return collections.NewEmptyIterator[*driver.TxStatus](), nil
 	}
 
-	return db.queryStatus(cond.In("tx_id", txIDs...), pagination.None())
+	return db.queryStatus(ctx, cond.In("tx_id", txIDs...), pagination.None())
 }
-func (db *vaultReader) GetAllTxStatuses(ctx context.Context, pagination driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
-	if pagination == nil {
-		return nil, fmt.Errorf("invalid input pagination: %+v", pagination)
+func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
+	if p == nil {
+		return nil, fmt.Errorf("invalid input pagination: %+v", p)
 	}
 
-	txStatusIterator, err := db.queryStatus(nil, pagination)
+	txStatusIterator, err := db.queryStatus(ctx, nil, p)
 	if err != nil {
 		return nil, err
 	}
-	return &driver.PageIterator[*driver.TxStatus]{Items: txStatusIterator, Pagination: pagination}, nil
+	return &driver.PageIterator[*driver.TxStatus]{Items: txStatusIterator, Pagination: p}, nil
 }
 
-func (db *vaultReader) queryStatus(where cond.Condition, pagination driver.Pagination) (driver.TxStatusIterator, error) {
+func (db *vaultReader) queryStatus(ctx context.Context, where cond.Condition, pagination driver.Pagination) (driver.TxStatusIterator, error) {
 	query, params := q.Select().FieldsByName("tx_id", "code", "message").
 		From(q.Table(db.tables.StatusTable)).
 		Where(where).
@@ -512,7 +514,7 @@ func (db *vaultReader) queryStatus(where cond.Condition, pagination driver.Pagin
 		FormatPaginated(db.ci, db.pi)
 	logger.Infof(query, params)
 
-	rows, err := db.readDB.Query(query, params...)
+	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, err
 	}

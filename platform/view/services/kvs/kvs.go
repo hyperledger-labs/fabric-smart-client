@@ -138,7 +138,7 @@ func (o *KVS) Put(ctx context.Context, id string, state interface{}) error {
 	}
 
 	if err := utils.NewProbabilisticRetryRunner(3, 200, true).RunWithErrors(func() (bool, error) {
-		err := o.store.SetState(o.namespace, id, raw)
+		err := o.store.SetState(ctx, o.namespace, id, raw)
 		return err == nil, err
 	}); err != nil {
 		return err
@@ -180,10 +180,10 @@ func (o *KVS) Get(ctx context.Context, id string, state interface{}) error {
 	return nil
 }
 
-func (o *KVS) Delete(id string) error {
+func (o *KVS) Delete(ctx context.Context, id string) error {
 	logger.Debugf("delete state [%s,%s]", o.namespace, id)
 
-	if err := o.store.DeleteState(o.namespace, id); err != nil {
+	if err := o.store.DeleteState(ctx, o.namespace, id); err != nil {
 		return err
 	}
 

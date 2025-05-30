@@ -26,7 +26,7 @@ type KeyValueStore struct {
 	errorWrapper driver2.SQLErrorWrapper
 }
 
-func (db *KeyValueStore) SetStates(ns driver.Namespace, kvs map[driver.PKey]driver.UnversionedValue) map[driver.PKey]error {
+func (db *KeyValueStore) SetStates(ctx context.Context, ns driver.Namespace, kvs map[driver.PKey]driver.UnversionedValue) map[driver.PKey]error {
 	encoded := make(map[driver.PKey]driver.UnversionedValue, len(kvs))
 	decodeMap := make(map[driver.PKey]driver.PKey, len(kvs))
 	for k, v := range kvs {
@@ -35,7 +35,7 @@ func (db *KeyValueStore) SetStates(ns driver.Namespace, kvs map[driver.PKey]driv
 		decodeMap[enc] = k
 	}
 
-	errs := db.SetStatesWithTx(db.Txn, ns, encoded)
+	errs := db.SetStatesWithTx(ctx, db.Txn, ns, encoded)
 	decodedErrs := make(map[driver.PKey]error, len(errs))
 	for k, err := range errs {
 		decodedErrs[decodeMap[k]] = err
@@ -43,8 +43,8 @@ func (db *KeyValueStore) SetStates(ns driver.Namespace, kvs map[driver.PKey]driv
 	return decodedErrs
 }
 
-func (db *KeyValueStore) SetStateWithTx(tx *sql.Tx, ns driver.Namespace, pkey driver.PKey, value driver.UnversionedValue) error {
-	if errs := db.SetStatesWithTx(tx, ns, map[driver.PKey]driver.UnversionedValue{encode(pkey): value}); errs != nil {
+func (db *KeyValueStore) SetStateWithTx(ctx context.Context, tx *sql.Tx, ns driver.Namespace, pkey driver.PKey, value driver.UnversionedValue) error {
+	if errs := db.SetStatesWithTx(ctx, tx, ns, map[driver.PKey]driver.UnversionedValue{encode(pkey): value}); errs != nil {
 		return errs[encode(pkey)]
 	}
 	return nil

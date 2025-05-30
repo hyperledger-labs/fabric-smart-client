@@ -80,7 +80,7 @@ func testRound(t *testing.T, driver driver.Driver) {
 		}
 	}
 
-	assert.NoError(t, kvstore.Delete(k2))
+	assert.NoError(t, kvstore.Delete(context.Background(), k2))
 	assert.False(t, kvstore.Exists(context.Background(), k2))
 	val = &stuff{}
 	err = kvstore.Get(context.Background(), k2, val)
@@ -109,7 +109,7 @@ func testRound(t *testing.T, driver driver.Driver) {
 	val2 := &stuff{}
 	assert.NoError(t, kvstore.Get(context.Background(), k, val2))
 	assert.Equal(t, val, val2)
-	assert.NoError(t, kvstore.Delete(k))
+	assert.NoError(t, kvstore.Delete(context.Background(), k))
 	assert.False(t, kvstore.Exists(context.Background(), k))
 }
 

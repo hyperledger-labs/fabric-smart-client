@@ -44,7 +44,7 @@ func (db *AuditInfoStore) GetAuditInfo(ctx context.Context, id view.Identity) ([
 		Format(db.ci)
 	logger.Debug(query, params)
 
-	return QueryUnique[[]byte](db.readDB, query, params...)
+	return QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
 }
 
 func (db *AuditInfoStore) PutAuditInfo(ctx context.Context, id view.Identity, info []byte) error {
@@ -54,7 +54,7 @@ func (db *AuditInfoStore) PutAuditInfo(ctx context.Context, id view.Identity, in
 		Format()
 
 	logger.Debug(query, params)
-	_, err := db.writeDB.Exec(query, params...)
+	_, err := db.writeDB.ExecContext(ctx, query, params...)
 	if err != nil && errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
 		logger.Warnf("Audit info [%s] already in db. Skipping...", id)
 		return nil
