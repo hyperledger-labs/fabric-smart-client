@@ -16,7 +16,6 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 )
 
 var logger = logging.MustGetLogger()
@@ -104,12 +103,7 @@ func (r *ResolverService) LoadResolvers() error {
 		}
 
 		resolver.Id = raw
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("Resolver [%s,%s][%s] %s",
-				resolver.Name, resolver.Domain, resolver.Addresses,
-				view.Identity(resolver.Id).UniqueID(),
-			)
-		}
+		logger.Debugf("Resolver [%s,%s][%s] %s", resolver.Name, resolver.Domain, resolver.Addresses, view.Identity(resolver.Id))
 
 		// Add Resolver
 		rootID, err := r.service.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id)

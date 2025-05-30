@@ -21,7 +21,6 @@ import (
 	pb "github.com/hyperledger/fabric-protos-go/peer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -118,9 +117,7 @@ func (d *deliverClient) Certificate() *tls.Certificate {
 
 // CreateDeliverEnvelope creates a signed envelope with SeekPosition_Newest for block
 func CreateDeliverEnvelope(channelID string, signingIdentity driver.SigningIdentity, cert *tls.Certificate, hasher Hasher, start *ab.SeekPosition) (*common.Envelope, error) {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("create delivery envelope starting from: [%s]", start.String())
-	}
+	logger.Debugf("create delivery envelope starting from: [%s]", start)
 	creator, err := signingIdentity.Serialize()
 	if err != nil {
 		return nil, err

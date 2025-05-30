@@ -22,7 +22,6 @@ import (
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 )
 
 type Proposal struct {
@@ -354,9 +353,7 @@ func (t *Transaction) Done() error {
 		if err != nil {
 			return errors.Wrapf(err, "failed marshalling rws")
 		}
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("terminated simulation with [%s][len:%d]", t.rwset.Namespaces(), len(t.RWSet))
-		}
+		logger.Debugf("terminated simulation with [%s][len:%d]", logging.Eval(t.rwset.Namespaces), len(t.RWSet))
 	}
 	return nil
 }
@@ -417,9 +414,7 @@ func (t *Transaction) Endorse() error {
 }
 
 func (t *Transaction) EndorseWithIdentity(identity view.Identity) error {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("endorse transaction [%s] with identity [%s]", t.ID(), identity.String())
-	}
+	logger.Debugf("endorse transaction [%s] with identity [%s]", t.ID(), identity)
 	// prepare signer
 	s, err := t.sigService.GetSigner(identity)
 	if err != nil {

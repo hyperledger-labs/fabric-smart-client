@@ -11,8 +11,8 @@ import (
 	"encoding/base64"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"go.uber.org/zap/zapcore"
 )
 
 func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, callerViewID string, caller view.Identity, endpointID []byte, msg *view.Message) (*NetworkStreamSession, error) {
@@ -58,9 +58,7 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 }
 
 func (p *P2PNode) NewSession(callerViewID string, contextID string, endpoint string, pkid []byte) (view.Session, error) {
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("new p2p session [%s,%s,%s,%s]", callerViewID, contextID, endpoint, base64.StdEncoding.EncodeToString(pkid))
-	}
+	logger.Debugf("new p2p session [%s,%s,%s,%s]", callerViewID, contextID, endpoint, logging.Base64(pkid))
 	ID, err := GetRandomNonce()
 	if err != nil {
 		return nil, err

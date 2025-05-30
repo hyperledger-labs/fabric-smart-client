@@ -127,19 +127,13 @@ func (cm *manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	cm.contextsSync.Unlock()
 	defer cm.deleteContext(id, childContext.ID())
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, registry.GetIdentifier(view), childContext.ID())
-	}
+	logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, logging.Identifier(view), childContext.ID())
 	res, err := childContext.RunView(view)
 	if err != nil {
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, registry.GetIdentifier(view), childContext.ID(), err)
-		}
+		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, logging.Identifier(view), childContext.ID(), err)
 		return nil, err
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, registry.GetIdentifier(view), childContext.ID())
-	}
+	logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, logging.Identifier(view), childContext.ID())
 	return res, nil
 }
 
@@ -169,9 +163,7 @@ func (cm *manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 	cm.m.Contexts.Set(float64(len(cm.contexts)))
 	cm.contextsSync.Unlock()
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, registry.GetIdentifier(view), childContext.ID())
-	}
+	logger.Debugf("[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, logging.Identifier(view), childContext.ID())
 
 	return childContext, nil
 }
@@ -240,17 +232,7 @@ func (cm *manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		return nil, nil, errors.WithMessagef(err, "failed getting context for [%s,%s,%v]", msg.ContextID, id, msg)
 	}
 
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf(
-			"[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]",
-			id,
-			msg.FromEndpoint,
-			msg.SessionID,
-			msg.ContextID,
-			isNew,
-			registry.GetIdentifier(responder),
-		)
-	}
+	logger.Debugf("[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, isNew, logging.Identifier(responder))
 
 	// todo: if a new context has been created to run the responder,
 	// then dispose the context when the responder terminates
@@ -356,7 +338,7 @@ func (cm *manager) callView(msg *view.Message) {
 
 	ctx, _, err := cm.respond(responder, id, msg)
 	if err != nil {
-		logger.Errorf("failed responding [%v, %v], err: [%s]", registry.GetIdentifier(responder), msg.String(), err)
+		logger.Errorf("failed responding [%v, %v], err: [%s]", logging.Identifier(responder), msg.String(), err)
 		if ctx == nil {
 			logger.Debugf("no context set, returning")
 			return

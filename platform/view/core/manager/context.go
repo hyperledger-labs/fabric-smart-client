@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"runtime/debug"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/registry"
@@ -22,7 +23,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 )
 
 type localContext interface {
@@ -182,9 +182,7 @@ func (ctx *ctx) Session() view.Session {
 		logger.Debugf("[%s] No default current Session", ctx.me)
 		return nil
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[%s] Current Session [%s]", ctx.me, ctx.session.Info())
-	}
+	logger.Debugf("[%s] Current Session [%s]", ctx.me, logging.Eval(ctx.session.Info))
 	return ctx.session
 }
 

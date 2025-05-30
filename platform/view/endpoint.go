@@ -9,12 +9,10 @@ package view
 import (
 	"context"
 
-	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 var logger = logging.MustGetLogger()
@@ -56,9 +54,7 @@ func (e *EndpointService) Resolve(ctx context.Context, party view.Identity) (vie
 	if resolver == nil {
 		return nil, nil, raw, nil
 	}
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("resolved [%s] to [%s] with ports [%v]", party, resolver.GetId(), resolver.GetAddresses())
-	}
+	logger.Debugf("resolved [%s] to [%s] with ports [%v]", party, resolver.GetId(), resolver.GetAddresses())
 	out := map[PortName]string{}
 	for name, s := range resolver.GetAddresses() {
 		out[PortName(name)] = s
