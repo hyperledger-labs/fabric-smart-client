@@ -7,28 +7,22 @@ SPDX-License-Identifier: Apache-2.0
 package logging
 
 import (
-	"github.com/gogo/protobuf/jsonpb"
+	"encoding/json"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type protoMarshaler struct {
-	jsonpb.Marshaler
-	message proto.Message
+	proto.Message
 }
 
-func (m *protoMarshaler) MarshalJSON() ([]byte, error) {
-	out, err := m.MarshalToString(m.message)
-	if err != nil {
-		return nil, err
-	}
-	return []byte(out), nil
-}
+func (m *protoMarshaler) MarshalJSON() ([]byte, error) { return json.Marshal(m.Message) }
 
 func ProtoMessage(key string, val interface{}) zapcore.Field {
 	if pm, ok := val.(proto.Message); ok {
-		return zap.Reflect(key, &protoMarshaler{message: pm})
+		return zap.Reflect(key, &protoMarshaler{pm})
 	}
 	return zap.Any(key, val)
 }
