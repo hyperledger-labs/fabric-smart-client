@@ -471,7 +471,7 @@ func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination
 		return nil, fmt.Errorf("invalid input pagination: %+v", p)
 	}
 
-	txStatusIterator, err := db.queryStatus(nil, p)
+	txStatusIterator, err := db.queryStatus(ctx, nil, p)
 	if err != nil {
 		return nil, err
 	}
