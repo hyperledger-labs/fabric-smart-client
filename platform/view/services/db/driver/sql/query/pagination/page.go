@@ -19,12 +19,14 @@ func NewPage[V any](results collections.Iterator[*V], pagination driver.Paginati
 
 // NewTypedPage creates a new page from the results and the previous pagination
 func NewTypedPage[I comparable, V any](results iterators.Iterator[*V], pagination driver.Pagination) (*driver.PageIterator[*V], error) {
-	if p, ok := pagination.(*keyset[I, *V]); ok {
+	if p, ok := pagination.(*keyset[I, V]); ok {
 		items, err := iterators.ReadAllPointers(results)
 		if err != nil {
 			return nil, err
 		}
-		p.lastId = p.idGetter(items[len(items)-1])
+		item := items[len(items)-1]
+		pv := p.idGetter(*item)
+		p.lastId = pv
 		return &driver.PageIterator[*V]{Items: collections.NewSliceIterator[*V](items), Pagination: p}, nil
 	}
 	return &driver.PageIterator[*V]{Items: results, Pagination: pagination}, nil
