@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package pagination_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -43,6 +44,8 @@ func TestKeysetSimple(t *testing.T) {
 	})
 	page, err := pagination.NewPage[any](results, p)
 	Expect(err).ToNot(HaveOccurred())
+	page.Pagination, err = page.Pagination.Next()
+	Expect(err).ToNot(HaveOccurred())
 
 	query, args = q.Select().
 		FieldsByName("field1").
@@ -51,4 +54,16 @@ func TestKeysetSimple(t *testing.T) {
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
 	Expect(args).To(ConsistOf("last", 10))
+
+	// test that skipping a page resets lastId
+	page.Pagination, err = page.Pagination.Next()
+	Expect(err).ToNot(HaveOccurred())
+	query, args = q.Select().
+		FieldsByName("field1").
+		From(q.Table("test")).
+		Paginated(p).
+		FormatPaginated(nil, pagination.NewDefaultInterpreter())
+	fmt.Printf("query = %s\n", query)
+	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
+	Expect(args).To(ConsistOf(10, 22))
 }
