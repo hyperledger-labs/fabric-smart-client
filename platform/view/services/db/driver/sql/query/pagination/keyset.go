@@ -21,7 +21,7 @@ type PropertyName[V comparable] string
 
 // ExtractField extracts the field from the given value
 func (p PropertyName[V]) ExtractField(v any) V {
-	return reflect.ValueOf(v).Elem().FieldByName(string(p)).Interface().(V)
+	return reflect.ValueOf(v).FieldByName(string(p)).Interface().(V)
 }
 
 type keyset[I comparable, V any] struct {

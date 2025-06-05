@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/pagination"
 	. "github.com/onsi/gomega"
@@ -32,15 +33,15 @@ func TestKeysetSimple(t *testing.T) {
 		From(q.Table("test")).
 		Paginated(p).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
-	Expect(query).To(Equal("SELECT field1, col_id FROM test AS test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
+	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
 	Expect(args).To(ConsistOf(10, 2))
 
-	results := collections.NewSliceIterator([]*dbResult{
-		{StringField: "first"},
-		{StringField: "middle"},
-		{StringField: "last"},
+	results := collections.NewSliceIterator([]*any{
+		common.CopyPtr[any](dbResult{StringField: "first"}),
+		common.CopyPtr[any](dbResult{StringField: "middle"}),
+		common.CopyPtr[any](dbResult{StringField: "last"}),
 	})
-	page, err := pagination.NewPage[dbResult](results, p)
+	page, err := pagination.NewPage[any](results, p)
 	Expect(err).ToNot(HaveOccurred())
 
 	query, args = q.Select().
@@ -48,6 +49,6 @@ func TestKeysetSimple(t *testing.T) {
 		From(q.Table("test")).
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
-	Expect(query).To(Equal("SELECT field1, col_id FROM test AS test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
+	Expect(query).To(Equal("SELECT field1, col_id FROM test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
 	Expect(args).To(ConsistOf("last", 10))
 }
