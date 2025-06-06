@@ -674,31 +674,6 @@ func (n *Network) ListTLSCACertificates() []string {
 	return tlsCACertificates
 }
 
-// CreateAndJoinChannels will create all channels specified in the config that
-// are referenced by peers. The referencing peers will then be joined to the
-// channel(s).
-//
-// The network must be running before this is called.
-func (n *Network) CreateAndJoinChannels(o *topology.Orderer) {
-	for _, c := range n.Channels {
-		n.CreateAndJoinChannel(o, c.Name)
-	}
-}
-
-// CreateAndJoinChannel will create the specified channel. The referencing
-// peers will then be joined to the channel.
-//
-// The network must be running before this is called.
-func (n *Network) CreateAndJoinChannel(o *topology.Orderer, channelName string) {
-	peers := n.PeersWithChannel(channelName)
-	if len(peers) == 0 {
-		return
-	}
-
-	n.CreateChannel(channelName, o, peers[0])
-	n.JoinChannel(channelName, o, peers...)
-}
-
 // UpdateChannelAnchors determines the anchor peers for the specified channel,
 // creates an anchor peer update transaction for each organization, and submits
 // the update transactions to the orderer.
@@ -900,6 +875,15 @@ func (n *Network) Discover(command common.Command) (*gexec.Session, error) {
 	return n.StartSession(cmd, command.SessionName())
 }
 
+// Osnadmin starts a gexec.Session for the provided osnadmin command.
+func (n *Network) Osnadmin(command common.Command) (*gexec.Session, error) {
+	cmdPath := findCmdAtEnv(osnadminCMD)
+	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", osnadminCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
+
+	cmd := common.NewCommand(cmdPath, command)
+	return n.StartSession(cmd, command.SessionName())
+}
+
 // OrdererRunner returns an ifrit.Runner for the specified orderer. The runner
 // can be used to start and manage an orderer process.
 func (n *Network) OrdererRunner(o *topology.Orderer) *runner2.Runner {
@@ -957,10 +941,16 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 		NetworkPrefix: n.Prefix,
 		PeerID:        p.ID(),
 		DevMode:       p.DevMode,
-	}, "", fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)), fmt.Sprintf("CORE_PEER_ID=%s", fmt.Sprintf("%s.%s", p.Name, n.Organization(p.Organization).Domain)))
+	}, "")
 
 	cmd.Env = append(cmd.Env, env...)
-	// cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Env = append(cmd.Env, fmt.Sprintf("FABRIC_CFG_PATH=%s", n.PeerDir(p)))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("CORE_PEER_ID=%s.%s", p.Name, n.Organization(p.Organization).Domain))
+
+	// we want to re-use the host's docker endpoint if set
+	if dockerEndpoint, ok := os.LookupEnv("DOCKER_HOST"); ok {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("CORE_VM_ENDPOINT=%s", dockerEndpoint))
+	}
 
 	config := runner2.Config{
 		AnsiColorCode:     n.nextColor(),
@@ -1479,14 +1469,6 @@ func (n *Network) NodeStorages(uniqueName string) string {
 
 func (n *Network) FSCNodeStorageDir(uniqueName string, suffix string) string {
 	return filepath.Join(n.FSCNodeStorages(uniqueName), suffix)
-}
-
-func (n *Network) OrdererBootstrapFile() string {
-	return filepath.Join(
-		n.Context.RootDir(),
-		n.Prefix,
-		n.SystemChannel.Name+"_block.pb",
-	)
 }
 
 // StartSession executes a command session. This should be used to launch

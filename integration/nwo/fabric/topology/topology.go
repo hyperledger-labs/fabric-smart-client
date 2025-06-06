@@ -23,7 +23,6 @@ type Topology struct {
 	Organizations      []*Organization        `yaml:"organizations,omitempty"`
 	Peers              []*Peer                `yaml:"peers,omitempty"`
 	Consortiums        []*Consortium          `yaml:"consortiums,omitempty"`
-	SystemChannel      *SystemChannel         `yaml:"system_channel,omitempty"`
 	Channels           []*Channel             `yaml:"channels,omitempty"`
 	Consensus          *Consensus             `yaml:"consensus,omitempty"`
 	Orderers           []*Orderer             `yaml:"orderers,omitempty"`
@@ -96,9 +95,7 @@ func (t *Topology) AppendOrganization(org *Organization) {
 	t.Consortiums[0].Organizations = append(t.Consortiums[0].Organizations, org.Name)
 
 	for _, profile := range t.Profiles {
-		if t.SystemChannel == nil || profile.Name != t.SystemChannel.Profile {
-			profile.Organizations = append(profile.Organizations, org.Name)
-		}
+		profile.Organizations = append(profile.Organizations, org.Name)
 	}
 }
 
