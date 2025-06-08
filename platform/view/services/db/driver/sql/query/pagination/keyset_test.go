@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package pagination_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -108,10 +107,10 @@ func TestKeysetGoingBack(t *testing.T) {
 		From(q.Table("test")).
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
-	fmt.Printf("query = %s\n", query)
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
 	Expect(args).To(ConsistOf(10, 190))
 }
+
 func TestKeysetGoingNextBack(t *testing.T) {
 	RegisterTestingT(t)
 
@@ -134,7 +133,6 @@ func TestKeysetGoingNextBack(t *testing.T) {
 		From(q.Table("test")).
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
-	fmt.Printf("query = %s\n", query)
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
 	Expect(args).To(ConsistOf(10, 210))
 }

@@ -31,6 +31,8 @@ type keyset[I comparable, V any] struct {
 	idGetter  func(V) I
 	// the first and last id values in the page
 	firstId, lastId I
+	offsetOfFirstId int
+	offsetOfLastId  int
 }
 
 // KeysetWithField creates a keyset pagination where the id has field name idFieldName
@@ -88,7 +90,7 @@ func (p *keyset[I, V]) GoToOffset(offset int) (driver.Pagination, error) {
 	if offset < 0 {
 		return nil, fmt.Errorf("Offset must be greater than zero. pageSize: %d", p.pageSize)
 	}
-	if offset == p.offset+p.pageSize {
+	if offset == p.offsetOfLastId {
 		return &keyset[I, V]{
 			offset:    offset,
 			pageSize:  p.pageSize,
