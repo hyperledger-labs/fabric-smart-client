@@ -36,7 +36,7 @@ func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQue
 		query.AddField(pagination.sqlIdName)
 		query.AddOrderBy(_select.Asc(pagination.sqlIdName))
 		query.AddLimit(pagination.pageSize)
-		if len(pagination.firstId) > 0 {
+		if pagination.offsetOfFirstId == pagination.offset {
 			query.AddWhere(cond.CmpVal(pagination.sqlIdName, ">", pagination.firstId))
 		} else {
 			query.AddOffset(pagination.offset)

@@ -31,6 +31,8 @@ type keyset[I comparable, V any] struct {
 	idGetter  func(V) I
 	// the first and last id values in the page
 	firstId, lastId I
+	offsetOfFirstId int
+	offsetOfLastId  int
 }
 
 // KeysetWithField creates a keyset pagination where the id has field name idFieldName
@@ -59,10 +61,12 @@ func Keyset[I comparable, V any](offset int, pageSize int, sqlIdName common.Fiel
 		return nil, fmt.Errorf("page size shoud be grater than zero. pageSize: %d", pageSize)
 	}
 	return &keyset[I, V]{
-		offset:    offset,
-		pageSize:  pageSize,
-		sqlIdName: sqlIdName,
-		idGetter:  idGetter,
+		offset:          offset,
+		pageSize:        pageSize,
+		sqlIdName:       sqlIdName,
+		idGetter:        idGetter,
+		offsetOfFirstId: -1,
+		offsetOfLastId:  -1,
 	}, nil
 }
 
@@ -70,20 +74,23 @@ func (p *keyset[I, V]) GoToOffset(offset int) (driver.Pagination, error) {
 	if offset < 0 {
 		return Empty(), nil
 	}
-	if offset == p.offset+p.pageSize {
+	if offset == p.offsetOfLastId {
 		return &keyset[I, V]{
-			offset:    offset,
-			pageSize:  p.pageSize,
-			sqlIdName: p.sqlIdName,
-			idGetter:  p.idGetter,
-			firstId:   p.lastId,
+			offset:          offset,
+			pageSize:        p.pageSize,
+			sqlIdName:       p.sqlIdName,
+			idGetter:        p.idGetter,
+			firstId:         p.lastId,
+			offsetOfFirstId: p.offsetOfLastId,
 		}, nil
 	}
 	return &keyset[I, V]{
-		offset:    offset,
-		pageSize:  p.pageSize,
-		sqlIdName: p.sqlIdName,
-		idGetter:  p.idGetter,
+		offset:          offset,
+		pageSize:        p.pageSize,
+		sqlIdName:       p.sqlIdName,
+		idGetter:        p.idGetter,
+		offsetOfFirstId: -1,
+		offsetOfLastId:  -1,
 	}, nil
 }
 
