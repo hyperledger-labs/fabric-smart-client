@@ -32,6 +32,7 @@ type CondInterpreter interface {
 
 type ModifiableQuery interface {
 	AddField(Field)
+	HasField(Field) bool
 	AddWhere(Condition)
 	AddOrderBy(OrderBy)
 	AddLimit(int)
