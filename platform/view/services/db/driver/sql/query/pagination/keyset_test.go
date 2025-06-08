@@ -50,8 +50,6 @@ func setupPaginationWithLastId() *driver.PageIterator[*interface{}] {
 	})
 	page, err := pagination.NewPage[any](results, p)
 	Expect(err).ToNot(HaveOccurred())
-	page.Pagination, err = page.Pagination.Next()
-	Expect(err).ToNot(HaveOccurred())
 
 	return page
 }
@@ -72,18 +70,73 @@ func TestKeysetSimple(t *testing.T) {
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
 	Expect(args).To(ConsistOf("last", 10))
+}
 
-	// test that skipping a page resets lastId
-	page.Pagination, err = page.Pagination.Next()
+func TestKeysetSkippingPage(t *testing.T) {
+	RegisterTestingT(t)
+
+	page := setupPaginationWithLastId()
+
+	nextPagination, err := page.Pagination.Next()
 	Expect(err).ToNot(HaveOccurred())
-	query, args = q.Select().
+	page.Pagination = nextPagination
+
+	nextPagination, err = page.Pagination.Next()
+	Expect(err).ToNot(HaveOccurred())
+	page.Pagination = nextPagination
+
+	query, args := q.Select().
 		FieldsByName("field1").
 		From(q.Table("test")).
-		Paginated(p).
+		Paginated(page.Pagination).
+		FormatPaginated(nil, pagination.NewDefaultInterpreter())
+	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
+	Expect(args).To(ConsistOf(10, 220))
+}
+
+func TestKeysetGoingBack(t *testing.T) {
+	RegisterTestingT(t)
+
+	page := setupPaginationWithLastId()
+
+	nextPagination, err := page.Pagination.Prev()
+	page.Pagination = nextPagination
+	Expect(err).ToNot(HaveOccurred())
+
+	query, args := q.Select().
+		FieldsByName("field1").
+		From(q.Table("test")).
+		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	fmt.Printf("query = %s\n", query)
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
-	Expect(args).To(ConsistOf(10, 22))
+	Expect(args).To(ConsistOf(10, 190))
+}
+func TestKeysetGoingNextBack(t *testing.T) {
+	RegisterTestingT(t)
+
+	page := setupPaginationWithLastId()
+
+	nextPagination, err := page.Pagination.Next()
+	page.Pagination = nextPagination
+	Expect(err).ToNot(HaveOccurred())
+
+	nextPagination, err = page.Pagination.Next()
+	page.Pagination = nextPagination
+	Expect(err).ToNot(HaveOccurred())
+
+	nextPagination, err = page.Pagination.Prev()
+	page.Pagination = nextPagination
+	Expect(err).ToNot(HaveOccurred())
+
+	query, args := q.Select().
+		FieldsByName("field1").
+		From(q.Table("test")).
+		Paginated(page.Pagination).
+		FormatPaginated(nil, pagination.NewDefaultInterpreter())
+	fmt.Printf("query = %s\n", query)
+	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
+	Expect(args).To(ConsistOf(10, 210))
 }
 
 func TestKeysetSkippingPage(t *testing.T) {
