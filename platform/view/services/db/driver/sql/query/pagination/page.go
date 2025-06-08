@@ -24,6 +24,11 @@ func NewTypedPage[I comparable, V any](results iterators.Iterator[*V], paginatio
 		if err != nil {
 			return nil, err
 		}
+		p.offsetOfLastId = p.offset + len(items)
+		if len(items) == 0 {
+			p.lastId = p.firstId
+			return &driver.PageIterator[*V]{Items: collections.NewSliceIterator[*V](items), Pagination: p}, nil
+		}
 		item := items[len(items)-1]
 		pv := p.idGetter(*item)
 		p.lastId = pv
