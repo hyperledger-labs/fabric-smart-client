@@ -77,6 +77,9 @@ func (q *query) Paginated(p driver.Pagination) paginatedQuery {
 func (q *query) AddField(field common.Field) { q.Fields(append(q.fields, field)...) }
 
 func (q *query) AddFieldUnique(field common.Field) {
+	if (len(q.fields) > 0) && (q.fields[0] == common.FieldName("*")) {
+		return
+	}
 	for _, n := range q.fields {
 		if n == field {
 			return
