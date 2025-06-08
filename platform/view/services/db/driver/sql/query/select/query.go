@@ -104,13 +104,13 @@ func (q *query) AddFieldUnique(field common.Field) {
 	q.Fields(append(q.fields, field)...)
 }
 
-func (q *query) HasField(name common.Field) bool {
+func (q *query) AddFieldUnique(field common.Field) {
 	for _, n := range q.fields {
-		if n == name {
-			return true
+		if n == field {
+			return
 		}
 	}
-	return false
+	q.Fields(append(q.fields, field)...)
 }
 
 func (q *query) AddWhere(c cond.Condition) { q.Where(cond.And(q.where, c)) }
