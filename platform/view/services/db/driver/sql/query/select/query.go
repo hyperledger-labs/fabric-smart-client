@@ -92,6 +92,15 @@ func (q *query) AddField(field common.Field) {
 	q.Fields(append(q.fields, field)...)
 }
 
+func (q *query) HasField(name common.Field) bool {
+	for _, n := range q.fields {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
+
 func (q *query) AddWhere(c cond.Condition) { q.Where(cond.And(q.where, c)) }
 
 func (q *query) AddOrderBy(os OrderBy) { q.OrderBy(append(q.orderBy, os)...) }
