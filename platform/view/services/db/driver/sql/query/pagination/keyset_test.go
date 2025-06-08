@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
@@ -25,17 +26,15 @@ type dbResult struct {
 	unexportedField    string
 }
 
-func TestKeysetSimple(t *testing.T) {
-	RegisterTestingT(t)
-
-	p := utils.MustGet(pagination.KeysetWithField[string](2, 10, "col_id", "StringField"))
+func setupPaginationWithLastId() *driver.PageIterator[*interface{}] {
+	p := utils.MustGet(pagination.KeysetWithField[string](200, 10, "col_id", "StringField"))
 	query, args := q.Select().
 		FieldsByName("field1").
 		From(q.Table("test")).
 		Paginated(p).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
-	Expect(args).To(ConsistOf(10, 2))
+	Expect(args).To(ConsistOf(10, 200))
 
 	results := collections.NewSliceIterator([]*any{
 		common.CopyPtr[any](dbResult{StringField: "first"}),
@@ -44,26 +43,91 @@ func TestKeysetSimple(t *testing.T) {
 	})
 	page, err := pagination.NewPage[any](results, p)
 	Expect(err).ToNot(HaveOccurred())
-	page.Pagination, err = page.Pagination.Next()
-	Expect(err).ToNot(HaveOccurred())
 
-	query, args = q.Select().
+	return page
+}
+
+func TestKeysetSimple(t *testing.T) {
+	RegisterTestingT(t)
+
+	page := setupPaginationWithLastId()
+
+	nextPagination, err := page.Pagination.Next()
+	Expect(err).ToNot(HaveOccurred())
+	page.Pagination = nextPagination
+
+	query, args := q.Select().
 		FieldsByName("field1").
 		From(q.Table("test")).
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
 	Expect(args).To(ConsistOf("last", 10))
+}
 
-	// test that skipping a page resets lastId
-	page.Pagination, err = page.Pagination.Next()
+func TestKeysetSkippingPage(t *testing.T) {
+	RegisterTestingT(t)
+
+	page := setupPaginationWithLastId()
+
+	nextPagination, err := page.Pagination.Next()
 	Expect(err).ToNot(HaveOccurred())
-	query, args = q.Select().
+	page.Pagination = nextPagination
+
+	nextPagination, err = page.Pagination.Next()
+	Expect(err).ToNot(HaveOccurred())
+	page.Pagination = nextPagination
+
+	query, args := q.Select().
 		FieldsByName("field1").
 		From(q.Table("test")).
-		Paginated(p).
+		Paginated(page.Pagination).
+		FormatPaginated(nil, pagination.NewDefaultInterpreter())
+	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
+	Expect(args).To(ConsistOf(10, 220))
+}
+
+func TestKeysetGoingBack(t *testing.T) {
+	RegisterTestingT(t)
+
+	page := setupPaginationWithLastId()
+
+	nextPagination, err := page.Pagination.Prev()
+	page.Pagination = nextPagination
+	Expect(err).ToNot(HaveOccurred())
+
+	query, args := q.Select().
+		FieldsByName("field1").
+		From(q.Table("test")).
+		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	fmt.Printf("query = %s\n", query)
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
-	Expect(args).To(ConsistOf(10, 22))
+	Expect(args).To(ConsistOf(10, 190))
+}
+func TestKeysetGoingNextBack(t *testing.T) {
+	RegisterTestingT(t)
+
+	page := setupPaginationWithLastId()
+
+	nextPagination, err := page.Pagination.Next()
+	page.Pagination = nextPagination
+	Expect(err).ToNot(HaveOccurred())
+
+	nextPagination, err = page.Pagination.Next()
+	page.Pagination = nextPagination
+	Expect(err).ToNot(HaveOccurred())
+
+	nextPagination, err = page.Pagination.Prev()
+	page.Pagination = nextPagination
+	Expect(err).ToNot(HaveOccurred())
+
+	query, args := q.Select().
+		FieldsByName("field1").
+		From(q.Table("test")).
+		Paginated(page.Pagination).
+		FormatPaginated(nil, pagination.NewDefaultInterpreter())
+	fmt.Printf("query = %s\n", query)
+	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
+	Expect(args).To(ConsistOf(10, 210))
 }
