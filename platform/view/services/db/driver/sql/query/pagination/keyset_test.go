@@ -214,6 +214,24 @@ func TestKeysetDoubleAddField(t *testing.T) {
 	Expect(args).To(ConsistOf("last", 10))
 }
 
+func TestKeysetAsterixAddField(t *testing.T) {
+	RegisterTestingT(t)
+
+	page := setupPaginationWithLastId()
+
+	nextPagination, err := page.Pagination.Next()
+	Expect(err).ToNot(HaveOccurred())
+	page.Pagination = nextPagination
+
+	query, args := q.Select().
+		FieldsByName("*").
+		From(q.Table("test")).
+		Paginated(page.Pagination).
+		FormatPaginated(nil, pagination.NewDefaultInterpreter())
+	Expect(query).To(Equal("SELECT * FROM test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
+	Expect(args).To(ConsistOf("last", 10))
+}
+
 func TestKeysetInt(t *testing.T) {
 	// This test fails because there it is hard coded in
 	// func NewPage[V any](results collections.Iterator[*V], pagination driver.Pagination) (*driver.PageIterator[*V], error) {
