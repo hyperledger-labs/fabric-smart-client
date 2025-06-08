@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package pagination_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -193,4 +194,70 @@ func TestKeysetPartialResults(t *testing.T) {
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
 	Expect(args).To(ConsistOf(20, 220))
+}
+
+func TestKeysetDoubleAddField(t *testing.T) {
+	RegisterTestingT(t)
+
+	page := setupPaginationWithLastId()
+
+	nextPagination, err := page.Pagination.Next()
+	Expect(err).ToNot(HaveOccurred())
+	page.Pagination = nextPagination
+
+	query, args := q.Select().
+		FieldsByName("field1", "col_id").
+		From(q.Table("test")).
+		Paginated(page.Pagination).
+		FormatPaginated(nil, pagination.NewDefaultInterpreter())
+	Expect(query).To(Equal("SELECT field1, col_id FROM test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
+	Expect(args).To(ConsistOf("last", 10))
+}
+
+func TestKeysetInt(t *testing.T) {
+	// This test fails because there it is hard coded in
+	// func NewPage[V any](results collections.Iterator[*V], pagination driver.Pagination) (*driver.PageIterator[*V], error) {
+	// 	return NewTypedPage[string, V](results, pagination)
+	// }
+	// that the id is of type string
+
+	RegisterTestingT(t)
+
+	p := utils.MustGet(pagination.KeysetWithField[int](200, 10, "col_id", "IntField"))
+	query, args := q.Select().
+		FieldsByName("field1").
+		From(q.Table("test")).
+		Paginated(p).
+		FormatPaginated(nil, pagination.NewDefaultInterpreter())
+	fmt.Printf("207 query = %s\n", query)
+	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
+	Expect(args).To(ConsistOf(10, 200))
+
+	results := collections.NewSliceIterator([]*any{
+		common.CopyPtr[any](dbResult{IntField: 1}),
+		common.CopyPtr[any](dbResult{IntField: 2}),
+		common.CopyPtr[any](dbResult{IntField: 3}),
+		common.CopyPtr[any](dbResult{IntField: 4}),
+		common.CopyPtr[any](dbResult{IntField: 5}),
+		common.CopyPtr[any](dbResult{IntField: 6}),
+		common.CopyPtr[any](dbResult{IntField: 7}),
+		common.CopyPtr[any](dbResult{IntField: 8}),
+		common.CopyPtr[any](dbResult{IntField: 9}),
+		common.CopyPtr[any](dbResult{IntField: 10}),
+	})
+	page, err := pagination.NewPage[any](results, p)
+	Expect(err).ToNot(HaveOccurred())
+
+	nextPagination, err := page.Pagination.Next()
+	Expect(err).ToNot(HaveOccurred())
+	page.Pagination = nextPagination
+
+	query, args = q.Select().
+		FieldsByName("field1").
+		From(q.Table("test")).
+		Paginated(page.Pagination).
+		FormatPaginated(nil, pagination.NewDefaultInterpreter())
+	fmt.Printf("235 query = %s\n", query)
+	Expect(query).To(Equal("SELECT field1, col_id FROM test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
+	Expect(args).To(ConsistOf("last", 10))
 }

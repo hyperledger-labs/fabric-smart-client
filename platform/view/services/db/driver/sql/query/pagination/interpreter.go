@@ -27,12 +27,24 @@ func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQue
 		query.AddLimit(0)
 		query.AddOffset(0)
 		return
-	case *offset:
 
+	case *offset:
 		query.AddLimit(pagination.pageSize)
 		query.AddOffset(pagination.offset)
 
 	case *keyset[string, any]:
+		if !query.HasField(pagination.sqlIdName) {
+			query.AddField(pagination.sqlIdName)
+		}
+		query.AddOrderBy(_select.Asc(pagination.sqlIdName))
+		query.AddLimit(pagination.pageSize)
+		if pagination.offsetOfFirstId == pagination.offset {
+			query.AddWhere(cond.CmpVal(pagination.sqlIdName, ">", pagination.firstId))
+		} else {
+			query.AddOffset(pagination.offset)
+		}
+
+	case *keyset[int, any]:
 		query.AddField(pagination.sqlIdName)
 		query.AddOrderBy(_select.Asc(pagination.sqlIdName))
 		query.AddLimit(pagination.pageSize)
@@ -41,10 +53,12 @@ func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQue
 		} else {
 			query.AddOffset(pagination.offset)
 		}
+
 	case *empty:
 		query.AddLimit(0)
 		query.AddOffset(0)
 	default:
+		fmt.Printf("Type = %T\n", pagination)
 		panic(fmt.Sprintf("invalid pagination option %+v", pagination))
 	}
 }
