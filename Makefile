@@ -1,7 +1,6 @@
 # pinned versions
 FABRIC_VERSION ?= 2.5.0
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
-ORION_VERSION=v0.2.10
 
 # need to install fabric binaries outside of fsc tree for now (due to chaincode packaging issues)
 FABRIC_BINARY_BASE=$(PWD)/../fabric
@@ -38,7 +37,6 @@ unit-tests: testing-docker-images
 unit-tests-dig:
 	cd platform/view/sdk/dig; go test -cover ./...
 	cd platform/fabric/sdk/dig; go test -cover ./...
-	cd platform/orion/sdk/dig; go test -cover ./...
 
 .PHONY: install-softhsm
 install-softhsm:
@@ -54,7 +52,7 @@ unit-tests-race: testing-docker-images
 	cd integration/nwo/; export FAB_BINS=$(FAB_BINS); go test -race -cover ./...
 
 .PHONY: docker-images
-docker-images: fabric-docker-images orion-server-images monitoring-docker-images testing-docker-images
+docker-images: fabric-docker-images monitoring-docker-images testing-docker-images
 
 .PHONY: fabric-docker-images
 fabric-docker-images:
@@ -70,11 +68,6 @@ monitoring-docker-images:
 	docker pull prom/prometheus:latest
 	docker pull grafana/grafana:latest
 	docker pull jaegertracing/all-in-one:latest
-
-.PHONY: orion-server-images
-orion-server-images:
-	docker pull orionbcdb/orion-server:$(ORION_VERSION)
-	docker image tag orionbcdb/orion-server:$(ORION_VERSION) orionbcdb/orion-server:latest
 
 .PHONY: testing-docker-images
 testing-docker-images:
@@ -131,10 +124,6 @@ integration-tests-pingpong:
 integration-tests-stoprestart:
 	cd ./integration/fsc/stoprestart; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
 
-.PHONY: integration-tests-orioncars
-integration-tests-orioncars:
-	cd ./integration/orion/cars; ginkgo $(GINKGO_TEST_OPTS) .
-
 .PHONY: tidy
 tidy:
 	@go mod tidy
@@ -155,7 +144,6 @@ clean:
 	rm -rf ./integration/fabric/twonets/cmd
 	rm -rf ./integration/fabric/stoprestart/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
-	rm -rf ./integration/orion/cars/cmd
 	rm -rf ./integration/fscnodes
 	rm -rf ./cmd/fsccli/cmd
 
