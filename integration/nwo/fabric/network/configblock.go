@@ -15,9 +15,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger/fabric-protos-go/common"
-	"github.com/hyperledger/fabric-protos-go/msp"
-	protosorderer "github.com/hyperledger/fabric-protos-go/orderer"
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
+	protosorderer "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	"github.com/hyperledger/fabric/protoutil"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -302,7 +302,7 @@ func UnmarshalBlockFromFile(blockFile string) *common.Block {
 type ConsensusMetadataMutator func([]byte) []byte
 
 // MSPMutator receives FabricMSPConfig and mutates it.
-type MSPMutator func(config msp.FabricMSPConfig) msp.FabricMSPConfig
+type MSPMutator func(config *msp.FabricMSPConfig) *msp.FabricMSPConfig
 
 // UpdateConsensusMetadata executes a config update that updates the consensus
 // metadata according to the given ConsensusMetadataMutator.
@@ -340,7 +340,7 @@ func UpdateOrdererMSP(network *Network, peer *topology.Peer, orderer *topology.O
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Mutate it as we are asked
-	*fabricConfig = mutateMSP(*fabricConfig)
+	fabricConfig = mutateMSP(fabricConfig)
 
 	// Wrap it back into the config
 	mspConfig.Config = protoutil.MarshalOrPanic(fabricConfig)

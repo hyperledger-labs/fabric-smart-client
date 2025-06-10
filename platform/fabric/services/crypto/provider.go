@@ -9,8 +9,8 @@ package crypto
 import (
 	"hash"
 
-	"github.com/hyperledger/fabric/bccsp"
-	"github.com/hyperledger/fabric/bccsp/factory"
+	"github.com/hyperledger/fabric-lib-go/bccsp"
+	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	"github.com/pkg/errors"
 )
 
