@@ -8,6 +8,9 @@ package common
 
 type Field Serializable
 
+// FieldName is the name of the DB column
+type FieldName string
+
 func (n FieldName) WriteString(b Builder) {
 	b.WriteString(string(n))
 }
