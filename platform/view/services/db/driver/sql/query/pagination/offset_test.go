@@ -24,6 +24,6 @@ func TestOffsetSimple(t *testing.T) {
 		Paginated(utils.MustGet(pagination.Offset(2, 10))).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 
-	Expect(query).To(Equal("SELECT * FROM test AS test LIMIT $1 OFFSET $2"))
+	Expect(query).To(Equal("SELECT * FROM test LIMIT $1 OFFSET $2"))
 	Expect(args).To(ConsistOf(10, 2))
 }

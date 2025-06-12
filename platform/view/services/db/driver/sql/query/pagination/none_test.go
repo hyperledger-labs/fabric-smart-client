@@ -23,7 +23,7 @@ func TestNone(t *testing.T) {
 		Paginated(pagination.None()).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 
-	Expect(query).To(Equal("SELECT * FROM test AS test"))
+	Expect(query).To(Equal("SELECT * FROM test"))
 	Expect(args).To(BeEmpty())
 }
 
@@ -36,6 +36,6 @@ func TestEmpty(t *testing.T) {
 		Paginated(pagination.Empty()).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 
-	Expect(query).To(Equal("SELECT * FROM test AS test"))
+	Expect(query).To(Equal("SELECT * FROM test"))
 	Expect(args).To(BeEmpty())
 }
