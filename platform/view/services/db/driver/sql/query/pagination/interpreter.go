@@ -24,8 +24,6 @@ type interpreter struct{}
 func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQuery) {
 	switch pagination := p.(type) {
 	case *none:
-		query.AddLimit(0)
-		query.AddOffset(0)
 		return
 
 	case *offset:
@@ -55,6 +53,7 @@ func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQue
 	case *empty:
 		query.AddLimit(0)
 		query.AddOffset(0)
+
 	default:
 		fmt.Printf("Type = %T\n", pagination)
 		panic(fmt.Sprintf("invalid pagination option %+v", pagination))
