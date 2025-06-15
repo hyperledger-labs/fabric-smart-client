@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package _select
 
 import (
+	"strconv"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
@@ -21,13 +23,15 @@ type query struct {
 	distinct   bool
 	fields     []common.Field
 	where      cond.Condition
-	limit      int
-	offset     int
+	limit      string
+	offset     string
 	orderBy    []OrderBy
 	pagination driver.Pagination
 }
 
 func (q *query) AllFields() fieldsQuery {
+	fields := []common.Field{common.FieldName("*")}
+	q.Fields(fields...)
 	return q
 }
 
@@ -50,12 +54,12 @@ func (q *query) From(t common.JoinedTable) fromQuery {
 }
 
 func (q *query) Limit(l int) limitQuery {
-	q.limit = l
+	q.limit = strconv.Itoa(l)
 	return q
 }
 
 func (q *query) Offset(o int) offsetQuery {
-	q.offset = o
+	q.offset = strconv.Itoa(o)
 	return q
 }
 
@@ -74,6 +78,28 @@ func (q *query) Paginated(p driver.Pagination) paginatedQuery {
 	return q
 }
 
+func (q *query) AddField(field common.Field) { q.Fields(append(q.fields, field)...) }
+
+func (q *query) AddFieldUnique(field common.Field) {
+	if (len(q.fields) > 0) && (q.fields[0] == common.FieldName("*")) {
+		return
+	}
+	for _, n := range q.fields {
+		if n == field {
+			return
+		}
+	}
+	q.Fields(append(q.fields, field)...)
+}
+
+func (q *query) AddWhere(c cond.Condition) { q.Where(cond.And(q.where, c)) }
+
+func (q *query) AddOrderBy(os OrderBy) { q.OrderBy(append(q.orderBy, os)...) }
+
+func (q *query) AddLimit(l int) { q.Limit(l) }
+
+func (q *query) AddOffset(o int) { q.Offset(o) }
+
 func (q *query) Format(ci common.CondInterpreter) (string, []any) {
 	return q.FormatPaginated(ci, nil)
 }
@@ -89,6 +115,9 @@ func (q *query) FormatPaginated(ci common.CondInterpreter, pi common.PagInterpre
 }
 
 func (q *query) FormatPaginatedTo(ci common.CondInterpreter, pi common.PagInterpreter, sb common.Builder) {
+	if q.pagination != nil {
+		pi.PreProcess(q.pagination, q)
+	}
 	sb.WriteString("SELECT ")
 
 	if q.distinct {
@@ -111,16 +140,11 @@ func (q *query) FormatPaginatedTo(ci common.CondInterpreter, pi common.PagInterp
 		sb.WriteString(" ORDER BY ").WriteSerializables(common.ToSerializables(q.orderBy)...)
 	}
 
-	if q.pagination != nil {
-		pi.Interpret(q.pagination, sb)
-		return
-	}
-
-	if q.limit > 0 {
+	if q.limit != "" {
 		sb.WriteString(" LIMIT ").WriteParam(q.limit)
 	}
 
-	if q.offset > 0 {
+	if q.offset != "" {
 		sb.WriteString(" OFFSET ").WriteParam(q.offset)
 	}
 }

@@ -55,7 +55,7 @@ func Or(cs ...Condition) Condition {
 func newAndOr(conditions []Condition, trivialCondition Condition, operator string) Condition {
 	nonTrivial := make([]Condition, 0, len(conditions))
 	for _, c := range conditions {
-		if c != trivialCondition {
+		if c != nil && c != trivialCondition {
 			nonTrivial = append(nonTrivial, c)
 		}
 	}
