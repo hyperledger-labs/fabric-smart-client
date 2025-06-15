@@ -15,11 +15,11 @@ import (
 )
 
 func NewEnvelopeStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *EnvelopeStore {
-	return &EnvelopeStore{p: NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
+	return &EnvelopeStore{p: newSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
 }
 
 type EnvelopeStore struct {
-	p *SimpleKeyDataStore
+	p *simpleKeyDataStore
 }
 
 func (db *EnvelopeStore) GetEnvelope(ctx context.Context, key string) ([]byte, error) {

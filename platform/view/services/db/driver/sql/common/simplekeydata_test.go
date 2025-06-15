@@ -7,19 +7,21 @@ SPDX-License-Identifier: Apache-2.0
 package common_test
 
 import (
-	"context"
 	"database/sql"
 	"regexp"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	. "github.com/onsi/gomega"
 )
 
-func TestGetData(t *testing.T) {
+type (
+	getFunc    func(*sql.DB, string) ([]byte, error)
+	existsFunc func(*sql.DB, string) (bool, error)
+	putFunc    func(*sql.DB, string, []byte) error
+)
+
+func GetData(t *testing.T, get getFunc) {
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
@@ -34,15 +36,14 @@ func TestGetData(t *testing.T) {
 		WithArgs(key).
 		WillReturnRows(mockDB.NewRows([]string{"data"}).AddRow(data))
 
-	store := mockSimpleKeyDataStore(db)
-	result, err := store.GetData(context.Background(), key)
+	result, err := get(db, key)
 
 	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(data))
 }
 
-func TestGetData_NoData(t *testing.T) {
+func GetData_NoData(t *testing.T, get getFunc) {
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
@@ -56,15 +57,14 @@ func TestGetData_NoData(t *testing.T) {
 		WithArgs(key).
 		WillReturnRows(mockDB.NewRows([]string{"data"})) // no row
 
-	store := mockSimpleKeyDataStore(db)
-	result, err := store.GetData(context.Background(), key)
+	result, err := get(db, key)
 
 	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(BeNil())
 }
 
-func TestExistData_True(t *testing.T) {
+func ExistData_True(t *testing.T, exists existsFunc) {
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
@@ -79,15 +79,14 @@ func TestExistData_True(t *testing.T) {
 		WithArgs(key).
 		WillReturnRows(mockDB.NewRows([]string{"data"}).AddRow(data))
 
-	store := mockSimpleKeyDataStore(db)
-	exists, err := store.ExistData(context.Background(), key)
+	result, err := exists(db, key)
 
 	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
 	Expect(err).ToNot(HaveOccurred())
-	Expect(exists).To(BeTrue())
+	Expect(result).To(BeTrue())
 }
 
-func TestExistData_False(t *testing.T) {
+func ExistData_False(t *testing.T, exist existsFunc) {
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
@@ -101,15 +100,14 @@ func TestExistData_False(t *testing.T) {
 		WithArgs(key).
 		WillReturnRows(mockDB.NewRows([]string{"data"})) // empty result
 
-	store := mockSimpleKeyDataStore(db)
-	exists, err := store.ExistData(context.Background(), key)
+	result, err := exist(db, key)
 
 	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
 	Expect(err).ToNot(HaveOccurred())
-	Expect(exists).To(BeFalse())
+	Expect(result).To(BeFalse())
 }
 
-func TestPutData_Success(t *testing.T) {
+func PutData_Success(t *testing.T, put putFunc) {
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
@@ -124,14 +122,13 @@ func TestPutData_Success(t *testing.T) {
 		WithArgs(key, data).
 		WillReturnResult(sqlmock.NewResult(1, 1)) // 1 row inserted
 
-	store := mockSimpleKeyDataStore(db)
-	err = store.PutData(context.Background(), key, data)
+	err = put(db, key, data)
 
 	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func TestPutData_Conflict(t *testing.T) {
+func PutData_Conflict(t *testing.T, put putFunc) {
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
@@ -146,13 +143,8 @@ func TestPutData_Conflict(t *testing.T) {
 		WithArgs(key, data).
 		WillReturnResult(sqlmock.NewResult(1, 0)) // conflict, 0 rows affected
 
-	store := mockSimpleKeyDataStore(db)
-	err = store.PutData(context.Background(), key, data)
+	err = put(db, key, data)
 
 	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
 	Expect(err).ToNot(HaveOccurred())
-}
-
-func mockSimpleKeyDataStore(db *sql.DB) *common2.SimpleKeyDataStore {
-	return common2.NewSimpleKeyDataStore(db, db, "test_table", &mock.SQLErrorWrapper{}, sqlite.NewConditionInterpreter())
 }

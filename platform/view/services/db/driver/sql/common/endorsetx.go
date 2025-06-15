@@ -15,11 +15,11 @@ import (
 )
 
 func NewEndorseTxStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *EndorseTxStore {
-	return &EndorseTxStore{p: NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
+	return &EndorseTxStore{p: newSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
 }
 
 type EndorseTxStore struct {
-	p *SimpleKeyDataStore
+	p *simpleKeyDataStore
 }
 
 func (db *EndorseTxStore) GetEndorseTx(ctx context.Context, key string) ([]byte, error) {
