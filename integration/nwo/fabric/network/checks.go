@@ -40,7 +40,8 @@ func (n *Network) CheckTopologyOrderers() {
 			ports[portName] = n.Context.ReservePort()
 		}
 		n.Context.SetPortsByOrdererID(n.Prefix, o.ID(), ports)
-		n.Context.SetHostByOrdererID(n.Prefix, o.ID(), "0.0.0.0")
+		// TODO: allow to set the orderer endpoint via topo
+		n.Context.SetHostByOrdererID(n.Prefix, o.ID(), "127.0.0.1")
 	}
 }
 
