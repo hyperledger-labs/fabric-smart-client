@@ -184,22 +184,22 @@ func testPagination(store driver.VaultStore) {
 			item.sqlBackward = item.sqlForward
 			item.argsBackward = item.argsForward
 		}
-		pagination := item.pagination
+		pag := item.pagination
 		page := 0
 		for ; true; page++ {
 			query, args := q.Select().
 				AllFields().
 				From(q.Table("test")).
-				Paginated(pagination).
+				Paginated(pag).
 				FormatPaginated(nil, pi)
 
 			Expect(err).ToNot(HaveOccurred())
 			fmt.Printf("sql (forward) = %s\n", query)
 			Expect(query).To(Equal(item.sqlForward[page]))
 			Expect(args).To(ConsistOf(item.argsForward[page]))
-			p, err := store.GetAllTxStatuses(context.Background(), pagination)
+			p, err := store.GetAllTxStatuses(context.Background(), pag)
 			Expect(err).ToNot(HaveOccurred())
-			pagination = p.Pagination
+			pag = p.Pagination
 			statuses, err := collections.ReadAll(p.Items)
 			Expect(err).ToNot(HaveOccurred())
 			// Test we get 0 statuses when we reach the end
@@ -213,7 +213,7 @@ func testPagination(store driver.VaultStore) {
 			_, err = pagination.NewPage[driver.TxStatus](p.Items, p.Pagination)
 			Expect(err).ToNot(HaveOccurred())
 
-			pagination, err = pagination.Next()
+			pag, err = pag.Next()
 			Expect(err).ToNot(HaveOccurred())
 		}
 		// test that we read everything
@@ -223,26 +223,26 @@ func testPagination(store driver.VaultStore) {
 		if len(item.matcher) < 2 {
 			continue
 		}
-		pagination = item.pagination
+		pag = item.pagination
 		for page = 0; page < 2; page++ {
-			pagination, err = pagination.Next()
+			pag, err = pag.Next()
 			Expect(err).ToNot(HaveOccurred())
 		}
 		for ; page >= 0; page-- {
 			query, _ := q.Select().
 				AllFields().
 				From(q.Table("test")).
-				Paginated(pagination).
+				Paginated(pag).
 				FormatPaginated(nil, pi)
 			Expect(query).To(Equal(item.sqlBackward[page]))
-			p, err := store.GetAllTxStatuses(context.Background(), pagination)
+			p, err := store.GetAllTxStatuses(context.Background(), pag)
 			Expect(err).ToNot(HaveOccurred())
-			pagination = p.Pagination
+			pag = p.Pagination
 			statuses, err := collections.ReadAll(p.Items)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(statuses).To(item.matcher[page])
 			if page > 0 {
-				pagination, err = pagination.Prev()
+				pag, err = pag.Prev()
 				Expect(err).ToNot(HaveOccurred())
 			}
 		}
