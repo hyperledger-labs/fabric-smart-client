@@ -200,18 +200,18 @@ func testPagination(store driver.VaultStore) {
 			p, err := store.GetAllTxStatuses(context.Background(), pag)
 			Expect(err).ToNot(HaveOccurred())
 			pag = p.Pagination
-			statuses, err := collections.ReadAll(p.Items)
-			Expect(err).ToNot(HaveOccurred())
-			// Test we get 0 statuses when we reach the end
-			if len(statuses) == 0 {
-				break
-			}
+			// statuses, err := collections.ReadAll(p.Items)
+			// Expect(err).ToNot(HaveOccurred())
+			// // Test we get 0 statuses when we reach the end
+			// if len(statuses) == 0 {
+			// 	break
+			// }
 			Expect(page).To(BeNumerically("<", len(item.matcher)))
-			Expect(statuses).To(item.matcher[page])
 
 			fmt.Printf("type of statuses = %T\n", p.Items)
-			_, err = pagination.NewPage[driver.TxStatus](p.Items, p.Pagination)
+			statuses, err := pagination.NewPage[driver.TxStatus](p.Items, p.Pagination)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(statuses).To(item.matcher[page])
 
 			pag, err = pag.Next()
 			Expect(err).ToNot(HaveOccurred())

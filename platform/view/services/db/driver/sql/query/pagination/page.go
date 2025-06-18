@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package pagination
 
 import (
+	"fmt"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
@@ -35,7 +37,10 @@ func NewPage[V any](results collections.Iterator[*V], pagination driver.Paginati
 
 // NewTypedPage creates a new page from the results and the previous pagination
 func NewTypedPage[I comparable, V any](results iterators.Iterator[*V], pagination driver.Pagination) (*driver.PageIterator[*V], error) {
-	if p, ok := pagination.(*keyset[I, V]); ok {
+	fmt.Printf("type of pagination = %T\n", pagination)
+	var v V
+	fmt.Printf("type of V = %T\n", v)
+	if p, ok := pagination.(*keyset[I, interface{}]); ok {
 		items, err := iterators.ReadAllPointers(results)
 		if err != nil {
 			return nil, err
