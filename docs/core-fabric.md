@@ -102,16 +102,14 @@ fsc:
       # Sets the maximum number of cached items
       # If not specified, default is 100 (TBD: What is the scale here ?, what does 0 mean)
       size:
-    # persistence references one of the keys under 'fsc.persistences'. Defaults to 'default', if a default persistence is defined
-    persistence:
 
   # ------------------- Persistence Configuration -------------------------
   # All persistence configurations of the application are defined here
   # Then each store chooses a configuration by referencing it by the key (e.g. my_sqlite_persistence)
   # If a store does not define one, the 'default' will be picked if it is defined 
   persistences:
-    # The default persistence configuration for all stores that do not define one.
-    # A default persistence is not mandatory
+    # The default persistence configuration for all stores that do not define one or do not support customization.
+    # A default persistence. It is the safest choice to define one. 
     default:
       # The type can be memory, sqlite, postgres
       type: memory
@@ -400,7 +398,7 @@ fabric:
             private: false
 
     # ----------------------- Fabric Driver Configuration ---------------------------
-    # Internal vault used to keep track of the RW sets assembed by this node during in progress transactions
+    # Internal vault used to keep track of the RW sets assembled by this node during in progress transactions
     vault:
       persistence: my_postgres_persistence
       txidstore:

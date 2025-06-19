@@ -43,14 +43,6 @@ type SignerInfoStore = driver.SignerInfoStore
 
 type AuditInfoStore = driver.AuditInfoStore
 
-type EndorseTxStore = driver.EndorseTxStore[string]
-
-type MetadataStore = driver.MetadataStore[string, []byte]
-
-type EnvelopeStore = driver.EnvelopeStore[string]
-
-type VaultStore = driver.VaultStore
-
 // KeyValueStore models a key-value storage place
 type KeyValueStore interface {
 	// SetState sets the given value for the given namespace, key, and version
@@ -133,14 +125,6 @@ type Driver interface {
 	NewSignerInfo(PersistenceName, ...string) (SignerInfoStore, error)
 	// NewAuditInfo returns a new AuditInfoStore for the passed data source and config
 	NewAuditInfo(PersistenceName, ...string) (AuditInfoStore, error)
-	// NewEndorseTx returns a new EndorseTxStore for the passed data source and config
-	NewEndorseTx(PersistenceName, ...string) (EndorseTxStore, error)
-	// NewMetadata returns a new MetadataStore for the passed data source and config
-	NewMetadata(PersistenceName, ...string) (MetadataStore, error)
-	// NewEnvelope returns a new EnvelopeStore for the passed data source and config
-	NewEnvelope(PersistenceName, ...string) (EnvelopeStore, error)
-	// NewVault returns a new VaultStore for the passed data source and config
-	NewVault(PersistenceName, ...string) (driver.VaultStore, error)
 }
 
 type (

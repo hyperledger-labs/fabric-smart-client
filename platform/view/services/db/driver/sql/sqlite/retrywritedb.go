@@ -23,7 +23,7 @@ type retryWriteDB struct {
 func NewRetryWriteDB(db *sql.DB) *retryWriteDB {
 	return &retryWriteDB{
 		DB:           db,
-		errorWrapper: &errorMapper{},
+		errorWrapper: &ErrorMapper{},
 	}
 }
 

@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var isolationLevels = isolationLevelMapper{
+var IsolationLevels = isolationLevelMapper{
 	driver.LevelDefault:         sql.LevelDefault,
 	driver.LevelReadUncommitted: sql.LevelReadUncommitted,
 	driver.LevelReadCommitted:   sql.LevelReadCommitted,

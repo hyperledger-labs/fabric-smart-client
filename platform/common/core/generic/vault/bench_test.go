@@ -14,8 +14,8 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/stretchr/testify/assert"
 )
 

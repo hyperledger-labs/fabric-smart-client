@@ -22,5 +22,5 @@ func NewSignerInfoStore(dbs *common3.RWDB, tables common.TableNames) (*SignerInf
 }
 
 func newSignerInfoStore(readDB *sql.DB, writeDB common.WriteDB, table string) *SignerInfoStore {
-	return &SignerInfoStore{SignerInfoStore: common.NewSignerInfoStore(writeDB, readDB, table, &errorMapper{}, NewConditionInterpreter())}
+	return &SignerInfoStore{SignerInfoStore: common.NewSignerInfoStore(writeDB, readDB, table, &ErrorMapper{}, NewConditionInterpreter())}
 }

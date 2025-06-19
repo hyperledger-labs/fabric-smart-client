@@ -13,6 +13,7 @@ import (
 
 	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
+	sql2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
 	"github.com/pkg/errors"
 )
 
@@ -23,17 +24,12 @@ type WriteDB interface {
 	Close() error
 }
 
-type Sanitizer interface {
-	Encode(string) (string, error)
-	Decode(string) (string, error)
-}
-
-func newSanitizer(s Sanitizer) *sanitizer {
+func NewSanitizer(s sql2.Sanitizer) *sanitizer {
 	return &sanitizer{Sanitizer: s}
 }
 
 type sanitizer struct {
-	Sanitizer
+	sql2.Sanitizer
 }
 
 func (s *sanitizer) EncodeAll(params []any) ([]any, error) {

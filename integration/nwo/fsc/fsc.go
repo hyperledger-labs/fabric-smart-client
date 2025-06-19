@@ -38,6 +38,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -510,26 +511,18 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 	}
 
 	persistences := GetPersistences(peer.Options, p.NodeStorages(peer.UniqueName))
-	persistenceNames := GetPersistenceNames(peer.Options, AllPrefixes...)
 
 	t, err := template.New("peer").Funcs(template.FuncMap{
-		"Replica":               func() *node2.Replica { return peer },
-		"Peer":                  func() *node2.Peer { return peer.Peer },
-		"NetworkID":             func() string { return p.NetworkID },
-		"Topology":              func() *Topology { return p.Topology },
-		"Extensions":            func() []string { return extensions },
-		"ToLower":               func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll":            func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
-		"KVSPersistence":        func() driver.PersistenceName { return persistenceNames[KvsPersistencePrefix] },
-		"BindingPersistence":    func() driver.PersistenceName { return persistenceNames[BindingPersistencePrefix] },
-		"SignerInfoPersistence": func() driver.PersistenceName { return persistenceNames[SignerInfoPersistencePrefix] },
-		"AuditInfoPersistence":  func() driver.PersistenceName { return persistenceNames[AuditInfoPersistencePrefix] },
-		"EndorseTxPersistence":  func() driver.PersistenceName { return persistenceNames[EndorseTxPersistencePrefix] },
-		"EnvelopePersistence":   func() driver.PersistenceName { return persistenceNames[EnvelopePersistencePrefix] },
-		"MetadataPersistence":   func() driver.PersistenceName { return persistenceNames[MetadataPersistencePrefix] },
-		"Persistences":          func() map[driver.PersistenceName]node2.PersistenceOpts { return persistences },
-		"Resolvers":             func() []*Resolver { return resolvers },
-		"WebEnabled":            func() bool { return p.Topology.WebEnabled },
+		"Replica":      func() *node2.Replica { return peer },
+		"Peer":         func() *node2.Peer { return peer.Peer },
+		"NetworkID":    func() string { return p.NetworkID },
+		"Topology":     func() *Topology { return p.Topology },
+		"Extensions":   func() []string { return extensions },
+		"ToLower":      func(s string) string { return strings.ToLower(s) },
+		"ReplaceAll":   func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
+		"Persistences": func() map[driver.PersistenceName]node2.PersistenceOpts { return persistences },
+		"Resolvers":    func() []*Resolver { return resolvers },
+		"WebEnabled":   func() bool { return p.Topology.WebEnabled },
 		"TracingEndpoint": func() string {
 			return utils.DefaultString(p.Topology.Monitoring.TracingEndpoint, fmt.Sprintf("0.0.0.0:%d", optl.JaegerCollectorPort))
 		},
@@ -565,9 +558,9 @@ func GetPersistences(o *node2.Options, dir string) map[driver.PersistenceName]no
 			SQL:  opt,
 		}
 	}
-	prefixes := o.GetAllPersistenceKeys()
 
 	// Complete all missing persistences with ad hoc sqlite local persistences
+	prefixes := o.GetAllPersistenceKeys()
 	for _, prefix := range prefixes {
 		if _, ok := o.GetPersistenceName(prefix); !ok {
 			persistences[sqliteName(prefix)] = node2.PersistenceOpts{
@@ -587,6 +580,9 @@ func SqlitePath(storages string, prefix node2.PersistenceKey) string {
 }
 
 func sqliteName(prefix node2.PersistenceKey) driver.PersistenceName {
+	if driver.PersistenceName(prefix) == common2.DefaultPersistence {
+		return common2.DefaultPersistence
+	}
 	return driver.PersistenceName(fmt.Sprintf("%s_persistence", prefix))
 }
 

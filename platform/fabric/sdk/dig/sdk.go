@@ -26,6 +26,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/fns"
 	generic2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/generic"
 	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/finality"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
@@ -70,7 +73,12 @@ func (p *SDK) Install() error {
 		p.Container().Provide(fabric.NewNetworkServiceProvider),
 		p.Container().Provide(vault.NewService, dig.As(new(state.VaultService))),
 		p.Container().Provide(generic2.NewEndorserTransactionHandlerProvider),
+
 		p.Container().Provide(committer2.NewSerialDependencyResolver, dig.As(new(committer2.DependencyResolver))),
+		p.Container().Provide(postgres.NewNamedDriver, dig.Group("fabric-db-drivers")),
+		p.Container().Provide(sqlite.NewNamedDriver, dig.Group("fabric-db-drivers")),
+		p.Container().Provide(mem.NewNamedDriver, dig.Group("fabric-db-drivers")),
+		p.Container().Provide(generic2.NewMultiplexedDriver),
 		p.Container().Provide(generic2.NewMetadataStore),
 		p.Container().Provide(generic2.NewEnvelopeStore),
 		p.Container().Provide(generic2.NewEndorseTxStore),

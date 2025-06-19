@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package sqlite
 
-func newSanitizer() *stringSanitizer { return &stringSanitizer{} }
+func NewSanitizer() *stringSanitizer { return &stringSanitizer{} }
 
 type stringSanitizer struct{}
 

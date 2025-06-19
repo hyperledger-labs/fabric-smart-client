@@ -18,8 +18,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func newSimpleKeyDataStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common2.CondInterpreter) *simpleKeyDataStore {
-	return &simpleKeyDataStore{
+func NewSimpleKeyDataStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common2.CondInterpreter) *SimpleKeyDataStore {
+	return &SimpleKeyDataStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
@@ -28,7 +28,7 @@ func newSimpleKeyDataStore(writeDB WriteDB, readDB *sql.DB, table string, errorW
 	}
 }
 
-type simpleKeyDataStore struct {
+type SimpleKeyDataStore struct {
 	table        string
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
@@ -36,7 +36,7 @@ type simpleKeyDataStore struct {
 	ci           common2.CondInterpreter
 }
 
-func (db *simpleKeyDataStore) GetData(ctx context.Context, key string) ([]byte, error) {
+func (db *SimpleKeyDataStore) GetData(ctx context.Context, key string) ([]byte, error) {
 	query, params := q.Select().FieldsByName("data").
 		From(q.Table(db.table)).
 		Where(cond.Eq("key", key)).
@@ -45,12 +45,12 @@ func (db *simpleKeyDataStore) GetData(ctx context.Context, key string) ([]byte, 
 	return QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
 }
 
-func (db *simpleKeyDataStore) ExistData(ctx context.Context, key string) (bool, error) {
+func (db *SimpleKeyDataStore) ExistData(ctx context.Context, key string) (bool, error) {
 	data, err := db.GetData(ctx, key)
 	return len(data) > 0, err
 }
 
-func (db *simpleKeyDataStore) PutData(ctx context.Context, key string, data []byte) error {
+func (db *SimpleKeyDataStore) PutData(ctx context.Context, key string, data []byte) error {
 	query, params := q.InsertInto(db.table).
 		Fields("key", "data").
 		Row(key, data).
@@ -69,7 +69,7 @@ func (db *simpleKeyDataStore) PutData(ctx context.Context, key string, data []by
 	return nil
 }
 
-func (db *simpleKeyDataStore) CreateSchema() error {
+func (db *SimpleKeyDataStore) CreateSchema() error {
 	return InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		key TEXT NOT NULL PRIMARY KEY,

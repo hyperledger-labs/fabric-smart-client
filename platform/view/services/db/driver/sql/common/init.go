@@ -23,11 +23,6 @@ type TableNames struct {
 	Binding    string
 	SignerInfo string
 	AuditInfo  string
-	EndorseTx  string
-	Metadata   string
-	Envelope   string
-	State      string
-	Status     string
 }
 
 func GetTableNames(prefix string, params ...string) TableNames {
@@ -37,10 +32,5 @@ func GetTableNames(prefix string, params ...string) TableNames {
 		Binding:    nc.MustFormat("bind", params...),
 		SignerInfo: nc.MustFormat("sign", params...),
 		AuditInfo:  nc.MustFormat("aud", params...),
-		EndorseTx:  nc.MustFormat("etx", params...),
-		Metadata:   nc.MustFormat("meta", params...),
-		Envelope:   nc.MustFormat("env", params...),
-		State:      nc.MustFormat("vstate", params...),
-		Status:     nc.MustFormat("vstatus", params...),
 	}
 }

@@ -19,9 +19,9 @@ var errorMap = map[string]error{
 	"40P01": driver.DeadlockDetected,
 }
 
-type errorMapper struct{}
+type ErrorMapper struct{}
 
-func (m *errorMapper) WrapError(err error) error {
+func (m *ErrorMapper) WrapError(err error) error {
 	var pgErr *pgconn.PgError
 	if !errors2.As(err, &pgErr) {
 		logger.Warnf("Error of type [%T] not pgError", err)

@@ -22,5 +22,5 @@ func NewAuditInfoStore(dbs *common3.RWDB, tables common.TableNames) (*AuditInfoS
 }
 
 func newAuditInfoStore(readDB, writeDB *sql.DB, table string) *AuditInfoStore {
-	return &AuditInfoStore{AuditInfoStore: common.NewAuditInfoStore(readDB, writeDB, table, &errorMapper{}, NewConditionInterpreter())}
+	return &AuditInfoStore{AuditInfoStore: common.NewAuditInfoStore(readDB, writeDB, table, &ErrorMapper{}, NewConditionInterpreter())}
 }

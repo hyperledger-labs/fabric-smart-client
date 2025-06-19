@@ -62,38 +62,6 @@ func (d Driver) NewAuditInfo(name driver2.PersistenceName, params ...string) (dr
 	return dr.NewAuditInfo(name, params...)
 }
 
-func (d Driver) NewEndorseTx(name driver2.PersistenceName, params ...string) (driver2.EndorseTxStore, error) {
-	dr, err := d.getDriver(name)
-	if err != nil {
-		return nil, err
-	}
-	return dr.NewEndorseTx(name, params...)
-}
-
-func (d Driver) NewMetadata(name driver2.PersistenceName, params ...string) (driver2.MetadataStore, error) {
-	dr, err := d.getDriver(name)
-	if err != nil {
-		return nil, err
-	}
-	return dr.NewMetadata(name, params...)
-}
-
-func (d Driver) NewEnvelope(name driver2.PersistenceName, params ...string) (driver2.EnvelopeStore, error) {
-	dr, err := d.getDriver(name)
-	if err != nil {
-		return nil, err
-	}
-	return dr.NewEnvelope(name, params...)
-}
-
-func (d Driver) NewVault(name driver2.PersistenceName, params ...string) (driver.VaultStore, error) {
-	dr, err := d.getDriver(name)
-	if err != nil {
-		return nil, err
-	}
-	return dr.NewVault(name, params...)
-}
-
 func (d Driver) getDriver(name driver2.PersistenceName) (driver2.Driver, error) {
 	t, err := d.config.GetDriverType(name)
 	if err != nil {
