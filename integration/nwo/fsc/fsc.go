@@ -38,6 +38,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -557,9 +558,9 @@ func GetPersistences(o *node2.Options, dir string) map[driver.PersistenceName]no
 			SQL:  opt,
 		}
 	}
-	prefixes := o.GetAllPersistenceKeys()
 
 	// Complete all missing persistences with ad hoc sqlite local persistences
+	prefixes := o.GetAllPersistenceKeys()
 	for _, prefix := range prefixes {
 		if _, ok := o.GetPersistenceName(prefix); !ok {
 			persistences[sqliteName(prefix)] = node2.PersistenceOpts{
@@ -579,6 +580,9 @@ func SqlitePath(storages string, prefix node2.PersistenceKey) string {
 }
 
 func sqliteName(prefix node2.PersistenceKey) driver.PersistenceName {
+	if driver.PersistenceName(prefix) == common2.DefaultPersistence {
+		return common2.DefaultPersistence
+	}
 	return driver.PersistenceName(fmt.Sprintf("%s_persistence", prefix))
 }
 

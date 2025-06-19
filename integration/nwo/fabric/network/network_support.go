@@ -26,9 +26,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -1612,8 +1610,6 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			}
 		}
 
-		persistenceNames := fsc.GetPersistenceNames(p.FSCNode.Options, VaultPersistenceKey)
-
 		for _, uniqueName := range p.FSCNode.ReplicaUniqueNames() {
 			t, err := template.New("peer").Funcs(template.FuncMap{
 				"Peer":                      func() *topology.Peer { return p },
@@ -1625,7 +1621,6 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 				"OrdererAddress":            func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
 				"PeerAddress":               func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
 				"CACertsBundlePath":         func() string { return n.CACertsBundlePath() },
-				"VaultPersistence":          func() driver2.PersistenceName { return persistenceNames[VaultPersistenceKey] },
 				"FabricName":                func() string { return n.topology.Name() },
 				"DefaultNetwork":            func() bool { return defaultNetwork },
 				"Driver":                    func() string { return driver },

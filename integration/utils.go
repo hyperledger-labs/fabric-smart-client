@@ -12,7 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/onsi/gomega"
 )
@@ -30,11 +29,13 @@ func (o *ReplicationOptions) For(name string) []node.Option {
 		opts = append(opts, fsc.WithReplicationFactor(f))
 	}
 	if sqlConfig, ok := o.SQLConfigs[name]; ok {
-		opts = append(opts, fabric.WithDefaultPostgresPersistence(sqlConfig),
-			fabric.WithPostgresPersistenceNames(common.DefaultPersistence, fabric.VaultPersistencePrefix),
+		opts = append(opts,
+			fabric.WithDefaultPostgresPersistence(sqlConfig),
 		)
 	} else {
-		opts = append(opts, fabric.WithSqlitePersistences(fabric.VaultPersistencePrefix))
+		opts = append(opts,
+			fabric.WithDefaultSqlitePersistence(),
+		)
 	}
 	return opts
 }
