@@ -124,17 +124,17 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	// Channel configuration
 	channelConfig, err := p.channelConfigProvider.GetChannelConfig(nw.Name(), channelName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed getting channel config for [%s]", channelName)
 	}
 
 	vaultStore, err := vault2.NewStore(nw.ConfigService().VaultPersistenceName(), p.drivers, nw.Name(), channelName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed creating vault store for channel [%s]", channelName)
 	}
 
 	vault, err := p.newVault(channelName, nw.ConfigService(), vaultStore)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed creating vault for channel [%s]", channelName)
 	}
 	envelopeService := transaction.NewEnvelopeService(p.envelopeKVS, nw.Name(), channelName)
 	transactionService := transaction.NewEndorseTransactionService(p.endorserTxKVS, nw.Name(), channelName)
@@ -153,7 +153,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		p.useFilteredDelivery,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed creating fabric finality for channel [%s]", channelName)
 	}
 
 	channelMembershipService := membership.NewService()
@@ -167,7 +167,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		vault,
 	)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed creating RWSetLoader for channel [%s]", channelName)
+		return nil, errors.Wrapf(err, "failed creating RWSetLoader for channel [%s]", channelName)
 	}
 
 	chaincodeManagerService := chaincode.NewManager(
@@ -191,7 +191,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		chaincodeManagerService,
 	)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed creating ledger for channel [%s]", channelName)
+		return nil, errors.Wrapf(err, "failed creating ledger for channel [%s]", channelName)
 	}
 
 	committerService, err := p.newCommitter(
@@ -206,7 +206,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		quiet,
 	)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed creating committer for channel [%s]", channelName)
+		return nil, errors.Wrapf(err, "failed creating committer for channel [%s]", channelName)
 	}
 
 	// Finality
@@ -226,7 +226,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed creating delivery for channel [%s]", channelName)
 	}
 
 	c := &Channel{
@@ -245,7 +245,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		CommitterService:         committerService,
 	}
 	if err := c.Init(); err != nil {
-		return nil, errors.WithMessagef(err, "failed initializing Channel [%s]", channelName)
+		return nil, errors.Wrapf(err, "failed initializing Channel [%s]", channelName)
 	}
 	return c, nil
 }

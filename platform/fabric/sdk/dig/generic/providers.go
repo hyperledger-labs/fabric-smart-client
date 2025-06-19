@@ -221,7 +221,7 @@ func NewEnvelopeStore(config vdriver.ConfigService, drivers multiplexed.Driver) 
 func NewMultiplexedDriver(in struct {
 	dig.In
 	Config  vdriver.ConfigService
-	Drivers []dbdriver.NamedDriver `group:"fabric-db-drivers"`
+	Drivers []dbdriver.NamedDriver `group:"fabric-db-drivers" optional:"false"`
 }) multiplexed.Driver {
 	return multiplexed.NewDriver(in.Config, in.Drivers...)
 }

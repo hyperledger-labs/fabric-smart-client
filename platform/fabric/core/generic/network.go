@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/pkg/errors"
 )
 
 var logger = logging.MustGetLogger()
@@ -103,7 +104,7 @@ func (f *Network) Channel(name string) (driver.Channel, error) {
 		var err error
 		ch, err = f.NewChannel(f, name, chanQuiet)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error allocating channel")
 		}
 		f.ChannelMap[name] = ch
 		logger.Debugf("Channel [%s] not found, created", name)

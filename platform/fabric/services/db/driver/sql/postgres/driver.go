@@ -27,10 +27,10 @@ const (
 	Persistence driver2.PersistenceType = "postgres"
 )
 
-func NewNamedDriver(config driver.Config, dbProvider postgres.DbProvider) driver.NamedDriver {
-	return driver.NamedDriver{
+func NewNamedDriver(config driver.Config, dbProvider postgres.DbProvider) driver3.NamedDriver {
+	return driver3.NamedDriver{
 		Name:   Persistence,
-		Driver: postgres.NewDriverWithDbProvider(config, dbProvider),
+		Driver: NewDriverWithDbProvider(config, dbProvider),
 	}
 }
 

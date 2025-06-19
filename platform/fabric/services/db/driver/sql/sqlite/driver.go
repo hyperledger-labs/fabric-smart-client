@@ -25,10 +25,10 @@ const (
 	Persistence driver2.PersistenceType = "sqlite"
 )
 
-func NewNamedDriver(config driver.Config, dbProvider sqlite.DbProvider) driver.NamedDriver {
-	return driver.NamedDriver{
+func NewNamedDriver(config driver.Config, dbProvider sqlite.DbProvider) driver3.NamedDriver {
+	return driver3.NamedDriver{
 		Name:   Persistence,
-		Driver: sqlite.NewDriverWithDbProvider(config, dbProvider),
+		Driver: NewDriverWithDbProvider(config, dbProvider),
 	}
 }
 
