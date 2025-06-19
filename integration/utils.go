@@ -31,12 +31,10 @@ func (o *ReplicationOptions) For(name string) []node.Option {
 	}
 	if sqlConfig, ok := o.SQLConfigs[name]; ok {
 		opts = append(opts, fabric.WithDefaultPostgresPersistence(sqlConfig),
-			fabric.WithPostgresPersistenceNames(common.DefaultPersistence,
-				append(fsc.AllPrefixes, fabric.VaultPersistencePrefix)...,
-			),
+			fabric.WithPostgresPersistenceNames(common.DefaultPersistence, fabric.VaultPersistencePrefix),
 		)
 	} else {
-		opts = append(opts, fabric.WithSqlitePersistences(append(fsc.AllPrefixes, fabric.VaultPersistencePrefix)...))
+		opts = append(opts, fabric.WithSqlitePersistences(fabric.VaultPersistencePrefix))
 	}
 	return opts
 }

@@ -510,26 +510,18 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 	}
 
 	persistences := GetPersistences(peer.Options, p.NodeStorages(peer.UniqueName))
-	persistenceNames := GetPersistenceNames(peer.Options, AllPrefixes...)
 
 	t, err := template.New("peer").Funcs(template.FuncMap{
-		"Replica":               func() *node2.Replica { return peer },
-		"Peer":                  func() *node2.Peer { return peer.Peer },
-		"NetworkID":             func() string { return p.NetworkID },
-		"Topology":              func() *Topology { return p.Topology },
-		"Extensions":            func() []string { return extensions },
-		"ToLower":               func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll":            func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
-		"KVSPersistence":        func() driver.PersistenceName { return persistenceNames[KvsPersistencePrefix] },
-		"BindingPersistence":    func() driver.PersistenceName { return persistenceNames[BindingPersistencePrefix] },
-		"SignerInfoPersistence": func() driver.PersistenceName { return persistenceNames[SignerInfoPersistencePrefix] },
-		"AuditInfoPersistence":  func() driver.PersistenceName { return persistenceNames[AuditInfoPersistencePrefix] },
-		"EndorseTxPersistence":  func() driver.PersistenceName { return persistenceNames[EndorseTxPersistencePrefix] },
-		"EnvelopePersistence":   func() driver.PersistenceName { return persistenceNames[EnvelopePersistencePrefix] },
-		"MetadataPersistence":   func() driver.PersistenceName { return persistenceNames[MetadataPersistencePrefix] },
-		"Persistences":          func() map[driver.PersistenceName]node2.PersistenceOpts { return persistences },
-		"Resolvers":             func() []*Resolver { return resolvers },
-		"WebEnabled":            func() bool { return p.Topology.WebEnabled },
+		"Replica":      func() *node2.Replica { return peer },
+		"Peer":         func() *node2.Peer { return peer.Peer },
+		"NetworkID":    func() string { return p.NetworkID },
+		"Topology":     func() *Topology { return p.Topology },
+		"Extensions":   func() []string { return extensions },
+		"ToLower":      func(s string) string { return strings.ToLower(s) },
+		"ReplaceAll":   func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
+		"Persistences": func() map[driver.PersistenceName]node2.PersistenceOpts { return persistences },
+		"Resolvers":    func() []*Resolver { return resolvers },
+		"WebEnabled":   func() bool { return p.Topology.WebEnabled },
 		"TracingEndpoint": func() string {
 			return utils.DefaultString(p.Topology.Monitoring.TracingEndpoint, fmt.Sprintf("0.0.0.0:%d", optl.JaegerCollectorPort))
 		},

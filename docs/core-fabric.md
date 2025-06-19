@@ -102,8 +102,6 @@ fsc:
       # Sets the maximum number of cached items
       # If not specified, default is 100 (TBD: What is the scale here ?, what does 0 mean)
       size:
-    # persistence references one of the keys under 'fsc.persistences'. Defaults to 'default', if a default persistence is defined
-    persistence:
 
   # ------------------- Persistence Configuration -------------------------
   # All persistence configurations of the application are defined here

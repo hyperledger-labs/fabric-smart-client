@@ -111,11 +111,6 @@ fsc:
   {{- end }}
   # The Key-Value Store is used to store various information related to the FSC node
   kvs:
-{{- if and (ne KVSPersistence "") (ne KVSPersistence "default") }}
-    persistence: {{ KVSPersistence }}
-{{- else }}
-  # kvs.persistence omitted
-{{- end }}
     cache:
         # Sets the maximum number of cached items 
         size: 200
