@@ -108,8 +108,8 @@ fsc:
   # Then each store chooses a configuration by referencing it by the key (e.g. my_sqlite_persistence)
   # If a store does not define one, the 'default' will be picked if it is defined 
   persistences:
-    # The default persistence configuration for all stores that do not define one.
-    # A default persistence is mandatory
+    # The default persistence configuration for all stores that do not define one or do not support customization.
+    # A default persistence. It is the safest choice to define one. 
     default:
       # The type can be memory, sqlite, postgres
       type: memory
