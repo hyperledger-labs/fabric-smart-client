@@ -109,7 +109,7 @@ fsc:
   # If a store does not define one, the 'default' will be picked if it is defined 
   persistences:
     # The default persistence configuration for all stores that do not define one.
-    # A default persistence is not mandatory
+    # A default persistence is mandatory
     default:
       # The type can be memory, sqlite, postgres
       type: memory
