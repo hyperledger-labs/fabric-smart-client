@@ -39,7 +39,7 @@ func NewDriverWithDbProvider(config driver.Config, dbProvider DbProvider) *Drive
 }
 
 type Driver struct {
-	cp         *configProvider
+	cp         *ConfigProvider
 	dbProvider DbProvider
 }
 
@@ -59,23 +59,7 @@ func (d *Driver) NewAuditInfo(name driver.PersistenceName, params ...string) (dr
 	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewAuditInfoStore, params...)
 }
 
-func (d *Driver) NewEndorseTx(name driver.PersistenceName, params ...string) (driver.EndorseTxStore, error) {
-	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewEndorseTxStore, params...)
-}
-
-func (d *Driver) NewMetadata(name driver.PersistenceName, params ...string) (driver.MetadataStore, error) {
-	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewMetadataStore, params...)
-}
-
-func (d *Driver) NewEnvelope(name driver.PersistenceName, params ...string) (driver.EnvelopeStore, error) {
-	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewEnvelopeStore, params...)
-}
-
-func (d *Driver) NewVault(name driver.PersistenceName, params ...string) (driver2.VaultStore, error) {
-	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewVaultStore, params...)
-}
-
-func NewPersistenceWithOpts[V common.DBObject](cfg *configProvider, dbProvider DbProvider, name driver.PersistenceName, constructor common2.PersistenceConstructor[V], params ...string) (V, error) {
+func NewPersistenceWithOpts[V common.DBObject](cfg *ConfigProvider, dbProvider DbProvider, name driver.PersistenceName, constructor common2.PersistenceConstructor[V], params ...string) (V, error) {
 	o, err := cfg.GetOpts(name, params...)
 	if err != nil {
 		return utils.Zero[V](), err

@@ -28,7 +28,7 @@ func NewKeyValueStoreNotifier(dbs *common3.RWDB, table string) (*notifier.Unvers
 }
 
 func newKeyValueStore(readDB *sql.DB, writeDB common.WriteDB, table string) *KeyValueStore {
-	var wrapper driver.SQLErrorWrapper = &errorMapper{}
+	var wrapper driver.SQLErrorWrapper = &ErrorMapper{}
 	return &KeyValueStore{
 		KeyValueStore: common.NewKeyValueStore(writeDB, readDB, table, wrapper, NewConditionInterpreter()),
 	}

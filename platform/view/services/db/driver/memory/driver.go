@@ -54,22 +54,6 @@ func (d *Driver) NewAuditInfo(_ driver.PersistenceName, params ...string) (drive
 	return newPersistenceWithOpts(d.dbProvider, sqlite.NewAuditInfoStore, params...)
 }
 
-func (d *Driver) NewEndorseTx(_ driver.PersistenceName, params ...string) (driver.EndorseTxStore, error) {
-	return newPersistenceWithOpts(d.dbProvider, sqlite.NewEndorseTxStore, params...)
-}
-
-func (d *Driver) NewMetadata(_ driver.PersistenceName, params ...string) (driver.MetadataStore, error) {
-	return newPersistenceWithOpts(d.dbProvider, sqlite.NewMetadataStore, params...)
-}
-
-func (d *Driver) NewEnvelope(_ driver.PersistenceName, params ...string) (driver.EnvelopeStore, error) {
-	return newPersistenceWithOpts(d.dbProvider, sqlite.NewEnvelopeStore, params...)
-}
-
-func (d *Driver) NewVault(_ driver.PersistenceName, params ...string) (driver2.VaultStore, error) {
-	return newPersistenceWithOpts(d.dbProvider, sqlite.NewVaultStore, params...)
-}
-
 func newPersistenceWithOpts[V common.DBObject](dbProvider sqlite.DbProvider, constructor common2.PersistenceConstructor[V], params ...string) (V, error) {
 	opts := Op.GetOpts(params...)
 	dbs, err := dbProvider.Get(opts)

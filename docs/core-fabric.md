@@ -400,7 +400,7 @@ fabric:
             private: false
 
     # ----------------------- Fabric Driver Configuration ---------------------------
-    # Internal vault used to keep track of the RW sets assembed by this node during in progress transactions
+    # Internal vault used to keep track of the RW sets assembled by this node during in progress transactions
     vault:
       persistence: my_postgres_persistence
       txidstore:

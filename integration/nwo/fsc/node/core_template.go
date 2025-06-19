@@ -119,42 +119,6 @@ fsc:
     cache:
         # Sets the maximum number of cached items 
         size: 200
-{{- if and (ne BindingPersistence "") (ne BindingPersistence "default") }}
-  binding:
-    persistence: {{ BindingPersistence }}
-{{- else }}
-  # binding.persistence omitted
-{{- end }}
-{{- if and (ne SignerInfoPersistence "") (ne SignerInfoPersistence "default") }}
-  signerinfo:
-    persistence: {{ SignerInfoPersistence }}
-{{- else }}
-  # signerinfo.persistence omitted
-{{- end }}
-{{- if and (ne AuditInfoPersistence "") (ne AuditInfoPersistence "default") }}
-  auditinfo:
-    persistence: {{ AuditInfoPersistence }}
-{{- else }}
-  # auditinfo.persistence omitted
-{{- end }}
-{{- if and (ne EndorseTxPersistence "") (ne EndorseTxPersistence "default") }}
-  endorsetx:
-    persistence: {{ EndorseTxPersistence }}
-{{- else }}
-  # endorsetx.persistence omitted
-{{- end }}
-{{- if and (ne EnvelopePersistence "") (ne EnvelopePersistence "default") }}
-  envelope:
-    persistence: {{ EnvelopePersistence }}
-{{- else }}
-  # envelope.persistence omitted
-{{- end }}
-{{- if and (ne MetadataPersistence "") (ne MetadataPersistence "default") }}
-  metadata:
-    persistence: {{ MetadataPersistence }}
-{{- else }}
-  # metadata.persistence omitted
-{{- end }}
   # HTML Server configuration for REST calls
   web:
     enabled: {{ WebEnabled }}

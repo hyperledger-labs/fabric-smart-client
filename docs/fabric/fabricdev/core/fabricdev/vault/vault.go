@@ -14,8 +14,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	vault3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"go.opentelemetry.io/otel/trace"
 )
 

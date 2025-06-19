@@ -24,16 +24,17 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/endorsetx"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/envelope"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/metadata"
+	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/endorsetx"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/envelope"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/metadata"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
@@ -215,4 +216,12 @@ func NewMetadataStore(config vdriver.ConfigService, drivers multiplexed.Driver) 
 
 func NewEnvelopeStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.EnvelopeStore, error) {
 	return envelope.NewStore[driver.Key](config, drivers, "default")
+}
+
+func NewMultiplexedDriver(in struct {
+	dig.In
+	Config  vdriver.ConfigService
+	Drivers []dbdriver.NamedDriver `group:"fabric-db-drivers"`
+}) multiplexed.Driver {
+	return multiplexed.NewDriver(in.Config, in.Drivers...)
 }

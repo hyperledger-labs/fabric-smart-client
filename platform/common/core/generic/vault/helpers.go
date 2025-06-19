@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slices"

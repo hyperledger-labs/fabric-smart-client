@@ -80,7 +80,7 @@ func (db *KeyValueStoreNotifier) CreateSchema() error {
 
 func newKeyValueStore(readDB, writeDB *sql.DB, table string) *KeyValueStore {
 	ci := NewConditionInterpreter()
-	errorWrapper := &errorMapper{}
+	errorWrapper := &ErrorMapper{}
 	return &KeyValueStore{
 		KeyValueStore: common.NewKeyValueStore(readDB, writeDB, table, errorWrapper, ci),
 		table:         table,

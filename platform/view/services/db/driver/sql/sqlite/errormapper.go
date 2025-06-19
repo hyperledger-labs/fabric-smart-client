@@ -18,9 +18,9 @@ var errorMap = map[int]error{
 	5:    driver.SqlBusy,
 }
 
-type errorMapper struct{}
+type ErrorMapper struct{}
 
-func (m *errorMapper) WrapError(err error) error {
+func (m *ErrorMapper) WrapError(err error) error {
 	pgErr, ok := err.(*sqlite.Error)
 	if !ok {
 		return err

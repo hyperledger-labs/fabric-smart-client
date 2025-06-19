@@ -31,15 +31,15 @@ type Config struct {
 	Tracing         *common2.TracingConfig
 }
 
-func NewConfigProvider(config config) *configProvider {
-	return &configProvider{config: config}
+func NewConfigProvider(config config) *ConfigProvider {
+	return &ConfigProvider{config: config}
 }
 
-type configProvider struct {
+type ConfigProvider struct {
 	config config
 }
 
-func (r *configProvider) GetOpts(name driver.PersistenceName, params ...string) (*Config, error) {
+func (r *ConfigProvider) GetOpts(name driver.PersistenceName, params ...string) (*Config, error) {
 	o := &Config{}
 	if err := r.config.UnmarshalDriverOpts(name, o); err != nil {
 		return nil, err

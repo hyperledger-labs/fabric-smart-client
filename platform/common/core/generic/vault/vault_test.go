@@ -16,9 +16,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
+	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/exp/slices"
@@ -32,7 +32,7 @@ func (p *testArtifactProvider) NewCachedVault(ddb driver.VaultStore) (*Vault[Val
 	vaultLogger := logging.MustGetLogger()
 	return New[ValidationCode](
 		vaultLogger,
-		vault.NewCachedVault(ddb, 100),
+		vault2.NewCachedVault(ddb, 100),
 		VCProvider,
 		newInterceptor,
 		&populator{},
@@ -45,7 +45,7 @@ func (p *testArtifactProvider) NewCachedVault(ddb driver.VaultStore) (*Vault[Val
 func (p *testArtifactProvider) NewNonCachedVault(ddb driver.VaultStore) (*Vault[ValidationCode], error) {
 	return New[ValidationCode](
 		logging.MustGetLogger(),
-		vault.NewCachedVault(ddb, 0),
+		vault2.NewCachedVault(ddb, 0),
 		VCProvider,
 		newInterceptor,
 		&populator{},
@@ -160,7 +160,7 @@ func TestMemory(t *testing.T) {
 	RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead { return items }
 	artifactProvider := &testArtifactProvider{}
 	for _, c := range SingleDBCases {
-		ddb, err := vault.OpenMemoryVault(c.Name)
+		ddb, err := vault2.OpenMemoryVault(c.Name)
 		assert.NoError(t, err)
 		assert.NotNil(t, ddb)
 		t.Run(c.Name, func(xt *testing.T) {
@@ -170,9 +170,9 @@ func TestMemory(t *testing.T) {
 	}
 
 	for _, c := range DoubleDBCases {
-		db1, err := vault.OpenMemoryVault(c.Name)
+		db1, err := vault2.OpenMemoryVault(c.Name)
 		assert.NoError(t, err)
-		db2, err := vault.OpenMemoryVault(c.Name)
+		db2, err := vault2.OpenMemoryVault(c.Name)
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer utils.IgnoreErrorFunc(db1.Close)
@@ -189,7 +189,7 @@ func TestSqlite(t *testing.T) {
 	artifactProvider := &testArtifactProvider{}
 
 	for _, c := range SingleDBCases {
-		ddb, err := vault.OpenSqliteVault("node1", t.TempDir())
+		ddb, err := vault2.OpenSqliteVault("node1", t.TempDir())
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer utils.IgnoreErrorFunc(ddb.Close)
@@ -198,9 +198,9 @@ func TestSqlite(t *testing.T) {
 	}
 
 	for _, c := range DoubleDBCases {
-		db1, err := vault.OpenSqliteVault("node1", t.TempDir())
+		db1, err := vault2.OpenSqliteVault("node1", t.TempDir())
 		assert.NoError(t, err)
-		db2, err := vault.OpenSqliteVault("node2", t.TempDir())
+		db2, err := vault2.OpenSqliteVault("node2", t.TempDir())
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer utils.IgnoreErrorFunc(db1.Close)
@@ -217,7 +217,7 @@ func TestPostgres(t *testing.T) {
 	artifactProvider := &testArtifactProvider{}
 
 	for _, c := range append(SingleDBCases, ReadCommittedDBCases...) {
-		ddb, terminate, err := vault.OpenPostgresVault("common-sdk-node1")
+		ddb, terminate, err := vault2.OpenPostgresVault("common-sdk-node1")
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer utils.IgnoreErrorFunc(ddb.Close)
@@ -227,9 +227,9 @@ func TestPostgres(t *testing.T) {
 	}
 
 	for _, c := range DoubleDBCases {
-		db1, terminate1, err := vault.OpenPostgresVault("common-sdk-node1")
+		db1, terminate1, err := vault2.OpenPostgresVault("common-sdk-node1")
 		assert.NoError(t, err)
-		db2, terminate2, err := vault.OpenPostgresVault("common-sdk-node2")
+		db2, terminate2, err := vault2.OpenPostgresVault("common-sdk-node2")
 		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer utils.IgnoreErrorFunc(db1.Close)

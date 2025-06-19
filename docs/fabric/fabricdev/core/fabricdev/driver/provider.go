@@ -9,18 +9,13 @@ package driver
 import (
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev"
+	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/transaction"
 	vault3 "github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/vault"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/multiplexed"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/vault"
-	"github.com/hyperledger/fabric-protos-go/common"
-
-	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev"
-	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
@@ -28,12 +23,16 @@ import (
 	gmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
+	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger/fabric-protos-go/common"
 	"go.opentelemetry.io/otel/trace"
 )
 
