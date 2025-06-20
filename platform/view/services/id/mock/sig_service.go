@@ -5,8 +5,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 

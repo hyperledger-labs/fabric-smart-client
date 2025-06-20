@@ -4,18 +4,18 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package manager_test
+package view_test
 
 import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
-	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -40,7 +40,7 @@ func TestContext(t *testing.T) {
 	assert.NoError(t, registry.RegisterService(resolver))
 	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
 	session := &mock.Session{}
-	ctx, err := manager.NewContext(context.TODO(), registry, "pineapple", nil, resolver, idProvider, []byte("charlie"), session, []byte("caller"), emptyTracer)
+	ctx, err := view2.NewContext(context.TODO(), registry, "pineapple", nil, resolver, idProvider, []byte("charlie"), session, []byte("caller"), emptyTracer)
 	assert.NoError(t, err)
 
 	// Session
@@ -88,7 +88,7 @@ func TestContextRace(t *testing.T) {
 	sessionFactory := &mock2.SessionFactory{}
 	sessionFactory.NewSessionReturns(session, nil)
 
-	ctx, err := manager.NewContext(context.TODO(), registry, "pineapple", sessionFactory, resolver, idProvider, []byte("charlie"), defaultSession, []byte("caller"), emptyTracer)
+	ctx, err := view2.NewContext(context.TODO(), registry, "pineapple", sessionFactory, resolver, idProvider, []byte("charlie"), defaultSession, []byte("caller"), emptyTracer)
 	assert.NoError(t, err)
 
 	wg := &sync.WaitGroup{}
@@ -108,7 +108,7 @@ func getSession(t *testing.T, wg *sync.WaitGroup, m Context) {
 }
 
 func getSessionByID(t *testing.T, wg *sync.WaitGroup, m Context) {
-	_, err := m.GetSessionByID(manager.GenerateUUID(), []byte("alice"))
+	_, err := m.GetSessionByID(view2.GenerateUUID(), []byte("alice"))
 	wg.Done()
 	assert.NoError(t, err)
 }

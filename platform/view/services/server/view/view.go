@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -23,11 +24,11 @@ import (
 const fidLabel tracing.LabelName = "fid"
 
 type viewHandler struct {
-	viewManager *view.Manager
+	viewManager *view3.Manager
 	tracer      trace.Tracer
 }
 
-func InstallViewHandler(viewManager *view.Manager, server Service, tracerProvider trace.TracerProvider) {
+func InstallViewHandler(viewManager *view3.Manager, server Service, tracerProvider trace.TracerProvider) {
 	fh := &viewHandler{
 		viewManager: viewManager,
 		tracer: tracerProvider.Tracer("view_handler", tracing.WithMetricsOpts(tracing.MetricsOpts{
@@ -64,8 +65,8 @@ func (s *viewHandler) initiateView(ctx context.Context, command *protos2.Command
 
 func (s *viewHandler) callView(ctx context.Context, command *protos2.Command) (interface{}, error) {
 	callView := command.Payload.(*protos2.Command_CallView).CallView
-	//newCtx, span := s.tracer.Start(ctx, "call_view", tracing.WithAttributes(tracing.String(fidLabel, callView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
-	//defer span.End()
+	// newCtx, span := s.tracer.Start(ctx, "call_view", tracing.WithAttributes(tracing.String(fidLabel, callView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
+	// defer span.End()
 	fid := callView.Fid
 	input := callView.Input
 	logger.DebugfContext(ctx, "Call view [%s] on input [%v]", fid, string(input))
@@ -109,7 +110,7 @@ func (s *viewHandler) streamCallView(sc *protos2.SignedCommand, command *protos2
 	if err != nil {
 		return errors.Errorf("failed running view [%s], err %s", fid, err)
 	}
-	mutable, ok := context.Context.(view2.MutableContext)
+	mutable, ok := context.(view2.MutableContext)
 	if !ok {
 		return errors.Errorf("expected a mutable contexdt")
 	}
@@ -143,7 +144,7 @@ func (s *viewHandler) streamCallView(sc *protos2.SignedCommand, command *protos2
 	return commandServer.Send(cr)
 }
 
-func (s *viewHandler) RunView(manager *view.Manager, view view.View) (string, error) {
+func (s *viewHandler) RunView(manager *view3.Manager, view view.View) (string, error) {
 	context, err := manager.InitiateContext(view)
 	if err != nil {
 		return "", err
@@ -155,7 +156,7 @@ func (s *viewHandler) RunView(manager *view.Manager, view view.View) (string, er
 	return context.ID(), nil
 }
 
-func (s *viewHandler) runView(view view.View, context *view.Context) {
+func (s *viewHandler) runView(view view.View, context view2.Context) {
 	result, err := context.RunView(view)
 	if err != nil {
 		logger.Errorf("Failed view execution. Err [%s]\n", err)

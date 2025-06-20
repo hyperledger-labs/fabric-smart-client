@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
@@ -23,8 +23,10 @@ type Initiator struct{}
 
 func (p *Initiator) Call(context view.Context) (interface{}, error) {
 	// Retrieve responder identity
-	responder := view2.GetIdentityProvider(context).Identity("bob")
-	responder2 := view2.GetIdentityProvider(context).Identity("bob_alias")
+	identityProvider, err := id.GetProvider(context)
+	assert.NoError(err, "failed getting identity provider")
+	responder := identityProvider.Identity("bob")
+	responder2 := identityProvider.Identity("bob_alias")
 	assert.Equal(responder, responder2, "expected same identity for bob and its alias")
 
 	// Open a session to the responder

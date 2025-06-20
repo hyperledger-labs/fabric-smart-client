@@ -10,9 +10,9 @@ import (
 	"context"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 

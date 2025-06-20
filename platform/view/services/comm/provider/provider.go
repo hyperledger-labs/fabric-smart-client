@@ -11,7 +11,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -19,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"go.opentelemetry.io/otel/trace"
 )

@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -281,4 +281,4 @@ func (fake *CommLayer) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ manager.CommLayer = new(CommLayer)
+var _ view2.CommLayer = new(CommLayer)

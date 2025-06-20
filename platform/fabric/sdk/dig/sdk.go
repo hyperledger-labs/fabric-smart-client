@@ -31,9 +31,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"go.uber.org/dig"
 )
 

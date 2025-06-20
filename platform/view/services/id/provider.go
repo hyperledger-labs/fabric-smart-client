@@ -8,12 +8,13 @@ package id
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	kms "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -58,6 +59,14 @@ func NewProvider(configProvider ConfigProvider, sigService SigService, endpointS
 		return nil, errors.Wrapf(err, "failed loading identities")
 	}
 	return p, nil
+}
+
+func GetProvider(sp driver.ServiceProvider) (*Provider, error) {
+	s, err := sp.GetService(reflect.TypeOf((*Provider)(nil)))
+	if err != nil {
+		return nil, err
+	}
+	return s.(*Provider), nil
 }
 
 func (p *Provider) Load() error {

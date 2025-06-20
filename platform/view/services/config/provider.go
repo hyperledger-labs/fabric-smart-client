@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config/viper"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config/viper"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
