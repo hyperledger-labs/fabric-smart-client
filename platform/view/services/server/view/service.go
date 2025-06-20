@@ -10,7 +10,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 )
 
@@ -30,7 +30,7 @@ type Service interface {
 	RegisterStreamer(typ reflect.Type, streamer Streamer)
 }
 
-func GetService(sp view.ServiceProvider) Service {
+func GetService(sp services.Provider) Service {
 	s, err := sp.GetService(reflect.TypeOf((*Service)(nil)))
 	if err != nil {
 		panic(err)

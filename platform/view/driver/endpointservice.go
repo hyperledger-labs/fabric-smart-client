@@ -10,6 +10,7 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -74,7 +75,7 @@ type EndpointService interface {
 
 // GetEndpointService returns an instance of the endpoint service.
 // It panics, if no instance is found.
-func GetEndpointService(ctx ServiceProvider) EndpointService {
+func GetEndpointService(ctx services.Provider) EndpointService {
 	s, err := ctx.GetService(reflect.TypeOf((*EndpointService)(nil)))
 	if err != nil {
 		panic(err)

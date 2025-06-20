@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
@@ -110,6 +111,6 @@ func (e *EndpointService) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer Publi
 
 // GetEndpointService returns an instance of the endpoint service.
 // It panics, if no instance is found.
-func GetEndpointService(sp ServiceProvider) *EndpointService {
+func GetEndpointService(sp services.Provider) *EndpointService {
 	return NewEndpointService(driver.GetEndpointService(sp))
 }

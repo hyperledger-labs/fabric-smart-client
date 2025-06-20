@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -23,7 +22,11 @@ func RunCall(context view.Context, v func(context view.Context) (interface{}, er
 // The execution happens in a freshly created context.
 // This is a shortcut for `view.GetManager(context).InitiateView(initiator)`.
 func Initiate(context view.Context, initiator view.View) (interface{}, error) {
-	return view2.GetManager(context).InitiateView(initiator, context.Context())
+	m, err := GetManager(context)
+	if err != nil {
+		return nil, err
+	}
+	return m.InitiateView(initiator, context.Context())
 }
 
 // AsResponder can be used by an initiator to behave temporarily as a responder.

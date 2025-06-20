@@ -9,7 +9,7 @@ package view
 import (
 	"reflect"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
 type Stream interface {
@@ -17,7 +17,7 @@ type Stream interface {
 	Send(m interface{}) error
 }
 
-func GetStream(sp view.ServiceProvider) Stream {
+func GetStream(sp services.Provider) Stream {
 	scsBoxed, err := GetStreamIfExists(sp)
 	if err != nil {
 		panic(err)
@@ -25,7 +25,7 @@ func GetStream(sp view.ServiceProvider) Stream {
 	return scsBoxed
 }
 
-func GetStreamIfExists(sp view.ServiceProvider) (Stream, error) {
+func GetStreamIfExists(sp services.Provider) (Stream, error) {
 	scsBoxed, err := sp.GetService(reflect.TypeOf((*Stream)(nil)))
 	if err != nil {
 		return nil, err

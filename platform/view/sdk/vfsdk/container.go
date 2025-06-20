@@ -13,8 +13,7 @@ import (
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 )
@@ -90,11 +89,11 @@ func (c *vfContainer) Visualize() string {
 type factoryEntry struct {
 	fids       []string
 	initiators []any
-	factory    driver.Factory
+	factory    view.Factory
 }
 
 func newEntry(factory any, opts []FactoryOption) *factoryEntry {
-	entry := &factoryEntry{factory: factory.(driver.Factory)}
+	entry := &factoryEntry{factory: factory.(view.Factory)}
 	for _, opt := range opts {
 		opt(entry)
 	}

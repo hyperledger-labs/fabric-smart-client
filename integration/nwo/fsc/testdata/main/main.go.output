@@ -9,7 +9,7 @@ package main
 import (
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
 
-	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	fsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	mocks "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/mocks"
 	mocks1 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/mocks/mocks"

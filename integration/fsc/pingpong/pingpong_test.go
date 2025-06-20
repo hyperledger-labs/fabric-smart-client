@@ -19,10 +19,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
@@ -174,7 +174,7 @@ var _ = Describe("EndToEnd", func() {
 		It("generate artifacts & successful pingpong", func() { s.TestGenerateAndPingPong(initiatorReplicas...) })
 		It("load artifact & successful pingpong", func() { s.TestLoadAndPingPong(initiatorReplicas...) })
 		It("load artifact & successful pingpong with stream", func() { s.TestLoadAndPingPongStream(initiatorReplicas...) })
-		It("load artifact & successful stream", func() { s.TestLoadAndStream(initiatorReplicas...) })
+		It("load artifact & successful stream", Label("T1"), func() { s.TestLoadAndStream(initiatorReplicas...) })
 		It("load artifact & successful stream with websocket", func() { s.TestLoadAndStreamWebsocket(initiatorReplicas...) })
 	})
 

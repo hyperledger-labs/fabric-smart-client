@@ -10,6 +10,7 @@ import (
 	"reflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
 type Identity = driver.VerifyingIdentity
@@ -27,7 +28,7 @@ type Verifier = driver.Verifier
 // SigService models a repository of sign and verify keys.
 type SigService = driver.SigService
 
-func GetSigService(sp ServiceProvider) SigService {
+func GetSigService(sp services.Provider) SigService {
 	s, err := sp.GetService(reflect.TypeOf((*SigService)(nil)))
 	if err != nil {
 		panic(err)
@@ -38,7 +39,7 @@ func GetSigService(sp ServiceProvider) SigService {
 // AuditRegistry models a repository of identities' audit information
 type AuditRegistry = driver.AuditRegistry
 
-func GetAuditRegistry(sp ServiceProvider) AuditRegistry {
+func GetAuditRegistry(sp services.Provider) AuditRegistry {
 	s, err := sp.GetService(reflect.TypeOf((*AuditRegistry)(nil)))
 	if err != nil {
 		panic(err)
@@ -48,7 +49,7 @@ func GetAuditRegistry(sp ServiceProvider) AuditRegistry {
 
 type SigRegistry = driver.SigRegistry
 
-func GetSigRegistry(sp ServiceProvider) SigRegistry {
+func GetSigRegistry(sp services.Provider) SigRegistry {
 	s, err := sp.GetService(reflect.TypeOf((*SigRegistry)(nil)))
 	if err != nil {
 		panic(err)

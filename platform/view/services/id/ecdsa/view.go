@@ -10,15 +10,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
-
-	"github.com/pkg/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type twoPartyCollectEphemeralKeyView struct {

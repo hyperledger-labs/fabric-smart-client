@@ -9,7 +9,7 @@ package tracing
 import (
 	"reflect"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -25,7 +25,7 @@ func NewWrappedTracerProvider(tp trace.TracerProvider) trace.TracerProvider {
 	return &tracerProvider{TracerProvider: tp, viewTracer: tp.Tracer("view_tracer")}
 }
 
-func Get(sp view.ServiceProvider) trace.TracerProvider {
+func Get(sp services.Provider) trace.TracerProvider {
 	s, err := sp.GetService(providerType)
 	if err != nil {
 		panic(err)
