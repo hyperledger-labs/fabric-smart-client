@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/manager"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -225,4 +225,4 @@ func (fake *SessionFactory) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ manager.SessionFactory = new(SessionFactory)
+var _ view2.SessionFactory = new(SessionFactory)

@@ -45,7 +45,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	manager2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/manager"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/registry"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
@@ -134,13 +134,16 @@ func (p *SDK) Install() error {
 		p.Container().Provide(view3.NewMetrics),
 		p.Container().Provide(view3.NewAccessControlChecker, dig.As(new(view3.PolicyChecker))),
 		p.Container().Provide(view3.NewViewServiceServer, dig.As(new(view3.Service), new(finality.Server))),
-		p.Container().Provide(manager2.New, dig.As(new(ViewManager), new(node.ViewManager), new(driver.ViewManager), new(driver.Registry))),
-		p.Container().Provide(view.NewManager),
+		p.Container().Provide(view2.NewManager),
+		p.Container().Provide(
+			view2.NewManager,
+			dig.As(new(ViewManager), new(node.ViewManager), new(driver.ViewManager), new(driver.Registry)),
+		),
 
 		p.Container().Provide(func(hostProvider host.GeneratorProvider, configProvider driver.ConfigService, endpointService *view.EndpointService, tracerProvider trace.TracerProvider, metricsProvider metrics2.Provider) (*comm.Service, error) {
 			return comm.NewService(hostProvider, endpointService, configProvider, metricsProvider)
 		}),
-		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(manager2.CommLayer))),
+		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(view2.CommLayer))),
 		p.Container().Provide(provider.NewHostProvider),
 		p.Container().Provide(view.NewSigService),
 		p.Container().Provide(func(tracerProvider trace.TracerProvider) *finality.Manager {
@@ -181,7 +184,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		ConfigProvider driver.ConfigService
 
 		GRPCServer     *grpc.GRPCServer
-		ViewManager    *view.Manager
+		ViewManager    *view2.Manager
 		ViewManager2   ViewManager
 		ViewService    view3.Service
 		CommService    *comm.Service
