@@ -65,10 +65,10 @@ func TestGetIdentifier(t *testing.T) {
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	manager := manager2.New(registry, &mock3.CommLayer{}, &mock.EndpointService{}, idProvider, registry3.NewViewProvider(), noop.NewTracerProvider(), &disabled.Provider{})
 
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager_test/DummyView", manager.GetIdentifier(DummyView{}))
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager_test/DummyView", manager.GetIdentifier(&DummyView{}))
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager_test/DummyView", manager.GetIdentifier(new(DummyView)))
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager_test/DummyView", manager.GetIdentifier(*(new(DummyView))))
+	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/manager_test/DummyView", manager.GetIdentifier(DummyView{}))
+	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/manager_test/DummyView", manager.GetIdentifier(&DummyView{}))
+	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/manager_test/DummyView", manager.GetIdentifier(new(DummyView)))
+	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/manager_test/DummyView", manager.GetIdentifier(*(new(DummyView))))
 }
 
 func TestManagerRace(t *testing.T) {
