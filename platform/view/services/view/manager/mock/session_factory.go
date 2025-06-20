@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/manager"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 

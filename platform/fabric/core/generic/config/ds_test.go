@@ -12,7 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
-	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config/viper"
+	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config/viper"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )

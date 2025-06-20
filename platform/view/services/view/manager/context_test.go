@@ -10,12 +10,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager"
-	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/manager/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	manager2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/manager"
+	mock3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/manager/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -34,13 +34,13 @@ func TestContext(t *testing.T) {
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	assert.NoError(t, registry.RegisterService(idProvider))
-	assert.NoError(t, registry.RegisterService(&mock2.CommLayer{}))
+	assert.NoError(t, registry.RegisterService(&mock3.CommLayer{}))
 	resolver := &mock.EndpointService{}
 	resolver.GetIdentityReturns([]byte("bob"), nil)
 	assert.NoError(t, registry.RegisterService(resolver))
-	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
+	assert.NoError(t, registry.RegisterService(&mock3.SessionFactory{}))
 	session := &mock.Session{}
-	ctx, err := manager.NewContext(context.TODO(), registry, "pineapple", nil, resolver, idProvider, []byte("charlie"), session, []byte("caller"), emptyTracer)
+	ctx, err := manager2.NewContext(context.TODO(), registry, "pineapple", nil, resolver, idProvider, []byte("charlie"), session, []byte("caller"), emptyTracer)
 	assert.NoError(t, err)
 
 	// Session
@@ -69,12 +69,12 @@ func TestContextRace(t *testing.T) {
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	assert.NoError(t, registry.RegisterService(idProvider))
-	assert.NoError(t, registry.RegisterService(&mock2.CommLayer{}))
+	assert.NoError(t, registry.RegisterService(&mock3.CommLayer{}))
 	resolver := &mock.EndpointService{}
 	resolver.ResolveReturns(&endpoint.Resolver{Id: []byte("alice")}, nil, nil)
 	resolver.GetIdentityReturns([]byte("bob"), nil)
 	assert.NoError(t, registry.RegisterService(resolver))
-	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
+	assert.NoError(t, registry.RegisterService(&mock3.SessionFactory{}))
 	defaultSession := &mock.Session{}
 	session := &mock.Session{}
 	session.InfoReturns(view.SessionInfo{
@@ -85,10 +85,10 @@ func TestContextRace(t *testing.T) {
 		EndpointPKID: nil,
 		Closed:       false,
 	})
-	sessionFactory := &mock2.SessionFactory{}
+	sessionFactory := &mock3.SessionFactory{}
 	sessionFactory.NewSessionReturns(session, nil)
 
-	ctx, err := manager.NewContext(context.TODO(), registry, "pineapple", sessionFactory, resolver, idProvider, []byte("charlie"), defaultSession, []byte("caller"), emptyTracer)
+	ctx, err := manager2.NewContext(context.TODO(), registry, "pineapple", sessionFactory, resolver, idProvider, []byte("charlie"), defaultSession, []byte("caller"), emptyTracer)
 	assert.NoError(t, err)
 
 	wg := &sync.WaitGroup{}
@@ -108,7 +108,7 @@ func getSession(t *testing.T, wg *sync.WaitGroup, m Context) {
 }
 
 func getSessionByID(t *testing.T, wg *sync.WaitGroup, m Context) {
-	_, err := m.GetSessionByID(manager.GenerateUUID(), []byte("alice"))
+	_, err := m.GetSessionByID(manager2.GenerateUUID(), []byte("alice"))
 	wg.Done()
 	assert.NoError(t, err)
 }

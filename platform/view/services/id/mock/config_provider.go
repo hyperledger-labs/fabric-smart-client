@@ -4,7 +4,7 @@ package mock
 import (
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 )
 
 type ConfigProvider struct {

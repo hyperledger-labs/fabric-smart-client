@@ -13,7 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	kms "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 

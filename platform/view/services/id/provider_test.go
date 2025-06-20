@@ -9,31 +9,31 @@ package id_test
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/id/mock"
+	id2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
+	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLoad(t *testing.T) {
-	cp := &mock.ConfigProvider{}
+	cp := &mock2.ConfigProvider{}
 	cp.GetPathReturnsOnCall(0, "./testdata/default/signcerts/default.pem")
 	cp.GetPathReturnsOnCall(1, "./testdata/default/keystore/priv_sk")
 	cp.GetStringSliceReturnsOnCall(0, []string{
 		"./testdata/client/client.pem",
 	})
 	cp.TranslatePathReturnsOnCall(0, "./testdata/client/client.pem")
-	sigService := &mock.SigService{}
+	sigService := &mock2.SigService{}
 
-	idProvider, err := id.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
+	idProvider, err := id2.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
 	assert.NoError(t, err, "failed loading identities")
 
-	raw, err := id.LoadIdentity("./testdata/default/signcerts/default.pem")
+	raw, err := id2.LoadIdentity("./testdata/default/signcerts/default.pem")
 	assert.NoError(t, err)
 	assert.Equal(t, raw, []byte(idProvider.DefaultIdentity()))
 
-	raw, err = id.LoadIdentity("./testdata/client/client.pem")
+	raw, err = id2.LoadIdentity("./testdata/client/client.pem")
 	assert.NoError(t, err)
 	assert.Len(t, idProvider.Clients(), 1)
 	assert.Equal(t, raw, []byte(idProvider.Clients()[0]))

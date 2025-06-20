@@ -12,9 +12,9 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
-	registry3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/vfsdk"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	registry3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
