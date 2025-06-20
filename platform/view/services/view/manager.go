@@ -51,7 +51,15 @@ type Manager struct {
 	m          *Metrics
 }
 
-func NewManager(serviceProvider driver.ServiceProvider, commLayer CommLayer, endpointService driver.EndpointService, identityProvider driver.IdentityProvider, viewProvider *registry.ViewProvider, provider trace.TracerProvider, metricsProvider metrics.Provider) *Manager {
+func NewManager(
+	serviceProvider driver.ServiceProvider,
+	commLayer CommLayer,
+	endpointService driver.EndpointService,
+	identityProvider driver.IdentityProvider,
+	viewProvider *registry.ViewProvider,
+	provider trace.TracerProvider,
+	metricsProvider metrics.Provider,
+) *Manager {
 	return &Manager{
 		sp:               serviceProvider,
 		commLayer:        commLayer,

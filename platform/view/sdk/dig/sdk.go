@@ -110,7 +110,11 @@ func (p *SDK) Install() error {
 		p.Container().Provide(view.NewEndpointService),
 		p.Container().Provide(digutils.Identity[*view.EndpointService](), dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint2.Backend))),
 		p.Container().Provide(newKMSDriver),
-		p.Container().Provide(id.NewProvider, dig.As(new(endpoint2.IdentityService), new(view3.IdentityProvider), new(driver.IdentityProvider))),
+		p.Container().Provide(id.NewProvider),
+		p.Container().Provide(
+			id.NewProvider,
+			dig.As(new(endpoint2.IdentityService), new(view3.IdentityProvider), new(driver.IdentityProvider)),
+		),
 		p.Container().Provide(endpoint2.NewResolverService),
 		p.Container().Provide(web.NewServer),
 		p.Container().Provide(digutils.Identity[web.Server](), dig.As(new(operations.Server))),
