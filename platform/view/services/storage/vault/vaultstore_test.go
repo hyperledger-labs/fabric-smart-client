@@ -8,7 +8,6 @@ package vault
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
@@ -103,18 +102,18 @@ var matrix = []matrixItem{
 		pagination: NewKeysetPagination(0, 2, "tx_id", "TxID"),
 		sqlForward: []string{
 			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1 OFFSET $2",
-			"SELECT * FROM test WHERE tx_id>$1 ORDER BY tx_id ASC LIMIT $2",
-			"SELECT * FROM test WHERE tx_id>$1 ORDER BY tx_id ASC LIMIT $2",
-			"SELECT * FROM test WHERE tx_id>$1 ORDER BY tx_id ASC LIMIT $2",
-			"SELECT * FROM test WHERE tx_id>$1 ORDER BY tx_id ASC LIMIT $2",
+			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
+			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
+			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
+			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
 			"SELECT * FROM test LIMIT $1 OFFSET $2",
 		},
 		argsForward: []any{
 			[]string{"2", "0"},
-			[]string{"2", "2"},
-			[]string{"4", "2"},
-			[]string{"6", "2"},
-			[]string{"8", "2"},
+			[]string{"txid10", "2"},
+			[]string{"txid1025", "2"},
+			[]string{"txid2", "2"},
+			[]string{"txid21", "2"},
 			[]string{"0", "0"},
 		},
 
@@ -194,22 +193,22 @@ func testPagination(store driver.VaultStore) {
 				FormatPaginated(nil, pi)
 
 			Expect(err).ToNot(HaveOccurred())
-			fmt.Printf("sql (forward) = %s\n", query)
 			Expect(query).To(Equal(item.sqlForward[page]))
 			Expect(args).To(ConsistOf(item.argsForward[page]))
 			p, err := store.GetAllTxStatuses(context.Background(), pag)
 			Expect(err).ToNot(HaveOccurred())
 			pag = p.Pagination
-			// statuses, err := collections.ReadAll(p.Items)
-			// Expect(err).ToNot(HaveOccurred())
-			// // Test we get 0 statuses when we reach the end
-			// if len(statuses) == 0 {
-			// 	break
-			// }
-			Expect(page).To(BeNumerically("<", len(item.matcher)))
 
-			fmt.Printf("type of statuses = %T\n", p.Items)
-			statuses, err := pagination.NewPage[driver.TxStatus](p.Items, p.Pagination)
+			np, err := pagination.NewPage[driver.TxStatus](p.Items, p.Pagination)
+			Expect(err).ToNot(HaveOccurred())
+			statuses, err := collections.ReadAll(np.Items)
+			// statuses, err := collections.ReadAll(p.Items)
+			Expect(err).ToNot(HaveOccurred())
+			// Test we get 0 statuses when we reach the end
+			if len(statuses) == 0 {
+				break
+			}
+			Expect(page).To(BeNumerically("<", len(item.matcher)))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(statuses).To(item.matcher[page])
 
