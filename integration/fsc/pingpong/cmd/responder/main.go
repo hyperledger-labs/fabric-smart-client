@@ -11,10 +11,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/mock"
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 )
 
 func main() {
 	node := fscnode.New()
+	if err := node.InstallSDK(sdk.NewSDK(node)); err != nil {
+		panic(err)
+	}
 	node.Execute(func() error {
 		registry := view.GetRegistry(node)
 		initiatorID := registry.GetIdentifier(&pingpong.Initiator{})

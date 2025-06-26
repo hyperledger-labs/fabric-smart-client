@@ -8,7 +8,7 @@ package fsc
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+	node2 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 )
 
@@ -154,7 +154,7 @@ func (t *Topology) DisablePrometheusTLS() {
 	t.Monitoring.TLS = false
 }
 
-func (t *Topology) AddSDK(sdk api.SDK) {
+func (t *Topology) AddSDK(sdk node2.SDK) {
 	for _, n := range t.Nodes {
 		n.AddSDK(sdk)
 	}

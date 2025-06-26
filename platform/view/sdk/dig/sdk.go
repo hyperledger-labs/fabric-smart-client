@@ -11,7 +11,6 @@ import (
 	"errors"
 
 	"github.com/go-kit/log"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
@@ -57,20 +56,20 @@ type SDK struct {
 	dig2.SDK
 }
 
-func NewSDKFromContainer(c dig2.Container, registry node.Registry) *SDK {
+func NewSDKFromContainer(c dig2.Container, registry digutils.Registry) *SDK {
 	configService := view.GetConfigService(registry)
 	return NewSDKFrom(dig2.NewBaseSDK(c, configService), registry)
 }
 
-func NewSDK(registry node.Registry) *SDK {
+func NewSDK(registry digutils.Registry) *SDK {
 	return NewSDKFromContainer(NewContainer(), registry)
 }
 
-func NewSDKFrom(baseSDK dig2.SDK, registry node.Registry) *SDK {
+func NewSDKFrom(baseSDK dig2.SDK, registry digutils.Registry) *SDK {
 	sdk := &SDK{SDK: baseSDK}
 	err := errors.Join(
-		sdk.Container().Provide(func() node.Registry { return registry }),
-		sdk.Container().Provide(digutils.Identity[node.Registry](), dig.As(new(driver.ServiceProvider), new(node.Registry), new(view.ServiceProvider), new(finality.Registry))),
+		sdk.Container().Provide(func() digutils.Registry { return registry }),
+		sdk.Container().Provide(digutils.Identity[digutils.Registry](), dig.As(new(driver.ServiceProvider), new(digutils.Registry), new(view.ServiceProvider), new(finality.Registry))),
 		sdk.Container().Provide(func() *view.ConfigService { return view.GetConfigService(registry) }),
 		sdk.Container().Provide(digutils.Identity[*view.ConfigService](), dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint.ConfigService), new(dbdriver.Config))),
 		sdk.Container().Provide(view.NewRegistry),
@@ -81,8 +80,8 @@ func NewSDKFrom(baseSDK dig2.SDK, registry node.Registry) *SDK {
 	return sdk
 }
 
-type ViewManager interface {
-	node.ViewManager
+type StartableViewManager interface {
+	ViewManager
 	Start(ctx context.Context)
 }
 
@@ -134,7 +133,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(view3.NewMetrics),
 		p.Container().Provide(view3.NewAccessControlChecker, dig.As(new(view3.PolicyChecker))),
 		p.Container().Provide(view3.NewViewServiceServer, dig.As(new(view3.Service), new(finality.Server))),
-		p.Container().Provide(manager.New, dig.As(new(ViewManager), new(node.ViewManager), new(driver.ViewManager), new(driver.Registry))),
+		p.Container().Provide(manager.New, dig.As(new(StartableViewManager), new(ViewManager), new(driver.ViewManager), new(driver.Registry))),
 		p.Container().Provide(view.NewManager),
 
 		p.Container().Provide(func(hostProvider host.GeneratorProvider, configProvider driver.ConfigService, endpointService *view.EndpointService, tracerProvider trace.TracerProvider, metricsProvider metrics2.Provider) (*comm.Service, error) {
@@ -159,7 +158,7 @@ func (p *SDK) Install() error {
 		digutils.Register[trace.TracerProvider](p.Container()),
 		digutils.Register[driver.EndpointService](p.Container()),
 		digutils.Register[view3.IdentityProvider](p.Container()),
-		digutils.Register[node.ViewManager](p.Container()), // Need to add it as a field in the node
+		digutils.Register[ViewManager](p.Container()), // Need to add it as a field in the node
 		digutils.Register[id.SigService](p.Container()),
 	)
 	if err != nil {
@@ -182,7 +181,7 @@ func (p *SDK) Start(ctx context.Context) error {
 
 		GRPCServer     *grpc.GRPCServer
 		ViewManager    *view.Manager
-		ViewManager2   ViewManager
+		ViewManager2   StartableViewManager
 		ViewService    view3.Service
 		CommService    *comm.Service
 		WebServer      web.Server

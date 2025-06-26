@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package node
+package start
 
 import (
 	"fmt"
@@ -13,8 +13,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/hyperledger-labs/fabric-smart-client/node/node/profile"
-	node3 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node/start/profile"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -26,9 +25,9 @@ const (
 )
 
 type Node interface {
+	ID() string
 	Start() error
 	Stop()
-	ConfigService() node3.ConfigService
 	Callback() chan<- error
 }
 
@@ -152,10 +151,7 @@ func serve() error {
 
 	callback(nil)
 
-	cs := node.ConfigService()
-	logger.Infof("Started peer with ID=[%s]",
-		cs.GetString("fsc.id"),
-	)
+	logger.Infof("Started peer with ID=[%s]", node.ID())
 	return <-serve
 }
 

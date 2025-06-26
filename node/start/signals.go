@@ -7,13 +7,13 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package node
+package start
 
 import (
 	"os"
 	"syscall"
 
-	"github.com/hyperledger-labs/fabric-smart-client/node/node/diag"
+	"github.com/hyperledger-labs/fabric-smart-client/node/start/diag"
 )
 
 func addPlatformSignals(sigs map[os.Signal]func()) map[os.Signal]func() {

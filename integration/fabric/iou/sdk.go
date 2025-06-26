@@ -9,7 +9,6 @@ package iou
 import (
 	"errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
@@ -20,7 +19,7 @@ type SDK struct {
 	dig2.SDK
 }
 
-func NewSDK(registry node.Registry) *SDK {
+func NewSDK(registry digutils.Registry) *SDK {
 	return &SDK{SDK: sdk.NewSDK(registry)}
 }
 

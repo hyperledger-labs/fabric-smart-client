@@ -9,7 +9,7 @@ package diag_test
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/node/node/diag"
+	"github.com/hyperledger-labs/fabric-smart-client/node/start/diag"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
