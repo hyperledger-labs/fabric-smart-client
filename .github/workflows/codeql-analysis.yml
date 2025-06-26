@@ -33,7 +33,6 @@ jobs:
         shell: bash
         run: |
           go build -o fsccli ./cmd/fsccli
-          go build -o fscnode ./cmd/node
           make download-fabric unit-tests
 
       - name: Perform CodeQL Analysis
