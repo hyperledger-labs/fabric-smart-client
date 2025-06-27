@@ -42,15 +42,15 @@ type Node struct {
 
 // New returns a new instance of Node from the default configuration path.
 func New() *Node {
-	return NewFromConfPath("")
+	return NewWithConfPath("")
 }
 
-// NewFromConfPath returns a new instance of Node whose configuration is loaded from the passed path.
-func NewFromConfPath(confPath string) *Node {
-	return newFromFsc(node.NewFromConfPath(confPath))
+// NewWithConfPath returns a new instance of Node whose configuration is loaded from the passed path.
+func NewWithConfPath(confPath string) *Node {
+	return newWithFSCNode(node.NewFromConfPath(confPath))
 }
 
-func newFromFsc(fscNode FSCNode) *Node {
+func newWithFSCNode(fscNode FSCNode) *Node {
 	mainCmd := &cobra.Command{Use: "peer"}
 	node := &Node{
 		FSCNode:         fscNode,
@@ -62,13 +62,6 @@ func newFromFsc(fscNode FSCNode) *Node {
 	mainCmd.AddCommand(start.Cmd(node))
 
 	return node
-}
-
-// NewEmpty is equivalent to NewFromConfPath.
-//
-// @Deprecated NewFromConfPath should be preferred.
-func NewEmpty(confPath string) *Node {
-	return NewFromConfPath(confPath)
 }
 
 func (n *Node) Callback() chan<- error {
