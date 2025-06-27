@@ -128,7 +128,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		return nil, err
 	}
 
-	channelMembershipService := membership.NewService()
+	channelMembershipService := membership.NewService(channelName)
 
 	// Committers
 	rwSetLoaderService := rwset.NewLoader(nw.Name(), channelName, envelopeService, transactionService, nw.TransactionManager(), vault)
