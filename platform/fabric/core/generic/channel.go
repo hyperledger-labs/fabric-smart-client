@@ -9,7 +9,6 @@ package generic
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/pkg/errors"
@@ -42,7 +41,7 @@ type Channel struct {
 	DeliveryService          DeliveryService
 	RWSetLoaderService       driver.RWSetLoader
 	LedgerService            driver.Ledger
-	ChannelMembershipService *membership.Service
+	ChannelMembershipService driver.ChannelMembership
 	ChaincodeManagerService  driver.ChaincodeManager
 	CommitterService         CommitterService
 }

@@ -16,26 +16,20 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
-	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"github.com/hyperledger/fabric/common/channelconfig"
-	"github.com/hyperledger/fabric/common/configtx"
-	"github.com/hyperledger/fabric/protoutil"
-	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 )
@@ -43,7 +37,6 @@ import (
 const (
 	channelConfigKey = "CHANNEL_CONFIG_ENV_BYTES"
 	peerNamespace    = "_configtx"
-	ConfigTXPrefix   = "configtx_"
 )
 
 var (
@@ -79,6 +72,11 @@ type OrderingService interface {
 	Configure(consensusType string, orderers []*grpc.ConnectionConfig) error
 }
 
+type OrdererConfig interface {
+	ConsensusType() string
+	Endpoints() []*grpc.ConnectionConfig
+}
+
 type Committer struct {
 	ConfigService driver.ConfigService
 	ChannelConfig driver.ChannelConfig
@@ -90,7 +88,7 @@ type Committer struct {
 	Ledger             driver.Ledger
 	RWSetLoaderService driver.RWSetLoader
 	ProcessorManager   driver.ProcessorManager
-	MembershipService  *membership.Service
+	MembershipService  driver.MembershipService
 	OrderingService    OrderingService
 	FabricFinality     FabricFinality
 	metrics            *Metrics
@@ -123,7 +121,7 @@ func New(
 	rwsetLoaderService driver.RWSetLoader,
 	processorManager driver.ProcessorManager,
 	eventsPublisher events.Publisher,
-	channelMembershipService *membership.Service,
+	channelMembershipService driver.MembershipService,
 	orderingService OrderingService,
 	fabricFinality FabricFinality,
 	transactionManager driver.TransactionManager,
@@ -290,78 +288,6 @@ func (c *Committer) RemoveFinalityListener(txID string, listener driver.Finality
 	return nil
 }
 
-// CommitConfig is used to validate and apply configuration transactions for a Channel.
-func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver2.BlockNum, raw []byte, env *common.Envelope) error {
-	logger.DebugfContext(ctx, "Start commit config")
-	defer logger.DebugfContext(ctx, "End commit config")
-	commitConfigMutex.Lock()
-	defer commitConfigMutex.Unlock()
-
-	c.MembershipService.ResourcesApplyLock.Lock()
-	defer c.MembershipService.ResourcesApplyLock.Unlock()
-
-	if env == nil {
-		return errors.Errorf("Channel config found nil")
-	}
-
-	payload, err := protoutil.UnmarshalPayload(env.Payload)
-	if err != nil {
-		return errors.Wrapf(err, "cannot get payload from config transaction, block number [%d]", blockNumber)
-	}
-
-	cenv, err := configtx.UnmarshalConfigEnvelope(payload.Data)
-	if err != nil {
-		return errors.Wrapf(err, "error unmarshalling config which passed initial validity checks")
-	}
-
-	txID := ConfigTXPrefix + strconv.FormatUint(cenv.Config.Sequence, 10)
-	vc, _, err := c.Vault.Status(ctx, txID)
-	if err != nil {
-		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
-	}
-	switch vc {
-	case driver.Valid:
-		c.logger.Debugf("config block [%s] already committed, skip it.", txID)
-		return nil
-	case driver.Unknown:
-		c.logger.Debugf("config block [%s] not committed, commit it.", txID)
-		// this is okay
-	default:
-		return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
-	}
-
-	var bundle *channelconfig.Bundle
-	if c.MembershipService.Resources() == nil {
-		// set up the genesis block
-		bundle, err = channelconfig.NewBundle(c.ChannelConfig.ID(), cenv.Config, factory.GetDefault())
-		if err != nil {
-			return errors.Wrapf(err, "failed to build a new bundle")
-		}
-	} else {
-		configTxValidator := c.MembershipService.Resources().ConfigtxValidator()
-		err := configTxValidator.Validate(cenv)
-		if err != nil {
-			return errors.Wrapf(err, "failed to validate config transaction, block number [%d]", blockNumber)
-		}
-
-		bundle, err = channelconfig.NewBundle(configTxValidator.ChannelID(), cenv.Config, factory.GetDefault())
-		if err != nil {
-			return errors.Wrapf(err, "failed to create next bundle")
-		}
-
-		channelconfig.LogSanityChecks(bundle)
-		if err := capabilitiesSupported(bundle); err != nil {
-			return err
-		}
-	}
-
-	if err := c.commitConfig(ctx, txID, blockNumber, cenv.Config.Sequence, raw); err != nil {
-		return errors.Wrapf(err, "failed committing configtx to the vault")
-	}
-
-	return c.applyBundle(bundle)
-}
-
 // Commit commits the transactions in the block passed as argument
 func (c *Committer) Commit(ctx context.Context, block *common.Block) error {
 	newCtx, span := c.metrics.Commits.Start(ctx, "commit_block")
@@ -490,119 +416,6 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 
 func (c *Committer) GetProcessNamespace() []string {
 	return c.ProcessNamespaces
-}
-
-func (c *Committer) ReloadConfigTransactions() error {
-	ctx, span := c.tracer.Start(context.Background(), "reload_config_transactions")
-	defer span.End()
-	c.MembershipService.ResourcesApplyLock.Lock()
-	defer c.MembershipService.ResourcesApplyLock.Unlock()
-
-	qe, err := c.Vault.NewQueryExecutor(ctx)
-	if err != nil {
-		return errors.WithMessagef(err, "failed getting query executor")
-	}
-	defer func() {
-		if err := qe.Done(); err != nil {
-			logger.Errorf("error closing query executor: %v", err)
-		}
-	}()
-
-	c.logger.Debugf("looking up the latest config block available")
-	var sequence uint64 = 0
-	for {
-		txID := ConfigTXPrefix + strconv.FormatUint(sequence, 10)
-		vc, _, err := c.Vault.Status(ctx, txID)
-		if err != nil {
-			return errors.WithMessagef(err, "failed getting tx's status [%s]", txID)
-		}
-		c.logger.Debugf("check config block at txID [%s], status [%v]...", txID, vc)
-		done := false
-		switch vc {
-		case driver.Valid:
-			c.logger.Debugf("config block available, txID [%s], loading...", txID)
-
-			key, err := rwset.CreateCompositeKey(channelConfigKey, []string{strconv.FormatUint(sequence, 10)})
-			if err != nil {
-				return errors.Wrapf(err, "cannot create configtx rws key")
-			}
-			envelope, err := qe.GetState(ctx, peerNamespace, key)
-			if err != nil {
-				return errors.Wrapf(err, "failed setting configtx state in rws")
-			}
-			env, err := protoutil.UnmarshalEnvelope(envelope.Raw)
-			if err != nil {
-				return errors.Wrapf(err, "cannot get payload from config transaction [%s]", txID)
-			}
-			payload, err := protoutil.UnmarshalPayload(env.Payload)
-			if err != nil {
-				return errors.Wrapf(err, "cannot get payload from config transaction [%s]", txID)
-			}
-			ctx, err := configtx.UnmarshalConfigEnvelope(payload.Data)
-			if err != nil {
-				return errors.Wrapf(err, "error unmarshalling config which passed initial validity checks [%s]", txID)
-			}
-
-			var bundle *channelconfig.Bundle
-			if c.MembershipService.Resources() == nil {
-				// set up the genesis block
-				bundle, err = channelconfig.NewBundle(c.ChannelConfig.ID(), ctx.Config, factory.GetDefault())
-				if err != nil {
-					return errors.Wrapf(err, "failed to build a new bundle")
-				}
-			} else {
-				configTxValidator := c.MembershipService.Resources().ConfigtxValidator()
-				err := configTxValidator.Validate(ctx)
-				if err != nil {
-					return errors.Wrapf(err, "failed to validate config transaction [%s]", txID)
-				}
-
-				bundle, err = channelconfig.NewBundle(configTxValidator.ChannelID(), ctx.Config, factory.GetDefault())
-				if err != nil {
-					return errors.Wrapf(err, "failed to create next bundle")
-				}
-
-				channelconfig.LogSanityChecks(bundle)
-				if err := capabilitiesSupported(bundle); err != nil {
-					return err
-				}
-			}
-
-			if err := c.applyBundle(bundle); err != nil {
-				return err
-			}
-
-			sequence = sequence + 1
-			continue
-		case driver.Unknown:
-			if sequence == 0 {
-				// Give a chance to 1, in certain setting the first block starts with 1
-				sequence++
-				continue
-			}
-
-			c.logger.Debugf("config block at txID [%s] unavailable, stop loading", txID)
-			done = true
-		case driver.Busy:
-			c.logger.Debugf("someone else is modifying it. retry...")
-			time.Sleep(1 * time.Second)
-			continue
-		default:
-			return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
-		}
-		if done {
-			c.logger.Debugf("loading config block done")
-			break
-		}
-	}
-	if sequence == 1 {
-		c.logger.Debugf("no config block available, must start from genesis")
-		// no configuration block found
-		return nil
-	}
-	c.logger.Debugf("latest config block available at sequence [%d]", sequence-1)
-
-	return nil
 }
 
 func (c *Committer) addListener(txID string, ch chan FinalityEvent) {
@@ -760,7 +573,7 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 				c.logger.DebugfContext(ctx, "Match RWSet")
 				if err := c.Vault.Match(ctx, txID, pt.Results()); err != nil {
 					c.logger.Errorf("[%s] rwsets do not match [%s]", txID, err)
-					return errors2.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
+					return errors.Wrapf(ErrDiscardTX, "[%s] rwsets do not match [%s]", txID, err)
 				}
 			} else {
 				// Store it
@@ -844,81 +657,6 @@ func (c *Committer) commitStoredEnvelope(ctx context.Context, txID string, block
 	}
 	// commit
 	return c.commit(ctx, txID, block, indexInBlock, nil)
-}
-
-func (c *Committer) applyBundle(bundle *channelconfig.Bundle) error {
-	c.MembershipService.ResourcesLock.Lock()
-	defer c.MembershipService.ResourcesLock.Unlock()
-	c.MembershipService.ChannelResources = bundle
-
-	// update the list of orderers
-	ordererConfig, exists := c.MembershipService.ChannelResources.OrdererConfig()
-	if !exists {
-		c.logger.Debugf("no orderer configuration found in Channel config")
-		return nil
-	}
-	c.logger.Debugf("[Channel: %s] Orderer config has changed, updating the list of orderers", c.ChannelConfig.ID())
-
-	tlsEnabled, isSet := c.ConfigService.OrderingTLSEnabled()
-	if !isSet {
-		tlsEnabled = c.ConfigService.TLSEnabled()
-	}
-	tlsClientSideAuth, isSet := c.ConfigService.OrderingTLSClientAuthRequired()
-	if !isSet {
-		tlsClientSideAuth = c.ConfigService.TLSClientAuthRequired()
-	}
-	connectionTimeout := c.ConfigService.ClientConnTimeout()
-
-	var newOrderers []*grpc.ConnectionConfig
-	orgs := ordererConfig.Organizations()
-	for _, org := range orgs {
-		msp := org.MSP()
-		var tlsRootCerts [][]byte
-		tlsRootCerts = append(tlsRootCerts, msp.GetTLSRootCerts()...)
-		tlsRootCerts = append(tlsRootCerts, msp.GetTLSIntermediateCerts()...)
-		for _, endpoint := range org.Endpoints() {
-			if len(endpoint) == 0 {
-				c.logger.Debugf("[Channel: %s] empty endpoint for %s, skipping", c.ChannelConfig.ID(), org.MSPID())
-				continue
-			}
-			c.logger.Debugf("[Channel: %s] Adding orderer endpoint: [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
-			newOrderers = append(newOrderers, &grpc.ConnectionConfig{
-				Address:           endpoint,
-				ConnectionTimeout: connectionTimeout,
-				TLSEnabled:        tlsEnabled,
-				TLSClientSideAuth: tlsClientSideAuth,
-				TLSRootCertBytes:  tlsRootCerts,
-			})
-		}
-		// If the Orderer MSP config omits the Endpoints and there is only one orderer org, we try to get the addresses from another key in the channel config.
-		// This is only here for backwards compatibility and is deprecated in Fabric 3.
-		// https://hyperledger-fabric.readthedocs.io/en/latest/upgrade_to_newest_version.html#define-ordering-node-endpoint-per-org
-		addr := bundle.ChannelConfig().OrdererAddresses()
-		if len(newOrderers) == 0 && len(orgs) == 1 && len(addr) > 0 {
-			c.logger.Debugf("falling back to OrdererAddresses field in channel config (deprecated, please refer to Fabric docs)")
-			for _, endpoint := range addr {
-				if len(endpoint) == 0 {
-					c.logger.Debugf("[Channel: %s] empty orderer address, skipping", c.ChannelConfig.ID())
-					continue
-				}
-				c.logger.Debugf("[Channel: %s] Adding orderer address [%s:%s:%s]", c.ChannelConfig.ID(), org.Name(), org.MSPID(), endpoint)
-				newOrderers = append(newOrderers, &grpc.ConnectionConfig{
-					Address:           endpoint,
-					ConnectionTimeout: connectionTimeout,
-					TLSEnabled:        tlsEnabled,
-					TLSClientSideAuth: tlsClientSideAuth,
-					TLSRootCertBytes:  tlsRootCerts,
-				})
-			}
-		}
-	}
-	if len(newOrderers) != 0 {
-		c.logger.Debugf("[Channel: %s] Updating the list of orderers: (%d) found", c.ChannelConfig.ID(), len(newOrderers))
-		return c.OrderingService.Configure(ordererConfig.ConsensusType(), newOrderers)
-	}
-	c.logger.Debugf("[Channel: %s] No orderers found in Channel config", c.ChannelConfig.ID())
-
-	return nil
 }
 
 func (c *Committer) fetchEnvelope(txID string) ([]byte, error) {
@@ -1009,21 +747,4 @@ func (c *Committer) notifyTxStatus(txID string, vc driver.ValidationCode, messag
 		VC:                vc,
 		ValidationMessage: message,
 	})
-}
-
-func capabilitiesSupported(res channelconfig.Resources) error {
-	ac, ok := res.ApplicationConfig()
-	if !ok {
-		return errors.Errorf("[Channel %s] does not have application config so is incompatible", res.ConfigtxValidator().ChannelID())
-	}
-
-	if err := ac.Capabilities().Supported(); err != nil {
-		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
-	}
-
-	if err := res.ChannelConfig().Capabilities().Supported(); err != nil {
-		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
-	}
-
-	return nil
 }

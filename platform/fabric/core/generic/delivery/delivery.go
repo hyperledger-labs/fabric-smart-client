@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
@@ -21,10 +22,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -40,7 +40,7 @@ var (
 
 type blockResponse struct {
 	ctx   context.Context
-	block *common.Block
+	block *cb.Block
 }
 
 type messageType = string
@@ -266,7 +266,7 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 					span.AddEvent("pushed_to_channel")
 				case *pb.DeliverResponse_Status:
 					span.SetAttributes(tracing.String(messageTypeLabel, responseStatus))
-					if r.Status == common.Status_NOT_FOUND {
+					if r.Status == cb.Status_NOT_FOUND {
 						span.RecordError(errors.New("not found"))
 						df = nil
 						if dfCancel != nil {

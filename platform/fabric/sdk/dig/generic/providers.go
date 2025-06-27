@@ -121,7 +121,8 @@ func NewChannelProvider(in struct {
 				nw.ConfigService(),
 				nw.TransactionManager(),
 			), nil
-		}, func(
+		},
+		func(
 			channel string,
 			nw driver.FabricNetworkService,
 			envelopeService driver.EnvelopeService,
@@ -136,14 +137,15 @@ func NewChannelProvider(in struct {
 				nw.TransactionManager(),
 				vault,
 			), nil
-		}, func(
+		},
+		func(
 			nw driver.FabricNetworkService,
 			channelName string,
 			vault driver.Vault,
 			envelopeService driver.EnvelopeService,
 			ledger driver.Ledger,
 			rwsetLoaderService driver.RWSetLoader,
-			channelMembershipService *membership.Service,
+			channelMembershipService driver.MembershipService,
 			fabricFinality committer.FabricFinality,
 			quiet bool,
 		) (generic.CommitterService, error) {
@@ -174,7 +176,8 @@ func NewChannelProvider(in struct {
 				in.TracerProvider,
 				in.MetricsProvider,
 			), nil
-		}, func(
+		},
+		func(
 			nw driver.FabricNetworkService,
 			channel string,
 			peerManager delivery.Services,
@@ -202,7 +205,11 @@ func NewChannelProvider(in struct {
 				in.MetricsProvider,
 				[]common.HeaderType{common.HeaderType_ENDORSER_TRANSACTION},
 			)
-		}, true)
+		},
+		func(channelName string) driver.MembershipService {
+			return membership.NewService(channelName)
+		},
+		true)
 }
 
 func NewEndorseTxStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver.EndorseTxStore, error) {
