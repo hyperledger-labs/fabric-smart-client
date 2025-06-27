@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
@@ -54,7 +53,7 @@ type CommitterConstructor func(
 	envelopeService driver.EnvelopeService,
 	ledger driver.Ledger,
 	rwsetLoaderService driver.RWSetLoader,
-	channelMembershipService *membership.Service,
+	channelMembershipService driver.MembershipService,
 	fabricFinality committer.FabricFinality,
 	quiet bool,
 ) (CommitterService, error)
@@ -67,6 +66,8 @@ type DeliveryConstructor func(
 	vault delivery.Vault,
 	callback driver.BlockCallback,
 ) (DeliveryService, error)
+
+type MembershipConstructor func(channelName string) driver.MembershipService
 
 type ChannelProvider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
@@ -85,6 +86,7 @@ type provider struct {
 	newRWSetLoader        RWSetLoaderConstructor
 	newCommitter          CommitterConstructor
 	newDelivery           DeliveryConstructor
+	newMembership         MembershipConstructor
 	useFilteredDelivery   bool
 }
 
@@ -101,6 +103,7 @@ func NewChannelProvider(
 	newRWSetLoader RWSetLoaderConstructor,
 	newCommitter CommitterConstructor,
 	newDelivery DeliveryConstructor,
+	newMembership MembershipConstructor,
 	useFilteredDelivery bool,
 ) *provider {
 	return &provider{
@@ -116,6 +119,7 @@ func NewChannelProvider(
 		newRWSetLoader:        newRWSetLoader,
 		newCommitter:          newCommitter,
 		newDelivery:           newDelivery,
+		newMembership:         newMembership,
 		useFilteredDelivery:   useFilteredDelivery,
 	}
 }
@@ -156,7 +160,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		return nil, errors.Wrapf(err, "failed creating fabric finality for channel [%s]", channelName)
 	}
 
-	channelMembershipService := membership.NewService()
+	channelMembershipService := p.newMembership(channelName)
 
 	// Committers
 	rwSetLoaderService, err := p.newRWSetLoader(

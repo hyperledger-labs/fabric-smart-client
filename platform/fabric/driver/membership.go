@@ -9,7 +9,9 @@ package driver
 import (
 	"context"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 )
 
 type IdentityOptions struct {
@@ -53,4 +55,11 @@ type ChannelMembership interface {
 	MSPManager() MSPManager
 	IsValid(identity view.Identity) error
 	GetVerifier(identity view.Identity) (Verifier, error)
+}
+
+type MembershipService interface {
+	ChannelMembership
+	Update(env *common.Envelope) error
+	DryUpdate(env *common.Envelope) error
+	OrdererConfig(cs ConfigService) (string, []*grpc.ConnectionConfig, error)
 }
