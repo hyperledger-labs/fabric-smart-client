@@ -9,7 +9,6 @@ package fsc
 import (
 	"errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
@@ -20,7 +19,7 @@ type SDK struct {
 	*fabricsdk.SDK
 }
 
-func NewSDK(registry node.Registry) *SDK {
+func NewSDK(registry digutils.Registry) *SDK {
 	return &SDK{SDK: fabricsdk.NewSDK(registry)}
 }
 

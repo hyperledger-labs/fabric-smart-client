@@ -22,6 +22,8 @@ import (
 
 const (
 	CmdRoot = "core"
+	// IDKey is the key to retrieve the FSC id
+	IDKey = "fsc.id"
 )
 
 const OfficialPath = "/etc/hyperledger-labs/fabric-smart-client-node"
@@ -40,6 +42,10 @@ func NewProvider(confPath string) (*provider, error) {
 	}
 
 	return p, nil
+}
+
+func (p *provider) ID() string {
+	return p.GetString(IDKey)
 }
 
 func (p *provider) GetDuration(key string) time.Duration {

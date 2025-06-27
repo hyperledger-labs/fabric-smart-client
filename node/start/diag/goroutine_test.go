@@ -9,7 +9,7 @@ package diag_test
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/node/node/diag"
+	"github.com/hyperledger-labs/fabric-smart-client/node/start/diag"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -21,7 +21,7 @@ func TestCaptureGoRoutines(t *testing.T) {
 	gt.Expect(err).NotTo(HaveOccurred())
 
 	gt.Expect(output).To(MatchRegexp(`goroutine \d+ \[running\]:`))
-	gt.Expect(output).To(ContainSubstring("github.com/hyperledger-labs/fabric-smart-client/node/node/diag.CaptureGoRoutines"))
+	gt.Expect(output).To(ContainSubstring("github.com/hyperledger-labs/fabric-smart-client/node/start/diag.CaptureGoRoutines"))
 }
 
 func TestLogGoRoutines(t *testing.T) {

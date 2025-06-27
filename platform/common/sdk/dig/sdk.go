@@ -9,7 +9,7 @@ package dig
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"go.uber.org/dig"
 )
@@ -28,7 +28,7 @@ type Container interface {
 }
 
 type SDK interface {
-	api.SDK
+	node.SDK
 	PostStart(ctx context.Context) error
 	Stop() error
 	Container() Container

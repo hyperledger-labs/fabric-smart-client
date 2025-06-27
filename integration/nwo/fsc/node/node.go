@@ -14,11 +14,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/onsi/gomega"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"gopkg.in/yaml.v2"
 )
@@ -273,7 +273,7 @@ func (n *Node) SetExecutable(ExecutablePath string) *Node {
 
 // AddSDK adds a reference to the passed SDK. AddSDK expects to find a constructor named
 // 'New' followed by the type name of the passed reference.
-func (n *Node) AddSDK(sdk api.SDK) *Node {
+func (n *Node) AddSDK(sdk node.SDK) *Node {
 	sdkType := reflect.Indirect(reflect.ValueOf(sdk)).Type()
 
 	alias := n.addImport(sdkType.PkgPath())
@@ -284,7 +284,7 @@ func (n *Node) AddSDK(sdk api.SDK) *Node {
 	return n
 }
 
-func (n *Node) AddSDKWithBase(base api.SDK, sdks ...api.SDK) *Node {
+func (n *Node) AddSDKWithBase(base node.SDK, sdks ...node.SDK) *Node {
 	elements := make([]SDKElement, len(sdks))
 
 	for idx, sdk := range sdks {

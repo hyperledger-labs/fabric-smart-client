@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	e "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
@@ -44,7 +43,7 @@ type SDK struct {
 	fnsProvider *core.FSNProvider
 }
 
-func NewSDK(registry node.Registry) *SDK {
+func NewSDK(registry digutils.Registry) *SDK {
 	return NewFrom(viewsdk.NewSDK(registry))
 }
 

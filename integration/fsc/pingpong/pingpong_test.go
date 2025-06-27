@@ -18,9 +18,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,8 +32,8 @@ var _ = Describe("EndToEnd", func() {
 
 	Describe("Node-based Ping pong", func() {
 		var (
-			initiator api.FabricSmartClientNode
-			responder api.FabricSmartClientNode
+			initiator FSCNode
+			responder FSCNode
 		)
 
 		AfterEach(func() {
@@ -55,9 +56,9 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Register views and view factories
-			err = initiator.RegisterFactory("init", &pingpong.InitiatorViewFactory{})
+			err = view2.GetRegistry(initiator).RegisterFactory("init", &pingpong.InitiatorViewFactory{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(responder.RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})).NotTo(HaveOccurred())
+			Expect(view2.GetRegistry(responder).RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})).NotTo(HaveOccurred())
 
 			time.Sleep(3 * time.Second)
 
@@ -92,7 +93,7 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Register views and view factories
-			err = initiator.RegisterFactory("stream", &pingpong.StreamerViewFactory{})
+			err = view2.GetRegistry(initiator).RegisterFactory("stream", &pingpong.StreamerViewFactory{})
 			Expect(err).NotTo(HaveOccurred())
 
 			time.Sleep(3 * time.Second)
@@ -124,13 +125,13 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Register views and view factories
-			err = initiator.RegisterFactory("init", &pingpong.InitiatorViewFactory{})
+			err = view2.GetRegistry(initiator).RegisterFactory("init", &pingpong.InitiatorViewFactory{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(responder.RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})).NotTo(HaveOccurred())
+			Expect(view2.GetRegistry(responder).RegisterResponder(&pingpong.Responder{}, &pingpong.Initiator{})).NotTo(HaveOccurred())
 
 			time.Sleep(3 * time.Second)
 			// Initiate a view and check the output
-			res, err := initiator.CallView("init", nil)
+			res, err := view.NewLocalClient(initiator).CallView("init", nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})
@@ -191,10 +192,16 @@ var _ = Describe("EndToEnd", func() {
 	})
 })
 
-func newNode(conf string) api.FabricSmartClientNode {
-	n := node.NewEmpty(conf)
+type FSCNode interface {
+	Stop()
+	Start() error
+	GetService(v interface{}) (interface{}, error)
+}
+
+func newNode(conf string) FSCNode {
+	n := node.NewFromConfPath(conf)
 	Expect(n).NotTo(BeNil())
-	n.AddSDK(viewsdk.NewSDK(n.Registry()))
+	n.AddSDK(viewsdk.NewSDK(n))
 	return n
 }
 

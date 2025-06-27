@@ -5,7 +5,7 @@
 An SDK is a set of services that an FSC node can use to implement its logic. An SDK is installed in the `main.go` file of a node in the following manner:
 ```go
 func main() {
-	n := fscnode.NewEmpty("")
+	n := fscnode.New()
 	n.InstallSDK(iou.NewSDK(n))
 	
 	n.Execute(func() error {

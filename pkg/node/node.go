@@ -8,66 +8,37 @@ package node
 
 import (
 	"context"
-	"encoding/json"
 	"log"
-	"reflect"
 	"runtime/debug"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	utils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
-	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
-)
-
-const (
-	fidLabel tracing.LabelName = "fid"
 )
 
 var logger = logging.MustGetLogger()
 
 type ExecuteCallbackFunc = func() error
 
-type ViewManager interface {
-	NewView(id string, in []byte) (view.View, error)
-	InitiateView(view view.View, ctx context.Context) (interface{}, error)
-	InitiateContext(view view.View) (view.Context, error)
-	InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error)
-	InitiateContextFrom(ctx context.Context, view view.View, id view.Identity, contextID string) (view.Context, error)
-	Context(contextID string) (view.Context, error)
-}
-
-type Registry interface {
-	GetService(v interface{}) (interface{}, error)
-
-	RegisterService(service interface{}) error
-}
-
-type ConfigService interface {
-	GetString(key string) string
-}
-
 // PostStart enables a platform to execute additional tasks after all platforms have started
 type PostStart interface {
 	PostStart(context.Context) error
 }
 
-type node struct {
-	registry      Registry
-	configService ConfigService
-	sdks          []api.SDK
-	context       context.Context
-	cancel        context.CancelFunc
-	running       bool
-	tracer        trace.Tracer
+// Node is a struct that allows the developer to compose sequentially multiple SDKs.
+// The struct offers also a service locator that the SDKs can use to register services.
+type Node struct {
+	registry utils.Registry
+	id       string
+	sdks     []SDK
+	context  context.Context
+	cancel   context.CancelFunc
+	running  bool
 }
 
-func NewEmpty(confPath string) *node {
+func NewFromConfPath(confPath string) *Node {
 	configService, err := config.NewProvider(confPath)
 	if err != nil {
 		panic(err)
@@ -77,22 +48,22 @@ func NewEmpty(confPath string) *node {
 		panic(err)
 	}
 
-	return &node{
-		sdks:          []api.SDK{},
-		registry:      registry,
-		configService: configService,
+	return &Node{
+		sdks:     []SDK{},
+		registry: registry,
+		id:       configService.ID(),
 	}
 }
 
-func (n *node) AddSDK(sdk api.SDK) {
+func (n *Node) AddSDK(sdk SDK) {
 	n.sdks = append(n.sdks, sdk)
 }
 
-func (n *node) ConfigService() ConfigService {
-	return n.configService
+func (n *Node) ID() string {
+	return n.id
 }
 
-func (n *node) Start() (err error) {
+func (n *Node) Start() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Start triggered panic: %s\n%s\n", r, debug.Stack())
@@ -140,14 +111,14 @@ func (n *node) Start() (err error) {
 	return nil
 }
 
-func (n *node) Stop() {
+func (n *Node) Stop() {
 	n.running = false
 	if n.cancel != nil {
 		n.cancel()
 	}
 }
 
-func (n *node) InstallSDK(p api.SDK) error {
+func (n *Node) InstallSDK(p SDK) error {
 	if n.running {
 		return errors.New("failed installing platform, the system is already running")
 	}
@@ -156,129 +127,10 @@ func (n *node) InstallSDK(p api.SDK) error {
 	return nil
 }
 
-func (n *node) RegisterFactory(id string, factory api.Factory) error {
-	return view2.GetRegistry(n.registry).RegisterFactory(id, factory)
-}
-
-func (n *node) RegisterResponder(responder view.View, initiatedBy interface{}) error {
-	return view2.GetRegistry(n.registry).RegisterResponder(responder, initiatedBy)
-}
-
-func (n *node) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View) error {
-	return view2.GetRegistry(n.registry).RegisterResponderWithIdentity(responder, id, initiatedBy)
-}
-
-func (n *node) RegisterService(service interface{}) error {
+func (n *Node) RegisterService(service interface{}) error {
 	return n.registry.RegisterService(service)
 }
 
-func (n *node) GetService(v interface{}) (interface{}, error) {
+func (n *Node) GetService(v interface{}) (interface{}, error) {
 	return n.registry.GetService(v)
-}
-
-func (n *node) Registry() Registry {
-	return n.registry
-}
-
-func (n *node) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
-	resolver := view2.GetEndpointService(n.registry)
-
-	var ids []view.Identity
-	for _, e := range endpoints {
-		identity, err := resolver.GetIdentity(e, nil)
-		if err != nil {
-			return nil, errors.Wrapf(err, "cannot find the identity at %s", e)
-		}
-		ids = append(ids, identity)
-	}
-
-	return ids, nil
-}
-
-func (n *node) getTracer() trace.Tracer {
-	if n.tracer == nil {
-		n.tracer = tracing2.Get(n.registry).Tracer("node_view_client", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace:  "viewsdk",
-			LabelNames: []tracing.LabelName{fidLabel},
-		}))
-	}
-	return n.tracer
-}
-
-func (n *node) CallView(fid string, in []byte) (interface{}, error) {
-	ctx, span := n.getTracer().Start(context.Background(), "CallView",
-		trace.WithSpanKind(trace.SpanKindClient),
-		tracing.WithAttributes(tracing.String(fidLabel, fid)))
-	defer span.End()
-	s, err := n.GetService(reflect.TypeOf((*ViewManager)(nil)))
-	if err != nil {
-		return nil, err
-	}
-	manager := s.(ViewManager)
-
-	span.AddEvent("start_new_view")
-	f, err := manager.NewView(fid, in)
-	span.AddEvent("end_new_view")
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed instantiating view [%s]", fid)
-	}
-	span.AddEvent("start_initiate_view")
-	result, err := manager.InitiateView(f, ctx)
-	span.AddEvent("end_initiate_view")
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed running view [%s]", fid)
-	}
-	raw, ok := result.([]byte)
-	if !ok {
-		raw, err = json.Marshal(result)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed marshalling result produced by view %s", fid)
-		}
-	}
-	return raw, nil
-}
-
-func (n *node) InitiateContext(view view.View) (view.Context, error) {
-	s, err := n.GetService(reflect.TypeOf((*ViewManager)(nil)))
-	if err != nil {
-		return nil, err
-	}
-	manager := s.(ViewManager)
-
-	return manager.InitiateContext(view)
-}
-
-// InitiateContextFrom creates a new view context, derived from the passed context.Context
-func (n *node) InitiateContextFrom(ctx context.Context, view view.View) (view.Context, error) {
-	s, err := n.GetService(reflect.TypeOf((*ViewManager)(nil)))
-	if err != nil {
-		return nil, err
-	}
-	manager := s.(ViewManager)
-
-	return manager.InitiateContextFrom(ctx, view, nil, "")
-}
-
-func (n *node) InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error) {
-	s, err := n.GetService(reflect.TypeOf((*ViewManager)(nil)))
-	if err != nil {
-		return nil, err
-	}
-	manager := s.(ViewManager)
-
-	return manager.InitiateContextWithIdentity(view, id)
-}
-
-func (n *node) Context(contextID string) (view.Context, error) {
-	s, err := n.GetService(reflect.TypeOf((*ViewManager)(nil)))
-	if err != nil {
-		return nil, err
-	}
-	manager := s.(ViewManager)
-
-	return manager.Context(contextID)
-}
-
-func (n *node) Initiate(fid string, in []byte) (string, error) {
-	panic("implement me")
 }

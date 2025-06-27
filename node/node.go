@@ -9,13 +9,10 @@ package node
 import (
 	"os"
 
-	node2 "github.com/hyperledger-labs/fabric-smart-client/node/node"
+	"github.com/hyperledger-labs/fabric-smart-client/node/start"
 	"github.com/hyperledger-labs/fabric-smart-client/node/version"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/api"
-	node3 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/spf13/cobra"
 )
 
@@ -23,61 +20,55 @@ var logger = logging.MustGetLogger()
 
 type ExecuteCallbackFunc = func() error
 
-type FabricSmartClient interface {
+type FSCNode interface {
+	ID() string
 	Start() error
 	Stop()
-	InstallSDK(p api.SDK) error
-	ConfigService() node3.ConfigService
-	Registry() node3.Registry
+	InstallSDK(p node.SDK) error
 	GetService(v interface{}) (interface{}, error)
 	RegisterService(service interface{}) error
-	RegisterFactory(id string, factory api.Factory) error
-	RegisterResponder(responder view.View, initiatedBy interface{}) error
-	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy view.View) error
-	ResolveIdentities(endpoints ...string) ([]view.Identity, error)
 }
 
-type node struct {
-	FabricSmartClient
+// Node is a cobra based application that offers the following commands:
+// - `peer start` to instantiate and start the Fabric Smart Client stack.
+// - `version` to get the version of the executed code.
+type Node struct {
+	FSCNode
 
 	mainCmd             *cobra.Command
 	callbackChannel     chan error
 	executeCallbackFunc ExecuteCallbackFunc
 }
 
-func New() *node {
-	return NewFromConfPath("")
+// New returns a new instance of Node from the default configuration path.
+func New() *Node {
+	return NewWithConfPath("")
 }
 
-func NewFromConfPath(confPath string) *node {
-	n := node3.NewEmpty(confPath)
-	n.AddSDK(sdk.NewSDK(n.Registry()))
-	return newFromFsc(n)
+// NewWithConfPath returns a new instance of Node whose configuration is loaded from the passed path.
+func NewWithConfPath(confPath string) *Node {
+	return newWithFSCNode(node.NewFromConfPath(confPath))
 }
 
-func newFromFsc(fscNode FabricSmartClient) *node {
+func newWithFSCNode(fscNode FSCNode) *Node {
 	mainCmd := &cobra.Command{Use: "peer"}
-	node := &node{
-		FabricSmartClient: fscNode,
-		mainCmd:           mainCmd,
-		callbackChannel:   make(chan error, 1),
+	node := &Node{
+		FSCNode:         fscNode,
+		mainCmd:         mainCmd,
+		callbackChannel: make(chan error, 1),
 	}
 
 	mainCmd.AddCommand(version.Cmd())
-	mainCmd.AddCommand(node2.Cmd(node))
+	mainCmd.AddCommand(start.Cmd(node))
 
 	return node
 }
 
-func NewEmpty(confPath string) *node {
-	return newFromFsc(node3.NewEmpty(confPath))
-}
-
-func (n *node) Callback() chan<- error {
+func (n *Node) Callback() chan<- error {
 	return n.callbackChannel
 }
 
-func (n *node) Execute(executeCallbackFunc ExecuteCallbackFunc) {
+func (n *Node) Execute(executeCallbackFunc ExecuteCallbackFunc) {
 	n.executeCallbackFunc = executeCallbackFunc
 	go n.listen()
 	if n.mainCmd.Execute() != nil {
@@ -85,7 +76,7 @@ func (n *node) Execute(executeCallbackFunc ExecuteCallbackFunc) {
 	}
 }
 
-func (n *node) listen() {
+func (n *Node) listen() {
 	logger.Debugf("Wait for callback signal")
 	err := <-n.callbackChannel
 	logger.Debugf("Callback signal came with err [%s]", err)

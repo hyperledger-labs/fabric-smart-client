@@ -11,8 +11,8 @@ import (
 	"errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/sdk/fabricdev"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
+	utils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"go.uber.org/dig"
 )
@@ -22,7 +22,7 @@ type SDK struct {
 	dig2.SDK
 }
 
-func NewSDK(registry node.Registry) *SDK {
+func NewSDK(registry utils.Registry) *SDK {
 	return NewFrom(fabricsdk.NewSDK(registry))
 }
 
