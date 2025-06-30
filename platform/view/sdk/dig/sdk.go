@@ -47,7 +47,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
@@ -108,7 +108,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(endpoint.NewService),
 		p.Container().Provide(
 			digutils.Identity[*endpoint.Service](),
-			dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint.Backend), new(view2.EndpointService)),
+			dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint.Backend), new(view.EndpointService)),
 		),
 		p.Container().Provide(binding.NewDefaultStore),
 		p.Container().Provide(signerinfo.NewDefaultStore),
@@ -128,7 +128,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(digutils.Identity[operations.OperationsLogger](), dig.As(new(operations.Logger)), dig.As(new(log.Logger))),
 		p.Container().Provide(web.NewOperationsOptions),
 		p.Container().Provide(operations.NewOperationSystem),
-		p.Container().Provide(view2.NewRegistry),
+		p.Container().Provide(view.NewRegistry),
 		p.Container().Provide(view3.NewResponseMarshaler, dig.As(new(view3.Marshaller))),
 		p.Container().Provide(func(o *operations.Options, l operations.OperationsLogger) metrics2.Provider {
 			return operations.NewMetricsProvider(o.Metrics, l, true)
@@ -143,9 +143,9 @@ func (p *SDK) Install() error {
 		p.Container().Provide(view3.NewMetrics),
 		p.Container().Provide(view3.NewAccessControlChecker, dig.As(new(view3.PolicyChecker))),
 		p.Container().Provide(view3.NewViewServiceServer, dig.As(new(view3.Service), new(finality.Server))),
-		p.Container().Provide(view2.NewManager),
+		p.Container().Provide(view.NewManager),
 		p.Container().Provide(
-			digutils.Identity[*view2.Manager](),
+			digutils.Identity[*view.Manager](),
 			dig.As(new(StartableViewManager), new(ViewManager), new(server.ViewManager)),
 		),
 
@@ -158,12 +158,12 @@ func (p *SDK) Install() error {
 		) (*comm.Service, error) {
 			return comm.NewService(hostProvider, endpointService, configProvider, metricsProvider)
 		}),
-		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(view2.CommLayer))),
+		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(view.CommLayer))),
 		p.Container().Provide(provider.NewHostProvider),
 		p.Container().Provide(sig.NewService),
 		p.Container().Provide(
 			digutils.Identity[*sig.Service](),
-			dig.As(new(view2.LocalIdentityChecker), new(view3.VerifierProvider), new(view3.SignerProvider)),
+			dig.As(new(view.LocalIdentityChecker), new(view3.VerifierProvider), new(view3.SignerProvider)),
 		),
 		p.Container().Provide(func(tracerProvider trace.TracerProvider) *finality.Manager {
 			return finality.NewManager(tracerProvider)
@@ -181,8 +181,8 @@ func (p *SDK) Install() error {
 		digutils.Register[trace.TracerProvider](p.Container()),
 		digutils.Register[ViewManager](p.Container()), // Need to add it as a field in the node
 		digutils.Register[id.SigService](p.Container()),
-		digutils.Register[id.SigService](p.Container()),
-		digutils.Register[*view2.Registry](p.Container()),
+		digutils.Register[*id.Provider](p.Container()),
+		digutils.Register[*view.Registry](p.Container()),
 		digutils.Register[*endpoint.Service](p.Container()),
 	)
 	if err != nil {
