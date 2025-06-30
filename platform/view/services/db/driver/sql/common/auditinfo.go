@@ -38,7 +38,6 @@ type AuditInfoStore struct {
 }
 
 func (db *AuditInfoStore) GetAuditInfo(ctx context.Context, id view.Identity) ([]byte, error) {
-	logger.DebugfContext(ctx, "some event with info %s", id)
 	query, params := q.Select().FieldsByName("audit_info").
 		From(q.Table(db.table)).
 		Where(cond.Eq("id", id.UniqueID())).

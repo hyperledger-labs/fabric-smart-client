@@ -31,7 +31,7 @@ func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQue
 		query.AddOffset(pagination.offset)
 
 	case *keyset[string, any]:
-		query.AddFieldUnique(pagination.sqlIdName)
+		query.AddField(pagination.sqlIdName)
 		query.AddOrderBy(_select.Asc(pagination.sqlIdName))
 		query.AddLimit(pagination.pageSize)
 		if pagination.firstId != pagination.nilElement() {

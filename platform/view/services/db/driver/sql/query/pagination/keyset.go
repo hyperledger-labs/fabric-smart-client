@@ -53,10 +53,10 @@ func KeysetWithId[I comparable, V id[I]](offset int, pageSize int, sqlIdName com
 // Keyset creates a keyset pagination
 func Keyset[I comparable, V any](offset int, pageSize int, sqlIdName common.FieldName, idGetter func(V) I) (*keyset[I, V], error) {
 	if offset < 0 {
-		return nil, fmt.Errorf("offset shoud be grater than zero. Offset: %d", offset)
+		return nil, fmt.Errorf("offset must be greater than zero. Offset: %d", offset)
 	}
 	if pageSize < 0 {
-		return nil, fmt.Errorf("page size shoud be grater than zero. pageSize: %d", pageSize)
+		return nil, fmt.Errorf("page size must be greater than zero. pageSize: %d", pageSize)
 	}
 	return &keyset[I, V]{
 		offset:    offset,
@@ -86,7 +86,7 @@ func (p *keyset[I, V]) nilElement() I {
 
 func (p *keyset[I, V]) GoToOffset(offset int) (driver.Pagination, error) {
 	if offset < 0 {
-		return Empty(), nil
+		return nil, fmt.Errorf("Offset must be greater than zero. pageSize: %d", pageSize)
 	}
 	if offset == p.offset+p.pageSize {
 		return &keyset[I, V]{
