@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config/viper"
 	"github.com/pkg/errors"
@@ -31,6 +30,8 @@ const (
 const OfficialPath = "/etc/hyperledger-labs/fabric-smart-client-node"
 
 var logOutput = os.Stderr
+
+type DecodeHookFuncType func(reflect.Type, reflect.Type, interface{}) (interface{}, error)
 
 type Provider struct {
 	confPath string
@@ -76,7 +77,7 @@ func (p *Provider) GetStringSlice(key string) []string {
 	return p.v.GetStringSlice(key)
 }
 
-func (p *Provider) AddDecodeHook(f driver.DecodeHookFuncType) error {
+func (p *Provider) AddDecodeHook(f DecodeHookFuncType) error {
 	return nil
 }
 

@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	glogging "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"

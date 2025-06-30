@@ -7,13 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package driver
 
 import (
-	"reflect"
 	"time"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
-
-type DecodeHookFuncType func(reflect.Type, reflect.Type, interface{}) (interface{}, error)
 
 // ConfigService models a configuration registry
 type ConfigService interface {
@@ -37,14 +32,4 @@ type ConfigService interface {
 	GetPath(key string) string
 	// TranslatePath translates the passed path relative to the config path
 	TranslatePath(path string) string
-}
-
-// GetConfigService returns an instance of the config service.
-// It panics, if no instance is found.
-func GetConfigService(sp services.Provider) ConfigService {
-	s, err := sp.GetService(reflect.TypeOf((*ConfigService)(nil)))
-	if err != nil {
-		panic(err)
-	}
-	return s.(ConfigService)
 }
