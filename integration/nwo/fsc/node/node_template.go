@@ -17,7 +17,7 @@ package main
 import (
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
 
-	{{ if InstallView }}viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view"{{ end }}
+	{{ if InstallView }}viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"{{ end }}
 	{{- range .Imports }}
 	{{ Alias . }} "{{ . }}"{{ end }}
 )

@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package fns
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"go.uber.org/dig"
 )
 

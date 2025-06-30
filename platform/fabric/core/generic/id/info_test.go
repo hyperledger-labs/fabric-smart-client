@@ -10,19 +10,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	x5092 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
-	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	msp2 "github.com/hyperledger/fabric/msp"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestInfoIdemix(t *testing.T) {
-	registry := registry2.New()
-
 	driver := mem.NewDriver()
 	persistence, err := driver.NewKVS("")
 	assert.NoError(t, err)
@@ -32,9 +29,7 @@ func TestInfoIdemix(t *testing.T) {
 	assert.NoError(t, err)
 	kvss, err := kvs.New(persistence, "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
-	assert.NoError(t, registry.RegisterService(kvss))
-	sigService := sig.NewService(sig.NewMultiplexDeserializer(), auditInfo, signerInfo)
-	assert.NoError(t, registry.RegisterService(sigService))
+	sigService := sig2.NewService(sig2.NewMultiplexDeserializer(), auditInfo, signerInfo)
 
 	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)

@@ -10,10 +10,10 @@ import (
 	"reflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
-func GetVaultService(ctx view2.ServiceProvider) (VaultService, error) {
+func GetVaultService(ctx services.Provider) (VaultService, error) {
 	s, err := ctx.GetService(reflect.TypeOf((*VaultService)(nil)))
 	if err != nil {
 		return nil, err
@@ -21,7 +21,7 @@ func GetVaultService(ctx view2.ServiceProvider) (VaultService, error) {
 	return s.(VaultService), nil
 }
 
-func GetVault(ctx view2.ServiceProvider) (Vault, error) {
+func GetVault(ctx services.Provider) (Vault, error) {
 	vs, err := GetVaultService(ctx)
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func GetVault(ctx view2.ServiceProvider) (Vault, error) {
 	return ws, nil
 }
 
-func GetVaultForChannel(ctx view2.ServiceProvider, channel string) (Vault, error) {
+func GetVaultForChannel(ctx services.Provider, channel string) (Vault, error) {
 	vs, err := GetVaultService(ctx)
 	if err != nil {
 		return nil, err

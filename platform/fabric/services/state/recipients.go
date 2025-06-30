@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -117,7 +117,7 @@ func (f RequestRecipientIdentityView) Call(context view.Context) (interface{}, e
 	}
 
 	// Update the Endpoint Resolver
-	if err := view2.GetEndpointService(context).Bind(context.Context(), f.Other, recipientData.Identity); err != nil {
+	if err := endpoint.GetService(context).Bind(context.Context(), f.Other, recipientData.Identity); err != nil {
 		return nil, err
 	}
 
@@ -168,7 +168,7 @@ func (s *RespondRequestRecipientIdentityView) Call(context view.Context) (interf
 	}
 
 	// Update the Endpoint Resolver
-	resolver := view2.GetEndpointService(context)
+	resolver := endpoint.GetService(context)
 	err = resolver.Bind(context.Context(), context.Me(), recipientData.Identity)
 	if err != nil {
 		return nil, err
@@ -270,7 +270,7 @@ func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{
 
 	// Update the Endpoint Resolver
 	logger.Debugf("bind [%s] to other [%s]", recipientData.Identity, f.Other)
-	resolver := view2.GetEndpointService(context)
+	resolver := endpoint.GetService(context)
 	err = resolver.Bind(context.Context(), f.Other, recipientData.Identity)
 	if err != nil {
 		return nil, err
@@ -352,7 +352,7 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (int
 	}
 
 	// Update the Endpoint Resolver
-	resolver := view2.GetEndpointService(context)
+	resolver := endpoint.GetService(context)
 	err = resolver.Bind(context.Context(), context.Me(), me)
 	if err != nil {
 		return nil, err

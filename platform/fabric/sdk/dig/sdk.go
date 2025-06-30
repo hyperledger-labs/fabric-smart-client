@@ -30,9 +30,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/core/endpoint"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"go.uber.org/dig"
 )
 
@@ -43,7 +45,7 @@ type SDK struct {
 	fnsProvider *core.FSNProvider
 }
 
-func NewSDK(registry digutils.Registry) *SDK {
+func NewSDK(registry services.Registry) *SDK {
 	return NewFrom(viewsdk.NewSDK(registry))
 }
 
@@ -69,6 +71,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(fns.NewProvider),
 		p.Container().Provide(digutils.Identity[*core.FSNProvider](), dig.As(new(driver.FabricNetworkServiceProvider))),
 		p.Container().Provide(digutils.Identity[*endpoint.Service](), dig.As(new(identity.EndpointService))),
+		p.Container().Provide(digutils.Identity[*id.Provider](), dig.As(new(identity.ViewIdentityProvider))),
 		p.Container().Provide(fabric.NewNetworkServiceProvider),
 		p.Container().Provide(vault.NewService, dig.As(new(state.VaultService))),
 		p.Container().Provide(generic2.NewEndorserTransactionHandlerProvider),

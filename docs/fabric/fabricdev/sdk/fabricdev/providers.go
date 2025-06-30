@@ -8,17 +8,17 @@ package fabricdev
 
 import (
 	fdevdriver "github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
-	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
@@ -31,10 +31,10 @@ func NewDriver(in struct {
 	EndorseTxKVS        driver.EndorseTxStore
 	ConfigProvider      config.Provider
 	MetricsProvider     metrics.Provider
-	EndpointService     vdriver.EndpointService
+	EndpointService     identity.EndpointService
 	SigService          *sig.Service
 	DeserializerManager mspdriver.DeserializerManager
-	IdProvider          vdriver.IdentityProvider
+	IdProvider          identity.ViewIdentityProvider
 	KVS                 *kvs.KVS
 	Publisher           events.Publisher
 	Hasher              hash.Hasher

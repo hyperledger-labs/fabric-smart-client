@@ -14,7 +14,7 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
@@ -28,7 +28,7 @@ type localMembership interface {
 }
 
 type vault struct {
-	sp              driver3.ServiceProvider
+	sp              services.Provider
 	network         string
 	channel         string
 	vaultStore      vaultStore
@@ -90,11 +90,11 @@ func (f *vault) GetStateCertification(ctx context.Context, namespace driver.Name
 }
 
 type service struct {
-	sp   driver3.ServiceProvider
+	sp   services.Provider
 	fnsp driver2.FabricNetworkServiceProvider
 }
 
-func NewService(sp driver3.ServiceProvider, fnsp driver2.FabricNetworkServiceProvider) *service {
+func NewService(sp services.Provider, fnsp driver2.FabricNetworkServiceProvider) *service {
 	return &service{sp: sp, fnsp: fnsp}
 }
 

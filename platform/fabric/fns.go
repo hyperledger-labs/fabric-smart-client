@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/pkg/errors"
 )
@@ -155,7 +155,7 @@ func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkServ
 	return ns, nil
 }
 
-func GetNetworkServiceProvider(sp view2.ServiceProvider) (*NetworkServiceProvider, error) {
+func GetNetworkServiceProvider(sp services.Provider) (*NetworkServiceProvider, error) {
 	s, err := sp.GetService(networkServiceProviderType)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting fabric network service provider")
@@ -163,7 +163,7 @@ func GetNetworkServiceProvider(sp view2.ServiceProvider) (*NetworkServiceProvide
 	return s.(*NetworkServiceProvider), nil
 }
 
-func GetFabricNetworkNames(sp view2.ServiceProvider) ([]string, error) {
+func GetFabricNetworkNames(sp services.Provider) ([]string, error) {
 	provider, err := core.GetFabricNetworkServiceProvider(sp)
 	if err != nil {
 		return nil, err
@@ -172,7 +172,7 @@ func GetFabricNetworkNames(sp view2.ServiceProvider) ([]string, error) {
 }
 
 // GetFabricNetworkService returns the Fabric Network Service for the passed id, nil if not found
-func GetFabricNetworkService(sp view2.ServiceProvider, id string) (*NetworkService, error) {
+func GetFabricNetworkService(sp services.Provider, id string) (*NetworkService, error) {
 	provider, err := GetNetworkServiceProvider(sp)
 	if err != nil {
 		return nil, err
@@ -185,12 +185,12 @@ func GetFabricNetworkService(sp view2.ServiceProvider, id string) (*NetworkServi
 }
 
 // GetDefaultFNS returns the default Fabric Network Service
-func GetDefaultFNS(sp view2.ServiceProvider) (*NetworkService, error) {
+func GetDefaultFNS(sp services.Provider) (*NetworkService, error) {
 	return GetFabricNetworkService(sp, "")
 }
 
 // GetDefaultChannel returns the default channel of the default fns
-func GetDefaultChannel(sp view2.ServiceProvider) (*NetworkService, *Channel, error) {
+func GetDefaultChannel(sp services.Provider) (*NetworkService, *Channel, error) {
 	network, err := GetDefaultFNS(sp)
 	if err != nil {
 		return nil, nil, err
@@ -203,7 +203,7 @@ func GetDefaultChannel(sp view2.ServiceProvider) (*NetworkService, *Channel, err
 }
 
 // GetChannel returns the requested channel for the passed network
-func GetChannel(sp view2.ServiceProvider, network, channel string) (*NetworkService, *Channel, error) {
+func GetChannel(sp services.Provider, network, channel string) (*NetworkService, *Channel, error) {
 	fns, err := GetFabricNetworkService(sp, network)
 	if err != nil {
 		return nil, nil, err

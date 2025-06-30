@@ -12,10 +12,10 @@ import (
 	"reflect"
 	"sync"
 
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	fabricLogging2 "github.com/hyperledger/fabric-lib-go/common/flogging"
 	fabricLogging "github.com/hyperledger/fabric/common/flogging"
 	"github.com/pkg/errors"
@@ -188,7 +188,7 @@ func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error
 	return nil, errors.Errorf("no network driver found for [%s]", network)
 }
 
-func GetFabricNetworkServiceProvider(sp view.ServiceProvider) (driver.FabricNetworkServiceProvider, error) {
+func GetFabricNetworkServiceProvider(sp services.Provider) (driver.FabricNetworkServiceProvider, error) {
 	s, err := sp.GetService(fabricNetworkServiceType)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting fabric network service provider")

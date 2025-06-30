@@ -9,8 +9,8 @@ package mock
 import (
 	"time"
 
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -26,7 +26,9 @@ type Initiator struct {
 
 func (p *Initiator) Call(ctx view.Context) (interface{}, error) {
 	// Retrieve responder identity
-	responder := view2.GetIdentityProvider(ctx).Identity("responder")
+	identityProvider, err := id.GetProvider(ctx)
+	assert.NoError(err, "failed getting identity provider")
+	responder := identityProvider.Identity("responder")
 	var context view.Context
 	if p.Mock {
 		c := &view3.MockContext{Ctx: ctx}

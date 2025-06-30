@@ -11,16 +11,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
 
 type endpointService interface {
-	GetIdentity(endpoint string, pkID []byte) (view2.Identity, error)
-	Resolve(ctx context.Context, party view2.Identity) (driver.Resolver, []byte, error)
-	GetResolver(ctx context.Context, party view2.Identity) (driver.Resolver, error)
+	GetIdentity(endpoint string, pkID []byte) (view.Identity, error)
+	GetResolver(ctx context.Context, party view.Identity) (*endpoint.Resolver, error)
 }
 
 // endpointServiceIDRouter resolves the IP addresses using the resolvers of the endpoint service.
@@ -44,7 +43,7 @@ func (r *endpointServiceIDRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress
 		logger.Errorf("failed resolving [%s]: %v", id, err)
 		return []host2.PeerIPAddress{}, false
 	}
-	if address := resolver.GetAddress(driver.P2PPort); len(address) > 0 {
+	if address := resolver.GetAddress(endpoint.P2PPort); len(address) > 0 {
 		logger.Debugf("Found endpoint of peer [%s]: [%s]", id, address)
 		return []host2.PeerIPAddress{address}, true
 	}
@@ -132,9 +131,9 @@ func (r *labelResolver) getLabel(peerID host2.PeerID) (string, error) {
 		return "", errors.Wrapf(err, "failed to find identity for peer [%s]", peerID)
 	}
 
-	resolver, pkid, err := r.es.Resolve(context.Background(), identity)
-	if pkid == nil && err != nil {
-		return "", errors.Wrapf(err, "failed to resolve identity [%s] for label [%s]", identity, resolver.GetName())
+	resolver, err := r.es.GetResolver(context.Background(), identity)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to resolve identity [%s]", identity)
 	}
 	label := strings.TrimPrefix(resolver.GetName(), "fsc.")
 	r.cache[peerID] = label

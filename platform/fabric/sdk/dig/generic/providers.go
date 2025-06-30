@@ -30,7 +30,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/envelope"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/metadata"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
-	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -58,8 +57,8 @@ func NewDriver(in struct {
 	dig.In
 	ConfigProvider  config.Provider
 	MetricsProvider metrics.Provider
-	EndpointService vdriver.EndpointService
-	IdProvider      vdriver.IdentityProvider
+	EndpointService identity.EndpointService
+	IdProvider      identity.ViewIdentityProvider
 	KVS             *kvs.KVS
 	AuditInfoKVS    driver2.AuditInfoStore
 	SignerKVS       driver2.SignerInfoStore
@@ -206,21 +205,21 @@ func NewChannelProvider(in struct {
 		}, true)
 }
 
-func NewEndorseTxStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.EndorseTxStore, error) {
+func NewEndorseTxStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver.EndorseTxStore, error) {
 	return endorsetx.NewStore[driver.Key](config, drivers, "default")
 }
 
-func NewMetadataStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.MetadataStore, error) {
+func NewMetadataStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver.MetadataStore, error) {
 	return metadata.NewStore[driver.Key, driver.TransientMap](config, drivers, "default")
 }
 
-func NewEnvelopeStore(config vdriver.ConfigService, drivers multiplexed.Driver) (driver.EnvelopeStore, error) {
+func NewEnvelopeStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver.EnvelopeStore, error) {
 	return envelope.NewStore[driver.Key](config, drivers, "default")
 }
 
 func NewMultiplexedDriver(in struct {
 	dig.In
-	Config  vdriver.ConfigService
+	Config  driver2.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"fabric-db-drivers" optional:"false"`
 }) multiplexed.Driver {
 	return multiplexed.NewDriver(in.Config, in.Drivers...)

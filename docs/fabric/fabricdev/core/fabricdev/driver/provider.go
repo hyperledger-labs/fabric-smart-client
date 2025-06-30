@@ -15,7 +15,6 @@ import (
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
@@ -27,11 +26,11 @@ import (
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
-	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -47,7 +46,7 @@ type Provider struct {
 	sigService          *sig.Service
 	identityLoaders     map[string]driver.IdentityLoader
 	deserializerManager driver.DeserializerManager
-	idProvider          vdriver.IdentityProvider
+	idProvider          identity.ViewIdentityProvider
 	kvss                *kvs.KVS
 }
 
@@ -60,7 +59,7 @@ func NewProvider(
 	endpointService identity.EndpointService,
 	sigService *sig.Service,
 	deserializerManager driver.DeserializerManager,
-	idProvider vdriver.IdentityProvider,
+	idProvider identity.ViewIdentityProvider,
 	kvss *kvs.KVS,
 	publisher events.Publisher,
 	hasher hash.Hasher,
