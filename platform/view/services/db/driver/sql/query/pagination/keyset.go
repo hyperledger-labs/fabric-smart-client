@@ -31,8 +31,6 @@ type keyset[I comparable, V any] struct {
 	idGetter  func(V) I
 	// the first and last id values in the page
 	firstId, lastId I
-	offsetOfFirstId int
-	offsetOfLastId  int
 }
 
 // KeysetWithField creates a keyset pagination where the id has field name idFieldName
@@ -61,36 +59,52 @@ func Keyset[I comparable, V any](offset int, pageSize int, sqlIdName common.Fiel
 		return nil, fmt.Errorf("page size shoud be grater than zero. pageSize: %d", pageSize)
 	}
 	return &keyset[I, V]{
-		offset:          offset,
-		pageSize:        pageSize,
-		sqlIdName:       sqlIdName,
-		idGetter:        idGetter,
-		offsetOfFirstId: -1,
-		offsetOfLastId:  -1,
+		offset:    offset,
+		pageSize:  pageSize,
+		sqlIdName: sqlIdName,
+		idGetter:  idGetter,
+		firstId:   nilElement[I](),
+		lastId:    nilElement[I](),
 	}, nil
+}
+
+func nilElement[I any]() I {
+	var zero I
+	switch any(zero).(type) {
+	case int:
+		return any(-1).(I)
+	case string:
+		return any("").(I)
+	default:
+		panic("unsupported type")
+	}
+}
+
+func (p *keyset[I, V]) nilElement() I {
+	return nilElement[I]()
 }
 
 func (p *keyset[I, V]) GoToOffset(offset int) (driver.Pagination, error) {
 	if offset < 0 {
 		return Empty(), nil
 	}
-	if offset == p.offsetOfLastId {
+	if offset == p.offset+p.pageSize {
 		return &keyset[I, V]{
-			offset:          offset,
-			pageSize:        p.pageSize,
-			sqlIdName:       p.sqlIdName,
-			idGetter:        p.idGetter,
-			firstId:         p.lastId,
-			offsetOfFirstId: p.offsetOfLastId,
+			offset:    offset,
+			pageSize:  p.pageSize,
+			sqlIdName: p.sqlIdName,
+			idGetter:  p.idGetter,
+			firstId:   p.lastId,
+			lastId:    p.nilElement(),
 		}, nil
 	}
 	return &keyset[I, V]{
-		offset:          offset,
-		pageSize:        p.pageSize,
-		sqlIdName:       p.sqlIdName,
-		idGetter:        p.idGetter,
-		offsetOfFirstId: -1,
-		offsetOfLastId:  -1,
+		offset:    offset,
+		pageSize:  p.pageSize,
+		sqlIdName: p.sqlIdName,
+		idGetter:  p.idGetter,
+		firstId:   p.nilElement(),
+		lastId:    p.nilElement(),
 	}, nil
 }
 

@@ -34,7 +34,7 @@ func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQue
 		query.AddFieldUnique(pagination.sqlIdName)
 		query.AddOrderBy(_select.Asc(pagination.sqlIdName))
 		query.AddLimit(pagination.pageSize)
-		if pagination.offsetOfFirstId == pagination.offset {
+		if pagination.firstId != pagination.nilElement() {
 			query.AddWhere(cond.CmpVal(pagination.sqlIdName, ">", pagination.firstId))
 		} else {
 			query.AddOffset(pagination.offset)
@@ -44,7 +44,7 @@ func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQue
 		query.AddField(pagination.sqlIdName)
 		query.AddOrderBy(_select.Asc(pagination.sqlIdName))
 		query.AddLimit(pagination.pageSize)
-		if pagination.offsetOfFirstId == pagination.offset {
+		if pagination.firstId != pagination.nilElement() {
 			query.AddWhere(cond.CmpVal(pagination.sqlIdName, ">", pagination.firstId))
 		} else {
 			query.AddOffset(pagination.offset)
