@@ -11,7 +11,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
@@ -35,19 +34,28 @@ func TestContext(t *testing.T) {
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	assert.NoError(t, registry.RegisterService(idProvider))
 	assert.NoError(t, registry.RegisterService(&mock2.CommLayer{}))
-	resolver := &mock.EndpointService{}
+	resolver := &mock2.EndpointService{}
 	resolver.GetIdentityReturns([]byte("bob"), nil)
 	assert.NoError(t, registry.RegisterService(resolver))
 	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
 	session := &mock.Session{}
-	ctx, err := view2.NewContext(context.TODO(), registry, "pineapple", nil, resolver, idProvider, []byte("charlie"), session, []byte("caller"), emptyTracer, nil)
+	ctx, err := view2.NewContext(
+		context.TODO(),
+		registry,
+		"pineapple",
+		nil,
+		resolver,
+		idProvider,
+		[]byte("charlie"),
+		session,
+		[]byte("caller"),
+		emptyTracer,
+		nil,
+	)
 	assert.NoError(t, err)
 
 	// Session
 	assert.Equal(t, session, ctx.Session())
-
-	// GetService
-	assert.NotNil(t, driver.GetEndpointService(ctx))
 
 	// Id
 	assert.Equal(t, "pineapple", ctx.ID())
@@ -70,8 +78,8 @@ func TestContextRace(t *testing.T) {
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	assert.NoError(t, registry.RegisterService(idProvider))
 	assert.NoError(t, registry.RegisterService(&mock2.CommLayer{}))
-	resolver := &mock.EndpointService{}
-	resolver.ResolveReturns(&endpoint.Resolver{Id: []byte("alice")}, nil, nil)
+	resolver := &mock2.EndpointService{}
+	resolver.ResolverReturns(&endpoint.Resolver{Id: []byte("alice")}, nil, nil)
 	resolver.GetIdentityReturns([]byte("bob"), nil)
 	assert.NoError(t, registry.RegisterService(resolver))
 	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))

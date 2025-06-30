@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -33,6 +34,13 @@ type LocalIdentityChecker interface {
 	IsMe(ctx context.Context, id view.Identity) bool
 }
 
+//go:generate counterfeiter -o mock/resolver.go -fake-name EndpointService . EndpointService
+
+type EndpointService interface {
+	GetIdentity(endpoint string, pkID []byte) (view.Identity, error)
+	Resolver(ctx context.Context, party view.Identity) (*endpoint.Resolver, []byte, error)
+}
+
 type ctx struct {
 	context        context.Context
 	sp             services.Provider
@@ -42,7 +50,7 @@ type ctx struct {
 	initiator      view.View
 	me             view.Identity
 	caller         view.Identity
-	resolver       driver.EndpointService
+	resolver       EndpointService
 	sessionFactory SessionFactory
 	idProvider     driver.IdentityProvider
 
@@ -58,7 +66,7 @@ func NewContextForInitiator(
 	context context.Context,
 	sp services.Provider,
 	sessionFactory SessionFactory,
-	resolver driver.EndpointService,
+	resolver EndpointService,
 	idProvider driver.IdentityProvider,
 	party view.Identity,
 	initiator view.View,
@@ -97,7 +105,7 @@ func NewContext(
 	sp services.Provider,
 	contextID string,
 	sessionFactory SessionFactory,
-	resolver driver.EndpointService,
+	resolver EndpointService,
 	idProvider driver.IdentityProvider,
 	party view.Identity,
 	session view.Session,
@@ -158,7 +166,7 @@ func (c *ctx) Me() view.Identity {
 	return c.me
 }
 
-// TODO: remove this
+// Identity returns the identity matching the passed argument
 func (c *ctx) Identity(ref string) (view.Identity, error) {
 	return c.resolver.GetIdentity(ref, nil)
 }
@@ -278,26 +286,26 @@ func (c *ctx) Dispose() {
 }
 
 func (c *ctx) newSession(view view.View, contextID string, party view.Identity) (view.Session, error) {
-	resolver, pkid, err := c.resolver.Resolve(c.context, party)
+	resolver, pkid, err := c.resolver.Resolver(c.context, party)
 	if err != nil {
 		return nil, err
 	}
 	logger.DebugfContext(c.context, "Open new session to %s", resolver.GetName())
-	return c.sessionFactory.NewSession(GetIdentifier(view), contextID, resolver.GetAddress(driver.P2PPort), pkid)
+	return c.sessionFactory.NewSession(GetIdentifier(view), contextID, resolver.GetAddress(endpoint.P2PPort), pkid)
 }
 
 func (c *ctx) newSessionByID(sessionID, contextID string, party view.Identity) (view.Session, error) {
-	resolver, pkid, err := c.resolver.Resolve(c.context, party)
+	resolver, pkid, err := c.resolver.Resolver(c.context, party)
 	if err != nil {
 		return nil, err
 	}
-	var endpoint string
+	var ep string
 	if resolver != nil {
-		endpoint = resolver.GetAddress(driver.P2PPort)
+		ep = resolver.GetAddress(endpoint.P2PPort)
 		logger.DebugfContext(c.context, "Open new session by id to %s", resolver.GetName())
 	}
-	logger.DebugfContext(c.context, "Open new session by id to %s", endpoint)
-	return c.sessionFactory.NewSessionWithID(sessionID, contextID, endpoint, pkid, nil, nil)
+	logger.DebugfContext(c.context, "Open new session by id to %s", ep)
+	return c.sessionFactory.NewSessionWithID(sessionID, contextID, ep, pkid, nil, nil)
 }
 
 func (c *ctx) cleanup() {
@@ -320,7 +328,7 @@ func (c *ctx) resolve(id view.Identity) (view.Identity, error) {
 	if id.IsNone() {
 		return nil, errors.New("no id provided")
 	}
-	resolver, _, err := c.resolver.Resolve(c.context, id)
+	resolver, _, err := c.resolver.Resolver(c.context, id)
 	if err != nil {
 		return nil, err
 	}

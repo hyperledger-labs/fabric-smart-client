@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
@@ -31,7 +32,7 @@ func NewDriver(in struct {
 	EndorseTxKVS        driver.EndorseTxStore
 	ConfigProvider      config.Provider
 	MetricsProvider     metrics.Provider
-	EndpointService     vdriver.EndpointService
+	EndpointService     identity.EndpointService
 	SigService          *sig.Service
 	DeserializerManager mspdriver.DeserializerManager
 	IdProvider          vdriver.IdentityProvider

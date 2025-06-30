@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -37,7 +36,7 @@ func NewHostProvider(config driver.ConfigService, endpointService *endpoint.Serv
 
 func newLibP2PHostProvider(config driver.ConfigService, endpointService *endpoint.Service, metricsProvider metrics.Provider) host.GeneratorProvider {
 	endpointService.SetPublicKeyIDSynthesizer(&libp2p.PKIDSynthesizer{})
-	return libp2p.NewHostGeneratorProvider(libp2p.NewConfig(config), metricsProvider, view.NewEndpointService(endpointService))
+	return libp2p.NewHostGeneratorProvider(libp2p.NewConfig(config), metricsProvider, endpointService)
 }
 
 func newWebSocketHostProvider(config driver.ConfigService, endpointService *endpoint.Service, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (host.GeneratorProvider, error) {

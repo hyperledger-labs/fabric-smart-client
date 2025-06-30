@@ -10,13 +10,14 @@ import (
 	"bytes"
 	"context"
 	"net"
+	"reflect"
 	"strings"
 	"sync"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
@@ -24,10 +25,32 @@ import (
 
 var logger = logging.MustGetLogger()
 
+// PortName is the type variable for the socket ports
+type PortName string
+
+const (
+	// ListenPort is the port at which the FSC node might listen for some service
+	ListenPort PortName = "Listen"
+	// ViewPort is the port on which the View Service Server respond
+	ViewPort PortName = "View"
+	// P2PPort is the port on which the P2P Communication Layer respond
+	P2PPort PortName = "P2P"
+)
+
+// PublicKeyExtractor extracts public keys from identities
+type PublicKeyExtractor interface {
+	// ExtractPublicKey returns the public key corresponding to the passed identity
+	ExtractPublicKey(id view.Identity) (any, error)
+}
+
+type PublicKeyIDSynthesizer interface {
+	PublicKeyID(any) []byte
+}
+
 type Resolver struct {
 	Name           string
 	Domain         string
-	Addresses      map[driver.PortName]string
+	Addresses      map[PortName]string
 	Aliases        []string
 	PKI            []byte
 	PKILock        sync.RWMutex
@@ -39,9 +62,9 @@ func (r *Resolver) GetName() string { return r.Name }
 
 func (r *Resolver) GetId() view.Identity { return r.Id }
 
-func (r *Resolver) GetAddress(port driver.PortName) string { return r.Addresses[port] }
+func (r *Resolver) GetAddress(port PortName) string { return r.Addresses[port] }
 
-func (r *Resolver) GetAddresses() map[driver.PortName]string { return r.Addresses }
+func (r *Resolver) GetAddresses() map[PortName]string { return r.Addresses }
 
 func (r *Resolver) GetIdentity() (view.Identity, error) {
 	if r.IdentityGetter != nil {
@@ -69,29 +92,50 @@ type Service struct {
 	bindingKVS     driver2.BindingStore
 
 	pkiExtractorsLock      sync.RWMutex
-	publicKeyExtractors    []driver.PublicKeyExtractor
-	publicKeyIDSynthesizer driver.PublicKeyIDSynthesizer
+	publicKeyExtractors    []PublicKeyExtractor
+	publicKeyIDSynthesizer PublicKeyIDSynthesizer
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
 func NewService(bindingKVS driver2.BindingStore) (*Service, error) {
 	er := &Service{
 		bindingKVS:             bindingKVS,
-		publicKeyExtractors:    []driver.PublicKeyExtractor{},
+		publicKeyExtractors:    []PublicKeyExtractor{},
 		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
 	}
 	return er, nil
 }
 
-func (r *Service) Resolve(ctx context.Context, party view.Identity) (driver.Resolver, []byte, error) {
-	resolver, err := r.resolver(ctx, party)
+// GetService returns an instance of the endpoint service.
+// It panics, if no instance is found.
+func GetService(sp services.Provider) *Service {
+	s, err := sp.GetService(reflect.TypeOf((*Service)(nil)))
 	if err != nil {
-		return nil, nil, err
+		panic(err)
 	}
-	return resolver, r.pkiResolve(resolver), nil
+	return s.(*Service)
 }
 
-func (r *Service) GetResolver(ctx context.Context, party view.Identity) (driver.Resolver, error) {
+// Resolve returns the endpoints of the passed identity.
+// If the passed identity does not have any endpoint set, the service checks
+// if the passed identity is bound to another identity that is returned together with its endpoints and public-key identifier.
+func (r *Service) Resolve(ctx context.Context, party view.Identity) (view.Identity, map[PortName]string, []byte, error) {
+	resolver, raw, err := r.Resolver(ctx, party)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if resolver == nil {
+		return nil, nil, raw, nil
+	}
+	logger.Debugf("resolved [%s] to [%s] with ports [%v]", party, resolver.GetId(), resolver.GetAddresses())
+	out := map[PortName]string{}
+	for name, s := range resolver.GetAddresses() {
+		out[name] = s
+	}
+	return resolver.GetId(), out, raw, nil
+}
+
+func (r *Service) GetResolver(ctx context.Context, party view.Identity) (*Resolver, error) {
 	return r.resolver(ctx, party)
 }
 
@@ -201,7 +245,7 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 	return nil, nil
 }
 
-func (r *Service) AddPublicKeyExtractor(publicKeyExtractor driver.PublicKeyExtractor) error {
+func (r *Service) AddPublicKeyExtractor(publicKeyExtractor PublicKeyExtractor) error {
 	r.pkiExtractorsLock.Lock()
 	defer r.pkiExtractorsLock.Unlock()
 
@@ -212,24 +256,8 @@ func (r *Service) AddPublicKeyExtractor(publicKeyExtractor driver.PublicKeyExtra
 	return nil
 }
 
-func (r *Service) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer driver.PublicKeyIDSynthesizer) {
+func (r *Service) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer PublicKeyIDSynthesizer) {
 	r.publicKeyIDSynthesizer = publicKeyIDSynthesizer
-}
-
-func (r *Service) pkiResolve(resolver *Resolver) []byte {
-	resolver.PKILock.RLock()
-	if len(resolver.PKI) != 0 {
-		resolver.PKILock.RUnlock()
-		return resolver.PKI
-	}
-	resolver.PKILock.RUnlock()
-
-	resolver.PKILock.Lock()
-	defer resolver.PKILock.Unlock()
-	if len(resolver.PKI) == 0 {
-		resolver.PKI = r.ExtractPKI(resolver.Id)
-	}
-	return resolver.PKI
 }
 
 func (r *Service) ExtractPKI(id []byte) []byte {
@@ -248,6 +276,35 @@ func (r *Service) ExtractPKI(id []byte) []byte {
 	return nil
 }
 
+func (r *Service) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
+	var ids []view.Identity
+	for _, endpoint := range endpoints {
+		id, err := r.GetIdentity(endpoint, nil)
+		if err != nil {
+			return nil, errors.Wrapf(err, "cannot find the idnetity at %s", endpoint)
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, nil
+}
+
+func (r *Service) pkiResolve(resolver *Resolver) []byte {
+	resolver.PKILock.RLock()
+	if len(resolver.PKI) != 0 {
+		resolver.PKILock.RUnlock()
+		return resolver.PKI
+	}
+	resolver.PKILock.RUnlock()
+
+	resolver.PKILock.Lock()
+	defer resolver.PKILock.Unlock()
+	if len(resolver.PKI) == 0 {
+		resolver.PKI = r.ExtractPKI(resolver.Id)
+	}
+	return resolver.PKI
+}
+
 func (r *Service) rootEndpoint(party view.Identity) (*Resolver, error) {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
@@ -262,14 +319,22 @@ func (r *Service) rootEndpoint(party view.Identity) (*Resolver, error) {
 	return nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
 }
 
-var portNameMap = map[string]driver.PortName{
-	strings.ToLower(string(driver.ListenPort)): driver.ListenPort,
-	strings.ToLower(string(driver.ViewPort)):   driver.ViewPort,
-	strings.ToLower(string(driver.P2PPort)):    driver.P2PPort,
+func (r *Service) Resolver(ctx context.Context, party view.Identity) (*Resolver, []byte, error) {
+	resolver, err := r.resolver(ctx, party)
+	if err != nil {
+		return nil, nil, err
+	}
+	return resolver, r.pkiResolve(resolver), nil
 }
 
-func convert(o map[string]string) map[driver.PortName]string {
-	r := map[driver.PortName]string{}
+var portNameMap = map[string]PortName{
+	strings.ToLower(string(ListenPort)): ListenPort,
+	strings.ToLower(string(ViewPort)):   ViewPort,
+	strings.ToLower(string(P2PPort)):    P2PPort,
+}
+
+func convert(o map[string]string) map[PortName]string {
+	r := map[PortName]string{}
 	for k, v := range o {
 		r[portNameMap[strings.ToLower(k)]] = v
 	}

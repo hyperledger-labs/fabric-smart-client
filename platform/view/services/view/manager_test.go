@@ -61,7 +61,7 @@ func TestGetIdentifier(t *testing.T) {
 	registry := registry2.New()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
-	manager := view2.NewManager(registry, &mock2.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
+	manager := view2.NewManager(registry, &mock2.CommLayer{}, &mock2.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
 
 	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(DummyView{}))
 	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(&DummyView{}))
@@ -75,9 +75,9 @@ func TestManagerRace(t *testing.T) {
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	assert.NoError(t, registry.RegisterService(idProvider))
 	assert.NoError(t, registry.RegisterService(&mock2.CommLayer{}))
-	assert.NoError(t, registry.RegisterService(&mock.EndpointService{}))
+	assert.NoError(t, registry.RegisterService(&mock2.EndpointService{}))
 	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
-	manager := view2.NewManager(registry, &mock2.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
+	manager := view2.NewManager(registry, &mock2.CommLayer{}, &mock2.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
 
 	wg := &sync.WaitGroup{}
 	for i := 0; i < 100; i++ {
@@ -97,7 +97,7 @@ func TestRegisterResponderWithInitiatorView(t *testing.T) {
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 
-	manager := view2.NewManager(registry, &mock2.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
+	manager := view2.NewManager(registry, &mock2.CommLayer{}, &mock2.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
 	err := manager.RegisterResponder(&ResponderView{}, &InitiatorView{})
 	assert.NoError(t, err)
 	responder, _, err := manager.ExistResponderForCaller(manager.GetIdentifier(&InitiatorView{}))
@@ -113,7 +113,7 @@ func TestRegisterResponderWithViewIdentifier(t *testing.T) {
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 
-	manager := view2.NewManager(registry, &mock2.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
+	manager := view2.NewManager(registry, &mock2.CommLayer{}, &mock2.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
 	err := manager.RegisterResponder(&ResponderView{}, manager.GetIdentifier(&InitiatorView{}))
 	assert.NoError(t, err)
 	responder, _, err := manager.ExistResponderForCaller(manager.GetIdentifier(&InitiatorView{}))

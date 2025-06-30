@@ -36,7 +36,7 @@ type Manager struct {
 	sp services.Provider
 
 	commLayer        CommLayer
-	endpointService  driver.EndpointService
+	endpointService  EndpointService
 	identityProvider driver.IdentityProvider
 
 	ctx context.Context
@@ -55,7 +55,7 @@ type Manager struct {
 func NewManager(
 	serviceProvider services.Provider,
 	commLayer CommLayer,
-	endpointService driver.EndpointService,
+	endpointService EndpointService,
 	identityProvider driver.IdentityProvider,
 	viewProvider *Registry,
 	provider trace.TracerProvider,

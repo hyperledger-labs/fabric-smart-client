@@ -9,7 +9,6 @@ package endpoint
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/pkg/errors"
 
@@ -77,7 +76,7 @@ func (r *ResolverService) LoadResolvers() error {
 		r.config.GetString("fsc.id"),
 		"",
 		map[string]string{
-			string(driver.ViewPort): r.config.GetString("fsc.grpc.address"),
+			string(ViewPort): r.config.GetString("fsc.grpc.address"),
 		},
 		nil,
 		r.is.DefaultIdentity(),

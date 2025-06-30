@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
@@ -30,7 +29,7 @@ import (
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
-	endpoint2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -79,7 +78,7 @@ func NewSDKFrom(baseSDK dig2.SDK, registry services.Registry) *SDK {
 		sdk.Container().Provide(func() *config.Provider { return config.GetProvider(registry) }),
 		sdk.Container().Provide(
 			digutils.Identity[*config.Provider](),
-			dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint2.ConfigService), new(dbdriver.Config)),
+			dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint.ConfigService), new(dbdriver.Config)),
 		),
 	)
 	if err != nil {
@@ -106,20 +105,22 @@ func (p *SDK) Install() error {
 			sig2.NewService,
 			dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry)),
 		),
-		p.Container().Provide(endpoint2.NewService),
+		p.Container().Provide(endpoint.NewService),
+		p.Container().Provide(
+			digutils.Identity[*endpoint.Service](),
+			dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint.Backend), new(view2.EndpointService)),
+		),
 		p.Container().Provide(binding.NewDefaultStore),
 		p.Container().Provide(signerinfo.NewDefaultStore),
 		p.Container().Provide(auditinfo.NewDefaultStore),
-		p.Container().Provide(digutils.Identity[*endpoint2.Service](), dig.As(new(driver.EndpointService))),
-		p.Container().Provide(view.NewEndpointService),
-		p.Container().Provide(digutils.Identity[*view.EndpointService](), dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint2.Backend))),
+		// p.Container().Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
 		p.Container().Provide(newKMSDriver),
 		p.Container().Provide(id.NewProvider),
 		p.Container().Provide(
 			digutils.Identity[*id.Provider](),
-			dig.As(new(endpoint2.IdentityService), new(view3.IdentityProvider), new(driver.IdentityProvider)),
+			dig.As(new(endpoint.IdentityService), new(view3.IdentityProvider), new(driver.IdentityProvider)),
 		),
-		p.Container().Provide(endpoint2.NewResolverService),
+		p.Container().Provide(endpoint.NewResolverService),
 		p.Container().Provide(web.NewServer),
 		p.Container().Provide(digutils.Identity[web.Server](), dig.As(new(operations.Server))),
 		p.Container().Provide(web.NewOperationsLogger),
@@ -148,7 +149,13 @@ func (p *SDK) Install() error {
 			dig.As(new(StartableViewManager), new(ViewManager), new(server.ViewManager)),
 		),
 
-		p.Container().Provide(func(hostProvider host.GeneratorProvider, configProvider driver.ConfigService, endpointService *view.EndpointService, tracerProvider trace.TracerProvider, metricsProvider metrics2.Provider) (*comm.Service, error) {
+		p.Container().Provide(func(
+			hostProvider host.GeneratorProvider,
+			configProvider driver.ConfigService,
+			endpointService *endpoint.Service,
+			tracerProvider trace.TracerProvider,
+			metricsProvider metrics2.Provider,
+		) (*comm.Service, error) {
 			return comm.NewService(hostProvider, endpointService, configProvider, metricsProvider)
 		}),
 		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(view2.CommLayer))),
@@ -172,18 +179,17 @@ func (p *SDK) Install() error {
 
 	err = errors.Join(
 		digutils.Register[trace.TracerProvider](p.Container()),
-		digutils.Register[driver.EndpointService](p.Container()),
-		digutils.Register[view3.IdentityProvider](p.Container()),
 		digutils.Register[ViewManager](p.Container()), // Need to add it as a field in the node
 		digutils.Register[id.SigService](p.Container()),
 		digutils.Register[id.SigService](p.Container()),
 		digutils.Register[*view2.Registry](p.Container()),
+		digutils.Register[*endpoint.Service](p.Container()),
 	)
 	if err != nil {
 		return err
 	}
 
-	if err := p.Container().Invoke(func(resolverService *endpoint2.ResolverService) error { return resolverService.LoadResolvers() }); err != nil {
+	if err := p.Container().Invoke(func(resolverService *endpoint.ResolverService) error { return resolverService.LoadResolvers() }); err != nil {
 		return err
 	}
 	return nil

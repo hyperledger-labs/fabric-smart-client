@@ -9,9 +9,9 @@ package libp2p
 import (
 	"context"
 
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -49,7 +49,7 @@ func NewConfig(cs configService) *config {
 }
 
 type endpointService interface {
-	Resolve(ctx context.Context, party view.Identity) (view.Identity, map[view2.PortName]string, []byte, error)
+	Resolve(ctx context.Context, party view.Identity) (view.Identity, map[endpoint.PortName]string, []byte, error)
 	GetIdentity(label string, pkID []byte) (view.Identity, error)
 }
 
@@ -93,9 +93,9 @@ func (p *hostGeneratorProvider) getPeerAddress(address host2.PeerIPAddress) (hos
 		return "", errors.WithMessagef(err, "failed to resolve bootstrap node id [%s:%s]", address, bootstrapNodeID)
 	}
 
-	bootstrap, err := utils.AddressToEndpoint(endpoints[view2.P2PPort])
+	bootstrap, err := utils.AddressToEndpoint(endpoints[endpoint.P2PPort])
 	if err != nil {
-		return "", errors.WithMessagef(err, "failed to get the endpoint of the bootstrap node from [%s:%s], [%s]", address, bootstrapNodeID, endpoints[view2.P2PPort])
+		return "", errors.WithMessagef(err, "failed to get the endpoint of the bootstrap node from [%s:%s], [%s]", address, bootstrapNodeID, endpoints[endpoint.P2PPort])
 	}
 	return bootstrap + "/p2p/" + string(pkID), nil
 }
