@@ -15,6 +15,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+//go:generate counterfeiter -o mock/session.go -fake-name Session . Session
+
+// Session encapsulates a communication channel to an endpoint
+type Session = view.Session
+
 type Sessions struct {
 	s  map[string]view.Session
 	mu sync.RWMutex

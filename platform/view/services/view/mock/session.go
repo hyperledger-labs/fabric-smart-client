@@ -5,8 +5,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	viewa "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Session struct {
@@ -14,25 +14,25 @@ type Session struct {
 	closeMutex       sync.RWMutex
 	closeArgsForCall []struct {
 	}
-	InfoStub        func() view.SessionInfo
+	InfoStub        func() viewa.SessionInfo
 	infoMutex       sync.RWMutex
 	infoArgsForCall []struct {
 	}
 	infoReturns struct {
-		result1 view.SessionInfo
+		result1 viewa.SessionInfo
 	}
 	infoReturnsOnCall map[int]struct {
-		result1 view.SessionInfo
+		result1 viewa.SessionInfo
 	}
-	ReceiveStub        func() <-chan *view.Message
+	ReceiveStub        func() <-chan *viewa.Message
 	receiveMutex       sync.RWMutex
 	receiveArgsForCall []struct {
 	}
 	receiveReturns struct {
-		result1 <-chan *view.Message
+		result1 <-chan *viewa.Message
 	}
 	receiveReturnsOnCall map[int]struct {
-		result1 <-chan *view.Message
+		result1 <-chan *viewa.Message
 	}
 	SendStub        func([]byte) error
 	sendMutex       sync.RWMutex
@@ -108,7 +108,7 @@ func (fake *Session) CloseCalls(stub func()) {
 	fake.CloseStub = stub
 }
 
-func (fake *Session) Info() view.SessionInfo {
+func (fake *Session) Info() viewa.SessionInfo {
 	fake.infoMutex.Lock()
 	ret, specificReturn := fake.infoReturnsOnCall[len(fake.infoArgsForCall)]
 	fake.infoArgsForCall = append(fake.infoArgsForCall, struct {
@@ -132,36 +132,36 @@ func (fake *Session) InfoCallCount() int {
 	return len(fake.infoArgsForCall)
 }
 
-func (fake *Session) InfoCalls(stub func() view.SessionInfo) {
+func (fake *Session) InfoCalls(stub func() viewa.SessionInfo) {
 	fake.infoMutex.Lock()
 	defer fake.infoMutex.Unlock()
 	fake.InfoStub = stub
 }
 
-func (fake *Session) InfoReturns(result1 view.SessionInfo) {
+func (fake *Session) InfoReturns(result1 viewa.SessionInfo) {
 	fake.infoMutex.Lock()
 	defer fake.infoMutex.Unlock()
 	fake.InfoStub = nil
 	fake.infoReturns = struct {
-		result1 view.SessionInfo
+		result1 viewa.SessionInfo
 	}{result1}
 }
 
-func (fake *Session) InfoReturnsOnCall(i int, result1 view.SessionInfo) {
+func (fake *Session) InfoReturnsOnCall(i int, result1 viewa.SessionInfo) {
 	fake.infoMutex.Lock()
 	defer fake.infoMutex.Unlock()
 	fake.InfoStub = nil
 	if fake.infoReturnsOnCall == nil {
 		fake.infoReturnsOnCall = make(map[int]struct {
-			result1 view.SessionInfo
+			result1 viewa.SessionInfo
 		})
 	}
 	fake.infoReturnsOnCall[i] = struct {
-		result1 view.SessionInfo
+		result1 viewa.SessionInfo
 	}{result1}
 }
 
-func (fake *Session) Receive() <-chan *view.Message {
+func (fake *Session) Receive() <-chan *viewa.Message {
 	fake.receiveMutex.Lock()
 	ret, specificReturn := fake.receiveReturnsOnCall[len(fake.receiveArgsForCall)]
 	fake.receiveArgsForCall = append(fake.receiveArgsForCall, struct {
@@ -185,32 +185,32 @@ func (fake *Session) ReceiveCallCount() int {
 	return len(fake.receiveArgsForCall)
 }
 
-func (fake *Session) ReceiveCalls(stub func() <-chan *view.Message) {
+func (fake *Session) ReceiveCalls(stub func() <-chan *viewa.Message) {
 	fake.receiveMutex.Lock()
 	defer fake.receiveMutex.Unlock()
 	fake.ReceiveStub = stub
 }
 
-func (fake *Session) ReceiveReturns(result1 <-chan *view.Message) {
+func (fake *Session) ReceiveReturns(result1 <-chan *viewa.Message) {
 	fake.receiveMutex.Lock()
 	defer fake.receiveMutex.Unlock()
 	fake.ReceiveStub = nil
 	fake.receiveReturns = struct {
-		result1 <-chan *view.Message
+		result1 <-chan *viewa.Message
 	}{result1}
 }
 
-func (fake *Session) ReceiveReturnsOnCall(i int, result1 <-chan *view.Message) {
+func (fake *Session) ReceiveReturnsOnCall(i int, result1 <-chan *viewa.Message) {
 	fake.receiveMutex.Lock()
 	defer fake.receiveMutex.Unlock()
 	fake.ReceiveStub = nil
 	if fake.receiveReturnsOnCall == nil {
 		fake.receiveReturnsOnCall = make(map[int]struct {
-			result1 <-chan *view.Message
+			result1 <-chan *viewa.Message
 		})
 	}
 	fake.receiveReturnsOnCall[i] = struct {
-		result1 <-chan *view.Message
+		result1 <-chan *viewa.Message
 	}{result1}
 }
 
@@ -516,4 +516,4 @@ func (fake *Session) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.Session = new(Session)
+var _ view.Session = new(Session)

@@ -38,7 +38,7 @@ func TestContext(t *testing.T) {
 	resolver.GetIdentityReturns([]byte("bob"), nil)
 	assert.NoError(t, registry.RegisterService(resolver))
 	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
-	session := &mock.Session{}
+	session := &mock2.Session{}
 	ctx, err := view2.NewContext(
 		context.TODO(),
 		registry,
@@ -83,8 +83,8 @@ func TestContextRace(t *testing.T) {
 	resolver.GetIdentityReturns([]byte("bob"), nil)
 	assert.NoError(t, registry.RegisterService(resolver))
 	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
-	defaultSession := &mock.Session{}
-	session := &mock.Session{}
+	defaultSession := &mock2.Session{}
+	session := &mock2.Session{}
 	session.InfoReturns(view.SessionInfo{
 		ID:           "",
 		Caller:       nil,
