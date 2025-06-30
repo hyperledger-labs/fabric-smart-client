@@ -59,7 +59,7 @@ func NewDriver(in struct {
 	ConfigProvider  config.Provider
 	MetricsProvider metrics.Provider
 	EndpointService identity.EndpointService
-	IdProvider      vdriver.IdentityProvider
+	IdProvider      identity.ViewIdentityProvider
 	KVS             *kvs.KVS
 	AuditInfoKVS    driver2.AuditInfoStore
 	SignerKVS       driver2.SignerInfoStore

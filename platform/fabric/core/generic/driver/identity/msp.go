@@ -13,8 +13,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type NamedIdentityLoader struct {
@@ -26,13 +26,18 @@ type MSPManagerProvider interface {
 	New(network string) (fdriver.LocalMembership, error)
 }
 
+// ViewIdentityProvider models the identity provider of the view platform
+type ViewIdentityProvider interface {
+	DefaultIdentity() view.Identity
+}
+
 type localMSPManagerProvider struct {
 	configProvider      config.Provider
 	endpointService     driver.BinderService
 	sigService          driver.SignerService
 	identityLoaders     []NamedIdentityLoader
 	deserializerManager driver.DeserializerManager
-	idProvider          vdriver.IdentityProvider
+	idProvider          ViewIdentityProvider
 	kvss                *kvs.KVS
 }
 
@@ -42,7 +47,7 @@ func NewMSPManagerProvider(
 	sigService driver.SignerService,
 	identityLoaders []NamedIdentityLoader,
 	deserializerManager driver.DeserializerManager,
-	idProvider vdriver.IdentityProvider,
+	idProvider ViewIdentityProvider,
 	kvss *kvs.KVS,
 ) *localMSPManagerProvider {
 	return &localMSPManagerProvider{

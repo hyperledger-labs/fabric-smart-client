@@ -11,11 +11,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
-	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -29,16 +28,12 @@ type Context interface {
 }
 
 func TestContext(t *testing.T) {
-	registry := registry2.New()
+	registry := registry.New()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
-	assert.NoError(t, registry.RegisterService(idProvider))
-	assert.NoError(t, registry.RegisterService(&mock2.CommLayer{}))
-	resolver := &mock2.EndpointService{}
+	resolver := &mock.EndpointService{}
 	resolver.GetIdentityReturns([]byte("bob"), nil)
-	assert.NoError(t, registry.RegisterService(resolver))
-	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
-	session := &mock2.Session{}
+	session := &mock.Session{}
 	ctx, err := view2.NewContext(
 		context.TODO(),
 		registry,
@@ -73,18 +68,14 @@ func TestContext(t *testing.T) {
 }
 
 func TestContextRace(t *testing.T) {
-	registry := registry2.New()
+	registry := registry.New()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
-	assert.NoError(t, registry.RegisterService(idProvider))
-	assert.NoError(t, registry.RegisterService(&mock2.CommLayer{}))
-	resolver := &mock2.EndpointService{}
+	resolver := &mock.EndpointService{}
 	resolver.ResolverReturns(&endpoint.Resolver{Id: []byte("alice")}, nil, nil)
 	resolver.GetIdentityReturns([]byte("bob"), nil)
-	assert.NoError(t, registry.RegisterService(resolver))
-	assert.NoError(t, registry.RegisterService(&mock2.SessionFactory{}))
-	defaultSession := &mock2.Session{}
-	session := &mock2.Session{}
+	defaultSession := &mock.Session{}
+	session := &mock.Session{}
 	session.InfoReturns(view.SessionInfo{
 		ID:           "",
 		Caller:       nil,
@@ -93,7 +84,7 @@ func TestContextRace(t *testing.T) {
 		EndpointPKID: nil,
 		Closed:       false,
 	})
-	sessionFactory := &mock2.SessionFactory{}
+	sessionFactory := &mock.SessionFactory{}
 	sessionFactory.NewSessionReturns(session, nil)
 
 	ctx, err := view2.NewContext(context.TODO(), registry, "pineapple", sessionFactory, resolver, idProvider, []byte("charlie"), defaultSession, []byte("caller"), emptyTracer, nil)

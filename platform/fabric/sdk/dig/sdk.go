@@ -34,6 +34,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"go.uber.org/dig"
 )
 
@@ -70,6 +71,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(fns.NewProvider),
 		p.Container().Provide(digutils.Identity[*core.FSNProvider](), dig.As(new(driver.FabricNetworkServiceProvider))),
 		p.Container().Provide(digutils.Identity[*endpoint.Service](), dig.As(new(identity.EndpointService))),
+		p.Container().Provide(digutils.Identity[*id.Provider](), dig.As(new(identity.ViewIdentityProvider))),
 		p.Container().Provide(fabric.NewNetworkServiceProvider),
 		p.Container().Provide(vault.NewService, dig.As(new(state.VaultService))),
 		p.Container().Provide(generic2.NewEndorserTransactionHandlerProvider),

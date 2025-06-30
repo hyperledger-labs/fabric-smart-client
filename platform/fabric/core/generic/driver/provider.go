@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	gmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
@@ -38,7 +37,7 @@ func NewProvider(
 	metricsProvider metrics.Provider,
 	endpointService identity.EndpointService,
 	channelProvider generic.ChannelProvider,
-	idProvider vdriver.IdentityProvider,
+	idProvider identity.ViewIdentityProvider,
 	identityLoaders []identity.NamedIdentityLoader,
 	signerKVS driver.SignerInfoStore,
 	auditInfoKVS driver.AuditInfoStore,

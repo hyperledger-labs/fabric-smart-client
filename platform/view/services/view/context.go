@@ -13,7 +13,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
@@ -41,6 +40,13 @@ type EndpointService interface {
 	Resolver(ctx context.Context, party view.Identity) (*endpoint.Resolver, []byte, error)
 }
 
+//go:generate counterfeiter -o mock/identity_provider.go -fake-name IdentityProvider . IdentityProvider
+
+type IdentityProvider interface {
+	Identity(string) view.Identity
+	DefaultIdentity() view.Identity
+}
+
 type ctx struct {
 	context        context.Context
 	sp             services.Provider
@@ -52,7 +58,7 @@ type ctx struct {
 	caller         view.Identity
 	resolver       EndpointService
 	sessionFactory SessionFactory
-	idProvider     driver.IdentityProvider
+	idProvider     IdentityProvider
 
 	sessions           *Sessions
 	errorCallbackFuncs []func()
@@ -67,7 +73,7 @@ func NewContextForInitiator(
 	sp services.Provider,
 	sessionFactory SessionFactory,
 	resolver EndpointService,
-	idProvider driver.IdentityProvider,
+	idProvider IdentityProvider,
 	party view.Identity,
 	initiator view.View,
 	tracer trace.Tracer,
@@ -106,7 +112,7 @@ func NewContext(
 	contextID string,
 	sessionFactory SessionFactory,
 	resolver EndpointService,
-	idProvider driver.IdentityProvider,
+	idProvider IdentityProvider,
 	party view.Identity,
 	session view.Session,
 	caller view.Identity,

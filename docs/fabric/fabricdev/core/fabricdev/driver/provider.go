@@ -26,7 +26,6 @@ import (
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
-	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -47,7 +46,7 @@ type Provider struct {
 	sigService          *sig.Service
 	identityLoaders     map[string]driver.IdentityLoader
 	deserializerManager driver.DeserializerManager
-	idProvider          vdriver.IdentityProvider
+	idProvider          identity.ViewIdentityProvider
 	kvss                *kvs.KVS
 }
 
@@ -60,7 +59,7 @@ func NewProvider(
 	endpointService identity.EndpointService,
 	sigService *sig.Service,
 	deserializerManager driver.DeserializerManager,
-	idProvider vdriver.IdentityProvider,
+	idProvider identity.ViewIdentityProvider,
 	kvss *kvs.KVS,
 	publisher events.Publisher,
 	hasher hash.Hasher,

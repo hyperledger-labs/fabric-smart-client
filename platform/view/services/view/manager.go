@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
@@ -37,7 +36,7 @@ type Manager struct {
 
 	commLayer        CommLayer
 	endpointService  EndpointService
-	identityProvider driver.IdentityProvider
+	identityProvider IdentityProvider
 
 	ctx context.Context
 
@@ -56,7 +55,7 @@ func NewManager(
 	serviceProvider services.Provider,
 	commLayer CommLayer,
 	endpointService EndpointService,
-	identityProvider driver.IdentityProvider,
+	identityProvider IdentityProvider,
 	viewProvider *Registry,
 	provider trace.TracerProvider,
 	metricsProvider metrics.Provider,

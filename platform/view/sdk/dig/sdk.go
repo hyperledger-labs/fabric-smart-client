@@ -112,7 +112,9 @@ func (p *SDK) Install() error {
 		p.Container().Provide(id.NewProvider),
 		p.Container().Provide(
 			digutils.Identity[*id.Provider](),
-			dig.As(new(endpoint.IdentityService), new(view3.IdentityProvider), new(driver.IdentityProvider)),
+			dig.As(
+				new(endpoint.IdentityService), new(view3.IdentityProvider), new(view.IdentityProvider),
+			),
 		),
 		p.Container().Provide(endpoint.NewResolverService),
 		p.Container().Provide(web.NewServer),

@@ -14,7 +14,6 @@ import (
 	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
-	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
@@ -35,7 +34,7 @@ func NewDriver(in struct {
 	EndpointService     identity.EndpointService
 	SigService          *sig.Service
 	DeserializerManager mspdriver.DeserializerManager
-	IdProvider          vdriver.IdentityProvider
+	IdProvider          identity.ViewIdentityProvider
 	KVS                 *kvs.KVS
 	Publisher           events.Publisher
 	Hasher              hash.Hasher
