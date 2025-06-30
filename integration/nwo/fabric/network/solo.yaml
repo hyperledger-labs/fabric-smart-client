@@ -34,10 +34,6 @@ consortiums:
 consensus:
   type: solo
 
-system_channel:
-  name: systemchannel
-  profile: TwoOrgsOrdererGenesis
-
 orderers:
 - name: orderer0
   organization: orderer-org
