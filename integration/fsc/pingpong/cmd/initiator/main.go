@@ -10,8 +10,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/mock"
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 func main() {

@@ -118,7 +118,7 @@ func (n *Namespace) VerifyInputCertificationAt(index int, key string) error {
 
 		// raw is an envelope, it must be signed by enough endorsers
 		cn, cv := n.tx.Chaincode()
-		_, ch, err := fabric.GetChannel(n.tx.ServiceProvider, n.tx.Network(), n.tx.Channel())
+		_, ch, err := fabric.GetChannel(n.tx.Provider, n.tx.Network(), n.tx.Channel())
 		if err != nil {
 			return errors.Wrapf(err, "failed getting channel [%s:%s]", n.tx.Network(), n.tx.Channel())
 		}
@@ -126,7 +126,7 @@ func (n *Namespace) VerifyInputCertificationAt(index int, key string) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed asking endorsers for to [%s,%s,%s] for [%s]", n.tx.Channel(), cn, cv, id)
 		}
-		_, certTx, err := endorser.NewTransactionFromEnvelopeBytes(context.Background(), n.tx.ServiceProvider, raw)
+		_, certTx, err := endorser.NewTransactionFromEnvelopeBytes(context.Background(), n.tx.Provider, raw)
 		if err != nil {
 			return errors.Wrapf(err, "failed parsing certification [%s,%s,%s] for [%s]", n.tx.Channel(), cn, cv, id)
 		}
@@ -175,7 +175,7 @@ func (n *Namespace) certifyInput(id string) error {
 	case ChaincodeCertification:
 		// Invoke chaincode
 		cn, cv := n.tx.Chaincode()
-		fns, ch, err := fabric.GetChannel(n.tx.ServiceProvider, n.tx.Network(), n.tx.Channel())
+		fns, ch, err := fabric.GetChannel(n.tx.Provider, n.tx.Network(), n.tx.Channel())
 		if err != nil {
 			return errors.Wrapf(err, "failed getting channel [%s:%s]", n.tx.Network(), n.tx.Channel())
 		}

@@ -12,6 +12,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+type StartableViewManager interface {
+	ViewManager
+	Start(ctx context.Context)
+}
+
 type ViewManager interface {
 	NewView(id string, in []byte) (view.View, error)
 	InitiateView(view view.View, ctx context.Context) (interface{}, error)

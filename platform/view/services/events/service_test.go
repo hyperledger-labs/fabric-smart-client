@@ -21,17 +21,12 @@ func TestEvents(t *testing.T) {
 	RunSpecs(t, "Event service provider test")
 }
 
-type Registry interface {
-	GetService(v interface{}) (interface{}, error)
-	RegisterService(service interface{}) error
-}
-
 func newService() *events.Service {
 	return &events.Service{EventSystem: simple.NewEventBus()}
 }
 
 var _ = Describe("Event system", func() {
-	var r Registry
+	var r *registry.ServiceProvider
 
 	BeforeEach(func() {
 		r = registry.New()

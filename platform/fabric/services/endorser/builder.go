@@ -9,11 +9,11 @@ package endorser
 import (
 	"context"
 
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -22,7 +22,7 @@ import (
 var logger = logging.MustGetLogger()
 
 type Builder struct {
-	sp view2.ServiceProvider
+	sp view2.Provider
 }
 
 func NewBuilder(context view.Context) *Builder {
@@ -32,7 +32,7 @@ func NewBuilder(context view.Context) *Builder {
 	return &Builder{sp: context}
 }
 
-func NewBuilderWithServiceProvider(sp view2.ServiceProvider) *Builder {
+func NewBuilderWithServiceProvider(sp view2.Provider) *Builder {
 	if sp == nil {
 		panic("service provider must be set")
 	}
@@ -128,8 +128,8 @@ func (t *Builder) newTransactionWithType(ctx context.Context, creator []byte, ne
 		return nil, err
 	}
 	return &Transaction{
-		ServiceProvider: t.sp,
-		Transaction:     fabricTransaction,
+		Provider:    t.sp,
+		Transaction: fabricTransaction,
 	}, nil
 }
 
@@ -163,7 +163,7 @@ func NewTransactionWithSigner(context view.Context, network, channel string, id 
 	return txBuilder, tx, nil
 }
 
-func NewTransactionWith(ctx context.Context, sp view2.ServiceProvider, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
+func NewTransactionWith(ctx context.Context, sp view2.Provider, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
 	txBuilder := NewBuilderWithServiceProvider(sp)
 	tx, err := txBuilder.newTransaction(ctx, id, network, channel, nil, nil, false)
 	if err != nil {
@@ -172,7 +172,7 @@ func NewTransactionWith(ctx context.Context, sp view2.ServiceProvider, network, 
 	return txBuilder, tx, nil
 }
 
-func NewTransactionFromEnvelopeBytes(ctx context.Context, sp view2.ServiceProvider, bytes []byte) (*Builder, *Transaction, error) {
+func NewTransactionFromEnvelopeBytes(ctx context.Context, sp view2.Provider, bytes []byte) (*Builder, *Transaction, error) {
 	txBuilder := NewBuilderWithServiceProvider(sp)
 	tx, err := txBuilder.NewTransactionFromEnvelopeBytes(ctx, bytes)
 	if err != nil {

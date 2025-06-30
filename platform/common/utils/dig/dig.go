@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"runtime/debug"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"go.uber.org/dig"
 )
 
@@ -29,7 +30,7 @@ func Visualize(c *dig.Container) string {
 
 func Register[T any](c invoker) error {
 	// Temporary workaround for services that are imported still using the registry
-	err := c.Invoke(func(registry Registry, service T) error {
+	err := c.Invoke(func(registry services.Registry, service T) error {
 		return registry.RegisterService(service)
 	})
 	if err != nil {

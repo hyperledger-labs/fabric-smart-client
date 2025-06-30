@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
@@ -133,7 +133,7 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 
 			// Check the validity of the response
 			logger.DebugfContext(context.Context(), "Check response validity")
-			if view2.GetEndpointService(context).IsBoundTo(context.Context(), endorser, party) {
+			if endpoint.GetService(context).IsBoundTo(context.Context(), endorser, party) {
 				found = true
 			}
 

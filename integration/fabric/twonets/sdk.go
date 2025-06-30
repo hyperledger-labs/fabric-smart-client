@@ -13,13 +13,14 @@ import (
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
 type SDK struct {
 	dig2.SDK
 }
 
-func NewSDK(registry digutils.Registry) *SDK {
+func NewSDK(registry services.Registry) *SDK {
 	return &SDK{SDK: fabricsdk.NewSDK(registry)}
 }
 

@@ -9,8 +9,8 @@ package client
 import (
 	"errors"
 
-	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
+	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 )
 
 // NewWebClientConfigFromFSC returns a web configuration from an FSC node configuration file

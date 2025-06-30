@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
@@ -39,7 +39,7 @@ func (r *Resolver) GetIdentity() (view.Identity, error) {
 type Service interface {
 	Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error
 	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
-	AddPublicKeyExtractor(extractor view2.PublicKeyExtractor) error
+	AddPublicKeyExtractor(extractor endpoint.PublicKeyExtractor) error
 }
 
 type Config interface {

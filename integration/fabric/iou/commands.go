@@ -8,6 +8,7 @@ package iou
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
@@ -83,7 +84,7 @@ func CheckLocalMetrics(ii *integration.Infrastructure, user string, viewName str
 	}
 
 	logger.Infof("Received in total %f view operations for [%s] for user %s: %v", sum, viewName, user, metrics["fsc_view_operations"].GetMetric())
-	gomega.Expect(sum).NotTo(gomega.BeZero())
+	gomega.Expect(sum).NotTo(gomega.BeZero(), fmt.Sprintf("Operations found: %v", metrics))
 }
 
 func CheckPrometheusMetrics(ii *integration.Infrastructure, viewName string) {

@@ -18,8 +18,8 @@ import (
 	"math/big"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	utils2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/hyperledger/fabric/bccsp/utils"
@@ -107,7 +107,7 @@ func NewSigner() (view.Identity, driver.Signer, driver.Verifier, error) {
 	}
 
 	mspSI := &msp.SerializedIdentity{
-		//Type:    msp.SerializedIdentity_PK,
+		// Type:    msp.SerializedIdentity_PK,
 		IdBytes: pkRaw,
 	}
 	idRaw, err := proto.Marshal(mspSI)

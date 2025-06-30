@@ -9,7 +9,7 @@ package metrics
 import (
 	"reflect"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
 var key = reflect.TypeOf((*Provider)(nil))
@@ -177,7 +177,7 @@ type HistogramOpts struct {
 }
 
 // GetProvider returns the metrics provider registered in the service provider passed in.
-func GetProvider(sp view.ServiceProvider) Provider {
+func GetProvider(sp services.Provider) Provider {
 	s, err := sp.GetService(key)
 	if err != nil {
 		panic(err)

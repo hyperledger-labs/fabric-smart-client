@@ -10,15 +10,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
-
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
-
-	"github.com/pkg/errors"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/pkg/errors"
 )
 
 type twoPartyCollectEphemeralKeyView struct {
@@ -43,7 +39,10 @@ func (f twoPartyCollectEphemeralKeyView) Call(context view.Context) (interface{}
 	if err != nil {
 		return nil, err
 	}
-	sigService := driver.GetSigRegistry(context)
+	sigService, err := sig.GetService(context)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get sig service")
+	}
 	err = sigService.RegisterSigner(context.Context(), id, signer, verifier)
 	if err != nil {
 		return nil, err
@@ -79,7 +78,7 @@ func (f twoPartyCollectEphemeralKeyView) Call(context view.Context) (interface{}
 		}
 
 		// Update the Endpoint Resolver
-		resolver := view2.GetEndpointService(context)
+		resolver := endpoint.GetService(context)
 		err = resolver.Bind(context.Context(), context.Me(), id)
 		if err != nil {
 			return nil, err
@@ -103,7 +102,10 @@ func (s *twoPartyEphemeralKeyResponderView) Call(context view.Context) (interfac
 		return nil, err
 	}
 
-	sigService := driver.GetSigRegistry(context)
+	sigService, err := sig.GetService(context)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get sig service")
+	}
 
 	// Parse received identity
 	id2, verifier, err := NewIdentityFromBytes(payload)
@@ -132,7 +134,7 @@ func (s *twoPartyEphemeralKeyResponderView) Call(context view.Context) (interfac
 	}
 
 	// Update the Endpoint Resolver
-	resolver := view2.GetEndpointService(context)
+	resolver := endpoint.GetService(context)
 	err = resolver.Bind(context.Context(), context.Me(), id)
 	if err != nil {
 		return nil, err

@@ -12,9 +12,9 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
-	registry3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/core/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/vfsdk"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	registry3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -36,7 +36,7 @@ func TestInvalidFactory(t *testing.T) {
 
 func TestError(t *testing.T) {
 	c := vfsdk.NewContainer()
-	assert.NoError(c.Provide(registry3.NewViewProvider))
+	assert.NoError(c.Provide(registry3.NewRegistry))
 	assert.NoError(c.Provide(func() (*myFactory, error) { return nil, errors.New("error occurred") }))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
@@ -46,7 +46,7 @@ func TestError(t *testing.T) {
 
 func TestNoReturnError(t *testing.T) {
 	c := vfsdk.NewContainer()
-	assert.NoError(c.Provide(registry3.NewViewProvider))
+	assert.NoError(c.Provide(registry3.NewRegistry))
 	assert.NoError(c.Provide(func() *myFactory { return &myFactory{} }))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
@@ -56,7 +56,7 @@ func TestNoReturnError(t *testing.T) {
 
 func TestInterdependentFactories(t *testing.T) {
 	c := vfsdk.NewContainer()
-	assert.NoError(c.Provide(registry3.NewViewProvider))
+	assert.NoError(c.Provide(registry3.NewRegistry))
 	assert.NoError(c.Provide(func(f *myFactory) (*myDependentFactory, error) { return &myDependentFactory{myFactory: f}, nil }, vfsdk.WithFactoryId("a"), vfsdk.WithInitiators("init")))
 	assert.NoError(c.Provide(func() (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("b")))
 
@@ -67,7 +67,7 @@ func TestInterdependentFactories(t *testing.T) {
 
 func TestRegisterWithoutParams(t *testing.T) {
 	c := vfsdk.NewContainer()
-	assert.NoError(c.Provide(registry3.NewViewProvider))
+	assert.NoError(c.Provide(registry3.NewRegistry))
 	assert.NoError(c.Provide(func() (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("abc"), vfsdk.WithInitiators("in1", "in2")))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
@@ -77,7 +77,7 @@ func TestRegisterWithoutParams(t *testing.T) {
 
 func TestRegisterWithParams(t *testing.T) {
 	c := vfsdk.NewContainer()
-	assert.NoError(c.Provide(registry3.NewViewProvider))
+	assert.NoError(c.Provide(registry3.NewRegistry))
 	assert.NoError(c.Provide(func() *myInput { return &myInput{} }))
 	assert.NoError(c.Provide(func(_ *myInput) (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("abc"), vfsdk.WithInitiators("in1", "in2")))
 

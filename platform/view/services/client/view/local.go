@@ -10,10 +10,10 @@ import (
 	"context"
 	"encoding/json"
 
-	utils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -23,11 +23,11 @@ const (
 )
 
 type LocalClient struct {
-	serviceLocator utils.ServiceLocator
+	serviceLocator services.Provider
 	tracer         trace.Tracer
 }
 
-func NewLocalClient(registry utils.ServiceLocator) *LocalClient {
+func NewLocalClient(registry services.Provider) *LocalClient {
 	return &LocalClient{
 		serviceLocator: registry,
 	}
@@ -38,7 +38,10 @@ func (n *LocalClient) CallView(fid string, in []byte) (interface{}, error) {
 		trace.WithSpanKind(trace.SpanKindClient),
 		tracing.WithAttributes(tracing.String(fidLabel, fid)))
 	defer span.End()
-	manager := view2.GetManager(n.serviceLocator)
+	manager, err := view.GetManager(n.serviceLocator)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed getting view manager [%s]", fid)
+	}
 	span.AddEvent("start_new_view")
 	f, err := manager.NewView(fid, in)
 	span.AddEvent("end_new_view")

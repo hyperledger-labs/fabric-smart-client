@@ -10,14 +10,14 @@ import (
 	"bytes"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
 
 type Transaction struct {
-	view2.ServiceProvider
+	view2.Provider
 
 	Transaction       *fabric.Transaction
 	verifierProviders []fabric.VerifierProvider

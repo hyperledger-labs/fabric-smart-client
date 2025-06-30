@@ -11,16 +11,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
 
 type EndpointService interface {
-	Resolve(ctx context.Context, party view2.Identity) (view2.Identity, map[view.PortName]string, []byte, error)
-	GetIdentity(label string, pkID []byte) (view2.Identity, error)
+	Resolve(ctx context.Context, party view.Identity) (view.Identity, map[endpoint.PortName]string, []byte, error)
+	GetIdentity(label string, pkID []byte) (view.Identity, error)
 }
 
 type ConfigService interface {
@@ -72,21 +72,21 @@ func (s *Service) Stop() {
 	s.Node.Stop()
 }
 
-func (s *Service) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view2.Identity, msg *view2.Message) (view2.Session, error) {
+func (s *Service) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error) {
 	if err := s.init(); err != nil {
 		return nil, errors.Errorf("communication service not ready [%s]", err)
 	}
 	return s.Node.NewSessionWithID(sessionID, contextID, endpoint, pkid, caller, msg)
 }
 
-func (s *Service) NewSession(caller string, contextID string, endpoint string, pkid []byte) (view2.Session, error) {
+func (s *Service) NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error) {
 	if err := s.init(); err != nil {
 		return nil, errors.Errorf("communication service not ready [%s]", err)
 	}
 	return s.Node.NewSession(caller, contextID, endpoint, pkid)
 }
 
-func (s *Service) MasterSession() (view2.Session, error) {
+func (s *Service) MasterSession() (view.Session, error) {
 	if err := s.init(); err != nil {
 		return nil, errors.Errorf("communication service not ready [%s]", err)
 	}
@@ -101,7 +101,7 @@ func (s *Service) DeleteSessions(ctx context.Context, sessionID string) {
 	s.Node.DeleteSessions(ctx, sessionID)
 }
 
-func (s *Service) Addresses(id view2.Identity) ([]string, error) {
+func (s *Service) Addresses(id view.Identity) ([]string, error) {
 	// TODO: implement this
 	return nil, nil
 }

@@ -9,7 +9,7 @@ package driver
 import (
 	"reflect"
 
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
 // FabricNetworkService gives access to a Fabric network components
@@ -48,7 +48,7 @@ type FabricNetworkServiceProvider interface {
 	FabricNetworkService(id string) (FabricNetworkService, error)
 }
 
-func GetFabricManagementService(ctx view2.ServiceProvider) FabricNetworkServiceProvider {
+func GetFabricManagementService(ctx services.Provider) FabricNetworkServiceProvider {
 	s, err := ctx.GetService(reflect.TypeOf((*FabricNetworkServiceProvider)(nil)))
 	if err != nil {
 		panic(err)

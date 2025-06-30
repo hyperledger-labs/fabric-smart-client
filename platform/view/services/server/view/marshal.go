@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -32,7 +32,7 @@ func UnmarshalCommand(raw []byte) (*protos.Command, error) {
 type TimeFunc func() time.Time
 
 type SignerProvider interface {
-	GetSigner(identity view2.Identity) (view.Signer, error)
+	GetSigner(identity view2.Identity) (sig.Signer, error)
 }
 
 // ResponseMarshaler produces SignedCommandResponse
