@@ -10,9 +10,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
@@ -39,7 +39,10 @@ func (f twoPartyCollectEphemeralKeyView) Call(context view.Context) (interface{}
 	if err != nil {
 		return nil, err
 	}
-	sigService := driver.GetSigRegistry(context)
+	sigService, err := sig.GetService(context)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get sig service")
+	}
 	err = sigService.RegisterSigner(context.Context(), id, signer, verifier)
 	if err != nil {
 		return nil, err
@@ -99,7 +102,10 @@ func (s *twoPartyEphemeralKeyResponderView) Call(context view.Context) (interfac
 		return nil, err
 	}
 
-	sigService := driver.GetSigRegistry(context)
+	sigService, err := sig.GetService(context)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get sig service")
+	}
 
 	// Parse received identity
 	id2, verifier, err := NewIdentityFromBytes(payload)

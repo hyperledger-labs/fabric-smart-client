@@ -12,7 +12,7 @@ import (
 
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	m "github.com/hyperledger/fabric-protos-go/msp"
 	"github.com/hyperledger/fabric/msp"
 	"github.com/pkg/errors"
@@ -205,6 +205,6 @@ func (id *MSPSigningIdentity) Sign(msg []byte) ([]byte, error) {
 	return sig, nil
 }
 
-func (id *MSPSigningIdentity) GetPublicVersion() driver.Identity {
+func (id *MSPSigningIdentity) GetPublicVersion() driver.VerifyingIdentity {
 	return id.MSPIdentity
 }

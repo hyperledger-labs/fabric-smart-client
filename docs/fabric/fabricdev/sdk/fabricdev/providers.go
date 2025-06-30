@@ -8,7 +8,6 @@ package fabricdev
 
 import (
 	fdevdriver "github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/core/fabricdev/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
@@ -20,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )

@@ -10,7 +10,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	msp2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
@@ -20,6 +19,7 @@ import (
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	registry2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,13 +40,13 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	des := sig.NewMultiplexDeserializer()
+	des := sig2.NewMultiplexDeserializer()
 	assert.NoError(t, registry.RegisterService(des))
 	config, err := config2.NewService(cp, "default", true)
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, newAuditInfo(), newSignerInfo())
+	sigService := sig2.NewService(des, newAuditInfo(), newSignerInfo())
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.RegisterIdemixMSP("apple", "./idemix/testdata/idemix", "idemix"))
@@ -70,13 +70,13 @@ func TestIdemixTypeFolder(t *testing.T) {
 	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	des := sig.NewMultiplexDeserializer()
+	des := sig2.NewMultiplexDeserializer()
 	assert.NoError(t, registry.RegisterService(des))
 	config, err := config2.NewService(cp, "default", true)
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, newAuditInfo(), newSignerInfo())
+	sigService := sig2.NewService(des, newAuditInfo(), newSignerInfo())
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.Load())
@@ -97,13 +97,13 @@ func TestRegisterX509LocalMSP(t *testing.T) {
 	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	des := sig.NewMultiplexDeserializer()
+	des := sig2.NewMultiplexDeserializer()
 	assert.NoError(t, registry.RegisterService(des))
 	config, err := config2.NewService(cp, "default", true)
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, newAuditInfo(), newSignerInfo())
+	sigService := sig2.NewService(des, newAuditInfo(), newSignerInfo())
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.RegisterX509MSP("apple", "./x509/testdata/msp", "x509"))
@@ -127,13 +127,13 @@ func TestX509TypeFolder(t *testing.T) {
 	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	des := sig.NewMultiplexDeserializer()
+	des := sig2.NewMultiplexDeserializer()
 	assert.NoError(t, registry.RegisterService(des))
 	config, err := config2.NewService(cp, "default", true)
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, newAuditInfo(), newSignerInfo())
+	sigService := sig2.NewService(des, newAuditInfo(), newSignerInfo())
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.Load())
@@ -154,13 +154,13 @@ func TestRefresh(t *testing.T) {
 	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
 	assert.NoError(t, err)
 	assert.NoError(t, registry.RegisterService(kvss))
-	des := sig.NewMultiplexDeserializer()
+	des := sig2.NewMultiplexDeserializer()
 	assert.NoError(t, registry.RegisterService(des))
 	config, err := config2.NewService(cp, "default", true)
 	assert.NoError(t, err)
 	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 	assert.NoError(t, registry.RegisterService(mspService))
-	sigService := sig.NewService(des, newAuditInfo(), newSignerInfo())
+	sigService := sig2.NewService(des, newAuditInfo(), newSignerInfo())
 	assert.NoError(t, registry.RegisterService(sigService))
 
 	assert.NoError(t, mspService.Load())

@@ -8,7 +8,7 @@ package view
 
 import (
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )
@@ -20,7 +20,7 @@ type IdentityProvider interface {
 }
 
 type VerifierProvider interface {
-	GetVerifier(identity view.Identity) (view2.Verifier, error)
+	GetVerifier(identity view.Identity) (sig.Verifier, error)
 }
 
 type AccessControlChecker struct {

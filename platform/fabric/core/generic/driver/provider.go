@@ -11,7 +11,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
@@ -20,6 +19,7 @@ import (
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 )
 
 var logger = logging.MustGetLogger()
@@ -29,7 +29,7 @@ type Provider struct {
 	identityProvider   identity.Provider
 	metricsProvider    metrics.Provider
 	channelProvider    generic.ChannelProvider
-	sigService         *sig.Service
+	sigService         fdriver.SignerService
 	mspManagerProvider identity.MSPManagerProvider
 }
 

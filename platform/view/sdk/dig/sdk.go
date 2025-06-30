@@ -13,7 +13,6 @@ import (
 	"github.com/go-kit/log"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/sig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
@@ -100,11 +99,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(newMultiplexedDriver),
 		p.Container().Provide(file.NewDriver, dig.Group("kms-drivers")),
 		p.Container().Provide(newKVS),
-		p.Container().Provide(sig2.NewDeserializer),
-		p.Container().Provide(
-			sig2.NewService,
-			dig.As(new(id.SigService), new(driver.SigService), new(driver.SigRegistry), new(driver.AuditRegistry)),
-		),
+		p.Container().Provide(sig.NewDeserializer),
 		p.Container().Provide(endpoint.NewService),
 		p.Container().Provide(
 			digutils.Identity[*endpoint.Service](),
@@ -113,7 +108,6 @@ func (p *SDK) Install() error {
 		p.Container().Provide(binding.NewDefaultStore),
 		p.Container().Provide(signerinfo.NewDefaultStore),
 		p.Container().Provide(auditinfo.NewDefaultStore),
-		// p.Container().Provide(digutils.Identity[*endpoint.Service](), dig.As(new(driver.EndpointService))),
 		p.Container().Provide(newKMSDriver),
 		p.Container().Provide(id.NewProvider),
 		p.Container().Provide(
@@ -163,7 +157,10 @@ func (p *SDK) Install() error {
 		p.Container().Provide(sig.NewService),
 		p.Container().Provide(
 			digutils.Identity[*sig.Service](),
-			dig.As(new(view.LocalIdentityChecker), new(view3.VerifierProvider), new(view3.SignerProvider)),
+			dig.As(
+				new(view.LocalIdentityChecker), new(view3.VerifierProvider), new(view3.SignerProvider),
+				new(id.SigService),
+			),
 		),
 		p.Container().Provide(func(tracerProvider trace.TracerProvider) *finality.Manager {
 			return finality.NewManager(tracerProvider)

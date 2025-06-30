@@ -9,22 +9,25 @@ package sig
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"runtime/debug"
 	"sync"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 )
 
-var logger = logging.MustGetLogger()
+type Verifier = driver2.Verifier
+
+type Signer = driver2.Signer
 
 type VerifierEntry struct {
-	Verifier   driver.Verifier
+	Verifier   driver2.Verifier
 	DebugStack []byte
 }
 
@@ -50,7 +53,15 @@ func NewService(deserializer Deserializer, auditInfoKVS driver2.AuditInfoStore, 
 	}
 }
 
-func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, signer driver.Signer, verifier driver.Verifier) error {
+func GetService(sp services.Provider) (*Service, error) {
+	s, err := sp.GetService(reflect.TypeOf((*Service)(nil)))
+	if err != nil {
+		return nil, err
+	}
+	return s.(*Service), nil
+}
+
+func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, signer driver2.Signer, verifier driver2.Verifier) error {
 	if signer == nil {
 		return errors.New("invalid signer, expected a valid instance")
 	}
@@ -100,7 +111,7 @@ func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, si
 	return nil
 }
 
-func (o *Service) RegisterVerifier(identity view.Identity, verifier driver.Verifier) error {
+func (o *Service) RegisterVerifier(identity view.Identity, verifier driver2.Verifier) error {
 	if verifier == nil {
 		return errors.New("invalid verifier, expected a valid instance")
 	}
@@ -193,7 +204,7 @@ func (o *Service) Info(ctx context.Context, id view.Identity) string {
 	return info
 }
 
-func (o *Service) GetSigner(identity view.Identity) (driver.Signer, error) {
+func (o *Service) GetSigner(identity view.Identity) (driver2.Signer, error) {
 	idHash := identity.UniqueID()
 	logger.Debugf("get signer for [%s]", idHash)
 	o.mutex.RLock()
@@ -234,7 +245,7 @@ func (o *Service) GetSigner(identity view.Identity) (driver.Signer, error) {
 	return entry.Signer, nil
 }
 
-func (o *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
+func (o *Service) GetVerifier(identity view.Identity) (driver2.Verifier, error) {
 	idHash := identity.UniqueID()
 
 	o.mutex.RLock()
@@ -274,14 +285,14 @@ func (o *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 	return entry.Verifier, nil
 }
 
-func (o *Service) GetSigningIdentity(identity view.Identity) (driver.SigningIdentity, error) {
+func (o *Service) GetSigningIdentity(identity view.Identity) (driver2.SigningIdentity, error) {
 	signer, err := o.GetSigner(identity)
 	if err != nil {
 		return nil, err
 	}
 
-	if _, ok := signer.(driver.SigningIdentity); ok {
-		return signer.(driver.SigningIdentity), nil
+	if _, ok := signer.(driver2.SigningIdentity); ok {
+		return signer.(driver2.SigningIdentity), nil
 	}
 
 	return &si{
@@ -298,14 +309,14 @@ func (o *Service) deleteSigner(id string) {
 
 type si struct {
 	id     view.Identity
-	signer driver.Signer
+	signer driver2.Signer
 }
 
 func (s *si) Verify(message []byte, signature []byte) error {
 	panic("implement me")
 }
 
-func (s *si) GetPublicVersion() driver.Identity {
+func (s *si) GetPublicVersion() driver2.VerifyingIdentity {
 	return s
 }
 
