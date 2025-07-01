@@ -64,7 +64,7 @@ func (cm *Registry) NewView(id string, in []byte) (f view.View, err error) {
 	return factory.NewView(in)
 }
 
-func (cm *Registry) RegisterResponderFactory(factory Factory, initiatedBy interface{}) error {
+func (cm *Registry) RegisterResponderFactory(factory Factory, initiatedBy any) error {
 	responder, err := factory.NewView(nil)
 	if err != nil {
 		return err
@@ -72,11 +72,11 @@ func (cm *Registry) RegisterResponderFactory(factory Factory, initiatedBy interf
 	return cm.RegisterResponder(responder, initiatedBy)
 }
 
-func (cm *Registry) RegisterResponder(responder view.View, initiatedBy interface{}) error {
+func (cm *Registry) RegisterResponder(responder view.View, initiatedBy any) error {
 	return cm.RegisterResponderWithIdentity(responder, nil, initiatedBy)
 }
 
-func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error {
+func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy any) error {
 	switch t := initiatedBy.(type) {
 	case view.View:
 		cm.registerResponderWithIdentity(responder, id, cm.GetIdentifier(t))
@@ -88,7 +88,7 @@ func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.I
 	return nil
 }
 
-func (cm *Registry) GetResponder(initiatedBy interface{}) (view.View, error) {
+func (cm *Registry) GetResponder(initiatedBy any) (view.View, error) {
 	var initiatedByID string
 	switch t := initiatedBy.(type) {
 	case view.View:

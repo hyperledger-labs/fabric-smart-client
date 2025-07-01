@@ -88,7 +88,7 @@ func GetManager(sp services.Provider) (*Manager, error) {
 	return s.(*Manager), nil
 }
 
-func (m *Manager) GetService(typ reflect.Type) (interface{}, error) {
+func (m *Manager) GetService(typ reflect.Type) (any, error) {
 	return m.sp.GetService(typ)
 }
 
@@ -100,19 +100,19 @@ func (m *Manager) NewView(id string, in []byte) (f view.View, err error) {
 	return m.registry.NewView(id, in)
 }
 
-func (m *Manager) RegisterResponder(responder view.View, initiatedBy interface{}) error {
+func (m *Manager) RegisterResponder(responder view.View, initiatedBy any) error {
 	return m.registry.RegisterResponder(responder, initiatedBy)
 }
 
-func (m *Manager) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error {
+func (m *Manager) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy any) error {
 	return m.registry.RegisterResponderWithIdentity(responder, id, initiatedBy)
 }
 
-func (m *Manager) GetResponder(initiatedBy interface{}) (view.View, error) {
+func (m *Manager) GetResponder(initiatedBy any) (view.View, error) {
 	return m.registry.GetResponder(initiatedBy)
 }
 
-func (m *Manager) Initiate(ctx context.Context, id string) (interface{}, error) {
+func (m *Manager) Initiate(ctx context.Context, id string) (any, error) {
 	v, err := m.registry.GetView(id)
 	if err != nil {
 		return nil, err
@@ -121,11 +121,11 @@ func (m *Manager) Initiate(ctx context.Context, id string) (interface{}, error) 
 	return m.InitiateViewWithIdentity(ctx, v, m.me())
 }
 
-func (m *Manager) InitiateView(ctx context.Context, view view.View) (interface{}, error) {
+func (m *Manager) InitiateView(ctx context.Context, view view.View) (any, error) {
 	return m.InitiateViewWithIdentity(ctx, view, m.me())
 }
 
-func (m *Manager) InitiateViewWithIdentity(c context.Context, view view.View, id view.Identity) (interface{}, error) {
+func (m *Manager) InitiateViewWithIdentity(c context.Context, view view.View, id view.Identity) (any, error) {
 	// Create the context
 	m.contextsSync.Lock()
 	ctx := m.ctx
@@ -135,18 +135,7 @@ func (m *Manager) InitiateViewWithIdentity(c context.Context, view view.View, id
 	}
 	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(c))
 
-	viewContext, err := NewContextForInitiator(
-		"",
-		ctx,
-		m.sp,
-		m.commLayer,
-		m.endpointService,
-		m.identityProvider,
-		id,
-		view,
-		m.viewTracer,
-		m.localIdentityChecker,
-	)
+	viewContext, err := NewContextForInitiator(ctx, "", m.sp, m.commLayer, m.endpointService, m.identityProvider, id, view, m.viewTracer, m.localIdentityChecker)
 	if err != nil {
 		return nil, err
 	}
@@ -183,18 +172,7 @@ func (m *Manager) InitiateContextFrom(ctx context.Context, view view.View, id vi
 	if id.IsNone() {
 		id = m.me()
 	}
-	viewContext, err := NewContextForInitiator(
-		contextID,
-		ctx,
-		m.sp,
-		m.commLayer,
-		m.endpointService,
-		m.identityProvider,
-		id,
-		view,
-		m.viewTracer,
-		m.localIdentityChecker,
-	)
+	viewContext, err := NewContextForInitiator(ctx, contextID, m.sp, m.commLayer, m.endpointService, m.identityProvider, id, view, m.viewTracer, m.localIdentityChecker)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +236,7 @@ func (m *Manager) ExistResponderForCaller(caller string) (view.View, view.Identi
 	return m.registry.ExistResponderForCaller(caller)
 }
 
-func (m *Manager) respond(responder view.View, id view.Identity, msg *view.Message) (ctx view.Context, res interface{}, err error) {
+func (m *Manager) respond(responder view.View, id view.Identity, msg *view.Message) (ctx view.Context, res any, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("respond triggered panic: %s\n%s\n", r, debug.Stack())
@@ -280,7 +258,7 @@ func (m *Manager) respond(responder view.View, id view.Identity, msg *view.Messa
 	// run view
 	if isNew {
 		// delete context at the end of the execution
-		res, err = func(ctx view.Context, responder view.View) (interface{}, error) {
+		res, err = func(ctx view.Context, responder view.View) (any, error) {
 			defer func() {
 				// TODO: this is a workaround
 				// give some time to flush anything can be in queues

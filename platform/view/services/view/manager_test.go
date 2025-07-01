@@ -21,30 +21,23 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
-type Manager interface {
-	InitiateView(ctx context.Context, f view.View) (interface{}, error)
-	Context(id string) (view.Context, error)
-	RegisterFactory(id string, factory view2.Factory) error
-	NewView(id string, in []byte) (f view.View, err error)
-	Initiate(ctx context.Context, id string) (interface{}, error)
-	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error
-}
+type manager = view2.Manager
 
 type InitiatorView struct{}
 
-func (a InitiatorView) Call(context view.Context) (interface{}, error) {
+func (a InitiatorView) Call(context view.Context) (any, error) {
 	return nil, nil
 }
 
 type ResponderView struct{}
 
-func (a ResponderView) Call(context view.Context) (interface{}, error) {
+func (a ResponderView) Call(context view.Context) (any, error) {
 	return "pineapple", nil
 }
 
 type DummyView struct{}
 
-func (a DummyView) Call(context view.Context) (interface{}, error) {
+func (a DummyView) Call(context view.Context) (any, error) {
 	time.Sleep(2 * time.Second)
 	return nil, nil
 }
@@ -118,36 +111,36 @@ func TestRegisterResponderWithViewIdentifier(t *testing.T) {
 	assert.Equal(t, "pineapple", res)
 }
 
-func registerFactory(t *testing.T, wg *sync.WaitGroup, m Manager) {
+func registerFactory(t *testing.T, wg *sync.WaitGroup, m *manager) {
 	err := m.RegisterFactory(view2.GenerateUUID(), &DummyFactory{})
 	wg.Done()
 	assert.NoError(t, err)
 }
 
-func registerResponder(t *testing.T, wg *sync.WaitGroup, m Manager) {
+func registerResponder(t *testing.T, wg *sync.WaitGroup, m *manager) {
 	assert.NoError(t, m.RegisterResponderWithIdentity(&DummyView{}, []byte("alice"), &DummyView{}))
 	wg.Done()
 }
 
-func callView(t *testing.T, wg *sync.WaitGroup, m Manager) {
+func callView(t *testing.T, wg *sync.WaitGroup, m *manager) {
 	_, err := m.InitiateView(context.Background(), &DummyView{})
 	wg.Done()
 	assert.NoError(t, err)
 }
 
-func newView(t *testing.T, wg *sync.WaitGroup, m Manager) {
+func newView(t *testing.T, wg *sync.WaitGroup, m *manager) {
 	_, err := m.NewView(view2.GenerateUUID(), nil)
 	wg.Done()
 	assert.Error(t, err)
 }
 
-func initiateView(t *testing.T, wg *sync.WaitGroup, m Manager) {
+func initiateView(t *testing.T, wg *sync.WaitGroup, m *manager) {
 	_, err := m.Initiate(context.Background(), view2.GenerateUUID())
 	wg.Done()
 	assert.Error(t, err)
 }
 
-func getContext(t *testing.T, wg *sync.WaitGroup, m Manager) {
+func getContext(t *testing.T, wg *sync.WaitGroup, m *manager) {
 	_, err := m.Context("a context")
 	wg.Done()
 	assert.Error(t, err)
