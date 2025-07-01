@@ -49,7 +49,7 @@ type SessionFactory struct {
 	deleteSessionsArgsForCall []struct {
 		sessionID string
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -69,7 +69,7 @@ func (fake *SessionFactory) NewSessionWithID(sessionID string, contextID string,
 		caller    view.Identity
 		msg       *view.Message
 	}{sessionID, contextID, endpoint, pkidCopy, caller, msg})
-	fake.recordInvocation("NewSessionWithID", []interface{}{sessionID, contextID, endpoint, pkidCopy, caller, msg})
+	fake.recordInvocation("NewSessionWithID", []any{sessionID, contextID, endpoint, pkidCopy, caller, msg})
 	fake.newSessionWithIDMutex.Unlock()
 	if fake.NewSessionWithIDStub != nil {
 		return fake.NewSessionWithIDStub(sessionID, contextID, endpoint, pkid, caller, msg)
@@ -128,7 +128,7 @@ func (fake *SessionFactory) NewSession(caller string, contextID string, endpoint
 		endpoint  string
 		pkid      []byte
 	}{caller, contextID, endpoint, pkidCopy})
-	fake.recordInvocation("NewSession", []interface{}{caller, contextID, endpoint, pkidCopy})
+	fake.recordInvocation("NewSession", []any{caller, contextID, endpoint, pkidCopy})
 	fake.newSessionMutex.Unlock()
 	if fake.NewSessionStub != nil {
 		return fake.NewSessionStub(caller, contextID, endpoint, pkid)
@@ -178,7 +178,7 @@ func (fake *SessionFactory) DeleteSessions(ctx context.Context, sessionID string
 	fake.deleteSessionsArgsForCall = append(fake.deleteSessionsArgsForCall, struct {
 		sessionID string
 	}{sessionID})
-	fake.recordInvocation("DeleteSessions", []interface{}{sessionID})
+	fake.recordInvocation("DeleteSessions", []any{sessionID})
 	fake.deleteSessionsMutex.Unlock()
 	if fake.DeleteSessionsStub != nil {
 		fake.DeleteSessionsStub(sessionID)
@@ -197,7 +197,7 @@ func (fake *SessionFactory) DeleteSessionsArgsForCall(i int) string {
 	return fake.deleteSessionsArgsForCall[i].sessionID
 }
 
-func (fake *SessionFactory) Invocations() map[string][][]interface{} {
+func (fake *SessionFactory) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.newSessionWithIDMutex.RLock()
@@ -206,21 +206,21 @@ func (fake *SessionFactory) Invocations() map[string][][]interface{} {
 	defer fake.newSessionMutex.RUnlock()
 	fake.deleteSessionsMutex.RLock()
 	defer fake.deleteSessionsMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *SessionFactory) recordInvocation(key string, args []interface{}) {
+func (fake *SessionFactory) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

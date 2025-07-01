@@ -68,8 +68,8 @@ type ctx struct {
 }
 
 func NewContextForInitiator(
-	contextID string,
 	context context.Context,
+	contextID string,
 	sp services.Provider,
 	sessionFactory SessionFactory,
 	resolver EndpointService,
@@ -164,7 +164,7 @@ func (c *ctx) Initiator() view.View {
 	return c.initiator
 }
 
-func (c *ctx) RunView(v view.View, opts ...view.RunViewOption) (res interface{}, err error) {
+func (c *ctx) RunView(v view.View, opts ...view.RunViewOption) (res any, err error) {
 	return runViewOn(v, opts, c)
 }
 
@@ -251,11 +251,11 @@ func (c *ctx) ResetSessions() error {
 	return nil
 }
 
-func (c *ctx) PutService(service interface{}) error {
+func (c *ctx) PutService(service any) error {
 	return c.localSP.RegisterService(service)
 }
 
-func (c *ctx) GetService(v interface{}) (interface{}, error) {
+func (c *ctx) GetService(v any) (any, error) {
 	// first search locally then globally
 	s, err := c.localSP.GetService(v)
 	if err == nil {
@@ -379,7 +379,7 @@ func (c *tempCtx) Context() context.Context {
 	return c.newCtx
 }
 
-func runViewOn(v view.View, opts []view.RunViewOption, parent localContext) (res interface{}, err error) {
+func runViewOn(v view.View, opts []view.RunViewOption, parent localContext) (res any, err error) {
 	options, err := view.CompileRunViewOptions(opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed compiling options")
