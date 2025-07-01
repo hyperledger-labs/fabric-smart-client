@@ -22,11 +22,11 @@ import (
 )
 
 type Manager interface {
-	InitiateView(f view.View, ctx context.Context) (interface{}, error)
+	InitiateView(ctx context.Context, f view.View) (interface{}, error)
 	Context(id string) (view.Context, error)
 	RegisterFactory(id string, factory view2.Factory) error
 	NewView(id string, in []byte) (f view.View, err error)
-	Initiate(id string, ctx context.Context) (interface{}, error)
+	Initiate(ctx context.Context, id string) (interface{}, error)
 	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error
 }
 
@@ -130,7 +130,7 @@ func registerResponder(t *testing.T, wg *sync.WaitGroup, m Manager) {
 }
 
 func callView(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.InitiateView(&DummyView{}, context.Background())
+	_, err := m.InitiateView(context.Background(), &DummyView{})
 	wg.Done()
 	assert.NoError(t, err)
 }
@@ -142,7 +142,7 @@ func newView(t *testing.T, wg *sync.WaitGroup, m Manager) {
 }
 
 func initiateView(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.Initiate(view2.GenerateUUID(), context.Background())
+	_, err := m.Initiate(context.Background(), view2.GenerateUUID())
 	wg.Done()
 	assert.Error(t, err)
 }
