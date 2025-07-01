@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/view"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/web"
 	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -33,7 +33,7 @@ type Server interface {
 	Stop() error
 }
 
-func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewManager, tracerProvider tracing.Provider) Server {
+func NewWebServer(configProvider driver.ConfigService, viewManager view.Manager, tracerProvider tracing.Provider) Server {
 	if !configProvider.GetBool("fsc.web.enabled") {
 		logger.Info("web server not enabled")
 		return web.NewDummyServer()
