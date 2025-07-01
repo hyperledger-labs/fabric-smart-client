@@ -20,31 +20,23 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
-type Manager interface {
-	InitiateView(f view.View, ctx context.Context) (interface{}, error)
-	Context(id string) (view.Context, error)
-	RegisterFactory(id string, factory view2.Factory) error
-	NewView(id string, in []byte) (f view.View, err error)
-	Initiate(id string, ctx context.Context) (interface{}, error)
-	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error
-	Start(ctx context.Context)
-}
+type manager = view2.Manager
 
 type InitiatorView struct{}
 
-func (a InitiatorView) Call(context view.Context) (interface{}, error) {
+func (a InitiatorView) Call(context view.Context) (any, error) {
 	return nil, nil
 }
 
 type ResponderView struct{}
 
-func (a ResponderView) Call(context view.Context) (interface{}, error) {
+func (a ResponderView) Call(context view.Context) (any, error) {
 	return "pineapple", nil
 }
 
 type DummyView struct{}
 
-func (a DummyView) Call(context view.Context) (interface{}, error) {
+func (a DummyView) Call(context view.Context) (any, error) {
 	time.Sleep(2 * time.Second)
 	return nil, nil
 }
@@ -56,16 +48,17 @@ func (d *DummyFactory) NewView(in []byte) (view.View, error) {
 	return nil, nil
 }
 
-func TestGetIdentifier(t *testing.T) {
-	registry := view2.NewServiceProvider()
-	idProvider := &mock.IdentityProvider{}
-	idProvider.DefaultIdentityReturns([]byte("alice"))
-	manager := view2.NewManager(registry, &mock.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
+func (d *DummyFactory) NewViewWithArg(in any) (view.View, error) {
+	time.Sleep(2 * time.Second)
+	return nil, nil
+}
 
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(DummyView{}))
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(&DummyView{}))
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(new(DummyView)))
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(*(new(DummyView))))
+func TestGetIdentifier(t *testing.T) {
+	viewRegistry := view2.NewRegistry()
+	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", viewRegistry.GetIdentifier(DummyView{}))
+	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", viewRegistry.GetIdentifier(&DummyView{}))
+	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", viewRegistry.GetIdentifier(new(DummyView)))
+	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", viewRegistry.GetIdentifier(*(new(DummyView))))
 }
 
 func TestManagerRace(t *testing.T) {
@@ -92,9 +85,11 @@ func TestManagerRace(t *testing.T) {
 
 	wg := &sync.WaitGroup{}
 	for i := 0; i < 100; i++ {
-		wg.Add(7)
+		wg.Add(8)
 		go registerFactory(t, wg, manager)
+		go registerLocalFactory(t, wg, manager)
 		go newView(t, wg, manager)
+		go newLocalView(t, wg, manager)
 		go callView(t, wg, manager)
 		go getContext(t, wg, manager)
 		go initiateView(t, wg, manager)
@@ -110,9 +105,9 @@ func TestRegisterResponderWithInitiatorView(t *testing.T) {
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 
 	manager := view2.NewManager(registry, &mock.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
-	err := manager.RegisterResponder(&ResponderView{}, &InitiatorView{})
+	err := manager.Registry().RegisterResponder(&ResponderView{}, &InitiatorView{})
 	assert.NoError(t, err)
-	responder, _, err := manager.ExistResponderForCaller(manager.GetIdentifier(&InitiatorView{}))
+	responder, _, err := manager.Registry().ExistResponderForCaller(manager.Registry().GetIdentifier(&InitiatorView{}))
 	assert.NoError(t, err)
 	res, err := responder.Call(nil)
 	assert.NoError(t, err)
@@ -126,46 +121,58 @@ func TestRegisterResponderWithViewIdentifier(t *testing.T) {
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 
 	manager := view2.NewManager(registry, &mock.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
-	err := manager.RegisterResponder(&ResponderView{}, manager.GetIdentifier(&InitiatorView{}))
+	err := manager.Registry().RegisterResponder(&ResponderView{}, manager.Registry().GetIdentifier(&InitiatorView{}))
 	assert.NoError(t, err)
-	responder, _, err := manager.ExistResponderForCaller(manager.GetIdentifier(&InitiatorView{}))
+	responder, _, err := manager.Registry().ExistResponderForCaller(manager.Registry().GetIdentifier(&InitiatorView{}))
 	assert.NoError(t, err)
 	res, err := responder.Call(nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "pineapple", res)
 }
 
-func registerFactory(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	err := m.RegisterFactory(view2.GenerateUUID(), &DummyFactory{})
+func registerFactory(t *testing.T, wg *sync.WaitGroup, m *manager) {
+	err := m.Registry().RegisterFactory(view2.GenerateUUID(), &DummyFactory{})
 	wg.Done()
 	assert.NoError(t, err)
 }
 
-func registerResponder(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	assert.NoError(t, m.RegisterResponderWithIdentity(&DummyView{}, []byte("alice"), &DummyView{}))
-	wg.Done()
-}
-
-func callView(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.InitiateView(&DummyView{}, context.Background())
+func registerLocalFactory(t *testing.T, wg *sync.WaitGroup, m *manager) {
+	err := m.Registry().RegisterLocalFactory(view2.GenerateUUID(), &DummyFactory{})
 	wg.Done()
 	assert.NoError(t, err)
 }
 
-func newView(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.NewView(view2.GenerateUUID(), nil)
+func registerResponder(t *testing.T, wg *sync.WaitGroup, m *manager) {
+	assert.NoError(t, m.Registry().RegisterResponderWithIdentity(&DummyView{}, []byte("alice"), &DummyView{}))
+	wg.Done()
+}
+
+func callView(t *testing.T, wg *sync.WaitGroup, m *manager) {
+	_, err := m.InitiateView(context.Background(), &DummyView{})
+	wg.Done()
+	assert.NoError(t, err)
+}
+
+func newView(t *testing.T, wg *sync.WaitGroup, m *manager) {
+	_, err := m.Registry().NewView(view2.GenerateUUID(), nil)
 	wg.Done()
 	assert.Error(t, err)
 }
 
-func initiateView(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.Initiate(view2.GenerateUUID(), context.Background())
+func newLocalView(t *testing.T, wg *sync.WaitGroup, m *manager) {
+	_, err := m.Registry().NewLocalView(view2.GenerateUUID(), nil)
 	wg.Done()
 	assert.Error(t, err)
 }
 
-func getContext(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.Context("a context")
+func initiateView(t *testing.T, wg *sync.WaitGroup, m *manager) {
+	_, err := m.Initiate(context.Background(), view2.GenerateUUID())
+	wg.Done()
+	assert.Error(t, err)
+}
+
+func getContext(t *testing.T, wg *sync.WaitGroup, m *manager) {
+	_, err := m.ContextByID("a context")
 	wg.Done()
 	assert.Error(t, err)
 }

@@ -46,13 +46,13 @@ func (n *LocalClient) CallView(fid string, in []byte) (interface{}, error) {
 		return nil, errors.Wrapf(err, "failed getting view manager [%s]", fid)
 	}
 	span.AddEvent("start_new_view")
-	f, err := manager.NewView(fid, in)
+	f, err := manager.Registry().NewView(fid, in)
 	span.AddEvent("end_new_view")
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed instantiating view [%s]", fid)
 	}
 	span.AddEvent("start_initiate_view")
-	result, err := manager.InitiateView(f, ctx)
+	result, err := manager.InitiateView(ctx, f)
 	span.AddEvent("end_initiate_view")
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed running view [%s]", fid)

@@ -13,8 +13,8 @@ import (
 )
 
 type Stream interface {
-	Recv(m interface{}) error
-	Send(m interface{}) error
+	Recv(m any) error
+	Send(m any) error
 }
 
 func GetStream(sp services.Provider) Stream {

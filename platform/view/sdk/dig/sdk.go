@@ -15,6 +15,8 @@ import (
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
+	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
@@ -29,6 +31,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver/file"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
+	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
@@ -120,11 +124,26 @@ func (p *SDK) Install() error {
 
 		// View Manager
 		p.Container().Provide(view.NewRegistry),
+		p.Container().Provide(view3.NewResponseMarshaler, dig.As(new(view3.Marshaller))),
+		p.Container().Provide(func(o *operations.Options, l operations.OperationsLogger) metrics2.Provider {
+			return operations.NewMetricsProvider(o.Metrics, l, true)
+		}),
+		p.Container().Provide(func(metricsProvider metrics2.Provider, configService driver.ConfigService) (trace.TracerProvider, error) {
+			base, err := tracing2.NewTracerProvider(configService)
+			if err != nil {
+				return nil, err
+			}
+			return tracing2.NewWrappedTracerProvider(tracing.NewTracerProviderWithBackingProvider(base, metricsProvider)), nil
+		}),
+		p.Container().Provide(view3.NewMetrics),
+		p.Container().Provide(view3.NewAccessControlChecker, dig.As(new(view3.PolicyChecker))),
+		p.Container().Provide(view3.NewViewServiceServer, dig.As(new(view3.Service))),
 		p.Container().Provide(view.NewManager),
 		p.Container().Provide(
 			digutils.Identity[*view.Manager](),
 			dig.As(new(StartableViewManager), new(server2.ViewManager)),
 		),
+		p.Container().Provide(digutils.Identity[*view.Manager](), dig.As(new(view3.Manager))),
 
 		// Comm service
 		p.Container().Provide(provider.NewHostProvider),
@@ -207,7 +226,7 @@ func (p *SDK) Start(ctx context.Context) error {
 	return p.Container().Invoke(func(in struct {
 		dig.In
 		GRPCServer     *grpc.GRPCServer
-		ViewManager    StartableViewManager
+		ViewManager    *view.Manager
 		ViewService    server2.Service
 		CommService    *comm.Service
 		WebServer      Server

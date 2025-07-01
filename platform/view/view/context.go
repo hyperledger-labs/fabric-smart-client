@@ -8,6 +8,7 @@ package view
 
 import (
 	"context"
+	"time"
 
 	"go.opentelemetry.io/otel/trace"
 )
@@ -18,6 +19,8 @@ type RunViewOptions struct {
 	AsInitiator bool
 	Call        func(Context) (interface{}, error)
 	SameContext bool
+	// Timeout defines how long a view should run before cancelling its context
+	Timeout time.Duration
 }
 
 // CompileRunViewOptions compiles a set of RunViewOption to a RunViewOptions
@@ -62,6 +65,14 @@ func WithViewCall(f func(Context) (interface{}, error)) RunViewOption {
 func WithSameContext() RunViewOption {
 	return func(o *RunViewOptions) error {
 		o.SameContext = true
+		return nil
+	}
+}
+
+// WithTimeout is used to set a timeout that defines how long a view should run before cancelling its context.
+func WithTimeout(timeout time.Duration) RunViewOption {
+	return func(o *RunViewOptions) error {
+		o.Timeout = timeout
 		return nil
 	}
 }

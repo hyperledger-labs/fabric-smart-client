@@ -30,11 +30,11 @@ func (w *childContext) StartSpanFrom(c context.Context, name string, opts ...tra
 	return w.ParentContext.StartSpanFrom(c, name, opts...)
 }
 
-func (w *childContext) GetService(v interface{}) (interface{}, error) {
+func (w *childContext) GetService(v any) (any, error) {
 	return w.ParentContext.GetService(v)
 }
 
-func (w *childContext) PutService(v interface{}) error {
+func (w *childContext) PutService(v any) error {
 	mutableContext, ok := w.ParentContext.(view.MutableContext)
 	if ok {
 		return mutableContext.PutService(v)
@@ -92,7 +92,7 @@ func (w *childContext) OnError(f func()) {
 	w.errorCallbackFuncs = append(w.errorCallbackFuncs, f)
 }
 
-func (w *childContext) RunView(v view.View, opts ...view.RunViewOption) (res interface{}, err error) {
+func (w *childContext) RunView(v view.View, opts ...view.RunViewOption) (res any, err error) {
 	return runViewOn(v, opts, w)
 }
 

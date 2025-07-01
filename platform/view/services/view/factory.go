@@ -13,3 +13,9 @@ type Factory interface {
 	// NewView returns an instance of the View interface build using the passed argument.
 	NewView(in []byte) (view.View, error)
 }
+
+// LocalFactory is used to create instances of the View interface
+type LocalFactory interface {
+	// NewViewWithArg returns an instance of the View interface build using the passed argument.
+	NewViewWithArg(arg any) (view.View, error)
+}

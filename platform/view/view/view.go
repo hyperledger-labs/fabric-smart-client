@@ -10,5 +10,5 @@ package view
 type View interface {
 	// Call invokes the View on input the passed argument.
 	// It returns a result and error in case of failure.
-	Call(context Context) (interface{}, error)
+	Call(context Context) (any, error)
 }

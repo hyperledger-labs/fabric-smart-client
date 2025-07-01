@@ -41,7 +41,7 @@ type EndpointService struct {
 		result2 []byte
 		result3 error
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -59,7 +59,7 @@ func (fake *EndpointService) GetIdentity(arg1 string, arg2 []byte) (viewa.Identi
 	}{arg1, arg2Copy})
 	stub := fake.GetIdentityStub
 	fakeReturns := fake.getIdentityReturns
-	fake.recordInvocation("GetIdentity", []interface{}{arg1, arg2Copy})
+	fake.recordInvocation("GetIdentity", []any{arg1, arg2Copy})
 	fake.getIdentityMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -124,7 +124,7 @@ func (fake *EndpointService) Resolver(arg1 context.Context, arg2 viewa.Identity)
 	}{arg1, arg2})
 	stub := fake.ResolverStub
 	fakeReturns := fake.resolverReturns
-	fake.recordInvocation("Resolver", []interface{}{arg1, arg2})
+	fake.recordInvocation("Resolver", []any{arg1, arg2})
 	fake.resolverMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -183,28 +183,28 @@ func (fake *EndpointService) ResolverReturnsOnCall(i int, result1 *endpoint.Reso
 	}{result1, result2, result3}
 }
 
-func (fake *EndpointService) Invocations() map[string][][]interface{} {
+func (fake *EndpointService) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.getIdentityMutex.RLock()
 	defer fake.getIdentityMutex.RUnlock()
 	fake.resolverMutex.RLock()
 	defer fake.resolverMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *EndpointService) recordInvocation(key string, args []interface{}) {
+func (fake *EndpointService) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
