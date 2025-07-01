@@ -26,7 +26,7 @@ func Initiate(context view.Context, initiator view.View) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return m.InitiateView(initiator, context.Context())
+	return m.InitiateView(context.Context(), initiator)
 }
 
 // AsResponder can be used by an initiator to behave temporarily as a responder.
