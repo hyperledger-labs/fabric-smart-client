@@ -49,6 +49,11 @@ func (d *DummyFactory) NewView(in []byte) (view.View, error) {
 	return nil, nil
 }
 
+func (d *DummyFactory) NewViewWithArg(in any) (view.View, error) {
+	time.Sleep(2 * time.Second)
+	return nil, nil
+}
+
 func TestGetIdentifier(t *testing.T) {
 	viewRegistry := view2.NewRegistry()
 	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", viewRegistry.GetIdentifier(DummyView{}))
@@ -65,9 +70,11 @@ func TestManagerRace(t *testing.T) {
 
 	wg := &sync.WaitGroup{}
 	for i := 0; i < 100; i++ {
-		wg.Add(6)
+		wg.Add(8)
 		go registerFactory(t, wg, manager)
+		go registerLocalFactory(t, wg, manager)
 		go newView(t, wg, manager)
+		go newLocalView(t, wg, manager)
 		go callView(t, wg, manager)
 		go getContext(t, wg, manager)
 		go initiateView(t, wg, manager)
@@ -113,6 +120,12 @@ func registerFactory(t *testing.T, wg *sync.WaitGroup, m *manager) {
 	assert.NoError(t, err)
 }
 
+func registerLocalFactory(t *testing.T, wg *sync.WaitGroup, m *manager) {
+	err := m.Registry().RegisterLocalFactory(view2.GenerateUUID(), &DummyFactory{})
+	wg.Done()
+	assert.NoError(t, err)
+}
+
 func registerResponder(t *testing.T, wg *sync.WaitGroup, m *manager) {
 	assert.NoError(t, m.Registry().RegisterResponderWithIdentity(&DummyView{}, []byte("alice"), &DummyView{}))
 	wg.Done()
@@ -126,6 +139,12 @@ func callView(t *testing.T, wg *sync.WaitGroup, m *manager) {
 
 func newView(t *testing.T, wg *sync.WaitGroup, m *manager) {
 	_, err := m.Registry().NewView(view2.GenerateUUID(), nil)
+	wg.Done()
+	assert.Error(t, err)
+}
+
+func newLocalView(t *testing.T, wg *sync.WaitGroup, m *manager) {
+	_, err := m.Registry().NewLocalView(view2.GenerateUUID(), nil)
 	wg.Done()
 	assert.Error(t, err)
 }
