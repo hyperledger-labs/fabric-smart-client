@@ -168,15 +168,15 @@ func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 }
 
 func (cm *Manager) InitiateContext(view view.View) (view.Context, error) {
-	return cm.InitiateContextFrom(cm.ctx, view, cm.me(), "")
+	return cm.InitiateContextFrom(cm.getCurrentContext(), view, cm.me(), "")
 }
 
 func (cm *Manager) InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error) {
-	return cm.InitiateContextFrom(cm.ctx, view, id, "")
+	return cm.InitiateContextFrom(cm.getCurrentContext(), view, id, "")
 }
 
 func (cm *Manager) InitiateContextWithIdentityAndID(view view.View, id view.Identity, contextID string) (view.Context, error) {
-	return cm.InitiateContextFrom(cm.ctx, view, id, contextID)
+	return cm.InitiateContextFrom(cm.getCurrentContext(), view, id, contextID)
 }
 
 func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id view.Identity, contextID string) (view.Context, error) {
@@ -210,7 +210,8 @@ func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 }
 
 func (cm *Manager) Start(ctx context.Context) {
-	cm.ctx = ctx
+	cm.setCurrentContext(ctx)
+
 	session, err := cm.commLayer.MasterSession()
 	if err != nil {
 		return
@@ -408,4 +409,17 @@ func (cm *Manager) callView(msg *view.Message) {
 
 func (cm *Manager) me() view.Identity {
 	return cm.identityProvider.DefaultIdentity()
+}
+
+func (cm *Manager) getCurrentContext() context.Context {
+	cm.contextsSync.Lock()
+	ctx := cm.ctx
+	cm.contextsSync.Unlock()
+	return ctx
+}
+
+func (cm *Manager) setCurrentContext(ctx context.Context) {
+	cm.contextsSync.Lock()
+	cm.ctx = ctx
+	cm.contextsSync.Unlock()
 }
