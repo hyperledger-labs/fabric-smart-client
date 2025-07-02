@@ -68,8 +68,8 @@ type ctx struct {
 }
 
 func NewContextForInitiator(
-	contextID string,
 	context context.Context,
+	contextID string,
 	sp services.Provider,
 	sessionFactory SessionFactory,
 	resolver EndpointService,
@@ -164,7 +164,7 @@ func (c *ctx) Initiator() view.View {
 	return c.initiator
 }
 
-func (c *ctx) RunView(v view.View, opts ...view.RunViewOption) (res interface{}, err error) {
+func (c *ctx) RunView(v view.View, opts ...view.RunViewOption) (res any, err error) {
 	return runViewOn(v, opts, c)
 }
 
@@ -251,11 +251,11 @@ func (c *ctx) ResetSessions() error {
 	return nil
 }
 
-func (c *ctx) PutService(service interface{}) error {
+func (c *ctx) PutService(service any) error {
 	return c.localSP.RegisterService(service)
 }
 
-func (c *ctx) GetService(v interface{}) (interface{}, error) {
+func (c *ctx) GetService(v any) (any, error) {
 	// first search locally then globally
 	s, err := c.localSP.GetService(v)
 	if err == nil {
@@ -379,7 +379,7 @@ func (c *tempCtx) Context() context.Context {
 	return c.newCtx
 }
 
-func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res interface{}, err error) {
+func runViewOn(v view.View, opts []view.RunViewOption, parent localContext) (res any, err error) {
 	options, err := view.CompileRunViewOptions(opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed compiling options")
@@ -390,23 +390,38 @@ func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res in
 	}
 
 	logger.Warnf("Start view %s", GetName(v))
-	newCtx, span := ctx.StartSpanFrom(ctx.Context(), GetName(v), tracing.WithAttributes(
-		tracing.String(ViewLabel, GetIdentifier(v)),
-		tracing.String(InitiatorViewLabel, GetIdentifier(initiator)),
-	), trace.WithSpanKind(trace.SpanKindInternal))
+
+	// traces
+	newCtx, span := parent.StartSpanFrom(
+		parent.Context(),
+		GetName(v),
+		tracing.WithAttributes(
+			tracing.String(ViewLabel, GetIdentifier(v)),
+			tracing.String(InitiatorViewLabel, GetIdentifier(initiator)),
+		),
+		trace.WithSpanKind(trace.SpanKindInternal),
+	)
 	defer span.End()
+
+	// timeout
+	if options.Timeout > 0 {
+		ctxWithTimeout, cancel := context.WithTimeout(newCtx, options.Timeout)
+		defer cancel()
+		newCtx = ctxWithTimeout
+	}
 
 	var cc localContext
 	if options.SameContext {
-		cc = wrapContext(ctx, newCtx)
+		cc = wrapContext(parent, newCtx)
 	} else {
 		if options.AsInitiator {
 			cc = &childContext{
-				ParentContext: wrapContext(ctx, newCtx),
+				ParentContext: wrapContext(parent, newCtx),
 				initiator:     initiator,
 			}
+
 			// register options.Session under initiator
-			contextSession := ctx.Session()
+			contextSession := parent.Session()
 			if contextSession == nil {
 				return nil, errors.Errorf("cannot convert a non-responder context to an initiator context")
 			}
@@ -415,7 +430,7 @@ func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res in
 			}
 		} else {
 			cc = &childContext{
-				ParentContext: wrapContext(ctx, newCtx),
+				ParentContext: wrapContext(parent, newCtx),
 				session:       options.Session,
 				initiator:     initiator,
 			}

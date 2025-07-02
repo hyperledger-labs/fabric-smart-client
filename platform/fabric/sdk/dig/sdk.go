@@ -24,14 +24,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/fns"
 	generic2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig/generic"
-	finality2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/finality"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/postgres"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/vault"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
@@ -67,7 +65,6 @@ func (p *SDK) Install() error {
 		p.Container().Provide(committer.NewFinalityListenerManagerProvider[driver.ValidationCode], dig.As(new(driver.ListenerManagerProvider))),
 		p.Container().Provide(generic2.NewDriver, dig.Group("fabric-platform-drivers")),
 		p.Container().Provide(generic2.NewChannelProvider, dig.Name("generic-channel-provider")),
-		p.Container().Provide(finality2.NewHandler, dig.Group("finality-handlers")),
 		p.Container().Provide(fns.NewProvider),
 		p.Container().Provide(digutils.Identity[*core.FSNProvider](), dig.As(new(driver.FabricNetworkServiceProvider))),
 		p.Container().Provide(digutils.Identity[*endpoint.Service](), dig.As(new(identity.EndpointService))),
@@ -107,9 +104,6 @@ func (p *SDK) Start(ctx context.Context) error {
 		return nil
 	}
 
-	if err := p.Container().Invoke(registerFinalityHandlers); err != nil {
-		return err
-	}
 	if err := p.Container().Invoke(registerProcessorsForDrivers); err != nil {
 		return err
 	}
@@ -147,16 +141,6 @@ func (p *SDK) PostStart(ctx context.Context) error {
 	}()
 
 	return nil
-}
-
-func registerFinalityHandlers(in struct {
-	dig.In
-	FinalityManager *finality.Manager
-	Handlers        []finality.Handler `group:"finality-handlers"`
-}) {
-	for _, handler := range in.Handlers {
-		in.FinalityManager.AddHandler(handler)
-	}
 }
 
 func registerProcessorsForDrivers(in struct {
