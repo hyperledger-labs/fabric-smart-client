@@ -29,11 +29,14 @@ const (
 	InitiatorViewLabel tracing.LabelName = "initiator_view"
 )
 
+type (
+	ServiceProvider = services.Provider
+)
+
 var logger = logging.MustGetLogger()
 
 type Manager struct {
-	sp services.Provider
-
+	serviceProvider  ServiceProvider
 	commLayer        CommLayer
 	endpointService  EndpointService
 	identityProvider IdentityProvider
@@ -41,18 +44,17 @@ type Manager struct {
 	ctx context.Context
 
 	contextsSync sync.RWMutex
-
-	contexts map[string]disposableContext
+	contexts     map[string]disposableContext
 
 	registry *Registry
 
-	viewTracer           trace.Tracer
-	m                    *Metrics
+	tracer               trace.Tracer
+	metrics              *Metrics
 	localIdentityChecker LocalIdentityChecker
 }
 
 func NewManager(
-	serviceProvider services.Provider,
+	serviceProvider ServiceProvider,
 	commLayer CommLayer,
 	endpointService EndpointService,
 	identityProvider IdentityProvider,
@@ -62,7 +64,7 @@ func NewManager(
 	localIdentityChecker LocalIdentityChecker,
 ) *Manager {
 	return &Manager{
-		sp:               serviceProvider,
+		serviceProvider:  serviceProvider,
 		commLayer:        commLayer,
 		endpointService:  endpointService,
 		identityProvider: identityProvider,
@@ -70,12 +72,13 @@ func NewManager(
 		contexts: map[string]disposableContext{},
 		registry: viewProvider,
 
-		viewTracer: provider.Tracer("view", tracing.WithMetricsOpts(tracing.MetricsOpts{
+		tracer: provider.Tracer("view", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "fsc",
 			LabelNames: []string{SuccessLabel, ViewLabel, InitiatorViewLabel},
 		})),
-		m:                    newMetrics(metricsProvider),
+		metrics:              newMetrics(metricsProvider),
 		localIdentityChecker: localIdentityChecker,
+		ctx:                  context.Background(),
 	}
 }
 
@@ -88,61 +91,52 @@ func GetManager(sp services.Provider) (*Manager, error) {
 	return s.(*Manager), nil
 }
 
-func (m *Manager) GetService(typ reflect.Type) (any, error) {
-	return m.sp.GetService(typ)
-}
-
-func (m *Manager) RegisterFactory(id string, factory Factory) error {
-	return m.registry.RegisterFactory(id, factory)
+func (m *Manager) Registry() *Registry {
+	return m.registry
 }
 
 func (m *Manager) NewView(id string, in []byte) (f view.View, err error) {
 	return m.registry.NewView(id, in)
 }
 
-func (m *Manager) RegisterResponder(responder view.View, initiatedBy any) error {
-	return m.registry.RegisterResponder(responder, initiatedBy)
-}
-
-func (m *Manager) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy any) error {
-	return m.registry.RegisterResponderWithIdentity(responder, id, initiatedBy)
-}
-
-func (m *Manager) GetResponder(initiatedBy any) (view.View, error) {
-	return m.registry.GetResponder(initiatedBy)
-}
-
-func (m *Manager) Initiate(ctx context.Context, id string) (any, error) {
+func (m *Manager) Initiate(parent context.Context, id string) (any, error) {
 	v, err := m.registry.GetView(id)
 	if err != nil {
 		return nil, err
 	}
 
-	return m.InitiateViewWithIdentity(ctx, v, m.me())
+	return m.InitiateViewWithIdentity(parent, v, m.me())
 }
 
-func (m *Manager) InitiateView(ctx context.Context, view view.View) (any, error) {
-	return m.InitiateViewWithIdentity(ctx, view, m.me())
+func (m *Manager) InitiateView(parent context.Context, view view.View) (any, error) {
+	return m.InitiateViewWithIdentity(parent, view, m.me())
 }
 
-func (m *Manager) InitiateViewWithIdentity(c context.Context, view view.View, id view.Identity) (any, error) {
+func (m *Manager) InitiateViewWithIdentity(parent context.Context, view view.View, id view.Identity) (any, error) {
 	// Create the context
-	m.contextsSync.Lock()
-	ctx := m.ctx
-	m.contextsSync.Unlock()
-	if ctx == nil {
-		ctx = context.Background()
+	if parent == nil {
+		parent = m.ctx
 	}
-	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(c))
-
-	viewContext, err := NewContextForInitiator(ctx, "", m.sp, m.commLayer, m.endpointService, m.identityProvider, id, view, m.viewTracer, m.localIdentityChecker)
+	parent = trace.ContextWithSpanContext(parent, trace.SpanContextFromContext(parent))
+	viewContext, err := NewContextForInitiator(
+		parent,
+		"",
+		m.serviceProvider,
+		m.commLayer,
+		m.endpointService,
+		m.identityProvider,
+		id,
+		view,
+		m.tracer,
+		m.localIdentityChecker,
+	)
 	if err != nil {
 		return nil, err
 	}
 	childContext := &childContext{ParentContext: viewContext}
 	m.contextsSync.Lock()
 	m.contexts[childContext.ID()] = childContext
-	m.m.Contexts.Set(float64(len(m.contexts)))
+	m.metrics.Contexts.Set(float64(len(m.contexts)))
 	m.contextsSync.Unlock()
 	defer m.deleteContext(id, childContext.ID())
 
@@ -156,30 +150,33 @@ func (m *Manager) InitiateViewWithIdentity(c context.Context, view view.View, id
 	return res, nil
 }
 
-func (m *Manager) InitiateContext(view view.View) (view.Context, error) {
-	return m.InitiateContextFrom(m.ctx, view, m.me(), "")
+func (m *Manager) InitiateContext(parent context.Context, view view.View) (view.Context, error) {
+	return m.InitiateContextFrom(parent, view, m.me(), "")
 }
 
-func (m *Manager) InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error) {
-	return m.InitiateContextFrom(m.ctx, view, id, "")
+func (m *Manager) InitiateContextWithIdentity(parent context.Context, view view.View, id view.Identity) (view.Context, error) {
+	return m.InitiateContextFrom(parent, view, id, "")
 }
 
-func (m *Manager) InitiateContextWithIdentityAndID(view view.View, id view.Identity, contextID string) (view.Context, error) {
-	return m.InitiateContextFrom(m.ctx, view, id, contextID)
+func (m *Manager) InitiateContextWithIdentityAndID(parent context.Context, view view.View, id view.Identity, contextID string) (view.Context, error) {
+	return m.InitiateContextFrom(parent, view, id, contextID)
 }
 
-func (m *Manager) InitiateContextFrom(ctx context.Context, view view.View, id view.Identity, contextID string) (view.Context, error) {
+func (m *Manager) InitiateContextFrom(parent context.Context, view view.View, id view.Identity, contextID string) (view.Context, error) {
 	if id.IsNone() {
 		id = m.me()
 	}
-	viewContext, err := NewContextForInitiator(ctx, contextID, m.sp, m.commLayer, m.endpointService, m.identityProvider, id, view, m.viewTracer, m.localIdentityChecker)
+	if parent == nil {
+		parent = m.ctx
+	}
+	viewContext, err := NewContextForInitiator(parent, contextID, m.serviceProvider, m.commLayer, m.endpointService, m.identityProvider, id, view, m.tracer, m.localIdentityChecker)
 	if err != nil {
 		return nil, err
 	}
 	childContext := &childContext{ParentContext: viewContext}
 	m.contextsSync.Lock()
 	m.contexts[childContext.ID()] = childContext
-	m.m.Contexts.Set(float64(len(m.contexts)))
+	m.metrics.Contexts.Set(float64(len(m.contexts)))
 	m.contextsSync.Unlock()
 
 	logger.Debugf("[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, logging.Identifier(view), childContext.ID())
@@ -188,7 +185,10 @@ func (m *Manager) InitiateContextFrom(ctx context.Context, view view.View, id vi
 }
 
 func (m *Manager) Start(ctx context.Context) {
-	m.ctx = ctx
+	if ctx != nil {
+		m.ctx = ctx
+	}
+
 	session, err := m.commLayer.MasterSession()
 	if err != nil {
 		return
@@ -205,10 +205,11 @@ func (m *Manager) Start(ctx context.Context) {
 	}
 }
 
-func (m *Manager) Context(contextID string) (view.Context, error) {
+func (m *Manager) ContextByID(contextID string) (view.Context, error) {
 	m.contextsSync.RLock()
-	defer m.contextsSync.RUnlock()
 	context, ok := m.contexts[contextID]
+	m.contextsSync.RUnlock()
+
 	if !ok {
 		return nil, errors.Errorf("context %s not found", contextID)
 	}
@@ -228,12 +229,12 @@ func (m *Manager) ResolveIdentities(endpoints ...string) ([]view.Identity, error
 	return ids, nil
 }
 
-func (m *Manager) GetIdentifier(f view.View) string {
-	return GetIdentifier(f)
+func (m *Manager) Context() context.Context {
+	return m.ctx
 }
 
-func (m *Manager) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
-	return m.registry.ExistResponderForCaller(caller)
+func (m *Manager) ServiceProvider() services.Provider {
+	return m.serviceProvider
 }
 
 func (m *Manager) respond(responder view.View, id view.Identity, msg *view.Message) (ctx view.Context, res any, err error) {
@@ -299,7 +300,7 @@ func (m *Manager) newContext(id view.Identity, msg *view.Message) (view.Context,
 		}
 		viewContext.Dispose()
 		delete(m.contexts, contextID)
-		m.m.Contexts.Set(float64(len(m.contexts)))
+		m.metrics.Contexts.Set(float64(len(m.contexts)))
 		ok = false
 	}
 	if ok {
@@ -315,7 +316,7 @@ func (m *Manager) newContext(id view.Identity, msg *view.Message) (view.Context,
 	ctx := trace.ContextWithSpanContext(m.ctx, trace.SpanContextFromContext(msg.Ctx))
 	newCtx, err := NewContext(
 		ctx,
-		m.sp,
+		m.serviceProvider,
 		contextID,
 		m.commLayer,
 		m.endpointService,
@@ -323,7 +324,7 @@ func (m *Manager) newContext(id view.Identity, msg *view.Message) (view.Context,
 		id,
 		backend,
 		caller,
-		m.viewTracer,
+		m.tracer,
 		m.localIdentityChecker,
 	)
 	if err != nil {
@@ -331,7 +332,7 @@ func (m *Manager) newContext(id view.Identity, msg *view.Message) (view.Context,
 	}
 	childContext := &childContext{ParentContext: newCtx}
 	m.contexts[contextID] = childContext
-	m.m.Contexts.Set(float64(len(m.contexts)))
+	m.metrics.Contexts.Set(float64(len(m.contexts)))
 	viewContext = childContext
 
 	return viewContext, true, nil
@@ -346,12 +347,12 @@ func (m *Manager) deleteContext(id view.Identity, contextID string) {
 	if context, ok := m.contexts[contextID]; ok {
 		context.Dispose()
 		delete(m.contexts, contextID)
-		m.m.Contexts.Set(float64(len(m.contexts)))
+		m.metrics.Contexts.Set(float64(len(m.contexts)))
 	}
 }
 
 func (m *Manager) existResponder(msg *view.Message) (view.View, view.Identity, error) {
-	return m.ExistResponderForCaller(msg.Caller)
+	return m.registry.ExistResponderForCaller(msg.Caller)
 }
 
 func (m *Manager) callView(msg *view.Message) {

@@ -22,9 +22,10 @@ import (
 const fidLabel tracing.LabelName = "fid"
 
 type Manager interface {
+	Context() context.Context
 	NewView(id string, in []byte) (view.View, error)
 	InitiateView(ctx context.Context, view view.View) (interface{}, error)
-	InitiateContext(view view.View) (view.Context, error)
+	InitiateContext(parent context.Context, view view.View) (view.Context, error)
 }
 
 type viewHandler struct {
@@ -110,7 +111,7 @@ func (s *viewHandler) streamCallView(sc *protos2.SignedCommand, command *protos2
 	if err != nil {
 		return errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
 	}
-	context, err := s.viewManager.InitiateContext(f)
+	context, err := s.viewManager.InitiateContext(s.viewManager.Context(), f)
 	if err != nil {
 		return errors.Errorf("failed running view [%s], err %s", fid, err)
 	}
@@ -149,7 +150,7 @@ func (s *viewHandler) streamCallView(sc *protos2.SignedCommand, command *protos2
 }
 
 func (s *viewHandler) RunView(manager Manager, view view.View) (string, error) {
-	context, err := manager.InitiateContext(view)
+	context, err := manager.InitiateContext(manager.Context(), view)
 	if err != nil {
 		return "", err
 	}

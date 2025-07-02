@@ -50,15 +50,11 @@ func (d *DummyFactory) NewView(in []byte) (view.View, error) {
 }
 
 func TestGetIdentifier(t *testing.T) {
-	registry := registry.New()
-	idProvider := &mock.IdentityProvider{}
-	idProvider.DefaultIdentityReturns([]byte("alice"))
-	manager := view2.NewManager(registry, &mock.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
-
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(DummyView{}))
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(&DummyView{}))
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(new(DummyView)))
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(*(new(DummyView))))
+	viewRegistry := view2.NewRegistry()
+	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", viewRegistry.GetIdentifier(DummyView{}))
+	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", viewRegistry.GetIdentifier(&DummyView{}))
+	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", viewRegistry.GetIdentifier(new(DummyView)))
+	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", viewRegistry.GetIdentifier(*(new(DummyView))))
 }
 
 func TestManagerRace(t *testing.T) {
@@ -86,9 +82,9 @@ func TestRegisterResponderWithInitiatorView(t *testing.T) {
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 
 	manager := view2.NewManager(registry, &mock.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
-	err := manager.RegisterResponder(&ResponderView{}, &InitiatorView{})
+	err := manager.Registry().RegisterResponder(&ResponderView{}, &InitiatorView{})
 	assert.NoError(t, err)
-	responder, _, err := manager.ExistResponderForCaller(manager.GetIdentifier(&InitiatorView{}))
+	responder, _, err := manager.Registry().ExistResponderForCaller(manager.Registry().GetIdentifier(&InitiatorView{}))
 	assert.NoError(t, err)
 	res, err := responder.Call(nil)
 	assert.NoError(t, err)
@@ -102,9 +98,9 @@ func TestRegisterResponderWithViewIdentifier(t *testing.T) {
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 
 	manager := view2.NewManager(registry, &mock.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
-	err := manager.RegisterResponder(&ResponderView{}, manager.GetIdentifier(&InitiatorView{}))
+	err := manager.Registry().RegisterResponder(&ResponderView{}, manager.Registry().GetIdentifier(&InitiatorView{}))
 	assert.NoError(t, err)
-	responder, _, err := manager.ExistResponderForCaller(manager.GetIdentifier(&InitiatorView{}))
+	responder, _, err := manager.Registry().ExistResponderForCaller(manager.Registry().GetIdentifier(&InitiatorView{}))
 	assert.NoError(t, err)
 	res, err := responder.Call(nil)
 	assert.NoError(t, err)
@@ -112,13 +108,13 @@ func TestRegisterResponderWithViewIdentifier(t *testing.T) {
 }
 
 func registerFactory(t *testing.T, wg *sync.WaitGroup, m *manager) {
-	err := m.RegisterFactory(view2.GenerateUUID(), &DummyFactory{})
+	err := m.Registry().RegisterFactory(view2.GenerateUUID(), &DummyFactory{})
 	wg.Done()
 	assert.NoError(t, err)
 }
 
 func registerResponder(t *testing.T, wg *sync.WaitGroup, m *manager) {
-	assert.NoError(t, m.RegisterResponderWithIdentity(&DummyView{}, []byte("alice"), &DummyView{}))
+	assert.NoError(t, m.Registry().RegisterResponderWithIdentity(&DummyView{}, []byte("alice"), &DummyView{}))
 	wg.Done()
 }
 
@@ -129,7 +125,7 @@ func callView(t *testing.T, wg *sync.WaitGroup, m *manager) {
 }
 
 func newView(t *testing.T, wg *sync.WaitGroup, m *manager) {
-	_, err := m.NewView(view2.GenerateUUID(), nil)
+	_, err := m.Registry().NewView(view2.GenerateUUID(), nil)
 	wg.Done()
 	assert.Error(t, err)
 }
@@ -141,7 +137,7 @@ func initiateView(t *testing.T, wg *sync.WaitGroup, m *manager) {
 }
 
 func getContext(t *testing.T, wg *sync.WaitGroup, m *manager) {
-	_, err := m.Context("a context")
+	_, err := m.ContextByID("a context")
 	wg.Done()
 	assert.Error(t, err)
 }
