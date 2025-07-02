@@ -186,6 +186,7 @@ func testPagination(store driver.VaultStore) {
 		pag := item.pagination
 		page := 0
 		for ; true; page++ {
+			// We don't need to build the query here but we do it just to test that it was build correctly
 			query, args := q.Select().
 				AllFields().
 				From(q.Table("test")).
@@ -195,14 +196,10 @@ func testPagination(store driver.VaultStore) {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(query).To(Equal(item.sqlForward[page]))
 			Expect(args).To(ConsistOf(item.argsForward[page]))
+
 			p, err := store.GetAllTxStatuses(context.Background(), pag)
 			Expect(err).ToNot(HaveOccurred())
-			pag = p.Pagination
-
-			np, err := pagination.NewPage[driver.TxStatus](p.Items, p.Pagination)
-			Expect(err).ToNot(HaveOccurred())
-			statuses, err := collections.ReadAll(np.Items)
-			// statuses, err := collections.ReadAll(p.Items)
+			statuses, err := collections.ReadAll(p.Items)
 			Expect(err).ToNot(HaveOccurred())
 			// Test we get 0 statuses when we reach the end
 			if len(statuses) == 0 {
@@ -212,7 +209,7 @@ func testPagination(store driver.VaultStore) {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(statuses).To(item.matcher[page])
 
-			pag, err = pag.Next()
+			pag, err = p.Pagination.Next()
 			Expect(err).ToNot(HaveOccurred())
 		}
 		// test that we read everything

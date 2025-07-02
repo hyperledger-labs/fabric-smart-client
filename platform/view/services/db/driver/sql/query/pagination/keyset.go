@@ -86,7 +86,7 @@ func (p *keyset[I, V]) nilElement() I {
 
 func (p *keyset[I, V]) GoToOffset(offset int) (driver.Pagination, error) {
 	if offset < 0 {
-		return nil, fmt.Errorf("Offset must be greater than zero. pageSize: %d", pageSize)
+		return nil, fmt.Errorf("Offset must be greater than zero. pageSize: %d", p.pageSize)
 	}
 	if offset == p.offset+p.pageSize {
 		return &keyset[I, V]{
