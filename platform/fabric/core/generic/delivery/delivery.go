@@ -136,8 +136,10 @@ func (d *Delivery) Start(ctx context.Context) {
 }
 
 func (d *Delivery) Stop(err error) {
-	logger.Debugf("stop delivery with error [%s]", err)
-	d.stop <- err
+	logger.Debugf("stop delivery with error [%v]", err)
+	if err != nil {
+		d.stop <- err
+	}
 	close(d.stop)
 }
 
