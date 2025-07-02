@@ -119,7 +119,7 @@ func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request 
 	if err != nil {
 		return errors.Errorf("failed instantiating view [%s], err [%s]", vid, err)
 	}
-	viewContext, err := s.viewManager.InitiateContext(f)
+	viewContext, err := s.viewManager.InitiateContext(s.viewManager.Context(), f)
 	if err != nil {
 		return errors.Errorf("failed instantiating context for view [%s], err %s", vid, err)
 	}
