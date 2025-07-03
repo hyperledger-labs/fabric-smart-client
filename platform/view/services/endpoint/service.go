@@ -13,12 +13,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 )
 
 var logger = logging.MustGetLogger()
@@ -33,6 +32,10 @@ const (
 	ViewPort PortName = "View"
 	// P2PPort is the port on which the P2P Communication Layer respond
 	P2PPort PortName = "P2P"
+)
+
+var (
+	ErrNotFound = errors.New("not found")
 )
 
 // PublicKeyExtractor extracts public keys from identities
@@ -183,7 +186,7 @@ func (r *Service) GetIdentity(label string, pkID []byte) (view.Identity, error) 
 		return resolver.GetIdentity()
 	}
 
-	return nil, errors.Errorf("identity not found at [%s,%s]", label, view.Identity(pkID))
+	return nil, errors.Wrapf(ErrNotFound, "identity not found at [%s,%s]", label, view.Identity(pkID))
 }
 
 func (r *Service) AddResolver(
@@ -194,27 +197,6 @@ func (r *Service) AddResolver(
 	id []byte,
 ) (view.Identity, error) {
 	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
-
-	// is there a resolver with the same name or clashing aliases?
-	r.resolversMutex.RLock()
-	for _, resolver := range r.resolvers {
-		if resolver.Name == name {
-			// TODO: perform additional checks
-
-			// Then bind
-			r.resolversMutex.RUnlock()
-			return resolver.ID, r.Bind(context.Background(), resolver.ID, id)
-		}
-		for _, alias := range resolver.Aliases {
-			if slices.Contains(aliases, alias) {
-				logger.Warnf("alias [%s] already defined by resolver [%s]", alias, resolver.Name)
-			}
-		}
-	}
-	r.resolversMutex.RUnlock()
-
-	r.resolversMutex.Lock()
-	defer r.resolversMutex.Unlock()
 
 	// resolve addresses to their IPs, if needed
 	addressList := make([]string, 0, len(addresses))
@@ -235,8 +217,22 @@ func (r *Service) AddResolver(
 	}
 	pkiID := r.pkiResolve(newResolver)
 
-	r.appendResolver(newResolver, pkiID)
+	// is there a resolver with the same name or clashing aliases?
+	r.resolversMutex.RLock()
+	exists := r.existsResolver(newResolver, pkiID)
+	r.resolversMutex.RUnlock()
+	if exists {
+		return nil, nil
 
+	}
+
+	r.resolversMutex.Lock()
+	defer r.resolversMutex.Unlock()
+
+	if r.existsResolver(newResolver, pkiID) {
+		return nil, nil
+	}
+	r.appendResolver(newResolver, pkiID)
 	return nil, nil
 }
 
@@ -302,6 +298,45 @@ func (r *Service) Resolvers() []ResolverInfo {
 		res = append(res, resolver.ResolverInfo)
 	}
 	return res
+}
+
+func (r *Service) existsResolver(newResolver *Resolver, pkiID []byte) bool {
+	// by name
+	_, ok := r.resolversMap[newResolver.Name]
+	if ok {
+		return true
+	}
+
+	// by alias
+	for _, alias := range newResolver.Aliases {
+		_, ok := r.resolversMap[alias]
+		if ok {
+			return true
+		}
+	}
+	// by name + domain
+	_, ok = r.resolversMap[newResolver.Name+"."+newResolver.Domain]
+	if ok {
+		return true
+	}
+
+	// by addresses
+	for _, address := range newResolver.Addresses {
+		_, ok := r.resolversMap[address]
+		if ok {
+			return true
+		}
+	}
+
+	// by id
+	_, ok = r.resolversMap[string(newResolver.ID)]
+	if ok {
+		return true
+	}
+
+	// by pkiResolver
+	_, ok = r.resolversMap[string(pkiID)]
+	return ok
 }
 
 func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
@@ -389,7 +424,7 @@ func (r *Service) resolverByIdentity(party view.Identity) (*Resolver, error) {
 		return resolver, nil
 	}
 
-	return nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
+	return nil, errors.Wrapf(ErrNotFound, "endpoint not found for identity %s", party.UniqueID())
 }
 
 var portNameMap = map[string]PortName{

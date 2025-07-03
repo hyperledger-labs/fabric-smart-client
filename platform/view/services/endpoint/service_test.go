@@ -11,8 +11,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type mockKVS struct{}
@@ -33,13 +34,13 @@ func (m mockExtractor) ExtractPublicKey(id view.Identity) (any, error) {
 
 func TestPKIResolveConcurrency(t *testing.T) {
 	svc, err := NewService(mockKVS{})
-	assert.NoError(err)
+	require.NoError(t, err)
 
 	ext := mockExtractor{}
 	resolver := &Resolver{}
 
 	err = svc.AddPublicKeyExtractor(ext)
-	assert.NoError(err)
+	require.NoError(t, err)
 
 	var wg sync.WaitGroup
 	wg.Add(100)
@@ -55,55 +56,56 @@ func TestPKIResolveConcurrency(t *testing.T) {
 func TestGetIdentity(t *testing.T) {
 	// setup
 	service, err := NewService(mockKVS{})
-	assert.NoError(err)
+	require.NoError(t, err)
 	ext := mockExtractor{}
-	_, err = service.AddResolver(
-		"alice",
-		"domain",
-		map[string]string{
-			string(P2PPort): "localhost:1010",
-		},
-		[]string{
-			"apple", "strawberry",
-		},
-		[]byte("alice_id"),
-	)
-	assert.NoError(err)
+	_, err = service.AddResolver("alice", "domain", map[string]string{string(P2PPort): "localhost:1010"}, []string{"apple", "strawberry"}, []byte("alice_id"))
+	require.NoError(t, err)
+	resolvers := service.Resolvers()
+	assert.Len(t, resolvers, 1)
+	_, err = service.AddResolver("alice", "domain", map[string]string{string(P2PPort): "localhost:1010"}, []string{"apple", "strawberry"}, []byte("alice_id"))
+	require.NoError(t, err)
+	resolvers = service.Resolvers()
+	assert.Len(t, resolvers, 1)
+
 	err = service.AddPublicKeyExtractor(ext)
-	assert.NoError(err)
+	require.NoError(t, err)
 
 	// found
 	for _, label := range []string{"alice", "apple", "alice.domain", "strawberry", "localhost:1010", "[::1]:1010", "alice_id"} {
 		resultID, err := service.GetIdentity(label, []byte{})
-		assert.NoError(err)
-		assert.Equal([]byte("alice_id"), []byte(resultID))
+		require.NoError(t, err)
+		assert.Equal(t, []byte("alice_id"), []byte(resultID))
 
 		resultID, _, _, err = service.Resolve(context.Background(), view.Identity(label))
-		assert.NoError(err)
-		assert.Equal([]byte("alice_id"), []byte(resultID))
+		require.NoError(t, err)
+		assert.Equal(t, []byte("alice_id"), []byte(resultID))
 
 		resolver, _, err := service.Resolver(context.Background(), view.Identity(label))
-		assert.NoError(err)
-		assert.Equal([]byte("alice_id"), resolver.ID)
+		require.NoError(t, err)
+		assert.Equal(t, []byte("alice_id"), resolver.ID)
 
 		resolver, err = service.GetResolver(context.Background(), view.Identity(label))
-		assert.NoError(err)
-		assert.Equal([]byte("alice_id"), resolver.ID)
+		require.NoError(t, err)
+		assert.Equal(t, []byte("alice_id"), resolver.ID)
 	}
 
 	// not found
 	for _, label := range []string{"pineapple", "bob", "localhost:8080"} {
 		resultID, err := service.GetIdentity(label, []byte("no"))
-		assert.Error(err, "identity not found")
-		assert.Equal([]byte(nil), []byte(resultID))
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, ErrNotFound)
+		assert.Equal(t, []byte(nil), []byte(resultID))
 
 		_, _, _, err = service.Resolve(context.Background(), view.Identity(label))
-		assert.Error(err)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrNotFound)
 
 		_, _, err = service.Resolver(context.Background(), view.Identity(label))
-		assert.Error(err)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrNotFound)
 
 		_, err = service.GetResolver(context.Background(), view.Identity(label))
-		assert.Error(err)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrNotFound)
 	}
 }
