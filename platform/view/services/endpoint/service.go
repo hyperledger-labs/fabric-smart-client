@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -45,14 +45,18 @@ type PublicKeyIDSynthesizer interface {
 	PublicKeyID(any) []byte
 }
 
+type ResolverInfo struct {
+	ID        []byte
+	Name      string
+	Domain    string
+	Addresses map[PortName]string
+	Aliases   []string
+	PKI       []byte
+}
+
 type Resolver struct {
-	Name           string
-	Domain         string
-	Addresses      map[PortName]string
-	Aliases        []string
-	PKI            []byte
+	ResolverInfo
 	PKILock        sync.RWMutex
-	ID             []byte
 	IdentityGetter func() (view.Identity, []byte, error)
 }
 
@@ -85,10 +89,10 @@ type Discovery interface {
 }
 
 type Service struct {
-	resolvers      []Resolver
+	resolvers      []*Resolver
 	resolversMap   map[string]*Resolver
 	resolversMutex sync.RWMutex
-	bindingKVS     driver2.BindingStore
+	bindingKVS     cdriver.BindingStore
 
 	pkiExtractorsLock      sync.RWMutex
 	publicKeyExtractors    []PublicKeyExtractor
@@ -96,12 +100,12 @@ type Service struct {
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
-func NewService(bindingKVS driver2.BindingStore) (*Service, error) {
+func NewService(bindingKVS cdriver.BindingStore) (*Service, error) {
 	er := &Service{
 		bindingKVS:             bindingKVS,
 		publicKeyExtractors:    []PublicKeyExtractor{},
 		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
-		resolvers:              []Resolver{},
+		resolvers:              []*Resolver{},
 		resolversMap:           map[string]*Resolver{},
 	}
 	return er, nil
@@ -211,11 +215,13 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 		addresses[k] = LookupIPv4(v)
 	}
 	newResolver := &Resolver{
-		Name:      name,
-		Domain:    domain,
-		Addresses: convert(addresses),
-		Aliases:   aliases,
-		ID:        id,
+		ResolverInfo: ResolverInfo{
+			Name:      name,
+			Domain:    domain,
+			Addresses: convert(addresses),
+			Aliases:   aliases,
+			ID:        id,
+		},
 	}
 	pkiID := r.pkiResolve(newResolver)
 
@@ -276,20 +282,20 @@ func (r *Service) Resolver(ctx context.Context, party view.Identity) (*Resolver,
 	return resolver, r.pkiResolve(resolver), nil
 }
 
-func (r *Service) Resolvers() []Resolver {
+func (r *Service) Resolvers() []ResolverInfo {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
 
 	// clone r.resolvers
-	var res []Resolver
+	var res []ResolverInfo
 	for _, resolver := range r.resolvers {
-		res = append(res, resolver)
+		res = append(res, resolver.ResolverInfo)
 	}
 	return res
 }
 
 func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
-	r.resolvers = append(r.resolvers, *newResolver)
+	r.resolvers = append(r.resolvers, newResolver)
 
 	// by name
 	r.resolversMap[newResolver.Name] = newResolver
