@@ -46,12 +46,13 @@ type PublicKeyIDSynthesizer interface {
 }
 
 type ResolverInfo struct {
-	ID        []byte
-	Name      string
-	Domain    string
-	Addresses map[PortName]string
-	Aliases   []string
-	PKI       []byte
+	ID          []byte
+	Name        string
+	Domain      string
+	Addresses   map[PortName]string
+	AddressList []string
+	Aliases     []string
+	PKI         []byte
 }
 
 type Resolver struct {
@@ -124,15 +125,15 @@ func GetService(sp services.Provider) *Service {
 // Resolve returns the endpoints of the passed identity.
 // If the passed identity does not have any endpoint set, the service checks
 // if the passed identity is bound to another identity that is returned together with its endpoints and public-key identifier.
-func (r *Service) Resolve(ctx context.Context, party view.Identity) (view.Identity, map[PortName]string, []byte, error) {
-	resolver, raw, err := r.Resolver(ctx, party)
+func (r *Service) Resolve(ctx context.Context, id view.Identity) (view.Identity, map[PortName]string, []byte, error) {
+	resolver, raw, err := r.Resolver(ctx, id)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	if resolver == nil {
 		return nil, nil, raw, nil
 	}
-	logger.Debugf("resolved [%s] to [%s] with ports [%v]", party, resolver.GetId(), resolver.GetAddresses())
+	logger.Debugf("resolved [%s] to [%s] with ports [%v]", id, resolver.GetId(), resolver.GetAddresses())
 	out := map[PortName]string{}
 	for name, s := range resolver.GetAddresses() {
 		out[name] = s
@@ -140,8 +141,8 @@ func (r *Service) Resolve(ctx context.Context, party view.Identity) (view.Identi
 	return resolver.GetId(), out, raw, nil
 }
 
-func (r *Service) GetResolver(ctx context.Context, party view.Identity) (*Resolver, error) {
-	return r.resolver(ctx, party)
+func (r *Service) GetResolver(ctx context.Context, id view.Identity) (*Resolver, error) {
+	return r.resolver(ctx, id)
 }
 
 func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error {
@@ -167,12 +168,11 @@ func (r *Service) IsBoundTo(ctx context.Context, a view.Identity, b view.Identit
 	return ok
 }
 
-func (r *Service) GetIdentity(endpoint string, pkID []byte) (view.Identity, error) {
+func (r *Service) GetIdentity(label string, pkID []byte) (view.Identity, error) {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
 
-	// by endpoint
-	resolver, ok := r.resolversMap[endpoint]
+	resolver, ok := r.resolversMap[label]
 	if ok {
 		return resolver.GetIdentity()
 	}
@@ -183,10 +183,16 @@ func (r *Service) GetIdentity(endpoint string, pkID []byte) (view.Identity, erro
 		return resolver.GetIdentity()
 	}
 
-	return nil, errors.Errorf("identity not found at [%s,%s]", endpoint, view.Identity(pkID))
+	return nil, errors.Errorf("identity not found at [%s,%s]", label, view.Identity(pkID))
 }
 
-func (r *Service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
+func (r *Service) AddResolver(
+	name string,
+	domain string,
+	addresses map[string]string,
+	aliases []string,
+	id []byte,
+) (view.Identity, error) {
 	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
 
 	// is there a resolver with the same name or clashing aliases?
@@ -211,16 +217,20 @@ func (r *Service) AddResolver(name string, domain string, addresses map[string]s
 	defer r.resolversMutex.Unlock()
 
 	// resolve addresses to their IPs, if needed
+	addressList := make([]string, 0, len(addresses))
 	for k, v := range addresses {
 		addresses[k] = LookupIPv4(v)
+		addressList = append(addressList, v)
 	}
+
 	newResolver := &Resolver{
 		ResolverInfo: ResolverInfo{
-			Name:      name,
-			Domain:    domain,
-			Addresses: convert(addresses),
-			Aliases:   aliases,
-			ID:        id,
+			Name:        name,
+			Domain:      domain,
+			Addresses:   convert(addresses),
+			AddressList: addressList,
+			Aliases:     aliases,
+			ID:          id,
 		},
 	}
 	pkiID := r.pkiResolve(newResolver)
@@ -274,8 +284,8 @@ func (r *Service) ResolveIdentities(endpoints ...string) ([]view.Identity, error
 	return ids, nil
 }
 
-func (r *Service) Resolver(ctx context.Context, party view.Identity) (*Resolver, []byte, error) {
-	resolver, err := r.resolver(ctx, party)
+func (r *Service) Resolver(ctx context.Context, id view.Identity) (*Resolver, []byte, error) {
+	resolver, err := r.resolver(ctx, id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -301,22 +311,36 @@ func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
 	r.resolversMap[newResolver.Name] = newResolver
 	// by alias
 	for _, alias := range newResolver.Aliases {
-		r.resolversMap[alias] = newResolver
+		if len(alias) != 0 {
+			r.resolversMap[alias] = newResolver
+		}
 	}
 	// by name + domain
 	r.resolversMap[newResolver.Name+"."+newResolver.Domain] = newResolver
 
 	// by addresses
 	for _, address := range newResolver.Addresses {
-		r.resolversMap[address] = newResolver
+		if len(address) != 0 {
+			r.resolversMap[address] = newResolver
+		}
+	}
+
+	// by addresses
+	for _, address := range newResolver.AddressList {
+		if len(address) != 0 {
+			r.resolversMap[address] = newResolver
+		}
 	}
 
 	// by id
-	r.resolversMap[string(newResolver.ID)] = newResolver
+	if len(newResolver.ID) != 0 {
+		r.resolversMap[string(newResolver.ID)] = newResolver
+	}
 
 	// by pkiResolver
-	r.resolversMap[string(pkiID)] = newResolver
-
+	if len(pkiID) != 0 {
+		r.resolversMap[string(pkiID)] = newResolver
+	}
 }
 
 func (r *Service) pkiResolve(resolver *Resolver) []byte {

@@ -53,21 +53,57 @@ func TestPKIResolveConcurrency(t *testing.T) {
 }
 
 func TestGetIdentity(t *testing.T) {
-	svc, err := NewService(mockKVS{})
+	// setup
+	service, err := NewService(mockKVS{})
 	assert.NoError(err)
-
 	ext := mockExtractor{}
-	_, err = svc.AddResolver("getbyname", "", map[string]string{}, []string{}, []byte("id"))
+	_, err = service.AddResolver(
+		"alice",
+		"domain",
+		map[string]string{
+			string(P2PPort): "localhost:1010",
+		},
+		[]string{
+			"apple", "strawberry",
+		},
+		[]byte("alice_id"),
+	)
+	assert.NoError(err)
+	err = service.AddPublicKeyExtractor(ext)
 	assert.NoError(err)
 
-	err = svc.AddPublicKeyExtractor(ext)
-	assert.NoError(err)
+	// found
+	for _, label := range []string{"alice", "apple", "alice.domain", "strawberry", "localhost:1010", "[::1]:1010", "alice_id"} {
+		resultID, err := service.GetIdentity(label, []byte{})
+		assert.NoError(err)
+		assert.Equal([]byte("alice_id"), []byte(resultID))
 
-	resultID, err := svc.GetIdentity("getbyname", []byte{})
-	assert.NoError(err)
-	assert.Equal([]byte("id"), []byte(resultID))
+		resultID, _, _, err = service.Resolve(context.Background(), view.Identity(label))
+		assert.NoError(err)
+		assert.Equal([]byte("alice_id"), []byte(resultID))
 
-	resultID, err = svc.GetIdentity("notfound", []byte("no"))
-	assert.Error(err, "identity not found")
-	assert.Equal([]byte(nil), []byte(resultID))
+		resolver, _, err := service.Resolver(context.Background(), view.Identity(label))
+		assert.NoError(err)
+		assert.Equal([]byte("alice_id"), resolver.ID)
+
+		resolver, err = service.GetResolver(context.Background(), view.Identity(label))
+		assert.NoError(err)
+		assert.Equal([]byte("alice_id"), resolver.ID)
+	}
+
+	// not found
+	for _, label := range []string{"pineapple", "bob", "localhost:8080"} {
+		resultID, err := service.GetIdentity(label, []byte("no"))
+		assert.Error(err, "identity not found")
+		assert.Equal([]byte(nil), []byte(resultID))
+
+		_, _, _, err = service.Resolve(context.Background(), view.Identity(label))
+		assert.Error(err)
+
+		_, _, err = service.Resolver(context.Background(), view.Identity(label))
+		assert.Error(err)
+
+		_, err = service.GetResolver(context.Background(), view.Identity(label))
+		assert.Error(err)
+	}
 }
