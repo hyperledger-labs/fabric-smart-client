@@ -72,7 +72,7 @@ func TestContextRace(t *testing.T) {
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	resolver := &mock.EndpointService{}
-	resolver.ResolverReturns(&endpoint.Resolver{Id: []byte("alice")}, nil, nil)
+	resolver.ResolverReturns(&endpoint.Resolver{ID: []byte("alice")}, nil, nil)
 	resolver.GetIdentityReturns([]byte("bob"), nil)
 	defaultSession := &mock.Session{}
 	session := &mock.Session{}
