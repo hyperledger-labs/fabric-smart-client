@@ -85,7 +85,7 @@ type Discovery interface {
 }
 
 type Service struct {
-	resolvers      []*Resolver
+	resolvers      []Resolver
 	resolversMap   map[string]*Resolver
 	resolversMutex sync.RWMutex
 	bindingKVS     driver2.BindingStore
@@ -101,7 +101,7 @@ func NewService(bindingKVS driver2.BindingStore) (*Service, error) {
 		bindingKVS:             bindingKVS,
 		publicKeyExtractors:    []PublicKeyExtractor{},
 		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
-		resolvers:              []*Resolver{},
+		resolvers:              []Resolver{},
 		resolversMap:           map[string]*Resolver{},
 	}
 	return er, nil
@@ -138,26 +138,6 @@ func (r *Service) Resolve(ctx context.Context, party view.Identity) (view.Identi
 
 func (r *Service) GetResolver(ctx context.Context, party view.Identity) (*Resolver, error) {
 	return r.resolver(ctx, party)
-}
-
-func (r *Service) resolver(ctx context.Context, party view.Identity) (*Resolver, error) {
-	// We can skip this check, but in case the long term was passed directly, this is going to spare us a DB lookup
-	resolver, err := r.rootEndpoint(party)
-	if err == nil {
-		return resolver, nil
-	}
-	logger.Debugf("resolving via binding for %s", party)
-	party, err = r.bindingKVS.GetLongTerm(ctx, party)
-	if err != nil {
-		return nil, err
-	}
-	logger.Debugf("continue to [%s]", party)
-	resolver, err = r.rootEndpoint(party)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting identity for [%s]", party)
-	}
-
-	return resolver, nil
 }
 
 func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error {
@@ -288,35 +268,6 @@ func (r *Service) ResolveIdentities(endpoints ...string) ([]view.Identity, error
 	return ids, nil
 }
 
-func (r *Service) pkiResolve(resolver *Resolver) []byte {
-	resolver.PKILock.RLock()
-	if len(resolver.PKI) != 0 {
-		resolver.PKILock.RUnlock()
-		return resolver.PKI
-	}
-	resolver.PKILock.RUnlock()
-
-	resolver.PKILock.Lock()
-	defer resolver.PKILock.Unlock()
-	if len(resolver.PKI) == 0 {
-		resolver.PKI = r.ExtractPKI(resolver.ID)
-	}
-	return resolver.PKI
-}
-
-func (r *Service) rootEndpoint(party view.Identity) (*Resolver, error) {
-	r.resolversMutex.RLock()
-	defer r.resolversMutex.RUnlock()
-
-	// by identity
-	resolver, ok := r.resolversMap[string(party)]
-	if ok {
-		return resolver, nil
-	}
-
-	return nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
-}
-
 func (r *Service) Resolver(ctx context.Context, party view.Identity) (*Resolver, []byte, error) {
 	resolver, err := r.resolver(ctx, party)
 	if err != nil {
@@ -325,8 +276,20 @@ func (r *Service) Resolver(ctx context.Context, party view.Identity) (*Resolver,
 	return resolver, r.pkiResolve(resolver), nil
 }
 
+func (r *Service) Resolvers() []Resolver {
+	r.resolversMutex.RLock()
+	defer r.resolversMutex.RUnlock()
+
+	// clone r.resolvers
+	var res []Resolver
+	for _, resolver := range r.resolvers {
+		res = append(res, resolver)
+	}
+	return res
+}
+
 func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
-	r.resolvers = append(r.resolvers, newResolver)
+	r.resolvers = append(r.resolvers, *newResolver)
 
 	// by name
 	r.resolversMap[newResolver.Name] = newResolver
@@ -348,6 +311,55 @@ func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
 	// by pkiResolver
 	r.resolversMap[string(pkiID)] = newResolver
 
+}
+
+func (r *Service) pkiResolve(resolver *Resolver) []byte {
+	resolver.PKILock.RLock()
+	if len(resolver.PKI) != 0 {
+		resolver.PKILock.RUnlock()
+		return resolver.PKI
+	}
+	resolver.PKILock.RUnlock()
+
+	resolver.PKILock.Lock()
+	defer resolver.PKILock.Unlock()
+	if len(resolver.PKI) == 0 {
+		resolver.PKI = r.ExtractPKI(resolver.ID)
+	}
+	return resolver.PKI
+}
+
+func (r *Service) resolver(ctx context.Context, party view.Identity) (*Resolver, error) {
+	// We can skip this check, but in case the long term was passed directly, this is going to spare us a DB lookup
+	resolver, err := r.resolverByIdentity(party)
+	if err == nil {
+		return resolver, nil
+	}
+	logger.Debugf("resolving via binding for %s", party)
+	party, err = r.bindingKVS.GetLongTerm(ctx, party)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("continue to [%s]", party)
+	resolver, err = r.resolverByIdentity(party)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed getting identity for [%s]", party)
+	}
+
+	return resolver, nil
+}
+
+func (r *Service) resolverByIdentity(party view.Identity) (*Resolver, error) {
+	r.resolversMutex.RLock()
+	defer r.resolversMutex.RUnlock()
+
+	// by identity
+	resolver, ok := r.resolversMap[string(party)]
+	if ok {
+		return resolver, nil
+	}
+
+	return nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
 }
 
 var portNameMap = map[string]PortName{
