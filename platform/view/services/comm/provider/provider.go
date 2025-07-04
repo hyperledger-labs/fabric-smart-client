@@ -22,24 +22,29 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func NewHostProvider(config driver.ConfigService, endpointService *endpoint.Service, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) (host.GeneratorProvider, error) {
+func NewHostProvider(
+	config driver.ConfigService,
+	endpointService *endpoint.Service,
+	metricsProvider metrics.Provider,
+	tracerProvider trace.TracerProvider,
+) (host.GeneratorProvider, error) {
 	if err := endpointService.AddPublicKeyExtractor(&comm.PKExtractor{}); err != nil {
 		return nil, err
 	}
 
 	if p2pCommType := config.GetString("fsc.p2p.type"); strings.EqualFold(p2pCommType, fsc.WebSocket) {
-		return newWebSocketHostProvider(config, endpointService, tracerProvider, metricsProvider)
+		return NewWebSocketHostProvider(config, endpointService, tracerProvider, metricsProvider)
 	} else {
-		return newLibP2PHostProvider(config, endpointService, metricsProvider), nil
+		return NewLibP2PHostProvider(config, endpointService, metricsProvider), nil
 	}
 }
 
-func newLibP2PHostProvider(config driver.ConfigService, endpointService *endpoint.Service, metricsProvider metrics.Provider) host.GeneratorProvider {
+func NewLibP2PHostProvider(config driver.ConfigService, endpointService *endpoint.Service, metricsProvider metrics.Provider) host.GeneratorProvider {
 	endpointService.SetPublicKeyIDSynthesizer(&libp2p.PKIDSynthesizer{})
 	return libp2p.NewHostGeneratorProvider(libp2p.NewConfig(config), metricsProvider, endpointService)
 }
 
-func newWebSocketHostProvider(config driver.ConfigService, endpointService *endpoint.Service, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (host.GeneratorProvider, error) {
+func NewWebSocketHostProvider(config driver.ConfigService, endpointService *endpoint.Service, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (host.GeneratorProvider, error) {
 	routingConfigPath := config.GetPath("fsc.p2p.opts.routing.path")
 	r, err := routing.NewResolvedStaticIDRouter(routingConfigPath, endpointService)
 	if err != nil {

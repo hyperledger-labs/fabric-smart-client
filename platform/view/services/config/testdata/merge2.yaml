@@ -1,0 +1,5 @@
+
+fabric:
+  enabled: true
+  network1:
+    name: pineapple

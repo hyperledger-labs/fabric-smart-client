@@ -7,16 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config/viper"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
@@ -27,19 +31,32 @@ const (
 	IDKey = "fsc.id"
 )
 
-const OfficialPath = "/etc/hyperledger-labs/fabric-smart-client-node"
+const (
+	OfficialPath          = "/etc/hyperledger-labs/fabric-smart-client-node"
+	MergeConfigEventTopic = "fsc.mergeConfig.event.topic"
+)
 
 var logOutput = os.Stderr
+
+type OnMergeConfigEventHandler interface {
+	OnMergeConfig()
+}
 
 type DecodeHookFuncType func(reflect.Type, reflect.Type, interface{}) (interface{}, error)
 
 type Provider struct {
-	confPath string
-	v        *viper.Viper
+	confPath    string
+	Backend     *viper.Viper
+	eventSystem events.EventSystem
+
+	mergeConfigMutex sync.Mutex
 }
 
 func NewProvider(confPath string) (*Provider, error) {
-	p := &Provider{confPath: confPath}
+	p := &Provider{
+		confPath:    confPath,
+		eventSystem: simple.NewEventBus(),
+	}
 	if err := p.load(); err != nil {
 		return nil, err
 	}
@@ -62,19 +79,19 @@ func (p *Provider) ID() string {
 }
 
 func (p *Provider) GetDuration(key string) time.Duration {
-	return p.v.GetDuration(key)
+	return p.Backend.GetDuration(key)
 }
 
 func (p *Provider) GetBool(key string) bool {
-	return p.v.GetBool(key)
+	return p.Backend.GetBool(key)
 }
 
 func (p *Provider) GetInt(key string) int {
-	return p.v.GetInt(key)
+	return p.Backend.GetInt(key)
 }
 
 func (p *Provider) GetStringSlice(key string) []string {
-	return p.v.GetStringSlice(key)
+	return p.Backend.GetStringSlice(key)
 }
 
 func (p *Provider) AddDecodeHook(f DecodeHookFuncType) error {
@@ -82,20 +99,20 @@ func (p *Provider) AddDecodeHook(f DecodeHookFuncType) error {
 }
 
 func (p *Provider) UnmarshalKey(key string, rawVal interface{}) error {
-	return viperutil.EnhancedExactUnmarshal(p.v, key, rawVal)
+	return viperutil.EnhancedExactUnmarshal(p.Backend, key, rawVal)
 }
 
 func (p *Provider) IsSet(key string) bool {
-	return p.v.IsSet(key)
+	return p.Backend.IsSet(key)
 }
 
 func (p *Provider) GetPath(key string) string {
-	path := p.v.GetString(key)
+	path := p.Backend.GetString(key)
 	if path == "" {
 		return ""
 	}
 
-	return TranslatePath(filepath.Dir(p.v.ConfigFileUsed()), path)
+	return TranslatePath(filepath.Dir(p.Backend.ConfigFileUsed()), path)
 }
 
 func (p *Provider) TranslatePath(path string) string {
@@ -103,26 +120,46 @@ func (p *Provider) TranslatePath(path string) string {
 		return ""
 	}
 
-	return TranslatePath(filepath.Dir(p.v.ConfigFileUsed()), path)
+	return TranslatePath(filepath.Dir(p.Backend.ConfigFileUsed()), path)
 }
 
 func (p *Provider) GetString(key string) string {
-	return p.v.GetString(key)
+	return p.Backend.GetString(key)
 }
 
 func (p *Provider) ConfigFileUsed() string {
-	return p.v.ConfigFileUsed()
+	return p.Backend.ConfigFileUsed()
 }
 
-func (p *Provider) load() error {
-	p.v = viper.New()
-	err := p.initViper(p.v, CmdRoot)
+func (p *Provider) MergeConfig(raw []byte) error {
+	// only one writer at the time
+	p.mergeConfigMutex.Lock()
+	defer p.mergeConfigMutex.Unlock()
+
+	err := p.Backend.MergeConfig(bytes.NewReader(raw))
 	if err != nil {
 		return err
 	}
 
-	err = p.v.ReadInConfig() // Find and read the config file
-	if err != nil {          // Handle errors reading the config file
+	// notify the listener
+	p.eventSystem.Publish(&MergeConfigEvent{})
+
+	return nil
+}
+
+func (p *Provider) OnMergeConfig(handler OnMergeConfigEventHandler) {
+	p.eventSystem.Subscribe(MergeConfigEventTopic, &eventListener{handler: handler})
+}
+
+func (p *Provider) load() error {
+	p.Backend = viper.New()
+	err := p.initViper(p.Backend, CmdRoot)
+	if err != nil {
+		return err
+	}
+
+	err = p.Backend.ReadInConfig() // Find and read the config file
+	if err != nil {                // Handle errors reading the config file
 		// The version of Viper we use claims the config type isn't supported when in fact the file hasn't been found
 		// Display a more helpful message to avoid confusing the user.
 		if strings.Contains(fmt.Sprint(err), "Unsupported Config Type") {
@@ -139,9 +176,9 @@ func (p *Provider) load() error {
 	}
 
 	logging.Init(logging.Config{
-		Format:  p.v.GetString("logging.format"),
+		Format:  p.Backend.GetString("logging.format"),
 		Writer:  logOutput,
-		LogSpec: p.v.GetString("logging.spec"),
+		LogSpec: p.Backend.GetString("logging.spec"),
 	})
 
 	return nil
@@ -169,23 +206,23 @@ func (p *Provider) substituteEnv() error {
 		// nested key
 		keys := strings.Split(key, ".")
 		parent := strings.Join(keys[:len(keys)-1], ".")
-		if !p.v.IsSet(parent) {
+		if !p.Backend.IsSet(parent) {
 			fmt.Println("applying " + env[0] + " - parent not found in core.yaml: " + parent)
-			p.v.Set(key, val)
+			p.Backend.Set(key, val)
 			continue
 		}
 
-		k := p.v.GetStringMap(key)
+		k := p.Backend.GetStringMap(key)
 		if len(k) > 0 {
 			fmt.Println("-- skipping " + env[0] + ": cannot override maps")
 			continue
 		}
 
-		root := p.v.GetStringMap(keys[0])
+		root := p.Backend.GetStringMap(keys[0])
 		if err := setDeepValue(root, keys, val); err != nil {
 			return errors.Wrap(err, "error when substituting")
 		}
-		p.v.Set(keys[0], root)
+		p.Backend.Set(keys[0], root)
 		fmt.Println("applying " + env[0])
 	}
 	return nil
@@ -219,7 +256,7 @@ func setDeepValue(m map[string]any, keys []string, value any) error {
 // ----------------------------------------------------------------------------------
 // Performs basic initialization of our viper-based configuration layer.
 // Primary thrust is to establish the paths that should be consulted to find
-// the configuration we need.  If v == nil, we will initialize the global
+// the configuration we need.  If Backend == nil, we will initialize the global
 // Viper instance
 // ----------------------------------------------------------------------------------
 func (p *Provider) initViper(v *viper.Viper, configName string) error {
@@ -284,4 +321,23 @@ func TranslatePath(base, p string) string {
 	}
 
 	return filepath.Join(base, p)
+}
+
+type eventListener struct {
+	handler OnMergeConfigEventHandler
+}
+
+func (e *eventListener) OnReceive(event events.Event) {
+	e.handler.OnMergeConfig()
+}
+
+type MergeConfigEvent struct {
+}
+
+func (m *MergeConfigEvent) Topic() string {
+	return MergeConfigEventTopic
+}
+
+func (m *MergeConfigEvent) Message() interface{} {
+	return nil
 }
