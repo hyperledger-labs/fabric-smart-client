@@ -88,9 +88,9 @@ type NetworkMember struct {
 	InternalEndpoint string
 }
 
-type Discovery interface {
-	Peers() []NetworkMember
-}
+//go:generate counterfeiter -o mock/binding_store.go -fake-name BindingStore . BindingStore
+
+type BindingStore = cdriver.BindingStore
 
 type Service struct {
 	resolvers      []*Resolver
@@ -104,7 +104,7 @@ type Service struct {
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
-func NewService(bindingKVS cdriver.BindingStore) (*Service, error) {
+func NewService(bindingKVS BindingStore) (*Service, error) {
 	er := &Service{
 		bindingKVS:             bindingKVS,
 		publicKeyExtractors:    []PublicKeyExtractor{},
@@ -198,6 +198,22 @@ func (r *Service) AddResolver(
 ) (view.Identity, error) {
 	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
 
+	// is there a resolver with the same name or clashing aliases?
+	r.resolversMutex.RLock()
+	resolver, ok := r.resolversMap[name]
+	if ok {
+		// Then bind
+		r.resolversMutex.RUnlock()
+		return resolver.ID, r.Bind(context.Background(), resolver.ID, id)
+	}
+	for _, alias := range aliases {
+		_, ok := r.resolversMap[name]
+		if ok {
+			logger.Warnf("alias [%s] already defined by resolver [%s]", alias, resolver.Name)
+		}
+	}
+	r.resolversMutex.RUnlock()
+
 	// resolve addresses to their IPs, if needed
 	addressList := make([]string, 0, len(addresses))
 	for k, v := range addresses {
@@ -215,23 +231,18 @@ func (r *Service) AddResolver(
 			ID:          id,
 		},
 	}
-	pkiID := r.pkiResolve(newResolver)
-
-	// is there a resolver with the same name or clashing aliases?
-	r.resolversMutex.RLock()
-	exists := r.existsResolver(newResolver, pkiID)
-	r.resolversMutex.RUnlock()
-	if exists {
-		return nil, nil
-
-	}
+	pkiID := r.PkiResolve(newResolver)
 
 	r.resolversMutex.Lock()
 	defer r.resolversMutex.Unlock()
 
-	if r.existsResolver(newResolver, pkiID) {
-		return nil, nil
+	// check again
+	resolver, ok = r.resolversMap[name]
+	if ok {
+		// Then bind
+		return resolver.ID, r.Bind(context.Background(), resolver.ID, id)
 	}
+
 	r.appendResolver(newResolver, pkiID)
 	return nil, nil
 }
@@ -285,7 +296,7 @@ func (r *Service) Resolver(ctx context.Context, id view.Identity) (*Resolver, []
 	if err != nil {
 		return nil, nil, err
 	}
-	return resolver, r.pkiResolve(resolver), nil
+	return resolver, r.PkiResolve(resolver), nil
 }
 
 func (r *Service) Resolvers() []ResolverInfo {
@@ -298,45 +309,6 @@ func (r *Service) Resolvers() []ResolverInfo {
 		res = append(res, resolver.ResolverInfo)
 	}
 	return res
-}
-
-func (r *Service) existsResolver(newResolver *Resolver, pkiID []byte) bool {
-	// by name
-	_, ok := r.resolversMap[newResolver.Name]
-	if ok {
-		return true
-	}
-
-	// by alias
-	for _, alias := range newResolver.Aliases {
-		_, ok := r.resolversMap[alias]
-		if ok {
-			return true
-		}
-	}
-	// by name + domain
-	_, ok = r.resolversMap[newResolver.Name+"."+newResolver.Domain]
-	if ok {
-		return true
-	}
-
-	// by addresses
-	for _, address := range newResolver.Addresses {
-		_, ok := r.resolversMap[address]
-		if ok {
-			return true
-		}
-	}
-
-	// by id
-	_, ok = r.resolversMap[string(newResolver.ID)]
-	if ok {
-		return true
-	}
-
-	// by pkiResolver
-	_, ok = r.resolversMap[string(pkiID)]
-	return ok
 }
 
 func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
@@ -378,7 +350,7 @@ func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
 	}
 }
 
-func (r *Service) pkiResolve(resolver *Resolver) []byte {
+func (r *Service) PkiResolve(resolver *Resolver) []byte {
 	resolver.PKILock.RLock()
 	if len(resolver.PKI) != 0 {
 		resolver.PKILock.RUnlock()

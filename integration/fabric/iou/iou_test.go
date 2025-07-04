@@ -22,7 +22,7 @@ var _ = Describe("EndToEnd", func() {
 		It("succeeded", s.TestSucceeded)
 	})
 
-	Describe("IOU Life Cycle With Websockets", func() {
+	Describe("IOU Life Cycle With Websockets", Label("T2"), func() {
 		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, true)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)

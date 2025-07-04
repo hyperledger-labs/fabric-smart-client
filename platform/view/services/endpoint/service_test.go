@@ -4,13 +4,15 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package endpoint
+package endpoint_test
 
 import (
 	"context"
 	"sync"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,11 +35,11 @@ func (m mockExtractor) ExtractPublicKey(id view.Identity) (any, error) {
 }
 
 func TestPKIResolveConcurrency(t *testing.T) {
-	svc, err := NewService(mockKVS{})
+	svc, err := endpoint.NewService(mockKVS{})
 	require.NoError(t, err)
 
 	ext := mockExtractor{}
-	resolver := &Resolver{}
+	resolver := &endpoint.Resolver{}
 
 	err = svc.AddPublicKeyExtractor(ext)
 	require.NoError(t, err)
@@ -47,7 +49,7 @@ func TestPKIResolveConcurrency(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		go func() {
 			defer wg.Done()
-			svc.pkiResolve(resolver)
+			svc.PkiResolve(resolver)
 		}()
 	}
 	wg.Wait()
@@ -55,23 +57,49 @@ func TestPKIResolveConcurrency(t *testing.T) {
 
 func TestGetIdentity(t *testing.T) {
 	// setup
-	service, err := NewService(mockKVS{})
+	bindingStore := &mock.BindingStore{}
+	bindingStore.PutBindingReturns(nil)
+
+	service, err := endpoint.NewService(bindingStore)
 	require.NoError(t, err)
 	ext := mockExtractor{}
-	_, err = service.AddResolver("alice", "domain", map[string]string{string(P2PPort): "localhost:1010"}, []string{"apple", "strawberry"}, []byte("alice_id"))
+	_, err = service.AddResolver(
+		"alice",
+		"fsc.domain",
+		map[string]string{string(endpoint.P2PPort): "localhost:1010"},
+		[]string{"apple", "strawberry"},
+		[]byte("alice_id"),
+	)
 	require.NoError(t, err)
 	resolvers := service.Resolvers()
 	assert.Len(t, resolvers, 1)
-	_, err = service.AddResolver("alice", "domain", map[string]string{string(P2PPort): "localhost:1010"}, []string{"apple", "strawberry"}, []byte("alice_id"))
+	assert.Equal(t, 0, bindingStore.PutBindingCallCount())
+
+	_, err = service.AddResolver(
+		"alice",
+		"fabric.domain",
+		map[string]string{string(endpoint.P2PPort): "localhost:1010"},
+		[]string{"apricot"},
+		[]byte("alice_id2"),
+	)
 	require.NoError(t, err)
 	resolvers = service.Resolvers()
 	assert.Len(t, resolvers, 1)
+	assert.Equal(t, 1, bindingStore.PutBindingCallCount())
 
 	err = service.AddPublicKeyExtractor(ext)
 	require.NoError(t, err)
 
 	// found
-	for _, label := range []string{"alice", "apple", "alice.domain", "strawberry", "localhost:1010", "[::1]:1010", "alice_id"} {
+	for _, label := range []string{
+		"alice",
+		"alice.fsc.domain",
+		"apple",
+		"strawberry",
+		"localhost:1010",
+		"[::1]:1010",
+		"alice_id",
+	} {
 		resultID, err := service.GetIdentity(label, []byte{})
 		require.NoError(t, err)
 		assert.Equal(t, []byte("alice_id"), []byte(resultID))
@@ -90,22 +118,29 @@ func TestGetIdentity(t *testing.T) {
 	}
 
 	// not found
-	for _, label := range []string{"pineapple", "bob", "localhost:8080"} {
+	for _, label := range []string{
+		"alice.fabric.domain",
+		"pineapple",
+		"bob",
+		"apricot",
+		"localhost:8080",
+		"alice_id2",
+	} {
 		resultID, err := service.GetIdentity(label, []byte("no"))
 		assert.Error(t, err)
-		assert.ErrorIs(t, err, ErrNotFound)
+		assert.ErrorIs(t, err, endpoint.ErrNotFound)
 		assert.Equal(t, []byte(nil), []byte(resultID))
 
 		_, _, _, err = service.Resolve(context.Background(), view.Identity(label))
 		require.Error(t, err)
-		assert.ErrorIs(t, err, ErrNotFound)
+		assert.ErrorIs(t, err, endpoint.ErrNotFound)
 
 		_, _, err = service.Resolver(context.Background(), view.Identity(label))
 		require.Error(t, err)
-		assert.ErrorIs(t, err, ErrNotFound)
+		assert.ErrorIs(t, err, endpoint.ErrNotFound)
 
 		_, err = service.GetResolver(context.Background(), view.Identity(label))
 		require.Error(t, err)
-		assert.ErrorIs(t, err, ErrNotFound)
+		assert.ErrorIs(t, err, endpoint.ErrNotFound)
 	}
 }
