@@ -15,7 +15,7 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	Describe("IOU Life Cycle With LibP2P", func() {
+	Describe("IOU Life Cycle With LibP2P", Label("T1"), func() {
 		s := NewTestSuite(fsc.LibP2P, integration.NoReplication, true)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
@@ -29,14 +29,14 @@ var _ = Describe("EndToEnd", func() {
 		It("succeeded", s.TestSucceeded)
 	})
 
-	Describe("IOU Life Cycle With Websockets and no TLS", func() {
+	Describe("IOU Life Cycle With Websockets and no TLS", Label("T3"), func() {
 		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, false)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
 	})
 
-	Describe("IOU Life Cycle With Websockets and replicas", func() {
+	Describe("IOU Life Cycle With Websockets and replicas", Label("T4"), func() {
 		s := NewTestSuite(
 			fsc.WebSocket,
 			&integration.ReplicationOptions{
