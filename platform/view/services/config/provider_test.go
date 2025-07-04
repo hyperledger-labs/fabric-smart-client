@@ -9,10 +9,12 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type DriverType string
@@ -27,29 +29,8 @@ type Opts struct {
 func TestReadFile(t *testing.T) {
 	p, err := NewProvider("./testdata")
 	assert.NoError(t, err)
-
-	path, _ := filepath.Abs("testdata/file.name")
-
-	assert.Equal(t, "a string", p.GetString("str"))
-	assert.Equal(t, 5, p.GetInt("number"))
-	assert.Equal(t, 5*time.Second, p.GetDuration("duration"))
-	assert.Equal(t, path, p.GetPath("path.relative"))
-	assert.Equal(t, "/absolute/path/file.name", p.GetPath("path.absolute"))
-	assert.Equal(t, "/absolute/path/dir", p.GetPath("path.dir"))
-	assert.Equal(t, "/absolute/path/dir/", p.GetPath("path.trailing"))
-
-	assert.Equal(t, "", p.GetString("emptykey"))
-	assert.Equal(t, true, p.GetBool("CAPITALS"))
-	assert.Equal(t, true, p.GetBool("capitals"))
-
-	var db Opts
-	assert.Equal(t, "sql", p.GetString("fsc.kvs.persistence.type"))
-	err = p.UnmarshalKey("fsc.kvs.persistence.opts", &db)
-	assert.NoError(t, err)
-	assert.Equal(t, DriverType("sqlite"), db.Driver)
-	assert.Equal(t, "ds", db.DataSource)
-	assert.Equal(t, true, db.SkipPragmas)
-	assert.Equal(t, 0, db.MaxOpenConns)
+	testBasics(t, p)
+	testMerge(t, p)
 }
 
 func TestEnvSubstitution(t *testing.T) {
@@ -92,4 +73,75 @@ func TestEnvSubstitution(t *testing.T) {
 
 	assert.Equal(t, "new", p.GetString("non.existent.key"))
 	assert.Equal(t, 1, p.GetInt("nested.keys.one"))
+}
+
+func testMerge(t *testing.T, p *Provider) {
+	newKey := p.GetString("newKey")
+	assert.Empty(t, newKey)
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+	p.OnMergeConfig(&mergeConfigHandler{wg: &wg})
+
+	merge1Raw, err := os.ReadFile("./testdata/merge1.yaml")
+	require.NoError(t, err)
+	require.NoError(t, p.MergeConfig(merge1Raw))
+
+	newKey = p.GetString("newKey")
+	assert.Equal(t, "hello world", newKey)
+
+	testBasics(t, p)
+
+	// add nested
+	merge2Raw, err := os.ReadFile("./testdata/merge2.yaml")
+	require.NoError(t, err)
+	require.NoError(t, p.MergeConfig(merge2Raw))
+
+	networkName := p.GetString("fabric.network1.name")
+	assert.Equal(t, "pineapple", networkName)
+
+	merge3Raw, err := os.ReadFile("./testdata/merge3.yaml")
+	require.NoError(t, err)
+	require.NoError(t, p.MergeConfig(merge3Raw))
+
+	networkName = p.GetString("fabric.network1.name")
+	assert.Equal(t, "pineapple", networkName)
+	networkName = p.GetString("fabric.network2.name")
+	assert.Equal(t, "strawberry", networkName)
+
+	testBasics(t, p)
+
+	wg.Wait()
+}
+
+func testBasics(t *testing.T, p *Provider) {
+	path, _ := filepath.Abs("testdata/file.name")
+
+	assert.Equal(t, "a string", p.GetString("str"))
+	assert.Equal(t, 5, p.GetInt("number"))
+	assert.Equal(t, 5*time.Second, p.GetDuration("duration"))
+	assert.Equal(t, path, p.GetPath("path.relative"))
+	assert.Equal(t, "/absolute/path/file.name", p.GetPath("path.absolute"))
+	assert.Equal(t, "/absolute/path/dir", p.GetPath("path.dir"))
+	assert.Equal(t, "/absolute/path/dir/", p.GetPath("path.trailing"))
+
+	assert.Equal(t, "", p.GetString("emptykey"))
+	assert.Equal(t, true, p.GetBool("CAPITALS"))
+	assert.Equal(t, true, p.GetBool("capitals"))
+
+	var db Opts
+	assert.Equal(t, "sql", p.GetString("fsc.kvs.persistence.type"))
+	err := p.UnmarshalKey("fsc.kvs.persistence.opts", &db)
+	assert.NoError(t, err)
+	assert.Equal(t, DriverType("sqlite"), db.Driver)
+	assert.Equal(t, "ds", db.DataSource)
+	assert.Equal(t, true, db.SkipPragmas)
+	assert.Equal(t, 0, db.MaxOpenConns)
+}
+
+type mergeConfigHandler struct {
+	wg *sync.WaitGroup
+}
+
+func (m *mergeConfigHandler) OnMergeConfig() {
+	m.wg.Done()
 }
