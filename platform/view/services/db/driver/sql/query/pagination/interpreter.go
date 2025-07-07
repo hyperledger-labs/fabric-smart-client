@@ -21,6 +21,17 @@ func NewDefaultInterpreter() *interpreter {
 
 type interpreter struct{}
 
+func handleKeysetPreProcess[T comparable](pagination *keyset[T, any], query common.ModifiableQuery) {
+	query.AddField(pagination.sqlIdName)
+	query.AddOrderBy(_select.Asc(pagination.sqlIdName))
+	query.AddLimit(pagination.pageSize)
+	if pagination.firstId != pagination.nilElement() {
+		query.AddWhere(cond.CmpVal(pagination.sqlIdName, ">", pagination.firstId))
+	} else {
+		query.AddOffset(pagination.offset)
+	}
+}
+
 func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQuery) {
 	switch pagination := p.(type) {
 	case *none:
@@ -31,31 +42,16 @@ func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQue
 		query.AddOffset(pagination.offset)
 
 	case *keyset[string, any]:
-		query.AddField(pagination.sqlIdName)
-		query.AddOrderBy(_select.Asc(pagination.sqlIdName))
-		query.AddLimit(pagination.pageSize)
-		if pagination.firstId != pagination.nilElement() {
-			query.AddWhere(cond.CmpVal(pagination.sqlIdName, ">", pagination.firstId))
-		} else {
-			query.AddOffset(pagination.offset)
-		}
+		handleKeysetPreProcess(pagination, query)
 
 	case *keyset[int, any]:
-		query.AddField(pagination.sqlIdName)
-		query.AddOrderBy(_select.Asc(pagination.sqlIdName))
-		query.AddLimit(pagination.pageSize)
-		if pagination.firstId != pagination.nilElement() {
-			query.AddWhere(cond.CmpVal(pagination.sqlIdName, ">", pagination.firstId))
-		} else {
-			query.AddOffset(pagination.offset)
-		}
+		handleKeysetPreProcess(pagination, query)
 
 	case *empty:
 		query.AddLimit(0)
 		query.AddOffset(0)
 
 	default:
-		fmt.Printf("Type = %T\n", pagination)
 		panic(fmt.Sprintf("invalid pagination option %+v", pagination))
 	}
 }
