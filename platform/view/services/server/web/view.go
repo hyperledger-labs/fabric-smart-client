@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -54,7 +54,7 @@ func (s *viewHandler) StreamCallView(context *ReqContext, vid string, input []by
 	return nil, s.c.StreamCallView(vid, context.ResponseWriter, context.Req)
 }
 
-func InstallViewHandler(l logger, manager server.ViewManager, h *HttpHandler, tp trace.TracerProvider) {
+func InstallViewHandler(l logger, manager view.Manager, h *HttpHandler, tp trace.TracerProvider) {
 	fh := &viewHandler{c: newViewClient(l, manager, tp)}
 	newDispatcher(h).WireViewCaller(viewCallFunc(fh.CallView))
 	newDispatcher(h).WireStreamViewCaller(viewCallFunc(fh.StreamCallView))
@@ -67,11 +67,11 @@ type ViewClient interface {
 
 type client struct {
 	logger
-	viewManager server.ViewManager
+	viewManager view.Manager
 	tracer      trace.Tracer
 }
 
-func newViewClient(logger logger, viewManager server.ViewManager, tp trace.TracerProvider) *client {
+func newViewClient(logger logger, viewManager view.Manager, tp trace.TracerProvider) *client {
 	return &client{
 		logger:      logger,
 		viewManager: viewManager,
@@ -95,7 +95,7 @@ func (s *client) CallView(vid string, input []byte, ctx context.Context) (interf
 		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", vid, err)
 	}
 	span.AddEvent("initiate_view")
-	raw, err := s.viewManager.InitiateView(f, newCtx)
+	raw, err := s.viewManager.InitiateView(newCtx, f)
 	if err == nil {
 		s.Debugf("Finished call view [%s] on input [%v]", vid, string(input))
 	}
@@ -119,7 +119,7 @@ func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request 
 	if err != nil {
 		return errors.Errorf("failed instantiating view [%s], err [%s]", vid, err)
 	}
-	viewContext, err := s.viewManager.InitiateContext(f)
+	viewContext, err := s.viewManager.InitiateContext(s.viewManager.Context(), f)
 	if err != nil {
 		return errors.Errorf("failed instantiating context for view [%s], err %s", vid, err)
 	}

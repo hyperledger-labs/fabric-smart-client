@@ -15,7 +15,6 @@ import (
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/finality"
 	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
@@ -38,7 +37,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server"
 	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
@@ -138,12 +136,9 @@ func (p *SDK) Install() error {
 		}),
 		p.Container().Provide(view3.NewMetrics),
 		p.Container().Provide(view3.NewAccessControlChecker, dig.As(new(view3.PolicyChecker))),
-		p.Container().Provide(view3.NewViewServiceServer, dig.As(new(view3.Service), new(finality.Server))),
+		p.Container().Provide(view3.NewViewServiceServer, dig.As(new(view3.Service))),
 		p.Container().Provide(view.NewManager),
-		p.Container().Provide(
-			digutils.Identity[*view.Manager](),
-			dig.As(new(StartableViewManager), new(ViewManager), new(server.ViewManager)),
-		),
+		p.Container().Provide(digutils.Identity[*view.Manager](), dig.As(new(view3.Manager))),
 
 		p.Container().Provide(func(
 			hostProvider host.GeneratorProvider,
@@ -164,9 +159,6 @@ func (p *SDK) Install() error {
 				new(id.SigService),
 			),
 		),
-		p.Container().Provide(func(tracerProvider trace.TracerProvider) *finality.Manager {
-			return finality.NewManager(tracerProvider)
-		}),
 	)
 	if err != nil {
 		return err
@@ -178,7 +170,7 @@ func (p *SDK) Install() error {
 
 	err = errors.Join(
 		digutils.Register[trace.TracerProvider](p.Container()),
-		digutils.Register[ViewManager](p.Container()), // Need to add it as a field in the node
+		digutils.Register[*view.Manager](p.Container()),
 		digutils.Register[id.SigService](p.Container()),
 		digutils.Register[*id.Provider](p.Container()),
 		digutils.Register[*view.Registry](p.Container()),
@@ -203,7 +195,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		ConfigProvider driver.ConfigService
 
 		GRPCServer     *grpc.GRPCServer
-		ViewManager    StartableViewManager
+		ViewManager    *view.Manager
 		ViewService    view3.Service
 		CommService    *comm.Service
 		WebServer      web.Server

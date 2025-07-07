@@ -26,16 +26,18 @@ type Registry struct {
 	factoriesSync sync.RWMutex
 	viewsSync     sync.RWMutex
 
-	views      map[string][]*viewEntry
-	initiators map[string]string
-	factories  map[string]Factory
+	views          map[string][]*viewEntry
+	initiators     map[string]string
+	factories      map[string]Factory
+	localFactories map[string]LocalFactory
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
-		views:      map[string][]*viewEntry{},
-		initiators: map[string]string{},
-		factories:  map[string]Factory{},
+		views:          map[string][]*viewEntry{},
+		initiators:     map[string]string{},
+		factories:      map[string]Factory{},
+		localFactories: map[string]LocalFactory{},
 	}
 }
 
@@ -44,6 +46,14 @@ func (cm *Registry) RegisterFactory(id string, factory Factory) error {
 	cm.factoriesSync.Lock()
 	defer cm.factoriesSync.Unlock()
 	cm.factories[id] = factory
+	return nil
+}
+
+func (cm *Registry) RegisterLocalFactory(id string, factory LocalFactory) error {
+	logger.Debugf("Register View Factory [%s,%t]", id, factory)
+	cm.factoriesSync.Lock()
+	defer cm.factoriesSync.Unlock()
+	cm.localFactories[id] = factory
 	return nil
 }
 
@@ -64,7 +74,24 @@ func (cm *Registry) NewView(id string, in []byte) (f view.View, err error) {
 	return factory.NewView(in)
 }
 
-func (cm *Registry) RegisterResponderFactory(factory Factory, initiatedBy interface{}) error {
+func (cm *Registry) NewLocalView(id string, arg any) (f view.View, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Errorf("new view triggered panic: %s\n%s\n", r, debug.Stack())
+			err = errors.Errorf("failed creating view [%s]", r)
+		}
+	}()
+
+	cm.factoriesSync.RLock()
+	factory, ok := cm.localFactories[id]
+	cm.factoriesSync.RUnlock()
+	if !ok {
+		return nil, errors.Errorf("no factory found for id [%s]", id)
+	}
+	return factory.NewViewWithArg(arg)
+}
+
+func (cm *Registry) RegisterResponderFactory(factory Factory, initiatedBy any) error {
 	responder, err := factory.NewView(nil)
 	if err != nil {
 		return err
@@ -72,11 +99,11 @@ func (cm *Registry) RegisterResponderFactory(factory Factory, initiatedBy interf
 	return cm.RegisterResponder(responder, initiatedBy)
 }
 
-func (cm *Registry) RegisterResponder(responder view.View, initiatedBy interface{}) error {
+func (cm *Registry) RegisterResponder(responder view.View, initiatedBy any) error {
 	return cm.RegisterResponderWithIdentity(responder, nil, initiatedBy)
 }
 
-func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error {
+func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy any) error {
 	switch t := initiatedBy.(type) {
 	case view.View:
 		cm.registerResponderWithIdentity(responder, id, cm.GetIdentifier(t))
@@ -88,7 +115,7 @@ func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.I
 	return nil
 }
 
-func (cm *Registry) GetResponder(initiatedBy interface{}) (view.View, error) {
+func (cm *Registry) GetResponder(initiatedBy any) (view.View, error) {
 	var initiatedByID string
 	switch t := initiatedBy.(type) {
 	case view.View:
