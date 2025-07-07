@@ -8,8 +8,8 @@ package views
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/states"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -84,7 +84,7 @@ func (a *ApproverView) Call(context view.Context) (interface{}, error) {
 		assert.NoError(tx.HasBeenEndorsedBy(cmd.Ids...), "expected two valid signatures in transfer")
 		assert.True(cmd.Ids.Match(state.Identities{assetIn.Owner, assetOut.Owner}), "expected asset owners")
 
-		//assert.EqualMod(assetIn, assetOut, []string{"Owner"}, "assets do not match")
+		// assert.EqualMod(assetIn, assetOut, []string{"Owner"}, "assets do not match")
 	default:
 		assert.Fail("expected a valid command, got [%s]", cmd)
 	}

@@ -9,7 +9,7 @@ package endpoint
 import (
 	"crypto/x509"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 )
 
 type DefaultPublicKeyIDSynthesizer struct{}

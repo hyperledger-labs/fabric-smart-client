@@ -108,7 +108,7 @@ func NewMyService(... Deps, metricsProvider metrics.Provider) *MyService {
 #### In a View
 Views do not support proper dependency injection and instantiating a new Metrics struct can be inefficient for each view invocation. For this reason, avoid keeping metrics within the views and try to do it using the services that the view uses.
 
-However, if it is necessary, you can create a `Metrics` struct that contains all the metrics your application uses as shown above, and register it in your SDK, as explained [here](./sdk.md#developing-new-sdks):
+However, if it is necessary, you can create a `Metrics` struct that contains all the metrics your application uses as shown above, and register it in your SDK, as explained [here](../sdk.md#developing-new-sdks):
 ```go
 type Metrics struct {...}
 

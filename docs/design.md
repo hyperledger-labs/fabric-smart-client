@@ -110,11 +110,11 @@ FSC comes equipped with two default SDKs :
 
 ![stack.png](imgs/stack.png)
 
-- The [`View SDK`](./view-sdk.md) is the core of the FSC. It offers API and services to allow FSC nodes:
+- The [`View SDK`](platform/view/view-sdk.md) is the core of the FSC. It offers API and services to allow FSC nodes:
     - To connect to each other in a peer to peer fashion.
     - To manage and execute business views.
     - To handle node identities.
-- The [`Fabric SDK`](./fabric-sdk.md) builds on top of the `View` platform and offers API and services to allow FSC nodes to communicate
+- The [`Fabric SDK`](platform/fabric/fabric-sdk.md) builds on top of the `View` platform and offers API and services to allow FSC nodes to communicate
   with Fabric. The Fabric module is not just the usual Fabric Client SDK, it is more.
   Indeed, we can identify the following components that make the Fabric module different from the current Fabric Client SDKs:
   - `Chaincode API`: These are APIs that allow the developer to invoke any chaincode and assemble Fabric transactions
@@ -131,7 +131,7 @@ FSC comes equipped with two default SDKs :
     only what is relevant. This storage space allows the FSC nodes to keep temporary version of the transactions
     they are assembling before they get submitted for ordering.
 
-For the developers, more information about how SDKs are handles can be found [`here`](./sdk.md).
+For the developers, more information about how SDKs are handles can be found [`here`](platform/sdk.md).
 
 ## Transaction Lifecycle or How to orchestrate a business process
 

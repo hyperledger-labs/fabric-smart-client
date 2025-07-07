@@ -10,7 +10,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/docs/fabric/fabricdev/sdk/fabricdev"
+	"github.com/hyperledger-labs/fabric-smart-client/docs/platform/fabric/fabricdev/sdk/fabricdev"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"

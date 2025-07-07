@@ -9,8 +9,8 @@ package sdk
 import (
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
 )
 
 func TestWiring(t *testing.T) {

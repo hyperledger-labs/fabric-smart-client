@@ -43,7 +43,12 @@ type Server struct {
 	tracer     trace.Tracer
 }
 
-func NewViewServiceServer(marshaller Marshaller, policyChecker PolicyChecker, metrics *Metrics, tracerProvider trace.TracerProvider) (*Server, error) {
+func NewViewServiceServer(
+	marshaller Marshaller,
+	policyChecker PolicyChecker,
+	metrics *Metrics,
+	tracerProvider trace.TracerProvider,
+) (*Server, error) {
 	return &Server{
 		Marshaller:    marshaller,
 		PolicyChecker: policyChecker,

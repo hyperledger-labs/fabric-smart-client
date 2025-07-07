@@ -32,23 +32,19 @@ const (
 var logger = logging.MustGetLogger()
 
 type Manager struct {
-	sp services.Provider
+	serviceProvider services.Provider
 
-	commLayer        CommLayer
-	endpointService  EndpointService
-	identityProvider IdentityProvider
-
-	ctx context.Context
+	commLayer            CommLayer
+	endpointService      EndpointService
+	identityProvider     IdentityProvider
+	registry             *Registry
+	viewTracer           trace.Tracer
+	metrics              *Metrics
+	localIdentityChecker LocalIdentityChecker
 
 	contextsSync sync.RWMutex
-
-	contexts map[string]disposableContext
-
-	viewProvider *Registry
-
-	viewTracer           trace.Tracer
-	m                    *Metrics
-	localIdentityChecker LocalIdentityChecker
+	ctx          context.Context
+	contexts     map[string]disposableContext
 }
 
 func NewManager(
@@ -56,25 +52,25 @@ func NewManager(
 	commLayer CommLayer,
 	endpointService EndpointService,
 	identityProvider IdentityProvider,
-	viewProvider *Registry,
+	registry *Registry,
 	provider trace.TracerProvider,
 	metricsProvider metrics.Provider,
 	localIdentityChecker LocalIdentityChecker,
 ) *Manager {
 	return &Manager{
-		sp:               serviceProvider,
+		serviceProvider:  serviceProvider,
 		commLayer:        commLayer,
 		endpointService:  endpointService,
 		identityProvider: identityProvider,
 
-		contexts:     map[string]disposableContext{},
-		viewProvider: viewProvider,
+		contexts: map[string]disposableContext{},
+		registry: registry,
 
 		viewTracer: provider.Tracer("view", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "fsc",
 			LabelNames: []string{SuccessLabel, ViewLabel, InitiatorViewLabel},
 		})),
-		m:                    newMetrics(metricsProvider),
+		metrics:              newMetrics(metricsProvider),
 		localIdentityChecker: localIdentityChecker,
 	}
 }
@@ -89,31 +85,31 @@ func GetManager(sp services.Provider) (*Manager, error) {
 }
 
 func (cm *Manager) GetService(typ reflect.Type) (interface{}, error) {
-	return cm.sp.GetService(typ)
+	return cm.serviceProvider.GetService(typ)
 }
 
 func (cm *Manager) RegisterFactory(id string, factory Factory) error {
-	return cm.viewProvider.RegisterFactory(id, factory)
+	return cm.registry.RegisterFactory(id, factory)
 }
 
 func (cm *Manager) NewView(id string, in []byte) (f view.View, err error) {
-	return cm.viewProvider.NewView(id, in)
+	return cm.registry.NewView(id, in)
 }
 
 func (cm *Manager) RegisterResponder(responder view.View, initiatedBy interface{}) error {
-	return cm.viewProvider.RegisterResponder(responder, initiatedBy)
+	return cm.registry.RegisterResponder(responder, initiatedBy)
 }
 
 func (cm *Manager) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error {
-	return cm.viewProvider.RegisterResponderWithIdentity(responder, id, initiatedBy)
+	return cm.registry.RegisterResponderWithIdentity(responder, id, initiatedBy)
 }
 
 func (cm *Manager) GetResponder(initiatedBy interface{}) (view.View, error) {
-	return cm.viewProvider.GetResponder(initiatedBy)
+	return cm.registry.GetResponder(initiatedBy)
 }
 
 func (cm *Manager) Initiate(id string, ctx context.Context) (interface{}, error) {
-	v, err := cm.viewProvider.GetView(id)
+	v, err := cm.registry.GetView(id)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +134,7 @@ func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	viewContext, err := NewContextForInitiator(
 		"",
 		ctx,
-		cm.sp,
+		cm.serviceProvider,
 		cm.commLayer,
 		cm.endpointService,
 		cm.identityProvider,
@@ -153,7 +149,7 @@ func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	childContext := &childContext{ParentContext: viewContext}
 	cm.contextsSync.Lock()
 	cm.contexts[childContext.ID()] = childContext
-	cm.m.Contexts.Set(float64(len(cm.contexts)))
+	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 	cm.contextsSync.Unlock()
 	defer cm.deleteContext(id, childContext.ID())
 
@@ -186,7 +182,7 @@ func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 	viewContext, err := NewContextForInitiator(
 		contextID,
 		ctx,
-		cm.sp,
+		cm.serviceProvider,
 		cm.commLayer,
 		cm.endpointService,
 		cm.identityProvider,
@@ -201,7 +197,7 @@ func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 	childContext := &childContext{ParentContext: viewContext}
 	cm.contextsSync.Lock()
 	cm.contexts[childContext.ID()] = childContext
-	cm.m.Contexts.Set(float64(len(cm.contexts)))
+	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 	cm.contextsSync.Unlock()
 
 	logger.Debugf("[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, logging.Identifier(view), childContext.ID())
@@ -255,7 +251,7 @@ func (cm *Manager) GetIdentifier(f view.View) string {
 }
 
 func (cm *Manager) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
-	return cm.viewProvider.ExistResponderForCaller(caller)
+	return cm.registry.ExistResponderForCaller(caller)
 }
 
 func (cm *Manager) respond(responder view.View, id view.Identity, msg *view.Message) (ctx view.Context, res interface{}, err error) {
@@ -321,7 +317,7 @@ func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		}
 		viewContext.Dispose()
 		delete(cm.contexts, contextID)
-		cm.m.Contexts.Set(float64(len(cm.contexts)))
+		cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 		ok = false
 	}
 	if ok {
@@ -337,7 +333,7 @@ func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context
 	ctx := trace.ContextWithSpanContext(cm.ctx, trace.SpanContextFromContext(msg.Ctx))
 	newCtx, err := NewContext(
 		ctx,
-		cm.sp,
+		cm.serviceProvider,
 		contextID,
 		cm.commLayer,
 		cm.endpointService,
@@ -353,7 +349,7 @@ func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context
 	}
 	childContext := &childContext{ParentContext: newCtx}
 	cm.contexts[contextID] = childContext
-	cm.m.Contexts.Set(float64(len(cm.contexts)))
+	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 	viewContext = childContext
 
 	return viewContext, true, nil
@@ -368,7 +364,7 @@ func (cm *Manager) deleteContext(id view.Identity, contextID string) {
 	if context, ok := cm.contexts[contextID]; ok {
 		context.Dispose()
 		delete(cm.contexts, contextID)
-		cm.m.Contexts.Set(float64(len(cm.contexts)))
+		cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 	}
 }
 

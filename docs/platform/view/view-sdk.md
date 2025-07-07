@@ -2,12 +2,12 @@
 
 This is the `View SDK` stack:
 
-![view-sdk.png](imgs/view-sdk.png)
+![view-sdk.png](../../imgs/view-sdk.png)
 
 It consists of the following layers:
 - `Services` (light-blue boxes): Services offer the core building blocks to enable interaction between `FSC nodes` 
 and maintain state throughout the execution of a Business Process.
-- [`View API`](./view/api.md): This API offers a useful abstraction to implement Business Processes as interactive protocols in an 
+- [`View API`](api.md): This API offers a useful abstraction to implement Business Processes as interactive protocols in an 
 implementation and blockchain independent way.
 - `Driver API`: This API takes the burden of translating calls of the View API into API calls that are implementation-specific.
 - `Driver Implementations`: This is the lowest level of the View SDK. A driver implementation is responsible to define 

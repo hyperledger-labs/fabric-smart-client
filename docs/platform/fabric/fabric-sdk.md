@@ -2,7 +2,7 @@
 
 This is the `Fabric SDK` stack:
 
-![img.png](imgs/fabric-sdk.png)
+![img.png](../../imgs/fabric-sdk.png)
 
 It consists of the following layers:
 - `Services` (light-blue boxes): Services offer access to Fabric-specific functionality, such as transaction endorsement, state-based endorsement, and the execution of Chaincode.
@@ -12,4 +12,4 @@ It consists of the following layers:
 
 ## Configuration
 
-You can find an example of the configuration required for the Fabric SDK in [Example Core File for Fabric](./core-fabric.md)
+You can find an example of the configuration required for the Fabric SDK in [Example Core File for Fabric](../../core-fabric.md)

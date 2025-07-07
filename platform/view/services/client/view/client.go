@@ -16,8 +16,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
@@ -78,11 +78,11 @@ type client struct {
 	RandomnessReader  io.Reader
 	Time              TimeFunc
 	SigningIdentity   SigningIdentity
-	hasher            hash.Hasher
+	hasher            hash2.Hasher
 	tracer            trace.Tracer
 }
 
-func NewClient(config *Config, sID SigningIdentity, hasher hash.Hasher, tracerProvider trace.TracerProvider) (*client, error) {
+func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher, tracerProvider trace.TracerProvider) (*client, error) {
 	// create a grpc client for view peer
 	grpcClient, err := grpc2.CreateGRPCClient(config.ConnectionConfig)
 	if err != nil {
@@ -178,7 +178,7 @@ func (s *client) processCommand(ctx context.Context, sc *protos.SignedCommand) (
 		return nil, errors.Wrap(err, "failed view client process command")
 	}
 
-	logger.Debugf("parse answer [%s]", hash.Hashable(scr.Response))
+	logger.Debugf("parse answer [%s]", hash2.Hashable(scr.Response))
 	commandResp := &protos.CommandResponse{}
 	err = proto.Unmarshal(scr.Response, commandResp)
 	if err != nil {

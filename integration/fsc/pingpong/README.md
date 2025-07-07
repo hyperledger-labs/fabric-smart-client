@@ -35,7 +35,7 @@ import (
 	"github.com/pkg/errors"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -47,10 +47,10 @@ func (p *Initiator) Call(context view.Context) (interface{}, error) {
 
 	// Open a session to the responder
 	session, err := context.GetSession(context.Initiator(), responder)
-	assert.NoError(err) 
+	assert.NoError(err)
 	// Send a ping
 	err = session.Send([]byte("ping"))
-	assert.NoError(err) 
+	assert.NoError(err)
 	// Wait for the pong
 	ch := session.Receive()
 	select {
@@ -96,7 +96,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
