@@ -132,7 +132,7 @@ func NewContext(
 		sessions:             newSessions(),
 		caller:               caller,
 		sp:                   sp,
-		localSP:              New(),
+		localSP:              NewServiceProvider(),
 		localIdentityChecker: localIdentityChecker,
 
 		tracer: tracer,

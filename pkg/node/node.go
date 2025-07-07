@@ -43,7 +43,7 @@ func NewFromConfPath(confPath string) *Node {
 	if err != nil {
 		panic(err)
 	}
-	registry := view.New()
+	registry := view.NewServiceProvider()
 	if err := registry.RegisterService(configService); err != nil {
 		panic(err)
 	}

@@ -34,7 +34,7 @@ type B interface {
 }
 
 func TestSP(t *testing.T) {
-	sp := New()
+	sp := NewServiceProvider()
 	impl := &aImpl{}
 	err := sp.RegisterService(impl)
 	assert.NoError(t, err)

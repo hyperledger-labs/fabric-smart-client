@@ -27,7 +27,7 @@ type Context interface {
 }
 
 func TestContext(t *testing.T) {
-	registry := view2.New()
+	registry := view2.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	resolver := &mock.EndpointService{}
@@ -67,7 +67,7 @@ func TestContext(t *testing.T) {
 }
 
 func TestContextRace(t *testing.T) {
-	registry := view2.New()
+	registry := view2.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	resolver := &mock.EndpointService{}

@@ -26,7 +26,7 @@ type ServiceProvider struct {
 	lock       sync.Mutex
 }
 
-func New() *ServiceProvider {
+func NewServiceProvider() *ServiceProvider {
 	return &ServiceProvider{
 		services:   []interface{}{},
 		serviceMap: map[reflect.Type]interface{}{},

@@ -60,7 +60,7 @@ func DryRunWiringWithContainer[S dig2.SDK](decorator func(sdk dig2.SDK) S, c dig
 		opt(config)
 	}
 
-	provider := view.New()
+	provider := view.NewServiceProvider()
 	if err := provider.RegisterService(config); err != nil {
 		return err
 	}

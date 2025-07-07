@@ -29,7 +29,7 @@ var _ = Describe("Event system", func() {
 	var r *view.ServiceProvider
 
 	BeforeEach(func() {
-		r = view.New()
+		r = view.NewServiceProvider()
 	})
 
 	When("creating a notifier Service", func() {
