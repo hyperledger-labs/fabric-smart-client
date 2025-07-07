@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package _select
 
 import (
-	"strconv"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
@@ -27,8 +25,8 @@ type query struct {
 	distinct   bool
 	fields     []common.Field
 	where      cond.Condition
-	limit      string
-	offset     string
+	limit      int
+	offset     int
 	orderBy    []OrderBy
 	pagination driver.Pagination
 }
@@ -58,12 +56,12 @@ func (q *query) From(t common.JoinedTable) fromQuery {
 }
 
 func (q *query) Limit(l int) limitQuery {
-	q.limit = strconv.Itoa(l)
+	q.limit = l
 	return q
 }
 
 func (q *query) Offset(o int) offsetQuery {
-	q.offset = strconv.Itoa(o)
+	q.offset = o
 	return q
 }
 
