@@ -35,6 +35,7 @@ const (
 )
 
 var (
+	// ErrNotFound signals that a resolver was not found
 	ErrNotFound = errors.New("not found")
 )
 
@@ -48,6 +49,7 @@ type PublicKeyIDSynthesizer interface {
 	PublicKeyID(any) []byte
 }
 
+// ResolverInfo carries information about a resolver
 type ResolverInfo struct {
 	ID          []byte
 	Name        string
@@ -58,10 +60,10 @@ type ResolverInfo struct {
 	PKI         []byte
 }
 
+// Resolver wraps ResolverInfo with additional management fields
 type Resolver struct {
 	ResolverInfo
-	PKILock        sync.RWMutex
-	IdentityGetter func() (view.Identity, []byte, error)
+	PKILock sync.RWMutex
 }
 
 func (r *Resolver) GetName() string { return r.Name }
@@ -73,10 +75,6 @@ func (r *Resolver) GetAddress(port PortName) string { return r.Addresses[port] }
 func (r *Resolver) GetAddresses() map[PortName]string { return r.Addresses }
 
 func (r *Resolver) GetIdentity() (view.Identity, error) {
-	if r.IdentityGetter != nil {
-		id, _, err := r.IdentityGetter()
-		return id, err
-	}
 	return r.ID, nil
 }
 
@@ -189,6 +187,7 @@ func (r *Service) GetIdentity(label string, pkID []byte) (view.Identity, error) 
 	return nil, errors.Wrapf(ErrNotFound, "identity not found at [%s,%s]", label, view.Identity(pkID))
 }
 
+// AddResolver adds a new resolver.
 func (r *Service) AddResolver(
 	name string,
 	domain string,
@@ -245,6 +244,45 @@ func (r *Service) AddResolver(
 
 	r.appendResolver(newResolver, pkiID)
 	return nil, nil
+}
+
+// RemoveResolver first check if a resolver is bound to the passed identity.
+// If yes, the function removes the resolver.
+// If no, the function does nothing.
+func (r *Service) RemoveResolver(id view.Identity) (bool, error) {
+	r.resolversMutex.RLock()
+	_, ok := r.resolversMap[string(id)]
+	r.resolversMutex.RUnlock()
+	if !ok {
+		return false, errors.Wrapf(ErrNotFound, "cannot find resolver for [%s]", id)
+	}
+
+	r.resolversMutex.Lock()
+	defer r.resolversMutex.Unlock()
+
+	// check again if the resolver is still there
+	resolver, ok := r.resolversMap[string(id)]
+	if !ok {
+		return false, errors.Wrapf(ErrNotFound, "cannot find resolver for [%s]", id)
+	}
+
+	// remove from the map
+	for key, value := range r.resolversMap {
+		if value == resolver {
+			delete(r.resolversMap, key)
+		}
+	}
+
+	// remove from the resolver list
+	for i, value := range r.resolvers {
+		if value == resolver {
+			r.resolvers[i] = r.resolvers[len(r.resolvers)-1]
+			r.resolvers = r.resolvers[:len(r.resolvers)-1]
+			break
+		}
+	}
+
+	return true, nil
 }
 
 func (r *Service) AddPublicKeyExtractor(publicKeyExtractor PublicKeyExtractor) error {

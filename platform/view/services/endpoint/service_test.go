@@ -143,4 +143,37 @@ func TestGetIdentity(t *testing.T) {
 		require.Error(t, err)
 		assert.ErrorIs(t, err, endpoint.ErrNotFound)
 	}
+
+	for _, label := range []string{
+		"alice",
+		"alice.fsc.domain",
+		"apple",
+		"strawberry",
+		"localhost:1010",
+		"[::1]:1010",
+		"alice_id",
+	} {
+		ok, err := service.RemoveResolver(view.Identity(label))
+		require.NoError(t, err)
+		assert.True(t, ok)
+
+		resolvers = service.Resolvers()
+		assert.Len(t, resolvers, 0)
+
+		// add again
+		_, err = service.AddResolver(
+			"alice",
+			"fsc.domain",
+			map[string]string{string(endpoint.P2PPort): "localhost:1010"},
+			[]string{"apple", "strawberry"},
+			[]byte("alice_id"),
+		)
+		require.NoError(t, err)
+	}
+
+	// remove something that does not exist
+	ok, err := service.RemoveResolver(view.Identity("bob"))
+	require.Error(t, err)
+	assert.ErrorIs(t, err, endpoint.ErrNotFound)
+	assert.False(t, ok)
 }
