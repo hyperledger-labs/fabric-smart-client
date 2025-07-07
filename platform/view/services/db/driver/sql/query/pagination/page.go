@@ -20,14 +20,18 @@ func NewPage[V any](results collections.Iterator[*V], pagination driver.Paginati
 	case *keyset[string, interface{}]:
 		return newKeysetTypedPage[string, V](results, p)
 	case *offset:
-		return &driver.PageIterator[*V]{Items: results, Pagination: pagination}, nil
+		return newPage(results, pagination)
 	case *empty:
-		return &driver.PageIterator[*V]{Items: results, Pagination: pagination}, nil
+		return newPage(results, pagination)
 	case *none:
-		return &driver.PageIterator[*V]{Items: results, Pagination: pagination}, nil
+		return newPage(results, pagination)
 	default:
 		panic("Unsupported pagination type")
 	}
+}
+
+func newPage[V any](results iterators.Iterator[*V], pagination driver.Pagination) (*driver.PageIterator[*V], error) {
+	return &driver.PageIterator[*V]{Items: results, Pagination: pagination}, nil
 }
 
 // NewTypedPage creates a new page from the results and the previous pagination
