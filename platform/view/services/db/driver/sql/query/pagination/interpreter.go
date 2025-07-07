@@ -52,7 +52,6 @@ func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQue
 		query.AddOffset(0)
 
 	default:
-		fmt.Printf("Type = %T\n", pagination)
 		panic(fmt.Sprintf("invalid pagination option %+v", pagination))
 	}
 }
