@@ -45,7 +45,7 @@ var matrix = []matrixItem{
 	{
 		pagination:  pagination.None(),
 		sqlForward:  []string{"SELECT * FROM test", "SELECT * FROM test LIMIT $1 OFFSET $2"},
-		argsForward: []any{[]string{}, []string{"0", "0"}},
+		argsForward: []any{[]string{}, []int{0, 0}},
 		sqlBackward: []string{},
 		matcher: []types.GomegaMatcher{
 			ConsistOf(
@@ -71,12 +71,12 @@ var matrix = []matrixItem{
 			"SELECT * FROM test LIMIT $1 OFFSET $2",
 		},
 		argsForward: []any{
-			[]string{"2", "0"},
-			[]string{"2", "2"},
-			[]string{"2", "4"},
-			[]string{"2", "6"},
-			[]string{"2", "8"},
-			[]string{"0", "0"},
+			[]int{2, 0},
+			[]int{2, 2},
+			[]int{2, 4},
+			[]int{2, 6},
+			[]int{2, 8},
+			[]int{0, 0},
 		},
 		sqlBackward: []string{},
 		matcher: []types.GomegaMatcher{
@@ -109,12 +109,12 @@ var matrix = []matrixItem{
 			"SELECT * FROM test LIMIT $1 OFFSET $2",
 		},
 		argsForward: []any{
-			[]string{"2", "0"},
-			[]string{"txid10", "2"},
-			[]string{"txid1025", "2"},
-			[]string{"txid2", "2"},
-			[]string{"txid21", "2"},
-			[]string{"0", "0"},
+			[]int{2, 0},
+			[]any{"txid10", 2},
+			[]any{"txid1025", 2},
+			[]any{"txid2", 2},
+			[]any{"txid21", 2},
+			[]int{0, 0},
 		},
 
 		sqlBackward: []string{
@@ -126,12 +126,12 @@ var matrix = []matrixItem{
 			"SELECT * FROM test LIMIT $1 OFFSET $2",
 		},
 		argsBackward: []any{
-			[]string{"2", "0"},
-			[]string{"2", "2"},
-			[]string{"2", "4"},
-			[]string{"2", "6"},
-			[]string{"2", "8"},
-			[]string{"0", "0"},
+			[]int{2, 0},
+			[]int{2, 2},
+			[]int{2, 4},
+			[]int{2, 6},
+			[]int{2, 8},
+			[]int{0, 0},
 		},
 
 		matcher: []types.GomegaMatcher{

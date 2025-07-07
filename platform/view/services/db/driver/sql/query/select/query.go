@@ -7,15 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package _select
 
 import (
-	"strconv"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
 )
 
 func NewQuery(distinct bool) *query {
-	return &query{distinct: distinct}
+	return &query{
+		distinct: distinct,
+		limit:    -1,
+		offset:   -1,
+	}
 }
 
 type query struct {
@@ -23,8 +25,8 @@ type query struct {
 	distinct   bool
 	fields     []common.Field
 	where      cond.Condition
-	limit      string
-	offset     string
+	limit      int
+	offset     int
 	orderBy    []OrderBy
 	pagination driver.Pagination
 }
@@ -54,12 +56,12 @@ func (q *query) From(t common.JoinedTable) fromQuery {
 }
 
 func (q *query) Limit(l int) limitQuery {
-	q.limit = strconv.Itoa(l)
+	q.limit = l
 	return q
 }
 
 func (q *query) Offset(o int) offsetQuery {
-	q.offset = strconv.Itoa(o)
+	q.offset = o
 	return q
 }
 
@@ -138,11 +140,11 @@ func (q *query) FormatPaginatedTo(ci common.CondInterpreter, pi common.PagInterp
 		sb.WriteString(" ORDER BY ").WriteSerializables(common.ToSerializables(q.orderBy)...)
 	}
 
-	if q.limit != "" {
+	if q.limit != -1 {
 		sb.WriteString(" LIMIT ").WriteParam(q.limit)
 	}
 
-	if q.offset != "" {
+	if q.offset != -1 {
 		sb.WriteString(" OFFSET ").WriteParam(q.offset)
 	}
 }
