@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package crypto
+package hash
 
 import (
 	"crypto/sha256"
@@ -13,14 +13,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-type provider struct {
+type SHA256Provider struct {
 }
 
-func NewProvider() *provider {
-	return &provider{}
+func NewSHA256Provider() *SHA256Provider {
+	return &SHA256Provider{}
 }
 
-func (p *provider) Hash(msg []byte) ([]byte, error) {
+func (p *SHA256Provider) Hash(msg []byte) ([]byte, error) {
 	hash := sha256.New()
 	n, err := hash.Write(msg)
 	if n != len(msg) {
@@ -34,6 +34,6 @@ func (p *provider) Hash(msg []byte) ([]byte, error) {
 	return digest, nil
 }
 
-func (p *provider) GetHash() hash.Hash {
+func (p *SHA256Provider) GetHash() hash.Hash {
 	return sha256.New()
 }

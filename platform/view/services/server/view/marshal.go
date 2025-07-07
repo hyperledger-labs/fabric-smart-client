@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -35,15 +34,19 @@ type SignerProvider interface {
 	GetSigner(identity view2.Identity) (sig.Signer, error)
 }
 
+type Hasher interface {
+	Hash(msg []byte) ([]byte, error)
+}
+
 // ResponseMarshaler produces SignedCommandResponse
 type ResponseMarshaler struct {
-	hasher           hash.Hasher
+	hasher           Hasher
 	identityProvider IdentityProvider
 	sigService       SignerProvider
 	time             TimeFunc
 }
 
-func NewResponseMarshaler(hasher hash.Hasher, identityProvider IdentityProvider, sigService SignerProvider) (*ResponseMarshaler, error) {
+func NewResponseMarshaler(hasher Hasher, identityProvider IdentityProvider, sigService SignerProvider) (*ResponseMarshaler, error) {
 	return &ResponseMarshaler{
 		hasher:           hasher,
 		identityProvider: identityProvider,
