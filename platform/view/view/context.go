@@ -19,7 +19,8 @@ type RunViewOptions struct {
 	AsInitiator bool
 	Call        func(Context) (interface{}, error)
 	SameContext bool
-	Timeout     time.Duration
+	// Timeout defines how long a view should run before cancelling its context
+	Timeout time.Duration
 }
 
 // CompileRunViewOptions compiles a set of RunViewOption to a RunViewOptions
@@ -68,7 +69,7 @@ func WithSameContext() RunViewOption {
 	}
 }
 
-// WithTimeout is used to set a timeout
+// WithTimeout is used to set a timeout that defines how long a view should run before cancelling its context.
 func WithTimeout(timeout time.Duration) RunViewOption {
 	return func(o *RunViewOptions) error {
 		o.Timeout = timeout
