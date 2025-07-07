@@ -38,7 +38,7 @@ type Manager struct {
 	endpointService      EndpointService
 	identityProvider     IdentityProvider
 	registry             *Registry
-	viewTracer           trace.Tracer
+	tracer               trace.Tracer
 	metrics              *Metrics
 	localIdentityChecker LocalIdentityChecker
 
@@ -53,7 +53,7 @@ func NewManager(
 	endpointService EndpointService,
 	identityProvider IdentityProvider,
 	registry *Registry,
-	provider trace.TracerProvider,
+	tracerProvider trace.TracerProvider,
 	metricsProvider metrics.Provider,
 	localIdentityChecker LocalIdentityChecker,
 ) *Manager {
@@ -66,7 +66,7 @@ func NewManager(
 		contexts: map[string]disposableContext{},
 		registry: registry,
 
-		viewTracer: provider.Tracer("view", tracing.WithMetricsOpts(tracing.MetricsOpts{
+		tracer: tracerProvider.Tracer("view", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "fsc",
 			LabelNames: []string{SuccessLabel, ViewLabel, InitiatorViewLabel},
 		})),
@@ -140,7 +140,7 @@ func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 		cm.identityProvider,
 		id,
 		view,
-		cm.viewTracer,
+		cm.tracer,
 		cm.localIdentityChecker,
 	)
 	if err != nil {
@@ -188,7 +188,7 @@ func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 		cm.identityProvider,
 		id,
 		view,
-		cm.viewTracer,
+		cm.tracer,
 		cm.localIdentityChecker,
 	)
 	if err != nil {
@@ -341,7 +341,7 @@ func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		id,
 		backend,
 		caller,
-		cm.viewTracer,
+		cm.tracer,
 		cm.localIdentityChecker,
 	)
 	if err != nil {

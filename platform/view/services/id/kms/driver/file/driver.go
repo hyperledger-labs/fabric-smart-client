@@ -10,7 +10,7 @@ import (
 	"os"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/ecdsa"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
 )

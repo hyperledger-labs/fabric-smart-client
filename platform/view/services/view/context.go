@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/pkg/errors"
@@ -50,7 +49,7 @@ type IdentityProvider interface {
 type ctx struct {
 	context        context.Context
 	sp             services.Provider
-	localSP        *registry.ServiceProvider
+	localSP        *ServiceProvider
 	id             string
 	session        view.Session
 	initiator      view.View
@@ -133,7 +132,7 @@ func NewContext(
 		sessions:             newSessions(),
 		caller:               caller,
 		sp:                   sp,
-		localSP:              registry.New(),
+		localSP:              New(),
 		localIdentityChecker: localIdentityChecker,
 
 		tracer: tracer,

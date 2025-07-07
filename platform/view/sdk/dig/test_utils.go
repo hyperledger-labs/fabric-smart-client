@@ -11,7 +11,7 @@ import (
 	"time"
 
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"go.uber.org/dig"
 )
 
@@ -60,7 +60,7 @@ func DryRunWiringWithContainer[S dig2.SDK](decorator func(sdk dig2.SDK) S, c dig
 		opt(config)
 	}
 
-	provider := registry.New()
+	provider := view.New()
 	if err := provider.RegisterService(config); err != nil {
 		return err
 	}

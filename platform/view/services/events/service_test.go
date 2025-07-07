@@ -11,7 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -26,10 +26,10 @@ func newService() *events.Service {
 }
 
 var _ = Describe("Event system", func() {
-	var r *registry.ServiceProvider
+	var r *view.ServiceProvider
 
 	BeforeEach(func() {
-		r = registry.New()
+		r = view.New()
 	})
 
 	When("creating a notifier Service", func() {

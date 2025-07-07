@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package registry
+package view
 
 import (
 	"reflect"
@@ -18,7 +18,6 @@ import (
 
 var (
 	ServiceNotFound = errors.New("service not found")
-	logger          = logging.MustGetLogger()
 )
 
 type ServiceProvider struct {

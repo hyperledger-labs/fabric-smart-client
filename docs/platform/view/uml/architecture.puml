@@ -14,11 +14,13 @@ package "View SDK" {
   [server.view.Server] <--> [sig.Service] : Sig Request
   [server.view.Server] --> [view.Manager] : Initiate a View
   [server.view.Server] --> [id.Provider] : Access Control
+  [server.view.Server] --> [trace.TracerProvider] : Report
 
   [view.Manager] <--> [view.Registry] : Lookup View
   [view.Manager] --> [comm.Service] : Message
   [view.Manager] --> [endpoint.Service] : Lookup Endpoint
   [view.Manager] <--> [sig.Service] : Identity Request
+  [view.Manager] --> [trace.TracerProvider] : Report
 
   [comm.Service] --> [view.Manager] : Message
 
