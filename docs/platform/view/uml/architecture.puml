@@ -11,25 +11,27 @@ package "View SDK" {
   [view.Client] --> [grpc.GRPCServer] : GRPC
   [grpc.GRPCServer] --> [server.view.Server] : Forward call
 
-  [server.view.Server] <--> [sig.Service] : Sig Request
+  [server.view.Server] --> [sig.Service] : Sig Request
   [server.view.Server] --> [view.Manager] : Initiate a View
   [server.view.Server] --> [id.Provider] : Access Control
-  [server.view.Server] --> [trace.TracerProvider] : Report
+  [server.view.Server] --> [trace.TracerProvider] : Trace
 
-  [view.Manager] <--> [view.Registry] : Lookup View
+  [view.Manager] --> [view.Registry] : Lookup View
   [view.Manager] --> [comm.Service] : Message
   [view.Manager] --> [endpoint.Service] : Lookup Endpoint
-  [view.Manager] <--> [sig.Service] : Identity Request
-  [view.Manager] --> [trace.TracerProvider] : Report
+  [view.Manager] --> [sig.Service] : Identity Request
+  [view.Manager] --> [trace.TracerProvider] : Trace
+  [view.Manager] --> [metrics.Provider] : Measure
 
   [comm.Service] --> [view.Manager] : Message
 
-  [endpoint.Service] <--> [comm.Service] : Lookup Endpoint
-  [endpoint.Service] <--> [Database]: DB Ops
-  [endpoint.Service] <--> [config.Service]: Config Ops
+  [endpoint.Service] --> [comm.Service] : Lookup Endpoint
+  [endpoint.Service] --> [Storage]: DB Ops
+  [endpoint.Service] --> [config.Service]: Config Ops
   [endpoint.Service] --> [id.Provider] : ID Lookup
 
-  [sig.Service] <--> [Database] : Dp Ops
+  [sig.Service] --> [Storage] : Dp Ops
+  [id.Provider] -->  [sig.Service] : Register Signer
 }
 
 node "Remote View SDK" {
