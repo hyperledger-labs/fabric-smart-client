@@ -87,7 +87,7 @@ func NewSDKFrom(baseSDK dig2.SDK, registry services.Registry) *SDK {
 
 func (p *SDK) Install() error {
 	err := errors.Join(
-		p.Container().Provide(hash.NewSHA256Provider, dig.As(new(hash.Hasher))),
+		p.Container().Provide(hash.NewSHA256Provider, dig.As(new(hash.Hasher), new(view3.Hasher))),
 		p.Container().Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
 		p.Container().Provide(func(system events.EventSystem) *events.Service { return &events.Service{EventSystem: system} }),
 		p.Container().Provide(postgres.NewDbProvider),
