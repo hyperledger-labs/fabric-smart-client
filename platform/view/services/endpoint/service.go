@@ -7,20 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package endpoint
 
 import (
-	"bytes"
 	"context"
 	"net"
 	"reflect"
 	"strings"
 	"sync"
 
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 )
 
 var logger = logging.MustGetLogger()
@@ -37,6 +34,11 @@ const (
 	P2PPort PortName = "P2P"
 )
 
+var (
+	// ErrNotFound signals that a resolver was not found
+	ErrNotFound = errors.New("not found")
+)
+
 // PublicKeyExtractor extracts public keys from identities
 type PublicKeyExtractor interface {
 	// ExtractPublicKey returns the public key corresponding to the passed identity
@@ -47,31 +49,33 @@ type PublicKeyIDSynthesizer interface {
 	PublicKeyID(any) []byte
 }
 
+// ResolverInfo carries information about a resolver
+type ResolverInfo struct {
+	ID          []byte
+	Name        string
+	Domain      string
+	Addresses   map[PortName]string
+	AddressList []string
+	Aliases     []string
+	PKI         []byte
+}
+
+// Resolver wraps ResolverInfo with additional management fields
 type Resolver struct {
-	Name           string
-	Domain         string
-	Addresses      map[PortName]string
-	Aliases        []string
-	PKI            []byte
-	PKILock        sync.RWMutex
-	Id             []byte
-	IdentityGetter func() (view.Identity, []byte, error)
+	ResolverInfo
+	PKILock sync.RWMutex
 }
 
 func (r *Resolver) GetName() string { return r.Name }
 
-func (r *Resolver) GetId() view.Identity { return r.Id }
+func (r *Resolver) GetId() view.Identity { return r.ID }
 
 func (r *Resolver) GetAddress(port PortName) string { return r.Addresses[port] }
 
 func (r *Resolver) GetAddresses() map[PortName]string { return r.Addresses }
 
 func (r *Resolver) GetIdentity() (view.Identity, error) {
-	if r.IdentityGetter != nil {
-		id, _, err := r.IdentityGetter()
-		return id, err
-	}
-	return r.Id, nil
+	return r.ID, nil
 }
 
 // NetworkMember is a peer's representation
@@ -82,14 +86,15 @@ type NetworkMember struct {
 	InternalEndpoint string
 }
 
-type Discovery interface {
-	Peers() []NetworkMember
-}
+//go:generate counterfeiter -o mock/binding_store.go -fake-name BindingStore . BindingStore
+
+type BindingStore = cdriver.BindingStore
 
 type Service struct {
 	resolvers      []*Resolver
+	resolversMap   map[string]*Resolver
 	resolversMutex sync.RWMutex
-	bindingKVS     driver2.BindingStore
+	bindingKVS     cdriver.BindingStore
 
 	pkiExtractorsLock      sync.RWMutex
 	publicKeyExtractors    []PublicKeyExtractor
@@ -97,11 +102,13 @@ type Service struct {
 }
 
 // NewService returns a new instance of the view-sdk endpoint service
-func NewService(bindingKVS driver2.BindingStore) (*Service, error) {
+func NewService(bindingKVS BindingStore) (*Service, error) {
 	er := &Service{
 		bindingKVS:             bindingKVS,
 		publicKeyExtractors:    []PublicKeyExtractor{},
 		publicKeyIDSynthesizer: DefaultPublicKeyIDSynthesizer{},
+		resolvers:              []*Resolver{},
+		resolversMap:           map[string]*Resolver{},
 	}
 	return er, nil
 }
@@ -119,15 +126,15 @@ func GetService(sp services.Provider) *Service {
 // Resolve returns the endpoints of the passed identity.
 // If the passed identity does not have any endpoint set, the service checks
 // if the passed identity is bound to another identity that is returned together with its endpoints and public-key identifier.
-func (r *Service) Resolve(ctx context.Context, party view.Identity) (view.Identity, map[PortName]string, []byte, error) {
-	resolver, raw, err := r.Resolver(ctx, party)
+func (r *Service) Resolve(ctx context.Context, id view.Identity) (view.Identity, map[PortName]string, []byte, error) {
+	resolver, raw, err := r.Resolver(ctx, id)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	if resolver == nil {
 		return nil, nil, raw, nil
 	}
-	logger.Debugf("resolved [%s] to [%s] with ports [%v]", party, resolver.GetId(), resolver.GetAddresses())
+	logger.Debugf("resolved [%s] to [%s] with ports [%v]", id, resolver.GetId(), resolver.GetAddresses())
 	out := map[PortName]string{}
 	for name, s := range resolver.GetAddresses() {
 		out[name] = s
@@ -135,28 +142,8 @@ func (r *Service) Resolve(ctx context.Context, party view.Identity) (view.Identi
 	return resolver.GetId(), out, raw, nil
 }
 
-func (r *Service) GetResolver(ctx context.Context, party view.Identity) (*Resolver, error) {
-	return r.resolver(ctx, party)
-}
-
-func (r *Service) resolver(ctx context.Context, party view.Identity) (*Resolver, error) {
-	// We can skip this check, but in case the long term was passed directly, this is going to spare us a DB lookup
-	resolver, err := r.rootEndpoint(party)
-	if err == nil {
-		return resolver, nil
-	}
-	logger.Debugf("resolving via binding for %s", party)
-	party, err = r.bindingKVS.GetLongTerm(ctx, party)
-	if err != nil {
-		return nil, err
-	}
-	logger.Debugf("continue to [%s]", party)
-	resolver, err = r.rootEndpoint(party)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed getting identity for [%s]", party)
-	}
-
-	return resolver, nil
+func (r *Service) GetResolver(ctx context.Context, id view.Identity) (*Resolver, error) {
+	return r.resolver(ctx, id)
 }
 
 func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error {
@@ -182,67 +169,120 @@ func (r *Service) IsBoundTo(ctx context.Context, a view.Identity, b view.Identit
 	return ok
 }
 
-func (r *Service) GetIdentity(endpoint string, pkID []byte) (view.Identity, error) {
+func (r *Service) GetIdentity(label string, pkID []byte) (view.Identity, error) {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
 
-	// search in the resolver list
-	for _, resolver := range r.resolvers {
-		if r.matchesResolver(endpoint, pkID, resolver) {
-			return resolver.GetIdentity()
-		}
-	}
-	return nil, errors.Errorf("identity not found at [%s,%s]", endpoint, view.Identity(pkID))
-}
-
-func (r *Service) matchesResolver(endpoint string, pkID []byte, resolver *Resolver) bool {
-	if len(endpoint) > 0 && (endpoint == resolver.Name ||
-		endpoint == resolver.Name+"."+resolver.Domain ||
-		collections.ContainsValue(resolver.Addresses, endpoint) ||
-		slices.Contains(resolver.Aliases, endpoint)) {
-		return true
+	resolver, ok := r.resolversMap[label]
+	if ok {
+		return resolver.GetIdentity()
 	}
 
-	return len(pkID) > 0 && (bytes.Equal(pkID, resolver.Id) ||
-		bytes.Equal(pkID, r.pkiResolve(resolver)))
+	// by pkID
+	resolver, ok = r.resolversMap[string(pkID)]
+	if ok {
+		return resolver.GetIdentity()
+	}
+
+	return nil, errors.Wrapf(ErrNotFound, "identity not found at [%s,%s]", label, view.Identity(pkID))
 }
 
-func (r *Service) AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
+// AddResolver adds a new resolver.
+func (r *Service) AddResolver(
+	name string,
+	domain string,
+	addresses map[string]string,
+	aliases []string,
+	id []byte,
+) (view.Identity, error) {
 	logger.Debugf("adding resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
 
 	// is there a resolver with the same name or clashing aliases?
 	r.resolversMutex.RLock()
-	for _, resolver := range r.resolvers {
-		if resolver.Name == name {
-			// TODO: perform additional checks
-
-			// Then bind
-			r.resolversMutex.RUnlock()
-			return resolver.Id, r.Bind(context.Background(), resolver.Id, id)
-		}
-		for _, alias := range resolver.Aliases {
-			if slices.Contains(aliases, alias) {
-				logger.Warnf("alias [%s] already defined by resolver [%s]", alias, resolver.Name)
-			}
+	resolver, ok := r.resolversMap[name]
+	if ok {
+		// Then bind
+		r.resolversMutex.RUnlock()
+		return resolver.ID, r.Bind(context.Background(), resolver.ID, id)
+	}
+	for _, alias := range aliases {
+		_, ok := r.resolversMap[name]
+		if ok {
+			logger.Warnf("alias [%s] already defined by resolver [%s]", alias, resolver.Name)
 		}
 	}
 	r.resolversMutex.RUnlock()
 
+	// resolve addresses to their IPs, if needed
+	addressList := make([]string, 0, len(addresses))
+	for k, v := range addresses {
+		addresses[k] = LookupIPv4(v)
+		addressList = append(addressList, v)
+	}
+
+	newResolver := &Resolver{
+		ResolverInfo: ResolverInfo{
+			Name:        name,
+			Domain:      domain,
+			Addresses:   convert(addresses),
+			AddressList: addressList,
+			Aliases:     aliases,
+			ID:          id,
+		},
+	}
+	pkiID := r.PkiResolve(newResolver)
+
 	r.resolversMutex.Lock()
 	defer r.resolversMutex.Unlock()
 
-	// resolve addresses to their IPs, if needed
-	for k, v := range addresses {
-		addresses[k] = LookupIPv4(v)
+	// check again
+	resolver, ok = r.resolversMap[name]
+	if ok {
+		// Then bind
+		return resolver.ID, r.Bind(context.Background(), resolver.ID, id)
 	}
-	r.resolvers = append(r.resolvers, &Resolver{
-		Name:      name,
-		Domain:    domain,
-		Addresses: convert(addresses),
-		Aliases:   aliases,
-		Id:        id,
-	})
+
+	r.appendResolver(newResolver, pkiID)
 	return nil, nil
+}
+
+// RemoveResolver first check if a resolver is bound to the passed identity.
+// If yes, the function removes the resolver.
+// If no, the function does nothing.
+func (r *Service) RemoveResolver(id view.Identity) (bool, error) {
+	r.resolversMutex.RLock()
+	_, ok := r.resolversMap[string(id)]
+	r.resolversMutex.RUnlock()
+	if !ok {
+		return false, errors.Wrapf(ErrNotFound, "cannot find resolver for [%s]", id)
+	}
+
+	r.resolversMutex.Lock()
+	defer r.resolversMutex.Unlock()
+
+	// check again if the resolver is still there
+	resolver, ok := r.resolversMap[string(id)]
+	if !ok {
+		return false, errors.Wrapf(ErrNotFound, "cannot find resolver for [%s]", id)
+	}
+
+	// remove from the map
+	for key, value := range r.resolversMap {
+		if value == resolver {
+			delete(r.resolversMap, key)
+		}
+	}
+
+	// remove from the resolver list
+	for i, value := range r.resolvers {
+		if value == resolver {
+			r.resolvers[i] = r.resolvers[len(r.resolvers)-1]
+			r.resolvers = r.resolvers[:len(r.resolvers)-1]
+			break
+		}
+	}
+
+	return true, nil
 }
 
 func (r *Service) AddPublicKeyExtractor(publicKeyExtractor PublicKeyExtractor) error {
@@ -289,7 +329,66 @@ func (r *Service) ResolveIdentities(endpoints ...string) ([]view.Identity, error
 	return ids, nil
 }
 
-func (r *Service) pkiResolve(resolver *Resolver) []byte {
+func (r *Service) Resolver(ctx context.Context, id view.Identity) (*Resolver, []byte, error) {
+	resolver, err := r.resolver(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	return resolver, r.PkiResolve(resolver), nil
+}
+
+func (r *Service) Resolvers() []ResolverInfo {
+	r.resolversMutex.RLock()
+	defer r.resolversMutex.RUnlock()
+
+	// clone r.resolvers
+	var res []ResolverInfo
+	for _, resolver := range r.resolvers {
+		res = append(res, resolver.ResolverInfo)
+	}
+	return res
+}
+
+func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
+	r.resolvers = append(r.resolvers, newResolver)
+
+	// by name
+	r.resolversMap[newResolver.Name] = newResolver
+	// by alias
+	for _, alias := range newResolver.Aliases {
+		if len(alias) != 0 {
+			r.resolversMap[alias] = newResolver
+		}
+	}
+	// by name + domain
+	r.resolversMap[newResolver.Name+"."+newResolver.Domain] = newResolver
+
+	// by addresses
+	for _, address := range newResolver.Addresses {
+		if len(address) != 0 {
+			r.resolversMap[address] = newResolver
+		}
+	}
+
+	// by addresses
+	for _, address := range newResolver.AddressList {
+		if len(address) != 0 {
+			r.resolversMap[address] = newResolver
+		}
+	}
+
+	// by id
+	if len(newResolver.ID) != 0 {
+		r.resolversMap[string(newResolver.ID)] = newResolver
+	}
+
+	// by pkiResolver
+	if len(pkiID) != 0 {
+		r.resolversMap[string(pkiID)] = newResolver
+	}
+}
+
+func (r *Service) PkiResolve(resolver *Resolver) []byte {
 	resolver.PKILock.RLock()
 	if len(resolver.PKI) != 0 {
 		resolver.PKILock.RUnlock()
@@ -300,31 +399,42 @@ func (r *Service) pkiResolve(resolver *Resolver) []byte {
 	resolver.PKILock.Lock()
 	defer resolver.PKILock.Unlock()
 	if len(resolver.PKI) == 0 {
-		resolver.PKI = r.ExtractPKI(resolver.Id)
+		resolver.PKI = r.ExtractPKI(resolver.ID)
 	}
 	return resolver.PKI
 }
 
-func (r *Service) rootEndpoint(party view.Identity) (*Resolver, error) {
+func (r *Service) resolver(ctx context.Context, party view.Identity) (*Resolver, error) {
+	// We can skip this check, but in case the long term was passed directly, this is going to spare us a DB lookup
+	resolver, err := r.resolverByIdentity(party)
+	if err == nil {
+		return resolver, nil
+	}
+	logger.Debugf("resolving via binding for %s", party)
+	party, err = r.bindingKVS.GetLongTerm(ctx, party)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("continue to [%s]", party)
+	resolver, err = r.resolverByIdentity(party)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed getting identity for [%s]", party)
+	}
+
+	return resolver, nil
+}
+
+func (r *Service) resolverByIdentity(party view.Identity) (*Resolver, error) {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
 
-	for _, resolver := range r.resolvers {
-		logger.Debugf("Compare [%s] [%s]", party.UniqueID(), view.Identity(resolver.Id).UniqueID())
-		if bytes.Equal(resolver.Id, party) {
-			return resolver, nil
-		}
+	// by identity
+	resolver, ok := r.resolversMap[string(party)]
+	if ok {
+		return resolver, nil
 	}
 
-	return nil, errors.Errorf("endpoint not found for identity %s", party.UniqueID())
-}
-
-func (r *Service) Resolver(ctx context.Context, party view.Identity) (*Resolver, []byte, error) {
-	resolver, err := r.resolver(ctx, party)
-	if err != nil {
-		return nil, nil, err
-	}
-	return resolver, r.pkiResolve(resolver), nil
+	return nil, errors.Wrapf(ErrNotFound, "endpoint not found for identity %s", party.UniqueID())
 }
 
 var portNameMap = map[string]PortName{
