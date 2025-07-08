@@ -33,7 +33,7 @@ func setupPaginationWithLastId() *driver.PageIterator[*interface{}] {
 		Paginated(p).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
-	Expect(args).To(ConsistOf("10", "200"))
+	Expect(args).To(ConsistOf(10, 200))
 
 	results := collections.NewSliceIterator([]*any{
 		common.CopyPtr[any](dbResult{StringField: "first"}),
@@ -68,7 +68,7 @@ func TestKeysetSimple(t *testing.T) {
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
-	Expect(args).To(ConsistOf("last", "10"))
+	Expect(args).To(ConsistOf("last", 10))
 }
 
 func TestKeysetSkippingPage(t *testing.T) {
@@ -90,7 +90,7 @@ func TestKeysetSkippingPage(t *testing.T) {
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
-	Expect(args).To(ConsistOf("10", "220"))
+	Expect(args).To(ConsistOf(10, 220))
 }
 
 func TestKeysetGoingBack(t *testing.T) {
@@ -108,7 +108,7 @@ func TestKeysetGoingBack(t *testing.T) {
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
-	Expect(args).To(ConsistOf("10", "190"))
+	Expect(args).To(ConsistOf(10, 190))
 }
 
 func TestKeysetGoingNextBack(t *testing.T) {
@@ -134,7 +134,7 @@ func TestKeysetGoingNextBack(t *testing.T) {
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
-	Expect(args).To(ConsistOf("10", "210"))
+	Expect(args).To(ConsistOf(10, 210))
 }
 
 func TestKeysetSkippingPage(t *testing.T) {
@@ -279,7 +279,7 @@ func TestKeysetEmptyResults(t *testing.T) {
 		Paginated(p).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
-	Expect(args).To(ConsistOf("10", "200"))
+	Expect(args).To(ConsistOf(10, 200))
 
 	results := collections.NewSliceIterator([]*any{})
 	page, err := pagination.NewPage[any](results, p)
@@ -295,7 +295,7 @@ func TestKeysetEmptyResults(t *testing.T) {
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
-	Expect(args).To(ConsistOf("10", "210"))
+	Expect(args).To(ConsistOf(10, 210))
 }
 
 func TestKeysetPartialResults(t *testing.T) {
@@ -308,7 +308,7 @@ func TestKeysetPartialResults(t *testing.T) {
 		Paginated(p).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
-	Expect(args).To(ConsistOf("20", "200"))
+	Expect(args).To(ConsistOf(20, 200))
 
 	results := collections.NewSliceIterator([]*any{})
 	page, err := pagination.NewPage[any](results, p)
@@ -324,7 +324,7 @@ func TestKeysetPartialResults(t *testing.T) {
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
-	Expect(args).To(ConsistOf("20", "220"))
+	Expect(args).To(ConsistOf(20, 220))
 }
 
 func TestKeysetDoubleAddField(t *testing.T) {
@@ -342,7 +342,7 @@ func TestKeysetDoubleAddField(t *testing.T) {
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
-	Expect(args).To(ConsistOf("last", "10"))
+	Expect(args).To(ConsistOf("last", 10))
 }
 
 func TestKeysetAsterixAddField(t *testing.T) {
@@ -360,7 +360,7 @@ func TestKeysetAsterixAddField(t *testing.T) {
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT * FROM test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
-	Expect(args).To(ConsistOf("last", "10"))
+	Expect(args).To(ConsistOf("last", 10))
 }
 
 func TestKeysetInt(t *testing.T) {
@@ -379,7 +379,7 @@ func TestKeysetInt(t *testing.T) {
 		Paginated(p).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT $1 OFFSET $2"))
-	Expect(args).To(ConsistOf("10", "200"))
+	Expect(args).To(ConsistOf(10, 200))
 
 	results := collections.NewSliceIterator([]*any{
 		common.CopyPtr[any](dbResult{IntField: 1}),
@@ -406,5 +406,5 @@ func TestKeysetInt(t *testing.T) {
 		Paginated(page.Pagination).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 	Expect(query).To(Equal("SELECT field1, col_id FROM test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
-	Expect(args).To(ConsistOf(10, "10"))
+	Expect(args).To(ConsistOf(10, 10))
 }
