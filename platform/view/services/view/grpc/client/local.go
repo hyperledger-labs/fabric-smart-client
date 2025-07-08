@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/json"
 
-	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
@@ -34,7 +33,11 @@ func NewLocalClient(registry services.Provider) *LocalClient {
 }
 
 func (n *LocalClient) CallView(fid string, in []byte) (interface{}, error) {
-	ctx, span := n.getTracer().Start(context.Background(), "CallView",
+	tracer, err := n.getTracer()
+	if err != nil {
+		return nil, err
+	}
+	ctx, span := tracer.Start(context.Background(), "CallView",
 		trace.WithSpanKind(trace.SpanKindClient),
 		tracing.WithAttributes(tracing.String(fidLabel, fid)))
 	defer span.End()
@@ -64,12 +67,16 @@ func (n *LocalClient) CallView(fid string, in []byte) (interface{}, error) {
 	return raw, nil
 }
 
-func (n *LocalClient) getTracer() trace.Tracer {
+func (n *LocalClient) getTracer() (trace.Tracer, error) {
 	if n.tracer == nil {
-		n.tracer = tracing2.Get(n.serviceLocator).Tracer("node_view_client", tracing.WithMetricsOpts(tracing.MetricsOpts{
+		tracingProvider, err := tracing.GetProvider(n.serviceLocator)
+		if err != nil {
+			return nil, err
+		}
+		n.tracer = tracingProvider.Tracer("node_view_client", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			Namespace:  "viewsdk",
 			LabelNames: []tracing.LabelName{fidLabel},
 		}))
 	}
-	return n.tracer
+	return n.tracer, nil
 }

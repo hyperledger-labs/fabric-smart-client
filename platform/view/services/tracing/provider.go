@@ -8,10 +8,13 @@ package tracing
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/embedded"
@@ -90,4 +93,17 @@ func (p *tracerProvider) Tracer(name string, options ...trace.TracerOption) trac
 
 func statsdFormat(labels []LabelName) string {
 	return "%{#fqname}.%{" + strings.Join(labels, "}.%{") + "}"
+}
+
+// This wrapper is needed in order to be able to fetch the provider using the SP from the Node
+var providerType = reflect.TypeOf((Provider)(nil))
+
+// GetProvider returns the Provider from the passed services.Provider.
+// It returns an error if Provider does not exit.
+func GetProvider(sp services.Provider) (Provider, error) {
+	s, err := sp.GetService(providerType)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed getting provider")
+	}
+	return s.(Provider), nil
 }
