@@ -92,30 +92,6 @@ func (q *query) AddField(field common.Field) {
 	q.Fields(append(q.fields, field)...)
 }
 
-func (q *query) AddFieldUnique(field common.Field) {
-	if (len(q.fields) > 0) && (q.fields[0] == common.FieldName("*")) {
-		return
-	}
-	for _, n := range q.fields {
-		if n == field {
-			return
-		}
-	}
-	q.Fields(append(q.fields, field)...)
-}
-
-func (q *query) AddFieldUnique(field common.Field) {
-	if (len(q.fields) > 0) && (q.fields[0] == common.FieldName("*")) {
-		return
-	}
-	for _, n := range q.fields {
-		if n == field {
-			return
-		}
-	}
-	q.Fields(append(q.fields, field)...)
-}
-
 func (q *query) AddWhere(c cond.Condition) { q.Where(cond.And(q.where, c)) }
 
 func (q *query) AddOrderBy(os OrderBy) { q.OrderBy(append(q.orderBy, os)...) }
