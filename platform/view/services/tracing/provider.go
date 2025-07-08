@@ -44,15 +44,15 @@ func (p *providerWithNodeName) Tracer(name string, options ...trace.TracerOption
 	return p.Provider.Tracer(name, append(options, trace.WithInstrumentationAttributes(append(attrs.ToSlice(), attribute.String(nodeNameKey, p.nodeName))...))...)
 }
 
-func NewTracerProvider(confService driver.ConfigService, metricsProvider metrics.Provider) (Provider, error) {
-	backingProvider, err := NewTracerFromConfiguration(confService)
+func NewProvider(confService driver.ConfigService, metricsProvider metrics.Provider) (Provider, error) {
+	backingProvider, err := NewProviderFromConfigService(confService)
 	if err != nil {
 		return nil, err
 	}
-	return NewTracerProviderWithBackingProvider(backingProvider, metricsProvider), nil
+	return NewProviderWithBackingProvider(backingProvider, metricsProvider), nil
 }
 
-func NewTracerProviderWithBackingProvider(tp Provider, mp metricsProvider) Provider {
+func NewProviderWithBackingProvider(tp Provider, mp metricsProvider) Provider {
 	return &tracerProvider{metricsProvider: mp, backingProvider: tp}
 }
 

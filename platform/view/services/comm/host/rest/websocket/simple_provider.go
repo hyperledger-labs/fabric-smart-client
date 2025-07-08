@@ -12,10 +12,10 @@ import (
 	"net/http"
 	"net/url"
 
-	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -61,7 +61,7 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 }
 
 func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
-	conn, err := web.OpenWSServerConn(writer, request)
+	conn, err := server.OpenWSServerConn(writer, request)
 	if err != nil {
 		return errors.Wrapf(err, "failed to open websocket")
 	}

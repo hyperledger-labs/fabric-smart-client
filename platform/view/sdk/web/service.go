@@ -17,10 +17,11 @@ import (
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	glogging "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
+	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/web"
+	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/grpc"
@@ -56,13 +57,12 @@ func NewServer(configProvider driver.ConfigService, viewManager server.ViewManag
 	}
 	webServer := web.NewServer(web.Options{
 		ListenAddress: listenAddr,
-		Logger:        logger,
 		TLS:           tlsConfig,
 	})
-	h := web.NewHttpHandler(logger)
+	h := web.NewHttpHandler()
 	webServer.RegisterHandler("/", otelhttp.NewHandler(h, "rest-view-call"), true)
 
-	web.InstallViewHandler(logger, viewManager, h, tracerProvider)
+	web2.InstallViewHandler(viewManager, h, tracerProvider)
 
 	return webServer
 }

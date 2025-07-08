@@ -10,8 +10,8 @@ import (
 	"context"
 	"reflect"
 
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	"go.opentelemetry.io/otel/trace"
 )
 

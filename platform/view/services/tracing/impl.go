@@ -58,19 +58,19 @@ type OtplConfig struct {
 
 var logger = logging.MustGetLogger()
 
-func NewTracerFromConfiguration(confService driver.ConfigService) (Provider, error) {
+func NewProviderFromConfigService(confService driver.ConfigService) (Provider, error) {
 	c := Config{}
 	if err := confService.UnmarshalKey("fsc.tracing", &c); err != nil {
 		return nil, err
 	}
-	return newTracerProviderFromConfig(c, confService.GetString("fsc.id"))
+	return newProviderFromConfig(c, confService.GetString("fsc.id"))
 }
 
-func NewTracerProviderFromConfig(c Config) (Provider, error) {
-	return newTracerProviderFromConfig(c, ServiceName)
+func NewProviderFromConfig(c Config) (Provider, error) {
+	return newProviderFromConfig(c, ServiceName)
 }
 
-func newTracerProviderFromConfig(c Config, serviceName string) (Provider, error) {
+func newProviderFromConfig(c Config, serviceName string) (Provider, error) {
 	var exporter sdktrace.SpanExporter
 	var err error
 	switch c.Provider {

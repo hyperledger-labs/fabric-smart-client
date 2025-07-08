@@ -32,9 +32,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver/file"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server"
-	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
@@ -46,6 +43,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"go.uber.org/dig"
 )
 
@@ -86,7 +85,7 @@ func NewSDKFrom(baseSDK dig2.SDK, registry services.Registry) *SDK {
 
 func (p *SDK) Install() error {
 	err := errors.Join(
-		p.Container().Provide(hash.NewSHA256Provider, dig.As(new(hash.Hasher), new(view3.Hasher))),
+		p.Container().Provide(hash.NewSHA256Provider, dig.As(new(hash.Hasher), new(server2.Hasher))),
 		p.Container().Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
 		p.Container().Provide(func(system events.EventSystem) *events.Service { return &events.Service{EventSystem: system} }),
 		p.Container().Provide(postgres2.NewDbProvider),
@@ -111,7 +110,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(
 			digutils.Identity[*id.Provider](),
 			dig.As(
-				new(endpoint.IdentityService), new(view3.IdentityProvider), new(view.IdentityProvider),
+				new(endpoint.IdentityService), new(server2.IdentityProvider), new(view.IdentityProvider),
 			),
 		),
 		p.Container().Provide(endpoint.NewResolversLoader),
@@ -123,24 +122,24 @@ func (p *SDK) Install() error {
 		p.Container().Provide(web.NewOperationsOptions),
 		p.Container().Provide(operations.NewOperationSystem),
 		p.Container().Provide(view.NewRegistry),
-		p.Container().Provide(view3.NewResponseMarshaler, dig.As(new(view3.Marshaller))),
+		p.Container().Provide(server2.NewResponseMarshaler, dig.As(new(server2.Marshaller))),
 		p.Container().Provide(func(o *operations.Options, l operations.OperationsLogger) metrics2.Provider {
 			return operations.NewMetricsProvider(o.Metrics, l, true)
 		}),
 		p.Container().Provide(func(metricsProvider metrics2.Provider, configService driver.ConfigService) (tracing.Provider, error) {
-			base, err := tracing.NewTracerFromConfiguration(configService)
+			base, err := tracing.NewProviderFromConfigService(configService)
 			if err != nil {
 				return nil, err
 			}
-			return tracing2.NewWrappedTracerProvider(tracing.NewTracerProviderWithBackingProvider(base, metricsProvider)), nil
+			return tracing2.NewWrappedProvider(tracing.NewProviderWithBackingProvider(base, metricsProvider)), nil
 		}),
-		p.Container().Provide(view3.NewMetrics),
-		p.Container().Provide(view3.NewAccessControlChecker, dig.As(new(view3.PolicyChecker))),
-		p.Container().Provide(view3.NewViewServiceServer, dig.As(new(view3.Service), new(finality.Server))),
+		p.Container().Provide(server2.NewMetrics),
+		p.Container().Provide(server2.NewAccessControlChecker, dig.As(new(server2.PolicyChecker))),
+		p.Container().Provide(server2.NewViewServiceServer, dig.As(new(server2.Service), new(finality.Server))),
 		p.Container().Provide(view.NewManager),
 		p.Container().Provide(
 			digutils.Identity[*view.Manager](),
-			dig.As(new(StartableViewManager), new(ViewManager), new(server.ViewManager)),
+			dig.As(new(StartableViewManager), new(ViewManager), new(server2.ViewManager)),
 		),
 
 		p.Container().Provide(func(
@@ -158,7 +157,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(
 			digutils.Identity[*sig.Service](),
 			dig.As(
-				new(view.LocalIdentityChecker), new(view3.VerifierProvider), new(view3.SignerProvider),
+				new(view.LocalIdentityChecker), new(server2.VerifierProvider), new(server2.SignerProvider),
 				new(id.SigService),
 			),
 		),
@@ -202,7 +201,7 @@ func (p *SDK) Start(ctx context.Context) error {
 
 		GRPCServer     *grpc.GRPCServer
 		ViewManager    StartableViewManager
-		ViewService    view3.Service
+		ViewService    server2.Service
 		CommService    *comm.Service
 		WebServer      web.Server
 		System         *operations.System
@@ -214,7 +213,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		}
 		in.CommService.Start(ctx)
 
-		view3.InstallViewHandler(in.ViewManager, in.ViewService, in.TracerProvider)
+		server2.InstallViewHandler(in.ViewManager, in.ViewService, in.TracerProvider)
 		go in.ViewManager.Start(ctx)
 
 		web.Serve(in.GRPCServer, in.WebServer, in.System, in.KVS, ctx)

@@ -11,19 +11,17 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"go.opentelemetry.io/otel/trace"
 )
 
 // This wrapper is needed in order to be able to fetch the provider using the SP from the Node
-var providerType = reflect.TypeOf((*tracerProvider)(nil))
+var providerType = reflect.TypeOf((*wrappedProvider)(nil))
 
-type tracerProvider struct {
+type wrappedProvider struct {
 	tracing.Provider
-	viewTracer trace.Tracer
 }
 
-func NewWrappedTracerProvider(tp tracing.Provider) tracing.Provider {
-	return &tracerProvider{Provider: tp, viewTracer: tp.Tracer("view_tracer")}
+func NewWrappedProvider(tp tracing.Provider) tracing.Provider {
+	return &wrappedProvider{Provider: tp}
 }
 
 func Get(sp services.Provider) tracing.Provider {
@@ -31,5 +29,5 @@ func Get(sp services.Provider) tracing.Provider {
 	if err != nil {
 		panic(err)
 	}
-	return s.(*tracerProvider)
+	return s.(*wrappedProvider)
 }
