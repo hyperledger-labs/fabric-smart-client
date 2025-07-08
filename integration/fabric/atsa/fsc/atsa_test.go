@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/states"
 	fsc2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

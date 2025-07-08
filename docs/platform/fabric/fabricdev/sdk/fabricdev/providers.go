@@ -16,9 +16,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.uber.org/dig"
 )

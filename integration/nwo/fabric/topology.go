@@ -11,9 +11,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 var (

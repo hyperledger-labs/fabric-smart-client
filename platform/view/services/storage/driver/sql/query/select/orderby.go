@@ -1,0 +1,36 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package _select
+
+import (
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
+)
+
+type OrderBy common2.Serializable
+
+type orderBy struct {
+	asc   bool
+	field common2.Field
+}
+
+func (o orderBy) WriteString(sb common2.Builder) {
+	sb.WriteSerializables(o.field)
+
+	if o.asc {
+		sb.WriteString(" ASC")
+	} else {
+		sb.WriteString(" DESC")
+	}
+}
+
+func Asc(name common2.Field) orderBy {
+	return orderBy{asc: true, field: name}
+}
+
+func Desc(name common2.Field) orderBy {
+	return orderBy{asc: false, field: name}
+}

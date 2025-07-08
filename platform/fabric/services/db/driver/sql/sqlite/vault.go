@@ -14,10 +14,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
-	common5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
+	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	common5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	common4 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
+	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	"github.com/pkg/errors"
 )
 
@@ -27,22 +27,22 @@ type VaultStore struct {
 	tables  common.VaultTables
 	writeDB common5.WriteDB
 
-	ci common2.CondInterpreter
-	pi common2.PagInterpreter
+	ci common4.CondInterpreter
+	pi common4.PagInterpreter
 }
 
 func NewVaultStore(dbs *common3.RWDB, tables common.TableNames) (*VaultStore, error) {
-	return newVaultStore(dbs.ReadDB, sqlite.NewRetryWriteDB(dbs.WriteDB), common.VaultTables{
+	return newVaultStore(dbs.ReadDB, sqlite2.NewRetryWriteDB(dbs.WriteDB), common.VaultTables{
 		StateTable:  tables.State,
 		StatusTable: tables.Status,
 	}), nil
 }
 
 func newVaultStore(readDB *sql.DB, writeDB common5.WriteDB, tables common.VaultTables) *VaultStore {
-	ci := sqlite.NewConditionInterpreter()
-	pi := sqlite.NewPaginationInterpreter()
+	ci := sqlite2.NewConditionInterpreter()
+	pi := sqlite2.NewPaginationInterpreter()
 	return &VaultStore{
-		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite.ErrorMapper{}, ci, pi, sqlite.NewSanitizer(), sqlite.IsolationLevels),
+		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite2.ErrorMapper{}, ci, pi, sqlite2.NewSanitizer(), sqlite2.IsolationLevels),
 		tables:     tables,
 		writeDB:    writeDB,
 		ci:         ci,
@@ -56,7 +56,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 		return nil
 	}
 
-	sb := common2.NewBuilder().
+	sb := common4.NewBuilder().
 		WriteString(`
 		BEGIN;
 `)

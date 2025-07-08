@@ -14,10 +14,10 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	common4 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
+	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+	common5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 	"github.com/pkg/errors"
 )
 
@@ -26,8 +26,8 @@ type VaultStore struct {
 
 	tables  common4.VaultTables
 	writeDB *sql.DB
-	ci      common2.CondInterpreter
-	pi      common2.PagInterpreter
+	ci      common5.CondInterpreter
+	pi      common5.PagInterpreter
 }
 
 func NewVaultStore(dbs *common3.RWDB, tables common4.TableNames) (*VaultStore, error) {
@@ -38,10 +38,10 @@ func NewVaultStore(dbs *common3.RWDB, tables common4.TableNames) (*VaultStore, e
 }
 
 func newVaultStore(readDB, writeDB *sql.DB, tables common4.VaultTables) *VaultStore {
-	ci := postgres.NewConditionInterpreter()
-	pi := postgres.NewPaginationInterpreter()
+	ci := postgres2.NewConditionInterpreter()
+	pi := postgres2.NewPaginationInterpreter()
 	return &VaultStore{
-		VaultStore: common4.NewVaultStore(writeDB, readDB, tables, &postgres.ErrorMapper{}, ci, pi, postgres.NewSanitizer(), postgres.IsolationLevels),
+		VaultStore: common4.NewVaultStore(writeDB, readDB, tables, &postgres2.ErrorMapper{}, ci, pi, postgres2.NewSanitizer(), postgres2.IsolationLevels),
 		tables:     tables,
 		writeDB:    writeDB,
 		ci:         ci,
@@ -59,7 +59,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	}
 
 	if len(txIDs) > 0 {
-		sb := common2.NewBuilder()
+		sb := common5.NewBuilder()
 		db.SetStatusesBusy(txIDs, sb)
 		query, args := sb.Build()
 		if err := execOrRollback(ctx, tx, query, args); err != nil {
@@ -67,7 +67,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 		}
 	}
 	if len(writes) > 0 || len(metaWrites) > 0 {
-		sb := common2.NewBuilder()
+		sb := common5.NewBuilder()
 		if err := db.UpsertStates(writes, metaWrites, sb); err != nil {
 			return err
 		}
@@ -77,7 +77,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 		}
 	}
 	if len(txIDs) > 0 {
-		sb := common2.NewBuilder()
+		sb := common5.NewBuilder()
 		db.SetStatusesValid(txIDs, sb)
 		query, args := sb.Build()
 		if err := execOrRollback(ctx, tx, query, args); err != nil {

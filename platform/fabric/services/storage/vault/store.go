@@ -9,7 +9,7 @@ package vault
 import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 func NewStore(name driver.PersistenceName, d multiplexed.Driver, params ...string) (driver2.VaultStore, error) {

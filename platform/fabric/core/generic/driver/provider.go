@@ -16,9 +16,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
 	gmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
 
 var logger = logging.MustGetLogger()

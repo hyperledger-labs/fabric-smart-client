@@ -15,10 +15,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	msp2 "github.com/hyperledger/fabric/msp"
 	"github.com/stretchr/testify/assert"
 )

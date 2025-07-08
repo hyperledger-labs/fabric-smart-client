@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 func TestMetadata_GetData(t *testing.T) {

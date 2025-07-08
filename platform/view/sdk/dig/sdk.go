@@ -24,17 +24,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/provider"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
-	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver/file"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server"
@@ -43,6 +38,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/auditinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/binding"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
+	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
@@ -89,10 +89,10 @@ func (p *SDK) Install() error {
 		p.Container().Provide(hash.NewSHA256Provider, dig.As(new(hash.Hasher), new(view3.Hasher))),
 		p.Container().Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
 		p.Container().Provide(func(system events.EventSystem) *events.Service { return &events.Service{EventSystem: system} }),
-		p.Container().Provide(postgres.NewDbProvider),
-		p.Container().Provide(postgres.NewNamedDriver, dig.Group("db-drivers")),
-		p.Container().Provide(sqlite.NewDbProvider),
-		p.Container().Provide(sqlite.NewNamedDriver, dig.Group("db-drivers")),
+		p.Container().Provide(postgres2.NewDbProvider),
+		p.Container().Provide(postgres2.NewNamedDriver, dig.Group("db-drivers")),
+		p.Container().Provide(sqlite2.NewDbProvider),
+		p.Container().Provide(sqlite2.NewNamedDriver, dig.Group("db-drivers")),
 		p.Container().Provide(mem.NewNamedDriver, dig.Group("db-drivers")),
 		p.Container().Provide(newMultiplexedDriver),
 		p.Container().Provide(file.NewDriver, dig.Group("kms-drivers")),

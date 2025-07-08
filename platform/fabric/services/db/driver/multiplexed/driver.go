@@ -9,9 +9,9 @@ package multiplexed
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
-	vdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
-	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
+	vdbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/pkg/errors"
 )
 

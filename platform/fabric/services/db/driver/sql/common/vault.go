@@ -19,13 +19,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	sql2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/pagination"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	sql2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql"
+	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
+	common4 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
+	cond2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/pagination"
 )
 
 var (
@@ -38,13 +38,13 @@ type VaultTables struct {
 }
 
 type Sanitizer interface {
-	EncodeAll(params []common.Param) ([]any, error)
+	EncodeAll(params []common4.Param) ([]any, error)
 	Encode(string) (string, error)
 	Decode(string) (string, error)
 }
 
-func NewVaultStore(writeDB common2.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci common.CondInterpreter, pi common.PagInterpreter, sanitizer sql2.Sanitizer, il common2.IsolationLevelMapper) *VaultStore {
-	vaultSanitizer := common2.NewSanitizer(sanitizer)
+func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci common4.CondInterpreter, pi common4.PagInterpreter, sanitizer sql2.Sanitizer, il common3.IsolationLevelMapper) *VaultStore {
+	vaultSanitizer := common3.NewSanitizer(sanitizer)
 	return &VaultStore{
 		vaultReader: &vaultReader{
 			readDB:    readDB,
@@ -68,12 +68,12 @@ type VaultStore struct {
 	tables       VaultTables
 	errorWrapper driver2.SQLErrorWrapper
 	readDB       *sql.DB
-	writeDB      common2.WriteDB
-	ci           common.CondInterpreter
-	pi           common.PagInterpreter
+	writeDB      common3.WriteDB
+	ci           common4.CondInterpreter
+	pi           common4.PagInterpreter
 	GlobalLock   sync.RWMutex
 	sanitizer    Sanitizer
-	il           common2.IsolationLevelMapper
+	il           common3.IsolationLevelMapper
 }
 
 func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (driver.LockedVaultReader, error) {
@@ -142,15 +142,15 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
 
-	rows := make([]common.Tuple, len(txIDs))
+	rows := make([]common4.Tuple, len(txIDs))
 	for i, txID := range txIDs {
-		rows[i] = common.Tuple{txID, code, message}
+		rows[i] = common4.Tuple{txID, code, message}
 	}
 
 	query, params := q.InsertInto(db.tables.StatusTable).
 		Fields("tx_id", "code", "message").
 		Rows(rows).
-		OnConflict([]common.FieldName{"tx_id"},
+		OnConflict([]common4.FieldName{"tx_id"},
 			q.SetValue("code", code),
 			q.SetValue("message", message),
 		).
@@ -164,20 +164,20 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 	return nil
 }
 
-func (db *VaultStore) SetStatusesBusy(txIDs []driver.TxID, sb common.Builder) {
-	rows := make([]common.Tuple, len(txIDs))
+func (db *VaultStore) SetStatusesBusy(txIDs []driver.TxID, sb common4.Builder) {
+	rows := make([]common4.Tuple, len(txIDs))
 	for i, txID := range txIDs {
-		rows[i] = common.Tuple{txID, driver.Busy}
+		rows[i] = common4.Tuple{txID, driver.Busy}
 	}
 
 	q.InsertInto(db.tables.StatusTable).
 		Fields("tx_id", "code").
 		Rows(rows).
-		OnConflict([]common.FieldName{"tx_id"}, q.SetValue("code", driver.Busy)).
+		OnConflict([]common4.FieldName{"tx_id"}, q.SetValue("code", driver.Busy)).
 		FormatTo(sb)
 }
 
-func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaWrites, sb common.Builder) error {
+func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaWrites, sb common4.Builder) error {
 	states, err := db.convertStateRows(writes, metaWrites)
 	if err != nil {
 		return err
@@ -185,7 +185,7 @@ func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaW
 	q.InsertInto(db.tables.StateTable).
 		Fields("ns", "pkey", "val", "kversion", "metadata").
 		Rows(states).
-		OnConflict([]common.FieldName{"ns", "pkey"},
+		OnConflict([]common4.FieldName{"ns", "pkey"},
 			q.OverwriteValue("val"),
 			q.OverwriteValue("kversion"),
 			q.OverwriteValue("metadata"),
@@ -194,15 +194,15 @@ func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaW
 	return nil
 }
 
-func (db *VaultStore) SetStatusesValid(txIDs []driver.TxID, sb common.Builder) {
+func (db *VaultStore) SetStatusesValid(txIDs []driver.TxID, sb common4.Builder) {
 	q.Update(db.tables.StatusTable).
 		Set("code", driver.Valid).
-		Where(cond.In("tx_id", txIDs...)).
+		Where(cond2.In("tx_id", txIDs...)).
 		FormatTo(db.ci, sb)
 }
 
-func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.MetaWrites) ([]common.Tuple, error) {
-	states := make([]common.Tuple, 0, len(writes))
+func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.MetaWrites) ([]common4.Tuple, error) {
+	states := make([]common4.Tuple, 0, len(writes))
 	for ns, write := range writes {
 		metaWrite, ok := metaWrites[ns]
 		if !ok {
@@ -235,7 +235,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 			if err != nil {
 				return nil, err
 			}
-			states = append(states, common.Tuple{ns, pkey, val.Raw, val.Version, metadata})
+			states = append(states, common4.Tuple{ns, pkey, val.Raw, val.Version, metadata})
 		}
 	}
 
@@ -261,7 +261,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 			if err != nil {
 				return nil, err
 			}
-			states = append(states, common.Tuple{ns, pkey, []byte{}, metaVal.Version, metadata})
+			states = append(states, common4.Tuple{ns, pkey, []byte{}, metaVal.Version, metadata})
 
 		}
 	}
@@ -358,8 +358,8 @@ func (db *txVaultReader) Done() error {
 
 type vaultReader struct {
 	readDB    dbReader
-	ci        common.CondInterpreter
-	pi        common.PagInterpreter
+	ci        common4.CondInterpreter
+	pi        common4.PagInterpreter
 	sanitizer Sanitizer
 	tables    VaultTables
 }
@@ -373,18 +373,18 @@ func (db *vaultReader) GetState(ctx context.Context, namespace driver.Namespace,
 }
 
 func (db *vaultReader) GetStates(ctx context.Context, namespace driver.Namespace, keys ...driver.PKey) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, cond.And(cond.Eq("ns", namespace), cond.In("pkey", keys...)))
+	return db.queryState(ctx, cond2.And(cond2.Eq("ns", namespace), cond2.In("pkey", keys...)))
 }
 
 func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, cond.And(cond.Eq("ns", namespace), cond.BetweenStrings("pkey", startKey, endKey)))
+	return db.queryState(ctx, cond2.And(cond2.Eq("ns", namespace), cond2.BetweenStrings("pkey", startKey, endKey)))
 }
 
 func (db *vaultReader) GetAllStates(ctx context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, cond.Eq("ns", namespace))
+	return db.queryState(ctx, cond2.Eq("ns", namespace))
 }
 
-func (db *vaultReader) queryState(ctx context.Context, where cond.Condition) (driver.TxStateIterator, error) {
+func (db *vaultReader) queryState(ctx context.Context, where cond2.Condition) (driver.TxStateIterator, error) {
 	query, params := q.Select().FieldsByName("pkey", "kversion", "val").
 		From(q.Table(db.tables.StateTable)).
 		Where(where).
@@ -399,7 +399,7 @@ func (db *vaultReader) queryState(ctx context.Context, where cond.Condition) (dr
 	if err != nil {
 		return nil, err
 	}
-	return common2.NewIterator(rows, func(r *driver.VaultRead) error {
+	return common3.NewIterator(rows, func(r *driver.VaultRead) error {
 		if err := rows.Scan(&r.Key, &r.Version, &r.Raw); err != nil {
 			return err
 		}
@@ -420,7 +420,7 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 
 	query, params := q.Select().FieldsByName("metadata", "kversion").
 		From(q.Table(db.tables.StateTable)).
-		Where(cond.And(cond.Eq("ns", namespace), cond.Eq("pkey", key))).
+		Where(cond2.And(cond2.Eq("ns", namespace), cond2.Eq("pkey", key))).
 		Format(db.ci)
 	logger.Debug(query, params)
 
@@ -443,22 +443,22 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 }
 
 func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
-	it, err := db.queryStatus(ctx, IsLast(common.TableName(db.tables.StatusTable)), pagination.None())
+	it, err := db.queryStatus(ctx, IsLast(common4.TableName(db.tables.StatusTable)), pagination.None())
 	if err != nil {
 		return nil, err
 	}
 	return collections.GetUnique(it)
 }
 
-func IsLast(tableName common.TableName) *isLast {
+func IsLast(tableName common4.TableName) *isLast {
 	return &isLast{tableName: tableName}
 }
 
 type isLast struct {
-	tableName common.TableName
+	tableName common4.TableName
 }
 
-func (c *isLast) WriteString(_ common.CondInterpreter, sb common.Builder) {
+func (c *isLast) WriteString(_ common4.CondInterpreter, sb common4.Builder) {
 	sb.WriteString("pos=(SELECT max(pos) FROM ").
 		WriteString(string(c.tableName)).WriteString(" WHERE code!=").
 		WriteParam(driver.Busy).
@@ -466,7 +466,7 @@ func (c *isLast) WriteString(_ common.CondInterpreter, sb common.Builder) {
 }
 
 func (db *vaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
-	it, err := db.queryStatus(ctx, cond.Eq("tx_id", txID), pagination.None())
+	it, err := db.queryStatus(ctx, cond2.Eq("tx_id", txID), pagination.None())
 	if err != nil {
 		return nil, err
 	}
@@ -477,7 +477,7 @@ func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) 
 		return collections.NewEmptyIterator[*driver.TxStatus](), nil
 	}
 
-	return db.queryStatus(ctx, cond.In("tx_id", txIDs...), pagination.None())
+	return db.queryStatus(ctx, cond2.In("tx_id", txIDs...), pagination.None())
 }
 func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
 	if p == nil {
@@ -491,7 +491,7 @@ func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination
 	return &driver.PageIterator[*driver.TxStatus]{Items: txStatusIterator, Pagination: p}, nil
 }
 
-func (db *vaultReader) queryStatus(ctx context.Context, where cond.Condition, pagination driver.Pagination) (driver.TxStatusIterator, error) {
+func (db *vaultReader) queryStatus(ctx context.Context, where cond2.Condition, pagination driver.Pagination) (driver.TxStatusIterator, error) {
 	query, params := q.Select().FieldsByName("tx_id", "code", "message").
 		From(q.Table(db.tables.StatusTable)).
 		Where(where).
@@ -503,7 +503,7 @@ func (db *vaultReader) queryStatus(ctx context.Context, where cond.Condition, pa
 	if err != nil {
 		return nil, err
 	}
-	return common2.NewIterator(rows, func(s *driver.TxStatus) error { return rows.Scan(&s.TxID, &s.Code, &s.Message) }), nil
+	return common3.NewIterator(rows, func(s *driver.TxStatus) error { return rows.Scan(&s.TxID, &s.Code, &s.Message) }), nil
 }
 
 func (db *VaultStore) Close() error {
