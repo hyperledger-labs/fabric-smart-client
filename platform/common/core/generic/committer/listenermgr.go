@@ -24,7 +24,7 @@ type finalityListenerManagerProvider[V comparable] struct {
 	tracer trace.Tracer
 }
 
-func NewFinalityListenerManagerProvider[V comparable](tracerProvider trace.TracerProvider) *finalityListenerManagerProvider[V] {
+func NewFinalityListenerManagerProvider[V comparable](tracerProvider tracing.Provider) *finalityListenerManagerProvider[V] {
 	return &finalityListenerManagerProvider[V]{
 		logger: logging.MustGetLogger(),
 		tracer: tracerProvider.Tracer("finality_listener_manager", tracing.WithMetricsOpts(tracing.MetricsOpts{Namespace: "core"})),

@@ -156,7 +156,7 @@ These supported tracer providers can be instantiated using `tracing.NewTracerPro
 Using this constructor, along with the type of the exporter, we can also specify other parameters, like the sampling rate.
 The default implementation is defined in the view SDK, but can be overridden in the same way as the metrics provider.
 
-FSC provides also an enhanced implementation of the `trace.TracerProvider` that keeps metrics in the background for each span.
+FSC provides also an enhanced implementation of the `tracing.Provider` that keeps metrics in the background for each span.
 Whenever we start spans, we keep track of the count and the duration of the operations. To use it, override the existing tracer provider with this implementation using `tracing.NewTracerProviderWithBackingProvider`.
 
 ### Adding traces
@@ -218,7 +218,7 @@ type MyService struct {
 	...
 }
 ```
-* Inject the `trace.TracerProvider` into your service constructor and instantiate a new tracer. As the name for the tracer, try to pick a noun that describes of the actor:
+* Inject the `tracing.Provider` into your service constructor and instantiate a new tracer. As the name for the tracer, try to pick a noun that describes of the actor:
 ```go
 const (
 	currencyLabel tracing.LabelName = "currency"
@@ -226,7 +226,7 @@ const (
 	validatorTypeLabel tracing.LabelName = "validator_type"
 )
 
-func NewMyService(... Deps, tracerProvider trace.TracerProvider, otherService OtherService) *MyService {
+func NewMyService(... Deps, tracerProvider tracing.Provider, otherService OtherService) *MyService {
 	return &MyService {
 		...
 		tracer: p.Tracer("transfer_responder", tracing.WithMetricsOpts(tracing.MetricsOpts{

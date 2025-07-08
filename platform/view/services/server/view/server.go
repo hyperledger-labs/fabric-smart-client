@@ -47,7 +47,7 @@ func NewViewServiceServer(
 	marshaller Marshaller,
 	policyChecker PolicyChecker,
 	metrics *Metrics,
-	tracerProvider trace.TracerProvider,
+	tracerProvider tracing.Provider,
 ) (*Server, error) {
 	return &Server{
 		Marshaller:    marshaller,

@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
 func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
@@ -34,7 +34,7 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 	topology.AddSDK(&viewsdk.SDK{})
 
 	monitoringTopology := monitoring.NewTopology()
-	//monitoringTopology.EnablePrometheusGrafana()
+	// monitoringTopology.EnablePrometheusGrafana()
 	monitoringTopology.EnableOPTL()
 
 	return []api.Topology{topology, monitoringTopology}

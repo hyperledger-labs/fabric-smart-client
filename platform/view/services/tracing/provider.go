@@ -11,12 +11,14 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/embedded"
 )
+
+// Provider is an alias for tracing.Provider
+type Provider = trace.TracerProvider
 
 type metricsProvider interface {
 	NewCounter(opts metrics.CounterOpts) metrics.Counter
@@ -24,14 +26,14 @@ type metricsProvider interface {
 }
 
 type providerWithNodeName struct {
-	trace.TracerProvider
+	Provider
 	nodeName string
 }
 
-func NewProviderWithNodeName(p trace.TracerProvider, nodeName string) trace.TracerProvider {
+func NewProviderWithNodeName(p Provider, nodeName string) Provider {
 	return &providerWithNodeName{
-		TracerProvider: p,
-		nodeName:       nodeName,
+		Provider: p,
+		nodeName: nodeName,
 	}
 }
 
@@ -39,18 +41,18 @@ func (p *providerWithNodeName) Tracer(name string, options ...trace.TracerOption
 	c := trace.NewTracerConfig(options...)
 
 	attrs := c.InstrumentationAttributes()
-	return p.TracerProvider.Tracer(name, append(options, trace.WithInstrumentationAttributes(append(attrs.ToSlice(), attribute.String(nodeNameKey, p.nodeName))...))...)
+	return p.Provider.Tracer(name, append(options, trace.WithInstrumentationAttributes(append(attrs.ToSlice(), attribute.String(nodeNameKey, p.nodeName))...))...)
 }
 
-func NewTracerProvider(confService driver.ConfigService, metricsProvider metrics.Provider) (trace.TracerProvider, error) {
-	backingProvider, err := tracing.NewTracerProvider(confService)
+func NewTracerProvider(confService driver.ConfigService, metricsProvider metrics.Provider) (Provider, error) {
+	backingProvider, err := NewTracerFromConfiguration(confService)
 	if err != nil {
 		return nil, err
 	}
 	return NewTracerProviderWithBackingProvider(backingProvider, metricsProvider), nil
 }
 
-func NewTracerProviderWithBackingProvider(tp trace.TracerProvider, mp metricsProvider) trace.TracerProvider {
+func NewTracerProviderWithBackingProvider(tp Provider, mp metricsProvider) Provider {
 	return &tracerProvider{metricsProvider: mp, backingProvider: tp}
 }
 
@@ -58,7 +60,7 @@ type tracerProvider struct {
 	embedded.TracerProvider
 
 	metricsProvider metricsProvider
-	backingProvider trace.TracerProvider
+	backingProvider Provider
 }
 
 func (p *tracerProvider) Tracer(name string, options ...trace.TracerOption) trace.Tracer {

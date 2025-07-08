@@ -16,11 +16,11 @@ import (
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
 // NewVault returns a new instance of Vault
-func NewVault(vaultStore vault2.CachedVaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) *vault3.Vault {
+func NewVault(vaultStore vault2.CachedVaultStore, metricsProvider metrics.Provider, tracerProvider tracing.Provider) *vault3.Vault {
 	return vault.New[fdriver.ValidationCode](
 		logging.MustGetLogger(),
 		vaultStore,

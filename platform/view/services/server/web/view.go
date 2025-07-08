@@ -54,7 +54,7 @@ func (s *viewHandler) StreamCallView(context *ReqContext, vid string, input []by
 	return nil, s.c.StreamCallView(vid, context.ResponseWriter, context.Req)
 }
 
-func InstallViewHandler(l logger, manager server.ViewManager, h *HttpHandler, tp trace.TracerProvider) {
+func InstallViewHandler(l logger, manager server.ViewManager, h *HttpHandler, tp tracing.Provider) {
 	fh := &viewHandler{c: newViewClient(l, manager, tp)}
 	newDispatcher(h).WireViewCaller(viewCallFunc(fh.CallView))
 	newDispatcher(h).WireStreamViewCaller(viewCallFunc(fh.StreamCallView))
@@ -71,7 +71,7 @@ type client struct {
 	tracer      trace.Tracer
 }
 
-func newViewClient(logger logger, viewManager server.ViewManager, tp trace.TracerProvider) *client {
+func newViewClient(logger logger, viewManager server.ViewManager, tp tracing.Provider) *client {
 	return &client{
 		logger:      logger,
 		viewManager: viewManager,

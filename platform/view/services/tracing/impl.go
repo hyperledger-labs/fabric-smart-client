@@ -22,7 +22,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
-	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
@@ -59,7 +58,7 @@ type OtplConfig struct {
 
 var logger = logging.MustGetLogger()
 
-func NewTracerProvider(confService driver.ConfigService) (trace.TracerProvider, error) {
+func NewTracerFromConfiguration(confService driver.ConfigService) (Provider, error) {
 	c := Config{}
 	if err := confService.UnmarshalKey("fsc.tracing", &c); err != nil {
 		return nil, err
@@ -67,11 +66,11 @@ func NewTracerProvider(confService driver.ConfigService) (trace.TracerProvider, 
 	return newTracerProviderFromConfig(c, confService.GetString("fsc.id"))
 }
 
-func NewTracerProviderFromConfig(c Config) (trace.TracerProvider, error) {
+func NewTracerProviderFromConfig(c Config) (Provider, error) {
 	return newTracerProviderFromConfig(c, ServiceName)
 }
 
-func newTracerProviderFromConfig(c Config, serviceName string) (trace.TracerProvider, error) {
+func newTracerProviderFromConfig(c Config, serviceName string) (Provider, error) {
 	var exporter sdktrace.SpanExporter
 	var err error
 	switch c.Provider {

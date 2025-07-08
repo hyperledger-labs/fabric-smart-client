@@ -20,9 +20,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/web"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 )
 
@@ -34,7 +34,7 @@ type Server interface {
 
 var logger = logging.MustGetLogger()
 
-func NewServer(configProvider driver.ConfigService, viewManager server.ViewManager, tracerProvider trace.TracerProvider) Server {
+func NewServer(configProvider driver.ConfigService, viewManager server.ViewManager, tracerProvider tracing.Provider) Server {
 	if !configProvider.GetBool("fsc.web.enabled") {
 		logger.Info("web server not enabled")
 		return web.NewDummyServer()

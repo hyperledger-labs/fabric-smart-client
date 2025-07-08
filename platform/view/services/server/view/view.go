@@ -27,7 +27,7 @@ type viewHandler struct {
 	tracer      trace.Tracer
 }
 
-func InstallViewHandler(viewManager server.ViewManager, server Service, tracerProvider trace.TracerProvider) {
+func InstallViewHandler(viewManager server.ViewManager, server Service, tracerProvider tracing.Provider) {
 	fh := &viewHandler{
 		viewManager: viewManager,
 		tracer: tracerProvider.Tracer("view_handler", tracing.WithMetricsOpts(tracing.MetricsOpts{

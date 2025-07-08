@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.uber.org/dig"
 )
 
@@ -38,7 +38,7 @@ func NewDriver(in struct {
 	KVS                 *kvs.KVS
 	Publisher           events.Publisher
 	Hasher              hash.Hasher
-	TracerProvider      trace.TracerProvider
+	TracerProvider      tracing.Provider
 	Drivers             multiplexed.Driver
 }) core.NamedDriver {
 	d := core.NamedDriver{

@@ -31,8 +31,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = logging.MustGetLogger()
@@ -63,7 +63,7 @@ func NewProvider(
 	kvss *kvs.KVS,
 	publisher events.Publisher,
 	hasher hash.Hasher,
-	tracerProvider trace.TracerProvider,
+	tracerProvider tracing.Provider,
 	Drivers multiplexed.Driver,
 ) *Provider {
 	return &Provider{

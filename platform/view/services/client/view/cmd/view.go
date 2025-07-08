@@ -16,9 +16,9 @@ import (
 	"path"
 	"time"
 
-	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )

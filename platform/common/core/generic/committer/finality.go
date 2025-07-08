@@ -48,7 +48,7 @@ type FinalityManager[V comparable] struct {
 	eventQueueWorkers int
 }
 
-func NewFinalityManager[V comparable](listenerManager driver.ListenerManager[V], logger Logger, vault Vault[V], tracerProvider trace.TracerProvider, eventQueueWorkers int, statuses ...V) *FinalityManager[V] {
+func NewFinalityManager[V comparable](listenerManager driver.ListenerManager[V], logger Logger, vault Vault[V], tracerProvider tracing.Provider, eventQueueWorkers int, statuses ...V) *FinalityManager[V] {
 	return &FinalityManager[V]{
 		listenerManager: listenerManager,
 		logger:          logger,

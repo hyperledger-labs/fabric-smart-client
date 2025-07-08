@@ -91,7 +91,7 @@ func New[V driver.ValidationCode](
 	newInterceptor NewInterceptorFunc[V],
 	populator Populator,
 	metricsProvider metrics.Provider,
-	tracerProvider trace.TracerProvider,
+	tracerProvider tracing.Provider,
 	versionBuilder VersionBuilder,
 ) *Vault[V] {
 	v := &Vault[V]{

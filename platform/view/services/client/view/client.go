@@ -82,7 +82,7 @@ type client struct {
 	tracer            trace.Tracer
 }
 
-func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher, tracerProvider trace.TracerProvider) (*client, error) {
+func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher, tracerProvider tracing.Provider) (*client, error) {
 	// create a grpc client for view peer
 	grpcClient, err := grpc2.CreateGRPCClient(config.ConnectionConfig)
 	if err != nil {

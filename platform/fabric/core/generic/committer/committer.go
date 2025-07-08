@@ -130,7 +130,7 @@ func New(
 	dependencyResolver DependencyResolver,
 	quiet bool,
 	listenerManager driver.ListenerManager,
-	tracerProvider trace.TracerProvider,
+	tracerProvider tracing.Provider,
 	metricsProvider metrics.Provider,
 ) *Committer {
 	s := &Committer{

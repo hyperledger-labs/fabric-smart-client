@@ -23,7 +23,7 @@ type Handler interface {
 	IsFinal(ctx context.Context, network, channel, txID string) error
 }
 
-func NewManager(tracerProvider trace.TracerProvider) *Manager {
+func NewManager(tracerProvider tracing.Provider) *Manager {
 	return &Manager{tracer: tracerProvider.Tracer("finality_manager", tracing.WithMetricsOpts(tracing.MetricsOpts{
 		Namespace:  "viewsdk",
 		LabelNames: []tracing.LabelName{},

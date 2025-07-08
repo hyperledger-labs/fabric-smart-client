@@ -68,7 +68,7 @@ func (c *MultiplexedProvider) KillAll() error {
 	return err
 }
 
-func NewMultiplexedProvider(tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) *MultiplexedProvider {
+func NewMultiplexedProvider(tracerProvider tracing.Provider, metricsProvider metrics.Provider) *MultiplexedProvider {
 	p := &MultiplexedProvider{
 		clients: make(map[string]*multiplexedClientConn),
 		tracer: tracerProvider.Tracer("multiplexed-ws", tracing.WithMetricsOpts(tracing.MetricsOpts{

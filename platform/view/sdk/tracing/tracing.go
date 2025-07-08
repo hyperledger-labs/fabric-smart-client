@@ -10,6 +10,7 @@ import (
 	"reflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -17,15 +18,15 @@ import (
 var providerType = reflect.TypeOf((*tracerProvider)(nil))
 
 type tracerProvider struct {
-	trace.TracerProvider
+	tracing.Provider
 	viewTracer trace.Tracer
 }
 
-func NewWrappedTracerProvider(tp trace.TracerProvider) trace.TracerProvider {
-	return &tracerProvider{TracerProvider: tp, viewTracer: tp.Tracer("view_tracer")}
+func NewWrappedTracerProvider(tp tracing.Provider) tracing.Provider {
+	return &tracerProvider{Provider: tp, viewTracer: tp.Tracer("view_tracer")}
 }
 
-func Get(sp services.Provider) trace.TracerProvider {
+func Get(sp services.Provider) tracing.Provider {
 	s, err := sp.GetService(providerType)
 	if err != nil {
 		panic(err)

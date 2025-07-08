@@ -9,7 +9,7 @@ package fsc
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
 const (

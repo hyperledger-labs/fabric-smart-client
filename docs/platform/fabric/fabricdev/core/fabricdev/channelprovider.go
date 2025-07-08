@@ -28,9 +28,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = logging.MustGetLogger()
@@ -43,7 +43,7 @@ type provider struct {
 	publisher               events.Publisher
 	hasher                  hash.Hasher
 	newVault                generic.VaultConstructor
-	tracerProvider          trace.TracerProvider
+	tracerProvider          tracing.Provider
 	metricsProvider         metrics.Provider
 	dependencyResolver      committer.DependencyResolver
 	drivers                 multiplexed.Driver
@@ -59,7 +59,7 @@ func NewChannelProvider(
 	endorseTxKVS driver.EndorseTxStore,
 	publisher events.Publisher,
 	hasher hash.Hasher,
-	tracerProvider trace.TracerProvider,
+	tracerProvider tracing.Provider,
 	metricsProvider metrics.Provider,
 	drivers multiplexed.Driver,
 	newVault generic.VaultConstructor,

@@ -17,17 +17,17 @@ import (
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset"
 	"github.com/hyperledger/fabric-protos-go/ledger/rwset/kvrwset"
 	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 	"github.com/pkg/errors"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type Vault = vault.Vault[fdriver.ValidationCode]
 
 // NewVault returns a new instance of Vault
-func NewVault(vaultStore vault2.CachedVaultStore, metricsProvider metrics.Provider, tracerProvider trace.TracerProvider) *Vault {
+func NewVault(vaultStore vault2.CachedVaultStore, metricsProvider metrics.Provider, tracerProvider tracing.Provider) *Vault {
 	return vault.New[fdriver.ValidationCode](
 		logging.MustGetLogger(),
 		vaultStore,

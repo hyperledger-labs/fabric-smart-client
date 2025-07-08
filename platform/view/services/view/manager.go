@@ -53,7 +53,7 @@ func NewManager(
 	endpointService EndpointService,
 	identityProvider IdentityProvider,
 	registry *Registry,
-	tracerProvider trace.TracerProvider,
+	tracerProvider tracing.Provider,
 	metricsProvider metrics.Provider,
 	localIdentityChecker LocalIdentityChecker,
 ) *Manager {

@@ -46,7 +46,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
 
@@ -115,7 +114,7 @@ func (p *SDK) Install() error {
 				new(endpoint.IdentityService), new(view3.IdentityProvider), new(view.IdentityProvider),
 			),
 		),
-		p.Container().Provide(endpoint.NewResolverService),
+		p.Container().Provide(endpoint.NewResolversLoader),
 		p.Container().Provide(web.NewServer),
 		p.Container().Provide(digutils.Identity[web.Server](), dig.As(new(operations.Server))),
 		p.Container().Provide(web.NewOperationsLogger),
@@ -128,8 +127,8 @@ func (p *SDK) Install() error {
 		p.Container().Provide(func(o *operations.Options, l operations.OperationsLogger) metrics2.Provider {
 			return operations.NewMetricsProvider(o.Metrics, l, true)
 		}),
-		p.Container().Provide(func(metricsProvider metrics2.Provider, configService driver.ConfigService) (trace.TracerProvider, error) {
-			base, err := tracing2.NewTracerProvider(configService)
+		p.Container().Provide(func(metricsProvider metrics2.Provider, configService driver.ConfigService) (tracing.Provider, error) {
+			base, err := tracing.NewTracerFromConfiguration(configService)
 			if err != nil {
 				return nil, err
 			}
@@ -148,7 +147,7 @@ func (p *SDK) Install() error {
 			hostProvider host.GeneratorProvider,
 			configProvider driver.ConfigService,
 			endpointService *endpoint.Service,
-			tracerProvider trace.TracerProvider,
+			tracerProvider tracing.Provider,
 			metricsProvider metrics2.Provider,
 		) (*comm.Service, error) {
 			return comm.NewService(hostProvider, endpointService, configProvider, metricsProvider)
@@ -163,7 +162,7 @@ func (p *SDK) Install() error {
 				new(id.SigService),
 			),
 		),
-		p.Container().Provide(func(tracerProvider trace.TracerProvider) *finality.Manager {
+		p.Container().Provide(func(tracerProvider tracing.Provider) *finality.Manager {
 			return finality.NewManager(tracerProvider)
 		}),
 	)
@@ -176,7 +175,7 @@ func (p *SDK) Install() error {
 	}
 
 	err = errors.Join(
-		digutils.Register[trace.TracerProvider](p.Container()),
+		digutils.Register[tracing.Provider](p.Container()),
 		digutils.Register[ViewManager](p.Container()), // Need to add it as a field in the node
 		digutils.Register[id.SigService](p.Container()),
 		digutils.Register[*id.Provider](p.Container()),
@@ -187,7 +186,7 @@ func (p *SDK) Install() error {
 		return err
 	}
 
-	if err := p.Container().Invoke(func(resolverService *endpoint.ResolverService) error { return resolverService.LoadResolvers() }); err != nil {
+	if err := p.Container().Invoke(func(resolverService *endpoint.ResolversLoader) error { return resolverService.LoadResolvers() }); err != nil {
 		return err
 	}
 	return nil
@@ -208,7 +207,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		WebServer      web.Server
 		System         *operations.System
 		KVS            *kvs.KVS
-		TracerProvider trace.TracerProvider
+		TracerProvider tracing.Provider
 	}) error {
 		if in.GRPCServer != nil {
 			protos.RegisterViewServiceServer(in.GRPCServer.Server(), in.ViewService)
