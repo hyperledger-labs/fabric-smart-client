@@ -6,24 +6,24 @@ title View Platform Architecture
 artifact "core.yaml" as Config
 
 package "Client Side" {
-  [view.Client]
-  [web.Client]
+  [view.grpc.client.Client]
+  [web.client.Client]
 }
 
 package "View SDK" {
-  [view.Client] --> [grpc.GRPCServer] : GRPC
-  [web.Client] --> [web.Server] : HTTPS/REST
+  [view.grpc.client.Client] --> [grpc.GRPCServer] : GRPC
+  [web.client.Client] --> [web.server.Server] : HTTPS/REST
 
-  [grpc.GRPCServer] --> [server.view.Server] : Forward call
+  [grpc.GRPCServer] --> [view.grpc.server.Server] : Forward call
   [grpc.GRPCServer] --> [config.Service] : Read Config
   [grpc.GRPCServer] --> [metrics.Provider] : Measure
 
-  [server.view.Server] --> [sig.Service] : Sig Request
-  [server.view.Server] --> [view.Manager] : Initiate a View
-  [server.view.Server] --> [id.Provider] : Access Control
-  [server.view.Server] --> [tracing.Provider] : Trace
+  [view.grpc.server.Server] --> [sig.Service] : Sig Request
+  [view.grpc.server.Server] --> [view.Manager] : Initiate a View
+  [view.grpc.server.Server] --> [id.Provider] : Access Control
+  [view.grpc.server.Server] --> [tracing.Provider] : Trace
 
-  [web.Server] --> [view.Manager] : Initiate a View
+  [web.server.Server] --> [view.Manager] : Initiate a View
 
   [view.Manager] --> [view.Registry] : Lookup View
   [view.Manager] <--> [comm.Service] : Comm Channel
@@ -47,7 +47,7 @@ package "View SDK" {
 
   [config.Service] --> [Config] : Read
 
-  [metrics.Provider] --> [web.Server] : Publish
+  [metrics.Provider] --> [web.server.Server] : Publish
 }
 
 node "Remote View SDK" {
