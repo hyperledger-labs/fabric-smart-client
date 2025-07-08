@@ -9,7 +9,6 @@ package sig
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"runtime/debug"
 	"sync"
 

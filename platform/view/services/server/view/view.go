@@ -64,8 +64,8 @@ func (s *viewHandler) initiateView(ctx context.Context, command *protos2.Command
 
 func (s *viewHandler) callView(ctx context.Context, command *protos2.Command) (interface{}, error) {
 	callView := command.Payload.(*protos2.Command_CallView).CallView
-	// newCtx, span := s.tracer.Start(ctx, "call_view", tracing.WithAttributes(tracing.String(fidLabel, callView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
-	// defer span.End()
+	//newCtx, span := s.tracer.Start(ctx, "call_view", tracing.WithAttributes(tracing.String(fidLabel, callView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
+	//defer span.End()
 	fid := callView.Fid
 	input := callView.Input
 	logger.DebugfContext(ctx, "Call view [%s] on input [%v]", fid, string(input))

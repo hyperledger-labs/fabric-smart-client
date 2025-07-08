@@ -28,10 +28,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/pagination"
 )
 
-var (
-	logger = logging.MustGetLogger()
-)
-
 type VaultTables struct {
 	StateTable  string
 	StatusTable string
@@ -488,7 +484,7 @@ func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination
 	if err != nil {
 		return nil, err
 	}
-	return &driver.PageIterator[*driver.TxStatus]{Items: txStatusIterator, Pagination: p}, nil
+	return pagination.NewPage(txStatusIterator, p)
 }
 
 func (db *vaultReader) queryStatus(ctx context.Context, where cond.Condition, pagination driver.Pagination) (driver.TxStatusIterator, error) {

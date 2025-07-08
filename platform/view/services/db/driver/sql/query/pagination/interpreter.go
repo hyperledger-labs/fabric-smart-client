@@ -11,28 +11,46 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/cond"
+	_select "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/select"
 )
 
 func NewDefaultInterpreter() *interpreter {
 	return &interpreter{}
 }
 
-type Interpreter = common.PagInterpreter
-
 type interpreter struct{}
 
-func (i *interpreter) Interpret(p driver.Pagination, sb common.Builder) {
+func handleKeysetPreProcess[T comparable](pagination *keyset[T, any], query common.ModifiableQuery) {
+	query.AddField(pagination.sqlIdName)
+	query.AddOrderBy(_select.Asc(pagination.sqlIdName))
+	query.AddLimit(pagination.pageSize)
+	if pagination.firstId != pagination.nilElement() {
+		query.AddWhere(cond.CmpVal(pagination.sqlIdName, ">", pagination.firstId))
+	} else {
+		query.AddOffset(pagination.offset)
+	}
+}
+
+func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQuery) {
 	switch pagination := p.(type) {
 	case *none:
 		return
+
 	case *offset:
-		sb.WriteString(" LIMIT ").
-			WriteParam(pagination.pageSize).
-			WriteString(" OFFSET ").
-			WriteParam(pagination.offset)
+		query.AddLimit(pagination.pageSize)
+		query.AddOffset(pagination.offset)
+
+	case *keyset[string, any]:
+		handleKeysetPreProcess(pagination, query)
+
+	case *keyset[int, any]:
+		handleKeysetPreProcess(pagination, query)
+
 	case *empty:
-		sb.WriteString(" LIMIT 0 OFFSET 0")
-		return
+		query.AddLimit(0)
+		query.AddOffset(0)
+
 	default:
 		panic(fmt.Sprintf("invalid pagination option %+v", pagination))
 	}
