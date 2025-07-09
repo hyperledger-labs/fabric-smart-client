@@ -69,9 +69,6 @@ var _ = Describe("EndToEnd", func() {
 			res, err := initiatorWebClient.CallView("init", bytes.NewBuffer([]byte("hi")).Bytes())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
-			version, err := initiatorWebClient.ServerVersion()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(BeEquivalentTo("{\"CommitSHA\":\"development build\",\"Version\":\"latest\"}"))
 
 			webClientConfig.TLSCertPath = ""
 			initiatorWebClient, err = client2.NewClient(webClientConfig)
@@ -79,9 +76,6 @@ var _ = Describe("EndToEnd", func() {
 			_, err = initiatorWebClient.CallView("init", bytes.NewBuffer([]byte("hi")).Bytes())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("status code [401], status [401 Unauthorized]"))
-			version, err = initiatorWebClient.ServerVersion()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(BeEquivalentTo("{\"CommitSHA\":\"development build\",\"Version\":\"latest\"}"))
 		})
 
 		It("successful pingpong based on WebSocket", func() {

@@ -190,29 +190,3 @@ func (c *Client) CallViewWithContext(ctx context.Context, fid string, in []byte)
 func (c *Client) Initiate(fid string, in []byte) (string, error) {
 	panic("implement me")
 }
-
-func (c *Client) ServerVersion() (string, error) {
-	url := fmt.Sprintf("%s/version", c.url)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to create http request to [%s]", url)
-	}
-	logger.Debugf("version using http request to [%s]", url)
-
-	resp, err := c.c.Do(req)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to process http request to [%s]", url)
-	}
-	if resp == nil {
-		return "", errors.Errorf("failed to process http request to [%s], no response", url)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("failed to process http request to [%s], status code [%d], status [%s]", url, resp.StatusCode, resp.Status)
-	}
-	defer utils.IgnoreErrorFunc(resp.Body.Close)
-	buff, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to read response from http request to [%s]", url)
-	}
-	return string(buff), nil
-}
