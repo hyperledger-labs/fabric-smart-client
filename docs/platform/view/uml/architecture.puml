@@ -1,0 +1,59 @@
+@startuml
+skinparam componentStyle rectangle
+
+title View Platform Architecture
+
+artifact "core.yaml" as Config
+
+package "Client Side" {
+  [view.grpc.client.Client]
+  [web.client.Client]
+}
+
+package "View SDK" {
+  [view.grpc.client.Client] --> [grpc.GRPCServer] : GRPC
+  [web.client.Client] --> [web.server.Server] : HTTPS/REST
+
+  [grpc.GRPCServer] --> [view.grpc.server.Server] : Forward call
+  [grpc.GRPCServer] --> [config.Service] : Read Config
+  [grpc.GRPCServer] --> [metrics.Provider] : Measure
+
+  [view.grpc.server.Server] --> [sig.Service] : Sig Request
+  [view.grpc.server.Server] --> [view.Manager] : Initiate a View
+  [view.grpc.server.Server] --> [id.Provider] : Access Control
+  [view.grpc.server.Server] --> [tracing.Provider] : Trace
+
+  [web.server.Server] --> [view.Manager] : Initiate a View
+
+  [view.Manager] --> [view.Registry] : Lookup View
+  [view.Manager] <--> [comm.Service] : Comm Channel
+  [view.Manager] --> [endpoint.Service] : Lookup Endpoint
+  [view.Manager] --> [sig.Service] : Identity Request
+  [view.Manager] --> [tracing.Provider] : Trace
+  [view.Manager] --> [metrics.Provider] : Measure
+
+  [comm.Service] --> [config.Service] : Read Config
+  [comm.Service] --> [metrics.Provider] : Measure
+  [comm.Service] --> [endpoint.Service] : Lookup Endpoint
+
+  [endpoint.Service] --> [Storage]: DB Ops
+  [endpoint.Service] --> [config.Service]: Read Config
+  [endpoint.Service] <--> [id.Provider] : Lookup
+
+  [sig.Service] --> [Storage] : Dp Ops
+
+  [id.Provider] -->  [sig.Service] : Register Signer
+  [id.Provider] --> [config.Service] : Read Config
+
+  [config.Service] --> [Config] : Read
+
+  [metrics.Provider] --> [web.server.Server] : Publish
+}
+
+node "Remote View SDK" {
+  [Remote comm.Service]
+}
+
+[comm.Service] <--> [Remote comm.Service] : Message
+
+@enduml

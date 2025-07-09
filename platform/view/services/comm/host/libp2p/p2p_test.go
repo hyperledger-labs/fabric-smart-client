@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	assert2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	assert2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/libp2p/go-libp2p/core/crypto"

@@ -10,8 +10,8 @@ import (
 	"database/sql"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 type EnvelopeStore struct {
@@ -23,5 +23,5 @@ func NewEnvelopeStore(dbs *common2.RWDB, tables common.TableNames) (*EnvelopeSto
 }
 
 func newEnvelopeStore(readDB, writeDB *sql.DB, table string) *EnvelopeStore {
-	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(readDB, writeDB, table, &postgres.ErrorMapper{}, postgres.NewConditionInterpreter())}
+	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(readDB, writeDB, table, &postgres2.ErrorMapper{}, postgres2.NewConditionInterpreter())}
 }

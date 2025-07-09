@@ -10,17 +10,17 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/query/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 )
 
-func NewEnvelopeStore(writeDB common2.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *EnvelopeStore {
-	return &EnvelopeStore{p: common2.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
+func NewEnvelopeStore(writeDB common3.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *EnvelopeStore {
+	return &EnvelopeStore{p: common3.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
 }
 
 type EnvelopeStore struct {
-	p *common2.SimpleKeyDataStore
+	p *common3.SimpleKeyDataStore
 }
 
 func (db *EnvelopeStore) GetEnvelope(ctx context.Context, key string) ([]byte, error) {

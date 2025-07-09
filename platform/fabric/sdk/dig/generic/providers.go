@@ -11,6 +11,7 @@ import (
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
@@ -31,11 +32,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/metadata"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
 
@@ -62,7 +62,7 @@ func NewDriver(in struct {
 	KVS             *kvs.KVS
 	AuditInfoKVS    driver2.AuditInfoStore
 	SignerKVS       driver2.SignerInfoStore
-	TracerProvider  trace.TracerProvider
+	TracerProvider  tracing.Provider
 	ChannelProvider generic.ChannelProvider        `name:"generic-channel-provider"`
 	IdentityLoaders []identity.NamedIdentityLoader `group:"identity-loaders"`
 }) core.NamedDriver {
@@ -91,7 +91,7 @@ func NewChannelProvider(in struct {
 	EndorseTxKVS    driver.EndorseTxStore
 	Publisher       events.Publisher
 	Hasher          hash.Hasher
-	TracerProvider  trace.TracerProvider
+	TracerProvider  tracing.Provider
 	Drivers         multiplexed.Driver
 	MetricsProvider metrics.Provider
 }) generic.ChannelProvider {

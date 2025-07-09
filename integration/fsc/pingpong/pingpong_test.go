@@ -20,9 +20,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
+	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
@@ -64,24 +64,18 @@ var _ = Describe("EndToEnd", func() {
 
 			webClientConfig, err := client.NewWebClientConfigFromFSC("./testdata/fsc/nodes/initiator.0")
 			Expect(err).NotTo(HaveOccurred())
-			initiatorWebClient, err := web.NewClient(webClientConfig)
+			initiatorWebClient, err := client2.NewClient(webClientConfig)
 			Expect(err).NotTo(HaveOccurred())
 			res, err := initiatorWebClient.CallView("init", bytes.NewBuffer([]byte("hi")).Bytes())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
-			version, err := initiatorWebClient.ServerVersion()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(BeEquivalentTo("{\"CommitSHA\":\"development build\",\"Version\":\"latest\"}"))
 
 			webClientConfig.TLSCertPath = ""
-			initiatorWebClient, err = web.NewClient(webClientConfig)
+			initiatorWebClient, err = client2.NewClient(webClientConfig)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = initiatorWebClient.CallView("init", bytes.NewBuffer([]byte("hi")).Bytes())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("status code [401], status [401 Unauthorized]"))
-			version, err = initiatorWebClient.ServerVersion()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(version).To(BeEquivalentTo("{\"CommitSHA\":\"development build\",\"Version\":\"latest\"}"))
 		})
 
 		It("successful pingpong based on WebSocket", func() {
@@ -131,7 +125,7 @@ var _ = Describe("EndToEnd", func() {
 
 			time.Sleep(3 * time.Second)
 			// Initiate a view and check the output
-			res, err := view.NewLocalClient(initiator).CallView("init", nil)
+			res, err := client3.NewLocalClient(initiator).CallView("init", nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})
@@ -320,10 +314,10 @@ func (s *TestSuite) TestGenerateAndMockPingPong() {
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 }
 
-func newWebClient(confDir string) *web.Client {
+func newWebClient(confDir string) *client2.Client {
 	c, err := client.NewWebClientConfigFromFSC(confDir)
 	Expect(err).NotTo(HaveOccurred())
-	initiator, err := web.NewClient(c)
+	initiator, err := client2.NewClient(c)
 	Expect(err).NotTo(HaveOccurred())
 	return initiator
 }

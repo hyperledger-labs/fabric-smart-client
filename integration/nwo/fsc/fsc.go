@@ -32,16 +32,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view/cmd"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/crypto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/sqlite"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
+	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/cmd"
+	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 	"github.com/miracl/conflate"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -213,11 +213,11 @@ func (p *Platform) Members() []grouper.Member {
 
 func (p *Platform) PreRun() {
 	// Start DBs
-	configs := map[string]*postgres.ContainerConfig{}
+	configs := map[string]*postgres2.ContainerConfig{}
 	for _, node := range p.Peers {
 		for _, sqlOpts := range node.Options.GetPostgresPersistences() {
 			if _, ok := configs[sqlOpts.DataSource]; !ok {
-				c, err := postgres.ReadDataSource(sqlOpts.DataSource)
+				c, err := postgres2.ReadDataSource(sqlOpts.DataSource)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 				configs[sqlOpts.DataSource] = c
 			}
@@ -225,7 +225,7 @@ func (p *Platform) PreRun() {
 		}
 	}
 	logger.Infof("Starting DBs for following data sources: [%s]...", logging.Keys(configs))
-	close, err := postgres.StartPostgresWithFmt(collections.Values(configs))
+	close, err := postgres2.StartPostgresWithFmt(collections.Values(configs))
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to start dbs")
 	p.cleanDB = close
 }
@@ -237,7 +237,7 @@ func (p *Platform) PostRun(bool) {
 		address := v.GetString("fsc.grpc.address")
 		p.setIdentities(address, peer)
 	}
-	tracerProvider, err := tracing2.NewTracerProviderFromConfig(tracing2.Config{
+	tracerProvider, err := tracing2.NewProviderFromConfig(tracing2.Config{
 		Provider: p.Topology.Monitoring.TracingType,
 		File: tracing2.FileConfig{
 			Path: "./client-trace.out",
@@ -257,13 +257,13 @@ func (p *Platform) PostRun(bool) {
 		// Prepare GRPC Client, Web Client, and CLI
 
 		// GRPC client
-		grpcClient, err := view.NewClient(
-			&view.Config{
+		grpcClient, err := client3.NewClient(
+			&client3.Config{
 				ID:               v.GetString("fsc.id"),
 				ConnectionConfig: p.Context.ConnectionConfig(node.UniqueName),
 			},
 			p.Context.ClientSigningIdentity(node.Name),
-			crypto.NewProvider(),
+			hash.NewSHA256Provider(),
 			tracerProvider,
 		)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -282,7 +282,7 @@ func (p *Platform) PostRun(bool) {
 		// Web Client
 		webClientConfig, err := client.NewWebClientConfigFromFSC(p.NodeDir(node))
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		webClient, err := web.NewClient(webClientConfig)
+		webClient, err := client2.NewClient(webClientConfig)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		p.Context.SetWebClient(node.Name, webClient)
 		p.Context.SetWebClient(node.ID(), webClient)
@@ -554,7 +554,7 @@ func GetPersistences(o *node2.Options, dir string) map[driver.PersistenceName]no
 	persistences := make(map[driver.PersistenceName]node2.PersistenceOpts, len(ps))
 	for name, opt := range ps {
 		persistences[name] = node2.PersistenceOpts{
-			Type: postgres.Persistence,
+			Type: postgres2.Persistence,
 			SQL:  opt,
 		}
 	}
@@ -887,12 +887,12 @@ func (p *Platform) Peer(orgName, peerName string) *node2.Peer {
 	return nil
 }
 
-func (p *Platform) GetSigningIdentity(peer *node2.Peer) (view.SigningIdentity, error) {
-	return view.NewX509SigningIdentity(p.LocalMSPIdentityCert(peer), p.LocalMSPPrivateKey(peer))
+func (p *Platform) GetSigningIdentity(peer *node2.Peer) (client3.SigningIdentity, error) {
+	return client3.NewX509SigningIdentity(p.LocalMSPIdentityCert(peer), p.LocalMSPPrivateKey(peer))
 }
 
-func (p *Platform) GetAdminSigningIdentity(peer *node2.Peer) (view.SigningIdentity, error) {
-	return view.NewX509SigningIdentity(p.AdminLocalMSPIdentityCert(peer), p.AdminLocalMSPPrivateKey(peer))
+func (p *Platform) GetAdminSigningIdentity(peer *node2.Peer) (client3.SigningIdentity, error) {
+	return client3.NewX509SigningIdentity(p.AdminLocalMSPIdentityCert(peer), p.AdminLocalMSPPrivateKey(peer))
 }
 
 func (p *Platform) listTLSCACertificates() []string {

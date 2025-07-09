@@ -8,8 +8,8 @@ package common
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/db"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 )
 
 var ncProvider = db.NewTableNameCreator("fsc")

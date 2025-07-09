@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -57,7 +56,7 @@ func (d *DummyFactory) NewView(in []byte) (view.View, error) {
 }
 
 func TestGetIdentifier(t *testing.T) {
-	registry := registry.New()
+	registry := view2.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	manager := view2.NewManager(registry, &mock.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
@@ -69,7 +68,7 @@ func TestGetIdentifier(t *testing.T) {
 }
 
 func TestManagerRace(t *testing.T) {
-	registry := registry.New()
+	registry := view2.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	manager := view2.NewManager(registry, &mock.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
@@ -88,7 +87,7 @@ func TestManagerRace(t *testing.T) {
 }
 
 func TestRegisterResponderWithInitiatorView(t *testing.T) {
-	registry := registry.New()
+	registry := view2.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 
@@ -104,7 +103,7 @@ func TestRegisterResponderWithInitiatorView(t *testing.T) {
 }
 
 func TestRegisterResponderWithViewIdentifier(t *testing.T) {
-	registry := registry.New()
+	registry := view2.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 

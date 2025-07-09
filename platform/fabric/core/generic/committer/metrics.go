@@ -28,7 +28,7 @@ type Metrics struct {
 	Listens trace.Tracer
 }
 
-func NewMetrics(p trace.TracerProvider, m metrics.Provider) *Metrics {
+func NewMetrics(p tracing.Provider, m metrics.Provider) *Metrics {
 	return &Metrics{
 		NotifyStatusDuration: m.NewHistogram(metrics.HistogramOpts{
 			Namespace: "committer",

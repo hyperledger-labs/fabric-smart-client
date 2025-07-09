@@ -8,15 +8,20 @@ package tracing
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/embedded"
 )
+
+// Provider is an alias for tracing.Provider
+type Provider = trace.TracerProvider
 
 type metricsProvider interface {
 	NewCounter(opts metrics.CounterOpts) metrics.Counter
@@ -24,14 +29,14 @@ type metricsProvider interface {
 }
 
 type providerWithNodeName struct {
-	trace.TracerProvider
+	Provider
 	nodeName string
 }
 
-func NewProviderWithNodeName(p trace.TracerProvider, nodeName string) trace.TracerProvider {
+func NewProviderWithNodeName(p Provider, nodeName string) Provider {
 	return &providerWithNodeName{
-		TracerProvider: p,
-		nodeName:       nodeName,
+		Provider: p,
+		nodeName: nodeName,
 	}
 }
 
@@ -39,18 +44,18 @@ func (p *providerWithNodeName) Tracer(name string, options ...trace.TracerOption
 	c := trace.NewTracerConfig(options...)
 
 	attrs := c.InstrumentationAttributes()
-	return p.TracerProvider.Tracer(name, append(options, trace.WithInstrumentationAttributes(append(attrs.ToSlice(), attribute.String(nodeNameKey, p.nodeName))...))...)
+	return p.Provider.Tracer(name, append(options, trace.WithInstrumentationAttributes(append(attrs.ToSlice(), attribute.String(nodeNameKey, p.nodeName))...))...)
 }
 
-func NewTracerProvider(confService driver.ConfigService, metricsProvider metrics.Provider) (trace.TracerProvider, error) {
-	backingProvider, err := tracing.NewTracerProvider(confService)
+func NewProvider(confService driver.ConfigService, metricsProvider metrics.Provider) (Provider, error) {
+	backingProvider, err := NewProviderFromConfigService(confService)
 	if err != nil {
 		return nil, err
 	}
-	return NewTracerProviderWithBackingProvider(backingProvider, metricsProvider), nil
+	return NewProviderWithBackingProvider(backingProvider, metricsProvider), nil
 }
 
-func NewTracerProviderWithBackingProvider(tp trace.TracerProvider, mp metricsProvider) trace.TracerProvider {
+func NewProviderWithBackingProvider(tp Provider, mp metricsProvider) Provider {
 	return &tracerProvider{metricsProvider: mp, backingProvider: tp}
 }
 
@@ -58,7 +63,7 @@ type tracerProvider struct {
 	embedded.TracerProvider
 
 	metricsProvider metricsProvider
-	backingProvider trace.TracerProvider
+	backingProvider Provider
 }
 
 func (p *tracerProvider) Tracer(name string, options ...trace.TracerOption) trace.Tracer {
@@ -88,4 +93,17 @@ func (p *tracerProvider) Tracer(name string, options ...trace.TracerOption) trac
 
 func statsdFormat(labels []LabelName) string {
 	return "%{#fqname}.%{" + strings.Join(labels, "}.%{") + "}"
+}
+
+// This wrapper is needed in order to be able to fetch the provider using the SP from the Node
+var providerType = reflect.TypeOf((*Provider)(nil))
+
+// GetProvider returns the Provider from the passed services.Provider.
+// It returns an error if Provider does not exit.
+func GetProvider(sp services.Provider) (Provider, error) {
+	s, err := sp.GetService(providerType)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed getting provider")
+	}
+	return s.(Provider), nil
 }

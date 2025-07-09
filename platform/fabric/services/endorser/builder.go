@@ -9,13 +9,13 @@ package endorser
 import (
 	"context"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 

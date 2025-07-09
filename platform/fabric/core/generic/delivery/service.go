@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go/common"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type ValidationFlags []uint8
@@ -34,7 +34,7 @@ type Service struct {
 	transactionManager  driver.TransactionManager
 	waitForEventTimeout time.Duration
 	acceptedHeaderTypes collections.Set[common.HeaderType]
-	tracerProvider      trace.TracerProvider
+	tracerProvider      tracing.Provider
 	metricsProvider     metrics.Provider
 	deliveryService     *Delivery
 }
@@ -51,7 +51,7 @@ func NewService(
 	vault Vault,
 	transactionManager driver.TransactionManager,
 	callback driver.BlockCallback,
-	tracerProvider trace.TracerProvider,
+	tracerProvider tracing.Provider,
 	metricsProvider metrics.Provider,
 	acceptedHeaderTypes []common.HeaderType,
 ) (*Service, error) {

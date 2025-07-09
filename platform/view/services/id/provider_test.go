@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	id2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver/file"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kms/driver/file"
 	"github.com/stretchr/testify/assert"
 )
 

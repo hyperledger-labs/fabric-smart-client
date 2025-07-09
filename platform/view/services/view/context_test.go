@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -28,7 +27,7 @@ type Context interface {
 }
 
 func TestContext(t *testing.T) {
-	registry := registry.New()
+	registry := view2.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	resolver := &mock.EndpointService{}
@@ -68,7 +67,7 @@ func TestContext(t *testing.T) {
 }
 
 func TestContextRace(t *testing.T) {
-	registry := registry.New()
+	registry := view2.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	resolver := &mock.EndpointService{}

@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 // PeerFunctionType defines classes of peers providing a specific functionality

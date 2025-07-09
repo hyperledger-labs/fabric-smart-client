@@ -9,9 +9,9 @@ package api
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/tedsuo/ifrit/grouper"
 	"gopkg.in/yaml.v2"
@@ -66,16 +66,16 @@ type Context interface {
 	AddIdentityAlias(name string, alias string)
 	TopologyByName(name string) Topology
 	SetConnectionConfig(name string, cc *grpc.ConnectionConfig)
-	SetClientSigningIdentity(name string, id view.SigningIdentity)
-	SetAdminSigningIdentity(name string, id view.SigningIdentity)
+	SetClientSigningIdentity(name string, id client2.SigningIdentity)
+	SetAdminSigningIdentity(name string, id client2.SigningIdentity)
 	SetViewIdentity(name string, cert []byte)
 	ConnectionConfig(name string) *grpc.ConnectionConfig
-	ClientSigningIdentity(name string) view.SigningIdentity
+	ClientSigningIdentity(name string) client2.SigningIdentity
 	SetViewClient(name string, c GRPCClient)
 	SetWebClient(name string, c WebClient)
 	SetCLI(name string, client ViewClient)
 	GetViewIdentityAliases(name string) []string
-	AdminSigningIdentity(name string) view.SigningIdentity
+	AdminSigningIdentity(name string) client2.SigningIdentity
 	IgnoreSigHUP() bool
 }
 
@@ -90,13 +90,13 @@ type ViewClient interface {
 
 type GRPCClient interface {
 	ViewClient
-	StreamCallView(fid string, input []byte) (*view.Stream, error)
+	StreamCallView(fid string, input []byte) (*client2.Stream, error)
 }
 
 type WebClient interface {
 	ViewClient
 	Metrics() (map[string]*dto.MetricFamily, error)
-	StreamCallView(fid string, input []byte) (*web.WSStream, error)
+	StreamCallView(fid string, input []byte) (*client.WSStream, error)
 }
 
 type Platform interface {

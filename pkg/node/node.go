@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	utils "github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/registry"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/pkg/errors"
 )
 
@@ -43,7 +43,7 @@ func NewFromConfPath(confPath string) *Node {
 	if err != nil {
 		panic(err)
 	}
-	registry := registry.New()
+	registry := view.NewServiceProvider()
 	if err := registry.RegisterService(configService); err != nil {
 		panic(err)
 	}

@@ -9,7 +9,7 @@ package tracing
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"go.opentelemetry.io/otel/trace"
 )
 

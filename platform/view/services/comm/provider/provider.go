@@ -19,14 +19,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
 func NewHostProvider(
 	config driver.ConfigService,
 	endpointService *endpoint.Service,
 	metricsProvider metrics.Provider,
-	tracerProvider trace.TracerProvider,
+	tracerProvider tracing.Provider,
 ) (host.GeneratorProvider, error) {
 	if err := endpointService.AddPublicKeyExtractor(&comm.PKExtractor{}); err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func NewLibP2PHostProvider(config driver.ConfigService, endpointService *endpoin
 	return libp2p.NewHostGeneratorProvider(libp2p.NewConfig(config), metricsProvider, endpointService)
 }
 
-func NewWebSocketHostProvider(config driver.ConfigService, endpointService *endpoint.Service, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (host.GeneratorProvider, error) {
+func NewWebSocketHostProvider(config driver.ConfigService, endpointService *endpoint.Service, tracerProvider tracing.Provider, metricsProvider metrics.Provider) (host.GeneratorProvider, error) {
 	routingConfigPath := config.GetPath("fsc.p2p.opts.routing.path")
 	r, err := routing.NewResolvedStaticIDRouter(routingConfigPath, endpointService)
 	if err != nil {

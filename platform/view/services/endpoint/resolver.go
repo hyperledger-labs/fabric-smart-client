@@ -54,15 +54,15 @@ type Backend interface {
 	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
 }
 
-type ResolverService struct {
+type ResolversLoader struct {
 	config  ConfigService
 	backend Backend
 	is      IdentityService
 }
 
-// NewResolverService returns a new instance of the view-sdk endpoint resolverService
-func NewResolverService(config ConfigService, backend Backend, is IdentityService) (*ResolverService, error) {
-	er := &ResolverService{
+// NewResolversLoader returns a new instance of ResolversLoader that loads resolver from the configuration.
+func NewResolversLoader(config ConfigService, backend Backend, is IdentityService) (*ResolversLoader, error) {
+	er := &ResolversLoader{
 		config:  config,
 		backend: backend,
 		is:      is,
@@ -70,7 +70,7 @@ func NewResolverService(config ConfigService, backend Backend, is IdentityServic
 	return er, nil
 }
 
-func (r *ResolverService) LoadResolvers() error {
+func (r *ResolversLoader) LoadResolvers() error {
 	// add default
 	_, err := r.backend.AddResolver(
 		r.config.GetString("fsc.id"),

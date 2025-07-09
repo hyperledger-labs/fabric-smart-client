@@ -9,13 +9,13 @@ package client
 import (
 	"errors"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/client/web"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 )
 
 // NewWebClientConfigFromFSC returns a web configuration from an FSC node configuration file
-func NewWebClientConfigFromFSC(confDir string) (*web.Config, error) {
-	config := &web.Config{}
+func NewWebClientConfigFromFSC(confDir string) (*client.Config, error) {
+	config := &client.Config{}
 	configProvider, err := config2.NewProvider(confDir)
 	if err != nil {
 		return nil, err

@@ -99,7 +99,7 @@ func New(
 	vault Vault,
 	waitForEventTimeout time.Duration,
 	bufferSize int,
-	tracerProvider trace.TracerProvider,
+	tracerProvider tracing.Provider,
 	_ metrics.Provider,
 ) (*Delivery, error) {
 	if channelConfig == nil {

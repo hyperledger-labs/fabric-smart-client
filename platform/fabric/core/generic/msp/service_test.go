@@ -15,9 +15,9 @@ import (
 	msp2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
-	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/memory"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/kvs"
 	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/stretchr/testify/assert"
 )
 

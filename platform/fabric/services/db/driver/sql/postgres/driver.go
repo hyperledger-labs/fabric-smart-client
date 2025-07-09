@@ -14,9 +14,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/driver/sql/postgres"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 var (
@@ -27,7 +27,7 @@ const (
 	Persistence driver2.PersistenceType = "postgres"
 )
 
-func NewNamedDriver(config driver.Config, dbProvider postgres.DbProvider) driver3.NamedDriver {
+func NewNamedDriver(config driver.Config, dbProvider postgres2.DbProvider) driver3.NamedDriver {
 	return driver3.NamedDriver{
 		Name:   Persistence,
 		Driver: NewDriverWithDbProvider(config, dbProvider),
@@ -35,19 +35,19 @@ func NewNamedDriver(config driver.Config, dbProvider postgres.DbProvider) driver
 }
 
 func NewDriver(config driver.Config) *Driver {
-	return NewDriverWithDbProvider(config, postgres.NewDbProvider())
+	return NewDriverWithDbProvider(config, postgres2.NewDbProvider())
 }
 
-func NewDriverWithDbProvider(config driver.Config, dbProvider postgres.DbProvider) *Driver {
+func NewDriverWithDbProvider(config driver.Config, dbProvider postgres2.DbProvider) *Driver {
 	return &Driver{
-		cp:         postgres.NewConfigProvider(common.NewConfig(config)),
+		cp:         postgres2.NewConfigProvider(common2.NewConfig(config)),
 		dbProvider: dbProvider,
 	}
 }
 
 type Driver struct {
-	cp         *postgres.ConfigProvider
-	dbProvider postgres.DbProvider
+	cp         *postgres2.ConfigProvider
+	dbProvider postgres2.DbProvider
 }
 
 func (d *Driver) NewEndorseTx(name driver.PersistenceName, params ...string) (driver3.EndorseTxStore, error) {
@@ -66,13 +66,13 @@ func (d *Driver) NewVault(name driver.PersistenceName, params ...string) (driver
 	return NewPersistenceWithOpts(d.cp, d.dbProvider, name, NewVaultStore, params...)
 }
 
-func NewPersistenceWithOpts[V common.DBObject](cfg *postgres.ConfigProvider, dbProvider postgres.DbProvider, name driver.PersistenceName, constructor common3.PersistenceConstructor[V], params ...string) (V, error) {
+func NewPersistenceWithOpts[V common2.DBObject](cfg *postgres2.ConfigProvider, dbProvider postgres2.DbProvider, name driver.PersistenceName, constructor common3.PersistenceConstructor[V], params ...string) (V, error) {
 	o, err := cfg.GetOpts(name, params...)
 	if err != nil {
 		return utils.Zero[V](), err
 	}
 
-	opts := postgres.Opts{
+	opts := postgres2.Opts{
 		DataSource:      o.DataSource,
 		MaxOpenConns:    o.MaxOpenConns,
 		MaxIdleConns:    *o.MaxIdleConns,

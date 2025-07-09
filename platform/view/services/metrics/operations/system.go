@@ -16,11 +16,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd/goruntime"
-	"github.com/hyperledger/fabric-lib-go/healthz"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -66,7 +64,6 @@ type System struct {
 
 	Server          Server
 	logger          OperationsLogger
-	healthHandler   *healthz.HealthHandler
 	options         Options
 	statsd          *kitstatsd.Statsd
 	collectorTicker *time.Ticker
@@ -80,14 +77,10 @@ func NewOperationSystem(server Server, l OperationsLogger, metricsProvider metri
 		logger:  l,
 		options: *o,
 	}
-
-	system.initializeHealthCheckHandler()
 	system.initializeLoggingHandler(o.TLS.Enabled)
-
 	if err := system.initializeMetricsProvider(metricsProvider, o.Metrics); err != nil {
 		return nil, errors.Wrap(err, "failed to initialize metrics provider")
 	}
-	system.initializeVersionInfoHandler()
 
 	return system, nil
 }
@@ -112,10 +105,6 @@ func (s *System) Stop() error {
 		s.sendTicker = nil
 	}
 	return nil
-}
-
-func (s *System) RegisterChecker(component string, checker healthz.HealthChecker) error {
-	return s.healthHandler.RegisterChecker(component, checker)
 }
 
 func (s *System) Log(keyvals ...interface{}) error {
@@ -170,33 +159,6 @@ func (s *System) initializeLoggingHandler(tlsEnabled bool) {
 	// consumes:
 	//   - multipart/form-data
 	s.Server.RegisterHandler("/logspec", logging.NewSpecHandler(), tlsEnabled)
-}
-
-func (s *System) initializeHealthCheckHandler() {
-	s.healthHandler = healthz.NewHealthHandler()
-	// swagger:operation GET /healthz operations healthz
-	// ---
-	// summary: Retrieves all registered health checkers for the process.
-	// responses:
-	//     '200':
-	//        description: Ok.
-	//     '503':
-	//        description: Service unavailable.
-	s.Server.RegisterHandler("/healthz", s.healthHandler, false)
-}
-
-func (s *System) initializeVersionInfoHandler() {
-	versionInfo := &VersionInfoHandler{
-		CommitSHA: metadata.CommitSHA,
-		Version:   metadata.Version,
-	}
-	// swagger:operation GET /version operations version
-	// ---
-	// summary: Returns the orderer or peer version and the commit SHA on which the release was created.
-	// responses:
-	//     '200':
-	//        description: Ok.
-	s.Server.RegisterHandler("/version", versionInfo, false)
 }
 
 func (s *System) startMetricsTickers(m *Statsd) error {

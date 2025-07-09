@@ -12,7 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/db/keys"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/keys"
 	"github.com/pkg/errors"
 )
 
