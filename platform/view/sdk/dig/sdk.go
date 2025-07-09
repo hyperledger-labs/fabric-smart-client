@@ -96,6 +96,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(sqlite2.NewNamedDriver, dig.Group("db-drivers")),
 		p.Container().Provide(mem.NewNamedDriver, dig.Group("db-drivers")),
 		p.Container().Provide(newMultiplexedDriver),
+		p.Container().Provide(newKVS),
 		p.Container().Provide(binding.NewDefaultStore),
 		p.Container().Provide(signerinfo.NewDefaultStore),
 		p.Container().Provide(auditinfo.NewDefaultStore),
@@ -111,7 +112,6 @@ func (p *SDK) Install() error {
 		// Identity Service
 		p.Container().Provide(id.NewProvider),
 		p.Container().Provide(newKMSDriver),
-		p.Container().Provide(newKVS),
 		p.Container().Provide(file.NewDriver, dig.Group("kms-drivers")),
 		p.Container().Provide(
 			digutils.Identity[*id.Provider](),
