@@ -96,7 +96,7 @@ func statsdFormat(labels []LabelName) string {
 }
 
 // This wrapper is needed in order to be able to fetch the provider using the SP from the Node
-var providerType = reflect.TypeOf((Provider)(nil))
+var providerType = reflect.TypeOf((*Provider)(nil))
 
 // GetProvider returns the Provider from the passed services.Provider.
 // It returns an error if Provider does not exit.

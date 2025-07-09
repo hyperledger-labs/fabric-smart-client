@@ -10,10 +10,9 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 var (
@@ -23,7 +22,7 @@ var (
 type ServiceProvider struct {
 	services   []interface{}
 	serviceMap map[reflect.Type]interface{}
-	lock       sync.Mutex
+	lock       sync.RWMutex
 }
 
 func NewServiceProvider() *ServiceProvider {
@@ -34,9 +33,7 @@ func NewServiceProvider() *ServiceProvider {
 }
 
 func (sp *ServiceProvider) GetService(v interface{}) (interface{}, error) {
-	sp.lock.Lock()
-	defer sp.lock.Unlock()
-
+	// derive type
 	var typ reflect.Type
 	switch t := v.(type) {
 	case reflect.Type:
@@ -52,44 +49,59 @@ func (sp *ServiceProvider) GetService(v interface{}) (interface{}, error) {
 		typ = typ.Elem()
 	}
 
+	// check cache
+	sp.lock.RLock()
 	service, ok := sp.serviceMap[typ]
-	if !ok {
-		switch typ.Kind() {
-		case reflect.Interface:
-			for _, s := range sp.services {
-				if reflect.TypeOf(s).Implements(typ) {
-					sp.serviceMap[typ] = s
-					return s, nil
-				}
-			}
-		default:
-			for _, s := range sp.services {
-				if typ.AssignableTo(reflect.TypeOf(s).Elem()) {
-					sp.serviceMap[typ] = s
-					return s, nil
-				}
-			}
-		}
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			return nil, errors.Errorf("service [%s/%s] not found in [%v]", typ.PkgPath(), typ.Name(), sp.String())
-		}
-		return nil, ServiceNotFound
-
+	sp.lock.RUnlock()
+	if ok {
+		return service, nil
 	}
-	return service, nil
-}
 
-func (sp *ServiceProvider) RegisterService(service interface{}) error {
+	// locate service
 	sp.lock.Lock()
 	defer sp.lock.Unlock()
 
-	logger.Debugf("Register Service [%s]", logging.Identifier(service))
-	sp.services = append(sp.services, service)
+	// check cache again
+	service, ok = sp.serviceMap[typ]
+	if ok {
+		return service, nil
+	}
 
+	switch typ.Kind() {
+	case reflect.Interface:
+		for _, s := range sp.services {
+			if reflect.TypeOf(s).Implements(typ) {
+				sp.serviceMap[typ] = s
+				return s, nil
+			}
+		}
+	default:
+		for _, s := range sp.services {
+			if typ.AssignableTo(reflect.TypeOf(s).Elem()) {
+				sp.serviceMap[typ] = s
+				return s, nil
+			}
+		}
+	}
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		return nil, errors.Errorf("service [%s/%s] not found in [%v]", typ.PkgPath(), typ.Name(), sp.String())
+	}
+	return nil, ServiceNotFound
+}
+
+func (sp *ServiceProvider) RegisterService(service interface{}) error {
+	logger.Debugf("Register Service [%s]", logging.Identifier(service))
+
+	sp.lock.Lock()
+	defer sp.lock.Unlock()
+	sp.services = append(sp.services, service)
 	return nil
 }
 
 func (sp *ServiceProvider) String() string {
+	sp.lock.RLock()
+	defer sp.lock.RUnlock()
+
 	res := "services ["
 	for _, service := range sp.services {
 		res += logging.Identifier(service).String() + ", "

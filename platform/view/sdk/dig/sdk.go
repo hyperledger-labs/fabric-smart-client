@@ -187,13 +187,14 @@ func (p *SDK) Install() error {
 
 	// Register services in services.Registry
 	err = errors.Join(
+		digutils.Register[*comm.Service](p.Container()),
+		digutils.Register[*config.Provider](p.Container()),
+		digutils.Register[*endpoint.Service](p.Container()),
+		digutils.Register[*id.Provider](p.Container()),
+		digutils.Register[*sig.Service](p.Container()),
 		digutils.Register[tracing.Provider](p.Container()),
 		digutils.Register[*view.Manager](p.Container()),
-		digutils.Register[*sig.Service](p.Container()),
-		digutils.Register[*id.Provider](p.Container()),
 		digutils.Register[*view.Registry](p.Container()),
-		digutils.Register[*endpoint.Service](p.Container()),
-		digutils.Register[*config.Provider](p.Container()),
 	)
 	if err != nil {
 		return err
