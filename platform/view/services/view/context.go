@@ -341,7 +341,7 @@ func (c *ctx) resolve(id view.Identity) (view.Identity, error) {
 }
 
 func (c *ctx) createSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
-	logger.Infof("create session [%s][%s], [%s:%s]", c.me, c.id, getViewIdentifier(caller), party)
+	logger.Debugf("create session [%s][%s], [%s:%s]", c.me, c.id, getViewIdentifier(caller), party)
 
 	s, err := c.newSession(caller, c.id, party)
 	if err != nil {
@@ -388,7 +388,7 @@ func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res in
 		initiator = v
 	}
 
-	logger.Warnf("Start view %s", GetName(v))
+	logger.Debugf("Start view %s", GetName(v))
 	newCtx, span := ctx.StartSpanFrom(ctx.Context(), GetName(v), tracing.WithAttributes(
 		tracing.String(ViewLabel, GetIdentifier(v)),
 		tracing.String(InitiatorViewLabel, GetIdentifier(initiator)),
