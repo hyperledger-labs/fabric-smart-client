@@ -28,6 +28,7 @@ type Manager interface {
 	NewView(id string, in []byte) (f view.View, err error)
 	Initiate(id string, ctx context.Context) (interface{}, error)
 	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error
+	Start(ctx context.Context)
 }
 
 type InitiatorView struct{}
@@ -72,16 +73,33 @@ func TestManagerRace(t *testing.T) {
 	registry := registry.New()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
-	manager := view2.NewManager(registry, &mock.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
+
+	v := make(<-chan *view.Message)
+
+	session := &mock.Session{}
+	session.ReceiveReturns(v)
+
+	commLayer := mock.CommLayer{}
+	commLayer.MasterSessionReturns(session, nil)
+
+	manager := view2.NewManager(registry, &commLayer, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	go func() {
+		t.Logf("context cancelled")
+		time.Sleep(1 * time.Second)
+		cancelFunc()
+	}()
 
 	wg := &sync.WaitGroup{}
 	for i := 0; i < 100; i++ {
-		wg.Add(6)
+		wg.Add(7)
 		go registerFactory(t, wg, manager)
 		go newView(t, wg, manager)
 		go callView(t, wg, manager)
 		go getContext(t, wg, manager)
 		go initiateView(t, wg, manager)
+		go start(t, wg, manager, ctx)
 		go registerResponder(t, wg, manager)
 	}
 	wg.Wait()
@@ -151,4 +169,9 @@ func getContext(t *testing.T, wg *sync.WaitGroup, m Manager) {
 	_, err := m.Context("a context")
 	wg.Done()
 	assert.Error(t, err)
+}
+
+func start(t *testing.T, wg *sync.WaitGroup, m Manager, ctx context.Context) {
+	m.Start(ctx)
+	wg.Done()
 }
