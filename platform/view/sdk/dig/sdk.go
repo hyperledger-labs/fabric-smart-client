@@ -152,14 +152,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(digutils.Identity[operations.OperationsLogger](), dig.As(new(operations.Logger)), dig.As(new(log.Logger))),
 		p.Container().Provide(NewOperationsOptions),
 		p.Container().Provide(operations.NewOperationSystem),
-		p.Container().Provide(func(metricsProvider metrics2.Provider, configService driver.ConfigService) (tracing.Provider, error) {
-			base, err := tracing.NewProviderFromConfigService(configService)
-			if err != nil {
-				return nil, err
-			}
-			return tracing.NewProviderWithBackingProvider(base, metricsProvider), nil
-		}),
-
+		p.Container().Provide(newTracerProvider),
 		// Metrics
 		p.Container().Provide(func(o *operations.Options, l operations.OperationsLogger) metrics2.Provider {
 			return operations.NewMetricsProvider(o.Metrics, l, true)

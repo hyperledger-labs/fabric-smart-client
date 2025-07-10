@@ -11,12 +11,41 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/multiplexed"
 	kvs2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
+
+func newTracerProvider(metricsProvider metrics.Provider, configService vdriver.ConfigService) (TracerProviders, error) {
+	base, err := tracing.NewProviderFromConfigService(configService)
+	if err != nil {
+		return TracerProviders{}, err
+	}
+	backed := tracing.NewProviderWithBackingProvider(base, metricsProvider)
+	return TracerProviders{
+		Base:    base,
+		Backed:  backed,
+		Default: backed,
+	}, nil
+}
+
+type TracerProviders struct {
+	dig.Out
+
+	// Base explicitly requires no bound metrics provider
+	Base trace.TracerProvider `name:"base-tracer-provider"`
+
+	// Backed explicitly requires a bound metrics provider
+	Backed trace.TracerProvider `name:"backed-tracer-provider"`
+
+	// Default is the default tracing provider
+	Default tracing.Provider
+}
 
 func newMultiplexedDriver(in struct {
 	dig.In
