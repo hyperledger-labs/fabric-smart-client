@@ -176,7 +176,7 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 			nat.Port("5432/tcp"): struct{}{},
 		},
 		Healthcheck: &container.HealthConfig{
-			Test:     []string{"CMD-SHELL", "pg_isready -U postgres"},
+			Test:     []string{"CMD-SHELL", fmt.Sprintf("pg_isready -U %s -d %s", c.User, c.DBName)},
 			Interval: time.Second,
 			Timeout:  time.Second,
 			Retries:  10,
