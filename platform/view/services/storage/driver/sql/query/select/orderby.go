@@ -6,18 +6,16 @@ SPDX-License-Identifier: Apache-2.0
 
 package _select
 
-import (
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-)
+import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 
-type OrderBy common2.Serializable
+type OrderBy = common.OrderBy
 
 type orderBy struct {
 	asc   bool
-	field common2.Field
+	field common.Field
 }
 
-func (o orderBy) WriteString(sb common2.Builder) {
+func (o orderBy) WriteString(sb common.Builder) {
 	sb.WriteSerializables(o.field)
 
 	if o.asc {
@@ -27,10 +25,10 @@ func (o orderBy) WriteString(sb common2.Builder) {
 	}
 }
 
-func Asc(name common2.Field) orderBy {
+func Asc(name common.Field) orderBy {
 	return orderBy{asc: true, field: name}
 }
 
-func Desc(name common2.Field) orderBy {
+func Desc(name common.Field) orderBy {
 	return orderBy{asc: false, field: name}
 }

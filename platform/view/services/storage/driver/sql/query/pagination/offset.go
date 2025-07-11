@@ -12,43 +12,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
-type Cursor string
-
-type empty struct {
-}
-
-func Empty() *empty {
-	return &empty{}
-}
-
-func (p *empty) Prev() (driver.Pagination, error) {
-	return p, nil
-}
-
-func (p *empty) Next() (driver.Pagination, error) {
-	return &empty{}, nil
-}
-
-type none struct {
-}
-
-func None() *none {
-	return &none{}
-}
-
-func (p *none) Prev() (driver.Pagination, error) {
-	return Empty(), nil
-}
-
-func (p *none) Next() (driver.Pagination, error) {
-	return Empty(), nil
-}
-
 type offset struct {
 	offset   int
 	pageSize int
 }
 
+// Offset creates a pagination using OFFSET
 func Offset(os int, pageSize int) (*offset, error) {
 	if os < 0 {
 		return nil, fmt.Errorf("offset shoud be grater than zero. Offset: %d", os)
