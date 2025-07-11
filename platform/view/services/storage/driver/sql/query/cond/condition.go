@@ -12,4 +12,4 @@ import (
 
 type Tuple = common.Tuple
 
-type Condition = common.ConditionSerializable
+type Condition = common.Condition
