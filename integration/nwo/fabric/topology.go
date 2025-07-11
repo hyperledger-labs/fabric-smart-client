@@ -138,7 +138,7 @@ func NewTopologyWithName(name string) *topology.Topology {
 		Driver:       "generic",
 		TLSEnabled:   true,
 		Logging: &topology.Logging{
-			Spec:   "info",
+			Spec:   "grpc=error:info",
 			Format: "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",
 		},
 		Organizations: []*topology.Organization{{
@@ -154,11 +154,7 @@ func NewTopologyWithName(name string) *topology.Topology {
 			Name: "SampleConsortium",
 		}},
 		Consensus: &topology.Consensus{
-			Type: "solo",
-		},
-		SystemChannel: &topology.SystemChannel{
-			Name:    "systemchannel",
-			Profile: "OrgsOrdererGenesis",
+			Type: "etcdraft",
 		},
 		Orderers: []*topology.Orderer{
 			{Name: "orderer", Organization: "OrdererOrg"},
@@ -167,11 +163,16 @@ func NewTopologyWithName(name string) *topology.Topology {
 			{Name: "testchannel", Profile: "OrgsChannel", Default: true},
 		},
 		Profiles: []*topology.Profile{{
-			Name:     "OrgsOrdererGenesis",
-			Orderers: []string{"orderer"},
-		}, {
-			Name:       "OrgsChannel",
-			Consortium: "SampleConsortium",
+			Name:            "OrgsChannel",
+			Orderers:        []string{"orderer"},
+			Consortium:      "SampleConsortium",
+			AppCapabilities: []string{"V2_5"},
+			Blocks: &topology.Blocks{
+				BatchTimeout:      1,
+				MaxMessageCount:   500,
+				AbsoluteMaxBytes:  98,
+				PreferredMaxBytes: 2,
+			},
 			Policies: []*topology.Policy{
 				ImplicitMetaReaders,
 				ImplicitMetaWriters,

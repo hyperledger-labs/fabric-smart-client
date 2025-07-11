@@ -141,23 +141,57 @@ Profiles:{{ range .Profiles }}
     {{- if .Orderers }}
     Orderer:
       OrdererType: {{ $w.Consensus.Type }}
-      Addresses:{{ range .Orderers }}{{ with $w.Orderer . }}
-      - {{ $w.OrdererAddress . "Listen" }}
-      {{- end }}{{ end }}
+      {{- if .Blocks}}
+      BatchTimeout: {{ .Blocks.BatchTimeout }}s
+      BatchSize:
+        MaxMessageCount: {{ .Blocks.MaxMessageCount }}
+        AbsoluteMaxBytes: {{ .Blocks.AbsoluteMaxBytes }} MB
+        PreferredMaxBytes: {{ .Blocks.PreferredMaxBytes }} KB
+      {{- else }}
       BatchTimeout: 1s
       BatchSize:
         MaxMessageCount: 500
         AbsoluteMaxBytes: 98 MB
         PreferredMaxBytes: 2048 KB
+      {{- end}}
       Capabilities:
         V2_0: true
+      {{- if eq $w.Consensus.Type "BFT" }}
+      {{- if .SmartBFT}}
+      SmartBFT:
+        RequestBatchMaxCount:      100
+        RequestBatchMaxBytes:      10485760
+        RequestBatchMaxInterval:   50ms
+        IncomingMessageBufferSize: 200
+        RequestPoolSize:           400
+        RequestForwardTimeout:     2s
+        RequestComplainTimeout:    20s
+        RequestAutoRemoveTimeout:  3m
+        ViewChangeResendInterval:  5s
+        ViewChangeTimeout:         20s
+        LeaderHeartbeatTimeout:    {{ .SmartBFT.LeaderHeartbeatTimeout }}s
+        LeaderHeartbeatCount:      {{ .SmartBFT.LeaderHeartbeatCount }}
+        CollectTimeout:            1s
+        SyncOnStart:               false
+        SpeedUpViewChange:         false
+      {{- end }}
+      ConsenterMapping:{{ range $index, $orderer := .Orderers }}{{ with $w.Orderer . }}
+      - ID: {{ .Id }}
+        {{ $w.OrdererHost . }}
+        Port: {{ $w.OrdererPort . "Cluster" }}
+        MSPID: {{ ($w.Organization .Organization).MSPID}}
+        ClientTLSCert: {{ $w.OrdererLocalCryptoDir . "tls" }}/server.crt
+        ServerTLSCert: {{ $w.OrdererLocalCryptoDir . "tls" }}/server.crt
+        Identity: {{ $w.OrdererSignCert .}}
+        {{- end }}{{- end }}
+      {{- end }}
       {{- if eq $w.Consensus.Type "etcdraft" }}
       EtcdRaft:
         Options:
           TickInterval: 500ms
           SnapshotIntervalSize: 1 KB
         Consenters:{{ range .Orderers }}{{ with $w.Orderer . }}
-        - Host: {{ $w.OrdererHost . }}
+        - Host: 127.0.0.1
           Port: {{ $w.OrdererPort . "Cluster" }}
           ClientTLSCert: {{ $w.OrdererLocalCryptoDir . "tls" }}/server.crt
           ServerTLSCert: {{ $w.OrdererLocalCryptoDir . "tls" }}/server.crt
@@ -180,15 +214,13 @@ Profiles:{{ range .Profiles }}
           Type: ImplicitMeta
           Rule: ANY Writers
     {{- end }}
-    {{- if .Consortium }}
-    Consortium: {{ .Consortium }}
     Application:
       Capabilities:
       {{- if .AppCapabilities }}{{ range .AppCapabilities }}
         {{ . }}: true
         {{- end }}
       {{- else }}
-        V2_0: true
+        V1_3: true
       {{- end }}
       Organizations:{{ range .Organizations }}
       - *{{ ($w.Organization .).MSPID }}
@@ -215,43 +247,8 @@ Profiles:{{ range .Profiles }}
         Endorsement:
           Type: ImplicitMeta
           Rule: "MAJORITY Endorsement"
-      {{- end }}
-    {{- else }}
-    Consortiums:{{ range $w.Consortiums }}
-      {{ .Name }}:
-        Organizations:{{ range .Organizations }}
-        - *{{ ($w.Organization .).MSPID }}
-        {{- end }}
     {{- end }}
-    {{- end }}
-{{- end }}
-{{ end }}
-`
-
-const OrgUpdateConfigTxTemplate = `---
-{{ with $w := . -}}
-Organizations:{{ range .PeerOrgs }}
-- &{{ .MSPID }}
-  Name: {{ .Name }}
-  ID: {{ .MSPID }}
-  MSPDir: {{ $w.PeerOrgMSPDir . }}
-  Policies:
-    Readers:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.admin', '{{.MSPID}}.peer', '{{.MSPID}}.client')
-    Writers:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.admin', '{{.MSPID}}.client')
-    Endorsement:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.peer')
-    Admins:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.admin')
-  AnchorPeers:{{ range $w.AnchorsInOrg .Name }}
-  - Host: {{ $w.PeerHost . }}
-    Port: {{ $w.PeerPort . "Listen" }}
-  {{- end }}
+    Consortium: {{ .Consortium }}
 {{- end }}
 {{ end }}
 `

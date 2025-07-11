@@ -29,7 +29,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger/fabric-protos-go/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/pkg/errors"
 )
 
@@ -128,7 +128,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		return nil, err
 	}
 
-	channelMembershipService := membership.NewService()
+	channelMembershipService := membership.NewService(channelName)
 
 	// Committers
 	rwSetLoaderService := rwset.NewLoader(nw.Name(), channelName, envelopeService, transactionService, nw.TransactionManager(), vault)

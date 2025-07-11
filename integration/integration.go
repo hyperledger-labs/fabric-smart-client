@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package integration
 
 import (
+	"cmp"
 	"encoding/json"
 	"os"
 	"os/signal"
@@ -32,6 +33,13 @@ import (
 )
 
 var logger = logging.MustGetLogger()
+
+func init() {
+	c := logging.Config{}
+	// set grpc logging level as default to error; note that flogging default log level is just info
+	c.LogSpec = cmp.Or(os.Getenv("FABRIC_LOGGING_SPEC"), "grpc=error:info")
+	logging.Init(c)
+}
 
 type Configuration struct {
 	StartPort int

@@ -9,8 +9,8 @@ package committer
 import (
 	"github.com/pkg/errors"
 
-	"github.com/hyperledger/fabric-protos-go/common"
-	"github.com/hyperledger/fabric-protos-go/peer"
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric/protoutil"
 )
 

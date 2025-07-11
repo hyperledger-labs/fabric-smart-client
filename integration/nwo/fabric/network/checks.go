@@ -21,7 +21,7 @@ func (n *Network) CheckTopology() {
 	}
 	if n.Logging == nil {
 		n.Logging = &topology.Logging{
-			Spec:   "debug",
+			Spec:   "grpc=error:debug",
 			Format: "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",
 		}
 	}
@@ -40,7 +40,8 @@ func (n *Network) CheckTopologyOrderers() {
 			ports[portName] = n.Context.ReservePort()
 		}
 		n.Context.SetPortsByOrdererID(n.Prefix, o.ID(), ports)
-		n.Context.SetHostByOrdererID(n.Prefix, o.ID(), "0.0.0.0")
+		// TODO: allow to set the orderer endpoint via topo
+		n.Context.SetHostByOrdererID(n.Prefix, o.ID(), "127.0.0.1")
 	}
 }
 
