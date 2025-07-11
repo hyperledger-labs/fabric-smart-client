@@ -488,7 +488,7 @@ func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination
 	if err != nil {
 		return nil, err
 	}
-	return &driver.PageIterator[*driver.TxStatus]{Items: txStatusIterator, Pagination: p}, nil
+	return pagination.NewPage[driver.TxStatus](txStatusIterator, p)
 }
 
 func (db *vaultReader) queryStatus(ctx context.Context, where cond2.Condition, pagination driver.Pagination) (driver.TxStatusIterator, error) {
