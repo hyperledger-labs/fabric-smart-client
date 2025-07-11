@@ -134,7 +134,7 @@ func (r *Service) Resolve(ctx context.Context, id view.Identity) (view.Identity,
 	if resolver == nil {
 		return nil, nil, raw, nil
 	}
-	logger.Debugf("resolved [%s] to [%s] with ports [%v]", id, resolver.GetId(), resolver.GetAddresses())
+	logger.DebugfContext(ctx, "resolved [%s] to [%s] with ports [%v]", id, resolver.GetId(), resolver.GetAddresses())
 	out := map[PortName]string{}
 	for name, s := range resolver.GetAddresses() {
 		out[name] = s
@@ -148,11 +148,11 @@ func (r *Service) GetResolver(ctx context.Context, id view.Identity) (*Resolver,
 
 func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error {
 	if longTerm.Equal(ephemeral) {
-		logger.Debugf("cannot bind [%s] to [%s], they are the same", longTerm, ephemeral)
+		logger.DebugfContext(ctx, "cannot bind [%s] to [%s], they are the same", longTerm, ephemeral)
 		return nil
 	}
 
-	logger.Debugf("bind [%s] to [%s]", ephemeral, longTerm)
+	logger.DebugfContext(ctx, "bind [%s] to [%s]", ephemeral, longTerm)
 
 	if err := r.bindingKVS.PutBinding(ctx, ephemeral, longTerm); err != nil {
 		return errors.WithMessagef(err, "failed storing binding of [%s]  to [%s]", ephemeral.UniqueID(), longTerm.UniqueID())
@@ -410,12 +410,12 @@ func (r *Service) resolver(ctx context.Context, party view.Identity) (*Resolver,
 	if err == nil {
 		return resolver, nil
 	}
-	logger.Debugf("resolving via binding for %s", party)
+	logger.DebugfContext(ctx, "resolving via binding for %s", party)
 	party, err = r.bindingKVS.GetLongTerm(ctx, party)
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("continue to [%s]", party)
+	logger.DebugfContext(ctx, "continue to [%s]", party)
 	resolver, err = r.resolverByIdentity(party)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting identity for [%s]", party)

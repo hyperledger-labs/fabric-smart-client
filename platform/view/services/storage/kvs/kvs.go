@@ -163,7 +163,7 @@ func (o *KVS) Get(ctx context.Context, id string, state interface{}) error {
 	} else if !ok {
 		raw, err = o.store.GetState(ctx, o.namespace, id)
 		if err != nil {
-			logger.Debugf("failed retrieving state [%s,%s]", o.namespace, id)
+			logger.DebugfContext(ctx, "failed retrieving state [%s,%s]", o.namespace, id)
 			return errors.Wrapf(err, "failed retrieving state [%s,%s]", o.namespace, id)
 		}
 		if len(raw) == 0 {
@@ -172,16 +172,16 @@ func (o *KVS) Get(ctx context.Context, id string, state interface{}) error {
 	}
 
 	if err := json.Unmarshal(raw, state); err != nil {
-		logger.Debugf("failed retrieving state [%s,%s], cannot unmarshal state, error [%s]", o.namespace, id, err)
+		logger.DebugfContext(ctx, "failed retrieving state [%s,%s], cannot unmarshal state, error [%s]", o.namespace, id, err)
 		return errors.Wrapf(err, "failed retrieving state [%s,%s], cannot unmarshal state", o.namespace, id)
 	}
 
-	logger.Debugf("got state [%s,%s] successfully", o.namespace, id)
+	logger.DebugfContext(ctx, "got state [%s,%s] successfully", o.namespace, id)
 	return nil
 }
 
 func (o *KVS) Delete(ctx context.Context, id string) error {
-	logger.Debugf("delete state [%s,%s]", o.namespace, id)
+	logger.DebugfContext(ctx, "delete state [%s,%s]", o.namespace, id)
 
 	if err := o.store.DeleteState(ctx, o.namespace, id); err != nil {
 		return err
