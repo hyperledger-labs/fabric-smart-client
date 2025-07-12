@@ -39,14 +39,14 @@ func newBindingStore(readDB, writeDB *sql.DB, table string) *BindingStore {
 	}
 }
 func (db *BindingStore) PutBinding(ctx context.Context, ephemeral, longTerm view.Identity) error {
-	logger.Debugf("Put binding for pair [%s:%s]", ephemeral.UniqueID(), longTerm.UniqueID())
+	logger.DebugfContext(ctx, "Put binding for pair [%s:%s]", ephemeral.UniqueID(), longTerm.UniqueID())
 	if lt, err := db.GetLongTerm(ctx, longTerm); err != nil {
 		return err
 	} else if lt != nil && !lt.IsNone() {
-		logger.Debugf("Replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())
+		logger.DebugfContext(ctx, "Replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())
 		longTerm = lt
 	} else {
-		logger.Debugf("Id [%s] is an unregistered long term ID", longTerm.UniqueID())
+		logger.DebugfContext(ctx, "Id [%s] is an unregistered long term ID", longTerm.UniqueID())
 	}
 	query := fmt.Sprintf(`
 		INSERT INTO %s (ephemeral_hash, long_term_id)
@@ -56,7 +56,7 @@ func (db *BindingStore) PutBinding(ctx context.Context, ephemeral, longTerm view
 	logger.Debug(query, ephemeral.UniqueID(), longTerm.UniqueID())
 	_, err := db.writeDB.ExecContext(ctx, query, ephemeral.UniqueID(), longTerm, longTerm.UniqueID(), longTerm)
 	if err == nil {
-		logger.Debugf("Long-term and ephemeral ids registered [%s,%s]", longTerm, ephemeral)
+		logger.DebugfContext(ctx, "Long-term and ephemeral ids registered [%s,%s]", longTerm, ephemeral)
 		return nil
 	}
 	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {

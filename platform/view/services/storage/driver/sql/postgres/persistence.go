@@ -58,7 +58,9 @@ func sqlOpen(dataSourceName string, tracing *common2.TracingConfig) (*sql.DB, er
 	if tracing == nil {
 		return sql.Open(driverName, dataSourceName)
 	}
-	return otelsql.Open(driverName, dataSourceName, otelsql.WithAttributes(semconv.DBSystemPostgreSQL))
+	return otelsql.Open(driverName, dataSourceName,
+		otelsql.WithAttributes(semconv.DBSystemPostgreSQL),
+	)
 }
 
 type Opts struct {

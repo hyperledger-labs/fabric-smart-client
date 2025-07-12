@@ -116,12 +116,12 @@ func (j *jsonSession) SendWithContext(ctx context.Context, state interface{}) er
 	if err != nil {
 		return err
 	}
-	logger.Debugf("json session, send message [%s]", hash.Hashable(v).String())
+	logger.DebugfContext(ctx, "json session, send message [%s]", hash.Hashable(v).String())
 	return j.s.SendWithContext(ctx, v)
 }
 
 func (j *jsonSession) SendRaw(ctx context.Context, raw []byte) error {
-	logger.Debugf("json session, send raw message [%s]", hash.Hashable(raw).String())
+	logger.DebugfContext(ctx, "json session, send raw message [%s]", hash.Hashable(raw).String())
 	return j.s.SendWithContext(ctx, raw)
 }
 

@@ -200,7 +200,7 @@ func (c *ctx) GetSession(caller view.View, party view.Identity, boundToViews ...
 
 	// a session is available, return it
 	if s != nil {
-		logger.Debugf("[%s] Reusing session [%s:%s]", c.me, viewId, party)
+		logger.DebugfContext(c.context, "[%s] Reusing session [%s:%s]", c.me, viewId, party)
 		return s, nil
 	}
 
@@ -235,10 +235,10 @@ func (c *ctx) GetSessionByID(id string, party view.Identity) (view.Session, erro
 
 func (c *ctx) Session() view.Session {
 	if c.session == nil {
-		logger.Debugf("[%s] No default current Session", c.me)
+		logger.DebugfContext(c.context, "[%s] No default current Session", c.me)
 		return nil
 	}
-	logger.Debugf("[%s] Current Session [%s]", c.me, logging.Eval(c.session.Info))
+	logger.DebugfContext(c.context, "[%s] Current Session [%s]", c.me, logging.Eval(c.session.Info))
 	return c.session
 }
 
@@ -314,7 +314,7 @@ func (c *ctx) newSessionByID(sessionID, contextID string, party view.Identity) (
 }
 
 func (c *ctx) cleanup() {
-	logger.Debugf("cleaning up context [%s][%d]", c.ID(), len(c.errorCallbackFuncs))
+	logger.DebugfContext(c.context, "cleaning up context [%s][%d]", c.ID(), len(c.errorCallbackFuncs))
 	for _, callbackFunc := range c.errorCallbackFuncs {
 		c.safeInvoke(callbackFunc)
 	}
@@ -323,7 +323,7 @@ func (c *ctx) cleanup() {
 func (c *ctx) safeInvoke(f func()) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Debugf("function [%s] panicked [%s]", f, r)
+			logger.DebugfContext(c.context, "function [%s] panicked [%s]", f, r)
 		}
 	}()
 	f()
@@ -341,7 +341,7 @@ func (c *ctx) resolve(id view.Identity) (view.Identity, error) {
 }
 
 func (c *ctx) createSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
-	logger.Debugf("create session [%s][%s], [%s:%s]", c.me, c.id, getViewIdentifier(caller), party)
+	logger.DebugfContext(c.context, "create session [%s][%s], [%s:%s]", c.me, c.id, getViewIdentifier(caller), party)
 
 	s, err := c.newSession(caller, c.id, party)
 	if err != nil {
@@ -388,7 +388,7 @@ func runViewOn(v view.View, opts []view.RunViewOption, ctx localContext) (res in
 		initiator = v
 	}
 
-	logger.Debugf("Start view %s", GetName(v))
+	logger.DebugfContext(ctx.Context(), "Start view %s", GetName(v))
 	newCtx, span := ctx.StartSpanFrom(ctx.Context(), GetName(v), tracing.WithAttributes(
 		tracing.String(ViewLabel, GetIdentifier(v)),
 		tracing.String(InitiatorViewLabel, GetIdentifier(initiator)),
