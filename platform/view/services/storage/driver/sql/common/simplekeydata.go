@@ -63,9 +63,9 @@ func (db *SimpleKeyDataStore) PutData(ctx context.Context, key string, data []by
 	}
 
 	if rowsAffected, err := result.RowsAffected(); err == nil && rowsAffected == 0 {
-		logger.Debugf("Entry for key [%s] was already in the database. Skipped", key)
+		logger.DebugfContext(ctx, "Entry for key [%s] was already in the database. Skipped", key)
 	}
-	logger.Debugf("Data [%s] registered", key)
+	logger.DebugfContext(ctx, "Data [%s] registered", key)
 	return nil
 }
 

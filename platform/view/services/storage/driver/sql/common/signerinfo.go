@@ -67,7 +67,7 @@ func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...vie
 		}
 		existingSigners = append(existingSigners, inverseMap[idHash])
 	}
-	logger.Debugf("Found %d out of %d signers", len(existingSigners), len(ids))
+	logger.DebugfContext(ctx, "Found %d out of %d signers", len(existingSigners), len(ids))
 	return existingSigners, nil
 }
 
@@ -80,7 +80,7 @@ func (db *SignerInfoStore) PutSigner(ctx context.Context, id view.Identity) erro
 	logger.Debug(query, params)
 	_, err := db.writeDB.ExecContext(ctx, query, params...)
 	if err == nil {
-		logger.Debugf("Signer [%s] registered", id)
+		logger.DebugfContext(ctx, "Signer [%s] registered", id)
 		return nil
 	}
 	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {

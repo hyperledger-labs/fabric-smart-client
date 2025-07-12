@@ -62,7 +62,7 @@ func (db *AuditInfoStore) PutAuditInfo(ctx context.Context, id view.Identity, in
 	if err != nil {
 		return errors.Wrapf(err, "failed executing query [%s]", query)
 	}
-	logger.Debugf("Signer [%s] registered", id)
+	logger.DebugfContext(ctx, "signer [%s] registered", id)
 	return nil
 }
 

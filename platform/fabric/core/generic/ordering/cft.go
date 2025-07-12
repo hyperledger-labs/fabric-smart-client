@@ -113,7 +113,7 @@ func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error)
 			// If this fails, retry with an existing connection
 			semContext, cancel := context.WithTimeout(ctx, 1*time.Second)
 			if err := o.connSem.Acquire(semContext, 1); err != nil {
-				logger.WarnfContext(ctx, "error while waiting: %w", err)
+				logger.DebugfContext(ctx, "error while waiting: %w", err)
 				cancel()
 				break
 			}

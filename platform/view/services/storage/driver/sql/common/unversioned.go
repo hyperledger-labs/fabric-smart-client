@@ -181,10 +181,10 @@ func (db *KeyValueStore) SetStatesWithTx(ctx context.Context, tx dbTransaction, 
 	for pkey, val := range kvs {
 		// Get rawVal
 		if len(val) == 0 {
-			logger.Debugf("set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
+			logger.DebugfContext(ctx, "set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
 			deleted = append(deleted, pkey)
 		} else {
-			logger.Debugf("set state [%s,%s]", ns, pkey)
+			logger.DebugfContext(ctx, "set state [%s,%s]", ns, pkey)
 			// Overwrite rawVal
 			upserted[pkey] = append([]byte(nil), val...)
 		}

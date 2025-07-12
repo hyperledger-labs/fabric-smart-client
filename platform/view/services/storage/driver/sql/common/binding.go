@@ -49,7 +49,7 @@ func (db *BindingStore) GetLongTerm(ctx context.Context, ephemeral view.Identity
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed getting wallet id for identity [%v]", ephemeral)
 	}
-	logger.Debugf("found wallet id for identity [%v]: %v", ephemeral, result)
+	logger.DebugfContext(ctx, "found wallet id for identity [%v]: %v", ephemeral, result)
 	return result, nil
 }
 
