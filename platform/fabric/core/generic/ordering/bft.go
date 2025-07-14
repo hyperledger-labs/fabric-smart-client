@@ -8,6 +8,7 @@ package ordering
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -95,7 +96,7 @@ func (o *BFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 				logger.Debugf("broadcast to [%s]", orderer.Address)
 				err = connection.Send(env)
 				if err != nil {
-					logger.Errorf("failed to broadcast to [%s]: %s", orderer.Address, err)
+					logger.Errorf("failed to broadcast to [%s]: %s", orderer.Address, err.Error())
 					lock.Lock()
 					defer lock.Unlock()
 					usedConnections = append(usedConnections, connection)
@@ -103,7 +104,7 @@ func (o *BFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 				}
 				status, err := connection.Recv()
 				if err != nil {
-					logger.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, err)
+					logger.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, err.Error())
 					lock.Lock()
 					defer lock.Unlock()
 					usedConnections = append(usedConnections, connection)
@@ -120,7 +121,7 @@ func (o *BFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 				default:
 					usedConnections = append(usedConnections, connection)
 					logger.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())])
-					errs = append(errs, errors.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())]))
+					errs = append(errs, fmt.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())]))
 					return
 				}
 			}(orderer)

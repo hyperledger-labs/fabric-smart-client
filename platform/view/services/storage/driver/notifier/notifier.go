@@ -35,7 +35,7 @@ func NewNotifier() *Notifier {
 }
 
 func (db *Notifier) EnqueueEvent(operation driver.Operation, payload map[driver.ColumnKey]string) {
-	logger.Warnf("pkey found: %v, operation: %d", payload["pkey"], operation)
+	logger.Debugf("pkey found: %v, operation: %d", payload["pkey"], operation)
 	db.pMutex.Lock()
 	defer db.pMutex.Unlock()
 	db.pending = append(db.pending, pendingOperation{operation: operation, payload: payload})

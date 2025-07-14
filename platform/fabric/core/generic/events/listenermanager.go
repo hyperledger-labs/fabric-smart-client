@@ -264,7 +264,7 @@ func fetchTxs[T EventInfo](logger logging.Logger, ctx context.Context, lastBlock
 	go func() {
 		ch, err := queryService.QueryByID(ctx, lastBlock, evicted)
 		if err != nil {
-			logger.Errorf("failed scanning: %v", err)
+			logger.Errorf("failed scanning: %s", err.Error())
 			return
 		}
 		for events := range ch {

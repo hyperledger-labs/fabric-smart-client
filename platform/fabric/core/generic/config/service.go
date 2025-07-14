@@ -129,7 +129,7 @@ func createPeerMap(peers []*grpc.ConnectionConfig, tlsEnabled bool) map[driver.P
 		if funcType, ok := funcTypeMap[strings.ToLower(peerCC.Usage)]; ok {
 			peerMapping[funcType] = append(peerMapping[funcType], peerCC)
 		} else {
-			logger.Warn("connection usage [%s] not recognized [%v]", peerCC.Usage, peerCC)
+			logger.Warnf("connection usage [%s] not recognized [%v]", peerCC.Usage, peerCC)
 		}
 	}
 	return peerMapping

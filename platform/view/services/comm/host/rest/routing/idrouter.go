@@ -40,7 +40,7 @@ func (r *EndpointServiceIDRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress
 	}
 	resolver, err := r.es.GetResolver(context.Background(), identity)
 	if err != nil {
-		logger.Errorf("failed resolving [%s]: %v", id, err)
+		logger.Errorf("failed resolving [%s]: %s", id, err.Error())
 		return []host2.PeerIPAddress{}, false
 	}
 	if address := resolver.GetAddress(endpoint.P2PPort); len(address) > 0 {

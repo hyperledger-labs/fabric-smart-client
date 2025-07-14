@@ -398,7 +398,7 @@ func (cm *Manager) callView(msg *view.Message) {
 		logger.Debugf("return the error to the caller [%s]", err)
 		err = ctx.Session().SendError([]byte(err.Error()))
 		if err != nil {
-			logger.Errorf(err.Error())
+			logger.Error(err.Error())
 		}
 	}
 }

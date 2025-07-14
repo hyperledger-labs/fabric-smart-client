@@ -103,9 +103,6 @@ func HasKeys(ns driver2.Namespace, keys ...driver2.PKey) cond2.Condition {
 
 func (db *KeyValueStore) Close() error {
 	logger.Info("closing database")
-
-	// TODO: what to do with db.Txn if it's not nil?
-
 	err := db.writeDB.Close()
 	if err != nil {
 		return errors2.Wrapf(err, "could not close DB")

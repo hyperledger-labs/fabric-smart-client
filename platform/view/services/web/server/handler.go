@@ -122,14 +122,14 @@ func isWebSocket(h http.Header) bool {
 
 func sendErr(resp http.ResponseWriter, code int, errToClient string, errLogged error) {
 	if errLogged != nil {
-		logger.Warnf("Failed processing request: %v", errLogged)
+		logger.Warnf("failed processing request: %v", errLogged)
 	}
 
 	encoder := json.NewEncoder(resp)
 	resp.Header().Set("Content-Type", "application/json")
 	resp.WriteHeader(code)
 	if err := encoder.Encode(&ResponseErr{Reason: errToClient}); err != nil {
-		logger.Warnf("Failed encoding response: %v", err)
+		logger.Warnf("failed encoding response: %v", err)
 	}
 }
 

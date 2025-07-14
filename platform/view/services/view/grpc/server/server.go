@@ -65,12 +65,12 @@ func NewViewServiceServer(
 func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (cr *protos.SignedCommandResponse, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Errorf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
+			logger.Errorf("processCommand triggered panic: %s\n%s\n", r, debug.Stack())
 			err = errors.Errorf("ProcessCommand triggered panic: %s", r)
 		}
 	}()
 
-	logger.Debugf("Processes Command invoked...")
+	logger.Debugf("processCommand invoked...")
 
 	command, err := UnmarshalCommand(sc.Command)
 	if err != nil {
@@ -102,7 +102,7 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 		err = errors.Errorf("command type not recognized: %T", reflect.TypeOf(command.GetPayload()))
 	}
 	if err != nil {
-		logger.Errorf("command execution failed with err [%s]", err)
+		logger.Errorf("command execution failed with err [%s]", err.Error())
 		payload = &protos.CommandResponse_Err{
 			Err: &protos.Error{Message: err.Error()},
 		}
@@ -126,8 +126,8 @@ func (s *Server) StreamCommand(server protos.ViewService_StreamCommandServer) er
 func (s *Server) streamCommand(sc *protos.SignedCommand, commandServer protos.ViewService_StreamCommandServer) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Errorf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
-			err = errors.Errorf("ProcessCommand triggered panic: %s\n%s\n", r, debug.Stack())
+			logger.Errorf("processCommand triggered panic: %s\n%s\n", r, debug.Stack())
+			err = errors.Errorf("processCommand triggered panic: %s\n%s\n", r, debug.Stack())
 		}
 	}()
 
@@ -157,7 +157,7 @@ func (s *Server) streamCommand(sc *protos.SignedCommand, commandServer protos.Vi
 		err = errors.Errorf("stream command type not recognized: %T", reflect.TypeOf(command.GetPayload()))
 	}
 	if err != nil {
-		logger.Errorf("stream command execution failed with err [%s]", err)
+		logger.Errorf("stream command execution failed with err [%s]", err.Error())
 		return s.streamError(err, sc, commandServer)
 	}
 	logger.Debugf("Stream Command invoked successfully")
@@ -205,7 +205,7 @@ func (s *Server) streamError(err error, sc *protos.SignedCommand, commandServer 
 	if err2 != nil {
 		return errors.WithMessagef(err, "failed creating resposse [%s]", err2)
 	}
-	logger.Errorf("stream error occurred [%s]", err)
+	logger.Errorf("stream error occurred [%s]", err.Error())
 	return err
 
 }

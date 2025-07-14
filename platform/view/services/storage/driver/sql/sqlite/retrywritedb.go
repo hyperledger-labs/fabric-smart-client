@@ -35,7 +35,7 @@ func (db *retryWriteDB) ExecContext(ctx context.Context, query string, args ...a
 	res, err := db.DB.ExecContext(ctx, query, args...)
 	if err != nil && errors.Is(db.errorWrapper.WrapError(err), driver.SqlBusy) {
 		// TODO: AF Maybe limit the amount of retries
-		logger.Warnf("Sql busy. Retrying query [%s]...", query)
+		logger.Warnf("sql busy. Retrying query [%s]...", query)
 		return db.ExecContext(ctx, query, args...)
 	}
 	return res, err

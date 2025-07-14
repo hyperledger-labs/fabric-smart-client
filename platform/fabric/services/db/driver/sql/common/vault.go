@@ -217,14 +217,14 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 				metaVersion = metaVal.Version
 			}
 			if len(metaVersion) > 0 && !bytes.Equal(val.Version, metaVersion) {
-				logger.Warnf("Different values passed for metadata version and data version: [%s] [%s]", metaVersion, val.Version)
+				logger.Warnf("different values passed for metadata version and data version: [%s] [%s]", metaVersion, val.Version)
 			}
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to marshal metadata for [%s:%s]", ns, pkey)
 			}
 			if len(val.Raw) == 0 {
 				// Deleting value
-				logger.Debugf("Setting version of [%s] to nil", pkey)
+				logger.Debugf("setting version of [%s] to nil", pkey)
 				val.Version = nil
 			}
 			ns, err := db.sanitizer.Encode(ns)

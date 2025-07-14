@@ -52,7 +52,6 @@ func NewConfig(configProvider ConfigProvider) (*Config, error) {
 			if fsnConfig.Default {
 				if len(defaultName) != 0 {
 					logger.Warnf("only one network should be set as default, ignoring [%s], default is set to [%s]", name, fsnConfig.Default)
-					// return nil, errors.Errorf("only one network can be set as default")
 					continue
 				}
 				defaultName = name

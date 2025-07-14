@@ -157,9 +157,9 @@ func (s *viewHandler) RunView(manager ViewManager, view view2.View) (string, err
 func (s *viewHandler) runView(view view2.View, context view2.Context) {
 	result, err := context.RunView(view)
 	if err != nil {
-		logger.Errorf("Failed view execution. Err [%s]\n", err)
+		logger.Errorf("failed view execution. Err [%s]\n", err.Error())
 	} else {
-		logger.Debugf("Successful view execution. Result [%s]\n", result)
+		logger.Debugf("successful view execution. Result [%s]\n", result)
 	}
 }
 

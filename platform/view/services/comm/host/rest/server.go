@@ -52,7 +52,7 @@ func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stre
 	r.GET("/p2p", func(c *gin.Context) {
 		logger.Debugf("New incoming stream from [%s]", c.Request.RemoteAddr)
 		if err := streamProvider.NewServerStream(c.Writer, c.Request, newStreamCallback); err != nil {
-			logger.Errorf("error receiving websocket: %v", err)
+			logger.Errorf("error receiving websocket: %s", err.Error())
 		}
 	})
 	return r

@@ -24,12 +24,12 @@ type ErrorMapper struct{}
 func (m *ErrorMapper) WrapError(err error) error {
 	var pgErr *pgconn.PgError
 	if !errors2.As(err, &pgErr) {
-		logger.Warnf("Error of type [%T] not pgError", err)
+		logger.Warnf("error of type [%T] not pgError", err)
 		return err
 	}
 	mappedErr, ok := errorMap[pgErr.Code]
 	if !ok {
-		logger.Warnf("Unmapped postgres error with code [%s]", pgErr.Code)
+		logger.Warnf("unmapped postgres error with code [%s]", pgErr.Code)
 		return pgErr
 	}
 	return errors.Wrapf(mappedErr, "%s", err)

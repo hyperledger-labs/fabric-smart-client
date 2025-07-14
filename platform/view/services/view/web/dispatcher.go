@@ -32,7 +32,7 @@ func (rd *Dispatcher) HandleRequest(context *server.ReqContext) (response interf
 	logger.Debugf("Received request from %s", context.Req.Host)
 
 	if rd.vc == nil {
-		logger.Errorf("ViewCaller has not been initialized yet")
+		logger.Errorf("viewCaller has not been initialized yet")
 		return &server.ResponseErr{Reason: "internal error"}, 500
 	}
 

@@ -110,7 +110,7 @@ func (c *FinalityManager[V]) runStatusListener(ctx context.Context) {
 			c.logger.Debugf("check vault status for [%d] transactions", len(txIDs))
 			statuses, err := c.vault.Statuses(newCtx, txIDs...)
 			if err != nil {
-				c.logger.Errorf("error fetching statuses: %w", err)
+				c.logger.Errorf("error fetching statuses: %s", err.Error())
 				span.RecordError(err)
 				span.End()
 				continue

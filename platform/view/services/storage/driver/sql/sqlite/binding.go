@@ -62,11 +62,11 @@ func (db *BindingStore) PutBinding(ctx context.Context, ephemeral, longTerm view
 	logger.Debug(query, ephemeral.UniqueID(), longTerm.UniqueID())
 	_, err := db.writeDB.ExecContext(ctx, query, ephemeral.UniqueID(), longTerm, longTerm.UniqueID(), longTerm)
 	if err == nil {
-		logger.DebugfContext(ctx, "Long-term and ephemeral ids registered [%s,%s]", longTerm, ephemeral)
+		logger.DebugfContext(ctx, "long-term and ephemeral ids registered [%s,%s]", longTerm, ephemeral)
 		return nil
 	}
 	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
-		logger.Warnf("Tuple [%s,%s] already in db. Skipping...", ephemeral, longTerm)
+		logger.Infof("tuple [%s,%s] already in db. Skipping...", ephemeral, longTerm)
 		return nil
 	}
 	return errors.Wrapf(err, "failed executing query [%s]", query)

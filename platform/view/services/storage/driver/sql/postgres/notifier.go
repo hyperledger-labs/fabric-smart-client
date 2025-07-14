@@ -65,7 +65,7 @@ func NewNotifier(writeDB *sql.DB, table, dataSource string, notifyOperations []d
 		listener: &pgxlisten.Listener{
 			Connect: func(ctx context.Context) (*pgx.Conn, error) { return pgx.Connect(ctx, dataSource) },
 			LogError: func(ctx context.Context, err error) {
-				logger.Errorf("error encountered in [%s]: %v", dataSource, err)
+				logger.Errorf("error encountered in [%s]: %s", dataSource, err.Error())
 			},
 			ReconnectDelay: reconnectInterval,
 		},
@@ -78,7 +78,7 @@ func (db *Notifier) Subscribe(callback driver.TriggerCallback) error {
 		logger.Debugf("First subscription for notifier of [%s]. Notifier starts listening...", db.table)
 		go func() {
 			if err := db.listener.Listen(context.TODO()); err != nil {
-				logger.Errorf("Notifier listen for [%s] failed: %v", db.table, err)
+				logger.Errorf("notifier listen for [%s] failed: %s", db.table, err.Error())
 			}
 		}()
 	})
@@ -124,7 +124,7 @@ func (h *notificationHandler) HandleNotification(ctx context.Context, notificati
 	logger.DebugfContext(ctx, "new event received on table [%s]: %s", notification.Channel, notification.Payload)
 	op, vals, err := h.parsePayload(notification.Payload)
 	if err != nil {
-		logger.Errorf("Failed parsing payload [%s]: %v", notification.Payload, err)
+		logger.Errorf("failed parsing payload [%s]: %s", notification.Payload, err.Error())
 		return errors.Wrapf(err, "failed parsing payload [%s]", notification.Payload)
 	}
 	h.callback(op, vals)

@@ -212,7 +212,7 @@ func (o *KVS) GetByPartialCompositeID(ctx context.Context, prefix string, attrs 
 
 func (o *KVS) Stop() {
 	if err := o.store.Close(); err != nil {
-		logger.Errorf("failed stopping kvs [%s]", err)
+		logger.Errorf("failed stopping kvs [%s]", err.Error())
 	}
 }
 
