@@ -224,7 +224,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 			}
 			if len(val.Raw) == 0 {
 				// Deleting value
-				logger.Warnf("Setting version of [%s] to nil", pkey)
+				logger.Debugf("Setting version of [%s] to nil", pkey)
 				val.Version = nil
 			}
 			ns, err := db.sanitizer.Encode(ns)
@@ -497,7 +497,7 @@ func (db *vaultReader) queryStatus(ctx context.Context, where cond2.Condition, p
 		Where(where).
 		Paginated(pagination).
 		FormatPaginated(db.ci, db.pi)
-	logger.Debugf(query, params)
+	logger.Debug(query, params)
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
