@@ -8,6 +8,7 @@ package fsc
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"io"
 	"net"
@@ -595,14 +596,19 @@ func (p *Platform) FSCNodeGroupRunner() ifrit.Runner {
 }
 
 func (p *Platform) FSCNodeRunner(node *node2.Replica, env ...string) *runner2.Runner {
+	// set config path
+	env = append(env, fmt.Sprintf("FSCNODE_CFG_PATH=%s", p.NodeDir(node)))
+
+	// enable/disable profiler
+	profilerEnv := cmp.Or(os.Getenv("FSCNODE_PROFILER"), "FSCNODE_PROFILER=false")
+	env = append(env, profilerEnv)
+
 	cmd := p.fscNodeCommand(
 		node,
 		commands.NodeStart{NodeID: node.ID()},
 		"",
-		fmt.Sprintf("FSCNODE_CFG_PATH=%s", p.NodeDir(node)),
-		"FSCNODE_PROFILER=true",
+		env...,
 	)
-	cmd.Env = append(cmd.Env, env...)
 
 	config := runner2.Config{
 		AnsiColorCode:     common.NextColor(),
