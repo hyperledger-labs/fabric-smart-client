@@ -119,8 +119,7 @@ func (a *artifact) build(args ...string) error {
 
 func (a *artifact) gBuild(input string, args ...string) (string, error) {
 	if a.raceDetectorEnabled && !strings.HasPrefix(input, "github.com/hyperledger/fabric/") {
-		logger.Infof("building [%s,%s] with race detection ", input, args)
-		return gexec.Build(input, args...)
+		args = append(args, "-race")
 	}
 
 	logger.Infof("building [%s,%s] ", input, args)
