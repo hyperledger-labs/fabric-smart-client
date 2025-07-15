@@ -497,7 +497,7 @@ func (db *vaultReader) queryStatus(ctx context.Context, where cond2.Condition, p
 		Where(where).
 		Paginated(pagination).
 		FormatPaginated(db.ci, db.pi)
-	logger.Infof(query, params)
+	logger.Debugf(query, params)
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {

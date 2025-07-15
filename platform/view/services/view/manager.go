@@ -153,13 +153,13 @@ func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	cm.contextsSync.Unlock()
 	defer cm.deleteContext(id, childContext.ID())
 
-	logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s]", id, logging.Identifier(view), childContext.ID())
+	logger.DebugfContext(c, "[%s] InitiateView [view:%s], [ContextID:%s]", id, logging.Identifier(view), childContext.ID())
 	res, err := childContext.RunView(view)
 	if err != nil {
-		logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, logging.Identifier(view), childContext.ID(), err)
+		logger.DebugfContext(c, "[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, logging.Identifier(view), childContext.ID(), err)
 		return nil, err
 	}
-	logger.Debugf("[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, logging.Identifier(view), childContext.ID())
+	logger.DebugfContext(c, "[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, logging.Identifier(view), childContext.ID())
 	return res, nil
 }
 
@@ -200,7 +200,7 @@ func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 	cm.contextsSync.Unlock()
 
-	logger.Debugf("[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, logging.Identifier(view), childContext.ID())
+	logger.DebugfContext(ctx, "[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, logging.Identifier(view), childContext.ID())
 
 	return childContext, nil
 }
@@ -217,7 +217,7 @@ func (cm *Manager) Start(ctx context.Context) {
 		case msg := <-ch:
 			go cm.callView(msg)
 		case <-ctx.Done():
-			logger.Debugf("received done signal, stopping listening to messages on the master session")
+			logger.DebugfContext(ctx, "received done signal, stopping listening to messages on the master session")
 			return
 		}
 	}
@@ -269,7 +269,7 @@ func (cm *Manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		return nil, nil, errors.WithMessagef(err, "failed getting context for [%s,%s,%v]", msg.ContextID, id, msg)
 	}
 
-	logger.Debugf("[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, isNew, logging.Identifier(responder))
+	logger.DebugfContext(ctx.Context(), "[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, isNew, logging.Identifier(responder))
 
 	// todo: if a new context has been created to run the responder,
 	// then dispose the context when the responder terminates
@@ -289,7 +289,7 @@ func (cm *Manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		res, err = ctx.RunView(responder)
 	}
 	if err != nil {
-		logger.Debugf("[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
+		logger.DebugfContext(ctx.Context(), "[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
 	}
 	return ctx, res, err
 }
@@ -307,7 +307,7 @@ func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context
 	viewContext, ok := cm.contexts[contextID]
 	if ok && viewContext.Session() != nil && viewContext.Session().Info().ID != msg.SessionID {
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			logger.Debugf(
+			logger.DebugfContext(viewContext.Context(),
 				"[%s] Found context with different session id, recreate [contextID:%s, sessionIds:%s,%s]\n",
 				id,
 				msg.ContextID,
@@ -321,7 +321,7 @@ func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		ok = false
 	}
 	if ok {
-		logger.Debugf("[%s] No new context to respond, reuse [contextID:%s]\n", id, msg.ContextID)
+		logger.DebugfContext(viewContext.Context(), "[%s] No new context to respond, reuse [contextID:%s]\n", id, msg.ContextID)
 		return viewContext, false, nil
 	}
 

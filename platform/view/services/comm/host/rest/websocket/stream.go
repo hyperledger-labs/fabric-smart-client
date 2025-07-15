@@ -11,6 +11,7 @@ import (
 	"io"
 
 	"github.com/gorilla/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
 )
@@ -125,7 +126,7 @@ func (s *stream) Write(p []byte) (int, error) {
 		logger.Debugf("Wrote to [%s@%s], but message not ready yet.", s.info.RemotePeerID, s.info.RemotePeerAddress)
 		return n, nil
 	}
-	logger.Debugf("Ready to send to [%s@%s]: [%s]", s.info.RemotePeerID, s.info.RemotePeerAddress, content)
+	logger.Debugf("Ready to send to [%s@%s]: [%s]", s.info.RemotePeerID, s.info.RemotePeerAddress, logging.Base64(content))
 	if err := s.conn.WriteMessage(websocket.TextMessage, content); err != nil {
 		return 0, err
 	}

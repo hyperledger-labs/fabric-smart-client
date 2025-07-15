@@ -72,7 +72,7 @@ func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, si
 	s, ok := o.signers[idHash]
 	o.mutex.RUnlock()
 	if ok {
-		logger.Debugf("another signer bound to [%s]:[%s][%s] from [%s]", identity, logging.Identifier(s), logging.Identifier(signer), string(s.DebugStack))
+		logger.DebugfContext(ctx, "another signer bound to [%s]:[%s][%s] from [%s]", identity, logging.Identifier(s), logging.Identifier(signer), string(s.DebugStack))
 		return nil
 	}
 
@@ -83,7 +83,7 @@ func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, si
 	s, ok = o.signers[idHash]
 	if ok {
 		o.mutex.Unlock()
-		logger.Debugf("another signer bound to [%s]:[%s][%s] from [%s]", identity, logging.Identifier(s), logging.Identifier(signer), string(s.DebugStack))
+		logger.DebugfContext(ctx, "another signer bound to [%s]:[%s][%s] from [%s]", identity, logging.Identifier(s), logging.Identifier(signer), string(s.DebugStack))
 		return nil
 	}
 
@@ -107,7 +107,7 @@ func (o *Service) RegisterSigner(ctx context.Context, identity view.Identity, si
 			return err
 		}
 	}
-	logger.Debugf("signer for [%s][%s] registered, no verifier passed", idHash, logging.Identifier(signer))
+	logger.DebugfContext(ctx, "signer for [%s][%s] registered, no verifier passed", idHash, logging.Identifier(signer))
 	return nil
 }
 
@@ -193,12 +193,12 @@ func (o *Service) AreMe(ctx context.Context, identities ...view.Identity) []stri
 func (o *Service) Info(ctx context.Context, id view.Identity) string {
 	auditInfo, err := o.GetAuditInfo(ctx, id)
 	if err != nil {
-		logger.Debugf("failed getting audit info for [%s]", id)
+		logger.DebugfContext(ctx, "failed getting audit info for [%s]", id)
 		return fmt.Sprintf("unable to identify identity : [%s][%s]", id.UniqueID(), string(id))
 	}
 	info, err := o.deserializer.Info(id, auditInfo)
 	if err != nil {
-		logger.Debugf("failed getting info for [%s]", id)
+		logger.DebugfContext(ctx, "failed getting info for [%s]", id)
 		return fmt.Sprintf("unable to identify identity : [%s][%s]", id.UniqueID(), string(id))
 	}
 	return info

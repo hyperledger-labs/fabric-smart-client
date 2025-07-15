@@ -116,12 +116,12 @@ func (h *notificationHandler) parsePayload(s string) (driver.Operation, map[driv
 	return operation, payload, nil
 }
 
-func (h *notificationHandler) HandleNotification(_ context.Context, notification *pgconn.Notification, _ *pgx.Conn) error {
+func (h *notificationHandler) HandleNotification(ctx context.Context, notification *pgconn.Notification, _ *pgx.Conn) error {
 	if notification == nil || len(notification.Payload) == 0 {
 		logger.Warnf("nil event received on table [%s], investigate the possible cause", h.table)
 		return nil
 	}
-	logger.Debugf("new event received on table [%s]: %s", notification.Channel, notification.Payload)
+	logger.DebugfContext(ctx, "new event received on table [%s]: %s", notification.Channel, notification.Payload)
 	op, vals, err := h.parsePayload(notification.Payload)
 	if err != nil {
 		logger.Errorf("Failed parsing payload [%s]: %v", notification.Payload, err)
