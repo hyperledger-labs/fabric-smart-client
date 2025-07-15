@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package monitoring
 
+import "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+
 type Topology struct {
 	TopologyName            string `yaml:"name,omitempty"`
 	TopologyType            string `yaml:"type,omitempty"`
@@ -16,6 +18,7 @@ type Topology struct {
 	GrafanaPort             int    `yaml:"grafana-port,omitempty"`
 	OPTL                    bool   `yaml:"optl,omitempty"`
 	OPTLPort                int    `yaml:"optl-port,omitempty"`
+	JaegerQueryPort         int    `yaml:"jaeger-query-port"`
 }
 
 func NewTopology() *Topology {
@@ -26,6 +29,7 @@ func NewTopology() *Topology {
 		PrometheusPort:          9090,
 		GrafanaPort:             3000,
 		OPTLPort:                4319,
+		JaegerQueryPort:         optl.JaegerQueryPort,
 	}
 }
 

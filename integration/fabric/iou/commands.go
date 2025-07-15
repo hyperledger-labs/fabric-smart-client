@@ -16,6 +16,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	model2 "github.com/jaegertracing/jaeger-idl/model/v1"
+	"github.com/jaegertracing/jaeger-idl/proto-gen/api_v2"
 	"github.com/onsi/gomega"
 	"github.com/prometheus/common/model"
 )
@@ -85,6 +87,33 @@ func CheckLocalMetrics(ii *integration.Infrastructure, user string, viewName str
 
 	logger.Infof("Received in total %f view operations for [%s] for user %s: %v", sum, viewName, user, metrics["fsc_view_operations"].GetMetric())
 	gomega.Expect(sum).NotTo(gomega.BeZero(), fmt.Sprintf("Operations found: %v", metrics))
+}
+
+func CheckJaegerTraces(ii *integration.Infrastructure, nodeName, viewName string, spanMatcher gomega.OmegaMatcher) {
+	cli, err := ii.NWO.JaegerAPI()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	findTraces, err := cli.FindTraces(context.Background(), &api_v2.FindTracesRequest{Query: &api_v2.TraceQueryParameters{ServiceName: nodeName, OperationName: viewName}})
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	spans := make([]model2.Span, 0)
+	for chunk, err := findTraces.Recv(); chunk != nil; chunk, err = findTraces.Recv() {
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		spans = append(spans, chunk.Spans...)
+	}
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	logger.Infof("Received jaeger %d spans for [%s:%s]: %s", len(spans), nodeName, viewName, spans)
+
+	if len(spans) > 0 {
+		gomega.Expect(spans).To(spanMatcher)
+		return
+	}
+
+	services, err := cli.GetServices(context.Background(), &api_v2.GetServicesRequest{})
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	operations, err := cli.GetOperations(context.Background(), &api_v2.GetOperationsRequest{})
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	logger.Infof("No spans found. %d operations found in %d services: [%v] [%v]", len(operations.GetOperations()), len(services.GetServices()), services.GetServices(), operations.GetOperationNames())
+	gomega.Expect(spans).To(spanMatcher)
 }
 
 func CheckPrometheusMetrics(ii *integration.Infrastructure, viewName string) {
