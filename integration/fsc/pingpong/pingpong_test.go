@@ -213,9 +213,9 @@ func NewTestSuite(commType fsc.P2PCommunicationType, alwaysGenerate bool, nodeOp
 		TestSuite: integration.NewTestSuite(func() (ii *integration.Infrastructure, err error) {
 			topologies := pingpong.Topology(commType, nodeOpts)
 			if alwaysGenerate || init.CompareAndSwap(false, true) {
-				ii, err = integration.Generate(StartPortWithGeneration(), true, topologies...)
+				ii, err = integration.Generate(StartPortWithGeneration(), integration.WithRaceDetection, topologies...)
 			} else {
-				ii, err = integration.Load(0, testdataDir, true, topologies...)
+				ii, err = integration.Load(0, testdataDir, integration.WithRaceDetection, topologies...)
 			}
 			ii.DeleteOnStop = false
 			return

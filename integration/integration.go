@@ -45,6 +45,8 @@ type Configuration struct {
 	StartPort int
 }
 
+const WithRaceDetection = true
+
 type Infrastructure struct {
 	TestDir           string
 	StartPort         int

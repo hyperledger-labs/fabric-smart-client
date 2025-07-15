@@ -64,7 +64,7 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions, tlsEnabled bool) *TestSuite {
 	return &TestSuite{TestSuite: integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), true, iou.Topology(&iou.Opts{
+		return integration.Generate(StartPort(), integration.WithRaceDetection, iou.Topology(&iou.Opts{
 			SDK:             &iou.SDK{},
 			CommType:        commType,
 			ReplicationOpts: nodeOpts,
