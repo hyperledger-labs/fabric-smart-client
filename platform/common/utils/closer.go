@@ -21,8 +21,9 @@ func CloseMute(closer Closer) {
 }
 
 func IgnoreError(err error) {
-	// ignore the error
-	fmt.Printf("IgnoreError: %v\n", err)
+	if err != nil {
+		fmt.Printf("IgnoreError: %v\n", err)
+	}
 }
 
 func IgnoreErrorFunc(f func() error) {
