@@ -8,6 +8,7 @@ package routing
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 
@@ -61,10 +62,8 @@ func (r StaticIDRouter) Lookup(id string) ([]host2.PeerIPAddress, bool) {
 
 func (r StaticIDRouter) ReverseLookup(ipAddress host2.PeerIPAddress) (host2.PeerID, bool) {
 	for id, addrs := range r {
-		for _, addr := range addrs {
-			if ipAddress == addr {
-				return id, true
-			}
+		if slices.Contains(addrs, ipAddress) {
+			return id, true
 		}
 	}
 	return "", false

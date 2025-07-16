@@ -84,7 +84,7 @@ func (db *SignerInfoStore) PutSigner(ctx context.Context, id view.Identity) erro
 		return nil
 	}
 	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
-		logger.Infof("signer [%s] already in db. Skipping...", id)
+		logger.InfofContext(ctx, "signer [%s] already in db. Skipping...", id)
 		return nil
 	}
 

@@ -39,11 +39,11 @@ func newBindingStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *Bin
 	}
 }
 func (db *BindingStore) PutBinding(ctx context.Context, ephemeral, longTerm view.Identity) error {
-	logger.DebugfContext(ctx, "Put binding for pair [%s:%s]", ephemeral.UniqueID(), longTerm.UniqueID())
+	logger.DebugfContext(ctx, "put binding for pair [%s:%s]", ephemeral.UniqueID(), longTerm.UniqueID())
 	if lt, err := db.GetLongTerm(ctx, longTerm); err != nil {
 		return err
 	} else if lt != nil && !lt.IsNone() {
-		logger.DebugfContext(ctx, "Replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())
+		logger.DebugfContext(ctx, "replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())
 		longTerm = lt
 	} else {
 		logger.DebugfContext(ctx, "Id [%s] is an unregistered long term ID", longTerm.UniqueID())
@@ -66,7 +66,7 @@ func (db *BindingStore) PutBinding(ctx context.Context, ephemeral, longTerm view
 		return nil
 	}
 	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
-		logger.Infof("tuple [%s,%s] already in db. Skipping...", ephemeral, longTerm)
+		logger.InfofContext(ctx, "tuple [%s,%s] already in db. Skipping...", ephemeral, longTerm)
 		return nil
 	}
 	return errors.Wrapf(err, "failed executing query [%s]", query)

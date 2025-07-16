@@ -107,7 +107,7 @@ func (c *FinalityManager[V]) runStatusListener(ctx context.Context) {
 			}
 
 			newCtx, span := c.tracer.Start(context.Background(), "committer_status_listener")
-			c.logger.Debugf("check vault status for [%d] transactions", len(txIDs))
+			c.logger.DebugfContext(ctx, "check vault status for [%d] transactions", len(txIDs))
 			statuses, err := c.vault.Statuses(newCtx, txIDs...)
 			if err != nil {
 				c.logger.Errorf("error fetching statuses: %s", err.Error())
@@ -115,7 +115,7 @@ func (c *FinalityManager[V]) runStatusListener(ctx context.Context) {
 				span.End()
 				continue
 			}
-			c.logger.Debugf("got vault status for [%d] transactions, post event...", len(txIDs))
+			c.logger.DebugfContext(ctx, "got vault status for [%d] transactions, post event...", len(txIDs))
 			span.AddEvent("post_events")
 			for _, status := range statuses {
 				// check txID status, if it is valid or invalid, post an event

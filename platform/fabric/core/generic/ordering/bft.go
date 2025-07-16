@@ -45,9 +45,9 @@ func NewBFTBroadcaster(configService driver.ConfigService, cf Services, metrics 
 	}
 }
 
-func (o *BFTBroadcaster) Broadcast(context context.Context, env *common2.Envelope) error {
-	logger.DebugfContext(context, "Start BFT Broadcast")
-	defer logger.DebugfContext(context, "End BFT Broadcast")
+func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) error {
+	logger.DebugfContext(ctx, "Start BFT Broadcast")
+	defer logger.DebugfContext(ctx, "End BFT Broadcast")
 	// send the envelope for ordering
 	retries := o.ConfigService.BroadcastNumRetries()
 	retryInterval := o.ConfigService.BroadcastRetryInterval()
@@ -60,9 +60,9 @@ func (o *BFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 	f := (int(n) - 1) / 3
 	threshold := int(math.Ceil((float64(n) + float64(f) + 1) / 2.0))
 
-	for i := 0; i < retries; i++ {
+	for i := range retries {
 		if i > 0 {
-			logger.Debugf("broadcast, retry [%d]...", i)
+			logger.DebugfContext(ctx, "broadcast, retry [%d]...", i)
 			// wait a bit
 			time.Sleep(retryInterval)
 		}
@@ -80,23 +80,23 @@ func (o *BFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 			go func(orderer *grpc.ConnectionConfig) {
 				defer wg.Done()
 
-				logger.Debugf("get connection to [%s]", orderer.Address)
-				connection, err := o.getConnection(context, orderer)
+				logger.DebugfContext(ctx, "get connection to [%s]", orderer.Address)
+				connection, err := o.getConnection(ctx, orderer)
 
 				lock.Lock()
 				if err != nil {
 					errs = append(errs, errors.Wrapf(err, "failed connecting to [%v]", orderer.Address))
-					logger.Warnf("failed to get connection to orderer [%s]", orderer.Address, err)
+					logger.WarnfContext(ctx, "failed to get connection to orderer [%s]", orderer.Address, err)
 					lock.Unlock()
 					return
 				}
 
 				lock.Unlock()
 
-				logger.Debugf("broadcast to [%s]", orderer.Address)
+				logger.DebugfContext(ctx, "broadcast to [%s]", orderer.Address)
 				err = connection.Send(env)
 				if err != nil {
-					logger.Errorf("failed to broadcast to [%s]: %s", orderer.Address, err.Error())
+					logger.ErrorfContext(ctx, "failed to broadcast to [%s]: %s", orderer.Address, err.Error())
 					lock.Lock()
 					defer lock.Unlock()
 					usedConnections = append(usedConnections, connection)
@@ -104,7 +104,7 @@ func (o *BFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 				}
 				status, err := connection.Recv()
 				if err != nil {
-					logger.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, err.Error())
+					logger.ErrorfContext(ctx, "failed to get status after broadcast to [%s]: %s", orderer.Address, err.Error())
 					lock.Lock()
 					defer lock.Unlock()
 					usedConnections = append(usedConnections, connection)
@@ -120,7 +120,7 @@ func (o *BFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 					counter++
 				default:
 					usedConnections = append(usedConnections, connection)
-					logger.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())])
+					logger.ErrorfContext(ctx, "failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())])
 					errs = append(errs, fmt.Errorf("failed to get status after broadcast to [%s]: %s", orderer.Address, common2.Status_name[int32(status.GetStatus())]))
 					return
 				}
@@ -138,7 +138,7 @@ func (o *BFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 		}
 
 		// fail
-		logger.Warnf("failed to broadcast, got [%d of %d] success and errs [%v], retry after a delay", counter, threshold, errs)
+		logger.WarnfContext(ctx, "failed to broadcast, got [%d of %d] success and errs [%v], retry after a delay", counter, threshold, errs)
 		// cleanup connections
 		for _, connection := range usedConnections {
 			o.discardConnection(connection)

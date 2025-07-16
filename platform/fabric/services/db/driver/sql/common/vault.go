@@ -77,7 +77,7 @@ type VaultStore struct {
 }
 
 func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (driver.LockedVaultReader, error) {
-	logger.DebugfContext(ctx, "Acquire tx id lock for [%s]", txID)
+	logger.DebugfContext(ctx, "acquire tx id lock for [%s]", txID)
 
 	// Ignore conflicts in case replicas create the same entry when receiving the envelope
 	query, params := q.InsertInto(db.tables.StatusTable).
@@ -118,8 +118,8 @@ func (db *VaultStore) newTxLockVaultReader(ctx context.Context, isolationLevel d
 }
 
 func (db *VaultStore) NewGlobalLockVaultReader(ctx context.Context) (driver.LockedVaultReader, error) {
-	logger.DebugfContext(ctx, "Start acquire global lock")
-	defer logger.DebugfContext(ctx, "End acquire global lock")
+	logger.DebugfContext(ctx, "start acquire global lock")
+	defer logger.DebugfContext(ctx, "end acquire global lock")
 	return newTxVaultReader(db.newGlobalLockVaultReader), nil
 }
 

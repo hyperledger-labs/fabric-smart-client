@@ -128,7 +128,7 @@ func (db *KeyValueStore) DeleteStates(ctx context.Context, namespace driver2.Nam
 
 func (db *KeyValueStore) DeleteStatesWithTx(ctx context.Context, tx dbTransaction, namespace driver2.Namespace, keys ...driver2.PKey) map[driver2.PKey]error {
 	if db.IsTxnNil() {
-		logger.Debug("No ongoing transaction. Using db")
+		logger.Debug("no ongoing transaction. Using db")
 		tx = db.writeDB
 	}
 
