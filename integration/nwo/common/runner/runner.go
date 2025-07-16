@@ -132,8 +132,8 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 			startCheckTimeout = nil
 			detectStartCheck = nil
 			// close our buffer that is used to detect ready state
-			utils.IgnoreError(allOutput.Close())
 			utils.IgnoreError(allOutput.Clear())
+			utils.IgnoreError(allOutput.Close())
 			close(ready)
 
 		case <-startCheckTimeout:
