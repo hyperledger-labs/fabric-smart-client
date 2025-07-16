@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -84,6 +85,10 @@ func (s *TestSuite) TestSucceeded() {
 
 	iou.CheckLocalMetrics(s.II, "borrower", "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/collectEndorsementsView")
 	iou.CheckPrometheusMetrics(s.II, "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/collectEndorsementsView")
+	iou.CheckJaegerTraces(s.II, "borrower", "", gomega.And(
+		gomega.Not(gomega.BeNil()),
+		gomega.Not(gomega.BeEmpty()),
+	))
 }
 
 func (s *TestSuite) TestSucceededWithReplicas() {

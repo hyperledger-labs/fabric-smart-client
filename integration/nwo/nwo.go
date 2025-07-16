@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/jaegertracing/jaeger-idl/proto-gen/api_v2"
 	"github.com/onsi/gomega"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/tedsuo/ifrit"
@@ -250,4 +251,13 @@ func (n *NWO) PrometheusAPI() (v1.API, error) {
 		}
 	}
 	return nil, fmt.Errorf("no Prometheus API available on any platform")
+}
+
+func (n *NWO) JaegerAPI() (api_v2.QueryServiceClient, error) {
+	for _, platform := range n.Platforms {
+		if metricsPlatform, ok := platform.(*monitoring.Platform); ok {
+			return metricsPlatform.JaegerAPI(), nil
+		}
+	}
+	return nil, fmt.Errorf("no Jaeger API available on any platform")
 }
