@@ -63,6 +63,16 @@ FABRIC_VERSION=2.5.0 make download-fabric
 
 If you want to provide your own versions of the fabric binaries then just set `FAB_BINS` to the directory where all the fabric binaries are stored.
 
+#### Profiling
+
+FSC comes with built-in profiling support. See more details in [profile.go](https://github.com/hyperledger-labs/fabric-smart-client/blob/main/node/start/profile/profile.go).  
+You can enable it using the `FSCNODE_PROFILER` environment variable.
+
+Example:
+```bash
+FSCNODE_PROFILER=true make integration-tests-iou
+```
+
 ## Getting Help
 
 Found a bug? Need help to fix an issue? You have a great idea for a new feature? Talk to us! You can reach us on
