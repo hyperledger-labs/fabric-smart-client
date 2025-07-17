@@ -12,8 +12,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
-// FieldName is the name of the DB column
-type FieldName string
+type OrderBy Serializable
+type Condition ConditionSerializable
 
 // Tuple is a tuple of parameters
 type Tuple = []Param
@@ -30,10 +30,18 @@ type CondInterpreter interface {
 	InTuple(fields []Serializable, vals []Tuple, sb Builder)
 }
 
+type ModifiableQuery interface {
+	AddField(Field)
+	AddWhere(Condition)
+	AddOrderBy(OrderBy)
+	AddLimit(int)
+	AddOffset(int)
+}
+
 // PagInterpreter is the pagination interpreter
 type PagInterpreter interface {
-	// Interpret modifies the SQL query to add pagination support
-	Interpret(p driver.Pagination, sb Builder)
+	// PreProcess modifies the SQL query to add pagination support
+	PreProcess(driver.Pagination, ModifiableQuery)
 }
 
 // Builder is the string builder
