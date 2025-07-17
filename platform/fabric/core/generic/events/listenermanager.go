@@ -138,7 +138,7 @@ func newListenerManager[T EventInfo](
 				logging.Keys(evicted),
 				lastBlockNum,
 			)
-			fetchTxs(context.TODO(), logger, lastBlockNum, evicted, queryService)
+			fetchTxs(context.TODO(), logger, lastBlockNum, evicted, queryService, sequential)
 		})
 	} else {
 		listeners = cache.NewMapCache[EventID, []ListenerEntry[T]]()
@@ -298,7 +298,14 @@ func (m *ListenerManager[T]) RemoveEventListener(id EventID, e ListenerEntry[T])
 	return errors.Errorf("could not find listener [%v] in eventID [%s]", e, id)
 }
 
-func fetchTxs[T EventInfo](ctx context.Context, logger logging.Logger, lastBlock driver.BlockNum, evicted map[EventID][]ListenerEntry[T], queryService QueryByIDService[T]) {
+func fetchTxs[T EventInfo](
+	ctx context.Context,
+	logger logging.Logger,
+	lastBlock driver.BlockNum,
+	evicted map[EventID][]ListenerEntry[T],
+	queryService QueryByIDService[T],
+	sequential bool,
+) {
 	go func() {
 		ch, err := queryService.QueryByID(ctx, lastBlock, evicted)
 		if err != nil {
@@ -309,9 +316,14 @@ func fetchTxs[T EventInfo](ctx context.Context, logger logging.Logger, lastBlock
 			logger.DebugfContext(ctx, "received [%d] events", len(events))
 			for _, event := range events {
 				logger.DebugfContext(ctx, "evicted event [%s], notify [%d] listeners", event.ID(), len(evicted[event.ID()]))
+
 				for i, listener := range evicted[event.ID()] {
 					logger.DebugfContext(ctx, "calling listener [%d], event [%s]", i, event.ID())
-					go listener.OnStatus(context.TODO(), event)
+					if sequential {
+						listener.OnStatus(context.TODO(), event)
+					} else {
+						go listener.OnStatus(context.TODO(), event)
+					}
 				}
 			}
 		}
