@@ -73,6 +73,7 @@ type ListenerManager[T EventInfo] struct {
 	delivery                   Delivery
 	blockProcessingParallelism int
 	ignoreBlockErrors          bool
+	sequential                 bool
 }
 
 func NewListenerManager[T EventInfo](
@@ -82,6 +83,29 @@ func NewListenerManager[T EventInfo](
 	queryService QueryByIDService[T],
 	tracer trace.Tracer,
 	mapper EventInfoMapper[T],
+) (*ListenerManager[T], error) {
+	return newListenerManager[T](logger, config, delivery, queryService, tracer, mapper, false)
+}
+
+func NewSequentialListenerManager[T EventInfo](
+	logger logging.Logger,
+	config DeliveryListenerManagerConfig,
+	delivery Delivery,
+	queryService QueryByIDService[T],
+	tracer trace.Tracer,
+	mapper EventInfoMapper[T],
+) (*ListenerManager[T], error) {
+	return newListenerManager[T](logger, config, delivery, queryService, tracer, mapper, true)
+}
+
+func newListenerManager[T EventInfo](
+	logger logging.Logger,
+	config DeliveryListenerManagerConfig,
+	delivery Delivery,
+	queryService QueryByIDService[T],
+	tracer trace.Tracer,
+	mapper EventInfoMapper[T],
+	sequential bool,
 ) (*ListenerManager[T], error) {
 	var events cache.Map[EventID, T]
 	if config.LRUSize > 0 && config.LRUBuffer > 0 {
@@ -100,6 +124,7 @@ func NewListenerManager[T EventInfo](
 		blockProcessingParallelism: config.BlockProcessParallelism,
 		delivery:                   delivery,
 		permanentListeners:         make(map[EventID][]ListenerEntry[T]),
+		sequential:                 sequential,
 	}
 	var listeners cache.Map[EventID, []ListenerEntry[T]]
 	if config.ListenerTimeout > 0 {
@@ -113,7 +138,7 @@ func NewListenerManager[T EventInfo](
 				logging.Keys(evicted),
 				lastBlockNum,
 			)
-			fetchTxs(context.TODO(), logger, lastBlockNum, evicted, queryService)
+			fetchTxs(context.TODO(), logger, lastBlockNum, evicted, queryService, sequential)
 		})
 	} else {
 		listeners = cache.NewMapCache[EventID, []ListenerEntry[T]]()
@@ -181,9 +206,22 @@ func (m *ListenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 			pListeners := m.permanentListeners[event.ID()]
 			listeners = append(listeners, pListeners...)
 
-			m.logger.Debugf("invoking [%d] listeners and [%d] permanent listeners for [%s]", len(listeners), len(pListeners), event.ID())
-			for _, entry := range listeners {
-				go entry.OnStatus(ctx, event)
+			m.logger.Debugf(
+				"invoking [%d] listeners and [%d] permanent listeners for [%s], sequentially [%v]",
+				len(listeners),
+				len(pListeners),
+				event.ID(),
+				m.sequential,
+			)
+			if m.sequential {
+				for _, entry := range listeners {
+					entry.OnStatus(ctx, event)
+				}
+			} else {
+				// run them in parallel
+				for _, entry := range listeners {
+					go entry.OnStatus(ctx, event)
+				}
 			}
 		}
 	}
@@ -260,7 +298,14 @@ func (m *ListenerManager[T]) RemoveEventListener(id EventID, e ListenerEntry[T])
 	return errors.Errorf("could not find listener [%v] in eventID [%s]", e, id)
 }
 
-func fetchTxs[T EventInfo](ctx context.Context, logger logging.Logger, lastBlock driver.BlockNum, evicted map[EventID][]ListenerEntry[T], queryService QueryByIDService[T]) {
+func fetchTxs[T EventInfo](
+	ctx context.Context,
+	logger logging.Logger,
+	lastBlock driver.BlockNum,
+	evicted map[EventID][]ListenerEntry[T],
+	queryService QueryByIDService[T],
+	sequential bool,
+) {
 	go func() {
 		ch, err := queryService.QueryByID(ctx, lastBlock, evicted)
 		if err != nil {
@@ -271,9 +316,14 @@ func fetchTxs[T EventInfo](ctx context.Context, logger logging.Logger, lastBlock
 			logger.DebugfContext(ctx, "received [%d] events", len(events))
 			for _, event := range events {
 				logger.DebugfContext(ctx, "evicted event [%s], notify [%d] listeners", event.ID(), len(evicted[event.ID()]))
+
 				for i, listener := range evicted[event.ID()] {
 					logger.DebugfContext(ctx, "calling listener [%d], event [%s]", i, event.ID())
-					go listener.OnStatus(context.TODO(), event)
+					if sequential {
+						listener.OnStatus(context.TODO(), event)
+					} else {
+						go listener.OnStatus(context.TODO(), event)
+					}
 				}
 			}
 		}
