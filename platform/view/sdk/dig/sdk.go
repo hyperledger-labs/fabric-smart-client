@@ -123,7 +123,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(view.NewManager),
 		p.Container().Provide(
 			digutils.Identity[*view.Manager](),
-			dig.As(new(StartableViewManager), new(server2.ViewManager)),
+			dig.As(new(server2.ViewManager)),
 		),
 
 		// Comm service
@@ -207,7 +207,7 @@ func (p *SDK) Start(ctx context.Context) error {
 	return p.Container().Invoke(func(in struct {
 		dig.In
 		GRPCServer     *grpc.GRPCServer
-		ViewManager    StartableViewManager
+		ViewManager    *view.Manager
 		ViewService    server2.Service
 		CommService    *comm.Service
 		WebServer      Server
