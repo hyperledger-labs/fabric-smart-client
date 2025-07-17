@@ -73,6 +73,7 @@ type ListenerManager[T EventInfo] struct {
 	delivery                   Delivery
 	blockProcessingParallelism int
 	ignoreBlockErrors          bool
+	sequential                 bool
 }
 
 func NewListenerManager[T EventInfo](
@@ -82,6 +83,29 @@ func NewListenerManager[T EventInfo](
 	queryService QueryByIDService[T],
 	tracer trace.Tracer,
 	mapper EventInfoMapper[T],
+) (*ListenerManager[T], error) {
+	return newListenerManager[T](logger, config, delivery, queryService, tracer, mapper, false)
+}
+
+func NewSequentialListenerManager[T EventInfo](
+	logger logging.Logger,
+	config DeliveryListenerManagerConfig,
+	delivery Delivery,
+	queryService QueryByIDService[T],
+	tracer trace.Tracer,
+	mapper EventInfoMapper[T],
+) (*ListenerManager[T], error) {
+	return newListenerManager[T](logger, config, delivery, queryService, tracer, mapper, true)
+}
+
+func newListenerManager[T EventInfo](
+	logger logging.Logger,
+	config DeliveryListenerManagerConfig,
+	delivery Delivery,
+	queryService QueryByIDService[T],
+	tracer trace.Tracer,
+	mapper EventInfoMapper[T],
+	sequential bool,
 ) (*ListenerManager[T], error) {
 	var events cache.Map[EventID, T]
 	if config.LRUSize > 0 && config.LRUBuffer > 0 {
@@ -100,6 +124,7 @@ func NewListenerManager[T EventInfo](
 		blockProcessingParallelism: config.BlockProcessParallelism,
 		delivery:                   delivery,
 		permanentListeners:         make(map[EventID][]ListenerEntry[T]),
+		sequential:                 sequential,
 	}
 	var listeners cache.Map[EventID, []ListenerEntry[T]]
 	if config.ListenerTimeout > 0 {
@@ -181,9 +206,22 @@ func (m *ListenerManager[T]) onBlock(ctx context.Context, block *common.Block) e
 			pListeners := m.permanentListeners[event.ID()]
 			listeners = append(listeners, pListeners...)
 
-			m.logger.Debugf("invoking [%d] listeners and [%d] permanent listeners for [%s]", len(listeners), len(pListeners), event.ID())
-			for _, entry := range listeners {
-				go entry.OnStatus(ctx, event)
+			m.logger.Debugf(
+				"invoking [%d] listeners and [%d] permanent listeners for [%s], sequentially [%v]",
+				len(listeners),
+				len(pListeners),
+				event.ID(),
+				m.sequential,
+			)
+			if m.sequential {
+				for _, entry := range listeners {
+					entry.OnStatus(ctx, event)
+				}
+			} else {
+				// run them in parallel
+				for _, entry := range listeners {
+					go entry.OnStatus(ctx, event)
+				}
 			}
 		}
 	}
