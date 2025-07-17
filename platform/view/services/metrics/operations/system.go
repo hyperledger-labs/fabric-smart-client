@@ -127,7 +127,7 @@ func (s *System) initializeMetricsProvider(provider metrics.Provider, m MetricsO
 	case "":
 		s.logger.Info("metrics disabled")
 	default:
-		s.logger.Warnf("Unknown provider type: %s; metrics disabled", m.Provider)
+		s.logger.Warnf("unknown provider type: %s; metrics disabled", m.Provider)
 	}
 	s.versionGauge = versionGauge(s.Provider)
 	return nil

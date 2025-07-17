@@ -35,7 +35,6 @@ func key(o Opts) string { return o.DataSource }
 func Open(opts Opts) (*common.RWDB, error) {
 	db, err := sqlOpen(opts.DataSource, opts.Tracing)
 	if err != nil {
-		logger.Error(err)
 		return nil, fmt.Errorf("can't open %s database: %w", driverName, err)
 	}
 

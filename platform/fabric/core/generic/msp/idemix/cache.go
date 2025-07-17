@@ -112,7 +112,7 @@ func (c *IdentityCache) provisionIdentities() {
 	for {
 		id, audit, err := c.backed(c.opts)
 		if err != nil {
-			logger.Errorf("failed to provision identity [%s]", err)
+			logger.Errorf("failed to provision identity [%s]", err.Error())
 			continue
 		}
 		logger.Debugf("generated new idemix identity [%d]", count)

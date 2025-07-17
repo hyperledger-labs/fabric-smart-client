@@ -56,7 +56,7 @@ func (db *AuditInfoStore) PutAuditInfo(ctx context.Context, id view.Identity, in
 	logger.Debug(query, params)
 	_, err := db.writeDB.ExecContext(ctx, query, params...)
 	if err != nil && errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
-		logger.Warnf("Audit info [%s] already in db. Skipping...", id)
+		logger.Infof("Audit info [%s] already in db. Skipping...", id)
 		return nil
 	}
 	if err != nil {

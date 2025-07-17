@@ -28,19 +28,20 @@ type Dispatcher struct {
 	Handler *server.HttpHandler
 }
 
-func (rd *Dispatcher) HandleRequest(context *server.ReqContext) (response interface{}, statusCode int) {
-	logger.Debugf("Received request from %s", context.Req.Host)
+func (rd *Dispatcher) HandleRequest(reqctx *server.ReqContext) (response interface{}, statusCode int) {
+	ctx := reqctx.Req.Context()
+	logger.DebugfContext(ctx, "received request from %s", reqctx.Req.Host)
 
 	if rd.vc == nil {
-		logger.Errorf("ViewCaller has not been initialized yet")
+		logger.ErrorfContext(ctx, "viewCaller has not been initialized yet")
 		return &server.ResponseErr{Reason: "internal error"}, 500
 	}
 
-	viewID := context.Vars["View"]
+	viewID := reqctx.Vars["View"]
 	escapedViewID := strings.ReplaceAll(viewID, "\n", "")
 	escapedViewID = strings.ReplaceAll(escapedViewID, "\r", "")
 
-	res, err := rd.vc.CallView(context, escapedViewID, context.Query.([]byte))
+	res, err := rd.vc.CallView(reqctx, escapedViewID, reqctx.Query.([]byte))
 	if err != nil {
 		return &server.ResponseErr{Reason: err.Error()}, 500
 	}

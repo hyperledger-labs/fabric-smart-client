@@ -77,7 +77,7 @@ type VaultStore struct {
 }
 
 func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (driver.LockedVaultReader, error) {
-	logger.DebugfContext(ctx, "Acquire tx id lock for [%s]", txID)
+	logger.DebugfContext(ctx, "acquire tx id lock for [%s]", txID)
 
 	// Ignore conflicts in case replicas create the same entry when receiving the envelope
 	query, params := q.InsertInto(db.tables.StatusTable).
@@ -118,8 +118,8 @@ func (db *VaultStore) newTxLockVaultReader(ctx context.Context, isolationLevel d
 }
 
 func (db *VaultStore) NewGlobalLockVaultReader(ctx context.Context) (driver.LockedVaultReader, error) {
-	logger.DebugfContext(ctx, "Start acquire global lock")
-	defer logger.DebugfContext(ctx, "End acquire global lock")
+	logger.DebugfContext(ctx, "start acquire global lock")
+	defer logger.DebugfContext(ctx, "end acquire global lock")
 	return newTxVaultReader(db.newGlobalLockVaultReader), nil
 }
 
@@ -217,14 +217,14 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 				metaVersion = metaVal.Version
 			}
 			if len(metaVersion) > 0 && !bytes.Equal(val.Version, metaVersion) {
-				logger.Warnf("Different values passed for metadata version and data version: [%s] [%s]", metaVersion, val.Version)
+				logger.Warnf("different values passed for metadata version and data version: [%s] [%s]", metaVersion, val.Version)
 			}
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to marshal metadata for [%s:%s]", ns, pkey)
 			}
 			if len(val.Raw) == 0 {
 				// Deleting value
-				logger.Warnf("Setting version of [%s] to nil", pkey)
+				logger.Debugf("setting version of [%s] to nil", pkey)
 				val.Version = nil
 			}
 			ns, err := db.sanitizer.Encode(ns)
@@ -497,7 +497,7 @@ func (db *vaultReader) queryStatus(ctx context.Context, where cond2.Condition, p
 		Where(where).
 		Paginated(pagination).
 		FormatPaginated(db.ci, db.pi)
-	logger.Debugf(query, params)
+	logger.Debug(query, params)
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {

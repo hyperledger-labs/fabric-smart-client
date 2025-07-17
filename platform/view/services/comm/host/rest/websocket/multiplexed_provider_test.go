@@ -57,9 +57,9 @@ func TestConnections(t *testing.T) {
 			wg.Add(1)
 			go func(srv host.P2PStream) {
 				defer wg.Done()
-				serverLogger.Info("[server] new stream established with %v (ID=%v) sessionID=%v", srv.RemotePeerID(), srv.RemotePeerID(), srv.Hash())
+				serverLogger.Debugf("[server] new stream established with %v (ID=%v) sessionID=%v", srv.RemotePeerID(), srv.RemotePeerID(), srv.Hash())
 				for {
-					serverLogger.Info("[server] reading ...")
+					serverLogger.Debugf("[server] reading ...")
 					answer, err := readMsg(srv)
 
 					// deal with EOF

@@ -27,7 +27,7 @@ func (m *ErrorMapper) WrapError(err error) error {
 	}
 	mappedErr, ok := errorMap[pgErr.Code()]
 	if !ok {
-		logger.Warnf("Unmapped sqlite error with code [%d]", pgErr.Code())
+		logger.Warnf("unmapped sqlite error with code [%d]", pgErr.Code())
 		return pgErr
 	}
 	return errors.Wrapf(mappedErr, "%s", err)

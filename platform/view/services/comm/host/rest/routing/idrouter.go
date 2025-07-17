@@ -8,6 +8,7 @@ package routing
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 
@@ -40,7 +41,7 @@ func (r *EndpointServiceIDRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress
 	}
 	resolver, err := r.es.GetResolver(context.Background(), identity)
 	if err != nil {
-		logger.Errorf("failed resolving [%s]: %v", id, err)
+		logger.Errorf("failed resolving [%s]: %s", id, err.Error())
 		return []host2.PeerIPAddress{}, false
 	}
 	if address := resolver.GetAddress(endpoint.P2PPort); len(address) > 0 {
@@ -61,10 +62,8 @@ func (r StaticIDRouter) Lookup(id string) ([]host2.PeerIPAddress, bool) {
 
 func (r StaticIDRouter) ReverseLookup(ipAddress host2.PeerIPAddress) (host2.PeerID, bool) {
 	for id, addrs := range r {
-		for _, addr := range addrs {
-			if ipAddress == addr {
-				return id, true
-			}
+		if slices.Contains(addrs, ipAddress) {
+			return id, true
 		}
 	}
 	return "", false

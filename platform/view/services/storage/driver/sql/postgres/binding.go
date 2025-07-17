@@ -60,7 +60,7 @@ func (db *BindingStore) PutBinding(ctx context.Context, ephemeral, longTerm view
 		return nil
 	}
 	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
-		logger.Warnf("Tuple [%s,%s] already in db. Skipping...", ephemeral, longTerm)
+		logger.Infof("tuple [%s,%s] already in db. Skipping...", ephemeral, longTerm)
 		return nil
 	}
 	return errors.Wrapf(err, "failed executing query [%s]", query)

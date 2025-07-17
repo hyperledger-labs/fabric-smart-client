@@ -56,7 +56,7 @@ func (db *SimpleKeyDataStore) PutData(ctx context.Context, key string, data []by
 		Row(key, data).
 		OnConflictDoNothing().
 		Format()
-	logger.Debug(query, params)
+	logger.Debug(query, string(data))
 	result, err := db.writeDB.ExecContext(ctx, query, params...)
 	if err != nil {
 		return errors.Wrapf(err, "failed executing query [%s]", query)

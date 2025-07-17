@@ -140,8 +140,8 @@ func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkServ
 
 	internalFns, err := nsp.fnsProvider.FabricNetworkService(id)
 	if err != nil {
-		logger.Errorf("Failed to get Fabric Network Service for id [%s]: [%s]", id, err)
-		return nil, errors.WithMessagef(err, "Failed to get Fabric Network Service for id [%s]", id)
+		logger.Errorf("failed to get Fabric Network Service for id [%s]: [%s]", id, err.Error())
+		return nil, errors.WithMessagef(err, "failed to get Fabric Network Service for id [%s]", id)
 	}
 	ns, ok = nsp.networkServices[internalFns.Name()]
 	if ok {

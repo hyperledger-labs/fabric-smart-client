@@ -28,7 +28,7 @@ type server struct {
 }
 
 func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stream host2.P2PStream)) *gin.Engine {
-	logger.Debugf("Creating GIN engine for p2p REST endpoint.")
+	logger.Debugf("creating GIN engine for p2p REST endpoint.")
 	r := gin.New()
 	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 		// your custom format
@@ -50,9 +50,9 @@ func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stre
 	r.Use(cors.New(config))
 
 	r.GET("/p2p", func(c *gin.Context) {
-		logger.Debugf("New incoming stream from [%s]", c.Request.RemoteAddr)
+		logger.DebugfContext(c.Request.Context(), "new incoming stream from [%s]", c.Request.RemoteAddr)
 		if err := streamProvider.NewServerStream(c.Writer, c.Request, newStreamCallback); err != nil {
-			logger.Errorf("error receiving websocket: %v", err)
+			logger.ErrorfContext(c.Request.Context(), "error receiving websocket: %s", err.Error())
 		}
 	})
 	return r
@@ -63,10 +63,10 @@ func (s *server) Start(newStreamCallback func(stream host2.P2PStream)) error {
 
 	var err error
 	if s.srv.TLSConfig == nil {
-		logger.Infof("Starting up REST server without TLS on [%s]...", s.srv.Addr)
+		logger.Infof("starting up REST server without TLS on [%s]...", s.srv.Addr)
 		err = s.srv.ListenAndServe()
 	} else {
-		logger.Infof("Starting up REST server with TLS [%v] on [%s]...", s.srv.TLSConfig, s.srv.Addr)
+		logger.Infof("starting up REST server with TLS [%v] on [%s]...", s.srv.TLSConfig, s.srv.Addr)
 		err = s.srv.ListenAndServeTLS("", "")
 	}
 	if !errors.Is(err, http.ErrServerClosed) {
@@ -76,7 +76,7 @@ func (s *server) Start(newStreamCallback func(stream host2.P2PStream)) error {
 }
 
 func (s *server) Close() error {
-	logger.Debugf("Shutting down server on [%s]", s.srv.Addr)
+	logger.Debugf("shutting down server on [%s]", s.srv.Addr)
 	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownRelease()
 	return s.srv.Shutdown(shutdownCtx)

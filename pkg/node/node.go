@@ -66,42 +66,42 @@ func (n *Node) ID() string {
 func (n *Node) Start() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Start triggered panic: %s\n%s\n", r, debug.Stack())
-			err = errors.Errorf("Start triggered panic: %s", r)
+			log.Printf("start triggered panic: %s\n%s\n", r, debug.Stack())
+			err = errors.Errorf("start triggered panic: %s", r)
 			n.Stop()
 		}
 	}()
 
 	n.running = true
 	// Install
-	logger.Infof("Installing sdks...")
+	logger.Infof("installing sdks...")
 	for _, p := range n.sdks {
 		if err := p.Install(); err != nil {
-			logger.Errorf("Failed installing platform [%s]", err)
+			logger.Errorf("failed installing platform [%s]", err.Error())
 			return err
 		}
 	}
-	logger.Infof("Installing sdks...done")
+	logger.Infof("installing sdks...done")
 
 	n.context, n.cancel = context.WithCancel(context.Background())
 
 	// Start
-	logger.Info("Starting sdks...")
+	logger.Info("starting sdks...")
 	for _, p := range n.sdks {
 		if err := p.Start(n.context); err != nil {
-			logger.Errorf("Failed starting platform [%s]", err)
+			logger.Errorf("failed starting platform [%s]", err.Error())
 			return err
 		}
 	}
-	logger.Infof("Starting sdks...done")
+	logger.Infof("starting sdks...done")
 
 	// PostStart
-	logger.Info("Post-starting sdks...")
+	logger.Info("post-starting sdks...")
 	for _, p := range n.sdks {
 		ps, ok := p.(PostStart)
 		if ok {
 			if err := ps.PostStart(n.context); err != nil {
-				logger.Errorf("Failed post-starting platform [%s]", err)
+				logger.Errorf("failed post-starting platform [%s]", err.Error())
 				return err
 			}
 		}

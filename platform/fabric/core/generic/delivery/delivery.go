@@ -158,7 +158,7 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 	for {
 		select {
 		case b := <-ch:
-			logger.Debugf("Invoking callback for block [%d]", b.block.Header)
+			logger.Debugf("Invoking callback for block [%d]", b.block.Header.Number)
 			stop, err := d.callback(b.ctx, b.block)
 			if err != nil {
 				logger.Errorf("callback errored for block [%d], stop delivery: [%v]", b.block.Header.Number, err)

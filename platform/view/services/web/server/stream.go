@@ -63,24 +63,24 @@ func (c *WSStream) Send(p any) error {
 
 func (c *WSStream) Read() ([]byte, error) {
 	_, message, err := c.ws.ReadMessage()
-	logger.Debugf("Received message: %s", message)
+	logger.Debugf("received message: %s", message)
 	if err != nil {
-		logger.Errorf("Error receiving message: %v", err)
+		logger.Errorf("error receiving message: %v", err)
 	}
 	return message, nil
 }
 
 func (c *WSStream) Write(message []byte) error {
-	logger.Debugf("Sending message: %s", message)
+	logger.Debugf("sending message: %s", message)
 	err := c.ws.WriteMessage(websocket.TextMessage, message)
 	if err != nil {
-		logger.Errorf("Error writing message: %v", err)
+		logger.Errorf("error writing message: %v", err)
 	}
 	return err
 }
 
 func (c *WSStream) Close() error {
-	logger.Debugf("Closing web socket")
+	logger.Debugf("closing web socket")
 	err := c.ws.Close()
 	if err != nil {
 		logger.Errorf("error closing web socket: %v", err)

@@ -85,7 +85,7 @@ func NewListenerManager[T EventInfo](
 ) (*ListenerManager[T], error) {
 	var events cache.Map[EventID, T]
 	if config.LRUSize > 0 && config.LRUBuffer > 0 {
-		events = cache.NewLRUCache[EventID, T](config.LRUSize, config.LRUBuffer, func(evicted map[EventID]T) {
+		events = cache.NewLRUCache(config.LRUSize, config.LRUBuffer, func(evicted map[EventID]T) {
 			logger.Debugf("evicted keys [%s]. If they are looked up, they will be fetched directly from the ledger from now on...", logging.Keys(evicted))
 		})
 	} else {
@@ -103,7 +103,7 @@ func NewListenerManager[T EventInfo](
 	}
 	var listeners cache.Map[EventID, []ListenerEntry[T]]
 	if config.ListenerTimeout > 0 {
-		listeners = cache.NewTimeoutCache[EventID, []ListenerEntry[T]](config.ListenerTimeout, func(evicted map[EventID][]ListenerEntry[T]) {
+		listeners = cache.NewTimeoutCache(config.ListenerTimeout, func(evicted map[EventID][]ListenerEntry[T]) {
 			if len(evicted) == 0 {
 				return
 			}
@@ -113,7 +113,7 @@ func NewListenerManager[T EventInfo](
 				logging.Keys(evicted),
 				lastBlockNum,
 			)
-			fetchTxs(logger, context.TODO(), lastBlockNum, evicted, queryService)
+			fetchTxs(context.TODO(), logger, lastBlockNum, evicted, queryService)
 		})
 	} else {
 		listeners = cache.NewMapCache[EventID, []ListenerEntry[T]]()
@@ -260,19 +260,19 @@ func (m *ListenerManager[T]) RemoveEventListener(id EventID, e ListenerEntry[T])
 	return errors.Errorf("could not find listener [%v] in eventID [%s]", e, id)
 }
 
-func fetchTxs[T EventInfo](logger logging.Logger, ctx context.Context, lastBlock driver.BlockNum, evicted map[EventID][]ListenerEntry[T], queryService QueryByIDService[T]) {
+func fetchTxs[T EventInfo](ctx context.Context, logger logging.Logger, lastBlock driver.BlockNum, evicted map[EventID][]ListenerEntry[T], queryService QueryByIDService[T]) {
 	go func() {
 		ch, err := queryService.QueryByID(ctx, lastBlock, evicted)
 		if err != nil {
-			logger.Errorf("failed scanning: %v", err)
+			logger.Errorf("failed scanning: %s", err.Error())
 			return
 		}
 		for events := range ch {
-			logger.Debugf("received [%d] events", len(events))
+			logger.DebugfContext(ctx, "received [%d] events", len(events))
 			for _, event := range events {
-				logger.Debugf("evicted event [%s], notify [%d] listeners", event.ID(), len(evicted[event.ID()]))
+				logger.DebugfContext(ctx, "evicted event [%s], notify [%d] listeners", event.ID(), len(evicted[event.ID()]))
 				for i, listener := range evicted[event.ID()] {
-					logger.Debugf("calling listener [%d], event [%s]", i, event.ID())
+					logger.DebugfContext(ctx, "calling listener [%d], event [%s]", i, event.ID())
 					go listener.OnStatus(context.TODO(), event)
 				}
 			}
