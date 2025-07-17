@@ -11,10 +11,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/server/view/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"

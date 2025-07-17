@@ -29,10 +29,6 @@ const (
 	InitiatorViewLabel tracing.LabelName = "initiator_view"
 )
 
-type (
-	ServiceProvider = services.Provider
-)
-
 var logger = logging.MustGetLogger()
 
 type Manager struct {
@@ -52,7 +48,7 @@ type Manager struct {
 }
 
 func NewManager(
-	serviceProvider ServiceProvider,
+	serviceProvider services.Provider,
 	commLayer CommLayer,
 	endpointService EndpointService,
 	identityProvider IdentityProvider,
@@ -138,13 +134,13 @@ func (m *Manager) InitiateViewWithIdentity(parent context.Context, view view.Vie
 	m.contextsSync.Unlock()
 	defer m.deleteContext(id, childContext.ID())
 
-	logger.DebugfContext(c, "[%s] InitiateView [view:%s], [ContextID:%s]", id, logging.Identifier(view), childContext.ID())
+	logger.DebugfContext(parent, "[%s] InitiateView [view:%s], [ContextID:%s]", id, logging.Identifier(view), childContext.ID())
 	res, err := childContext.RunView(view)
 	if err != nil {
-		logger.DebugfContext(c, "[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, logging.Identifier(view), childContext.ID(), err)
+		logger.DebugfContext(parent, "[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, logging.Identifier(view), childContext.ID(), err)
 		return nil, err
 	}
-	logger.DebugfContext(c, "[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, logging.Identifier(view), childContext.ID())
+	logger.DebugfContext(parent, "[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, logging.Identifier(view), childContext.ID())
 	return res, nil
 }
 
@@ -168,16 +164,16 @@ func (m *Manager) InitiateContextFrom(parent context.Context, view view.View, id
 		parent = m.ctx
 	}
 	viewContext, err := NewContextForInitiator(
+		parent,
 		contextID,
-		ctx,
-		cm.serviceProvider,
-		cm.commLayer,
-		cm.endpointService,
-		cm.identityProvider,
+		m.serviceProvider,
+		m.commLayer,
+		m.endpointService,
+		m.identityProvider,
 		id,
 		view,
-		cm.tracer,
-		cm.localIdentityChecker,
+		m.tracer,
+		m.localIdentityChecker,
 	)
 	if err != nil {
 		return nil, err
@@ -188,7 +184,7 @@ func (m *Manager) InitiateContextFrom(parent context.Context, view view.View, id
 	m.metrics.Contexts.Set(float64(len(m.contexts)))
 	m.contextsSync.Unlock()
 
-	logger.DebugfContext(ctx, "[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, logging.Identifier(view), childContext.ID())
+	logger.DebugfContext(parent, "[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, logging.Identifier(view), childContext.ID())
 
 	return childContext, nil
 }
@@ -399,15 +395,15 @@ func (m *Manager) me() view.Identity {
 	return m.identityProvider.DefaultIdentity()
 }
 
-func (cm *Manager) getCurrentContext() context.Context {
-	cm.contextsSync.Lock()
-	ctx := cm.ctx
-	cm.contextsSync.Unlock()
+func (m *Manager) getCurrentContext() context.Context {
+	m.contextsSync.Lock()
+	ctx := m.ctx
+	m.contextsSync.Unlock()
 	return ctx
 }
 
-func (cm *Manager) setCurrentContext(ctx context.Context) {
-	cm.contextsSync.Lock()
-	cm.ctx = ctx
-	cm.contextsSync.Unlock()
+func (m *Manager) setCurrentContext(ctx context.Context) {
+	m.contextsSync.Lock()
+	m.ctx = ctx
+	m.contextsSync.Unlock()
 }

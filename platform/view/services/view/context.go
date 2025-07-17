@@ -388,7 +388,7 @@ func runViewOn(v view.View, opts []view.RunViewOption, parent localContext) (res
 		initiator = v
 	}
 
-	logger.DebugfContext(ctx.Context(), "Start view %s", GetName(v))
+	logger.DebugfContext(parent.Context(), "Start view %s", GetName(v))
 
 	// traces
 	newCtx, span := parent.StartSpanFrom(

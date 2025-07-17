@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/web"
 	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
