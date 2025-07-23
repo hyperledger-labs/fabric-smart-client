@@ -44,7 +44,7 @@ func TestSelectJoin(t *testing.T) {
 	query, params := q.Select().Fields(myTable.Field("name"), yourTable.Field("id")).
 		From(myTable.
 			Join(yourTable, cond.Cmp(myTable.Field("id"), "=", yourTable.Field("my_id"))).
-			JoinAs(common.RightOuter, theirTable, cond.Cmp(myTable.Field("id"), ">", theirTable.Field("their_id")))).
+			JoinAs(common.Right, theirTable, cond.Cmp(myTable.Field("id"), ">", theirTable.Field("their_id")))).
 		Where(cond.CmpVal(myTable.Field("id"), ">", 5)).
 		OrderBy(q.Desc(yourTable.Field("date"))).
 		Limit(2).
@@ -54,7 +54,7 @@ func TestSelectJoin(t *testing.T) {
 	Expect(query).To(Equal("SELECT my_table.name, your_table.id " +
 		"FROM my_table " +
 		"LEFT JOIN your_table ON my_table.id = your_table.my_id " +
-		"OUTER RIGHT JOIN their_table AS tt ON my_table.id > tt.their_id " +
+		"RIGHT JOIN their_table AS tt ON my_table.id > tt.their_id " +
 		"WHERE my_table.id > $1 " +
 		"ORDER BY your_table.date DESC " +
 		"LIMIT $2 " +
