@@ -18,3 +18,7 @@ func DuplicatesBy[V any, I comparable](prop func(V) I) Predicate[V] {
 		return true
 	}
 }
+
+func Or[A any](this, that Predicate[A]) Predicate[A] {
+	return func(v A) bool { return this(v) || that(v) }
+}

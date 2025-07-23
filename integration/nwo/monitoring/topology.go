@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package monitoring
 
-import "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/monitoring"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+)
 
 type Topology struct {
 	TopologyName            string `yaml:"name,omitempty"`
@@ -26,7 +29,7 @@ func NewTopology() *Topology {
 		TopologyName:            TopologyName,
 		TopologyType:            TopologyName,
 		HyperledgerExplorerPort: 8080,
-		PrometheusPort:          9090,
+		PrometheusPort:          monitoring.PrometheusPort,
 		GrafanaPort:             3000,
 		OPTLPort:                4319,
 		JaegerQueryPort:         optl.JaegerQueryPort,

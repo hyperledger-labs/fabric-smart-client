@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package iterators
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/sets"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/sets"
+	"golang.org/x/exp/constraints"
+)
 
 // NewReducer creates a generic reducer
 func NewReducer[V any, S any](initial S, merge ReduceFunc[V, S]) Reducer[V, S] {
@@ -42,3 +46,26 @@ type flatReducer[V any] struct{}
 func (r *flatReducer[V]) Produce() []V { return []V{} }
 
 func (r *flatReducer[V]) Reduce(vs []V, v *[]V) ([]V, error) { return append(vs, *v...), nil }
+
+// ToMaxBy calculates the max element of an iterator
+func ToMaxBy[V any, K constraints.Ordered](fn Transformer[V, K]) Reducer[V, V] {
+	return &maxByReducer[V, K]{fn: fn}
+}
+
+type maxByReducer[V any, K constraints.Ordered] struct {
+	fn     Transformer[V, K]
+	maxKey K
+}
+
+func (r *maxByReducer[V, K]) Produce() V { return utils.Zero[V]() }
+
+func (r *maxByReducer[V, K]) Reduce(maxVal V, v V) (V, error) {
+	if currKey, err := r.fn(v); err != nil {
+		return utils.Zero[V](), err
+	} else if r.maxKey < currKey {
+		r.maxKey = currKey
+		return v, nil
+	} else {
+		return maxVal, nil
+	}
+}
