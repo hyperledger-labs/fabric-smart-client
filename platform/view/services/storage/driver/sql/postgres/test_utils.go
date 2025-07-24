@@ -47,11 +47,12 @@ type ContainerConfig struct {
 }
 
 type DbConfig struct {
-	DBName string
-	User   string
-	Pass   string
-	Host   string
-	Port   int
+	DBName          string
+	User            string
+	Pass            string
+	Host            string
+	Port            int
+	ExtendedLogging bool
 }
 
 func (c *DbConfig) DataSource() string {
@@ -163,7 +164,7 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 		return nil, fmt.Errorf("can't start postgres: %s", err)
 	}
 	ctx := context.Background()
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
+	containerConfig := &container.Config{
 		Env: []string{
 			"POSTGRES_DB=" + c.DBName,
 			"POSTGRES_USER=" + c.User,
@@ -181,7 +182,28 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 			Timeout:  time.Second,
 			Retries:  10,
 		},
-	}, &container.HostConfig{
+	}
+
+	// Add extended logging configuration if enabled
+	if c.ExtendedLogging {
+		containerConfig.Cmd = []string{
+			"postgres",
+			"-c", "log_destination=stderr",
+			"-c", "logging_collector=on",
+			"-c", "log_directory=pg_log",
+			"-c", "log_filename=postgresql-%Y-%m-%d_%H%M%S.log",
+			"-c", "log_min_duration_statement=0",
+			"-c", "log_line_prefix=%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h ",
+			"-c", "log_checkpoints=on",
+			"-c", "log_connections=on",
+			"-c", "log_disconnections=on",
+			"-c", "log_lock_waits=on",
+			"-c", "log_temp_files=0",
+			"-c", "log_autovacuum_min_duration=0",
+		}
+	}
+
+	resp, err := cli.ContainerCreate(ctx, containerConfig, &container.HostConfig{
 		PortBindings: nat.PortMap{
 			nat.Port("5432/tcp"): []nat.PortBinding{
 				{
