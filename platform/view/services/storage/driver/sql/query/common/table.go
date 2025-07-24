@@ -60,16 +60,16 @@ func (a aliasedTable) JoinAs(typ JoinType, other Table, ons ConditionSerializabl
 }
 
 func (a aliasedTable) Join(other Table, ons ConditionSerializable) JoinedTable {
-	return a.JoinAs(LeftInner, other, ons)
+	return a.JoinAs(Left, other, ons)
 }
 
 type JoinType int
 
 const (
-	LeftInner JoinType = iota
-	LeftOuter
-	RightInner
-	RightOuter
+	Left JoinType = iota
+	Right
+	Full
+	Inner
 	Cross
 )
 
@@ -87,15 +87,15 @@ func (t joinedTable) JoinAs(typ JoinType, other Table, ons ConditionSerializable
 }
 
 func (t joinedTable) Join(other Table, ons ConditionSerializable) JoinedTable {
-	return t.JoinAs(LeftInner, other, ons)
+	return t.JoinAs(Left, other, ons)
 }
 
 var joinTypeMap = map[JoinType]string{
-	LeftInner:  " LEFT JOIN ",
-	LeftOuter:  " OUTER LEFT JOIN ",
-	RightInner: " INNER RIGHT JOIN ",
-	RightOuter: " OUTER RIGHT JOIN ",
-	Cross:      " CROSS JOIN ",
+	Left:  " LEFT JOIN ",  // same as JOIN, LEFT OUTER JOIN
+	Right: " RIGHT JOIN ", // same as RIGHT OUTER JOIN
+	Full:  " FULL JOIN ",  // same as FULL OUTER JOIN
+	Inner: " INNER JOIN",
+	Cross: " CROSS JOIN ",
 }
 
 func (t joinedTable) WriteString(in CondInterpreter, sb Builder) {
