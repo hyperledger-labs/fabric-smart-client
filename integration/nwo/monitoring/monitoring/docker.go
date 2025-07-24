@@ -78,6 +78,11 @@ func (n *Extension) startPrometheus() {
 		ExposedPorts: nat.PortSet{
 			nat.Port(port + "/tcp"): struct{}{},
 		},
+		Cmd: []string{
+			"--config.file=/etc/prometheus/prometheus.yml",
+			"--storage.tsdb.path=/prometheus",
+			"--enable-feature=native-histograms",
+		},
 	}, &container.HostConfig{
 		ExtraHosts:    []string{fmt.Sprintf("fabric:%s", localIP)},
 		RestartPolicy: container.RestartPolicy{Name: "always"},
