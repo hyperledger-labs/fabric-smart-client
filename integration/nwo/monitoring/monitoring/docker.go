@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -42,15 +43,24 @@ func (n *Extension) startContainer() {
 	err = d.CheckImagesExist(RequiredImages...)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	logger.Infof("Run Prometheus...")
-	n.startPrometheus()
-	logger.Infof("Run Prometheus..done!")
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-	time.Sleep(30 * time.Second)
+	go func() {
+		defer wg.Done()
+		logger.Infof("Run Prometheus...")
+		n.startPrometheus()
+		logger.Infof("Run Prometheus..done!")
+	}()
 
-	logger.Infof("Run Grafana...")
-	n.startGrafana()
-	logger.Infof("Run Grafana...done!")
+	go func() {
+		defer wg.Done()
+		logger.Infof("Run Grafana...")
+		n.startGrafana()
+		logger.Infof("Run Grafana...done!")
+	}()
+
+	wg.Wait()
 }
 
 func (n *Extension) startPrometheus() {

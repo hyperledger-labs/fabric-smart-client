@@ -66,7 +66,7 @@ func (d *Docker) Cleanup() error {
 }
 
 func WaitUntilReady(ctx context.Context, grpcEndpoint string) error {
-	logger.Infof("Wait until read")
+	logger.Infof("Wait until ready %v", grpcEndpoint)
 
 	startWaitingAt := time.Now()
 
@@ -113,6 +113,6 @@ func WaitUntilReady(ctx context.Context, grpcEndpoint string) error {
 		return fmt.Errorf("invalid status .... %s", res)
 	}
 
-	logger.Infof("Ready! (t=%s)", time.Since(startWaitingAt))
+	logger.Infof("Ready! (t=%v)", time.Since(startWaitingAt))
 	return nil
 }
