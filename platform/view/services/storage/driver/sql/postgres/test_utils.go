@@ -52,7 +52,7 @@ type DbConfig struct {
 	Pass            string
 	Host            string
 	Port            int
-	ExtendedLogging bool
+	ExtendedLogging bool // enables extended loggings for PostgreSQL
 }
 
 func (c *DbConfig) DataSource() string {
