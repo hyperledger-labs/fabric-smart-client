@@ -173,7 +173,6 @@ func Start(topologies Topologies) error {
 	if err != nil {
 		return errors.WithMessage(err, "failed to create new infrastructure")
 	}
-	ii.EnableRaceDetector()
 	if StartCMDPostNew != nil {
 		err = StartCMDPostNew(ii)
 		if err != nil {
