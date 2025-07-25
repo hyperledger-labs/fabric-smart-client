@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -26,10 +27,7 @@ import (
 type PersistenceKey string
 
 // Factory is used to create instances of the View interface
-type Factory interface {
-	// NewView returns an instance of the View interface build using the passed argument.
-	NewView(in []byte) (view.View, error)
-}
+type Factory = view2.Factory
 
 type Options struct {
 	Mapping map[string]interface{}
