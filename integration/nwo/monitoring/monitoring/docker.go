@@ -25,6 +25,8 @@ import (
 	"github.com/onsi/gomega"
 )
 
+const PrometheusPort = 9090
+
 const (
 	PrometheusImg = "prom/prometheus:latest"
 	GrafanaImg    = "grafana/grafana:latest"

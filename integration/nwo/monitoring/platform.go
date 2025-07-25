@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package monitoring
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -18,14 +17,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/hle"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/reporting/jaeger"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/reporting/prometheus"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/jaegertracing/jaeger-idl/proto-gen/api_v2"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/onsi/gomega"
-	prom_api "github.com/prometheus/client_golang/api"
-	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/tedsuo/ifrit/grouper"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 var logger = logging.MustGetLogger()
@@ -55,34 +52,26 @@ type Extension interface {
 }
 
 type Platform struct {
-	Context    api.Context
-	topology   *Topology
-	RootDir    string
-	Prefix     string
-	Extensions []Extension
-	networkID  string
-	promAPI    prom_v1.API
-	jaegerAPI  api_v2.QueryServiceClient
+	Context            api.Context
+	topology           *Topology
+	RootDir            string
+	Prefix             string
+	Extensions         []Extension
+	networkID          string
+	prometheusReporter prometheus.Reporter
+	jaegerReporter     jaeger.Reporter
 }
 
 func New(reg api.Context, topology *Topology) *Platform {
-	promClient, err := prom_api.NewClient(prom_api.Config{Address: fmt.Sprintf("http://0.0.0.0:%d", topology.PrometheusPort)})
-	if err != nil {
-		panic(err)
-	}
-	jaegerClientConn, err := grpc.NewClient(fmt.Sprintf("0.0.0.0:%d", topology.JaegerQueryPort), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		panic(err)
-	}
 	p := &Platform{
-		Context:    reg,
-		RootDir:    reg.RootDir(),
-		Prefix:     topology.Name(),
-		topology:   topology,
-		Extensions: []Extension{},
-		networkID:  common.UniqueName(),
-		promAPI:    prom_v1.NewAPI(promClient),
-		jaegerAPI:  api_v2.NewQueryServiceClient(jaegerClientConn),
+		Context:            reg,
+		RootDir:            reg.RootDir(),
+		Prefix:             topology.Name(),
+		topology:           topology,
+		Extensions:         []Extension{},
+		networkID:          common.UniqueName(),
+		prometheusReporter: utils.MustGet(prometheus.NewLocalReporter()),
+		jaegerReporter:     utils.MustGet(jaeger.NewLocalReporter()),
 	}
 	p.AddExtension(hle.NewExtension(p))
 	p.AddExtension(monitoring.NewExtension(p))
@@ -147,12 +136,12 @@ func (p *Platform) Cleanup() {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
-func (p *Platform) PrometheusAPI() prom_v1.API {
-	return p.promAPI
+func (p *Platform) PrometheusReporter() prometheus.Reporter {
+	return p.prometheusReporter
 }
 
-func (p *Platform) JaegerAPI() api_v2.QueryServiceClient {
-	return p.jaegerAPI
+func (p *Platform) JaegerReporter() jaeger.Reporter {
+	return p.jaegerReporter
 }
 
 func (p *Platform) AddExtension(ex Extension) {

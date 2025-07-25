@@ -7,7 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package slices
 
 import (
+	"slices"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/sets"
+	"golang.org/x/exp/constraints"
 )
 
 // Remove removes the first occurrence of the input item from the input slice
@@ -50,4 +53,14 @@ func Repeat[T any](item T, times int) []T {
 		items[i] = item
 	}
 	return items
+}
+
+type SortedSlice[T constraints.Ordered] []T
+
+func (s *SortedSlice[T]) Add(t T) {
+	if i, found := slices.BinarySearch(*s, t); !found {
+		*s = append(*s, t)
+		copy((*s)[i+1:], (*s)[i:])
+		(*s)[i] = t
+	}
 }
