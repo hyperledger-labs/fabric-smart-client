@@ -91,14 +91,14 @@ fsc:
         {{- if eq $value.Type "postgres" }}
         dataSource: {{ $value.SQL.DataSource }}
         tablePrefix:
-        maxOpenConns: 200
+        maxOpenConns: 90
         maxIdleConns: 3
         maxIdleTime: 45s
         skipCreateTable: false
         {{- else if eq $value.Type "sqlite" }}
         dataSource: {{ $value.SQL.DataSource }}
         tablePrefix:    
-        maxOpenConns: 200
+        maxOpenConns: 90
         maxIdleConns: 3
         maxIdleTime: 45s
         skipCreateTable: false
