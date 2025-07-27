@@ -33,7 +33,7 @@ type Server interface {
 	Stop() error
 }
 
-func NewWebServer(configProvider driver.ConfigService, viewManager view.Manager, tracerProvider tracing.Provider) Server {
+func NewWebServer(configProvider driver.ConfigService, viewManager *view.Manager, tracerProvider tracing.Provider) Server {
 	if !configProvider.GetBool("fsc.web.enabled") {
 		logger.Info("web server not enabled")
 		return web.NewDummyServer()

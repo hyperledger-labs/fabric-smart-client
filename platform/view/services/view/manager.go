@@ -109,7 +109,7 @@ func (m *Manager) InitiateView(parent context.Context, view view.View) (any, err
 func (m *Manager) InitiateViewWithIdentity(parent context.Context, view view.View, id view.Identity) (any, error) {
 	// Create the context
 	if parent == nil {
-		parent = m.ctx
+		parent = m.getCurrentContext()
 	}
 	parent = trace.ContextWithSpanContext(parent, trace.SpanContextFromContext(parent))
 	viewContext, err := NewContextForInitiator(
@@ -161,7 +161,7 @@ func (m *Manager) InitiateContextFrom(parent context.Context, view view.View, id
 		id = m.me()
 	}
 	if parent == nil {
-		parent = m.ctx
+		parent = m.getCurrentContext()
 	}
 	viewContext, err := NewContextForInitiator(
 		parent,
@@ -192,7 +192,6 @@ func (m *Manager) InitiateContextFrom(parent context.Context, view view.View, id
 func (m *Manager) Start(ctx context.Context) {
 	if ctx != nil {
 		m.setCurrentContext(ctx)
-
 	}
 
 	session, err := m.commLayer.MasterSession()
@@ -236,7 +235,7 @@ func (m *Manager) ResolveIdentities(endpoints ...string) ([]view.Identity, error
 }
 
 func (m *Manager) Context() context.Context {
-	return m.ctx
+	return m.getCurrentContext()
 }
 
 func (m *Manager) ServiceProvider() services.Provider {
@@ -319,7 +318,7 @@ func (m *Manager) newContext(id view.Identity, msg *view.Message) (view.Context,
 	if err != nil {
 		return nil, false, err
 	}
-	ctx := trace.ContextWithSpanContext(m.ctx, trace.SpanContextFromContext(msg.Ctx))
+	ctx := trace.ContextWithSpanContext(m.getCurrentContext(), trace.SpanContextFromContext(msg.Ctx))
 	newCtx, err := NewContext(
 		ctx,
 		m.serviceProvider,
@@ -396,9 +395,9 @@ func (m *Manager) me() view.Identity {
 }
 
 func (m *Manager) getCurrentContext() context.Context {
-	m.contextsSync.Lock()
+	m.contextsSync.RLock()
 	ctx := m.ctx
-	m.contextsSync.Unlock()
+	m.contextsSync.RUnlock()
 	return ctx
 }
 

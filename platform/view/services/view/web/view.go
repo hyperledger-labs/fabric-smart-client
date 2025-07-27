@@ -12,7 +12,6 @@ import (
 	"net/http"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -51,11 +50,11 @@ func (s *viewHandler) CallView(context *server2.ReqContext, vid string, input []
 	}}, nil
 }
 
-func (s *viewHandler) StreamCallView(context *server2.ReqContext, vid string, input []byte) (interface{}, error) {
+func (s *viewHandler) StreamCallView(context *server2.ReqContext, vid string, _ []byte) (interface{}, error) {
 	return nil, s.c.StreamCallView(vid, context.ResponseWriter, context.Req)
 }
 
-func InstallViewHandler(manager view.Manager, h *server2.HttpHandler, tp tracing.Provider) {
+func InstallViewHandler(manager ViewManager, h *server2.HttpHandler, tp tracing.Provider) {
 	fh := &viewHandler{c: newViewClient(manager, tp)}
 	newDispatcher(h).WireViewCaller(viewCallFunc(fh.CallView))
 	newDispatcher(h).WireStreamViewCaller(viewCallFunc(fh.StreamCallView))
@@ -67,11 +66,11 @@ type ViewClient interface {
 }
 
 type client struct {
-	viewManager view.Manager
+	viewManager ViewManager
 	tracer      trace.Tracer
 }
 
-func newViewClient(viewManager view.Manager, tp tracing.Provider) *client {
+func newViewClient(viewManager ViewManager, tp tracing.Provider) *client {
 	return &client{
 		viewManager: viewManager,
 		tracer: tp.Tracer("view_client", tracing.WithMetricsOpts(tracing.MetricsOpts{

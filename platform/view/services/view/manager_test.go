@@ -177,7 +177,7 @@ func getContext(t *testing.T, wg *sync.WaitGroup, m *manager) {
 	assert.Error(t, err)
 }
 
-func start(t *testing.T, wg *sync.WaitGroup, m manager, ctx context.Context) {
+func start(t *testing.T, wg *sync.WaitGroup, m *manager, ctx context.Context) {
 	m.Start(ctx)
 	wg.Done()
 }
