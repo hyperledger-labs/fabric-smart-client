@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package pagination
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -25,12 +26,13 @@ func (p PropertyName[V]) ExtractField(v any) V {
 }
 
 type keyset[I comparable, V any] struct {
-	offset    int
-	pageSize  int
-	sqlIdName common.FieldName
+	Offset    int              `json:"offset"`
+	PageSize  int              `json:"page_size"`
+	SqlIdName common.FieldName `json:"sql_id_name"`
 	idGetter  func(V) I
 	// the first and last id values in the page
-	firstId, lastId I
+	FirstId I `json:"first_id"`
+	LastId  I `json:"last_id"`
 }
 
 // KeysetWithField creates a keyset pagination where the id has field name idFieldName
@@ -50,6 +52,21 @@ func KeysetWithId[I comparable, V id[I]](offset int, pageSize int, sqlIdName com
 	return Keyset[I, V](offset, pageSize, sqlIdName, func(v V) I { return v.Id() })
 }
 
+func (k *keyset[I, any]) SaveKeysetPagination() ([]byte, error) {
+	ret, err := json.Marshal(k)
+	return ret, err
+}
+
+func LoadKeysetPagination[I comparable, V any](data []byte) (keyset[I, V], error) {
+	// keyset[I, any], error := json.Unmarshal((data))
+	var k keyset[I, V]
+	err := json.Unmarshal(data, &k)
+	if err != nil {
+		panic("Error while reading page pointer")
+	}
+	return k, err
+}
+
 // Keyset creates a keyset pagination
 func Keyset[I comparable, V any](offset int, pageSize int, sqlIdName common.FieldName, idGetter func(V) I) (*keyset[I, V], error) {
 	if offset < 0 {
@@ -59,12 +76,12 @@ func Keyset[I comparable, V any](offset int, pageSize int, sqlIdName common.Fiel
 		return nil, fmt.Errorf("page size must be greater than zero. pageSize: %d", pageSize)
 	}
 	return &keyset[I, V]{
-		offset:    offset,
-		pageSize:  pageSize,
-		sqlIdName: sqlIdName,
+		Offset:    offset,
+		PageSize:  pageSize,
+		SqlIdName: sqlIdName,
 		idGetter:  idGetter,
-		firstId:   nilElement[I](),
-		lastId:    nilElement[I](),
+		FirstId:   nilElement[I](),
+		LastId:    nilElement[I](),
 	}, nil
 }
 
@@ -86,34 +103,34 @@ func (p *keyset[I, V]) nilElement() I {
 
 func (p *keyset[I, V]) GoToOffset(offset int) (driver.Pagination, error) {
 	if offset < 0 {
-		return nil, fmt.Errorf("offset must be greater than zero. pageSize: %d", p.pageSize)
+		return nil, fmt.Errorf("offset must be greater than zero. pageSize: %d", p.PageSize)
 	}
-	if offset == p.offset+p.pageSize {
+	if offset == p.Offset+p.PageSize {
 		return &keyset[I, V]{
-			offset:    offset,
-			pageSize:  p.pageSize,
-			sqlIdName: p.sqlIdName,
+			Offset:    offset,
+			PageSize:  p.PageSize,
+			SqlIdName: p.SqlIdName,
 			idGetter:  p.idGetter,
-			firstId:   p.lastId,
-			lastId:    p.nilElement(),
+			FirstId:   p.LastId,
+			LastId:    p.nilElement(),
 		}, nil
 	}
 	return &keyset[I, V]{
-		offset:    offset,
-		pageSize:  p.pageSize,
-		sqlIdName: p.sqlIdName,
+		Offset:    offset,
+		PageSize:  p.PageSize,
+		SqlIdName: p.SqlIdName,
 		idGetter:  p.idGetter,
-		firstId:   p.nilElement(),
-		lastId:    p.nilElement(),
+		FirstId:   p.nilElement(),
+		LastId:    p.nilElement(),
 	}, nil
 }
 
 func (p *keyset[I, V]) GoToPage(pageNum int) (driver.Pagination, error) {
-	return p.GoToOffset(pageNum * p.pageSize)
+	return p.GoToOffset(pageNum * p.PageSize)
 }
 
 func (p *keyset[I, V]) GoForward(numOfpages int) (driver.Pagination, error) {
-	return p.GoToOffset(p.offset + (numOfpages * p.pageSize))
+	return p.GoToOffset(p.Offset + (numOfpages * p.PageSize))
 }
 
 func (p *keyset[I, V]) GoBack(numOfpages int) (driver.Pagination, error) {
