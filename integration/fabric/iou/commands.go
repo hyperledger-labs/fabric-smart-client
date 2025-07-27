@@ -7,19 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package iou
 
 import (
-	"context"
 	"fmt"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	model2 "github.com/jaegertracing/jaeger-idl/model/v1"
 	"github.com/jaegertracing/jaeger-idl/proto-gen/api_v2"
 	"github.com/onsi/gomega"
-	"github.com/prometheus/common/model"
 )
 
 var logger = logging.MustGetLogger()
@@ -90,16 +88,14 @@ func CheckLocalMetrics(ii *integration.Infrastructure, user string, viewName str
 }
 
 func CheckJaegerTraces(ii *integration.Infrastructure, nodeName, viewName string, spanMatcher gomega.OmegaMatcher) {
-	cli, err := ii.NWO.JaegerAPI()
+	cli, err := ii.NWO.JaegerReporter()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	findTraces, err := cli.FindTraces(context.Background(), &api_v2.FindTracesRequest{Query: &api_v2.TraceQueryParameters{ServiceName: nodeName, OperationName: viewName}})
+	it, err := cli.FindTraces(nodeName, viewName)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	spans := make([]model2.Span, 0)
-	for chunk, err := findTraces.Recv(); chunk != nil; chunk, err = findTraces.Recv() {
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		spans = append(spans, chunk.Spans...)
-	}
+
+	spans, err := iterators.ReadAllPointers(iterators.FlattenValues(it, func(c *api_v2.SpansResponseChunk) ([]model2.Span, error) { return c.Spans, nil }))
+
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	logger.Infof("Received jaeger %d spans for [%s:%s]: %s", len(spans), nodeName, viewName, spans)
 
@@ -108,30 +104,18 @@ func CheckJaegerTraces(ii *integration.Infrastructure, nodeName, viewName string
 		return
 	}
 
-	services, err := cli.GetServices(context.Background(), &api_v2.GetServicesRequest{})
+	services, err := cli.GetServices()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	operations, err := cli.GetOperations(context.Background(), &api_v2.GetOperationsRequest{})
+	operations, err := cli.GetOperations("")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	logger.Infof("No spans found. %d operations found in %d services: [%v] [%v]", len(operations.GetOperations()), len(services.GetServices()), services.GetServices(), operations.GetOperationNames())
+	logger.Infof("No spans found. %d operations found in %d services: [%v] [%v]", len(operations), len(services), services, operations)
 	gomega.Expect(spans).To(spanMatcher)
 }
 
 func CheckPrometheusMetrics(ii *integration.Infrastructure, viewName string) {
-	cli, err := ii.NWO.PrometheusAPI()
+	cli, err := ii.NWO.PrometheusReporter()
 	gomega.Expect(err).To(gomega.BeNil())
-	metric := model.Metric{
-		"__name__": model.LabelValue("fsc_view_operations"),
-		"view":     model.LabelValue(viewName),
-	}
-	val, warnings, err := cli.Query(context.Background(), metric.String(), time.Now())
-	gomega.Expect(warnings).To(gomega.BeEmpty())
-	gomega.Expect(err).To(gomega.BeNil())
-	gomega.Expect(val.Type()).To(gomega.Equal(model.ValVector))
-
-	logger.Infof("Received prometheus metrics for view [%s]: %s", viewName, val)
-
-	vector, ok := val.(model.Vector)
-	gomega.Expect(ok).To(gomega.BeTrue())
-	gomega.Expect(vector).To(gomega.HaveLen(1))
-	gomega.Expect(vector[0].Value).NotTo(gomega.Equal(model.SampleValue(0)))
+	ops, err := cli.GetViewOperations("", viewName)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	gomega.Expect(ops).ToNot(gomega.BeZero())
 }
