@@ -38,7 +38,7 @@ func (c *MockContext) StartSpan(string, ...trace.SpanStartOption) trace.Span {
 	return noop.Span{}
 }
 
-func (c *MockContext) GetService(v interface{}) (interface{}, error) {
+func (c *MockContext) GetService(v any) (any, error) {
 	return c.Ctx.GetService(v)
 }
 
@@ -46,7 +46,7 @@ func (c *MockContext) ID() string {
 	return c.Ctx.ID()
 }
 
-func (c *MockContext) RunView(view view.View, opts ...view.RunViewOption) (interface{}, error) {
+func (c *MockContext) RunView(view view.View, opts ...view.RunViewOption) (any, error) {
 	return c.Ctx.RunView(view, opts...)
 }
 

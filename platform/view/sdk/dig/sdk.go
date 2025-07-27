@@ -42,6 +42,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/web"
 	"go.uber.org/dig"
 )
 
@@ -123,7 +124,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(view.NewManager),
 		p.Container().Provide(
 			digutils.Identity[*view.Manager](),
-			dig.As(new(StartableViewManager), new(server2.ViewManager)),
+			dig.As(new(web.ViewManager)),
 		),
 
 		// Comm service
@@ -207,7 +208,7 @@ func (p *SDK) Start(ctx context.Context) error {
 	return p.Container().Invoke(func(in struct {
 		dig.In
 		GRPCServer     *grpc.GRPCServer
-		ViewManager    StartableViewManager
+		ViewManager    *view.Manager
 		ViewService    server2.Service
 		CommService    *comm.Service
 		WebServer      Server

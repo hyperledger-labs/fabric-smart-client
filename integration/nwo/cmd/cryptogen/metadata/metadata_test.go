@@ -11,9 +11,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	metadata2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/metadata"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetVersionInfo(t *testing.T) {
