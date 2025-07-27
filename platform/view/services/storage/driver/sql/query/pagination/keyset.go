@@ -67,6 +67,10 @@ func LoadKeysetPagination[I comparable, V any](data []byte) (keyset[I, V], error
 	return k, err
 }
 
+func (p *keyset[I, V]) SetIdGetter(idGetter func(V) I) {
+	p.idGetter = idGetter
+}
+
 // Keyset creates a keyset pagination
 func Keyset[I comparable, V any](offset int, pageSize int, sqlIdName common.FieldName, idGetter func(V) I) (*keyset[I, V], error) {
 	if offset < 0 {
