@@ -13,6 +13,8 @@ import (
 type Pagination interface {
 	Prev() (Pagination, error)
 	Next() (Pagination, error)
+	Equal(Pagination) bool
+	Serialize() ([]byte, error)
 }
 
 type PageIterator[R comparable] struct {

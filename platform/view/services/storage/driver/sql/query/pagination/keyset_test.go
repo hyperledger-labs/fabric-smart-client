@@ -281,10 +281,10 @@ func TestKeysetSaveLoad(t *testing.T) {
 
 	page := setupPaginationWithLastId()
 
-	buf, err := pagination.SavePagination(page.Pagination)
+	buf, err := page.Pagination.Serialize()
 	Expect(err).ToNot(HaveOccurred())
 
-	k2, err := pagination.LoadPagination[string, any](buf)
+	k2, err := pagination.KeysetFromRaw[string](buf, "StringField")
 	Expect(err).ToNot(HaveOccurred())
-	Expect(pagination.EqualPagination(&k2, page.Pagination)).To(Equal(true))
+	Expect(k2.Equal(page.Pagination)).To(Equal(true))
 }

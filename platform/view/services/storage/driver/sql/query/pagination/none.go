@@ -23,6 +23,22 @@ func (p *empty) Next() (driver.Pagination, error) {
 	return &empty{}, nil
 }
 
+func (self *empty) Equal(other driver.Pagination) bool {
+	_, ok := other.(*empty)
+	if !ok {
+		return false
+	}
+	return true
+}
+
+func (k *empty) Serialize() ([]byte, error) {
+	return []byte{}, nil
+}
+
+func EmptyFromRaw(raw []byte) (*empty, error) {
+	return &empty{}, nil
+}
+
 type none struct {
 }
 
@@ -36,4 +52,20 @@ func (p *none) Prev() (driver.Pagination, error) {
 
 func (p *none) Next() (driver.Pagination, error) {
 	return Empty(), nil
+}
+
+func (self *none) Equal(other driver.Pagination) bool {
+	_, ok := other.(*none)
+	if !ok {
+		return false
+	}
+	return true
+}
+
+func (k *none) Serialize() ([]byte, error) {
+	return []byte{}, nil
+}
+
+func NoneFromRaw(raw []byte) (*none, error) {
+	return &none{}, nil
 }

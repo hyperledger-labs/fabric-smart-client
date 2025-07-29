@@ -38,8 +38,8 @@ func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQue
 		return
 
 	case *offset:
-		query.AddLimit(pagination.pageSize)
-		query.AddOffset(pagination.offset)
+		query.AddLimit(pagination.PageSize)
+		query.AddOffset(pagination.Offset)
 
 	case *keyset[string, any]:
 		handleKeysetPreProcess(pagination, query)

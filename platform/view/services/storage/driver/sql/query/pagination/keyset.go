@@ -52,23 +52,21 @@ func KeysetWithId[I comparable, V id[I]](offset int, pageSize int, sqlIdName com
 	return Keyset[I, V](offset, pageSize, sqlIdName, func(v V) I { return v.Id() })
 }
 
-func (k *keyset[I, any]) SaveKeysetPagination() ([]byte, error) {
+func (k *keyset[I, any]) Serialize() ([]byte, error) {
 	ret, err := json.Marshal(k)
 	return ret, err
 }
 
-func LoadKeysetPagination[I comparable, V any](data []byte) (keyset[I, V], error) {
-	// keyset[I, any], error := json.Unmarshal((data))
-	var k keyset[I, V]
-	err := json.Unmarshal(data, &k)
+func KeysetFromRaw[I comparable](raw []byte, idFieldName PropertyName[I]) (*keyset[I, any], error) {
+	var k keyset[I, any]
+	err := json.Unmarshal(raw, &k)
 	if err != nil {
-		panic("Error while reading page pointer")
+		return nil, err
 	}
-	return k, err
-}
-
-func (p *keyset[I, V]) SetIdGetter(idGetter func(V) I) {
-	p.idGetter = idGetter
+	if strings.ToUpper(string(idFieldName[0])) != string(idFieldName[0]) {
+		return nil, fmt.Errorf("must use exported field")
+	}
+	return Keyset(k.Offset, k.PageSize, k.SqlIdName, idFieldName.ExtractField)
 }
 
 // Keyset creates a keyset pagination
@@ -144,3 +142,17 @@ func (p *keyset[I, V]) GoBack(numOfpages int) (driver.Pagination, error) {
 func (p *keyset[I, V]) Prev() (driver.Pagination, error) { return p.GoBack(1) }
 
 func (p *keyset[I, V]) Next() (driver.Pagination, error) { return p.GoForward(1) }
+
+func (self *keyset[I, V]) Equal(other driver.Pagination) bool {
+	otherKeyset, ok := other.(*keyset[I, V])
+	if !ok {
+		return false
+	}
+
+	return self.Offset == otherKeyset.Offset &&
+		self.PageSize == otherKeyset.PageSize &&
+		self.SqlIdName == otherKeyset.SqlIdName &&
+		self.FirstId == otherKeyset.FirstId &&
+		self.LastId == otherKeyset.LastId
+	// Note: idGetter is not comparable and is intentionally skipped
+}
