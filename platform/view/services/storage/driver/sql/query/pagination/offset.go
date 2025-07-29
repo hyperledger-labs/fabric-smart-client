@@ -44,7 +44,7 @@ func (k *offset) Serialize() ([]byte, error) {
 	return ret, err
 }
 
-func OffsetFromRaw[I comparable](raw []byte) (*offset, error) {
+func OffsetFromRaw(raw []byte) (*offset, error) {
 	var k offset
 	err := json.Unmarshal(raw, &k)
 	if err != nil {

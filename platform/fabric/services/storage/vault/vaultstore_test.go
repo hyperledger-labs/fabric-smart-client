@@ -39,29 +39,36 @@ type matrixItem struct {
 	argsForward  []any
 	sqlBackward  []string
 	argsBackward []any
+	deserialize  func([]byte) (driver.Pagination, error)
 }
 
 var matrix = []matrixItem{
-	//{
-	//	pagination:  pagination.None(),
-	//	sqlForward:  []string{"SELECT * FROM test", "SELECT * FROM test"},
-	//	argsForward: []any{[]string{}, []int{}},
-	//	sqlBackward: []string{},
-	//	matcher: []types.GomegaMatcher{
-	//		ConsistOf(
-	//			HaveField("TxID", Equal("txid1")),
-	//			HaveField("TxID", Equal("txid2")),
-	//			HaveField("TxID", Equal("txid10")),
-	//			HaveField("TxID", Equal("txid12")),
-	//			HaveField("TxID", Equal("txid21")),
-	//			HaveField("TxID", Equal("txid100")),
-	//			HaveField("TxID", Equal("txid200")),
-	//			HaveField("TxID", Equal("txid1025")),
-	//		),
-	//	},
-	//},
+	// {
+	// 	pagination: pagination.None(),
+	// 	deserialize: func(data []byte) (driver.Pagination, error) {
+	// 		return pagination.NoneFromRaw(data)
+	// 	},
+	// 	sqlForward:  []string{"SELECT * FROM test", "SELECT * FROM test"},
+	// 	argsForward: []any{[]string{}, []int{}},
+	// 	sqlBackward: []string{},
+	// 	matcher: []types.GomegaMatcher{
+	// 		ConsistOf(
+	// 			HaveField("TxID", Equal("txid1")),
+	// 			HaveField("TxID", Equal("txid2")),
+	// 			HaveField("TxID", Equal("txid10")),
+	// 			HaveField("TxID", Equal("txid12")),
+	// 			HaveField("TxID", Equal("txid21")),
+	// 			HaveField("TxID", Equal("txid100")),
+	// 			HaveField("TxID", Equal("txid200")),
+	// 			HaveField("TxID", Equal("txid1025")),
+	// 		),
+	// 	},
+	// },
 	{
 		pagination: NewOffsetPagination(0, 2),
+		deserialize: func(data []byte) (driver.Pagination, error) {
+			return pagination.OffsetFromRaw(data)
+		},
 		sqlForward: []string{
 			"SELECT * FROM test LIMIT $1",
 			"SELECT * FROM test LIMIT $1 OFFSET $2",
@@ -100,6 +107,9 @@ var matrix = []matrixItem{
 	},
 	{
 		pagination: NewKeysetPagination(0, 2, "tx_id", "TxID"),
+		deserialize: func(data []byte) (driver.Pagination, error) {
+			return pagination.KeysetFromRaw[string](data, "TxID")
+		},
 		sqlForward: []string{
 			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1",
 			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
@@ -208,6 +218,14 @@ func testPagination(store driver.VaultStore) {
 			Expect(page).To(BeNumerically("<", len(item.matcher)))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(statuses).To(item.matcher[page])
+
+			// checking that sending and receiving the pagination to
+			buf, err := p.Pagination.Serialize()
+			Expect(err).ToNot(HaveOccurred())
+			p2, err := item.deserialize(buf)
+			Expect(err).ToNot(HaveOccurred())
+
+			p.Pagination = p2
 
 			pag, err = p.Pagination.Next()
 			Expect(err).ToNot(HaveOccurred())
