@@ -66,7 +66,13 @@ func KeysetFromRaw[I comparable](raw []byte, idFieldName PropertyName[I]) (*keys
 	if strings.ToUpper(string(idFieldName[0])) != string(idFieldName[0]) {
 		return nil, fmt.Errorf("must use exported field")
 	}
-	return Keyset(k.Offset, k.PageSize, k.SqlIdName, idFieldName.ExtractField)
+	k2, err := Keyset(k.Offset, k.PageSize, k.SqlIdName, idFieldName.ExtractField)
+	if err != nil {
+		return nil, err
+	}
+	k2.FirstId = k.FirstId
+	k2.LastId = k.LastId
+	return k2, nil
 }
 
 // Keyset creates a keyset pagination
