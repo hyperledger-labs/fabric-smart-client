@@ -11,9 +11,13 @@ import (
 )
 
 type Pagination interface {
+	// Move the pagination pointer to the prev page
 	Prev() (Pagination, error)
+	// Move the pagination pointer to the next page
 	Next() (Pagination, error)
+	// Check whether a given pagination struct is of the same type and with the same parameters
 	Equal(Pagination) bool
+	// Serialize the pagination struct into a buffer
 	Serialize() ([]byte, error)
 }
 

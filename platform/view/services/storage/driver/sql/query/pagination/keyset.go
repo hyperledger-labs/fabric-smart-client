@@ -57,6 +57,9 @@ func (k *keyset[I, any]) Serialize() ([]byte, error) {
 	return ret, err
 }
 
+// Initialize a Keyset pagination struct from a buffer.
+// It also needs to get the field name of the id in the struct returned by the database.
+// This is used in a member function and is not serializable.
 func KeysetFromRaw[I comparable](raw []byte, idFieldName PropertyName[I]) (*keyset[I, any], error) {
 	var k keyset[I, any]
 	err := json.Unmarshal(raw, &k)
