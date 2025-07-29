@@ -13,7 +13,7 @@ import (
 )
 
 func NewQuery(distinct bool) *query {
-	return &query{distinct: distinct}
+	return &query{distinct: distinct, limit: -1}
 }
 
 type query struct {
@@ -136,7 +136,8 @@ func (q *query) FormatPaginatedTo(ci common.CondInterpreter, pi common.PagInterp
 		sb.WriteString(" ORDER BY ").WriteSerializables(common.ToSerializables(q.orderBy)...)
 	}
 
-	if q.limit > 0 {
+	// We may want to add "LIMIT 0" if we ended with Pagination.empty
+	if q.limit > -1 {
 		sb.WriteString(" LIMIT ").WriteParam(q.limit)
 	}
 

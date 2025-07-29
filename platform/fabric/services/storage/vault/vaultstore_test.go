@@ -43,27 +43,27 @@ type matrixItem struct {
 }
 
 var matrix = []matrixItem{
-	// {
-	// 	pagination: pagination.None(),
-	// 	deserialize: func(data []byte) (driver.Pagination, error) {
-	// 		return pagination.NoneFromRaw(data)
-	// 	},
-	// 	sqlForward:  []string{"SELECT * FROM test", "SELECT * FROM test"},
-	// 	argsForward: []any{[]string{}, []int{}},
-	// 	sqlBackward: []string{},
-	// 	matcher: []types.GomegaMatcher{
-	// 		ConsistOf(
-	// 			HaveField("TxID", Equal("txid1")),
-	// 			HaveField("TxID", Equal("txid2")),
-	// 			HaveField("TxID", Equal("txid10")),
-	// 			HaveField("TxID", Equal("txid12")),
-	// 			HaveField("TxID", Equal("txid21")),
-	// 			HaveField("TxID", Equal("txid100")),
-	// 			HaveField("TxID", Equal("txid200")),
-	// 			HaveField("TxID", Equal("txid1025")),
-	// 		),
-	// 	},
-	// },
+	{
+		pagination: pagination.None(),
+		deserialize: func(data []byte) (driver.Pagination, error) {
+			return pagination.NoneFromRaw(data)
+		},
+		sqlForward:  []string{"SELECT * FROM test", "SELECT * FROM test LIMIT $1"},
+		argsForward: []any{[]string{}, []int{0}},
+		sqlBackward: []string{},
+		matcher: []types.GomegaMatcher{
+			ConsistOf(
+				HaveField("TxID", Equal("txid1")),
+				HaveField("TxID", Equal("txid2")),
+				HaveField("TxID", Equal("txid10")),
+				HaveField("TxID", Equal("txid12")),
+				HaveField("TxID", Equal("txid21")),
+				HaveField("TxID", Equal("txid100")),
+				HaveField("TxID", Equal("txid200")),
+				HaveField("TxID", Equal("txid1025")),
+			),
+		},
+	},
 	{
 		pagination: NewOffsetPagination(0, 2),
 		deserialize: func(data []byte) (driver.Pagination, error) {

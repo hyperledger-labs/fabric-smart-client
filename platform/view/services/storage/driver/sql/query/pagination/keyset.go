@@ -149,16 +149,16 @@ func (p *keyset[I, V]) Prev() (driver.Pagination, error) { return p.GoBack(1) }
 
 func (p *keyset[I, V]) Next() (driver.Pagination, error) { return p.GoForward(1) }
 
-func (self *keyset[I, V]) Equal(other driver.Pagination) bool {
+func (k *keyset[I, V]) Equal(other driver.Pagination) bool {
 	otherKeyset, ok := other.(*keyset[I, V])
 	if !ok {
 		return false
 	}
 
-	return self.Offset == otherKeyset.Offset &&
-		self.PageSize == otherKeyset.PageSize &&
-		self.SqlIdName == otherKeyset.SqlIdName &&
-		self.FirstId == otherKeyset.FirstId &&
-		self.LastId == otherKeyset.LastId
+	return k.Offset == otherKeyset.Offset &&
+		k.PageSize == otherKeyset.PageSize &&
+		k.SqlIdName == otherKeyset.SqlIdName &&
+		k.FirstId == otherKeyset.FirstId &&
+		k.LastId == otherKeyset.LastId
 	// Note: idGetter is not comparable and is intentionally skipped
 }

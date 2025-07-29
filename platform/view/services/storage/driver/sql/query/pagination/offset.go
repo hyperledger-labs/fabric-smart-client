@@ -68,12 +68,12 @@ func (p *offset) GoBack(numOfpages int) (driver.Pagination, error) {
 func (p *offset) Prev() (driver.Pagination, error) { return p.GoBack(1) }
 func (p *offset) Next() (driver.Pagination, error) { return p.GoForward(1) }
 
-func (self *offset) Equal(other driver.Pagination) bool {
+func (o *offset) Equal(other driver.Pagination) bool {
 	otherOffset, ok := other.(*offset)
 	if !ok {
 		return false
 	}
 
-	return self.Offset == otherOffset.Offset &&
-		self.PageSize == otherOffset.PageSize
+	return o.Offset == otherOffset.Offset &&
+		o.PageSize == otherOffset.PageSize
 }

@@ -49,7 +49,6 @@ func (i *interpreter) PreProcess(p driver.Pagination, query common.ModifiableQue
 
 	case *empty:
 		query.AddLimit(0)
-		query.AddOffset(0)
 
 	default:
 		panic(fmt.Sprintf("invalid pagination option %+v", pagination))
