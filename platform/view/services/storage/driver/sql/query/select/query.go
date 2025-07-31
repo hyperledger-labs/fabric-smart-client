@@ -13,7 +13,7 @@ import (
 )
 
 func NewQuery(distinct bool) *query {
-	return &query{distinct: distinct, limit: -1}
+	return &query{distinct: distinct, limit: NoLimit}
 }
 
 type query struct {
@@ -26,6 +26,8 @@ type query struct {
 	orderBy    []OrderBy
 	pagination driver.Pagination
 }
+
+const NoLimit = -1
 
 func (q *query) AllFields() fieldsQuery {
 	fields := []common.Field{common.FieldName("*")}
@@ -92,7 +94,12 @@ func (q *query) AddWhere(c cond.Condition) { q.Where(cond.And(q.where, c)) }
 
 func (q *query) AddOrderBy(os OrderBy) { q.OrderBy(append(q.orderBy, os)...) }
 
-func (q *query) AddLimit(l int) { q.Limit(l) }
+func (q *query) AddLimit(l int) {
+	if l < 0 && l != NoLimit {
+		panic("Limit must be non-negative or set to NoLimit")
+	}
+	q.Limit(l)
+}
 
 func (q *query) AddOffset(o int) { q.Offset(o) }
 
@@ -137,7 +144,7 @@ func (q *query) FormatPaginatedTo(ci common.CondInterpreter, pi common.PagInterp
 	}
 
 	// We may want to add "LIMIT 0" if we ended with Pagination.empty
-	if q.limit > -1 {
+	if q.limit != NoLimit {
 		sb.WriteString(" LIMIT ").WriteParam(q.limit)
 	}
 
