@@ -31,6 +31,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -391,8 +392,9 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 				c.logger.Debugf("Tx [%s] is unknown with no deps, wait a bit and retry [%d]", txID, iter)
 				time.Sleep(c.ChannelConfig.CommitterFinalityUnknownTXTimeout())
 			}
-
-			c.logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				c.logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
+			}
 			peerForFinality := c.ConfigService.PickPeer(driver.PeerForFinality).Address
 			err := c.FabricFinality.IsFinal(txID, peerForFinality)
 			if err == nil {
