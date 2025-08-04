@@ -56,7 +56,6 @@ func NewViewServiceServer(
 		streamers:     map[reflect.Type]Streamer{},
 		metrics:       metrics,
 		tracer: tracerProvider.Tracer("view_service", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace:  "viewsdk",
 			LabelNames: []tracing.LabelName{successLabel},
 		})),
 	}, nil

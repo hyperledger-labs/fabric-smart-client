@@ -73,7 +73,6 @@ func NewMetrics(p tracing.Provider, m metrics.Provider) *Metrics {
 			Help:      "Gauge for the length of the event queue",
 		}),
 		Commits: p.Tracer("commits", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace:  "fsc",
 			LabelNames: []string{},
 		})),
 		Listens: p.Tracer("listens"),

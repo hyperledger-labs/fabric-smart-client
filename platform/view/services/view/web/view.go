@@ -75,7 +75,6 @@ func newViewClient(viewManager server.ViewManager, tp tracing.Provider) *client 
 	return &client{
 		viewManager: viewManager,
 		tracer: tp.Tracer("view_client", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace:  "viewsdk",
 			LabelNames: []tracing.LabelName{vidLabel},
 		})),
 	}

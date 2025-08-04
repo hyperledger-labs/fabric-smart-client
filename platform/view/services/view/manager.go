@@ -66,8 +66,7 @@ func NewManager(
 		contexts: map[string]disposableContext{},
 		registry: registry,
 
-		tracer: tracerProvider.Tracer("view", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace:  "fsc",
+		tracer: tracerProvider.Tracer("calls", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []string{SuccessLabel, ViewLabel, InitiatorViewLabel},
 		})),
 		metrics:              newMetrics(metricsProvider),

@@ -30,7 +30,6 @@ func InstallViewHandler(viewManager ViewManager, server Service, tracerProvider 
 	fh := &viewHandler{
 		viewManager: viewManager,
 		tracer: tracerProvider.Tracer("view_handler", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace:  "viewsdk",
 			LabelNames: []tracing.LabelName{fidLabel, successLabel},
 		})),
 	}

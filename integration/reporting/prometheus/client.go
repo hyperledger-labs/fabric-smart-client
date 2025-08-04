@@ -18,6 +18,10 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+const (
+	ViewCallsOperationsMetric = "fsc_view_services_view_calls_operations"
+)
+
 type Reporter interface {
 	GetVector(metric model.Metric) (model.Vector, error)
 	GetViewOperations(nodeName, viewName string) (int, error)
@@ -59,7 +63,7 @@ func (c *reporter) GetVector(metric model.Metric) (model.Vector, error) {
 }
 
 func (c *reporter) GetViewOperations(nodeName, viewName string) (int, error) {
-	m := model.Metric{"__name__": "fsc_view_operations"}
+	m := model.Metric{"__name__": ViewCallsOperationsMetric}
 	if len(nodeName) > 0 {
 		m["job"] = model.LabelValue(fmt.Sprintf("FSC Node %s", nodeName))
 	}

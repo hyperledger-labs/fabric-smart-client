@@ -100,9 +100,7 @@ func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher, tracerP
 		},
 		SigningIdentity: sID,
 		hasher:          hasher,
-		tracer: tracerProvider.Tracer("client", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace: "viewsdk",
-		})),
+		tracer:          tracerProvider.Tracer("client", tracing.WithMetricsOpts(tracing.MetricsOpts{})),
 	}, nil
 }
 

@@ -150,7 +150,7 @@ func New(
 		DependencyResolver: dependencyResolver,
 		QuietNotifier:      quiet,
 		metrics:            NewMetrics(tracerProvider, metricsProvider),
-		tracer:             tracerProvider.Tracer("committer", tracing.WithMetricsOpts(tracing.MetricsOpts{Namespace: "core"})),
+		tracer:             tracerProvider.Tracer("committer", tracing.WithMetricsOpts(tracing.MetricsOpts{})),
 		logger:             logger.Named(fmt.Sprintf("[%s:%s]", configService.NetworkName(), channelConfig.ID())),
 		listeners:          map[string][]chan FinalityEvent{},
 		Handlers:           map[common.HeaderType]TransactionHandler{},

@@ -20,6 +20,10 @@ import (
 	"github.com/onsi/gomega"
 )
 
+const (
+	ViewCallsOperationsMetric = "fsc_view_services_view_calls_operations"
+)
+
 var logger = logging.MustGetLogger()
 
 func CreateIOU(ii *integration.Infrastructure, identityLabel string, amount uint, approver string) string {
@@ -75,7 +79,7 @@ func CheckLocalMetrics(ii *integration.Infrastructure, user string, viewName str
 	gomega.Expect(metrics).NotTo(gomega.BeEmpty())
 
 	var sum float64
-	for _, m := range metrics["fsc_view_operations"].GetMetric() {
+	for _, m := range metrics[ViewCallsOperationsMetric].GetMetric() {
 		for _, labelPair := range m.Label {
 			if labelPair.GetName() == "view" && labelPair.GetValue() == viewName {
 				sum += m.Counter.GetValue()
@@ -83,7 +87,7 @@ func CheckLocalMetrics(ii *integration.Infrastructure, user string, viewName str
 		}
 	}
 
-	logger.Infof("Received in total %f view operations for [%s] for user %s: %v", sum, viewName, user, metrics["fsc_view_operations"].GetMetric())
+	logger.Infof("Received in total %f view operations for [%s] for user %s: %v", sum, viewName, user, metrics[ViewCallsOperationsMetric].GetMetric())
 	gomega.Expect(sum).NotTo(gomega.BeZero(), fmt.Sprintf("Operations found: %v", metrics))
 }
 
