@@ -8,12 +8,10 @@ package comm
 
 import (
 	"context"
-	"runtime/debug"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"go.uber.org/zap/zapcore"
 )
 
 // NetworkStreamSession implements view.Session
@@ -122,28 +120,12 @@ func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byt
 	n.mutex.RUnlock()
 
 	err := n.node.sendTo(ctx, info, packet)
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		n.mutex.RLock()
-		logger.Debugf(
-			"sent message [len:%d] to [%s:%s] from [%s] with err [%s]",
-			len(payload),
-			string(n.endpointID),
-			n.endpointAddress,
-			n.callerViewID,
-			err,
-		)
-		if len(n.callerViewID) == 0 {
-			logger.Debugf(
-				"sent message [len:%d] to [%s:%s] from [%s] with err [%s][%s]",
-				len(payload),
-				string(n.endpointID),
-				n.endpointAddress,
-				n.callerViewID,
-				err,
-				debug.Stack(),
-			)
-		}
-		n.mutex.RUnlock()
-	}
+	logger.Debugf("sent message [len:%d] to [%s:%s] from [%s] with err [%v]",
+		len(payload),
+		info.RemotePeerID,
+		info.RemotePeerAddress,
+		packet.Caller,
+		err,
+	)
 	return err
 }
