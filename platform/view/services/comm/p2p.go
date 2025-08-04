@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -272,7 +273,9 @@ func (s *streamHandler) handleIncoming() {
 			}
 
 			streamHash := s.stream.Hash()
-			logger.Debugf("error reading message from stream [%s]: [%s][%s]", streamHash, err, debug.Stack())
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("error reading message from stream [%s]: [%s][%s]", streamHash, err, debug.Stack())
+			}
 
 			// remove stream handler
 			s.node.streamsMutex.Lock()
