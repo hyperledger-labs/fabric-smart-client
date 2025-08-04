@@ -276,7 +276,7 @@ func TestKeysetInt(t *testing.T) {
 	Expect(args).To(ConsistOf(10, 10))
 }
 
-func TestKeysetSaveLoad(t *testing.T) {
+func TestKeysetSeriliazation(t *testing.T) {
 	RegisterTestingT(t)
 
 	page := setupPaginationWithLastId()
