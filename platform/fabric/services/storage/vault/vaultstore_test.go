@@ -48,8 +48,14 @@ var matrix = []matrixItem{
 		deserialize: func(data []byte) (driver.Pagination, error) {
 			return pagination.NoneFromRaw(data)
 		},
-		sqlForward:  []string{"SELECT * FROM test", "SELECT * FROM test LIMIT $1"},
-		argsForward: []any{[]string{}, []int{0}},
+		sqlForward: []string{
+			"SELECT * FROM test",
+			"SELECT * FROM test LIMIT $1", // This makes sure that no rows are returned, so we get the same behaviour as for offset pagination
+		},
+		argsForward: []any{
+			[]string{},
+			[]int{0},
+		},
 		sqlBackward: []string{},
 		matcher: []types.GomegaMatcher{
 			ConsistOf(
