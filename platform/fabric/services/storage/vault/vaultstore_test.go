@@ -75,7 +75,6 @@ var matrix = []matrixItem{
 			"SELECT * FROM test LIMIT $1 OFFSET $2",
 			"SELECT * FROM test LIMIT $1 OFFSET $2",
 			"SELECT * FROM test LIMIT $1 OFFSET $2",
-			"SELECT * FROM test",
 		},
 		argsForward: []any{
 			[]int{2},
@@ -83,7 +82,6 @@ var matrix = []matrixItem{
 			[]int{2, 4},
 			[]int{2, 6},
 			[]int{2, 8},
-			[]int{},
 		},
 		sqlBackward: []string{},
 		matcher: []types.GomegaMatcher{
@@ -116,7 +114,6 @@ var matrix = []matrixItem{
 			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
 			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
 			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
-			"SELECT * FROM test",
 		},
 		argsForward: []any{
 			[]int{2},
@@ -124,7 +121,6 @@ var matrix = []matrixItem{
 			[]any{"txid1025", 2},
 			[]any{"txid2", 2},
 			[]any{"txid21", 2},
-			[]int{},
 		},
 
 		sqlBackward: []string{
@@ -133,7 +129,6 @@ var matrix = []matrixItem{
 			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1 OFFSET $2",
 			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1 OFFSET $2",
 			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1 OFFSET $2",
-			"SELECT * FROM test",
 		},
 		argsBackward: []any{
 			[]int{2},
@@ -141,7 +136,6 @@ var matrix = []matrixItem{
 			[]int{2, 4},
 			[]int{2, 6},
 			[]int{2, 8},
-			[]int{},
 		},
 
 		matcher: []types.GomegaMatcher{
