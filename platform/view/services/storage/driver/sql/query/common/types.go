@@ -41,7 +41,7 @@ type ModifiableQuery interface {
 	AddOrderBy(OrderBy)
 	// AddLimit is used to manage the LIMIT clause.
 	// Any passed value larger than zero will trigger the inclusion of the clause.
-	// If one wnats to explicitly insert a clause as `LIMIT 0`, then oen should use the constant ZeroLimit
+	// If one wants to explicitly insert a clause as `LIMIT 0`, then oen should use the constant ZeroLimit
 	AddLimit(int)
 	AddOffset(int)
 }
