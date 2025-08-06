@@ -40,11 +40,11 @@ func newKeysetTypedPage[I comparable, V any](results iterators.Iterator[*V], pag
 	if err != nil {
 		return nil, err
 	}
-	p.FirstId = p.nilElement()
+	p.FirstID = p.nilElement()
 	if len(items) == 0 {
-		p.LastId = p.nilElement()
+		p.LastID = p.nilElement()
 	} else {
-		p.LastId = p.idGetter(*items[len(items)-1])
+		p.LastID = p.idGetter(*items[len(items)-1])
 	}
 	return &driver.PageIterator[*V]{Items: collections.NewSliceIterator[*V](items), Pagination: p}, nil
 }

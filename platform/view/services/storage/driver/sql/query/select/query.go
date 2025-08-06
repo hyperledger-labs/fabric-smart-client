@@ -92,9 +92,7 @@ func (q *query) AddWhere(c cond.Condition) { q.Where(cond.And(q.where, c)) }
 
 func (q *query) AddOrderBy(os OrderBy) { q.OrderBy(append(q.orderBy, os)...) }
 
-func (q *query) AddLimit(l int) {
-	q.Limit(l)
-}
+func (q *query) AddLimit(l int) { q.Limit(l) }
 
 func (q *query) AddOffset(o int) { q.Offset(o) }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 )
 
+// Pagination describe a moving page
 type Pagination interface {
 	// Prev moves the pagination pointer to the prev page
 	Prev() (Pagination, error)
@@ -21,6 +22,7 @@ type Pagination interface {
 	Serialize() ([]byte, error)
 }
 
+// PageIterator is an ieterator with support for pagination
 type PageIterator[R comparable] struct {
 	Items      iterators.Iterator[R]
 	Pagination Pagination

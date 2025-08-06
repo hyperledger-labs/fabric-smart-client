@@ -22,11 +22,11 @@ func NewDefaultInterpreter() *interpreter {
 type interpreter struct{}
 
 func handleKeysetPreProcess[T comparable](pagination *keyset[T, any], query common.ModifiableQuery) {
-	query.AddField(pagination.SqlIdName)
-	query.AddOrderBy(_select.Asc(pagination.SqlIdName))
+	query.AddField(pagination.SQLIDName)
+	query.AddOrderBy(_select.Asc(pagination.SQLIDName))
 	query.AddLimit(pagination.PageSize)
-	if pagination.FirstId != pagination.nilElement() {
-		query.AddWhere(cond.CmpVal(pagination.SqlIdName, ">", pagination.FirstId))
+	if pagination.FirstID != pagination.nilElement() {
+		query.AddWhere(cond.CmpVal(pagination.SQLIDName, ">", pagination.FirstID))
 	} else {
 		query.AddOffset(pagination.Offset)
 	}

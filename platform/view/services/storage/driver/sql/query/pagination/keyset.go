@@ -28,11 +28,11 @@ func (p PropertyName[V]) ExtractField(v any) V {
 type keyset[I comparable, V any] struct {
 	Offset    int              `json:"offset"`
 	PageSize  int              `json:"page_size"`
-	SqlIdName common.FieldName `json:"sql_id_name"`
+	SQLIDName common.FieldName `json:"sqlid_name"`
 	idGetter  func(V) I
 	// the first and last id values in the page
-	FirstId I `json:"first_id"`
-	LastId  I `json:"last_id"`
+	FirstID I `json:"first_id"`
+	LastID  I `json:"last_id"`
 }
 
 // KeysetWithField creates a keyset pagination where the id has field name idFieldName
@@ -69,12 +69,12 @@ func KeysetFromRaw[I comparable](raw []byte, idFieldName PropertyName[I]) (*keys
 	if strings.ToUpper(string(idFieldName[0])) != string(idFieldName[0]) {
 		return nil, fmt.Errorf("must use exported field")
 	}
-	k2, err := Keyset(k.Offset, k.PageSize, k.SqlIdName, idFieldName.ExtractField)
+	k2, err := Keyset(k.Offset, k.PageSize, k.SQLIDName, idFieldName.ExtractField)
 	if err != nil {
 		return nil, err
 	}
-	k2.FirstId = k.FirstId
-	k2.LastId = k.LastId
+	k2.FirstID = k.FirstID
+	k2.LastID = k.LastID
 	return k2, nil
 }
 
@@ -89,10 +89,10 @@ func Keyset[I comparable, V any](offset int, pageSize int, sqlIdName common.Fiel
 	return &keyset[I, V]{
 		Offset:    offset,
 		PageSize:  pageSize,
-		SqlIdName: sqlIdName,
+		SQLIDName: sqlIdName,
 		idGetter:  idGetter,
-		FirstId:   nilElement[I](),
-		LastId:    nilElement[I](),
+		FirstID:   nilElement[I](),
+		LastID:    nilElement[I](),
 	}, nil
 }
 
@@ -120,19 +120,19 @@ func (p *keyset[I, V]) GoToOffset(offset int) (driver.Pagination, error) {
 		return &keyset[I, V]{
 			Offset:    offset,
 			PageSize:  p.PageSize,
-			SqlIdName: p.SqlIdName,
+			SQLIDName: p.SQLIDName,
 			idGetter:  p.idGetter,
-			FirstId:   p.LastId,
-			LastId:    p.nilElement(),
+			FirstID:   p.LastID,
+			LastID:    p.nilElement(),
 		}, nil
 	}
 	return &keyset[I, V]{
 		Offset:    offset,
 		PageSize:  p.PageSize,
-		SqlIdName: p.SqlIdName,
+		SQLIDName: p.SQLIDName,
 		idGetter:  p.idGetter,
-		FirstId:   p.nilElement(),
-		LastId:    p.nilElement(),
+		FirstID:   p.nilElement(),
+		LastID:    p.nilElement(),
 	}, nil
 }
 
@@ -160,8 +160,8 @@ func (k *keyset[I, V]) Equal(other driver.Pagination) bool {
 
 	return k.Offset == otherKeyset.Offset &&
 		k.PageSize == otherKeyset.PageSize &&
-		k.SqlIdName == otherKeyset.SqlIdName &&
-		k.FirstId == otherKeyset.FirstId &&
-		k.LastId == otherKeyset.LastId
+		k.SQLIDName == otherKeyset.SQLIDName &&
+		k.FirstID == otherKeyset.FirstID &&
+		k.LastID == otherKeyset.LastID
 	// Note: idGetter is not comparable and is intentionally skipped
 }
