@@ -10,9 +10,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/mr-tron/base58/base58"
-	"github.com/pkg/errors"
 )
 
 type PKIDSynthesizer struct{}

@@ -17,9 +17,9 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/orderer"
-	"github.com/pkg/errors"
 )
 
 // Broadcast sends given env to Broadcast API of specified orderer.

@@ -10,8 +10,8 @@ import (
 	"bytes"
 	"encoding/binary"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/pkg/errors"
 )
 
 var zeroVersion = []byte{0, 0, 0, 0, 0, 0, 0, 0}

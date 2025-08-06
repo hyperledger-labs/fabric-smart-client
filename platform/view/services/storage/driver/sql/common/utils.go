@@ -11,10 +11,9 @@ import (
 	"database/sql"
 	"runtime/debug"
 
-	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	sql2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql"
-	"github.com/pkg/errors"
 )
 
 type WriteDB interface {
@@ -68,7 +67,7 @@ func InitSchema(db WriteDB, schemas ...string) (err error) {
 	for _, schema := range schemas {
 		logger.Debug(schema)
 		if _, err = tx.Exec(schema); err != nil {
-			return errors2.Wrapf(err, "error creating schema: %s", schema)
+			return errors.Wrapf(err, "error creating schema: %s", schema)
 		}
 	}
 	if err = tx.Commit(); err != nil {

@@ -9,9 +9,9 @@ package generic
 import (
 	"context"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/pkg/errors"
 )
 
 type CommitterService interface {

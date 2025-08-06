@@ -32,7 +32,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"

@@ -11,7 +11,7 @@ import (
 	"encoding/pem"
 	"os"
 
-	"github.com/pkg/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 func LoadIdentity(certPath string) ([]byte, error) {

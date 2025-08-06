@@ -10,10 +10,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	msp2 "github.com/hyperledger/fabric/msp"
-	"github.com/pkg/errors"
 )
 
 const (

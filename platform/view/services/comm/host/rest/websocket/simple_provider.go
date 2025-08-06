@@ -12,11 +12,11 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
-	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/trace"
 )
 

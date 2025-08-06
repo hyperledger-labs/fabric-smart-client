@@ -14,7 +14,7 @@ import (
 	"encoding/asn1"
 	"math/big"
 
-	"github.com/pkg/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 var (

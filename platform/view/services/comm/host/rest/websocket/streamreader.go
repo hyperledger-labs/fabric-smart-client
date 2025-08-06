@@ -10,7 +10,7 @@ import (
 	"encoding/binary"
 	"strconv"
 
-	"github.com/pkg/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // delimitedReader reads the output of a protobuf DelimitedWriter.

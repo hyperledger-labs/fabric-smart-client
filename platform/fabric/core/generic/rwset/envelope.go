@@ -7,11 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric/protoutil"
-	"github.com/pkg/errors"
 )
 
 // TODO: remove this and merge with that in transaction

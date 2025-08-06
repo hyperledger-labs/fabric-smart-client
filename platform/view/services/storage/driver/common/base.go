@@ -10,9 +10,8 @@ import (
 	"runtime/debug"
 	"sync"
 
-	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/pkg/errors"
 )
 
 var logger = logging.MustGetLogger()
@@ -50,7 +49,7 @@ func (db *BaseDB[T]) BeginUpdate() error {
 	tx, err := db.newTransaction()
 	if err != nil {
 		db.txLock.Unlock()
-		return errors2.Wrapf(err, "error starting db transaction")
+		return errors.Wrapf(err, "error starting db transaction")
 	}
 	db.Txn = tx
 	db.debugStack = debug.Stack()
@@ -72,7 +71,7 @@ func (db *BaseDB[T]) Commit() error {
 	db.Txn = db.zero
 	db.debugStack = nil
 	if err != nil {
-		return errors2.Wrapf(err, "could not commit transaction")
+		return errors.Wrapf(err, "could not commit transaction")
 	}
 
 	return nil

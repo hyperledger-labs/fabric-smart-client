@@ -10,10 +10,10 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric/protoutil"
-	"github.com/pkg/errors"
 )
 
 type ChannelProvider interface {

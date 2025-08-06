@@ -9,10 +9,10 @@ package rest
 import (
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	routing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
-	"github.com/pkg/errors"
 )
 
 type pkiExtractor interface {

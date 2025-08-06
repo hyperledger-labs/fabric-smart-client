@@ -10,11 +10,11 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	session2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/session"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/pkg/errors"
 )
 
 // RecipientData models the answer to a request of recipient identity

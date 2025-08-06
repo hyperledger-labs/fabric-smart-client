@@ -9,9 +9,9 @@ package state
 import (
 	"context"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/pkg/errors"
 )
 
 type Network interface {

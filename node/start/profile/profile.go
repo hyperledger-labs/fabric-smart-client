@@ -13,8 +13,8 @@ import (
 	"runtime"
 	"runtime/pprof"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/pkg/errors"
 )
 
 var logger = logging.MustGetLogger()

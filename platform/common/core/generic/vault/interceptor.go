@@ -10,9 +10,9 @@ import (
 	"context"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
-	"github.com/pkg/errors"
 )
 
 type VersionedQueryExecutor interface {

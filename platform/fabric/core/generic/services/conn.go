@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -17,7 +18,6 @@ import (
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	dclient "github.com/hyperledger/fabric/discovery/client"
-	"github.com/pkg/errors"
 	ggrpc "google.golang.org/grpc"
 )
 

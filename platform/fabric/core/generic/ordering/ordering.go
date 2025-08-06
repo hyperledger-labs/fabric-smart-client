@@ -10,6 +10,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
@@ -17,7 +18,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	common2 "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/pkg/errors"
 )
 
 type ConsensusType = string

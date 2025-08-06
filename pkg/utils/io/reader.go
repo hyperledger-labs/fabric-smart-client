@@ -11,8 +11,8 @@ import (
 	"encoding/binary"
 	"io"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/pkg/errors"
 )
 
 // dataReader reads delimited messages as byte arrays

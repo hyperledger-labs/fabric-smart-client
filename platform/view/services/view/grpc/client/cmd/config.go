@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"gopkg.in/yaml.v2"
 )
 

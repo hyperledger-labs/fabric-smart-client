@@ -10,7 +10,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 
-	"github.com/pkg/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 func PemDecodeCert(pemBytes []byte) (*x509.Certificate, error) {

@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/libp2p/go-libp2p"
@@ -31,7 +32,6 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
 	"github.com/multiformats/go-multiaddr"
-	"github.com/pkg/errors"
 )
 
 var logger = logging.MustGetLogger()

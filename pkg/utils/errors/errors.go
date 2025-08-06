@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package errors
 
-import "github.com/pkg/errors"
+import "github.com/cockroachdb/errors"
 
 // HasType recursively checks errors wrapped using Wrapf until it detects the target error type
 func HasType(source, target error) bool {
@@ -36,6 +36,15 @@ func Wrapf(err error, format string, args ...any) error {
 // WithMessagef annotates err with the format specifier.
 func WithMessagef(err error, format string, args ...any) error {
 	return errors.WithMessagef(err, format, args...)
+}
+
+// WithMessage annotates err with the format specifier.
+func WithMessage(err error, format string) error {
+	return errors.WithMessage(err, format)
+}
+
+func WithStack(err error) error {
+	return errors.WithStack(err)
 }
 
 // Wrap wraps an error in a way compatible with HasCause

@@ -9,8 +9,8 @@ package routing
 import (
 	"os"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
 

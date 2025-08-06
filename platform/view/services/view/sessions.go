@@ -10,9 +10,9 @@ import (
 	"io"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/pkg/errors"
 )
 
 //go:generate counterfeiter -o mock/session.go -fake-name Session . Session

@@ -9,12 +9,11 @@ package committer
 import (
 	"context"
 
-	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"github.com/pkg/errors"
 )
 
 type ValidationFlags []uint8
@@ -30,7 +29,7 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 	case pb.TxValidationCode_VALID:
 		processed, err := c.CommitEndorserTransaction(ctx, event.TxID, tx.BlkNum, tx.TxNum, tx.Envelope, event)
 		if err != nil {
-			if errors2.HasCause(err, ErrDiscardTX) {
+			if errors.HasCause(err, ErrDiscardTX) {
 				// in this case, we will discard the transaction
 				event.ValidationCode = convertValidationCode(int32(pb.TxValidationCode_INVALID_OTHER_REASON))
 				event.ValidationMessage = err.Error()

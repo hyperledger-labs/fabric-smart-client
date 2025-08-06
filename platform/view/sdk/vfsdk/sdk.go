@@ -10,12 +10,12 @@ import (
 	"context"
 	"errors"
 
+	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	errors2 "github.com/pkg/errors"
 	"go.uber.org/dig"
 )
 

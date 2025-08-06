@@ -9,6 +9,7 @@ require (
 	github.com/IBM/idemix v0.0.2-0.20240913182345-72941a5f41cd
 	github.com/IBM/idemix/bccsp/types v0.0.0-20240913182345-72941a5f41cd
 	github.com/IBM/mathlib v0.0.3-0.20231011094432-44ee0eb539da
+	github.com/cockroachdb/errors v1.12.0
 	github.com/docker/docker v27.2.0+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/fsouza/go-dockerclient v1.12.0
@@ -37,7 +38,6 @@ require (
 	github.com/multiformats/go-multiaddr v0.13.0
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.20.1
@@ -62,6 +62,16 @@ require (
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v2 v2.4.0
 	modernc.org/sqlite v1.32.0
+)
+
+require (
+	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
+	github.com/cockroachdb/redact v1.1.5 // indirect
+	github.com/getsentry/sentry-go v0.27.0 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/rogpeppe/go-internal v1.13.1 // indirect
 )
 
 require (
@@ -273,7 +283,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.34.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.34.0
 	go.opentelemetry.io/otel/sdk/metric v1.34.0 // indirect
-	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
+	go.opentelemetry.io/proto/otlp v1.3.1
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/fx v1.23.0 // indirect
 	go.uber.org/mock v0.5.0 // indirect

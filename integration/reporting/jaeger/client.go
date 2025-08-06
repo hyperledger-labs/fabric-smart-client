@@ -11,9 +11,9 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/jaegertracing/jaeger-idl/proto-gen/api_v2"
-	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

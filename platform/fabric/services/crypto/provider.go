@@ -9,9 +9,9 @@ package crypto
 import (
 	"hash"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
-	"github.com/pkg/errors"
 )
 
 type provider struct {

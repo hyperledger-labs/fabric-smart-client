@@ -14,8 +14,8 @@ import (
 	"encoding/pem"
 	"math/big"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/pkg/errors"
 )
 
 var (

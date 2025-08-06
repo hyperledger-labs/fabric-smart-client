@@ -9,12 +9,11 @@ package errors
 import (
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestWrapfSimpleNesting(t *testing.T) {
-	nestedErr := errors.New("nested err")
+	nestedErr := New("nested err")
 	err := Wrapf(nestedErr, "some error")
 	assert.True(t, HasCause(err, nestedErr))
 }
@@ -26,7 +25,7 @@ func TestWrapfDoubleNesting(t *testing.T) {
 }
 
 func TestHasCauseNil(t *testing.T) {
-	assert.False(t, HasCause(errors.New("some err"), nil))
+	assert.False(t, HasCause(New("some err"), nil))
 }
 
 type newErrType struct{ msg string }
@@ -40,5 +39,5 @@ func TestHasType(t *testing.T) {
 }
 
 func TestHasTypeNil(t *testing.T) {
-	assert.False(t, HasType(errors.New("some err"), nil))
+	assert.False(t, HasType(New("some err"), nil))
 }
