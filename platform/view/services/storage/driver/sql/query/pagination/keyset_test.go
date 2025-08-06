@@ -275,3 +275,16 @@ func TestKeysetInt(t *testing.T) {
 	Expect(query).To(Equal("SELECT field1, col_id FROM test WHERE (col_id > $1) ORDER BY col_id ASC LIMIT $2"))
 	Expect(args).To(ConsistOf(10, 10))
 }
+
+func TestKeysetSeriliazation(t *testing.T) {
+	RegisterTestingT(t)
+
+	page := setupPaginationWithLastId()
+
+	buf, err := page.Pagination.Serialize()
+	Expect(err).ToNot(HaveOccurred())
+
+	k2, err := pagination.KeysetFromRaw[string](buf, "StringField")
+	Expect(err).ToNot(HaveOccurred())
+	Expect(k2.Equal(page.Pagination)).To(Equal(true))
+}

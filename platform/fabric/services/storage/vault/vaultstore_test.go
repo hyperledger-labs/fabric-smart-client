@@ -39,36 +39,48 @@ type matrixItem struct {
 	argsForward  []any
 	sqlBackward  []string
 	argsBackward []any
+	deserialize  func([]byte) (driver.Pagination, error)
 }
 
 var matrix = []matrixItem{
-	//{
-	//	pagination:  pagination.None(),
-	//	sqlForward:  []string{"SELECT * FROM test", "SELECT * FROM test"},
-	//	argsForward: []any{[]string{}, []int{}},
-	//	sqlBackward: []string{},
-	//	matcher: []types.GomegaMatcher{
-	//		ConsistOf(
-	//			HaveField("TxID", Equal("txid1")),
-	//			HaveField("TxID", Equal("txid2")),
-	//			HaveField("TxID", Equal("txid10")),
-	//			HaveField("TxID", Equal("txid12")),
-	//			HaveField("TxID", Equal("txid21")),
-	//			HaveField("TxID", Equal("txid100")),
-	//			HaveField("TxID", Equal("txid200")),
-	//			HaveField("TxID", Equal("txid1025")),
-	//		),
-	//	},
-	//},
+	{
+		pagination: pagination.None(),
+		deserialize: func(data []byte) (driver.Pagination, error) {
+			return pagination.NoneFromRaw(data)
+		},
+		sqlForward: []string{
+			"SELECT * FROM test",
+			"SELECT * FROM test LIMIT $1", // This makes sure that no rows are returned, so we get the same behaviour as for offset pagination
+		},
+		argsForward: []any{
+			[]string{},
+			[]int{0},
+		},
+		sqlBackward: []string{},
+		matcher: []types.GomegaMatcher{
+			ConsistOf(
+				HaveField("TxID", Equal("txid1")),
+				HaveField("TxID", Equal("txid2")),
+				HaveField("TxID", Equal("txid10")),
+				HaveField("TxID", Equal("txid12")),
+				HaveField("TxID", Equal("txid21")),
+				HaveField("TxID", Equal("txid100")),
+				HaveField("TxID", Equal("txid200")),
+				HaveField("TxID", Equal("txid1025")),
+			),
+		},
+	},
 	{
 		pagination: NewOffsetPagination(0, 2),
+		deserialize: func(data []byte) (driver.Pagination, error) {
+			return pagination.OffsetFromRaw(data)
+		},
 		sqlForward: []string{
 			"SELECT * FROM test LIMIT $1",
 			"SELECT * FROM test LIMIT $1 OFFSET $2",
 			"SELECT * FROM test LIMIT $1 OFFSET $2",
 			"SELECT * FROM test LIMIT $1 OFFSET $2",
 			"SELECT * FROM test LIMIT $1 OFFSET $2",
-			"SELECT * FROM test",
 		},
 		argsForward: []any{
 			[]int{2},
@@ -76,7 +88,6 @@ var matrix = []matrixItem{
 			[]int{2, 4},
 			[]int{2, 6},
 			[]int{2, 8},
-			[]int{},
 		},
 		sqlBackward: []string{},
 		matcher: []types.GomegaMatcher{
@@ -100,13 +111,15 @@ var matrix = []matrixItem{
 	},
 	{
 		pagination: NewKeysetPagination(0, 2, "tx_id", "TxID"),
+		deserialize: func(data []byte) (driver.Pagination, error) {
+			return pagination.KeysetFromRaw[string](data, "TxID")
+		},
 		sqlForward: []string{
 			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1",
 			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
 			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
 			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
 			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
-			"SELECT * FROM test",
 		},
 		argsForward: []any{
 			[]int{2},
@@ -114,7 +127,6 @@ var matrix = []matrixItem{
 			[]any{"txid1025", 2},
 			[]any{"txid2", 2},
 			[]any{"txid21", 2},
-			[]int{},
 		},
 
 		sqlBackward: []string{
@@ -123,7 +135,6 @@ var matrix = []matrixItem{
 			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1 OFFSET $2",
 			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1 OFFSET $2",
 			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1 OFFSET $2",
-			"SELECT * FROM test",
 		},
 		argsBackward: []any{
 			[]int{2},
@@ -131,7 +142,6 @@ var matrix = []matrixItem{
 			[]int{2, 4},
 			[]int{2, 6},
 			[]int{2, 8},
-			[]int{},
 		},
 
 		matcher: []types.GomegaMatcher{
@@ -208,6 +218,14 @@ func testPagination(store driver.VaultStore) {
 			Expect(page).To(BeNumerically("<", len(item.matcher)))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(statuses).To(item.matcher[page])
+
+			// checking that sending and receiving the pagination to
+			buf, err := p.Pagination.Serialize()
+			Expect(err).ToNot(HaveOccurred())
+			p2, err := item.deserialize(buf)
+			Expect(err).ToNot(HaveOccurred())
+
+			p.Pagination = p2
 
 			pag, err = p.Pagination.Next()
 			Expect(err).ToNot(HaveOccurred())

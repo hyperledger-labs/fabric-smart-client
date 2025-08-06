@@ -136,6 +136,10 @@ func (q *query) FormatPaginatedTo(ci common.CondInterpreter, pi common.PagInterp
 		sb.WriteString(" ORDER BY ").WriteSerializables(common.ToSerializables(q.orderBy)...)
 	}
 
+	if q.limit == common.ZeroLimit {
+		sb.WriteString(" LIMIT ").WriteParam(0)
+	}
+
 	if q.limit > 0 {
 		sb.WriteString(" LIMIT ").WriteParam(q.limit)
 	}

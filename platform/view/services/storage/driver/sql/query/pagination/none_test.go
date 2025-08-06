@@ -36,6 +36,6 @@ func TestEmpty(t *testing.T) {
 		Paginated(pagination.Empty()).
 		FormatPaginated(nil, pagination.NewDefaultInterpreter())
 
-	Expect(query).To(Equal("SELECT * FROM test"))
-	Expect(args).To(BeEmpty())
+	Expect(query).To(Equal("SELECT * FROM test LIMIT $1"))
+	Expect(args).To(ConsistOf(0))
 }

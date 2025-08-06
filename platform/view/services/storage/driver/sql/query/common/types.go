@@ -21,6 +21,11 @@ type Tuple = []Param
 // Param is a value for a field
 type Param = any
 
+const (
+	// ZeroLimit is used to signal to AddLimit to include a `LIMIT 0` clause
+	ZeroLimit = -1
+)
+
 // CondInterpreter is the condition interpreter for the WHERE clauses
 // It specifies the behaviors that differ among different DBs
 type CondInterpreter interface {
@@ -34,6 +39,9 @@ type ModifiableQuery interface {
 	AddField(Field)
 	AddWhere(Condition)
 	AddOrderBy(OrderBy)
+	// AddLimit is used to manage the LIMIT clause.
+	// Any passed value larger than zero will trigger the inclusion of the clause.
+	// If one wants to explicitly insert a clause as `LIMIT 0`, then oen should use the constant ZeroLimit
 	AddLimit(int)
 	AddOffset(int)
 }
