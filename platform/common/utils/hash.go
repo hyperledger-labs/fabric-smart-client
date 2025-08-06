@@ -10,7 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 
-	"github.com/pkg/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 func HashUInt64(raw []byte) (uint64, error) {

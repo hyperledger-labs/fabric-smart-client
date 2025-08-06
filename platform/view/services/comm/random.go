@@ -19,7 +19,7 @@ package comm
 import (
 	"crypto/rand"
 
-	"github.com/pkg/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 const (

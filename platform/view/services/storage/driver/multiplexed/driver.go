@@ -7,11 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package multiplexed
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
-	"github.com/pkg/errors"
 )
 
 func NewDriver(config driver2.Config, ds ...driver2.NamedDriver) Driver {

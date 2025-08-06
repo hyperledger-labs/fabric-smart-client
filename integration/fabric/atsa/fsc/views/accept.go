@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
-	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"

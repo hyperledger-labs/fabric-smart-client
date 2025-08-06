@@ -11,7 +11,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
@@ -21,7 +21,6 @@ import (
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 	cond2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
-	"github.com/pkg/errors"
 )
 
 var logger = logging.MustGetLogger()
@@ -63,7 +62,7 @@ func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns drive
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
-		return nil, errors2.Wrapf(err, "query error: %s", query)
+		return nil, errors.Wrapf(err, "query error: %s", query)
 	}
 
 	return NewIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }), nil
@@ -91,7 +90,7 @@ func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns driver2.Nam
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
-		return nil, errors2.Wrapf(err, "query error: %s", query)
+		return nil, errors.Wrapf(err, "query error: %s", query)
 	}
 
 	return NewIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }), nil
@@ -105,7 +104,7 @@ func (db *KeyValueStore) Close() error {
 	logger.Info("closing database")
 	err := db.writeDB.Close()
 	if err != nil {
-		return errors2.Wrapf(err, "could not close DB")
+		return errors.Wrapf(err, "could not close DB")
 	}
 
 	return nil
@@ -210,7 +209,7 @@ func (db *KeyValueStore) upsertStatesWithTx(ctx context.Context, tx dbTransactio
 
 	logger.Debug(query, params)
 	if _, err := tx.ExecContext(ctx, query, params...); err != nil {
-		return collections.RepeatValue(collections.Keys(vals), errors2.Wrapf(db.errorWrapper.WrapError(err), "could not upsert"))
+		return collections.RepeatValue(collections.Keys(vals), errors.Wrapf(db.errorWrapper.WrapError(err), "could not upsert"))
 	}
 	return nil
 }

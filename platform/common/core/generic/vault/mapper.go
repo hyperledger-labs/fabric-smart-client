@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/pkg/errors"
 )
 
 type VersionBuilder interface {

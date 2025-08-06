@@ -14,8 +14,8 @@ import (
 	"syscall"
 
 	"github.com/hyperledger-labs/fabric-smart-client/node/start/profile"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 

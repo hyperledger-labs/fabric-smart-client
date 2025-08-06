@@ -9,10 +9,10 @@ package sig
 import (
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/x509"
-	"github.com/pkg/errors"
 )
 
 var logger = logging.MustGetLogger()

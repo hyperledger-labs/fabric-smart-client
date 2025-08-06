@@ -13,10 +13,10 @@ import (
 
 	"github.com/IBM/idemix"
 	im "github.com/IBM/idemix/idemixmsp"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/hyperledger/fabric/msp"
-	"github.com/pkg/errors"
 )
 
 // SignerConfig contains the crypto material to set up an idemix signing identity

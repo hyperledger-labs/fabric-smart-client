@@ -11,11 +11,11 @@ import (
 	"log"
 	"runtime/debug"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	utils "github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	"github.com/pkg/errors"
 )
 
 var logger = logging.MustGetLogger()

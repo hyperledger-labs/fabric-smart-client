@@ -9,10 +9,10 @@ SPDX-License-Identifier: Apache-2.0
 package pkcs11
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/pkcs11"
-	"github.com/pkg/errors"
 )
 
 type (

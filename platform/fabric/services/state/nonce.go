@@ -9,7 +9,7 @@ package state
 import (
 	"crypto/rand"
 
-	"github.com/pkg/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // CreateNonceOrPanic generates a nonce using the common/crypto package

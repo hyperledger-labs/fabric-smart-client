@@ -10,9 +10,9 @@ import (
 	"encoding/json"
 
 	csp "github.com/IBM/idemix/bccsp/types"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
-	"github.com/pkg/errors"
 )
 
 type AuditInfo struct {

@@ -9,8 +9,8 @@ package postgres
 import (
 	"database/sql"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/pkg/errors"
 )
 
 var IsolationLevels = isolationLevelMapper{

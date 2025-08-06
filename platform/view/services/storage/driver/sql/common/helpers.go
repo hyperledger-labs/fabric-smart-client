@@ -17,13 +17,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	errors2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/keys"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -80,7 +79,7 @@ func TTestDuplicate(t *testing.T, _ *sql.DB, writeDB WriteDB, errorWrapper drive
 
 	_, err = tx.Exec(query, ns, "key", []byte("test 2"))
 	assert.Error(t, err, "should fail on duplicate")
-	assert.True(t, errors2.HasCause(errorWrapper.WrapError(err), driver.UniqueKeyViolation), "should be a unique-key violation")
+	assert.True(t, errors.HasCause(errorWrapper.WrapError(err), driver.UniqueKeyViolation), "should be a unique-key violation")
 
 	err = tx.Rollback()
 	assert.NoError(t, err, "should rollback")

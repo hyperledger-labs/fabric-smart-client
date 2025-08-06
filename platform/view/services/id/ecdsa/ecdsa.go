@@ -17,9 +17,9 @@ import (
 	"encoding/pem"
 	"math/big"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/pkg/errors"
 )
 
 // curveHalfOrders contains the precomputed curve group orders halved.

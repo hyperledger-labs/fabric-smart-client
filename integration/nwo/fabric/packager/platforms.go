@@ -10,8 +10,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/external"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/golang"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/pkg/errors"
 )
 
 // SupportedPlatforms is the canonical list of platforms Fabric supports

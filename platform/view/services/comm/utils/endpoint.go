@@ -11,7 +11,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 func AddressToEndpoint(endpoint string) (string, error) {

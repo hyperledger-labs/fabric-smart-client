@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger/fabric/core/chaincode/persistence"
-	"github.com/pkg/errors"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
 )

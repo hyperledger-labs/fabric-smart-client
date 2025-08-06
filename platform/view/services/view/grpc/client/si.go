@@ -12,8 +12,8 @@ import (
 	"encoding/pem"
 	"os"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/si"
-	"github.com/pkg/errors"
 )
 
 func NewX509SigningIdentity(certPath, skPath string) (SigningIdentity, error) {
