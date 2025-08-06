@@ -9,16 +9,13 @@ package metadata
 import (
 	"fmt"
 	"runtime"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/metadata"
 )
 
 const ProgramName = "cryptogen"
 
-var (
-	CommitSHA = metadata.CommitSHA
-	Version   = metadata.Version
-)
+// Variables defined by the Makefile and passed in with ldflags
+var Version = "latest"
+var CommitSHA = "development build"
 
 func GetVersionInfo() string {
 	return fmt.Sprintf(
