@@ -20,19 +20,16 @@ type Metrics struct {
 func newMetrics(p metrics.Provider) *Metrics {
 	return &Metrics{
 		Sessions: p.NewGauge(metrics.GaugeOpts{
-			Namespace:    "host",
 			Name:         "sessions",
 			Help:         "The number of open sessions on the client side",
 			StatsdFormat: "%{#fqname}",
 		}),
 		StreamHashes: p.NewGauge(metrics.GaugeOpts{
-			Namespace:    "host",
 			Name:         "stream_hashes",
 			Help:         "The number of hashes in the stream",
 			StatsdFormat: "%{#fqname}",
 		}),
 		ActiveStreams: p.NewGauge(metrics.GaugeOpts{
-			Namespace:    "host",
 			Name:         "active_streams",
 			Help:         "The number of streams on the client side",
 			StatsdFormat: "%{#fqname}",
@@ -48,7 +45,6 @@ func newMetrics(p metrics.Provider) *Metrics {
 			StatsdFormat: "%{#fqname}",
 		}),
 		StreamHandlers: p.NewGauge(metrics.GaugeOpts{
-			Namespace:    "host",
 			Name:         "stream_handlers",
 			Help:         "The number of stream handlers on the client side",
 			StatsdFormat: "%{#fqname}",

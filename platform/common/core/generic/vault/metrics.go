@@ -21,16 +21,14 @@ type Metrics struct {
 func NewMetrics(m metrics.Provider) *Metrics {
 	return &Metrics{
 		CommitDuration: m.NewHistogram(metrics.HistogramOpts{
-			Namespace: "vault",
-			Name:      "commit",
-			Help:      "Histogram for the duration of commit",
-			Buckets:   utils.ExponentialBucketTimeRange(0, 5*time.Second, 15),
+			Name:    "commit",
+			Help:    "Histogram for the duration of commit",
+			Buckets: utils.ExponentialBucketTimeRange(0, 5*time.Second, 15),
 		}),
 		BatchedCommitDuration: m.NewHistogram(metrics.HistogramOpts{
-			Namespace: "vault",
-			Name:      "batched_commit",
-			Help:      "Histogram for the duration of commit with the batching overhead",
-			Buckets:   utils.ExponentialBucketTimeRange(0, 5*time.Second, 15),
+			Name:    "batched_commit",
+			Help:    "Histogram for the duration of commit with the batching overhead",
+			Buckets: utils.ExponentialBucketTimeRange(0, 5*time.Second, 15),
 		}),
 	}
 }

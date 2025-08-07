@@ -45,7 +45,6 @@ func newMetrics(p metrics.Provider) *Metrics {
 			StatsdFormat: "%{#fqname}.%{" + sideLabel + "}",
 		}),
 		ActiveSubConns: p.NewGauge(metrics.GaugeOpts{
-			Namespace:    "host",
 			Name:         "active_subconns",
 			Help:         "The number of active subconns",
 			LabelNames:   []string{},
