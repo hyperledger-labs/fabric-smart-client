@@ -38,13 +38,11 @@ func newMetrics(p metrics.Provider) *Metrics {
 			StatsdFormat: "%{#fqname}",
 		}),
 		OpenedStreams: p.NewCounter(metrics.CounterOpts{
-			Namespace:    "host",
 			Name:         "opened_streams",
 			Help:         "The number of streams opened on the client side",
 			StatsdFormat: "%{#fqname}",
 		}),
 		ClosedStreams: p.NewCounter(metrics.CounterOpts{
-			Namespace:    "host",
 			Name:         "closed_streams",
 			Help:         "The number of streams closed on the client side",
 			StatsdFormat: "%{#fqname}",

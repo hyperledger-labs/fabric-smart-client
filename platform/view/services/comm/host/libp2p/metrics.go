@@ -15,14 +15,12 @@ const (
 
 var (
 	bytesSent = metrics2.CounterOpts{
-		Namespace:    "comm",
 		Name:         "bytes_sent",
 		Help:         "The amount of data sent.",
 		LabelNames:   []string{PeerId, ProtocolId},
 		StatsdFormat: "%{#fqname}.%{" + PeerId + "}.%{" + ProtocolId + "}",
 	}
 	bytesReceived = metrics2.CounterOpts{
-		Namespace:    "comm",
 		Name:         "bytes_received",
 		Help:         "The amount of data received.",
 		LabelNames:   []string{PeerId, ProtocolId},
