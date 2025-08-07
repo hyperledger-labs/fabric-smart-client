@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package testtracing_test
+package tracing_test
 
 import (
 	"testing"
@@ -23,7 +23,7 @@ func TestGetPackageName(t *testing.T) {
 
 	pkg := callGetPackageName()
 
-	Expect(pkg).To(Equal("github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing/testtracing_test"))
+	Expect(pkg).To(Equal("github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing_test"))
 }
 
 type ConfigHandler struct{}
@@ -38,7 +38,7 @@ func TestGetPackageName_FromStructMethod(t *testing.T) {
 	handler := &ConfigHandler{}
 	pkg := handler.sendResponseLikeMethod()
 
-	Expect(pkg).To(Equal("github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing/testtracing_test"))
+	Expect(pkg).To(Equal("github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing_test"))
 }
 
 func TestWithMetricsOpts_CustomSubsystem(t *testing.T) {
@@ -56,7 +56,7 @@ func TestWithMetricsOpts_CustomSubsystem(t *testing.T) {
 
 	namespaceVal, ok := attrs.Value("namespace")
 	Expect(ok).To(BeTrue())
-	Expect(namespaceVal.AsString()).To(Equal("fsc_view_services_tracing"))
+	Expect(namespaceVal.AsString()).To(Equal("fsc_view_services"))
 
 	subsystemVal, ok := attrs.Value("subsystem")
 	Expect(ok).To(BeTrue())
@@ -79,11 +79,11 @@ func TestWithMetricsOpts_EmptyOptions(t *testing.T) {
 
 	namespaceVal, ok := attrs.Value("namespace")
 	Expect(ok).To(BeTrue())
-	Expect(namespaceVal.AsString()).To(Equal("fsc_view_services_tracing"))
+	Expect(namespaceVal.AsString()).To(Equal("fsc_view_services"))
 
 	subsystemVal, ok := attrs.Value("subsystem")
 	Expect(ok).To(BeTrue())
-	Expect(subsystemVal.AsString()).To(Equal("testtracing_test"))
+	Expect(subsystemVal.AsString()).To(Equal("tracing_test"))
 
 	labelNamesVal, ok := attrs.Value("label_names")
 	Expect(ok).To(BeTrue())
