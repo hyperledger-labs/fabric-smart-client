@@ -107,13 +107,5 @@ type OrdererOperations struct {
 }
 
 type OrdererMetrics struct {
-	Provider string         `yaml:"Provider"`
-	Statsd   *OrdererStatsd `yaml:"Statsd,omitempty"`
-}
-
-type OrdererStatsd struct {
-	Network       string        `yaml:"Network,omitempty"`
-	Address       string        `yaml:"Address,omitempty"`
-	WriteInterval time.Duration `yaml:"WriteInterval,omitempty"`
-	Prefix        string        `yaml:"Prefix,omitempty"`
+	Provider string `yaml:"Provider"`
 }

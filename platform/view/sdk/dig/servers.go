@@ -69,20 +69,12 @@ func NewOperationsOptions(configProvider driver.ConfigService) (*operations.Opti
 	tlsEnabled := configProvider.IsSet("fsc.web.tls.enabled") && configProvider.GetBool("fsc.web.tls.enabled")
 
 	provider := configProvider.GetString("fsc.metrics.provider")
-	statsdOperationsConfig := &operations.Statsd{}
-	if provider == "statsd" && configProvider.IsSet("fsc.metrics.statsd") {
-		if err := configProvider.UnmarshalKey("fsc.metrics.statsd", statsdOperationsConfig); err != nil {
-			return nil, fmt.Errorf("error unmarshalling metrics.statsd config: %w", err)
-		}
-	}
-
 	prometheusTls := configProvider.IsSet("fsc.metrics.prometheus.tls") && configProvider.GetBool("fsc.metrics.prometheus.tls")
 	logger.Infof("Starting operations with TLS: %v", prometheusTls)
 
 	return &operations.Options{
 		Metrics: operations.MetricsOptions{
 			Provider: provider,
-			Statsd:   statsdOperationsConfig,
 			TLS:      prometheusTls,
 		},
 		TLS: operations.TLS{

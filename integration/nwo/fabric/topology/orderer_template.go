@@ -84,16 +84,6 @@ Operations:
     -  {{ $w.OrdererLocalTLSDir Orderer }}/ca.crt
 Metrics:
   Provider: {{ .MetricsProvider }}
-  Statsd:
-    {{- if .StatsdEndpoint }}
-    Network: tcp
-    Address: {{ .StatsdEndpoint }}
-    {{- else }}
-    Network: udp
-    Address: 0.0.0.0:8125
-    {{- end }}
-    WriteInterval: 5s
-    Prefix: {{ ReplaceAll (ToLower Orderer.ID) "." "_" }}
 Admin:
   ListenAddress: 0.0.0.0:{{ .OrdererPort Orderer "Admin" }}
   TLS:

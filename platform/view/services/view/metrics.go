@@ -15,9 +15,8 @@ type Metrics struct {
 func newMetrics(p metrics.Provider) *Metrics {
 	return &Metrics{
 		Contexts: p.NewGauge(metrics.GaugeOpts{
-			Name:         "contexts",
-			Help:         "The number of open contexts on the client side",
-			StatsdFormat: "%{#fqname}",
+			Name:      "contexts",
+			Help:      "The number of open contexts on the client side",
 		}),
 	}
 }

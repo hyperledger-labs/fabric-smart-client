@@ -57,20 +57,6 @@ type CounterOpts struct {
 	// LabelHelp provides help information for labels. When set, this information
 	// will be used to populate the documentation.
 	LabelHelp map[string]string
-
-	// StatsdFormat determines how the fully-qualified statsd bucket name is
-	// constructed from Namespace, Subsystem, Name, and Labels. This is done by
-	// including field references in `%{reference}` escape sequences.
-	//
-	// The following reference names are supported:
-	// - #namespace   - the value of Namespace
-	// - #subsystem   - the value of Subsystem
-	// - #name        - the value of Name
-	// - #fqname      - the fully-qualified metric name
-	// - label_name   - the value associated with the named label
-	//
-	// The result of the formatting must be a valid statsd bucket name.
-	StatsdFormat string
 }
 
 // A Gauge is a meter that expresses the current value of some metric.
@@ -108,20 +94,6 @@ type GaugeOpts struct {
 	// LabelHelp provides help information for labels. When set, this information
 	// will be used to populate the documentation.
 	LabelHelp map[string]string
-
-	// StatsdFormat determines how the fully-qualified statsd bucket name is
-	// constructed from Namespace, Subsystem, Name, and Labels. This is done by
-	// including field references in `%{reference}` escape sequences.
-	//
-	// The following reference names are supported:
-	// - #namespace   - the value of Namespace
-	// - #subsystem   - the value of Subsystem
-	// - #name        - the value of Name
-	// - #fqname      - the fully-qualified metric name
-	// - label_name   - the value associated with the named label
-	//
-	// The result of the formatting must be a valid statsd bucket name.
-	StatsdFormat string
 }
 
 // A Histogram is a meter that records an observed value into quantized
@@ -160,20 +132,6 @@ type HistogramOpts struct {
 	// LabelHelp provides help information for labels. When set, this information
 	// will be used to populate the documentation.
 	LabelHelp map[string]string
-
-	// StatsdFormat determines how the fully-qualified statsd bucket name is
-	// constructed from Namespace, Subsystem, Name, and Labels. This is done by
-	// including field references in `%{reference}` escape sequences.
-	//
-	// The following reference names are supported:
-	// - #namespace   - the value of Namespace
-	// - #subsystem   - the value of Subsystem
-	// - #name        - the value of Name
-	// - #fqname      - the fully-qualified metric name
-	// - label_name   - the value associated with the named label
-	//
-	// The result of the formatting must be a valid statsd bucket name.
-	StatsdFormat string
 }
 
 // GetProvider returns the metrics provider registered in the service provider passed in.

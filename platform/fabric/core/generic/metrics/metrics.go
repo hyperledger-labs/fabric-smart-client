@@ -13,10 +13,9 @@ import (
 var (
 	orderedTransactions = metrics.CounterOpts{
 		Subsystem:    "ordering",
-		Name:         "ordered_transactions",
-		Help:         "The number of ordered transactions.",
-		LabelNames:   []string{"network"},
-		StatsdFormat: "%{#fqname}.%{network}",
+		Name:       "ordered_transactions",
+		Help:       "The number of ordered transactions.",
+		LabelNames: []string{"network"},
 	}
 )
 

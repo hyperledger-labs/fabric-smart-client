@@ -297,13 +297,5 @@ type Operations struct {
 }
 
 type Metrics struct {
-	Provider string  `yaml:"provider"`
-	Statsd   *Statsd `yaml:"statsd,omitempty"`
-}
-
-type Statsd struct {
-	Network       string        `yaml:"network,omitempty"`
-	Address       string        `yaml:"address,omitempty"`
-	WriteInterval time.Duration `yaml:"writeInterval,omitempty"`
-	Prefix        string        `yaml:"prefix,omitempty"`
+	Provider string `yaml:"provider"`
 }

@@ -9,7 +9,6 @@ package tracing
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -78,26 +77,20 @@ func (p *tracerProvider) Tracer(name string, options ...trace.TracerOption) trac
 		namespace:     opts.Namespace,
 		labelNames:    opts.LabelNames,
 		operations: p.metricsProvider.NewCounter(metrics.CounterOpts{
-			Namespace:    opts.Namespace,
+			Namespace:  opts.Namespace,
 			Subsystem:    opts.Subsystem,
-			Name:         fmt.Sprintf("%s_operations", name),
-			Help:         fmt.Sprintf("Counter of '%s' operations", name),
-			LabelNames:   opts.LabelNames,
-			StatsdFormat: statsdFormat(opts.LabelNames),
+			Name:       fmt.Sprintf("%s_operations", name),
+			Help:       fmt.Sprintf("Counter of '%s' operations", name),
+			LabelNames: opts.LabelNames,
 		}),
 		duration: p.metricsProvider.NewHistogram(metrics.HistogramOpts{
-			Namespace:    opts.Namespace,
+			Namespace:  opts.Namespace,
 			Subsystem:    opts.Subsystem,
-			Name:         fmt.Sprintf("%s_duration", name),
-			Help:         fmt.Sprintf("Histogram for the duration of '%s' operations", name),
-			LabelNames:   opts.LabelNames,
-			StatsdFormat: statsdFormat(opts.LabelNames),
+			Name:       fmt.Sprintf("%s_duration", name),
+			Help:       fmt.Sprintf("Histogram for the duration of '%s' operations", name),
+			LabelNames: opts.LabelNames,
 		}),
 	}
-}
-
-func statsdFormat(labels []LabelName) string {
-	return "%{#fqname}.%{" + strings.Join(labels, "}.%{") + "}"
 }
 
 // This wrapper is needed in order to be able to fetch the provider using the SP from the Node

@@ -11,9 +11,9 @@ import (
 )
 
 var _ = Describe("System", func() {
-	//const AdditionalTestApiPath = "/some-additional-test-api"
+	// const AdditionalTestApiPath = "/some-additional-test-api"
 	//
-	//var (
+	// var (
 	//	fakeLogger *fakes.logger
 	//	tempDir    string
 	//
@@ -21,9 +21,9 @@ var _ = Describe("System", func() {
 	//	unauthClient *http.Client
 	//	options      operations.Options
 	//	system       *operations.System
-	//)
+	// )
 	//
-	//BeforeEach(func() {
+	// BeforeEach(func() {
 	//	var err error
 	//	tempDir, err = os.MkdirTemp("", "opssys")
 	//	Expect(err).NotTo(HaveOccurred())
@@ -52,16 +52,16 @@ var _ = Describe("System", func() {
 	//	}
 	//
 	//	system = operations.NewSystem(options)
-	//})
+	// })
 	//
-	//AfterEach(func() {
+	// AfterEach(func() {
 	//	os.RemoveAll(tempDir)
 	//	if system != nil {
 	//		system.Stop()
 	//	}
-	//})
+	// })
 	//
-	//It("hosts an unsecured endpoint for the version information", func() {
+	// It("hosts an unsecured endpoint for the version information", func() {
 	//	err := system.Start()
 	//	Expect(err).NotTo(HaveOccurred())
 	//
@@ -70,9 +70,9 @@ var _ = Describe("System", func() {
 	//	Expect(err).NotTo(HaveOccurred())
 	//	Expect(resp.StatusCode).To(Equal(http.StatusOK))
 	//	resp.Body.Close()
-	//})
+	// })
 	//
-	//It("hosts a secure endpoint for logging", func() {
+	// It("hosts a secure endpoint for logging", func() {
 	//	err := system.Start()
 	//	Expect(err).NotTo(HaveOccurred())
 	//
@@ -85,9 +85,9 @@ var _ = Describe("System", func() {
 	//	resp, err = unauthClient.Get(logspecURL)
 	//	Expect(err).NotTo(HaveOccurred())
 	//	Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
-	//})
+	// })
 	//
-	//It("does not host a secure endpoint for additional APIs by default", func() {
+	// It("does not host a secure endpoint for additional APIs by default", func() {
 	//	err := system.Start()
 	//	Expect(err).NotTo(HaveOccurred())
 	//
@@ -100,9 +100,9 @@ var _ = Describe("System", func() {
 	//	resp, err = unauthClient.Get(addApiURL)
 	//	Expect(err).NotTo(HaveOccurred())
 	//	Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
-	//})
+	// })
 	//
-	//It("hosts a secure endpoint for additional APIs when added", func() {
+	// It("hosts a secure endpoint for additional APIs when added", func() {
 	//	system.RegisterHandler(AdditionalTestApiPath, &fakes.Handler{Code: http.StatusOK, Text: "secure"}, options.TLS.Enabled)
 	//	err := system.Start()
 	//	Expect(err).NotTo(HaveOccurred())
@@ -120,9 +120,9 @@ var _ = Describe("System", func() {
 	//	resp, err = unauthClient.Get(addApiURL)
 	//	Expect(err).NotTo(HaveOccurred())
 	//	Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
-	//})
+	// })
 	//
-	//Context("when TLS is disabled", func() {
+	// Context("when TLS is disabled", func() {
 	//	BeforeEach(func() {
 	//		options.TLS.Enabled = false
 	//		system = operations.NewSystem(options)
@@ -164,9 +164,9 @@ var _ = Describe("System", func() {
 	//		Expect(string(buff)).To(Equal("insecure"))
 	//		resp.Body.Close()
 	//	})
-	//})
+	// })
 	//
-	//Context("when ClientCertRequired is true", func() {
+	// Context("when ClientCertRequired is true", func() {
 	//	BeforeEach(func() {
 	//		options.TLS.ClientCertRequired = true
 	//		system = operations.NewSystem(options)
@@ -179,9 +179,9 @@ var _ = Describe("System", func() {
 	//		_, err = unauthClient.Get(fmt.Sprintf("https://%s/healthz", system.Addr()))
 	//		Expect(err).To(MatchError(ContainSubstring("remote error: tls: bad certificate")))
 	//	})
-	//})
+	// })
 	//
-	//Context("when listen fails", func() {
+	// Context("when listen fails", func() {
 	//	var listener net.Listener
 	//
 	//	BeforeEach(func() {
@@ -201,9 +201,9 @@ var _ = Describe("System", func() {
 	//		err := system.Start()
 	//		Expect(err).To(MatchError(ContainSubstring("bind: address already in use")))
 	//	})
-	//})
+	// })
 	//
-	//Context("when a bad TLS configuration is provided", func() {
+	// Context("when a bad TLS configuration is provided", func() {
 	//	BeforeEach(func() {
 	//		options.TLS.CertFile = "cert-file-does-not-exist"
 	//		system = operations.NewSystem(options)
@@ -213,17 +213,17 @@ var _ = Describe("System", func() {
 	//		err := system.Start()
 	//		Expect(err).To(MatchError("open cert-file-does-not-exist: no such file or directory"))
 	//	})
-	//})
+	// })
 	//
-	//It("proxies Log to the provided logger", func() {
+	// It("proxies Log to the provided logger", func() {
 	//	err := system.Log("key", "value")
 	//	Expect(err).NotTo(HaveOccurred())
 	//
 	//	Expect(fakeLogger.WarnCallCount()).To(Equal(1))
 	//	Expect(fakeLogger.WarnArgsForCall(0)).To(Equal([]interface{}{"key", "value"}))
-	//})
+	// })
 	//
-	//Context("when a logger is not provided", func() {
+	// Context("when a logger is not provided", func() {
 	//	BeforeEach(func() {
 	//		options.logger = nil
 	//		system = operations.NewSystem(options)
@@ -237,9 +237,9 @@ var _ = Describe("System", func() {
 	//		err := system.Log("key", "value")
 	//		Expect(err).NotTo(HaveOccurred())
 	//	})
-	//})
+	// })
 	//
-	//It("hosts a health check endpoint", func() {
+	// It("hosts a health check endpoint", func() {
 	//	err := system.Start()
 	//	Expect(err).NotTo(HaveOccurred())
 	//
@@ -265,9 +265,9 @@ var _ = Describe("System", func() {
 	//		Component: "unhealthy",
 	//		Reason:    "Unfortunately, I am not feeling well.",
 	//	}))
-	//})
+	// })
 	//
-	//Context("when the metrics provider is disabled", func() {
+	// Context("when the metrics provider is disabled", func() {
 	//	BeforeEach(func() {
 	//		options.Metrics = operations.MetricsOptions{
 	//			Provider: "disabled",
@@ -279,9 +279,9 @@ var _ = Describe("System", func() {
 	//	It("sets up a disabled provider", func() {
 	//		Expect(system.Provider).To(Equal(&disabled.Provider{}))
 	//	})
-	//})
+	// })
 	//
-	//Context("when the metrics provider is prometheus", func() {
+	// Context("when the metrics provider is prometheus", func() {
 	//	BeforeEach(func() {
 	//		options.Metrics = operations.MetricsOptions{
 	//			Provider: "prometheus",
@@ -326,128 +326,6 @@ var _ = Describe("System", func() {
 	//		Expect(string(body)).To(ContainSubstring("# TYPE fabric_version gauge"))
 	//		Expect(string(body)).To(ContainSubstring(`fabric_version{version="test-version"}`))
 	//	})
-	//})
+	// })
 	//
-	//Context("when the metrics provider is statsd", func() {
-	//	var listener net.Listener
-	//
-	//	BeforeEach(func() {
-	//		var err error
-	//		listener, err = net.Listen("tcp", "127.0.0.1:0")
-	//		Expect(err).NotTo(HaveOccurred())
-	//
-	//		options.Metrics = operations.MetricsOptions{
-	//			Provider: "statsd",
-	//			Statsd: &operations.Statsd{
-	//				Network:       "tcp",
-	//				Address:       listener.Addr().String(),
-	//				WriteInterval: 100 * time.Millisecond,
-	//				Prefix:        "prefix",
-	//			},
-	//		}
-	//		system = operations.NewSystem(options)
-	//		Expect(system).NotTo(BeNil())
-	//	})
-	//
-	//	recordStats := func(w io.Writer) {
-	//		defer GinkgoRecover()
-	//
-	//		// handle the dial check
-	//		conn, err := listener.Accept()
-	//		if err != nil {
-	//			return
-	//		}
-	//		conn.Close()
-	//
-	//		// handle the payload
-	//		conn, err = listener.Accept()
-	//		Expect(err).NotTo(HaveOccurred())
-	//		defer conn.Close()
-	//
-	//		conn.SetReadDeadline(time.Now().Add(time.Minute))
-	//		_, err = io.Copy(w, conn)
-	//		if err != nil && err != io.EOF {
-	//			Expect(err).NotTo(HaveOccurred())
-	//		}
-	//	}
-	//
-	//	AfterEach(func() {
-	//		listener.Close()
-	//	})
-	//
-	//	It("sets up statsd as a provider", func() {
-	//		provider, ok := system.Provider.(*statsd.Provider)
-	//		Expect(ok).To(BeTrue())
-	//		Expect(provider.Statsd).NotTo(BeNil())
-	//	})
-	//
-	//	It("emits statsd metrics", func() {
-	//		statsBuffer := gbytes.NewBuffer()
-	//		go recordStats(statsBuffer)
-	//
-	//		err := system.Start()
-	//		Expect(err).NotTo(HaveOccurred())
-	//		Eventually(statsBuffer).Should(gbytes.Say(`\Qprefix.go.mem.gc_last_epoch_nanotime:\E`))
-	//	})
-	//
-	//	It("emits the fabric version statsd metric", func() {
-	//		statsBuffer := gbytes.NewBuffer()
-	//		go recordStats(statsBuffer)
-	//
-	//		err := system.Start()
-	//		Expect(err).NotTo(HaveOccurred())
-	//		Eventually(statsBuffer).Should(gbytes.Say(`\Qprefix.fabric_version.test-version:1.000000|g\E`))
-	//	})
-	//
-	//	Context("when checking the network and address fails", func() {
-	//		BeforeEach(func() {
-	//			options.Metrics.Statsd.Network = "bob-the-network"
-	//			system = operations.NewSystem(options)
-	//		})
-	//
-	//		It("returns an error", func() {
-	//			err := system.Start()
-	//			Expect(err).To(MatchError(ContainSubstring("bob-the-network")))
-	//		})
-	//	})
-	//})
-	//
-	//Context("when the metrics provider is unknown", func() {
-	//	BeforeEach(func() {
-	//		options.Metrics.Provider = "something-unknown"
-	//		system = operations.NewSystem(options)
-	//	})
-	//
-	//	It("sets up a disabled provider", func() {
-	//		Expect(system.Provider).To(Equal(&disabled.Provider{}))
-	//	})
-	//
-	//	It("logs the issue", func() {
-	//		Expect(fakeLogger.WarnfCallCount()).To(Equal(1))
-	//		msg, args := fakeLogger.WarnfArgsForCall(0)
-	//		Expect(msg).To(Equal("Unknown provider type: %s; metrics disabled"))
-	//		Expect(args).To(Equal([]interface{}{"something-unknown"}))
-	//	})
-	//})
-	//
-	//It("supports ifrit", func() {
-	//	process := ifrit.Invoke(system)
-	//	Eventually(process.Ready()).Should(BeClosed())
-	//
-	//	process.Signal(syscall.SIGTERM)
-	//	Eventually(process.Wait()).Should(Receive(BeNil()))
-	//})
-	//
-	//Context("when start fails and ifrit is used", func() {
-	//	BeforeEach(func() {
-	//		options.TLS.CertFile = "non-existent-file"
-	//		system = operations.NewSystem(options)
-	//	})
-	//
-	//	It("does not close the ready chan", func() {
-	//		process := ifrit.Invoke(system)
-	//		Consistently(process.Ready()).ShouldNot(BeClosed())
-	//		Eventually(process.Wait()).Should(Receive(MatchError("open non-existent-file: no such file or directory")))
-	//	})
-	//})
 })
