@@ -176,9 +176,10 @@ func (p *Provider) load() error {
 	}
 
 	logging.Init(logging.Config{
-		Format:  p.Backend.GetString("logging.format"),
-		Writer:  logOutput,
-		LogSpec: p.Backend.GetString("logging.spec"),
+		Format:       p.Backend.GetString("logging.format"),
+		LogSpec:      p.Backend.GetString("logging.spec"),
+		OtelSanitize: p.Backend.GetBool("logging.otel.sanitize"),
+		Writer:       logOutput,
 	})
 
 	return nil

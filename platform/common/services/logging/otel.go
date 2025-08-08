@@ -8,6 +8,8 @@ package logging
 
 import (
 	"context"
+	"strings"
+	"unicode"
 
 	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.opentelemetry.io/otel/attribute"
@@ -35,16 +37,17 @@ type otelLogger interface {
 
 func NewOtelLogger(zapLogger *zap.Logger) otelLogger {
 	return otelzap.New(zapLogger,
-		otelzap.WithLoggerProvider(newLoggerProvider(zapLogger.Name())),
-		//otelzap.WithMinLevel(zapLogger.Level()),
+		otelzap.WithLoggerProvider(newLoggerProvider(zapLogger.Name(), config.OtelSanitize)),
+		// otelzap.WithMinLevel(zapLogger.Level()),
 		otelzap.WithMinLevel(zapcore.DebugLevel),
 	).Sugar()
 }
 
-func newLoggerProvider(name string) *spanLoggerProvider {
+func newLoggerProvider(name string, sanitize bool) *spanLoggerProvider {
 	return &spanLoggerProvider{
 		LoggerProvider: noop.NewLoggerProvider(),
 		loggerName:     name,
+		sanitize:       sanitize,
 	}
 }
 
@@ -52,9 +55,17 @@ type spanLoggerProvider struct {
 	log.LoggerProvider
 
 	loggerName string
+	sanitize   bool
 }
 
 func (p *spanLoggerProvider) Logger(name string, options ...log.LoggerOption) log.Logger {
+	if p.sanitize {
+		return &sanitizedSpanLogger{
+			Logger:     p.LoggerProvider.Logger(name, options...),
+			loggerName: p.loggerName,
+		}
+	}
+
 	return &spanLogger{
 		Logger:     p.LoggerProvider.Logger(name, options...),
 		loggerName: p.loggerName,
@@ -72,3 +83,26 @@ func (l *spanLogger) Emit(ctx context.Context, record log.Record) {
 }
 
 func (l *spanLogger) Enabled(context.Context, log.Record) bool { return true }
+
+type sanitizedSpanLogger struct {
+	log.Logger
+
+	loggerName string
+}
+
+func (l *sanitizedSpanLogger) Emit(ctx context.Context, record log.Record) {
+	// ensure it is printable
+	str := filterPrintable(record.Body().AsString())
+	trace.SpanFromContext(ctx).AddEvent(str, trace.WithAttributes(attribute.String(loggerNameKey, l.loggerName)))
+}
+
+func (l *sanitizedSpanLogger) Enabled(context.Context, log.Record) bool { return true }
+
+func filterPrintable(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsPrint(r) {
+			return r
+		}
+		return -1
+	}, s)
+}
