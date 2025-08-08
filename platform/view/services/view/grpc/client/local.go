@@ -74,7 +74,6 @@ func (n *LocalClient) getTracer() (trace.Tracer, error) {
 			return nil, err
 		}
 		n.tracer = tracingProvider.Tracer("node_view_client", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace:  "viewsdk",
 			LabelNames: []tracing.LabelName{fidLabel},
 		}))
 	}

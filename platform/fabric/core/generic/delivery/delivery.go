@@ -117,7 +117,6 @@ func New(
 		Ledger:              Ledger,
 		waitForEventTimeout: waitForEventTimeout,
 		tracer: tracerProvider.Tracer("delivery", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace:  "fabricsdk",
 			LabelNames: []tracing.LabelName{messageTypeLabel},
 		})),
 		callback:   callback,

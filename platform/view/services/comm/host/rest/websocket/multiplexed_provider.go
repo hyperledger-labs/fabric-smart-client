@@ -71,8 +71,7 @@ func (c *MultiplexedProvider) KillAll() error {
 func NewMultiplexedProvider(tracerProvider tracing.Provider, metricsProvider metrics.Provider) *MultiplexedProvider {
 	p := &MultiplexedProvider{
 		clients: make(map[string]*multiplexedClientConn),
-		tracer: tracerProvider.Tracer("multiplexed-ws", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace:  "core",
+		tracer: tracerProvider.Tracer("multiplexed_ws", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{contextIDLabel},
 		})),
 		m: newMetrics(metricsProvider),

@@ -103,7 +103,7 @@ func New[V driver.ValidationCode](
 		metrics:        NewMetrics(metricsProvider),
 		rwMapper:       &rwSetMapper{vb: versionBuilder, logger: logger},
 		vaultStore:     vaultStore,
-		tracer:         tracerProvider.Tracer("vault", tracing.WithMetricsOpts(tracing.MetricsOpts{Namespace: "core"})),
+		tracer:         tracerProvider.Tracer("vault", tracing.WithMetricsOpts(tracing.MetricsOpts{})),
 	}
 	v.commitBatcher = runner.NewSerialRunner(v.commitTXs)
 	return v

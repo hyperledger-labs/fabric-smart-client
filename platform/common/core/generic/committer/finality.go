@@ -50,14 +50,12 @@ type FinalityManager[V comparable] struct {
 
 func NewFinalityManager[V comparable](listenerManager driver.ListenerManager[V], logger Logger, vault Vault[V], tracerProvider tracing.Provider, eventQueueWorkers int, statuses ...V) *FinalityManager[V] {
 	return &FinalityManager[V]{
-		listenerManager: listenerManager,
-		logger:          logger,
-		eventQueue:      make(chan driver.FinalityEvent[V], defaultEventQueueSize),
-		vault:           vault,
-		postStatuses:    collections.NewSet(statuses...),
-		tracer: tracerProvider.Tracer("finality_manager", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			Namespace: "core",
-		})),
+		listenerManager:   listenerManager,
+		logger:            logger,
+		eventQueue:        make(chan driver.FinalityEvent[V], defaultEventQueueSize),
+		vault:             vault,
+		postStatuses:      collections.NewSet(statuses...),
+		tracer:            tracerProvider.Tracer("finality_manager", tracing.WithMetricsOpts(tracing.MetricsOpts{})),
 		eventQueueWorkers: eventQueueWorkers,
 	}
 }
