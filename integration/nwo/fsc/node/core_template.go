@@ -148,22 +148,11 @@ fsc:
     sampling:
       ratio: {{ SamplingRatio }}
   metrics:
-    # metrics provider is one of statsd, prometheus, or disabled
+    # metrics provider is one of prometheus, or disabled
     provider: {{ Topology.Monitoring.MetricsType }}
     prometheus:
       # defines whether we should use a certificate to access the metrics under /metrics
       tls: {{ Topology.Monitoring.TLS }}
-    # statsd configuration
-    statsd:
-      # network type: tcp or udp
-      network: udp
-      # statsd server address
-      address: 127.0.0.1:8125
-      # the interval at which locally cached counters and gauges are pushed
-      # to statsd; timings are pushed immediately
-      writeInterval: 10s
-      # prefix is prepended to all emitted statsd metrics
-      prefix:
 
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.

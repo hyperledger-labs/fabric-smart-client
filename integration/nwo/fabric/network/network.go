@@ -52,7 +52,6 @@ type Network struct {
 	NetworkID                string
 	EventuallyTimeout        time.Duration
 	MetricsProvider          string
-	StatsdEndpoint           string
 	TLSEnabled               bool
 	ClientAuthRequired       bool
 	GatewayEnabled           bool
@@ -338,6 +337,6 @@ func (n *Network) OrdererJoinChannel(channelID string, orderer *topology.Orderer
 
 	time.Sleep(4 * time.Second)
 	// TODO: get the orderer process so we can check when the msg has been processed
-	//gomega.Eventually(ordererRunner.Err(), n.EventuallyTimeout, time.Second).Should(
+	// gomega.Eventually(ordererRunner.Err(), n.EventuallyTimeout, time.Second).Should(
 	//	gbytes.Say(fmt.Sprintf("Raft leader changed: 0 -> 1 channel=%s node=1", channelID)))
 }

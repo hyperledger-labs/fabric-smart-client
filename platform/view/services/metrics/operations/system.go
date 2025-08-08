@@ -7,18 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package operations
 
 import (
-	"context"
-	"net"
 	"net/http"
 	"time"
 
-	kitstatsd "github.com/go-kit/kit/metrics/statsd"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/statsd/goruntime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -31,16 +25,8 @@ type Logger interface {
 	Warnf(template string, args ...interface{})
 }
 
-type Statsd struct {
-	Network       string
-	Address       string
-	WriteInterval time.Duration
-	Prefix        string
-}
-
 type MetricsOptions struct {
 	Provider string
-	Statsd   *Statsd
 	TLS      bool
 }
 
@@ -65,7 +51,6 @@ type System struct {
 	Server          Server
 	logger          OperationsLogger
 	options         Options
-	statsd          *kitstatsd.Statsd
 	collectorTicker *time.Ticker
 	sendTicker      *time.Ticker
 	versionGauge    metrics.Gauge
@@ -86,11 +71,6 @@ func NewOperationSystem(server Server, l OperationsLogger, metricsProvider metri
 }
 
 func (s *System) Start() error {
-	err := s.startMetricsTickers(s.options.Metrics.Statsd)
-	if err != nil {
-		return err
-	}
-
 	s.versionGauge.With("version", s.options.Version).Set(1)
 	return nil
 }
@@ -115,8 +95,6 @@ func (s *System) initializeMetricsProvider(provider metrics.Provider, m MetricsO
 	s.logger.Debugf("Initializing metrics provider: [%s]", m.Provider)
 	s.Provider = provider
 	switch m.Provider {
-	case "statsd":
-		s.statsd = provider.(*statsd.Provider).Statsd
 	case "prometheus":
 		// swagger:operation GET /metrics operations metrics
 		// ---
@@ -159,27 +137,4 @@ func (s *System) initializeLoggingHandler(tlsEnabled bool) {
 	// consumes:
 	//   - multipart/form-data
 	s.Server.RegisterHandler("/logspec", logging.NewSpecHandler(), tlsEnabled)
-}
-
-func (s *System) startMetricsTickers(m *Statsd) error {
-	if s.statsd != nil {
-		network := m.Network
-		address := m.Address
-		c, err := net.Dial(network, address)
-		if err != nil {
-			return err
-		}
-		utils.IgnoreErrorFunc(c.Close)
-
-		writeInterval := m.WriteInterval
-
-		s.collectorTicker = time.NewTicker(writeInterval / 2)
-		goCollector := goruntime.NewCollector(s.Provider)
-		go goCollector.CollectAndPublish(s.collectorTicker.C)
-
-		s.sendTicker = time.NewTicker(writeInterval)
-		go s.statsd.SendLoop(context.Background(), s.sendTicker.C, network, address)
-	}
-
-	return nil
 }

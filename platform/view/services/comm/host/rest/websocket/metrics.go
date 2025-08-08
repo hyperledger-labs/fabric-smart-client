@@ -27,28 +27,24 @@ type Metrics struct {
 func newMetrics(p metrics.Provider) *Metrics {
 	return &Metrics{
 		OpenedSubConns: p.NewCounter(metrics.CounterOpts{
-			Name:         "opened_subconns",
-			Help:         "The number of open subconns",
-			LabelNames:   []string{sideLabel},
-			StatsdFormat: "%{#fqname}.%{" + sideLabel + "}",
+			Name:       "opened_subconns",
+			Help:       "The number of open subconns",
+			LabelNames: []string{sideLabel},
 		}),
 		ClosedSubConns: p.NewCounter(metrics.CounterOpts{
-			Name:         "closed_subconns",
-			Help:         "The number of closed subconns",
-			LabelNames:   []string{sideLabel},
-			StatsdFormat: "%{#fqname}.%{" + sideLabel + "}",
+			Name:       "closed_subconns",
+			Help:       "The number of closed subconns",
+			LabelNames: []string{sideLabel},
 		}),
 		OpenedWebsockets: p.NewCounter(metrics.CounterOpts{
-			Name:         "opened_websockets",
-			Help:         "The number of open websockets",
-			LabelNames:   []string{sideLabel},
-			StatsdFormat: "%{#fqname}.%{" + sideLabel + "}",
+			Name:       "opened_websockets",
+			Help:       "The number of open websockets",
+			LabelNames: []string{sideLabel},
 		}),
 		ActiveSubConns: p.NewGauge(metrics.GaugeOpts{
-			Name:         "active_subconns",
-			Help:         "The number of active subconns",
-			LabelNames:   []string{},
-			StatsdFormat: "%{#fqname}",
+			Name:       "active_subconns",
+			Help:       "The number of active subconns",
+			LabelNames: []string{},
 		}),
 	}
 }

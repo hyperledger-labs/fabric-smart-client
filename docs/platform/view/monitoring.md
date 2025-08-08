@@ -44,7 +44,6 @@ type Provider interface {
 ```
 FSC provides three provider implementations (custom ones can also be added), that can be configured in the `core.yaml`:
 * `disabled.Provider`: No metrics are registered, when `fsc.metrics.provider = disabled`
-* `statsd.Provider` when `fsc.metrics.provider = statsd`
 * `prometheus.Provider`: The default implementation, when `fsc.metrics.provider = prometheus`
 
 The default implementation of the metric provider is defined in `view.SDK` and can be overridden by any parent SDK as follows:
@@ -80,7 +79,6 @@ func NewMetrics(provider metrics.Provider) *Metrics {
 			Name:         "requests_sent", 
 			Help:         "The number of view requests that have been received.", 
 			LabelNames:   []string{"command"}, 
-			StatsdFormat: "%{#fqname}.%{command}.",
 		}), 
 		RequestsReceived: provider.NewCounter(...), 
 		RequestsPending:  provider.NewGauge(...), 

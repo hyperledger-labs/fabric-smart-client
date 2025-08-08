@@ -169,23 +169,10 @@ fsc:
 
   # ------------------- Metrics Configuration -------------------------
   metrics:
-    # provider can be statsd, prometheus, none or disabled
+    # provider can be prometheus, none or disabled
     provider: prometheus
 
-    # only required if provider is set to statsd
-    statsd:
-      # network type: tcp or udp
-      network: udp
-      # statsd server address
-      address: 127.0.0.1:8125
-      # the interval at which locally cached counters and gauges are pushed
-      # to statsd; timings are pushed immediately
-      # No default, this must be specified
-      writeInterval: 10s
-      # prefix is prepended to all emitted statsd metrics
-      prefix:
-
-
+    
   # ------------------- FSC Node endpoint resolvers -------------------------
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.

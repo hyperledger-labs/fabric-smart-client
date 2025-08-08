@@ -201,9 +201,6 @@ var _ = Describe("Provider", func() {
 		})
 	})
 
-	// This helps ensure the label cardinality behavior matches what was implemented
-	// for statsd. If these tests fail, correspending updates will be needed in the label
-	// processing used for statsd.
 	Describe("edge case behavior", func() {
 		var counterOpts commonmetrics.CounterOpts
 
