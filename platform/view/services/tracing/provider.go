@@ -78,14 +78,14 @@ func (p *tracerProvider) Tracer(name string, options ...trace.TracerOption) trac
 		labelNames:    opts.LabelNames,
 		operations: p.metricsProvider.NewCounter(metrics.CounterOpts{
 			Namespace:  opts.Namespace,
-			Subsystem:    opts.Subsystem,
+			Subsystem:  opts.Subsystem,
 			Name:       fmt.Sprintf("%s_operations", name),
 			Help:       fmt.Sprintf("Counter of '%s' operations", name),
 			LabelNames: opts.LabelNames,
 		}),
 		duration: p.metricsProvider.NewHistogram(metrics.HistogramOpts{
 			Namespace:  opts.Namespace,
-			Subsystem:    opts.Subsystem,
+			Subsystem:  opts.Subsystem,
 			Name:       fmt.Sprintf("%s_duration", name),
 			Help:       fmt.Sprintf("Histogram for the duration of '%s' operations", name),
 			LabelNames: opts.LabelNames,

@@ -12,7 +12,7 @@ import (
 
 var (
 	orderedTransactions = metrics.CounterOpts{
-		Subsystem:    "ordering",
+		Subsystem:  "ordering",
 		Name:       "ordered_transactions",
 		Help:       "The number of ordered transactions.",
 		LabelNames: []string{"network"},
