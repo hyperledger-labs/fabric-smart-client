@@ -15,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/log/noop"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 const loggerNameKey = "logger.name"
@@ -36,8 +35,7 @@ type otelLogger interface {
 func NewOtelLogger(zapLogger *zap.Logger) otelLogger {
 	return otelzap.New(zapLogger,
 		otelzap.WithLoggerProvider(newLoggerProvider(zapLogger.Name())),
-		//otelzap.WithMinLevel(zapLogger.Level()),
-		otelzap.WithMinLevel(zapcore.DebugLevel),
+		otelzap.WithMinLevel(zapLogger.Level()),
 	).Sugar()
 }
 
