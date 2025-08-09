@@ -9,6 +9,10 @@ logging:
   # format is same as fabric [<logger>[,<logger>...]=]<level>[:[<logger>[,<logger>...]=]<level>...]
   format: '%{color}%{time:15:04:05.000} [%{module}] %{shortfunc} %{level:.4s}%{color:reset} %{message}'
   spec: grpc=error:debug
+  otel:
+    # sanitize makes sure that the strings sent to open telemetry as events via the logger as printable.
+    # Non-printable strings can break the tracing system
+    sanitize: true
 
 # ------------------- FSC Node Configuration -------------------------
 fsc:

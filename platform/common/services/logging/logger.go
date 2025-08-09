@@ -21,13 +21,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type logger struct {
-	fabricLogger
-	otelLogger
-}
-
 type (
-	Config   = flogging.Config
 	Recorder = floggingtest.Recorder
 	Option   = floggingtest.Option
 )
@@ -61,6 +55,26 @@ type fabricLogger interface {
 	Zap() *zap.Logger
 }
 
+type logger struct {
+	fabricLogger
+	otelLogger
+}
+
+func newLogger(zapLogger *zap.Logger) *logger {
+	return &logger{
+		fabricLogger: flogging.NewFabricLogger(zapLogger),
+		otelLogger:   NewOtelLogger(zapLogger),
+	}
+}
+
+func (l *logger) Named(name string) Logger {
+	return newLogger(l.Zap().Named(name))
+}
+
+func (l *logger) With(args ...interface{}) Logger {
+	return newLogger(l.Zap().Sugar().With(args...).Desugar())
+}
+
 func Named(loggerName string) Option {
 	return func(r *floggingtest.RecordingCore, l *zap.Logger) *zap.Logger {
 		return l.Named(loggerName)
@@ -75,14 +89,6 @@ func GetLogger(params ...string) (Logger, error) {
 	return GetLoggerWithReplacements(map[string]string{"github.com.hyperledger-labs.fabric-smart-client.platform": "fsc"}, params)
 }
 
-func (l *logger) Named(name string) Logger {
-	return newLogger(l.Zap().Named(name))
-}
-
-func (l *logger) With(args ...interface{}) Logger {
-	return newLogger(l.Zap().Sugar().With(args...).Desugar())
-}
-
 func GetLoggerWithReplacements(replacements map[string]string, params []string) (Logger, error) {
 	fullPkgName, err := GetPackageName()
 	if err != nil {
@@ -90,13 +96,6 @@ func GetLoggerWithReplacements(replacements map[string]string, params []string) 
 	}
 	name := loggerName(fullPkgName, replacements, params...)
 	return newLogger(flogging.Global.ZapLogger(name)), nil
-}
-
-func newLogger(zapLogger *zap.Logger) *logger {
-	return &logger{
-		fabricLogger: flogging.NewFabricLogger(zapLogger),
-		otelLogger:   NewOtelLogger(zapLogger),
-	}
 }
 
 func GetPackageName() (string, error) {
@@ -114,16 +113,6 @@ func GetPackageName() (string, error) {
 	return fullFuncName[:lastSlash+dotAfterSlash], nil
 }
 
-func loggerName(fullPkgName string, replacements map[string]string, params ...string) string {
-	nameParts := append(strings.Split(fullPkgName, "/"), params...)
-	name := strings.Join(nameParts, ".")
-
-	for old, newVal := range replacements {
-		name = strings.ReplaceAll(name, old, newVal)
-	}
-	return name
-}
-
 func NewTestLogger(tb testing.TB, options ...Option) (Logger, *Recorder) {
 	l, r := floggingtest.NewTestLogger(tb, options...)
 	return &logger{fabricLogger: l}, r
@@ -133,6 +122,12 @@ func NewSpecHandler() http.Handler {
 	return httpadmin.NewSpecHandler()
 }
 
-func Init(c Config) {
-	flogging.Init(c)
+func loggerName(fullPkgName string, replacements map[string]string, params ...string) string {
+	nameParts := append(strings.Split(fullPkgName, "/"), params...)
+	name := strings.Join(nameParts, ".")
+
+	for old, newVal := range replacements {
+		name = strings.ReplaceAll(name, old, newVal)
+	}
+	return name
 }
