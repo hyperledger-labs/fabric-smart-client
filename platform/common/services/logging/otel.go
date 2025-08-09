@@ -8,8 +8,6 @@ package logging
 
 import (
 	"context"
-	"strings"
-	"unicode"
 
 	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.opentelemetry.io/otel/attribute"
@@ -21,8 +19,7 @@ import (
 )
 
 const (
-	loggerNameKey      = "logger.name"
-	nonPrintablePrefix = "[nonprintable] "
+	loggerNameKey = "logger.name"
 )
 
 type otelLogger interface {
@@ -95,27 +92,8 @@ type sanitizedSpanLogger struct {
 
 func (l *sanitizedSpanLogger) Emit(ctx context.Context, record log.Record) {
 	// ensure it is printable
-	str := FilterPrintable(record.Body().AsString())
+	str := FilterPrintableWithMarker(record.Body().AsString())
 	trace.SpanFromContext(ctx).AddEvent(str, trace.WithAttributes(attribute.String(loggerNameKey, l.loggerName)))
 }
 
 func (l *sanitizedSpanLogger) Enabled(context.Context, log.Record) bool { return true }
-
-// FilterPrintable removes non-printable characters from the passed string.
-// If non-printable characters are found, then a prefix is added to the result.
-func FilterPrintable(s string) string {
-	removed := false
-
-	cleaned := strings.Map(func(r rune) rune {
-		if unicode.IsPrint(r) {
-			return r
-		}
-		removed = true // flag that we found a non-printable
-		return -1
-	}, s)
-
-	if removed {
-		return nonPrintablePrefix + cleaned
-	}
-	return cleaned
-}
