@@ -20,7 +20,10 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const loggerNameKey = "logger.name"
+const (
+	loggerNameKey      = "logger.name"
+	nonPrintablePrefix = "[nonprintable] "
+)
 
 type otelLogger interface {
 	DebugfContext(ctx context.Context, template string, args ...interface{})
@@ -37,7 +40,7 @@ type otelLogger interface {
 
 func NewOtelLogger(zapLogger *zap.Logger) otelLogger {
 	return otelzap.New(zapLogger,
-		otelzap.WithLoggerProvider(newLoggerProvider(zapLogger.Name(), config.OtelSanitize)),
+		otelzap.WithLoggerProvider(newLoggerProvider(zapLogger.Name(), OtelSanitize())),
 		// otelzap.WithMinLevel(zapLogger.Level()),
 		otelzap.WithMinLevel(zapcore.DebugLevel),
 	).Sugar()
@@ -92,17 +95,27 @@ type sanitizedSpanLogger struct {
 
 func (l *sanitizedSpanLogger) Emit(ctx context.Context, record log.Record) {
 	// ensure it is printable
-	str := filterPrintable(record.Body().AsString())
+	str := FilterPrintable(record.Body().AsString())
 	trace.SpanFromContext(ctx).AddEvent(str, trace.WithAttributes(attribute.String(loggerNameKey, l.loggerName)))
 }
 
 func (l *sanitizedSpanLogger) Enabled(context.Context, log.Record) bool { return true }
 
-func filterPrintable(s string) string {
-	return strings.Map(func(r rune) rune {
+// FilterPrintable removes non-printable characters from the passed string.
+// If non-printable characters are found, then a prefix is added to the result.
+func FilterPrintable(s string) string {
+	removed := false
+
+	cleaned := strings.Map(func(r rune) rune {
 		if unicode.IsPrint(r) {
 			return r
 		}
+		removed = true // flag that we found a non-printable
 		return -1
 	}, s)
+
+	if removed {
+		return nonPrintablePrefix + cleaned
+	}
+	return cleaned
 }
