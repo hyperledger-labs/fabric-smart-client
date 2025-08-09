@@ -82,7 +82,7 @@ func (t *Topology) SetLogging(spec, format string) {
 	} else {
 		l.Format = t.Logging.Format
 	}
-
+	l.OtelSanitize = t.Logging.OtelSanitize
 	t.Logging = l
 }
 
