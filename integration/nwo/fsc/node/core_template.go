@@ -9,8 +9,10 @@ package node
 const CoreTemplate = `---
 # Logging section
 logging:
- # Spec
- spec: {{ Topology.Logging.Spec }}
+  # Spec
+  spec: {{ Topology.Logging.Spec }}
+  otel:
+    sanitize: {{ Topology.Logging.OtelSanitize }}
 fsc:
   # The FSC id provides a name for this node instance and is used when
   # naming docker resources.

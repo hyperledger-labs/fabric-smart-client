@@ -86,9 +86,7 @@ type fabricLogger interface {
 }
 
 var (
-	config = Config{
-		OtelSanitize: true,
-	}
+	config = Config{}
 )
 
 func Named(loggerName string) Option {
@@ -170,8 +168,6 @@ func Init(c Config) {
 		Writer:  c.Writer,
 	})
 
-	// update the value only if not set already to true
-	if !config.OtelSanitize {
-		config.OtelSanitize = c.OtelSanitize
-	}
+	// set local configurations
+	config.OtelSanitize = c.OtelSanitize
 }

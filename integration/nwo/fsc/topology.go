@@ -17,8 +17,9 @@ const (
 )
 
 type Logging struct {
-	Spec   string `yaml:"spec,omitempty"`
-	Format string `yaml:"format,omitempty"`
+	Spec         string `yaml:"spec,omitempty"`
+	Format       string `yaml:"format,omitempty"`
+	OtelSanitize bool   `yaml:"otelSanitize,omitempty"`
 }
 
 type P2PCommunicationType = string
@@ -57,8 +58,9 @@ func NewTopology() *Topology {
 		TopologyType: TopologyName,
 		Nodes:        []*node.Node{},
 		Logging: &Logging{
-			Spec:   "grpc=error:info",
-			Format: "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",
+			Spec:         "grpc=error:info",
+			Format:       "'%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'",
+			OtelSanitize: true,
 		},
 		Monitoring: Monitoring{
 			MetricsType: "none",
