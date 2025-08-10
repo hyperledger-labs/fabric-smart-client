@@ -26,7 +26,9 @@ func (k mockKVS) GetLongTerm(ctx context.Context, ephemeral view.Identity) (view
 func (k mockKVS) HaveSameBinding(ctx context.Context, this, that view.Identity) (bool, error) {
 	return false, nil
 }
-func (k mockKVS) PutBinding(ctx context.Context, ephemeral, longTerm view.Identity) error { return nil }
+func (k mockKVS) PutBindings(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error {
+	return nil
+}
 
 type mockExtractor struct{}
 
@@ -177,3 +179,28 @@ func TestGetIdentity(t *testing.T) {
 	assert.ErrorIs(t, err, endpoint.ErrNotFound)
 	assert.False(t, ok)
 }
+
+// func TestBindWithMultipleEphemerals(t *testing.T) {
+// 	RegisterTestingT(t)
+
+// 	ctx := context.Background()
+// 	longTerm := view.Identity("long")
+// 	e1 := view.Identity("eph1")
+// 	e2 := view.Identity("eph2")
+// 	e3 := view.Identity("eph3")
+
+// 	bindingStore := &mock.BindingStore{}
+// 	bindingStore.PutBindingReturns(nil)
+
+// 	service, err := endpoint.NewService(bindingStore)
+// 	require.NoError(t, err)
+
+// 	Expect(service.Bind(ctx, longTerm, e1)).To(Succeed())
+// 	Expect(service.lastBindSql).To(Equal("INSERT ..."))
+
+// 	Expect(service.Bind(ctx, longTerm, e1, e2)).To(Succeed())
+// 	Expect(service.lastBindSql).To(Equal("INSERT ..."))
+
+// 	Expect(service.Bind(ctx, longTerm, e1, e2, e3)).To(Succeed())
+// 	Expect(service.lastBindSql).To(Equal("INSERT ..."))
+// }
