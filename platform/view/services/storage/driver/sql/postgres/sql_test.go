@@ -16,6 +16,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// setupDB starts a postgres container in a go test environment.
+// It registers the termination function of the container with testing.Cleanup.
 func setupDB(tb testing.TB) string {
 	tb.Helper()
 

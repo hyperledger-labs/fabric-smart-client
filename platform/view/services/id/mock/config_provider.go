@@ -231,12 +231,6 @@ func (fake *ConfigProvider) TranslatePathReturnsOnCall(i int, result1 string) {
 func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getPathMutex.RLock()
-	defer fake.getPathMutex.RUnlock()
-	fake.getStringSliceMutex.RLock()
-	defer fake.getStringSliceMutex.RUnlock()
-	fake.translatePathMutex.RLock()
-	defer fake.translatePathMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
