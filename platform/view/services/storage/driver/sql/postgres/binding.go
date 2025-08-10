@@ -10,6 +10,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
@@ -38,29 +39,76 @@ func newBindingStore(readDB, writeDB *sql.DB, table string) *BindingStore {
 		errorWrapper: errorWrapper,
 	}
 }
-func (db *BindingStore) PutBinding(ctx context.Context, ephemeral, longTerm view.Identity) error {
-	logger.DebugfContext(ctx, "Put binding for pair [%s:%s]", ephemeral.UniqueID(), longTerm.UniqueID())
+
+// func (db *BindingStore) PutBinding(ctx context.Context, ephemeral, longTerm view.Identity) error {
+// 	logger.DebugfContext(ctx, "Put binding for pair [%s:%s]", ephemeral.UniqueID(), longTerm.UniqueID())
+// 	if lt, err := db.GetLongTerm(ctx, longTerm); err != nil {
+// 		return err
+// 	} else if lt != nil && !lt.IsNone() {
+// 		logger.DebugfContext(ctx, "Replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())
+// 		longTerm = lt
+// 	} else {
+// 		logger.DebugfContext(ctx, "Id [%s] is an unregistered long term ID", longTerm.UniqueID())
+// 	}
+// 	query := fmt.Sprintf(`
+// 		INSERT INTO %s (ephemeral_hash, long_term_id)
+// 		VALUES ($1, $2), ($3, $4)
+// 		ON CONFLICT DO NOTHING
+// 		`, db.table)
+// 	logger.Debug(query, ephemeral.UniqueID(), longTerm.UniqueID())
+// 	_, err := db.writeDB.ExecContext(ctx, query, ephemeral.UniqueID(), longTerm, longTerm.UniqueID(), longTerm)
+// 	if err == nil {
+// 		logger.DebugfContext(ctx, "Long-term and ephemeral ids registered [%s,%s]", longTerm, ephemeral)
+// 		return nil
+// 	}
+// 	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
+// 		logger.Infof("tuple [%s,%s] already in db. Skipping...", ephemeral, longTerm)
+// 		return nil
+// 	}
+// 	return errors.Wrapf(err, "failed executing query [%s]", query)
+// }
+
+func (db *BindingStore) PutBindings(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error {
+	if len(ephemeral) == 0 {
+		return errors.New("no ephemeral identities provided")
+	}
+
+	logger.DebugfContext(ctx, "put bindings for %d ephemeral(s) with long term [%s]", len(ephemeral), longTerm.UniqueID())
+
+	// Resolve canonical long-term ID
 	if lt, err := db.GetLongTerm(ctx, longTerm); err != nil {
 		return err
 	} else if lt != nil && !lt.IsNone() {
-		logger.DebugfContext(ctx, "Replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())
+		logger.DebugfContext(ctx, "replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())
 		longTerm = lt
 	} else {
 		logger.DebugfContext(ctx, "Id [%s] is an unregistered long term ID", longTerm.UniqueID())
 	}
-	query := fmt.Sprintf(`
-		INSERT INTO %s (ephemeral_hash, long_term_id)
-		VALUES ($1, $2), ($3, $4)
-		ON CONFLICT DO NOTHING
-		`, db.table)
-	logger.Debug(query, ephemeral.UniqueID(), longTerm.UniqueID())
-	_, err := db.writeDB.ExecContext(ctx, query, ephemeral.UniqueID(), longTerm, longTerm.UniqueID(), longTerm)
+
+	// Build single INSERT with multiple VALUES
+	query := fmt.Sprintf(`INSERT INTO %s (ephemeral_hash, long_term_id) VALUES `, db.table)
+
+	args := []interface{}{}
+	argsReferences := []string{"($1,$2)"}
+	args = append(args, longTerm.UniqueID(), longTerm)
+	for i, eph := range ephemeral {
+		args = append(args, eph.UniqueID(), longTerm)
+		oneArgRef := fmt.Sprintf("($%d, $%d)", i*2+3, i*2+4)
+		argsReferences = append(argsReferences, oneArgRef)
+	}
+
+	query += strings.Join(argsReferences, ", ")
+	query += " ON CONFLICT DO NOTHING;"
+
+	logger.DebugfContext(ctx, "executing bulk insert: %s", query)
+
+	_, err := db.writeDB.ExecContext(ctx, query, args...)
 	if err == nil {
-		logger.DebugfContext(ctx, "Long-term and ephemeral ids registered [%s,%s]", longTerm, ephemeral)
+		logger.DebugfContext(ctx, "long-term and ephemeral ids registered [%s,%s]", longTerm, ephemeral)
 		return nil
 	}
 	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
-		logger.Infof("tuple [%s,%s] already in db. Skipping...", ephemeral, longTerm)
+		logger.InfofContext(ctx, "some tuples [%v, %s] already in db. Skipping...", ephemeral, longTerm)
 		return nil
 	}
 	return errors.Wrapf(err, "failed executing query [%s]", query)
