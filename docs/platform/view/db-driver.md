@@ -40,7 +40,7 @@ However, they all share one common interface such as the following:
 type BindingStore interface {
     GetLongTerm(ephemeral view.Identity) (view.Identity, error)
     HaveSameBinding(this, that view.Identity) (bool, error)
-    PutBinding(ephemeral, longTerm view.Identity) error
+    PutBindings(longTerm view.Identity, ephemeral ...view.Identity) error
 }
 
 type AuditInfoStore interface {
