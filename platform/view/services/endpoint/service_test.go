@@ -26,7 +26,9 @@ func (k mockKVS) GetLongTerm(ctx context.Context, ephemeral view.Identity) (view
 func (k mockKVS) HaveSameBinding(ctx context.Context, this, that view.Identity) (bool, error) {
 	return false, nil
 }
-func (k mockKVS) PutBinding(ctx context.Context, ephemeral, longTerm view.Identity) error { return nil }
+func (k mockKVS) PutBindings(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error {
+	return nil
+}
 
 type mockExtractor struct{}
 
@@ -58,7 +60,7 @@ func TestPKIResolveConcurrency(t *testing.T) {
 func TestGetIdentity(t *testing.T) {
 	// setup
 	bindingStore := &mock.BindingStore{}
-	bindingStore.PutBindingReturns(nil)
+	bindingStore.PutBindingsReturns(nil)
 
 	service, err := endpoint.NewService(bindingStore)
 	require.NoError(t, err)
@@ -73,7 +75,7 @@ func TestGetIdentity(t *testing.T) {
 	require.NoError(t, err)
 	resolvers := service.Resolvers()
 	assert.Len(t, resolvers, 1)
-	assert.Equal(t, 0, bindingStore.PutBindingCallCount())
+	assert.Equal(t, 0, bindingStore.PutBindingsCallCount())
 
 	_, err = service.AddResolver(
 		"alice",
@@ -85,7 +87,7 @@ func TestGetIdentity(t *testing.T) {
 	require.NoError(t, err)
 	resolvers = service.Resolvers()
 	assert.Len(t, resolvers, 1)
-	assert.Equal(t, 1, bindingStore.PutBindingCallCount())
+	assert.Equal(t, 1, bindingStore.PutBindingsCallCount())
 
 	err = service.AddPublicKeyExtractor(ext)
 	require.NoError(t, err)
