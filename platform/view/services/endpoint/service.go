@@ -146,18 +146,20 @@ func (r *Service) GetResolver(ctx context.Context, id view.Identity) (*Resolver,
 	return r.resolver(ctx, id)
 }
 
-func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error {
-	if longTerm.Equal(ephemeral) {
-		logger.DebugfContext(ctx, "cannot bind [%s] to [%s], they are the same", longTerm, ephemeral)
+func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs ...view.Identity) error {
+	// filter out any identities equal to the longTerm identity
+	var toBind []view.Identity
+	for _, id := range ephemeralIDs {
+		if !longTerm.Equal(id) {
+			toBind = append(toBind, id)
+		}
+	}
+	if len(toBind) == 0 {
 		return nil
 	}
-
-	logger.DebugfContext(ctx, "bind [%s] to [%s]", ephemeral, longTerm)
-
-	if err := r.bindingKVS.PutBinding(ctx, ephemeral, longTerm); err != nil {
-		return errors.WithMessagef(err, "failed storing binding of [%s]  to [%s]", ephemeral.UniqueID(), longTerm.UniqueID())
+	if err := r.bindingKVS.PutBindings(ctx, longTerm, toBind...); err != nil {
+		return errors.WithMessagef(err, "failed storing bindings")
 	}
-
 	return nil
 }
 
