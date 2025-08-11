@@ -115,13 +115,24 @@ func FilterPrintableWithMarker(s string) string {
 // FilterPrintable removes non-printable characters from the passed string.
 // It returns true, if characters have been removed, false otherwise.
 func FilterPrintable(s string) (string, bool) {
-	removed := false
+	// check if filtering is needed
+	needsFiltering := false
+	for _, r := range s {
+		if !unicode.IsPrint(r) {
+			needsFiltering = true
+			break
+		}
+	}
+	if !needsFiltering {
+		return s, false
+	}
+
+	// filter
 	cleaned := strings.Map(func(r rune) rune {
 		if unicode.IsPrint(r) {
 			return r
 		}
-		removed = true // flag that we found a non-printable
 		return -1
 	}, s)
-	return cleaned, removed
+	return cleaned, true
 }
