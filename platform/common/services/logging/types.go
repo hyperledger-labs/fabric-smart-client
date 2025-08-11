@@ -12,8 +12,14 @@ import (
 	"reflect"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
+)
+
+const (
+	nonPrintablePrefix = "[nonprintable] "
 )
 
 // Keys logs lazily the keys of a map
@@ -66,4 +72,67 @@ type since time.Time
 
 func (s since) String() string {
 	return time.Since(time.Time(s)).String()
+}
+
+type prefix string
+
+func Prefix(id string) fmt.Stringer {
+	return prefix(id)
+}
+
+func (w prefix) String() string {
+	s := string(w)
+	res, _ := FilterPrintable(s)
+
+	if len(res) <= 20 {
+		return res
+	}
+	return fmt.Sprintf("%s~%s", res[:20], hash.Hashable(res).String())
+}
+
+type printable string
+
+func Printable(id string) fmt.Stringer {
+	return printable(id)
+}
+
+func (w printable) String() string {
+	s := string(w)
+	res, _ := FilterPrintable(s)
+	return res
+}
+
+// FilterPrintableWithMarker removes non-printable characters from the passed string.
+// If non-printable characters are found, then a prefix is added to the result.
+func FilterPrintableWithMarker(s string) string {
+	cleaned, removed := FilterPrintable(s)
+	if removed {
+		return nonPrintablePrefix + cleaned
+	}
+	return cleaned
+}
+
+// FilterPrintable removes non-printable characters from the passed string.
+// It returns true, if characters have been removed, false otherwise.
+func FilterPrintable(s string) (string, bool) {
+	// check if filtering is needed
+	needsFiltering := false
+	for _, r := range s {
+		if !unicode.IsPrint(r) {
+			needsFiltering = true
+			break
+		}
+	}
+	if !needsFiltering {
+		return s, false
+	}
+
+	// filter
+	cleaned := strings.Map(func(r rune) rune {
+		if unicode.IsPrint(r) {
+			return r
+		}
+		return -1
+	}, s)
+	return cleaned, true
 }
