@@ -100,6 +100,9 @@ func GetPackageName() string {
 	}
 	fullFuncName := fn.Name()
 	lastSlash := strings.LastIndex(fullFuncName, "/")
+	if lastSlash == -1 {
+		return fullFuncName
+	}
 	dotAfterSlash := strings.Index(fullFuncName[lastSlash:], ".")
 	return fullFuncName[:lastSlash+dotAfterSlash]
 }
