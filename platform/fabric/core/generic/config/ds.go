@@ -77,14 +77,7 @@ type TLS struct {
 	RootCertFile       string `yaml:"rootCertFile"`
 }
 
-type ConnectionConfig struct {
-	Address            string        `yaml:"address,omitempty"`
-	ConnectionTimeout  time.Duration `yaml:"connectionTimeout,omitempty"`
-	TLSEnabled         bool          `yaml:"tlsEnabled,omitempty"`
-	TLSRootCertFile    string        `yaml:"tlsRootCertFile,omitempty"`
-	TLSRootCertBytes   [][]byte      `yaml:"tlsRootCertBytes,omitempty"`
-	ServerNameOverride string        `yaml:"serverNameOverride,omitempty"`
-}
+type ConnectionConfig = grpc.ConnectionConfig
 
 type Chaincode struct {
 	Name    string `yaml:"Name,omitempty"`
@@ -250,13 +243,13 @@ func (c *Channel) GetRetrySleep() time.Duration {
 }
 
 type Network struct {
-	Default    bool                     `yaml:"default,omitempty"`
-	DefaultMSP string                   `yaml:"defaultMSP"`
-	MSPs       []*MSP                   `yaml:"msps"`
-	TLS        TLS                      `yaml:"tls"`
-	Orderers   []*grpc.ConnectionConfig `yaml:"orderers"`
-	Peers      []*grpc.ConnectionConfig `yaml:"peers"`
-	Channels   []*Channel               `yaml:"channels"`
-	Vault      Vault                    `yaml:"vault"`
-	Endpoint   *Endpoint                `yaml:"endpoint,omitempty"`
+	Default    bool                `yaml:"default,omitempty"`
+	DefaultMSP string              `yaml:"defaultMSP"`
+	MSPs       []*MSP              `yaml:"msps"`
+	TLS        TLS                 `yaml:"tls"`
+	Orderers   []*ConnectionConfig `yaml:"orderers"`
+	Peers      []*ConnectionConfig `yaml:"peers"`
+	Channels   []*Channel          `yaml:"channels"`
+	Vault      Vault               `yaml:"vault"`
+	Endpoint   *Endpoint           `yaml:"endpoint,omitempty"`
 }

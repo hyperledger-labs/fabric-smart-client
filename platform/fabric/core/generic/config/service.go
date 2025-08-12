@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
@@ -29,7 +28,9 @@ const (
 	defaultRetrySleep                 = 1 * time.Second
 	defaultCacheSize                  = 100
 
-	DefaultConnectionTimeout = 10 * time.Second
+	defaultConnectionTimeout = 10 * time.Second
+	defaultKeepaliveInterval = 60 * time.Second
+	defaultKeepaliveTimeout  = 20 * time.Second
 
 	GenericDriver = "generic"
 )
@@ -51,8 +52,8 @@ type Service struct {
 	prefix string
 
 	configuredOrderers int
-	orderers           []*grpc.ConnectionConfig
-	peerMapping        map[driver.PeerFunctionType][]*grpc.ConnectionConfig
+	orderers           []*ConnectionConfig
+	peerMapping        map[driver.PeerFunctionType][]*ConnectionConfig
 	channels           map[string]*Channel
 	defaultChannel     string
 }
@@ -71,18 +72,21 @@ func NewService(configService driver.Configuration, name string, defaultConfig b
 	}
 
 	tlsEnabled := configService.GetBool(fmt.Sprintf("fabric.%stls.enabled", prefix))
-	orderers, err := readItems[*grpc.ConnectionConfig](configService, prefix, "orderers")
+	orderers, err := readItems[*ConnectionConfig](configService, prefix, "orderers")
 	if err != nil {
 		return nil, err
 	}
 	for _, v := range orderers {
 		v.TLSEnabled = tlsEnabled
+		if tlsEnabled && len(v.TLSRootCertFile) > 0 {
+			v.TLSRootCertFile = configService.TranslatePath(v.TLSRootCertFile)
+		}
 	}
-	peers, err := readItems[*grpc.ConnectionConfig](configService, prefix, "peers")
+	peers, err := readItems[*ConnectionConfig](configService, prefix, "peers")
 	if err != nil {
 		return nil, err
 	}
-	peerMapping := createPeerMap(peers, tlsEnabled)
+	peerMapping := createPeerMap(configService, peers, tlsEnabled)
 
 	channels, err := readItems[*Channel](configService, prefix, "channels")
 	if err != nil {
@@ -121,10 +125,13 @@ func createChannelMap(channels []*Channel) (map[string]*Channel, string, error) 
 	return channelMap, defaultChannel, nil
 }
 
-func createPeerMap(peers []*grpc.ConnectionConfig, tlsEnabled bool) map[driver.PeerFunctionType][]*grpc.ConnectionConfig {
-	peerMapping := map[driver.PeerFunctionType][]*grpc.ConnectionConfig{}
+func createPeerMap(configService driver.Configuration, peers []*ConnectionConfig, tlsEnabled bool) map[driver.PeerFunctionType][]*ConnectionConfig {
+	peerMapping := map[driver.PeerFunctionType][]*ConnectionConfig{}
 	for _, peerCC := range peers {
 		peerCC.TLSEnabled = tlsEnabled && !peerCC.TLSDisabled
+		if peerCC.TLSEnabled && len(peerCC.TLSRootCertFile) > 0 {
+			peerCC.TLSRootCertFile = configService.TranslatePath(peerCC.TLSRootCertFile)
+		}
 
 		if funcType, ok := funcTypeMap[strings.ToLower(peerCC.Usage)]; ok {
 			peerMapping[funcType] = append(peerMapping[funcType], peerCC)
@@ -179,7 +186,7 @@ func (s *Service) TLSServerHostOverride() string {
 
 func (s *Service) ClientConnTimeout() time.Duration {
 	if !s.Configuration.IsSet("keepalive.connectionTimeout") {
-		return DefaultConnectionTimeout
+		return defaultConnectionTimeout
 	}
 	return s.GetDuration("keepalive.connectionTimeout")
 }
@@ -193,10 +200,16 @@ func (s *Service) TLSClientCertFile() string {
 }
 
 func (s *Service) KeepAliveClientInterval() time.Duration {
+	if !s.Configuration.IsSet("keepalive.interval") {
+		return defaultKeepaliveInterval
+	}
 	return s.GetDuration("keepalive.interval")
 }
 
 func (s *Service) KeepAliveClientTimeout() time.Duration {
+	if !s.Configuration.IsSet("keepalive.timeout") {
+		return defaultKeepaliveTimeout
+	}
 	return s.GetDuration("keepalive.timeout")
 }
 
@@ -211,7 +224,7 @@ func (s *Service) NewDefaultChannelConfig(name string) driver.ChannelConfig {
 	}
 }
 
-func (s *Service) Orderers() []*grpc.ConnectionConfig {
+func (s *Service) Orderers() []*ConnectionConfig {
 	return s.orderers
 }
 
@@ -322,21 +335,21 @@ func (s *Service) OrdererConnectionPoolSize() int {
 	return defaultOrderingConnectionPoolSize
 }
 
-func (s *Service) SetConfigOrderers(orderers []*grpc.ConnectionConfig) error {
+func (s *Service) SetConfigOrderers(orderers []*ConnectionConfig) error {
 	s.orderers = append(s.orderers[:s.configuredOrderers], orderers...)
 	logger.Debugf("New Orderers [%d]", len(s.orderers))
 
 	return nil
 }
 
-func (s *Service) PickOrderer() *grpc.ConnectionConfig {
+func (s *Service) PickOrderer() *ConnectionConfig {
 	if len(s.orderers) == 0 {
 		return nil
 	}
 	return s.orderers[rand.Intn(len(s.orderers))]
 }
 
-func (s *Service) PickPeer(ft driver.PeerFunctionType) *grpc.ConnectionConfig {
+func (s *Service) PickPeer(ft driver.PeerFunctionType) *ConnectionConfig {
 	source, ok := s.peerMapping[ft]
 	if !ok {
 		source = s.peerMapping[driver.PeerForAnything]
