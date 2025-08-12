@@ -25,6 +25,10 @@ type collectEndorsementsView struct {
 }
 
 func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error) {
+	return c.CallTyped(context)
+}
+
+func (c *collectEndorsementsView) CallTyped(context view.Context) (*Transaction, error) {
 	// Prepare verifiers
 	ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
 	if err != nil {

@@ -37,6 +37,10 @@ type CreateIOUView struct {
 }
 
 func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
+	return i.CallTyped(context)
+}
+
+func (i *CreateIOUView) CallTyped(context view.Context) (string, error) {
 	// As a first step operation, the borrower contacts the lender's FSC node
 	// to exchange the identities to use to assign ownership of the freshly created IOU state.
 	borrower, lender, err := state.ExchangeRecipientIdentities(context, i.Lender, state.WithIdentity(i.Identity))
@@ -65,8 +69,10 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// The borrower is ready to collect all the required signatures.
 	// Namely from the borrower itself, the lender, and the approver. In this order.
 	// All signatures are required.
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, borrower, lender, i.Approver))
+	res, err := view.RunTypedView(context, state.NewCollectEndorsementsView(tx, borrower, lender, i.Approver))
 	assert.NoError(err)
+	assert.NotNil(res)
+	assert.Equal(res.Namespaces()[0], "iou", "namespace")
 
 	// Check committer events
 	var wg sync.WaitGroup

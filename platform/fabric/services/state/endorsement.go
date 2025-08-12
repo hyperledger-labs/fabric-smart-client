@@ -14,7 +14,7 @@ import (
 // NewCollectEndorsementsView returns a view that does the following:
 // 1. It contacts each passed party sequentially and sends the marshalled version of the passed transaction.
 // 2. It waits for a response containing either the endorsement of the transaction or an error.
-func NewCollectEndorsementsView(tx *Transaction, parties ...view.Identity) view.View {
+func NewCollectEndorsementsView(tx *Transaction, parties ...view.Identity) view.TypedView[*endorser.Transaction] {
 	return endorser.NewCollectEndorsementsView(tx.tx, parties...)
 }
 
