@@ -97,8 +97,12 @@ func (c *Ledger) GetBlockByNumber(number uint64) (driver.Block, error) {
 }
 
 func (c *Ledger) queryChaincode(function string, param any) ([]byte, error) {
+	params := []any{c.ChannelName}
+	if param != nil {
+		params = append(params, param)
+	}
 	return c.ChaincodeManager.Chaincode(QuerySystemChaincode).
-		NewInvocation(function, c.ChannelName, param).
+		NewInvocation(function, params...).
 		WithSignerIdentity(c.LocalMembership.DefaultIdentity()).
 		WithEndorsersByConnConfig(c.ConfigService.PickPeer(driver.PeerForQuery)).
 		Query()
