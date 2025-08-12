@@ -95,7 +95,7 @@ func (db *BindingStore) PutBindings(ctx context.Context, longTerm view.Identity,
 	query := fmt.Sprintf(`INSERT INTO %s (ephemeral_hash, long_term_id) VALUES `, db.table)
 
 	args := []interface{}{}
-	argsReferences := []string{"($1,$2)"}
+	argsReferences := []string{"($1, $2)"}
 	args = append(args, longTerm.UniqueID(), longTerm)
 	for i, eph := range ephemeral {
 		args = append(args, eph.UniqueID(), longTerm)
