@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
+	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/require"
 )
@@ -34,27 +36,36 @@ func TestPutBindings_MultipleEphemerals(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	store := &BindingStore{
-		writeDB: db,
-		table:   "bindings",
+	// Wrap sqlmock's db into RWDB
+	rwdb := &common3.RWDB{
+		WriteDB: db,
+		ReadDB:  db,
 	}
 
-	// No GetLongTerm substitution: pass identity as-is
-	// store.GetLongTerm = func(ctx context.Context, id view.Identity) (view.Identity, error) {
-	// 	return nil, nil
-	// }
+	// Prepare table names
+	tables := common2.TableNames{
+		Binding: "bindings",
+	}
+
+	// Create store using constructor
+	store, err := NewBindingStore(rwdb, tables)
+	require.NoError(t, err)
 
 	// Input identities
 	longTerm := view.Identity("long")
 	e1 := view.Identity("eph1")
 	e2 := view.Identity("eph2")
-	// e3 := view.Identity("eph3")
 
 	// Expected SQL query
-	expectedSQL := regexp.QuoteMeta(`INSERT INTO bindings (ephemeral_hash, long_term_id) VALUES ($1, $2), ($3, $4) ON CONFLICT DO NOTHING;`)
 
+	expectedSQL := regexp.QuoteMeta(`SELECT long_term_id FROM bindings WHERE ephemeral_hash = $1`)
+	mock.ExpectQuery(expectedSQL).
+		WithArgs(longTerm.UniqueID()).
+		WillReturnRows(sqlmock.NewRows([]string{"long_term_id"})) // empty rows = no results
+
+	expectedSQL = regexp.QuoteMeta(`INSERT INTO bindings (ephemeral_hash, long_term_id) VALUES ($1, $2), ($3, $4), ($5, $6) ON CONFLICT DO NOTHING;`)
 	mock.ExpectExec(expectedSQL).
-		WithArgs(e1.UniqueID(), longTerm, e2.UniqueID(), longTerm).
+		WithArgs(longTerm.UniqueID(), longTerm, e1.UniqueID(), longTerm, e2.UniqueID(), longTerm).
 		WillReturnResult(sqlmock.NewResult(1, 2))
 
 	err = store.PutBindings(ctx, longTerm, e1, e2)
