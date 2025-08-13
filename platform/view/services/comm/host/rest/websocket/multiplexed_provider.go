@@ -116,7 +116,6 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 		if err != nil {
 			span.RecordError(err)
 		}
-		span.End()
 	}()
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
 	tlsEnabled := config != nil && (config.InsecureSkipVerify || config.RootCAs != nil)
