@@ -151,10 +151,6 @@ func (fake *IdentityProvider) IdentityReturnsOnCall(i int, result1 viewa.Identit
 func (fake *IdentityProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.defaultIdentityMutex.RLock()
-	defer fake.defaultIdentityMutex.RUnlock()
-	fake.identityMutex.RLock()
-	defer fake.identityMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

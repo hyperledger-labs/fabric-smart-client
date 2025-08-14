@@ -186,10 +186,6 @@ func (fake *EndpointService) ResolverReturnsOnCall(i int, result1 *endpoint.Reso
 func (fake *EndpointService) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.getIdentityMutex.RLock()
-	defer fake.getIdentityMutex.RUnlock()
-	fake.resolverMutex.RLock()
-	defer fake.resolverMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
