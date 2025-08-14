@@ -483,20 +483,6 @@ func (fake *Session) SendWithContextReturnsOnCall(i int, result1 error) {
 func (fake *Session) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.closeMutex.RLock()
-	defer fake.closeMutex.RUnlock()
-	fake.infoMutex.RLock()
-	defer fake.infoMutex.RUnlock()
-	fake.receiveMutex.RLock()
-	defer fake.receiveMutex.RUnlock()
-	fake.sendMutex.RLock()
-	defer fake.sendMutex.RUnlock()
-	fake.sendErrorMutex.RLock()
-	defer fake.sendErrorMutex.RUnlock()
-	fake.sendErrorWithContextMutex.RLock()
-	defer fake.sendErrorWithContextMutex.RUnlock()
-	fake.sendWithContextMutex.RLock()
-	defer fake.sendWithContextMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
