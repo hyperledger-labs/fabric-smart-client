@@ -18,23 +18,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockIdentity string
-
-func (m mockIdentity) UniqueID() string {
-	return string(m)
-}
-
-func (m mockIdentity) IsNone() bool {
-	return false
-}
-
 func TestPutBindings_MultipleEphemerals(t *testing.T) {
 	ctx := context.Background()
 
 	// Create mock DB and mock expectations
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Wrap sqlmock's db into RWDB
 	rwdb := &common3.RWDB{
