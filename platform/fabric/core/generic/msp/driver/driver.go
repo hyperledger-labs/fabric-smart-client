@@ -37,7 +37,7 @@ type SignerService interface {
 }
 
 type BinderService interface {
-	Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error
+	Bind(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error
 	GetIdentity(label string, pkiID []byte) (view.Identity, error)
 }
 
