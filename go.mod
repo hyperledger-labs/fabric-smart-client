@@ -10,7 +10,7 @@ require (
 	github.com/IBM/idemix/bccsp/types v0.0.0-20240913182345-72941a5f41cd
 	github.com/IBM/mathlib v0.0.3-0.20231011094432-44ee0eb539da
 	github.com/cockroachdb/errors v1.12.0
-	github.com/docker/docker v27.2.0+incompatible
+	github.com/docker/docker v28.0.0+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/fsouza/go-dockerclient v1.12.0
 	github.com/gin-contrib/cors v1.7.2
