@@ -14,5 +14,7 @@ import (
 )
 
 func TestWiring(t *testing.T) {
-	assert.NoError(t, sdk.DryRunWiring(NewFrom, sdk.WithBool("fabric.enabled", true)))
+	sss := sdk.WithBool("fabric.enabled", true)
+	err := sdk.DryRunWiring(NewFrom, sss)
+	assert.NoError(t, err)
 }
