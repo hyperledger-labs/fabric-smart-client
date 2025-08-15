@@ -49,22 +49,24 @@ func NewConfig(configProvider ConfigProvider) (*Config, error) {
 			logger.Debugf("found fabric network [%s], driver [%s]", name, fsnConfig.Driver)
 
 			// is this default?
-			if fsnConfig.Default {
+			if fsnConfig.Default || name == "default" {
 				if len(defaultName) != 0 {
-					logger.Warnf("only one network should be set as default, ignoring [%s], default is set to [%s]", name, fsnConfig.Default)
+					logger.Warnf("only one network should be set as default, ignoring [%s], default is set to [%s]", name, defaultName)
 					continue
 				}
 				defaultName = name
 			}
 		}
 	}
+	if len(names) == 0 {
+		return nil, errors.New("no fabric network configured")
+	}
+
 	if len(defaultName) == 0 {
-		if len(names) != 0 {
-			defaultName = names[0]
-		} else {
-			defaultName = "default"
+		defaultName = names[0]
+		if len(names) > 1 {
+			logger.Warnf("no default network configured, set it to [%s]", defaultName)
 		}
-		logger.Warnf("no default network configured, set it to [%s]", defaultName)
 	}
 
 	return &Config{
