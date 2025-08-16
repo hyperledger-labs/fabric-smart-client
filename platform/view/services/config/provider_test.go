@@ -33,6 +33,21 @@ func TestReadFile(t *testing.T) {
 	testMerge(t, p)
 }
 
+func TestProvideFromRaw(t *testing.T) {
+	p, err := NewProvider("./testdata")
+	assert.NoError(t, err)
+
+	// read content of ./testdata/core.yaml
+	raw, err := os.ReadFile("./testdata/core.yaml")
+	require.NoError(t, err)
+	newProvider, err := p.ProvideFromRaw(raw)
+	require.NoError(t, err)
+
+	// newProvider should pass the same tests as p
+	testBasics(t, newProvider)
+	testMerge(t, newProvider)
+}
+
 func TestEnvSubstitution(t *testing.T) {
 	_ = os.Setenv("CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE", "new data source")
 	_ = os.Setenv("CORE_STR", "new=string=with=characters.\\AND.CAPS")
@@ -96,16 +111,16 @@ func testMerge(t *testing.T, p *Provider) {
 	require.NoError(t, err)
 	require.NoError(t, p.MergeConfig(merge2Raw))
 
-	networkName := p.GetString("fabric.network1.name")
+	networkName := p.GetString(Join("fabric", "network1", "name"))
 	assert.Equal(t, "pineapple", networkName)
 
 	merge3Raw, err := os.ReadFile("./testdata/merge3.yaml")
 	require.NoError(t, err)
 	require.NoError(t, p.MergeConfig(merge3Raw))
 
-	networkName = p.GetString("fabric.network1.name")
+	networkName = p.GetString(Join("fabric", "network1", "name"))
 	assert.Equal(t, "pineapple", networkName)
-	networkName = p.GetString("fabric.network2.name")
+	networkName = p.GetString(Join("fabric", "network2", "name"))
 	assert.Equal(t, "strawberry", networkName)
 
 	testBasics(t, p)

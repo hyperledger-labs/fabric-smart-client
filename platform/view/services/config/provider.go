@@ -18,6 +18,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config/viper"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -45,7 +46,6 @@ type OnMergeConfigEventHandler interface {
 type DecodeHookFuncType func(reflect.Type, reflect.Type, interface{}) (interface{}, error)
 
 type Provider struct {
-	confPath    string
 	Backend     *viper.Viper
 	eventSystem events.EventSystem
 
@@ -54,10 +54,9 @@ type Provider struct {
 
 func NewProvider(confPath string) (*Provider, error) {
 	p := &Provider{
-		confPath:    confPath,
 		eventSystem: simple.NewEventBus(),
 	}
-	if err := p.load(); err != nil {
+	if err := p.loadFromPath(confPath); err != nil {
 		return nil, err
 	}
 
@@ -151,15 +150,31 @@ func (p *Provider) OnMergeConfig(handler OnMergeConfigEventHandler) {
 	p.eventSystem.Subscribe(MergeConfigEventTopic, &eventListener{handler: handler})
 }
 
-func (p *Provider) load() error {
+// ProvideFromRaw returns a new Provider whose configuration is loaded from the given byte representation.
+// The function expects a valid `yaml` representation.
+// The new provider inherit the same config file used by this provider.
+func (p *Provider) ProvideFromRaw(raw []byte) (*Provider, error) {
+	newProvider := &Provider{
+		eventSystem: simple.NewEventBus(),
+	}
+	if err := newProvider.loadFromRaw(raw); err != nil {
+		return nil, err
+	}
+	newProvider.Backend.SetConfigFile(p.ConfigFileUsed())
+
+	return newProvider, nil
+}
+
+func (p *Provider) loadFromPath(path string) error {
 	p.Backend = viper.New()
-	err := p.initViper(p.Backend, CmdRoot)
+	err := p.initViper(p.Backend, CmdRoot, path)
 	if err != nil {
 		return err
 	}
 
 	err = p.Backend.ReadInConfig() // Find and read the config file
-	if err != nil {                // Handle errors reading the config file
+	if err != nil {
+		// Handle errors reading the config file
 		// The version of Viper we use claims the config type isn't supported when in fact the file hasn't been found
 		// Display a more helpful message to avoid confusing the user.
 		if strings.Contains(fmt.Sprint(err), "Unsupported Config Type") {
@@ -181,6 +196,22 @@ func (p *Provider) load() error {
 		OtelSanitize: p.Backend.GetBool("logging.otel.sanitize"),
 		Writer:       logOutput,
 	})
+
+	return nil
+}
+
+func (p *Provider) loadFromRaw(raw []byte) error {
+	p.Backend = viper.New()
+	p.Backend.SetConfigType("yaml")
+
+	// read configuration
+	if err := p.Backend.ReadConfig(bytes.NewReader(raw)); err != nil {
+		return errors.Wrapf(err, "failed to read configuration from raw [%s]", hash.Hashable(raw))
+	}
+	// post process
+	if err := p.substituteEnv(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -260,9 +291,9 @@ func setDeepValue(m map[string]any, keys []string, value any) error {
 // the configuration we need.  If Backend == nil, we will initialize the global
 // Viper instance
 // ----------------------------------------------------------------------------------
-func (p *Provider) initViper(v *viper.Viper, configName string) error {
-	if len(p.confPath) != 0 {
-		AddConfigPath(v, p.confPath)
+func (p *Provider) initViper(v *viper.Viper, configName string, confPath string) error {
+	if len(confPath) != 0 {
+		AddConfigPath(v, confPath)
 	}
 
 	var altPath = os.Getenv("FSCNODE_CFG_PATH")
