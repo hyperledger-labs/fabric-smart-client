@@ -42,12 +42,12 @@ func TestEnvSubstitution(t *testing.T) {
 	_ = os.Setenv("CORE_PATH_ABSOLUTE", "") // empty env vars are disregarded
 	_ = os.Setenv("CORE_NON_EXISTENT_KEY", "new")
 	_ = os.Setenv("CORE_NESTED_KEYS", "should not be able to replace for string")
+	_ = os.Setenv("CORE_CORE_ISFINE", "yes")
 
 	p, err := NewProvider("./testdata")
 	assert.NoError(t, err)
 
 	path, _ := filepath.Abs("testdata/newfile.name")
-
 	assert.Equal(t, "new=string=with=characters.\\AND.CAPS", p.GetString("str"))
 	assert.Equal(t, 10, p.GetInt("number"))
 	assert.Equal(t, 10*time.Second, p.GetDuration("duration"))
@@ -73,6 +73,7 @@ func TestEnvSubstitution(t *testing.T) {
 
 	assert.Equal(t, "new", p.GetString("non.existent.key"))
 	assert.Equal(t, 1, p.GetInt("nested.keys.one"))
+	assert.Equal(t, "yes", p.GetString("core.isFine"))
 }
 
 func testMerge(t *testing.T, p *Provider) {

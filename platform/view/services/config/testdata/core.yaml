@@ -1,7 +1,6 @@
-
 number: 5
 duration: 5s
-str: a string         # with trailing spaces
+str: a string # with trailing spaces
 path:
   relative: file.name
   absolute: /absolute/path/file.name
@@ -22,3 +21,5 @@ nested:
     one: 1
     two: 2
 CAPITALS: true
+core:
+  isFine: "no"
