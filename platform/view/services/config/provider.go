@@ -201,7 +201,7 @@ func (p *Provider) substituteEnv() error {
 		}
 		key, val := env[0], strings.Join(env[1:], "=")
 
-		noprefix := strings.TrimLeft(key, strings.ToUpper(CmdRoot)+"_")
+		noprefix := strings.TrimPrefix(key, strings.ToUpper(CmdRoot)+"_")
 		key = strings.ToLower(strings.ReplaceAll(noprefix, "_", "."))
 
 		// nested key
