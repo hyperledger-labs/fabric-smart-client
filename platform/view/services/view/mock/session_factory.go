@@ -236,6 +236,12 @@ func (fake *SessionFactory) NewSessionWithIDReturnsOnCall(i int, result1 viewa.S
 func (fake *SessionFactory) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.deleteSessionsMutex.RLock()
+	defer fake.deleteSessionsMutex.RUnlock()
+	fake.newSessionMutex.RLock()
+	defer fake.newSessionMutex.RUnlock()
+	fake.newSessionWithIDMutex.RLock()
+	defer fake.newSessionWithIDMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

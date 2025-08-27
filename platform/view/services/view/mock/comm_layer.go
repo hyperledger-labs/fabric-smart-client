@@ -304,6 +304,14 @@ func (fake *CommLayer) NewSessionWithIDReturnsOnCall(i int, result1 viewa.Sessio
 func (fake *CommLayer) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.deleteSessionsMutex.RLock()
+	defer fake.deleteSessionsMutex.RUnlock()
+	fake.masterSessionMutex.RLock()
+	defer fake.masterSessionMutex.RUnlock()
+	fake.newSessionMutex.RLock()
+	defer fake.newSessionMutex.RUnlock()
+	fake.newSessionWithIDMutex.RLock()
+	defer fake.newSessionWithIDMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
