@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
+	"go.uber.org/zap/zapcore"
 )
 
 type connection interface {
@@ -70,7 +71,9 @@ func (s *stream) readMessages(ctx context.Context) {
 				_ = s.Close()
 				return
 			}
-			logger.Debugf("Read message of length [%d] on [%s]", len(msg), s.Hash())
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				logger.Debugf("Read message of length [%d] on [%s]", len(msg), s.Hash())
+			}
 			s.reads <- result{value: msg, err: err}
 		}
 	}

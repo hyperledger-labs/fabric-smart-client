@@ -9,8 +9,8 @@ package rest
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -86,5 +86,13 @@ func (h *host) Close() error {
 func (h *host) Wait() {}
 
 func StreamHash(info host2.StreamInfo) host2.StreamHash {
-	return fmt.Sprintf("%s.%s.%s.%s", info.RemotePeerID, info.RemotePeerAddress, info.SessionID, info.ContextID)
+	var sb strings.Builder
+	sb.WriteString(info.RemotePeerID)
+	sb.WriteRune('.')
+	sb.WriteString(info.RemotePeerAddress)
+	sb.WriteRune('.')
+	sb.WriteString(info.SessionID)
+	sb.WriteRune('.')
+	sb.WriteString(info.ContextID)
+	return sb.String()
 }
