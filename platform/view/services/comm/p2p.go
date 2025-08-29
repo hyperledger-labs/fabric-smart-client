@@ -24,9 +24,10 @@ import (
 )
 
 const (
-	masterSession                    = "master of puppets I'm pulling your strings"
-	contextIDLabel tracing.LabelName = "context_id"
-	sessionIDLabel tracing.LabelName = "session_id"
+	masterSession                       = "master of puppets I'm pulling your strings"
+	contextIDLabel    tracing.LabelName = "context_id"
+	sessionIDLabel    tracing.LabelName = "session_id"
+	defaultBufferSize                   = 4096
 )
 
 var errStreamNotFound = errors.New("stream not found")
@@ -209,7 +210,7 @@ func (p *P2PNode) handleIncomingStream(stream host2.P2PStream) {
 func (p *P2PNode) handleStream(stream host2.P2PStream) {
 	sh := &streamHandler{
 		stream: stream,
-		reader: io.NewVarintProtoReader(stream, 655360*2),
+		reader: io.NewVarintProtoReader(stream, defaultBufferSize),
 		writer: io.NewVarintProtoWriter(stream),
 		node:   p,
 	}
