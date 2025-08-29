@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"go.uber.org/zap/zapcore"
 )
 
 // NetworkStreamSession implements view.Session
@@ -82,7 +83,9 @@ func (n *NetworkStreamSession) closeInternal() {
 	logger.Debugf("closing session [%s] with [%d] streams", n.sessionID, len(n.streams))
 	toClose := make([]*streamHandler, 0, len(n.streams))
 	for stream := range n.streams {
-		logger.Debugf("session [%s], stream [%s], refCtr [%d]", n.sessionID, stream.stream.Hash(), stream.refCtr)
+		if logger.IsEnabledFor(zapcore.DebugLevel) {
+			logger.Debugf("session [%s], stream [%s], refCtr [%d]", n.sessionID, stream.stream.Hash(), stream.refCtr)
+		}
 		stream.refCtr--
 		if stream.refCtr == 0 {
 			toClose = append(toClose, stream)
