@@ -8,6 +8,11 @@ package errors
 
 import "github.com/cockroachdb/errors"
 
+// Join returns an error that wraps the given errors.
+func Join(errs ...error) error {
+	return errors.Join(errs...)
+}
+
 // HasType recursively checks errors wrapped using Wrapf until it detects the target error type
 func HasType(source, target error) bool {
 	return source != nil && target != nil && errors.As(source, &target)
