@@ -6,8 +6,13 @@ SPDX-License-Identifier: Apache-2.0
 
 package comm
 
-import "encoding/base64"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+)
 
 func computeInternalSessionID(topic string, pkid []byte) string {
-	return topic + "." + base64.StdEncoding.EncodeToString(pkid)
+	hasher := sha256.New()
+	hasher.Write(pkid)
+	return topic + "." + hex.EncodeToString(hasher.Sum(nil))
 }

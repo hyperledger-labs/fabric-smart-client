@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/websocket"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/goleak"
 )
 
 func newMockStream(conn *mockConn) host.P2PStream {
@@ -65,6 +66,9 @@ func (c *mockConn) WrittenValues() <-chan []byte {
 }
 
 func TestWriter(t *testing.T) {
+	// let check that at the end of this test all our go routines are stopped
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+
 	conn := &mockConn{
 		written: make(chan []byte, 100),
 		read:    make(chan []byte, 100),
@@ -100,6 +104,9 @@ func TestWriter(t *testing.T) {
 }
 
 func TestReader(t *testing.T) {
+	// let check that at the end of this test all our go routines are stopped
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+
 	conn := &mockConn{
 		written: make(chan []byte, 100),
 		read:    make(chan []byte, 100),
@@ -117,23 +124,19 @@ func TestReader(t *testing.T) {
 		assert.NoError(t, conn.ReadValue(message))
 	}
 	wg := sync.WaitGroup{}
-	wg.Add(len(input))
+	wg.Add(1)
 
-	output := make([]*comm.ViewPacket, 0, len(input))
-	m := sync.RWMutex{}
 	go func() {
-		for {
+		defer wg.Done()
+		for _, in := range input {
 			read := &comm.ViewPacket{}
 			assert.NoError(t, r.ReadMsg(read))
-			m.Lock()
-			output = append(output, read)
-			m.Unlock()
-			wg.Done()
+			assert.True(t, proto.Equal(in, read))
 		}
 	}()
 	wg.Wait()
 
-	assert.Equal(t, len(input), len(output))
+	assert.NoError(t, stream.Close())
 }
 
 func messageOfSize(size int) proto.Message {

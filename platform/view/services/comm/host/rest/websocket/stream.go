@@ -70,7 +70,6 @@ func (s *stream) readMessages(ctx context.Context) {
 				_ = s.Close()
 				return
 			}
-			logger.Debugf("Read message of length [%d] on [%s]", len(msg), s.Hash())
 			s.reads <- result{value: msg, err: err}
 		}
 	}

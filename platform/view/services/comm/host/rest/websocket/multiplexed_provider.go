@@ -275,10 +275,7 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 			logger.Debugf("server subconn errored: %v", mm.Err)
 		} else if mm.Err != "" {
 			logger.Debugf("Server subconn [%s] errored: %v", mm.ID, mm.Err)
-			go func() {
-				time.Sleep(1 * time.Second) // TODO: Find the point when the connection must close
-				_ = sc.Close()
-			}()
+			_ = sc.Close()
 		} else {
 			sc.receiverChan <- result{value: mm.Msg}
 		}
@@ -428,6 +425,11 @@ func (c *subConn) Close() error {
 
 	// try to send closing handshake but ignore any error (in case connection is already closed)
 	_ = c.parentConn.write(MultiplexedMessage{ID: c.id, Err: io.EOF.Error()})
+
+	// we need to clean up the parents subConns map
+	c.parentConn.mu.Lock()
+	delete(c.parentConn.subConns, c.id)
+	c.parentConn.mu.Unlock()
 
 	return nil
 }
