@@ -42,7 +42,7 @@ func newBindingStore(readDB, writeDB *sql.DB, table string) *BindingStore {
 
 func (db *BindingStore) PutBindings(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error {
 	if len(ephemeral) == 0 {
-		return errors.New("no ephemeral identities provided")
+		return nil
 	}
 
 	logger.DebugfContext(ctx, "put bindings for %d ephemeral(s) with long term [%s]", len(ephemeral), longTerm.UniqueID())
