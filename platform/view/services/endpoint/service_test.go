@@ -8,9 +8,11 @@ package endpoint_test
 
 import (
 	"context"
+	"regexp"
 	"sync"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -180,27 +182,49 @@ func TestGetIdentity(t *testing.T) {
 	assert.False(t, ok)
 }
 
-// func TestBindWithMultipleEphemerals(t *testing.T) {
-// 	RegisterTestingT(t)
+func TestPutBindings_MultipleEphemerals3(t *testing.T) {
+	ctx := context.Background()
 
-// 	ctx := context.Background()
-// 	longTerm := view.Identity("long")
-// 	e1 := view.Identity("eph1")
-// 	e2 := view.Identity("eph2")
-// 	e3 := view.Identity("eph3")
+	// // Create mock DB and mock expectations
+	_, mock1, err := sqlmock.New()
+	// require.NoError(t, err)
+	// defer func() { _ = db.Close() }()
 
-// 	bindingStore := &mock.BindingStore{}
-// 	bindingStore.PutBindingReturns(nil)
+	// // Wrap sqlmock's db into RWDB
+	// rwdb := &common3.RWDB{
+	// 	WriteDB: db,
+	// 	ReadDB:  db,
+	// }
 
-// 	service, err := endpoint.NewService(bindingStore)
-// 	require.NoError(t, err)
+	// // Prepare table names
+	// tables := common2.TableNames{
+	// 	Binding: "bindings",
+	// }
 
-// 	Expect(service.Bind(ctx, longTerm, e1)).To(Succeed())
-// 	Expect(service.lastBindSql).To(Equal("INSERT ..."))
+	store := &mock.BindingStore{}
 
-// 	Expect(service.Bind(ctx, longTerm, e1, e2)).To(Succeed())
-// 	Expect(service.lastBindSql).To(Equal("INSERT ..."))
+	// Create store using constructor
+	// store, err := NewBindingStore(rwdb, tables)
+	// require.NoError(t, err)
 
-// 	Expect(service.Bind(ctx, longTerm, e1, e2, e3)).To(Succeed())
-// 	Expect(service.lastBindSql).To(Equal("INSERT ..."))
-// }
+	// Input identities
+	longTerm := view.Identity("long")
+	e1 := view.Identity("eph1")
+	e2 := view.Identity("eph2")
+
+	// Expected SQL query
+
+	expectedSQL := regexp.QuoteMeta(`SELECT long_term_id FROM bindings WHERE ephemeral_hash = $1`)
+	mock1.ExpectQuery(expectedSQL).
+		WithArgs(longTerm.UniqueID()).
+		WillReturnRows(sqlmock.NewRows([]string{"long_term_id"})) // empty rows = no results
+
+	expectedSQL = regexp.QuoteMeta(`INSERT INTO bindings (ephemeral_hash, long_term_id) VALUES ($1, $2), ($3, $4), ($5, $6) ON CONFLICT DO NOTHING;`)
+	mock1.ExpectExec(expectedSQL).
+		WithArgs(longTerm.UniqueID(), longTerm, e1.UniqueID(), longTerm, e2.UniqueID(), longTerm).
+		WillReturnResult(sqlmock.NewResult(1, 2))
+
+	err = store.PutBindings(ctx, longTerm, e1, e2)
+	require.NoError(t, err)
+	require.NoError(t, mock1.ExpectationsWereMet())
+}
