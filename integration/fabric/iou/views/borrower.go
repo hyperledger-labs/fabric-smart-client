@@ -21,7 +21,7 @@ import (
 
 // Create contains the input to create an IOU state
 type Create struct {
-	// Identity is the label of the the borrower's identity to use.
+	// Identity is the label of the borrower's identity to use.
 	// Empty means the default identity.
 	Identity string
 	// Amount the borrower owes the lender
