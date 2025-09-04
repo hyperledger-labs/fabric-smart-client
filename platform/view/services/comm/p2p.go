@@ -147,7 +147,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			p.dispatchMutex.Unlock()
 
 			logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
-			session.incoming <- msg.message
+			session.received(msg.message)
 		case <-ctx.Done():
 			logger.Info("closing p2p comm...")
 			return
