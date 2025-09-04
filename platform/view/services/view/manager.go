@@ -253,7 +253,9 @@ func (cm *Manager) ExistResponderForCaller(caller string) (view.View, view.Ident
 	return cm.registry.ExistResponderForCaller(caller)
 }
 
-func (cm *Manager) respond(responder view.View, id view.Identity, msg *view.Message) (ctx view.Context, res interface{}, err error) {
+// respond executes a given responder view
+// the caller is responsible to use the cleanup method to free any resources
+func (cm *Manager) respond(responder view.View, id view.Identity, msg *view.Message) (ctx view.Context, res interface{}, cleanup func(), err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("respond triggered panic: %s\n%s\n", r, debug.Stack())
@@ -261,31 +263,32 @@ func (cm *Manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		}
 	}()
 
+	cleanup = func() {}
+
 	// get context
 	var isNew bool
 	ctx, isNew, err = cm.newContext(id, msg)
 	if err != nil {
-		return nil, nil, errors.WithMessagef(err, "failed getting context for [%s,%s,%v]", msg.ContextID, id, msg)
+		return nil, nil, cleanup, errors.WithMessagef(err, "failed getting context for [%s,%s,%v]", msg.ContextID, id, msg)
 	}
 
 	logger.DebugfContext(ctx.Context(), "[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, isNew, logging.Identifier(responder))
 
-	// todo: if a new context has been created to run the responder,
-	// then dispose the context when the responder terminates
-	// run view
+	// if a new context has been created to run the responder,
+	// then dispose the context when not needed anymore
 	if isNew {
-		// delete context at the end of the execution
-		res, err = func(ctx view.Context, responder view.View) (interface{}, error) {
-			defer cm.deleteContext(id, ctx.ID())
-			return ctx.RunView(responder)
-		}(ctx, responder)
-	} else {
-		res, err = ctx.RunView(responder)
+		cleanup = func() {
+			cm.deleteContext(id, ctx.ID())
+		}
 	}
+
+	// run view
+	res, err = ctx.RunView(responder)
 	if err != nil {
 		logger.DebugfContext(ctx.Context(), "[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
 	}
-	return ctx, res, err
+
+	return ctx, res, cleanup, err
 }
 
 func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context, bool, error) {
@@ -379,7 +382,8 @@ func (cm *Manager) callView(msg *view.Message) {
 		id = cm.me()
 	}
 
-	ctx, _, err := cm.respond(responder, id, msg)
+	ctx, _, cleanup, err := cm.respond(responder, id, msg)
+	defer cleanup()
 	if err != nil {
 		logger.Errorf("failed responding [%v, %v], err: [%s]", logging.Identifier(responder), msg.String(), err)
 		if ctx == nil {
