@@ -31,21 +31,24 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 		return session, nil
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	s := &NetworkStreamSession{
+		node:            p,
 		endpointID:      endpointID,
 		endpointAddress: endpointAddress,
 		contextID:       contextID,
-		callerViewID:    callerViewID,
-		caller:          caller,
 		sessionID:       sessionID,
-		node:            p,
+		caller:          caller,
+		callerViewID:    callerViewID,
 		incoming:        make(chan *view.Message, 1),
 		streams:         make(map[*streamHandler]struct{}),
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 
 	if msg != nil {
 		logger.Debugf("pushing first message to [%s], [%s]", internalSessionID, msg)
-		s.incoming <- msg
+		s.enqueue(msg)
 	} else {
 		logger.Debugf("no first message to push to [%s]", internalSessionID)
 	}

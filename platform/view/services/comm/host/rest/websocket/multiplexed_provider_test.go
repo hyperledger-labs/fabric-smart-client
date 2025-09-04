@@ -22,10 +22,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/goleak"
 )
@@ -144,6 +146,94 @@ func TestConnections(t *testing.T) {
 
 	p.mu.RLock()
 	assert.Equal(t, 0, len(p.clients))
+	p.mu.RUnlock()
+}
+
+func TestSendingOnClosedSubConnections(t *testing.T) {
+	testSetup(t)
+
+	// let check that at the end of this test all our go routines are stopped
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{})
+	var wg sync.WaitGroup
+
+	wait := make(chan struct{})
+
+	// server
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err := p.NewServerStream(w, r, func(s host.P2PStream) {
+			wg.Add(1)
+			go func(srv host.P2PStream) {
+				defer wg.Done()
+				serverLogger.Debugf("[server] new stream established with %v (ID=%v) sessionID=%v", srv.RemotePeerID(), srv.RemotePeerID(), srv.Hash())
+				serverLogger.Debugf("[server] reading ...")
+
+				// server receives first message
+				answer, err := readMsg(srv)
+				require.NoError(t, err)
+				require.EqualValues(t, []byte("ping"), answer)
+
+				// sends back a message
+				err = sendMsg(srv, []byte("pong"))
+				require.NoError(t, err)
+
+				// we wait for next orders
+				<-wait
+
+				// we send a few messages at a high rate; eventually we should receive a channel closed message
+				require.EventuallyWithT(t, func(c *assert.CollectT) {
+					err = sendMsg(srv, []byte("pong again"))
+					require.ErrorIs(c, err, websocket.ErrCloseSent)
+				}, 100*time.Millisecond, time.Nanosecond)
+			}(s)
+		})
+		require.NoError(t, err)
+	}))
+
+	srvEndpoint := strings.TrimPrefix(srv.URL, "http://")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	info := host.StreamInfo{
+		RemotePeerID:      "serverID",
+		RemotePeerAddress: srvEndpoint,
+		ContextID:         "someContextID",
+		SessionID:         "someSessionID",
+	}
+	src := host.PeerID("somePeerID")
+	config := &tls.Config{}
+
+	client, err := p.NewClientStream(info, ctx, src, config)
+	require.NoError(t, err)
+
+	// send ping
+	err = sendMsg(client, []byte("ping"))
+	require.NoError(t, err)
+
+	// expects pong
+	answer, err := readMsg(client)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("pong"), answer)
+
+	// now the client is actually done and closes the subconn
+	err = client.Close()
+	require.NoError(t, err)
+
+	//time.Sleep(snoozeTime)
+	// now we use our superpowers to let the server send another message
+	wait <- struct{}{}
+
+	wg.Wait()
+
+	// close server
+	srv.Close()
+
+	err = p.KillAll()
+	require.NoError(t, err)
+
+	p.mu.RLock()
+	require.Equal(t, 0, len(p.clients))
 	p.mu.RUnlock()
 }
 
