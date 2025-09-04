@@ -63,7 +63,7 @@ func (c *MultiplexedProvider) KillAll() error {
 	}
 
 	// cleanup clients
-	c.clients = make(map[string]*multiplexedClientConn)
+	clear(c.clients)
 
 	return err
 }
@@ -227,11 +227,14 @@ func (c *multiplexedClientConn) readIncoming() {
 		c.mu.RUnlock()
 
 		if !ok && mm.Err == "" {
-			panic("subconn not found")
+			// it might happen that we receive a message from the server after we have already closed the sub-connection
+			// in this case we just ignore the message and drop it
+			logger.Warnf("client sub-connection does not exist mmId=%v, dropping message", mm.ID)
+			logger.Debugf("dropping message: `%s`", string(mm.Msg))
 		} else if !ok && mm.Err != "" {
-			logger.Debugf("Client subconnection errored: %v", mm.Err)
+			logger.Debugf("client sub-connection does not exist mmId=%v, errored: %v", mm.ID, mm.Err)
 		} else if mm.Err != "" {
-			logger.Debugf("Client subconn errored: %v", mm.Err)
+			logger.Debugf("client sub-connection mmId=%v errored: %v", mm.ID, mm.Err)
 		} else {
 			sc.receiverChan <- result{value: mm.Msg}
 		}
