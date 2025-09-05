@@ -8,10 +8,10 @@ package endpoint
 
 import (
 	"context"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -77,6 +77,7 @@ func (r *ResolversLoader) LoadResolvers() error {
 		"",
 		map[string]string{
 			string(ViewPort): r.config.GetString("fsc.grpc.address"),
+			string(P2PPort):  convertAddress(r.config.GetString("fsc.p2p.listenAddress")),
 		},
 		nil,
 		r.is.DefaultIdentity(),
@@ -124,4 +125,15 @@ func (r *ResolversLoader) LoadResolvers() error {
 		}
 	}
 	return nil
+}
+
+func convertAddress(addr string) string {
+	parts := strings.Split(addr, "/")
+	if len(parts) != 5 {
+		panic("unexpected address found: " + addr)
+	}
+	if parts[2] == "0.0.0.0" {
+		parts[2] = "127.0.0.1"
+	}
+	return parts[2] + ":" + parts[4]
 }
