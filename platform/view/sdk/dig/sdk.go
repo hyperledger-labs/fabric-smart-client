@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
+	endpoint2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig/support/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -71,7 +72,7 @@ func NewSDKFrom(baseSDK dig2.SDK, registry services.Registry) *SDK {
 		sdk.Container().Provide(func() *config.Provider { return config.GetProvider(registry) }),
 		sdk.Container().Provide(
 			digutils.Identity[*config.Provider](),
-			dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint.ConfigService), new(dbdriver.Config)),
+			dig.As(new(driver.ConfigService), new(id.ConfigProvider), new(endpoint2.ConfigService), new(dbdriver.Config)),
 		),
 	)
 	if err != nil {
@@ -105,9 +106,9 @@ func (p *SDK) Install() error {
 		p.Container().Provide(endpoint.NewService),
 		p.Container().Provide(
 			digutils.Identity[*endpoint.Service](),
-			dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint.Backend), new(view.EndpointService)),
+			dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint2.Backend), new(view.EndpointService)),
 		),
-		p.Container().Provide(endpoint.NewResolversLoader),
+		p.Container().Provide(endpoint2.NewResolversLoader),
 
 		// Identity Service
 		p.Container().Provide(id.NewProvider),
@@ -115,7 +116,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(file.NewDriver, dig.Group("kms-drivers")),
 		p.Container().Provide(
 			digutils.Identity[*id.Provider](),
-			dig.As(new(endpoint.IdentityService), new(server2.IdentityProvider), new(view.IdentityProvider)),
+			dig.As(new(endpoint2.IdentityService), new(server2.IdentityProvider), new(view.IdentityProvider)),
 		),
 
 		// View Manager
@@ -194,7 +195,7 @@ func (p *SDK) Install() error {
 	}
 
 	// Load endpoint service's resolvers
-	if err := p.Container().Invoke(func(resolverService *endpoint.ResolversLoader) error { return resolverService.LoadResolvers() }); err != nil {
+	if err := p.Container().Invoke(func(resolverService *endpoint2.ResolversLoader) error { return resolverService.LoadResolvers() }); err != nil {
 		return err
 	}
 	return nil

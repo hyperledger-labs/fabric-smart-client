@@ -9,6 +9,7 @@ package comm
 import (
 	"context"
 	"runtime/debug"
+	"strings"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -323,4 +324,14 @@ func (s *streamHandler) close(context.Context) {
 		logger.Errorf("error closing stream [%s]: [%s]", s.stream.Hash(), err)
 	}
 	s.node.m.ClosedStreams.Add(1)
+}
+
+// ConvertAddress converts an address of the form `/ip4/host/tcp/port` to an address of the form `host:port`.
+// The function returns an error if the input is not in expected format.
+func ConvertAddress(addr string) (string, error) {
+	parts := strings.Split(addr, "/")
+	if len(parts) != 5 {
+		return "", errors.Errorf("unexpected address found [%s]", addr)
+	}
+	return parts[2] + ":" + parts[4], nil
 }
