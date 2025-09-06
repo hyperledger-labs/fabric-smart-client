@@ -11,9 +11,14 @@ import (
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
+
+var logger = logging.MustGetLogger()
 
 type Identity struct {
 	Path string `yaml:"path"`
@@ -72,12 +77,17 @@ func NewResolversLoader(config ConfigService, backend Backend, is IdentityServic
 
 func (r *ResolversLoader) LoadResolvers() error {
 	// add default
-	_, err := r.backend.AddResolver(
+	p2pAddress := r.config.GetString("fsc.p2p.listenAddress")
+	address, err := convertAddress(r.config.GetString("fsc.p2p.listenAddress"))
+	if err != nil {
+		return errors.Wrapf(err, "failed to convert address [%s]", p2pAddress)
+	}
+	_, err = r.backend.AddResolver(
 		r.config.GetString("fsc.id"),
 		"",
 		map[string]string{
-			string(ViewPort): r.config.GetString("fsc.grpc.address"),
-			string(P2PPort):  convertAddress(r.config.GetString("fsc.p2p.listenAddress")),
+			string(endpoint.ViewPort): r.config.GetString("fsc.grpc.address"),
+			string(endpoint.P2PPort):  address,
 		},
 		nil,
 		r.is.DefaultIdentity(),
@@ -127,13 +137,14 @@ func (r *ResolversLoader) LoadResolvers() error {
 	return nil
 }
 
-func convertAddress(addr string) string {
-	parts := strings.Split(addr, "/")
-	if len(parts) != 5 {
-		panic("unexpected address found: " + addr)
+func convertAddress(addr string) (string, error) {
+	result, err := comm.ConvertAddress(addr)
+	if err != nil {
+		return "", err
 	}
-	if parts[2] == "0.0.0.0" {
-		parts[2] = "127.0.0.1"
+	if strings.HasPrefix(result, "0.0.0.0") {
+		// change the prefix to 127.0.0.1
+		result = "127.0.0.1" + strings.TrimPrefix(result, "0.0.0.0")
 	}
-	return parts[2] + ":" + parts[4]
+	return result, nil
 }

@@ -7,9 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package rest
 
 import (
-	"strings"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	routing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
@@ -41,13 +40,9 @@ func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 		return nil, errors.Wrapf(err, "failed to load identity in [%s]", p.config.CertPath())
 	}
 	nodeID := string(p.pkiExtractor.ExtractPKI(raw))
-	return NewHost(nodeID, convertAddress(p.config.ListenAddress()), p.routing, p.streamProvider, p.config.ClientTLSConfig(), p.config.ServerTLSConfig()), nil
-}
-
-func convertAddress(addr string) string {
-	parts := strings.Split(addr, "/")
-	if len(parts) != 5 {
-		panic("unexpected address found: " + addr)
+	address, err := comm.ConvertAddress(p.config.ListenAddress())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to convert address")
 	}
-	return parts[2] + ":" + parts[4]
+	return NewHost(nodeID, address, p.routing, p.streamProvider, p.config.ClientTLSConfig(), p.config.ServerTLSConfig()), nil
 }
