@@ -61,3 +61,30 @@ func OtelSanitize() bool {
 	defer configMutex.RUnlock()
 	return config.OtelSanitize
 }
+
+var (
+	replacersMutex sync.RWMutex
+	replacers      = map[string]string{
+		"github.com_hyperledger-labs_fabric-smart-client_platform": "fsc",
+	}
+)
+
+// RegisterReplacer registers a new replacer for the logger name
+func RegisterReplacer(s string, replaceWith string) {
+	replacersMutex.Lock()
+	defer replacersMutex.Unlock()
+
+	_, ok := replacers[s]
+	if ok {
+		panic("replacer already exists")
+	}
+
+	replacers[s] = replaceWith
+}
+
+// Replacers returns the current replacers
+func Replacers() map[string]string {
+	replacersMutex.RLock()
+	defer replacersMutex.RUnlock()
+	return replacers
+}
