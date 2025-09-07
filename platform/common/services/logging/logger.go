@@ -86,7 +86,7 @@ func MustGetLogger(params ...string) Logger {
 }
 
 func GetLogger(params ...string) (Logger, error) {
-	return GetLoggerWithReplacements(map[string]string{"github.com.hyperledger-labs.fabric-smart-client.platform": "fsc"}, params)
+	return GetLoggerWithReplacements(Replacers(), params)
 }
 
 func GetLoggerWithReplacements(replacements map[string]string, params []string) (Logger, error) {
