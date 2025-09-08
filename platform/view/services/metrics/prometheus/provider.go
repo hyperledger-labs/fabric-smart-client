@@ -22,6 +22,15 @@ type Provider struct {
 	SkipRegisterErr bool
 }
 
+const (
+	// callerSkipFrames represents the number of stack frames to skip when determining
+	// the calling package name. This skips: (1) GetPackageName itself, (2) the method
+	// calling GetPackageName (e.g., NewCounter/NewGauge/NewHistogram), and (3) the
+	// applyNamespaceSubsystem method, to reach the actual caller that initiated the
+	// metrics creation.
+	callerSkipFrames = 3
+)
+
 var (
 	replacersMutex sync.RWMutex
 	replacers      = map[string]string{
@@ -98,7 +107,7 @@ func (p *Provider) NewHistogram(o metrics.HistogramOpts) metrics.Histogram {
 }
 
 func GetPackageName() string {
-	pc, _, _, ok := runtime.Caller(2)
+	pc, _, _, ok := runtime.Caller(callerSkipFrames)
 	if !ok {
 		panic("GetPackageName: unable to retrieve caller information using runtime.Caller")
 	}
