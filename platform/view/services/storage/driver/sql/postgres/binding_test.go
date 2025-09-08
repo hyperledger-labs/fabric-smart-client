@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPutBindings_MultipleEphemerals(t *testing.T) {
+func TestPutBindingsMultipleEphemerals(t *testing.T) {
 	// Create mock DB and mock expectations
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
