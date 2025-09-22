@@ -41,9 +41,9 @@ type Manager struct {
 	metrics              *Metrics
 	localIdentityChecker LocalIdentityChecker
 
-	contextsSync sync.RWMutex
-	ctx          context.Context
-	contexts     map[string]disposableContext
+	ctx        context.Context
+	contexts   map[string]disposableContext
+	contextsMu sync.RWMutex
 }
 
 func NewManager(
@@ -119,16 +119,15 @@ func (cm *Manager) InitiateView(view view.View, ctx context.Context) (interface{
 	return cm.InitiateViewWithIdentity(view, cm.me(), ctx)
 }
 
-func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, c context.Context) (interface{}, error) {
-	// Create the context
-	cm.contextsSync.Lock()
-	ctx := cm.ctx
-	cm.contextsSync.Unlock()
-	if ctx == nil {
-		ctx = context.Background()
+func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, ctx context.Context) (interface{}, error) {
+	// Get the managers context
+	cm.contextsMu.Lock()
+	cctx := cm.ctx
+	cm.contextsMu.Unlock()
+	if cctx == nil {
+		cctx = context.Background()
 	}
-	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(c))
-
+	ctx = trace.ContextWithSpanContext(cctx, trace.SpanContextFromContext(ctx))
 	viewContext, err := NewContextForInitiator(
 		"",
 		ctx,
@@ -144,20 +143,20 @@ func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, c 
 	if err != nil {
 		return nil, err
 	}
-	childContext := &childContext{ParentContext: viewContext}
-	cm.contextsSync.Lock()
-	cm.contexts[childContext.ID()] = childContext
+	c := &childContext{ParentContext: viewContext}
+	cm.contextsMu.Lock()
+	cm.contexts[c.ID()] = c
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
-	cm.contextsSync.Unlock()
-	defer cm.deleteContext(id, childContext.ID())
+	cm.contextsMu.Unlock()
+	defer cm.deleteContext(id, c.ID())
 
-	logger.DebugfContext(c, "[%s] InitiateView [view:%s], [ContextID:%s]", id, logging.Identifier(view), childContext.ID())
-	res, err := childContext.RunView(view)
+	logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s]", id, logging.Identifier(view), c.ID())
+	res, err := c.RunView(view)
 	if err != nil {
-		logger.DebugfContext(c, "[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, logging.Identifier(view), childContext.ID(), err)
+		logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, logging.Identifier(view), c.ID(), err)
 		return nil, err
 	}
-	logger.DebugfContext(c, "[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, logging.Identifier(view), childContext.ID())
+	logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s] terminated", id, logging.Identifier(view), c.ID())
 	return res, nil
 }
 
@@ -192,15 +191,15 @@ func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 	if err != nil {
 		return nil, err
 	}
-	childContext := &childContext{ParentContext: viewContext}
-	cm.contextsSync.Lock()
-	cm.contexts[childContext.ID()] = childContext
+	c := &childContext{ParentContext: viewContext}
+	cm.contextsMu.Lock()
+	cm.contexts[c.ID()] = c
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
-	cm.contextsSync.Unlock()
+	cm.contextsMu.Unlock()
 
-	logger.DebugfContext(ctx, "[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, logging.Identifier(view), childContext.ID())
+	logger.DebugfContext(ctx, "[%s] InitiateContext [view:%s], [ContextID:%s]\n", id, logging.Identifier(view), c.ID())
 
-	return childContext, nil
+	return c, nil
 }
 
 func (cm *Manager) Start(ctx context.Context) {
@@ -222,14 +221,15 @@ func (cm *Manager) Start(ctx context.Context) {
 	}
 }
 
+// Context returns a view.Context for a given contextID. If the context does not exist, an error is returned.
 func (cm *Manager) Context(contextID string) (view.Context, error) {
-	cm.contextsSync.RLock()
-	defer cm.contextsSync.RUnlock()
-	context, ok := cm.contexts[contextID]
+	cm.contextsMu.RLock()
+	defer cm.contextsMu.RUnlock()
+	viewCtx, ok := cm.contexts[contextID]
 	if !ok {
 		return nil, errors.Errorf("context %s not found", contextID)
 	}
-	return context, nil
+	return viewCtx, nil
 }
 
 func (cm *Manager) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
@@ -254,8 +254,7 @@ func (cm *Manager) ExistResponderForCaller(caller string) (view.View, view.Ident
 }
 
 // respond executes a given responder view
-// the caller is responsible to use the cleanup method to free any resources
-func (cm *Manager) respond(responder view.View, id view.Identity, msg *view.Message) (ctx view.Context, res interface{}, cleanup func(), err error) {
+func (cm *Manager) respond(responder view.View, id view.Identity, msg *view.Message) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("respond triggered panic: %s\n%s\n", r, debug.Stack())
@@ -263,46 +262,53 @@ func (cm *Manager) respond(responder view.View, id view.Identity, msg *view.Mess
 		}
 	}()
 
-	cleanup = func() {}
-
 	// get context
-	var isNew bool
-	ctx, isNew, err = cm.newContext(id, msg)
+	viewCtx, isNew, err := cm.newContext(id, msg)
 	if err != nil {
-		return nil, nil, cleanup, errors.WithMessagef(err, "failed getting context for [%s,%s,%v]", msg.ContextID, id, msg)
+		return errors.WithMessagef(err, "failed getting context for [%s,%s,%v]", msg.ContextID, id, msg)
 	}
 
-	logger.DebugfContext(ctx.Context(), "[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, isNew, logging.Identifier(responder))
+	logger.DebugfContext(viewCtx.Context(), "[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, isNew, logging.Identifier(responder))
 
 	// if a new context has been created to run the responder,
 	// then dispose the context when not needed anymore
 	if isNew {
-		cleanup = func() {
-			cm.deleteContext(id, ctx.ID())
-		}
+		defer cm.deleteContext(id, viewCtx.ID())
 	}
 
 	// run view
-	res, err = ctx.RunView(responder)
+	_, err = viewCtx.RunView(responder)
 	if err != nil {
-		logger.DebugfContext(ctx.Context(), "[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
+		logger.DebugfContext(viewCtx.Context(), "[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
+
+		// try to send error back to caller
+		if err = viewCtx.Session().SendError([]byte(err.Error())); err != nil {
+			logger.Error(err.Error())
+		}
 	}
 
-	return ctx, res, cleanup, err
+	return nil
 }
 
 func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context, bool, error) {
-	cm.contextsSync.Lock()
-	defer cm.contextsSync.Unlock()
+	cm.contextsMu.Lock()
+	defer cm.contextsMu.Unlock()
 
+	// get the caller identity
 	caller, err := cm.endpointService.GetIdentity(msg.FromEndpoint, msg.FromPKID)
 	if err != nil {
 		return nil, false, err
 	}
 
 	contextID := msg.ContextID
+
+	// check if a viewContext already exists for the given contextID
 	viewContext, ok := cm.contexts[contextID]
 	if ok && viewContext.Session() != nil && viewContext.Session().Info().ID != msg.SessionID {
+		// this case covers the situation where we already have an existing context between two nodes and a new session
+		// is established.
+		// An example for this is given in the token SDK where a node has two identities, an auditor identity and an issuer identity.
+
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
 			logger.DebugfContext(viewContext.Context(),
 				"[%s] Found context with different session id, recreate [contextID:%s, sessionIds:%s,%s]\n",
@@ -312,22 +318,49 @@ func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context
 				viewContext.Session().Info().ID,
 			)
 		}
-		viewContext.Dispose()
-		delete(cm.contexts, contextID)
+
+		// we create a new session with the ID we received
+		backend, err := cm.commLayer.NewSessionWithID(msg.SessionID, contextID, msg.FromEndpoint, msg.FromPKID, caller, msg)
+		if err != nil {
+			return nil, false, err
+		}
+
+		// next we need to unwrap the actual context to store the session
+		vCtx, ok := viewContext.(*childContext)
+		if !ok {
+			panic("Not a child!")
+		}
+
+		vvCtx, ok := vCtx.ParentContext.(*ctx)
+		if !ok {
+			panic("Not a child!")
+		}
+		// TODO: replace this with `vCtx.PutSession`, however, that method requires a view as input but we only have the viewID
+		vvCtx.sessions.Put(msg.Caller, caller, backend)
+
+		// we wrap our context and set our new session as the default session
+		c := &childContext{
+			ParentContext: vCtx,
+			session:       backend,
+		}
+		cm.contexts[contextID] = c
 		cm.metrics.Contexts.Set(float64(len(cm.contexts)))
-		ok = false
+
+		return c, false, nil
 	}
 	if ok {
 		logger.DebugfContext(viewContext.Context(), "[%s] No new context to respond, reuse [contextID:%s]\n", id, msg.ContextID)
 		return viewContext, false, nil
 	}
 
+	// next we continue with creating a new context
 	logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", id, msg.ContextID)
 	backend, err := cm.commLayer.NewSessionWithID(msg.SessionID, contextID, msg.FromEndpoint, msg.FromPKID, caller, msg)
 	if err != nil {
 		return nil, false, err
 	}
-	ctx := trace.ContextWithSpanContext(cm.ctx, trace.SpanContextFromContext(msg.Ctx))
+
+	ctx := trace.ContextWithSpanContext(context.Background(), trace.SpanContextFromContext(msg.Ctx))
 	newCtx, err := NewContext(
 		ctx,
 		cm.serviceProvider,
@@ -344,37 +377,35 @@ func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context
 	if err != nil {
 		return nil, false, err
 	}
-	childContext := &childContext{ParentContext: newCtx}
-	cm.contexts[contextID] = childContext
+
+	c := &childContext{ParentContext: newCtx}
+	cm.contexts[contextID] = c
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
-	viewContext = childContext
+	viewContext = c
 
 	return viewContext, true, nil
 }
 
+// deleteContext removes a context from the manager and calls Dispose on the context.
 func (cm *Manager) deleteContext(id view.Identity, contextID string) {
-	cm.contextsSync.Lock()
-	defer cm.contextsSync.Unlock()
+	cm.contextsMu.Lock()
+	defer cm.contextsMu.Unlock()
 
 	logger.Debugf("[%s] Delete context [contextID:%s]\n", id, contextID)
 	// dispose context
-	if context, ok := cm.contexts[contextID]; ok {
-		context.Dispose()
+	if viewCtx, ok := cm.contexts[contextID]; ok {
+		viewCtx.Dispose()
 		delete(cm.contexts, contextID)
 		cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 	}
 }
 
-func (cm *Manager) existResponder(msg *view.Message) (view.View, view.Identity, error) {
-	return cm.ExistResponderForCaller(msg.Caller)
-}
-
+// callView is meant to be used to invoke a view via the p2p comm stack
 func (cm *Manager) callView(msg *view.Message) {
 	logger.Debugf("Will call responder view for context [%s]", msg.ContextID)
-	responder, id, err := cm.existResponder(msg)
+	responder, id, err := cm.ExistResponderForCaller(msg.Caller)
 	if err != nil {
-		// TODO: No responder exists for this message
-		// Let's cache it for a while an re-post
+		// dropping message
 		logger.Errorf("[%s] No responder exists for [%s]: [%s]", cm.me(), msg.String(), err)
 		return
 	}
@@ -382,21 +413,9 @@ func (cm *Manager) callView(msg *view.Message) {
 		id = cm.me()
 	}
 
-	ctx, _, cleanup, err := cm.respond(responder, id, msg)
-	defer cleanup()
-	if err != nil {
-		logger.Errorf("failed responding [%v, %v], err: [%s]", logging.Identifier(responder), msg.String(), err)
-		if ctx == nil {
-			logger.Debugf("no context set, returning")
-			return
-		}
-
-		// Return the error to the caller
-		logger.Debugf("return the error to the caller [%s]", err)
-		err = ctx.Session().SendError([]byte(err.Error()))
-		if err != nil {
-			logger.Error(err.Error())
-		}
+	if err := cm.respond(responder, id, msg); err != nil {
+		logger.Errorf("[%s] error during respond [%s]", cm.me(), err)
+		return
 	}
 }
 
@@ -405,14 +424,14 @@ func (cm *Manager) me() view.Identity {
 }
 
 func (cm *Manager) getCurrentContext() context.Context {
-	cm.contextsSync.Lock()
+	cm.contextsMu.Lock()
 	ctx := cm.ctx
-	cm.contextsSync.Unlock()
+	cm.contextsMu.Unlock()
 	return ctx
 }
 
 func (cm *Manager) setCurrentContext(ctx context.Context) {
-	cm.contextsSync.Lock()
+	cm.contextsMu.Lock()
 	cm.ctx = ctx
-	cm.contextsSync.Unlock()
+	cm.contextsMu.Unlock()
 }
