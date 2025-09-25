@@ -68,13 +68,6 @@ func (r *Reader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
-}
-
 func MD5Hash(in []byte) []byte {
 	h := md5.New()
 	h.Write(in)
