@@ -1,6 +1,7 @@
 # pinned versions
 FABRIC_VERSION ?= 3.1.1
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
+FABRIC_X_TOOLS_VERSION ?= v0.0.5
 
 # need to install fabric binaries outside of fsc tree for now (due to chaincode packaging issues)
 FABRIC_BINARY_BASE=$(PWD)/../fabric
@@ -20,6 +21,14 @@ install-tools:
 # Thanks for great inspiration https://marcofranssen.nl/manage-go-tools-via-go-modules
 	@echo Installing tools from tools/tools.go
 	@cd tools; cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
+
+.PHONY: fxconfig
+fxconfig: ## Install fxconfig
+	@env GOBIN=$(FAB_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/fxconfig@$(FABRIC_X_TOOLS_VERSION)
+
+.PHONY: configtxgen
+configtxgen: ## Install configtxgen
+	@env GOBIN=$(FAB_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/configtxgen@$(FABRIC_X_TOOLS_VERSION)
 
 .PHONY: download-fabric
 download-fabric:
@@ -60,6 +69,10 @@ fabric-docker-images:
 	docker image tag hyperledger/fabric-baseos:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-baseos:latest
 	docker pull hyperledger/fabric-ccenv:$(FABRIC_TWO_DIGIT_VERSION)
 	docker image tag hyperledger/fabric-ccenv:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-ccenv:latest
+
+.PHONY: fabricx-docker-images
+fabricx-docker-images:
+	docker pull hyperledger/fabric-x-committer-test-node:0.1.5
 
 .PHONY: monitoring-docker-images
 monitoring-docker-images:
@@ -120,6 +133,10 @@ integration-tests-fabric-stoprestart:
 integration-tests-pingpong:
 	cd ./integration/fsc/pingpong/; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
 
+.PHONY: integration-tests-fabricx-iou
+integration-tests-fabricx-iou:
+	cd ./integration/fabricx/iou; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
+
 .PHONY: integration-tests-stoprestart
 integration-tests-stoprestart:
 	cd ./integration/fsc/stoprestart; export FAB_BINS=$(FAB_BINS); ginkgo $(GINKGO_TEST_OPTS) .
@@ -144,6 +161,7 @@ clean:
 	rm -rf ./integration/fabric/twonets/cmd
 	rm -rf ./integration/fabric/stoprestart/cmd
 	rm -rf ./integration/fsc/stoprestart/cmd
+	rm -rf ./integration/fabricx/iou/cmd
 	rm -rf ./integration/fscnodes
 	rm -rf ./cmd/fsccli/cmd
 
