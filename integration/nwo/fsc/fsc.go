@@ -714,7 +714,7 @@ func (p *Platform) NodeCmdDir(peer *node2.Replica) string {
 	wd, err := os.Getwd()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	return filepath.Join(wd, "cmd", peer.Name)
+	return filepath.Join(wd, "out", "cmd", peer.Name)
 }
 
 func (p *Platform) NodeCmdPackage(peer *node2.Replica) string {
@@ -727,11 +727,11 @@ func (p *Platform) NodeCmdPackage(peer *node2.Replica) string {
 	// both can be built from these paths
 	if withoutGoPath := strings.TrimPrefix(wd, filepath.Join(gopath, "src")); withoutGoPath != wd {
 		return strings.TrimPrefix(
-			filepath.Join(withoutGoPath, "cmd", peer.Name),
+			filepath.Join(withoutGoPath, "out", "cmd", peer.Name),
 			string(filepath.Separator),
 		)
 	}
-	return filepath.Join(wd, "cmd", peer.Name)
+	return filepath.Join(wd, "out", "cmd", peer.Name)
 }
 
 func (p *Platform) NodeCmdPath(peer *node2.Replica) string {

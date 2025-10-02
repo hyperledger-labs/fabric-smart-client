@@ -157,8 +157,7 @@ clean: $(addprefix clean-,$(INTEGRATION_TARGETS)) ## Clean generated testdata
 	rm -rf ./cmd/fsccli/cmd
 
 $(addprefix clean-,$(INTEGRATION_TARGETS)) : clean-%:
-	rm -rf ./integration/$(firstword $(subst -, ,$*))/$(subst $(firstword $(subst -, ,$*))-,,$*)/cmd
-	rm -rf ./integration/$(firstword $(subst -, ,$*))/$(subst $(firstword $(subst -, ,$*))-,,$*)/testdata
+	rm -rf ./integration/$(firstword $(subst -, ,$*))/$(subst $(firstword $(subst -, ,$*))-,,$*)/out
 
 .PHONY: tidy
 tidy: ## Run go mod tidy everywhere
