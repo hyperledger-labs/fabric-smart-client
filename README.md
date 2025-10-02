@@ -51,14 +51,14 @@ Do not store the fabric binaries within your fabric-smart-client cloned repo as 
 Almost all the integration tests require the fabric binaries to be downloaded and the environment variable `FAB_BINS` set to point to the directory where these binaries are stored. One way to ensure this is to execute the following in the root of the fabric-smart-client project
 
 ```shell
-make download-fabric
+make install-fabric-bins
 export FAB_BINS=$PWD/../fabric/bin
 ```
 
 You can also use this to download a different version of the fabric binaries for example
 
 ```shell
-FABRIC_VERSION=2.5.0 make download-fabric
+FABRIC_VERSION=2.5.0 make install-fabric-bins
 ```
 
 If you want to provide your own versions of the fabric binaries then just set `FAB_BINS` to the directory where all the fabric binaries are stored.

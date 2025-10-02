@@ -4,14 +4,14 @@ Copyright IBM Corp All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package chaincode_test
+package atsachaincode_test
 
 import (
 	"encoding/base64"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/chaincode"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/chaincode/views"
+	atsa "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsachaincode"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsachaincode/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
@@ -41,13 +41,13 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), integration.WithRaceDetection, chaincode.Topology(&fabricsdk.SDK{}, commType, nodeOpts)...)
+		return integration.GenerateAt(StartPort(), "testdata", integration.WithRaceDetection, atsa.Topology(&fabricsdk.SDK{}, commType, nodeOpts)...)
 	})}
 }
 
 func (s *TestSuite) TestSucceeded() {
-	alice := chaincode.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
-	bob := chaincode.NewClient(s.II.Client("bob"), s.II.Identity("bob"))
+	alice := atsa.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
+	bob := atsa.NewClient(s.II.Client("bob"), s.II.Identity("bob"))
 	// Create an asset
 
 	// - Operate from Alice (Org1)

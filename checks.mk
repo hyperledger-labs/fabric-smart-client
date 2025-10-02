@@ -71,6 +71,16 @@ ineffassign:
 	@echo Running ineffassign
 	@ineffassign $(shell go list -f '{{.Dir}}' ./...)
 
+#########################
+# Lint
+#########################
 
+.PHONY: lint
+lint: ## Run linter
+	@echo "Running Go Linters..."
+	golangci-lint run --color=always --new-from-rev=main --timeout=4m
 
-
+.PHONY: lint-auto-fix
+lint-auto-fix: ## Run linter with auto-fix
+	@echo "Running Go Linters with auto-fix..."
+	golangci-lint run --color=always --new-from-rev=main --timeout=4m --fix
