@@ -8,10 +8,10 @@ package fsc_test
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/client"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/fsc/states"
-	fsc2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	atsa "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/client"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/states"
+	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,14 +21,14 @@ type node = [2]string
 
 var _ = Describe("EndToEnd", func() {
 	Describe("Asset Transfer Secured Agreement (With Approvers) with LibP2P", func() {
-		s := NewTestSuite(fsc2.LibP2P, integration.NoReplication)
+		s := NewTestSuite(nwofsc.LibP2P, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
 	})
 
 	Describe("Asset Transfer Secured Agreement (With Approvers) with Websockets", func() {
-		s := NewTestSuite(fsc2.WebSocket, integration.NoReplication)
+		s := NewTestSuite(nwofsc.WebSocket, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
@@ -36,7 +36,7 @@ var _ = Describe("EndToEnd", func() {
 
 	Describe("Asset Transfer Secured Agreement (With Approvers) with Websockets with replicas", func() {
 		s := NewTestSuite(
-			fsc2.WebSocket,
+			nwofsc.WebSocket,
 			&integration.ReplicationOptions{
 				ReplicationFactors: map[string]int{
 					"issuer":    2,
@@ -65,9 +65,9 @@ type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType fsc2.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+func NewTestSuite(commType nwofsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), integration.WithRaceDetection, fsc.Topology(&fsc.SDK{}, commType, nodeOpts)...)
+		return integration.Generate(StartPort(), integration.WithRaceDetection, atsa.Topology(&atsa.SDK{}, commType, nodeOpts)...)
 	})}
 }
 

@@ -4,14 +4,14 @@ Copyright IBM Corp All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package chaincode_test
+package events_test
 
 import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
@@ -37,13 +37,13 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), integration.WithRaceDetection, chaincode.Topology(&fabricsdk.SDK{}, commType, nodeOpts)...)
+		return integration.Generate(StartPort(), integration.WithRaceDetection, events.Topology(&fabricsdk.SDK{}, commType, nodeOpts)...)
 	})}
 }
 
 func (s *TestSuite) TestSingleChaincodeEvents() {
-	alice := chaincode.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
-	bob := chaincode.NewClient(s.II.Client("bob"), s.II.Identity("bob"))
+	alice := events.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
+	bob := events.NewClient(s.II.Client("bob"), s.II.Identity("bob"))
 	// - Operate from Alice (Org1)
 
 	event, err := alice.EventsView("CreateAsset", "CreateAsset")
@@ -62,7 +62,7 @@ func (s *TestSuite) TestSingleChaincodeEvents() {
 }
 
 func (s *TestSuite) TestMultipleChaincodeEvents() {
-	alice := chaincode.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
+	alice := events.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
 
 	expectedEventPayloads := []string{"Invoked Create Asset Successfully", "Invoked Update Asset Successfully"}
 	var payloadsReceived []string
@@ -83,7 +83,7 @@ func (s *TestSuite) TestMultipleChaincodeEvents() {
 
 func (s *TestSuite) TestMultipleListenersAndUnsubscribe() {
 	n := 20
-	alice := chaincode.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
+	alice := events.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
 
 	// - Operate from Alice (Org1)
 	events, err := alice.MultipleListenersView("CreateAsset", "CreateAsset", n)
@@ -101,7 +101,7 @@ func (s *TestSuite) TestMultipleListenersAndUnsubscribe() {
 }
 
 func (s *TestSuite) TestUpgradeChaincode() {
-	alice := chaincode.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
+	alice := events.NewClient(s.II.Client("alice"), s.II.Identity("alice"))
 	// Old chaincode
 	event, err := alice.EventsView("CreateAsset", "CreateAsset")
 	Expect(err).ToNot(HaveOccurred())
@@ -112,7 +112,7 @@ func (s *TestSuite) TestUpgradeChaincode() {
 	// Update
 	fabricNetwork := fabric.Network(s.II.Ctx, "default")
 	Expect(fabricNetwork).ToNot(BeNil(), "failed to find fabric network 'default'")
-	fabricNetwork.UpdateChaincode("events", "Version-1.0", "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/newChaincode", "")
+	fabricNetwork.UpdateChaincode("events", "Version-1.0", "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode2", "")
 
 	// New chaincode
 	event, err = alice.EventsView("CreateAsset", "CreateAsset")

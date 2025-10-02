@@ -64,5 +64,5 @@ func (s *TestSuite) Setup() {
 	// Start the integration ii
 	ii.Start()
 	// Sleep for a while to allow the networks to be ready
-	time.Sleep(20 * time.Second)
+	time.Sleep(3 * time.Second)
 }

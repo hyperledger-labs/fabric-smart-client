@@ -20,21 +20,22 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v5
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: go
           build-mode: manual
 
+      - run: make install-fabric-bins
+      - run: make testing-docker-images
+
       - name: Build manually
         shell: bash
         run: |
           go build -o fsccli ./cmd/fsccli
           go build -o node ./ci/codeql/node
-          make download-fabric unit-tests
+          make unit-tests
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
