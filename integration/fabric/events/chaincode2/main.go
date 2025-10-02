@@ -7,7 +7,7 @@ package main
 import (
 	"log"
 
-	chaincode "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/newChaincode/events"
+	chaincode "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode2/events"
 	"github.com/hyperledger/fabric-contract-api-go/v2/contractapi"
 )
 
