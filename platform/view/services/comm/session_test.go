@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
@@ -34,6 +35,10 @@ func (m *mockSender) sendTo(ctx context.Context, info host2.StreamInfo, msg prot
 }
 
 func setup() *NetworkStreamSession {
+	logging.Init(logging.Config{
+		LogSpec: "fsc.view.services.comm=error",
+	})
+
 	sessionID := "someSessionID"
 	contextID := "someContextID"
 	endpointAddress := "someEndpointAddress"
@@ -132,7 +137,7 @@ func TestSessionLifecycleConcurrent(t *testing.T) {
 
 		// send a few messages
 		for i := range numMessage {
-			s.enqueue(&view.Message{Payload: []byte(fmt.Sprintf("msg #%v", i))})
+			assert.True(t, s.enqueue(&view.Message{Payload: []byte(fmt.Sprintf("msg #%v", i))}))
 		}
 
 		// once we delivered all our messages we close
@@ -140,8 +145,7 @@ func TestSessionLifecycleConcurrent(t *testing.T) {
 
 		// try to send more but the session should not accept them
 		for i := range numMessage {
-			s.enqueue(&view.Message{Payload: []byte(fmt.Sprintf("msg #%v", i))})
-			assert.Empty(t, s.incoming)
+			assert.False(t, s.enqueue(&view.Message{Payload: []byte(fmt.Sprintf("msg #%v", i))}))
 		}
 	}()
 
@@ -157,6 +161,7 @@ func TestSessionLifecycleConcurrent(t *testing.T) {
 		}
 		assert.Equal(t, numMessage, cnt)
 		assert.True(t, sess.Info().Closed)
+		assert.Empty(t, s.incoming)
 	}()
 
 	wg.Wait()

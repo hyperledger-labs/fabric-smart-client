@@ -147,8 +147,11 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			}
 			p.dispatchMutex.Unlock()
 
-			logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
-			session.enqueue(msg.message)
+			if ok = session.enqueue(msg.message); ok {
+				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
+			} else {
+				logger.Warnf("dropping message from %s for closed session [%s]", msg.message.Caller, msg.message.SessionID)
+			}
 		case <-ctx.Done():
 			logger.Info("closing p2p comm...")
 			return

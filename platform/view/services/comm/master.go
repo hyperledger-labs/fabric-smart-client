@@ -48,7 +48,9 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 
 	if msg != nil {
 		logger.Debugf("pushing first message to [%s], [%s]", internalSessionID, msg)
-		s.enqueue(msg)
+		if ok := s.enqueue(msg); !ok {
+			panic("programming error: can not enqueue message in newly created session")
+		}
 	} else {
 		logger.Debugf("no first message to push to [%s]", internalSessionID)
 	}

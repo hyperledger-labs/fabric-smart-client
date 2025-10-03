@@ -86,15 +86,14 @@ func (n *NetworkStreamSession) Receive() <-chan *view.Message {
 }
 
 // enqueue enqueues a message into the session's incoming channel.
-// If the session is closed, the message will be dropped and a warning is logged.
-func (n *NetworkStreamSession) enqueue(msg *view.Message) {
+// If the session is closed, the message will be dropped and false returned, otherwise true is returned.
+func (n *NetworkStreamSession) enqueue(msg *view.Message) bool {
 	if msg == nil {
-		return
+		return false
 	}
 
 	if n.isClosed() {
-		logger.Warnf("dropping message from %s for closed session [%s]", msg.Caller, msg.SessionID)
-		return
+		return false
 	}
 
 	n.wg.Add(1)
@@ -103,8 +102,9 @@ func (n *NetworkStreamSession) enqueue(msg *view.Message) {
 	select {
 	case <-n.ctx.Done():
 		logger.Warnf("dropping message from %s for closed session [%s]", msg.Caller, msg.SessionID)
-		return
+		return false
 	case n.incoming <- msg:
+		return true
 	}
 }
 
