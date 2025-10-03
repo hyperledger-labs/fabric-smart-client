@@ -56,7 +56,7 @@ func NewCmd() *cobra.Command {
 	}
 	flags := genCmd.Flags()
 	flags.StringVarP(&topologyFile, "topology", "t", "", "topology file in yaml format")
-	flags.StringVarP(&output, "output", "o", "./testdata", "output folder")
+	flags.StringVarP(&output, "output", "o", "./out/testdata", "output folder")
 	flags.IntVarP(&port, "port", "p", 20000, "host starting port")
 
 	rootCommand.AddCommand(

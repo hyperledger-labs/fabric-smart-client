@@ -49,7 +49,7 @@ Therefore, we have a vanilla Fabric network with:
 - Single channel;
 - A Chaincode (`asset_transfer`) that coordinates the business operations and can be endorsed by any organization; 
   The chaincode implicitly defines a namespace into the ledger that stores the states.
-  The chaincode is available [`here`](./chaincode/asset_transfer.go)
+  The chaincode is available [`here`](chaincode/asset_transfer.go)
 - Support for State-Based Endorsement (SBE, for short) and Implicit collections enabled.
 
 ### Business Operations
