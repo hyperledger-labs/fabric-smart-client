@@ -20,10 +20,13 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	Describe("Events (With Chaincode) With Websockets", func() {
+	Describe("Events (With Chaincode) With Websockets", Ordered, func() {
 		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
+
+		// we run all tests sequentially on the same network instance
+		BeforeAll(s.Setup)
+		AfterAll(s.TearDown)
+
 		It("clients listening to single chaincode events", s.TestSingleChaincodeEvents)
 		It("client listening to multiple chaincode events", s.TestMultipleChaincodeEvents)
 		It("multiple clients unsubscribing", s.TestMultipleListenersAndUnsubscribe)
