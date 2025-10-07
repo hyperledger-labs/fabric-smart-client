@@ -7,16 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package finality
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger/fabric-x-committer/api/protonotify"
 )
 
 type ListenerManager interface {
@@ -47,42 +46,42 @@ func (p *listenerManagerProvider) NewManager(network, channel string) (ListenerM
 		return nil, err
 	}
 
-	ch, err := nw.Channel(channel)
-	if err != nil {
-		return nil, err
-	}
+	//ch, err := nw.Channel(channel)
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	cfg, err := p.configProvider.GetConfig(nw.Name())
 	if err != nil {
 		return nil, err
 	}
 
-	switch cfg.GetString("network.finality.type") {
-	case "delivery":
-		return finality.NewDeliveryFLM(logging.MustGetLogger("delivery-flm"), events.DeliveryListenerManagerConfig{
-			MapperParallelism:       cfg.GetInt("network.finality.delivery.mapperParallelism"),
-			BlockProcessParallelism: cfg.GetInt("network.finality.delivery.blockProcessParallelism"),
-			ListenerTimeout:         cfg.GetDuration("network.finality.delivery.listenerTimeout"),
-			LRUSize:                 cfg.GetInt("network.finality.delivery.lruSize"),
-			LRUBuffer:               cfg.GetInt("network.finality.delivery.lruBuffer"),
-		}, nw.Name(), ch)
-	case "committer":
-	case "":
-		return &committerListenerManager{committer: ch.Committer()}, nil
+	return newNotifi(cfg)
+}
+
+func newNotifi(cfg config.ConfigService) (*notificationListenerManager, error) {
+
+	c, err := NewConfig(cfg)
+	if err != nil {
+		return nil, err
 	}
-	panic("unknown finality type")
-}
 
-type committerListenerManager struct {
-	committer *fabric.Committer
-}
+	cc, err := GrpcClient(c)
+	if err != nil {
+		return nil, err
+	}
 
-func (m *committerListenerManager) AddFinalityListener(txID driver.TxID, listener fabric.FinalityListener) error {
-	return m.committer.AddFinalityListener(txID, listener)
-}
-
-func (m *committerListenerManager) RemoveFinalityListener(txID string, listener fabric.FinalityListener) error {
-	return m.committer.RemoveFinalityListener(txID, listener)
+	notifyClient := protonotify.NewNotifierClient(cc)
+	notifyStream, err := notifyClient.OpenNotificationStream(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	return &notificationListenerManager{
+		notifyStream:  notifyStream,
+		requestQueue:  make(chan *protonotify.NotificationRequest, 1),
+		responseQueue: make(chan *protonotify.NotificationResponse, 1),
+		handlers:      make(map[string][]fabric.FinalityListener),
+	}, nil
 }
 
 func GetListenerManager(sp services.Provider, network, channel string) (ListenerManager, error) {
