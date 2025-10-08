@@ -33,8 +33,7 @@ func (s *stream) Hash() host2.StreamHash {
 func (s *stream) Context() context.Context { return context.TODO() }
 
 func (s *stream) Close() error {
-	// We don't close the stream here to recycle it later
-	return nil
+	return s.Stream.Close()
 }
 
 func streamHash(info host2.StreamInfo) host2.StreamHash {

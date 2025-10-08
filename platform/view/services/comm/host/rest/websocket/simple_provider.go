@@ -26,9 +26,13 @@ func NewSimpleProvider() *SimpleProvider {
 
 type SimpleProvider struct{}
 
+func (p *SimpleProvider) Close() error {
+	return nil
+}
+
 func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error) {
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
-	tlsEnabled := config.InsecureSkipVerify || config.RootCAs != nil
+	tlsEnabled := config != nil
 	url := url.URL{Scheme: schemes[tlsEnabled], Host: info.RemotePeerAddress, Path: "/p2p"}
 	// We use the background context instead of passing the existing context,
 	// because the net/http server doesn't monitor connections upgraded to WebSocket.
@@ -42,6 +46,7 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 	spanContext := trace.SpanContextFromContext(ctx)
 	marshalledSpanContext, err := tracing.MarshalContext(spanContext)
 	if err != nil {
+		_ = conn.Close()
 		return nil, err
 	}
 
@@ -54,6 +59,7 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 	}
 	err = conn.WriteJSON(&meta)
 	if err != nil {
+		_ = conn.Close()
 		return nil, errors.Wrapf(err, "failed to send meta message")
 	}
 	logger.Debugf("Stream opened to [%s@%s]", info.RemotePeerID, info.RemotePeerAddress)
@@ -61,15 +67,33 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 }
 
 func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
+	expectedPeerID, err := expectedPeerIDFromRequest(request)
+	if err != nil {
+		return errors.Wrapf(err, "failed extracting expected peerID from TLS certificate")
+	}
+
 	conn, err := server.OpenWSServerConn(writer, request)
 	if err != nil {
 		return errors.Wrapf(err, "failed to open websocket")
 	}
 	logger.Debugf("Successfully opened server-side websocket")
+	streamTransferred := false
+	defer func() {
+		if !streamTransferred {
+			_ = conn.Close()
+		}
+	}()
 
 	var meta StreamMeta
 	if err := conn.ReadJSON(&meta); err != nil {
 		return errors.Wrapf(err, "failed to read meta info")
+	}
+
+	// SECURITY INVARIANT: We MUST NOT trust the PeerID provided by the client in the metadata.
+	// We MUST verify that it matches the identity extracted from the verified TLS certificate.
+	// This prevents PeerID spoofing (Issue #871, #1037).
+	if meta.PeerID != expectedPeerID {
+		return errors.Errorf("peer identity binding failed: claimed [%s], tls [%s]", meta.PeerID, expectedPeerID)
 	}
 	logger.Debugf("Read meta info: [%s,%s]: %s", meta.ContextID, meta.SessionID, meta.SpanContext)
 	// Propagating the request context will not make a difference (see comment in newClientStream)
@@ -84,5 +108,6 @@ func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *ht
 		ContextID:         meta.ContextID,
 		SessionID:         meta.SessionID,
 	}))
+	streamTransferred = true
 	return nil
 }

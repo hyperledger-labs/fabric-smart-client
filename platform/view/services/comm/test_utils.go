@@ -34,10 +34,10 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 			ContextID:         "context",
 			SessionID:         "session",
 		}
-		err := bootstrapNode.sendTo(context.Background(), info, &ViewPacket{Payload: []byte("msg1")})
+		err := bootstrapNode.sendTo(context.Background(), info, &ViewPacket{Payload: []byte("msg1")}, nil)
 		assert.NoError(t, err)
 
-		err = bootstrapNode.sendTo(context.Background(), info, &ViewPacket{Payload: []byte("msg2")})
+		err = bootstrapNode.sendTo(context.Background(), info, &ViewPacket{Payload: []byte("msg2")}, nil)
 		assert.NoError(t, err)
 
 		msg := <-messages
@@ -60,7 +60,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 		ContextID:         "context",
 		SessionID:         "session",
 	}
-	err := node.sendTo(context.Background(), info, &ViewPacket{Payload: []byte("msg3")})
+	err := node.sendTo(context.Background(), info, &ViewPacket{Payload: []byte("msg3")}, nil)
 	assert.NoError(t, err)
 
 	wg.Wait()

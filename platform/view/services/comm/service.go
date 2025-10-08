@@ -49,15 +49,24 @@ func NewService(hostProvider host.GeneratorProvider, endpointService EndpointSer
 func (s *Service) Start(ctx context.Context) {
 	go func() {
 		for {
-			logger.Debugf("start communication service...")
-			if err := s.init(); err != nil {
-				logger.Errorf("failed to initialize communication service [%s], wait a bit and try again", err)
-				time.Sleep(10 * time.Second)
-				continue
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				logger.Debugf("start communication service...")
+				if err := s.init(); err != nil {
+					logger.Errorf("failed to initialize communication service [%s], wait a bit and try again", err)
+					select {
+					case <-time.After(10 * time.Second):
+						continue
+					case <-ctx.Done():
+						return
+					}
+				}
+				// Init done, we can start
+				s.Node.Start(ctx)
+				return
 			}
-			// Init done, we can start
-			s.Node.Start(ctx)
-			break
 		}
 	}()
 }
