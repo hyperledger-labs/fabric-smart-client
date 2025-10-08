@@ -11,6 +11,8 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/io"
@@ -49,27 +51,40 @@ type P2PNode struct {
 	sessionsMutex    sync.Mutex
 	sessions         map[string]*NetworkStreamSession
 	finderWg         sync.WaitGroup
+	handlersWg       sync.WaitGroup
+	dispatchWg       sync.WaitGroup
+	ctx              context.Context
+	cancel           context.CancelFunc
 	isStopping       bool
 	m                *Metrics
 }
 
 func NewNode(h host2.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error) {
+	ctx, cancel := context.WithCancel(context.Background())
 	p := &P2PNode{
 		host:             h,
-		incomingMessages: make(chan *messageWithStream),
+		incomingMessages: make(chan *messageWithStream, defaultBufferSize),
 		streams:          make(map[host2.StreamHash][]*streamHandler),
 		sessions:         make(map[string]*NetworkStreamSession),
 		isStopping:       false,
+		ctx:              ctx,
+		cancel:           cancel,
 		m:                newMetrics(metricsProvider),
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
+		cancel()
 		return nil, err
 	}
 	return p, nil
 }
 
 func (p *P2PNode) Start(ctx context.Context) {
-	go p.dispatchMessages(ctx)
+	// Start a bounded number of dispatch workers
+	numWorkers := 10 // This can be made configurable
+	for i := 0; i < numWorkers; i++ {
+		p.dispatchWg.Add(1)
+		go p.dispatchMessages(ctx)
+	}
 	go func() {
 		<-ctx.Done()
 		p.Stop()
@@ -78,8 +93,14 @@ func (p *P2PNode) Start(ctx context.Context) {
 
 func (p *P2PNode) Stop() {
 	p.streamsMutex.Lock()
+	if p.isStopping {
+		p.streamsMutex.Unlock()
+		return
+	}
 	p.isStopping = true
 	p.streamsMutex.Unlock()
+
+	p.cancel()
 
 	utils.IgnoreErrorFunc(p.host.Close)
 
@@ -91,11 +112,14 @@ func (p *P2PNode) Stop() {
 	}
 	p.streamsMutex.Unlock()
 
+	p.handlersWg.Wait()
 	close(p.incomingMessages)
+	p.dispatchWg.Wait()
 	p.finderWg.Wait()
 }
 
 func (p *P2PNode) dispatchMessages(ctx context.Context) {
+	defer p.dispatchWg.Done()
 	for {
 		select {
 		case msg, ok := <-p.incomingMessages:
@@ -115,103 +139,127 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			if in {
 				logger.Debugf("internal session exists [%s]", internalSessionID)
 				session.mutex.Lock()
-				session.callerViewID = msg.message.Caller
-				session.contextID = msg.message.ContextID
-				session.endpointAddress = msg.message.FromEndpoint
-				// here we know that msg.stream is used for session:
-				// 1) increment the used counter for msg.stream
+				if session.isClosed() {
+					session.mutex.Unlock()
+					in = false
+				} else {
+					session.callerViewID = msg.message.Caller
+					session.contextID = msg.message.ContextID
+					session.endpointAddress = msg.message.FromEndpoint
+					// here we know that msg.stream is used for session:
+					// 1) increment the used counter for msg.stream
 
-				if _, streamRegisteredAlready := session.streams[msg.stream]; !streamRegisteredAlready {
-					msg.stream.refCtr++
-					// 2) add msg.stream to the list of streams used by session
-					session.streams[msg.stream] = struct{}{}
+					if _, streamRegisteredAlready := session.streams[msg.stream]; !streamRegisteredAlready {
+						msg.stream.refCtr.Add(1)
+						// 2) add msg.stream to the list of streams used by session
+						session.streams[msg.stream] = struct{}{}
+					}
+					session.mutex.Unlock()
 				}
-				session.mutex.Unlock()
 			}
 			p.sessionsMutex.Unlock()
 
 			if !in {
-				// create session but redirect this first message to master
-				// _, _ = p.getOrCreateSession(
-				//	msg.message.SessionID,
-				//	msg.message.FromEndpoint,
-				//	msg.message.ContextID,
-				//	"",
-				//	nil,
-				//	msg.message.FromPKID,
-				//	nil,
-				// )
-
 				logger.Debugf("internal session does not exists [%s], dispatching to master session", internalSessionID)
 				session, _ = p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
 			}
 			p.dispatchMutex.Unlock()
 
-			if ok = session.enqueue(msg.message); ok {
+			var delivered bool
+			if !in {
+				delivered = session.enqueueWithTimeout(msg.message, 5*time.Second)
+			} else {
+				delivered = session.enqueue(msg.message)
+			}
+			if delivered {
 				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
 			} else {
 				logger.Warnf("dropping message from %s for closed session [%s]", msg.message.Caller, msg.message.SessionID)
 			}
+
 		case <-ctx.Done():
-			logger.Info("closing p2p comm...")
+			logger.Info("closing p2p comm dispatcher...")
+			return
+		case <-p.ctx.Done():
+			logger.Info("closing p2p comm dispatcher (node stopped)...")
 			return
 		}
 	}
 }
 
-func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message) error {
+func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message, session *NetworkStreamSession) error {
 	if len(streamHash) == 0 {
 		logger.Debugf("empty stream hash probably because of uninitialized data. New stream must be created.")
 		return errors.Wrapf(errStreamNotFound, "stream hash is empty")
 	}
 	p.streamsMutex.RLock()
-	defer p.streamsMutex.RUnlock()
-	logger.Debugf("send msg to stream hash [%s] of [%d] with #stream [%d]", streamHash, len(p.streams), len(p.streams[streamHash]))
-	for _, stream := range p.streams[streamHash] {
+	streams := p.streams[streamHash]
+	streamsCopy := make([]*streamHandler, len(streams))
+	copy(streamsCopy, streams)
+	totalNumStreams := len(p.streams)
+	p.streamsMutex.RUnlock()
+
+	logger.Debugf("send msg to stream hash [%s] of [%d] with #stream [%d]", streamHash, totalNumStreams, len(streamsCopy))
+	for _, stream := range streamsCopy {
 		err := stream.send(msg)
 		if err == nil {
 			logger.Debugf("send msg [%v] with stream [%s]", msg, stream.stream.Hash())
+			if session != nil {
+				session.mutex.Lock()
+				if _, streamRegisteredAlready := session.streams[stream]; !streamRegisteredAlready {
+					stream.refCtr.Add(1)
+					session.streams[stream] = struct{}{}
+				}
+				session.mutex.Unlock()
+			}
 			return nil
 		}
 		// TODO: handle the case in which there's an error
 		logger.Errorf("error while sending message [%s] to stream with hash [%s]: %s", msg, streamHash, err)
 	}
 
-	return errors.Wrapf(errStreamNotFound, "all [%d] streams for hash [%s] failed to send", len(p.streams), streamHash)
+	return errors.Wrapf(errStreamNotFound, "all [%d] streams for hash [%s] failed to send", len(streamsCopy), streamHash)
 }
 
 // sendTo sends the passed messaged to the p2p peer with the passed ID.
 // If no address is specified, then p2p will use one of the IP addresses associated to the peer in its peer store.
 // If an address is specified, then the peer store will be updated with the passed address.
-func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message) error {
+func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
 	streamHash := p.host.StreamHash(info)
-	if err := p.sendWithCachedStreams(streamHash, msg); !errors.Is(err, errStreamNotFound) {
+	if err := p.sendWithCachedStreams(streamHash, msg, session); !errors.Is(err, errStreamNotFound) {
 		return errors.Wrap(err, "error while sending message to cached stream")
 	}
 
 	nwStream, err := p.host.NewStream(ctx, info)
-	p.m.OpenedStreams.Add(1)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create new stream to [%s]", info.RemotePeerID)
 	}
-	p.handleOutgoingStream(nwStream)
+	p.m.OpenedStreams.Add(1)
+	sh := p.handleOutgoingStream(nwStream)
 
-	err = p.sendWithCachedStreams(nwStream.Hash(), msg)
+	if session != nil {
+		session.mutex.Lock()
+		session.streams[sh] = struct{}{}
+		sh.refCtr.Add(1)
+		session.mutex.Unlock()
+	}
+
+	err = sh.send(msg)
 	if err != nil {
 		return errors.Wrap(err, "error while sending message to freshly created stream")
 	}
 	return nil
 }
 
-func (p *P2PNode) handleOutgoingStream(stream host2.P2PStream) {
-	p.handleStream(stream)
+func (p *P2PNode) handleOutgoingStream(stream host2.P2PStream) *streamHandler {
+	return p.handleStream(stream)
 }
 
 func (p *P2PNode) handleIncomingStream(stream host2.P2PStream) {
 	p.handleStream(stream)
 }
 
-func (p *P2PNode) handleStream(stream host2.P2PStream) {
+func (p *P2PNode) handleStream(stream host2.P2PStream) *streamHandler {
 	sh := &streamHandler{
 		stream: stream,
 		reader: io.NewVarintProtoReader(stream, defaultBufferSize),
@@ -232,7 +280,10 @@ func (p *P2PNode) handleStream(stream host2.P2PStream) {
 	p.m.ActiveStreams.Add(1)
 	p.streamsMutex.Unlock()
 
+	p.handlersWg.Add(1)
 	go sh.handleIncoming()
+
+	return sh
 }
 
 func (p *P2PNode) Lookup(peerID string) ([]string, bool) {
@@ -246,12 +297,20 @@ type streamHandler struct {
 	writer io.ProtoWriterCloser
 	node   *P2PNode
 	wg     sync.WaitGroup
-	refCtr int
+	refCtr atomic.Int64
+	closed atomic.Bool
+}
+
+func (s *streamHandler) isClosed() bool {
+	return s.closed.Load()
 }
 
 func (s *streamHandler) send(msg proto.Message) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+	if s.isClosed() {
+		return errors.New("stream handler is closed")
+	}
 	if err := s.writer.WriteMsg(msg); err != nil {
 		return err
 	}
@@ -267,7 +326,9 @@ func (s *streamHandler) isStopping() bool {
 func (s *streamHandler) handleIncoming() {
 	s.node.m.StreamHandlers.Add(1)
 	defer s.node.m.StreamHandlers.Add(-1)
+	defer s.node.handlersWg.Done()
 	s.wg.Add(1)
+	defer s.wg.Done()
 	for {
 		msg := &ViewPacket{}
 		err := s.reader.ReadMsg(msg)
@@ -293,7 +354,6 @@ func (s *streamHandler) handleIncoming() {
 					}
 					s.node.m.StreamHashes.Set(float64(len(s.node.streams)))
 					s.node.m.ActiveStreams.Add(-1)
-					s.wg.Done()
 					s.node.streamsMutex.Unlock()
 					s.close(context.Background())
 					return
@@ -301,12 +361,13 @@ func (s *streamHandler) handleIncoming() {
 			}
 			s.node.streamsMutex.Unlock()
 
-			// this should never happen!
-			panic("couldn't find stream handler to remove")
+			logger.Errorf("couldn't find stream handler to remove for hash [%s]", streamHash)
+			return
 		}
 		logger.Debugf("incoming message for context [%s] from [%s] on session [%s]", msg.ContextID, msg.Caller, msg.SessionID)
 
-		s.node.incomingMessages <- &messageWithStream{
+		select {
+		case s.node.incomingMessages <- &messageWithStream{
 			message: &view.Message{
 				ContextID:    msg.ContextID,
 				SessionID:    msg.SessionID,
@@ -318,11 +379,18 @@ func (s *streamHandler) handleIncoming() {
 				Ctx:          s.stream.Context(),
 			},
 			stream: s,
+		}:
+		case <-s.node.ctx.Done():
+			logger.Debugf("dropping incoming message because node is stopping")
+			return
 		}
 	}
 }
 
-func (s *streamHandler) close(context.Context) {
+func (s *streamHandler) close(ctx context.Context) {
+	if s.closed.Swap(true) {
+		return
+	}
 	if err := s.stream.Close(); err != nil {
 		logger.Errorf("error closing stream [%s]: [%s]", s.stream.Hash(), err)
 	}

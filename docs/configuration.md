@@ -91,7 +91,7 @@ fsc:
 
   # ------------------- P2P Configuration -------------------------
   p2p:
-    # Type of p2p communication. Currently supported: libp2p (default), rest
+    # Type of p2p communication. Currently supported: libp2p (default), websocket
     type: libp2p
     # listen address see https://github.com/libp2p/specs/blob/master/addressing/README.md
     # for information on the format
@@ -103,11 +103,19 @@ fsc:
       # of the bootstrap node, which must be defined in the FSC endpoint resolvers section
       # and that entry must have an address with an entry P2P.
       bootstrapNode: theBootstrapNode
-      # Only needed when type == rest
-      # Defines how to instantiate a router, i.e. the component that maps a service name (e.g. alice) to one or more IPs
-      routing:
-        # The path to the file that contains the routing, if the routing is static
-        path: /path/to/routing-config.yaml
+      # Only needed when type == websocket
+      tls:
+        # Whether clients are required to provide certificates.
+        # Defaults to true for websocket p2p when omitted.
+        clientAuthRequired: true
+        # Root certificates used by this node (as a websocket client) to verify remote server certificates.
+        serverRootCAs:
+          files:
+            - /path/to/server/tls/ca.crt
+        # Root certificates used by this node (as a websocket server) to verify remote client certificates.
+        clientRootCAs:
+          files:
+            - /path/to/client/tls/ca.crt
 
   # ------------------- KVS Configuration -------------------------
   # Internal key/value store used by the node to store information

@@ -9,6 +9,8 @@ package websocket
 import (
 	"context"
 	"io"
+	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -31,7 +33,11 @@ type stream struct {
 	cancel      context.CancelFunc
 	accumulator *delimitedReader
 	reads       chan result
+	closeOnce   sync.Once
 	info        host2.StreamInfo
+
+	mu       sync.Mutex
+	isClosed bool
 
 	// Sometimes Read doesn't read the whole value that comes from the reads channel, because of buffering.
 	// In this case, we store what was not read in readLeftover, and on the next read, we attempt first to check whether
@@ -52,30 +58,58 @@ func NewWSStream(conn connection, ctx context.Context, info host2.StreamInfo) *s
 		info:         info,
 	}
 	go s.readMessages(ctx)
+	go func() {
+		<-ctx.Done()
+		if err := s.Close(); err != nil {
+			logger.Debugf("error closing stream on context cancellation [%s]: [%s]", s.Hash(), err)
+		}
+	}()
 	return s
 }
 
 func (s *stream) readMessages(ctx context.Context) {
+	defer func() { _ = s.Close() }()
 	for {
 		select {
 		case <-ctx.Done():
 			logger.Debugf("Context for stream [%s] closed by us. Error: %v", s.Hash(), ctx.Err())
-			s.reads <- streamEOF
-			_ = s.Close()
+			s.deliver(streamEOF)
 			return
 		default:
+			if c, ok := s.conn.(*websocket.Conn); ok {
+				_ = c.SetReadDeadline(time.Now().Add(readTimeout))
+			}
 			_, msg, err := s.conn.ReadMessage()
-			if err != nil && (websocket.IsCloseError(err, websocket.CloseAbnormalClosure)) {
-				logger.Debugf("Websocket connection closed unexpectedly: %v", err)
-				s.reads <- streamEOF
-				_ = s.Close()
+			if err != nil {
+				if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+					logger.Debugf("Websocket connection closed unexpectedly: %v", err)
+				}
+				s.deliver(streamEOF)
 				return
 			}
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("Read message of length [%d] on [%s]", len(msg), s.Hash())
 			}
-			s.reads <- result{value: msg, err: err}
+			s.deliver(result{value: msg, err: err})
 		}
+	}
+}
+
+func (s *stream) deliver(r result) {
+	s.mu.Lock()
+	if s.isClosed {
+		s.mu.Unlock()
+		return
+	}
+	s.mu.Unlock()
+
+	select {
+	case s.reads <- r:
+	case <-s.ctx.Done():
+		logger.Debugf("dropping message for stream [%s] because context is done", s.Hash())
+	case <-time.After(time.Minute):
+		logger.Errorf("dropping message for stream [%s] after 1m timeout, closing stream", s.Hash())
+		_ = s.Close()
 	}
 }
 
@@ -104,12 +138,19 @@ func (s *stream) Read(p []byte) (int, error) {
 	if len(s.readLeftover) == 0 {
 		// The previous value from the channel has been read completely
 		logger.Debugf("[%s@%s] waits to read from channel...", s.info.RemotePeerID, s.info.RemotePeerAddress)
-		r := <-s.reads
-		if r.err != nil {
-			logger.Debugf("error occurred while [%s] was reading: %v", s.info.RemotePeerID, r.err)
-			return 0, r.err
+		select {
+		case r, ok := <-s.reads:
+			if !ok {
+				return 0, io.EOF
+			}
+			if r.err != nil {
+				logger.Debugf("error occurred while [%s] was reading: %v", s.info.RemotePeerID, r.err)
+				return 0, r.err
+			}
+			s.readLeftover = r.value
+		case <-s.ctx.Done():
+			return 0, s.ctx.Err()
 		}
-		s.readLeftover = r.value
 	} else {
 		logger.Debugf("Reading from remaining %d bytes from previous value", len(s.readLeftover))
 	}
@@ -130,16 +171,28 @@ func (s *stream) Write(p []byte) (int, error) {
 		return n, nil
 	}
 	logger.Debugf("Ready to send to [%s@%s]: [%s]", s.info.RemotePeerID, s.info.RemotePeerAddress, logging.Base64(content))
-	if err := s.conn.WriteMessage(websocket.TextMessage, content); err != nil {
+	if c, ok := s.conn.(*websocket.Conn); ok {
+		_ = c.SetWriteDeadline(time.Now().Add(writeTimeout))
+	}
+	if err := s.conn.WriteMessage(websocket.BinaryMessage, content); err != nil {
 		return 0, err
 	}
 	return n, nil
 }
 
 func (s *stream) Close() error {
-	logger.Debugf("Close connection for context [%s]", s.ContextID())
-	s.cancel()
-	return s.conn.Close()
+	var err error
+	s.closeOnce.Do(func() {
+		logger.Debugf("Close connection for context [%s]", s.ContextID())
+		s.cancel()
+		err = s.conn.Close()
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if !s.isClosed {
+			s.isClosed = true
+		}
+	})
+	return err
 }
 
 func (s *stream) Context() context.Context {

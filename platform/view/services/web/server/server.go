@@ -84,6 +84,9 @@ func (t TLS) Config() (*tls.Config, error) {
 		return nil, errors.Errorf("client TLS CA certificate pool must not be empty when clientAuthRequired is true")
 	}
 
+	// mTLS Enforcement:
+	// 1. Require client certificates: The handshake will fail if the client doesn't provide one.
+	// 2. Verify client certificates: The certificate must be signed by one of the CAs in the pool.
 	caCertPool, err := loadClientCAs(t.ClientCACertFiles)
 	if err != nil {
 		return nil, err

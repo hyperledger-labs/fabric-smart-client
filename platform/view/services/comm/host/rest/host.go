@@ -9,8 +9,11 @@ package rest
 import (
 	"context"
 	"crypto/tls"
+	"io"
+	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -21,6 +24,7 @@ import (
 var logger = logging.MustGetLogger()
 
 type host struct {
+	nodeID  host2.PeerID
 	routing routing2.ServiceDiscovery
 	server  *server
 	client  *client
@@ -29,15 +33,22 @@ type host struct {
 type StreamProvider interface {
 	NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error)
 	NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error
+	io.Closer
 }
 
 func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.ServiceDiscovery, streamProvider StreamProvider, clientConfig, serverConfig *tls.Config) *host {
 	logger.Debugf("Create p2p client for node ID [%s] with TLS config [server: %v] [client: %v]", nodeID, serverConfig, clientConfig)
 	return &host{
+		nodeID: nodeID,
 		server: &server{
+
 			srv: &http.Server{
-				Addr:      listenAddress,
-				TLSConfig: serverConfig,
+				Addr:              listenAddress,
+				TLSConfig:         serverConfig,
+				ReadHeaderTimeout: 10 * time.Second,
+				ReadTimeout:       30 * time.Second,
+				WriteTimeout:      30 * time.Second,
+				IdleTimeout:       120 * time.Second,
 			},
 			streamProvider: streamProvider,
 		},
@@ -50,13 +61,60 @@ func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing rou
 	}
 }
 
+func (h *host) Addr() string {
+	return h.server.srv.Addr
+}
+
+func (h *host) ID() string {
+	return h.nodeID
+}
+
 func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
+	if err := h.server.Listen(); err != nil {
+		return errors.Wrapf(err, "failed to listen")
+	}
+
+	errChan := make(chan error, 1)
 	go func() {
 		if err := h.server.Start(newStreamCallback); err != nil {
-			panic(err)
+			logger.Errorf("error starting server: %s", err)
+			errChan <- err
 		}
 	}()
-	return nil
+
+	waitReady := func() error {
+		deadline := time.Now().Add(2 * time.Second)
+		for {
+			select {
+			case err := <-errChan:
+				return err
+			default:
+			}
+			addr := h.server.srv.Addr
+			if time.Now().After(deadline) {
+				return errors.Errorf("timeout waiting for REST server readiness on [%s]", addr)
+			}
+
+			target := addr
+			host, port, err := net.SplitHostPort(addr)
+			if err == nil && (host == "" || host == "0.0.0.0" || host == "::") {
+				target = net.JoinHostPort("127.0.0.1", port)
+			}
+			conn, err := net.DialTimeout("tcp", target, 100*time.Millisecond)
+			if err == nil {
+				_ = conn.Close()
+				return nil
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+	}
+
+	select {
+	case err := <-errChan:
+		return err
+	default:
+	}
+	return waitReady()
 }
 
 func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PStream, error) {
@@ -80,7 +138,11 @@ func (h *host) StreamHash(info host2.StreamInfo) string {
 }
 
 func (h *host) Close() error {
-	return h.server.Close()
+	err := h.server.Close()
+	if h.client != nil && h.client.streamProvider != nil {
+		err = errors.Join(err, h.client.streamProvider.Close())
+	}
+	return err
 }
 
 func (h *host) Wait() {}

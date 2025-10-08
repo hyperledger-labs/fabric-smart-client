@@ -58,7 +58,13 @@ func (c *commSCCMsgConn) Write(data []byte) (n int, err error) {
 func (c *commSCCMsgConn) Read() ([]byte, error) {
 	c.readCounter++
 	logger.Debugf("[commSCCMsgConn] Reading at counter [%d]", c.readCounter)
-	msg := <-c.ch
+	msg, ok := <-c.ch
+	if !ok {
+		return nil, errors.New("channel closed")
+	}
+	if msg == nil {
+		return nil, errors.New("received nil message")
+	}
 	if msg.Status == view.ERROR {
 		return nil, errors.New(string(msg.Payload))
 	}

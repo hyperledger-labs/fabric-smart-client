@@ -43,10 +43,16 @@ type varintReader struct {
 	closer io.Closer
 }
 
+const maxMessageSize = 10 * 1024 * 1024
+
 func (r *varintReader) ReadData() ([]byte, error) {
 	l, err := binary.ReadUvarint(r.r)
 	if err != nil {
 		return nil, err
+	}
+
+	if l > maxMessageSize {
+		return nil, errors.Errorf("message length [%d] exceeds max message size [%d]", l, maxMessageSize)
 	}
 
 	buffer := make([]byte, l) // We can re-use the buffer to avoid allocations
