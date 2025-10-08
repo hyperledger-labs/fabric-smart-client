@@ -9,7 +9,6 @@ package comm
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -38,11 +37,39 @@ type NetworkStreamSession struct {
 	streams         map[*streamHandler]struct{}
 	mutex           sync.RWMutex
 
-	closed    atomic.Bool
-	closeOnce sync.Once
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
+	startOnce sync.Once
+	middleCh  chan *view.Message
+	closing   chan struct{}
+	closed    chan struct{}
+}
+
+func (n *NetworkStreamSession) tryStart() {
+	n.startOnce.Do(func() {
+		go func() {
+			exit := func(v *view.Message, needSend bool) {
+				close(n.closed)
+				if needSend {
+					n.incoming <- v
+				}
+				close(n.incoming)
+			}
+
+			for {
+				select {
+				case <-n.closing:
+					exit(nil, false)
+					return
+				case v := <-n.middleCh:
+					select {
+					case <-n.closing:
+						exit(v, true)
+						return
+					case n.incoming <- v:
+					}
+				}
+			}
+		}()
+	})
 }
 
 // Info returns a view.SessionInfo.
@@ -92,18 +119,19 @@ func (n *NetworkStreamSession) enqueue(msg *view.Message) bool {
 		return false
 	}
 
-	if n.isClosed() {
-		return false
-	}
-
-	n.wg.Add(1)
-	defer n.wg.Done()
+	// let's try to start the session
+	n.tryStart()
 
 	select {
-	case <-n.ctx.Done():
-		logger.Warnf("dropping message from %s for closed session [%s]", msg.Caller, msg.SessionID)
+	case <-n.closed:
 		return false
-	case n.incoming <- msg:
+	default:
+	}
+
+	select {
+	case <-n.closed:
+		return false
+	case n.middleCh <- msg:
 		return true
 	}
 }
@@ -114,7 +142,7 @@ func (n *NetworkStreamSession) Close() {
 }
 
 func (n *NetworkStreamSession) closeInternal() {
-	n.closeOnce.Do(func() {
+	closeStreams := func() {
 		n.mutex.Lock()
 		defer n.mutex.Unlock()
 
@@ -135,20 +163,27 @@ func (n *NetworkStreamSession) closeInternal() {
 			stream.close(context.TODO())
 		}
 		logger.Debugf("closing session [%s]'s streams [%d] done", n.sessionID, len(toClose))
+		clear(n.streams)
+	}
 
-		// next we are closing the incoming and the closing signal channel to drain the receivers;
-		n.closed.Store(true)
-		n.cancel()
-		n.wg.Wait()
-		close(n.incoming)
-		n.streams = make(map[*streamHandler]struct{})
-
+	select {
+	case n.closing <- struct{}{}:
+		<-n.closed
+		closeStreams()
 		logger.Debugf("closing session [%s] done", n.sessionID)
-	})
+
+	case <-n.closed:
+	}
 }
 
 func (n *NetworkStreamSession) isClosed() bool {
-	return n.closed.Load()
+	select {
+	case <-n.closed:
+		return true
+	default:
+	}
+
+	return false
 }
 
 func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byte, status int32) error {
