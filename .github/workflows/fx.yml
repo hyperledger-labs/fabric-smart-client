@@ -1,0 +1,76 @@
+name: Manual fx
+
+on:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
+      - run: make install-tools
+      - run: make checks
+
+  utest:
+    needs:
+      - checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
+      - run: make install-tools
+      - run: make install-fabric-bins
+      - run: make testing-docker-images
+      - run: make unit-tests-race
+
+  itest-list:
+    runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.set-itest-tests.outputs.tests }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: list itest targets
+        id: set-itest-tests
+        run: |
+          echo "tests=$(make list-integration-tests | grep fabricx | jq -R . | jq -s -c .)" >> $GITHUB_OUTPUT
+
+  itest:
+    needs:
+    - checks
+    - itest-list
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # run all test as listed via `make list-integration-tests`
+        tests: ${{ fromJson(needs.itest-list.outputs.tests) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
+      - run: make install-tools
+      - run: make install-fabric-bins
+      - run: make docker-images
+
+      - name: Set up Fabric-x
+        if: startsWith(matrix.tests, 'fabricx')
+        run: |
+          make install-fxconfig install-configtxgen fabricx-docker-images
+
+      - name: Set up Softhsm
+        # we only need this for a subset of integration tests
+        if: endsWith(matrix.tests, 'hsm')
+        run: | 
+          make install-softhsm
+          ./ci/scripts/setup_softhsm.sh
+
+      - run: make integration-tests-${{ matrix.tests }}
