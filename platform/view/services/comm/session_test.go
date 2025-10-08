@@ -51,7 +51,6 @@ func setup() *NetworkStreamSession {
 
 	net := &mockSender{}
 
-	ctx, cancel := context.WithCancel(context.Background())
 	return &NetworkStreamSession{
 		node:            net,
 		endpointID:      endpointID,
@@ -60,10 +59,11 @@ func setup() *NetworkStreamSession {
 		sessionID:       sessionID,
 		caller:          caller,
 		callerViewID:    callerViewID,
-		incoming:        make(chan *view.Message, 1),
+		incoming:        make(chan *view.Message),
 		streams:         make(map[*streamHandler]struct{}),
-		ctx:             ctx,
-		cancel:          cancel,
+		middleCh:        make(chan *view.Message),
+		closing:         make(chan struct{}),
+		closed:          make(chan struct{}),
 	}
 }
 
@@ -82,10 +82,11 @@ func TestSessionLifecycle(t *testing.T) {
 		Payload: []byte("some message"),
 	}
 
+	require.False(t, s.isClosed())
+
 	// enqueue a message
 	require.Empty(t, s.incoming)
-	s.enqueue(msg)
-	require.Len(t, s.incoming, 1)
+	require.True(t, s.enqueue(msg))
 
 	// we should receive this message
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -104,7 +105,7 @@ func TestSessionLifecycle(t *testing.T) {
 
 	// enqueue on closed session should just drop the message
 	require.Empty(t, s.incoming)
-	s.enqueue(msg)
+	require.False(t, s.enqueue(msg))
 	require.Empty(t, s.incoming)
 
 	// on a closed session, a reader should return immediately
@@ -214,7 +215,7 @@ func TestSessionDeadlock(t *testing.T) {
 		// we expect to be blocked
 		wg.Wait()
 		return false
-	}, timeout, 10*time.Millisecond)
+	}, timeout, tick)
 
 	// no we close the listener, which should unblock the producer
 	sess.Close()
@@ -225,7 +226,7 @@ func TestSessionDeadlock(t *testing.T) {
 	// we expect msg1 to be successfully published
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		require.Equal(c, msg1, (<-ch).Payload)
-	}, timeout, 10*time.Millisecond)
+	}, timeout, tick)
 
 	// msg2 should not be published
 	require.Empty(t, ch)
