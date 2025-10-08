@@ -21,9 +21,14 @@ type WSStream struct {
 	conn *websocket.Conn
 }
 
+const maxMessageSize = 10 * 1024 * 1024
+
 func OpenWSClientConn(url string, config *tls.Config) (*websocket.Conn, error) {
 	dialer := &websocket.Dialer{TLSClientConfig: config}
 	ws, _, err := dialer.Dial(url, nil)
+	if err == nil {
+		ws.SetReadLimit(maxMessageSize)
+	}
 	return ws, err
 }
 

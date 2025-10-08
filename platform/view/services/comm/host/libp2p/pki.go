@@ -37,5 +37,6 @@ func (p PKIDSynthesizer) PublicKeyID(key any) []byte {
 		h := sha256.Sum256(d)
 		return h[:]
 	}
-	panic("unsupported key")
+	logger.Errorf("unsupported key type [%T]", key)
+	return nil
 }

@@ -19,9 +19,18 @@ func ReadMessageWithTimeout(session Session, d time.Duration) ([]byte, error) {
 	defer timeout.Stop()
 
 	ch := session.Receive()
+	if ch == nil {
+		return nil, errors.New("session receive channel is nil")
+	}
 	var payload []byte
 	select {
-	case msg := <-ch:
+	case msg, ok := <-ch:
+		if !ok {
+			return nil, errors.New("session receive channel is closed")
+		}
+		if msg == nil {
+			return nil, errors.New("received message is nil")
+		}
 		if msg.Status == view.ERROR {
 			return nil, errors.Errorf("received error from remote [%s]", string(msg.Payload))
 		}
@@ -36,13 +45,22 @@ func ReadMessageWithTimeout(session Session, d time.Duration) ([]byte, error) {
 func ReadFirstMessage(context view.Context) (Session, []byte, error) {
 	session := context.Session()
 	ch := session.Receive()
+	if ch == nil {
+		return nil, nil, errors.New("session receive channel is nil")
+	}
 	var payload []byte
 
 	timeout := time.NewTimer(time.Second * 30)
 	defer timeout.Stop()
 
 	select {
-	case msg := <-ch:
+	case msg, ok := <-ch:
+		if !ok {
+			return nil, nil, errors.New("session receive channel is closed")
+		}
+		if msg == nil {
+			return nil, nil, errors.New("received message is nil")
+		}
 		if msg.Status == view.ERROR {
 			return nil, nil, errors.Errorf("received error from remote [%s]", string(msg.Payload))
 		}
@@ -57,13 +75,22 @@ func ReadFirstMessage(context view.Context) (Session, []byte, error) {
 func ReadFirstMessageOrPanic(context view.Context) []byte {
 	session := context.Session()
 	ch := session.Receive()
+	if ch == nil {
+		panic("session receive channel is nil")
+	}
 	var payload []byte
 
 	timeout := time.NewTimer(time.Second * 30)
 	defer timeout.Stop()
 
 	select {
-	case msg := <-ch:
+	case msg, ok := <-ch:
+		if !ok {
+			panic("session receive channel is closed")
+		}
+		if msg == nil {
+			panic("received message is nil")
+		}
 		if msg.Status == view.ERROR {
 			panic(fmt.Sprintf("received error from remote [%s]", string(msg.Payload)))
 		}

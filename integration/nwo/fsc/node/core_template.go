@@ -67,13 +67,6 @@ fsc:
       # Only needed when type == libp2p
       # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
       bootstrapNode: {{ if eq .P2PCommunicationType "libp2p" }}{{ .BootstrapNode Peer }}{{ end}}
-      # Only needed when type == rest
-      # Defines how to fetch a router
-      routing:
-        {{- if eq .P2PCommunicationType "websocket" }}
-        # The path to the file that contains the routing, if the routing is static
-        path: {{ .RoutingConfigPath }}
-        {{- end }}
   persistences: {{ range $key, $value := Persistences }}
     {{ $key }}:
       type: {{ $value.Type }}
