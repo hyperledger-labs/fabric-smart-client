@@ -226,9 +226,9 @@ func (p *Platform) PreRun() {
 		}
 	}
 	logger.Infof("Starting DBs for following data sources: [%s]...", logging.Keys(configs))
-	close, err := postgres2.StartPostgresWithFmt(collections.Values(configs))
+	closeF, err := postgres2.StartPostgresWithFmt(collections.Values(configs))
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to start dbs")
-	p.cleanDB = close
+	p.cleanDB = closeF
 }
 
 func (p *Platform) PostRun(bool) {
@@ -326,7 +326,10 @@ func (p *Platform) Cleanup() {
 	if p.metricsAggregatorProcess != nil {
 		p.metricsAggregatorProcess.Signal(os.Kill)
 	}
-	p.cleanDB()
+
+	if p.cleanDB != nil {
+		p.cleanDB()
+	}
 }
 
 func (p *Platform) CheckTopology() {
