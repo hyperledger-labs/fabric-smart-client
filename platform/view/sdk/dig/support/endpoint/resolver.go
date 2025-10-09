@@ -55,7 +55,7 @@ type IdentityService interface {
 }
 
 type Backend interface {
-	Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error
+	Bind(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error
 	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
 }
 

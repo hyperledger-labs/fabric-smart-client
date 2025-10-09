@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -146,18 +147,14 @@ func (r *Service) GetResolver(ctx context.Context, id view.Identity) (*Resolver,
 	return r.resolver(ctx, id)
 }
 
-func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeral view.Identity) error {
-	if longTerm.Equal(ephemeral) {
-		logger.DebugfContext(ctx, "cannot bind [%s] to [%s], they are the same", longTerm, ephemeral)
-		return nil
+func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs ...view.Identity) error {
+	// filter out the ids that are equal to longTerm
+	toBind := collections.FilterSlice(ephemeralIDs, func(id view.Identity) bool {
+		return !longTerm.Equal(id)
+	})
+	if err := r.bindingKVS.PutBindings(ctx, longTerm, toBind...); err != nil {
+		return errors.WithMessagef(err, "failed storing bindings")
 	}
-
-	logger.DebugfContext(ctx, "bind [%s] to [%s]", ephemeral, longTerm)
-
-	if err := r.bindingKVS.PutBinding(ctx, ephemeral, longTerm); err != nil {
-		return errors.WithMessagef(err, "failed storing binding of [%s]  to [%s]", ephemeral.UniqueID(), longTerm.UniqueID())
-	}
-
 	return nil
 }
 

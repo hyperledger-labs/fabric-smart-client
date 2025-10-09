@@ -5,183 +5,66 @@ import (
 	"context"
 	"sync"
 
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	viewa "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type SessionFactory struct {
-	NewSessionWithIDStub        func(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error)
-	newSessionWithIDMutex       sync.RWMutex
-	newSessionWithIDArgsForCall []struct {
-		sessionID string
-		contextID string
-		endpoint  string
-		pkid      []byte
-		caller    view.Identity
-		msg       *view.Message
+	DeleteSessionsStub        func(context.Context, string)
+	deleteSessionsMutex       sync.RWMutex
+	deleteSessionsArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
 	}
-	newSessionWithIDReturns struct {
-		result1 view.Session
-		result2 error
-	}
-	newSessionWithIDReturnsOnCall map[int]struct {
-		result1 view.Session
-		result2 error
-	}
-	NewSessionStub        func(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error)
+	NewSessionStub        func(string, string, string, []byte) (viewa.Session, error)
 	newSessionMutex       sync.RWMutex
 	newSessionArgsForCall []struct {
-		caller    string
-		contextID string
-		endpoint  string
-		pkid      []byte
+		arg1 string
+		arg2 string
+		arg3 string
+		arg4 []byte
 	}
 	newSessionReturns struct {
-		result1 view.Session
+		result1 viewa.Session
 		result2 error
 	}
 	newSessionReturnsOnCall map[int]struct {
-		result1 view.Session
+		result1 viewa.Session
 		result2 error
 	}
-	DeleteSessionsStub        func(sessionID string)
-	deleteSessionsMutex       sync.RWMutex
-	deleteSessionsArgsForCall []struct {
-		sessionID string
+	NewSessionWithIDStub        func(string, string, string, []byte, viewa.Identity, *viewa.Message) (viewa.Session, error)
+	newSessionWithIDMutex       sync.RWMutex
+	newSessionWithIDArgsForCall []struct {
+		arg1 string
+		arg2 string
+		arg3 string
+		arg4 []byte
+		arg5 viewa.Identity
+		arg6 *viewa.Message
+	}
+	newSessionWithIDReturns struct {
+		result1 viewa.Session
+		result2 error
+	}
+	newSessionWithIDReturnsOnCall map[int]struct {
+		result1 viewa.Session
+		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SessionFactory) NewSessionWithID(sessionID string, contextID string, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error) {
-	var pkidCopy []byte
-	if pkid != nil {
-		pkidCopy = make([]byte, len(pkid))
-		copy(pkidCopy, pkid)
-	}
-	fake.newSessionWithIDMutex.Lock()
-	ret, specificReturn := fake.newSessionWithIDReturnsOnCall[len(fake.newSessionWithIDArgsForCall)]
-	fake.newSessionWithIDArgsForCall = append(fake.newSessionWithIDArgsForCall, struct {
-		sessionID string
-		contextID string
-		endpoint  string
-		pkid      []byte
-		caller    view.Identity
-		msg       *view.Message
-	}{sessionID, contextID, endpoint, pkidCopy, caller, msg})
-	fake.recordInvocation("NewSessionWithID", []interface{}{sessionID, contextID, endpoint, pkidCopy, caller, msg})
-	fake.newSessionWithIDMutex.Unlock()
-	if fake.NewSessionWithIDStub != nil {
-		return fake.NewSessionWithIDStub(sessionID, contextID, endpoint, pkid, caller, msg)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.newSessionWithIDReturns.result1, fake.newSessionWithIDReturns.result2
-}
-
-func (fake *SessionFactory) NewSessionWithIDCallCount() int {
-	fake.newSessionWithIDMutex.RLock()
-	defer fake.newSessionWithIDMutex.RUnlock()
-	return len(fake.newSessionWithIDArgsForCall)
-}
-
-func (fake *SessionFactory) NewSessionWithIDArgsForCall(i int) (string, string, string, []byte, view.Identity, *view.Message) {
-	fake.newSessionWithIDMutex.RLock()
-	defer fake.newSessionWithIDMutex.RUnlock()
-	return fake.newSessionWithIDArgsForCall[i].sessionID, fake.newSessionWithIDArgsForCall[i].contextID, fake.newSessionWithIDArgsForCall[i].endpoint, fake.newSessionWithIDArgsForCall[i].pkid, fake.newSessionWithIDArgsForCall[i].caller, fake.newSessionWithIDArgsForCall[i].msg
-}
-
-func (fake *SessionFactory) NewSessionWithIDReturns(result1 view.Session, result2 error) {
-	fake.NewSessionWithIDStub = nil
-	fake.newSessionWithIDReturns = struct {
-		result1 view.Session
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *SessionFactory) NewSessionWithIDReturnsOnCall(i int, result1 view.Session, result2 error) {
-	fake.NewSessionWithIDStub = nil
-	if fake.newSessionWithIDReturnsOnCall == nil {
-		fake.newSessionWithIDReturnsOnCall = make(map[int]struct {
-			result1 view.Session
-			result2 error
-		})
-	}
-	fake.newSessionWithIDReturnsOnCall[i] = struct {
-		result1 view.Session
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *SessionFactory) NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error) {
-	var pkidCopy []byte
-	if pkid != nil {
-		pkidCopy = make([]byte, len(pkid))
-		copy(pkidCopy, pkid)
-	}
-	fake.newSessionMutex.Lock()
-	ret, specificReturn := fake.newSessionReturnsOnCall[len(fake.newSessionArgsForCall)]
-	fake.newSessionArgsForCall = append(fake.newSessionArgsForCall, struct {
-		caller    string
-		contextID string
-		endpoint  string
-		pkid      []byte
-	}{caller, contextID, endpoint, pkidCopy})
-	fake.recordInvocation("NewSession", []interface{}{caller, contextID, endpoint, pkidCopy})
-	fake.newSessionMutex.Unlock()
-	if fake.NewSessionStub != nil {
-		return fake.NewSessionStub(caller, contextID, endpoint, pkid)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fake.newSessionReturns.result1, fake.newSessionReturns.result2
-}
-
-func (fake *SessionFactory) NewSessionCallCount() int {
-	fake.newSessionMutex.RLock()
-	defer fake.newSessionMutex.RUnlock()
-	return len(fake.newSessionArgsForCall)
-}
-
-func (fake *SessionFactory) NewSessionArgsForCall(i int) (string, string, string, []byte) {
-	fake.newSessionMutex.RLock()
-	defer fake.newSessionMutex.RUnlock()
-	return fake.newSessionArgsForCall[i].caller, fake.newSessionArgsForCall[i].contextID, fake.newSessionArgsForCall[i].endpoint, fake.newSessionArgsForCall[i].pkid
-}
-
-func (fake *SessionFactory) NewSessionReturns(result1 view.Session, result2 error) {
-	fake.NewSessionStub = nil
-	fake.newSessionReturns = struct {
-		result1 view.Session
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *SessionFactory) NewSessionReturnsOnCall(i int, result1 view.Session, result2 error) {
-	fake.NewSessionStub = nil
-	if fake.newSessionReturnsOnCall == nil {
-		fake.newSessionReturnsOnCall = make(map[int]struct {
-			result1 view.Session
-			result2 error
-		})
-	}
-	fake.newSessionReturnsOnCall[i] = struct {
-		result1 view.Session
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *SessionFactory) DeleteSessions(ctx context.Context, sessionID string) {
+func (fake *SessionFactory) DeleteSessions(arg1 context.Context, arg2 string) {
 	fake.deleteSessionsMutex.Lock()
 	fake.deleteSessionsArgsForCall = append(fake.deleteSessionsArgsForCall, struct {
-		sessionID string
-	}{sessionID})
-	fake.recordInvocation("DeleteSessions", []interface{}{sessionID})
+		arg1 context.Context
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.DeleteSessionsStub
+	fake.recordInvocation("DeleteSessions", []interface{}{arg1, arg2})
 	fake.deleteSessionsMutex.Unlock()
-	if fake.DeleteSessionsStub != nil {
-		fake.DeleteSessionsStub(sessionID)
+	if stub != nil {
+		fake.DeleteSessionsStub(arg1, arg2)
 	}
 }
 
@@ -191,21 +74,174 @@ func (fake *SessionFactory) DeleteSessionsCallCount() int {
 	return len(fake.deleteSessionsArgsForCall)
 }
 
-func (fake *SessionFactory) DeleteSessionsArgsForCall(i int) string {
+func (fake *SessionFactory) DeleteSessionsCalls(stub func(context.Context, string)) {
+	fake.deleteSessionsMutex.Lock()
+	defer fake.deleteSessionsMutex.Unlock()
+	fake.DeleteSessionsStub = stub
+}
+
+func (fake *SessionFactory) DeleteSessionsArgsForCall(i int) (context.Context, string) {
 	fake.deleteSessionsMutex.RLock()
 	defer fake.deleteSessionsMutex.RUnlock()
-	return fake.deleteSessionsArgsForCall[i].sessionID
+	argsForCall := fake.deleteSessionsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *SessionFactory) NewSession(arg1 string, arg2 string, arg3 string, arg4 []byte) (viewa.Session, error) {
+	var arg4Copy []byte
+	if arg4 != nil {
+		arg4Copy = make([]byte, len(arg4))
+		copy(arg4Copy, arg4)
+	}
+	fake.newSessionMutex.Lock()
+	ret, specificReturn := fake.newSessionReturnsOnCall[len(fake.newSessionArgsForCall)]
+	fake.newSessionArgsForCall = append(fake.newSessionArgsForCall, struct {
+		arg1 string
+		arg2 string
+		arg3 string
+		arg4 []byte
+	}{arg1, arg2, arg3, arg4Copy})
+	stub := fake.NewSessionStub
+	fakeReturns := fake.newSessionReturns
+	fake.recordInvocation("NewSession", []interface{}{arg1, arg2, arg3, arg4Copy})
+	fake.newSessionMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *SessionFactory) NewSessionCallCount() int {
+	fake.newSessionMutex.RLock()
+	defer fake.newSessionMutex.RUnlock()
+	return len(fake.newSessionArgsForCall)
+}
+
+func (fake *SessionFactory) NewSessionCalls(stub func(string, string, string, []byte) (viewa.Session, error)) {
+	fake.newSessionMutex.Lock()
+	defer fake.newSessionMutex.Unlock()
+	fake.NewSessionStub = stub
+}
+
+func (fake *SessionFactory) NewSessionArgsForCall(i int) (string, string, string, []byte) {
+	fake.newSessionMutex.RLock()
+	defer fake.newSessionMutex.RUnlock()
+	argsForCall := fake.newSessionArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *SessionFactory) NewSessionReturns(result1 viewa.Session, result2 error) {
+	fake.newSessionMutex.Lock()
+	defer fake.newSessionMutex.Unlock()
+	fake.NewSessionStub = nil
+	fake.newSessionReturns = struct {
+		result1 viewa.Session
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *SessionFactory) NewSessionReturnsOnCall(i int, result1 viewa.Session, result2 error) {
+	fake.newSessionMutex.Lock()
+	defer fake.newSessionMutex.Unlock()
+	fake.NewSessionStub = nil
+	if fake.newSessionReturnsOnCall == nil {
+		fake.newSessionReturnsOnCall = make(map[int]struct {
+			result1 viewa.Session
+			result2 error
+		})
+	}
+	fake.newSessionReturnsOnCall[i] = struct {
+		result1 viewa.Session
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *SessionFactory) NewSessionWithID(arg1 string, arg2 string, arg3 string, arg4 []byte, arg5 viewa.Identity, arg6 *viewa.Message) (viewa.Session, error) {
+	var arg4Copy []byte
+	if arg4 != nil {
+		arg4Copy = make([]byte, len(arg4))
+		copy(arg4Copy, arg4)
+	}
+	fake.newSessionWithIDMutex.Lock()
+	ret, specificReturn := fake.newSessionWithIDReturnsOnCall[len(fake.newSessionWithIDArgsForCall)]
+	fake.newSessionWithIDArgsForCall = append(fake.newSessionWithIDArgsForCall, struct {
+		arg1 string
+		arg2 string
+		arg3 string
+		arg4 []byte
+		arg5 viewa.Identity
+		arg6 *viewa.Message
+	}{arg1, arg2, arg3, arg4Copy, arg5, arg6})
+	stub := fake.NewSessionWithIDStub
+	fakeReturns := fake.newSessionWithIDReturns
+	fake.recordInvocation("NewSessionWithID", []interface{}{arg1, arg2, arg3, arg4Copy, arg5, arg6})
+	fake.newSessionWithIDMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4, arg5, arg6)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *SessionFactory) NewSessionWithIDCallCount() int {
+	fake.newSessionWithIDMutex.RLock()
+	defer fake.newSessionWithIDMutex.RUnlock()
+	return len(fake.newSessionWithIDArgsForCall)
+}
+
+func (fake *SessionFactory) NewSessionWithIDCalls(stub func(string, string, string, []byte, viewa.Identity, *viewa.Message) (viewa.Session, error)) {
+	fake.newSessionWithIDMutex.Lock()
+	defer fake.newSessionWithIDMutex.Unlock()
+	fake.NewSessionWithIDStub = stub
+}
+
+func (fake *SessionFactory) NewSessionWithIDArgsForCall(i int) (string, string, string, []byte, viewa.Identity, *viewa.Message) {
+	fake.newSessionWithIDMutex.RLock()
+	defer fake.newSessionWithIDMutex.RUnlock()
+	argsForCall := fake.newSessionWithIDArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
+}
+
+func (fake *SessionFactory) NewSessionWithIDReturns(result1 viewa.Session, result2 error) {
+	fake.newSessionWithIDMutex.Lock()
+	defer fake.newSessionWithIDMutex.Unlock()
+	fake.NewSessionWithIDStub = nil
+	fake.newSessionWithIDReturns = struct {
+		result1 viewa.Session
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *SessionFactory) NewSessionWithIDReturnsOnCall(i int, result1 viewa.Session, result2 error) {
+	fake.newSessionWithIDMutex.Lock()
+	defer fake.newSessionWithIDMutex.Unlock()
+	fake.NewSessionWithIDStub = nil
+	if fake.newSessionWithIDReturnsOnCall == nil {
+		fake.newSessionWithIDReturnsOnCall = make(map[int]struct {
+			result1 viewa.Session
+			result2 error
+		})
+	}
+	fake.newSessionWithIDReturnsOnCall[i] = struct {
+		result1 viewa.Session
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *SessionFactory) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.newSessionWithIDMutex.RLock()
-	defer fake.newSessionWithIDMutex.RUnlock()
-	fake.newSessionMutex.RLock()
-	defer fake.newSessionMutex.RUnlock()
 	fake.deleteSessionsMutex.RLock()
 	defer fake.deleteSessionsMutex.RUnlock()
+	fake.newSessionMutex.RLock()
+	defer fake.newSessionMutex.RUnlock()
+	fake.newSessionWithIDMutex.RLock()
+	defer fake.newSessionWithIDMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
@@ -225,4 +261,4 @@ func (fake *SessionFactory) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ view2.SessionFactory = new(SessionFactory)
+var _ view.SessionFactory = new(SessionFactory)
