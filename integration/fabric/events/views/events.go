@@ -73,7 +73,7 @@ func (c *EventsView) Call(context view.Context) (interface{}, error) {
 	wg.Add(1)
 	eventReceived = nil
 	eventError = nil
-	ctx1, cancelFunc1 := context2.WithTimeout(context.Context(), 10*time.Minute)
+	ctx1, cancelFunc1 := context2.WithTimeout(context.Context(), 1*time.Minute)
 	defer cancelFunc1()
 	_, err = context.RunView(chaincode.NewListenToEventsViewWithContext(ctx1, "events", callBack))
 	assert.NoError(err, "failed to listen to events")
