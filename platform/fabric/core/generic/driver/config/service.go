@@ -32,10 +32,6 @@ type Provider interface {
 	GetConfig(network string) (ConfigService, error)
 }
 
-func NewCore(config driver.ConfigService) (*core.Config, error) {
-	return core.NewConfig(config)
-}
-
 func NewProvider(config driver.ConfigService) (Provider, error) {
 	c, err := core.NewConfig(config)
 	if err != nil {

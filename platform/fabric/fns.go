@@ -155,6 +155,10 @@ func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkServ
 	return ns, nil
 }
 
+func (nsp *NetworkServiceProvider) Names() []string {
+	return nsp.fnsProvider.Names()
+}
+
 func GetNetworkServiceProvider(sp services.Provider) (*NetworkServiceProvider, error) {
 	s, err := sp.GetService(networkServiceProviderType)
 	if err != nil {
