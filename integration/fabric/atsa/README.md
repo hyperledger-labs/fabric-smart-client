@@ -56,7 +56,7 @@ However, we will change paradigm: The `asset_transfer` chaincode will not mediat
 between business parties (issuers and asset owners). 
 The business parties will interact directly to achieve the business goals.
 
-We have already learned, when exploring the ['Fabric's hidden gems'](./../../../docs/design.md#fabric-and-its-hidden-gems), 
+We have already learned, when exploring the ['Fabric's hidden gems'](./../../../docs/readme.md#fabric-and-its-hidden-gems), 
 that an endorser is just a network node that executes `some code` and possesses a signing key compatible with an endorsement policy. 
 The node produces a signature to signal its approval. Therefore, if we equip an FSC node with 
 a signing secret key accepted by our endorsement policy, that FSC node can endorse Fabric transactions.

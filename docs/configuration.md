@@ -1,6 +1,6 @@
-# Example core.yaml file for Fabric
+# Example configuration
 
-The following example provides descriptions for the various keys required for a Fabric Smart Client node that uses the Fabric SDK.
+The following configuration example provides descriptions for the various keys required for a Fabric Smart Client node that uses the Fabric SDK.
 
 ```yaml
 ---
