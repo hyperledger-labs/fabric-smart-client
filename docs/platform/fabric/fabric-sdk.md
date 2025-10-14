@@ -12,4 +12,4 @@ It consists of the following layers:
 
 ## Configuration
 
-You can find an example of the configuration required for the Fabric SDK in [Example Core File for Fabric](../../core-fabric.md)
+You can find an example of the configuration required for the Fabric SDK in [Example Core File for Fabric](../../configuration.md)
