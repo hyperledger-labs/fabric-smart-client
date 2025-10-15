@@ -109,75 +109,58 @@ func NewChannelProvider(in struct {
 ) generic.ChannelProvider {
 	channelConfigProvider := generic.NewChannelConfigProvider(in.ConfigProvider)
 	flmProvider := committer.NewFinalityListenerManagerProvider[fdriver.ValidationCode](in.TracerProvider)
-	return generic.NewChannelProvider(
-		in.ConfigProvider,
-		in.EnvelopeStore,
-		in.MetadataStore,
-		in.EndorseTxStore,
-		in.Hasher,
-		in.Drivers,
-		func(channelName string, configService fdriver.ConfigService, vaultStore driver.VaultStore) (*vault2.Vault, error) {
-			return vault.New(configService, vaultStore, channelName, in.QueryServiceProvider, in.MetricsProvider, in.TracerProvider)
-		},
-		channelConfigProvider,
-		func(channelName string, nw fdriver.FabricNetworkService, chaincodeManager fdriver.ChaincodeManager) (fdriver.Ledger, error) {
-			return in.LedgerProvider.NewLedger(nw.Name(), channelName)
-		},
-		func(channel string, nw fdriver.FabricNetworkService, envelopeService fdriver.EnvelopeService, transactionService fdriver.EndorserTransactionService, vault fdriver.RWSetInspector) (fdriver.RWSetLoader, error) {
-			return NewRWSetLoader(channel, nw, envelopeService, transactionService, vault), nil
-		},
-		func(nw fdriver.FabricNetworkService, channel string, vault fdriver.Vault, envelopeService fdriver.EnvelopeService, ledger fdriver.Ledger, rwsetLoaderService fdriver.RWSetLoader, channelMembershipService fdriver.MembershipService, fabricFinality fcommitter.FabricFinality, quiet bool) (generic.CommitterService, error) {
-			channelConfig, err := channelConfigProvider.GetChannelConfig(nw.Name(), channel)
-			if err != nil {
-				return nil, err
-			}
-			return NewCommitter(nw, channelConfig, vault, envelopeService, ledger, rwsetLoaderService, in.Publisher, channelMembershipService, fabricFinality, fcommitter.NewSerialDependencyResolver(), quiet, flmProvider.NewManager(), in.TracerProvider, in.MetricsProvider)
-		},
-		// delivery service constructor
-		func(
-			nw fdriver.FabricNetworkService,
-			channel string,
-			peerManager delivery.Services,
-			ledger fdriver.Ledger,
-			vault delivery.Vault,
-			callback fdriver.BlockCallback,
-		) (generic.DeliveryService, error) {
-			// we inject here the block dispatcher and the callback
-			// note that once the committer queryservice/notification service is available, we will remove the
-			// local commit-pipeline and delivery service
-			dispatcher, err := in.BlockDispatcherProvider.GetBlockDispatcher(nw.Name(), channel)
-			if err != nil {
-				return nil, err
-			}
-			channelConfig, err := channelConfigProvider.GetChannelConfig(nw.Name(), channel)
-			if err != nil {
-				return nil, err
-			}
-			dispatcher.AddCallback(callback)
+	return generic.NewChannelProvider(in.EnvelopeStore, in.MetadataStore, in.EndorseTxStore, in.Hasher, in.Drivers, func(channelName string, configService fdriver.ConfigService, vaultStore driver.VaultStore) (*vault2.Vault, error) {
+		return vault.New(configService, vaultStore, channelName, in.QueryServiceProvider, in.MetricsProvider, in.TracerProvider)
+	}, channelConfigProvider, func(channelName string, nw fdriver.FabricNetworkService, chaincodeManager fdriver.ChaincodeManager) (fdriver.Ledger, error) {
+		return in.LedgerProvider.NewLedger(nw.Name(), channelName)
+	}, func(channel string, nw fdriver.FabricNetworkService, envelopeService fdriver.EnvelopeService, transactionService fdriver.EndorserTransactionService, vault fdriver.RWSetInspector) (fdriver.RWSetLoader, error) {
+		return NewRWSetLoader(channel, nw, envelopeService, transactionService, vault), nil
+	}, func(nw fdriver.FabricNetworkService, channel string, vault fdriver.Vault, envelopeService fdriver.EnvelopeService, ledger fdriver.Ledger, rwsetLoaderService fdriver.RWSetLoader, channelMembershipService fdriver.MembershipService, fabricFinality fcommitter.FabricFinality, quiet bool) (generic.CommitterService, error) {
+		channelConfig, err := channelConfigProvider.GetChannelConfig(nw.Name(), channel)
+		if err != nil {
+			return nil, err
+		}
+		return NewCommitter(nw, channelConfig, vault, envelopeService, ledger, rwsetLoaderService, in.Publisher, channelMembershipService, fabricFinality, fcommitter.NewSerialDependencyResolver(), quiet, flmProvider.NewManager(), in.TracerProvider, in.MetricsProvider)
+	}, func(
+		nw fdriver.FabricNetworkService,
+		channel string,
+		peerManager delivery.Services,
+		ledger fdriver.Ledger,
+		vault delivery.Vault,
+		callback fdriver.BlockCallback,
+	) (generic.DeliveryService, error) {
+		// we inject here the block dispatcher and the callback
+		// note that once the committer queryservice/notification service is available, we will remove the
+		// local commit-pipeline and delivery service
+		dispatcher, err := in.BlockDispatcherProvider.GetBlockDispatcher(nw.Name(), channel)
+		if err != nil {
+			return nil, err
+		}
+		channelConfig, err := channelConfigProvider.GetChannelConfig(nw.Name(), channel)
+		if err != nil {
+			return nil, err
+		}
+		dispatcher.AddCallback(callback)
 
-			return delivery.NewService(
-				channel,
-				channelConfig,
-				in.Hasher,
-				nw.Name(),
-				nw.LocalMembership(),
-				nw.ConfigService(),
-				peerManager,
-				ledger,
-				vault,
-				nw.TransactionManager(),
-				dispatcher.OnBlock,
-				in.TracerProvider,
-				in.MetricsProvider,
-				[]cb.HeaderType{cb.HeaderType_MESSAGE},
-			)
-		},
-		// membership service
-		func(channelName string) fdriver.MembershipService {
-			return membership.NewService(channelName)
-		},
-		false,
-	)
+		return delivery.NewService(
+			channel,
+			channelConfig,
+			in.Hasher,
+			nw.Name(),
+			nw.LocalMembership(),
+			nw.ConfigService(),
+			peerManager,
+			ledger,
+			vault,
+			nw.TransactionManager(),
+			dispatcher.OnBlock,
+			in.TracerProvider,
+			in.MetricsProvider,
+			[]cb.HeaderType{cb.HeaderType_MESSAGE},
+		)
+	}, func(channelName string) fdriver.MembershipService {
+		return membership.NewService(channelName)
+	}, false)
 }
 
 func NewRWSetLoader(channel string, nw fdriver.FabricNetworkService, envelopeService fdriver.EnvelopeService, transactionService fdriver.EndorserTransactionService, vault fdriver.RWSetInspector) fdriver.RWSetLoader {

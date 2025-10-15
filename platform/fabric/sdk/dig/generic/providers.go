@@ -97,119 +97,105 @@ func NewChannelProvider(in struct {
 }) generic.ChannelProvider {
 	flmProvider := committer2.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider)
 	channelConfigProvider := generic.NewChannelConfigProvider(in.ConfigProvider)
-	return generic.NewChannelProvider(
-		in.ConfigProvider,
-		in.EnvelopeKVS,
-		in.MetadataKVS,
-		in.EndorseTxKVS,
-		in.Hasher,
-		in.Drivers,
-		func(_ string, configService driver.ConfigService, vaultStore driver2.VaultStore) (*vault.Vault, error) {
-			cachedVault := vault2.NewCachedVault(vaultStore, configService.VaultTXStoreCacheSize())
-			return vault.NewVault(cachedVault, in.MetricsProvider, in.TracerProvider), nil
-		},
-		channelConfigProvider,
-		func(
-			channelName string,
-			nw driver.FabricNetworkService,
-			chaincodeManager driver.ChaincodeManager,
-		) (driver.Ledger, error) {
-			return ledger.New(
-				channelName,
-				chaincodeManager,
-				nw.LocalMembership(),
-				nw.ConfigService(),
-				nw.TransactionManager(),
-			), nil
-		},
-		func(
-			channel string,
-			nw driver.FabricNetworkService,
-			envelopeService driver.EnvelopeService,
-			transactionService driver.EndorserTransactionService,
-			vault driver.RWSetInspector,
-		) (driver.RWSetLoader, error) {
-			return rwset.NewLoader(
-				nw.Name(),
-				channel,
-				envelopeService,
-				transactionService,
-				nw.TransactionManager(),
-				vault,
-			), nil
-		},
-		func(
-			nw driver.FabricNetworkService,
-			channelName string,
-			vault driver.Vault,
-			envelopeService driver.EnvelopeService,
-			ledger driver.Ledger,
-			rwsetLoaderService driver.RWSetLoader,
-			channelMembershipService driver.MembershipService,
-			fabricFinality committer.FabricFinality,
-			quiet bool,
-		) (generic.CommitterService, error) {
-			os, ok := nw.OrderingService().(committer.OrderingService)
-			if !ok {
-				return nil, errors.New("ordering service is not a committer.OrderingService")
-			}
-			channelConfig, err := channelConfigProvider.GetChannelConfig(nw.Name(), channelName)
-			if err != nil {
-				return nil, err
-			}
-			return committer.New(
-				nw.ConfigService(),
-				channelConfig,
-				vault,
-				envelopeService,
-				ledger,
-				rwsetLoaderService,
-				nw.ProcessorManager(),
-				in.Publisher,
-				channelMembershipService,
-				os,
-				fabricFinality,
-				nw.TransactionManager(),
-				committer.NewSerialDependencyResolver(),
-				quiet,
-				flmProvider.NewManager(),
-				in.TracerProvider,
-				in.MetricsProvider,
-			), nil
-		},
-		func(
-			nw driver.FabricNetworkService,
-			channel string,
-			peerManager delivery.Services,
-			ledger driver.Ledger,
-			vault delivery.Vault,
-			callback driver.BlockCallback,
-		) (generic.DeliveryService, error) {
-			channelConfig, err := channelConfigProvider.GetChannelConfig(nw.Name(), channel)
-			if err != nil {
-				return nil, err
-			}
-			return delivery.NewService(
-				channel,
-				channelConfig,
-				in.Hasher,
-				nw.Name(),
-				nw.LocalMembership(),
-				nw.ConfigService(),
-				peerManager,
-				ledger,
-				vault,
-				nw.TransactionManager(),
-				callback,
-				in.TracerProvider,
-				in.MetricsProvider,
-				[]common.HeaderType{common.HeaderType_ENDORSER_TRANSACTION},
-			)
-		},
-		func(channelName string) driver.MembershipService {
-			return membership.NewService(channelName)
-		},
-		true)
+	return generic.NewChannelProvider(in.EnvelopeKVS, in.MetadataKVS, in.EndorseTxKVS, in.Hasher, in.Drivers, func(_ string, configService driver.ConfigService, vaultStore driver2.VaultStore) (*vault.Vault, error) {
+		cachedVault := vault2.NewCachedVault(vaultStore, configService.VaultTXStoreCacheSize())
+		return vault.NewVault(cachedVault, in.MetricsProvider, in.TracerProvider), nil
+	}, channelConfigProvider, func(
+		channelName string,
+		nw driver.FabricNetworkService,
+		chaincodeManager driver.ChaincodeManager,
+	) (driver.Ledger, error) {
+		return ledger.New(
+			channelName,
+			chaincodeManager,
+			nw.LocalMembership(),
+			nw.ConfigService(),
+			nw.TransactionManager(),
+		), nil
+	}, func(
+		channel string,
+		nw driver.FabricNetworkService,
+		envelopeService driver.EnvelopeService,
+		transactionService driver.EndorserTransactionService,
+		vault driver.RWSetInspector,
+	) (driver.RWSetLoader, error) {
+		return rwset.NewLoader(
+			nw.Name(),
+			channel,
+			envelopeService,
+			transactionService,
+			nw.TransactionManager(),
+			vault,
+		), nil
+	}, func(
+		nw driver.FabricNetworkService,
+		channelName string,
+		vault driver.Vault,
+		envelopeService driver.EnvelopeService,
+		ledger driver.Ledger,
+		rwsetLoaderService driver.RWSetLoader,
+		channelMembershipService driver.MembershipService,
+		fabricFinality committer.FabricFinality,
+		quiet bool,
+	) (generic.CommitterService, error) {
+		os, ok := nw.OrderingService().(committer.OrderingService)
+		if !ok {
+			return nil, errors.New("ordering service is not a committer.OrderingService")
+		}
+		channelConfig, err := channelConfigProvider.GetChannelConfig(nw.Name(), channelName)
+		if err != nil {
+			return nil, err
+		}
+		return committer.New(
+			nw.ConfigService(),
+			channelConfig,
+			vault,
+			envelopeService,
+			ledger,
+			rwsetLoaderService,
+			nw.ProcessorManager(),
+			in.Publisher,
+			channelMembershipService,
+			os,
+			fabricFinality,
+			nw.TransactionManager(),
+			committer.NewSerialDependencyResolver(),
+			quiet,
+			flmProvider.NewManager(),
+			in.TracerProvider,
+			in.MetricsProvider,
+		), nil
+	}, func(
+		nw driver.FabricNetworkService,
+		channel string,
+		peerManager delivery.Services,
+		ledger driver.Ledger,
+		vault delivery.Vault,
+		callback driver.BlockCallback,
+	) (generic.DeliveryService, error) {
+		channelConfig, err := channelConfigProvider.GetChannelConfig(nw.Name(), channel)
+		if err != nil {
+			return nil, err
+		}
+		return delivery.NewService(
+			channel,
+			channelConfig,
+			in.Hasher,
+			nw.Name(),
+			nw.LocalMembership(),
+			nw.ConfigService(),
+			peerManager,
+			ledger,
+			vault,
+			nw.TransactionManager(),
+			callback,
+			in.TracerProvider,
+			in.MetricsProvider,
+			[]common.HeaderType{common.HeaderType_ENDORSER_TRANSACTION},
+		)
+	}, func(channelName string) driver.MembershipService {
+		return membership.NewService(channelName)
+	}, true)
 }
 
 func NewEndorseTxStore(config driver2.ConfigService, drivers multiplexed.Driver) (driver.EndorseTxStore, error) {

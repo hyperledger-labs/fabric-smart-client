@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
@@ -74,7 +73,6 @@ type ChannelProvider interface {
 }
 
 type provider struct {
-	configProvider        config.Provider
 	envelopeKVS           driver.EnvelopeStore
 	metadataKVS           driver.MetadataStore
 	endorserTxKVS         driver.EndorseTxStore
@@ -91,7 +89,6 @@ type provider struct {
 }
 
 func NewChannelProvider(
-	configProvider config.Provider,
 	envelopeKVS driver.EnvelopeStore,
 	metadataKVS driver.MetadataStore,
 	endorserTxKVS driver.EndorseTxStore,
@@ -107,7 +104,6 @@ func NewChannelProvider(
 	useFilteredDelivery bool,
 ) *provider {
 	return &provider{
-		configProvider:        configProvider,
 		envelopeKVS:           envelopeKVS,
 		metadataKVS:           metadataKVS,
 		endorserTxKVS:         endorserTxKVS,

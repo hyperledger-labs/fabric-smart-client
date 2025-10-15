@@ -8,10 +8,8 @@ package sdk
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
-	e "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -129,7 +127,7 @@ func (p *SDK) PostStart(ctx context.Context) error {
 	}
 
 	if err := p.fnsProvider.Start(ctx); err != nil {
-		return e.Wrapf(err, "failed starting fabric network service provider")
+		return errors.Wrapf(err, "failed starting fabric network service provider")
 	}
 
 	go func() {
@@ -146,21 +144,13 @@ func registerProcessorsForDrivers(in struct {
 	dig.In
 	NetworkServiceProvider *fabric.NetworkServiceProvider
 }) error {
-	if len(in.NetworkServiceProvider.Names()) == 0 {
-		return errors.New("no fabric network names found")
-	}
-
-	_, err := in.NetworkServiceProvider.FabricNetworkService("")
-	if err != nil {
-		return fmt.Errorf("could not find default FNS: %w", err)
-	}
 	for _, name := range in.NetworkServiceProvider.Names() {
 		fns, err := in.NetworkServiceProvider.FabricNetworkService(name)
 		if err != nil {
-			return fmt.Errorf("could not find FNS [%s]: %w", name, err)
+			return errors.Wrapf(err, "failed to get fabric network [%s]", name)
 		}
 		if err := fns.ProcessorManager().SetDefaultProcessor(state.NewRWSetProcessor(fns)); err != nil {
-			return e.Wrapf(err, "failed setting state processor for fabric network [%s]", name)
+			return errors.Wrapf(err, "failed setting state processor for fabric network [%s]", name)
 		}
 	}
 	return nil
@@ -174,17 +164,17 @@ func registerRWSetLoaderHandlerProviders(in struct {
 	for _, network := range in.FSNProvider.Names() {
 		fsn, err := in.FSNProvider.FabricNetworkService(network)
 		if err != nil {
-			return e.Wrapf(err, "could not find network service for %s", network)
+			return errors.Wrapf(err, "could not find network service for %s", network)
 		}
 		for _, channelName := range fsn.ConfigService().ChannelIDs() {
 			ch, err := fsn.Channel(channelName)
 			if err != nil {
-				return e.Wrapf(err, "could not find channel %s for network %s", channelName, network)
+				return errors.Wrapf(err, "could not find channel %s for network %s", channelName, network)
 			}
 			loader := ch.RWSetLoader()
 			for _, handlerProvider := range in.HandlerProviders {
 				if err := loader.AddHandlerProvider(handlerProvider.Type, handlerProvider.New); err != nil {
-					return e.Wrapf(err, "failed to add handler to channel %s", channelName)
+					return errors.Wrapf(err, "failed to add handler to channel %s", channelName)
 				}
 			}
 		}

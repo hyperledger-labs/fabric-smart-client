@@ -69,7 +69,6 @@ func NewProvider(
 	return &Provider{
 		configProvider: configProvider,
 		channelProvider: fabricdev.NewChannelProvider(
-			configProvider,
 			envelopeKVS,
 			metadataKVS,
 			endorseTxKVS,
