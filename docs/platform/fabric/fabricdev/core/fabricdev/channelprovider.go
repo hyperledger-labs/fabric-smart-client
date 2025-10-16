@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
@@ -36,7 +35,6 @@ import (
 var logger = logging.MustGetLogger()
 
 type provider struct {
-	configProvider          config.Provider
 	envelopeKVS             driver.EnvelopeStore
 	metadataKVS             driver.MetadataStore
 	endorseTxKVS            driver.EndorseTxStore
@@ -53,7 +51,6 @@ type provider struct {
 }
 
 func NewChannelProvider(
-	configProvider config.Provider,
 	envelopeKVS driver.EnvelopeStore,
 	metadataKVS driver.MetadataStore,
 	endorseTxKVS driver.EndorseTxStore,
@@ -69,7 +66,6 @@ func NewChannelProvider(
 	acceptedHeaderTypes []common.HeaderType,
 ) *provider {
 	return &provider{
-		configProvider:          configProvider,
 		envelopeKVS:             envelopeKVS,
 		metadataKVS:             metadataKVS,
 		endorseTxKVS:            endorseTxKVS,

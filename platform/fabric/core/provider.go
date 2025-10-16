@@ -143,12 +143,7 @@ func (p *FSNProvider) InitFabricLogging() {
 }
 
 func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error) {
-	fnsConfig, err := NewConfig(p.configService)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to load configuration")
-	}
-
-	netConfig, err := fnsConfig.Config(network)
+	netConfig, err := p.config.Config(network)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to get configuration for [%s]", network)
 	}
