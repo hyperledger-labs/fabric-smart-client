@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
@@ -18,7 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger/fabric/integration/nwo"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
@@ -168,7 +168,7 @@ func (n *Network) PostRun(load bool) {
 	gomega.Eventually(func(g gomega.Gomega) {
 		// TODO: set the correct query service endpoint
 		cmd := &fxconfig.ListNamespaces{QueryServiceEndpoint: "127.0.0.1:7001"}
-		sess, err := n.StartSession(nwo.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
+		sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 
@@ -211,7 +211,7 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 			},
 		},
 	}
-	sess, err := n.StartSession(nwo.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
+	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 }
@@ -223,7 +223,7 @@ func (n *Network) UpdateNamespace(chaincodeID, version, path, packageFile string
 
 func (n *Network) ListInstalledNames() {
 	cmd := &fxconfig.ListNamespaces{QueryServiceEndpoint: "127.0.0.1:7001"}
-	sess, err := n.StartSession(nwo.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
+	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 }
