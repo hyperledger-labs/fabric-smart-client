@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"runtime/debug"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
@@ -82,7 +83,7 @@ func NewContextForInitiator(
 		return nil, errors.Errorf("a context should not be nil [%s]", string(debug.Stack()))
 	}
 	if len(contextID) == 0 {
-		contextID = GenerateUUID()
+		contextID = utils.GenerateUUID()
 	}
 	ctx, err := NewContext(
 		context,

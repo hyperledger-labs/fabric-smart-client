@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
@@ -106,7 +107,7 @@ func getSession(t *testing.T, wg *sync.WaitGroup, m Context) {
 }
 
 func getSessionByID(t *testing.T, wg *sync.WaitGroup, m Context) {
-	_, err := m.GetSessionByID(view2.GenerateUUID(), []byte("alice"))
+	_, err := m.GetSessionByID(utils.GenerateUUID(), []byte("alice"))
 	wg.Done()
 	assert.NoError(t, err)
 }

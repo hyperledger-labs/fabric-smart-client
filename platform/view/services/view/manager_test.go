@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
@@ -136,7 +137,7 @@ func TestRegisterResponderWithViewIdentifier(t *testing.T) {
 }
 
 func registerFactory(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	err := m.RegisterFactory(view2.GenerateUUID(), &DummyFactory{})
+	err := m.RegisterFactory(utils.GenerateUUID(), &DummyFactory{})
 	wg.Done()
 	assert.NoError(t, err)
 }
@@ -153,13 +154,13 @@ func callView(t *testing.T, wg *sync.WaitGroup, m Manager) {
 }
 
 func newView(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.NewView(view2.GenerateUUID(), nil)
+	_, err := m.NewView(utils.GenerateUUID(), nil)
 	wg.Done()
 	assert.Error(t, err)
 }
 
 func initiateView(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.Initiate(view2.GenerateUUID(), context.Background())
+	_, err := m.Initiate(utils.GenerateUUID(), context.Background())
 	wg.Done()
 	assert.Error(t, err)
 }
