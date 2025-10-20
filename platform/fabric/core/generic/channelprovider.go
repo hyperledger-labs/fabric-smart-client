@@ -11,7 +11,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
@@ -78,7 +77,6 @@ type provider struct {
 	envelopeKVS           driver.EnvelopeStore
 	metadataKVS           driver.MetadataStore
 	endorserTxKVS         driver.EndorseTxStore
-	hasher                hash.Hasher
 	newVault              VaultConstructor
 	drivers               multiplexed.Driver
 	channelConfigProvider driver.ChannelConfigProvider
@@ -95,7 +93,6 @@ func NewChannelProvider(
 	envelopeKVS driver.EnvelopeStore,
 	metadataKVS driver.MetadataStore,
 	endorserTxKVS driver.EndorseTxStore,
-	hasher hash.Hasher,
 	drivers multiplexed.Driver,
 	newVault VaultConstructor,
 	channelConfigProvider driver.ChannelConfigProvider,
@@ -111,7 +108,6 @@ func NewChannelProvider(
 		envelopeKVS:           envelopeKVS,
 		metadataKVS:           metadataKVS,
 		endorserTxKVS:         endorserTxKVS,
-		hasher:                hasher,
 		newVault:              newVault,
 		drivers:               drivers,
 		channelConfigProvider: channelConfigProvider,
@@ -152,7 +148,6 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		nw.ConfigService(),
 		peerService,
 		nw.LocalMembership().DefaultSigningIdentity(),
-		p.hasher,
 		channelConfig.FinalityWaitTimeout(),
 		p.useFilteredDelivery,
 	)

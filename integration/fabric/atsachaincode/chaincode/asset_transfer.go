@@ -221,9 +221,8 @@ func (s *SmartContract) VerifyAssetProperties(ctx contractapi.TransactionContext
 		return false, fmt.Errorf("asset private properties hash does not exist: %s", assetID)
 	}
 
-	hash := sha256.New()
-	hash.Write(immutablePropertiesJSON)
-	calculatedPropertiesHash := hash.Sum(nil)
+	h := sha256.Sum256(immutablePropertiesJSON)
+	calculatedPropertiesHash := h[:]
 
 	// verify that the hash of the passed immutable properties matches the on-chain hash
 	if !bytes.Equal(immutablePropertiesOnChainHash, calculatedPropertiesHash) {

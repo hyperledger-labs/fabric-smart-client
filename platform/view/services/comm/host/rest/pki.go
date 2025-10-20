@@ -8,10 +8,10 @@ package rest
 
 import (
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"crypto/x509"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/mr-tron/base58/base58"
 )
 
@@ -26,7 +26,8 @@ func (p PKIDSynthesizer) PublicKeyID(key any) []byte {
 		}
 		return id
 	case []byte:
-		return hash2.Hashable(d).Raw()
+		h := sha256.Sum256(d)
+		return h[:]
 	}
 	panic("unsupported key")
 }
@@ -37,9 +38,6 @@ func ecdsaPubKeyID(key *ecdsa.PublicKey) ([]byte, error) {
 		return nil, errors.Wrapf(err, "failed to marshal PK")
 	}
 
-	h, err := hash2.SHA256(marshaledPubKey)
-	if err != nil {
-		return nil, errors.Errorf("hash failure")
-	}
-	return []byte(base58.Encode(h)), nil
+	h := sha256.Sum256(marshaledPubKey)
+	return []byte(base58.Encode(h[:])), nil
 }

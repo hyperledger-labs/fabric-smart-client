@@ -57,17 +57,9 @@ func (e *Signer) Public() crypto.PublicKey {
 
 // Sign signs the digest and ensures that signatures use the Low S value.
 func (e *Signer) Sign(message []byte) ([]byte, error) {
-	hash := sha256.New()
-	n, err := hash.Write(message)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to write message to hash")
-	}
-	if n != len(message) {
-		return nil, errors.Errorf("hash failure")
-	}
-	digest := hash.Sum(nil)
+	digest := sha256.Sum256(message)
 
-	r, s, err := ecdsa.Sign(rand.Reader, e.PrivateKey, digest)
+	r, s, err := ecdsa.Sign(rand.Reader, e.PrivateKey, digest[:])
 	if err != nil {
 		return nil, err
 	}
@@ -105,17 +97,9 @@ func (d Verifier) Verify(message, sigma []byte) error {
 		return errors.Errorf("invalid s, must be smaller than half the order [%s][%s]", signature.S, GetCurveHalfOrdersAt(d.pk.Curve))
 	}
 
-	hash := sha256.New()
-	n, err := hash.Write(message)
-	if n != len(message) {
-		return errors.Errorf("hash failure")
-	}
-	if err != nil {
-		return err
-	}
-	digest := hash.Sum(nil)
+	digest := sha256.Sum256(message)
 
-	valid := ecdsa.Verify(d.pk, digest, signature.R, signature.S)
+	valid := ecdsa.Verify(d.pk, digest[:], signature.R, signature.S)
 	if !valid {
 		return errors.Errorf("signature not valid")
 	}

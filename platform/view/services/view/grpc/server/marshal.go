@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package server
 
 import (
+	"crypto/sha256"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -34,21 +35,15 @@ type SignerProvider interface {
 	GetSigner(identity view2.Identity) (sig.Signer, error)
 }
 
-type Hasher interface {
-	Hash(msg []byte) ([]byte, error)
-}
-
 // ResponseMarshaler produces SignedCommandResponse
 type ResponseMarshaler struct {
-	hasher           Hasher
 	identityProvider IdentityProvider
 	sigService       SignerProvider
 	time             TimeFunc
 }
 
-func NewResponseMarshaler(hasher Hasher, identityProvider IdentityProvider, sigService SignerProvider) (*ResponseMarshaler, error) {
+func NewResponseMarshaler(identityProvider IdentityProvider, sigService SignerProvider) (*ResponseMarshaler, error) {
 	return &ResponseMarshaler{
-		hasher:           hasher,
 		identityProvider: identityProvider,
 		sigService:       sigService,
 		time:             time.Now,
@@ -99,11 +94,8 @@ func (s *ResponseMarshaler) createSignedCommandResponse(cr *protos.CommandRespon
 }
 
 func (s *ResponseMarshaler) computeHash(data []byte) (hash []byte) {
-	hash, err := s.hasher.Hash(data)
-	if err != nil {
-		panic(errors.Errorf("failed computing hash on [% x]", data))
-	}
-	return
+	h := sha256.Sum256(data)
+	return h[:]
 }
 
 func commandResponseFromPayload(payload interface{}) (*protos.CommandResponse, error) {

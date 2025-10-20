@@ -9,13 +9,13 @@ package x509
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/pem"
 	"math/big"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 var (
@@ -50,10 +50,7 @@ func (d *EdsaVerifier) Verify(message, sigma []byte) error {
 		return err
 	}
 
-	digest, err := utils.SHA256(message)
-	if err != nil {
-		return err
-	}
+	digest := sha256.Sum256(message)
 
 	lowS, err := IsLowS(d.pk, signature.S)
 	if err != nil {
@@ -63,7 +60,7 @@ func (d *EdsaVerifier) Verify(message, sigma []byte) error {
 		return errors.New("signature is not in lowS")
 	}
 
-	valid := ecdsa.Verify(d.pk, digest, signature.R, signature.S)
+	valid := ecdsa.Verify(d.pk, digest[:], signature.R, signature.S)
 	if !valid {
 		return errors.Errorf("signature not valid")
 	}

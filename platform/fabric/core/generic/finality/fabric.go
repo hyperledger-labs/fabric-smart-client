@@ -24,17 +24,12 @@ type Services interface {
 	NewPeerClient(cc grpc.ConnectionConfig) (services.PeerClient, error)
 }
 
-type Hasher interface {
-	Hash(msg []byte) (hash []byte, err error)
-}
-
 type FabricFinality struct {
 	Logger                 logging.Logger
 	Channel                string
 	ConfigService          driver.ConfigService
 	Services               Services
 	DefaultSigningIdentity driver.SigningIdentity
-	Hasher                 Hasher
 	WaitForEventTimeout    time.Duration
 	useFiltered            bool
 }
@@ -45,7 +40,6 @@ func NewFabricFinality(
 	ConfigService driver.ConfigService,
 	peerService Services,
 	defaultSigningIdentity driver.SigningIdentity,
-	hasher Hasher,
 	waitForEventTimeout time.Duration,
 	useFiltered bool,
 ) (*FabricFinality, error) {
@@ -59,7 +53,6 @@ func NewFabricFinality(
 		ConfigService:          ConfigService,
 		Services:               peerService,
 		DefaultSigningIdentity: defaultSigningIdentity,
-		Hasher:                 hasher,
 		WaitForEventTimeout:    waitForEventTimeout,
 		useFiltered:            useFiltered,
 	}
@@ -100,7 +93,6 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 		d.Channel,
 		d.DefaultSigningIdentity,
 		deliverClient.Certificate(),
-		d.Hasher,
 		&ab.SeekPosition{
 			Type: &ab.SeekPosition_Newest{
 				Newest: &ab.SeekNewest{},

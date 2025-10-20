@@ -8,6 +8,7 @@ package kvs_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path"
@@ -16,7 +17,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
@@ -102,7 +102,8 @@ func testRound(t *testing.T, driver driver.Driver) {
 		S: "hello",
 		I: 100,
 	}
-	k, err := sanitizer.Encode(hash.Hashable("Hello World").RawString())
+	h := sha256.Sum256([]byte("Hello World"))
+	k, err := sanitizer.Encode(string(h[:]))
 	assert.NoError(t, err)
 	assert.NoError(t, kvstore.Put(context.Background(), k, val))
 	assert.True(t, kvstore.Exists(context.Background(), k))

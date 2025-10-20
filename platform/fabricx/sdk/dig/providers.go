@@ -11,7 +11,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	fcommitter "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
@@ -84,7 +83,6 @@ func NewChannelProvider(in struct {
 	LedgerProvider          ledger.Provider
 	Publisher               events.Publisher
 	BlockDispatcherProvider *ledger.BlockDispatcherProvider
-	Hasher                  hash.Hasher
 	TracerProvider          trace.TracerProvider
 	MetricsProvider         metrics.Provider
 	QueryServiceProvider    queryservice.Provider
@@ -104,7 +102,6 @@ func NewChannelProvider(in struct {
 		in.EnvelopeStore,
 		in.MetadataStore,
 		in.EndorseTxStore,
-		in.Hasher,
 		in.Drivers,
 		func(channelName string, configService fdriver.ConfigService, vaultStore driver.VaultStore) (*vault2.Vault, error) {
 			return vault.New(configService, vaultStore, channelName, in.QueryServiceProvider, in.MetricsProvider, in.TracerProvider)
@@ -148,7 +145,6 @@ func NewChannelProvider(in struct {
 			return delivery.NewService(
 				channel,
 				channelConfig,
-				in.Hasher,
 				nw.Name(),
 				nw.LocalMembership(),
 				nw.ConfigService(),

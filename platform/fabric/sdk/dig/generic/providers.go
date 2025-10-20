@@ -11,7 +11,6 @@ import (
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
@@ -90,7 +89,6 @@ func NewChannelProvider(in struct {
 	MetadataKVS     driver.MetadataStore
 	EndorseTxKVS    driver.EndorseTxStore
 	Publisher       events.Publisher
-	Hasher          hash.Hasher
 	TracerProvider  tracing.Provider
 	Drivers         multiplexed.Driver
 	MetricsProvider metrics.Provider
@@ -102,7 +100,6 @@ func NewChannelProvider(in struct {
 		in.EnvelopeKVS,
 		in.MetadataKVS,
 		in.EndorseTxKVS,
-		in.Hasher,
 		in.Drivers,
 		func(_ string, configService driver.ConfigService, vaultStore driver2.VaultStore) (*vault.Vault, error) {
 			cachedVault := vault2.NewCachedVault(vaultStore, configService.VaultTXStoreCacheSize())
@@ -192,7 +189,6 @@ func NewChannelProvider(in struct {
 			return delivery.NewService(
 				channel,
 				channelConfig,
-				in.Hasher,
 				nw.Name(),
 				nw.LocalMembership(),
 				nw.ConfigService(),

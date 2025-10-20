@@ -67,7 +67,6 @@ type Services interface {
 type Delivery struct {
 	channel             string
 	channelConfig       driver.ChannelConfig
-	hasher              Hasher
 	NetworkName         string
 	LocalMembership     driver.LocalMembership
 	ConfigService       driver.ConfigService
@@ -90,7 +89,6 @@ var (
 func New(
 	networkName string,
 	channelConfig driver.ChannelConfig,
-	hasher Hasher,
 	LocalMembership driver.LocalMembership,
 	ConfigService driver.ConfigService,
 	PeerManager Services,
@@ -110,7 +108,6 @@ func New(
 		NetworkName:         networkName,
 		channel:             channelConfig.ID(),
 		channelConfig:       channelConfig,
-		hasher:              hasher,
 		LocalMembership:     LocalMembership,
 		ConfigService:       ConfigService,
 		Services:            PeerManager,
@@ -326,7 +323,6 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 		d.channel,
 		d.LocalMembership.DefaultSigningIdentity(),
 		deliverClient.Certificate(),
-		d.hasher,
 		d.GetStartPosition(newCtx),
 	)
 	if err != nil {

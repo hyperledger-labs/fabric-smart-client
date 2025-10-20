@@ -18,7 +18,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config/viper"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
@@ -206,7 +205,7 @@ func (p *Provider) loadFromRaw(raw []byte) error {
 
 	// read configuration
 	if err := p.Backend.ReadConfig(bytes.NewReader(raw)); err != nil {
-		return errors.Wrapf(err, "failed to read configuration from raw [%s]", hash.Hashable(raw))
+		return errors.Wrapf(err, "failed to read configuration from raw [%s]", logging.SHA256Base64(raw))
 	}
 	// post process
 	if err := p.substituteEnv(); err != nil {

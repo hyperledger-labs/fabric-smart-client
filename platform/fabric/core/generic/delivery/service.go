@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
@@ -25,7 +24,6 @@ type ValidationFlags []uint8
 type Service struct {
 	channel             string
 	channelConfig       driver.ChannelConfig
-	hasher              hash.Hasher
 	NetworkName         string
 	LocalMembership     driver.LocalMembership
 	ConfigService       driver.ConfigService
@@ -42,7 +40,6 @@ type Service struct {
 func NewService(
 	channel string,
 	channelConfig driver.ChannelConfig,
-	hasher hash.Hasher,
 	networkName string,
 	localMembership driver.LocalMembership,
 	configService driver.ConfigService,
@@ -58,7 +55,6 @@ func NewService(
 	deliveryService, err := New(
 		networkName,
 		channelConfig,
-		hasher,
 		localMembership,
 		configService,
 		peerManager,
@@ -77,7 +73,6 @@ func NewService(
 	return &Service{
 		channel:             channel,
 		channelConfig:       channelConfig,
-		hasher:              hasher,
 		NetworkName:         networkName,
 		LocalMembership:     localMembership,
 		ConfigService:       configService,
@@ -105,7 +100,6 @@ func (c *Service) scanBlock(ctx context.Context, vault Vault, callback driver.Bl
 	deliveryService, err := New(
 		c.NetworkName,
 		c.channelConfig,
-		c.hasher,
 		c.LocalMembership,
 		c.ConfigService,
 		c.PeerManager,

@@ -13,7 +13,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -103,7 +102,7 @@ func (j *jsonSession) ReceiveRawWithTimeout(d time.Duration) ([]byte, error) {
 		logger.ErrorfContext(j.context, "context done: %w", j.context.Err())
 		return nil, errors.Errorf("context done [%s]", j.context.Err())
 	}
-	logger.DebugfContext(j.context, "json session, received message [%s]", hash.Hashable(raw))
+	logger.DebugfContext(j.context, "json session, received message [%s]", logging.SHA256Base64(raw))
 	return raw, nil
 }
 
@@ -116,12 +115,12 @@ func (j *jsonSession) SendWithContext(ctx context.Context, state interface{}) er
 	if err != nil {
 		return err
 	}
-	logger.DebugfContext(ctx, "json session, send message [%s]", hash.Hashable(v).String())
+	logger.DebugfContext(ctx, "json session, send message [%s]", logging.SHA256Base64(v))
 	return j.s.SendWithContext(ctx, v)
 }
 
 func (j *jsonSession) SendRaw(ctx context.Context, raw []byte) error {
-	logger.DebugfContext(ctx, "json session, send raw message [%s]", hash.Hashable(raw).String())
+	logger.DebugfContext(ctx, "json session, send raw message [%s]", logging.SHA256Base64(raw))
 	return j.s.SendWithContext(ctx, raw)
 }
 

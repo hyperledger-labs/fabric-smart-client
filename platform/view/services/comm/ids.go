@@ -12,7 +12,6 @@ import (
 )
 
 func computeInternalSessionID(topic string, pkid []byte) string {
-	hasher := sha256.New()
-	hasher.Write(pkid)
-	return topic + "." + hex.EncodeToString(hasher.Sum(nil))
+	h := sha256.Sum256(pkid)
+	return topic + "." + hex.EncodeToString(h[:])
 }

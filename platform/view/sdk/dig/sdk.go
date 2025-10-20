@@ -15,7 +15,6 @@ import (
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	endpoint2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig/support/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
@@ -83,9 +82,6 @@ func NewSDKFrom(baseSDK dig2.SDK, registry services.Registry) *SDK {
 
 func (p *SDK) Install() error {
 	err := errors.Join(
-		// Hasher
-		p.Container().Provide(hash.NewSHA256Provider, dig.As(new(hash.Hasher), new(server2.Hasher))),
-
 		// Events
 		p.Container().Provide(simple.NewEventBus, dig.As(new(events.EventSystem), new(events.Publisher), new(events.Subscriber))),
 		p.Container().Provide(func(system events.EventSystem) *events.Service { return &events.Service{EventSystem: system} }),
