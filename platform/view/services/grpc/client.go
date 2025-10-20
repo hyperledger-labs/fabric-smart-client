@@ -8,6 +8,7 @@ package grpc
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"os"
@@ -38,22 +39,14 @@ func CertPoolOverride(pool *x509.CertPool) TLSOption {
 	}
 }
 
-// Hasher is the interface provides the hash function should be used for all token components.
-type Hasher interface {
-	Hash(msg []byte) (hash []byte, err error)
-}
-
 // GetTLSCertHash computes SHA2-256 on tls certificate
-func GetTLSCertHash(cert *tls.Certificate, hasher Hasher) ([]byte, error) {
+func GetTLSCertHash(cert *tls.Certificate) ([]byte, error) {
 	if cert == nil || len(cert.Certificate) == 0 {
 		return nil, nil
 	}
 
-	tlsCertHash, err := hasher.Hash(cert.Certificate[0])
-	if err != nil {
-		return nil, errors.WithMessage(err, "failed to compute SHA256 on client certificate")
-	}
-	return tlsCertHash, nil
+	tlsCertHash := sha256.Sum256(cert.Certificate[0])
+	return tlsCertHash[:], nil
 }
 
 // Client models a GRPC client

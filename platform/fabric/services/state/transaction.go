@@ -7,11 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
-	"encoding/base64"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -169,10 +168,10 @@ func NewSendTransactionView(tx *Transaction, parties ...view.Identity) *sendTran
 
 func (f *sendTransactionView) Call(context view.Context) (interface{}, error) {
 	for _, party := range f.parties {
-		logger.Debugf("Send transaction to [%s]", base64.StdEncoding.EncodeToString(hash.SHA256OrPanic(party)))
+		logger.Debugf("Send transaction to [%s]", logging.SHA256Base64(party))
 
 		if context.IsMe(party) {
-			logger.Debugf("This is me %s, do not send.", base64.StdEncoding.EncodeToString(party))
+			logger.Debugf("This is me %s, do not send.", logging.Base64(party))
 			continue
 		}
 

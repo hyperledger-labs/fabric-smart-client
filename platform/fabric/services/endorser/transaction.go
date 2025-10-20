@@ -8,9 +8,9 @@ package endorser
 
 import (
 	"bytes"
+	"crypto/sha256"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -82,7 +82,8 @@ func (t *Transaction) Hash() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return hash.SHA256(raw)
+	h := sha256.Sum256(raw)
+	return h[:], nil
 }
 
 func (t *Transaction) SetFromBytes(raw []byte) error {

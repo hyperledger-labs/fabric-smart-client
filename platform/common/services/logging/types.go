@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package logging
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"reflect"
@@ -15,7 +16,6 @@ import (
 	"unicode"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 )
 
 const (
@@ -31,6 +31,18 @@ type keys[K comparable, V any] map[K]V
 
 func (k keys[K, V]) String() string {
 	return fmt.Sprintf(strings.Join(collections.Repeat("%v", len(k)), ", "), collections.Keys(k))
+}
+
+// SHA256Base64 logs lazily a byte slice as sha265 hash in base64 format
+func SHA256Base64(b []byte) sha256Base64Enc {
+	h := sha256.Sum256(b)
+	return h[:]
+}
+
+type sha256Base64Enc []byte
+
+func (b sha256Base64Enc) String() string {
+	return Base64(b).String()
 }
 
 // Base64 logs lazily a byte array in base64 format
@@ -87,7 +99,7 @@ func (w prefix) String() string {
 	if len(res) <= 20 {
 		return res
 	}
-	return fmt.Sprintf("%s~%s", res[:20], hash.Hashable(res).String())
+	return fmt.Sprintf("%s~%s", res[:20], SHA256Base64([]byte(res)))
 }
 
 type printable string

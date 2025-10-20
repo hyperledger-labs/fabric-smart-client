@@ -7,9 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package endpoint
 
 import (
+	"crypto/sha256"
 	"crypto/x509"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 )
 
 type DefaultPublicKeyIDSynthesizer struct{}
@@ -19,5 +18,6 @@ func (d DefaultPublicKeyIDSynthesizer) PublicKeyID(key any) []byte {
 	if err != nil {
 		return nil
 	}
-	return hash.Hashable(raw).Raw()
+	h := sha256.Sum256(raw)
+	return h[:]
 }

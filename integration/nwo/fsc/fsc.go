@@ -33,7 +33,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
@@ -264,7 +263,6 @@ func (p *Platform) PostRun(bool) {
 				ConnectionConfig: p.Context.ConnectionConfig(node.UniqueName),
 			},
 			p.Context.ClientSigningIdentity(node.Name),
-			hash.NewSHA256Provider(),
 			tracerProvider,
 		)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())

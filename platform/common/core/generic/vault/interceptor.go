@@ -12,7 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 type VersionedQueryExecutor interface {
@@ -200,7 +200,7 @@ func (i *Interceptor[V]) SetState(namespace string, key string, value []byte) er
 	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
-	i.logger.Debugf("SetState [%s,%s,%s]", namespace, key, hash.Hashable(value).String())
+	i.logger.Debugf("SetState [%s,%s,%s]", namespace, key, logging.SHA256Base64(value))
 
 	return i.rws.WriteSet.Add(namespace, key, value)
 }

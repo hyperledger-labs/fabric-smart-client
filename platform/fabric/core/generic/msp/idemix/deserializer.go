@@ -14,7 +14,7 @@ import (
 	math "github.com/IBM/mathlib"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -121,5 +121,5 @@ func (i *Deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
 }
 
 func (i *Deserializer) String() string {
-	return fmt.Sprintf("Idemix with IPK [%s]", hash.Hashable(i.Ipk).String())
+	return fmt.Sprintf("Idemix with IPK [%s]", logging.SHA256Base64(i.Ipk))
 }

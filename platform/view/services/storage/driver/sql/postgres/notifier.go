@@ -8,7 +8,9 @@ package postgres
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/binary"
 	"fmt"
 	"strconv"
 	"strings"
@@ -16,7 +18,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
@@ -142,7 +143,7 @@ func (db *Notifier) GetSchema() string {
 		primaryKeys[i] = key.name
 	}
 	funcName := triggerFuncName(primaryKeys)
-	lock := utils.MustGet(utils.HashInt64([]byte(funcName)))
+	lock := createLockTag(funcName)
 	return fmt.Sprintf(`
 	SELECT pg_advisory_xact_lock(%d);
 	CREATE OR REPLACE FUNCTION %s() RETURNS TRIGGER AS $$
@@ -211,4 +212,9 @@ func concatenateIDs(keys []string) string {
 		fields[i] = fmt.Sprintf("row.%s", key)
 	}
 	return strings.Join(fields, fmt.Sprintf(" || '%s' || ", keySeparator))
+}
+
+func createLockTag(m string) uint64 {
+	h := sha256.Sum256([]byte(m))
+	return binary.BigEndian.Uint64(h[:])
 }

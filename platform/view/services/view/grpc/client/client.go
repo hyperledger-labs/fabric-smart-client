@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	hash2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
@@ -78,11 +77,10 @@ type client struct {
 	RandomnessReader  io.Reader
 	Time              TimeFunc
 	SigningIdentity   SigningIdentity
-	hasher            hash2.Hasher
 	tracer            trace.Tracer
 }
 
-func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher, tracerProvider tracing.Provider) (*client, error) {
+func NewClient(config *Config, sID SigningIdentity, tracerProvider tracing.Provider) (*client, error) {
 	// create a grpc client for view peer
 	grpcClient, err := grpc2.CreateGRPCClient(config.ConnectionConfig)
 	if err != nil {
@@ -99,7 +97,6 @@ func NewClient(config *Config, sID SigningIdentity, hasher hash2.Hasher, tracerP
 			GRPCClient:         grpcClient,
 		},
 		SigningIdentity: sID,
-		hasher:          hasher,
 		tracer:          tracerProvider.Tracer("client", tracing.WithMetricsOpts(tracing.MetricsOpts{})),
 	}, nil
 }
@@ -176,7 +173,7 @@ func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 		return nil, errors.Wrap(err, "failed view client process command")
 	}
 
-	logger.Debugf("parse answer [%s]", hash2.Hashable(scr.Response))
+	logger.Debugf("parse answer [%s]", logging.SHA256Base64(scr.Response))
 	commandResp := &protos2.CommandResponse{}
 	err = proto.Unmarshal(scr.Response, commandResp)
 	if err != nil {
@@ -241,7 +238,7 @@ func (s *client) CreateSignedCommand(payload interface{}, signingIdentity Signin
 	}
 
 	// check for client certificate and compute SHA2-256 on certificate if present
-	tlsCertHash, err := grpc2.GetTLSCertHash(s.ViewServiceClient.Certificate(), s.hasher)
+	tlsCertHash, err := grpc2.GetTLSCertHash(s.ViewServiceClient.Certificate())
 	if err != nil {
 		return nil, err
 	}

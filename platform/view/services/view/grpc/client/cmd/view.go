@@ -7,10 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"hash"
 	"io"
 	"os"
 	"path"
@@ -42,18 +40,6 @@ var (
 	userKey    string
 	userCert   string
 )
-
-type hasher struct{}
-
-func (*hasher) GetHash() hash.Hash {
-	return sha256.New()
-}
-
-func (*hasher) Hash(msg []byte) ([]byte, error) {
-	h := sha256.New()
-	h.Write(msg)
-	return h.Sum(nil), nil
-}
 
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -180,7 +166,6 @@ func invoke() error {
 			ConnectionConfig: cc,
 		},
 		signer,
-		&hasher{},
 		tracerProvider,
 	)
 	if err != nil {

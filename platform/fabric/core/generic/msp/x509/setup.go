@@ -7,7 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package x509
 
 import (
+	"crypto/sha256"
 	x5092 "crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
 	"os"
@@ -15,7 +17,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509/pkcs11"
@@ -226,7 +227,8 @@ func GetRevocationHandle(id []byte) ([]byte, error) {
 		if err != nil {
 			return nil, errors.WithMessage(err, "Failed to marshal PKI public key")
 		}
-		return []byte(hash.Hashable(encoded).String()), nil
+		h := sha256.Sum256(encoded)
+		return []byte(base64.StdEncoding.EncodeToString(h[:])), nil
 	default:
 		return nil, errors.Errorf("bad block type %s, expected CERTIFICATE", block.Type)
 	}

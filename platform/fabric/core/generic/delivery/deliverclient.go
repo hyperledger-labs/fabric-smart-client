@@ -26,10 +26,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type Hasher interface {
-	Hash(msg []byte) (hash []byte, err error)
-}
-
 // TxEvent contains information for token transaction commit
 type TxEvent struct {
 	TxID         string
@@ -116,7 +112,7 @@ func (d *deliverClient) Certificate() *tls.Certificate {
 }
 
 // CreateDeliverEnvelope creates a signed envelope with SeekPosition_Newest for block
-func CreateDeliverEnvelope(channelID string, signingIdentity driver.SigningIdentity, cert *tls.Certificate, hasher Hasher, start *ab.SeekPosition) (*common.Envelope, error) {
+func CreateDeliverEnvelope(channelID string, signingIdentity driver.SigningIdentity, cert *tls.Certificate, start *ab.SeekPosition) (*common.Envelope, error) {
 	logger.Debugf("create delivery envelope starting from: [%s]", start)
 	creator, err := signingIdentity.Serialize()
 	if err != nil {
@@ -124,7 +120,7 @@ func CreateDeliverEnvelope(channelID string, signingIdentity driver.SigningIdent
 	}
 
 	// check for client certificate and compute SHA2-256 on certificate if present
-	tlsCertHash, err := grpc2.GetTLSCertHash(cert, hasher)
+	tlsCertHash, err := grpc2.GetTLSCertHash(cert)
 	if err != nil {
 		return nil, err
 	}

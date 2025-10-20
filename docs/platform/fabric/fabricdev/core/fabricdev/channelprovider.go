@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/chaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
@@ -41,7 +40,6 @@ type provider struct {
 	metadataKVS             driver.MetadataStore
 	endorseTxKVS            driver.EndorseTxStore
 	publisher               events.Publisher
-	hasher                  hash.Hasher
 	newVault                generic.VaultConstructor
 	tracerProvider          tracing.Provider
 	metricsProvider         metrics.Provider
@@ -58,7 +56,6 @@ func NewChannelProvider(
 	metadataKVS driver.MetadataStore,
 	endorseTxKVS driver.EndorseTxStore,
 	publisher events.Publisher,
-	hasher hash.Hasher,
 	tracerProvider tracing.Provider,
 	metricsProvider metrics.Provider,
 	drivers multiplexed.Driver,
@@ -74,7 +71,6 @@ func NewChannelProvider(
 		metadataKVS:             metadataKVS,
 		endorseTxKVS:            endorseTxKVS,
 		publisher:               publisher,
-		hasher:                  hasher,
 		newVault:                newVault,
 		tracerProvider:          tracerProvider,
 		metricsProvider:         metricsProvider,
@@ -120,7 +116,6 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		nw.ConfigService(),
 		peerService,
 		nw.LocalMembership().DefaultSigningIdentity(),
-		p.hasher,
 		channelConfig.FinalityWaitTimeout(),
 		true,
 	)
@@ -180,7 +175,6 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	deliveryService, err := delivery.NewService(
 		channelName,
 		channelConfig,
-		p.hasher,
 		nw.Name(),
 		nw.LocalMembership(),
 		nw.ConfigService(),

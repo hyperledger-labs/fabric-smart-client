@@ -8,9 +8,9 @@ package libp2p
 
 import (
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"crypto/x509"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
@@ -34,7 +34,8 @@ func (p PKIDSynthesizer) PublicKeyID(key any) []byte {
 		}
 		return []byte(ID.String())
 	case []byte:
-		return hash.Hashable(d).Raw()
+		h := sha256.Sum256(d)
+		return h[:]
 	}
 	panic("unsupported key")
 }

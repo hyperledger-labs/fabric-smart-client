@@ -8,7 +8,6 @@ package fabricdev
 
 import (
 	fdevdriver "github.com/hyperledger-labs/fabric-smart-client/docs/platform/fabric/fabricdev/core/fabricdev/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
@@ -37,7 +36,6 @@ func NewDriver(in struct {
 	IdProvider          identity.ViewIdentityProvider
 	KVS                 *kvs.KVS
 	Publisher           events.Publisher
-	Hasher              hash.Hasher
 	TracerProvider      tracing.Provider
 	Drivers             multiplexed.Driver
 }) core.NamedDriver {
@@ -55,7 +53,6 @@ func NewDriver(in struct {
 			in.IdProvider,
 			in.KVS,
 			in.Publisher,
-			in.Hasher,
 			in.TracerProvider,
 			in.Drivers,
 		),

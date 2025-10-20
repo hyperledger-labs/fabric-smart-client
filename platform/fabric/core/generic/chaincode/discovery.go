@@ -8,6 +8,7 @@ package chaincode
 
 import (
 	"context"
+	"crypto/sha256"
 	"strings"
 	"sync"
 	"time"
@@ -19,7 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	discovery2 "github.com/hyperledger/fabric-protos-go-apiv2/discovery"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"github.com/hyperledger/fabric/common/util"
 	discovery "github.com/hyperledger/fabric/discovery/client"
 )
 
@@ -239,7 +239,8 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 	}
 	var ClientTLSCertHash []byte
 	if len(pc.Certificate().Certificate) != 0 {
-		ClientTLSCertHash = util.ComputeSHA256(pc.Certificate().Certificate[0])
+		h := sha256.Sum256(pc.Certificate().Certificate[0])
+		ClientTLSCertHash = h[:]
 	}
 	req.Authentication = &discovery2.AuthInfo{
 		ClientIdentity:    signerRaw,

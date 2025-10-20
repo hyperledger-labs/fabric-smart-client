@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
 	"go.uber.org/zap"
 )
@@ -173,7 +173,7 @@ func (m *Marshaller) RWSetFromBytes(raw []byte, namespaces ...string) (*vault.Re
 func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespaces ...string) error {
 	var txIn protoblocktx.Tx
 	if err := proto.Unmarshal(raw, &txIn); err != nil {
-		return errors.Wrapf(err, "failed unmarshalling tx from (%d)[%s]", len(raw), hash.Hashable(raw))
+		return errors.Wrapf(err, "failed unmarshalling tx from (%d)[%s]", len(raw), logging.SHA256Base64(raw))
 	}
 
 	if logger.IsEnabledFor(zap.DebugLevel) {

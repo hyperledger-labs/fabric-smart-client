@@ -15,7 +15,6 @@ import (
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/hash"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
@@ -62,7 +61,6 @@ func NewProvider(
 	idProvider identity.ViewIdentityProvider,
 	kvss *kvs.KVS,
 	publisher events.Publisher,
-	hasher hash.Hasher,
 	tracerProvider tracing.Provider,
 	Drivers multiplexed.Driver,
 ) *Provider {
@@ -74,7 +72,6 @@ func NewProvider(
 			metadataKVS,
 			endorseTxKVS,
 			publisher,
-			hasher,
 			tracerProvider,
 			metricsProvider,
 			Drivers,
