@@ -15,6 +15,7 @@ import (
 	"os"
 	"time"
 
+	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -147,9 +148,9 @@ func (s *Server) initializeServer() {
 
 func (s *Server) HandlerChain(h http.Handler, secure bool) http.Handler {
 	if secure {
-		return middleware2.NewChain(middleware2.RequireCert(), middleware2.WithRequestID(GenerateUUID)).Handler(h)
+		return middleware2.NewChain(middleware2.RequireCert(), middleware2.WithRequestID(utils2.GenerateUUID)).Handler(h)
 	}
-	return middleware2.NewChain(middleware2.WithRequestID(GenerateUUID)).Handler(h)
+	return middleware2.NewChain(middleware2.WithRequestID(utils2.GenerateUUID)).Handler(h)
 }
 
 // RegisterHandler registers into the ServeMux a handler chain that borrows
