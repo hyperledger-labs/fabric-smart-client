@@ -11,7 +11,6 @@ import (
 	"errors"
 
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
@@ -20,8 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"go.uber.org/dig"
 )
-
-var logger = logging.MustGetLogger()
 
 // SDK extends the fabric SDK with fabricX.
 type SDK struct {
@@ -52,14 +49,6 @@ func (p *SDK) Install() error {
 		p.Container().Provide(ledger.NewBlockDispatcherProvider),
 		p.Container().Provide(finality.NewListenerManagerProvider),
 		p.Container().Provide(queryservice.NewProvider, dig.As(new(queryservice.Provider))),
-	)
-	if err != nil {
-		return err
-	}
-
-	err = errors.Join(
-		p.Container().Decorate(NewConfigProvider),
-		p.Container().Decorate(NewHostProvider),
 	)
 	if err != nil {
 		return err
