@@ -1,3 +1,9 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package finality
 
 import (
@@ -9,7 +15,7 @@ const DefaultRequestTimeout = 30 * time.Second
 
 type Config struct {
 	Endpoints      []Endpoint    `yaml:"endpoints,omitempty"`
-	RequestTimeout time.Duration `yaml:"queryTimeout,omitempty"`
+	RequestTimeout time.Duration `yaml:"requestTimeout,omitempty"`
 }
 
 type Endpoint struct {
@@ -29,7 +35,7 @@ func NewConfig(configService ConfigService) (*Config, error) {
 		RequestTimeout: DefaultRequestTimeout,
 	}
 
-	err := configService.UnmarshalKey("notify", &config)
+	err := configService.UnmarshalKey("notificationService", &config)
 	if err != nil {
 		return config, fmt.Errorf("cannot get notify service config: %w", err)
 	}

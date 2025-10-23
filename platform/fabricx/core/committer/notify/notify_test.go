@@ -1,3 +1,9 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package notify
 
 import (
@@ -42,7 +48,7 @@ func TestNotificationService(t *testing.T) {
 				notifyStream, err := nf.OpenNotificationStream(t.Context())
 				require.NoError(t, err)
 
-				txIDs := make([]string, 1)
+				txIDs := []string{"1"}
 				err = notifyStream.Send(&protonotify.NotificationRequest{
 					TxStatusRequest: &protonotify.TxStatusRequest{
 						TxIds: txIDs,
@@ -69,6 +75,7 @@ func TestNotificationService(t *testing.T) {
 			t.Parallel()
 			cs := newConfigService(tc.cfg)
 			c, err := queryservice.NewConfig(cs)
+			require.NoError(t, err)
 			client, err := queryservice.GrpcClient(c)
 			require.NoError(t, err)
 			tc.checks(t, client, err)

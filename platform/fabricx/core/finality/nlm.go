@@ -1,3 +1,9 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package finality
 
 import (
@@ -9,6 +15,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
 	"github.com/hyperledger/fabric-x-committer/api/protonotify"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -25,82 +33,102 @@ type notificationListenerManager struct {
 	lock     sync.RWMutex
 }
 
-func (n *notificationListenerManager) Listen(ctx context.Context) error {
-	g, gCtx := errgroup.WithContext(ctx)
+func (n *notificationListenerManager) Listen(_ context.Context) error {
+	g, gCtx := errgroup.WithContext(n.notifyStream.Context())
 
+	// spawn stream receiver
 	g.Go(func() error {
-		var resp *protonotify.NotificationResponse
-
-		select {
-		case <-gCtx.Done():
-		case resp = <-n.responseQueue:
-		}
-
-		// TODO:
-		_ = resp.GetTimeoutTxIds()
-
-		for _, r := range resp.TxStatusEvents {
-			txID := r.GetTxId()
-			//status := r.GetStatusWithHeight().GetCode()
-
-			n.lock.Lock()
-			handlers, ok := n.handlers[txID]
-			if !ok {
-				// nobody registered
-				n.lock.Unlock()
-				continue
-			}
-			// delete
-			delete(n.handlers, txID)
-			n.lock.Unlock()
-
-			// now it is time to call the handlers
-			logger.Warnf("calling handlers for txID=%v", txID)
-			for _, h := range handlers {
-				// TODO fix status
-				h.OnStatus(gCtx, txID, 1, "TODO")
-			}
-		}
-		return nil
-	})
-
-	return g.Wait()
-}
-
-func (n *notificationListenerManager) OpenNotificationStream(stream protonotify.Notifier_OpenNotificationStreamClient) error {
-	g, gCtx := errgroup.WithContext(stream.Context())
-
-	g.Go(func() error {
-		for gCtx.Err() == nil {
-			res, err := stream.Recv()
+		for {
+			res, err := n.notifyStream.Recv()
 			if err != nil {
 				return err
 			}
+
 			select {
 			case <-gCtx.Done():
 				return gCtx.Err()
 			case n.responseQueue <- res:
 			}
 		}
-		return gCtx.Err()
 	})
 
+	// spawn stream sender
 	g.Go(func() error {
-		for gCtx.Err() == nil {
-			var req *protonotify.NotificationRequest
+		var req *protonotify.NotificationRequest
+		for {
 			select {
 			case <-gCtx.Done():
+				return gCtx.Err()
 			case req = <-n.requestQueue:
 			}
 
-			if err := stream.Send(req); err != nil {
+			if err := n.notifyStream.Send(req); err != nil {
 				return err
 			}
 		}
-		return gCtx.Err()
+	})
+
+	// spawn notification dispatcher
+	g.Go(func() error {
+		var resp *protonotify.NotificationResponse
+		for {
+			select {
+			case <-gCtx.Done():
+				return gCtx.Err()
+			case resp = <-n.responseQueue:
+			}
+
+			res := parseResponse(resp)
+
+			n.lock.Lock()
+			for txID, v := range res {
+				handlers, ok := n.handlers[txID]
+				if !ok {
+					// nobody registered
+					continue
+				}
+				// delete
+				delete(n.handlers, txID)
+
+				// now it is time to call the handlers
+				for _, h := range handlers {
+					h.OnStatus(gCtx, txID, v, "")
+				}
+			}
+			n.lock.Unlock()
+		}
 	})
 
 	return g.Wait()
+}
+
+func parseResponse(resp *protonotify.NotificationResponse) map[string]int {
+	res := make(map[string]int)
+
+	// first parse all timeouts
+	for _, txID := range resp.GetTimeoutTxIds() {
+		res[txID] = fdriver.Unknown
+	}
+
+	var s int
+	// next we parse the status events
+	for _, r := range resp.GetTxStatusEvents() {
+		txID := r.GetTxId()
+		status := r.GetStatusWithHeight()
+
+		switch status.GetCode() {
+		case protoblocktx.Status_COMMITTED:
+			s = fdriver.Valid
+		case protoblocktx.Status_NOT_VALIDATED:
+			s = fdriver.Unknown
+		default:
+			s = fdriver.Invalid
+		}
+
+		res[txID] = s
+	}
+
+	return res
 }
 
 func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, listener fabric.FinalityListener) error {
@@ -116,12 +144,9 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 
 	if len(handlers) > 1 {
 		logger.Warnf("callback for txID=%v already exists", txID)
-
 		// there is someone already requested a notification for this txID
 		return nil
 	}
-
-	logger.Warnf("register new callback for txID=%v", txID)
 
 	// this is our first listener registered for the given txID
 	txIDs := []string{txID}
@@ -129,7 +154,8 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 		TxStatusRequest: &protonotify.TxStatusRequest{
 			TxIds: txIDs,
 		},
-		Timeout: durationpb.New(3 * time.Minute),
+		// TODO: set a proper timeout
+		Timeout: durationpb.New(10 * time.Second),
 	}
 
 	return nil

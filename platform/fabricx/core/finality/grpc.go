@@ -23,7 +23,7 @@ var ErrInvalidAddress = fmt.Errorf("empty address")
 func GrpcClient(c *Config) (*grpc.ClientConn, error) {
 	// no endpoints in config
 	if len(c.Endpoints) != 1 {
-		return nil, fmt.Errorf("we need a single query service endpoint")
+		return nil, fmt.Errorf("we need a single endpoint")
 	}
 
 	// currently we only support connections to a single query service

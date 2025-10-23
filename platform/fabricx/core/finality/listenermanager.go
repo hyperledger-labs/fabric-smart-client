@@ -20,12 +20,12 @@ import (
 
 type ListenerManager interface {
 	AddFinalityListener(txID driver.TxID, listener fabric.FinalityListener) error
-
 	RemoveFinalityListener(txID driver.TxID, listener fabric.FinalityListener) error
+	Listen(ctx context.Context) error
 }
 
 type ListenerManagerProvider interface {
-	NewManager(network, channel string) (ListenerManager, error)
+	NewManager(ctx context.Context, network, channel string) (ListenerManager, error)
 }
 
 func NewListenerManagerProvider(fnsp *fabric.NetworkServiceProvider, configProvider config.Provider) ListenerManagerProvider {
@@ -40,27 +40,21 @@ type listenerManagerProvider struct {
 	configProvider config.Provider
 }
 
-func (p *listenerManagerProvider) NewManager(network, channel string) (ListenerManager, error) {
+func (p *listenerManagerProvider) NewManager(ctx context.Context, network, channel string) (ListenerManager, error) {
 	nw, err := p.fnsp.FabricNetworkService(network)
 	if err != nil {
 		return nil, err
 	}
-
-	//ch, err := nw.Channel(channel)
-	//if err != nil {
-	//	return nil, err
-	//}
 
 	cfg, err := p.configProvider.GetConfig(nw.Name())
 	if err != nil {
 		return nil, err
 	}
 
-	return newNotifi(cfg)
+	return newNotifi(ctx, cfg)
 }
 
-func newNotifi(cfg config.ConfigService) (*notificationListenerManager, error) {
-
+func newNotifi(ctx context.Context, cfg config.ConfigService) (*notificationListenerManager, error) {
 	c, err := NewConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -72,22 +66,25 @@ func newNotifi(cfg config.ConfigService) (*notificationListenerManager, error) {
 	}
 
 	notifyClient := protonotify.NewNotifierClient(cc)
-	notifyStream, err := notifyClient.OpenNotificationStream(context.TODO())
+	notifyStream, err := notifyClient.OpenNotificationStream(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &notificationListenerManager{
+
+	nlm := &notificationListenerManager{
 		notifyStream:  notifyStream,
 		requestQueue:  make(chan *protonotify.NotificationRequest, 1),
 		responseQueue: make(chan *protonotify.NotificationResponse, 1),
 		handlers:      make(map[string][]fabric.FinalityListener),
-	}, nil
+	}
+
+	return nlm, nil
 }
 
-func GetListenerManager(sp services.Provider, network, channel string) (ListenerManager, error) {
+func GetListenerManager(ctx context.Context, sp services.Provider, network, channel string) (ListenerManager, error) {
 	lmp, err := sp.GetService(reflect.TypeOf((*ListenerManagerProvider)(nil)))
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find provider")
 	}
-	return lmp.(ListenerManagerProvider).NewManager(network, channel)
+	return lmp.(ListenerManagerProvider).NewManager(ctx, network, channel)
 }
