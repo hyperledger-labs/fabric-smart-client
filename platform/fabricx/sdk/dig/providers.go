@@ -8,7 +8,6 @@ package sdk
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -30,22 +29,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/websocket"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-committer/api/types"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
-	"go.uber.org/zap"
 )
 
 type P2PCommunicationType = string
@@ -220,76 +210,4 @@ func NewCommitter(nw fdriver.FabricNetworkService, channelConfig fdriver.Channel
 	// register fabricx transaction handler
 	committer2.RegisterTransactionHandler(c)
 	return c, nil
-}
-
-func NewConfigProvider(p config.Provider) config.Provider {
-	return &configProvider{Provider: p}
-}
-
-type configProvider struct {
-	config.Provider
-}
-
-func (p *configProvider) GetConfig(network string) (config.ConfigService, error) {
-	c, err := p.Provider.GetConfig(network)
-	if err != nil {
-		return nil, err
-	}
-	var peers []*grpc.ConnectionConfig
-	if err := c.UnmarshalKey("peers", &peers); err != nil {
-		return nil, err
-	}
-
-	logger.Debugf("Getting config for [%s] network; found %d peers", network, len(peers))
-	if logger.IsEnabledFor(zap.DebugLevel) {
-		for _, p := range peers {
-			logger.Debugf("Peer [%s]", p.Address)
-		}
-	}
-
-	return &configService{ConfigService: c, peers: peers}, nil
-}
-
-type configService struct {
-	config.ConfigService
-	peers []*grpc.ConnectionConfig
-}
-
-func (s *configService) PickPeer(fdriver.PeerFunctionType) *grpc.ConnectionConfig {
-	logger.Infof("Picking peer: [%s]", s.peers[len(s.peers)-1].Address)
-	return s.peers[len(s.peers)-1]
-}
-
-// NewHostProvider returns an instance of host.GeneratorProvider depending on the `fsc.p2p.type` configuration key.
-func NewHostProvider(
-	config driver.ConfigService,
-	endpointService *endpoint.Service,
-	metricsProvider metrics.Provider,
-	tracerProvider trace.TracerProvider,
-) (host.GeneratorProvider, error) {
-	if err := endpointService.AddPublicKeyExtractor(&comm.PKExtractor{}); err != nil {
-		return nil, err
-	}
-
-	p2pCommType := config.GetString("fsc.p2p.type")
-	logger.Infof("host communication type: [%s]", p2pCommType)
-	if strings.EqualFold(p2pCommType, WebSocket) {
-		return NewWebSocketHostProvider(config, endpointService, tracerProvider, metricsProvider)
-	}
-
-	return NewLibP2PHostProvider(config, endpointService, metricsProvider), nil
-}
-
-// NewLibP2PHostProvider returns a new libp2p-based host provider.
-func NewLibP2PHostProvider(config driver.ConfigService, endpointService *endpoint.Service, metricsProvider metrics.Provider) host.GeneratorProvider {
-	endpointService.SetPublicKeyIDSynthesizer(&libp2p.PKIDSynthesizer{})
-	return libp2p.NewHostGeneratorProvider(libp2p.NewConfig(config), metricsProvider, endpointService)
-}
-
-// NewWebSocketHostProvider returns a new websocket-based host provider whose routing is based on the FSC's endpoint.Service.
-func NewWebSocketHostProvider(config driver.ConfigService, endpointService *endpoint.Service, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (host.GeneratorProvider, error) {
-	router := routing.NewEndpointServiceIDRouter(endpointService)
-	discovery := routing.NewServiceDiscovery(router, routing.Random[host.PeerIPAddress]())
-	endpointService.SetPublicKeyIDSynthesizer(&rest.PKIDSynthesizer{})
-	return rest.NewEndpointBasedProvider(rest.NewConfig(config), endpointService, discovery, websocket.NewMultiplexedProvider(tracerProvider, metricsProvider)), nil
 }

@@ -89,7 +89,7 @@ func (e *Extension) addSCPeer() {
 			Type:         fabric_topo.FabricPeer,
 			Bootstrap:    false,
 			Channels:     []*fabric_topo.PeerChannel{{Name: e.channel.Name, Anchor: true}},
-			Usage:        "delivery",
+			Usage:        "",
 			SkipInit:     true,
 			SkipRunning:  true,
 			TLSDisabled:  true,
