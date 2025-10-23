@@ -40,22 +40,12 @@ func newBindingStore(readDB, writeDB *sql.DB, table string) *BindingStore {
 	}
 }
 
-func (db *BindingStore) PutBindings(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error {
-	if len(ephemeral) == 0 {
+func (db *BindingStore) PutBindings(ctx context.Context, longTerm view.Identity, ephemerals ...view.Identity) error {
+	if len(ephemerals) == 0 {
 		return nil
 	}
 
-	logger.DebugfContext(ctx, "put bindings for %d ephemeral(s) with long term [%s]", len(ephemeral), longTerm.UniqueID())
-
-	// Resolve canonical long-term ID
-	if lt, err := db.GetLongTerm(ctx, longTerm); err != nil {
-		return err
-	} else if lt != nil && !lt.IsNone() {
-		logger.DebugfContext(ctx, "replacing [%s] with long term [%s]", longTerm.UniqueID(), lt.UniqueID())
-		longTerm = lt
-	} else {
-		logger.DebugfContext(ctx, "Id [%s] is an unregistered long term ID", longTerm.UniqueID())
-	}
+	logger.DebugfContext(ctx, "put bindings for %d ephemeral(s) with long term [%s]", len(ephemerals), longTerm.UniqueID())
 
 	// Build single INSERT with multiple VALUES
 	query := fmt.Sprintf(`INSERT INTO %s (ephemeral_hash, long_term_id) VALUES `, db.table)
@@ -63,7 +53,7 @@ func (db *BindingStore) PutBindings(ctx context.Context, longTerm view.Identity,
 	args := []interface{}{}
 	argsReferences := []string{"($1, $2)"}
 	args = append(args, longTerm.UniqueID(), longTerm)
-	for i, eph := range ephemeral {
+	for i, eph := range ephemerals {
 		args = append(args, eph.UniqueID(), longTerm)
 		oneArgRef := fmt.Sprintf("($%d, $%d)", i*2+3, i*2+4)
 		argsReferences = append(argsReferences, oneArgRef)
@@ -76,11 +66,11 @@ func (db *BindingStore) PutBindings(ctx context.Context, longTerm view.Identity,
 
 	_, err := db.writeDB.ExecContext(ctx, query, args...)
 	if err == nil {
-		logger.DebugfContext(ctx, "long-term and ephemeral ids registered [%s,%s]", longTerm, ephemeral)
+		logger.DebugfContext(ctx, "long-term and ephemeral ids registered [%s,%s]", longTerm, ephemerals)
 		return nil
 	}
 	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
-		logger.InfofContext(ctx, "some tuples [%v, %s] already in db. Skipping...", ephemeral, longTerm)
+		logger.InfofContext(ctx, "some tuples [%v, %s] already in db. Skipping...", ephemerals, longTerm)
 		return nil
 	}
 	return errors.Wrapf(err, "failed executing query [%s]", query)
