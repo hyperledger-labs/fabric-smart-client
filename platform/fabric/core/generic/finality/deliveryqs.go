@@ -36,7 +36,7 @@ func (q *DeliveryScanQueryByID[T]) QueryByID(ctx context.Context, lastBlock driv
 func (q *DeliveryScanQueryByID[T]) queryByID(ctx context.Context, results collections.Set[string], ch chan []T, lastBlock uint64) {
 	defer close(ch)
 
-	startingBlock := MaxUint64(1, lastBlock-10)
+	startingBlock := max(1, lastBlock-10)
 	err := q.Delivery.ScanFromBlock(ctx, startingBlock, func(tx *fabric.ProcessedTransaction) (bool, error) {
 		if !results.Contains(tx.TxID()) {
 			return false, nil
@@ -56,11 +56,4 @@ func (q *DeliveryScanQueryByID[T]) queryByID(ctx context.Context, results collec
 	if err != nil {
 		q.Logger.Errorf("failed scanning: %v", err)
 	}
-}
-
-func MaxUint64(a, b uint64) uint64 {
-	if a > b {
-		return a
-	}
-	return b
 }
