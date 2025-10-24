@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package optl
+package otlp
 
 import (
 	"context"
@@ -91,5 +91,5 @@ func (n *Extension) startJaeger() {
 	gomega.Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(gomega.HaveOccurred())
 
 	logger.Infof("Follow the traces on localhost:%d", JaegerUIPort)
-	gomega.Expect(docker.StartLogs(cli, resp.ID, "monitoring.optl.jaegertracing.container")).ToNot(gomega.HaveOccurred())
+	gomega.Expect(docker.StartLogs(cli, resp.ID, "monitoring.otlp.jaegertracing.container")).ToNot(gomega.HaveOccurred())
 }

@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/hle"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/monitoring"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/otlp"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/reporting/jaeger"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/reporting/prometheus"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -75,7 +75,7 @@ func New(reg api.Context, topology *Topology) *Platform {
 	}
 	p.AddExtension(hle.NewExtension(p))
 	p.AddExtension(monitoring.NewExtension(p))
-	p.AddExtension(optl.NewExtension(p))
+	p.AddExtension(otlp.NewExtension(p))
 
 	return p
 }
@@ -180,10 +180,10 @@ func (p *Platform) GrafanaPort() int {
 	return p.topology.GrafanaPort
 }
 
-func (p *Platform) OPTL() bool {
-	return p.topology.OPTL
+func (p *Platform) OTLP() bool {
+	return p.topology.OTLP
 }
 
-func (p *Platform) OPTLPort() int {
-	return p.topology.OPTLPort
+func (p *Platform) OTLPPort() int {
+	return p.topology.OTLPPort
 }

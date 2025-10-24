@@ -10,7 +10,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/otlp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/jaegertracing/jaeger-idl/proto-gen/api_v2"
@@ -25,7 +25,7 @@ type Reporter interface {
 }
 
 func NewLocalReporter() (*reporter, error) {
-	return NewReporter(fmt.Sprintf("0.0.0.0:%d", optl.JaegerQueryPort))
+	return NewReporter(fmt.Sprintf("0.0.0.0:%d", otlp.JaegerQueryPort))
 }
 
 func NewReporter(address string) (*reporter, error) {

@@ -115,7 +115,7 @@ unit-tests-dig:
 	cd platform/view/sdk/dig; go test -cover ./...
 	cd platform/fabric/sdk/dig; go test -cover ./...
 
-run-optl:
+run-otlp:
 	cd platform/view/services/tracing; docker-compose up -d
 
 INTEGRATION_TARGETS =

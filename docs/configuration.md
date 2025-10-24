@@ -157,14 +157,14 @@ fsc:
 
   # ------------------- Tracing Configuration -------------------------
   tracing:
-    # Type of provider to be used: none (default), file, optl, console
-    provider: optl
+    # Type of provider to be used: none (default), file, otlp, console
+    provider: otlp
     # Tracer configuration when provider == 'file'
     file:
       # The file where the traces are going to be stored
       path: /path/to/client/trace.out
-    # Tracer configuration when provider == 'optl'
-    optl:
+    # Tracer configuration when provider == 'otlp'
+    otlp:
       # The address of collector where we should send the traces
       address: 127.0.0.1:8125
     sampling:
@@ -432,7 +432,7 @@ CORE_LOGGING_LEVEL=debug
 CORE_FSC_P2P_LISTENADDRESS=/ip4/0.0.0.0/tcp/9001
 CORE_FSC_IDENTITY_KEY_FILE=/my/private.key
 CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE=/mydb.sqlite
-CORE_FSC_TRACING_OPTL_ADDRESS=jaeger.example.com:4318
+CORE_FSC_TRACING_OTLP_ADDRESS=jaeger.example.com:4318
 CORE_FABRIC_MYNETWORK_KEEPALIVE_TIMEOUT=120s
 ```
 

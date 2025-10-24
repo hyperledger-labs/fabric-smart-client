@@ -8,7 +8,7 @@ package monitoring
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/monitoring"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/otlp"
 )
 
 type Topology struct {
@@ -19,8 +19,8 @@ type Topology struct {
 	PrometheusGrafana       bool   `yaml:"prometheus-grafana,omitempty"`
 	PrometheusPort          int    `yaml:"prometheus-port,omitempty"`
 	GrafanaPort             int    `yaml:"grafana-port,omitempty"`
-	OPTL                    bool   `yaml:"optl,omitempty"`
-	OPTLPort                int    `yaml:"optl-port,omitempty"`
+	OTLP                    bool   `yaml:"otlp,omitempty"`
+	OTLPPort                int    `yaml:"otlp-port,omitempty"`
 	JaegerQueryPort         int    `yaml:"jaeger-query-port"`
 }
 
@@ -31,8 +31,8 @@ func NewTopology() *Topology {
 		HyperledgerExplorerPort: 8080,
 		PrometheusPort:          monitoring.PrometheusPort,
 		GrafanaPort:             3000,
-		OPTLPort:                4319,
-		JaegerQueryPort:         optl.JaegerQueryPort,
+		OTLPPort:                4319,
+		JaegerQueryPort:         otlp.JaegerQueryPort,
 	}
 }
 
@@ -64,10 +64,10 @@ func (t *Topology) SetGrafanaPort(port int) {
 	t.GrafanaPort = port
 }
 
-func (t *Topology) EnableOPTL() {
-	t.OPTL = true
+func (t *Topology) EnableOTLP() {
+	t.OTLP = true
 }
 
-func (t *Topology) SetOPTLPort(port int) {
-	t.OPTLPort = port
+func (t *Topology) SetOTLPPort(port int) {
+	t.OTLPPort = port
 }

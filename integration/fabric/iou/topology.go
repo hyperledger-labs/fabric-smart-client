@@ -43,7 +43,7 @@ func Topology(opts *Opts) []api.Topology {
 	// fscTopology.SetLogging("debug", "")
 
 	// fscTopology.SetLogging("debug", "")
-	fscTopology.EnableTracing(tracing.Otpl)
+	fscTopology.EnableTracing(tracing.Otlp)
 
 	// Add the approver FSC node.
 	fscTopology.AddNodeByName("approver1").
@@ -88,7 +88,7 @@ func Topology(opts *Opts) []api.Topology {
 	// Monitoring
 	monitoringTopology := monitoring.NewTopology()
 	monitoringTopology.EnablePrometheusGrafana()
-	monitoringTopology.EnableOPTL()
+	monitoringTopology.EnableOTLP()
 
 	// Add Fabric SDK to FSC Nodes
 	fscTopology.AddSDK(opts.SDK)

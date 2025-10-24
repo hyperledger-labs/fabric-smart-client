@@ -29,7 +29,7 @@ import (
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/optl"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/otlp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
@@ -243,8 +243,8 @@ func (p *Platform) PostRun(bool) {
 		File: tracing2.FileConfig{
 			Path: "./client-trace.out",
 		},
-		Otpl: tracing2.OtplConfig{
-			Address: fmt.Sprintf("0.0.0.0:%d", optl.JaegerCollectorPort),
+		Otlp: tracing2.OtlpConfig{
+			Address: fmt.Sprintf("0.0.0.0:%d", otlp.JaegerCollectorPort),
 		},
 	})
 	if err != nil {
@@ -528,7 +528,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"Resolvers":    func() []*Resolver { return resolvers },
 		"WebEnabled":   func() bool { return p.Topology.WebEnabled },
 		"TracingEndpoint": func() string {
-			return utils.DefaultString(p.Topology.Monitoring.TracingEndpoint, fmt.Sprintf("0.0.0.0:%d", optl.JaegerCollectorPort))
+			return utils.DefaultString(p.Topology.Monitoring.TracingEndpoint, fmt.Sprintf("0.0.0.0:%d", otlp.JaegerCollectorPort))
 		},
 		"SamplingRatio": func() float64 { return p.Topology.Monitoring.TracingSamplingRatio },
 	}).
