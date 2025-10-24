@@ -19,7 +19,7 @@ func TestMustGetLogger_WithParams(t *testing.T) {
 
 	name := l.Zap().Name()
 
-	Expect(name).To(HaveSuffix("fsc.common.services.logging.testlogger_test.some.thing"))
+	Expect(name).To(HaveSuffix("fsc.platform.common.services.logging.testlogger_test.some.thing"))
 }
 
 func TestMustGetLogger_WithOutParams(t *testing.T) {
@@ -28,7 +28,7 @@ func TestMustGetLogger_WithOutParams(t *testing.T) {
 
 	name := l.Zap().Name()
 
-	Expect(name).To(HaveSuffix("fsc.common.services.logging.testlogger_test"))
+	Expect(name).To(HaveSuffix("fsc.platform.common.services.logging.testlogger_test"))
 }
 
 func level1() (string, error) {

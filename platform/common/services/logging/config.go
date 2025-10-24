@@ -65,7 +65,7 @@ func OtelSanitize() bool {
 var (
 	replacersMutex sync.RWMutex
 	replacers      = map[string]string{
-		"github.com.hyperledger-labs.fabric-smart-client.platform": "fsc",
+		"github.com.hyperledger-labs.fabric-smart-client": "fsc",
 	}
 )
 
