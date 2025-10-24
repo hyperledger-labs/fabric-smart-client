@@ -19,7 +19,7 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 	// Create an empty FSC topology
 	topology := fsc.NewTopology()
 	topology.P2PCommunicationType = commType
-	topology.EnableTracing(tracing.Otpl)
+	topology.EnableTracing(tracing.Otlp)
 	topology.EnablePrometheusMetrics()
 
 	topology.AddNodeByName("alice").
@@ -35,7 +35,7 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 
 	monitoringTopology := monitoring.NewTopology()
 	// monitoringTopology.EnablePrometheusGrafana()
-	monitoringTopology.EnableOPTL()
+	monitoringTopology.EnableOTLP()
 
 	return []api.Topology{topology, monitoringTopology}
 }

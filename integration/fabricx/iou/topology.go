@@ -34,7 +34,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	fscTopology.SetLogging("grpc=error:fabricx=info:info", "")
 
 	// fscTopology.SetLogging("debug", "")
-	// fscTopology.EnableOPTLTracing()
+	// fscTopology.EnableOTLPTracing()
 
 	// Add the approver FSC node.
 	fscTopology.AddNodeByName("approver1").
@@ -76,7 +76,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 
 	// Monitoring
 	// monitoringTopology := monitoring.NewTopology()
-	// monitoringTopology.EnableOPTL()
+	// monitoringTopology.EnableOTLP()
 
 	// Add Fabric SDK to FSC Nodes
 	fscTopology.AddSDK(sdk)

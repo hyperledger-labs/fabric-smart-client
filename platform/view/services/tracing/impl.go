@@ -29,7 +29,7 @@ type TracerType string
 
 const (
 	None        TracerType = "none"
-	Otpl        TracerType = "otpl"
+	Otlp        TracerType = "otlp"
 	File        TracerType = "file"
 	Console     TracerType = "console"
 	ServiceName            = "FSC"
@@ -40,7 +40,7 @@ var NoOp = Config{Provider: None}
 type Config struct {
 	Provider TracerType     `mapstructure:"provider"`
 	File     FileConfig     `mapstructure:"file"`
-	Otpl     OtplConfig     `mapstructure:"optl"`
+	Otlp     OtlpConfig     `mapstructure:"otlp"`
 	Sampling SamplingConfig `mapstructure:"sampling"`
 }
 
@@ -52,7 +52,7 @@ type FileConfig struct {
 	Path string `mapstructure:"path"`
 }
 
-type OtplConfig struct {
+type OtlpConfig struct {
 	Address string `mapstructure:"address"`
 }
 
@@ -74,9 +74,9 @@ func newProviderFromConfig(c Config, serviceName string) (Provider, error) {
 	var exporter sdktrace.SpanExporter
 	var err error
 	switch c.Provider {
-	case Otpl:
-		logger.Debugf("OPTL tracer provider selected")
-		exporter, err = grpcExporter(&c.Otpl)
+	case Otlp:
+		logger.Debugf("OTLP tracer provider selected")
+		exporter, err = grpcExporter(&c.Otlp)
 	case File:
 		logger.Debugf("File tracing provider selected")
 		exporter, err = fileExporter(&c.File)
@@ -107,11 +107,11 @@ func fileExporter(c *FileConfig) (sdktrace.SpanExporter, error) {
 	return stdouttrace.New(stdouttrace.WithPrettyPrint(), stdouttrace.WithWriter(f))
 }
 
-func grpcExporter(c *OtplConfig) (sdktrace.SpanExporter, error) {
+func grpcExporter(c *OtlpConfig) (sdktrace.SpanExporter, error) {
 	if c == nil || len(c.Address) == 0 {
 		return nil, errors.New("empty url")
 	}
-	logger.Debugf("Tracing enabled: optl")
+	logger.Debugf("Tracing enabled: otlp")
 	return otlptrace.New(context.Background(), otlptracegrpc.NewClient(otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(c.Address)))
 }
 

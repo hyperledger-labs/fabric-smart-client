@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package optl
+package otlp
 
 import (
 	"os"
@@ -21,8 +21,8 @@ type Platform interface {
 	GetContext() api.Context
 	ConfigDir() string
 	NetworkID() string
-	OPTL() bool
-	OPTLPort() int
+	OTLP() bool
+	OTLPPort() int
 }
 
 type Extension struct {
@@ -36,13 +36,13 @@ func NewExtension(platform Platform) *Extension {
 }
 
 func (n *Extension) CheckTopology() {
-	if !n.platform.OPTL() {
+	if !n.platform.OTLP() {
 		return
 	}
 }
 
 func (n *Extension) GenerateArtifacts() {
-	if !n.platform.OPTL() {
+	if !n.platform.OTLP() {
 		return
 	}
 
@@ -52,7 +52,7 @@ func (n *Extension) GenerateArtifacts() {
 }
 
 func (n *Extension) PostRun(bool) {
-	if !n.platform.OPTL() {
+	if !n.platform.OTLP() {
 		return
 	}
 
@@ -63,12 +63,12 @@ func (n *Extension) PostRun(bool) {
 func (n *Extension) configFileDir() string {
 	return filepath.Join(
 		n.platform.ConfigDir(),
-		"optl",
+		"otlp",
 	)
 }
 
 func (n *Extension) configFilePath() string {
-	return filepath.Join(n.configFileDir(), "optl-collector-config.yaml")
+	return filepath.Join(n.configFileDir(), "otlp-collector-config.yaml")
 }
 
 func (n *Extension) jaegerHostsPath() string {

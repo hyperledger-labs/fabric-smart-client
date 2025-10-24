@@ -137,14 +137,14 @@ fsc:
         files:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt
   tracing:
-    # Type of provider to be used: none (default), file, optl, console
+    # Type of provider to be used: none (default), file, otlp, console
     provider: {{ Topology.Monitoring.TracingType }}
     # Tracer configuration when provider == 'file'
     file:
       # The file where the traces are going to be stored
       path: {{ .NodeDir Replica }}/trace.out
-    # Tracer configuration when provider == 'optl'
-    optl:
+    # Tracer configuration when provider == 'otlp'
+    otlp:
       # The address of collector where we should send the traces
       address: {{ TracingEndpoint }}
     sampling:

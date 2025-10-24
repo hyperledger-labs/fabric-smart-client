@@ -148,7 +148,7 @@ FSC defines the following implementations, although custom implementations can b
 * **NoOp:** Disables the tracer, when `fsc.tracing.provider = none`
 * **Console:** Exports (prints) the traces on the console, when `fsc.tracing.provider = console`
 * **File:** Exports (stores) the traces into the file `fsc.tracing.file.path`, when `fsc.tracing.provider = file`
-* **OTPL:** Exports (sends) the traces to an OTPL collector that listens on the port `fsc.tracing.optl.address` when `fsc.tracing.provider = optl`
+* **OTLP:** Exports (sends) the traces to an OTLP collector that listens on the port `fsc.tracing.otlp.address` when `fsc.tracing.provider = otlp`
 
 These supported tracer providers can be instantiated using `tracing.NewTracerProviderFromConfig`.
 Using this constructor, along with the type of the exporter, we can also specify other parameters, like the sampling rate.
@@ -159,7 +159,7 @@ Whenever we start spans, we keep track of the count and the duration of the oper
 
 ### Adding traces
 
-The base unit of the traces are the spans. A span represents a unit of work. In our code, we only start new spans and then these spans are linked to compose traces by the remote agent (in case we use OTPL as provider).
+The base unit of the traces are the spans. A span represents a unit of work. In our code, we only start new spans and then these spans are linked to compose traces by the remote agent (in case we use OTLP as provider).
 
 1. For instance, in the case of a transfer, the transfer operation is conceptually a trace. The first span of this trace can be created on the end user that initiates the client (e.g. alice).
 2. When the request arrives to the recipient (e.g. bob), another span can be initiated when the corresponding view is invoked.
@@ -300,5 +300,5 @@ Reading single spans from the console or a file is cumbersome and this is why we
 * visualize the traces on a UI
 
 Although these components are separate and have distinct responsibilities, there is a docker image that combines all of them: `jaegertracing/all-in-one:latest`.
-The `jaeger_collector` sub-image listens on a port for new spans. The application exports (sends) the spans to that endpoint (defined in `fsc.tracing.optl.address`).
+The `jaeger_collector` sub-image listens on a port for new spans. The application exports (sends) the spans to that endpoint (defined in `fsc.tracing.otlp.address`).
 The `jaeger_ui` serves an application with querying and trace-visualization capabilities. 
