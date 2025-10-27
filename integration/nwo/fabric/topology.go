@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
 var (
@@ -184,11 +183,15 @@ func NewTopologyWithName(name string) *topology.Topology {
 	}
 }
 
-func WithDefaultPostgresPersistence(config postgres.DataSourceProvider) node.Option {
+type DataSourceProvider interface {
+	DataSource() string
+}
+
+func WithDefaultPostgresPersistence(config DataSourceProvider) node.Option {
 	return WithPostgresPersistence(common.DefaultPersistence, config)
 }
 
-func WithPostgresPersistence(name driver.PersistenceName, config postgres.DataSourceProvider) node.Option {
+func WithPostgresPersistence(name driver.PersistenceName, config DataSourceProvider) node.Option {
 	return func(o *node.Options) error {
 		if config != nil {
 			o.PutPostgresPersistence(name, node.SQLOpts{

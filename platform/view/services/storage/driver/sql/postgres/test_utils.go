@@ -8,274 +8,362 @@ package postgres
 
 import (
 	"bufio"
+	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/hashicorp/consul/sdk/freeport"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	_ "modernc.org/sqlite"
 )
 
-// postgres:latest will not work on Podman, because Podman automatically prefixes it with localhost/
-// docker.io/postgres:latest will not work on Docker, because Docker omits the default repo docker.io
-// itests will not be recognized as a domain, so Podman will still prefix it with localhost
-// Hence we use fsc.itests as domain
-const PostgresImage = "fsc.itests/postgres:latest"
+const (
+	// postgres:latest will not work on Podman, because Podman automatically prefixes it with localhost/
+	// docker.io/postgres:latest will not work on Docker, because Docker omits the default repo docker.io
+	// itests will not be recognized as a domain, so Podman will still prefix it with localhost
+	// Hence we use fsc.itests as domain
+	defaultImage         = "fsc.itests/postgres:latest"
+	defaultContainerName = "" // we let the container runtime select a name
+	defaultDBName        = "fsc-postgres"
+	defaultUser          = "pgx_md5"
+	defaultPass          = "example"
+	defaultHost          = "localhost"
+	defaultPort          = "0" // we let the container runtime select a port
+	defaultTimeout       = 5 * time.Second
+)
 
 type Logger interface {
-	Log(...any)
-	Errorf(string, ...any)
+	Debugf(format string, args ...any)
+	Errorf(format string, args ...any)
 }
 
-type DataSourceProvider interface {
-	DataSource() string
-}
-
+// ContainerConfig contains the configuration data about a postgres container.
 type ContainerConfig struct {
 	Image     string
 	Container string
 	*DbConfig
 }
 
+// DbConfig contains the configuration data about a postgres database.
 type DbConfig struct {
 	DBName string
 	User   string
 	Pass   string
 	Host   string
-	Port   int
+	Port   string
 }
 
+// DataSource returns the contents of the DbConfig as data source string.
 func (c *DbConfig) DataSource() string {
-	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", c.Host, c.Port, c.User, c.Pass, c.DBName)
+	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", c.Host, c.Port, c.User, c.Pass, c.DBName)
 }
 
-func ReadDataSource(s string) (*ContainerConfig, error) {
-	config := make(map[string]string, 6)
+// DefaultConfig returns a Postgres container configuration. The configuration entries can be set via option parameters.
+func DefaultConfig(opts ...option) *ContainerConfig {
+	cfg := &ContainerConfig{
+		Image:     defaultImage,
+		Container: defaultContainerName,
+		DbConfig: &DbConfig{
+			DBName: defaultDBName,
+			User:   defaultUser,
+			Pass:   defaultPass,
+			Host:   defaultHost,
+			Port:   defaultPort,
+		},
+	}
+
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	return cfg
+}
+
+type option func(*ContainerConfig)
+
+// WithPort sets the Postgres port.
+func WithPort(port string) option {
+	return func(c *ContainerConfig) {
+		c.Port = port
+	}
+}
+
+// WithHost sets the Postgres port.
+func WithHost(host string) option {
+	return func(c *ContainerConfig) {
+		c.Host = host
+	}
+}
+
+// WithUser sets the Postgres port.
+func WithUser(user string) option {
+	return func(c *ContainerConfig) {
+		c.User = user
+	}
+}
+
+// WithPassword sets the Postgres port.
+func WithPassword(pw string) option {
+	return func(c *ContainerConfig) {
+		c.Pass = pw
+	}
+}
+
+// WithDBName sets the Postgres dbname.
+func WithDBName(name string) option {
+	return func(c *ContainerConfig) {
+		c.DBName = name
+	}
+}
+
+// WithContainerName sets the Postgres dbname.
+func WithContainerName(name string) option {
+	return func(c *ContainerConfig) {
+		c.Container = name
+	}
+}
+
+// WithContainerImage sets the Postgres dbname.
+func WithContainerImage(name string) option {
+	return func(c *ContainerConfig) {
+		c.Image = name
+	}
+}
+
+// ConfigFromEnv returns a Postgres container configuration based environment variables.
+func ConfigFromEnv() *ContainerConfig {
+	return DefaultConfig(
+		WithContainerImage(getEnv("POSTGRES_IMAGE", defaultImage)),
+		WithContainerName(getEnv("POSTGRES_CONTAINER", defaultContainerName)),
+		WithDBName(getEnv("POSTGRES_DB", defaultDBName)),
+		WithUser(getEnv("POSTGRES_USER", defaultUser)),
+		WithPassword(getEnv("POSTGRES_PASSWORD", defaultPass)),
+		WithHost(getEnv("POSTGRES_HOST", defaultHost)),
+		WithPort(getEnv("POSTGRES_PORT", defaultPort)),
+	)
+}
+
+// ConfigFromDataSource returns a Postgres container configuration based on a given postgres connection string.
+func ConfigFromDataSource(s string) (*ContainerConfig, error) {
+	cfg := make(map[string]string, 6)
 	for _, prop := range strings.Split(s, " ") {
 		pair := strings.Split(prop, "=")
-		key, val := pair[0], pair[1]
-		config[key] = val
+		k, v := pair[0], pair[1]
+		cfg[k] = v
 	}
-	port, err := strconv.Atoi(config["port"])
-	if err != nil {
-		return nil, err
-	}
+
 	c := &DbConfig{
-		DBName: config["dbname"],
-		User:   config["user"],
-		Pass:   config["password"],
-		Host:   config["host"],
-		Port:   port,
+		DBName: cfg["dbname"],
+		User:   cfg["user"],
+		Pass:   cfg["password"],
+		Host:   cfg["host"],
+		Port:   cfg["port"],
 	}
-	if len(c.DBName) == 0 || c.Port == 0 || len(c.Pass) == 0 || len(c.User) == 0 {
+	if len(c.DBName) == 0 || len(c.Port) == 0 || len(c.Pass) == 0 || len(c.User) == 0 {
 		return nil, fmt.Errorf("incomplete datasource: %s", s)
 	}
 
 	return &ContainerConfig{
-		Image:     PostgresImage,
-		Container: fmt.Sprintf("fsc-postgres-%s", c.DBName),
+		Image:     defaultImage,
+		Container: c.DBName,
 		DbConfig:  c,
 	}, nil
 }
 
-type fmtLogger struct{}
-
-func (l *fmtLogger) Log(args ...any) {
-	fmt.Println(args...)
-}
-
-func (l *fmtLogger) Errorf(format string, args ...any) {
-	_ = fmt.Errorf(format, args...)
-}
-
-func DefaultConfig(node string) *ContainerConfig {
-	ports, err := freeport.Take(1)
-	if err != nil {
-		panic("could not take free port: " + err.Error())
-	}
-	return defaultConfigWithPort(node, ports[0])
-}
-
-func defaultConfigWithPort(node string, port int) *ContainerConfig {
-	return &ContainerConfig{
-		Image:     PostgresImage,
-		Container: fmt.Sprintf("fsc-postgres-%s", node),
-		DbConfig: &DbConfig{
-			DBName: node,
-			User:   "pgx_md5",
-			Pass:   "example",
-			Host:   "localhost",
-			Port:   port,
-		},
-	}
-}
-
-func StartPostgresWithFmt(configs []*ContainerConfig) (func(), error) {
-	if len(configs) == 0 {
-		return func() {}, nil
-	}
-	closeFuncs := make([]func(), 0, len(configs))
-	errs := make([]error, 0, len(configs))
-	logger := &fmtLogger{}
-	for _, c := range configs {
-		logger.Log("Starting DB  ", c.DBName)
-		if closeFunc, err := startPostgresWithLogger(*c, logger, false); err != nil {
-			errs = append(errs, err)
-		} else {
-			closeFuncs = append(closeFuncs, closeFunc)
-		}
-	}
-	closeFunc := func() {
-		for _, f := range closeFuncs {
-			f()
-		}
-	}
-	if err := errors.Join(errs...); err != nil {
-		closeFunc()
-		return func() {}, err
-	}
-	return closeFunc, nil
-}
-
-func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(), error) {
-	// images
-	d, err := docker.GetInstance()
-	if err != nil {
-		return nil, fmt.Errorf("can't get docker instance: %w", err)
-	}
-	err = d.CheckImagesExist(c.Image)
-	if err != nil {
-		return nil, fmt.Errorf("image does not exist. Do: docker pull %s", c.Image)
+// StartPostgres spawns a Postgres container with the given ContainerConfig and Logger.
+// It returns a function to terminate and cleanup the spawned Postgres container, a datasource string that
+// allows to connect to the database. If an error occurs, the closeF is nil and the datasource string is empty.
+func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func(), string, error) {
+	if c == nil {
+		return nil, "", fmt.Errorf("container config is nil")
 	}
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return nil, fmt.Errorf("can't get docker client: %w", err)
+		return nil, "", fmt.Errorf("can't get docker client: %w", err)
 	}
-	ctx := context.Background()
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
+
+	// define postgres port inside the container
+	postgresPort, _ := nat.NewPort("tcp", "5432")
+
+	containerCfg := &container.Config{
+		Image: c.Image,
+		// note that if c.Container is empty, the container runtime picks the container name (aka hostname)
+		Hostname: c.Container,
+		Tty:      false,
 		Env: []string{
 			"POSTGRES_DB=" + c.DBName,
 			"POSTGRES_USER=" + c.User,
 			"POSTGRES_PASSWORD=" + c.Pass,
 		},
-		Hostname: c.Container,
-		Image:    c.Image,
-		Tty:      false,
 		ExposedPorts: nat.PortSet{
-			nat.Port("5432/tcp"): struct{}{},
+			// we use the default postgres port
+			postgresPort: struct{}{},
 		},
 		Healthcheck: &container.HealthConfig{
 			Test:     []string{"CMD-SHELL", fmt.Sprintf("pg_isready -U %s -d %s", c.User, c.DBName)},
 			Interval: time.Second,
-			Timeout:  time.Second,
+			Timeout:  defaultTimeout,
 			Retries:  10,
 		},
-	}, &container.HostConfig{
+	}
+
+	// define postgres port exposed by the container
+	hostCfg := &container.HostConfig{
 		PortBindings: nat.PortMap{
-			nat.Port("5432/tcp"): []nat.PortBinding{
+			postgresPort: []nat.PortBinding{
 				{
-					HostIP:   "0.0.0.0",
-					HostPort: strconv.Itoa(c.Port),
+					HostIP:   "127.0.0.1",
+					HostPort: c.Port, // if c.Port is empty or 0, the container runtime selects a free port
 				},
 			},
 		},
-	}, nil, nil, c.Container)
+	}
+
+	resp, err := cli.ContainerCreate(ctx, containerCfg, hostCfg, nil, nil, c.Container)
 	if err != nil {
-		return nil, fmt.Errorf("can't create postgres container: %w", err)
+		return nil, "", fmt.Errorf("can't create postgres container: %w", err)
 	}
+
+	// define our close function that is returned to the caller
 	closeFunc := func() {
-		t.Log("removing postgres container")
-		_ = cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{RemoveVolumes: true, Force: true})
+		// we use a fresh context here as the provided ctx may be canceled already.
+		// this is particularly the case if ctx is provided by a test harness and closeFunc is called via t.Cleanup.
+		cctx := context.Background()
+		_ = cli.ContainerRemove(cctx, resp.ID, container.RemoveOptions{RemoveVolumes: true, Force: true})
+		_ = waitUntilContainerRemoved(cctx, cli, resp.ID, defaultTimeout)
 	}
+
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		closeFunc()
-		return nil, fmt.Errorf("can't start postgres container: %w", err)
+		return nil, "", fmt.Errorf("can't start postgres container: %w", err)
 	}
 
-	// Forward logs to test logger
-	if printLogs {
-		go func() {
-			reader, err := cli.ContainerLogs(ctx, resp.ID, container.LogsOptions{
-				ShowStdout: false,
-				ShowStderr: true,
-				Follow:     true,
-				Timestamps: false,
-			})
-			if err != nil {
-				t.Errorf("can't show logs: %v", err)
-			}
-			defer utils.CloseMute(reader)
-
-			scanner := bufio.NewScanner(reader)
-			for scanner.Scan() {
-				t.Log(scanner.Text())
-			}
-		}()
+	// read the actual exposed postgres port
+	hostPort, err := getPostgresPort(ctx, cli, resp.ID)
+	if err != nil {
+		closeFunc()
+		return nil, "", err
 	}
+	c.Port = hostPort
+
+	// if a logger is provided, we kick of a logger goroutine that scans the container logs
+	// and writes them into the logger
+	startContainerLogger(ctx, cli, resp.ID, logger)
+
 	// wait until healthy
-	for {
-		inspect, err := cli.ContainerInspect(ctx, resp.ID)
+	if err := waitUntilHealth(ctx, cli, resp.ID, defaultTimeout); err != nil {
+		closeFunc()
+		return nil, "", err
+	}
+
+	return closeFunc, c.DataSource(), nil
+}
+
+// startContainerLogger forwards the container logs for the given logger.
+// If the given logger is nil, the function returns. Errors are logged via the given logger.
+// The actual container logs are logged with the DEBUG log level.
+func startContainerLogger(ctx context.Context, cli *client.Client, containerID string, logger Logger) {
+	if logger == nil {
+		return
+	}
+
+	go func() {
+		reader, err := cli.ContainerLogs(ctx, containerID, container.LogsOptions{
+			ShowStdout: false,
+			ShowStderr: true,
+			Follow:     true,
+			Timestamps: false,
+		})
 		if err != nil {
-			closeFunc()
-			return nil, fmt.Errorf("can't inspect postgres container: %w", err)
+			logger.Errorf("can't show logs for container %s: %v", containerID, err)
 		}
+		defer utils.CloseMute(reader)
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			logger.Debugf(scanner.Text())
+		}
+	}()
+}
+
+func waitUntilHealth(ctx context.Context, cli *client.Client, containerID string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		// check timeout first
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for container %s to become healthy", containerID)
+		}
+
+		inspect, err := cli.ContainerInspect(ctx, containerID)
+		if err != nil {
+			return fmt.Errorf("inspect failed: %w", err)
+		}
+
 		if inspect.State.Health == nil {
-			closeFunc()
-			return nil, fmt.Errorf("can't start postgres: cannot get health")
+			return fmt.Errorf("no healthcheck defined in container %s", containerID)
 		}
-		status := inspect.State.Health.Status
-		switch status {
-		case "unhealthy":
-			closeFunc()
-			return nil, fmt.Errorf("postgres container unhealthy")
-		case "healthy":
+
+		switch inspect.State.Health.Status {
+		case container.Healthy:
+			// yeah - our postgres container is read
 			// wait a bit longer, the healthcheck can be overly optimistic
 			time.Sleep(2000 * time.Millisecond)
-			return closeFunc, nil
+			return nil
+		case container.Unhealthy:
+			// :(
+			return fmt.Errorf("container %s unhealthy", containerID)
 		default:
-			time.Sleep(500 * time.Millisecond)
 		}
+
+		// sleep and try again
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
-func StartPostgres(t Logger, printLogs bool) (func(), string, error) {
-	port := getEnv("POSTGRES_PORT", "5432")
-	p, err := strconv.Atoi(port)
+func waitUntilContainerRemoved(ctx context.Context, cli *client.Client, containerID string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		// check timeout first
+		if time.Now().After(deadline) {
+			return fmt.Errorf("container %s was not removed in time", containerID)
+		}
+
+		_, err := cli.ContainerInspect(ctx, containerID)
+		if err != nil {
+			// When the container is truly gone, Docker returns an error
+			if errdefs.IsNotFound(err) {
+				return nil // confirmed removed
+			}
+			return err // any other error is unexpected
+		}
+
+		// sleep and try again
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func getPostgresPort(ctx context.Context, cli *client.Client, containerID string) (string, error) {
+	inspection, err := cli.ContainerInspect(ctx, containerID)
 	if err != nil {
-		return nil, "", fmt.Errorf("port must be a number: %s", port)
+		return "", err
 	}
 
-	c := ContainerConfig{
-		Image:     getEnv("POSTGRES_IMAGE", PostgresImage),
-		Container: getEnv("POSTGRES_CONTAINER", "fsc-postgres"),
-		DbConfig: &DbConfig{
-			DBName: getEnv("POSTGRES_DB", "testdb"),
-			User:   getEnv("POSTGRES_USER", "pgx_md5"),
-			Pass:   getEnv("POSTGRES_PASSWORD", "example"),
-			Host:   getEnv("POSTGRES_HOST", "localhost"),
-			Port:   p,
-		},
+	// Look for the exposed port 5432/tcp
+	portBindings := inspection.NetworkSettings.Ports["5432/tcp"]
+	if len(portBindings) == 0 {
+		return "", fmt.Errorf("port 5432 not mapped")
 	}
-	closeFunc, err := startPostgresWithLogger(c, t, printLogs)
-	if err != nil {
-		return nil, "", err
-	}
-	return closeFunc, c.DataSource(), err
+
+	return portBindings[0].HostPort, nil
 }
 
 func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-	return fallback
+	return cmp.Or(os.Getenv(key), fallback)
 }

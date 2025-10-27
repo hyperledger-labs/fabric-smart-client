@@ -16,11 +16,7 @@ import (
 )
 
 func BenchmarkReadExistingPostgres(b *testing.B) {
-	terminate, pgConnStr, err := StartPostgres(b, false)
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer terminate()
+	pgConnStr := setupDB(b)
 	cp := NewConfigProvider(testing2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
@@ -35,12 +31,7 @@ func BenchmarkReadExistingPostgres(b *testing.B) {
 }
 
 func BenchmarkReadNonExistingPostgres(b *testing.B) {
-	terminate, pgConnStr, err := StartPostgres(b, false)
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer terminate()
-
+	pgConnStr := setupDB(b)
 	cp := NewConfigProvider(testing2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
@@ -55,12 +46,7 @@ func BenchmarkReadNonExistingPostgres(b *testing.B) {
 }
 
 func BenchmarkWriteOnePostgres(b *testing.B) {
-	terminate, pgConnStr, err := StartPostgres(b, false)
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer terminate()
-
+	pgConnStr := setupDB(b)
 	cp := NewConfigProvider(testing2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
@@ -75,11 +61,7 @@ func BenchmarkWriteOnePostgres(b *testing.B) {
 }
 
 func BenchmarkWriteManyPostgres(b *testing.B) {
-	terminate, pgConnStr, err := StartPostgres(b, false)
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer terminate()
+	pgConnStr := setupDB(b)
 	cp := NewConfigProvider(testing2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
@@ -94,11 +76,7 @@ func BenchmarkWriteManyPostgres(b *testing.B) {
 }
 
 func BenchmarkWriteManyPostgresWithIdle(b *testing.B) {
-	terminate, pgConnStr, err := StartPostgres(b, false)
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer terminate()
+	pgConnStr := setupDB(b)
 	cp := NewConfigProvider(testing2.MockConfig(Config{
 		DataSource:   pgConnStr,
 		MaxOpenConns: 50,

@@ -19,7 +19,6 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
-	github.com/hashicorp/consul/sdk v0.16.1
 	github.com/hyperledger/fabric v1.4.0-rc1.0.20250510200036-435a7f1a780a
 	github.com/hyperledger/fabric-chaincode-go/v2 v2.3.0
 	github.com/hyperledger/fabric-contract-api-go/v2 v2.2.0
@@ -101,7 +100,7 @@ require (
 	github.com/consensys/bavard v0.1.22 // indirect
 	github.com/consensys/gnark-crypto v0.14.0 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
-	github.com/containerd/errdefs v1.0.0 // indirect
+	github.com/containerd/errdefs v1.0.0
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect

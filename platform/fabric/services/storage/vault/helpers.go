@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"context"
 	"fmt"
 	"path"
 
@@ -33,14 +34,14 @@ func OpenSqliteVault(key, tempDir string) (driver.VaultStore, error) {
 }
 
 func OpenPostgresVault(name string) (driver.VaultStore, func(), error) {
-	postgresConfig := postgres3.DefaultConfig(fmt.Sprintf("%s-db", name))
-	terminate, err := postgres3.StartPostgresWithFmt([]*postgres3.ContainerConfig{postgresConfig})
+	cfg := postgres3.DefaultConfig(postgres3.WithDBName(fmt.Sprintf("%s-db", name)))
+	terminate, pgConnStr, err := postgres3.StartPostgres(context.TODO(), cfg, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	cp := postgres3.NewConfigProvider(testing.MockConfig(postgres3.Config{
-		DataSource:   postgresConfig.DataSource(),
+		DataSource:   pgConnStr,
 		MaxOpenConns: 50,
 	}))
 	persistence, err := postgres2.NewPersistenceWithOpts(cp, postgres3.NewDbProvider(), "", postgres2.NewVaultStore)
