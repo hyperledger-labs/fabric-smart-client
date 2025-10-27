@@ -9,6 +9,7 @@ package fsc
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -32,7 +33,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/otlp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
@@ -138,6 +138,8 @@ func (p *Platform) GenerateArtifacts() {
 
 	p.GenerateResolverMap()
 
+	p.generatePostgresConfiguration()
+
 	// Generate core.yaml for all fsc nodes by including all the additional configurations coming
 	// from other platforms
 	for _, peer := range p.Peers {
@@ -168,6 +170,34 @@ func (p *Platform) GenerateArtifacts() {
 	for _, node := range p.Peers {
 		if len(node.ExecutablePath) == 0 {
 			p.GenerateCmd(nil, node)
+		}
+	}
+}
+
+// generatePostgresConfiguration allocates network ports for the postgres databases spawned by NWO.
+// It finds all postgres databases via their unique db names and assigns a free network port to it,
+// then it updates each fsc node configuration with the updated port details.
+func (p *Platform) generatePostgresConfiguration() {
+	dbPorts := make(map[string]string)
+
+	// search all unique postgres instances available in our topology
+	for _, peer := range p.Peers {
+		for n, pp := range peer.Options.GetPostgresPersistences() {
+			cfg, err := postgres2.ConfigFromDataSource(pp.DataSource)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			// if we have seen this db already, we update the node's configuration; otherwise reserve a free port
+			port, ok := dbPorts[cfg.DBName]
+			if !ok {
+				port = strconv.Itoa(int(p.Context.ReservePort()))
+				dbPorts[cfg.DBName] = port
+			}
+
+			// update the port in the node options,
+			// so we store it below in the core.yaml
+			cfg.Port = port
+			pp.DataSource = cfg.DataSource()
+			peer.Options.PutPostgresPersistence(n, *pp)
 		}
 	}
 }
@@ -212,22 +242,57 @@ func (p *Platform) Members() []grouper.Member {
 }
 
 func (p *Platform) PreRun() {
-	// Start DBs
-	configs := map[string]*postgres2.ContainerConfig{}
+	startPostgres(p)
+}
+
+// startPostgres spawns a Postgres container for each database as specified via the platform topology.
+// It sets Platform.cleanDB function to allow shutdown of all spawned databases. If an error occurs, we panic
+func startPostgres(p *Platform) {
+	// find all postgres databases we need to start via node configurations
+	configs := make(map[string]*postgres2.ContainerConfig)
 	for _, node := range p.Peers {
 		for _, sqlOpts := range node.Options.GetPostgresPersistences() {
 			if _, ok := configs[sqlOpts.DataSource]; !ok {
-				c, err := postgres2.ReadDataSource(sqlOpts.DataSource)
+				c, err := postgres2.ConfigFromDataSource(sqlOpts.DataSource)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 				configs[sqlOpts.DataSource] = c
 			}
-
 		}
 	}
+
 	logger.Infof("Starting DBs for following data sources: [%s]...", logging.Keys(configs))
-	closeF, err := postgres2.StartPostgresWithFmt(collections.Values(configs))
-	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to start dbs")
-	p.cleanDB = closeF
+
+	closeFuncs := make([]func(), 0, len(configs))
+
+	// start all postgres instances
+	for _, c := range configs {
+		// get a logger for our postgres db
+		l := logging.MustGetLogger(c.DBName)
+
+		// we ignore the returned connection str
+		closeFunc, _, err := postgres2.StartPostgres(context.TODO(), c, l)
+		if err != nil {
+			// close all started instances
+			for _, f := range closeFuncs {
+				if f != nil {
+					f()
+				}
+			}
+			// we cannot start the database, thus no way to move on, time for panic! :P
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		}
+
+		closeFuncs = append(closeFuncs, closeFunc)
+	}
+
+	// merge all close functions
+	p.cleanDB = func() {
+		for _, f := range closeFuncs {
+			if f != nil {
+				f()
+			}
+		}
+	}
 }
 
 func (p *Platform) PostRun(bool) {

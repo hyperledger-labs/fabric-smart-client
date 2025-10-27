@@ -37,8 +37,8 @@ var _ = Describe("EndToEnd", func() {
 				"lender":   2,
 			},
 			SQLConfigs: map[string]*postgres.ContainerConfig{
-				"borrower": postgres.DefaultConfig("borrower-db"),
-				"lender":   postgres.DefaultConfig("lender-db"),
+				"borrower": postgres.DefaultConfig(postgres.WithDBName("borrower-db")),
+				"lender":   postgres.DefaultConfig(postgres.WithDBName("lender-db")),
 			},
 		})
 		BeforeEach(s.Setup)
