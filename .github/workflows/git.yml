@@ -5,8 +5,23 @@ on: [pull_request]
 jobs:
   block-fixup:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v5
       - name: Block Fixup Commit Merge
         uses: 13rac1/block-fixup-merge-action@v2.0.0
+
+  go-mod-tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
+      - run: make tidy
+      - name: Check for diffs
+        run: |
+          git diff --exit-code || {
+            echo "Please run 'make tidy' and commit the changes";
+            exit 1;
+          }
