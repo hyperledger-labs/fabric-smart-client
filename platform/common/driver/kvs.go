@@ -30,7 +30,7 @@ type AuditInfoStore interface {
 type BindingStore interface {
 	GetLongTerm(ctx context.Context, ephemeral view.Identity) (view.Identity, error)
 	HaveSameBinding(ctx context.Context, this, that view.Identity) (bool, error)
-	PutBinding(ctx context.Context, ephemeral, longTerm view.Identity) error
+	PutBindings(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error
 }
 
 type MetadataStore[K any, M any] interface {
