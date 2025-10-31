@@ -31,8 +31,21 @@ jobs:
           cache-dependency-path: "**/*.sum"
       - run: make install-tools
       - run: make install-fabric-bins
+      - run: make unit-tests
+
+  utest-postgres:
+    needs:
+      - checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
+      - run: make install-tools
       - run: make testing-docker-images
-      - run: make unit-tests-race
+      - run: make unit-tests-postgres
 
   itest-list:
     runs-on: ubuntu-latest

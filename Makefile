@@ -108,20 +108,27 @@ testing-docker-images: ## Pull images for system testing
 # include the checks target
 include $(TOP)/checks.mk
 
+GO_PACKAGES = $$(go list ./... | grep -v '/integration/'; go list ./integration/nwo)
+GO_PACKAGES_SDK = $$(go list ./... | grep '/sdk/dig$$')
+GO_TEST_PARAMS ?= -race -cover
+
 .PHONY: unit-tests
 unit-tests: ## Run unit tests
-	@export FAB_BINS=$(FAB_BINS); go test -cover $(shell go list ./... | grep -v '/integration/')
-	cd integration/nwo/; go test -cover ./...
+	@echo "Running unit tests..."
+	export FABRIC_LOGGING_SPEC=error; \
+	export FAB_BINS=$(FAB_BINS); \
+	go test $(GO_TEST_PARAMS) --skip '(Postgres)' $(GO_PACKAGES)
 
-.PHONY: unit-tests-race
-unit-tests-race: ## Run unit tests with race
-	@export GORACE=history_size=7; export FAB_BINS=$(FAB_BINS); go test -race -cover $(shell go list ./... | grep -v '/integration/')
-	cd integration/nwo/; export FAB_BINS=$(FAB_BINS); go test -race -cover ./...
+.PHONY: unit-tests-postgres
+unit-tests-postgres: ## Run unit tests for postgres (requires container images as defined in testing-docker-images)
+	@echo "Running unit tests..."
+	export FABRIC_LOGGING_SPEC=error; \
+	go test $(GO_TEST_PARAMS) --run '(Postgres)' $(GO_PACKAGES)
 
-.PHONY: unit-tests-dig
-unit-tests-dig:
-	cd platform/view/sdk/dig; go test -cover ./...
-	cd platform/fabric/sdk/dig; go test -cover ./...
+.PHONY: unit-tests-sdk
+unit-tests-sdk: ## Run sdk wiring tests
+	@echo "Running SDK tests..."
+	go test $(GO_TEST_PARAMS) --run "(TestWiring)" $(GO_PACKAGES_SDK)
 
 run-otlp:
 	cd platform/view/services/tracing; docker-compose up -d
