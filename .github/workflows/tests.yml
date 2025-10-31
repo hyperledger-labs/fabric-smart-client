@@ -30,6 +30,7 @@ jobs:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
       - run: make install-tools
+      - run: make install-fabric-bins
       - run: make unit-tests
 
   utest-postgres:
@@ -43,7 +44,6 @@ jobs:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
       - run: make install-tools
-      - run: make install-fabric-bins
       - run: make testing-docker-images
       - run: make unit-tests-postgres
 
