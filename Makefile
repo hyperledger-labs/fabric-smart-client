@@ -115,13 +115,14 @@ GO_TEST_PARAMS ?= -race -cover
 .PHONY: unit-tests
 unit-tests: ## Run unit tests
 	@echo "Running unit tests..."
-	@export FABRIC_LOGGING_SPEC=error
+	export FABRIC_LOGGING_SPEC=error; \
+	export FAB_BINS=$(FAB_BINS); \
 	go test $(GO_TEST_PARAMS) --skip '(Postgres)' $(GO_PACKAGES)
 
 .PHONY: unit-tests-postgres
 unit-tests-postgres: ## Run unit tests for postgres (requires container images as defined in testing-docker-images)
 	@echo "Running unit tests..."
-	@export FABRIC_LOGGING_SPEC=error
+	export FABRIC_LOGGING_SPEC=error; \
 	go test $(GO_TEST_PARAMS) --run '(Postgres)' $(GO_PACKAGES)
 
 .PHONY: unit-tests-sdk
