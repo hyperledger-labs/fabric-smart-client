@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
-	"os"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
@@ -18,12 +17,6 @@ import (
 )
 
 func TestPostgres(t *testing.T) {
-	if os.Getenv("TEST_POSTGRES") != "true" {
-		t.Skip("set environment variable TEST_POSTGRES to true to include postgres test")
-	}
-	if testing.Short() {
-		t.Skip("skipping postgres test in short mode")
-	}
 	t.Log("starting postgres")
 	terminate, pgConnStr, err := StartPostgres(t, false)
 	if err != nil {
