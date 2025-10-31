@@ -6,12 +6,21 @@ SPDX-License-Identifier: Apache-2.0
 
 package cache
 
+import "sync"
+
 // NewMapCache creates a dummy implementation of the Cache interface.
 // It is backed by a map with unlimited capacity.
 func NewMapCache[K comparable, V any]() *mapCache[K, V] {
 	return &mapCache[K, V]{
 		m: map[K]V{},
 		l: &noLock{},
+	}
+}
+
+func NewSafeMapCache[K comparable, V any]() *mapCache[K, V] {
+	return &mapCache[K, V]{
+		m: map[K]V{},
+		l: &sync.RWMutex{},
 	}
 }
 
