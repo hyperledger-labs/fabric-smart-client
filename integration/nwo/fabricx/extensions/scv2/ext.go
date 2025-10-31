@@ -59,6 +59,7 @@ func (e *Extension) CheckTopology() {
 
 func (e *Extension) GenerateArtifacts() {
 	generateQSExtension(e.network)
+	generateNSExtension(e.network)
 }
 
 func (e *Extension) PostRun(load bool) {
