@@ -162,7 +162,7 @@ $(addprefix integration-tests-,$(INTEGRATION_TARGETS)) : integration-tests-%:
 
 .PHONY: clean
 clean: $(addprefix clean-,$(INTEGRATION_TARGETS)) ## Clean generated testdata
-	rm -rf ./cmd/fsccli/cmd
+	rm -rf ./cmd/fsccli/out
 
 $(addprefix clean-,$(INTEGRATION_TARGETS)) : clean-%:
 	rm -rf ./integration/$(firstword $(subst -, ,$*))/$(subst $(firstword $(subst -, ,$*))-,,$*)/out
