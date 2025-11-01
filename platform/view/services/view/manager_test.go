@@ -50,6 +50,23 @@ func (a DummyView) Call(context view.Context) (interface{}, error) {
 	return nil, nil
 }
 
+type ContextKey string
+
+type CheckContextView struct {
+	Key ContextKey
+}
+
+func (a *CheckContextView) Call(context view.Context) (interface{}, error) {
+	v, ok := context.Context().Value(a.Key).(string)
+	if !ok {
+		panic("context value is not valid")
+	}
+	if len(v) == 0 {
+		panic("context value is empty")
+	}
+	return nil, nil
+}
+
 type DummyFactory struct{}
 
 func (d *DummyFactory) NewView(in []byte) (view.View, error) {
@@ -93,10 +110,11 @@ func TestManagerRace(t *testing.T) {
 
 	wg := &sync.WaitGroup{}
 	for i := 0; i < 100; i++ {
-		wg.Add(7)
+		wg.Add(8)
 		go registerFactory(t, wg, manager)
 		go newView(t, wg, manager)
 		go callView(t, wg, manager)
+		go checkContext(t, wg, manager)
 		go getContext(t, wg, manager)
 		go initiateView(t, wg, manager)
 		go start(t, wg, manager, ctx)
@@ -149,6 +167,15 @@ func registerResponder(t *testing.T, wg *sync.WaitGroup, m Manager) {
 
 func callView(t *testing.T, wg *sync.WaitGroup, m Manager) {
 	_, err := m.InitiateView(&DummyView{}, context.Background())
+	wg.Done()
+	assert.NoError(t, err)
+}
+
+func checkContext(t *testing.T, wg *sync.WaitGroup, m Manager) {
+	k := ContextKey("pineapple")
+	ctx := t.Context()
+	ctx = context.WithValue(ctx, k, "sweet")
+	_, err := m.InitiateView(&CheckContextView{Key: k}, ctx)
 	wg.Done()
 	assert.NoError(t, err)
 }
