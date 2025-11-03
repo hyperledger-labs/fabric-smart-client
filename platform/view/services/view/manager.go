@@ -122,11 +122,9 @@ func (cm *Manager) InitiateView(view view.View, ctx context.Context) (interface{
 // The function creates a new `view context` and run the view over it.
 // From the view context, ctx is reachable.
 func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, ctx context.Context) (interface{}, error) {
-	// Get the managers context
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(ctx))
 	viewContext, err := NewContextForInitiator(
 		"",
 		ctx,
