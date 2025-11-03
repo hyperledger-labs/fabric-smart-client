@@ -73,10 +73,12 @@ func (o *CFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 
 		err = connection.Send(env)
 		if err != nil {
+			logger.ErrorfContext(context, "failed to send to ordering [%s]", err)
 			continue
 		}
 		status, err = connection.Recv()
 		if err != nil {
+			logger.ErrorfContext(context, "failed to receive to ordering [%s]", err)
 			continue
 		}
 		if status.GetStatus() != common2.Status_SUCCESS {
