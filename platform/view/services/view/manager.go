@@ -118,6 +118,9 @@ func (cm *Manager) InitiateView(view view.View, ctx context.Context) (interface{
 	return cm.InitiateViewWithIdentity(view, cm.me(), ctx)
 }
 
+// InitiateViewWithIdentity executes the given view with given identity and context.
+// The function creates a new `view context` and run the view over it.
+// From the view context, ctx is reachable.
 func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, ctx context.Context) (interface{}, error) {
 	// Get the managers context
 	if ctx == nil {
@@ -198,6 +201,9 @@ func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 	return c, nil
 }
 
+// Start listens to the messages coming into the master session of the communication layer.
+// These messages trigger the execution of the responder views.
+// The function is blocking. If the passed context gets canceled, Start terminates its execution.
 func (cm *Manager) Start(ctx context.Context) {
 	session, err := cm.commLayer.MasterSession()
 	if err != nil {
