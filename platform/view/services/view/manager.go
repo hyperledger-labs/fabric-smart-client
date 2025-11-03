@@ -41,7 +41,6 @@ type Manager struct {
 	metrics              *Metrics
 	localIdentityChecker LocalIdentityChecker
 
-	ctx        context.Context
 	contexts   map[string]disposableContext
 	contextsMu sync.RWMutex
 }
@@ -119,15 +118,15 @@ func (cm *Manager) InitiateView(view view.View, ctx context.Context) (interface{
 	return cm.InitiateViewWithIdentity(view, cm.me(), ctx)
 }
 
+// InitiateViewWithIdentity executes the given view with given identity and context.
+// The function creates a new `view context` and run the view over it.
+// From the view context, ctx is reachable.
 func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, ctx context.Context) (interface{}, error) {
 	// Get the managers context
-	cm.contextsMu.Lock()
-	cctx := cm.ctx
-	cm.contextsMu.Unlock()
-	if cctx == nil {
-		cctx = context.Background()
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	ctx = trace.ContextWithSpanContext(cctx, trace.SpanContextFromContext(ctx))
+	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(ctx))
 	viewContext, err := NewContextForInitiator(
 		"",
 		ctx,
@@ -161,15 +160,15 @@ func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, ct
 }
 
 func (cm *Manager) InitiateContext(view view.View) (view.Context, error) {
-	return cm.InitiateContextFrom(cm.getCurrentContext(), view, cm.me(), "")
+	return cm.InitiateContextFrom(context.Background(), view, cm.me(), "")
 }
 
 func (cm *Manager) InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error) {
-	return cm.InitiateContextFrom(cm.getCurrentContext(), view, id, "")
+	return cm.InitiateContextFrom(context.Background(), view, id, "")
 }
 
 func (cm *Manager) InitiateContextWithIdentityAndID(view view.View, id view.Identity, contextID string) (view.Context, error) {
-	return cm.InitiateContextFrom(cm.getCurrentContext(), view, id, contextID)
+	return cm.InitiateContextFrom(context.Background(), view, id, contextID)
 }
 
 func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id view.Identity, contextID string) (view.Context, error) {
@@ -202,9 +201,10 @@ func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 	return c, nil
 }
 
+// Start listens to the messages coming into the master session of the communication layer.
+// These messages trigger the execution of the responder views.
+// The function is blocking. If the passed context gets canceled, Start terminates its execution.
 func (cm *Manager) Start(ctx context.Context) {
-	cm.setCurrentContext(ctx)
-
 	session, err := cm.commLayer.MasterSession()
 	if err != nil {
 		return
@@ -421,17 +421,4 @@ func (cm *Manager) callView(msg *view.Message) {
 
 func (cm *Manager) me() view.Identity {
 	return cm.identityProvider.DefaultIdentity()
-}
-
-func (cm *Manager) getCurrentContext() context.Context {
-	cm.contextsMu.Lock()
-	ctx := cm.ctx
-	cm.contextsMu.Unlock()
-	return ctx
-}
-
-func (cm *Manager) setCurrentContext(ctx context.Context) {
-	cm.contextsMu.Lock()
-	cm.ctx = ctx
-	cm.contextsMu.Unlock()
 }
