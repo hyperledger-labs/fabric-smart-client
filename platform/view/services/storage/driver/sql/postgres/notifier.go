@@ -52,6 +52,10 @@ func NewSimplePrimaryKey(name driver.ColumnKey) *primaryKey {
 	return &primaryKey{name: name, valueDecoder: identity}
 }
 
+func NewBytePrimaryKey(name driver.ColumnKey) *primaryKey {
+	return &primaryKey{name: name, valueDecoder: decodeBYTEA}
+}
+
 const (
 	payloadConcatenator = "&"
 	keySeparator        = "_"
@@ -78,6 +82,7 @@ func (db *Notifier) Subscribe(callback driver.TriggerCallback) error {
 	db.once.Do(func() {
 		logger.Debugf("First subscription for notifier of [%s]. Notifier starts listening...", db.table)
 		go func() {
+			// TODO: this code has a race issue
 			if err := db.listener.Listen(context.TODO()); err != nil {
 				logger.Errorf("notifier listen for [%s] failed: %s", db.table, err.Error())
 			}

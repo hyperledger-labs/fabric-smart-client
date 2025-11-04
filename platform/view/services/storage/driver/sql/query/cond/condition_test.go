@@ -77,6 +77,11 @@ var testMatrix = []testCase{
 		expectedQuery:  "field < NOW()",
 		expectedParams: []common3.Param{},
 	},
+	{
+		condition:      cond2.BetweenBytes("pkey", []byte("start"), []byte("end")),
+		expectedQuery:  "(pkey >= $0) AND (pkey < $1)",
+		expectedParams: []common3.Param{[]byte("start"), []byte("end")},
+	},
 }
 
 func TestConditions(t *testing.T) {

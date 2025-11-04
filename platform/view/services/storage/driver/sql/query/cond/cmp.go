@@ -74,6 +74,17 @@ func FieldBetweenInts(f common.Serializable, start, end int) Condition {
 	return fieldBetween(f, start, end, func(t int) bool { return t == NoIntLimit })
 }
 
+func BetweenBytes(f common.FieldName, start, end []byte) Condition {
+	var conds []Condition
+	if len(start) != 0 {
+		conds = append(conds, CmpVal(f, ">=", start))
+	}
+	if len(end) != 0 {
+		conds = append(conds, CmpVal(f, "<", end))
+	}
+	return And(conds...)
+}
+
 func BetweenStrings(f common.FieldName, start, end string) Condition {
 	return FieldBetweenStrings(f, start, end)
 }

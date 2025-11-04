@@ -54,7 +54,7 @@ func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrappe
 func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns driver2.Namespace, startKey, endKey driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	query, params := q.Select().FieldsByName("pkey", "val").
 		From(q.Table(db.table)).
-		Where(cond2.And(cond2.Eq("ns", ns), cond2.BetweenStrings("pkey", startKey, endKey))).
+		Where(cond2.And(cond2.Eq("ns", ns), cond2.BetweenBytes("pkey", []byte(startKey), []byte(endKey)))).
 		OrderBy(q.Asc(common2.FieldName("pkey"))).
 		Format(db.ci)
 
@@ -97,7 +97,11 @@ func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns driver2.Nam
 }
 
 func HasKeys(ns driver2.Namespace, keys ...driver2.PKey) cond2.Condition {
-	return cond2.And(cond2.Eq("ns", ns), cond2.In("pkey", keys...))
+	kbytes := make([][]byte, len(keys))
+	for i, k := range keys {
+		kbytes[i] = []byte(k)
+	}
+	return cond2.And(cond2.Eq("ns", ns), cond2.In("pkey", kbytes...))
 }
 
 func (db *KeyValueStore) Close() error {
@@ -199,7 +203,7 @@ func (db *KeyValueStore) SetStatesWithTx(ctx context.Context, tx dbTransaction, 
 func (db *KeyValueStore) upsertStatesWithTx(ctx context.Context, tx dbTransaction, ns driver2.Namespace, vals map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
 	rows := make([]common2.Tuple, 0, len(vals))
 	for pkey, val := range vals {
-		rows = append(rows, common2.Tuple{ns, pkey, val})
+		rows = append(rows, common2.Tuple{ns, []byte(pkey), val})
 	}
 	query, params := q.InsertInto(db.table).
 		Fields("ns", "pkey", "val").
@@ -229,7 +233,7 @@ func (db *KeyValueStore) CreateSchema() error {
 	return InitSchema(db.writeDB, fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		ns TEXT NOT NULL,
-		pkey TEXT NOT NULL,
+		pkey BYTEA NOT NULL,
 		val BYTEA NOT NULL DEFAULT '',
 		PRIMARY KEY (pkey, ns)
 	);`, db.table))

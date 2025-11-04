@@ -19,6 +19,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+var (
+	ns    = "namespace"
+	key   = []byte("mykey")
+	value = []byte("myvalue")
+)
+
 type dummyErrorWrapper struct{}
 
 func (d *dummyErrorWrapper) WrapError(err error) error {
@@ -31,16 +37,12 @@ func TestGetState(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	ns := "namespace"
-	key := "mykey"
-	value := []byte("myvalue")
-
 	query := regexp.QuoteMeta("SELECT val FROM kv_table WHERE (ns = $1) AND (pkey = $2)")
 	mock.ExpectQuery(query).WithArgs(ns, key).
 		WillReturnRows(mock.NewRows([]string{"val"}).AddRow(value))
 
 	store := mockKeyValueStore(db, db)
-	result, err := store.GetState(context.Background(), ns, key)
+	result, err := store.GetState(context.Background(), ns, string(key))
 
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 	Expect(err).ToNot(HaveOccurred())
@@ -53,14 +55,11 @@ func TestGetState_QueryError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	ns := "namespace"
-	key := "mykey"
-
 	query := regexp.QuoteMeta("SELECT val FROM kv_table WHERE (ns = $1) AND (pkey = $2)")
 	mock.ExpectQuery(query).WithArgs(ns, key).WillReturnError(sql.ErrConnDone)
 
 	store := mockKeyValueStore(db, db)
-	_, err = store.GetState(context.Background(), ns, key)
+	_, err = store.GetState(context.Background(), ns, string(key))
 
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 	Expect(err).To(HaveOccurred())
@@ -72,15 +71,11 @@ func TestSetState(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	ns := "namespace"
-	key := "mykey"
-	val := []byte("value")
-
 	query := regexp.QuoteMeta("INSERT INTO kv_table (ns, pkey, val) VALUES ($1, $2, $3)")
-	mock.ExpectExec(query).WithArgs(ns, key, val).WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec(query).WithArgs(ns, key, value).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	store := mockKeyValueStore(db, db)
-	err = store.SetState(context.Background(), ns, key, val)
+	err = store.SetState(context.Background(), ns, string(key), value)
 
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 	Expect(err).ToNot(HaveOccurred())
@@ -92,15 +87,11 @@ func TestSetState_ExecError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	ns := "namespace"
-	key := "mykey"
-	val := []byte("value")
-
 	query := regexp.QuoteMeta("INSERT INTO kv_table (ns, pkey, val) VALUES ($1, $2, $3)")
-	mock.ExpectExec(query).WithArgs(ns, key, val).WillReturnError(sql.ErrConnDone)
+	mock.ExpectExec(query).WithArgs(ns, key, value).WillReturnError(sql.ErrConnDone)
 
 	store := mockKeyValueStore(db, db)
-	err = store.SetState(context.Background(), ns, key, val)
+	err = store.SetState(context.Background(), ns, string(key), value)
 
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 	Expect(err).To(HaveOccurred())
@@ -112,14 +103,11 @@ func TestDeleteState(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	ns := "namespace"
-	key := "mykey"
-
 	query := regexp.QuoteMeta("DELETE FROM kv_table WHERE (ns = $1) AND (pkey = $2)")
 	mock.ExpectExec(query).WithArgs(ns, key).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	store := mockKeyValueStore(db, db)
-	err = store.DeleteState(context.Background(), ns, key)
+	err = store.DeleteState(context.Background(), ns, string(key))
 
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 	Expect(err).ToNot(HaveOccurred())
@@ -131,14 +119,11 @@ func TestDeleteState_ExecError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	ns := "namespace"
-	key := "mykey"
-
 	query := regexp.QuoteMeta("DELETE FROM kv_table WHERE (ns = $1) AND (pkey = $2)")
 	mock.ExpectExec(query).WithArgs(ns, key).WillReturnError(sql.ErrConnDone)
 
 	store := mockKeyValueStore(db, db)
-	err = store.DeleteState(context.Background(), ns, key)
+	err = store.DeleteState(context.Background(), ns, string(key))
 
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 	Expect(err).To(HaveOccurred())
@@ -148,9 +133,8 @@ func TestGetStateRangeScanIterator(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	ns := "namespace"
-	startKey := "a"
-	endKey := "z"
+	startKey := []byte("a")
+	endKey := []byte("z")
 
 	query := regexp.QuoteMeta("SELECT pkey, val FROM kv_table WHERE (ns = $1) AND ((pkey >= $2) AND (pkey < $3)) ORDER BY pkey ASC")
 	mock.ExpectQuery(query).
@@ -158,7 +142,7 @@ func TestGetStateRangeScanIterator(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"pkey", "val"}).AddRow("a", []byte("val1")).AddRow("b", []byte("val2")))
 
 	store := mockKeyValueStore(db, db)
-	iter, err := store.GetStateRangeScanIterator(context.Background(), ns, startKey, endKey)
+	iter, err := store.GetStateRangeScanIterator(context.Background(), ns, string(startKey), string(endKey))
 	Expect(err).ToNot(HaveOccurred())
 
 	var results []string
@@ -179,12 +163,11 @@ func TestGetStateSetIterator(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	ns := "namespace"
 	keys := []string{"a", "b"}
 
 	query := regexp.QuoteMeta("SELECT pkey, val FROM kv_table WHERE (ns = $1) AND ((pkey) IN (($2), ($3)))")
 	mock.ExpectQuery(query).
-		WithArgs(ns, "a", "b").
+		WithArgs(ns, []byte("a"), []byte("b")).
 		WillReturnRows(sqlmock.NewRows([]string{"pkey", "val"}).AddRow("a", []byte("val1")).AddRow("b", []byte("val2")))
 
 	store := mockKeyValueStore(db, db)
@@ -212,7 +195,7 @@ func TestExec(t *testing.T) {
 	query := "UPDATE kv_table SET val = $1 WHERE ns = $2 AND pkey = $3"
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta(query)).
-		WithArgs([]byte("v"), "ns", "key").
+		WithArgs([]byte("v"), "ns", []byte("key")).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	tx, err := db.Begin()
@@ -221,7 +204,7 @@ func TestExec(t *testing.T) {
 	store := mockKeyValueStore(db, db)
 	store.Txn = tx
 
-	_, err = store.Exec(context.Background(), query, []byte("v"), "ns", "key")
+	_, err = store.Exec(context.Background(), query, []byte("v"), "ns", []byte("key"))
 	Expect(err).ToNot(HaveOccurred())
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 }
