@@ -8,47 +8,21 @@ package postgres
 
 import (
 	"encoding/hex"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"strings"
 )
 
 func identity(a string) (string, error) { return a, nil }
 
-func decodeUnversionedReadIterator(it iterators.Iterator[*driver2.UnversionedRead], err error) (iterators.Iterator[*driver2.UnversionedRead], error) {
-	return decodeIterator(it, err, decodeUnversionedRead)
-}
-
-func decodeIterator[R any](it iterators.Iterator[*R], err error, transformer func(v *R) (*R, error)) (iterators.Iterator[*R], error) {
-	if err != nil {
-		return nil, err
+// decodeBYTEA decodes a postgres response of type BYTEA
+func decodeBYTEA(s string) (string, error) {
+	// we only decode if we have indeed a BYTEA (returned as hex)
+	if !strings.HasPrefix(s, "\\x") {
+		return s, nil
 	}
-	return collections.Map(it, transformer), nil
-}
 
-func decode(s string) (string, error) {
-	b, err := hex.DecodeString(s)
+	b, err := hex.DecodeString(s[2:])
 	if err != nil {
 		return "", err
 	}
 	return string(b), err
-}
-
-func decodeUnversionedRead(v *driver2.UnversionedRead) (*driver2.UnversionedRead, error) {
-	if v == nil {
-		return nil, nil
-	}
-	key, err := decode(v.Key)
-	if err != nil {
-		return nil, err
-	}
-	return &driver2.UnversionedRead{
-		Key: key,
-		Raw: v.Raw,
-	}, nil
-}
-
-func encode(s string) string {
-	return hex.EncodeToString([]byte(s))
 }

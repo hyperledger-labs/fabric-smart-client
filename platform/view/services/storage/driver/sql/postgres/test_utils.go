@@ -128,7 +128,7 @@ func StartPostgresWithFmt(configs []*ContainerConfig) (func(), error) {
 	logger := &fmtLogger{}
 	for _, c := range configs {
 		logger.Log("Starting DB  ", c.DBName)
-		if closeFunc, err := startPostgresWithLogger(*c, logger, true); err != nil {
+		if closeFunc, err := startPostgresWithLogger(*c, logger, false); err != nil {
 			errs = append(errs, err)
 		} else {
 			closeFuncs = append(closeFuncs, closeFunc)
@@ -150,17 +150,16 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 	// images
 	d, err := docker.GetInstance()
 	if err != nil {
-		return nil, fmt.Errorf("can't get docker instance: %s", err)
+		return nil, fmt.Errorf("can't get docker instance: %w", err)
 	}
 	err = d.CheckImagesExist(c.Image)
 	if err != nil {
 		return nil, fmt.Errorf("image does not exist. Do: docker pull %s", c.Image)
 	}
 
-	// start container
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return nil, fmt.Errorf("can't start postgres: %s", err)
+		return nil, fmt.Errorf("can't get docker client: %w", err)
 	}
 	ctx := context.Background()
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
@@ -192,15 +191,15 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 		},
 	}, nil, nil, c.Container)
 	if err != nil {
-		return nil, fmt.Errorf("can't start postgres: %s", err)
+		return nil, fmt.Errorf("can't create postgres container: %w", err)
 	}
 	closeFunc := func() {
 		t.Log("removing postgres container")
-		_ = cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+		_ = cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{RemoveVolumes: true, Force: true})
 	}
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		closeFunc()
-		return nil, fmt.Errorf("can't start postgres: %s", err)
+		return nil, fmt.Errorf("can't start postgres container: %w", err)
 	}
 
 	// Forward logs to test logger
@@ -213,7 +212,7 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 				Timestamps: false,
 			})
 			if err != nil {
-				t.Errorf("can't show logs: %s", err)
+				t.Errorf("can't show logs: %v", err)
 			}
 			defer utils.CloseMute(reader)
 
@@ -228,7 +227,7 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 		inspect, err := cli.ContainerInspect(ctx, resp.ID)
 		if err != nil {
 			closeFunc()
-			return nil, fmt.Errorf("can't inspect postgres container: %s", err)
+			return nil, fmt.Errorf("can't inspect postgres container: %w", err)
 		}
 		if inspect.State.Health == nil {
 			closeFunc()
