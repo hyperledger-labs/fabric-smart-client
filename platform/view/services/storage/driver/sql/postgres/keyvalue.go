@@ -9,6 +9,7 @@ package postgres
 import (
 	"database/sql"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common4 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
@@ -20,6 +21,13 @@ func NewKeyValueStore(dbs *common3.RWDB, tables common4.TableNames) (*common4.Ke
 type KeyValueStoreNotifier struct {
 	*common4.KeyValueStore
 	*Notifier
+}
+
+func (db *KeyValueStoreNotifier) Close() error {
+	return errors.Join(
+		db.KeyValueStore.Close(),
+		db.Notifier.Close(),
+	)
 }
 
 func (db *KeyValueStoreNotifier) CreateSchema() error {
