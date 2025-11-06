@@ -9,20 +9,16 @@ package common
 import (
 	"context"
 	"database/sql"
-	"encoding/binary"
 	"fmt"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 	"unicode/utf8"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver3 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/keys"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,7 +35,7 @@ var Cases = []struct {
 	{"DB2", TTestDB2},
 	{"RangeQueries1", TTestRangeQueries1},
 	{"MultiWritesAndRangeQueries", TTestMultiWritesAndRangeQueries},
-	{"TTestMultiWrites", TTestMultiWrites},
+	{"MultiWrites", TTestMultiWrites},
 	{"CompositeKeys", TTestCompositeKeys},
 }
 
@@ -87,7 +83,14 @@ func TTestDuplicate(t *testing.T, _ *sql.DB, writeDB WriteDB, errorWrapper drive
 
 func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
-	populateForRangeQueries(t, db, ns)
+	entries := map[string]driver.UnversionedValue{
+		"k1":   driver.UnversionedValue("k1_value"),
+		"k111": driver.UnversionedValue("k111_value"),
+		"k2":   driver.UnversionedValue("k2_value"),
+		"k3":   driver.UnversionedValue("k3_value"),
+	}
+	populateDB(t, db, ns, entries)
+	defer cleanupDB(t, db, ns)
 
 	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, "", "")
 	assert.NoError(t, err)
@@ -153,11 +156,12 @@ func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 	ns := "ns"
 	key := "key"
+	defer cleanupDB(t, db, ns)
 
 	// empty state
 	vv, err := db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue{}, vv)
+	assert.Nil(t, vv)
 
 	// add data
 	err = db.SetState(context.Background(), ns, key, driver.UnversionedValue("val"))
@@ -206,54 +210,45 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 	// expect state to be empty
 	vv, err = db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue{}, vv)
+	assert.Nil(t, vv)
 }
 
-func populateDB(t *testing.T, db driver.KeyValueStore, ns, key, keyWithSuffix string) {
-	err := db.BeginUpdate()
+func populateDB(t *testing.T, db driver.KeyValueStore, ns string, entries map[string]driver.UnversionedValue) {
+	assert.NoError(t, db.BeginUpdate())
+	assert.Empty(t, db.SetStates(t.Context(), ns, entries))
+	assert.NoError(t, db.Commit())
+
+	// let's check that we only have
+	itr, err := db.GetStateRangeScanIterator(t.Context(), ns, "", "")
 	assert.NoError(t, err)
 
-	err = db.SetState(context.Background(), ns, key, driver.UnversionedValue("bar"))
+	res, err := collections.ReadAll(itr)
 	assert.NoError(t, err)
+	assert.Equal(t, len(entries), len(res))
 
-	err = db.SetState(context.Background(), ns, keyWithSuffix, driver.UnversionedValue("bar1"))
-	assert.NoError(t, err)
-
-	err = db.Commit()
-	assert.NoError(t, err)
-
-	vv, err := db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue("bar"), vv)
-
-	vv, err = db.GetState(context.Background(), ns, keyWithSuffix)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue("bar1"), vv)
-
-	vv, err = db.GetState(context.Background(), ns, "barf")
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue{}, vv)
-
-	vv, err = db.GetState(context.Background(), "barf", "barf")
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue{}, vv)
+	for _, r := range res {
+		v, ok := entries[r.Key]
+		assert.True(t, ok)
+		assert.Equal(t, v, r.Raw)
+	}
 }
 
-func populateForRangeQueries(t *testing.T, db driver.KeyValueStore, ns string) {
-	err := db.BeginUpdate()
+func cleanupDB(t *testing.T, db driver.KeyValueStore, ns string) {
+	assert.NoError(t, db.BeginUpdate())
+	itr, err := db.GetStateRangeScanIterator(t.Context(), ns, "", "")
 	assert.NoError(t, err)
 
-	err = db.SetState(context.Background(), ns, "k2", driver.UnversionedValue("k2_value"))
-	assert.NoError(t, err)
-	err = db.SetState(context.Background(), ns, "k3", driver.UnversionedValue("k3_value"))
-	assert.NoError(t, err)
-	err = db.SetState(context.Background(), ns, "k1", driver.UnversionedValue("k1_value"))
-	assert.NoError(t, err)
-	err = db.SetState(context.Background(), ns, "k111", driver.UnversionedValue("k111_value"))
+	res, err := collections.ReadAll(itr)
 	assert.NoError(t, err)
 
-	err = db.Commit()
-	assert.NoError(t, err)
+	var keys []string
+	for _, r := range res {
+		keys = append(keys, r.Key)
+	}
+
+	errs := db.DeleteStates(t.Context(), ns, keys...)
+	assert.Empty(t, errs)
+	assert.NoError(t, db.Commit())
 }
 
 func TTestGetNonExistent(t *testing.T, db driver.KeyValueStore) {
@@ -262,7 +257,7 @@ func TTestGetNonExistent(t *testing.T, db driver.KeyValueStore) {
 
 	vv, err := db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue{}, vv)
+	assert.Nil(t, vv)
 }
 
 func TTestDB1(t *testing.T, db driver.KeyValueStore) {
@@ -270,7 +265,11 @@ func TTestDB1(t *testing.T, db driver.KeyValueStore) {
 	key := "foo"
 	keyWithSuffix := key + "/suffix"
 
-	populateDB(t, db, ns, key, keyWithSuffix)
+	entries := map[string]driver.UnversionedValue{
+		key:           driver.UnversionedValue("bar"),
+		keyWithSuffix: driver.UnversionedValue("bar1"),
+	}
+	populateDB(t, db, ns, entries)
 
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
@@ -290,7 +289,11 @@ func TTestDB2(t *testing.T, db driver.KeyValueStore) {
 	key := "foo"
 	keyWithSuffix := key + "/suffix"
 
-	populateDB(t, db, ns, key, keyWithSuffix)
+	entries := map[string]driver.UnversionedValue{
+		key:           driver.UnversionedValue("bar"),
+		keyWithSuffix: driver.UnversionedValue("bar1"),
+	}
+	populateDB(t, db, ns, entries)
 
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
@@ -307,21 +310,14 @@ func TTestDB2(t *testing.T, db driver.KeyValueStore) {
 
 func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
-
-	err := db.BeginUpdate()
-	assert.NoError(t, err)
-
-	err = db.SetState(context.Background(), ns, "k2", driver.UnversionedValue("k2_value"))
-	assert.NoError(t, err)
-	err = db.SetState(context.Background(), ns, "k3", driver.UnversionedValue("k3_value"))
-	assert.NoError(t, err)
-	err = db.SetState(context.Background(), ns, "k1", driver.UnversionedValue("k1_value"))
-	assert.NoError(t, err)
-	err = db.SetState(context.Background(), ns, "k111", driver.UnversionedValue("k111_value"))
-	assert.NoError(t, err)
-
-	err = db.Commit()
-	assert.NoError(t, err)
+	entries := map[string]driver.UnversionedValue{
+		"k2":   driver.UnversionedValue("k2_value"),
+		"k3":   driver.UnversionedValue("k3_value"),
+		"k1":   driver.UnversionedValue("k1_value"),
+		"k111": driver.UnversionedValue("k111_value"),
+	}
+	populateDB(t, db, ns, entries)
+	defer cleanupDB(t, db, ns)
 
 	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, "", "")
 	assert.NoError(t, err)
@@ -349,33 +345,23 @@ func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
 
 func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
-	assert.NoError(t, db.BeginUpdate())
-
-	assert.NoError(t, db.SetState(context.Background(), ns, "k2", driver.UnversionedValue("k2_value")))
-	assert.NoError(t, db.SetState(context.Background(), ns, "k3", driver.UnversionedValue("k3_value")))
-	assert.NoError(t, db.SetState(context.Background(), ns, "k1", driver.UnversionedValue("k1_value")))
-	assert.NoError(t, db.SetState(context.Background(), ns, "k111", driver.UnversionedValue("k111_value")))
-
-	assert.NoError(t, db.Commit())
+	entries := map[string]driver.UnversionedValue{
+		"k1":   driver.UnversionedValue("k1_value"),
+		"k2":   driver.UnversionedValue("k2_value"),
+		"k3":   driver.UnversionedValue("k3_value"),
+		"k111": driver.UnversionedValue("k111_value"),
+	}
+	populateDB(t, db, ns, entries)
+	defer cleanupDB(t, db, ns)
 
 	var wg sync.WaitGroup
-	wg.Add(4)
-	go func() {
-		assert.NoError(t, db.SetState(context.Background(), ns, key, []byte("k2_value")))
-		wg.Done()
-	}()
-	go func() {
-		assert.NoError(t, db.SetState(context.Background(), ns, key, []byte("k3_value")))
-		wg.Done()
-	}()
-	go func() {
-		assert.NoError(t, db.SetState(context.Background(), ns, key, []byte("k1_value")))
-		wg.Done()
-	}()
-	go func() {
-		assert.NoError(t, db.SetState(context.Background(), ns, key, []byte("k111_value")))
-		wg.Done()
-	}()
+	for k, v := range entries {
+		wg.Add(1)
+		go func(k string, v driver.UnversionedValue) {
+			defer wg.Done()
+			assert.NoError(t, db.SetState(context.Background(), ns, k, v))
+		}(k, v)
+	}
 	wg.Wait()
 
 	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, "", "")
@@ -428,13 +414,15 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 
 func TTestMultiWrites(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
+	key := "test_key"
+	defer cleanupDB(t, db, ns)
+
 	var wg sync.WaitGroup
-	n := 20
-	wg.Add(n)
-	for i := 0; i < n; i++ {
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
 		go func(i int) {
+			defer wg.Done()
 			assert.NoError(t, db.SetState(context.Background(), ns, key, []byte(fmt.Sprintf("TTestMultiWrites_value_%d", i))))
-			wg.Done()
 		}(i)
 	}
 	wg.Wait()
@@ -476,6 +464,7 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 	keyPrefix := "prefix"
+	defer cleanupDB(t, db, ns)
 
 	err := db.BeginUpdate()
 	assert.NoError(t, err)
@@ -537,6 +526,8 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 // cannot check if key exists: pq: invalid byte sequence for encoding "UTF8": 0xc2 0x32]
 func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
+	key := "test_key"
+	defer cleanupDB(t, db, ns)
 
 	// adapted from https://www.php.net/manual/en/reference.pcre.pattern.modifiers.php#54805
 	utf8 := map[string][]byte{
@@ -589,18 +580,14 @@ func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
 
 	v, err := db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
-	assert.Equal(t, []byte(nil), v)
+	assert.Nil(t, v)
 }
-
-var (
-	namespace = "test_namespace"
-	key       = "test_key"
-)
 
 func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 	var err error
 
 	ns := "namespace"
+	defer cleanupDB(t, db, ns)
 
 	err = db.BeginUpdate()
 	assert.NoError(t, err)
@@ -661,6 +648,7 @@ func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 	ns := "ns"
 	key := "key"
+	defer cleanupDB(t, db, ns)
 
 	v, err := db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
@@ -719,26 +707,6 @@ func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 	assert.Equal(t, []byte(nil), v)
 }
 
-func BenchmarkConcatenation(b *testing.B) {
-	var s string
-	for i := 0; i < b.N; i++ {
-		s = namespace + keys.NamespaceSeparator + key
-	}
-	_ = s
-}
-
-func BenchmarkBuilder(b *testing.B) {
-	var s string
-	for i := 0; i < b.N; i++ {
-		var sb strings.Builder
-		sb.WriteString(namespace)
-		sb.WriteString(keys.NamespaceSeparator)
-		sb.WriteString(key)
-		s = sb.String()
-	}
-	_ = s
-}
-
 type notifyEvent struct {
 	Op  opType
 	NS  string
@@ -767,6 +735,7 @@ func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier)
 
 	ns := "ns"
 	key := "key"
+	defer cleanupDB(t, db, ns)
 
 	v, err := db.GetState(context.Background(), ns, key)
 	assert.NoError(t, err)
@@ -860,23 +829,4 @@ func subscribe(db notifier) (chan notifyEvent, error) {
 	}
 	time.Sleep(1 * time.Second) // Wait until subscription is complete before inserting values
 	return ch, nil
-}
-
-func ToBytes(Block driver3.BlockNum, TxNum driver3.TxNum) []byte {
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint32(buf[:4], uint32(Block))
-	binary.BigEndian.PutUint32(buf[4:], uint32(TxNum))
-	return buf
-}
-
-func FromBytes(data driver3.RawVersion) (driver3.BlockNum, driver3.TxNum, error) {
-	if len(data) == 0 {
-		return 0, 0, nil
-	}
-	if len(data) != 8 {
-		return 0, 0, errors.Errorf("block number must be 8 bytes, but got %d", len(data))
-	}
-	Block := driver3.BlockNum(binary.BigEndian.Uint32(data[:4]))
-	TxNum := driver3.TxNum(binary.BigEndian.Uint32(data[4:]))
-	return Block, TxNum, nil
 }

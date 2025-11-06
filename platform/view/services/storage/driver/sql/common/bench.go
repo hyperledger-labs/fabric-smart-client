@@ -16,6 +16,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	namespace = "ns"
+	key       = "key"
+)
+
 var (
 	returnValue []byte
 	returnErr   error

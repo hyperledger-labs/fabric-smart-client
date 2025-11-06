@@ -21,17 +21,16 @@ func TestCases(t *testing.T,
 	unversionedNotifierProvider provider[driver.UnversionedNotifier],
 	baseUnpacker func(p driver.KeyValueStore) *KeyValueStore,
 ) {
-	// TODO: enable these tests as well
-	//for _, c := range Cases {
-	//	un, err := unversionedProvider(c.Name)
-	//	if err != nil {
-	//		t.Fatal(err)
-	//	}
-	//	t.Run(c.Name, func(xt *testing.T) {
-	//		defer utils.IgnoreErrorFunc(un.Close)
-	//		c.Fn(xt, un)
-	//	})
-	//}
+	for _, c := range Cases {
+		un, err := unversionedProvider(c.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Run(c.Name, func(xt *testing.T) {
+			defer utils.IgnoreErrorFunc(un.Close)
+			c.Fn(xt, un)
+		})
+	}
 	for _, c := range UnversionedCases {
 		un, err := unversionedProvider(c.Name)
 		if err != nil {
