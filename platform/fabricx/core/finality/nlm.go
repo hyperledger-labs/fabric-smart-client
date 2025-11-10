@@ -35,7 +35,6 @@ type notificationListenerManager struct {
 
 func (n *notificationListenerManager) Listen(ctx context.Context) error {
 	g, gCtx := errgroup.WithContext(n.notifyStream.Context())
-	logger.Infof("@@@@@@@@@@ here at Listen")
 	// spawn stream receiver
 	g.Go(func() error {
 		for {
@@ -43,7 +42,6 @@ func (n *notificationListenerManager) Listen(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			logger.Infof("[nlm.Listen] Received new notification: %+v", res)
 			select {
 			case <-gCtx.Done():
 				return gCtx.Err()
@@ -79,7 +77,6 @@ func (n *notificationListenerManager) Listen(ctx context.Context) error {
 			}
 
 			res := parseResponse(resp)
-			logger.Infof("[nlm.Listen] Parsed notification result: %+v", res)
 
 			n.lock.Lock()
 			for txID, v := range res {

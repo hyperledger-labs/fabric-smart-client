@@ -76,7 +76,7 @@ func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[dr
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), s.config.QueryTimeout)
 	defer cancel()
 
 	now := time.Now()
