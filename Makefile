@@ -150,6 +150,7 @@ INTEGRATION_TARGETS += fabric-twonets
 
 ## fabricx section
 INTEGRATION_TARGETS += fabricx-iou
+INTEGRATION_TARGETS += fabricx-simple
 
 .PHONE: list-integration-tests
 list-integration-tests: ## List all integration tests
