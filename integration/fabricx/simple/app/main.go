@@ -8,13 +8,13 @@ package main
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/network"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	view "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/cmd"
 	"github.com/onsi/gomega"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple"
 )
 
 func main() {

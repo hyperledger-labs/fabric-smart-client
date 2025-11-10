@@ -7,13 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package simple
 
 import (
+	simpleviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/extensions/scv2"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
-	simpleviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
 )
 
 const (

@@ -10,14 +10,14 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
 	nwocommon "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
 )
 
 const testDataPath = "./testdata"

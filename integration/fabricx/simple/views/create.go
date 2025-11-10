@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -18,7 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views/utils"
 )
 
 var logger = logging.MustGetLogger()
