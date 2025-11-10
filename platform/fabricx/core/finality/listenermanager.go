@@ -82,6 +82,7 @@ func newNotifi(ctx context.Context, cfg config.ConfigService) (*notificationList
 }
 
 func GetListenerManager(ctx context.Context, sp services.Provider, network, channel string) (ListenerManager, error) {
+	logger.Infof("@@@@@@@@@@ here at GetListenerManager")
 	lmp, err := sp.GetService(reflect.TypeOf((*ListenerManagerProvider)(nil)))
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find provider")

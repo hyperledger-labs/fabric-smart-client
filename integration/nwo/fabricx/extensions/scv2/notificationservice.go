@@ -33,7 +33,7 @@ func generateNSExtension(n *network.Network) {
 
 	// TODO set correct values
 	notificationServiceHost := "localhost"
-	notificationServicePort := 5417
+	notificationServicePort := 5411
 
 	// TODO: most of this logic should go somewhere
 
