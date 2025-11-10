@@ -9,6 +9,7 @@ package finality
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"time"
 
@@ -33,9 +34,8 @@ type notificationListenerManager struct {
 	lock     sync.RWMutex
 }
 
-func (n *notificationListenerManager) Listen(_ context.Context) error {
+func (n *notificationListenerManager) Listen(ctx context.Context) error {
 	g, gCtx := errgroup.WithContext(n.notifyStream.Context())
-
 	// spawn stream receiver
 	g.Go(func() error {
 		for {
@@ -43,7 +43,6 @@ func (n *notificationListenerManager) Listen(_ context.Context) error {
 			if err != nil {
 				return err
 			}
-
 			select {
 			case <-gCtx.Done():
 				return gCtx.Err()
@@ -140,11 +139,17 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 	defer n.lock.Unlock()
 
 	handlers := n.handlers[txID]
+	for _, h := range handlers {
+		if h == listener {
+			logger.Warnf("The exact same listener is already registered for txID=%v. Skipping.", txID)
+			// Do not register the same instance twice
+			return nil
+		}
+	}
 	n.handlers[txID] = append(handlers, listener)
 
-	if len(handlers) > 1 {
-		logger.Warnf("callback for txID=%v already exists", txID)
-		// there is someone already requested a notification for this txID
+	if len(handlers) > 0 {
+		logger.Debugf("Additional listener registered for txID=%v. Request already sent.", txID)
 		return nil
 	}
 
@@ -162,6 +167,41 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 }
 
 func (n *notificationListenerManager) RemoveFinalityListener(txID string, listener fabric.FinalityListener) error {
-	// TODO: implement me
+	if listener == nil {
+		return errors.New("listener nil")
+	}
+
+	n.lock.Lock()
+	defer n.lock.Unlock()
+
+	handlers, ok := n.handlers[txID]
+	if !ok || len(handlers) == 0 {
+		// no handlers registered for this txID, nothing to remove
+		logger.Debugf("RemoveFinalityListener called for unknown txID: %s", txID)
+		return nil
+	}
+
+	initialLength := len(handlers)
+
+	newHandlers := slices.DeleteFunc(handlers, func(h fabric.FinalityListener) bool {
+		return h == listener
+	})
+
+	if len(newHandlers) == initialLength {
+		// if the length is the same, no listener was removed.
+		logger.Warnf("Listener not found for txID=%s, cannot remove.", txID)
+		return nil
+	}
+
+	// check if the list of handlers is now empty
+	if len(newHandlers) == 0 {
+		// this was the last listener. Clean up our local map entry.
+		logger.Debugf("Last finality listener removed for txID=%s.", txID)
+		delete(n.handlers, txID)
+	} else {
+		n.handlers[txID] = newHandlers
+		logger.Debugf("Removed listener for txID=%s. %d listeners remaining.", txID, len(newHandlers))
+	}
+
 	return nil
 }

@@ -37,7 +37,7 @@ func generateQSExtension(n *network.Network) {
 	// TODO: most of this logic should go into the query service package
 
 	config := queryservice.Config{
-		QueryTimeout: 5 * time.Second,
+		QueryTimeout: 10 * time.Second,
 		Endpoints: []queryservice.Endpoint{
 			{
 				Address:           fmt.Sprintf("%s:%v", queryServiceHost, queryServicePort),
