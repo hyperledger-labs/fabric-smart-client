@@ -51,7 +51,7 @@ func (a DummyView) Call(context view.Context) (interface{}, error) {
 	return nil, nil
 }
 
-type ContextKey = string
+type ContextKey string
 
 type DummyViewContextCheck struct{}
 
