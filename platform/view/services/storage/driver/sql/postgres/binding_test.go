@@ -34,12 +34,16 @@ func newBindingStoreForTests(t *testing.T) (func(), *BindingStore) {
 }
 
 func TestPutBindingsMultipleEphemeralsPostgres(t *testing.T) {
+	// if this test runs after another postgres test, wait a bit to let the previous connections close
+	time.Sleep(5 * time.Second)
 	terminate, db := newBindingStoreForTests(t)
 	defer terminate()
 	common.TestPutBindingsMultipleEphemeralsCommon(t, db.BindingStore)
 }
 
 func TestManyManyPutBindingsPostgres(t *testing.T) {
+	// if this test runs after another postgres test, wait a bit to let the previous connections close
+	time.Sleep(5 * time.Second)
 	terminate, db := newBindingStoreForTests(t)
 	defer terminate()
 	common.TestManyManyPutBindingsCommon(t, db.BindingStore)
