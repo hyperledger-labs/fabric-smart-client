@@ -8,7 +8,6 @@ package endorser
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 

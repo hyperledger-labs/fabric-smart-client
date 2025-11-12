@@ -15,6 +15,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// EndorsementsOnProposalTransaction models a transaction on which to collect endorsements on the transaction's proposal
+type EndorsementsOnProposalTransaction interface {
+	Network() string
+	EndorseProposalResponseWithIdentity(id view.Identity) error
+	ProposalResponses() ([][]byte, error)
+	Bytes() ([]byte, error)
+	ID() string
+	AppendProposalResponse(response *fabric.ProposalResponse) error
+}
+
 type Response struct {
 	ProposalResponses [][]byte
 }
@@ -26,7 +36,7 @@ type answer struct {
 }
 
 type parallelCollectEndorsementsOnProposalView struct {
-	tx      *Transaction
+	tx      EndorsementsOnProposalTransaction
 	parties []view.Identity
 
 	timeout time.Duration
@@ -118,11 +128,11 @@ func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 }
 
 type endorsementsOnProposalResponderView struct {
-	tx         *Transaction
+	tx         EndorsementsOnProposalTransaction
 	identities []view.Identity
 }
 
-func NewEndorsementOnProposalResponderView(tx *Transaction, identities ...view.Identity) *endorsementsOnProposalResponderView {
+func NewEndorsementOnProposalResponderView(tx EndorsementsOnProposalTransaction, identities ...view.Identity) *endorsementsOnProposalResponderView {
 	return &endorsementsOnProposalResponderView{tx: tx, identities: identities}
 }
 

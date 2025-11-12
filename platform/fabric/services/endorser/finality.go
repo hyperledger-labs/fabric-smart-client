@@ -12,15 +12,15 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Finality struct {
-	TxID    driver2.TxID
-	Network driver2.Network
-	Channel driver2.Channel
+	TxID    cdriver.TxID
+	Network cdriver.Network
+	Channel cdriver.Channel
 }
 
 type finalityView struct {
