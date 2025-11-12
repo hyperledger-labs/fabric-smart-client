@@ -137,7 +137,7 @@ func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error)
 				return nil, errors.Wrapf(err, "failed to new a broadcast for %s, rpcStatus=%+v", to.Address, rpcStatus)
 			}
 
-			stream, err := oClient.Broadcast(ctx)
+			stream, err := oClient.Broadcast(context.Background())
 			if err != nil {
 				client.Close()
 				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", to.Address)
