@@ -16,13 +16,20 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func TestPostgres(t *testing.T) {
-	t.Log("starting postgres")
-	terminate, pgConnStr, err := StartPostgres(t, false)
+func setupDB(tb testing.TB) string {
+	tb.Helper()
+
+	terminate, pgConnStr, err := StartPostgres(tb.Context(), ConfigFromEnv(), nil)
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
-	defer terminate()
+	tb.Cleanup(terminate)
+
+	return pgConnStr
+}
+
+func TestPostgres(t *testing.T) {
+	pgConnStr := setupDB(t)
 	t.Log("postgres ready")
 
 	cp := NewConfigProvider(testing2.MockConfig(Config{

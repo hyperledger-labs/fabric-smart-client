@@ -9,6 +9,7 @@ package fsc
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -213,11 +214,12 @@ func (p *Platform) Members() []grouper.Member {
 
 func (p *Platform) PreRun() {
 	// Start DBs
-	configs := map[string]*postgres2.ContainerConfig{}
+	configs := make(map[string]*postgres2.ContainerConfig)
+	// update data sources
 	for _, node := range p.Peers {
 		for _, sqlOpts := range node.Options.GetPostgresPersistences() {
 			if _, ok := configs[sqlOpts.DataSource]; !ok {
-				c, err := postgres2.ReadDataSource(sqlOpts.DataSource)
+				c, err := postgres2.ConfigFromDataSource(sqlOpts.DataSource)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred())
 				configs[sqlOpts.DataSource] = c
 			}
@@ -225,7 +227,7 @@ func (p *Platform) PreRun() {
 		}
 	}
 	logger.Infof("Starting DBs for following data sources: [%s]...", logging.Keys(configs))
-	closeF, err := postgres2.StartPostgresWithFmt(collections.Values(configs))
+	closeF, err := postgres2.StartMultiplePostgres(context.TODO(), collections.Values(configs))
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to start dbs")
 	p.cleanDB = closeF
 }
