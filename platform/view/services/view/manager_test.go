@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
@@ -48,6 +49,18 @@ type DummyView struct{}
 func (a DummyView) Call(context view.Context) (interface{}, error) {
 	time.Sleep(2 * time.Second)
 	return nil, nil
+}
+
+type ContextKey string
+
+type DummyViewContextCheck struct{}
+
+func (a DummyViewContextCheck) Call(ctx view.Context) (interface{}, error) {
+	v, ok := ctx.Context().Value(ContextKey("test")).(string)
+	if !ok {
+		return nil, errors.Errorf("context value %s not found", ContextKey("test"))
+	}
+	return v, nil
 }
 
 type DummyFactory struct{}
@@ -93,10 +106,11 @@ func TestManagerRace(t *testing.T) {
 
 	wg := &sync.WaitGroup{}
 	for i := 0; i < 100; i++ {
-		wg.Add(7)
+		wg.Add(8)
 		go registerFactory(t, wg, manager)
 		go newView(t, wg, manager)
 		go callView(t, wg, manager)
+		go callViewWithAugmentedContext(t, wg, manager)
 		go getContext(t, wg, manager)
 		go initiateView(t, wg, manager)
 		go start(t, wg, manager, ctx)
@@ -151,6 +165,15 @@ func callView(t *testing.T, wg *sync.WaitGroup, m Manager) {
 	_, err := m.InitiateView(&DummyView{}, context.Background())
 	wg.Done()
 	assert.NoError(t, err)
+}
+
+func callViewWithAugmentedContext(t *testing.T, wg *sync.WaitGroup, m Manager) {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, ContextKey("test"), "pineapple")
+	v, err := m.InitiateView(&DummyViewContextCheck{}, ctx)
+	wg.Done()
+	assert.NoError(t, err)
+	assert.Equal(t, "pineapple", v)
 }
 
 func newView(t *testing.T, wg *sync.WaitGroup, m Manager) {
