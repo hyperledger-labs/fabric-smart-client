@@ -177,7 +177,9 @@ func (o *BFTBroadcaster) getConnection(ctx context.Context, to *grpc.ConnectionC
 				return nil, errors.Wrapf(err, "failed to new a broadcast, rpcStatus=%+v", rpcStatus)
 			}
 
-			stream, err := oClient.Broadcast(ctx)
+			// Get the broadcast stream to receive a reply of Acknowledgement for each common.Envelope in order, indicating success or type of failure.
+			// Notice that this stream is shared, therefore its context must be something different from the context of the current broadcast request
+			stream, err := oClient.Broadcast(context.Background())
 			if err != nil {
 				client.Close()
 				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", to.Address)

@@ -120,14 +120,10 @@ func (cm *Manager) InitiateView(view view.View, ctx context.Context) (interface{
 }
 
 func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, ctx context.Context) (interface{}, error) {
-	// Get the managers context
-	cm.contextsMu.Lock()
-	cctx := cm.ctx
-	cm.contextsMu.Unlock()
-	if cctx == nil {
-		cctx = context.Background()
+	if ctx == nil {
+		ctx = cm.getCurrentContext()
 	}
-	ctx = trace.ContextWithSpanContext(cctx, trace.SpanContextFromContext(ctx))
+	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(ctx))
 	viewContext, err := NewContextForInitiator(
 		"",
 		ctx,
