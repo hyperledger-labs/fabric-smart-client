@@ -176,10 +176,9 @@ func TestSQLiteKVS(t *testing.T) {
 }
 
 func TestPostgresKVS(t *testing.T) {
-	// When running this test together with other tests; it may happen that a container instance is still running
+	//  When running this test together with other tests; it may happen that a container instance is still running
 	// we give this test a slow start ...
-	time.Sleep(5 * time.Second)
-
+	postgres2.WaitForPostgresContainerStopped()
 	t.Log("starting postgres")
 	terminate, pgConnStr, err := postgres2.StartPostgres(t, false)
 	if err != nil {
