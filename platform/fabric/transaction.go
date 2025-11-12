@@ -187,6 +187,11 @@ type Transaction struct {
 	tx  driver.Transaction
 }
 
+// NewTransaction returns a new instance of Transaction for the given arguments
+func NewTransaction(fns *NetworkService, tx driver.Transaction) *Transaction {
+	return &Transaction{fns: fns, tx: tx}
+}
+
 func (t *Transaction) Creator() view.Identity {
 	return t.tx.Creator()
 }
