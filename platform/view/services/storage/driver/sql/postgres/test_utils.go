@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -196,6 +197,18 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 	closeFunc := func() {
 		t.Log("removing postgres container")
 		_ = cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{RemoveVolumes: true, Force: true})
+		// Wait until the container is gone
+		for {
+			_, err := cli.ContainerInspect(ctx, resp.ID)
+			if err != nil {
+				if errdefs.IsNotFound(err) {
+					break // container fully removed
+				}
+				t.Log("unexpected error: %v", err)
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		t.Log("container fully removed")
 	}
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		closeFunc()
