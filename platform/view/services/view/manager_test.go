@@ -106,7 +106,7 @@ func TestManagerRace(t *testing.T) {
 
 	wg := &sync.WaitGroup{}
 	for i := 0; i < 100; i++ {
-		wg.Add(7)
+		wg.Add(8)
 		go registerFactory(t, wg, manager)
 		go newView(t, wg, manager)
 		go callView(t, wg, manager)
