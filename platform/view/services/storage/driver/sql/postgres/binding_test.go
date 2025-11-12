@@ -16,6 +16,9 @@ import (
 )
 
 func newBindingStoreForTests(t *testing.T) (func(), *BindingStore) {
+	//  When running this test together with other tests; it may happen that a container instance is still running
+	// we give this test a slow start ...
+	WaitForPostgresContainerStopped()
 	t.Log("starting postgres")
 	terminate, pgConnStr, err := StartPostgres(t, false)
 	require.NoError(t, err)

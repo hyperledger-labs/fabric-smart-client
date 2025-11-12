@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/hashicorp/consul/sdk/freeport"
@@ -31,6 +31,7 @@ import (
 // itests will not be recognized as a domain, so Podman will still prefix it with localhost
 // Hence we use fsc.itests as domain
 const PostgresImage = "fsc.itests/postgres:latest"
+const PostgresContainerName = "fsc-postgres"
 
 type Logger interface {
 	Log(...any)
@@ -197,18 +198,6 @@ func startPostgresWithLogger(c ContainerConfig, t Logger, printLogs bool) (func(
 	closeFunc := func() {
 		t.Log("removing postgres container")
 		_ = cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{RemoveVolumes: true, Force: true})
-		// Wait until the container is gone
-		for {
-			_, err := cli.ContainerInspect(ctx, resp.ID)
-			if err != nil {
-				if errdefs.IsNotFound(err) {
-					break // container fully removed
-				}
-				t.Log("unexpected error: %v", err)
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-		t.Log("container fully removed")
 	}
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		closeFunc()
@@ -270,7 +259,7 @@ func StartPostgres(t Logger, printLogs bool) (func(), string, error) {
 
 	c := ContainerConfig{
 		Image:     getEnv("POSTGRES_IMAGE", PostgresImage),
-		Container: getEnv("POSTGRES_CONTAINER", "fsc-postgres"),
+		Container: getEnv("POSTGRES_CONTAINER", PostgresContainerName),
 		DbConfig: &DbConfig{
 			DBName: getEnv("POSTGRES_DB", "testdb"),
 			User:   getEnv("POSTGRES_USER", "pgx_md5"),
@@ -291,4 +280,41 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func WaitForPostgresContainerStopped() error {
+	const interval = 200 * time.Millisecond
+	const maxWait = 10 * time.Second
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+	defer cli.Close()
+
+	deadline := time.Now().Add(maxWait)
+	for {
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for container %q to stop", PostgresContainerName)
+		}
+
+		f := filters.NewArgs()
+		f.Add("name", PostgresContainerName)
+		f.Add("status", "running")
+
+		opts := container.ListOptions{
+			All:     true,
+			Filters: f,
+		}
+
+		containers, err := cli.ContainerList(context.Background(), opts)
+		if err != nil {
+			return err
+		}
+		if len(containers) == 0 {
+			return nil // no running container with that name
+		}
+
+		time.Sleep(interval)
+	}
 }
