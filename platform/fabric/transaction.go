@@ -110,6 +110,11 @@ type ProposalResponse struct {
 	pr driver.ProposalResponse
 }
 
+// NewProposalResponse returns a new instance of ProposalResponse for the passed arguments
+func NewProposalResponse(pr driver.ProposalResponse) *ProposalResponse {
+	return &ProposalResponse{pr: pr}
+}
+
 func (r *ProposalResponse) ResponseStatus() int32 {
 	return r.pr.ResponseStatus()
 }
