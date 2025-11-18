@@ -9,6 +9,8 @@ package fsc
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
@@ -25,8 +27,8 @@ type Logging struct {
 type P2PCommunicationType = string
 
 const (
-	LibP2P    P2PCommunicationType = "libp2p"
-	WebSocket P2PCommunicationType = "websocket"
+	LibP2P    P2PCommunicationType = libp2p.P2PCommunicationType
+	WebSocket P2PCommunicationType = rest.P2PCommunicationType
 )
 
 type Topology struct {

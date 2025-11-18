@@ -17,6 +17,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// P2PCommunicationType is a string identifier for the libp2p implementation of the p2p comm stack.
+const P2PCommunicationType = "libp2p"
+
 type libp2pConfig interface {
 	PrivateKeyPath() string
 	Bootstrap() bool
