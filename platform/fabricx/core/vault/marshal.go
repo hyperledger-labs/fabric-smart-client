@@ -145,7 +145,7 @@ func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[dr
 		})
 	}
 
-	txIn := &protoblocktx.Tx{Id: txID, Namespaces: namespaces}
+	txIn := &protoblocktx.Tx{Namespaces: namespaces}
 	if logger.IsEnabledFor(zap.DebugLevel) {
 		str, _ := json.MarshalIndent(txIn, "", "\t")
 		logger.Debugf("Unmarshalled fabricx tx %s", string(str))
