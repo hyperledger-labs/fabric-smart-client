@@ -8,8 +8,8 @@ package transaction
 
 import (
 	"encoding/json"
-	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -21,30 +21,31 @@ import (
 func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 	logger.Debugf("generate envelope with sc transaction [txID=%s]", t.ID())
 
-	rawTx, err := t.Results()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rws from proposal response: %w", err)
-	}
-
-	// append signatures to tx
-	var tx protoblocktx.Tx
-	if err := proto.Unmarshal(rawTx, &tx); err != nil {
-		return nil, fmt.Errorf("failed to deserialize tx [%s]: %w", t.ID(), err)
-	}
-
-	// for _, response := range t.ProposalResponses() {
-	//	tx.Signatures = append(tx.Signatures, response.EndorserSignature())
-	//	//tx.Signatures = append(tx.Signatures, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
-	// }
-
-	// just take the first one as we only support single signatures, which are meant to be threshold signatures
 	resps, err := t.ProposalResponses()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getting proposal responses")
 	}
 
+	// TODO: pick the correct signed proposal response; currently we assume "the last" response is the correct one
+	// Note that this will be changed once the committer-x fully supports msp-based endorsement policies
+	if len(resps) < 1 {
+		return nil, errors.Errorf("number of responses must be larger than 0, actual %d", len(resps))
+	}
 	response := resps[len(resps)-1]
-	tx.Signatures = [][]byte{response.EndorserSignature()}
+	rawTx := response.Results()
+
+	var tx protoblocktx.Tx
+	if err := proto.Unmarshal(rawTx, &tx); err != nil {
+		return nil, errors.Wrapf(err, "unmarshal tx [txID=%s]", t.ID())
+	}
+
+	var sigs [][]byte
+	if err := json.Unmarshal(response.EndorserSignature(), &sigs); err != nil {
+		return nil, errors.Wrap(err, "unmarshal endorser signatures")
+	}
+
+	// attaching signatures to transactions
+	tx.Signatures = sigs
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		str, _ := json.MarshalIndent(&tx, "", "\t")
@@ -53,21 +54,19 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 
 	rawTx, err = proto.Marshal(&tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal tx [%s]", t.ID())
+		return nil, errors.Wrapf(err, "marshal tx [txID=%s]", t.ID())
 	}
 
 	// produce the envelope and sign it
 	signerID := t.Creator()
 	signer, err := t.fns.SignerService().GetSigner(signerID)
 	if err != nil {
-		e := fmt.Errorf("signer not found for %s while creating tx envelope for ordering: %w", signerID.UniqueID(), err)
-		logger.Error(e)
-		return nil, e
+		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
 	}
 
 	signatureHeader := &cb.SignatureHeader{Creator: signerID, Nonce: t.Nonce()}
 	channelHeader := protoutil.MakeChannelHeader(cb.HeaderType_MESSAGE, 0, t.Channel(), 0)
-	channelHeader.TxId = protoutil.ComputeTxID(signatureHeader.Nonce, signatureHeader.Creator)
+	channelHeader.TxId = t.ID()
 	header := &cb.Header{
 		ChannelHeader:   protoutil.MarshalOrPanic(channelHeader),
 		SignatureHeader: protoutil.MarshalOrPanic(signatureHeader),

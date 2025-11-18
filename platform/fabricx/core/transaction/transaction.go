@@ -105,6 +105,10 @@ func (t *Transaction) ChaincodeVersion() string {
 }
 
 func (t *Transaction) Results() ([]byte, error) {
+	// note that we currently support a single-endorser policy until committer-x introduces msp-based endorsement policies
+	if len(t.TProposalResponses) < 1 {
+		return nil, errors.Errorf("transaction has no proposal responses")
+	}
 	return t.TProposalResponses[0].Payload, nil
 }
 
@@ -504,12 +508,7 @@ func (t *Transaction) Envelope() (driver.Envelope, error) {
 		return nil, fmt.Errorf("could not assemble transaction: %w", err)
 	}
 
-	res, err := t.Results()
-	if err != nil {
-		return nil, err
-	}
-
-	return NewEnvelope(t.TTxID, t.Nonce(), t.TCreator.Bytes(), res, env), nil
+	return NewEnvelope(t.TTxID, t.Nonce(), t.TCreator.Bytes(), nil, env), nil
 }
 
 func (t *Transaction) generateProposal(signer SerializableSigner) error {
@@ -566,58 +565,71 @@ func (t *Transaction) appendProposalResponse(response *pb.ProposalResponse) erro
 }
 
 func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.ProposalResponse, error) {
+	txID := t.ID()
 	signedProposal := t.SignedProposal()
 	if signedProposal == nil {
-		return nil, fmt.Errorf("error getting signed proposal [%s]", t.ID())
+		return nil, errors.Errorf("getting signed proposal [txID=%s]", txID)
 	}
 
-	logger.Debugf("prepare rws for proposal response [%s]", t.ID())
+	logger.Debugf("prepare rws for proposal response [txID=%s]", txID)
 	rwset, err := t.GetRWSet()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "error getting rwset for [%s]", t.ID())
+		return nil, errors.Wrapf(err, "getting rwset for [txID=%s]", txID)
 	}
 
 	rawTx, err := rwset.Bytes()
 	if err != nil {
-		return nil, errors.WithMessagef(err, "error serializing rws for [%s]", t.ID())
+		return nil, errors.Wrapf(err, "serializing rws for [txID=%s]", txID)
 	}
 
 	var tx protoblocktx.Tx
 	if err := proto.Unmarshal(rawTx, &tx); err != nil {
-		return nil, fmt.Errorf("failed to deserialize tx [%s]", t.ID())
+		return nil, errors.Wrapf(err, "unmarshalling tx [txID=%s]", txID)
 	}
+	// check that there are no signatures yet
+	if tx.GetSignatures() != nil {
+		return nil, errors.New("transaction proposal already contains signatures")
+	}
+	tx.Signatures = make([][]byte, len(tx.GetNamespaces()))
 
 	// serialize the signing identity
-	// sign the concatenation of the proposal response and the serialized endorser identity with this endorser's key
 	creator, err := signer.Serialize()
 	if err != nil {
-		return nil, fmt.Errorf("could not get the signer's identity: %w", err)
+		return nil, errors.Wrap(err, "getting the signer's identity")
 	}
 
-	// NOTE: we should go through all namespaces and sign them ... currently a single namespace works
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		jsonTx, _ := json.Marshal(&tx)
 		logger.Debugf("endorse tx [%s]", string(jsonTx))
 	}
 
-	digest, err := signature.ASN1MarshalTxNamespace(&tx, 0)
-	if err != nil {
-		return nil, fmt.Errorf("cannot serialize tx: %w", err)
+	for idx, ns := range tx.GetNamespaces() {
+		digest, err := signature.ASN1MarshalTxNamespace(txID, ns)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ASN1MarshalTxNamespace for [txID=%s] [ns=%s]", txID, ns)
+		}
+
+		sig, err := signer.Sign(digest)
+		if err != nil {
+			return nil, errors.Wrapf(err, "signing transaction [txID=%s] [ns=%s]", txID, ns)
+		}
+		tx.Signatures[idx] = sig
 	}
 
-	sig, err := signer.Sign(digest)
+	// marshall all signatures into a single []byte slice
+	sigs, err := json.Marshal(tx.Signatures)
 	if err != nil {
-		return nil, fmt.Errorf("could not sign the proposal response payload: %w", err)
+		return nil, err
 	}
 
 	return &pb.ProposalResponse{
 		Version:     1,
-		Endorsement: &pb.Endorsement{Signature: sig, Endorser: creator},
+		Endorsement: &pb.Endorsement{Signature: sigs, Endorser: creator},
 		Payload:     rawTx,
 		Response: &pb.Response{
-			Status:  200,
-			Message: "",
-			Payload: nil,
+			Status: 200,
+			// we include the txID as additional metadata to the proposal response
+			Payload: []byte(txID),
 		},
 	}, nil
 }
