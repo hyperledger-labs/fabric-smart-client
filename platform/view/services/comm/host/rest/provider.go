@@ -14,6 +14,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 )
 
+// P2PCommunicationType is a string identifier for the websocket implementation of the p2p comm stack.
+const P2PCommunicationType = "websocket"
+
 type pkiExtractor interface {
 	ExtractPKI(id []byte) []byte
 }

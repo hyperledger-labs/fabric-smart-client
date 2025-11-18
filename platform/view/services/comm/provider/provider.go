@@ -9,7 +9,6 @@ package provider
 import (
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -32,7 +31,7 @@ func NewHostProvider(
 		return nil, err
 	}
 
-	if p2pCommType := config.GetString("fsc.p2p.type"); strings.EqualFold(p2pCommType, fsc.WebSocket) {
+	if p2pCommType := config.GetString("fsc.p2p.type"); strings.EqualFold(p2pCommType, rest.P2PCommunicationType) {
 		return NewWebSocketHostProvider(config, endpointService, tracerProvider, metricsProvider)
 	} else {
 		return NewLibP2PHostProvider(config, endpointService, metricsProvider), nil
