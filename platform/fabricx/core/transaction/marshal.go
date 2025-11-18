@@ -21,30 +21,26 @@ import (
 func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 	logger.Debugf("generate envelope with sc transaction [txID=%s]", t.ID())
 
-	rawTx, err := t.Results()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rws from proposal response: %w", err)
-	}
-
-	// append signatures to tx
-	var tx protoblocktx.Tx
-	if err := proto.Unmarshal(rawTx, &tx); err != nil {
-		return nil, fmt.Errorf("failed to deserialize tx [%s]: %w", t.ID(), err)
-	}
-
-	// for _, response := range t.ProposalResponses() {
-	//	tx.Signatures = append(tx.Signatures, response.EndorserSignature())
-	//	//tx.Signatures = append(tx.Signatures, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
-	// }
-
-	// just take the first one as we only support single signatures, which are meant to be threshold signatures
 	resps, err := t.ProposalResponses()
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO: pick the correct signed proposal response; currently we assume "the last" response is the correct one
 	response := resps[len(resps)-1]
-	tx.Signatures = [][]byte{response.EndorserSignature()}
+	rawTx := response.Results()
+
+	var tx protoblocktx.Tx
+	if err := proto.Unmarshal(rawTx, &tx); err != nil {
+		return nil, fmt.Errorf("failed to deserialize tx [%s]: %w", t.ID(), err)
+	}
+
+	var sigs [][]byte
+	if err := json.Unmarshal(response.EndorserSignature(), &sigs); err != nil {
+		return nil, err
+	}
+
+	tx.Signatures = sigs
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		str, _ := json.MarshalIndent(&tx, "", "\t")
@@ -67,7 +63,7 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 
 	signatureHeader := &cb.SignatureHeader{Creator: signerID, Nonce: t.Nonce()}
 	channelHeader := protoutil.MakeChannelHeader(cb.HeaderType_MESSAGE, 0, t.Channel(), 0)
-	channelHeader.TxId = protoutil.ComputeTxID(signatureHeader.Nonce, signatureHeader.Creator)
+	channelHeader.TxId = t.ID()
 	header := &cb.Header{
 		ChannelHeader:   protoutil.MarshalOrPanic(channelHeader),
 		SignatureHeader: protoutil.MarshalOrPanic(signatureHeader),

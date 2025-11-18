@@ -105,6 +105,8 @@ func (t *Transaction) ChaincodeVersion() string {
 }
 
 func (t *Transaction) Results() ([]byte, error) {
+	// note that we currently support a single-endorser policy
+	logger.Warnf("num of responses: %v", len(t.TProposalResponses))
 	return t.TProposalResponses[0].Payload, nil
 }
 
@@ -504,12 +506,8 @@ func (t *Transaction) Envelope() (driver.Envelope, error) {
 		return nil, fmt.Errorf("could not assemble transaction: %w", err)
 	}
 
-	res, err := t.Results()
-	if err != nil {
-		return nil, err
-	}
-
-	return NewEnvelope(t.TTxID, t.Nonce(), t.TCreator.Bytes(), res, env), nil
+	// TODO: we do we need this envelope wrapping here?
+	return NewEnvelope(t.TTxID, t.Nonce(), t.TCreator.Bytes(), nil, env), nil
 }
 
 func (t *Transaction) generateProposal(signer SerializableSigner) error {
@@ -586,6 +584,11 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 	if err := proto.Unmarshal(rawTx, &tx); err != nil {
 		return nil, fmt.Errorf("failed to deserialize tx [%s]", t.ID())
 	}
+	// check that there are not signature yet
+	if tx.GetSignatures() != nil {
+		return nil, fmt.Errorf("transaction proposal already contains signatures")
+	}
+	tx.Signatures = make([][]byte, len(tx.GetNamespaces()))
 
 	// serialize the signing identity
 	// sign the concatenation of the proposal response and the serialized endorser identity with this endorser's key
@@ -600,23 +603,35 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 		logger.Debugf("endorse tx [%s]", string(jsonTx))
 	}
 
-	digest, err := signature.ASN1MarshalTxNamespace(&tx, 0)
-	if err != nil {
-		return nil, fmt.Errorf("cannot serialize tx: %w", err)
+	logger.Warnf("I am signing ...")
+
+	for idx, ns := range tx.GetNamespaces() {
+		digest, err := signature.ASN1MarshalTxNamespace(t.ID(), ns)
+		if err != nil {
+			return nil, fmt.Errorf("cannot serialize tx: %w", err)
+		}
+
+		sig, err := signer.Sign(digest)
+		if err != nil {
+			return nil, fmt.Errorf("could not sign the proposal response payload: %w", err)
+		}
+		tx.Signatures[idx] = sig
 	}
 
-	sig, err := signer.Sign(digest)
+	// marshall all signatures into a single []byte slice
+	sigs, err := json.Marshal(tx.Signatures)
 	if err != nil {
-		return nil, fmt.Errorf("could not sign the proposal response payload: %w", err)
+		return nil, err
 	}
 
 	return &pb.ProposalResponse{
 		Version:     1,
-		Endorsement: &pb.Endorsement{Signature: sig, Endorser: creator},
+		Endorsement: &pb.Endorsement{Signature: sigs, Endorser: creator},
 		Payload:     rawTx,
 		Response: &pb.Response{
-			Status:  200,
-			Message: "",
+			Status: 200,
+			// TODO: find a better way to include the txID
+			Message: t.ID(),
 			Payload: nil,
 		},
 	}, nil

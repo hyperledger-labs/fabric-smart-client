@@ -8,7 +8,7 @@ package v3
 
 const (
 	CommitterVersion        = "v3"
-	ScalableCommitterImage  = "hyperledger/fabric-x-committer-test-node:0.1.5"
+	ScalableCommitterImage  = "hyperledger/fabric-x-committer-test-node:0.1.7"
 	SidecarDefaultPort      = "4001/tcp"
 	QueryServiceDefaultPort = "7001/tcp"
 )
