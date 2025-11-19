@@ -23,10 +23,10 @@ type Builder struct {
 }
 
 func NewBuilder(sp services.Provider) *Builder {
-if sp == nil {
-panic("service provider must be set")
-}
-return &Builder{sp: sp}
+	if sp == nil {
+		panic("service provider must be set")
+	}
+	return &Builder{sp: sp}
 }
 
 func NewBuilderWithServiceProvider(sp services.Provider) *Builder {
