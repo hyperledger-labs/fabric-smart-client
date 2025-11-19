@@ -22,11 +22,11 @@ type Builder struct {
 	sp services.Provider
 }
 
-func NewBuilder(context services.Provider) *Builder {
-	if context == nil {
-		panic("context must be set")
-	}
-	return &Builder{sp: context}
+func NewBuilder(sp services.Provider) *Builder {
+if sp == nil {
+panic("service provider must be set")
+}
+return &Builder{sp: sp}
 }
 
 func NewBuilderWithServiceProvider(sp services.Provider) *Builder {
