@@ -8,6 +8,7 @@ package transaction
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/hyperledger/fabric-x-common/protoutil"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/net/context"
 )
 
 var logger = logging.MustGetLogger()
