@@ -20,6 +20,9 @@ type ParentContext interface {
 	PutSession(caller view.View, party view.Identity, session view.Session) error
 }
 
+// ChildContext is a view context with a parent.
+// It allows the developer to override session and initiator.
+// It also supports error callbacks.
 type ChildContext struct {
 	Parent ParentContext
 
@@ -28,18 +31,22 @@ type ChildContext struct {
 	errorCallbackFuncs []func()
 }
 
+// NewChildContextFromParent return a new ChildContext from the given parent
 func NewChildContextFromParent(parentContext ParentContext) *ChildContext {
 	return NewChildContext(parentContext, nil, nil, nil)
 }
 
+// NewChildContextFromParentAndSession return a new ChildContext from the given parent and session
 func NewChildContextFromParentAndSession(parentContext ParentContext, session view.Session) *ChildContext {
 	return NewChildContext(parentContext, session, nil, nil)
 }
 
+// NewChildContextFromParentAndInitiator return a new ChildContext from the given parent and initiator view
 func NewChildContextFromParentAndInitiator(parentContext ParentContext, initiator view.View) *ChildContext {
 	return NewChildContext(parentContext, nil, initiator, nil)
 }
 
+// NewChildContext return a new ChildContext from the given arguments
 func NewChildContext(parentContext ParentContext, session view.Session, initiator view.View, errorCallbackFuncs ...func()) *ChildContext {
 	return &ChildContext{Parent: parentContext, session: session, initiator: initiator, errorCallbackFuncs: errorCallbackFuncs}
 }

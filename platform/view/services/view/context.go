@@ -63,6 +63,7 @@ type Context struct {
 	localIdentityChecker LocalIdentityChecker
 }
 
+// NewContextForInitiator returns a new Context for an initiator view
 func NewContextForInitiator(
 	contextID string,
 	context context.Context,
@@ -102,6 +103,7 @@ func NewContextForInitiator(
 	return ctx, nil
 }
 
+// NewContext returns a new Context
 func NewContext(
 	context context.Context,
 	sp services.Provider,

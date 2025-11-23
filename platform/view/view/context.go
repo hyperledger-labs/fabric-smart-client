@@ -59,7 +59,7 @@ func WithViewCall(f func(Context) (interface{}, error)) RunViewOption {
 	}
 }
 
-// WithSameContext is used to reuse the context
+// WithSameContext is used to reuse the view context
 func WithSameContext() RunViewOption {
 	return func(o *RunViewOptions) error {
 		o.SameContext = true
@@ -67,7 +67,8 @@ func WithSameContext() RunViewOption {
 	}
 }
 
-// WithContext is used to pass a different context to the view
+// WithContext is used to pass a different context.Context to the view.
+// It includes the effect of WithSameContext as well.
 func WithContext(ctx context.Context) RunViewOption {
 	return func(o *RunViewOptions) error {
 		o.SameContext = true

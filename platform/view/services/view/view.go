@@ -16,6 +16,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// ViewContext is an alias for view.Context
+//
 //go:generate counterfeiter -o mock/context.go -fake-name Context . ViewContext
 type ViewContext = view.Context
 
