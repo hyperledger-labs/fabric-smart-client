@@ -18,6 +18,7 @@ type RunViewOptions struct {
 	AsInitiator bool
 	Call        func(Context) (interface{}, error)
 	SameContext bool
+	Context     context.Context
 }
 
 // CompileRunViewOptions compiles a set of RunViewOption to a RunViewOptions
@@ -62,6 +63,15 @@ func WithViewCall(f func(Context) (interface{}, error)) RunViewOption {
 func WithSameContext() RunViewOption {
 	return func(o *RunViewOptions) error {
 		o.SameContext = true
+		return nil
+	}
+}
+
+// WithContext is used to pass a different context to the view
+func WithContext(ctx context.Context) RunViewOption {
+	return func(o *RunViewOptions) error {
+		o.SameContext = true
+		o.Context = ctx
 		return nil
 	}
 }

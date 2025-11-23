@@ -30,6 +30,12 @@ const (
 
 var logger = logging.MustGetLogger()
 
+// DisposableContext extends view.Context with additional functions
+type DisposableContext interface {
+	view.Context
+	Dispose()
+}
+
 type Manager struct {
 	serviceProvider services.Provider
 
@@ -42,7 +48,7 @@ type Manager struct {
 	localIdentityChecker LocalIdentityChecker
 
 	ctx        context.Context
-	contexts   map[string]disposableContext
+	contexts   map[string]DisposableContext
 	contextsMu sync.RWMutex
 }
 
@@ -62,7 +68,7 @@ func NewManager(
 		endpointService:  endpointService,
 		identityProvider: identityProvider,
 
-		contexts: map[string]disposableContext{},
+		contexts: map[string]DisposableContext{},
 		registry: registry,
 
 		tracer: tracerProvider.Tracer("calls", tracing.WithMetricsOpts(tracing.MetricsOpts{
@@ -139,7 +145,7 @@ func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, ct
 	if err != nil {
 		return nil, err
 	}
-	c := &childContext{ParentContext: viewContext}
+	c := NewChildContextFromParent(viewContext)
 	cm.contextsMu.Lock()
 	cm.contexts[c.ID()] = c
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
@@ -187,7 +193,7 @@ func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 	if err != nil {
 		return nil, err
 	}
-	c := &childContext{ParentContext: viewContext}
+	c := NewChildContextFromParent(viewContext)
 	cm.contextsMu.Lock()
 	cm.contexts[c.ID()] = c
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
@@ -322,12 +328,12 @@ func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		}
 
 		// next we need to unwrap the actual context to store the session
-		vCtx, ok := viewContext.(*childContext)
+		vCtx, ok := viewContext.(*ChildContext)
 		if !ok {
 			panic("Not a child!")
 		}
 
-		vvCtx, ok := vCtx.ParentContext.(*ctx)
+		vvCtx, ok := vCtx.Parent.(*Context)
 		if !ok {
 			panic("Not a child!")
 		}
@@ -335,10 +341,7 @@ func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		vvCtx.sessions.Put(msg.Caller, caller, backend)
 
 		// we wrap our context and set our new session as the default session
-		c := &childContext{
-			ParentContext: vCtx,
-			session:       backend,
-		}
+		c := NewChildContextFromParentAndSession(vCtx, backend)
 		cm.contexts[contextID] = c
 		cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 
@@ -374,7 +377,7 @@ func (cm *Manager) newContext(id view.Identity, msg *view.Message) (view.Context
 		return nil, false, err
 	}
 
-	c := &childContext{ParentContext: newCtx}
+	c := NewChildContextFromParent(newCtx)
 	cm.contexts[contextID] = c
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 	viewContext = c
