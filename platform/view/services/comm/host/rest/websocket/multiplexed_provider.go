@@ -31,7 +31,7 @@ import (
 
 const (
 	contextIDLabel        tracing.LabelName = "context_id"
-	defaultContextIDLabel                   = "context"
+	defaultContextIDLabel string            = "context"
 )
 
 type SubConnId = string
