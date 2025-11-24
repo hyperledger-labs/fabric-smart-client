@@ -47,8 +47,6 @@ func (n *Extension) GenerateArtifacts() {
 	}
 
 	gomega.Expect(os.MkdirAll(n.configFileDir(), 0o777)).NotTo(gomega.HaveOccurred())
-	gomega.Expect(os.WriteFile(n.configFilePath(), []byte(ConfigTemplate), 0o644)).NotTo(gomega.HaveOccurred())
-	gomega.Expect(os.WriteFile(n.jaegerHostsPath(), []byte(JaegerHosts), 0o644)).NotTo(gomega.HaveOccurred())
 }
 
 func (n *Extension) PostRun(bool) {
@@ -65,12 +63,4 @@ func (n *Extension) configFileDir() string {
 		n.platform.ConfigDir(),
 		"otlp",
 	)
-}
-
-func (n *Extension) configFilePath() string {
-	return filepath.Join(n.configFileDir(), "otlp-collector-config.yaml")
-}
-
-func (n *Extension) jaegerHostsPath() string {
-	return filepath.Join(n.configFileDir(), "jaeger_hosts")
 }
