@@ -44,7 +44,7 @@ type IdentityProvider interface {
 
 // Context implements the view.Context interface
 type Context struct {
-	context        context.Context
+	ctx            context.Context
 	sp             services.Provider
 	localSP        *ServiceProvider
 	id             string
@@ -121,7 +121,7 @@ func NewContext(
 		return nil, errors.Errorf("a context should not be nil [%s]", string(debug.Stack()))
 	}
 	ctx := &Context{
-		context:              context,
+		ctx:                  context,
 		id:                   contextID,
 		resolver:             resolver,
 		sessionFactory:       sessionFactory,
@@ -145,8 +145,8 @@ func NewContext(
 }
 
 func (c *Context) StartSpan(name string, opts ...trace.SpanStartOption) trace.Span {
-	newCtx, span := c.StartSpanFrom(c.context, name, opts...)
-	c.context = newCtx
+	newCtx, span := c.StartSpanFrom(c.ctx, name, opts...)
+	c.ctx = newCtx
 	return span
 }
 
@@ -176,7 +176,7 @@ func (c *Context) Identity(ref string) (view.Identity, error) {
 }
 
 func (c *Context) IsMe(id view.Identity) bool {
-	return c.localIdentityChecker.IsMe(c.context, id)
+	return c.localIdentityChecker.IsMe(c.ctx, id)
 }
 
 func (c *Context) Caller() view.Identity {
@@ -199,7 +199,7 @@ func (c *Context) GetSession(caller view.View, party view.Identity, boundToViews
 
 	// a session is available, return it
 	if s != nil {
-		logger.DebugfContext(c.context, "[%s] Reusing session [%s:%s]", c.me, viewId, party)
+		logger.DebugfContext(c.ctx, "[%s] Reusing session [%s:%s]", c.me, viewId, party)
 		return s, nil
 	}
 
@@ -220,24 +220,24 @@ func (c *Context) GetSessionByID(id string, party view.Identity) (view.Session, 
 	var err error
 	s := c.sessions.Get(id, party)
 	if s == nil {
-		logger.DebugfContext(c.context, "[%s] Creating new session with given id [id:%s][to:%s]", c.me, id, party)
+		logger.DebugfContext(c.ctx, "[%s] Creating new session with given id [id:%s][to:%s]", c.me, id, party)
 		s, err = c.newSessionByID(id, c.id, party)
 		if err != nil {
 			return nil, err
 		}
 		c.sessions.Put(id, party, s)
 	} else {
-		logger.DebugfContext(c.context, "[%s] Reusing session with given id [id:%s][to:%s]", id, c.me, party)
+		logger.DebugfContext(c.ctx, "[%s] Reusing session with given id [id:%s][to:%s]", id, c.me, party)
 	}
 	return s, nil
 }
 
 func (c *Context) Session() view.Session {
 	if c.session == nil {
-		logger.DebugfContext(c.context, "[%s] No default current Session", c.me)
+		logger.DebugfContext(c.ctx, "[%s] No default current Session", c.me)
 		return nil
 	}
-	logger.DebugfContext(c.context, "[%s] Current Session [%s]", c.me, logging.Eval(c.session.Info))
+	logger.DebugfContext(c.ctx, "[%s] Current Session [%s]", c.me, logging.Eval(c.session.Info))
 	return c.session
 }
 
@@ -267,53 +267,53 @@ func (c *Context) OnError(callback func()) {
 }
 
 func (c *Context) Context() context.Context {
-	return c.context
+	return c.ctx
 }
 
 func (c *Context) Dispose() {
-	logger.DebugfContext(c.context, "Dispose sessions")
+	logger.DebugfContext(c.ctx, "Dispose sessions")
 	// dispose all sessions
 	c.sessions.Lock()
 	defer c.sessions.Unlock()
 
 	if c.session != nil {
 		info := c.session.Info()
-		logger.DebugfContext(c.context, "Delete one session to %s", string(info.Caller))
+		logger.DebugfContext(c.ctx, "Delete one session to %s", string(info.Caller))
 		c.sessionFactory.DeleteSessions(c.Context(), info.ID)
 	}
 
 	for _, id := range c.sessions.GetSessionIDs() {
-		logger.DebugfContext(c.context, "Delete session %s", id)
+		logger.DebugfContext(c.ctx, "Delete session %s", id)
 		c.sessionFactory.DeleteSessions(c.Context(), id)
 	}
 	c.sessions.Reset()
 }
 
 func (c *Context) newSession(view view.View, contextID string, party view.Identity) (view.Session, error) {
-	resolver, pkid, err := c.resolver.Resolver(c.context, party)
+	resolver, pkid, err := c.resolver.Resolver(c.ctx, party)
 	if err != nil {
 		return nil, err
 	}
-	logger.DebugfContext(c.context, "Open new session to %s", resolver.GetName())
+	logger.DebugfContext(c.ctx, "Open new session to %s", resolver.GetName())
 	return c.sessionFactory.NewSession(GetIdentifier(view), contextID, resolver.GetAddress(endpoint.P2PPort), pkid)
 }
 
 func (c *Context) newSessionByID(sessionID, contextID string, party view.Identity) (view.Session, error) {
-	resolver, pkid, err := c.resolver.Resolver(c.context, party)
+	resolver, pkid, err := c.resolver.Resolver(c.ctx, party)
 	if err != nil {
 		return nil, err
 	}
 	var ep string
 	if resolver != nil {
 		ep = resolver.GetAddress(endpoint.P2PPort)
-		logger.DebugfContext(c.context, "Open new session by id to %s", resolver.GetName())
+		logger.DebugfContext(c.ctx, "Open new session by id to %s", resolver.GetName())
 	}
-	logger.DebugfContext(c.context, "Open new session by id to %s", ep)
+	logger.DebugfContext(c.ctx, "Open new session by id to %s", ep)
 	return c.sessionFactory.NewSessionWithID(sessionID, contextID, ep, pkid, nil, nil)
 }
 
 func (c *Context) Cleanup() {
-	logger.DebugfContext(c.context, "cleaning up context [%s][%d]", c.ID(), len(c.errorCallbackFuncs))
+	logger.DebugfContext(c.ctx, "cleaning up context [%s][%d]", c.ID(), len(c.errorCallbackFuncs))
 	for _, callbackFunc := range c.errorCallbackFuncs {
 		c.safeInvoke(callbackFunc)
 	}
@@ -322,7 +322,7 @@ func (c *Context) Cleanup() {
 func (c *Context) safeInvoke(f func()) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.DebugfContext(c.context, "function [%s] panicked [%s]", f, r)
+			logger.DebugfContext(c.ctx, "function [%s] panicked [%s]", f, r)
 		}
 	}()
 	f()
@@ -332,7 +332,7 @@ func (c *Context) resolve(id view.Identity) (view.Identity, error) {
 	if id.IsNone() {
 		return nil, errors.New("no id provided")
 	}
-	resolver, _, err := c.resolver.Resolver(c.context, id)
+	resolver, _, err := c.resolver.Resolver(c.ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +340,7 @@ func (c *Context) resolve(id view.Identity) (view.Identity, error) {
 }
 
 func (c *Context) createSession(caller view.View, party view.Identity, aliases ...view.View) (view.Session, error) {
-	logger.DebugfContext(c.context, "create session [%s][%s], [%s:%s]", c.me, c.id, getViewIdentifier(caller), party)
+	logger.DebugfContext(c.ctx, "create session [%s][%s], [%s:%s]", c.me, c.id, getViewIdentifier(caller), party)
 
 	s, err := c.newSession(caller, c.id, party)
 	if err != nil {

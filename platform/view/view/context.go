@@ -18,7 +18,7 @@ type RunViewOptions struct {
 	AsInitiator bool
 	Call        func(Context) (interface{}, error)
 	SameContext bool
-	Context     context.Context
+	Ctx         context.Context
 }
 
 // CompileRunViewOptions compiles a set of RunViewOption to a RunViewOptions
@@ -72,7 +72,7 @@ func WithSameContext() RunViewOption {
 func WithContext(ctx context.Context) RunViewOption {
 	return func(o *RunViewOptions) error {
 		o.SameContext = true
-		o.Context = ctx
+		o.Ctx = ctx
 		return nil
 	}
 }

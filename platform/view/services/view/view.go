@@ -90,8 +90,8 @@ func RunViewNow(ctx ParentContext, v View, opts ...view.RunViewOption) (res inte
 	}
 
 	goContext := ctx.Context()
-	if options.Context != nil {
-		goContext = options.Context
+	if options.Ctx != nil {
+		goContext = options.Ctx
 	}
 
 	logger.DebugfContext(goContext, "Start view %s", GetName(v))
