@@ -30,7 +30,8 @@ import (
 )
 
 const (
-	contextIDLabel tracing.LabelName = "context_id"
+	contextIDLabel        tracing.LabelName = "context_id"
+	defaultContextIDLabel string            = "context"
 )
 
 type SubConnId = string
@@ -302,7 +303,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 		logger.Debugf("failed to unmarshal span context: %v", err)
 	}
 	ctx, span := c.tracer.Start(trace.ContextWithRemoteSpanContext(context.Background(), spanContext), "IncomingViewInvocation", tracing.WithAttributes(
-		tracing.String(contextIDLabel, meta.ContextID)))
+		tracing.String(contextIDLabel, defaultContextIDLabel)))
 	defer span.End()
 	sc := c.newSubConn(mm.ID)
 	c.subConns[mm.ID] = sc
