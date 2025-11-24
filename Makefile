@@ -94,7 +94,7 @@ monitoring-docker-images: ## Pull images for monitoring
 	docker pull ghcr.io/hyperledger-labs/explorer:latest
 	docker pull prom/prometheus:latest
 	docker pull grafana/grafana:latest
-	docker pull jaegertracing/all-in-one:latest
+	docker pull cr.jaegertracing.io/jaegertracing/jaeger:2.12.0
 
 .PHONY: testing-docker-images
 testing-docker-images: ## Pull images for system testing

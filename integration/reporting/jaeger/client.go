@@ -18,6 +18,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const defaultSearchDepth = 20
+
 type Reporter interface {
 	FindTraces(nodeName, operationName string) (iterators.Iterator[*api_v2.SpansResponseChunk], error)
 	GetServices() ([]string, error)
@@ -64,7 +66,7 @@ func (c *reporter) FindTraces(nodeName, operationName string) (iterators.Iterato
 	if len(nodeName) == 0 {
 		return nil, errors.New("no node name passed")
 	}
-	params := &api_v2.TraceQueryParameters{ServiceName: nodeName, RawTraces: true}
+	params := &api_v2.TraceQueryParameters{ServiceName: nodeName, RawTraces: true, SearchDepth: defaultSearchDepth}
 	if len(operationName) > 0 {
 		params.OperationName = operationName
 	}
