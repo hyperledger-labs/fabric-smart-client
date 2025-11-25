@@ -79,7 +79,7 @@ func AsInitiatorView(context view.Context, initiator View) (interface{}, error) 
 
 // RunViewNow invokes the Call function of the given view.
 // The view context used to the run view is either ctx or the one extracted from the options (see view.WithContext), if present.
-func RunViewNow(ctx ParentContext, v View, opts ...view.RunViewOption) (res interface{}, err error) {
+func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (res interface{}, err error) {
 	options, err := view.CompileRunViewOptions(opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed compiling options")
@@ -89,13 +89,13 @@ func RunViewNow(ctx ParentContext, v View, opts ...view.RunViewOption) (res inte
 		initiator = v
 	}
 
-	goContext := ctx.Context()
+	goContext := parent.Context()
 	if options.Ctx != nil {
 		goContext = options.Ctx
 	}
 
 	logger.DebugfContext(goContext, "Start view %s", GetName(v))
-	newCtx, span := ctx.StartSpanFrom(goContext, GetName(v), tracing.WithAttributes(
+	newCtx, span := parent.StartSpanFrom(goContext, GetName(v), tracing.WithAttributes(
 		tracing.String(ViewLabel, GetIdentifier(v)),
 		tracing.String(InitiatorViewLabel, GetIdentifier(initiator)),
 	), trace.WithSpanKind(trace.SpanKindInternal))
@@ -103,12 +103,12 @@ func RunViewNow(ctx ParentContext, v View, opts ...view.RunViewOption) (res inte
 
 	var cc ParentContext
 	if options.SameContext {
-		cc = WrapContext(ctx, newCtx)
+		cc = WrapContext(parent, newCtx)
 	} else {
 		if options.AsInitiator {
-			cc = NewChildContextFromParentAndInitiator(WrapContext(ctx, newCtx), initiator)
+			cc = NewChildContextFromParentAndInitiator(WrapContext(parent, newCtx), initiator)
 			// register options.Session under initiator
-			contextSession := ctx.Session()
+			contextSession := parent.Session()
 			if contextSession == nil {
 				return nil, errors.Errorf("cannot convert a non-responder context to an initiator context")
 			}
@@ -116,7 +116,7 @@ func RunViewNow(ctx ParentContext, v View, opts ...view.RunViewOption) (res inte
 				return nil, errors.Wrapf(err, "failed registering default session as initiated by [%s:%s]", initiator, contextSession.Info().Caller)
 			}
 		} else {
-			cc = NewChildContext(WrapContext(ctx, newCtx), options.Session, initiator)
+			cc = NewChildContext(WrapContext(parent, newCtx), options.Session, initiator)
 		}
 	}
 
