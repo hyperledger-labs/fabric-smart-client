@@ -12,7 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
-	view3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -31,7 +30,7 @@ func (p *Initiator) Call(ctx view.Context) (interface{}, error) {
 	responder := identityProvider.Identity("responder")
 	var context view.Context
 	if p.Mock {
-		c := &view3.MockContext{Ctx: ctx}
+		c := &DelegatedContext{Ctx: ctx}
 		c.RespondToAs(ctx.Initiator(), responder, &Responder{})
 		context = c
 	} else {
