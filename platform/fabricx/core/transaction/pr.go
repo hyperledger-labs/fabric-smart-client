@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -21,14 +22,12 @@ import (
 type VerifierProvider = driver.VerifierProvider
 
 type ProposalResponse struct {
-	pr      *pb.ProposalResponse
-	results []byte
+	pr *pb.ProposalResponse
 }
 
 func NewProposalResponseFromResponse(proposalResponse *pb.ProposalResponse) (*ProposalResponse, error) {
 	return &ProposalResponse{
-		pr:      proposalResponse,
-		results: proposalResponse.Payload,
+		pr: proposalResponse,
 	}, nil
 }
 
@@ -53,7 +52,7 @@ func (p *ProposalResponse) EndorserSignature() []byte {
 }
 
 func (p *ProposalResponse) Results() []byte {
-	return p.results
+	return p.pr.GetPayload()
 }
 
 func (p *ProposalResponse) PR() *pb.ProposalResponse {
@@ -77,21 +76,44 @@ func (p *ProposalResponse) Bytes() ([]byte, error) {
 }
 
 func (p *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
+	// we first get the verifier for the endorser
 	endorser := view.Identity(p.pr.Endorsement.Endorser)
 	v, err := provider.GetVerifier(endorser)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting verifier for [%s]", endorser)
 	}
+
 	// unmarshal payload to Tx
 	var tx protoblocktx.Tx
 	if err := proto.Unmarshal(p.pr.Payload, &tx); err != nil {
 		return errors.Wrapf(err, "failed unmarshalling payload for [%s]", endorser)
 	}
 
-	digest, err := signature.ASN1MarshalTxNamespace(&tx, 0)
-	if err != nil {
-		return fmt.Errorf("cannot serialize tx: %w", err)
+	var sigs [][]byte
+	if err := json.Unmarshal(p.EndorserSignature(), &sigs); err != nil {
+		return err
 	}
 
-	return v.Verify(digest, p.EndorserSignature())
+	// check that we have a signature for each namespace
+	if len(tx.GetNamespaces()) != len(sigs) {
+		return fmt.Errorf("mismatch number of signatures and namespaces")
+	}
+
+	// TODO get the txID from a better place
+	// get the txID
+	txID := p.PR().GetResponse().GetMessage()
+
+	// check each namespace signature with the corresponding signature using the endorser verifier
+	for idx, ns := range tx.GetNamespaces() {
+		digest, err := signature.ASN1MarshalTxNamespace(txID, ns)
+		if err != nil {
+			return fmt.Errorf("cannot serialize tx: %w", err)
+		}
+
+		if err := v.Verify(digest, sigs[idx]); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
