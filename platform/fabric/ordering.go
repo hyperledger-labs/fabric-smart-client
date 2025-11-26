@@ -19,7 +19,7 @@ type Ordering struct {
 func (n *Ordering) Broadcast(context context.Context, blob interface{}) error {
 	switch b := blob.(type) {
 	case *Envelope:
-		return n.network.OrderingService().Broadcast(context, b.e)
+		return n.network.OrderingService().Broadcast(context, b.Envelope)
 	case *Transaction:
 		return n.network.OrderingService().Broadcast(context, b.tx)
 	default:

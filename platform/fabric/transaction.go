@@ -378,7 +378,7 @@ func (t *Transaction) Envelope() (*Envelope, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Envelope{e: env}, nil
+	return NewEnvelope(env), nil
 }
 
 type TransactionManager struct {
@@ -386,7 +386,7 @@ type TransactionManager struct {
 }
 
 func (t *TransactionManager) NewEnvelope() *Envelope {
-	return &Envelope{e: t.fns.fns.TransactionManager().NewEnvelope()}
+	return NewEnvelope(t.fns.fns.TransactionManager().NewEnvelope())
 }
 
 func (t *TransactionManager) NewProposalResponseFromBytes(raw []byte) (*ProposalResponse, error) {

@@ -15,36 +15,18 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// Envelope models a fabric envelope
 type Envelope struct {
-	e driver.Envelope
+	driver.Envelope
 }
 
-func (e *Envelope) Bytes() ([]byte, error) {
-	return e.e.Bytes()
-}
-
-func (e *Envelope) FromBytes(raw []byte) error {
-	return e.e.FromBytes(raw)
-}
-
-func (e *Envelope) Results() []byte {
-	return e.e.Results()
-}
-
-func (e *Envelope) TxID() string {
-	return e.e.TxID()
-}
-
-func (e *Envelope) Nonce() []byte {
-	return e.e.Nonce()
-}
-
-func (e *Envelope) Creator() []byte {
-	return e.e.Creator()
+// NewEnvelope returns a new instance of Envelope that wraps the given driver implementation.
+func NewEnvelope(e driver.Envelope) *Envelope {
+	return &Envelope{Envelope: e}
 }
 
 func (e *Envelope) MarshalJSON() ([]byte, error) {
-	raw, err := e.e.Bytes()
+	raw, err := e.Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -57,11 +39,11 @@ func (e *Envelope) UnmarshalJSON(raw []byte) error {
 	if err != nil {
 		return err
 	}
-	return e.e.FromBytes(r)
+	return e.FromBytes(r)
 }
 
 func (e *Envelope) String() string {
-	return e.e.String()
+	return e.Envelope.String()
 }
 
 type Chaincode struct {
@@ -264,7 +246,7 @@ func (i *ChaincodeEndorse) Call() (*Envelope, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Envelope{e: env}, nil
+	return NewEnvelope(env), nil
 }
 
 func (i *ChaincodeEndorse) WithContext(context context.Context) *ChaincodeEndorse {
