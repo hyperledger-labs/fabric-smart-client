@@ -48,6 +48,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(ledger.NewEventBasedProvider, dig.As(new(ledger.Provider))),
 		p.Container().Provide(ledger.NewBlockDispatcherProvider),
 		p.Container().Provide(finality.NewListenerManagerProvider),
+		p.Container().Provide(digutils.Identity[*finality.Provider](), dig.As(new(finality.ListenerManagerProvider))),
 		p.Container().Provide(queryservice.NewProvider, dig.As(new(queryservice.Provider))),
 	)
 	if err != nil {
@@ -66,5 +67,21 @@ func (p *SDK) Install() error {
 }
 
 func (p *SDK) Start(ctx context.Context) error {
+	// Wire the finality Listener Manager Provider with the application's root context.
+	// This context is cancelled when the FSC application shuts down.
+	// By initializing the provider with this context, we ensure that during shutdown,
+	// all active finality listener instances (which run in goroutines managed by the provider)
+	// are properly notified and can terminate their long-running streams.
+	err := p.Container().Invoke(func(in struct {
+		dig.In
+		Provider *finality.Provider
+	}) error {
+		in.Provider.Initialize(ctx)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
 	return p.SDK.Start(ctx)
 }
