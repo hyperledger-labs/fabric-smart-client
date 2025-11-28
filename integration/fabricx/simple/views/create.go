@@ -87,7 +87,6 @@ func (i *CreateView) Call(viewCtx view.Context) (interface{}, error) {
 		return nil, err
 	}
 
-
 	// now we have a committer listener registered, we send the approved transaction to the orderer
 	logger.Infof("Submit tx (txID=%v) to ordering service", tx.ID())
 	if _, err = viewCtx.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, FinalityTimeout)); err != nil {

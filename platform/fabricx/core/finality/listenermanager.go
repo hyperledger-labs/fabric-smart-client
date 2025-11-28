@@ -11,9 +11,9 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
@@ -89,9 +89,9 @@ func newNotifi(ctx context.Context, cfg config.ConfigService) (*notificationList
 		return nil, err
 	}
 	// CRITICAL FIX: Use context.Background() for the stream lifecycle.
-    // This ensures the stream stays alive for the duration of the shared manager, 
-    // regardless of when the individual view's context (ctx) is cancelled.
-    streamCtx := context.Background()
+	// This ensures the stream stays alive for the duration of the shared manager,
+	// regardless of when the individual view's context (ctx) is cancelled.
+	streamCtx := context.Background()
 
 	notifyClient := protonotify.NewNotifierClient(cc)
 	notifyStream, err := notifyClient.OpenNotificationStream(streamCtx)
