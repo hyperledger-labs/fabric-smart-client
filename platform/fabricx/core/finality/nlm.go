@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package finality
 
 import (
-	"context"
 	"errors"
 	"slices"
 	"sync"
@@ -34,7 +33,7 @@ type notificationListenerManager struct {
 	lock     sync.RWMutex
 }
 
-func (n *notificationListenerManager) Listen(ctx context.Context) error {
+func (n *notificationListenerManager) Listen() error {
 	g, gCtx := errgroup.WithContext(n.notifyStream.Context())
 	// spawn stream receiver
 	g.Go(func() error {

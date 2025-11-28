@@ -142,7 +142,7 @@ func TestNotificationListenerManager(t *testing.T) {
 
 				// run Listen
 				go func() {
-					_ = nlm.Listen(ctx)
+					_ = nlm.Listen()
 				}()
 
 				require.EventuallyWithT(t, func(collect *assert.CollectT) {
@@ -185,7 +185,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		}
 
 		go func() {
-			_ = nlm.Listen(ctx)
+			_ = nlm.Listen()
 		}()
 
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
@@ -212,7 +212,7 @@ func TestNotificationListenerManager(t *testing.T) {
 
 		// start the manager
 		go func() {
-			_ = nlm.Listen(ctx)
+			_ = nlm.Listen()
 		}()
 
 		// add a listener
@@ -243,7 +243,7 @@ func TestNotificationListenerManager(t *testing.T) {
 
 		// start the manager
 		go func() {
-			_ = nlm.Listen(ctx)
+			_ = nlm.Listen()
 		}()
 
 		// The single listener instance used for both calls
@@ -289,7 +289,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		}
 
 		go func() {
-			_ = nlm.Listen(ctx)
+			_ = nlm.Listen()
 		}()
 
 		ml1 := &mockListener{txID: "1"}
@@ -369,7 +369,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		// start the manager
 		errs := make(chan error, 1)
 		go func() {
-			errs <- nlm.Listen(cancelable_ctx)
+			errs <- nlm.Listen()
 		}()
 
 		// wait briefly to ensure all goroutines are up and blocking
@@ -391,13 +391,13 @@ func TestNotificationListenerManager(t *testing.T) {
 
 	t.Run("Stream Error Handling", func(t *testing.T) {
 		t.Parallel()
-		nlm, fakeStream, ctx := setupTest(t)
+		nlm, fakeStream, _ := setupTest(t)
 
 		expectedErr := errors.New("stream broken")
 		fakeStream.RecvReturns(nil, expectedErr)
 
 		// listen should return the error immediately
-		err := nlm.Listen(ctx)
+		err := nlm.Listen()
 		require.ErrorIs(t, err, expectedErr)
 	})
 
