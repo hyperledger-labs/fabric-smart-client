@@ -7,15 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"sync"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
@@ -90,12 +87,6 @@ func (i *CreateView) Call(viewCtx view.Context) (interface{}, error) {
 		return nil, err
 	}
 
-	go func() {
-		err := lm.Listen(viewCtx.Context())
-		if err != nil && !errors.Is(err, context.Canceled) {
-			assert.NoError(err)
-		}
-	}()
 
 	// now we have a committer listener registered, we send the approved transaction to the orderer
 	logger.Infof("Submit tx (txID=%v) to ordering service", tx.ID())
