@@ -26,21 +26,32 @@ import (
 var logger = logging.MustGetLogger()
 
 type notificationListenerManager struct {
-	notifyStream  protonotify.Notifier_OpenNotificationStreamClient
+	notifyClient  protonotify.NotifierClient
 	requestQueue  chan *protonotify.NotificationRequest
 	responseQueue chan *protonotify.NotificationResponse
 
-	handlers map[driver.TxID][]fabric.FinalityListener
-	lock     sync.RWMutex
+	handlers   map[driver.TxID][]fabric.FinalityListener
+	handlersMu sync.RWMutex
 }
 
-func (n *notificationListenerManager) Listen(ctx context.Context) error {
-	g, gCtx := errgroup.WithContext(n.notifyStream.Context())
+// Listen is a blocking method that runs the notification listener stream.
+func (n *notificationListenerManager) listen(ctx context.Context) error {
+	logger.Debugf("Notification listener stream starting.")
+	notifyStream, err := n.notifyClient.OpenNotificationStream(ctx)
+	if err != nil {
+		return err
+	}
+	// Use the base context for errgroup
+	g, gCtx := errgroup.WithContext(ctx)
+
 	// spawn stream receiver
 	g.Go(func() error {
 		for {
-			res, err := n.notifyStream.Recv()
+			res, err := notifyStream.Recv()
 			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					return nil
+				}
 				return err
 			}
 			select {
@@ -61,7 +72,7 @@ func (n *notificationListenerManager) Listen(ctx context.Context) error {
 			case req = <-n.requestQueue:
 			}
 
-			if err := n.notifyStream.Send(req); err != nil {
+			if err := notifyStream.Send(req); err != nil {
 				return err
 			}
 		}
@@ -79,7 +90,7 @@ func (n *notificationListenerManager) Listen(ctx context.Context) error {
 
 			res := parseResponse(resp)
 
-			n.lock.Lock()
+			n.handlersMu.Lock()
 			for txID, v := range res {
 				handlers, ok := n.handlers[txID]
 				if !ok {
@@ -91,14 +102,24 @@ func (n *notificationListenerManager) Listen(ctx context.Context) error {
 
 				// now it is time to call the handlers
 				for _, h := range handlers {
+					// TODO: should handle a timeout on status and cancel if timeout
 					h.OnStatus(gCtx, txID, v, "")
 				}
 			}
-			n.lock.Unlock()
+			n.handlersMu.Unlock()
 		}
 	})
 
-	return g.Wait()
+	err = g.Wait()
+	logger.Debugf("Notification listener stream stopped.")
+
+	// Cleanup handlers map when listen() exits
+	n.handlersMu.Lock()
+	clear(n.handlers)
+	n.handlersMu.Unlock()
+	logger.Debugf("Cleared handlers map on listen() exit")
+
+	return err
 }
 
 func parseResponse(resp *protonotify.NotificationResponse) map[string]int {
@@ -130,13 +151,14 @@ func parseResponse(resp *protonotify.NotificationResponse) map[string]int {
 	return res
 }
 
+// AddFinalityListener registers a listener to be notified when the transaction with the given txID reaches finality.
 func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, listener fabric.FinalityListener) error {
 	if listener == nil {
 		return errors.New("listener nil")
 	}
 
-	n.lock.Lock()
-	defer n.lock.Unlock()
+	n.handlersMu.Lock()
+	defer n.handlersMu.Unlock()
 
 	handlers := n.handlers[txID]
 	for _, h := range handlers {
@@ -166,13 +188,14 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 	return nil
 }
 
+// RemoveFinalityListener unregisters a previously registered listener for the given txID.
 func (n *notificationListenerManager) RemoveFinalityListener(txID string, listener fabric.FinalityListener) error {
 	if listener == nil {
 		return errors.New("listener nil")
 	}
 
-	n.lock.Lock()
-	defer n.lock.Unlock()
+	n.handlersMu.Lock()
+	defer n.handlersMu.Unlock()
 
 	handlers, ok := n.handlers[txID]
 	if !ok || len(handlers) == 0 {
