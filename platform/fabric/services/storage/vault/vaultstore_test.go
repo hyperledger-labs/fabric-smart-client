@@ -10,7 +10,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
@@ -265,7 +264,7 @@ func testPagination(store driver.VaultStore) {
 
 func TestPaginationStoreMem(t *testing.T) {
 	RegisterTestingT(t)
-	db, err := OpenMemoryVault(utils.GenerateUUIDOnlyLetters())
+	db, err := OpenMemoryVault("testdb")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -293,7 +292,7 @@ func TestPaginationStoreSPostgres(t *testing.T) {
 
 func TestVaultStoreMem(t *testing.T) {
 	RegisterTestingT(t)
-	db, err := OpenMemoryVault(utils.GenerateUUIDOnlyLetters())
+	db, err := OpenMemoryVault("testdb")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
