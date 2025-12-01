@@ -267,6 +267,9 @@ func TestPaginationStoreMem(t *testing.T) {
 	db, err := OpenMemoryVault("testdb")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
 
 	testPagination(db)
 }
@@ -276,6 +279,9 @@ func TestPaginationStoreSqlite(t *testing.T) {
 	db, err := OpenSqliteVault("testdb", t.TempDir())
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
 
 	testPagination(db)
 }
@@ -285,7 +291,7 @@ func TestPaginationStoreSPostgres(t *testing.T) {
 	db, terminate, err := OpenPostgresVault("testdb")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
-	defer terminate()
+	t.Cleanup(terminate)
 
 	testPagination(db)
 }
@@ -295,6 +301,9 @@ func TestVaultStoreMem(t *testing.T) {
 	db, err := OpenMemoryVault("testdb")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
 
 	testVaultStore(t, db)
 	testOneMore(t, db)
@@ -305,8 +314,10 @@ func TestVaultStoreSqlite(t *testing.T) {
 	db, err := OpenSqliteVault("testdb", t.TempDir())
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
 
-	assert.NotNil(t, db)
 	testVaultStore(t, db)
 	testOneMore(t, db)
 }
@@ -316,13 +327,15 @@ func TestVaultStorePostgres(t *testing.T) {
 	db, terminate, err := OpenPostgresVault("testdb")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
-	defer terminate()
+	t.Cleanup(terminate)
 
 	testVaultStore(t, db)
 	testOneMore(t, db)
 }
 
 func testOneMore(t *testing.T, store driver.VaultStore) {
+	t.Helper()
+
 	err := store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "", "txid3")
 	assert.NoError(t, err)
 
@@ -382,6 +395,8 @@ func fetchAll(store driver.VaultStore) ([]driver.TxID, error) {
 }
 
 func testVaultStore(t *testing.T, store driver.VaultStore) {
+	t.Helper()
+
 	txids, err := fetchAll(store)
 	assert.NoError(t, err)
 	assert.Empty(t, txids)
