@@ -53,7 +53,7 @@ var (
 )
 
 const (
-	queryServiceConfig = ` query-service:
+	queryServiceConfig = `query-service:
   server:
     endpoint:
       host: localhost
