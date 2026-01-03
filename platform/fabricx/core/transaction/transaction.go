@@ -572,14 +572,26 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 	}
 
 	logger.Debugf("prepare rws for proposal response [%s]", t.ID())
-	rwset, err := t.GetRWSet()
-	if err != nil {
-		return nil, errors.WithMessagef(err, "error getting rwset for [%s]", t.ID())
-	}
 
-	rawTx, err := rwset.Bytes()
-	if err != nil {
-		return nil, errors.WithMessagef(err, "error serializing rws for [%s]", t.ID())
+	// If we have received RWSet bytes (from the issuer), use them directly to ensure
+	// endorsement results match. This avoids re-serialization which may produce
+	// different bytes due to namespace version differences between nodes.
+	// The RWSet bytes are populated when the transaction is received from the issuer.
+	var rawTx []byte
+	if len(t.RWSet) != 0 {
+		logger.Debugf("using received RWSet bytes directly for tx [%s] (len=%d)", t.ID(), len(t.RWSet))
+		rawTx = t.RWSet
+	} else {
+		// No received bytes - serialize the current RWSet (issuer case)
+		rwset, err := t.GetRWSet()
+		if err != nil {
+			return nil, errors.WithMessagef(err, "error getting rwset for [%s]", t.ID())
+		}
+
+		rawTx, err = rwset.Bytes()
+		if err != nil {
+			return nil, errors.WithMessagef(err, "error serializing rws for [%s]", t.ID())
+		}
 	}
 
 	var tx protoblocktx.Tx
