@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
@@ -109,9 +110,10 @@ func NewClient(config *Config) (*Client, error) {
 				TLSClientConfig: tlsClientConfig,
 			}),
 		},
-		url:       config.WebURL(),
-		wsUrl:     config.WsURL(),
-		tlsConfig: tlsClientConfig,
+		url:           config.WebURL(),
+		wsUrl:         config.WsURL(),
+		tlsConfig:     tlsClientConfig,
+		metricsParser: expfmt.NewTextParser(model.LegacyValidation),
 	}, nil
 }
 
