@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package libp2p
 
 import (
+	"time"
+
 	metrics2 "github.com/libp2p/go-libp2p/core/metrics"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
@@ -43,3 +45,6 @@ func (r *metricsReporter) GetBandwidthByPeer() map[peer.ID]metrics2.Stats {
 func (r *metricsReporter) GetBandwidthByProtocol() map[protocol.ID]metrics2.Stats {
 	return map[protocol.ID]metrics2.Stats{}
 }
+
+func (r *metricsReporter) Reset()                   {}
+func (r *metricsReporter) TrimIdle(since time.Time) {}
