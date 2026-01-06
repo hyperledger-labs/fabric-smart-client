@@ -67,6 +67,10 @@ func (p *SDK) Install() error {
 }
 
 func (p *SDK) Start(ctx context.Context) error {
+	if !p.FabricEnabled() {
+		return p.SDK.Start(ctx)
+	}
+
 	// Wire the finality Listener Manager Provider with the application's root context.
 	// This context is cancelled when the FSC application shuts down.
 	// By initializing the provider with this context, we ensure that during shutdown,
