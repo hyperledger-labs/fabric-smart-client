@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -107,7 +106,7 @@ func (t *Transaction) ChaincodeVersion() string {
 func (t *Transaction) Results() ([]byte, error) {
 	// note that we currently support a single-endorser policy until committer-x introduces msp-based endorsement policies
 	if len(t.TProposalResponses) < 1 {
-		return nil, errors.Errorf("transaction has no proposal responses")
+		return nil, errors.New("transaction has no proposal responses")
 	}
 	return t.TProposalResponses[0].Payload, nil
 }
@@ -115,7 +114,7 @@ func (t *Transaction) Results() ([]byte, error) {
 func (t *Transaction) From(tx driver.Transaction) (err error) {
 	payload, ok := tx.(*Transaction)
 	if !ok {
-		return fmt.Errorf("wrong transaction type [%T]", tx)
+		return errors.Errorf("wrong transaction type [%T]", tx)
 	}
 
 	t.ctx = context.Background()
@@ -145,14 +144,14 @@ func (t *Transaction) From(tx driver.Transaction) (err error) {
 
 func (t *Transaction) SetFromBytes(raw []byte) error {
 	if err := json.Unmarshal(raw, t); err != nil {
-		return fmt.Errorf("SetFromBytes: failed unmarshalling payload [%s]: %w", string(raw), err)
+		return errors.Wrapf(err, "json unmarshal from bytes")
 	}
 
 	if t.TSignedProposal != nil {
 		// TODO: check the current payload is compatible with the content of the signed proposal
 		up, err := transaction.UnpackSignedProposal(t.TSignedProposal)
 		if err != nil {
-			return fmt.Errorf("SetFromBytes: failed unpacking proposal [%s]: %w", string(raw), err)
+			return errors.Wrapf(err, "unpacking proposal")
 		}
 		t.TTxID = up.TxID()
 		t.TNonce = up.Nonce()
@@ -170,14 +169,14 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 		}
 		t.signedProposal, err = newSignedProposal(t.TSignedProposal)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "new signed proposal")
 		}
 	}
 
 	// Set the channel
 	ch, err := t.fns.Channel(t.Channel())
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "get channel [%s]", t.Channel())
 	}
 	t.channel = ch
 
@@ -188,7 +187,7 @@ func (t *Transaction) SetFromEnvelopeBytes(raw []byte) error {
 	// TODO: check the current payload is compatible with the content of the signed proposal
 	upe, _, err := transaction.UnpackEnvelopeFromBytes(raw)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unpack envelope from bytes")
 	}
 
 	t.TTxID = upe.TxID
@@ -210,7 +209,7 @@ func (t *Transaction) SetFromEnvelopeBytes(raw []byte) error {
 	// Set the channel
 	ch, err := t.fns.Channel(t.Channel())
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "get channel [%s]", t.Channel())
 	}
 	t.channel = ch
 
@@ -247,7 +246,7 @@ func (t *Transaction) AppendParameter(p []byte) {
 
 func (t *Transaction) SetParameterAt(i int, p []byte) error {
 	if i >= len(t.TParameters) {
-		return fmt.Errorf("invalid index, got [%d]>=[%d]", i, len(t.TParameters))
+		return errors.Errorf("invalid index, got [%d]>=[%d]", i, len(t.TParameters))
 	}
 	t.TParameters[i] = p
 	return nil
@@ -271,25 +270,25 @@ func (t *Transaction) SetRWSet() error {
 		logger.Debugf("populate rws from proposal response")
 		results, err := t.Results()
 		if err != nil {
-			return fmt.Errorf("failed to get rws from proposal response: %w", err)
+			return errors.Wrap(err, "get rws from proposal response")
 		}
 		t.rwset, err = t.channel.Vault().NewRWSetFromBytes(t.ctx, t.ID(), results)
 		if err != nil {
-			return fmt.Errorf("failed to populate rws from proposal response: %w", err)
+			return errors.Wrap(err, "populate rws from proposal response")
 		}
 	case len(t.RWSet) != 0:
 		logger.Debugf("populate rws from rwset")
 		var err error
 		t.rwset, err = t.channel.Vault().NewRWSetFromBytes(t.ctx, t.ID(), t.RWSet)
 		if err != nil {
-			return fmt.Errorf("failed to populate rws from existing rws: %w", err)
+			return errors.Wrap(err, "populate rws from existing rws")
 		}
 	default:
 		logger.Debugf("populate rws from scratch")
 		var err error
 		t.rwset, err = t.channel.Vault().NewRWSet(t.ctx, t.ID())
 		if err != nil {
-			return fmt.Errorf("failed to create fresh rws: %w", err)
+			return errors.Wrap(err, "create fresh rws")
 		}
 	}
 	return nil
@@ -310,7 +309,7 @@ func (t *Transaction) Done() error {
 		var err error
 		t.RWSet, err = t.rwset.Bytes()
 		if err != nil {
-			return fmt.Errorf("failed marshalling rws: %w", err)
+			return errors.Wrap(err, "marshalling rws")
 		}
 		logger.Debugf("terminated simulation with [%s][len:%d]", t.rwset.Namespaces(), len(t.RWSet))
 	}
@@ -318,7 +317,7 @@ func (t *Transaction) Done() error {
 }
 
 func (t *Transaction) Close() {
-	logger.Debugf("closing transaction [%s,%v]", t.ID(), t.rwset != nil)
+	logger.Debugf("closing transaction [txID=%s] [rwset set=%v]", t.ID(), t.rwset != nil)
 	if t.rwset != nil {
 		t.rwset.Done()
 		t.rwset = nil
@@ -330,7 +329,7 @@ func (t *Transaction) Raw() ([]byte, error) {
 		var err error
 		t.RWSet, err = t.rwset.Bytes()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "marshalling rws")
 		}
 	}
 	return json.Marshal(t)
@@ -370,12 +369,12 @@ func (t *Transaction) Endorse() error {
 }
 
 func (t *Transaction) EndorseWithIdentity(identity view.Identity) error {
-	logger.Debugf("endorse transaction [%s] with identity [%s]", t.ID(), identity.String())
+	logger.Debugf("endorse transaction [tx=ID%s] with identity [%s]", t.ID(), identity.String())
 
 	// prepare signer
 	s, err := t.fns.SignerService().GetSigner(identity)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "get signer identity")
 	}
 	signer := &signerWrapper{creator: identity, signer: s}
 
@@ -390,29 +389,29 @@ func (t *Transaction) EndorseWithSigner(identity view.Identity, s driver.Signer)
 	if t.SignedProposal() == nil {
 		// Endorse it
 		if err := t.generateProposal(signer); err != nil {
-			return fmt.Errorf("failed setting proposal: %w", err)
+			return errors.Wrap(err, "generate signed proposal")
 		}
 	}
 
 	// is there already a response or a simulation is in progress?
 	if len(t.TProposalResponses) != 0 || len(t.RWSet) != 0 || t.RWS() != nil {
-		logger.Debugf("endorse transaction [%s]", t.ID())
+		logger.Debugf("endorse transaction [txID=%s]", t.ID())
 		defer t.Close()
 
 		var err error
 		t.proposalResponse, err = t.getProposalResponse(signer)
 		if err != nil {
-			return fmt.Errorf("failed getting proposal response: %w", err)
+			return errors.Wrap(err, "getting proposal response")
 		}
 		err = t.appendProposalResponse(t.proposalResponse)
 		if err != nil {
-			return fmt.Errorf("failed appending proposal response: %w", err)
+			return errors.Wrap(err, "failed appending proposal response")
 		}
 	}
 
 	err := t.StoreTransient()
 	if err != nil {
-		return fmt.Errorf("failed storing transient: %w", err)
+		return errors.Wrap(err, "failed storing transient")
 	}
 
 	return nil
@@ -426,13 +425,13 @@ func (t *Transaction) EndorseProposalWithIdentity(identity view.Identity) error 
 	// prepare signer
 	s, err := t.fns.SignerService().GetSigner(identity)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "get signer")
 	}
 	signer := &signerWrapper{creator: identity, signer: s}
 
 	defer t.Close()
-	if err := t.generateProposal(signer); err != nil {
-		return err
+	if err = t.generateProposal(signer); err != nil {
+		return errors.Wrap(err, "generate signed proposal")
 	}
 
 	return nil
@@ -447,14 +446,14 @@ func (t *Transaction) EndorseProposalResponseWithIdentity(identity view.Identity
 	// prepare signer
 	s, err := t.fns.SignerService().GetSigner(identity)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "get signer")
 	}
 	signer := &signerWrapper{creator: identity, signer: s}
 
 	defer t.Close()
 	t.proposalResponse, err = t.getProposalResponse(signer)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "generate signed proposal response")
 	}
 	return t.appendProposalResponse(t.proposalResponse)
 }
@@ -462,7 +461,7 @@ func (t *Transaction) EndorseProposalResponseWithIdentity(identity view.Identity
 func (t *Transaction) AppendProposalResponse(response driver.ProposalResponse) error {
 	resp, ok := response.(*ProposalResponse)
 	if !ok {
-		return fmt.Errorf("wrong proposal response type: %T", response)
+		return errors.Errorf("wrong proposal response type: %T", response)
 	}
 
 	return t.appendProposalResponse(resp.PR())
@@ -471,7 +470,7 @@ func (t *Transaction) AppendProposalResponse(response driver.ProposalResponse) e
 func (t *Transaction) ProposalHasBeenEndorsedBy(party view.Identity) error {
 	verifier, err := t.channel.ChannelMembership().GetVerifier(party)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "get verifier from channel membership")
 	}
 	return verifier.Verify(t.SignedProposal().ProposalBytes(), t.SignedProposal().Signature())
 }
@@ -486,8 +485,7 @@ func (t *Transaction) ProposalResponses() ([]driver.ProposalResponse, error) {
 	for i, resp := range t.TProposalResponses {
 		r, err := NewProposalResponseFromResponse(resp)
 		if err != nil {
-			logger.Errorf("failed creating proposal response from transaction [%s,%v]", t.ID(), err)
-			return nil, err
+			return nil, errors.Wrapf(err, "creating proposal response from transaction [txID=%s]", t.ID())
 		}
 		res[i] = r
 	}
@@ -505,7 +503,7 @@ func (t *Transaction) ProposalResponse() ([]byte, error) {
 func (t *Transaction) Envelope() (driver.Envelope, error) {
 	env, err := t.createSCEnvelope()
 	if err != nil {
-		return nil, fmt.Errorf("could not assemble transaction: %w", err)
+		return nil, errors.Wrap(err, "could not assemble transaction")
 	}
 
 	return NewEnvelope(t.TTxID, t.Nonce(), t.TCreator.Bytes(), nil, env), nil
@@ -534,13 +532,13 @@ func (t *Transaction) generateProposal(signer SerializableSigner) error {
 		t.TCreator,
 		nil)
 	if err != nil {
-		return fmt.Errorf("error creating proposal for %s", funcName)
+		return errors.Errorf("error creating proposal for %s", funcName)
 	}
 
 	t.TProposal = proposal
 	t.TSignedProposal, err = protoutil.GetSignedProposal(proposal, signer)
 	if err != nil {
-		return fmt.Errorf("error creating underlying signed proposal for %s", funcName)
+		return errors.Errorf("error creating underlying signed proposal for %s", funcName)
 	}
 
 	t.signedProposal, err = newSignedProposal(t.TSignedProposal)

@@ -8,7 +8,6 @@ package committer
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -37,7 +36,7 @@ type handler struct {
 
 func (h *handler) HandleFabricxTransaction(ctx context.Context, blkMetadata *cb.BlockMetadata, tx committer.CommitTx) (*committer.FinalityEvent, error) {
 	if len(blkMetadata.Metadata) < statusIdx {
-		return nil, fmt.Errorf("block metadata lacks transaction filter")
+		return nil, errors.New("block metadata lacks transaction filter")
 	}
 
 	statusCode := protoblocktx.Status(blkMetadata.Metadata[statusIdx][tx.TxNum])
@@ -61,7 +60,7 @@ func (h *handler) HandleFabricxTransaction(ctx context.Context, blkMetadata *cb.
 				// escaping the switch and discard
 				break
 			}
-			return nil, fmt.Errorf("failed committing transaction [txID=%s]: %w", event.TxID, err)
+			return nil, errors.Wrapf(err, "committing endorser transaction [txID=%s]", event.TxID)
 		}
 		if !processed {
 			logger.Debugf("TODO: Should we try to get chaincode events?")
@@ -74,7 +73,7 @@ func (h *handler) HandleFabricxTransaction(ctx context.Context, blkMetadata *cb.
 
 	logger.Warnf("discarding transaction [txID=%s] [reason=%v]", tx.TxID, statusCode.String())
 	if err := h.committer.DiscardEndorserTransaction(ctx, event.TxID, tx.BlkNum, tx.Raw, event); err != nil {
-		return nil, fmt.Errorf("failed discarding transaction [txID=%s]: %w", event.TxID, err)
+		return nil, errors.Wrapf(err, "discarding endorser transaction [txID=%s]", event.TxID)
 	}
 
 	return event, nil

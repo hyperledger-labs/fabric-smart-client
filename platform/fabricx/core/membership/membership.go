@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package membership
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -72,30 +71,30 @@ func (c *Service) DryUpdate(env *cb.Envelope) error {
 func (c *Service) validateConfig(env *cb.Envelope) (*channelconfig.Bundle, error) {
 	payload, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot get payload from config transaction")
+		return nil, errors.Wrapf(err, "unmarshal common payload")
 	}
 
 	cenv, err := configtx.UnmarshalConfigEnvelope(payload.Data)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error unmarshalling config which passed initial validity checks")
+		return nil, errors.Wrapf(err, "unmarshal config envelope")
 	}
 
 	// check if config tx is valid
 	if c.channelResources != nil {
 		v := c.channelResources.ConfigtxValidator()
 		if err := v.Validate(cenv); err != nil {
-			return nil, errors.Wrap(err, "failed to validate config transaction")
+			return nil, errors.Wrap(err, "validate config transaction")
 		}
 	}
 
 	bundle, err := channelconfig.NewBundle(c.channelID, cenv.Config, factory.GetDefault())
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build a new bundle")
+		return nil, errors.Wrapf(err, "build a new bundle")
 	}
 
 	channelconfig.LogSanityChecks(bundle)
 	if err := capabilitiesSupported(bundle); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "check bundle capabilities")
 	}
 
 	return bundle, nil
@@ -108,11 +107,11 @@ func capabilitiesSupported(res channelconfig.Resources) error {
 	}
 
 	if err := ac.Capabilities().Supported(); err != nil {
-		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
+		return errors.Wrapf(err, "[Channel %s] application config capabilities incompatible", res.ConfigtxValidator().ChannelID())
 	}
 
 	if err := res.ChannelConfig().Capabilities().Supported(); err != nil {
-		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
+		return errors.Wrapf(err, "[Channel %s] channel config capabilities incompatible", res.ConfigtxValidator().ChannelID())
 	}
 
 	return nil
@@ -121,7 +120,7 @@ func capabilitiesSupported(res channelconfig.Resources) error {
 func (c *Service) IsValid(identity view.Identity) error {
 	id, err := c.resources().MSPManager().DeserializeIdentity(identity)
 	if err != nil {
-		return errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
+		return errors.Wrapf(err, "deserializing identity [%s]", identity.String())
 	}
 
 	return id.Validate()
@@ -130,7 +129,7 @@ func (c *Service) IsValid(identity view.Identity) error {
 func (c *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 	id, err := c.resources().MSPManager().DeserializeIdentity(identity)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
+		return nil, errors.Wrapf(err, "deserializing identity [%s]", identity.String())
 	}
 	return id, nil
 }
@@ -154,7 +153,7 @@ func (c *Service) GetMSPIDs() []string {
 func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
 	oc, ok := c.resources().OrdererConfig()
 	if !ok || oc.Organizations() == nil {
-		return "", nil, fmt.Errorf("orderer config does not exist")
+		return "", nil, errors.New("orderer config does not exist")
 	}
 
 	tlsEnabled, isSet := cs.OrderingTLSEnabled()
@@ -182,7 +181,7 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 
 			ep, err := parseEndpoint(epStr)
 			if err != nil {
-				return "", nil, fmt.Errorf("cannot parse orderer endpoint [%s]: %w", epStr, err)
+				return "", nil, errors.Wrapf(err, "parse orderer endpoint [%s]", epStr)
 			}
 			logger.Debugf("new OS endpoint: %s", epStr)
 

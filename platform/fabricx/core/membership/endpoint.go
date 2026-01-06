@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package membership
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 const (
@@ -19,7 +20,7 @@ const (
 
 var (
 	myExp                    = regexp.MustCompile(`id=(\d+),(` + OrdererBroadcastType + `|` + OrdererDeliverType + `),(.*)`)
-	ErrInvalidEndpointFormat = fmt.Errorf("invalid endpoint format")
+	ErrInvalidEndpointFormat = errors.New("invalid endpoint format")
 )
 
 type endpoint struct {
@@ -37,7 +38,7 @@ func parseEndpoint(str string) (*endpoint, error) {
 
 	id, err := strconv.Atoi(match[1])
 	if err != nil {
-		return nil, fmt.Errorf("invalid endpoint id: %w", err)
+		return nil, errors.Wrap(err, "invalid endpoint id")
 	}
 
 	return &endpoint{

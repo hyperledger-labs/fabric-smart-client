@@ -64,11 +64,11 @@ func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[dr
 		// check that namespace exists as in _meta
 		nsVersion, exists := nsInfo[ns]
 		if !exists {
-			return nil, fmt.Errorf("nsInfo does not contain entry for ns = [%s]", ns)
+			return nil, errors.Errorf("nsInfo does not contain entry for ns = [%s]", ns)
 		}
 
 		if nsVersion == nil {
-			return nil, fmt.Errorf("nsVersion is nil for ns = [%s]", ns)
+			return nil, errors.Errorf("nsVersion is nil for ns = [%s]", ns)
 		}
 
 		// create namespace if not already exists
@@ -89,7 +89,7 @@ func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[dr
 		// check that namespace exists as in _meta
 		nsVersion, exists := nsInfo[ns]
 		if !exists {
-			return nil, fmt.Errorf("ns = [%s] does not exist in nsInfo", ns)
+			return nil, errors.Errorf("ns = [%s] does not exist in nsInfo", ns)
 		}
 
 		// create namespace if not already exists
@@ -148,7 +148,7 @@ func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[dr
 	txIn := &protoblocktx.Tx{Namespaces: namespaces}
 	if logger.IsEnabledFor(zap.DebugLevel) {
 		str, _ := json.MarshalIndent(txIn, "", "\t")
-		logger.Debugf("Unmarshalled fabricx tx %s", string(str))
+		logger.Debugf("Unmarshalled fabricx tx: %s", string(str))
 	}
 
 	return proto.Marshal(txIn)
@@ -173,12 +173,12 @@ func (m *Marshaller) RWSetFromBytes(raw []byte, namespaces ...string) (*vault.Re
 func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespaces ...string) error {
 	var txIn protoblocktx.Tx
 	if err := proto.Unmarshal(raw, &txIn); err != nil {
-		return errors.Wrapf(err, "failed unmarshalling tx from (%d)[%s]", len(raw), logging.SHA256Base64(raw))
+		return errors.Wrapf(err, "unmarshal tx from [len=%d][%s]", len(raw), logging.SHA256Base64(raw))
 	}
 
 	if logger.IsEnabledFor(zap.DebugLevel) {
 		str, _ := json.MarshalIndent(&txIn, "", "\t")
-		logger.Debugf("Unmarshalled fabricx tx %s", string(str))
+		logger.Debugf("Unmarshalled fabricx tx: %s", string(str))
 	}
 
 	for _, txNs := range txIn.GetNamespaces() {
@@ -189,7 +189,7 @@ func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespa
 		for _, write := range txNs.GetBlindWrites() {
 			if err := destination.WriteSet.Add(txNs.GetNsId(), string(write.GetKey()), write.GetValue()); err != nil {
 				// TODO: ... should we really just stop here or revert all changes ... ?
-				return errors.Wrapf(err, "failed adding blindwrite [%s]", write.GetKey())
+				return errors.Wrapf(err, "adding blindwrite [%s]", write.GetKey())
 			}
 		}
 
@@ -201,7 +201,7 @@ func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespa
 
 			if err := destination.WriteSet.Add(txNs.GetNsId(), string(readWrite.GetKey()), readWrite.GetValue()); err != nil {
 				// TODO: ... should we really just stop here or revert all changes ... ?
-				return errors.Wrapf(err, "failed adding readwrite [%s]", readWrite.GetKey())
+				return errors.Wrapf(err, "adding readwrite [%s]", readWrite.GetKey())
 			}
 		}
 	}
