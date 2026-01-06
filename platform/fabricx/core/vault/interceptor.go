@@ -8,9 +8,9 @@ package vault
 
 import (
 	"context"
-	"errors"
 	"sync/atomic"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-x-committer/api/types"

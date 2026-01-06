@@ -8,7 +8,6 @@ package transaction
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -46,7 +45,7 @@ func (m *Manager) transactionFactory(transactionType driver.TransactionType) (dr
 	logger.Debugf("transactionFactory called with transactionType [%v]", transactionType)
 	f, ok := m.transactionFactories.Load(transactionType)
 	if !ok {
-		return nil, fmt.Errorf("no transaction factory found for transaction type %v", transactionType)
+		return nil, errors.Errorf("no transaction factory found for transaction type %v", transactionType)
 	}
 
 	txFactory, ok := f.(driver.TransactionFactory)
