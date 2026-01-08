@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric/protoutil"
 )
 
 func computePoliciesMapUpdate(original, updated map[string]*cb.ConfigPolicy) (readSet, writeSet, sameSet map[string]*cb.ConfigPolicy, updatedMembers bool) {
@@ -138,7 +137,12 @@ func computeGroupsMapUpdate(original, updated map[string]*cb.ConfigGroup) (readS
 			continue
 		}
 		updatedMembers = true
-		_, groupWriteSet, _ := computeGroupUpdate(protoutil.NewConfigGroup(), updatedGroup)
+		emptyCnfGrp := &cb.ConfigGroup{
+			Groups:   make(map[string]*cb.ConfigGroup),
+			Values:   make(map[string]*cb.ConfigValue),
+			Policies: make(map[string]*cb.ConfigPolicy),
+		}
+		_, groupWriteSet, _ := computeGroupUpdate(emptyCnfGrp, updatedGroup)
 		writeSet[groupName] = &cb.ConfigGroup{
 			Version:   0,
 			ModPolicy: updatedGroup.ModPolicy,
