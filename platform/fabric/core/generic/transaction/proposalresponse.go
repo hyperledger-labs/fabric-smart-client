@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protoutil"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"github.com/hyperledger/fabric/protoutil"
 )
 
 // UnpackedProposalResponse contains the interesting artifacts from inside the proposal.
