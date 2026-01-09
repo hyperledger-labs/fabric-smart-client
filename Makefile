@@ -40,7 +40,7 @@ install-tools: ## Install all tools
 .PHONY: install-linter
 install-linter-tool: ## Install linter in $(go env GOPATH)/bin
 	@echo "Installing golangci Linter"
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.4.0
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v2.4.0
 
 .PHONY: install-fxconfig
 install-fxconfig: ## Install fxconfig in $(FAB_BINS)
@@ -151,6 +151,7 @@ INTEGRATION_TARGETS += fabric-twonets
 ## fabricx section
 INTEGRATION_TARGETS += fabricx-iou
 INTEGRATION_TARGETS += fabricx-simple
+INTEGRATION_TARGETS += fabricx-tokenx
 
 .PHONE: list-integration-tests
 list-integration-tests: ## List all integration tests

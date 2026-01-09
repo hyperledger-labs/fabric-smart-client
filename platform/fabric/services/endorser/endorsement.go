@@ -155,7 +155,22 @@ func (c *collectEndorsementsView) Call(context view.Context) (interface{}, error
 			}
 			// Check the content of the response
 			// Now results can be equal to what this node has proposed or different
-			if !bytes.Equal(res, proposalResponse.Results()) {
+			proposerResults := proposalResponse.Results()
+			if !bytes.Equal(res, proposerResults) {
+				logger.Errorf("MISMATCH! Local results len=%d, remote results len=%d", len(res), len(proposerResults))
+				logger.Errorf("Local results (hex): %x", res)
+				logger.Errorf("Remote results (hex): %x", proposerResults)
+				// Find first difference
+				minLen := len(res)
+				if len(proposerResults) < minLen {
+					minLen = len(proposerResults)
+				}
+				for i := 0; i < minLen; i++ {
+					if res[i] != proposerResults[i] {
+						logger.Errorf("First difference at byte %d: local=0x%02x, remote=0x%02x", i, res[i], proposerResults[i])
+						break
+					}
+				}
 				return nil, errors.Errorf("received different results")
 			}
 
