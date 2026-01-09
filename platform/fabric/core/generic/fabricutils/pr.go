@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package fabricutils
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger/kvledger/rwsetutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protoutil"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 )
 
 // UnpackedProposalResponse contains the interesting artifacts from inside the proposal.
