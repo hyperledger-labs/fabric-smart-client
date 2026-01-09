@@ -8,7 +8,6 @@ package rwset
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -54,7 +53,7 @@ func NewLoader(
 
 func (c *Loader) AddHandlerProvider(headerType cb.HeaderType, handlerProvider driver.RWSetPayloadHandlerProvider) error {
 	if handler, ok := c.handlers[headerType]; ok {
-		return fmt.Errorf("handler %T already defined for header type %v", handler, headerType)
+		return errors.Errorf("handler %T already defined for header type %v", handler, headerType)
 	}
 
 	c.handlers[headerType] = handlerProvider(c.Network, c.Channel, c.Vault)
@@ -67,22 +66,26 @@ func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver
 	defer span.AddEvent("end_get_rwset_from_evn")
 
 	if !c.EnvelopeService.Exists(ctx, txID) {
-		return nil, nil, fmt.Errorf("envelope does not exists for [%s]", txID)
+		return nil, nil, errors.Errorf("envelope does not exists for [txID=%s]", txID)
 	}
 
 	rawEnv, err := c.EnvelopeService.LoadEnvelope(ctx, txID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot load envelope [%s]: %w", txID, err)
+		return nil, nil, errors.Errorf("load envelope [txID=%s]", txID)
 	}
 
 	_, payl, chdr, err := fabricutils.UnmarshalTx(rawEnv)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "unmarshal payload and channel header")
+	}
+
+	if txID != chdr.TxId {
+		return nil, nil, errors.Errorf("txID mismatch in channel header, expected=%s, actual=%s", txID, chdr.TxId)
 	}
 
 	rws, err := c.Vault.NewRWSetFromBytes(ctx, chdr.TxId, payl.Data)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create new rws for [%s]: %w", chdr.TxId, err)
+		return nil, nil, errors.Wrapf(err, "create new rws for [txID=%s]", chdr.TxId)
 	}
 
 	var function string
@@ -90,7 +93,7 @@ func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver
 		function = "init"
 	}
 
-	logger.Debugf("retrieved processed transaction from env [%s,%s]", txID, function)
+	logger.Debugf("retrieved processed transaction from envelope [txID=%s] [function=%s]", txID, function)
 	pt := &processedTransaction{
 		network:  c.Network,
 		channel:  chdr.ChannelId,
@@ -107,22 +110,22 @@ func (c *Loader) GetRWSetFromETx(ctx context.Context, txID driver2.TxID) (driver
 	defer span.AddEvent("end_get_rwset_from_etx")
 
 	if !c.TransactionService.Exists(ctx, txID) {
-		return nil, nil, fmt.Errorf("transaction does not exists for [%s]", txID)
+		return nil, nil, errors.Errorf("transaction does not exists for [txID=%s]", txID)
 	}
 
 	raw, err := c.TransactionService.LoadTransaction(ctx, txID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot load etx [%s]: %w", txID, err)
+		return nil, nil, errors.Wrapf(err, "cannot load etx [txID=%s]", txID)
 	}
 
 	tx, err := c.TransactionManager.NewTransactionFromBytes(ctx, c.Channel, raw)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "new transaction from bytes")
 	}
 
 	rws, err := tx.GetRWSet()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "get rwset")
 	}
 
 	return rws, tx, nil
@@ -133,16 +136,16 @@ func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID driver2.TxI
 	span.AddEvent("start_get_inspecting_rwset_from_evn")
 	defer span.AddEvent("end_get_inspecting_rwset_from_evn")
 
-	logger.Debugf("retrieve rwset from envelope [%s,%s]", c.Channel, txID)
+	logger.Debugf("retrieve rwset from envelope [channel=%s] [txID=%s]", c.Channel, txID)
 
 	_, payl, chdr, err := fabricutils.UnmarshalTx(envelopeRaw)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "cannot unmarshal envelope [%s]", txID)
+		return nil, nil, errors.Wrapf(err, "cannot unmarshal envelope [txID=%s]", txID)
 	}
 
 	rws, err := c.Vault.InspectRWSet(ctx, payl.Data)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "cannot inspect rwset for [%s]", txID)
+		return nil, nil, errors.Wrapf(err, "cannot inspect rwset for [txID=%s]", txID)
 	}
 
 	var function string
@@ -150,7 +153,7 @@ func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID driver2.TxI
 		function = "init"
 	}
 
-	logger.Debugf("retrieved inspecting processed transaction from env [%s,%s]", txID, function)
+	logger.Debugf("retrieved inspecting processed transaction from env [txID=%s] [function=%s]", txID, function)
 	pt := &processedTransaction{
 		network:  c.Network,
 		channel:  chdr.ChannelId,

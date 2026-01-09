@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package sdk
 
 import (
-	"errors"
-
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"

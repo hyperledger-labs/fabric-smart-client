@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package finality
 
 import (
-	"fmt"
 	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 const DefaultRequestTimeout = 30 * time.Second
@@ -37,7 +38,7 @@ func NewConfig(configService ConfigService) (*Config, error) {
 
 	err := configService.UnmarshalKey("notificationService", &config)
 	if err != nil {
-		return config, fmt.Errorf("cannot get notify service config: %w", err)
+		return config, errors.Wrap(err, "unmarshal notificationService")
 	}
 
 	return config, nil

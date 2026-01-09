@@ -8,7 +8,6 @@ package ledger
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -53,7 +52,7 @@ func (c *ledger) OnBlock(_ context.Context, block *cb.Block) (bool, error) {
 	for i, tx := range block.Data.Data {
 		_, _, chdr, err := fabricutils.UnmarshalTx(tx)
 		if err != nil {
-			return false, err
+			return false, errors.Wrapf(err, "unmarshal transaction channel header")
 		}
 
 		statusCode := protoblocktx.Status(block.Metadata.Metadata[cb.BlockMetadataIndex_TRANSACTIONS_FILTER][i])
@@ -89,10 +88,10 @@ func (c *ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, e
 		status, ok := c.statuses[txID]
 		c.mu.RUnlock()
 		if ok {
-			logger.Debugf("Transaction [%s] found with status [%d]", txID, int32(status))
+			logger.Debugf("Transaction [txID=%s] found with status [%d]", txID, int32(status))
 			return &liteTx{txID: txID, validationCode: status}, nil
 		}
-		logger.Warnf("transaction [%s] not found. retrying...", txID)
+		logger.Warnf("Transaction [txID=%s] not found. retrying...", txID)
 		time.Sleep(1 * time.Second)
 	}
 
@@ -107,13 +106,13 @@ func (c *ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
 		blockNum, ok := c.blockNums[txID]
 		c.mu.RUnlock()
 		if ok {
-			logger.Debugf("Transaction [%s] found with blockNum [%v]", txID, blockNum)
+			logger.Debugf("Transaction [txID=%s] found with blockNum [%v]", txID, blockNum)
 			return blockNum, nil
 		}
-		logger.Warnf("transaction [%s] not found. retrying...")
+		logger.Warnf("Transaction [txID=%s] not found. retrying...", txID)
 		time.Sleep(1 * time.Second)
 	}
-	return 0, fmt.Errorf("transaction [%s] not found", txID)
+	return 0, errors.Errorf("transaction [txID=%s] not found", txID)
 }
 
 func (c *ledger) GetBlockByNumber(number uint64) (driver.Block, error) {

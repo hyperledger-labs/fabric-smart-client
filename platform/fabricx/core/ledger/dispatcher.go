@@ -8,9 +8,9 @@ package ledger
 
 import (
 	"context"
-	"errors"
 	"sync"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 )

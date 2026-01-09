@@ -8,8 +8,8 @@ package sdk
 
 import (
 	"context"
-	"errors"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
@@ -67,6 +67,10 @@ func (p *SDK) Install() error {
 }
 
 func (p *SDK) Start(ctx context.Context) error {
+	if !p.FabricEnabled() {
+		return p.SDK.Start(ctx)
+	}
+
 	// Wire the finality Listener Manager Provider with the application's root context.
 	// This context is cancelled when the FSC application shuts down.
 	// By initializing the provider with this context, we ensure that during shutdown,

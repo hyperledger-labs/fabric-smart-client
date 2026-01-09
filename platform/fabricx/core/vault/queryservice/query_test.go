@@ -7,10 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package queryservice_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice/fakes"
@@ -369,7 +369,7 @@ func TestQueryService(t *testing.T) {
 		t.Parallel()
 		qs, fake := setupTest(t)
 
-		expectedError := fmt.Errorf("some error")
+		expectedError := errors.New("some error")
 
 		fake.GetRowsReturns(nil, expectedError)
 		_, err := qs.GetState("ns", "key1")

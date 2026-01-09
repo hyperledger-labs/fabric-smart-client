@@ -8,9 +8,9 @@ package queryservice
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger/fabric-x-committer/api/protoqueryservice"
@@ -20,7 +20,7 @@ import (
 var (
 	logger = logging.MustGetLogger()
 
-	ErrInvalidQueryInput = fmt.Errorf("invalid query input")
+	ErrInvalidQueryInput = errors.New("invalid query input")
 )
 
 type RemoteQueryService struct {
@@ -47,7 +47,7 @@ func (s *RemoteQueryService) GetState(ns driver.Namespace, key driver.PKey) (*dr
 	logger.Debugf("QS GetState %v %v", ns, key)
 	res, err := s.GetStates(m)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "get states")
 	}
 
 	// ensure that ns exists
@@ -83,7 +83,7 @@ func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[dr
 	res, err := s.client.GetRows(ctx, q)
 	if err != nil {
 		logger.Warnf("QS GetState: error calling getRows: %v", err)
-		return nil, err
+		return nil, errors.Wrap(err, "query get rows")
 	}
 	logger.Debugf("QS GetState: got response in %v", time.Since(now))
 

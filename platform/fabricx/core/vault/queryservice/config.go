@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package queryservice
 
 import (
-	"fmt"
 	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 const DefaultQueryTimeout = 30 * time.Second
@@ -37,7 +38,7 @@ func NewConfig(configService ConfigService) (*Config, error) {
 
 	err := configService.UnmarshalKey("queryService", &config)
 	if err != nil {
-		return config, fmt.Errorf("cannot get query service config: %w", err)
+		return config, errors.Wrap(err, "unmarshal queryService")
 	}
 
 	return config, nil

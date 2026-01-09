@@ -8,12 +8,12 @@ package finality
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
