@@ -14,16 +14,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger/fabric/core/chaincode/persistence"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
-// Writer defines the interface needed for writing a file
-type Writer interface {
-	WriteFile(string, string, []byte) error
-}
+// WriteFileFunc defines a function needed for writing a file
+type WriteFileFunc func(string, string, []byte) error
 
 // PackageInput holds the input parameters for packaging a
 // ChaincodeInstallPackage
@@ -48,7 +44,7 @@ func (p *PackageInput) Validate() error {
 	if p.Label == "" {
 		return errors.New("package label must be specified")
 	}
-	if err := persistence.ValidateLabel(p.Label); err != nil {
+	if err := ValidateLabel(p.Label); err != nil {
 		return err
 	}
 
@@ -67,21 +63,21 @@ type PlatformRegistry interface {
 type Packager struct {
 	Input            *PackageInput
 	PlatformRegistry PlatformRegistry
-	Writer           Writer
+	WriterFile       WriteFileFunc
 }
 
 func New() *Packager {
 	pr := NewRegistry(SupportedPlatforms...)
 	return &Packager{
 		PlatformRegistry: pr,
-		Writer:           &persistence.FilesystemIO{},
+		WriterFile:       WriteFile,
 	}
 }
 
 func NewWithRegistry(PlatformRegistry PlatformRegistry) *Packager {
 	return &Packager{
 		PlatformRegistry: PlatformRegistry,
-		Writer:           &persistence.FilesystemIO{},
+		WriterFile:       WriteFile,
 	}
 }
 
@@ -119,7 +115,7 @@ func (p *Packager) Package(replacer replacer.Func) error {
 	if dir, err = filepath.Abs(dir); err != nil {
 		return err
 	}
-	err = p.Writer.WriteFile(dir, name, pkgTarGzBytes)
+	err = p.WriterFile(dir, name, pkgTarGzBytes)
 	if err != nil {
 		err = errors.Wrapf(err, "error writing chaincode package to %s", p.Input.OutputFile)
 		logger.Error(err.Error())

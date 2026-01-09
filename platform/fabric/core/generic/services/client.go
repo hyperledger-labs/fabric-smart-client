@@ -10,10 +10,10 @@ import (
 	"context"
 	"crypto/tls"
 
+	dclient "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/discovery"
 	"github.com/hyperledger/fabric-protos-go-apiv2/discovery"
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	dclient "github.com/hyperledger/fabric/discovery/client"
 )
 
 // DiscoveryClient represents an interface for discovery service

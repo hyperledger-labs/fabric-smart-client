@@ -15,13 +15,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger/kvledger/rwsetutil"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset"
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset/kvrwset"
-	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/rwsetutil"
 )
 
 type Vault = vault.Vault[fdriver.ValidationCode]
@@ -151,7 +151,7 @@ func (m *marshaller) Marshal(txID string, rws *vault.ReadWriteSet) ([]byte, erro
 		return nil, err
 	}
 
-	return simRes.GetPubSimulationBytes()
+	return proto.Marshal(simRes.PubSimulationResults)
 }
 
 func (m *marshaller) Append(destination *vault.ReadWriteSet, raw []byte, nss ...string) error {
