@@ -12,12 +12,12 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
+	dclient "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/discovery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go-apiv2/discovery"
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	dclient "github.com/hyperledger/fabric/discovery/client"
 	ggrpc "google.golang.org/grpc"
 )
 
