@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protoutil"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"github.com/hyperledger/fabric/core/common/ccprovider"
 	"github.com/hyperledger/fabric/msp"
 )
 
@@ -136,8 +135,13 @@ func UnpackProposal(prop *pb.Proposal) (*UnpackedProposal, error) {
 	}, nil
 }
 
+type txParams struct {
+	ChannelID string
+	TxID      string
+}
+
 func (up *UnpackedProposal) Validate(idDeserializer msp.IdentityDeserializer) error {
-	logger := decorateLogger(logger, &ccprovider.TransactionParams{
+	logger := decorateLogger(logger, &txParams{
 		ChannelID: up.ChannelHeader.ChannelId,
 		TxID:      up.TxID(),
 	})
@@ -219,7 +223,7 @@ func (up *UnpackedProposal) Validate(idDeserializer msp.IdentityDeserializer) er
 	return nil
 }
 
-func decorateLogger(logger logging.Logger, txParams *ccprovider.TransactionParams) logging.Logger {
+func decorateLogger(logger logging.Logger, txParams *txParams) logging.Logger {
 	return logger.With("channel", txParams.ChannelID, "txID", shorttxid(txParams.TxID))
 }
 
