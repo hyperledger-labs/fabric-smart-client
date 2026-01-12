@@ -198,3 +198,13 @@ func UnmarshalBlock(encoded []byte) (*common.Block, error) {
 func ComputeTxID(nonce, creator []byte) string {
 	return protoutil.ComputeTxID(nonce, creator)
 }
+
+// UnmarshalConfigEnvelope attempts to unmarshal bytes to a *cb.ConfigEnvelope
+func UnmarshalConfigEnvelope(data []byte) (*common.ConfigEnvelope, error) {
+	configEnv := &common.ConfigEnvelope{}
+	err := proto.Unmarshal(data, configEnv)
+	if err != nil {
+		return nil, err
+	}
+	return configEnv, nil
+}

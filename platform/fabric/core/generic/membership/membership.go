@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric/common/channelconfig"
-	"github.com/hyperledger/fabric/common/configtx"
 	"github.com/hyperledger/fabric/msp"
 )
 
@@ -72,7 +71,7 @@ func (c *Service) validateConfig(env *cb.Envelope) (*channelconfig.Bundle, error
 		return nil, errors.Wrapf(err, "cannot get payload from config transaction")
 	}
 
-	cenv, err := configtx.UnmarshalConfigEnvelope(payload.Data)
+	cenv, err := protoutil.UnmarshalConfigEnvelope(payload.Data)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error unmarshalling config which passed initial validity checks")
 	}
