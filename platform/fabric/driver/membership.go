@@ -60,6 +60,6 @@ type ChannelMembership interface {
 type MembershipService interface {
 	ChannelMembership
 	Update(env *common.Envelope) error
-	DryUpdate(env *common.Envelope) error
+	//DryUpdate(env *common.Envelope) error
 	OrdererConfig(cs ConfigService) (string, []*grpc.ConnectionConfig, error)
 }
