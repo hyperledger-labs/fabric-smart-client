@@ -7,12 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package fabricx
 
 import (
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/driver"
 	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
 )
 
-type ValidationCode = driver2.ValidationCode
+type (
+	ValidationCode = fdriver.ValidationCode
+	Namespace      = driver.Namespace
+	PKey           = driver.PKey
+	VaultValue     = driver.VaultValue
+)
 
 type QueryService struct {
 	driver.QueryService
@@ -25,14 +30,14 @@ func NewQueryService(queryService driver.QueryService) *QueryService {
 func (q *QueryService) GetTxStatus(txID string) (ValidationCode, error) {
 	c, err := q.GetTransactionStatus(txID)
 	if err != nil {
-		return driver2.Unknown, err
+		return fdriver.Unknown, err
 	}
 	switch protoblocktx.Status(c) {
 	case protoblocktx.Status_NOT_VALIDATED:
-		return driver2.Unknown, nil
+		return fdriver.Unknown, nil
 	case protoblocktx.Status_COMMITTED:
-		return driver2.Valid, nil
+		return fdriver.Valid, nil
 	default:
-		return driver2.Invalid, nil
+		return fdriver.Invalid, nil
 	}
 }
