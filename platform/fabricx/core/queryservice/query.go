@@ -68,6 +68,21 @@ func (s *RemoteQueryService) GetStates(m map[driver.Namespace][]driver.PKey) (ma
 	return s.query(m)
 }
 
+func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), s.config.QueryTimeout)
+	defer cancel()
+
+	now := time.Now()
+	res, err := s.client.GetTransactionStatus(ctx, &protoqueryservice.TxStatusQuery{
+		TxIds: []string{txID},
+	})
+	if err != nil {
+		return 0, errors.Wrap(err, "query get rows")
+	}
+	logger.Debugf("QS GetState: got response in %v", time.Since(now))
+	return int32(res.Statuses[0].StatusWithHeight.Code), nil
+}
+
 func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[driver.Namespace]map[driver.PKey]driver.VaultValue, error) {
 	logger.Debugf("QS GetState: query input %v", m)
 

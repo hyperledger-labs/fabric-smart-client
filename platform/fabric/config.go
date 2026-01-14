@@ -23,3 +23,7 @@ func (s *ConfigService) GetString(key string) string {
 func (s *ConfigService) DefaultChannel() string {
 	return s.confService.DefaultChannel()
 }
+
+func (s *ConfigService) UnmarshalKey(key string, rawVal interface{}) error {
+	return s.confService.UnmarshalKey(key, rawVal)
+}

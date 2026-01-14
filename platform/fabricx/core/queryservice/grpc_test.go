@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
+	queryservice2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/queryservice"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
@@ -111,7 +111,7 @@ func TestGRPC(t *testing.T) {
 			checks: func(t *testing.T, client *grpc.ClientConn, err error) {
 				t.Helper()
 				require.Nil(t, client)
-				require.ErrorIs(t, err, queryservice.ErrInvalidAddress)
+				require.ErrorIs(t, err, queryservice2.ErrInvalidAddress)
 			},
 		},
 		{
@@ -155,9 +155,9 @@ func TestGRPC(t *testing.T) {
 		t.Run(fmt.Sprintf("grpcClient %v", tc.name), func(t *testing.T) {
 			t.Parallel()
 			cs := newConfigService(tc.cfg)
-			c, err := queryservice.NewConfig(cs)
+			c, err := queryservice2.NewConfig(cs)
 			require.NoError(t, err)
-			client, err := queryservice.GrpcClient(c)
+			client, err := queryservice2.GrpcClient(c)
 			tc.checks(t, client, err)
 		})
 	}

@@ -12,7 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
-	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger/fabric-x-committer/api/protoqueryservice"
 )
@@ -22,7 +21,7 @@ type QueryService interface {
 	GetStates(map[driver.Namespace][]driver.PKey) (map[driver.Namespace]map[driver.PKey]driver.VaultValue, error)
 }
 
-func NewRemoteQueryServiceFromConfig(configService fdriver.ConfigService) (*RemoteQueryService, error) {
+func NewRemoteQueryServiceFromConfig(configService ConfigService) (*RemoteQueryService, error) {
 	c, err := NewConfig(configService)
 	if err != nil {
 		return nil, errors.Wrap(err, "get config")

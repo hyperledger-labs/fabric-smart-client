@@ -13,9 +13,10 @@ import (
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"go.uber.org/dig"
 )
@@ -50,6 +51,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(finality.NewListenerManagerProvider),
 		p.Container().Provide(digutils.Identity[*finality.Provider](), dig.As(new(finality.ListenerManagerProvider))),
 		p.Container().Provide(queryservice.NewProvider, dig.As(new(queryservice.Provider))),
+		p.Container().Provide(fabricx.NewNetworkServiceProvider),
 	)
 	if err != nil {
 		return err

@@ -12,23 +12,23 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice/fakes"
+	queryservice2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/queryservice"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/queryservice/fakes"
 	"github.com/hyperledger/fabric-x-committer/api/protoqueryservice"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
-func setupTest(tb testing.TB) (*queryservice.RemoteQueryService, *fakes.FakeQueryServiceClient) {
+func setupTest(tb testing.TB) (*queryservice2.RemoteQueryService, *fakes.FakeQueryServiceClient) {
 	tb.Helper()
 
-	config := &queryservice.Config{
+	config := &queryservice2.Config{
 		Endpoints:    nil,
 		QueryTimeout: 5 * time.Second,
 	}
 
 	client := &fakes.FakeQueryServiceClient{}
-	qs := queryservice.NewRemoteQueryService(config, client)
+	qs := queryservice2.NewRemoteQueryService(config, client)
 
 	return qs, client
 }
