@@ -138,11 +138,6 @@ func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNu
 		return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
 	}
 
-	// validate config as a dry update of the membership service
-	if err := c.MembershipService.DryUpdate(env); err != nil {
-		return errors.Wrapf(err, "config update error, block number [%d]", blockNumber)
-	}
-
 	// when validation passes, we can commit the config transaction
 	if err := c.commitConfig(ctx, txID, blockNumber, txNum, raw); err != nil {
 		return errors.Wrapf(err, "failed committing configtx to the vault")

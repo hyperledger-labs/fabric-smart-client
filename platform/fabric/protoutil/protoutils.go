@@ -208,3 +208,14 @@ func UnmarshalConfigEnvelope(data []byte) (*common.ConfigEnvelope, error) {
 	}
 	return configEnv, nil
 }
+
+// ExtractEnvelope retrieves the requested envelope from a given block and unmarshals it
+func ExtractEnvelope(block *common.Block, index int) (*common.Envelope, error) {
+	return protoutil.ExtractEnvelope(block, index)
+}
+
+// UnmarshalEnvelopeOfType unmarshals an envelope of the specified type,
+// including unmarshalling the payload data
+func UnmarshalEnvelopeOfType(envelope *common.Envelope, headerType common.HeaderType, message proto.Message) (*common.ChannelHeader, error) {
+	return protoutil.UnmarshalEnvelopeOfType(envelope, headerType, message)
+}
