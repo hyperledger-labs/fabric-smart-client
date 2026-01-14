@@ -58,6 +58,10 @@ func NewNetworkServiceProvider(fnsProvider *fabric.NetworkServiceProvider) *Netw
 	return &NetworkServiceProvider{fnsProvider: fnsProvider, networkServices: make(map[string]*NetworkService)}
 }
 
+func (nsp *NetworkServiceProvider) FabricNetworkServiceProvider() *fabric.NetworkServiceProvider {
+	return nsp.fnsProvider
+}
+
 func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkService, error) {
 	nsp.mutex.RLock()
 	ns, ok := nsp.networkServices[id]
