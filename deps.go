@@ -10,6 +10,4 @@ package deps
 
 import (
 	_ "github.com/IBM/idemix/tools/idemixgen"
-	_ "github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/statedb/statecouchdb"
-	_ "github.com/hyperledger/fabric/core/ledger/pvtdatastorage"
 )
