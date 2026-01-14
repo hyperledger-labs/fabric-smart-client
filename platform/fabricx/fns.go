@@ -44,6 +44,10 @@ func (ns *NetworkService) FabricNetworkService() *fabric.NetworkService {
 	return ns.NetworkService
 }
 
+func (ns *NetworkService) QueryService() *QueryService {
+	return ns.queryService
+}
+
 type NetworkServiceProvider struct {
 	fnsProvider     *fabric.NetworkServiceProvider
 	mutex           sync.RWMutex
