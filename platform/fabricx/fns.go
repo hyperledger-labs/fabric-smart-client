@@ -40,6 +40,10 @@ func NewNetworkService(fabricNetworkService *fabric.NetworkService) (*NetworkSer
 	}, nil
 }
 
+func (ns *NetworkService) FabricNetworkService() *fabric.NetworkService {
+	return ns.NetworkService
+}
+
 type NetworkServiceProvider struct {
 	fnsProvider     *fabric.NetworkServiceProvider
 	mutex           sync.RWMutex
