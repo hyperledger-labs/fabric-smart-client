@@ -10,9 +10,9 @@ import (
 	"fmt"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	mspprotos "github.com/hyperledger/fabric-protos-go-apiv2/msp"
-	"github.com/hyperledger/fabric/msp"
 )
 
 const (

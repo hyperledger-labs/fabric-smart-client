@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package capabilities
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric/msp"
 )
 
 const (
