@@ -9,10 +9,10 @@ package channelconfig
 import (
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"github.com/hyperledger/fabric/msp"
 )
 
 // Org stores the common organizational config

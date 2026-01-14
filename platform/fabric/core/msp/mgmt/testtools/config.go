@@ -1,0 +1,41 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package msptesttools
+
+import (
+	"path/filepath"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/mgmt"
+	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
+)
+
+// LoadMSPSetupForTesting sets up the local MSP
+// and a chain MSP for the default chain
+func LoadMSPSetupForTesting() error {
+	dir, err := filepath.Abs("../../testdata/sampleconfig")
+	if err != nil {
+		return err
+	}
+
+	conf, err := msp.GetLocalMspConfig(dir, nil, "SampleOrg")
+	if err != nil {
+		return err
+	}
+
+	err = mgmt.GetLocalMSP(factory.GetDefault()).Setup(conf)
+	if err != nil {
+		return err
+	}
+
+	err = mgmt.GetManagerForChain("testchannelid").Setup([]msp.MSP{mgmt.GetLocalMSP(factory.GetDefault())})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

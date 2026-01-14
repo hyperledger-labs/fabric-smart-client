@@ -9,8 +9,8 @@ package capabilities
 import (
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric/msp"
 	"github.com/stretchr/testify/require"
 )
 

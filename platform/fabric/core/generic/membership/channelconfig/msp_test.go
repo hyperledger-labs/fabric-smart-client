@@ -7,19 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package channelconfig
 
 import (
+	"path/filepath"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	mspprotos "github.com/hyperledger/fabric-protos-go-apiv2/msp"
-	"github.com/hyperledger/fabric/core/config/configtest"
-	"github.com/hyperledger/fabric/msp"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMSPConfigManager(t *testing.T) {
 	mspDir := getDevMspDir()
-	t.Logf("mspDir: %s", mspDir)
 	conf, err := msp.GetLocalMspConfig(mspDir, nil, "SampleOrg")
 	require.NoError(t, err)
 
@@ -51,8 +50,12 @@ func TestMSPConfigManager(t *testing.T) {
 }
 
 func getDevMspDir() string {
-	// TODO replace once MSP import resolved
-	return configtest.GetDevMspDir()
+	// TODO can we do this somehow better?
+	mspDir, err := filepath.Abs("../../../msp/testdata/sampleconfig")
+	if err != nil {
+		panic(err)
+	}
+	return mspDir
 }
 
 func TestMSPConfigFailure(t *testing.T) {
