@@ -7,9 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
-	"crypto/rand"
-
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 )
 
 // CreateNonceOrPanic generates a nonce using the common/crypto package
@@ -24,16 +22,5 @@ func CreateNonceOrPanic() []byte {
 
 // CreateNonce generates a nonce using the common/crypto package.
 func CreateNonce() ([]byte, error) {
-	nonce, err := getRandomNonce()
-	return nonce, errors.WithMessage(err, "error generating random nonce")
-}
-
-func getRandomNonce() ([]byte, error) {
-	key := make([]byte, 24)
-
-	_, err := rand.Read(key)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting random bytes")
-	}
-	return key, nil
+	return protoutil.CreateNonce()
 }
