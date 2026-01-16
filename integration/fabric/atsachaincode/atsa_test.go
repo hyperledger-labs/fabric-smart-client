@@ -13,8 +13,8 @@ import (
 	atsa "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsachaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsachaincode/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/protoutil"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -51,7 +51,7 @@ func (s *TestSuite) TestSucceeded() {
 	// Create an asset
 
 	// - Operate from Alice (Org1)
-	nonce, err := state.CreateNonce()
+	nonce, err := protoutil.CreateNonce()
 	Expect(err).ToNot(HaveOccurred())
 	ap := &views.AssetProperties{
 		ObjectType: "asset_properties",
@@ -92,7 +92,7 @@ func (s *TestSuite) TestSucceeded() {
 
 	// Agree to sell the asset
 
-	nonce, err = state.CreateNonce()
+	nonce, err = protoutil.CreateNonce()
 	Expect(err).ToNot(HaveOccurred())
 	tradeID := base64.StdEncoding.EncodeToString(nonce)
 
