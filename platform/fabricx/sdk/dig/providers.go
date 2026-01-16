@@ -20,13 +20,13 @@ import (
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx"
+	core2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/membership"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
@@ -58,7 +58,7 @@ func NewDriver(in struct {
 ) core.NamedDriver {
 	d := core.NamedDriver{
 		Name: FabricxDriverName,
-		Driver: fabricx.NewProvider(
+		Driver: core2.NewProvider(
 			in.ConfigProvider,
 			in.MetricsProvider,
 			in.EndpointService,
