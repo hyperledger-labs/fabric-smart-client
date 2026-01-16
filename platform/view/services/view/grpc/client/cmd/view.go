@@ -110,10 +110,12 @@ func parseFlagsToConfig() Config {
 			IdentityPath: userCert,
 			KeyPath:      userKey,
 		},
-		TLSConfig: TLSConfig{
-			KeyPath:        tlsKey,
-			CertPath:       tlsCert,
-			PeerCACertPath: tlsCA,
+		TLSConfig: TLSClientConfig{
+			Enabled:            len(tlsCA) > 0,
+			RootCACertPath:     tlsCA,
+			ClientAuthRequired: len(tlsCert) > 0 && len(tlsKey) > 0,
+			ClientCertPath:     tlsCert,
+			ClientKeyPath:      tlsKey,
 		},
 	}
 	return conf
@@ -145,10 +147,25 @@ func invoke() error {
 		return err
 	}
 
+	if err := ValidateTLSConfig(config.TLSConfig); err != nil {
+		return err
+	}
+
+	// parse TLS configuration
+	tlsEnabled := config.TLSConfig.Enabled
+	tlsRootCACert := path.Clean(config.TLSConfig.RootCACertPath)
+
+	// TODO:
+	// parse mTLS configuration
+	//mtlsEnabled := config.TLSConfig.ClientAuthRequired
+	//tlsClientCert := path.Clean(config.TLSConfig.ClientCertPath)
+	//tlsClientKey := path.Clean(config.TLSConfig.ClientKeyPath)
+
 	cc := &grpc.ConnectionConfig{
-		Address:           config.Address,
-		TLSEnabled:        true,
-		TLSRootCertFile:   path.Join(config.TLSConfig.PeerCACertPath),
+		Address:         config.Address,
+		TLSEnabled:      tlsEnabled,
+		TLSRootCertFile: tlsRootCACert,
+		//TLSClientSideAuth: mtlsEnabled,
 		ConnectionTimeout: 10 * time.Second,
 	}
 

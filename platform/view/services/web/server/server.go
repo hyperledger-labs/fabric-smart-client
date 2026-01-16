@@ -40,23 +40,13 @@ func (t TLS) Config() (*tls.Config, error) {
 	if !t.Enabled {
 		return tlsConfig, nil
 	}
+
+	// setup TLS
 	cert, err := tls.LoadX509KeyPair(t.CertFile, t.KeyFile)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(t.ClientCACertFiles) == 0 {
-		return nil, errors.Errorf("client TLS CA certificate pool must not be empty")
-	}
-
-	caCertPool := x509.NewCertPool()
-	for _, caPath := range t.ClientCACertFiles {
-		caPem, err := os.ReadFile(caPath)
-		if err != nil {
-			return nil, err
-		}
-		caCertPool.AppendCertsFromPEM(caPem)
-	}
 	tlsConfig = &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		CipherSuites: []uint16{
@@ -71,13 +61,29 @@ func (t TLS) Config() (*tls.Config, error) {
 		},
 		MinVersion: tls.VersionTLS12,
 		MaxVersion: tls.VersionTLS13,
-		ClientCAs:  caCertPool,
+		ClientAuth: tls.VerifyClientCertIfGiven,
 	}
-	if t.ClientAuth {
-		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-	} else {
-		tlsConfig.ClientAuth = tls.VerifyClientCertIfGiven
+
+	if !t.ClientAuth {
+		return tlsConfig, nil
 	}
+
+	// setup mTLS
+	if len(t.ClientCACertFiles) == 0 {
+		return nil, errors.Errorf("client TLS CA certificate pool must not be empty")
+	}
+
+	caCertPool := x509.NewCertPool()
+	for _, caPath := range t.ClientCACertFiles {
+		caPem, err := os.ReadFile(caPath)
+		if err != nil {
+			return nil, err
+		}
+		caCertPool.AppendCertsFromPEM(caPem)
+	}
+	tlsConfig.ClientCAs = caCertPool
+	tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+
 	return tlsConfig, nil
 }
 

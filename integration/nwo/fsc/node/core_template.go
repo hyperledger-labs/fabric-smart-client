@@ -50,9 +50,9 @@ fsc:
       # Private key used for TLS server
       key:
         file: {{ .NodeLocalTLSDir Peer }}/server.key
+      {{- if .ClientAuthRequired }}
       # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
       # used for verifying certificates of client connections.
-      {{- if .ClientAuthRequired }}
       clientRootCAs:
         files:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt
@@ -122,20 +122,25 @@ fsc:
     # HTTPS server listener address
     address: 0.0.0.0:{{ .NodePort Replica "Web" }}
     tls:
+      # Require server-side TLS
       enabled:  true
-      cert:
-        file: {{ .NodeLocalTLSDir Peer }}/server.crt
-      key:
-        file: {{ .NodeLocalTLSDir Peer }}/server.key
       # Require client certificates / mutual TLS for inbound connections.
       # Note that clients that are not configured to use a certificate will
       # fail to connect to the node.
-      clientAuthRequired: false
+      clientAuthRequired: {{ .ClientAuthRequired }}
+      # X.509 certificate used for TLS server
+      cert:
+        file: {{ .NodeLocalTLSDir Peer }}/server.crt
+      # Private key used for TLS server
+      key:
+        file: {{ .NodeLocalTLSDir Peer }}/server.key
+      {{- if .ClientAuthRequired }}
       # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
       # used for verifying certificates of client connections.
       clientRootCAs:
         files:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt
+      {{- end }}
   tracing:
     # Type of provider to be used: none (default), file, otlp, console
     provider: {{ Topology.Monitoring.TracingType }}

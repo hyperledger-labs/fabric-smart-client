@@ -183,10 +183,13 @@ func setupClient(tb testing.TB, confPath string) (*benchmark.ViewClient, error) 
 		return nil, err
 	}
 
+	tlsEnabled := config.TLSConfig.Enabled
+	tlsRootCACert := path.Clean(config.TLSConfig.RootCACertPath)
+
 	cc := &grpc.ConnectionConfig{
 		Address:           config.Address,
-		TLSEnabled:        true,
-		TLSRootCertFile:   path.Join(config.TLSConfig.PeerCACertPath),
+		TLSEnabled:        tlsEnabled,
+		TLSRootCertFile:   tlsRootCACert,
 		ConnectionTimeout: 10 * time.Second,
 	}
 
