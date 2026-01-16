@@ -8,12 +8,14 @@ package fabricx
 
 import (
 	"reflect"
-	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
@@ -27,16 +29,33 @@ var (
 type NetworkService struct {
 	*fabric.NetworkService
 	queryService *QueryService
+
+	flp              *finality.Provider
+	finalityProvider lazy.Provider[string, *Finality]
 }
 
-func NewNetworkService(fabricNetworkService *fabric.NetworkService) (*NetworkService, error) {
+func NewNetworkService(
+	fnsp *fabric.NetworkServiceProvider,
+	fabricNetworkService *fabric.NetworkService,
+	configProvider config.Provider,
+) (*NetworkService, error) {
 	qs, err := queryservice.NewRemoteQueryServiceFromConfig(fabricNetworkService.ConfigService())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating remote query service")
 	}
+	flp := finality.NewListenerManagerProvider(fnsp, configProvider)
+
 	return &NetworkService{
 		NetworkService: fabricNetworkService,
 		queryService:   NewQueryService(qs),
+		flp:            flp,
+		finalityProvider: lazy.NewProvider[string, *Finality](func(ch string) (*Finality, error) {
+			manager, err := flp.NewManager(fabricNetworkService.Name(), ch)
+			if err != nil {
+				return nil, err
+			}
+			return NewFinality(manager), nil
+		}),
 	}, nil
 }
 
@@ -48,14 +67,34 @@ func (ns *NetworkService) QueryService() *QueryService {
 	return ns.queryService
 }
 
-type NetworkServiceProvider struct {
-	fnsProvider     *fabric.NetworkServiceProvider
-	mutex           sync.RWMutex
-	networkServices map[string]*NetworkService
+func (ns *NetworkService) FinalityService(channel string) (*Finality, error) {
+	return ns.finalityProvider.Get(channel)
 }
 
-func NewNetworkServiceProvider(fnsProvider *fabric.NetworkServiceProvider) *NetworkServiceProvider {
-	return &NetworkServiceProvider{fnsProvider: fnsProvider, networkServices: make(map[string]*NetworkService)}
+type NetworkServiceProvider struct {
+	fnsProvider    *fabric.NetworkServiceProvider
+	configProvider config.Provider
+
+	providers lazy.Provider[string, *NetworkService]
+}
+
+func NewNetworkServiceProvider(fnsProvider *fabric.NetworkServiceProvider, configProvider config.Provider) *NetworkServiceProvider {
+	return &NetworkServiceProvider{
+		fnsProvider:    fnsProvider,
+		configProvider: configProvider,
+		providers: lazy.NewProvider[string, *NetworkService](func(id string) (*NetworkService, error) {
+			internalFns, err := fnsProvider.FabricNetworkService(id)
+			if err != nil {
+				logger.Errorf("failed to get Fabric Network Service for id [%s]: [%s]", id, err.Error())
+				return nil, errors.WithMessagef(err, "failed to get Fabric Network Service for id [%s]", id)
+			}
+			ns, err := NewNetworkService(fnsProvider, internalFns, configProvider)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "failed to create Fabric Network Service for id [%s]", id)
+			}
+			return ns, nil
+		}),
+	}
 }
 
 func (nsp *NetworkServiceProvider) FabricNetworkServiceProvider() *fabric.NetworkServiceProvider {
@@ -63,38 +102,7 @@ func (nsp *NetworkServiceProvider) FabricNetworkServiceProvider() *fabric.Networ
 }
 
 func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkService, error) {
-	nsp.mutex.RLock()
-	ns, ok := nsp.networkServices[id]
-	nsp.mutex.RUnlock()
-	if ok {
-		return ns, nil
-	}
-
-	nsp.mutex.Lock()
-	defer nsp.mutex.Unlock()
-	ns, ok = nsp.networkServices[id]
-	if ok {
-		return ns, nil
-	}
-
-	internalFns, err := nsp.fnsProvider.FabricNetworkService(id)
-	if err != nil {
-		logger.Errorf("failed to get Fabric Network Service for id [%s]: [%s]", id, err.Error())
-		return nil, errors.WithMessagef(err, "failed to get Fabric Network Service for id [%s]", id)
-	}
-	ns, ok = nsp.networkServices[internalFns.Name()]
-	if ok {
-		return ns, nil
-	}
-
-	ns, err = NewNetworkService(internalFns)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to create Fabric Network Service for id [%s]", id)
-	}
-	nsp.networkServices[id] = ns
-	nsp.networkServices[internalFns.Name()] = ns
-
-	return ns, nil
+	return nsp.providers.Get(id)
 }
 
 func GetNetworkServiceProvider(sp services.Provider) (*NetworkServiceProvider, error) {
