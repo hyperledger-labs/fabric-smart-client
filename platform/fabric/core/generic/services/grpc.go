@@ -10,14 +10,12 @@ import (
 	"crypto/tls"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
+	discovery2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/discovery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	discovery2 "github.com/hyperledger/fabric/discovery/client"
 	grpc2 "google.golang.org/grpc"
 )
-
-const signerCacheSize = 1
 
 // GRPCClient represents a grpc-based client for communicating with a peer
 type GRPCClient struct {
@@ -51,7 +49,7 @@ func (c *GRPCClient) EndorserClient() (pb.EndorserClient, error) {
 }
 
 func (c *GRPCClient) DiscoveryClient() (DiscoveryClient, error) {
-	return discovery2.NewClient(c.connect, c.signer, signerCacheSize), nil
+	return discovery2.NewClient(c.connect, c.signer), nil
 }
 
 func (c *GRPCClient) DeliverClient() (pb.DeliverClient, error) {
