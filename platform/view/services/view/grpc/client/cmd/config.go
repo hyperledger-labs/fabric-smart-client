@@ -8,7 +8,6 @@ package view
 
 import (
 	"os"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"gopkg.in/yaml.v2"
@@ -20,19 +19,20 @@ type SignerConfig struct {
 	KeyPath      string
 }
 
-// TLSConfig defines configuration of a Client
-type TLSConfig struct {
-	CertPath       string
-	KeyPath        string
-	PeerCACertPath string
-	Timeout        time.Duration
+// TLSClientConfig defines configuration of a Client
+type TLSClientConfig struct {
+	Enabled            bool   `yaml:"enabled"`
+	RootCACertPath     string `yaml:"rootCACertPath,omitempty"`
+	ClientAuthRequired bool   `yaml:"clientAuthRequired,omitempty"`
+	ClientCertPath     string `yaml:"clientCertPath,omitempty"`
+	ClientKeyPath      string `yaml:"clientKeyPath,omitempty"`
 }
 
 // Config aggregates configuration of TLS and signing
 type Config struct {
 	Version      int
 	Address      string
-	TLSConfig    TLSConfig
+	TLSConfig    TLSClientConfig
 	SignerConfig SignerConfig
 }
 
@@ -74,5 +74,33 @@ func validateConfig(conf Config) error {
 			return errors.New("empty string that is mandatory")
 		}
 	}
+	return nil
+}
+
+func ValidateTLSConfig(config TLSClientConfig) error {
+	isEmpty := func(val string) bool {
+		return len(val) == 0
+	}
+
+	if !config.Enabled {
+		return nil
+	}
+
+	if isEmpty(config.RootCACertPath) {
+		return errors.New("rootCACertPath not set")
+	}
+
+	if !config.ClientAuthRequired {
+		return nil
+	}
+
+	if isEmpty(config.ClientKeyPath) {
+		return errors.New("clientKeyPath not set")
+	}
+
+	if isEmpty(config.ClientCertPath) {
+		return errors.New("ClientCertPath not set")
+	}
+
 	return nil
 }
