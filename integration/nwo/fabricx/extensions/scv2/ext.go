@@ -17,10 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
-var (
-	logger                       = logging.MustGetLogger()
-	SidecarPortName api.PortName = "sidecar"
-)
+var logger = logging.MustGetLogger()
 
 type Extension struct {
 	channel *fabric_topo.Channel
@@ -62,7 +59,7 @@ func (e *Extension) CheckTopology() {
 
 func (e *Extension) GenerateArtifacts() {
 	generateQSExtension(e.network)
-	generateNSExtension(e.network, e.sidecar.Ports[SidecarPortName])
+	generateNSExtension(e.network, e.sidecar.Ports[fabric_network.ListenPort])
 }
 
 func (e *Extension) PostRun(load bool) {
@@ -79,7 +76,7 @@ func (e *Extension) addSCPeer() {
 	// reserve ports
 	if len(e.sidecar.Ports) == 0 {
 		e.sidecar.Ports = api.Ports{}
-		for _, portName := range append(fabric_network.PeerPortNames(), SidecarPortName) {
+		for _, portName := range fabric_network.PeerPortNames() {
 			e.sidecar.Ports[portName] = e.network.Context.ReservePort()
 		}
 	}
