@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
@@ -36,6 +37,11 @@ func GrpcClient(c *Config) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	opts = append(opts, WithConnectionTime(endpoint.ConnectionTimeout))
 	opts = append(opts, WithTLS(endpoint))
+	opts = append(opts, grpc2.ClientKeepaliveOptions(
+		grpc2.KeepaliveOptions{
+			ClientInterval: 5 * time.Minute,
+			ClientTimeout:  6 * time.Minute,
+		})...)
 
 	return grpc.NewClient(endpoint.Address, opts...)
 }

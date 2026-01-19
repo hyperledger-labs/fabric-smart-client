@@ -39,7 +39,7 @@ func GrpcClient(c *Config) (*grpc.ClientConn, error) {
 	opts = append(opts, WithTLS(endpoint))
 	opts = append(opts, grpc2.ClientKeepaliveOptions(
 		grpc2.KeepaliveOptions{
-			ClientInterval: 60 * time.Second,
+			ClientInterval: 120 * time.Second,
 			ClientTimeout:  600 * time.Second,
 		})...)
 
