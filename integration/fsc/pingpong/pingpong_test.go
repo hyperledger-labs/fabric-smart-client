@@ -9,13 +9,13 @@ package pingpong_test
 import (
 	"bytes"
 	"fmt"
+	"path"
 	"strings"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
@@ -62,7 +62,8 @@ var _ = Describe("EndToEnd", func() {
 
 			time.Sleep(3 * time.Second)
 
-			webClientConfig, err := client.NewWebClientConfigFromFSC("./testdata/fsc/nodes/initiator.0")
+			//webClientConfig, err := client.NewWebClientConfigFromFSC("./testdata/fsc/nodes/initiator.0")
+			webClientConfig, err := client2.ConfigFromFile(path.Join("./testdata/fsc/nodes/initiator.0", "client-config.yaml"))
 			Expect(err).NotTo(HaveOccurred())
 			initiatorWebClient, err := client2.NewClient(webClientConfig)
 			Expect(err).NotTo(HaveOccurred())
@@ -70,7 +71,8 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 
-			webClientConfig.TLSCertPath = ""
+			// test client without TLS
+			webClientConfig.TLSConfig.Enabled = false
 			initiatorWebClient, err = client2.NewClient(webClientConfig)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = initiatorWebClient.CallView("init", bytes.NewBuffer([]byte("hi")).Bytes())
@@ -315,7 +317,7 @@ func (s *TestSuite) TestGenerateAndMockPingPong() {
 }
 
 func newWebClient(confDir string) *client2.Client {
-	c, err := client.NewWebClientConfigFromFSC(confDir)
+	c, err := client2.ConfigFromFile(path.Join(confDir, "client-config.yaml"))
 	Expect(err).NotTo(HaveOccurred())
 	initiator, err := client2.NewClient(c)
 	Expect(err).NotTo(HaveOccurred())

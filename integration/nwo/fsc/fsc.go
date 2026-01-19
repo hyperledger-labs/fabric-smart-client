@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
@@ -349,7 +348,9 @@ func (p *Platform) PostRun(bool) {
 		}
 
 		// Web Client
-		webClientConfig, err := client.NewWebClientConfigFromFSC(p.NodeDir(node))
+		//webClientConfig, err := client.NewWebClientConfigFromFSC(p.NodeDir(node))
+		webClientConfig, err := client2.ConfigFromFile(path.Join(p.NodeDir(node), "client-config.yaml"))
+
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		webClient, err := client2.NewClient(webClientConfig)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())

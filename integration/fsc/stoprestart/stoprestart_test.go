@@ -64,7 +64,13 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), integration.WithRaceDetection, stoprestart.Topology(commType, nodeOpts)...)
+		ii, err := integration.GenerateAt(StartPort(), "./out/testdata", integration.WithRaceDetection, stoprestart.Topology(commType, nodeOpts)...)
+		if err != nil {
+			return nil, err
+		}
+		ii.DeleteOnStart = true
+		ii.DeleteOnStop = false
+		return ii, nil
 	})}
 }
 
