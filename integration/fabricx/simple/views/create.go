@@ -13,10 +13,9 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -68,12 +67,12 @@ func (i *CreateView) Call(viewCtx view.Context) (interface{}, error) {
 	}
 
 	// create a listener go check when the tx is committed
-	network, ch, err := fabric.GetDefaultChannel(viewCtx)
+	network, err := fabricx.GetDefaultFNS(viewCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	lm, err := finality.GetListenerManager(viewCtx, network.Name(), ch.Name())
+	lm, err := network.FinalityService()
 	if err != nil {
 		return nil, err
 	}

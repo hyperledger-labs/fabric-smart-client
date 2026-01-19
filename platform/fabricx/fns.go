@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/queryservice"
@@ -67,8 +66,8 @@ func (ns *NetworkService) QueryService() *QueryService {
 	return ns.queryService
 }
 
-func (ns *NetworkService) FinalityService(channel string) (*Finality, error) {
-	return ns.finalityProvider.Get(channel)
+func (ns *NetworkService) FinalityService() (*Finality, error) {
+	return ns.finalityProvider.Get("")
 }
 
 type NetworkServiceProvider struct {
@@ -114,11 +113,7 @@ func GetNetworkServiceProvider(sp services.Provider) (*NetworkServiceProvider, e
 }
 
 func GetFabricNetworkNames(sp services.Provider) ([]string, error) {
-	provider, err := core.GetFabricNetworkServiceProvider(sp)
-	if err != nil {
-		return nil, err
-	}
-	return provider.Names(), nil
+	return fabric.GetFabricNetworkNames(sp)
 }
 
 // GetFabricNetworkService returns the Fabric Network Service for the passed id, nil if not found
@@ -137,30 +132,4 @@ func GetFabricNetworkService(sp services.Provider, id string) (*NetworkService, 
 // GetDefaultFNS returns the default Fabric Network Service
 func GetDefaultFNS(sp services.Provider) (*NetworkService, error) {
 	return GetFabricNetworkService(sp, "")
-}
-
-// GetDefaultChannel returns the default channel of the default fns
-func GetDefaultChannel(sp services.Provider) (*NetworkService, *fabric.Channel, error) {
-	network, err := GetDefaultFNS(sp)
-	if err != nil {
-		return nil, nil, err
-	}
-	channel, err := network.Channel("")
-	if err != nil {
-		return nil, nil, err
-	}
-	return network, channel, nil
-}
-
-// GetChannel returns the requested channel for the passed network
-func GetChannel(sp services.Provider, network, channel string) (*NetworkService, *fabric.Channel, error) {
-	fns, err := GetFabricNetworkService(sp, network)
-	if err != nil {
-		return nil, nil, err
-	}
-	ch, err := fns.Channel(channel)
-	if err != nil {
-		return nil, nil, err
-	}
-	return fns, ch, nil
 }
