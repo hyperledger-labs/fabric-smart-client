@@ -80,6 +80,10 @@ func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
 		return 0, errors.Wrap(err, "query get rows")
 	}
 	logger.Debugf("QS GetState: got response in %v", time.Since(now))
+	if len(res.Statuses) == 0 {
+		logger.Errorf("QS GetState: no statuses for tx %s", txID)
+		return 0, errors.Errorf("QS GetState: no statuses for tx %s", txID)
+	}
 	return int32(res.Statuses[0].StatusWithHeight.Code), nil
 }
 

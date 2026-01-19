@@ -8,12 +8,14 @@ package driver
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 type (
-	Namespace  = driver.Namespace
-	PKey       = driver.PKey
-	VaultValue = driver.VaultValue
+	ValidationCode = fdriver.ValidationCode
+	Namespace      = driver.Namespace
+	PKey           = driver.PKey
+	VaultValue     = driver.VaultValue
 )
 
 type QueryService interface {

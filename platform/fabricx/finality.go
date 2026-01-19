@@ -7,21 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package fabricx
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/driver"
 )
 
 type (
 	TxID             = driver.TxID
-	FinalityListener = fabric.FinalityListener
+	FinalityListener = driver.FinalityListener
 )
 
 type Finality struct {
-	manager finality.ListenerManager
+	manager driver.FinalityListenerManager
 }
 
-func NewFinality(manager finality.ListenerManager) *Finality {
+func NewFinality(manager driver.FinalityListenerManager) *Finality {
 	return &Finality{manager: manager}
 }
 

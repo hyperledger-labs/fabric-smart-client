@@ -23,7 +23,7 @@ var (
 	logger                     = logging.MustGetLogger()
 )
 
-// NetworkService models a Fabric Network
+// NetworkService models a FabricX Network Service
 type NetworkService struct {
 	*fabric.NetworkService
 	queryService *QueryService
@@ -55,16 +55,16 @@ func NewNetworkService(
 	}, nil
 }
 
-func (ns *NetworkService) FabricNetworkService() *fabric.NetworkService {
-	return ns.NetworkService
+func (s *NetworkService) FabricNetworkService() *fabric.NetworkService {
+	return s.NetworkService
 }
 
-func (ns *NetworkService) QueryService() *QueryService {
-	return ns.queryService
+func (s *NetworkService) QueryService() *QueryService {
+	return s.queryService
 }
 
-func (ns *NetworkService) FinalityService() (*Finality, error) {
-	return ns.finalityProvider.Get("")
+func (s *NetworkService) FinalityService() (*Finality, error) {
+	return s.finalityProvider.Get("")
 }
 
 type NetworkServiceProvider struct {
@@ -94,12 +94,12 @@ func NewNetworkServiceProvider(
 	}
 }
 
-func (nsp *NetworkServiceProvider) FabricNetworkServiceProvider() *fabric.NetworkServiceProvider {
-	return nsp.fnsProvider
+func (p *NetworkServiceProvider) FabricNetworkServiceProvider() *fabric.NetworkServiceProvider {
+	return p.fnsProvider
 }
 
-func (nsp *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkService, error) {
-	return nsp.providers.Get(id)
+func (p *NetworkServiceProvider) FabricNetworkService(id string) (*NetworkService, error) {
+	return p.providers.Get(id)
 }
 
 func GetNetworkServiceProvider(sp services.Provider) (*NetworkServiceProvider, error) {
@@ -108,10 +108,6 @@ func GetNetworkServiceProvider(sp services.Provider) (*NetworkServiceProvider, e
 		return nil, errors.WithMessagef(err, "failed getting fabric network service provider")
 	}
 	return s.(*NetworkServiceProvider), nil
-}
-
-func GetFabricNetworkNames(sp services.Provider) ([]string, error) {
-	return fabric.GetFabricNetworkNames(sp)
 }
 
 // GetFabricNetworkService returns the Fabric Network Service for the passed id, nil if not found
