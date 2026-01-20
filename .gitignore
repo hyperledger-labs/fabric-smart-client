@@ -3,7 +3,7 @@
 .vscode
 .build
 *.iml
-
+.venv
 # ignoring all generated artifacts in integration tests
 integration/**/out/
 

@@ -23,8 +23,9 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
-func BenchmarkGRPC(b *testing.B) {
-	srvEndpoint := setupServer(b)
+func BenchmarkGRPCSingleConnectionCPU(b *testing.B) {
+	srvEndpoint := setupServer(b, "cpu")
+	b.ResetTimer()
 
 	// we share a single connection among all client goroutines
 	cli, closeF := setupClient(b, srvEndpoint)
@@ -40,7 +41,60 @@ func BenchmarkGRPC(b *testing.B) {
 	benchmark.ReportTPS(b)
 }
 
-func setupServer(tb testing.TB) string {
+func BenchmarkGRPCMultiConnectionCPU(b *testing.B) {
+	srvEndpoint := setupServer(b, "cpu")
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		// each goroutine gets its own client + connection
+		cli, closeF := setupClient(b, srvEndpoint)
+		defer closeF()
+
+		for pb.Next() {
+			resp, err := cli.CallViewWithContext(b.Context(), "fid", nil)
+			require.NoError(b, err)
+			require.NotNil(b, resp)
+		}
+	})
+
+	benchmark.ReportTPS(b)
+}
+
+// --- ECDSA Workload Benchmarks ---
+
+func BenchmarkGRPCSingleConnectionECDSA(b *testing.B) {
+	srvEndpoint := setupServer(b, "ecdsa")
+	b.ResetTimer()
+
+	cli, closeF := setupClient(b, srvEndpoint)
+	defer closeF()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			resp, err := cli.CallViewWithContext(b.Context(), "fid", nil)
+			require.NoError(b, err)
+			require.NotNil(b, resp)
+		}
+	})
+	benchmark.ReportTPS(b)
+}
+
+func BenchmarkGRPCMultiConnectionECDSA(b *testing.B) {
+	srvEndpoint := setupServer(b, "ecdsa")
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		cli, closeF := setupClient(b, srvEndpoint)
+		defer closeF()
+
+		for pb.Next() {
+			resp, err := cli.CallViewWithContext(b.Context(), "fid", nil)
+			require.NoError(b, err)
+			require.NotNil(b, resp)
+		}
+	})
+	benchmark.ReportTPS(b)
+}
+
+func setupServer(tb testing.TB, workloadType string) string {
 	tb.Helper()
 
 	mDefaultIdentity := view.Identity("server identity")
@@ -80,10 +134,21 @@ func setupServer(tb testing.TB) string {
 	require.NoError(tb, err)
 	require.NotNil(tb, srv)
 
-	parms := &benchviews.CPUParams{N: 200000}
-	input, _ := json.Marshal(parms)
-	factory := &benchviews.CPUViewFactory{}
-	v, _ := factory.NewView(input)
+	var v view.View
+	switch workloadType {
+	case "cpu":
+		parms := &benchviews.CPUParams{N: 200000}
+		input, _ := json.Marshal(parms)
+		factory := &benchviews.CPUViewFactory{}
+		v, _ = factory.NewView(input)
+	case "ecdsa":
+		parms := &benchviews.ECDSASignParams{}
+		input, _ := json.Marshal(parms)
+		factory := &benchviews.ECDSASignViewFactory{}
+		v, _ = factory.NewView(input)
+	default:
+		tb.Fatalf("unknown workload type: %s", workloadType)
+	}
 
 	// our view manager
 	vm := &benchmark.MockViewManager{Constructor: func() view.View {
