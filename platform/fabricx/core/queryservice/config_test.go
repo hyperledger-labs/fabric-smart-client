@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/queryservice"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )

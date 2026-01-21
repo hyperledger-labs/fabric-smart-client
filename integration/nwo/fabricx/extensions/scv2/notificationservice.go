@@ -23,7 +23,7 @@ import (
 )
 
 // generateNSExtensions adds the committers notification service information to the config
-func generateNSExtension(n *network.Network) {
+func generateNSExtension(n *network.Network, notificationServicePort uint16) {
 	context := n.Context
 
 	fscTop, ok := context.TopologyByName("fsc").(*fsc.Topology)
@@ -33,7 +33,6 @@ func generateNSExtension(n *network.Network) {
 
 	// TODO set correct values
 	notificationServiceHost := "localhost"
-	notificationServicePort := 5411
 
 	// TODO: most of this logic should go somewhere
 

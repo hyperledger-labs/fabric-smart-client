@@ -11,7 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"go.opentelemetry.io/otel/trace"
 )

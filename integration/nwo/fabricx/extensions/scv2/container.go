@@ -58,6 +58,10 @@ const (
     endpoint:
       host: localhost
       port: 7001
+    keep-alive:
+      params:
+        time: 60s
+        timeout 600s
   database:
     host: localhost
     port: 5433
