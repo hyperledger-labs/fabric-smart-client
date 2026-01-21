@@ -29,7 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Benchmark(b *testing.B) {
+func BenchmarkNode(b *testing.B) {
 	benchmarks := []struct {
 		name    string
 		factory viewregistry.Factory
@@ -92,7 +92,7 @@ func Benchmark(b *testing.B) {
 		})
 
 		// run all benchmarks via grpc view API
-		b.Run(fmt.Sprintf("grpc/%s", bm.name), func(b *testing.B) {
+		b.Run(fmt.Sprintf("grpcSingleConnection/%s", bm.name), func(b *testing.B) {
 			n, err := setupNode(b, nodeConfPath, namedFactory{
 				name:    bm.name,
 				factory: bm.factory,
@@ -107,10 +107,39 @@ func Benchmark(b *testing.B) {
 			}
 
 			// setup grpc client
-			cli, err := setupClient(b, clientConfPath)
+			cli, closeF, err := setupClient(b, clientConfPath)
 			require.NoError(b, err)
+			b.Cleanup(closeF)
 
 			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					_, err := cli.CallViewWithContext(b.Context(), bm.name, in)
+					assert.NoError(b, err)
+				}
+			})
+			benchmark.ReportTPS(b)
+		})
+
+		b.Run(fmt.Sprintf("grpcMultiConnection/%s", bm.name), func(b *testing.B) {
+			n, err := setupNode(b, nodeConfPath, namedFactory{
+				name:    bm.name,
+				factory: bm.factory,
+			})
+			require.NoError(b, err)
+			b.Cleanup(n.Stop)
+
+			var in []byte
+			if bm.params != nil {
+				in, err = json.Marshal(bm.params)
+				require.NoError(b, err)
+			}
+
+			b.RunParallel(func(pb *testing.PB) {
+				// setup grpc client
+				cli, closeF, err := setupClient(b, clientConfPath)
+				require.NoError(b, err)
+				b.Cleanup(closeF)
+
 				for pb.Next() {
 					_, err := cli.CallViewWithContext(b.Context(), bm.name, in)
 					assert.NoError(b, err)
@@ -165,22 +194,22 @@ type namedFactory struct {
 	factory viewregistry.Factory
 }
 
-func setupClient(tb testing.TB, confPath string) (*benchmark.ViewClient, error) {
+func setupClient(tb testing.TB, confPath string) (*benchmark.ViewClient, func(), error) {
 	tb.Helper()
 
 	config, err := view2.ConfigFromFile(confPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	signer, err := client.NewX509SigningIdentity(config.SignerConfig.IdentityPath, config.SignerConfig.KeyPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	signerIdentity, err := signer.Serialize()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	cc := &grpc.ConnectionConfig{
@@ -192,18 +221,18 @@ func setupClient(tb testing.TB, confPath string) (*benchmark.ViewClient, error) 
 
 	grpcClient, err := grpc.CreateGRPCClient(cc)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	conn, err := grpcClient.NewConnection(config.Address)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	tlsCert := grpcClient.Certificate()
 	tlsCertHash, err := grpc.GetTLSCertHash(&tlsCert)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	vc := &benchmark.ViewClient{
@@ -212,6 +241,11 @@ func setupClient(tb testing.TB, confPath string) (*benchmark.ViewClient, error) 
 		TLSCertHash: tlsCertHash,
 		Client:      protos.NewViewServiceClient(conn),
 	}
+	closeFunc := func() {
+		if err := conn.Close(); err != nil {
+			fmt.Printf("failed to close connection: %v\n", err)
+		}
+	}
 
-	return vc, nil
+	return vc, closeFunc, nil
 }
