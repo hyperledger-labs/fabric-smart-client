@@ -24,11 +24,12 @@ func TestConfig(t *testing.T) {
 	fmt.Println(configFilePath)
 	t.Run("save and load a config", func(t *testing.T) {
 		c := Config{
-			TLSConfig: TLSConfig{
-				CertPath:       "foo",
-				KeyPath:        "foo",
-				PeerCACertPath: "foo",
-				Timeout:        time.Second * 3,
+			TLSConfig: TLSClientConfig{
+				Enabled:            true,
+				ClientAuthRequired: true,
+				ClientCertPath:     "foo",
+				ClientKeyPath:      "foo",
+				RootCACertPath:     "foo",
 			},
 			SignerConfig: SignerConfig{
 				KeyPath:      "foo",

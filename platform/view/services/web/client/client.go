@@ -25,22 +25,39 @@ import (
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"gopkg.in/yaml.v2"
 )
 
 var logger = logging.MustGetLogger()
 
 // Config models the configuration for the web client
 type Config struct {
-	// Host to connect to
-	Host string
-	// CACertRaw is the certificate authority's certificates
-	CACertRaw []byte
-	// CACertPath is the Certificate Authority Cert Path
-	CACertPath string
-	// TLSCertPath is the TLS client certificate path
-	TLSCertPath string
-	// TLSKeyPath is the TLS client key path
-	TLSKeyPath string
+	Address   string
+	TLSConfig TLSClientConfig
+}
+
+// TLSClientConfig defines configuration of a Client
+type TLSClientConfig struct {
+	Enabled            bool   `yaml:"enabled"`
+	RootCACertPath     string `yaml:"rootCACertPath,omitempty"`
+	ClientAuthRequired bool   `yaml:"clientAuthRequired,omitempty"`
+	ClientCertPath     string `yaml:"clientCertPath,omitempty"`
+	ClientKeyPath      string `yaml:"clientKeyPath,omitempty"`
+}
+
+// ConfigFromFile loads the given file and converts it to a Config
+func ConfigFromFile(file string) (*Config, error) {
+	configData, err := os.ReadFile(file)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	var config Config
+
+	if err := yaml.Unmarshal(configData, &config); err != nil {
+		return nil, errors.Errorf("error unmarshalling YAML file %s: %s", file, err)
+	}
+
+	return &config, nil
 }
 
 func (c *Config) WsURL() string {
@@ -55,10 +72,10 @@ func (c *Config) url(protocol string) string {
 	if c.isTlsEnabled() {
 		protocol = protocol + "s"
 	}
-	return fmt.Sprintf("%s://%s", protocol, c.Host)
+	return fmt.Sprintf("%s://%s", protocol, c.Address)
 }
 func (c *Config) isTlsEnabled() bool {
-	return c.CACertPath != ""
+	return c.TLSConfig.Enabled
 }
 
 // Client models a client for an FSC node
@@ -72,49 +89,66 @@ type Client struct {
 
 // NewClient returns a new web client
 func NewClient(config *Config) (*Client, error) {
-	var tlsClientConfig *tls.Config
+	tlsConfig, err := createTLSConfig(config.TLSConfig)
+	if err != nil {
+		return nil, err
+	}
 
-	tlsEnabled := len(config.CACertPath) != 0 || len(config.CACertRaw) != 0
-
-	if tlsEnabled {
-		rootCAs := x509.NewCertPool()
-
-		caCert := config.CACertRaw
-		if len(config.CACertPath) != 0 {
-			var err error
-			caCert, err = os.ReadFile(config.CACertPath)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to open ca cert")
-			}
-		}
-		rootCAs.AppendCertsFromPEM(caCert)
-		tlsClientConfig = &tls.Config{
-			RootCAs: rootCAs,
-		}
-
-		if len(config.TLSCertPath) != 0 && len(config.TLSKeyPath) != 0 {
-			clientCert, err := tls.LoadX509KeyPair(
-				config.TLSCertPath,
-				config.TLSKeyPath,
-			)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to load x509 key pair")
-			}
-			tlsClientConfig.Certificates = []tls.Certificate{clientCert}
-		}
+	if tlsConfig == nil {
+		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
 	return &Client{
 		c: &http.Client{
 			Transport: otelhttp.NewTransport(&http.Transport{
-				TLSClientConfig: tlsClientConfig,
+				TLSClientConfig: tlsConfig,
 			}),
 		},
 		url:           config.WebURL(),
 		wsUrl:         config.WsURL(),
-		tlsConfig:     tlsClientConfig,
+		tlsConfig:     tlsConfig,
 		metricsParser: expfmt.NewTextParser(model.LegacyValidation),
 	}, nil
+}
+
+// createTLSConfig returns tls.Config based on the passed TLSClientConfig.
+// It returns nil and an error if there is no valid TLS configuration provided.
+// If TLS is not enabled, we return nil.
+func createTLSConfig(config TLSClientConfig) (*tls.Config, error) {
+	var cfg tls.Config
+
+	if !config.Enabled {
+		return nil, nil
+	}
+
+	if len(config.RootCACertPath) < 1 {
+		return nil, errors.New("RootCACertPath is not set")
+	}
+
+	caCert, err := os.ReadFile(config.RootCACertPath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to open ca cert")
+	}
+
+	rootCAs := x509.NewCertPool()
+	rootCAs.AppendCertsFromPEM(caCert)
+	cfg.RootCAs = rootCAs
+
+	if !config.ClientAuthRequired {
+		return &cfg, nil
+	}
+
+	// mTLS
+	clientCert, err := tls.LoadX509KeyPair(
+		config.ClientCertPath,
+		config.ClientKeyPath,
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to load x509 key pair")
+	}
+	cfg.Certificates = []tls.Certificate{clientCert}
+
+	return &cfg, nil
 }
 
 func (c *Client) Metrics() (map[string]*dto.MetricFamily, error) {

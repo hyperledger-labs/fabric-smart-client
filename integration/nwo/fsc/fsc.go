@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
@@ -151,13 +150,18 @@ func (p *Platform) GenerateArtifacts() {
 			p.GenerateRoutingConfig()
 		}
 
+		// TLS settings
+		var tlsConfig view2.TLSClientConfig
+		tlsConfig.RootCACertPath = path.Join(p.NodeLocalTLSDir(peer.Peer), "ca.crt")
+		tlsConfig.Enabled = len(tlsConfig.RootCACertPath) > 0
+
+		// TODO: note that NWO does not yet support mTLS
+		tlsConfig.ClientAuthRequired = p.ClientAuthRequired()
+
 		c := view2.Config{
-			Version: 0,
-			Address: p.PeerAddress(peer, ListenPort),
-			TLSConfig: view2.TLSConfig{
-				PeerCACertPath: path.Join(p.NodeLocalTLSDir(peer.Peer), "ca.crt"),
-				Timeout:        10 * time.Minute,
-			},
+			Version:   0,
+			Address:   p.PeerAddress(peer, ListenPort),
+			TLSConfig: tlsConfig,
 			SignerConfig: view2.SignerConfig{
 				IdentityPath: p.LocalMSPIdentityCert(peer.Peer),
 				KeyPath:      p.LocalMSPPrivateKey(peer.Peer),
@@ -344,7 +348,9 @@ func (p *Platform) PostRun(bool) {
 		}
 
 		// Web Client
-		webClientConfig, err := client.NewWebClientConfigFromFSC(p.NodeDir(node))
+		//webClientConfig, err := client.NewWebClientConfigFromFSC(p.NodeDir(node))
+		webClientConfig, err := client2.ConfigFromFile(path.Join(p.NodeDir(node), "client-config.yaml"))
+
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		webClient, err := client2.NewClient(webClientConfig)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
