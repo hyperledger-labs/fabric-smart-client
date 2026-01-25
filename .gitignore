@@ -8,3 +8,4 @@
 integration/**/out/
 
 cmd/fsccli/cmd
+integration/fabricx/cbdc/

@@ -1,0 +1,442 @@
+openapi: 3.0.3
+info:
+  title: Token Management API
+  description: |
+    REST API for the FabricX Token Management application.
+    
+    This API provides endpoints for:
+    - **Token Operations**: Issue, transfer, redeem tokens
+    - **Balance Queries**: Query token balances
+    - **Transaction History**: View transaction history
+    - **Atomic Swaps**: Propose and accept token swaps
+    - **Audit**: Auditor-specific endpoints for compliance
+    
+    ## Authentication
+    No application-layer authentication is enforced by this sample.
+
+    Transport security is provided by the FSC node web server:
+    - HTTPS is enabled by default in the integration environment (self-signed certificates).
+    - Mutual TLS (client certificates) can be enabled via `fsc.web.tls.clientAuthRequired`.
+    
+    ## Token Amounts
+    All amounts use 8 decimal places precision.
+    - `100000000` = 1.00000000 tokens
+    - `50000000` = 0.5 tokens
+    
+  version: 1.0.0
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: https://localhost:8080/v1
+    description: Local development server (port may differ in integration runs; HTTPS uses self-signed certs)
+
+paths:
+  /tokens/issue:
+    post:
+      summary: Issue new tokens
+      description: Creates new tokens and assigns them to a recipient. Only callable by issuers.
+      tags:
+        - Tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueRequest'
+            example:
+              token_type: "USD"
+              amount: "1000.00"
+              recipient: "alice"
+      responses:
+        '200':
+          description: Tokens issued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /tokens/transfer:
+    post:
+      summary: Transfer tokens
+      description: Transfers tokens from the caller to a recipient.
+      tags:
+        - Tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+            example:
+              token_id: "<token_id>"
+              amount: "100.00"
+              recipient: "bob"
+      responses:
+        '200':
+          description: Transfer successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /tokens/redeem:
+    post:
+      summary: Redeem (burn) tokens
+      description: Burns tokens, removing them from circulation.
+      tags:
+        - Tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeemRequest'
+            example:
+              token_id: "<token_id>"
+              amount: "100.00"
+      responses:
+        '200':
+          description: Redemption successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedeemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /tokens/balance:
+    get:
+      summary: Get token balance
+      description: Returns the caller's token balance, optionally filtered by token type.
+      tags:
+        - Tokens
+      parameters:
+        - name: token_type
+          in: query
+          description: Filter by token type (e.g., USD, EUR)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Balance retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+
+  /tokens/history:
+    get:
+      summary: Get transaction history
+      description: Returns the caller's transaction history.
+      tags:
+        - Tokens
+      parameters:
+        - name: token_type
+          in: query
+          schema:
+            type: string
+        - name: tx_type
+          in: query
+          description: Filter by transaction type (issue, transfer, redeem, swap)
+          schema:
+            type: string
+            enum: [issue, transfer, redeem, swap]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: History retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryResponse'
+
+  /tokens/swap/propose:
+    post:
+      summary: Propose a token swap
+      description: Creates a swap proposal offering one token type for another.
+      tags:
+        - Swap
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwapProposeRequest'
+      responses:
+        '200':
+          description: Proposal created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SwapProposeResponse'
+
+  /tokens/swap/accept:
+    post:
+      summary: Accept a swap proposal
+      description: Accepts an existing swap proposal and executes the atomic swap.
+      tags:
+        - Swap
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwapAcceptRequest'
+      responses:
+        '200':
+          description: Swap completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SwapAcceptResponse'
+
+  /audit/balances:
+    get:
+      summary: Get all token balances (auditor only)
+      description: |
+        Returns aggregated balance information for all tokens.
+        Note: Auditors cannot see token metadata or private properties.
+      tags:
+        - Audit
+      parameters:
+        - name: token_type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Balances retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditBalancesResponse'
+
+  /audit/history:
+    get:
+      summary: Get all transaction history (auditor only)
+      description: Returns all transaction history for audit purposes.
+      tags:
+        - Audit
+      parameters:
+        - name: token_type
+          in: query
+          schema:
+            type: string
+        - name: tx_type
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: History retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditHistoryResponse'
+
+components:
+  schemas:
+    IssueRequest:
+      type: object
+      required:
+        - token_type
+        - amount
+        - recipient
+      properties:
+        token_type:
+          type: string
+          description: Token type identifier
+        amount:
+          type: string
+          description: Amount to issue (decimal string)
+        recipient:
+          type: string
+          description: Recipient node name or identity
+
+    IssueResponse:
+      type: object
+      properties:
+        token_id:
+          type: string
+          description: Linear ID of the created token
+
+    TransferRequest:
+      type: object
+      required:
+        - token_id
+        - amount
+        - recipient
+      properties:
+        token_id:
+          type: string
+        amount:
+          type: string
+        recipient:
+          type: string
+
+    TransferResponse:
+      type: object
+      properties:
+        tx_id:
+          type: string
+          description: Transaction ID
+
+    RedeemRequest:
+      type: object
+      required:
+        - token_id
+        - amount
+      properties:
+        token_id:
+          type: string
+        amount:
+          type: string
+
+    RedeemResponse:
+      type: object
+      properties:
+        tx_id:
+          type: string
+
+    BalanceResponse:
+      type: object
+      properties:
+        balances:
+          type: object
+          additionalProperties:
+            type: number
+          description: Map of token type to balance
+        tokens:
+          type: array
+          items:
+            $ref: '#/components/schemas/Token'
+
+    Token:
+      type: object
+      properties:
+        linear_id:
+          type: string
+        type:
+          type: string
+        amount:
+          type: number
+        owner:
+          type: string
+
+    HistoryResponse:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionRecord'
+
+    TransactionRecord:
+      type: object
+      properties:
+        tx_id:
+          type: string
+        type:
+          type: string
+          enum: [issue, transfer, redeem, swap]
+        token_type:
+          type: string
+        amount:
+          type: number
+        from:
+          type: string
+        to:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    SwapProposeRequest:
+      type: object
+      required:
+        - offered_token_id
+        - requested_type
+        - requested_amount
+      properties:
+        offered_token_id:
+          type: string
+        requested_type:
+          type: string
+        requested_amount:
+          type: number
+        expiry_minutes:
+          type: integer
+          default: 60
+
+    SwapProposeResponse:
+      type: object
+      properties:
+        proposal_id:
+          type: string
+
+    SwapAcceptRequest:
+      type: object
+      required:
+        - proposal_id
+        - offered_token_id
+      properties:
+        proposal_id:
+          type: string
+        offered_token_id:
+          type: string
+
+    SwapAcceptResponse:
+      type: object
+      properties:
+        tx_id:
+          type: string
+
+    AuditBalancesResponse:
+      type: object
+      properties:
+        total_supply:
+          type: object
+          additionalProperties:
+            type: number
+        token_count:
+          type: object
+          additionalProperties:
+            type: integer
+
+    AuditHistoryResponse:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionRecord'
+        total:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

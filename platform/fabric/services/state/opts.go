@@ -37,6 +37,9 @@ func WithStateBasedEndorsement() AddOutputOption {
 
 type addInputOptions struct {
 	certification bool
+	useRawValue   bool
+	rawValue      []byte
+	rawVersion    []byte
 }
 
 type AddInputOption func(*addInputOptions) error
@@ -44,6 +47,17 @@ type AddInputOption func(*addInputOptions) error
 func WithCertification() AddInputOption {
 	return func(o *addInputOptions) error {
 		o.certification = true
+		return nil
+	}
+}
+
+// WithRawValue provides a pre-fetched state and its version to be used as input.
+// This bypasses local vault lookup while still recording a read dependency.
+func WithRawValue(raw []byte, version []byte) AddInputOption {
+	return func(o *addInputOptions) error {
+		o.useRawValue = true
+		o.rawValue = raw
+		o.rawVersion = version
 		return nil
 	}
 }

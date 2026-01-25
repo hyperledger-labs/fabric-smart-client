@@ -33,7 +33,7 @@ type Server interface {
 	Stop() error
 }
 
-func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewManager, tracerProvider tracing.Provider) Server {
+func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewManager, tracerProvider tracing.Provider, h *web.HttpHandler) Server {
 	if !configProvider.GetBool("fsc.web.enabled") {
 		logger.Info("web server not enabled")
 		return web.NewDummyServer()
@@ -57,8 +57,9 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 		ListenAddress: listenAddr,
 		TLS:           tlsConfig,
 	})
-	h := web.NewHttpHandler()
-	webServer.RegisterHandler("/", otelhttp.NewHandler(h, "rest-view-call"), true)
+	// Require a client TLS cert only when client-auth is configured.
+	secure := tlsConfig.Enabled && tlsConfig.ClientAuth
+	webServer.RegisterHandler("/", otelhttp.NewHandler(h, "rest-view-call"), secure)
 
 	web2.InstallViewHandler(viewManager, h, tracerProvider)
 
