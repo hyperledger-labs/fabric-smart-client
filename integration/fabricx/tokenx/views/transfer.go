@@ -8,6 +8,7 @@ package views
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
@@ -43,9 +44,14 @@ type TransferView struct {
 func (t *TransferView) Call(ctx view.Context) (interface{}, error) {
 	logger.Infof("[TransferView] START: Transferring token %s, amount %d", t.TokenLinearID, t.Amount)
 
-	// Exchange identities with recipient
-	sender, newOwner, err := state.ExchangeRecipientIdentities(ctx, t.Recipient)
-	assert.NoError(err, "failed exchanging recipient identity")
+	// Get sender identity from local membership (like CBDC pattern)
+	fns, err := fabric.GetDefaultFNS(ctx)
+	assert.NoError(err, "failed getting FNS")
+	sender := fns.LocalMembership().DefaultIdentity()
+
+	// Recipient identity comes directly from client parameters
+	// This avoids ExchangeRecipientIdentities which causes non-deterministic serialization
+	newOwner := t.Recipient
 
 	// Create transaction
 	tx, err := state.NewTransaction(ctx)
@@ -53,9 +59,13 @@ func (t *TransferView) Call(ctx view.Context) (interface{}, error) {
 
 	tx.SetNamespace(TokenxNamespace)
 
-	// Load the input token
+	// Load the input token from sidecar (remote query service)
+	// This allows us to reference tokens that were issued by other nodes
 	inputToken := &states.Token{}
-	assert.NoError(tx.AddInputByLinearID(t.TokenLinearID, inputToken, state.WithCertification()), "failed adding input token")
+	if err := AddRemoteInput(ctx, tx, TokenxNamespace, t.TokenLinearID, inputToken); err != nil {
+		logger.Errorf("[TransferView] Failed to add remote input: %v", err)
+		return nil, errors.Wrapf(err, "failed adding remote input token [%s]", t.TokenLinearID)
+	}
 
 	// Validate transfer amount
 	if t.Amount > inputToken.Amount {
@@ -77,14 +87,15 @@ func (t *TransferView) Call(ctx view.Context) (interface{}, error) {
 
 	var outputTokenIDs []string
 
-	// Create output token for recipient
+	// Create output token for recipient (add outputs BEFORE delete to maintain index order)
+	// Note: Use zero time for deterministic endorsement across nodes
 	outputToken := &states.Token{
-		Type:      inputToken.Type,
-		Amount:    t.Amount,
-		Owner:     newOwner,
-		IssuerID:  inputToken.IssuerID,
-		CreatedAt: time.Now(),
+		Type:     inputToken.Type,
+		Amount:   t.Amount,
+		Owner:    newOwner,
+		IssuerID: inputToken.IssuerID,
 	}
+	outputToken.LinearID = fmt.Sprintf("%s_out_0", tx.ID())
 	assert.NoError(tx.AddOutput(outputToken), "failed adding output token")
 	outputTokenIDs = append(outputTokenIDs, outputToken.LinearID)
 
@@ -92,30 +103,43 @@ func (t *TransferView) Call(ctx view.Context) (interface{}, error) {
 	if t.Amount < inputToken.Amount {
 		changeAmount := inputToken.Amount - t.Amount
 		changeToken := &states.Token{
-			Type:      inputToken.Type,
-			Amount:    changeAmount,
-			Owner:     sender,
-			IssuerID:  inputToken.IssuerID,
-			CreatedAt: time.Now(),
+			Type:     inputToken.Type,
+			Amount:   changeAmount,
+			Owner:    sender,
+			IssuerID: inputToken.IssuerID,
 		}
+		changeToken.LinearID = fmt.Sprintf("%s_out_1", tx.ID())
 		assert.NoError(tx.AddOutput(changeToken), "failed adding change token")
 		outputTokenIDs = append(outputTokenIDs, changeToken.LinearID)
 	}
 
 	// Create transaction record
+	// Use a prefixed ID to avoid collision with token LinearIDs
+	// Note: Timestamp is zero for deterministic endorsement
 	txRecord := &states.TransactionRecord{
+		RecordID:       "txr_" + tx.ID(),
 		Type:           states.TxTypeTransfer,
 		TokenType:      inputToken.Type,
 		Amount:         t.Amount,
 		From:           sender,
 		To:             newOwner,
-		Timestamp:      time.Now(),
 		TokenLinearIDs: outputTokenIDs,
 	}
 	assert.NoError(tx.AddOutput(txRecord), "failed adding transaction record")
 
-	// Collect endorsements: sender, recipient, then approver
-	_, err = ctx.RunView(state.NewCollectEndorsementsView(tx, sender, newOwner, t.Approver))
+	// Delete the input token AFTER adding outputs (this ensures output indices are correct)
+	// Note: For remote inputs, we need to set the LinearID for delete to work
+	inputToken.LinearID = t.TokenLinearID
+	assert.NoError(tx.Delete(inputToken), "failed deleting input token")
+
+	// Validate RWSet keys BEFORE endorsement (RWSet is closed after endorsement)
+	if err := ValidateNamespaceRWSetKeys(tx, TokenxNamespace); err != nil {
+		return nil, errors.Wrap(err, "invalid RWSet keys")
+	}
+
+	// Collect endorsements from approver only (like CBDC pattern)
+	// The sender is the initiator, recipient is just assigned ownership
+	_, err = ctx.RunView(state.NewCollectEndorsementsView(tx, t.Approver))
 	assert.NoError(err, "failed collecting endorsements")
 
 	// Setup finality listener
@@ -152,11 +176,12 @@ func (f *TransferViewFactory) NewView(in []byte) (view.View, error) {
 type TransferResponderView struct{}
 
 func (t *TransferResponderView) Call(ctx view.Context) (interface{}, error) {
-	// Respond with recipient identity
-	_, recipientID, err := state.RespondExchangeRecipientIdentities(ctx)
-	assert.NoError(err, "failed responding with recipient identity")
+	// Get recipient identity from local membership (matches new pattern)
+	fns, err := fabric.GetDefaultFNS(ctx)
+	assert.NoError(err, "failed getting FNS")
+	recipientID := fns.LocalMembership().DefaultIdentity()
 
-	// Receive the transaction
+	// Receive the transaction directly (no identity exchange needed)
 	tx, err := state.ReceiveTransaction(ctx)
 	assert.NoError(err, "failed receiving transaction")
 
@@ -169,11 +194,19 @@ func (t *TransferResponderView) Call(ctx view.Context) (interface{}, error) {
 	assert.True(tx.NumInputs() >= 1, "expected at least 1 input")
 	assert.True(tx.NumOutputs() >= 2, "expected at least 2 outputs")
 
-	// Verify the output token is ours
-	outputToken := &states.Token{}
-	assert.NoError(tx.GetOutputAt(0, outputToken), "failed getting output token")
-	assert.True(outputToken.Owner.Equal(recipientID), "output token owner should be recipient")
-	assert.True(outputToken.Amount > 0, "token amount must be positive")
+	// Verify there is an output token for the recipient
+	var outputToken *states.Token
+	for i := 0; i < tx.NumOutputs(); i++ {
+		candidate := &states.Token{}
+		if err := tx.GetOutputAt(i, candidate); err != nil {
+			continue
+		}
+		if candidate.Amount > 0 && candidate.Owner.Equal(recipientID) {
+			outputToken = candidate
+			break
+		}
+	}
+	assert.NotNil(outputToken, "output token for recipient not found")
 
 	// Sign the transaction
 	_, err = ctx.RunView(state.NewEndorseView(tx))

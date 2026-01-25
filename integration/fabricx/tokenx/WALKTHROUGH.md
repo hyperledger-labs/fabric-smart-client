@@ -276,6 +276,90 @@ func (t *TransferView) Call(ctx view.Context) (interface{}, error) {
 
 ---
 
+---
+
+## Code Flow: Atomic Swap
+
+Atomic swap uses a **two-phase protocol** involving three parties (Proposer, Accepter, Approver) and two transactions (Propose, Accept).
+
+### Phase 1: Propose Swap (Proposer)
+
+Proposer creates a `SwapProposal` state which locks their offered token intent.
+
+**View:** `views/swap.go` (SwapProposeView)
+
+```go
+func (p *SwapProposeView) Call(ctx view.Context) (interface{}, error) {
+    // 1. Create SwapProposal state
+    proposal := &states.SwapProposal{
+        OfferedTokenID:  p.OfferedTokenID,
+        RequestedType:   p.RequestedType,
+        RequestedAmount: p.RequestedAmount,
+        Proposer:        p.Proposer,
+        Expiry:          time.Now().Add(time.Duration(p.ExpiryMinutes) * time.Minute),
+    }
+
+    // 2. Create transaction
+    tx, _ := state.NewTransaction(ctx)
+    tx.SetNamespace("tokenx")
+    
+    // 3. Add proposal as output
+    tx.AddOutput(proposal)
+    
+    // 4. Collect endorsements & submit
+    // ...
+}
+```
+
+### Phase 2: Accept Swap (Accepter)
+
+Accepter "matches" the proposal using their own token. This transaction consumes the proposal and both input tokens (proposer's and accepter's) and creates two new output tokens with swapped ownership.
+
+**View:** `views/swap.go` (SwapAcceptView)
+
+```go
+func (a *SwapAcceptView) Call(ctx view.Context) (interface{}, error) {
+    // 1. Load Proposal and verify details
+    proposal := ...
+
+    // 2. Load Tokens
+    // - Proposer's token (from proposal.OfferedTokenID)
+    // - Accepter's token (provided by accepter)
+    
+    // 3. Create Transaction
+    tx, _ := state.NewAnonymousTransaction(ctx) // Use anonymous for privacy if needed
+    
+    // 4. Add Inputs (consume tokens and proposal)
+    tx.AddInput(proposal)
+    tx.AddInput(proposerToken)
+    tx.AddInput(accepterToken)
+    
+    // 5. Create Outputs (swapped ownership)
+    // Token 1 -> Accepter
+    // Token 2 -> Proposer
+    tx.AddOutput(&states.Token{
+        Type:   proposerToken.Type,
+        Amount: proposerToken.Amount,
+        Owner:  accepterIdentity,
+    })
+    tx.AddOutput(&states.Token{
+        Type:   accepterToken.Type,
+        Amount: accepterToken.Amount,
+        Owner:  proposerIdentity,
+    })
+    
+    // 6. Delete consumed states
+    tx.Delete(proposal)
+    tx.Delete(proposerToken)
+    tx.Delete(accepterToken)
+    
+    // 7. Collect endorsements & Submit
+    // ...
+}
+```
+
+---
+
 ## Code Flow: Endorsement Process
 
 This is the most critical flow where the bug was found and fixed.
@@ -373,8 +457,8 @@ type Token struct {
 
 // GetLinearID implements state.LinearState
 func (t *Token) GetLinearID() (string, error) {
-    // Creates composite key: TKN:linearID
-    return rwset.CreateCompositeKey(TypeToken, []string{t.LinearID})
+    // Following the TokenX integration pattern: store by linear ID directly
+    return t.LinearID, nil
 }
 ```
 

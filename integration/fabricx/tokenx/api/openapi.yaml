@@ -12,7 +12,11 @@ info:
     - **Audit**: Auditor-specific endpoints for compliance
     
     ## Authentication
-    Currently no authentication required (development mode).
+    No application-layer authentication is enforced by this sample.
+
+    Transport security is provided by the FSC node web server:
+    - HTTPS is enabled by default in the integration environment (self-signed certificates).
+    - Mutual TLS (client certificates) can be enabled via `fsc.web.tls.clientAuthRequired`.
     
     ## Token Amounts
     All amounts use 8 decimal places precision.
@@ -25,8 +29,8 @@ info:
     url: https://www.apache.org/licenses/LICENSE-2.0
 
 servers:
-  - url: http://localhost:8080/v1
-    description: Local development server
+  - url: https://localhost:8080/v1
+    description: Local development server (port may differ in integration runs; HTTPS uses self-signed certs)
 
 paths:
   /tokens/issue:
@@ -68,7 +72,7 @@ paths:
             schema:
               $ref: '#/components/schemas/TransferRequest'
             example:
-              token_id: "TKN:abc123"
+              token_id: "<token_id>"
               amount: "100.00"
               recipient: "bob"
       responses:
@@ -94,7 +98,7 @@ paths:
             schema:
               $ref: '#/components/schemas/RedeemRequest'
             example:
-              token_id: "TKN:abc123"
+              token_id: "<token_id>"
               amount: "100.00"
       responses:
         '200':

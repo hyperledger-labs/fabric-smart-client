@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/tokenx/states"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -45,9 +46,13 @@ func (r *RedeemView) Call(ctx view.Context) (interface{}, error) {
 
 	tx.SetNamespace(TokenxNamespace)
 
-	// Load the input token
+	// Load the input token from sidecar (remote query service)
+	// This allows us to reference tokens that were issued by other nodes
 	inputToken := &states.Token{}
-	assert.NoError(tx.AddInputByLinearID(r.TokenLinearID, inputToken, state.WithCertification()), "failed adding input token")
+	if err := AddRemoteInput(ctx, tx, TokenxNamespace, r.TokenLinearID, inputToken); err != nil {
+		logger.Errorf("[RedeemView] Failed to add remote input: %v", err)
+		return nil, errors.Wrapf(err, "failed adding remote input token [%s]", r.TokenLinearID)
+	}
 
 	// For now, require full redemption (amount must match)
 	assert.Equal(r.Amount, inputToken.Amount, "partial redemption not supported, must redeem full amount %d", inputToken.Amount)
@@ -61,21 +66,30 @@ func (r *RedeemView) Call(ctx view.Context) (interface{}, error) {
 	assert.NoError(tx.AddCommand("redeem", owner), "failed adding redeem command")
 
 	// Delete the token (mark as burned)
+	// Set LinearID for delete to work properly with remote input
+	inputToken.LinearID = r.TokenLinearID
 	assert.NoError(tx.Delete(inputToken), "failed deleting token")
 
 	// Create transaction record
+	// Use a prefixed ID to avoid collision with token LinearIDs
+	// Note: Timestamp is zero for deterministic endorsement
 	txRecord := &states.TransactionRecord{
+		RecordID:       "txr_" + tx.ID(),
 		Type:           states.TxTypeRedeem,
 		TokenType:      inputToken.Type,
 		Amount:         r.Amount,
 		From:           owner,
-		Timestamp:      time.Now(),
 		TokenLinearIDs: []string{r.TokenLinearID},
 	}
 	assert.NoError(tx.AddOutput(txRecord), "failed adding transaction record")
 
-	// Collect endorsements: owner, then approver
-	_, err = ctx.RunView(state.NewCollectEndorsementsView(tx, owner, r.Approver))
+	// Validate RWSet keys BEFORE endorsement (RWSet is closed after endorsement)
+	if err := ValidateNamespaceRWSetKeys(tx, TokenxNamespace); err != nil {
+		return nil, errors.Wrap(err, "invalid RWSet keys")
+	}
+
+	// Collect endorsements from approver only (like CBDC pattern)
+	_, err = ctx.RunView(state.NewCollectEndorsementsView(tx, r.Approver))
 	assert.NoError(err, "failed collecting endorsements")
 
 	// Setup finality listener

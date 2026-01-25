@@ -44,6 +44,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = commType
 	fscTopology.SetLogging("grpc=error:fabricx=debug:info", "")
+	fscTopology.WebEnabled = true
 
 	// Approver node (Org1) - validates and approves transactions
 	// This is separate from issuer, following fabricx/simple pattern
@@ -51,7 +52,9 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		AddOptions(fabric.WithOrganization("Org1")).
 		AddOptions(scv2.WithApproverRole()).
 		// Approver responders for all transaction types
-		RegisterResponder(&tokenviews.ApproverView{}, &tokenviews.IssueView{})
+		RegisterResponder(&tokenviews.ApproverView{}, &tokenviews.IssueView{}).
+		RegisterResponder(&tokenviews.ApproverView{}, &tokenviews.TransferView{}).
+		RegisterResponder(&tokenviews.ApproverView{}, &tokenviews.RedeemView{})
 
 	// Issuer node (Org1) - creates tokens (like creator in simple)
 	fscTopology.AddNodeByName(IssuerNode).
@@ -66,8 +69,22 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		fscTopology.AddNodeByName(ownerName).
 			AddOptions(fabric.WithOrganization("Org1")).
 			AddOptions(replicationOpts.For(ownerName)...).
-			RegisterViewFactory("query", &tokenviews.BalanceViewFactory{})
+			RegisterViewFactory("query", &tokenviews.BalanceViewFactory{}).
+			RegisterViewFactory("history", &tokenviews.OwnerHistoryViewFactory{}).
+			RegisterViewFactory("transfer", &tokenviews.TransferViewFactory{}).
+			RegisterViewFactory("redeem", &tokenviews.RedeemViewFactory{}).
+			RegisterViewFactory("swap_propose", &tokenviews.SwapProposeViewFactory{}).
+			RegisterViewFactory("swap_accept", &tokenviews.SwapAcceptViewFactory{}).
+			RegisterResponder(&tokenviews.TransferResponderView{}, &tokenviews.TransferView{})
 	}
+
+	// Auditor node (Org1) - exposes audit endpoints
+	fscTopology.AddNodeByName(AuditorNode).
+		AddOptions(fabric.WithOrganization("Org1")).
+		AddOptions(replicationOpts.For(AuditorNode)...).
+		RegisterViewFactory("balances", &tokenviews.AuditorBalancesViewFactory{}).
+		RegisterViewFactory("history", &tokenviews.AuditorHistoryViewFactory{}).
+		RegisterViewFactory("auditor_init", &tokenviews.AuditorInitViewFactory{})
 
 	// Add SDK to FSC topology
 	fscTopology.AddSDK(sdk)

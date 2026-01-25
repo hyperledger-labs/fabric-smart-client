@@ -9,7 +9,6 @@ package views
 import (
 	"encoding/json"
 	"sync"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/tokenx/states"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -49,12 +48,12 @@ func (i *IssueView) Call(ctx view.Context) (interface{}, error) {
 	logger.Infof("[IssueView] START: Issuing %d tokens of type %s", i.Amount, i.TokenType)
 
 	// Create the token state
+	// Note: CreatedAt is zero for deterministic endorsement across nodes
 	token := &states.Token{
-		Type:      i.TokenType,
-		Amount:    i.Amount,
-		Owner:     i.Recipient,
-		IssuerID:  "issuer", // Simple identifier
-		CreatedAt: time.Now(),
+		Type:     i.TokenType,
+		Amount:   i.Amount,
+		Owner:    i.Recipient,
+		IssuerID: "issuer", // Simple identifier
 	}
 
 	// Create new transaction
@@ -82,13 +81,14 @@ func (i *IssueView) Call(ctx view.Context) (interface{}, error) {
 	}
 
 	// Create transaction record for audit trail
+	// Use a prefixed ID to avoid collision with token LinearID
+	// Note: Timestamp is zero for deterministic endorsement
 	txRecord := &states.TransactionRecord{
-		RecordID:  tx.ID(),
+		RecordID:  "txr_" + tx.ID(),
 		Type:      states.TxTypeIssue,
 		TokenType: i.TokenType,
 		Amount:    i.Amount,
 		To:        i.Recipient,
-		Timestamp: time.Now(),
 	}
 	if err = tx.AddOutput(txRecord); err != nil {
 		logger.Errorf("[IssueView] Failed to add transaction record: %v", err)

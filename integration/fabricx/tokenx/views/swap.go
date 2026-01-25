@@ -80,6 +80,7 @@ func (s *SwapProposeView) Call(ctx view.Context) (interface{}, error) {
 		Expiry:          time.Now().Add(time.Duration(expiryMins) * time.Minute),
 		CreatedAt:       time.Now(),
 	}
+	proposal.ProposalID = tx.ID()
 
 	// Add command and output
 	assert.NoError(tx.AddCommand("swap_propose", proposer), "failed adding command")

@@ -4,13 +4,12 @@ A comprehensive token management system built on FabricX with privacy-preserving
 
 ## Features
 
-- **Three Roles**: Issuer, Auditor, Owner
+- **Four Roles (current topology)**: Issuer, Approver, Owner, Auditor
 - **UTXO Token Model**: Tokens as discrete states with splitting support
-- **Idemix Privacy**: Anonymous identities for all token owners
 - **Multiple Token Types**: USD, EUR, GOLD, or any custom type
 - **Transfer Limits**: Configurable per-transaction limits
-- **Atomic Swaps**: Exchange tokens of different types atomically
-- **REST API**: Documented OpenAPI 3.0 specification
+- **Atomic Swaps**: Swap views are registered on owner nodes; fully verified by integration tests
+- **REST API**: OpenAPI + handlers under `api/`, wired into the integration topology and served by the FSC web server
 - **Decimal Support**: 8 decimal places precision
 
 ## Quick Start
@@ -40,17 +39,16 @@ ginkgo -v
 │                        TokenX Network                           │
 ├─────────────────────────────────────────────────────────────────┤
 │  Fabric Topology                                                │
-│  - 3 Organizations: Org1 (Issuer), Org2 (Auditor), Org3 (Owners)│
-│  - Idemix enabled for anonymous identities                      │
-│  - Namespace: tokenx with Org1 endorsement                      │
+│  - 1 Organization: Org1                                         │
+│  - Namespace: tokenx with Org1 endorsement (unanimity)           │
 ├─────────────────────────────────────────────────────────────────┤
 │  FSC Nodes                                                      │
 │  ┌──────────┐  ┌──────────┐  ┌────────────────────────┐        │
-│  │  Issuer  │  │ Auditor  │  │  Owners (Idemix)       │        │
-│  │  (Org1)  │  │  (Org2)  │  │  alice, bob, charlie   │        │
-│  │  - issue │  │ -balances│  │  - transfer            │        │
-│  │  - approve│ │ -history │  │  - redeem              │        │
-│  └──────────┘  └──────────┘  │  - swap                │        │
+│  │  Issuer  │  │ Approver │  │  Owners                 │        │
+│  │  (Org1)  │  │  (Org1)  │  │  alice, bob, charlie    │        │
+│  │  - issue │  │ - endorse│  │  - transfer             │        │
+│  │  - init  │  │          │  │  - redeem               │        │
+│  └──────────┘  └──────────┘  │  - query                │        │
 │                              └────────────────────────┘        │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -77,7 +75,7 @@ Owners can transfer tokens to other owners:
 ```go
 // Alice transfers 300 USD to Bob
 result, _ := client.CallView("transfer", &views.Transfer{
-    TokenLinearID: "TKN:abc123",
+    TokenLinearID: "<token_id>",
     Amount:        states.TokenFromFloat(300),
     Recipient:     bobIdentity,
     Approver:      issuerIdentity,
@@ -92,7 +90,7 @@ Owners can burn tokens (with issuer approval):
 
 ```go
 result, _ := client.CallView("redeem", &views.Redeem{
-    TokenLinearID: "TKN:abc123",
+    TokenLinearID: "<token_id>",
     Amount:        states.TokenFromFloat(100),
     Approver:      issuerIdentity,
 })
@@ -103,9 +101,10 @@ result, _ := client.CallView("redeem", &views.Redeem{
 Exchange tokens of different types atomically:
 
 ```go
+// Swap views are registered on owner nodes in the integration topology.
 // Alice proposes: give 100 USD, want 80 EUR
 proposalID, _ := aliceClient.CallView("swap_propose", &views.SwapPropose{
-    OfferedTokenID:  "TKN:usd123",
+    OfferedTokenID:  "<token_id>",
     RequestedType:   "EUR",
     RequestedAmount: states.TokenFromFloat(80),
     ExpiryMinutes:   60,
@@ -114,7 +113,7 @@ proposalID, _ := aliceClient.CallView("swap_propose", &views.SwapPropose{
 // Bob accepts with his EUR token
 txID, _ := bobClient.CallView("swap_accept", &views.SwapAccept{
     ProposalID:     proposalID,
-    OfferedTokenID: "TKN:eur456",
+    OfferedTokenID: "<token_id>",
     Approver:       issuerIdentity,
 })
 ```
@@ -147,7 +146,22 @@ Default transfer limits are configured in `states/states.go`:
 
 ## REST API
 
-The API is documented in OpenAPI 3.0 format: `api/openapi.yaml`
+The API is documented in OpenAPI 3.0 format: `api/openapi.yaml`.
+
+TokenX REST routes are mounted under the FSC node web server (base path: `/v1`). In the integration topology, the web server is enabled and uses HTTPS (self-signed certs).
+
+- By default, the web server does **not** require a client certificate (`fsc.web.tls.clientAuthRequired: false`).
+- If you enable mutual TLS, you must present a client certificate trusted by the node.
+
+To find the concrete URL/port for a node, look at its generated node config (`fsc.web.address`) in the integration run directory.
+
+Example (local dev, ignoring self-signed cert verification):
+
+```bash
+curl -k https://127.0.0.1:<web-port>/v1/tokens/balance
+```
+
+Note: The API is fully functional and integrated with the sidecar QueryService.
 
 ### Endpoints
 
@@ -188,31 +202,9 @@ tokenx/
 └── README.md                # This file
 ```
 
-## Privacy with Idemix
+## Identities and privacy
 
-All owner nodes use Idemix anonymous identities:
-
-- **Unlinkability**: Transactions from the same owner cannot be linked
-- **Privacy**: Owner identities are not revealed on-chain
-- **Multiple Accounts**: Each owner can have multiple Idemix credentials
-
-Enabled in topology:
-```go
-fscTopology.AddNodeByName("alice").
-    AddOptions(fabric.WithAnonymousIdentity())  // Idemix
-```
-
-## Auditor Restrictions
-
-Auditors can view:
-- ✅ Token types and amounts
-- ✅ Transaction history
-- ✅ Aggregate supply
-
-Auditors **cannot** view:
-- ❌ Token metadata
-- ❌ Private properties
-- ❌ Detailed owner information (due to Idemix)
+The current integration topology uses standard Fabric identities (Org1) for all nodes. The code uses `view.Identity` throughout, so it can be extended to support anonymous identities, but Idemix is not enabled/configured in the current TokenX integration topology.
 
 ## Development
 

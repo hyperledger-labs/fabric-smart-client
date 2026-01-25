@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -15,23 +16,30 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/tokenx/views"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	server "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 var logger = logging.MustGetLogger()
 
 // TokenAPI provides REST API handlers for token operations
 type TokenAPI struct {
-	viewCaller ViewCaller
+	viewCaller      ViewCaller
+	endpointService EndpointService
 }
 
 // ViewCaller is an interface for calling FSC views
 type ViewCaller interface {
-	CallView(vid string, input []byte) (interface{}, error)
+	CallView(ctx context.Context, vid string, input []byte) (interface{}, error)
+}
+
+// EndpointService resolves endpoint labels (e.g., node names) to FSC identities.
+type EndpointService interface {
+	GetIdentity(label string, pkID []byte) (view.Identity, error)
 }
 
 // NewTokenAPI creates a new TokenAPI instance
-func NewTokenAPI(viewCaller ViewCaller) *TokenAPI {
-	return &TokenAPI{viewCaller: viewCaller}
+func NewTokenAPI(viewCaller ViewCaller, endpointService EndpointService) *TokenAPI {
+	return &TokenAPI{viewCaller: viewCaller, endpointService: endpointService}
 }
 
 // RegisterHandlers registers all API handlers with the HTTP handler
@@ -80,6 +88,9 @@ func (h *issueHandler) ParsePayload(data []byte) (interface{}, error) {
 
 func (h *issueHandler) HandleRequest(ctx *server.ReqContext) (interface{}, int) {
 	req := ctx.Query.(*IssueRequest)
+	if len(req.Recipient) == 0 {
+		return map[string]string{"error": "missing recipient"}, http.StatusBadRequest
+	}
 
 	// Convert amount string to uint64
 	amountFloat, err := strconv.ParseFloat(req.Amount, 64)
@@ -88,13 +99,23 @@ func (h *issueHandler) HandleRequest(ctx *server.ReqContext) (interface{}, int) 
 	}
 	amount := states.TokenFromFloat(amountFloat)
 
+	recipient, err := h.api.endpointService.GetIdentity(req.Recipient, nil)
+	if err != nil {
+		return map[string]string{"error": "unknown recipient: " + err.Error()}, http.StatusBadRequest
+	}
+	approver, err := h.api.endpointService.GetIdentity("approver", nil)
+	if err != nil {
+		return map[string]string{"error": "failed resolving approver: " + err.Error()}, http.StatusBadRequest
+	}
+
 	input, _ := json.Marshal(&views.Issue{
 		TokenType: req.TokenType,
 		Amount:    amount,
-		// Recipient would be resolved from req.Recipient
+		Recipient: recipient,
+		Approvers: []view.Identity{approver},
 	})
 
-	result, err := h.api.viewCaller.CallView("issue", input)
+	result, err := h.api.viewCaller.CallView(ctx.Req.Context(), "issue", input)
 	if err != nil {
 		return map[string]string{"error": err.Error()}, http.StatusBadRequest
 	}
@@ -128,6 +149,12 @@ func (h *transferHandler) ParsePayload(data []byte) (interface{}, error) {
 
 func (h *transferHandler) HandleRequest(ctx *server.ReqContext) (interface{}, int) {
 	req := ctx.Query.(*TransferRequest)
+	if len(req.TokenID) == 0 {
+		return map[string]string{"error": "missing token_id"}, http.StatusBadRequest
+	}
+	if len(req.Recipient) == 0 {
+		return map[string]string{"error": "missing recipient"}, http.StatusBadRequest
+	}
 
 	// Convert amount string to uint64
 	amountFloat, err := strconv.ParseFloat(req.Amount, 64)
@@ -136,13 +163,23 @@ func (h *transferHandler) HandleRequest(ctx *server.ReqContext) (interface{}, in
 	}
 	amount := states.TokenFromFloat(amountFloat)
 
+	recipient, err := h.api.endpointService.GetIdentity(req.Recipient, nil)
+	if err != nil {
+		return map[string]string{"error": "unknown recipient: " + err.Error()}, http.StatusBadRequest
+	}
+	approver, err := h.api.endpointService.GetIdentity("approver", nil)
+	if err != nil {
+		return map[string]string{"error": "failed resolving approver: " + err.Error()}, http.StatusBadRequest
+	}
+
 	input, _ := json.Marshal(&views.Transfer{
 		TokenLinearID: req.TokenID,
 		Amount:        amount,
-		// Recipient and Approver would be resolved
+		Recipient:     recipient,
+		Approver:      approver,
 	})
 
-	result, err := h.api.viewCaller.CallView("transfer", input)
+	result, err := h.api.viewCaller.CallView(ctx.Req.Context(), "transfer", input)
 	if err != nil {
 		return map[string]string{"error": err.Error()}, http.StatusBadRequest
 	}
@@ -175,6 +212,9 @@ func (h *redeemHandler) ParsePayload(data []byte) (interface{}, error) {
 
 func (h *redeemHandler) HandleRequest(ctx *server.ReqContext) (interface{}, int) {
 	req := ctx.Query.(*RedeemRequest)
+	if len(req.TokenID) == 0 {
+		return map[string]string{"error": "missing token_id"}, http.StatusBadRequest
+	}
 
 	// Convert amount string to uint64
 	amountFloat, err := strconv.ParseFloat(req.Amount, 64)
@@ -183,12 +223,18 @@ func (h *redeemHandler) HandleRequest(ctx *server.ReqContext) (interface{}, int)
 	}
 	amount := states.TokenFromFloat(amountFloat)
 
+	approver, err := h.api.endpointService.GetIdentity("approver", nil)
+	if err != nil {
+		return map[string]string{"error": "failed resolving approver: " + err.Error()}, http.StatusBadRequest
+	}
+
 	input, _ := json.Marshal(&views.Redeem{
 		TokenLinearID: req.TokenID,
 		Amount:        amount,
+		Approver:      approver,
 	})
 
-	result, err := h.api.viewCaller.CallView("redeem", input)
+	result, err := h.api.viewCaller.CallView(ctx.Req.Context(), "redeem", input)
 	if err != nil {
 		return map[string]string{"error": err.Error()}, http.StatusBadRequest
 	}
@@ -216,7 +262,7 @@ func (h *balanceHandler) HandleRequest(ctx *server.ReqContext) (interface{}, int
 		TokenType: tokenType,
 	})
 
-	result, err := h.api.viewCaller.CallView("balance", input)
+	result, err := h.api.viewCaller.CallView(ctx.Req.Context(), "query", input)
 	if err != nil {
 		return map[string]string{"error": err.Error()}, http.StatusBadRequest
 	}
@@ -246,7 +292,7 @@ func (h *historyHandler) HandleRequest(ctx *server.ReqContext) (interface{}, int
 		TxType:    txType,
 	})
 
-	result, err := h.api.viewCaller.CallView("history", input)
+	result, err := h.api.viewCaller.CallView(ctx.Req.Context(), "history", input)
 	if err != nil {
 		return map[string]string{"error": err.Error()}, http.StatusBadRequest
 	}
@@ -276,7 +322,7 @@ func (h *swapProposeHandler) HandleRequest(ctx *server.ReqContext) (interface{},
 
 	input, _ := json.Marshal(req)
 
-	result, err := h.api.viewCaller.CallView("swap_propose", input)
+	result, err := h.api.viewCaller.CallView(ctx.Req.Context(), "swap_propose", input)
 	if err != nil {
 		return map[string]string{"error": err.Error()}, http.StatusBadRequest
 	}
@@ -304,9 +350,15 @@ func (h *swapAcceptHandler) ParsePayload(data []byte) (interface{}, error) {
 func (h *swapAcceptHandler) HandleRequest(ctx *server.ReqContext) (interface{}, int) {
 	req := ctx.Query.(*views.SwapAccept)
 
+	approver, err := h.api.endpointService.GetIdentity("approver", nil)
+	if err != nil {
+		return map[string]string{"error": "failed resolving approver: " + err.Error()}, http.StatusBadRequest
+	}
+	req.Approver = approver
+
 	input, _ := json.Marshal(req)
 
-	result, err := h.api.viewCaller.CallView("swap_accept", input)
+	result, err := h.api.viewCaller.CallView(ctx.Req.Context(), "swap_accept", input)
 	if err != nil {
 		return map[string]string{"error": err.Error()}, http.StatusBadRequest
 	}
@@ -334,7 +386,7 @@ func (h *auditBalancesHandler) HandleRequest(ctx *server.ReqContext) (interface{
 		TokenType: tokenType,
 	})
 
-	result, err := h.api.viewCaller.CallView("balances", input)
+	result, err := h.api.viewCaller.CallView(ctx.Req.Context(), "balances", input)
 	if err != nil {
 		return map[string]string{"error": err.Error()}, http.StatusBadRequest
 	}
@@ -364,7 +416,7 @@ func (h *auditHistoryHandler) HandleRequest(ctx *server.ReqContext) (interface{}
 		TxType:    txType,
 	})
 
-	result, err := h.api.viewCaller.CallView("history", input)
+	result, err := h.api.viewCaller.CallView(ctx.Req.Context(), "history", input)
 	if err != nil {
 		return map[string]string{"error": err.Error()}, http.StatusBadRequest
 	}

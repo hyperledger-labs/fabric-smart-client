@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -57,9 +56,10 @@ type Token struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// GetLinearID returns the composite key for world state storage
+// GetLinearID returns the linear ID for world state storage
+// Following the simple example pattern - return the ID directly
 func (t *Token) GetLinearID() (string, error) {
-	return rwset.CreateCompositeKey(TypeToken, []string{t.LinearID})
+	return t.LinearID, nil
 }
 
 // SetLinearID sets the linear ID if not already set
@@ -120,9 +120,9 @@ type TransactionRecord struct {
 	TokenLinearIDs []string `json:"token_linear_ids"`
 }
 
-// GetLinearID returns the composite key for world state storage
+// GetLinearID returns the record ID for world state storage
 func (r *TransactionRecord) GetLinearID() (string, error) {
-	return rwset.CreateCompositeKey(TypeTransactionRecord, []string{r.RecordID})
+	return r.RecordID, nil
 }
 
 // SetLinearID sets the record ID if not already set
@@ -174,9 +174,9 @@ const (
 	SwapStatusExpired   = "expired"
 )
 
-// GetLinearID returns the composite key for world state storage
+// GetLinearID returns the proposal ID for world state storage
 func (s *SwapProposal) GetLinearID() (string, error) {
-	return rwset.CreateCompositeKey(TypeSwapProposal, []string{s.ProposalID})
+	return s.ProposalID, nil
 }
 
 // SetLinearID sets the proposal ID if not already set

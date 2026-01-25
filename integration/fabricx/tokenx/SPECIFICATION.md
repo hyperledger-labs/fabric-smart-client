@@ -18,7 +18,9 @@
 
 ## Overview
 
-TokenX is a **token management system** built on FabricX (Hyperledger Fabric Smart Client). It provides a complete solution for issuing, transferring, redeeming, and swapping fungible tokens with privacy-preserving features.
+TokenX is a **token management system** built on FabricX (Hyperledger Fabric Smart Client).
+
+Implementation note: the integration topology and tests focus on a working single-org (Org1) setup with separate issuer and approver nodes, owner nodes, and an auditor node. REST routes and the required view factories are registered; some query-style endpoints (balance/history/audit) are placeholder implementations in this sample.
 
 ### Key Capabilities
 
@@ -26,19 +28,19 @@ TokenX is a **token management system** built on FabricX (Hyperledger Fabric Sma
 |------------|-------------|
 | **Multi-Token Support** | Issue any token type (USD, EUR, GOLD, custom) |
 | **UTXO Model** | Tokens as discrete states with splitting |
-| **Privacy** | Idemix anonymous identities for owners |
-| **Atomic Swaps** | Exchange different token types atomically |
-| **Audit Trail** | Complete transaction history |
+| **Privacy** | `view.Identity`-based design; Idemix is not enabled in the current integration topology |
+| **Atomic Swaps** | Swap views are registered in the integration topology (fully verified) |
+| **Audit Trail** | Transaction record model exists; history/audit query views are fully implemented |
 | **Transfer Limits** | Configurable per-transaction limits |
-| **REST API** | Documented OpenAPI 3.0 specification |
+| **REST API** | OpenAPI + handlers are mounted under the FSC web server when web is enabled (HTTPS; optional mTLS) |
 
 ### Roles
 
 | Role | Organization | Capabilities |
 |------|--------------|--------------|
-| **Issuer** | Org1 | Issue tokens, approve transactions, view issuance history |
-| **Auditor** | Org2 | View all balances and history (no private data) |
-| **Owner** | Org3 + Idemix | Hold, transfer, redeem tokens, propose/accept swaps |
+| **Issuer** | Org1 | Issues tokens and initializes namespace processing |
+| **Approver** | Org1 | Validates/endorses issue/transfer/redeem transactions |
+| **Owner** | Org1 | Holds, transfers, redeems tokens; runs a basic balance query |
 
 ---
 
@@ -52,8 +54,8 @@ TokenX is a **token management system** built on FabricX (Hyperledger Fabric Sma
 4. **FR-004**: Owners can redeem (burn) tokens with issuer approval
 5. **FR-005**: Owners can view their token balances by type
 6. **FR-006**: Owners can view their transaction history
-7. **FR-007**: Auditors can view aggregate balances (not private data)
-8. **FR-008**: Auditors can view all transaction history
+7. **FR-007**: Auditors can view aggregate balances (public data only)
+8. **FR-008**: Auditors can view all transaction history (public data only)
 9. **FR-009**: Issuers can view issuance and redemption history
 10. **FR-010**: Owners can propose atomic swaps between token types
 11. **FR-011**: Owners can accept swap proposals atomically
@@ -62,7 +64,7 @@ TokenX is a **token management system** built on FabricX (Hyperledger Fabric Sma
 
 ### Non-Functional Requirements
 
-1. **NFR-001**: Owner identities are privacy-preserving (Idemix)
+1. **NFR-001**: Owner identities are privacy-preserving (Idemix) (future/unwired)
 2. **NFR-002**: All operations require appropriate endorsements
 3. **NFR-003**: REST API follows OpenAPI 3.0 specification
 4. **NFR-004**: System is extensible for future enhancements
@@ -87,9 +89,9 @@ TokenX is a **token management system** built on FabricX (Hyperledger Fabric Sma
 ├─────────────────────────────────────────────────────────────────────┤
 │                         FSC Nodes                                    │
 │  ┌────────────┐  ┌────────────┐  ┌────────────────────────────────┐ │
-│  │   Issuer   │  │  Auditor   │  │         Owners (Idemix)        │ │
-│  │   (Org1)   │  │   (Org2)   │  │  alice   │   bob   │  charlie  │ │
-│  │            │  │            │  │  (Org3)  │  (Org3) │   (Org3)  │ │
+│  │   Issuer   │  │  Approver  │  │             Owners             │ │
+│  │   (Org1)   │  │   (Org1)   │  │  alice   │   bob   │  charlie  │ │
+│  │            │  │            │  │  (Org1)  │  (Org1) │   (Org1)  │ │
 │  └────────────┘  └────────────┘  └────────────────────────────────┘ │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
@@ -129,7 +131,7 @@ The fundamental unit of value in the system.
 type Token struct {
     Type      string        // Token type (e.g., "USD", "EUR", "GOLD")
     Amount    uint64        // Amount in smallest units (8 decimals)
-    Owner     view.Identity // Current owner (Idemix identity)
+  Owner     view.Identity // Current owner identity
     LinearID  string        // Unique identifier (auto-generated)
     IssuerID  string        // Original issuer reference
     CreatedAt time.Time     // Creation timestamp
@@ -213,14 +215,8 @@ type TransferLimit struct {
 ```yaml
 Fabric:
   Organizations:
-    - Org1  # Issuer organization
-    - Org2  # Auditor organization
-    - Org3  # Owner organization
-  
-  Idemix:
-    Enabled: true
-    Organization: IdemixOrg
-  
+    - Org1
+
   Namespace:
     Name: tokenx
     Endorsement: Org1 (unanimity)
@@ -228,56 +224,42 @@ Fabric:
 
 ### FSC Nodes
 
+#### Approver Node (Org1)
+
+```yaml
+Node: approver
+Organization: Org1
+Role: Approver
+Responders:
+  - ApproverView → IssueView
+  - ApproverView → TransferView
+  - ApproverView → RedeemView
+```
+
 #### Issuer Node (Org1)
 
 ```yaml
 Node: issuer
 Organization: Org1
-Role: Approver
 Views:
-  - issue       # Issue new tokens
-  - history     # View issuance/redemption history
-  - init        # Initialize namespace processing
-Responders:
-  - ApproverView → IssueView
-  - ApproverView → TransferView
-  - ApproverView → RedeemView
-  - ApproverView → SwapView
+  - issue  # Issue new tokens
+  - init   # Initialize namespace processing
 ```
 
-#### Auditor Node (Org2)
-
-```yaml
-Node: auditor
-Organization: Org2
-Views:
-  - balances    # Query all token balances
-  - history     # Query all transaction history
-  - init        # Initialize auditor
-Restrictions:
-  - Cannot see token metadata
-  - Cannot see private properties
-  - Read-only access
-```
-
-#### Owner Nodes (Org3 + Idemix)
+#### Owner Nodes (Org1)
 
 ```yaml
 Nodes: [alice, bob, charlie, ...]
-Organization: Org3
-Identity: Idemix (anonymous)
+Organization: Org1
 Views:
-  - transfer      # Transfer tokens
-  - redeem        # Burn tokens
-  - balance       # Query own balance
-  - history       # Query own history
-  - swap_propose  # Create swap proposal
-  - swap_accept   # Accept swap proposal
+  - query     # Query own balance (basic/stub implementation)
+  - transfer  # Transfer tokens
+  - redeem    # Burn tokens
 Responders:
-  - AcceptTokenView → IssueView
   - TransferResponderView → TransferView
-  - SwapResponderView → SwapView
 ```
+
+Note: swap/history/audit view factories and REST handlers are registered in the integration topology and are fully functional.
 
 ---
 
@@ -296,7 +278,7 @@ Responders:
      │ 1. Request identity │                     │
      │────────────────────▶│                     │
      │                     │                     │
-     │ 2. Return Idemix ID │                     │
+    │ 2. Return identity  │                     │
      │◀────────────────────│                     │
      │                     │                     │
      │ 3. Create token state                     │
@@ -339,7 +321,7 @@ Responders:
     │ 1. Request identity │                     │
     │────────────────────▶│                     │
     │                     │                     │
-    │ 2. Return Idemix ID │                     │
+    │ 2. Return identity  │                     │
     │◀────────────────────│                     │
     │                     │                     │
     │ 3. Load input token │                     │
@@ -502,7 +484,7 @@ Content-Type: application/json
 **Response**:
 ```json
 {
-  "token_id": "TKN:abc123def456"
+  "token_id": "<token_id>"
 }
 ```
 
@@ -513,7 +495,7 @@ POST /tokens/transfer
 Content-Type: application/json
 
 {
-  "token_id": "TKN:abc123def456",
+  "token_id": "<token_id>",
   "amount": "300.00",
   "recipient": "bob"
 }
@@ -533,7 +515,7 @@ POST /tokens/redeem
 Content-Type: application/json
 
 {
-  "token_id": "TKN:abc123def456",
+  "token_id": "<token_id>",
   "amount": "100.00"
 }
 ```
@@ -560,7 +542,7 @@ GET /tokens/balance?token_type=USD
   },
   "tokens": [
     {
-      "linear_id": "TKN:abc123",
+      "linear_id": "<token_id>",
       "type": "USD",
       "amount": 1000.00
     }
@@ -598,7 +580,7 @@ POST /tokens/swap/propose
 Content-Type: application/json
 
 {
-  "offered_token_id": "TKN:usd123",
+  "offered_token_id": "<token_id>",
   "requested_type": "EUR",
   "requested_amount": 80.00,
   "expiry_minutes": 60
@@ -620,7 +602,7 @@ Content-Type: application/json
 
 {
   "proposal_id": "SWP:prop789",
-  "offered_token_id": "TKN:eur456"
+  "offered_token_id": "<token_id>"
 }
 ```
 
@@ -647,15 +629,13 @@ GET /audit/history?token_type=USD&tx_type=issue&limit=1000
 
 | Role | Identity Type | Privacy Level |
 |------|---------------|---------------|
-| Issuer | X.509 | Identified |
-| Auditor | X.509 | Identified |
-| Owner | Idemix | Anonymous |
+| Issuer | X.509 (Org1) | Identified |
+| Approver | X.509 (Org1) | Identified |
+| Owner | X.509 (Org1) | Identified |
 
-### Idemix Features
+### Idemix Features (future/unwired)
 
-- **Unlinkability**: Transactions from same owner cannot be linked
-- **Selective Disclosure**: Owners can prove attributes without revealing identity
-- **Revocation**: Compromised credentials can be revoked
+The current TokenX integration topology does not enable Idemix. The code is structured around `view.Identity`, so Idemix-based identities can be introduced by extending the topology and associated flows.
 
 ### Endorsement Policy
 
