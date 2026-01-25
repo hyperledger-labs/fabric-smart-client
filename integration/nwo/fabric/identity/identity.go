@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
-	"github.com/hyperledger/fabric/msp"
 )
 
 //go:generate counterfeiter -o client/mock/identity.go -fake-name Identity . Identity

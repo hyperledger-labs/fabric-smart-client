@@ -13,9 +13,9 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric/protoutil"
 )
 
 const ConfigTXPrefix = "configtx_"
@@ -136,11 +136,6 @@ func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNu
 		// this is okay
 	default:
 		return errors.Errorf("invalid configtx's [%s] status [%d]", txID, vc)
-	}
-
-	// validate config as a dry update of the membership service
-	if err := c.MembershipService.DryUpdate(env); err != nil {
-		return errors.Wrapf(err, "config update error, block number [%d]", blockNumber)
 	}
 
 	// when validation passes, we can commit the config transaction

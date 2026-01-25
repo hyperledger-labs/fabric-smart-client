@@ -14,7 +14,7 @@ import (
 )
 
 func BenchmarkView(b *testing.B) {
-	srvEndpoint := setupServer(b)
+	srvEndpoint := setupServer(b, "cpu")
 
 	// we share a single connection among all client goroutines
 	cli, closeF := setupClient(b, srvEndpoint)

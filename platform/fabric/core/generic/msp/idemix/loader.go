@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
-	msp2 "github.com/hyperledger/fabric/msp"
+	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
 const (
@@ -26,7 +26,7 @@ type IdentityLoader struct {
 }
 
 func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
-	conf, err := msp2.GetLocalMspConfigWithType(manager.Config().TranslatePath(c.Path), nil, c.MSPID, c.MSPType)
+	conf, err := fabricmsp.GetLocalMspConfigWithType(manager.Config().TranslatePath(c.Path), nil, c.MSPID, c.MSPType)
 	if err != nil {
 		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", manager.Config().TranslatePath(c.Path))
 	}

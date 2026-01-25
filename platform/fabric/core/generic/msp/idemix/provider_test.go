@@ -14,12 +14,12 @@ import (
 	math "github.com/IBM/mathlib"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
+	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
-	msp2 "github.com/hyperledger/fabric/msp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,7 +29,7 @@ func TestProvider(t *testing.T) {
 
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
 
-	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
+	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
 	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
@@ -63,7 +63,7 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
 
-	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
+	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
 	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
@@ -125,7 +125,7 @@ func TestIdentityStandard(t *testing.T) {
 
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
 
-	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
+	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 
 	p, err := idemix2.NewProviderWithSigType(config, kvss, sigService, bccsp.Standard)
@@ -188,13 +188,13 @@ func TestAuditWithEidRhNymPolicy(t *testing.T) {
 	assert.NoError(t, err)
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
 
-	config, err := msp2.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
+	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
-	config, err = msp2.GetLocalMspConfigWithType("./testdata/idemix2", nil, "idemix", "idemix")
+	config, err = fabricmsp.GetLocalMspConfigWithType("./testdata/idemix2", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 	p2, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
@@ -227,13 +227,13 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
 
-	config, err := msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")
+	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/sameissuer/idemix", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 
-	config, err = msp2.GetLocalMspConfigWithType("./testdata/sameissuer/idemix2", nil, "idemix", "idemix")
+	config, err = fabricmsp.GetLocalMspConfigWithType("./testdata/sameissuer/idemix2", nil, "idemix", "idemix")
 	assert.NoError(t, err)
 	p2, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
 	assert.NoError(t, err)

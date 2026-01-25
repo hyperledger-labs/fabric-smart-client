@@ -11,22 +11,21 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric/common/channelconfig"
-	"github.com/hyperledger/fabric/common/configtx"
-	"github.com/hyperledger/fabric/msp"
-	"github.com/hyperledger/fabric/protoutil"
 )
 
 type Service struct {
 	// resourcesLock is used to serialize access to channelResources
 	resourcesLock sync.RWMutex
-	// channelResources is used to acquire configuration bundle resources.
-	channelResources channelconfig.Resources
+	// channelResources is used to acquire ChannelConfig.
+	channelResources *channelconfig.ChannelConfig
 
 	channelName string
 }
@@ -35,7 +34,7 @@ func NewService(channelName string) *Service {
 	return &Service{channelName: channelName}
 }
 
-func (c *Service) resources() channelconfig.Resources {
+func (c *Service) resources() *channelconfig.ChannelConfig {
 	c.resourcesLock.RLock()
 	res := c.channelResources
 	c.resourcesLock.RUnlock()
@@ -46,7 +45,7 @@ func (c *Service) Update(env *cb.Envelope) error {
 	c.resourcesLock.Lock()
 	defer c.resourcesLock.Unlock()
 
-	b, err := c.validateConfig(env)
+	b, err := c.parseConfig(env)
 	if err != nil {
 		return err
 	}
@@ -55,64 +54,18 @@ func (c *Service) Update(env *cb.Envelope) error {
 	return nil
 }
 
-func (c *Service) DryUpdate(env *cb.Envelope) error {
-	c.resourcesLock.RLock()
-	defer c.resourcesLock.RUnlock()
-
-	if _, err := c.validateConfig(env); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Service) validateConfig(env *cb.Envelope) (*channelconfig.Bundle, error) {
+func (c *Service) parseConfig(env *cb.Envelope) (*channelconfig.ChannelConfig, error) {
 	payload, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get payload from config transaction")
 	}
 
-	cenv, err := configtx.UnmarshalConfigEnvelope(payload.Data)
+	cenv, err := protoutil.UnmarshalConfigEnvelope(payload.Data)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error unmarshalling config which passed initial validity checks")
 	}
 
-	// check if config tx is valid
-	if c.channelResources != nil {
-		v := c.channelResources.ConfigtxValidator()
-		if err := v.Validate(cenv); err != nil {
-			return nil, errors.Wrapf(err, "failed to validate config transaction")
-		}
-	}
-
-	bundle, err := channelconfig.NewBundle(c.channelName, cenv.Config, factory.GetDefault())
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build a new bundle")
-	}
-
-	channelconfig.LogSanityChecks(bundle)
-	if err := capabilitiesSupported(bundle); err != nil {
-		return nil, err
-	}
-
-	return bundle, nil
-}
-
-func capabilitiesSupported(res channelconfig.Resources) error {
-	ac, ok := res.ApplicationConfig()
-	if !ok {
-		return errors.Errorf("[Channel %s] does not have application config so is incompatible", res.ConfigtxValidator().ChannelID())
-	}
-
-	if err := ac.Capabilities().Supported(); err != nil {
-		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
-	}
-
-	if err := res.ChannelConfig().Capabilities().Supported(); err != nil {
-		return errors.Wrapf(err, "[Channel %s] incompatible", res.ConfigtxValidator().ChannelID())
-	}
-
-	return nil
+	return channelconfig.NewChannelConfig(cenv.Config.ChannelGroup, factory.GetDefault())
 }
 
 func (c *Service) IsValid(identity view.Identity) error {
@@ -135,8 +88,8 @@ func (c *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 // GetMSPIDs retrieves the MSP IDs of the organizations in the current Channel
 // configuration.
 func (c *Service) GetMSPIDs() []string {
-	ac, ok := c.resources().ApplicationConfig()
-	if !ok || ac.Organizations() == nil {
+	ac := c.resources().ApplicationConfig()
+	if ac == nil || ac.Organizations() == nil {
 		return nil
 	}
 
@@ -149,8 +102,8 @@ func (c *Service) GetMSPIDs() []string {
 }
 
 func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
-	oc, ok := c.resources().OrdererConfig()
-	if !ok || oc.Organizations() == nil {
+	oc := c.resources().OrdererConfig()
+	if oc == nil {
 		return "", nil, fmt.Errorf("orderer config does not exist")
 	}
 
