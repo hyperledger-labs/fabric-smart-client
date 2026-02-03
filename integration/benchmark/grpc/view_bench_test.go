@@ -14,10 +14,10 @@ import (
 )
 
 func BenchmarkView(b *testing.B) {
-	srvEndpoint := setupServer(b, "cpu")
+	srvEndpoint := setupServer(b, WithServerMockSigner("default-server-id"), WithCPUWorkload(200000))
 
 	// we share a single connection among all client goroutines
-	cli, closeF := setupClient(b, srvEndpoint)
+	cli, closeF := setupClient(b, srvEndpoint, WithClientMockSigner("default-client-id"))
 	defer closeF()
 
 	b.RunParallel(func(pb *testing.PB) {

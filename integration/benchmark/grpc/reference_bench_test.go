@@ -80,7 +80,7 @@ func makeSelfSignedCert() ([]byte, []byte, error) {
 	// 4. PEM-encode cert & private key
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 
-	keyBytes, err := x509.MarshalECPrivateKey(key)
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(key)
 	if err != nil {
 		return nil, nil, err
 	}
