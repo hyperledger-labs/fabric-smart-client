@@ -8,6 +8,8 @@ package test
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	benchviews "github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/views"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -23,12 +26,115 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
+// setupCrypto generates certificates and writes them to temporary files.
+// It returns the paths and a cleanup function to delete the files after the test.
+func setupCrypto(tb testing.TB) (certPath, keyPath string) {
+	// 1. Call your helper to get PEM bytes
+	keyPEM, certPEM, err := makeSelfSignedCert()
+	require.NoError(tb, err)
+
+	// 2. Create Temp Directory
+	tmpDir := tb.TempDir()
+
+	certPath = filepath.Join(tmpDir, "cert.pem")
+	keyPath = filepath.Join(tmpDir, "key.pem")
+
+	// 3. Write the PEM bytes directly to files
+	err = os.WriteFile(certPath, certPEM, 0644)
+	require.NoError(tb, err)
+
+	err = os.WriteFile(keyPath, keyPEM, 0600)
+	require.NoError(tb, err)
+
+	return certPath, keyPath
+}
+
+// --- Option Types ---
+
+type serverConfig struct {
+	workload   view.View
+	signer     client.SigningIdentity
+	idProvider *benchmark.MockIdentityProvider
+}
+
+type clientConfig struct {
+	signer client.SigningIdentity
+}
+
+type ServerOption func(tb testing.TB, c *serverConfig)
+type ClientOption func(tb testing.TB, c *clientConfig)
+
+// --- Server Options ---
+
+func WithCPUWorkload(n int) ServerOption {
+	return func(tb testing.TB, c *serverConfig) {
+		params := &benchviews.CPUParams{N: n}
+		input, _ := json.Marshal(params)
+		factory := &benchviews.CPUViewFactory{}
+		v, err := factory.NewView(input)
+		require.NoError(tb, err)
+		c.workload = v
+	}
+}
+
+func WithECDSAWorkload() ServerOption {
+	return func(tb testing.TB, c *serverConfig) {
+		params := &benchviews.ECDSASignParams{}
+		input, _ := json.Marshal(params)
+		factory := &benchviews.ECDSASignViewFactory{}
+		v, err := factory.NewView(input)
+		require.NoError(tb, err)
+		c.workload = v
+	}
+}
+
+func WithServerMockSigner(id string) ServerOption {
+	return func(tb testing.TB, c *serverConfig) {
+		mIdentity := view.Identity(id)
+		c.signer = &benchmark.MockSigner{
+			SerializeFunc: func() ([]byte, error) { return mIdentity.Bytes(), nil },
+			SignFunc:      func(b []byte) ([]byte, error) { return b, nil },
+		}
+		c.idProvider = &benchmark.MockIdentityProvider{DefaultSigner: mIdentity}
+	}
+}
+
+func WithServerECDSASigner(certPath, keyPath string) ServerOption {
+	return func(tb testing.TB, c *serverConfig) {
+		signer, err := client.NewX509SigningIdentity(certPath, keyPath)
+		require.NoError(tb, err)
+		c.signer = signer
+		serialized, _ := signer.Serialize()
+		c.idProvider = &benchmark.MockIdentityProvider{DefaultSigner: view.Identity(serialized)}
+	}
+}
+
+// --- Client Options ---
+
+func WithClientMockSigner(id string) ClientOption {
+	return func(tb testing.TB, c *clientConfig) {
+		mIdentity := view.Identity(id)
+		c.signer = &benchmark.MockSigner{
+			SerializeFunc: func() ([]byte, error) { return mIdentity.Bytes(), nil },
+			SignFunc:      func(b []byte) ([]byte, error) { return b, nil },
+		}
+	}
+}
+
+func WithClientECDSASigner(certPath, keyPath string) ClientOption {
+	return func(tb testing.TB, c *clientConfig) {
+		signer, err := client.NewX509SigningIdentity(certPath, keyPath)
+		require.NoError(tb, err)
+		c.signer = signer
+	}
+}
+
 func BenchmarkGRPCSingleConnectionCPU(b *testing.B) {
-	srvEndpoint := setupServer(b, "cpu")
+	srvEndpoint := setupServer(b, WithServerMockSigner("default-server-id"), WithCPUWorkload(200000))
 	b.ResetTimer()
 
 	// we share a single connection among all client goroutines
-	cli, closeF := setupClient(b, srvEndpoint)
+	cli, closeF := setupClient(b, srvEndpoint, WithClientMockSigner("default-client-id"))
 	defer closeF()
 
 	b.RunParallel(func(pb *testing.PB) {
@@ -42,12 +148,12 @@ func BenchmarkGRPCSingleConnectionCPU(b *testing.B) {
 }
 
 func BenchmarkGRPCMultiConnectionCPU(b *testing.B) {
-	srvEndpoint := setupServer(b, "cpu")
+	srvEndpoint := setupServer(b, WithServerMockSigner("default-server-id"), WithCPUWorkload(200000))
 	b.ResetTimer()
 
 	b.RunParallel(func(pb *testing.PB) {
 		// each goroutine gets its own client + connection
-		cli, closeF := setupClient(b, srvEndpoint)
+		cli, closeF := setupClient(b, srvEndpoint, WithClientMockSigner("default-client-id"))
 		defer closeF()
 
 		for pb.Next() {
@@ -61,12 +167,11 @@ func BenchmarkGRPCMultiConnectionCPU(b *testing.B) {
 }
 
 // --- ECDSA Workload Benchmarks ---
-
-func BenchmarkGRPCSingleConnectionECDSA(b *testing.B) {
-	srvEndpoint := setupServer(b, "ecdsa")
+func BenchmarkGRPCSingleConnectionECDSAWithMockSigner(b *testing.B) {
+	srvEndpoint := setupServer(b, WithECDSAWorkload(), WithServerMockSigner("default-server-id"))
 	b.ResetTimer()
 
-	cli, closeF := setupClient(b, srvEndpoint)
+	cli, closeF := setupClient(b, srvEndpoint, WithClientMockSigner("default-client-id"))
 	defer closeF()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -78,11 +183,11 @@ func BenchmarkGRPCSingleConnectionECDSA(b *testing.B) {
 	benchmark.ReportTPS(b)
 }
 
-func BenchmarkGRPCMultiConnectionECDSA(b *testing.B) {
-	srvEndpoint := setupServer(b, "ecdsa")
+func BenchmarkGRPCMultiConnectionECDSAWithMockSigner(b *testing.B) {
+	srvEndpoint := setupServer(b, WithECDSAWorkload(), WithServerMockSigner("default-server-id"))
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
-		cli, closeF := setupClient(b, srvEndpoint)
+		cli, closeF := setupClient(b, srvEndpoint, WithClientMockSigner("default-client-id"))
 		defer closeF()
 
 		for pb.Next() {
@@ -94,23 +199,61 @@ func BenchmarkGRPCMultiConnectionECDSA(b *testing.B) {
 	benchmark.ReportTPS(b)
 }
 
-func setupServer(tb testing.TB, workloadType string) string {
+// --- ECDSA Workload Benchmarks real gRPC crypto ---
+
+func BenchmarkGRPCSingleConnectionECDSAWithECDSASigner(b *testing.B) {
+	cPath, kPath := setupCrypto(b)
+
+	srvEndpoint := setupServer(b, WithECDSAWorkload(), WithServerECDSASigner(cPath, kPath))
+	b.ResetTimer()
+
+	cli, closeF := setupClient(b, srvEndpoint, WithClientECDSASigner(cPath, kPath))
+	defer closeF()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			resp, err := cli.CallViewWithContext(b.Context(), "fid", nil)
+			require.NoError(b, err)
+			require.NotNil(b, resp)
+		}
+	})
+	benchmark.ReportTPS(b)
+}
+
+func BenchmarkGRPCMultiConnectionECDSAWithECDSASigner(b *testing.B) {
+	cPath, kPath := setupCrypto(b)
+
+	srvEndpoint := setupServer(b, WithECDSAWorkload(), WithServerECDSASigner(cPath, kPath))
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		cli, closeF := setupClient(b, srvEndpoint, WithClientECDSASigner(cPath, kPath))
+		defer closeF()
+
+		for pb.Next() {
+			resp, err := cli.CallViewWithContext(b.Context(), "fid", nil)
+			require.NoError(b, err)
+			require.NotNil(b, resp)
+		}
+	})
+	benchmark.ReportTPS(b)
+}
+
+func setupServer(tb testing.TB, opts ...ServerOption) string {
 	tb.Helper()
 
-	mDefaultIdentity := view.Identity("server identity")
-	mSigner := &benchmark.MockSigner{
-		SerializeFunc: func() ([]byte, error) {
-			return mDefaultIdentity.Bytes(), nil
-		},
-		SignFunc: func(bytes []byte) ([]byte, error) {
-			return bytes, nil
-		},
+	cfg := &serverConfig{}
+	// Apply options
+	for _, opt := range opts {
+		opt(tb, cfg)
 	}
-	mIdentityProvider := &benchmark.MockIdentityProvider{DefaultSigner: mDefaultIdentity}
-	mSigService := &benchmark.MockSignerProvider{DefaultSigner: mSigner}
 
+	// Validate that the options successfully populated the config
+	require.NotNil(tb, cfg.workload, "server workload was not configured by options")
+	require.NotNil(tb, cfg.signer, "server signer was not configured by options")
+	require.NotNil(tb, cfg.idProvider, "server identity provider was not configured by options")
+
+	mSigService := &benchmark.MockSignerProvider{DefaultSigner: cfg.signer}
 	// marshaller
-	tm, err := server.NewResponseMarshaler(mIdentityProvider, mSigService)
+	tm, err := server.NewResponseMarshaler(cfg.idProvider, mSigService)
 	require.NoError(tb, err)
 	require.NotNil(tb, tm)
 
@@ -133,28 +276,8 @@ func setupServer(tb testing.TB, workloadType string) string {
 	srv, err := server.NewViewServiceServer(tm, &server.YesPolicyChecker{}, server.NewMetrics(&disabled.Provider{}), noop.NewTracerProvider())
 	require.NoError(tb, err)
 	require.NotNil(tb, srv)
-
-	var v view.View
-	switch workloadType {
-	case "cpu":
-		parms := &benchviews.CPUParams{N: 200000}
-		input, _ := json.Marshal(parms)
-		factory := &benchviews.CPUViewFactory{}
-		v, _ = factory.NewView(input)
-	case "ecdsa":
-		parms := &benchviews.ECDSASignParams{}
-		input, _ := json.Marshal(parms)
-		factory := &benchviews.ECDSASignViewFactory{}
-		v, _ = factory.NewView(input)
-	default:
-		tb.Fatalf("unknown workload type: %s", workloadType)
-	}
-
 	// our view manager
-	vm := &benchmark.MockViewManager{Constructor: func() view.View {
-		return v
-	}}
-
+	vm := &benchmark.MockViewManager{Constructor: func() view.View { return cfg.workload }}
 	// register view manager wit grpc impl
 	server.InstallViewHandler(vm, srv, noop.NewTracerProvider())
 
@@ -170,19 +293,18 @@ func setupServer(tb testing.TB, workloadType string) string {
 	return grpcSrv.Address()
 }
 
-func setupClient(tb testing.TB, srvEndpoint string) (*benchmark.ViewClient, func()) {
+func setupClient(tb testing.TB, srvEndpoint string, opts ...ClientOption) (*benchmark.ViewClient, func()) {
 	tb.Helper()
 
-	mDefaultIdentity := view.Identity("client identity")
-	mSigner := &benchmark.MockSigner{
-		SerializeFunc: func() ([]byte, error) {
-			return mDefaultIdentity.Bytes(), nil
-		},
-		SignFunc: func(bytes []byte) ([]byte, error) {
-			return bytes, nil
-		}}
+	cfg := &clientConfig{}
+	// Apply options
+	for _, opt := range opts {
+		opt(tb, cfg)
+	}
+	// Validate that the signer is present before proceeding
+	require.NotNil(tb, cfg.signer, "client signer was not configured by options")
 
-	signerIdentity, err := mSigner.Serialize()
+	signerIdentity, err := cfg.signer.Serialize()
 	require.NoError(tb, err)
 
 	grpcClient, err := grpc.NewGRPCClient(grpc.ClientConfig{
@@ -206,7 +328,7 @@ func setupClient(tb testing.TB, srvEndpoint string) (*benchmark.ViewClient, func
 	require.NoError(tb, err)
 
 	cli := &benchmark.ViewClient{
-		SignF:       mSigner.Sign,
+		SignF:       cfg.signer.Sign,
 		Creator:     signerIdentity,
 		TLSCertHash: tlsCertHash,
 		Client:      protos.NewViewServiceClient(conn),
