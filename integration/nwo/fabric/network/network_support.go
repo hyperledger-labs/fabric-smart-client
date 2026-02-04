@@ -866,7 +866,7 @@ func (n *Network) ConfigTxGen(command common.Command) (*gexec.Session, error) {
 // Discover starts a gexec.Session for the provided discover command.
 func (n *Network) Discover(command common.Command) (*gexec.Session, error) {
 	cmdPath := findCmdAtEnv(discoverCMD)
-	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
+	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", discoverCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
 
 	cmd := common.NewCommand(cmdPath, command)
 	cmd.Args = append(cmd.Args, "--peerTLSCA", n.CACertsBundlePath())
@@ -886,7 +886,7 @@ func (n *Network) Osnadmin(command common.Command) (*gexec.Session, error) {
 // can be used to start and manage an orderer process.
 func (n *Network) OrdererRunner(o *topology.Orderer) *runner2.Runner {
 	cmdPath := findCmdAtEnv(ordererCMD)
-	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
+	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", ordererCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
 
 	cmd := exec.Command(cmdPath)
 	cmd.Env = os.Environ()
@@ -1013,7 +1013,7 @@ func (n *Network) PeerGroupRunner() ifrit.Runner {
 
 func (n *Network) peerCommand(command common.Command, tlsDir string, env ...string) *exec.Cmd {
 	cmdPath := findCmdAtEnv(peerCMD)
-	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", configtxgenCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
+	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", peerCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
 	logger.Debugf("Found %s => %s", peerCMD, cmdPath)
 
 	cmd := common.NewCommand(cmdPath, command)
