@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
 	"github.com/hyperledger/fabric-x-committer/api/protonotify"
 	"golang.org/x/sync/errgroup"
@@ -39,7 +40,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	logger.Debugf("Notification listener stream starting.")
 	notifyStream, err := n.notifyClient.OpenNotificationStream(ctx)
 	if err != nil {
-		return err
+		return grpc.ErrorParser(logger, "notification_service", err)
 	}
 	// Use the base context for errgroup
 	g, gCtx := errgroup.WithContext(ctx)
@@ -49,6 +50,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 		for {
 			res, err := notifyStream.Recv()
 			if err != nil {
+				_ = grpc.ErrorParser(logger, "notification_service", err)
 				if errors.Is(err, context.Canceled) {
 					return nil
 				}
@@ -73,7 +75,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 			}
 
 			if err := notifyStream.Send(req); err != nil {
-				return err
+				return grpc.ErrorParser(logger, "notification_service", err)
 			}
 		}
 	})

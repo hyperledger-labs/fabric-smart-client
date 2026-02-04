@@ -39,9 +39,10 @@ func GrpcClient(c *Config) (*grpc.ClientConn, error) {
 	opts = append(opts, WithTLS(endpoint))
 	opts = append(opts, grpc2.ClientKeepaliveOptions(
 		grpc2.KeepaliveOptions{
-			ClientInterval: 120 * time.Second,
-			ClientTimeout:  600 * time.Second,
+			ClientInterval: 20 * time.Hour,
+			ClientTimeout:  21 * time.Hour,
 		})...)
+	opts = append(opts, grpc.WithStatsHandler(&grpc2.DisconnectTracker{ClientName: "QueryService"}))
 
 	return grpc.NewClient(endpoint.Address, opts...)
 }

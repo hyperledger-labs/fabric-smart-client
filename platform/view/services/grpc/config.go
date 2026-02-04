@@ -17,6 +17,8 @@ import (
 	"google.golang.org/grpc/stats"
 )
 
+var logger = logging.MustGetLogger()
+
 // Configuration defaults
 var (
 	// Max send and receive bytes for grpc clients and servers
@@ -165,10 +167,12 @@ func ServerKeepaliveOptions(ka KeepaliveOptions) []grpc.ServerOption {
 // ClientKeepaliveOptions returns gRPC keepalive options for clients.
 func ClientKeepaliveOptions(ka KeepaliveOptions) []grpc.DialOption {
 	var dialOpts []grpc.DialOption
+	logger.Infof("ClientParameters [%s:%s]", ka.ClientInterval, ka.ClientTimeout)
+
 	kap := keepalive.ClientParameters{
 		Time:                ka.ClientInterval,
 		Timeout:             ka.ClientTimeout,
-		PermitWithoutStream: true,
+		PermitWithoutStream: false,
 	}
 	dialOpts = append(dialOpts, grpc.WithKeepaliveParams(kap))
 	return dialOpts

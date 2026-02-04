@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-x-committer/api/protoqueryservice"
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -77,7 +78,7 @@ func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
 		TxIds: []string{txID},
 	})
 	if err != nil {
-		return 0, errors.Wrap(err, "query get rows")
+		return 0, errors.Wrap(grpc.ErrorParser(logger, "query_service", err), "query get rows")
 	}
 	logger.Debugf("QS GetState: got response in %v", time.Since(now))
 	if len(res.Statuses) == 0 {
@@ -102,7 +103,7 @@ func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[dr
 	res, err := s.client.GetRows(ctx, q)
 	if err != nil {
 		logger.Warnf("QS GetState: error calling getRows: %v", err)
-		return nil, errors.Wrap(err, "query get rows")
+		return nil, errors.Wrap(grpc.ErrorParser(logger, "query_service", err), "query get rows")
 	}
 	logger.Debugf("QS GetState: got response in %v", time.Since(now))
 
