@@ -65,6 +65,7 @@ func (p *SDK) Install() error {
 	return errors.Join(
 		digutils.Register[finality.ListenerManagerProvider](p.Container()),
 		digutils.Register[queryservice.Provider](p.Container()),
+		digutils.Register[*fabricx.NetworkServiceProvider](p.Container()), // GetFabricNetworkService is used by many components
 	)
 }
 
