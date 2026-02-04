@@ -1,79 +1,134 @@
 # FSC Benchmarks
 
-This package contains useful micro benchmarks for the FSC runtime.
+Performance benchmarks for the Fabric Smart Client framework, measuring throughput (TPS) and latency across different workloads and deployment scenarios.
 
-## Benchmarking
+## Overview
 
-### Background material
+This package contains micro-benchmarks organized into three categories:
 
-There are many useful articles about go benchmarks available online. Here just a few good starting points: 
-- https://gobyexample.com/testing-and-benchmarking
-- https://blog.cloudflare.com/go-dont-collect-my-garbage/
-- https://mcclain.sh/posts/go-benchmarking/
+### 1. View Workloads (`views/`)
+Standalone view implementations to define various workloads:
+- **noop**: Minimal no-op view (baseline overhead)
+- **cpu**: CPU-intensive workload (200k iterations)
+- **ecdsa**: ECDSA P-256 signing operations
 
-### Run them all
+### 2. gRPC Benchmarks (`grpc/`)
+Direct gRPC client/server benchmarks without FSC node overhead:
+- **grpc/**: Basic gRPC benchmarks with mock/real signers (local)
+- **grpc/remote/**: Advanced benchmarks with configurable workloads, connections, and workers
+  - Supports local and remote deployment
+  - Measures TPS and tail latency (p5, p95, p99)
+  - See `grpc/remote/README.md` for details
 
-We can run all benchmarks in this package as follows:
+### 3. Node Benchmarks (`node/`)
+FSC node benchmarks via View API and gRPC View API:
+- **Direct API**: View execution without network overhead
+- **gRPC API**: View execution via gRPC (single/multi-connection)
+  - **node/**: Local client/server benchmarks 
+  - **node/remote/**: Remote client/server benchmarks
+    - See `node/remote/README.md` for details
 
+## Quick Start
+
+### Run View Benchmarks
 ```bash
-go test -bench=. -benchmem -count=10 -timeout=20m -cpu=1,2,4,8,16 -run=^$ ./... > plots/benchmark_gc_100.txt
+# Run all view benchmarks
+go test -bench=. -benchmem -count=10 -cpu=1,2,4,8 ./views/
+
+# Run specific workload
+go test -bench=BenchmarkECDSA -benchmem -count=10 -cpu=1,2,4,8 ./views/
 ```
 
-#### Garbage Collection
-
-Some code, in particular, allocation-intensive operations may benefit from tweaking the garbage collector settings.
-There is a highly recommended read about go's GC https://go.dev/doc/gc-guide.
-
+### Run Node Benchmarks
 ```bash
-# Default
-GOGC=100
+# Run all node benchmarks
+go test -bench=. -benchmem -count=5 -cpu=1,8,16 ./node/
 
-# No garbage collection, use this setting only for testing! :)
-GOGC=off
+# Run with specific connection counts
+go test -bench=BenchmarkAPIGRPC -benchmem -count=5 -cpu=1,8,16 -numConn=1,2,4 ./node/
 ```
 
-If we want to study the impact of different GC settings we can run the following, for example:
-
+### Run gRPC Benchmarks (Next)
 ```bash
-GOGC=100 go test -bench=. -benchmem -count=10 -timeout=20m -cpu=1,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,48,64 -run=^$ ./... > plots/benchmark_gc_100.txt
-GOGC=off go test -bench=. -benchmem -count=10 -timeout=20m -cpu=1,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,48,64 -run=^$ ./... > plots/benchmark_gc_off.txt
-GOGC=8000 go test -bench=. -benchmem -count=10 -timeout=20m -cpu=1,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,48,64 -run=^$ ./... > plots/benchmark_gc_8000.txt
+# Start server
+cd grpc/remote/server && go run main.go
+
+# Run client (in another terminal)
+cd grpc/remote/client
+go run main.go -addr=localhost:8099 -benchtime=10s -count=5 \
+  -workloads=echo,cpu,ecdsa -cpu=1,8,16,32 -numConn=1,2,4
 ```
 
+## Garbage Collection Tuning
 
-## Plotting
-
-The `plot/` directory contains a python script to visualize the benchmark results.
-
-### Install
+Go's garbage collector can significantly impact performance. Test with different settings:
 
 ```bash
+# Default GC
+GOGC=100 go test -bench=. -benchmem -count=10 ./...
+
+# Aggressive GC (more frequent collections)
+GOGC=50 go test -bench=. -benchmem -count=10 ./...
+
+# Relaxed GC (less frequent collections)
+GOGC=8000 go test -bench=. -benchmem -count=10 ./...
+
+# Disable GC (testing only!)
+GOGC=off go test -bench=. -benchmem -count=10 ./...
+```
+
+Save results for comparison:
+```bash
+GOGC=100 go test -bench=. -benchmem -count=10 -cpu=1,2,4,8 ./... > plots/benchmark_gc_100.txt
+GOGC=off go test -bench=. -benchmem -count=10 -cpu=1,2,4,8 ./... > plots/benchmark_gc_off.txt
+```
+
+## Visualization
+
+The `plots/` directory contains Python scripts to visualize benchmark results:
+
+```bash
+# Setup
+cd plots
 python3 -m venv env
 source env/bin/activate
 pip3 install -r requirements.txt
+
+# Generate plots
+python3 plot.py benchmark_gc_100.txt benchmark_gc_100.pdf
+python3 plot_grpc.py grpc_results.txt grpc_results.pdf
+python3 plot_node.py node_results.txt node_results.pdf
+
+# Plot all results
+./plot_all.sh
 ```
 
-### Plot
+## Understanding Results
 
-Run the python script and provide the input file and the output file as arguments.
+Benchmark output includes:
+- **N**: Number of operations executed
+- **TPS**: Transactions per second (throughput)
+- **ns/op**: Nanoseconds per operation (latency)
+- **p5/p95/p99**: Latency percentiles (for next/ benchmarks)
+- **B/op**: Bytes allocated per operation
+- **allocs/op**: Allocations per operation
 
-```bash
-python3 plot.py benchmark_gc_off.txt benchmark_gc_off.pdf
+Example output:
+```
+BenchmarkAPIGRPC/w=ecdsa/nc=2-16    236702    23670 TPS    654140 ns/op (p5)    847374 ns/op (p95)
 ```
 
-This will generate the graph as pdf (`result_<timestamp>.pdf`).
+## Best Practices
 
-### Example
+1. **Warmup**: Benchmarks include warmup phases to reach steady-state
+2. **Multiple Runs**: Use `-count=5` or higher for statistical significance
+3. **CPU Scaling**: Test with `-cpu=1,2,4,8,16` to measure scalability
+4. **GC Impact**: Compare results with different GOGC settings
+5. **Isolation**: Run on idle systems for consistent results
+6. **Remote Testing**: Use `node/remote/` or `grpc/remote/` for realistic network conditions
 
-Let's run the `ECDSASignView` benchmark as an example.
-We turn garbage collection off using with `GOGC=off`, set the number of benchmark iteration with `-count=10`, and set the number of workers with `-cpu=1,2,4,8,16`.
-We save the results in `benchmark_gc_off.txt`, which we use later to plot our graphs.
+## Resources
 
-Once the benchmark is finished, we use `plot/plot.py` to create the result graphs as `pdf`.
-
-```bash
-GOGC=off go test -bench='ECDSASignView' -benchmem -count=10 -cpu=1,2,4,8,16 -run=^$ ./... > plots/benchmark_gc_off.txt
-cd plots; python3 plot.py benchmark_gc_off.txt benchmark_gc_off.pdf
-```
-
-Happy benchmarking!
+- [Go Benchmarking Guide](https://gobyexample.com/testing-and-benchmarking)
+- [Go GC Guide](https://go.dev/doc/gc-guide)
+- [Benchmark Analysis](https://mcclain.sh/posts/go-benchmarking/)

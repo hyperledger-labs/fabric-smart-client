@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+option go_package = "github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/remote";
+
+package remote;
+
+service BenchmarkService {
+  rpc Process(Request) returns (Response);
+}
+
+message Request {
+  string workload = 1;
+  bytes input = 2;
+}
+
+message Response {
+  bytes output = 1;
+}

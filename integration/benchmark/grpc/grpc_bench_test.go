@@ -26,6 +26,77 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
+const (
+	serverSignerID = "default-server-id"
+	clientSignerID = "default-client-id"
+
+	cpuBurnVal = 200000
+)
+
+func BenchmarkGRPCImpl(b *testing.B) {
+	cPath, kPath := setupCrypto(b)
+
+	var benchmarks = []struct {
+		name          string
+		serverOptions []ServerOption
+		clientOptions []ClientOption
+	}{
+		{
+			name:          "w=noop/grpcsigner=mock",
+			serverOptions: []ServerOption{WithServerMockSigner(serverSignerID), WithNOOPWorkload()},
+			clientOptions: []ClientOption{WithClientMockSigner(clientSignerID)},
+		},
+		{
+			name:          "w=cpu/grpcsigner=mock",
+			serverOptions: []ServerOption{WithServerMockSigner(serverSignerID), WithCPUWorkload(cpuBurnVal)},
+			clientOptions: []ClientOption{WithClientMockSigner(clientSignerID)},
+		},
+		{
+			name:          "w=ecdsa/grpcsigner=mock",
+			serverOptions: []ServerOption{WithServerMockSigner(serverSignerID), WithECDSAWorkload()},
+			clientOptions: []ClientOption{WithClientMockSigner(clientSignerID)},
+		},
+		{
+			name:          "w=noop/grpcsigner=ecdsa",
+			serverOptions: []ServerOption{WithServerECDSASigner(cPath, kPath), WithNOOPWorkload()},
+			clientOptions: []ClientOption{WithClientECDSASigner(cPath, kPath)},
+		},
+		{
+			name:          "w=cpu/grpcsigner=ecdsa",
+			serverOptions: []ServerOption{WithServerECDSASigner(cPath, kPath), WithCPUWorkload(cpuBurnVal)},
+			clientOptions: []ClientOption{WithClientECDSASigner(cPath, kPath)},
+		},
+		{
+			name:          "w=ecdsa/grpcsigner=ecdsa",
+			serverOptions: []ServerOption{WithServerECDSASigner(cPath, kPath), WithECDSAWorkload()},
+			clientOptions: []ClientOption{WithClientECDSASigner(cPath, kPath)},
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			runGPRCImpl(b, bm.serverOptions, bm.clientOptions)
+		})
+	}
+}
+
+func runGPRCImpl(b *testing.B, srvOptions []ServerOption, clientOptions []ClientOption) {
+	srvEndpoint := setupServer(b, srvOptions...)
+
+	// we share a single connection among all client goroutines
+	cli, closeF := setupClient(b, srvEndpoint, clientOptions...)
+	defer closeF()
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			resp, err := cli.CallViewWithContext(b.Context(), "fid", nil)
+			require.NoError(b, err)
+			require.NotNil(b, resp)
+		}
+	})
+	benchmark.ReportTPS(b)
+}
+
 // setupCrypto generates certificates and writes them to temporary files.
 // It returns the paths and a cleanup function to delete the files after the test.
 func setupCrypto(tb testing.TB) (certPath, keyPath string) {
@@ -65,6 +136,14 @@ type ServerOption func(tb testing.TB, c *serverConfig)
 type ClientOption func(tb testing.TB, c *clientConfig)
 
 // --- Server Options ---
+
+func WithNOOPWorkload() ServerOption {
+	return func(tb testing.TB, c *serverConfig) {
+		factory := &benchviews.NoopViewFactory{}
+		v, _ := factory.NewView(nil)
+		c.workload = v
+	}
+}
 
 func WithCPUWorkload(n int) ServerOption {
 	return func(tb testing.TB, c *serverConfig) {
@@ -129,114 +208,7 @@ func WithClientECDSASigner(certPath, keyPath string) ClientOption {
 	}
 }
 
-func BenchmarkGRPCSingleConnectionCPU(b *testing.B) {
-	srvEndpoint := setupServer(b, WithServerMockSigner("default-server-id"), WithCPUWorkload(200000))
-	b.ResetTimer()
-
-	// we share a single connection among all client goroutines
-	cli, closeF := setupClient(b, srvEndpoint, WithClientMockSigner("default-client-id"))
-	defer closeF()
-
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			resp, err := cli.CallViewWithContext(b.Context(), "fid", nil)
-			require.NoError(b, err)
-			require.NotNil(b, resp)
-		}
-	})
-	benchmark.ReportTPS(b)
-}
-
-func BenchmarkGRPCMultiConnectionCPU(b *testing.B) {
-	srvEndpoint := setupServer(b, WithServerMockSigner("default-server-id"), WithCPUWorkload(200000))
-	b.ResetTimer()
-
-	b.RunParallel(func(pb *testing.PB) {
-		// each goroutine gets its own client + connection
-		cli, closeF := setupClient(b, srvEndpoint, WithClientMockSigner("default-client-id"))
-		defer closeF()
-
-		for pb.Next() {
-			resp, err := cli.CallViewWithContext(b.Context(), "fid", nil)
-			require.NoError(b, err)
-			require.NotNil(b, resp)
-		}
-	})
-
-	benchmark.ReportTPS(b)
-}
-
-// --- ECDSA Workload Benchmarks ---
-func BenchmarkGRPCSingleConnectionECDSAWithMockSigner(b *testing.B) {
-	srvEndpoint := setupServer(b, WithECDSAWorkload(), WithServerMockSigner("default-server-id"))
-	b.ResetTimer()
-
-	cli, closeF := setupClient(b, srvEndpoint, WithClientMockSigner("default-client-id"))
-	defer closeF()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			resp, err := cli.CallViewWithContext(b.Context(), "fid", nil)
-			require.NoError(b, err)
-			require.NotNil(b, resp)
-		}
-	})
-	benchmark.ReportTPS(b)
-}
-
-func BenchmarkGRPCMultiConnectionECDSAWithMockSigner(b *testing.B) {
-	srvEndpoint := setupServer(b, WithECDSAWorkload(), WithServerMockSigner("default-server-id"))
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		cli, closeF := setupClient(b, srvEndpoint, WithClientMockSigner("default-client-id"))
-		defer closeF()
-
-		for pb.Next() {
-			resp, err := cli.CallViewWithContext(b.Context(), "fid", nil)
-			require.NoError(b, err)
-			require.NotNil(b, resp)
-		}
-	})
-	benchmark.ReportTPS(b)
-}
-
-// --- ECDSA Workload Benchmarks real gRPC crypto ---
-
-func BenchmarkGRPCSingleConnectionECDSAWithECDSASigner(b *testing.B) {
-	cPath, kPath := setupCrypto(b)
-
-	srvEndpoint := setupServer(b, WithECDSAWorkload(), WithServerECDSASigner(cPath, kPath))
-	b.ResetTimer()
-
-	cli, closeF := setupClient(b, srvEndpoint, WithClientECDSASigner(cPath, kPath))
-	defer closeF()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			resp, err := cli.CallViewWithContext(b.Context(), "fid", nil)
-			require.NoError(b, err)
-			require.NotNil(b, resp)
-		}
-	})
-	benchmark.ReportTPS(b)
-}
-
-func BenchmarkGRPCMultiConnectionECDSAWithECDSASigner(b *testing.B) {
-	cPath, kPath := setupCrypto(b)
-
-	srvEndpoint := setupServer(b, WithECDSAWorkload(), WithServerECDSASigner(cPath, kPath))
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		cli, closeF := setupClient(b, srvEndpoint, WithClientECDSASigner(cPath, kPath))
-		defer closeF()
-
-		for pb.Next() {
-			resp, err := cli.CallViewWithContext(b.Context(), "fid", nil)
-			require.NoError(b, err)
-			require.NotNil(b, resp)
-		}
-	})
-	benchmark.ReportTPS(b)
-}
-
+// setupServer create a grpc server using the grpc server impl in `platform/view/services/view/grpc/server`
 func setupServer(tb testing.TB, opts ...ServerOption) string {
 	tb.Helper()
 
@@ -293,6 +265,7 @@ func setupServer(tb testing.TB, opts ...ServerOption) string {
 	return grpcSrv.Address()
 }
 
+// setupClient create a grpc client using the grpc client impl in `platform/view/services/view/grpc/client`
 func setupClient(tb testing.TB, srvEndpoint string, opts ...ClientOption) (*benchmark.ViewClient, func()) {
 	tb.Helper()
 
