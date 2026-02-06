@@ -20,6 +20,7 @@ import (
 type QueryService interface {
 	GetState(ns driver.Namespace, key driver.PKey) (*driver.VaultValue, error)
 	GetStates(map[driver.Namespace][]driver.PKey) (map[driver.Namespace]map[driver.PKey]driver.VaultValue, error)
+	GetTransactionStatus(txID string) (int32, error)
 }
 
 func NewRemoteQueryServiceFromConfig(configService fdriver.ConfigService) (*RemoteQueryService, error) {
