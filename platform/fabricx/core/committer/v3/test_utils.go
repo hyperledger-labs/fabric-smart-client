@@ -29,5 +29,6 @@ func ContainerEnvVars(peerMSPDir, scMSPID, channelName, ordererEndpoint string) 
 		"SC_ORDERER_BLOCK_SIZE=1",
 		"SC_VC_LOGGING_LEVEL=DEBUG",
 		"SC_VERIFIER_LOGGING_LEVEL=INFO",
+		"SC_SIDECAR_SERVER_KEEP_ALIVE_ENFORCEMENT_POLICY=true",
 	}
 }
