@@ -6,6 +6,12 @@ Performance benchmarks for the Fabric Smart Client framework, measuring throughp
 
 This package contains micro-benchmarks organized into three categories:
 
+## Benchmark Architecture
+
+The benchmark suite follows a layered architecture to systematically measure overhead at each level of the stack:
+
+![Benchmark Architecture](benchmark_architecture.drawio.png)
+
 ### 1. View Workloads (`views/`)
 Standalone view implementations defining various workloads:
 - **noop**: Minimal no-op view (baseline overhead)

@@ -123,7 +123,3 @@ func BenchmarkAPI(b *testing.B) {
 	// cleanup server
 	n.Stop()
 }
-
-func ReportTPS(b *testing.B) {
-	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "TPS")
-}

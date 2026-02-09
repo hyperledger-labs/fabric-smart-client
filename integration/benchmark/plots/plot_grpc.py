@@ -1,20 +1,49 @@
 import re
 import sys
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from collections import defaultdict
 
 # ----------------------------
+#  WORKLOAD STYLING
+# ----------------------------
+# Consistent colors and markers for workloads across all plots
+# Colors are colorblind-friendly, markers provide additional distinction
+
+WORKLOAD_STYLES = {
+    'noop': {'color': '#0173B2', 'marker': 'o', 'label': 'w=noop'},      # Blue, circle
+    'cpu': {'color': '#DE8F05', 'marker': 's', 'label': 'w=cpu'},        # Orange, square
+    'ecdsa': {'color': '#029E73', 'marker': '^', 'label': 'w=ecdsa'},    # Green, triangle up
+    'echo': {'color': '#CC78BC', 'marker': 'D', 'label': 'w=echo'},      # Purple, diamond
+}
+
+def get_workload_style(workload):
+    """Get consistent style for a workload, with fallback for unknown workloads."""
+    if workload in WORKLOAD_STYLES:
+        return WORKLOAD_STYLES[workload]
+    # Fallback for unknown workloads
+    return {'color': '#949494', 'marker': 'v', 'label': f'w={workload}'}
+
+# ----------------------------
 #  HANDLE CLI ARGUMENTS
 # ----------------------------
 
-if len(sys.argv) < 3:
-    print("Usage: python plot_grpc.py <bench_file> <output_pdf>")
+if len(sys.argv) < 2:
+    print("Usage: python plot_grpc.py <bench_file> [output_pdf]")
+    print("  If output_pdf is not provided, it will be generated from the input filename")
     sys.exit(1)
 
 INPUT_FILE = sys.argv[1]
-OUTPUT_PDF = sys.argv[2]
+
+# Generate output filename if not provided
+if len(sys.argv) >= 3:
+    OUTPUT_PDF = sys.argv[2]
+else:
+    # Strip extension and replace with .pdf
+    base_name = os.path.splitext(INPUT_FILE)[0]
+    OUTPUT_PDF = f"{base_name}.pdf"
 
 # ----------------------------
 #  EXTRACT GOGC FROM FILENAME
@@ -110,15 +139,17 @@ with PdfPages(OUTPUT_PDF) as pdf:
             print("    workers:", worker_counts)
             print("    TPS:", tps_means)
             
+            style = get_workload_style(workload)
             plt.errorbar(
                 worker_counts,
                 tps_means,
                 yerr=tps_stddev,
-                marker="o",
-                label=f"w={workload}",
+                marker=style['marker'],
+                color=style['color'],
+                label=style['label'],
                 capsize=4,
                 linewidth=2,
-                markersize=6,
+                markersize=8,
             )
         
         plt.xlabel("Workers", fontsize=12)
@@ -161,15 +192,17 @@ with PdfPages(OUTPUT_PDF) as pdf:
                 print("    workers:", worker_counts)
                 print("    TPS:", tps_means)
                 
+                style = get_workload_style(workload)
                 plt.errorbar(
                     worker_counts,
                     tps_means,
                     yerr=tps_stddev,
-                    marker="o",
-                    label=f"w={workload}",
+                    marker=style['marker'],
+                    color=style['color'],
+                    label=style['label'],
                     capsize=4,
                     linewidth=2,
-                    markersize=6,
+                    markersize=8,
                 )
             
             plt.xlabel("Workers", fontsize=12)
@@ -187,12 +220,18 @@ with PdfPages(OUTPUT_PDF) as pdf:
     
     # Plot 3+: BenchmarkRemote - one plot per workload, all connection counts on each plot
     if "Remote" in data:
+        # Connection count styles (different from workload styles)
+        nc_colors = ['#0173B2', '#DE8F05', '#029E73', '#CC78BC', '#ECE133', '#56B4E9']
+        nc_markers = ['o', 's', '^', 'D', 'v', 'p']
+        
         for workload in sorted(data["Remote"].keys()):
             plt.figure(figsize=(10, 6))
             
             print(f"\nBenchmarkRemote (workload={workload})")
             
-            for nc in sorted(data["Remote"][workload].keys(), key=lambda x: int(x.split('=')[1])):
+            nc_list = sorted(data["Remote"][workload].keys(), key=lambda x: int(x.split('=')[1]))
+            
+            for idx, nc in enumerate(nc_list):
                 worker_dict = data["Remote"][workload][nc]
                 
                 worker_counts = sorted(worker_dict.keys())
@@ -203,15 +242,19 @@ with PdfPages(OUTPUT_PDF) as pdf:
                 print("    workers:", worker_counts)
                 print("    TPS:", tps_means)
                 
+                color = nc_colors[idx % len(nc_colors)]
+                marker = nc_markers[idx % len(nc_markers)]
+                
                 plt.errorbar(
                     worker_counts,
                     tps_means,
                     yerr=tps_stddev,
-                    marker="o",
+                    marker=marker,
+                    color=color,
                     label=nc,
                     capsize=4,
                     linewidth=2,
-                    markersize=6,
+                    markersize=8,
                 )
             
             plt.xlabel("Workers", fontsize=12)
