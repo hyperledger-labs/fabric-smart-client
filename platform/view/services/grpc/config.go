@@ -142,7 +142,8 @@ type KeepaliveOptions struct {
 	ServerTimeout time.Duration
 	// ServerMinInterval is the minimum permitted time between client pings.
 	// If clients send pings more frequently, the server will disconnect them
-	ServerMinInterval time.Duration
+	ServerMinInterval   time.Duration
+	PermitWithoutStream bool
 }
 
 // ServerKeepaliveOptions returns gRPC keepalive options for server.
@@ -168,7 +169,7 @@ func ClientKeepaliveOptions(ka KeepaliveOptions) []grpc.DialOption {
 	kap := keepalive.ClientParameters{
 		Time:                ka.ClientInterval,
 		Timeout:             ka.ClientTimeout,
-		PermitWithoutStream: true,
+		PermitWithoutStream: ka.PermitWithoutStream,
 	}
 	dialOpts = append(dialOpts, grpc.WithKeepaliveParams(kap))
 	return dialOpts

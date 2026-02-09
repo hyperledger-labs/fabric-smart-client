@@ -86,7 +86,7 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 	kap := keepalive.ClientParameters{
 		Time:                config.KaOpts.ClientInterval,
 		Timeout:             config.KaOpts.ClientTimeout,
-		PermitWithoutStream: true,
+		PermitWithoutStream: config.KaOpts.PermitWithoutStream,
 	}
 	client.dialOpts = append(client.dialOpts, grpc.WithStatsHandler(otelgrpc.NewClientHandler()))
 	// set keepalive
