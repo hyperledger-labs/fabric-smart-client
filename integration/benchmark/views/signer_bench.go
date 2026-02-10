@@ -14,6 +14,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -50,14 +51,25 @@ func (c *ECDSASignViewFactory) NewView(in []byte) (view.View, error) {
 		return nil, err
 	}
 
-	// setup signing key
-	f.r = rand.Reader
-	pk, err := ecdsa.GenerateKey(elliptic.P256(), f.r)
-	if err != nil {
-		return nil, err
-	}
+	// we only want to set up these once
+	once.Do(func() {
+		// setup signing key
+		r = rand.Reader
+		pk, err := ecdsa.GenerateKey(elliptic.P256(), r)
+		if err != nil {
+			panic(err)
+		}
+		pr = pk
+	})
 
-	f.pr = pk
+	f.r = r
+	f.pr = pr
 
 	return f, nil
 }
+
+var (
+	once sync.Once
+	pr   *ecdsa.PrivateKey
+	r    io.Reader
+)

@@ -32,7 +32,7 @@ func (vc *ViewClient) CallView(fid string, input []byte) (interface{}, error) {
 func (vc *ViewClient) CallViewWithContext(ctx context.Context, fid string, input []byte) (interface{}, error) {
 	c := &protos2.Command{Payload: &protos2.Command_CallView{CallView: &protos2.CallView{Fid: fid, Input: input}}}
 
-	sc, err := vc.createSignedCommand(c)
+	sc, err := vc.CreateSignedCommand(c)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (vc *ViewClient) CallViewWithContext(ctx context.Context, fid string, input
 	return commandResp.GetCallViewResponse().GetResult(), nil
 }
 
-func (vc *ViewClient) createSignedCommand(command *protos2.Command) (*protos2.SignedCommand, error) {
+func (vc *ViewClient) CreateSignedCommand(command *protos2.Command) (*protos2.SignedCommand, error) {
 	nonce := make([]byte, 32)
 	_, err := io.ReadFull(rand.Reader, nonce)
 	if err != nil {

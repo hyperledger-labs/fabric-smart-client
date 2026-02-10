@@ -32,6 +32,30 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+func BenchmarkGRPCBaseline(b *testing.B) {
+	b.Run("w=noop", func(b *testing.B) { runGPRCBaseline(b, "noop") })
+	b.Run("w=cpu", func(b *testing.B) { runGPRCBaseline(b, "cpu") })
+	b.Run("w=ecdsa", func(b *testing.B) { runGPRCBaseline(b, "ecdsa") })
+}
+
+func runGPRCBaseline(b *testing.B, w string) {
+	srvEndpoint := setupBaselineServer(b, w)
+
+	// we share a single connection among all client goroutines
+	client, closeF := setupBaselineClient(b, srvEndpoint)
+	defer closeF()
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			resp, err := client.ProcessCommand(b.Context(), &protos.SignedCommand{})
+			require.NoError(b, err)
+			require.NotNil(b, resp)
+		}
+	})
+	benchmark.ReportTPS(b)
+}
+
 var (
 	keyPEM  []byte
 	certPEM []byte
@@ -84,7 +108,7 @@ func makeSelfSignedCert() ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes})
 
 	return keyPEM, certPEM, nil
 }
@@ -108,27 +132,11 @@ func (s *serverImpl) ProcessCommand(ctx context.Context, command *protos.SignedC
 }
 
 func (s *serverImpl) StreamCommand(g grpc.BidiStreamingServer[protos.SignedCommand, protos.SignedCommandResponse]) error {
-	//TODO implement me
-	panic("implement me")
+	panic("Not needed")
 }
 
-func BenchmarkRef(b *testing.B) {
-	srvEndpoint := setupRefServer(b)
-
-	client, closeF := setupRefClient(b, srvEndpoint)
-	defer closeF()
-
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			resp, err := client.ProcessCommand(b.Context(), &protos.SignedCommand{})
-			require.NoError(b, err)
-			require.NotNil(b, resp)
-		}
-	})
-	benchmark.ReportTPS(b)
-}
-
-func setupRefServer(tb testing.TB) string {
+// setupBaselineServer creates a grpc server registering serverImpl as RegisterViewServiceServer
+func setupBaselineServer(tb testing.TB, workloadType string) string {
 	tb.Helper()
 
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
@@ -146,11 +154,24 @@ func setupRefServer(tb testing.TB) string {
 	opts = append(opts, grpc.Creds(credentials.NewTLS(serverTLS)))
 	grpcServer := grpc.NewServer(opts...)
 
-	// create simple view
-	parms := &benchviews.CPUParams{N: 200000}
-	input, _ := json.Marshal(parms)
-	factory := &benchviews.CPUViewFactory{}
-	v, _ := factory.NewView(input)
+	var v view.View
+	switch workloadType {
+	case "cpu":
+		parms := &benchviews.CPUParams{N: 200000}
+		input, _ := json.Marshal(parms)
+		factory := &benchviews.CPUViewFactory{}
+		v, _ = factory.NewView(input)
+	case "ecdsa":
+		parms := &benchviews.ECDSASignParams{}
+		input, _ := json.Marshal(parms)
+		factory := &benchviews.ECDSASignViewFactory{}
+		v, _ = factory.NewView(input)
+	case "noop":
+		factory := &benchviews.NoopViewFactory{}
+		v, _ = factory.NewView(nil)
+	default:
+		tb.Fatalf("unknown workload type: %s", workloadType)
+	}
 
 	srv := &serverImpl{workload: v}
 
@@ -166,7 +187,8 @@ func setupRefServer(tb testing.TB) string {
 	return lis.Addr().String()
 }
 
-func setupRefClient(tb testing.TB, srvEndpoint string) (protos.ViewServiceClient, func()) {
+// setupBaselineClient creates a grpc client
+func setupBaselineClient(tb testing.TB, srvEndpoint string) (protos.ViewServiceClient, func()) {
 	tb.Helper()
 
 	rootPool := x509.NewCertPool()
@@ -180,7 +202,11 @@ func setupRefClient(tb testing.TB, srvEndpoint string) (protos.ViewServiceClient
 
 	var clientOpts []grpc.DialOption
 	clientOpts = append(clientOpts, grpc.WithTransportCredentials(credentials.NewTLS(clientTLS)))
-	conn, err := grpc.NewClient(srvEndpoint, clientOpts...)
+
+	//conn, err := grpc.NewClient(srvEndpoint, clientOpts...)
+	conn, err := grpc.NewClient(srvEndpoint,
+		clientOpts...,
+	)
 	require.NoError(tb, err)
 
 	return protos.NewViewServiceClient(conn), func() {
