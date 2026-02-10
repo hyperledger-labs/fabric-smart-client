@@ -38,25 +38,16 @@ func (t TLS) Config() (*tls.Config, error) {
 	var tlsConfig *tls.Config
 
 	if !t.Enabled {
+		// no TLS
 		return tlsConfig, nil
 	}
+
+	// TLS setup
 	cert, err := tls.LoadX509KeyPair(t.CertFile, t.KeyFile)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(t.ClientCACertFiles) == 0 {
-		return nil, errors.Errorf("client TLS CA certificate pool must not be empty")
-	}
-
-	caCertPool := x509.NewCertPool()
-	for _, caPath := range t.ClientCACertFiles {
-		caPem, err := os.ReadFile(caPath)
-		if err != nil {
-			return nil, err
-		}
-		caCertPool.AppendCertsFromPEM(caPem)
-	}
 	tlsConfig = &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		CipherSuites: []uint16{
@@ -71,14 +62,48 @@ func (t TLS) Config() (*tls.Config, error) {
 		},
 		MinVersion: tls.VersionTLS12,
 		MaxVersion: tls.VersionTLS13,
-		ClientCAs:  caCertPool,
 	}
-	if t.ClientAuth {
-		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-	} else {
-		tlsConfig.ClientAuth = tls.VerifyClientCertIfGiven
+
+	if !t.ClientAuth {
+		// no mTLS
+		// Optional: verify client certificates if provided, but don't require them
+		if len(t.ClientCACertFiles) > 0 {
+			caCertPool, err := loadClientCAs(t.ClientCACertFiles)
+			if err != nil {
+				return nil, err
+			}
+			tlsConfig.ClientCAs = caCertPool
+			tlsConfig.ClientAuth = tls.VerifyClientCertIfGiven
+		}
+		return tlsConfig, nil
 	}
+
+	// mTLS
+	// Require client certificates and verify them
+	if len(t.ClientCACertFiles) == 0 {
+		return nil, errors.Errorf("client TLS CA certificate pool must not be empty when clientAuthRequired is true")
+	}
+
+	caCertPool, err := loadClientCAs(t.ClientCACertFiles)
+	if err != nil {
+		return nil, err
+	}
+	tlsConfig.ClientCAs = caCertPool
+	tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+
 	return tlsConfig, nil
+}
+
+func loadClientCAs(clientCACertFiles []string) (*x509.CertPool, error) {
+	caCertPool := x509.NewCertPool()
+	for _, caPath := range clientCACertFiles {
+		caPem, err := os.ReadFile(caPath)
+		if err != nil {
+			return nil, err
+		}
+		caCertPool.AppendCertsFromPEM(caPem)
+	}
+	return caCertPool, nil
 }
 
 type Options struct {

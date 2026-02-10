@@ -195,6 +195,28 @@ var _ = Describe("Server", func() {
 		utils.IgnoreErrorFunc(resp.Body.Close)
 	})
 
+	When("TLS is enabled without client authentication", func() {
+		BeforeEach(func() {
+			options.TLS.ClientAuth = false
+			options.TLS.ClientCACertFiles = []string{} // No client CA files
+			server = server2.NewServer(options)
+			client = newHTTPClient(tempDir, false) // Client without cert
+		})
+
+		It("starts successfully and accepts connections without client certificates", func() {
+			handler := server2.NewHttpHandler()
+			server.RegisterHandler("/", handler, false)
+			err := server.Start()
+			Expect(err).NotTo(HaveOccurred())
+
+			url := fmt.Sprintf("https://%s%s", server.Addr(), someURL)
+			resp, err := client.Get(url)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusNotFound)) // No handler registered for someURL
+			utils.IgnoreErrorFunc(resp.Body.Close)
+		})
+	})
+
 	Context("when TLS is disabled", func() {
 		BeforeEach(func() {
 			options.TLS.Enabled = false
