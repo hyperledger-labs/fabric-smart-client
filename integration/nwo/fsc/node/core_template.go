@@ -57,7 +57,6 @@ fsc:
         files:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt
       {{- end }}
-    # Keepalive settings for node server and clients
   # P2P configuration
   p2p:
     # Type of p2p communication. Currently supported: libp2p (default), rest
