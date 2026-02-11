@@ -17,9 +17,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/fxconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+)
+
+const (
+	timeout  = 30 * time.Second
+	interval = 1 * time.Second
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -84,6 +90,9 @@ func updateEP(s *TestSuite) {
 }
 
 func (s *TestSuite) TestSucceeded() {
+	// Verify namespace is present with initial version (version 0)
+	CheckNamespaceExists(s.II, "iou", 0)
+
 	InitApprover(s.II, "approver1")
 	InitApprover(s.II, "approver2")
 
@@ -105,17 +114,13 @@ func (s *TestSuite) TestSucceeded() {
 	// update the EP to require approver2
 	By("update EP to approver2")
 	updateEP(s)
-	// TODO: wait for tx finality before continuing
-	time.Sleep(5 * time.Second)
 
-	// TODO: make this better can check for a specific namespace and version
-	for _, t := range s.II.NWO.Platforms {
-		fx, ok := t.(*nwofabricx.Platform)
-		if !ok {
-			continue
-		}
-		fx.Network.ListInstalledNames()
-	}
+	// Wait for namespace update transaction to be finalized and propagated
+	// The namespace update is a transaction that needs to be committed and
+	// the new endorsement policy needs to be available to all nodes
+	By("waiting for namespace update to be finalized")
+	// Verify namespace is present with updated version (version 1)
+	CheckNamespaceExists(s.II, "iou", 1)
 
 	// create an IOU with approver2 - should succeed now
 	By("creating another iou with approver2 should work")
@@ -135,4 +140,22 @@ func (s *TestSuite) TestSucceeded() {
 
 	CheckState(s.II, "borrower", anotherIouState, 7)
 	CheckState(s.II, "lender", anotherIouState, 7)
+}
+
+func CheckNamespaceExists(ii *integration.Infrastructure, name string, version int) {
+	fxPlatform := func(ii *integration.Infrastructure) *nwofabricx.Platform {
+		for _, t := range ii.NWO.Platforms {
+			if fx, ok := t.(*nwofabricx.Platform); ok {
+				return fx
+			}
+		}
+		return nil
+	}
+
+	exp := network.Namespace{Name: name, Version: version}
+
+	// first we find out fabric-x platform
+	fx := fxPlatform(ii)
+	Expect(fx).NotTo(BeNil())
+	Eventually(fx.Network.ListInstalledNames(), timeout, interval).Should(ContainElements(exp), "namespace '%s' should be present with version %d after update", name, version)
 }
