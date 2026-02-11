@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package iou_test
 
 import (
+	"context"
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	views2 "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
@@ -14,12 +17,21 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const (
+	// defaultViewTimeout is the default timeout for view calls
+	defaultViewTimeout = 30 * time.Second
+)
+
 func CreateIOU(ii *integration.Infrastructure, identityLabel string, amount uint, approver string) (string, error) {
 	return CreateIOUWithBorrower(ii, "borrower", identityLabel, amount, approver)
 }
 
 func CreateIOUWithBorrower(ii *integration.Infrastructure, borrower, identityLabel string, amount uint, approver string) (string, error) {
-	res, err := ii.Client(borrower).CallView(
+	ctx, cancel := context.WithTimeout(context.Background(), defaultViewTimeout)
+	defer cancel()
+
+	res, err := ii.Client(borrower).CallViewWithContext(
+		ctx,
 		"create", common.JSONMarshall(&views.Create{
 			Amount:   amount,
 			Identity: identityLabel,
@@ -46,7 +58,10 @@ func UpdateIOU(ii *integration.Infrastructure, iouStateID string, amount uint, a
 }
 
 func UpdateIOUWithBorrower(ii *integration.Infrastructure, borrower, iouStateID string, amount uint, approver string, errs ...string) {
-	txIDBoxed, err := ii.Client(borrower).CallView("update",
+	ctx, cancel := context.WithTimeout(context.Background(), defaultViewTimeout)
+	defer cancel()
+
+	txIDBoxed, err := ii.Client(borrower).CallViewWithContext(ctx, "update",
 		common.JSONMarshall(&views.Update{
 			LinearID: iouStateID,
 			Amount:   amount,
@@ -64,11 +79,16 @@ func UpdateIOUWithBorrower(ii *integration.Infrastructure, borrower, iouStateID 
 
 	Expect(err).NotTo(HaveOccurred())
 	txID := common.JSONUnmarshalString(txIDBoxed)
-	_, err = ii.Client("lender").CallView("finality", common.JSONMarshall(views2.Finality{TxID: txID}))
+
+	ctx2, cancel2 := context.WithTimeout(context.Background(), defaultViewTimeout)
+	defer cancel2()
+	_, err = ii.Client("lender").CallViewWithContext(ctx2, "finality", common.JSONMarshall(views2.Finality{TxID: txID}))
 	Expect(err).NotTo(HaveOccurred())
 }
 
 func InitApprover(ii *integration.Infrastructure, approver string) {
-	_, err := ii.Client(approver).CallView("init", nil)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultViewTimeout)
+	defer cancel()
+	_, err := ii.Client(approver).CallViewWithContext(ctx, "init", nil)
 	Expect(err).NotTo(HaveOccurred())
 }

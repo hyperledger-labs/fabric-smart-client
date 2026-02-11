@@ -8,6 +8,7 @@ package network
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
@@ -20,7 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/ifrit/grouper"
 )
@@ -160,23 +160,14 @@ func (n *Network) PostRun(load bool) {
 	logger.Infof("Next up: Deploying namespaces")
 	time.Sleep(n.EventuallyTimeout)
 
+	expNss := make([]Namespace, 0, len(n.Topology().Chaincodes))
 	for _, chaincode := range n.Topology().Chaincodes {
 		n.DeployNamespace(chaincode)
+		expNss = append(expNss, Namespace{Name: chaincode.Chaincode.Name, Version: 0})
 	}
 
-	// List all deployed namespaces
-	gomega.Eventually(func(g gomega.Gomega) {
-		// TODO: set the correct query service endpoint
-		cmd := &fxconfig.ListNamespaces{QueryServiceEndpoint: "127.0.0.1:7001"}
-		sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-
-		// check that all namespaces are installed
-		for _, chaincode := range n.Topology().Chaincodes {
-			g.Expect(sess.Out).To(gbytes.Say(fmt.Sprintf("\\d\\) %v:.*", chaincode.Chaincode.Name)))
-		}
-	}).WithTimeout(n.EventuallyTimeout).Within(n.EventuallyTimeout).ProbeEvery(2 * time.Second).Should(gomega.Succeed())
+	// List all deployed namespaces and verify they are available
+	gomega.Eventually(n.ListInstalledNames()).WithTimeout(n.EventuallyTimeout).Within(n.EventuallyTimeout).ProbeEvery(2 * time.Second).Should(gomega.ContainElements(expNss))
 
 	logger.Infof("Post execution [%s]...done.", n.Prefix)
 }
@@ -221,9 +212,71 @@ func (n *Network) UpdateNamespace(chaincodeID, version, path, packageFile string
 	// TODO:
 }
 
-func (n *Network) ListInstalledNames() {
+func (n *Network) ListInstalledNames() []Namespace {
 	cmd := &fxconfig.ListNamespaces{QueryServiceEndpoint: "127.0.0.1:7001"}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+
+	output := string(sess.Out.Contents())
+	return parseNamespaceList(output)
+}
+
+type Namespace struct {
+	Name    string
+	Version int
+}
+
+// parseNamespaceList parses the output of 'fxconfig namespace list' command
+// Expected format: "N) name: version X policy: <hex>"
+// Example: "0) perf: version 0 policy: 0a05454344534112b201..."
+func parseNamespaceList(output string) []Namespace {
+	namespaces := make([]Namespace, 0)
+
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		// Skip header, empty lines, and error messages
+		if line == "" ||
+			strings.HasPrefix(line, "Installed namespaces") ||
+			strings.HasPrefix(line, "Error:") ||
+			strings.HasPrefix(line, "Usage:") ||
+			strings.HasPrefix(line, "Flags:") {
+			continue
+		}
+
+		// Parse line format: "0) perf: version 0 policy: ..."
+		if idx := strings.Index(line, ")"); idx > 0 {
+			rest := strings.TrimSpace(line[idx+1:])
+
+			// Split by "version" keyword
+			parts := strings.Split(rest, " version ")
+			if len(parts) != 2 {
+				continue
+			}
+
+			// Extract name (before ":")
+			namePart := strings.TrimSpace(parts[0])
+			if colonIdx := strings.Index(namePart, ":"); colonIdx > 0 {
+				name := strings.TrimSpace(namePart[:colonIdx])
+
+				// Extract version (ignore policy)
+				versionPart := strings.TrimSpace(parts[1])
+				versionPolicyParts := strings.Split(versionPart, " policy: ")
+
+				version := 0
+				_, err := fmt.Sscanf(versionPolicyParts[0], "%d", &version)
+				if err != nil {
+					logger.Warnf("Failed to parse version from '%s': %v, skipping entry", versionPolicyParts[0], err)
+					continue
+				}
+
+				namespaces = append(namespaces, Namespace{
+					Name:    name,
+					Version: version,
+				})
+			}
+		}
+	}
+
+	return namespaces
 }
