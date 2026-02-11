@@ -48,7 +48,6 @@ func main() {
 			Key:         keyPEM,
 			UseTLS:      true,
 		},
-		KaOpts:             grpc.KeepaliveOptions{},
 		Logger:             nil,
 		HealthCheckEnabled: false,
 	})
