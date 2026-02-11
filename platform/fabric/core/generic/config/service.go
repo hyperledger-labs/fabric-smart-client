@@ -16,7 +16,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	sdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 const (
@@ -199,18 +200,19 @@ func (s *Service) TLSClientCertFile() string {
 	return s.GetPath("tls.clientCert.file")
 }
 
-func (s *Service) KeepAliveClientInterval() time.Duration {
+// ClientKeepAliveConfig return the client keep alive configuration.
+// It returns nil, if no configuration was set.
+// This functions loads and instance of grpc.ClientKeepAliveConfig
+func (s *Service) ClientKeepAliveConfig() *grpc.ClientKeepAliveConfig {
 	if !s.Configuration.IsSet("keepalive.interval") {
-		return defaultKeepaliveInterval
+		return nil
 	}
-	return s.GetDuration("keepalive.interval")
-}
-
-func (s *Service) KeepAliveClientTimeout() time.Duration {
-	if !s.Configuration.IsSet("keepalive.timeout") {
-		return defaultKeepaliveTimeout
+	c := &grpc.ClientKeepAliveConfig{}
+	if err := s.UnmarshalKey("keepalive", c); err != nil {
+		logger.Errorf("failed to unmarshal keepalive config [%s]", err)
+		return nil
 	}
-	return s.GetDuration("keepalive.timeout")
+	return c
 }
 
 func (s *Service) NewDefaultChannelConfig(name string) driver.ChannelConfig {
@@ -228,8 +230,8 @@ func (s *Service) Orderers() []*ConnectionConfig {
 	return s.orderers
 }
 
-func (s *Service) VaultPersistenceName() driver2.PersistenceName {
-	return driver2.PersistenceName(s.GetString("vault.persistence"))
+func (s *Service) VaultPersistenceName() sdriver.PersistenceName {
+	return sdriver.PersistenceName(s.GetString("vault.persistence"))
 }
 
 func (s *Service) VaultTXStoreCacheSize() int {

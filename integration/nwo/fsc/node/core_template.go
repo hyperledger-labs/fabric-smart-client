@@ -58,17 +58,6 @@ fsc:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt
       {{- end }}
     # Keepalive settings for node server and clients
-    keepalive:
-      # MinInterval is the minimum permitted time between client pings.
-      # If clients send pings more frequently, the peer server will
-      # disconnect them
-      minInterval: 60s
-      # Interval is the duration after which if the server does not see
-      # any activity from the client it pings the client to see if it's alive
-      interval: 300s
-      # Timeout is the duration the server waits for a response
-      # from the client after sending a ping before closing the connection
-      timeout: 600s
   # P2P configuration
   p2p:
     # Type of p2p communication. Currently supported: libp2p (default), rest

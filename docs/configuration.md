@@ -62,21 +62,32 @@ fsc:
         files:
         - /path/to/client/tls/ca.crt
 
-    # GRPC Server keepalive parameters
+    # GRPC Server keepalive parameters. 
+    # This section can be omitted.
     keepalive:
-      # minInterval is the minimum permitted time between client pings.
-      # If clients send pings more frequently, the peer server will
-      # disconnect them
-      # If not specified, default is 60 seconds
-      minInterval: 60s
-      # interval is the duration after which if the server does not see
-      # any activity from the client it pings the client to see if it's alive
-      # If not specified, default is 2 hours
-      interval: 300s
-      # Timeout is the duration the server waits for a response
-      # from the client after sending a ping before closing the connection
-      # If not specified, default is 20 seconds
-      timeout: 600s
+      # MaxConnectionIdle: send GOAWAY and gracefully close if connection is idle this long (no RPCs).
+      # Format: Go duration string (e.g. "5m", "30s"). Zero/omitted disables.
+      max-connection-idle: "5m"
+      # MaxConnectionAge: maximum lifetime of a connection before server initiates close to rotate connections.
+      # Format: Go duration string. Zero/omitted disables.
+      max-connection-age: "2h"
+      # MaxConnectionAgeGrace: additional grace period after MaxConnectionAge to allow in-flight RPCs to finish.
+      # Format: Go duration string.
+      max-connection-age-grace: "5m"
+      # Time: server's expectation for how often the client should send keepalive pings.
+      # Format: Go duration string.
+      time: "2m"
+      # Timeout: how long the server waits for a keepalive ping ACK before considering the connection dead.
+      # Format: Go duration string.
+      timeout: "20s"
+      # EnforcementPolicy: maps to keepalive.EnforcementPolicy; may be omitted to disable enforcement.
+      enforcement-policy:
+        # MinTime: minimum allowed time between client pings; server may close connections that ping more often.
+        # Format: Go duration string.
+        min-time: "1m"
+        # PermitWithoutStream: allow keepalive pings even when there are no active RPC streams.
+        # true = permit pings without streams (recommended if clients ping periodically).
+        permit-without-stream: true
 
   # ------------------- P2P Configuration -------------------------
   p2p:
@@ -295,14 +306,19 @@ fabric:
       clientKey:
         file: /path/to/client.key
 
-    # Client keepalive settings for GRPC
+    # Client keepalive settings for GRPC.
+    # This section can be omitted.
     keepalive:
-      # If not provided, the default is 60 seconds
-      interval: 60s
-      # If not provided, the default is 20 seconds
-      timeout: 600s
-      # If not provided, the default is 10 seconds
-      connectionTimeout: 10s
+      # Time: how often the client sends keepalive pings to the server.
+      # Format: Go duration string (e.g. "30s", "2m"). Zero/omitted disables.
+      time: "2m"
+      # Timeout: how long the client waits for a keepalive ACK from the server
+      # before considering the connection dead.
+      # Format: Go duration string. Should be noticeably smaller than `time`.
+      timeout: "20s"
+      # PermitWithoutStream: allow keepalive pings even when there are no active RPCs.
+      # true = permit pings without active streams (recommended for many clients).
+      permit-without-stream: true
 
     ordering:
       # number of retries to attempt to send a transaction to an orderer
