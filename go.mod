@@ -63,7 +63,10 @@ require (
 	modernc.org/sqlite v1.32.0
 )
 
-require github.com/pion/transport/v4 v4.0.1 // indirect
+require (
+	github.com/dunglas/httpsfv v1.1.0 // indirect
+	github.com/pion/transport/v4 v4.0.1 // indirect
+)
 
 require (
 	cel.dev/expr v0.24.0 // indirect
@@ -241,8 +244,8 @@ require (
 	github.com/prometheus/common v0.66.1
 	github.com/prometheus/procfs v0.17.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
-	github.com/quic-go/quic-go v0.57.1 // indirect
-	github.com/quic-go/webtransport-go v0.9.0 // indirect
+	github.com/quic-go/quic-go v0.59.0 // indirect
+	github.com/quic-go/webtransport-go v0.10.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
