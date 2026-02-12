@@ -28,10 +28,7 @@ const (
 	defaultNumRetries                 = 3
 	defaultRetrySleep                 = 1 * time.Second
 	defaultCacheSize                  = 100
-
-	defaultConnectionTimeout = 10 * time.Second
-	defaultKeepaliveInterval = 60 * time.Second
-	defaultKeepaliveTimeout  = 20 * time.Second
+	defaultConnectionTimeout          = 10 * time.Second
 
 	GenericDriver = "generic"
 )
@@ -46,8 +43,13 @@ var funcTypeMap = map[string]driver.PeerFunctionType{
 	"query":     driver.PeerForQuery,
 }
 
+// Configuration is an alias for driver.Configuration
+//
+//go:generate counterfeiter -o mock/configuration.go -fake-name Configuration . Configuration
+type Configuration = driver.Configuration
+
 type Service struct {
-	driver.Configuration
+	Configuration
 	name   string
 	driver string
 	prefix string
@@ -59,7 +61,11 @@ type Service struct {
 	defaultChannel     string
 }
 
-func NewService(configService driver.Configuration, name string, defaultConfig bool) (*Service, error) {
+// NewService creates a new Service instance by reading and translating the
+// provided configuration. The function reads orderers, peers and channels
+// using UnmarshalKey and performs minimal post-processing such as TLS path
+// translation.
+func NewService(configService Configuration, name string, defaultConfig bool) (*Service, error) {
 	var prefix string
 	if configService.IsSet("fabric." + name) {
 		prefix = name + "."
@@ -111,46 +117,7 @@ func NewService(configService driver.Configuration, name string, defaultConfig b
 	}, nil
 }
 
-func createChannelMap(channels []*Channel) (map[string]*Channel, string, error) {
-	channelMap := make(map[string]*Channel, len(channels))
-	var defaultChannel string
-	for _, channel := range channels {
-		if err := channel.Verify(); err != nil {
-			return nil, "", err
-		}
-		channelMap[channel.Name] = channel
-		if channel.Default {
-			defaultChannel = channel.Name
-		}
-	}
-	return channelMap, defaultChannel, nil
-}
-
-func createPeerMap(configService driver.Configuration, peers []*ConnectionConfig, tlsEnabled bool) map[driver.PeerFunctionType][]*ConnectionConfig {
-	peerMapping := map[driver.PeerFunctionType][]*ConnectionConfig{}
-	for _, peerCC := range peers {
-		peerCC.TLSEnabled = tlsEnabled && !peerCC.TLSDisabled
-		if peerCC.TLSEnabled && len(peerCC.TLSRootCertFile) > 0 {
-			peerCC.TLSRootCertFile = configService.TranslatePath(peerCC.TLSRootCertFile)
-		}
-
-		if funcType, ok := funcTypeMap[strings.ToLower(peerCC.Usage)]; ok {
-			peerMapping[funcType] = append(peerMapping[funcType], peerCC)
-		} else {
-			logger.Warnf("connection usage [%s] not recognized [%v]", peerCC.Usage, peerCC)
-		}
-	}
-	return peerMapping
-}
-
-func readItems[T any](configService driver.Configuration, prefix, key string) ([]T, error) {
-	var items []T
-	if err := configService.UnmarshalKey(fmt.Sprintf("fabric.%s%s", prefix, key), &items); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
+// NetworkName returns the configured network name supplied to NewService.
 func (s *Service) NetworkName() string {
 	return s.name
 }
@@ -169,10 +136,14 @@ func (s *Service) OrderingTLSClientAuthRequired() (bool, bool) {
 	return s.GetBool("ordering.tlsClientAuthRequired"), true
 }
 
+// DriverName returns the selected driver name. When not set in the
+// configuration, NewService initializes it to GenericDriver.
 func (s *Service) DriverName() string {
 	return s.driver
 }
 
+// TLSEnabled checks whether TLS is enabled for this network. It reads the
+// value from the underlying Configuration using the configured prefix.
 func (s *Service) TLSEnabled() bool {
 	return s.GetBool("tls.enabled")
 }
@@ -241,7 +212,8 @@ func (s *Service) VaultTXStoreCacheSize() int {
 	return defaultCacheSize
 }
 
-// DefaultMSP returns the default MSP
+// DefaultMSP returns the default MSP identifier configured for this
+// network (if any).
 func (s *Service) DefaultMSP() string {
 	return s.GetString("defaultMSP")
 }
@@ -356,10 +328,53 @@ func (s *Service) PickPeer(ft driver.PeerFunctionType) *ConnectionConfig {
 	if !ok {
 		source = s.peerMapping[driver.PeerForAnything]
 	}
+	if len(source) == 0 {
+		return nil
+	}
 	return source[rand.Intn(len(source))]
 }
 
 func (s *Service) IsChannelQuiet(name string) bool {
 	channel, ok := s.channels[name]
 	return ok && channel.Quiet
+}
+
+func createChannelMap(channels []*Channel) (map[string]*Channel, string, error) {
+	channelMap := make(map[string]*Channel, len(channels))
+	var defaultChannel string
+	for _, channel := range channels {
+		if err := channel.Verify(); err != nil {
+			return nil, "", err
+		}
+		channelMap[channel.Name] = channel
+		if channel.Default {
+			defaultChannel = channel.Name
+		}
+	}
+	return channelMap, defaultChannel, nil
+}
+
+func createPeerMap(configService Configuration, peers []*ConnectionConfig, tlsEnabled bool) map[driver.PeerFunctionType][]*ConnectionConfig {
+	peerMapping := map[driver.PeerFunctionType][]*ConnectionConfig{}
+	for _, peerCC := range peers {
+		peerCC.TLSEnabled = tlsEnabled && !peerCC.TLSDisabled
+		if peerCC.TLSEnabled && len(peerCC.TLSRootCertFile) > 0 {
+			peerCC.TLSRootCertFile = configService.TranslatePath(peerCC.TLSRootCertFile)
+		}
+
+		if funcType, ok := funcTypeMap[strings.ToLower(peerCC.Usage)]; ok {
+			peerMapping[funcType] = append(peerMapping[funcType], peerCC)
+		} else {
+			logger.Warnf("connection usage [%s] not recognized [%v]", peerCC.Usage, peerCC)
+		}
+	}
+	return peerMapping
+}
+
+func readItems[T any](configService Configuration, prefix, key string) ([]T, error) {
+	var items []T
+	if err := configService.UnmarshalKey(fmt.Sprintf("fabric.%s%s", prefix, key), &items); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
