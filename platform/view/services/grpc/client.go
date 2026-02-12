@@ -80,16 +80,9 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 		return client, err
 	}
 
-	// keepalive options
-
-	// kap := keepalive.ClientParameters{
-	// 	Time:                config.KeepAliveConfig.ClientInterval,
-	// 	Timeout:             config.KeepAliveConfig.ClientTimeout,
-	// 	PermitWithoutStream: config.KeepAliveConfig.PermitWithoutStream,
-	// }
 	client.dialOpts = append(client.dialOpts, grpc.WithStatsHandler(otelgrpc.NewClientHandler()))
 	// set keepalive
-	// client.dialOpts = append(client.dialOpts, grpc.WithKeepaliveParams(kap))
+	client.dialOpts = append(client.dialOpts, ClientKeepaliveOptions(config.KeepAliveConfig)...)
 	// Unless asynchronous connect is set, make connection establishment blocking.
 	if !config.AsyncConnect {
 		//lint:ignore SA1019 Refactor in next change

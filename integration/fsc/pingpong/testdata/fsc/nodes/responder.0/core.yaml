@@ -38,10 +38,7 @@ fsc:
       # Private key used for TLS server
       key:
         file: ./../../crypto/peerOrganizations/fsc.example.com/peers/responder.fsc.example.com/tls/server.key
-      # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
-      # used for verifying certificates of client connections.
-    # Keepalive settings for node server and clients
-      # P2P configuration
+  # P2P configuration
   p2p:
     # Type of p2p communication. Currently supported: libp2p (default), rest
     type: libp2p
