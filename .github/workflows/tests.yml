@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -60,8 +60,8 @@ jobs:
 
   itest:
     needs:
-    - checks
-    - itest-list
+      - checks
+      - itest-list
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -69,6 +69,13 @@ jobs:
         # run all test as listed via `make list-integration-tests`
         tests: ${{ fromJson(needs.itest-list.outputs.tests) }}
     steps:
+      - run: docker version
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+        with:
+          version: 28.5.2 # we pin the docker version temporary until the release of fabric v3.1.4
+          set-host: true
+      - run: docker version
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
@@ -86,7 +93,7 @@ jobs:
       - name: Set up Softhsm
         # we only need this for a subset of integration tests
         if: endsWith(matrix.tests, 'hsm')
-        run: | 
+        run: |
           make install-softhsm
           ./ci/scripts/setup_softhsm.sh
 
