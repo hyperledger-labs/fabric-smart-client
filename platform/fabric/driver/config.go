@@ -113,8 +113,7 @@ type ConfigService interface {
 	TLSClientAuthRequired() bool
 	TLSClientKeyFile() string
 	TLSClientCertFile() string
-	KeepAliveClientInterval() time.Duration
-	KeepAliveClientTimeout() time.Duration
+	ClientKeepAliveConfig() *grpc.ClientKeepAliveConfig
 	NewDefaultChannelConfig(name string) ChannelConfig
 	TLSEnabled() bool
 }

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"errors"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -134,6 +135,9 @@ type Channel struct {
 }
 
 func (c *Channel) Verify() error {
+	if len(c.Name) == 0 {
+		return errors.New("channel name is empty")
+	}
 	if c.NumRetries == 0 {
 		c.NumRetries = 1
 		logger.Warnf("channel configuration [%s], num retries set to 0", c.Name)
@@ -240,6 +244,37 @@ func (c *Channel) GetNumRetries() uint {
 
 func (c *Channel) GetRetrySleep() time.Duration {
 	return c.RetrySleep
+}
+
+type VaultOpts struct {
+	Path string `yaml:"path"`
+}
+
+type VaultPersistence struct {
+	Type string    `yaml:"type"`
+	Opts VaultOpts `yaml:"opts"`
+}
+
+type Vault struct {
+	Persistence VaultPersistence `yaml:"persistence"`
+}
+
+// Resolver models a Fabric identity resolver
+type Resolver struct {
+	// Name of the resolver
+	Name string `yaml:"name,omitempty"`
+	// Domain is option
+	Domain string `yaml:"domain,omitempty"`
+	// Identity specifies an MSP Identity
+	Identity MSP `yaml:"identity,omitempty"`
+	// Addresses where to reach this identity
+	Addresses map[string]string `yaml:"addresses,omitempty"`
+	// Aliases is a list of alias for this resolver
+	Aliases []string `yaml:"aliases,omitempty"`
+}
+
+type Endpoint struct {
+	Resolvers []Resolver `yaml:"resolvers,omitempty"`
 }
 
 type Network struct {

@@ -22,15 +22,7 @@ var (
 	// Max send and receive bytes for grpc clients and servers
 	MaxRecvMsgSize = 100 * 1024 * 1024
 	MaxSendMsgSize = 100 * 1024 * 1024
-	// Default peer keepalive options
-	DefaultKeepaliveOptions = KeepaliveOptions{
-		ClientInterval:    time.Duration(1) * time.Minute,  // 1 min
-		ClientTimeout:     time.Duration(20) * time.Second, // 20 sec - gRPC default
-		ServerInterval:    time.Duration(2) * time.Hour,    // 2 hours - gRPC default
-		ServerTimeout:     time.Duration(20) * time.Second, // 20 sec - gRPC default
-		ServerMinInterval: time.Duration(1) * time.Minute,  // match ClientInterval
-	}
-	// strong TLS cipher suites
+	// DefaultTLSCipherSuites is the strong TLS cipher suites
 	DefaultTLSCipherSuites = []uint16{
 		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -39,9 +31,32 @@ var (
 		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
 		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 	}
-	// default connection timeout
+	// DefaultConnectionTimeout is the default connection timeout
 	DefaultConnectionTimeout = 5 * time.Second
 )
+
+// ServerKeepAliveEnforcementPolicyConfig describes the server keep alive enforcement policy.
+type ServerKeepAliveEnforcementPolicyConfig struct {
+	MinTime             time.Duration `yaml:"min-time"`
+	PermitWithoutStream bool          `yaml:"permit-without-stream"`
+}
+
+// ServerKeepAliveConfig describes the server keep alive parameters.
+type ServerKeepAliveConfig struct {
+	MaxConnectionIdle     time.Duration                           `yaml:"max-connection-idle"`
+	MaxConnectionAge      time.Duration                           `yaml:"max-connection-age"`
+	MaxConnectionAgeGrace time.Duration                           `yaml:"max-connection-age-grace"`
+	Time                  time.Duration                           `yaml:"time"`
+	Timeout               time.Duration                           `yaml:"timeout"`
+	EnforcementPolicy     *ServerKeepAliveEnforcementPolicyConfig `yaml:"enforcement-policy"`
+}
+
+// ClientKeepAliveConfig describes the client keep alive parameters.
+type ClientKeepAliveConfig struct {
+	Time                time.Duration `yaml:"time"`
+	Timeout             time.Duration `yaml:"timeout"`
+	PermitWithoutStream bool          `yaml:"permit-without-stream"`
+}
 
 // ConnectionConfig contains data required to establish grpc connection to a peer or orderer
 type ConnectionConfig struct {
@@ -63,8 +78,8 @@ type ServerConfig struct {
 	ConnectionTimeout time.Duration
 	// SecOpts defines the security parameters
 	SecOpts SecureOptions
-	// KaOpts defines the keepalive parameters
-	KaOpts KeepaliveOptions
+	// KeepAliveConfig defines the keepalive parameters
+	KeepAliveConfig *ServerKeepAliveConfig
 	// StreamInterceptors specifies a list of interceptors to apply to
 	// streaming RPCs.  They are executed in order.
 	StreamInterceptors []grpc.StreamServerInterceptor
@@ -83,8 +98,8 @@ type ServerConfig struct {
 type ClientConfig struct {
 	// SecOpts defines the security parameters
 	SecOpts SecureOptions
-	// KaOpts defines the keepalive parameters
-	KaOpts KeepaliveOptions
+	// KeepAliveConfig defines the keepalive parameters
+	KeepAliveConfig *ClientKeepAliveConfig
 	// Timeout specifies how long the client will block when attempting to
 	// establish a connection
 	Timeout time.Duration
@@ -125,50 +140,40 @@ type SecureOptions struct {
 	TimeShift time.Duration
 }
 
-// KeepaliveOptions is used to set the gRPC keepalive settings for both
-// clients and servers
-type KeepaliveOptions struct {
-	// ClientInterval is the duration after which if the client does not see
-	// any activity from the server it pings the server to see if it is alive
-	ClientInterval time.Duration
-	// ClientTimeout is the duration the client waits for a response
-	// from the server after sending a ping before closing the connection
-	ClientTimeout time.Duration
-	// ServerInterval is the duration after which if the server does not see
-	// any activity from the client it pings the client to see if it is alive
-	ServerInterval time.Duration
-	// ServerTimeout is the duration the server waits for a response
-	// from the client after sending a ping before closing the connection
-	ServerTimeout time.Duration
-	// ServerMinInterval is the minimum permitted time between client pings.
-	// If clients send pings more frequently, the server will disconnect them
-	ServerMinInterval time.Duration
-}
-
 // ServerKeepaliveOptions returns gRPC keepalive options for server.
-func ServerKeepaliveOptions(ka KeepaliveOptions) []grpc.ServerOption {
+func ServerKeepaliveOptions(c *ServerKeepAliveConfig) []grpc.ServerOption {
+	if c == nil {
+		return nil
+	}
 	var serverOpts []grpc.ServerOption
 	kap := keepalive.ServerParameters{
-		Time:    ka.ServerInterval,
-		Timeout: ka.ServerTimeout,
+		MaxConnectionIdle:     c.MaxConnectionIdle,
+		MaxConnectionAge:      c.MaxConnectionAge,
+		MaxConnectionAgeGrace: c.MaxConnectionAgeGrace,
+		Time:                  c.Time,
+		Timeout:               c.Timeout,
 	}
 	serverOpts = append(serverOpts, grpc.KeepaliveParams(kap))
-	kep := keepalive.EnforcementPolicy{
-		MinTime: ka.ServerMinInterval,
-		// allow keepalive w/o rpc
-		PermitWithoutStream: true,
+	if c.EnforcementPolicy != nil {
+		kep := keepalive.EnforcementPolicy{
+			MinTime:             c.EnforcementPolicy.MinTime,
+			PermitWithoutStream: c.EnforcementPolicy.PermitWithoutStream,
+		}
+		serverOpts = append(serverOpts, grpc.KeepaliveEnforcementPolicy(kep))
 	}
-	serverOpts = append(serverOpts, grpc.KeepaliveEnforcementPolicy(kep))
 	return serverOpts
 }
 
 // ClientKeepaliveOptions returns gRPC keepalive options for clients.
-func ClientKeepaliveOptions(ka KeepaliveOptions) []grpc.DialOption {
+func ClientKeepaliveOptions(c *ClientKeepAliveConfig) []grpc.DialOption {
+	if c == nil {
+		return nil
+	}
 	var dialOpts []grpc.DialOption
 	kap := keepalive.ClientParameters{
-		Time:                ka.ClientInterval,
-		Timeout:             ka.ClientTimeout,
-		PermitWithoutStream: true,
+		Time:                c.Time,
+		Timeout:             c.Timeout,
+		PermitWithoutStream: c.PermitWithoutStream,
 	}
 	dialOpts = append(dialOpts, grpc.WithKeepaliveParams(kap))
 	return dialOpts

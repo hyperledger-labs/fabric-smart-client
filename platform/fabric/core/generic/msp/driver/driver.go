@@ -42,7 +42,6 @@ type BinderService interface {
 }
 
 //go:generate counterfeiter -o mock/config_provider.go -fake-name ConfigProvider . ConfigProvider
-
 type ConfigProvider interface {
 	driver.ConfigService
 }

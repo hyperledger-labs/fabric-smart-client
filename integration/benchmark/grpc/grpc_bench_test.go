@@ -184,7 +184,7 @@ func WithServerECDSASigner(certPath, keyPath string) ServerOption {
 		require.NoError(tb, err)
 		c.signer = signer
 		serialized, _ := signer.Serialize()
-		c.idProvider = &benchmark.MockIdentityProvider{DefaultSigner: view.Identity(serialized)}
+		c.idProvider = &benchmark.MockIdentityProvider{DefaultSigner: serialized}
 	}
 }
 
@@ -237,7 +237,6 @@ func setupServer(tb testing.TB, opts ...ServerOption) string {
 			Key:         keyPEM,
 			UseTLS:      true,
 		},
-		KaOpts:             grpc.KeepaliveOptions{},
 		Logger:             nil,
 		HealthCheckEnabled: false,
 	})
@@ -285,7 +284,6 @@ func setupClient(tb testing.TB, srvEndpoint string, opts ...ClientOption) (*benc
 			ServerRootCAs: [][]byte{certPEM},
 			UseTLS:        true,
 		},
-		KaOpts:       grpc.KeepaliveOptions{},
 		Timeout:      5 * time.Second,
 		AsyncConnect: false,
 	})

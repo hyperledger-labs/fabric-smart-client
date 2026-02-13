@@ -20,7 +20,6 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
 )
 
 var commLogger = logging.MustGetLogger()
@@ -81,16 +80,9 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 		return client, err
 	}
 
-	// keepalive options
-
-	kap := keepalive.ClientParameters{
-		Time:                config.KaOpts.ClientInterval,
-		Timeout:             config.KaOpts.ClientTimeout,
-		PermitWithoutStream: true,
-	}
 	client.dialOpts = append(client.dialOpts, grpc.WithStatsHandler(otelgrpc.NewClientHandler()))
 	// set keepalive
-	client.dialOpts = append(client.dialOpts, grpc.WithKeepaliveParams(kap))
+	client.dialOpts = append(client.dialOpts, ClientKeepaliveOptions(config.KeepAliveConfig)...)
 	// Unless asynchronous connect is set, make connection establishment blocking.
 	if !config.AsyncConnect {
 		//lint:ignore SA1019 Refactor in next change
@@ -176,13 +168,6 @@ func CreateGRPCClient(config *ConnectionConfig) (*Client, error) {
 		timeout = DefaultConnectionTimeout
 	}
 	return NewGRPCClient(ClientConfig{
-		KaOpts: KeepaliveOptions{
-			ClientInterval:    60 * time.Second,
-			ClientTimeout:     60 * time.Second,
-			ServerInterval:    30 * time.Second,
-			ServerTimeout:     60 * time.Second,
-			ServerMinInterval: 60 * time.Second,
-		},
 		Timeout: timeout,
 		SecOpts: *secOpts,
 	})

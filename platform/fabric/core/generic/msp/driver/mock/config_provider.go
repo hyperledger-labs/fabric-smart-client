@@ -63,6 +63,16 @@ type ConfigProvider struct {
 	clientConnTimeoutReturnsOnCall map[int]struct {
 		result1 time.Duration
 	}
+	ClientKeepAliveConfigStub        func() *grpc.ClientKeepAliveConfig
+	clientKeepAliveConfigMutex       sync.RWMutex
+	clientKeepAliveConfigArgsForCall []struct {
+	}
+	clientKeepAliveConfigReturns struct {
+		result1 *grpc.ClientKeepAliveConfig
+	}
+	clientKeepAliveConfigReturnsOnCall map[int]struct {
+		result1 *grpc.ClientKeepAliveConfig
+	}
 	ConfigFileUsedStub        func() string
 	configFileUsedMutex       sync.RWMutex
 	configFileUsedArgsForCall []struct {
@@ -180,26 +190,6 @@ type ConfigProvider struct {
 	}
 	isSetReturnsOnCall map[int]struct {
 		result1 bool
-	}
-	KeepAliveClientIntervalStub        func() time.Duration
-	keepAliveClientIntervalMutex       sync.RWMutex
-	keepAliveClientIntervalArgsForCall []struct {
-	}
-	keepAliveClientIntervalReturns struct {
-		result1 time.Duration
-	}
-	keepAliveClientIntervalReturnsOnCall map[int]struct {
-		result1 time.Duration
-	}
-	KeepAliveClientTimeoutStub        func() time.Duration
-	keepAliveClientTimeoutMutex       sync.RWMutex
-	keepAliveClientTimeoutArgsForCall []struct {
-	}
-	keepAliveClientTimeoutReturns struct {
-		result1 time.Duration
-	}
-	keepAliveClientTimeoutReturnsOnCall map[int]struct {
-		result1 time.Duration
 	}
 	NetworkNameStub        func() string
 	networkNameMutex       sync.RWMutex
@@ -665,6 +655,59 @@ func (fake *ConfigProvider) ClientConnTimeoutReturnsOnCall(i int, result1 time.D
 	}
 	fake.clientConnTimeoutReturnsOnCall[i] = struct {
 		result1 time.Duration
+	}{result1}
+}
+
+func (fake *ConfigProvider) ClientKeepAliveConfig() *grpc.ClientKeepAliveConfig {
+	fake.clientKeepAliveConfigMutex.Lock()
+	ret, specificReturn := fake.clientKeepAliveConfigReturnsOnCall[len(fake.clientKeepAliveConfigArgsForCall)]
+	fake.clientKeepAliveConfigArgsForCall = append(fake.clientKeepAliveConfigArgsForCall, struct {
+	}{})
+	stub := fake.ClientKeepAliveConfigStub
+	fakeReturns := fake.clientKeepAliveConfigReturns
+	fake.recordInvocation("ClientKeepAliveConfig", []interface{}{})
+	fake.clientKeepAliveConfigMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) ClientKeepAliveConfigCallCount() int {
+	fake.clientKeepAliveConfigMutex.RLock()
+	defer fake.clientKeepAliveConfigMutex.RUnlock()
+	return len(fake.clientKeepAliveConfigArgsForCall)
+}
+
+func (fake *ConfigProvider) ClientKeepAliveConfigCalls(stub func() *grpc.ClientKeepAliveConfig) {
+	fake.clientKeepAliveConfigMutex.Lock()
+	defer fake.clientKeepAliveConfigMutex.Unlock()
+	fake.ClientKeepAliveConfigStub = stub
+}
+
+func (fake *ConfigProvider) ClientKeepAliveConfigReturns(result1 *grpc.ClientKeepAliveConfig) {
+	fake.clientKeepAliveConfigMutex.Lock()
+	defer fake.clientKeepAliveConfigMutex.Unlock()
+	fake.ClientKeepAliveConfigStub = nil
+	fake.clientKeepAliveConfigReturns = struct {
+		result1 *grpc.ClientKeepAliveConfig
+	}{result1}
+}
+
+func (fake *ConfigProvider) ClientKeepAliveConfigReturnsOnCall(i int, result1 *grpc.ClientKeepAliveConfig) {
+	fake.clientKeepAliveConfigMutex.Lock()
+	defer fake.clientKeepAliveConfigMutex.Unlock()
+	fake.ClientKeepAliveConfigStub = nil
+	if fake.clientKeepAliveConfigReturnsOnCall == nil {
+		fake.clientKeepAliveConfigReturnsOnCall = make(map[int]struct {
+			result1 *grpc.ClientKeepAliveConfig
+		})
+	}
+	fake.clientKeepAliveConfigReturnsOnCall[i] = struct {
+		result1 *grpc.ClientKeepAliveConfig
 	}{result1}
 }
 
@@ -1312,112 +1355,6 @@ func (fake *ConfigProvider) IsSetReturnsOnCall(i int, result1 bool) {
 	}
 	fake.isSetReturnsOnCall[i] = struct {
 		result1 bool
-	}{result1}
-}
-
-func (fake *ConfigProvider) KeepAliveClientInterval() time.Duration {
-	fake.keepAliveClientIntervalMutex.Lock()
-	ret, specificReturn := fake.keepAliveClientIntervalReturnsOnCall[len(fake.keepAliveClientIntervalArgsForCall)]
-	fake.keepAliveClientIntervalArgsForCall = append(fake.keepAliveClientIntervalArgsForCall, struct {
-	}{})
-	stub := fake.KeepAliveClientIntervalStub
-	fakeReturns := fake.keepAliveClientIntervalReturns
-	fake.recordInvocation("KeepAliveClientInterval", []interface{}{})
-	fake.keepAliveClientIntervalMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ConfigProvider) KeepAliveClientIntervalCallCount() int {
-	fake.keepAliveClientIntervalMutex.RLock()
-	defer fake.keepAliveClientIntervalMutex.RUnlock()
-	return len(fake.keepAliveClientIntervalArgsForCall)
-}
-
-func (fake *ConfigProvider) KeepAliveClientIntervalCalls(stub func() time.Duration) {
-	fake.keepAliveClientIntervalMutex.Lock()
-	defer fake.keepAliveClientIntervalMutex.Unlock()
-	fake.KeepAliveClientIntervalStub = stub
-}
-
-func (fake *ConfigProvider) KeepAliveClientIntervalReturns(result1 time.Duration) {
-	fake.keepAliveClientIntervalMutex.Lock()
-	defer fake.keepAliveClientIntervalMutex.Unlock()
-	fake.KeepAliveClientIntervalStub = nil
-	fake.keepAliveClientIntervalReturns = struct {
-		result1 time.Duration
-	}{result1}
-}
-
-func (fake *ConfigProvider) KeepAliveClientIntervalReturnsOnCall(i int, result1 time.Duration) {
-	fake.keepAliveClientIntervalMutex.Lock()
-	defer fake.keepAliveClientIntervalMutex.Unlock()
-	fake.KeepAliveClientIntervalStub = nil
-	if fake.keepAliveClientIntervalReturnsOnCall == nil {
-		fake.keepAliveClientIntervalReturnsOnCall = make(map[int]struct {
-			result1 time.Duration
-		})
-	}
-	fake.keepAliveClientIntervalReturnsOnCall[i] = struct {
-		result1 time.Duration
-	}{result1}
-}
-
-func (fake *ConfigProvider) KeepAliveClientTimeout() time.Duration {
-	fake.keepAliveClientTimeoutMutex.Lock()
-	ret, specificReturn := fake.keepAliveClientTimeoutReturnsOnCall[len(fake.keepAliveClientTimeoutArgsForCall)]
-	fake.keepAliveClientTimeoutArgsForCall = append(fake.keepAliveClientTimeoutArgsForCall, struct {
-	}{})
-	stub := fake.KeepAliveClientTimeoutStub
-	fakeReturns := fake.keepAliveClientTimeoutReturns
-	fake.recordInvocation("KeepAliveClientTimeout", []interface{}{})
-	fake.keepAliveClientTimeoutMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ConfigProvider) KeepAliveClientTimeoutCallCount() int {
-	fake.keepAliveClientTimeoutMutex.RLock()
-	defer fake.keepAliveClientTimeoutMutex.RUnlock()
-	return len(fake.keepAliveClientTimeoutArgsForCall)
-}
-
-func (fake *ConfigProvider) KeepAliveClientTimeoutCalls(stub func() time.Duration) {
-	fake.keepAliveClientTimeoutMutex.Lock()
-	defer fake.keepAliveClientTimeoutMutex.Unlock()
-	fake.KeepAliveClientTimeoutStub = stub
-}
-
-func (fake *ConfigProvider) KeepAliveClientTimeoutReturns(result1 time.Duration) {
-	fake.keepAliveClientTimeoutMutex.Lock()
-	defer fake.keepAliveClientTimeoutMutex.Unlock()
-	fake.KeepAliveClientTimeoutStub = nil
-	fake.keepAliveClientTimeoutReturns = struct {
-		result1 time.Duration
-	}{result1}
-}
-
-func (fake *ConfigProvider) KeepAliveClientTimeoutReturnsOnCall(i int, result1 time.Duration) {
-	fake.keepAliveClientTimeoutMutex.Lock()
-	defer fake.keepAliveClientTimeoutMutex.Unlock()
-	fake.KeepAliveClientTimeoutStub = nil
-	if fake.keepAliveClientTimeoutReturnsOnCall == nil {
-		fake.keepAliveClientTimeoutReturnsOnCall = make(map[int]struct {
-			result1 time.Duration
-		})
-	}
-	fake.keepAliveClientTimeoutReturnsOnCall[i] = struct {
-		result1 time.Duration
 	}{result1}
 }
 
@@ -2430,78 +2367,6 @@ func (fake *ConfigProvider) VaultTXStoreCacheSizeReturnsOnCall(i int, result1 in
 func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.broadcastNumRetriesMutex.RLock()
-	defer fake.broadcastNumRetriesMutex.RUnlock()
-	fake.broadcastRetryIntervalMutex.RLock()
-	defer fake.broadcastRetryIntervalMutex.RUnlock()
-	fake.channelMutex.RLock()
-	defer fake.channelMutex.RUnlock()
-	fake.channelIDsMutex.RLock()
-	defer fake.channelIDsMutex.RUnlock()
-	fake.clientConnTimeoutMutex.RLock()
-	defer fake.clientConnTimeoutMutex.RUnlock()
-	fake.configFileUsedMutex.RLock()
-	defer fake.configFileUsedMutex.RUnlock()
-	fake.defaultChannelMutex.RLock()
-	defer fake.defaultChannelMutex.RUnlock()
-	fake.driverNameMutex.RLock()
-	defer fake.driverNameMutex.RUnlock()
-	fake.getBoolMutex.RLock()
-	defer fake.getBoolMutex.RUnlock()
-	fake.getDurationMutex.RLock()
-	defer fake.getDurationMutex.RUnlock()
-	fake.getIntMutex.RLock()
-	defer fake.getIntMutex.RUnlock()
-	fake.getPathMutex.RLock()
-	defer fake.getPathMutex.RUnlock()
-	fake.getStringMutex.RLock()
-	defer fake.getStringMutex.RUnlock()
-	fake.getStringSliceMutex.RLock()
-	defer fake.getStringSliceMutex.RUnlock()
-	fake.isChannelQuietMutex.RLock()
-	defer fake.isChannelQuietMutex.RUnlock()
-	fake.isSetMutex.RLock()
-	defer fake.isSetMutex.RUnlock()
-	fake.keepAliveClientIntervalMutex.RLock()
-	defer fake.keepAliveClientIntervalMutex.RUnlock()
-	fake.keepAliveClientTimeoutMutex.RLock()
-	defer fake.keepAliveClientTimeoutMutex.RUnlock()
-	fake.networkNameMutex.RLock()
-	defer fake.networkNameMutex.RUnlock()
-	fake.newDefaultChannelConfigMutex.RLock()
-	defer fake.newDefaultChannelConfigMutex.RUnlock()
-	fake.ordererConnectionPoolSizeMutex.RLock()
-	defer fake.ordererConnectionPoolSizeMutex.RUnlock()
-	fake.orderersMutex.RLock()
-	defer fake.orderersMutex.RUnlock()
-	fake.orderingTLSClientAuthRequiredMutex.RLock()
-	defer fake.orderingTLSClientAuthRequiredMutex.RUnlock()
-	fake.orderingTLSEnabledMutex.RLock()
-	defer fake.orderingTLSEnabledMutex.RUnlock()
-	fake.pickOrdererMutex.RLock()
-	defer fake.pickOrdererMutex.RUnlock()
-	fake.pickPeerMutex.RLock()
-	defer fake.pickPeerMutex.RUnlock()
-	fake.setConfigOrderersMutex.RLock()
-	defer fake.setConfigOrderersMutex.RUnlock()
-	fake.tLSClientAuthRequiredMutex.RLock()
-	defer fake.tLSClientAuthRequiredMutex.RUnlock()
-	fake.tLSClientCertFileMutex.RLock()
-	defer fake.tLSClientCertFileMutex.RUnlock()
-	fake.tLSClientKeyFileMutex.RLock()
-	defer fake.tLSClientKeyFileMutex.RUnlock()
-	fake.tLSEnabledMutex.RLock()
-	defer fake.tLSEnabledMutex.RUnlock()
-	fake.tLSServerHostOverrideMutex.RLock()
-	defer fake.tLSServerHostOverrideMutex.RUnlock()
-	fake.translatePathMutex.RLock()
-	defer fake.translatePathMutex.RUnlock()
-	fake.unmarshalKeyMutex.RLock()
-	defer fake.unmarshalKeyMutex.RUnlock()
-	fake.vaultPersistenceNameMutex.RLock()
-	defer fake.vaultPersistenceNameMutex.RUnlock()
-	fake.vaultTXStoreCacheSizeMutex.RLock()
-	defer fake.vaultTXStoreCacheSizeMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

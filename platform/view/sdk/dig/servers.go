@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -25,6 +26,10 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/grpc"
+)
+
+const (
+	KeepAliveConfigKey = "fsc.grpc.keepalive"
 )
 
 type Server interface {
@@ -143,19 +148,13 @@ func NewServerConfig(configProvider driver.ConfigService) (grpc2.ServerConfig, e
 			serverConfig.SecOpts.ClientRootCAs = clientRoots
 		}
 	}
-	// get the default keepalive options
-	serverConfig.KaOpts = grpc2.DefaultKeepaliveOptions
-	// check to see if interval is set for the env
-	if configProvider.IsSet("fsc.grpc.keepalive.interval") {
-		serverConfig.KaOpts.ServerInterval = configProvider.GetDuration("fsc.grpc.keepalive.interval")
-	}
-	// check to see if timeout is set for the env
-	if configProvider.IsSet("fsc.grpc.keepalive.timeout") {
-		serverConfig.KaOpts.ServerTimeout = configProvider.GetDuration("fsc.grpc.keepalive.timeout")
-	}
-	// check to see if minInterval is set for the env
-	if configProvider.IsSet("fsc.grpc.keepalive.minInterval") {
-		serverConfig.KaOpts.ServerMinInterval = configProvider.GetDuration("fsc.grpc.keepalive.minInterval")
+
+	if configProvider.IsSet(KeepAliveConfigKey) {
+		keepAliveConfig := &grpc2.ServerKeepAliveConfig{}
+		if err := configProvider.UnmarshalKey(KeepAliveConfigKey, keepAliveConfig); err != nil {
+			return serverConfig, errors.Wrap(err, "error unmarshalling keep alive config")
+		}
+		serverConfig.KeepAliveConfig = keepAliveConfig
 	}
 	return serverConfig, nil
 }

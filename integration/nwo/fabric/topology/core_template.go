@@ -281,10 +281,6 @@ fabric:
       clientKey:
         file: {{ .PeerLocalTLSDir Peer }}/server.key
       {{- end }} 
-    keepalive:
-      interval: 60s
-      timeout: 600s
-      connectionTimeout: 10s
     ordering:
       numRetries: 3
       retryInterval: 3s

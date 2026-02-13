@@ -14,6 +14,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice/fakes"
+	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
+	"github.com/hyperledger/fabric-x-committer/api/protonotify"
 	"github.com/hyperledger/fabric-x-committer/api/protoqueryservice"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protowire"
@@ -374,5 +376,44 @@ func TestQueryService(t *testing.T) {
 		fake.GetRowsReturns(nil, expectedError)
 		_, err := qs.GetState("ns", "key1")
 		require.ErrorIs(t, err, expectedError)
+	})
+
+	// New tests for GetTransactionStatus
+	t.Run("GetTransactionStatus", func(t *testing.T) {
+		t.Parallel()
+		qs, fake := setupTest(t)
+
+		t.Run("happy path", func(t *testing.T) {
+			t.Parallel()
+			// return a response with one status
+			fake.GetTransactionStatusReturns(&protoqueryservice.TxStatusResponse{
+				Statuses: []*protonotify.TxStatusEvent{
+					{
+						StatusWithHeight: &protoblocktx.StatusWithHeight{Code: 7},
+					},
+				},
+			}, nil)
+
+			code, err := qs.GetTransactionStatus("tx1")
+			require.NoError(t, err)
+			require.Equal(t, int32(7), code)
+		})
+
+		t.Run("client error", func(t *testing.T) {
+			t.Parallel()
+			expectedError := errors.New("some error")
+			fake.GetTransactionStatusReturns(nil, expectedError)
+
+			_, err := qs.GetTransactionStatus("tx2")
+			require.ErrorIs(t, err, expectedError)
+		})
+
+		t.Run("no statuses", func(t *testing.T) {
+			t.Parallel()
+			fake.GetTransactionStatusReturns(&protoqueryservice.TxStatusResponse{Statuses: []*protonotify.TxStatusEvent{}}, nil)
+
+			_, err := qs.GetTransactionStatus("tx3")
+			require.Error(t, err)
+		})
 	})
 }

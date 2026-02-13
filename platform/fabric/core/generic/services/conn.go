@@ -194,12 +194,9 @@ func (c *GRPCClientFactory) newClient(cc grpc.ConnectionConfig) (*GRPCClient, er
 		timeout = grpc.DefaultConnectionTimeout
 	}
 	clientConfig := grpc.ClientConfig{
-		SecOpts: *secOpts,
-		KaOpts: grpc.KeepaliveOptions{
-			ClientInterval: c.ConfigService.KeepAliveClientInterval(),
-			ClientTimeout:  c.ConfigService.KeepAliveClientTimeout(),
-		},
-		Timeout: timeout,
+		SecOpts:         *secOpts,
+		KeepAliveConfig: c.ConfigService.ClientKeepAliveConfig(),
+		Timeout:         timeout,
 	}
 
 	override := cc.ServerNameOverride
