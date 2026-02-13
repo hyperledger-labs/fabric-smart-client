@@ -69,10 +69,12 @@ jobs:
         # run all test as listed via `make list-integration-tests`
         tests: ${{ fromJson(needs.itest-list.outputs.tests) }}
     steps:
+      - run: docker version
       - name: Set up Docker
         uses: docker/setup-docker-action@v4
         with:
           version: 28.5.2 # we pin the docker version temporary until the release of fabric v3.1.4
+      - run: docker version
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
@@ -93,5 +95,7 @@ jobs:
         run: | 
           make install-softhsm
           ./ci/scripts/setup_softhsm.sh
+
+      - run: docker images
 
       - run: make integration-tests-${{ matrix.tests }}
