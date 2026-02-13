@@ -92,6 +92,7 @@ func (n *Namespace) Present() bool {
 
 // SetNamespace sets the name of this namespace
 func (n *Namespace) SetNamespace(ns string) {
+	n.ns = ns
 	n.tx.SetProposal(ns, "", "_state")
 }
 
@@ -139,15 +140,34 @@ func (n *Namespace) AddInputByLinearID(id string, state interface{}, opts ...Add
 		return errors.Wrap(err, "filed getting rw set")
 	}
 
-	// retrieve the state from the local vault,
-	// if the state is not present, it needs to be loaded from other sources, potentially.
-	// For example, if the namespace has an associated chaincode, query the chaincode to retrieve the state
-	raw, err := rwSet.GetState(n.namespace(), id)
-	if err != nil {
-		return errors.Wrapf(err, "failed getting state [%s, %s]", n.namespace(), id)
+	// parse opts
+	addInputOptions := &addInputOptions{}
+	for _, opt := range opts {
+		if err := opt(addInputOptions); err != nil {
+			return errors.Wrapf(err, "failed parsing opts [%s, %s]", n.namespace(), id)
+		}
 	}
 
-	mapping, err := n.getFieldMapping(n.namespace(), id, true)
+	var raw []byte
+	if addInputOptions.useRawValue {
+		if addInputOptions.rawVersion == nil {
+			return errors.Errorf("raw value provided without version [%s, %s]", n.namespace(), id)
+		}
+		raw = addInputOptions.rawValue
+		if err := rwSet.AddReadAt(n.namespace(), id, addInputOptions.rawVersion); err != nil {
+			return errors.Wrapf(err, "failed adding read dependency [%s, %s]", n.namespace(), id)
+		}
+	} else {
+		// retrieve the state from the local vault,
+		// if the state is not present, it needs to be loaded from other sources, potentially.
+		// For example, if the namespace has an associated chaincode, query the chaincode to retrieve the state
+		raw, err = rwSet.GetState(n.namespace(), id)
+		if err != nil {
+			return errors.Wrapf(err, "failed getting state [%s, %s]", n.namespace(), id)
+		}
+	}
+
+	mapping, err := n.getFieldMapping(n.namespace(), id, !addInputOptions.useRawValue)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting mapping [%s, %s]", n.namespace(), id)
 	}
@@ -168,13 +188,6 @@ func (n *Namespace) AddInputByLinearID(id string, state interface{}, opts ...Add
 		return errors.Wrapf(err, "failed unmarshalling tags [%s, %s]", n.namespace(), id)
 	}
 
-	// parse opts
-	addInputOptions := &addInputOptions{}
-	for _, opt := range opts {
-		if err := opt(addInputOptions); err != nil {
-			return errors.Wrapf(err, "failed parsing opts [%s, %s] [%s]", n.namespace(), id, string(raw))
-		}
-	}
 	if addInputOptions.certification {
 		if err := n.certifyInput(id); err != nil {
 			return errors.Wrapf(err, "failed certifying input [%s, %s] [%s]", n.namespace(), id, string(raw))

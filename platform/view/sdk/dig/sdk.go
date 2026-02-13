@@ -42,6 +42,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
+	webserver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"go.uber.org/dig"
 )
 
@@ -157,6 +158,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(server2.NewMetrics),
 
 		// Web server
+		p.Container().Provide(webserver.NewHttpHandler),
 		p.Container().Provide(NewWebServer),
 		p.Container().Provide(digutils.Identity[Server](), dig.As(new(operations.Server))),
 

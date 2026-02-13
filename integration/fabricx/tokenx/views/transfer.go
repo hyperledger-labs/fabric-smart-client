@@ -1,0 +1,219 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package views
+
+import (
+	"encoding/json"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/tokenx/states"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+)
+
+// Transfer contains the parameters for transferring tokens
+type Transfer struct {
+	// TokenLinearID is the ID of the token to transfer
+	TokenLinearID string `json:"token_linear_id"`
+
+	// Amount is the amount to transfer (if less than token amount, splits the token)
+	Amount uint64 `json:"amount"`
+
+	// Recipient is the FSC node identity of the new owner
+	Recipient view.Identity `json:"recipient"`
+
+	// Approver is the identity of the approver (issuer)
+	Approver view.Identity `json:"approver"`
+}
+
+// TransferView is executed by the current owner to transfer tokens
+type TransferView struct {
+	Transfer
+}
+
+func (t *TransferView) Call(ctx view.Context) (interface{}, error) {
+	logger.Infof("[TransferView] START: Transferring token %s, amount %d", t.TokenLinearID, t.Amount)
+
+	// Get sender identity from local membership (like CBDC pattern)
+	fns, err := fabric.GetDefaultFNS(ctx)
+	assert.NoError(err, "failed getting FNS")
+	sender := fns.LocalMembership().DefaultIdentity()
+
+	// Recipient identity comes directly from client parameters
+	// This avoids ExchangeRecipientIdentities which causes non-deterministic serialization
+	newOwner := t.Recipient
+
+	// Create transaction
+	tx, err := state.NewTransaction(ctx)
+	assert.NoError(err, "failed creating transaction")
+
+	tx.SetNamespace(TokenxNamespace)
+
+	// Load the input token from sidecar (remote query service)
+	// This allows us to reference tokens that were issued by other nodes
+	inputToken := &states.Token{}
+	if err := AddRemoteInput(ctx, tx, TokenxNamespace, t.TokenLinearID, inputToken); err != nil {
+		logger.Errorf("[TransferView] Failed to add remote input: %v", err)
+		return nil, errors.Wrapf(err, "failed adding remote input token [%s]", t.TokenLinearID)
+	}
+
+	// Validate transfer amount
+	if t.Amount > inputToken.Amount {
+		logger.Errorf("[TransferView] Insufficient balance: token has %d, requested %d", inputToken.Amount, t.Amount)
+		return nil, errors.Errorf("insufficient balance: token has %d, requested %d", inputToken.Amount, t.Amount)
+	}
+
+	// Check transfer limits
+	limit := states.DefaultTransferLimit()
+	if t.Amount > limit.MaxAmountPerTx {
+		return nil, errors.Errorf("transfer amount %d exceeds max limit %d", t.Amount, limit.MaxAmountPerTx)
+	}
+	if t.Amount < limit.MinAmount {
+		return nil, errors.Errorf("transfer amount %d below minimum %d", t.Amount, limit.MinAmount)
+	}
+
+	// Add transfer command
+	assert.NoError(tx.AddCommand("transfer", sender, newOwner), "failed adding transfer command")
+
+	var outputTokenIDs []string
+
+	// Create output token for recipient (add outputs BEFORE delete to maintain index order)
+	// Note: Use zero time for deterministic endorsement across nodes
+	outputToken := &states.Token{
+		Type:     inputToken.Type,
+		Amount:   t.Amount,
+		Owner:    newOwner,
+		IssuerID: inputToken.IssuerID,
+	}
+	outputToken.LinearID = fmt.Sprintf("%s_out_0", tx.ID())
+	assert.NoError(tx.AddOutput(outputToken), "failed adding output token")
+	outputTokenIDs = append(outputTokenIDs, outputToken.LinearID)
+
+	// If partial transfer, create change token for sender
+	if t.Amount < inputToken.Amount {
+		changeAmount := inputToken.Amount - t.Amount
+		changeToken := &states.Token{
+			Type:     inputToken.Type,
+			Amount:   changeAmount,
+			Owner:    sender,
+			IssuerID: inputToken.IssuerID,
+		}
+		changeToken.LinearID = fmt.Sprintf("%s_out_1", tx.ID())
+		assert.NoError(tx.AddOutput(changeToken), "failed adding change token")
+		outputTokenIDs = append(outputTokenIDs, changeToken.LinearID)
+	}
+
+	// Create transaction record
+	// Use a prefixed ID to avoid collision with token LinearIDs
+	// Note: Timestamp is zero for deterministic endorsement
+	txRecord := &states.TransactionRecord{
+		RecordID:       "txr_" + tx.ID(),
+		Type:           states.TxTypeTransfer,
+		TokenType:      inputToken.Type,
+		Amount:         t.Amount,
+		From:           sender,
+		To:             newOwner,
+		TokenLinearIDs: outputTokenIDs,
+	}
+	assert.NoError(tx.AddOutput(txRecord), "failed adding transaction record")
+
+	// Delete the input token AFTER adding outputs (this ensures output indices are correct)
+	// Note: For remote inputs, we need to set the LinearID for delete to work
+	inputToken.LinearID = t.TokenLinearID
+	assert.NoError(tx.Delete(inputToken), "failed deleting input token")
+
+	// Validate RWSet keys BEFORE endorsement (RWSet is closed after endorsement)
+	if err := ValidateNamespaceRWSetKeys(tx, TokenxNamespace); err != nil {
+		return nil, errors.Wrap(err, "invalid RWSet keys")
+	}
+
+	// Collect endorsements from approver only (like CBDC pattern)
+	// The sender is the initiator, recipient is just assigned ownership
+	_, err = ctx.RunView(state.NewCollectEndorsementsView(tx, t.Approver))
+	assert.NoError(err, "failed collecting endorsements")
+
+	// Setup finality listener
+	var wg sync.WaitGroup
+	wg.Add(1)
+	_, ch, err := fabric.GetDefaultChannel(ctx)
+	assert.NoError(err, "failed getting channel")
+	committer := ch.Committer()
+	assert.NoError(committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed adding listener")
+
+	// Submit to ordering service
+	_, err = ctx.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
+	assert.NoError(err, "failed ordering transaction")
+
+	wg.Wait()
+
+	logger.Infof("[TransferView] END: Transfer completed: txID=%s", tx.ID())
+
+	return tx.ID(), nil
+}
+
+// TransferViewFactory creates TransferView instances
+type TransferViewFactory struct{}
+
+func (f *TransferViewFactory) NewView(in []byte) (view.View, error) {
+	v := &TransferView{}
+	if err := json.Unmarshal(in, &v.Transfer); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// TransferResponderView is executed by the recipient to validate and accept a transfer
+type TransferResponderView struct{}
+
+func (t *TransferResponderView) Call(ctx view.Context) (interface{}, error) {
+	// Get recipient identity from local membership (matches new pattern)
+	fns, err := fabric.GetDefaultFNS(ctx)
+	assert.NoError(err, "failed getting FNS")
+	recipientID := fns.LocalMembership().DefaultIdentity()
+
+	// Receive the transaction directly (no identity exchange needed)
+	tx, err := state.ReceiveTransaction(ctx)
+	assert.NoError(err, "failed receiving transaction")
+
+	// Validate the transaction
+	assert.Equal(1, tx.Commands().Count(), "expected single command")
+	cmd := tx.Commands().At(0)
+	assert.Equal("transfer", cmd.Name, "expected transfer command, got %s", cmd.Name)
+
+	// Verify we have at least 1 input and 2 outputs (token + record)
+	assert.True(tx.NumInputs() >= 1, "expected at least 1 input")
+	assert.True(tx.NumOutputs() >= 2, "expected at least 2 outputs")
+
+	// Verify there is an output token for the recipient
+	var outputToken *states.Token
+	for i := 0; i < tx.NumOutputs(); i++ {
+		candidate := &states.Token{}
+		if err := tx.GetOutputAt(i, candidate); err != nil {
+			continue
+		}
+		if candidate.Amount > 0 && candidate.Owner.Equal(recipientID) {
+			outputToken = candidate
+			break
+		}
+	}
+	assert.NotNil(outputToken, "output token for recipient not found")
+
+	// Sign the transaction
+	_, err = ctx.RunView(state.NewEndorseView(tx))
+	assert.NoError(err, "failed endorsing transaction")
+
+	logger.Infof("TransferResponderView: accepted transfer of %d %s tokens", outputToken.Amount, outputToken.Type)
+
+	// Wait for finality
+	return ctx.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
+}
