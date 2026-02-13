@@ -29,7 +29,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/jackc/pgxlisten v0.0.0-20241106001234-1d6f6656415c
 	github.com/jaegertracing/jaeger-idl v0.6.0
-	github.com/libp2p/go-libp2p v0.46.0
+	github.com/libp2p/go-libp2p v0.47.0
 	github.com/libp2p/go-libp2p-kad-dht v0.36.0
 	github.com/miekg/pkcs11 v1.1.1
 	github.com/miracl/conflate v1.3.4
@@ -62,8 +62,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	modernc.org/sqlite v1.32.0
 )
-
-require github.com/pion/transport/v4 v4.0.1 // indirect
 
 require (
 	cel.dev/expr v0.24.0 // indirect
@@ -107,6 +105,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/dunglas/httpsfv v1.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
@@ -231,6 +230,7 @@ require (
 	github.com/pion/stun/v3 v3.0.0 // indirect
 	github.com/pion/transport/v2 v2.2.10 // indirect
 	github.com/pion/transport/v3 v3.0.7 // indirect
+	github.com/pion/transport/v4 v4.0.1 // indirect
 	github.com/pion/turn/v4 v4.0.2 // indirect
 	github.com/pion/webrtc/v4 v4.1.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -241,8 +241,8 @@ require (
 	github.com/prometheus/common v0.66.1
 	github.com/prometheus/procfs v0.17.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
-	github.com/quic-go/quic-go v0.57.1 // indirect
-	github.com/quic-go/webtransport-go v0.9.0 // indirect
+	github.com/quic-go/quic-go v0.59.0 // indirect
+	github.com/quic-go/webtransport-go v0.10.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
