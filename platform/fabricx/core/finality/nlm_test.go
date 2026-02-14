@@ -152,7 +152,6 @@ func TestNotificationListenerManager(t *testing.T) {
 		}
 
 		for _, tc := range table {
-			tc := tc
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 				nlm, fakeStream := setupTest(t)
