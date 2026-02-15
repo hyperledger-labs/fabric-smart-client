@@ -23,16 +23,13 @@ import (
 )
 
 // generateNSExtensions adds the committers notification service information to the config
-func generateNSExtension(n *network.Network, notificationServicePort uint16) {
+func generateNSExtension(n *network.Network, notificationServicePort uint16, notificationServiceHost string) {
 	context := n.Context
 
 	fscTop, ok := context.TopologyByName("fsc").(*fsc.Topology)
 	if !ok {
 		utils.Must(errors.New("cannot get fsc topo instance"))
 	}
-
-	// TODO set correct values
-	notificationServiceHost := "localhost"
 
 	// TODO: most of this logic should go somewhere
 
