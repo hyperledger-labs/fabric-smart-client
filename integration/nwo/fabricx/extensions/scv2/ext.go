@@ -59,7 +59,7 @@ func (e *Extension) CheckTopology() {
 
 func (e *Extension) GenerateArtifacts() {
 	generateQSExtension(e.network)
-	generateNSExtension(e.network, e.sidecar.Ports[fabric_network.ListenPort])
+	generateNSExtension(e.network, e.sidecar.Ports[fabric_network.ListenPort], e.sidecar.Host)
 }
 
 func (e *Extension) PostRun(load bool) {
