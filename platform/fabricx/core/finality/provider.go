@@ -148,10 +148,11 @@ func newNotifi(network string, fnsp *fabric.NetworkServiceProvider, configProvid
 	notifyClient := protonotify.NewNotifierClient(cc)
 
 	nlm := &notificationListenerManager{
-		notifyClient:  notifyClient,
-		requestQueue:  make(chan *protonotify.NotificationRequest),  // Queue for outgoing requests to the committer
-		responseQueue: make(chan *protonotify.NotificationResponse), // Queue for incoming responses/notifications
-		handlers:      make(map[string][]fabric.FinalityListener),   // Map: txID -> list of listeners
+		notifyClient:   notifyClient,
+		requestQueue:   make(chan *protonotify.NotificationRequest),  // Queue for outgoing requests to the committer
+		responseQueue:  make(chan *protonotify.NotificationResponse), // Queue for incoming responses/notifications
+		handlers:       make(map[string][]fabric.FinalityListener),   // Map: txID -> list of listeners
+		handlerTimeout: DefaultHandlerTimeout,
 	}
 
 	return nlm, nil

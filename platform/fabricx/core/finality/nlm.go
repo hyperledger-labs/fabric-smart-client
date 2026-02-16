@@ -25,10 +25,13 @@ import (
 
 var logger = logging.MustGetLogger()
 
+const DefaultHandlerTimeout = 5 * time.Second
+
 type notificationListenerManager struct {
-	notifyClient  protonotify.NotifierClient
-	requestQueue  chan *protonotify.NotificationRequest
-	responseQueue chan *protonotify.NotificationResponse
+	notifyClient   protonotify.NotifierClient
+	requestQueue   chan *protonotify.NotificationRequest
+	responseQueue  chan *protonotify.NotificationResponse
+	handlerTimeout time.Duration
 
 	handlers   map[driver.TxID][]fabric.FinalityListener
 	handlersMu sync.RWMutex
@@ -90,20 +93,35 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 
 			res := parseResponse(resp)
 
+			// Invoke each handler in its own goroutine with a timeout.
+			// If a handler ignores the context and never returns, the goroutine
+			// will leak but the dispatcher remains unblocked.
+			// github.com/hyperledger-labs/fabric-smart-client/issues/1100
 			n.handlersMu.Lock()
 			for txID, v := range res {
 				handlers, ok := n.handlers[txID]
 				if !ok {
-					// nobody registered
 					continue
 				}
-				// delete
 				delete(n.handlers, txID)
-
-				// now it is time to call the handlers
 				for _, h := range handlers {
-					// TODO: should handle a timeout on status and cancel if timeout
-					h.OnStatus(gCtx, txID, v, "")
+					go func() {
+						timeoutCtx, cancel := context.WithTimeout(gCtx, n.handlerTimeout)
+						defer cancel()
+
+						done := make(chan struct{})
+						go func() {
+							h.OnStatus(timeoutCtx, txID, v, "")
+							close(done)
+						}()
+
+						select {
+						case <-done:
+							// Handler completed within timeout
+						case <-timeoutCtx.Done():
+							logger.Warnf("OnStatus handler timed out for txID=%s (timeout=%s)", txID, n.handlerTimeout)
+						}
+					}()
 				}
 			}
 			n.handlersMu.Unlock()
