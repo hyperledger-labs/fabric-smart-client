@@ -58,6 +58,41 @@ func (m *mockListener) getStatus() (string, int) {
 	return m.txID, m.status
 }
 
+// blockingListener simulates a handler that blocks forever (ignores context).
+// Used to test timeout detection and goroutine leak resilience.
+type blockingListener struct {
+	block    chan struct{} // close this to unblock; leave open to simulate a stuck handler
+	onCalled chan struct{} // closed when OnStatus is entered, so tests can synchronize
+}
+
+func (b *blockingListener) OnStatus(_ context.Context, _ string, _ int, _ string) {
+	if b.onCalled != nil {
+		select {
+		case <-b.onCalled:
+			// already closed
+		default:
+			close(b.onCalled)
+		}
+	}
+	<-b.block // block until unblocked or leak
+}
+
+// delayedListener completes after a configurable delay.
+// Embeds mockListener so getStatus() works for assertions.
+type delayedListener struct {
+	mockListener
+	delay time.Duration
+}
+
+func (d *delayedListener) OnStatus(ctx context.Context, txID string, status int, errMsg string) {
+	select {
+	case <-time.After(d.delay):
+	case <-ctx.Done():
+		return
+	}
+	d.mockListener.OnStatus(ctx, txID, status, errMsg)
+}
+
 func setupTest(tb testing.TB) (*notificationListenerManager, *mock.FakeNotifier_OpenNotificationStreamClient) {
 	tb.Helper()
 
@@ -596,5 +631,223 @@ func TestNotificationListenerManager(t *testing.T) {
 
 		require.Error(t, err)
 		require.EqualError(t, err, "listener nil", "Should return 'listener nil' error for a nil listener")
+	})
+
+	t.Run("Handler_Timeout_Detection", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_handler_timeout"
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = 200 * time.Millisecond // short timeout for test speed
+		ctx := t.Context()
+
+		// slowListener blocks longer than the handler timeout
+		slowCalled := make(chan struct{})
+		slowListener := &blockingListener{
+			block:    make(chan struct{}), // never closed, simulates a stuck handler
+			onCalled: slowCalled,
+		}
+
+		nlm.handlers[targetTxID] = []fabric.FinalityListener{slowListener}
+
+		resp := &protonotify.NotificationResponse{
+			TxStatusEvents: []*protonotify.TxStatusEvent{
+				{
+					TxId: targetTxID,
+					StatusWithHeight: &protoblocktx.StatusWithHeight{
+						Code: protoblocktx.Status_COMMITTED,
+					},
+				},
+			},
+		}
+
+		var sent atomic.Bool
+		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+			if !sent.Swap(true) {
+				return resp, nil
+			}
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		runManager(t, nlm)
+
+		// Wait for the handler to be invoked
+		select {
+		case <-slowCalled:
+			// Good, the handler was called
+		case <-time.After(timeout):
+			t.Fatal("slow handler was never invoked")
+		}
+
+		// The handler is still blocked, but the dispatcher should have moved on.
+		// Verify the handler entry was removed from the map (dispatch cleanup
+		// happens before the goroutine timeout fires).
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			nlm.handlersMu.RLock()
+			_, exists := nlm.handlers[targetTxID]
+			nlm.handlersMu.RUnlock()
+			assert.False(collect, exists,
+				"Handler should be removed from map even though it timed out")
+		}, timeout, tick)
+	})
+
+	t.Run("Multiple_Handlers_Mixed_Speeds", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_mixed_speeds"
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = 500 * time.Millisecond
+		ctx := t.Context()
+
+		// fastListener completes immediately
+		fastML := &mockListener{}
+		fastML.wg.Add(1)
+
+		// slowListener completes, but takes a while (still within timeout)
+		slowML := &delayedListener{delay: 100 * time.Millisecond}
+		slowML.wg.Add(1)
+
+		// stuckListener never returns (exceeds timeout)
+		stuckCalled := make(chan struct{})
+		stuckListener := &blockingListener{
+			block:    make(chan struct{}), // never closed
+			onCalled: stuckCalled,
+		}
+
+		nlm.handlers[targetTxID] = []fabric.FinalityListener{fastML, slowML, stuckListener}
+
+		resp := &protonotify.NotificationResponse{
+			TxStatusEvents: []*protonotify.TxStatusEvent{
+				{
+					TxId: targetTxID,
+					StatusWithHeight: &protoblocktx.StatusWithHeight{
+						Code: protoblocktx.Status_COMMITTED,
+					},
+				},
+			},
+		}
+
+		var sent atomic.Bool
+		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+			if !sent.Swap(true) {
+				return resp, nil
+			}
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		runManager(t, nlm)
+
+		// fastListener should complete quickly
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			txID, status := fastML.getStatus()
+			assert.Equal(collect, targetTxID, txID)
+			assert.Equal(collect, fdriver.Valid, status)
+		}, timeout, tick, "fast listener should be notified")
+
+		// slowListener should also complete (within timeout)
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			txID, status := slowML.getStatus()
+			assert.Equal(collect, targetTxID, txID)
+			assert.Equal(collect, fdriver.Valid, status)
+		}, timeout, tick, "slow listener should be notified")
+
+		// stuckListener was called but will time out
+		select {
+		case <-stuckCalled:
+		case <-time.After(timeout):
+			t.Fatal("stuck handler was never invoked")
+		}
+
+		// Handler map should be cleaned up regardless of stuck handler
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			nlm.handlersMu.RLock()
+			_, exists := nlm.handlers[targetTxID]
+			nlm.handlersMu.RUnlock()
+			assert.False(collect, exists,
+				"Handler map entry should be removed after dispatch")
+		}, timeout, tick)
+	})
+
+	t.Run("Goroutine_Leak_Dispatcher_Not_Blocked", func(t *testing.T) {
+		// Verifies that a handler ignoring context cancellation and never
+		// returning does NOT block the dispatcher from processing subsequent
+		// notifications.
+		t.Parallel()
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = 200 * time.Millisecond
+		ctx := t.Context()
+
+		const leakyTxID = "tx_leaky"
+		const normalTxID = "tx_normal"
+
+		// leakyListener ignores context it blocks forever
+		leakyCalled := make(chan struct{})
+		leakyListener := &blockingListener{
+			block:    make(chan struct{}), // never closed
+			onCalled: leakyCalled,
+		}
+
+		// normalListener completes promptly
+		normalML := &mockListener{}
+		normalML.wg.Add(1)
+
+		nlm.handlers[leakyTxID] = []fabric.FinalityListener{leakyListener}
+		nlm.handlers[normalTxID] = []fabric.FinalityListener{normalML}
+
+		// First response triggers the leaky handler,
+		// second triggers the normal one.
+		leakyResp := &protonotify.NotificationResponse{
+			TxStatusEvents: []*protonotify.TxStatusEvent{
+				{
+					TxId: leakyTxID,
+					StatusWithHeight: &protoblocktx.StatusWithHeight{
+						Code: protoblocktx.Status_COMMITTED,
+					},
+				},
+			},
+		}
+		normalResp := &protonotify.NotificationResponse{
+			TxStatusEvents: []*protonotify.TxStatusEvent{
+				{
+					TxId: normalTxID,
+					StatusWithHeight: &protoblocktx.StatusWithHeight{
+						Code: protoblocktx.Status_COMMITTED,
+					},
+				},
+			},
+		}
+
+		callCount := atomic.Int32{}
+		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+			n := callCount.Add(1)
+			switch n {
+			case 1:
+				return leakyResp, nil
+			case 2:
+				return normalResp, nil
+			default:
+				<-ctx.Done()
+				return nil, ctx.Err()
+			}
+		}
+
+		runManager(t, nlm)
+
+		// Wait for the leaky handler to be invoked
+		select {
+		case <-leakyCalled:
+		case <-time.After(timeout):
+			t.Fatal("leaky handler was never invoked")
+		}
+
+		// Critical assertion: normalListener must still get notified even
+		// though leakyListener is stuck forever. This proves the dispatcher
+		// loop is not blocked by a misbehaving handler.
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			txID, status := normalML.getStatus()
+			assert.Equal(collect, normalTxID, txID)
+			assert.Equal(collect, fdriver.Valid, status)
+		}, timeout, tick,
+			"normal listener must be notified despite leaky handler")
 	})
 }
