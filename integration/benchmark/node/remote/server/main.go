@@ -26,12 +26,12 @@ func main() {
 		panic(err)
 	}
 
-	// create the factories for we register with our node server
+	// create the factories we register with our node server
 	fcs := make([]node.NamedFactory, len(workload.Workloads))
-	for i, bm := range workload.Workloads {
+	for i, wl := range workload.Workloads {
 		fcs[i] = node.NamedFactory{
-			Name:    bm.Name,
-			Factory: bm.Factory,
+			Name:    wl.Name,
+			Factory: wl.Factory,
 		}
 	}
 

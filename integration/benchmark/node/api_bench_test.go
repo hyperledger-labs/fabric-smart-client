@@ -7,38 +7,28 @@ SPDX-License-Identifier: Apache-2.0
 package node
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
 	"path"
-	"runtime"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/views"
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var workloads = []struct {
-	name    string
-	factory viewregistry.Factory
-	params  any
-}{
+var workloads = []Workload{
 	{
-		name:    "noop",
-		factory: &views.NoopViewFactory{},
+		Name:    "noop",
+		Factory: &views.NoopViewFactory{},
 	},
 	{
-		name:    "cpu",
-		factory: &views.CPUViewFactory{},
-		params:  &views.CPUParams{N: 200000},
+		Name:    "cpu",
+		Factory: &views.CPUViewFactory{},
+		Params:  &views.CPUParams{N: 200000},
 	},
 	{
-		name:    "sign",
-		factory: &views.ECDSASignViewFactory{},
-		params:  &views.ECDSASignParams{},
+		Name:    "sign",
+		Factory: &views.ECDSASignViewFactory{},
+		Params:  &views.ECDSASignParams{},
 	},
 }
 
@@ -56,8 +46,8 @@ func BenchmarkAPI(b *testing.B) {
 	fcs := make([]NamedFactory, len(workloads))
 	for i, bm := range workloads {
 		fcs[i] = NamedFactory{
-			Name:    bm.name,
-			Factory: bm.factory,
+			Name:    bm.Name,
+			Factory: bm.Factory,
 		}
 	}
 
@@ -70,56 +60,8 @@ func BenchmarkAPI(b *testing.B) {
 
 	// run all workloads via direct view API
 	for _, bm := range workloads {
-		// select our workload
-
-		var in []byte
-		if bm.params != nil {
-			in, err = json.Marshal(bm.params)
-			require.NoError(b, err)
-		}
-
-		// warmup node
-		f, err := vm.NewView(bm.name, in)
-		for range 1000 {
-			_, err = vm.InitiateView(f, context.Background())
-			assert.NoError(b, err)
-		}
-		runtime.GC()
-		b.ResetTimer()
-
-		// this benchmark calls the view directly via view API
-		// note that every worker first creates a view instance using the Factory and then invokes it
-		b.Run(fmt.Sprintf("w=%s/f=0/nc=0", bm.name), func(b *testing.B) {
-			b.RunParallel(func(pb *testing.PB) {
-				// each goroutine instantiates a dedicated view
-				f, err := vm.NewView(bm.name, in)
-				assert.NoError(b, err)
-
-				for pb.Next() {
-					_, err = vm.InitiateView(f, context.Background())
-					assert.NoError(b, err)
-				}
-			})
-			benchmark.ReportTPS(b)
-		})
-
-		// this benchmark calls the view directly via view API
-		// note that every invocation also calls the factor to create a fresh view instance
-		b.Run(fmt.Sprintf("w=%s/f=1/nc=0", bm.name), func(b *testing.B) {
-			b.RunParallel(func(pb *testing.PB) {
-				// each goroutine instantiates a dedicated view
-				assert.NoError(b, err)
-
-				for pb.Next() {
-					f, err := vm.NewView(bm.name, in)
-					assert.NoError(b, err)
-					_, err = vm.InitiateView(f, context.Background())
-					assert.NoError(b, err)
-				}
-			})
-			benchmark.ReportTPS(b)
-		})
+		RunAPIBenchmark(b, vm, bm)
 	}
-	// cleanup server
+
 	n.Stop()
 }
