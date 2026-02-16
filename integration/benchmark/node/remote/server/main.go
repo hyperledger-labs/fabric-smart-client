@@ -13,7 +13,6 @@ import (
 	"path"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/node"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/node/remote/workload"
 )
 
 func main() {
@@ -27,8 +26,8 @@ func main() {
 	}
 
 	// create the factories we register with our node server
-	fcs := make([]node.NamedFactory, len(workload.Workloads))
-	for i, wl := range workload.Workloads {
+	fcs := make([]node.NamedFactory, len(node.DefaultWorkloads))
+	for i, wl := range node.DefaultWorkloads {
 		fcs[i] = node.NamedFactory{
 			Name:    wl.Name,
 			Factory: wl.Factory,

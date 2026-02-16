@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -166,4 +167,54 @@ func MarshalWorkloadParams(params any) []byte {
 		panic(fmt.Sprintf("failed to marshal workload params: %v", err))
 	}
 	return in
+}
+
+// RemoteBenchmarkConfig holds all parameters for a remote benchmark suite.
+type RemoteBenchmarkConfig struct {
+	Workloads      []Workload
+	ClientConfPath string
+	ConnCounts     []int // number of gRPC connections to test
+	WorkerCounts   []int // number of concurrent workers to test
+	WarmupDur      time.Duration
+	BenchTime      time.Duration
+	Count          int    // number of executions per configuration
+	BenchName      string // prefix for output lines, e.g. "BenchmarkAPIGRPCRemote"
+}
+
+// RunRemoteBenchmarkSuite runs the full remote benchmark loop:
+// workloads × connection counts × worker counts × count.
+func RunRemoteBenchmarkSuite(cfg RemoteBenchmarkConfig) {
+	for _, wl := range cfg.Workloads {
+		in := MarshalWorkloadParams(wl.Params)
+
+		makeCaller := func(cli *benchmark.ViewClient) func(ctx context.Context) error {
+			return MakeRemoteGRPCCaller(cli, wl.Name, in)
+		}
+
+		for _, nc := range cfg.ConnCounts {
+			ccs, cleanup := CreateRemoteClients(nc, cfg.ClientConfPath)
+
+			err := WarmupClients(ccs, makeCaller)
+			if err != nil {
+				panic(fmt.Sprintf("warmup failed: %v", err))
+			}
+			runtime.GC()
+
+			fmt.Printf("%s/w=%v/nc=%d\n", cfg.BenchName, wl.Name, nc)
+
+			for _, nw := range cfg.WorkerCounts {
+				for range cfg.Count {
+					fmt.Printf("%s/w=%v/nc=%d-%v\t\t ", cfg.BenchName, wl.Name, nc, nw)
+
+					warmDeadline := time.Now().Add(cfg.WarmupDur)
+					endDeadline := warmDeadline.Add(cfg.BenchTime)
+
+					hist := RunRemoteBenchmark(ccs, makeCaller, nw, warmDeadline, endDeadline)
+					PrintHistogram(hist, cfg.BenchTime)
+				}
+			}
+
+			cleanup()
+		}
+	}
 }

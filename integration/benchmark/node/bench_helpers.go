@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/views"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
@@ -35,6 +36,24 @@ type Workload struct {
 	Name    string
 	Factory viewregistry.Factory
 	Params  any
+}
+
+// DefaultWorkloads defines the standard set of benchmark workloads.
+var DefaultWorkloads = []Workload{
+	{
+		Name:    "noop",
+		Factory: &views.NoopViewFactory{},
+	},
+	{
+		Name:    "cpu",
+		Factory: &views.CPUViewFactory{},
+		Params:  &views.CPUParams{N: 200000},
+	},
+	{
+		Name:    "sign",
+		Factory: &views.ECDSASignViewFactory{},
+		Params:  &views.ECDSASignParams{},
+	},
 }
 
 // CreateClients creates numConn ViewClients using the given client config path.

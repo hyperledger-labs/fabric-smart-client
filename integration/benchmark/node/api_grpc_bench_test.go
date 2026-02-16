@@ -27,8 +27,8 @@ func BenchmarkAPIGRPC(b *testing.B) {
 	require.NoError(b, err)
 
 	// create the factories for we register with our node server
-	fcs := make([]NamedFactory, len(workloads))
-	for i, bm := range workloads {
+	fcs := make([]NamedFactory, len(DefaultWorkloads))
+	for i, bm := range DefaultWorkloads {
 		fcs[i] = NamedFactory{
 			Name:    bm.Name,
 			Factory: bm.Factory,
@@ -40,7 +40,7 @@ func BenchmarkAPIGRPC(b *testing.B) {
 	require.NoError(b, err)
 
 	// run all workloads via direct view API
-	for _, bm := range workloads {
+	for _, bm := range DefaultWorkloads {
 		RunAPIGRPCBenchmark(b, bm, clientConfPath, *numConn)
 	}
 
