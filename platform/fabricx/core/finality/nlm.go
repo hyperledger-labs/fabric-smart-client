@@ -25,10 +25,17 @@ import (
 
 var logger = logging.MustGetLogger()
 
+// DefaultHandlerTimeout is the maximum time allowed for a finality listener
+// handler to complete. If a handler exceeds this timeout, a warning is logged
+// and the handler is abandoned. Note: Handlers that ignore context cancellation
+// will leak goroutines, but this is preferable to blocking the dispatcher.
+const DefaultHandlerTimeout = 5 * time.Second
+
 type notificationListenerManager struct {
-	notifyClient  protonotify.NotifierClient
-	requestQueue  chan *protonotify.NotificationRequest
-	responseQueue chan *protonotify.NotificationResponse
+	notifyClient   protonotify.NotifierClient
+	requestQueue   chan *protonotify.NotificationRequest
+	responseQueue  chan *protonotify.NotificationResponse
+	handlerTimeout time.Duration
 
 	handlers   map[driver.TxID][]fabric.FinalityListener
 	handlersMu sync.RWMutex
@@ -80,6 +87,12 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 
 	// spawn notification dispatcher
 	g.Go(func() error {
+		type handlerCall struct {
+			handler fabric.FinalityListener
+			txID    string
+			status  int
+		}
+
 		var resp *protonotify.NotificationResponse
 		for {
 			select {
@@ -90,23 +103,46 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 
 			res := parseResponse(resp)
 
+			// Collect handlers under lock, then release before spawning goroutines.
+			// This minimizes lock hold time — only map lookups and deletes happen
+			// under the lock. Goroutine scheduling happens entirely outside.
+			var calls []handlerCall
+
 			n.handlersMu.Lock()
 			for txID, v := range res {
 				handlers, ok := n.handlers[txID]
 				if !ok {
-					// nobody registered
 					continue
 				}
-				// delete
 				delete(n.handlers, txID)
-
-				// now it is time to call the handlers
 				for _, h := range handlers {
-					// TODO: should handle a timeout on status and cancel if timeout
-					h.OnStatus(gCtx, txID, v, "")
+					calls = append(calls, handlerCall{handler: h, txID: txID, status: v})
 				}
 			}
 			n.handlersMu.Unlock()
+
+			// Invoke each handler in its own goroutine with a timeout.
+			// If a handler ignores the context and never returns, the goroutine
+			// will leak — but the dispatcher remains unblocked.
+			for _, c := range calls {
+				go func() {
+					timeoutCtx, cancel := context.WithTimeout(gCtx, n.handlerTimeout)
+					defer cancel()
+
+					done := make(chan struct{})
+					go func() {
+						c.handler.OnStatus(timeoutCtx, c.txID, c.status, "")
+						close(done)
+					}()
+
+					select {
+					case <-done:
+						// Handler completed within timeout
+					case <-timeoutCtx.Done():
+						logger.Warnf("OnStatus handler timed out for txID=%s (timeout=%s)", c.txID, n.handlerTimeout)
+					}
+				}()
+			}
 		}
 	})
 
