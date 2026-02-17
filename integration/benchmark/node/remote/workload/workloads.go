@@ -7,15 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package workload
 
 import (
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/views"
-	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
-var Workloads = []struct {
-	Name    string
-	Factory viewregistry.Factory
-	Params  any
-}{
+var Workloads = []node.Workload{
 	{
 		Name:    "noop",
 		Factory: &views.NoopViewFactory{},
