@@ -39,6 +39,40 @@ func main() {
 
 > TODO: Configuration details for Fabric-x platform here soon.
 
+## Notification Service (Transaction Finality)
+
+The notification service delivers realtime transaction finality events to FSC application nodes. It maintains a persistent bidirectional gRPC stream to the [fabric-x-committer](https://github.com/hyperledger/fabric-x-committer)'s `Notifier` service, which pushes notifications as transactions are committed, invalidated, or timed out. One stream is opened per network/channel pair.
+
+### API
+
+Obtain a `ListenerManager` via `finality.GetListenerManager(sp, network, channel)`, then use:
+
+- `AddFinalityListener(txID, listener)`: registers a `FinalityListener` whose `OnStatus` callback fires once when the transaction reaches finality. Only the first listener for a given txID triggers a subscription request to the committer; subsequent listeners for the same txID piggyback on it. After dispatch, all listeners for the txID are automatically removed.
+- `RemoveFinalityListener(txID, listener)`: unregisters a listener before delivery. Safe to call for unknown txIDs or unregistered listeners.
+
+The `OnStatus` callback receives one of: `fdriver.Valid` (committed), `fdriver.Invalid` (rejected), or `fdriver.Unknown` (undetermined / timeout).
+
+### Limitations
+
+- **No automatic reconnection**: if the stream breaks, the manager is removed and registered listeners are lost. A new manager is created on the next `GetListenerManager` call.
+- **Handler timeout**: callbacks that exceed 5 seconds (`DefaultHandlerTimeout`) are abandoned with a warning. Handlers that ignore context cancellation will leak a goroutine but won't block other listeners.
+
+### Configuration
+
+```yaml
+notificationService:
+  endpoints:
+    - address: "committer.example.com:9090"
+      connectionTimeout: 30s
+      tlsEnabled: true
+      tlsRootCertFile: "/path/to/ca.pem"
+  requestTimeout: 30s
+```
+
+### Usage from a View
+Refer to the [Simple integration test](/integration/fabricx/simple) for reference.
+
+
 ## Integration Tests
 
 The integration tests for the Fabric-x platform use the [fabric-x-committer-test-node](https://github.com/hyperledger/fabric-x-committer/pkgs/container/fabric-x-committer-test-node) container image.
