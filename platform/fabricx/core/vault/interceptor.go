@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger/fabric-x-committer/api/types"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 )
 
 type Interceptor[V driver.ValidationCode] struct {
@@ -72,14 +72,14 @@ func namespaceVersions(qe vault.VersionedQueryExecutor, namespaces ...string) (m
 
 	var errs error
 	for _, ns := range namespaces {
-		v, err := qe.GetState(context.TODO(), types.MetaNamespaceID, ns)
+		v, err := qe.GetState(context.TODO(), committerpb.MetaNamespaceID, ns)
 		if err != nil {
-			logger.Errorf("Ouch! error when reading %v-%v: %v", types.MetaNamespaceID, ns, err)
+			logger.Errorf("Ouch! error when reading %v-%v: %v", committerpb.MetaNamespaceID, ns, err)
 			errs = errors.Join(errs, err)
 		}
 
 		if v == nil {
-			logger.Debugf("Ouch! %v-%v does not exist", types.MetaNamespaceID, ns)
+			logger.Debugf("Ouch! %v-%v does not exist", committerpb.MetaNamespaceID, ns)
 		}
 
 		nsVersion := Marshal(0)

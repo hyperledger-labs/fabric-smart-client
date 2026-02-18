@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 )
 
 var (
@@ -29,7 +29,7 @@ var (
 // this component is here temporary until we have an implementation that can get this information from the committer directly.
 type ledger struct {
 	mu        sync.RWMutex
-	statuses  map[string]protoblocktx.Status
+	statuses  map[string]committerpb.Status
 	blockNums map[string]driver.BlockNum
 }
 
@@ -38,7 +38,7 @@ var _ driver.Ledger = (*ledger)(nil)
 
 func New() *ledger {
 	l := &ledger{
-		statuses:  make(map[string]protoblocktx.Status),
+		statuses:  make(map[string]committerpb.Status),
 		blockNums: make(map[string]driver.BlockNum),
 	}
 	return l
@@ -46,7 +46,7 @@ func New() *ledger {
 
 func (c *ledger) OnBlock(_ context.Context, block *cb.Block) (bool, error) {
 	logger.Debugf("Received block [blockNo=%d]", block.Header.Number)
-	newStatuses := make(map[string]protoblocktx.Status, len(block.Data.Data))
+	newStatuses := make(map[string]committerpb.Status, len(block.Data.Data))
 	newBlockNums := make(map[string]driver.BlockNum, len(block.Data.Data))
 
 	for i, tx := range block.Data.Data {
@@ -55,7 +55,7 @@ func (c *ledger) OnBlock(_ context.Context, block *cb.Block) (bool, error) {
 			return false, errors.Wrapf(err, "unmarshal transaction channel header")
 		}
 
-		statusCode := protoblocktx.Status(block.Metadata.Metadata[cb.BlockMetadataIndex_TRANSACTIONS_FILTER][i])
+		statusCode := committerpb.Status(block.Metadata.Metadata[cb.BlockMetadataIndex_TRANSACTIONS_FILTER][i])
 
 		logger.Debugf("unmarshalled [blockNum=%d, pos=%d, txID=%s, status=%v]",
 			block.Header.Number, i, chdr.TxId, statusCode)
@@ -122,7 +122,7 @@ func (c *ledger) GetBlockByNumber(number uint64) (driver.Block, error) {
 
 type liteTx struct {
 	txID           string
-	validationCode protoblocktx.Status
+	validationCode committerpb.Status
 }
 
 func (t *liteTx) TxID() string {
@@ -138,7 +138,7 @@ func (t *liteTx) ValidationCode() int32 {
 }
 
 func (t *liteTx) IsValid() bool {
-	return t.validationCode == protoblocktx.Status_COMMITTED
+	return t.validationCode == committerpb.Status_COMMITTED
 }
 
 func (t *liteTx) Envelope() []byte {

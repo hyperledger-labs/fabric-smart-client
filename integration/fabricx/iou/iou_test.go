@@ -68,13 +68,15 @@ func updateEP(s *TestSuite) {
 			Name:    "iou",
 			Channel: "testchannel",
 			MSPConfig: fxconfig.MSPConfig{
-				Path: path.Join(s.II.TestDir, "fabric.default/crypto/peerOrganizations/org1.example.com/users/approver1@org1.example.com/msp"),
-				Name: "Org1MSP",
+				ConfigPath: path.Join(s.II.TestDir, "fabric.default/crypto/peerOrganizations/org1.example.com/users/approver1@org1.example.com/msp"),
+				LocalMspID: "Org1MSP",
 			},
 			OrdererConfig: fxconfig.OrdererConfig{
-				Tls:      false, // TODO: fixme
-				Endpoint: fmt.Sprintf("%s:%d", host, port),
-				CAFile:   path.Join(s.II.TestDir, "fabric.default/crypto/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem"),
+				Address: fmt.Sprintf("%s:%d", host, port),
+				TLSConfig: fxconfig.TLSConfig{
+					Enabled:   false, // FIXME
+					RootCerts: []string{path.Join(s.II.TestDir, "fabric.default/crypto/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem")},
+				},
 			},
 			EndorserPKPath: path.Join(s.II.TestDir, "fabric.default/crypto/peerOrganizations/org1.example.com/users/approver2@org1.example.com/msp/signcerts/approver2@org1.example.com-cert.pem"),
 		},
@@ -132,7 +134,7 @@ func (s *TestSuite) TestSucceeded() {
 	CheckState(s.II, "lender", anotherIouState, 20)
 
 	// update with approver1 must fail now!
-	By("updating with approver2 should fail")
+	By("updating with approver1 should fail")
 	UpdateIOU(s.II, anotherIouState, 7, "approver1", "status is not valid [2]")
 
 	By("updating with approver2 should work")
