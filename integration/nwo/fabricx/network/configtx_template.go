@@ -110,8 +110,7 @@ Organizations:{{ range .PeerOrgs }}
   {{- end }}
   OrdererEndpoints:
   {{- range $i, $v := $w.OrderersInOrg .Name }}
-  - {{printf "id=%d,broadcast,%s" $i ($w.OrdererAddress $v "Listen")}}
-  - {{printf "id=%d,deliver,%s" $i ($w.OrdererAddress $v "Listen")}}
+  - {{printf "id=%d,broadcast,deliver,%s" $i ($w.OrdererAddress $v "Listen")}}
   {{- end }}
 {{ end }}
 

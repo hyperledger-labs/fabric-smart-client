@@ -200,6 +200,7 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 				Endpoint: n.OrdererAddress(n.Orderers[0], fabric_network.ListenPort),
 				CAFile:   n.OrgOrdererTLSCACertificatePath(n.Organizations[0]),
 			},
+			EndorserPKPath: n.PeerUserCert(fscNode, fscNode.Name),
 		},
 	}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())

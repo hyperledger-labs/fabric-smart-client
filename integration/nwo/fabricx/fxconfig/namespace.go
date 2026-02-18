@@ -60,9 +60,7 @@ func (n *CreateNamespace) Args() []string {
 	args = append(args, "--mspConfigPath", n.MSPConfig.Path)
 	args = append(args, "--mspID", n.MSPConfig.Name)
 
-	if len(n.EndorserPKPath) > 0 {
-		args = append(args, "--pk", n.EndorserPKPath)
-	}
+	args = append(args, "--policy-ecdsa-threshold", n.EndorserPKPath)
 
 	return args
 }
@@ -94,9 +92,7 @@ func (n *UpdateNamespace) Args() []string {
 	args = append(args, "--mspID", n.MSPConfig.Name)
 
 	args = append(args, "--version", strconv.Itoa(n.Version))
-	if len(n.EndorserPKPath) > 0 {
-		args = append(args, "--pk", n.EndorserPKPath)
-	}
+	args = append(args, "--policy-ecdsa-threshold", n.EndorserPKPath)
 
 	return args
 }
