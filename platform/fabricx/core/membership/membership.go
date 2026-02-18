@@ -10,12 +10,15 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
+	"github.com/hyperledger/fabric-x-common/api/msppb"
 	"github.com/hyperledger/fabric-x-common/common/channelconfig"
 	"github.com/hyperledger/fabric-x-common/common/configtx"
 	"github.com/hyperledger/fabric-x-common/msp"
@@ -117,8 +120,31 @@ func capabilitiesSupported(res channelconfig.Resources) error {
 	return nil
 }
 
+func toMSPIdentity(identity view.Identity) (*msppb.Identity, error) {
+	sId := &m.SerializedIdentity{}
+	err := proto.Unmarshal(identity, sId)
+	if err != nil {
+		return nil, err
+	}
+
+	sid := &msppb.Identity{
+		MspId: sId.GetMspid(),
+		Creator: &msppb.Identity_Certificate{
+			Certificate: sId.GetIdBytes(),
+		},
+	}
+
+	return sid, nil
+}
+
 func (c *Service) IsValid(identity view.Identity) error {
-	id, err := c.resources().MSPManager().DeserializeIdentity(identity)
+
+	sid, err := toMSPIdentity(identity)
+	if err != nil {
+		return err
+	}
+
+	id, err := c.resources().MSPManager().DeserializeIdentity(sid)
 	if err != nil {
 		return errors.Wrapf(err, "deserializing identity [%s]", identity.String())
 	}
@@ -127,7 +153,12 @@ func (c *Service) IsValid(identity view.Identity) error {
 }
 
 func (c *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
-	id, err := c.resources().MSPManager().DeserializeIdentity(identity)
+	sid, err := toMSPIdentity(identity)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := c.resources().MSPManager().DeserializeIdentity(sid)
 	if err != nil {
 		return nil, errors.Wrapf(err, "deserializing identity [%s]", identity.String())
 	}
@@ -209,17 +240,18 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 // MSPManager returns the msp.MSPManager that reflects the current Channel
 // configuration. Users should not memoize references to this object.
 func (c *Service) MSPManager() driver.MSPManager {
-	return &mspManager{FabricMSPManager: c.resources().MSPManager()}
-}
-
-type FabricMSPManager interface {
-	DeserializeIdentity(serializedIdentity []byte) (msp.Identity, error)
+	return &mspManager{c.resources().MSPManager()}
 }
 
 type mspManager struct {
-	FabricMSPManager
+	msp.MSPManager
 }
 
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
-	return m.FabricMSPManager.DeserializeIdentity(serializedIdentity)
+	sid, err := toMSPIdentity(serializedIdentity)
+	if err != nil {
+		return nil, err
+	}
+
+	return m.MSPManager.DeserializeIdentity(sid)
 }

@@ -17,17 +17,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	mock "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
-	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
-	"github.com/hyperledger/fabric-x-committer/api/protonotify"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
 
 // To re-generate the mock/ run "go generate" directive
-//go:generate counterfeiter -o mock/notifier_client.go github.com/hyperledger/fabric-x-committer/api/protonotify.Notifier_OpenNotificationStreamClient
-//go:generate counterfeiter -o mock/notifier_grpc_client.go github.com/hyperledger/fabric-x-committer/api/protonotify.NotifierClient
+//go:generate counterfeiter -o mock/notifier_client.go github.com/hyperledger/fabric-x-common/api/committerpb.Notifier_OpenNotificationStreamClient
+//go:generate counterfeiter -o mock/notifier_grpc_client.go github.com/hyperledger/fabric-x-common/api/committerpb.NotifierClient
 
 const (
 	tick      = 10 * time.Millisecond
@@ -100,15 +99,15 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.FakeNotifier_
 	fakeClient := &mock.FakeNotifierClient{}
 
 	// Configure the client to return our fake stream
-	fakeClient.OpenNotificationStreamStub = func(c context.Context, opts ...grpc.CallOption) (protonotify.Notifier_OpenNotificationStreamClient, error) {
+	fakeClient.OpenNotificationStreamStub = func(c context.Context, opts ...grpc.CallOption) (committerpb.Notifier_OpenNotificationStreamClient, error) {
 		fakeStream.ContextReturns(c)
 		return fakeStream, nil
 	}
 
 	nlm := &notificationListenerManager{
 		notifyClient:  fakeClient,
-		requestQueue:  make(chan *protonotify.NotificationRequest),
-		responseQueue: make(chan *protonotify.NotificationResponse),
+		requestQueue:  make(chan *committerpb.NotificationRequest),
+		responseQueue: make(chan *committerpb.NotificationResponse),
 		handlers:      make(map[driver.TxID][]fabric.FinalityListener),
 	}
 
@@ -145,7 +144,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		ctx := t.Context()
 		// Mock Recv to block until context is done
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
@@ -163,25 +162,25 @@ func TestNotificationListenerManager(t *testing.T) {
 		table := []struct {
 			name           string
 			txID           string
-			serverStatus   protoblocktx.Status
+			serverStatus   committerpb.Status
 			expectedStatus int
 		}{
 			{
 				name:           "Committed Transaction",
 				txID:           "tx_valid",
-				serverStatus:   protoblocktx.Status_COMMITTED,
+				serverStatus:   committerpb.Status_COMMITTED,
 				expectedStatus: fdriver.Valid,
 			},
 			{
 				name:           "Invalid Transaction",
 				txID:           "tx_invalid",
-				serverStatus:   protoblocktx.Status_ABORTED_SIGNATURE_INVALID,
+				serverStatus:   committerpb.Status_ABORTED_SIGNATURE_INVALID,
 				expectedStatus: fdriver.Invalid,
 			},
 			{
 				name:           "Unknown Transaction",
 				txID:           "tx_unknown",
-				serverStatus:   protoblocktx.Status_NOT_VALIDATED,
+				serverStatus:   committerpb.Status_STATUS_UNSPECIFIED,
 				expectedStatus: fdriver.Unknown,
 			},
 		}
@@ -200,20 +199,18 @@ func TestNotificationListenerManager(t *testing.T) {
 				nlm.handlers[tc.txID] = []fabric.FinalityListener{ml}
 
 				// prepare the incoming gRPC message
-				resp := &protonotify.NotificationResponse{
-					TxStatusEvents: []*protonotify.TxStatusEvent{
+				resp := &committerpb.NotificationResponse{
+					TxStatusEvents: []*committerpb.TxStatus{
 						{
-							TxId: tc.txID,
-							StatusWithHeight: &protoblocktx.StatusWithHeight{
-								Code: tc.serverStatus,
-							},
+							Ref:    &committerpb.TxRef{TxId: tc.txID},
+							Status: tc.serverStatus,
 						},
 					},
 				}
 
 				// mock Recv to return data once then block
 				var sent atomic.Bool
-				fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+				fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					if !sent.Swap(true) {
 						return resp, nil
 					}
@@ -250,12 +247,12 @@ func TestNotificationListenerManager(t *testing.T) {
 		nlm.handlers[targetTxID] = []fabric.FinalityListener{ml}
 
 		// prepare response with a TimeoutTxId
-		resp := &protonotify.NotificationResponse{
+		resp := &committerpb.NotificationResponse{
 			TimeoutTxIds: []string{targetTxID},
 		}
 
 		var sent atomic.Bool
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			if !sent.Swap(true) {
 				return resp, nil
 			}
@@ -282,7 +279,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		ctx := t.Context()
 		// mock Recv to simply block so it doesn't interfere
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
@@ -310,7 +307,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		const targetTxID = "tx_duplicate_listener"
 		nlm, fakeStream := setupTest(t)
 		ctx := t.Context()
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
@@ -350,7 +347,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		const targetTxID = "tx_multiple_unique"
 		nlm, fakeStream := setupTest(t)
 		ctx := t.Context()
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
@@ -402,7 +399,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		t.Parallel()
 		nlm, fakeStream := setupTest(t)
 		ctx := t.Context()
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
@@ -427,7 +424,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		// mock Recv to block indefinitely on context
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
@@ -484,7 +481,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		ctx := t.Context()
 
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
@@ -511,7 +508,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		ctx := t.Context()
 
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
@@ -556,7 +553,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		ctx := t.Context()
 
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
@@ -596,7 +593,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		ctx := t.Context()
 
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
@@ -619,7 +616,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		ctx := t.Context()
 
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
@@ -649,19 +646,17 @@ func TestNotificationListenerManager(t *testing.T) {
 
 		nlm.handlers[targetTxID] = []fabric.FinalityListener{slowListener}
 
-		resp := &protonotify.NotificationResponse{
-			TxStatusEvents: []*protonotify.TxStatusEvent{
+		resp := &committerpb.NotificationResponse{
+			TxStatusEvents: []*committerpb.TxStatus{
 				{
-					TxId: targetTxID,
-					StatusWithHeight: &protoblocktx.StatusWithHeight{
-						Code: protoblocktx.Status_COMMITTED,
-					},
+					Ref:    &committerpb.TxRef{TxId: targetTxID},
+					Status: committerpb.Status_COMMITTED,
 				},
 			},
 		}
 
 		var sent atomic.Bool
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			if !sent.Swap(true) {
 				return resp, nil
 			}
@@ -715,19 +710,17 @@ func TestNotificationListenerManager(t *testing.T) {
 
 		nlm.handlers[targetTxID] = []fabric.FinalityListener{fastML, slowML, stuckListener}
 
-		resp := &protonotify.NotificationResponse{
-			TxStatusEvents: []*protonotify.TxStatusEvent{
+		resp := &committerpb.NotificationResponse{
+			TxStatusEvents: []*committerpb.TxStatus{
 				{
-					TxId: targetTxID,
-					StatusWithHeight: &protoblocktx.StatusWithHeight{
-						Code: protoblocktx.Status_COMMITTED,
-					},
+					Ref:    &committerpb.TxRef{TxId: targetTxID},
+					Status: committerpb.Status_COMMITTED,
 				},
 			},
 		}
 
 		var sent atomic.Bool
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			if !sent.Swap(true) {
 				return resp, nil
 			}
@@ -796,29 +789,25 @@ func TestNotificationListenerManager(t *testing.T) {
 
 		// First response triggers the leaky handler,
 		// second triggers the normal one.
-		leakyResp := &protonotify.NotificationResponse{
-			TxStatusEvents: []*protonotify.TxStatusEvent{
+		leakyResp := &committerpb.NotificationResponse{
+			TxStatusEvents: []*committerpb.TxStatus{
 				{
-					TxId: leakyTxID,
-					StatusWithHeight: &protoblocktx.StatusWithHeight{
-						Code: protoblocktx.Status_COMMITTED,
-					},
+					Ref:    &committerpb.TxRef{TxId: leakyTxID},
+					Status: committerpb.Status_COMMITTED,
 				},
 			},
 		}
-		normalResp := &protonotify.NotificationResponse{
-			TxStatusEvents: []*protonotify.TxStatusEvent{
+		normalResp := &committerpb.NotificationResponse{
+			TxStatusEvents: []*committerpb.TxStatus{
 				{
-					TxId: normalTxID,
-					StatusWithHeight: &protoblocktx.StatusWithHeight{
-						Code: protoblocktx.Status_COMMITTED,
-					},
+					Ref:    &committerpb.TxRef{TxId: normalTxID},
+					Status: committerpb.Status_COMMITTED,
 				},
 			},
 		}
 
 		callCount := atomic.Int32{}
-		fakeStream.RecvStub = func() (*protonotify.NotificationResponse, error) {
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			n := callCount.Add(1)
 			switch n {
 			case 1:

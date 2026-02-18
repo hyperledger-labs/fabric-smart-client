@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/hyperledger/fabric-x-common/protoutil"
 )
 
@@ -152,7 +152,7 @@ func (p *processedTransaction) Results() []byte {
 }
 
 func (p *processedTransaction) IsValid() bool {
-	return p.vc == int32(protoblocktx.Status_COMMITTED)
+	return p.vc == int32(committerpb.Status_COMMITTED)
 }
 
 func (p *processedTransaction) Envelope() []byte {

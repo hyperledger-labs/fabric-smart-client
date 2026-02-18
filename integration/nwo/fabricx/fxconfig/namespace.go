@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/onsi/gomega"
 )
@@ -21,14 +22,20 @@ const (
 )
 
 type OrdererConfig struct {
-	Endpoint string
-	Tls      bool
-	CAFile   string
+	Address   string
+	TLSConfig TLSConfig
 }
 
 type MSPConfig struct {
-	Path string
-	Name string
+	ConfigPath string
+	LocalMspID string
+}
+
+type TLSConfig struct {
+	Enabled        bool
+	RootCerts      []string
+	ClientKeyPath  string
+	ClientCertPath string
 }
 
 type NamespaceCommon struct {
@@ -46,25 +53,31 @@ type CreateNamespace struct {
 }
 
 func (n *CreateNamespace) Args() []string {
-	var args []string
+	return []string{
+		"namespace", "create", n.Name,
+		"--channel", n.Channel,
+		"--policy-ecdsa-threshold", n.EndorserPKPath,
+	}
+}
 
-	args = append(args, "namespace", "create", n.Name)
-	args = append(args, "--channel", n.Channel)
-
-	args = append(args, "--orderer", n.OrdererConfig.Endpoint)
-	if n.OrdererConfig.Tls {
-		args = append(args, "--tls")
-		args = append(args, "--cafile", n.OrdererConfig.CAFile)
+func (n *NamespaceCommon) Env() []string {
+	// msp
+	env := []string{
+		"FXCONFIG_MSP_LOCALMSPID=" + n.MSPConfig.LocalMspID,
+		"FXCONFIG_MSP_CONFIGPATH=" + n.MSPConfig.ConfigPath,
 	}
 
-	args = append(args, "--mspConfigPath", n.MSPConfig.Path)
-	args = append(args, "--mspID", n.MSPConfig.Name)
-
-	if len(n.EndorserPKPath) > 0 {
-		args = append(args, "--pk", n.EndorserPKPath)
+	// orderer
+	env = append(env, "FXCONFIG_ORDERER_ADDRESS="+n.OrdererConfig.Address)
+	if n.OrdererConfig.TLSConfig.Enabled {
+		rootCerts := strings.Join(n.OrdererConfig.TLSConfig.RootCerts, ",")
+		env = append(env,
+			"FXCONFIG_ORDERER_TLS_ENABELD=true",
+			"FXCONFIG_ORDERER_TLS_ROOTCERTS="+rootCerts,
+		)
 	}
 
-	return args
+	return env
 }
 
 func (n *CreateNamespace) SessionName() string {
@@ -78,27 +91,12 @@ type UpdateNamespace struct {
 }
 
 func (n *UpdateNamespace) Args() []string {
-	var args []string
-
-	args = append(args, "namespace", "update")
-	args = append(args, n.Name)
-	args = append(args, "--channel", n.Channel)
-
-	args = append(args, "--orderer", n.OrdererConfig.Endpoint)
-	if n.OrdererConfig.Tls {
-		args = append(args, "--tls")
-		args = append(args, "--cafile", n.OrdererConfig.CAFile)
+	return []string{
+		"namespace", "update", n.Name,
+		"--channel", n.Channel,
+		"--version", strconv.Itoa(n.Version),
+		"--policy-ecdsa-threshold", n.EndorserPKPath,
 	}
-
-	args = append(args, "--mspConfigPath", n.MSPConfig.Path)
-	args = append(args, "--mspID", n.MSPConfig.Name)
-
-	args = append(args, "--version", strconv.Itoa(n.Version))
-	if len(n.EndorserPKPath) > 0 {
-		args = append(args, "--pk", n.EndorserPKPath)
-	}
-
-	return args
 }
 
 func (n *UpdateNamespace) SessionName() string {
@@ -110,12 +108,11 @@ type ListNamespaces struct {
 }
 
 func (n *ListNamespaces) Args() []string {
-	var args []string
+	return []string{"namespace", "list"}
+}
 
-	args = append(args, "namespace", "list")
-	args = append(args, "--endpoint", n.QueryServiceEndpoint)
-
-	return args
+func (n *ListNamespaces) Env() []string {
+	return []string{"FXCONFIG_QUERIES_ADDRESS=" + n.QueryServiceEndpoint}
 }
 
 func (n *ListNamespaces) SessionName() string {

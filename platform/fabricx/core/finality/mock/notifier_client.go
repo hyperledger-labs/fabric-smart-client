@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/hyperledger/fabric-x-committer/api/protonotify"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -42,16 +42,16 @@ type FakeNotifier_OpenNotificationStreamClient struct {
 		result1 metadata.MD
 		result2 error
 	}
-	RecvStub        func() (*protonotify.NotificationResponse, error)
+	RecvStub        func() (*committerpb.NotificationResponse, error)
 	recvMutex       sync.RWMutex
 	recvArgsForCall []struct {
 	}
 	recvReturns struct {
-		result1 *protonotify.NotificationResponse
+		result1 *committerpb.NotificationResponse
 		result2 error
 	}
 	recvReturnsOnCall map[int]struct {
-		result1 *protonotify.NotificationResponse
+		result1 *committerpb.NotificationResponse
 		result2 error
 	}
 	RecvMsgStub        func(any) error
@@ -65,10 +65,10 @@ type FakeNotifier_OpenNotificationStreamClient struct {
 	recvMsgReturnsOnCall map[int]struct {
 		result1 error
 	}
-	SendStub        func(*protonotify.NotificationRequest) error
+	SendStub        func(*committerpb.NotificationRequest) error
 	sendMutex       sync.RWMutex
 	sendArgsForCall []struct {
-		arg1 *protonotify.NotificationRequest
+		arg1 *committerpb.NotificationRequest
 	}
 	sendReturns struct {
 		result1 error
@@ -263,7 +263,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) HeaderReturnsOnCall(i int
 	}{result1, result2}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) Recv() (*protonotify.NotificationResponse, error) {
+func (fake *FakeNotifier_OpenNotificationStreamClient) Recv() (*committerpb.NotificationResponse, error) {
 	fake.recvMutex.Lock()
 	ret, specificReturn := fake.recvReturnsOnCall[len(fake.recvArgsForCall)]
 	fake.recvArgsForCall = append(fake.recvArgsForCall, struct {
@@ -287,34 +287,34 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) RecvCallCount() int {
 	return len(fake.recvArgsForCall)
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvCalls(stub func() (*protonotify.NotificationResponse, error)) {
+func (fake *FakeNotifier_OpenNotificationStreamClient) RecvCalls(stub func() (*committerpb.NotificationResponse, error)) {
 	fake.recvMutex.Lock()
 	defer fake.recvMutex.Unlock()
 	fake.RecvStub = stub
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvReturns(result1 *protonotify.NotificationResponse, result2 error) {
+func (fake *FakeNotifier_OpenNotificationStreamClient) RecvReturns(result1 *committerpb.NotificationResponse, result2 error) {
 	fake.recvMutex.Lock()
 	defer fake.recvMutex.Unlock()
 	fake.RecvStub = nil
 	fake.recvReturns = struct {
-		result1 *protonotify.NotificationResponse
+		result1 *committerpb.NotificationResponse
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvReturnsOnCall(i int, result1 *protonotify.NotificationResponse, result2 error) {
+func (fake *FakeNotifier_OpenNotificationStreamClient) RecvReturnsOnCall(i int, result1 *committerpb.NotificationResponse, result2 error) {
 	fake.recvMutex.Lock()
 	defer fake.recvMutex.Unlock()
 	fake.RecvStub = nil
 	if fake.recvReturnsOnCall == nil {
 		fake.recvReturnsOnCall = make(map[int]struct {
-			result1 *protonotify.NotificationResponse
+			result1 *committerpb.NotificationResponse
 			result2 error
 		})
 	}
 	fake.recvReturnsOnCall[i] = struct {
-		result1 *protonotify.NotificationResponse
+		result1 *committerpb.NotificationResponse
 		result2 error
 	}{result1, result2}
 }
@@ -380,11 +380,11 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) RecvMsgReturnsOnCall(i in
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) Send(arg1 *protonotify.NotificationRequest) error {
+func (fake *FakeNotifier_OpenNotificationStreamClient) Send(arg1 *committerpb.NotificationRequest) error {
 	fake.sendMutex.Lock()
 	ret, specificReturn := fake.sendReturnsOnCall[len(fake.sendArgsForCall)]
 	fake.sendArgsForCall = append(fake.sendArgsForCall, struct {
-		arg1 *protonotify.NotificationRequest
+		arg1 *committerpb.NotificationRequest
 	}{arg1})
 	stub := fake.SendStub
 	fakeReturns := fake.sendReturns
@@ -405,13 +405,13 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) SendCallCount() int {
 	return len(fake.sendArgsForCall)
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendCalls(stub func(*protonotify.NotificationRequest) error) {
+func (fake *FakeNotifier_OpenNotificationStreamClient) SendCalls(stub func(*committerpb.NotificationRequest) error) {
 	fake.sendMutex.Lock()
 	defer fake.sendMutex.Unlock()
 	fake.SendStub = stub
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendArgsForCall(i int) *protonotify.NotificationRequest {
+func (fake *FakeNotifier_OpenNotificationStreamClient) SendArgsForCall(i int) *committerpb.NotificationRequest {
 	fake.sendMutex.RLock()
 	defer fake.sendMutex.RUnlock()
 	argsForCall := fake.sendArgsForCall[i]
@@ -558,22 +558,6 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) TrailerReturnsOnCall(i in
 func (fake *FakeNotifier_OpenNotificationStreamClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.closeSendMutex.RLock()
-	defer fake.closeSendMutex.RUnlock()
-	fake.contextMutex.RLock()
-	defer fake.contextMutex.RUnlock()
-	fake.headerMutex.RLock()
-	defer fake.headerMutex.RUnlock()
-	fake.recvMutex.RLock()
-	defer fake.recvMutex.RUnlock()
-	fake.recvMsgMutex.RLock()
-	defer fake.recvMsgMutex.RUnlock()
-	fake.sendMutex.RLock()
-	defer fake.sendMutex.RUnlock()
-	fake.sendMsgMutex.RLock()
-	defer fake.sendMsgMutex.RUnlock()
-	fake.trailerMutex.RLock()
-	defer fake.trailerMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
@@ -593,4 +577,4 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) recordInvocation(key stri
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ protonotify.Notifier_OpenNotificationStreamClient = new(FakeNotifier_OpenNotificationStreamClient)
+var _ committerpb.Notifier_OpenNotificationStreamClient = new(FakeNotifier_OpenNotificationStreamClient)

@@ -192,14 +192,17 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 			Name:    chaincode.Chaincode.Name,
 			Channel: chaincode.Channel,
 			MSPConfig: fxconfig.MSPConfig{
-				Path: fscNode.Identities[0].Path,
-				Name: fscNode.Identities[0].MSPID,
+				ConfigPath: fscNode.Identities[0].Path,
+				LocalMspID: fscNode.Identities[0].MSPID,
 			},
 			OrdererConfig: fxconfig.OrdererConfig{
-				Tls:      false,
-				Endpoint: n.OrdererAddress(n.Orderers[0], fabric_network.ListenPort),
-				CAFile:   n.OrgOrdererTLSCACertificatePath(n.Organizations[0]),
+				Address: n.OrdererAddress(n.Orderers[0], fabric_network.ListenPort),
+				TLSConfig: fxconfig.TLSConfig{
+					Enabled:   false,
+					RootCerts: []string{n.OrgOrdererTLSCACertificatePath(n.Organizations[0])},
+				},
 			},
+			EndorserPKPath: n.PeerUserCert(fscNode, fscNode.Name),
 		},
 	}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
