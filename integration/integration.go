@@ -85,7 +85,16 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 		}
 	}
 
-	buildServer := common.NewBuildServer("-tags", "pkcs11")
+	// build parameter
+	var params []string
+	params = append(params, "-tags", "pkcs11")
+
+	// build with coverage profiling, more details: https://go.dev/doc/build-cover
+	if _, ok := os.LookupEnv("GOCOVERDIR"); ok {
+		params = append(params, "-cover")
+	}
+
+	buildServer := common.NewBuildServer(params...)
 	buildServer.Serve()
 	builder := buildServer.Client()
 
