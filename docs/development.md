@@ -87,10 +87,18 @@ make lint
 
 ### Unit Tests
 
-Run all unit tests (with and without race detection):
+Run all unit tests:
 ```bash
 make unit-tests
-make unit-tests-race
+make unit-tests-postgres
+make unit-tests-sdk
+```
+
+For coverage analysis:
+```bash
+GO_TEST_PARAMS="-coverprofile=cov.out" make unit-tests
+go tool cover -func=cov.out
+go tool cover -html=cov.out
 ```
 
 ### Integration Tests
@@ -115,6 +123,13 @@ Enable profiling for deeper analysis:
 ```bash
 export FSCNODE_PROFILER=true
 make integration-tests-fabric-iou
+```
+
+Enable coverage profiling:
+```bash
+mkdir -p covdata
+GOCOVERDIR=covdata make integration-tests
+go tool covdata textfmt -i=covdata -o profile.txt
 ```
 
 ## Write your own integration test

@@ -31,7 +31,15 @@ jobs:
           cache-dependency-path: "**/*.sum"
       - run: make install-tools
       - run: make install-fabric-bins
-      - run: make unit-tests
+      - name: unit-tests
+        run: |
+          GO_TEST_PARAMS="-race -coverprofile=coverage.profile" make unit-tests
+          ./scripts/filter-coverage.sh coverage.profile coverage.profile
+      - uses: coverallsapp/github-action@v2
+        with:
+          file: coverage.profile
+          flag-name: utest
+          parallel: true
 
   utest-postgres:
     needs:
@@ -45,18 +53,32 @@ jobs:
           cache-dependency-path: "**/*.sum"
       - run: make install-tools
       - run: make testing-docker-images
-      - run: make unit-tests-postgres
+      - name: unit-tests-postgres
+        run: |
+          GO_TEST_PARAMS="-race -coverprofile=coverage.profile" make unit-tests-postgres
+          ./scripts/filter-coverage.sh coverage.profile coverage.profile
+      - uses: coverallsapp/github-action@v2
+        with:
+          file: coverage.profile
+          flag-name: utest-postgres
+          parallel: true
 
   itest-list:
     runs-on: ubuntu-latest
     outputs:
       tests: ${{ steps.set-itest-tests.outputs.tests }}
+      all-tests: ${{ steps.set-all-tests.outputs.all-tests }}
     steps:
       - uses: actions/checkout@v5
       - name: list itest targets
         id: set-itest-tests
         run: |
           echo "tests=$(make list-integration-tests | jq -R . | jq -s -c .)" >> $GITHUB_OUTPUT
+      - name: build carryforward string
+        id: set-all-tests
+        run: |
+          itests=$(make list-integration-tests | sed 's/^/itest-/' | paste -sd "," -)
+          echo "all-tests=utest,utest-postgres,$itests" >> $GITHUB_OUTPUT
 
   itest:
     needs:
@@ -97,4 +119,28 @@ jobs:
           make install-softhsm
           ./ci/scripts/setup_softhsm.sh
 
-      - run: make integration-tests-${{ matrix.tests }}
+      - name: Run the integration test
+        run: |
+          mkdir -p covdata
+          GOCOVERDIR=$(realpath covdata) make integration-tests-${{ matrix.tests }}
+          go tool covdata textfmt -i=covdata -o coverage.profile
+          ./scripts/filter-coverage.sh coverage.profile coverage.profile
+
+      - uses: coverallsapp/github-action@v2
+        with:
+          file: coverage.profile
+          flag-name: itest-${{ matrix.tests }}
+          parallel: true
+
+  publish-coverage:
+    needs:
+      - utest
+      - utest-postgres
+      - itest
+      - itest-list
+    runs-on: ubuntu-latest
+    steps:
+      - uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true
+          carryforward: ${{ needs.itest-list.outputs.all-tests }}

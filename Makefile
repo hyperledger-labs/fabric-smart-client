@@ -108,7 +108,7 @@ testing-docker-images: ## Pull images for system testing
 # include the checks target
 include $(TOP)/checks.mk
 
-GO_PACKAGES = $$(go list ./... | grep -Ev '/(integration/|mock|fake)'; go list ./integration/nwo)
+GO_PACKAGES = $$(go list ./... | grep -Ev '/(integration/)'; go list ./integration/nwo/...)
 GO_PACKAGES_SDK = $$(go list ./... | grep '/sdk/dig$$')
 GO_TEST_PARAMS ?= -race -cover
 
