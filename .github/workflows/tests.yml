@@ -6,141 +6,153 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      fsc-version:
+        default: 'github.com/hyperledger-labs/fabric-smart-client@main'
+        required: true
+        description: 'FSC dependency'
+
+env:
+  GOFLAGS: -mod=mod
 
 jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
-      - run: make install-tools
-      - run: make checks
+
+      - name: Replace FSC dep
+        run: |
+          if [ -n "${{ github.event.inputs.fsc-version }}" ]; then
+            echo "Replace FSC dependency"
+            go mod edit -replace=github.com/hyperledger-labs/fabric-smart-client=${{ github.event.inputs.fsc-version }}
+            go mod tidy || true
+          else
+            echo "Skipping FSC dependency replacement"
+          fi
+
+      - name: Set up tools
+        run: make install-tools
+
+      - name: Run checks
+        run: make checks
 
   utest:
-    needs:
-      - checks
+    needs: checks
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tests: [unit-tests-race, unit-tests-regression]
+
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
-      - run: make install-tools
-      - run: make install-fabric-bins
-      - name: unit-tests
-        run: |
-          GO_TEST_PARAMS="-race -coverprofile=coverage.profile" make unit-tests
-          ./scripts/filter-coverage.sh coverage.profile coverage.profile
-      - uses: coverallsapp/github-action@v2
-        with:
-          file: coverage.profile
-          flag-name: utest
-          parallel: true
 
-  utest-postgres:
-    needs:
-      - checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: "go.mod"
-          cache-dependency-path: "**/*.sum"
-      - run: make install-tools
-      - run: make testing-docker-images
-      - name: unit-tests-postgres
-        run: |
-          GO_TEST_PARAMS="-race -coverprofile=coverage.profile" make unit-tests-postgres
-          ./scripts/filter-coverage.sh coverage.profile coverage.profile
-      - uses: coverallsapp/github-action@v2
-        with:
-          file: coverage.profile
-          flag-name: utest-postgres
-          parallel: true
+      - name: Set up tools
+        run: make install-tools
 
-  itest-list:
-    runs-on: ubuntu-latest
-    outputs:
-      tests: ${{ steps.set-itest-tests.outputs.tests }}
-      all-tests: ${{ steps.set-all-tests.outputs.all-tests }}
-    steps:
-      - uses: actions/checkout@v5
-      - name: list itest targets
-        id: set-itest-tests
-        run: |
-          echo "tests=$(make list-integration-tests | jq -R . | jq -s -c .)" >> $GITHUB_OUTPUT
-      - name: build carryforward string
-        id: set-all-tests
-        run: |
-          itests=$(make list-integration-tests | sed 's/^/itest-/' | paste -sd "," -)
-          echo "all-tests=utest,utest-postgres,$itests" >> $GITHUB_OUTPUT
+      - name: Install Testing Docker Images
+        run: make testing-docker-images
+
+      - name: Unit Tests with Coverage
+        run: make unit-tests
+
+      - name: Send coverage to Coveralls
+        uses: shogo82148/actions-goveralls@v1
+        with:
+          path-to-profile: profile.cov
+
+      - name: Run ${{ matrix.tests }}
+        run: make ${{ matrix.tests }}
 
   itest:
-    needs:
-      - checks
-      - itest-list
+    needs: checks
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # run all test as listed via `make list-integration-tests`
-        tests: ${{ fromJson(needs.itest-list.outputs.tests) }}
+        tests: [
+          dlog-fabric-t1,
+          dlog-fabric-t2,
+          dlog-fabric-t2.1,
+          dlog-fabric-t3,
+          dlog-fabric-t4,
+          dlog-fabric-t5,
+          dlog-fabric-t6,
+          dlog-fabric-t7,
+          dlog-fabric-t8,
+          dlog-fabric-t9,
+          dlog-fabric-t10,
+          dlog-fabric-t11,
+          dlog-fabric-t12,
+          dlog-fabric-t13,
+          fabricx-dlog-t1,
+          fabtoken-dlog-fabric,
+          dloghsm-fabric-t1,
+          dloghsm-fabric-t2,
+          fabtoken-fabric-t1,
+          fabtoken-fabric-t2,
+          fabtoken-fabric-t3,
+          fabtoken-fabric-t4,
+          fabtoken-fabric-t5,
+          update-t1,
+          update-t2,
+          update-t3,
+          nft-dlog,
+          nft-fabtoken,
+          dvp-fabtoken,
+          dvp-dlog,
+          interop-fabtoken-t1,
+          interop-fabtoken-t2,
+          interop-fabtoken-t3,
+          interop-fabtoken-t4,
+          interop-fabtoken-t5,
+          interop-fabtoken-t6,
+          interop-dlog-t1,
+          interop-dlog-t2,
+          interop-dlog-t3,
+          interop-dlog-t4,
+          interop-dlog-t5,
+          interop-dlog-t6,
+          dlogstress-t1,
+        ]
+
     steps:
-      - run: docker version
-      - name: Set up Docker
-        uses: docker/setup-docker-action@v4
-        with:
-          version: 28.5.2 # we pin the docker version temporary until the release of fabric v3.1.4
-          set-host: true
-      - run: docker version
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
-      - run: make install-tools
-      - run: make install-fabric-bins
-      - run: make docker-images
 
-      - name: Set up Fabric-x
+      - name: Set up tools
+        run: make install-tools
+
+      - name: Download fabric binaries
+        run: make download-fabric
+
+      - name: Docker
+        run: make docker-images
+
+      - name: Fabric-x setup
         if: startsWith(matrix.tests, 'fabricx')
         run: |
-          make install-fxconfig install-configtxgen fabricx-docker-images
+          make fxconfig configtxgen fabricx-docker-images
 
-      - name: Set up Softhsm
-        # we only need this for a subset of integration tests
-        if: endsWith(matrix.tests, 'hsm')
-        run: |
-          make install-softhsm
-          ./ci/scripts/setup_softhsm.sh
-
-      - name: Run the integration test
-        run: |
-          mkdir -p covdata
-          GOCOVERDIR=$(realpath covdata) make integration-tests-${{ matrix.tests }}
-          go tool covdata textfmt -i=covdata -o coverage.profile
-          ./scripts/filter-coverage.sh coverage.profile coverage.profile
-
-      - uses: coverallsapp/github-action@v2
-        with:
-          file: coverage.profile
-          flag-name: itest-${{ matrix.tests }}
-          parallel: true
-
-  publish-coverage:
-    needs:
-      - utest
-      - utest-postgres
-      - itest
-      - itest-list
-    runs-on: ubuntu-latest
-    steps:
-      - uses: coverallsapp/github-action@v2
-        with:
-          parallel-finished: true
-          carryforward: ${{ needs.itest-list.outputs.all-tests }}
+      - name: Run ${{ matrix.tests }}
+        run: make integration-tests-${{ matrix.tests }}

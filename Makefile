@@ -110,25 +110,31 @@ include $(TOP)/checks.mk
 
 GO_PACKAGES = $$(go list ./... | grep -Ev '/(integration/)'; go list ./integration/nwo/...)
 GO_PACKAGES_SDK = $$(go list ./... | grep '/sdk/dig$$')
-GO_TEST_PARAMS ?= -race -cover
 
 .PHONY: unit-tests
-unit-tests: ## Run unit tests
+unit-tests: ## Run unit tests with coverage
 	@echo "Running unit tests..."
 	export FABRIC_LOGGING_SPEC=error; \
 	export FAB_BINS=$(FAB_BINS); \
-	go test $(GO_TEST_PARAMS) --skip '(Postgres)' $(GO_PACKAGES)
+	go test -coverprofile=profile.cov --skip '(Postgres)' $(GO_PACKAGES)
+
+.PHONY: unit-tests-race
+unit-tests-race: ## Run unit tests with race detector
+	@echo "Running unit tests with race detector..."
+	export FABRIC_LOGGING_SPEC=error; \
+	export FAB_BINS=$(FAB_BINS); \
+	go test -race --skip '(Postgres)' $(GO_PACKAGES)
 
 .PHONY: unit-tests-postgres
 unit-tests-postgres: ## Run unit tests for postgres (requires container images as defined in testing-docker-images)
 	@echo "Running unit tests..."
 	export FABRIC_LOGGING_SPEC=error; \
-	go test $(GO_TEST_PARAMS) --run '(Postgres)' $(GO_PACKAGES)
+	go test -race -cover --run '(Postgres)' $(GO_PACKAGES)
 
 .PHONY: unit-tests-sdk
 unit-tests-sdk: ## Run sdk wiring tests
 	@echo "Running SDK tests..."
-	go test $(GO_TEST_PARAMS) --run "(TestWiring)" $(GO_PACKAGES_SDK)
+	go test -race -cover --run "(TestWiring)" $(GO_PACKAGES_SDK)
 
 run-otlp:
 	cd platform/view/services/tracing; docker-compose up -d
