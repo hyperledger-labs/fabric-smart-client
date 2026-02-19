@@ -137,6 +137,7 @@ jobs:
       - utest
       - utest-postgres
       - itest
+      - itest-list
     runs-on: ubuntu-latest
     steps:
       - uses: coverallsapp/github-action@v2
