@@ -45,7 +45,7 @@ type SessionInfo struct {
 }
 
 func (i *SessionInfo) String() string {
-	return fmt.Sprintf("session info [%s,%s,%s,%s,%s,%v]", i.ID, i.Caller, i.Caller, i.Endpoint, i.EndpointPKID, i.Closed)
+	return fmt.Sprintf("session info [%s,%s,%s,%s,%s,%v]", i.ID, i.Caller, i.CallerViewID, i.Endpoint, i.EndpointPKID, i.Closed)
 }
 
 // Session encapsulates a communication channel to an endpoint
