@@ -177,7 +177,7 @@ func (e *Extension) launchContainer() {
 				{ // config block
 					Type:     mount.TypeBind,
 					Source:   configBlockPath,
-					Target:   "/root/config/sc-genesis-block.proto.bin",
+					Target:   "/root/material/config-block.pb.bin",
 					ReadOnly: true,
 				},
 			},
