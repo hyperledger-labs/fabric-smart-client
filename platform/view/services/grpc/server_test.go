@@ -629,7 +629,6 @@ func TestNewSecureGRPCServer(t *testing.T) {
 		"TLS11": tls.VersionTLS11,
 	}
 	for name, version := range tlsVersions {
-		version := version
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -941,7 +940,6 @@ func TestMutualAuth(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			t.Logf("Running test %s ...", test.name)
@@ -1177,7 +1175,6 @@ func TestCipherSuites(t *testing.T) {
 	go utils.IgnoreErrorFunc(srv.Start)
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
