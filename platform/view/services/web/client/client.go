@@ -58,7 +58,7 @@ func (c *Config) url(protocol string) string {
 	return fmt.Sprintf("%s://%s", protocol, c.Host)
 }
 func (c *Config) isTlsEnabled() bool {
-	return c.CACertPath != ""
+    return c.CACertPath != "" || len(c.CACertRaw) != 0
 }
 
 // Client models a client for an FSC node
