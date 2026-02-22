@@ -122,6 +122,7 @@ func (c *Client) Metrics() (map[string]*dto.MetricFamily, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed calling metrics")
 	}
+	defer utils.IgnoreErrorFunc(body.Close)
 	return c.metricsParser.TextToMetricFamilies(body)
 }
 
