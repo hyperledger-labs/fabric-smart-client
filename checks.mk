@@ -84,3 +84,8 @@ lint: ## Run linter
 lint-auto-fix: ## Run linter with auto-fix
 	@echo "Running Go Linters with auto-fix..."
 	golangci-lint run --color=always --new-from-rev=main --timeout=4m --fix
+
+.PHONY: lint-fmt
+lint-fmt:
+	@echo "Running Go Formatters..."
+	golangci-lint fmt
