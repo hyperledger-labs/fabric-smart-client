@@ -384,7 +384,6 @@ func TestQueryService(t *testing.T) {
 		qs, fake := setupTest(t)
 
 		t.Run("happy path", func(t *testing.T) {
-			t.Parallel()
 			// return a response with one status
 			fake.GetTransactionStatusReturns(&protoqueryservice.TxStatusResponse{
 				Statuses: []*protonotify.TxStatusEvent{
@@ -400,7 +399,6 @@ func TestQueryService(t *testing.T) {
 		})
 
 		t.Run("client error", func(t *testing.T) {
-			t.Parallel()
 			expectedError := errors.New("some error")
 			fake.GetTransactionStatusReturns(nil, expectedError)
 
@@ -409,7 +407,6 @@ func TestQueryService(t *testing.T) {
 		})
 
 		t.Run("no statuses", func(t *testing.T) {
-			t.Parallel()
 			fake.GetTransactionStatusReturns(&protoqueryservice.TxStatusResponse{Statuses: []*protonotify.TxStatusEvent{}}, nil)
 
 			_, err := qs.GetTransactionStatus("tx3")
