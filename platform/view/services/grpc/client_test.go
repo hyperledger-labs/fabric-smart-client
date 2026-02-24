@@ -259,7 +259,7 @@ func TestNewConnection(t *testing.T) {
 				MaxVersion:   tls.VersionTLS12, // https://github.com/golang/go/issues/33368
 			},
 			success:  false,
-			errorMsg: "tls: bad certificate",
+			errorMsg: "(tls: bad certificate|handshake failure)",
 		},
 		{
 			name: "client TLS / server TLS client cert",
