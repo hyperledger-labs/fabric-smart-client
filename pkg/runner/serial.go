@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package runner
 
+// NewSerialRunner creates a BatchRunner that executes operations serially without batching.
+// Each Run call is processed immediately by invoking the runner function with a single-element slice.
 func NewSerialRunner[V any](runner ExecuteFunc[V, error]) BatchRunner[V] {
 	return &serialRunner[V]{executor: runner}
 }
@@ -18,7 +20,9 @@ func (r *serialRunner[V]) Run(val V) error {
 	return r.executor([]V{val})[0]
 }
 
-func NewSerialExecutor[I any, O any](executor ExecuteFunc[I, Output[O]]) BatchExecutor[I, O] {
+// NewSerialExecutor creates a BatchExecutor that executes operations serially without batching.
+// Each Execute call is processed immediately by invoking the executor function with a single-element slice.
+func NewSerialExecutor[I, O any](executor ExecuteFunc[I, Output[O]]) BatchExecutor[I, O] {
 	return &serialExecutor[I, O]{executor: executor}
 }
 
