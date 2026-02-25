@@ -40,6 +40,7 @@ jobs:
           file: coverage.profile
           flag-name: utest
           parallel: true
+          fail-on-error: false
 
   utest-postgres:
     needs:
@@ -62,6 +63,7 @@ jobs:
           file: coverage.profile
           flag-name: utest-postgres
           parallel: true
+          fail-on-error: false
 
   itest-list:
     runs-on: ubuntu-latest
@@ -131,6 +133,7 @@ jobs:
           file: coverage.profile
           flag-name: itest-${{ matrix.tests }}
           parallel: true
+          fail-on-error: false
 
   publish-coverage:
     needs:
@@ -144,3 +147,4 @@ jobs:
         with:
           parallel-finished: true
           carryforward: ${{ needs.itest-list.outputs.all-tests }}
+          fail-on-error: false
