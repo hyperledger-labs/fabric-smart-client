@@ -21,8 +21,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: go
           build-mode: manual
@@ -35,9 +39,9 @@ jobs:
         run: |
           go build -o fsccli ./cmd/fsccli
           go build -o node ./ci/codeql/node
-          make unit-tests
+          make unit-tests unit-tests-postgres
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:go"
