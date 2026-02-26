@@ -123,16 +123,21 @@ func (s *TestSuite) TestSucceeded() {
 	CheckNamespaceExists(s.II, "iou", 1)
 
 	// create an IOU with approver2 - should succeed now
+	// use Eventually because even if the namespace version is visible
+	// some nodes may not have been fully applied the new endorsement policy yet
 	By("creating another iou with approver2 should work")
-	anotherIouState, err := CreateIOU(s.II, "", 20, "approver2")
-	Expect(err).NotTo(HaveOccurred())
+	var anotherIouState string
+	Eventually(func() error {
+		var err error
+		anotherIouState, err = CreateIOU(s.II, "", 20, "approver2")
+		return err
+	}, timeout, interval).Should(Succeed())
 
-	_ = anotherIouState
 	CheckState(s.II, "borrower", anotherIouState, 20)
 	CheckState(s.II, "lender", anotherIouState, 20)
 
 	// update with approver1 must fail now!
-	By("updating with approver2 should fail")
+	By("updating with approver1 should fail")
 	UpdateIOU(s.II, anotherIouState, 7, "approver1", "status is not valid [2]")
 
 	By("updating with approver2 should work")
