@@ -24,7 +24,7 @@ type batcher[I any, O any] struct {
 	timeout  time.Duration
 }
 
-func newBatcher[I any, O any](executor func([]I) []O, capacity int, timeout time.Duration) *batcher[I, O] {
+func newBatcher[I, O any](executor func([]I) []O, capacity int, timeout time.Duration) *batcher[I, O] {
 	inputs := make([]chan I, capacity)
 	outputs := make([]chan O, capacity)
 	locks := make([]sync.Mutex, capacity)
@@ -104,7 +104,14 @@ type batchExecutor[I any, O any] struct {
 	*batcher[I, Output[O]]
 }
 
-func NewBatchExecutor[I any, O any](executor ExecuteFunc[I, Output[O]], capacity int, timeout time.Duration) BatchExecutor[I, O] {
+// NewBatchExecutor creates a BatchExecutor that batches multiple Execute calls for efficiency.
+// Batching occurs when capacity is reached or timeout expires.
+// The executor function receives a batch of inputs and must return corresponding outputs.
+func NewBatchExecutor[I, O any](
+	executor ExecuteFunc[I, Output[O]],
+	capacity int,
+	timeout time.Duration,
+) BatchExecutor[I, O] {
 	return &batchExecutor[I, O]{batcher: newBatcher(executor, capacity, timeout)}
 }
 
@@ -117,6 +124,9 @@ type batchRunner[V any] struct {
 	*batcher[V, error]
 }
 
+// NewBatchRunner creates a BatchRunner that batches multiple Run calls for efficiency.
+// Batching occurs when capacity is reached or timeout expires.
+// The runner function receives a batch of values and must return corresponding errors.
 func NewBatchRunner[V any](runner func([]V) []error, capacity int, timeout time.Duration) BatchRunner[V] {
 	return &batchRunner[V]{batcher: newBatcher(runner, capacity, timeout)}
 }
