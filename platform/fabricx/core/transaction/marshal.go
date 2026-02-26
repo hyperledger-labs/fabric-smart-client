@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
+	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/hyperledger/fabric-x-common/protoutil"
 	"go.uber.org/zap/zapcore"
 )
@@ -26,6 +26,12 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 		return nil, errors.Wrap(err, "getting proposal responses")
 	}
 
+	// TODO: to implement MSP-based endorsement, we need to merge all proposal responses received from the endorsers.
+	// Do the following steps:
+	// 1. Get the "original" transaction we sent to the endorsers
+	// 2. For each proposal response
+	//   - extract endorsements and merge into the "original" transaction
+
 	// TODO: pick the correct signed proposal response; currently we assume "the last" response is the correct one
 	// Note that this will be changed once the committer-x fully supports msp-based endorsement policies
 	if len(resps) < 1 {
@@ -34,24 +40,24 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 	response := resps[len(resps)-1]
 	rawTx := response.Results()
 
-	var tx protoblocktx.Tx
+	var tx applicationpb.Tx
 	if err := proto.Unmarshal(rawTx, &tx); err != nil {
 		return nil, errors.Wrapf(err, "unmarshal tx [txID=%s]", t.ID())
 	}
 
-	var sigs [][]byte
-	if err := json.Unmarshal(response.EndorserSignature(), &sigs); err != nil {
+	// get endorsements from response
+	var endorsements []*applicationpb.Endorsements
+	if err := json.Unmarshal(response.EndorserSignature(), &endorsements); err != nil {
 		return nil, errors.Wrap(err, "unmarshal endorser signatures")
 	}
-
-	// attaching signatures to transactions
-	tx.Signatures = sigs
+	tx.Endorsements = endorsements
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		str, _ := json.MarshalIndent(&tx, "", "\t")
 		logger.Debugf("fabricx transaction: %s", str)
 	}
 
+	// marshall transaction
 	rawTx, err = proto.Marshal(&tx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "marshal tx [txID=%s]", t.ID())

@@ -31,7 +31,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-x-committer/api/types"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
@@ -198,7 +198,7 @@ func NewCommitter(nw fdriver.FabricNetworkService, channelConfig fdriver.Channel
 	)
 
 	// consider meta namespace transactions to be stored in the vault
-	if err := c.ProcessNamespace(types.MetaNamespaceID); err != nil {
+	if err := c.ProcessNamespace(committerpb.MetaNamespaceID); err != nil {
 		return nil, err
 	}
 

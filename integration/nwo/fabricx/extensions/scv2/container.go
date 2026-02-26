@@ -10,8 +10,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"runtime"
 	"time"
 
@@ -52,33 +50,6 @@ var (
 	committerVersion = v3.CommitterVersion
 )
 
-const (
-	queryServiceConfig = `query-service:
-  server:
-    endpoint:
-      host: localhost
-      port: 7001
-  database:
-    host: localhost
-    port: 5433
-    username: yugabyte
-    password: yugabyte
-    database: yugabyte
-    max-connections: 10
-    min-connections: 5
-  max-batch-wait: 0.5ms
-  min-batch-keys: 1
-  monitoring:
-    metrics:
-      enable: true
-      endpoint: localhost:2114
-logging:
-  development: true
-  enabled: true
-  level: DEBUG
-`
-)
-
 func dockerHostAlias() string {
 	return "host.docker.internal"
 }
@@ -100,14 +71,6 @@ func (e *Extension) launchContainer() {
 	orderer := e.network.Orderer("orderer")
 	ordererEndpoint := fmt.Sprintf("%s:%d", dockerHostAlias(), e.network.OrdererPort(orderer, fabric_network.ListenPort))
 	scMSPID := fmt.Sprintf("%sMSP", orgName)
-
-	// create queryservice config
-	configDir := filepath.Join(e.network.RootDir, e.network.Prefix, "config")
-	err := os.MkdirAll(configDir, 0o750)
-	utils.Must(err)
-	qsConfigPath := filepath.Join(configDir, "config-queryservice.yaml")
-	err = os.WriteFile(qsConfigPath, []byte(queryServiceConfig), 0o644)
-	utils.Must(err)
 
 	rootCryptoDir := rootCrypto(e.network)
 	peerMSPDir := peerDockerMSPDir(e.network, scPeer)
@@ -166,18 +129,12 @@ func (e *Extension) launchContainer() {
 					// crypto
 					Type:   mount.TypeBind,
 					Source: rootCryptoDir,
-					Target: "/root/config/crypto",
-				},
-				{
-					// query service config
-					Type:   mount.TypeBind,
-					Source: qsConfigPath,
-					Target: "/root/config/config-queryservice.yaml",
+					Target: "/root/material/crypto",
 				},
 				{ // config block
 					Type:     mount.TypeBind,
 					Source:   configBlockPath,
-					Target:   "/root/config/sc-genesis-block.proto.bin",
+					Target:   "/root/material/config-block.pb.bin",
 					ReadOnly: true,
 				},
 			},

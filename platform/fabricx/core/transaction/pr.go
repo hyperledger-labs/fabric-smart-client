@@ -14,8 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
-	"github.com/hyperledger/fabric-x-committer/utils/signature"
+	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 )
 
 type VerifierProvider = driver.VerifierProvider
@@ -83,19 +82,19 @@ func (p *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
 	}
 
 	// unmarshal payload to Tx
-	var tx protoblocktx.Tx
+	var tx applicationpb.Tx
 	if err := proto.Unmarshal(p.pr.Payload, &tx); err != nil {
 		return errors.Wrapf(err, "unmarshal proposal response payload for [%s]", endorser)
 	}
 
 	// unmarshal endorsement signatures for each namespace
-	var sigs [][]byte
-	if err := json.Unmarshal(p.EndorserSignature(), &sigs); err != nil {
+	var endorsements []*applicationpb.Endorsements
+	if err := json.Unmarshal(p.EndorserSignature(), &endorsements); err != nil {
 		return errors.Wrap(err, "unmarshal endorsement signatures")
 	}
 
 	// check that we have a signature for each namespace
-	if len(tx.GetNamespaces()) != len(sigs) {
+	if len(tx.GetNamespaces()) != len(endorsements) {
 		return errors.New("mismatch number of signatures and namespaces")
 	}
 
@@ -104,12 +103,23 @@ func (p *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
 
 	// check each namespace signature with the corresponding signature using the endorser verifier
 	for idx, ns := range tx.GetNamespaces() {
-		digest, err := signature.ASN1MarshalTxNamespace(txID, ns)
+
+		digest, err := tx.Namespaces[idx].ASN1Marshal(txID)
 		if err != nil {
-			return errors.Wrapf(err, "ASN1MarshalTxNamespace for [txID=%s] [ns=%s]", txID, ns)
+			return errors.Wrapf(err, "failed asn1 marshalfor [txID=%s] [ns=%s]", txID, ns)
 		}
 
-		if err := v.Verify(digest, sigs[idx]); err != nil {
+		// note that we are checking the endorsement returned via a proposal response from the endorser
+		// that is, at this stage it should only contain "a single" signature (endorsement) per namespace;
+		sig := endorsements[idx].GetEndorsementsWithIdentity()[0].GetEndorsement()
+
+		// TODO: check the type of the endorsement
+		// If msp-based with or without attached identity - we need to check it corresponds to the endorser identity
+		// as we specify above using `view.Identity(p.pr.Endorsement.Endorser)`.
+
+		// TODO: for threshold-based endorsement we need to first aggregate signatures shares before verifying.
+
+		if err := v.Verify(digest, sig); err != nil {
 			return errors.Wrapf(err, "invalid namespace signature for [txID=%s] [ns=%s]", txID, ns)
 		}
 	}

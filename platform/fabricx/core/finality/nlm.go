@@ -17,8 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
-	"github.com/hyperledger/fabric-x-committer/api/protonotify"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -32,9 +31,9 @@ var logger = logging.MustGetLogger()
 const DefaultHandlerTimeout = 5 * time.Second
 
 type notificationListenerManager struct {
-	notifyClient   protonotify.NotifierClient
-	requestQueue   chan *protonotify.NotificationRequest
-	responseQueue  chan *protonotify.NotificationResponse
+	notifyClient   committerpb.NotifierClient
+	requestQueue   chan *committerpb.NotificationRequest
+	responseQueue  chan *committerpb.NotificationResponse
 	handlerTimeout time.Duration
 
 	handlers   map[driver.TxID][]fabric.FinalityListener
@@ -71,7 +70,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 
 	// spawn stream sender
 	g.Go(func() error {
-		var req *protonotify.NotificationRequest
+		var req *committerpb.NotificationRequest
 		for {
 			select {
 			case <-gCtx.Done():
@@ -93,7 +92,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 			status  int
 		}
 
-		var resp *protonotify.NotificationResponse
+		var resp *committerpb.NotificationResponse
 		for {
 			select {
 			case <-gCtx.Done():
@@ -158,7 +157,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	return err
 }
 
-func parseResponse(resp *protonotify.NotificationResponse) map[string]int {
+func parseResponse(resp *committerpb.NotificationResponse) map[string]int {
 	res := make(map[string]int)
 
 	// first parse all timeouts
@@ -169,13 +168,14 @@ func parseResponse(resp *protonotify.NotificationResponse) map[string]int {
 	var s int
 	// next we parse the status events
 	for _, r := range resp.GetTxStatusEvents() {
-		txID := r.GetTxId()
-		status := r.GetStatusWithHeight()
 
-		switch status.GetCode() {
-		case protoblocktx.Status_COMMITTED:
+		txID := r.GetRef().GetTxId()
+		status := r.GetStatus()
+
+		switch status {
+		case committerpb.Status_COMMITTED:
 			s = fdriver.Valid
-		case protoblocktx.Status_NOT_VALIDATED:
+		case committerpb.Status_STATUS_UNSPECIFIED:
 			s = fdriver.Unknown
 		default:
 			s = fdriver.Invalid
@@ -213,8 +213,8 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 
 	// this is our first listener registered for the given txID
 	txIDs := []string{txID}
-	n.requestQueue <- &protonotify.NotificationRequest{
-		TxStatusRequest: &protonotify.TxStatusRequest{
+	n.requestQueue <- &committerpb.NotificationRequest{
+		TxStatusRequest: &committerpb.TxIDsBatch{
 			TxIds: txIDs,
 		},
 		// TODO: set a proper timeout

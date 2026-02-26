@@ -19,7 +19,7 @@ import (
 
 const (
 	// defaultViewTimeout is the default timeout for view calls
-	defaultViewTimeout = 30 * time.Second
+	defaultViewTimeout = 2 * time.Minute
 )
 
 func CreateIOU(ii *integration.Infrastructure, identityLabel string, amount uint, approver string) (string, error) {
