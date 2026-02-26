@@ -9,6 +9,8 @@ package comm
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -25,6 +27,7 @@ import (
 const (
 	timeout = 100 * time.Millisecond
 	tick    = 10 * time.Millisecond
+	maxVal  = 1000
 )
 
 type mockSender struct {
@@ -48,7 +51,6 @@ func setup() *NetworkStreamSession {
 
 	net := &mockSender{}
 
-	ctx, cancel := context.WithCancel(context.Background())
 	return &NetworkStreamSession{
 		node:            net,
 		endpointID:      endpointID,
@@ -57,10 +59,11 @@ func setup() *NetworkStreamSession {
 		sessionID:       sessionID,
 		caller:          caller,
 		callerViewID:    callerViewID,
-		incoming:        make(chan *view.Message, 1),
+		incoming:        make(chan *view.Message),
 		streams:         make(map[*streamHandler]struct{}),
-		ctx:             ctx,
-		cancel:          cancel,
+		middleCh:        make(chan *view.Message),
+		closing:         make(chan struct{}),
+		closed:          make(chan struct{}),
 	}
 }
 
@@ -79,10 +82,11 @@ func TestSessionLifecycle(t *testing.T) {
 		Payload: []byte("some message"),
 	}
 
+	require.False(t, s.isClosed())
+
 	// enqueue a message
 	require.Empty(t, s.incoming)
-	s.enqueue(msg)
-	require.Len(t, s.incoming, 1)
+	require.True(t, s.enqueue(msg))
 
 	// we should receive this message
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -101,7 +105,7 @@ func TestSessionLifecycle(t *testing.T) {
 
 	// enqueue on closed session should just drop the message
 	require.Empty(t, s.incoming)
-	s.enqueue(msg)
+	require.False(t, s.enqueue(msg))
 	require.Empty(t, s.incoming)
 
 	// on a closed session, a reader should return immediately
@@ -165,4 +169,65 @@ func TestSessionLifecycleConcurrent(t *testing.T) {
 	}()
 
 	wg.Wait()
+}
+
+func TestSessionDeadlock(t *testing.T) {
+	// let check that at the end of this test all our go routines are stopped
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+
+	s := setup()
+
+	// hide the impl behind the session interface as a consumer
+	var sess view.Session = s
+	ch := sess.Receive()
+
+	msg1 := []byte("msg")
+
+	// we publish and then consume
+	assert.True(t, s.enqueue(&view.Message{Payload: msg1}))
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		require.Equal(c, msg1, (<-ch).Payload)
+	}, timeout, 10*time.Millisecond)
+
+	// next up, we publish msg1 and spawn another goroutine to publish msg2
+	assert.True(t, s.enqueue(&view.Message{Payload: msg1}))
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	// another producer
+	go func() {
+		defer wg.Done()
+		// as msg1 is not yet consumed, our produces is blocked
+		assert.False(t, s.enqueue(&view.Message{Payload: msg1}))
+	}()
+
+	// let's give the producer a bit time
+	runtime.Gosched()
+	for {
+		value := rand.Intn(maxVal)
+		if value == 0 {
+			break
+		}
+	}
+
+	// let's make sure that our produce is still waiting to complete publish
+	require.Never(t, func() bool {
+		// we expect to be blocked
+		wg.Wait()
+		return false
+	}, timeout, tick)
+
+	// no we close the listener, which should unblock the producer
+	sess.Close()
+
+	// wait for the producer to finish
+	wg.Wait()
+
+	// we expect msg1 to be successfully published
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		require.Equal(c, msg1, (<-ch).Payload)
+	}, timeout, tick)
+
+	// msg2 should not be published
+	require.Empty(t, ch)
 }
