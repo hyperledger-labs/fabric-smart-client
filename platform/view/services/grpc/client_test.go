@@ -331,7 +331,6 @@ func TestNewConnection(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			lis, err := net.Listen("tcp", "127.0.0.1:0")
@@ -494,7 +493,6 @@ func TestSetMessageSize(t *testing.T) {
 	}
 	// run tests
 	for _, test := range tests {
-		test := test
 		address := lis.Addr().String()
 		t.Run(test.name, func(t *testing.T) {
 			t.Log(test.name)
