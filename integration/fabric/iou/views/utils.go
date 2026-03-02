@@ -34,7 +34,7 @@ func (t *FinalityListener) OnStatus(_ context.Context, txID driver.TxID, vc fdri
 		if vc != t.ExpectedVC {
 			logger.Warnf("transaction [%s] received validation code [%d], expected [%d]", txID, vc, t.ExpectedVC)
 		}
-		time.Sleep(5 * time.Second)
+		// time.Sleep(5 * time.Second)
 		if t.WaitGroup != nil {
 			t.WaitGroup.Done()
 		}
