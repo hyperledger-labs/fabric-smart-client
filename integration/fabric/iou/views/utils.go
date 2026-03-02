@@ -9,7 +9,6 @@ package views
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
