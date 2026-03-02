@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/states"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -66,19 +67,27 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// Namely from the borrower itself, the lender, and the approver. In this order.
 	// All signatures are required.
 	_, err = context.RunView(state.NewCollectEndorsementsView(tx, borrower, lender, i.Approver))
-	assert.NoError(err)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to collect endorsements")
+	}
 
 	// Check committer events
 	var wg sync.WaitGroup
 	wg.Add(1)
 	_, ch, err := fabric.GetDefaultChannel(context)
-	assert.NoError(err)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get default channel")
+	}
 	committer := ch.Committer()
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
+	if err := committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add committer listener")
+	}
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
 	_, err = context.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
-	assert.NoError(err)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed ordering and finalizing")
+	}
 
 	wg.Wait()
 
@@ -134,24 +143,34 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 	// Namely from the borrower itself, the lender, and the approver. In this order.
 	// All signatures are required.
 	_, err = context.RunView(state.NewCollectEndorsementsView(tx, iouState.Owners()[0], iouState.Owners()[1], u.Approver))
-	assert.NoError(err)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to collect endorsements")
+	}
 
 	// Check committer events
 	var wg sync.WaitGroup
 	wg.Add(1)
 	_, ch, err := fabric.GetDefaultChannel(context)
-	assert.NoError(err)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get default channel")
+	}
 	committer := ch.Committer()
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
+	if err := committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add committer listener")
+	}
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
 	_, err = context.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
-	assert.NoError(err, "failed ordering and finalizing")
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed ordering and finalizing")
+	}
 	wg.Wait()
 
 	wg = sync.WaitGroup{}
 	wg.Add(1)
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
+	if err := committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add committer listener")
+	}
 	wg.Wait()
 
 	return tx.ID(), nil

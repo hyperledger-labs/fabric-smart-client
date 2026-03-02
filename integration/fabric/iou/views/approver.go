@@ -73,25 +73,37 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 
 	// The approver is ready to send back the transaction signed
 	_, err = context.RunView(state.NewEndorseView(tx))
-	assert.NoError(err)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to endorse transaction")
+	}
 
 	// Check committer events
 	var wg sync.WaitGroup
 	wg.Add(1)
 	_, ch, err := fabric.GetDefaultChannel(context)
-	assert.NoError(err)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get default channel")
+	}
 	committer := ch.Committer()
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
-	assert.Error(committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, &wg)), "must have failed")
+	if err := committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add committer listener")
+	}
+	if err := committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, nil)); err == nil {
+		return nil, errors.New("must have failed")
+	}
 
 	// Finally, the approver waits that the transaction completes its lifecycle
 	_, err = context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
-	assert.NoError(err, "failed to run finality view")
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to run finality view")
+	}
 	wg.Wait()
 
 	wg = sync.WaitGroup{}
 	wg.Add(1)
-	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
+	if err := committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add committer listener")
+	}
 	wg.Wait()
 
 	return nil, nil
@@ -101,8 +113,12 @@ type ApproverInitView struct{}
 
 func (a *ApproverInitView) Call(context view.Context) (interface{}, error) {
 	_, ch, err := fabric.GetDefaultChannel(context)
-	assert.NoError(err)
-	assert.NoError(ch.Committer().ProcessNamespace("iou"), "failed to setup namespace to process")
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get default channel")
+	}
+	if err := ch.Committer().ProcessNamespace("iou"); err != nil {
+		return nil, errors.Wrapf(err, "failed to setup namespace to process")
+	}
 	return nil, nil
 }
 

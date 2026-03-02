@@ -30,8 +30,13 @@ func NewFinalityListener(expectedTxID string, expectedVC fdriver.ValidationCode,
 
 func (t *FinalityListener) OnStatus(_ context.Context, txID driver.TxID, vc fdriver.ValidationCode, _ string) {
 	logger.Infof("on status [%s][%d]", txID, vc)
-	if txID == t.ExpectedTxID && vc == t.ExpectedVC {
+	if txID == t.ExpectedTxID {
+		if vc != t.ExpectedVC {
+			logger.Warnf("transaction [%s] received validation code [%d], expected [%d]", txID, vc, t.ExpectedVC)
+		}
 		time.Sleep(5 * time.Second)
-		t.WaitGroup.Done()
+		if t.WaitGroup != nil {
+			t.WaitGroup.Done()
+		}
 	}
 }

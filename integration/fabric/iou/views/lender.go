@@ -60,7 +60,9 @@ func (i *CreateIOUResponderView) Call(context view.Context) (interface{}, error)
 
 	// The lender is ready to send back the transaction signed
 	_, err = context.RunView(state.NewEndorseView(tx))
-	assert.NoError(err)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to endorse transaction")
+	}
 
 	// Finally, the lender waits that the transaction completes its lifecycle
 	return context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
@@ -117,7 +119,9 @@ func (i *UpdateIOUResponderView) Call(context view.Context) (interface{}, error)
 
 	// The lender is ready to send back the transaction signed
 	_, err = context.RunView(state.NewEndorseView(tx))
-	assert.NoError(err)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to endorse transaction")
+	}
 
 	// Finally, the lender waits that the transaction completes its lifecycle
 	return context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
