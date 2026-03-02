@@ -13,15 +13,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice/fakes"
-	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
-	"github.com/hyperledger/fabric-x-committer/api/protonotify"
-	"github.com/hyperledger/fabric-x-committer/api/protoqueryservice"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice/mock"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
-func setupTest(tb testing.TB) (*queryservice.RemoteQueryService, *fakes.FakeQueryServiceClient) {
+// To re-generate the mock/ run "go generate" directive
+//go:generate counterfeiter -o mock/quer_service_client.go github.com/hyperledger/fabric-x-common/api/committerpb.QueryServiceClient
+
+func setupTest(tb testing.TB) (*queryservice.RemoteQueryService, *mock.FakeQueryServiceClient) {
 	tb.Helper()
 
 	config := &queryservice.Config{
@@ -29,7 +30,7 @@ func setupTest(tb testing.TB) (*queryservice.RemoteQueryService, *fakes.FakeQuer
 		QueryTimeout: 5 * time.Second,
 	}
 
-	client := &fakes.FakeQueryServiceClient{}
+	client := &mock.FakeQueryServiceClient{}
 	qs := queryservice.NewRemoteQueryService(config, client)
 
 	return qs, client
@@ -47,16 +48,16 @@ func TestQueryService(t *testing.T) {
 		table := []struct {
 			ns       string
 			key      string
-			q        *protoqueryservice.Rows
+			q        *committerpb.Rows
 			expected *driver.VaultValue
 		}{
 			{
 				ns:  "ns1",
 				key: "key1",
-				q: &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{
+				q: &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{
 					{
 						NsId: "ns1",
-						Rows: []*protoqueryservice.Row{
+						Rows: []*committerpb.Row{
 							{
 								Key:     []byte("key1"),
 								Value:   []byte("hello"),
@@ -70,10 +71,10 @@ func TestQueryService(t *testing.T) {
 			{
 				ns:  "ns1",
 				key: "key2",
-				q: &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{
+				q: &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{
 					{
 						NsId: "ns1",
-						Rows: []*protoqueryservice.Row{
+						Rows: []*committerpb.Row{
 							{
 								Key:     []byte("key2"),
 								Value:   []byte("hello"),
@@ -87,10 +88,10 @@ func TestQueryService(t *testing.T) {
 			{
 				ns:  "ns1",
 				key: "key2",
-				q: &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{
+				q: &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{
 					{
 						NsId: "ns1",
-						Rows: []*protoqueryservice.Row{
+						Rows: []*committerpb.Row{
 							{
 								Key:     []byte("key2"),
 								Value:   []byte(""),
@@ -118,14 +119,14 @@ func TestQueryService(t *testing.T) {
 		table := []struct {
 			ns       string
 			key      string
-			q        *protoqueryservice.Rows
+			q        *committerpb.Rows
 			expected *driver.VaultValue
 		}{
 			{"ns1", "key1", nil, nil},
-			{"ns1", "key1", &protoqueryservice.Rows{}, nil},
-			{"ns1", "key1", &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{}}, nil},
-			{"ns1", "key1", &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{{NsId: "ns1"}}}, nil},
-			{"ns1", "key1", &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{{NsId: "ns1", Rows: []*protoqueryservice.Row{}}}}, nil},
+			{"ns1", "key1", &committerpb.Rows{}, nil},
+			{"ns1", "key1", &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{}}, nil},
+			{"ns1", "key1", &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{{NsId: "ns1"}}}, nil},
+			{"ns1", "key1", &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{{NsId: "ns1", Rows: []*committerpb.Row{}}}}, nil},
 		}
 
 		for _, tc := range table {
@@ -161,15 +162,15 @@ func TestQueryService(t *testing.T) {
 
 		table := []struct {
 			m        map[driver.Namespace][]driver.PKey
-			q        *protoqueryservice.Rows
+			q        *committerpb.Rows
 			expected map[driver.Namespace]map[driver.PKey]driver.VaultValue
 		}{
 			{
 				m: map[driver.Namespace][]driver.PKey{"ns1": {"key1"}},
-				q: &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{
+				q: &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{
 					{
 						NsId: "ns1",
-						Rows: []*protoqueryservice.Row{
+						Rows: []*committerpb.Row{
 							{
 								Key:     []byte("key1"),
 								Value:   []byte("hello"),
@@ -186,10 +187,10 @@ func TestQueryService(t *testing.T) {
 			},
 			{
 				m: map[driver.Namespace][]driver.PKey{"ns1": {"key1", "key2"}},
-				q: &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{
+				q: &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{
 					{
 						NsId: "ns1",
-						Rows: []*protoqueryservice.Row{
+						Rows: []*committerpb.Row{
 							{
 								Key:     []byte("key1"),
 								Value:   []byte("hello"),
@@ -212,10 +213,10 @@ func TestQueryService(t *testing.T) {
 			},
 			{
 				m: map[driver.Namespace][]driver.PKey{"ns1": {"key1", "key2"}, "ns2": {"key3"}},
-				q: &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{
+				q: &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{
 					{
 						NsId: "ns1",
-						Rows: []*protoqueryservice.Row{
+						Rows: []*committerpb.Row{
 							{
 								Key:     []byte("key1"),
 								Value:   []byte("hello"),
@@ -230,7 +231,7 @@ func TestQueryService(t *testing.T) {
 					},
 					{
 						NsId: "ns2",
-						Rows: []*protoqueryservice.Row{
+						Rows: []*committerpb.Row{
 							{
 								Key:     []byte("key3"),
 								Value:   []byte("hello"),
@@ -265,20 +266,20 @@ func TestQueryService(t *testing.T) {
 
 		table := []struct {
 			m        map[driver.Namespace][]driver.PKey
-			q        *protoqueryservice.Rows
+			q        *committerpb.Rows
 			expected map[driver.Namespace]map[driver.PKey]driver.VaultValue
 		}{
 			{
 				m:        map[driver.Namespace][]driver.PKey{"ns1": {"key1"}},
-				q:        &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{{NsId: "ns1"}}},
+				q:        &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{{NsId: "ns1"}}},
 				expected: map[driver.Namespace]map[driver.PKey]driver.VaultValue{"ns1": {}},
 			},
 			{
 				m: map[driver.Namespace][]driver.PKey{"ns1": {"key1", "doesnotexist"}},
-				q: &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{
+				q: &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{
 					{
 						NsId: "ns1",
-						Rows: []*protoqueryservice.Row{
+						Rows: []*committerpb.Row{
 							{
 								Key:     []byte("key1"),
 								Value:   []byte("hello"),
@@ -295,10 +296,10 @@ func TestQueryService(t *testing.T) {
 			},
 			{
 				m: map[driver.Namespace][]driver.PKey{"ns1": {"doesnotexist", "key2"}},
-				q: &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{
+				q: &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{
 					{
 						NsId: "ns1",
-						Rows: []*protoqueryservice.Row{
+						Rows: []*committerpb.Row{
 							{
 								Key:     []byte("key2"),
 								Value:   []byte("hello"),
@@ -315,10 +316,10 @@ func TestQueryService(t *testing.T) {
 			},
 			{
 				m: map[driver.Namespace][]driver.PKey{"ns1": {"key1"}, "nsdoesnotexist": {"key2"}},
-				q: &protoqueryservice.Rows{Namespaces: []*protoqueryservice.RowsNamespace{
+				q: &committerpb.Rows{Namespaces: []*committerpb.RowsNamespace{
 					{
 						NsId: "ns1",
-						Rows: []*protoqueryservice.Row{
+						Rows: []*committerpb.Row{
 							{
 								Key:     []byte("key1"),
 								Value:   []byte("hello"),
@@ -385,17 +386,17 @@ func TestQueryService(t *testing.T) {
 
 		t.Run("happy path", func(t *testing.T) {
 			// return a response with one status
-			fake.GetTransactionStatusReturns(&protoqueryservice.TxStatusResponse{
-				Statuses: []*protonotify.TxStatusEvent{
+			fake.GetTransactionStatusReturns(&committerpb.TxStatusResponse{
+				Statuses: []*committerpb.TxStatus{
 					{
-						StatusWithHeight: &protoblocktx.StatusWithHeight{Code: 7},
+						Status: committerpb.Status_COMMITTED,
 					},
 				},
 			}, nil)
 
 			code, err := qs.GetTransactionStatus("tx1")
 			require.NoError(t, err)
-			require.Equal(t, int32(7), code)
+			require.Equal(t, int32(committerpb.Status_COMMITTED), code)
 		})
 
 		t.Run("client error", func(t *testing.T) {
@@ -407,7 +408,7 @@ func TestQueryService(t *testing.T) {
 		})
 
 		t.Run("no statuses", func(t *testing.T) {
-			fake.GetTransactionStatusReturns(&protoqueryservice.TxStatusResponse{Statuses: []*protonotify.TxStatusEvent{}}, nil)
+			fake.GetTransactionStatusReturns(&committerpb.TxStatusResponse{Statuses: []*committerpb.TxStatus{}}, nil)
 
 			_, err := qs.GetTransactionStatus("tx3")
 			require.Error(t, err)

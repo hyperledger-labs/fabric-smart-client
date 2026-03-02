@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger/fabric-x-committer/api/protoqueryservice"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
@@ -24,11 +24,11 @@ var (
 )
 
 type RemoteQueryService struct {
-	client protoqueryservice.QueryServiceClient
+	client committerpb.QueryServiceClient
 	config *Config
 }
 
-func NewRemoteQueryService(config *Config, client protoqueryservice.QueryServiceClient) *RemoteQueryService {
+func NewRemoteQueryService(config *Config, client committerpb.QueryServiceClient) *RemoteQueryService {
 	return &RemoteQueryService{
 		client: client,
 		config: config,
@@ -73,7 +73,7 @@ func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
 	defer cancel()
 
 	now := time.Now()
-	res, err := s.client.GetTransactionStatus(ctx, &protoqueryservice.TxStatusQuery{
+	res, err := s.client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{
 		TxIds: []string{txID},
 	})
 	if err != nil {
@@ -83,7 +83,7 @@ func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
 	if len(res.Statuses) == 0 {
 		return 0, errors.Errorf("QS GetTransactionStatus: no statuses for tx %s", txID)
 	}
-	return int32(res.Statuses[0].StatusWithHeight.Code), nil
+	return int32(res.Statuses[0].Status), nil
 }
 
 func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[driver.Namespace]map[driver.PKey]driver.VaultValue, error) {
@@ -113,12 +113,12 @@ func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[dr
 // createQuery converts an input map into a `protoqueryservice.Query`.
 // It returns a `ErrInvalidQueryInput` error if the input is invalid, in particular, if the input is empty
 // of a namespace does not contain any keys.
-func createQuery(m map[driver.Namespace][]driver.PKey) (*protoqueryservice.Query, error) {
+func createQuery(m map[driver.Namespace][]driver.PKey) (*committerpb.Query, error) {
 	if len(m) == 0 {
 		return nil, ErrInvalidQueryInput
 	}
 
-	namespaces := make([]*protoqueryservice.QueryNamespace, 0, len(m))
+	namespaces := make([]*committerpb.QueryNamespace, 0, len(m))
 	for nsName, keys := range m {
 		if len(nsName) == 0 {
 			return nil, ErrInvalidQueryInput
@@ -137,15 +137,15 @@ func createQuery(m map[driver.Namespace][]driver.PKey) (*protoqueryservice.Query
 			nsKeys = append(nsKeys, []byte(k))
 		}
 
-		namespaces = append(namespaces, &protoqueryservice.QueryNamespace{NsId: nsName, Keys: nsKeys})
+		namespaces = append(namespaces, &committerpb.QueryNamespace{NsId: nsName, Keys: nsKeys})
 	}
 
-	return &protoqueryservice.Query{Namespaces: namespaces}, nil
+	return &committerpb.Query{Namespaces: namespaces}, nil
 }
 
 // createResult converts a response (`protoqueryservice.Rows`) into a 2-dim map data structure.
 // If the response (rows) is empty, createResult returns an empty map.
-func createResult(res *protoqueryservice.Rows) map[driver.Namespace]map[driver.PKey]driver.VaultValue {
+func createResult(res *committerpb.Rows) map[driver.Namespace]map[driver.PKey]driver.VaultValue {
 	result := make(map[driver.Namespace]map[driver.PKey]driver.VaultValue, len(res.GetNamespaces()))
 
 	for _, r := range res.GetNamespaces() {

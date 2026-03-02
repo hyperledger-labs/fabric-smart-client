@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
-	"github.com/hyperledger/fabric-x-committer/api/protonotify"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 )
 
 // ListenerManager defines the interface for managing finality listeners for transactions.
@@ -145,12 +145,12 @@ func newNotifi(network string, fnsp *fabric.NetworkServiceProvider, configProvid
 	}
 
 	// Create the gRPC client stub for the Notifier service
-	notifyClient := protonotify.NewNotifierClient(cc)
+	notifyClient := committerpb.NewNotifierClient(cc)
 
 	nlm := &notificationListenerManager{
 		notifyClient:   notifyClient,
-		requestQueue:   make(chan *protonotify.NotificationRequest),  // Queue for outgoing requests to the committer
-		responseQueue:  make(chan *protonotify.NotificationResponse), // Queue for incoming responses/notifications
+		requestQueue:   make(chan *committerpb.NotificationRequest),  // Queue for outgoing requests to the committer
+		responseQueue:  make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
 		handlers:       make(map[string][]fabric.FinalityListener),   // Map: txID -> list of listeners
 		handlerTimeout: DefaultHandlerTimeout,
 	}

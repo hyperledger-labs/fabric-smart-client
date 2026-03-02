@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
+	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"go.uber.org/zap"
 )
 
@@ -42,18 +42,18 @@ func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[dr
 	type namespaceType struct {
 		ns           driver.Namespace
 		nsVersion    driver.RawVersion
-		readSet      map[string]*protoblocktx.Read
-		writeSet     map[string]*protoblocktx.Write
-		readWriteSet map[string]*protoblocktx.ReadWrite
+		readSet      map[string]*applicationpb.Read
+		writeSet     map[string]*applicationpb.Write
+		readWriteSet map[string]*applicationpb.ReadWrite
 	}
 
 	newNamespace := func(ns driver.Namespace, nsVersion driver.RawVersion) *namespaceType {
 		return &namespaceType{
 			ns:           ns,
 			nsVersion:    nsVersion,
-			readSet:      make(map[string]*protoblocktx.Read),
-			writeSet:     make(map[string]*protoblocktx.Write),
-			readWriteSet: make(map[string]*protoblocktx.ReadWrite),
+			readSet:      make(map[string]*applicationpb.Read),
+			writeSet:     make(map[string]*applicationpb.Write),
+			readWriteSet: make(map[string]*applicationpb.ReadWrite),
 		}
 	}
 
@@ -79,7 +79,7 @@ func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[dr
 		}
 
 		for key, val := range keyMap {
-			namespace.writeSet[key] = &protoblocktx.Write{Key: []byte(key), Value: val}
+			namespace.writeSet[key] = &applicationpb.Write{Key: []byte(key), Value: val}
 			logger.Debugf("blind write [%s:%s][%x]", namespace.ns, key, val)
 		}
 	}
@@ -109,34 +109,34 @@ func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[dr
 
 			// let's check if our read is a read-write or read-only
 			if w, exists := namespace.writeSet[key]; exists {
-				namespace.readWriteSet[key] = &protoblocktx.ReadWrite{Key: []byte(key), Version: vPtr, Value: w.GetValue()}
+				namespace.readWriteSet[key] = &applicationpb.ReadWrite{Key: []byte(key), Version: vPtr, Value: w.GetValue()}
 				logger.Debugf("blind write was a read write [%s:%s][%x][%v]", namespace.ns, key, w.GetValue(), printVer(vPtr))
 				delete(namespace.writeSet, key)
 			} else {
-				namespace.readSet[key] = &protoblocktx.Read{Key: []byte(key), Version: vPtr}
+				namespace.readSet[key] = &applicationpb.Read{Key: []byte(key), Version: vPtr}
 				logger.Debugf("read [%s:%s][%v]", namespace.ns, key, printVer(vPtr))
 			}
 		}
 	}
 
-	namespaces := make([]*protoblocktx.TxNamespace, 0)
+	namespaces := make([]*applicationpb.TxNamespace, 0)
 	for _, namespace := range namespaceSet {
-		readsOnly := make([]*protoblocktx.Read, 0, len(namespace.readSet))
+		readsOnly := make([]*applicationpb.Read, 0, len(namespace.readSet))
 		for _, read := range namespace.readSet {
 			readsOnly = append(readsOnly, read)
 		}
 
-		blindWrites := make([]*protoblocktx.Write, 0, len(namespace.writeSet))
+		blindWrites := make([]*applicationpb.Write, 0, len(namespace.writeSet))
 		for _, write := range namespace.writeSet {
 			blindWrites = append(blindWrites, write)
 		}
 
-		readWrites := make([]*protoblocktx.ReadWrite, 0, len(namespace.readWriteSet))
+		readWrites := make([]*applicationpb.ReadWrite, 0, len(namespace.readWriteSet))
 		for _, readWrite := range namespace.readWriteSet {
 			readWrites = append(readWrites, readWrite)
 		}
 
-		namespaces = append(namespaces, &protoblocktx.TxNamespace{
+		namespaces = append(namespaces, &applicationpb.TxNamespace{
 			NsId:        namespace.ns,
 			NsVersion:   Unmarshal(namespace.nsVersion),
 			ReadsOnly:   readsOnly,
@@ -145,7 +145,7 @@ func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[dr
 		})
 	}
 
-	txIn := &protoblocktx.Tx{Namespaces: namespaces}
+	txIn := &applicationpb.Tx{Namespaces: namespaces}
 	if logger.IsEnabledFor(zap.DebugLevel) {
 		str, _ := json.MarshalIndent(txIn, "", "\t")
 		logger.Debugf("Unmarshalled fabricx tx: %s", string(str))
@@ -171,7 +171,7 @@ func (m *Marshaller) RWSetFromBytes(raw []byte, namespaces ...string) (*vault.Re
 }
 
 func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespaces ...string) error {
-	var txIn protoblocktx.Tx
+	var txIn applicationpb.Tx
 	if err := proto.Unmarshal(raw, &txIn); err != nil {
 		return errors.Wrapf(err, "unmarshal tx from [len=%d][%s]", len(raw), logging.SHA256Base64(raw))
 	}
