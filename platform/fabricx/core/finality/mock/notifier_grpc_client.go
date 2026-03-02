@@ -5,30 +5,30 @@ import (
 	"context"
 	"sync"
 
-	"github.com/hyperledger/fabric-x-committer/api/protonotify"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"google.golang.org/grpc"
 )
 
 type FakeNotifierClient struct {
-	OpenNotificationStreamStub        func(context.Context, ...grpc.CallOption) (protonotify.Notifier_OpenNotificationStreamClient, error)
+	OpenNotificationStreamStub        func(context.Context, ...grpc.CallOption) (grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], error)
 	openNotificationStreamMutex       sync.RWMutex
 	openNotificationStreamArgsForCall []struct {
 		arg1 context.Context
 		arg2 []grpc.CallOption
 	}
 	openNotificationStreamReturns struct {
-		result1 protonotify.Notifier_OpenNotificationStreamClient
+		result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse]
 		result2 error
 	}
 	openNotificationStreamReturnsOnCall map[int]struct {
-		result1 protonotify.Notifier_OpenNotificationStreamClient
+		result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse]
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeNotifierClient) OpenNotificationStream(arg1 context.Context, arg2 ...grpc.CallOption) (protonotify.Notifier_OpenNotificationStreamClient, error) {
+func (fake *FakeNotifierClient) OpenNotificationStream(arg1 context.Context, arg2 ...grpc.CallOption) (grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], error) {
 	fake.openNotificationStreamMutex.Lock()
 	ret, specificReturn := fake.openNotificationStreamReturnsOnCall[len(fake.openNotificationStreamArgsForCall)]
 	fake.openNotificationStreamArgsForCall = append(fake.openNotificationStreamArgsForCall, struct {
@@ -54,7 +54,7 @@ func (fake *FakeNotifierClient) OpenNotificationStreamCallCount() int {
 	return len(fake.openNotificationStreamArgsForCall)
 }
 
-func (fake *FakeNotifierClient) OpenNotificationStreamCalls(stub func(context.Context, ...grpc.CallOption) (protonotify.Notifier_OpenNotificationStreamClient, error)) {
+func (fake *FakeNotifierClient) OpenNotificationStreamCalls(stub func(context.Context, ...grpc.CallOption) (grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], error)) {
 	fake.openNotificationStreamMutex.Lock()
 	defer fake.openNotificationStreamMutex.Unlock()
 	fake.OpenNotificationStreamStub = stub
@@ -67,28 +67,28 @@ func (fake *FakeNotifierClient) OpenNotificationStreamArgsForCall(i int) (contex
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeNotifierClient) OpenNotificationStreamReturns(result1 protonotify.Notifier_OpenNotificationStreamClient, result2 error) {
+func (fake *FakeNotifierClient) OpenNotificationStreamReturns(result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], result2 error) {
 	fake.openNotificationStreamMutex.Lock()
 	defer fake.openNotificationStreamMutex.Unlock()
 	fake.OpenNotificationStreamStub = nil
 	fake.openNotificationStreamReturns = struct {
-		result1 protonotify.Notifier_OpenNotificationStreamClient
+		result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse]
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeNotifierClient) OpenNotificationStreamReturnsOnCall(i int, result1 protonotify.Notifier_OpenNotificationStreamClient, result2 error) {
+func (fake *FakeNotifierClient) OpenNotificationStreamReturnsOnCall(i int, result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], result2 error) {
 	fake.openNotificationStreamMutex.Lock()
 	defer fake.openNotificationStreamMutex.Unlock()
 	fake.OpenNotificationStreamStub = nil
 	if fake.openNotificationStreamReturnsOnCall == nil {
 		fake.openNotificationStreamReturnsOnCall = make(map[int]struct {
-			result1 protonotify.Notifier_OpenNotificationStreamClient
+			result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse]
 			result2 error
 		})
 	}
 	fake.openNotificationStreamReturnsOnCall[i] = struct {
-		result1 protonotify.Notifier_OpenNotificationStreamClient
+		result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse]
 		result2 error
 	}{result1, result2}
 }
@@ -96,8 +96,6 @@ func (fake *FakeNotifierClient) OpenNotificationStreamReturnsOnCall(i int, resul
 func (fake *FakeNotifierClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.openNotificationStreamMutex.RLock()
-	defer fake.openNotificationStreamMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
@@ -117,4 +115,4 @@ func (fake *FakeNotifierClient) recordInvocation(key string, args []interface{})
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ protonotify.NotifierClient = new(FakeNotifierClient)
+var _ committerpb.NotifierClient = new(FakeNotifierClient)

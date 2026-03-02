@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
-	"github.com/hyperledger/fabric-x-committer/api/protoqueryservice"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 )
 
 type QueryService interface {
@@ -34,7 +34,7 @@ func NewRemoteQueryServiceFromConfig(configService fdriver.ConfigService) (*Remo
 		return nil, errors.Wrap(err, "get grpc client for query service")
 	}
 
-	return NewRemoteQueryService(c, protoqueryservice.NewQueryServiceClient(conn)), nil
+	return NewRemoteQueryService(c, committerpb.NewQueryServiceClient(conn)), nil
 }
 
 type Provider interface {

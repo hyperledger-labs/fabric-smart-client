@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-x-committer/api/protoblocktx"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 )
 
 const statusIdx = int(cb.BlockMetadataIndex_TRANSACTIONS_FILTER)
@@ -39,7 +39,7 @@ func (h *handler) HandleFabricxTransaction(ctx context.Context, blkMetadata *cb.
 		return nil, errors.New("block metadata lacks transaction filter")
 	}
 
-	statusCode := protoblocktx.Status(blkMetadata.Metadata[statusIdx][tx.TxNum])
+	statusCode := committerpb.Status(blkMetadata.Metadata[statusIdx][tx.TxNum])
 	event := &committer.FinalityEvent{
 		Ctx:               ctx,
 		TxID:              tx.TxID,
@@ -49,7 +49,7 @@ func (h *handler) HandleFabricxTransaction(ctx context.Context, blkMetadata *cb.
 	logger.Debugf("handle transaction [txID=%s] [status=%s]", tx.TxID, statusCode.String())
 
 	switch statusCode {
-	case protoblocktx.Status_COMMITTED:
+	case committerpb.Status_COMMITTED:
 		processed, err := h.committer.CommitEndorserTransaction(ctx, event.TxID, tx.BlkNum, tx.TxNum, tx.Envelope, event)
 		if err != nil {
 			if errors.HasCause(err, committer.ErrDiscardTX) {
@@ -79,9 +79,9 @@ func (h *handler) HandleFabricxTransaction(ctx context.Context, blkMetadata *cb.
 	return event, nil
 }
 
-func convertValidationCode(status protoblocktx.Status) driver.ValidationCode {
+func convertValidationCode(status committerpb.Status) driver.ValidationCode {
 	switch status {
-	case protoblocktx.Status_COMMITTED:
+	case committerpb.Status_COMMITTED:
 		return driver.Valid
 	default:
 		return driver.Invalid
