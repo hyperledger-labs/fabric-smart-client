@@ -72,7 +72,7 @@ func (n *NamespaceCommon) Env() []string {
 	if n.OrdererConfig.TLSConfig.Enabled {
 		rootCerts := strings.Join(n.OrdererConfig.TLSConfig.RootCerts, ",")
 		env = append(env,
-			"FXCONFIG_ORDERER_TLS_ENABELD=true",
+			"FXCONFIG_ORDERER_TLS_ENABLED=true",
 			"FXCONFIG_ORDERER_TLS_ROOTCERTS="+rootCerts,
 		)
 	}

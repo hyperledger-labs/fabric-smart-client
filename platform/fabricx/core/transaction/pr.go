@@ -106,7 +106,7 @@ func (p *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
 
 		digest, err := tx.Namespaces[idx].ASN1Marshal(txID)
 		if err != nil {
-			return errors.Wrapf(err, "failed asn1 marshalfor [txID=%s] [ns=%s]", txID, ns)
+			return errors.Wrapf(err, "failed asn1 marshal for [txID=%s] [ns=%s]", txID, ns)
 		}
 
 		// note that we are checking the endorsement returned via a proposal response from the endorser
