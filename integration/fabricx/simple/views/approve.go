@@ -9,6 +9,7 @@ package views
 import (
 	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
@@ -82,4 +83,20 @@ func (i *ApproveView) Call(viewCtx view.Context) (interface{}, error) {
 	logger.Infof("Finished approving")
 
 	return nil, nil
+}
+
+type ApproverInitView struct{}
+
+func (a *ApproverInitView) Call(context view.Context) (interface{}, error) {
+	_, ch, err := fabric.GetDefaultChannel(context)
+	assert.NoError(err)
+	assert.NoError(ch.Committer().ProcessNamespace("iou"), "failed to setup namespace to process")
+	return nil, nil
+}
+
+type ApproverInitViewFactory struct{}
+
+func (c *ApproverInitViewFactory) NewView(in []byte) (view.View, error) {
+	f := &ApproverInitView{}
+	return f, nil
 }

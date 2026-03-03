@@ -37,15 +37,22 @@ func newInterceptor[V driver.ValidationCode](in *vault.Interceptor[V], txID driv
 }
 
 func (i *Interceptor[V]) Bytes() ([]byte, error) {
+	// if already closed, return cached bytes if available.
 	if i.IsClosed() {
 		logger.Warnf("interceptor already closed!")
-		// TODO: we need to handle this case better; currently it only works when bytes was called before
-
-		return *i.marshallingCache.Load(), nil
+		return i.cachedBytesOrError()
 	}
 
 	nsInfo, err := namespaceVersions(i.qe, i.Namespaces()...)
 	if err != nil {
+		// The interceptor may have been closed concurrently between the
+		// IsClosed() check above and the qe access in namespaceVersions.
+		// If so, fall back to the cache instead of propagating the error.
+		if i.IsClosed() {
+			if cached, cacheErr := i.cachedBytesOrError(); cacheErr == nil {
+				return cached, nil
+			}
+		}
 		return nil, err
 	}
 
@@ -57,6 +64,16 @@ func (i *Interceptor[V]) Bytes() ([]byte, error) {
 
 	i.marshallingCache.Store(&b)
 	return b, nil
+}
+
+// cachedBytesOrError returns previously cached marshalled bytes, or an error
+// if Bytes() was never successfully called before the interceptor was closed.
+func (i *Interceptor[V]) cachedBytesOrError() ([]byte, error) {
+	cached := i.marshallingCache.Load()
+	if cached == nil {
+		return nil, errors.Errorf("interceptor for tx [%s] was closed before marshalling was cached", i.txID)
+	}
+	return *cached, nil
 }
 
 func (i *Interceptor[V]) AppendRWSet(raw []byte, nss ...string) error {

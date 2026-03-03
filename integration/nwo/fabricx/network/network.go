@@ -31,6 +31,10 @@ const (
 	DefaultConsensusType     = "etcdraft"
 	scVersionKey             = "sc_version"
 	defaultEventuallyTimeout = 10 * time.Second
+
+	// namespacePropagationTimeout is the maximum time to wait for deployed
+	// namespaces to become visible through the SC query service.
+	namespacePropagationTimeout = 30 * time.Second
 )
 
 type Network struct {
@@ -166,8 +170,10 @@ func (n *Network) PostRun(load bool) {
 		expNss = append(expNss, Namespace{Name: chaincode.Chaincode.Name, Version: 0})
 	}
 
-	// List all deployed namespaces and verify they are available
-	gomega.Eventually(n.ListInstalledNames()).WithTimeout(n.EventuallyTimeout).Within(n.EventuallyTimeout).ProbeEvery(2 * time.Second).Should(gomega.ContainElements(expNss))
+	// List all deployed namespaces and verify they are available.
+	gomega.Eventually(func() []Namespace {
+		return n.tryListInstalledNames()
+	}).WithTimeout(namespacePropagationTimeout).ProbeEvery(2 * time.Second).Should(gomega.ContainElements(expNss))
 
 	logger.Infof("Post execution [%s]...done.", n.Prefix)
 }
@@ -215,6 +221,31 @@ func (n *Network) UpdateNamespace(chaincodeID, version, path, packageFile string
 	// TODO:
 }
 
+// tryListInstalledNames is a polling-safe variant of ListInstalledNames.
+// It returns an empty slice on any error (command start failure or non-zero
+// exit code) instead of panicking, making it safe to use inside
+// gomega.Eventually for retrying.
+func (n *Network) tryListInstalledNames() []Namespace {
+	cmd := &fxconfig.ListNamespaces{QueryServiceEndpoint: "127.0.0.1:7001"}
+	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
+	if err != nil {
+		logger.Warnf("Failed to start namespace list session: %v", err)
+		return nil
+	}
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit())
+
+	if sess.ExitCode() != 0 {
+		logger.Warnf("Namespace list returned non-zero exit code %d, will retry", sess.ExitCode())
+		return nil
+	}
+
+	output := string(sess.Out.Contents())
+	return parseNamespaceList(output)
+}
+
+// ListInstalledNames queries the SC query service for deployed namespaces.
+// It panics (via gomega assertions) on any error. For polling use inside
+// gomega.Eventually, use tryListInstalledNames instead.
 func (n *Network) ListInstalledNames() []Namespace {
 	cmd := &fxconfig.ListNamespaces{QueryServiceEndpoint: "127.0.0.1:7001"}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
