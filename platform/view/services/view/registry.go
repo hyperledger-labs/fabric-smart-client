@@ -22,6 +22,7 @@ type viewEntry struct {
 	Initiator bool
 }
 
+// Registry is responsible for registering and retrieving view factories, views, and responders.
 type Registry struct {
 	factoriesSync sync.RWMutex
 	viewsSync     sync.RWMutex
@@ -31,6 +32,7 @@ type Registry struct {
 	factories  map[string]Factory
 }
 
+// NewRegistry returns a new instance of the view registry.
 func NewRegistry() *Registry {
 	return &Registry{
 		views:      map[string][]*viewEntry{},
@@ -39,6 +41,7 @@ func NewRegistry() *Registry {
 	}
 }
 
+// RegisterFactory registers a view factory for the given ID.
 func (cm *Registry) RegisterFactory(id string, factory Factory) error {
 	logger.Debugf("Register View Factory [%s,%t]", id, factory)
 	cm.factoriesSync.Lock()
@@ -47,11 +50,12 @@ func (cm *Registry) RegisterFactory(id string, factory Factory) error {
 	return nil
 }
 
+// NewView returns a new view instance for the given ID and input.
 func (cm *Registry) NewView(id string, in []byte) (f view.View, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("new view triggered panic: %s\n%s\n", r, debug.Stack())
-			err = errors.Errorf("failed creating view [%s]", r)
+			err = errors.Wrapf(ErrViewInstantiationFailed, "panic creating view [%s]: %v", id, r)
 		}
 	}()
 
@@ -59,11 +63,12 @@ func (cm *Registry) NewView(id string, in []byte) (f view.View, err error) {
 	factory, ok := cm.factories[id]
 	cm.factoriesSync.RUnlock()
 	if !ok {
-		return nil, errors.Errorf("no factory found for id [%s]", id)
+		return nil, errors.Wrapf(ErrFactoryNotFound, "no factory found for id [%s]", id)
 	}
 	return factory.NewView(in)
 }
 
+// RegisterResponderFactory registers a responder view factory for the given initiator view.
 func (cm *Registry) RegisterResponderFactory(factory Factory, initiatedBy interface{}) error {
 	responder, err := factory.NewView(nil)
 	if err != nil {
@@ -72,10 +77,12 @@ func (cm *Registry) RegisterResponderFactory(factory Factory, initiatedBy interf
 	return cm.RegisterResponder(responder, initiatedBy)
 }
 
+// RegisterResponder registers a responder view for the given initiator view.
 func (cm *Registry) RegisterResponder(responder view.View, initiatedBy interface{}) error {
 	return cm.RegisterResponderWithIdentity(responder, nil, initiatedBy)
 }
 
+// RegisterResponderWithIdentity registers a responder view for the given initiator view and responder identity.
 func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error {
 	switch t := initiatedBy.(type) {
 	case view.View:
@@ -88,6 +95,7 @@ func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.I
 	return nil
 }
 
+// GetResponder returns the responder view for the given initiator view.
 func (cm *Registry) GetResponder(initiatedBy interface{}) (view.View, error) {
 	var initiatedByID string
 	switch t := initiatedBy.(type) {
@@ -104,15 +112,15 @@ func (cm *Registry) GetResponder(initiatedBy interface{}) (view.View, error) {
 
 	responderID, ok := cm.initiators[initiatedByID]
 	if !ok {
-		return nil, errors.Errorf("responder not found for [%s]", initiatedByID)
+		return nil, errors.Wrapf(ErrResponderNotFound, "responder not found for [%s]", initiatedByID)
 	}
 
 	entries, ok := cm.views[responderID]
 	if !ok {
-		return nil, errors.Errorf("responder not found for [%s], initiator [%s]", responderID, initiatedByID)
+		return nil, errors.Wrapf(ErrResponderNotFound, "responder not found for [%s], initiator [%s]", responderID, initiatedByID)
 	}
 	if len(entries) == 0 {
-		return nil, errors.Errorf("responder not found for [%s], initiator [%s]", responderID, initiatedByID)
+		return nil, errors.Wrapf(ErrResponderNotFound, "responder not found for [%s], initiator [%s]", responderID, initiatedByID)
 	}
 	// Recall that a responder can be used to respond to multiple initiators.
 	// Therefore, all these entries are for the same responder.
@@ -120,6 +128,7 @@ func (cm *Registry) GetResponder(initiatedBy interface{}) (view.View, error) {
 	return entries[0].View, nil
 }
 
+// GetIdentifier returns the identifier for the given view.
 func (cm *Registry) GetIdentifier(f view.View) string {
 	return GetIdentifier(f)
 }
@@ -137,6 +146,7 @@ func (cm *Registry) registerResponderWithIdentity(responder view.View, id view.I
 	}
 }
 
+// GetView returns the initiator view for the given ID.
 func (cm *Registry) GetView(id string) (view.View, error) {
 	// Lookup the initiator
 	cm.viewsSync.RLock()
@@ -150,11 +160,12 @@ func (cm *Registry) GetView(id string) (view.View, error) {
 	}
 	cm.viewsSync.RUnlock()
 	if res == nil {
-		return nil, errors.Errorf("initiator not found for [%s]", id)
+		return nil, errors.Wrapf(ErrViewNotFound, "initiator not found for [%s]", id)
 	}
 	return res.View, nil
 }
 
+// ExistResponderForCaller returns the responder view and identity for the given caller identifier.
 func (cm *Registry) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
 	cm.viewsSync.RLock()
 	defer cm.viewsSync.RUnlock()
@@ -162,7 +173,7 @@ func (cm *Registry) ExistResponderForCaller(caller string) (view.View, view.Iden
 	// Is there a responder
 	label, ok := cm.initiators[caller]
 	if !ok {
-		return nil, nil, errors.Errorf("no view found initiatable by [%s]", caller)
+		return nil, nil, errors.Wrapf(ErrResponderNotFound, "no view found initiatable by [%s]", caller)
 	}
 	responders := cm.views[label]
 	var res *viewEntry
@@ -172,36 +183,57 @@ func (cm *Registry) ExistResponderForCaller(caller string) (view.View, view.Iden
 		}
 	}
 	if res == nil {
-		return nil, nil, errors.Errorf("responder not found for [%s]", label)
+		return nil, nil, errors.Wrapf(ErrResponderNotFound, "responder not found for [%s]", label)
 	}
 
 	return res.View, res.ID, nil
 }
 
+var (
+	identifierCache sync.Map
+	nameCache       sync.Map
+)
+
+// GetIdentifier returns the identifier for the given view.
 func GetIdentifier(f view.View) string {
 	if f == nil {
 		return "<nil view>"
 	}
 	t := reflect.TypeOf(f)
+	if id, ok := identifierCache.Load(t); ok {
+		return id.(string)
+	}
+
+	ptr := t
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
-	return t.PkgPath() + "/" + t.Name()
+	id := t.PkgPath() + "/" + t.Name()
+	identifierCache.Store(ptr, id)
+	return id
 }
 
+// GetName returns the name for the given view.
 func GetName(f view.View) string {
 	if f == nil {
 		return "<nil view>"
 	}
 	t := reflect.TypeOf(f)
+	if name, ok := nameCache.Load(t); ok {
+		return name.(string)
+	}
+
+	ptr := t
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
-	return t.Name()
+	name := t.Name()
+	nameCache.Store(ptr, name)
+	return name
 }
 
-// GetRegistry returns an instance of the view registry.
-// It panics, if no instance is found.
+// GetRegistry returns an instance of the view registry from the service provider.
+// It panics if no instance is found.
 func GetRegistry(sp services.Provider) *Registry {
 	s, err := sp.GetService(reflect.TypeOf((*Registry)(nil)))
 	if err != nil {

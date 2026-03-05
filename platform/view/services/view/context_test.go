@@ -8,6 +8,7 @@ package view_test
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -22,6 +23,12 @@ import (
 
 var emptyTracer = noop.NewTracerProvider().Tracer("empty")
 
+type DummyView struct{}
+
+func (d *DummyView) Call(context view.Context) (interface{}, error) {
+	return nil, nil
+}
+
 type Context interface {
 	GetSession(f view.View, party view.Identity, aliases ...view.View) (view.Session, error)
 	GetSessionByID(id string, party view.Identity) (view.Session, error)
@@ -34,6 +41,7 @@ func TestContext(t *testing.T) {
 	resolver := &mock.EndpointService{}
 	resolver.GetIdentityReturns([]byte("bob"), nil)
 	session := &mock.Session{}
+	session.InfoReturns(view.SessionInfo{ID: "s1", Caller: view.Identity("caller")})
 	ctx, err := view2.NewContext(
 		context.TODO(),
 		registry,
@@ -65,6 +73,76 @@ func TestContext(t *testing.T) {
 	arg0, arg1 := resolver.GetIdentityArgsForCall(0)
 	assert.Equal(t, "bob", arg0)
 	assert.Nil(t, arg1)
+
+	// Me
+	assert.Equal(t, view.Identity("charlie"), ctx.Me())
+
+	// Context
+	assert.NotNil(t, ctx.Context())
+
+	// OnError / Cleanup
+	called := false
+	ctx.OnError(func() { called = true })
+	ctx.Cleanup()
+	assert.True(t, called)
+
+	// PutService / GetService
+	err = ctx.PutService("service")
+	assert.NoError(t, err)
+	s, err := ctx.GetService(reflect.TypeOf(""))
+	assert.NoError(t, err)
+	assert.Equal(t, "service", s)
+
+	// GetService from registry
+	registry.RegisterService(123)
+	s2, err := ctx.GetService(reflect.TypeOf(0))
+	assert.NoError(t, err)
+	assert.Equal(t, 123, s2)
+
+	// IsMe
+	lic := &mock.LocalIdentityChecker{}
+	ctx, _ = view2.NewContext(context.TODO(), registry, "p", nil, resolver, idProvider, nil, nil, nil, emptyTracer, lic)
+	lic.IsMeReturns(true)
+	assert.True(t, ctx.IsMe([]byte("me")))
+
+	// Dispose
+	sessionFactory := &mock.SessionFactory{}
+	ctx, _ = view2.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, session, nil, emptyTracer, lic)
+	ctx.Dispose()
+	assert.Equal(t, 2, sessionFactory.DeleteSessionsCallCount())
+}
+
+func TestContextGetSession(t *testing.T) {
+	registry := view2.NewServiceProvider()
+	idProvider := &mock.IdentityProvider{}
+	resolver := &mock.EndpointService{}
+	sessionFactory := &mock.SessionFactory{}
+	session := &mock.Session{}
+	session.InfoReturns(view.SessionInfo{ID: "s1"})
+
+	ctx, _ := view2.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, nil, nil, emptyTracer, nil)
+
+	dv := &DummyView{}
+	// Case: create new session
+	party2 := view.Identity("party2")
+	resolver.ResolverReturns(&endpoint.Resolver{ResolverInfo: endpoint.ResolverInfo{ID: party2}}, []byte("pkid"), nil)
+	sessionFactory.NewSessionReturns(session, nil)
+	s2, err := ctx.GetSession(dv, party2)
+	assert.NoError(t, err)
+	assert.NotNil(t, s2)
+
+	// Case: session already exists (reusing s2)
+	s, err := ctx.GetSession(dv, party2)
+	assert.NoError(t, err)
+	assert.Equal(t, session, s)
+
+	// Case: session by ID
+	// PutSession only puts it under ViewID + PartyID.
+	// GetSessionByID expects it under SessionID + PartyID.
+	ctx.PutSessionByID("sid", party2, session)
+	s3, err := ctx.GetSessionByID("sid", party2)
+	assert.NoError(t, err)
+	assert.Equal(t, session, s3)
 }
 
 func TestContextRace(t *testing.T) {
@@ -91,17 +169,18 @@ func TestContextRace(t *testing.T) {
 	assert.NoError(t, err)
 
 	wg := &sync.WaitGroup{}
+	dv := &DummyView{}
 	for i := 0; i < 100; i++ {
 		wg.Add(3)
-		go getSession(t, wg, ctx)
+		go getSession(t, wg, ctx, dv)
 		go getSessionByID(t, wg, ctx)
 		go getSessionByIDSame(t, wg, ctx)
 	}
 	wg.Wait()
 }
 
-func getSession(t *testing.T, wg *sync.WaitGroup, m Context) {
-	_, err := m.GetSession(&DummyView{}, []byte("alice"))
+func getSession(t *testing.T, wg *sync.WaitGroup, m Context, dv view.View) {
+	_, err := m.GetSession(dv, []byte("alice"))
 	wg.Done()
 	assert.NoError(t, err)
 }

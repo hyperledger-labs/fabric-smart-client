@@ -52,6 +52,7 @@ func (m *MockSignerProvider) GetSigner(identity view.Identity) (sig.Signer, erro
 
 type MockViewManager struct {
 	Constructor func() view.View
+	Identity    view.Identity
 }
 
 func (m *MockViewManager) NewView(id string, in []byte) (view.View, error) {
@@ -64,4 +65,11 @@ func (m *MockViewManager) InitiateView(view view.View, ctx context.Context) (int
 
 func (m *MockViewManager) InitiateContext(view view.View) (view.Context, error) {
 	panic("implement me")
+}
+
+func (m *MockViewManager) DeleteContext(id view.Identity, contextID string) {
+}
+
+func (m *MockViewManager) Me() view.Identity {
+	return m.Identity
 }

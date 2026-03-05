@@ -21,28 +21,39 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// LocalIdentityChecker models the dependency to the view-sdk's sig service
+//go:generate counterfeiter -o mock/local_identity_checker.go -fake-name LocalIdentityChecker . LocalIdentityChecker
+
+// LocalIdentityChecker models the dependency to the view-sdk's sig service.
+// It allows checking if a given identity is local to the node.
 type LocalIdentityChecker interface {
+	// IsMe returns true if the passed identity is local to the node.
 	IsMe(ctx context.Context, id view.Identity) bool
 }
 
-// EndpointService models the dependency to the view-sdk's endpoint service
+// EndpointService models the dependency to the view-sdk's endpoint service.
+// It provides methods to retrieve identities and resolvers for endpoints.
 //
 //go:generate counterfeiter -o mock/resolver.go -fake-name EndpointService . EndpointService
 type EndpointService interface {
+	// GetIdentity returns the identity for the given endpoint and public key ID.
 	GetIdentity(endpoint string, pkID []byte) (view.Identity, error)
+	// Resolver returns the resolver for the given party.
 	Resolver(ctx context.Context, party view.Identity) (*endpoint.Resolver, []byte, error)
 }
 
-// IdentityProvider models the dependency to the view-sdk's identity provider
+// IdentityProvider models the dependency to the view-sdk's identity provider.
+// It provides methods to retrieve identities by label and the default identity.
 //
 //go:generate counterfeiter -o mock/identity_provider.go -fake-name IdentityProvider . IdentityProvider
 type IdentityProvider interface {
+	// Identity returns the identity for the given label.
 	Identity(string) view.Identity
+	// DefaultIdentity returns the default identity.
 	DefaultIdentity() view.Identity
 }
 
-// Context implements the view.Context interface
+// Context implements the view.Context interface.
+// It provides information about the environment in which a view is in execution.
 type Context struct {
 	ctx            context.Context
 	sp             services.Provider
@@ -63,7 +74,7 @@ type Context struct {
 	localIdentityChecker LocalIdentityChecker
 }
 
-// NewContextForInitiator returns a new Context for an initiator view
+// NewContextForInitiator returns a new Context for an initiator view.
 func NewContextForInitiator(
 	contextID string,
 	context context.Context,
@@ -103,7 +114,7 @@ func NewContextForInitiator(
 	return ctx, nil
 }
 
-// NewContext returns a new Context
+// NewContext returns a new Context.
 func NewContext(
 	context context.Context,
 	sp services.Provider,
@@ -144,51 +155,62 @@ func NewContext(
 	return ctx, nil
 }
 
+// StartSpan starts a new span from the internal context.
 func (c *Context) StartSpan(name string, opts ...trace.SpanStartOption) trace.Span {
 	newCtx, span := c.StartSpanFrom(c.ctx, name, opts...)
 	c.ctx = newCtx
 	return span
 }
 
+// StartSpanFrom creates a new child span from the passed context.
 func (c *Context) StartSpanFrom(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
 	return c.tracer.Start(ctx, name, opts...)
 }
 
+// ID returns the identifier of this context.
 func (c *Context) ID() string {
 	return c.id
 }
 
+// Initiator returns the View that initiate a call.
 func (c *Context) Initiator() view.View {
 	return c.initiator
 }
 
+// RunView runs the passed view on input this context.
 func (c *Context) RunView(v view.View, opts ...view.RunViewOption) (res interface{}, err error) {
 	return RunViewNow(c, v, opts...)
 }
 
+// Me returns the identity bound to this context.
 func (c *Context) Me() view.Identity {
 	return c.me
 }
 
-// Identity returns the identity matching the passed argument
+// Identity returns the identity matching the passed argument.
 func (c *Context) Identity(ref string) (view.Identity, error) {
 	return c.resolver.GetIdentity(ref, nil)
 }
 
+// IsMe returns true if the passed identity is an alias
+// of the identity bound to this context, false otherwise.
 func (c *Context) IsMe(id view.Identity) bool {
 	return c.localIdentityChecker.IsMe(c.ctx, id)
 }
 
+// Caller returns the identity of the caller of this context.
 func (c *Context) Caller() view.Identity {
 	return c.caller
 }
 
+// GetSession returns a session to the passed remote party for the given view caller.
+// Sessions are scoped by the caller view and cached.
+// The session can be bound to other caller views by passing them as additional parameters.
 func (c *Context) GetSession(caller view.View, party view.Identity, boundToViews ...view.View) (view.Session, error) {
 	viewId := getViewIdentifier(caller)
+	logger.DebugfContext(c.ctx, "[%s] GetSession [%s:%s]", c.me, viewId, party)
 	// TODO: we need a mechanism to close all the sessions opened in this ctx,
 	// when the ctx goes out of scope
-	c.sessions.Lock()
-	defer c.sessions.Unlock()
 
 	// is there already a session?
 	s, targetIdentity := c.sessions.GetFirstOpen(viewId, lazy.NewIterator(
@@ -202,20 +224,19 @@ func (c *Context) GetSession(caller view.View, party view.Identity, boundToViews
 		logger.DebugfContext(c.ctx, "[%s] Reusing session [%s:%s]", c.me, viewId, party)
 		return s, nil
 	}
+	logger.DebugfContext(c.ctx, "[%s] No session found for [%s:%s], target [%s]", c.me, viewId, party, targetIdentity)
 
 	// create a session
 	if caller == nil {
 		// return an error, a session should already exist
-		return nil, errors.Errorf("a session should already exist, passed nil view")
+		return nil, errors.WithMessage(ErrSessionNotFound, "a session should already exist, passed nil view")
 	}
 
 	return c.createSession(caller, targetIdentity, boundToViews...)
 }
 
+// GetSessionByID returns a session to the passed remote party and id.
 func (c *Context) GetSessionByID(id string, party view.Identity) (view.Session, error) {
-	c.sessions.Lock()
-	defer c.sessions.Unlock()
-
 	// TODO: do we need to resolve?
 	var err error
 	s := c.sessions.Get(id, party)
@@ -232,6 +253,8 @@ func (c *Context) GetSessionByID(id string, party view.Identity) (view.Session, 
 	return s, nil
 }
 
+// Session returns the session created to respond to a remote party,
+// nil if the context was created not to respond to a remote call.
 func (c *Context) Session() view.Session {
 	if c.session == nil {
 		logger.DebugfContext(c.ctx, "[%s] No default current Session", c.me)
@@ -241,18 +264,20 @@ func (c *Context) Session() view.Session {
 	return c.session
 }
 
+// ResetSessions disposes all sessions created in this context.
 func (c *Context) ResetSessions() error {
-	c.sessions.Lock()
-	defer c.sessions.Unlock()
 	c.sessions.Reset()
 
 	return nil
 }
 
+// PutService registers a service in this context.
 func (c *Context) PutService(service interface{}) error {
 	return c.localSP.RegisterService(service)
 }
 
+// GetService returns an instance of the given type.
+// It first searches locally in this context, then globally in the service provider.
 func (c *Context) GetService(v interface{}) (interface{}, error) {
 	// first search locally then globally
 	s, err := c.localSP.GetService(v)
@@ -262,19 +287,22 @@ func (c *Context) GetService(v interface{}) (interface{}, error) {
 	return c.sp.GetService(v)
 }
 
+// OnError appends to passed callback function to the list of functions called when
+// the current execution return an error or panic.
+// This is useful to release resources.
 func (c *Context) OnError(callback func()) {
 	c.errorCallbackFuncs = append(c.errorCallbackFuncs, callback)
 }
 
+// Context returns the associated context.Context.
 func (c *Context) Context() context.Context {
 	return c.ctx
 }
 
+// Dispose disposes all sessions created in this context.
 func (c *Context) Dispose() {
 	logger.DebugfContext(c.ctx, "Dispose sessions")
 	// dispose all sessions
-	c.sessions.Lock()
-	defer c.sessions.Unlock()
 
 	if c.session != nil {
 		info := c.session.Info()
@@ -312,6 +340,7 @@ func (c *Context) newSessionByID(sessionID, contextID string, party view.Identit
 	return c.sessionFactory.NewSessionWithID(sessionID, contextID, ep, pkid, nil, nil)
 }
 
+// Cleanup calls all error callbacks registered in this context.
 func (c *Context) Cleanup() {
 	logger.DebugfContext(c.ctx, "cleaning up context [%s][%d]", c.ID(), len(c.errorCallbackFuncs))
 	for _, callbackFunc := range c.errorCallbackFuncs {
@@ -330,7 +359,7 @@ func (c *Context) safeInvoke(f func()) {
 
 func (c *Context) resolve(id view.Identity) (view.Identity, error) {
 	if id.IsNone() {
-		return nil, errors.New("no id provided")
+		return nil, errors.WithMessage(ErrInvalidIdentity, "no id provided")
 	}
 	resolver, _, err := c.resolver.Resolver(c.ctx, id)
 	if err != nil {
@@ -359,10 +388,15 @@ func (c *Context) createSession(caller view.View, party view.Identity, aliases .
 	return s, nil
 }
 
-func (c *Context) PutSession(caller view.View, party view.Identity, session view.Session) error {
-	c.sessions.Lock()
-	defer c.sessions.Unlock()
+// PutSessionByID registers a session with the given ID and party in the context.
+func (c *Context) PutSessionByID(viewID string, party view.Identity, session view.Session) error {
+	c.sessions.Put(viewID, party, session)
 
+	return nil
+}
+
+// PutSession registers a session with the given view and party in the context.
+func (c *Context) PutSession(caller view.View, party view.Identity, session view.Session) error {
 	c.sessions.Put(getViewIdentifier(caller), party, session)
 
 	return nil

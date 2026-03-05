@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
@@ -37,7 +38,7 @@ type viewHandler struct {
 func (s *viewHandler) CallView(context *server2.ReqContext, vid string, input []byte) (interface{}, error) {
 	result, err := s.c.CallView(vid, input, context.Req.Context())
 	if err != nil {
-		return nil, errors.Errorf("failed running view [%s], err %s", vid, err)
+		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", vid, err)
 	}
 	raw, ok := result.([]byte)
 	if !ok {
@@ -55,12 +56,14 @@ func (s *viewHandler) StreamCallView(context *server2.ReqContext, vid string, in
 	return nil, s.c.StreamCallView(vid, context.ResponseWriter, context.Req)
 }
 
+// InstallViewHandler installs the web view handler into the given HTTP handler.
 func InstallViewHandler(manager server.ViewManager, h *server2.HttpHandler, tp tracing.Provider) {
 	fh := &viewHandler{c: newViewClient(manager, tp)}
 	newDispatcher(h).WireViewCaller(viewCallFunc(fh.CallView))
 	newDispatcher(h).WireStreamViewCaller(viewCallFunc(fh.StreamCallView))
 }
 
+// ViewClient defines an interface that can call views and stream calls.
 type ViewClient interface {
 	StreamCallView(fid string, writer http.ResponseWriter, request *http.Request) error
 	CallView(fid string, in []byte, ctx context.Context) (interface{}, error)
@@ -80,6 +83,7 @@ func newViewClient(viewManager server.ViewManager, tp tracing.Provider) *client 
 	}
 }
 
+// CallView calls the view with the given ID and input.
 func (s *client) CallView(vid string, input []byte, ctx context.Context) (interface{}, error) {
 	newCtx, span := s.tracer.Start(ctx, "call_view",
 		tracing.WithAttributes(tracing.String(vidLabel, vid)),
@@ -90,7 +94,7 @@ func (s *client) CallView(vid string, input []byte, ctx context.Context) (interf
 	span.AddEvent("new_view")
 	f, err := s.viewManager.NewView(vid, input)
 	if err != nil {
-		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", vid, err)
+		return nil, errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", vid, err)
 	}
 	span.AddEvent("initiate_view")
 	raw, err := s.viewManager.InitiateView(f, newCtx)
@@ -100,6 +104,7 @@ func (s *client) CallView(vid string, input []byte, ctx context.Context) (interf
 	return raw, err
 }
 
+// StreamCallView calls the view with the given ID and input, and streams the communication over a web socket.
 func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request *http.Request) error {
 	logger.Debugf("Call view [%s]", vid)
 
@@ -115,11 +120,11 @@ func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request 
 
 	f, err := s.viewManager.NewView(vid, input)
 	if err != nil {
-		return errors.Errorf("failed instantiating view [%s], err [%s]", vid, err)
+		return errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", vid, err)
 	}
 	viewContext, err := s.viewManager.InitiateContext(f)
 	if err != nil {
-		return errors.Errorf("failed instantiating context for view [%s], err %s", vid, err)
+		return errors.Wrapf(view.ErrViewExecutionFailed, "failed instantiating context for view [%s]: %v", vid, err)
 	}
 
 	// register the web socket
@@ -133,7 +138,7 @@ func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request 
 	// run the view
 	result, err := viewContext.RunView(f)
 	if err != nil {
-		return errors.Errorf("failed running view [%s], err %s", vid, err)
+		return errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", vid, err)
 	}
 	raw, ok := result.([]byte)
 	if !ok {

@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/si"
 )
 
+// NewX509SigningIdentity returns a new signing identity for the given certificate and secret key paths.
 func NewX509SigningIdentity(certPath, skPath string) (SigningIdentity, error) {
 	cert, err := os.ReadFile(certPath)
 	if err != nil {
@@ -42,7 +43,9 @@ func NewX509SigningIdentity(certPath, skPath string) (SigningIdentity, error) {
 	}
 }
 
+// Signer models a message signer.
 type Signer interface {
+	// Sign signs the given message.
 	Sign(msg []byte) (signature []byte, err error)
 }
 
@@ -58,10 +61,12 @@ func newSigningIdentity(serialized []byte, signer Signer) *signingIdentity {
 	}
 }
 
+// Serialize returns the serialized identity.
 func (s *signingIdentity) Serialize() ([]byte, error) {
 	return s.serialized, nil
 }
 
+// Sign signs the given message.
 func (s *signingIdentity) Sign(message []byte) ([]byte, error) {
 	return s.signer.Sign(message)
 }
