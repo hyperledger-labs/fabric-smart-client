@@ -75,7 +75,7 @@ func TestRegistry(t *testing.T) {
 	// GetView
 	err = registry.RegisterResponder(responder, "") // This registers it as initiator
 	assert.NoError(t, err)
-	
+
 	v3, err := registry.GetView(view.GetIdentifier(responder))
 	assert.NoError(t, err)
 	assert.Equal(t, responder, v3)

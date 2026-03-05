@@ -65,7 +65,7 @@ func TestManager(t *testing.T) {
 	ctx := context.Background()
 	ip.DefaultIdentityReturns(view2.Identity("me"))
 	v.CallReturns("result", nil)
-	
+
 	res, err := manager.InitiateView(v, ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, "result", res)
@@ -74,7 +74,7 @@ func TestManager(t *testing.T) {
 	contexts, err := manager.InitiateContext(v)
 	assert.NoError(t, err)
 	assert.NotNil(t, contexts)
-	
+
 	ctxRetrieved, err := manager.Context(contexts.ID())
 	assert.NoError(t, err)
 	assert.Equal(t, contexts, ctxRetrieved)
@@ -209,7 +209,7 @@ func TestManagerOther(t *testing.T) {
 	mockCtx.ContextReturns(context.Background())
 	err = manager.RegisterContext("mc1", mockCtx)
 	assert.NoError(t, err)
-	
+
 	c, err := manager.Context("mc1")
 	assert.NoError(t, err)
 	assert.Equal(t, mockCtx, c)
