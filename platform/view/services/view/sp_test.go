@@ -24,11 +24,11 @@ func (m *MyImpl) Foo() {}
 
 func TestSP(t *testing.T) {
 	sp := view.NewServiceProvider()
-	
+
 	impl := &MyImpl{}
 	err := sp.RegisterService(impl)
 	assert.NoError(t, err)
-	
+
 	// Implementation check
 	typ := reflect.TypeOf((*MyInterface)(nil)).Elem()
 	assert.True(t, reflect.TypeOf(impl).Implements(typ))

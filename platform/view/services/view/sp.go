@@ -53,13 +53,13 @@ func (sp *ServiceProvider) GetService(v interface{}) (interface{}, error) {
 	// search
 	for _, s := range sp.services {
 		styp := reflect.TypeOf(s)
-		
+
 		// Match 1: direct
 		if styp.AssignableTo(typ) {
 			found = s
 			break
 		}
-		
+
 		// Match 2: if requested is pointer to interface
 		if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Interface && styp.AssignableTo(typ.Elem()) {
 			found = s
@@ -77,7 +77,7 @@ func (sp *ServiceProvider) GetService(v interface{}) (interface{}, error) {
 			found = s
 			break
 		}
-		
+
 		// Match 5: pointer match (typ is ptr to struct, s is struct)
 		if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Struct && styp == typ.Elem() {
 			found = s
