@@ -18,18 +18,22 @@ func TestDeps(t *testing.T) {
 	sp := view.NewServiceProvider()
 
 	comm := &mock.CommLayer{}
-	sp.RegisterService(comm)
+	err := sp.RegisterService(comm)
+	assert.NoError(t, err)
 	assert.Equal(t, comm, view.GetCommLayer(sp))
 
 	es := &mock.EndpointService{}
-	sp.RegisterService(es)
+	err = sp.RegisterService(es)
+	assert.NoError(t, err)
 	assert.Equal(t, es, view.GetEndpointService(sp))
 
 	ip := &mock.IdentityProvider{}
-	sp.RegisterService(ip)
+	err = sp.RegisterService(ip)
+	assert.NoError(t, err)
 	assert.Equal(t, ip, view.GetIdentityProvider(sp))
 
 	lic := &mock.LocalIdentityChecker{}
-	sp.RegisterService(lic)
+	err = sp.RegisterService(lic)
+	assert.NoError(t, err)
 	assert.Equal(t, lic, view.GetLocalIdentityChecker(sp))
 }
