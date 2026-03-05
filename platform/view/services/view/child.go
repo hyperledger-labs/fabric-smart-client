@@ -8,6 +8,7 @@ package view
 
 import (
 	"context"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.opentelemetry.io/otel/trace"
@@ -32,6 +33,7 @@ type ParentContext interface {
 type ChildContext struct {
 	Parent ParentContext
 
+	mu                 sync.RWMutex
 	session            view.Session
 	initiator          view.View
 	errorCallbackFuncs []func()
@@ -120,6 +122,8 @@ func (w *ChildContext) Initiator() view.View {
 }
 
 func (w *ChildContext) OnError(f func()) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.errorCallbackFuncs = append(w.errorCallbackFuncs, f)
 }
 
@@ -142,8 +146,13 @@ func (w *ChildContext) PutSessionByID(viewID string, party view.Identity, sessio
 }
 
 func (w *ChildContext) Cleanup() {
+	w.mu.RLock()
 	logger.Debugf("cleaning up child context [%s][%d]", w.ID(), len(w.errorCallbackFuncs))
-	for _, callbackFunc := range w.errorCallbackFuncs {
+	funcs := make([]func(), len(w.errorCallbackFuncs))
+	copy(funcs, w.errorCallbackFuncs)
+	w.mu.RUnlock()
+
+	for _, callbackFunc := range funcs {
 		w.safeInvoke(callbackFunc)
 	}
 }

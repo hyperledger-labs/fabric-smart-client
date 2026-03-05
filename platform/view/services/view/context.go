@@ -10,6 +10,7 @@ import (
 	"context"
 	"reflect"
 	"runtime/debug"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -55,6 +56,7 @@ type IdentityProvider interface {
 // Context implements the view.Context interface.
 // It provides information about the environment in which a view is in execution.
 type Context struct {
+	mu             sync.RWMutex
 	ctx            context.Context
 	sp             services.Provider
 	localSP        *ServiceProvider
@@ -157,6 +159,8 @@ func NewContext(
 
 // StartSpan starts a new span from the internal context.
 func (c *Context) StartSpan(name string, opts ...trace.SpanStartOption) trace.Span {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	newCtx, span := c.StartSpanFrom(c.ctx, name, opts...)
 	c.ctx = newCtx
 	return span
@@ -174,6 +178,8 @@ func (c *Context) ID() string {
 
 // Initiator returns the View that initiate a call.
 func (c *Context) Initiator() view.View {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.initiator
 }
 
@@ -195,7 +201,7 @@ func (c *Context) Identity(ref string) (view.Identity, error) {
 // IsMe returns true if the passed identity is an alias
 // of the identity bound to this context, false otherwise.
 func (c *Context) IsMe(id view.Identity) bool {
-	return c.localIdentityChecker.IsMe(c.ctx, id)
+	return c.localIdentityChecker.IsMe(c.Context(), id)
 }
 
 // Caller returns the identity of the caller of this context.
@@ -208,7 +214,7 @@ func (c *Context) Caller() view.Identity {
 // The session can be bound to other caller views by passing them as additional parameters.
 func (c *Context) GetSession(caller view.View, party view.Identity, boundToViews ...view.View) (view.Session, error) {
 	viewId := getViewIdentifier(caller)
-	logger.DebugfContext(c.ctx, "[%s] GetSession [%s:%s]", c.me, viewId, party)
+	logger.DebugfContext(c.Context(), "[%s] GetSession [%s:%s]", c.me, viewId, party)
 	// TODO: we need a mechanism to close all the sessions opened in this ctx,
 	// when the ctx goes out of scope
 
@@ -221,10 +227,10 @@ func (c *Context) GetSession(caller view.View, party view.Identity, boundToViews
 
 	// a session is available, return it
 	if s != nil {
-		logger.DebugfContext(c.ctx, "[%s] Reusing session [%s:%s]", c.me, viewId, party)
+		logger.DebugfContext(c.Context(), "[%s] Reusing session [%s:%s]", c.me, viewId, party)
 		return s, nil
 	}
-	logger.DebugfContext(c.ctx, "[%s] No session found for [%s:%s], target [%s]", c.me, viewId, party, targetIdentity)
+	logger.DebugfContext(c.Context(), "[%s] No session found for [%s:%s], target [%s]", c.me, viewId, party, targetIdentity)
 
 	// create a session
 	if caller == nil {
@@ -241,14 +247,14 @@ func (c *Context) GetSessionByID(id string, party view.Identity) (view.Session, 
 	var err error
 	s := c.sessions.Get(id, party)
 	if s == nil {
-		logger.DebugfContext(c.ctx, "[%s] Creating new session with given id [id:%s][to:%s]", c.me, id, party)
+		logger.DebugfContext(c.Context(), "[%s] Creating new session with given id [id:%s][to:%s]", c.me, id, party)
 		s, err = c.newSessionByID(id, c.id, party)
 		if err != nil {
 			return nil, err
 		}
 		c.sessions.Put(id, party, s)
 	} else {
-		logger.DebugfContext(c.ctx, "[%s] Reusing session with given id [id:%s][to:%s]", id, c.me, party)
+		logger.DebugfContext(c.Context(), "[%s] Reusing session with given id [id:%s][to:%s]", id, c.me, party)
 	}
 	return s, nil
 }
@@ -257,10 +263,10 @@ func (c *Context) GetSessionByID(id string, party view.Identity) (view.Session, 
 // nil if the context was created not to respond to a remote call.
 func (c *Context) Session() view.Session {
 	if c.session == nil {
-		logger.DebugfContext(c.ctx, "[%s] No default current Session", c.me)
+		logger.DebugfContext(c.Context(), "[%s] No default current Session", c.me)
 		return nil
 	}
-	logger.DebugfContext(c.ctx, "[%s] Current Session [%s]", c.me, logging.Eval(c.session.Info))
+	logger.DebugfContext(c.Context(), "[%s] Current Session [%s]", c.me, logging.Eval(c.session.Info))
 	return c.session
 }
 
@@ -291,59 +297,68 @@ func (c *Context) GetService(v interface{}) (interface{}, error) {
 // the current execution return an error or panic.
 // This is useful to release resources.
 func (c *Context) OnError(callback func()) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.errorCallbackFuncs = append(c.errorCallbackFuncs, callback)
 }
 
 // Context returns the associated context.Context.
 func (c *Context) Context() context.Context {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.ctx
 }
 
 // Dispose disposes all sessions created in this context.
 func (c *Context) Dispose() {
-	logger.DebugfContext(c.ctx, "Dispose sessions")
+	logger.DebugfContext(c.Context(), "Dispose sessions")
 	// dispose all sessions
 
 	if c.session != nil {
 		info := c.session.Info()
-		logger.DebugfContext(c.ctx, "Delete one session to %s", string(info.Caller))
+		logger.DebugfContext(c.Context(), "Delete one session to %s", string(info.Caller))
 		c.sessionFactory.DeleteSessions(c.Context(), info.ID)
 	}
 
 	for _, id := range c.sessions.GetSessionIDs() {
-		logger.DebugfContext(c.ctx, "Delete session %s", id)
+		logger.DebugfContext(c.Context(), "Delete session %s", id)
 		c.sessionFactory.DeleteSessions(c.Context(), id)
 	}
 	c.sessions.Reset()
 }
 
 func (c *Context) newSession(view view.View, contextID string, party view.Identity) (view.Session, error) {
-	resolver, pkid, err := c.resolver.Resolver(c.ctx, party)
+	resolver, pkid, err := c.resolver.Resolver(c.Context(), party)
 	if err != nil {
 		return nil, err
 	}
-	logger.DebugfContext(c.ctx, "Open new session to %s", resolver.GetName())
+	logger.DebugfContext(c.Context(), "Open new session to %s", resolver.GetName())
 	return c.sessionFactory.NewSession(GetIdentifier(view), contextID, resolver.GetAddress(endpoint.P2PPort), pkid)
 }
 
 func (c *Context) newSessionByID(sessionID, contextID string, party view.Identity) (view.Session, error) {
-	resolver, pkid, err := c.resolver.Resolver(c.ctx, party)
+	resolver, pkid, err := c.resolver.Resolver(c.Context(), party)
 	if err != nil {
 		return nil, err
 	}
 	var ep string
 	if resolver != nil {
 		ep = resolver.GetAddress(endpoint.P2PPort)
-		logger.DebugfContext(c.ctx, "Open new session by id to %s", resolver.GetName())
+		logger.DebugfContext(c.Context(), "Open new session by id to %s", resolver.GetName())
 	}
-	logger.DebugfContext(c.ctx, "Open new session by id to %s", ep)
+	logger.DebugfContext(c.Context(), "Open new session by id to %s", ep)
 	return c.sessionFactory.NewSessionWithID(sessionID, contextID, ep, pkid, nil, nil)
 }
 
 // Cleanup calls all error callbacks registered in this context.
 func (c *Context) Cleanup() {
-	logger.DebugfContext(c.ctx, "cleaning up context [%s][%d]", c.ID(), len(c.errorCallbackFuncs))
-	for _, callbackFunc := range c.errorCallbackFuncs {
+	c.mu.RLock()
+	logger.DebugfContext(c.ctx, "cleaning up context [%s][%d]", c.id, len(c.errorCallbackFuncs))
+	funcs := make([]func(), len(c.errorCallbackFuncs))
+	copy(funcs, c.errorCallbackFuncs)
+	c.mu.RUnlock()
+
+	for _, callbackFunc := range funcs {
 		c.safeInvoke(callbackFunc)
 	}
 }
