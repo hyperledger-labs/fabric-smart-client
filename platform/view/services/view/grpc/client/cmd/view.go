@@ -41,6 +41,7 @@ var (
 	userCert   string
 )
 
+// NewCmd returns a new cobra command for invoking views.
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "view",

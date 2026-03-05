@@ -25,11 +25,15 @@ var (
 	}
 )
 
+// Metrics models the metrics for the view service server.
 type Metrics struct {
-	RequestsReceived  metrics.Counter
+	// RequestsReceived returns the number of view requests that have been received.
+	RequestsReceived metrics.Counter
+	// RequestsCompleted returns the number of view requests that have been completed.
 	RequestsCompleted metrics.Counter
 }
 
+// NewMetrics returns a new instance of the metrics for the view service server.
 func NewMetrics(p metrics.Provider) *Metrics {
 	return &Metrics{
 		RequestsReceived:  p.NewCounter(requestsReceived),

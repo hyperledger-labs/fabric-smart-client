@@ -16,12 +16,12 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// ViewContext is an alias for view.Context
+// ViewContext is an alias for view.Context.
 //
 //go:generate counterfeiter -o mock/context.go -fake-name Context . ViewContext
 type ViewContext = view.Context
 
-// View is an alias for View
+// View is an alias for view.View.
 //
 //go:generate counterfeiter -o mock/view.go -fake-name View . View
 type View = view.View
@@ -58,7 +58,6 @@ func AsResponder(context view.Context, session view.Session, v func(context view
 // AsInitiatorCall can be used by a responder to behave temporarily as an initiator.
 // Recall that an initiator is characterized by having an initiator (`context.Initiator()`) set when the initiator is instantiated.
 // AsInitiatorCall sets context.Initiator() to the passed initiator, and executes the passed view call.
-// TODO: what happens to the sessions already openend with a different initiator (maybe an empty one)?
 func AsInitiatorCall(context view.Context, initiator View, v func(context view.Context) (interface{}, error)) (interface{}, error) {
 	return context.RunView(
 		initiator,
@@ -110,7 +109,7 @@ func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (res i
 			// register options.Session under initiator
 			contextSession := parent.Session()
 			if contextSession == nil {
-				return nil, errors.Errorf("cannot convert a non-responder context to an initiator context")
+				return nil, errors.WithMessage(ErrContextConversionFailed, "cannot convert a non-responder context to an initiator context")
 			}
 			if err := cc.PutSession(initiator, contextSession.Info().Caller, contextSession); err != nil {
 				return nil, errors.Wrapf(err, "failed registering default session as initiated by [%s:%s]", initiator, contextSession.Info().Caller)
@@ -127,19 +126,12 @@ func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (res i
 
 			logger.Errorf("caught panic while running view with [%v][%s]", r, debug.Stack())
 
-			switch e := r.(type) {
-			case error:
-				err = errors.WithMessage(e, "caught panic")
-			case string:
-				err = errors.New(e)
-			default:
-				err = errors.Errorf("caught panic [%v]", e)
-			}
+			err = errors.Wrapf(ErrViewExecutionFailed, "caught panic: %v", r)
 		}
 	}()
 
 	if v == nil && options.Call == nil {
-		return nil, errors.Errorf("no view passed")
+		return nil, errors.WithMessage(ErrInvalidView, "no view passed")
 	}
 	if options.Call != nil {
 		res, err = options.Call(cc)
@@ -154,7 +146,7 @@ func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (res i
 	return res, err
 }
 
-// RunView runs passed view within the passed context and using the passed options in a separate goroutine
+// RunView runs passed view within the passed context and using the passed options in a separate goroutine.
 func RunView(context view.Context, view View, opts ...view.RunViewOption) {
 	defer func() {
 		if r := recover(); r != nil {

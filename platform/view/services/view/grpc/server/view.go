@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.opentelemetry.io/otel/trace"
@@ -26,6 +27,7 @@ type viewHandler struct {
 	tracer      trace.Tracer
 }
 
+// InstallViewHandler installs the view handler into the given service.
 func InstallViewHandler(viewManager ViewManager, server Service, tracerProvider tracing.Provider) {
 	fh := &viewHandler{
 		viewManager: viewManager,
@@ -49,11 +51,11 @@ func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command)
 
 	f, err := s.viewManager.NewView(fid, input)
 	if err != nil {
-		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
+		return nil, errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
 	contextID, err := s.RunView(s.viewManager, f)
 	if err != nil {
-		return nil, errors.Errorf("failed running view [%s], err %s", fid, err)
+		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
 	return &protos.CommandResponse_InitiateViewResponse{InitiateViewResponse: &protos.InitiateViewResponse{
 		Cid: contextID,
@@ -70,13 +72,13 @@ func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (in
 
 	f, err := s.viewManager.NewView(fid, input)
 	if err != nil {
-		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
+		return nil, errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
 	logger.DebugfContext(ctx, "Initiate new view")
 	result, err := s.viewManager.InitiateView(f, ctx)
 
 	if err != nil {
-		return nil, errors.Errorf("failed running view [%s], err %s", fid, err)
+		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
 	raw, ok := result.([]byte)
 	if !ok {
@@ -101,11 +103,11 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 
 	f, err := s.viewManager.NewView(fid, input)
 	if err != nil {
-		return errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
+		return errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
 	context, err := s.viewManager.InitiateContext(f)
 	if err != nil {
-		return errors.Errorf("failed running view [%s], err %s", fid, err)
+		return errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
 	mutable, ok := context.(view2.MutableContext)
 	if !ok {
@@ -117,8 +119,10 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 
 	result, err := context.RunView(f)
 	if err != nil {
-		return errors.Errorf("failed running view [%s], err %s", fid, err)
+		s.viewManager.DeleteContext(s.viewManager.Me(), context.ID())
+		return errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
+	defer s.viewManager.DeleteContext(s.viewManager.Me(), context.ID())
 	raw, ok := result.([]byte)
 	if !ok {
 		raw, err = json.Marshal(result)
@@ -141,6 +145,7 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 	return commandServer.Send(cr)
 }
 
+// RunView initiates a view and returns its context ID.
 func (s *viewHandler) RunView(manager ViewManager, view view2.View) (string, error) {
 	context, err := manager.InitiateContext(view)
 	if err != nil {
@@ -154,6 +159,7 @@ func (s *viewHandler) RunView(manager ViewManager, view view2.View) (string, err
 }
 
 func (s *viewHandler) runView(view view2.View, context view2.Context) {
+	defer s.viewManager.DeleteContext(s.viewManager.Me(), context.ID())
 	result, err := context.RunView(view)
 	if err != nil {
 		logger.Errorf("failed view execution. Err [%s]\n", err.Error())

@@ -15,6 +15,7 @@ import (
 
 var logger = logging.MustGetLogger()
 
+// ViewCaller defines an interface that can call a view.
 type ViewCaller interface {
 	CallView(context *server.ReqContext, vid string, input []byte) (interface{}, error)
 }
@@ -23,11 +24,13 @@ func newDispatcher(h *server.HttpHandler) *Dispatcher {
 	return &Dispatcher{Handler: h}
 }
 
+// Dispatcher is responsible for dispatching incoming web requests to the appropriate view caller.
 type Dispatcher struct {
 	vc      ViewCaller
 	Handler *server.HttpHandler
 }
 
+// HandleRequest handles an incoming web request.
 func (rd *Dispatcher) HandleRequest(reqctx *server.ReqContext) (response interface{}, statusCode int) {
 	ctx := reqctx.Req.Context()
 	logger.DebugfContext(ctx, "received request from %s", reqctx.Req.Host)
@@ -49,15 +52,18 @@ func (rd *Dispatcher) HandleRequest(reqctx *server.ReqContext) (response interfa
 	return res, 200
 }
 
+// ParsePayload parses the incoming payload.
 func (rd *Dispatcher) ParsePayload(bytes []byte) (interface{}, error) {
 	return bytes, nil
 }
 
+// WireViewCaller wires the given view caller to the dispatcher.
 func (rd *Dispatcher) WireViewCaller(vc ViewCaller) {
 	rd.vc = vc
 	rd.Handler.RegisterURI("/Views/{View}", "PUT", rd)
 }
 
+// WireStreamViewCaller wires the given streaming view caller to the dispatcher.
 func (rd *Dispatcher) WireStreamViewCaller(vc ViewCaller) {
 	rd.vc = vc
 	rd.Handler.RegisterURI("/Views/Stream/{View}", "GET", rd)

@@ -10,13 +10,13 @@ import (
 	"context"
 )
 
-// WrappedContext wraps an existing view context to provider a different context.Context
+// WrappedContext wraps an existing view context to provide a different context.Context.
 type WrappedContext struct {
 	ParentContext
 	ctx context.Context
 }
 
-// WrapContext returns a new WrappedContext for the given arguments
+// WrapContext returns a new WrappedContext for the given arguments.
 func WrapContext(parent ParentContext, ctx context.Context) *WrappedContext {
 	return &WrappedContext{
 		ParentContext: parent,
@@ -24,7 +24,7 @@ func WrapContext(parent ParentContext, ctx context.Context) *WrappedContext {
 	}
 }
 
-// Context returns the overrode go context
+// Context returns the overridden go context.
 func (c *WrappedContext) Context() context.Context {
 	return c.ctx
 }
