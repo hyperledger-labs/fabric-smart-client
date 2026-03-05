@@ -88,6 +88,7 @@ func TestRegistry(t *testing.T) {
 
 	// GetRegistry
 	sp := view.NewServiceProvider()
-	sp.RegisterService(registry)
+	err = sp.RegisterService(registry)
+	assert.NoError(t, err)
 	assert.Equal(t, registry, view.GetRegistry(sp))
 }

@@ -42,25 +42,30 @@ func TestChildContext(t *testing.T) {
 	child4.StartSpanFrom(context.Background(), "test")
 	assert.Equal(t, 1, parent.StartSpanFromCallCount())
 	
-	child4.GetService(reflect.TypeOf(""))
+	_, err := child4.GetService(reflect.TypeOf(""))
+	assert.NoError(t, err)
 	assert.Equal(t, 1, parent.GetServiceCallCount())
 	
-	child4.PutService("test")
+	err = child4.PutService("test")
+	assert.NoError(t, err)
 	assert.Equal(t, 1, parent.PutServiceCallCount())
 	
 	child4.IsMe(view2.Identity("me"))
 	assert.Equal(t, 1, parent.IsMeCallCount())
 	
-	child4.GetSession(nil, view2.Identity("party"))
+	_, err = child4.GetSession(nil, view2.Identity("party"))
+	assert.NoError(t, err)
 	assert.Equal(t, 1, parent.GetSessionCallCount())
 	
-	child4.GetSessionByID("sid", view2.Identity("party"))
+	_, err = child4.GetSessionByID("sid", view2.Identity("party"))
+	assert.NoError(t, err)
 	assert.Equal(t, 1, parent.GetSessionByIDCallCount())
 	
 	child4.Context()
 	assert.Equal(t, 1, parent.ContextCallCount())
 	
-	child4.ResetSessions()
+	err = child4.ResetSessions()
+	assert.NoError(t, err)
 	assert.Equal(t, 1, parent.ResetSessionsCallCount())
 	
 	called := false
@@ -71,9 +76,11 @@ func TestChildContext(t *testing.T) {
 	child4.Dispose()
 	assert.Equal(t, 1, parent.DisposeCallCount())
 	
-	child4.PutSession(nil, nil, nil)
+	err = child4.PutSession(nil, nil, nil)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, parent.PutSessionCallCount())
 	
-	child4.PutSessionByID("", nil, nil)
+	err = child4.PutSessionByID("", nil, nil)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, parent.PutSessionByIDCallCount())
 }
