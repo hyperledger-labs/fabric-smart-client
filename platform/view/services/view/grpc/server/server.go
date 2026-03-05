@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -24,10 +25,7 @@ const successLabel tracing.LabelName = "success"
 
 var logger = logging.MustGetLogger()
 
-//go:generate counterfeiter -o mock/marshaler.go -fake-name Marshaler . Marshaler
-
-// A PolicyChecker is responsible for performing policy based access control
-// checks related to view commands.
+// A PolicyChecker is responsible for performing policy based access control checks related to view commands.
 type PolicyChecker interface {
 	Check(sc *protos.SignedCommand, c *protos.Command) error
 }
@@ -49,6 +47,7 @@ type Server struct {
 	tracer     trace.Tracer
 }
 
+// NewViewServiceServer returns a new instance of the view service server.
 func NewViewServiceServer(
 	marshaller Marshaller,
 	policyChecker PolicyChecker,
@@ -69,6 +68,7 @@ func NewViewServiceServer(
 	}, nil
 }
 
+// ProcessCommand processes the passed command ensuring proper access control.
 func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (cr *protos.SignedCommandResponse, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -111,7 +111,7 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 	if ok {
 		payload, err = p(ctx, command)
 	} else {
-		err = errors.Errorf("command type not recognized: %T", reflect.TypeOf(command.GetPayload()))
+		err = errors.Wrapf(view.ErrCommandNotRecognized, "command type not recognized: %T", reflect.TypeOf(command.GetPayload()))
 	}
 	if err != nil {
 		logger.ErrorfContext(ctx, "command execution failed with err [%s]", err.Error())
@@ -127,6 +127,7 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 	return
 }
 
+// StreamCommand processes the passed streaming command ensuring proper access control.
 func (s *Server) StreamCommand(server protos.ViewService_StreamCommandServer) error {
 	sc := &protos.SignedCommand{}
 	if err := server.RecvMsg(sc); err != nil {
@@ -172,7 +173,7 @@ func (s *Server) streamCommand(sc *protos.SignedCommand, commandServer protos.Vi
 		logger.DebugfContext(ctx, "got a streamer for [%s], invoke it...", reflect.TypeOf(command.GetPayload()))
 		err = streamer(sc, command, commandServer, s.Marshaller)
 	default:
-		err = errors.Errorf("stream command type not recognized: %T", reflect.TypeOf(command.GetPayload()))
+		err = errors.Wrapf(view.ErrCommandNotRecognized, "stream command type not recognized: %T", reflect.TypeOf(command.GetPayload()))
 	}
 	if err != nil {
 		logger.ErrorfContext(ctx, "stream command execution failed with err [%s]", err.Error())
@@ -182,22 +183,24 @@ func (s *Server) streamCommand(sc *protos.SignedCommand, commandServer protos.Vi
 	return nil
 }
 
+// ValidateHeader validates the given command header.
 func (s *Server) ValidateHeader(header *protos.Header) error {
 	if header == nil {
-		return errors.New("command header is required")
+		return errors.WithMessage(view.ErrCommandHeaderInvalid, "command header is required")
 	}
 
 	if len(header.Nonce) == 0 {
-		return errors.New("nonce is required in header")
+		return errors.WithMessage(view.ErrCommandHeaderInvalid, "nonce is required in header")
 	}
 
 	if len(header.Creator) == 0 {
-		return errors.New("creator is required in header")
+		return errors.WithMessage(view.ErrCommandHeaderInvalid, "creator is required in header")
 	}
 
 	return nil
 }
 
+// MarshalErrorResponse marshals the given error into a signed command response.
 func (s *Server) MarshalErrorResponse(command []byte, e error) (*protos.SignedCommandResponse, error) {
 	return s.Marshaller.MarshalCommandResponse(
 		command,
@@ -206,10 +209,12 @@ func (s *Server) MarshalErrorResponse(command []byte, e error) (*protos.SignedCo
 		})
 }
 
+// RegisterProcessor registers a processor for the given command payload type.
 func (s *Server) RegisterProcessor(typ reflect.Type, p Processor) {
 	s.processors[typ] = p
 }
 
+// RegisterStreamer registers a streamer for the given command payload type.
 func (s *Server) RegisterStreamer(typ reflect.Type, streamer Streamer) {
 	s.streamers[typ] = streamer
 }

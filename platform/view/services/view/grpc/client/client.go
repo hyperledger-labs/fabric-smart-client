@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
@@ -29,6 +30,7 @@ var logger = logging.MustGetLogger()
 
 type TimeFunc func() time.Time
 
+// SigningIdentity models an identity that can sign messages.
 type SigningIdentity interface {
 	Serialize() ([]byte, error)
 
@@ -37,7 +39,7 @@ type SigningIdentity interface {
 
 //go:generate counterfeiter -o mock/view_peer_client.go -fake-name ViewServiceClient . ViewServiceClient
 
-// ViewServiceClient defines an interface that creates a client to communicate with the view service in a peer
+// ViewServiceClient defines an interface that creates a client to communicate with the view service in a peer.
 type ViewServiceClient interface {
 	// CreateViewClient creates a grpc connection and client to view peer
 	CreateViewClient() (*grpc.ClientConn, protos2.ViewServiceClient, error)
@@ -80,6 +82,7 @@ type client struct {
 	tracer            trace.Tracer
 }
 
+// NewClient returns a new instance of the view service client.
 func NewClient(config *Config, sID SigningIdentity, tracerProvider tracing.Provider) (*client, error) {
 	// create a grpc client for view peer
 	grpcClient, err := grpc2.CreateGRPCClient(config.ConnectionConfig)
@@ -101,10 +104,12 @@ func NewClient(config *Config, sID SigningIdentity, tracerProvider tracing.Provi
 	}, nil
 }
 
+// CallView calls the given view with the given input.
 func (s *client) CallView(fid string, input []byte) (interface{}, error) {
 	return s.CallViewWithContext(context.Background(), fid, input)
 }
 
+// CallViewWithContext calls the given view with the given input and go context.
 func (s *client) CallViewWithContext(ctx context.Context, fid string, input []byte) (interface{}, error) {
 	logger.Debugf("Calling view [%s] on input [%s]", fid, string(input))
 	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
@@ -133,6 +138,7 @@ func (s *client) Initiate(fid string, in []byte) (string, error) {
 	panic("implement me")
 }
 
+// StreamCallView calls the given view with the given input and returns a stream to communicate with it.
 func (s *client) StreamCallView(fid string, input []byte) (*Stream, error) {
 	logger.Debugf("Streaming view call [%s] on input [%s]", fid, string(input))
 	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
@@ -182,7 +188,7 @@ func (s *client) processCommand(ctx context.Context, sc *protos2.SignedCommand) 
 	}
 	if commandResp.GetErr() != nil {
 		logger.Errorf("error from view during process command: %s", commandResp.GetErr().GetMessage())
-		return nil, errors.Errorf("error from view during process command: %s", commandResp.GetErr().GetMessage())
+		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "error from view during process command: %s", commandResp.GetErr().GetMessage())
 	}
 
 	logger.Debugf("process command [%s] done", sc)
@@ -273,6 +279,6 @@ func commandFromPayload(payload interface{}) (*protos2.Command, error) {
 	case *protos2.Command_CallView:
 		return &protos2.Command{Payload: t}, nil
 	default:
-		return nil, errors.Errorf("command type not recognized: %T", t)
+		return nil, errors.Wrapf(view.ErrCommandNotRecognized, "command type not recognized: %T", t)
 	}
 }

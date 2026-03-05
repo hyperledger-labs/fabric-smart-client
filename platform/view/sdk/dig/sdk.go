@@ -40,6 +40,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
 	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"go.uber.org/dig"
@@ -117,10 +118,32 @@ func (p *SDK) Install() error {
 
 		// View Manager
 		p.Container().Provide(view.NewRegistry),
-		p.Container().Provide(view.NewManager),
+		p.Container().Provide(func(
+			serviceProvider services.Provider,
+			sessionFactory view.SessionFactory,
+			endpointService view.EndpointService,
+			identityProvider view.IdentityProvider,
+			registry *view.Registry,
+			tracerProvider tracing.Provider,
+			metricsProvider metrics2.Provider,
+			localIdentityChecker view.LocalIdentityChecker,
+		) *view.Manager {
+			return view.NewManager(
+				serviceProvider,
+				sessionFactory,
+				endpointService,
+				identityProvider,
+				registry,
+				tracerProvider,
+				metricsProvider,
+				localIdentityChecker,
+			)
+		}),
+		p.Container().Provide(p2p.NewDefaultRunner),
+		p.Container().Provide(p2p.NewService),
 		p.Container().Provide(
 			digutils.Identity[*view.Manager](),
-			dig.As(new(StartableViewManager), new(server2.ViewManager)),
+			dig.As(new(StartableViewManager), new(server2.ViewManager), new(p2p.ViewManager)),
 		),
 
 		// Comm service
@@ -133,7 +156,7 @@ func (p *SDK) Install() error {
 		) (*comm.Service, error) {
 			return comm.NewService(hostProvider, endpointService, configService, metricsProvider)
 		}),
-		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(view.CommLayer))),
+		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(view.CommLayer), new(p2p.CommLayer), new(view.SessionFactory))),
 
 		// Sig Service
 		p.Container().Provide(sig.NewDeserializer),
@@ -204,6 +227,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		dig.In
 		GRPCServer     *grpc.GRPCServer
 		ViewManager    StartableViewManager
+		P2PService     *p2p.Service
 		ViewService    server2.Service
 		CommService    *comm.Service
 		WebServer      Server
@@ -217,7 +241,9 @@ func (p *SDK) Start(ctx context.Context) error {
 		in.CommService.Start(ctx)
 
 		server2.InstallViewHandler(in.ViewManager, in.ViewService, in.TracerProvider)
-		go in.ViewManager.Start(ctx)
+		if err := in.P2PService.Start(ctx); err != nil {
+			return err
+		}
 
 		Serve(in.GRPCServer, in.WebServer, in.System, in.KVS, ctx)
 

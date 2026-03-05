@@ -13,11 +13,17 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// ParentContext models the functions required by a parent context.
+//
 //go:generate counterfeiter -o mock/parent_context.go -fake-name ParentContext . ParentContext
 type ParentContext interface {
 	DisposableContext
+	// Cleanup calls all error callbacks registered in this context.
 	Cleanup()
+	// PutSession registers a session with the given view and party in the context.
 	PutSession(caller view.View, party view.Identity, session view.Session) error
+	// PutSessionByID registers a session with the given ID and party in the context.
+	PutSessionByID(viewID string, party view.Identity, session view.Session) error
 }
 
 // ChildContext is a view context with a parent.
@@ -31,22 +37,22 @@ type ChildContext struct {
 	errorCallbackFuncs []func()
 }
 
-// NewChildContextFromParent return a new ChildContext from the given parent
+// NewChildContextFromParent returns a new ChildContext from the given parent.
 func NewChildContextFromParent(parentContext ParentContext) *ChildContext {
 	return NewChildContext(parentContext, nil, nil, nil)
 }
 
-// NewChildContextFromParentAndSession return a new ChildContext from the given parent and session
+// NewChildContextFromParentAndSession returns a new ChildContext from the given parent and session.
 func NewChildContextFromParentAndSession(parentContext ParentContext, session view.Session) *ChildContext {
 	return NewChildContext(parentContext, session, nil, nil)
 }
 
-// NewChildContextFromParentAndInitiator return a new ChildContext from the given parent and initiator view
+// NewChildContextFromParentAndInitiator returns a new ChildContext from the given parent and initiator view.
 func NewChildContextFromParentAndInitiator(parentContext ParentContext, initiator view.View) *ChildContext {
 	return NewChildContext(parentContext, nil, initiator, nil)
 }
 
-// NewChildContext return a new ChildContext from the given arguments
+// NewChildContext returns a new ChildContext from the given arguments.
 func NewChildContext(parentContext ParentContext, session view.Session, initiator view.View, errorCallbackFuncs ...func()) *ChildContext {
 	return &ChildContext{Parent: parentContext, session: session, initiator: initiator, errorCallbackFuncs: errorCallbackFuncs}
 }
@@ -129,6 +135,10 @@ func (w *ChildContext) Dispose() {
 
 func (w *ChildContext) PutSession(caller view.View, party view.Identity, session view.Session) error {
 	return w.Parent.PutSession(caller, party, session)
+}
+
+func (w *ChildContext) PutSessionByID(viewID string, party view.Identity, session view.Session) error {
+	return w.Parent.PutSessionByID(viewID, party, session)
 }
 
 func (w *ChildContext) Cleanup() {

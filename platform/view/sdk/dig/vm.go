@@ -19,5 +19,6 @@ type StartableViewManager interface {
 	InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error)
 	InitiateContextFrom(ctx context.Context, view view.View, id view.Identity, contextID string) (view.Context, error)
 	Context(contextID string) (view.Context, error)
-	Start(ctx context.Context)
+	DeleteContext(id view.Identity, contextID string)
+	Me() view.Identity
 }
