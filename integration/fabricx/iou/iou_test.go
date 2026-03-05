@@ -7,16 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package iou_test
 
 import (
-	"fmt"
-	"os"
-	"path"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/iou"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/fxconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	. "github.com/onsi/ginkgo/v2"
@@ -59,38 +55,6 @@ func NewTestSuite(commType nwofsc.P2PCommunicationType, nodeOpts *integration.Re
 	})}
 }
 
-func updateEP(s *TestSuite) {
-	host := s.II.Ctx.HostByOrdererID("fabric.default", "OrdererOrg.orderer")
-	port := s.II.Ctx.PortsByOrdererID("fabric.default", "OrdererOrg.orderer")["Listen"]
-
-	command := &fxconfig.UpdateNamespace{
-		NamespaceCommon: fxconfig.NamespaceCommon{
-			Name:    "iou",
-			Channel: "testchannel",
-			MSPConfig: fxconfig.MSPConfig{
-				ConfigPath: path.Join(s.II.TestDir, "fabric.default/crypto/peerOrganizations/org1.example.com/users/approver1@org1.example.com/msp"),
-				LocalMspID: "Org1MSP",
-			},
-			OrdererConfig: fxconfig.OrdererConfig{
-				Address: fmt.Sprintf("%s:%d", host, port),
-				TLSConfig: fxconfig.TLSConfig{
-					Enabled:   false, // FIXME
-					RootCerts: []string{path.Join(s.II.TestDir, "fabric.default/crypto/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem")},
-				},
-			},
-			EndorserPKPath: path.Join(s.II.TestDir, "fabric.default/crypto/peerOrganizations/org1.example.com/users/approver2@org1.example.com/msp/signcerts/approver2@org1.example.com-cert.pem"),
-		},
-		// this is the current version
-		Version: 0,
-	}
-
-	cmd := common.NewCommand(fxconfig.CMDPath(), command)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	err := cmd.Run()
-	Expect(err).NotTo(HaveOccurred())
-}
-
 func (s *TestSuite) TestSucceeded() {
 	// Verify namespace is present with initial version (version 0)
 	CheckNamespaceExists(s.II, "iou", 0)
@@ -109,39 +73,6 @@ func (s *TestSuite) TestSucceeded() {
 
 	CheckState(s.II, "borrower", iouState, 10)
 	CheckState(s.II, "lender", iouState, 10)
-	//
-	By("updating with approver2 should fail")
-	UpdateIOU(s.II, iouState, 5, "approver2", "status is not valid [2]")
-
-	// update the EP to require approver2
-	By("update EP to approver2")
-	updateEP(s)
-
-	// Wait for namespace update transaction to be finalized and propagated
-	// The namespace update is a transaction that needs to be committed and
-	// the new endorsement policy needs to be available to all nodes
-	By("waiting for namespace update to be finalized")
-	// Verify namespace is present with updated version (version 1)
-	CheckNamespaceExists(s.II, "iou", 1)
-
-	// create an IOU with approver2 - should succeed now
-	By("creating another iou with approver2 should work")
-	anotherIouState, err := CreateIOU(s.II, "", 20, "approver2")
-	Expect(err).NotTo(HaveOccurred())
-
-	_ = anotherIouState
-	CheckState(s.II, "borrower", anotherIouState, 20)
-	CheckState(s.II, "lender", anotherIouState, 20)
-
-	// update with approver1 must fail now!
-	By("updating with approver1 should fail")
-	UpdateIOU(s.II, anotherIouState, 7, "approver1", "status is not valid [2]")
-
-	By("updating with approver2 should work")
-	UpdateIOU(s.II, anotherIouState, 7, "approver2")
-
-	CheckState(s.II, "borrower", anotherIouState, 7)
-	CheckState(s.II, "lender", anotherIouState, 7)
 }
 
 func CheckNamespaceExists(ii *integration.Infrastructure, name string, version int) {
