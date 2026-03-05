@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"go.uber.org/zap/zapcore"
 )
 
 //go:generate counterfeiter -o mock/session.go -fake-name Session . Session
@@ -43,7 +44,9 @@ func (s *Sessions) Get(viewId string, party view.Identity) view.Session {
 	defer s.mu.RUnlock()
 	key := lookupKey(viewId, party)
 	session := s.s[key]
-	logger.Debugf("Sessions.Get [%s] -> %v", key, session)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Sessions.Get [%s] found [%t]", key, session != nil)
+	}
 	return session
 }
 
@@ -76,7 +79,9 @@ func (s *Sessions) Put(viewId string, party view.Identity, session view.Session)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := lookupKey(viewId, party)
-	logger.Debugf("Sessions.Put [%s] = %v", key, session)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Sessions.Put [%s] found [%t]", key, session != nil)
+	}
 	s.s[key] = session
 }
 
