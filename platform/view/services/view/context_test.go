@@ -94,7 +94,8 @@ func TestContext(t *testing.T) {
 	assert.Equal(t, "service", s)
 
 	// GetService from registry
-	registry.RegisterService(123)
+	err = registry.RegisterService(123)
+	assert.NoError(t, err)
 	s2, err := ctx.GetService(reflect.TypeOf(0))
 	assert.NoError(t, err)
 	assert.Equal(t, 123, s2)
@@ -139,7 +140,8 @@ func TestContextGetSession(t *testing.T) {
 	// Case: session by ID
 	// PutSession only puts it under ViewID + PartyID.
 	// GetSessionByID expects it under SessionID + PartyID.
-	ctx.PutSessionByID("sid", party2, session)
+	err = ctx.PutSessionByID("sid", party2, session)
+	assert.NoError(t, err)
 	s3, err := ctx.GetSessionByID("sid", party2)
 	assert.NoError(t, err)
 	assert.Equal(t, session, s3)
