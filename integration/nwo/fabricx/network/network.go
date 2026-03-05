@@ -171,10 +171,7 @@ func (n *Network) PostRun(load bool) {
 	}
 
 	// List all deployed namespaces and verify they are available.
-	gomega.Eventually(func() []Namespace {
-		return n.tryListInstalledNames()
-	}).WithTimeout(namespacePropagationTimeout).ProbeEvery(2 * time.Second).Should(gomega.ContainElements(expNss))
-
+	gomega.Eventually(n.tryListInstalledNames).WithTimeout(namespacePropagationTimeout).ProbeEvery(2 * time.Second).Should(gomega.ContainElements(expNss))
 	logger.Infof("Post execution [%s]...done.", n.Prefix)
 }
 
@@ -225,35 +222,26 @@ func (n *Network) UpdateNamespace(chaincodeID, version, path, packageFile string
 // It returns an empty slice on any error (command start failure or non-zero
 // exit code) instead of panicking, making it safe to use inside
 // gomega.Eventually for retrying.
-func (n *Network) tryListInstalledNames() []Namespace {
+func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	cmd := &fxconfig.ListNamespaces{QueryServiceEndpoint: "127.0.0.1:7001"}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	if err != nil {
-		logger.Warnf("Failed to start namespace list session: %v", err)
-		return nil
+		return nil, err
 	}
 	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit())
-
 	if sess.ExitCode() != 0 {
-		logger.Warnf("Namespace list returned non-zero exit code %d, will retry", sess.ExitCode())
-		return nil
+		return nil, fmt.Errorf("namespace list returned non-zero exit code %d", sess.ExitCode())
 	}
-
-	output := string(sess.Out.Contents())
-	return parseNamespaceList(output)
+	return parseNamespaceList(string(sess.Out.Contents())), nil
 }
 
 // ListInstalledNames queries the SC query service for deployed namespaces.
 // It panics (via gomega assertions) on any error. For polling use inside
 // gomega.Eventually, use tryListInstalledNames instead.
 func (n *Network) ListInstalledNames() []Namespace {
-	cmd := &fxconfig.ListNamespaces{QueryServiceEndpoint: "127.0.0.1:7001"}
-	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
+	namespaces, err := n.tryListInstalledNames()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
-
-	output := string(sess.Out.Contents())
-	return parseNamespaceList(output)
+	return namespaces
 }
 
 type Namespace struct {

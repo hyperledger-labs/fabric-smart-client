@@ -23,15 +23,15 @@ const (
 	defaultViewTimeout = 2 * time.Minute
 )
 
-func CreateDeployment(ii *integration.Infrastructure, identityLabel string, amount uint, approver string) (string, error) {
+func CallCreate(ii *integration.Infrastructure, identityLabel string, amount uint, approver string) (string, error) {
 	return CreateDeploymentWithCreator(ii, "creator", identityLabel, amount, approver)
 }
 
-func CreateDeploymentWithCreator(ii *integration.Infrastructure, borrower, identityLabel string, amount uint, approver string) (string, error) {
+func CreateDeploymentWithCreator(ii *integration.Infrastructure, creator, identityLabel string, amount uint, approver string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultViewTimeout)
 	defer cancel()
 
-	res, err := ii.Client(borrower).CallViewWithContext(
+	res, err := ii.Client(creator).CallViewWithContext(
 		ctx,
 		"create", common.JSONMarshall(&views.CreateParams{
 			Owner:     identityLabel,
@@ -48,9 +48,11 @@ func CreateDeploymentWithCreator(ii *integration.Infrastructure, borrower, ident
 	return common.JSONUnmarshalString(res), nil
 }
 
-func CheckState(ii *integration.Infrastructure, partyID, deploymentStateID string, expected int, testObjects []views.SomeObject) {
-	res, err := ii.CLI(partyID).CallView("query", common.JSONMarshall(&views.QueryParams{SomeIDs: []string{testObjects[0].Owner}, Namespace: "simple"}))
-
+func CheckState(ii *integration.Infrastructure, partyID string, testObjects []views.SomeObject) {
+	res, err := ii.CLI(partyID).CallView("query", common.JSONMarshall(&views.QueryParams{
+		SomeIDs:   []string{testObjects[0].Owner},
+		Namespace: "simple",
+	}))
 	Expect(err).ToNot(HaveOccurred())
 
 	raw, ok := res.(string)

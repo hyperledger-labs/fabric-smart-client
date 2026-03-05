@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/deployment"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/fxconfig"
@@ -31,15 +30,13 @@ const (
 )
 
 var _ = Describe("EndToEnd", func() {
-	for _, c := range []nwofsc.P2PCommunicationType{nwofsc.WebSocket} {
-		Describe("fabricx Deployment Life Cycle", Label(c), func() {
-			s := NewTestSuite(c, integration.NoReplication)
-			BeforeEach(s.Setup)
-			AfterEach(s.TearDown)
+	Describe("fabricx Deployment Life Cycle", Label(nwofsc.WebSocket), func() {
+		s := NewTestSuite(nwofsc.WebSocket, integration.NoReplication)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
 
-			It("succeeded", s.TestSucceeded)
-		})
-	}
+		It("succeeded", s.TestSucceeded)
+	})
 })
 
 type TestSuite struct {
@@ -99,20 +96,13 @@ func (s *TestSuite) TestSucceeded() {
 
 	// create an Deployment with approver2 - should fail because the EP requires approver1
 	By("creating deployment with approver2 should fail")
-
-	_, err := CreateDeployment(s.II, "Owner1", 10, "approver2")
+	_, err := CallCreate(s.II, "Bob", 10, "approver2")
 	Expect(err).To(HaveOccurred())
 
 	By("creating deployment with approver1 should work")
-	deploymentState, err := CreateDeployment(s.II, "Owner2", 10, "approver1")
+	_, err = CallCreate(s.II, "Bob", 10, "approver1")
 	Expect(err).NotTo(HaveOccurred())
-	testObjects := []views.SomeObject{
-		{
-			Owner: "Owner2",
-			Value: 10,
-		},
-	}
-	CheckState(s.II, "creator", deploymentState, 10, testObjects)
+	CheckState(s.II, "creator", []views.SomeObject{{Owner: "Bob", Value: 10}})
 
 	// update the EP to require approver2
 	By("update EP to approver2")
@@ -127,16 +117,9 @@ func (s *TestSuite) TestSucceeded() {
 
 	// create an Deployment with approver2 - should succeed now
 	By("creating another deployment with approver2 should work")
-	anotherDeploymentState, err := CreateDeployment(s.II, "Owner3", 20, "approver2")
+	_, err = CallCreate(s.II, "Alice", 20, "approver2")
 	Expect(err).NotTo(HaveOccurred())
-
-	testObjects2 := []views.SomeObject{
-		{
-			Owner: "Owner3",
-			Value: 20,
-		},
-	}
-	CheckState(s.II, "creator", anotherDeploymentState, 20, testObjects2)
+	CheckState(s.II, "creator", []views.SomeObject{{Owner: "Alice", Value: 20}})
 }
 
 func CheckNamespaceExists(ii *integration.Infrastructure, name string, version int) {
