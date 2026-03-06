@@ -22,8 +22,7 @@ import (
 type ViewManager interface {
 	ExistResponderForCaller(caller string) (view.View, view.Identity, error)
 	NewSessionContext(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error)
-	DeleteContext(id view.Identity, contextID string)
-	Me() view.Identity
+	DeleteContext(contextID string)
 	SetContext(ctx context.Context)
 }
 
@@ -37,8 +36,8 @@ type viewManagerMock struct {
 	ExistResponderForCallerFunc func(caller string) (view.View, view.Identity, error)
 	GetIdentityFunc             func(endpoint string, pkID []byte) (view.Identity, error)
 	NewSessionContextFunc       func(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error)
-	DeleteContextFunc           func(id view.Identity, contextID string)
-	MeFunc                      func() view.Identity
+	DeleteContextFunc           func(contextID string)
+	DefaultIdentityFunc         func() view.Identity
 	SetContextFunc              func(ctx context.Context)
 }
 
@@ -63,15 +62,15 @@ func (m *viewManagerMock) NewSessionContext(ctx context.Context, contextID strin
 	return &mock.Context{}, true, nil
 }
 
-func (m *viewManagerMock) DeleteContext(id view.Identity, contextID string) {
+func (m *viewManagerMock) DeleteContext(contextID string) {
 	if m.DeleteContextFunc != nil {
-		m.DeleteContextFunc(id, contextID)
+		m.DeleteContextFunc(contextID)
 	}
 }
 
-func (m *viewManagerMock) Me() view.Identity {
-	if m.MeFunc != nil {
-		return m.MeFunc()
+func (m *viewManagerMock) DefaultIdentity() view.Identity {
+	if m.DefaultIdentityFunc != nil {
+		return m.DefaultIdentityFunc()
 	}
 	return view.Identity("me")
 }
@@ -90,7 +89,7 @@ func TestService(t *testing.T) {
 	cl.MasterSessionReturns(sess, nil)
 	sess.ReceiveReturns(ch)
 
-	service := p2p.NewService(vm, cl, vm, p2p.NewDefaultRunner())
+	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -132,7 +131,7 @@ func TestService_MasterSessionError(t *testing.T) {
 	cl := &mock.CommLayer{}
 	cl.MasterSessionReturns(nil, errors.New("master session error"))
 
-	service := p2p.NewService(vm, cl, vm, p2p.NewDefaultRunner())
+	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
 	err := service.Start(context.Background())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed getting master session")
@@ -153,7 +152,7 @@ func TestService_HandleResponderError(t *testing.T) {
 	cl.MasterSessionReturns(sess, nil)
 	sess.ReceiveReturns(ch)
 
-	service := p2p.NewService(vm, cl, vm, p2p.NewDefaultRunner())
+	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

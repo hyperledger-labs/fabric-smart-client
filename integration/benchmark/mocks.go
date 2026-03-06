@@ -67,9 +67,5 @@ func (m *MockViewManager) InitiateContext(view view.View) (view.Context, error) 
 	panic("implement me")
 }
 
-func (m *MockViewManager) DeleteContext(id view.Identity, contextID string) {
-}
-
-func (m *MockViewManager) Me() view.Identity {
-	return m.Identity
+func (m *MockViewManager) DeleteContext(contextID string) {
 }

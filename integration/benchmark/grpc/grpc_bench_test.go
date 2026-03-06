@@ -253,7 +253,7 @@ func setupServer(tb testing.TB, opts ...ServerOption) string {
 		Identity:    cfg.idProvider.DefaultIdentity(),
 	}
 	// register view manager wit grpc impl
-	server.InstallViewHandler(vm, srv, noop.NewTracerProvider())
+	server.InstallViewHandler(vm, cfg.idProvider, srv, noop.NewTracerProvider())
 
 	// register grpc impl with grpc server
 	protos.RegisterViewServiceServer(grpcSrv.Server(), srv)

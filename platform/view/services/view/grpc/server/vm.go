@@ -21,7 +21,5 @@ type ViewManager interface {
 	// InitiateContext initiates a view context for the given view.
 	InitiateContext(view view.View) (view.Context, error)
 	// DeleteContext removes a context from the manager and calls Dispose on the context.
-	DeleteContext(id view.Identity, contextID string)
-	// Me returns the default identity.
-	Me() view.Identity
+	DeleteContext(contextID string)
 }

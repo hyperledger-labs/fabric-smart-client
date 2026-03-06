@@ -57,8 +57,8 @@ func (s *viewHandler) StreamCallView(context *server2.ReqContext, vid string, in
 }
 
 // InstallViewHandler installs the web view handler into the given HTTP handler.
-func InstallViewHandler(manager server.ViewManager, h *server2.HttpHandler, tp tracing.Provider) {
-	fh := &viewHandler{c: newViewClient(manager, tp)}
+func InstallViewHandler(manager server.ViewManager, identityProvider server.IdentityProvider, h *server2.HttpHandler, tp tracing.Provider) {
+	fh := &viewHandler{c: newViewClient(manager, identityProvider, tp)}
 	newDispatcher(h).WireViewCaller(viewCallFunc(fh.CallView))
 	newDispatcher(h).WireStreamViewCaller(viewCallFunc(fh.StreamCallView))
 }
@@ -70,13 +70,15 @@ type ViewClient interface {
 }
 
 type client struct {
-	viewManager server.ViewManager
-	tracer      trace.Tracer
+	viewManager      server.ViewManager
+	identityProvider server.IdentityProvider
+	tracer           trace.Tracer
 }
 
-func newViewClient(viewManager server.ViewManager, tp tracing.Provider) *client {
+func newViewClient(viewManager server.ViewManager, identityProvider server.IdentityProvider, tp tracing.Provider) *client {
 	return &client{
-		viewManager: viewManager,
+		viewManager:      viewManager,
+		identityProvider: identityProvider,
 		tracer: tp.Tracer("view_client", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{vidLabel},
 		})),

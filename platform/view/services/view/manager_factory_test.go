@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	servicesmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -19,15 +18,13 @@ import (
 )
 
 func TestManagerWithMockFactory(t *testing.T) {
-	sp := &servicesmock.ServiceProvider{}
-	es := &mock.EndpointService{}
 	ip := &mock.IdentityProvider{}
 	registry := view.NewRegistry()
 	mp := &disabled.Provider{}
 
 	metrics := view.NewMetrics(mp)
 	cf := &mock.ContextFactory{}
-	manager := view.NewManager(sp, es, ip, registry, metrics, cf)
+	manager := view.NewManager(ip, registry, metrics, cf)
 
 	t.Run("InitiateContextCallsFactory", func(t *testing.T) {
 		v := &mock.View{}
@@ -64,7 +61,7 @@ func TestManagerWithMockFactory(t *testing.T) {
 
 		_, contextID, me, sess, p := cf.NewForResponderArgsForCall(0)
 		assert.Equal(t, "ctx-id-2", contextID)
-		assert.Equal(t, manager.Me(), me)
+		assert.Equal(t, ip.DefaultIdentity(), me)
 		assert.Equal(t, session, sess)
 		assert.Equal(t, party, p)
 	})

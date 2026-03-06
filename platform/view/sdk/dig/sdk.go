@@ -113,7 +113,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(file.NewDriver, dig.Group("kms-drivers")),
 		p.Container().Provide(
 			digutils.Identity[*id.Provider](),
-			dig.As(new(endpoint2.IdentityService), new(server2.IdentityProvider), new(view.IdentityProvider)),
+			dig.As(new(endpoint2.IdentityService), new(server2.IdentityProvider), new(view.IdentityProvider), new(p2p.IdentityProvider)),
 		),
 
 		// View Manager
@@ -121,21 +121,12 @@ func (p *SDK) Install() error {
 		p.Container().Provide(view.NewMetrics),
 		p.Container().Provide(view.NewContextFactory),
 		p.Container().Provide(func(
-			serviceProvider services.Provider,
-			endpointService view.EndpointService,
 			identityProvider view.IdentityProvider,
 			registry *view.Registry,
 			metrics *view.Metrics,
 			contextFactory view.ContextFactory,
 		) *view.Manager {
-			return view.NewManager(
-				serviceProvider,
-				endpointService,
-				identityProvider,
-				registry,
-				metrics,
-				contextFactory,
-			)
+			return view.NewManager(identityProvider, registry, metrics, contextFactory)
 		}),
 		p.Container().Provide(p2p.NewDefaultRunner),
 		p.Container().Provide(p2p.NewService),
@@ -224,22 +215,23 @@ func (p *SDK) Start(ctx context.Context) error {
 	}
 	return p.Container().Invoke(func(in struct {
 		dig.In
-		GRPCServer     *grpc.GRPCServer
-		ViewManager    StartableViewManager
-		P2PService     *p2p.Service
-		ViewService    server2.Service
-		CommService    *comm.Service
-		WebServer      Server
-		System         *operations.System
-		KVS            *kvs.KVS
-		TracerProvider tracing.Provider
+		GRPCServer       *grpc.GRPCServer
+		ViewManager      StartableViewManager
+		P2PService       *p2p.Service
+		ViewService      server2.Service
+		CommService      *comm.Service
+		WebServer        Server
+		System           *operations.System
+		KVS              *kvs.KVS
+		TracerProvider   tracing.Provider
+		IdentityProvider server2.IdentityProvider
 	}) error {
 		if in.GRPCServer != nil {
 			protos.RegisterViewServiceServer(in.GRPCServer.Server(), in.ViewService)
 		}
 		in.CommService.Start(ctx)
 
-		server2.InstallViewHandler(in.ViewManager, in.ViewService, in.TracerProvider)
+		server2.InstallViewHandler(in.ViewManager, in.IdentityProvider, in.ViewService, in.TracerProvider)
 		if err := in.P2PService.Start(ctx); err != nil {
 			return err
 		}

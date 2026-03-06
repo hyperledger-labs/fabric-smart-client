@@ -8,7 +8,6 @@ package view_test
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -38,23 +37,17 @@ func TestManager(t *testing.T) {
 
 	metrics := view.NewMetrics(mp)
 	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
-	manager := view.NewManager(sp, es, ip, registry, metrics, cf)
+	manager := view.NewManager(ip, registry, metrics, cf)
 	assert.NotNil(t, manager)
 	manager.SetContext(context.Background())
 
-	// Test GetService
-	sp.GetServiceReturns("service", nil)
-	s, err := manager.GetService(reflect.TypeOf(""))
-	assert.NoError(t, err)
-	assert.Equal(t, "service", s)
-
 	// Test Me
 	ip.DefaultIdentityReturns(view2.Identity("me"))
-	assert.Equal(t, view2.Identity("me"), manager.Me())
+	assert.Equal(t, view2.Identity("me"), ip.DefaultIdentity())
 
 	// Test Registry methods through manager
 	factory := &mock.Factory{}
-	err = manager.RegisterFactory("v1", factory)
+	err := manager.RegisterFactory("v1", factory)
 	assert.NoError(t, err)
 
 	v := &mock.View{}
@@ -82,7 +75,7 @@ func TestManager(t *testing.T) {
 	assert.Equal(t, contexts, ctxRetrieved)
 
 	// Test DeleteContext
-	manager.DeleteContext(view2.Identity("me"), contexts.ID())
+	manager.DeleteContext(contexts.ID())
 	_, err = manager.Context(contexts.ID())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
@@ -139,7 +132,7 @@ func TestManagerRegistry(t *testing.T) {
 
 	metrics := view.NewMetrics(mp)
 	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
-	manager := view.NewManager(sp, es, ip, registry, metrics, cf)
+	manager := view.NewManager(ip, registry, metrics, cf)
 
 	responder := &mock.View{}
 	err := manager.RegisterResponder(responder, "initiator")
@@ -170,7 +163,7 @@ func TestNewSessionContext(t *testing.T) {
 
 	metrics := view.NewMetrics(mp)
 	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
-	manager := view.NewManager(sp, es, ip, registry, metrics, cf)
+	manager := view.NewManager(ip, registry, metrics, cf)
 	manager.SetContext(context.Background())
 	ip.DefaultIdentityReturns(view2.Identity("me"))
 
@@ -210,7 +203,7 @@ func TestManagerOther(t *testing.T) {
 
 	metrics := view.NewMetrics(mp)
 	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
-	manager := view.NewManager(sp, es, ip, registry, metrics, cf)
+	manager := view.NewManager(ip, registry, metrics, cf)
 
 	// RegisterContext
 	mockCtx := &mock.DisposableContext{}

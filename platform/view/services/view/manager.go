@@ -62,10 +62,7 @@ type ContextFactory interface {
 
 // Manager is responsible for managing view contexts and protocols.
 type Manager struct {
-	serviceProvider services.Provider
-
 	contextFactory   ContextFactory
-	endpointService  EndpointService
 	identityProvider IdentityProvider
 	registry         *Registry
 	metrics          *Metrics
@@ -77,16 +74,12 @@ type Manager struct {
 
 // NewManager returns a new instance of the view manager.
 func NewManager(
-	serviceProvider services.Provider,
-	endpointService EndpointService,
 	identityProvider IdentityProvider,
 	registry *Registry,
 	metrics *Metrics,
 	contextFactory ContextFactory,
 ) *Manager {
 	return &Manager{
-		serviceProvider:  serviceProvider,
-		endpointService:  endpointService,
 		identityProvider: identityProvider,
 
 		contexts: map[string]DisposableContext{},
@@ -104,11 +97,6 @@ func GetManager(sp services.Provider) (*Manager, error) {
 		return nil, err
 	}
 	return s.(*Manager), nil
-}
-
-// GetService returns the service of the given type from the underlying service provider.
-func (cm *Manager) GetService(typ reflect.Type) (interface{}, error) {
-	return cm.serviceProvider.GetService(typ)
 }
 
 // RegisterFactory registers a view factory for the given ID.
@@ -143,12 +131,12 @@ func (cm *Manager) Initiate(id string, ctx context.Context) (interface{}, error)
 		return nil, err
 	}
 
-	return cm.InitiateViewWithIdentity(v, cm.Me(), ctx)
+	return cm.InitiateViewWithIdentity(v, cm.identityProvider.DefaultIdentity(), ctx)
 }
 
 // InitiateView initiates a protocol for the given view.
 func (cm *Manager) InitiateView(view view.View, ctx context.Context) (interface{}, error) {
-	return cm.InitiateViewWithIdentity(view, cm.Me(), ctx)
+	return cm.InitiateViewWithIdentity(view, cm.identityProvider.DefaultIdentity(), ctx)
 }
 
 // InitiateViewWithIdentity initiates a protocol for the given view and initiator identity.
@@ -161,7 +149,7 @@ func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, ct
 	if err != nil {
 		return nil, err
 	}
-	defer cm.DeleteContext(id, c.ID())
+	defer cm.DeleteContext(c.ID())
 
 	logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s]", id, logging.Identifier(view), c.ID())
 	res, err := c.RunView(view)
@@ -175,7 +163,7 @@ func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, ct
 
 // InitiateContext initiates a view context for the given view.
 func (cm *Manager) InitiateContext(view view.View) (view.Context, error) {
-	return cm.InitiateContextFrom(cm.getCurrentContext(), view, cm.Me(), "")
+	return cm.InitiateContextFrom(cm.getCurrentContext(), view, cm.identityProvider.DefaultIdentity(), "")
 }
 
 // InitiateContextWithIdentity initiates a view context for the given view and initiator identity.
@@ -191,7 +179,7 @@ func (cm *Manager) InitiateContextWithIdentityAndID(view view.View, id view.Iden
 // InitiateContextFrom initiates a view context for the given view, initiator identity, and context ID from the given go context.
 func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id view.Identity, contextID string) (view.Context, error) {
 	if id.IsNone() {
-		id = cm.Me()
+		id = cm.identityProvider.DefaultIdentity()
 	}
 	c, err := cm.newChildContextForInitiator(ctx, view, id, contextID)
 	if err != nil {
@@ -220,7 +208,7 @@ func (cm *Manager) newChildContextForInitiator(ctx context.Context, view view.Vi
 	cm.contextsMu.Unlock()
 
 	context.AfterFunc(c.Context(), func() {
-		cm.DeleteContext(id, c.ID())
+		cm.DeleteContext(c.ID())
 	})
 
 	return c, nil
@@ -245,7 +233,7 @@ func (cm *Manager) RegisterContext(contextID string, ctx DisposableContext) erro
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 
 	context.AfterFunc(ctx.Context(), func() {
-		cm.DeleteContext(ctx.Me(), contextID)
+		cm.DeleteContext(contextID)
 	})
 
 	return nil
@@ -282,16 +270,16 @@ func (cm *Manager) NewSessionContext(ctx context.Context, contextID string, sess
 		return c, false, nil
 	}
 	if ok {
-		logger.DebugfContext(viewContext.Context(), "[%s] No new context to respond, reuse [contextID:%s]\n", cm.Me(), contextID)
+		logger.DebugfContext(viewContext.Context(), "[%s] No new context to respond, reuse [contextID:%s]\n", cm.identityProvider.DefaultIdentity(), contextID)
 		return viewContext, false, nil
 	}
 
 	// next we continue with creating a new context
-	logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", cm.Me(), contextID)
+	logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", cm.identityProvider.DefaultIdentity(), contextID)
 	newCtx, err := cm.contextFactory.NewForResponder(
 		ctx,
 		contextID,
-		cm.Me(),
+		cm.identityProvider.DefaultIdentity(),
 		session,
 		party,
 	)
@@ -304,7 +292,7 @@ func (cm *Manager) NewSessionContext(ctx context.Context, contextID string, sess
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 
 	context.AfterFunc(c.Context(), func() {
-		cm.DeleteContext(cm.Me(), contextID)
+		cm.DeleteContext(contextID)
 	})
 
 	return c, true, nil
@@ -321,22 +309,16 @@ func (cm *Manager) ExistResponderForCaller(caller string) (view.View, view.Ident
 }
 
 // DeleteContext removes a context from the manager and calls Dispose on the context.
-func (cm *Manager) DeleteContext(id view.Identity, contextID string) {
+func (cm *Manager) DeleteContext(contextID string) {
 	cm.contextsMu.Lock()
 	defer cm.contextsMu.Unlock()
 
-	logger.Debugf("[%s] Delete context [contextID:%s]\n", id, contextID)
 	// dispose context
 	if viewCtx, ok := cm.contexts[contextID]; ok {
 		viewCtx.Dispose()
 		delete(cm.contexts, contextID)
 		cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 	}
-}
-
-// Me returns the default identity.
-func (cm *Manager) Me() view.Identity {
-	return cm.identityProvider.DefaultIdentity()
 }
 
 func (cm *Manager) getCurrentContext() context.Context {

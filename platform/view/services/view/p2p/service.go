@@ -17,6 +17,12 @@ import (
 
 var logger = logging.MustGetLogger()
 
+// IdentityProvider models the identity provider for P2P operations.
+type IdentityProvider interface {
+	// DefaultIdentity returns the default identity.
+	DefaultIdentity() view.Identity
+}
+
 // ViewManager models the view manager for P2P operations.
 type ViewManager interface {
 	// ExistResponderForCaller returns the responder view for the given caller.
@@ -24,9 +30,7 @@ type ViewManager interface {
 	// NewSessionContext returns a context for the given session.
 	NewSessionContext(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error)
 	// DeleteContext deletes the view context for the given context ID.
-	DeleteContext(id view.Identity, contextID string)
-	// Me returns the default identity.
-	Me() view.Identity
+	DeleteContext(contextID string)
 	// SetContext sets the root context.
 	SetContext(ctx context.Context)
 }
@@ -67,24 +71,27 @@ func NewDefaultRunner() Runner {
 
 // Service is responsible for handling incoming messages from the communication layer.
 type Service struct {
-	viewManager     ViewManager
-	endpointService EndpointService
-	commLayer       CommLayer
-	runner          Runner
+	viewManager      ViewManager
+	identityProvider IdentityProvider
+	endpointService  EndpointService
+	commLayer        CommLayer
+	runner           Runner
 }
 
 // NewService returns a new instance of the P2P service.
 func NewService(
 	viewManager ViewManager,
+	identityProvider IdentityProvider,
 	commLayer CommLayer,
 	endpointService EndpointService,
 	runner Runner,
 ) *Service {
 	return &Service{
-		viewManager:     viewManager,
-		commLayer:       commLayer,
-		endpointService: endpointService,
-		runner:          runner,
+		viewManager:      viewManager,
+		identityProvider: identityProvider,
+		commLayer:        commLayer,
+		endpointService:  endpointService,
+		runner:           runner,
 	}
 }
 
@@ -115,20 +122,20 @@ func (s *Service) handleMessage(msg *view.Message) {
 	logger.Debugf("Will call responder view for context [%s]", msg.ContextID)
 	responder, id, err := s.viewManager.ExistResponderForCaller(msg.Caller)
 	if err != nil {
-		logger.Errorf("[%s] No responder exists for [%s]: [%s]", s.viewManager.Me(), msg.String(), err)
+		logger.Errorf("[%s] No responder exists for [%s]: [%s]", s.identityProvider.DefaultIdentity(), msg.String(), err)
 		return
 	}
 	if id.IsNone() {
-		id = s.viewManager.Me()
+		id = s.identityProvider.DefaultIdentity()
 	}
 
-	if err := s.respond(msg.Ctx, responder, id, msg.ContextID, msg.SessionID, msg.Caller, msg.FromEndpoint, msg.FromPKID, msg); err != nil {
-		logger.Errorf("[%s] error during respond [%s]", s.viewManager.Me(), err)
+	if err := s.respond(responder, id, msg); err != nil {
+		logger.Errorf("[%s] error during respond [%s]", s.identityProvider.DefaultIdentity(), err)
 	}
 }
 
 // respond executes a given responder view.
-func (s *Service) respond(ctx context.Context, responder view.View, id view.Identity, contextID, sessionID, caller, fromEndpoint string, fromPKID []byte, firstMsg interface{}) (err error) {
+func (s *Service) respond(responder view.View, id view.Identity, msg *view.Message) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("respond triggered panic: %s\n%s\n", r, debug.Stack())
@@ -137,23 +144,23 @@ func (s *Service) respond(ctx context.Context, responder view.View, id view.Iden
 	}()
 
 	// get context
-	viewCtx, isNew, err := s.getOrCreateContext(ctx, id, contextID, sessionID, caller, fromEndpoint, fromPKID, firstMsg)
+	viewCtx, isNew, err := s.getOrCreateContext(id, msg)
 	if err != nil {
-		return errors.WithMessagef(err, "failed getting context for [%s,%s]", contextID, id)
+		return errors.WithMessagef(err, "failed getting context for [%s,%s]", msg.ContextID, id)
 	}
 
-	logger.DebugfContext(viewCtx.Context(), "[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]", id, fromEndpoint, sessionID, contextID, isNew, logging.Identifier(responder))
+	logger.DebugfContext(viewCtx.Context(), "[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, isNew, logging.Identifier(responder))
 
 	// if a new context has been created to run the responder,
 	// then dispose the context when not needed anymore
 	if isNew {
-		defer s.viewManager.DeleteContext(id, viewCtx.ID())
+		defer s.viewManager.DeleteContext(viewCtx.ID())
 	}
 
 	// run view
 	_, err = s.runner.RunView(viewCtx, responder)
 	if err != nil {
-		logger.DebugfContext(viewCtx.Context(), "[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, fromEndpoint, sessionID, contextID, err)
+		logger.DebugfContext(viewCtx.Context(), "[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
 
 		// try to send error back to caller
 		if err = viewCtx.Session().SendError([]byte(err.Error())); err != nil {
@@ -165,18 +172,30 @@ func (s *Service) respond(ctx context.Context, responder view.View, id view.Iden
 }
 
 // getOrCreateContext returns a view context for the given arguments.
-func (s *Service) getOrCreateContext(ctx context.Context, id view.Identity, contextID, sessionID, caller, fromEndpoint string, fromPKID []byte, firstMsg interface{}) (view.Context, bool, error) {
+func (s *Service) getOrCreateContext(id view.Identity, msg *view.Message) (view.Context, bool, error) {
 	// get the caller identity
-	callerIdentity, err := s.endpointService.GetIdentity(fromEndpoint, fromPKID)
+	callerIdentity, err := s.endpointService.GetIdentity(msg.FromEndpoint, msg.FromPKID)
 	if err != nil {
 		return nil, false, err
 	}
 
 	// create a new session with the ID we received
-	backend, err := s.commLayer.NewSessionWithID(sessionID, contextID, fromEndpoint, fromPKID, callerIdentity, firstMsg)
+	backend, err := s.commLayer.NewSessionWithID(
+		msg.SessionID,
+		msg.ContextID,
+		msg.FromEndpoint,
+		msg.FromPKID,
+		callerIdentity,
+		msg,
+	)
 	if err != nil {
 		return nil, false, err
 	}
 
-	return s.viewManager.NewSessionContext(ctx, contextID, backend, callerIdentity)
+	return s.viewManager.NewSessionContext(
+		msg.Ctx,
+		msg.ContextID,
+		backend,
+		callerIdentity,
+	)
 }
