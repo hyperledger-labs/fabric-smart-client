@@ -23,14 +23,16 @@ import (
 const fidLabel tracing.LabelName = "fid"
 
 type viewHandler struct {
-	viewManager ViewManager
-	tracer      trace.Tracer
+	viewManager      ViewManager
+	identityProvider IdentityProvider
+	tracer           trace.Tracer
 }
 
 // InstallViewHandler installs the view handler into the given service.
-func InstallViewHandler(viewManager ViewManager, server Service, tracerProvider tracing.Provider) {
+func InstallViewHandler(viewManager ViewManager, identityProvider IdentityProvider, server Service, tracerProvider tracing.Provider) {
 	fh := &viewHandler{
-		viewManager: viewManager,
+		viewManager:      viewManager,
+		identityProvider: identityProvider,
 		tracer: tracerProvider.Tracer("view_handler", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{fidLabel, successLabel},
 		})),
@@ -119,10 +121,10 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 
 	result, err := context.RunView(f)
 	if err != nil {
-		s.viewManager.DeleteContext(s.viewManager.Me(), context.ID())
+		s.viewManager.DeleteContext(context.ID())
 		return errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
-	defer s.viewManager.DeleteContext(s.viewManager.Me(), context.ID())
+	defer s.viewManager.DeleteContext(context.ID())
 	raw, ok := result.([]byte)
 	if !ok {
 		raw, err = json.Marshal(result)
@@ -159,7 +161,7 @@ func (s *viewHandler) RunView(manager ViewManager, view view2.View) (string, err
 }
 
 func (s *viewHandler) runView(view view2.View, context view2.Context) {
-	defer s.viewManager.DeleteContext(s.viewManager.Me(), context.ID())
+	defer s.viewManager.DeleteContext(context.ID())
 	result, err := context.RunView(view)
 	if err != nil {
 		logger.Errorf("failed view execution. Err [%s]\n", err.Error())
