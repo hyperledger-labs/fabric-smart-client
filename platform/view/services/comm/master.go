@@ -31,7 +31,6 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 		return session, nil
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
 	s := &NetworkStreamSession{
 		node:            p,
 		endpointID:      endpointID,
@@ -40,10 +39,11 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 		sessionID:       sessionID,
 		caller:          caller,
 		callerViewID:    callerViewID,
-		incoming:        make(chan *view.Message, 1),
+		incoming:        make(chan *view.Message),
 		streams:         make(map[*streamHandler]struct{}),
-		ctx:             ctx,
-		cancel:          cancel,
+		middleCh:        make(chan *view.Message),
+		closing:         make(chan struct{}),
+		closed:          make(chan struct{}),
 	}
 
 	if msg != nil {
