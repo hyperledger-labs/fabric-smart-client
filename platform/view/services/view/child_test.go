@@ -83,4 +83,27 @@ func TestChildContext(t *testing.T) {
 	err = child4.PutSessionByID("", nil, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, parent.PutSessionByIDCallCount())
+
+	// Test case where parent is not mutable
+	parentNotMutable := &mock.ParentContext{}
+	childNotMutable := view.NewChildContextFromParent(parentNotMutable)
+	err = childNotMutable.PutService("test")
+	assert.NoError(t, err)
+	err = childNotMutable.ResetSessions()
+	assert.NoError(t, err)
+
+	// Test Initiator when w.initiator is nil
+	parent.InitiatorReturns(initiator)
+	childNoInitiator := view.NewChildContextFromParent(parent)
+	assert.Equal(t, initiator, childNoInitiator.Initiator())
+
+	// Test Session when w.session is nil
+	parent.SessionReturns(session)
+	childNoSession := view.NewChildContextFromParent(parent)
+	assert.Equal(t, session, childNoSession.Session())
+
+	// Test safeInvoke panic
+	child.Cleanup() // no error funcs
+	child.OnError(func() { panic("boom") })
+	child.Cleanup() // should not panic
 }

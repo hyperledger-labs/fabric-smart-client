@@ -60,6 +60,20 @@ func TestContext(t *testing.T) {
 	// Session
 	assert.Equal(t, session, ctx.Session())
 
+	// Test NewContext with nil context
+	_, err = view2.NewContext(nil, nil, "", nil, nil, nil, nil, nil, nil, nil, nil) //nolint:staticcheck
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "a context should not be nil")
+
+	// Test NewContextForInitiator with nil context
+	_, err = view2.NewContextForInitiator("", nil, nil, nil, nil, nil, nil, nil, nil, nil) //nolint:staticcheck
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "a context should not be nil")
+
+	// Test Session with nil session
+	ctxNoSession, _ := view2.NewContext(context.TODO(), registry, "p", nil, resolver, idProvider, nil, nil, nil, emptyTracer, nil)
+	assert.Nil(t, ctxNoSession.Session())
+
 	// Id
 	assert.Equal(t, "pineapple", ctx.ID())
 
@@ -105,6 +119,31 @@ func TestContext(t *testing.T) {
 	ctx, _ = view2.NewContext(context.TODO(), registry, "p", nil, resolver, idProvider, nil, nil, nil, emptyTracer, lic)
 	lic.IsMeReturns(true)
 	assert.True(t, ctx.IsMe([]byte("me")))
+
+	// StartSpan
+	span := ctx.StartSpan("test")
+	assert.NotNil(t, span)
+
+	// Initiator
+	initiator := &mock.View{}
+	ctx, _ = view2.NewContextForInitiator("p2", context.TODO(), registry, nil, resolver, idProvider, nil, initiator, emptyTracer, lic)
+	assert.Equal(t, initiator, ctx.Initiator())
+
+	// RunView
+	v := &mock.View{}
+	v.CallReturns("view-result", nil)
+	res, err := ctx.RunView(v)
+	assert.NoError(t, err)
+	assert.Equal(t, "view-result", res)
+
+	// ResetSessions
+	err = ctx.ResetSessions()
+	assert.NoError(t, err)
+
+	// PutSession
+	session2 := &mock.Session{}
+	err = ctx.PutSession(v, []byte("party"), session2)
+	assert.NoError(t, err)
 
 	// Dispose
 	sessionFactory := &mock.SessionFactory{}

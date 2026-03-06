@@ -16,9 +16,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-//go:generate counterfeiter -o mock/session.go -fake-name Session . Session
-
 // Session encapsulates a communication channel to an endpoint.
+//
+//go:generate counterfeiter -o mock/session.go -fake-name Session . Session
 type Session = view.Session
 
 // Sessions is responsible for managing a set of sessions.

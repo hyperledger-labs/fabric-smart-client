@@ -193,6 +193,11 @@ tidy: ## Run go mod tidy everywhere
 	cd tools; go mod tidy
 	cd platform/fabric/services/state/cc/query; go mod tidy
 
+.PHONY: fmt
+fmt: ## Run gofmt on the entire project
+	@echo "Running gofmt..."
+	@gofmt -l -s -w .
+
 .PHONY: clean-fabric-peer-images
 clean-fabric-peer-images:
 	docker images -a | grep "_peer_" | awk '{print $3}' | xargs docker rmi
