@@ -8,7 +8,7 @@ TOP = .
 FABRIC_VERSION ?= 3.1.4
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
 
-FABRIC_X_TOOLS_VERSION ?= b353b61
+FABRIC_X_TOOLS_VERSION ?= 7297be4
 FABRIC_X_COMMITTER_VERSION ?= 0.1.9
 
 # need to install fabric binaries outside of fsc tree for now (due to chaincode packaging issues)
@@ -44,11 +44,13 @@ install-linter-tool: ## Install linter in $(go env GOPATH)/bin
 
 .PHONY: install-fxconfig
 install-fxconfig: ## Install fxconfig in $(FAB_BINS)
-	@env GOBIN=$(FAB_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/fxconfig@$(FABRIC_X_TOOLS_VERSION)
+	@env GOBIN=$(FAB_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/fxconfig/cmd@$(FABRIC_X_TOOLS_VERSION)
 
 .PHONY: install-configtxgen
 install-configtxgen: ## Install configtxgen in $(FAB_BINS)
-	@env GOBIN=$(FAB_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/configtxgen@$(FABRIC_X_TOOLS_VERSION)
+	env GOBIN=$(FAB_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x-common/cmd/configtxgen@v0.1.1-0.20260219094834-26c5a49ed548
+	env GOBIN=$(FAB_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x-common/cmd/cryptogen@v0.1.1-0.20260219094834-26c5a49ed548
+	@#env GOBIN=$(FAB_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/configtxgen@$(FABRIC_X_TOOLS_VERSION)
 
 .PHONY: install-fabric-bins
 install-fabric-bins: ## Install fabric binaries in $(FABRIC_BINARY_BASE)

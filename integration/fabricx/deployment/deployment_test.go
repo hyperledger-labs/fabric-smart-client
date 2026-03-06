@@ -8,6 +8,7 @@ package deployment_test
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/deployment"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/fxconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
@@ -58,26 +60,47 @@ func NewTestSuite(commType nwofsc.P2PCommunicationType, nodeOpts *integration.Re
 	})}
 }
 
-func updateEP(s *TestSuite) {
-	host := s.II.Ctx.HostByOrdererID("fabric.default", "OrdererOrg.orderer")
-	port := s.II.Ctx.PortsByOrdererID("fabric.default", "OrdererOrg.orderer")["Listen"]
+func UpdateNamespacePolicy(ii *integration.Infrastructure) {
+	fx := fxPlatform(ii)
+	Expect(fx).NotTo(BeNil())
+
+	// set up our admin identity used by fxconfig
+	adminMspID := fx.Network.Organization("Org1").MSPID
+	adminMspDir := fx.Network.PeerUserMSPDir(fx.Network.PeersInOrg("Org1")[0], "Admin")
+
+	ordererEndpoint := fx.Network.OrdererAddress(fx.Network.Orderers[0], fabric_network.ListenPort)
+
+	// committer details
+	committerNode := fx.Network.Peer("Org1", "SC")
+	committerSidecarPort := fmt.Sprintf("%d", fx.Network.PeerPort(committerNode, fabric_network.ListenPort))
+	notificationsEndpoint := net.JoinHostPort("localhost", committerSidecarPort)
+
+	// setup our new endorser
+	// TODO: make this a parameter of UpdateNamespacePolicy
+	endorserPKPath := path.Join(ii.TestDir, "fabric.default/crypto/peerOrganizations/org1.example.com/users/approver2@org1.example.com/msp/signcerts/approver2@org1.example.com-cert.pem")
 
 	command := &fxconfig.UpdateNamespace{
 		NamespaceCommon: fxconfig.NamespaceCommon{
 			Name:    "simple",
 			Channel: "testchannel",
 			MSPConfig: fxconfig.MSPConfig{
-				ConfigPath: path.Join(s.II.TestDir, "fabric.default/crypto/peerOrganizations/org1.example.com/users/approver1@org1.example.com/msp"),
-				LocalMspID: "Org1MSP",
+				ConfigPath: adminMspDir,
+				LocalMspID: adminMspID,
 			},
 			OrdererConfig: fxconfig.OrdererConfig{
-				Address: fmt.Sprintf("%s:%d", host, port),
+				Address: ordererEndpoint,
 				TLSConfig: fxconfig.TLSConfig{
-					Enabled:   false, // FIXME
-					RootCerts: []string{path.Join(s.II.TestDir, "fabric.default/crypto/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem")},
+					Enabled: false, // FIXME
+					RootCerts: []string{
+						fx.Network.OrgOrdererTLSCACertificatePath(fx.Network.Organizations[0]),
+					},
 				},
 			},
-			EndorserPKPath: path.Join(s.II.TestDir, "fabric.default/crypto/peerOrganizations/org1.example.com/users/approver2@org1.example.com/msp/signcerts/approver2@org1.example.com-cert.pem"),
+			NotificationsConfig: fxconfig.NotificationsConfig{
+				Address:   notificationsEndpoint,
+				TLSConfig: fxconfig.TLSConfig{},
+			},
+			EndorserPKPath: endorserPKPath,
 		},
 		// this is the current version
 		Version: 0,
@@ -106,7 +129,7 @@ func (s *TestSuite) TestSucceeded() {
 
 	// update the EP to require approver2
 	By("update EP to approver2")
-	updateEP(s)
+	UpdateNamespacePolicy(s.II)
 
 	// Wait for namespace update transaction to be finalized and propagated
 	// The namespace update is a transaction that needs to be committed and
@@ -123,19 +146,19 @@ func (s *TestSuite) TestSucceeded() {
 }
 
 func CheckNamespaceExists(ii *integration.Infrastructure, name string, version int) {
-	fxPlatform := func(ii *integration.Infrastructure) *nwofabricx.Platform {
-		for _, t := range ii.NWO.Platforms {
-			if fx, ok := t.(*nwofabricx.Platform); ok {
-				return fx
-			}
-		}
-		return nil
-	}
-
 	exp := network.Namespace{Name: name, Version: version}
 
 	// first we find out fabric-x platform
 	fx := fxPlatform(ii)
 	Expect(fx).NotTo(BeNil())
 	Eventually(fx.Network.ListInstalledNames(), timeout, interval).Should(ContainElements(exp), "namespace '%s' should be present with version %d after update", name, version)
+}
+
+func fxPlatform(ii *integration.Infrastructure) *nwofabricx.Platform {
+	for _, t := range ii.NWO.Platforms {
+		if fx, ok := t.(*nwofabricx.Platform); ok {
+			return fx
+		}
+	}
+	return nil
 }

@@ -17,7 +17,7 @@ var ContainerCmd = []string{"run", "db", "orderer", "committer", "--insecure"}
 
 func ContainerEnvVars(peerMSPDir, scMSPID, channelName, ordererEndpoint string) []string {
 	return []string{
-		"SC_SIDECAR_LOGGING_LOGSPEC=DEBUG",
+		"SC_SIDECAR_LOGGING_LOGSPEC=debug",
 		"SC_SIDECAR_ORDERER_CHANNEL_ID=" + channelName,
 		"SC_SIDECAR_ORDERER_SIGNED_ENVELOPES=true",
 		"SC_SIDECAR_ORDERER_TLS_MODE=none",
@@ -26,7 +26,7 @@ func ContainerEnvVars(peerMSPDir, scMSPID, channelName, ordererEndpoint string) 
 		"SC_QUERY_SERVICE_SERVER_ENDPOINT=:7001",
 		"SC_QUERY_SERVICE_LOGGING_LOGSPEC=DEBUG",
 		"SC_COORDINATOR_LOGGING_LOGSPEC=DEBUG",
-		"SC_ORDERER_LOGGING_LOGSPEC=DEBUG",
+		"SC_ORDERER_LOGGING_LOGSPEC=debug",
 		"SC_ORDERER_BLOCK_SIZE=1",
 		"SC_VC_LOGGING_LOGSPEC=DEBUG",
 		"SC_VERIFIER_LOGGING_LOGSPEC=INFO",

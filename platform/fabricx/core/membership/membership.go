@@ -11,7 +11,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -24,8 +23,6 @@ import (
 	"github.com/hyperledger/fabric-x-common/msp"
 	"github.com/hyperledger/fabric-x-common/protoutil"
 )
-
-var logger = logging.MustGetLogger()
 
 type Service struct {
 	// ResourcesLock is used to serialize access to resources
@@ -210,26 +207,13 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 				continue
 			}
 
-			ep, err := parseEndpoint(epStr)
-			if err != nil {
-				return "", nil, errors.Wrapf(err, "parse orderer endpoint [%s]", epStr)
-			}
-			logger.Debugf("new OS endpoint: %s", epStr)
-
-			// skip all endpoints which are not of type OrdererBroadcastType
-			if ep.Type != OrdererBroadcastType {
-				continue
-			}
-
-			// TODO: what should we do with the endpoint id?
-
 			newOrderers = append(newOrderers, &grpc.ConnectionConfig{
-				Address:           ep.Endpoint,
+				Address:           epStr,
 				ConnectionTimeout: connectionTimeout,
 				TLSEnabled:        tlsEnabled,
 				TLSClientSideAuth: tlsClientSideAuth,
 				TLSRootCertBytes:  tlsRootCerts,
-				Usage:             ep.Type,
+				Usage:             "broadcast",
 			})
 		}
 	}
