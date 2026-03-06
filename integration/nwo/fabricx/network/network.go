@@ -64,8 +64,11 @@ func (n *Network) GenerateConfigTree() {
 	n.GenerateCryptoConfig()
 
 	// generate genesis blocks
-	err := generateConfigTxYaml(n)
-	utils.Must(err)
+	//n.WriteConfigTxConfig()
+	n.GenerateConfigTxConfig()
+
+	//err := generateConfigTxYaml(n)
+	//utils.Must(err)
 }
 
 func (n *Network) GenerateArtifacts() {
