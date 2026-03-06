@@ -36,7 +36,9 @@ func TestManager(t *testing.T) {
 	mp := &disabled.Provider{}
 	lic := &mock.LocalIdentityChecker{}
 
-	manager := view.NewManager(sp, sf, es, ip, registry, tp, mp, lic)
+	metrics := view.NewMetrics(mp)
+	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
+	manager := view.NewManager(sp, es, ip, registry, metrics, cf)
 	assert.NotNil(t, manager)
 	manager.SetContext(context.Background())
 
@@ -116,6 +118,13 @@ func TestManager(t *testing.T) {
 	res, err = view.Initiate(mockCtx, v)
 	assert.NoError(t, err)
 	assert.Equal(t, "result", res)
+
+	// Test Manager.Initiate
+	err = registry.RegisterResponder(v, "") // Register as initiator
+	assert.NoError(t, err)
+	res, err = manager.Initiate(view.GetIdentifier(v), context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, "result", res)
 }
 
 func TestManagerRegistry(t *testing.T) {
@@ -128,7 +137,9 @@ func TestManagerRegistry(t *testing.T) {
 	mp := &disabled.Provider{}
 	lic := &mock.LocalIdentityChecker{}
 
-	manager := view.NewManager(sp, sf, es, ip, registry, tp, mp, lic)
+	metrics := view.NewMetrics(mp)
+	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
+	manager := view.NewManager(sp, es, ip, registry, metrics, cf)
 
 	responder := &mock.View{}
 	err := manager.RegisterResponder(responder, "initiator")
@@ -157,7 +168,9 @@ func TestNewSessionContext(t *testing.T) {
 	mp := &disabled.Provider{}
 	lic := &mock.LocalIdentityChecker{}
 
-	manager := view.NewManager(sp, sf, es, ip, registry, tp, mp, lic)
+	metrics := view.NewMetrics(mp)
+	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
+	manager := view.NewManager(sp, es, ip, registry, metrics, cf)
 	manager.SetContext(context.Background())
 	ip.DefaultIdentityReturns(view2.Identity("me"))
 
@@ -195,19 +208,15 @@ func TestManagerOther(t *testing.T) {
 	mp := &disabled.Provider{}
 	lic := &mock.LocalIdentityChecker{}
 
-	manager := view.NewManager(sp, sf, es, ip, registry, tp, mp, lic)
-
-	// GetIdentity
-	es.GetIdentityReturns(view2.Identity("id"), nil)
-	id, err := manager.GetIdentity("endpoint", []byte("pkid"))
-	assert.NoError(t, err)
-	assert.Equal(t, view2.Identity("id"), id)
+	metrics := view.NewMetrics(mp)
+	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
+	manager := view.NewManager(sp, es, ip, registry, metrics, cf)
 
 	// RegisterContext
 	mockCtx := &mock.DisposableContext{}
 	mockCtx.IDReturns("mc1")
 	mockCtx.ContextReturns(context.Background())
-	err = manager.RegisterContext("mc1", mockCtx)
+	err := manager.RegisterContext("mc1", mockCtx)
 	assert.NoError(t, err)
 
 	c, err := manager.Context("mc1")

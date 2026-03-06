@@ -22,9 +22,10 @@ var _ = Describe("Config", func() {
 	BeforeEach(func() {
 		config = client.Config{
 			ConnectionConfig: &grpc.ConnectionConfig{
-				Address:         "127.0.0.1:0",
-				TLSEnabled:      true,
-				TLSRootCertFile: "root-ca",
+				Address:          "127.0.0.1:0",
+				TLSEnabled:       true,
+				TLSRootCertFile:  "root-ca",
+				TLSRootCertBytes: [][]byte{[]byte("cert")},
 			},
 		}
 	})

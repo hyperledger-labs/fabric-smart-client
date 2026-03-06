@@ -21,11 +21,14 @@ import (
 //go:generate counterfeiter -o mock/view_manager.go -fake-name ViewManager . ViewManager
 type ViewManager interface {
 	ExistResponderForCaller(caller string) (view.View, view.Identity, error)
-	GetIdentity(endpoint string, pkID []byte) (view.Identity, error)
 	NewSessionContext(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error)
 	DeleteContext(id view.Identity, contextID string)
 	Me() view.Identity
 	SetContext(ctx context.Context)
+}
+
+type EndpointService interface {
+	GetIdentity(endpoint string, pkID []byte) (view.Identity, error)
 }
 
 type viewManagerMock struct {
@@ -87,7 +90,7 @@ func TestService(t *testing.T) {
 	cl.MasterSessionReturns(sess, nil)
 	sess.ReceiveReturns(ch)
 
-	service := p2p.NewService(vm, cl, p2p.NewDefaultRunner())
+	service := p2p.NewService(vm, cl, vm, p2p.NewDefaultRunner())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -129,7 +132,7 @@ func TestService_MasterSessionError(t *testing.T) {
 	cl := &mock.CommLayer{}
 	cl.MasterSessionReturns(nil, errors.New("master session error"))
 
-	service := p2p.NewService(vm, cl, p2p.NewDefaultRunner())
+	service := p2p.NewService(vm, cl, vm, p2p.NewDefaultRunner())
 	err := service.Start(context.Background())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed getting master session")
@@ -150,7 +153,7 @@ func TestService_HandleResponderError(t *testing.T) {
 	cl.MasterSessionReturns(sess, nil)
 	sess.ReceiveReturns(ch)
 
-	service := p2p.NewService(vm, cl, p2p.NewDefaultRunner())
+	service := p2p.NewService(vm, cl, vm, p2p.NewDefaultRunner())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

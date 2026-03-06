@@ -14,7 +14,7 @@ type Metrics struct {
 	Contexts metrics.Gauge
 }
 
-func newMetrics(p metrics.Provider) *Metrics {
+func NewMetrics(p metrics.Provider) *Metrics {
 	return &Metrics{
 		Contexts: p.NewGauge(metrics.GaugeOpts{
 			Name: "contexts",
