@@ -48,11 +48,6 @@ type ViewManager struct {
 	deleteContextArgsForCall []struct {
 		arg1 string
 	}
-	SetContextStub        func(context.Context)
-	setContextMutex       sync.RWMutex
-	setContextArgsForCall []struct {
-		arg1 context.Context
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -226,38 +221,6 @@ func (fake *ViewManager) DeleteContextArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *ViewManager) SetContext(arg1 context.Context) {
-	fake.setContextMutex.Lock()
-	fake.setContextArgsForCall = append(fake.setContextArgsForCall, struct {
-		arg1 context.Context
-	}{arg1})
-	stub := fake.SetContextStub
-	fake.recordInvocation("SetContext", []interface{}{arg1})
-	fake.setContextMutex.Unlock()
-	if stub != nil {
-		fake.SetContextStub(arg1)
-	}
-}
-
-func (fake *ViewManager) SetContextCallCount() int {
-	fake.setContextMutex.RLock()
-	defer fake.setContextMutex.RUnlock()
-	return len(fake.setContextArgsForCall)
-}
-
-func (fake *ViewManager) SetContextCalls(stub func(context.Context)) {
-	fake.setContextMutex.Lock()
-	defer fake.setContextMutex.Unlock()
-	fake.SetContextStub = stub
-}
-
-func (fake *ViewManager) SetContextArgsForCall(i int) context.Context {
-	fake.setContextMutex.RLock()
-	defer fake.setContextMutex.RUnlock()
-	argsForCall := fake.setContextArgsForCall[i]
-	return argsForCall.arg1
-}
-
 func (fake *ViewManager) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
@@ -267,8 +230,6 @@ func (fake *ViewManager) Invocations() map[string][][]interface{} {
 	defer fake.newSessionContextMutex.RUnlock()
 	fake.deleteContextMutex.RLock()
 	defer fake.deleteContextMutex.RUnlock()
-	fake.setContextMutex.RLock()
-	defer fake.setContextMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

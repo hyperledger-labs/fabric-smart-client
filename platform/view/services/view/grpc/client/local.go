@@ -55,7 +55,7 @@ func (n *LocalClient) CallView(fid string, in []byte) (interface{}, error) {
 		return nil, errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
 	span.AddEvent("start_initiate_view")
-	result, err := manager.InitiateView(f, ctx)
+	result, err := manager.InitiateView(ctx, f)
 	span.AddEvent("end_initiate_view")
 	if err != nil {
 		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)

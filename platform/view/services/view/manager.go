@@ -67,7 +67,6 @@ type Manager struct {
 	registry         *Registry
 	metrics          *Metrics
 
-	ctx        context.Context
 	contexts   map[string]DisposableContext
 	contextsMu sync.RWMutex
 }
@@ -125,24 +124,24 @@ func (cm *Manager) GetResponder(initiatedBy interface{}) (view.View, error) {
 }
 
 // Initiate initiates a protocol for the given view ID.
-func (cm *Manager) Initiate(id string, ctx context.Context) (interface{}, error) {
+func (cm *Manager) Initiate(ctx context.Context, id string) (interface{}, error) {
 	v, err := cm.registry.GetView(id)
 	if err != nil {
 		return nil, err
 	}
 
-	return cm.InitiateViewWithIdentity(v, cm.identityProvider.DefaultIdentity(), ctx)
+	return cm.InitiateViewWithIdentity(ctx, v, cm.identityProvider.DefaultIdentity())
 }
 
 // InitiateView initiates a protocol for the given view.
-func (cm *Manager) InitiateView(view view.View, ctx context.Context) (interface{}, error) {
-	return cm.InitiateViewWithIdentity(view, cm.identityProvider.DefaultIdentity(), ctx)
+func (cm *Manager) InitiateView(ctx context.Context, view view.View) (interface{}, error) {
+	return cm.InitiateViewWithIdentity(ctx, view, cm.identityProvider.DefaultIdentity())
 }
 
 // InitiateViewWithIdentity initiates a protocol for the given view and initiator identity.
-func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, ctx context.Context) (interface{}, error) {
+func (cm *Manager) InitiateViewWithIdentity(ctx context.Context, view view.View, id view.Identity) (interface{}, error) {
 	if ctx == nil {
-		ctx = cm.getCurrentContext()
+		panic("context is nil")
 	}
 	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(ctx))
 	c, err := cm.newChildContextForInitiator(ctx, view, id, "")
@@ -162,18 +161,18 @@ func (cm *Manager) InitiateViewWithIdentity(view view.View, id view.Identity, ct
 }
 
 // InitiateContext initiates a view context for the given view.
-func (cm *Manager) InitiateContext(view view.View) (view.Context, error) {
-	return cm.InitiateContextFrom(cm.getCurrentContext(), view, cm.identityProvider.DefaultIdentity(), "")
+func (cm *Manager) InitiateContext(ctx context.Context, view view.View) (view.Context, error) {
+	return cm.InitiateContextFrom(ctx, view, cm.identityProvider.DefaultIdentity(), "")
 }
 
 // InitiateContextWithIdentity initiates a view context for the given view and initiator identity.
-func (cm *Manager) InitiateContextWithIdentity(view view.View, id view.Identity) (view.Context, error) {
-	return cm.InitiateContextFrom(cm.getCurrentContext(), view, id, "")
+func (cm *Manager) InitiateContextWithIdentity(ctx context.Context, view view.View, id view.Identity) (view.Context, error) {
+	return cm.InitiateContextFrom(ctx, view, id, "")
 }
 
 // InitiateContextWithIdentityAndID initiates a view context for the given view, initiator identity, and context ID.
-func (cm *Manager) InitiateContextWithIdentityAndID(view view.View, id view.Identity, contextID string) (view.Context, error) {
-	return cm.InitiateContextFrom(cm.getCurrentContext(), view, id, contextID)
+func (cm *Manager) InitiateContextWithIdentityAndID(ctx context.Context, view view.View, id view.Identity, contextID string) (view.Context, error) {
+	return cm.InitiateContextFrom(ctx, view, id, contextID)
 }
 
 // InitiateContextFrom initiates a view context for the given view, initiator identity, and context ID from the given go context.
@@ -319,18 +318,4 @@ func (cm *Manager) DeleteContext(contextID string) {
 		delete(cm.contexts, contextID)
 		cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 	}
-}
-
-func (cm *Manager) getCurrentContext() context.Context {
-	cm.contextsMu.Lock()
-	ctx := cm.ctx
-	cm.contextsMu.Unlock()
-	return ctx
-}
-
-// SetContext sets the root context.
-func (cm *Manager) SetContext(ctx context.Context) {
-	cm.contextsMu.Lock()
-	cm.ctx = ctx
-	cm.contextsMu.Unlock()
 }

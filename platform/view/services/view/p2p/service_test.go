@@ -23,7 +23,6 @@ type ViewManager interface {
 	ExistResponderForCaller(caller string) (view.View, view.Identity, error)
 	NewSessionContext(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error)
 	DeleteContext(contextID string)
-	SetContext(ctx context.Context)
 }
 
 type EndpointService interface {
@@ -38,7 +37,6 @@ type viewManagerMock struct {
 	NewSessionContextFunc       func(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error)
 	DeleteContextFunc           func(contextID string)
 	DefaultIdentityFunc         func() view.Identity
-	SetContextFunc              func(ctx context.Context)
 }
 
 func (m *viewManagerMock) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
@@ -73,12 +71,6 @@ func (m *viewManagerMock) DefaultIdentity() view.Identity {
 		return m.DefaultIdentityFunc()
 	}
 	return view.Identity("me")
-}
-
-func (m *viewManagerMock) SetContext(ctx context.Context) {
-	if m.SetContextFunc != nil {
-		m.SetContextFunc(ctx)
-	}
 }
 
 func TestService(t *testing.T) {

@@ -33,7 +33,7 @@ func TestManagerWithMockFactory(t *testing.T) {
 		parentCtx.IDReturns("ctx-id-1")
 		cf.NewForInitiatorReturns(parentCtx, nil)
 
-		ctx, err := manager.InitiateContext(v)
+		ctx, err := manager.InitiateContext(context.Background(), v)
 		assert.NoError(t, err)
 		assert.NotNil(t, ctx)
 		assert.Equal(t, 1, cf.NewForInitiatorCallCount())

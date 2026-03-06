@@ -99,7 +99,7 @@ func (s *client) CallView(vid string, input []byte, ctx context.Context) (interf
 		return nil, errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", vid, err)
 	}
 	span.AddEvent("initiate_view")
-	raw, err := s.viewManager.InitiateView(f, newCtx)
+	raw, err := s.viewManager.InitiateView(newCtx, f)
 	if err == nil {
 		logger.Debugf("Finished call view [%s] on input [%v]", vid, string(input))
 	}
@@ -124,7 +124,7 @@ func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request 
 	if err != nil {
 		return errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", vid, err)
 	}
-	viewContext, err := s.viewManager.InitiateContext(f)
+	viewContext, err := s.viewManager.InitiateContext(request.Context(), f)
 	if err != nil {
 		return errors.Wrapf(view.ErrViewExecutionFailed, "failed instantiating context for view [%s]: %v", vid, err)
 	}
