@@ -10,12 +10,6 @@ import (
 )
 
 type ViewManager struct {
-	DeleteContextStub        func(view.Identity, string)
-	deleteContextMutex       sync.RWMutex
-	deleteContextArgsForCall []struct {
-		arg1 view.Identity
-		arg2 string
-	}
 	ExistResponderForCallerStub        func(string) (view.View, view.Identity, error)
 	existResponderForCallerMutex       sync.RWMutex
 	existResponderForCallerArgsForCall []struct {
@@ -30,30 +24,6 @@ type ViewManager struct {
 		result1 view.View
 		result2 view.Identity
 		result3 error
-	}
-	GetIdentityStub        func(string, []byte) (view.Identity, error)
-	getIdentityMutex       sync.RWMutex
-	getIdentityArgsForCall []struct {
-		arg1 string
-		arg2 []byte
-	}
-	getIdentityReturns struct {
-		result1 view.Identity
-		result2 error
-	}
-	getIdentityReturnsOnCall map[int]struct {
-		result1 view.Identity
-		result2 error
-	}
-	MeStub        func() view.Identity
-	meMutex       sync.RWMutex
-	meArgsForCall []struct {
-	}
-	meReturns struct {
-		result1 view.Identity
-	}
-	meReturnsOnCall map[int]struct {
-		result1 view.Identity
 	}
 	NewSessionContextStub        func(context.Context, string, view.Session, view.Identity) (view.Context, bool, error)
 	newSessionContextMutex       sync.RWMutex
@@ -73,6 +43,11 @@ type ViewManager struct {
 		result2 bool
 		result3 error
 	}
+	DeleteContextStub        func(string)
+	deleteContextMutex       sync.RWMutex
+	deleteContextArgsForCall []struct {
+		arg1 string
+	}
 	SetContextStub        func(context.Context)
 	setContextMutex       sync.RWMutex
 	setContextArgsForCall []struct {
@@ -80,39 +55,6 @@ type ViewManager struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
-}
-
-func (fake *ViewManager) DeleteContext(arg1 view.Identity, arg2 string) {
-	fake.deleteContextMutex.Lock()
-	fake.deleteContextArgsForCall = append(fake.deleteContextArgsForCall, struct {
-		arg1 view.Identity
-		arg2 string
-	}{arg1, arg2})
-	stub := fake.DeleteContextStub
-	fake.recordInvocation("DeleteContext", []interface{}{arg1, arg2})
-	fake.deleteContextMutex.Unlock()
-	if stub != nil {
-		fake.DeleteContextStub(arg1, arg2)
-	}
-}
-
-func (fake *ViewManager) DeleteContextCallCount() int {
-	fake.deleteContextMutex.RLock()
-	defer fake.deleteContextMutex.RUnlock()
-	return len(fake.deleteContextArgsForCall)
-}
-
-func (fake *ViewManager) DeleteContextCalls(stub func(view.Identity, string)) {
-	fake.deleteContextMutex.Lock()
-	defer fake.deleteContextMutex.Unlock()
-	fake.DeleteContextStub = stub
-}
-
-func (fake *ViewManager) DeleteContextArgsForCall(i int) (view.Identity, string) {
-	fake.deleteContextMutex.RLock()
-	defer fake.deleteContextMutex.RUnlock()
-	argsForCall := fake.deleteContextArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *ViewManager) ExistResponderForCaller(arg1 string) (view.View, view.Identity, error) {
@@ -180,129 +122,6 @@ func (fake *ViewManager) ExistResponderForCallerReturnsOnCall(i int, result1 vie
 		result2 view.Identity
 		result3 error
 	}{result1, result2, result3}
-}
-
-func (fake *ViewManager) GetIdentity(arg1 string, arg2 []byte) (view.Identity, error) {
-	var arg2Copy []byte
-	if arg2 != nil {
-		arg2Copy = make([]byte, len(arg2))
-		copy(arg2Copy, arg2)
-	}
-	fake.getIdentityMutex.Lock()
-	ret, specificReturn := fake.getIdentityReturnsOnCall[len(fake.getIdentityArgsForCall)]
-	fake.getIdentityArgsForCall = append(fake.getIdentityArgsForCall, struct {
-		arg1 string
-		arg2 []byte
-	}{arg1, arg2Copy})
-	stub := fake.GetIdentityStub
-	fakeReturns := fake.getIdentityReturns
-	fake.recordInvocation("GetIdentity", []interface{}{arg1, arg2Copy})
-	fake.getIdentityMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *ViewManager) GetIdentityCallCount() int {
-	fake.getIdentityMutex.RLock()
-	defer fake.getIdentityMutex.RUnlock()
-	return len(fake.getIdentityArgsForCall)
-}
-
-func (fake *ViewManager) GetIdentityCalls(stub func(string, []byte) (view.Identity, error)) {
-	fake.getIdentityMutex.Lock()
-	defer fake.getIdentityMutex.Unlock()
-	fake.GetIdentityStub = stub
-}
-
-func (fake *ViewManager) GetIdentityArgsForCall(i int) (string, []byte) {
-	fake.getIdentityMutex.RLock()
-	defer fake.getIdentityMutex.RUnlock()
-	argsForCall := fake.getIdentityArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *ViewManager) GetIdentityReturns(result1 view.Identity, result2 error) {
-	fake.getIdentityMutex.Lock()
-	defer fake.getIdentityMutex.Unlock()
-	fake.GetIdentityStub = nil
-	fake.getIdentityReturns = struct {
-		result1 view.Identity
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *ViewManager) GetIdentityReturnsOnCall(i int, result1 view.Identity, result2 error) {
-	fake.getIdentityMutex.Lock()
-	defer fake.getIdentityMutex.Unlock()
-	fake.GetIdentityStub = nil
-	if fake.getIdentityReturnsOnCall == nil {
-		fake.getIdentityReturnsOnCall = make(map[int]struct {
-			result1 view.Identity
-			result2 error
-		})
-	}
-	fake.getIdentityReturnsOnCall[i] = struct {
-		result1 view.Identity
-		result2 error
-	}{result1, result2}
-}
-
-func (fake *ViewManager) Me() view.Identity {
-	fake.meMutex.Lock()
-	ret, specificReturn := fake.meReturnsOnCall[len(fake.meArgsForCall)]
-	fake.meArgsForCall = append(fake.meArgsForCall, struct {
-	}{})
-	stub := fake.MeStub
-	fakeReturns := fake.meReturns
-	fake.recordInvocation("Me", []interface{}{})
-	fake.meMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ViewManager) MeCallCount() int {
-	fake.meMutex.RLock()
-	defer fake.meMutex.RUnlock()
-	return len(fake.meArgsForCall)
-}
-
-func (fake *ViewManager) MeCalls(stub func() view.Identity) {
-	fake.meMutex.Lock()
-	defer fake.meMutex.Unlock()
-	fake.MeStub = stub
-}
-
-func (fake *ViewManager) MeReturns(result1 view.Identity) {
-	fake.meMutex.Lock()
-	defer fake.meMutex.Unlock()
-	fake.MeStub = nil
-	fake.meReturns = struct {
-		result1 view.Identity
-	}{result1}
-}
-
-func (fake *ViewManager) MeReturnsOnCall(i int, result1 view.Identity) {
-	fake.meMutex.Lock()
-	defer fake.meMutex.Unlock()
-	fake.MeStub = nil
-	if fake.meReturnsOnCall == nil {
-		fake.meReturnsOnCall = make(map[int]struct {
-			result1 view.Identity
-		})
-	}
-	fake.meReturnsOnCall[i] = struct {
-		result1 view.Identity
-	}{result1}
 }
 
 func (fake *ViewManager) NewSessionContext(arg1 context.Context, arg2 string, arg3 view.Session, arg4 view.Identity) (view.Context, bool, error) {
@@ -375,6 +194,38 @@ func (fake *ViewManager) NewSessionContextReturnsOnCall(i int, result1 view.Cont
 	}{result1, result2, result3}
 }
 
+func (fake *ViewManager) DeleteContext(arg1 string) {
+	fake.deleteContextMutex.Lock()
+	fake.deleteContextArgsForCall = append(fake.deleteContextArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.DeleteContextStub
+	fake.recordInvocation("DeleteContext", []interface{}{arg1})
+	fake.deleteContextMutex.Unlock()
+	if stub != nil {
+		fake.DeleteContextStub(arg1)
+	}
+}
+
+func (fake *ViewManager) DeleteContextCallCount() int {
+	fake.deleteContextMutex.RLock()
+	defer fake.deleteContextMutex.RUnlock()
+	return len(fake.deleteContextArgsForCall)
+}
+
+func (fake *ViewManager) DeleteContextCalls(stub func(string)) {
+	fake.deleteContextMutex.Lock()
+	defer fake.deleteContextMutex.Unlock()
+	fake.DeleteContextStub = stub
+}
+
+func (fake *ViewManager) DeleteContextArgsForCall(i int) string {
+	fake.deleteContextMutex.RLock()
+	defer fake.deleteContextMutex.RUnlock()
+	argsForCall := fake.deleteContextArgsForCall[i]
+	return argsForCall.arg1
+}
+
 func (fake *ViewManager) SetContext(arg1 context.Context) {
 	fake.setContextMutex.Lock()
 	fake.setContextArgsForCall = append(fake.setContextArgsForCall, struct {
@@ -410,6 +261,14 @@ func (fake *ViewManager) SetContextArgsForCall(i int) context.Context {
 func (fake *ViewManager) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.existResponderForCallerMutex.RLock()
+	defer fake.existResponderForCallerMutex.RUnlock()
+	fake.newSessionContextMutex.RLock()
+	defer fake.newSessionContextMutex.RUnlock()
+	fake.deleteContextMutex.RLock()
+	defer fake.deleteContextMutex.RUnlock()
+	fake.setContextMutex.RLock()
+	defer fake.setContextMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

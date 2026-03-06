@@ -116,7 +116,7 @@ func (c *contextFactory) NewForResponder(
 	contextID string,
 	me view.Identity,
 	session view.Session,
-	party view.Identity,
+	remote view.Identity,
 ) (ParentContext, error) {
 	return NewContext(
 		ctx,
@@ -127,7 +127,7 @@ func (c *contextFactory) NewForResponder(
 		c.identityProvider,
 		me,
 		session,
-		party,
+		remote,
 		c.tracer,
 		c.localIdentityChecker,
 	)
@@ -204,7 +204,7 @@ func NewContext(
 	sessionFactory SessionFactory,
 	resolver EndpointService,
 	idProvider IdentityProvider,
-	party view.Identity,
+	me view.Identity,
 	session view.Session,
 	caller view.Identity,
 	tracer trace.Tracer,
@@ -220,7 +220,7 @@ func NewContext(
 		sessionFactory:       sessionFactory,
 		idProvider:           idProvider,
 		session:              session,
-		me:                   party,
+		me:                   me,
 		sessions:             newSessions(),
 		caller:               caller,
 		sp:                   sp,
