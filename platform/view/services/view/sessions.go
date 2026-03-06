@@ -13,13 +13,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"go.uber.org/zap/zapcore"
 )
 
+// Session encapsulates a communication channel to an endpoint.
+//
 //go:generate counterfeiter -o mock/session.go -fake-name Session . Session
-
-// Session encapsulates a communication channel to an endpoint
 type Session = view.Session
 
+// Sessions is responsible for managing a set of sessions.
 type Sessions struct {
 	s  map[string]view.Session
 	mu sync.RWMutex
@@ -29,22 +31,26 @@ func newSessions() *Sessions {
 	return &Sessions{s: map[string]view.Session{}}
 }
 
-func (s *Sessions) Lock() {
-	s.mu.Lock()
-}
-
-func (s *Sessions) Unlock() {
-	s.mu.Unlock()
-}
-
+// PutDefault registers a session as the default session for the given party.
 func (s *Sessions) PutDefault(party view.Identity, session view.Session) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.s[party.UniqueID()] = session
 }
 
+// Get returns the session for the given view ID and party.
 func (s *Sessions) Get(viewId string, party view.Identity) view.Session {
-	return s.s[lookupKey(viewId, party)]
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	key := lookupKey(viewId, party)
+	session := s.s[key]
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Sessions.Get [%s] found [%t]", key, session != nil)
+	}
+	return session
 }
 
+// GetFirstOpen returns the first open session for the given view ID and list of parties.
 func (s *Sessions) GetFirstOpen(viewId string, parties iterators.Iterator[view.Identity]) (view.Session, view.Identity) {
 	defer parties.Close()
 	var targetId view.Identity
@@ -54,12 +60,12 @@ func (s *Sessions) GetFirstOpen(viewId string, parties iterators.Iterator[view.I
 		}
 
 		session := s.Get(viewId, party)
-		if session != nil && session.Info().Closed {
-			logger.Debugf("removing session [%s:%s], it is closed", viewId, party)
-			s.Delete(viewId, party)
-			return nil, party
-		}
 		if session != nil {
+			if session.Info().Closed {
+				logger.Debugf("removing session [%s:%s], it is closed", viewId, party)
+				s.Delete(viewId, party)
+				return nil, party
+			}
 			logger.Debugf("session for [%s] found with identifier [%s]", party, viewId)
 			return session, party
 		}
@@ -68,19 +74,35 @@ func (s *Sessions) GetFirstOpen(viewId string, parties iterators.Iterator[view.I
 	return nil, targetId
 }
 
+// Put registers a session for the given view ID and party.
 func (s *Sessions) Put(viewId string, party view.Identity, session view.Session) {
-	s.s[lookupKey(viewId, party)] = session
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := lookupKey(viewId, party)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("Sessions.Put [%s] found [%t]", key, session != nil)
+	}
+	s.s[key] = session
 }
 
+// Delete removes the session for the given view ID and party.
 func (s *Sessions) Delete(viewId string, party view.Identity) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	delete(s.s, lookupKey(viewId, party))
 }
 
+// Reset removes all registered sessions.
 func (s *Sessions) Reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.s = map[string]view.Session{}
 }
 
+// GetSessionIDs returns the IDs of all registered sessions.
 func (s *Sessions) GetSessionIDs() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	ids := make([]string, 0, len(s.s))
 	for _, session := range s.s {
 		ids = append(ids, session.Info().ID)

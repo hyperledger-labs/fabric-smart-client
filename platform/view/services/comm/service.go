@@ -70,11 +70,12 @@ func (s *Service) Stop() {
 	s.Node.Stop()
 }
 
-func (s *Service) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error) {
+func (s *Service) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg interface{}) (view.Session, error) {
 	if err := s.init(); err != nil {
 		return nil, errors.Errorf("communication service not ready [%s]", err)
 	}
-	return s.Node.NewSessionWithID(sessionID, contextID, endpoint, pkid, caller, msg)
+	vMsg, _ := msg.(*view.Message)
+	return s.Node.NewSessionWithID(sessionID, contextID, endpoint, pkid, caller, vMsg)
 }
 
 func (s *Service) NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error) {

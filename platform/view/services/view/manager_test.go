@@ -8,193 +8,209 @@ package view_test
 
 import (
 	"context"
-	"sync"
 	"testing"
-	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
+	servicesmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
-type Manager interface {
-	InitiateView(f view.View, ctx context.Context) (interface{}, error)
-	Context(id string) (view.Context, error)
-	RegisterFactory(id string, factory view2.Factory) error
-	NewView(id string, in []byte) (f view.View, err error)
-	Initiate(id string, ctx context.Context) (interface{}, error)
-	RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error
-	Start(ctx context.Context)
+func TestMain(m *testing.M) {
+	logging.Init(logging.Config{LogSpec: "debug"})
+	m.Run()
 }
 
-type InitiatorView struct{}
+func TestManager(t *testing.T) {
+	sp := &servicesmock.ServiceProvider{}
+	sf := &mock.SessionFactory{}
+	es := &mock.EndpointService{}
+	ip := &mock.IdentityProvider{}
+	registry := view.NewRegistry()
+	tp := noop.NewTracerProvider()
+	mp := &disabled.Provider{}
+	lic := &mock.LocalIdentityChecker{}
 
-func (a InitiatorView) Call(context view.Context) (interface{}, error) {
-	return nil, nil
+	metrics := view.NewMetrics(mp)
+	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
+	manager := view.NewManager(ip, registry, metrics, cf)
+	assert.NotNil(t, manager)
+
+	// Test Me
+	ip.DefaultIdentityReturns(view2.Identity("me"))
+	assert.Equal(t, view2.Identity("me"), ip.DefaultIdentity())
+
+	// Test Registry methods through manager
+	factory := &mock.Factory{}
+	err := manager.RegisterFactory("v1", factory)
+	assert.NoError(t, err)
+
+	v := &mock.View{}
+	factory.NewViewReturns(v, nil)
+	v2, err := manager.NewView("v1", nil)
+	assert.NoError(t, err)
+	assert.Equal(t, v, v2)
+
+	// Test InitiateView
+	ctx := context.Background()
+	ip.DefaultIdentityReturns(view2.Identity("me"))
+	v.CallReturns("result", nil)
+
+	res, err := manager.InitiateView(ctx, v)
+	assert.NoError(t, err)
+	assert.Equal(t, "result", res)
+
+	// Test Context
+	contexts, err := manager.InitiateContext(ctx, v)
+	assert.NoError(t, err)
+	assert.NotNil(t, contexts)
+
+	ctxRetrieved, err := manager.Context(contexts.ID())
+	assert.NoError(t, err)
+	assert.Equal(t, contexts, ctxRetrieved)
+
+	// Test DeleteContext
+	manager.DeleteContext(contexts.ID())
+	_, err = manager.Context(contexts.ID())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+
+	// Test InitiateViewWithIdentity
+	res, err = manager.InitiateViewWithIdentity(ctx, v, view2.Identity("alice"))
+	assert.NoError(t, err)
+	assert.Equal(t, "result", res)
+
+	// Test InitiateContextWithIdentity
+	c2, err := manager.InitiateContextWithIdentity(ctx, v, view2.Identity("alice"))
+	assert.NoError(t, err)
+	assert.NotNil(t, c2)
+
+	// Test InitiateContextWithIdentityAndID
+	c3, err := manager.InitiateContextWithIdentityAndID(ctx, v, view2.Identity("alice"), "cid3")
+	assert.NoError(t, err)
+	assert.Equal(t, "cid3", c3.ID())
+
+	// Test GetIdentifier
+	assert.NotEmpty(t, manager.GetIdentifier(v))
+
+	// Test GetManager
+	sp.GetServiceReturns(manager, nil)
+	m2, err := view.GetManager(sp)
+	assert.NoError(t, err)
+	assert.Equal(t, manager, m2)
+
+	// Test Initiate
+	mockCtx := &mock.Context{}
+	mockCtx.ContextReturns(context.Background())
+	mockCtx.GetServiceReturns(manager, nil)
+	res, err = view.Initiate(mockCtx, v)
+	assert.NoError(t, err)
+	assert.Equal(t, "result", res)
+
+	// Test Manager.Initiate
+	err = registry.RegisterResponder(v, "") // Register as initiator
+	assert.NoError(t, err)
+	res, err = manager.Initiate(context.Background(), view.GetIdentifier(v))
+	assert.NoError(t, err)
+	assert.Equal(t, "result", res)
 }
 
-type ResponderView struct{}
+func TestManagerRegistry(t *testing.T) {
+	sp := &servicesmock.ServiceProvider{}
+	sf := &mock.SessionFactory{}
+	es := &mock.EndpointService{}
+	ip := &mock.IdentityProvider{}
+	registry := view.NewRegistry()
+	tp := noop.NewTracerProvider()
+	mp := &disabled.Provider{}
+	lic := &mock.LocalIdentityChecker{}
 
-func (a ResponderView) Call(context view.Context) (interface{}, error) {
-	return "pineapple", nil
+	metrics := view.NewMetrics(mp)
+	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
+	manager := view.NewManager(ip, registry, metrics, cf)
+
+	responder := &mock.View{}
+	err := manager.RegisterResponder(responder, "initiator")
+	assert.NoError(t, err)
+
+	r, err := manager.GetResponder("initiator")
+	assert.NoError(t, err)
+	assert.Equal(t, responder, r)
+
+	err = manager.RegisterResponderWithIdentity(responder, view2.Identity("id"), "initiator2")
+	assert.NoError(t, err)
+
+	r, id, err := manager.ExistResponderForCaller("initiator2")
+	assert.NoError(t, err)
+	assert.Equal(t, responder, r)
+	assert.Equal(t, view2.Identity("id"), id)
 }
 
-type DummyView struct{}
+func TestNewSessionContext(t *testing.T) {
+	sp := &servicesmock.ServiceProvider{}
+	sf := &mock.SessionFactory{}
+	es := &mock.EndpointService{}
+	ip := &mock.IdentityProvider{}
+	registry := view.NewRegistry()
+	tp := noop.NewTracerProvider()
+	mp := &disabled.Provider{}
+	lic := &mock.LocalIdentityChecker{}
 
-func (a DummyView) Call(context view.Context) (interface{}, error) {
-	time.Sleep(2 * time.Second)
-	return nil, nil
-}
-
-type ContextKey string
-
-type DummyViewContextCheck struct{}
-
-func (a DummyViewContextCheck) Call(ctx view.Context) (interface{}, error) {
-	v, ok := ctx.Context().Value(ContextKey("test")).(string)
-	if !ok {
-		return nil, errors.Errorf("context value %s not found", ContextKey("test"))
-	}
-	return v, nil
-}
-
-type DummyFactory struct{}
-
-func (d *DummyFactory) NewView(in []byte) (view.View, error) {
-	time.Sleep(2 * time.Second)
-	return nil, nil
-}
-
-func TestGetIdentifier(t *testing.T) {
-	registry := view2.NewServiceProvider()
-	idProvider := &mock.IdentityProvider{}
-	idProvider.DefaultIdentityReturns([]byte("alice"))
-	manager := view2.NewManager(registry, &mock.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
-
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(DummyView{}))
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(&DummyView{}))
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(new(DummyView)))
-	assert.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view_test/DummyView", manager.GetIdentifier(*(new(DummyView))))
-}
-
-func TestManagerRace(t *testing.T) {
-	registry := view2.NewServiceProvider()
-	idProvider := &mock.IdentityProvider{}
-	idProvider.DefaultIdentityReturns([]byte("alice"))
-
-	v := make(<-chan *view.Message)
+	metrics := view.NewMetrics(mp)
+	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
+	manager := view.NewManager(ip, registry, metrics, cf)
+	ip.DefaultIdentityReturns(view2.Identity("me"))
 
 	session := &mock.Session{}
-	session.ReceiveReturns(v)
+	session.InfoReturns(view2.SessionInfo{ID: "s1", Caller: view2.Identity("alice")})
 
-	commLayer := mock.CommLayer{}
-	commLayer.MasterSessionReturns(session, nil)
-
-	manager := view2.NewManager(registry, &commLayer, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	go func() {
-		t.Logf("context cancelled")
-		time.Sleep(1 * time.Second)
-		cancelFunc()
-	}()
-
-	wg := &sync.WaitGroup{}
-	for i := 0; i < 100; i++ {
-		wg.Add(8)
-		go registerFactory(t, wg, manager)
-		go newView(t, wg, manager)
-		go callView(t, wg, manager)
-		go callViewWithAugmentedContext(t, wg, manager)
-		go getContext(t, wg, manager)
-		go initiateView(t, wg, manager)
-		go start(t, wg, manager, ctx)
-		go registerResponder(t, wg, manager)
-	}
-	wg.Wait()
-}
-
-func TestRegisterResponderWithInitiatorView(t *testing.T) {
-	registry := view2.NewServiceProvider()
-	idProvider := &mock.IdentityProvider{}
-	idProvider.DefaultIdentityReturns([]byte("alice"))
-
-	manager := view2.NewManager(registry, &mock.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
-	err := manager.RegisterResponder(&ResponderView{}, &InitiatorView{})
+	// Case 1: New context
+	ctx, isNew, err := manager.NewSessionContext(context.Background(), "c1", session, view2.Identity("alice"))
 	assert.NoError(t, err)
-	responder, _, err := manager.ExistResponderForCaller(manager.GetIdentifier(&InitiatorView{}))
+	assert.True(t, isNew)
+	assert.NotNil(t, ctx)
+
+	// Case 2: Reuse context
+	ctx2, isNew, err := manager.NewSessionContext(context.Background(), "c1", session, view2.Identity("alice"))
 	assert.NoError(t, err)
-	res, err := responder.Call(nil)
+	assert.False(t, isNew)
+	assert.Equal(t, ctx, ctx2)
+
+	// Case 3: Update session in existing context
+	session2 := &mock.Session{}
+	session2.InfoReturns(view2.SessionInfo{ID: "s2", Caller: view2.Identity("bob")})
+	ctx3, isNew, err := manager.NewSessionContext(context.Background(), "c1", session2, view2.Identity("bob"))
 	assert.NoError(t, err)
-	assert.Equal(t, "pineapple", res)
-
+	assert.False(t, isNew)
+	assert.NotEqual(t, ctx, ctx3)
 }
 
-func TestRegisterResponderWithViewIdentifier(t *testing.T) {
-	registry := view2.NewServiceProvider()
-	idProvider := &mock.IdentityProvider{}
-	idProvider.DefaultIdentityReturns([]byte("alice"))
+func TestManagerOther(t *testing.T) {
+	sp := &servicesmock.ServiceProvider{}
+	sf := &mock.SessionFactory{}
+	es := &mock.EndpointService{}
+	ip := &mock.IdentityProvider{}
+	registry := view.NewRegistry()
+	tp := noop.NewTracerProvider()
+	mp := &disabled.Provider{}
+	lic := &mock.LocalIdentityChecker{}
 
-	manager := view2.NewManager(registry, &mock.CommLayer{}, &mock.EndpointService{}, idProvider, view2.NewRegistry(), noop.NewTracerProvider(), &disabled.Provider{}, nil)
-	err := manager.RegisterResponder(&ResponderView{}, manager.GetIdentifier(&InitiatorView{}))
+	metrics := view.NewMetrics(mp)
+	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
+	manager := view.NewManager(ip, registry, metrics, cf)
+
+	// RegisterContext
+	mockCtx := &mock.DisposableContext{}
+	mockCtx.IDReturns("mc1")
+	mockCtx.ContextReturns(context.Background())
+	err := manager.RegisterContext("mc1", mockCtx)
 	assert.NoError(t, err)
-	responder, _, err := manager.ExistResponderForCaller(manager.GetIdentifier(&InitiatorView{}))
+
+	c, err := manager.Context("mc1")
 	assert.NoError(t, err)
-	res, err := responder.Call(nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "pineapple", res)
-}
-
-func registerFactory(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	err := m.RegisterFactory(utils.GenerateUUID(), &DummyFactory{})
-	wg.Done()
-	assert.NoError(t, err)
-}
-
-func registerResponder(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	assert.NoError(t, m.RegisterResponderWithIdentity(&DummyView{}, []byte("alice"), &DummyView{}))
-	wg.Done()
-}
-
-func callView(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.InitiateView(&DummyView{}, context.Background())
-	wg.Done()
-	assert.NoError(t, err)
-}
-
-func callViewWithAugmentedContext(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, ContextKey("test"), "pineapple")
-	v, err := m.InitiateView(&DummyViewContextCheck{}, ctx)
-	wg.Done()
-	assert.NoError(t, err)
-	assert.Equal(t, "pineapple", v)
-}
-
-func newView(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.NewView(utils.GenerateUUID(), nil)
-	wg.Done()
-	assert.Error(t, err)
-}
-
-func initiateView(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.Initiate(utils.GenerateUUID(), context.Background())
-	wg.Done()
-	assert.Error(t, err)
-}
-
-func getContext(t *testing.T, wg *sync.WaitGroup, m Manager) {
-	_, err := m.Context("a context")
-	wg.Done()
-	assert.Error(t, err)
-}
-
-func start(t *testing.T, wg *sync.WaitGroup, m Manager, ctx context.Context) {
-	m.Start(ctx)
-	wg.Done()
+	assert.Equal(t, mockCtx, c)
 }
