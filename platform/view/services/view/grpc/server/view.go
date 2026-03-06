@@ -55,7 +55,7 @@ func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command)
 	if err != nil {
 		return nil, errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
-	contextID, err := s.RunView(s.viewManager, f)
+	contextID, err := s.RunView(ctx, s.viewManager, f)
 	if err != nil {
 		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
@@ -77,7 +77,7 @@ func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (in
 		return nil, errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
 	logger.DebugfContext(ctx, "Initiate new view")
-	result, err := s.viewManager.InitiateView(f, ctx)
+	result, err := s.viewManager.InitiateView(ctx, f)
 
 	if err != nil {
 		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
@@ -107,7 +107,7 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 	if err != nil {
 		return errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
-	context, err := s.viewManager.InitiateContext(f)
+	context, err := s.viewManager.InitiateContext(commandServer.Context(), f)
 	if err != nil {
 		return errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
@@ -148,8 +148,8 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 }
 
 // RunView initiates a view and returns its context ID.
-func (s *viewHandler) RunView(manager ViewManager, view view2.View) (string, error) {
-	context, err := manager.InitiateContext(view)
+func (s *viewHandler) RunView(ctx context.Context, manager ViewManager, view view2.View) (string, error) {
+	context, err := manager.InitiateContext(ctx, view)
 	if err != nil {
 		return "", err
 	}

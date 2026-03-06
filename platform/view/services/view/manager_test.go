@@ -39,7 +39,6 @@ func TestManager(t *testing.T) {
 	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
 	manager := view.NewManager(ip, registry, metrics, cf)
 	assert.NotNil(t, manager)
-	manager.SetContext(context.Background())
 
 	// Test Me
 	ip.DefaultIdentityReturns(view2.Identity("me"))
@@ -61,12 +60,12 @@ func TestManager(t *testing.T) {
 	ip.DefaultIdentityReturns(view2.Identity("me"))
 	v.CallReturns("result", nil)
 
-	res, err := manager.InitiateView(v, ctx)
+	res, err := manager.InitiateView(ctx, v)
 	assert.NoError(t, err)
 	assert.Equal(t, "result", res)
 
 	// Test Context
-	contexts, err := manager.InitiateContext(v)
+	contexts, err := manager.InitiateContext(ctx, v)
 	assert.NoError(t, err)
 	assert.NotNil(t, contexts)
 
@@ -81,17 +80,17 @@ func TestManager(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 
 	// Test InitiateViewWithIdentity
-	res, err = manager.InitiateViewWithIdentity(v, view2.Identity("alice"), nil)
+	res, err = manager.InitiateViewWithIdentity(ctx, v, view2.Identity("alice"))
 	assert.NoError(t, err)
 	assert.Equal(t, "result", res)
 
 	// Test InitiateContextWithIdentity
-	c2, err := manager.InitiateContextWithIdentity(v, view2.Identity("alice"))
+	c2, err := manager.InitiateContextWithIdentity(ctx, v, view2.Identity("alice"))
 	assert.NoError(t, err)
 	assert.NotNil(t, c2)
 
 	// Test InitiateContextWithIdentityAndID
-	c3, err := manager.InitiateContextWithIdentityAndID(v, view2.Identity("alice"), "cid3")
+	c3, err := manager.InitiateContextWithIdentityAndID(ctx, v, view2.Identity("alice"), "cid3")
 	assert.NoError(t, err)
 	assert.Equal(t, "cid3", c3.ID())
 
@@ -115,7 +114,7 @@ func TestManager(t *testing.T) {
 	// Test Manager.Initiate
 	err = registry.RegisterResponder(v, "") // Register as initiator
 	assert.NoError(t, err)
-	res, err = manager.Initiate(view.GetIdentifier(v), context.Background())
+	res, err = manager.Initiate(context.Background(), view.GetIdentifier(v))
 	assert.NoError(t, err)
 	assert.Equal(t, "result", res)
 }
@@ -164,7 +163,6 @@ func TestNewSessionContext(t *testing.T) {
 	metrics := view.NewMetrics(mp)
 	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
 	manager := view.NewManager(ip, registry, metrics, cf)
-	manager.SetContext(context.Background())
 	ip.DefaultIdentityReturns(view2.Identity("me"))
 
 	session := &mock.Session{}
