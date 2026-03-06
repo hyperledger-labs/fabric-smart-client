@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package view_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
@@ -67,10 +68,32 @@ func TestRegistry(t *testing.T) {
 	err = registry.RegisterResponderWithIdentity(responder, view2.Identity("id"), "initiator2")
 	assert.NoError(t, err)
 
+	// Test RegisterResponderWithIdentity with view
+	err = registry.RegisterResponderWithIdentity(responder, view2.Identity("id"), v)
+	assert.NoError(t, err)
+
+	// Test RegisterResponderWithIdentity with invalid type
+	err = registry.RegisterResponderWithIdentity(responder, view2.Identity("id"), 123)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be a view or a string")
+
+	// Test RegisterResponderFactory error path
+	factory.NewViewReturns(nil, errors.New("factory-error"))
+	err = registry.RegisterResponderFactory(factory, "initiator3")
+	assert.Error(t, err)
+
 	r2, id, err := registry.ExistResponderForCaller("initiator2")
 	assert.NoError(t, err)
 	assert.Equal(t, responder, r2)
 	assert.Equal(t, view2.Identity("id"), id)
+
+	// ExistResponderForCaller - not found
+	_, _, err = registry.ExistResponderForCaller("not-found")
+	assert.Error(t, err)
+
+	// GetView - not found
+	_, err = registry.GetView("not-found")
+	assert.Error(t, err)
 
 	// GetView
 	err = registry.RegisterResponder(responder, "") // This registers it as initiator
@@ -82,6 +105,7 @@ func TestRegistry(t *testing.T) {
 
 	// GetIdentifier / GetName
 	assert.NotEmpty(t, view.GetIdentifier(v))
+	assert.NotEmpty(t, registry.GetIdentifier(v))
 	assert.NotEmpty(t, view.GetName(v))
 	assert.Equal(t, "<nil view>", view.GetIdentifier(nil))
 	assert.Equal(t, "<nil view>", view.GetName(nil))

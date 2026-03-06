@@ -103,7 +103,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(endpoint.NewService),
 		p.Container().Provide(
 			digutils.Identity[*endpoint.Service](),
-			dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint2.Backend), new(view.EndpointService)),
+			dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint2.Backend), new(view.EndpointService), new(p2p.EndpointService)),
 		),
 		p.Container().Provide(endpoint2.NewResolversLoader),
 
@@ -118,25 +118,23 @@ func (p *SDK) Install() error {
 
 		// View Manager
 		p.Container().Provide(view.NewRegistry),
+		p.Container().Provide(view.NewMetrics),
+		p.Container().Provide(view.NewContextFactory),
 		p.Container().Provide(func(
 			serviceProvider services.Provider,
-			sessionFactory view.SessionFactory,
 			endpointService view.EndpointService,
 			identityProvider view.IdentityProvider,
 			registry *view.Registry,
-			tracerProvider tracing.Provider,
-			metricsProvider metrics2.Provider,
-			localIdentityChecker view.LocalIdentityChecker,
+			metrics *view.Metrics,
+			contextFactory view.ContextFactory,
 		) *view.Manager {
 			return view.NewManager(
 				serviceProvider,
-				sessionFactory,
 				endpointService,
 				identityProvider,
 				registry,
-				tracerProvider,
-				metricsProvider,
-				localIdentityChecker,
+				metrics,
+				contextFactory,
 			)
 		}),
 		p.Container().Provide(p2p.NewDefaultRunner),

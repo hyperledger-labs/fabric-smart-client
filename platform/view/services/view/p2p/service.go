@@ -12,7 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 var logger = logging.MustGetLogger()
@@ -20,15 +20,13 @@ var logger = logging.MustGetLogger()
 // ViewManager models the view manager for P2P operations.
 type ViewManager interface {
 	// ExistResponderForCaller returns the responder view for the given caller.
-	ExistResponderForCaller(caller string) (view2.View, view2.Identity, error)
-	// GetIdentity returns the identity for the given endpoint and public key ID.
-	GetIdentity(endpoint string, pkID []byte) (view2.Identity, error)
+	ExistResponderForCaller(caller string) (view.View, view.Identity, error)
 	// NewSessionContext returns a context for the given session.
-	NewSessionContext(ctx context.Context, contextID string, session view2.Session, party view2.Identity) (view2.Context, bool, error)
+	NewSessionContext(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error)
 	// DeleteContext deletes the view context for the given context ID.
-	DeleteContext(id view2.Identity, contextID string)
+	DeleteContext(id view.Identity, contextID string)
 	// Me returns the default identity.
-	Me() view2.Identity
+	Me() view.Identity
 	// SetContext sets the root context.
 	SetContext(ctx context.Context)
 }
@@ -36,27 +34,29 @@ type ViewManager interface {
 // CommLayer models the communication layer for P2P operations.
 type CommLayer interface {
 	// MasterSession returns the master session.
-	MasterSession() (view2.Session, error)
+	MasterSession() (view.Session, error)
 	// NewSessionWithID returns a new session for the given arguments.
-	NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view2.Identity, msg interface{}) (view2.Session, error)
+	NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg interface{}) (view.Session, error)
 }
 
-// Service is responsible for handling incoming messages from the communication layer.
-type Service struct {
-	viewManager ViewManager
-	commLayer   CommLayer
-	runner      Runner
+// EndpointService models the dependency to the view-sdk's endpoint service.
+// It provides methods to retrieve identities.
+//
+//go:generate counterfeiter -o mock/resolver.go -fake-name EndpointService . EndpointService
+type EndpointService interface {
+	// GetIdentity returns the identity for the given endpoint and public key ID.
+	GetIdentity(endpoint string, pkID []byte) (view.Identity, error)
 }
 
 // Runner models a view runner.
 type Runner interface {
 	// RunView runs the given responder view in the given view context.
-	RunView(viewCtx view2.Context, responder view2.View) (interface{}, error)
+	RunView(viewCtx view.Context, responder view.View) (interface{}, error)
 }
 
 type defaultRunner struct{}
 
-func (r *defaultRunner) RunView(viewCtx view2.Context, responder view2.View) (interface{}, error) {
+func (r *defaultRunner) RunView(viewCtx view.Context, responder view.View) (interface{}, error) {
 	return viewCtx.RunView(responder)
 }
 
@@ -65,16 +65,26 @@ func NewDefaultRunner() Runner {
 	return &defaultRunner{}
 }
 
+// Service is responsible for handling incoming messages from the communication layer.
+type Service struct {
+	viewManager     ViewManager
+	endpointService EndpointService
+	commLayer       CommLayer
+	runner          Runner
+}
+
 // NewService returns a new instance of the P2P service.
 func NewService(
 	viewManager ViewManager,
 	commLayer CommLayer,
+	endpointService EndpointService,
 	runner Runner,
 ) *Service {
 	return &Service{
-		viewManager: viewManager,
-		commLayer:   commLayer,
-		runner:      runner,
+		viewManager:     viewManager,
+		commLayer:       commLayer,
+		endpointService: endpointService,
+		runner:          runner,
 	}
 }
 
@@ -101,7 +111,7 @@ func (s *Service) Start(ctx context.Context) error {
 }
 
 // handleMessage handles an incoming message.
-func (s *Service) handleMessage(msg *view2.Message) {
+func (s *Service) handleMessage(msg *view.Message) {
 	logger.Debugf("Will call responder view for context [%s]", msg.ContextID)
 	responder, id, err := s.viewManager.ExistResponderForCaller(msg.Caller)
 	if err != nil {
@@ -118,7 +128,7 @@ func (s *Service) handleMessage(msg *view2.Message) {
 }
 
 // respond executes a given responder view.
-func (s *Service) respond(ctx context.Context, responder view2.View, id view2.Identity, contextID, sessionID, caller, fromEndpoint string, fromPKID []byte, firstMsg interface{}) (err error) {
+func (s *Service) respond(ctx context.Context, responder view.View, id view.Identity, contextID, sessionID, caller, fromEndpoint string, fromPKID []byte, firstMsg interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("respond triggered panic: %s\n%s\n", r, debug.Stack())
@@ -155,9 +165,9 @@ func (s *Service) respond(ctx context.Context, responder view2.View, id view2.Id
 }
 
 // getOrCreateContext returns a view context for the given arguments.
-func (s *Service) getOrCreateContext(ctx context.Context, id view2.Identity, contextID, sessionID, caller, fromEndpoint string, fromPKID []byte, firstMsg interface{}) (view2.Context, bool, error) {
+func (s *Service) getOrCreateContext(ctx context.Context, id view.Identity, contextID, sessionID, caller, fromEndpoint string, fromPKID []byte, firstMsg interface{}) (view.Context, bool, error) {
 	// get the caller identity
-	callerIdentity, err := s.viewManager.GetIdentity(fromEndpoint, fromPKID)
+	callerIdentity, err := s.endpointService.GetIdentity(fromEndpoint, fromPKID)
 	if err != nil {
 		return nil, false, err
 	}

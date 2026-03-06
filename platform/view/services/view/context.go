@@ -18,14 +18,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.opentelemetry.io/otel/trace"
 )
 
-//go:generate counterfeiter -o mock/local_identity_checker.go -fake-name LocalIdentityChecker . LocalIdentityChecker
-
 // LocalIdentityChecker models the dependency to the view-sdk's sig service.
 // It allows checking if a given identity is local to the node.
+//
+//go:generate counterfeiter -o mock/local_identity_checker.go -fake-name LocalIdentityChecker . LocalIdentityChecker
 type LocalIdentityChecker interface {
 	// IsMe returns true if the passed identity is local to the node.
 	IsMe(ctx context.Context, id view.Identity) bool
@@ -51,6 +52,85 @@ type IdentityProvider interface {
 	Identity(string) view.Identity
 	// DefaultIdentity returns the default identity.
 	DefaultIdentity() view.Identity
+}
+
+// contextFactory is an implementation of the ContextFactory interface.
+type contextFactory struct {
+	serviceProvider      services.Provider
+	sessionFactory       SessionFactory
+	endpointService      EndpointService
+	identityProvider     IdentityProvider
+	registry             *Registry
+	tracer               trace.Tracer
+	metrics              *Metrics
+	localIdentityChecker LocalIdentityChecker
+}
+
+// NewContextFactory returns a new instance of the context factory.
+func NewContextFactory(
+	serviceProvider services.Provider,
+	sessionFactory SessionFactory,
+	endpointService EndpointService,
+	identityProvider IdentityProvider,
+	registry *Registry,
+	tracerProvider tracing.Provider,
+	metrics *Metrics,
+	localIdentityChecker LocalIdentityChecker,
+) ContextFactory {
+	return &contextFactory{
+		serviceProvider:  serviceProvider,
+		sessionFactory:   sessionFactory,
+		endpointService:  endpointService,
+		identityProvider: identityProvider,
+		registry:         registry,
+		tracer: tracerProvider.Tracer("calls", tracing.WithMetricsOpts(tracing.MetricsOpts{
+			LabelNames: []string{string(SuccessLabel), string(ViewLabel), string(InitiatorViewLabel)},
+		})),
+		metrics:              metrics,
+		localIdentityChecker: localIdentityChecker,
+	}
+}
+
+func (c *contextFactory) NewForInitiator(
+	ctx context.Context,
+	contextID string,
+	id view.Identity,
+	view view.View,
+) (ParentContext, error) {
+	return NewContextForInitiator(
+		contextID,
+		ctx,
+		c.serviceProvider,
+		c.sessionFactory,
+		c.endpointService,
+		c.identityProvider,
+		id,
+		view,
+		c.tracer,
+		c.localIdentityChecker,
+	)
+}
+
+func (c *contextFactory) NewForResponder(
+	ctx context.Context,
+	contextID string,
+	me view.Identity,
+	session view.Session,
+	party view.Identity,
+) (ParentContext, error) {
+	return NewContext(
+		ctx,
+		c.serviceProvider,
+		contextID,
+		c.sessionFactory,
+		c.endpointService,
+		c.identityProvider,
+		me,
+		session,
+		party,
+		c.tracer,
+		c.localIdentityChecker,
+	)
 }
 
 // Context implements the view.Context interface.

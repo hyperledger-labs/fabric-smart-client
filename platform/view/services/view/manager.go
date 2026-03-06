@@ -14,7 +14,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.opentelemetry.io/otel/trace"
@@ -28,25 +27,9 @@ const (
 
 var logger = logging.MustGetLogger()
 
-//go:generate counterfeiter -o mock/view_manager.go -fake-name ViewManager . ViewManager
-
-// ViewManager is responsible for managing view contexts and protocols.
-type ViewManager interface {
-	// NewView returns a new view instance for the given ID and input.
-	NewView(id string, in []byte) (view.View, error)
-	// InitiateView initiates a protocol for the given view and returns the result.
-	InitiateView(view view.View, ctx context.Context) (interface{}, error)
-	// InitiateContext initiates a view context for the given view.
-	InitiateContext(view view.View) (view.Context, error)
-	// DeleteContext removes a context from the manager.
-	DeleteContext(id view.Identity, contextID string)
-	// Me returns the default identity.
-	Me() view.Identity
-}
-
-//go:generate counterfeiter -o mock/disposable_context.go -fake-name DisposableContext . DisposableContext
-
 // DisposableContext extends view.Context with additional functions for lifecycle management.
+//
+//go:generate counterfeiter -o mock/disposable_context.go -fake-name DisposableContext . DisposableContext
 type DisposableContext interface {
 	view.Context
 	// Dispose releases all resources held by the context.
@@ -55,17 +38,37 @@ type DisposableContext interface {
 	PutSessionByID(viewID string, party view.Identity, session view.Session) error
 }
 
+// ContextFactory defines the interface for creating new view contexts.
+//
+//go:generate counterfeiter -o mock/context_factory.go -fake-name ContextFactory . ContextFactory
+type ContextFactory interface {
+	// NewForInitiator returns a new ParentContext for an initiator view.
+	NewForInitiator(
+		ctx context.Context,
+		contextID string,
+		id view.Identity,
+		view view.View,
+	) (ParentContext, error)
+
+	// NewForResponder returns a new ParentContext for a responder view.
+	NewForResponder(
+		ctx context.Context,
+		contextID string,
+		me view.Identity,
+		session view.Session,
+		party view.Identity,
+	) (ParentContext, error)
+}
+
 // Manager is responsible for managing view contexts and protocols.
 type Manager struct {
 	serviceProvider services.Provider
 
-	sessionFactory       SessionFactory
-	endpointService      EndpointService
-	identityProvider     IdentityProvider
-	registry             *Registry
-	tracer               trace.Tracer
-	metrics              *Metrics
-	localIdentityChecker LocalIdentityChecker
+	contextFactory   ContextFactory
+	endpointService  EndpointService
+	identityProvider IdentityProvider
+	registry         *Registry
+	metrics          *Metrics
 
 	ctx        context.Context
 	contexts   map[string]DisposableContext
@@ -75,28 +78,22 @@ type Manager struct {
 // NewManager returns a new instance of the view manager.
 func NewManager(
 	serviceProvider services.Provider,
-	sessionFactory SessionFactory,
 	endpointService EndpointService,
 	identityProvider IdentityProvider,
 	registry *Registry,
-	tracerProvider tracing.Provider,
-	metricsProvider metrics.Provider,
-	localIdentityChecker LocalIdentityChecker,
+	metrics *Metrics,
+	contextFactory ContextFactory,
 ) *Manager {
 	return &Manager{
 		serviceProvider:  serviceProvider,
-		sessionFactory:   sessionFactory,
 		endpointService:  endpointService,
 		identityProvider: identityProvider,
 
 		contexts: map[string]DisposableContext{},
 		registry: registry,
 
-		tracer: tracerProvider.Tracer("calls", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			LabelNames: []string{SuccessLabel, ViewLabel, InitiatorViewLabel},
-		})),
-		metrics:              newMetrics(metricsProvider),
-		localIdentityChecker: localIdentityChecker,
+		metrics:        metrics,
+		contextFactory: contextFactory,
 	}
 }
 
@@ -207,17 +204,11 @@ func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id v
 }
 
 func (cm *Manager) newChildContextForInitiator(ctx context.Context, view view.View, id view.Identity, contextID string) (*ChildContext, error) {
-	viewContext, err := NewContextForInitiator(
-		contextID,
+	viewContext, err := cm.contextFactory.NewForInitiator(
 		ctx,
-		cm.serviceProvider,
-		cm.sessionFactory,
-		cm.endpointService,
-		cm.identityProvider,
+		contextID,
 		id,
 		view,
-		cm.tracer,
-		cm.localIdentityChecker,
 	)
 	if err != nil {
 		return nil, err
@@ -297,18 +288,12 @@ func (cm *Manager) NewSessionContext(ctx context.Context, contextID string, sess
 
 	// next we continue with creating a new context
 	logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", cm.Me(), contextID)
-	newCtx, err := NewContext(
+	newCtx, err := cm.contextFactory.NewForResponder(
 		ctx,
-		cm.serviceProvider,
 		contextID,
-		cm.sessionFactory,
-		cm.endpointService,
-		cm.identityProvider,
 		cm.Me(),
 		session,
 		party,
-		cm.tracer,
-		cm.localIdentityChecker,
 	)
 	if err != nil {
 		return nil, false, err
@@ -323,11 +308,6 @@ func (cm *Manager) NewSessionContext(ctx context.Context, contextID string, sess
 	})
 
 	return c, true, nil
-}
-
-// GetIdentity returns the identity for the given endpoint and public key ID.
-func (cm *Manager) GetIdentity(endpoint string, pkID []byte) (view.Identity, error) {
-	return cm.endpointService.GetIdentity(endpoint, pkID)
 }
 
 // GetIdentifier returns the identifier for the given view.
