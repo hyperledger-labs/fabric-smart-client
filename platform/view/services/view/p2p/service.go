@@ -31,8 +31,6 @@ type ViewManager interface {
 	NewSessionContext(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error)
 	// DeleteContext deletes the view context for the given context ID.
 	DeleteContext(contextID string)
-	// SetContext sets the root context.
-	SetContext(ctx context.Context)
 }
 
 // CommLayer models the communication layer for P2P operations.
@@ -97,7 +95,6 @@ func NewService(
 
 // Start starts the P2P service.
 func (s *Service) Start(ctx context.Context) error {
-	s.viewManager.SetContext(ctx)
 	session, err := s.commLayer.MasterSession()
 	if err != nil {
 		return errors.Wrap(err, "failed getting master session")
