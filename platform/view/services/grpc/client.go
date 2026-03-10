@@ -282,7 +282,7 @@ func extractDetailedError(err error) string {
 	// Check for context deadline exceeded
 	if stderr.Is(err, context.DeadlineExceeded) {
 		// Try to extract the underlying cause by examining the error chain
-		var unwrapped error = err
+		var unwrapped = err
 		for unwrapped != nil {
 			errMsg := unwrapped.Error()
 
