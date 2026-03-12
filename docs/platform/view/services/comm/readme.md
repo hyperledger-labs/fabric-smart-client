@@ -7,7 +7,7 @@ The Communication (Comm) layer is the backbone of the Fabric Smart Client (FSC) 
 The Comm layer abstracts the underlying network transport and provides a session-based interface (`view.Session`). It handles:
 - **Peer Discovery and Routing**: Resolving peer identities to network addresses.
 - **Transport Security**: Enforcing secure handshakes and identity binding.
-- **Session Multiplexing**: Running multiple logical sessions over a single physical connection.
+- **Session Multiplexing**: Running multiple logical sessions over a single physical connection (see [Multiplexer Spec](./multiplexer.md)).
 - **Reliability and Flow Control**: Managing buffers and handling slow consumers.
 
 ## Architecture
