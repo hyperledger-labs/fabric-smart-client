@@ -48,7 +48,7 @@ graph TD
 
 ## Multiplexing and Logical Streams
 
-A single physical WebSocket can carry multiple "logical" streams. Each logical stream is identified by a unique `ID` in a `MultiplexedMessage` wrapper.
+A single physical WebSocket can carry multiple "logical" streams. Each logical stream is identified by a unique `ID` in a `MultiplexedMessage` wrapper. For more details on the multiplexing protocol, see the [Multiplexer Specification](./multiplexer.md).
 
 ### Multiplexed Message Format
 ```go
