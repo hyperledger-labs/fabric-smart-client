@@ -140,7 +140,7 @@ func createSecOpts(connConfig ConnectionConfig, forceTLS bool, cliConfig *TLSCli
 	tlsEnabled := connConfig.TLSEnabled || forceTLS
 	secOpts := &SecureOptions{
 		UseTLS:            tlsEnabled,
-		RequireClientCert: !tlsEnabled && cliConfig.TLSClientAuthRequired,
+		RequireClientCert: cliConfig != nil && cliConfig.TLSClientAuthRequired,
 	}
 
 	if secOpts.RequireClientCert {
