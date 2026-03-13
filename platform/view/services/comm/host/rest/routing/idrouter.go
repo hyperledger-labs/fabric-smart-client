@@ -33,13 +33,17 @@ func NewEndpointServiceIDRouter(es EndpointService) *EndpointServiceIDRouter {
 }
 
 func (r *EndpointServiceIDRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress, bool) {
+	return r.LookupWithContext(context.Background(), id)
+}
+
+func (r *EndpointServiceIDRouter) LookupWithContext(ctx context.Context, id host2.PeerID) ([]host2.PeerIPAddress, bool) {
 	logger.Debugf("Looking up endpoint of peer [%s]", id)
 	identity, err := r.es.GetIdentity("", []byte(id))
 	if err != nil {
 		logger.Errorf("failed getting identity for peer [%s]", id)
 		return []host2.PeerIPAddress{}, false
 	}
-	resolver, err := r.es.GetResolver(context.Background(), identity)
+	resolver, err := r.es.GetResolver(ctx, identity)
 	if err != nil {
 		logger.Errorf("failed resolving [%s]: %s", id, err.Error())
 		return []host2.PeerIPAddress{}, false
@@ -89,7 +93,7 @@ func NewResolvedStaticIDRouter(configPath string, es EndpointService) (*Resolved
 }
 
 func (r *ResolvedStaticIDRouter) Lookup(id host2.PeerID) ([]host2.PeerIPAddress, bool) {
-	label, err := r.resolver.getLabel(id)
+	label, err := r.resolver.getLabel(context.Background(), id)
 	if err != nil {
 		logger.Errorf("failed to look up peer ID [%s]", id)
 		return nil, false
@@ -112,7 +116,7 @@ func newLabelResolver(es EndpointService) *LabelResolver {
 	}
 }
 
-func (r *LabelResolver) getLabel(peerID host2.PeerID) (string, error) {
+func (r *LabelResolver) getLabel(ctx context.Context, peerID host2.PeerID) (string, error) {
 	r.cacheLock.RLock()
 	if label, ok := r.cache[peerID]; ok {
 		r.cacheLock.RUnlock()
@@ -130,7 +134,7 @@ func (r *LabelResolver) getLabel(peerID host2.PeerID) (string, error) {
 		return "", errors.Wrapf(err, "failed to find identity for peer [%s]", peerID)
 	}
 
-	resolver, err := r.es.GetResolver(context.Background(), identity)
+	resolver, err := r.es.GetResolver(ctx, identity)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to resolve identity [%s]", identity)
 	}

@@ -157,26 +157,20 @@ func newNode(port int, bootstrapNode *node) (*node, error) {
 }
 
 func eventually(condition func() bool, waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) error {
-	ch := make(chan bool, 1)
-
 	timer := time.NewTimer(waitFor)
 	defer timer.Stop()
 
 	ticker := time.NewTicker(tick)
 	defer ticker.Stop()
 
-	for tick := ticker.C; ; {
+	for {
+		if condition() {
+			return nil
+		}
 		select {
 		case <-timer.C:
 			return errors.Errorf("Condition never satisfied %v", msgAndArgs...)
-		case <-tick:
-			tick = nil
-			go func() { ch <- condition() }()
-		case v := <-ch:
-			if v {
-				return nil
-			}
-			tick = ticker.C
+		case <-ticker.C:
 		}
 	}
 }

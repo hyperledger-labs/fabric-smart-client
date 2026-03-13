@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	assert2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
@@ -19,6 +20,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slices"
 )
+
+func TestMain(m *testing.M) {
+	logging.Init(logging.Config{
+		LogSpec: "error",
+	})
+	os.Exit(m.Run())
+}
 
 func TestP2PLayerTestRound(t *testing.T) {
 	bootstrapNode, node := setupTwoNodesFromFiles(t)
@@ -33,6 +41,11 @@ func TestSessionsTestRound(t *testing.T) {
 func TestSessionsForMPCTestRound(t *testing.T) {
 	bootstrapNode, node := setupTwoNodesFromFiles(t)
 	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
+}
+
+func TestSessionsMultipleMessagesTestRound(t *testing.T) {
+	bootstrapNode, node := setupTwoNodesFromFiles(t)
+	comm.SessionsMultipleMessagesTestRound(t, bootstrapNode, node)
 }
 
 func setupTwoNodesFromFiles(t *testing.T) (*comm.HostNode, *comm.HostNode) {

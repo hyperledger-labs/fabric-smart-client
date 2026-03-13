@@ -24,6 +24,7 @@ type EndpointService interface {
 type ConfigService interface {
 	GetString(key string) string
 	GetPath(key string) string
+	GetInt(key string) int
 }
 
 type Service struct {
@@ -49,15 +50,24 @@ func NewService(hostProvider host.GeneratorProvider, endpointService EndpointSer
 func (s *Service) Start(ctx context.Context) {
 	go func() {
 		for {
-			logger.Debugf("start communication service...")
-			if err := s.init(); err != nil {
-				logger.Errorf("failed to initialize communication service [%s], wait a bit and try again", err)
-				time.Sleep(10 * time.Second)
-				continue
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				logger.Debugf("start communication service...")
+				if err := s.init(); err != nil {
+					logger.Errorf("failed to initialize communication service [%s], wait a bit and try again", err)
+					select {
+					case <-time.After(10 * time.Second):
+						continue
+					case <-ctx.Done():
+						return
+					}
+				}
+				// Init done, we can start
+				s.Node.Start(ctx)
+				return
 			}
-			// Init done, we can start
-			s.Node.Start(ctx)
-			break
 		}
 	}()
 }
@@ -122,5 +132,9 @@ func (s *Service) init() error {
 		return err
 	}
 	s.Node, err = NewNode(h, s.metricsProvider)
-	return err
+	if err != nil {
+		return err
+	}
+	s.Node.SetNumWorkers(s.ConfigService.GetInt("fsc.p2p.numWorkers"))
+	return nil
 }

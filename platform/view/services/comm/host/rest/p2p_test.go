@@ -7,64 +7,163 @@ SPDX-License-Identifier: Apache-2.0
 package rest_test
 
 import (
-	"fmt"
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
+	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
+func TestMain(m *testing.M) {
+	logging.Init(logging.Config{
+		LogSpec: "error",
+	})
+	os.Exit(m.Run())
+}
+
 func TestP2PLayerTestRound(t *testing.T) {
-	bootstrapNode, node := setupTwoNodes(t, 1254)
+	bootstrapNode, node := setupTwoNodes(t)
 	<-time.After(5 * time.Second)
 	comm.P2PLayerTestRound(t, bootstrapNode, node)
 }
 
 func TestSessionsTestRound(t *testing.T) {
-	bootstrapNode, node := setupTwoNodes(t, 1256)
+	bootstrapNode, node := setupTwoNodes(t)
 	<-time.After(5 * time.Second)
 	comm.SessionsTestRound(t, bootstrapNode, node)
 }
 
 func TestSessionsForMPCTestRound(t *testing.T) {
-	bootstrapNode, node := setupTwoNodes(t, 1258)
+	bootstrapNode, node := setupTwoNodes(t)
 	<-time.After(5 * time.Second)
 	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
 }
 
-func setupTwoNodes(t *testing.T, port int) (*comm.HostNode, *comm.HostNode) {
-	bootstrapAddress := fmt.Sprintf("127.0.0.1:%d", port)
-	otherAddress := fmt.Sprintf("127.0.0.1:%d", port+1)
+func TestSessionsMultipleMessagesTestRound(t *testing.T) {
+	bootstrapNode, node := setupTwoNodes(t)
+	<-time.After(5 * time.Second)
+	comm.SessionsMultipleMessagesTestRound(t, bootstrapNode, node)
+}
+
+func TestMTLSCallerIdentityBinding(t *testing.T) {
+	bootstrapNode, node := setupTwoNodes(t)
+	ctx := context.Background()
+	bootstrapNode.Start(ctx)
+	node.Start(ctx)
+	defer bootstrapNode.Stop()
+	defer node.Stop()
+
+	session, err := bootstrapNode.NewSession("caller-view", "ctx", node.Address, []byte(node.ID))
+	assert.NoError(t, err)
+	assert.NotNil(t, session)
+
+	assert.NoError(t, session.Send([]byte("ping")))
+
+	masterSession, err := node.MasterSession()
+	assert.NoError(t, err)
+	msg := <-masterSession.Receive()
+	assert.NotNil(t, msg)
+	assert.Equal(t, []byte("ping"), msg.Payload)
+
+	expectedCaller := view.Identity(msg.FromPKID)
+	responder, err := node.NewSessionWithID(msg.SessionID, msg.ContextID, "", msg.FromPKID, expectedCaller, nil)
+	assert.NoError(t, err)
+	assert.True(t, responder.Info().Caller.Equal(expectedCaller))
+
+	maliciousCaller := view.Identity([]byte("malicious-caller"))
+	_, err = node.NewSessionWithID(msg.SessionID, msg.ContextID, "", msg.FromPKID, maliciousCaller, nil)
+	assert.Error(t, err)
+	assert.True(t, responder.Info().Caller.Equal(expectedCaller))
+
+	assert.NoError(t, responder.Send([]byte("pong")))
+	reply := <-session.Receive()
+	assert.NotNil(t, reply)
+	assert.Equal(t, []byte("pong"), reply.Payload)
+}
+
+func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
+	tlsFiles := generateTLSFiles(t)
+
+	bootstrapAddress := freeTCPAddress(t)
+	otherAddress := freeTCPAddress(t)
+	bootstrapCertPath := tlsFiles.bootstrapCert
+	otherCertPath := tlsFiles.otherCert
+	bootstrapID := mustPeerIDFromCert(t, bootstrapCertPath)
+	otherID := mustPeerIDFromCert(t, otherCertPath)
 	routes := &routing.StaticIDRouter{
-		"bootstrap": []host2.PeerIPAddress{bootstrapAddress},
-		"other":     []host2.PeerIPAddress{otherAddress},
+		bootstrapID: []host2.PeerIPAddress{bootstrapAddress},
+		otherID:     []host2.PeerIPAddress{otherAddress},
 	}
 
 	bootstrap, _ := newStaticRouteHostProvider(routes, rest.NewConfigFromProperties(
 		bootstrapAddress,
-		"../libp2p/testdata/msp/user1/keystore/priv_sk",
-		"../libp2p/testdata/msp/user1/signcerts/User1@org1.example.com-cert.pem",
+		tlsFiles.bootstrapKey,
+		bootstrapCertPath,
+		[]string{tlsFiles.caCert},
+		[]string{tlsFiles.caCert},
+		true,
+		100,
 	)).GetNewHost()
 	bootstrapNode, err := comm.NewNode(bootstrap, &disabled.Provider{})
 	assert.NoError(t, err)
 
 	other, _ := newStaticRouteHostProvider(routes, rest.NewConfigFromProperties(
 		otherAddress,
-		"../libp2p/testdata/msp/user2/keystore/priv_sk",
-		"../libp2p/testdata/msp/user2/signcerts/User2@org1.example.com-cert.pem",
+		tlsFiles.otherKey,
+		otherCertPath,
+		[]string{tlsFiles.caCert},
+		[]string{tlsFiles.caCert},
+		true,
+		100,
 	)).GetNewHost()
 	otherNode, err := comm.NewNode(other, &disabled.Provider{})
 	assert.NoError(t, err)
 
-	return &comm.HostNode{P2PNode: bootstrapNode, ID: "bootstrap", Address: bootstrapAddress},
-		&comm.HostNode{P2PNode: otherNode, ID: "other", Address: otherAddress}
+	return &comm.HostNode{P2PNode: bootstrapNode, ID: bootstrapID, Address: bootstrapAddress},
+		&comm.HostNode{P2PNode: otherNode, ID: otherID, Address: otherAddress}
+}
+
+func freeTCPAddress(t *testing.T) string {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
+	defer func() { assert.NoError(t, l.Close()) }()
+	return l.Addr().String()
+}
+
+func mustPeerIDFromCert(t *testing.T, certPath string) string {
+	t.Helper()
+	raw, err := os.ReadFile(certPath)
+	assert.NoError(t, err)
+	block, _ := pem.Decode(raw)
+	assert.NotNil(t, block)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	assert.NoError(t, err)
+	marshaledPK, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+	assert.NoError(t, err)
+	h := sha256.Sum256(marshaledPK)
+	return base58.Encode(h[:])
 }
 
 type staticRoutHostProvider struct {
@@ -72,12 +171,246 @@ type staticRoutHostProvider struct {
 	config rest.Config
 }
 
+type generatedTLSFiles struct {
+	caCert        string
+	bootstrapCert string
+	bootstrapKey  string
+	otherCert     string
+	otherKey      string
+}
+
+func generateTLSFiles(t *testing.T) generatedTLSFiles {
+	t.Helper()
+
+	dir := t.TempDir()
+
+	caPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	assert.NoError(t, err)
+	caTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "rest-test-ca"},
+		NotBefore:             time.Now().Add(-time.Minute),
+		NotAfter:              time.Now().Add(2 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caPriv.PublicKey, caPriv)
+	assert.NoError(t, err)
+
+	writePEM := func(path string, typ string, raw []byte) {
+		f, err := os.Create(path)
+		assert.NoError(t, err)
+		defer func() { assert.NoError(t, f.Close()) }()
+		assert.NoError(t, pem.Encode(f, &pem.Block{Type: typ, Bytes: raw}))
+	}
+
+	caCertPath := filepath.Join(dir, "ca.pem")
+	writePEM(caCertPath, "CERTIFICATE", caDER)
+
+	makeNode := func(serial int64, cn, certName, keyName string) (string, string) {
+		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		assert.NoError(t, err)
+
+		certTemplate := &x509.Certificate{
+			SerialNumber: big.NewInt(serial),
+			Subject:      pkix.Name{CommonName: cn},
+			NotBefore:    time.Now().Add(-time.Minute),
+			NotAfter:     time.Now().Add(2 * time.Hour),
+			KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+			ExtKeyUsage: []x509.ExtKeyUsage{
+				x509.ExtKeyUsageServerAuth,
+				x509.ExtKeyUsageClientAuth,
+			},
+			DNSNames:    []string{"localhost"},
+			IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+		}
+		certDER, err := x509.CreateCertificate(rand.Reader, certTemplate, caTemplate, &priv.PublicKey, caPriv)
+		assert.NoError(t, err)
+
+		certPath := filepath.Join(dir, certName)
+		writePEM(certPath, "CERTIFICATE", certDER)
+
+		keyRaw, err := x509.MarshalPKCS8PrivateKey(priv)
+		assert.NoError(t, err)
+		keyPath := filepath.Join(dir, keyName)
+		writePEM(keyPath, "PRIVATE KEY", keyRaw)
+		return certPath, keyPath
+	}
+
+	bootstrapCert, bootstrapKey := makeNode(2, "bootstrap", "bootstrap-cert.pem", "bootstrap-key.pem")
+	otherCert, otherKey := makeNode(3, "other", "other-cert.pem", "other-key.pem")
+
+	return generatedTLSFiles{
+		caCert:        caCertPath,
+		bootstrapCert: bootstrapCert,
+		bootstrapKey:  bootstrapKey,
+		otherCert:     otherCert,
+		otherKey:      otherKey,
+	}
+}
+
+func TestSessionInfoSecurityGuarantees(t *testing.T) {
+	ctx := context.Background()
+	// Simpler: Alice, Bob and Charlie all share the same CA.
+	allTlsFiles := generateThreeNodesTLSFiles(t)
+	aliceNode, bobNode := setupTwoNodesFromTLS(t, allTlsFiles.alice, allTlsFiles.bob, allTlsFiles.caCert)
+	aliceNode.Start(ctx)
+	bobNode.Start(ctx)
+	defer aliceNode.Stop()
+	defer bobNode.Stop()
+
+	// Alice initiates a session to Bob
+	session, err := aliceNode.NewSession("alice-view", "ctx-1", bobNode.Address, []byte(bobNode.ID))
+	assert.NoError(t, err)
+	assert.NoError(t, session.Send([]byte("hello bob")))
+
+	masterSession, err := bobNode.MasterSession()
+	assert.NoError(t, err)
+	msg := <-masterSession.Receive()
+	assert.NotNil(t, msg)
+
+	responder, err := bobNode.NewSessionWithID(msg.SessionID, msg.ContextID, "", msg.FromPKID, view.Identity(msg.FromPKID), nil)
+	assert.NoError(t, err)
+
+	info := responder.Info()
+	// Claim 1: Caller is the authenticated identity of the remote peer (Alice)
+	assert.Equal(t, view.Identity(aliceNode.ID), info.Caller, "Caller identity mismatch")
+	// Claim 2: EndpointPKID is cryptographically verified and bound to transport identity
+	assert.Equal(t, []byte(aliceNode.ID), info.EndpointPKID, "EndpointPKID mismatch")
+
+	charlieID := mustPeerIDFromCert(t, allTlsFiles.charlie.cert)
+	charlieHost, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
+		charlieID:  []host2.PeerIPAddress{freeTCPAddress(t)},
+		bobNode.ID: []host2.PeerIPAddress{bobNode.Address},
+	}, rest.NewConfigFromProperties(
+		freeTCPAddress(t),
+		allTlsFiles.charlie.key,
+		allTlsFiles.charlie.cert,
+		[]string{allTlsFiles.caCert},
+		[]string{allTlsFiles.caCert},
+		true,
+		100,
+	)).GetNewHost()
+
+	charlieP2PNode, err := comm.NewNode(charlieHost, &disabled.Provider{})
+	assert.NoError(t, err)
+	charlieP2PNode.Start(ctx)
+	defer charlieP2PNode.Stop()
+
+	// Charlie tries to hijack
+	charlieSession, err := charlieP2PNode.NewSessionWithID(msg.SessionID, msg.ContextID, bobNode.Address, []byte(bobNode.ID), nil, nil)
+	assert.NoError(t, err)
+	// Charlie's Send might fail because Bob rejects the connection at the transport level (Identity Binding)
+	_ = charlieSession.Send([]byte("i am alice"))
+
+	// Bob should NOT receive Charlie's message in Alice's session
+	select {
+	case hijackedMsg := <-responder.Receive():
+		t.Fatalf("Session hijacked! Received message from Charlie in Alice's session: %s", string(hijackedMsg.Payload))
+	case <-time.After(1 * time.Second):
+		// Success
+	}
+}
+
+type nodeTLSFiles struct {
+	cert string
+	key  string
+}
+
+type threeNodesTLSFiles struct {
+	caCert  string
+	alice   nodeTLSFiles
+	bob     nodeTLSFiles
+	charlie nodeTLSFiles
+}
+
+func generateThreeNodesTLSFiles(t *testing.T) threeNodesTLSFiles {
+	t.Helper()
+	dir := t.TempDir()
+	caPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	assert.NoError(t, err)
+	caTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "rest-test-ca"},
+		NotBefore:             time.Now().Add(-time.Minute),
+		NotAfter:              time.Now().Add(2 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caPriv.PublicKey, caPriv)
+	assert.NoError(t, err)
+	caCertPath := filepath.Join(dir, "ca.pem")
+	writePEM(caCertPath, "CERTIFICATE", caDER)
+
+	makeNode := func(serial int64, cn string) nodeTLSFiles {
+		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		assert.NoError(t, err)
+		certTemplate := &x509.Certificate{
+			SerialNumber: big.NewInt(serial),
+			Subject:      pkix.Name{CommonName: cn},
+			NotBefore:    time.Now().Add(-time.Minute),
+			NotAfter:     time.Now().Add(2 * time.Hour),
+			KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+			ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+			DNSNames:     []string{"localhost"},
+			IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		}
+		certDER, err := x509.CreateCertificate(rand.Reader, certTemplate, caTemplate, &priv.PublicKey, caPriv)
+		assert.NoError(t, err)
+		cPath := filepath.Join(dir, cn+".pem")
+		writePEM(cPath, "CERTIFICATE", certDER)
+		kRaw, _ := x509.MarshalPKCS8PrivateKey(priv)
+		kPath := filepath.Join(dir, cn+".key")
+		writePEM(kPath, "PRIVATE KEY", kRaw)
+		return nodeTLSFiles{cert: cPath, key: kPath}
+	}
+
+	return threeNodesTLSFiles{
+		caCert:  caCertPath,
+		alice:   makeNode(2, "alice"),
+		bob:     makeNode(3, "bob"),
+		charlie: makeNode(4, "charlie"),
+	}
+}
+
+func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) (*comm.HostNode, *comm.HostNode) {
+	aliceAddr := freeTCPAddress(t)
+	bobAddr := freeTCPAddress(t)
+	aliceID := mustPeerIDFromCert(t, alice.cert)
+	bobID := mustPeerIDFromCert(t, bob.cert)
+	routes := &routing.StaticIDRouter{
+		aliceID: []host2.PeerIPAddress{aliceAddr},
+		bobID:   []host2.PeerIPAddress{bobAddr},
+	}
+	aliceH, _ := newStaticRouteHostProvider(routes, rest.NewConfigFromProperties(aliceAddr, alice.key, alice.cert, []string{caCert}, []string{caCert}, true, 100)).GetNewHost()
+	aliceNode, _ := comm.NewNode(aliceH, &disabled.Provider{})
+	bobH, _ := newStaticRouteHostProvider(routes, rest.NewConfigFromProperties(bobAddr, bob.key, bob.cert, []string{caCert}, []string{caCert}, true, 100)).GetNewHost()
+	bobNode, _ := comm.NewNode(bobH, &disabled.Provider{})
+	return &comm.HostNode{P2PNode: aliceNode, ID: aliceID, Address: aliceAddr},
+		&comm.HostNode{P2PNode: bobNode, ID: bobID, Address: bobAddr}
+}
+
+func writePEM(path string, typ string, raw []byte) {
+	f, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+	defer func() { _ = f.Close() }()
+	_ = pem.Encode(f, &pem.Block{Type: typ, Bytes: raw})
+}
+
 func newStaticRouteHostProvider(routes *routing.StaticIDRouter, config rest.Config) *staticRoutHostProvider {
 	return &staticRoutHostProvider{routes: routes, config: config}
+}
+
+func (p *staticRoutHostProvider) ExtraCAs() [][]byte {
+	return nil
 }
 
 func (p *staticRoutHostProvider) GetNewHost() (host2.P2PHost, error) {
 	nodeID, _ := p.routes.ReverseLookup(p.config.ListenAddress())
 	discovery := routing.NewServiceDiscovery(p.routes, routing.RoundRobin[host2.PeerIPAddress]())
-	return rest.NewHost(nodeID, p.config.ListenAddress(), discovery, websocket.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}), p.config.ClientTLSConfig(), p.config.ServerTLSConfig()), nil
+	return rest.NewHost(nodeID, p.config.ListenAddress(), discovery, websocket.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0), p.config.ClientTLSConfig(p), p.config.ServerTLSConfig(p)), nil
 }
