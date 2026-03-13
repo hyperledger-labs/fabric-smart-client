@@ -47,7 +47,10 @@ Security is integrated at every level of the Comm stack:
 -   **Identity Binding**: The identity asserted in the application layer is strictly validated against the cryptographically verified identity from the transport layer. This ensures that the remote peer's identity is a verified source of truth.
 -   **Session Isolation**: All logical sessions are internally identified by a combination of the `SessionID` and the **authenticated** `PeerID` of the remote participant. This prevents attackers from injecting messages into sessions between other peers.
 -   **Resource Hardening**: The Comm layer enforces strict limits to prevent Denial of Service (DoS) attacks:
-    -   **Message Size Limit**: A global 10MB limit is enforced on all incoming messages to prevent remote memory exhaustion (OOM) attacks.
+    -   **Message Size Limit**: A global 10MB limit is enforced on all incoming and outgoing messages to prevent remote memory exhaustion (OOM) attacks.
+        -   **Sender Behavior**: Attempts to send messages exceeding this limit will fail locally with an error (`message header or payload too large`), preventing network transmission.
+        -   **Recipient Behavior**: The recipient uses fail-fast reading by parsing the message length prefix first. If the prefix exceeds 10MB, the recipient immediately severs the physical connection and unregisters the stream to protect system resources.
+        -   **Payload vs Envelope**: Note that a 10MB raw payload will always fail, as the total message size (including metadata like `SessionID` and `ContextID`) will slightly exceed the limit. The practical maximum payload size is approximately 9.9MB.
     -   **Dispatcher Bounding**: The message dispatcher uses a bounded pool of **10 workers**. This prevents goroutine explosion even if many sessions are congested.
     -   **Master Session Protection**: Delivery to the "master session" (handling unknown traffic) is capped at a **5-second timeout** to ensure worker goroutines are not permanently stalled by junk traffic.
 
