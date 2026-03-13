@@ -36,6 +36,9 @@ func newDelimitedReader() *delimitedReader {
 
 func (r *delimitedReader) Read(p []byte) (int, error) {
 	if r.expectedLength == 0 {
+		if len(r.headerBuf)+len(p) > binary.MaxVarintLen64+maxDelimitedPayloadSize {
+			return 0, errors.Errorf("message header or payload too large")
+		}
 		r.headerBuf = append(r.headerBuf, p...)
 		length, n := binary.Uvarint(r.headerBuf)
 		if n <= 0 {
@@ -81,10 +84,13 @@ func (r *delimitedReader) Flush() []byte {
 		logger.Debugf("Message not ready yet (%d/%d received): [%s]", r.currentLength, r.expectedLength, string(r.buf[:r.currentLength]))
 		return nil
 	}
+	if r.expectedLength == 0 {
+		return nil
+	}
 	// The result must be read/copied before we start reading again.
 	// Otherwise, we need to byte.Clone the result to avoid overwriting the buffer data.
 	// res := buf.Clone(r.buf[:r.currentLength])
-	res := r.buf[:r.currentLength]
+	res := r.buf[:r.expectedLength]
 	r.expectedLength = 0
 	r.currentLength = 0
 	return res
