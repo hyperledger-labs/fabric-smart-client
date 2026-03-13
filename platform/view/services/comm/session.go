@@ -22,6 +22,11 @@ import (
 // ErrSessionClosed is returned when a message is sent when the session is closed.
 var ErrSessionClosed = errors.New("session closed")
 
+const (
+	DefaultDrainTimeout   = 500 * time.Millisecond
+	DefaultEnqueueTimeout = 1 * time.Minute
+)
+
 type sender interface {
 	sendTo(ctx context.Context, info host.StreamInfo, msg proto.Message, session *NetworkStreamSession) error
 }
@@ -53,7 +58,7 @@ func (n *NetworkStreamSession) tryStart() {
 			defer ticker.Stop()
 
 			exit := func(v *view.Message, needSend bool) {
-				drainTimeout := 500 * time.Millisecond
+				drainTimeout := DefaultDrainTimeout
 				if needSend {
 					select {
 					case n.incoming <- v:
@@ -157,7 +162,7 @@ func (n *NetworkStreamSession) Receive() <-chan *view.Message {
 // enqueue enqueues a message into the session's incoming channel.
 // If the session is closed, the message will be dropped and false returned, otherwise true is returned.
 func (n *NetworkStreamSession) enqueue(msg *view.Message) bool {
-	return n.enqueueWithTimeout(msg, time.Minute)
+	return n.enqueueWithTimeout(msg, DefaultEnqueueTimeout)
 }
 
 // enqueueWithTimeout enqueues a message into the session's incoming channel with a custom timeout.
@@ -179,6 +184,9 @@ func (n *NetworkStreamSession) enqueueWithTimeout(msg *view.Message, timeout tim
 	case n.middleCh <- msg:
 		return true
 	case <-time.After(timeout):
+		if p, ok := n.node.(*P2PNode); ok {
+			p.m.DroppedMessages.Add(1)
+		}
 		logger.Errorf("dropping message for session [%s] after %s timeout, queue full, closing session", n.sessionID, timeout)
 		n.Close()
 		return false

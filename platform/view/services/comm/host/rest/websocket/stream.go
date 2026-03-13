@@ -107,8 +107,8 @@ func (s *stream) deliver(r result) {
 	case s.reads <- r:
 	case <-s.ctx.Done():
 		logger.Debugf("dropping message for stream [%s] because context is done", s.Hash())
-	case <-time.After(time.Minute):
-		logger.Errorf("dropping message for stream [%s] after 1m timeout, closing stream", s.Hash())
+	case <-time.After(DefaultStreamTimeout):
+		logger.Errorf("dropping message for stream [%s] after %s timeout, closing stream", s.Hash(), DefaultStreamTimeout)
 		_ = s.Close()
 	}
 }

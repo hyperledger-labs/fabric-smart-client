@@ -24,6 +24,7 @@ type EndpointService interface {
 type ConfigService interface {
 	GetString(key string) string
 	GetPath(key string) string
+	GetInt(key string) int
 }
 
 type Service struct {
@@ -131,5 +132,9 @@ func (s *Service) init() error {
 		return err
 	}
 	s.Node, err = NewNode(h, s.metricsProvider)
-	return err
+	if err != nil {
+		return err
+	}
+	s.Node.SetNumWorkers(s.ConfigService.GetInt("fsc.p2p.numWorkers"))
+	return nil
 }
