@@ -31,6 +31,9 @@ const (
 	contextIDLabel    tracing.LabelName = "context_id"
 	sessionIDLabel    tracing.LabelName = "session_id"
 	defaultBufferSize                   = 4096
+
+	DefaultDispatcherWorkers = 10
+	DefaultDispatcherTimeout = 5 * time.Second
 )
 
 var errStreamNotFound = errors.New("stream not found")
@@ -57,6 +60,7 @@ type P2PNode struct {
 	cancel           context.CancelFunc
 	isStopping       bool
 	m                *Metrics
+	numWorkers       int
 }
 
 func NewNode(h host2.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error) {
@@ -70,6 +74,7 @@ func NewNode(h host2.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error
 		ctx:              ctx,
 		cancel:           cancel,
 		m:                newMetrics(metricsProvider),
+		numWorkers:       DefaultDispatcherWorkers,
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
 		cancel()
@@ -80,8 +85,8 @@ func NewNode(h host2.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error
 
 func (p *P2PNode) Start(ctx context.Context) {
 	// Start a bounded number of dispatch workers
-	numWorkers := 10 // This can be made configurable
-	for i := 0; i < numWorkers; i++ {
+	logger.Debugf("starting [%d] p2p comm dispatch workers...", p.numWorkers)
+	for i := 0; i < p.numWorkers; i++ {
 		p.dispatchWg.Add(1)
 		go p.dispatchMessages(ctx)
 	}
@@ -89,6 +94,12 @@ func (p *P2PNode) Start(ctx context.Context) {
 		<-ctx.Done()
 		p.Stop()
 	}()
+}
+
+func (p *P2PNode) SetNumWorkers(n int) {
+	if n > 0 {
+		p.numWorkers = n
+	}
 }
 
 func (p *P2PNode) Stop() {
@@ -167,13 +178,14 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 
 			var delivered bool
 			if !in {
-				delivered = session.enqueueWithTimeout(msg.message, 5*time.Second)
+				delivered = session.enqueueWithTimeout(msg.message, DefaultDispatcherTimeout)
 			} else {
 				delivered = session.enqueue(msg.message)
 			}
 			if delivered {
 				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
 			} else {
+				p.m.DroppedMessages.Add(1)
 				logger.Warnf("dropping message from %s for closed session [%s]", msg.message.Caller, msg.message.SessionID)
 			}
 
