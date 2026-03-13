@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package deployment
+package multiendorsement
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
@@ -25,34 +25,40 @@ const (
 
 func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
 	fabricTopology := nwofabricx.NewDefaultTopology()
-	fabricTopology.AddOrganizationsByName("Org1", "Org2")
+
+	// 3 orgs are needed so that the multiendorsement test can update the namespace
+	// policy to require endorsements from Org1 and Org2 or Org3.
+	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
+
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
-	fabricTopology.AddNamespaceWithUnanimity(Namespace, "Org1")
+
+	fabricTopology.AddNamespace(Namespace, "AND('Org1MSP.member')")
 
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = commType
 	fscTopology.SetLogging("grpc=error:fabricx=debug:info", "")
 
-	// Add the approver FSC node.
+	// approver1 keeps the special approver role used by the meta-namespace flow.
 	fscTopology.AddNodeByName("approver1").
-		// This option equips the approver's FSC node with an identity belonging to Org1.
-		// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 		AddOptions(fabric.WithOrganization("Org1")).
 		AddOptions(scv2.WithApproverRole()).
 		AddOptions(replicationOpts.For("approver1")...).
 		RegisterResponder(&simpleviews.ApproveView{}, &simpleviews.CreateView{})
 
-	// Add another approver as well
+	// approver2 participates in application endorsement
 	fscTopology.AddNodeByName("approver2").
-		// This option equips the approver's FSC node with an identity belonging to Org1.
-		// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 		AddOptions(fabric.WithOrganization("Org2")).
 		AddOptions(replicationOpts.For("approver2")...).
 		RegisterResponder(&simpleviews.ApproveView{}, &simpleviews.CreateView{})
 
+	// approver3 participates in application endorsement
+	fscTopology.AddNodeByName("approver3").
+		AddOptions(fabric.WithOrganization("Org3")).
+		AddOptions(replicationOpts.For("approver3")...).
+		RegisterResponder(&simpleviews.ApproveView{}, &simpleviews.CreateView{})
+
 	fscTopology.AddNodeByName(CreatorNode).
 		AddOptions(fabric.WithOrganization("Org1")).
-		// simple logic
 		RegisterViewFactory("create", &simpleviews.CreateViewFactory{}).
 		RegisterViewFactory("query", &simpleviews.QueryViewFactory{})
 

@@ -77,7 +77,7 @@ func UpdateNamespacePolicy(ii *integration.Infrastructure) {
 
 	// setup our new endorser
 	// TODO: make this a parameter of UpdateNamespacePolicy
-	endorserPKPath := path.Join(ii.TestDir, "fabric.default/crypto/peerOrganizations/org1.example.com/users/approver2@org1.example.com/msp/signcerts/approver2@org1.example.com-cert.pem")
+	endorserPKPath := path.Join(ii.TestDir, "fabric.default/crypto/peerOrganizations/org2.example.com/users/approver2@org2.example.com/msp/signcerts/approver2@org2.example.com-cert.pem")
 
 	command := &fxconfig.UpdateNamespace{
 		NamespaceCommon: fxconfig.NamespaceCommon{
@@ -100,7 +100,7 @@ func UpdateNamespacePolicy(ii *integration.Infrastructure) {
 				Address:   notificationsEndpoint,
 				TLSConfig: fxconfig.TLSConfig{},
 			},
-			EndorserPKPath: endorserPKPath,
+			Policy: "threshold:" + endorserPKPath,
 		},
 		// this is the current version
 		Version: 0,
