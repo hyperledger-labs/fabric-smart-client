@@ -43,6 +43,11 @@ func TestSessionsForMPCTestRound(t *testing.T) {
 	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
 }
 
+func TestSessionsMultipleMessagesTestRound(t *testing.T) {
+	bootstrapNode, node := setupTwoNodesFromFiles(t)
+	comm.SessionsMultipleMessagesTestRound(t, bootstrapNode, node)
+}
+
 func setupTwoNodesFromFiles(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 	bootstrapNodePK := "testdata/dht.pub"
 	bootstrapNodeSK := "testdata/dht.priv"

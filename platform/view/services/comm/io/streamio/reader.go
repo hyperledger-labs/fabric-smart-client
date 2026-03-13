@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"go.uber.org/zap/zapcore"
 )
 
 var logger = logging.MustGetLogger()
@@ -62,8 +63,10 @@ func (r *Reader) Read(p []byte) (int, error) {
 		r.buf = nil
 	}
 
-	logger.Debugf("[Reader] Read [%d][%s]\n",
-		len(p), base64.StdEncoding.EncodeToString(MD5Hash(p)))
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[Reader] Read [%d][%s]\n",
+			n, base64.StdEncoding.EncodeToString(MD5Hash(p[:n])))
+	}
 
 	return n, err
 }

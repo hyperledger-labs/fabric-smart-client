@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -43,7 +44,9 @@ func NewMsgConn(index int, session view.Session) (MsgConn, error) {
 }
 
 func (c *commSCCMsgConn) Write(data []byte) (n int, err error) {
-	logger.Debugf("[commSCCMsgConn] Write [%d][%s]\n", len(data), base64.StdEncoding.EncodeToString(MD5Hash(data)))
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[commSCCMsgConn] Write [%d][%s]\n", len(data), base64.StdEncoding.EncodeToString(MD5Hash(data)))
+	}
 
 	c.writeCounter++
 	err = c.session.Send(data)
@@ -57,7 +60,9 @@ func (c *commSCCMsgConn) Write(data []byte) (n int, err error) {
 
 func (c *commSCCMsgConn) Read() ([]byte, error) {
 	c.readCounter++
-	logger.Debugf("[commSCCMsgConn] Reading at counter [%d]", c.readCounter)
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[commSCCMsgConn] Reading at counter [%d]", c.readCounter)
+	}
 	msg, ok := <-c.ch
 	if !ok {
 		return nil, errors.New("channel closed")
@@ -75,7 +80,9 @@ func (c *commSCCMsgConn) Read() ([]byte, error) {
 		return nil, errMsg
 	}
 
-	logger.Debugf("[commSCCMsgConn] [%d] Read [%d][%s]\n", c.readCounter, len(msg.Payload), base64.StdEncoding.EncodeToString(MD5Hash(msg.Payload)))
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.Debugf("[commSCCMsgConn] [%d] Read [%d][%s]\n", c.readCounter, len(msg.Payload), base64.StdEncoding.EncodeToString(MD5Hash(msg.Payload)))
+	}
 	return msg.Payload, nil
 }
 
