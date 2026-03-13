@@ -49,6 +49,12 @@ type NetworkStreamSession struct {
 	closing   chan struct{}
 	closed    chan struct{}
 	isClosing atomic.Bool
+
+	enqueueTimeout time.Duration
+}
+
+func (n *NetworkStreamSession) SetEnqueueTimeout(timeout time.Duration) {
+	n.enqueueTimeout = timeout
 }
 
 func (n *NetworkStreamSession) tryStart() {
@@ -162,7 +168,11 @@ func (n *NetworkStreamSession) Receive() <-chan *view.Message {
 // enqueue enqueues a message into the session's incoming channel.
 // If the session is closed, the message will be dropped and false returned, otherwise true is returned.
 func (n *NetworkStreamSession) enqueue(msg *view.Message) bool {
-	return n.enqueueWithTimeout(msg, DefaultEnqueueTimeout)
+	timeout := n.enqueueTimeout
+	if timeout == 0 {
+		timeout = DefaultEnqueueTimeout
+	}
+	return n.enqueueWithTimeout(msg, timeout)
 }
 
 // enqueueWithTimeout enqueues a message into the session's incoming channel with a custom timeout.

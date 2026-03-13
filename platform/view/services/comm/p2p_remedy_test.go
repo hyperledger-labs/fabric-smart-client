@@ -35,19 +35,24 @@ func (m *mockHost) Close() error {
 
 type mockStream struct {
 	host2.P2PStream
+	ctx context.Context
 }
 
 func (m *mockStream) Hash() host2.StreamHash            { return "hash" }
 func (m *mockStream) Write(p []byte) (n int, err error) { return len(p), nil }
 func (m *mockStream) Read(p []byte) (n int, err error) {
-	<-context.Background().Done() // Block forever
-	return 0, io.EOF
+	select {
+	case <-m.ctx.Done():
+		return 0, io.EOF
+	case <-time.After(100 * time.Millisecond):
+		return 0, io.EOF
+	}
 }
 func (m *mockStream) Close() error             { return nil }
-func (m *mockStream) Context() context.Context { return context.Background() }
+func (m *mockStream) Context() context.Context { return m.ctx }
 
 func (m *mockHost) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PStream, error) {
-	return &mockStream{}, nil
+	return &mockStream{ctx: ctx}, nil
 }
 
 func (m *mockHost) StreamHash(info host2.StreamInfo) host2.StreamHash {
@@ -83,7 +88,9 @@ func TestDispatcherDoS(t *testing.T) {
 	}
 
 	sessionSlow := createSession("slow", []byte("slow-peer"))
+	sessionSlow.SetEnqueueTimeout(200 * time.Millisecond)
 	sessionFast := createSession("fast", []byte("fast-peer"))
+	sessionFast.SetEnqueueTimeout(200 * time.Millisecond)
 
 	p.sessionsMutex.Lock()
 	p.sessions[computeInternalSessionID("slow", []byte("slow-peer"))] = sessionSlow
@@ -224,10 +231,10 @@ func TestMasterSessionDoSProtection(t *testing.T) {
 	case msg := <-sessionFast.Receive():
 		assert.Equal(t, "fast-msg", string(msg.Payload))
 		elapsed := time.Since(start)
-		// It should take ~4.5 - 5 seconds for a worker to free up and pick this message.
-		assert.Greater(t, elapsed, 4*time.Second, "Should have waited for worker to unblock")
-		assert.Less(t, elapsed, 10*time.Second, "Should have received message within worker timeout")
-	case <-time.After(15 * time.Second):
+		// It should take ~ DefaultDispatcherTimeout for a worker to free up
+		assert.Greater(t, elapsed, DefaultDispatcherTimeout-1*time.Second, "Should have waited for worker to unblock")
+		assert.Less(t, elapsed, DefaultDispatcherTimeout+5*time.Second, "Should have received message within worker timeout")
+	case <-time.After(DefaultDispatcherTimeout + 10*time.Second):
 		t.Fatal("TIMED OUT: Fast session still blocked by clogged master session!")
 	}
 }
