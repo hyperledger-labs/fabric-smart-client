@@ -18,6 +18,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -135,7 +136,7 @@ func TestAttack_HijackSessionID(t *testing.T) {
 	// from Alice's internal session ID "Alice-Session-ID.Alice".
 }
 
-func startTestServer(t *testing.T, p *MultiplexedProvider, tlsConfig *tls.Config, newStreamCallback func(s host.P2PStream)) *httptest.Server {
+func startTestServer(t *testing.T, p rest.StreamProvider, tlsConfig *tls.Config, newStreamCallback func(s host.P2PStream)) *httptest.Server {
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := p.NewServerStream(w, r, newStreamCallback)
 		assert.NoError(t, err)
