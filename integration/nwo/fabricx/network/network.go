@@ -226,7 +226,7 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 				Address:   notificationsEndpoint,
 				TLSConfig: fxconfig.TLSConfig{},
 			},
-			EndorserPKPath: endorserPKPath,
+			Policy: "threshold:" + endorserPKPath,
 		},
 	}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())

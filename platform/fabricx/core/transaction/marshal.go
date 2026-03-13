@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/hyperledger/fabric-x-common/protoutil"
 	"go.uber.org/zap/zapcore"
 )
@@ -25,40 +24,22 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "getting proposal responses")
 	}
-
-	// TODO: to implement MSP-based endorsement, we need to merge all proposal responses received from the endorsers.
-	// Do the following steps:
-	// 1. Get the "original" transaction we sent to the endorsers
-	// 2. For each proposal response
-	//   - extract endorsements and merge into the "original" transaction
-
-	// TODO: pick the correct signed proposal response; currently we assume "the last" response is the correct one
-	// Note that this will be changed once the committer-x fully supports msp-based endorsement policies
 	if len(resps) < 1 {
 		return nil, errors.Errorf("number of responses must be larger than 0, actual %d", len(resps))
 	}
-	response := resps[len(resps)-1]
-	rawTx := response.Results()
 
-	var tx applicationpb.Tx
-	if err := proto.Unmarshal(rawTx, &tx); err != nil {
-		return nil, errors.Wrapf(err, "unmarshal tx [txID=%s]", t.ID())
+	tx, err := mergeProposalResponseEndorsements(resps)
+	if err != nil {
+		return nil, errors.Wrapf(err, "merge proposal response endorsements for tx [%s]", t.ID())
 	}
-
-	// get endorsements from response
-	var endorsements []*applicationpb.Endorsements
-	if err := json.Unmarshal(response.EndorserSignature(), &endorsements); err != nil {
-		return nil, errors.Wrap(err, "unmarshal endorser signatures")
-	}
-	tx.Endorsements = endorsements
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		str, _ := json.MarshalIndent(&tx, "", "\t")
+		str, _ := json.MarshalIndent(tx, "", "\t")
 		logger.Debugf("fabricx transaction: %s", str)
 	}
 
 	// marshall transaction
-	rawTx, err = proto.Marshal(&tx)
+	rawTx, err := proto.Marshal(tx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "marshal tx [txID=%s]", t.ID())
 	}

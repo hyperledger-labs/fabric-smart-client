@@ -188,6 +188,7 @@ func (t *Topology) AddNamespace(name string, policy string, peers ...string) {
 	t.AddChaincode(cc)
 }
 
+// TODO set the final policy sting here
 func (t *Topology) AddNamespaceWithUnanimity(name string, orgs ...string) *namespace {
 	policy := "AND ("
 	for i, org := range orgs {
