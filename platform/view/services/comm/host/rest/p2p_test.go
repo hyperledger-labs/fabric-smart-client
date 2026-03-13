@@ -60,6 +60,12 @@ func TestSessionsForMPCTestRound(t *testing.T) {
 	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
 }
 
+func TestSessionsMultipleMessagesTestRound(t *testing.T) {
+	bootstrapNode, node := setupTwoNodes(t)
+	<-time.After(5 * time.Second)
+	comm.SessionsMultipleMessagesTestRound(t, bootstrapNode, node)
+}
+
 func TestMTLSCallerIdentityBinding(t *testing.T) {
 	bootstrapNode, node := setupTwoNodes(t)
 	ctx := context.Background()

@@ -7,12 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package comm
 
 import (
+	"bytes"
 	"context"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type HostNode struct {
@@ -159,6 +164,115 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNo
 	assert.NoError(t, session.Send([]byte("ciaoback")))
 
 	session.Close()
+
+	wg.Wait()
+
+	bootstrapNode.Stop()
+	node.Stop()
+}
+
+func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
+	// Set numWorkers to 1 to ensure ordered delivery through the dispatcher for this test
+	bootstrapNode.SetNumWorkers(1)
+	node.SetNumWorkers(1)
+
+	ctx := context.Background()
+	bootstrapNode.Start(ctx)
+	node.Start(ctx)
+
+	messagesToSend := [][]byte{
+		[]byte("msg-0-short"),
+		[]byte("msg-1-medium-" + strings.Repeat("a", 1024)),      // 1KB
+		[]byte("msg-2-large-" + strings.Repeat("b", 100*1024)),   // 100KB
+		[]byte("msg-3-xlarge-" + strings.Repeat("c", 1024*1024)), // 1MB
+		[]byte("msg-4-end"),
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		s, err := bootstrapNode.NewSession("caller", "ctx", node.Address, []byte(node.ID))
+		require.NoError(t, err)
+		require.NotNil(t, s)
+
+		// Send first message to trigger master session on responder
+		err = s.Send(messagesToSend[0])
+		require.NoError(t, err)
+
+		// Wait for READY signal from responder to ensure dedicated session is active
+		select {
+		case msg := <-s.Receive():
+			require.NotNil(t, msg)
+			require.Equal(t, []byte("READY"), msg.Payload)
+		case <-time.After(10 * time.Second):
+			t.Errorf("Sender: Timeout waiting for READY signal")
+			return
+		}
+
+		// Send the rest of the messages
+		for i := 1; i < len(messagesToSend); i++ {
+			err = s.Send(messagesToSend[i])
+			require.NoError(t, err)
+		}
+
+		// Wait for FINAL ACK
+		select {
+		case msg := <-s.Receive():
+			require.NotNil(t, msg)
+			require.Equal(t, []byte("FINAL_ACK"), msg.Payload)
+		case <-time.After(10 * time.Second):
+			t.Errorf("Sender: Timeout waiting for FINAL_ACK")
+			return
+		}
+
+		s.Close()
+	}()
+
+	masterSession, err := node.MasterSession()
+	require.NoError(t, err)
+	require.NotNil(t, masterSession)
+
+	// First message arrives at master session
+	var firstMsg *view.Message
+	select {
+	case firstMsg = <-masterSession.Receive():
+		require.NotNil(t, firstMsg)
+		require.Equal(t, messagesToSend[0], firstMsg.Payload)
+	case <-time.After(10 * time.Second):
+		t.Fatal("Responder: Timeout waiting for first message on master session")
+	}
+
+	// Create dedicated session to receive the rest
+	s, err := node.NewSessionWithID(firstMsg.SessionID, firstMsg.ContextID, "", firstMsg.FromPKID, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, s)
+
+	// Signal READY to sender
+	require.NoError(t, s.Send([]byte("READY")))
+
+	sessionMsgs := s.Receive()
+	// Receive the rest (index 1 to end)
+	for i := 1; i < len(messagesToSend); i++ {
+		select {
+		case msg := <-sessionMsgs:
+			require.NotNil(t, msg, "Message %d is nil", i)
+			if !bytes.Equal(messagesToSend[i], msg.Payload) {
+				t.Errorf("Message %d content mismatch. Expected len %d, got len %d", i, len(messagesToSend[i]), len(msg.Payload))
+				return
+			}
+		case <-time.After(10 * time.Second):
+			t.Errorf("Responder: Timeout waiting for message %d", i)
+			return
+		}
+	}
+
+	// Send FINAL ACK
+	require.NoError(t, s.Send([]byte("FINAL_ACK")))
+
+	s.Close()
 
 	wg.Wait()
 
