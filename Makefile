@@ -154,6 +154,7 @@ INTEGRATION_TARGETS += fabric-twonets
 INTEGRATION_TARGETS += fabricx-iou
 INTEGRATION_TARGETS += fabricx-simple
 INTEGRATION_TARGETS += fabricx-deployment
+INTEGRATION_TARGETS += fabricx-multiendorsement
 
 .PHONE: list-integration-tests
 list-integration-tests: ## List all integration tests
