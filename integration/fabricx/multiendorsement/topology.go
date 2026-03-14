@@ -1,3 +1,9 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package multiendorsement
 
 import (
@@ -46,7 +52,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		AddOptions(fabric.WithOrganization("Org2")).
 		AddOptions(replicationOpts.For("approver2")...).
 		RegisterResponder(&simpleviews.ApproveView{}, &simpleviews.CreateView{})
-	
+
 	// approver3 participates in application endorsement
 	fscTopology.AddNodeByName("approver3").
 		AddOptions(fabric.WithOrganization("Org3")).

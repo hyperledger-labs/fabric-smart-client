@@ -117,7 +117,7 @@ func (p *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
 		// note that we are checking the endorsement returned via a proposal response from the endorser
 		// that is, at this stage it should only contain "a single" signature (endorsement) per namespace;
 		sig := items[0].GetEndorsement()
-		
+
 		// TODO: check the type of the endorsement
 		// If msp-based with or without attached identity - we need to check it corresponds to the endorser identity
 		// as we specify above using `view.Identity(p.pr.Endorsement.Endorser)`.

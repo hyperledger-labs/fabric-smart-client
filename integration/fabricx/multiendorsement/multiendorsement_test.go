@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	// "path"
+
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
@@ -119,7 +119,7 @@ func UpdateNamespacePolicyRequirements(ii *integration.Infrastructure, policy st
 func (s *TestSuite) TestMultiEndorsementMerge() {
 	By("verifying namespace is present with initial version")
 	CheckNamespaceExists(s.II, "simple", 0)
-	
+
 	By("updating namespace policy to require endorsements from Org1")
 	UpdateNamespacePolicyRequirements(s.II, "AND('Org1MSP.member')", 0)
 	By("waiting for namespace update to be finalized")
