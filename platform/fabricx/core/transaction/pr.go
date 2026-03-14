@@ -88,8 +88,8 @@ func (p *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
 	}
 
 	// unmarshal endorsement signatures for each namespace
-	var endorsements []*applicationpb.Endorsements
-	if err := json.Unmarshal(p.EndorserSignature(), &endorsements); err != nil {
+	endorsements, err := unmarshalEndorsementsFromProposalResponse(p.EndorserSignature())
+	if err != nil {
 		return errors.Wrap(err, "unmarshal endorsement signatures")
 	}
 
@@ -109,9 +109,14 @@ func (p *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
 			return errors.Wrapf(err, "failed asn1 marshal for [txID=%s] [ns=%s]", txID, ns)
 		}
 
+		items := endorsements[idx].GetEndorsementsWithIdentity()
+		if len(items) == 0 {
+			return errors.Errorf("missing endorsement for [txID=%s] [ns=%s]", txID, ns)
+		}
+
 		// note that we are checking the endorsement returned via a proposal response from the endorser
 		// that is, at this stage it should only contain "a single" signature (endorsement) per namespace;
-		sig := endorsements[idx].GetEndorsementsWithIdentity()[0].GetEndorsement()
+		sig := items[0].GetEndorsement()
 
 		// TODO: check the type of the endorsement
 		// If msp-based with or without attached identity - we need to check it corresponds to the endorser identity
@@ -125,4 +130,27 @@ func (p *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
 	}
 
 	return nil
+}
+
+func unmarshalEndorsementsFromProposalResponse(raw []byte) ([]*applicationpb.Endorsements, error) {
+	var rawEndorsements [][]byte
+	if err := json.Unmarshal(raw, &rawEndorsements); err != nil {
+		return nil, errors.Wrap(err, "unmarshal serialized endorsements")
+	}
+
+	endorsements := make([]*applicationpb.Endorsements, len(rawEndorsements))
+	for i, item := range rawEndorsements {
+		if len(item) == 0 {
+			endorsements[i] = &applicationpb.Endorsements{}
+			continue
+		}
+
+		e := &applicationpb.Endorsements{}
+		if err := proto.Unmarshal(item, e); err != nil {
+			return nil, errors.Wrapf(err, "unmarshal endorsement at index %d", i)
+		}
+		endorsements[i] = e
+	}
+
+	return endorsements, nil
 }

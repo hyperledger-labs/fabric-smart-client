@@ -18,8 +18,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
+	"github.com/hyperledger/fabric-x-common/api/msppb"
 	"github.com/hyperledger/fabric-x-common/protoutil"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
@@ -601,6 +603,12 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 		return nil, errors.Wrap(err, "getting the signer's identity")
 	}
 
+	// convert serialized identity to the msppb.Identity expected by Fabric-X
+	signerIdentity, err := toMSPIdentity(view.Identity(creator))
+	if err != nil {
+		return nil, errors.Wrap(err, "converting signer identity to msp identity")
+	}
+
 	// create an endorsement for each namespace
 	for idx, ns := range tx.GetNamespaces() {
 		// TODO we need to check if the signer is an endorser for the given namespace;
@@ -616,11 +624,10 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 			return nil, errors.Wrapf(err, "signing transaction [txID=%s] [ns=%s]", txID, ns)
 		}
 
-		// store signature as endorsementWithIdentity
+		// store signature together with the signer's identity
 		eid := &applicationpb.EndorsementWithIdentity{
+			Identity:    signerIdentity,
 			Endorsement: sig,
-			// TODO MSP-based endorsements will attach either the signerID or the hashed signerID
-			// Identity:    signerID,
 		}
 
 		tx.Endorsements[idx] = &applicationpb.Endorsements{
@@ -628,15 +635,14 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 		}
 	}
 
-	// marshall all endorsements into a single []byte slice
-	serializedEndorsements, err := json.Marshal(tx.GetEndorsements())
+	serializedEndorsements, err := marshalEndorsementsForProposalResponse(tx.GetEndorsements())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "marshal endorsements for proposal response")
 	}
 
 	return &pb.ProposalResponse{
 		Version: 1,
-		// TODO remove creator field and use EndorsementWithIdentity.Identity instead
+		// keep legacy Endorser populated too for backward compatibility / dedupe
 		Endorsement: &pb.Endorsement{Signature: serializedEndorsements, Endorser: creator},
 		Payload:     rawTx,
 		Response: &pb.Response{
@@ -645,4 +651,39 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 			Payload: []byte(txID),
 		},
 	}, nil
+}
+func toMSPIdentity(identity view.Identity) (*msppb.Identity, error) {
+	sID := &m.SerializedIdentity{}
+	if err := proto.Unmarshal(identity, sID); err != nil {
+		return nil, errors.Wrap(err, "unmarshal serialized identity")
+	}
+
+	return &msppb.Identity{
+		MspId: sID.GetMspid(),
+		Creator: &msppb.Identity_Certificate{
+			Certificate: sID.GetIdBytes(),
+		},
+	}, nil
+}
+
+func marshalEndorsementsForProposalResponse(endorsements []*applicationpb.Endorsements) ([]byte, error) {
+	rawEndorsements := make([][]byte, len(endorsements))
+	for i, endorsement := range endorsements {
+		if endorsement == nil {
+			rawEndorsements[i] = nil
+			continue
+		}
+
+		raw, err := proto.Marshal(endorsement)
+		if err != nil {
+			return nil, errors.Wrapf(err, "marshal endorsement at index %d", i)
+		}
+		rawEndorsements[i] = raw
+	}
+
+	raw, err := json.Marshal(rawEndorsements)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal serialized endorsements")
+	}
+	return raw, nil
 }

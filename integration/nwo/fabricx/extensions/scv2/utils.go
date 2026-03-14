@@ -20,7 +20,7 @@ func peerDockerMSPDir(n *network.Network, p *topology.Peer) string {
 	return filepath.Join(
 		"/",
 		"root",
-		"config",
+		"artifacts",
 		"crypto",
 		"peerOrganizations",
 		org.Domain,
