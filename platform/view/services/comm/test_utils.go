@@ -175,7 +175,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, no
 	numSessions := 100
 	// numWorkers := 2
 	// Set numWorkers to 20 to test true concurrency
-	// bootstrapNode.SetNumWorkers(numWorkers)
+	bootstrapNode.SetNumWorkers(numWorkers)
 	// node.SetNumWorkers(numWorkers)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)

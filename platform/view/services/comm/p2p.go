@@ -32,7 +32,7 @@ const (
 	sessionIDLabel    tracing.LabelName = "session_id"
 	defaultBufferSize                   = 4096
 
-	DefaultDispatcherWorkers = 10
+	DefaultDispatcherWorkers = 1
 	DefaultDispatcherTimeout = 5 * time.Second
 )
 
@@ -74,7 +74,7 @@ func NewNode(h host2.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error
 		ctx:              ctx,
 		cancel:           cancel,
 		m:                newMetrics(metricsProvider),
-		numWorkers:       1,
+		numWorkers:       DefaultDispatcherWorkers,
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
 		cancel()

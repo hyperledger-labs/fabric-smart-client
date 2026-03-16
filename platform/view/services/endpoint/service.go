@@ -225,7 +225,6 @@ func (r *Service) UpdateResolver(
 }
 
 // AddResolver adds a new resolver.
-
 func (r *Service) AddResolver(
 	name string,
 	domain string,
