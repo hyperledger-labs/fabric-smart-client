@@ -33,10 +33,10 @@ import (
 const (
 	contextIDLabel        tracing.LabelName = "context_id"
 	defaultContextIDLabel string            = "context"
-	readTimeout                             = 120 * time.Second
+	readTimeout                             = 10 * time.Minute
 	writeTimeout                            = 30 * time.Second
 	defaultMaxSubConns                      = 100
-	DefaultStreamTimeout                    = 1 * time.Minute
+	DefaultStreamTimeout                    = 2 * time.Minute
 )
 
 type SubConnId = string
