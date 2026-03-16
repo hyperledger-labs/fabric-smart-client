@@ -37,7 +37,7 @@ import (
 
 func TestMain(m *testing.M) {
 	logging.Init(logging.Config{
-		LogSpec: "error",
+		LogSpec: "info",
 	})
 	os.Exit(m.Run())
 }

@@ -74,7 +74,7 @@ func NewNode(h host2.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error
 		ctx:              ctx,
 		cancel:           cancel,
 		m:                newMetrics(metricsProvider),
-		numWorkers:       DefaultDispatcherWorkers,
+		numWorkers:       1,
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
 		cancel()
@@ -215,7 +215,7 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message, se
 	for _, stream := range streamsCopy {
 		err := stream.send(msg)
 		if err == nil {
-			logger.Debugf("send msg [%v] with stream [%s]", msg, stream.stream.Hash())
+			logger.Debugf("send msg with stream [%s]", stream.stream.Hash())
 			if session != nil {
 				session.mutex.Lock()
 				if _, streamRegisteredAlready := session.streams[stream]; !streamRegisteredAlready {
@@ -227,7 +227,7 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message, se
 			return nil
 		}
 		// TODO: handle the case in which there's an error
-		logger.Errorf("error while sending message [%s] to stream with hash [%s]: %s", msg, streamHash, err)
+		logger.Errorf("error while sending message to stream with hash [%s]: %s", streamHash, err)
 	}
 
 	return errors.Wrapf(errStreamNotFound, "all [%d] streams for hash [%s] failed to send", len(streamsCopy), streamHash)
