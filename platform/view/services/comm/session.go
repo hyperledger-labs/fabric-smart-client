@@ -261,7 +261,7 @@ func (n *NetworkStreamSession) isClosed() bool {
 
 func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byte, status int32) error {
 	if n.isClosed() {
-		return ErrSessionClosed
+		return errors.Wrapf(ErrSessionClosed, "session [%s] is closed", n.sessionID)
 	}
 
 	n.mutex.RLock()
@@ -281,7 +281,8 @@ func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byt
 	n.mutex.RUnlock()
 
 	err := n.node.sendTo(ctx, info, packet, n)
-	logger.Debugf("sent message [len:%d] to [%s:%s] from [%s] [status:%v] with err [%v]",
+	logger.Debugf("[%s] sent message [len:%d] to [%s:%s] from [%s] [status:%v] with err [%v]",
+		n.sessionID,
 		len(payload),
 		info.RemotePeerID,
 		info.RemotePeerAddress,
@@ -289,5 +290,8 @@ func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byt
 		status,
 		err,
 	)
-	return err
+	if err != nil {
+		return errors.Wrapf(err, "failed to send message on session [%s]", n.sessionID)
+	}
+	return nil
 }
