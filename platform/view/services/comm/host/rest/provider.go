@@ -88,7 +88,6 @@ func (h *hostWrapper) Addr() string {
 }
 
 func (h *hostWrapper) Start(newStreamCallback func(stream host2.P2PStream)) error {
-
 	if err := h.P2PHost.Start(newStreamCallback); err != nil {
 		return err
 	}
