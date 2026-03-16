@@ -26,6 +26,16 @@ type OrdererConfig struct {
 	TLSConfig TLSConfig
 }
 
+type NotificationsConfig struct {
+	Address   string
+	TLSConfig TLSConfig
+}
+
+type QueryConfig struct {
+	Address   string
+	TLSConfig TLSConfig
+}
+
 type MSPConfig struct {
 	ConfigPath string
 	LocalMspID string
@@ -42,10 +52,12 @@ type NamespaceCommon struct {
 	Name    string
 	Channel string
 
+	// TODO: replace with MSP-based policy
 	EndorserPKPath string
 
-	MSPConfig     MSPConfig
-	OrdererConfig OrdererConfig
+	MSPConfig           MSPConfig
+	OrdererConfig       OrdererConfig
+	NotificationsConfig NotificationsConfig
 }
 
 type CreateNamespace struct {
@@ -55,8 +67,10 @@ type CreateNamespace struct {
 func (n *CreateNamespace) Args() []string {
 	return []string{
 		"namespace", "create", n.Name,
-		"--channel", n.Channel,
-		"--policy-ecdsa-threshold", n.EndorserPKPath,
+		"--policy=threshold:" + n.EndorserPKPath,
+		"--endorse",
+		"--submit",
+		"--wait",
 	}
 }
 
@@ -65,6 +79,7 @@ func (n *NamespaceCommon) Env() []string {
 	env := []string{
 		"FXCONFIG_MSP_LOCALMSPID=" + n.MSPConfig.LocalMspID,
 		"FXCONFIG_MSP_CONFIGPATH=" + n.MSPConfig.ConfigPath,
+		"FXCONFIG_ORDERER_CHANNEL=" + n.Channel,
 	}
 
 	// orderer
@@ -74,6 +89,16 @@ func (n *NamespaceCommon) Env() []string {
 		env = append(env,
 			"FXCONFIG_ORDERER_TLS_ENABLED=true",
 			"FXCONFIG_ORDERER_TLS_ROOTCERTS="+rootCerts,
+		)
+	}
+
+	// notifications
+	env = append(env, "FXCONFIG_NOTIFICATIONS_ADDRESS="+n.NotificationsConfig.Address)
+	if n.NotificationsConfig.TLSConfig.Enabled {
+		rootCerts := strings.Join(n.NotificationsConfig.TLSConfig.RootCerts, ",")
+		env = append(env,
+			"FXCONFIG_NOTIFICATIONS_TLS_ENABLED=true",
+			"FXCONFIG_NOTIFICATIONS_TLS_ROOTCERTS="+rootCerts,
 		)
 	}
 
@@ -93,9 +118,11 @@ type UpdateNamespace struct {
 func (n *UpdateNamespace) Args() []string {
 	return []string{
 		"namespace", "update", n.Name,
-		"--channel", n.Channel,
 		"--version", strconv.Itoa(n.Version),
-		"--policy-ecdsa-threshold", n.EndorserPKPath,
+		"--policy=threshold:" + n.EndorserPKPath,
+		"--endorse",
+		"--submit",
+		"--wait",
 	}
 }
 
@@ -104,7 +131,7 @@ func (n *UpdateNamespace) SessionName() string {
 }
 
 type ListNamespaces struct {
-	QueryServiceEndpoint string
+	QueryConfig QueryConfig
 }
 
 func (n *ListNamespaces) Args() []string {
@@ -112,7 +139,17 @@ func (n *ListNamespaces) Args() []string {
 }
 
 func (n *ListNamespaces) Env() []string {
-	return []string{"FXCONFIG_QUERIES_ADDRESS=" + n.QueryServiceEndpoint}
+	env := []string{"FXCONFIG_QUERIES_ADDRESS=" + n.QueryConfig.Address}
+
+	if n.QueryConfig.TLSConfig.Enabled {
+		rootCerts := strings.Join(n.QueryConfig.TLSConfig.RootCerts, ",")
+		env = append(env,
+			"FXCONFIG_QUERIES_TLS_ENABLED=true",
+			"FXCONFIG_QUERIES_TLS_ROOTCERTS="+rootCerts,
+		)
+	}
+
+	return env
 }
 
 func (n *ListNamespaces) SessionName() string {

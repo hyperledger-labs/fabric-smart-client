@@ -8,6 +8,7 @@ package network
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -64,8 +65,11 @@ func (n *Network) GenerateConfigTree() {
 	n.GenerateCryptoConfig()
 
 	// generate genesis blocks
-	err := generateConfigTxYaml(n)
-	utils.Must(err)
+	//n.WriteConfigTxConfig()
+	n.GenerateConfigTxConfig()
+
+	//err := generateConfigTxYaml(n)
+	//utils.Must(err)
 }
 
 func (n *Network) GenerateArtifacts() {
@@ -190,13 +194,26 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 	}
 	gomega.Expect(fscNode).NotTo(gomega.BeNil())
 
+	// TODO: get the admin user according to the channel lifecycle policy
+	// see corresponding fabricTopology.SetNamespaceApproverOrgs("Org1") setting in topo
+	adminMspID := n.Organization(fscNode.Organization).MSPID
+	adminMspDir := n.PeerUserMSPDir(fscNode, "Admin")
+
+	// get notification service endpoint
+	committerNode := n.Peer(fscNode.Organization, "SC")
+	committerSidecarPort := fmt.Sprintf("%d", n.PeerPort(committerNode, fabric_network.ListenPort))
+	notificationsEndpoint := net.JoinHostPort("localhost", committerSidecarPort)
+
+	// TODO replace EndorserPKPath with the real policy as defined in chaincode.Chaincode.Policy
+	endorserPKPath := n.PeerUserCert(fscNode, fscNode.Name)
+
 	cmd := &fxconfig.CreateNamespace{
 		NamespaceCommon: fxconfig.NamespaceCommon{
 			Name:    chaincode.Chaincode.Name,
 			Channel: chaincode.Channel,
 			MSPConfig: fxconfig.MSPConfig{
-				ConfigPath: fscNode.Identities[0].Path,
-				LocalMspID: fscNode.Identities[0].MSPID,
+				ConfigPath: adminMspDir,
+				LocalMspID: adminMspID,
 			},
 			OrdererConfig: fxconfig.OrdererConfig{
 				Address: n.OrdererAddress(n.Orderers[0], fabric_network.ListenPort),
@@ -205,7 +222,11 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 					RootCerts: []string{n.OrgOrdererTLSCACertificatePath(n.Organizations[0])},
 				},
 			},
-			EndorserPKPath: n.PeerUserCert(fscNode, fscNode.Name),
+			NotificationsConfig: fxconfig.NotificationsConfig{
+				Address:   notificationsEndpoint,
+				TLSConfig: fxconfig.TLSConfig{},
+			},
+			EndorserPKPath: endorserPKPath,
 		},
 	}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
@@ -223,7 +244,10 @@ func (n *Network) UpdateNamespace(chaincodeID, version, path, packageFile string
 // exit code) instead of panicking, making it safe to use inside
 // gomega.Eventually for retrying.
 func (n *Network) tryListInstalledNames() ([]Namespace, error) {
-	cmd := &fxconfig.ListNamespaces{QueryServiceEndpoint: "127.0.0.1:7001"}
+	cmd := &fxconfig.ListNamespaces{QueryConfig: fxconfig.QueryConfig{
+		Address:   "127.0.0.1:7001",
+		TLSConfig: fxconfig.TLSConfig{},
+	}}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	if err != nil {
 		return nil, err

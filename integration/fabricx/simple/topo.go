@@ -25,6 +25,7 @@ const (
 func Topology(sdk node.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 	fabricTopology := nwofabricx.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1")
+	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespaceWithUnanimity(Namespace, "Org1")
 
 	fscTopology := fsc.NewTopology()

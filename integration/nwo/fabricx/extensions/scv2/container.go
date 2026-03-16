@@ -129,12 +129,12 @@ func (e *Extension) launchContainer() {
 					// crypto
 					Type:   mount.TypeBind,
 					Source: rootCryptoDir,
-					Target: "/root/material/crypto",
+					Target: "/root/artifacts/crypto",
 				},
 				{ // config block
 					Type:     mount.TypeBind,
 					Source:   configBlockPath,
-					Target:   "/root/material/config-block.pb.bin",
+					Target:   "/root/artifacts/config-block.pb.bin",
 					ReadOnly: true,
 				},
 			},
