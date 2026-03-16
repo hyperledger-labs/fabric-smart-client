@@ -170,7 +170,7 @@ func (s *stream) Write(p []byte) (int, error) {
 		logger.Debugf("Wrote to [%s@%s], but message not ready yet.", s.info.RemotePeerID, s.info.RemotePeerAddress)
 		return n, nil
 	}
-	logger.Debugf("Ready to send to [%s@%s]: [%s]", s.info.RemotePeerID, s.info.RemotePeerAddress, logging.Base64(content))
+	logger.Debugf("Ready to send to [%s@%s]: [%s]", s.info.RemotePeerID, s.info.RemotePeerAddress, logging.SHA256Base64(content))
 	if c, ok := s.conn.(*websocket.Conn); ok {
 		_ = c.SetWriteDeadline(time.Now().Add(writeTimeout))
 	}

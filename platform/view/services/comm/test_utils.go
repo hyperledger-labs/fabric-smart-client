@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package comm
 
 import (
-	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -172,110 +172,143 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNo
 }
 
 func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
-	// Set numWorkers to 1 to ensure ordered delivery through the dispatcher for this test
-	bootstrapNode.SetNumWorkers(1)
-	node.SetNumWorkers(1)
+	numSessions := 100
+	// numWorkers := 2
+	// Set numWorkers to 20 to test true concurrency
+	// bootstrapNode.SetNumWorkers(numWorkers)
+	// node.SetNumWorkers(numWorkers)
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
 	bootstrapNode.Start(ctx)
 	node.Start(ctx)
 
-	messagesToSend := [][]byte{
-		[]byte("msg-0-short"),
-		[]byte("msg-1-medium-" + strings.Repeat("a", 1024)),      // 1KB
-		[]byte("msg-2-large-" + strings.Repeat("b", 100*1024)),   // 100KB
-		[]byte("msg-3-xlarge-" + strings.Repeat("c", 1024*1024)), // 1MB
-		[]byte("msg-4-end"),
-	}
-
 	var wg sync.WaitGroup
-	wg.Add(1)
+	wg.Add(numSessions)
 
-	go func() {
-		defer wg.Done()
+	// Initiator
+	for i := 0; i < numSessions; i++ {
+		go func(sessionIndex int) {
+			defer wg.Done()
 
-		s, err := bootstrapNode.NewSession("caller", "ctx", node.Address, []byte(node.ID))
-		require.NoError(t, err)
-		require.NotNil(t, s)
+			caller := fmt.Sprintf("caller-%d", sessionIndex)
+			contextID := fmt.Sprintf("ctx-%d", sessionIndex)
 
-		// Send first message to trigger master session on responder
-		err = s.Send(messagesToSend[0])
-		require.NoError(t, err)
-
-		// Wait for READY signal from responder to ensure dedicated session is active
-		select {
-		case msg := <-s.Receive():
-			require.NotNil(t, msg)
-			require.Equal(t, []byte("READY"), msg.Payload)
-		case <-time.After(10 * time.Second):
-			t.Errorf("Sender: Timeout waiting for READY signal")
-			return
-		}
-
-		// Send the rest of the messages
-		for i := 1; i < len(messagesToSend); i++ {
-			err = s.Send(messagesToSend[i])
+			s, err := bootstrapNode.NewSession(caller, contextID, node.Address, []byte(node.ID))
 			require.NoError(t, err)
-		}
+			require.NotNil(t, s)
 
-		// Wait for FINAL ACK
-		select {
-		case msg := <-s.Receive():
-			require.NotNil(t, msg)
-			require.Equal(t, []byte("FINAL_ACK"), msg.Payload)
-		case <-time.After(10 * time.Second):
-			t.Errorf("Sender: Timeout waiting for FINAL_ACK")
-			return
-		}
+			// Send first message to trigger master session on responder
+			messagesToSend := messages(s.Info().ID)
+			err = s.Send(messagesToSend[0])
+			require.NoError(t, err)
 
-		s.Close()
-	}()
+			// Wait for READY signal from responder to ensure dedicated session is active
+			select {
+			case msg := <-s.Receive():
+				require.NotNil(t, msg)
+				require.Equal(t, []byte("READY"), msg.Payload)
+			case <-ctx.Done():
+				t.Errorf("Sender [%s]: Timeout waiting for READY signal", s.Info().ID)
+				return
+			}
+
+			// Send the rest of the messages
+			for j := 1; j < len(messagesToSend); j++ {
+				// logger.Infof("send message [%s] on session [%s]", string(messagesToSend[j]), s.Info().ID)
+				err = s.Send(messagesToSend[j])
+				require.NoError(t, err)
+			}
+
+			// Wait for FINAL ACK
+			select {
+			case msg := <-s.Receive():
+				require.NotNil(t, msg)
+				require.Equal(t, []byte("FINAL_ACK"), msg.Payload)
+			case <-ctx.Done():
+				t.Errorf("Sender [%s]: Timeout waiting for FINAL_ACK", s.Info().ID)
+				return
+			}
+
+			s.Close()
+		}(i)
+	}
 
 	masterSession, err := node.MasterSession()
 	require.NoError(t, err)
 	require.NotNil(t, masterSession)
 
-	// First message arrives at master session
-	var firstMsg *view.Message
-	select {
-	case firstMsg = <-masterSession.Receive():
-		require.NotNil(t, firstMsg)
-		require.Equal(t, messagesToSend[0], firstMsg.Payload)
-	case <-time.After(10 * time.Second):
-		t.Fatal("Responder: Timeout waiting for first message on master session")
-	}
+	var responderWg sync.WaitGroup
 
-	// Create dedicated session to receive the rest
-	s, err := node.NewSessionWithID(firstMsg.SessionID, firstMsg.ContextID, "", firstMsg.FromPKID, nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, s)
-
-	// Signal READY to sender
-	require.NoError(t, s.Send([]byte("READY")))
-
-	sessionMsgs := s.Receive()
-	// Receive the rest (index 1 to end)
-	for i := 1; i < len(messagesToSend); i++ {
-		select {
-		case msg := <-sessionMsgs:
-			require.NotNil(t, msg, "Message %d is nil", i)
-			if !bytes.Equal(messagesToSend[i], msg.Payload) {
-				t.Errorf("Message %d content mismatch. Expected len %d, got len %d", i, len(messagesToSend[i]), len(msg.Payload))
+	// Responder
+	go func() {
+		for {
+			// First message arrives at master session
+			var firstMsg *view.Message
+			select {
+			case firstMsg = <-masterSession.Receive():
+				if firstMsg == nil {
+					return
+				}
+			case <-ctx.Done():
 				return
 			}
-		case <-time.After(10 * time.Second):
-			t.Errorf("Responder: Timeout waiting for message %d", i)
-			return
+
+			responderWg.Add(1)
+			go func(msg *view.Message) {
+				defer responderWg.Done()
+
+				messagesToReceive := messages(msg.SessionID)
+
+				payload := msg.Payload
+				require.Equal(t, messagesToReceive[0], payload)
+
+				// Create dedicated session to receive the rest
+				s, err := node.NewSessionWithID(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
+				require.NoError(t, err)
+				require.NotNil(t, s)
+
+				// Signal READY to sender
+				require.NoError(t, s.Send([]byte("READY")))
+
+				sessionMsgs := s.Receive()
+				for j := 1; j < len(messagesToReceive); j++ {
+					select {
+					case m := <-sessionMsgs:
+						if m == nil {
+							t.Errorf("Responder [%s]: Received nil message at index %d", msg.SessionID, j)
+							return
+						}
+						// logger.Infof("received message [%s] on session [%s]", string(m.Payload), s.Info().ID)
+						require.Equal(t, messagesToReceive[j], m.Payload)
+					case <-ctx.Done():
+						t.Errorf("Responder [%s]: Timeout waiting for message %d on session %s", msg.SessionID, j, msg.SessionID)
+						return
+					}
+				}
+
+				// Send FINAL ACK
+				require.NoError(t, s.Send([]byte("FINAL_ACK")))
+
+				s.Close()
+			}(firstMsg)
 		}
-	}
-
-	// Send FINAL ACK
-	require.NoError(t, s.Send([]byte("FINAL_ACK")))
-
-	s.Close()
+	}()
 
 	wg.Wait()
+	responderWg.Wait()
 
 	bootstrapNode.Stop()
 	node.Stop()
+}
+
+func messages(sessionIndex string) [][]byte {
+	return [][]byte{
+		[]byte(fmt.Sprintf("msg-0-short-%s", sessionIndex)),
+		[]byte(fmt.Sprintf("msg-1-medium-%s-", sessionIndex) + strings.Repeat("a", 1024)),      // 1KB
+		[]byte(fmt.Sprintf("msg-2-large-%s-", sessionIndex) + strings.Repeat("b", 100*1024)),   // 100KB
+		[]byte(fmt.Sprintf("msg-3-xlarge-%s-", sessionIndex) + strings.Repeat("c", 1000*1024)), // 1MB
+		[]byte(fmt.Sprintf("msg-4-end-%s", sessionIndex)),
+	}
 }
