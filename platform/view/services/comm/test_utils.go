@@ -288,6 +288,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, no
 					}
 				}
 
+				time.Sleep(time.Second)
 				// Send FINAL ACK
 				require.NoError(t, s.Send([]byte("FINAL_ACK")))
 
@@ -304,11 +305,20 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, no
 }
 
 func messages(sessionIndex string) [][]byte {
-	return [][]byte{
-		[]byte(fmt.Sprintf("msg-0-short-%s", sessionIndex)),
-		[]byte(fmt.Sprintf("msg-1-medium-%s-", sessionIndex) + strings.Repeat("a", 1024)),      // 1KB
-		[]byte(fmt.Sprintf("msg-2-large-%s-", sessionIndex) + strings.Repeat("b", 100*1024)),   // 100KB
-		[]byte(fmt.Sprintf("msg-3-xlarge-%s-", sessionIndex) + strings.Repeat("c", 1000*1024)), // 1MB
-		[]byte(fmt.Sprintf("msg-4-end-%s", sessionIndex)),
+	l := 10
+	messages := make([][]byte, 0, l*5)
+	counter := 0
+	for range l {
+		messages = append(messages, []byte(fmt.Sprintf("msg-%d-short-%s", counter, sessionIndex)))
+		counter++
+		messages = append(messages, []byte(fmt.Sprintf("msg-%d-medium-%s-", counter, sessionIndex)+strings.Repeat("a", 1024)))
+		counter++
+		messages = append(messages, []byte(fmt.Sprintf("msg-%d-large-%s-", counter, sessionIndex)+strings.Repeat("b", 100*1024)))
+		counter++
+		messages = append(messages, []byte(fmt.Sprintf("msg-%d-xlarge-%s-", counter, sessionIndex)+strings.Repeat("c", 1000*1024)))
+		counter++
+		messages = append(messages, []byte(fmt.Sprintf("msg-%d-end-%s", counter, sessionIndex)))
+		counter++
 	}
+	return messages
 }
