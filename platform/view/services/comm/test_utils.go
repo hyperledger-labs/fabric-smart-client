@@ -173,9 +173,9 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNo
 
 func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 	numSessions := 100
-	// numWorkers := 2
+	// numWorkers := 20
 	// Set numWorkers to 20 to test true concurrency
-	bootstrapNode.SetNumWorkers(numWorkers)
+	// bootstrapNode.SetNumWorkers(numWorkers)
 	// node.SetNumWorkers(numWorkers)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
