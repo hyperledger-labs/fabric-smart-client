@@ -97,7 +97,7 @@ func (j *jsonSession) ReceiveRawWithTimeout(d time.Duration) ([]byte, error) {
 		raw = msg.Payload
 	case <-timeout.C:
 		logger.ErrorfContext(j.context, "timeout reached")
-		return nil, errors.New("time out reached")
+		return nil, errors.Errorf("time out reached on session [%s]", j.Info().ID)
 	case <-j.context.Done():
 		logger.ErrorfContext(j.context, "context done: %w", j.context.Err())
 		return nil, errors.Errorf("context done [%s]", j.context.Err())
