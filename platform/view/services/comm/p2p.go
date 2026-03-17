@@ -358,7 +358,7 @@ func (s *streamHandler) handleIncoming() {
 			}
 
 			// If it's just EOF, break out of the loop instead of forcing immediate closure
-			if err == stdio.EOF {
+			if errors.Is(err, stdio.EOF) {
 				logger.Debugf("EOF received from stream [%s], breaking read loop", streamHash)
 				break
 			}
