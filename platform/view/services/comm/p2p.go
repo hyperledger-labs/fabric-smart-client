@@ -14,8 +14,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	stdio "io"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/io"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -357,15 +355,10 @@ func (s *streamHandler) handleIncoming() {
 				logger.Debugf("error reading message from stream [%s]: [%s][%s]", streamHash, err, debug.Stack())
 			}
 
-			// If it's just EOF, break out of the loop instead of forcing immediate closure
-			if errors.Is(err, stdio.EOF) {
-				logger.Debugf("EOF received from stream [%s], breaking read loop", streamHash)
-				break
-			}
-
 			// remove stream handler
 			s.node.streamsMutex.Lock()
 			logger.Debugf("removing stream [%s], total streams found: %d", streamHash, len(s.node.streams[streamHash]))
+			found := false
 			for i, thisSH := range s.node.streams[streamHash] {
 				if thisSH == s {
 					s.node.streams[streamHash] = append(s.node.streams[streamHash][:i], s.node.streams[streamHash][i+1:]...)
@@ -374,15 +367,14 @@ func (s *streamHandler) handleIncoming() {
 					}
 					s.node.m.StreamHashes.Set(float64(len(s.node.streams)))
 					s.node.m.ActiveStreams.Add(-1)
-					s.node.streamsMutex.Unlock()
-					s.close(context.Background())
-					return
+					found = true
+					break
 				}
 			}
 			s.node.streamsMutex.Unlock()
 
-			logger.Errorf("couldn't find stream handler to remove for hash [%s]", streamHash)
-			return
+			logger.Errorf("stream handler to remove for hash [%s], found [%v]", streamHash, found)
+			break
 		}
 		logger.Debugf("incoming message for context [%s] from [%s] on session [%s]", msg.ContextID, msg.Caller, msg.SessionID)
 
