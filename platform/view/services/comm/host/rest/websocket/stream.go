@@ -159,24 +159,18 @@ func (s *stream) Read(p []byte) (int, error) {
 		// Process the data we just received (recursive call to handle the data)
 		return s.Read(p)
 	case <-s.ctx.Done():
-		// Only return context error if we have no data to read
-		if len(s.readLeftover) == 0 {
-			return 0, s.ctx.Err()
+		// Check if we received data just before context cancellation
+		if len(s.readLeftover) > 0 {
+			// Process the data we received
+			logger.Debugf("Reading from remaining %d bytes from previous value", len(s.readLeftover))
+			n := copy(p, s.readLeftover)
+			s.readLeftover = s.readLeftover[n:]
+			logger.Debugf("[%s@%s] copied %d bytes, remaining %d bytes", s.info.RemotePeerID, s.info.RemotePeerAddress, n, len(s.readLeftover))
+			return n, nil
 		}
-		// Fall through to process any buffered data
+		// No data available, return context error
+		return 0, s.ctx.Err()
 	}
-
-	// Process any data we might have received
-	if len(s.readLeftover) > 0 {
-		logger.Debugf("Reading from remaining %d bytes from previous value", len(s.readLeftover))
-		n := copy(p, s.readLeftover)
-		s.readLeftover = s.readLeftover[n:]
-		logger.Debugf("[%s@%s] copied %d bytes, remaining %d bytes", s.info.RemotePeerID, s.info.RemotePeerAddress, n, len(s.readLeftover))
-		return n, nil
-	}
-
-	// Should not reach here, but just in case
-	return 0, io.EOF
 }
 
 func (s *stream) Write(p []byte) (int, error) {
