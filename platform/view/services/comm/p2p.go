@@ -14,6 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	stdio "io"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/io"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -355,6 +357,12 @@ func (s *streamHandler) handleIncoming() {
 				logger.Debugf("error reading message from stream [%s]: [%s][%s]", streamHash, err, debug.Stack())
 			}
 
+			// If it's just EOF, break out of the loop instead of forcing immediate closure
+			if err == stdio.EOF {
+				logger.Debugf("EOF received from stream [%s], breaking read loop", streamHash)
+				break
+			}
+
 			// remove stream handler
 			s.node.streamsMutex.Lock()
 			logger.Debugf("removing stream [%s], total streams found: %d", streamHash, len(s.node.streams[streamHash]))
@@ -396,6 +404,10 @@ func (s *streamHandler) handleIncoming() {
 			logger.Debugf("dropping incoming message because node is stopping")
 			return
 		}
+	}
+	// Ensure stream is closed when we break out of the loop
+	if !s.isStopping() {
+		s.close(context.Background())
 	}
 }
 
