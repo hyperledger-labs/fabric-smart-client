@@ -135,29 +135,48 @@ type result struct {
 }
 
 func (s *stream) Read(p []byte) (int, error) {
-	if len(s.readLeftover) == 0 {
-		// The previous value from the channel has been read completely
-		logger.Debugf("[%s@%s] waits to read from channel...", s.info.RemotePeerID, s.info.RemotePeerAddress)
-		select {
-		case r, ok := <-s.reads:
-			if !ok {
-				return 0, io.EOF
-			}
-			if r.err != nil {
-				logger.Debugf("error occurred while [%s] was reading: %v", s.info.RemotePeerID, r.err)
-				return 0, r.err
-			}
-			s.readLeftover = r.value
-		case <-s.ctx.Done():
+	// First check if we have leftover data from previous reads
+	if len(s.readLeftover) > 0 {
+		logger.Debugf("Reading from remaining %d bytes from previous value", len(s.readLeftover))
+		n := copy(p, s.readLeftover)
+		s.readLeftover = s.readLeftover[n:]
+		logger.Debugf("[%s@%s] copied %d bytes, remaining %d bytes", s.info.RemotePeerID, s.info.RemotePeerAddress, n, len(s.readLeftover))
+		return n, nil
+	}
+
+	// The previous value from the channel has been read completely
+	logger.Debugf("[%s@%s] waits to read from channel...", s.info.RemotePeerID, s.info.RemotePeerAddress)
+	select {
+	case r, ok := <-s.reads:
+		if !ok {
+			return 0, io.EOF
+		}
+		if r.err != nil {
+			logger.Debugf("error occurred while [%s] was reading: %v", s.info.RemotePeerID, r.err)
+			return 0, r.err
+		}
+		s.readLeftover = r.value
+		// Process the data we just received (recursive call to handle the data)
+		return s.Read(p)
+	case <-s.ctx.Done():
+		// Only return context error if we have no data to read
+		if len(s.readLeftover) == 0 {
 			return 0, s.ctx.Err()
 		}
-	} else {
-		logger.Debugf("Reading from remaining %d bytes from previous value", len(s.readLeftover))
+		// Fall through to process any buffered data
 	}
-	n := copy(p, s.readLeftover)
-	s.readLeftover = s.readLeftover[n:]
-	logger.Debugf("[%s@%s] copied %d bytes, remaining %d bytes", s.info.RemotePeerID, s.info.RemotePeerAddress, n, len(s.readLeftover))
-	return n, nil
+
+	// Process any data we might have received
+	if len(s.readLeftover) > 0 {
+		logger.Debugf("Reading from remaining %d bytes from previous value", len(s.readLeftover))
+		n := copy(p, s.readLeftover)
+		s.readLeftover = s.readLeftover[n:]
+		logger.Debugf("[%s@%s] copied %d bytes, remaining %d bytes", s.info.RemotePeerID, s.info.RemotePeerAddress, n, len(s.readLeftover))
+		return n, nil
+	}
+
+	// Should not reach here, but just in case
+	return 0, io.EOF
 }
 
 func (s *stream) Write(p []byte) (int, error) {
