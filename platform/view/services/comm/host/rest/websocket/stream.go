@@ -103,13 +103,33 @@ func (s *stream) deliver(r result) {
 	}
 	s.mu.Unlock()
 
+	// Try to deliver the message, but respect context cancellation
 	select {
 	case s.reads <- r:
+		// Message delivered successfully
+		return
 	case <-s.ctx.Done():
-		logger.Debugf("dropping message for stream [%s] because context is done", s.Hash())
+		// Context is done, but let's try one more time to deliver the message
+		// before giving up completely
+		select {
+		case s.reads <- r:
+			// Message delivered after context cancellation
+			return
+		case <-time.After(DefaultStreamTimeout):
+			// Still can't deliver after waiting, close the stream
+			logger.Errorf("dropping message for stream [%s] after %s timeout, closing stream", s.Hash(), DefaultStreamTimeout)
+			_ = s.Close()
+			return
+		default:
+			// Can't deliver right now, but context is done, so give up
+			logger.Debugf("dropping message for stream [%s] because context is done", s.Hash())
+			return
+		}
 	case <-time.After(DefaultStreamTimeout):
+		// ... timeout handling
 		logger.Errorf("dropping message for stream [%s] after %s timeout, closing stream", s.Hash(), DefaultStreamTimeout)
 		_ = s.Close()
+		return
 	}
 }
 
