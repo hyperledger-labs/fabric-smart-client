@@ -168,23 +168,27 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 		return nil, err
 	}
 
-	if len(info.RemotePeerAddress) != 0 && !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
-		// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
+	if len(info.RemotePeerAddress) != 0 {
 		ps := h.Peerstore()
-		current := ps.Addrs(ID)
 
-		logger.Debugf("sendTo, reprogram address [%s:%s]", info.RemotePeerID, info.RemotePeerAddress)
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			for _, m := range current {
-				logger.Debugf("sendTo, current address [%s:%s]", info.RemotePeerID, m)
+		addr := info.RemotePeerAddress
+		if !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
+			logger.Debugf("sendTo, reprogram address [%s:%s]", info.RemotePeerID, info.RemotePeerAddress)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				current := ps.Addrs(ID)
+				for _, m := range current {
+					logger.Debugf("sendTo, current address [%s:%s]", info.RemotePeerID, m)
+				}
+			}
+
+			ps.ClearAddrs(ID)
+			var err error
+			addr, err = utils.AddressToEndpoint(info.RemotePeerAddress)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "failed to parse endpoint's address [%s]", info.RemotePeerAddress)
 			}
 		}
 
-		ps.ClearAddrs(ID)
-		addr, err := utils.AddressToEndpoint(info.RemotePeerAddress)
-		if err != nil {
-			return nil, errors.WithMessagef(err, "failed to parse endpoint's address [%s]", info.RemotePeerAddress)
-		}
 		s, err := multiaddr.NewMultiaddr(addr)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get mutliaddr for [%s]", info.RemotePeerAddress)
@@ -218,7 +222,6 @@ func (h *host) startFinder() {
 
 			h.peersMutex.Lock()
 			if _, in := h.peers[peer.ID.String()]; !in {
-				logger.Debugf("found peer [%v]", peer)
 				h.peers[peer.ID.String()] = peer
 			}
 			h.peersMutex.Unlock()

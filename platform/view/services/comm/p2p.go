@@ -373,7 +373,7 @@ func (s *streamHandler) handleIncoming() {
 			}
 			s.node.streamsMutex.Unlock()
 
-			logger.Errorf("stream handler to remove for hash [%s], found [%v]", streamHash, found)
+			logger.Debugf("stream handler to remove for hash [%s], found [%v]", streamHash, found)
 			break
 		}
 		logger.Debugf("incoming message for context [%s] from [%s] on session [%s]", msg.ContextID, msg.Caller, msg.SessionID)

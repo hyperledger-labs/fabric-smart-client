@@ -68,7 +68,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 				addrs, ok := bootstrapNode.Lookup(node.id)
 				return ok && slices.Contains(addrs, node.endpoint)
 			},
-			60*time.Second,
+			10*time.Second,
 			500*time.Millisecond,
 		)
 		if err != nil {
@@ -82,7 +82,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 				addrs, ok := node.Lookup(bootstrapNode.id)
 				return ok && slices.Contains(addrs, bootstrapNode.endpoint)
 			},
-			60*time.Second,
+			10*time.Second,
 			500*time.Millisecond,
 		)
 		if err != nil {
