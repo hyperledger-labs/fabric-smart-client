@@ -78,14 +78,12 @@ func TestPingPongSessionLevel(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		received := make(chan *view.Message, 100)
-		done := make(chan struct{})
 
 		// Start a goroutine to collect messages from the session
 		go func() {
 			for msg := range sess.Receive() {
 				received <- msg
 			}
-			close(done)
 		}()
 
 		// Process received messages and send pongs
@@ -108,9 +106,6 @@ func TestPingPongSessionLevel(t *testing.T) {
 				return
 			}
 		}
-
-		// Signal that we're done receiving
-		close(received)
 	}()
 
 	// Wait for both sender and receiver to complete
