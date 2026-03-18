@@ -77,7 +77,7 @@ func TestConnections(t *testing.T) {
 
 							// deal with EOF
 							if err != nil {
-								if errors.Is(err, io.EOF) {
+								if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
 									return
 								}
 							}
