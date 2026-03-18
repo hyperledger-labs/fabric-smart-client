@@ -131,11 +131,11 @@ func TestWebSocketPeerCloseRace(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Simulate connection closure by making ReadMessage return an error
-	// We do this by setting a very short read deadline that will immediately trigger
-	mockConn.readDeadline = time.Now()
+	// Before the fix, this would fail with context.Canceled due to the race condition
+	// Close the mock connection to make ReadMessage return net.ErrClosed
+	_ = mockConn.Close()
 
 	// Try to read the message - should succeed and get the message
-	// Before the fix, this would fail with context.Canceled due to the race condition
 	buf := make([]byte, 1024)
 	n, err := stream.Read(buf)
 	require.NoError(t, err, "Should successfully read message before context cancellation")
@@ -157,6 +157,7 @@ type mockWebSocketConn struct {
 	mu            sync.Mutex
 	readDeadline  time.Time
 	writeDeadline time.Time
+	closed        bool
 }
 
 // SetReadDeadline implements the websocket.Conn interface
@@ -179,6 +180,10 @@ func (m *mockWebSocketConn) SetWriteDeadline(t time.Time) error {
 func (m *mockWebSocketConn) ReadMessage() (int, []byte, error) {
 	// Block waiting for data to be available on readCh
 	// This simulates waiting for data from the peer
+	m.mu.Lock()
+	deadline := m.readDeadline
+	m.mu.Unlock()
+
 	select {
 	case data, ok := <-m.readCh:
 		if !ok {
@@ -186,7 +191,7 @@ func (m *mockWebSocketConn) ReadMessage() (int, []byte, error) {
 			return websocket.TextMessage, nil, net.ErrClosed
 		}
 		return websocket.TextMessage, data, nil
-	case <-time.After(time.Until(m.readDeadline)):
+	case <-time.After(time.Until(deadline)):
 		// Read timeout occurred
 		return websocket.TextMessage, nil, net.ErrClosed
 	}
@@ -211,6 +216,10 @@ func (m *mockWebSocketConn) WriteMessage(messageType int, data []byte) error {
 func (m *mockWebSocketConn) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.closed {
+		return nil
+	}
+	m.closed = true
 	close(m.readCh)
 	close(m.writeCh)
 	return nil
