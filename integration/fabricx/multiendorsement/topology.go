@@ -32,9 +32,8 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 
-	// Make the namespace available on the 3 orgs so all orgs can endorse
-	// application transactions.
-	fabricTopology.AddNamespaceWithUnanimity(Namespace, "Org1", "Org2", "Org3")
+	fabricTopology.AddNamespace(Namespace,"AND('Org1MSP.member')")
+
 
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = commType

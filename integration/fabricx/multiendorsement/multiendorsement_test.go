@@ -119,19 +119,14 @@ func (s *TestSuite) TestMultiEndorsementMerge() {
 	By("verifying namespace is present with initial version")
 	CheckNamespaceExists(s.II, "simple", 0)
 
-	By("updating namespace policy to require endorsements from Org1")
-	UpdateNamespacePolicyRequirements(s.II, "AND('Org1MSP.member')", 0)
-	By("waiting for namespace update to be finalized")
-	CheckNamespaceExists(s.II, "simple", 1)
-
 	By("creating endorsement with approver1 and policy = AND('Org1MSP.member') only should succeed")
 	_, err := CallCreateWithApprovers(s.II, "Charlie", 30, "approver1")
 	Expect(err).NotTo(HaveOccurred())
 
 	By("updating namespace policy to require endorsements from Org1 and Org2 or Org3")
-	UpdateNamespacePolicyRequirements(s.II, "OR(AND('Org1MSP.member','Org2MSP.member'),'Org3MSP.member')", 1)
+	UpdateNamespacePolicyRequirements(s.II, "OR(AND('Org1MSP.member','Org2MSP.member'),'Org3MSP.member')", 0)
 	By("waiting for namespace update to be finalized")
-	CheckNamespaceExists(s.II, "simple", 2)
+	CheckNamespaceExists(s.II, "simple", 1)
 
 	By("creating multiendorsement with approver1 only and policy = OR(AND('Org1MSP.member','Org2MSP.member'),'Org3MSP.member') should fail")
 	_, err = CallCreateWithApprovers(s.II, "Alice", 33, "approver1")

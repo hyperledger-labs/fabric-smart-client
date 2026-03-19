@@ -204,9 +204,6 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 	committerSidecarPort := fmt.Sprintf("%d", n.PeerPort(committerNode, fabric_network.ListenPort))
 	notificationsEndpoint := net.JoinHostPort("localhost", committerSidecarPort)
 
-	// TODO replace EndorserPKPath with the real policy as defined in chaincode.Chaincode.Policy
-	endorserPKPath := n.PeerUserCert(fscNode, fscNode.Name)
-
 	cmd := &fxconfig.CreateNamespace{
 		NamespaceCommon: fxconfig.NamespaceCommon{
 			Name:    chaincode.Chaincode.Name,
@@ -226,7 +223,7 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 				Address:   notificationsEndpoint,
 				TLSConfig: fxconfig.TLSConfig{},
 			},
-			Policy: "threshold:" + endorserPKPath,
+			Policy: chaincode.Chaincode.Policy,
 		},
 	}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())

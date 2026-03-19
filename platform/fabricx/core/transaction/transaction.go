@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
+	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/hyperledger/fabric-x-common/api/msppb"
@@ -653,7 +653,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 	}, nil
 }
 func toMSPSignerIdentityWithCertificate(identity view.Identity) (*msppb.Identity, error) {
-	sID := &m.SerializedIdentity{}
+	sID := &msp.SerializedIdentity{}
 	if err := proto.Unmarshal(identity, sID); err != nil {
 		return nil, errors.Wrap(err, "unmarshal serialized identity")
 	}
