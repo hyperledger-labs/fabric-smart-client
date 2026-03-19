@@ -1,27 +1,298 @@
-logging:
-  spec: debug
-number: 5
-duration: 5s
-str: a string # with trailing spaces
-path:
-  relative: file.name
-  absolute: /absolute/path/file.name
-  dir: /absolute/path/dir
-  trailing: /absolute/path/dir/
+fabric:
+  enabled: true
+  mytopos:
+    channels:
+      - default: true
+        delivery:
+          buffersize: 300
+        fabric-x-committer:
+          parallelism: 5
+          pollingtimeout: 100ms
+          waitforeventtimeout: 300s
+        name: arma
+        numretries: 3
+        retrysleep: 1s
+    default: true
+    defaultmsp: issuer
+    driver: fabricx
+    endpoint:
+      resolvers:
+        - addresses: null
+          domain: org1.example.com
+          identity:
+            mspid: Org1MSP
+            path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fabric/org1.example.com/users/approver@org1.example.com/msp/signcerts/approver@org1.example.com-cert.pem
+          name: approver
+        - addresses: null
+          domain: org1.example.com
+          identity:
+            mspid: Org1MSP
+            path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fabric/org1.example.com/users/issuer@org1.example.com/msp/signcerts/issuer@org1.example.com-cert.pem
+          name: issuer
+        - addresses: null
+          domain: org1.example.com
+          identity:
+            mspid: Org1MSP
+            path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fabric/org1.example.com/users/dw@org1.example.com/msp/signcerts/dw@org1.example.com-cert.pem
+          name: dw
+        - addresses: null
+          domain: org1.example.com
+          identity:
+            mspid: Org1MSP
+            path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fabric/org1.example.com/users/banka@org1.example.com/msp/signcerts/banka@org1.example.com-cert.pem
+          name: banka
+        - addresses: null
+          domain: org1.example.com
+          identity:
+            mspid: Org1MSP
+            path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fabric/org1.example.com/users/bankb@org1.example.com/msp/signcerts/bankb@org1.example.com-cert.pem
+          name: bankb
+    keepalive:
+      connectiontimeout: 10s
+      interval: 60s
+      timeout: 20s
+    mspcachesize: 3
+    msps:
+      - id: issuer
+        mspid: Org1MSP
+        msptype: bccsp
+        opts:
+          bccsp:
+            default: SW
+            pkcs11:
+              hash: SHA2
+              label: null
+              library: null
+              pin: null
+              security: 256
+            sw:
+              hash: SHA2
+              security: 256
+        path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fabric/org1.example.com/users/issuer@org1.example.com/msp
+      - cachesize: 0
+        id: idemix
+        mspid: IdemixOrgMSP
+        msptype: idemix
+        path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fabric/idemixorg.example.com/users/issuer
+    ordering:
+      numretries: 3
+      retryinterval: 3s
+      tlsenabled: true
+    peers:
+      - address: host.docker.internal:5130
+        connectiontimeout: 10s
+        tlsclientsideauth: true
+        tlsenabled: true
+        tlsrootcertfile: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/tls/committer-sidecar/ca.crt
+    queryservice:
+      endpoints:
+        - address: host.docker.internal:5140
+          connectiontimeout: 5s
+          tlsclientsideauth: true
+          tlsenabled: true
+          tlsrootcertfile: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/tls/committer-query-service/ca.crt
+      querytimeout: 5s
+    tls:
+      clientauthrequired: true
+      clientcert:
+        file: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fabric/org1.example.com/users/issuer@org1.example.com/tls/client.crt
+      clientkey:
+        file: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fabric/org1.example.com/users/issuer@org1.example.com/tls/client.key
+      enabled: true
+    vault:
+      persistence: default
+      txidstore:
+        cache:
+          size: 200
 fsc:
+  endpoint:
+    resolvers:
+      - addresses:
+          p2p: host.docker.internal:10013
+        domain: fsc.example.com
+        identity:
+          path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fsc/fsc.example.com/peers/signcerts/approver.fsc.example.com-cert.pem
+        name: approver
+      - addresses:
+          p2p: host.docker.internal:10033
+        domain: fsc.example.com
+        identity:
+          path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fsc/fsc.example.com/peers/signcerts/dw.fsc.example.com-cert.pem
+        name: dw
+      - addresses:
+          p2p: host.docker.internal:10043
+        domain: fsc.example.com
+        identity:
+          path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fsc/fsc.example.com/peers/signcerts/banka.fsc.example.com-cert.pem
+        name: banka
+      - addresses:
+          p2p: host.docker.internal:10053
+        domain: fsc.example.com
+        identity:
+          path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fsc/fsc.example.com/peers/signcerts/bankb.fsc.example.com-cert.pem
+        name: bankb
+  grpc:
+    address: 0.0.0.0:10022
+    connectiontimeout: 10s
+    enabled: true
+    keepalive:
+      interval: 300s
+      mininterval: 60s
+      timeout: 600s
+    tls:
+      cert:
+        file: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fsc/fsc.example.com/peers/issuer.fsc.example.com/tls/server.crt
+      clientauthrequired: false
+      enabled: true
+      key:
+        file: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fsc/fsc.example.com/peers/issuer.fsc.example.com/tls/server.key
+  id: issuer
+  identity:
+    cert:
+      file: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fsc/fsc.example.com/peers/issuer.fsc.example.com/msp/signcerts/issuer.fsc.example.com-cert.pem
+    key:
+      file: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fsc/fsc.example.com/peers/issuer.fsc.example.com/msp/keystore/priv_sk
   kvs:
-    keyexists: true
-    persistence:
-      type: sql
+    cache:
+      size: 200
+  metrics:
+    prometheus:
+      tls: false
+    provider: prometheus
+  p2p:
+    listenaddress: /ip4/0.0.0.0/tcp/10023
+    type: websocket
+  persistences:
+    default:
       opts:
-        driver: sqlite
-        skipPragmas: true
-        dataSource: ds
-emptyKey:
-nested:
-  keys:
-    one: 1
-    two: 2
-CAPITALS: true
-core:
-  isFine: "no"
+        datasource: host=host.docker.internal port=10201 user=postgres password=example dbname=issuerDB sslmode=disable
+        maxidleconns: 3
+        maxidletime: 45s
+        maxopenconns: 90
+        skipcreatetable: false
+      type: postgres
+  tracing:
+    file:
+      path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fsc/trace.out
+    optl:
+      address: host.docker.internal:4317
+    provider: otpl
+    sampling:
+      ratio: 0
+  web:
+    address: 0.0.0.0:10021
+    enabled: true
+    tls:
+      cert:
+        file: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fsc/fsc.example.com/peers/issuer.fsc.example.com/tls/server.crt
+      clientauthrequired: false
+      clientrootcas:
+        files:
+          - /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fsc/fsc.example.com/peers/issuer.fsc.example.com/tls/ca.crt
+      enabled: true
+      key:
+        file: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/fsc/fsc.example.com/peers/issuer.fsc.example.com/tls/server.key
+idap:
+  identityBackends:
+    tkn_mytopos_arma_tokenchaincode:
+      channel: arma
+      credsPath: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/idemix
+      identityProviderService:
+        password: issuerPWD
+        username: issuer
+      namespace: tokenchaincode
+      network: mytopos
+      onboardingRepositoryService:
+        endpoint: host.docker.internal:11000
+        tls:
+          enabled: true
+          file:
+            serverRootCAs:
+              files:
+                - /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/tls/onb-repo-webserver/ca.crt
+          skipVerify: false
+  mode: development
+  version: v1
+  webapp:
+    auth:
+      oidc:
+        clientid: idap
+        clientsecret: K3mWgEptbblqJhGRKOO43DFgaVZxhTZ0
+        providerurl: https://host.docker.internal:30100
+        realm: issuer-realm
+        tls:
+          enabled: true
+          serverrootcas:
+            files:
+              - /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/tls/idap-isp/ca.crt
+      providertype: oidc
+    bodyformat: json
+    endpoint: 0.0.0.0:10024
+    tls:
+      enabled: false
+      file:
+        clientauthrequired: false
+    users:
+      - enrollmentid: issuer
+        password: issuerP
+        role: issuer
+        username: issuerU
+      - enrollmentid: issuer.admin
+        password: admin
+        role: admin
+        username: issuer.admin
+logging:
+  otel:
+    sanitize: true
+  spec: debug
+token:
+  enabled: true
+  finality:
+    delivery:
+      blockprocessparallelism: 1
+      listenertimeout: 30s
+      lrubuffer: 50
+      lrusize: 100
+      mapperparallelism: 10
+    type: delivery
+  tms:
+    mytopos-arma-tokenchaincode:
+      certification:
+        interactive:
+          ids:
+            - dw
+      channel: arma
+      namespace: tokenchaincode
+      network: mytopos
+      services:
+        network:
+          fabric:
+            fsc_endorsement:
+              endorser: false
+              endorsers:
+                - approver
+              policy:
+                type: 1outn
+      wallets:
+        defaultcachesize: 3
+        issuers:
+          - default: true
+            id: issuer
+            opts:
+              bccsp:
+                default: SW
+                pkcs11:
+                  hash: SHA2
+                  label: null
+                  library: null
+                  pin: null
+                  security: 256
+                sw:
+                  hash: SHA2
+                  security: 256
+            path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/token/mytopos-arma-tokenchaincode/issuers/issuer@tokenchaincodeorg@example.com/msp
+        owners:
+          - default: true
+            id: issuer.issuer
+            path: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/token/mytopos-arma-tokenchaincode/owners/issuer.issuer
+  version: v1

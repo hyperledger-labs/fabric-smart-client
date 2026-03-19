@@ -1,2 +1,34 @@
-
-newKey: hello world
+idap:
+  identityBackends:
+    tkn_mytopos_arma_namespace_dabfhbjjaicibhcjhdi:
+      network: mytopos
+      channel: arma
+      namespace: namespace_dabfhbjjaicibhcjhdi
+      credspath: /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/idemix
+      identityproviderservice:
+        username: issuer
+        password: issuerPWD
+        endpoint: ""
+        tls: null
+      onboardingrepositoryservice:
+        endpoint: host.docker.internal:11000
+        tls:
+          enabled: true
+          host: ""
+          skipVerify: false
+          file:
+            cert:
+              file: ""
+            key:
+              file: ""
+            serverRootCAs:
+              files:
+                - /Users/adc/go/src/github.ibm.com/decentralized-trust-research/cbdc-platform-deployment/out/local-deployment/issuer/config/tls/onb-repo-webserver/ca.crt
+      jwt:
+        enabled: false
+        publicKeyFile: ""
+        publicKeyPem: ""
+        allowedAlgorithms: []
+        expectedIssuer: ""
+        expectedAudience: ""
+        clockSkew: 0s

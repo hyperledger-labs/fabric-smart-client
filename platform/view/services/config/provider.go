@@ -158,10 +158,7 @@ func (p *Provider) MergeConfig(raw []byte) error {
 	}
 	logger.Debugf("after merge [%s]", buf.String())
 
-	var mapping map[string]any
-	if err := p.Backend.UnmarshalKey("idap", &mapping); err != nil {
-		return err
-	}
+	mapping := p.Backend.Get("idap")
 	rawMapping, _ := yaml.Marshal(mapping)
 	logger.Debugf("after merge and unmarshal 'idap' [%s]", string(rawMapping))
 
