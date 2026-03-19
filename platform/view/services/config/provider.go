@@ -138,10 +138,24 @@ func (p *Provider) MergeConfig(raw []byte) error {
 	p.mergeConfigMutex.Lock()
 	defer p.mergeConfigMutex.Unlock()
 
+	logger.Debugf("merging config [%s]", string(raw))
+
+	buf := bytes.NewBuffer(nil)
+	if err := p.Backend.WriteConfigTo(buf); err != nil {
+		return err
+	}
+	logger.Debugf("before merge [%s]", buf.String())
+
 	err := p.Backend.MergeConfig(bytes.NewReader(raw))
 	if err != nil {
 		return err
 	}
+
+	buf = bytes.NewBuffer(nil)
+	if err := p.Backend.WriteConfigTo(buf); err != nil {
+		return err
+	}
+	logger.Debugf("after merge [%s]", buf.String())
 
 	// notify the listener
 	p.eventSystem.Publish(&MergeConfigEvent{})
