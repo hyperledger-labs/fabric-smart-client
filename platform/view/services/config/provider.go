@@ -8,7 +8,9 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -37,6 +39,8 @@ const (
 )
 
 var logOutput = os.Stderr
+
+var logger = logging.MustGetLogger()
 
 type OnMergeConfigEventHandler interface {
 	OnMergeConfig()
@@ -164,8 +168,33 @@ func (p *Provider) ProvideFromRaw(raw []byte) (*Provider, error) {
 	return newProvider, nil
 }
 
+type HandlerLogger struct {
+	Logger logging.Logger
+}
+
+func (h *HandlerLogger) Enabled(ctx context.Context, level slog.Level) bool {
+	return true
+}
+
+func (h *HandlerLogger) Handle(ctx context.Context, record slog.Record) error {
+	logger.Infof("Handling record [%v]", record.Message)
+	record.Attrs(func(attr slog.Attr) bool {
+		logger.Infof("Handling record [%v] with attributed [%s]", record.Message, attr.String())
+		return true
+	})
+	return nil
+}
+
+func (h *HandlerLogger) WithAttrs([]slog.Attr) slog.Handler {
+	return h
+}
+
+func (h *HandlerLogger) WithGroup(string) slog.Handler {
+	return h
+}
+
 func (p *Provider) loadFromPath(path string) error {
-	p.Backend = viper.New()
+	p.Backend = viper.NewWithOptions(viper.WithLogger(slog.New(&HandlerLogger{Logger: logger})))
 	err := p.initViper(p.Backend, CmdRoot, path)
 	if err != nil {
 		return err
@@ -200,7 +229,7 @@ func (p *Provider) loadFromPath(path string) error {
 }
 
 func (p *Provider) loadFromRaw(raw []byte) error {
-	p.Backend = viper.New()
+	p.Backend = viper.NewWithOptions(viper.WithLogger(slog.New(&HandlerLogger{Logger: logger})))
 	p.Backend.SetConfigType("yaml")
 
 	// read configuration
