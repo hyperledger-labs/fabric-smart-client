@@ -64,6 +64,30 @@ func NewWSStream(conn connection, ctx context.Context, info host2.StreamInfo) *s
 			logger.Debugf("error closing stream on context cancellation [%s]: [%s]", s.Hash(), err)
 		}
 	}()
+	// Start ping sender if the underlying connection is a websocket.Conn
+	if c, ok := s.conn.(*websocket.Conn); ok {
+		// Set pong handler to reset read deadline
+		c.SetPongHandler(func(appData string) error {
+			_ = c.SetReadDeadline(time.Now().Add(readTimeout))
+			return nil
+		})
+		// Send periodic pings
+		go func() {
+			ticker := time.NewTicker(pingInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					if err := c.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(writeTimeout)); err != nil {
+						logger.Debugf("Failed to send ping: %v", err)
+						// Optionally, we could close the stream here, but let's just log and continue
+					}
+				case <-s.ctx.Done():
+					return
+				}
+			}
+		}()
+	}
 	return s
 }
 

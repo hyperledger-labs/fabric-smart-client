@@ -37,6 +37,7 @@ const (
 	writeTimeout                            = 2 * time.Minute
 	defaultMaxSubConns                      = 100
 	DefaultStreamTimeout                    = 10 * time.Minute
+	pingInterval                            = 30 * time.Second
 )
 
 type SubConnId = string
