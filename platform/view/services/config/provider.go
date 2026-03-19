@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -157,6 +158,13 @@ func (p *Provider) MergeConfig(raw []byte) error {
 	}
 	logger.Debugf("after merge [%s]", buf.String())
 
+	var mapping map[string]any
+	if err := p.Backend.UnmarshalKey("idap", &mapping); err != nil {
+		return err
+	}
+	rawMapping, _ := yaml.Marshal(mapping)
+	logger.Debugf("after merge and unmarshal 'idap' [%s]", string(rawMapping))
+
 	// notify the listener
 	p.eventSystem.Publish(&MergeConfigEvent{})
 
@@ -165,6 +173,14 @@ func (p *Provider) MergeConfig(raw []byte) error {
 
 func (p *Provider) OnMergeConfig(handler OnMergeConfigEventHandler) {
 	p.eventSystem.Subscribe(MergeConfigEventTopic, &eventListener{handler: handler})
+}
+
+func (p *Provider) String() string {
+	buf := bytes.NewBuffer(nil)
+	if err := p.Backend.WriteConfigTo(buf); err != nil {
+		return err.Error()
+	}
+	return buf.String()
 }
 
 // ProvideFromRaw returns a new Provider whose configuration is loaded from the given byte representation.
