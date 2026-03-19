@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,6 +28,9 @@ type Opts struct {
 }
 
 func TestReadFile(t *testing.T) {
+	logging.Init(logging.Config{
+		LogSpec: "debug",
+	})
 	p, err := NewProvider("./testdata")
 	assert.NoError(t, err)
 	testBasics(t, p)

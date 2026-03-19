@@ -1,3 +1,5 @@
+logging:
+  spec: debug
 number: 5
 duration: 5s
 str: a string # with trailing spaces

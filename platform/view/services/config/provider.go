@@ -238,6 +238,7 @@ func (p *Provider) loadFromPath(path string) error {
 		OtelSanitize: p.Backend.GetBool("logging.otel.sanitize"),
 		Writer:       logOutput,
 	})
+	viper.SetOptions(viper.WithLogger(slog.New(&HandlerLogger{Logger: logger})))
 
 	return nil
 }
