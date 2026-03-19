@@ -496,6 +496,19 @@ func (c *subConn) deliver(r result) bool {
 }
 
 func (c *subConn) ReadMessage() (messageType int, p []byte, err error) {
+	// Priority check
+	select {
+	case r, ok := <-c.receiverChan:
+		if !ok {
+			return websocket.TextMessage, nil, &websocket.CloseError{
+				Code: websocket.CloseAbnormalClosure,
+				Text: "Closed",
+			}
+		}
+		return websocket.TextMessage, r.value, r.err
+	default:
+	}
+
 	select {
 	case r, ok := <-c.receiverChan:
 		if !ok {
@@ -506,6 +519,18 @@ func (c *subConn) ReadMessage() (messageType int, p []byte, err error) {
 		}
 		return websocket.TextMessage, r.value, r.err
 	case <-c.done:
+		// One last check
+		select {
+		case r, ok := <-c.receiverChan:
+			if !ok {
+				return websocket.TextMessage, nil, &websocket.CloseError{
+					Code: websocket.CloseAbnormalClosure,
+					Text: "Closed",
+				}
+			}
+			return websocket.TextMessage, r.value, r.err
+		default:
+		}
 		return websocket.TextMessage, nil, &websocket.CloseError{
 			Code: websocket.CloseAbnormalClosure,
 			Text: "Closed",
@@ -540,6 +565,7 @@ func (c *subConn) Close() error {
 	}
 	c.isClosed = true
 	close(c.done)
+	close(c.receiverChan)
 	c.mu.Unlock()
 
 	// try to send closing handshake but ignore any error (in case connection is already closed)

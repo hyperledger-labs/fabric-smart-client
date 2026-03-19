@@ -28,13 +28,14 @@ type connection interface {
 var streamEOF = result{err: io.EOF}
 
 type stream struct {
-	ctx         context.Context
-	conn        connection
-	cancel      context.CancelFunc
-	accumulator *delimitedReader
-	reads       chan result
-	closeOnce   sync.Once
-	info        host2.StreamInfo
+	ctx            context.Context
+	conn           connection
+	cancel         context.CancelFunc
+	accumulator    *delimitedReader
+	reads          chan result
+	closeOnce      sync.Once
+	closeReadsOnce sync.Once
+	info           host2.StreamInfo
 
 	mu       sync.Mutex
 	isClosed bool
@@ -93,6 +94,7 @@ func NewWSStream(conn connection, ctx context.Context, info host2.StreamInfo) *s
 
 func (s *stream) readMessages(ctx context.Context) {
 	defer func() { _ = s.Close() }()
+	defer s.closeReadsOnce.Do(func() { close(s.reads) })
 	for {
 		select {
 		case <-ctx.Done():
@@ -204,6 +206,20 @@ func (s *stream) Read(p []byte) (int, error) {
 		return s.Read(p)
 	case <-s.ctx.Done():
 		// Check if we received data just before context cancellation
+		select {
+		case r, ok := <-s.reads:
+			if !ok {
+				return 0, io.EOF
+			}
+			if r.err != nil {
+				logger.Debugf("error occurred while [%s] was reading: %v", s.info.RemotePeerID, r.err)
+				return 0, r.err
+			}
+			s.readLeftover = r.value
+			// Process the data we just received (recursive call to handle the data)
+			return s.Read(p)
+		default:
+		}
 		if len(s.readLeftover) > 0 {
 			// Process the data we received
 			logger.Debugf("Reading from remaining %d bytes from previous value", len(s.readLeftover))
