@@ -8,7 +8,7 @@ TOP = .
 FABRIC_VERSION ?= 3.1.4
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
 
-FABRIC_X_TOOLS_VERSION ?= ceb82da
+FABRIC_X_TOOLS_VERSION ?= v0.0.12
 FABRIC_X_COMMITTER_VERSION ?= 0.1.9
 
 # need to install fabric binaries outside of fsc tree for now (due to chaincode packaging issues)
