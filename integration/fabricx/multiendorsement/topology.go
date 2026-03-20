@@ -32,8 +32,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 
-	fabricTopology.AddNamespace(Namespace,"AND('Org1MSP.member')")
-
+	fabricTopology.AddNamespace(Namespace, "AND('Org1MSP.member')")
 
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = commType
