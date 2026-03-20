@@ -153,7 +153,9 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 				if session.isClosed() {
 					session.mutex.Unlock()
 					in = false
+					logger.Debugf("internal session [%s] is closed", internalSessionID)
 				} else {
+					logger.Debugf("internal session [%s] is open, updating session info", internalSessionID)
 					session.callerViewID = msg.message.Caller
 					session.contextID = msg.message.ContextID
 					session.endpointAddress = msg.message.FromEndpoint
@@ -167,6 +169,8 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 					}
 					session.mutex.Unlock()
 				}
+			} else {
+				logger.Debugf("internal session [%s] not found", internalSessionID)
 			}
 			p.sessionsMutex.Unlock()
 
@@ -176,11 +180,14 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 			}
 			p.dispatchMutex.Unlock()
 
+			logger.Debugf("Attempting to enqueue message for session [%s] (internal session exists: %v)", internalSessionID, in)
 			var delivered bool
 			if !in {
 				delivered = session.enqueueWithTimeout(msg.message, DefaultDispatcherTimeout)
+				logger.Debugf("Enqueue with timeout result for session [%s]: %v", internalSessionID, delivered)
 			} else {
 				delivered = session.enqueue(msg.message)
+				logger.Debugf("Enqueue result for session [%s]: %v", internalSessionID, delivered)
 			}
 			if delivered {
 				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
@@ -378,6 +385,9 @@ func (s *streamHandler) handleIncoming() {
 		}
 		logger.Debugf("incoming message for context [%s] from [%s] on session [%s]", msg.ContextID, msg.Caller, msg.SessionID)
 
+		// Log before attempting to send to incomingMessages channel
+		logger.Debugf("Attempting to send message to incomingMessages channel for session [%s]", msg.SessionID)
+
 		select {
 		case s.node.incomingMessages <- &messageWithStream{
 			message: &view.Message{
@@ -392,6 +402,7 @@ func (s *streamHandler) handleIncoming() {
 			},
 			stream: s,
 		}:
+			logger.Debugf("Successfully sent message to incomingMessages channel for session [%s]", msg.SessionID)
 		case <-s.node.ctx.Done():
 			logger.Debugf("dropping incoming message because node is stopping")
 			return
