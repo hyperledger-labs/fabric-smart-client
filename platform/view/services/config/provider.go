@@ -227,6 +227,10 @@ func (p *Provider) loadFromPath(path string) error {
 		return err
 	}
 
+	if err := p.setupEnv(); err != nil {
+		return err
+	}
+
 	err = p.Backend.ReadInConfig() // Find and read the config file
 	if err != nil {
 		// Handle errors reading the config file
@@ -239,10 +243,6 @@ func (p *Provider) loadFromPath(path string) error {
 		} else {
 			return errors.WithMessagef(err, "error when reading %s config file", CmdRoot)
 		}
-	}
-
-	if err := p.substituteEnv(); err != nil {
-		return err
 	}
 
 	logging.Init(logging.Config{
@@ -260,14 +260,14 @@ func (p *Provider) loadFromRaw(raw []byte) error {
 	p.Backend = viper.NewWithOptions(viper.WithLogger(slog.New(&HandlerLogger{Logger: logger})))
 	p.Backend.SetConfigType("yaml")
 
+	if err := p.setupEnv(); err != nil {
+		return err
+	}
 	// read configuration
 	if err := p.Backend.ReadConfig(bytes.NewReader(raw)); err != nil {
 		return errors.Wrapf(err, "failed to read configuration from raw [%s]", logging.SHA256Base64(raw))
 	}
 	// post process
-	if err := p.substituteEnv(); err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -275,67 +275,10 @@ func (p *Provider) loadFromRaw(raw []byte) error {
 // Manually override keys if the respective environment variable is set, because viper doesn't do
 // that for UnmarshalKey values (see https://github.com/spf13/viper/pull/1699).
 // Example: CORE_LOGGING_FORMAT sets logging.format.
-func (p *Provider) substituteEnv() error {
-	for _, e := range os.Environ() {
-		if !strings.HasPrefix(e, strings.ToUpper(CmdRoot)+"_") {
-			continue
-		}
-
-		env := strings.Split(e, "=")
-		val := env[1]
-		if len(val) == 0 {
-			continue
-		}
-		key, val := env[0], strings.Join(env[1:], "=")
-
-		noprefix := strings.TrimPrefix(key, strings.ToUpper(CmdRoot)+"_")
-		key = strings.ToLower(strings.ReplaceAll(noprefix, "_", "."))
-
-		// nested key
-		keys := strings.Split(key, ".")
-		parent := strings.Join(keys[:len(keys)-1], ".")
-		if !p.Backend.IsSet(parent) {
-			fmt.Println("applying " + env[0] + " - parent not found in core.yaml: " + parent)
-			p.Backend.Set(key, val)
-			continue
-		}
-
-		k := p.Backend.GetStringMap(key)
-		if len(k) > 0 {
-			fmt.Println("-- skipping " + env[0] + ": cannot override maps")
-			continue
-		}
-
-		root := p.Backend.GetStringMap(keys[0])
-		if err := setDeepValue(root, keys, val); err != nil {
-			return errors.Wrap(err, "error when substituting")
-		}
-		p.Backend.Set(keys[0], root)
-		fmt.Println("applying " + env[0])
-	}
-	return nil
-}
-
-// Function to set the value at the deepest level
-func setDeepValue(m map[string]any, keys []string, value any) error {
-	// key = root but we don't have the map by reference
-	if len(keys) < 2 {
-		return errors.New("can't set root key")
-	}
-
-	current := m
-	// traverse to the last map
-	for i := 1; i < len(keys)-1; i++ {
-		key := keys[i]
-		nextMap, ok := current[key].(map[string]any)
-		if !ok {
-			return errors.New("expected map at key " + key)
-		}
-		current = nextMap
-	}
-	lastKey := keys[len(keys)-1]
-	current[lastKey] = value
-
+func (p *Provider) setupEnv() error {
+	p.Backend.SetEnvPrefix(CmdRoot)
+	p.Backend.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	p.Backend.AutomaticEnv()
 	return nil
 }
 

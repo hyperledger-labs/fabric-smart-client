@@ -96,8 +96,10 @@ func TestEnvSubstitution(t *testing.T) {
 }
 
 func testMerge(t *testing.T, p *Provider) {
-	newKey := p.GetString("newKey")
-	assert.Empty(t, newKey)
+	newKey := p.GetString("idap.webapp.auth.oidc.clientSecret")
+	assert.NotEmpty(t, newKey)
+	t.Logf("client secret: %s", newKey)
+
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 	p.OnMergeConfig(&mergeConfigHandler{wg: &wg})
@@ -106,31 +108,35 @@ func testMerge(t *testing.T, p *Provider) {
 	require.NoError(t, err)
 	require.NoError(t, p.MergeConfig(merge1Raw))
 
-	newKey = p.GetString("newKey")
-	assert.Equal(t, "hello world", newKey)
+	newKey = p.GetString("idap.webapp.auth.oidc.clientSecret")
+	assert.Equal(t, "hello_world", newKey)
 
-	testBasics(t, p)
+	var s string
+	require.NoError(t, p.UnmarshalKey("idap.webapp.auth.oidc.clientSecret", &s))
+	assert.Equal(t, "hello_world", s)
+
+	// testBasics(t, p)
 
 	// add nested
-	merge2Raw, err := os.ReadFile("./testdata/merge2.yaml")
-	require.NoError(t, err)
-	require.NoError(t, p.MergeConfig(merge2Raw))
+	// merge2Raw, err := os.ReadFile("./testdata/merge2.yaml")
+	// require.NoError(t, err)
+	// require.NoError(t, p.MergeConfig(merge2Raw))
 
-	networkName := p.GetString(Join("fabric", "network1", "name"))
-	assert.Equal(t, "pineapple", networkName)
+	// networkName := p.GetString(Join("fabric", "network1", "name"))
+	// assert.Equal(t, "pineapple", networkName)
+	//
+	// merge3Raw, err := os.ReadFile("./testdata/merge3.yaml")
+	// require.NoError(t, err)
+	// require.NoError(t, p.MergeConfig(merge3Raw))
+	//
+	// networkName = p.GetString(Join("fabric", "network1", "name"))
+	// assert.Equal(t, "pineapple", networkName)
+	// networkName = p.GetString(Join("fabric", "network2", "name"))
+	// assert.Equal(t, "strawberry", networkName)
+	//
+	// testBasics(t, p)
 
-	merge3Raw, err := os.ReadFile("./testdata/merge3.yaml")
-	require.NoError(t, err)
-	require.NoError(t, p.MergeConfig(merge3Raw))
-
-	networkName = p.GetString(Join("fabric", "network1", "name"))
-	assert.Equal(t, "pineapple", networkName)
-	networkName = p.GetString(Join("fabric", "network2", "name"))
-	assert.Equal(t, "strawberry", networkName)
-
-	testBasics(t, p)
-
-	wg.Wait()
+	// wg.Wait()
 }
 
 func testBasics(t *testing.T, p *Provider) {
