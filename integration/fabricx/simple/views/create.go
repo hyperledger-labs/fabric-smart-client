@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -119,6 +120,9 @@ func (i *CreateView) Call(viewCtx view.Context) (interface{}, error) {
 		return nil, err
 	}
 	logger.Infof("Transaction found: txID=%v, valid=%v, code=%v", pt.TxID(), pt.IsValid(), pt.ValidationCode())
+	if !pt.IsValid() {
+		return nil, errors.Errorf("tx [%s] is invalid", pt.TxID())
+	}
 
 	blockNum, err := l.GetBlockNumberByTxID(tx.ID())
 	if err != nil {
