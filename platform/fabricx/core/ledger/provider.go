@@ -7,56 +7,103 @@ SPDX-License-Identifier: Apache-2.0
 package ledger
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
+	"context"
+	"reflect"
+	"sync"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
 )
 
 // Provider provides ledger implementations to access transactions and blocks on the ledger.
-// The ledger can be accessed in various ways, e.g. using the chaincode or listening on the delivery endpoint
-// However, FabricX does not invoke the chaincode to access blocks and transactions.
-type Provider interface {
-	NewLedger(network, channel string) (driver.Ledger, error)
+type Provider struct {
+	fnsp           *fabric.NetworkServiceProvider
+	configProvider config.Provider
+	ledgers        map[string]driver.Ledger
+	ledgersMu      sync.Mutex
+	baseCtx        context.Context
+	initOnce       sync.Once
+
+	newLedger func(network, channel string, p *Provider) (driver.Ledger, error)
 }
 
-type eventBasedProvider struct {
-	bdp *BlockDispatcherProvider
-}
-
-func NewEventBasedProvider(
-	bdp *BlockDispatcherProvider,
-) *eventBasedProvider {
-	return &eventBasedProvider{
-		bdp: bdp,
+func NewProvider(fnsp *fabric.NetworkServiceProvider, configProvider config.Provider) *Provider {
+	return &Provider{
+		fnsp:           fnsp,
+		configProvider: configProvider,
+		ledgers:        make(map[string]driver.Ledger),
+		newLedger:      newLedger,
 	}
 }
 
-func (p *eventBasedProvider) NewLedger(network, channel string) (driver.Ledger, error) {
-	dispatcher, err := p.bdp.GetBlockDispatcher(network, channel)
+func (p *Provider) Initialize(ctx context.Context) {
+	p.initOnce.Do(func() {
+		p.baseCtx = ctx
+		logger.Debug("Ledger Provider initialized with base context")
+	})
+}
+
+func (p *Provider) NewLedger(network, channel string) (driver.Ledger, error) {
+	if p.baseCtx == nil {
+		panic("programming error: Provider is not initialized. The Initialize() method must be called before NewLedger.")
+	}
+
+	key := network + ":" + channel
+	p.ledgersMu.Lock()
+	defer p.ledgersMu.Unlock()
+
+	if l, ok := p.ledgers[key]; ok {
+		return l, nil
+	}
+
+	l, err := p.newLedger(network, channel, p)
 	if err != nil {
 		return nil, err
 	}
-
-	// this ledger attaches to the delivery service via the block dispatcher
-	l := New()
-	dispatcher.AddCallback(l.OnBlock)
+	p.ledgers[key] = l
 
 	return l, nil
 }
 
-func key(k netCh) string { return k.network + "," + k.channel }
+func newLedger(network, channel string, p *Provider) (driver.Ledger, error) {
+	nw, err := p.fnsp.FabricNetworkService(network)
+	if err != nil {
+		return nil, err
+	}
 
-func NewBlockDispatcherProvider() *BlockDispatcherProvider {
-	return &BlockDispatcherProvider{Provider: lazy.NewProviderWithKeyMapper(key, func(k netCh) (*BlockDispatcher, error) {
-		return &BlockDispatcher{}, nil
-	})}
+	// Load the specific configuration for this network
+	cfg, err := p.configProvider.GetConfig(nw.Name())
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := finality.NewConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	cc, err := finality.GrpcClient(c)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the gRPC client stubs
+	client := committerpb.NewBlockQueryServiceClient(cc)
+	queryClient := committerpb.NewQueryServiceClient(cc)
+
+	return New(client, queryClient, p.baseCtx), nil
 }
 
-type netCh struct{ network, channel string }
-
-type BlockDispatcherProvider struct {
-	lazy.Provider[netCh, *BlockDispatcher]
-}
-
-func (p *BlockDispatcherProvider) GetBlockDispatcher(network, channel string) (*BlockDispatcher, error) {
-	return p.Get(netCh{network, channel})
+// GetLedgerProvider fetches the Provider for the specified network and channel
+func GetLedgerProvider(sp services.Provider) (*Provider, error) {
+	lp, err := sp.GetService(reflect.TypeOf((*Provider)(nil)))
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not find ledger provider")
+	}
+	return lp.(*Provider), nil
 }
