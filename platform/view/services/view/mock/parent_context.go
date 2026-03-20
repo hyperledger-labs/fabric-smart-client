@@ -130,6 +130,19 @@ type ParentContext struct {
 	putSessionReturnsOnCall map[int]struct {
 		result1 error
 	}
+	PutSessionByIDStub        func(string, viewa.Identity, viewa.Session) error
+	putSessionByIDMutex       sync.RWMutex
+	putSessionByIDArgsForCall []struct {
+		arg1 string
+		arg2 viewa.Identity
+		arg3 viewa.Session
+	}
+	putSessionByIDReturns struct {
+		result1 error
+	}
+	putSessionByIDReturnsOnCall map[int]struct {
+		result1 error
+	}
 	RunViewStub        func(viewa.View, ...viewa.RunViewOption) (interface{}, error)
 	runViewMutex       sync.RWMutex
 	runViewArgsForCall []struct {
@@ -784,6 +797,69 @@ func (fake *ParentContext) PutSessionReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *ParentContext) PutSessionByID(arg1 string, arg2 viewa.Identity, arg3 viewa.Session) error {
+	fake.putSessionByIDMutex.Lock()
+	ret, specificReturn := fake.putSessionByIDReturnsOnCall[len(fake.putSessionByIDArgsForCall)]
+	fake.putSessionByIDArgsForCall = append(fake.putSessionByIDArgsForCall, struct {
+		arg1 string
+		arg2 viewa.Identity
+		arg3 viewa.Session
+	}{arg1, arg2, arg3})
+	stub := fake.PutSessionByIDStub
+	fakeReturns := fake.putSessionByIDReturns
+	fake.recordInvocation("PutSessionByID", []interface{}{arg1, arg2, arg3})
+	fake.putSessionByIDMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ParentContext) PutSessionByIDCallCount() int {
+	fake.putSessionByIDMutex.RLock()
+	defer fake.putSessionByIDMutex.RUnlock()
+	return len(fake.putSessionByIDArgsForCall)
+}
+
+func (fake *ParentContext) PutSessionByIDCalls(stub func(string, viewa.Identity, viewa.Session) error) {
+	fake.putSessionByIDMutex.Lock()
+	defer fake.putSessionByIDMutex.Unlock()
+	fake.PutSessionByIDStub = stub
+}
+
+func (fake *ParentContext) PutSessionByIDArgsForCall(i int) (string, viewa.Identity, viewa.Session) {
+	fake.putSessionByIDMutex.RLock()
+	defer fake.putSessionByIDMutex.RUnlock()
+	argsForCall := fake.putSessionByIDArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *ParentContext) PutSessionByIDReturns(result1 error) {
+	fake.putSessionByIDMutex.Lock()
+	defer fake.putSessionByIDMutex.Unlock()
+	fake.PutSessionByIDStub = nil
+	fake.putSessionByIDReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *ParentContext) PutSessionByIDReturnsOnCall(i int, result1 error) {
+	fake.putSessionByIDMutex.Lock()
+	defer fake.putSessionByIDMutex.Unlock()
+	fake.PutSessionByIDStub = nil
+	if fake.putSessionByIDReturnsOnCall == nil {
+		fake.putSessionByIDReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.putSessionByIDReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *ParentContext) RunView(arg1 viewa.View, arg2 ...viewa.RunViewOption) (interface{}, error) {
 	fake.runViewMutex.Lock()
 	ret, specificReturn := fake.runViewReturnsOnCall[len(fake.runViewArgsForCall)]
@@ -971,36 +1047,6 @@ func (fake *ParentContext) StartSpanFromReturnsOnCall(i int, result1 context.Con
 func (fake *ParentContext) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.cleanupMutex.RLock()
-	defer fake.cleanupMutex.RUnlock()
-	fake.contextMutex.RLock()
-	defer fake.contextMutex.RUnlock()
-	fake.disposeMutex.RLock()
-	defer fake.disposeMutex.RUnlock()
-	fake.getServiceMutex.RLock()
-	defer fake.getServiceMutex.RUnlock()
-	fake.getSessionMutex.RLock()
-	defer fake.getSessionMutex.RUnlock()
-	fake.getSessionByIDMutex.RLock()
-	defer fake.getSessionByIDMutex.RUnlock()
-	fake.iDMutex.RLock()
-	defer fake.iDMutex.RUnlock()
-	fake.initiatorMutex.RLock()
-	defer fake.initiatorMutex.RUnlock()
-	fake.isMeMutex.RLock()
-	defer fake.isMeMutex.RUnlock()
-	fake.meMutex.RLock()
-	defer fake.meMutex.RUnlock()
-	fake.onErrorMutex.RLock()
-	defer fake.onErrorMutex.RUnlock()
-	fake.putSessionMutex.RLock()
-	defer fake.putSessionMutex.RUnlock()
-	fake.runViewMutex.RLock()
-	defer fake.runViewMutex.RUnlock()
-	fake.sessionMutex.RLock()
-	defer fake.sessionMutex.RUnlock()
-	fake.startSpanFromMutex.RLock()
-	defer fake.startSpanFromMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

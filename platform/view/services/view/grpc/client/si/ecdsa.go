@@ -38,10 +38,12 @@ type ecdsaSigner struct {
 	sk *ecdsa.PrivateKey
 }
 
+// NewEcdsaSigner returns a new ECDSA signer for the given private key.
 func NewEcdsaSigner(sk *ecdsa.PrivateKey) *ecdsaSigner {
 	return &ecdsaSigner{sk: sk}
 }
 
+// Sign signs the given message using the ECDSA private key.
 func (d *ecdsaSigner) Sign(message []byte) ([]byte, error) {
 	dgst := sha256.Sum256(message)
 

@@ -18,7 +18,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// UnmarshalCommand unmarshal Command messages
+// UnmarshalCommand unmarshals a Command message.
 func UnmarshalCommand(raw []byte) (*protos.Command, error) {
 	command := &protos.Command{}
 	err := proto.Unmarshal(raw, command)
@@ -31,17 +31,19 @@ func UnmarshalCommand(raw []byte) (*protos.Command, error) {
 
 type TimeFunc func() time.Time
 
+// SignerProvider models the signer provider for the view service.
 type SignerProvider interface {
 	GetSigner(identity view2.Identity) (sig.Signer, error)
 }
 
-// ResponseMarshaler produces SignedCommandResponse
+// ResponseMarshaler produces SignedCommandResponse.
 type ResponseMarshaler struct {
 	identityProvider IdentityProvider
 	sigService       SignerProvider
 	time             TimeFunc
 }
 
+// NewResponseMarshaler returns a new instance of the response marshaler.
 func NewResponseMarshaler(identityProvider IdentityProvider, sigService SignerProvider) (*ResponseMarshaler, error) {
 	return &ResponseMarshaler{
 		identityProvider: identityProvider,
@@ -50,6 +52,7 @@ func NewResponseMarshaler(identityProvider IdentityProvider, sigService SignerPr
 	}, nil
 }
 
+// MarshalCommandResponse marshals and signs the given response payload.
 func (s *ResponseMarshaler) MarshalCommandResponse(command []byte, responsePayload interface{}) (*protos.SignedCommandResponse, error) {
 	cr, err := commandResponseFromPayload(responsePayload)
 	if err != nil {

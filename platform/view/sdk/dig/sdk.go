@@ -40,8 +40,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
+	viewgrpcserver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
 	"go.uber.org/dig"
 )
 
@@ -102,7 +103,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(endpoint.NewService),
 		p.Container().Provide(
 			digutils.Identity[*endpoint.Service](),
-			dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint2.Backend), new(view.EndpointService)),
+			dig.As(new(comm.EndpointService), new(id.EndpointService), new(endpoint2.Backend), new(view.EndpointService), new(p2p.EndpointService)),
 		),
 		p.Container().Provide(endpoint2.NewResolversLoader),
 
@@ -112,15 +113,26 @@ func (p *SDK) Install() error {
 		p.Container().Provide(file.NewDriver, dig.Group("kms-drivers")),
 		p.Container().Provide(
 			digutils.Identity[*id.Provider](),
-			dig.As(new(endpoint2.IdentityService), new(server2.IdentityProvider), new(view.IdentityProvider)),
+			dig.As(new(endpoint2.IdentityService), new(viewgrpcserver.IdentityProvider), new(view.IdentityProvider), new(p2p.IdentityProvider)),
 		),
 
 		// View Manager
 		p.Container().Provide(view.NewRegistry),
-		p.Container().Provide(view.NewManager),
+		p.Container().Provide(view.NewMetrics),
+		p.Container().Provide(view.NewContextFactory),
+		p.Container().Provide(func(
+			identityProvider view.IdentityProvider,
+			registry *view.Registry,
+			metrics *view.Metrics,
+			contextFactory view.ContextFactory,
+		) *view.Manager {
+			return view.NewManager(identityProvider, registry, metrics, contextFactory)
+		}),
+		p.Container().Provide(p2p.NewDefaultRunner),
+		p.Container().Provide(p2p.NewService),
 		p.Container().Provide(
 			digutils.Identity[*view.Manager](),
-			dig.As(new(StartableViewManager), new(server2.ViewManager)),
+			dig.As(new(viewgrpcserver.ViewManager), new(p2p.ViewManager)),
 		),
 
 		// Comm service
@@ -134,14 +146,14 @@ func (p *SDK) Install() error {
 		) (*comm.Service, error) {
 			return comm.NewService(hostProvider, endpointService, configProvider, metricsProvider)
 		}),
-		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(view.CommLayer))),
+		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(view.CommLayer), new(p2p.CommLayer), new(view.SessionFactory))),
 
 		// Sig Service
 		p.Container().Provide(sig.NewDeserializer),
 		p.Container().Provide(sig.NewService),
 		p.Container().Provide(
 			digutils.Identity[*sig.Service](),
-			dig.As(new(view.LocalIdentityChecker), new(server2.VerifierProvider), new(server2.SignerProvider), new(id.SigService)),
+			dig.As(new(view.LocalIdentityChecker), new(viewgrpcserver.VerifierProvider), new(viewgrpcserver.SignerProvider), new(id.SigService)),
 		),
 
 		// Tracing
@@ -154,16 +166,16 @@ func (p *SDK) Install() error {
 		p.Container().Provide(func(o *operations.Options, l operations.OperationsLogger) metrics2.Provider {
 			return operations.NewMetricsProvider(o.Metrics, l, true)
 		}),
-		p.Container().Provide(server2.NewMetrics),
+		p.Container().Provide(viewgrpcserver.NewMetrics),
 
 		// Web server
 		p.Container().Provide(NewWebServer),
 		p.Container().Provide(digutils.Identity[Server](), dig.As(new(operations.Server))),
 
 		// GRPC server
-		p.Container().Provide(server2.NewResponseMarshaler, dig.As(new(server2.Marshaller))),
-		p.Container().Provide(server2.NewAccessControlChecker, dig.As(new(server2.PolicyChecker))),
-		p.Container().Provide(server2.NewViewServiceServer, dig.As(new(server2.Service))),
+		p.Container().Provide(viewgrpcserver.NewResponseMarshaler, dig.As(new(viewgrpcserver.Marshaller))),
+		p.Container().Provide(viewgrpcserver.NewAccessControlChecker, dig.As(new(viewgrpcserver.PolicyChecker))),
+		p.Container().Provide(viewgrpcserver.NewViewServiceServer, dig.As(new(viewgrpcserver.Service))),
 		p.Container().Provide(NewGRPCServer),
 	)
 	if err != nil {
@@ -203,22 +215,26 @@ func (p *SDK) Start(ctx context.Context) error {
 	}
 	return p.Container().Invoke(func(in struct {
 		dig.In
-		GRPCServer     *grpc.GRPCServer
-		ViewManager    StartableViewManager
-		ViewService    server2.Service
-		CommService    *comm.Service
-		WebServer      Server
-		System         *operations.System
-		KVS            *kvs.KVS
-		TracerProvider tracing.Provider
+		GRPCServer       *grpc.GRPCServer
+		ViewManager      viewgrpcserver.ViewManager
+		P2PService       *p2p.Service
+		ViewService      viewgrpcserver.Service
+		CommService      *comm.Service
+		WebServer        Server
+		System           *operations.System
+		KVS              *kvs.KVS
+		TracerProvider   tracing.Provider
+		IdentityProvider viewgrpcserver.IdentityProvider
 	}) error {
 		if in.GRPCServer != nil {
 			protos.RegisterViewServiceServer(in.GRPCServer.Server(), in.ViewService)
 		}
 		in.CommService.Start(ctx)
 
-		server2.InstallViewHandler(in.ViewManager, in.ViewService, in.TracerProvider)
-		go in.ViewManager.Start(ctx)
+		viewgrpcserver.InstallViewHandler(in.ViewManager, in.IdentityProvider, in.ViewService, in.TracerProvider)
+		if err := in.P2PService.Start(ctx); err != nil {
+			return err
+		}
 
 		Serve(in.GRPCServer, in.WebServer, in.System, in.KVS, ctx)
 

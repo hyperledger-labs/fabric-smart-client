@@ -21,17 +21,20 @@ const (
 	fidLabel tracing.LabelName = "fid"
 )
 
+// LocalClient is a client that calls views locally.
 type LocalClient struct {
 	serviceLocator services.Provider
 	tracer         trace.Tracer
 }
 
+// NewLocalClient returns a new instance of the local client.
 func NewLocalClient(registry services.Provider) *LocalClient {
 	return &LocalClient{
 		serviceLocator: registry,
 	}
 }
 
+// CallView calls the given view locally with the given input.
 func (n *LocalClient) CallView(fid string, in []byte) (interface{}, error) {
 	tracer, err := n.getTracer()
 	if err != nil {
@@ -49,13 +52,13 @@ func (n *LocalClient) CallView(fid string, in []byte) (interface{}, error) {
 	f, err := manager.NewView(fid, in)
 	span.AddEvent("end_new_view")
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed instantiating view [%s]", fid)
+		return nil, errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
 	span.AddEvent("start_initiate_view")
-	result, err := manager.InitiateView(f, ctx)
+	result, err := manager.InitiateView(ctx, f)
 	span.AddEvent("end_initiate_view")
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed running view [%s]", fid)
+		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
 	raw, ok := result.([]byte)
 	if !ok {

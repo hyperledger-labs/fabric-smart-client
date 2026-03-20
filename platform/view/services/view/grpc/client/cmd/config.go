@@ -14,13 +14,14 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// SignerConfig defines the configuration of a signer.
 type SignerConfig struct {
 	MSPID        string
 	IdentityPath string
 	KeyPath      string
 }
 
-// TLSConfig defines configuration of a Client
+// TLSConfig defines the configuration of a TLS client.
 type TLSConfig struct {
 	CertPath       string
 	KeyPath        string
@@ -28,7 +29,7 @@ type TLSConfig struct {
 	Timeout        time.Duration
 }
 
-// Config aggregates configuration of TLS and signing
+// Config aggregates configuration of TLS and signing.
 type Config struct {
 	Version      int
 	Address      string
@@ -36,7 +37,7 @@ type Config struct {
 	SignerConfig SignerConfig
 }
 
-// ConfigFromFile loads the given file and converts it to a Config
+// ConfigFromFile loads the given file and converts it to a Config.
 func ConfigFromFile(file string) (Config, error) {
 	configData, err := os.ReadFile(file)
 	if err != nil {
@@ -51,7 +52,7 @@ func ConfigFromFile(file string) (Config, error) {
 	return config, validateConfig(config)
 }
 
-// ToFile writes the config into a file
+// ToFile writes the config into a file.
 func (c Config) ToFile(file string) error {
 	if err := validateConfig(c); err != nil {
 		return errors.Wrap(err, "config isn't valid")
