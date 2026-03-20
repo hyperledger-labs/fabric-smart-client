@@ -413,6 +413,7 @@ type multiplexedBaseConn struct {
 	m           *Metrics
 	side        string
 	maxSubConns int
+	closed      atomic.Bool
 }
 
 func newBaseConn(conn *websocket.Conn, tracer trace.Tracer, metrics *Metrics, side string, maxSubConns int) *multiplexedBaseConn {
@@ -428,6 +429,11 @@ func newBaseConn(conn *websocket.Conn, tracer trace.Tracer, metrics *Metrics, si
 }
 
 func (c *multiplexedBaseConn) Kill() error {
+	// Avoid closing multiple times
+	if c.closed.Swap(true) {
+		return nil
+	}
+
 	c.mu.Lock()
 	subConns := make([]*subConn, 0, len(c.subConns))
 	for _, sc := range c.subConns {
