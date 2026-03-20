@@ -45,8 +45,7 @@ func (p *SDK) Install() error {
 		// Register the new fabricx platform driver
 		p.Container().Provide(NewDriver, dig.Group("fabric-platform-drivers")),
 		p.Container().Provide(NewChannelProvider, dig.As(new(ChannelProvider))),
-		p.Container().Provide(ledger.NewEventBasedProvider, dig.As(new(ledger.Provider))),
-		p.Container().Provide(ledger.NewBlockDispatcherProvider),
+		p.Container().Provide(ledger.NewProvider),
 		p.Container().Provide(finality.NewListenerManagerProvider),
 		p.Container().Provide(digutils.Identity[*finality.Provider](), dig.As(new(finality.ListenerManagerProvider))),
 		p.Container().Provide(queryservice.NewProvider, dig.As(new(queryservice.Provider))),
@@ -71,16 +70,15 @@ func (p *SDK) Start(ctx context.Context) error {
 		return p.SDK.Start(ctx)
 	}
 
-	// Wire the finality Listener Manager Provider with the application's root context.
+	// Wire the finality Listener Manager Provider and Ledger Provider with the application's root context.
 	// This context is cancelled when the FSC application shuts down.
-	// By initializing the provider with this context, we ensure that during shutdown,
-	// all active finality listener instances (which run in goroutines managed by the provider)
-	// are properly notified and can terminate their long-running streams.
 	err := p.Container().Invoke(func(in struct {
 		dig.In
-		Provider *finality.Provider
+		FinalityProvider *finality.Provider
+		LedgerProvider   *ledger.Provider
 	}) error {
-		in.Provider.Initialize(ctx)
+		in.FinalityProvider.Initialize(ctx)
+		in.LedgerProvider.Initialize(ctx)
 		return nil
 	})
 	if err != nil {

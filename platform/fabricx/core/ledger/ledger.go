@@ -8,139 +8,174 @@ package ledger
 
 import (
 	"context"
-	"sync"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var (
-	logger  = logging.MustGetLogger()
-	retries = 5
+	logger = logging.MustGetLogger()
 )
 
-// ledger is an in-memory implementation of the driver.Ledger interface.
-// this component is here temporary until we have an implementation that can get this information from the committer directly.
 type ledger struct {
-	mu        sync.RWMutex
-	statuses  map[string]committerpb.Status
-	blockNums map[string]driver.BlockNum
+	client      committerpb.BlockQueryServiceClient
+	queryClient committerpb.QueryServiceClient
+	baseCtx     context.Context
 }
 
 // check that we implement the driver.Ledger.
 var _ driver.Ledger = (*ledger)(nil)
 
-func New() *ledger {
-	l := &ledger{
-		statuses:  make(map[string]committerpb.Status),
-		blockNums: make(map[string]driver.BlockNum),
+func New(client committerpb.BlockQueryServiceClient, queryClient committerpb.QueryServiceClient, baseCtx context.Context) *ledger {
+	return &ledger{
+		client:      client,
+		queryClient: queryClient,
+		baseCtx:     baseCtx,
 	}
-	return l
 }
 
-func (c *ledger) OnBlock(_ context.Context, block *cb.Block) (bool, error) {
-	logger.Debugf("Received block [blockNo=%d]", block.Header.Number)
-	newStatuses := make(map[string]committerpb.Status, len(block.Data.Data))
-	newBlockNums := make(map[string]driver.BlockNum, len(block.Data.Data))
-
-	for i, tx := range block.Data.Data {
-		_, _, chdr, err := fabricutils.UnmarshalTx(tx)
-		if err != nil {
-			return false, errors.Wrapf(err, "unmarshal transaction channel header")
-		}
-
-		statusCode := committerpb.Status(block.Metadata.Metadata[cb.BlockMetadataIndex_TRANSACTIONS_FILTER][i])
-
-		logger.Debugf("unmarshalled [blockNum=%d, pos=%d, txID=%s, status=%v]",
-			block.Header.Number, i, chdr.TxId, statusCode)
-		newStatuses[chdr.TxId] = statusCode
-		newBlockNums[chdr.TxId] = block.Header.Number
+func (c *ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
+	info, err := c.client.GetBlockchainInfo(c.baseCtx, &emptypb.Empty{})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get blockchain info")
 	}
-
-	c.mu.Lock()
-	for txID, status := range newStatuses {
-		c.statuses[txID] = status
-	}
-	for txID, blockNum := range newBlockNums {
-		c.blockNums[txID] = blockNum
-	}
-	logger.Debugf("Current size of tx statuses: %d", len(c.statuses))
-	c.mu.Unlock()
-
-	return false, nil
-}
-
-func (*ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
-	return nil, errors.New("not implemented")
+	return &driver.LedgerInfo{
+		Height:            info.Height,
+		CurrentBlockHash:  info.CurrentBlockHash,
+		PreviousBlockHash: info.PreviousBlockHash,
+	}, nil
 }
 
 func (c *ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
-	// TODO: this will be replaced with a call to the sidecar
-	logger.Debugf("Seek transaction status [%s]", txID)
-	for range retries {
-		c.mu.RLock()
-		status, ok := c.statuses[txID]
-		c.mu.RUnlock()
-		if ok {
-			logger.Debugf("Transaction [txID=%s] found with status [%d]", txID, int32(status))
-			return &liteTx{txID: txID, validationCode: status}, nil
-		}
-		logger.Warnf("Transaction [txID=%s] not found. retrying...", txID)
-		time.Sleep(1 * time.Second)
+	env, err := c.client.GetTxByID(c.baseCtx, &committerpb.TxID{TxId: txID})
+	if err != nil {
+		return nil, errors.Wrapf(finality.TxNotFound, "failed to get tx for txID [%s]: %s", txID, err)
 	}
 
-	return nil, errors.Wrapf(finality.TxNotFound, "transaction [%s] not found", txID)
+	res, err := c.queryClient.GetTransactionStatus(c.baseCtx, &committerpb.TxStatusQuery{
+		TxIds: []string{txID},
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get transaction status for txID [%s]", txID)
+	}
+	if len(res.Statuses) == 0 {
+		return nil, errors.Errorf("no status returned for txID [%s]", txID)
+	}
+
+	results, err := unpackResults(env.Payload)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to unpack results for txID [%s]", txID)
+	}
+
+	envRaw, err := protoutil.Marshal(env)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to marshal envelope for txID [%s]", txID)
+	}
+
+	return &processedTransaction{
+		txID:           txID,
+		results:        results,
+		validationCode: int32(res.Statuses[0].Status),
+		envelope:       envRaw,
+	}, nil
 }
 
 func (c *ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
-	// TODO: this will be replaced with a call to the sidecar
-	logger.Debugf("Seek transaction blockNum [%s]", txID)
-	for range retries {
-		c.mu.RLock()
-		blockNum, ok := c.blockNums[txID]
-		c.mu.RUnlock()
-		if ok {
-			logger.Debugf("Transaction [txID=%s] found with blockNum [%v]", txID, blockNum)
-			return blockNum, nil
-		}
-		logger.Warnf("Transaction [txID=%s] not found. retrying...", txID)
-		time.Sleep(1 * time.Second)
+	block, err := c.client.GetBlockByTxID(c.baseCtx, &committerpb.TxID{TxId: txID})
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to get block for txID [%s]", txID)
 	}
-	return 0, errors.Errorf("transaction [txID=%s] not found", txID)
+	return block.Header.Number, nil
 }
 
 func (c *ledger) GetBlockByNumber(number uint64) (driver.Block, error) {
-	// TODO: this will be replaced with a call to the sidecar
-	panic("GetBlockByNumber >> implement me")
+	block, err := c.client.GetBlockByNumber(c.baseCtx, &committerpb.BlockNumber{Number: number})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get block by number [%d]", number)
+	}
+	return &Block{Block: block}, nil
 }
 
-type liteTx struct {
+// Block wraps a Fabric block
+type Block struct {
+	*cb.Block
+}
+
+// DataAt returns the data stored at the passed index
+func (b *Block) DataAt(i int) []byte {
+	return b.Data.Data[i]
+}
+
+// ProcessedTransaction returns the ProcessedTransaction at passed index
+func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error) {
+	txRaw := b.Data.Data[i]
+	env, _, chdr, err := fabricutils.UnmarshalTx(txRaw)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to unmarshal tx at index [%d]", i)
+	}
+
+	results, err := unpackResults(env.Payload)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to unpack results at index [%d]", i)
+	}
+
+	return &processedTransaction{
+		txID:           chdr.TxId,
+		results:        results,
+		validationCode: int32(b.Metadata.Metadata[cb.BlockMetadataIndex_TRANSACTIONS_FILTER][i]),
+		envelope:       txRaw,
+	}, nil
+}
+
+type processedTransaction struct {
 	txID           string
-	validationCode committerpb.Status
+	results        []byte
+	validationCode int32
+	envelope       []byte
 }
 
-func (t *liteTx) TxID() string {
+func (t *processedTransaction) TxID() string {
 	return t.txID
 }
 
-func (t *liteTx) Results() []byte {
-	panic("unimplemented Results()")
+func (t *processedTransaction) Results() []byte {
+	return t.results
 }
 
-func (t *liteTx) ValidationCode() int32 {
-	return int32(t.validationCode)
+func (t *processedTransaction) ValidationCode() int32 {
+	return t.validationCode
 }
 
-func (t *liteTx) IsValid() bool {
-	return t.validationCode == committerpb.Status_COMMITTED
+func (t *processedTransaction) IsValid() bool {
+	return t.validationCode == int32(committerpb.Status_COMMITTED)
 }
 
-func (t *liteTx) Envelope() []byte {
-	panic("unimplemented Envelope()")
+func (t *processedTransaction) Envelope() []byte {
+	return t.envelope
+}
+
+func unpackResults(payloadRaw []byte) ([]byte, error) {
+	payl, err := protoutil.UnmarshalPayload(payloadRaw)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal payload")
+	}
+
+	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal channel header")
+	}
+
+	if cb.HeaderType(chdr.Type) != cb.HeaderType_MESSAGE {
+		return nil, errors.Errorf("only HeaderType_MESSAGE Transactions are supported, provided type %d", chdr.Type)
+	}
+
+	// For FabricX, Payload.Data contains the serialized rwset (applicationpb.Tx)
+	return payl.Data, nil
 }
