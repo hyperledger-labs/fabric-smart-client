@@ -100,7 +100,7 @@ func UpdateNamespacePolicy(ii *integration.Infrastructure) {
 				Address:   notificationsEndpoint,
 				TLSConfig: fxconfig.TLSConfig{},
 			},
-			EndorserPKPath: endorserPKPath,
+			Policy: "threshold:" + endorserPKPath,
 		},
 		// this is the current version
 		Version: 0,
