@@ -168,6 +168,8 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 		return nil, err
 	}
 
+	logger.Debugf("libp2p: attempting to create new outgoing stream to peer [%s]", ID)
+
 	if len(info.RemotePeerAddress) != 0 {
 		ps := h.Peerstore()
 
@@ -198,8 +200,10 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 
 	nwStream, err := h.Host.NewStream(ctx, ID, viewProtocol)
 	if err != nil {
+		logger.Debugf("libp2p: failed to create new stream to peer [%s]: %v", ID, err)
 		return nil, errors.Wrapf(err, "failed to create new stream to [%s]", ID)
 	}
+	logger.Debugf("libp2p: successfully created new outgoing stream to peer [%s]", ID)
 	info.RemotePeerID = nwStream.Conn().RemotePeer().String()
 	return &stream{
 		Stream: nwStream,
@@ -248,6 +252,7 @@ func (h *host) start(failAdv bool, newStreamCallback func(stream host2.P2PStream
 	}
 
 	h.SetStreamHandler(viewProtocol, func(s network.Stream) {
+		logger.Debugf("libp2p: received new incoming stream from peer [%s]", s.Conn().RemotePeer().String())
 		uuid := utils2.GenerateUUID()
 		newStreamCallback(
 			&stream{

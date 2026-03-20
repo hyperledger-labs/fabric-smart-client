@@ -168,6 +168,7 @@ func (n *NetworkStreamSession) Receive() <-chan *view.Message {
 // enqueue enqueues a message into the session's incoming channel.
 // If the session is closed, the message will be dropped and false returned, otherwise true is returned.
 func (n *NetworkStreamSession) enqueue(msg *view.Message) bool {
+	logger.Debugf("enqueue called for session [%s] with message len %d", n.sessionID, len(msg.Payload))
 	timeout := n.enqueueTimeout
 	if timeout == 0 {
 		timeout = DefaultEnqueueTimeout
@@ -178,10 +179,18 @@ func (n *NetworkStreamSession) enqueue(msg *view.Message) bool {
 // enqueueWithTimeout enqueues a message into the session's incoming channel with a custom timeout.
 func (n *NetworkStreamSession) enqueueWithTimeout(msg *view.Message, timeout time.Duration) bool {
 	if msg == nil {
+		logger.Debugf("nil message provided for session [%s]", n.sessionID)
 		return false
 	}
+	logger.Debugf(
+		"enqueueWithTimeout called for session [%s] with message len %d, timeout %v",
+		n.sessionID,
+		len(msg.Payload),
+		timeout,
+	)
 
 	if n.isClosing.Load() {
+		logger.Debugf("session [%s] is closing, refusing to enqueue message", n.sessionID)
 		return false
 	}
 
@@ -190,10 +199,13 @@ func (n *NetworkStreamSession) enqueueWithTimeout(msg *view.Message, timeout tim
 
 	select {
 	case <-n.closed:
+		logger.Debugf("session [%s] is closed, refusing to enqueue message", n.sessionID)
 		return false
 	case n.middleCh <- msg:
+		logger.Debugf("Successfully enqueued message for session [%s] via middleCh", n.sessionID)
 		return true
 	case <-time.After(timeout):
+		logger.Debugf("Timeout enqueuing message for session [%s] after %v", n.sessionID, timeout)
 		if p, ok := n.node.(*P2PNode); ok {
 			p.m.DroppedMessages.Add(1)
 		}
