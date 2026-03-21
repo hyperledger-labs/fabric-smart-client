@@ -20,10 +20,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var (
-	// logger is the ledger package logger.
-	logger = logging.MustGetLogger()
-)
+// logger is the ledger package logger.
+var logger = logging.MustGetLogger()
 
 // ledger implements the driver.Ledger interface for FabricX.
 type ledger struct {
@@ -149,6 +147,7 @@ type ProcessedTransaction struct {
 	envelope       []byte
 }
 
+// NewProcessedTransaction creates a new ProcessedTransaction with the given parameters.
 func NewProcessedTransaction(txID string, results []byte, validationCode int32, envelope []byte) *ProcessedTransaction {
 	return &ProcessedTransaction{txID: txID, results: results, validationCode: validationCode, envelope: envelope}
 }

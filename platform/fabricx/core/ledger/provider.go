@@ -27,7 +27,10 @@ import (
 //go:generate counterfeiter -o mock/config_service.go --fake-name ConfigService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config.ConfigService
 
 //go:generate counterfeiter -o mock/grpc_client_provider.go --fake-name GRPCClientProvider . GRPCClientProvider
+
+// GRPCClientProvider provides gRPC client connections for a given network.
 type GRPCClientProvider interface {
+	// Client returns a gRPC client connection for the specified network.
 	Client(network string) (*grpc.ClientConn, error)
 }
 
@@ -39,6 +42,8 @@ type Provider struct {
 	initOnce           sync.Once
 }
 
+// NewProvider creates a new Provider instance with the given gRPC client provider.
+// The provider must be initialized with Initialize before use.
 func NewProvider(grpcClientProvider GRPCClientProvider) *Provider {
 	p := &Provider{
 		grpcClientProvider: grpcClientProvider,
@@ -49,6 +54,8 @@ func NewProvider(grpcClientProvider GRPCClientProvider) *Provider {
 	return p
 }
 
+// Initialize sets the base context for the provider. This method must be called
+// before NewLedger. It is safe to call multiple times; only the first call has effect.
 func (p *Provider) Initialize(ctx context.Context) {
 	p.initOnce.Do(func() {
 		p.baseCtx = ctx
@@ -56,6 +63,9 @@ func (p *Provider) Initialize(ctx context.Context) {
 	})
 }
 
+// NewLedger returns a ledger instance for the specified network.
+// The channel parameter must be empty as FabricX does not support channels.
+// Returns an error if the provider is not initialized or if channel is non-empty.
 func (p *Provider) NewLedger(network, channel string) (driver.Ledger, error) {
 	if p.baseCtx == nil {
 		panic("programming error: Provider is not initialized. The Initialize() method must be called before NewLedger.")
@@ -67,6 +77,8 @@ func (p *Provider) NewLedger(network, channel string) (driver.Ledger, error) {
 	return p.ledgers.Get(network)
 }
 
+// newLedger creates a new ledger instance for the specified network.
+// It establishes a gRPC connection and creates the necessary client stubs.
 func (p *Provider) newLedger(network string) (driver.Ledger, error) {
 	cc, err := p.grpcClientProvider.Client(network)
 	if err != nil {
@@ -79,6 +91,7 @@ func (p *Provider) newLedger(network string) (driver.Ledger, error) {
 	return New(client, queryClient, p.baseCtx), nil
 }
 
+// Context returns the base context used by the provider for RPC calls.
 func (p *Provider) Context() context.Context {
 	return p.baseCtx
 }
