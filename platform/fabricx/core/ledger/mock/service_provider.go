@@ -7,7 +7,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
-type FakeServicesProvider struct {
+type ServicesProvider struct {
 	GetServiceStub        func(any) (any, error)
 	getServiceMutex       sync.RWMutex
 	getServiceArgsForCall []struct {
@@ -25,7 +25,7 @@ type FakeServicesProvider struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeServicesProvider) GetService(arg1 any) (any, error) {
+func (fake *ServicesProvider) GetService(arg1 any) (any, error) {
 	fake.getServiceMutex.Lock()
 	ret, specificReturn := fake.getServiceReturnsOnCall[len(fake.getServiceArgsForCall)]
 	fake.getServiceArgsForCall = append(fake.getServiceArgsForCall, struct {
@@ -44,26 +44,26 @@ func (fake *FakeServicesProvider) GetService(arg1 any) (any, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeServicesProvider) GetServiceCallCount() int {
+func (fake *ServicesProvider) GetServiceCallCount() int {
 	fake.getServiceMutex.RLock()
 	defer fake.getServiceMutex.RUnlock()
 	return len(fake.getServiceArgsForCall)
 }
 
-func (fake *FakeServicesProvider) GetServiceCalls(stub func(any) (any, error)) {
+func (fake *ServicesProvider) GetServiceCalls(stub func(any) (any, error)) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = stub
 }
 
-func (fake *FakeServicesProvider) GetServiceArgsForCall(i int) any {
+func (fake *ServicesProvider) GetServiceArgsForCall(i int) any {
 	fake.getServiceMutex.RLock()
 	defer fake.getServiceMutex.RUnlock()
 	argsForCall := fake.getServiceArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeServicesProvider) GetServiceReturns(result1 any, result2 error) {
+func (fake *ServicesProvider) GetServiceReturns(result1 any, result2 error) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = nil
@@ -73,7 +73,7 @@ func (fake *FakeServicesProvider) GetServiceReturns(result1 any, result2 error) 
 	}{result1, result2}
 }
 
-func (fake *FakeServicesProvider) GetServiceReturnsOnCall(i int, result1 any, result2 error) {
+func (fake *ServicesProvider) GetServiceReturnsOnCall(i int, result1 any, result2 error) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = nil
@@ -89,7 +89,7 @@ func (fake *FakeServicesProvider) GetServiceReturnsOnCall(i int, result1 any, re
 	}{result1, result2}
 }
 
-func (fake *FakeServicesProvider) Invocations() map[string][][]interface{} {
+func (fake *ServicesProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -99,7 +99,7 @@ func (fake *FakeServicesProvider) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeServicesProvider) recordInvocation(key string, args []interface{}) {
+func (fake *ServicesProvider) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -111,4 +111,4 @@ func (fake *FakeServicesProvider) recordInvocation(key string, args []interface{
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ services.Provider = new(FakeServicesProvider)
+var _ services.Provider = new(ServicesProvider)

@@ -7,7 +7,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 )
 
-type FakeConfigProvider struct {
+type ConfigProvider struct {
 	GetConfigStub        func(string) (config.ConfigService, error)
 	getConfigMutex       sync.RWMutex
 	getConfigArgsForCall []struct {
@@ -25,7 +25,7 @@ type FakeConfigProvider struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeConfigProvider) GetConfig(arg1 string) (config.ConfigService, error) {
+func (fake *ConfigProvider) GetConfig(arg1 string) (config.ConfigService, error) {
 	fake.getConfigMutex.Lock()
 	ret, specificReturn := fake.getConfigReturnsOnCall[len(fake.getConfigArgsForCall)]
 	fake.getConfigArgsForCall = append(fake.getConfigArgsForCall, struct {
@@ -44,26 +44,26 @@ func (fake *FakeConfigProvider) GetConfig(arg1 string) (config.ConfigService, er
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeConfigProvider) GetConfigCallCount() int {
+func (fake *ConfigProvider) GetConfigCallCount() int {
 	fake.getConfigMutex.RLock()
 	defer fake.getConfigMutex.RUnlock()
 	return len(fake.getConfigArgsForCall)
 }
 
-func (fake *FakeConfigProvider) GetConfigCalls(stub func(string) (config.ConfigService, error)) {
+func (fake *ConfigProvider) GetConfigCalls(stub func(string) (config.ConfigService, error)) {
 	fake.getConfigMutex.Lock()
 	defer fake.getConfigMutex.Unlock()
 	fake.GetConfigStub = stub
 }
 
-func (fake *FakeConfigProvider) GetConfigArgsForCall(i int) string {
+func (fake *ConfigProvider) GetConfigArgsForCall(i int) string {
 	fake.getConfigMutex.RLock()
 	defer fake.getConfigMutex.RUnlock()
 	argsForCall := fake.getConfigArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigProvider) GetConfigReturns(result1 config.ConfigService, result2 error) {
+func (fake *ConfigProvider) GetConfigReturns(result1 config.ConfigService, result2 error) {
 	fake.getConfigMutex.Lock()
 	defer fake.getConfigMutex.Unlock()
 	fake.GetConfigStub = nil
@@ -73,7 +73,7 @@ func (fake *FakeConfigProvider) GetConfigReturns(result1 config.ConfigService, r
 	}{result1, result2}
 }
 
-func (fake *FakeConfigProvider) GetConfigReturnsOnCall(i int, result1 config.ConfigService, result2 error) {
+func (fake *ConfigProvider) GetConfigReturnsOnCall(i int, result1 config.ConfigService, result2 error) {
 	fake.getConfigMutex.Lock()
 	defer fake.getConfigMutex.Unlock()
 	fake.GetConfigStub = nil
@@ -89,7 +89,7 @@ func (fake *FakeConfigProvider) GetConfigReturnsOnCall(i int, result1 config.Con
 	}{result1, result2}
 }
 
-func (fake *FakeConfigProvider) Invocations() map[string][][]interface{} {
+func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -99,7 +99,7 @@ func (fake *FakeConfigProvider) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeConfigProvider) recordInvocation(key string, args []interface{}) {
+func (fake *ConfigProvider) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -111,4 +111,4 @@ func (fake *FakeConfigProvider) recordInvocation(key string, args []interface{})
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ config.Provider = new(FakeConfigProvider)
+var _ config.Provider = new(ConfigProvider)

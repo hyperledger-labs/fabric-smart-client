@@ -12,33 +12,41 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"google.golang.org/grpc"
 )
+
+//go:generate counterfeiter -o mock/grpc_client_provider.go --fake-name GRPCClientProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger.GRPCClientProvider
+//go:generate counterfeiter -o mock/service_provider.go --fake-name ServicesProvider github.com/hyperledger-labs/fabric-smart-client/platform/view/services.Provider
+//go:generate counterfeiter -o mock/block_query_client.go --fake-name BlockQueryServiceClient github.com/hyperledger/fabric-x-common/api/committerpb.BlockQueryServiceClient
+//go:generate counterfeiter -o mock/query_client.go --fake-name QueryServiceClient github.com/hyperledger/fabric-x-common/api/committerpb.QueryServiceClient
+//go:generate counterfeiter -o mock/config_provider.go --fake-name ConfigProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config.Provider
+//go:generate counterfeiter -o mock/config_service.go --fake-name ConfigService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config.ConfigService
+
+//go:generate counterfeiter -o mock/grpc_client_provider.go --fake-name GRPCClientProvider . GRPCClientProvider
+type GRPCClientProvider interface {
+	Client(network string) (*grpc.ClientConn, error)
+}
 
 // Provider provides ledger implementations to access transactions and blocks on the ledger.
 type Provider struct {
-	fnsp           *fabric.NetworkServiceProvider
-	configProvider config.Provider
-	ledgers        map[string]driver.Ledger
-	ledgersMu      sync.Mutex
-	baseCtx        context.Context
-	initOnce       sync.Once
-
-	newLedger func(network, channel string, p *Provider) (driver.Ledger, error)
+	grpcClientProvider GRPCClientProvider
+	ledgers            lazy.Provider[string, driver.Ledger]
+	baseCtx            context.Context
+	initOnce           sync.Once
 }
 
-func NewProvider(fnsp *fabric.NetworkServiceProvider, configProvider config.Provider) *Provider {
-	return &Provider{
-		fnsp:           fnsp,
-		configProvider: configProvider,
-		ledgers:        make(map[string]driver.Ledger),
-		newLedger:      newLedger,
+func NewProvider(grpcClientProvider GRPCClientProvider) *Provider {
+	p := &Provider{
+		grpcClientProvider: grpcClientProvider,
 	}
+	p.ledgers = lazy.NewProvider[string, driver.Ledger](func(s string) (driver.Ledger, error) {
+		return p.newLedger(s)
+	})
+	return p
 }
 
 func (p *Provider) Initialize(ctx context.Context) {
@@ -52,51 +60,27 @@ func (p *Provider) NewLedger(network, channel string) (driver.Ledger, error) {
 	if p.baseCtx == nil {
 		panic("programming error: Provider is not initialized. The Initialize() method must be called before NewLedger.")
 	}
-
-	key := network + ":" + channel
-	p.ledgersMu.Lock()
-	defer p.ledgersMu.Unlock()
-
-	if l, ok := p.ledgers[key]; ok {
-		return l, nil
+	if len(channel) != 0 {
+		return nil, errors.Errorf("non-empty channel not supported")
 	}
 
-	l, err := p.newLedger(network, channel, p)
-	if err != nil {
-		return nil, err
-	}
-	p.ledgers[key] = l
-
-	return l, nil
+	return p.ledgers.Get(network)
 }
 
-func newLedger(network, channel string, p *Provider) (driver.Ledger, error) {
-	nw, err := p.fnsp.FabricNetworkService(network)
+func (p *Provider) newLedger(network string) (driver.Ledger, error) {
+	cc, err := p.grpcClientProvider.Client(network)
 	if err != nil {
 		return nil, err
 	}
-
-	// Load the specific configuration for this network
-	cfg, err := p.configProvider.GetConfig(nw.Name())
-	if err != nil {
-		return nil, err
-	}
-
-	c, err := finality.NewConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	cc, err := finality.GrpcClient(c)
-	if err != nil {
-		return nil, err
-	}
-
 	// Create the gRPC client stubs
 	client := committerpb.NewBlockQueryServiceClient(cc)
 	queryClient := committerpb.NewQueryServiceClient(cc)
 
 	return New(client, queryClient, p.baseCtx), nil
+}
+
+func (p *Provider) Context() context.Context {
+	return p.baseCtx
 }
 
 // GetLedgerProvider fetches the Provider for the specified network and channel

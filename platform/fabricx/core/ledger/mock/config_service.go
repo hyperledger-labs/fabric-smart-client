@@ -12,7 +12,7 @@ import (
 	drivera "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
-type FakeConfigService struct {
+type ConfigService struct {
 	BroadcastNumRetriesStub        func() int
 	broadcastNumRetriesMutex       sync.RWMutex
 	broadcastNumRetriesArgsForCall []struct {
@@ -430,7 +430,7 @@ type FakeConfigService struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeConfigService) BroadcastNumRetries() int {
+func (fake *ConfigService) BroadcastNumRetries() int {
 	fake.broadcastNumRetriesMutex.Lock()
 	ret, specificReturn := fake.broadcastNumRetriesReturnsOnCall[len(fake.broadcastNumRetriesArgsForCall)]
 	fake.broadcastNumRetriesArgsForCall = append(fake.broadcastNumRetriesArgsForCall, struct {
@@ -448,19 +448,19 @@ func (fake *FakeConfigService) BroadcastNumRetries() int {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) BroadcastNumRetriesCallCount() int {
+func (fake *ConfigService) BroadcastNumRetriesCallCount() int {
 	fake.broadcastNumRetriesMutex.RLock()
 	defer fake.broadcastNumRetriesMutex.RUnlock()
 	return len(fake.broadcastNumRetriesArgsForCall)
 }
 
-func (fake *FakeConfigService) BroadcastNumRetriesCalls(stub func() int) {
+func (fake *ConfigService) BroadcastNumRetriesCalls(stub func() int) {
 	fake.broadcastNumRetriesMutex.Lock()
 	defer fake.broadcastNumRetriesMutex.Unlock()
 	fake.BroadcastNumRetriesStub = stub
 }
 
-func (fake *FakeConfigService) BroadcastNumRetriesReturns(result1 int) {
+func (fake *ConfigService) BroadcastNumRetriesReturns(result1 int) {
 	fake.broadcastNumRetriesMutex.Lock()
 	defer fake.broadcastNumRetriesMutex.Unlock()
 	fake.BroadcastNumRetriesStub = nil
@@ -469,7 +469,7 @@ func (fake *FakeConfigService) BroadcastNumRetriesReturns(result1 int) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) BroadcastNumRetriesReturnsOnCall(i int, result1 int) {
+func (fake *ConfigService) BroadcastNumRetriesReturnsOnCall(i int, result1 int) {
 	fake.broadcastNumRetriesMutex.Lock()
 	defer fake.broadcastNumRetriesMutex.Unlock()
 	fake.BroadcastNumRetriesStub = nil
@@ -483,7 +483,7 @@ func (fake *FakeConfigService) BroadcastNumRetriesReturnsOnCall(i int, result1 i
 	}{result1}
 }
 
-func (fake *FakeConfigService) BroadcastRetryInterval() time.Duration {
+func (fake *ConfigService) BroadcastRetryInterval() time.Duration {
 	fake.broadcastRetryIntervalMutex.Lock()
 	ret, specificReturn := fake.broadcastRetryIntervalReturnsOnCall[len(fake.broadcastRetryIntervalArgsForCall)]
 	fake.broadcastRetryIntervalArgsForCall = append(fake.broadcastRetryIntervalArgsForCall, struct {
@@ -501,19 +501,19 @@ func (fake *FakeConfigService) BroadcastRetryInterval() time.Duration {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) BroadcastRetryIntervalCallCount() int {
+func (fake *ConfigService) BroadcastRetryIntervalCallCount() int {
 	fake.broadcastRetryIntervalMutex.RLock()
 	defer fake.broadcastRetryIntervalMutex.RUnlock()
 	return len(fake.broadcastRetryIntervalArgsForCall)
 }
 
-func (fake *FakeConfigService) BroadcastRetryIntervalCalls(stub func() time.Duration) {
+func (fake *ConfigService) BroadcastRetryIntervalCalls(stub func() time.Duration) {
 	fake.broadcastRetryIntervalMutex.Lock()
 	defer fake.broadcastRetryIntervalMutex.Unlock()
 	fake.BroadcastRetryIntervalStub = stub
 }
 
-func (fake *FakeConfigService) BroadcastRetryIntervalReturns(result1 time.Duration) {
+func (fake *ConfigService) BroadcastRetryIntervalReturns(result1 time.Duration) {
 	fake.broadcastRetryIntervalMutex.Lock()
 	defer fake.broadcastRetryIntervalMutex.Unlock()
 	fake.BroadcastRetryIntervalStub = nil
@@ -522,7 +522,7 @@ func (fake *FakeConfigService) BroadcastRetryIntervalReturns(result1 time.Durati
 	}{result1}
 }
 
-func (fake *FakeConfigService) BroadcastRetryIntervalReturnsOnCall(i int, result1 time.Duration) {
+func (fake *ConfigService) BroadcastRetryIntervalReturnsOnCall(i int, result1 time.Duration) {
 	fake.broadcastRetryIntervalMutex.Lock()
 	defer fake.broadcastRetryIntervalMutex.Unlock()
 	fake.BroadcastRetryIntervalStub = nil
@@ -536,7 +536,7 @@ func (fake *FakeConfigService) BroadcastRetryIntervalReturnsOnCall(i int, result
 	}{result1}
 }
 
-func (fake *FakeConfigService) Channel(arg1 string) driver.ChannelConfig {
+func (fake *ConfigService) Channel(arg1 string) driver.ChannelConfig {
 	fake.channelMutex.Lock()
 	ret, specificReturn := fake.channelReturnsOnCall[len(fake.channelArgsForCall)]
 	fake.channelArgsForCall = append(fake.channelArgsForCall, struct {
@@ -555,26 +555,26 @@ func (fake *FakeConfigService) Channel(arg1 string) driver.ChannelConfig {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) ChannelCallCount() int {
+func (fake *ConfigService) ChannelCallCount() int {
 	fake.channelMutex.RLock()
 	defer fake.channelMutex.RUnlock()
 	return len(fake.channelArgsForCall)
 }
 
-func (fake *FakeConfigService) ChannelCalls(stub func(string) driver.ChannelConfig) {
+func (fake *ConfigService) ChannelCalls(stub func(string) driver.ChannelConfig) {
 	fake.channelMutex.Lock()
 	defer fake.channelMutex.Unlock()
 	fake.ChannelStub = stub
 }
 
-func (fake *FakeConfigService) ChannelArgsForCall(i int) string {
+func (fake *ConfigService) ChannelArgsForCall(i int) string {
 	fake.channelMutex.RLock()
 	defer fake.channelMutex.RUnlock()
 	argsForCall := fake.channelArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) ChannelReturns(result1 driver.ChannelConfig) {
+func (fake *ConfigService) ChannelReturns(result1 driver.ChannelConfig) {
 	fake.channelMutex.Lock()
 	defer fake.channelMutex.Unlock()
 	fake.ChannelStub = nil
@@ -583,7 +583,7 @@ func (fake *FakeConfigService) ChannelReturns(result1 driver.ChannelConfig) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) ChannelReturnsOnCall(i int, result1 driver.ChannelConfig) {
+func (fake *ConfigService) ChannelReturnsOnCall(i int, result1 driver.ChannelConfig) {
 	fake.channelMutex.Lock()
 	defer fake.channelMutex.Unlock()
 	fake.ChannelStub = nil
@@ -597,7 +597,7 @@ func (fake *FakeConfigService) ChannelReturnsOnCall(i int, result1 driver.Channe
 	}{result1}
 }
 
-func (fake *FakeConfigService) ChannelIDs() []string {
+func (fake *ConfigService) ChannelIDs() []string {
 	fake.channelIDsMutex.Lock()
 	ret, specificReturn := fake.channelIDsReturnsOnCall[len(fake.channelIDsArgsForCall)]
 	fake.channelIDsArgsForCall = append(fake.channelIDsArgsForCall, struct {
@@ -615,19 +615,19 @@ func (fake *FakeConfigService) ChannelIDs() []string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) ChannelIDsCallCount() int {
+func (fake *ConfigService) ChannelIDsCallCount() int {
 	fake.channelIDsMutex.RLock()
 	defer fake.channelIDsMutex.RUnlock()
 	return len(fake.channelIDsArgsForCall)
 }
 
-func (fake *FakeConfigService) ChannelIDsCalls(stub func() []string) {
+func (fake *ConfigService) ChannelIDsCalls(stub func() []string) {
 	fake.channelIDsMutex.Lock()
 	defer fake.channelIDsMutex.Unlock()
 	fake.ChannelIDsStub = stub
 }
 
-func (fake *FakeConfigService) ChannelIDsReturns(result1 []string) {
+func (fake *ConfigService) ChannelIDsReturns(result1 []string) {
 	fake.channelIDsMutex.Lock()
 	defer fake.channelIDsMutex.Unlock()
 	fake.ChannelIDsStub = nil
@@ -636,7 +636,7 @@ func (fake *FakeConfigService) ChannelIDsReturns(result1 []string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) ChannelIDsReturnsOnCall(i int, result1 []string) {
+func (fake *ConfigService) ChannelIDsReturnsOnCall(i int, result1 []string) {
 	fake.channelIDsMutex.Lock()
 	defer fake.channelIDsMutex.Unlock()
 	fake.ChannelIDsStub = nil
@@ -650,7 +650,7 @@ func (fake *FakeConfigService) ChannelIDsReturnsOnCall(i int, result1 []string) 
 	}{result1}
 }
 
-func (fake *FakeConfigService) ClientConnTimeout() time.Duration {
+func (fake *ConfigService) ClientConnTimeout() time.Duration {
 	fake.clientConnTimeoutMutex.Lock()
 	ret, specificReturn := fake.clientConnTimeoutReturnsOnCall[len(fake.clientConnTimeoutArgsForCall)]
 	fake.clientConnTimeoutArgsForCall = append(fake.clientConnTimeoutArgsForCall, struct {
@@ -668,19 +668,19 @@ func (fake *FakeConfigService) ClientConnTimeout() time.Duration {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) ClientConnTimeoutCallCount() int {
+func (fake *ConfigService) ClientConnTimeoutCallCount() int {
 	fake.clientConnTimeoutMutex.RLock()
 	defer fake.clientConnTimeoutMutex.RUnlock()
 	return len(fake.clientConnTimeoutArgsForCall)
 }
 
-func (fake *FakeConfigService) ClientConnTimeoutCalls(stub func() time.Duration) {
+func (fake *ConfigService) ClientConnTimeoutCalls(stub func() time.Duration) {
 	fake.clientConnTimeoutMutex.Lock()
 	defer fake.clientConnTimeoutMutex.Unlock()
 	fake.ClientConnTimeoutStub = stub
 }
 
-func (fake *FakeConfigService) ClientConnTimeoutReturns(result1 time.Duration) {
+func (fake *ConfigService) ClientConnTimeoutReturns(result1 time.Duration) {
 	fake.clientConnTimeoutMutex.Lock()
 	defer fake.clientConnTimeoutMutex.Unlock()
 	fake.ClientConnTimeoutStub = nil
@@ -689,7 +689,7 @@ func (fake *FakeConfigService) ClientConnTimeoutReturns(result1 time.Duration) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) ClientConnTimeoutReturnsOnCall(i int, result1 time.Duration) {
+func (fake *ConfigService) ClientConnTimeoutReturnsOnCall(i int, result1 time.Duration) {
 	fake.clientConnTimeoutMutex.Lock()
 	defer fake.clientConnTimeoutMutex.Unlock()
 	fake.ClientConnTimeoutStub = nil
@@ -703,7 +703,7 @@ func (fake *FakeConfigService) ClientConnTimeoutReturnsOnCall(i int, result1 tim
 	}{result1}
 }
 
-func (fake *FakeConfigService) ClientKeepAliveConfig() *grpc.ClientKeepAliveConfig {
+func (fake *ConfigService) ClientKeepAliveConfig() *grpc.ClientKeepAliveConfig {
 	fake.clientKeepAliveConfigMutex.Lock()
 	ret, specificReturn := fake.clientKeepAliveConfigReturnsOnCall[len(fake.clientKeepAliveConfigArgsForCall)]
 	fake.clientKeepAliveConfigArgsForCall = append(fake.clientKeepAliveConfigArgsForCall, struct {
@@ -721,19 +721,19 @@ func (fake *FakeConfigService) ClientKeepAliveConfig() *grpc.ClientKeepAliveConf
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) ClientKeepAliveConfigCallCount() int {
+func (fake *ConfigService) ClientKeepAliveConfigCallCount() int {
 	fake.clientKeepAliveConfigMutex.RLock()
 	defer fake.clientKeepAliveConfigMutex.RUnlock()
 	return len(fake.clientKeepAliveConfigArgsForCall)
 }
 
-func (fake *FakeConfigService) ClientKeepAliveConfigCalls(stub func() *grpc.ClientKeepAliveConfig) {
+func (fake *ConfigService) ClientKeepAliveConfigCalls(stub func() *grpc.ClientKeepAliveConfig) {
 	fake.clientKeepAliveConfigMutex.Lock()
 	defer fake.clientKeepAliveConfigMutex.Unlock()
 	fake.ClientKeepAliveConfigStub = stub
 }
 
-func (fake *FakeConfigService) ClientKeepAliveConfigReturns(result1 *grpc.ClientKeepAliveConfig) {
+func (fake *ConfigService) ClientKeepAliveConfigReturns(result1 *grpc.ClientKeepAliveConfig) {
 	fake.clientKeepAliveConfigMutex.Lock()
 	defer fake.clientKeepAliveConfigMutex.Unlock()
 	fake.ClientKeepAliveConfigStub = nil
@@ -742,7 +742,7 @@ func (fake *FakeConfigService) ClientKeepAliveConfigReturns(result1 *grpc.Client
 	}{result1}
 }
 
-func (fake *FakeConfigService) ClientKeepAliveConfigReturnsOnCall(i int, result1 *grpc.ClientKeepAliveConfig) {
+func (fake *ConfigService) ClientKeepAliveConfigReturnsOnCall(i int, result1 *grpc.ClientKeepAliveConfig) {
 	fake.clientKeepAliveConfigMutex.Lock()
 	defer fake.clientKeepAliveConfigMutex.Unlock()
 	fake.ClientKeepAliveConfigStub = nil
@@ -756,7 +756,7 @@ func (fake *FakeConfigService) ClientKeepAliveConfigReturnsOnCall(i int, result1
 	}{result1}
 }
 
-func (fake *FakeConfigService) ConfigFileUsed() string {
+func (fake *ConfigService) ConfigFileUsed() string {
 	fake.configFileUsedMutex.Lock()
 	ret, specificReturn := fake.configFileUsedReturnsOnCall[len(fake.configFileUsedArgsForCall)]
 	fake.configFileUsedArgsForCall = append(fake.configFileUsedArgsForCall, struct {
@@ -774,19 +774,19 @@ func (fake *FakeConfigService) ConfigFileUsed() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) ConfigFileUsedCallCount() int {
+func (fake *ConfigService) ConfigFileUsedCallCount() int {
 	fake.configFileUsedMutex.RLock()
 	defer fake.configFileUsedMutex.RUnlock()
 	return len(fake.configFileUsedArgsForCall)
 }
 
-func (fake *FakeConfigService) ConfigFileUsedCalls(stub func() string) {
+func (fake *ConfigService) ConfigFileUsedCalls(stub func() string) {
 	fake.configFileUsedMutex.Lock()
 	defer fake.configFileUsedMutex.Unlock()
 	fake.ConfigFileUsedStub = stub
 }
 
-func (fake *FakeConfigService) ConfigFileUsedReturns(result1 string) {
+func (fake *ConfigService) ConfigFileUsedReturns(result1 string) {
 	fake.configFileUsedMutex.Lock()
 	defer fake.configFileUsedMutex.Unlock()
 	fake.ConfigFileUsedStub = nil
@@ -795,7 +795,7 @@ func (fake *FakeConfigService) ConfigFileUsedReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) ConfigFileUsedReturnsOnCall(i int, result1 string) {
+func (fake *ConfigService) ConfigFileUsedReturnsOnCall(i int, result1 string) {
 	fake.configFileUsedMutex.Lock()
 	defer fake.configFileUsedMutex.Unlock()
 	fake.ConfigFileUsedStub = nil
@@ -809,7 +809,7 @@ func (fake *FakeConfigService) ConfigFileUsedReturnsOnCall(i int, result1 string
 	}{result1}
 }
 
-func (fake *FakeConfigService) DefaultChannel() string {
+func (fake *ConfigService) DefaultChannel() string {
 	fake.defaultChannelMutex.Lock()
 	ret, specificReturn := fake.defaultChannelReturnsOnCall[len(fake.defaultChannelArgsForCall)]
 	fake.defaultChannelArgsForCall = append(fake.defaultChannelArgsForCall, struct {
@@ -827,19 +827,19 @@ func (fake *FakeConfigService) DefaultChannel() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) DefaultChannelCallCount() int {
+func (fake *ConfigService) DefaultChannelCallCount() int {
 	fake.defaultChannelMutex.RLock()
 	defer fake.defaultChannelMutex.RUnlock()
 	return len(fake.defaultChannelArgsForCall)
 }
 
-func (fake *FakeConfigService) DefaultChannelCalls(stub func() string) {
+func (fake *ConfigService) DefaultChannelCalls(stub func() string) {
 	fake.defaultChannelMutex.Lock()
 	defer fake.defaultChannelMutex.Unlock()
 	fake.DefaultChannelStub = stub
 }
 
-func (fake *FakeConfigService) DefaultChannelReturns(result1 string) {
+func (fake *ConfigService) DefaultChannelReturns(result1 string) {
 	fake.defaultChannelMutex.Lock()
 	defer fake.defaultChannelMutex.Unlock()
 	fake.DefaultChannelStub = nil
@@ -848,7 +848,7 @@ func (fake *FakeConfigService) DefaultChannelReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) DefaultChannelReturnsOnCall(i int, result1 string) {
+func (fake *ConfigService) DefaultChannelReturnsOnCall(i int, result1 string) {
 	fake.defaultChannelMutex.Lock()
 	defer fake.defaultChannelMutex.Unlock()
 	fake.DefaultChannelStub = nil
@@ -862,7 +862,7 @@ func (fake *FakeConfigService) DefaultChannelReturnsOnCall(i int, result1 string
 	}{result1}
 }
 
-func (fake *FakeConfigService) DefaultMSP() string {
+func (fake *ConfigService) DefaultMSP() string {
 	fake.defaultMSPMutex.Lock()
 	ret, specificReturn := fake.defaultMSPReturnsOnCall[len(fake.defaultMSPArgsForCall)]
 	fake.defaultMSPArgsForCall = append(fake.defaultMSPArgsForCall, struct {
@@ -880,19 +880,19 @@ func (fake *FakeConfigService) DefaultMSP() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) DefaultMSPCallCount() int {
+func (fake *ConfigService) DefaultMSPCallCount() int {
 	fake.defaultMSPMutex.RLock()
 	defer fake.defaultMSPMutex.RUnlock()
 	return len(fake.defaultMSPArgsForCall)
 }
 
-func (fake *FakeConfigService) DefaultMSPCalls(stub func() string) {
+func (fake *ConfigService) DefaultMSPCalls(stub func() string) {
 	fake.defaultMSPMutex.Lock()
 	defer fake.defaultMSPMutex.Unlock()
 	fake.DefaultMSPStub = stub
 }
 
-func (fake *FakeConfigService) DefaultMSPReturns(result1 string) {
+func (fake *ConfigService) DefaultMSPReturns(result1 string) {
 	fake.defaultMSPMutex.Lock()
 	defer fake.defaultMSPMutex.Unlock()
 	fake.DefaultMSPStub = nil
@@ -901,7 +901,7 @@ func (fake *FakeConfigService) DefaultMSPReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) DefaultMSPReturnsOnCall(i int, result1 string) {
+func (fake *ConfigService) DefaultMSPReturnsOnCall(i int, result1 string) {
 	fake.defaultMSPMutex.Lock()
 	defer fake.defaultMSPMutex.Unlock()
 	fake.DefaultMSPStub = nil
@@ -915,7 +915,7 @@ func (fake *FakeConfigService) DefaultMSPReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) DriverName() string {
+func (fake *ConfigService) DriverName() string {
 	fake.driverNameMutex.Lock()
 	ret, specificReturn := fake.driverNameReturnsOnCall[len(fake.driverNameArgsForCall)]
 	fake.driverNameArgsForCall = append(fake.driverNameArgsForCall, struct {
@@ -933,19 +933,19 @@ func (fake *FakeConfigService) DriverName() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) DriverNameCallCount() int {
+func (fake *ConfigService) DriverNameCallCount() int {
 	fake.driverNameMutex.RLock()
 	defer fake.driverNameMutex.RUnlock()
 	return len(fake.driverNameArgsForCall)
 }
 
-func (fake *FakeConfigService) DriverNameCalls(stub func() string) {
+func (fake *ConfigService) DriverNameCalls(stub func() string) {
 	fake.driverNameMutex.Lock()
 	defer fake.driverNameMutex.Unlock()
 	fake.DriverNameStub = stub
 }
 
-func (fake *FakeConfigService) DriverNameReturns(result1 string) {
+func (fake *ConfigService) DriverNameReturns(result1 string) {
 	fake.driverNameMutex.Lock()
 	defer fake.driverNameMutex.Unlock()
 	fake.DriverNameStub = nil
@@ -954,7 +954,7 @@ func (fake *FakeConfigService) DriverNameReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) DriverNameReturnsOnCall(i int, result1 string) {
+func (fake *ConfigService) DriverNameReturnsOnCall(i int, result1 string) {
 	fake.driverNameMutex.Lock()
 	defer fake.driverNameMutex.Unlock()
 	fake.DriverNameStub = nil
@@ -968,7 +968,7 @@ func (fake *FakeConfigService) DriverNameReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) GetBool(arg1 string) bool {
+func (fake *ConfigService) GetBool(arg1 string) bool {
 	fake.getBoolMutex.Lock()
 	ret, specificReturn := fake.getBoolReturnsOnCall[len(fake.getBoolArgsForCall)]
 	fake.getBoolArgsForCall = append(fake.getBoolArgsForCall, struct {
@@ -987,26 +987,26 @@ func (fake *FakeConfigService) GetBool(arg1 string) bool {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) GetBoolCallCount() int {
+func (fake *ConfigService) GetBoolCallCount() int {
 	fake.getBoolMutex.RLock()
 	defer fake.getBoolMutex.RUnlock()
 	return len(fake.getBoolArgsForCall)
 }
 
-func (fake *FakeConfigService) GetBoolCalls(stub func(string) bool) {
+func (fake *ConfigService) GetBoolCalls(stub func(string) bool) {
 	fake.getBoolMutex.Lock()
 	defer fake.getBoolMutex.Unlock()
 	fake.GetBoolStub = stub
 }
 
-func (fake *FakeConfigService) GetBoolArgsForCall(i int) string {
+func (fake *ConfigService) GetBoolArgsForCall(i int) string {
 	fake.getBoolMutex.RLock()
 	defer fake.getBoolMutex.RUnlock()
 	argsForCall := fake.getBoolArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) GetBoolReturns(result1 bool) {
+func (fake *ConfigService) GetBoolReturns(result1 bool) {
 	fake.getBoolMutex.Lock()
 	defer fake.getBoolMutex.Unlock()
 	fake.GetBoolStub = nil
@@ -1015,7 +1015,7 @@ func (fake *FakeConfigService) GetBoolReturns(result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) GetBoolReturnsOnCall(i int, result1 bool) {
+func (fake *ConfigService) GetBoolReturnsOnCall(i int, result1 bool) {
 	fake.getBoolMutex.Lock()
 	defer fake.getBoolMutex.Unlock()
 	fake.GetBoolStub = nil
@@ -1029,7 +1029,7 @@ func (fake *FakeConfigService) GetBoolReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) GetDuration(arg1 string) time.Duration {
+func (fake *ConfigService) GetDuration(arg1 string) time.Duration {
 	fake.getDurationMutex.Lock()
 	ret, specificReturn := fake.getDurationReturnsOnCall[len(fake.getDurationArgsForCall)]
 	fake.getDurationArgsForCall = append(fake.getDurationArgsForCall, struct {
@@ -1048,26 +1048,26 @@ func (fake *FakeConfigService) GetDuration(arg1 string) time.Duration {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) GetDurationCallCount() int {
+func (fake *ConfigService) GetDurationCallCount() int {
 	fake.getDurationMutex.RLock()
 	defer fake.getDurationMutex.RUnlock()
 	return len(fake.getDurationArgsForCall)
 }
 
-func (fake *FakeConfigService) GetDurationCalls(stub func(string) time.Duration) {
+func (fake *ConfigService) GetDurationCalls(stub func(string) time.Duration) {
 	fake.getDurationMutex.Lock()
 	defer fake.getDurationMutex.Unlock()
 	fake.GetDurationStub = stub
 }
 
-func (fake *FakeConfigService) GetDurationArgsForCall(i int) string {
+func (fake *ConfigService) GetDurationArgsForCall(i int) string {
 	fake.getDurationMutex.RLock()
 	defer fake.getDurationMutex.RUnlock()
 	argsForCall := fake.getDurationArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) GetDurationReturns(result1 time.Duration) {
+func (fake *ConfigService) GetDurationReturns(result1 time.Duration) {
 	fake.getDurationMutex.Lock()
 	defer fake.getDurationMutex.Unlock()
 	fake.GetDurationStub = nil
@@ -1076,7 +1076,7 @@ func (fake *FakeConfigService) GetDurationReturns(result1 time.Duration) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) GetDurationReturnsOnCall(i int, result1 time.Duration) {
+func (fake *ConfigService) GetDurationReturnsOnCall(i int, result1 time.Duration) {
 	fake.getDurationMutex.Lock()
 	defer fake.getDurationMutex.Unlock()
 	fake.GetDurationStub = nil
@@ -1090,7 +1090,7 @@ func (fake *FakeConfigService) GetDurationReturnsOnCall(i int, result1 time.Dura
 	}{result1}
 }
 
-func (fake *FakeConfigService) GetInt(arg1 string) int {
+func (fake *ConfigService) GetInt(arg1 string) int {
 	fake.getIntMutex.Lock()
 	ret, specificReturn := fake.getIntReturnsOnCall[len(fake.getIntArgsForCall)]
 	fake.getIntArgsForCall = append(fake.getIntArgsForCall, struct {
@@ -1109,26 +1109,26 @@ func (fake *FakeConfigService) GetInt(arg1 string) int {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) GetIntCallCount() int {
+func (fake *ConfigService) GetIntCallCount() int {
 	fake.getIntMutex.RLock()
 	defer fake.getIntMutex.RUnlock()
 	return len(fake.getIntArgsForCall)
 }
 
-func (fake *FakeConfigService) GetIntCalls(stub func(string) int) {
+func (fake *ConfigService) GetIntCalls(stub func(string) int) {
 	fake.getIntMutex.Lock()
 	defer fake.getIntMutex.Unlock()
 	fake.GetIntStub = stub
 }
 
-func (fake *FakeConfigService) GetIntArgsForCall(i int) string {
+func (fake *ConfigService) GetIntArgsForCall(i int) string {
 	fake.getIntMutex.RLock()
 	defer fake.getIntMutex.RUnlock()
 	argsForCall := fake.getIntArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) GetIntReturns(result1 int) {
+func (fake *ConfigService) GetIntReturns(result1 int) {
 	fake.getIntMutex.Lock()
 	defer fake.getIntMutex.Unlock()
 	fake.GetIntStub = nil
@@ -1137,7 +1137,7 @@ func (fake *FakeConfigService) GetIntReturns(result1 int) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) GetIntReturnsOnCall(i int, result1 int) {
+func (fake *ConfigService) GetIntReturnsOnCall(i int, result1 int) {
 	fake.getIntMutex.Lock()
 	defer fake.getIntMutex.Unlock()
 	fake.GetIntStub = nil
@@ -1151,7 +1151,7 @@ func (fake *FakeConfigService) GetIntReturnsOnCall(i int, result1 int) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) GetPath(arg1 string) string {
+func (fake *ConfigService) GetPath(arg1 string) string {
 	fake.getPathMutex.Lock()
 	ret, specificReturn := fake.getPathReturnsOnCall[len(fake.getPathArgsForCall)]
 	fake.getPathArgsForCall = append(fake.getPathArgsForCall, struct {
@@ -1170,26 +1170,26 @@ func (fake *FakeConfigService) GetPath(arg1 string) string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) GetPathCallCount() int {
+func (fake *ConfigService) GetPathCallCount() int {
 	fake.getPathMutex.RLock()
 	defer fake.getPathMutex.RUnlock()
 	return len(fake.getPathArgsForCall)
 }
 
-func (fake *FakeConfigService) GetPathCalls(stub func(string) string) {
+func (fake *ConfigService) GetPathCalls(stub func(string) string) {
 	fake.getPathMutex.Lock()
 	defer fake.getPathMutex.Unlock()
 	fake.GetPathStub = stub
 }
 
-func (fake *FakeConfigService) GetPathArgsForCall(i int) string {
+func (fake *ConfigService) GetPathArgsForCall(i int) string {
 	fake.getPathMutex.RLock()
 	defer fake.getPathMutex.RUnlock()
 	argsForCall := fake.getPathArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) GetPathReturns(result1 string) {
+func (fake *ConfigService) GetPathReturns(result1 string) {
 	fake.getPathMutex.Lock()
 	defer fake.getPathMutex.Unlock()
 	fake.GetPathStub = nil
@@ -1198,7 +1198,7 @@ func (fake *FakeConfigService) GetPathReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) GetPathReturnsOnCall(i int, result1 string) {
+func (fake *ConfigService) GetPathReturnsOnCall(i int, result1 string) {
 	fake.getPathMutex.Lock()
 	defer fake.getPathMutex.Unlock()
 	fake.GetPathStub = nil
@@ -1212,7 +1212,7 @@ func (fake *FakeConfigService) GetPathReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) GetString(arg1 string) string {
+func (fake *ConfigService) GetString(arg1 string) string {
 	fake.getStringMutex.Lock()
 	ret, specificReturn := fake.getStringReturnsOnCall[len(fake.getStringArgsForCall)]
 	fake.getStringArgsForCall = append(fake.getStringArgsForCall, struct {
@@ -1231,26 +1231,26 @@ func (fake *FakeConfigService) GetString(arg1 string) string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) GetStringCallCount() int {
+func (fake *ConfigService) GetStringCallCount() int {
 	fake.getStringMutex.RLock()
 	defer fake.getStringMutex.RUnlock()
 	return len(fake.getStringArgsForCall)
 }
 
-func (fake *FakeConfigService) GetStringCalls(stub func(string) string) {
+func (fake *ConfigService) GetStringCalls(stub func(string) string) {
 	fake.getStringMutex.Lock()
 	defer fake.getStringMutex.Unlock()
 	fake.GetStringStub = stub
 }
 
-func (fake *FakeConfigService) GetStringArgsForCall(i int) string {
+func (fake *ConfigService) GetStringArgsForCall(i int) string {
 	fake.getStringMutex.RLock()
 	defer fake.getStringMutex.RUnlock()
 	argsForCall := fake.getStringArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) GetStringReturns(result1 string) {
+func (fake *ConfigService) GetStringReturns(result1 string) {
 	fake.getStringMutex.Lock()
 	defer fake.getStringMutex.Unlock()
 	fake.GetStringStub = nil
@@ -1259,7 +1259,7 @@ func (fake *FakeConfigService) GetStringReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) GetStringReturnsOnCall(i int, result1 string) {
+func (fake *ConfigService) GetStringReturnsOnCall(i int, result1 string) {
 	fake.getStringMutex.Lock()
 	defer fake.getStringMutex.Unlock()
 	fake.GetStringStub = nil
@@ -1273,7 +1273,7 @@ func (fake *FakeConfigService) GetStringReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) GetStringSlice(arg1 string) []string {
+func (fake *ConfigService) GetStringSlice(arg1 string) []string {
 	fake.getStringSliceMutex.Lock()
 	ret, specificReturn := fake.getStringSliceReturnsOnCall[len(fake.getStringSliceArgsForCall)]
 	fake.getStringSliceArgsForCall = append(fake.getStringSliceArgsForCall, struct {
@@ -1292,26 +1292,26 @@ func (fake *FakeConfigService) GetStringSlice(arg1 string) []string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) GetStringSliceCallCount() int {
+func (fake *ConfigService) GetStringSliceCallCount() int {
 	fake.getStringSliceMutex.RLock()
 	defer fake.getStringSliceMutex.RUnlock()
 	return len(fake.getStringSliceArgsForCall)
 }
 
-func (fake *FakeConfigService) GetStringSliceCalls(stub func(string) []string) {
+func (fake *ConfigService) GetStringSliceCalls(stub func(string) []string) {
 	fake.getStringSliceMutex.Lock()
 	defer fake.getStringSliceMutex.Unlock()
 	fake.GetStringSliceStub = stub
 }
 
-func (fake *FakeConfigService) GetStringSliceArgsForCall(i int) string {
+func (fake *ConfigService) GetStringSliceArgsForCall(i int) string {
 	fake.getStringSliceMutex.RLock()
 	defer fake.getStringSliceMutex.RUnlock()
 	argsForCall := fake.getStringSliceArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) GetStringSliceReturns(result1 []string) {
+func (fake *ConfigService) GetStringSliceReturns(result1 []string) {
 	fake.getStringSliceMutex.Lock()
 	defer fake.getStringSliceMutex.Unlock()
 	fake.GetStringSliceStub = nil
@@ -1320,7 +1320,7 @@ func (fake *FakeConfigService) GetStringSliceReturns(result1 []string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) GetStringSliceReturnsOnCall(i int, result1 []string) {
+func (fake *ConfigService) GetStringSliceReturnsOnCall(i int, result1 []string) {
 	fake.getStringSliceMutex.Lock()
 	defer fake.getStringSliceMutex.Unlock()
 	fake.GetStringSliceStub = nil
@@ -1334,7 +1334,7 @@ func (fake *FakeConfigService) GetStringSliceReturnsOnCall(i int, result1 []stri
 	}{result1}
 }
 
-func (fake *FakeConfigService) IsChannelQuiet(arg1 string) bool {
+func (fake *ConfigService) IsChannelQuiet(arg1 string) bool {
 	fake.isChannelQuietMutex.Lock()
 	ret, specificReturn := fake.isChannelQuietReturnsOnCall[len(fake.isChannelQuietArgsForCall)]
 	fake.isChannelQuietArgsForCall = append(fake.isChannelQuietArgsForCall, struct {
@@ -1353,26 +1353,26 @@ func (fake *FakeConfigService) IsChannelQuiet(arg1 string) bool {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) IsChannelQuietCallCount() int {
+func (fake *ConfigService) IsChannelQuietCallCount() int {
 	fake.isChannelQuietMutex.RLock()
 	defer fake.isChannelQuietMutex.RUnlock()
 	return len(fake.isChannelQuietArgsForCall)
 }
 
-func (fake *FakeConfigService) IsChannelQuietCalls(stub func(string) bool) {
+func (fake *ConfigService) IsChannelQuietCalls(stub func(string) bool) {
 	fake.isChannelQuietMutex.Lock()
 	defer fake.isChannelQuietMutex.Unlock()
 	fake.IsChannelQuietStub = stub
 }
 
-func (fake *FakeConfigService) IsChannelQuietArgsForCall(i int) string {
+func (fake *ConfigService) IsChannelQuietArgsForCall(i int) string {
 	fake.isChannelQuietMutex.RLock()
 	defer fake.isChannelQuietMutex.RUnlock()
 	argsForCall := fake.isChannelQuietArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) IsChannelQuietReturns(result1 bool) {
+func (fake *ConfigService) IsChannelQuietReturns(result1 bool) {
 	fake.isChannelQuietMutex.Lock()
 	defer fake.isChannelQuietMutex.Unlock()
 	fake.IsChannelQuietStub = nil
@@ -1381,7 +1381,7 @@ func (fake *FakeConfigService) IsChannelQuietReturns(result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) IsChannelQuietReturnsOnCall(i int, result1 bool) {
+func (fake *ConfigService) IsChannelQuietReturnsOnCall(i int, result1 bool) {
 	fake.isChannelQuietMutex.Lock()
 	defer fake.isChannelQuietMutex.Unlock()
 	fake.IsChannelQuietStub = nil
@@ -1395,7 +1395,7 @@ func (fake *FakeConfigService) IsChannelQuietReturnsOnCall(i int, result1 bool) 
 	}{result1}
 }
 
-func (fake *FakeConfigService) IsSet(arg1 string) bool {
+func (fake *ConfigService) IsSet(arg1 string) bool {
 	fake.isSetMutex.Lock()
 	ret, specificReturn := fake.isSetReturnsOnCall[len(fake.isSetArgsForCall)]
 	fake.isSetArgsForCall = append(fake.isSetArgsForCall, struct {
@@ -1414,26 +1414,26 @@ func (fake *FakeConfigService) IsSet(arg1 string) bool {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) IsSetCallCount() int {
+func (fake *ConfigService) IsSetCallCount() int {
 	fake.isSetMutex.RLock()
 	defer fake.isSetMutex.RUnlock()
 	return len(fake.isSetArgsForCall)
 }
 
-func (fake *FakeConfigService) IsSetCalls(stub func(string) bool) {
+func (fake *ConfigService) IsSetCalls(stub func(string) bool) {
 	fake.isSetMutex.Lock()
 	defer fake.isSetMutex.Unlock()
 	fake.IsSetStub = stub
 }
 
-func (fake *FakeConfigService) IsSetArgsForCall(i int) string {
+func (fake *ConfigService) IsSetArgsForCall(i int) string {
 	fake.isSetMutex.RLock()
 	defer fake.isSetMutex.RUnlock()
 	argsForCall := fake.isSetArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) IsSetReturns(result1 bool) {
+func (fake *ConfigService) IsSetReturns(result1 bool) {
 	fake.isSetMutex.Lock()
 	defer fake.isSetMutex.Unlock()
 	fake.IsSetStub = nil
@@ -1442,7 +1442,7 @@ func (fake *FakeConfigService) IsSetReturns(result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) IsSetReturnsOnCall(i int, result1 bool) {
+func (fake *ConfigService) IsSetReturnsOnCall(i int, result1 bool) {
 	fake.isSetMutex.Lock()
 	defer fake.isSetMutex.Unlock()
 	fake.IsSetStub = nil
@@ -1456,7 +1456,7 @@ func (fake *FakeConfigService) IsSetReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) MSPCacheSize() int {
+func (fake *ConfigService) MSPCacheSize() int {
 	fake.mSPCacheSizeMutex.Lock()
 	ret, specificReturn := fake.mSPCacheSizeReturnsOnCall[len(fake.mSPCacheSizeArgsForCall)]
 	fake.mSPCacheSizeArgsForCall = append(fake.mSPCacheSizeArgsForCall, struct {
@@ -1474,19 +1474,19 @@ func (fake *FakeConfigService) MSPCacheSize() int {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) MSPCacheSizeCallCount() int {
+func (fake *ConfigService) MSPCacheSizeCallCount() int {
 	fake.mSPCacheSizeMutex.RLock()
 	defer fake.mSPCacheSizeMutex.RUnlock()
 	return len(fake.mSPCacheSizeArgsForCall)
 }
 
-func (fake *FakeConfigService) MSPCacheSizeCalls(stub func() int) {
+func (fake *ConfigService) MSPCacheSizeCalls(stub func() int) {
 	fake.mSPCacheSizeMutex.Lock()
 	defer fake.mSPCacheSizeMutex.Unlock()
 	fake.MSPCacheSizeStub = stub
 }
 
-func (fake *FakeConfigService) MSPCacheSizeReturns(result1 int) {
+func (fake *ConfigService) MSPCacheSizeReturns(result1 int) {
 	fake.mSPCacheSizeMutex.Lock()
 	defer fake.mSPCacheSizeMutex.Unlock()
 	fake.MSPCacheSizeStub = nil
@@ -1495,7 +1495,7 @@ func (fake *FakeConfigService) MSPCacheSizeReturns(result1 int) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) MSPCacheSizeReturnsOnCall(i int, result1 int) {
+func (fake *ConfigService) MSPCacheSizeReturnsOnCall(i int, result1 int) {
 	fake.mSPCacheSizeMutex.Lock()
 	defer fake.mSPCacheSizeMutex.Unlock()
 	fake.MSPCacheSizeStub = nil
@@ -1509,7 +1509,7 @@ func (fake *FakeConfigService) MSPCacheSizeReturnsOnCall(i int, result1 int) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) MSPs() ([]configa.MSP, error) {
+func (fake *ConfigService) MSPs() ([]configa.MSP, error) {
 	fake.mSPsMutex.Lock()
 	ret, specificReturn := fake.mSPsReturnsOnCall[len(fake.mSPsArgsForCall)]
 	fake.mSPsArgsForCall = append(fake.mSPsArgsForCall, struct {
@@ -1527,19 +1527,19 @@ func (fake *FakeConfigService) MSPs() ([]configa.MSP, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeConfigService) MSPsCallCount() int {
+func (fake *ConfigService) MSPsCallCount() int {
 	fake.mSPsMutex.RLock()
 	defer fake.mSPsMutex.RUnlock()
 	return len(fake.mSPsArgsForCall)
 }
 
-func (fake *FakeConfigService) MSPsCalls(stub func() ([]configa.MSP, error)) {
+func (fake *ConfigService) MSPsCalls(stub func() ([]configa.MSP, error)) {
 	fake.mSPsMutex.Lock()
 	defer fake.mSPsMutex.Unlock()
 	fake.MSPsStub = stub
 }
 
-func (fake *FakeConfigService) MSPsReturns(result1 []configa.MSP, result2 error) {
+func (fake *ConfigService) MSPsReturns(result1 []configa.MSP, result2 error) {
 	fake.mSPsMutex.Lock()
 	defer fake.mSPsMutex.Unlock()
 	fake.MSPsStub = nil
@@ -1549,7 +1549,7 @@ func (fake *FakeConfigService) MSPsReturns(result1 []configa.MSP, result2 error)
 	}{result1, result2}
 }
 
-func (fake *FakeConfigService) MSPsReturnsOnCall(i int, result1 []configa.MSP, result2 error) {
+func (fake *ConfigService) MSPsReturnsOnCall(i int, result1 []configa.MSP, result2 error) {
 	fake.mSPsMutex.Lock()
 	defer fake.mSPsMutex.Unlock()
 	fake.MSPsStub = nil
@@ -1565,7 +1565,7 @@ func (fake *FakeConfigService) MSPsReturnsOnCall(i int, result1 []configa.MSP, r
 	}{result1, result2}
 }
 
-func (fake *FakeConfigService) NetworkName() string {
+func (fake *ConfigService) NetworkName() string {
 	fake.networkNameMutex.Lock()
 	ret, specificReturn := fake.networkNameReturnsOnCall[len(fake.networkNameArgsForCall)]
 	fake.networkNameArgsForCall = append(fake.networkNameArgsForCall, struct {
@@ -1583,19 +1583,19 @@ func (fake *FakeConfigService) NetworkName() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) NetworkNameCallCount() int {
+func (fake *ConfigService) NetworkNameCallCount() int {
 	fake.networkNameMutex.RLock()
 	defer fake.networkNameMutex.RUnlock()
 	return len(fake.networkNameArgsForCall)
 }
 
-func (fake *FakeConfigService) NetworkNameCalls(stub func() string) {
+func (fake *ConfigService) NetworkNameCalls(stub func() string) {
 	fake.networkNameMutex.Lock()
 	defer fake.networkNameMutex.Unlock()
 	fake.NetworkNameStub = stub
 }
 
-func (fake *FakeConfigService) NetworkNameReturns(result1 string) {
+func (fake *ConfigService) NetworkNameReturns(result1 string) {
 	fake.networkNameMutex.Lock()
 	defer fake.networkNameMutex.Unlock()
 	fake.NetworkNameStub = nil
@@ -1604,7 +1604,7 @@ func (fake *FakeConfigService) NetworkNameReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) NetworkNameReturnsOnCall(i int, result1 string) {
+func (fake *ConfigService) NetworkNameReturnsOnCall(i int, result1 string) {
 	fake.networkNameMutex.Lock()
 	defer fake.networkNameMutex.Unlock()
 	fake.NetworkNameStub = nil
@@ -1618,7 +1618,7 @@ func (fake *FakeConfigService) NetworkNameReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) NewDefaultChannelConfig(arg1 string) driver.ChannelConfig {
+func (fake *ConfigService) NewDefaultChannelConfig(arg1 string) driver.ChannelConfig {
 	fake.newDefaultChannelConfigMutex.Lock()
 	ret, specificReturn := fake.newDefaultChannelConfigReturnsOnCall[len(fake.newDefaultChannelConfigArgsForCall)]
 	fake.newDefaultChannelConfigArgsForCall = append(fake.newDefaultChannelConfigArgsForCall, struct {
@@ -1637,26 +1637,26 @@ func (fake *FakeConfigService) NewDefaultChannelConfig(arg1 string) driver.Chann
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) NewDefaultChannelConfigCallCount() int {
+func (fake *ConfigService) NewDefaultChannelConfigCallCount() int {
 	fake.newDefaultChannelConfigMutex.RLock()
 	defer fake.newDefaultChannelConfigMutex.RUnlock()
 	return len(fake.newDefaultChannelConfigArgsForCall)
 }
 
-func (fake *FakeConfigService) NewDefaultChannelConfigCalls(stub func(string) driver.ChannelConfig) {
+func (fake *ConfigService) NewDefaultChannelConfigCalls(stub func(string) driver.ChannelConfig) {
 	fake.newDefaultChannelConfigMutex.Lock()
 	defer fake.newDefaultChannelConfigMutex.Unlock()
 	fake.NewDefaultChannelConfigStub = stub
 }
 
-func (fake *FakeConfigService) NewDefaultChannelConfigArgsForCall(i int) string {
+func (fake *ConfigService) NewDefaultChannelConfigArgsForCall(i int) string {
 	fake.newDefaultChannelConfigMutex.RLock()
 	defer fake.newDefaultChannelConfigMutex.RUnlock()
 	argsForCall := fake.newDefaultChannelConfigArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) NewDefaultChannelConfigReturns(result1 driver.ChannelConfig) {
+func (fake *ConfigService) NewDefaultChannelConfigReturns(result1 driver.ChannelConfig) {
 	fake.newDefaultChannelConfigMutex.Lock()
 	defer fake.newDefaultChannelConfigMutex.Unlock()
 	fake.NewDefaultChannelConfigStub = nil
@@ -1665,7 +1665,7 @@ func (fake *FakeConfigService) NewDefaultChannelConfigReturns(result1 driver.Cha
 	}{result1}
 }
 
-func (fake *FakeConfigService) NewDefaultChannelConfigReturnsOnCall(i int, result1 driver.ChannelConfig) {
+func (fake *ConfigService) NewDefaultChannelConfigReturnsOnCall(i int, result1 driver.ChannelConfig) {
 	fake.newDefaultChannelConfigMutex.Lock()
 	defer fake.newDefaultChannelConfigMutex.Unlock()
 	fake.NewDefaultChannelConfigStub = nil
@@ -1679,7 +1679,7 @@ func (fake *FakeConfigService) NewDefaultChannelConfigReturnsOnCall(i int, resul
 	}{result1}
 }
 
-func (fake *FakeConfigService) OrdererConnectionPoolSize() int {
+func (fake *ConfigService) OrdererConnectionPoolSize() int {
 	fake.ordererConnectionPoolSizeMutex.Lock()
 	ret, specificReturn := fake.ordererConnectionPoolSizeReturnsOnCall[len(fake.ordererConnectionPoolSizeArgsForCall)]
 	fake.ordererConnectionPoolSizeArgsForCall = append(fake.ordererConnectionPoolSizeArgsForCall, struct {
@@ -1697,19 +1697,19 @@ func (fake *FakeConfigService) OrdererConnectionPoolSize() int {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) OrdererConnectionPoolSizeCallCount() int {
+func (fake *ConfigService) OrdererConnectionPoolSizeCallCount() int {
 	fake.ordererConnectionPoolSizeMutex.RLock()
 	defer fake.ordererConnectionPoolSizeMutex.RUnlock()
 	return len(fake.ordererConnectionPoolSizeArgsForCall)
 }
 
-func (fake *FakeConfigService) OrdererConnectionPoolSizeCalls(stub func() int) {
+func (fake *ConfigService) OrdererConnectionPoolSizeCalls(stub func() int) {
 	fake.ordererConnectionPoolSizeMutex.Lock()
 	defer fake.ordererConnectionPoolSizeMutex.Unlock()
 	fake.OrdererConnectionPoolSizeStub = stub
 }
 
-func (fake *FakeConfigService) OrdererConnectionPoolSizeReturns(result1 int) {
+func (fake *ConfigService) OrdererConnectionPoolSizeReturns(result1 int) {
 	fake.ordererConnectionPoolSizeMutex.Lock()
 	defer fake.ordererConnectionPoolSizeMutex.Unlock()
 	fake.OrdererConnectionPoolSizeStub = nil
@@ -1718,7 +1718,7 @@ func (fake *FakeConfigService) OrdererConnectionPoolSizeReturns(result1 int) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) OrdererConnectionPoolSizeReturnsOnCall(i int, result1 int) {
+func (fake *ConfigService) OrdererConnectionPoolSizeReturnsOnCall(i int, result1 int) {
 	fake.ordererConnectionPoolSizeMutex.Lock()
 	defer fake.ordererConnectionPoolSizeMutex.Unlock()
 	fake.OrdererConnectionPoolSizeStub = nil
@@ -1732,7 +1732,7 @@ func (fake *FakeConfigService) OrdererConnectionPoolSizeReturnsOnCall(i int, res
 	}{result1}
 }
 
-func (fake *FakeConfigService) Orderers() []*grpc.ConnectionConfig {
+func (fake *ConfigService) Orderers() []*grpc.ConnectionConfig {
 	fake.orderersMutex.Lock()
 	ret, specificReturn := fake.orderersReturnsOnCall[len(fake.orderersArgsForCall)]
 	fake.orderersArgsForCall = append(fake.orderersArgsForCall, struct {
@@ -1750,19 +1750,19 @@ func (fake *FakeConfigService) Orderers() []*grpc.ConnectionConfig {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) OrderersCallCount() int {
+func (fake *ConfigService) OrderersCallCount() int {
 	fake.orderersMutex.RLock()
 	defer fake.orderersMutex.RUnlock()
 	return len(fake.orderersArgsForCall)
 }
 
-func (fake *FakeConfigService) OrderersCalls(stub func() []*grpc.ConnectionConfig) {
+func (fake *ConfigService) OrderersCalls(stub func() []*grpc.ConnectionConfig) {
 	fake.orderersMutex.Lock()
 	defer fake.orderersMutex.Unlock()
 	fake.OrderersStub = stub
 }
 
-func (fake *FakeConfigService) OrderersReturns(result1 []*grpc.ConnectionConfig) {
+func (fake *ConfigService) OrderersReturns(result1 []*grpc.ConnectionConfig) {
 	fake.orderersMutex.Lock()
 	defer fake.orderersMutex.Unlock()
 	fake.OrderersStub = nil
@@ -1771,7 +1771,7 @@ func (fake *FakeConfigService) OrderersReturns(result1 []*grpc.ConnectionConfig)
 	}{result1}
 }
 
-func (fake *FakeConfigService) OrderersReturnsOnCall(i int, result1 []*grpc.ConnectionConfig) {
+func (fake *ConfigService) OrderersReturnsOnCall(i int, result1 []*grpc.ConnectionConfig) {
 	fake.orderersMutex.Lock()
 	defer fake.orderersMutex.Unlock()
 	fake.OrderersStub = nil
@@ -1785,7 +1785,7 @@ func (fake *FakeConfigService) OrderersReturnsOnCall(i int, result1 []*grpc.Conn
 	}{result1}
 }
 
-func (fake *FakeConfigService) OrderingTLSClientAuthRequired() (bool, bool) {
+func (fake *ConfigService) OrderingTLSClientAuthRequired() (bool, bool) {
 	fake.orderingTLSClientAuthRequiredMutex.Lock()
 	ret, specificReturn := fake.orderingTLSClientAuthRequiredReturnsOnCall[len(fake.orderingTLSClientAuthRequiredArgsForCall)]
 	fake.orderingTLSClientAuthRequiredArgsForCall = append(fake.orderingTLSClientAuthRequiredArgsForCall, struct {
@@ -1803,19 +1803,19 @@ func (fake *FakeConfigService) OrderingTLSClientAuthRequired() (bool, bool) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeConfigService) OrderingTLSClientAuthRequiredCallCount() int {
+func (fake *ConfigService) OrderingTLSClientAuthRequiredCallCount() int {
 	fake.orderingTLSClientAuthRequiredMutex.RLock()
 	defer fake.orderingTLSClientAuthRequiredMutex.RUnlock()
 	return len(fake.orderingTLSClientAuthRequiredArgsForCall)
 }
 
-func (fake *FakeConfigService) OrderingTLSClientAuthRequiredCalls(stub func() (bool, bool)) {
+func (fake *ConfigService) OrderingTLSClientAuthRequiredCalls(stub func() (bool, bool)) {
 	fake.orderingTLSClientAuthRequiredMutex.Lock()
 	defer fake.orderingTLSClientAuthRequiredMutex.Unlock()
 	fake.OrderingTLSClientAuthRequiredStub = stub
 }
 
-func (fake *FakeConfigService) OrderingTLSClientAuthRequiredReturns(result1 bool, result2 bool) {
+func (fake *ConfigService) OrderingTLSClientAuthRequiredReturns(result1 bool, result2 bool) {
 	fake.orderingTLSClientAuthRequiredMutex.Lock()
 	defer fake.orderingTLSClientAuthRequiredMutex.Unlock()
 	fake.OrderingTLSClientAuthRequiredStub = nil
@@ -1825,7 +1825,7 @@ func (fake *FakeConfigService) OrderingTLSClientAuthRequiredReturns(result1 bool
 	}{result1, result2}
 }
 
-func (fake *FakeConfigService) OrderingTLSClientAuthRequiredReturnsOnCall(i int, result1 bool, result2 bool) {
+func (fake *ConfigService) OrderingTLSClientAuthRequiredReturnsOnCall(i int, result1 bool, result2 bool) {
 	fake.orderingTLSClientAuthRequiredMutex.Lock()
 	defer fake.orderingTLSClientAuthRequiredMutex.Unlock()
 	fake.OrderingTLSClientAuthRequiredStub = nil
@@ -1841,7 +1841,7 @@ func (fake *FakeConfigService) OrderingTLSClientAuthRequiredReturnsOnCall(i int,
 	}{result1, result2}
 }
 
-func (fake *FakeConfigService) OrderingTLSEnabled() (bool, bool) {
+func (fake *ConfigService) OrderingTLSEnabled() (bool, bool) {
 	fake.orderingTLSEnabledMutex.Lock()
 	ret, specificReturn := fake.orderingTLSEnabledReturnsOnCall[len(fake.orderingTLSEnabledArgsForCall)]
 	fake.orderingTLSEnabledArgsForCall = append(fake.orderingTLSEnabledArgsForCall, struct {
@@ -1859,19 +1859,19 @@ func (fake *FakeConfigService) OrderingTLSEnabled() (bool, bool) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeConfigService) OrderingTLSEnabledCallCount() int {
+func (fake *ConfigService) OrderingTLSEnabledCallCount() int {
 	fake.orderingTLSEnabledMutex.RLock()
 	defer fake.orderingTLSEnabledMutex.RUnlock()
 	return len(fake.orderingTLSEnabledArgsForCall)
 }
 
-func (fake *FakeConfigService) OrderingTLSEnabledCalls(stub func() (bool, bool)) {
+func (fake *ConfigService) OrderingTLSEnabledCalls(stub func() (bool, bool)) {
 	fake.orderingTLSEnabledMutex.Lock()
 	defer fake.orderingTLSEnabledMutex.Unlock()
 	fake.OrderingTLSEnabledStub = stub
 }
 
-func (fake *FakeConfigService) OrderingTLSEnabledReturns(result1 bool, result2 bool) {
+func (fake *ConfigService) OrderingTLSEnabledReturns(result1 bool, result2 bool) {
 	fake.orderingTLSEnabledMutex.Lock()
 	defer fake.orderingTLSEnabledMutex.Unlock()
 	fake.OrderingTLSEnabledStub = nil
@@ -1881,7 +1881,7 @@ func (fake *FakeConfigService) OrderingTLSEnabledReturns(result1 bool, result2 b
 	}{result1, result2}
 }
 
-func (fake *FakeConfigService) OrderingTLSEnabledReturnsOnCall(i int, result1 bool, result2 bool) {
+func (fake *ConfigService) OrderingTLSEnabledReturnsOnCall(i int, result1 bool, result2 bool) {
 	fake.orderingTLSEnabledMutex.Lock()
 	defer fake.orderingTLSEnabledMutex.Unlock()
 	fake.OrderingTLSEnabledStub = nil
@@ -1897,7 +1897,7 @@ func (fake *FakeConfigService) OrderingTLSEnabledReturnsOnCall(i int, result1 bo
 	}{result1, result2}
 }
 
-func (fake *FakeConfigService) PickOrderer() *grpc.ConnectionConfig {
+func (fake *ConfigService) PickOrderer() *grpc.ConnectionConfig {
 	fake.pickOrdererMutex.Lock()
 	ret, specificReturn := fake.pickOrdererReturnsOnCall[len(fake.pickOrdererArgsForCall)]
 	fake.pickOrdererArgsForCall = append(fake.pickOrdererArgsForCall, struct {
@@ -1915,19 +1915,19 @@ func (fake *FakeConfigService) PickOrderer() *grpc.ConnectionConfig {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) PickOrdererCallCount() int {
+func (fake *ConfigService) PickOrdererCallCount() int {
 	fake.pickOrdererMutex.RLock()
 	defer fake.pickOrdererMutex.RUnlock()
 	return len(fake.pickOrdererArgsForCall)
 }
 
-func (fake *FakeConfigService) PickOrdererCalls(stub func() *grpc.ConnectionConfig) {
+func (fake *ConfigService) PickOrdererCalls(stub func() *grpc.ConnectionConfig) {
 	fake.pickOrdererMutex.Lock()
 	defer fake.pickOrdererMutex.Unlock()
 	fake.PickOrdererStub = stub
 }
 
-func (fake *FakeConfigService) PickOrdererReturns(result1 *grpc.ConnectionConfig) {
+func (fake *ConfigService) PickOrdererReturns(result1 *grpc.ConnectionConfig) {
 	fake.pickOrdererMutex.Lock()
 	defer fake.pickOrdererMutex.Unlock()
 	fake.PickOrdererStub = nil
@@ -1936,7 +1936,7 @@ func (fake *FakeConfigService) PickOrdererReturns(result1 *grpc.ConnectionConfig
 	}{result1}
 }
 
-func (fake *FakeConfigService) PickOrdererReturnsOnCall(i int, result1 *grpc.ConnectionConfig) {
+func (fake *ConfigService) PickOrdererReturnsOnCall(i int, result1 *grpc.ConnectionConfig) {
 	fake.pickOrdererMutex.Lock()
 	defer fake.pickOrdererMutex.Unlock()
 	fake.PickOrdererStub = nil
@@ -1950,7 +1950,7 @@ func (fake *FakeConfigService) PickOrdererReturnsOnCall(i int, result1 *grpc.Con
 	}{result1}
 }
 
-func (fake *FakeConfigService) PickPeer(arg1 driver.PeerFunctionType) *grpc.ConnectionConfig {
+func (fake *ConfigService) PickPeer(arg1 driver.PeerFunctionType) *grpc.ConnectionConfig {
 	fake.pickPeerMutex.Lock()
 	ret, specificReturn := fake.pickPeerReturnsOnCall[len(fake.pickPeerArgsForCall)]
 	fake.pickPeerArgsForCall = append(fake.pickPeerArgsForCall, struct {
@@ -1969,26 +1969,26 @@ func (fake *FakeConfigService) PickPeer(arg1 driver.PeerFunctionType) *grpc.Conn
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) PickPeerCallCount() int {
+func (fake *ConfigService) PickPeerCallCount() int {
 	fake.pickPeerMutex.RLock()
 	defer fake.pickPeerMutex.RUnlock()
 	return len(fake.pickPeerArgsForCall)
 }
 
-func (fake *FakeConfigService) PickPeerCalls(stub func(driver.PeerFunctionType) *grpc.ConnectionConfig) {
+func (fake *ConfigService) PickPeerCalls(stub func(driver.PeerFunctionType) *grpc.ConnectionConfig) {
 	fake.pickPeerMutex.Lock()
 	defer fake.pickPeerMutex.Unlock()
 	fake.PickPeerStub = stub
 }
 
-func (fake *FakeConfigService) PickPeerArgsForCall(i int) driver.PeerFunctionType {
+func (fake *ConfigService) PickPeerArgsForCall(i int) driver.PeerFunctionType {
 	fake.pickPeerMutex.RLock()
 	defer fake.pickPeerMutex.RUnlock()
 	argsForCall := fake.pickPeerArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) PickPeerReturns(result1 *grpc.ConnectionConfig) {
+func (fake *ConfigService) PickPeerReturns(result1 *grpc.ConnectionConfig) {
 	fake.pickPeerMutex.Lock()
 	defer fake.pickPeerMutex.Unlock()
 	fake.PickPeerStub = nil
@@ -1997,7 +1997,7 @@ func (fake *FakeConfigService) PickPeerReturns(result1 *grpc.ConnectionConfig) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) PickPeerReturnsOnCall(i int, result1 *grpc.ConnectionConfig) {
+func (fake *ConfigService) PickPeerReturnsOnCall(i int, result1 *grpc.ConnectionConfig) {
 	fake.pickPeerMutex.Lock()
 	defer fake.pickPeerMutex.Unlock()
 	fake.PickPeerStub = nil
@@ -2011,7 +2011,7 @@ func (fake *FakeConfigService) PickPeerReturnsOnCall(i int, result1 *grpc.Connec
 	}{result1}
 }
 
-func (fake *FakeConfigService) Resolvers() ([]configa.Resolver, error) {
+func (fake *ConfigService) Resolvers() ([]configa.Resolver, error) {
 	fake.resolversMutex.Lock()
 	ret, specificReturn := fake.resolversReturnsOnCall[len(fake.resolversArgsForCall)]
 	fake.resolversArgsForCall = append(fake.resolversArgsForCall, struct {
@@ -2029,19 +2029,19 @@ func (fake *FakeConfigService) Resolvers() ([]configa.Resolver, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeConfigService) ResolversCallCount() int {
+func (fake *ConfigService) ResolversCallCount() int {
 	fake.resolversMutex.RLock()
 	defer fake.resolversMutex.RUnlock()
 	return len(fake.resolversArgsForCall)
 }
 
-func (fake *FakeConfigService) ResolversCalls(stub func() ([]configa.Resolver, error)) {
+func (fake *ConfigService) ResolversCalls(stub func() ([]configa.Resolver, error)) {
 	fake.resolversMutex.Lock()
 	defer fake.resolversMutex.Unlock()
 	fake.ResolversStub = stub
 }
 
-func (fake *FakeConfigService) ResolversReturns(result1 []configa.Resolver, result2 error) {
+func (fake *ConfigService) ResolversReturns(result1 []configa.Resolver, result2 error) {
 	fake.resolversMutex.Lock()
 	defer fake.resolversMutex.Unlock()
 	fake.ResolversStub = nil
@@ -2051,7 +2051,7 @@ func (fake *FakeConfigService) ResolversReturns(result1 []configa.Resolver, resu
 	}{result1, result2}
 }
 
-func (fake *FakeConfigService) ResolversReturnsOnCall(i int, result1 []configa.Resolver, result2 error) {
+func (fake *ConfigService) ResolversReturnsOnCall(i int, result1 []configa.Resolver, result2 error) {
 	fake.resolversMutex.Lock()
 	defer fake.resolversMutex.Unlock()
 	fake.ResolversStub = nil
@@ -2067,7 +2067,7 @@ func (fake *FakeConfigService) ResolversReturnsOnCall(i int, result1 []configa.R
 	}{result1, result2}
 }
 
-func (fake *FakeConfigService) SetConfigOrderers(arg1 []*grpc.ConnectionConfig) error {
+func (fake *ConfigService) SetConfigOrderers(arg1 []*grpc.ConnectionConfig) error {
 	var arg1Copy []*grpc.ConnectionConfig
 	if arg1 != nil {
 		arg1Copy = make([]*grpc.ConnectionConfig, len(arg1))
@@ -2091,26 +2091,26 @@ func (fake *FakeConfigService) SetConfigOrderers(arg1 []*grpc.ConnectionConfig) 
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) SetConfigOrderersCallCount() int {
+func (fake *ConfigService) SetConfigOrderersCallCount() int {
 	fake.setConfigOrderersMutex.RLock()
 	defer fake.setConfigOrderersMutex.RUnlock()
 	return len(fake.setConfigOrderersArgsForCall)
 }
 
-func (fake *FakeConfigService) SetConfigOrderersCalls(stub func([]*grpc.ConnectionConfig) error) {
+func (fake *ConfigService) SetConfigOrderersCalls(stub func([]*grpc.ConnectionConfig) error) {
 	fake.setConfigOrderersMutex.Lock()
 	defer fake.setConfigOrderersMutex.Unlock()
 	fake.SetConfigOrderersStub = stub
 }
 
-func (fake *FakeConfigService) SetConfigOrderersArgsForCall(i int) []*grpc.ConnectionConfig {
+func (fake *ConfigService) SetConfigOrderersArgsForCall(i int) []*grpc.ConnectionConfig {
 	fake.setConfigOrderersMutex.RLock()
 	defer fake.setConfigOrderersMutex.RUnlock()
 	argsForCall := fake.setConfigOrderersArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) SetConfigOrderersReturns(result1 error) {
+func (fake *ConfigService) SetConfigOrderersReturns(result1 error) {
 	fake.setConfigOrderersMutex.Lock()
 	defer fake.setConfigOrderersMutex.Unlock()
 	fake.SetConfigOrderersStub = nil
@@ -2119,7 +2119,7 @@ func (fake *FakeConfigService) SetConfigOrderersReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) SetConfigOrderersReturnsOnCall(i int, result1 error) {
+func (fake *ConfigService) SetConfigOrderersReturnsOnCall(i int, result1 error) {
 	fake.setConfigOrderersMutex.Lock()
 	defer fake.setConfigOrderersMutex.Unlock()
 	fake.SetConfigOrderersStub = nil
@@ -2133,7 +2133,7 @@ func (fake *FakeConfigService) SetConfigOrderersReturnsOnCall(i int, result1 err
 	}{result1}
 }
 
-func (fake *FakeConfigService) TLSClientAuthRequired() bool {
+func (fake *ConfigService) TLSClientAuthRequired() bool {
 	fake.tLSClientAuthRequiredMutex.Lock()
 	ret, specificReturn := fake.tLSClientAuthRequiredReturnsOnCall[len(fake.tLSClientAuthRequiredArgsForCall)]
 	fake.tLSClientAuthRequiredArgsForCall = append(fake.tLSClientAuthRequiredArgsForCall, struct {
@@ -2151,19 +2151,19 @@ func (fake *FakeConfigService) TLSClientAuthRequired() bool {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) TLSClientAuthRequiredCallCount() int {
+func (fake *ConfigService) TLSClientAuthRequiredCallCount() int {
 	fake.tLSClientAuthRequiredMutex.RLock()
 	defer fake.tLSClientAuthRequiredMutex.RUnlock()
 	return len(fake.tLSClientAuthRequiredArgsForCall)
 }
 
-func (fake *FakeConfigService) TLSClientAuthRequiredCalls(stub func() bool) {
+func (fake *ConfigService) TLSClientAuthRequiredCalls(stub func() bool) {
 	fake.tLSClientAuthRequiredMutex.Lock()
 	defer fake.tLSClientAuthRequiredMutex.Unlock()
 	fake.TLSClientAuthRequiredStub = stub
 }
 
-func (fake *FakeConfigService) TLSClientAuthRequiredReturns(result1 bool) {
+func (fake *ConfigService) TLSClientAuthRequiredReturns(result1 bool) {
 	fake.tLSClientAuthRequiredMutex.Lock()
 	defer fake.tLSClientAuthRequiredMutex.Unlock()
 	fake.TLSClientAuthRequiredStub = nil
@@ -2172,7 +2172,7 @@ func (fake *FakeConfigService) TLSClientAuthRequiredReturns(result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) TLSClientAuthRequiredReturnsOnCall(i int, result1 bool) {
+func (fake *ConfigService) TLSClientAuthRequiredReturnsOnCall(i int, result1 bool) {
 	fake.tLSClientAuthRequiredMutex.Lock()
 	defer fake.tLSClientAuthRequiredMutex.Unlock()
 	fake.TLSClientAuthRequiredStub = nil
@@ -2186,7 +2186,7 @@ func (fake *FakeConfigService) TLSClientAuthRequiredReturnsOnCall(i int, result1
 	}{result1}
 }
 
-func (fake *FakeConfigService) TLSClientCertFile() string {
+func (fake *ConfigService) TLSClientCertFile() string {
 	fake.tLSClientCertFileMutex.Lock()
 	ret, specificReturn := fake.tLSClientCertFileReturnsOnCall[len(fake.tLSClientCertFileArgsForCall)]
 	fake.tLSClientCertFileArgsForCall = append(fake.tLSClientCertFileArgsForCall, struct {
@@ -2204,19 +2204,19 @@ func (fake *FakeConfigService) TLSClientCertFile() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) TLSClientCertFileCallCount() int {
+func (fake *ConfigService) TLSClientCertFileCallCount() int {
 	fake.tLSClientCertFileMutex.RLock()
 	defer fake.tLSClientCertFileMutex.RUnlock()
 	return len(fake.tLSClientCertFileArgsForCall)
 }
 
-func (fake *FakeConfigService) TLSClientCertFileCalls(stub func() string) {
+func (fake *ConfigService) TLSClientCertFileCalls(stub func() string) {
 	fake.tLSClientCertFileMutex.Lock()
 	defer fake.tLSClientCertFileMutex.Unlock()
 	fake.TLSClientCertFileStub = stub
 }
 
-func (fake *FakeConfigService) TLSClientCertFileReturns(result1 string) {
+func (fake *ConfigService) TLSClientCertFileReturns(result1 string) {
 	fake.tLSClientCertFileMutex.Lock()
 	defer fake.tLSClientCertFileMutex.Unlock()
 	fake.TLSClientCertFileStub = nil
@@ -2225,7 +2225,7 @@ func (fake *FakeConfigService) TLSClientCertFileReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) TLSClientCertFileReturnsOnCall(i int, result1 string) {
+func (fake *ConfigService) TLSClientCertFileReturnsOnCall(i int, result1 string) {
 	fake.tLSClientCertFileMutex.Lock()
 	defer fake.tLSClientCertFileMutex.Unlock()
 	fake.TLSClientCertFileStub = nil
@@ -2239,7 +2239,7 @@ func (fake *FakeConfigService) TLSClientCertFileReturnsOnCall(i int, result1 str
 	}{result1}
 }
 
-func (fake *FakeConfigService) TLSClientKeyFile() string {
+func (fake *ConfigService) TLSClientKeyFile() string {
 	fake.tLSClientKeyFileMutex.Lock()
 	ret, specificReturn := fake.tLSClientKeyFileReturnsOnCall[len(fake.tLSClientKeyFileArgsForCall)]
 	fake.tLSClientKeyFileArgsForCall = append(fake.tLSClientKeyFileArgsForCall, struct {
@@ -2257,19 +2257,19 @@ func (fake *FakeConfigService) TLSClientKeyFile() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) TLSClientKeyFileCallCount() int {
+func (fake *ConfigService) TLSClientKeyFileCallCount() int {
 	fake.tLSClientKeyFileMutex.RLock()
 	defer fake.tLSClientKeyFileMutex.RUnlock()
 	return len(fake.tLSClientKeyFileArgsForCall)
 }
 
-func (fake *FakeConfigService) TLSClientKeyFileCalls(stub func() string) {
+func (fake *ConfigService) TLSClientKeyFileCalls(stub func() string) {
 	fake.tLSClientKeyFileMutex.Lock()
 	defer fake.tLSClientKeyFileMutex.Unlock()
 	fake.TLSClientKeyFileStub = stub
 }
 
-func (fake *FakeConfigService) TLSClientKeyFileReturns(result1 string) {
+func (fake *ConfigService) TLSClientKeyFileReturns(result1 string) {
 	fake.tLSClientKeyFileMutex.Lock()
 	defer fake.tLSClientKeyFileMutex.Unlock()
 	fake.TLSClientKeyFileStub = nil
@@ -2278,7 +2278,7 @@ func (fake *FakeConfigService) TLSClientKeyFileReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) TLSClientKeyFileReturnsOnCall(i int, result1 string) {
+func (fake *ConfigService) TLSClientKeyFileReturnsOnCall(i int, result1 string) {
 	fake.tLSClientKeyFileMutex.Lock()
 	defer fake.tLSClientKeyFileMutex.Unlock()
 	fake.TLSClientKeyFileStub = nil
@@ -2292,7 +2292,7 @@ func (fake *FakeConfigService) TLSClientKeyFileReturnsOnCall(i int, result1 stri
 	}{result1}
 }
 
-func (fake *FakeConfigService) TLSEnabled() bool {
+func (fake *ConfigService) TLSEnabled() bool {
 	fake.tLSEnabledMutex.Lock()
 	ret, specificReturn := fake.tLSEnabledReturnsOnCall[len(fake.tLSEnabledArgsForCall)]
 	fake.tLSEnabledArgsForCall = append(fake.tLSEnabledArgsForCall, struct {
@@ -2310,19 +2310,19 @@ func (fake *FakeConfigService) TLSEnabled() bool {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) TLSEnabledCallCount() int {
+func (fake *ConfigService) TLSEnabledCallCount() int {
 	fake.tLSEnabledMutex.RLock()
 	defer fake.tLSEnabledMutex.RUnlock()
 	return len(fake.tLSEnabledArgsForCall)
 }
 
-func (fake *FakeConfigService) TLSEnabledCalls(stub func() bool) {
+func (fake *ConfigService) TLSEnabledCalls(stub func() bool) {
 	fake.tLSEnabledMutex.Lock()
 	defer fake.tLSEnabledMutex.Unlock()
 	fake.TLSEnabledStub = stub
 }
 
-func (fake *FakeConfigService) TLSEnabledReturns(result1 bool) {
+func (fake *ConfigService) TLSEnabledReturns(result1 bool) {
 	fake.tLSEnabledMutex.Lock()
 	defer fake.tLSEnabledMutex.Unlock()
 	fake.TLSEnabledStub = nil
@@ -2331,7 +2331,7 @@ func (fake *FakeConfigService) TLSEnabledReturns(result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) TLSEnabledReturnsOnCall(i int, result1 bool) {
+func (fake *ConfigService) TLSEnabledReturnsOnCall(i int, result1 bool) {
 	fake.tLSEnabledMutex.Lock()
 	defer fake.tLSEnabledMutex.Unlock()
 	fake.TLSEnabledStub = nil
@@ -2345,7 +2345,7 @@ func (fake *FakeConfigService) TLSEnabledReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) TLSServerHostOverride() string {
+func (fake *ConfigService) TLSServerHostOverride() string {
 	fake.tLSServerHostOverrideMutex.Lock()
 	ret, specificReturn := fake.tLSServerHostOverrideReturnsOnCall[len(fake.tLSServerHostOverrideArgsForCall)]
 	fake.tLSServerHostOverrideArgsForCall = append(fake.tLSServerHostOverrideArgsForCall, struct {
@@ -2363,19 +2363,19 @@ func (fake *FakeConfigService) TLSServerHostOverride() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) TLSServerHostOverrideCallCount() int {
+func (fake *ConfigService) TLSServerHostOverrideCallCount() int {
 	fake.tLSServerHostOverrideMutex.RLock()
 	defer fake.tLSServerHostOverrideMutex.RUnlock()
 	return len(fake.tLSServerHostOverrideArgsForCall)
 }
 
-func (fake *FakeConfigService) TLSServerHostOverrideCalls(stub func() string) {
+func (fake *ConfigService) TLSServerHostOverrideCalls(stub func() string) {
 	fake.tLSServerHostOverrideMutex.Lock()
 	defer fake.tLSServerHostOverrideMutex.Unlock()
 	fake.TLSServerHostOverrideStub = stub
 }
 
-func (fake *FakeConfigService) TLSServerHostOverrideReturns(result1 string) {
+func (fake *ConfigService) TLSServerHostOverrideReturns(result1 string) {
 	fake.tLSServerHostOverrideMutex.Lock()
 	defer fake.tLSServerHostOverrideMutex.Unlock()
 	fake.TLSServerHostOverrideStub = nil
@@ -2384,7 +2384,7 @@ func (fake *FakeConfigService) TLSServerHostOverrideReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) TLSServerHostOverrideReturnsOnCall(i int, result1 string) {
+func (fake *ConfigService) TLSServerHostOverrideReturnsOnCall(i int, result1 string) {
 	fake.tLSServerHostOverrideMutex.Lock()
 	defer fake.tLSServerHostOverrideMutex.Unlock()
 	fake.TLSServerHostOverrideStub = nil
@@ -2398,7 +2398,7 @@ func (fake *FakeConfigService) TLSServerHostOverrideReturnsOnCall(i int, result1
 	}{result1}
 }
 
-func (fake *FakeConfigService) TranslatePath(arg1 string) string {
+func (fake *ConfigService) TranslatePath(arg1 string) string {
 	fake.translatePathMutex.Lock()
 	ret, specificReturn := fake.translatePathReturnsOnCall[len(fake.translatePathArgsForCall)]
 	fake.translatePathArgsForCall = append(fake.translatePathArgsForCall, struct {
@@ -2417,26 +2417,26 @@ func (fake *FakeConfigService) TranslatePath(arg1 string) string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) TranslatePathCallCount() int {
+func (fake *ConfigService) TranslatePathCallCount() int {
 	fake.translatePathMutex.RLock()
 	defer fake.translatePathMutex.RUnlock()
 	return len(fake.translatePathArgsForCall)
 }
 
-func (fake *FakeConfigService) TranslatePathCalls(stub func(string) string) {
+func (fake *ConfigService) TranslatePathCalls(stub func(string) string) {
 	fake.translatePathMutex.Lock()
 	defer fake.translatePathMutex.Unlock()
 	fake.TranslatePathStub = stub
 }
 
-func (fake *FakeConfigService) TranslatePathArgsForCall(i int) string {
+func (fake *ConfigService) TranslatePathArgsForCall(i int) string {
 	fake.translatePathMutex.RLock()
 	defer fake.translatePathMutex.RUnlock()
 	argsForCall := fake.translatePathArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeConfigService) TranslatePathReturns(result1 string) {
+func (fake *ConfigService) TranslatePathReturns(result1 string) {
 	fake.translatePathMutex.Lock()
 	defer fake.translatePathMutex.Unlock()
 	fake.TranslatePathStub = nil
@@ -2445,7 +2445,7 @@ func (fake *FakeConfigService) TranslatePathReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) TranslatePathReturnsOnCall(i int, result1 string) {
+func (fake *ConfigService) TranslatePathReturnsOnCall(i int, result1 string) {
 	fake.translatePathMutex.Lock()
 	defer fake.translatePathMutex.Unlock()
 	fake.TranslatePathStub = nil
@@ -2459,7 +2459,7 @@ func (fake *FakeConfigService) TranslatePathReturnsOnCall(i int, result1 string)
 	}{result1}
 }
 
-func (fake *FakeConfigService) UnmarshalKey(arg1 string, arg2 interface{}) error {
+func (fake *ConfigService) UnmarshalKey(arg1 string, arg2 interface{}) error {
 	fake.unmarshalKeyMutex.Lock()
 	ret, specificReturn := fake.unmarshalKeyReturnsOnCall[len(fake.unmarshalKeyArgsForCall)]
 	fake.unmarshalKeyArgsForCall = append(fake.unmarshalKeyArgsForCall, struct {
@@ -2479,26 +2479,26 @@ func (fake *FakeConfigService) UnmarshalKey(arg1 string, arg2 interface{}) error
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) UnmarshalKeyCallCount() int {
+func (fake *ConfigService) UnmarshalKeyCallCount() int {
 	fake.unmarshalKeyMutex.RLock()
 	defer fake.unmarshalKeyMutex.RUnlock()
 	return len(fake.unmarshalKeyArgsForCall)
 }
 
-func (fake *FakeConfigService) UnmarshalKeyCalls(stub func(string, interface{}) error) {
+func (fake *ConfigService) UnmarshalKeyCalls(stub func(string, interface{}) error) {
 	fake.unmarshalKeyMutex.Lock()
 	defer fake.unmarshalKeyMutex.Unlock()
 	fake.UnmarshalKeyStub = stub
 }
 
-func (fake *FakeConfigService) UnmarshalKeyArgsForCall(i int) (string, interface{}) {
+func (fake *ConfigService) UnmarshalKeyArgsForCall(i int) (string, interface{}) {
 	fake.unmarshalKeyMutex.RLock()
 	defer fake.unmarshalKeyMutex.RUnlock()
 	argsForCall := fake.unmarshalKeyArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeConfigService) UnmarshalKeyReturns(result1 error) {
+func (fake *ConfigService) UnmarshalKeyReturns(result1 error) {
 	fake.unmarshalKeyMutex.Lock()
 	defer fake.unmarshalKeyMutex.Unlock()
 	fake.UnmarshalKeyStub = nil
@@ -2507,7 +2507,7 @@ func (fake *FakeConfigService) UnmarshalKeyReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) UnmarshalKeyReturnsOnCall(i int, result1 error) {
+func (fake *ConfigService) UnmarshalKeyReturnsOnCall(i int, result1 error) {
 	fake.unmarshalKeyMutex.Lock()
 	defer fake.unmarshalKeyMutex.Unlock()
 	fake.UnmarshalKeyStub = nil
@@ -2521,7 +2521,7 @@ func (fake *FakeConfigService) UnmarshalKeyReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) VaultPersistenceName() drivera.PersistenceName {
+func (fake *ConfigService) VaultPersistenceName() drivera.PersistenceName {
 	fake.vaultPersistenceNameMutex.Lock()
 	ret, specificReturn := fake.vaultPersistenceNameReturnsOnCall[len(fake.vaultPersistenceNameArgsForCall)]
 	fake.vaultPersistenceNameArgsForCall = append(fake.vaultPersistenceNameArgsForCall, struct {
@@ -2539,19 +2539,19 @@ func (fake *FakeConfigService) VaultPersistenceName() drivera.PersistenceName {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) VaultPersistenceNameCallCount() int {
+func (fake *ConfigService) VaultPersistenceNameCallCount() int {
 	fake.vaultPersistenceNameMutex.RLock()
 	defer fake.vaultPersistenceNameMutex.RUnlock()
 	return len(fake.vaultPersistenceNameArgsForCall)
 }
 
-func (fake *FakeConfigService) VaultPersistenceNameCalls(stub func() drivera.PersistenceName) {
+func (fake *ConfigService) VaultPersistenceNameCalls(stub func() drivera.PersistenceName) {
 	fake.vaultPersistenceNameMutex.Lock()
 	defer fake.vaultPersistenceNameMutex.Unlock()
 	fake.VaultPersistenceNameStub = stub
 }
 
-func (fake *FakeConfigService) VaultPersistenceNameReturns(result1 drivera.PersistenceName) {
+func (fake *ConfigService) VaultPersistenceNameReturns(result1 drivera.PersistenceName) {
 	fake.vaultPersistenceNameMutex.Lock()
 	defer fake.vaultPersistenceNameMutex.Unlock()
 	fake.VaultPersistenceNameStub = nil
@@ -2560,7 +2560,7 @@ func (fake *FakeConfigService) VaultPersistenceNameReturns(result1 drivera.Persi
 	}{result1}
 }
 
-func (fake *FakeConfigService) VaultPersistenceNameReturnsOnCall(i int, result1 drivera.PersistenceName) {
+func (fake *ConfigService) VaultPersistenceNameReturnsOnCall(i int, result1 drivera.PersistenceName) {
 	fake.vaultPersistenceNameMutex.Lock()
 	defer fake.vaultPersistenceNameMutex.Unlock()
 	fake.VaultPersistenceNameStub = nil
@@ -2574,7 +2574,7 @@ func (fake *FakeConfigService) VaultPersistenceNameReturnsOnCall(i int, result1 
 	}{result1}
 }
 
-func (fake *FakeConfigService) VaultTXStoreCacheSize() int {
+func (fake *ConfigService) VaultTXStoreCacheSize() int {
 	fake.vaultTXStoreCacheSizeMutex.Lock()
 	ret, specificReturn := fake.vaultTXStoreCacheSizeReturnsOnCall[len(fake.vaultTXStoreCacheSizeArgsForCall)]
 	fake.vaultTXStoreCacheSizeArgsForCall = append(fake.vaultTXStoreCacheSizeArgsForCall, struct {
@@ -2592,19 +2592,19 @@ func (fake *FakeConfigService) VaultTXStoreCacheSize() int {
 	return fakeReturns.result1
 }
 
-func (fake *FakeConfigService) VaultTXStoreCacheSizeCallCount() int {
+func (fake *ConfigService) VaultTXStoreCacheSizeCallCount() int {
 	fake.vaultTXStoreCacheSizeMutex.RLock()
 	defer fake.vaultTXStoreCacheSizeMutex.RUnlock()
 	return len(fake.vaultTXStoreCacheSizeArgsForCall)
 }
 
-func (fake *FakeConfigService) VaultTXStoreCacheSizeCalls(stub func() int) {
+func (fake *ConfigService) VaultTXStoreCacheSizeCalls(stub func() int) {
 	fake.vaultTXStoreCacheSizeMutex.Lock()
 	defer fake.vaultTXStoreCacheSizeMutex.Unlock()
 	fake.VaultTXStoreCacheSizeStub = stub
 }
 
-func (fake *FakeConfigService) VaultTXStoreCacheSizeReturns(result1 int) {
+func (fake *ConfigService) VaultTXStoreCacheSizeReturns(result1 int) {
 	fake.vaultTXStoreCacheSizeMutex.Lock()
 	defer fake.vaultTXStoreCacheSizeMutex.Unlock()
 	fake.VaultTXStoreCacheSizeStub = nil
@@ -2613,7 +2613,7 @@ func (fake *FakeConfigService) VaultTXStoreCacheSizeReturns(result1 int) {
 	}{result1}
 }
 
-func (fake *FakeConfigService) VaultTXStoreCacheSizeReturnsOnCall(i int, result1 int) {
+func (fake *ConfigService) VaultTXStoreCacheSizeReturnsOnCall(i int, result1 int) {
 	fake.vaultTXStoreCacheSizeMutex.Lock()
 	defer fake.vaultTXStoreCacheSizeMutex.Unlock()
 	fake.VaultTXStoreCacheSizeStub = nil
@@ -2627,7 +2627,7 @@ func (fake *FakeConfigService) VaultTXStoreCacheSizeReturnsOnCall(i int, result1
 	}{result1}
 }
 
-func (fake *FakeConfigService) Invocations() map[string][][]interface{} {
+func (fake *ConfigService) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -2637,7 +2637,7 @@ func (fake *FakeConfigService) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeConfigService) recordInvocation(key string, args []interface{}) {
+func (fake *ConfigService) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -2649,4 +2649,4 @@ func (fake *FakeConfigService) recordInvocation(key string, args []interface{}) 
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ config.ConfigService = new(FakeConfigService)
+var _ config.ConfigService = new(ConfigService)
