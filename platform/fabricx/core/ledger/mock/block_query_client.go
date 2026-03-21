@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type FakeBlockQueryServiceClient struct {
+type BlockQueryServiceClient struct {
 	GetBlockByNumberStub        func(context.Context, *committerpb.BlockNumber, ...grpc.CallOption) (*common.Block, error)
 	getBlockByNumberMutex       sync.RWMutex
 	getBlockByNumberArgsForCall []struct {
@@ -76,7 +76,7 @@ type FakeBlockQueryServiceClient struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockByNumber(arg1 context.Context, arg2 *committerpb.BlockNumber, arg3 ...grpc.CallOption) (*common.Block, error) {
+func (fake *BlockQueryServiceClient) GetBlockByNumber(arg1 context.Context, arg2 *committerpb.BlockNumber, arg3 ...grpc.CallOption) (*common.Block, error) {
 	fake.getBlockByNumberMutex.Lock()
 	ret, specificReturn := fake.getBlockByNumberReturnsOnCall[len(fake.getBlockByNumberArgsForCall)]
 	fake.getBlockByNumberArgsForCall = append(fake.getBlockByNumberArgsForCall, struct {
@@ -97,26 +97,26 @@ func (fake *FakeBlockQueryServiceClient) GetBlockByNumber(arg1 context.Context, 
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockByNumberCallCount() int {
+func (fake *BlockQueryServiceClient) GetBlockByNumberCallCount() int {
 	fake.getBlockByNumberMutex.RLock()
 	defer fake.getBlockByNumberMutex.RUnlock()
 	return len(fake.getBlockByNumberArgsForCall)
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockByNumberCalls(stub func(context.Context, *committerpb.BlockNumber, ...grpc.CallOption) (*common.Block, error)) {
+func (fake *BlockQueryServiceClient) GetBlockByNumberCalls(stub func(context.Context, *committerpb.BlockNumber, ...grpc.CallOption) (*common.Block, error)) {
 	fake.getBlockByNumberMutex.Lock()
 	defer fake.getBlockByNumberMutex.Unlock()
 	fake.GetBlockByNumberStub = stub
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockByNumberArgsForCall(i int) (context.Context, *committerpb.BlockNumber, []grpc.CallOption) {
+func (fake *BlockQueryServiceClient) GetBlockByNumberArgsForCall(i int) (context.Context, *committerpb.BlockNumber, []grpc.CallOption) {
 	fake.getBlockByNumberMutex.RLock()
 	defer fake.getBlockByNumberMutex.RUnlock()
 	argsForCall := fake.getBlockByNumberArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockByNumberReturns(result1 *common.Block, result2 error) {
+func (fake *BlockQueryServiceClient) GetBlockByNumberReturns(result1 *common.Block, result2 error) {
 	fake.getBlockByNumberMutex.Lock()
 	defer fake.getBlockByNumberMutex.Unlock()
 	fake.GetBlockByNumberStub = nil
@@ -126,7 +126,7 @@ func (fake *FakeBlockQueryServiceClient) GetBlockByNumberReturns(result1 *common
 	}{result1, result2}
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockByNumberReturnsOnCall(i int, result1 *common.Block, result2 error) {
+func (fake *BlockQueryServiceClient) GetBlockByNumberReturnsOnCall(i int, result1 *common.Block, result2 error) {
 	fake.getBlockByNumberMutex.Lock()
 	defer fake.getBlockByNumberMutex.Unlock()
 	fake.GetBlockByNumberStub = nil
@@ -142,7 +142,7 @@ func (fake *FakeBlockQueryServiceClient) GetBlockByNumberReturnsOnCall(i int, re
 	}{result1, result2}
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockByTxID(arg1 context.Context, arg2 *committerpb.TxID, arg3 ...grpc.CallOption) (*common.Block, error) {
+func (fake *BlockQueryServiceClient) GetBlockByTxID(arg1 context.Context, arg2 *committerpb.TxID, arg3 ...grpc.CallOption) (*common.Block, error) {
 	fake.getBlockByTxIDMutex.Lock()
 	ret, specificReturn := fake.getBlockByTxIDReturnsOnCall[len(fake.getBlockByTxIDArgsForCall)]
 	fake.getBlockByTxIDArgsForCall = append(fake.getBlockByTxIDArgsForCall, struct {
@@ -163,26 +163,26 @@ func (fake *FakeBlockQueryServiceClient) GetBlockByTxID(arg1 context.Context, ar
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockByTxIDCallCount() int {
+func (fake *BlockQueryServiceClient) GetBlockByTxIDCallCount() int {
 	fake.getBlockByTxIDMutex.RLock()
 	defer fake.getBlockByTxIDMutex.RUnlock()
 	return len(fake.getBlockByTxIDArgsForCall)
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockByTxIDCalls(stub func(context.Context, *committerpb.TxID, ...grpc.CallOption) (*common.Block, error)) {
+func (fake *BlockQueryServiceClient) GetBlockByTxIDCalls(stub func(context.Context, *committerpb.TxID, ...grpc.CallOption) (*common.Block, error)) {
 	fake.getBlockByTxIDMutex.Lock()
 	defer fake.getBlockByTxIDMutex.Unlock()
 	fake.GetBlockByTxIDStub = stub
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockByTxIDArgsForCall(i int) (context.Context, *committerpb.TxID, []grpc.CallOption) {
+func (fake *BlockQueryServiceClient) GetBlockByTxIDArgsForCall(i int) (context.Context, *committerpb.TxID, []grpc.CallOption) {
 	fake.getBlockByTxIDMutex.RLock()
 	defer fake.getBlockByTxIDMutex.RUnlock()
 	argsForCall := fake.getBlockByTxIDArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockByTxIDReturns(result1 *common.Block, result2 error) {
+func (fake *BlockQueryServiceClient) GetBlockByTxIDReturns(result1 *common.Block, result2 error) {
 	fake.getBlockByTxIDMutex.Lock()
 	defer fake.getBlockByTxIDMutex.Unlock()
 	fake.GetBlockByTxIDStub = nil
@@ -192,7 +192,7 @@ func (fake *FakeBlockQueryServiceClient) GetBlockByTxIDReturns(result1 *common.B
 	}{result1, result2}
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockByTxIDReturnsOnCall(i int, result1 *common.Block, result2 error) {
+func (fake *BlockQueryServiceClient) GetBlockByTxIDReturnsOnCall(i int, result1 *common.Block, result2 error) {
 	fake.getBlockByTxIDMutex.Lock()
 	defer fake.getBlockByTxIDMutex.Unlock()
 	fake.GetBlockByTxIDStub = nil
@@ -208,7 +208,7 @@ func (fake *FakeBlockQueryServiceClient) GetBlockByTxIDReturnsOnCall(i int, resu
 	}{result1, result2}
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockchainInfo(arg1 context.Context, arg2 *emptypb.Empty, arg3 ...grpc.CallOption) (*common.BlockchainInfo, error) {
+func (fake *BlockQueryServiceClient) GetBlockchainInfo(arg1 context.Context, arg2 *emptypb.Empty, arg3 ...grpc.CallOption) (*common.BlockchainInfo, error) {
 	fake.getBlockchainInfoMutex.Lock()
 	ret, specificReturn := fake.getBlockchainInfoReturnsOnCall[len(fake.getBlockchainInfoArgsForCall)]
 	fake.getBlockchainInfoArgsForCall = append(fake.getBlockchainInfoArgsForCall, struct {
@@ -229,26 +229,26 @@ func (fake *FakeBlockQueryServiceClient) GetBlockchainInfo(arg1 context.Context,
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockchainInfoCallCount() int {
+func (fake *BlockQueryServiceClient) GetBlockchainInfoCallCount() int {
 	fake.getBlockchainInfoMutex.RLock()
 	defer fake.getBlockchainInfoMutex.RUnlock()
 	return len(fake.getBlockchainInfoArgsForCall)
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockchainInfoCalls(stub func(context.Context, *emptypb.Empty, ...grpc.CallOption) (*common.BlockchainInfo, error)) {
+func (fake *BlockQueryServiceClient) GetBlockchainInfoCalls(stub func(context.Context, *emptypb.Empty, ...grpc.CallOption) (*common.BlockchainInfo, error)) {
 	fake.getBlockchainInfoMutex.Lock()
 	defer fake.getBlockchainInfoMutex.Unlock()
 	fake.GetBlockchainInfoStub = stub
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockchainInfoArgsForCall(i int) (context.Context, *emptypb.Empty, []grpc.CallOption) {
+func (fake *BlockQueryServiceClient) GetBlockchainInfoArgsForCall(i int) (context.Context, *emptypb.Empty, []grpc.CallOption) {
 	fake.getBlockchainInfoMutex.RLock()
 	defer fake.getBlockchainInfoMutex.RUnlock()
 	argsForCall := fake.getBlockchainInfoArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockchainInfoReturns(result1 *common.BlockchainInfo, result2 error) {
+func (fake *BlockQueryServiceClient) GetBlockchainInfoReturns(result1 *common.BlockchainInfo, result2 error) {
 	fake.getBlockchainInfoMutex.Lock()
 	defer fake.getBlockchainInfoMutex.Unlock()
 	fake.GetBlockchainInfoStub = nil
@@ -258,7 +258,7 @@ func (fake *FakeBlockQueryServiceClient) GetBlockchainInfoReturns(result1 *commo
 	}{result1, result2}
 }
 
-func (fake *FakeBlockQueryServiceClient) GetBlockchainInfoReturnsOnCall(i int, result1 *common.BlockchainInfo, result2 error) {
+func (fake *BlockQueryServiceClient) GetBlockchainInfoReturnsOnCall(i int, result1 *common.BlockchainInfo, result2 error) {
 	fake.getBlockchainInfoMutex.Lock()
 	defer fake.getBlockchainInfoMutex.Unlock()
 	fake.GetBlockchainInfoStub = nil
@@ -274,7 +274,7 @@ func (fake *FakeBlockQueryServiceClient) GetBlockchainInfoReturnsOnCall(i int, r
 	}{result1, result2}
 }
 
-func (fake *FakeBlockQueryServiceClient) GetTxByID(arg1 context.Context, arg2 *committerpb.TxID, arg3 ...grpc.CallOption) (*common.Envelope, error) {
+func (fake *BlockQueryServiceClient) GetTxByID(arg1 context.Context, arg2 *committerpb.TxID, arg3 ...grpc.CallOption) (*common.Envelope, error) {
 	fake.getTxByIDMutex.Lock()
 	ret, specificReturn := fake.getTxByIDReturnsOnCall[len(fake.getTxByIDArgsForCall)]
 	fake.getTxByIDArgsForCall = append(fake.getTxByIDArgsForCall, struct {
@@ -295,26 +295,26 @@ func (fake *FakeBlockQueryServiceClient) GetTxByID(arg1 context.Context, arg2 *c
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeBlockQueryServiceClient) GetTxByIDCallCount() int {
+func (fake *BlockQueryServiceClient) GetTxByIDCallCount() int {
 	fake.getTxByIDMutex.RLock()
 	defer fake.getTxByIDMutex.RUnlock()
 	return len(fake.getTxByIDArgsForCall)
 }
 
-func (fake *FakeBlockQueryServiceClient) GetTxByIDCalls(stub func(context.Context, *committerpb.TxID, ...grpc.CallOption) (*common.Envelope, error)) {
+func (fake *BlockQueryServiceClient) GetTxByIDCalls(stub func(context.Context, *committerpb.TxID, ...grpc.CallOption) (*common.Envelope, error)) {
 	fake.getTxByIDMutex.Lock()
 	defer fake.getTxByIDMutex.Unlock()
 	fake.GetTxByIDStub = stub
 }
 
-func (fake *FakeBlockQueryServiceClient) GetTxByIDArgsForCall(i int) (context.Context, *committerpb.TxID, []grpc.CallOption) {
+func (fake *BlockQueryServiceClient) GetTxByIDArgsForCall(i int) (context.Context, *committerpb.TxID, []grpc.CallOption) {
 	fake.getTxByIDMutex.RLock()
 	defer fake.getTxByIDMutex.RUnlock()
 	argsForCall := fake.getTxByIDArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeBlockQueryServiceClient) GetTxByIDReturns(result1 *common.Envelope, result2 error) {
+func (fake *BlockQueryServiceClient) GetTxByIDReturns(result1 *common.Envelope, result2 error) {
 	fake.getTxByIDMutex.Lock()
 	defer fake.getTxByIDMutex.Unlock()
 	fake.GetTxByIDStub = nil
@@ -324,7 +324,7 @@ func (fake *FakeBlockQueryServiceClient) GetTxByIDReturns(result1 *common.Envelo
 	}{result1, result2}
 }
 
-func (fake *FakeBlockQueryServiceClient) GetTxByIDReturnsOnCall(i int, result1 *common.Envelope, result2 error) {
+func (fake *BlockQueryServiceClient) GetTxByIDReturnsOnCall(i int, result1 *common.Envelope, result2 error) {
 	fake.getTxByIDMutex.Lock()
 	defer fake.getTxByIDMutex.Unlock()
 	fake.GetTxByIDStub = nil
@@ -340,7 +340,7 @@ func (fake *FakeBlockQueryServiceClient) GetTxByIDReturnsOnCall(i int, result1 *
 	}{result1, result2}
 }
 
-func (fake *FakeBlockQueryServiceClient) Invocations() map[string][][]interface{} {
+func (fake *BlockQueryServiceClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -350,7 +350,7 @@ func (fake *FakeBlockQueryServiceClient) Invocations() map[string][][]interface{
 	return copiedInvocations
 }
 
-func (fake *FakeBlockQueryServiceClient) recordInvocation(key string, args []interface{}) {
+func (fake *BlockQueryServiceClient) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -362,4 +362,4 @@ func (fake *FakeBlockQueryServiceClient) recordInvocation(key string, args []int
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ committerpb.BlockQueryServiceClient = new(FakeBlockQueryServiceClient)
+var _ committerpb.BlockQueryServiceClient = new(BlockQueryServiceClient)

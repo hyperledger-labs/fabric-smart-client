@@ -14,6 +14,7 @@ import (
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
@@ -45,6 +46,7 @@ func (p *SDK) Install() error {
 		// Register the new fabricx platform driver
 		p.Container().Provide(NewDriver, dig.Group("fabric-platform-drivers")),
 		p.Container().Provide(NewChannelProvider, dig.As(new(ChannelProvider))),
+		p.Container().Provide(grpc.NewClientProvider, dig.As(new(ledger.GRPCClientProvider))),
 		p.Container().Provide(ledger.NewProvider),
 		p.Container().Provide(finality.NewListenerManagerProvider),
 		p.Container().Provide(digutils.Identity[*finality.Provider](), dig.As(new(finality.ListenerManagerProvider))),

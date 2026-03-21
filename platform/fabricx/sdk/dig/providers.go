@@ -91,8 +91,7 @@ func NewChannelProvider(in struct {
 	MetadataStore        fdriver.MetadataStore
 	EndorseTxStore       fdriver.EndorseTxStore
 	Drivers              multiplexed.Driver
-},
-) generic.ChannelProvider {
+}) generic.ChannelProvider {
 	channelConfigProvider := generic.NewChannelConfigProvider(in.ConfigProvider)
 	flmProvider := committer.NewFinalityListenerManagerProvider[fdriver.ValidationCode](in.TracerProvider)
 	return generic.NewChannelProvider(

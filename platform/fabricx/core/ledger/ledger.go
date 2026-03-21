@@ -21,18 +21,21 @@ import (
 )
 
 var (
+	// logger is the ledger package logger.
 	logger = logging.MustGetLogger()
 )
 
+// ledger implements the driver.Ledger interface for FabricX.
 type ledger struct {
-	client      committerpb.BlockQueryServiceClient
+	// client is the BlockQueryServiceClient for interacting with the committer.
+	client committerpb.BlockQueryServiceClient
+	// queryClient is the QueryServiceClient for querying transaction status.
 	queryClient committerpb.QueryServiceClient
-	baseCtx     context.Context
+	// baseCtx is the background context for RPC calls.
+	baseCtx context.Context
 }
 
-// check that we implement the driver.Ledger.
-var _ driver.Ledger = (*ledger)(nil)
-
+// New returns a new ledger instance with the given clients and base context.
 func New(client committerpb.BlockQueryServiceClient, queryClient committerpb.QueryServiceClient, baseCtx context.Context) *ledger {
 	return &ledger{
 		client:      client,
@@ -41,6 +44,7 @@ func New(client committerpb.BlockQueryServiceClient, queryClient committerpb.Que
 	}
 }
 
+// GetLedgerInfo returns information about the ledger, such as height and current block hash.
 func (c *ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
 	info, err := c.client.GetBlockchainInfo(c.baseCtx, &emptypb.Empty{})
 	if err != nil {
@@ -53,6 +57,7 @@ func (c *ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
 	}, nil
 }
 
+// GetTransactionByID returns the processed transaction for the given transaction ID.
 func (c *ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
 	env, err := c.client.GetTxByID(c.baseCtx, &committerpb.TxID{TxId: txID})
 	if err != nil {
@@ -79,7 +84,7 @@ func (c *ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, e
 		return nil, errors.Wrapf(err, "failed to marshal envelope for txID [%s]", txID)
 	}
 
-	return &processedTransaction{
+	return &ProcessedTransaction{
 		txID:           txID,
 		results:        results,
 		validationCode: int32(res.Statuses[0].Status),
@@ -87,6 +92,7 @@ func (c *ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, e
 	}, nil
 }
 
+// GetBlockNumberByTxID returns the block number that contains the given transaction ID.
 func (c *ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
 	block, err := c.client.GetBlockByTxID(c.baseCtx, &committerpb.TxID{TxId: txID})
 	if err != nil {
@@ -95,6 +101,7 @@ func (c *ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
 	return block.Header.Number, nil
 }
 
+// GetBlockByNumber returns the block at the given block number.
 func (c *ledger) GetBlockByNumber(number uint64) (driver.Block, error) {
 	block, err := c.client.GetBlockByNumber(c.baseCtx, &committerpb.BlockNumber{Number: number})
 	if err != nil {
@@ -103,17 +110,17 @@ func (c *ledger) GetBlockByNumber(number uint64) (driver.Block, error) {
 	return &Block{Block: block}, nil
 }
 
-// Block wraps a Fabric block
+// Block wraps a Fabric block to provide ledger.Block functionality.
 type Block struct {
 	*cb.Block
 }
 
-// DataAt returns the data stored at the passed index
+// DataAt returns the data stored at the passed index within the block.
 func (b *Block) DataAt(i int) []byte {
 	return b.Data.Data[i]
 }
 
-// ProcessedTransaction returns the ProcessedTransaction at passed index
+// ProcessedTransaction returns the ProcessedTransaction at the passed index within the block.
 func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error) {
 	txRaw := b.Data.Data[i]
 	env, _, chdr, err := fabricutils.UnmarshalTx(txRaw)
@@ -126,7 +133,7 @@ func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error)
 		return nil, errors.Wrapf(err, "failed to unpack results at index [%d]", i)
 	}
 
-	return &processedTransaction{
+	return &ProcessedTransaction{
 		txID:           chdr.TxId,
 		results:        results,
 		validationCode: int32(b.Metadata.Metadata[cb.BlockMetadataIndex_TRANSACTIONS_FILTER][i]),
@@ -134,33 +141,45 @@ func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error)
 	}, nil
 }
 
-type processedTransaction struct {
+// ProcessedTransaction implements the driver.ProcessedTransaction interface.
+type ProcessedTransaction struct {
 	txID           string
 	results        []byte
 	validationCode int32
 	envelope       []byte
 }
 
-func (t *processedTransaction) TxID() string {
+func NewProcessedTransaction(txID string, results []byte, validationCode int32, envelope []byte) *ProcessedTransaction {
+	return &ProcessedTransaction{txID: txID, results: results, validationCode: validationCode, envelope: envelope}
+}
+
+// TxID returns the transaction ID.
+func (t *ProcessedTransaction) TxID() string {
 	return t.txID
 }
 
-func (t *processedTransaction) Results() []byte {
+// Results returns the transaction results.
+func (t *ProcessedTransaction) Results() []byte {
 	return t.results
 }
 
-func (t *processedTransaction) ValidationCode() int32 {
+// ValidationCode returns the validation code of the transaction.
+func (t *ProcessedTransaction) ValidationCode() int32 {
 	return t.validationCode
 }
 
-func (t *processedTransaction) IsValid() bool {
+// IsValid returns true if the transaction was committed (validation code 0).
+func (t *ProcessedTransaction) IsValid() bool {
 	return t.validationCode == int32(committerpb.Status_COMMITTED)
 }
 
-func (t *processedTransaction) Envelope() []byte {
+// Envelope returns the raw transaction envelope.
+func (t *ProcessedTransaction) Envelope() []byte {
 	return t.envelope
 }
 
+// unpackResults extracts the payload data from a transaction payload.
+// It returns the serialized read-write set (applicationpb.Tx) contained in the payload.
 func unpackResults(payloadRaw []byte) ([]byte, error) {
 	payl, err := protoutil.UnmarshalPayload(payloadRaw)
 	if err != nil {

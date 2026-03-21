@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type FakeQueryServiceClient struct {
+type QueryServiceClient struct {
 	BeginViewStub        func(context.Context, *committerpb.ViewParameters, ...grpc.CallOption) (*committerpb.View, error)
 	beginViewMutex       sync.RWMutex
 	beginViewArgsForCall []struct {
@@ -106,7 +106,7 @@ type FakeQueryServiceClient struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeQueryServiceClient) BeginView(arg1 context.Context, arg2 *committerpb.ViewParameters, arg3 ...grpc.CallOption) (*committerpb.View, error) {
+func (fake *QueryServiceClient) BeginView(arg1 context.Context, arg2 *committerpb.ViewParameters, arg3 ...grpc.CallOption) (*committerpb.View, error) {
 	fake.beginViewMutex.Lock()
 	ret, specificReturn := fake.beginViewReturnsOnCall[len(fake.beginViewArgsForCall)]
 	fake.beginViewArgsForCall = append(fake.beginViewArgsForCall, struct {
@@ -127,26 +127,26 @@ func (fake *FakeQueryServiceClient) BeginView(arg1 context.Context, arg2 *commit
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeQueryServiceClient) BeginViewCallCount() int {
+func (fake *QueryServiceClient) BeginViewCallCount() int {
 	fake.beginViewMutex.RLock()
 	defer fake.beginViewMutex.RUnlock()
 	return len(fake.beginViewArgsForCall)
 }
 
-func (fake *FakeQueryServiceClient) BeginViewCalls(stub func(context.Context, *committerpb.ViewParameters, ...grpc.CallOption) (*committerpb.View, error)) {
+func (fake *QueryServiceClient) BeginViewCalls(stub func(context.Context, *committerpb.ViewParameters, ...grpc.CallOption) (*committerpb.View, error)) {
 	fake.beginViewMutex.Lock()
 	defer fake.beginViewMutex.Unlock()
 	fake.BeginViewStub = stub
 }
 
-func (fake *FakeQueryServiceClient) BeginViewArgsForCall(i int) (context.Context, *committerpb.ViewParameters, []grpc.CallOption) {
+func (fake *QueryServiceClient) BeginViewArgsForCall(i int) (context.Context, *committerpb.ViewParameters, []grpc.CallOption) {
 	fake.beginViewMutex.RLock()
 	defer fake.beginViewMutex.RUnlock()
 	argsForCall := fake.beginViewArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeQueryServiceClient) BeginViewReturns(result1 *committerpb.View, result2 error) {
+func (fake *QueryServiceClient) BeginViewReturns(result1 *committerpb.View, result2 error) {
 	fake.beginViewMutex.Lock()
 	defer fake.beginViewMutex.Unlock()
 	fake.BeginViewStub = nil
@@ -156,7 +156,7 @@ func (fake *FakeQueryServiceClient) BeginViewReturns(result1 *committerpb.View, 
 	}{result1, result2}
 }
 
-func (fake *FakeQueryServiceClient) BeginViewReturnsOnCall(i int, result1 *committerpb.View, result2 error) {
+func (fake *QueryServiceClient) BeginViewReturnsOnCall(i int, result1 *committerpb.View, result2 error) {
 	fake.beginViewMutex.Lock()
 	defer fake.beginViewMutex.Unlock()
 	fake.BeginViewStub = nil
@@ -172,7 +172,7 @@ func (fake *FakeQueryServiceClient) BeginViewReturnsOnCall(i int, result1 *commi
 	}{result1, result2}
 }
 
-func (fake *FakeQueryServiceClient) EndView(arg1 context.Context, arg2 *committerpb.View, arg3 ...grpc.CallOption) (*emptypb.Empty, error) {
+func (fake *QueryServiceClient) EndView(arg1 context.Context, arg2 *committerpb.View, arg3 ...grpc.CallOption) (*emptypb.Empty, error) {
 	fake.endViewMutex.Lock()
 	ret, specificReturn := fake.endViewReturnsOnCall[len(fake.endViewArgsForCall)]
 	fake.endViewArgsForCall = append(fake.endViewArgsForCall, struct {
@@ -193,26 +193,26 @@ func (fake *FakeQueryServiceClient) EndView(arg1 context.Context, arg2 *committe
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeQueryServiceClient) EndViewCallCount() int {
+func (fake *QueryServiceClient) EndViewCallCount() int {
 	fake.endViewMutex.RLock()
 	defer fake.endViewMutex.RUnlock()
 	return len(fake.endViewArgsForCall)
 }
 
-func (fake *FakeQueryServiceClient) EndViewCalls(stub func(context.Context, *committerpb.View, ...grpc.CallOption) (*emptypb.Empty, error)) {
+func (fake *QueryServiceClient) EndViewCalls(stub func(context.Context, *committerpb.View, ...grpc.CallOption) (*emptypb.Empty, error)) {
 	fake.endViewMutex.Lock()
 	defer fake.endViewMutex.Unlock()
 	fake.EndViewStub = stub
 }
 
-func (fake *FakeQueryServiceClient) EndViewArgsForCall(i int) (context.Context, *committerpb.View, []grpc.CallOption) {
+func (fake *QueryServiceClient) EndViewArgsForCall(i int) (context.Context, *committerpb.View, []grpc.CallOption) {
 	fake.endViewMutex.RLock()
 	defer fake.endViewMutex.RUnlock()
 	argsForCall := fake.endViewArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeQueryServiceClient) EndViewReturns(result1 *emptypb.Empty, result2 error) {
+func (fake *QueryServiceClient) EndViewReturns(result1 *emptypb.Empty, result2 error) {
 	fake.endViewMutex.Lock()
 	defer fake.endViewMutex.Unlock()
 	fake.EndViewStub = nil
@@ -222,7 +222,7 @@ func (fake *FakeQueryServiceClient) EndViewReturns(result1 *emptypb.Empty, resul
 	}{result1, result2}
 }
 
-func (fake *FakeQueryServiceClient) EndViewReturnsOnCall(i int, result1 *emptypb.Empty, result2 error) {
+func (fake *QueryServiceClient) EndViewReturnsOnCall(i int, result1 *emptypb.Empty, result2 error) {
 	fake.endViewMutex.Lock()
 	defer fake.endViewMutex.Unlock()
 	fake.EndViewStub = nil
@@ -238,7 +238,7 @@ func (fake *FakeQueryServiceClient) EndViewReturnsOnCall(i int, result1 *emptypb
 	}{result1, result2}
 }
 
-func (fake *FakeQueryServiceClient) GetConfigTransaction(arg1 context.Context, arg2 *emptypb.Empty, arg3 ...grpc.CallOption) (*applicationpb.ConfigTransaction, error) {
+func (fake *QueryServiceClient) GetConfigTransaction(arg1 context.Context, arg2 *emptypb.Empty, arg3 ...grpc.CallOption) (*applicationpb.ConfigTransaction, error) {
 	fake.getConfigTransactionMutex.Lock()
 	ret, specificReturn := fake.getConfigTransactionReturnsOnCall[len(fake.getConfigTransactionArgsForCall)]
 	fake.getConfigTransactionArgsForCall = append(fake.getConfigTransactionArgsForCall, struct {
@@ -259,26 +259,26 @@ func (fake *FakeQueryServiceClient) GetConfigTransaction(arg1 context.Context, a
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeQueryServiceClient) GetConfigTransactionCallCount() int {
+func (fake *QueryServiceClient) GetConfigTransactionCallCount() int {
 	fake.getConfigTransactionMutex.RLock()
 	defer fake.getConfigTransactionMutex.RUnlock()
 	return len(fake.getConfigTransactionArgsForCall)
 }
 
-func (fake *FakeQueryServiceClient) GetConfigTransactionCalls(stub func(context.Context, *emptypb.Empty, ...grpc.CallOption) (*applicationpb.ConfigTransaction, error)) {
+func (fake *QueryServiceClient) GetConfigTransactionCalls(stub func(context.Context, *emptypb.Empty, ...grpc.CallOption) (*applicationpb.ConfigTransaction, error)) {
 	fake.getConfigTransactionMutex.Lock()
 	defer fake.getConfigTransactionMutex.Unlock()
 	fake.GetConfigTransactionStub = stub
 }
 
-func (fake *FakeQueryServiceClient) GetConfigTransactionArgsForCall(i int) (context.Context, *emptypb.Empty, []grpc.CallOption) {
+func (fake *QueryServiceClient) GetConfigTransactionArgsForCall(i int) (context.Context, *emptypb.Empty, []grpc.CallOption) {
 	fake.getConfigTransactionMutex.RLock()
 	defer fake.getConfigTransactionMutex.RUnlock()
 	argsForCall := fake.getConfigTransactionArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeQueryServiceClient) GetConfigTransactionReturns(result1 *applicationpb.ConfigTransaction, result2 error) {
+func (fake *QueryServiceClient) GetConfigTransactionReturns(result1 *applicationpb.ConfigTransaction, result2 error) {
 	fake.getConfigTransactionMutex.Lock()
 	defer fake.getConfigTransactionMutex.Unlock()
 	fake.GetConfigTransactionStub = nil
@@ -288,7 +288,7 @@ func (fake *FakeQueryServiceClient) GetConfigTransactionReturns(result1 *applica
 	}{result1, result2}
 }
 
-func (fake *FakeQueryServiceClient) GetConfigTransactionReturnsOnCall(i int, result1 *applicationpb.ConfigTransaction, result2 error) {
+func (fake *QueryServiceClient) GetConfigTransactionReturnsOnCall(i int, result1 *applicationpb.ConfigTransaction, result2 error) {
 	fake.getConfigTransactionMutex.Lock()
 	defer fake.getConfigTransactionMutex.Unlock()
 	fake.GetConfigTransactionStub = nil
@@ -304,7 +304,7 @@ func (fake *FakeQueryServiceClient) GetConfigTransactionReturnsOnCall(i int, res
 	}{result1, result2}
 }
 
-func (fake *FakeQueryServiceClient) GetNamespacePolicies(arg1 context.Context, arg2 *emptypb.Empty, arg3 ...grpc.CallOption) (*applicationpb.NamespacePolicies, error) {
+func (fake *QueryServiceClient) GetNamespacePolicies(arg1 context.Context, arg2 *emptypb.Empty, arg3 ...grpc.CallOption) (*applicationpb.NamespacePolicies, error) {
 	fake.getNamespacePoliciesMutex.Lock()
 	ret, specificReturn := fake.getNamespacePoliciesReturnsOnCall[len(fake.getNamespacePoliciesArgsForCall)]
 	fake.getNamespacePoliciesArgsForCall = append(fake.getNamespacePoliciesArgsForCall, struct {
@@ -325,26 +325,26 @@ func (fake *FakeQueryServiceClient) GetNamespacePolicies(arg1 context.Context, a
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeQueryServiceClient) GetNamespacePoliciesCallCount() int {
+func (fake *QueryServiceClient) GetNamespacePoliciesCallCount() int {
 	fake.getNamespacePoliciesMutex.RLock()
 	defer fake.getNamespacePoliciesMutex.RUnlock()
 	return len(fake.getNamespacePoliciesArgsForCall)
 }
 
-func (fake *FakeQueryServiceClient) GetNamespacePoliciesCalls(stub func(context.Context, *emptypb.Empty, ...grpc.CallOption) (*applicationpb.NamespacePolicies, error)) {
+func (fake *QueryServiceClient) GetNamespacePoliciesCalls(stub func(context.Context, *emptypb.Empty, ...grpc.CallOption) (*applicationpb.NamespacePolicies, error)) {
 	fake.getNamespacePoliciesMutex.Lock()
 	defer fake.getNamespacePoliciesMutex.Unlock()
 	fake.GetNamespacePoliciesStub = stub
 }
 
-func (fake *FakeQueryServiceClient) GetNamespacePoliciesArgsForCall(i int) (context.Context, *emptypb.Empty, []grpc.CallOption) {
+func (fake *QueryServiceClient) GetNamespacePoliciesArgsForCall(i int) (context.Context, *emptypb.Empty, []grpc.CallOption) {
 	fake.getNamespacePoliciesMutex.RLock()
 	defer fake.getNamespacePoliciesMutex.RUnlock()
 	argsForCall := fake.getNamespacePoliciesArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeQueryServiceClient) GetNamespacePoliciesReturns(result1 *applicationpb.NamespacePolicies, result2 error) {
+func (fake *QueryServiceClient) GetNamespacePoliciesReturns(result1 *applicationpb.NamespacePolicies, result2 error) {
 	fake.getNamespacePoliciesMutex.Lock()
 	defer fake.getNamespacePoliciesMutex.Unlock()
 	fake.GetNamespacePoliciesStub = nil
@@ -354,7 +354,7 @@ func (fake *FakeQueryServiceClient) GetNamespacePoliciesReturns(result1 *applica
 	}{result1, result2}
 }
 
-func (fake *FakeQueryServiceClient) GetNamespacePoliciesReturnsOnCall(i int, result1 *applicationpb.NamespacePolicies, result2 error) {
+func (fake *QueryServiceClient) GetNamespacePoliciesReturnsOnCall(i int, result1 *applicationpb.NamespacePolicies, result2 error) {
 	fake.getNamespacePoliciesMutex.Lock()
 	defer fake.getNamespacePoliciesMutex.Unlock()
 	fake.GetNamespacePoliciesStub = nil
@@ -370,7 +370,7 @@ func (fake *FakeQueryServiceClient) GetNamespacePoliciesReturnsOnCall(i int, res
 	}{result1, result2}
 }
 
-func (fake *FakeQueryServiceClient) GetRows(arg1 context.Context, arg2 *committerpb.Query, arg3 ...grpc.CallOption) (*committerpb.Rows, error) {
+func (fake *QueryServiceClient) GetRows(arg1 context.Context, arg2 *committerpb.Query, arg3 ...grpc.CallOption) (*committerpb.Rows, error) {
 	fake.getRowsMutex.Lock()
 	ret, specificReturn := fake.getRowsReturnsOnCall[len(fake.getRowsArgsForCall)]
 	fake.getRowsArgsForCall = append(fake.getRowsArgsForCall, struct {
@@ -391,26 +391,26 @@ func (fake *FakeQueryServiceClient) GetRows(arg1 context.Context, arg2 *committe
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeQueryServiceClient) GetRowsCallCount() int {
+func (fake *QueryServiceClient) GetRowsCallCount() int {
 	fake.getRowsMutex.RLock()
 	defer fake.getRowsMutex.RUnlock()
 	return len(fake.getRowsArgsForCall)
 }
 
-func (fake *FakeQueryServiceClient) GetRowsCalls(stub func(context.Context, *committerpb.Query, ...grpc.CallOption) (*committerpb.Rows, error)) {
+func (fake *QueryServiceClient) GetRowsCalls(stub func(context.Context, *committerpb.Query, ...grpc.CallOption) (*committerpb.Rows, error)) {
 	fake.getRowsMutex.Lock()
 	defer fake.getRowsMutex.Unlock()
 	fake.GetRowsStub = stub
 }
 
-func (fake *FakeQueryServiceClient) GetRowsArgsForCall(i int) (context.Context, *committerpb.Query, []grpc.CallOption) {
+func (fake *QueryServiceClient) GetRowsArgsForCall(i int) (context.Context, *committerpb.Query, []grpc.CallOption) {
 	fake.getRowsMutex.RLock()
 	defer fake.getRowsMutex.RUnlock()
 	argsForCall := fake.getRowsArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeQueryServiceClient) GetRowsReturns(result1 *committerpb.Rows, result2 error) {
+func (fake *QueryServiceClient) GetRowsReturns(result1 *committerpb.Rows, result2 error) {
 	fake.getRowsMutex.Lock()
 	defer fake.getRowsMutex.Unlock()
 	fake.GetRowsStub = nil
@@ -420,7 +420,7 @@ func (fake *FakeQueryServiceClient) GetRowsReturns(result1 *committerpb.Rows, re
 	}{result1, result2}
 }
 
-func (fake *FakeQueryServiceClient) GetRowsReturnsOnCall(i int, result1 *committerpb.Rows, result2 error) {
+func (fake *QueryServiceClient) GetRowsReturnsOnCall(i int, result1 *committerpb.Rows, result2 error) {
 	fake.getRowsMutex.Lock()
 	defer fake.getRowsMutex.Unlock()
 	fake.GetRowsStub = nil
@@ -436,7 +436,7 @@ func (fake *FakeQueryServiceClient) GetRowsReturnsOnCall(i int, result1 *committ
 	}{result1, result2}
 }
 
-func (fake *FakeQueryServiceClient) GetTransactionStatus(arg1 context.Context, arg2 *committerpb.TxStatusQuery, arg3 ...grpc.CallOption) (*committerpb.TxStatusResponse, error) {
+func (fake *QueryServiceClient) GetTransactionStatus(arg1 context.Context, arg2 *committerpb.TxStatusQuery, arg3 ...grpc.CallOption) (*committerpb.TxStatusResponse, error) {
 	fake.getTransactionStatusMutex.Lock()
 	ret, specificReturn := fake.getTransactionStatusReturnsOnCall[len(fake.getTransactionStatusArgsForCall)]
 	fake.getTransactionStatusArgsForCall = append(fake.getTransactionStatusArgsForCall, struct {
@@ -457,26 +457,26 @@ func (fake *FakeQueryServiceClient) GetTransactionStatus(arg1 context.Context, a
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeQueryServiceClient) GetTransactionStatusCallCount() int {
+func (fake *QueryServiceClient) GetTransactionStatusCallCount() int {
 	fake.getTransactionStatusMutex.RLock()
 	defer fake.getTransactionStatusMutex.RUnlock()
 	return len(fake.getTransactionStatusArgsForCall)
 }
 
-func (fake *FakeQueryServiceClient) GetTransactionStatusCalls(stub func(context.Context, *committerpb.TxStatusQuery, ...grpc.CallOption) (*committerpb.TxStatusResponse, error)) {
+func (fake *QueryServiceClient) GetTransactionStatusCalls(stub func(context.Context, *committerpb.TxStatusQuery, ...grpc.CallOption) (*committerpb.TxStatusResponse, error)) {
 	fake.getTransactionStatusMutex.Lock()
 	defer fake.getTransactionStatusMutex.Unlock()
 	fake.GetTransactionStatusStub = stub
 }
 
-func (fake *FakeQueryServiceClient) GetTransactionStatusArgsForCall(i int) (context.Context, *committerpb.TxStatusQuery, []grpc.CallOption) {
+func (fake *QueryServiceClient) GetTransactionStatusArgsForCall(i int) (context.Context, *committerpb.TxStatusQuery, []grpc.CallOption) {
 	fake.getTransactionStatusMutex.RLock()
 	defer fake.getTransactionStatusMutex.RUnlock()
 	argsForCall := fake.getTransactionStatusArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeQueryServiceClient) GetTransactionStatusReturns(result1 *committerpb.TxStatusResponse, result2 error) {
+func (fake *QueryServiceClient) GetTransactionStatusReturns(result1 *committerpb.TxStatusResponse, result2 error) {
 	fake.getTransactionStatusMutex.Lock()
 	defer fake.getTransactionStatusMutex.Unlock()
 	fake.GetTransactionStatusStub = nil
@@ -486,7 +486,7 @@ func (fake *FakeQueryServiceClient) GetTransactionStatusReturns(result1 *committ
 	}{result1, result2}
 }
 
-func (fake *FakeQueryServiceClient) GetTransactionStatusReturnsOnCall(i int, result1 *committerpb.TxStatusResponse, result2 error) {
+func (fake *QueryServiceClient) GetTransactionStatusReturnsOnCall(i int, result1 *committerpb.TxStatusResponse, result2 error) {
 	fake.getTransactionStatusMutex.Lock()
 	defer fake.getTransactionStatusMutex.Unlock()
 	fake.GetTransactionStatusStub = nil
@@ -502,7 +502,7 @@ func (fake *FakeQueryServiceClient) GetTransactionStatusReturnsOnCall(i int, res
 	}{result1, result2}
 }
 
-func (fake *FakeQueryServiceClient) Invocations() map[string][][]interface{} {
+func (fake *QueryServiceClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -512,7 +512,7 @@ func (fake *FakeQueryServiceClient) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeQueryServiceClient) recordInvocation(key string, args []interface{}) {
+func (fake *QueryServiceClient) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -524,4 +524,4 @@ func (fake *FakeQueryServiceClient) recordInvocation(key string, args []interfac
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ committerpb.QueryServiceClient = new(FakeQueryServiceClient)
+var _ committerpb.QueryServiceClient = new(QueryServiceClient)
