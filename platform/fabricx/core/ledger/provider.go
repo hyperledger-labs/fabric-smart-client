@@ -70,9 +70,6 @@ func (p *Provider) NewLedger(network, channel string) (driver.Ledger, error) {
 	if p.baseCtx == nil {
 		panic("programming error: Provider is not initialized. The Initialize() method must be called before NewLedger.")
 	}
-	if len(channel) != 0 {
-		return nil, errors.Errorf("non-empty channel not supported")
-	}
 
 	return p.ledgers.Get(network)
 }

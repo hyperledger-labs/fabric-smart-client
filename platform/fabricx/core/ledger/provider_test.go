@@ -45,11 +45,6 @@ func TestProvider_NewLedger(t *testing.T) {
 	ctx := context.Background()
 	p.Initialize(ctx)
 
-	// Test non-empty channel returns error
-	_, err := p.NewLedger("test-net", "non-empty")
-	require.Error(t, err)
-	require.ErrorContains(t, err, "non-empty channel not supported")
-
 	// Test successful ledger creation
 	l, err := p.NewLedger("test-net", "")
 	require.NoError(t, err)
