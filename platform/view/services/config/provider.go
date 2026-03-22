@@ -7,11 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
-	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,10 +18,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
-	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config/viper"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
-	"github.com/spf13/viper"
+	koanfyaml "github.com/knadh/koanf/parsers/yaml"
+	"github.com/knadh/koanf/providers/env/v2"
+	koanffile "github.com/knadh/koanf/providers/file"
+	koanfbytes "github.com/knadh/koanf/providers/rawbytes"
+	"github.com/knadh/koanf/v2"
 )
 
 const (
@@ -45,10 +47,11 @@ type OnMergeConfigEventHandler interface {
 type DecodeHookFuncType func(reflect.Type, reflect.Type, interface{}) (interface{}, error)
 
 type Provider struct {
-	Backend     *viper.Viper
+	Backend     *koanf.Koanf
 	eventSystem events.EventSystem
 
 	mergeConfigMutex sync.Mutex
+	fullPath         string
 }
 
 func NewProvider(confPath string) (*Provider, error) {
@@ -77,19 +80,19 @@ func (p *Provider) ID() string {
 }
 
 func (p *Provider) GetDuration(key string) time.Duration {
-	return p.Backend.GetDuration(key)
+	return p.Backend.Duration(strings.ToLower(key))
 }
 
 func (p *Provider) GetBool(key string) bool {
-	return p.Backend.GetBool(key)
+	return p.Backend.Bool(strings.ToLower(key))
 }
 
 func (p *Provider) GetInt(key string) int {
-	return p.Backend.GetInt(key)
+	return p.Backend.Int(strings.ToLower(key))
 }
 
 func (p *Provider) GetStringSlice(key string) []string {
-	return p.Backend.GetStringSlice(key)
+	return p.Backend.Strings(strings.ToLower(key))
 }
 
 func (p *Provider) AddDecodeHook(f DecodeHookFuncType) error {
@@ -97,20 +100,21 @@ func (p *Provider) AddDecodeHook(f DecodeHookFuncType) error {
 }
 
 func (p *Provider) UnmarshalKey(key string, rawVal interface{}) error {
-	return viperutil.EnhancedExactUnmarshal(p.Backend, key, rawVal)
+	return p.Backend.Unmarshal(key, rawVal)
+	// return viperutil.EnhancedExactUnmarshal(p.Backend, key, rawVal)
 }
 
 func (p *Provider) IsSet(key string) bool {
-	return p.Backend.IsSet(key)
+	return p.Backend.Exists(strings.ToLower(key))
 }
 
 func (p *Provider) GetPath(key string) string {
-	path := p.Backend.GetString(key)
+	path := p.Backend.String(strings.ToLower(key))
 	if path == "" {
 		return ""
 	}
 
-	return TranslatePath(filepath.Dir(p.Backend.ConfigFileUsed()), path)
+	return TranslatePath(filepath.Dir(p.fullPath), path)
 }
 
 func (p *Provider) TranslatePath(path string) string {
@@ -118,15 +122,16 @@ func (p *Provider) TranslatePath(path string) string {
 		return ""
 	}
 
-	return TranslatePath(filepath.Dir(p.Backend.ConfigFileUsed()), path)
+	return TranslatePath(filepath.Dir(p.fullPath), path)
 }
 
 func (p *Provider) GetString(key string) string {
-	return p.Backend.GetString(key)
+	return p.Backend.String(strings.ToLower(key))
 }
 
 func (p *Provider) ConfigFileUsed() string {
-	return p.Backend.ConfigFileUsed()
+	// koanf does not track the config file used, so we return empty string
+	return ""
 }
 
 func (p *Provider) MergeConfig(raw []byte) error {
@@ -134,8 +139,13 @@ func (p *Provider) MergeConfig(raw []byte) error {
 	p.mergeConfigMutex.Lock()
 	defer p.mergeConfigMutex.Unlock()
 
-	err := p.Backend.MergeConfig(bytes.NewReader(raw))
-	if err != nil {
+	// Load the raw config into a temporary koanf
+	tmp := koanf.New(".")
+	if err := tmp.Load(koanfbytes.Provider(raw), LowercaseParser{Parser: koanfyaml.Parser()}); err != nil {
+		return err
+	}
+	// Load the merged map into p.Backend
+	if err := p.Backend.Merge(tmp); err != nil {
 		return err
 	}
 
@@ -149,9 +159,16 @@ func (p *Provider) OnMergeConfig(handler OnMergeConfigEventHandler) {
 	p.eventSystem.Subscribe(MergeConfigEventTopic, &eventListener{handler: handler})
 }
 
+func (p *Provider) String() string {
+	out, err := p.Backend.Marshal(koanfyaml.Parser())
+	if err != nil {
+		return err.Error()
+	}
+	return string(out)
+}
+
 // ProvideFromRaw returns a new Provider whose configuration is loaded from the given byte representation.
 // The function expects a valid `yaml` representation.
-// The new provider inherit the same config file used by this provider.
 func (p *Provider) ProvideFromRaw(raw []byte) (*Provider, error) {
 	newProvider := &Provider{
 		eventSystem: simple.NewEventBus(),
@@ -159,40 +176,44 @@ func (p *Provider) ProvideFromRaw(raw []byte) (*Provider, error) {
 	if err := newProvider.loadFromRaw(raw); err != nil {
 		return nil, err
 	}
-	newProvider.Backend.SetConfigFile(p.ConfigFileUsed())
+	// koanf does not have a SetConfigFile method, so we skip setting the config file.
 
 	return newProvider, nil
 }
 
 func (p *Provider) loadFromPath(path string) error {
-	p.Backend = viper.New()
-	err := p.initViper(p.Backend, CmdRoot, path)
+	p.Backend = koanf.New(".")
+	paths, err := p.initConfigPaths(path)
 	if err != nil {
 		return err
 	}
 
-	err = p.Backend.ReadInConfig() // Find and read the config file
-	if err != nil {
-		// Handle errors reading the config file
-		// The version of Viper we use claims the config type isn't supported when in fact the file hasn't been found
-		// Display a more helpful message to avoid confusing the user.
-		if strings.Contains(fmt.Sprint(err), "Unsupported Config Type") {
-			return errors.Errorf("Could not find config file. "+
-				"Please make sure that FSCNODE_CFG_PATH is set to a path "+
-				"which contains %s.yaml", CmdRoot)
-		} else {
-			return errors.WithMessagef(err, "error when reading %s config file", CmdRoot)
+	var loadErr error
+	for _, pth := range paths {
+		fullPath := filepath.Join(pth, CmdRoot+".yaml")
+		if loadErr = p.Backend.Load(koanffile.Provider(fullPath), LowercaseParser{Parser: koanfyaml.Parser()}); loadErr == nil {
+			// found and loaded successfully
+			fp, err := filepath.Abs(fullPath)
+			if err != nil {
+				return err
+			}
+			p.fullPath = fp
+			break
 		}
 	}
-
-	if err := p.substituteEnv(); err != nil {
+	if loadErr != nil {
+		return errors.Errorf("Could not find config file. "+
+			"Please make sure that FSCNODE_CFG_PATH is set to a path "+
+			"which contains %s.yaml", CmdRoot)
+	}
+	if err := p.setupEnv(); err != nil {
 		return err
 	}
 
 	logging.Init(logging.Config{
-		Format:       p.Backend.GetString("logging.format"),
-		LogSpec:      p.Backend.GetString("logging.spec"),
-		OtelSanitize: p.Backend.GetBool("logging.otel.sanitize"),
+		Format:       p.Backend.String("logging.format"),
+		LogSpec:      p.Backend.String("logging.spec"),
+		OtelSanitize: p.Backend.Bool("logging.otel.sanitize"),
 		Writer:       logOutput,
 	})
 
@@ -200,99 +221,85 @@ func (p *Provider) loadFromPath(path string) error {
 }
 
 func (p *Provider) loadFromRaw(raw []byte) error {
-	p.Backend = viper.New()
-	p.Backend.SetConfigType("yaml")
+	p.Backend = koanf.New(".")
+	// No need to set config type
 
 	// read configuration
-	if err := p.Backend.ReadConfig(bytes.NewReader(raw)); err != nil {
+	if err := p.Backend.Load(koanfbytes.Provider(raw), koanfyaml.Parser()); err != nil {
 		return errors.Wrapf(err, "failed to read configuration from raw [%s]", logging.SHA256Base64(raw))
 	}
 	// post process
-	if err := p.substituteEnv(); err != nil {
+	if err := p.setupEnv(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// Manually override keys if the respective environment variable is set, because viper doesn't do
-// that for UnmarshalKey values (see https://github.com/spf13/viper/pull/1699).
-// Example: CORE_LOGGING_FORMAT sets logging.format.
-func (p *Provider) substituteEnv() error {
-	for _, e := range os.Environ() {
-		if !strings.HasPrefix(e, strings.ToUpper(CmdRoot)+"_") {
-			continue
-		}
+func (p *Provider) setupEnv() error {
+	// Load only environment variables with prefix "MYVAR_" and merge into config.
+	// Transform var names by:
+	// 1. Converting to lowercase
+	// 2. Removing "MYVAR_" prefix
+	// 3. Replacing "_" with "." to representing nesting using the . delimiter.
+	// Example: MYVAR_PARENT1_CHILD1_NAME becomes "parent1.child1.name"
+	if err := p.Backend.Load(env.Provider(".", env.Opt{
+		Prefix: "CORE",
+		TransformFunc: func(k, v string) (string, any) {
+			if len(v) == 0 {
+				// discard this
+				return "", ""
+			}
 
-		env := strings.Split(e, "=")
-		val := env[1]
-		if len(val) == 0 {
-			continue
-		}
-		key, val := env[0], strings.Join(env[1:], "=")
+			// Transform the key.
+			k = strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(k, "CORE_")), "_", ".")
 
-		noprefix := strings.TrimPrefix(key, strings.ToUpper(CmdRoot)+"_")
-		key = strings.ToLower(strings.ReplaceAll(noprefix, "_", "."))
+			// Get the existing value from koanf to check its type
+			existingValue := p.Backend.Get(k)
 
-		// nested key
-		keys := strings.Split(key, ".")
-		parent := strings.Join(keys[:len(keys)-1], ".")
-		if !p.Backend.IsSet(parent) {
-			fmt.Println("applying " + env[0] + " - parent not found in core.yaml: " + parent)
-			p.Backend.Set(key, val)
-			continue
-		}
-
-		k := p.Backend.GetStringMap(key)
-		if len(k) > 0 {
-			fmt.Println("-- skipping " + env[0] + ": cannot override maps")
-			continue
-		}
-
-		root := p.Backend.GetStringMap(keys[0])
-		if err := setDeepValue(root, keys, val); err != nil {
-			return errors.Wrap(err, "error when substituting")
-		}
-		p.Backend.Set(keys[0], root)
-		fmt.Println("applying " + env[0])
+			// SCENARIO 2: Prevent the env var (which is a string) from changing
+			// the type of an existing int, float, or bool.
+			switch existingValue.(type) {
+			case map[string]any:
+				// should not replace
+				return "", existingValue
+			case int:
+				// Convert the env string to an int so the type is preserved
+				if parsed, err := strconv.Atoi(v); err == nil {
+					return k, parsed
+				}
+			case bool:
+				// Convert to bool
+				if parsed, err := strconv.ParseBool(v); err == nil {
+					return k, parsed
+				}
+			case float64:
+				// Convert to float64
+				if parsed, err := strconv.ParseFloat(v, 64); err == nil {
+					return k, parsed
+				}
+			}
+			return k, v
+		},
+	}), nil); err != nil {
+		return err
 	}
 	return nil
 }
 
-// Function to set the value at the deepest level
-func setDeepValue(m map[string]any, keys []string, value any) error {
-	// key = root but we don't have the map by reference
-	if len(keys) < 2 {
-		return errors.New("can't set root key")
-	}
-
-	current := m
-	// traverse to the last map
-	for i := 1; i < len(keys)-1; i++ {
-		key := keys[i]
-		nextMap, ok := current[key].(map[string]any)
-		if !ok {
-			return errors.New("expected map at key " + key)
-		}
-		current = nextMap
-	}
-	lastKey := keys[len(keys)-1]
-	current[lastKey] = value
-
-	return nil
-}
-
 // ----------------------------------------------------------------------------------
-// InitViper()
+// InitKoanf()
 // ----------------------------------------------------------------------------------
-// Performs basic initialization of our viper-based configuration layer.
+// Performs basic initialization of our koanf-based configuration layer.
 // Primary thrust is to establish the paths that should be consulted to find
 // the configuration we need.  If Backend == nil, we will initialize the global
-// Viper instance
+// koanf instance
 // ----------------------------------------------------------------------------------
-func (p *Provider) initViper(v *viper.Viper, configName string, confPath string) error {
+func (p *Provider) initConfigPaths(confPath string) ([]string, error) {
+	var paths []string
+
 	if len(confPath) != 0 {
-		AddConfigPath(v, confPath)
+		paths = append(paths, confPath)
 	}
 
 	var altPath = os.Getenv("FSCNODE_CFG_PATH")
@@ -301,10 +308,9 @@ func (p *Provider) initViper(v *viper.Viper, configName string, confPath string)
 		// we will consider
 
 		if !dirExists(altPath) {
-			return errors.Errorf("FSCNODE_CFG_PATH %s does not exist", altPath)
+			return nil, errors.Errorf("FSCNODE_CFG_PATH %s does not exist", altPath)
 		}
-
-		AddConfigPath(v, altPath)
+		paths = []string{altPath} // override, only this path
 	} else {
 		// If we get here, we should use the default paths in priority order:
 		//
@@ -312,22 +318,15 @@ func (p *Provider) initViper(v *viper.Viper, configName string, confPath string)
 		// *) /etc/hyperledger/fsc
 
 		// CWD
-		AddConfigPath(v, "./")
+		paths = append(paths, "./")
 
 		// And finally, the official path
 		if dirExists(OfficialPath) {
-			AddConfigPath(v, OfficialPath)
+			paths = append(paths, OfficialPath)
 		}
 	}
 
-	// Now set the configuration file.
-	if v != nil {
-		v.SetConfigName(configName)
-	} else {
-		viper.SetConfigName(configName)
-	}
-
-	return nil
+	return paths, nil
 }
 
 func dirExists(path string) bool {
@@ -336,14 +335,6 @@ func dirExists(path string) bool {
 		return false
 	}
 	return fi.IsDir()
-}
-
-func AddConfigPath(v *viper.Viper, p string) {
-	if v != nil {
-		v.AddConfigPath(p)
-	} else {
-		viper.AddConfigPath(p)
-	}
 }
 
 func TranslatePath(base, p string) string {
@@ -371,4 +362,31 @@ func (m *MergeConfigEvent) Topic() string {
 
 func (m *MergeConfigEvent) Message() interface{} {
 	return nil
+}
+
+// LowercaseParser wraps an existing parser to lowercase all keys
+type LowercaseParser struct {
+	koanf.Parser
+}
+
+func (l LowercaseParser) Unmarshal(b []byte) (map[string]any, error) {
+	m, err := l.Parser.Unmarshal(b)
+	if err != nil {
+		return nil, err
+	}
+	return lowercaseMapKeys(m), nil
+}
+
+// lowercaseMapKeys recursively converts all map keys to lowercase
+func lowercaseMapKeys(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for key, val := range m {
+		lowerKey := strings.ToLower(key)
+		if nestedMap, ok := val.(map[string]any); ok {
+			out[lowerKey] = lowercaseMapKeys(nestedMap)
+		} else {
+			out[lowerKey] = val
+		}
+	}
+	return out
 }
