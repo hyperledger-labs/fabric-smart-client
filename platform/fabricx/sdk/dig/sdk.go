@@ -64,6 +64,7 @@ func (p *SDK) Install() error {
 	return errors.Join(
 		digutils.Register[finality.ListenerManagerProvider](p.Container()),
 		digutils.Register[queryservice.Provider](p.Container()),
+		digutils.Register[*ledger.Provider](p.Container()),
 	)
 }
 
