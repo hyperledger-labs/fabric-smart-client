@@ -30,5 +30,6 @@ func ContainerEnvVars(peerMSPDir, scMSPID, channelName, ordererEndpoint string) 
 		"SC_ORDERER_BLOCK_SIZE=1",
 		"SC_VC_LOGGING_LOGSPEC=DEBUG",
 		"SC_VERIFIER_LOGGING_LOGSPEC=INFO",
+		"SC_SIDECAR_SERVER_MAX_CONCURRENT_STREAMS=0",
 	}
 }
