@@ -33,7 +33,10 @@ func (s *stream) Hash() host2.StreamHash {
 func (s *stream) Context() context.Context { return context.TODO() }
 
 func (s *stream) Close() error {
-	return s.Stream.Close()
+	logger.Debugf("libp2p: Closing stream to [%s] (address: [%s], hash: [%s])...", s.RemotePeerID(), s.RemotePeerAddress(), s.Hash())
+	err := s.Stream.Close()
+	logger.Debugf("libp2p: stream to [%s] closed with error [%v]", s.RemotePeerID(), err)
+	return err
 }
 
 func streamHash(info host2.StreamInfo) host2.StreamHash {
