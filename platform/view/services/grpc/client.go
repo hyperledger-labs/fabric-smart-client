@@ -11,9 +11,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	stderr "errors"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -91,6 +89,9 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 		client.dialOpts = append(client.dialOpts, grpc.WithBlock()) //nolint:all
 		//lint:ignore SA1019 Refactor in next change
 		client.dialOpts = append(client.dialOpts, grpc.FailOnNonTempDialError(true)) //nolint:all
+		// Return connection errors immediately instead of timing out
+		// This ensures TLS certificate validation errors are returned with meaningful messages
+		client.dialOpts = append(client.dialOpts, grpc.WithReturnConnectionError())
 	}
 	client.timeout = config.Timeout
 	// set send/recv message size to package defaults
@@ -272,34 +273,6 @@ func (client *Client) SetServerRootCAs(serverRoots [][]byte) error {
 	return nil
 }
 
-// extractDetailedError unwraps gRPC errors to find underlying TLS/certificate errors
-// This helps provide meaningful error messages when certificate validation fails
-func extractDetailedError(err error) string {
-	if err == nil {
-		return ""
-	}
-
-	// Check for context deadline exceeded
-	if stderr.Is(err, context.DeadlineExceeded) {
-		// Try to extract the underlying cause by examining the error chain
-		var unwrapped = err
-		for unwrapped != nil {
-			errMsg := unwrapped.Error()
-
-			// Check for common TLS/certificate error patterns
-			if strings.Contains(errMsg, "x509:") ||
-				strings.Contains(errMsg, "certificate") ||
-				strings.Contains(errMsg, "tls:") {
-				return errMsg
-			}
-
-			unwrapped = stderr.Unwrap(unwrapped)
-		}
-	}
-
-	return err.Error()
-}
-
 // NewConnection returns a grpc.ClientConn for the target address and
 // overrides the server name used to verify the hostname on the
 // certificate returned by a server when using TLS
@@ -336,10 +309,8 @@ func (client *Client) NewConnection(address string, tlsOptions ...TLSOption) (*g
 	//lint:ignore SA1019 Refactor in next change
 	conn, err := grpc.DialContext(ctx, address, dialOpts...) //nolint:all
 	if err != nil {
-		// Extract detailed error information, especially for TLS/certificate errors
-		detailedErr := extractDetailedError(err)
-		commLogger.Debugf("failed to create new connection to [%s]: [%s]", address, detailedErr)
-		return nil, errors.Wrapf(err, "failed to create new connection to [%s]: %s", address, detailedErr)
+		commLogger.Debugf("failed to create new connection to [%s]: [%s]", address, err)
+		return nil, errors.Wrapf(err, "failed to create new connection to [%s]", address)
 	}
 
 	client.grpcCMux.Lock()
