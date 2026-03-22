@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
+	fxgrpc "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -33,9 +33,9 @@ func generateNSExtension(n *network.Network, notificationServicePort uint16, not
 
 	// TODO: most of this logic should go somewhere
 
-	config := finality.Config{
+	config := fxgrpc.Config{
 		RequestTimeout: 10 * time.Second,
-		Endpoints: []finality.Endpoint{
+		Endpoints: []fxgrpc.Endpoint{
 			{
 				Address:           fmt.Sprintf("%s:%v", notificationServiceHost, notificationServicePort),
 				ConnectionTimeout: grpc.DefaultConnectionTimeout,
@@ -48,7 +48,7 @@ func generateNSExtension(n *network.Network, notificationServicePort uint16, not
 	t, err := template.New("view_extension").Funcs(template.FuncMap{
 		"NetworkName":    func() string { return n.Topology().Name() },
 		"RequestTimeout": func() time.Duration { return config.RequestTimeout },
-		"Endpoints":      func() []finality.Endpoint { return config.Endpoints },
+		"Endpoints":      func() []fxgrpc.Endpoint { return config.Endpoints },
 	}).Parse(nsExtensionTemplate)
 	utils.Must(err)
 

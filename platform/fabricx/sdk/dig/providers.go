@@ -77,23 +77,21 @@ type ChannelProvider generic.ChannelProvider
 
 func NewChannelProvider(in struct {
 	dig.In
-	ConfigProvider          config.Provider
-	KVS                     *kvs.KVS
-	LedgerProvider          ledger.Provider
-	Publisher               events.Publisher
-	BlockDispatcherProvider *ledger.BlockDispatcherProvider
-	TracerProvider          trace.TracerProvider
-	MetricsProvider         metrics.Provider
-	QueryServiceProvider    queryservice.Provider
-	IdentityLoaders         []identity.NamedIdentityLoader `group:"identity-loaders"`
-	EndpointService         identity.EndpointService
-	IdProvider              identity.ViewIdentityProvider
-	EnvelopeStore           fdriver.EnvelopeStore
-	MetadataStore           fdriver.MetadataStore
-	EndorseTxStore          fdriver.EndorseTxStore
-	Drivers                 multiplexed.Driver
-},
-) generic.ChannelProvider {
+	ConfigProvider       config.Provider
+	KVS                  *kvs.KVS
+	LedgerProvider       *ledger.Provider
+	Publisher            events.Publisher
+	TracerProvider       trace.TracerProvider
+	MetricsProvider      metrics.Provider
+	QueryServiceProvider queryservice.Provider
+	IdentityLoaders      []identity.NamedIdentityLoader `group:"identity-loaders"`
+	EndpointService      identity.EndpointService
+	IdProvider           identity.ViewIdentityProvider
+	EnvelopeStore        fdriver.EnvelopeStore
+	MetadataStore        fdriver.MetadataStore
+	EndorseTxStore       fdriver.EndorseTxStore
+	Drivers              multiplexed.Driver
+}) generic.ChannelProvider {
 	channelConfigProvider := generic.NewChannelConfigProvider(in.ConfigProvider)
 	flmProvider := committer.NewFinalityListenerManagerProvider[fdriver.ValidationCode](in.TracerProvider)
 	return generic.NewChannelProvider(
@@ -128,19 +126,10 @@ func NewChannelProvider(in struct {
 			vault delivery.Vault,
 			callback fdriver.BlockCallback,
 		) (generic.DeliveryService, error) {
-			// we inject here the block dispatcher and the callback
-			// note that once the committer queryservice/notification service is available, we will remove the
-			// local commit-pipeline and delivery service
-			dispatcher, err := in.BlockDispatcherProvider.GetBlockDispatcher(nw.Name(), channel)
-			if err != nil {
-				return nil, err
-			}
 			channelConfig, err := channelConfigProvider.GetChannelConfig(nw.Name(), channel)
 			if err != nil {
 				return nil, err
 			}
-			dispatcher.AddCallback(callback)
-
 			return delivery.NewService(
 				channel,
 				channelConfig,
@@ -151,7 +140,7 @@ func NewChannelProvider(in struct {
 				ledger,
 				vault,
 				nw.TransactionManager(),
-				dispatcher.OnBlock,
+				callback,
 				in.TracerProvider,
 				in.MetricsProvider,
 				[]cb.HeaderType{cb.HeaderType_MESSAGE},
