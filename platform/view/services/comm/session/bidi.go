@@ -9,6 +9,7 @@ package session
 import (
 	"context"
 	"encoding/base64"
+	"sync/atomic"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -36,7 +37,6 @@ func NewLocalBidirectionalChannel(caller string, contextID string, endpoint stri
 		CallerViewID: "",
 		Endpoint:     endpoint,
 		EndpointPKID: pkid,
-		Closed:       false,
 	}
 	return &LocalBidirectionalChannel{
 		left: &localSession{
@@ -77,20 +77,24 @@ type localSession struct {
 	info         view.SessionInfo
 	readChannel  chan *view.Message
 	writeChannel chan *view.Message
+	closed       atomic.Bool
 }
 
 func (s *localSession) Info() view.SessionInfo {
-	return s.info
+	info := s.info
+	info.Closed = s.closed.Load()
+	return info
 }
 
 func (s *localSession) Send(payload []byte) error { return s.SendWithContext(context.TODO(), payload) }
 
 func (s *localSession) SendWithContext(ctx context.Context, payload []byte) error {
-	if s.info.Closed {
+	if s.closed.Load() {
 		return errors.New("session is closed")
 	}
 
-	s.writeChannel <- &view.Message{
+	select {
+	case s.writeChannel <- &view.Message{
 		SessionID:    s.info.ID,
 		ContextID:    s.contextID,
 		Caller:       s.caller,
@@ -99,8 +103,11 @@ func (s *localSession) SendWithContext(ctx context.Context, payload []byte) erro
 		Status:       view.OK,
 		Payload:      payload,
 		Ctx:          ctx,
+	}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-	return nil
 }
 
 func (s *localSession) SendError(payload []byte) error {
@@ -108,11 +115,12 @@ func (s *localSession) SendError(payload []byte) error {
 }
 
 func (s *localSession) SendErrorWithContext(ctx context.Context, payload []byte) error {
-	if s.info.Closed {
+	if s.closed.Load() {
 		return errors.New("session is closed")
 	}
 
-	s.writeChannel <- &view.Message{
+	select {
+	case s.writeChannel <- &view.Message{
 		SessionID:    s.info.ID,
 		ContextID:    s.contextID,
 		Caller:       s.caller,
@@ -121,17 +129,20 @@ func (s *localSession) SendErrorWithContext(ctx context.Context, payload []byte)
 		Status:       view.ERROR,
 		Payload:      payload,
 		Ctx:          ctx,
+	}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-	return nil
 }
 
 func (s *localSession) Receive() <-chan *view.Message {
-	if s.info.Closed {
+	if s.closed.Load() {
 		return nil
 	}
 	return s.readChannel
 }
 
 func (s *localSession) Close() {
-	s.info.Closed = true
+	s.closed.Store(true)
 }

@@ -9,7 +9,10 @@ package rest
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -25,6 +28,22 @@ type serverStreamProvider interface {
 type server struct {
 	srv            *http.Server
 	streamProvider serverStreamProvider
+	listener       net.Listener
+}
+
+func corsAllowedOrigins() []string {
+	raw := strings.TrimSpace(os.Getenv("FSC_P2P_CORS_ALLOWED_ORIGINS"))
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	origins := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if s := strings.TrimSpace(p); s != "" {
+			origins = append(origins, s)
+		}
+	}
+	return origins
 }
 
 func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stream host2.P2PStream)) *gin.Engine {
@@ -44,10 +63,12 @@ func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stre
 			param.ErrorMessage,
 		)
 	}))
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"*"}
-	config.AllowHeaders = []string{"*"}
-	r.Use(cors.New(config))
+	if origins := corsAllowedOrigins(); len(origins) > 0 {
+		config := cors.DefaultConfig()
+		config.AllowOrigins = origins
+		config.AllowHeaders = []string{"Origin", "Content-Type", "Accept"}
+		r.Use(cors.New(config))
+	}
 
 	r.GET("/p2p", func(c *gin.Context) {
 		logger.DebugfContext(c.Request.Context(), "new incoming stream from [%s]", c.Request.RemoteAddr)
@@ -58,17 +79,32 @@ func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stre
 	return r
 }
 
+func (s *server) Listen() error {
+	l, err := net.Listen("tcp", s.srv.Addr)
+	if err != nil {
+		return errors.Wrapf(err, "failed to listen on [%s]", s.srv.Addr)
+	}
+	s.srv.Addr = l.Addr().String()
+	s.listener = l
+	return nil
+}
+
 func (s *server) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	s.srv.Handler = newHandler(s.streamProvider, newStreamCallback)
 
 	var err error
 	if s.srv.TLSConfig == nil {
 		logger.Infof("starting up REST server without TLS on [%s]...", s.srv.Addr)
-		err = s.srv.ListenAndServe()
+		err = s.srv.Serve(s.listener)
 	} else {
-		logger.Infof("starting up REST server with TLS [%v] on [%s]...", s.srv.TLSConfig, s.srv.Addr)
-		err = s.srv.ListenAndServeTLS("", "")
+		// mTLS Enforcement: s.srv.TLSConfig contains the configuration to:
+		// 1. Require client certificates (tls.RequireAndVerifyClientCert).
+		// 2. Verify them against the root CAs.
+		// The underlying ListenAndServeTLS call uses this config to secure the connection.
+		logger.Infof("starting up REST server with TLS on [%s]...", s.srv.Addr)
+		err = s.srv.ServeTLS(s.listener, "", "")
 	}
+
 	if !errors.Is(err, http.ErrServerClosed) {
 		return errors.Wrapf(err, "failed to start http server")
 	}
