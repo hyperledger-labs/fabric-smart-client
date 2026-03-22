@@ -91,7 +91,8 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 		client.dialOpts = append(client.dialOpts, grpc.FailOnNonTempDialError(true)) //nolint:all
 		// Return connection errors immediately instead of timing out
 		// This ensures TLS certificate validation errors are returned with meaningful messages
-		client.dialOpts = append(client.dialOpts, grpc.WithReturnConnectionError())
+		//lint:ignore SA1019 Refactor in next change
+		client.dialOpts = append(client.dialOpts, grpc.WithReturnConnectionError()) //nolint:all
 	}
 	client.timeout = config.Timeout
 	// set send/recv message size to package defaults
