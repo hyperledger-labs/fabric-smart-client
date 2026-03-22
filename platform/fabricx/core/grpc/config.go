@@ -37,15 +37,17 @@ type Endpoint struct {
 	TLSServerNameOverride string `yaml:"tlsServerNameOverride,omitempty"`
 }
 
+//go:generate counterfeiter -o mock/config_service.go --fake-name ConfigService . ConfigService
+
 // ConfigService defines the interface for retrieving configuration values.
 type ConfigService interface {
 	// UnmarshalKey takes a single key and unmarshal it into a struct.
 	UnmarshalKey(key string, rawVal interface{}) error
 }
 
-// NewConfig creates a new Config instance by unmarshaling the "notificationService" key
+// NewNotificationServiceConfig creates a new Config instance by unmarshaling the "notificationService" key
 // from the provided ConfigService. It returns an error if the unmarshaling fails.
-func NewConfig(configService ConfigService) (*Config, error) {
+func NewNotificationServiceConfig(configService ConfigService) (*Config, error) {
 	config := &Config{
 		RequestTimeout: DefaultRequestTimeout,
 	}

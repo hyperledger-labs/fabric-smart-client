@@ -22,9 +22,9 @@ import (
 
 func TestLedger_GetLedgerInfo(t *testing.T) {
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
-	fakeQueryClient := &mock.QueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryClient, ctx)
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
 
 	expectedInfo := &cb.BlockchainInfo{
 		Height:            10,
@@ -46,9 +46,9 @@ func TestLedger_GetLedgerInfo(t *testing.T) {
 
 func TestLedger_GetTransactionByID(t *testing.T) {
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
-	fakeQueryClient := &mock.QueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryClient, ctx)
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
 
 	txID := "test-tx"
 
@@ -72,19 +72,13 @@ func TestLedger_GetTransactionByID(t *testing.T) {
 	expectedEnv := &cb.Envelope{Payload: payloadRaw}
 	fakeBlockClient.GetTxByIDReturns(expectedEnv, nil)
 
-	expectedStatus := committerpb.Status_COMMITTED
-	fakeQueryClient.GetTransactionStatusReturns(&committerpb.TxStatusResponse{
-		Statuses: []*committerpb.TxStatus{
-			{
-				Status: expectedStatus,
-			},
-		},
-	}, nil)
+	expectedStatus := int32(committerpb.Status_COMMITTED)
+	fakeQueryService.GetTransactionStatusReturns(expectedStatus, nil)
 
 	pt, err := l.GetTransactionByID(txID)
 	require.NoError(t, err)
 	require.Equal(t, txID, pt.TxID())
-	require.Equal(t, int32(expectedStatus), pt.ValidationCode())
+	require.Equal(t, expectedStatus, pt.ValidationCode())
 	require.True(t, pt.IsValid())
 	require.Equal(t, []byte("rwset-data"), pt.Results())
 
@@ -92,16 +86,16 @@ func TestLedger_GetTransactionByID(t *testing.T) {
 	_, argTxID, _ := fakeBlockClient.GetTxByIDArgsForCall(0)
 	require.Equal(t, txID, argTxID.TxId)
 
-	require.Equal(t, 1, fakeQueryClient.GetTransactionStatusCallCount())
-	_, argStatusQuery, _ := fakeQueryClient.GetTransactionStatusArgsForCall(0)
-	require.Equal(t, txID, argStatusQuery.TxIds[0])
+	require.Equal(t, 1, fakeQueryService.GetTransactionStatusCallCount())
+	argStatusQueryTxID := fakeQueryService.GetTransactionStatusArgsForCall(0)
+	require.Equal(t, txID, argStatusQueryTxID)
 }
 
 func TestLedger_GetBlockNumberByTxID(t *testing.T) {
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
-	fakeQueryClient := &mock.QueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryClient, ctx)
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
 
 	txID := "test-tx"
 	expectedBlock := &cb.Block{
@@ -118,9 +112,9 @@ func TestLedger_GetBlockNumberByTxID(t *testing.T) {
 
 func TestLedger_GetBlockByNumber(t *testing.T) {
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
-	fakeQueryClient := &mock.QueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryClient, ctx)
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
 
 	blockNum := uint64(5)
 	expectedBlock := &cb.Block{
@@ -161,9 +155,9 @@ func TestProcessedTransaction_Results(t *testing.T) {
 
 func TestLedger_GetLedgerInfo_Error(t *testing.T) {
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
-	fakeQueryClient := &mock.QueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryClient, ctx)
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
 
 	expectedErr := errors.New("blockchain info error")
 	fakeBlockClient.GetBlockchainInfoReturns(nil, expectedErr)
@@ -176,9 +170,9 @@ func TestLedger_GetLedgerInfo_Error(t *testing.T) {
 
 func TestLedger_GetTransactionByID_GetTxByIDError(t *testing.T) {
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
-	fakeQueryClient := &mock.QueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryClient, ctx)
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
 
 	txID := "test-tx"
 	expectedErr := errors.New("tx not found")
@@ -192,9 +186,9 @@ func TestLedger_GetTransactionByID_GetTxByIDError(t *testing.T) {
 
 func TestLedger_GetTransactionByID_GetTransactionStatusError(t *testing.T) {
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
-	fakeQueryClient := &mock.QueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryClient, ctx)
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
 
 	txID := "test-tx"
 
@@ -219,7 +213,7 @@ func TestLedger_GetTransactionByID_GetTransactionStatusError(t *testing.T) {
 	fakeBlockClient.GetTxByIDReturns(expectedEnv, nil)
 
 	expectedErr := errors.New("status query error")
-	fakeQueryClient.GetTransactionStatusReturns(nil, expectedErr)
+	fakeQueryService.GetTransactionStatusReturns(0, expectedErr)
 
 	pt, err := l.GetTransactionByID(txID)
 	require.Error(t, err)
@@ -229,9 +223,9 @@ func TestLedger_GetTransactionByID_GetTransactionStatusError(t *testing.T) {
 
 func TestLedger_GetTransactionByID_NoStatusReturned(t *testing.T) {
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
-	fakeQueryClient := &mock.QueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryClient, ctx)
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
 
 	txID := "test-tx"
 
@@ -255,10 +249,8 @@ func TestLedger_GetTransactionByID_NoStatusReturned(t *testing.T) {
 	expectedEnv := &cb.Envelope{Payload: payloadRaw}
 	fakeBlockClient.GetTxByIDReturns(expectedEnv, nil)
 
-	// Return empty statuses
-	fakeQueryClient.GetTransactionStatusReturns(&committerpb.TxStatusResponse{
-		Statuses: []*committerpb.TxStatus{},
-	}, nil)
+	// Return error to simulate no status returned
+	fakeQueryService.GetTransactionStatusReturns(0, errors.New("no status returned for txID"))
 
 	pt, err := l.GetTransactionByID(txID)
 	require.Error(t, err)
@@ -268,9 +260,9 @@ func TestLedger_GetTransactionByID_NoStatusReturned(t *testing.T) {
 
 func TestLedger_GetTransactionByID_InvalidPayload(t *testing.T) {
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
-	fakeQueryClient := &mock.QueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryClient, ctx)
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
 
 	txID := "test-tx"
 
@@ -278,11 +270,7 @@ func TestLedger_GetTransactionByID_InvalidPayload(t *testing.T) {
 	expectedEnv := &cb.Envelope{Payload: []byte("invalid-payload")}
 	fakeBlockClient.GetTxByIDReturns(expectedEnv, nil)
 
-	fakeQueryClient.GetTransactionStatusReturns(&committerpb.TxStatusResponse{
-		Statuses: []*committerpb.TxStatus{
-			{Status: committerpb.Status_COMMITTED},
-		},
-	}, nil)
+	fakeQueryService.GetTransactionStatusReturns(int32(committerpb.Status_COMMITTED), nil)
 
 	pt, err := l.GetTransactionByID(txID)
 	require.Error(t, err)
@@ -292,9 +280,9 @@ func TestLedger_GetTransactionByID_InvalidPayload(t *testing.T) {
 
 func TestLedger_GetTransactionByID_InvalidHeaderType(t *testing.T) {
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
-	fakeQueryClient := &mock.QueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryClient, ctx)
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
 
 	txID := "test-tx"
 
@@ -318,11 +306,7 @@ func TestLedger_GetTransactionByID_InvalidHeaderType(t *testing.T) {
 	expectedEnv := &cb.Envelope{Payload: payloadRaw}
 	fakeBlockClient.GetTxByIDReturns(expectedEnv, nil)
 
-	fakeQueryClient.GetTransactionStatusReturns(&committerpb.TxStatusResponse{
-		Statuses: []*committerpb.TxStatus{
-			{Status: committerpb.Status_COMMITTED},
-		},
-	}, nil)
+	fakeQueryService.GetTransactionStatusReturns(int32(committerpb.Status_COMMITTED), nil)
 
 	pt, err := l.GetTransactionByID(txID)
 	require.Error(t, err)
@@ -332,9 +316,9 @@ func TestLedger_GetTransactionByID_InvalidHeaderType(t *testing.T) {
 
 func TestLedger_GetBlockNumberByTxID_Error(t *testing.T) {
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
-	fakeQueryClient := &mock.QueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryClient, ctx)
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
 
 	txID := "test-tx"
 	expectedErr := errors.New("block not found")
@@ -348,9 +332,9 @@ func TestLedger_GetBlockNumberByTxID_Error(t *testing.T) {
 
 func TestLedger_GetBlockByNumber_Error(t *testing.T) {
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
-	fakeQueryClient := &mock.QueryServiceClient{}
+	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
-	l := ledger.New(fakeBlockClient, fakeQueryClient, ctx)
+	l := ledger.New(fakeBlockClient, fakeQueryService, ctx)
 
 	blockNum := uint64(5)
 	expectedErr := errors.New("block not found")

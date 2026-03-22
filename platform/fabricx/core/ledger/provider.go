@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"google.golang.org/grpc"
@@ -25,28 +26,32 @@ import (
 //go:generate counterfeiter -o mock/query_client.go --fake-name QueryServiceClient github.com/hyperledger/fabric-x-common/api/committerpb.QueryServiceClient
 //go:generate counterfeiter -o mock/config_provider.go --fake-name ConfigProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config.Provider
 //go:generate counterfeiter -o mock/config_service.go --fake-name ConfigService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config.ConfigService
-
-//go:generate counterfeiter -o mock/grpc_client_provider.go --fake-name GRPCClientProvider . GRPCClientProvider
+//go:generate counterfeiter -o mock/query_service.go --fake-name QueryService github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice.QueryService
+//go:generate counterfeiter -o mock/query_service_provider.go --fake-name QueryServiceProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice.Provider
 
 // GRPCClientProvider provides gRPC client connections for a given network.
+//
+//go:generate counterfeiter -o mock/grpc_client_provider.go --fake-name GRPCClientProvider . GRPCClientProvider
 type GRPCClientProvider interface {
-	// Client returns a gRPC client connection for the specified network.
-	Client(network string) (*grpc.ClientConn, error)
+	// NotificationServiceClient returns a gRPC client connection for the specified network.
+	NotificationServiceClient(network string) (*grpc.ClientConn, error)
 }
 
 // Provider provides ledger implementations to access transactions and blocks on the ledger.
 type Provider struct {
-	grpcClientProvider GRPCClientProvider
-	ledgers            lazy.Provider[string, driver.Ledger]
-	baseCtx            context.Context
-	initOnce           sync.Once
+	queryServiceProvider queryservice.Provider
+	grpcClientProvider   GRPCClientProvider
+	ledgers              lazy.Provider[string, driver.Ledger]
+	baseCtx              context.Context
+	initOnce             sync.Once
 }
 
 // NewProvider creates a new Provider instance with the given gRPC client provider.
 // The provider must be initialized with Initialize before use.
-func NewProvider(grpcClientProvider GRPCClientProvider) *Provider {
+func NewProvider(grpcClientProvider GRPCClientProvider, queryServiceProvider queryservice.Provider) *Provider {
 	p := &Provider{
-		grpcClientProvider: grpcClientProvider,
+		grpcClientProvider:   grpcClientProvider,
+		queryServiceProvider: queryServiceProvider,
 	}
 	p.ledgers = lazy.NewProvider[string, driver.Ledger](func(s string) (driver.Ledger, error) {
 		return p.newLedger(s)
@@ -77,15 +82,20 @@ func (p *Provider) NewLedger(network, channel string) (driver.Ledger, error) {
 // newLedger creates a new ledger instance for the specified network.
 // It establishes a gRPC connection and creates the necessary client stubs.
 func (p *Provider) newLedger(network string) (driver.Ledger, error) {
-	cc, err := p.grpcClientProvider.Client(network)
+	cc, err := p.grpcClientProvider.NotificationServiceClient(network)
 	if err != nil {
 		return nil, err
 	}
 	// Create the gRPC client stubs
 	client := committerpb.NewBlockQueryServiceClient(cc)
-	queryClient := committerpb.NewQueryServiceClient(cc)
 
-	return New(client, queryClient, p.baseCtx), nil
+	// get the query service
+	qs, err := p.queryServiceProvider.Get(network, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return New(client, qs, p.baseCtx), nil
 }
 
 // Context returns the base context used by the provider for RPC calls.

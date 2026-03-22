@@ -135,7 +135,7 @@ func newNotifi(network string, fnsp *fabric.NetworkServiceProvider, configProvid
 		return nil, err
 	}
 
-	c, err := grpc.NewConfig(cfg)
+	c, err := grpc.NewNotificationServiceConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

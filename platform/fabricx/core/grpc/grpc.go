@@ -21,6 +21,9 @@ import (
 // ErrInvalidAddress is returned when an endpoint address is empty.
 var ErrInvalidAddress = errors.New("empty address")
 
+//go:generate counterfeiter -o mock/config_provider.go --fake-name ConfigProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config.Provider
+//go:generate counterfeiter -o mock/config_service_generic.go --fake-name ConfigServiceGeneric github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config.ConfigService
+
 // ClientProvider provides gRPC client connections for a given network.
 type ClientProvider struct {
 	// configProvider is used to retrieve the configuration for a network.
@@ -32,16 +35,16 @@ func NewClientProvider(configProvider config.Provider) *ClientProvider {
 	return &ClientProvider{configProvider: configProvider}
 }
 
-// Client returns a gRPC client connection for the specified network.
+// NotificationServiceClient returns a gRPC client connection for the specified network.
 // It loads the configuration for the network and creates a connection.
-func (c *ClientProvider) Client(network string) (*grpc.ClientConn, error) {
+func (c *ClientProvider) NotificationServiceClient(network string) (*grpc.ClientConn, error) {
 	// Load the specific configuration for this network
 	cfg, err := c.configProvider.GetConfig(network)
 	if err != nil {
 		return nil, err
 	}
 
-	config, err := NewConfig(cfg)
+	config, err := NewNotificationServiceConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

@@ -9,16 +9,16 @@ import (
 )
 
 type GRPCClientProvider struct {
-	ClientStub        func(string) (*grpc.ClientConn, error)
-	clientMutex       sync.RWMutex
-	clientArgsForCall []struct {
+	NotificationServiceClientStub        func(string) (*grpc.ClientConn, error)
+	notificationServiceClientMutex       sync.RWMutex
+	notificationServiceClientArgsForCall []struct {
 		arg1 string
 	}
-	clientReturns struct {
+	notificationServiceClientReturns struct {
 		result1 *grpc.ClientConn
 		result2 error
 	}
-	clientReturnsOnCall map[int]struct {
+	notificationServiceClientReturnsOnCall map[int]struct {
 		result1 *grpc.ClientConn
 		result2 error
 	}
@@ -26,16 +26,16 @@ type GRPCClientProvider struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *GRPCClientProvider) Client(arg1 string) (*grpc.ClientConn, error) {
-	fake.clientMutex.Lock()
-	ret, specificReturn := fake.clientReturnsOnCall[len(fake.clientArgsForCall)]
-	fake.clientArgsForCall = append(fake.clientArgsForCall, struct {
+func (fake *GRPCClientProvider) NotificationServiceClient(arg1 string) (*grpc.ClientConn, error) {
+	fake.notificationServiceClientMutex.Lock()
+	ret, specificReturn := fake.notificationServiceClientReturnsOnCall[len(fake.notificationServiceClientArgsForCall)]
+	fake.notificationServiceClientArgsForCall = append(fake.notificationServiceClientArgsForCall, struct {
 		arg1 string
 	}{arg1})
-	stub := fake.ClientStub
-	fakeReturns := fake.clientReturns
-	fake.recordInvocation("Client", []interface{}{arg1})
-	fake.clientMutex.Unlock()
+	stub := fake.NotificationServiceClientStub
+	fakeReturns := fake.notificationServiceClientReturns
+	fake.recordInvocation("NotificationServiceClient", []interface{}{arg1})
+	fake.notificationServiceClientMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
 	}
@@ -45,46 +45,46 @@ func (fake *GRPCClientProvider) Client(arg1 string) (*grpc.ClientConn, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *GRPCClientProvider) ClientCallCount() int {
-	fake.clientMutex.RLock()
-	defer fake.clientMutex.RUnlock()
-	return len(fake.clientArgsForCall)
+func (fake *GRPCClientProvider) NotificationServiceClientCallCount() int {
+	fake.notificationServiceClientMutex.RLock()
+	defer fake.notificationServiceClientMutex.RUnlock()
+	return len(fake.notificationServiceClientArgsForCall)
 }
 
-func (fake *GRPCClientProvider) ClientCalls(stub func(string) (*grpc.ClientConn, error)) {
-	fake.clientMutex.Lock()
-	defer fake.clientMutex.Unlock()
-	fake.ClientStub = stub
+func (fake *GRPCClientProvider) NotificationServiceClientCalls(stub func(string) (*grpc.ClientConn, error)) {
+	fake.notificationServiceClientMutex.Lock()
+	defer fake.notificationServiceClientMutex.Unlock()
+	fake.NotificationServiceClientStub = stub
 }
 
-func (fake *GRPCClientProvider) ClientArgsForCall(i int) string {
-	fake.clientMutex.RLock()
-	defer fake.clientMutex.RUnlock()
-	argsForCall := fake.clientArgsForCall[i]
+func (fake *GRPCClientProvider) NotificationServiceClientArgsForCall(i int) string {
+	fake.notificationServiceClientMutex.RLock()
+	defer fake.notificationServiceClientMutex.RUnlock()
+	argsForCall := fake.notificationServiceClientArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *GRPCClientProvider) ClientReturns(result1 *grpc.ClientConn, result2 error) {
-	fake.clientMutex.Lock()
-	defer fake.clientMutex.Unlock()
-	fake.ClientStub = nil
-	fake.clientReturns = struct {
+func (fake *GRPCClientProvider) NotificationServiceClientReturns(result1 *grpc.ClientConn, result2 error) {
+	fake.notificationServiceClientMutex.Lock()
+	defer fake.notificationServiceClientMutex.Unlock()
+	fake.NotificationServiceClientStub = nil
+	fake.notificationServiceClientReturns = struct {
 		result1 *grpc.ClientConn
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *GRPCClientProvider) ClientReturnsOnCall(i int, result1 *grpc.ClientConn, result2 error) {
-	fake.clientMutex.Lock()
-	defer fake.clientMutex.Unlock()
-	fake.ClientStub = nil
-	if fake.clientReturnsOnCall == nil {
-		fake.clientReturnsOnCall = make(map[int]struct {
+func (fake *GRPCClientProvider) NotificationServiceClientReturnsOnCall(i int, result1 *grpc.ClientConn, result2 error) {
+	fake.notificationServiceClientMutex.Lock()
+	defer fake.notificationServiceClientMutex.Unlock()
+	fake.NotificationServiceClientStub = nil
+	if fake.notificationServiceClientReturnsOnCall == nil {
+		fake.notificationServiceClientReturnsOnCall = make(map[int]struct {
 			result1 *grpc.ClientConn
 			result2 error
 		})
 	}
-	fake.clientReturnsOnCall[i] = struct {
+	fake.notificationServiceClientReturnsOnCall[i] = struct {
 		result1 *grpc.ClientConn
 		result2 error
 	}{result1, result2}

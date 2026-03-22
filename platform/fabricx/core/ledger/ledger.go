@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -27,18 +28,18 @@ var logger = logging.MustGetLogger()
 type ledger struct {
 	// client is the BlockQueryServiceClient for interacting with the committer.
 	client committerpb.BlockQueryServiceClient
-	// queryClient is the QueryServiceClient for querying transaction status.
-	queryClient committerpb.QueryServiceClient
+	// queryService is the QueryService for querying transaction status.
+	queryService queryservice.QueryService
 	// baseCtx is the background context for RPC calls.
 	baseCtx context.Context
 }
 
 // New returns a new ledger instance with the given clients and base context.
-func New(client committerpb.BlockQueryServiceClient, queryClient committerpb.QueryServiceClient, baseCtx context.Context) *ledger {
+func New(client committerpb.BlockQueryServiceClient, queryService queryservice.QueryService, baseCtx context.Context) *ledger {
 	return &ledger{
-		client:      client,
-		queryClient: queryClient,
-		baseCtx:     baseCtx,
+		client:       client,
+		queryService: queryService,
+		baseCtx:      baseCtx,
 	}
 }
 
@@ -62,14 +63,9 @@ func (c *ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, e
 		return nil, errors.Wrapf(finality.TxNotFound, "failed to get tx for txID [%s]: %s", txID, err)
 	}
 
-	res, err := c.queryClient.GetTransactionStatus(c.baseCtx, &committerpb.TxStatusQuery{
-		TxIds: []string{txID},
-	})
+	status, err := c.queryService.GetTransactionStatus(txID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get transaction status for txID [%s]", txID)
-	}
-	if len(res.Statuses) == 0 {
-		return nil, errors.Errorf("no status returned for txID [%s]", txID)
 	}
 
 	results, err := unpackResults(env.Payload)
@@ -85,7 +81,7 @@ func (c *ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, e
 	return &ProcessedTransaction{
 		txID:           txID,
 		results:        results,
-		validationCode: int32(res.Statuses[0].Status),
+		validationCode: status,
 		envelope:       envRaw,
 	}, nil
 }

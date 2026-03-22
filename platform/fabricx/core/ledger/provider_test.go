@@ -20,7 +20,8 @@ import (
 
 func TestProvider_Initialize(t *testing.T) {
 	mockGRPC := &mock.GRPCClientProvider{}
-	p := ledger.NewProvider(mockGRPC)
+	mockQS := &mock.QueryServiceProvider{}
+	p := ledger.NewProvider(mockGRPC, mockQS)
 	ctx := context.Background()
 	p.Initialize(ctx)
 	require.Equal(t, ctx, p.Context())
@@ -34,8 +35,9 @@ func TestProvider_Initialize(t *testing.T) {
 
 func TestProvider_NewLedger(t *testing.T) {
 	mockGRPC := &mock.GRPCClientProvider{}
-	mockGRPC.ClientReturns(&grpc.ClientConn{}, nil)
-	p := ledger.NewProvider(mockGRPC)
+	mockQS := &mock.QueryServiceProvider{}
+	mockGRPC.NotificationServiceClientReturns(&grpc.ClientConn{}, nil)
+	p := ledger.NewProvider(mockGRPC, mockQS)
 
 	// Should panic if not initialized
 	require.Panics(t, func() {
@@ -51,22 +53,22 @@ func TestProvider_NewLedger(t *testing.T) {
 	require.NotNil(t, l)
 
 	// Test singleton behavior: same network should reuse the same ledger
-	// by checking that GRPCClientProvider.Client is called only once
+	// by checking that GRPCClientProvider.NotificationServiceClient is called only once
 	l2, err := p.NewLedger("test-net", "")
 	require.NoError(t, err)
 	require.NotNil(t, l2)
-	require.Equal(t, 1, mockGRPC.ClientCallCount())
+	require.Equal(t, 1, mockGRPC.NotificationServiceClientCallCount())
 
 	// Test different network results in another call
 	l3, err := p.NewLedger("test-net2", "")
 	require.NoError(t, err)
 	require.NotNil(t, l3)
-	require.Equal(t, 2, mockGRPC.ClientCallCount())
+	require.Equal(t, 2, mockGRPC.NotificationServiceClientCallCount())
 }
 
 func TestGetLedgerProvider(t *testing.T) {
 	fakeSP := &mock.ServicesProvider{}
-	p := ledger.NewProvider(nil)
+	p := ledger.NewProvider(nil, nil)
 
 	fakeSP.GetServiceReturns(p, nil)
 
@@ -81,10 +83,11 @@ func TestGetLedgerProvider(t *testing.T) {
 
 func TestProvider_NewLedger_GRPCClientError(t *testing.T) {
 	mockGRPC := &mock.GRPCClientProvider{}
+	mockQS := &mock.QueryServiceProvider{}
 	expectedErr := errors.New("grpc connection error")
-	mockGRPC.ClientReturns(nil, expectedErr)
+	mockGRPC.NotificationServiceClientReturns(nil, expectedErr)
 
-	p := ledger.NewProvider(mockGRPC)
+	p := ledger.NewProvider(mockGRPC, mockQS)
 	ctx := context.Background()
 	p.Initialize(ctx)
 
