@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -58,6 +59,7 @@ func TestEnvSubstitution(t *testing.T) {
 	_ = os.Setenv("CORE_NON_EXISTENT_KEY", "new")
 	_ = os.Setenv("CORE_NESTED_KEYS", "should not be able to replace for string")
 	_ = os.Setenv("CORE_CORE_ISFINE", "yes")
+	fmt.Println(os.Environ())
 
 	p, err := NewProvider("./testdata")
 	assert.NoError(t, err)
@@ -68,6 +70,8 @@ func TestEnvSubstitution(t *testing.T) {
 	assert.Equal(t, 10*time.Second, p.GetDuration("duration"))
 	assert.Equal(t, path, p.GetPath("path.relative"))
 	assert.Equal(t, "/absolute/path/file.name", p.GetPath("path.absolute"))
+
+	assert.Equal(t, "new data source", p.GetString("fsc.kvs.persistence.opts.datasource"))
 
 	var db Opts
 	assert.Equal(t, "sql", p.GetString("fsc.kvs.persistence.type"))

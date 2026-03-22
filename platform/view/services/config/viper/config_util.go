@@ -17,7 +17,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 )
 
 // customDecodeHook adds the additional functions of parsing durations from strings
@@ -169,7 +169,7 @@ func pemBlocksFromFileDecodeHook(f reflect.Kind, t reflect.Kind, data interface{
 // EnhancedExactUnmarshal is intended to unmarshal a config file into a structure
 // producing error when extraneous variables are introduced and supporting
 // the time.Duration type
-func EnhancedExactUnmarshal(v *viper.Viper, key string, output interface{}) error {
+func EnhancedExactUnmarshal(v *koanf.Koanf, key string, output interface{}) error {
 	oType := reflect.TypeOf(output)
 	if oType.Kind() != reflect.Ptr {
 		return errors.Errorf("supplied output argument must be a pointer to a struct but is not pointer")
@@ -193,5 +193,6 @@ func EnhancedExactUnmarshal(v *viper.Viper, key string, output interface{}) erro
 	if err != nil {
 		return err
 	}
-	return decoder.Decode(v.Get(key))
+	raw := v.Get(key)
+	return decoder.Decode(raw)
 }
