@@ -52,7 +52,7 @@ type NamespaceCommon struct {
 	Name    string
 	Channel string
 
-	// Preferred: raw fxconfig policy string, for example:
+	// Policy is the raw fxconfig policy string, for example:
 	//   "AND('Org1MSP.member','Org2MSP.member')"
 	// or
 	//   "threshold:/path/to/policy.pem"

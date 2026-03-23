@@ -12,7 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/extensions/scv2"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 )
@@ -38,20 +37,16 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	fscTopology.P2PCommunicationType = commType
 	fscTopology.SetLogging("grpc=error:fabricx=debug:info", "")
 
-	// approver1 keeps the special approver role used by the meta-namespace flow.
 	fscTopology.AddNodeByName("approver1").
 		AddOptions(fabric.WithOrganization("Org1")).
-		AddOptions(scv2.WithApproverRole()).
 		AddOptions(replicationOpts.For("approver1")...).
 		RegisterResponder(&simpleviews.ApproveView{}, &simpleviews.CreateView{})
 
-	// approver2 participates in application endorsement
 	fscTopology.AddNodeByName("approver2").
 		AddOptions(fabric.WithOrganization("Org2")).
 		AddOptions(replicationOpts.For("approver2")...).
 		RegisterResponder(&simpleviews.ApproveView{}, &simpleviews.CreateView{})
 
-	// approver3 participates in application endorsement
 	fscTopology.AddNodeByName("approver3").
 		AddOptions(fabric.WithOrganization("Org3")).
 		AddOptions(replicationOpts.For("approver3")...).
