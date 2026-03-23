@@ -117,9 +117,7 @@ func (n *NetworkStreamSession) cleanupStreams() {
 	for sh := range n.streams {
 		if sh.isClosed() {
 			logger.Debugf("session [%s] pruning closed stream [%s]", n.sessionID, sh.stream.Hash())
-			if sh.refCtr.Add(-1) == 0 {
-				sh.close(context.TODO())
-			}
+			sh.release()
 			delete(n.streams, sh)
 		}
 	}
@@ -233,21 +231,14 @@ func (n *NetworkStreamSession) closeInternal() {
 		defer n.mutex.Unlock()
 
 		logger.Debugf("closing session [%s] with [%d] streams", n.sessionID, len(n.streams))
-		toClose := make([]*streamHandler, 0, len(n.streams))
 		for stream := range n.streams {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("session [%s], stream [%s], refCtr [%d]", n.sessionID, stream.stream.Hash(), stream.refCtr.Load())
 			}
-			if stream.refCtr.Add(-1) == 0 {
-				toClose = append(toClose, stream)
-			}
+			stream.release()
 		}
 
-		logger.Debugf("closing session [%s]'s streams [%d]", n.sessionID, len(toClose))
-		for _, stream := range toClose {
-			stream.close(context.TODO())
-		}
-		logger.Debugf("closing session [%s]'s streams [%d] done", n.sessionID, len(toClose))
+		logger.Debugf("closing session [%s]'s streams done", n.sessionID)
 		clear(n.streams)
 	}
 

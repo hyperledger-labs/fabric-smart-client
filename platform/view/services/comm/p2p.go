@@ -159,14 +159,6 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 					session.callerViewID = msg.message.Caller
 					session.contextID = msg.message.ContextID
 					session.endpointAddress = msg.message.FromEndpoint
-					// here we know that msg.stream is used for session:
-					// 1) increment the used counter for msg.stream
-
-					if _, streamRegisteredAlready := session.streams[msg.stream]; !streamRegisteredAlready {
-						msg.stream.refCtr.Add(1)
-						// 2) add msg.stream to the list of streams used by session
-						session.streams[msg.stream] = struct{}{}
-					}
 					session.mutex.Unlock()
 				}
 			} else {
@@ -179,6 +171,17 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 				session, _ = p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
 			}
 			p.dispatchMutex.Unlock()
+
+			// here we know that msg.stream is used for session:
+			// 1) increment the used counter for msg.stream
+			session.mutex.Lock()
+			if _, streamRegisteredAlready := session.streams[msg.stream]; !streamRegisteredAlready {
+				if msg.stream.tryLease() {
+					// 2) add msg.stream to the list of streams used by session
+					session.streams[msg.stream] = struct{}{}
+				}
+			}
+			session.mutex.Unlock()
 
 			logger.Debugf("Attempting to enqueue message for session [%s] (internal session exists: %v)", internalSessionID, in)
 			var delivered bool
@@ -220,14 +223,18 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message, se
 
 	logger.Debugf("send msg to stream hash [%s] of [%d] with #stream [%d]", streamHash, totalNumStreams, len(streamsCopy))
 	for _, stream := range streamsCopy {
+		if stream.isDead() || stream.isClosed() {
+			continue
+		}
 		err := stream.send(msg)
 		if err == nil {
-			logger.Debugf("send msg with stream [%s]", stream.stream.Hash())
+			logger.Debugf("sent msg with stream [%s]", stream.stream.Hash())
 			if session != nil {
 				session.mutex.Lock()
 				if _, streamRegisteredAlready := session.streams[stream]; !streamRegisteredAlready {
-					stream.refCtr.Add(1)
-					session.streams[stream] = struct{}{}
+					if stream.tryLease() {
+						session.streams[stream] = struct{}{}
+					}
 				}
 				session.mutex.Unlock()
 			}
@@ -244,7 +251,7 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message, se
 // If no address is specified, then p2p will use one of the IP addresses associated to the peer in its peer store.
 // If an address is specified, then the peer store will be updated with the passed address.
 func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
-	logger.Debugf("send to [%s:%s:%s:%s]", info.SessionID, info.RemotePeerID, info.RemotePeerAddress, session.endpointAddress)
+	logger.Debugf("send to [%s:%s:%s]", info.SessionID, info.RemotePeerID, info.RemotePeerAddress)
 	streamHash := p.host.StreamHash(info)
 	logger.Debugf("for stream hash [%s]: [%s]", info.SessionID, streamHash)
 	if err := p.sendWithCachedStreams(streamHash, msg, session); !errors.Is(err, errStreamNotFound) {
@@ -264,8 +271,11 @@ func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.M
 	if session != nil {
 		logger.Debugf("register handle [%s]", info.SessionID)
 		session.mutex.Lock()
-		session.streams[sh] = struct{}{}
-		sh.refCtr.Add(1)
+		if _, streamRegisteredAlready := session.streams[sh]; !streamRegisteredAlready {
+			if sh.tryLease() {
+				session.streams[sh] = struct{}{}
+			}
+		}
 		session.mutex.Unlock()
 	}
 
@@ -325,10 +335,33 @@ type streamHandler struct {
 	wg     sync.WaitGroup
 	refCtr atomic.Int64
 	closed atomic.Bool
+	dead   atomic.Bool
 }
 
 func (s *streamHandler) isClosed() bool {
 	return s.closed.Load()
+}
+
+func (s *streamHandler) isDead() bool {
+	return s.dead.Load()
+}
+
+func (s *streamHandler) tryLease() bool {
+	for {
+		curr := s.refCtr.Load()
+		if s.isClosed() || s.isDead() {
+			return false
+		}
+		if s.refCtr.CompareAndSwap(curr, curr+1) {
+			return true
+		}
+	}
+}
+
+func (s *streamHandler) release() {
+	if s.refCtr.Add(-1) == 0 {
+		s.close(context.TODO())
+	}
 }
 
 func (s *streamHandler) send(msg proto.Message) error {
@@ -339,7 +372,7 @@ func (s *streamHandler) send(msg proto.Message) error {
 	}
 	logger.Debugf("sending message to stream [%s]", s.stream.Hash())
 	if err := s.writer.WriteMsg(msg); err != nil {
-		logger.Errorf("failed sending message to stream [%s]", s.stream.Hash())
+		logger.Errorf("failed sending message to stream [%s]: [%s]", s.stream.Hash(), err)
 		return err
 	}
 	return nil
@@ -370,6 +403,9 @@ func (s *streamHandler) handleIncoming() {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				logger.Debugf("error reading message from stream [%s]: [%s][%s]", streamHash, err, debug.Stack())
 			}
+
+			// Mark as dead immediately to prevent new leases
+			s.dead.Store(true)
 
 			// remove stream handler
 			s.node.streamsMutex.Lock()
@@ -427,6 +463,8 @@ func (s *streamHandler) close(ctx context.Context) {
 	if s.closed.Swap(true) {
 		return
 	}
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	if err := s.stream.Close(); err != nil {
 		logger.Errorf("error closing stream [%s]: [%s]", s.stream.Hash(), err)
 	}

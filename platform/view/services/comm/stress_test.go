@@ -76,6 +76,7 @@ func TestDroppedMessagesMetricValidation(t *testing.T) {
 		contextID:       "",
 		sessionID:       masterSession,
 		incoming:        make(chan *view.Message),
+		streams:         make(map[*streamHandler]struct{}),
 		middleCh:        make(chan *view.Message),
 		closing:         make(chan struct{}),
 		closed:          make(chan struct{}),
@@ -107,6 +108,7 @@ func TestDroppedMessagesMetricValidation(t *testing.T) {
 		contextID:       "ctx",
 		sessionID:       "drop-test-2",
 		incoming:        make(chan *view.Message), // UNBUFFERED - will block tryStart
+		streams:         make(map[*streamHandler]struct{}),
 		middleCh:        make(chan *view.Message, 1),
 		closing:         make(chan struct{}),
 		closed:          make(chan struct{}),

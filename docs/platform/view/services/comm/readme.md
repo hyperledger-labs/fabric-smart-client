@@ -73,8 +73,14 @@ FSC uses a **Certificate Authority (CA) model** and **Public Key Infrastructure 
 ### Concurrent Message Dispatching
 The `P2PNode` uses a **bounded worker pool** to dispatch incoming messages. This prevents goroutine explosion and ensures that a single slow or stalled session does not block the entire node.
 
-### Atomic Stream Initialization
-The Comm layer ensures that the first message sent over a freshly created stream is delivered reliably even if the stream is concurrently removed from the global cache (e.g., due to a rapid connection rejection by the remote peer). The initialization process atomically links the session to the new stream handler, preventing "stream not found" race conditions.
+### Atomic Stream Leasing
+The Comm layer uses an **atomic lease mechanism** to prevent race conditions between sending messages and closing streams. When a session attempts to use a cached stream, it must successfully "lease" the stream by atomically incrementing its reference counter (`refCtr`) using compare-and-swap operations. This ensures that:
+- A stream cannot be leased if it's already marked as closed or dead
+- Multiple sessions can safely share the same physical stream
+- Stream closure only occurs when all leases are released (refCtr reaches 0)
+- The first message sent over a freshly created stream is delivered reliably even if concurrent operations attempt to close it
+
+This prevents the race condition where a message appears to send successfully but the stream is closed immediately after, causing the remote peer to receive an EOF and drop the message.
 
 ### Reliable Delivery and Backpressure
 The Comm layer uses a **blocking-with-timeout** strategy to ensure reliable delivery while preventing slow consumers from deadlocking the node.
@@ -85,8 +91,10 @@ The Comm layer uses a **blocking-with-timeout** strategy to ensure reliable deli
 
 ## Reliability and Stability
 
-- **Race-Free State Management**: All shared metadata are protected by synchronized mutexes and atomic flags.
-- **Automatic Resource Pruning**: Long-lived sessions periodically prune references to closed network streams.
+- **Race-Free State Management**: All shared metadata are protected by synchronized mutexes and atomic flags. Stream handlers use atomic operations for lifecycle management (`closed`, `dead`, `refCtr`) to prevent race conditions between concurrent send and close operations.
+- **Synchronized Stream Operations**: The `streamHandler.close()` method acquires the stream lock to synchronize with concurrent `send()` operations, preventing corruption of in-flight messages.
+- **Automatic Resource Pruning**: Long-lived sessions periodically prune references to closed network streams (every 5 minutes), preventing memory bloat from accumulating dead stream references.
+- **Stream Lifecycle Protection**: Streams are marked as "dead" immediately upon read errors, preventing new leases while allowing existing operations to complete gracefully.
 - **Deadlock Prevention**: The session shutdown process is hardened to prevent hangs. When a session is closed, it attempts to drain remaining messages to the consumer with a **500ms timeout per message**. This ensures that the global dispatcher (which waits for sessions to close) is never permanently blocked by an unresponsive consumer.
 
 ## Usage
