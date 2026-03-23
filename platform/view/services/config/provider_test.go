@@ -76,7 +76,14 @@ func TestEnvSubstitution(t *testing.T) {
 
 	var db Opts
 	assert.Equal(t, "sql", p.GetString("fsc.kvs.persistence.type"))
+
 	err = p.UnmarshalKey("fsc.kvs.persistence.opts", &db)
+	assert.NoError(t, err)
+	assert.Equal(t, DriverType("sqlite"), db.Driver)
+	assert.Equal(t, "new data source", db.DataSource)
+	assert.Equal(t, true, db.SkipPragmas)
+	assert.Equal(t, 0, db.MaxOpenConns)
+	err = p.UnmarshalKey("FSC.kvs.PerSistEnce.opTs", &db)
 	assert.NoError(t, err)
 	assert.Equal(t, DriverType("sqlite"), db.Driver)
 	assert.Equal(t, "new data source", db.DataSource)

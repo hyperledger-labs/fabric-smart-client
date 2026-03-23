@@ -1,0 +1,207 @@
+---
+# Logging section
+logging:
+  # Spec
+  spec: grpc=error:fabricx=debug:info
+  otel:
+    sanitize: false
+fsc:
+  # The FSC id provides a name for this node instance and is used when
+  # naming docker resources.
+  id: approver
+  # Identity of this node, used to connect to other nodes
+  identity:
+    # X.509 certificate used as identity of this node
+    cert:
+      file: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/msp/signcerts/approver.fsc.example.com-cert.pem
+    # Private key matching the X.509 certificate
+    key:
+      file: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/msp/keystore/priv_sk
+  # Client X.509 certificates
+  client:
+    certs:
+      - /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fsc/crypto/peerOrganizations/fsc.example.com/users/Admin@fsc.example.com/msp/signcerts/Admin@fsc.example.com-cert.pem
+  grpc:
+    enabled: true
+    # This represents the endpoint to other FSC nodes in the same organization.
+    address: 0.0.0.0:5400
+    # TLS Settings
+    # (We use here the same set of properties as Hyperledger Fabric)
+    tls:
+      # Require server-side TLS
+      enabled:  true
+      # Require client certificates / mutual TLS for inbound connections.
+      # Note that clients that are not configured to use a certificate will
+      # fail to connect to the node.
+      clientAuthRequired: false
+      # X.509 certificate used for TLS server
+      cert:
+        file: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/server.crt
+      # Private key used for TLS server
+      key:
+        file: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/server.key
+      # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
+      # used for verifying certificates of client connections.
+  # P2P configuration
+  p2p:
+    # Type of p2p communication. Currently supported: libp2p (default), rest
+    type: websocket
+    # Listening address
+    listenAddress: /ip4/0.0.0.0/tcp/5401
+    opts:
+      # Only needed when type == libp2p
+      # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
+      bootstrapNode:
+      # Only needed when type == rest
+      # Defines how to fetch a router
+      routing:
+        # The path to the file that contains the routing, if the routing is static
+        path: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fsc/routing-config.yaml
+  persistences:
+  # The Key-Value Store is used to store various information related to the FSC node
+  kvs:
+    cache:
+      # Sets the maximum number of cached items
+      size: 200
+  # HTML Server configuration for REST calls
+  web:
+    enabled: false
+    # HTTPS server listener address
+    address: 0.0.0.0:5402
+    tls:
+      enabled:  true
+      cert:
+        file: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/server.crt
+      key:
+        file: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/server.key
+      # Require client certificates / mutual TLS for inbound connections.
+      # Note that clients that are not configured to use a certificate will
+      # fail to connect to the node.
+      clientAuthRequired: false
+      # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
+      # used for verifying certificates of client connections.
+      clientRootCAs:
+        files:
+          - /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/approver.fsc.example.com/tls/ca.crt
+  tracing:
+    # Type of provider to be used: none (default), file, otlp, console
+    provider:
+    # Tracer configuration when provider == 'file'
+    file:
+      # The file where the traces are going to be stored
+      path: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fsc/nodes/approver.0/trace.out
+    # Tracer configuration when provider == 'otlp'
+    otlp:
+      # The address of collector where we should send the traces
+      address: 0.0.0.0:4317
+    sampling:
+      ratio: 0
+  metrics:
+    # metrics provider is one of prometheus, or disabled
+    provider: none
+    prometheus:
+      # defines whether we should use a certificate to access the metrics under /metrics
+      tls: true
+
+  # The endpoint section tells how to reach other FSC node in the network.
+  # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
+  endpoint:
+    resolvers:
+      - name: creator
+        domain: fsc.example.com
+        identity:
+          path: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fsc/crypto/peerOrganizations/fsc.example.com/peers/creator.fsc.example.com/msp/signcerts/creator.fsc.example.com-cert.pem
+        addresses:
+          P2P: 127.0.0.1:5404
+        aliases:
+
+
+fabric:
+  default:
+    channels:
+      - chaincodes:
+          - name: simple
+            private: false
+        committer:
+          parallelism: 5
+          pollingTimeout: 100ms
+          waitForEventTimeout: 300s
+        default: true
+        delivery:
+          bufferSize: 300
+        name: testchannel
+        numRetries: 3
+        retrySleep: 1s
+    default: true
+    defaultMSP: approver
+    driver: fabricx
+    endpoint:
+      resolvers:
+        - addresses: null
+          aliases:
+            - approver
+          domain: org1.example.com
+          identity:
+            mspID: Org1MSP
+            path: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/users/approver@org1.example.com/msp
+          name: approver
+        - addresses: null
+          aliases:
+            - creator
+          domain: org1.example.com
+          identity:
+            mspID: Org1MSP
+            path: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/users/creator@org1.example.com/msp
+          name: creator
+    mspCacheSize: 500
+    msps:
+      - cacheSize: 0
+        id: approver
+        mspID: Org1MSP
+        mspType: bccsp
+        opts:
+          BCCSP:
+            Default: SW
+            PKCS11:
+              Hash: SHA2
+              Label: null
+              Library: null
+              Pin: null
+              Security: 256
+            SW:
+              Hash: SHA2
+              Security: 256
+        path: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/users/approver@org1.example.com/msp
+    notificationService:
+      endpoints:
+        - address: :5411
+          connectionTimeout: 5s
+          tlsEnabled: false
+          tlsRootCertFile: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fabric.default/crypto/ca-certs.pem
+      requestTimeout: 10s
+    ordering:
+      numRetries: 3
+      retryInterval: 3s
+      tlsEnabled: false
+    peers:
+      - address: :5411
+        connectionTimeout: 10s
+        serverNameOverride: null
+        tlsDisabled: true
+        tlsRootCertFile: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fabric.default/crypto/ca-certs.pem
+    queryService:
+      endpoints:
+        - address: localhost:7001
+          connectionTimeout: 5s
+          tlsEnabled: false
+          tlsRootCertFile: /Users/adc/go/src/github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/out/testdata/fabric.default/crypto/ca-certs.pem
+      queryTimeout: 10s
+    tls:
+      clientAuthRequired: false
+      enabled: false
+    vault:
+      txidstore:
+        cache:
+          size: 200
+  enabled: true
+

@@ -105,7 +105,7 @@ func (p *Provider) GetStringSlice(key string) []string {
 
 // UnmarshalKey unmarshals the configuration value associated with the given key into the raw value.
 func (p *Provider) UnmarshalKey(key string, rawVal interface{}) error {
-	return EnhancedExactUnmarshal(p.Backend, key, rawVal)
+	return EnhancedExactUnmarshal(p.Backend, strings.ToLower(key), rawVal)
 }
 
 // IsSet returns true if the given key is set in the configuration.
