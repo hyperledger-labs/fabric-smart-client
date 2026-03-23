@@ -13,27 +13,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/grpc/mock"
+	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
+	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestClientProvider_NotificationServiceClient(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		fakeConfigProvider := &mock.ConfigProvider{}
-		fakeConfigService := &mock.ConfigServiceGeneric{}
+		fakeConfigProvider := &mock2.ConfigProvider{}
+		fakeConfigService := &mock2.ConfigServiceGeneric{}
 		fakeConfigProvider.GetConfigReturns(fakeConfigService, nil)
 
 		fakeConfigService.UnmarshalKeyCalls(func(key string, rawVal interface{}) error {
 			if key == "notificationService" {
-				if cfg, ok := rawVal.(**grpc.Config); ok {
-					(*cfg).Endpoints = []grpc.Endpoint{{Address: "localhost:1234"}}
+				if cfg, ok := rawVal.(**grpc2.Config); ok {
+					(*cfg).Endpoints = []grpc2.Endpoint{{Address: "localhost:1234"}}
 				}
 			}
 			return nil
 		})
 
-		cp := grpc.NewClientProvider(fakeConfigProvider)
+		cp := grpc2.NewClientProvider(fakeConfigProvider)
 		cc, err := cp.NotificationServiceClient("test-network")
 		require.NoError(t, err)
 		require.NotNil(t, cc)
@@ -41,10 +41,10 @@ func TestClientProvider_NotificationServiceClient(t *testing.T) {
 	})
 
 	t.Run("config provider error", func(t *testing.T) {
-		fakeConfigProvider := &mock.ConfigProvider{}
+		fakeConfigProvider := &mock2.ConfigProvider{}
 		fakeConfigProvider.GetConfigReturns(nil, errors.New("config-error"))
 
-		cp := grpc.NewClientProvider(fakeConfigProvider)
+		cp := grpc2.NewClientProvider(fakeConfigProvider)
 		cc, err := cp.NotificationServiceClient("test-network")
 		require.Error(t, err)
 		require.Nil(t, cc)
@@ -52,12 +52,12 @@ func TestClientProvider_NotificationServiceClient(t *testing.T) {
 	})
 
 	t.Run("new config error", func(t *testing.T) {
-		fakeConfigProvider := &mock.ConfigProvider{}
-		fakeConfigService := &mock.ConfigServiceGeneric{}
+		fakeConfigProvider := &mock2.ConfigProvider{}
+		fakeConfigService := &mock2.ConfigServiceGeneric{}
 		fakeConfigProvider.GetConfigReturns(fakeConfigService, nil)
 		fakeConfigService.UnmarshalKeyReturns(errors.New("unmarshal-error"))
 
-		cp := grpc.NewClientProvider(fakeConfigProvider)
+		cp := grpc2.NewClientProvider(fakeConfigProvider)
 		cc, err := cp.NotificationServiceClient("test-network")
 		require.Error(t, err)
 		require.Nil(t, cc)
@@ -65,20 +65,20 @@ func TestClientProvider_NotificationServiceClient(t *testing.T) {
 	})
 
 	t.Run("client conn error (multiple endpoints)", func(t *testing.T) {
-		fakeConfigProvider := &mock.ConfigProvider{}
-		fakeConfigService := &mock.ConfigServiceGeneric{}
+		fakeConfigProvider := &mock2.ConfigProvider{}
+		fakeConfigService := &mock2.ConfigServiceGeneric{}
 		fakeConfigProvider.GetConfigReturns(fakeConfigService, nil)
 
 		fakeConfigService.UnmarshalKeyCalls(func(key string, rawVal interface{}) error {
 			if key == "notificationService" {
-				if cfg, ok := rawVal.(**grpc.Config); ok {
-					(*cfg).Endpoints = []grpc.Endpoint{{Address: "localhost:1234"}, {Address: "localhost:5678"}}
+				if cfg, ok := rawVal.(**grpc2.Config); ok {
+					(*cfg).Endpoints = []grpc2.Endpoint{{Address: "localhost:1234"}, {Address: "localhost:5678"}}
 				}
 			}
 			return nil
 		})
 
-		cp := grpc.NewClientProvider(fakeConfigProvider)
+		cp := grpc2.NewClientProvider(fakeConfigProvider)
 		cc, err := cp.NotificationServiceClient("test-network")
 		require.Error(t, err)
 		require.Nil(t, cc)
@@ -88,24 +88,24 @@ func TestClientProvider_NotificationServiceClient(t *testing.T) {
 
 func TestClientConn(t *testing.T) {
 	t.Run("no endpoints", func(t *testing.T) {
-		cfg := &grpc.Config{Endpoints: []grpc.Endpoint{}}
-		cc, err := grpc.ClientConn(cfg)
+		cfg := &grpc2.Config{Endpoints: []grpc2.Endpoint{}}
+		cc, err := grpc2.ClientConn(cfg)
 		require.Error(t, err)
 		require.Nil(t, cc)
 		require.Contains(t, err.Error(), "we need a single endpoint")
 	})
 
 	t.Run("empty address", func(t *testing.T) {
-		cfg := &grpc.Config{Endpoints: []grpc.Endpoint{{Address: ""}}}
-		cc, err := grpc.ClientConn(cfg)
+		cfg := &grpc2.Config{Endpoints: []grpc2.Endpoint{{Address: ""}}}
+		cc, err := grpc2.ClientConn(cfg)
 		require.Error(t, err)
 		require.Nil(t, cc)
-		require.Equal(t, grpc.ErrInvalidAddress, err)
+		require.Equal(t, grpc2.ErrInvalidAddress, err)
 	})
 
 	t.Run("success", func(t *testing.T) {
-		cfg := &grpc.Config{Endpoints: []grpc.Endpoint{{Address: "localhost:1234"}}}
-		cc, err := grpc.ClientConn(cfg)
+		cfg := &grpc2.Config{Endpoints: []grpc2.Endpoint{{Address: "localhost:1234"}}}
+		cc, err := grpc2.ClientConn(cfg)
 		require.NoError(t, err)
 		require.NotNil(t, cc)
 		require.Equal(t, "localhost:1234", cc.Target())
@@ -114,18 +114,18 @@ func TestClientConn(t *testing.T) {
 
 func TestWithTLS(t *testing.T) {
 	t.Run("tls disabled", func(t *testing.T) {
-		endpoint := grpc.Endpoint{TLSEnabled: false}
-		opt := grpc.WithTLS(endpoint)
+		endpoint := grpc2.Endpoint{TLSEnabled: false}
+		opt := grpc2.WithTLS(endpoint)
 		require.NotNil(t, opt)
 	})
 
 	t.Run("tls enabled root cert not found", func(t *testing.T) {
-		endpoint := grpc.Endpoint{
+		endpoint := grpc2.Endpoint{
 			TLSEnabled:      true,
 			TLSRootCertFile: "non-existent-file",
 		}
 		require.Panics(t, func() {
-			grpc.WithTLS(endpoint)
+			grpc2.WithTLS(endpoint)
 		})
 	})
 
@@ -135,24 +135,24 @@ func TestWithTLS(t *testing.T) {
 		err := os.WriteFile(certFile, []byte("invalid-cert"), 0644)
 		require.NoError(t, err)
 
-		endpoint := grpc.Endpoint{
+		endpoint := grpc2.Endpoint{
 			TLSEnabled:      true,
 			TLSRootCertFile: certFile,
 		}
 		require.Panics(t, func() {
-			grpc.WithTLS(endpoint)
+			grpc2.WithTLS(endpoint)
 		})
 	})
 }
 
 func TestWithConnectionTime(t *testing.T) {
 	t.Run("default timeout", func(t *testing.T) {
-		opt := grpc.WithConnectionTime(0)
+		opt := grpc2.WithConnectionTime(0)
 		require.NotNil(t, opt)
 	})
 
 	t.Run("custom timeout", func(t *testing.T) {
-		opt := grpc.WithConnectionTime(10 * time.Second)
+		opt := grpc2.WithConnectionTime(10 * time.Second)
 		require.NotNil(t, opt)
 	})
 }

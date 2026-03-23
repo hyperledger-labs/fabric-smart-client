@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
-	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/finality/mock"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,11 +33,11 @@ const (
 
 // setupMockNotificationManager creates a notificationListenerManager with mocked gRPC components
 // This allows us to test the REAL listen() behavior with controlled stream responses
-func setupMockNotificationManager(t *testing.T, streamBehavior func(context.Context, *mock2.FakeNotifier_OpenNotificationStreamClient)) *notificationListenerManager {
+func setupMockNotificationManager(t *testing.T, streamBehavior func(context.Context, *mock.FakeNotifier_OpenNotificationStreamClient)) *notificationListenerManager {
 	t.Helper()
 
-	fakeStream := &mock2.FakeNotifier_OpenNotificationStreamClient{}
-	fakeClient := &mock2.FakeNotifierClient{}
+	fakeStream := &mock.FakeNotifier_OpenNotificationStreamClient{}
+	fakeClient := &mock.FakeNotifierClient{}
 
 	// Configure the client to return our fake stream
 	fakeClient.OpenNotificationStreamStub = func(c context.Context, opts ...grpc.CallOption) (committerpb.Notifier_OpenNotificationStreamClient, error) {
@@ -126,7 +126,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Mock with stream that blocks until context is done
 		provider.newNotificationManager = func(network string, fnsp *fabric.NetworkServiceProvider, cp config.Provider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock.FakeNotifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
 					<-ctx.Done()
@@ -165,7 +165,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Mock with stream that blocks
 		provider.newNotificationManager = func(network string, fnsp *fabric.NetworkServiceProvider, cp config.Provider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock.FakeNotifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -196,7 +196,7 @@ func TestProvider_NewManager(t *testing.T) {
 		provider := NewListenerManagerProvider(nil, nil)
 
 		provider.newNotificationManager = func(network string, fnsp *fabric.NetworkServiceProvider, cp config.Provider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock.FakeNotifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -232,7 +232,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Mock stream that returns error immediately
 		provider.newNotificationManager = func(network string, fnsp *fabric.NetworkServiceProvider, cp config.Provider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock.FakeNotifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
 					return nil, errors.New("stream error")
@@ -266,7 +266,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Mock stream that blocks until context canceled
 		provider.newNotificationManager = func(network string, fnsp *fabric.NetworkServiceProvider, cp config.Provider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock.FakeNotifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
 					<-ctx.Done()
@@ -329,7 +329,7 @@ func TestProvider_NewManager(t *testing.T) {
 		provider := NewListenerManagerProvider(nil, nil)
 
 		provider.newNotificationManager = func(network string, fnsp *fabric.NetworkServiceProvider, cp config.Provider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock.FakeNotifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -370,11 +370,11 @@ func TestGetListenerManager(t *testing.T) {
 	t.Run("Returns_Manager_From_Service_Provider", func(t *testing.T) {
 		t.Parallel()
 
-		mockSP := &mock2.FakeServicesProvider{}
+		mockSP := &mock.FakeServicesProvider{}
 
 		provider := NewListenerManagerProvider(nil, nil)
 		provider.newNotificationManager = func(network string, fnsp *fabric.NetworkServiceProvider, cp config.Provider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock.FakeNotifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -403,7 +403,7 @@ func TestGetListenerManager(t *testing.T) {
 	t.Run("Returns_Error_When_Service_Not_Found", func(t *testing.T) {
 		t.Parallel()
 
-		mockSP := &mock2.FakeServicesProvider{}
+		mockSP := &mock.FakeServicesProvider{}
 		expectedErr := errors.New("service not found")
 
 		mockSP.GetServiceStub = func(serviceType any) (any, error) {
@@ -420,7 +420,7 @@ func TestGetListenerManager(t *testing.T) {
 	t.Run("Returns_Error_When_NewManager_Fails", func(t *testing.T) {
 		t.Parallel()
 
-		mockSP := &mock2.FakeServicesProvider{}
+		mockSP := &mock.FakeServicesProvider{}
 
 		provider := NewListenerManagerProvider(nil, nil)
 		expectedErr := errors.New("creation failed")

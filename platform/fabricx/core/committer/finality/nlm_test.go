@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
+	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/finality/mock"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -92,11 +92,11 @@ func (d *delayedListener) OnStatus(ctx context.Context, txID string, status int,
 	d.mockListener.OnStatus(ctx, txID, status, errMsg)
 }
 
-func setupTest(tb testing.TB) (*notificationListenerManager, *mock.FakeNotifier_OpenNotificationStreamClient) {
+func setupTest(tb testing.TB) (*notificationListenerManager, *mock2.FakeNotifier_OpenNotificationStreamClient) {
 	tb.Helper()
 
-	fakeStream := &mock.FakeNotifier_OpenNotificationStreamClient{}
-	fakeClient := &mock.FakeNotifierClient{}
+	fakeStream := &mock2.FakeNotifier_OpenNotificationStreamClient{}
+	fakeClient := &mock2.FakeNotifierClient{}
 
 	// Configure the client to return our fake stream
 	fakeClient.OpenNotificationStreamStub = func(c context.Context, opts ...grpc.CallOption) (committerpb.Notifier_OpenNotificationStreamClient, error) {

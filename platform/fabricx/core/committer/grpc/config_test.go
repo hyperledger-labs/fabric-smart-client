@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/grpc/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc/mock"
 	"github.com/stretchr/testify/require"
 )
 

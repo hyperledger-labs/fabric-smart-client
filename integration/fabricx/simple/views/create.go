@@ -17,8 +17,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 

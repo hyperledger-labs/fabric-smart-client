@@ -4,7 +4,7 @@ package mock
 import (
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/ledger"
 	"google.golang.org/grpc"
 )
 

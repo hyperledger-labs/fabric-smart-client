@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/grpc"
+	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 )
@@ -135,12 +135,12 @@ func newNotifi(network string, fnsp *fabric.NetworkServiceProvider, configProvid
 		return nil, err
 	}
 
-	c, err := grpc.NewNotificationServiceConfig(cfg)
+	c, err := grpc2.NewNotificationServiceConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	cc, err := grpc.ClientConn(c)
+	cc, err := grpc2.ClientConn(c)
 	if err != nil {
 		return nil, err
 	}
