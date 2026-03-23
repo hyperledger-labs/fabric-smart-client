@@ -31,6 +31,8 @@ const (
 	CmdRoot = "core"
 	// IDKey is the key to retrieve the FSC id
 	IDKey = "fsc.id"
+	// EnvCorePrefix is the prefix for the env variables
+	EnvCorePrefix = "CORE_"
 )
 
 const (
@@ -54,6 +56,7 @@ type Provider struct {
 	fullPath         string
 }
 
+// NewProvider creates a new configuration provider from the given path.
 func NewProvider(confPath string) (*Provider, error) {
 	p := &Provider{
 		eventSystem: simple.NewEventBus(),
@@ -75,39 +78,42 @@ func GetProvider(sp services.Provider) *Provider {
 	return s.(*Provider)
 }
 
+// ID returns the FSC node ID from the configuration.
 func (p *Provider) ID() string {
 	return p.GetString(IDKey)
 }
 
+// GetDuration returns the duration value associated with the given key.
 func (p *Provider) GetDuration(key string) time.Duration {
 	return p.Backend.Duration(strings.ToLower(key))
 }
 
+// GetBool returns the boolean value associated with the given key.
 func (p *Provider) GetBool(key string) bool {
 	return p.Backend.Bool(strings.ToLower(key))
 }
 
+// GetInt returns the integer value associated with the given key.
 func (p *Provider) GetInt(key string) int {
 	return p.Backend.Int(strings.ToLower(key))
 }
 
+// GetStringSlice returns the string slice associated with the given key.
 func (p *Provider) GetStringSlice(key string) []string {
 	return p.Backend.Strings(strings.ToLower(key))
 }
 
-func (p *Provider) AddDecodeHook(f DecodeHookFuncType) error {
-	return nil
-}
-
+// UnmarshalKey unmarshals the configuration value associated with the given key into the raw value.
 func (p *Provider) UnmarshalKey(key string, rawVal interface{}) error {
-	return p.Backend.Unmarshal(key, rawVal)
-	// return viperutil.EnhancedExactUnmarshal(p.Backend, key, rawVal)
+	return EnhancedExactUnmarshal(p.Backend, key, rawVal)
 }
 
+// IsSet returns true if the given key is set in the configuration.
 func (p *Provider) IsSet(key string) bool {
 	return p.Backend.Exists(strings.ToLower(key))
 }
 
+// GetPath returns the translated path associated with the given key.
 func (p *Provider) GetPath(key string) string {
 	path := p.Backend.String(strings.ToLower(key))
 	if path == "" {
@@ -117,6 +123,7 @@ func (p *Provider) GetPath(key string) string {
 	return TranslatePath(filepath.Dir(p.fullPath), path)
 }
 
+// TranslatePath returns the translated path.
 func (p *Provider) TranslatePath(path string) string {
 	if path == "" {
 		return ""
@@ -125,15 +132,19 @@ func (p *Provider) TranslatePath(path string) string {
 	return TranslatePath(filepath.Dir(p.fullPath), path)
 }
 
+// GetString returns the string value associated with the given key.
 func (p *Provider) GetString(key string) string {
 	return p.Backend.String(strings.ToLower(key))
 }
 
+// ConfigFileUsed returns the configuration file used.
+// Currently, this returns an empty string as koanf does not track it directly.
 func (p *Provider) ConfigFileUsed() string {
 	// koanf does not track the config file used, so we return empty string
 	return ""
 }
 
+// MergeConfig merges the given raw configuration into the current configuration.
 func (p *Provider) MergeConfig(raw []byte) error {
 	// only one writer at the time
 	p.mergeConfigMutex.Lock()
@@ -155,10 +166,12 @@ func (p *Provider) MergeConfig(raw []byte) error {
 	return nil
 }
 
+// OnMergeConfig registers an event handler to be notified when the configuration is merged.
 func (p *Provider) OnMergeConfig(handler OnMergeConfigEventHandler) {
 	p.eventSystem.Subscribe(MergeConfigEventTopic, &eventListener{handler: handler})
 }
 
+// String returns a string representation of the configuration.
 func (p *Provider) String() string {
 	out, err := p.Backend.Marshal(koanfyaml.Parser())
 	if err != nil {
@@ -225,7 +238,7 @@ func (p *Provider) loadFromRaw(raw []byte) error {
 	// No need to set config type
 
 	// read configuration
-	if err := p.Backend.Load(koanfbytes.Provider(raw), koanfyaml.Parser()); err != nil {
+	if err := p.Backend.Load(koanfbytes.Provider(raw), LowercaseParser{Parser: koanfyaml.Parser()}); err != nil {
 		return errors.Wrapf(err, "failed to read configuration from raw [%s]", logging.SHA256Base64(raw))
 	}
 	// post process
@@ -252,7 +265,7 @@ func (p *Provider) setupEnv() error {
 			}
 
 			// Transform the key.
-			k = strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(k, "CORE_")), "_", ".")
+			k = strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(k, EnvCorePrefix)), "_", ".")
 
 			// Get the existing value from koanf to check its type
 			existingValue := p.Backend.Get(k)
@@ -329,6 +342,17 @@ func (p *Provider) initConfigPaths(confPath string) ([]string, error) {
 	return paths, nil
 }
 
+// SetConfigPath sets the configuration path.
+func (p *Provider) SetConfigPath(path string) error {
+	fp, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	p.fullPath = fp
+
+	return nil
+}
+
 func dirExists(path string) bool {
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -337,6 +361,7 @@ func dirExists(path string) bool {
 	return fi.IsDir()
 }
 
+// TranslatePath joins the base path and the given path if the given path is relative.
 func TranslatePath(base, p string) string {
 	if filepath.IsAbs(p) {
 		return p
@@ -349,6 +374,7 @@ type eventListener struct {
 	handler OnMergeConfigEventHandler
 }
 
+// OnReceive is called when a merge configuration event is received.
 func (e *eventListener) OnReceive(event events.Event) {
 	e.handler.OnMergeConfig()
 }
@@ -356,10 +382,12 @@ func (e *eventListener) OnReceive(event events.Event) {
 type MergeConfigEvent struct {
 }
 
+// Topic returns the merge configuration event topic.
 func (m *MergeConfigEvent) Topic() string {
 	return MergeConfigEventTopic
 }
 
+// Message returns the merge configuration event message.
 func (m *MergeConfigEvent) Message() interface{} {
 	return nil
 }
@@ -369,6 +397,7 @@ type LowercaseParser struct {
 	koanf.Parser
 }
 
+// Unmarshal unmarshals the configuration into a map and lowercases the keys.
 func (l LowercaseParser) Unmarshal(b []byte) (map[string]any, error) {
 	m, err := l.Parser.Unmarshal(b)
 	if err != nil {
@@ -384,6 +413,13 @@ func lowercaseMapKeys(m map[string]any) map[string]any {
 		lowerKey := strings.ToLower(key)
 		if nestedMap, ok := val.(map[string]any); ok {
 			out[lowerKey] = lowercaseMapKeys(nestedMap)
+		} else if nestedSlice, ok := val.([]any); ok {
+			for i, nested := range nestedSlice {
+				if ns, ok := nested.(map[string]any); ok {
+					nestedSlice[i] = lowercaseMapKeys(ns)
+				}
+			}
+			out[lowerKey] = val
 		} else {
 			out[lowerKey] = val
 		}
