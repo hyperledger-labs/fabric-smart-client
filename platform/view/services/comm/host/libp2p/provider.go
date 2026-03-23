@@ -32,10 +32,10 @@ type configService interface {
 	GetPath(key string) string
 }
 
-func (c *config) PrivateKeyPath() string                      { return c.privateKeyPath }
-func (c *config) Bootstrap() bool                             { return len(c.bootstrapListenAddress) == 0 }
-func (c *config) ListenAddress() host2.PeerIPAddress          { return c.listenAddress }
-func (c *config) BootstrapListenAddress() host2.PeerIPAddress { return c.bootstrapListenAddress }
+type endpointService interface {
+	Resolve(ctx context.Context, party view.Identity) (view.Identity, map[endpoint.PortName]string, []byte, error)
+	GetIdentity(label string, pkID []byte) (view.Identity, error)
+}
 
 type config struct {
 	listenAddress          host2.PeerIPAddress
@@ -51,10 +51,10 @@ func NewConfig(cs configService) *config {
 	}
 }
 
-type endpointService interface {
-	Resolve(ctx context.Context, party view.Identity) (view.Identity, map[endpoint.PortName]string, []byte, error)
-	GetIdentity(label string, pkID []byte) (view.Identity, error)
-}
+func (c *config) PrivateKeyPath() string                      { return c.privateKeyPath }
+func (c *config) Bootstrap() bool                             { return len(c.bootstrapListenAddress) == 0 }
+func (c *config) ListenAddress() host2.PeerIPAddress          { return c.listenAddress }
+func (c *config) BootstrapListenAddress() host2.PeerIPAddress { return c.bootstrapListenAddress }
 
 type hostGeneratorProvider struct {
 	metrics         *metrics

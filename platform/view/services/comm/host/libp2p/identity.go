@@ -17,7 +17,7 @@ import (
 )
 
 func newCryptoPrivKeyFromMSP(secretKeyPath string) (crypto.PrivKey, error) {
-	logger.Debugf("libp2p: loading private key from [%s]...", secretKeyPath)
+	logger.Debugf("libp2p: loading private key from...")
 	fileCont, err := os.ReadFile(secretKeyPath)
 	if err != nil {
 		return nil, err
@@ -40,6 +40,6 @@ func newCryptoPrivKeyFromMSP(secretKeyPath string) (crypto.PrivKey, error) {
 		return nil, err
 	}
 
-	logger.Debugf("libp2p: successfully loaded private key from [%s]", secretKeyPath)
+	logger.Debugf("libp2p: successfully loaded private")
 	return priv, nil
 }

@@ -244,25 +244,32 @@ func (p *P2PNode) sendWithCachedStreams(streamHash string, msg proto.Message, se
 // If no address is specified, then p2p will use one of the IP addresses associated to the peer in its peer store.
 // If an address is specified, then the peer store will be updated with the passed address.
 func (p *P2PNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
+	logger.Debugf("send to [%s:%s:%s:%s]", info.SessionID, info.RemotePeerID, info.RemotePeerAddress, session.endpointAddress)
 	streamHash := p.host.StreamHash(info)
+	logger.Debugf("for stream hash [%s]: [%s]", info.SessionID, streamHash)
 	if err := p.sendWithCachedStreams(streamHash, msg, session); !errors.Is(err, errStreamNotFound) {
 		return errors.Wrap(err, "error while sending message to cached stream")
 	}
 
+	logger.Debugf("new stream [%s]", info.SessionID)
 	nwStream, err := p.host.NewStream(ctx, info)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create new stream to [%s]", info.RemotePeerID)
 	}
 	p.m.OpenedStreams.Add(1)
+
+	logger.Debugf("handle outgoing stream [%s]", info.SessionID)
 	sh := p.handleOutgoingStream(nwStream)
 
 	if session != nil {
+		logger.Debugf("register handle [%s]", info.SessionID)
 		session.mutex.Lock()
 		session.streams[sh] = struct{}{}
 		sh.refCtr.Add(1)
 		session.mutex.Unlock()
 	}
 
+	logger.Debugf("send message on stream [%s]", info.SessionID)
 	err = sh.send(msg)
 	if err != nil {
 		return errors.Wrap(err, "error while sending message to freshly created stream")
@@ -330,7 +337,9 @@ func (s *streamHandler) send(msg proto.Message) error {
 	if s.isClosed() {
 		return errors.New("stream handler is closed")
 	}
+	logger.Debugf("sending message to stream [%s]", s.stream.Hash())
 	if err := s.writer.WriteMsg(msg); err != nil {
+		logger.Errorf("failed sending message to stream [%s]", s.stream.Hash())
 		return err
 	}
 	return nil

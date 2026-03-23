@@ -53,6 +53,66 @@ type host struct {
 	bootstrapNode host2.PeerIPAddress
 }
 
+func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metrics *metrics, bootstrap bool, bootstrapNode host2.PeerIPAddress) (*host, error) {
+	logger.Debugf("libp2p: Creating new host at [%s], bootstrap: %v, bootstrapNode: [%s]...", listenAddress, bootstrap, bootstrapNode)
+	addr, err := multiaddr.NewMultiaddr(listenAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	connManager, err := connmgr.NewConnManager(100, 400, connmgr.WithGracePeriod(time.Minute))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed creating conn manager for libp2p host")
+	}
+	opts := []libp2p.Option{
+		libp2p.ListenAddrs(addr),
+		libp2p.Identity(priv),
+		// support TLS connections
+		libp2p.Security(libp2ptls.ID, libp2ptls.New),
+		// support noise connections
+		libp2p.Security(noise.ID, noise.New),
+		// support any other default transports (TCP)
+		libp2p.DefaultTransports,
+		// Let's prevent our peer from having too many
+		// connections by attaching a connection manager.
+		libp2p.ConnectionManager(connManager), libp2p.ForceReachabilityPublic(),
+		libp2p.BandwidthReporter(newReporter(metrics)),
+	}
+
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		if err := libp2plogging.SetLogLevel("basichost", "debug"); err != nil {
+			return nil, errors.Wrapf(err, "failed setting debug level")
+		}
+	}
+
+	h, err := libp2p.New(opts...)
+	if err != nil {
+		logger.Errorf("libp2p: failed to create new host at [%s]: %v", listenAddress, err)
+		return nil, err
+	}
+
+	ctx := context.Background()
+	kademliaDHT, err := dht.New(ctx, h)
+	if err != nil {
+		return nil, err
+	}
+
+	err = kademliaDHT.Bootstrap(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	libp2pHost := &host{
+		Host:          h,
+		finder:        routing.NewRoutingDiscovery(kademliaDHT),
+		peers:         make(map[string]peer.AddrInfo),
+		bootstrap:     bootstrap,
+		bootstrapNode: bootstrapNode,
+	}
+	logger.Debugf("libp2p: successfully created new host [%s] at [%s]", libp2pHost.ID(), listenAddress)
+	return libp2pHost, nil
+}
+
 func (h *host) Wait() {
 	h.finderWg.Wait()
 }
@@ -110,64 +170,6 @@ func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	}
 	logger.Debugf("libp2p: host [%s] started successfully", h.ID())
 	return nil
-}
-
-func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metrics *metrics, bootstrap bool, bootstrapNode host2.PeerIPAddress) (*host, error) {
-	logger.Debugf("libp2p: Creating new host at [%s], bootstrap: %v, bootstrapNode: [%s]...", listenAddress, bootstrap, bootstrapNode)
-	addr, err := multiaddr.NewMultiaddr(listenAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	connManager, err := connmgr.NewConnManager(100, 400, connmgr.WithGracePeriod(time.Minute))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed creating conn manager for libp2p host")
-	}
-	opts := []libp2p.Option{
-		libp2p.ListenAddrs(addr),
-		libp2p.Identity(priv),
-		// support TLS connections
-		libp2p.Security(libp2ptls.ID, libp2ptls.New),
-		// support noise connections
-		libp2p.Security(noise.ID, noise.New),
-		// support any other default transports (TCP)
-		libp2p.DefaultTransports,
-		// Let's prevent our peer from having too many
-		// connections by attaching a connection manager.
-		libp2p.ConnectionManager(connManager), libp2p.ForceReachabilityPublic(),
-		libp2p.BandwidthReporter(newReporter(metrics)),
-	}
-
-	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		libp2plogging.SetDebugLogging()
-	}
-
-	h, err := libp2p.New(opts...)
-	if err != nil {
-		logger.Errorf("libp2p: failed to create new host at [%s]: %v", listenAddress, err)
-		return nil, err
-	}
-
-	ctx := context.Background()
-	kademliaDHT, err := dht.New(ctx, h)
-	if err != nil {
-		return nil, err
-	}
-
-	err = kademliaDHT.Bootstrap(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	libp2pHost := &host{
-		Host:          h,
-		finder:        routing.NewRoutingDiscovery(kademliaDHT),
-		peers:         make(map[string]peer.AddrInfo),
-		bootstrap:     bootstrap,
-		bootstrapNode: bootstrapNode,
-	}
-	logger.Debugf("libp2p: successfully created new host [%s] at [%s]", libp2pHost.ID(), listenAddress)
-	return libp2pHost, nil
 }
 
 func (h *host) StreamHash(input host2.StreamInfo) host2.StreamHash {
