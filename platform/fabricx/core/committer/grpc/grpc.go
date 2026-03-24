@@ -106,9 +106,7 @@ func WithTLS(endpoint config.Endpoint) grpc.DialOption {
 	}
 
 	if _, err := os.Stat(endpoint.TLSRootCertFile); errors.Is(err, os.ErrNotExist) {
-		if err != nil {
-			panic(err)
-		}
+		panic(err)
 	}
 
 	creds, err := credentials.NewClientTLSFromFile(endpoint.TLSRootCertFile, endpoint.TLSServerNameOverride)

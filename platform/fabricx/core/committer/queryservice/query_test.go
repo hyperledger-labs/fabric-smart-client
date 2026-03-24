@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
-	queryservice2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice/mock"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/require"
@@ -23,7 +23,7 @@ import (
 // To re-generate the mock/ run "go generate" directive
 //go:generate counterfeiter -o mock/quer_service_client.go github.com/hyperledger/fabric-x-common/api/committerpb.QueryServiceClient
 
-func setupTest(tb testing.TB) (*queryservice2.RemoteQueryService, *mock.FakeQueryServiceClient) {
+func setupTest(tb testing.TB) (*queryservice.RemoteQueryService, *mock.FakeQueryServiceClient) {
 	tb.Helper()
 
 	c := &config.Config{
@@ -32,7 +32,7 @@ func setupTest(tb testing.TB) (*queryservice2.RemoteQueryService, *mock.FakeQuer
 	}
 
 	client := &mock.FakeQueryServiceClient{}
-	qs := queryservice2.NewRemoteQueryService(c, client)
+	qs := queryservice.NewRemoteQueryService(c, client)
 
 	return qs, client
 }
