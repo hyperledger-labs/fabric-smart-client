@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -36,9 +36,9 @@ func generateQSExtension(n *network.Network) {
 
 	// TODO: most of this logic should go into the query service package
 
-	config := queryservice.Config{
-		QueryTimeout: 10 * time.Second,
-		Endpoints: []queryservice.Endpoint{
+	c := config.Config{
+		RequestTimeout: 10 * time.Second,
+		Endpoints: []config.Endpoint{
 			{
 				Address:           fmt.Sprintf("%s:%v", queryServiceHost, queryServicePort),
 				ConnectionTimeout: grpc.DefaultConnectionTimeout,
@@ -49,9 +49,9 @@ func generateQSExtension(n *network.Network) {
 	}
 
 	t, err := template.New("view_extension").Funcs(template.FuncMap{
-		"NetworkName":  func() string { return n.Topology().Name() },
-		"QueryTimeout": func() time.Duration { return config.QueryTimeout },
-		"Endpoints":    func() []queryservice.Endpoint { return config.Endpoints },
+		"NetworkName":    func() string { return n.Topology().Name() },
+		"RequestTimeout": func() time.Duration { return c.RequestTimeout },
+		"Endpoints":      func() []config.Endpoint { return c.Endpoints },
 	}).Parse(qsExtensionTemplate)
 	utils.Must(err)
 
@@ -73,7 +73,7 @@ const qsExtensionTemplate = `
 fabric:
   {{ NetworkName }}:
     queryService:
-      queryTimeout: {{ QueryTimeout }}
+      requestTimeout: {{ RequestTimeout }}
       endpoints:{{- range Endpoints }}
         - address: {{ .Address }}
           connectionTimeout: {{ .ConnectionTimeout }}        

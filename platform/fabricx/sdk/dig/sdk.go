@@ -13,6 +13,7 @@ import (
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/ledger"
@@ -46,7 +47,16 @@ func (p *SDK) Install() error {
 		// Register the new fabricx platform driver
 		p.Container().Provide(NewDriver, dig.Group("fabric-platform-drivers")),
 		p.Container().Provide(NewChannelProvider, dig.As(new(ChannelProvider))),
-		p.Container().Provide(grpc.NewClientProvider, dig.As(new(ledger.GRPCClientProvider))),
+		p.Container().Provide(config.NewProvider, dig.As(
+			new(grpc.ServiceConfigProvider),
+			new(finality.ServiceConfigProvider),
+			new(queryservice.ServiceConfigProvider),
+		)),
+		p.Container().Provide(grpc.NewClientProvider, dig.As(
+			new(ledger.GRPCClientProvider),
+			new(queryservice.GRPCClientProvider),
+			new(finality.GRPCClientProvider),
+		)),
 		p.Container().Provide(ledger.NewProvider),
 		p.Container().Provide(finality.NewListenerManagerProvider),
 		p.Container().Provide(digutils.Identity[*finality.Provider](), dig.As(new(finality.ListenerManagerProvider))),

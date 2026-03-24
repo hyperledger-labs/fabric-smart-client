@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package grpc
+package config
 
 import (
 	"time"
@@ -37,17 +37,17 @@ type Endpoint struct {
 	TLSServerNameOverride string `yaml:"tlsServerNameOverride,omitempty"`
 }
 
-//go:generate counterfeiter -o mock/config_service.go --fake-name ConfigService . ConfigService
-
-// ConfigService defines the interface for retrieving configuration values.
-type ConfigService interface {
+// ServiceBackend defines the interface for retrieving configuration values.
+//
+//go:generate counterfeiter -o mock/service_backend.go --fake-name ServiceBackend . ServiceBackend
+type ServiceBackend interface {
 	// UnmarshalKey takes a single key and unmarshal it into a struct.
 	UnmarshalKey(key string, rawVal interface{}) error
 }
 
 // NewNotificationServiceConfig creates a new Config instance by unmarshaling the "notificationService" key
-// from the provided ConfigService. It returns an error if the unmarshaling fails.
-func NewNotificationServiceConfig(configService ConfigService) (*Config, error) {
+// from the provided ServiceBackend. It returns an error if the unmarshaling fails.
+func NewNotificationServiceConfig(configService ServiceBackend) (*Config, error) {
 	config := &Config{
 		RequestTimeout: DefaultRequestTimeout,
 	}
@@ -55,6 +55,21 @@ func NewNotificationServiceConfig(configService ConfigService) (*Config, error) 
 	err := configService.UnmarshalKey("notificationService", &config)
 	if err != nil {
 		return config, errors.Wrap(err, "unmarshal notificationService")
+	}
+
+	return config, nil
+}
+
+// NewQueryServiceConfig creates a new Config instance by unmarshaling the "queryService" key
+// from the provided ServiceBackend. It returns an error if the unmarshaling fails.
+func NewQueryServiceConfig(configService ServiceBackend) (*Config, error) {
+	config := &Config{
+		RequestTimeout: DefaultRequestTimeout,
+	}
+
+	err := configService.UnmarshalKey("queryService", &config)
+	if err != nil {
+		return config, errors.Wrap(err, "unmarshal queryService")
 	}
 
 	return config, nil

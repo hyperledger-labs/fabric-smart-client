@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	queryservice2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice/mock"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
@@ -25,13 +26,13 @@ import (
 func setupTest(tb testing.TB) (*queryservice2.RemoteQueryService, *mock.FakeQueryServiceClient) {
 	tb.Helper()
 
-	config := &queryservice2.Config{
-		Endpoints:    nil,
-		QueryTimeout: 5 * time.Second,
+	c := &config.Config{
+		Endpoints:      nil,
+		RequestTimeout: 5 * time.Second,
 	}
 
 	client := &mock.FakeQueryServiceClient{}
-	qs := queryservice2.NewRemoteQueryService(config, client)
+	qs := queryservice2.NewRemoteQueryService(c, client)
 
 	return qs, client
 }

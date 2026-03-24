@@ -14,11 +14,17 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"google.golang.org/grpc"
 )
+
+// GRPCClientProvider provides gRPC client connections for a given network.
+type GRPCClientProvider interface {
+	// NotificationServiceClient returns a gRPC client connection for the specified network.
+	NotificationServiceClient(network string) (*grpc.ClientConn, error)
+}
 
 // ListenerManager defines the interface for managing finality listeners for transactions.
 // It allows for dynamic registration and de-registration of callbacks (listeners)
@@ -34,15 +40,24 @@ type ListenerManagerProvider interface {
 	NewManager(network, channel string) (ListenerManager, error)
 }
 
+// ServiceConfigProvider provides gRPC configuration for a given network.
+//
+//go:generate counterfeiter -o mock/service_config_provider.go --fake-name ServiceConfigProvider . ServiceConfigProvider
+type ServiceConfigProvider interface {
+	// NotificationServiceConfig returns the configuration for the notification service for the specified network.
+	NotificationServiceConfig(network string) (*config.Config, error)
+}
+
 // NewListenerManagerProvider creates a new instance of the Provider, which implements ListenerManagerProvider.
 // This provider manages the lifecycle of ListenerManager instances, ensuring one per
 // network/channel combination.
-func NewListenerManagerProvider(fnsp *fabric.NetworkServiceProvider, configProvider config.Provider) *Provider {
+func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, fnsp *fabric.NetworkServiceProvider, configProvider ServiceConfigProvider) *Provider {
 	return &Provider{
+		grpcClientProvider:     grpcClientProvider,
 		fnsp:                   fnsp,
 		configProvider:         configProvider,
 		managers:               make(map[string]ListenerManager),
-		newNotificationManager: newNotifi,
+		newNotificationManager: newNotifiWithGRPC,
 		// Note: baseCtx will be initialized in the Initialize method.
 	}
 }
@@ -50,9 +65,10 @@ func NewListenerManagerProvider(fnsp *fabric.NetworkServiceProvider, configProvi
 // Provider implements ListenerManagerProvider and manages ListenerManager instances.
 // IMPORTANT: Initialize method MUST be called once during service setup before calling NewManager method.
 type Provider struct {
-	newNotificationManager func(network string, fnsp *fabric.NetworkServiceProvider, cp config.Provider) (*notificationListenerManager, error)
+	newNotificationManager func(network string, fnsp *fabric.NetworkServiceProvider, gcp GRPCClientProvider) (*notificationListenerManager, error)
 	fnsp                   *fabric.NetworkServiceProvider
-	configProvider         config.Provider
+	configProvider         ServiceConfigProvider
+	grpcClientProvider     GRPCClientProvider
 	managers               map[string]ListenerManager // map: "network:channel" -> ListenerManager instance
 	managersMu             sync.Mutex
 	baseCtx                context.Context // The root context for all ListenerManager goroutines. MUST be set via Initialize().
@@ -92,7 +108,7 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 	}
 
 	// 2. Create the concrete ListenerManager
-	lm, err := p.newNotificationManager(network, p.fnsp, p.configProvider)
+	lm, err := p.newNotificationManager(network, p.fnsp, p.grpcClientProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -121,28 +137,11 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 	return lm, nil
 }
 
-// newNotifi creates and initializes a notificationListenerManager, establishing a gRPC connection
-// and opening a notification stream to the external committer service.
-func newNotifi(network string, fnsp *fabric.NetworkServiceProvider, configProvider config.Provider) (*notificationListenerManager, error) { // 1. Resolve the network service using the interface
-	nw, err := fnsp.FabricNetworkService(network)
+// newNotifiWithGRPC creates and initializes a notificationListenerManager using the GRPCClientProvider.
+func newNotifiWithGRPC(network string, fnsp *fabric.NetworkServiceProvider, grpcClientProvider GRPCClientProvider) (*notificationListenerManager, error) {
+	cc, err := grpcClientProvider.NotificationServiceClient(network)
 	if err != nil {
-		return nil, err
-	}
-
-	// Load the specific configuration for this network
-	cfg, err := configProvider.GetConfig(nw.Name())
-	if err != nil {
-		return nil, err
-	}
-
-	c, err := grpc2.NewNotificationServiceConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	cc, err := grpc2.ClientConn(c)
-	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)
 	}
 
 	// Create the gRPC client stub for the Notifier service
