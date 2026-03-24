@@ -12,8 +12,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/ledger"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/ledger/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )

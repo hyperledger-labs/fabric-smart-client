@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/ledger"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/ledger/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger/mock"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/assert"
