@@ -26,8 +26,8 @@ import (
 //go:generate counterfeiter -o mock/query_client.go --fake-name QueryServiceClient github.com/hyperledger/fabric-x-common/api/committerpb.QueryServiceClient
 //go:generate counterfeiter -o mock/config_provider.go --fake-name ConfigProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config.Provider
 //go:generate counterfeiter -o mock/config_service.go --fake-name ConfigService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config.ConfigService
-//go:generate counterfeiter -o mock/query_service.go --fake-name QueryService github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice.QueryService
-//go:generate counterfeiter -o mock/query_service_provider.go --fake-name QueryServiceProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault/queryservice.Provider
+//go:generate counterfeiter -o mock/query_service.go --fake-name QueryService github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice.QueryService
+//go:generate counterfeiter -o mock/query_service_provider.go --fake-name QueryServiceProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice.Provider
 
 // GRPCClientProvider provides gRPC client connections for a given network.
 //
