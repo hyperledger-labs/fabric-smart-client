@@ -8,139 +8,188 @@ package ledger
 
 import (
 	"context"
-	"sync"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var (
-	logger  = logging.MustGetLogger()
-	retries = 5
-)
+// logger is the ledger package logger.
+var logger = logging.MustGetLogger()
 
-// ledger is an in-memory implementation of the driver.Ledger interface.
-// this component is here temporary until we have an implementation that can get this information from the committer directly.
+// ledger implements the driver.Ledger interface for FabricX.
 type ledger struct {
-	mu        sync.RWMutex
-	statuses  map[string]committerpb.Status
-	blockNums map[string]driver.BlockNum
+	// client is the BlockQueryServiceClient for interacting with the committer.
+	client committerpb.BlockQueryServiceClient
+	// queryService is the QueryService for querying transaction status.
+	queryService queryservice.QueryService
+	// baseCtx is the background context for RPC calls.
+	baseCtx context.Context
 }
 
-// check that we implement the driver.Ledger.
-var _ driver.Ledger = (*ledger)(nil)
-
-func New() *ledger {
-	l := &ledger{
-		statuses:  make(map[string]committerpb.Status),
-		blockNums: make(map[string]driver.BlockNum),
+// New returns a new ledger instance with the given clients and base context.
+func New(client committerpb.BlockQueryServiceClient, queryService queryservice.QueryService, baseCtx context.Context) *ledger {
+	return &ledger{
+		client:       client,
+		queryService: queryService,
+		baseCtx:      baseCtx,
 	}
-	return l
 }
 
-func (c *ledger) OnBlock(_ context.Context, block *cb.Block) (bool, error) {
-	logger.Debugf("Received block [blockNo=%d]", block.Header.Number)
-	newStatuses := make(map[string]committerpb.Status, len(block.Data.Data))
-	newBlockNums := make(map[string]driver.BlockNum, len(block.Data.Data))
-
-	for i, tx := range block.Data.Data {
-		_, _, chdr, err := fabricutils.UnmarshalTx(tx)
-		if err != nil {
-			return false, errors.Wrapf(err, "unmarshal transaction channel header")
-		}
-
-		statusCode := committerpb.Status(block.Metadata.Metadata[cb.BlockMetadataIndex_TRANSACTIONS_FILTER][i])
-
-		logger.Debugf("unmarshalled [blockNum=%d, pos=%d, txID=%s, status=%v]",
-			block.Header.Number, i, chdr.TxId, statusCode)
-		newStatuses[chdr.TxId] = statusCode
-		newBlockNums[chdr.TxId] = block.Header.Number
+// GetLedgerInfo returns information about the ledger, such as height and current block hash.
+func (c *ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
+	info, err := c.client.GetBlockchainInfo(c.baseCtx, &emptypb.Empty{})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get blockchain info")
 	}
-
-	c.mu.Lock()
-	for txID, status := range newStatuses {
-		c.statuses[txID] = status
-	}
-	for txID, blockNum := range newBlockNums {
-		c.blockNums[txID] = blockNum
-	}
-	logger.Debugf("Current size of tx statuses: %d", len(c.statuses))
-	c.mu.Unlock()
-
-	return false, nil
+	return &driver.LedgerInfo{
+		Height:            info.Height,
+		CurrentBlockHash:  info.CurrentBlockHash,
+		PreviousBlockHash: info.PreviousBlockHash,
+	}, nil
 }
 
-func (*ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
-	return nil, errors.New("not implemented")
-}
-
+// GetTransactionByID returns the processed transaction for the given transaction ID.
 func (c *ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
-	// TODO: this will be replaced with a call to the sidecar
-	logger.Debugf("Seek transaction status [%s]", txID)
-	for range retries {
-		c.mu.RLock()
-		status, ok := c.statuses[txID]
-		c.mu.RUnlock()
-		if ok {
-			logger.Debugf("Transaction [txID=%s] found with status [%d]", txID, int32(status))
-			return &liteTx{txID: txID, validationCode: status}, nil
-		}
-		logger.Warnf("Transaction [txID=%s] not found. retrying...", txID)
-		time.Sleep(1 * time.Second)
+	env, err := c.client.GetTxByID(c.baseCtx, &committerpb.TxID{TxId: txID})
+	if err != nil {
+		return nil, errors.Wrapf(finality.TxNotFound, "failed to get tx for txID [%s]: %s", txID, err)
 	}
 
-	return nil, errors.Wrapf(finality.TxNotFound, "transaction [%s] not found", txID)
+	status, err := c.queryService.GetTransactionStatus(txID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get transaction status for txID [%s]", txID)
+	}
+
+	results, err := unpackResults(env.Payload)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to unpack results for txID [%s]", txID)
+	}
+
+	envRaw, err := protoutil.Marshal(env)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to marshal envelope for txID [%s]", txID)
+	}
+
+	return &ProcessedTransaction{
+		txID:           txID,
+		results:        results,
+		validationCode: status,
+		envelope:       envRaw,
+	}, nil
 }
 
+// GetBlockNumberByTxID returns the block number that contains the given transaction ID.
 func (c *ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
-	// TODO: this will be replaced with a call to the sidecar
-	logger.Debugf("Seek transaction blockNum [%s]", txID)
-	for range retries {
-		c.mu.RLock()
-		blockNum, ok := c.blockNums[txID]
-		c.mu.RUnlock()
-		if ok {
-			logger.Debugf("Transaction [txID=%s] found with blockNum [%v]", txID, blockNum)
-			return blockNum, nil
-		}
-		logger.Warnf("Transaction [txID=%s] not found. retrying...", txID)
-		time.Sleep(1 * time.Second)
+	block, err := c.client.GetBlockByTxID(c.baseCtx, &committerpb.TxID{TxId: txID})
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to get block for txID [%s]", txID)
 	}
-	return 0, errors.Errorf("transaction [txID=%s] not found", txID)
+	return block.Header.Number, nil
 }
 
+// GetBlockByNumber returns the block at the given block number.
 func (c *ledger) GetBlockByNumber(number uint64) (driver.Block, error) {
-	// TODO: this will be replaced with a call to the sidecar
-	panic("GetBlockByNumber >> implement me")
+	block, err := c.client.GetBlockByNumber(c.baseCtx, &committerpb.BlockNumber{Number: number})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get block by number [%d]", number)
+	}
+	return &Block{Block: block}, nil
 }
 
-type liteTx struct {
+// Block wraps a Fabric block to provide ledger.Block functionality.
+type Block struct {
+	*cb.Block
+}
+
+// DataAt returns the data stored at the passed index within the block.
+func (b *Block) DataAt(i int) []byte {
+	return b.Data.Data[i]
+}
+
+// ProcessedTransaction returns the ProcessedTransaction at the passed index within the block.
+func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error) {
+	txRaw := b.Data.Data[i]
+	env, _, chdr, err := fabricutils.UnmarshalTx(txRaw)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to unmarshal tx at index [%d]", i)
+	}
+
+	results, err := unpackResults(env.Payload)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to unpack results at index [%d]", i)
+	}
+
+	return &ProcessedTransaction{
+		txID:           chdr.TxId,
+		results:        results,
+		validationCode: int32(b.Metadata.Metadata[cb.BlockMetadataIndex_TRANSACTIONS_FILTER][i]),
+		envelope:       txRaw,
+	}, nil
+}
+
+// ProcessedTransaction implements the driver.ProcessedTransaction interface.
+type ProcessedTransaction struct {
 	txID           string
-	validationCode committerpb.Status
+	results        []byte
+	validationCode int32
+	envelope       []byte
 }
 
-func (t *liteTx) TxID() string {
+// NewProcessedTransaction creates a new ProcessedTransaction with the given parameters.
+func NewProcessedTransaction(txID string, results []byte, validationCode int32, envelope []byte) *ProcessedTransaction {
+	return &ProcessedTransaction{txID: txID, results: results, validationCode: validationCode, envelope: envelope}
+}
+
+// TxID returns the transaction ID.
+func (t *ProcessedTransaction) TxID() string {
 	return t.txID
 }
 
-func (t *liteTx) Results() []byte {
-	panic("unimplemented Results()")
+// Results returns the transaction results.
+func (t *ProcessedTransaction) Results() []byte {
+	return t.results
 }
 
-func (t *liteTx) ValidationCode() int32 {
-	return int32(t.validationCode)
+// ValidationCode returns the validation code of the transaction.
+func (t *ProcessedTransaction) ValidationCode() int32 {
+	return t.validationCode
 }
 
-func (t *liteTx) IsValid() bool {
-	return t.validationCode == committerpb.Status_COMMITTED
+// IsValid returns true if the transaction was committed (validation code 0).
+func (t *ProcessedTransaction) IsValid() bool {
+	return t.validationCode == int32(committerpb.Status_COMMITTED)
 }
 
-func (t *liteTx) Envelope() []byte {
-	panic("unimplemented Envelope()")
+// Envelope returns the raw transaction envelope.
+func (t *ProcessedTransaction) Envelope() []byte {
+	return t.envelope
+}
+
+// unpackResults extracts the payload data from a transaction payload.
+// It returns the serialized read-write set (applicationpb.Tx) contained in the payload.
+func unpackResults(payloadRaw []byte) ([]byte, error) {
+	payl, err := protoutil.UnmarshalPayload(payloadRaw)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal payload")
+	}
+
+	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal channel header")
+	}
+
+	if cb.HeaderType(chdr.Type) != cb.HeaderType_MESSAGE {
+		return nil, errors.Errorf("only HeaderType_MESSAGE Transactions are supported, provided type %d", chdr.Type)
+	}
+
+	// For FabricX, Payload.Data contains the serialized rwset (applicationpb.Tx)
+	return payl.Data, nil
 }
