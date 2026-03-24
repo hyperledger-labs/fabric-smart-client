@@ -4,14 +4,14 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package channelconfig_test
+package config_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channelconfig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channelconfig/mock"
+	channelconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

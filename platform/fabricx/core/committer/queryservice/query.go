@@ -92,7 +92,7 @@ func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
 
 // GetConfigTransaction returns the envelope and version of the most recent config transaction
 func (s *RemoteQueryService) GetConfigTransaction() (*ConfigTransactionInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.config.QueryTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
 	defer cancel()
 
 	now := time.Now()

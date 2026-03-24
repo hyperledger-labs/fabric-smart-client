@@ -4,7 +4,7 @@ package mock
 import (
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channelconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -114,4 +114,4 @@ func (fake *OrderingService) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ channelconfig.OrderingService = new(OrderingService)
+var _ config.OrderingService = new(OrderingService)

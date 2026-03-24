@@ -1,8 +1,8 @@
-# Channel Configuration Monitor Service - Design Document
+# Channel Configuration Monitor Service
 
 ## Overview
 
-The Channel Configuration Monitor Service is a new service under `platform/fabricx/core/channelconfig` that periodically monitors for new channel configuration transactions and automatically updates the membership and ordering services when configuration changes are detected.
+The Channel Configuration Monitor Service is a new service under `platform/fabricx/core/channel/config` that periodically monitors for new channel configuration transactions and automatically updates the membership and ordering services when configuration changes are detected.
 
 ## Problem Statement
 
@@ -147,7 +147,7 @@ fabric:
 ## File Structure
 
 ```
-platform/fabricx/core/channelconfig/
+platform/fabricx/core/channel/config/
 ├── DESIGN.md                    # This document
 ├── IMPLEMENTATION_PLAN.md       # Implementation plan
 ├── monitor.go                   # Main service implementation

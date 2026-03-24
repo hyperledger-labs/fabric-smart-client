@@ -13,22 +13,30 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"google.golang.org/grpc"
 )
 
-//go:generate counterfeiter -o mock/grpc_client_provider.go --fake-name GRPCClientProvider . GRPCClientProvider
-
 // GRPCClientProvider provides gRPC client connections for a given network.
+//
+//go:generate counterfeiter -o mock/grpc_client_provider.go --fake-name GRPCClientProvider . GRPCClientProvider
 type GRPCClientProvider interface {
 	// QueryServiceClient returns a gRPC client connection for the specified network.
 	QueryServiceClient(network string) (*grpc.ClientConn, error)
 }
 
+type ConfigTransactionInfo struct {
+	Envelope *common.Envelope
+	Version  uint64
+}
+
+//go:generate counterfeiter -o mock/query_service.go --fake-name QueryService . QueryService
 type QueryService interface {
 	GetState(ns driver.Namespace, key driver.PKey) (*driver.VaultValue, error)
 	GetStates(map[driver.Namespace][]driver.PKey) (map[driver.Namespace]map[driver.PKey]driver.VaultValue, error)
 	GetTransactionStatus(txID string) (int32, error)
+	GetConfigTransaction() (*ConfigTransactionInfo, error)
 }
 
 // ServiceConfigProvider provides gRPC configuration for a given network.

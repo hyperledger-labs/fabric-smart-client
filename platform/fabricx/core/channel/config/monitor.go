@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package channelconfig
+package config
 
 import (
 	"context"
@@ -14,29 +14,24 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 )
 
 var logger = logging.MustGetLogger()
 
-// ConfigTransactionInfo contains information about a configuration transaction
-type ConfigTransactionInfo struct {
-	Envelope *cb.Envelope
-	Version  uint64
-}
-
-//go:generate counterfeiter -o mock/query_service.go -fake-name QueryService . QueryService
-
 // QueryService defines the interface for querying configuration transactions
+//
+//go:generate counterfeiter -o mock/query_service.go -fake-name QueryService . QueryService
 type QueryService interface {
 	// GetConfigTransaction retrieves the latest configuration transaction for the channel
-	GetConfigTransaction() (*ConfigTransactionInfo, error)
+	GetConfigTransaction() (*queryservice.ConfigTransactionInfo, error)
 }
 
-//go:generate counterfeiter -o mock/membership_service.go -fake-name MembershipService . MembershipService
-
 // MembershipService defines the interface for updating channel membership
+//
+//go:generate counterfeiter -o mock/membership_service.go -fake-name MembershipService . MembershipService
 type MembershipService interface {
 	// Update updates the membership service with a new configuration envelope
 	Update(env *cb.Envelope) error
@@ -45,9 +40,9 @@ type MembershipService interface {
 	OrdererConfig(cs driver.ConfigService) (string, []*grpc.ConnectionConfig, error)
 }
 
-//go:generate counterfeiter -o mock/ordering_service.go -fake-name OrderingService . OrderingService
-
 // OrderingService defines the interface for updating ordering service configuration
+//
+//go:generate counterfeiter -o mock/ordering_service.go -fake-name OrderingService . OrderingService
 type OrderingService interface {
 	// Configure updates the ordering service with new consensus type and orderer endpoints
 	Configure(consensusType string, orderers []*grpc.ConnectionConfig) error

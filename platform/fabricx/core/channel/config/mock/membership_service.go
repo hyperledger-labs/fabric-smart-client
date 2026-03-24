@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channelconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 )
@@ -191,4 +191,4 @@ func (fake *MembershipService) recordInvocation(key string, args []interface{}) 
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ channelconfig.MembershipService = new(MembershipService)
+var _ config.MembershipService = new(MembershipService)

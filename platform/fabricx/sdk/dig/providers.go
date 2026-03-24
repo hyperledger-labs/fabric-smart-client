@@ -7,25 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package sdk
 
 import (
-	"context"
-
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
-	fcommitter "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channelconfig"
-	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/membership"
@@ -35,7 +27,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/dig"
 )
@@ -58,8 +49,7 @@ func NewDriver(in struct {
 	AuditInfoStore  driver.AuditInfoStore
 	ChannelProvider ChannelProvider
 	IdentityLoaders []identity.NamedIdentityLoader `group:"identity-loaders"`
-},
-) core.NamedDriver {
+}) core.NamedDriver {
 	d := core.NamedDriver{
 		Name: FabricxDriverName,
 		Driver: fabricx.NewProvider(
@@ -97,7 +87,6 @@ func NewChannelProvider(in struct {
 	Drivers              multiplexed.Driver
 }) generic.ChannelProvider {
 	channelConfigProvider := generic.NewChannelConfigProvider(in.ConfigProvider)
-	flmProvider := committer.NewFinalityListenerManagerProvider[fdriver.ValidationCode](in.TracerProvider)
 	return channel.NewProvider(
 		in.ConfigProvider,
 		in.EnvelopeStore,
@@ -113,17 +102,6 @@ func NewChannelProvider(in struct {
 		},
 		func(channel string, nw fdriver.FabricNetworkService, envelopeService fdriver.EnvelopeService, transactionService fdriver.EndorserTransactionService, vault fdriver.RWSetInspector) (fdriver.RWSetLoader, error) {
 			return NewRWSetLoader(channel, nw, envelopeService, transactionService, vault), nil
-		},
-		func(nw fdriver.FabricNetworkService, channel string, vault fdriver.Vault, envelopeService fdriver.EnvelopeService, ledger fdriver.Ledger, rwsetLoaderService fdriver.RWSetLoader, channelMembershipService fdriver.MembershipService, fabricFinality fcommitter.FabricFinality, quiet bool) (generic.CommitterService, error) {
-			channelConfig, err := channelConfigProvider.GetChannelConfig(nw.Name(), channel)
-			if err != nil {
-				return nil, err
-			}
-			committer, err := NewCommitter(nw, channelConfig, vault, envelopeService, ledger, rwsetLoaderService, in.Publisher, channelMembershipService, fabricFinality, fcommitter.NewSerialDependencyResolver(), quiet, flmProvider.NewManager(), in.TracerProvider, in.MetricsProvider)
-			if err != nil {
-				return nil, err
-			}
-			return committer, nil
 		},
 		// delivery service constructor
 		func(
@@ -159,87 +137,10 @@ func NewChannelProvider(in struct {
 			return membership.NewService(channelName)
 		},
 		false,
+		in.QueryServiceProvider,
 	)
 }
 
 func NewRWSetLoader(channel string, nw fdriver.FabricNetworkService, envelopeService fdriver.EnvelopeService, transactionService fdriver.EndorserTransactionService, vault fdriver.RWSetInspector) fdriver.RWSetLoader {
 	return rwset.NewLoader(nw.Name(), channel, envelopeService, transactionService, nw.TransactionManager(), vault)
-}
-
-func NewCommitter(nw fdriver.FabricNetworkService, channelConfig fdriver.ChannelConfig, vault fdriver.Vault, envelopeService fdriver.EnvelopeService, ledger fdriver.Ledger, rwsetLoaderService fdriver.RWSetLoader, eventsPublisher events.Publisher, channelMembershipService fdriver.MembershipService, fabricFinality fcommitter.FabricFinality, dependencyResolver fcommitter.DependencyResolver, quiet bool, listenerManager fdriver.ListenerManager, tracerProvider trace.TracerProvider, metricsProvider metrics.Provider) (*fcommitter.Committer, error) {
-	// we register the BFT broadcaster for arma consensusType
-	os, ok := nw.OrderingService().(*ordering.Service)
-	if !ok {
-		return nil, errors.New("ordering service is not a committer.OrderingService")
-	}
-	os.Broadcasters["arma"] = os.Broadcasters[ordering.BFT]
-
-	c := fcommitter.New(
-		nw.ConfigService(),
-		channelConfig,
-		vault,
-		envelopeService,
-		ledger,
-		rwsetLoaderService,
-		nw.ProcessorManager(),
-		eventsPublisher,
-		channelMembershipService,
-		os,
-		fabricFinality,
-		nw.TransactionManager(),
-		dependencyResolver,
-		quiet,
-		listenerManager,
-		tracerProvider,
-		metricsProvider,
-	)
-
-	// consider meta namespace transactions to be stored in the vault
-	if err := c.ProcessNamespace(committerpb.MetaNamespaceID); err != nil {
-		return nil, err
-	}
-
-	// register fabricx transaction handler
-	committer2.RegisterTransactionHandler(c)
-	return c, nil
-}
-
-// startChannelConfigMonitor creates and starts the channel configuration monitor
-func startChannelConfigMonitor(nw fdriver.FabricNetworkService, channel string, channelMembershipService fdriver.MembershipService, qsProvider queryservice.Provider) error {
-	// Get query service for this channel
-	qs, err := qsProvider.Get(nw.Name(), channel)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get query service for channel [%s]", channel)
-	}
-
-	// Create channel config monitor configuration
-	monitorConfig, err := channelconfig.NewConfig(nw.ConfigService(), nw.Name(), channel)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create channel config monitor config for channel [%s]", channel)
-	}
-
-	// Create adapters for the interfaces
-	queryServiceAdapter := &queryServiceAdapter{qs: qs}
-	orderingServiceAdapter := &orderingServiceAdapter{os: nw.OrderingService()}
-
-	// Create the monitor with the required dependencies
-	monitor, err := channelconfig.NewChannelConfigMonitor(
-		monitorConfig,
-		queryServiceAdapter,
-		channelMembershipService,
-		orderingServiceAdapter,
-		nw.ConfigService(),
-		nw.Name(),
-		channel,
-	)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create channel config monitor for channel [%s]", channel)
-	}
-
-	// Start the monitor
-	if err := monitor.Start(context.Background()); err != nil {
-		return errors.Wrapf(err, "failed to start channel config monitor for channel [%s]", channel)
-	}
-
-	return nil
 }

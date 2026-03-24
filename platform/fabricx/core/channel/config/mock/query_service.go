@@ -4,27 +4,28 @@ package mock
 import (
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channelconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 )
 
 type QueryService struct {
-	GetConfigTransactionStub        func() (*channelconfig.ConfigTransactionInfo, error)
+	GetConfigTransactionStub        func() (*queryservice.ConfigTransactionInfo, error)
 	getConfigTransactionMutex       sync.RWMutex
 	getConfigTransactionArgsForCall []struct {
 	}
 	getConfigTransactionReturns struct {
-		result1 *channelconfig.ConfigTransactionInfo
+		result1 *queryservice.ConfigTransactionInfo
 		result2 error
 	}
 	getConfigTransactionReturnsOnCall map[int]struct {
-		result1 *channelconfig.ConfigTransactionInfo
+		result1 *queryservice.ConfigTransactionInfo
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *QueryService) GetConfigTransaction() (*channelconfig.ConfigTransactionInfo, error) {
+func (fake *QueryService) GetConfigTransaction() (*queryservice.ConfigTransactionInfo, error) {
 	fake.getConfigTransactionMutex.Lock()
 	ret, specificReturn := fake.getConfigTransactionReturnsOnCall[len(fake.getConfigTransactionArgsForCall)]
 	fake.getConfigTransactionArgsForCall = append(fake.getConfigTransactionArgsForCall, struct {
@@ -48,34 +49,34 @@ func (fake *QueryService) GetConfigTransactionCallCount() int {
 	return len(fake.getConfigTransactionArgsForCall)
 }
 
-func (fake *QueryService) GetConfigTransactionCalls(stub func() (*channelconfig.ConfigTransactionInfo, error)) {
+func (fake *QueryService) GetConfigTransactionCalls(stub func() (*queryservice.ConfigTransactionInfo, error)) {
 	fake.getConfigTransactionMutex.Lock()
 	defer fake.getConfigTransactionMutex.Unlock()
 	fake.GetConfigTransactionStub = stub
 }
 
-func (fake *QueryService) GetConfigTransactionReturns(result1 *channelconfig.ConfigTransactionInfo, result2 error) {
+func (fake *QueryService) GetConfigTransactionReturns(result1 *queryservice.ConfigTransactionInfo, result2 error) {
 	fake.getConfigTransactionMutex.Lock()
 	defer fake.getConfigTransactionMutex.Unlock()
 	fake.GetConfigTransactionStub = nil
 	fake.getConfigTransactionReturns = struct {
-		result1 *channelconfig.ConfigTransactionInfo
+		result1 *queryservice.ConfigTransactionInfo
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *QueryService) GetConfigTransactionReturnsOnCall(i int, result1 *channelconfig.ConfigTransactionInfo, result2 error) {
+func (fake *QueryService) GetConfigTransactionReturnsOnCall(i int, result1 *queryservice.ConfigTransactionInfo, result2 error) {
 	fake.getConfigTransactionMutex.Lock()
 	defer fake.getConfigTransactionMutex.Unlock()
 	fake.GetConfigTransactionStub = nil
 	if fake.getConfigTransactionReturnsOnCall == nil {
 		fake.getConfigTransactionReturnsOnCall = make(map[int]struct {
-			result1 *channelconfig.ConfigTransactionInfo
+			result1 *queryservice.ConfigTransactionInfo
 			result2 error
 		})
 	}
 	fake.getConfigTransactionReturnsOnCall[i] = struct {
-		result1 *channelconfig.ConfigTransactionInfo
+		result1 *queryservice.ConfigTransactionInfo
 		result2 error
 	}{result1, result2}
 }
@@ -102,4 +103,4 @@ func (fake *QueryService) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ channelconfig.QueryService = new(QueryService)
+var _ config.QueryService = new(QueryService)

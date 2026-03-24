@@ -4,15 +4,16 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package channelconfig_test
+package config_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channelconfig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channelconfig/mock"
+	channelconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/pkg/errors"
@@ -151,7 +152,7 @@ func TestServiceLifecycle(t *testing.T) {
 	configService := &mock.ConfigService{}
 
 	// Setup mock to return same version (no updates)
-	queryService.GetConfigTransactionReturns(&channelconfig.ConfigTransactionInfo{
+	queryService.GetConfigTransactionReturns(&queryservice.ConfigTransactionInfo{
 		Envelope: &cb.Envelope{},
 		Version:  1,
 	}, nil)
@@ -246,22 +247,22 @@ func TestConfigurationUpdate(t *testing.T) {
 
 		// First call returns version 1, second call returns version 2, then keep returning version 2
 		callCount := 0
-		queryService.GetConfigTransactionCalls(func() (*channelconfig.ConfigTransactionInfo, error) {
+		queryService.GetConfigTransactionCalls(func() (*queryservice.ConfigTransactionInfo, error) {
 			callCount++
 			if callCount == 1 {
-				return &channelconfig.ConfigTransactionInfo{
+				return &queryservice.ConfigTransactionInfo{
 					Envelope: envelope,
 					Version:  1,
 				}, nil
 			}
 			if callCount == 2 {
-				return &channelconfig.ConfigTransactionInfo{
+				return &queryservice.ConfigTransactionInfo{
 					Envelope: envelope,
 					Version:  2,
 				}, nil
 			}
 			// Keep returning version 2 for subsequent calls
-			return &channelconfig.ConfigTransactionInfo{
+			return &queryservice.ConfigTransactionInfo{
 				Envelope: envelope,
 				Version:  2,
 			}, nil
@@ -308,7 +309,7 @@ func TestConfigurationUpdate(t *testing.T) {
 		envelope := &cb.Envelope{Payload: []byte("test")}
 
 		// Always return same version
-		queryService.GetConfigTransactionReturns(&channelconfig.ConfigTransactionInfo{
+		queryService.GetConfigTransactionReturns(&queryservice.ConfigTransactionInfo{
 			Envelope: envelope,
 			Version:  1,
 		}, nil)
@@ -352,12 +353,12 @@ func TestErrorHandling(t *testing.T) {
 
 		// Fail first two times, succeed third time, then keep succeeding
 		callCount := 0
-		queryService.GetConfigTransactionCalls(func() (*channelconfig.ConfigTransactionInfo, error) {
+		queryService.GetConfigTransactionCalls(func() (*queryservice.ConfigTransactionInfo, error) {
 			callCount++
 			if callCount <= 2 {
 				return nil, errors.New("query error")
 			}
-			return &channelconfig.ConfigTransactionInfo{
+			return &queryservice.ConfigTransactionInfo{
 				Envelope: &cb.Envelope{},
 				Version:  1,
 			}, nil
@@ -389,7 +390,7 @@ func TestErrorHandling(t *testing.T) {
 		configService := &mock.ConfigService{}
 
 		envelope := &cb.Envelope{Payload: []byte("test")}
-		queryService.GetConfigTransactionReturns(&channelconfig.ConfigTransactionInfo{
+		queryService.GetConfigTransactionReturns(&queryservice.ConfigTransactionInfo{
 			Envelope: envelope,
 			Version:  2,
 		}, nil)
@@ -455,7 +456,7 @@ func TestContextCancellation(t *testing.T) {
 	orderingService := &mock.OrderingService{}
 	configService := &mock.ConfigService{}
 
-	queryService.GetConfigTransactionReturns(&channelconfig.ConfigTransactionInfo{
+	queryService.GetConfigTransactionReturns(&queryservice.ConfigTransactionInfo{
 		Envelope: &cb.Envelope{},
 		Version:  1,
 	}, nil)
