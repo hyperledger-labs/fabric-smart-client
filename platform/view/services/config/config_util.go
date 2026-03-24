@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package viperutil
+package config
 
 import (
 	"encoding/pem"
@@ -17,7 +17,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/v2"
 )
 
 // customDecodeHook adds the additional functions of parsing durations from strings
@@ -41,6 +41,7 @@ func customDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interfa
 	return data, nil
 }
 
+// byteSizeDecodeHook parses strings like "10mb", "5gb" into uint32 bytes.
 func byteSizeDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
 	if f != reflect.String || t != reflect.Uint32 {
 		return data, nil
@@ -74,6 +75,7 @@ func byteSizeDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) (inter
 	return data, nil
 }
 
+// stringFromFileDecodeHook reads a string from a file if the input is a map with a "File" key.
 func stringFromFileDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
 	// "to" type should be string
 	if t != reflect.String {
@@ -108,6 +110,7 @@ func stringFromFileDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) 
 	return data, nil
 }
 
+// pemBlocksFromFileDecodeHook reads PEM blocks from a file if the input is a map with a "File" key.
 func pemBlocksFromFileDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
 	// "to" type should be string
 	if t != reflect.Slice {
@@ -169,12 +172,11 @@ func pemBlocksFromFileDecodeHook(f reflect.Kind, t reflect.Kind, data interface{
 // EnhancedExactUnmarshal is intended to unmarshal a config file into a structure
 // producing error when extraneous variables are introduced and supporting
 // the time.Duration type
-func EnhancedExactUnmarshal(v *viper.Viper, key string, output interface{}) error {
+func EnhancedExactUnmarshal(v *koanf.Koanf, key string, output interface{}) error {
 	oType := reflect.TypeOf(output)
 	if oType.Kind() != reflect.Ptr {
 		return errors.Errorf("supplied output argument must be a pointer to a struct but is not pointer")
 	}
-
 	config := &mapstructure.DecoderConfig{
 		ErrorUnused:      false,
 		Metadata:         nil,
@@ -188,10 +190,7 @@ func EnhancedExactUnmarshal(v *viper.Viper, key string, output interface{}) erro
 			pemBlocksFromFileDecodeHook,
 		),
 	}
-
-	decoder, err := mapstructure.NewDecoder(config)
-	if err != nil {
-		return err
-	}
-	return decoder.Decode(v.Get(key))
+	return v.UnmarshalWithConf(key, output, koanf.UnmarshalConf{
+		DecoderConfig: config,
+	})
 }

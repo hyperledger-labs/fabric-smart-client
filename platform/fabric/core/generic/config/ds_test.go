@@ -7,32 +7,30 @@ SPDX-License-Identifier: Apache-2.0
 package config_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
-	viperutil "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config/viper"
-	"github.com/spf13/viper"
+	configservice "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
+	koanfyaml "github.com/knadh/koanf/parsers/yaml"
+	koanffile "github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoad(t *testing.T) {
-	v := viper.New()
-	v.SetConfigName("core")
-	v.AddConfigPath("./testdata")
-	replacer := strings.NewReplacer(".", "_")
-	v.SetEnvKeyReplacer(replacer)
-	assert.NoError(t, v.ReadInConfig())
+	v := koanf.New(".")
+	require.NoError(t, v.Load(koanffile.Provider("./testdata/core.yaml"), configservice.LowercaseParser{Parser: koanfyaml.Parser()}))
 
 	var value interface{}
-	assert.NoError(t, v.UnmarshalKey("fabric", &value))
+	require.NoError(t, v.Unmarshal("fabric", &value))
 
 	var network config.Network
-	assert.NoError(t, viperutil.EnhancedExactUnmarshal(v, "fabric.default", &network))
+	require.NoError(t, configservice.EnhancedExactUnmarshal(v, "fabric.default", &network))
 
 	b, err := x509.ToBCCSPOpts(network.MSPs[0].Opts[x509.BCCSPOptField])
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, b.SW)
 	assert.Equal(t, "SHA2", b.SW.Hash)
 	assert.NotNil(t, b.PKCS11)
