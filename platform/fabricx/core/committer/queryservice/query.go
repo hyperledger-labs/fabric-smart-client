@@ -14,8 +14,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var (
@@ -85,6 +88,30 @@ func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
 		return 0, errors.Errorf("QS GetTransactionStatus: no statuses for tx %s", txID)
 	}
 	return int32(res.Statuses[0].Status), nil
+}
+
+// GetConfigTransaction returns the envelope and version of the most recent config transaction
+func (s *RemoteQueryService) GetConfigTransaction() (*ConfigTransactionInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), s.config.QueryTimeout)
+	defer cancel()
+
+	now := time.Now()
+	res, err := s.client.GetConfigTransaction(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, errors.Wrap(err, "get config transaction")
+	}
+	logger.Debugf("QS GetConfigTransaction: got response in %v", time.Since(now))
+
+	// Unmarshal the envelope bytes into the protobuf structure
+	envelope := &cb.Envelope{}
+	if err := proto.Unmarshal(res.GetEnvelope(), envelope); err != nil {
+		return nil, errors.Wrap(err, "unmarshal envelope")
+	}
+
+	return &ConfigTransactionInfo{
+		Envelope: envelope,
+		Version:  res.GetVersion(),
+	}, nil
 }
 
 func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[driver.Namespace]map[driver.PKey]driver.VaultValue, error) {

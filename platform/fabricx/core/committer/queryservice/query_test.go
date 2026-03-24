@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice/mock"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -413,6 +414,36 @@ func TestQueryService(t *testing.T) {
 
 			_, err := qs.GetTransactionStatus("tx3")
 			require.Error(t, err)
+		})
+	})
+
+	// New tests for GetConfigTransaction
+	t.Run("GetConfigTransaction", func(t *testing.T) {
+		t.Parallel()
+		qs, fake := setupTest(t)
+
+		t.Run("happy path", func(t *testing.T) {
+			// return a config transaction response
+			envelope := []byte("config-envelope-data")
+			version := uint64(12345)
+			fake.GetConfigTransactionReturns(&applicationpb.ConfigTransaction{
+				Envelope: envelope,
+				Version:  version,
+			}, nil)
+
+			resp, err := qs.GetConfigTransaction()
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+			require.Equal(t, envelope, resp.Envelope)
+			require.Equal(t, version, resp.Version)
+		})
+
+		t.Run("client error", func(t *testing.T) {
+			expectedError := errors.New("some error")
+			fake.GetConfigTransactionReturns(nil, expectedError)
+
+			_, err := qs.GetConfigTransaction()
+			require.ErrorIs(t, err, expectedError)
 		})
 	})
 }
