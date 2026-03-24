@@ -24,6 +24,7 @@ import (
 	channelconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 )
 
 type VaultConstructor = func(
@@ -160,7 +161,7 @@ func (p *provider) NewChannel(nw fdriver.FabricNetworkService, channelName strin
 		LedgerService:            ledgerService,
 		ChannelMembershipService: channelMembershipService,
 		ChaincodeManagerService:  nil,
-		CommitterService:         nil,
+		CommitterService:         &nopeCommitterService{},
 	}
 
 	if err := startChannelConfigMonitor(nw, channelName, channelMembershipService, p.queryServiceProvider); err != nil {
@@ -247,4 +248,50 @@ func (a *orderingServiceAdapter) Configure(consensusType string, orderers []*grp
 		return errors.New("ordering service is not an *ordering.Service")
 	}
 	return orderingService.Configure(consensusType, orderers)
+}
+
+type nopeCommitterService struct{}
+
+func (n *nopeCommitterService) IsFinal(ctx context.Context, txID string) error {
+	return nil
+}
+
+func (n *nopeCommitterService) ReloadConfigTransactions() error {
+	return nil
+}
+
+func (n *nopeCommitterService) Commit(ctx context.Context, block *common.Block) error {
+	return nil
+}
+
+func (n *nopeCommitterService) Start(context context.Context) error {
+	return nil
+}
+
+func (n *nopeCommitterService) ProcessNamespace(nss ...cdriver.Namespace) error {
+	return nil
+}
+
+func (n *nopeCommitterService) AddTransactionFilter(tf fdriver.TransactionFilter) error {
+	return nil
+}
+
+func (n *nopeCommitterService) Status(context context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
+	return 0, "", nil
+}
+
+func (n *nopeCommitterService) AddFinalityListener(txID string, listener fdriver.FinalityListener) error {
+	return nil
+}
+
+func (n *nopeCommitterService) RemoveFinalityListener(txID string, listener fdriver.FinalityListener) error {
+	return nil
+}
+
+func (n *nopeCommitterService) DiscardTx(context context.Context, txID cdriver.TxID, message string) error {
+	return nil
+}
+
+func (n *nopeCommitterService) CommitTX(ctx context.Context, txID cdriver.TxID, block cdriver.BlockNum, indexInBlock cdriver.TxNum, envelope *common.Envelope) error {
+	return nil
 }
