@@ -156,7 +156,7 @@ func (p *provider) NewChannel(nw fdriver.FabricNetworkService, channelName strin
 		ES:                       envelopeService,
 		TS:                       transactionService,
 		MS:                       metadataService,
-		DeliveryService:          deliveryService,
+		DeliveryService:          &nopeDeliveryService{DeliveryService: deliveryService},
 		RWSetLoaderService:       rwSetLoaderService,
 		LedgerService:            ledgerService,
 		ChannelMembershipService: channelMembershipService,
@@ -293,5 +293,13 @@ func (n *nopeCommitterService) DiscardTx(context context.Context, txID cdriver.T
 }
 
 func (n *nopeCommitterService) CommitTX(ctx context.Context, txID cdriver.TxID, block cdriver.BlockNum, indexInBlock cdriver.TxNum, envelope *common.Envelope) error {
+	return nil
+}
+
+type nopeDeliveryService struct {
+	generic.DeliveryService
+}
+
+func (n *nopeDeliveryService) Start(ctx context.Context) error {
 	return nil
 }
