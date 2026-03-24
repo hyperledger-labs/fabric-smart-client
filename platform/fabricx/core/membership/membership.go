@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -23,6 +24,8 @@ import (
 	"github.com/hyperledger/fabric-x-common/msp"
 	"github.com/hyperledger/fabric-x-common/protoutil"
 )
+
+var logger = logging.MustGetLogger()
 
 type Service struct {
 	// ResourcesLock is used to serialize access to resources
@@ -48,11 +51,15 @@ func (c *Service) Update(env *cb.Envelope) error {
 	c.resourcesLock.Lock()
 	defer c.resourcesLock.Unlock()
 
+	logger.Infof("updating channel [%s]", c.channelID)
+
 	b, err := c.validateConfig(env)
 	if err != nil {
+		logger.Errorf("failed validating config for channel [%s]: [%s]", c.channelID, err)
 		return err
 	}
 
+	logger.Infof("updating channel [%s], done", c.channelID)
 	c.channelResources = b
 	return nil
 }
