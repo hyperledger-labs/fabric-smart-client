@@ -15,6 +15,7 @@ import (
 	koanfbytes "github.com/knadh/koanf/providers/rawbytes"
 	"github.com/knadh/koanf/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type TestStruct struct {
@@ -27,25 +28,23 @@ type TestStruct struct {
 
 func TestEnhancedExactUnmarshal(t *testing.T) {
 	// Prepare a temporary file for testing stringFromFileDecodeHook
-	contentFile, err := os.CreateTemp("", "test-content")
-	assert.NoError(t, err)
-	defer func() { _ = os.Remove(contentFile.Name()) }()
+	contentFile, err := os.CreateTemp(t.TempDir(), "test-content")
+	require.NoError(t, err)
 	_, err = contentFile.WriteString("hello world")
-	assert.NoError(t, err)
-	assert.NoError(t, contentFile.Close())
+	require.NoError(t, err)
+	require.NoError(t, contentFile.Close())
 
 	// Prepare a temporary file for testing pemBlocksFromFileDecodeHook
-	pemFile, err := os.CreateTemp("", "test-pem")
-	assert.NoError(t, err)
-	defer func() { _ = os.Remove(pemFile.Name()) }()
+	pemFile, err := os.CreateTemp(t.TempDir(), "test-pem")
+	require.NoError(t, err)
 	pemData := `
 -----BEGIN CERTIFICATE-----
 YmFzZTY0Cg==
 -----END CERTIFICATE-----
 `
 	_, err = pemFile.WriteString(pemData)
-	assert.NoError(t, err)
-	assert.NoError(t, pemFile.Close())
+	require.NoError(t, err)
+	require.NoError(t, pemFile.Close())
 
 	k := koanf.New(".")
 	raw := []byte(`
@@ -59,11 +58,11 @@ test:
   duration: 10s
 `)
 	err = k.Load(koanfbytes.Provider(raw), koanfyaml.Parser())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	var ts TestStruct
 	err = EnhancedExactUnmarshal(k, "test", &ts)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, []string{"a", "b", "c"}, ts.Slice)
 	assert.Equal(t, uint32(10*1024*1024), ts.Size)
@@ -74,7 +73,7 @@ test:
 
 	// Test errors
 	err = EnhancedExactUnmarshal(k, "test", ts) // Not a pointer
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestByteSizeDecodeHookExtra(t *testing.T) {
@@ -86,7 +85,7 @@ test:
   size3: 5000000k # Too large for uint32
 `)
 	err := k.Load(koanfbytes.Provider(raw), koanfyaml.Parser())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	var ts struct {
 		Size1 uint32
@@ -94,6 +93,6 @@ test:
 		Size3 uint32
 	}
 	err = EnhancedExactUnmarshal(k, "test", &ts)
-	assert.Error(t, err) // size3 overflows
+	require.Error(t, err) // size3 overflows
 	assert.Contains(t, err.Error(), "overflows uint32")
 }

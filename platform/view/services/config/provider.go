@@ -250,7 +250,7 @@ func (p *Provider) loadFromRaw(raw []byte) error {
 }
 
 func (p *Provider) setupEnv() error {
-	// Load only environment variables with prefix "MYVAR_" and merge into config.
+	// Load only environment variables with prefix "CORE_" and merge into config.
 	// Transform var names by:
 	// 1. Converting to lowercase
 	// 2. Removing "MYVAR_" prefix

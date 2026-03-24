@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -29,14 +28,14 @@ type Opts struct {
 
 func TestReadFile(t *testing.T) {
 	p, err := NewProvider("./testdata")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	testBasics(t, p)
 	testMerge(t, p)
 }
 
 func TestProvideFromRaw(t *testing.T) {
 	p, err := NewProvider("./testdata")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// read content of ./testdata/core.yaml
 	raw, err := os.ReadFile("./testdata/core.yaml")
@@ -60,10 +59,9 @@ func TestEnvSubstitution(t *testing.T) {
 	_ = os.Setenv("CORE_NON_EXISTENT_KEY", "new")
 	_ = os.Setenv("CORE_NESTED_KEYS", "should not be able to replace for string")
 	_ = os.Setenv("CORE_CORE_ISFINE", "yes")
-	fmt.Println(os.Environ())
 
 	p, err := NewProvider("./testdata")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	path, _ := filepath.Abs("testdata/newfile.name")
 	assert.Equal(t, "new=string=with=characters.\\AND.CAPS", p.GetString("str"))
@@ -78,13 +76,13 @@ func TestEnvSubstitution(t *testing.T) {
 	assert.Equal(t, "sql", p.GetString("fsc.kvs.persistence.type"))
 
 	err = p.UnmarshalKey("fsc.kvs.persistence.opts", &db)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, DriverType("sqlite"), db.Driver)
 	assert.Equal(t, "new data source", db.DataSource)
 	assert.Equal(t, true, db.SkipPragmas)
 	assert.Equal(t, 0, db.MaxOpenConns)
 	err = p.UnmarshalKey("FSC.kvs.PerSistEnce.opTs", &db)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, DriverType("sqlite"), db.Driver)
 	assert.Equal(t, "new data source", db.DataSource)
 	assert.Equal(t, true, db.SkipPragmas)
@@ -94,7 +92,7 @@ func TestEnvSubstitution(t *testing.T) {
 	assert.Equal(t, true, p.GetBool("fsc.kvs.keyexists"))
 	var c map[string]any
 	err = p.UnmarshalKey("fsc.kvs", &c)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, c["keyexists"])
 	assert.Equal(t, true, c["keyexists"].(bool))
 
@@ -165,7 +163,7 @@ func testBasics(t *testing.T, p *Provider) {
 	var db Opts
 	assert.Equal(t, "sql", p.GetString("fsc.kvs.persistence.type"))
 	err := p.UnmarshalKey("fsc.kvs.persistence.opts", &db)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, DriverType("sqlite"), db.Driver)
 	assert.Equal(t, "ds", db.DataSource)
 	assert.Equal(t, true, db.SkipPragmas)
@@ -201,7 +199,7 @@ func TestGetProvider(t *testing.T) {
 func TestProviderMore(t *testing.T) {
 	_ = os.Setenv("CORE_FSC_ID", "node1")
 	p, err := NewProvider("./testdata")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test ID
 	assert.Equal(t, "node1", p.ID())
@@ -213,7 +211,7 @@ func TestProviderMore(t *testing.T) {
 	// Test GetStringSlice
 	mergeSliceRaw := []byte("slice: [a, b, c]")
 	err = p.MergeConfig(mergeSliceRaw)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []string{"a", "b", "c"}, p.GetStringSlice("slice"))
 
 	// Test ConfigFileUsed
@@ -235,7 +233,7 @@ func TestProviderMore(t *testing.T) {
 
 func TestProviderError(t *testing.T) {
 	_, err := NewProvider("./non-existent-path")
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestEnvConversions(t *testing.T) {
@@ -253,18 +251,18 @@ env:
     a: b
 `)
 	p, err := (&Provider{}).ProvideFromRaw(raw)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, 123, p.GetInt("env.int"))
 	assert.Equal(t, true, p.GetBool("env.bool"))
 	// koanf doesn't have GetFloat, but we can unmarshal
 	var floatVal float64
 	err = p.UnmarshalKey("env.float", &floatVal)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 1.23, floatVal)
 
 	var mapVal map[string]any
 	err = p.UnmarshalKey("env.map", &mapVal)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "b", mapVal["a"])
 }
