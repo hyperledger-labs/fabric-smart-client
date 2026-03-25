@@ -17,7 +17,7 @@ import (
 
 const (
 	// Default configuration values
-	defaultPollInterval      = 1 * time.Minute
+	defaultPollInterval      = 1 * time.Second
 	defaultMaxRetries        = 5
 	defaultInitialRetryDelay = 1 * time.Second
 	defaultMaxRetryDelay     = 5 * time.Minute
