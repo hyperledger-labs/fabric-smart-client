@@ -82,7 +82,7 @@ func TestVaultX_NewQueryExecutor(t *testing.T) {
 	qs := newMockQueryService()
 	qs.setState("ns1", "key1", []byte("value1"), 1)
 
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 
 	ctx := context.Background()
 	qe, err := v.NewQueryExecutor(ctx)
@@ -110,7 +110,7 @@ func TestVaultX_NewRWSet(t *testing.T) {
 	qs := newMockQueryService()
 	qs.setState("ns1", "key1", []byte("value1"), 1)
 
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	rws, err := v.NewRWSet(ctx, "tx1")
@@ -140,7 +140,7 @@ func TestVaultX_NewRWSet(t *testing.T) {
 
 func TestVaultX_NewRWSetFromBytes(t *testing.T) {
 	qs := newMockQueryService()
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	// Create an RWSet and marshal it
@@ -166,7 +166,7 @@ func TestVaultX_Status(t *testing.T) {
 	qs := newMockQueryService()
 	qs.setTxStatus("tx1", 1) // COMMITTED
 
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	code, msg, err := v.Status(ctx, "tx1")
@@ -180,7 +180,7 @@ func TestVaultX_Statuses(t *testing.T) {
 	qs.setTxStatus("tx1", 1) // COMMITTED
 	qs.setTxStatus("tx2", 0) // UNSPECIFIED
 
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	statuses, err := v.Statuses(ctx, "tx1", "tx2")
@@ -196,7 +196,7 @@ func TestVaultX_Statuses(t *testing.T) {
 
 func TestVaultX_SetDiscarded(t *testing.T) {
 	qs := newMockQueryService()
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	err := v.SetDiscarded(ctx, "tx1", "test error")
@@ -211,7 +211,7 @@ func TestVaultX_SetDiscarded(t *testing.T) {
 
 func TestVaultX_DiscardTx(t *testing.T) {
 	qs := newMockQueryService()
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	err := v.DiscardTx(ctx, "tx1", "discard reason")
@@ -226,7 +226,7 @@ func TestVaultX_DiscardTx(t *testing.T) {
 
 func TestVaultX_CommitTX(t *testing.T) {
 	qs := newMockQueryService()
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	err := v.CommitTX(ctx, "tx1", 10, 5)
@@ -241,7 +241,7 @@ func TestVaultX_CommitTX(t *testing.T) {
 
 func TestVaultX_InspectRWSet(t *testing.T) {
 	qs := newMockQueryService()
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	// Create an RWSet and marshal it
@@ -269,7 +269,7 @@ func TestVaultX_InspectRWSet(t *testing.T) {
 
 func TestVaultX_RWSExists(t *testing.T) {
 	qs := newMockQueryService()
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	// Initially should not exist
@@ -285,7 +285,7 @@ func TestVaultX_RWSExists(t *testing.T) {
 
 func TestVaultX_Match(t *testing.T) {
 	qs := newMockQueryService()
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	// Create an RWSet
@@ -313,7 +313,7 @@ func TestVaultX_Match(t *testing.T) {
 
 func TestVaultX_Close(t *testing.T) {
 	qs := newMockQueryService()
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	// Create some data
@@ -335,7 +335,7 @@ func TestRWSet_Operations(t *testing.T) {
 	qs := newMockQueryService()
 	qs.setState("ns1", "existing", []byte("existing_value"), 1)
 
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	rws, err := v.NewRWSet(ctx, "tx1")
@@ -387,7 +387,7 @@ func TestRWSet_GetReadAt(t *testing.T) {
 	qs.setState("ns1", "key1", []byte("value1"), 1)
 	qs.setState("ns1", "key2", []byte("value2"), 2)
 
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	rws, err := v.NewRWSet(ctx, "tx1")
@@ -412,7 +412,7 @@ func TestRWSet_GetReadAt(t *testing.T) {
 
 func TestRWSet_GetWriteAt(t *testing.T) {
 	qs := newMockQueryService()
-	v := vault.NewVaultX(qs)
+	v := vault.NewVault(qs)
 	ctx := context.Background()
 
 	rws, err := v.NewRWSet(ctx, "tx1")

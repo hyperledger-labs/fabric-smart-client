@@ -9,6 +9,7 @@ package channel
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -27,6 +28,55 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 )
+
+// scopedConfigService wraps a ConfigService and adds a prefix to all configuration keys
+type scopedConfigService struct {
+	fdriver.ConfigService
+	prefix string
+}
+
+func newScopedConfigService(cs fdriver.ConfigService, network, channel string) fdriver.ConfigService {
+	if len(network) == 0 {
+		network = "default"
+	}
+	prefix := "fabric." + network + ".channels." + channel + ".configmonitor."
+	return &scopedConfigService{
+		ConfigService: cs,
+		prefix:        prefix,
+	}
+}
+
+func (s *scopedConfigService) GetString(key string) string {
+	return s.ConfigService.GetString(s.prefix + key)
+}
+
+func (s *scopedConfigService) GetInt(key string) int {
+	return s.ConfigService.GetInt(s.prefix + key)
+}
+
+func (s *scopedConfigService) GetDuration(key string) time.Duration {
+	return s.ConfigService.GetDuration(s.prefix + key)
+}
+
+func (s *scopedConfigService) GetBool(key string) bool {
+	return s.ConfigService.GetBool(s.prefix + key)
+}
+
+func (s *scopedConfigService) GetStringSlice(key string) []string {
+	return s.ConfigService.GetStringSlice(s.prefix + key)
+}
+
+func (s *scopedConfigService) IsSet(key string) bool {
+	return s.ConfigService.IsSet(s.prefix + key)
+}
+
+func (s *scopedConfigService) UnmarshalKey(key string, rawVal interface{}) error {
+	return s.ConfigService.UnmarshalKey(s.prefix+key, rawVal)
+}
+
+func (s *scopedConfigService) GetPath(key string) string {
+	return s.ConfigService.GetPath(s.prefix + key)
+}
 
 var logger = logging.MustGetLogger()
 
@@ -60,14 +110,6 @@ type DeliveryConstructor func(
 ) (generic.DeliveryService, error)
 
 type MembershipConstructor func(channelName string) fdriver.MembershipService
-
-type ChannelProvider interface {
-	NewChannel(nw fdriver.FabricNetworkService, name string, quiet bool) (fdriver.Channel, error)
-}
-
-type LedgerProvider interface {
-	NewLedger(network, channel string) (fdriver.Ledger, error)
-}
 
 type provider struct {
 	configProvider          config.Provider
@@ -257,8 +299,7 @@ func (l *finalityListener) OnStatus(ctx context.Context, txID string, status int
 	}
 }
 
-type fakeVault struct {
-}
+type fakeVault struct{}
 
 func (f *fakeVault) GetLastTxID(ctx context.Context) (string, error) {
 	return "", nil
@@ -282,7 +323,9 @@ func startChannelConfigMonitor(
 	}
 
 	// Create channel config monitor configuration
-	monitorConfig, err := channelconfig.NewConfig(nw.ConfigService(), nw.Name(), channel)
+	// Create a scoped config service that is rooted at the channel config monitor location
+	scopedConfig := newScopedConfigService(nw.ConfigService(), nw.Name(), channel)
+	monitorConfig, err := channelconfig.NewConfig(scopedConfig)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create channel config monitor config for channel [%s]", channel)
 	}

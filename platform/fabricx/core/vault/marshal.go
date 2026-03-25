@@ -17,17 +17,26 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
-// Marshaller is the custom marshaller for fabricx.
+// Marshaller is the custom marshaller for fabricx that handles serialization and deserialization
+// of read-write sets to/from the FabricX protobuf format.
+// It maintains namespace version information (NsInfo) required for proper marshalling.
 type Marshaller struct {
+	// NsInfo maps namespace names to their version information.
+	// This must be populated before calling Marshal.
 	NsInfo map[driver.Namespace]driver.RawVersion
 }
 
+// NewMarshaller creates a new Marshaller instance with an empty namespace info map.
 func NewMarshaller() *Marshaller {
 	return &Marshaller{}
 }
 
+// Marshal serializes a ReadWriteSet into FabricX protobuf format for the given transaction ID.
+// It uses the namespace version information stored in m.NsInfo to properly encode namespace versions.
+// Returns an error if any namespace in the RWSet is not found in NsInfo or if marshalling fails.
 func (m *Marshaller) Marshal(txID string, rws *vault.ReadWriteSet) ([]byte, error) {
 	logger.Debugf("Marshal rws into fabricx proto [txID=%v]", txID)
 	return m.marshal(txID, rws, m.NsInfo)
@@ -103,7 +112,7 @@ func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[dr
 			// note that the version might be nil; this is the case when an entry is read but does not exist
 			var vPtr *uint64
 			if ver != nil {
-				v := Unmarshal(ver)
+				v := UnmarshalVersion(ver)
 				vPtr = &v
 			}
 
@@ -138,7 +147,7 @@ func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[dr
 
 		namespaces = append(namespaces, &applicationpb.TxNamespace{
 			NsId:        namespace.ns,
-			NsVersion:   Unmarshal(namespace.nsVersion),
+			NsVersion:   UnmarshalVersion(namespace.nsVersion),
 			ReadsOnly:   readsOnly,
 			ReadWrites:  readWrites,
 			BlindWrites: blindWrites,
@@ -154,7 +163,8 @@ func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[dr
 	return proto.Marshal(txIn)
 }
 
-// printVer is a helper function to print versions; it is safe to call on nil
+// printVer is a helper function to print version pointers safely.
+// It returns "nil" for nil pointers and the numeric value otherwise.
 func printVer(v *uint64) string {
 	if v != nil {
 		return fmt.Sprintf("%d", *v)
@@ -162,6 +172,9 @@ func printVer(v *uint64) string {
 	return "nil"
 }
 
+// RWSetFromBytes deserializes a ReadWriteSet from FabricX protobuf format.
+// If namespaces are specified, only those namespaces will be included in the result.
+// Returns an error if deserialization fails.
 func (m *Marshaller) RWSetFromBytes(raw []byte, namespaces ...string) (*vault.ReadWriteSet, error) {
 	rws := vault.EmptyRWSet()
 	if err := m.Append(&rws, raw, namespaces...); err != nil {
@@ -170,6 +183,9 @@ func (m *Marshaller) RWSetFromBytes(raw []byte, namespaces ...string) (*vault.Re
 	return &rws, nil
 }
 
+// Append deserializes FabricX protobuf data and appends it to an existing ReadWriteSet.
+// If namespaces are specified, only those namespaces will be processed.
+// Returns an error if deserialization fails or if adding reads/writes fails.
 func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespaces ...string) error {
 	var txIn applicationpb.Tx
 	if err := proto.Unmarshal(raw, &txIn); err != nil {
@@ -183,7 +199,7 @@ func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespa
 
 	for _, txNs := range txIn.GetNamespaces() {
 		for _, read := range txNs.GetReadsOnly() {
-			destination.ReadSet.Add(txNs.GetNsId(), string(read.GetKey()), Marshal(read.GetVersion()))
+			destination.ReadSet.Add(txNs.GetNsId(), string(read.GetKey()), MarshalVersion(read.GetVersion()))
 		}
 
 		for _, write := range txNs.GetBlindWrites() {
@@ -196,7 +212,7 @@ func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespa
 		for _, readWrite := range txNs.GetReadWrites() {
 			// only add to the readset if it has a version, this is usually the case when a value is created for the first time
 			if readWrite.Version != nil {
-				destination.ReadSet.Add(txNs.GetNsId(), string(readWrite.GetKey()), Marshal(readWrite.GetVersion()))
+				destination.ReadSet.Add(txNs.GetNsId(), string(readWrite.GetKey()), MarshalVersion(readWrite.GetVersion()))
 			}
 
 			if err := destination.WriteSet.Add(txNs.GetNsId(), string(readWrite.GetKey()), readWrite.GetValue()); err != nil {
@@ -207,4 +223,17 @@ func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespa
 	}
 
 	return nil
+}
+
+// MarshalVersion encodes a uint64 version number into a protobuf varint byte slice.
+// This is used for encoding version information in the FabricX format.
+func MarshalVersion(v uint64) []byte {
+	return protowire.AppendVarint(nil, v)
+}
+
+// UnmarshalVersion decodes a protobuf varint byte slice into a uint64 version number.
+// Returns 0 if the input is invalid or empty.
+func UnmarshalVersion(raw []byte) uint64 {
+	v, _ := protowire.ConsumeVarint(raw)
+	return v
 }

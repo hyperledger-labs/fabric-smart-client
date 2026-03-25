@@ -19,7 +19,7 @@ import (
 func TestNewConfig(t *testing.T) {
 	t.Run("with default values", func(t *testing.T) {
 		cs := &mock.ConfigService{}
-		config, err := channelconfig.NewConfig(cs, "testnet", "mychannel")
+		config, err := channelconfig.NewConfig(cs)
 		require.NoError(t, err)
 		assert.NotNil(t, config)
 		assert.Equal(t, 1*time.Second, config.PollInterval)
@@ -39,7 +39,7 @@ func TestNewConfig(t *testing.T) {
 		cs.IsSetReturnsOnCall(3, true) // maxRetryDelay
 		cs.GetDurationReturnsOnCall(2, 10*time.Minute)
 
-		config, err := channelconfig.NewConfig(cs, "testnet", "mychannel")
+		config, err := channelconfig.NewConfig(cs)
 		require.NoError(t, err)
 		assert.NotNil(t, config)
 		assert.Equal(t, 30*time.Second, config.PollInterval)
@@ -48,12 +48,12 @@ func TestNewConfig(t *testing.T) {
 		assert.Equal(t, 10*time.Minute, config.MaxRetryDelay)
 	})
 
-	t.Run("with empty network name", func(t *testing.T) {
+	t.Run("with all custom values set", func(t *testing.T) {
 		cs := &mock.ConfigService{}
 		cs.IsSetReturns(true)
 		cs.GetDurationReturns(45 * time.Second)
 
-		config, err := channelconfig.NewConfig(cs, "", "mychannel")
+		config, err := channelconfig.NewConfig(cs)
 		require.NoError(t, err)
 		assert.NotNil(t, config)
 		assert.Equal(t, 45*time.Second, config.PollInterval)

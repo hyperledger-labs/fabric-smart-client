@@ -40,9 +40,8 @@ type Config struct {
 
 // NewConfig creates a new Config instance by reading from the provided ConfigService.
 // It applies default values for any missing configuration parameters.
-func NewConfig(configService driver.ConfigService, network, channel string) (*Config, error) {
-	prefix := buildConfigPrefix(network, channel)
-
+// The configService is assumed to be already rooted at the proper configuration location.
+func NewConfig(configService driver.ConfigService) (*Config, error) {
 	config := &Config{
 		PollInterval:      defaultPollInterval,
 		MaxRetries:        defaultMaxRetries,
@@ -51,23 +50,23 @@ func NewConfig(configService driver.ConfigService, network, channel string) (*Co
 	}
 
 	// Read poll interval if configured
-	if configService.IsSet(prefix + "pollInterval") {
-		config.PollInterval = configService.GetDuration(prefix + "pollInterval")
+	if configService.IsSet("pollInterval") {
+		config.PollInterval = configService.GetDuration("pollInterval")
 	}
 
 	// Read max retries if configured
-	if configService.IsSet(prefix + "maxRetries") {
-		config.MaxRetries = configService.GetInt(prefix + "maxRetries")
+	if configService.IsSet("maxRetries") {
+		config.MaxRetries = configService.GetInt("maxRetries")
 	}
 
 	// Read initial retry delay if configured
-	if configService.IsSet(prefix + "initialRetryDelay") {
-		config.InitialRetryDelay = configService.GetDuration(prefix + "initialRetryDelay")
+	if configService.IsSet("initialRetryDelay") {
+		config.InitialRetryDelay = configService.GetDuration("initialRetryDelay")
 	}
 
 	// Read max retry delay if configured
-	if configService.IsSet(prefix + "maxRetryDelay") {
-		config.MaxRetryDelay = configService.GetDuration(prefix + "maxRetryDelay")
+	if configService.IsSet("maxRetryDelay") {
+		config.MaxRetryDelay = configService.GetDuration("maxRetryDelay")
 	}
 
 	// Validate configuration
@@ -102,14 +101,6 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
-}
-
-// buildConfigPrefix constructs the configuration key prefix for the given network and channel
-func buildConfigPrefix(network, channel string) string {
-	if len(network) == 0 {
-		network = "default"
-	}
-	return "fabric." + network + ".channels." + channel + ".configmonitor."
 }
 
 // Made with Bob

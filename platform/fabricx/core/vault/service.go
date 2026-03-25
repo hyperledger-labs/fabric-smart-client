@@ -15,10 +15,24 @@ import (
 
 var logger = logging.MustGetLogger()
 
-func New(configService fdriver.ConfigService, channel string, queryServiceProvider queryservice.Provider) (*VaultX, error) {
+// New creates a new Vault instance for the specified channel using the provided configuration
+// and query service provider.
+//
+// It retrieves the query service for the network and channel from the provider, then creates
+// a Vault that uses this query service for remote state queries.
+//
+// Parameters:
+//   - configService: Configuration service providing network name and other settings
+//   - channel: The channel name for which to create the vault
+//   - queryServiceProvider: Provider for obtaining the query service instance
+//
+// Returns:
+//   - *Vault: A new vault instance configured with the query service
+//   - error: An error if the query service cannot be obtained
+func New(configService fdriver.ConfigService, channel string, queryServiceProvider queryservice.Provider) (*Vault, error) {
 	queryService, err := queryServiceProvider.Get(configService.NetworkName(), channel)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting query service")
 	}
-	return NewVaultX(queryService), nil
+	return NewVault(queryService), nil
 }
