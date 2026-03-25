@@ -85,9 +85,20 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 		}
 	}
 
-	// build parameter
+	// build parameter: add pkcs11 tag only when the topology contains HSM nodes
 	var params []string
-	params = append(params, "-tags", "pkcs11")
+outer:
+	for _, t := range topologies {
+		if ft, ok := t.(*fsc.Topology); ok {
+			for _, n := range ft.Nodes {
+				fo := fabric.Options(n.Options)
+				if fo.DefaultIdentityByHSM() || len(fo.X509IdentitiesByHSM()) > 0 {
+					params = append(params, "-tags", "pkcs11")
+					break outer
+				}
+			}
+		}
+	}
 
 	// build with coverage profiling, more details: https://go.dev/doc/build-cover
 	if _, ok := os.LookupEnv("GOCOVERDIR"); ok {

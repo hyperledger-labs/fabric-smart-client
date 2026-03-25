@@ -253,6 +253,7 @@ func FindPKCS11Lib() (lib, pin, label string, err error) {
 		possibilities := []string{
 			"/usr/lib/softhsm/libsofthsm2.so",                  // Debian
 			"/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so", // Ubuntu
+			"/opt/homebrew/lib/softhsm/libsofthsm2.so",         // ARM homebrew
 			"/usr/local/lib/softhsm/libsofthsm2.so",
 			"/usr/lib/libacsp-pkcs11.so",
 		}
