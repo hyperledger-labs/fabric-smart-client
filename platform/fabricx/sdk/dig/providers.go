@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/rwset"
@@ -49,7 +50,8 @@ func NewDriver(in struct {
 	AuditInfoStore  driver.AuditInfoStore
 	ChannelProvider ChannelProvider
 	IdentityLoaders []identity.NamedIdentityLoader `group:"identity-loaders"`
-}) core.NamedDriver {
+},
+) core.NamedDriver {
 	d := core.NamedDriver{
 		Name: FabricxDriverName,
 		Driver: fabricx.NewProvider(
@@ -71,21 +73,23 @@ type ChannelProvider generic.ChannelProvider
 
 func NewChannelProvider(in struct {
 	dig.In
-	ConfigProvider       config.Provider
-	KVS                  *kvs.KVS
-	LedgerProvider       *ledger.Provider
-	Publisher            events.Publisher
-	TracerProvider       trace.TracerProvider
-	MetricsProvider      metrics.Provider
-	QueryServiceProvider queryservice.Provider
-	IdentityLoaders      []identity.NamedIdentityLoader `group:"identity-loaders"`
-	EndpointService      identity.EndpointService
-	IdProvider           identity.ViewIdentityProvider
-	EnvelopeStore        fdriver.EnvelopeStore
-	MetadataStore        fdriver.MetadataStore
-	EndorseTxStore       fdriver.EndorseTxStore
-	Drivers              multiplexed.Driver
-}) generic.ChannelProvider {
+	ConfigProvider          config.Provider
+	KVS                     *kvs.KVS
+	LedgerProvider          *ledger.Provider
+	Publisher               events.Publisher
+	TracerProvider          trace.TracerProvider
+	MetricsProvider         metrics.Provider
+	QueryServiceProvider    queryservice.Provider
+	ListenerManagerProvider finality.ListenerManagerProvider
+	IdentityLoaders         []identity.NamedIdentityLoader `group:"identity-loaders"`
+	EndpointService         identity.EndpointService
+	IdProvider              identity.ViewIdentityProvider
+	EnvelopeStore           fdriver.EnvelopeStore
+	MetadataStore           fdriver.MetadataStore
+	EndorseTxStore          fdriver.EndorseTxStore
+	Drivers                 multiplexed.Driver
+},
+) generic.ChannelProvider {
 	channelConfigProvider := generic.NewChannelConfigProvider(in.ConfigProvider)
 	return channel.NewProvider(
 		in.ConfigProvider,
@@ -138,6 +142,7 @@ func NewChannelProvider(in struct {
 		},
 		false,
 		in.QueryServiceProvider,
+		in.ListenerManagerProvider,
 	)
 }
 
