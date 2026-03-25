@@ -12,17 +12,17 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type vaultStore interface {
-	GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VaultRead, error)
-	GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error)
+type storage interface {
+	NewQueryExecutor(ctx context.Context) (driver.QueryExecutor, error)
 }
+
 type localMembership interface {
 	DefaultIdentity() view2.Identity
 }
@@ -31,12 +31,20 @@ type vault struct {
 	sp              services.Provider
 	network         string
 	channel         string
-	vaultStore      vaultStore
+	vaultStore      storage
 	localMembership localMembership
 }
 
 func (f *vault) GetState(ctx context.Context, namespace driver.Namespace, id driver.PKey, state interface{}) error {
-	value, err := f.vaultStore.GetState(ctx, namespace, id)
+	qe, err := f.vaultStore.NewQueryExecutor(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = qe.Done()
+	}()
+
+	value, err := qe.GetState(ctx, namespace, id)
 	if err != nil {
 		return err
 	}
@@ -48,16 +56,6 @@ func (f *vault) GetState(ctx context.Context, namespace driver.Namespace, id dri
 		return err
 	}
 	return nil
-}
-
-func (f *vault) GetStateByPartialCompositeID(ctx context.Context, ns driver.Namespace, prefix string, attrs []string) (driver.TxStateIterator, error) {
-	startKey, err := state.CreateCompositeKey(prefix, attrs)
-	if err != nil {
-		return nil, err
-	}
-	endKey := startKey + string(state.MaxUnicodeRuneValue)
-
-	return f.vaultStore.GetStateRange(ctx, ns, startKey, endKey)
 }
 
 func (f *vault) GetStateCertification(ctx context.Context, namespace driver.Namespace, key driver.PKey) ([]byte, error) {
@@ -91,10 +89,10 @@ func (f *vault) GetStateCertification(ctx context.Context, namespace driver.Name
 
 type service struct {
 	sp   services.Provider
-	fnsp driver2.FabricNetworkServiceProvider
+	fnsp *fabric.NetworkServiceProvider
 }
 
-func NewService(sp services.Provider, fnsp driver2.FabricNetworkServiceProvider) *service {
+func NewService(sp services.Provider, fnsp *fabric.NetworkServiceProvider) *service {
 	return &service{sp: sp, fnsp: fnsp}
 }
 
@@ -111,7 +109,7 @@ func (w *service) Vault(network string, channel string) (state.Vault, error) {
 		sp:              w.sp,
 		network:         fns.Name(),
 		channel:         ch.Name(),
-		vaultStore:      ch.VaultStore(),
+		vaultStore:      ch.Vault(),
 		localMembership: fns.LocalMembership(),
 	}, nil
 }

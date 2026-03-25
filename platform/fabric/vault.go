@@ -92,7 +92,6 @@ func (r *RWSet) Equals(rws interface{}, nss ...string) error {
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault struct {
 	vault              fdriver.Vault
-	committer          fdriver.Committer
 	transactionService fdriver.EndorserTransactionService
 	envelopeService    fdriver.EnvelopeService
 	metadataService    fdriver.MetadataService
@@ -101,7 +100,6 @@ type Vault struct {
 func newVault(ch fdriver.Channel) *Vault {
 	return &Vault{
 		vault:              ch.Vault(),
-		committer:          ch.Committer(),
 		transactionService: ch.TransactionService(),
 		envelopeService:    ch.EnvelopeService(),
 		metadataService:    ch.MetadataService(),
@@ -160,14 +158,4 @@ func (c *Vault) StoreTransaction(ctx context.Context, id driver.TxID, raw []byte
 
 func (c *Vault) StoreTransient(ctx context.Context, id driver.TxID, tm TransientMap) error {
 	return c.metadataService.StoreTransient(ctx, id, fdriver.TransientMap(tm))
-}
-
-// DiscardTx discards the transaction with the given transaction id.
-// If no error occurs, invoking Status on the same transaction id will return the Invalid flag.
-func (c *Vault) DiscardTx(ctx context.Context, txID driver.TxID, message string) error {
-	return c.committer.DiscardTx(ctx, txID, message)
-}
-
-func (c *Vault) CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBlock driver.TxNum) error {
-	return c.committer.CommitTX(ctx, txID, block, indexInBlock, nil)
 }

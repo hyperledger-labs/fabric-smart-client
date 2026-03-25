@@ -19,10 +19,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering"
 	genericservices "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	channelconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
@@ -36,7 +34,7 @@ type VaultConstructor = func(
 	channelName string,
 	configService fdriver.ConfigService,
 	vaultStore cdriver.VaultStore,
-) (*vault.Vault, error)
+) (fdriver.Vault, error)
 
 type LedgerConstructor func(
 	channelName string,
@@ -123,12 +121,7 @@ func NewProvider(
 }
 
 func (p *provider) NewChannel(nw fdriver.FabricNetworkService, channelName string, quiet bool) (fdriver.Channel, error) {
-	vaultStore, err := vault2.NewStore(nw.ConfigService().VaultPersistenceName(), p.drivers, nw.Name(), channelName)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed creating vault store for channel [%s]", channelName)
-	}
-
-	vault, err := p.newVault(channelName, nw.ConfigService(), vaultStore)
+	vault, err := p.newVault(channelName, nw.ConfigService(), nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating vault for channel [%s]", channelName)
 	}
@@ -151,7 +144,7 @@ func (p *provider) NewChannel(nw fdriver.FabricNetworkService, channelName strin
 	}
 
 	// Delivery
-	deliveryService, err := p.newDelivery(nw, channelName, peerService, ledgerService, &vaultDeliveryWrapper{vaultStore: vaultStore}, nil)
+	deliveryService, err := p.newDelivery(nw, channelName, peerService, ledgerService, &fakeVault{}, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating delivery for channel [%s]", channelName)
 	}
@@ -167,7 +160,6 @@ func (p *provider) NewChannel(nw fdriver.FabricNetworkService, channelName strin
 		ChannelName:              channelName,
 		FinalityService:          finalityService,
 		VaultService:             vault,
-		VaultStoreService:        vaultStore,
 		ES:                       envelopeService,
 		TS:                       transactionService,
 		MS:                       metadataService,
@@ -265,25 +257,15 @@ func (l *finalityListener) OnStatus(ctx context.Context, txID string, status int
 	}
 }
 
-type vaultDeliveryWrapper struct {
-	vaultStore cdriver.VaultStore
+type fakeVault struct {
 }
 
-func (f *vaultDeliveryWrapper) GetLastTxID(ctx context.Context) (string, error) {
-	tx, err := f.vaultStore.GetLast(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	if tx == nil {
-		return "", nil
-	}
-
-	return tx.TxID, nil
+func (f *fakeVault) GetLastTxID(ctx context.Context) (string, error) {
+	return "", nil
 }
 
-func (f *vaultDeliveryWrapper) GetLastBlock(context.Context) (uint64, error) {
-	return 0, errors.New("not implemented")
+func (f *fakeVault) GetLastBlock(context.Context) (uint64, error) {
+	return 0, nil
 }
 
 // startChannelConfigMonitor creates and starts the channel configuration monitor

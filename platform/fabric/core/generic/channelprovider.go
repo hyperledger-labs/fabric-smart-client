@@ -232,7 +232,6 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ChannelName:              channelName,
 		FinalityService:          finalityService,
 		VaultService:             vault,
-		VaultStoreService:        vaultStore,
 		ES:                       envelopeService,
 		TS:                       transactionService,
 		MS:                       metadataService,

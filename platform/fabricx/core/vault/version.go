@@ -26,6 +26,22 @@ func (*CounterBasedVersionBuilder) VersionedValues(rws *vault.ReadWriteSet, ns d
 	return vals, nil
 }
 
+func (c *CounterBasedVersionBuilder) VersionedMetaValues(rws *vault.ReadWriteSet, ns driver.Namespace, writes vault.KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]driver.VaultMetadataValue, error) {
+	vals := make(map[driver.PKey]driver.VaultMetadataValue, len(writes))
+	reads := rws.Reads[ns]
+
+	for pkey, val := range writes {
+		vals[pkey] = driver.VaultMetadataValue{Metadata: val, Version: version(reads, pkey)}
+	}
+	return vals, nil
+}
+
+type CounterBasedVersionComparator struct{}
+
+func (*CounterBasedVersionComparator) Equal(v1, v2 driver.RawVersion) bool {
+	return bytes.Equal(v1, v2)
+}
+
 func version(reads vault.NamespaceReads, pkey driver.PKey) vault.Version {
 	// Search the corresponding read.
 	v, ok := reads[pkey]
@@ -42,22 +58,6 @@ func version(reads vault.NamespaceReads, pkey driver.PKey) vault.Version {
 	// parse the version as an integer, then increment it
 	counter := Unmarshal(v)
 	return Marshal(counter + 1)
-}
-
-func (c *CounterBasedVersionBuilder) VersionedMetaValues(rws *vault.ReadWriteSet, ns driver.Namespace, writes vault.KeyedMetaWrites, block driver.BlockNum, indexInBloc driver.TxNum) (map[driver.PKey]driver.VaultMetadataValue, error) {
-	vals := make(map[driver.PKey]driver.VaultMetadataValue, len(writes))
-	reads := rws.Reads[ns]
-
-	for pkey, val := range writes {
-		vals[pkey] = driver.VaultMetadataValue{Metadata: val, Version: version(reads, pkey)}
-	}
-	return vals, nil
-}
-
-type CounterBasedVersionComparator struct{}
-
-func (*CounterBasedVersionComparator) Equal(v1, v2 driver.RawVersion) bool {
-	return bytes.Equal(v1, v2)
 }
 
 func Marshal(v uint64) []byte {

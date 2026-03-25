@@ -33,16 +33,9 @@ type cache interface {
 	Delete(key string)
 }
 
-type cachedStore struct {
-	driver.VaultStore
-	cache cache
-}
-
 type notCachedStore struct {
 	driver.VaultStore
 }
-
-func (s *notCachedStore) Invalidate(...driver.TxID) {}
 
 func NewCachedVault(backed driver2.VaultStore, cacheSize int) CachedVaultStore {
 	if cacheSize <= 0 {
@@ -54,6 +47,13 @@ func NewCachedVault(backed driver2.VaultStore, cacheSize int) CachedVaultStore {
 		VaultStore: backed,
 		cache:      secondcache.NewTyped[*entry](cacheSize),
 	}
+}
+
+func (s *notCachedStore) Invalidate(...driver.TxID) {}
+
+type cachedStore struct {
+	driver.VaultStore
+	cache cache
 }
 
 func (s *cachedStore) Invalidate(txIDs ...driver.TxID) {

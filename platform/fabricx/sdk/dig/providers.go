@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/identity"
-	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx"
@@ -97,8 +96,8 @@ func NewChannelProvider(in struct {
 		in.MetadataStore,
 		in.EndorseTxStore,
 		in.Drivers,
-		func(channelName string, configService fdriver.ConfigService, vaultStore driver.VaultStore) (*vault2.Vault, error) {
-			return vault.New(configService, vaultStore, channelName, in.QueryServiceProvider, in.MetricsProvider, in.TracerProvider)
+		func(channelName string, configService fdriver.ConfigService, _ driver.VaultStore) (fdriver.Vault, error) {
+			return vault.New(configService, channelName, in.QueryServiceProvider)
 		},
 		channelConfigProvider,
 		func(channelName string, nw fdriver.FabricNetworkService, chaincodeManager fdriver.ChaincodeManager) (fdriver.Ledger, error) {
