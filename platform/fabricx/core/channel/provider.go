@@ -176,7 +176,7 @@ func (p *provider) NewChannel(nw fdriver.FabricNetworkService, channelName strin
 		LedgerService:            ledgerService,
 		ChannelMembershipService: channelMembershipService,
 		ChaincodeManagerService:  nil,
-		CommitterService:         &nopeCommitterService{},
+		CommitterService:         &nopeCommitterService{finalityService: finalityService},
 	}
 
 	if err := startChannelConfigMonitor(nw, channelName, channelMembershipService, p.queryServiceProvider); err != nil {
@@ -344,9 +344,14 @@ func (a *orderingServiceAdapter) Configure(consensusType string, orderers []*grp
 	return orderingService.Configure(consensusType, orderers)
 }
 
-type nopeCommitterService struct{}
+type nopeCommitterService struct {
+	finalityService fdriver.Finality
+}
 
 func (n *nopeCommitterService) IsFinal(ctx context.Context, txID string) error {
+	if n.finalityService != nil {
+		return n.finalityService.IsFinal(ctx, txID)
+	}
 	return nil
 }
 
@@ -375,10 +380,20 @@ func (n *nopeCommitterService) Status(context context.Context, txID cdriver.TxID
 }
 
 func (n *nopeCommitterService) AddFinalityListener(txID string, listener fdriver.FinalityListener) error {
+	if n.finalityService != nil {
+		if lm, ok := n.finalityService.(*finalityServiceAdapter); ok {
+			return lm.manager.AddFinalityListener(txID, listener)
+		}
+	}
 	return nil
 }
 
 func (n *nopeCommitterService) RemoveFinalityListener(txID string, listener fdriver.FinalityListener) error {
+	if n.finalityService != nil {
+		if lm, ok := n.finalityService.(*finalityServiceAdapter); ok {
+			return lm.manager.RemoveFinalityListener(txID, listener)
+		}
+	}
 	return nil
 }
 
