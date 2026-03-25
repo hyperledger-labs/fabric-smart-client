@@ -13,9 +13,9 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	sq "github.com/Masterminds/squirrel"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	. "github.com/onsi/gomega"
 )
@@ -52,7 +52,7 @@ func TestHaveSameBinding(t *testing.T) {
 	longTerm := view.Identity("long_term_id")
 
 	// Use regexp.QuoteMeta to safely escape the query string
-	expectedQuery := regexp.QuoteMeta("SELECT long_term_id FROM bindings WHERE (ephemeral_hash) IN (($1), ($2))")
+	expectedQuery := regexp.QuoteMeta("SELECT long_term_id FROM bindings WHERE ephemeral_hash IN ($1,$2)")
 
 	mockDB.
 		ExpectQuery(expectedQuery).
@@ -80,7 +80,7 @@ func TestHaveSameBinding_NotEqual(t *testing.T) {
 	longTerm1 := view.Identity("long_term_id_1")
 	longTerm2 := view.Identity("long_term_id_2")
 
-	query := regexp.QuoteMeta("SELECT long_term_id FROM bindings WHERE (ephemeral_hash) IN (($1), ($2))")
+	query := regexp.QuoteMeta("SELECT long_term_id FROM bindings WHERE ephemeral_hash IN ($1,$2)")
 
 	mockDB.
 		ExpectQuery(query).
@@ -107,7 +107,7 @@ func TestHaveSameBinding_MissingEntries(t *testing.T) {
 	id2 := view.Identity("id2")
 	longTerm1 := view.Identity("long_term_id_1")
 
-	query := regexp.QuoteMeta("SELECT long_term_id FROM bindings WHERE (ephemeral_hash) IN (($1), ($2))")
+	query := regexp.QuoteMeta("SELECT long_term_id FROM bindings WHERE ephemeral_hash IN ($1,$2)")
 
 	mockDB.
 		ExpectQuery(query).
@@ -124,5 +124,5 @@ func TestHaveSameBinding_MissingEntries(t *testing.T) {
 }
 
 func mockBindingStore(db *sql.DB) *common2.BindingStore {
-	return common2.NewBindingStore(db, db, "bindings", &mock.SQLErrorWrapper{}, sqlite.NewConditionInterpreter())
+	return common2.NewBindingStore(db, db, "bindings", &mock.SQLErrorWrapper{}, sq.StatementBuilder.PlaceholderFormat(sq.Dollar))
 }
