@@ -27,15 +27,6 @@ type Interceptor[V driver.ValidationCode] struct {
 	marshallingCache atomic.Pointer[[]byte]
 }
 
-func newInterceptor[V driver.ValidationCode](in *vault.Interceptor[V], txID driver.TxID, qe vault.VersionedQueryExecutor, m *Marshaller) *Interceptor[V] {
-	return &Interceptor[V]{
-		Interceptor: in,
-		txID:        txID,
-		qe:          qe,
-		m:           m,
-	}
-}
-
 func (i *Interceptor[V]) Bytes() ([]byte, error) {
 	// if already closed, return cached bytes if available.
 	if i.IsClosed() {
