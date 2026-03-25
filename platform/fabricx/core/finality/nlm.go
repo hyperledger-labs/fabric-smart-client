@@ -172,6 +172,8 @@ func parseResponse(resp *committerpb.NotificationResponse) map[string]int {
 		txID := r.GetRef().GetTxId()
 		status := r.GetStatus()
 
+		logger.Infof("transaction [%s] status [%s]", txID, status)
+
 		switch status {
 		case committerpb.Status_COMMITTED:
 			s = fdriver.Valid

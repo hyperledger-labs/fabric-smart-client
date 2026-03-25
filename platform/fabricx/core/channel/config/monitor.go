@@ -140,7 +140,7 @@ func (s *Service) Start(ctx context.Context) error {
 	s.wg.Add(1)
 	go s.monitorLoop()
 
-	logger.Infof("Channel config monitor started for [%s:%s]", s.network, s.channel)
+	logger.Debugf("Channel config monitor started for [%s:%s]", s.network, s.channel)
 	return nil
 }
 
@@ -159,7 +159,7 @@ func (s *Service) Stop() error {
 	// Wait for the monitoring goroutine to finish
 	s.wg.Wait()
 
-	logger.Infof("Channel config monitor stopped for [%s:%s]", s.network, s.channel)
+	logger.Debugf("Channel config monitor stopped for [%s:%s]", s.network, s.channel)
 	return nil
 }
 
@@ -177,7 +177,7 @@ func (s *Service) monitorLoop() {
 	ticker := time.NewTicker(s.config.PollInterval)
 	defer ticker.Stop()
 
-	logger.Infof("Monitor loop started for [%s:%s], poll interval: %v",
+	logger.Debugf("Monitor loop started for [%s:%s], poll interval: %v",
 		s.network, s.channel, s.config.PollInterval)
 
 	// Perform initial check immediately
@@ -188,7 +188,7 @@ func (s *Service) monitorLoop() {
 	for {
 		select {
 		case <-s.ctx.Done():
-			logger.Infof("Monitor loop stopping for [%s:%s]: context cancelled", s.network, s.channel)
+			logger.Debugf("Monitor loop stopping for [%s:%s]: context cancelled", s.network, s.channel)
 			return
 		case <-ticker.C:
 			if err := s.checkAndUpdate(); err != nil {
@@ -200,7 +200,7 @@ func (s *Service) monitorLoop() {
 
 // checkAndUpdate checks for configuration changes and applies updates if needed
 func (s *Service) checkAndUpdate() error {
-	logger.Infof("Checking for config updates on [%s:%s]", s.network, s.channel)
+	logger.Debugf("Checking for config updates on [%s:%s]", s.network, s.channel)
 
 	// Wrap the operation with retry logic
 	return s.retryWithBackoff(func() error {
@@ -216,11 +216,11 @@ func (s *Service) checkAndUpdate() error {
 
 		// Check if this is a new configuration
 		if int64(configInfo.Version) <= s.lastVersion {
-			logger.Infof("No new config for [%s:%s], current version: %d", s.network, s.channel, configInfo.Version)
+			logger.Debugf("No new config for [%s:%s], current version: %d", s.network, s.channel, configInfo.Version)
 			return nil
 		}
 
-		logger.Infof("New config detected for [%s:%s], version: %d -> %d",
+		logger.Debugf("New config detected for [%s:%s], version: %d -> %d",
 			s.network, s.channel, s.lastVersion, configInfo.Version)
 
 		// Apply the configuration update
@@ -230,7 +230,7 @@ func (s *Service) checkAndUpdate() error {
 
 		// Update the last processed config version
 		s.lastVersion = int64(configInfo.Version)
-		logger.Infof("Config update applied successfully for [%s:%s], new version: %d",
+		logger.Debugf("Config update applied successfully for [%s:%s], new version: %d",
 			s.network, s.channel, configInfo.Version)
 
 		return nil
@@ -243,7 +243,7 @@ func (s *Service) applyConfigUpdate(envelope *cb.Envelope) error {
 	if err := s.membershipService.Update(envelope); err != nil {
 		return errors.Wrap(err, "failed to update membership service")
 	}
-	logger.Infof("Membership service updated for [%s:%s]", s.network, s.channel)
+	logger.Debugf("Membership service updated for [%s:%s]", s.network, s.channel)
 
 	// Extract orderer configuration from membership service
 	consensusType, orderers, err := s.membershipService.OrdererConfig(s.configService)
@@ -255,7 +255,7 @@ func (s *Service) applyConfigUpdate(envelope *cb.Envelope) error {
 	if err := s.orderingService.Configure(consensusType, orderers); err != nil {
 		return errors.Wrap(err, "failed to update ordering service")
 	}
-	logger.Infof("Ordering service updated for [%s:%s], consensus: %s, orderers: %d",
+	logger.Debugf("Ordering service updated for [%s:%s], consensus: %s, orderers: %d",
 		s.network, s.channel, consensusType, len(orderers))
 
 	return nil
