@@ -76,7 +76,7 @@ type Service struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
 	wg          sync.WaitGroup
-	lastVersion uint64
+	lastVersion int64
 }
 
 // NewChannelConfigMonitor creates a new ChannelConfigMonitor service instance
@@ -117,7 +117,7 @@ func NewChannelConfigMonitor(
 		network:           network,
 		channel:           channel,
 		running:           false,
-		lastVersion:       0,
+		lastVersion:       -1,
 	}, nil
 }
 
@@ -215,7 +215,7 @@ func (s *Service) checkAndUpdate() error {
 		}
 
 		// Check if this is a new configuration
-		if configInfo.Version <= s.lastVersion {
+		if int64(configInfo.Version) <= s.lastVersion {
 			logger.Infof("No new config for [%s:%s], current version: %d", s.network, s.channel, configInfo.Version)
 			return nil
 		}
@@ -229,7 +229,7 @@ func (s *Service) checkAndUpdate() error {
 		}
 
 		// Update the last processed config version
-		s.lastVersion = configInfo.Version
+		s.lastVersion = int64(configInfo.Version)
 		logger.Infof("Config update applied successfully for [%s:%s], new version: %d",
 			s.network, s.channel, configInfo.Version)
 

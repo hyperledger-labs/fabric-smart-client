@@ -252,19 +252,19 @@ func TestConfigurationUpdate(t *testing.T) {
 			if callCount == 1 {
 				return &queryservice.ConfigTransactionInfo{
 					Envelope: envelope,
-					Version:  1,
+					Version:  0,
 				}, nil
 			}
 			if callCount == 2 {
 				return &queryservice.ConfigTransactionInfo{
 					Envelope: envelope,
-					Version:  2,
+					Version:  1,
 				}, nil
 			}
-			// Keep returning version 2 for subsequent calls
+			// Keep returning version 1 for subsequent calls
 			return &queryservice.ConfigTransactionInfo{
 				Envelope: envelope,
-				Version:  2,
+				Version:  1,
 			}, nil
 		})
 

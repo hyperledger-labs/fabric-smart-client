@@ -22,7 +22,7 @@ func TestNewConfig(t *testing.T) {
 		config, err := channelconfig.NewConfig(cs, "testnet", "mychannel")
 		require.NoError(t, err)
 		assert.NotNil(t, config)
-		assert.Equal(t, 1*time.Minute, config.PollInterval)
+		assert.Equal(t, 1*time.Second, config.PollInterval)
 		assert.Equal(t, 5, config.MaxRetries)
 		assert.Equal(t, 1*time.Second, config.InitialRetryDelay)
 		assert.Equal(t, 5*time.Minute, config.MaxRetryDelay)
