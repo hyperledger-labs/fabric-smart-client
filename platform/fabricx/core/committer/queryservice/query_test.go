@@ -15,10 +15,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice/mock"
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 )
 
 // To re-generate the mock/ run "go generate" directive
@@ -423,18 +425,26 @@ func TestQueryService(t *testing.T) {
 		qs, fake := setupTest(t)
 
 		t.Run("happy path", func(t *testing.T) {
-			// return a config transaction response
-			envelope := []byte("config-envelope-data")
+			// Create a valid protobuf envelope
+			envelope := &cb.Envelope{
+				Payload:   []byte("test-payload"),
+				Signature: []byte("test-signature"),
+			}
+			envelopeBytes, err := proto.Marshal(envelope)
+			require.NoError(t, err)
+
 			version := uint64(12345)
 			fake.GetConfigTransactionReturns(&applicationpb.ConfigTransaction{
-				Envelope: envelope,
+				Envelope: envelopeBytes,
 				Version:  version,
 			}, nil)
 
 			resp, err := qs.GetConfigTransaction()
 			require.NoError(t, err)
 			require.NotNil(t, resp)
-			require.Equal(t, envelope, resp.Envelope)
+			require.NotNil(t, resp.Envelope)
+			require.Equal(t, envelope.Payload, resp.Envelope.Payload)
+			require.Equal(t, envelope.Signature, resp.Envelope.Signature)
 			require.Equal(t, version, resp.Version)
 		})
 
