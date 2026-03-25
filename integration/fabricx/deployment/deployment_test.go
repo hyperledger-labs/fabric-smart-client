@@ -60,7 +60,7 @@ func NewTestSuite(commType nwofsc.P2PCommunicationType, nodeOpts *integration.Re
 	})}
 }
 
-func UpdateNamespacePolicy(ii *integration.Infrastructure) {
+func UpdateNamespacePolicy(ii *integration.Infrastructure, policy string) {
 	fx := fxPlatform(ii)
 	Expect(fx).NotTo(BeNil())
 
@@ -76,9 +76,6 @@ func UpdateNamespacePolicy(ii *integration.Infrastructure) {
 	notificationsEndpoint := net.JoinHostPort("localhost", committerSidecarPort)
 
 	// setup our new endorser
-	// TODO: make this a parameter of UpdateNamespacePolicy
-	endorserPKPath := path.Join(ii.TestDir, "fabric.default/crypto/peerOrganizations/org1.example.com/users/approver2@org1.example.com/msp/signcerts/approver2@org1.example.com-cert.pem")
-
 	command := &fxconfig.UpdateNamespace{
 		NamespaceCommon: fxconfig.NamespaceCommon{
 			Name:    "simple",
@@ -100,7 +97,7 @@ func UpdateNamespacePolicy(ii *integration.Infrastructure) {
 				Address:   notificationsEndpoint,
 				TLSConfig: fxconfig.TLSConfig{},
 			},
-			EndorserPKPath: endorserPKPath,
+			Policy: policy,
 		},
 		// this is the current version
 		Version: 0,
@@ -129,7 +126,8 @@ func (s *TestSuite) TestSucceeded() {
 
 	// update the EP to require approver2
 	By("update EP to approver2")
-	UpdateNamespacePolicy(s.II)
+	endorserPKPath := path.Join(s.II.TestDir, "fabric.default/crypto/peerOrganizations/org2.example.com/users/approver2@org2.example.com/msp/signcerts/approver2@org2.example.com-cert.pem")
+	UpdateNamespacePolicy(s.II, "threshold:"+endorserPKPath)
 
 	// Wait for namespace update transaction to be finalized and propagated
 	// The namespace update is a transaction that needs to be committed and

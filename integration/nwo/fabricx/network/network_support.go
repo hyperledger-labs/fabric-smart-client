@@ -10,48 +10,90 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
 
-func createMetanamespaceKey(n *Network) error {
-	isApprover := func(options *node.Options) bool {
-		o := options.Get("approver.role")
-		return o != nil && o != ""
+// namespaceApproverOrgs returns the list of org names that appear
+// in the channel LifecycleEndorsement policy
+func namespaceApproverOrgs(n *Network) ([]string, error) {
+	// This regex extracts the org name from policy expressions
+	mspMemberPolicyRE := regexp.MustCompile(`'([^']+)MSP\.member'`)
+
+	fabricTopology := n.Topology()
+	if fabricTopology == nil {
+		return nil, fmt.Errorf("fabric topology not available")
 	}
 
-	// workout the public key for the meta namespace verification key
-	fscTopology, ok := n.Context.TopologyByName("fsc").(*fsc.Topology)
-	if !ok {
-		panic("programming error: must be a fsc.Topology")
-	}
-
-	var approvers []*node.Node
-	for _, nn := range fscTopology.Nodes {
-		if isApprover(nn.Options) {
-			approvers = append(approvers, nn)
+	for _, profile := range fabricTopology.Profiles {
+		if profile.Name != "OrgsChannel" {
+			continue
 		}
+
+		for _, policy := range profile.Policies {
+			if policy.Name != "LifecycleEndorsement" {
+				continue
+			}
+
+			matches := mspMemberPolicyRE.FindAllStringSubmatch(policy.Rule, -1)
+			if len(matches) == 0 {
+				return nil, fmt.Errorf("no MSP orgs found in LifecycleEndorsement policy [%s]", policy.Rule)
+			}
+
+			orgs := make([]string, 0, len(matches))
+			seen := map[string]struct{}{}
+			for _, match := range matches {
+				org := match[1]
+				if _, ok := seen[org]; ok {
+					continue
+				}
+				seen[org] = struct{}{}
+				orgs = append(orgs, org)
+			}
+			return orgs, nil
+		}
+
+		return nil, fmt.Errorf("LifecycleEndorsement policy not found in profile [%s]", profile.Name)
 	}
 
-	if len(approvers) != 1 {
-		panic(fmt.Errorf("exactly one approver allowed, %d found", len(approvers)))
+	return nil, fmt.Errorf("profile [OrgsChannel] not found")
+}
+
+// namespaceApproverOrg is a helper that returns a single org, the first one
+func namespaceApproverOrg(n *Network) (string, error) {
+	orgs, err := namespaceApproverOrgs(n)
+	if err != nil {
+		return "", err
+	}
+	if len(orgs) == 0 {
+		return "", fmt.Errorf("no namespace approver orgs found")
+	}
+	return orgs[0], nil
+}
+
+func createMetanamespaceKey(n *Network) error {
+	orgName, err := namespaceApproverOrg(n)
+	if err != nil {
+		return err
 	}
 
-	user := approvers[0].Name
-	p := n.PeerByName(user)
-	certPath := n.PeerUserCert(p, user)
+	peers := n.PeersInOrg(orgName)
+	if len(peers) == 0 {
+		return fmt.Errorf("no peers found for namespace approver org [%s]", orgName)
+	}
+
+	certPath := n.PeerUserCert(peers[0], "Admin")
 	certBytes, err := os.ReadFile(certPath)
 	if err != nil {
 		return err
 	}
 
 	pkPath := filepath.Join(n.RootDir, n.Prefix, "crypto", "sc_pubkey.pem")
-	logger.Infof("Write user [%s] pk from [%s] to [%s]", user, certPath, pkPath)
+	logger.Infof("Write admin pk for org [%s] from [%s] to [%s]", orgName, certPath, pkPath)
 	return os.WriteFile(pkPath, certBytes, 0o644)
 }
 

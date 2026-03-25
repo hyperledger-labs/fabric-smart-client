@@ -367,6 +367,67 @@ func TestNewConnection(t *testing.T) {
 	}
 }
 
+func TestNewConnection_TLSCertificateSANMismatch(t *testing.T) {
+	t.Parallel()
+
+	// Create a CA
+	ca, err := tlsgen.NewCA()
+	require.NoError(t, err)
+
+	// Create a server certificate with a specific hostname
+	serverCertKeyPair, err := ca.NewServerCertKeyPair("correct-hostname.example.com")
+	require.NoError(t, err)
+
+	serverCert, err := tls.X509KeyPair(serverCertKeyPair.Cert, serverCertKeyPair.Key)
+	require.NoError(t, err)
+
+	// Start a TLS server
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer utils.IgnoreErrorFunc(lis.Close)
+
+	serverTLS := &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+	}
+
+	srv := grpc.NewServer(grpc.Creds(credentials.NewTLS(serverTLS)))
+	defer srv.Stop()
+	go utils.IgnoreErrorFunc(func() error {
+		return srv.Serve(lis)
+	})
+
+	// Create a client that will connect to the server
+	// The client expects "correct-hostname.example.com" but will connect to 127.0.0.1
+	// This should cause a SAN mismatch error
+	client, err := grpc3.NewGRPCClient(grpc3.ClientConfig{
+		SecOpts: grpc3.SecureOptions{
+			UseTLS:        true,
+			ServerRootCAs: [][]byte{ca.CertBytes()},
+		},
+		Timeout: 2 * time.Second,
+	})
+	require.NoError(t, err)
+
+	address := lis.Addr().String()
+
+	// This should fail with a certificate error, not a timeout
+	conn, err := client.NewConnection(address)
+
+	// Assert that we get an error
+	assert.Error(t, err)
+	if conn != nil {
+		utils.IgnoreErrorFunc(conn.Close)
+	}
+
+	// The error should contain certificate/x509/SAN information, not just "context deadline exceeded"
+	errMsg := err.Error()
+	t.Logf("Error message: %s", errMsg)
+
+	// Before the fix, this would be "context deadline exceeded"
+	// After the fix, it should contain certificate validation error details
+	assert.Contains(t, errMsg, "x509", "Error should contain x509 certificate validation details")
+}
+
 func TestSetServerRootCAs(t *testing.T) {
 	t.Parallel()
 	testCerts := loadCerts(t)

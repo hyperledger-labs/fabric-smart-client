@@ -18,7 +18,6 @@ import (
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/fxconfig"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/onsi/gomega"
@@ -180,32 +179,21 @@ func (n *Network) PostRun(load bool) {
 }
 
 func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
-	isApprover := func(options *node.Options) bool {
-		o := options.Get("approver.role")
-		return o != nil && o != ""
-	}
+	orgName, err := namespaceApproverOrg(n)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	var fscNode *topology.Peer
-	for _, p := range n.Peers {
-		if p.Type == "FSCNode" && isApprover(p.FSCNode.Options) {
-			fscNode = p
-			break
-		}
-	}
-	gomega.Expect(fscNode).NotTo(gomega.BeNil())
+	peers := n.PeersInOrg(orgName)
+	gomega.Expect(peers).NotTo(gomega.BeEmpty())
 
-	// TODO: get the admin user according to the channel lifecycle policy
-	// see corresponding fabricTopology.SetNamespaceApproverOrgs("Org1") setting in topo
-	adminMspID := n.Organization(fscNode.Organization).MSPID
-	adminMspDir := n.PeerUserMSPDir(fscNode, "Admin")
+	adminMspID := n.Organization(orgName).MSPID
+	adminMspDir := n.PeerUserMSPDir(peers[0], "Admin")
 
 	// get notification service endpoint
-	committerNode := n.Peer(fscNode.Organization, "SC")
+	committerNode := n.Peer(orgName, "SC")
+	gomega.Expect(committerNode).NotTo(gomega.BeNil())
+
 	committerSidecarPort := fmt.Sprintf("%d", n.PeerPort(committerNode, fabric_network.ListenPort))
 	notificationsEndpoint := net.JoinHostPort("localhost", committerSidecarPort)
-
-	// TODO replace EndorserPKPath with the real policy as defined in chaincode.Chaincode.Policy
-	endorserPKPath := n.PeerUserCert(fscNode, fscNode.Name)
 
 	cmd := &fxconfig.CreateNamespace{
 		NamespaceCommon: fxconfig.NamespaceCommon{
@@ -226,7 +214,7 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 				Address:   notificationsEndpoint,
 				TLSConfig: fxconfig.TLSConfig{},
 			},
-			EndorserPKPath: endorserPKPath,
+			Policy: chaincode.Chaincode.Policy,
 		},
 	}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())

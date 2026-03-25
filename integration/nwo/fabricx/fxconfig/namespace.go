@@ -52,8 +52,11 @@ type NamespaceCommon struct {
 	Name    string
 	Channel string
 
-	// TODO: replace with MSP-based policy
-	EndorserPKPath string
+	// Policy is the raw fxconfig policy string, for example:
+	//   "AND('Org1MSP.member','Org2MSP.member')"
+	// or
+	//   "threshold:/path/to/policy.pem"
+	Policy string
 
 	MSPConfig           MSPConfig
 	OrdererConfig       OrdererConfig
@@ -67,7 +70,7 @@ type CreateNamespace struct {
 func (n *CreateNamespace) Args() []string {
 	return []string{
 		"namespace", "create", n.Name,
-		"--policy=threshold:" + n.EndorserPKPath,
+		"--policy=" + n.Policy,
 		"--endorse",
 		"--submit",
 		"--wait",
@@ -119,7 +122,7 @@ func (n *UpdateNamespace) Args() []string {
 	return []string{
 		"namespace", "update", n.Name,
 		"--version", strconv.Itoa(n.Version),
-		"--policy=threshold:" + n.EndorserPKPath,
+		"--policy=" + n.Policy,
 		"--endorse",
 		"--submit",
 		"--wait",

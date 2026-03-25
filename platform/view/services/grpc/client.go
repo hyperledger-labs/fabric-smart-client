@@ -89,6 +89,10 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 		client.dialOpts = append(client.dialOpts, grpc.WithBlock()) //nolint:all
 		//lint:ignore SA1019 Refactor in next change
 		client.dialOpts = append(client.dialOpts, grpc.FailOnNonTempDialError(true)) //nolint:all
+		// Return connection errors immediately instead of timing out
+		// This ensures TLS certificate validation errors are returned with meaningful messages
+		//lint:ignore SA1019 Refactor in next change
+		client.dialOpts = append(client.dialOpts, grpc.WithReturnConnectionError()) //nolint:all
 	}
 	client.timeout = config.Timeout
 	// set send/recv message size to package defaults
@@ -132,7 +136,7 @@ func createSecOpts(connConfig ConnectionConfig, forceTLS bool, cliConfig *TLSCli
 	tlsEnabled := connConfig.TLSEnabled || forceTLS
 	secOpts := &SecureOptions{
 		UseTLS:            tlsEnabled,
-		RequireClientCert: !tlsEnabled && cliConfig.TLSClientAuthRequired,
+		RequireClientCert: tlsEnabled && cliConfig != nil && cliConfig.TLSClientAuthRequired,
 	}
 
 	if secOpts.RequireClientCert {
@@ -306,8 +310,8 @@ func (client *Client) NewConnection(address string, tlsOptions ...TLSOption) (*g
 	//lint:ignore SA1019 Refactor in next change
 	conn, err := grpc.DialContext(ctx, address, dialOpts...) //nolint:all
 	if err != nil {
-		commLogger.Debugf("failed to create new connection to [%s][%v]: [%s]", address, dialOpts, errors.WithStack(err))
-		return nil, errors.WithMessage(errors.WithStack(err), "failed to create new connection")
+		commLogger.Debugf("failed to create new connection to [%s]: [%s]", address, err)
+		return nil, errors.Wrapf(err, "failed to create new connection to [%s]", address)
 	}
 
 	client.grpcCMux.Lock()

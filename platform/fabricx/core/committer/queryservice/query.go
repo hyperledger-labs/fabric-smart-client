@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -25,10 +26,10 @@ var (
 
 type RemoteQueryService struct {
 	client committerpb.QueryServiceClient
-	config *Config
+	config *config.Config
 }
 
-func NewRemoteQueryService(config *Config, client committerpb.QueryServiceClient) *RemoteQueryService {
+func NewRemoteQueryService(config *config.Config, client committerpb.QueryServiceClient) *RemoteQueryService {
 	return &RemoteQueryService{
 		client: client,
 		config: config,
@@ -69,7 +70,7 @@ func (s *RemoteQueryService) GetStates(m map[driver.Namespace][]driver.PKey) (ma
 }
 
 func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.config.QueryTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
 	defer cancel()
 
 	now := time.Now()
@@ -94,7 +95,7 @@ func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[dr
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), s.config.QueryTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
 	defer cancel()
 
 	now := time.Now()

@@ -6,5 +6,6 @@ This is the architecture of the View SDK:
 
 ## Components
 
+- [Configuration Service](./config-service.md)
 - [DB Drivers](./db-driver.md)
 - [Monitoring](./monitoring.md)

@@ -12,11 +12,13 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -96,6 +98,37 @@ func (i *CreateView) Call(viewCtx view.Context) (interface{}, error) {
 	// wait until it is committed
 	logger.Infof("Wait for txID=%v to be committed", tx.ID())
 	wg.Wait()
+
+	// exercise the ledger service
+	lp, err := ledger.GetLedgerProvider(viewCtx)
+	if err != nil {
+		return nil, err
+	}
+	l, err := lp.NewLedger(network.Name(), ch.Name())
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := l.GetLedgerInfo()
+	if err != nil {
+		return nil, err
+	}
+	logger.Infof("Ledger info: height=%v", info.Height)
+
+	pt, err := l.GetTransactionByID(tx.ID())
+	if err != nil {
+		return nil, err
+	}
+	logger.Infof("Transaction found: txID=%v, valid=%v, code=%v", pt.TxID(), pt.IsValid(), pt.ValidationCode())
+	if !pt.IsValid() {
+		return nil, errors.Errorf("tx [%s] is invalid", pt.TxID())
+	}
+
+	blockNum, err := l.GetBlockNumberByTxID(tx.ID())
+	if err != nil {
+		return nil, err
+	}
+	logger.Infof("Transaction committed in block %v", blockNum)
 
 	return nil, nil
 }

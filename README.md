@@ -56,7 +56,9 @@ In summary:
 3. Add tests and documentation
 4. Submit a Pull Request
 
-Join our community on LFDT Discord -> [#fabric-smart-client](https://discord.gg/hyperledger)
+Join our community on the LFDT Discord [#fabric-smart-client](https://discord.gg/hyperledger).
+We also have a community meeting every Wednesday at 1300 CET on [Zoom](https://zoom-lfx.platform.linuxfoundation.org/meeting/96953495257?password=0517864f-e5ef-4ef5-89fa-8638e15fddec). Please see the [Hyperledger Fabric community calendar](https://zoom-lfx.platform.linuxfoundation.org/meetings/lf-decentralized-trust?view=week) for details.
+Meeting notes are available [here](https://docs.google.com/document/d/13t5-9tfA-7L0Ok4DaK3da_3TpAz5CCd5h5_LryhJyRM/edit?usp=sharing).
 
 ## Versioning
 

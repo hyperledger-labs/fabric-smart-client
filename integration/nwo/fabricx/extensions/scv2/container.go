@@ -21,10 +21,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
+	v3 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/extensions/v3"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	v3 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
 )

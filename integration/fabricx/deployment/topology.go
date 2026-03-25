@@ -12,7 +12,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/extensions/scv2"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 )
@@ -25,7 +24,7 @@ const (
 
 func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
 	fabricTopology := nwofabricx.NewDefaultTopology()
-	fabricTopology.AddOrganizationsByName("Org1")
+	fabricTopology.AddOrganizationsByName("Org1", "Org2")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespaceWithUnanimity(Namespace, "Org1")
 
@@ -38,7 +37,6 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		// This option equips the approver's FSC node with an identity belonging to Org1.
 		// Therefore, the approver is an endorser of the Fabric namespace we defined above.
 		AddOptions(fabric.WithOrganization("Org1")).
-		AddOptions(scv2.WithApproverRole()).
 		AddOptions(replicationOpts.For("approver1")...).
 		RegisterResponder(&simpleviews.ApproveView{}, &simpleviews.CreateView{})
 
@@ -46,7 +44,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	fscTopology.AddNodeByName("approver2").
 		// This option equips the approver's FSC node with an identity belonging to Org1.
 		// Therefore, the approver is an endorser of the Fabric namespace we defined above.
-		AddOptions(fabric.WithOrganization("Org1")).
+		AddOptions(fabric.WithOrganization("Org2")).
 		AddOptions(replicationOpts.For("approver2")...).
 		RegisterResponder(&simpleviews.ApproveView{}, &simpleviews.CreateView{})
 
