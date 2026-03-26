@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -425,19 +424,19 @@ func TestTransactionSetRWSet(t *testing.T) {
 	}{
 		{
 			name:                  "from scratch",
-			tx:                    &Transaction{ctx: context.Background(), TTxID: "tx1"},
+			tx:                    &Transaction{ctx: t.Context(), TTxID: "tx1"},
 			expectedNewRWSetCalls: 1,
 		},
 		{
 			name:                   "from existing bytes",
-			tx:                     &Transaction{ctx: context.Background(), TTxID: "tx2", RWSet: []byte("raw")},
+			tx:                     &Transaction{ctx: t.Context(), TTxID: "tx2", RWSet: []byte("raw")},
 			expectedFromBytesCalls: 1,
 			expectedFromBytesArg:   []byte("raw"),
 		},
 		{
 			name: "from proposal response payload",
 			tx: &Transaction{
-				ctx:   context.Background(),
+				ctx:   t.Context(),
 				TTxID: "tx3",
 				TProposalResponses: []*peer.ProposalResponse{{
 					Payload: []byte("proposal-rwset"),
@@ -542,7 +541,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 		fakeRWSet := &mocks.FakeRWSet{}
 		fakeVault.NewRWSetReturns(fakeRWSet, nil)
 
-		tx := &Transaction{ctx: context.Background(), channel: func() *mocks.FakeChannel { ch := &mocks.FakeChannel{}; ch.VaultReturns(fakeVault); return ch }(), TTxID: "tx2"}
+		tx := &Transaction{ctx: t.Context(), channel: func() *mocks.FakeChannel { ch := &mocks.FakeChannel{}; ch.VaultReturns(fakeVault); return ch }(), TTxID: "tx2"}
 		got, err := tx.GetRWSet()
 		require.NoError(t, err)
 		require.Equal(t, 1, fakeVault.NewRWSetCallCount())
@@ -672,7 +671,7 @@ func TestEndorseWithIdentity(t *testing.T) {
 		fakeSS.GetSignerReturns(fakeSigner, nil)
 
 		tx := &Transaction{
-			ctx:            context.Background(),
+			ctx:            t.Context(),
 			fns:            fakeFNS,
 			signedProposal: &SignedProposal{},
 			channel: func() *mocks.FakeChannel {
@@ -808,7 +807,7 @@ func TestEndorseProposalResponseWithIdentity(t *testing.T) {
 			fakeRWSet.BytesReturns(tc.rwsetPayload, nil)
 
 			tx := &Transaction{
-				ctx:   context.Background(),
+				ctx:   t.Context(),
 				TTxID: "tx1",
 				fns:   fakeFNS,
 				rwset: fakeRWSet,
@@ -875,7 +874,7 @@ func TestEndorseProposalWithIdentity(t *testing.T) {
 			tc.mockSetup(fakeFNS, fakeSS)
 
 			tx := &Transaction{
-				ctx:        context.Background(),
+				ctx:        t.Context(),
 				TTxID:      "tx1",
 				TNonce:     []byte("nonce"),
 				TCreator:   testID,

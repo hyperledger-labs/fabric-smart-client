@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -29,7 +28,7 @@ func TestNewFactory(t *testing.T) {
 func TestFactoryNewTransaction(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	creator := []byte("creator")
 
 	tests := []struct {
@@ -74,7 +73,6 @@ func TestFactoryNewTransaction(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -105,6 +103,7 @@ func TestFactoryNewTransaction(t *testing.T) {
 			require.Equal(t, tc.channelName, tx.TChannel)
 			require.NotNil(t, tx.TTransient)
 			require.Empty(t, tx.TTransient)
+			// TODO: the following 2 values should be fixed with the TODOs changed from factory.go
 			require.Equal(t, "1", tx.TChaincodeVersion)
 			require.Equal(t, "iou", tx.TChaincode)
 			require.Equal(t, tc.expectedChannelCalls, fns.ChannelCallCount())

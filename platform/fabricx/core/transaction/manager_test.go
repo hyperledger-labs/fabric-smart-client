@@ -82,7 +82,7 @@ func TestManagerTransactionFactory(t *testing.T) {
 }
 
 func TestManagerNewTransaction(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	creator := view.Identity([]byte("creator"))
 	nonce := []byte("nonce")
 	rawRequest := []byte("request")
@@ -120,7 +120,7 @@ func TestManagerNewTransaction(t *testing.T) {
 }
 
 func TestManagerNewTransactionFromBytes(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("missing default factory", func(t *testing.T) {
 		m := NewManager()
@@ -183,7 +183,7 @@ func TestManagerNewTransactionFromEnvelopeBytesPanics(t *testing.T) {
 	m := NewManager()
 
 	require.PanicsWithValue(t, "NewTransactionFromEnvelopeBytes >> implement me", func() {
-		_, _ = m.NewTransactionFromEnvelopeBytes(context.Background(), "ch1", []byte("env"))
+		_, _ = m.NewTransactionFromEnvelopeBytes(t.Context(), "ch1", []byte("env"))
 	})
 }
 
