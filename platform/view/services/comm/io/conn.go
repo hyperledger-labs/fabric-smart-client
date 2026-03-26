@@ -10,9 +10,8 @@ import (
 	"encoding/base64"
 	"io"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io/streamio"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type commSCCConn struct {

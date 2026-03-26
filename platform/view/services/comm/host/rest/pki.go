@@ -17,20 +17,19 @@ import (
 
 type PKIDSynthesizer struct{}
 
-func (p PKIDSynthesizer) PublicKeyID(key any) []byte {
+func (p PKIDSynthesizer) PublicKeyID(key any) ([]byte, error) {
 	switch d := key.(type) {
 	case *ecdsa.PublicKey:
 		id, err := ecdsaPubKeyID(d)
 		if err != nil {
-			logger.Errorf("failed to calculate ID of PK: %v", err)
+			return nil, errors.Wrapf(err, "failed to calculate ID of PK")
 		}
-		return id
+		return id, nil
 	case []byte:
 		h := sha256.Sum256(d)
-		return h[:]
+		return h[:], nil
 	}
-	logger.Errorf("unsupported key type [%T]", key)
-	return nil
+	return nil, errors.Errorf("unsupported key type [%T]", key)
 }
 
 func ecdsaPubKeyID(key *ecdsa.PublicKey) ([]byte, error) {

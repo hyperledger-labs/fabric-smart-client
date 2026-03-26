@@ -46,7 +46,7 @@ type PublicKeyExtractor interface {
 }
 
 type PublicKeyIDSynthesizer interface {
-	PublicKeyID(any) []byte
+	PublicKeyID(any) ([]byte, error)
 }
 
 // ResolverInfo carries information about a resolver
@@ -344,7 +344,12 @@ func (r *Service) ExtractPKI(id []byte) []byte {
 	for _, extractor := range r.publicKeyExtractors {
 		if pk, err := extractor.ExtractPublicKey(id); pk != nil {
 			logger.Debugf("pki resolved for [%s]", id)
-			return r.publicKeyIDSynthesizer.PublicKeyID(pk)
+			pkiID, err := r.publicKeyIDSynthesizer.PublicKeyID(pk)
+			if err != nil {
+				logger.Errorf("failed to synthesize public key ID for [%s]: %v", id, err)
+				continue
+			}
+			return pkiID
 		} else {
 			logger.Debugf("pki not resolved by [%s] for [%s]: [%s]", logging.Identifier(extractor), id, err)
 		}

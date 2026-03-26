@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package comm
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -26,7 +25,7 @@ import (
 func TestLargeMessages(t *testing.T) {
 	logging.Init(logging.Config{LogSpec: "error"})
 	h := &mockHost{}
-	p, err := NewNode(h, &disabled.Provider{})
+	p, err := NewNode(t.Context(), h, &disabled.Provider{})
 	require.NoError(t, err)
 	defer p.Stop()
 
@@ -63,10 +62,10 @@ func TestDroppedMessagesMetricValidation(t *testing.T) {
 	// Create a node with a custom metrics provider to inspect the counter
 	metricsProvider := &mockMetricsProvider{counter: &mockCounter{}}
 	h := &mockHost{}
-	p, err := NewNode(h, metricsProvider)
+	p, err := NewNode(t.Context(), h, metricsProvider)
 	require.NoError(t, err)
 	defer p.Stop()
-	p.Start(context.Background())
+	p.Start(t.Context())
 
 	// 1. Test drop in dispatchMessages (master session full)
 	masterSess := &NetworkStreamSession{
@@ -146,7 +145,7 @@ func TestDroppedMessagesMetricValidation(t *testing.T) {
 func TestConcurrentSendAndClose(t *testing.T) {
 	logging.Init(logging.Config{LogSpec: "error"})
 	h := &mockHost{}
-	p, err := NewNode(h, &disabled.Provider{})
+	p, err := NewNode(t.Context(), h, &disabled.Provider{})
 	require.NoError(t, err)
 	defer p.Stop()
 
@@ -180,14 +179,14 @@ func TestConcurrentSendAndClose(t *testing.T) {
 func TestRecipientOversizedRejection(t *testing.T) {
 	logging.Init(logging.Config{LogSpec: "error"})
 	h := &mockHost{}
-	p, err := NewNode(h, &disabled.Provider{})
+	p, err := NewNode(t.Context(), h, &disabled.Provider{})
 	require.NoError(t, err)
 	defer p.Stop()
 
 	// Create a mock stream that sends an 11MB length prefix
 	done := make(chan struct{})
 	ms := &mockOversizedStream{
-		mockStream: mockStream{ctx: context.Background()},
+		mockStream: mockStream{ctx: t.Context()},
 		onClose:    func() { close(done) },
 	}
 

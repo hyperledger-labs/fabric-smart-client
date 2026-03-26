@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	routing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
@@ -53,10 +52,6 @@ func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 		return nil, errors.Wrapf(err, "failed to load identity in [%s]", p.config.CertPath())
 	}
 	nodeID := string(p.endpointService.ExtractPKI(raw))
-	address, err := comm.ConvertAddress(p.config.ListenAddress())
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to convert address")
-	}
 	clientTLSConfig := p.config.ClientTLSConfig(p)
 	serverTLSConfig := p.config.ServerTLSConfig(p)
 	if clientTLSConfig == nil || serverTLSConfig == nil {
@@ -67,7 +62,7 @@ func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 	}
 
 	return &hostWrapper{
-		P2PHost:         NewHost(nodeID, address, p.routing, p.streamProvider, clientTLSConfig, serverTLSConfig),
+		P2PHost:         NewHost(nodeID, p.routing, p.streamProvider, p.config, p),
 		endpointService: p.endpointService,
 		nodeID:          nodeID,
 	}, nil

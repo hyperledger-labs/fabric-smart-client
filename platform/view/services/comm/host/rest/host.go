@@ -36,21 +36,25 @@ type StreamProvider interface {
 	io.Closer
 }
 
-func NewHost(nodeID host2.PeerID, listenAddress host2.PeerIPAddress, routing routing2.ServiceDiscovery, streamProvider StreamProvider, clientConfig, serverConfig *tls.Config) *host {
+func NewHost(nodeID host2.PeerID, routing routing2.ServiceDiscovery, streamProvider StreamProvider, config Config, caPoolProvider ExtraCAPoolProvider) *host {
+	clientConfig := config.ClientTLSConfig(caPoolProvider)
+	serverConfig := config.ServerTLSConfig(caPoolProvider)
 	logger.Debugf("Create p2p client for node ID [%s] with TLS config [server: %v] [client: %v]", nodeID, serverConfig, clientConfig)
+
 	return &host{
 		nodeID: nodeID,
 		server: &server{
 
 			srv: &http.Server{
-				Addr:              listenAddress,
+				Addr:              config.ListenAddress(),
 				TLSConfig:         serverConfig,
-				ReadHeaderTimeout: 10 * time.Second,
-				ReadTimeout:       30 * time.Second,
-				WriteTimeout:      30 * time.Second,
-				IdleTimeout:       120 * time.Second,
+				ReadHeaderTimeout: config.ReadHeaderTimeout(),
+				ReadTimeout:       config.ReadTimeout(),
+				WriteTimeout:      config.WriteTimeout(),
+				IdleTimeout:       config.IdleTimeout(),
 			},
-			streamProvider: streamProvider,
+			streamProvider:     streamProvider,
+			corsAllowedOrigins: config.CORSAllowedOrigins(),
 		},
 		client: &client{
 			tlsConfig:      clientConfig,

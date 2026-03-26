@@ -9,12 +9,18 @@ package comm
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+)
+
+var (
+	ErrNotInitialized = errors.New("communication service not initialized")
+	ErrNotStarted     = errors.New("communication service not started")
 )
 
 type EndpointService interface {
@@ -25,6 +31,7 @@ type ConfigService interface {
 	GetString(key string) string
 	GetPath(key string) string
 	GetInt(key string) int
+	IsSet(key string) bool
 }
 
 type Service struct {
@@ -35,6 +42,8 @@ type Service struct {
 	Node            *P2PNode
 	NodeSync        sync.RWMutex
 	metricsProvider metrics.Provider
+	initialized     atomic.Bool
+	ctx             context.Context
 }
 
 func NewService(hostProvider host.GeneratorProvider, endpointService EndpointService, configService ConfigService, metricsProvider metrics.Provider) (*Service, error) {
@@ -48,13 +57,17 @@ func NewService(hostProvider host.GeneratorProvider, endpointService EndpointSer
 }
 
 func (s *Service) Start(ctx context.Context) {
+	s.NodeSync.Lock()
+	s.ctx = ctx
+	s.NodeSync.Unlock()
+
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				logger.Debugf("start communication service...")
+				logger.Infof("init communication service...")
 				if err := s.init(); err != nil {
 					logger.Errorf("failed to initialize communication service [%s], wait a bit and try again", err)
 					select {
@@ -65,6 +78,7 @@ func (s *Service) Start(ctx context.Context) {
 					}
 				}
 				// Init done, we can start
+				logger.Infof("start communication service...")
 				s.Node.Start(ctx)
 				return
 			}
@@ -73,8 +87,8 @@ func (s *Service) Start(ctx context.Context) {
 }
 
 func (s *Service) Stop() {
-	if err := s.init(); err != nil {
-		logger.Warnf("communication service not ready [%s], cannot stop", err)
+	if !s.initialized.Load() {
+		logger.Warnf("%s, cannot stop", ErrNotInitialized)
 		return
 	}
 	s.Node.Stop()
@@ -82,36 +96,31 @@ func (s *Service) Stop() {
 
 func (s *Service) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error) {
 	if err := s.init(); err != nil {
-		return nil, errors.Errorf("communication service not ready [%s]", err)
+		return nil, ErrNotInitialized
 	}
 	return s.Node.NewSessionWithID(sessionID, contextID, endpoint, pkid, caller, msg)
 }
 
 func (s *Service) NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error) {
 	if err := s.init(); err != nil {
-		return nil, errors.Errorf("communication service not ready [%s]", err)
+		return nil, ErrNotInitialized
 	}
 	return s.Node.NewSession(caller, contextID, endpoint, pkid)
 }
 
 func (s *Service) MasterSession() (view.Session, error) {
 	if err := s.init(); err != nil {
-		return nil, errors.Errorf("communication service not ready [%s]", err)
+		return nil, ErrNotInitialized
 	}
 	return s.Node.MasterSession()
 }
 
 func (s *Service) DeleteSessions(ctx context.Context, sessionID string) {
 	if err := s.init(); err != nil {
-		logger.Warnf("communication service not ready [%s], cannot delete any session", err)
+		logger.Warnf("%s, cannot delete any session", ErrNotInitialized)
 		return
 	}
 	s.Node.DeleteSessions(ctx, sessionID)
-}
-
-func (s *Service) Addresses(id view.Identity) ([]string, error) {
-	// TODO: implement this
-	return nil, nil
 }
 
 func (s *Service) init() error {
@@ -127,14 +136,21 @@ func (s *Service) init() error {
 		return nil
 	}
 
+	if s.ctx == nil {
+		return ErrNotStarted
+	}
+
 	h, err := s.HostProvider.GetNewHost()
 	if err != nil {
 		return err
 	}
-	s.Node, err = NewNode(h, s.metricsProvider)
+
+	cfg := NewConfig(s.ConfigService)
+
+	s.Node, err = NewNodeWithConfig(s.ctx, h, s.metricsProvider, cfg)
 	if err != nil {
 		return err
 	}
-	s.Node.SetNumWorkers(s.ConfigService.GetInt("fsc.p2p.numWorkers"))
+	s.initialized.Store(true)
 	return nil
 }

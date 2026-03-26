@@ -46,7 +46,7 @@ func TestWebSocketStreamDeliveryTimeout(t *testing.T) {
 	}
 
 	// Try to read from the stream - should fail due to context timeout (since we set a short context)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
 	defer cancel()
 
 	stream := ws.NewWSStream(mockConn, ctx, streamInfo)
@@ -83,7 +83,7 @@ func TestWebSocketContextCancellationWithTimeouts(t *testing.T) {
 	}
 
 	// Create a context that will be cancelled quickly
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	// Cancel almost immediately
 	time.AfterFunc(5*time.Millisecond, cancel)
 
@@ -122,7 +122,7 @@ func TestWebSocketPeerCloseRace(t *testing.T) {
 	}
 
 	// Use a context with timeout to simulate connection issues
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 	defer cancel()
 
 	stream := ws.NewWSStream(mockConn, ctx, streamInfo)

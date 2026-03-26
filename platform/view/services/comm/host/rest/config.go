@@ -12,10 +12,13 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"os"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
@@ -35,26 +38,31 @@ type Config interface {
 	ServerTLSConfig(caPoolProvider ExtraCAPoolProvider) *tls.Config
 	CertPath() string
 	MaxSubConns() int
+	ReadHeaderTimeout() time.Duration
+	ReadTimeout() time.Duration
+	WriteTimeout() time.Duration
+	IdleTimeout() time.Duration
+	CORSAllowedOrigins() []string
 }
 
 type ExtraCAPoolProvider interface {
 	ExtraCAs() [][]byte
 }
 
-func NewConfig(cs configService) *config {
+func NewConfig(cs configService) (*config, error) {
 	serverRootCAs := make([]string, 0)
-	for _, path := range cs.GetStringSlice("fsc.p2p.opts.tls.serverRootCAs.files") {
+	for _, path := range cs.GetStringSlice("fsc.p2p.opts.websocket.tls.serverRootCAs.files") {
 		serverRootCAs = append(serverRootCAs, cs.TranslatePath(path))
 	}
 
 	clientRootCAs := make([]string, 0)
-	for _, path := range cs.GetStringSlice("fsc.p2p.opts.tls.clientRootCAs.files") {
+	for _, path := range cs.GetStringSlice("fsc.p2p.opts.websocket.tls.clientRootCAs.files") {
 		clientRootCAs = append(clientRootCAs, cs.TranslatePath(path))
 	}
 
 	clientAuthRequired := true
-	if cs.IsSet("fsc.p2p.opts.tls.clientAuthRequired") {
-		clientAuthRequired = cs.GetBool("fsc.p2p.opts.tls.clientAuthRequired")
+	if cs.IsSet("fsc.p2p.opts.websocket.tls.clientAuthRequired") {
+		clientAuthRequired = cs.GetBool("fsc.p2p.opts.websocket.tls.clientAuthRequired")
 	}
 
 	maxSubConns := 100
@@ -62,18 +70,38 @@ func NewConfig(cs configService) *config {
 		maxSubConns = cs.GetInt("fsc.p2p.opts.websocket.maxSubConns")
 	}
 
+	var corsAllowedOrigins []string
+	if cs.IsSet("fsc.p2p.opts.websocket.corsAllowedOrigins") {
+		raw := cs.GetString("fsc.p2p.opts.websocket.corsAllowedOrigins")
+		if raw != "" {
+			parts := strings.Split(raw, ",")
+			for _, p := range parts {
+				if s := strings.TrimSpace(p); s != "" {
+					corsAllowedOrigins = append(corsAllowedOrigins, s)
+				}
+			}
+		}
+	}
+
+	keyValue := cs.GetString("fsc.p2p.listenAddress")
+	listenAddress, err := comm.ConvertAddress(keyValue)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed parsing fsc.p2p.listenAddress [%s]", keyValue)
+	}
+
 	return NewConfigFromProperties(
-		cs.GetString("fsc.p2p.listenAddress"),
+		listenAddress,
 		cs.GetPath("fsc.identity.key.file"),
 		cs.GetPath("fsc.identity.cert.file"),
 		serverRootCAs,
 		clientRootCAs,
 		clientAuthRequired,
 		maxSubConns,
-	)
+		corsAllowedOrigins,
+	), nil
 }
 
-func NewConfigFromProperties(listenAddress string, privateKeyPath, certPath string, serverRootCAs, clientRootCAs []string, clientAuthRequired bool, maxSubConns int) *config {
+func NewConfigFromProperties(listenAddress string, privateKeyPath, certPath string, serverRootCAs, clientRootCAs []string, clientAuthRequired bool, maxSubConns int, corsAllowedOrigins []string) *config {
 	return &config{
 		listenAddress:      listenAddress,
 		privateKeyPath:     privateKeyPath,
@@ -82,6 +110,7 @@ func NewConfigFromProperties(listenAddress string, privateKeyPath, certPath stri
 		clientRootCAs:      clientRootCAs,
 		clientAuthRequired: clientAuthRequired,
 		maxSubConns:        maxSubConns,
+		corsAllowedOrigins: corsAllowedOrigins,
 	}
 }
 
@@ -93,6 +122,7 @@ type config struct {
 	clientRootCAs      []string
 	clientAuthRequired bool
 	maxSubConns        int
+	corsAllowedOrigins []string
 
 	serverRootCAPool *x509.CertPool
 	clientRootCAPool *x509.CertPool
@@ -104,6 +134,16 @@ func (c *config) ListenAddress() host2.PeerIPAddress { return c.listenAddress }
 func (c *config) CertPath() string { return c.certPath }
 
 func (c *config) MaxSubConns() int { return c.maxSubConns }
+
+func (c *config) ReadHeaderTimeout() time.Duration { return 10 * time.Second }
+
+func (c *config) ReadTimeout() time.Duration { return 30 * time.Second }
+
+func (c *config) WriteTimeout() time.Duration { return 30 * time.Second }
+
+func (c *config) IdleTimeout() time.Duration { return 120 * time.Second }
+
+func (c *config) CORSAllowedOrigins() []string { return c.corsAllowedOrigins }
 
 func (c *config) ClientTLSConfig(caPoolProvider ExtraCAPoolProvider) *tls.Config {
 	c.mu.Lock()

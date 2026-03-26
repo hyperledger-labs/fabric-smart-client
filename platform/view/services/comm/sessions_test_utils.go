@@ -19,7 +19,7 @@ import (
 
 // SessionsNodesTestRound tests multiple parallel sessions between an initiator node and multiple other nodes
 func SessionsNodesTestRound(t *testing.T, initiator *HostNode, nodes []*HostNode, numSessionsPerNode int) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
 
 	initiator.Start(ctx)

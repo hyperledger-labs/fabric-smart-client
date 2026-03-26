@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/io"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -27,10 +27,9 @@ import (
 )
 
 const (
-	masterSession                       = "master of puppets I'm pulling your strings"
-	contextIDLabel    tracing.LabelName = "context_id"
-	sessionIDLabel    tracing.LabelName = "session_id"
-	defaultBufferSize                   = 4096
+	masterSession                    = "master of puppets I'm pulling your strings"
+	contextIDLabel tracing.LabelName = "context_id"
+	sessionIDLabel tracing.LabelName = "session_id"
 
 	DefaultDispatcherWorkers = 1
 	DefaultDispatcherTimeout = 5 * time.Second
@@ -46,35 +45,52 @@ type messageWithStream struct {
 }
 
 type P2PNode struct {
-	host             host2.P2PHost
-	incomingMessages chan *messageWithStream
-	streamsMutex     sync.RWMutex
-	streams          map[host2.StreamHash][]*streamHandler
-	dispatchMutex    sync.Mutex
-	sessionsMutex    sync.Mutex
-	sessions         map[string]*NetworkStreamSession
-	finderWg         sync.WaitGroup
-	handlersWg       sync.WaitGroup
-	dispatchWg       sync.WaitGroup
-	ctx              context.Context
-	cancel           context.CancelFunc
-	isStopping       bool
-	m                *Metrics
-	numWorkers       int
+	host                       host2.P2PHost
+	incomingMessages           chan *messageWithStream
+	streamsMutex               sync.RWMutex
+	streams                    map[host2.StreamHash][]*streamHandler
+	dispatchMutex              sync.Mutex
+	sessionsMutex              sync.Mutex
+	sessions                   map[string]*NetworkStreamSession
+	finderWg                   sync.WaitGroup
+	handlersWg                 sync.WaitGroup
+	dispatchWg                 sync.WaitGroup
+	ctx                        context.Context
+	cancel                     context.CancelFunc
+	isStopping                 bool
+	m                          *Metrics
+	numWorkers                 int
+	incomingMessagesBufferSize int
+	streamReaderBufferSize     int
 }
 
-func NewNode(h host2.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewNode(ctx context.Context, h host2.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error) {
+	return NewNodeWithConfig(ctx, h, metricsProvider, &config{
+		incomingMessagesBufferSize: DefaultIncomingMessagesBufferSize,
+		streamReaderBufferSize:     DefaultStreamReaderBufferSize,
+	})
+}
+
+func NewNodeWithConfig(ctx context.Context, h host2.P2PHost, metricsProvider metrics.Provider, cfg *config) (*P2PNode, error) {
+	if cfg.incomingMessagesBufferSize <= 0 {
+		cfg.incomingMessagesBufferSize = DefaultIncomingMessagesBufferSize
+	}
+	if cfg.streamReaderBufferSize <= 0 {
+		cfg.streamReaderBufferSize = DefaultStreamReaderBufferSize
+	}
+	nodeCtx, cancel := context.WithCancel(ctx)
 	p := &P2PNode{
-		host:             h,
-		incomingMessages: make(chan *messageWithStream, defaultBufferSize),
-		streams:          make(map[host2.StreamHash][]*streamHandler),
-		sessions:         make(map[string]*NetworkStreamSession),
-		isStopping:       false,
-		ctx:              ctx,
-		cancel:           cancel,
-		m:                newMetrics(metricsProvider),
-		numWorkers:       DefaultDispatcherWorkers,
+		host:                       h,
+		incomingMessages:           make(chan *messageWithStream, cfg.incomingMessagesBufferSize),
+		streams:                    make(map[host2.StreamHash][]*streamHandler),
+		sessions:                   make(map[string]*NetworkStreamSession),
+		isStopping:                 false,
+		ctx:                        nodeCtx,
+		cancel:                     cancel,
+		m:                          newMetrics(metricsProvider),
+		numWorkers:                 DefaultDispatcherWorkers,
+		incomingMessagesBufferSize: cfg.incomingMessagesBufferSize,
+		streamReaderBufferSize:     cfg.streamReaderBufferSize,
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
 		cancel()
@@ -94,12 +110,6 @@ func (p *P2PNode) Start(ctx context.Context) {
 		<-ctx.Done()
 		p.Stop()
 	}()
-}
-
-func (p *P2PNode) SetNumWorkers(n int) {
-	if n > 0 {
-		p.numWorkers = n
-	}
 }
 
 func (p *P2PNode) Stop() {
@@ -298,7 +308,7 @@ func (p *P2PNode) handleIncomingStream(stream host2.P2PStream) {
 func (p *P2PNode) handleStream(stream host2.P2PStream) *streamHandler {
 	sh := &streamHandler{
 		stream: stream,
-		reader: io.NewVarintProtoReader(stream, defaultBufferSize),
+		reader: io.NewVarintProtoReader(stream, p.streamReaderBufferSize),
 		writer: io.NewVarintProtoWriter(stream),
 		node:   p,
 	}

@@ -40,7 +40,7 @@ func TestOversizedMessageRejection(t *testing.T) {
 
 	srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	info := host.StreamInfo{

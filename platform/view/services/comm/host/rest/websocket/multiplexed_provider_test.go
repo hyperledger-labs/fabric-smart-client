@@ -117,7 +117,7 @@ func TestConnections(t *testing.T) {
 					SessionID:         "testSessionID",
 				}
 
-				client, err := p.NewClientStream(infoWithInvalidHostAddress, context.Background(), srcID, clientTLSConfig)
+				client, err := p.NewClientStream(infoWithInvalidHostAddress, t.Context(), srcID, clientTLSConfig)
 				assert.Error(t, err)
 				assert.Nil(t, client)
 
@@ -213,7 +213,7 @@ func TestSendingOnClosedSubConnections(t *testing.T) {
 
 			srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			info := host.StreamInfo{
 				RemotePeerID:      "serverID",
@@ -281,7 +281,7 @@ func TestRejectsPeerIDMismatch(t *testing.T) {
 				SessionID:         "sess",
 			}
 
-			client, err := p.NewClientStream(info, context.Background(), host.PeerID("invalid-peer-id"), clientTLSConfig)
+			client, err := p.NewClientStream(info, t.Context(), host.PeerID("invalid-peer-id"), clientTLSConfig)
 			require.NoError(t, err)
 
 			require.Eventually(t, func() bool {
@@ -313,7 +313,7 @@ func testSetup(_ *testing.T) {
 }
 
 func testClientRun(t *testing.T, p *MultiplexedProvider, srvEndpoint, sessionID string, src host.PeerID, config *tls.Config) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	info := host.StreamInfo{
 		RemotePeerID:      "serverID",
 		RemotePeerAddress: srvEndpoint,

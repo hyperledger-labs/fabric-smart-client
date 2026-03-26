@@ -51,7 +51,6 @@ Security is integrated at every level of the Comm stack:
         -   **Sender Behavior**: Attempts to send messages exceeding this limit will fail locally with an error (`message header or payload too large`), preventing network transmission.
         -   **Recipient Behavior**: The recipient uses fail-fast reading by parsing the message length prefix first. If the prefix exceeds 10MB, the recipient immediately severs the physical connection and unregisters the stream to protect system resources.
         -   **Payload vs Envelope**: Note that a 10MB raw payload will always fail, as the total message size (including metadata like `SessionID` and `ContextID`) will slightly exceed the limit. The practical maximum payload size is approximately 9.9MB.
-    -   **Dispatcher Bounding**: The message dispatcher uses a bounded pool of **10 workers**. This prevents goroutine explosion even if many sessions are congested.
     -   **Master Session Protection**: Delivery to the "master session" (handling unknown traffic) is capped at a **5-second timeout** to ensure worker goroutines are not permanently stalled by junk traffic.
 
 ## Trust and Access Control
@@ -123,7 +122,7 @@ msg := <-session.Receive()
 
 ## Configuration
 
-Configuration is managed via the FSC configuration file (usually `core.yaml`):
+Configuration is managed via the FSC configuration file (usually `core.yaml`). For a complete configuration reference including all available options, see the [Configuration Guide](../../../configuration.md).
 
 ```yaml
 fsc:
@@ -131,9 +130,15 @@ fsc:
     # Transport type: "libp2p" or "websocket"
     type: libp2p
     listenAddress: /ip4/0.0.0.0/tcp/11511
+    # Buffer size for the incoming messages channel. Default: 1024
+    # This controls how many messages can be queued before blocking message dispatch.
+    incomingMessagesBufferSize: 1024
+    # Buffer size for stream readers. Default: 4096
+    # This controls the internal buffer size used when reading protobuf messages from streams.
+    streamReaderBufferSize: 4096
 ```
 
-For transport-specific configuration options, see the [Libp2p](./libp2p.md) and [REST](./rest.md) documentation.
+For transport-specific configuration options and detailed examples, see the [Libp2p](./libp2p.md) and [REST](./rest.md) documentation.
 
 ## Observability
 

@@ -87,7 +87,7 @@ A remote node can only connect if its TLS certificate is trusted by the local se
 - **Client Side**: The local node will only connect to servers whose certificates match the `serverRootCAs` or a dynamically retrieved peer public key.
 - **Identity Enforcement**: The server extracts the `PeerID` from the client certificate and compares it against the application-layer `PeerID` in the `StreamMeta` packet (Identity Binding). If they don't match, the connection is terminated.
 
-The REST/WebSocket transport is configured via the `fsc.p2p` section in `core.yaml`.
+The REST/WebSocket transport is configured via the `fsc.p2p` section in `core.yaml`. For a complete configuration reference, see [Configuration Guide](../../../configuration.md#fsc-node-configuration).
 
 ```yaml
 fsc:
@@ -99,20 +99,27 @@ fsc:
     listenAddress: 0.0.0.0:11511
     
     opts:
+      # ------------------- websocket specific options -------------------------
       websocket:
-        # Max number of logical sub-connections per physical WebSocket (default 100)
+        # Maximum number of sub-connections per peer. Default: 100
         maxSubConns: 100
-      tls:
-        # Whether client certificates are required (default true)
-        clientAuthRequired: true
-        # Root CAs used to verify remote servers when acting as a client
-        serverRootCAs:
-          files:
-            - /path/to/server-ca.pem
-        # Root CAs used to verify remote clients when acting as a server
-        clientRootCAs:
-          files:
-            - /path/to/client-ca.pem
+        # Comma-separated list of allowed origins for CORS (Cross-Origin Resource Sharing)
+        # Example: "https://example.com,https://app.example.com"
+        # If not set, CORS is disabled
+        corsAllowedOrigins: ""
+        # TLS configuration for websocket connections
+        tls:
+          # Whether clients are required to provide certificates.
+          # Defaults to true for websocket p2p when omitted.
+          clientAuthRequired: true
+          # Root certificates used by this node (as a websocket client) to verify remote server certificates.
+          serverRootCAs:
+            files:
+              - /path/to/server/tls/ca.crt
+          # Root certificates used by this node (as a websocket server) to verify remote client certificates.
+          clientRootCAs:
+            files:
+              - /path/to/client/tls/ca.crt
   
   identity:
     # Path to the node's key and certificate used for mTLS handshake

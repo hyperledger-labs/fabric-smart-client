@@ -8,9 +8,8 @@ package comm
 
 import (
 	"context"
-	"time"
-
 	"testing"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -177,7 +176,7 @@ func TestServiceStartRetryDelay(t *testing.T) {
 	require.NoError(t, err, "Should be able to create service even with failing host provider")
 
 	// Start the service in a goroutine and stop it quickly
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	go service.Start(ctx)
 
 	// Give it a moment to start the retry loop
@@ -236,4 +235,8 @@ func (m *mockConfigService) GetPath(key string) string {
 
 func (m *mockConfigService) GetInt(key string) int {
 	return 4 // default numWorkers
+}
+
+func (m *mockConfigService) IsSet(key string) bool {
+	return false
 }

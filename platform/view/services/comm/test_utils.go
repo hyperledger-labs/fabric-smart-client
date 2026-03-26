@@ -39,10 +39,10 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 			ContextID:         "context",
 			SessionID:         "session",
 		}
-		err := bootstrapNode.sendTo(context.Background(), info, &ViewPacket{Payload: []byte("msg1")}, nil)
+		err := bootstrapNode.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg1")}, nil)
 		assert.NoError(t, err)
 
-		err = bootstrapNode.sendTo(context.Background(), info, &ViewPacket{Payload: []byte("msg2")}, nil)
+		err = bootstrapNode.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg2")}, nil)
 		assert.NoError(t, err)
 
 		msg := <-messages
@@ -65,7 +65,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 		ContextID:         "context",
 		SessionID:         "session",
 	}
-	err := node.sendTo(context.Background(), info, &ViewPacket{Payload: []byte("msg3")}, nil)
+	err := node.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg3")}, nil)
 	assert.NoError(t, err)
 
 	wg.Wait()
@@ -75,7 +75,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 }
 
 func SessionsTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
-	ctx := context.Background()
+	ctx := t.Context()
 	bootstrapNode.Start(ctx)
 	node.Start(ctx)
 
@@ -129,7 +129,7 @@ func SessionsTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 }
 
 func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
-	ctx := context.Background()
+	ctx := t.Context()
 	bootstrapNode.Start(ctx)
 	node.Start(ctx)
 
@@ -178,7 +178,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, no
 	// bootstrapNode.SetNumWorkers(numWorkers)
 	// node.SetNumWorkers(numWorkers)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
 	defer cancel()
 
 	bootstrapNode.Start(ctx)

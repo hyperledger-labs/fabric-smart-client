@@ -66,7 +66,7 @@ func TestDispatcherDoS(t *testing.T) {
 
 	smallBuffer := 2
 	h := &mockHost{}
-	p, err := NewNode(h, &disabled.Provider{})
+	p, err := NewNode(context.Background(), h, &disabled.Provider{})
 	require.NoError(t, err)
 
 	// Create sessions MANUALLY to avoid the race in getOrCreateSession -> tryStart
@@ -145,7 +145,7 @@ func TestMasterSessionDoSProtection(t *testing.T) {
 	})
 
 	h := &mockHost{}
-	p, err := NewNode(h, &disabled.Provider{})
+	p, err := NewNode(context.Background(), h, &disabled.Provider{})
 	require.NoError(t, err)
 
 	// Create a legitimate session
@@ -245,7 +245,7 @@ func TestStreamLeak(t *testing.T) {
 	})
 
 	h := &mockHost{}
-	p, err := NewNode(h, &disabled.Provider{})
+	p, err := NewNode(context.Background(), h, &disabled.Provider{})
 	require.NoError(t, err)
 
 	session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil)

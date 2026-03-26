@@ -59,7 +59,6 @@ fsc:
       {{- end }}
   # P2P configuration
   p2p:
-    # Type of p2p communication. Currently supported: libp2p (default), rest
     type: {{ .P2PCommunicationType }}
     # Listening address
     listenAddress: /ip4/0.0.0.0/tcp/{{ .NodePort Replica "P2P" }}

@@ -47,6 +47,9 @@ func NewWebSocketHostProvider(config driver.ConfigService, endpointService *endp
 	r := routing.NewEndpointServiceIDRouter(endpointService)
 	discovery := routing.NewServiceDiscovery(r, routing.Random[host.PeerIPAddress]())
 	endpointService.SetPublicKeyIDSynthesizer(&rest.PKIDSynthesizer{})
-	restConfig := rest.NewConfig(config)
+	restConfig, err := rest.NewConfig(config)
+	if err != nil {
+		return nil, err
+	}
 	return rest.NewEndpointBasedProvider(restConfig, endpointService, discovery, websocket.NewMultiplexedProvider(tracerProvider, metricsProvider, restConfig.MaxSubConns())), nil
 }

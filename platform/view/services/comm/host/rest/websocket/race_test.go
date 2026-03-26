@@ -50,7 +50,7 @@ func TestReadRace(t *testing.T) {
 		// Then EOF
 		close(readChan)
 
-		s := NewWSStream(conn, context.Background(), host.StreamInfo{})
+		s := NewWSStream(conn, t.Context(), host.StreamInfo{})
 
 		// Read "hello"
 		_, err := s.Read(p)

@@ -62,7 +62,7 @@ In libp2p mode, nodes establish trust through the exchange of public keys:
 - **Identity Verification**: The `PeerID` of the remote node is checked against the local node's trusted set (from static configuration or dynamic `EndpointService` resolutions).
 - **Public Key Invariant**: The connection is only accepted if the remote party can cryptographically prove possession of the private key corresponding to its identity.
 
-Libp2p is configured via the `fsc.p2p` section in `core.yaml`.
+Libp2p is configured via the `fsc.p2p` section in `core.yaml`. For a complete configuration reference, see [Configuration Guide](../../../configuration.md#fsc-node-configuration).
 
 ```yaml
 fsc:
@@ -70,12 +70,28 @@ fsc:
     # Transport type must be "libp2p"
     type: libp2p
     # Address to listen for incoming libp2p connections
+    # See https://github.com/libp2p/specs/blob/master/addressing/README.md
     listenAddress: /ip4/0.0.0.0/tcp/11511
     
     opts:
-      # Optional: Address of the bootstrap node to join the network.
-      # If omitted, the node starts as a bootstrap node itself.
-      bootstrapNode: /ip4/192.168.1.10/tcp/11511/p2p/Qm...
+      # ------------------- libp2p specific options -------------------------
+      libp2p:
+        # bootstrap node
+        # if it's empty then this node is the bootstrap node, otherwise it's the name
+        # of the bootstrap node, which must be defined in the FSC endpoint resolvers section
+        # and that entry must have an address with an entry P2P.
+        bootstrapNode: theBootstrapNode
+        # Connection manager settings for libp2p
+        connManager:
+          # Low water mark - when the number of connections drops below this, the connection manager
+          # will not prune any connections. Default: 100
+          lowWater: 100
+          # High water mark - when the number of connections exceeds this, the connection manager
+          # will prune connections until it reaches the low water mark. Default: 400
+          highWater: 400
+          # Grace period - connections younger than this will not be pruned. Default: 60s
+          # Format: duration in seconds
+          gracePeriod: 60
   
   identity:
     key:

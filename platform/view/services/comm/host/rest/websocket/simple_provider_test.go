@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package websocket
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -50,7 +49,7 @@ func TestSimpleProvider_Security(t *testing.T) {
 					SessionID:         "sess",
 				}
 
-				client, err := p.NewClientStream(info, context.Background(), srcID, clientTLSConfig)
+				client, err := p.NewClientStream(info, t.Context(), srcID, clientTLSConfig)
 				require.NoError(t, err)
 				defer func() { _ = client.Close() }()
 

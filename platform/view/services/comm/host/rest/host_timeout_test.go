@@ -9,11 +9,13 @@ package rest_test
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/hashicorp/consul/sdk/freeport"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
@@ -28,14 +30,18 @@ func TestHostStartupTimeout(t *testing.T) {
 	// Use an invalid address that will cause the server to fail to listen
 	invalidAddress := "invalid:address"
 
+	// Create a mock config with invalid address
+	cfg := &mockConfig{
+		listenAddress: host2.PeerIPAddress(invalidAddress),
+	}
+
 	// Create a host with the invalid address
 	host := rest.NewHost(
 		"test-node",
-		host2.PeerIPAddress(invalidAddress),
 		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
 		noopProvider(),
-		nil, // clientConfig
-		nil, // serverConfig
+		cfg,
+		nil, // caPoolProvider
 	)
 
 	// Attempt to start the host - should fail due to inability to listen
@@ -51,19 +57,24 @@ func TestHostStartupReadinessTimeout(t *testing.T) {
 	// Use a valid localhost address but don't actually start a listener
 	// This simulates a scenario where the server starts listening but
 	// the readiness check fails because no one is accepting connections
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	ports := freeport.GetT(t, 1)
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", ports[0]))
 	require.NoError(t, err)
 	addr := listener.Addr().String()
 	require.NoError(t, listener.Close()) // Close immediately so no one is listening
 
+	// Create a mock config
+	cfg := &mockConfig{
+		listenAddress: host2.PeerIPAddress(addr),
+	}
+
 	// Create a host
 	h := rest.NewHost(
 		"test-node",
-		host2.PeerIPAddress(addr),
 		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
 		noopProvider(),
-		nil, // clientConfig
-		nil, // serverConfig
+		cfg,
+		nil, // caPoolProvider
 	)
 
 	// Ensure we clean up resources
@@ -72,7 +83,7 @@ func TestHostStartupReadinessTimeout(t *testing.T) {
 	}()
 
 	// Attempt to start - should timeout waiting for readiness
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 	// Use ctx to satisfy compiler that it's used
 	_ = ctx
@@ -85,34 +96,21 @@ func TestHostStartupReadinessTimeout(t *testing.T) {
 	}
 }
 
-// TestHostConfigurableServerTimeouts verifies that the server timeouts can be configured
-// This test demonstrates the current hardcoded values and could be extended
-// when timeouts are made configurable
-func TestHostConfigurableServerTimeouts(t *testing.T) {
-	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, listener.Close())
-	}()
-
-	addr := listener.Addr().String()
-
-	h := rest.NewHost(
-		"test-node",
-		host2.PeerIPAddress(addr),
-		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
-		noopProvider(),
-		nil, // clientConfig
-		nil, // serverConfig
-	)
-
-	// Note: Testing internal server timeouts is difficult due to unexported fields
-	// In a real implementation with configurable timeouts, we would test through
-	// behavior rather than internal state
-	_ = h
+// mockConfig implements rest.Config for testing
+type mockConfig struct {
+	listenAddress host2.PeerIPAddress
 }
+
+func (m *mockConfig) ListenAddress() host2.PeerIPAddress                   { return m.listenAddress }
+func (m *mockConfig) ClientTLSConfig(rest.ExtraCAPoolProvider) *tls.Config { return nil }
+func (m *mockConfig) ServerTLSConfig(rest.ExtraCAPoolProvider) *tls.Config { return nil }
+func (m *mockConfig) CertPath() string                                     { return "" }
+func (m *mockConfig) MaxSubConns() int                                     { return 100 }
+func (m *mockConfig) ReadHeaderTimeout() time.Duration                     { return 10 * time.Second }
+func (m *mockConfig) ReadTimeout() time.Duration                           { return 30 * time.Second }
+func (m *mockConfig) WriteTimeout() time.Duration                          { return 30 * time.Second }
+func (m *mockConfig) IdleTimeout() time.Duration                           { return 120 * time.Second }
+func (m *mockConfig) CORSAllowedOrigins() []string                         { return nil }
 
 // noopProvider returns a stream provider that does nothing
 func noopProvider() rest.StreamProvider {

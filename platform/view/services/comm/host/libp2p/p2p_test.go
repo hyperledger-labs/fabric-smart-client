@@ -94,12 +94,12 @@ func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 
 	bootstrapHost, err := newLibP2PHost(bootstrapNodeEndpoint, bootstrapSK, newMetrics(&disabled.Provider{}), true, "")
 	assert.NoError(t, err)
-	bootstrapNode, err := comm.NewNode(bootstrapHost, &disabled.Provider{})
+	bootstrapNode, err := comm.NewNode(t.Context(), bootstrapHost, &disabled.Provider{})
 	assert.NoError(t, err)
 
 	anotherHost, err := newLibP2PHost(nodeEndpoint, nodeSK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
 	assert.NoError(t, err)
-	anotherNode, err := comm.NewNode(anotherHost, &disabled.Provider{})
+	anotherNode, err := comm.NewNode(t.Context(), anotherHost, &disabled.Provider{})
 	assert.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
@@ -119,17 +119,17 @@ func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNo
 
 	bootstrapHost, err := newLibP2PHost(bootstrapNodeEndpoint, bootstrapSK, newMetrics(&disabled.Provider{}), true, "")
 	assert.NoError(t, err)
-	bootstrapNode, err := comm.NewNode(bootstrapHost, &disabled.Provider{})
+	bootstrapNode, err := comm.NewNode(t.Context(), bootstrapHost, &disabled.Provider{})
 	assert.NoError(t, err)
 
 	node1Host, err := newLibP2PHost(node1Endpoint, node1SK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
 	assert.NoError(t, err)
-	node1, err := comm.NewNode(node1Host, &disabled.Provider{})
+	node1, err := comm.NewNode(t.Context(), node1Host, &disabled.Provider{})
 	assert.NoError(t, err)
 
 	node2Host, err := newLibP2PHost(node2Endpoint, node2SK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
 	assert.NoError(t, err)
-	node2, err := comm.NewNode(node2Host, &disabled.Provider{})
+	node2, err := comm.NewNode(t.Context(), node2Host, &disabled.Provider{})
 	assert.NoError(t, err)
 
 	time.Sleep(1 * time.Second)

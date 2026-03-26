@@ -115,13 +115,13 @@ func TestDynamicCA(t *testing.T) {
 	assert.NoError(t, os.WriteFile(clientCertFile, clientCertPEM, 0600))
 
 	config := rest.NewConfigFromProperties(
-		"/ip4/127.0.0.1/tcp/0",
+		"127.0.0.1:0",
 		serverKeyFile,
 		serverCertFile,
 		[]string{serverCertFile}, // Server trusts itself
 		[]string{},               // Server initially trusts NO clients
 		true,                     // Require mTLS
-		100,
+		100, nil,
 	)
 
 	epService := &mockEndpointService{}
@@ -144,7 +144,7 @@ func TestDynamicCA(t *testing.T) {
 
 	// Verify that the endpoint service was updated with the actual address
 	actualAddr := h.(interface{ Addr() string }).Addr()
-	res, err := epService.GetResolver(context.Background(), []byte(h.(interface{ ID() string }).ID()))
+	res, err := epService.GetResolver(t.Context(), []byte(h.(interface{ ID() string }).ID()))
 	assert.NoError(t, err)
 	assert.Equal(t, actualAddr, res.Addresses[endpoint.P2PPort])
 
@@ -163,14 +163,14 @@ func TestDynamicCA(t *testing.T) {
 	url := fmt.Sprintf("wss://%s/p2p", serverAddr)
 
 	dialer := &gorilla_websocket.Dialer{TLSClientConfig: clientTLSConfig}
-	_, _, err = dialer.DialContext(context.Background(), url, nil)
+	_, _, err = dialer.DialContext(t.Context(), url, nil)
 	assert.Error(t, err, "should fail as client cert is not trusted")
 
 	// 2. Add client cert to EndpointService (runtime change)
 	epService.AddResolver(clientCertPEM)
 
 	// 3. Try to connect again - should succeed now!
-	conn, resp, err := dialer.DialContext(context.Background(), url, nil)
+	conn, resp, err := dialer.DialContext(t.Context(), url, nil)
 	if err == nil {
 		_ = conn.Close()
 		_ = resp.Body.Close()

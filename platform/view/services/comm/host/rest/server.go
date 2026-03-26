@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -26,27 +24,13 @@ type serverStreamProvider interface {
 }
 
 type server struct {
-	srv            *http.Server
-	streamProvider serverStreamProvider
-	listener       net.Listener
+	srv                *http.Server
+	streamProvider     serverStreamProvider
+	listener           net.Listener
+	corsAllowedOrigins []string
 }
 
-func corsAllowedOrigins() []string {
-	raw := strings.TrimSpace(os.Getenv("FSC_P2P_CORS_ALLOWED_ORIGINS"))
-	if raw == "" {
-		return nil
-	}
-	parts := strings.Split(raw, ",")
-	origins := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if s := strings.TrimSpace(p); s != "" {
-			origins = append(origins, s)
-		}
-	}
-	return origins
-}
-
-func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stream host2.P2PStream)) *gin.Engine {
+func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stream host2.P2PStream), corsAllowedOrigins []string) *gin.Engine {
 	logger.Debugf("creating GIN engine for p2p REST endpoint.")
 	r := gin.New()
 	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
@@ -63,9 +47,9 @@ func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stre
 			param.ErrorMessage,
 		)
 	}))
-	if origins := corsAllowedOrigins(); len(origins) > 0 {
+	if len(corsAllowedOrigins) > 0 {
 		config := cors.DefaultConfig()
-		config.AllowOrigins = origins
+		config.AllowOrigins = corsAllowedOrigins
 		config.AllowHeaders = []string{"Origin", "Content-Type", "Accept"}
 		r.Use(cors.New(config))
 	}
@@ -90,7 +74,7 @@ func (s *server) Listen() error {
 }
 
 func (s *server) Start(newStreamCallback func(stream host2.P2PStream)) error {
-	s.srv.Handler = newHandler(s.streamProvider, newStreamCallback)
+	s.srv.Handler = newHandler(s.streamProvider, newStreamCallback, s.corsAllowedOrigins)
 
 	var err error
 	if s.srv.TLSConfig == nil {

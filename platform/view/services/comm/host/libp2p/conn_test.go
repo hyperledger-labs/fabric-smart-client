@@ -24,7 +24,7 @@ import (
 type Network []*node
 
 func TestSessionTwoParties(t *testing.T) {
-	network, err := NewVirtualNetwork(12345, 2)
+	network, err := NewVirtualNetwork(t, 12345, 2)
 	assert.NoError(t, err)
 
 	io.SessionTwoParties(t, network[0], network[1])
@@ -41,11 +41,13 @@ func (n *node) ID() string {
 	return n.id
 }
 
-func NewVirtualNetwork(port int, numNodes int) (Network, error) {
+func NewVirtualNetwork(t *testing.T, port int, numNodes int) (Network, error) {
+	t.Helper()
+
 	var res []*node
 
 	// Setup master
-	bootstrapNode, err := newBootstrapNode(port)
+	bootstrapNode, err := newBootstrapNode(t, port)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +56,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	var nodes []*node
 	for i := 0; i < numNodes-1; i++ {
 		port++
-		n, err := newNode(port, bootstrapNode)
+		n, err := newNode(t, port, bootstrapNode)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +103,7 @@ func id(pk crypto.PubKey) (string, error) {
 	return ID.String(), nil
 }
 
-func newBootstrapNode(port int) (*node, error) {
+func newBootstrapNode(t *testing.T, port int) (*node, error) {
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err
@@ -116,7 +118,7 @@ func newBootstrapNode(port int) (*node, error) {
 	if err != nil {
 		return nil, err
 	}
-	p2pNode, err := comm.NewNode(h, &disabled.Provider{})
+	p2pNode, err := comm.NewNode(t.Context(), h, &disabled.Provider{})
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +131,7 @@ func newBootstrapNode(port int) (*node, error) {
 	}, nil
 }
 
-func newNode(port int, bootstrapNode *node) (*node, error) {
+func newNode(t *testing.T, port int, bootstrapNode *node) (*node, error) {
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err
@@ -144,7 +146,7 @@ func newNode(port int, bootstrapNode *node) (*node, error) {
 	if err != nil {
 		return nil, err
 	}
-	p2pNode, err := comm.NewNode(h, &disabled.Provider{})
+	p2pNode, err := comm.NewNode(t.Context(), h, &disabled.Provider{})
 	if err != nil {
 		return nil, err
 	}

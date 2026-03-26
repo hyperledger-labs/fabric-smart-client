@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/io"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 )

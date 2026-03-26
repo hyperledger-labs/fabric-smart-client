@@ -49,9 +49,9 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 		sessionID:       sessionID,
 		caller:          caller,
 		callerViewID:    callerViewID,
-		incoming:        make(chan *view.Message, defaultBufferSize),
+		incoming:        make(chan *view.Message, DefaultIncomingMessagesBufferSize),
 		streams:         make(map[*streamHandler]struct{}),
-		middleCh:        make(chan *view.Message, defaultBufferSize),
+		middleCh:        make(chan *view.Message, DefaultIncomingMessagesBufferSize),
 		closing:         make(chan struct{}),
 		closed:          make(chan struct{}),
 	}

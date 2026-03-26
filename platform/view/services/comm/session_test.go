@@ -67,7 +67,7 @@ func setupWithBufferSize(bufferSize int) *NetworkStreamSession {
 }
 
 func setup() *NetworkStreamSession {
-	return setupWithBufferSize(defaultBufferSize)
+	return setupWithBufferSize(DefaultIncomingMessagesBufferSize)
 }
 
 func TestSessionLifecycle(t *testing.T) {
