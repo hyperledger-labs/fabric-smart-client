@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package websocket
+package ws
 
 import (
 	"context"
@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
+	gwebsocket "github.com/gorilla/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -66,7 +66,7 @@ func NewWSStream(conn connection, ctx context.Context, info host2.StreamInfo) *s
 		}
 	}()
 	// Start ping sender if the underlying connection is a websocket.Conn
-	if c, ok := s.conn.(*websocket.Conn); ok {
+	if c, ok := s.conn.(*gwebsocket.Conn); ok {
 		// Set pong handler to reset read deadline
 		c.SetPongHandler(func(appData string) error {
 			_ = c.SetReadDeadline(time.Now().Add(readTimeout))
@@ -79,7 +79,7 @@ func NewWSStream(conn connection, ctx context.Context, info host2.StreamInfo) *s
 			for {
 				select {
 				case <-ticker.C:
-					if err := c.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(writeTimeout)); err != nil {
+					if err := c.WriteControl(gwebsocket.PingMessage, []byte{}, time.Now().Add(writeTimeout)); err != nil {
 						logger.Debugf("Failed to send ping: %v", err)
 						// Optionally, we could close the stream here, but let's just log and continue
 					}
@@ -102,12 +102,12 @@ func (s *stream) readMessages(ctx context.Context) {
 			s.deliver(streamEOF)
 			return
 		default:
-			if c, ok := s.conn.(*websocket.Conn); ok {
+			if c, ok := s.conn.(*gwebsocket.Conn); ok {
 				_ = c.SetReadDeadline(time.Now().Add(readTimeout))
 			}
 			_, msg, err := s.conn.ReadMessage()
 			if err != nil {
-				if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+				if gwebsocket.IsCloseError(err, gwebsocket.CloseAbnormalClosure) {
 					logger.Debugf("Websocket connection closed unexpectedly: %v", err)
 				}
 				s.deliver(streamEOF)
@@ -172,7 +172,7 @@ func (s *stream) ContextID() string {
 }
 
 func (s *stream) Hash() host2.StreamHash {
-	return rest.StreamHash(s.info)
+	return websocket.StreamHash(s.info)
 }
 
 type result struct {
@@ -244,10 +244,10 @@ func (s *stream) Write(p []byte) (int, error) {
 		return n, nil
 	}
 	logger.Debugf("Ready to send to [%s@%s]: [%s]", s.info.RemotePeerID, s.info.RemotePeerAddress, logging.SHA256Base64(content))
-	if c, ok := s.conn.(*websocket.Conn); ok {
+	if c, ok := s.conn.(*gwebsocket.Conn); ok {
 		_ = c.SetWriteDeadline(time.Now().Add(writeTimeout))
 	}
-	if err := s.conn.WriteMessage(websocket.BinaryMessage, content); err != nil {
+	if err := s.conn.WriteMessage(gwebsocket.BinaryMessage, content); err != nil {
 		return 0, err
 	}
 	return n, nil

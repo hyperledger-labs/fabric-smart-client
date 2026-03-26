@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package rest_test
+package websocket_test
 
 import (
 	"crypto/ecdsa"
@@ -26,9 +26,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/mr-tron/base58/base58"
@@ -123,7 +123,7 @@ func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 	bootstrap, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
 		bootstrapID: []host2.PeerIPAddress{bootstrapAddress},
 		otherID:     []host2.PeerIPAddress{otherAddress},
-	}, rest.NewConfigFromProperties(
+	}, websocket.NewConfigFromProperties(
 		bootstrapAddress,
 		tlsFiles.bootstrapKey,
 		tlsFiles.bootstrapCert,
@@ -138,7 +138,7 @@ func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 	other, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
 		bootstrapID: []host2.PeerIPAddress{bootstrapAddress},
 		otherID:     []host2.PeerIPAddress{otherAddress},
-	}, rest.NewConfigFromProperties(
+	}, websocket.NewConfigFromProperties(
 		otherAddress,
 		tlsFiles.otherKey,
 		tlsFiles.otherCert,
@@ -231,7 +231,7 @@ func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNo
 		bootstrapID: []host2.PeerIPAddress{bootstrapAddress},
 		node1ID:     []host2.PeerIPAddress{node1Address},
 		node2ID:     []host2.PeerIPAddress{node2Address},
-	}, rest.NewConfigFromProperties(
+	}, websocket.NewConfigFromProperties(
 		bootstrapAddress,
 		bootstrapKey,
 		bootstrapCert,
@@ -247,7 +247,7 @@ func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNo
 		bootstrapID: []host2.PeerIPAddress{bootstrapAddress},
 		node1ID:     []host2.PeerIPAddress{node1Address},
 		node2ID:     []host2.PeerIPAddress{node2Address},
-	}, rest.NewConfigFromProperties(
+	}, websocket.NewConfigFromProperties(
 		node1Address,
 		node1Key,
 		node1Cert,
@@ -263,7 +263,7 @@ func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNo
 		bootstrapID: []host2.PeerIPAddress{bootstrapAddress},
 		node1ID:     []host2.PeerIPAddress{node1Address},
 		node2ID:     []host2.PeerIPAddress{node2Address},
-	}, rest.NewConfigFromProperties(
+	}, websocket.NewConfigFromProperties(
 		node2Address,
 		node2Key,
 		node2Cert,
@@ -304,7 +304,7 @@ func mustPeerIDFromCert(t *testing.T, certPath string) string {
 
 type staticRoutHostProvider struct {
 	routes *routing.StaticIDRouter
-	config rest.Config
+	config websocket.Config
 }
 
 type generatedTLSFiles struct {
@@ -420,7 +420,7 @@ func TestSessionInfoSecurityGuarantees(t *testing.T) {
 	charlieHost, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
 		charlieID:  []host2.PeerIPAddress{freeTCPAddress(t)},
 		bobNode.ID: []host2.PeerIPAddress{bobNode.Address},
-	}, rest.NewConfigFromProperties(
+	}, websocket.NewConfigFromProperties(
 		freeTCPAddress(t),
 		allTlsFiles.charlie.key,
 		allTlsFiles.charlie.cert,
@@ -523,9 +523,9 @@ func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) 
 		aliceID: []host2.PeerIPAddress{aliceAddr},
 		bobID:   []host2.PeerIPAddress{bobAddr},
 	}
-	aliceH, _ := newStaticRouteHostProvider(routes, rest.NewConfigFromProperties(aliceAddr, alice.key, alice.cert, []string{caCert}, []string{caCert}, true, 100, nil)).GetNewHost()
+	aliceH, _ := newStaticRouteHostProvider(routes, websocket.NewConfigFromProperties(aliceAddr, alice.key, alice.cert, []string{caCert}, []string{caCert}, true, 100, nil)).GetNewHost()
 	aliceNode, _ := comm.NewNode(t.Context(), aliceH, &disabled.Provider{})
-	bobH, _ := newStaticRouteHostProvider(routes, rest.NewConfigFromProperties(bobAddr, bob.key, bob.cert, []string{caCert}, []string{caCert}, true, 100, nil)).GetNewHost()
+	bobH, _ := newStaticRouteHostProvider(routes, websocket.NewConfigFromProperties(bobAddr, bob.key, bob.cert, []string{caCert}, []string{caCert}, true, 100, nil)).GetNewHost()
 	bobNode, _ := comm.NewNode(t.Context(), bobH, &disabled.Provider{})
 	return &comm.HostNode{P2PNode: aliceNode, ID: aliceID, Address: aliceAddr},
 		&comm.HostNode{P2PNode: bobNode, ID: bobID, Address: bobAddr}
@@ -539,7 +539,7 @@ func writePEM(t *testing.T, path string, typ string, raw []byte) {
 	require.NoError(t, pem.Encode(f, &pem.Block{Type: typ, Bytes: raw}))
 }
 
-func newStaticRouteHostProvider(routes *routing.StaticIDRouter, config rest.Config) *staticRoutHostProvider {
+func newStaticRouteHostProvider(routes *routing.StaticIDRouter, config websocket.Config) *staticRoutHostProvider {
 	return &staticRoutHostProvider{routes: routes, config: config}
 }
 
@@ -550,5 +550,5 @@ func (p *staticRoutHostProvider) ExtraCAs() [][]byte {
 func (p *staticRoutHostProvider) GetNewHost() (host2.P2PHost, error) {
 	nodeID, _ := p.routes.ReverseLookup(p.config.ListenAddress())
 	discovery := routing.NewServiceDiscovery(p.routes, routing.RoundRobin[host2.PeerIPAddress]())
-	return rest.NewHost(nodeID, discovery, websocket.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0), p.config, p), nil
+	return websocket.NewHost(nodeID, discovery, ws.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0), p.config, p), nil
 }

@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package rest_test
+package websocket_test
 
 import (
 	"context"
@@ -17,8 +17,8 @@ import (
 
 	"github.com/hashicorp/consul/sdk/freeport"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
@@ -36,7 +36,7 @@ func TestHostStartupTimeout(t *testing.T) {
 	}
 
 	// Create a host with the invalid address
-	host := rest.NewHost(
+	host := websocket.NewHost(
 		"test-node",
 		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
 		noopProvider(),
@@ -69,7 +69,7 @@ func TestHostStartupReadinessTimeout(t *testing.T) {
 	}
 
 	// Create a host
-	h := rest.NewHost(
+	h := websocket.NewHost(
 		"test-node",
 		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
 		noopProvider(),
@@ -96,24 +96,24 @@ func TestHostStartupReadinessTimeout(t *testing.T) {
 	}
 }
 
-// mockConfig implements rest.Config for testing
+// mockConfig implements websocket.Config for testing
 type mockConfig struct {
 	listenAddress host2.PeerIPAddress
 }
 
-func (m *mockConfig) ListenAddress() host2.PeerIPAddress                   { return m.listenAddress }
-func (m *mockConfig) ClientTLSConfig(rest.ExtraCAPoolProvider) *tls.Config { return nil }
-func (m *mockConfig) ServerTLSConfig(rest.ExtraCAPoolProvider) *tls.Config { return nil }
-func (m *mockConfig) CertPath() string                                     { return "" }
-func (m *mockConfig) MaxSubConns() int                                     { return 100 }
-func (m *mockConfig) ReadHeaderTimeout() time.Duration                     { return 10 * time.Second }
-func (m *mockConfig) ReadTimeout() time.Duration                           { return 30 * time.Second }
-func (m *mockConfig) WriteTimeout() time.Duration                          { return 30 * time.Second }
-func (m *mockConfig) IdleTimeout() time.Duration                           { return 120 * time.Second }
-func (m *mockConfig) CORSAllowedOrigins() []string                         { return nil }
+func (m *mockConfig) ListenAddress() host2.PeerIPAddress                        { return m.listenAddress }
+func (m *mockConfig) ClientTLSConfig(websocket.ExtraCAPoolProvider) *tls.Config { return nil }
+func (m *mockConfig) ServerTLSConfig(websocket.ExtraCAPoolProvider) *tls.Config { return nil }
+func (m *mockConfig) CertPath() string                                          { return "" }
+func (m *mockConfig) MaxSubConns() int                                          { return 100 }
+func (m *mockConfig) ReadHeaderTimeout() time.Duration                          { return 10 * time.Second }
+func (m *mockConfig) ReadTimeout() time.Duration                                { return 30 * time.Second }
+func (m *mockConfig) WriteTimeout() time.Duration                               { return 30 * time.Second }
+func (m *mockConfig) IdleTimeout() time.Duration                                { return 120 * time.Second }
+func (m *mockConfig) CORSAllowedOrigins() []string                              { return nil }
 
 // noopProvider returns a stream provider that does nothing
-func noopProvider() rest.StreamProvider {
+func noopProvider() websocket.StreamProvider {
 	return &noopStreamProvider{}
 }
 

@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package websocket_test
+package ws_test
 
 import (
 	"bytes"
@@ -18,14 +18,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 )
 
 func newMockStream(conn *mockConn) host.P2PStream {
-	return websocket.NewWSStream(conn, context.Background(), host.StreamInfo{})
+	return ws.NewWSStream(conn, context.Background(), host.StreamInfo{})
 }
 
 type mockConn struct {

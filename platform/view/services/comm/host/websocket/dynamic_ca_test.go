@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package rest_test
+package websocket_test
 
 import (
 	"context"
@@ -19,9 +19,9 @@ import (
 
 	gorilla_websocket "github.com/gorilla/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/routing"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/rest/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -101,7 +101,7 @@ func TestDynamicCA(t *testing.T) {
 	// Generate Server Cert
 	serverKeyFile := filepath.Join(tempDir, "server.key")
 	serverCertFile := filepath.Join(tempDir, "server.crt")
-	serverCertPEM, serverKeyPEM, err := rest.GenerateTestCert("server")
+	serverCertPEM, serverKeyPEM, err := websocket.GenerateTestCert("server")
 	assert.NoError(t, err)
 	assert.NoError(t, os.WriteFile(serverKeyFile, serverKeyPEM, 0600))
 	assert.NoError(t, os.WriteFile(serverCertFile, serverCertPEM, 0600))
@@ -109,12 +109,12 @@ func TestDynamicCA(t *testing.T) {
 	// Generate Client Cert (NOT in initial root CAs)
 	clientKeyFile := filepath.Join(tempDir, "client.key")
 	clientCertFile := filepath.Join(tempDir, "client.crt")
-	clientCertPEM, clientKeyPEM, err := rest.GenerateTestCert("client")
+	clientCertPEM, clientKeyPEM, err := websocket.GenerateTestCert("client")
 	assert.NoError(t, err)
 	assert.NoError(t, os.WriteFile(clientKeyFile, clientKeyPEM, 0600))
 	assert.NoError(t, os.WriteFile(clientCertFile, clientCertPEM, 0600))
 
-	config := rest.NewConfigFromProperties(
+	config := websocket.NewConfigFromProperties(
 		"127.0.0.1:0",
 		serverKeyFile,
 		serverCertFile,
@@ -128,8 +128,8 @@ func TestDynamicCA(t *testing.T) {
 	r := routing.NewEndpointServiceIDRouter(epService)
 	discovery := routing.NewServiceDiscovery(r, routing.Random[host.PeerIPAddress]())
 
-	streamProvider := websocket.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
-	provider := rest.NewEndpointBasedProvider(config, epService, discovery, streamProvider)
+	streamProvider := ws.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	provider := websocket.NewEndpointBasedProvider(config, epService, discovery, streamProvider)
 
 	h, err := provider.GetNewHost()
 	if !assert.NoError(t, err) {

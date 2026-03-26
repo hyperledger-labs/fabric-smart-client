@@ -94,19 +94,24 @@ func (s *localSession) SendWithContext(ctx context.Context, payload []byte) erro
 	}
 
 	select {
-	case s.writeChannel <- &view.Message{
-		SessionID:    s.info.ID,
-		ContextID:    s.contextID,
-		Caller:       s.caller,
-		FromEndpoint: s.info.Endpoint,
-		FromPKID:     s.info.EndpointPKID,
-		Status:       view.OK,
-		Payload:      payload,
-		Ctx:          ctx,
-	}:
-		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	default:
+		select {
+		case s.writeChannel <- &view.Message{
+			SessionID:    s.info.ID,
+			ContextID:    s.contextID,
+			Caller:       s.caller,
+			FromEndpoint: s.info.Endpoint,
+			FromPKID:     s.info.EndpointPKID,
+			Status:       view.OK,
+			Payload:      payload,
+			Ctx:          ctx,
+		}:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 }
 
