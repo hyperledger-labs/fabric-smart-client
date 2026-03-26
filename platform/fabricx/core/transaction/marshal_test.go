@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
-	"testing"
 	"errors"
+	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
@@ -116,7 +116,7 @@ func TestCreateSCEnvelopeSignerNotFound(t *testing.T) {
 	fakeSignerService := &mocks.FakeSignerService{}
 
 	fakeFNS.SignerServiceReturns(fakeSignerService)
-	fakeSignerService.GetSignerReturns(nil,  errors.New("boom"))
+	fakeSignerService.GetSignerReturns(nil, errors.New("boom"))
 
 	tx := &Transaction{
 		TTxID:              "tx1",

@@ -371,7 +371,7 @@ func (t *Transaction) Endorse() error {
 
 func (t *Transaction) EndorseWithIdentity(identity view.Identity) error {
 	logger.Debugf("endorse transaction [tx=ID%s] with identity [%s]", t.ID(), identity.String())
-	
+
 	// Check for nil SignerService to avoid panic
 	if t.fns.SignerService() == nil {
 		return errors.New("signer service not initialized")

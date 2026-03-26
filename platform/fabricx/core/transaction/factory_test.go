@@ -1,3 +1,9 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package transaction
 
 import (
@@ -27,13 +33,13 @@ func TestFactoryNewTransaction(t *testing.T) {
 	creator := []byte("creator")
 
 	tests := []struct {
-		name                string
-		channelName         string
-		nonce               []byte
-		txID                driver.TxID
-		networkName         string
-		channelErr          error
-		expectedErr         string
+		name                 string
+		channelName          string
+		nonce                []byte
+		txID                 driver.TxID
+		networkName          string
+		channelErr           error
+		expectedErr          string
 		expectGeneratedNonce bool
 		expectGeneratedTxID  bool
 		expectedChannelCalls int
