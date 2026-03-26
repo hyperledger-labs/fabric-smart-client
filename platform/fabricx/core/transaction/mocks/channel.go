@@ -138,16 +138,6 @@ type FakeChannel struct {
 	vaultReturnsOnCall map[int]struct {
 		result1 driver.Vault
 	}
-	VaultStoreStub        func() driver.VaultStore
-	vaultStoreMutex       sync.RWMutex
-	vaultStoreArgsForCall []struct {
-	}
-	vaultStoreReturns struct {
-		result1 driver.VaultStore
-	}
-	vaultStoreReturnsOnCall map[int]struct {
-		result1 driver.VaultStore
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -838,59 +828,6 @@ func (fake *FakeChannel) VaultReturnsOnCall(i int, result1 driver.Vault) {
 	}
 	fake.vaultReturnsOnCall[i] = struct {
 		result1 driver.Vault
-	}{result1}
-}
-
-func (fake *FakeChannel) VaultStore() driver.VaultStore {
-	fake.vaultStoreMutex.Lock()
-	ret, specificReturn := fake.vaultStoreReturnsOnCall[len(fake.vaultStoreArgsForCall)]
-	fake.vaultStoreArgsForCall = append(fake.vaultStoreArgsForCall, struct {
-	}{})
-	stub := fake.VaultStoreStub
-	fakeReturns := fake.vaultStoreReturns
-	fake.recordInvocation("VaultStore", []interface{}{})
-	fake.vaultStoreMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *FakeChannel) VaultStoreCallCount() int {
-	fake.vaultStoreMutex.RLock()
-	defer fake.vaultStoreMutex.RUnlock()
-	return len(fake.vaultStoreArgsForCall)
-}
-
-func (fake *FakeChannel) VaultStoreCalls(stub func() driver.VaultStore) {
-	fake.vaultStoreMutex.Lock()
-	defer fake.vaultStoreMutex.Unlock()
-	fake.VaultStoreStub = stub
-}
-
-func (fake *FakeChannel) VaultStoreReturns(result1 driver.VaultStore) {
-	fake.vaultStoreMutex.Lock()
-	defer fake.vaultStoreMutex.Unlock()
-	fake.VaultStoreStub = nil
-	fake.vaultStoreReturns = struct {
-		result1 driver.VaultStore
-	}{result1}
-}
-
-func (fake *FakeChannel) VaultStoreReturnsOnCall(i int, result1 driver.VaultStore) {
-	fake.vaultStoreMutex.Lock()
-	defer fake.vaultStoreMutex.Unlock()
-	fake.VaultStoreStub = nil
-	if fake.vaultStoreReturnsOnCall == nil {
-		fake.vaultStoreReturnsOnCall = make(map[int]struct {
-			result1 driver.VaultStore
-		})
-	}
-	fake.vaultStoreReturnsOnCall[i] = struct {
-		result1 driver.VaultStore
 	}{result1}
 }
 
