@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
@@ -102,17 +102,17 @@ func TestDynamicCA(t *testing.T) {
 	serverKeyFile := filepath.Join(tempDir, "server.key")
 	serverCertFile := filepath.Join(tempDir, "server.crt")
 	serverCertPEM, serverKeyPEM, err := websocket.GenerateTestCert("server")
-	assert.NoError(t, err)
-	assert.NoError(t, os.WriteFile(serverKeyFile, serverKeyPEM, 0600))
-	assert.NoError(t, os.WriteFile(serverCertFile, serverCertPEM, 0600))
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(serverKeyFile, serverKeyPEM, 0600))
+	require.NoError(t, os.WriteFile(serverCertFile, serverCertPEM, 0600))
 
 	// Generate Client Cert (NOT in initial root CAs)
 	clientKeyFile := filepath.Join(tempDir, "client.key")
 	clientCertFile := filepath.Join(tempDir, "client.crt")
 	clientCertPEM, clientKeyPEM, err := websocket.GenerateTestCert("client")
-	assert.NoError(t, err)
-	assert.NoError(t, os.WriteFile(clientKeyFile, clientKeyPEM, 0600))
-	assert.NoError(t, os.WriteFile(clientCertFile, clientCertPEM, 0600))
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(clientKeyFile, clientKeyPEM, 0600))
+	require.NoError(t, os.WriteFile(clientCertFile, clientCertPEM, 0600))
 
 	config := websocket.NewConfigFromProperties(
 		"127.0.0.1:0",
@@ -132,21 +132,19 @@ func TestDynamicCA(t *testing.T) {
 	provider := websocket.NewEndpointBasedProvider(config, epService, discovery, streamProvider)
 
 	h, err := provider.GetNewHost()
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 
 	err = h.Start(func(stream host.P2PStream) {
 		_ = stream.Close()
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer func() { _ = h.Close() }()
 
 	// Verify that the endpoint service was updated with the actual address
 	actualAddr := h.(interface{ Addr() string }).Addr()
 	res, err := epService.GetResolver(t.Context(), []byte(h.(interface{ ID() string }).ID()))
-	assert.NoError(t, err)
-	assert.Equal(t, actualAddr, res.Addresses[endpoint.P2PPort])
+	require.NoError(t, err)
+	require.Equal(t, actualAddr, res.Addresses[endpoint.P2PPort])
 
 	// 1. Try to connect with client cert - should fail because it's not in server's root CAs
 	clientTLSConfig := &tls.Config{
@@ -164,7 +162,7 @@ func TestDynamicCA(t *testing.T) {
 
 	dialer := &gorilla_websocket.Dialer{TLSClientConfig: clientTLSConfig}
 	_, _, err = dialer.DialContext(t.Context(), url, nil)
-	assert.Error(t, err, "should fail as client cert is not trusted")
+	require.Error(t, err, "should fail as client cert is not trusted")
 
 	// 2. Add client cert to EndpointService (runtime change)
 	epService.AddResolver(clientCertPEM)
@@ -175,7 +173,7 @@ func TestDynamicCA(t *testing.T) {
 		_ = conn.Close()
 		_ = resp.Body.Close()
 	}
-	assert.NoError(t, err, "should succeed as client cert is now trusted via EndpointService")
+	require.NoError(t, err, "should succeed as client cert is now trusted via EndpointService")
 }
 
 func mustLoadKeyPair(certFile, keyFile string) tls.Certificate {

@@ -7,9 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package streamio
 
 import (
-	"crypto/md5"
-	"encoding/base64"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"go.uber.org/zap/zapcore"
 )
@@ -64,15 +61,8 @@ func (r *Reader) Read(p []byte) (int, error) {
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[Reader] Read [%d][%s]\n",
-			n, base64.StdEncoding.EncodeToString(MD5Hash(p[:n])))
+		logger.Debugf("[Reader] Read [%d][%s]\n", n, logging.SHA256Base64(p[:n]))
 	}
 
 	return n, err
-}
-
-func MD5Hash(in []byte) []byte {
-	h := md5.New()
-	h.Write(in)
-	return h.Sum(nil)
 }

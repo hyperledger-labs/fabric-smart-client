@@ -1,6 +1,6 @@
 # WebSocket Transport
 
-The WEBSOCKET/WebSocket transport provides a secure, lightweight, and firewall-friendly communication channel. It uses standard HTTP/HTTPS for handshakes and then upgrades to WebSockets for full-duplex P2P communication.
+The WebSocket transport provides a secure, lightweight, and firewall-friendly communication channel. It uses standard HTTP/HTTPS for handshakes and then upgrades to WebSockets for full-duplex P2P communication.
 
 ## Overview
 
@@ -87,7 +87,7 @@ A remote node can only connect if its TLS certificate is trusted by the local se
 - **Client Side**: The local node will only connect to servers whose certificates match the `serverRootCAs` or a dynamically retrieved peer public key.
 - **Identity Enforcement**: The server extracts the `PeerID` from the client certificate and compares it against the application-layer `PeerID` in the `StreamMeta` packet (Identity Binding). If they don't match, the connection is terminated.
 
-The WEBSOCKET/WebSocket transport is configured via the `fsc.p2p` section in `core.yaml`. For a complete configuration reference, see [Configuration Guide](../../../configuration.md#fsc-node-configuration).
+The WebSocket transport is configured via the `fsc.p2p` section in `core.yaml`. For a complete configuration reference, see [Configuration Guide](../../../configuration.md#fsc-node-configuration).
 
 ```yaml
 fsc:
@@ -134,10 +134,10 @@ fsc:
 | Feature | File Path |
 | :--- | :--- |
 | WEBSOCKET Host Implementation | `platform/view/services/comm/host/websocket/host.go` |
-| WebSocket Multiplexer | `platform/view/services/comm/host/websocket/websocket/multiplexed_provider.go` |
-| mTLS Auth and Identity Extraction | `platform/view/services/comm/host/websocket/websocket/auth.go` |
-| WebSocket Stream Wrapper | `platform/view/services/comm/host/websocket/websocket/stream.go` |
-| Delimited Proto Reader | `platform/view/services/comm/host/websocket/websocket/streamreader.go` |
+| WebSocket Multiplexer | `platform/view/services/comm/host/websocket/ws/multiplexed_provider.go` |
+| mTLS Auth and Identity Extraction | `platform/view/services/comm/host/websocket/ws/auth.go` |
+| WebSocket Stream Wrapper | `platform/view/services/comm/host/websocket/ws/stream.go` |
+| Delimited Proto Reader | `platform/view/services/comm/host/websocket/ws/streamreader.go` |
 | CA Pool Caching | `platform/view/services/comm/host/websocket/config.go` |
 
 ## Bootstrapping for AI Agents

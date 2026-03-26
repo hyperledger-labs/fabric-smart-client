@@ -9,13 +9,11 @@ package websocket_test
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/hashicorp/consul/sdk/freeport"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
@@ -57,8 +55,7 @@ func TestHostStartupReadinessTimeout(t *testing.T) {
 	// Use a valid localhost address but don't actually start a listener
 	// This simulates a scenario where the server starts listening but
 	// the readiness check fails because no one is accepting connections
-	ports := freeport.GetT(t, 1)
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", ports[0]))
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	addr := listener.Addr().String()
 	require.NoError(t, listener.Close()) // Close immediately so no one is listening

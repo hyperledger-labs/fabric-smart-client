@@ -160,34 +160,6 @@ func TestReader_MultipleMessages(t *testing.T) {
 	})
 }
 
-func TestMD5Hash(t *testing.T) {
-	t.Run("hash empty input", func(t *testing.T) {
-		hash := MD5Hash([]byte{})
-		assert.NotNil(t, hash)
-		assert.Len(t, hash, 16) // MD5 produces 16 bytes
-	})
-
-	t.Run("hash non-empty input", func(t *testing.T) {
-		input := []byte("test data")
-		hash := MD5Hash(input)
-		assert.NotNil(t, hash)
-		assert.Len(t, hash, 16)
-	})
-
-	t.Run("same input produces same hash", func(t *testing.T) {
-		input := []byte("consistent data")
-		hash1 := MD5Hash(input)
-		hash2 := MD5Hash(input)
-		assert.Equal(t, hash1, hash2)
-	})
-
-	t.Run("different inputs produce different hashes", func(t *testing.T) {
-		hash1 := MD5Hash([]byte("data1"))
-		hash2 := MD5Hash([]byte("data2"))
-		assert.NotEqual(t, hash1, hash2)
-	})
-}
-
 // Helper types for testing
 
 type errorMsgReader struct {

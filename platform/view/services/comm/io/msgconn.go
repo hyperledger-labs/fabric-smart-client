@@ -7,11 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package io
 
 import (
-	"crypto/md5"
-	"encoding/base64"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.uber.org/zap/zapcore"
 )
@@ -45,7 +44,7 @@ func NewMsgConn(index int, session view.Session) (MsgConn, error) {
 
 func (c *commSCCMsgConn) Write(data []byte) (n int, err error) {
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[commSCCMsgConn] Write [%d][%s]\n", len(data), base64.StdEncoding.EncodeToString(MD5Hash(data)))
+		logger.Debugf("[commSCCMsgConn] Write [%d][%s]\n", len(data), logging.SHA256Base64(data))
 	}
 
 	c.writeCounter++
@@ -81,17 +80,11 @@ func (c *commSCCMsgConn) Read() ([]byte, error) {
 	}
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
-		logger.Debugf("[commSCCMsgConn] [%d] Read [%d][%s]\n", c.readCounter, len(msg.Payload), base64.StdEncoding.EncodeToString(MD5Hash(msg.Payload)))
+		logger.Debugf("[commSCCMsgConn] [%d] Read [%d][%s]\n", c.readCounter, len(msg.Payload), logging.SHA256Base64(msg.Payload))
 	}
 	return msg.Payload, nil
 }
 
 func (c *commSCCMsgConn) Flush() error {
 	return nil
-}
-
-func MD5Hash(in []byte) []byte {
-	h := md5.New()
-	h.Write(in)
-	return h.Sum(nil)
 }

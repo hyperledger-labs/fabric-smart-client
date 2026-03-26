@@ -228,28 +228,6 @@ func TestMsgConn_Flush(t *testing.T) {
 	})
 }
 
-func TestMD5Hash_MsgConn(t *testing.T) {
-	t.Run("hash empty input", func(t *testing.T) {
-		hash := MD5Hash([]byte{})
-		assert.NotNil(t, hash)
-		assert.Len(t, hash, 16)
-	})
-
-	t.Run("hash non-empty input", func(t *testing.T) {
-		input := []byte("test data")
-		hash := MD5Hash(input)
-		assert.NotNil(t, hash)
-		assert.Len(t, hash, 16)
-	})
-
-	t.Run("consistent hashing", func(t *testing.T) {
-		input := []byte("consistent")
-		hash1 := MD5Hash(input)
-		hash2 := MD5Hash(input)
-		assert.Equal(t, hash1, hash2)
-	})
-}
-
 // Mock session for testing
 type mockSession struct {
 	ch           chan *view.Message
