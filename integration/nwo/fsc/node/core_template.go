@@ -65,7 +65,8 @@ fsc:
     opts:
       # Only needed when type == libp2p
       # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
-      bootstrapNode: {{ if eq .P2PCommunicationType "libp2p" }}{{ .BootstrapNode Peer }}{{ end}}
+      libp2p:
+        bootstrapNode: {{ if eq .P2PCommunicationType "libp2p" }}{{ .BootstrapNode Peer }}{{ end}}
   persistences: {{ range $key, $value := Persistences }}
     {{ $key }}:
       type: {{ $value.Type }}

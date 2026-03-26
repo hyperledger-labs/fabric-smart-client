@@ -20,41 +20,10 @@ import (
 // P2PCommunicationType is a string identifier for the libp2p implementation of the p2p comm stack.
 const P2PCommunicationType = "libp2p"
 
-type libp2pConfig interface {
-	PrivateKeyPath() string
-	Bootstrap() bool
-	ListenAddress() host2.PeerIPAddress
-	BootstrapListenAddress() host2.PeerIPAddress
-}
-
-type configService interface {
-	GetString(key string) string
-	GetPath(key string) string
-}
-
 type endpointService interface {
 	Resolve(ctx context.Context, party view.Identity) (view.Identity, map[endpoint.PortName]string, []byte, error)
 	GetIdentity(label string, pkID []byte) (view.Identity, error)
 }
-
-type config struct {
-	listenAddress          host2.PeerIPAddress
-	bootstrapListenAddress host2.PeerIPAddress
-	privateKeyPath         string
-}
-
-func NewConfig(cs configService) *config {
-	return &config{
-		listenAddress:          cs.GetString("fsc.p2p.listenAddress"),
-		bootstrapListenAddress: cs.GetString("fsc.p2p.opts.bootstrapNode"),
-		privateKeyPath:         cs.GetPath("fsc.identity.key.file"),
-	}
-}
-
-func (c *config) PrivateKeyPath() string                      { return c.privateKeyPath }
-func (c *config) Bootstrap() bool                             { return len(c.bootstrapListenAddress) == 0 }
-func (c *config) ListenAddress() host2.PeerIPAddress          { return c.listenAddress }
-func (c *config) BootstrapListenAddress() host2.PeerIPAddress { return c.bootstrapListenAddress }
 
 type hostGeneratorProvider struct {
 	metrics         *metrics

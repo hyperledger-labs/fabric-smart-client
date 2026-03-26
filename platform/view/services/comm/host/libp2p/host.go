@@ -53,7 +53,13 @@ type host struct {
 	bootstrapNode host2.PeerIPAddress
 }
 
-func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metrics *metrics, bootstrap bool, bootstrapNode host2.PeerIPAddress) (*host, error) {
+func newLibP2PHost(
+	listenAddress host2.PeerIPAddress,
+	priv crypto.PrivKey,
+	metrics *metrics,
+	bootstrap bool,
+	bootstrapNode host2.PeerIPAddress,
+) (*host, error) {
 	logger.Debugf("libp2p: Creating new host at [%s], bootstrap: %v, bootstrapNode: [%s]...", listenAddress, bootstrap, bootstrapNode)
 	addr, err := multiaddr.NewMultiaddr(listenAddress)
 	if err != nil {
@@ -81,7 +87,7 @@ func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metri
 
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		if err := libp2plogging.SetLogLevel("basichost", "debug"); err != nil {
-			return nil, errors.Wrapf(err, "failed setting debug level")
+			logger.Errorf("failed setting libp2p log level [%s]", err)
 		}
 	}
 

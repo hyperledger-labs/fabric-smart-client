@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
@@ -68,39 +68,46 @@ func TestSessionsTwoNodesTestRound(t *testing.T) {
 func generateKey(t *testing.T) (crypto.PrivKey, string) {
 	t.Helper()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	privKey, pubKey, err := crypto.ECDSAKeyPairFromKey(priv)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	ID, err := peer.IDFromPublicKey(pubKey)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	return privKey, ID.String()
 }
 
-func freeLibP2PAddress(t *testing.T) string {
+func freeLibP2PAddresses(t *testing.T, n int) []string {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	assert.NoError(t, err)
-	port := l.Addr().(*net.TCPAddr).Port
-	assert.NoError(t, l.Close())
-	return fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
+	listeners := make([]net.Listener, n)
+	addresses := make([]string, n)
+	for i := range n {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		listeners[i] = l
+		addresses[i] = fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", l.Addr().(*net.TCPAddr).Port)
+	}
+	for _, l := range listeners {
+		require.NoError(t, l.Close())
+	}
+	return addresses
 }
-
 func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 	bootstrapSK, bootstrapID := generateKey(t)
 	nodeSK, nodeID := generateKey(t)
 
-	bootstrapNodeEndpoint := freeLibP2PAddress(t)
-	nodeEndpoint := freeLibP2PAddress(t)
+	addrs := freeLibP2PAddresses(t, 2)
+	bootstrapNodeEndpoint := addrs[0]
+	nodeEndpoint := addrs[1]
 
 	bootstrapHost, err := newLibP2PHost(bootstrapNodeEndpoint, bootstrapSK, newMetrics(&disabled.Provider{}), true, "")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	bootstrapNode, err := comm.NewNode(t.Context(), bootstrapHost, &disabled.Provider{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	anotherHost, err := newLibP2PHost(nodeEndpoint, nodeSK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	anotherNode, err := comm.NewNode(t.Context(), anotherHost, &disabled.Provider{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
 
@@ -113,24 +120,25 @@ func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNo
 	node1SK, node1ID := generateKey(t)
 	node2SK, node2ID := generateKey(t)
 
-	bootstrapNodeEndpoint := freeLibP2PAddress(t)
-	node1Endpoint := freeLibP2PAddress(t)
-	node2Endpoint := freeLibP2PAddress(t)
+	addrs := freeLibP2PAddresses(t, 3)
+	bootstrapNodeEndpoint := addrs[0]
+	node1Endpoint := addrs[1]
+	node2Endpoint := addrs[2]
 
 	bootstrapHost, err := newLibP2PHost(bootstrapNodeEndpoint, bootstrapSK, newMetrics(&disabled.Provider{}), true, "")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	bootstrapNode, err := comm.NewNode(t.Context(), bootstrapHost, &disabled.Provider{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	node1Host, err := newLibP2PHost(node1Endpoint, node1SK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	node1, err := comm.NewNode(t.Context(), node1Host, &disabled.Provider{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	node2Host, err := newLibP2PHost(node2Endpoint, node2SK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	node2, err := comm.NewNode(t.Context(), node2Host, &disabled.Provider{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
 
