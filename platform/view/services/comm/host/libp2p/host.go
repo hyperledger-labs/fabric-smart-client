@@ -54,19 +54,24 @@ type host struct {
 }
 
 func newLibP2PHost(
-	listenAddress host2.PeerIPAddress,
+	config libp2pConfig,
 	priv crypto.PrivKey,
 	metrics *metrics,
 	bootstrap bool,
 	bootstrapNode host2.PeerIPAddress,
 ) (*host, error) {
+	listenAddress := config.ListenAddress()
 	logger.Debugf("libp2p: Creating new host at [%s], bootstrap: %v, bootstrapNode: [%s]...", listenAddress, bootstrap, bootstrapNode)
 	addr, err := multiaddr.NewMultiaddr(listenAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	connManager, err := connmgr.NewConnManager(100, 400, connmgr.WithGracePeriod(time.Minute))
+	connManager, err := connmgr.NewConnManager(
+		config.ConnManagerLowWater(),
+		config.ConnManagerHighWater(),
+		connmgr.WithGracePeriod(config.ConnManagerGracePeriod()),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating conn manager for libp2p host")
 	}

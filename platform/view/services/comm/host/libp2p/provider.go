@@ -46,7 +46,7 @@ func (p *hostGeneratorProvider) GetNewHost() (host2.P2PHost, error) {
 		return nil, err
 	}
 	if p.config.Bootstrap() {
-		host, err := newLibP2PHost(p.config.ListenAddress(), k, p.metrics, true, "")
+		host, err := newLibP2PHost(p.config, k, p.metrics, true, "")
 		if err != nil {
 			return nil, err
 		}
@@ -58,7 +58,7 @@ func (p *hostGeneratorProvider) GetNewHost() (host2.P2PHost, error) {
 	if err != nil {
 		return nil, err
 	}
-	host, err := newLibP2PHost(p.config.ListenAddress(), k, p.metrics, false, bootstrap)
+	host, err := newLibP2PHost(p.config, k, p.metrics, false, bootstrap)
 	if err != nil {
 		return nil, err
 	}

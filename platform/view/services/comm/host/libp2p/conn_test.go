@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -114,7 +115,9 @@ func newBootstrapNode(t *testing.T, port int) (*node, error) {
 	}
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/" + strconv.Itoa(port)
 	nodeDHTEndpoint := nodeEndpoint + "/p2p/" + nodeID
-	h, err := newLibP2PHost(nodeEndpoint, sk, newMetrics(&disabled.Provider{}), true, "")
+	config := &mock.LibP2PConfig{}
+	config.ListenAddressReturns(nodeEndpoint)
+	h, err := newLibP2PHost(config, sk, newMetrics(&disabled.Provider{}), true, "")
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +145,9 @@ func newNode(t *testing.T, port int, bootstrapNode *node) (*node, error) {
 	}
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/" + strconv.Itoa(port)
 
-	h, err := newLibP2PHost(nodeEndpoint, sk, newMetrics(&disabled.Provider{}), false, bootstrapNode.dhtEndpoint)
+	config := &mock.LibP2PConfig{}
+	config.ListenAddressReturns(nodeEndpoint)
+	h, err := newLibP2PHost(config, sk, newMetrics(&disabled.Provider{}), false, bootstrapNode.dhtEndpoint)
 	if err != nil {
 		return nil, err
 	}
