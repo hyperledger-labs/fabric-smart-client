@@ -614,5 +614,3 @@ func (v *Vault) mapStatusToValidationCode(statusCode int32) fdriver.ValidationCo
 		return fdriver.Invalid
 	}
 }
-
-// Made with Bob

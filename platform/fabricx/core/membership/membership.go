@@ -59,8 +59,8 @@ func (c *Service) Update(env *cb.Envelope) error {
 		return err
 	}
 
-	logger.Infof("updating channel [%s], done", c.channelID)
 	c.channelResources = b
+	logger.Infof("updating channel [%s], done", c.channelID)
 	return nil
 }
 

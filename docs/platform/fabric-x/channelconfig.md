@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Channel Configuration Monitor Service is a new service under `platform/fabricx/core/channel/config` that periodically monitors for new channel configuration transactions and automatically updates the membership and ordering services when configuration changes are detected.
+The Channel Configuration Monitor Service is a service under `platform/fabricx/core/channel/config` that periodically monitors for new channel configuration transactions and automatically updates the membership and ordering services when configuration changes are detected.
 
 ## Problem Statement
 
@@ -32,21 +32,6 @@ In Hyperledger Fabric networks, channel configuration can change over time (e.g.
     │  Query   │        │Membership│        │ Ordering │
     │ Service  │        │ Service  │        │ Service  │
     └──────────┘        └──────────┘        └──────────┘
-```
-
-### Service Interface
-
-```go
-type ChannelConfigMonitor interface {
-    // Start begins monitoring for configuration changes
-    Start(ctx context.Context) error
-    
-    // Stop halts the monitoring process
-    Stop() error
-    
-    // IsRunning returns the current state of the monitor
-    IsRunning() bool
-}
 ```
 
 ## Design Decisions
@@ -79,21 +64,129 @@ type ChannelConfigMonitor interface {
 - **Rationale**: Simplifies implementation and allows per-channel configuration
 - **Implication**: Multiple channels require multiple monitor instances
 
-## Implementation Details
+## Configuration
 
 ### Configuration Structure
+
+The Channel Configuration Monitor is configured per channel within the FabricX network configuration. All configuration parameters are optional and have sensible defaults.
+
+**Note:** This configuration applies **only to FabricX** networks, not standard Fabric networks.
 
 ```yaml
 fabric:
   <network>:
+    # Channel Configuration Monitor settings (applies to all channels in this network)
+    configMonitor:
+      # How often to check for configuration updates
+      # Default: 1m (1 minute)
+      # Format: Go duration string (e.g., "30s", "2m", "1h")
+      pollInterval: 60s
+      
+      # Maximum number of retry attempts for failed operations
+      # Default: 5
+      # Set to 0 to disable retries
+      maxRetries: 5
+      
+      # Initial delay before the first retry attempt
+      # Default: 1s
+      # Format: Go duration string
+      initialRetryDelay: 1s
+      
+      # Maximum delay between retry attempts (exponential backoff cap)
+      # Default: 5m
+      # Format: Go duration string
+      maxRetryDelay: 5m
+    
     channels:
-      <channel>:
-        configmonitor:
-          pollInterval: 60s  # Default: 1 minute
-          maxRetries: 5      # Default: 5
-          initialRetryDelay: 1s
-          maxRetryDelay: 5m
+      - name: <channel>
+        # ... other channel configuration
 ```
+
+### Configuration Examples
+
+#### Minimal Configuration (Using Defaults)
+
+If you don't specify the `configMonitor` section, the service will use default values:
+
+```yaml
+fabric:
+  mynetwork:
+    # configMonitor section omitted - uses defaults
+    channels:
+      - name: mychannel
+```
+
+#### Custom Configuration for High-Frequency Monitoring
+
+For environments where configuration changes need to be detected quickly:
+
+```yaml
+fabric:
+  mynetwork:
+    configMonitor:
+      pollInterval: 10s        # Check every 10 seconds
+      maxRetries: 10           # More retry attempts
+      initialRetryDelay: 500ms # Faster initial retry
+      maxRetryDelay: 1m        # Lower max delay
+    channels:
+      - name: mychannel
+```
+
+#### Conservative Configuration for Stable Networks
+
+For production environments with infrequent configuration changes:
+
+```yaml
+fabric:
+  mynetwork:
+    configMonitor:
+      pollInterval: 5m         # Check every 5 minutes
+      maxRetries: 3            # Fewer retries
+      initialRetryDelay: 2s    # Longer initial delay
+      maxRetryDelay: 10m       # Higher max delay
+    channels:
+      - name: mychannel
+```
+
+### Environment Variable Overrides
+
+Configuration values can be overridden using environment variables. The pattern follows:
+
+```
+CORE_FABRIC_<NETWORK>_CONFIGMONITOR_<PARAMETER>
+```
+
+**Examples:**
+
+```bash
+# Override poll interval for 'mynetwork' network
+export CORE_FABRIC_MYNETWORK_CONFIGMONITOR_POLLINTERVAL=30s
+
+# Override max retries
+export CORE_FABRIC_MYNETWORK_CONFIGMONITOR_MAXRETRIES=10
+
+# Override initial retry delay
+export CORE_FABRIC_MYNETWORK_CONFIGMONITOR_INITIALRETRYDELAY=2s
+
+# Override max retry delay
+export CORE_FABRIC_MYNETWORK_CONFIGMONITOR_MAXRETRYDELAY=10m
+```
+
+**Note:** Network names in environment variables should be uppercase.
+
+### Configuration Validation
+
+The service validates configuration parameters on startup:
+
+| Parameter | Validation Rule | Error if Invalid |
+|-----------|----------------|------------------|
+| `pollInterval` | Must be > 0 | "pollInterval must be positive" |
+| `maxRetries` | Must be >= 0 | "maxRetries must be non-negative" |
+| `initialRetryDelay` | Must be > 0 | "initialRetryDelay must be positive" |
+| `maxRetryDelay` | Must be > 0 | "maxRetryDelay must be positive" |
+| `initialRetryDelay` vs `maxRetryDelay` | initialRetryDelay <= maxRetryDelay | "initialRetryDelay must not exceed maxRetryDelay" |
+
+If validation fails, the node will fail to start with a descriptive error message.
 
 ### Key Algorithms
 

@@ -11,13 +11,16 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 )
 
 //go:generate counterfeiter -o mock/config_service.go -fake-name ConfigService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ConfigService
 
 const (
+	configMonitorKey = "configMonitor"
+
 	// Default configuration values
-	defaultPollInterval      = 1 * time.Second
+	defaultPollInterval      = 1 * time.Minute
 	defaultMaxRetries        = 5
 	defaultInitialRetryDelay = 1 * time.Second
 	defaultMaxRetryDelay     = 5 * time.Minute
@@ -42,7 +45,7 @@ type Config struct {
 // It applies default values for any missing configuration parameters.
 // The configService is assumed to be already rooted at the proper configuration location.
 func NewConfig(configService driver.ConfigService) (*Config, error) {
-	config := &Config{
+	c := &Config{
 		PollInterval:      defaultPollInterval,
 		MaxRetries:        defaultMaxRetries,
 		InitialRetryDelay: defaultInitialRetryDelay,
@@ -50,31 +53,31 @@ func NewConfig(configService driver.ConfigService) (*Config, error) {
 	}
 
 	// Read poll interval if configured
-	if configService.IsSet("pollInterval") {
-		config.PollInterval = configService.GetDuration("pollInterval")
+	if configService.IsSet(config.Join(configMonitorKey, "pollInterval")) {
+		c.PollInterval = configService.GetDuration("pollInterval")
 	}
 
 	// Read max retries if configured
-	if configService.IsSet("maxRetries") {
-		config.MaxRetries = configService.GetInt("maxRetries")
+	if configService.IsSet(config.Join(configMonitorKey, "maxRetries")) {
+		c.MaxRetries = configService.GetInt("maxRetries")
 	}
 
 	// Read initial retry delay if configured
-	if configService.IsSet("initialRetryDelay") {
-		config.InitialRetryDelay = configService.GetDuration("initialRetryDelay")
+	if configService.IsSet(config.Join(configMonitorKey, "initialRetryDelay")) {
+		c.InitialRetryDelay = configService.GetDuration("initialRetryDelay")
 	}
 
 	// Read max retry delay if configured
-	if configService.IsSet("maxRetryDelay") {
-		config.MaxRetryDelay = configService.GetDuration("maxRetryDelay")
+	if configService.IsSet(config.Join(configMonitorKey, "maxRetryDelay")) {
+		c.MaxRetryDelay = configService.GetDuration("maxRetryDelay")
 	}
 
 	// Validate configuration
-	if err := config.Validate(); err != nil {
-		return nil, errors.WithMessagef(err, "invalid channel config monitor configuration")
+	if err := c.Validate(); err != nil {
+		return nil, errors.WithMessagef(err, "invalid channel c monitor configuration")
 	}
 
-	return config, nil
+	return c, nil
 }
 
 // Validate checks that the configuration values are valid
@@ -102,5 +105,3 @@ func (c *Config) Validate() error {
 
 	return nil
 }
-
-// Made with Bob

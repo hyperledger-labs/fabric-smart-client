@@ -12,7 +12,6 @@ import (
 
 	channelconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config/mock"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,11 +20,11 @@ func TestNewConfig(t *testing.T) {
 		cs := &mock.ConfigService{}
 		config, err := channelconfig.NewConfig(cs)
 		require.NoError(t, err)
-		assert.NotNil(t, config)
-		assert.Equal(t, 1*time.Second, config.PollInterval)
-		assert.Equal(t, 5, config.MaxRetries)
-		assert.Equal(t, 1*time.Second, config.InitialRetryDelay)
-		assert.Equal(t, 5*time.Minute, config.MaxRetryDelay)
+		require.NotNil(t, config)
+		require.Equal(t, 1*time.Second, config.PollInterval)
+		require.Equal(t, 5, config.MaxRetries)
+		require.Equal(t, 1*time.Second, config.InitialRetryDelay)
+		require.Equal(t, 5*time.Minute, config.MaxRetryDelay)
 	})
 
 	t.Run("with custom values", func(t *testing.T) {
@@ -41,11 +40,11 @@ func TestNewConfig(t *testing.T) {
 
 		config, err := channelconfig.NewConfig(cs)
 		require.NoError(t, err)
-		assert.NotNil(t, config)
-		assert.Equal(t, 30*time.Second, config.PollInterval)
-		assert.Equal(t, 10, config.MaxRetries)
-		assert.Equal(t, 2*time.Second, config.InitialRetryDelay)
-		assert.Equal(t, 10*time.Minute, config.MaxRetryDelay)
+		require.NotNil(t, config)
+		require.Equal(t, 30*time.Second, config.PollInterval)
+		require.Equal(t, 10, config.MaxRetries)
+		require.Equal(t, 2*time.Second, config.InitialRetryDelay)
+		require.Equal(t, 10*time.Minute, config.MaxRetryDelay)
 	})
 
 	t.Run("with all custom values set", func(t *testing.T) {
@@ -55,8 +54,8 @@ func TestNewConfig(t *testing.T) {
 
 		config, err := channelconfig.NewConfig(cs)
 		require.NoError(t, err)
-		assert.NotNil(t, config)
-		assert.Equal(t, 45*time.Second, config.PollInterval)
+		require.NotNil(t, config)
+		require.Equal(t, 45*time.Second, config.PollInterval)
 	})
 }
 
@@ -69,7 +68,7 @@ func TestConfigValidate(t *testing.T) {
 			MaxRetryDelay:     5 * time.Minute,
 		}
 		err := config.Validate()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("invalid poll interval - zero", func(t *testing.T) {
@@ -80,8 +79,8 @@ func TestConfigValidate(t *testing.T) {
 			MaxRetryDelay:     5 * time.Minute,
 		}
 		err := config.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "pollInterval must be positive")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "pollInterval must be positive")
 	})
 
 	t.Run("invalid poll interval - negative", func(t *testing.T) {
@@ -92,8 +91,8 @@ func TestConfigValidate(t *testing.T) {
 			MaxRetryDelay:     5 * time.Minute,
 		}
 		err := config.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "pollInterval must be positive")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "pollInterval must be positive")
 	})
 
 	t.Run("invalid max retries - negative", func(t *testing.T) {
@@ -104,8 +103,8 @@ func TestConfigValidate(t *testing.T) {
 			MaxRetryDelay:     5 * time.Minute,
 		}
 		err := config.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "maxRetries must be non-negative")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "maxRetries must be non-negative")
 	})
 
 	t.Run("valid max retries - zero", func(t *testing.T) {
@@ -116,7 +115,7 @@ func TestConfigValidate(t *testing.T) {
 			MaxRetryDelay:     5 * time.Minute,
 		}
 		err := config.Validate()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("invalid initial retry delay - zero", func(t *testing.T) {
@@ -127,8 +126,8 @@ func TestConfigValidate(t *testing.T) {
 			MaxRetryDelay:     5 * time.Minute,
 		}
 		err := config.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "initialRetryDelay must be positive")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "initialRetryDelay must be positive")
 	})
 
 	t.Run("invalid max retry delay - zero", func(t *testing.T) {
@@ -139,8 +138,8 @@ func TestConfigValidate(t *testing.T) {
 			MaxRetryDelay:     0,
 		}
 		err := config.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "maxRetryDelay must be positive")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "maxRetryDelay must be positive")
 	})
 
 	t.Run("invalid - initial delay exceeds max delay", func(t *testing.T) {
@@ -151,10 +150,8 @@ func TestConfigValidate(t *testing.T) {
 			MaxRetryDelay:     5 * time.Minute,
 		}
 		err := config.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "initialRetryDelay")
-		assert.Contains(t, err.Error(), "must not exceed maxRetryDelay")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "initialRetryDelay")
+		require.Contains(t, err.Error(), "must not exceed maxRetryDelay")
 	})
 }
-
-// Made with Bob

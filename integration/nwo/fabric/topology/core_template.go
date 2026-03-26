@@ -293,6 +293,9 @@ fabric:
         {{ if .TLSDisabled }}tlsDisabled: {{ .TLSDisabled }} {{ end }}
         {{ if .Usage }}usage: {{ .Usage }} {{ end }}
     {{- end }}
+    # applies only to FabricX
+    configMonitor:
+      pollInterval: 1s
     channels: {{ range .Channels }}
       - name: {{ .Name }}
         default: {{ .Default }}

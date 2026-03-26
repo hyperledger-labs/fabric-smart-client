@@ -431,5 +431,3 @@ func TestRWSet_GetWriteAt(t *testing.T) {
 	_, _, err = rws.GetWriteAt("ns1", 100)
 	require.Error(t, err)
 }
-
-// Made with Bob

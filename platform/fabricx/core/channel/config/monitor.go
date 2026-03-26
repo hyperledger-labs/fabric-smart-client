@@ -48,20 +48,8 @@ type OrderingService interface {
 	Configure(consensusType string, orderers []*grpc.ConnectionConfig) error
 }
 
-// ChannelConfigMonitor defines the interface for monitoring channel configuration changes
-type ChannelConfigMonitor interface {
-	// Start begins monitoring for configuration changes
-	Start(ctx context.Context) error
-
-	// Stop halts the monitoring process
-	Stop() error
-
-	// IsRunning returns true if the monitor is currently running
-	IsRunning() bool
-}
-
-// Service implements the ChannelConfigMonitor interface
-type Service struct {
+// ChannelConfigMonitor implements the monitor
+type ChannelConfigMonitor struct {
 	config            *Config
 	queryService      QueryService
 	membershipService MembershipService
@@ -88,7 +76,7 @@ func NewChannelConfigMonitor(
 	configService driver.ConfigService,
 	network string,
 	channel string,
-) (*Service, error) {
+) (*ChannelConfigMonitor, error) {
 	if config == nil {
 		return nil, errors.New("config cannot be nil")
 	}
@@ -108,7 +96,7 @@ func NewChannelConfigMonitor(
 		return nil, errors.New("channel name cannot be empty")
 	}
 
-	return &Service{
+	return &ChannelConfigMonitor{
 		config:            config,
 		queryService:      queryService,
 		membershipService: membershipService,
@@ -122,7 +110,7 @@ func NewChannelConfigMonitor(
 }
 
 // Start begins monitoring for configuration changes
-func (s *Service) Start(ctx context.Context) error {
+func (s *ChannelConfigMonitor) Start(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -145,7 +133,7 @@ func (s *Service) Start(ctx context.Context) error {
 }
 
 // Stop halts the monitoring process
-func (s *Service) Stop() error {
+func (s *ChannelConfigMonitor) Stop() error {
 	s.mu.Lock()
 	if !s.running {
 		s.mu.Unlock()
@@ -164,14 +152,14 @@ func (s *Service) Stop() error {
 }
 
 // IsRunning returns true if the monitor is currently running
-func (s *Service) IsRunning() bool {
+func (s *ChannelConfigMonitor) IsRunning() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.running
 }
 
 // monitorLoop is the main monitoring loop that runs in a goroutine
-func (s *Service) monitorLoop() {
+func (s *ChannelConfigMonitor) monitorLoop() {
 	defer s.wg.Done()
 
 	ticker := time.NewTicker(s.config.PollInterval)
@@ -199,7 +187,7 @@ func (s *Service) monitorLoop() {
 }
 
 // checkAndUpdate checks for configuration changes and applies updates if needed
-func (s *Service) checkAndUpdate() error {
+func (s *ChannelConfigMonitor) checkAndUpdate() error {
 	logger.Debugf("Checking for config updates on [%s:%s]", s.network, s.channel)
 
 	// Wrap the operation with retry logic
@@ -238,7 +226,7 @@ func (s *Service) checkAndUpdate() error {
 }
 
 // applyConfigUpdate applies the configuration update to membership and ordering services
-func (s *Service) applyConfigUpdate(envelope *cb.Envelope) error {
+func (s *ChannelConfigMonitor) applyConfigUpdate(envelope *cb.Envelope) error {
 	// Update membership service
 	if err := s.membershipService.Update(envelope); err != nil {
 		return errors.Wrap(err, "failed to update membership service")
@@ -262,7 +250,7 @@ func (s *Service) applyConfigUpdate(envelope *cb.Envelope) error {
 }
 
 // retryWithBackoff executes the given operation with exponential backoff retry logic
-func (s *Service) retryWithBackoff(operation func() error) error {
+func (s *ChannelConfigMonitor) retryWithBackoff(operation func() error) error {
 	var lastErr error
 	delay := s.config.InitialRetryDelay
 
@@ -307,5 +295,3 @@ func (s *Service) retryWithBackoff(operation func() error) error {
 
 	return errors.Wrapf(lastErr, "operation failed after %d attempts", s.config.MaxRetries+1)
 }
-
-// Made with Bob
