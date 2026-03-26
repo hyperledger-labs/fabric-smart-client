@@ -51,6 +51,7 @@ func (e *Factory) NewTransaction(ctx context.Context, channelName string, nonce,
 		TTransient: map[string][]byte{},
 		// TODO: we need the correct values here
 		// TODO: we need a mapper that link between classic strings to new sc namespace
+		// TODO: fix the relevant unitest
 		TChaincodeVersion: "1",
 		TChaincode:        "iou",
 	}, nil

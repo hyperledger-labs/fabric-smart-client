@@ -122,7 +122,6 @@ func (t *Transaction) From(tx driver.Transaction) (err error) {
 	t.TCreator = payload.TCreator
 	t.TNonce = payload.TNonce
 	t.TTxID = payload.TTxID
-	t.TCreator = payload.TCreator
 	t.TNetwork = payload.TNetwork
 	t.TChannel = payload.TChannel
 	t.TChaincode = payload.TChaincode
@@ -371,6 +370,16 @@ func (t *Transaction) Endorse() error {
 
 func (t *Transaction) EndorseWithIdentity(identity view.Identity) error {
 	logger.Debugf("endorse transaction [tx=ID%s] with identity [%s]", t.ID(), identity.String())
+
+	// Check for nil fns to avoid panic
+	if t.fns == nil {
+		return errors.New("fabric network service not initialized")
+	}
+
+	// Check for nil SignerService to avoid panic
+	if t.fns.SignerService() == nil {
+		return errors.New("signer service not initialized")
+	}
 
 	// prepare signer
 	s, err := t.fns.SignerService().GetSigner(identity)
