@@ -18,17 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//go:generate counterfeiter -o mock/view_manager.go -fake-name ViewManager . ViewManager
-type ViewManager interface {
-	ExistResponderForCaller(caller string) (view.View, view.Identity, error)
-	NewSessionContext(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error)
-	DeleteContext(contextID string)
-}
-
-type EndpointService interface {
-	GetIdentity(endpoint string, pkID []byte) (view.Identity, error)
-}
-
 type viewManagerMock struct {
 	HandleResponderCalled chan struct{}
 
@@ -53,9 +42,9 @@ func (m *viewManagerMock) GetIdentity(endpoint string, pkID []byte) (view.Identi
 	return view.Identity("caller"), nil
 }
 
-func (m *viewManagerMock) NewSessionContext(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error) {
+func (m *viewManagerMock) NewSessionContext(ctx context.Context, contextID string, session view.Session, me view.Identity, remote view.Identity) (view.Context, bool, error) {
 	if m.NewSessionContextFunc != nil {
-		return m.NewSessionContextFunc(ctx, contextID, session, party)
+		return m.NewSessionContextFunc(ctx, contextID, session, me)
 	}
 	return &mock.Context{}, true, nil
 }

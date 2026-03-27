@@ -240,9 +240,13 @@ func (cm *Manager) RegisterContext(contextID string, ctx DisposableContext) erro
 
 // NewSessionContext returns a context for the given session.
 // It returns the context, a boolean indicating if it's new, and an error.
-func (cm *Manager) NewSessionContext(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error) {
+func (cm *Manager) NewSessionContext(ctx context.Context, contextID string, session view.Session, me view.Identity, remote view.Identity) (view.Context, bool, error) {
 	cm.contextsMu.Lock()
 	defer cm.contextsMu.Unlock()
+
+	if me.IsNone() {
+		me = cm.identityProvider.DefaultIdentity()
+	}
 
 	sessionID := session.Info().ID
 	caller := session.Info().Caller
@@ -257,7 +261,7 @@ func (cm *Manager) NewSessionContext(ctx context.Context, contextID string, sess
 		}
 
 		// TODO: replace this with `vCtx.PutSession`, however, that method requires a view as input but we only have the viewID
-		if err := vCtx.PutSessionByID(string(caller), party, session); err != nil {
+		if err := vCtx.PutSessionByID(string(caller), remote, session); err != nil {
 			return nil, false, errors.Wrapf(err, "failed registering session for [%s]", caller)
 		}
 
@@ -269,18 +273,18 @@ func (cm *Manager) NewSessionContext(ctx context.Context, contextID string, sess
 		return c, false, nil
 	}
 	if ok {
-		logger.DebugfContext(viewContext.Context(), "[%s] No new context to respond, reuse [contextID:%s]\n", cm.identityProvider.DefaultIdentity(), contextID)
+		logger.DebugfContext(viewContext.Context(), "[%s] No new context to respond, reuse [contextID:%s]\n", me, contextID)
 		return viewContext, false, nil
 	}
 
 	// next we continue with creating a new context
-	logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", cm.identityProvider.DefaultIdentity(), contextID)
+	logger.Debugf("[%s] Create new context to respond [contextID:%s]\n", me, contextID)
 	newCtx, err := cm.contextFactory.NewForResponder(
 		ctx,
 		contextID,
-		cm.identityProvider.DefaultIdentity(),
+		me,
 		session,
-		party,
+		remote,
 	)
 	if err != nil {
 		return nil, false, err
