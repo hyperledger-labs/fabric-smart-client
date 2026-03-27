@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkUUID(b *testing.B) {
@@ -88,4 +89,23 @@ func BenchmarkUUID(b *testing.B) {
 
 func report(b *testing.B) {
 	b.ReportAllocs()
+}
+
+func TestGenerateUUID_Format(t *testing.T) {
+	id := GenerateUUID()
+	_, err := uuid.Parse(id)
+	require.NoError(t, err)
+}
+
+func TestGenerateBytesUUID_Length(t *testing.T) {
+	b := GenerateBytesUUID()
+	require.Len(t, b, 16)
+}
+
+func TestGenerateUUID_Unique(t *testing.T) {
+	require.NotEqual(t, GenerateUUID(), GenerateUUID())
+}
+
+func TestGenerateBytesUUID_Unique(t *testing.T) {
+	require.NotEqual(t, GenerateBytesUUID(), GenerateBytesUUID())
 }
