@@ -28,7 +28,7 @@ type ViewManager interface {
 	// ExistResponderForCaller returns the responder view for the given caller.
 	ExistResponderForCaller(caller string) (view.View, view.Identity, error)
 	// NewSessionContext returns a context for the given session.
-	NewSessionContext(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error)
+	NewSessionContext(ctx context.Context, contextID string, session view.Session, me view.Identity, remote view.Identity) (view.Context, bool, error)
 	// DeleteContext deletes the view context for the given context ID.
 	DeleteContext(contextID string)
 }
@@ -169,9 +169,9 @@ func (s *Service) respond(responder view.View, id view.Identity, msg *view.Messa
 }
 
 // getOrCreateContext returns a view context for the given arguments.
-func (s *Service) getOrCreateContext(id view.Identity, msg *view.Message) (view.Context, bool, error) {
+func (s *Service) getOrCreateContext(me view.Identity, msg *view.Message) (view.Context, bool, error) {
 	// get the caller identity
-	callerIdentity, err := s.endpointService.GetIdentity(msg.FromEndpoint, msg.FromPKID)
+	remote, err := s.endpointService.GetIdentity(msg.FromEndpoint, msg.FromPKID)
 	if err != nil {
 		return nil, false, err
 	}
@@ -182,7 +182,7 @@ func (s *Service) getOrCreateContext(id view.Identity, msg *view.Message) (view.
 		msg.ContextID,
 		msg.FromEndpoint,
 		msg.FromPKID,
-		callerIdentity,
+		remote,
 		msg,
 	)
 	if err != nil {
@@ -193,6 +193,7 @@ func (s *Service) getOrCreateContext(id view.Identity, msg *view.Message) (view.
 		msg.Ctx,
 		msg.ContextID,
 		backend,
-		callerIdentity,
+		me,
+		remote,
 	)
 }
