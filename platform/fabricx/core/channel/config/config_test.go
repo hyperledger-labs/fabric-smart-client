@@ -21,7 +21,7 @@ func TestNewConfig(t *testing.T) {
 		config, err := channelconfig.NewConfig(cs)
 		require.NoError(t, err)
 		require.NotNil(t, config)
-		require.Equal(t, 1*time.Second, config.PollInterval)
+		require.Equal(t, 1*time.Minute, config.PollInterval)
 		require.Equal(t, 5, config.MaxRetries)
 		require.Equal(t, 1*time.Second, config.InitialRetryDelay)
 		require.Equal(t, 5*time.Minute, config.MaxRetryDelay)

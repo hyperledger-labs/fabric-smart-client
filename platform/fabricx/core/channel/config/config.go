@@ -53,24 +53,27 @@ func NewConfig(configService driver.ConfigService) (*Config, error) {
 	}
 
 	// Read poll interval if configured
-	if configService.IsSet(config.Join(configMonitorKey, "pollInterval")) {
-		c.PollInterval = configService.GetDuration("pollInterval")
-		logger.Infof("pollInterval set to [%s] from string [%s]", c.PollInterval, configService.GetString("pollInterval"))
+	pollIntervalKey := config.Join(configMonitorKey, "pollInterval")
+	if configService.IsSet(pollIntervalKey) {
+		c.PollInterval = configService.GetDuration(pollIntervalKey)
 	}
 
 	// Read max retries if configured
-	if configService.IsSet(config.Join(configMonitorKey, "maxRetries")) {
-		c.MaxRetries = configService.GetInt("maxRetries")
+	maxRetriesKey := config.Join(configMonitorKey, "maxRetries")
+	if configService.IsSet(maxRetriesKey) {
+		c.MaxRetries = configService.GetInt(maxRetriesKey)
 	}
 
 	// Read initial retry delay if configured
-	if configService.IsSet(config.Join(configMonitorKey, "initialRetryDelay")) {
-		c.InitialRetryDelay = configService.GetDuration("initialRetryDelay")
+	initialRetryDelayKey := config.Join(configMonitorKey, "initialRetryDelay")
+	if configService.IsSet(initialRetryDelayKey) {
+		c.InitialRetryDelay = configService.GetDuration(initialRetryDelayKey)
 	}
 
 	// Read max retry delay if configured
-	if configService.IsSet(config.Join(configMonitorKey, "maxRetryDelay")) {
-		c.MaxRetryDelay = configService.GetDuration("maxRetryDelay")
+	maxRetryDelayKey := config.Join(configMonitorKey, "maxRetryDelay")
+	if configService.IsSet(maxRetryDelayKey) {
+		c.MaxRetryDelay = configService.GetDuration(maxRetryDelayKey)
 	}
 
 	// Validate configuration
