@@ -49,8 +49,8 @@ func TestEqual_False(t *testing.T) {
 
 func TestClone(t *testing.T) {
 	msg := wrapperspb.String("original")
-	cloned := Clone(msg).(*wrapperspb.StringValue)
-
+	cloned, ok := Clone(msg).(*wrapperspb.StringValue)
+	require.True(t, ok)
 	require.True(t, Equal(msg, cloned))
 	// Mutating the clone must not affect the original
 	cloned.Value = "modified"

@@ -7,10 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package utils
 
 import (
-	"errors"
 	"testing"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,7 +46,7 @@ func TestRetryRunner_ExceedsMaxRetries(t *testing.T) {
 		return sentinelErr
 	})
 	require.Error(t, err)
-	require.True(t, errors.Is(err, sentinelErr))
+	require.ErrorIs(t, err, sentinelErr)
 }
 
 func TestRetryRunner_ExceedsMaxRetries_NoErrors(t *testing.T) {

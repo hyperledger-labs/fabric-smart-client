@@ -82,7 +82,7 @@ func TestCause(t *testing.T) {
 	inner := New("inner")
 	wrapped := Wrapf(inner, "outer")
 	cause := Cause(wrapped)
-	require.NotNil(t, cause)
+	require.Error(t, cause)
 }
 
 func TestIs(t *testing.T) {

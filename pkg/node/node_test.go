@@ -8,9 +8,9 @@ package node
 
 import (
 	"context"
-	"errors"
 	"testing"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	viewsvc "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/stretchr/testify/require"
 )
@@ -104,12 +104,14 @@ func TestNode_Start_InstallError(t *testing.T) {
 	n := newTestNode()
 	n.AddSDK(&mockSDK{installErr: errors.New("install failed")})
 	require.Error(t, n.Start())
+	require.False(t, n.running)
 }
 
 func TestNode_Start_StartError(t *testing.T) {
 	n := newTestNode()
 	n.AddSDK(&mockSDK{startErr: errors.New("start failed")})
 	require.Error(t, n.Start())
+	require.False(t, n.running)
 }
 
 func TestNode_Start_PostStart(t *testing.T) {
