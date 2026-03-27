@@ -21,6 +21,7 @@ func TestChildContext(t *testing.T) {
 	parent := &mock.MutableParentContext{}
 	parent.IDReturns("parent-id")
 	parent.MeReturns(view2.Identity("me"))
+	parent.ContextReturns(context.Background())
 
 	child := view.NewChildContextFromParent(parent)
 	assert.Equal(t, "parent-id", child.ID())
