@@ -91,23 +91,64 @@ fsc:
 
   # ------------------- P2P Configuration -------------------------
   p2p:
-    # Type of p2p communication. Currently supported: libp2p (default), rest
+    # Type of p2p communication. Currently supported: libp2p (default), websocket
     type: libp2p
     # listen address see https://github.com/libp2p/specs/blob/master/addressing/README.md
     # for information on the format
     listenAddress: /dns4/myhostname/tcp/20001
+    # Buffer size for the incoming messages channel. Default: 4096
+    # This controls how many messages can be queued before blocking message dispatch.
+    # Larger values can improve throughput for high-volume message processing
+    # but will consume more memory.
+    incomingMessagesBufferSize: 4096
+    # Buffer size for stream readers. Default: 4096
+    # This controls the internal buffer size used when reading protobuf messages from streams.
+    # Larger values can improve read performance for large messages
+    # but will consume more memory per active connection.
+    streamReaderBufferSize: 4096
     opts:
+      # ------------------- libp2p specific options -------------------------
       # Only needed when type == libp2p
-      # bootstrap node
-      # if it's empty then this node is the bootstrap node, otherwise it's the name
-      # of the bootstrap node, which must be defined in the FSC endpoint resolvers section
-      # and that entry must have an address with an entry P2P.
-      bootstrapNode: theBootstrapNode
-      # Only needed when type == rest
-      # Defines how to instantiate a router, i.e. the component that maps a service name (e.g. alice) to one or more IPs
-      routing:
-        # The path to the file that contains the routing, if the routing is static
-        path: /path/to/routing-config.yaml
+      libp2p:
+        # bootstrap node
+        # if it's empty then this node is the bootstrap node, otherwise it's the name
+        # of the bootstrap node, which must be defined in the FSC endpoint resolvers section
+        # and that entry must have an address with an entry P2P.
+        bootstrapNode: theBootstrapNode
+        # Connection manager settings for libp2p
+        connManager:
+          # Low water mark - when the number of connections drops below this, the connection manager
+          # will not prune any connections. Default: 100
+          lowWater: 100
+          # High water mark - when the number of connections exceeds this, the connection manager
+          # will prune connections until it reaches the low water mark. Default: 400
+          highWater: 400
+          # Grace period - connections younger than this will not be pruned. Default: 60s
+          # Format: duration in seconds
+          gracePeriod: 60
+      
+      # ------------------- websocket specific options -------------------------
+      # Only needed when type == websocket
+      websocket:
+        # Maximum number of sub-connections per peer. Default: 100
+        maxSubConns: 100
+        # Comma-separated list of allowed origins for CORS (Cross-Origin Resource Sharing)
+        # Example: "https://example.com,https://app.example.com"
+        # If not set, CORS is disabled. Only applicable when using websocket transport.
+        corsAllowedOrigins: ""
+        # TLS configuration for websocket connections
+        tls:
+          # Whether clients are required to provide certificates.
+          # Defaults to true for websocket p2p when omitted.
+          clientAuthRequired: true
+          # Root certificates used by this node (as a websocket client) to verify remote server certificates.
+          serverRootCAs:
+            files:
+              - /path/to/server/tls/ca.crt
+          # Root certificates used by this node (as a websocket server) to verify remote client certificates.
+          clientRootCAs:
+            files:
+              - /path/to/client/tls/ca.crt
 
   # ------------------- KVS Configuration -------------------------
   # Internal key/value store used by the node to store information

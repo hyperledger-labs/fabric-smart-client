@@ -46,8 +46,9 @@ fsc:
     listenAddress: /ip4/127.0.0.1/tcp/21004
     opts:
       # Only needed when type == libp2p
-      # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
-      bootstrapNode: initiator
+      libp2p:
+        # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
+        bootstrapNode: initiator
       # Only needed when type == rest
       # Defines how to fetch a router
       routing:

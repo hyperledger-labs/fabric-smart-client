@@ -57,5 +57,3 @@ func (c *Provider) QueryServiceConfig(network string) (*Config, error) {
 
 	return config, nil
 }
-
-// Made with Bob

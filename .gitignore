@@ -8,3 +8,4 @@
 integration/**/out/
 
 cmd/fsccli/cmd
+/.bob/notes/pending-notes.txt

@@ -189,3 +189,8 @@ tidy: ## Run go mod tidy everywhere
 .PHONY: clean-fabric-peer-images
 clean-fabric-peer-images:
 	docker images -a | grep "_peer_" | awk '{print $3}' | xargs docker rmi
+
+.PHONY: fmt
+fmt: ## Run gofmt on the entire project
+	@echo "Running gofmt..."
+	@gofmt -l -s -w .

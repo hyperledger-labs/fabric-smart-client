@@ -8,11 +8,16 @@ package comm
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type HostNode struct {
@@ -34,10 +39,10 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 			ContextID:         "context",
 			SessionID:         "session",
 		}
-		err := bootstrapNode.sendTo(context.Background(), info, &ViewPacket{Payload: []byte("msg1")})
+		err := bootstrapNode.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg1")}, nil)
 		assert.NoError(t, err)
 
-		err = bootstrapNode.sendTo(context.Background(), info, &ViewPacket{Payload: []byte("msg2")})
+		err = bootstrapNode.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg2")}, nil)
 		assert.NoError(t, err)
 
 		msg := <-messages
@@ -60,7 +65,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 		ContextID:         "context",
 		SessionID:         "session",
 	}
-	err := node.sendTo(context.Background(), info, &ViewPacket{Payload: []byte("msg3")})
+	err := node.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg3")}, nil)
 	assert.NoError(t, err)
 
 	wg.Wait()
@@ -70,7 +75,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 }
 
 func SessionsTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
-	ctx := context.Background()
+	ctx := t.Context()
 	bootstrapNode.Start(ctx)
 	node.Start(ctx)
 
@@ -124,7 +129,7 @@ func SessionsTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 }
 
 func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
-	ctx := context.Background()
+	ctx := t.Context()
 	bootstrapNode.Start(ctx)
 	node.Start(ctx)
 
@@ -164,4 +169,156 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNo
 
 	bootstrapNode.Stop()
 	node.Stop()
+}
+
+func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
+	numSessions := 100
+	// numWorkers := 20
+	// Set numWorkers to 20 to test true concurrency
+	// bootstrapNode.SetNumWorkers(numWorkers)
+	// node.SetNumWorkers(numWorkers)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
+
+	bootstrapNode.Start(ctx)
+	node.Start(ctx)
+
+	var wg sync.WaitGroup
+	wg.Add(numSessions)
+
+	// Initiator
+	for i := 0; i < numSessions; i++ {
+		go func(sessionIndex int) {
+			defer wg.Done()
+
+			caller := fmt.Sprintf("caller-%d", sessionIndex)
+			contextID := fmt.Sprintf("ctx-%d", sessionIndex)
+
+			s, err := bootstrapNode.NewSession(caller, contextID, node.Address, []byte(node.ID))
+			require.NoError(t, err)
+			require.NotNil(t, s)
+
+			// Send first message to trigger master session on responder
+			messagesToSend := messages(s.Info().ID)
+			err = s.Send(messagesToSend[0])
+			require.NoError(t, err)
+
+			// Wait for READY signal from responder to ensure dedicated session is active
+			select {
+			case msg := <-s.Receive():
+				require.NotNil(t, msg)
+				require.Equal(t, []byte("READY"), msg.Payload)
+			case <-ctx.Done():
+				t.Errorf("Sender [%s]: Timeout waiting for READY signal", s.Info().ID)
+				return
+			}
+
+			// Send the rest of the messages
+			for j := 1; j < len(messagesToSend); j++ {
+				// logger.Infof("send message [%s] on session [%s]", string(messagesToSend[j]), s.Info().ID)
+				err = s.Send(messagesToSend[j])
+				require.NoError(t, err)
+			}
+
+			// Wait for FINAL ACK
+			select {
+			case msg := <-s.Receive():
+				require.NotNil(t, msg)
+				require.Equal(t, []byte("FINAL_ACK"), msg.Payload)
+			case <-ctx.Done():
+				t.Errorf("Sender [%s]: Timeout waiting for FINAL_ACK", s.Info().ID)
+				return
+			}
+
+			s.Close()
+		}(i)
+	}
+
+	masterSession, err := node.MasterSession()
+	require.NoError(t, err)
+	require.NotNil(t, masterSession)
+
+	var responderWg sync.WaitGroup
+
+	// Responder
+	go func() {
+		for {
+			// First message arrives at master session
+			var firstMsg *view.Message
+			select {
+			case firstMsg = <-masterSession.Receive():
+				if firstMsg == nil {
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+
+			responderWg.Add(1)
+			go func(msg *view.Message) {
+				defer responderWg.Done()
+
+				messagesToReceive := messages(msg.SessionID)
+
+				payload := msg.Payload
+				require.Equal(t, messagesToReceive[0], payload)
+
+				// Create dedicated session to receive the rest
+				s, err := node.NewSessionWithID(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
+				require.NoError(t, err)
+				require.NotNil(t, s)
+
+				// Signal READY to sender
+				require.NoError(t, s.Send([]byte("READY")))
+
+				sessionMsgs := s.Receive()
+				for j := 1; j < len(messagesToReceive); j++ {
+					select {
+					case m := <-sessionMsgs:
+						if m == nil {
+							t.Errorf("Responder [%s]: Received nil message at index %d", msg.SessionID, j)
+							return
+						}
+						// logger.Infof("received message [%s] on session [%s]", string(m.Payload), s.Info().ID)
+						require.Equal(t, messagesToReceive[j], m.Payload)
+					case <-ctx.Done():
+						t.Errorf("Responder [%s]: Timeout waiting for message %d on session %s", msg.SessionID, j, msg.SessionID)
+						return
+					}
+				}
+
+				time.Sleep(time.Second)
+				// Send FINAL ACK
+				require.NoError(t, s.Send([]byte("FINAL_ACK")))
+
+				s.Close()
+			}(firstMsg)
+		}
+	}()
+
+	wg.Wait()
+	responderWg.Wait()
+
+	bootstrapNode.Stop()
+	node.Stop()
+}
+
+func messages(sessionIndex string) [][]byte {
+	l := 1
+	res := make([][]byte, 0, l*5)
+	counter := 0
+	for range l {
+		res = append(res, []byte(fmt.Sprintf("msg-%d-short-%s", counter, sessionIndex)))
+		counter++
+		res = append(res, []byte(fmt.Sprintf("msg-%d-medium-%s-", counter, sessionIndex)+strings.Repeat("a", 1024)))
+		counter++
+		res = append(res, []byte(fmt.Sprintf("msg-%d-large-%s-", counter, sessionIndex)+strings.Repeat("b", 100*1024)))
+		counter++
+		res = append(res, []byte(fmt.Sprintf("msg-%d-xlarge-%s-", counter, sessionIndex)+strings.Repeat("c", 1000*1024)))
+		counter++
+		res = append(res, []byte(fmt.Sprintf("msg-%d-end-%s", counter, sessionIndex)))
+		counter++
+	}
+	return res
 }

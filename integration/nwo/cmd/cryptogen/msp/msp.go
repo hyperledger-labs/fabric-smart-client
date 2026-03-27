@@ -89,7 +89,7 @@ func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA
 		filepath.Join(mspDir, "signcerts"),
 		name,
 		ous,
-		nil,
+		sans,
 		pk,
 		x509.KeyUsageDigitalSignature,
 		[]x509.ExtKeyUsage{},

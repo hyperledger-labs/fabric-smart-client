@@ -127,12 +127,11 @@ func (p *SDK) Install() error {
 		p.Container().Provide(provider.NewHostProvider),
 		p.Container().Provide(func(
 			hostProvider host.GeneratorProvider,
-			configProvider driver.ConfigService,
 			endpointService *endpoint.Service,
-			tracerProvider tracing.Provider,
+			configService driver.ConfigService,
 			metricsProvider metrics2.Provider,
 		) (*comm.Service, error) {
-			return comm.NewService(hostProvider, endpointService, configProvider, metricsProvider)
+			return comm.NewService(hostProvider, endpointService, configService, metricsProvider)
 		}),
 		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(view.CommLayer))),
 
