@@ -55,6 +55,7 @@ func NewConfig(configService driver.ConfigService) (*Config, error) {
 	// Read poll interval if configured
 	if configService.IsSet(config.Join(configMonitorKey, "pollInterval")) {
 		c.PollInterval = configService.GetDuration("pollInterval")
+		logger.Infof("pollInterval set to [%s] from string [%s]", c.PollInterval, configService.GetString("pollInterval"))
 	}
 
 	// Read max retries if configured
@@ -74,7 +75,7 @@ func NewConfig(configService driver.ConfigService) (*Config, error) {
 
 	// Validate configuration
 	if err := c.Validate(); err != nil {
-		return nil, errors.WithMessagef(err, "invalid channel c monitor configuration")
+		return nil, errors.WithMessagef(err, "invalid channel configuration monitor")
 	}
 
 	return c, nil
@@ -83,7 +84,7 @@ func NewConfig(configService driver.ConfigService) (*Config, error) {
 // Validate checks that the configuration values are valid
 func (c *Config) Validate() error {
 	if c.PollInterval <= 0 {
-		return errors.Errorf("pollInterval must be positive, got %v", c.PollInterval)
+		return errors.Errorf("pollInterval must be positive, got [%v]", c.PollInterval)
 	}
 
 	if c.MaxRetries < 0 {
@@ -91,15 +92,15 @@ func (c *Config) Validate() error {
 	}
 
 	if c.InitialRetryDelay <= 0 {
-		return errors.Errorf("initialRetryDelay must be positive, got %v", c.InitialRetryDelay)
+		return errors.Errorf("initialRetryDelay must be positive, got [%v]", c.InitialRetryDelay)
 	}
 
 	if c.MaxRetryDelay <= 0 {
-		return errors.Errorf("maxRetryDelay must be positive, got %v", c.MaxRetryDelay)
+		return errors.Errorf("maxRetryDelay must be positive, got [%v]", c.MaxRetryDelay)
 	}
 
 	if c.InitialRetryDelay > c.MaxRetryDelay {
-		return errors.Errorf("initialRetryDelay (%v) must not exceed maxRetryDelay (%v)",
+		return errors.Errorf("initialRetryDelay [%v] must not exceed maxRetryDelay [%v]",
 			c.InitialRetryDelay, c.MaxRetryDelay)
 	}
 
