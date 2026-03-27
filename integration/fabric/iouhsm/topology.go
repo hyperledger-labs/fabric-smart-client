@@ -1,3 +1,5 @@
+//go:build pkcs11
+
 /*
 Copyright IBM Corp. All Rights Reserved.
 
