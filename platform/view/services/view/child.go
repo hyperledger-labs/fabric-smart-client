@@ -8,16 +8,23 @@ package view
 
 import (
 	"context"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.opentelemetry.io/otel/trace"
 )
 
+// ParentContext models the functions required by a parent context.
+//
 //go:generate counterfeiter -o mock/parent_context.go -fake-name ParentContext . ParentContext
 type ParentContext interface {
 	DisposableContext
+	// Cleanup calls all error callbacks registered in this context.
 	Cleanup()
+	// PutSession registers a session with the given view and party in the context.
 	PutSession(caller view.View, party view.Identity, session view.Session) error
+	// PutSessionByID registers a session with the given ID and party in the context.
+	PutSessionByID(viewID string, party view.Identity, session view.Session) error
 }
 
 // ChildContext is a view context with a parent.
@@ -26,27 +33,28 @@ type ParentContext interface {
 type ChildContext struct {
 	Parent ParentContext
 
+	mu                 sync.RWMutex
 	session            view.Session
 	initiator          view.View
 	errorCallbackFuncs []func()
 }
 
-// NewChildContextFromParent return a new ChildContext from the given parent
+// NewChildContextFromParent returns a new ChildContext from the given parent.
 func NewChildContextFromParent(parentContext ParentContext) *ChildContext {
 	return NewChildContext(parentContext, nil, nil, nil)
 }
 
-// NewChildContextFromParentAndSession return a new ChildContext from the given parent and session
+// NewChildContextFromParentAndSession returns a new ChildContext from the given parent and session.
 func NewChildContextFromParentAndSession(parentContext ParentContext, session view.Session) *ChildContext {
 	return NewChildContext(parentContext, session, nil, nil)
 }
 
-// NewChildContextFromParentAndInitiator return a new ChildContext from the given parent and initiator view
+// NewChildContextFromParentAndInitiator returns a new ChildContext from the given parent and initiator view.
 func NewChildContextFromParentAndInitiator(parentContext ParentContext, initiator view.View) *ChildContext {
 	return NewChildContext(parentContext, nil, initiator, nil)
 }
 
-// NewChildContext return a new ChildContext from the given arguments
+// NewChildContext returns a new ChildContext from the given arguments.
 func NewChildContext(parentContext ParentContext, session view.Session, initiator view.View, errorCallbackFuncs ...func()) *ChildContext {
 	return &ChildContext{Parent: parentContext, session: session, initiator: initiator, errorCallbackFuncs: errorCallbackFuncs}
 }
@@ -114,6 +122,8 @@ func (w *ChildContext) Initiator() view.View {
 }
 
 func (w *ChildContext) OnError(f func()) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.errorCallbackFuncs = append(w.errorCallbackFuncs, f)
 }
 
@@ -131,9 +141,18 @@ func (w *ChildContext) PutSession(caller view.View, party view.Identity, session
 	return w.Parent.PutSession(caller, party, session)
 }
 
+func (w *ChildContext) PutSessionByID(viewID string, party view.Identity, session view.Session) error {
+	return w.Parent.PutSessionByID(viewID, party, session)
+}
+
 func (w *ChildContext) Cleanup() {
+	w.mu.RLock()
 	logger.Debugf("cleaning up child context [%s][%d]", w.ID(), len(w.errorCallbackFuncs))
-	for _, callbackFunc := range w.errorCallbackFuncs {
+	funcs := make([]func(), len(w.errorCallbackFuncs))
+	copy(funcs, w.errorCallbackFuncs)
+	w.mu.RUnlock()
+
+	for _, callbackFunc := range funcs {
 		w.safeInvoke(callbackFunc)
 	}
 }

@@ -16,11 +16,13 @@ import (
 	"google.golang.org/grpc"
 )
 
+// Stream models a communication stream between a client and a view.
 type Stream struct {
 	scc  protos.ViewService_StreamCommandClient
 	conn *grpc.ClientConn
 }
 
+// Send sends the given message to the stream.
 func (c *Stream) Send(m interface{}) error {
 	raw, err := json.Marshal(m)
 	if err != nil {
@@ -32,6 +34,7 @@ func (c *Stream) Send(m interface{}) error {
 	return c.SendProtoMsg(s)
 }
 
+// Recv receives a message from the stream.
 func (c *Stream) Recv(m interface{}) error {
 	s := &protos.CallViewResponse{}
 	if err := c.RecvProtoMsg(s); err != nil {
@@ -40,14 +43,17 @@ func (c *Stream) Recv(m interface{}) error {
 	return json.Unmarshal(s.Result, m)
 }
 
+// SendProtoMsg sends the given protobuf message to the stream.
 func (c *Stream) SendProtoMsg(m interface{}) error {
 	return c.scc.SendMsg(m)
 }
 
+// RecvProtoMsg receives a protobuf message from the stream.
 func (c *Stream) RecvProtoMsg(m interface{}) error {
 	return c.scc.RecvMsg(m)
 }
 
+// Result returns the result produced by the view.
 func (c *Stream) Result() ([]byte, error) {
 	defer utils.IgnoreErrorFunc(c.conn.Close)
 	scr, err := c.scc.Recv()
