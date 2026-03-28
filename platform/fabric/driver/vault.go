@@ -32,9 +32,3 @@ type Vault interface {
 	Match(ctx context.Context, id driver.TxID, results []byte) error
 	Close() error
 }
-
-type VaultStore interface {
-	GetState(ctx context.Context, namespace driver.Namespace, key driver.PKey) (*driver.VaultRead, error)
-	GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error)
-	GetLast(ctx context.Context) (*TxStatus, error)
-}

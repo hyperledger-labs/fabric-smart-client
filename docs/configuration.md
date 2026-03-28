@@ -411,7 +411,30 @@ fabric:
         # The default value is the empty string that means that the peer can be used for the supported operations.
         usage: 
 
-  # List of channels and deployed chaincode
+     # Channel Configuration Monitor settings (FabricX only)
+     # Applies to all channels in this network
+    configMonitor:
+       # How often to check for configuration updates
+       # Default: 1m (1 minute)
+       # Format: Go duration string (e.g., "30s", "2m", "1h")
+       pollInterval: 60s
+
+       # Maximum number of retry attempts for failed operations
+       # Default: 5
+       # Set to 0 to disable retries
+       maxRetries: 5
+
+       # Initial delay before the first retry attempt
+       # Default: 1s
+       # Format: Go duration string
+       initialRetryDelay: 1s
+
+       # Maximum delay between retry attempts (exponential backoff cap)
+       # Default: 5m
+       # Format: Go duration string
+       maxRetryDelay: 5m
+
+    # List of channels and deployed chaincode
     channels:
       - name: mychannel
         # whether this is the default channel or not

@@ -51,10 +51,9 @@ type ServiceConfigProvider interface {
 // NewListenerManagerProvider creates a new instance of the Provider, which implements ListenerManagerProvider.
 // This provider manages the lifecycle of ListenerManager instances, ensuring one per
 // network/channel combination.
-func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, fnsp *fabric.NetworkServiceProvider, configProvider ServiceConfigProvider) *Provider {
+func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, configProvider ServiceConfigProvider) *Provider {
 	return &Provider{
 		grpcClientProvider:     grpcClientProvider,
-		fnsp:                   fnsp,
 		configProvider:         configProvider,
 		managers:               make(map[string]ListenerManager),
 		newNotificationManager: newNotifiWithGRPC,
@@ -65,8 +64,7 @@ func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, fnsp *fab
 // Provider implements ListenerManagerProvider and manages ListenerManager instances.
 // IMPORTANT: Initialize method MUST be called once during service setup before calling NewManager method.
 type Provider struct {
-	newNotificationManager func(network string, fnsp *fabric.NetworkServiceProvider, gcp GRPCClientProvider) (*notificationListenerManager, error)
-	fnsp                   *fabric.NetworkServiceProvider
+	newNotificationManager func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error)
 	configProvider         ServiceConfigProvider
 	grpcClientProvider     GRPCClientProvider
 	managers               map[string]ListenerManager // map: "network:channel" -> ListenerManager instance
@@ -108,7 +106,7 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 	}
 
 	// 2. Create the concrete ListenerManager
-	lm, err := p.newNotificationManager(network, p.fnsp, p.grpcClientProvider)
+	lm, err := p.newNotificationManager(network, p.grpcClientProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +136,7 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 }
 
 // newNotifiWithGRPC creates and initializes a notificationListenerManager using the GRPCClientProvider.
-func newNotifiWithGRPC(network string, fnsp *fabric.NetworkServiceProvider, grpcClientProvider GRPCClientProvider) (*notificationListenerManager, error) {
+func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider) (*notificationListenerManager, error) {
 	cc, err := grpcClientProvider.NotificationServiceClient(network)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)

@@ -89,7 +89,8 @@ func (p *SDK) Start(ctx context.Context) error {
 		dig.In
 		FinalityProvider *finality.Provider
 		LedgerProvider   *ledger.Provider
-	}) error {
+	},
+	) error {
 		in.FinalityProvider.Initialize(ctx)
 		in.LedgerProvider.Initialize(ctx)
 		return nil
