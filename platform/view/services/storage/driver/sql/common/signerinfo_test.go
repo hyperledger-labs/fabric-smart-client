@@ -13,10 +13,10 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	sq "github.com/Masterminds/squirrel"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	. "github.com/onsi/gomega"
 )
@@ -36,7 +36,7 @@ func TestFilterExistingSigners(t *testing.T) {
 	id1 := view.Identity("signer1")
 	id2 := view.Identity("signer2")
 
-	query := regexp.QuoteMeta("SELECT id FROM signer_info WHERE (id) IN (($1), ($2))")
+	query := regexp.QuoteMeta("SELECT id FROM signer_info WHERE id IN ($1,$2)")
 
 	mockDB.
 		ExpectQuery(query).
@@ -60,7 +60,7 @@ func TestFilterExistingSigners_QueryError(t *testing.T) {
 	Expect(err).ToNot(HaveOccurred())
 
 	id := view.Identity("signer1")
-	query := regexp.QuoteMeta("SELECT id FROM signer_info WHERE id = $1")
+	query := regexp.QuoteMeta("SELECT id FROM signer_info WHERE id IN ($1)")
 
 	mockDB.
 		ExpectQuery(query).
@@ -82,7 +82,7 @@ func TestFilterExistingSigners_ScanError(t *testing.T) {
 	Expect(err).ToNot(HaveOccurred())
 
 	id := view.Identity("signer1")
-	query := regexp.QuoteMeta("SELECT id FROM signer_info WHERE id = $1")
+	query := regexp.QuoteMeta("SELECT id FROM signer_info WHERE id IN ($1)")
 
 	mockDB.
 		ExpectQuery(query).
@@ -164,7 +164,7 @@ func TestPutSigner_UniqueViolation(t *testing.T) {
 
 func mockSignerInfoStore(db *sql.DB, isdummyUniqueErrorWrapper bool) *common2.SignerInfoStore {
 	if isdummyUniqueErrorWrapper {
-		return common2.NewSignerInfoStore(db, db, "signer_info", &dummyUniqueErrorWrapper{}, sqlite.NewConditionInterpreter())
+		return common2.NewSignerInfoStore(db, db, "signer_info", &dummyUniqueErrorWrapper{}, sq.StatementBuilder.PlaceholderFormat(sq.Dollar))
 	}
-	return common2.NewSignerInfoStore(db, db, "signer_info", &mock.SQLErrorWrapper{}, sqlite.NewConditionInterpreter())
+	return common2.NewSignerInfoStore(db, db, "signer_info", &mock.SQLErrorWrapper{}, sq.StatementBuilder.PlaceholderFormat(sq.Dollar))
 }

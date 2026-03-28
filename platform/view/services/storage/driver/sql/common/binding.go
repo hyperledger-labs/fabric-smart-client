@@ -12,24 +12,22 @@ import (
 	"fmt"
 	"strings"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-	cond2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 const BindingStoreMaxEphemerals = 1000
 
-func NewBindingStore(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *BindingStore {
+func NewBindingStore(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper, sb sq.StatementBuilderType) *BindingStore {
 	return &BindingStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
-		ci:           ci,
+		sb:           sb,
 	}
 }
 
@@ -38,14 +36,17 @@ type BindingStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
-	ci           common.CondInterpreter
+	sb           sq.StatementBuilderType
 }
 
 func (db *BindingStore) GetLongTerm(ctx context.Context, ephemeral view.Identity) (view.Identity, error) {
-	query, params := q.Select().FieldsByName("long_term_id").
-		From(q.Table(db.table)).
-		Where(cond2.Eq("ephemeral_hash", ephemeral.UniqueID())).
-		Format(db.ci)
+	query, params, err := db.sb.Select("long_term_id").
+		From(db.table).
+		Where(sq.Eq{"ephemeral_hash": ephemeral.UniqueID()}).
+		ToSql()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build query")
+	}
 
 	logger.Debug(query, params)
 	result, err := QueryUniqueContext[view.Identity](ctx, db.readDB, query, params...)
@@ -57,10 +58,13 @@ func (db *BindingStore) GetLongTerm(ctx context.Context, ephemeral view.Identity
 }
 
 func (db *BindingStore) HaveSameBinding(ctx context.Context, this, that view.Identity) (bool, error) {
-	query, params := q.Select().FieldsByName("long_term_id").
-		From(q.Table(db.table)).
-		Where(cond2.In("ephemeral_hash", this.UniqueID(), that.UniqueID())).
-		Format(db.ci)
+	query, params, err := db.sb.Select("long_term_id").
+		From(db.table).
+		Where(sq.Eq{"ephemeral_hash": []string{this.UniqueID(), that.UniqueID()}}).
+		ToSql()
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to build query")
+	}
 
 	logger.Debug(query, params)
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
