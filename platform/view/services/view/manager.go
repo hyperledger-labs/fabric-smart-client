@@ -9,6 +9,7 @@ package view
 import (
 	"context"
 	"reflect"
+	"runtime/debug"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -150,7 +151,7 @@ func (cm *Manager) InitiateViewWithIdentity(ctx context.Context, view view.View,
 	}
 	defer cm.DeleteContext(c.ID())
 
-	logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s]", id, logging.Identifier(view), c.ID())
+	logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s], from [%s]", id, logging.Identifier(view), c.ID(), string(debug.Stack()))
 	res, err := c.RunView(view)
 	if err != nil {
 		logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, logging.Identifier(view), c.ID(), err)
