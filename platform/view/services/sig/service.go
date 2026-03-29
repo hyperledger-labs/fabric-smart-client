@@ -221,9 +221,9 @@ func (o *Service) GetSigner(identity view.Identity) (driver2.Signer, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed deserializing identity for signer [%s]", identity)
 		}
-		entry = SignerEntry{Signer: signer}
+		newEntry := SignerEntry{Signer: signer}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			entry.DebugStack = debug.Stack()
+			newEntry.DebugStack = debug.Stack()
 		}
 
 		// write lock
@@ -236,7 +236,8 @@ func (o *Service) GetSigner(identity view.Identity) (driver2.Signer, error) {
 			o.mutex.Unlock()
 		} else {
 			// not found
-			o.signers[idHash] = entry
+			o.signers[idHash] = newEntry
+			entry = newEntry
 			o.mutex.Unlock()
 		}
 	} else {
@@ -264,7 +265,7 @@ func (o *Service) GetVerifier(identity view.Identity) (driver2.Verifier, error) 
 
 		newEntry := VerifierEntry{Verifier: verifier}
 		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			entry.DebugStack = debug.Stack()
+			newEntry.DebugStack = debug.Stack()
 		}
 		logger.Debugf("add deserialized verifier for [%s]:[%s]", idHash, logging.Identifier(verifier))
 		// write lock
