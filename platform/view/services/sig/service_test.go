@@ -142,9 +142,7 @@ func TestService_RegisterSigner(t *testing.T) {
 				assert.False(t, exists, "signer should not be in cache")
 			}
 
-			if signerStore != nil {
-				assert.Equal(t, tc.storeCallCount, signerStore.PutSignerCallCount())
-			}
+			assert.Equal(t, tc.storeCallCount, signerStore.PutSignerCallCount())
 		})
 	}
 }
