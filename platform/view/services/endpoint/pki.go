@@ -13,11 +13,11 @@ import (
 
 type DefaultPublicKeyIDSynthesizer struct{}
 
-func (d DefaultPublicKeyIDSynthesizer) PublicKeyID(key any) []byte {
+func (d DefaultPublicKeyIDSynthesizer) PublicKeyID(key any) ([]byte, error) {
 	raw, err := x509.MarshalPKIXPublicKey(key)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	h := sha256.Sum256(raw)
-	return h[:]
+	return h[:], nil
 }

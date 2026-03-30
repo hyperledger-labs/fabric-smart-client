@@ -10,6 +10,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -21,8 +22,13 @@ import (
 // ErrSessionClosed is returned when a message is sent when the session is closed.
 var ErrSessionClosed = errors.New("session closed")
 
+const (
+	DefaultDrainTimeout   = 500 * time.Millisecond
+	DefaultEnqueueTimeout = 1 * time.Minute
+)
+
 type sender interface {
-	sendTo(ctx context.Context, info host.StreamInfo, msg proto.Message) error
+	sendTo(ctx context.Context, info host.StreamInfo, msg proto.Message, session *NetworkStreamSession) error
 }
 
 // NetworkStreamSession implements view.Session
@@ -38,11 +44,83 @@ type NetworkStreamSession struct {
 	streams         map[*streamHandler]struct{}
 	mutex           sync.RWMutex
 
-	closed    atomic.Bool
-	closeOnce sync.Once
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
+	startOnce sync.Once
+	middleCh  chan *view.Message
+	closing   chan struct{}
+	closed    chan struct{}
+	isClosing atomic.Bool
+
+	enqueueTimeout time.Duration
+}
+
+func (n *NetworkStreamSession) SetEnqueueTimeout(timeout time.Duration) {
+	n.enqueueTimeout = timeout
+}
+
+func (n *NetworkStreamSession) tryStart() {
+	n.startOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(5 * time.Minute)
+			defer ticker.Stop()
+
+			exit := func(v *view.Message, needSend bool) {
+				drainTimeout := DefaultDrainTimeout
+				if needSend {
+					select {
+					case n.incoming <- v:
+					case <-time.After(drainTimeout):
+						logger.Warnf("dropping last message for session [%s] on exit, consumer not responding", n.sessionID)
+					}
+				}
+				for {
+					select {
+					case mv := <-n.middleCh:
+						select {
+						case n.incoming <- mv:
+						case <-time.After(drainTimeout):
+							logger.Warnf("dropping message for session [%s] on exit, consumer not responding", n.sessionID)
+							goto out
+						}
+					default:
+						goto out
+					}
+				}
+			out:
+				close(n.closed)
+				close(n.incoming)
+			}
+
+			for {
+				select {
+				case <-n.closing:
+					exit(nil, false)
+					return
+				case v := <-n.middleCh:
+					select {
+					case <-n.closing:
+						exit(v, true)
+						return
+					case n.incoming <- v:
+					}
+				case <-ticker.C:
+					n.cleanupStreams()
+				}
+			}
+		}()
+	})
+}
+
+func (n *NetworkStreamSession) cleanupStreams() {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	for sh := range n.streams {
+		if sh.isClosed() {
+			logger.Debugf("session [%s] pruning closed stream [%s]", n.sessionID, sh.stream.Hash())
+			sh.release()
+			delete(n.streams, sh)
+		}
+	}
 }
 
 // Info returns a view.SessionInfo.
@@ -88,23 +166,50 @@ func (n *NetworkStreamSession) Receive() <-chan *view.Message {
 // enqueue enqueues a message into the session's incoming channel.
 // If the session is closed, the message will be dropped and false returned, otherwise true is returned.
 func (n *NetworkStreamSession) enqueue(msg *view.Message) bool {
+	logger.Debugf("enqueue called for session [%s] with message len %d", n.sessionID, len(msg.Payload))
+	timeout := n.enqueueTimeout
+	if timeout == 0 {
+		timeout = DefaultEnqueueTimeout
+	}
+	return n.enqueueWithTimeout(msg, timeout)
+}
+
+// enqueueWithTimeout enqueues a message into the session's incoming channel with a custom timeout.
+func (n *NetworkStreamSession) enqueueWithTimeout(msg *view.Message, timeout time.Duration) bool {
 	if msg == nil {
+		logger.Debugf("nil message provided for session [%s]", n.sessionID)
+		return false
+	}
+	logger.Debugf(
+		"enqueueWithTimeout called for session [%s] with message len %d, timeout %v",
+		n.sessionID,
+		len(msg.Payload),
+		timeout,
+	)
+
+	if n.isClosing.Load() {
+		logger.Debugf("session [%s] is closing, refusing to enqueue message", n.sessionID)
 		return false
 	}
 
-	if n.isClosed() {
-		return false
-	}
-
-	n.wg.Add(1)
-	defer n.wg.Done()
+	// let's try to start the session
+	n.tryStart()
 
 	select {
-	case <-n.ctx.Done():
-		logger.Warnf("dropping message from %s for closed session [%s]", msg.Caller, msg.SessionID)
+	case <-n.closed:
+		logger.Debugf("session [%s] is closed, refusing to enqueue message", n.sessionID)
 		return false
-	case n.incoming <- msg:
+	case n.middleCh <- msg:
+		logger.Debugf("Successfully enqueued message for session [%s] via middleCh", n.sessionID)
 		return true
+	case <-time.After(timeout):
+		logger.Debugf("Timeout enqueuing message for session [%s] after %v", n.sessionID, timeout)
+		if p, ok := n.node.(*P2PNode); ok {
+			p.m.DroppedMessages.Add(1)
+		}
+		logger.Errorf("dropping message for session [%s] after %s timeout, queue full, closing session", n.sessionID, timeout)
+		n.Close()
+		return false
 	}
 }
 
@@ -114,46 +219,52 @@ func (n *NetworkStreamSession) Close() {
 }
 
 func (n *NetworkStreamSession) closeInternal() {
-	n.closeOnce.Do(func() {
+	if n.isClosing.Swap(true) {
+		return
+	}
+
+	// ensure the session is started so that the closing channel has a listener
+	n.tryStart()
+
+	closeStreams := func() {
 		n.mutex.Lock()
 		defer n.mutex.Unlock()
 
 		logger.Debugf("closing session [%s] with [%d] streams", n.sessionID, len(n.streams))
-		toClose := make([]*streamHandler, 0, len(n.streams))
 		for stream := range n.streams {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
-				logger.Debugf("session [%s], stream [%s], refCtr [%d]", n.sessionID, stream.stream.Hash(), stream.refCtr)
+				logger.Debugf("session [%s], stream [%s], refCtr [%d]", n.sessionID, stream.stream.Hash(), stream.refCtr.Load())
 			}
-			stream.refCtr--
-			if stream.refCtr == 0 {
-				toClose = append(toClose, stream)
-			}
+			stream.release()
 		}
 
-		logger.Debugf("closing session [%s]'s streams [%d]", n.sessionID, len(toClose))
-		for _, stream := range toClose {
-			stream.close(context.TODO())
-		}
-		logger.Debugf("closing session [%s]'s streams [%d] done", n.sessionID, len(toClose))
+		logger.Debugf("closing session [%s]'s streams done", n.sessionID)
+		clear(n.streams)
+	}
 
-		// next we are closing the incoming and the closing signal channel to drain the receivers;
-		n.closed.Store(true)
-		n.cancel()
-		n.wg.Wait()
-		close(n.incoming)
-		n.streams = make(map[*streamHandler]struct{})
-
+	select {
+	case n.closing <- struct{}{}:
+		<-n.closed
+		closeStreams()
 		logger.Debugf("closing session [%s] done", n.sessionID)
-	})
+	case <-n.closed:
+		closeStreams()
+	}
 }
 
 func (n *NetworkStreamSession) isClosed() bool {
-	return n.closed.Load()
+	select {
+	case <-n.closed:
+		return true
+	default:
+	}
+
+	return false
 }
 
 func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byte, status int32) error {
 	if n.isClosed() {
-		return ErrSessionClosed
+		return errors.Wrapf(ErrSessionClosed, "session [%s] is closed", n.sessionID)
 	}
 
 	n.mutex.RLock()
@@ -172,8 +283,9 @@ func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byt
 	}
 	n.mutex.RUnlock()
 
-	err := n.node.sendTo(ctx, info, packet)
-	logger.Debugf("sent message [len:%d] to [%s:%s] from [%s] [status:%v] with err [%v]",
+	err := n.node.sendTo(ctx, info, packet, n)
+	logger.Debugf("[%s] sent message [len:%d] to [%s:%s] from [%s] [status:%v] with err [%v]",
+		n.sessionID,
 		len(payload),
 		info.RemotePeerID,
 		info.RemotePeerAddress,
@@ -181,5 +293,8 @@ func (n *NetworkStreamSession) sendWithStatus(ctx context.Context, payload []byt
 		status,
 		err,
 	)
-	return err
+	if err != nil {
+		return errors.Wrapf(err, "failed to send message on session [%s]", n.sessionID)
+	}
+	return nil
 }

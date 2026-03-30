@@ -72,7 +72,6 @@ func (n *Node) Start() (err error) {
 		}
 	}()
 
-	n.running = true
 	// Install
 	logger.Infof("installing sdks...")
 	for _, p := range n.sdks {
@@ -108,6 +107,7 @@ func (n *Node) Start() (err error) {
 	}
 	logger.Infof("Post-starting sdks...done")
 
+	n.running = true
 	return nil
 }
 

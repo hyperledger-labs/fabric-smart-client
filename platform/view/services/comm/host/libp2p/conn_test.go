@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -24,7 +25,7 @@ import (
 type Network []*node
 
 func TestSessionTwoParties(t *testing.T) {
-	network, err := NewVirtualNetwork(12345, 2)
+	network, err := NewVirtualNetwork(t, 12345, 2)
 	assert.NoError(t, err)
 
 	io.SessionTwoParties(t, network[0], network[1])
@@ -41,11 +42,13 @@ func (n *node) ID() string {
 	return n.id
 }
 
-func NewVirtualNetwork(port int, numNodes int) (Network, error) {
+func NewVirtualNetwork(t *testing.T, port int, numNodes int) (Network, error) {
+	t.Helper()
+
 	var res []*node
 
 	// Setup master
-	bootstrapNode, err := newBootstrapNode(port)
+	bootstrapNode, err := newBootstrapNode(t, port)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +57,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 	var nodes []*node
 	for i := 0; i < numNodes-1; i++ {
 		port++
-		n, err := newNode(port, bootstrapNode)
+		n, err := newNode(t, port, bootstrapNode)
 		if err != nil {
 			return nil, err
 		}
@@ -68,7 +71,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 				addrs, ok := bootstrapNode.Lookup(node.id)
 				return ok && slices.Contains(addrs, node.endpoint)
 			},
-			60*time.Second,
+			10*time.Second,
 			500*time.Millisecond,
 		)
 		if err != nil {
@@ -82,7 +85,7 @@ func NewVirtualNetwork(port int, numNodes int) (Network, error) {
 				addrs, ok := node.Lookup(bootstrapNode.id)
 				return ok && slices.Contains(addrs, bootstrapNode.endpoint)
 			},
-			60*time.Second,
+			10*time.Second,
 			500*time.Millisecond,
 		)
 		if err != nil {
@@ -101,7 +104,7 @@ func id(pk crypto.PubKey) (string, error) {
 	return ID.String(), nil
 }
 
-func newBootstrapNode(port int) (*node, error) {
+func newBootstrapNode(t *testing.T, port int) (*node, error) {
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err
@@ -112,11 +115,13 @@ func newBootstrapNode(port int) (*node, error) {
 	}
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/" + strconv.Itoa(port)
 	nodeDHTEndpoint := nodeEndpoint + "/p2p/" + nodeID
-	h, err := newLibP2PHost(nodeEndpoint, sk, newMetrics(&disabled.Provider{}), true, "")
+	config := &mock.LibP2PConfig{}
+	config.ListenAddressReturns(nodeEndpoint)
+	h, err := newLibP2PHost(config, sk, newMetrics(&disabled.Provider{}), true, "")
 	if err != nil {
 		return nil, err
 	}
-	p2pNode, err := comm.NewNode(h, &disabled.Provider{})
+	p2pNode, err := comm.NewNode(t.Context(), h, &disabled.Provider{})
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +134,7 @@ func newBootstrapNode(port int) (*node, error) {
 	}, nil
 }
 
-func newNode(port int, bootstrapNode *node) (*node, error) {
+func newNode(t *testing.T, port int, bootstrapNode *node) (*node, error) {
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err
@@ -140,11 +145,13 @@ func newNode(port int, bootstrapNode *node) (*node, error) {
 	}
 	nodeEndpoint := "/ip4/127.0.0.1/tcp/" + strconv.Itoa(port)
 
-	h, err := newLibP2PHost(nodeEndpoint, sk, newMetrics(&disabled.Provider{}), false, bootstrapNode.dhtEndpoint)
+	config := &mock.LibP2PConfig{}
+	config.ListenAddressReturns(nodeEndpoint)
+	h, err := newLibP2PHost(config, sk, newMetrics(&disabled.Provider{}), false, bootstrapNode.dhtEndpoint)
 	if err != nil {
 		return nil, err
 	}
-	p2pNode, err := comm.NewNode(h, &disabled.Provider{})
+	p2pNode, err := comm.NewNode(t.Context(), h, &disabled.Provider{})
 	if err != nil {
 		return nil, err
 	}
@@ -157,26 +164,20 @@ func newNode(port int, bootstrapNode *node) (*node, error) {
 }
 
 func eventually(condition func() bool, waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) error {
-	ch := make(chan bool, 1)
-
 	timer := time.NewTimer(waitFor)
 	defer timer.Stop()
 
 	ticker := time.NewTicker(tick)
 	defer ticker.Stop()
 
-	for tick := ticker.C; ; {
+	for {
+		if condition() {
+			return nil
+		}
 		select {
 		case <-timer.C:
 			return errors.Errorf("Condition never satisfied %v", msgAndArgs...)
-		case <-tick:
-			tick = nil
-			go func() { ch <- condition() }()
-		case v := <-ch:
-			if v {
-				return nil
-			}
-			tick = ticker.C
+		case <-ticker.C:
 		}
 	}
 }

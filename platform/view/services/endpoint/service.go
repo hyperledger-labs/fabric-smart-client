@@ -46,7 +46,7 @@ type PublicKeyExtractor interface {
 }
 
 type PublicKeyIDSynthesizer interface {
-	PublicKeyID(any) []byte
+	PublicKeyID(any) ([]byte, error)
 }
 
 // ResolverInfo carries information about a resolver
@@ -189,6 +189,41 @@ func (r *Service) GetIdentity(label string, pkID []byte) (view.Identity, error) 
 	return nil, errors.Wrapf(ErrNotFound, "identity not found at [%s,%s]", label, view.Identity(pkID))
 }
 
+// UpdateResolver updates an existing resolver or adds a new one.
+func (r *Service) UpdateResolver(
+	name string,
+	domain string,
+	addresses map[string]string,
+	aliases []string,
+	id []byte,
+) (view.Identity, error) {
+	logger.Debugf("updating resolver [%s,%s,%v,%v,%s]", name, domain, addresses, aliases, view.Identity(id))
+
+	r.resolversMutex.Lock()
+	resolver, ok := r.resolversMap[name]
+	if ok {
+		// update addresses
+		addressList := make([]string, 0, len(addresses))
+		for k, v := range addresses {
+			addresses[k] = LookupIPv4(v)
+			addressList = append(addressList, v)
+		}
+		resolver.Addresses = convert(addresses)
+		resolver.AddressList = addressList
+		// update aliases
+		for _, alias := range aliases {
+			if len(alias) != 0 {
+				r.resolversMap[alias] = resolver
+			}
+		}
+		r.resolversMutex.Unlock()
+		return resolver.ID, nil
+	}
+	r.resolversMutex.Unlock()
+
+	return r.AddResolver(name, domain, addresses, aliases, id)
+}
+
 // AddResolver adds a new resolver.
 func (r *Service) AddResolver(
 	name string,
@@ -309,7 +344,12 @@ func (r *Service) ExtractPKI(id []byte) []byte {
 	for _, extractor := range r.publicKeyExtractors {
 		if pk, err := extractor.ExtractPublicKey(id); pk != nil {
 			logger.Debugf("pki resolved for [%s]", id)
-			return r.publicKeyIDSynthesizer.PublicKeyID(pk)
+			pkiID, err := r.publicKeyIDSynthesizer.PublicKeyID(pk)
+			if err != nil {
+				logger.Errorf("failed to synthesize public key ID for [%s]: %v", id, err)
+				continue
+			}
+			return pkiID
 		} else {
 			logger.Debugf("pki not resolved by [%s] for [%s]: [%s]", logging.Identifier(extractor), id, err)
 		}

@@ -115,5 +115,3 @@ func TestConfigProvider_QueryServiceConfig(t *testing.T) {
 		require.Contains(t, err.Error(), "unmarshal-error")
 	})
 }
-
-// Made with Bob

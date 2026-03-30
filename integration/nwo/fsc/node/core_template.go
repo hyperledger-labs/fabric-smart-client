@@ -59,21 +59,14 @@ fsc:
       {{- end }}
   # P2P configuration
   p2p:
-    # Type of p2p communication. Currently supported: libp2p (default), rest
     type: {{ .P2PCommunicationType }}
     # Listening address
     listenAddress: /ip4/0.0.0.0/tcp/{{ .NodePort Replica "P2P" }}
     opts:
       # Only needed when type == libp2p
       # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
-      bootstrapNode: {{ if eq .P2PCommunicationType "libp2p" }}{{ .BootstrapNode Peer }}{{ end}}
-      # Only needed when type == rest
-      # Defines how to fetch a router
-      routing:
-        {{- if eq .P2PCommunicationType "websocket" }}
-        # The path to the file that contains the routing, if the routing is static
-        path: {{ .RoutingConfigPath }}
-        {{- end }}
+      libp2p:
+        bootstrapNode: {{ if eq .P2PCommunicationType "libp2p" }}{{ .BootstrapNode Peer }}{{ end}}
   persistences: {{ range $key, $value := Persistences }}
     {{ $key }}:
       type: {{ $value.Type }}

@@ -65,8 +65,8 @@ func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA
 	// generate private key
 	if pk == nil {
 		if hsm {
-			pk, err = pkcs11.GeneratePrivateKey()
-			if err != nil {
+			pk, err = pkcs11.GeneratePrivateKey() //nolint:staticcheck // err is not always nil if -pkcs11 build tag is used.
+			if err != nil {                       //nolint:staticcheck // err is not always nil if -pkcs11 build tag is used.
 				return err
 			}
 		} else {
@@ -89,7 +89,7 @@ func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA
 		filepath.Join(mspDir, "signcerts"),
 		name,
 		ous,
-		nil,
+		sans,
 		pk,
 		x509.KeyUsageDigitalSignature,
 		[]x509.ExtKeyUsage{},

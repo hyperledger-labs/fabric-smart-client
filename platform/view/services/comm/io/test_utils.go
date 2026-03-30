@@ -22,7 +22,7 @@ type networkNode interface {
 }
 
 func SessionTwoParties(t *testing.T, network ...networkNode) {
-	ctx := context.Background()
+	ctx := t.Context()
 	for _, node := range network {
 		node.Start(ctx)
 	}
@@ -60,7 +60,7 @@ func receive(t *testing.T, session Conn, waitGroup *sync.WaitGroup, num int, pay
 		assert.NoError(t, err)
 		assert.Equal(t, n, len(payload))
 
-		//log.Printf("[%s][%s]\n", msg, payload)
+		// log.Printf("[%s][%s]\n", msg, payload)
 		assert.Equal(t, payload, msg)
 	}
 	waitGroup.Done()

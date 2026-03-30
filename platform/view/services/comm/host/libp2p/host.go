@@ -13,25 +13,25 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
-	"github.com/libp2p/go-libp2p/core/peerstore"
-	"go.uber.org/zap/zapcore"
-
 	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
+	libp2plogging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	host3 "github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
 	"github.com/multiformats/go-multiaddr"
+	"go.uber.org/zap/zapcore"
 )
 
 var logger = logging.MustGetLogger()
@@ -53,61 +53,25 @@ type host struct {
 	bootstrapNode host2.PeerIPAddress
 }
 
-func (h *host) Wait() {
-	h.finderWg.Wait()
-}
-
-func (h *host) Lookup(peerID string) ([]host2.PeerIPAddress, bool) {
-	h.peersMutex.RLock()
-	defer h.peersMutex.RUnlock()
-
-	peer, in := h.peers[peerID]
-	if !in {
-		return []string{}, false
-	}
-	addrs := make([]string, len(peer.Addrs))
-	for i, addr := range peer.Addrs {
-		addrs[i] = addr.String()
-	}
-	return addrs, in
-}
-
-func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
-	if h.bootstrap {
-		h.Peerstore().AddAddrs(h.ID(), h.Addrs(), time.Hour)
-		if err := h.start(false, newStreamCallback); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	addr, err := multiaddr.NewMultiaddr(h.bootstrapNode)
-	if err != nil {
-		return err
-	}
-
-	peerinfo, err := peer.AddrInfoFromP2pAddr(addr)
-	if err != nil {
-		return err
-	}
-
-	err = h.Connect(context.Background(), *peerinfo)
-	if err != nil {
-		return err
-	}
-	if err := h.start(false, newStreamCallback); err != nil {
-		return err
-	}
-	return nil
-}
-
-func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metrics *metrics, bootstrap bool, bootstrapNode host2.PeerIPAddress) (*host, error) {
+func newLibP2PHost(
+	config libp2pConfig,
+	priv crypto.PrivKey,
+	metrics *metrics,
+	bootstrap bool,
+	bootstrapNode host2.PeerIPAddress,
+) (*host, error) {
+	listenAddress := config.ListenAddress()
+	logger.Debugf("libp2p: Creating new host at [%s], bootstrap: %v, bootstrapNode: [%s]...", listenAddress, bootstrap, bootstrapNode)
 	addr, err := multiaddr.NewMultiaddr(listenAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	connManager, err := connmgr.NewConnManager(100, 400, connmgr.WithGracePeriod(time.Minute))
+	connManager, err := connmgr.NewConnManager(
+		config.ConnManagerLowWater(),
+		config.ConnManagerHighWater(),
+		connmgr.WithGracePeriod(config.ConnManagerGracePeriod()),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating conn manager for libp2p host")
 	}
@@ -126,8 +90,15 @@ func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metri
 		libp2p.BandwidthReporter(newReporter(metrics)),
 	}
 
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		if err := libp2plogging.SetLogLevel("basichost", "debug"); err != nil {
+			logger.Errorf("failed setting libp2p log level [%s]", err)
+		}
+	}
+
 	h, err := libp2p.New(opts...)
 	if err != nil {
+		logger.Errorf("libp2p: failed to create new host at [%s]: %v", listenAddress, err)
 		return nil, err
 	}
 
@@ -142,14 +113,74 @@ func newLibP2PHost(listenAddress host2.PeerIPAddress, priv crypto.PrivKey, metri
 		return nil, err
 	}
 
-	return &host{
+	libp2pHost := &host{
 		Host:          h,
 		finder:        routing.NewRoutingDiscovery(kademliaDHT),
 		peers:         make(map[string]peer.AddrInfo),
 		bootstrap:     bootstrap,
 		bootstrapNode: bootstrapNode,
-	}, nil
+	}
+	logger.Debugf("libp2p: successfully created new host [%s] at [%s]", libp2pHost.ID(), listenAddress)
+	return libp2pHost, nil
+}
 
+func (h *host) Wait() {
+	h.finderWg.Wait()
+}
+
+func (h *host) Lookup(peerID string) ([]host2.PeerIPAddress, bool) {
+	logger.Debugf("libp2p: Looking up addresses for peer [%s]...", peerID)
+	h.peersMutex.RLock()
+	defer h.peersMutex.RUnlock()
+
+	peer, in := h.peers[peerID]
+	if !in {
+		logger.Debugf("libp2p: Found NO addresses for peer [%s]", peerID)
+		return []string{}, false
+	}
+	addrs := make([]string, len(peer.Addrs))
+	for i, addr := range peer.Addrs {
+		addrs[i] = addr.String()
+	}
+	logger.Debugf("libp2p: Found addresses for peer [%s]: %v", peerID, addrs)
+	return addrs, in
+}
+
+func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
+	logger.Debugf("libp2p: Starting host [%s] (bootstrap: %v, bootstrapNode: [%s])...", h.ID(), h.bootstrap, h.bootstrapNode)
+	if h.bootstrap {
+		h.Peerstore().AddAddrs(h.ID(), h.Addrs(), time.Hour)
+		if err := h.start(false, newStreamCallback); err != nil {
+			logger.Errorf("libp2p: failed to start bootstrap host [%s]: %v", h.ID(), err)
+			return err
+		}
+		logger.Debugf("libp2p: bootstrap host [%s] started successfully", h.ID())
+		return nil
+	}
+
+	addr, err := multiaddr.NewMultiaddr(h.bootstrapNode)
+	if err != nil {
+		return err
+	}
+
+	peerinfo, err := peer.AddrInfoFromP2pAddr(addr)
+	if err != nil {
+		return err
+	}
+
+	logger.Debugf("libp2p: connecting to bootstrap node [%s]...", h.bootstrapNode)
+	err = h.Connect(context.Background(), *peerinfo)
+	if err != nil {
+		logger.Errorf("libp2p: failed to connect host [%s] to bootstrap node [%s]: %v", h.ID(), h.bootstrapNode, err)
+		return err
+	}
+	logger.Debugf("libp2p: host [%s] connected to bootstrap node [%s]", h.ID(), h.bootstrapNode)
+	if err := h.start(false, newStreamCallback); err != nil {
+		logger.Errorf("libp2p: failed to start host [%s]: %v", h.ID(), err)
+		return err
+	}
+	logger.Debugf("libp2p: host [%s] started successfully", h.ID())
+	return nil
 }
 
 func (h *host) StreamHash(input host2.StreamInfo) host2.StreamHash {
@@ -157,8 +188,10 @@ func (h *host) StreamHash(input host2.StreamInfo) host2.StreamHash {
 }
 
 func (h *host) Close() error {
+	logger.Debugf("libp2p: Closing host [%s]...", h.ID())
 	err := h.Host.Close()
 	atomic.StoreInt32(&h.stopFinder, 1)
+	logger.Debugf("libp2p: host [%s] closed with error [%v]", h.ID(), err)
 	return err
 }
 
@@ -168,23 +201,29 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 		return nil, err
 	}
 
-	if len(info.RemotePeerAddress) != 0 && !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
-		// reprogram the addresses of the peer before opening a new stream, if it is not in the right form yet
-		ps := h.Peerstore()
-		current := ps.Addrs(ID)
+	logger.Debugf("libp2p: attempting to create new outgoing stream to peer [%s]", ID)
 
-		logger.Debugf("sendTo, reprogram address [%s:%s]", info.RemotePeerID, info.RemotePeerAddress)
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			for _, m := range current {
-				logger.Debugf("sendTo, current address [%s:%s]", info.RemotePeerID, m)
+	if len(info.RemotePeerAddress) != 0 {
+		ps := h.Peerstore()
+
+		addr := info.RemotePeerAddress
+		if !strings.HasPrefix(info.RemotePeerAddress, "/ip4/") {
+			logger.Debugf("sendTo, reprogram address [%s:%s]", info.RemotePeerID, info.RemotePeerAddress)
+			if logger.IsEnabledFor(zapcore.DebugLevel) {
+				current := ps.Addrs(ID)
+				for _, m := range current {
+					logger.Debugf("sendTo, current address [%s:%s]", info.RemotePeerID, m)
+				}
+			}
+
+			ps.ClearAddrs(ID)
+			var err error
+			addr, err = utils.AddressToEndpoint(info.RemotePeerAddress)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "failed to parse endpoint's address [%s]", info.RemotePeerAddress)
 			}
 		}
 
-		ps.ClearAddrs(ID)
-		addr, err := utils.AddressToEndpoint(info.RemotePeerAddress)
-		if err != nil {
-			return nil, errors.WithMessagef(err, "failed to parse endpoint's address [%s]", info.RemotePeerAddress)
-		}
 		s, err := multiaddr.NewMultiaddr(addr)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get mutliaddr for [%s]", info.RemotePeerAddress)
@@ -194,8 +233,10 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 
 	nwStream, err := h.Host.NewStream(ctx, ID, viewProtocol)
 	if err != nil {
+		logger.Debugf("libp2p: failed to create new stream to peer [%s]: %v", ID, err)
 		return nil, errors.Wrapf(err, "failed to create new stream to [%s]", ID)
 	}
+	logger.Debugf("libp2p: successfully created new outgoing stream to peer [%s]", ID)
 	info.RemotePeerID = nwStream.Conn().RemotePeer().String()
 	return &stream{
 		Stream: nwStream,
@@ -204,6 +245,7 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 }
 
 func (h *host) startFinder() {
+	logger.Debugf("libp2p: starting peer finder for host [%s]...", h.ID())
 	for {
 		peerChan, err := h.finder.FindPeers(context.Background(), rendezVousString)
 		if err != nil {
@@ -218,7 +260,7 @@ func (h *host) startFinder() {
 
 			h.peersMutex.Lock()
 			if _, in := h.peers[peer.ID.String()]; !in {
-				logger.Debugf("found peer [%v]", peer)
+				logger.Debugf("libp2p: Found new peer [%s] at %v", peer.ID, peer.Addrs)
 				h.peers[peer.ID.String()] = peer
 			}
 			h.peersMutex.Unlock()
@@ -227,6 +269,7 @@ func (h *host) startFinder() {
 	sleep:
 		for i := 0; i < 4; i++ {
 			if atomic.LoadInt32(&h.stopFinder) != 0 {
+				logger.Debugf("libp2p: stopping peer finder for host [%s]", h.ID())
 				h.finderWg.Done()
 				return
 			}
@@ -236,6 +279,7 @@ func (h *host) startFinder() {
 }
 
 func (h *host) start(failAdv bool, newStreamCallback func(stream host2.P2PStream)) error {
+	logger.Debugf("libp2p: Advertising rendez-vous [%s]...", rendezVousString)
 	_, err := h.finder.Advertise(context.Background(), rendezVousString)
 	if err != nil {
 		if failAdv {
@@ -245,6 +289,7 @@ func (h *host) start(failAdv bool, newStreamCallback func(stream host2.P2PStream
 	}
 
 	h.SetStreamHandler(viewProtocol, func(s network.Stream) {
+		logger.Debugf("libp2p: received new incoming stream from peer [%s]", s.Conn().RemotePeer().String())
 		uuid := utils2.GenerateUUID()
 		newStreamCallback(
 			&stream{

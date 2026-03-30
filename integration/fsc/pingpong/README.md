@@ -456,8 +456,9 @@ fsc:
   p2p:
     # Listening address
     listenAddress: /ip4/127.0.0.1/tcp/20001
-    # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
-    bootstrapNode: 
+    libp2p:
+      # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
+      bootstrapNode: 
   persistences:
     default:
       type: memory

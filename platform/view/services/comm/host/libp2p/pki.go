@@ -11,31 +11,33 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type PKIDSynthesizer struct{}
 
-func (p PKIDSynthesizer) PublicKeyID(key any) []byte {
+func (p PKIDSynthesizer) PublicKeyID(key any) ([]byte, error) {
 	switch d := key.(type) {
 	case *ecdsa.PublicKey:
 		raw, err := x509.MarshalPKIXPublicKey(d)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		pk, err := crypto.UnmarshalECDSAPublicKey(raw)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		ID, err := peer.IDFromPublicKey(pk)
 		if err != nil {
-			return nil
+			return nil, err
 		}
-		return []byte(ID.String())
+		return []byte(ID.String()), nil
 	case []byte:
 		h := sha256.Sum256(d)
-		return h[:]
+		return h[:], nil
 	}
-	panic("unsupported key")
+
+	return nil, errors.Errorf("unsupported key type [%T]", key)
 }

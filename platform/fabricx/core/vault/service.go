@@ -7,34 +7,32 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = logging.MustGetLogger()
 
-func New(
-	configService fdriver.ConfigService,
-	vaultStore driver.VaultStore,
-	channel string,
-	_ queryservice.Provider,
-	metricsProvider metrics.Provider,
-	tracerProvider trace.TracerProvider,
-) (*Vault, error) {
-	// TODO: this is an example how to integrate the query service into the vault and let all getters communicate with the committer directly
-	// queryService, err := queryServiceProvider.Get(configService.NetworkName(), channel)
-	// if err != nil {
-	//	 return nil, nil, fmt.Errorf("could not get mapping provider for %s: %v", channel, err)
-	// }
-	//
-	// wrapp our store with our remote proxy
-	// s := queryservice.NewProxyStore(persistence, queryService)
-
-	cachedVault := vault.NewCachedVault(vaultStore, configService.VaultTXStoreCacheSize())
-	return NewVault(cachedVault, metricsProvider, tracerProvider), nil
+// New creates a new Vault instance for the specified channel using the provided configuration
+// and query service provider.
+//
+// It retrieves the query service for the network and channel from the provider, then creates
+// a Vault that uses this query service for remote state queries.
+//
+// Parameters:
+//   - configService: Configuration service providing network name and other settings
+//   - channel: The channel name for which to create the vault
+//   - queryServiceProvider: Provider for obtaining the query service instance
+//
+// Returns:
+//   - *Vault: A new vault instance configured with the query service
+//   - error: An error if the query service cannot be obtained
+func New(configService fdriver.ConfigService, channel string, queryServiceProvider queryservice.Provider) (*Vault, error) {
+	queryService, err := queryServiceProvider.Get(configService.NetworkName(), channel)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed getting query service")
+	}
+	return NewVault(queryService), nil
 }

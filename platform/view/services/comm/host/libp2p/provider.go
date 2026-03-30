@@ -20,37 +20,6 @@ import (
 // P2PCommunicationType is a string identifier for the libp2p implementation of the p2p comm stack.
 const P2PCommunicationType = "libp2p"
 
-type libp2pConfig interface {
-	PrivateKeyPath() string
-	Bootstrap() bool
-	ListenAddress() host2.PeerIPAddress
-	BootstrapListenAddress() host2.PeerIPAddress
-}
-
-type configService interface {
-	GetString(key string) string
-	GetPath(key string) string
-}
-
-func (c *config) PrivateKeyPath() string                      { return c.privateKeyPath }
-func (c *config) Bootstrap() bool                             { return len(c.bootstrapListenAddress) == 0 }
-func (c *config) ListenAddress() host2.PeerIPAddress          { return c.listenAddress }
-func (c *config) BootstrapListenAddress() host2.PeerIPAddress { return c.bootstrapListenAddress }
-
-type config struct {
-	listenAddress          host2.PeerIPAddress
-	bootstrapListenAddress host2.PeerIPAddress
-	privateKeyPath         string
-}
-
-func NewConfig(cs configService) *config {
-	return &config{
-		listenAddress:          cs.GetString("fsc.p2p.listenAddress"),
-		bootstrapListenAddress: cs.GetString("fsc.p2p.opts.bootstrapNode"),
-		privateKeyPath:         cs.GetPath("fsc.identity.key.file"),
-	}
-}
-
 type endpointService interface {
 	Resolve(ctx context.Context, party view.Identity) (view.Identity, map[endpoint.PortName]string, []byte, error)
 	GetIdentity(label string, pkID []byte) (view.Identity, error)
@@ -71,22 +40,34 @@ func NewHostGeneratorProvider(config libp2pConfig, provider metrics2.Provider, e
 }
 
 func (p *hostGeneratorProvider) GetNewHost() (host2.P2PHost, error) {
+	logger.Debugf("libp2p: Generating new host, privateKeyPath [%s], bootstrap [%v]...", p.config.PrivateKeyPath(), p.config.Bootstrap())
 	k, err := newCryptoPrivKeyFromMSP(p.config.PrivateKeyPath())
 	if err != nil {
 		return nil, err
 	}
 	if p.config.Bootstrap() {
-		return newLibP2PHost(p.config.ListenAddress(), k, p.metrics, true, "")
+		host, err := newLibP2PHost(p.config, k, p.metrics, true, "")
+		if err != nil {
+			return nil, err
+		}
+		logger.Debugf("libp2p: successfully generated new bootstrap host")
+		return host, nil
 	}
 
 	bootstrap, err := p.getPeerAddress(p.config.BootstrapListenAddress())
 	if err != nil {
 		return nil, err
 	}
-	return newLibP2PHost(p.config.ListenAddress(), k, p.metrics, false, bootstrap)
+	host, err := newLibP2PHost(p.config, k, p.metrics, false, bootstrap)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("libp2p: successfully generated new host")
+	return host, nil
 }
 
 func (p *hostGeneratorProvider) getPeerAddress(address host2.PeerIPAddress) (host2.PeerIPAddress, error) {
+	logger.Debugf("libp2p: Resolving bootstrap node address [%s]...", address)
 	bootstrapNodeID, err := p.endpointService.GetIdentity(address, nil)
 	if err != nil {
 		return "", errors.WithMessagef(err, "failed to get p2p bootstrap node's resolver entry [%s]", address)
@@ -100,5 +81,6 @@ func (p *hostGeneratorProvider) getPeerAddress(address host2.PeerIPAddress) (hos
 	if err != nil {
 		return "", errors.WithMessagef(err, "failed to get the endpoint of the bootstrap node from [%s:%s], [%s]", address, bootstrapNodeID, endpoints[endpoint.P2PPort])
 	}
+	logger.Debugf("libp2p: Resolved bootstrap node address [%s] to [%s]", address, bootstrap)
 	return bootstrap + "/p2p/" + string(pkID), nil
 }

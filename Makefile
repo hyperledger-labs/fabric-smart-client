@@ -146,9 +146,11 @@ INTEGRATION_TARGETS += fabric-atsa
 INTEGRATION_TARGETS += fabric-atsachaincode
 INTEGRATION_TARGETS += fabric-events
 INTEGRATION_TARGETS += fabric-iou
-INTEGRATION_TARGETS += fabric-iouhsm
 INTEGRATION_TARGETS += fabric-stoprestart
 INTEGRATION_TARGETS += fabric-twonets
+
+## hsm section (require -tags pkcs11 for test binary compilation)
+HSM_INTEGRATION_TARGETS = fabric-iouhsm
 
 ## fabricx section
 INTEGRATION_TARGETS += fabricx-iou
@@ -158,10 +160,15 @@ INTEGRATION_TARGETS += fabricx-multiendorsement
 
 .PHONE: list-integration-tests
 list-integration-tests: ## List all integration tests
-	@$(foreach t,$(INTEGRATION_TARGETS),echo "$(t)";)
+	@$(foreach t,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS),echo "$(t)";)
 
 .PHONY: integration-tests
-integration-tests: $(addprefix integration-tests-,$(INTEGRATION_TARGETS)) ## Run all integration tests
+integration-tests: $(addprefix integration-tests-,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS)) ## Run all integration tests
+
+$(addprefix integration-tests-,$(HSM_INTEGRATION_TARGETS)) : integration-tests-%:
+	export FAB_BINS=$(FAB_BINS); \
+		cd ./integration/$(firstword $(subst -, ,$*))/$(subst $(firstword $(subst -, ,$*))-,,$*); \
+		GOFLAGS="-tags=pkcs11" ginkgo $(GINKGO_TEST_OPTS) .
 
 $(addprefix integration-tests-,$(INTEGRATION_TARGETS)) : integration-tests-%:
 	export FAB_BINS=$(FAB_BINS); \
@@ -173,11 +180,11 @@ $(addprefix integration-tests-,$(INTEGRATION_TARGETS)) : integration-tests-%:
 #########################
 
 .PHONY: clean
-clean: $(addprefix clean-,$(INTEGRATION_TARGETS)) ## Clean generated testdata
+clean: $(addprefix clean-,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS)) ## Clean generated testdata
 	rm -rf ./cmd/fsccli/out
 	rm -rf ./out
 
-$(addprefix clean-,$(INTEGRATION_TARGETS)) : clean-%:
+$(addprefix clean-,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS)) : clean-%:
 	rm -rf ./integration/$(firstword $(subst -, ,$*))/$(subst $(firstword $(subst -, ,$*))-,,$*)/out
 
 .PHONY: tidy
@@ -189,3 +196,8 @@ tidy: ## Run go mod tidy everywhere
 .PHONY: clean-fabric-peer-images
 clean-fabric-peer-images:
 	docker images -a | grep "_peer_" | awk '{print $3}' | xargs docker rmi
+
+.PHONY: fmt
+fmt: ## Run gofmt on the entire project
+	@echo "Running gofmt..."
+	@gofmt -l -s -w .

@@ -7,12 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package io
 
 import (
-	"encoding/base64"
 	"io"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io/streamio"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type commSCCConn struct {
@@ -39,15 +38,15 @@ type Comm struct {
 }
 
 func (c *commSCCConn) Write(data []byte) (n int, err error) {
-	logger.Debugf("Write [%d][%s]", len(data), base64.StdEncoding.EncodeToString(MD5Hash(data)))
-	defer logger.Debugf("Write [%d][%s] done", len(data), base64.StdEncoding.EncodeToString(MD5Hash(data)))
+	logger.Debugf("Write [%d][%s]", len(data), logging.SHA256Base64(data))
+	defer logger.Debugf("Write [%d][%s] done", len(data), logging.SHA256Base64(data))
 	return c.msgConn.Write(data)
 }
 
 func (c *commSCCConn) Read(p []byte) (n int, err error) {
 	logger.Debugf("Reading...")
 	n, err = c.r.Read(p)
-	logger.Debugf("Read [%d,%d][%s]", n, len(p), base64.StdEncoding.EncodeToString(MD5Hash(p[:n])))
+	logger.Debugf("Read [%d,%d][%s]", n, len(p), logging.SHA256Base64(p[:n]))
 	return
 }
 

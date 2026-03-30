@@ -258,6 +258,7 @@ func (s *Service) Resolvers() ([]Resolver, error) {
 }
 
 func (s *Service) GetString(key string) string {
+	logger.Infof("Get string [%s]", key)
 	return s.Configuration.GetString("fabric." + s.prefix + key)
 }
 

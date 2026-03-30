@@ -213,5 +213,3 @@ func TestWithConnectionTime(t *testing.T) {
 		require.NotNil(t, opt)
 	})
 }
-
-// Made with Bob

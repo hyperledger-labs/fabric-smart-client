@@ -34,7 +34,6 @@ type Channel struct {
 	ChannelName              string
 	FinalityService          driver.Finality
 	VaultService             driver.Vault
-	VaultStoreService        driver.VaultStore
 	ES                       driver.EnvelopeService
 	TS                       driver.EndorserTransactionService
 	MS                       driver.MetadataService
@@ -64,10 +63,6 @@ func (c *Channel) Close() error {
 
 func (c *Channel) Vault() driver.Vault {
 	return c.VaultService
-}
-
-func (c *Channel) VaultStore() driver.VaultStore {
-	return c.VaultStoreService
 }
 
 func (c *Channel) Finality() driver.Finality {

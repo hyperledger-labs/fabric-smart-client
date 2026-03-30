@@ -89,15 +89,9 @@ func (r *RWSet) Equals(rws interface{}, nss ...string) error {
 	}
 }
 
-type lastTxGetter interface {
-	GetLast(ctx context.Context) (*driver.TxStatus, error)
-}
-
 // Vault models a key-value store that can be updated by committing rwsets
 type Vault struct {
 	vault              fdriver.Vault
-	vaultStore         lastTxGetter
-	committer          fdriver.Committer
 	transactionService fdriver.EndorserTransactionService
 	envelopeService    fdriver.EnvelopeService
 	metadataService    fdriver.MetadataService
@@ -106,11 +100,9 @@ type Vault struct {
 func newVault(ch fdriver.Channel) *Vault {
 	return &Vault{
 		vault:              ch.Vault(),
-		committer:          ch.Committer(),
 		transactionService: ch.TransactionService(),
 		envelopeService:    ch.EnvelopeService(),
 		metadataService:    ch.MetadataService(),
-		vaultStore:         ch.VaultStore(),
 	}
 }
 
@@ -120,14 +112,6 @@ func (c *Vault) NewQueryExecutor(ctx context.Context) (driver.QueryExecutor, err
 
 func (c *Vault) Status(ctx context.Context, id driver.TxID) (fdriver.ValidationCode, string, error) {
 	return c.vault.Status(ctx, id)
-}
-
-func (c *Vault) GetLastTxID(ctx context.Context) (string, error) {
-	last, err := c.vaultStore.GetLast(ctx)
-	if err != nil {
-		return "", err
-	}
-	return last.TxID, nil
 }
 
 // NewRWSet returns a RWSet for this ledger.
@@ -174,14 +158,4 @@ func (c *Vault) StoreTransaction(ctx context.Context, id driver.TxID, raw []byte
 
 func (c *Vault) StoreTransient(ctx context.Context, id driver.TxID, tm TransientMap) error {
 	return c.metadataService.StoreTransient(ctx, id, fdriver.TransientMap(tm))
-}
-
-// DiscardTx discards the transaction with the given transaction id.
-// If no error occurs, invoking Status on the same transaction id will return the Invalid flag.
-func (c *Vault) DiscardTx(ctx context.Context, txID driver.TxID, message string) error {
-	return c.committer.DiscardTx(ctx, txID, message)
-}
-
-func (c *Vault) CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBlock driver.TxNum) error {
-	return c.committer.CommitTX(ctx, txID, block, indexInBlock, nil)
 }

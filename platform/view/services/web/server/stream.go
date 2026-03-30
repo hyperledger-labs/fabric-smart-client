@@ -9,6 +9,8 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/gorilla/websocket"
 )
@@ -25,15 +27,33 @@ type WSStream struct {
 	ws *websocket.Conn
 }
 
+const maxMessageSize = 10 * 1024 * 1024
+
 func OpenWSServerConn(writer http.ResponseWriter, request *http.Request) (*websocket.Conn, error) {
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
-		CheckOrigin: func(*http.Request) bool {
-			return true
-		},
+		CheckOrigin:     sameOriginOrNonBrowser,
 	}
-	return upgrader.Upgrade(writer, request, nil)
+	conn, err := upgrader.Upgrade(writer, request, nil)
+	if err != nil {
+		return nil, err
+	}
+	conn.SetReadLimit(maxMessageSize)
+	return conn, nil
+}
+
+func sameOriginOrNonBrowser(request *http.Request) bool {
+	origin := request.Header.Get("Origin")
+	if origin == "" {
+		// Non-browser clients generally don't set Origin.
+		return true
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(parsed.Host, request.Host)
 }
 
 func NewWSStream(writer http.ResponseWriter, request *http.Request) (*WSStream, error) {

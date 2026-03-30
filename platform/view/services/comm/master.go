@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -23,15 +24,23 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	logger.Debugf("looking up session [%s]", internalSessionID)
 	if session, in := p.sessions[internalSessionID]; in {
 		logger.Debugf("session [%s] exists, returning it", internalSessionID)
+		session.mutex.Lock()
 		session.callerViewID = callerViewID
 		session.contextID = contextID
-		session.caller = caller
+		if len(caller) != 0 {
+			if len(session.caller) == 0 {
+				session.caller = caller
+			} else if !session.caller.Equal(caller) {
+				session.mutex.Unlock()
+				return nil, errors.Errorf("caller identity mismatch for session [%s]", internalSessionID)
+			}
+		}
 		session.endpointAddress = endpointAddress
 		session.endpointID = endpointID
+		session.mutex.Unlock()
 		return session, nil
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
 	s := &NetworkStreamSession{
 		node:            p,
 		endpointID:      endpointID,
@@ -40,16 +49,18 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 		sessionID:       sessionID,
 		caller:          caller,
 		callerViewID:    callerViewID,
-		incoming:        make(chan *view.Message, 1),
+		incoming:        make(chan *view.Message, DefaultIncomingMessagesBufferSize),
 		streams:         make(map[*streamHandler]struct{}),
-		ctx:             ctx,
-		cancel:          cancel,
+		middleCh:        make(chan *view.Message, DefaultIncomingMessagesBufferSize),
+		closing:         make(chan struct{}),
+		closed:          make(chan struct{}),
 	}
 
 	if msg != nil {
 		logger.Debugf("pushing first message to [%s], [%s]", internalSessionID, msg)
 		if ok := s.enqueue(msg); !ok {
-			panic("programming error: can not enqueue message in newly created session")
+			logger.Errorf("can not enqueue message in newly created session [%s]", internalSessionID)
+			return nil, errors.Errorf("can not enqueue message in newly created session [%s]", internalSessionID)
 		}
 	} else {
 		logger.Debugf("no first message to push to [%s]", internalSessionID)
@@ -57,6 +68,8 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 
 	p.sessions[internalSessionID] = s
 	p.m.Sessions.Set(float64(len(p.sessions)))
+
+	s.tryStart()
 
 	logger.Debugf("session [%s] as internal session [%s] ready", sessionID, internalSessionID)
 	return s, nil
