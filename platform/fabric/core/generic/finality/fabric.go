@@ -12,7 +12,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -107,9 +106,9 @@ func (d *FabricFinality) IsFinal(txID string, address string) error {
 		return err
 	}
 	eventCh = make(chan delivery.TxEvent, 1)
-	go utils.IgnoreErrorFunc(func() error {
-		return delivery.DeliverReceive(deliverStream, address, txID, eventCh)
-	})
+	go func() {
+		_ = delivery.DeliverReceive(deliverStream, address, txID, eventCh)
+	}()
 	committed, _, _, err := delivery.DeliverWaitForResponse(ctx, eventCh, txID)
 	if err != nil {
 		return err

@@ -20,37 +20,33 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 )
 
 func TestLoadPrivateKey(t *testing.T) {
-	testDir, err := os.MkdirTemp("", "csp-test")
-	if err != nil {
-		t.Fatalf("Failed to create test directory: %s", err)
-	}
-	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
+	t.Parallel()
+	testDir, err := os.MkdirTemp(t.TempDir(), "csp-test")
+	require.NoError(t, err, "failed to create test directory")
+
 	priv, err := csp2.GeneratePrivateKey(testDir)
 	if err != nil {
 		t.Fatalf("Failed to generate private key: %s", err)
 	}
 	pkFile := filepath.Join(testDir, "priv_sk")
-	assert.Equal(t, true, checkForFile(pkFile),
+	require.Equal(t, true, checkForFile(pkFile),
 		"Expected to find private key file")
 	loadedPriv, err := csp2.LoadPrivateKey(testDir)
-	assert.NoError(t, err, "Failed to load private key")
-	assert.NotNil(t, loadedPriv, "Should have returned an *ecdsa.PrivateKey")
-	assert.Equal(t, priv, loadedPriv, "Expected private keys to match")
+	require.NoError(t, err, "Failed to load private key")
+	require.NotNil(t, loadedPriv, "Should have returned an *ecdsa.PrivateKey")
+	require.Equal(t, priv, loadedPriv, "Expected private keys to match")
 }
 
 func TestLoadPrivateKey_BadPEM(t *testing.T) {
-	testDir, err := os.MkdirTemp("", "csp-test")
-	if err != nil {
-		t.Fatalf("Failed to create test directory: %s", err)
-	}
-	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
+	t.Parallel()
+	testDir, err := os.MkdirTemp(t.TempDir(), "csp-test")
+	require.NoError(t, err, "failed to create test directory")
 
 	badPEMFile := filepath.Join(testDir, "badpem_sk")
 
@@ -102,31 +98,29 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) {
 				t.Fatalf("failed to write to wrong encoding file: %s", err)
 			}
 			_, err = csp2.LoadPrivateKey(badPEMFile)
-			assert.Contains(t, err.Error(), test.errMsg)
-			utils.IgnoreErrorWithOneArg(os.Remove, badPEMFile)
+			require.Contains(t, err.Error(), test.errMsg)
 		})
 	}
 }
 
 func TestGeneratePrivateKey(t *testing.T) {
-	testDir, err := os.MkdirTemp("", "csp-test")
-	if err != nil {
-		t.Fatalf("Failed to create test directory: %s", err)
-	}
-	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
+	t.Parallel()
+	testDir, err := os.MkdirTemp(t.TempDir(), "csp-test")
+	require.NoError(t, err, "failed to create test directory")
 
 	expectedFile := filepath.Join(testDir, "priv_sk")
 	priv, err := csp2.GeneratePrivateKey(testDir)
-	assert.NoError(t, err, "Failed to generate private key")
-	assert.NotNil(t, priv, "Should have returned an *ecdsa.Key")
-	assert.Equal(t, true, checkForFile(expectedFile),
+	require.NoError(t, err, "Failed to generate private key")
+	require.NotNil(t, priv, "Should have returned an *ecdsa.Key")
+	require.Equal(t, true, checkForFile(expectedFile),
 		"Expected to find private key file")
 
 	_, err = csp2.GeneratePrivateKey("notExist")
-	assert.Contains(t, err.Error(), "no such file or directory")
+	require.Contains(t, err.Error(), "no such file or directory")
 }
 
 func TestECDSASigner(t *testing.T) {
+	t.Parallel()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatalf("Failed to generate private key: %s", err)
@@ -135,7 +129,7 @@ func TestECDSASigner(t *testing.T) {
 	signer := csp2.ECDSASigner{
 		PrivateKey: priv,
 	}
-	assert.Equal(t, priv.Public(), signer.Public().(*ecdsa.PublicKey))
+	require.Equal(t, priv.Public(), signer.Public().(*ecdsa.PublicKey))
 	digest := []byte{1}
 	sig, err := signer.Sign(rand.Reader, digest, nil)
 	if err != nil {
@@ -157,7 +151,7 @@ func TestECDSASigner(t *testing.T) {
 
 	// ensure signature is valid by using standard verify function
 	ok := ecdsa.Verify(&priv.PublicKey, digest, ecdsaSig.R, ecdsaSig.S)
-	assert.True(t, ok, "Expected valid signature")
+	require.True(t, ok, "Expected valid signature")
 }
 
 func checkForFile(file string) bool {

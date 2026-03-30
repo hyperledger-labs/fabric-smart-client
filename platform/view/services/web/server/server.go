@@ -18,7 +18,6 @@ import (
 	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	middleware2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
 )
 
@@ -149,10 +148,9 @@ func (s *Server) Start() error {
 		return err
 	}
 	s.addr = listener.Addr().String()
-
-	go utils.IgnoreErrorFunc(func() error {
-		return s.httpServer.Serve(listener)
-	})
+	go func() {
+		_ = s.httpServer.Serve(listener)
+	}()
 
 	return nil
 }

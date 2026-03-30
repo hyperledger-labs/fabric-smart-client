@@ -229,7 +229,9 @@ func (n *Extension) startGrafana() {
 			Timestamps: false,
 		})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		defer utils.IgnoreErrorFunc(reader.Close)
+		defer func() {
+			_ = reader.Close()
+		}()
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {

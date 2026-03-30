@@ -14,12 +14,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/exp/slices"
 )
@@ -160,23 +159,27 @@ func TestMemory(t *testing.T) {
 	RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead { return items }
 	artifactProvider := &testArtifactProvider{}
 	for _, c := range SingleDBCases {
-		ddb, err := vault2.OpenMemoryVault(c.Name)
-		assert.NoError(t, err)
-		assert.NotNil(t, ddb)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer utils.IgnoreErrorFunc(ddb.Close)
+			ddb, err := vault2.OpenMemoryVault(c.Name)
+			require.NoError(t, err)
+			require.NotNil(t, ddb)
+			t.Cleanup(func() {
+				_ = ddb.Close()
+			})
 			c.Fn(xt, ddb, artifactProvider)
 		})
 	}
 
 	for _, c := range DoubleDBCases {
-		db1, err := vault2.OpenMemoryVault(c.Name)
-		assert.NoError(t, err)
-		db2, err := vault2.OpenMemoryVault(c.Name)
-		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer utils.IgnoreErrorFunc(db1.Close)
-			defer utils.IgnoreErrorFunc(db2.Close)
+			db1, err := vault2.OpenMemoryVault(c.Name)
+			require.NoError(t, err)
+			db2, err := vault2.OpenMemoryVault(c.Name)
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				_ = db1.Close()
+				_ = db2.Close()
+			})
 			c.Fn(xt, db1, db2, artifactProvider)
 		})
 	}
@@ -189,22 +192,26 @@ func TestSqlite(t *testing.T) {
 	artifactProvider := &testArtifactProvider{}
 
 	for _, c := range SingleDBCases {
-		ddb, err := vault2.OpenSqliteVault("node1", t.TempDir())
-		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer utils.IgnoreErrorFunc(ddb.Close)
+			ddb, err := vault2.OpenSqliteVault("node1", t.TempDir())
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				_ = ddb.Close()
+			})
 			c.Fn(xt, ddb, artifactProvider)
 		})
 	}
 
 	for _, c := range DoubleDBCases {
-		db1, err := vault2.OpenSqliteVault("node1", t.TempDir())
-		assert.NoError(t, err)
-		db2, err := vault2.OpenSqliteVault("node2", t.TempDir())
-		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer utils.IgnoreErrorFunc(db1.Close)
-			defer utils.IgnoreErrorFunc(db2.Close)
+			db1, err := vault2.OpenSqliteVault("node1", t.TempDir())
+			require.NoError(t, err)
+			db2, err := vault2.OpenSqliteVault("node2", t.TempDir())
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				_ = db1.Close()
+				_ = db2.Close()
+			})
 			c.Fn(xt, db1, db2, artifactProvider)
 		})
 	}
@@ -217,25 +224,29 @@ func TestPostgres(t *testing.T) {
 	artifactProvider := &testArtifactProvider{}
 
 	for _, c := range append(SingleDBCases, ReadCommittedDBCases...) {
-		ddb, terminate, err := vault2.OpenPostgresVault("common-sdk-node1")
-		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer utils.IgnoreErrorFunc(ddb.Close)
-			defer terminate()
+			ddb, terminate, err := vault2.OpenPostgresVault("common-sdk-node1")
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				_ = ddb.Close()
+				terminate()
+			})
 			c.Fn(xt, ddb, artifactProvider)
 		})
 	}
 
 	for _, c := range DoubleDBCases {
-		db1, terminate1, err := vault2.OpenPostgresVault("common-sdk-node1")
-		assert.NoError(t, err)
-		db2, terminate2, err := vault2.OpenPostgresVault("common-sdk-node2")
-		assert.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
-			defer utils.IgnoreErrorFunc(db1.Close)
-			defer utils.IgnoreErrorFunc(db2.Close)
-			defer terminate1()
-			defer terminate2()
+			db1, terminate1, err := vault2.OpenPostgresVault("common-sdk-node1")
+			require.NoError(t, err)
+			db2, terminate2, err := vault2.OpenPostgresVault("common-sdk-node2")
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				_ = db1.Close()
+				_ = db2.Close()
+				terminate1()
+				terminate2()
+			})
 			c.Fn(xt, db1, db2, artifactProvider)
 		})
 	}

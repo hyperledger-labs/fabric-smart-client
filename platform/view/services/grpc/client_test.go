@@ -22,11 +22,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -50,20 +48,20 @@ func TestNewGRPCClient_GoodConfig(t *testing.T) {
 
 	config := grpc3.ClientConfig{}
 	client, err := grpc3.NewGRPCClient(config)
-	assert.NoError(t, err)
-	assert.Equal(t, tls.Certificate{}, client.Certificate())
-	assert.False(t, client.TLSEnabled())
-	assert.False(t, client.MutualTLSRequired())
+	require.NoError(t, err)
+	require.Equal(t, tls.Certificate{}, client.Certificate())
+	require.False(t, client.TLSEnabled())
+	require.False(t, client.MutualTLSRequired())
 
 	secOpts := grpc3.SecureOptions{
 		UseTLS: false,
 	}
 	config.SecOpts = secOpts
 	client, err = grpc3.NewGRPCClient(config)
-	assert.NoError(t, err)
-	assert.Equal(t, tls.Certificate{}, client.Certificate())
-	assert.False(t, client.TLSEnabled())
-	assert.False(t, client.MutualTLSRequired())
+	require.NoError(t, err)
+	require.Equal(t, tls.Certificate{}, client.Certificate())
+	require.False(t, client.TLSEnabled())
+	require.False(t, client.MutualTLSRequired())
 
 	secOpts = grpc3.SecureOptions{
 		UseTLS:            true,
@@ -72,9 +70,9 @@ func TestNewGRPCClient_GoodConfig(t *testing.T) {
 	}
 	config.SecOpts = secOpts
 	client, err = grpc3.NewGRPCClient(config)
-	assert.NoError(t, err)
-	assert.True(t, client.TLSEnabled())
-	assert.False(t, client.MutualTLSRequired())
+	require.NoError(t, err)
+	require.True(t, client.TLSEnabled())
+	require.False(t, client.MutualTLSRequired())
 
 	secOpts = grpc3.SecureOptions{
 		Certificate:       testCerts.certPEM,
@@ -85,10 +83,10 @@ func TestNewGRPCClient_GoodConfig(t *testing.T) {
 	}
 	config.SecOpts = secOpts
 	client, err = grpc3.NewGRPCClient(config)
-	assert.NoError(t, err)
-	assert.True(t, client.TLSEnabled())
-	assert.True(t, client.MutualTLSRequired())
-	assert.Equal(t, testCerts.clientCert, client.Certificate())
+	require.NoError(t, err)
+	require.True(t, client.TLSEnabled())
+	require.True(t, client.MutualTLSRequired())
+	require.Equal(t, testCerts.clientCert, client.Certificate())
 }
 
 func TestNewGRPCClient_BadConfig(t *testing.T) {
@@ -103,7 +101,7 @@ func TestNewGRPCClient_BadConfig(t *testing.T) {
 		},
 	}
 	_, err := grpc3.NewGRPCClient(config)
-	assert.Contains(t, err.Error(), "error adding root certificate")
+	require.Contains(t, err.Error(), "error adding root certificate")
 
 	// missing key
 	missing := "both Key and Certificate are required when using mutual TLS"
@@ -113,7 +111,7 @@ func TestNewGRPCClient_BadConfig(t *testing.T) {
 		RequireClientCert: true,
 	}
 	_, err = grpc3.NewGRPCClient(config)
-	assert.Equal(t, missing, err.Error())
+	require.Equal(t, missing, err.Error())
 
 	// missing cert
 	config.SecOpts = grpc3.SecureOptions{
@@ -122,7 +120,7 @@ func TestNewGRPCClient_BadConfig(t *testing.T) {
 		RequireClientCert: true,
 	}
 	_, err = grpc3.NewGRPCClient(config)
-	assert.Equal(t, missing, err.Error())
+	require.Equal(t, missing, err.Error())
 
 	// bad key
 	failed := "failed to load client certificate"
@@ -133,7 +131,7 @@ func TestNewGRPCClient_BadConfig(t *testing.T) {
 		RequireClientCert: true,
 	}
 	_, err = grpc3.NewGRPCClient(config)
-	assert.Contains(t, err.Error(), failed)
+	require.Contains(t, err.Error(), failed)
 
 	// bad cert
 	config.SecOpts = grpc3.SecureOptions{
@@ -143,7 +141,7 @@ func TestNewGRPCClient_BadConfig(t *testing.T) {
 		RequireClientCert: true,
 	}
 	_, err = grpc3.NewGRPCClient(config)
-	assert.Contains(t, err.Error(), failed)
+	require.Contains(t, err.Error(), failed)
 }
 
 func TestNewConnection(t *testing.T) {
@@ -153,7 +151,9 @@ func TestNewConnection(t *testing.T) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	badAddress := l.Addr().String()
-	defer utils.IgnoreErrorFunc(l.Close)
+	t.Cleanup(func() {
+		_ = l.Close()
+	})
 
 	certPool := x509.NewCertPool()
 	ok := certPool.AppendCertsFromPEM(testCerts.caPEM)
@@ -337,16 +337,16 @@ func TestNewConnection(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error creating server for test: %v", err)
 			}
-			defer utils.IgnoreErrorFunc(lis.Close)
+			t.Cleanup(func() {
+				_ = lis.Close()
+			})
 			serverOpts := []grpc.ServerOption{}
 			if test.serverTLS != nil {
 				serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(test.serverTLS)))
 			}
 			srv := grpc.NewServer(serverOpts...)
 			defer srv.Stop()
-			go utils.IgnoreErrorFunc(func() error {
-				return srv.Serve(lis)
-			})
+			go func() { _ = srv.Serve(lis) }()
 			client, err := grpc3.NewGRPCClient(test.config)
 			if err != nil {
 				t.Fatalf("error creating client for test: %v", err)
@@ -357,11 +357,11 @@ func TestNewConnection(t *testing.T) {
 			}
 			conn, err := client.NewConnection(address)
 			if test.success {
-				assert.NoError(t, err)
-				assert.NotNil(t, conn)
+				require.NoError(t, err)
+				require.NotNil(t, conn)
 			} else {
 				t.Log(errors.WithStack(err))
-				assert.Regexp(t, test.errorMsg, err.Error())
+				require.Regexp(t, test.errorMsg, err.Error())
 			}
 		})
 	}
@@ -384,7 +384,7 @@ func TestNewConnection_TLSCertificateSANMismatch(t *testing.T) {
 	// Start a TLS server
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	defer utils.IgnoreErrorFunc(lis.Close)
+	t.Cleanup(func() { _ = lis.Close() })
 
 	serverTLS := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
@@ -392,9 +392,7 @@ func TestNewConnection_TLSCertificateSANMismatch(t *testing.T) {
 
 	srv := grpc.NewServer(grpc.Creds(credentials.NewTLS(serverTLS)))
 	defer srv.Stop()
-	go utils.IgnoreErrorFunc(func() error {
-		return srv.Serve(lis)
-	})
+	go func() { _ = srv.Serve(lis) }()
 
 	// Create a client that will connect to the server
 	// The client expects "correct-hostname.example.com" but will connect to 127.0.0.1
@@ -414,9 +412,9 @@ func TestNewConnection_TLSCertificateSANMismatch(t *testing.T) {
 	conn, err := client.NewConnection(address)
 
 	// Assert that we get an error
-	assert.Error(t, err)
+	require.Error(t, err)
 	if conn != nil {
-		utils.IgnoreErrorFunc(conn.Close)
+		_ = conn.Close()
 	}
 
 	// The error should contain certificate/x509/SAN information, not just "context deadline exceeded"
@@ -425,7 +423,7 @@ func TestNewConnection_TLSCertificateSANMismatch(t *testing.T) {
 
 	// Before the fix, this would be "context deadline exceeded"
 	// After the fix, it should contain certificate validation error details
-	assert.Contains(t, errMsg, "x509", "Error should contain x509 certificate validation details")
+	require.Contains(t, errMsg, "x509", "Error should contain x509 certificate validation details")
 }
 
 func TestSetServerRootCAs(t *testing.T) {
@@ -452,48 +450,44 @@ func TestSetServerRootCAs(t *testing.T) {
 	address := lis.Addr().String()
 	t.Logf("server listening on [%s]", lis.Addr().String())
 	t.Logf("client will use [%s]", address)
-	defer utils.IgnoreErrorFunc(lis.Close)
+	t.Cleanup(func() { _ = lis.Close() })
 	srv := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{testCerts.serverCert},
 	})))
 	defer srv.Stop()
-	go utils.IgnoreErrorFunc(func() error {
-		return srv.Serve(lis)
-	})
+	go func() { _ = srv.Serve(lis) }()
 
 	// initial config should work
 	t.Log("running initial good config")
 	conn, err := client.NewConnection(address)
-	assert.NoError(t, err)
-	assert.NotNil(t, conn)
-	if conn != nil {
-		utils.IgnoreErrorFunc(conn.Close)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	err = conn.Close()
+	require.NoError(t, err)
 
 	// no root testCerts
 	t.Log("running bad config")
 	err = client.SetServerRootCAs([][]byte{})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// now connection should fail
 	_, err = client.NewConnection(address)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// good root cert
 	t.Log("running good config")
 	err = client.SetServerRootCAs([][]byte{[]byte(testCerts.caPEM)})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// now connection should succeed again
 	conn, err = client.NewConnection(address)
-	assert.NoError(t, err)
-	assert.NotNil(t, conn)
-	if conn != nil {
-		utils.IgnoreErrorFunc(conn.Close)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	err = conn.Close()
+	require.NoError(t, err)
 
 	// bad root cert
 	t.Log("running bad root cert")
 	err = client.SetServerRootCAs([][]byte{[]byte(badPEM)})
-	assert.Contains(t, err.Error(), "error adding root certificate")
+	require.Contains(t, err.Error(), "error adding root certificate")
 }
 
 func TestSetMessageSize(t *testing.T) {
@@ -510,7 +504,7 @@ func TestSetMessageSize(t *testing.T) {
 	}
 	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
 	defer srv.Stop()
-	go utils.IgnoreErrorFunc(srv.Start)
+	go func() { _ = srv.Start() }()
 
 	var tests = []struct {
 		name        string
@@ -564,29 +558,29 @@ func TestSetMessageSize(t *testing.T) {
 				client.SetMaxSendMsgSize(test.maxSendSize)
 			}
 			conn, err := client.NewConnection(address)
-			assert.NoError(t, err)
-			defer utils.IgnoreErrorFunc(conn.Close)
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, conn.Close()) })
 			// create service client from conn
 			svcClient := testpb.NewEchoServiceClient(conn)
 			callCtx := context.Background()
 			callCtx, cancel := context.WithTimeout(callCtx, testTimeout)
-			defer cancel()
+			t.Cleanup(cancel)
 			// invoke service
 			echo := &testpb.Echo{
 				Payload: []byte{0, 0, 0, 0, 0},
 			}
 			resp, err := svcClient.EchoCall(callCtx, echo)
 			if !test.failRecv && !test.failSend {
-				assert.NoError(t, err)
-				assert.True(t, proto.Equal(echo, resp))
+				require.NoError(t, err)
+				require.True(t, proto.Equal(echo, resp))
 			}
 			if test.failSend {
 				t.Logf("send error: %v", err)
-				assert.Contains(t, err.Error(), "trying to send message larger than max")
+				require.Contains(t, err.Error(), "trying to send message larger than max")
 			}
 			if test.failRecv {
 				t.Logf("recv error: %v", err)
-				assert.Contains(t, err.Error(), "received message larger than max")
+				require.Contains(t, err.Error(), "received message larger than max")
 			}
 		})
 	}
@@ -625,28 +619,30 @@ func loadCerts(t *testing.T) testCerts {
 		filepath.Join("testdata", "certs", "Org1-server1-cert.pem"),
 		filepath.Join("testdata", "certs", "Org1-server1-key.pem"),
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	return certs
 }
 
 func TestServerNameOverride(t *testing.T) {
+	t.Parallel()
 	tlsOption := grpc3.ServerNameOverride("override-name")
 	testConfig := &tls.Config{}
 	tlsOption(testConfig)
-	assert.Equal(t, &tls.Config{
+	require.Equal(t, &tls.Config{
 		ServerName: "override-name",
 	}, testConfig)
 }
 
 func TestCertPoolOverride(t *testing.T) {
+	t.Parallel()
 	tlsOption := grpc3.CertPoolOverride(&x509.CertPool{})
 	testConfig := &tls.Config{}
-	assert.NotEqual(t, &tls.Config{
+	require.NotEqual(t, &tls.Config{
 		RootCAs: &x509.CertPool{},
 	}, testConfig)
 	tlsOption(testConfig)
-	assert.Equal(t, &tls.Config{
+	require.Equal(t, &tls.Config{
 		RootCAs: &x509.CertPool{},
 	}, testConfig)
 }
@@ -654,16 +650,16 @@ func TestCertPoolOverride(t *testing.T) {
 func TestDynamicClientTLSLoading(t *testing.T) {
 	t.Parallel()
 	ca1, err := tlsgen.NewCA()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	ca2, err := tlsgen.NewCA()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	clientKP, err := ca1.NewClientCertKeyPair()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	serverKP, err := ca2.NewServerCertKeyPair("127.0.0.1")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	client, err := grpc3.NewGRPCClient(grpc3.ClientConfig{
 		AsyncConnect: true,
@@ -675,7 +671,7 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 			Key:           clientKP.Key,
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	server, err := grpc3.NewGRPCServer("127.0.0.1:0", grpc3.ServerConfig{
 		Logger: logging.MustGetLogger(),
@@ -685,15 +681,12 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 			Certificate: serverKP.Cert,
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		_ = server.Start()
-	}()
+	})
 
 	var dynamicRootCerts atomic.Value
 	dynamicRootCerts.Store(ca1.CertBytes())
@@ -702,8 +695,8 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 		tlsConfig.RootCAs = x509.NewCertPool()
 		tlsConfig.RootCAs.AppendCertsFromPEM(dynamicRootCerts.Load().([]byte))
 	})
-	assert.NoError(t, err)
-	assert.NotNil(t, conn)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
 
 	waitForConnState := func(state connectivity.State, succeedOrFail string) {
 		deadline := time.Now().Add(time.Second * 30)
@@ -731,7 +724,7 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 	waitForConnState(connectivity.Ready, "succeed")
 
 	err = conn.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	server.Stop()
 	wg.Wait()
