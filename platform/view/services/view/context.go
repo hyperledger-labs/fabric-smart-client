@@ -213,6 +213,7 @@ func NewContext(
 	if context == nil {
 		return nil, errors.Errorf("a context should not be nil [%s]", string(debug.Stack()))
 	}
+
 	ctx := &Context{
 		ctx:                  context,
 		id:                   contextID,

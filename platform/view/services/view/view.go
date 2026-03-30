@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package view
 
 import (
+	"context"
 	"runtime/debug"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -36,13 +37,24 @@ func RunCall(context view.Context, v func(context view.Context) (interface{}, er
 
 // Initiate initiates a new protocol whose initiator's view is the passed one.
 // The execution happens in a freshly created context.
-// This is a shortcut for `view.GetManager(context).InitiateView(initiator)`.
+// This is a shortcut for `view.GetManager(context).InitiateView(context.Context(), initiator)`.
 func Initiate(context view.Context, initiator View) (interface{}, error) {
 	m, err := GetManager(context)
 	if err != nil {
 		return nil, err
 	}
 	return m.InitiateView(context.Context(), initiator)
+}
+
+// InitiateWithContext initiates a new protocol whose initiator's view is the passed one.
+// The execution happens in a freshly created view context and the given context.Context.
+// This is a shortcut for `view.GetManager(ctx).InitiateView(context, initiator)`.
+func InitiateWithContext(context context.Context, ctx view.Context, initiator View) (interface{}, error) {
+	m, err := GetManager(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return m.InitiateView(context, initiator)
 }
 
 // AsResponder can be used by an initiator to behave temporarily as a responder.
