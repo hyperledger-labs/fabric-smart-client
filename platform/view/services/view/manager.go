@@ -177,6 +177,7 @@ func (cm *Manager) InitiateContextWithIdentityAndID(ctx context.Context, view vi
 }
 
 // InitiateContextFrom initiates a view context for the given view, initiator identity, and context ID from the given go context.
+// It is responsibility of the caller to delete context from this manager when not needed anymore.
 func (cm *Manager) InitiateContextFrom(ctx context.Context, view view.View, id view.Identity, contextID string) (view.Context, error) {
 	if id.IsNone() {
 		id = cm.identityProvider.DefaultIdentity()
@@ -207,10 +208,6 @@ func (cm *Manager) newChildContextForInitiator(ctx context.Context, view view.Vi
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 	cm.contextsMu.Unlock()
 
-	context.AfterFunc(c.Context(), func() {
-		cm.DeleteContext(c.ID())
-	})
-
 	return c, nil
 }
 
@@ -226,15 +223,12 @@ func (cm *Manager) Context(contextID string) (view.Context, error) {
 }
 
 // RegisterContext registers a view context.
+// It is responsibility of the caller to remove context from this manager when not needed anymore.
 func (cm *Manager) RegisterContext(contextID string, ctx DisposableContext) error {
 	cm.contextsMu.Lock()
 	defer cm.contextsMu.Unlock()
 	cm.contexts[contextID] = ctx
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
-
-	context.AfterFunc(ctx.Context(), func() {
-		cm.DeleteContext(contextID)
-	})
 
 	return nil
 }
