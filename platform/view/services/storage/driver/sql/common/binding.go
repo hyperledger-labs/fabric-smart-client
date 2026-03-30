@@ -21,13 +21,13 @@ import (
 
 const BindingStoreMaxEphemerals = 1000
 
-func NewBindingStore(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper, sb sq.StatementBuilderType) *BindingStore {
+func NewBindingStore(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *BindingStore {
 	return &BindingStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
-		sb:           sb,
+		sb:           sq.StatementBuilder.PlaceholderFormat(ph),
 	}
 }
 
@@ -36,7 +36,7 @@ type BindingStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
-	sb           sq.StatementBuilderType
+	sb           sq.StatementBuilderType // squirrel builder, internal only
 }
 
 func (db *BindingStore) GetLongTerm(ctx context.Context, ephemeral view.Identity) (view.Identity, error) {

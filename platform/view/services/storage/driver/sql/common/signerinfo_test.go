@@ -9,7 +9,6 @@ package common_test
 import (
 	"context"
 	"database/sql"
-	"regexp"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -30,13 +29,13 @@ func (d *dummyUniqueErrorWrapper) WrapError(err error) error {
 func TestFilterExistingSigners(t *testing.T) {
 	RegisterTestingT(t)
 
-	db, mockDB, err := sqlmock.New()
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
 
 	id1 := view.Identity("signer1")
 	id2 := view.Identity("signer2")
 
-	query := regexp.QuoteMeta("SELECT id FROM signer_info WHERE id IN ($1,$2)")
+	query := "SELECT id FROM signer_info WHERE id IN ($1,$2)"
 
 	mockDB.
 		ExpectQuery(query).
@@ -56,11 +55,11 @@ func TestFilterExistingSigners(t *testing.T) {
 func TestFilterExistingSigners_QueryError(t *testing.T) {
 	RegisterTestingT(t)
 
-	db, mockDB, err := sqlmock.New()
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
 
 	id := view.Identity("signer1")
-	query := regexp.QuoteMeta("SELECT id FROM signer_info WHERE id IN ($1)")
+	query := "SELECT id FROM signer_info WHERE id IN ($1)"
 
 	mockDB.
 		ExpectQuery(query).
@@ -78,11 +77,11 @@ func TestFilterExistingSigners_QueryError(t *testing.T) {
 func TestFilterExistingSigners_ScanError(t *testing.T) {
 	RegisterTestingT(t)
 
-	db, mockDB, err := sqlmock.New()
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
 
 	id := view.Identity("signer1")
-	query := regexp.QuoteMeta("SELECT id FROM signer_info WHERE id IN ($1)")
+	query := "SELECT id FROM signer_info WHERE id IN ($1)"
 
 	mockDB.
 		ExpectQuery(query).
@@ -100,12 +99,12 @@ func TestFilterExistingSigners_ScanError(t *testing.T) {
 func TestPutSigner(t *testing.T) {
 	RegisterTestingT(t)
 
-	db, mockDB, err := sqlmock.New()
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
 
 	id := view.Identity("signer1")
 
-	query := regexp.QuoteMeta("INSERT INTO signer_info (id) VALUES ($1)")
+	query := "INSERT INTO signer_info (id) VALUES ($1)"
 
 	mockDB.
 		ExpectExec(query).
@@ -122,11 +121,11 @@ func TestPutSigner(t *testing.T) {
 func TestPutSigner_ExecError(t *testing.T) {
 	RegisterTestingT(t)
 
-	db, mockDB, err := sqlmock.New()
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
 
 	id := view.Identity("signer1")
-	query := regexp.QuoteMeta("INSERT INTO signer_info (id) VALUES ($1)")
+	query := "INSERT INTO signer_info (id) VALUES ($1)"
 
 	mockDB.
 		ExpectExec(query).
@@ -144,11 +143,11 @@ func TestPutSigner_ExecError(t *testing.T) {
 func TestPutSigner_UniqueViolation(t *testing.T) {
 	RegisterTestingT(t)
 
-	db, mockDB, err := sqlmock.New()
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
 
 	id := view.Identity("signer1")
-	query := regexp.QuoteMeta("INSERT INTO signer_info (id) VALUES ($1)")
+	query := "INSERT INTO signer_info (id) VALUES ($1)"
 
 	mockDB.
 		ExpectExec(query).

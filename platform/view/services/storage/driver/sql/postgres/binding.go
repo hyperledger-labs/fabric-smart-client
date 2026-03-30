@@ -29,7 +29,7 @@ func NewBindingStore(dbs *common2.RWDB, tables common3.TableNames) (*BindingStor
 func newBindingStore(readDB, writeDB *sql.DB, table string) *BindingStore {
 	errorWrapper := &ErrorMapper{}
 	return &BindingStore{
-		BindingStore: common3.NewBindingStore(readDB, writeDB, table, errorWrapper, sq.StatementBuilder.PlaceholderFormat(sq.Dollar)),
+		BindingStore: common3.NewBindingStore(readDB, writeDB, table, errorWrapper, sq.Dollar),
 		table:        table,
 		writeDB:      writeDB,
 		errorWrapper: errorWrapper,
