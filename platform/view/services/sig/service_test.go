@@ -37,8 +37,8 @@ func TestNewService(t *testing.T) {
 	require.Equal(t, signerStore, service.signerKVS)
 	require.NotNil(t, service.signers)
 	require.NotNil(t, service.verifiers)
-	assert.Empty(t, service.signers)
-	assert.Empty(t, service.verifiers)
+	require.Empty(t, service.signers)
+	require.Empty(t, service.verifiers)
 }
 
 func TestService_RegisterSigner(t *testing.T) {
