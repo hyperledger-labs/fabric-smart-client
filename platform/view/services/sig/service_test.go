@@ -452,6 +452,8 @@ func TestService_AreMe(t *testing.T) {
 
 			require.Len(t, result, tc.expectedCount)
 			for _, hash := range tc.expectedHashes {
+				// Use assert here because each expected hash is an independent check.
+				// We want to see all missing hashes in one test run rather than stop at the first failure.
 				assert.Contains(t, result, hash)
 			}
 		})
