@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 //go:generate counterfeiter -o mock/signer_info_store.go -fake-name SignerInfoStore github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.SignerInfoStore
@@ -31,7 +30,7 @@ func TestNewService(t *testing.T) {
 
 	service := NewService(deserializer, auditStore, signerStore)
 
-	require.NotNil(t, service)
+	assert.NotNil(t, service)
 	assert.Equal(t, deserializer, service.deserializer)
 	assert.Equal(t, auditStore, service.auditInfoKVS)
 	assert.Equal(t, signerStore, service.signerKVS)
@@ -128,10 +127,10 @@ func TestService_RegisterSigner(t *testing.T) {
 			err := service.RegisterSigner(ctx, identity, tc.signer, tc.verifier)
 
 			if tc.expectedErr != "" {
-				require.Error(t, err)
+				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErr)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
 
 			if tc.expectInCache {
@@ -193,10 +192,10 @@ func TestService_RegisterVerifier(t *testing.T) {
 			err := service.RegisterVerifier(identity, tc.verifier)
 
 			if tc.expectedErr != "" {
-				require.Error(t, err)
+				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErr)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
 
 			if tc.expectInCache {
@@ -246,10 +245,10 @@ func TestService_RegisterAuditInfo(t *testing.T) {
 			err := service.RegisterAuditInfo(ctx, identity, auditInfo)
 
 			if tc.expectedErr != "" {
-				require.Error(t, err)
+				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErr)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
 
 			assert.Equal(t, 1, auditStore.PutAuditInfoCallCount())
@@ -302,10 +301,10 @@ func TestService_GetAuditInfo(t *testing.T) {
 			info, err := service.GetAuditInfo(ctx, identity)
 
 			if tc.expectedErr != "" {
-				require.Error(t, err)
+				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErr)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				assert.Equal(t, tc.expectedInfo, info)
 			}
 
@@ -585,11 +584,11 @@ func TestService_GetSigner(t *testing.T) {
 			signer, err := service.GetSigner(identity)
 
 			if tc.expectedErr != "" {
-				require.Error(t, err)
+				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErr)
 				assert.Nil(t, signer)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				if tc.expectSigner {
 					assert.NotNil(t, signer)
 				}
@@ -660,11 +659,11 @@ func TestService_GetVerifier(t *testing.T) {
 			verifier, err := service.GetVerifier(identity)
 
 			if tc.expectedErr != "" {
-				require.Error(t, err)
+				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErr)
 				assert.Nil(t, verifier)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				if tc.expectVerifier {
 					assert.NotNil(t, verifier)
 				}
@@ -730,11 +729,11 @@ func TestService_GetSigningIdentity(t *testing.T) {
 			si, err := service.GetSigningIdentity(identity)
 
 			if tc.expectedErr != "" {
-				require.Error(t, err)
+				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErr)
 				assert.Nil(t, si)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				if tc.expectSI {
 					assert.NotNil(t, si)
 				}
@@ -760,7 +759,7 @@ func TestSigningIdentityWrapper(t *testing.T) {
 
 	t.Run("Sign", func(t *testing.T) {
 		sig, err := si.Sign(message)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, signature, sig)
 		assert.Equal(t, 1, signer.SignCallCount())
 		assert.Equal(t, message, signer.SignArgsForCall(0))
@@ -768,7 +767,7 @@ func TestSigningIdentityWrapper(t *testing.T) {
 
 	t.Run("Serialize", func(t *testing.T) {
 		serialized, err := si.Serialize()
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, identity, view.Identity(serialized))
 	})
 

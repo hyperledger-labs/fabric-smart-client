@@ -13,7 +13,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig/mock"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 //go:generate counterfeiter -o mock/deserializer.go -fake-name Deserializer github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.SigDeserializer
@@ -25,7 +24,7 @@ func TestNewMultiplexDeserializer(t *testing.T) {
 
 	md := NewMultiplexDeserializer()
 
-	require.NotNil(t, md)
+	assert.NotNil(t, md)
 	assert.Empty(t, md.deserializers)
 }
 
@@ -139,11 +138,11 @@ func TestMultiplexDeserializer_DeserializeVerifier(t *testing.T) {
 			verifier, err := md.DeserializeVerifier(testRaw)
 
 			if tc.expectedErr != "" {
-				require.Error(t, err)
+				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErr)
 				assert.Nil(t, verifier)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				if tc.expectVerifier {
 					assert.NotNil(t, verifier)
 				}
@@ -237,11 +236,11 @@ func TestMultiplexDeserializer_DeserializeSigner(t *testing.T) {
 			signer, err := md.DeserializeSigner(testRaw)
 
 			if tc.expectedErr != "" {
-				require.Error(t, err)
+				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErr)
 				assert.Nil(t, signer)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				if tc.expectSigner {
 					assert.NotNil(t, signer)
 				}
@@ -334,11 +333,11 @@ func TestMultiplexDeserializer_Info(t *testing.T) {
 			info, err := md.Info(testRaw, testAuditInfo)
 
 			if tc.expectedErr != "" {
-				require.Error(t, err)
+				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErr)
 				assert.Empty(t, info)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				assert.Equal(t, tc.expectedInfo, info)
 			}
 
@@ -454,12 +453,12 @@ func TestNewDeserializer(t *testing.T) {
 
 	des, err := NewDeserializer()
 
-	require.NoError(t, err)
-	require.NotNil(t, des)
+	assert.NoError(t, err)
+	assert.NotNil(t, des)
 
 	// Verify it's a MultiplexDeserializer
 	md, ok := des.(*MultiplexDeserializer)
-	require.True(t, ok, "NewDeserializer should return a MultiplexDeserializer")
+	assert.True(t, ok, "NewDeserializer should return a MultiplexDeserializer")
 
 	// Verify it has at least one deserializer (x509.Deserializer)
 	assert.NotEmpty(t, md.deserializers, "NewDeserializer should add x509.Deserializer by default")
@@ -536,7 +535,7 @@ func TestMultiplexDeserializer_ReturnsFirstSuccess(t *testing.T) {
 
 			result, err := tc.testFunc(md)
 
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			assert.NotNil(t, result)
 
 			// Verify only the first deserializer was called
