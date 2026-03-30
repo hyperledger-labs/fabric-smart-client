@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig/mock"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 //go:generate counterfeiter -o mock/deserializer.go -fake-name Deserializer github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.SigDeserializer
@@ -24,8 +24,8 @@ func TestNewMultiplexDeserializer(t *testing.T) {
 
 	md := NewMultiplexDeserializer()
 
-	assert.NotNil(t, md)
-	assert.Empty(t, md.deserializers)
+	require.NotNil(t, md)
+	require.Empty(t, md.deserializers)
 }
 
 func TestMultiplexDeserializer_AddDeserializer(t *testing.T) {
@@ -36,10 +36,10 @@ func TestMultiplexDeserializer_AddDeserializer(t *testing.T) {
 	mock2 := &mock.Deserializer{}
 
 	md.AddDeserializer(mock1)
-	assert.Len(t, md.deserializers, 1)
+	require.Len(t, md.deserializers, 1)
 
 	md.AddDeserializer(mock2)
-	assert.Len(t, md.deserializers, 2)
+	require.Len(t, md.deserializers, 2)
 }
 
 func TestMultiplexDeserializer_DeserializeVerifier(t *testing.T) {
@@ -138,23 +138,22 @@ func TestMultiplexDeserializer_DeserializeVerifier(t *testing.T) {
 			verifier, err := md.DeserializeVerifier(testRaw)
 
 			if tc.expectedErr != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectedErr)
-				assert.Nil(t, verifier)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
+				require.Nil(t, verifier)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				if tc.expectVerifier {
-					assert.NotNil(t, verifier)
+					require.NotNil(t, verifier)
 				}
 			}
 
-			// Verify call counts
 			for i, des := range deserializers {
 				mockDes := des.(*mock.Deserializer)
-				assert.Equal(t, tc.expectedCallCounts[i], mockDes.DeserializeVerifierCallCount(),
+				require.Equal(t, tc.expectedCallCounts[i], mockDes.DeserializeVerifierCallCount(),
 					"deserializer %d call count mismatch", i)
 				if mockDes.DeserializeVerifierCallCount() > 0 {
-					assert.Equal(t, testRaw, mockDes.DeserializeVerifierArgsForCall(0))
+					require.Equal(t, testRaw, mockDes.DeserializeVerifierArgsForCall(0))
 				}
 			}
 		})
@@ -236,23 +235,23 @@ func TestMultiplexDeserializer_DeserializeSigner(t *testing.T) {
 			signer, err := md.DeserializeSigner(testRaw)
 
 			if tc.expectedErr != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectedErr)
-				assert.Nil(t, signer)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
+				require.Nil(t, signer)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				if tc.expectSigner {
-					assert.NotNil(t, signer)
+					require.NotNil(t, signer)
 				}
 			}
 
 			// Verify call counts
 			for i, des := range deserializers {
 				mockDes := des.(*mock.Deserializer)
-				assert.Equal(t, tc.expectedCallCounts[i], mockDes.DeserializeSignerCallCount(),
+				require.Equal(t, tc.expectedCallCounts[i], mockDes.DeserializeSignerCallCount(),
 					"deserializer %d call count mismatch", i)
 				if mockDes.DeserializeSignerCallCount() > 0 {
-					assert.Equal(t, testRaw, mockDes.DeserializeSignerArgsForCall(0))
+					require.Equal(t, testRaw, mockDes.DeserializeSignerArgsForCall(0))
 				}
 			}
 		})
@@ -333,23 +332,22 @@ func TestMultiplexDeserializer_Info(t *testing.T) {
 			info, err := md.Info(testRaw, testAuditInfo)
 
 			if tc.expectedErr != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectedErr)
-				assert.Empty(t, info)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
+				require.Empty(t, info)
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tc.expectedInfo, info)
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedInfo, info)
 			}
 
-			// Verify call counts
 			for i, des := range deserializers {
 				mockDes := des.(*mock.Deserializer)
-				assert.Equal(t, tc.expectedCallCounts[i], mockDes.InfoCallCount(),
+				require.Equal(t, tc.expectedCallCounts[i], mockDes.InfoCallCount(),
 					"deserializer %d call count mismatch", i)
 				if mockDes.InfoCallCount() > 0 {
 					raw, audit := mockDes.InfoArgsForCall(0)
-					assert.Equal(t, testRaw, raw)
-					assert.Equal(t, testAuditInfo, audit)
+					require.Equal(t, testRaw, raw)
+					require.Equal(t, testAuditInfo, audit)
 				}
 			}
 		})
@@ -414,7 +412,7 @@ func TestMultiplexDeserializer_ThreadSafety(t *testing.T) {
 	wg.Wait()
 
 	// Verify that all deserializers were added
-	assert.GreaterOrEqual(t, len(md.deserializers), 5)
+	require.GreaterOrEqual(t, len(md.deserializers), 5)
 }
 
 func TestMultiplexDeserializer_ThreadSafeCopyDeserializers(t *testing.T) {
@@ -430,7 +428,7 @@ func TestMultiplexDeserializer_ThreadSafeCopyDeserializers(t *testing.T) {
 
 	// Get a copy
 	copy1 := md.threadSafeCopyDeserializers()
-	assert.Len(t, copy1, 2)
+	require.Len(t, copy1, 2)
 
 	// Add another deserializer
 	des3 := &mock.Deserializer{}
@@ -438,14 +436,13 @@ func TestMultiplexDeserializer_ThreadSafeCopyDeserializers(t *testing.T) {
 
 	// Get another copy
 	copy2 := md.threadSafeCopyDeserializers()
-	assert.Len(t, copy2, 3)
+	require.Len(t, copy2, 3)
 
-	// Original copy should not be affected
-	assert.Len(t, copy1, 2)
+	require.Len(t, copy1, 2)
 
 	// Verify the copies are independent
 	copy1[0] = nil
-	assert.NotNil(t, md.deserializers[0], "modifying copy should not affect original")
+	require.NotNil(t, md.deserializers[0], "modifying copy should not affect original")
 }
 
 func TestNewDeserializer(t *testing.T) {
@@ -453,15 +450,15 @@ func TestNewDeserializer(t *testing.T) {
 
 	des, err := NewDeserializer()
 
-	assert.NoError(t, err)
-	assert.NotNil(t, des)
+	require.NoError(t, err)
+	require.NotNil(t, des)
 
 	// Verify it's a MultiplexDeserializer
 	md, ok := des.(*MultiplexDeserializer)
-	assert.True(t, ok, "NewDeserializer should return a MultiplexDeserializer")
+	require.True(t, ok, "NewDeserializer should return a MultiplexDeserializer")
 
 	// Verify it has at least one deserializer (x509.Deserializer)
-	assert.NotEmpty(t, md.deserializers, "NewDeserializer should add x509.Deserializer by default")
+	require.NotEmpty(t, md.deserializers, "NewDeserializer should add x509.Deserializer by default")
 }
 
 func TestMultiplexDeserializer_ReturnsFirstSuccess(t *testing.T) {
@@ -535,20 +532,20 @@ func TestMultiplexDeserializer_ReturnsFirstSuccess(t *testing.T) {
 
 			result, err := tc.testFunc(md)
 
-			assert.NoError(t, err)
-			assert.NotNil(t, result)
+			require.NoError(t, err)
+			require.NotNil(t, result)
 
 			// Verify only the first deserializer was called
 			mockDes1 := deserializers[0].(*mock.Deserializer)
 			mockDes2 := deserializers[1].(*mock.Deserializer)
 
 			// First deserializer should be called
-			assert.Greater(t, mockDes1.DeserializeVerifierCallCount()+
+			require.Greater(t, mockDes1.DeserializeVerifierCallCount()+
 				mockDes1.DeserializeSignerCallCount()+
 				mockDes1.InfoCallCount(), 0)
 
 			// Second deserializer should not be called
-			assert.Equal(t, 0, mockDes2.DeserializeVerifierCallCount()+
+			require.Equal(t, 0, mockDes2.DeserializeVerifierCallCount()+
 				mockDes2.DeserializeSignerCallCount()+
 				mockDes2.InfoCallCount())
 		})

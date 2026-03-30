@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 //go:generate counterfeiter -o mock/signer_info_store.go -fake-name SignerInfoStore github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.SignerInfoStore
@@ -30,12 +31,12 @@ func TestNewService(t *testing.T) {
 
 	service := NewService(deserializer, auditStore, signerStore)
 
-	assert.NotNil(t, service)
-	assert.Equal(t, deserializer, service.deserializer)
-	assert.Equal(t, auditStore, service.auditInfoKVS)
-	assert.Equal(t, signerStore, service.signerKVS)
-	assert.NotNil(t, service.signers)
-	assert.NotNil(t, service.verifiers)
+	require.NotNil(t, service)
+	require.Equal(t, deserializer, service.deserializer)
+	require.Equal(t, auditStore, service.auditInfoKVS)
+	require.Equal(t, signerStore, service.signerKVS)
+	require.NotNil(t, service.signers)
+	require.NotNil(t, service.verifiers)
 	assert.Empty(t, service.signers)
 	assert.Empty(t, service.verifiers)
 }
@@ -127,21 +128,21 @@ func TestService_RegisterSigner(t *testing.T) {
 			err := service.RegisterSigner(ctx, identity, tc.signer, tc.verifier)
 
 			if tc.expectedErr != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectedErr)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			if tc.expectInCache {
 				_, exists := service.signers[identity.UniqueID()]
-				assert.True(t, exists, "signer should be in cache")
+				require.True(t, exists, "signer should be in cache")
 			} else {
 				_, exists := service.signers[identity.UniqueID()]
-				assert.False(t, exists, "signer should not be in cache")
+				require.False(t, exists, "signer should not be in cache")
 			}
 
-			assert.Equal(t, tc.storeCallCount, signerStore.PutSignerCallCount())
+			require.Equal(t, tc.storeCallCount, signerStore.PutSignerCallCount())
 		})
 	}
 }
@@ -192,15 +193,15 @@ func TestService_RegisterVerifier(t *testing.T) {
 			err := service.RegisterVerifier(identity, tc.verifier)
 
 			if tc.expectedErr != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectedErr)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			if tc.expectInCache {
 				_, exists := service.verifiers[identity.UniqueID()]
-				assert.True(t, exists, "verifier should be in cache")
+				require.True(t, exists, "verifier should be in cache")
 			}
 		})
 	}
@@ -245,17 +246,17 @@ func TestService_RegisterAuditInfo(t *testing.T) {
 			err := service.RegisterAuditInfo(ctx, identity, auditInfo)
 
 			if tc.expectedErr != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectedErr)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
-			assert.Equal(t, 1, auditStore.PutAuditInfoCallCount())
+			require.Equal(t, 1, auditStore.PutAuditInfoCallCount())
 			gotCtx, gotID, gotInfo := auditStore.PutAuditInfoArgsForCall(0)
-			assert.Equal(t, ctx, gotCtx)
-			assert.Equal(t, identity, gotID)
-			assert.Equal(t, auditInfo, gotInfo)
+			require.Equal(t, ctx, gotCtx)
+			require.Equal(t, identity, gotID)
+			require.Equal(t, auditInfo, gotInfo)
 		})
 	}
 }
@@ -301,14 +302,14 @@ func TestService_GetAuditInfo(t *testing.T) {
 			info, err := service.GetAuditInfo(ctx, identity)
 
 			if tc.expectedErr != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectedErr)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tc.expectedInfo, info)
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedInfo, info)
 			}
 
-			assert.Equal(t, 1, auditStore.GetAuditInfoCallCount())
+			require.Equal(t, 1, auditStore.GetAuditInfoCallCount())
 		})
 	}
 }
@@ -366,7 +367,7 @@ func TestService_IsMe(t *testing.T) {
 
 			result := service.IsMe(ctx, identity)
 
-			assert.Equal(t, tc.expected, result)
+			require.Equal(t, tc.expected, result)
 		})
 	}
 }
@@ -449,11 +450,9 @@ func TestService_AreMe(t *testing.T) {
 
 			result := service.AreMe(ctx, tc.identities...)
 
-			assert.Len(t, result, tc.expectedCount)
-			if tc.expectedHashes != nil {
-				for _, hash := range tc.expectedHashes {
-					assert.Contains(t, result, hash)
-				}
+			require.Len(t, result, tc.expectedCount)
+			for _, hash := range tc.expectedHashes {
+				assert.Contains(t, result, hash)
 			}
 		})
 	}
@@ -519,7 +518,7 @@ func TestService_Info(t *testing.T) {
 
 			info := service.Info(ctx, identity)
 
-			assert.Contains(t, info, tc.expectedContains)
+			require.Contains(t, info, tc.expectedContains)
 		})
 	}
 }
@@ -568,7 +567,6 @@ func TestService_GetSigner(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -584,17 +582,17 @@ func TestService_GetSigner(t *testing.T) {
 			signer, err := service.GetSigner(identity)
 
 			if tc.expectedErr != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectedErr)
-				assert.Nil(t, signer)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
+				require.Nil(t, signer)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				if tc.expectSigner {
-					assert.NotNil(t, signer)
+					require.NotNil(t, signer)
 				}
 			}
 
-			assert.Equal(t, tc.deserializeCount, deserializer.DeserializeSignerCallCount())
+			require.Equal(t, tc.deserializeCount, deserializer.DeserializeSignerCallCount())
 		})
 	}
 }
@@ -643,7 +641,6 @@ func TestService_GetVerifier(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc // capture range variable
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -659,17 +656,17 @@ func TestService_GetVerifier(t *testing.T) {
 			verifier, err := service.GetVerifier(identity)
 
 			if tc.expectedErr != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectedErr)
-				assert.Nil(t, verifier)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
+				require.Nil(t, verifier)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				if tc.expectVerifier {
-					assert.NotNil(t, verifier)
+					require.NotNil(t, verifier)
 				}
 			}
 
-			assert.Equal(t, tc.deserializeCount, deserializer.DeserializeVerifierCallCount())
+			require.Equal(t, tc.deserializeCount, deserializer.DeserializeVerifierCallCount())
 		})
 	}
 }
@@ -729,13 +726,13 @@ func TestService_GetSigningIdentity(t *testing.T) {
 			si, err := service.GetSigningIdentity(identity)
 
 			if tc.expectedErr != "" {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectedErr)
-				assert.Nil(t, si)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
+				require.Nil(t, si)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				if tc.expectSI {
-					assert.NotNil(t, si)
+					require.NotNil(t, si)
 				}
 			}
 		})
@@ -759,25 +756,25 @@ func TestSigningIdentityWrapper(t *testing.T) {
 
 	t.Run("Sign", func(t *testing.T) {
 		sig, err := si.Sign(message)
-		assert.NoError(t, err)
-		assert.Equal(t, signature, sig)
-		assert.Equal(t, 1, signer.SignCallCount())
-		assert.Equal(t, message, signer.SignArgsForCall(0))
+		require.NoError(t, err)
+		require.Equal(t, signature, sig)
+		require.Equal(t, 1, signer.SignCallCount())
+		require.Equal(t, message, signer.SignArgsForCall(0))
 	})
 
 	t.Run("Serialize", func(t *testing.T) {
 		serialized, err := si.Serialize()
-		assert.NoError(t, err)
-		assert.Equal(t, identity, view.Identity(serialized))
+		require.NoError(t, err)
+		require.Equal(t, identity, view.Identity(serialized))
 	})
 
 	t.Run("GetPublicVersion", func(t *testing.T) {
 		pub := si.GetPublicVersion()
-		assert.Equal(t, si, pub)
+		require.Equal(t, si, pub)
 	})
 
 	t.Run("Verify panics", func(t *testing.T) {
-		assert.Panics(t, func() {
+		require.Panics(t, func() {
 			_ = si.Verify(message, signature)
 		})
 	})
