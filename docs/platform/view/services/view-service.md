@@ -525,6 +525,6 @@ The View Service uses structured logging:
 
 ## Related Documentation
 
-- [Communication Service](../comm/readme.md) - P2P communication layer
-- [View SDK](../../view-sdk.md) - High-level view development guide
+- [Communication Service](./comm/readme.md) - P2P communication layer
+- [View SDK](../view-sdk.md) - High-level view development guide
 - [Configuration Guide](../../../configuration.md) - FSC configuration reference
