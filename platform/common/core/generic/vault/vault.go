@@ -9,6 +9,7 @@ package vault
 import (
 	"bytes"
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/maps"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
@@ -140,7 +141,7 @@ func (db *Vault[V]) UnmapInterceptor(txID driver.TxID) (TxInterceptor, error) {
 }
 
 func (db *Vault[V]) unmapInterceptors(txIDs ...driver.TxID) (map[driver.TxID]TxInterceptor, error) {
-	result, notFound := collections.SubMap(db.interceptors, txIDs...)
+	result, notFound := maps.SubMap(db.interceptors, txIDs...)
 
 	if len(notFound) > 0 {
 		return nil, errors.Errorf("read-write set for txids [%v] could not be found", notFound)
@@ -182,7 +183,7 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 	interceptors, err := db.unmapInterceptors(txIDs...)
 	db.interceptorsLock.Unlock()
 	if err != nil {
-		return collections.Repeat(errors.Wrapf(err, "failed to unmap interceptor for [%v]", txIDs), len(txs))
+		return slices.Repeat([]error{errors.Wrapf(err, "failed to unmap interceptor for [%v]", txIDs)}, len(txs))
 	}
 
 	inputs := make([]commitInput, len(txs))
@@ -195,11 +196,11 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 		err := db.commitRWs(ctx, inputs...)
 		if err == nil {
 			db.metrics.CommitDuration.Observe(time.Since(start).Seconds() / float64(len(txs)))
-			return collections.Repeat[error](nil, len(txs))
+			return slices.Repeat([]error{}, len(txs))
 		}
 		if !errors.HasCause(err, DeadlockDetected) {
 			// This should generate a panic
-			return collections.Repeat(err, len(txs))
+			return slices.Repeat([]error{err}, len(txs))
 		}
 		db.logger.Debugf("Deadlock detected. Retrying... [%v]", err)
 	}

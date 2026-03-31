@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/maps"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/jackc/pgx/v5"
@@ -252,7 +252,7 @@ func (db *Notifier) CreateSchema() error {
 }
 
 func convertOperations(ops []driver.Operation) string {
-	opMap := collections.InverseMap(operationMap)
+	opMap := maps.Inverse(operationMap)
 	opStrings := make([]string, len(ops))
 	for i, op := range ops {
 		opString, ok := opMap[op]

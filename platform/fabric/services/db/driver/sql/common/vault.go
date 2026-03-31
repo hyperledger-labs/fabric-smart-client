@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	sql2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
@@ -369,7 +370,7 @@ func (db *vaultReader) GetState(ctx context.Context, namespace driver.Namespace,
 	if err != nil {
 		return nil, err
 	}
-	return collections.GetUnique(it)
+	return iterators.GetUnique(it)
 }
 
 func (db *vaultReader) GetStates(ctx context.Context, namespace driver.Namespace, keys ...driver.PKey) (driver.TxStateIterator, error) {
@@ -447,7 +448,7 @@ func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
 	if err != nil {
 		return nil, err
 	}
-	return collections.GetUnique(it)
+	return iterators.GetUnique(it)
 }
 
 func IsLast(tableName common4.TableName) *isLast {
@@ -470,7 +471,7 @@ func (db *vaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driv
 	if err != nil {
 		return nil, err
 	}
-	return collections.GetUnique(it)
+	return iterators.GetUnique(it)
 }
 func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) (driver.TxStatusIterator, error) {
 	if len(txIDs) == 0 {

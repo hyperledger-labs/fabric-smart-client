@@ -8,13 +8,14 @@ package committer
 
 import (
 	"context"
+	"maps"
 	"runtime/debug"
+	"slices"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -70,12 +71,21 @@ func (c *finalityListenerManager[V]) RemoveListener(txID driver.TxID, toRemove d
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if ls, ok := collections.Remove(c.txIDListeners[txID], toRemove); ok {
-		c.txIDListeners[txID] = ls
-		if len(ls) == 0 {
-			delete(c.txIDListeners, txID)
-		}
+	ls, ok := c.txIDListeners[txID]
+	if !ok {
+		return
 	}
+
+	newLS := slices.DeleteFunc(ls, func(l driver.FinalityListener[V]) bool {
+		return l == toRemove
+	})
+
+	if len(newLS) == 0 {
+		delete(c.txIDListeners, txID)
+		return
+	}
+
+	c.txIDListeners[txID] = newLS
 }
 
 func (c *finalityListenerManager[V]) InvokeListeners(event driver.FinalityEvent[V]) {
@@ -114,5 +124,6 @@ func (c *finalityListenerManager[V]) cloneListeners(txID driver.TxID) []driver.F
 func (c *finalityListenerManager[V]) TxIDs() []driver.TxID {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	return collections.Keys(c.txIDListeners)
+
+	return slices.Collect(maps.Keys(c.txIDListeners))
 }

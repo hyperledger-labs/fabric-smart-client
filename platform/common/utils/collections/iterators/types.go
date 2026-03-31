@@ -19,15 +19,4 @@ type Iterator[V any] interface {
 	Close()
 }
 
-type ConsumeFunc[V any] func(V) error
-
-type Reducer[V any, S any] interface {
-	Produce() S
-	Reduce(S, V) (S, error)
-}
-
-type ReduceFunc[V any, S any] func(S, V) (S, error)
-
-type Predicate[V any] func(V) bool
-
 type Transformer[A any, B any] func(A) (B, error)

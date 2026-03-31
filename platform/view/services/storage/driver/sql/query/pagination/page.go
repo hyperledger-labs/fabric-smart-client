@@ -13,7 +13,7 @@ import (
 )
 
 // NewPage creates a new page where the id is a string
-func NewPage[V any](results collections.Iterator[*V], pagination driver.Pagination) (*driver.PageIterator[*V], error) {
+func NewPage[V any](results iterators.Iterator[*V], pagination driver.Pagination) (*driver.PageIterator[*V], error) {
 	switch p := pagination.(type) {
 	case *keyset[int, interface{}]:
 		return newKeysetTypedPage[int, V](results, p)

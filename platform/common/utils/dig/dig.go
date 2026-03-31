@@ -8,7 +8,6 @@ package utils
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"runtime/debug"
 
@@ -38,14 +37,6 @@ func Register[T any](c invoker) error {
 		return fmt.Errorf("failed registering type %T: %+v", *new(T), err)
 	}
 	return nil
-}
-
-func ProvideAll(c *dig.Container, constructors ...interface{}) error {
-	errs := make([]error, len(constructors))
-	for i, constructor := range constructors {
-		errs[i] = c.Provide(constructor)
-	}
-	return errors.Join(errs...)
 }
 
 func Identity[T any]() func(T) T {
