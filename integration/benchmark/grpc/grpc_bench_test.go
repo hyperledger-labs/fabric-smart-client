@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
 	benchviews "github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/views"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
@@ -244,7 +246,12 @@ func setupServer(tb testing.TB, opts ...ServerOption) string {
 	require.NoError(tb, err)
 	require.NotNil(tb, grpcSrv)
 
-	srv, err := server.NewViewServiceServer(tm, &server.YesPolicyChecker{}, server.NewMetrics(&disabled.Provider{}), noop.NewTracerProvider())
+	srv, err := server.NewViewServiceServer(tm,
+		&server.YesPolicyChecker{},
+		server.NewMetrics(&disabled.Provider{}),
+		noop.NewTracerProvider(),
+		func(_ context.Context, _ proto.Message) error { return nil },
+	)
 	require.NoError(tb, err)
 	require.NotNil(tb, srv)
 	// our view manager

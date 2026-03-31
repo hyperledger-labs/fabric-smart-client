@@ -213,3 +213,19 @@ func Serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *ope
 
 	}()
 }
+
+// NewViewServiceServer constructs the view gRPC server for the DI container.
+// It derives whether mutual TLS is required from grpcServer and wires
+// a BindingInspector that enforces the TLS certificate hash included in every
+// signed command header when mutual TLS is active.
+func NewViewServiceServer(
+	marshaller server.Marshaller,
+	policyChecker server.PolicyChecker,
+	metrics *server.Metrics,
+	tracerProvider tracing.Provider,
+	grpcServer *grpc2.GRPCServer,
+) (server.Service, error) {
+	mutualTLS := grpcServer != nil && grpcServer.MutualTLSRequired()
+	inspector := grpc2.NewBindingInspector(mutualTLS, server.ExtractTLSCertHashFromCommand)
+	return server.NewViewServiceServer(marshaller, policyChecker, metrics, tracerProvider, server.BindingInspector(inspector))
+}

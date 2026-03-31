@@ -58,8 +58,13 @@ func (*nonTLSConnection) AuthType() string {
 
 func TestBindingInspectorBadInit(t *testing.T) {
 	t.Parallel()
-	assert.Panics(t, func() {
+	// nil extractor is only a programming error when mutualTLS is enabled,
+	// because the extractor is not called in noop mode.
+	assert.NotPanics(t, func() {
 		grpc3.NewBindingInspector(false, nil)
+	})
+	assert.Panics(t, func() {
+		grpc3.NewBindingInspector(true, nil)
 	})
 }
 

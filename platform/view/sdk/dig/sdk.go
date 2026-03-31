@@ -162,7 +162,7 @@ func (p *SDK) Install() error {
 		// GRPC server
 		p.Container().Provide(server2.NewResponseMarshaler, dig.As(new(server2.Marshaller))),
 		p.Container().Provide(server2.NewAccessControlChecker, dig.As(new(server2.PolicyChecker))),
-		p.Container().Provide(server2.NewViewServiceServer, dig.As(new(server2.Service))),
+		p.Container().Provide(NewViewServiceServer, dig.As(new(server2.Service))),
 		p.Container().Provide(NewGRPCServer),
 	)
 	if err != nil {
