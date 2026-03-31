@@ -13,6 +13,7 @@ import (
 	"strconv"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
@@ -31,11 +32,16 @@ type PolicyChecker interface {
 	Check(sc *protos.SignedCommand, c *protos.Command) error
 }
 
+// A BindingInspector receives as parameters a gRPC context and a proto message,
+// and verifies whether the message contains an appropriate binding to the context.
+type BindingInspector func(context.Context, proto.Message) error
+
 // Server is responsible for processing view commands.
 type Server struct {
 	protos.UnimplementedViewServiceServer
-	Marshaller    Marshaller
-	PolicyChecker PolicyChecker
+	Marshaller       Marshaller
+	PolicyChecker    PolicyChecker
+	bindingInspector BindingInspector
 
 	processors map[reflect.Type]Processor
 	streamers  map[reflect.Type]Streamer
@@ -48,13 +54,15 @@ func NewViewServiceServer(
 	policyChecker PolicyChecker,
 	metrics *Metrics,
 	tracerProvider tracing.Provider,
+	bindingInspector BindingInspector,
 ) (*Server, error) {
 	return &Server{
-		Marshaller:    marshaller,
-		PolicyChecker: policyChecker,
-		processors:    map[reflect.Type]Processor{},
-		streamers:     map[reflect.Type]Streamer{},
-		metrics:       metrics,
+		Marshaller:       marshaller,
+		PolicyChecker:    policyChecker,
+		bindingInspector: bindingInspector,
+		processors:       map[reflect.Type]Processor{},
+		streamers:        map[reflect.Type]Streamer{},
+		metrics:          metrics,
 		tracer: tracerProvider.Tracer("view_service", tracing.WithMetricsOpts(tracing.MetricsOpts{
 			LabelNames: []tracing.LabelName{successLabel},
 		})),
@@ -77,6 +85,11 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 	}
 
 	err = s.ValidateHeader(command.Header)
+	if err != nil {
+		return s.MarshalErrorResponse(sc.Command, err)
+	}
+
+	err = s.bindingInspector(ctx, command)
 	if err != nil {
 		return s.MarshalErrorResponse(sc.Command, err)
 	}
@@ -139,6 +152,11 @@ func (s *Server) streamCommand(sc *protos.SignedCommand, commandServer protos.Vi
 	}
 
 	err = s.ValidateHeader(command.Header)
+	if err != nil {
+		return s.streamError(err, sc, commandServer)
+	}
+
+	err = s.bindingInspector(ctx, command)
 	if err != nil {
 		return s.streamError(err, sc, commandServer)
 	}

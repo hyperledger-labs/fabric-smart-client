@@ -66,20 +66,22 @@ type CertHashExtractor func(proto.Message) []byte
 
 // NewBindingInspector returns a BindingInspector according to whether
 // mutualTLS is configured or not, and according to a function that extracts
-// TLS certificate hashes from proto messages
+// TLS certificate hashes from proto messages.
 func NewBindingInspector(mutualTLS bool, extractTLSCertHash CertHashExtractor) BindingInspector {
+	if !mutualTLS {
+		return func(_ context.Context, _ proto.Message) error { return nil }
+	}
+
 	if extractTLSCertHash == nil {
+		// this is clearly a programming error
 		panic(errors.New("extractTLSCertHash parameter is nil"))
 	}
-	inspectMessage := mutualTLSBinding
-	if !mutualTLS {
-		inspectMessage = noopBinding
-	}
+
 	return func(ctx context.Context, msg proto.Message) error {
 		if msg == nil {
 			return errors.New("message is nil")
 		}
-		return inspectMessage(ctx, extractTLSCertHash(msg))
+		return mutualTLSBinding(ctx, extractTLSCertHash(msg))
 	}
 }
 
@@ -100,11 +102,6 @@ func mutualTLSBinding(ctx context.Context, claimedTLScertHash []byte) error {
 	if !bytes.Equal(actualTLScertHash, claimedTLScertHash) {
 		return errors.Errorf("claimed TLS cert hash is %v but actual TLS cert hash is %v", claimedTLScertHash, actualTLScertHash)
 	}
-	return nil
-}
-
-// noopBinding is a BindingInspector that always returns nil
-func noopBinding(_ context.Context, _ []byte) error {
 	return nil
 }
 
