@@ -12,27 +12,25 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"go.uber.org/zap/zapcore"
 )
 
-var (
-	ServiceNotFound = errors.New("service not found")
-)
-
+// ServiceProvider is responsible for managing and providing services.
 type ServiceProvider struct {
-	services   []interface{}
-	serviceMap map[reflect.Type]interface{}
+	services   []any
+	serviceMap map[reflect.Type]any
 	lock       sync.Mutex
 }
 
+// NewServiceProvider returns a new instance of the service provider.
 func NewServiceProvider() *ServiceProvider {
 	return &ServiceProvider{
-		services:   []interface{}{},
-		serviceMap: map[reflect.Type]interface{}{},
+		services:   []any{},
+		serviceMap: map[reflect.Type]any{},
 	}
 }
 
-func (sp *ServiceProvider) GetService(v interface{}) (interface{}, error) {
+// GetService returns the service of the given type.
+func (sp *ServiceProvider) GetService(v any) (any, error) {
 	sp.lock.Lock()
 	defer sp.lock.Unlock()
 
@@ -44,41 +42,62 @@ func (sp *ServiceProvider) GetService(v interface{}) (interface{}, error) {
 		typ = reflect.TypeOf(v)
 	}
 
-	switch typ.Kind() {
-	case reflect.Struct:
-		// nothing to do here
-	default:
-		typ = typ.Elem()
+	if service, ok := sp.serviceMap[typ]; ok {
+		if service == nil {
+			return nil, errors.Wrapf(ErrServiceNotFound, "service [%s] not found", typ.String())
+		}
+		return service, nil
 	}
 
-	service, ok := sp.serviceMap[typ]
-	if !ok {
-		switch typ.Kind() {
-		case reflect.Interface:
-			for _, s := range sp.services {
-				if reflect.TypeOf(s).Implements(typ) {
-					sp.serviceMap[typ] = s
-					return s, nil
-				}
-			}
-		default:
-			for _, s := range sp.services {
-				if typ.AssignableTo(reflect.TypeOf(s).Elem()) {
-					sp.serviceMap[typ] = s
-					return s, nil
-				}
-			}
-		}
-		if logger.IsEnabledFor(zapcore.DebugLevel) {
-			return nil, errors.Errorf("service [%s/%s] not found in [%v]", typ.PkgPath(), typ.Name(), sp.String())
-		}
-		return nil, ServiceNotFound
+	var found any
+	// search
+	for _, s := range sp.services {
+		styp := reflect.TypeOf(s)
 
+		// Match 1: direct
+		if styp.AssignableTo(typ) {
+			found = s
+			break
+		}
+
+		// Match 2: if requested is pointer to interface
+		if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Interface && styp.AssignableTo(typ.Elem()) {
+			found = s
+			break
+		}
+
+		// Match 3: if requested is interface
+		if typ.Kind() == reflect.Interface && styp.AssignableTo(typ) {
+			found = s
+			break
+		}
+
+		// Match 4: struct match (typ is struct, s is ptr to struct)
+		if typ.Kind() == reflect.Struct && styp.Kind() == reflect.Ptr && styp.Elem() == typ {
+			found = s
+			break
+		}
+
+		// Match 5: pointer match (typ is ptr to struct, s is struct)
+		if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Struct && styp == typ.Elem() {
+			found = s
+			break
+		}
 	}
-	return service, nil
+
+	if found != nil {
+		sp.serviceMap[typ] = found
+		return found, nil
+	}
+
+	// Cache the miss
+	sp.serviceMap[typ] = nil
+
+	return nil, errors.Wrapf(ErrServiceNotFound, "service [%s] not found", typ.String())
 }
 
-func (sp *ServiceProvider) RegisterService(service interface{}) error {
+// RegisterService registers a service in the service provider.
+func (sp *ServiceProvider) RegisterService(service any) error {
 	sp.lock.Lock()
 	defer sp.lock.Unlock()
 

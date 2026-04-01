@@ -37,6 +37,7 @@ func OpenWSServerConn(writer http.ResponseWriter, request *http.Request) (*webso
 	}
 	conn, err := upgrader.Upgrade(writer, request, nil)
 	if err != nil {
+		logger.Errorf("Failed to upgrade connection to websocket from [%s]: %s", request.RemoteAddr, err.Error())
 		return nil, err
 	}
 	conn.SetReadLimit(maxMessageSize)

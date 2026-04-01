@@ -32,15 +32,13 @@ type SessionFactory struct {
 		result1 viewa.Session
 		result2 error
 	}
-	NewSessionWithIDStub        func(string, string, string, []byte, viewa.Identity, *viewa.Message) (viewa.Session, error)
+	NewSessionWithIDStub        func(string, string, string, []byte) (viewa.Session, error)
 	newSessionWithIDMutex       sync.RWMutex
 	newSessionWithIDArgsForCall []struct {
 		arg1 string
 		arg2 string
 		arg3 string
 		arg4 []byte
-		arg5 viewa.Identity
-		arg6 *viewa.Message
 	}
 	newSessionWithIDReturns struct {
 		result1 viewa.Session
@@ -159,7 +157,7 @@ func (fake *SessionFactory) NewSessionReturnsOnCall(i int, result1 viewa.Session
 	}{result1, result2}
 }
 
-func (fake *SessionFactory) NewSessionWithID(arg1 string, arg2 string, arg3 string, arg4 []byte, arg5 viewa.Identity, arg6 *viewa.Message) (viewa.Session, error) {
+func (fake *SessionFactory) NewSessionWithID(arg1 string, arg2 string, arg3 string, arg4 []byte) (viewa.Session, error) {
 	var arg4Copy []byte
 	if arg4 != nil {
 		arg4Copy = make([]byte, len(arg4))
@@ -172,15 +170,13 @@ func (fake *SessionFactory) NewSessionWithID(arg1 string, arg2 string, arg3 stri
 		arg2 string
 		arg3 string
 		arg4 []byte
-		arg5 viewa.Identity
-		arg6 *viewa.Message
-	}{arg1, arg2, arg3, arg4Copy, arg5, arg6})
+	}{arg1, arg2, arg3, arg4Copy})
 	stub := fake.NewSessionWithIDStub
 	fakeReturns := fake.newSessionWithIDReturns
-	fake.recordInvocation("NewSessionWithID", []interface{}{arg1, arg2, arg3, arg4Copy, arg5, arg6})
+	fake.recordInvocation("NewSessionWithID", []interface{}{arg1, arg2, arg3, arg4Copy})
 	fake.newSessionWithIDMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5, arg6)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -194,17 +190,17 @@ func (fake *SessionFactory) NewSessionWithIDCallCount() int {
 	return len(fake.newSessionWithIDArgsForCall)
 }
 
-func (fake *SessionFactory) NewSessionWithIDCalls(stub func(string, string, string, []byte, viewa.Identity, *viewa.Message) (viewa.Session, error)) {
+func (fake *SessionFactory) NewSessionWithIDCalls(stub func(string, string, string, []byte) (viewa.Session, error)) {
 	fake.newSessionWithIDMutex.Lock()
 	defer fake.newSessionWithIDMutex.Unlock()
 	fake.NewSessionWithIDStub = stub
 }
 
-func (fake *SessionFactory) NewSessionWithIDArgsForCall(i int) (string, string, string, []byte, viewa.Identity, *viewa.Message) {
+func (fake *SessionFactory) NewSessionWithIDArgsForCall(i int) (string, string, string, []byte) {
 	fake.newSessionWithIDMutex.RLock()
 	defer fake.newSessionWithIDMutex.RUnlock()
 	argsForCall := fake.newSessionWithIDArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
 func (fake *SessionFactory) NewSessionWithIDReturns(result1 viewa.Session, result2 error) {
@@ -236,12 +232,6 @@ func (fake *SessionFactory) NewSessionWithIDReturnsOnCall(i int, result1 viewa.S
 func (fake *SessionFactory) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.deleteSessionsMutex.RLock()
-	defer fake.deleteSessionsMutex.RUnlock()
-	fake.newSessionMutex.RLock()
-	defer fake.newSessionMutex.RUnlock()
-	fake.newSessionWithIDMutex.RLock()
-	defer fake.newSessionWithIDMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

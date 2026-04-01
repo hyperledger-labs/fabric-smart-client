@@ -110,7 +110,7 @@ func SessionsTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 	msg := <-masterSessionMsgs
 	assert.Equal(t, []byte("ciao"), msg.Payload)
 
-	session, err := node.NewSessionWithID(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
+	session, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, session)
 
@@ -139,7 +139,7 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNo
 	go func() {
 		defer wg.Done()
 
-		session, err := bootstrapNode.NewSessionWithID("myawesomempcid", "", bootstrapNode.Address, []byte(node.ID), nil, nil)
+		session, err := bootstrapNode.NewResponderSession("myawesomempcid", "", bootstrapNode.Address, []byte(node.ID), nil, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, session)
 
@@ -153,7 +153,7 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNo
 		session.Close()
 	}()
 
-	session, err := node.NewSessionWithID("myawesomempcid", "", bootstrapNode.Address, []byte(bootstrapNode.ID), nil, nil)
+	session, err := node.NewResponderSession("myawesomempcid", "", bootstrapNode.Address, []byte(bootstrapNode.ID), nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, session)
 
@@ -265,7 +265,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, no
 				require.Equal(t, messagesToReceive[0], payload)
 
 				// Create dedicated session to receive the rest
-				s, err := node.NewSessionWithID(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
+				s, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
 				require.NoError(t, err)
 				require.NotNil(t, s)
 

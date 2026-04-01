@@ -95,12 +95,12 @@ func TestMTLSCallerIdentityBinding(t *testing.T) {
 	require.NotNil(t, msg)
 	require.Equal(t, []byte("ping"), msg.Payload)
 
-	responder, err := node.NewSessionWithID(msg.SessionID, msg.ContextID, "", msg.FromPKID, view.Identity(msg.FromPKID), nil)
+	responder, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, view.Identity(msg.FromPKID), nil)
 	require.NoError(t, err)
 	require.True(t, responder.Info().Caller.Equal(view.Identity(msg.FromPKID)))
 
 	maliciousCaller := view.Identity([]byte("malicious-caller"))
-	_, err = node.NewSessionWithID(msg.SessionID, msg.ContextID, "", msg.FromPKID, maliciousCaller, nil)
+	_, err = node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, maliciousCaller, nil)
 	require.Error(t, err)
 	require.True(t, responder.Info().Caller.Equal(view.Identity(msg.FromPKID)))
 
@@ -407,7 +407,7 @@ func TestSessionInfoSecurityGuarantees(t *testing.T) {
 	msg := <-masterSession.Receive()
 	require.NotNil(t, msg)
 
-	responder, err := bobNode.NewSessionWithID(msg.SessionID, msg.ContextID, "", msg.FromPKID, view.Identity(msg.FromPKID), nil)
+	responder, err := bobNode.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, view.Identity(msg.FromPKID), nil)
 	require.NoError(t, err)
 
 	info := responder.Info()
@@ -436,7 +436,7 @@ func TestSessionInfoSecurityGuarantees(t *testing.T) {
 	defer charlieP2PNode.Stop()
 
 	// Charlie tries to hijack
-	charlieSession, err := charlieP2PNode.NewSessionWithID(msg.SessionID, msg.ContextID, bobNode.Address, []byte(bobNode.ID), nil, nil)
+	charlieSession, err := charlieP2PNode.NewResponderSession(msg.SessionID, msg.ContextID, bobNode.Address, []byte(bobNode.ID), nil, nil)
 	require.NoError(t, err)
 	// Charlie's Send might fail because Bob rejects the connection at the transport level (Identity Binding)
 	_ = charlieSession.Send([]byte("i am alice"))

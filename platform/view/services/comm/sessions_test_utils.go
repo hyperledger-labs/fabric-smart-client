@@ -142,7 +142,7 @@ func runResponder(t *testing.T, ctx context.Context, node *HostNode, msg *view.M
 		return
 	}
 
-	s, err := node.NewSessionWithID(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
+	s, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
 	if err != nil {
 		t.Errorf("Responder [%s]: failed to create session: %v", msg.SessionID, err)
 		return

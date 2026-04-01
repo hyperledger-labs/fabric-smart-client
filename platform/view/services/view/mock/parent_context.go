@@ -29,17 +29,17 @@ type ParentContext struct {
 	disposeMutex       sync.RWMutex
 	disposeArgsForCall []struct {
 	}
-	GetServiceStub        func(interface{}) (interface{}, error)
+	GetServiceStub        func(any) (any, error)
 	getServiceMutex       sync.RWMutex
 	getServiceArgsForCall []struct {
-		arg1 interface{}
+		arg1 any
 	}
 	getServiceReturns struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	getServiceReturnsOnCall map[int]struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	GetSessionStub        func(viewa.View, viewa.Identity, ...viewa.View) (viewa.Session, error)
@@ -130,18 +130,31 @@ type ParentContext struct {
 	putSessionReturnsOnCall map[int]struct {
 		result1 error
 	}
-	RunViewStub        func(viewa.View, ...viewa.RunViewOption) (interface{}, error)
+	PutSessionByIDStub        func(string, viewa.Identity, viewa.Session) error
+	putSessionByIDMutex       sync.RWMutex
+	putSessionByIDArgsForCall []struct {
+		arg1 string
+		arg2 viewa.Identity
+		arg3 viewa.Session
+	}
+	putSessionByIDReturns struct {
+		result1 error
+	}
+	putSessionByIDReturnsOnCall map[int]struct {
+		result1 error
+	}
+	RunViewStub        func(viewa.View, ...viewa.RunViewOption) (any, error)
 	runViewMutex       sync.RWMutex
 	runViewArgsForCall []struct {
 		arg1 viewa.View
 		arg2 []viewa.RunViewOption
 	}
 	runViewReturns struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	runViewReturnsOnCall map[int]struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	SessionStub        func() viewa.Session
@@ -169,7 +182,7 @@ type ParentContext struct {
 		result1 context.Context
 		result2 trace.Span
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -178,7 +191,7 @@ func (fake *ParentContext) Cleanup() {
 	fake.cleanupArgsForCall = append(fake.cleanupArgsForCall, struct {
 	}{})
 	stub := fake.CleanupStub
-	fake.recordInvocation("Cleanup", []interface{}{})
+	fake.recordInvocation("Cleanup", []any{})
 	fake.cleanupMutex.Unlock()
 	if stub != nil {
 		fake.CleanupStub()
@@ -204,7 +217,7 @@ func (fake *ParentContext) Context() context.Context {
 	}{})
 	stub := fake.ContextStub
 	fakeReturns := fake.contextReturns
-	fake.recordInvocation("Context", []interface{}{})
+	fake.recordInvocation("Context", []any{})
 	fake.contextMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -255,7 +268,7 @@ func (fake *ParentContext) Dispose() {
 	fake.disposeArgsForCall = append(fake.disposeArgsForCall, struct {
 	}{})
 	stub := fake.DisposeStub
-	fake.recordInvocation("Dispose", []interface{}{})
+	fake.recordInvocation("Dispose", []any{})
 	fake.disposeMutex.Unlock()
 	if stub != nil {
 		fake.DisposeStub()
@@ -274,15 +287,15 @@ func (fake *ParentContext) DisposeCalls(stub func()) {
 	fake.DisposeStub = stub
 }
 
-func (fake *ParentContext) GetService(arg1 interface{}) (interface{}, error) {
+func (fake *ParentContext) GetService(arg1 any) (any, error) {
 	fake.getServiceMutex.Lock()
 	ret, specificReturn := fake.getServiceReturnsOnCall[len(fake.getServiceArgsForCall)]
 	fake.getServiceArgsForCall = append(fake.getServiceArgsForCall, struct {
-		arg1 interface{}
+		arg1 any
 	}{arg1})
 	stub := fake.GetServiceStub
 	fakeReturns := fake.getServiceReturns
-	fake.recordInvocation("GetService", []interface{}{arg1})
+	fake.recordInvocation("GetService", []any{arg1})
 	fake.getServiceMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -299,41 +312,41 @@ func (fake *ParentContext) GetServiceCallCount() int {
 	return len(fake.getServiceArgsForCall)
 }
 
-func (fake *ParentContext) GetServiceCalls(stub func(interface{}) (interface{}, error)) {
+func (fake *ParentContext) GetServiceCalls(stub func(any) (any, error)) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = stub
 }
 
-func (fake *ParentContext) GetServiceArgsForCall(i int) interface{} {
+func (fake *ParentContext) GetServiceArgsForCall(i int) any {
 	fake.getServiceMutex.RLock()
 	defer fake.getServiceMutex.RUnlock()
 	argsForCall := fake.getServiceArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *ParentContext) GetServiceReturns(result1 interface{}, result2 error) {
+func (fake *ParentContext) GetServiceReturns(result1 any, result2 error) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = nil
 	fake.getServiceReturns = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *ParentContext) GetServiceReturnsOnCall(i int, result1 interface{}, result2 error) {
+func (fake *ParentContext) GetServiceReturnsOnCall(i int, result1 any, result2 error) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = nil
 	if fake.getServiceReturnsOnCall == nil {
 		fake.getServiceReturnsOnCall = make(map[int]struct {
-			result1 interface{}
+			result1 any
 			result2 error
 		})
 	}
 	fake.getServiceReturnsOnCall[i] = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
@@ -348,7 +361,7 @@ func (fake *ParentContext) GetSession(arg1 viewa.View, arg2 viewa.Identity, arg3
 	}{arg1, arg2, arg3})
 	stub := fake.GetSessionStub
 	fakeReturns := fake.getSessionReturns
-	fake.recordInvocation("GetSession", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("GetSession", []any{arg1, arg2, arg3})
 	fake.getSessionMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3...)
@@ -413,7 +426,7 @@ func (fake *ParentContext) GetSessionByID(arg1 string, arg2 viewa.Identity) (vie
 	}{arg1, arg2})
 	stub := fake.GetSessionByIDStub
 	fakeReturns := fake.getSessionByIDReturns
-	fake.recordInvocation("GetSessionByID", []interface{}{arg1, arg2})
+	fake.recordInvocation("GetSessionByID", []any{arg1, arg2})
 	fake.getSessionByIDMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -476,7 +489,7 @@ func (fake *ParentContext) ID() string {
 	}{})
 	stub := fake.IDStub
 	fakeReturns := fake.iDReturns
-	fake.recordInvocation("ID", []interface{}{})
+	fake.recordInvocation("ID", []any{})
 	fake.iDMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -529,7 +542,7 @@ func (fake *ParentContext) Initiator() viewa.View {
 	}{})
 	stub := fake.InitiatorStub
 	fakeReturns := fake.initiatorReturns
-	fake.recordInvocation("Initiator", []interface{}{})
+	fake.recordInvocation("Initiator", []any{})
 	fake.initiatorMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -583,7 +596,7 @@ func (fake *ParentContext) IsMe(arg1 viewa.Identity) bool {
 	}{arg1})
 	stub := fake.IsMeStub
 	fakeReturns := fake.isMeReturns
-	fake.recordInvocation("IsMe", []interface{}{arg1})
+	fake.recordInvocation("IsMe", []any{arg1})
 	fake.isMeMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -643,7 +656,7 @@ func (fake *ParentContext) Me() viewa.Identity {
 	}{})
 	stub := fake.MeStub
 	fakeReturns := fake.meReturns
-	fake.recordInvocation("Me", []interface{}{})
+	fake.recordInvocation("Me", []any{})
 	fake.meMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -695,7 +708,7 @@ func (fake *ParentContext) OnError(arg1 func()) {
 		arg1 func()
 	}{arg1})
 	stub := fake.OnErrorStub
-	fake.recordInvocation("OnError", []interface{}{arg1})
+	fake.recordInvocation("OnError", []any{arg1})
 	fake.onErrorMutex.Unlock()
 	if stub != nil {
 		fake.OnErrorStub(arg1)
@@ -731,7 +744,7 @@ func (fake *ParentContext) PutSession(arg1 viewa.View, arg2 viewa.Identity, arg3
 	}{arg1, arg2, arg3})
 	stub := fake.PutSessionStub
 	fakeReturns := fake.putSessionReturns
-	fake.recordInvocation("PutSession", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("PutSession", []any{arg1, arg2, arg3})
 	fake.putSessionMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
@@ -784,7 +797,70 @@ func (fake *ParentContext) PutSessionReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *ParentContext) RunView(arg1 viewa.View, arg2 ...viewa.RunViewOption) (interface{}, error) {
+func (fake *ParentContext) PutSessionByID(arg1 string, arg2 viewa.Identity, arg3 viewa.Session) error {
+	fake.putSessionByIDMutex.Lock()
+	ret, specificReturn := fake.putSessionByIDReturnsOnCall[len(fake.putSessionByIDArgsForCall)]
+	fake.putSessionByIDArgsForCall = append(fake.putSessionByIDArgsForCall, struct {
+		arg1 string
+		arg2 viewa.Identity
+		arg3 viewa.Session
+	}{arg1, arg2, arg3})
+	stub := fake.PutSessionByIDStub
+	fakeReturns := fake.putSessionByIDReturns
+	fake.recordInvocation("PutSessionByID", []any{arg1, arg2, arg3})
+	fake.putSessionByIDMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ParentContext) PutSessionByIDCallCount() int {
+	fake.putSessionByIDMutex.RLock()
+	defer fake.putSessionByIDMutex.RUnlock()
+	return len(fake.putSessionByIDArgsForCall)
+}
+
+func (fake *ParentContext) PutSessionByIDCalls(stub func(string, viewa.Identity, viewa.Session) error) {
+	fake.putSessionByIDMutex.Lock()
+	defer fake.putSessionByIDMutex.Unlock()
+	fake.PutSessionByIDStub = stub
+}
+
+func (fake *ParentContext) PutSessionByIDArgsForCall(i int) (string, viewa.Identity, viewa.Session) {
+	fake.putSessionByIDMutex.RLock()
+	defer fake.putSessionByIDMutex.RUnlock()
+	argsForCall := fake.putSessionByIDArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *ParentContext) PutSessionByIDReturns(result1 error) {
+	fake.putSessionByIDMutex.Lock()
+	defer fake.putSessionByIDMutex.Unlock()
+	fake.PutSessionByIDStub = nil
+	fake.putSessionByIDReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *ParentContext) PutSessionByIDReturnsOnCall(i int, result1 error) {
+	fake.putSessionByIDMutex.Lock()
+	defer fake.putSessionByIDMutex.Unlock()
+	fake.PutSessionByIDStub = nil
+	if fake.putSessionByIDReturnsOnCall == nil {
+		fake.putSessionByIDReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.putSessionByIDReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *ParentContext) RunView(arg1 viewa.View, arg2 ...viewa.RunViewOption) (any, error) {
 	fake.runViewMutex.Lock()
 	ret, specificReturn := fake.runViewReturnsOnCall[len(fake.runViewArgsForCall)]
 	fake.runViewArgsForCall = append(fake.runViewArgsForCall, struct {
@@ -793,7 +869,7 @@ func (fake *ParentContext) RunView(arg1 viewa.View, arg2 ...viewa.RunViewOption)
 	}{arg1, arg2})
 	stub := fake.RunViewStub
 	fakeReturns := fake.runViewReturns
-	fake.recordInvocation("RunView", []interface{}{arg1, arg2})
+	fake.recordInvocation("RunView", []any{arg1, arg2})
 	fake.runViewMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2...)
@@ -810,7 +886,7 @@ func (fake *ParentContext) RunViewCallCount() int {
 	return len(fake.runViewArgsForCall)
 }
 
-func (fake *ParentContext) RunViewCalls(stub func(viewa.View, ...viewa.RunViewOption) (interface{}, error)) {
+func (fake *ParentContext) RunViewCalls(stub func(viewa.View, ...viewa.RunViewOption) (any, error)) {
 	fake.runViewMutex.Lock()
 	defer fake.runViewMutex.Unlock()
 	fake.RunViewStub = stub
@@ -823,28 +899,28 @@ func (fake *ParentContext) RunViewArgsForCall(i int) (viewa.View, []viewa.RunVie
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *ParentContext) RunViewReturns(result1 interface{}, result2 error) {
+func (fake *ParentContext) RunViewReturns(result1 any, result2 error) {
 	fake.runViewMutex.Lock()
 	defer fake.runViewMutex.Unlock()
 	fake.RunViewStub = nil
 	fake.runViewReturns = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *ParentContext) RunViewReturnsOnCall(i int, result1 interface{}, result2 error) {
+func (fake *ParentContext) RunViewReturnsOnCall(i int, result1 any, result2 error) {
 	fake.runViewMutex.Lock()
 	defer fake.runViewMutex.Unlock()
 	fake.RunViewStub = nil
 	if fake.runViewReturnsOnCall == nil {
 		fake.runViewReturnsOnCall = make(map[int]struct {
-			result1 interface{}
+			result1 any
 			result2 error
 		})
 	}
 	fake.runViewReturnsOnCall[i] = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
@@ -856,7 +932,7 @@ func (fake *ParentContext) Session() viewa.Session {
 	}{})
 	stub := fake.SessionStub
 	fakeReturns := fake.sessionReturns
-	fake.recordInvocation("Session", []interface{}{})
+	fake.recordInvocation("Session", []any{})
 	fake.sessionMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -912,7 +988,7 @@ func (fake *ParentContext) StartSpanFrom(arg1 context.Context, arg2 string, arg3
 	}{arg1, arg2, arg3})
 	stub := fake.StartSpanFromStub
 	fakeReturns := fake.startSpanFromReturns
-	fake.recordInvocation("StartSpanFrom", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("StartSpanFrom", []any{arg1, arg2, arg3})
 	fake.startSpanFromMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3...)
@@ -968,54 +1044,24 @@ func (fake *ParentContext) StartSpanFromReturnsOnCall(i int, result1 context.Con
 	}{result1, result2}
 }
 
-func (fake *ParentContext) Invocations() map[string][][]interface{} {
+func (fake *ParentContext) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.cleanupMutex.RLock()
-	defer fake.cleanupMutex.RUnlock()
-	fake.contextMutex.RLock()
-	defer fake.contextMutex.RUnlock()
-	fake.disposeMutex.RLock()
-	defer fake.disposeMutex.RUnlock()
-	fake.getServiceMutex.RLock()
-	defer fake.getServiceMutex.RUnlock()
-	fake.getSessionMutex.RLock()
-	defer fake.getSessionMutex.RUnlock()
-	fake.getSessionByIDMutex.RLock()
-	defer fake.getSessionByIDMutex.RUnlock()
-	fake.iDMutex.RLock()
-	defer fake.iDMutex.RUnlock()
-	fake.initiatorMutex.RLock()
-	defer fake.initiatorMutex.RUnlock()
-	fake.isMeMutex.RLock()
-	defer fake.isMeMutex.RUnlock()
-	fake.meMutex.RLock()
-	defer fake.meMutex.RUnlock()
-	fake.onErrorMutex.RLock()
-	defer fake.onErrorMutex.RUnlock()
-	fake.putSessionMutex.RLock()
-	defer fake.putSessionMutex.RUnlock()
-	fake.runViewMutex.RLock()
-	defer fake.runViewMutex.RUnlock()
-	fake.sessionMutex.RLock()
-	defer fake.sessionMutex.RUnlock()
-	fake.startSpanFromMutex.RLock()
-	defer fake.startSpanFromMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *ParentContext) recordInvocation(key string, args []interface{}) {
+func (fake *ParentContext) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

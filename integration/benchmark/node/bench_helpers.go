@@ -28,7 +28,7 @@ import (
 // It is satisfied by the value returned from viewregistry.GetManager().
 type ViewManager interface {
 	NewView(id string, in []byte) (view.View, error)
-	InitiateView(view view.View, ctx context.Context) (interface{}, error)
+	InitiateView(ctx context.Context, view view.View) (interface{}, error)
 }
 
 // Workload defines a benchmark workload: a named view factory with optional parameters.
@@ -156,7 +156,7 @@ func RunAPIBenchmark(b *testing.B, vm ViewManager, wl Workload) {
 	f, err := vm.NewView(wl.Name, in)
 	require.NoError(b, err)
 	for range 1000 {
-		_, err = vm.InitiateView(f, context.Background())
+		_, err = vm.InitiateView(context.Background(), f)
 		assert.NoError(b, err)
 	}
 	runtime.GC()
@@ -169,7 +169,7 @@ func RunAPIBenchmark(b *testing.B, vm ViewManager, wl Workload) {
 			assert.NoError(b, err)
 
 			for pb.Next() {
-				_, err = vm.InitiateView(f, context.Background())
+				_, err = vm.InitiateView(context.Background(), f)
 				assert.NoError(b, err)
 			}
 		})
@@ -182,7 +182,7 @@ func RunAPIBenchmark(b *testing.B, vm ViewManager, wl Workload) {
 			for pb.Next() {
 				f, err := vm.NewView(wl.Name, in)
 				assert.NoError(b, err)
-				_, err = vm.InitiateView(f, context.Background())
+				_, err = vm.InitiateView(context.Background(), f)
 				assert.NoError(b, err)
 			}
 		})

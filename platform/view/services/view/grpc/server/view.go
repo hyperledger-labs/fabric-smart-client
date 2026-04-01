@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.opentelemetry.io/otel/trace"
@@ -26,6 +27,7 @@ type viewHandler struct {
 	tracer      trace.Tracer
 }
 
+// InstallViewHandler installs the view handler into the given service.
 func InstallViewHandler(viewManager ViewManager, server Service, tracerProvider tracing.Provider) {
 	fh := &viewHandler{
 		viewManager: viewManager,
@@ -38,7 +40,7 @@ func InstallViewHandler(viewManager ViewManager, server Service, tracerProvider 
 	server.RegisterStreamer(reflect.TypeOf(&protos.Command_CallView{}), fh.streamCallView)
 }
 
-func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command) (interface{}, error) {
+func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command) (any, error) {
 	initiateView := command.Payload.(*protos.Command_InitiateView).InitiateView
 	_, span := s.tracer.Start(ctx, "initiate_view", tracing.WithAttributes(tracing.String(fidLabel, initiateView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
@@ -49,18 +51,18 @@ func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command)
 
 	f, err := s.viewManager.NewView(fid, input)
 	if err != nil {
-		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
+		return nil, errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
-	contextID, err := s.RunView(s.viewManager, f)
+	contextID, err := s.RunView(ctx, s.viewManager, f)
 	if err != nil {
-		return nil, errors.Errorf("failed running view [%s], err %s", fid, err)
+		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
 	return &protos.CommandResponse_InitiateViewResponse{InitiateViewResponse: &protos.InitiateViewResponse{
 		Cid: contextID,
 	}}, nil
 }
 
-func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (interface{}, error) {
+func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (any, error) {
 	callView := command.Payload.(*protos.Command_CallView).CallView
 	// newCtx, span := s.tracer.Start(ctx, "call_view", tracing.WithAttributes(tracing.String(fidLabel, callView.Fid)), trace.WithSpanKind(trace.SpanKindInternal))
 	// defer span.End()
@@ -70,13 +72,13 @@ func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (in
 
 	f, err := s.viewManager.NewView(fid, input)
 	if err != nil {
-		return nil, errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
+		return nil, errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
 	logger.DebugfContext(ctx, "Initiate new view")
-	result, err := s.viewManager.InitiateView(f, ctx)
+	result, err := s.viewManager.InitiateView(ctx, f)
 
 	if err != nil {
-		return nil, errors.Errorf("failed running view [%s], err %s", fid, err)
+		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
 	raw, ok := result.([]byte)
 	if !ok {
@@ -101,13 +103,13 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 
 	f, err := s.viewManager.NewView(fid, input)
 	if err != nil {
-		return errors.Errorf("failed instantiating view [%s], err [%s]", fid, err)
+		return errors.Wrapf(view.ErrViewInstantiationFailed, "failed instantiating view [%s]: %v", fid, err)
 	}
-	context, err := s.viewManager.InitiateContext(f)
+	viewCtx, err := s.viewManager.InitiateContext(commandServer.Context(), f)
 	if err != nil {
-		return errors.Errorf("failed running view [%s], err %s", fid, err)
+		return errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
-	mutable, ok := context.(view2.MutableContext)
+	mutable, ok := viewCtx.(view2.MutableContext)
 	if !ok {
 		return errors.Errorf("expected a mutable contexdt")
 	}
@@ -115,10 +117,12 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 		return errors.Errorf("failed registering stream command server")
 	}
 
-	result, err := context.RunView(f)
+	result, err := viewCtx.RunView(f)
 	if err != nil {
-		return errors.Errorf("failed running view [%s], err %s", fid, err)
+		s.viewManager.DeleteContext(viewCtx.ID())
+		return errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}
+	defer s.viewManager.DeleteContext(viewCtx.ID())
 	raw, ok := result.([]byte)
 	if !ok {
 		raw, err = json.Marshal(result)
@@ -141,8 +145,9 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 	return commandServer.Send(cr)
 }
 
-func (s *viewHandler) RunView(manager ViewManager, view view2.View) (string, error) {
-	context, err := manager.InitiateContext(view)
+// RunView initiates a view and returns its context ID.
+func (s *viewHandler) RunView(ctx context.Context, manager ViewManager, view view2.View) (string, error) {
+	context, err := manager.InitiateContext(ctx, view)
 	if err != nil {
 		return "", err
 	}
@@ -153,8 +158,9 @@ func (s *viewHandler) RunView(manager ViewManager, view view2.View) (string, err
 	return context.ID(), nil
 }
 
-func (s *viewHandler) runView(view view2.View, context view2.Context) {
-	result, err := context.RunView(view)
+func (s *viewHandler) runView(view view2.View, viewCtx view2.Context) {
+	defer s.viewManager.DeleteContext(viewCtx.ID())
+	result, err := viewCtx.RunView(view)
 	if err != nil {
 		logger.Errorf("failed view execution. Err [%s]\n", err.Error())
 	} else {
@@ -166,7 +172,7 @@ type Stream struct {
 	scs protos.ViewService_StreamCommandServer
 }
 
-func (c *Stream) Send(m interface{}) error {
+func (c *Stream) Send(m any) error {
 	raw, err := json.Marshal(m)
 	if err != nil {
 		return err
@@ -177,7 +183,7 @@ func (c *Stream) Send(m interface{}) error {
 	return c.SendProtoMsg(s)
 }
 
-func (c *Stream) Recv(m interface{}) error {
+func (c *Stream) Recv(m any) error {
 	s := &protos.CallViewResponse{}
 	if err := c.RecvProtoMsg(s); err != nil {
 		return err
@@ -185,10 +191,10 @@ func (c *Stream) Recv(m interface{}) error {
 	return json.Unmarshal(s.Result, m)
 }
 
-func (c *Stream) SendProtoMsg(m interface{}) error {
+func (c *Stream) SendProtoMsg(m any) error {
 	return c.scs.SendMsg(m)
 }
 
-func (c *Stream) RecvProtoMsg(m interface{}) error {
+func (c *Stream) RecvProtoMsg(m any) error {
 	return c.scs.RecvMsg(m)
 }

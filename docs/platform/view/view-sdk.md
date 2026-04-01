@@ -6,6 +6,7 @@ This is the architecture of the View SDK:
 
 ## Components
 
-- [Configuration Service](./config-service.md)
-- [DB Drivers](./db-driver.md)
-- [Monitoring](./monitoring.md)
+- [View Service](services/view-service.md) - Core orchestration layer for view lifecycle and protocol coordination
+- [Configuration Service](services/config-service.md)
+- [DB Drivers](services/db-driver.md)
+- [Monitoring](services/monitoring.md)
