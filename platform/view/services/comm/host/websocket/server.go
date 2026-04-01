@@ -33,17 +33,17 @@ type server struct {
 func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stream host2.P2PStream), corsAllowedOrigins []string) *gin.Engine {
 	logger.Debugf("creating GIN engine for p2p REST endpoint.")
 	r := gin.New()
-	
+
 	// Recovery middleware to catch panics and log them
 	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
 		logger.Errorf("Panic recovered in websocket handler from [%s]: %v", c.Request.RemoteAddr, recovered)
 		c.AbortWithStatus(http.StatusInternalServerError)
 	}))
-	
+
 	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 		// Log errors at ERROR level, others at INFO level
 		if param.StatusCode >= 400 {
-			logger.Errorf("HTTP %d - %s %s from [%s]: %s", 
+			logger.Errorf("HTTP %d - %s %s from [%s]: %s",
 				param.StatusCode, param.Method, param.Path, param.ClientIP, param.ErrorMessage)
 		}
 		// Standard format for access logs
