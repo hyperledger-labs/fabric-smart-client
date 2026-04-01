@@ -123,14 +123,21 @@ func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 
 func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PStream, error) {
 	logger.DebugfContext(ctx, "No address passed for peer [%s]. Resolving...", info.RemotePeerID)
-	defer logger.DebugfContext(ctx, "New stream opened")
 	// if len(address) == 0 { //TODO
 	if info.RemotePeerAddress = h.routing.Lookup(info.RemotePeerID); len(info.RemotePeerAddress) == 0 {
-		return nil, errors.Errorf("no address found for peer [%s]", info.RemotePeerID)
+		err := errors.Errorf("no address found for peer [%s]", info.RemotePeerID)
+		logger.ErrorfContext(ctx, "Failed to resolve peer address: %s", err.Error())
+		return nil, err
 	}
 	logger.DebugfContext(ctx, "Resolved address of peer [%s]: %s", info.RemotePeerID, info.RemotePeerAddress)
 	// }
-	return h.client.OpenStream(info, ctx)
+	stream, err := h.client.OpenStream(info, ctx)
+	if err != nil {
+		logger.ErrorfContext(ctx, "Failed to open stream to peer [%s] at [%s]: %s", info.RemotePeerID, info.RemotePeerAddress, err.Error())
+		return nil, err
+	}
+	logger.DebugfContext(ctx, "New stream opened successfully")
+	return stream, nil
 }
 
 func (h *host) Lookup(peerID host2.PeerID) ([]host2.PeerIPAddress, bool) {

@@ -263,6 +263,7 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, keyFile, certFile strin
 			}
 
 			if clientAuthRequired && len(cs.PeerCertificates) == 0 {
+				logger.Errorf("Rejecting client connection from [%s]: no client certificate provided", cs.ServerName)
 				return errors.New("custom reject: no client cert provided")
 			}
 			return nil

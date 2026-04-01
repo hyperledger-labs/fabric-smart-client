@@ -169,6 +169,7 @@ func (c *MultiplexedProvider) NewClientStream(info host2.StreamInfo, ctx context
 
 	wsConn, err := web2.OpenWSClientConn(url.String(), config)
 	if err != nil {
+		logger.Errorf("Failed to open websocket connection from [%s] to [%s@%s]: %s", src, info.RemotePeerID, info.RemotePeerAddress, err.Error())
 		return nil, errors.Wrapf(err, "failed to open websocket")
 	}
 
