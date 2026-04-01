@@ -89,6 +89,10 @@ func (p *P2PNode) NewResponderSession(sessionID, contextID, endpoint string, pki
 	return p.getOrCreateSession(sessionID, endpoint, contextID, "", caller, pkid, msg)
 }
 
+func (p *P2PNode) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte) (view.Session, error) {
+	return p.getOrCreateSession(sessionID, endpoint, contextID, "", nil, pkid, nil)
+}
+
 func (p *P2PNode) MasterSession() (view.Session, error) {
 	return p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
 }

@@ -428,7 +428,7 @@ func (c *Context) newSessionByID(sessionID, contextID string, party view.Identit
 		logger.DebugfContext(c.Context(), "Open new session by id to %s", resolver.GetName())
 	}
 	logger.DebugfContext(c.Context(), "Open new session by id to %s", ep)
-	return c.sessionFactory.NewSessionWithID(sessionID, contextID, ep, pkid, nil, nil)
+	return c.sessionFactory.NewSessionWithID(sessionID, contextID, ep, pkid)
 }
 
 // Cleanup calls all error callbacks registered in this context.

@@ -116,6 +116,22 @@ func (s *Service) NewResponderSession(caller []byte, msg *view.Message) (view.Se
 	)
 }
 
+func (s *Service) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte) (view.Session, error) {
+	if err := s.init(); err != nil {
+		return nil, ErrNotInitialized
+	}
+
+	return s.Node.NewSessionWithID(sessionID, contextID, endpoint, pkid)
+}
+
+func (s *Service) NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error) {
+	if err := s.init(); err != nil {
+		return nil, ErrNotInitialized
+	}
+
+	return s.Node.NewSession(caller, contextID, endpoint, pkid)
+}
+
 func (s *Service) DeleteSessions(ctx context.Context, sessionID string) {
 	if err := s.init(); err != nil {
 		logger.Warnf("%s, cannot delete any session", ErrNotInitialized)
