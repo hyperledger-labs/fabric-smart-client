@@ -35,7 +35,7 @@ type ViewServiceClient struct {
 		result2 protos.ViewServiceClient
 		result3 error
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -46,7 +46,7 @@ func (fake *ViewServiceClient) Certificate() *tls.Certificate {
 	}{})
 	stub := fake.CertificateStub
 	fakeReturns := fake.certificateReturns
-	fake.recordInvocation("Certificate", []interface{}{})
+	fake.recordInvocation("Certificate", []any{})
 	fake.certificateMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -99,7 +99,7 @@ func (fake *ViewServiceClient) CreateViewClient() (*grpc.ClientConn, protos.View
 	}{})
 	stub := fake.CreateViewClientStub
 	fakeReturns := fake.createViewClientReturns
-	fake.recordInvocation("CreateViewClient", []interface{}{})
+	fake.recordInvocation("CreateViewClient", []any{})
 	fake.createViewClientMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -151,24 +151,24 @@ func (fake *ViewServiceClient) CreateViewClientReturnsOnCall(i int, result1 *grp
 	}{result1, result2, result3}
 }
 
-func (fake *ViewServiceClient) Invocations() map[string][][]interface{} {
+func (fake *ViewServiceClient) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *ViewServiceClient) recordInvocation(key string, args []interface{}) {
+func (fake *ViewServiceClient) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

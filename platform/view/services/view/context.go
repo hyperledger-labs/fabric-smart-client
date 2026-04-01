@@ -198,7 +198,7 @@ func NewContextForInitiator(
 
 // NewContext returns a new Context.
 func NewContext(
-	context context.Context,
+	ctx context.Context,
 	sp services.Provider,
 	contextID string,
 	sessionFactory SessionFactory,
@@ -210,12 +210,12 @@ func NewContext(
 	tracer trace.Tracer,
 	localIdentityChecker LocalIdentityChecker,
 ) (*Context, error) {
-	if context == nil {
+	if ctx == nil {
 		return nil, errors.Errorf("a context should not be nil [%s]", string(debug.Stack()))
 	}
 
-	ctx := &Context{
-		ctx:                  context,
+	viewCtxt := &Context{
+		ctx:                  ctx,
 		id:                   contextID,
 		resolver:             resolver,
 		sessionFactory:       sessionFactory,
@@ -232,10 +232,10 @@ func NewContext(
 	}
 	if session != nil {
 		// Register default session
-		ctx.sessions.PutDefault(session.Info().Caller, session)
+		viewCtxt.sessions.PutDefault(session.Info().Caller, session)
 	}
 
-	return ctx, nil
+	return viewCtxt, nil
 }
 
 // StartSpan starts a new span from the internal context.
@@ -265,7 +265,7 @@ func (c *Context) Initiator() view.View {
 }
 
 // RunView runs the passed view on input this context.
-func (c *Context) RunView(v view.View, opts ...view.RunViewOption) (res interface{}, err error) {
+func (c *Context) RunView(v view.View, opts ...view.RunViewOption) (res any, err error) {
 	return RunViewNow(c, v, opts...)
 }
 
@@ -359,13 +359,13 @@ func (c *Context) ResetSessions() error {
 }
 
 // PutService registers a service in this context.
-func (c *Context) PutService(service interface{}) error {
+func (c *Context) PutService(service any) error {
 	return c.localSP.RegisterService(service)
 }
 
 // GetService returns an instance of the given type.
 // It first searches locally in this context, then globally in the service provider.
-func (c *Context) GetService(v interface{}) (interface{}, error) {
+func (c *Context) GetService(v any) (any, error) {
 	// first search locally then globally
 	s, err := c.localSP.GetService(v)
 	if err == nil {

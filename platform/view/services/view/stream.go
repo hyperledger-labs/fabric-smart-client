@@ -17,9 +17,9 @@ import (
 // Stream models a communication stream.
 type Stream interface {
 	// Recv receives a message from the stream.
-	Recv(m interface{}) error
+	Recv(m any) error
 	// Send sends a message to the stream.
-	Send(m interface{}) error
+	Send(m any) error
 }
 
 // GetStream returns the stream from the service provider.

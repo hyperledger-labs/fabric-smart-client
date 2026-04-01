@@ -20,7 +20,7 @@ type Identity struct {
 		result1 []byte
 		result2 error
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -31,7 +31,7 @@ func (fake *Identity) Serialize() ([]byte, error) {
 	}{})
 	stub := fake.SerializeStub
 	fakeReturns := fake.serializeReturns
-	fake.recordInvocation("Serialize", []interface{}{})
+	fake.recordInvocation("Serialize", []any{})
 	fake.serializeMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -80,24 +80,24 @@ func (fake *Identity) SerializeReturnsOnCall(i int, result1 []byte, result2 erro
 	}{result1, result2}
 }
 
-func (fake *Identity) Invocations() map[string][][]interface{} {
+func (fake *Identity) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *Identity) recordInvocation(key string, args []interface{}) {
+func (fake *Identity) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

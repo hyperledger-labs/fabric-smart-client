@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
+	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
 )
@@ -42,7 +43,7 @@ func (m *viewManagerMock) GetIdentity(endpoint string, pkID []byte) (view.Identi
 	return view.Identity("caller"), nil
 }
 
-func (m *viewManagerMock) NewSessionContext(ctx context.Context, contextID string, session view.Session, me view.Identity, remote view.Identity) (view.Context, bool, error) {
+func (m *viewManagerMock) NewResponderContext(ctx context.Context, contextID string, session view.Session, me view.Identity, remote view.Identity) (view.Context, bool, error) {
 	if m.NewSessionContextFunc != nil {
 		return m.NewSessionContextFunc(ctx, contextID, session, me)
 	}
@@ -64,7 +65,7 @@ func (m *viewManagerMock) DefaultIdentity() view.Identity {
 
 func TestService(t *testing.T) {
 	vm := &viewManagerMock{HandleResponderCalled: make(chan struct{}, 10)}
-	cl := &mock.CommLayer{}
+	cl := &mock2.CommLayer{}
 	sess := &mock.Session{}
 	ch := make(chan *view.Message, 10)
 	cl.MasterSessionReturns(sess, nil)
@@ -109,7 +110,7 @@ func TestService(t *testing.T) {
 
 func TestService_MasterSessionError(t *testing.T) {
 	vm := &viewManagerMock{}
-	cl := &mock.CommLayer{}
+	cl := &mock2.CommLayer{}
 	cl.MasterSessionReturns(nil, errors.New("master session error"))
 
 	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
@@ -127,7 +128,7 @@ func TestService_HandleResponderError(t *testing.T) {
 		return &mock.Context{}, true, nil
 	}
 
-	cl := &mock.CommLayer{}
+	cl := &mock2.CommLayer{}
 	sess := &mock.Session{}
 	ch := make(chan *view.Message, 10)
 	cl.MasterSessionReturns(sess, nil)

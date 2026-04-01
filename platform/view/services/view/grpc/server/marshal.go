@@ -53,7 +53,7 @@ func NewResponseMarshaler(identityProvider IdentityProvider, sigService SignerPr
 }
 
 // MarshalCommandResponse marshals and signs the given response payload.
-func (s *ResponseMarshaler) MarshalCommandResponse(command []byte, responsePayload interface{}) (*protos.SignedCommandResponse, error) {
+func (s *ResponseMarshaler) MarshalCommandResponse(command []byte, responsePayload any) (*protos.SignedCommandResponse, error) {
 	cr, err := commandResponseFromPayload(responsePayload)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (s *ResponseMarshaler) computeHash(data []byte) (hash []byte) {
 	return h[:]
 }
 
-func commandResponseFromPayload(payload interface{}) (*protos.CommandResponse, error) {
+func commandResponseFromPayload(payload any) (*protos.CommandResponse, error) {
 	switch t := payload.(type) {
 	case *protos.CommandResponse_Err:
 		return &protos.CommandResponse{Payload: t}, nil

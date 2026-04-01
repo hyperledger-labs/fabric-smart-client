@@ -94,26 +94,26 @@ func (s *Service) Stop() {
 	s.Node.Stop()
 }
 
-func (s *Service) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg interface{}) (view.Session, error) {
-	if err := s.init(); err != nil {
-		return nil, ErrNotInitialized
-	}
-	vMsg, _ := msg.(*view.Message)
-	return s.Node.NewSessionWithID(sessionID, contextID, endpoint, pkid, caller, vMsg)
-}
-
-func (s *Service) NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error) {
-	if err := s.init(); err != nil {
-		return nil, ErrNotInitialized
-	}
-	return s.Node.NewSession(caller, contextID, endpoint, pkid)
-}
-
 func (s *Service) MasterSession() (view.Session, error) {
 	if err := s.init(); err != nil {
 		return nil, ErrNotInitialized
 	}
 	return s.Node.MasterSession()
+}
+
+func (s *Service) NewResponderSession(caller []byte, msg *view.Message) (view.Session, error) {
+	if err := s.init(); err != nil {
+		return nil, ErrNotInitialized
+	}
+
+	return s.Node.NewResponderSession(
+		msg.SessionID,
+		msg.ContextID,
+		msg.FromEndpoint,
+		msg.FromPKID,
+		caller,
+		msg,
+	)
 }
 
 func (s *Service) DeleteSessions(ctx context.Context, sessionID string) {

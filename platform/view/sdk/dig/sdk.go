@@ -120,20 +120,13 @@ func (p *SDK) Install() error {
 		p.Container().Provide(view.NewRegistry),
 		p.Container().Provide(view.NewMetrics),
 		p.Container().Provide(view.NewContextFactory),
-		p.Container().Provide(func(
-			identityProvider view.IdentityProvider,
-			registry *view.Registry,
-			metrics *view.Metrics,
-			contextFactory view.ContextFactory,
-		) *view.Manager {
-			return view.NewManager(identityProvider, registry, metrics, contextFactory)
-		}),
-		p.Container().Provide(p2p.NewDefaultRunner),
-		p.Container().Provide(p2p.NewService),
+		p.Container().Provide(view.NewManager),
 		p.Container().Provide(
 			digutils.Identity[*view.Manager](),
 			dig.As(new(viewgrpcserver.ViewManager), new(p2p.ViewManager)),
 		),
+		p.Container().Provide(p2p.NewDefaultRunner),
+		p.Container().Provide(p2p.NewService),
 
 		// Comm service
 		p.Container().Provide(provider.NewHostProvider),
@@ -145,7 +138,7 @@ func (p *SDK) Install() error {
 		) (*comm.Service, error) {
 			return comm.NewService(hostProvider, endpointService, configService, metricsProvider)
 		}),
-		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(view.CommLayer), new(p2p.CommLayer), new(view.SessionFactory))),
+		p.Container().Provide(digutils.Identity[*comm.Service](), dig.As(new(p2p.CommLayer), new(view.SessionFactory))),
 
 		// Sig Service
 		p.Container().Provide(sig.NewDeserializer),
@@ -230,7 +223,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		}
 		in.CommService.Start(ctx)
 
-		viewgrpcserver.InstallViewHandler(in.ViewManager, in.IdentityProvider, in.ViewService, in.TracerProvider)
+		viewgrpcserver.InstallViewHandler(in.ViewManager, in.ViewService, in.TracerProvider)
 		if err := in.P2PService.Start(ctx); err != nil {
 			return err
 		}

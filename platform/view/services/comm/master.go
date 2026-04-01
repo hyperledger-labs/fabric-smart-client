@@ -85,7 +85,7 @@ func (p *P2PNode) NewSession(callerViewID string, contextID string, endpoint str
 	return p.getOrCreateSession(base64.StdEncoding.EncodeToString(ID), endpoint, contextID, callerViewID, nil, pkid, nil)
 }
 
-func (p *P2PNode) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error) {
+func (p *P2PNode) NewResponderSession(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error) {
 	return p.getOrCreateSession(sessionID, endpoint, contextID, "", caller, pkid, msg)
 }
 

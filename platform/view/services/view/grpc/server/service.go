@@ -17,10 +17,10 @@ import (
 // A Marshaller is responsible for marshaling and signing command responses.
 type Marshaller interface {
 	// MarshalCommandResponse marshals and signs the given response payload.
-	MarshalCommandResponse(command []byte, responsePayload interface{}) (*protos.SignedCommandResponse, error)
+	MarshalCommandResponse(command []byte, responsePayload any) (*protos.SignedCommandResponse, error)
 }
 
-type Processor func(ctx context.Context, command *protos.Command) (interface{}, error)
+type Processor func(ctx context.Context, command *protos.Command) (any, error)
 
 type Streamer func(sc *protos.SignedCommand, command *protos.Command, commandServer protos.ViewService_StreamCommandServer, marshaler Marshaller) error
 

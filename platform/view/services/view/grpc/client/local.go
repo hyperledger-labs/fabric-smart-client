@@ -35,7 +35,7 @@ func NewLocalClient(registry services.Provider) *LocalClient {
 }
 
 // CallView calls the given view locally with the given input.
-func (n *LocalClient) CallView(fid string, in []byte) (interface{}, error) {
+func (n *LocalClient) CallView(fid string, in []byte) (any, error) {
 	tracer, err := n.getTracer()
 	if err != nil {
 		return nil, err

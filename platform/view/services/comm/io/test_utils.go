@@ -16,7 +16,7 @@ import (
 )
 
 type networkNode interface {
-	NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error)
+	NewResponderSession(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error)
 	Start(ctx context.Context)
 	ID() string
 }
@@ -27,13 +27,13 @@ func SessionTwoParties(t *testing.T, network ...networkNode) {
 		node.Start(ctx)
 	}
 
-	session01, err := network[0].NewSessionWithID(
+	session01, err := network[0].NewResponderSession(
 		"session_id", "context_id", "", []byte(network[1].ID()), nil, nil)
 	assert.NoError(t, err)
 	conn01, err := NewConn(0, session01)
 	assert.NoError(t, err)
 
-	session10, err := network[1].NewSessionWithID(
+	session10, err := network[1].NewResponderSession(
 		"session_id", "context_id", "", []byte(network[0].ID()), nil, nil)
 	assert.NoError(t, err)
 	conn10, err := NewConn(1, session10)

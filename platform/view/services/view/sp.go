@@ -16,21 +16,21 @@ import (
 
 // ServiceProvider is responsible for managing and providing services.
 type ServiceProvider struct {
-	services   []interface{}
-	serviceMap map[reflect.Type]interface{}
+	services   []any
+	serviceMap map[reflect.Type]any
 	lock       sync.Mutex
 }
 
 // NewServiceProvider returns a new instance of the service provider.
 func NewServiceProvider() *ServiceProvider {
 	return &ServiceProvider{
-		services:   []interface{}{},
-		serviceMap: map[reflect.Type]interface{}{},
+		services:   []any{},
+		serviceMap: map[reflect.Type]any{},
 	}
 }
 
 // GetService returns the service of the given type.
-func (sp *ServiceProvider) GetService(v interface{}) (interface{}, error) {
+func (sp *ServiceProvider) GetService(v any) (any, error) {
 	sp.lock.Lock()
 	defer sp.lock.Unlock()
 
@@ -49,7 +49,7 @@ func (sp *ServiceProvider) GetService(v interface{}) (interface{}, error) {
 		return service, nil
 	}
 
-	var found interface{}
+	var found any
 	// search
 	for _, s := range sp.services {
 		styp := reflect.TypeOf(s)
@@ -97,7 +97,7 @@ func (sp *ServiceProvider) GetService(v interface{}) (interface{}, error) {
 }
 
 // RegisterService registers a service in the service provider.
-func (sp *ServiceProvider) RegisterService(service interface{}) error {
+func (sp *ServiceProvider) RegisterService(service any) error {
 	sp.lock.Lock()
 	defer sp.lock.Unlock()
 

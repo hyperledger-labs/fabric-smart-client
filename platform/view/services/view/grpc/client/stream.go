@@ -23,7 +23,7 @@ type Stream struct {
 }
 
 // Send sends the given message to the stream.
-func (c *Stream) Send(m interface{}) error {
+func (c *Stream) Send(m any) error {
 	raw, err := json.Marshal(m)
 	if err != nil {
 		return err
@@ -35,7 +35,7 @@ func (c *Stream) Send(m interface{}) error {
 }
 
 // Recv receives a message from the stream.
-func (c *Stream) Recv(m interface{}) error {
+func (c *Stream) Recv(m any) error {
 	s := &protos.CallViewResponse{}
 	if err := c.RecvProtoMsg(s); err != nil {
 		return err
@@ -44,12 +44,12 @@ func (c *Stream) Recv(m interface{}) error {
 }
 
 // SendProtoMsg sends the given protobuf message to the stream.
-func (c *Stream) SendProtoMsg(m interface{}) error {
+func (c *Stream) SendProtoMsg(m any) error {
 	return c.scc.SendMsg(m)
 }
 
 // RecvProtoMsg receives a protobuf message from the stream.
-func (c *Stream) RecvProtoMsg(m interface{}) error {
+func (c *Stream) RecvProtoMsg(m any) error {
 	return c.scc.RecvMsg(m)
 }
 

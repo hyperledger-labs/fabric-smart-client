@@ -69,7 +69,7 @@ func (cm *Registry) NewView(id string, in []byte) (f view.View, err error) {
 }
 
 // RegisterResponderFactory registers a responder view factory for the given initiator view.
-func (cm *Registry) RegisterResponderFactory(factory Factory, initiatedBy interface{}) error {
+func (cm *Registry) RegisterResponderFactory(factory Factory, initiatedBy any) error {
 	responder, err := factory.NewView(nil)
 	if err != nil {
 		return err
@@ -78,12 +78,12 @@ func (cm *Registry) RegisterResponderFactory(factory Factory, initiatedBy interf
 }
 
 // RegisterResponder registers a responder view for the given initiator view.
-func (cm *Registry) RegisterResponder(responder view.View, initiatedBy interface{}) error {
+func (cm *Registry) RegisterResponder(responder view.View, initiatedBy any) error {
 	return cm.RegisterResponderWithIdentity(responder, nil, initiatedBy)
 }
 
 // RegisterResponderWithIdentity registers a responder view for the given initiator view and responder identity.
-func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error {
+func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy any) error {
 	switch t := initiatedBy.(type) {
 	case view.View:
 		cm.registerResponderWithIdentity(responder, id, cm.GetIdentifier(t))
@@ -96,7 +96,7 @@ func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.I
 }
 
 // GetResponder returns the responder view for the given initiator view.
-func (cm *Registry) GetResponder(initiatedBy interface{}) (view.View, error) {
+func (cm *Registry) GetResponder(initiatedBy any) (view.View, error) {
 	var initiatedByID string
 	switch t := initiatedBy.(type) {
 	case view.View:

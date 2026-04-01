@@ -28,7 +28,7 @@ type ViewContext = view.Context
 type View = view.View
 
 // RunCall is a shortcut for `context.RunView(nil, view.WithViewCall(v))` and can be used to run a view call in a given context.
-func RunCall(context view.Context, v func(context view.Context) (interface{}, error)) (interface{}, error) {
+func RunCall(context view.Context, v func(context view.Context) (any, error)) (any, error) {
 	return context.RunView(
 		nil,
 		view.WithViewCall(v),
@@ -38,7 +38,7 @@ func RunCall(context view.Context, v func(context view.Context) (interface{}, er
 // Initiate initiates a new protocol whose initiator's view is the passed one.
 // The execution happens in a freshly created context.
 // This is a shortcut for `view.GetManager(context).InitiateView(context.Context(), initiator)`.
-func Initiate(context view.Context, initiator View) (interface{}, error) {
+func Initiate(context view.Context, initiator View) (any, error) {
 	m, err := GetManager(context)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func Initiate(context view.Context, initiator View) (interface{}, error) {
 // InitiateWithContext initiates a new protocol whose initiator's view is the passed one.
 // The execution happens in a freshly created view context and the given context.Context.
 // This is a shortcut for `view.GetManager(ctx).InitiateView(context, initiator)`.
-func InitiateWithContext(context context.Context, ctx view.Context, initiator View) (interface{}, error) {
+func InitiateWithContext(context context.Context, ctx view.Context, initiator View) (any, error) {
 	m, err := GetManager(ctx)
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func InitiateWithContext(context context.Context, ctx view.Context, initiator Vi
 
 // AsResponder can be used by an initiator to behave temporarily as a responder.
 // Recall that a responder is characterized by having a default session (`context.Session()`) established by an initiator.
-func AsResponder(context view.Context, session view.Session, v func(context view.Context) (interface{}, error)) (interface{}, error) {
+func AsResponder(context view.Context, session view.Session, v func(context view.Context) (any, error)) (any, error) {
 	return context.RunView(
 		nil,
 		view.WithViewCall(v),
@@ -70,7 +70,7 @@ func AsResponder(context view.Context, session view.Session, v func(context view
 // AsInitiatorCall can be used by a responder to behave temporarily as an initiator.
 // Recall that an initiator is characterized by having an initiator (`context.Initiator()`) set when the initiator is instantiated.
 // AsInitiatorCall sets context.Initiator() to the passed initiator, and executes the passed view call.
-func AsInitiatorCall(context view.Context, initiator View, v func(context view.Context) (interface{}, error)) (interface{}, error) {
+func AsInitiatorCall(context view.Context, initiator View, v func(context view.Context) (any, error)) (any, error) {
 	return context.RunView(
 		initiator,
 		view.WithViewCall(v),
@@ -81,7 +81,7 @@ func AsInitiatorCall(context view.Context, initiator View, v func(context view.C
 // AsInitiatorView can be used by a responder to behave temporarily as an initiator.
 // Recall that an initiator is characterized by having an initiator (`context.Initiator()`) set when the initiator is instantiated.
 // AsInitiatorView sets context.Initiator() to the passed initiator, and executes it.
-func AsInitiatorView(context view.Context, initiator View) (interface{}, error) {
+func AsInitiatorView(context view.Context, initiator View) (any, error) {
 	return context.RunView(
 		initiator,
 		view.AsInitiator(),
@@ -90,7 +90,7 @@ func AsInitiatorView(context view.Context, initiator View) (interface{}, error) 
 
 // RunViewNow invokes the Call function of the given view.
 // The view context used to the run view is either ctx or the one extracted from the options (see view.WithContext), if present.
-func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (res interface{}, err error) {
+func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (res any, err error) {
 	options, err := view.CompileRunViewOptions(opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed compiling options")

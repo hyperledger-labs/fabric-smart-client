@@ -40,7 +40,7 @@ func TestRunViewNow_CallOption(t *testing.T) {
 		return ctx, trace.SpanFromContext(ctx)
 	}
 
-	call := func(ctx view2.Context) (interface{}, error) {
+	call := func(ctx view2.Context) (any, error) {
 		return "call-result", nil
 	}
 
@@ -90,7 +90,7 @@ func TestRunViewNow_PanicInView_CallsCleanupAndReturnsError(t *testing.T) {
 	}
 
 	v := &mock.View{}
-	v.CallStub = func(ctx view2.Context) (interface{}, error) {
+	v.CallStub = func(ctx view2.Context) (any, error) {
 		panic("boom")
 	}
 
@@ -114,7 +114,7 @@ func TestRunViewNow_NoViewAndNoCall(t *testing.T) {
 
 func TestRunCall(t *testing.T) {
 	ctx := &mock.Context{}
-	call := func(ctx view2.Context) (interface{}, error) {
+	call := func(ctx view2.Context) (any, error) {
 		return "res", nil
 	}
 	ctx.RunViewReturns("res", nil)
@@ -127,7 +127,7 @@ func TestRunCall(t *testing.T) {
 func TestAsResponder(t *testing.T) {
 	ctx := &mock.Context{}
 	session := &mock.Session{}
-	call := func(ctx view2.Context) (interface{}, error) {
+	call := func(ctx view2.Context) (any, error) {
 		return "res", nil
 	}
 	ctx.RunViewReturns("res", nil)
@@ -140,7 +140,7 @@ func TestAsResponder(t *testing.T) {
 func TestAsInitiatorCall(t *testing.T) {
 	ctx := &mock.Context{}
 	v := &mock.View{}
-	call := func(ctx view2.Context) (interface{}, error) {
+	call := func(ctx view2.Context) (any, error) {
 		return "res", nil
 	}
 	ctx.RunViewReturns("res", nil)

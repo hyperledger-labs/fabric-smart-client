@@ -27,18 +27,20 @@ type IdentityProvider interface {
 type ViewManager interface {
 	// ExistResponderForCaller returns the responder view for the given caller.
 	ExistResponderForCaller(caller string) (view.View, view.Identity, error)
-	// NewSessionContext returns a context for the given session.
-	NewSessionContext(ctx context.Context, contextID string, session view.Session, me view.Identity, remote view.Identity) (view.Context, bool, error)
+	// NewResponderContext returns a context used to respond to an invocation.
+	NewResponderContext(ctx context.Context, contextID string, session view.Session, me view.Identity, remote view.Identity) (view.Context, bool, error)
 	// DeleteContext deletes the view context for the given context ID.
 	DeleteContext(contextID string)
 }
 
 // CommLayer models the communication layer for P2P operations.
+//
+//go:generate counterfeiter -o mock/comm.go -fake-name CommLayer . CommLayer
 type CommLayer interface {
 	// MasterSession returns the master session.
 	MasterSession() (view.Session, error)
-	// NewSessionWithID returns a new session for the given arguments.
-	NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg interface{}) (view.Session, error)
+	// NewResponderSession returns a new session for the given arguments.
+	NewResponderSession(caller []byte, msg *view.Message) (view.Session, error)
 }
 
 // EndpointService models the dependency to the view-sdk's endpoint service.
@@ -53,12 +55,12 @@ type EndpointService interface {
 // Runner models a view runner.
 type Runner interface {
 	// RunView runs the given responder view in the given view context.
-	RunView(viewCtx view.Context, responder view.View) (interface{}, error)
+	RunView(viewCtx view.Context, responder view.View) (any, error)
 }
 
 type defaultRunner struct{}
 
-func (r *defaultRunner) RunView(viewCtx view.Context, responder view.View) (interface{}, error) {
+func (r *defaultRunner) RunView(viewCtx view.Context, responder view.View) (any, error) {
 	return viewCtx.RunView(responder)
 }
 
@@ -160,8 +162,8 @@ func (s *Service) respond(responder view.View, id view.Identity, msg *view.Messa
 		logger.DebugfContext(viewCtx.Context(), "[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
 
 		// try to send error back to caller
-		if err = viewCtx.Session().SendError([]byte(err.Error())); err != nil {
-			logger.Error(err.Error())
+		if serr := viewCtx.Session().SendError([]byte(err.Error())); serr != nil {
+			logger.Error(serr.Error())
 		}
 	}
 
@@ -177,22 +179,15 @@ func (s *Service) getOrCreateContext(me view.Identity, msg *view.Message) (view.
 	}
 
 	// create a new session with the ID we received
-	backend, err := s.commLayer.NewSessionWithID(
-		msg.SessionID,
-		msg.ContextID,
-		msg.FromEndpoint,
-		msg.FromPKID,
-		remote,
-		msg,
-	)
+	responderSession, err := s.commLayer.NewResponderSession(remote, msg)
 	if err != nil {
 		return nil, false, err
 	}
 
-	return s.viewManager.NewSessionContext(
+	return s.viewManager.NewResponderContext(
 		msg.Ctx,
 		msg.ContextID,
-		backend,
+		responderSession,
 		me,
 		remote,
 	)

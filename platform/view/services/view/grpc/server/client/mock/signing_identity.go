@@ -33,7 +33,7 @@ type SigningIdentity struct {
 		result1 []byte
 		result2 error
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -44,7 +44,7 @@ func (fake *SigningIdentity) Serialize() ([]byte, error) {
 	}{})
 	stub := fake.SerializeStub
 	fakeReturns := fake.serializeReturns
-	fake.recordInvocation("Serialize", []interface{}{})
+	fake.recordInvocation("Serialize", []any{})
 	fake.serializeMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -106,7 +106,7 @@ func (fake *SigningIdentity) Sign(arg1 []byte) ([]byte, error) {
 	}{arg1Copy})
 	stub := fake.SignStub
 	fakeReturns := fake.signReturns
-	fake.recordInvocation("Sign", []interface{}{arg1Copy})
+	fake.recordInvocation("Sign", []any{arg1Copy})
 	fake.signMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -162,24 +162,24 @@ func (fake *SigningIdentity) SignReturnsOnCall(i int, result1 []byte, result2 er
 	}{result1, result2}
 }
 
-func (fake *SigningIdentity) Invocations() map[string][][]interface{} {
+func (fake *SigningIdentity) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *SigningIdentity) recordInvocation(key string, args []interface{}) {
+func (fake *SigningIdentity) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

@@ -65,7 +65,7 @@ func buildSignedCommand(t *testing.T, tlsCertHash []byte) *protos.SignedCommand 
 // stubMarshaller always returns a non-nil response and never errors.
 type stubMarshaller struct{}
 
-func (s *stubMarshaller) MarshalCommandResponse(_ []byte, payload interface{}) (*protos.SignedCommandResponse, error) {
+func (s *stubMarshaller) MarshalCommandResponse(_ []byte, payload any) (*protos.SignedCommandResponse, error) {
 	return &protos.SignedCommandResponse{}, nil
 }
 
@@ -83,7 +83,7 @@ func (f *fakeStreamServer) Send(resp *protos.SignedCommandResponse) error {
 	return nil
 }
 
-func (f *fakeStreamServer) RecvMsg(m interface{}) error {
+func (f *fakeStreamServer) RecvMsg(m any) error {
 	if sc, ok := m.(*protos.SignedCommand); ok && f.sc != nil {
 		sc.Command = f.sc.Command
 		sc.Signature = f.sc.Signature
@@ -91,7 +91,7 @@ func (f *fakeStreamServer) RecvMsg(m interface{}) error {
 	return nil
 }
 
-func (f *fakeStreamServer) SendMsg(m interface{}) error          { return nil }
+func (f *fakeStreamServer) SendMsg(m any) error                  { return nil }
 func (f *fakeStreamServer) SetHeader(metadata.MD) error          { return nil }
 func (f *fakeStreamServer) SendHeader(metadata.MD) error         { return nil }
 func (f *fakeStreamServer) SetTrailer(metadata.MD)               {}

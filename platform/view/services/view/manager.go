@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -110,22 +111,22 @@ func (cm *Manager) NewView(id string, in []byte) (f view.View, err error) {
 }
 
 // RegisterResponder registers a responder view for the given initiator view.
-func (cm *Manager) RegisterResponder(responder view.View, initiatedBy interface{}) error {
+func (cm *Manager) RegisterResponder(responder view.View, initiatedBy any) error {
 	return cm.registry.RegisterResponder(responder, initiatedBy)
 }
 
 // RegisterResponderWithIdentity registers a responder view for the given initiator view and responder identity.
-func (cm *Manager) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy interface{}) error {
+func (cm *Manager) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy any) error {
 	return cm.registry.RegisterResponderWithIdentity(responder, id, initiatedBy)
 }
 
 // GetResponder returns the responder view for the given initiator view.
-func (cm *Manager) GetResponder(initiatedBy interface{}) (view.View, error) {
+func (cm *Manager) GetResponder(initiatedBy any) (view.View, error) {
 	return cm.registry.GetResponder(initiatedBy)
 }
 
 // Initiate initiates a protocol for the given view ID.
-func (cm *Manager) Initiate(ctx context.Context, id string) (interface{}, error) {
+func (cm *Manager) Initiate(ctx context.Context, id string) (any, error) {
 	v, err := cm.registry.GetView(id)
 	if err != nil {
 		return nil, err
@@ -135,12 +136,12 @@ func (cm *Manager) Initiate(ctx context.Context, id string) (interface{}, error)
 }
 
 // InitiateView initiates a protocol for the given view.
-func (cm *Manager) InitiateView(ctx context.Context, view view.View) (interface{}, error) {
+func (cm *Manager) InitiateView(ctx context.Context, view view.View) (any, error) {
 	return cm.InitiateViewWithIdentity(ctx, view, cm.identityProvider.DefaultIdentity())
 }
 
 // InitiateViewWithIdentity initiates a protocol for the given view and initiator identity.
-func (cm *Manager) InitiateViewWithIdentity(ctx context.Context, view view.View, id view.Identity) (interface{}, error) {
+func (cm *Manager) InitiateViewWithIdentity(ctx context.Context, view view.View, id view.Identity) (any, error) {
 	if ctx == nil {
 		panic("context is nil")
 	}
@@ -151,7 +152,9 @@ func (cm *Manager) InitiateViewWithIdentity(ctx context.Context, view view.View,
 	}
 	defer cm.DeleteContext(c.ID())
 
-	logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s], from [%s]", id, logging.Identifier(view), c.ID(), string(debug.Stack()))
+	if logger.IsEnabledFor(zapcore.DebugLevel) {
+		logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s], from [%s]", id, logging.Identifier(view), c.ID(), string(debug.Stack()))
+	}
 	res, err := c.RunView(view)
 	if err != nil {
 		logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, logging.Identifier(view), c.ID(), err)
@@ -233,9 +236,9 @@ func (cm *Manager) RegisterContext(contextID string, ctx DisposableContext) erro
 	return nil
 }
 
-// NewSessionContext returns a context for the given session.
+// NewResponderContext returns a context to be used to respond to an incoming message on the given session.
 // It returns the context, a boolean indicating if it's new, and an error.
-func (cm *Manager) NewSessionContext(ctx context.Context, contextID string, session view.Session, me view.Identity, remote view.Identity) (view.Context, bool, error) {
+func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, session view.Session, me view.Identity, remote view.Identity) (view.Context, bool, error) {
 	cm.contextsMu.Lock()
 	defer cm.contextsMu.Unlock()
 

@@ -105,12 +105,12 @@ func NewClient(config *Config, sID SigningIdentity, tracerProvider tracing.Provi
 }
 
 // CallView calls the given view with the given input.
-func (s *client) CallView(fid string, input []byte) (interface{}, error) {
+func (s *client) CallView(fid string, input []byte) (any, error) {
 	return s.CallViewWithContext(context.Background(), fid, input)
 }
 
 // CallViewWithContext calls the given view with the given input and go context.
-func (s *client) CallViewWithContext(ctx context.Context, fid string, input []byte) (interface{}, error) {
+func (s *client) CallViewWithContext(ctx context.Context, fid string, input []byte) (any, error) {
 	logger.Debugf("Calling view [%s] on input [%s]", fid, string(input))
 	payload := &protos2.Command_CallView{CallView: &protos2.CallView{
 		Fid:   fid,
@@ -221,7 +221,7 @@ func (s *client) streamCommand(ctx context.Context, sc *protos2.SignedCommand) (
 	return conn, streamCommandClient, nil
 }
 
-func (s *client) CreateSignedCommand(payload interface{}, signingIdentity SigningIdentity) (*protos2.SignedCommand, error) {
+func (s *client) CreateSignedCommand(payload any, signingIdentity SigningIdentity) (*protos2.SignedCommand, error) {
 	command, err := commandFromPayload(payload)
 	if err != nil {
 		return nil, err
@@ -272,7 +272,7 @@ func (s *client) CreateSignedCommand(payload interface{}, signingIdentity Signin
 	return sc, nil
 }
 
-func commandFromPayload(payload interface{}) (*protos2.Command, error) {
+func commandFromPayload(payload any) (*protos2.Command, error) {
 	switch t := payload.(type) {
 	case *protos2.Command_InitiateView:
 		return &protos2.Command{Payload: t}, nil

@@ -25,9 +25,9 @@ const (
 	vidLabel tracing.LabelName = "vid"
 )
 
-type viewCallFunc func(context *server2.ReqContext, vid string, input []byte) (interface{}, error)
+type viewCallFunc func(context *server2.ReqContext, vid string, input []byte) (any, error)
 
-func (vcf viewCallFunc) CallView(context *server2.ReqContext, vid string, input []byte) (interface{}, error) {
+func (vcf viewCallFunc) CallView(context *server2.ReqContext, vid string, input []byte) (any, error) {
 	return vcf(context, vid, input)
 }
 
@@ -35,7 +35,7 @@ type viewHandler struct {
 	c *client
 }
 
-func (s *viewHandler) CallView(context *server2.ReqContext, vid string, input []byte) (interface{}, error) {
+func (s *viewHandler) CallView(context *server2.ReqContext, vid string, input []byte) (any, error) {
 	result, err := s.c.CallView(vid, input, context.Req.Context())
 	if err != nil {
 		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", vid, err)
@@ -52,7 +52,7 @@ func (s *viewHandler) CallView(context *server2.ReqContext, vid string, input []
 	}}, nil
 }
 
-func (s *viewHandler) StreamCallView(context *server2.ReqContext, vid string, input []byte) (interface{}, error) {
+func (s *viewHandler) StreamCallView(context *server2.ReqContext, vid string, input []byte) (any, error) {
 	return nil, s.c.StreamCallView(vid, context.ResponseWriter, context.Req)
 }
 
@@ -66,7 +66,7 @@ func InstallViewHandler(manager server.ViewManager, identityProvider server.Iden
 // ViewClient defines an interface that can call views and stream calls.
 type ViewClient interface {
 	StreamCallView(fid string, writer http.ResponseWriter, request *http.Request) error
-	CallView(fid string, in []byte, ctx context.Context) (interface{}, error)
+	CallView(fid string, in []byte, ctx context.Context) (any, error)
 }
 
 type client struct {
@@ -86,7 +86,7 @@ func newViewClient(viewManager server.ViewManager, identityProvider server.Ident
 }
 
 // CallView calls the view with the given ID and input.
-func (s *client) CallView(vid string, input []byte, ctx context.Context) (interface{}, error) {
+func (s *client) CallView(vid string, input []byte, ctx context.Context) (any, error) {
 	newCtx, span := s.tracer.Start(ctx, "call_view",
 		tracing.WithAttributes(tracing.String(vidLabel, vid)),
 		trace.WithSpanKind(trace.SpanKindClient))

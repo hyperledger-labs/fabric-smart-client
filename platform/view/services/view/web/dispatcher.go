@@ -17,7 +17,7 @@ var logger = logging.MustGetLogger()
 
 // ViewCaller defines an interface that can call a view.
 type ViewCaller interface {
-	CallView(context *server.ReqContext, vid string, input []byte) (interface{}, error)
+	CallView(context *server.ReqContext, vid string, input []byte) (any, error)
 }
 
 func newDispatcher(h *server.HttpHandler) *Dispatcher {
@@ -31,7 +31,7 @@ type Dispatcher struct {
 }
 
 // HandleRequest handles an incoming web request.
-func (rd *Dispatcher) HandleRequest(reqctx *server.ReqContext) (response interface{}, statusCode int) {
+func (rd *Dispatcher) HandleRequest(reqctx *server.ReqContext) (response any, statusCode int) {
 	ctx := reqctx.Req.Context()
 	logger.DebugfContext(ctx, "received request from %s", reqctx.Req.Host)
 
@@ -53,7 +53,7 @@ func (rd *Dispatcher) HandleRequest(reqctx *server.ReqContext) (response interfa
 }
 
 // ParsePayload parses the incoming payload.
-func (rd *Dispatcher) ParsePayload(bytes []byte) (interface{}, error) {
+func (rd *Dispatcher) ParsePayload(bytes []byte) (any, error) {
 	return bytes, nil
 }
 

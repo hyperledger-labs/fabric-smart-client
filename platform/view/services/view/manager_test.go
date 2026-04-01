@@ -169,13 +169,13 @@ func TestNewSessionContext(t *testing.T) {
 	session.InfoReturns(view2.SessionInfo{ID: "s1", Caller: view2.Identity("alice")})
 
 	// Case 1: New context
-	ctx, isNew, err := manager.NewSessionContext(context.Background(), "c1", session, view2.Identity("alice"), nil)
+	ctx, isNew, err := manager.NewResponderContext(context.Background(), "c1", session, view2.Identity("alice"), nil)
 	assert.NoError(t, err)
 	assert.True(t, isNew)
 	assert.NotNil(t, ctx)
 
 	// Case 2: Reuse context
-	ctx2, isNew, err := manager.NewSessionContext(context.Background(), "c1", session, view2.Identity("alice"), nil)
+	ctx2, isNew, err := manager.NewResponderContext(context.Background(), "c1", session, view2.Identity("alice"), nil)
 	assert.NoError(t, err)
 	assert.False(t, isNew)
 	assert.Equal(t, ctx, ctx2)
@@ -183,7 +183,7 @@ func TestNewSessionContext(t *testing.T) {
 	// Case 3: Update session in existing context
 	session2 := &mock.Session{}
 	session2.InfoReturns(view2.SessionInfo{ID: "s2", Caller: view2.Identity("bob")})
-	ctx3, isNew, err := manager.NewSessionContext(context.Background(), "c1", session2, view2.Identity("bob"), nil)
+	ctx3, isNew, err := manager.NewResponderContext(context.Background(), "c1", session2, view2.Identity("bob"), nil)
 	assert.NoError(t, err)
 	assert.False(t, isNew)
 	assert.NotEqual(t, ctx, ctx3)

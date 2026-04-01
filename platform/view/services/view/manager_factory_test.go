@@ -53,7 +53,7 @@ func TestManagerWithMockFactory(t *testing.T) {
 		parentCtx.IDReturns("ctx-id-2")
 		cf.NewForResponderReturns(parentCtx, nil)
 
-		ctx, isNew, err := manager.NewSessionContext(context.Background(), "ctx-id-2", session, ip.DefaultIdentity(), party)
+		ctx, isNew, err := manager.NewResponderContext(context.Background(), "ctx-id-2", session, ip.DefaultIdentity(), party)
 		assert.NoError(t, err)
 		assert.True(t, isNew)
 		assert.NotNil(t, ctx)

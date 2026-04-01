@@ -107,7 +107,7 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 	}()
 
 	p, ok := s.processors[reflect.TypeOf(command.GetPayload())]
-	var payload interface{}
+	var payload any
 	if ok {
 		payload, err = p(ctx, command)
 	} else {

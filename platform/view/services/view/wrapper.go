@@ -36,6 +36,6 @@ func (c *WrappedContext) Context() context.Context {
 }
 
 // RunView runs the passed view on input this context.
-func (c *WrappedContext) RunView(v view.View, opts ...view.RunViewOption) (res interface{}, err error) {
+func (c *WrappedContext) RunView(v view.View, opts ...view.RunViewOption) (res any, err error) {
 	return RunViewNow(c, v, opts...)
 }
