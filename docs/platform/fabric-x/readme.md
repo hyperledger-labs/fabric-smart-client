@@ -59,18 +59,92 @@ The `OnStatus` callback receives one of: `fdriver.Valid` (committed), `fdriver.I
 
 ### Configuration
 
+The notification service is configured under the `fabric.<network>.notificationService` key.
+
 ```yaml
-notificationService:
-  endpoints:
-    - address: "committer.example.com:9090"
-      connectionTimeout: 30s
-      tlsEnabled: true
-      tlsRootCertFile: "/path/to/ca.pem"
-  requestTimeout: 30s
+fabric:
+  <network>:
+    notificationService:
+      requestTimeout: 30s
+      endpoints:
+        - address: "committer.example.com:9090"
+          connectionTimeout: 5s
+          tls:
+            enabled: true
+            rootCerts:
+              - "/path/to/ca.pem"
+```
+
+#### TLS Modes
+
+**No TLS** — omit the `tls` block or set `enabled: false`:
+
+```yaml
+endpoints:
+  - address: "committer.example.com:9090"
+```
+
+**Server TLS** — client verifies the server certificate against the provided root CAs:
+
+```yaml
+endpoints:
+  - address: "committer.example.com:9090"
+    tls:
+      enabled: true
+      rootCerts:
+        - "/path/to/ca.pem"
+```
+
+**Mutual TLS (mTLS)** — both sides authenticate each other. Requires `clientCert` and `clientKey` in addition to `rootCerts`:
+
+```yaml
+endpoints:
+  - address: "committer.example.com:9090"
+    tls:
+      enabled: true
+      rootCerts:
+        - "/path/to/ca.pem"
+      clientCert: "/path/to/client.pem"
+      clientKey: "/path/to/client-key.pem"
+```
+
+The `serverNameOverride` field can be set to override the TLS server name used for hostname verification, which is useful when connecting by IP address:
+
+```yaml
+tls:
+  enabled: true
+  rootCerts:
+    - "/path/to/ca.pem"
+  serverNameOverride: "committer.example.com"
 ```
 
 ### Usage from a View
 Refer to the [Simple integration test](/integration/fabricx/simple) for reference.
+
+
+## Query Service
+
+The query service provides synchronous access to ledger state by connecting to the [fabric-x-committer](https://github.com/hyperledger/fabric-x-committer)'s `Query` service over gRPC. It is used for operations such as retrieving transaction status and channel configuration.
+
+### Configuration
+
+The query service is configured under the `fabric.<network>.queryService` key. It supports the same TLS modes as the notification service.
+
+```yaml
+fabric:
+  <network>:
+    queryService:
+      requestTimeout: 30s
+      endpoints:
+        - address: "committer.example.com:9091"
+          connectionTimeout: 5s
+          tls:
+            enabled: true
+            rootCerts:
+              - "/path/to/ca.pem"
+```
+
+For mTLS, add `clientCert` and `clientKey` under the `tls` block — see the [Notification Service TLS Modes](#tls-modes) section above for the full set of options, which apply identically here.
 
 
 ## Integration Tests

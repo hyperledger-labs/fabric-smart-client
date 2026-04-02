@@ -29,12 +29,32 @@ type Endpoint struct {
 	Address string `yaml:"address,omitempty"`
 	// ConnectionTimeout is the timeout for establishing a connection.
 	ConnectionTimeout time.Duration `yaml:"connectionTimeout,omitempty"`
-	// TLSEnabled indicates whether TLS is enabled for this endpoint.
-	TLSEnabled bool `yaml:"tlsEnabled,omitempty"`
-	// TLSRootCertFile is the path to the TLS root certificate file.
-	TLSRootCertFile string `yaml:"tlsRootCertFile,omitempty"`
-	// TLSServerNameOverride is the server name to use for TLS hostname verification.
-	TLSServerNameOverride string `yaml:"tlsServerNameOverride,omitempty"`
+	// TLS is the TLS configuration for the given endpoint.
+	TLS *TLSConfig `yaml:"tls,omitempty"`
+}
+
+// TLSConfig specifies TLS settings for secure communication.
+// Supports three modes: no TLS, server TLS (rootCerts only), and mutual TLS (all fields).
+type TLSConfig struct {
+	// Enabled indicates whether TLS is enabled for this endpoint.
+	Enabled bool `yaml:"enabled"`
+	// ClientKeyPath is the path to TLS client private key
+	ClientKeyPath string `yaml:"clientKey,omitempty"`
+	// ClientCertPath is the path to TLS client certificate
+	ClientCertPath string `yaml:"clientCert,omitempty"`
+	// RootCertPaths are the pats to TLS root certificates.
+	RootCertPaths []string `yaml:"rootCerts,omitempty"`
+	// ServerNameOverride is the server name to use for TLS hostname verification.
+	ServerNameOverride string `yaml:"serverNameOverride,omitempty"`
+}
+
+// IsEnabled returns whether TLS is enabled for this configuration.
+// Returns false if the config is nil or the enabled flag false.
+func (c *TLSConfig) IsEnabled() bool {
+	if c == nil {
+		return false // default
+	}
+	return c.Enabled
 }
 
 // ServiceBackend defines the interface for retrieving configuration values.
