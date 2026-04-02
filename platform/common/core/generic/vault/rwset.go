@@ -8,6 +8,8 @@ package vault
 
 import (
 	"bytes"
+	"maps"
+	"slices"
 	"sort"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -215,9 +217,24 @@ func entriesEqual[T any](r, o map[string]T, compare func(T, T) bool, nss ...driv
 }
 
 func getKeys[V any](m map[driver.Namespace]V, nss ...driver.Namespace) []string {
-	metaWriteNamespaces := collections.Keys(m)
+	metaWriteNamespaces := slices.Collect(maps.Keys(m))
 	if len(nss) == 0 {
 		return metaWriteNamespaces
 	}
-	return collections.Intersection(nss, metaWriteNamespaces)
+	return intersection(nss, metaWriteNamespaces)
+}
+
+func intersection(a, b []string) []string {
+	set := make(map[string]struct{}, len(a))
+	for _, v := range a {
+		set[v] = struct{}{}
+	}
+
+	var res []string
+	for _, v := range b {
+		if _, ok := set[v]; ok {
+			res = append(res, v)
+		}
+	}
+	return res
 }

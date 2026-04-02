@@ -10,27 +10,34 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
 
 const (
 	nonPrintablePrefix = "[nonprintable] "
 )
 
-// Keys logs lazily the keys of a map
-func Keys[K comparable, V any](m map[K]V) fmt.Stringer {
-	return keys[K, V](m)
+// MapKeys logs lazily the keys of a map
+func MapKeys[K comparable, V any](m map[K]V) fmt.Stringer {
+	return mapKeys[K, V](m)
 }
 
-type keys[K comparable, V any] map[K]V
+type mapKeys[K comparable, V any] map[K]V
 
-func (k keys[K, V]) String() string {
-	return fmt.Sprintf(strings.Join(collections.Repeat("%v", len(k)), ", "), collections.Keys(k))
+func (k mapKeys[K, V]) String() string {
+	keys := slices.Collect(maps.Keys(k))
+
+	strs := make([]string, len(keys))
+	for i, v := range keys {
+		strs[i] = fmt.Sprint(v)
+	}
+
+	return strings.Join(strs, ", ")
 }
 
 // SHA256Base64 logs lazily a byte slice as sha265 hash in base64 format

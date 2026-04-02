@@ -13,15 +13,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
-type Holder[V any] interface {
-	Get() (V, error)
-	Reset() error
-}
-
-func NewHolder[V any](provider func() (V, error), closer func(V) error) *lazyHolder[V] {
-	return &lazyHolder[V]{provider: provider, closer: closer}
-}
-
 func NewCloserHolder[V io.Closer](provider func() (V, error)) *lazyHolder[V] {
 	return &lazyHolder[V]{provider: provider, closer: func(v V) error { return v.Close() }}
 }

@@ -8,19 +8,19 @@ package cache_test
 
 import (
 	"fmt"
+	"maps"
 	"sync"
 	"sync/atomic"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
 
 func TestLRUSimple(t *testing.T) {
 	allEvicted := make(map[int]string)
 
-	c := cache.NewLRUCache(3, 2, func(evicted map[int]string) { collections.CopyMap(allEvicted, evicted) })
+	c := cache.NewLRUCache(3, 2, func(evicted map[int]string) { maps.Copy(allEvicted, evicted) })
 
 	c.Put(1, "a")
 	c.Put(2, "b")
@@ -43,7 +43,7 @@ func TestLRUSimple(t *testing.T) {
 func TestLRUSameKey(t *testing.T) {
 	allEvicted := make(map[int]string)
 
-	c := cache.NewLRUCache(3, 2, func(evicted map[int]string) { collections.CopyMap(allEvicted, evicted) })
+	c := cache.NewLRUCache(3, 2, func(evicted map[int]string) { maps.Copy(allEvicted, evicted) })
 
 	c.Put(1, "a")
 	c.Put(2, "b")

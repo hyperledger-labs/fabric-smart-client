@@ -8,13 +8,13 @@ package cache_test
 
 import (
 	"fmt"
+	"maps"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,7 +32,7 @@ func TestTimeoutSimple(t *testing.T) {
 
 	c := cache.NewTimeoutCache(evictionTimeout, func(evicted map[int]string) {
 		mu.Lock()
-		collections.CopyMap(allEvicted, evicted)
+		maps.Copy(allEvicted, evicted)
 		mu.Unlock()
 	})
 

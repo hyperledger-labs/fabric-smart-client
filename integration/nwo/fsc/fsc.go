@@ -260,7 +260,7 @@ func startPostgres(p *Platform) {
 		}
 	}
 
-	logger.Infof("Starting DBs for following data sources: [%s]...", logging.Keys(configs))
+	logger.Infof("Starting DBs for following data sources: [%s]...", logging.MapKeys(configs))
 
 	closeFuncs := make([]func(), 0, len(configs))
 

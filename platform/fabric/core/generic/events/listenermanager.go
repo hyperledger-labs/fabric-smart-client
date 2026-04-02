@@ -110,7 +110,7 @@ func newListenerManager[T EventInfo](
 	var events cache.Map[EventID, T]
 	if config.LRUSize > 0 && config.LRUBuffer > 0 {
 		events = cache.NewLRUCache(config.LRUSize, config.LRUBuffer, func(evicted map[EventID]T) {
-			logger.Debugf("evicted keys [%s]. If they are looked up, they will be fetched directly from the ledger from now on...", logging.Keys(evicted))
+			logger.Debugf("evicted keys [%s]. If they are looked up, they will be fetched directly from the ledger from now on...", logging.MapKeys(evicted))
 		})
 	} else {
 		events = cache.NewMapCache[EventID, T]()
@@ -135,7 +135,7 @@ func newListenerManager[T EventInfo](
 			lastBlockNum := flm.lastBlockNum.Load()
 			logger.Warnf(
 				"listeners for TXs [%s] timed out. Last Block Num [%d]. Either the TX finality is too slow or it reached finality too long ago and were evicted from the events cache. The IDs will be queried directly from ledger (when the batch is cut)...",
-				logging.Keys(evicted),
+				logging.MapKeys(evicted),
 				lastBlockNum,
 			)
 			fetchTxs(context.TODO(), logger, lastBlockNum, evicted, queryService, sequential)

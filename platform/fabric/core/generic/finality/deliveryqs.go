@@ -8,6 +8,8 @@ package finality
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -26,7 +28,7 @@ type DeliveryScanQueryByID[T events.EventInfo] struct {
 }
 
 func (q *DeliveryScanQueryByID[T]) QueryByID(ctx context.Context, lastBlock driver.BlockNum, evicted map[driver.TxID][]events.ListenerEntry[T]) (<-chan []T, error) {
-	txIDs := collections.Keys(evicted)
+	txIDs := slices.Collect(maps.Keys(evicted))
 	results := collections.NewSet(txIDs...)
 	ch := make(chan []T, len(txIDs))
 	go q.queryByID(ctx, results, ch, lastBlock)

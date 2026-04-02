@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"maps"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
 
 type VersionBuilder interface {
@@ -42,7 +43,7 @@ func (m *rwSetMapper) mapWrites(inputs []commitInput) (driver.Writes, error) {
 			if nsWrites, ok := writes[ns]; !ok {
 				writes[ns] = vals
 			} else {
-				collections.CopyMap(nsWrites, vals)
+				maps.Copy(nsWrites, vals)
 			}
 		}
 	}
@@ -60,7 +61,7 @@ func (m *rwSetMapper) mapMetaWrites(inputs []commitInput) (driver.MetaWrites, er
 			if nsWrites, ok := metaWrites[ns]; !ok {
 				metaWrites[ns] = vals
 			} else {
-				collections.CopyMap(nsWrites, vals)
+				maps.Copy(nsWrites, vals)
 			}
 		}
 	}
