@@ -185,6 +185,16 @@ func TestTransportCredentials(t *testing.T) {
 		require.Equal(t, "insecure", creds.Info().SecurityProtocol)
 	})
 
+	t.Run("tls enabled no root certs uses system pool", func(t *testing.T) {
+		t.Parallel()
+		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
+			Enabled:       true,
+			RootCertPaths: []string{},
+		})
+		require.NoError(t, err)
+		require.Equal(t, "tls", creds.Info().SecurityProtocol)
+	})
+
 	t.Run("tls enabled root cert not found", func(t *testing.T) {
 		t.Parallel()
 		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
@@ -307,7 +317,9 @@ func TestClientConn_Integration(t *testing.T) {
 		}
 		cc, err := grpc2.ClientConn(cfg)
 		require.NoError(t, err)
-		defer cc.Close()
+		t.Cleanup(func() {
+			_ = cc.Close()
+		})
 
 		invokeHealthCheck(t, cc)
 	})
@@ -335,7 +347,9 @@ func TestClientConn_Integration(t *testing.T) {
 		}
 		cc, err := grpc2.ClientConn(cfg)
 		require.NoError(t, err)
-		defer cc.Close()
+		t.Cleanup(func() {
+			_ = cc.Close()
+		})
 
 		invokeHealthCheck(t, cc)
 	})
@@ -374,7 +388,9 @@ func TestClientConn_Integration(t *testing.T) {
 		}
 		cc, err := grpc2.ClientConn(cfg)
 		require.NoError(t, err)
-		defer cc.Close()
+		t.Cleanup(func() {
+			_ = cc.Close()
+		})
 
 		invokeHealthCheck(t, cc)
 	})

@@ -10,8 +10,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
+	"text/template"
 	"time"
 
 	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
@@ -83,6 +83,7 @@ fabric:
       endpoints:{{- range Endpoints }}
         - address: {{ .Address }}
           connectionTimeout: {{ .ConnectionTimeout }}
+          {{- if .TLS}}
           tls:
             enabled: {{ .TLS.Enabled }}
             {{- if .TLS.Enabled }}
@@ -96,5 +97,6 @@ fabric:
             clientCert: {{ .TLS.ClientCertPath }}
             {{- end }}
             {{- end }}
+          {{- end }}
     {{- end }}
 `

@@ -13,15 +13,12 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
-
-var logger = logging.MustGetLogger()
 
 // ErrInvalidAddress is returned when an endpoint address is empty.
 var ErrInvalidAddress = errors.New("empty address")
@@ -113,8 +110,7 @@ func ClientConn(c *config.Config) (*grpc.ClientConn, error) {
 // TransportCredentials builds gRPC transport credentials from the given TLSConfig.
 // Returns insecure credentials when TLS is disabled or the config is nil.
 // Enables server TLS when RootCertPaths are provided, and mutual TLS (mTLS) when
-// both ClientCertPath and ClientKeyPath are set. A warning is logged if only one
-// of the two mTLS fields is set, and server-only TLS is used in that case.
+// both ClientCertPath and ClientKeyPath are set.
 func TransportCredentials(tlsConfig *config.TLSConfig) (credentials.TransportCredentials, error) {
 	if !tlsConfig.IsEnabled() {
 		return insecure.NewCredentials(), nil
@@ -123,33 +119,33 @@ func TransportCredentials(tlsConfig *config.TLSConfig) (credentials.TransportCre
 	t := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		ServerName: tlsConfig.ServerNameOverride,
-		RootCAs:    x509.NewCertPool(),
 	}
 
-	// set rootCAs
-	for _, rootCertPath := range tlsConfig.RootCertPaths {
-		rootCert, err := loadFile(rootCertPath)
-		if err != nil {
-			return nil, err
-		}
+	// set rootCAs — only populate when paths are provided; leaving RootCAs nil
+	// causes crypto/tls to use the system root store instead of an empty pool.
+	if len(tlsConfig.RootCertPaths) > 0 {
+		t.RootCAs = x509.NewCertPool()
+		for _, rootCertPath := range tlsConfig.RootCertPaths {
+			rootCert, err := loadFile(rootCertPath)
+			if err != nil {
+				return nil, err
+			}
 
-		if !t.RootCAs.AppendCertsFromPEM(rootCert) {
-			return nil, errors.Errorf("failed to parse root certificate from %s", rootCertPath)
+			if !t.RootCAs.AppendCertsFromPEM(rootCert) {
+				return nil, errors.Errorf("failed to parse root certificate from %s", rootCertPath)
+			}
 		}
 	}
 
 	// mTLS: both key and cert must be provided; if either is absent, skip mTLS
 	if tlsConfig.ClientKeyPath == "" || tlsConfig.ClientCertPath == "" {
-		if tlsConfig.ClientKeyPath != "" || tlsConfig.ClientCertPath != "" {
-			logger.Warn("mTLS disabled: both clientKey and clientCert must be set; ignoring partial mTLS configuration")
-		}
 		return credentials.NewTLS(t), nil
 	}
 
 	// load client cert for mTLS
 	cert, err := tls.LoadX509KeyPair(tlsConfig.ClientCertPath, tlsConfig.ClientKeyPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to load client key pair from cert=%s key=%s", tlsConfig.ClientCertPath, tlsConfig.ClientKeyPath)
 	}
 
 	t.Certificates = append(t.Certificates, cert)

@@ -42,7 +42,7 @@ type TLSConfig struct {
 	ClientKeyPath string `yaml:"clientKey,omitempty"`
 	// ClientCertPath is the path to TLS client certificate
 	ClientCertPath string `yaml:"clientCert,omitempty"`
-	// RootCertPaths are the pats to TLS root certificates.
+	// RootCertPaths are the paths to TLS root certificates.
 	RootCertPaths []string `yaml:"rootCerts,omitempty"`
 	// ServerNameOverride is the server name to use for TLS hostname verification.
 	ServerNameOverride string `yaml:"serverNameOverride,omitempty"`
