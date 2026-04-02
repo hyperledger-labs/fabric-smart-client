@@ -29,12 +29,12 @@ type TransferView struct {
 	*Transfer
 }
 
-func (f *TransferView) Call(context view.Context) (interface{}, error) {
-	assetOwner, err := state.RequestRecipientIdentity(context, f.Recipient)
+func (f *TransferView) Call(viewCtx view.Context) (interface{}, error) {
+	assetOwner, err := state.RequestRecipientIdentity(viewCtx, f.Recipient)
 	assert.NoError(err, "failed getting recipient identity")
 
 	// Prepare transaction
-	tx, err := state.NewAnonymousTransaction(context)
+	tx, err := state.NewAnonymousTransaction(viewCtx)
 	assert.NoError(err, "failed creating transaction")
 	tx.SetNamespace("asset_transfer")
 
@@ -51,7 +51,7 @@ func (f *TransferView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(tx.Delete(agreementToSell), "failed deleting")
 
 	// Send tx and receive the modified transaction
-	tx2, err := state.SendAndReceiveTransaction(context, tx, assetOwner)
+	tx2, err := state.SendAndReceiveTransaction(viewCtx, tx, assetOwner)
 	assert.NoError(err, "failed sending and received transaction")
 
 	// Check that tx2 is as expected
@@ -64,16 +64,16 @@ func (f *TransferView) Call(context view.Context) (interface{}, error) {
 	assert.NoError(inputState.VerifyCertification(), "failed certifying agreement to buy")
 	assert.NoError(inputState.State(agreementToBuy), "failed unmarshalling agreement to buy")
 
-	fns, err := fabric.GetDefaultFNS(context)
+	fns, err := fabric.GetDefaultFNS(viewCtx)
 	assert.NoError(err)
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx2, fns.IdentityProvider().DefaultIdentity(), assetOwner))
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx2, fns.IdentityProvider().DefaultIdentity(), assetOwner))
 	assert.NoError(err, "failed collecting endorsement")
 
-	_, err = context.RunView(state.NewCollectApprovesView(tx2, f.Approver))
+	_, err = viewCtx.RunView(state.NewCollectApprovesView(tx2, f.Approver))
 	assert.NoError(err, "failed collecting approves")
 
 	// Send to the ordering service and wait for confirmation
-	_, err = context.RunView(state.NewOrderingAndFinalityView(tx2))
+	_, err = viewCtx.RunView(state.NewOrderingAndFinalityView(tx2))
 	assert.NoError(err, "failed asking ordering")
 
 	return tx.ID(), nil
@@ -90,13 +90,13 @@ func (p *TransferViewFactory) NewView(in []byte) (view.View, error) {
 
 type TransferResponderView struct{}
 
-func (t *TransferResponderView) Call(context view.Context) (interface{}, error) {
+func (t *TransferResponderView) Call(viewCtx view.Context) (interface{}, error) {
 	// First, respond to a request for an identity
-	id, err := state.RespondRequestRecipientIdentity(context)
+	id, err := state.RespondRequestRecipientIdentity(viewCtx)
 	assert.NoError(err, "failed to respond to identity request")
 
 	// Expect an state transaction
-	tx, err := state.ReceiveTransaction(context)
+	tx, err := state.ReceiveTransaction(viewCtx)
 	assert.NoError(err)
 
 	// The owner can now inspect the transaction to ensure it is as expected.
@@ -153,15 +153,15 @@ func (t *TransferResponderView) Call(context view.Context) (interface{}, error) 
 		return nil, errors.Errorf("invalid command, expected [transfer], was [%s]", command.Name)
 	}
 
-	tx2, err := state.SendBackAndReceiveTransaction(context, tx)
+	tx2, err := state.SendBackAndReceiveTransaction(viewCtx, tx)
 	assert.NoError(err, "failed sending back transaction and receiving the new one")
 
 	// TODO: check that tx is equal to tx2
 
 	// The approver is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx2))
+	_, err = viewCtx.RunView(state.NewEndorseView(tx2))
 	assert.NoError(err)
 
 	// Finally, the approver waits that the transaction completes its lifecycle
-	return context.RunView(state.NewFinalityView(tx2))
+	return viewCtx.RunView(state.NewFinalityView(tx2))
 }

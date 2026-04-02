@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// WrappedContext wraps an existing view context to provide a different context.Context.
+// WrappedContext wraps an existing view context to provide a different context.Ctx.
 type WrappedContext struct {
 	ParentContext
 	ctx context.Context

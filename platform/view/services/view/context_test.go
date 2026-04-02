@@ -25,7 +25,7 @@ var emptyTracer = noop.NewTracerProvider().Tracer("empty")
 
 type DummyView struct{}
 
-func (d *DummyView) Call(context view.Context) (any, error) {
+func (d *DummyView) Call(_ view.Context) (any, error) {
 	return nil, nil
 }
 
@@ -91,7 +91,7 @@ func TestContext(t *testing.T) {
 	// Me
 	assert.Equal(t, view.Identity("charlie"), ctx.Me())
 
-	// Context
+	// Ctx
 	assert.NotNil(t, ctx.Context())
 
 	// OnError / Cleanup

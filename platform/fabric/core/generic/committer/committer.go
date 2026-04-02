@@ -163,16 +163,16 @@ func New(
 	return s
 }
 
-func (c *Committer) Start(context context.Context) error {
-	go c.FinalityManager.Run(context)
-	go c.runEventNotifiers(context)
+func (c *Committer) Start(ctx context.Context) error {
+	go c.FinalityManager.Run(ctx)
+	go c.runEventNotifiers(ctx)
 	return nil
 }
 
-func (c *Committer) runEventNotifiers(context context.Context) {
+func (c *Committer) runEventNotifiers(ctx context.Context) {
 	for {
 		select {
-		case <-context.Done():
+		case <-ctx.Done():
 			return
 		case event := <-c.events:
 			c.metrics.EventQueueLength.Add(-1)

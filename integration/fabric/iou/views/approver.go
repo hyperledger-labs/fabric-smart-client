@@ -22,17 +22,17 @@ import (
 
 type ApproverView struct{}
 
-func (i *ApproverView) Call(context view.Context) (interface{}, error) {
+func (i *ApproverView) Call(viewCtx view.Context) (interface{}, error) {
 	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
 	// to the approver. Therefore, the approver waits to receive the transaction.
-	tx, err := state.ReceiveTransaction(context)
+	tx, err := state.ReceiveTransaction(viewCtx)
 	assert.NoError(err, "failed receiving transaction")
 
 	// The approver can now inspect the transaction to ensure it is as expected.
 	// Here are examples of possible checks
 
 	// Check ACL policy
-	network, ch, err := fabric.GetChannel(context, tx.Network(), tx.Channel())
+	network, ch, err := fabric.GetChannel(viewCtx, tx.Network(), tx.Channel())
 	assert.NoError(err, "failed getting channel [%s]", tx.Channel())
 	err = ch.ACLProvider().CheckACL(tx.SignedProposal())
 	if network.ConfigService().DriverName() == fabricx.DriverName {
@@ -84,7 +84,7 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	}
 
 	// The approver is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx))
+	_, err = viewCtx.RunView(state.NewEndorseView(tx))
 	assert.NoError(err)
 
 	// Check committer events
@@ -95,7 +95,7 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	assert.Error(committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, &wg)), "must have failed")
 
 	// Finally, the approver waits that the transaction completes its lifecycle
-	_, err = context.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
+	_, err = viewCtx.RunView(state.NewFinalityWithTimeoutView(tx, 1*time.Minute))
 	assert.NoError(err, "failed to run finality view")
 	wg.Wait()
 
@@ -109,8 +109,8 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 
 type ApproverInitView struct{}
 
-func (a *ApproverInitView) Call(context view.Context) (interface{}, error) {
-	_, ch, err := fabric.GetDefaultChannel(context)
+func (a *ApproverInitView) Call(viewCtx view.Context) (interface{}, error) {
+	_, ch, err := fabric.GetDefaultChannel(viewCtx)
 	assert.NoError(err)
 	assert.NoError(ch.Committer().ProcessNamespace("iou"), "failed to setup namespace to process")
 	return nil, nil

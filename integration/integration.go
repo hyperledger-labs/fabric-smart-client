@@ -50,7 +50,7 @@ const WithRaceDetection = true
 type Infrastructure struct {
 	TestDir           string
 	StartPort         int
-	Ctx               *context.Context
+	NWOCtx            *context.NWOContext
 	NWO               *nwo.NWO
 	BuildServer       *common.BuildServer
 	DeleteOnStop      bool
@@ -112,7 +112,7 @@ outer:
 	n := &Infrastructure{
 		TestDir:      testDir,
 		StartPort:    startPort,
-		Ctx:          context.New(testDir, uint16(startPort), builder, topologies...),
+		NWOCtx:       context.New(testDir, uint16(startPort), builder, topologies...),
 		BuildServer:  buildServer,
 		DeleteOnStop: true,
 		Topologies:   topologies,
@@ -168,7 +168,7 @@ func Clients(dir string, topologies ...api.Topology) (*Infrastructure, error) {
 }
 
 func (i *Infrastructure) ViewCmd(node *smartclient.Replica) commands.View {
-	p := i.Ctx.PlatformsByName[fsc.TopologyName].(*fsc.Platform)
+	p := i.NWOCtx.PlatformsByName[fsc.TopologyName].(*fsc.Platform)
 
 	return commands.View{
 		TLSCA:         path.Join(p.NodeLocalTLSDir(node.Peer), "ca.crt"),
@@ -255,7 +255,7 @@ func (i *Infrastructure) Client(name string) api.GRPCClient {
 		panic("call generate or load first")
 	}
 
-	return i.Ctx.ViewClients[name]
+	return i.NWOCtx.ViewClients[name]
 }
 
 func (i *Infrastructure) WebClient(name string) api.WebClient {
@@ -263,7 +263,7 @@ func (i *Infrastructure) WebClient(name string) api.WebClient {
 		panic("call generate or load first")
 	}
 
-	return i.Ctx.WebClients[name]
+	return i.NWOCtx.WebClients[name]
 }
 
 func (i *Infrastructure) CLI(name string) api.ViewClient {
@@ -271,7 +271,7 @@ func (i *Infrastructure) CLI(name string) api.ViewClient {
 		panic("call generate or load first")
 	}
 
-	return i.Ctx.ViewCLIs[name]
+	return i.NWOCtx.ViewCLIs[name]
 }
 
 func (i *Infrastructure) Identity(name string) view.Identity {
@@ -279,7 +279,7 @@ func (i *Infrastructure) Identity(name string) view.Identity {
 		panic("call generate or load first")
 	}
 
-	id, ok := i.Ctx.ViewIdentities[name]
+	id, ok := i.NWOCtx.ViewIdentities[name]
 	if !ok {
 		return []byte(name)
 	}
@@ -325,7 +325,7 @@ func (i *Infrastructure) initNWO() {
 			logger.Infof("Register %s", label)
 			factory, ok := i.PlatformFactories[label]
 			gomega.Expect(ok).To(gomega.BeTrue(), "expected to find platform [%s]", label)
-			platforms = append(platforms, factory.New(i.Ctx, topology, i.BuildServer.Client()))
+			platforms = append(platforms, factory.New(i.NWOCtx, topology, i.BuildServer.Client()))
 		}
 	}
 
@@ -336,16 +336,16 @@ func (i *Infrastructure) initNWO() {
 		}
 		factory := i.PlatformFactories["fsc"]
 
-		fscPlatform := factory.New(i.Ctx, fscTopology, i.BuildServer.Client())
+		fscPlatform := factory.New(i.NWOCtx, fscTopology, i.BuildServer.Client())
 		platforms = append(platforms, fscPlatform)
 		i.FscPlatform = fscPlatform.(*fsc.Platform)
 	}
 
 	// Register platforms to context
 	for _, platform := range platforms {
-		i.Ctx.AddPlatform(platform)
+		i.NWOCtx.AddPlatform(platform)
 	}
-	i.NWO = nwo.New(i.Ctx, platforms...)
+	i.NWO = nwo.New(i.NWOCtx, platforms...)
 }
 
 func (i *Infrastructure) storeAdditionalConfigurations() {

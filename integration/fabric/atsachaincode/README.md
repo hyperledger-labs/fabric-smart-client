@@ -224,11 +224,11 @@ type CreateAssetView struct {
 	*CreateAsset
 }
 
-func (c *CreateAssetView) Call(context view.Context) (interface{}, error) {
+func (c *CreateAssetView) Call(viewCtx view.Context) (interface{}, error) {
 	apRaw, err := c.AssetProperties.Bytes()
 	assert.NoError(err, "failed marshalling asset properties struct")
 
-	_, err = context.RunView(
+	_, err = viewCtx.RunView(
 		chaincode.NewInvokeView(
 			"asset_transfer",
 			"CreateAsset",

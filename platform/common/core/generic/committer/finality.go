@@ -72,17 +72,17 @@ func (c *FinalityManager[V]) Post(event driver.FinalityEvent[V]) {
 	c.eventQueue <- event
 }
 
-func (c *FinalityManager[V]) Run(context context.Context) {
+func (c *FinalityManager[V]) Run(ctx context.Context) {
 	for i := 0; i < c.eventQueueWorkers; i++ {
-		go c.runEventQueue(context)
+		go c.runEventQueue(ctx)
 	}
-	go c.runStatusListener(context)
+	go c.runStatusListener(ctx)
 }
 
-func (c *FinalityManager[V]) runEventQueue(context context.Context) {
+func (c *FinalityManager[V]) runEventQueue(ctx context.Context) {
 	for {
 		select {
-		case <-context.Done():
+		case <-ctx.Done():
 			return
 		case event := <-c.eventQueue:
 			c.listenerManager.InvokeListeners(event)

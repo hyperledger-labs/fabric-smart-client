@@ -42,8 +42,8 @@ func ReadMessageWithTimeout(session Session, d time.Duration) ([]byte, error) {
 	return payload, nil
 }
 
-func ReadFirstMessage(context view.Context) (Session, []byte, error) {
-	session := context.Session()
+func ReadFirstMessage(viewCtx view.Context) (Session, []byte, error) {
+	session := viewCtx.Session()
 	ch := session.Receive()
 	if ch == nil {
 		return nil, nil, errors.New("session receive channel is nil")
@@ -72,8 +72,8 @@ func ReadFirstMessage(context view.Context) (Session, []byte, error) {
 	return session, payload, nil
 }
 
-func ReadFirstMessageOrPanic(context view.Context) []byte {
-	session := context.Session()
+func ReadFirstMessageOrPanic(viewCtx view.Context) []byte {
+	session := viewCtx.Session()
 	ch := session.Receive()
 	if ch == nil {
 		panic("session receive channel is nil")

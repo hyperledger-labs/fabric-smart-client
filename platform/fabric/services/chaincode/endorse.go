@@ -28,16 +28,16 @@ func NewEndorseView(chaincode, function string, args ...interface{}) *endorseCha
 	}
 }
 
-func (i *endorseChaincodeView) Call(context view.Context) (interface{}, error) {
-	return i.Endorse(context)
+func (i *endorseChaincodeView) Call(viewCtx view.Context) (interface{}, error) {
+	return i.Endorse(viewCtx)
 }
 
-func (i *endorseChaincodeView) Endorse(context view.Context) (*fabric.Envelope, error) {
+func (i *endorseChaincodeView) Endorse(viewCtx view.Context) (*fabric.Envelope, error) {
 	if len(i.ChaincodeName) == 0 {
 		return nil, errors.Errorf("no chaincode specified")
 	}
 
-	fNetwork, err := fabric.GetFabricNetworkService(context, i.Network)
+	fNetwork, err := fabric.GetFabricNetworkService(viewCtx, i.Network)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", i.Network)
 	}

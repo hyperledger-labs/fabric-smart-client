@@ -98,7 +98,7 @@ func (s *stream) readMessages(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Debugf("Context for stream [%s] closed by us. Error: %v", s.Hash(), ctx.Err())
+			logger.Debugf("Ctx for stream [%s] closed by us. Error: %v", s.Hash(), ctx.Err())
 			s.deliver(streamEOF)
 			return
 		default:
@@ -135,7 +135,7 @@ func (s *stream) deliver(r result) {
 		// Message delivered successfully
 		return
 	case <-s.ctx.Done():
-		// Context is done, but let's try one more time to deliver the message
+		// Ctx is done, but let's try one more time to deliver the message
 		// before giving up completely
 		select {
 		case s.reads <- r:

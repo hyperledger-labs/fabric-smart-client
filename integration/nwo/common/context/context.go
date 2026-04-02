@@ -26,7 +26,7 @@ type SigningIdentity interface {
 	Sign(msg []byte) ([]byte, error)
 }
 
-type Context struct {
+type NWOContext struct {
 	Builder          Builder
 	PortCounter      uint16
 	rootDir          string
@@ -51,13 +51,13 @@ type Context struct {
 	SigHUPIgnore bool
 }
 
-func New(rootDir string, portCounter uint16, builder api.Builder, topologies ...api.Topology) *Context {
+func New(rootDir string, portCounter uint16, builder api.Builder, topologies ...api.Topology) *NWOContext {
 	topologiesByName := map[string]api.Topology{}
 	for _, t := range topologies {
 		topologiesByName[t.Name()] = t
 	}
 
-	return &Context{
+	return &NWOContext{
 		rootDir:                 rootDir,
 		PortCounter:             portCounter,
 		Builder:                 builder,
@@ -79,100 +79,100 @@ func New(rootDir string, portCounter uint16, builder api.Builder, topologies ...
 	}
 }
 
-func (c *Context) RootDir() string {
+func (c *NWOContext) RootDir() string {
 	return c.rootDir
 }
 
-func (c *Context) PortsByPeerID(prefix string, id string) api.Ports {
+func (c *NWOContext) PortsByPeerID(prefix string, id string) api.Ports {
 	return c.portsByPeerID[prefix+id]
 }
 
-func (c *Context) SetPortsByPeerID(prefix string, id string, ports api.Ports) {
+func (c *NWOContext) SetPortsByPeerID(prefix string, id string, ports api.Ports) {
 	c.portsByPeerID[prefix+id] = ports
 }
 
-func (c *Context) HostByPeerID(prefix string, id string) string {
+func (c *NWOContext) HostByPeerID(prefix string, id string) string {
 	return c.hostByPeerID[prefix+id]
 }
 
-func (c *Context) SetHostByPeerID(prefix string, id string, host string) {
+func (c *NWOContext) SetHostByPeerID(prefix string, id string, host string) {
 	c.hostByPeerID[prefix+id] = host
 }
 
-func (c *Context) PortsByOrdererID(prefix string, id string) api.Ports {
+func (c *NWOContext) PortsByOrdererID(prefix string, id string) api.Ports {
 	return c.portsByOrdererID[prefix+id]
 }
 
-func (c *Context) SetPortsByOrdererID(prefix string, id string, ports api.Ports) {
+func (c *NWOContext) SetPortsByOrdererID(prefix string, id string, ports api.Ports) {
 	c.portsByOrdererID[prefix+id] = ports
 }
 
-func (c *Context) HostByOrdererID(prefix string, id string) string {
+func (c *NWOContext) HostByOrdererID(prefix string, id string) string {
 	return c.hostByOrdererID[prefix+id]
 }
 
-func (c *Context) SetHostByOrdererID(prefix string, id string, host string) {
+func (c *NWOContext) SetHostByOrdererID(prefix string, id string, host string) {
 	c.hostByOrdererID[prefix+id] = host
 }
 
-func (c *Context) TopologyByName(name string) api.Topology {
+func (c *NWOContext) TopologyByName(name string) api.Topology {
 	return c.TopologiesByName[name]
 }
 
-func (c *Context) ReservePort() uint16 {
+func (c *NWOContext) ReservePort() uint16 {
 	c.PortCounter++
 	return c.PortCounter - 1
 }
 
-func (c *Context) SetConnectionConfig(name string, cc *grpc.ConnectionConfig) {
+func (c *NWOContext) SetConnectionConfig(name string, cc *grpc.ConnectionConfig) {
 	c.ConnectionConfigs[name] = cc
 }
 
-func (c *Context) SetClientSigningIdentity(name string, id view2.SigningIdentity) {
+func (c *NWOContext) SetClientSigningIdentity(name string, id view2.SigningIdentity) {
 	c.ClientSigningIdentities[name] = id
 }
 
-func (c *Context) SetAdminSigningIdentity(name string, id view2.SigningIdentity) {
+func (c *NWOContext) SetAdminSigningIdentity(name string, id view2.SigningIdentity) {
 	c.AdminSigningIdentities[name] = id
 }
 
-func (c *Context) SetViewIdentity(name string, cert []byte) {
+func (c *NWOContext) SetViewIdentity(name string, cert []byte) {
 	c.ViewIdentities[name] = cert
 }
 
-func (c *Context) ConnectionConfig(name string) *grpc.ConnectionConfig {
+func (c *NWOContext) ConnectionConfig(name string) *grpc.ConnectionConfig {
 	return c.ConnectionConfigs[name]
 }
 
-func (c *Context) ClientSigningIdentity(name string) view2.SigningIdentity {
+func (c *NWOContext) ClientSigningIdentity(name string) view2.SigningIdentity {
 	return c.ClientSigningIdentities[name]
 }
 
-func (c *Context) SetViewClient(name string, client api.GRPCClient) {
+func (c *NWOContext) SetViewClient(name string, client api.GRPCClient) {
 	c.ViewClients[name] = client
 }
 
-func (c *Context) SetWebClient(name string, client api.WebClient) {
+func (c *NWOContext) SetWebClient(name string, client api.WebClient) {
 	c.WebClients[name] = client
 }
 
-func (c *Context) SetCLI(name string, client api.ViewClient) {
+func (c *NWOContext) SetCLI(name string, client api.ViewClient) {
 	c.ViewCLIs[name] = client
 }
 
-func (c *Context) GetViewIdentityAliases(name string) []string {
+func (c *NWOContext) GetViewIdentityAliases(name string) []string {
 	return c.ViewIdentityAliases[name]
 }
 
-func (c *Context) AdminSigningIdentity(name string) view2.SigningIdentity {
+func (c *NWOContext) AdminSigningIdentity(name string) view2.SigningIdentity {
 	return c.AdminSigningIdentities[name]
 }
 
-func (c *Context) ExtensionsByPeerID(name string) api.Extensions {
+func (c *NWOContext) ExtensionsByPeerID(name string) api.Extensions {
 	return c.extensionsByPeerID[name]
 }
 
-func (c *Context) AddExtension(id string, name api.ExtensionName, extension string) {
+func (c *NWOContext) AddExtension(id string, name api.ExtensionName, extension string) {
 	extensions := c.extensionsByPeerID[id]
 	if extensions == nil {
 		extensions = api.Extensions{}
@@ -181,11 +181,11 @@ func (c *Context) AddExtension(id string, name api.ExtensionName, extension stri
 	extensions[name] = append(extensions[name], extension)
 }
 
-func (c *Context) AddIdentityAlias(id string, alias string) {
+func (c *NWOContext) AddIdentityAlias(id string, alias string) {
 	c.ViewIdentityAliases[id] = append(c.ViewIdentityAliases[id], alias)
 }
 
-func (c *Context) PlatformByName(name string) api.Platform {
+func (c *NWOContext) PlatformByName(name string) api.Platform {
 	p, ok := c.PlatformsByName[name]
 	if !ok {
 		logger.Errorf("cannot find platform with name [%s], platforms available [%v]", name, c.PlatformsByName)
@@ -193,7 +193,7 @@ func (c *Context) PlatformByName(name string) api.Platform {
 	return p
 }
 
-func (c *Context) PlatformsByType(typ string) []api.Platform {
+func (c *NWOContext) PlatformsByType(typ string) []api.Platform {
 	var platforms []api.Platform
 	for _, p := range c.PlatformsByName {
 		if p.Type() == typ {
@@ -203,11 +203,11 @@ func (c *Context) PlatformsByType(typ string) []api.Platform {
 	return platforms
 }
 
-func (c *Context) AddPlatform(platform api.Platform) {
+func (c *NWOContext) AddPlatform(platform api.Platform) {
 	logger.Infof("Add platform [%s:%s]", platform.Type(), platform.Name())
 	c.PlatformsByName[platform.Name()] = platform
 }
 
-func (c *Context) IgnoreSigHUP() bool {
+func (c *NWOContext) IgnoreSigHUP() bool {
 	return c.SigHUPIgnore
 }

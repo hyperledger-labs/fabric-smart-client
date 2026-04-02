@@ -15,10 +15,10 @@ import (
 
 type ApproverView struct{}
 
-func (a *ApproverView) Call(context view.Context) (interface{}, error) {
+func (a *ApproverView) Call(viewCtx view.Context) (interface{}, error) {
 	// When a business party runs the CollectEndorsementsView, at some point, this party sends the assembled transaction
 	// to the approver. Therefore, the approver waits to receive the transaction.
-	tx, err := state.ReceiveTransaction(context)
+	tx, err := state.ReceiveTransaction(viewCtx)
 	assert.NoError(err, "failed receiving transaction")
 
 	// The approver can now inspect the transaction to ensure it is as expected.
@@ -90,9 +90,9 @@ func (a *ApproverView) Call(context view.Context) (interface{}, error) {
 	}
 
 	// The approver is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx))
+	_, err = viewCtx.RunView(state.NewEndorseView(tx))
 	assert.NoError(err)
 
 	// Finally, the approver waits that the transaction completes its lifecycle
-	return context.RunView(state.NewFinalityView(tx))
+	return viewCtx.RunView(state.NewFinalityView(tx))
 }
