@@ -117,7 +117,7 @@ func TransportCredentials(tlsConfig *config.TLSConfig) (credentials.TransportCre
 	}
 
 	t := &tls.Config{
-		MinVersion: tls.VersionTLS12,
+		MinVersion: tls.VersionTLS13,
 		ServerName: tlsConfig.ServerNameOverride,
 	}
 
