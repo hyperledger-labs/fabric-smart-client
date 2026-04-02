@@ -13,6 +13,7 @@ package protos
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -122,7 +123,7 @@ func RegisterViewServiceServer(s grpc.ServiceRegistrar, srv ViewServiceServer) {
 	s.RegisterService(&ViewService_ServiceDesc, srv)
 }
 
-func _ViewService_ProcessCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ViewService_ProcessCommand_Handler(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {
 	in := new(SignedCommand)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -134,13 +135,13 @@ func _ViewService_ProcessCommand_Handler(srv interface{}, ctx context.Context, d
 		Server:     srv,
 		FullMethod: ViewService_ProcessCommand_FullMethodName,
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+	handler := func(ctx context.Context, req any) (any, error) {
 		return srv.(ViewServiceServer).ProcessCommand(ctx, req.(*SignedCommand))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ViewService_StreamCommand_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _ViewService_StreamCommand_Handler(srv any, stream grpc.ServerStream) error {
 	return srv.(ViewServiceServer).StreamCommand(&grpc.GenericServerStream[SignedCommand, SignedCommandResponse]{ServerStream: stream})
 }
 

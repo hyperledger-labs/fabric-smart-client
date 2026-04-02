@@ -27,7 +27,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 
 	// 3 orgs are needed so that the multiendorsement test can update the namespace
 	// policy to require endorsements from Org1 and Org2 or Org3.
-	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
+	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3", "Org4")
 
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 
@@ -53,7 +53,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		RegisterResponder(&simpleviews.ApproveView{}, &simpleviews.CreateView{})
 
 	fscTopology.AddNodeByName(CreatorNode).
-		AddOptions(fabric.WithOrganization("Org1")).
+		AddOptions(fabric.WithOrganization("Org4")).
 		RegisterViewFactory("create", &simpleviews.CreateViewFactory{}).
 		RegisterViewFactory("query", &simpleviews.QueryViewFactory{})
 

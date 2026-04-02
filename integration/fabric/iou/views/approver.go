@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -29,6 +30,17 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 
 	// The approver can now inspect the transaction to ensure it is as expected.
 	// Here are examples of possible checks
+
+	// Check ACL policy
+	network, ch, err := fabric.GetChannel(context, tx.Network(), tx.Channel())
+	assert.NoError(err, "failed getting channel [%s]", tx.Channel())
+	err = ch.ACLProvider().CheckACL(tx.SignedProposal())
+	if network.ConfigService().DriverName() == fabricx.DriverName {
+		assert.NoError(err, "failed checking ACL, fabric driver [%s]", network.ConfigService().DriverName())
+	} else {
+		// CheckACL is currently implemented only for fabricx
+		assert.True(errors.Is(err, driver.ErrNotImplemented), "expected driver.ErrNotImplemented, fabric driver is [%s]", network.ConfigService().DriverName())
+	}
 
 	// Namespaces are properly populated
 	assert.Equal(1, len(tx.Namespaces()), "expected only one namespace")
@@ -78,8 +90,6 @@ func (i *ApproverView) Call(context view.Context) (interface{}, error) {
 	// Check committer events
 	var wg sync.WaitGroup
 	wg.Add(1)
-	_, ch, err := fabric.GetDefaultChannel(context)
-	assert.NoError(err)
 	committer := ch.Committer()
 	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 	assert.Error(committer.AddFinalityListener("", NewFinalityListener(tx.ID(), driver.Valid, &wg)), "must have failed")

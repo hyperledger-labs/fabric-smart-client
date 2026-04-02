@@ -38,7 +38,7 @@ type Server interface {
 	Stop() error
 }
 
-func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewManager, tracerProvider tracing.Provider) Server {
+func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewManager, identityProvider server.IdentityProvider, tracerProvider tracing.Provider) Server {
 	if !configProvider.GetBool("fsc.web.enabled") {
 		logger.Info("web server not enabled")
 		return web.NewDummyServer()
@@ -65,7 +65,7 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 	h := web.NewHttpHandler()
 	webServer.RegisterHandler("/", otelhttp.NewHandler(h, "rest-view-call"), true)
 
-	web2.InstallViewHandler(viewManager, h, tracerProvider)
+	web2.InstallViewHandler(viewManager, identityProvider, h, tracerProvider)
 
 	return webServer
 }

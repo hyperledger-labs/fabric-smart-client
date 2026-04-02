@@ -8,11 +8,13 @@ package view
 
 import "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 
+// Metrics models the metrics for the view manager.
 type Metrics struct {
+	// Contexts returns the number of open contexts on the client side.
 	Contexts metrics.Gauge
 }
 
-func newMetrics(p metrics.Provider) *Metrics {
+func NewMetrics(p metrics.Provider) *Metrics {
 	return &Metrics{
 		Contexts: p.NewGauge(metrics.GaugeOpts{
 			Name: "contexts",

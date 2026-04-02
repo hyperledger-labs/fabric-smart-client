@@ -20,7 +20,12 @@ type ApproveView struct{}
 func (i *ApproveView) Call(viewCtx view.Context) (interface{}, error) {
 	logger.Infof("Approve View called! great")
 
-	network, ch, err := fabric.GetDefaultChannel(viewCtx)
+	tx, err := state.ReceiveTransaction(viewCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	network, ch, err := fabric.GetChannel(viewCtx, tx.Network(), tx.Channel())
 	if err != nil {
 		return nil, err
 	}
@@ -29,19 +34,19 @@ func (i *ApproveView) Call(viewCtx view.Context) (interface{}, error) {
 		return nil, err
 	}
 
-	tx, err := state.ReceiveTransaction(viewCtx)
-	if err != nil {
+	// check that the proposal is signed by a party who can write to the channel
+	if err := ch.ACLProvider().CheckACL(tx.SignedProposal()); err != nil {
 		return nil, err
 	}
 
 	// check that tx has a create command
 	if tx.Commands().Count() != 1 {
-		return nil, fmt.Errorf("cmd count is wrong, explected 1 but got %d", tx.Commands().Count())
+		return nil, fmt.Errorf("cmd count is wrong, expected 1 but got %d", tx.Commands().Count())
 	}
 
 	cmd := tx.Commands().At(0)
 	if cmd.Name != "create" {
-		return nil, fmt.Errorf("cmd type is wrong, explected `create` but got %s", cmd.Name)
+		return nil, fmt.Errorf("cmd type is wrong, expected `create` but got %s", cmd.Name)
 	}
 
 	if tx.NumOutputs() != 1 {

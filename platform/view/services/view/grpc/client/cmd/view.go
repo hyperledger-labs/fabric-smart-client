@@ -41,6 +41,7 @@ var (
 	userCert   string
 )
 
+// NewCmd returns a new cobra command for invoking views.
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "view",
@@ -129,7 +130,7 @@ func loadConfig(file string) Config {
 	return conf
 }
 
-func out(a ...interface{}) {
+func out(a ...any) {
 	_, _ = fmt.Fprintln(outWriter, a...)
 }
 

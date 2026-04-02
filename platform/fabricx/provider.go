@@ -18,6 +18,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
 
+const (
+	// DriverName is the name of the fabricx driver
+	DriverName = "fabricx"
+)
+
 type Provider struct {
 	p *driver2.Provider
 }

@@ -9,24 +9,24 @@ import (
 )
 
 type View struct {
-	CallStub        func(viewa.Context) (interface{}, error)
+	CallStub        func(viewa.Context) (any, error)
 	callMutex       sync.RWMutex
 	callArgsForCall []struct {
 		arg1 viewa.Context
 	}
 	callReturns struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	callReturnsOnCall map[int]struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *View) Call(arg1 viewa.Context) (interface{}, error) {
+func (fake *View) Call(arg1 viewa.Context) (any, error) {
 	fake.callMutex.Lock()
 	ret, specificReturn := fake.callReturnsOnCall[len(fake.callArgsForCall)]
 	fake.callArgsForCall = append(fake.callArgsForCall, struct {
@@ -34,7 +34,7 @@ func (fake *View) Call(arg1 viewa.Context) (interface{}, error) {
 	}{arg1})
 	stub := fake.CallStub
 	fakeReturns := fake.callReturns
-	fake.recordInvocation("Call", []interface{}{arg1})
+	fake.recordInvocation("Call", []any{arg1})
 	fake.callMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -51,7 +51,7 @@ func (fake *View) CallCallCount() int {
 	return len(fake.callArgsForCall)
 }
 
-func (fake *View) CallCalls(stub func(viewa.Context) (interface{}, error)) {
+func (fake *View) CallCalls(stub func(viewa.Context) (any, error)) {
 	fake.callMutex.Lock()
 	defer fake.callMutex.Unlock()
 	fake.CallStub = stub
@@ -64,52 +64,50 @@ func (fake *View) CallArgsForCall(i int) viewa.Context {
 	return argsForCall.arg1
 }
 
-func (fake *View) CallReturns(result1 interface{}, result2 error) {
+func (fake *View) CallReturns(result1 any, result2 error) {
 	fake.callMutex.Lock()
 	defer fake.callMutex.Unlock()
 	fake.CallStub = nil
 	fake.callReturns = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *View) CallReturnsOnCall(i int, result1 interface{}, result2 error) {
+func (fake *View) CallReturnsOnCall(i int, result1 any, result2 error) {
 	fake.callMutex.Lock()
 	defer fake.callMutex.Unlock()
 	fake.CallStub = nil
 	if fake.callReturnsOnCall == nil {
 		fake.callReturnsOnCall = make(map[int]struct {
-			result1 interface{}
+			result1 any
 			result2 error
 		})
 	}
 	fake.callReturnsOnCall[i] = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *View) Invocations() map[string][][]interface{} {
+func (fake *View) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.callMutex.RLock()
-	defer fake.callMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *View) recordInvocation(key string, args []interface{}) {
+func (fake *View) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

@@ -24,7 +24,7 @@ const (
 
 func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
 	fabricTopology := nwofabricx.NewDefaultTopology()
-	fabricTopology.AddOrganizationsByName("Org1", "Org2")
+	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespaceWithUnanimity(Namespace, "Org1")
 
@@ -49,7 +49,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		RegisterResponder(&simpleviews.ApproveView{}, &simpleviews.CreateView{})
 
 	fscTopology.AddNodeByName(CreatorNode).
-		AddOptions(fabric.WithOrganization("Org1")).
+		AddOptions(fabric.WithOrganization("Org3")).
 		// simple logic
 		RegisterViewFactory("create", &simpleviews.CreateViewFactory{}).
 		RegisterViewFactory("query", &simpleviews.QueryViewFactory{})

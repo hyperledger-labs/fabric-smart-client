@@ -73,6 +73,10 @@ func (p *SignedProposal) ChaincodeVersion() string {
 	return p.up.ChaincodeVersion
 }
 
+func (p *SignedProposal) Internal() any {
+	return p.s
+}
+
 type Transaction struct {
 	ctx              context.Context
 	channelProvider  ChannelProvider

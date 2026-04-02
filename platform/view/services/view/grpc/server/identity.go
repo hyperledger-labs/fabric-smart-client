@@ -8,17 +8,17 @@ package server
 
 //go:generate counterfeiter -o client/mock/identity.go -fake-name Identity . Identity
 
-// Identity refers to the creator of a tx;
+// Identity refers to the creator of a transaction or command.
 type Identity interface {
+	// Serialize returns the serialized representation of the identity.
 	Serialize() ([]byte, error)
 }
 
-//go:generate counterfeiter -o client/mock/signing_identity.go -fake-name SigningIdentity . SigningIdentity
-
-// SigningIdentity defines the functions necessary to sign an
-// array of bytes; it is needed to sign the commands
+// SigningIdentity defines the functions necessary to sign an array of bytes.
+// It is needed to sign the commands.
 type SigningIdentity interface {
 	Identity // extends Identity
 
+	// Sign signs the given message.
 	Sign(msg []byte) ([]byte, error)
 }

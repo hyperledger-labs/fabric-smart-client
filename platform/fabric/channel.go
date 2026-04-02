@@ -18,7 +18,11 @@ type Channel struct {
 	committer  *Committer
 }
 
-func NewChannel(subscriber events.Subscriber, fns driver.FabricNetworkService, ch driver.Channel) *Channel {
+func NewChannel(
+	subscriber events.Subscriber,
+	fns driver.FabricNetworkService,
+	ch driver.Channel,
+) *Channel {
 	return &Channel{subscriber: subscriber, fns: fns, ch: ch, committer: NewCommitter(ch)}
 }
 
@@ -36,6 +40,11 @@ func (c *Channel) Ledger() *Ledger {
 
 func (c *Channel) MSPManager() *MSPManager {
 	return &MSPManager{ch: c.ch.ChannelMembership()}
+}
+
+// ACLProvider returns the ACLProvider of the channel
+func (c *Channel) ACLProvider() *ACLProvider {
+	return NewACLProvider(c.ch.ChannelMembership())
 }
 
 func (c *Channel) Committer() *Committer {

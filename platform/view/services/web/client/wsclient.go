@@ -26,10 +26,12 @@ const maxMessageSize = 10 * 1024 * 1024
 func OpenWSClientConn(url string, config *tls.Config) (*websocket.Conn, error) {
 	dialer := &websocket.Dialer{TLSClientConfig: config}
 	ws, _, err := dialer.Dial(url, nil)
-	if err == nil {
-		ws.SetReadLimit(maxMessageSize)
+	if err != nil {
+		logger.Errorf("Failed to establish websocket connection to [%s]: %s", url, err.Error())
+		return nil, err
 	}
-	return ws, err
+	ws.SetReadLimit(maxMessageSize)
+	return ws, nil
 }
 
 func NewWSStream(url string, config *tls.Config) (*WSStream, error) {

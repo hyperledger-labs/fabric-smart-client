@@ -266,5 +266,5 @@ func (f *vaultDeliveryWrapper) GetLastTxID(ctx context.Context) (string, error) 
 }
 
 func (f *vaultDeliveryWrapper) GetLastBlock(context.Context) (uint64, error) {
-	return 0, errors.New("not implemented")
+	return 0, driver.ErrNotImplemented
 }
