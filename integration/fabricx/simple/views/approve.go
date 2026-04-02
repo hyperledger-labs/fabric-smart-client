@@ -34,6 +34,7 @@ func (i *ApproveView) Call(viewCtx view.Context) (interface{}, error) {
 		return nil, err
 	}
 
+	// check that the proposal is signed by a party who can write to the channel
 	if err := ch.ACLProvider().CheckACL(tx.SignedProposal()); err != nil {
 		return nil, err
 	}

@@ -63,6 +63,11 @@ func (i *CreateView) Call(viewCtx view.Context) (interface{}, error) {
 		return nil, err
 	}
 
+	// endorse proposal
+	if err := tx.EndorseProposal(); err != nil {
+		return nil, err
+	}
+
 	// send transaction do all approvers
 	logger.Infof("Collect endorsements from %v for txID=%v", i.params.Approvers, tx.ID())
 	if _, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, i.params.Approvers...)); err != nil {

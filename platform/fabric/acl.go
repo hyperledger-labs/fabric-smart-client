@@ -18,6 +18,8 @@ func NewACLProvider(ch driver.ChannelMembership) *ACLProvider {
 	return &ACLProvider{ch: ch}
 }
 
+// CheckACL checks the ACL for the resource for the Channel using the
+// SignedProposal from which an id can be extracted for testing against a policy
 func (p *ACLProvider) CheckACL(signedProp *SignedProposal) error {
 	return p.ch.CheckACL(signedProp.s)
 }

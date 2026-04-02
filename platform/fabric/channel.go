@@ -42,6 +42,7 @@ func (c *Channel) MSPManager() *MSPManager {
 	return &MSPManager{ch: c.ch.ChannelMembership()}
 }
 
+// ACLProvider returns the ACLProvider of the channel
 func (c *Channel) ACLProvider() *ACLProvider {
 	return NewACLProvider(c.ch.ChannelMembership())
 }
