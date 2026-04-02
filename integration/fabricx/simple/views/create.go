@@ -65,7 +65,14 @@ func (i *CreateView) Call(viewCtx view.Context) (interface{}, error) {
 
 	// send transaction do all approvers
 	logger.Infof("Collect endorsements from %v for txID=%v", i.params.Approvers, tx.ID())
-	if _, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, i.params.Approvers...)); err != nil {
+	if _, err = viewCtx.RunView(state.NewCollectEndorsementsView(
+		tx,
+		append(
+			// the current node must also endorse because it is generating the RWSet
+			[]view.Identity{tx.FabricNetworkService().IdentityProvider().DefaultIdentity()},
+			i.params.Approvers...,
+		)...,
+	)); err != nil {
 		return nil, err
 	}
 
