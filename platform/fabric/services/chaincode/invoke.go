@@ -47,15 +47,15 @@ func NewInvokeView(chaincode, function string, args ...interface{}) *invokeChain
 	}
 }
 
-func (i *invokeChaincodeView) Call(context view.Context) (interface{}, error) {
-	txid, result, err := i.Invoke(context)
+func (i *invokeChaincodeView) Call(viewCtx view.Context) (interface{}, error) {
+	txid, result, err := i.Invoke(viewCtx)
 	if err != nil {
 		return nil, err
 	}
 	return []interface{}{txid, result}, nil
 }
 
-func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, error) {
+func (i *invokeChaincodeView) Invoke(viewCtx view.Context) (string, []byte, error) {
 	// TODO: endorse and then send to ordering
 	info := &info{
 		chaincodeName: i.ChaincodeName,
@@ -63,7 +63,7 @@ func (i *invokeChaincodeView) Invoke(context view.Context) (string, []byte, erro
 		channel:       i.Channel,
 		identitiy:     i.InvokerIdentity,
 	}
-	chaincode, err := getChaincode(context, info)
+	chaincode, err := getChaincode(viewCtx, info)
 
 	if err != nil {
 		return "", nil, err

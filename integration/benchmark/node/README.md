@@ -13,7 +13,7 @@ Your view must satisfy two interfaces from FSC:
 
 type YourView struct{ params YourParams }
 
-func (v *YourView) Call(ctx view.Context) (interface{}, error) {
+func (v *YourView) Call(viewCtx view.Context) (interface{}, error) {
     // your workload logic (e.g. ZKP proving, signing, validation)
     return result, nil
 }

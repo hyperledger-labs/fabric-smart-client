@@ -44,7 +44,7 @@ type TransactionWithEnvelope interface {
 	Envelope() *common2.Envelope
 }
 
-type BroadcastFnc = func(context context.Context, env *common2.Envelope) error
+type BroadcastFnc = func(ctx context.Context, env *common2.Envelope) error
 
 type GetEndorserTransactionServiceFunc = func(channelID string) (driver.EndorserTransactionService, error)
 

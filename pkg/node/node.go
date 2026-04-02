@@ -33,7 +33,7 @@ type Node struct {
 	registry utils.Registry
 	id       string
 	sdks     []SDK
-	context  context.Context
+	ctx      context.Context
 	cancel   context.CancelFunc
 	running  bool
 }
@@ -82,12 +82,12 @@ func (n *Node) Start() (err error) {
 	}
 	logger.Infof("installing sdks...done")
 
-	n.context, n.cancel = context.WithCancel(context.Background())
+	n.ctx, n.cancel = context.WithCancel(context.Background())
 
 	// Start
 	logger.Info("starting sdks...")
 	for _, p := range n.sdks {
-		if err := p.Start(n.context); err != nil {
+		if err := p.Start(n.ctx); err != nil {
 			logger.Errorf("failed starting platform [%s]", err.Error())
 			return err
 		}
@@ -99,7 +99,7 @@ func (n *Node) Start() (err error) {
 	for _, p := range n.sdks {
 		ps, ok := p.(PostStart)
 		if ok {
-			if err := ps.PostStart(n.context); err != nil {
+			if err := ps.PostStart(n.ctx); err != nil {
 				logger.Errorf("failed post-starting platform [%s]", err.Error())
 				return err
 			}

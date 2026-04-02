@@ -47,13 +47,13 @@ type NWO struct {
 	StopEventuallyTimeout  time.Duration
 	ViewMembers            grouper.Members
 
-	ctx       *context.Context
+	nwoCtx    *context.NWOContext
 	isLoading bool
 }
 
-func New(ctx *context.Context, platforms ...api.Platform) *NWO {
+func New(nwoCtx *context.NWOContext, platforms ...api.Platform) *NWO {
 	return &NWO{
-		ctx:                    ctx,
+		nwoCtx:                 nwoCtx,
 		Platforms:              platforms,
 		StartEventuallyTimeout: time.Minute,
 		StopEventuallyTimeout:  time.Minute,
@@ -121,7 +121,7 @@ func (n *NWO) Start() {
 	n.ViewMembers = fscMembers
 
 	// store PIDs of all processes
-	f, err := os.Create(filepath.Join(n.ctx.RootDir(), "pids.txt"))
+	f, err := os.Create(filepath.Join(n.nwoCtx.RootDir(), "pids.txt"))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer func() {
 		// write PIDs to file

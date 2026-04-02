@@ -25,7 +25,7 @@ var emptyTracer = noop.NewTracerProvider().Tracer("empty")
 
 type DummyView struct{}
 
-func (d *DummyView) Call(context view.Context) (any, error) {
+func (d *DummyView) Call(_ view.Context) (any, error) {
 	return nil, nil
 }
 
@@ -63,12 +63,12 @@ func TestContext(t *testing.T) {
 	// Test NewContext with nil context
 	_, err = view2.NewContext(nil, nil, "", nil, nil, nil, nil, nil, nil, nil, nil) //nolint:staticcheck
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "a context should not be nil")
+	assert.Contains(t, err.Error(), "ctx should not be nil")
 
 	// Test NewContextForInitiator with nil context
 	_, err = view2.NewContextForInitiator("", nil, nil, nil, nil, nil, nil, nil, nil, nil) //nolint:staticcheck
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "a context should not be nil")
+	assert.Contains(t, err.Error(), "ctx should not be nil")
 
 	// Test Session with nil session
 	ctxNoSession, _ := view2.NewContext(context.TODO(), registry, "p", nil, resolver, idProvider, nil, nil, nil, emptyTracer, nil)
@@ -91,7 +91,7 @@ func TestContext(t *testing.T) {
 	// Me
 	assert.Equal(t, view.Identity("charlie"), ctx.Me())
 
-	// Context
+	// Ctx
 	assert.NotNil(t, ctx.Context())
 
 	// OnError / Cleanup

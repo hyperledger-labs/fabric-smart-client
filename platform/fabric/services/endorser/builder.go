@@ -130,33 +130,33 @@ func (t *Builder) newTransactionWithType(ctx context.Context, creator []byte, ne
 	}, nil
 }
 
-func NewTransaction(context view.Context, opts ...fabric.TransactionOption) (*Builder, *Transaction, error) {
-	txBuilder := NewBuilder(context)
-	tx, err := txBuilder.NewTransaction(context.Context(), opts...)
+func NewTransaction(viewCtx view.Context, opts ...fabric.TransactionOption) (*Builder, *Transaction, error) {
+	txBuilder := NewBuilder(viewCtx)
+	tx, err := txBuilder.NewTransaction(viewCtx.Context(), opts...)
 	if err != nil {
 		return nil, nil, err
 	}
-	context.OnError(tx.Close)
+	viewCtx.OnError(tx.Close)
 	return txBuilder, tx, nil
 }
 
-func NewTransactionFromBytes(context view.Context, bytes []byte) (*Builder, *Transaction, error) {
-	txBuilder := NewBuilder(context)
+func NewTransactionFromBytes(viewCtx view.Context, bytes []byte) (*Builder, *Transaction, error) {
+	txBuilder := NewBuilder(viewCtx)
 	tx, err := txBuilder.NewTransactionFromBytes(bytes)
 	if err != nil {
 		return nil, nil, err
 	}
-	context.OnError(tx.Close)
+	viewCtx.OnError(tx.Close)
 	return txBuilder, tx, nil
 }
 
-func NewTransactionWithSigner(context view.Context, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
-	txBuilder := NewBuilderWithServiceProvider(context)
-	tx, err := txBuilder.newTransaction(context.Context(), id, network, channel, nil, nil, false)
+func NewTransactionWithSigner(viewCtx view.Context, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
+	txBuilder := NewBuilderWithServiceProvider(viewCtx)
+	tx, err := txBuilder.newTransaction(viewCtx.Context(), id, network, channel, nil, nil, false)
 	if err != nil {
 		return nil, nil, err
 	}
-	context.OnError(tx.Close)
+	viewCtx.OnError(tx.Close)
 	return txBuilder, tx, nil
 }
 

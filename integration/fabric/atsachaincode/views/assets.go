@@ -24,11 +24,11 @@ type CreateAssetView struct {
 	*CreateAsset
 }
 
-func (c *CreateAssetView) Call(context view.Context) (interface{}, error) {
+func (c *CreateAssetView) Call(viewCtx view.Context) (interface{}, error) {
 	apRaw, err := c.AssetProperties.Bytes()
 	assert.NoError(err, "failed marshalling asset properties struct")
 
-	_, err = context.RunView(
+	_, err = viewCtx.RunView(
 		chaincode.NewInvokeView(
 			"asset_transfer",
 			"CreateAsset",
@@ -58,8 +58,8 @@ type ReadAssetView struct {
 	*ReadAsset
 }
 
-func (r *ReadAssetView) Call(context view.Context) (interface{}, error) {
-	res, err := context.RunView(
+func (r *ReadAssetView) Call(viewCtx view.Context) (interface{}, error) {
+	res, err := viewCtx.RunView(
 		chaincode.NewQueryView(
 			"asset_transfer", "ReadAsset", r.ID,
 		).WithEndorsersFromMyOrg().WithNumRetries(2).WithRetrySleep(2 * time.Second).WithMatchEndorsementPolicy())
@@ -84,8 +84,8 @@ type ReadAssetPrivatePropertiesView struct {
 	*ReadAssetPrivateProperties
 }
 
-func (r *ReadAssetPrivatePropertiesView) Call(context view.Context) (interface{}, error) {
-	res, err := context.RunView(chaincode.NewQueryView("asset_transfer", "GetAssetPrivateProperties", r.ID).WithEndorsersFromMyOrg())
+func (r *ReadAssetPrivatePropertiesView) Call(viewCtx view.Context) (interface{}, error) {
+	res, err := viewCtx.RunView(chaincode.NewQueryView("asset_transfer", "GetAssetPrivateProperties", r.ID).WithEndorsersFromMyOrg())
 	assert.NoError(err, "failed getting asset private properties")
 	return res, nil
 }
@@ -108,8 +108,8 @@ type ChangePublicDescriptionView struct {
 	*ChangePublicDescription
 }
 
-func (r *ChangePublicDescriptionView) Call(context view.Context) (interface{}, error) {
-	_, err := context.RunView(
+func (r *ChangePublicDescriptionView) Call(viewCtx view.Context) (interface{}, error) {
+	_, err := viewCtx.RunView(
 		chaincode.NewInvokeView(
 			"asset_transfer",
 			"ChangePublicDescription",

@@ -11,7 +11,7 @@ import (
 	"context"
 	"os"
 
-	context2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
+	nwocontext "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/mocks"
 	mocks2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/mocks/mocks"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
@@ -41,7 +41,7 @@ var _ = Describe("EndToEnd", func() {
 	Describe("generate main", func() {
 
 		It("should not fail", func() {
-			p := NewPlatform(context2.New("", 0, nil), NewTopology(), nil)
+			p := NewPlatform(nwocontext.New("", 0, nil), NewTopology(), nil)
 
 			n := node.NewNode("test")
 			n.AddSDK(&DummySDK{})
@@ -66,7 +66,7 @@ var _ = Describe("EndToEnd", func() {
 		})
 
 		It("should not fail from template", func() {
-			p := NewPlatform(context2.New("", 0, nil), NewTopology(), nil)
+			p := NewPlatform(nwocontext.New("", 0, nil), NewTopology(), nil)
 
 			template := node.NewNode("test")
 			template.RegisterViewFactory("initiator", &initiator2.Factory{})

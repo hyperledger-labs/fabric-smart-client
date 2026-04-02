@@ -211,7 +211,7 @@ func WithDefaultSqlitePersistence() node.Option {
 
 // Network returns the fabric network from the passed context bound to the passed id.
 // It returns nil, if nothing is found
-func Network(ctx *context.Context, id string) *Platform {
+func Network(ctx *context.NWOContext, id string) *Platform {
 	p := ctx.PlatformByName(id)
 	if p == nil {
 		return nil

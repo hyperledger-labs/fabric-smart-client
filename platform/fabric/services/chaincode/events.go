@@ -31,7 +31,7 @@ type info struct {
 }
 
 type RegisterChaincodeCall struct {
-	Context          context.Context
+	Ctx              context.Context
 	InvokerIdentity  view.Identity
 	Network          string
 	Channel          string
@@ -56,27 +56,27 @@ func NewListenToEventsView(chaincode string, callBack EventCallback) *ListenToEv
 	}
 }
 
-func NewListenToEventsViewWithContext(context context.Context, chaincode string, callBack EventCallback) *ListenToEventsView {
+func NewListenToEventsViewWithContext(ctx context.Context, chaincode string, callBack EventCallback) *ListenToEventsView {
 	return &ListenToEventsView{
 		RegisterChaincodeCall: &RegisterChaincodeCall{
 			ChaincodeName: chaincode,
 			CallBack:      callBack,
-			Context:       context,
+			Ctx:           ctx,
 		},
 	}
 }
 
-func (r *ListenToEventsView) Call(context view.Context) (interface{}, error) {
-	err := r.RegisterChaincodeEvents(context)
+func (r *ListenToEventsView) Call(viewCtx view.Context) (interface{}, error) {
+	err := r.RegisterChaincodeEvents(viewCtx)
 	if err != nil {
 		return nil, err
 	}
 	return nil, nil
 }
 
-func (r *ListenToEventsView) RegisterChaincodeEvents(viewContext view.Context) error {
+func (r *ListenToEventsView) RegisterChaincodeEvents(viewCtx view.Context) error {
 	// TODO: endorse and then send to ordering
-	chaincode, err := getChaincode(viewContext, &info{
+	chaincode, err := getChaincode(viewCtx, &info{
 		chaincodeName: r.ChaincodeName,
 		network:       r.Network,
 		channel:       r.Channel,
@@ -91,7 +91,7 @@ func (r *ListenToEventsView) RegisterChaincodeEvents(viewContext view.Context) e
 	go func() {
 		defer chaincode.EventListener.CloseChaincodeEvents()
 
-		ctx := r.Context
+		ctx := r.Ctx
 		if ctx == nil {
 			ctx = context.Background()
 		}
@@ -114,8 +114,8 @@ func (r *ListenToEventsView) RegisterChaincodeEvents(viewContext view.Context) e
 					logger.Errorf("callback failed [%s:%s:%s]: [%s]", r.Network, r.Channel, r.ChaincodeName, err)
 				}
 				stop = true
-			case <-viewContext.Context().Done():
-				originErr := viewContext.Context().Err()
+			case <-viewCtx.Context().Done():
+				originErr := viewCtx.Context().Err()
 				logger.Debugf("view context done with err [%s]", originErr)
 				_, err = r.CallBack(&committer.ChaincodeEvent{
 					Err: errors.Wrapf(originErr, "view context done"),
@@ -134,12 +134,12 @@ func (r *ListenToEventsView) RegisterChaincodeEvents(viewContext view.Context) e
 	return nil
 }
 
-func getChaincode(context view.Context, info *info) (*fabric.Chaincode, error) {
+func getChaincode(viewCtx view.Context, info *info) (*fabric.Chaincode, error) {
 	if len(info.chaincodeName) == 0 {
 		return nil, errors.Errorf("no chaincode specified")
 	}
 
-	fNetwork, err := fabric.GetFabricNetworkService(context, info.network)
+	fNetwork, err := fabric.GetFabricNetworkService(viewCtx, info.network)
 	if err != nil {
 		return nil, err
 	}

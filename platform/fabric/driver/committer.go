@@ -58,7 +58,7 @@ type TransactionFilter = driver.TransactionFilter
 
 // Committer models the committer service
 type Committer interface {
-	Start(context context.Context) error
+	Start(ctx context.Context) error
 
 	// ProcessNamespace registers namespaces that will be committed even if the rwset is not known
 	ProcessNamespace(nss ...driver.Namespace) error
@@ -69,7 +69,7 @@ type Committer interface {
 
 	// Status returns a validation code this committer bind to the passed transaction id, plus
 	// a list of dependant transaction ids if they exist.
-	Status(context context.Context, txID driver.TxID) (ValidationCode, string, error)
+	Status(ctx context.Context, txID driver.TxID) (ValidationCode, string, error)
 
 	// AddFinalityListener registers a listener for transaction status for the passed transaction id.
 	// If the status is already valid or invalid, the listener is called immediately.
@@ -80,7 +80,7 @@ type Committer interface {
 	// RemoveFinalityListener unregisters the passed listener.
 	RemoveFinalityListener(txID string, listener FinalityListener) error
 
-	DiscardTx(context context.Context, txID driver.TxID, message string) error
+	DiscardTx(ctx context.Context, txID driver.TxID, message string) error
 
 	CommitTX(ctx context.Context, txID driver.TxID, block driver.BlockNum, indexInBlock driver.TxNum, envelope *common.Envelope) error
 }

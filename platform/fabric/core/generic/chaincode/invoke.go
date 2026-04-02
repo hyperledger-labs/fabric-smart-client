@@ -44,7 +44,7 @@ type Invoke struct {
 	MatchEndorsementPolicy         bool
 	NumRetries                     int
 	RetrySleep                     time.Duration
-	Context                        context.Context
+	Ctx                            context.Context
 }
 
 func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
@@ -187,8 +187,8 @@ func (i *Invoke) submit() (string, []byte, error) {
 	return txID, proposalResp.Response.Payload, nil
 }
 
-func (i *Invoke) WithContext(context context.Context) driver.ChaincodeInvocation {
-	i.Context = context
+func (i *Invoke) WithContext(ctx context.Context) driver.ChaincodeInvocation {
+	i.Ctx = ctx
 	return i
 }
 
@@ -517,7 +517,7 @@ func (i *Invoke) toBytes(arg interface{}) ([]byte, error) {
 }
 
 func (i *Invoke) broadcast(txID string, env *common.Envelope) error {
-	if err := i.Chaincode.Broadcaster.Broadcast(i.Context, env); err != nil {
+	if err := i.Chaincode.Broadcaster.Broadcast(i.Ctx, env); err != nil {
 		return err
 	}
 	return i.Chaincode.Finality.IsFinal(context.Background(), txID)

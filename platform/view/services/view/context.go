@@ -159,7 +159,7 @@ type Context struct {
 // NewContextForInitiator returns a new Context for an initiator view.
 func NewContextForInitiator(
 	contextID string,
-	context context.Context,
+	ctx context.Context,
 	sp services.Provider,
 	sessionFactory SessionFactory,
 	resolver EndpointService,
@@ -169,14 +169,14 @@ func NewContextForInitiator(
 	tracer trace.Tracer,
 	localIdentityChecker LocalIdentityChecker,
 ) (*Context, error) {
-	if context == nil {
-		return nil, errors.Errorf("a context should not be nil [%s]", string(debug.Stack()))
+	if ctx == nil {
+		return nil, errors.Errorf("ctx should not be nil [%s]", string(debug.Stack()))
 	}
 	if len(contextID) == 0 {
 		contextID = utils.GenerateUUID()
 	}
-	ctx, err := NewContext(
-		context,
+	viewCtx, err := NewContext(
+		ctx,
 		sp,
 		contextID,
 		sessionFactory,
@@ -191,9 +191,9 @@ func NewContextForInitiator(
 	if err != nil {
 		return nil, err
 	}
-	ctx.initiator = initiator
+	viewCtx.initiator = initiator
 
-	return ctx, nil
+	return viewCtx, nil
 }
 
 // NewContext returns a new Context.
@@ -211,7 +211,7 @@ func NewContext(
 	localIdentityChecker LocalIdentityChecker,
 ) (*Context, error) {
 	if ctx == nil {
-		return nil, errors.Errorf("a context should not be nil [%s]", string(debug.Stack()))
+		return nil, errors.Errorf("ctx should not be nil [%s]", string(debug.Stack()))
 	}
 
 	viewCtxt := &Context{
@@ -383,7 +383,7 @@ func (c *Context) OnError(callback func()) {
 	c.errorCallbackFuncs = append(c.errorCallbackFuncs, callback)
 }
 
-// Context returns the associated context.Context.
+// Context returns the associated context.Ctx.
 func (c *Context) Context() context.Context {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

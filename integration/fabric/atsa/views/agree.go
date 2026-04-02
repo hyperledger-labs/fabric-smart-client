@@ -26,9 +26,9 @@ type AgreeToSellView struct {
 	*AgreeToSell
 }
 
-func (a *AgreeToSellView) Call(context view.Context) (interface{}, error) {
+func (a *AgreeToSellView) Call(viewCtx view.Context) (interface{}, error) {
 	// The asset owner creates a new transaction, and
-	tx, err := state.NewAnonymousTransaction(context)
+	tx, err := state.NewAnonymousTransaction(viewCtx)
 	assert.NoError(err, "failed creating transaction")
 
 	// Sets the namespace where the state should appear, and
@@ -44,10 +44,10 @@ func (a *AgreeToSellView) Call(context view.Context) (interface{}, error) {
 	assetID, err := asset.GetLinearID()
 	assert.NoError(err, "cannot compute linear state's id")
 
-	vault, err := state.GetVault(context)
+	vault, err := state.GetVault(viewCtx)
 	assert.NoError(err)
 	assert.NoError(
-		vault.GetState(context.Context(), "asset_transfer", assetID, asset),
+		vault.GetState(viewCtx.Context(), "asset_transfer", assetID, asset),
 		"failed loading asset [%s]", assetID,
 	)
 
@@ -63,11 +63,11 @@ func (a *AgreeToSellView) Call(context view.Context) (interface{}, error) {
 	// The asset owner is ready to collect all the required signatures.
 	// Namely from the asset owner itself and the approver. In this order.
 	// All signatures are required.
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, asset.Owner, a.Approver))
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, asset.Owner, a.Approver))
 	assert.NoError(err, "failed collecting endorsement")
 
 	// Send to the ordering service and wait for confirmation
-	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
+	_, err = viewCtx.RunView(state.NewOrderingAndFinalityView(tx))
 	assert.NoError(err, "failed asking ordering")
 
 	return tx.ID(), nil
@@ -92,12 +92,12 @@ type AgreeToBuyView struct {
 	*AgreeToBuy
 }
 
-func (a *AgreeToBuyView) Call(context view.Context) (interface{}, error) {
+func (a *AgreeToBuyView) Call(viewCtx view.Context) (interface{}, error) {
 	// Prepare transaction
-	tx, err := state.NewAnonymousTransaction(context)
+	tx, err := state.NewAnonymousTransaction(viewCtx)
 	assert.NoError(err, "failed creating transaction")
 	tx.SetNamespace("asset_transfer")
-	fns, err := fabric.GetDefaultFNS(context)
+	fns, err := fabric.GetDefaultFNS(viewCtx)
 	assert.NoError(err)
 	me := fns.IdentityProvider().DefaultIdentity()
 	assert.NoError(tx.AddCommand("agreeToBuy", me), "failed adding issue command")
@@ -105,14 +105,14 @@ func (a *AgreeToBuyView) Call(context view.Context) (interface{}, error) {
 	a.Agreement.Owner = me
 	assert.NoError(tx.AddOutput(a.Agreement, state.WithHashHiding()), "failed adding output")
 
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, me))
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, me))
 	assert.NoError(err, "failed collecting endorsement")
 
-	_, err = context.RunView(state.NewCollectApprovesView(tx, a.Approver))
+	_, err = viewCtx.RunView(state.NewCollectApprovesView(tx, a.Approver))
 	assert.NoError(err, "failed collecting approves")
 
 	// Send to the ordering service and wait for confirmation
-	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
+	_, err = viewCtx.RunView(state.NewOrderingAndFinalityView(tx))
 	assert.NoError(err, "failed asking ordering")
 
 	return tx.ID(), nil

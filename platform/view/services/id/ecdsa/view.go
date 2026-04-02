@@ -25,8 +25,8 @@ func NewTwoPartyCollectEphemeralKeysView(other view.Identity) *twoPartyCollectEp
 	return &twoPartyCollectEphemeralKeyView{Other: other}
 }
 
-func (f twoPartyCollectEphemeralKeyView) Call(context view.Context) (interface{}, error) {
-	session, err := context.GetSession(context.Initiator(), f.Other)
+func (f twoPartyCollectEphemeralKeyView) Call(viewCtx view.Context) (interface{}, error) {
+	session, err := viewCtx.GetSession(viewCtx.Initiator(), f.Other)
 	if err != nil {
 		return nil, err
 	}
@@ -34,16 +34,16 @@ func (f twoPartyCollectEphemeralKeyView) Call(context view.Context) (interface{}
 	// Wait to receive a public key back
 	ch := session.Receive()
 
-	// Create ephemeral key and store it in the context
+	// Create ephemeral key and store it in the viewCtx
 	id, signer, verifier, err := NewSigner()
 	if err != nil {
 		return nil, err
 	}
-	sigService, err := sig.GetService(context)
+	sigService, err := sig.GetService(viewCtx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get sig service")
 	}
-	err = sigService.RegisterSigner(context.Context(), id, signer, verifier)
+	err = sigService.RegisterSigner(viewCtx.Context(), id, signer, verifier)
 	if err != nil {
 		return nil, err
 	}
@@ -78,12 +78,12 @@ func (f twoPartyCollectEphemeralKeyView) Call(context view.Context) (interface{}
 		}
 
 		// Update the Endpoint Resolver
-		resolver := endpoint.GetService(context)
-		err = resolver.Bind(context.Context(), context.Me(), id)
+		resolver := endpoint.GetService(viewCtx)
+		err = resolver.Bind(viewCtx.Context(), viewCtx.Me(), id)
 		if err != nil {
 			return nil, err
 		}
-		err = resolver.Bind(context.Context(), f.Other, id2)
+		err = resolver.Bind(viewCtx.Context(), f.Other, id2)
 		if err != nil {
 			return nil, err
 		}
@@ -96,13 +96,13 @@ func (f twoPartyCollectEphemeralKeyView) Call(context view.Context) (interface{}
 
 type twoPartyEphemeralKeyResponderView struct{}
 
-func (s *twoPartyEphemeralKeyResponderView) Call(context view.Context) (interface{}, error) {
-	session, payload, err := session2.ReadFirstMessage(context)
+func (s *twoPartyEphemeralKeyResponderView) Call(viewCtx view.Context) (interface{}, error) {
+	session, payload, err := session2.ReadFirstMessage(viewCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	sigService, err := sig.GetService(context)
+	sigService, err := sig.GetService(viewCtx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get sig service")
 	}
@@ -117,12 +117,12 @@ func (s *twoPartyEphemeralKeyResponderView) Call(context view.Context) (interfac
 		return nil, err
 	}
 
-	// Create ephemeral key, store it in the context, and send it back
+	// Create ephemeral key, store it in the viewCtx, and send it back
 	id, signer, verifier, err := NewSigner()
 	if err != nil {
 		return nil, err
 	}
-	err = sigService.RegisterSigner(context.Context(), id, signer, verifier)
+	err = sigService.RegisterSigner(viewCtx.Context(), id, signer, verifier)
 	if err != nil {
 		return nil, err
 	}
@@ -134,12 +134,12 @@ func (s *twoPartyEphemeralKeyResponderView) Call(context view.Context) (interfac
 	}
 
 	// Update the Endpoint Resolver
-	resolver := endpoint.GetService(context)
-	err = resolver.Bind(context.Context(), context.Me(), id)
+	resolver := endpoint.GetService(viewCtx)
+	err = resolver.Bind(viewCtx.Context(), viewCtx.Me(), id)
 	if err != nil {
 		return nil, err
 	}
-	err = resolver.Bind(context.Context(), session.Info().Caller, id2)
+	err = resolver.Bind(viewCtx.Context(), session.Info().Caller, id2)
 	if err != nil {
 		return nil, err
 	}

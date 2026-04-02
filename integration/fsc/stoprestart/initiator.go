@@ -21,33 +21,33 @@ var logger = logging.MustGetLogger()
 
 type Initiator struct{}
 
-func (p *Initiator) Call(context view.Context) (interface{}, error) {
+func (p *Initiator) Call(viewCtx view.Context) (interface{}, error) {
 	// Retrieve responder identity
-	identityProvider, err := id.GetProvider(context)
+	identityProvider, err := id.GetProvider(viewCtx)
 	assert.NoError(err, "failed getting identity provider")
 	responder := identityProvider.Identity("bob")
 	responder2 := identityProvider.Identity("bob_alias")
 	assert.Equal(responder, responder2, "expected same identity for bob and its alias")
 
 	// Open a session to the responder
-	logger.DebugfContext(context.Context(), "open_session")
-	session, err := context.GetSession(context.Initiator(), responder)
+	logger.DebugfContext(viewCtx.Context(), "open_session")
+	session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
 	assert.NoError(err) // Send a ping
-	logger.DebugfContext(context.Context(), "send_ping")
-	err = session.SendWithContext(context.Context(), []byte("ping"))
+	logger.DebugfContext(viewCtx.Context(), "send_ping")
+	err = session.SendWithContext(viewCtx.Context(), []byte("ping"))
 	assert.NoError(err) // Wait for the pong
-	logger.DebugfContext(context.Context(), "wait_pong")
+	logger.DebugfContext(viewCtx.Context(), "wait_pong")
 	ch := session.Receive()
-	logger.DebugfContext(context.Context(), "received_response")
+	logger.DebugfContext(viewCtx.Context(), "received_response")
 	select {
 	case msg := <-ch:
-		_, rcvSpan := context.StartSpanFrom(msg.Ctx, "initiator_receive")
+		_, rcvSpan := viewCtx.StartSpanFrom(msg.Ctx, "initiator_receive")
 		defer rcvSpan.End()
-		rcvSpan.AddLink(trace.Link{SpanContext: trace.SpanContextFromContext(context.Context())})
+		rcvSpan.AddLink(trace.Link{SpanContext: trace.SpanContextFromContext(viewCtx.Context())})
 		if msg.Status == view.ERROR {
 			return nil, errors.New(string(msg.Payload))
 		}
-		logger.DebugfContext(context.Context(), "read_response")
+		logger.DebugfContext(viewCtx.Context(), "read_response")
 		rcvSpan.AddEvent("Read response")
 		m := string(msg.Payload)
 		if m != "pong" {

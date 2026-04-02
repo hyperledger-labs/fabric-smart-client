@@ -206,11 +206,11 @@ func (n *committerService) ReloadConfigTransactions() error {
 	return nil
 }
 
-func (n *committerService) Commit(ctx context.Context, block *common.Block) error {
+func (n *committerService) Commit(_ context.Context, block *common.Block) error {
 	return nil
 }
 
-func (n *committerService) Start(context context.Context) error {
+func (n *committerService) Start(_ context.Context) error {
 	return nil
 }
 
@@ -222,7 +222,7 @@ func (n *committerService) AddTransactionFilter(tf fdriver.TransactionFilter) er
 	return nil
 }
 
-func (n *committerService) Status(context context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
+func (n *committerService) Status(_ context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
 	return 0, "", nil
 }
 
@@ -244,11 +244,11 @@ func (n *committerService) RemoveFinalityListener(txID string, listener fdriver.
 	return nil
 }
 
-func (n *committerService) DiscardTx(context context.Context, txID cdriver.TxID, message string) error {
+func (n *committerService) DiscardTx(_ context.Context, txID cdriver.TxID, message string) error {
 	return nil
 }
 
-func (n *committerService) CommitTX(ctx context.Context, txID cdriver.TxID, block cdriver.BlockNum, indexInBlock cdriver.TxNum, envelope *common.Envelope) error {
+func (n *committerService) CommitTX(_ context.Context, txID cdriver.TxID, block cdriver.BlockNum, indexInBlock cdriver.TxNum, envelope *common.Envelope) error {
 	return nil
 }
 
@@ -256,6 +256,6 @@ type noopDeliveryService struct {
 	generic.DeliveryService
 }
 
-func (n *noopDeliveryService) Start(ctx context.Context) error {
+func (n *noopDeliveryService) Start(_ context.Context) error {
 	return nil
 }

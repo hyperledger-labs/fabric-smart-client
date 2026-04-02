@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package stoprestart
 
 import (
-	context2 "context"
+	"context"
 	"fmt"
 	"time"
 
@@ -19,21 +19,21 @@ import (
 
 type Responder struct{}
 
-func (p *Responder) Call(context view.Context) (interface{}, error) {
+func (p *Responder) Call(viewCtx view.Context) (interface{}, error) {
 	// Retrieve the session opened by the initiator
-	session := context.Session()
+	session := viewCtx.Session()
 
 	// Read the message from the initiator
 	ch := session.Receive()
 	var payload []byte
-	var rcvCtx context2.Context
+	var rcvCtx context.Context
 	var rcvSpan trace.Span
 	select {
 	case msg := <-ch:
 		payload = msg.Payload
-		rcvCtx, rcvSpan = context.StartSpanFrom(msg.Ctx, "responder_receive", trace.WithSpanKind(trace.SpanKindServer))
+		rcvCtx, rcvSpan = viewCtx.StartSpanFrom(msg.Ctx, "responder_receive", trace.WithSpanKind(trace.SpanKindServer))
 		defer rcvSpan.End()
-		rcvSpan.AddLink(trace.Link{SpanContext: trace.SpanContextFromContext(context.Context())})
+		rcvSpan.AddLink(trace.Link{SpanContext: trace.SpanContextFromContext(viewCtx.Context())})
 	case <-time.After(5 * time.Second):
 		return nil, errors.New("time out reached")
 	}

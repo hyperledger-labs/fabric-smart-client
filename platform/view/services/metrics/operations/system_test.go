@@ -122,7 +122,7 @@ var _ = Describe("System", func() {
 	//	Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 	// })
 	//
-	// Context("when TLS is disabled", func() {
+	// Ctx("when TLS is disabled", func() {
 	//	BeforeEach(func() {
 	//		options.TLS.Enabled = false
 	//		system = operations.NewSystem(options)
@@ -166,7 +166,7 @@ var _ = Describe("System", func() {
 	//	})
 	// })
 	//
-	// Context("when ClientCertRequired is true", func() {
+	// Ctx("when ClientCertRequired is true", func() {
 	//	BeforeEach(func() {
 	//		options.TLS.ClientCertRequired = true
 	//		system = operations.NewSystem(options)
@@ -181,7 +181,7 @@ var _ = Describe("System", func() {
 	//	})
 	// })
 	//
-	// Context("when listen fails", func() {
+	// Ctx("when listen fails", func() {
 	//	var listener net.Listener
 	//
 	//	BeforeEach(func() {
@@ -203,7 +203,7 @@ var _ = Describe("System", func() {
 	//	})
 	// })
 	//
-	// Context("when a bad TLS configuration is provided", func() {
+	// Ctx("when a bad TLS configuration is provided", func() {
 	//	BeforeEach(func() {
 	//		options.TLS.CertFile = "cert-file-does-not-exist"
 	//		system = operations.NewSystem(options)
@@ -223,7 +223,7 @@ var _ = Describe("System", func() {
 	//	Expect(fakeLogger.WarnArgsForCall(0)).To(Equal([]interface{}{"key", "value"}))
 	// })
 	//
-	// Context("when a logger is not provided", func() {
+	// Ctx("when a logger is not provided", func() {
 	//	BeforeEach(func() {
 	//		options.logger = nil
 	//		system = operations.NewSystem(options)
@@ -267,7 +267,7 @@ var _ = Describe("System", func() {
 	//	}))
 	// })
 	//
-	// Context("when the metrics provider is disabled", func() {
+	// Ctx("when the metrics provider is disabled", func() {
 	//	BeforeEach(func() {
 	//		options.Metrics = operations.MetricsOptions{
 	//			Provider: "disabled",
@@ -281,7 +281,7 @@ var _ = Describe("System", func() {
 	//	})
 	// })
 	//
-	// Context("when the metrics provider is prometheus", func() {
+	// Ctx("when the metrics provider is prometheus", func() {
 	//	BeforeEach(func() {
 	//		options.Metrics = operations.MetricsOptions{
 	//			Provider: "prometheus",

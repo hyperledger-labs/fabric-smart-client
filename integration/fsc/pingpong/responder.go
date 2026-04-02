@@ -17,9 +17,9 @@ import (
 
 type Responder struct{}
 
-func (p *Responder) Call(context view.Context) (interface{}, error) {
+func (p *Responder) Call(viewCtx view.Context) (interface{}, error) {
 	// Retrieve the session opened by the initiator
-	session := context.Session()
+	session := viewCtx.Session()
 
 	// Read the message from the initiator
 	ch := session.Receive()
