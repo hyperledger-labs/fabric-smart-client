@@ -18,13 +18,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func NewSignerInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, sb sq.StatementBuilderType) *SignerInfoStore {
+func NewSignerInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *SignerInfoStore {
 	return &SignerInfoStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
-		sb:           sb,
+		sb:           sq.StatementBuilder.PlaceholderFormat(ph),
 	}
 }
 
@@ -74,7 +74,6 @@ func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...vie
 		existingSigners = append(existingSigners, inverseMap[idHash])
 	}
 	logger.DebugfContext(ctx, "Found %d out of %d signers", len(existingSigners), len(ids))
-
 	return existingSigners, nil
 }
 

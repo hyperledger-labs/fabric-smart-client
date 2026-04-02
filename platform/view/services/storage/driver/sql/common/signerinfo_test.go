@@ -163,7 +163,7 @@ func TestPutSigner_UniqueViolation(t *testing.T) {
 
 func mockSignerInfoStore(db *sql.DB, isdummyUniqueErrorWrapper bool) *common2.SignerInfoStore {
 	if isdummyUniqueErrorWrapper {
-		return common2.NewSignerInfoStore(db, db, "signer_info", &dummyUniqueErrorWrapper{}, sq.StatementBuilder.PlaceholderFormat(sq.Dollar))
+		return common2.NewSignerInfoStore(db, db, "signer_info", &dummyUniqueErrorWrapper{}, sq.Dollar)
 	}
-	return common2.NewSignerInfoStore(db, db, "signer_info", &mock.SQLErrorWrapper{}, sq.StatementBuilder.PlaceholderFormat(sq.Dollar))
+	return common2.NewSignerInfoStore(db, db, "signer_info", &mock.SQLErrorWrapper{}, sq.Dollar)
 }
