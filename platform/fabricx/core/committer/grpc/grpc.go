@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package grpc
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"os"
 	"time"
 
@@ -92,29 +94,72 @@ func ClientConn(c *config.Config) (*grpc.ClientConn, error) {
 		return nil, ErrInvalidAddress
 	}
 
+	// tls setup
+	creds, err := TransportCredentials(endpoint.TLS)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to extract tls settings from config")
+	}
+
 	var opts []grpc.DialOption
 	opts = append(opts, WithConnectionTime(endpoint.ConnectionTimeout))
-	opts = append(opts, WithTLS(endpoint))
+	opts = append(opts, grpc.WithTransportCredentials(creds))
 
 	return grpc.NewClient(endpoint.Address, opts...)
 }
 
-// WithTLS returns a grpc.DialOption for configuring TLS based on the given endpoint.
-func WithTLS(endpoint config.Endpoint) grpc.DialOption {
-	if !endpoint.TLSEnabled {
-		return grpc.WithTransportCredentials(insecure.NewCredentials())
+// TransportCredentials builds gRPC transport credentials from the given TLSConfig.
+// Returns insecure credentials when TLS is disabled or the config is nil.
+// Enables server TLS when RootCertPaths are provided, and mutual TLS (mTLS) when
+// both ClientCertPath and ClientKeyPath are set.
+func TransportCredentials(tlsConfig *config.TLSConfig) (credentials.TransportCredentials, error) {
+	if !tlsConfig.IsEnabled() {
+		return insecure.NewCredentials(), nil
 	}
 
-	if _, err := os.Stat(endpoint.TLSRootCertFile); errors.Is(err, os.ErrNotExist) {
-		panic(err)
+	t := &tls.Config{
+		MinVersion: tls.VersionTLS13,
+		ServerName: tlsConfig.ServerNameOverride,
 	}
 
-	creds, err := credentials.NewClientTLSFromFile(endpoint.TLSRootCertFile, endpoint.TLSServerNameOverride)
+	// set rootCAs — only populate when paths are provided; leaving RootCAs nil
+	// causes crypto/tls to use the system root store instead of an empty pool.
+	if len(tlsConfig.RootCertPaths) > 0 {
+		t.RootCAs = x509.NewCertPool()
+		for _, rootCertPath := range tlsConfig.RootCertPaths {
+			rootCert, err := loadFile(rootCertPath)
+			if err != nil {
+				return nil, err
+			}
+
+			if !t.RootCAs.AppendCertsFromPEM(rootCert) {
+				return nil, errors.Errorf("failed to parse root certificate from %s", rootCertPath)
+			}
+		}
+	}
+
+	// mTLS: both key and cert must be provided; if either is absent, skip mTLS
+	if tlsConfig.ClientKeyPath == "" || tlsConfig.ClientCertPath == "" {
+		return credentials.NewTLS(t), nil
+	}
+
+	// load client cert for mTLS
+	cert, err := tls.LoadX509KeyPair(tlsConfig.ClientCertPath, tlsConfig.ClientKeyPath)
 	if err != nil {
-		panic(err)
+		return nil, errors.Wrapf(err, "failed to load client key pair from cert=%s key=%s", tlsConfig.ClientCertPath, tlsConfig.ClientKeyPath)
 	}
 
-	return grpc.WithTransportCredentials(creds)
+	t.Certificates = append(t.Certificates, cert)
+
+	return credentials.NewTLS(t), nil
+}
+
+// loadFile reads and returns the contents of the file at path.
+func loadFile(path string) ([]byte, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed opening file %s", path)
+	}
+	return b, nil
 }
 
 // WithConnectionTime returns a grpc.DialOption for setting the minimum connection timeout.

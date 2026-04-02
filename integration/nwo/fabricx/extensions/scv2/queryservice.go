@@ -10,8 +10,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
+	"text/template"
 	"time"
 
 	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
@@ -22,6 +22,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
+// generateQSExtension adds the query service endpoint configuration to the core.yaml
+// of every FSC node in the network topology.
 func generateQSExtension(n *network.Network) {
 	context := n.Context
 
@@ -42,8 +44,12 @@ func generateQSExtension(n *network.Network) {
 			{
 				Address:           fmt.Sprintf("%s:%v", queryServiceHost, queryServicePort),
 				ConnectionTimeout: grpc.DefaultConnectionTimeout,
-				TLSEnabled:        false,
-				TLSRootCertFile:   n.CACertsBundlePath(),
+				TLS: &config.TLSConfig{
+					// TODO: allow TLS and mTLS integration tests
+					Enabled: false,
+					// note that this bundle contains all root certs of the network
+					RootCertPaths: []string{n.CACertsBundlePath()},
+				},
 			},
 		},
 	}
@@ -76,8 +82,21 @@ fabric:
       requestTimeout: {{ RequestTimeout }}
       endpoints:{{- range Endpoints }}
         - address: {{ .Address }}
-          connectionTimeout: {{ .ConnectionTimeout }}        
-          tlsEnabled: {{ .TLSEnabled }}
-          tlsRootCertFile: {{ .TLSRootCertFile }}
+          connectionTimeout: {{ .ConnectionTimeout }}
+          {{- if .TLS}}
+          tls:
+            enabled: {{ .TLS.Enabled }}
+            {{- if .TLS.Enabled }}
+            rootCerts:{{- range .TLS.RootCertPaths }}
+              - {{ . }}
+            {{- end }}
+            {{- if .TLS.ClientKeyPath }}
+            clientKey: {{ .TLS.ClientKeyPath }}
+            {{- end }}
+            {{- if .TLS.ClientCertPath }}
+            clientCert: {{ .TLS.ClientCertPath }}
+            {{- end }}
+            {{- end }}
+          {{- end }}
     {{- end }}
 `
