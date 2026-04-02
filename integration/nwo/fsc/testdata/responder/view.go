@@ -19,6 +19,6 @@ func (f Factory) NewView(in []byte) (view.View, error) {
 
 type Responder struct{}
 
-func (r *Responder) Call(context view.Context) (interface{}, error) {
+func (r *Responder) Call(_ view.Context) (interface{}, error) {
 	panic("implement me")
 }

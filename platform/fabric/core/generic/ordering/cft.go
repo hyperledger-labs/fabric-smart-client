@@ -41,9 +41,9 @@ func NewCFTBroadcaster(configService driver.ConfigService, clientFactory Service
 	}
 }
 
-func (o *CFTBroadcaster) Broadcast(context context.Context, env *common2.Envelope) error {
-	logger.DebugfContext(context, "Start CFT Broadcast")
-	defer logger.DebugfContext(context, "End CFT Broadcast")
+func (o *CFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) error {
+	logger.DebugfContext(ctx, "Start CFT Broadcast")
+	defer logger.DebugfContext(ctx, "End CFT Broadcast")
 	// send the envelope for ordering
 	var status *ab.BroadcastResponse
 	var connection *Connection
@@ -54,7 +54,7 @@ func (o *CFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 	for i := 0; i < retries; i++ {
 		if connection != nil {
 			// throw away this connection
-			logger.DebugfContext(context, "Discard connection")
+			logger.DebugfContext(ctx, "Discard connection")
 			o.discardConnection(connection)
 		}
 		if i > 0 {
@@ -64,9 +64,9 @@ func (o *CFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 		}
 		if i > 0 || forceConnect {
 			forceConnect = false
-			connection, err = o.getConnection(context)
+			connection, err = o.getConnection(ctx)
 			if err != nil {
-				logger.WarnfContext(context, "failed to get connection to orderer [%s]", err)
+				logger.WarnfContext(ctx, "failed to get connection to orderer [%s]", err)
 				continue
 			}
 		}
@@ -80,7 +80,7 @@ func (o *CFTBroadcaster) Broadcast(context context.Context, env *common2.Envelop
 			continue
 		}
 		if status.GetStatus() != common2.Status_SUCCESS {
-			logger.DebugfContext(context, "Release connection")
+			logger.DebugfContext(ctx, "Release connection")
 			o.releaseConnection(connection)
 			return errors.Wrapf(err, "failed broadcasting, status %s", common2.Status_name[int32(status.GetStatus())])
 		}

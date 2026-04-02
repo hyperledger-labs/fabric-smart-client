@@ -171,21 +171,21 @@ type IssueView struct {
 	*Issue
 }
 
-func (f *IssueView) Call(context view.Context) (interface{}, error) {
+func (f *IssueView) Call(viewCtx view.Context) (interface{}, error) {
 	// As a first step operation, the issuer contacts the recipient's FSC node
 	// to request the identity to use to assign ownership of the freshly created asset.
 	assetOwner, err := state.RequestRecipientIdentity(context, f.Recipient)
 	assert.NoError(err, "failed getting recipient identity")
 
 	// The issuer creates a new transaction
-	tx, err := state.NewTransaction(context)
+	tx, err := state.NewTransaction(viewCtx)
 	assert.NoError(err, "failed creating transaction")
 
 	// Sets the namespace where the state should be stored
 	tx.SetNamespace("asset_transfer")
 
 	f.Asset.Owner = assetOwner
-	me := fabric.GetIdentityProvider(context).DefaultIdentity()
+	me := fabric.GetIdentityProvider(viewCtx).DefaultIdentity()
 
 	// Specifies the command this transaction wants to execute.
 	// In particular, the issuer wants to create a new asset owned by a given recipient.
@@ -198,11 +198,11 @@ func (f *IssueView) Call(context view.Context) (interface{}, error) {
 	// The issuer is ready to collect all the required signatures.
 	// Namely from the issuer itself, the lender, and the approver. In this order.
 	// All signatures are required.
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, me, f.Asset.Owner, f.Approver))
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, me, f.Asset.Owner, f.Approver))
 	assert.NoError(err, "failed collecting endorsement")
 
 	// At this point the issuer can send the transaction to the ordering service and wait for finality.
-	_, err = context.RunView(state.NewOrderingAndFinalityView(tx))
+	_, err = viewCtx.RunView(state.NewOrderingAndFinalityView(tx))
 	assert.NoError(err, "failed asking ordering")
 
 	return tx.ID(), nil

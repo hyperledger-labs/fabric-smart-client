@@ -24,10 +24,10 @@ type FinalityView struct {
 	*Finality
 }
 
-func (a *FinalityView) Call(context view.Context) (interface{}, error) {
-	_, ch, err := fabric.GetChannel(context, a.Network, a.Channel)
+func (a *FinalityView) Call(viewCtx view.Context) (interface{}, error) {
+	_, ch, err := fabric.GetChannel(viewCtx, a.Network, a.Channel)
 	assert.NoError(err, "failed getting channel [%s:%s]", a.Network, a.Channel)
-	err = ch.Finality().IsFinal(context.Context(), a.TxID)
+	err = ch.Finality().IsFinal(viewCtx.Context(), a.TxID)
 	return nil, err
 }
 

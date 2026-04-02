@@ -29,45 +29,45 @@ This is view describing Alice's behaviour:
 package pingpong
 
 import (
-	"fmt"
-	"time"
+  "fmt"
+  "time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+  "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+  view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
+  "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
+  "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Initiator struct{}
 
-func (p *Initiator) Call(context view.Context) (interface{}, error) {
-	// Retrieve responder identity
-	responder := view2.GetIdentityProvider(context).Identity("responder")
+func (p *Initiator) Call(viewCtx view.Context) (interface{}, error) {
+  // Retrieve responder identity
+  responder := view2.GetIdentityProvider(viewCtx).Identity("responder")
 
-	// Open a session to the responder
-	session, err := context.GetSession(context.Initiator(), responder)
-	assert.NoError(err)
-	// Send a ping
-	err = session.Send([]byte("ping"))
-	assert.NoError(err)
-	// Wait for the pong
-	ch := session.Receive()
-	select {
-	case msg := <-ch:
-		if msg.Status == view.ERROR {
-			return nil, errors.New(string(msg.Payload))
-		}
-		m := string(msg.Payload)
-		if m != "pong" {
-			return nil, errors.Errorf("expected pong, got %s", m)
-		}
-	case <-time.After(1 * time.Minute):
-		return nil, errors.New("responder didn't pong in time")
-	}
+  // Open a session to the responder
+  session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
+  assert.NoError(err)
+  // Send a ping
+  err = session.Send([]byte("ping"))
+  assert.NoError(err)
+  // Wait for the pong
+  ch := session.Receive()
+  select {
+  case msg := <-ch:
+    if msg.Status == view.ERROR {
+      return nil, errors.New(string(msg.Payload))
+    }
+    m := string(msg.Payload)
+    if m != "pong" {
+      return nil, errors.Errorf("expected pong, got %s", m)
+    }
+  case <-time.After(1 * time.Minute):
+    return nil, errors.New("responder didn't pong in time")
+  }
 
-	// Return
-	return "OK", nil
+  // Return
+  return "OK", nil
 }
 ```
 
@@ -92,46 +92,46 @@ Let us now look at the view describing the view of the responder:
 package pingpong
 
 import (
-	"errors"
-	"fmt"
-	"time"
+  "errors"
+  "fmt"
+  "time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+  "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
+  "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type Responder struct{}
 
-func (p *Responder) Call(context view.Context) (interface{}, error) {
-	// Retrieve the session opened by the initiator
-	session := context.Session()
+func (p *Responder) Call(viewCtx view.Context) (interface{}, error) {
+  // Retrieve the session opened by the initiator
+  session := viewCtx.Session()
 
-	// Read the message from the initiator
-	ch := session.Receive()
-	var payload []byte
-	select {
-	case msg := <-ch:
-		payload = msg.Payload
-	case <-time.After(5 * time.Second):
-		return nil, errors.New("time out reached")
-	}
+  // Read the message from the initiator
+  ch := session.Receive()
+  var payload []byte
+  select {
+  case msg := <-ch:
+    payload = msg.Payload
+  case <-time.After(5 * time.Second):
+    return nil, errors.New("time out reached")
+  }
 
-	// Respond with a pong if a ping is received, an error otherwise
-	m := string(payload)
-	switch {
-	case m != "ping":
-		// reply with an error
-		err := session.SendError([]byte(fmt.Sprintf("expected ping, got %s", m)))
-		assert.NoError(err)
-		return nil, errors.Errorf("expected ping, got %s", m)
-	default:
-		// reply with pong
-		err := session.Send([]byte("pong"))
-		assert.NoError(err)
-	}
+  // Respond with a pong if a ping is received, an error otherwise
+  m := string(payload)
+  switch {
+  case m != "ping":
+    // reply with an error
+    err := session.SendError([]byte(fmt.Sprintf("expected ping, got %s", m)))
+    assert.NoError(err)
+    return nil, errors.Errorf("expected ping, got %s", m)
+  default:
+    // reply with pong
+    err := session.Send([]byte("pong"))
+    assert.NoError(err)
+  }
 
-	// Return
-	return "OK", nil
+  // Return
+  return "OK", nil
 }
 ```
 

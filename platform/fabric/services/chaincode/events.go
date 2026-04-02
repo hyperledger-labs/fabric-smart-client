@@ -56,18 +56,18 @@ func NewListenToEventsView(chaincode string, callBack EventCallback) *ListenToEv
 	}
 }
 
-func NewListenToEventsViewWithContext(context context.Context, chaincode string, callBack EventCallback) *ListenToEventsView {
+func NewListenToEventsViewWithContext(ctx context.Context, chaincode string, callBack EventCallback) *ListenToEventsView {
 	return &ListenToEventsView{
 		RegisterChaincodeCall: &RegisterChaincodeCall{
 			ChaincodeName: chaincode,
 			CallBack:      callBack,
-			Context:       context,
+			Context:       ctx,
 		},
 	}
 }
 
-func (r *ListenToEventsView) Call(context view.Context) (interface{}, error) {
-	err := r.RegisterChaincodeEvents(context)
+func (r *ListenToEventsView) Call(viewCtx view.Context) (interface{}, error) {
+	err := r.RegisterChaincodeEvents(viewCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -134,12 +134,12 @@ func (r *ListenToEventsView) RegisterChaincodeEvents(viewContext view.Context) e
 	return nil
 }
 
-func getChaincode(context view.Context, info *info) (*fabric.Chaincode, error) {
+func getChaincode(viewCtx view.Context, info *info) (*fabric.Chaincode, error) {
 	if len(info.chaincodeName) == 0 {
 		return nil, errors.Errorf("no chaincode specified")
 	}
 
-	fNetwork, err := fabric.GetFabricNetworkService(context, info.network)
+	fNetwork, err := fabric.GetFabricNetworkService(viewCtx, info.network)
 	if err != nil {
 		return nil, err
 	}

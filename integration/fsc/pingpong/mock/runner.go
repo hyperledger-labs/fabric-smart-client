@@ -27,7 +27,7 @@ type Responders struct {
 }
 
 type DelegatedContext struct {
-	Ctx        view.Context
+	ViewCtx    view.Context
 	responders []*Responders
 }
 
@@ -40,44 +40,44 @@ func (c *DelegatedContext) StartSpan(string, ...trace.SpanStartOption) trace.Spa
 }
 
 func (c *DelegatedContext) GetService(v interface{}) (interface{}, error) {
-	return c.Ctx.GetService(v)
+	return c.ViewCtx.GetService(v)
 }
 
 func (c *DelegatedContext) ID() string {
-	return c.Ctx.ID()
+	return c.ViewCtx.ID()
 }
 
 func (c *DelegatedContext) RunView(view view.View, opts ...view.RunViewOption) (interface{}, error) {
-	return c.Ctx.RunView(view, opts...)
+	return c.ViewCtx.RunView(view, opts...)
 }
 
 func (c *DelegatedContext) Me() view.Identity {
-	return c.Ctx.Me()
+	return c.ViewCtx.Me()
 }
 
 func (c *DelegatedContext) IsMe(id view.Identity) bool {
-	return c.Ctx.IsMe(id)
+	return c.ViewCtx.IsMe(id)
 }
 
 func (c *DelegatedContext) Initiator() view.View {
-	return c.Ctx.Initiator()
+	return c.ViewCtx.Initiator()
 }
 
 func (c *DelegatedContext) GetSessionByID(id string, party view.Identity) (view.Session, error) {
 	// TODO: check among the responders
-	return c.Ctx.GetSessionByID(id, party)
+	return c.ViewCtx.GetSessionByID(id, party)
 }
 
 func (c *DelegatedContext) Session() view.Session {
-	return c.Ctx.Session()
+	return c.ViewCtx.Session()
 }
 
 func (c *DelegatedContext) Context() context.Context {
-	return c.Ctx.Context()
+	return c.ViewCtx.Context()
 }
 
 func (c *DelegatedContext) OnError(callback func()) {
-	c.Ctx.OnError(callback)
+	c.ViewCtx.OnError(callback)
 }
 
 func (c *DelegatedContext) GetSession(caller view.View, party view.Identity, boundToViews ...view.View) (view.Session, error) {
@@ -111,7 +111,7 @@ func (c *DelegatedContext) GetSession(caller view.View, party view.Identity, bou
 		}
 	}
 
-	return c.Ctx.GetSession(caller, party)
+	return c.ViewCtx.GetSession(caller, party)
 }
 
 func (c *DelegatedContext) RespondToAs(initiator view.View, responder view.Identity, r view.View) {

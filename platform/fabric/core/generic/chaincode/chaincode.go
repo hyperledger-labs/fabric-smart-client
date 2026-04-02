@@ -23,7 +23,7 @@ type Services interface {
 }
 
 type Broadcaster interface {
-	Broadcast(context context.Context, blob interface{}) error
+	Broadcast(ctx context.Context, blob interface{}) error
 }
 
 type SerializableSigner interface {

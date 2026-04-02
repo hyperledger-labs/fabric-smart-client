@@ -28,7 +28,7 @@ type MultipleEventsReceived struct {
 	Events []*chaincode.Event
 }
 
-func (c *MultipleEventsView) Call(context view.Context) (interface{}, error) {
+func (c *MultipleEventsView) Call(viewCtx view.Context) (interface{}, error) {
 	wg := sync.WaitGroup{}
 	wg.Add(int(c.EventCount))
 	var eventReceived []*chaincode.Event
@@ -44,12 +44,12 @@ func (c *MultipleEventsView) Call(context view.Context) (interface{}, error) {
 		return true, nil
 	}
 
-	_, err := context.RunView(chaincode.NewListenToEventsView("events", callBack))
+	_, err := viewCtx.RunView(chaincode.NewListenToEventsView("events", callBack))
 	assert.NoError(err, "failed to listen to events")
 
 	for _, function := range c.Functions {
 		// Invoke the chaincode
-		_, err = context.RunView(chaincode.NewInvokeView("events", function))
+		_, err = viewCtx.RunView(chaincode.NewInvokeView("events", function))
 		assert.NoError(err, "Failed Running Invoke View")
 	}
 

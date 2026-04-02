@@ -33,7 +33,7 @@ type MultipleListenersReceived struct {
 	Events []*chaincode.Event
 }
 
-func (c *MultipleListenersView) Call(context view.Context) (interface{}, error) {
+func (c *MultipleListenersView) Call(viewCtx view.Context) (interface{}, error) {
 	eventReceived := make([]*chaincode.Event, c.ListenerCount)
 	cancels := make([]context2.CancelFunc, c.ListenerCount)
 
@@ -54,7 +54,7 @@ func (c *MultipleListenersView) Call(context view.Context) (interface{}, error) 
 				// simulate processing, to test concurrency issues
 				time.Sleep(rand.N(500 * time.Millisecond))
 
-				if event.Err != nil && strings.Contains(event.Err.Error(), "context done") {
+				if event.Err != nil && strings.Contains(event.Err.Error(), "viewCtx done") {
 					// the listener received a close event
 					closeCh <- struct{}{}
 					return false, nil
@@ -66,9 +66,9 @@ func (c *MultipleListenersView) Call(context view.Context) (interface{}, error) 
 				return false, nil
 			}
 
-			ctx, cancelFunc := context2.WithCancel(context.Context())
+			ctx, cancelFunc := context2.WithCancel(viewCtx.Context())
 			cancels[i] = cancelFunc
-			_, err := context.RunView(chaincode.NewListenToEventsViewWithContext(ctx, "events", callBack))
+			_, err := viewCtx.RunView(chaincode.NewListenToEventsViewWithContext(ctx, "events", callBack))
 			assert.NoError(err, "failed to listen to events")
 		}(i)
 	}
@@ -76,7 +76,7 @@ func (c *MultipleListenersView) Call(context view.Context) (interface{}, error) 
 	wg.Wait()
 
 	// Invoke the chaincode to trigger all the listeners once
-	_, err := context.RunView(chaincode.NewInvokeView("events", c.Function))
+	_, err := viewCtx.RunView(chaincode.NewInvokeView("events", c.Function))
 	assert.NoError(err, "Failed Running Invoke View")
 
 	logger.Infof("Waiting for all listeners to complete the event ...")
@@ -109,7 +109,7 @@ func (c *MultipleListenersView) Call(context view.Context) (interface{}, error) 
 	go func() {
 		for i := 0; i < invokes; i++ {
 			time.Sleep(100 * time.Millisecond)
-			_, err := context.RunView(chaincode.NewInvokeView("events", c.Function))
+			_, err := viewCtx.RunView(chaincode.NewInvokeView("events", c.Function))
 			assert.NoError(err, "Failed Running Invoke View")
 			invCh <- struct{}{}
 		}

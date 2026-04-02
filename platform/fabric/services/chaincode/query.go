@@ -28,16 +28,16 @@ func NewQueryView(chaincode, function string, args ...interface{}) *queryChainco
 	}
 }
 
-func (i *queryChaincodeView) Call(context view.Context) (interface{}, error) {
-	return i.Query(context)
+func (i *queryChaincodeView) Call(viewCtx view.Context) (interface{}, error) {
+	return i.Query(viewCtx)
 }
 
-func (i *queryChaincodeView) Query(context view.Context) ([]byte, error) {
+func (i *queryChaincodeView) Query(viewCtx view.Context) ([]byte, error) {
 	if len(i.ChaincodeName) == 0 {
 		return nil, errors.Errorf("no chaincode specified")
 	}
 
-	fNetwork, err := fabric.GetFabricNetworkService(context, i.Network)
+	fNetwork, err := fabric.GetFabricNetworkService(viewCtx, i.Network)
 	if err != nil {
 		return nil, err
 	}

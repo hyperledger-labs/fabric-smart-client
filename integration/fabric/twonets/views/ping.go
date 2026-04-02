@@ -23,14 +23,14 @@ import (
 
 type Ping struct{}
 
-func (p *Ping) Call(context view.Context) (interface{}, error) {
+func (p *Ping) Call(viewCtx view.Context) (interface{}, error) {
 	// Retrieve responder identity
-	identityProvider, err := id.GetProvider(context)
+	identityProvider, err := id.GetProvider(viewCtx)
 	assert.NoError(err, "failed getting identity provider")
 	responder := identityProvider.Identity("bob")
 
 	// Open a session to the responder
-	session, err := context.GetSession(context.Initiator(), responder)
+	session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
 	assert.NoError(err) // Send a ping
 	err = session.Send([]byte("ping"))
 	assert.NoError(err) // Wait for the pong
@@ -43,7 +43,7 @@ func (p *Ping) Call(context view.Context) (interface{}, error) {
 		var names []string
 		assert.NoError(json.Unmarshal(msg.Payload, &names))
 		sort.Strings(names)
-		names2, err := fabric.GetFabricNetworkNames(context)
+		names2, err := fabric.GetFabricNetworkNames(viewCtx)
 		assert.NoError(err)
 		sort.Strings(names2)
 		if len(names) == 0 || !reflect.DeepEqual(names, names2) {

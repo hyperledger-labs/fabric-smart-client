@@ -208,10 +208,10 @@ type CertificationView struct {
 	*CertificationRequest
 }
 
-func (c *CertificationView) Call(context view.Context) (interface{}, error) {
-	vault, err := GetVaultForChannel(context, c.Channel)
+func (c *CertificationView) Call(viewCtx view.Context) (interface{}, error) {
+	vault, err := GetVaultForChannel(viewCtx, c.Channel)
 	assert.NoError(err)
-	cert, err := vault.GetStateCertification(context.Context(), c.Namespace, c.Key)
+	cert, err := vault.GetStateCertification(viewCtx.Context(), c.Namespace, c.Key)
 	assert.NoError(err, "failed getting certification")
 
 	return cert, nil

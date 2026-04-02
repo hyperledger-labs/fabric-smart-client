@@ -20,17 +20,17 @@ type orderingView struct {
 	timeout  time.Duration
 }
 
-func (o *orderingView) Call(ctx view.Context) (interface{}, error) {
-	fns, err := fabric.GetFabricNetworkService(ctx, o.tx.Network())
+func (o *orderingView) Call(viewCtx view.Context) (interface{}, error) {
+	fns, err := fabric.GetFabricNetworkService(viewCtx, o.tx.Network())
 	if err != nil {
 		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", o.tx.Network())
 	}
 	tx := o.tx
-	if err := fns.Ordering().Broadcast(ctx.Context(), tx.Transaction); err != nil {
+	if err := fns.Ordering().Broadcast(viewCtx.Context(), tx.Transaction); err != nil {
 		return nil, errors.WithMessagef(err, "failed broadcasting to [%s:%s]", o.tx.Network(), o.tx.Channel())
 	}
 	if o.finality {
-		return ctx.RunView(NewFinalityWithTimeoutView(tx, o.timeout))
+		return viewCtx.RunView(NewFinalityWithTimeoutView(tx, o.timeout))
 	}
 	return tx, nil
 }

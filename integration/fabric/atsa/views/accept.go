@@ -16,14 +16,14 @@ import (
 
 type AcceptAssetView struct{}
 
-func (a *AcceptAssetView) Call(context view.Context) (interface{}, error) {
+func (a *AcceptAssetView) Call(viewCtx view.Context) (interface{}, error) {
 	// As a first step, the owner responds to the request to exchange recipient identities.
-	id, err := state.RespondRequestRecipientIdentity(context)
+	id, err := state.RespondRequestRecipientIdentity(viewCtx)
 	assert.NoError(err, "failed to respond to identity request")
 
 	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
 	// to the owner. Therefore, the owner waits to receive the transaction.
-	tx, err := state.ReceiveTransaction(context)
+	tx, err := state.ReceiveTransaction(viewCtx)
 	assert.NoError(err)
 
 	// The owner can now inspect the transaction to ensure it is as expected.
@@ -51,9 +51,9 @@ func (a *AcceptAssetView) Call(context view.Context) (interface{}, error) {
 	}
 
 	// The owner is ready to send back the transaction signed
-	_, err = context.RunView(state.NewEndorseView(tx))
+	_, err = viewCtx.RunView(state.NewEndorseView(tx))
 	assert.NoError(err)
 
 	// Finally, the owner waits that the transaction completes its lifecycle
-	return context.RunView(state.NewFinalityView(tx))
+	return viewCtx.RunView(state.NewFinalityView(tx))
 }

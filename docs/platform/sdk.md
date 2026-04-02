@@ -130,13 +130,13 @@ func newService2() NewService2 {...}
 
 Now the new services can be used from within the views:
 ```go
-func (a *MyNewView) Call(context view.Context) (interface{}, error) {
-    service1, err := GetService1(context)
+func (a *MyNewView) Call(viewCtx view.Context) (interface{}, error) {
+    service1, err := GetService1(viewCtx)
     // Further logic
 }
 
-func GetService1(ctx view.ServiceProvider) (myapp.Service1, error) {
-    s, err := ctx.GetService(reflect.TypeOf((*myapp.Service1)(nil)))
+func GetService1(sp view.ServiceProvider) (myapp.Service1, error) {
+    s, err := sp.GetService(reflect.TypeOf((*myapp.Service1)(nil)))
     if err != nil {
     return nil, err
     }

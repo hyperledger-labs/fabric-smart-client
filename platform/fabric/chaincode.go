@@ -127,8 +127,8 @@ func (i *ChaincodeInvocation) Call() (string, []byte, error) {
 	return i.Submit()
 }
 
-func (i *ChaincodeInvocation) WithContext(context context.Context) *ChaincodeInvocation {
-	i.ChaincodeInvocation.WithContext(context)
+func (i *ChaincodeInvocation) WithContext(ctx context.Context) *ChaincodeInvocation {
+	i.ChaincodeInvocation.WithContext(ctx)
 	return i
 }
 
@@ -175,8 +175,8 @@ func (i *ChaincodeQuery) Call() ([]byte, error) {
 	return i.Query()
 }
 
-func (i *ChaincodeQuery) WithContext(context context.Context) *ChaincodeQuery {
-	i.ChaincodeInvocation.WithContext(context)
+func (i *ChaincodeQuery) WithContext(ctx context.Context) *ChaincodeQuery {
+	i.ChaincodeInvocation.WithContext(ctx)
 	return i
 }
 
@@ -249,8 +249,8 @@ func (i *ChaincodeEndorse) Call() (*Envelope, error) {
 	return NewEnvelope(env), nil
 }
 
-func (i *ChaincodeEndorse) WithContext(context context.Context) *ChaincodeEndorse {
-	i.ChaincodeInvocation.WithContext(context)
+func (i *ChaincodeEndorse) WithContext(ctx context.Context) *ChaincodeEndorse {
+	i.ChaincodeInvocation.WithContext(ctx)
 	return i
 }
 

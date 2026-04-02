@@ -34,7 +34,7 @@ type EventReceived struct {
 	Event *chaincode.Event
 }
 
-func (c *EventsView) Call(context view.Context) (interface{}, error) {
+func (c *EventsView) Call(viewCtx view.Context) (interface{}, error) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	var eventReceived *chaincode.Event
@@ -59,9 +59,9 @@ func (c *EventsView) Call(context view.Context) (interface{}, error) {
 	}
 
 	// Test timeout
-	ctx, cancelFunc := context2.WithTimeout(context.Context(), 10*time.Second)
+	ctx, cancelFunc := context2.WithTimeout(viewCtx.Context(), 10*time.Second)
 	defer cancelFunc()
-	_, err := context.RunView(chaincode.NewListenToEventsViewWithContext(ctx, "events", callBack))
+	_, err := viewCtx.RunView(chaincode.NewListenToEventsViewWithContext(ctx, "events", callBack))
 	assert.NoError(err, "failed to listen to events")
 	wg.Wait()
 	assert.Error(eventError, "expected error to have happened")
@@ -73,11 +73,11 @@ func (c *EventsView) Call(context view.Context) (interface{}, error) {
 	wg.Add(1)
 	eventReceived = nil
 	eventError = nil
-	ctx1, cancelFunc1 := context2.WithTimeout(context.Context(), 1*time.Minute)
+	ctx1, cancelFunc1 := context2.WithTimeout(viewCtx.Context(), 1*time.Minute)
 	defer cancelFunc1()
-	_, err = context.RunView(chaincode.NewListenToEventsViewWithContext(ctx1, "events", callBack))
+	_, err = viewCtx.RunView(chaincode.NewListenToEventsViewWithContext(ctx1, "events", callBack))
 	assert.NoError(err, "failed to listen to events")
-	_, err = context.RunView(
+	_, err = viewCtx.RunView(
 		chaincode.NewInvokeView(
 			"events",
 			c.Function,

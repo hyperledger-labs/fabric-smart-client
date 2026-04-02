@@ -34,8 +34,8 @@ func (p *Platform) GenerateResolverMap() {
 
 		p2pEndpoint := fmt.Sprintf("%s:%d", p.Context.HostByPeerID("fsc", peer.ID()), p.Context.PortsByPeerID("fsc", peer.ID())[P2PPort])
 		addresses := map[api.PortName]string{
-			// ViewPort: fmt.Sprintf("127.0.0.1:%d", p.Context.PortsByPeerID("fsc", peer.ID())[ListenPort]),
-			// ListenPort: fmt.Sprintf("127.0.0.1:%d", p.Context.PortsByPeerID("fsc", peer.ID())[ListenPort]),
+			// ViewPort: fmt.Sprintf("127.0.0.1:%d", p.Ctx.PortsByPeerID("fsc", peer.ID())[ListenPort]),
+			// ListenPort: fmt.Sprintf("127.0.0.1:%d", p.Ctx.PortsByPeerID("fsc", peer.ID())[ListenPort]),
 			P2PPort: p2pEndpoint,
 		}
 		if peerRoutes, ok := routing[peer.Name]; ok {
