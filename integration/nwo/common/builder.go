@@ -77,7 +77,7 @@ func (s *BuildServer) Shutdown(deleteOnStop bool) {
 		defer gexec.CleanupBuildArtifacts()
 	}
 
-	utils.IgnoreError(s.server.Shutdown(ctx))
+	_ = s.server.Shutdown(ctx)
 }
 
 func (s *BuildServer) Client() *BuilderClient {

@@ -19,7 +19,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	_ "modernc.org/sqlite"
 )
 
@@ -284,7 +283,7 @@ func startContainerLogger(ctx context.Context, cli *client.Client, containerID s
 		if err != nil {
 			logger.Errorf("can't show logs for container %s: %v", containerID, err)
 		}
-		defer utils.CloseMute(reader)
+		defer func() { _ = reader.Close() }()
 
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {

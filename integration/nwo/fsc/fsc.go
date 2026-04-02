@@ -591,7 +591,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"Resolvers":    func() []*Resolver { return resolvers },
 		"WebEnabled":   func() bool { return p.Topology.WebEnabled },
 		"TracingEndpoint": func() string {
-			return utils.DefaultString(p.Topology.Monitoring.TracingEndpoint, fmt.Sprintf("0.0.0.0:%d", otlp.JaegerCollectorPort))
+			return cmp.Or(p.Topology.Monitoring.TracingEndpoint, fmt.Sprintf("0.0.0.0:%d", otlp.JaegerCollectorPort))
 		},
 		"SamplingRatio": func() float64 { return p.Topology.Monitoring.TracingSamplingRatio },
 	}).

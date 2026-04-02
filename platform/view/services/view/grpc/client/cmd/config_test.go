@@ -9,18 +9,16 @@ package view
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConfig(t *testing.T) {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
-	configFilePath := filepath.Join(os.TempDir(), fmt.Sprintf("config-%d.yaml", rand.Int()))
+	configFilePath := filepath.Join(t.TempDir(), fmt.Sprintf("config-%d.yaml", rand.Int()))
 	fmt.Println(configFilePath)
 	t.Run("save and load a config", func(t *testing.T) {
 		c := Config{
@@ -38,7 +36,6 @@ func TestConfig(t *testing.T) {
 		}
 
 		err := c.ToFile(configFilePath)
-		defer utils.IgnoreErrorWithOneArg(os.RemoveAll, configFilePath)
 		require.NoError(t, err)
 
 		c2, err := ConfigFromFile(configFilePath)

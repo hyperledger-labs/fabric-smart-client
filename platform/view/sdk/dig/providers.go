@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package sdk
 
 import (
+	"cmp"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	vdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -69,7 +71,7 @@ func newKMSDriver(in struct {
 	Config  vdriver.ConfigService
 	Drivers []driver2.NamedDriver `group:"kms-drivers"`
 }) (*kms.KMS, error) {
-	driverName := utils.DefaultString(in.Config.GetString("fsc.identity.type"), "file")
+	driverName := cmp.Or(in.Config.GetString("fsc.identity.type"), "file")
 	for _, driver := range in.Drivers {
 		if string(driver.Name) == driverName {
 			return &kms.KMS{Driver: driver.Driver}, nil

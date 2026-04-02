@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -45,11 +44,11 @@ func TestTLSCA(t *testing.T) {
 	srv := createTLSService(t, ca, "127.0.0.1")
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	assert.NoError(t, err)
-	go utils.IgnoreErrorFunc(func() error {
-		return srv.Serve(listener)
+	go func() { _ = srv.Serve(listener) }()
+	t.Cleanup(func() {
+		srv.Stop()
+		_ = listener.Close()
 	})
-	defer srv.Stop()
-	defer utils.IgnoreErrorFunc(listener.Close)
 
 	probeTLS := func(kp *CertKeyPair) error {
 		cert, err := tls.X509KeyPair(kp.Cert, kp.Key)
@@ -67,7 +66,7 @@ func TestTLSCA(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		utils.IgnoreErrorFunc(conn.Close)
+		_ = conn.Close()
 		return nil
 	}
 

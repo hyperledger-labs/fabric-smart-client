@@ -11,8 +11,6 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
@@ -210,9 +208,13 @@ type CertificationView struct {
 
 func (c *CertificationView) Call(context view.Context) (interface{}, error) {
 	vault, err := GetVaultForChannel(context, c.Channel)
-	assert.NoError(err)
+	if err != nil {
+		return nil, err
+	}
 	cert, err := vault.GetStateCertification(context.Context(), c.Namespace, c.Key)
-	assert.NoError(err, "failed getting certification")
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed getting certification")
+	}
 
 	return cert, nil
 }
@@ -222,6 +224,8 @@ type CertificationViewFactory struct{}
 func (c *CertificationViewFactory) NewView(in []byte) (view.View, error) {
 	f := &CertificationView{CertificationRequest: &CertificationRequest{}}
 	err := json.Unmarshal(in, f.CertificationRequest)
-	assert.NoError(err, "failed unmarshalling input")
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed unmarshalling input")
+	}
 	return f, nil
 }
