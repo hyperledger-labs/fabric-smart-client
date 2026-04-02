@@ -20,16 +20,16 @@ type ApproveView struct{}
 func (i *ApproveView) Call(viewCtx view.Context) (interface{}, error) {
 	logger.Infof("Approve View called! great")
 
-	network, ch, err := fabric.GetDefaultChannel(viewCtx)
-	if err != nil {
-		return nil, err
-	}
-	qs, err := queryservice.GetQueryService(viewCtx, network.Name(), ch.Name())
+	tx, err := state.ReceiveTransaction(viewCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	tx, err := state.ReceiveTransaction(viewCtx)
+	network, ch, err := fabric.GetChannel(viewCtx, tx.Network(), tx.Channel())
+	if err != nil {
+		return nil, err
+	}
+	qs, err := queryservice.GetQueryService(viewCtx, network.Name(), ch.Name())
 	if err != nil {
 		return nil, err
 	}

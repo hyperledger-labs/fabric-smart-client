@@ -43,7 +43,7 @@ func (c *Channel) MSPManager() *MSPManager {
 }
 
 func (c *Channel) ACLProvider() *ACLProvider {
-	return &ACLProvider{ch: c.ch.ChannelMembership()}
+	return NewACLProvider(c.ch.ChannelMembership())
 }
 
 func (c *Channel) Committer() *Committer {
