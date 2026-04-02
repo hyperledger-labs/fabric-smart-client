@@ -34,8 +34,7 @@ import (
 type P2PCommunicationType = string
 
 const (
-	FabricxDriverName                      = "fabricx"
-	WebSocket         P2PCommunicationType = "websocket"
+	WebSocket P2PCommunicationType = "websocket"
 )
 
 func NewDriver(in struct {
@@ -52,7 +51,7 @@ func NewDriver(in struct {
 },
 ) core.NamedDriver {
 	d := core.NamedDriver{
-		Name: FabricxDriverName,
+		Name: fabricx.DriverName,
 		Driver: fabricx.NewProvider(
 			in.ConfigProvider,
 			in.MetricsProvider,

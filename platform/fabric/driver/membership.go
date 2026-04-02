@@ -55,11 +55,13 @@ type ChannelMembership interface {
 	MSPManager() MSPManager
 	IsValid(identity view.Identity) error
 	GetVerifier(identity view.Identity) (Verifier, error)
+	// CheckACL checks the ACL for the resource for the Channel using the
+	// SignedProposal from which an id can be extracted for testing against a policy
+	CheckACL(signedProp SignedProposal) error
 }
 
 type MembershipService interface {
 	ChannelMembership
 	Update(env *common.Envelope) error
-	//DryUpdate(env *common.Envelope) error
 	OrdererConfig(cs ConfigService) (string, []*grpc.ConnectionConfig, error)
 }

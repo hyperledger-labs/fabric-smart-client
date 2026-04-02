@@ -133,4 +133,6 @@ type SignedProposal interface {
 	ProposalHash() []byte
 	ChaincodeName() string
 	ChaincodeVersion() string
+	// Internal returns the internal representation of the singed proposal
+	Internal() any
 }

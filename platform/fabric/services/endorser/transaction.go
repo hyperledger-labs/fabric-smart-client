@@ -247,3 +247,7 @@ func (t *Transaction) ProposalResponses() ([][]byte, error) {
 	}
 	return res, nil
 }
+
+func (t *Transaction) SignedProposal() *fabric.SignedProposal {
+	return t.Transaction.SignedProposal()
+}

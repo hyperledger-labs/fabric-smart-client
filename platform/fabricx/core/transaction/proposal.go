@@ -56,3 +56,7 @@ func (p *SignedProposal) ChaincodeName() string {
 func (p *SignedProposal) ChaincodeVersion() string {
 	return p.up.ChaincodeVersion
 }
+
+func (p *SignedProposal) Internal() any {
+	return p.s
+}

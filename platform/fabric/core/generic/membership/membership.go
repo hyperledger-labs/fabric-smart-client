@@ -147,6 +147,10 @@ func (c *Service) MSPManager() driver.MSPManager {
 	return &mspManager{FabricMSPManager: c.resources().MSPManager()}
 }
 
+func (c *Service) CheckACL(signedProp driver.SignedProposal) error {
+	return driver.ErrNotImplemented
+}
+
 type FabricMSPManager interface {
 	DeserializeIdentity(serializedIdentity []byte) (msp.Identity, error)
 }
