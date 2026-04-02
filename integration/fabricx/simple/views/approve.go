@@ -34,14 +34,18 @@ func (i *ApproveView) Call(viewCtx view.Context) (interface{}, error) {
 		return nil, err
 	}
 
+	if err := ch.ACLProvider().CheckACL(tx.SignedProposal()); err != nil {
+		return nil, err
+	}
+
 	// check that tx has a create command
 	if tx.Commands().Count() != 1 {
-		return nil, fmt.Errorf("cmd count is wrong, explected 1 but got %d", tx.Commands().Count())
+		return nil, fmt.Errorf("cmd count is wrong, expected 1 but got %d", tx.Commands().Count())
 	}
 
 	cmd := tx.Commands().At(0)
 	if cmd.Name != "create" {
-		return nil, fmt.Errorf("cmd type is wrong, explected `create` but got %s", cmd.Name)
+		return nil, fmt.Errorf("cmd type is wrong, expected `create` but got %s", cmd.Name)
 	}
 
 	if tx.NumOutputs() != 1 {
