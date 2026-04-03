@@ -9,6 +9,7 @@ package postgres
 import (
 	"database/sql"
 
+	sq "github.com/Masterminds/squirrel"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
@@ -22,5 +23,5 @@ func NewSignerInfoStore(dbs *common2.RWDB, tables common3.TableNames) (*SignerIn
 }
 
 func newSignerInfoStore(readDB, writeDB *sql.DB, table string) *SignerInfoStore {
-	return &SignerInfoStore{SignerInfoStore: common3.NewSignerInfoStore(readDB, writeDB, table, &ErrorMapper{}, NewConditionInterpreter())}
+	return &SignerInfoStore{SignerInfoStore: common3.NewSignerInfoStore(readDB, writeDB, table, &ErrorMapper{}, sq.Dollar)}
 }

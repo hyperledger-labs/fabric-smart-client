@@ -9,13 +9,12 @@ package common_test
 import (
 	"context"
 	"database/sql"
-	"regexp"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	sq "github.com/Masterminds/squirrel"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	. "github.com/onsi/gomega"
 )
@@ -23,12 +22,12 @@ import (
 func TestGetLongTerm(t *testing.T) {
 	RegisterTestingT(t)
 
-	db, mockDB, err := sqlmock.New()
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
 
 	ephemeral := view.Identity("ephemeral_id")
 	longTerm := view.Identity("long_term_id")
-	expectedQuery := regexp.QuoteMeta("SELECT long_term_id FROM bindings WHERE ephemeral_hash = $1")
+	expectedQuery := "SELECT long_term_id FROM bindings WHERE ephemeral_hash = $1"
 	mockDB.
 		ExpectQuery(expectedQuery).
 		WithArgs(ephemeral.UniqueID()).
@@ -44,15 +43,14 @@ func TestGetLongTerm(t *testing.T) {
 func TestHaveSameBinding(t *testing.T) {
 	RegisterTestingT(t)
 
-	db, mockDB, err := sqlmock.New()
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
 
 	id1 := view.Identity("id1")
 	id2 := view.Identity("id2")
 	longTerm := view.Identity("long_term_id")
 
-	// Use regexp.QuoteMeta to safely escape the query string
-	expectedQuery := regexp.QuoteMeta("SELECT long_term_id FROM bindings WHERE (ephemeral_hash) IN (($1), ($2))")
+	expectedQuery := "SELECT long_term_id FROM bindings WHERE ephemeral_hash IN ($1,$2)"
 
 	mockDB.
 		ExpectQuery(expectedQuery).
@@ -72,7 +70,7 @@ func TestHaveSameBinding(t *testing.T) {
 func TestHaveSameBinding_NotEqual(t *testing.T) {
 	RegisterTestingT(t)
 
-	db, mockDB, err := sqlmock.New()
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
 
 	id1 := view.Identity("id1")
@@ -80,7 +78,7 @@ func TestHaveSameBinding_NotEqual(t *testing.T) {
 	longTerm1 := view.Identity("long_term_id_1")
 	longTerm2 := view.Identity("long_term_id_2")
 
-	query := regexp.QuoteMeta("SELECT long_term_id FROM bindings WHERE (ephemeral_hash) IN (($1), ($2))")
+	query := "SELECT long_term_id FROM bindings WHERE ephemeral_hash IN ($1,$2)"
 
 	mockDB.
 		ExpectQuery(query).
@@ -100,14 +98,14 @@ func TestHaveSameBinding_NotEqual(t *testing.T) {
 func TestHaveSameBinding_MissingEntries(t *testing.T) {
 	RegisterTestingT(t)
 
-	db, mockDB, err := sqlmock.New()
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
 
 	id1 := view.Identity("id1")
 	id2 := view.Identity("id2")
 	longTerm1 := view.Identity("long_term_id_1")
 
-	query := regexp.QuoteMeta("SELECT long_term_id FROM bindings WHERE (ephemeral_hash) IN (($1), ($2))")
+	query := "SELECT long_term_id FROM bindings WHERE ephemeral_hash IN ($1,$2)"
 
 	mockDB.
 		ExpectQuery(query).
@@ -124,5 +122,5 @@ func TestHaveSameBinding_MissingEntries(t *testing.T) {
 }
 
 func mockBindingStore(db *sql.DB) *common2.BindingStore {
-	return common2.NewBindingStore(db, db, "bindings", &mock.SQLErrorWrapper{}, sqlite.NewConditionInterpreter())
+	return common2.NewBindingStore(db, db, "bindings", &mock.SQLErrorWrapper{}, sq.Dollar)
 }
