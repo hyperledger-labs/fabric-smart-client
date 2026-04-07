@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestJson(t *testing.T) {
@@ -26,11 +26,11 @@ func TestJson(t *testing.T) {
 	}
 
 	o, err := json.MarshalIndent(asset, "", " ")
-	assert.NoError(err)
+	require.NoError(t, err)
 	fmt.Println(string(o))
 	rawHashed := sha256.Sum256([]byte("Hello World!!!"))
 	asset.PrivateProperties = []byte(base64.StdEncoding.EncodeToString(rawHashed[:]))
 	o, err = json.MarshalIndent(asset, "", " ")
-	assert.NoError(err)
+	require.NoError(t, err)
 	fmt.Println(string(o))
 }

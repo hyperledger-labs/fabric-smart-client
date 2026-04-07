@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -35,10 +34,7 @@ func TestArtifactsGen(t *testing.T) {
 	Expect(err).NotTo(HaveOccurred())
 	defer gexec.CleanupBuildArtifacts()
 
-	tmpDir, err := os.MkdirTemp("", t.Name())
-	Expect(err).NotTo(HaveOccurred())
-
-	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, tmpDir)
+	tmpDir := t.TempDir()
 
 	topologyFolder := filepath.Join("testdata", "fabric_iou.yaml")
 	session, err := gexec.Start(exec.Command(cli, "artifactsgen", "gen", "-t", topologyFolder, "-o", tmpDir), GinkgoWriter, GinkgoWriter)

@@ -19,7 +19,6 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations/fakes"
 	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
@@ -121,9 +120,11 @@ var _ = Describe("Server", func() {
 	})
 
 	AfterEach(func() {
-		utils.IgnoreErrorWithOneArg(os.RemoveAll, tempDir)
+		err := os.RemoveAll(tempDir)
+		Expect(err).NotTo(HaveOccurred())
+
 		if server != nil {
-			utils.IgnoreError(server.Stop())
+			_ = server.Stop()
 		}
 	})
 
@@ -156,7 +157,7 @@ var _ = Describe("Server", func() {
 			buff, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(strings.Trim(string(buff), "\n")).To(Equal(`{"status":"OK"}`))
-			utils.IgnoreErrorFunc(resp.Body.Close)
+			_ = resp.Body.Close()
 		})
 	})
 
@@ -192,7 +193,7 @@ var _ = Describe("Server", func() {
 		buff, err := io.ReadAll(resp.Body)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(buff)).To(Equal("secure"))
-		utils.IgnoreErrorFunc(resp.Body.Close)
+		_ = resp.Body.Close()
 	})
 
 	When("TLS is enabled without client authentication", func() {
@@ -213,7 +214,7 @@ var _ = Describe("Server", func() {
 			resp, err := client.Get(url)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound)) // No handler registered for someURL
-			utils.IgnoreErrorFunc(resp.Body.Close)
+			_ = resp.Body.Close()
 		})
 	})
 
@@ -231,7 +232,7 @@ var _ = Describe("Server", func() {
 			resp, err := client.Get(addApiURL)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
-			utils.IgnoreErrorFunc(resp.Body.Close)
+			_ = resp.Body.Close()
 		})
 	})
 
@@ -248,7 +249,7 @@ var _ = Describe("Server", func() {
 		})
 
 		AfterEach(func() {
-			utils.IgnoreErrorFunc(listener.Close)
+			_ = listener.Close()
 		})
 
 		It("returns an error", func() {

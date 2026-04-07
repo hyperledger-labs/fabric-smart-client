@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -56,7 +55,7 @@ func TestTLSCA(t *testing.T) {
 	}()
 	defer func() {
 		srv.Stop()
-		utils.IgnoreError(listener.Close())
+		_ = listener.Close()
 	}()
 
 	probeTLS := func(kp *CertKeyPair) error {

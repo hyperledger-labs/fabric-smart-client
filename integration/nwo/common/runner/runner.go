@@ -24,7 +24,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -132,8 +131,8 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 			startCheckTimeout = nil
 			detectStartCheck = nil
 			// close our buffer that is used to detect ready state
-			utils.IgnoreError(allOutput.Clear())
-			utils.IgnoreError(allOutput.Close())
+			_ = allOutput.Clear()
+			_ = allOutput.Close()
 			close(ready)
 
 		case <-startCheckTimeout:

@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	commonmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
 	. "github.com/onsi/ginkgo/v2"
@@ -71,7 +70,6 @@ var _ = Describe("Provider", func() {
 
 			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
 			Expect(err).NotTo(HaveOccurred())
-			defer utils.IgnoreErrorFunc(resp.Body.Close)
 
 			bytes, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
@@ -79,6 +77,7 @@ var _ = Describe("Provider", func() {
 			Expect(string(bytes)).To(ContainSubstring(`# TYPE peer_playground_counter_name counter`))
 			Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="a",beta="b"} 1`))
 			Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="aardvark",beta="b"} 2`))
+			_ = resp.Body.Close()
 		})
 
 		Context("when the counter is defined without labels", func() {
@@ -92,11 +91,11 @@ var _ = Describe("Provider", func() {
 
 				resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
 				Expect(err).NotTo(HaveOccurred())
-				defer utils.IgnoreErrorFunc(resp.Body.Close)
 
 				bytes, err := io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name 1`))
+				_ = resp.Body.Close()
 			})
 		})
 	})
@@ -123,7 +122,6 @@ var _ = Describe("Provider", func() {
 
 			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
 			Expect(err).NotTo(HaveOccurred())
-			defer utils.IgnoreErrorFunc(resp.Body.Close)
 
 			bytes, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
@@ -132,6 +130,7 @@ var _ = Describe("Provider", func() {
 			Expect(string(bytes)).To(ContainSubstring(`peer_playground_gauge_name{alpha="a",beta="b"} 2`))
 			Expect(string(bytes)).To(ContainSubstring(`peer_playground_gauge_name{alpha="aardvark",beta="b"} 1`))
 			Expect(string(bytes)).To(ContainSubstring(`peer_playground_gauge_name{alpha="aardvark",beta="bob"} 99`))
+			_ = resp.Body.Close()
 		})
 	})
 
@@ -157,7 +156,6 @@ var _ = Describe("Provider", func() {
 
 			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
 			Expect(err).NotTo(HaveOccurred())
-			defer utils.IgnoreErrorFunc(resp.Body.Close)
 
 			bytes, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
@@ -177,6 +175,7 @@ var _ = Describe("Provider", func() {
 			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="+Inf"} 12`))
 			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_sum{alpha="a",beta="b"} `))
 			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_count{alpha="a",beta="b"} 12`))
+			_ = resp.Body.Close()
 		})
 
 		It("creates histogram with buckets that support labels", func() {
@@ -188,7 +187,6 @@ var _ = Describe("Provider", func() {
 
 			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
 			Expect(err).NotTo(HaveOccurred())
-			defer utils.IgnoreErrorFunc(resp.Body.Close)
 
 			bytes, err := io.ReadAll(resp.Body)
 			Expect(err).NotTo(HaveOccurred())
@@ -198,6 +196,7 @@ var _ = Describe("Provider", func() {
 			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_bucket{alpha="a",beta="b",le="5"} 2`))
 			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_sum{alpha="a",beta="b"} 5`))
 			Expect(string(bytes)).To(ContainSubstring(`peer_playground_histogram_name_count{alpha="a",beta="b"} 2`))
+			_ = resp.Body.Close()
 		})
 	})
 
@@ -219,13 +218,13 @@ var _ = Describe("Provider", func() {
 				counter.With("alpha", "a", "beta").Add(1)
 				resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
 				Expect(err).NotTo(HaveOccurred())
-				defer utils.IgnoreErrorFunc(resp.Body.Close)
 
 				bytes, err := io.ReadAll(resp.Body)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(bytes)).To(ContainSubstring(`# HELP peer_playground_counter_name This is some help text for the counter`))
 				Expect(string(bytes)).To(ContainSubstring(`# TYPE peer_playground_counter_name counter`))
 				Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="a",beta="unknown"} 1`))
+				_ = resp.Body.Close()
 			})
 		})
 
