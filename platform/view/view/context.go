@@ -67,7 +67,7 @@ func WithSameContext() RunViewOption {
 	}
 }
 
-// WithContext is used to pass a different context.Ctx to the view.
+// WithContext is used to pass a different context.Context to the view.
 // It includes the effect of WithSameContext as well.
 func WithContext(ctx context.Context) RunViewOption {
 	return func(o *RunViewOptions) error {
