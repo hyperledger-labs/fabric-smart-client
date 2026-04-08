@@ -174,7 +174,7 @@ type IssueView struct {
 func (f *IssueView) Call(viewCtx view.Context) (interface{}, error) {
 	// As a first step operation, the issuer contacts the recipient's FSC node
 	// to request the identity to use to assign ownership of the freshly created asset.
-	assetOwner, err := state.RequestRecipientIdentity(context, f.Recipient)
+	assetOwner, err := state.RequestRecipientIdentity(viewCtx, f.Recipient)
 	assert.NoError(err, "failed getting recipient identity")
 
 	// The issuer creates a new transaction
