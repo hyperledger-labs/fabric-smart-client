@@ -152,15 +152,20 @@ func (o *KVS) Put(ctx context.Context, id string, state interface{}) error {
 }
 
 func (o *KVS) Get(ctx context.Context, id string, state interface{}) error {
-	o.putMutex.RLock()
-	defer o.putMutex.RUnlock()
-
 	var err error
 	var raw []byte
+
+	// Try to get from cache first (read lock)
+	o.putMutex.RLock()
 	cachedRaw, ok := o.cache.Get(id)
 	if cachedRaw != nil && ok {
 		raw = cachedRaw.([]byte)
+		o.putMutex.RUnlock()
 	} else if !ok {
+		// Cache miss, need to fetch from store and add to cache
+		o.putMutex.RUnlock()
+
+		// Fetch from store
 		raw, err = o.store.GetState(ctx, o.namespace, id)
 		if err != nil {
 			logger.DebugfContext(ctx, "failed retrieving state [%s,%s]", o.namespace, id)
@@ -169,6 +174,14 @@ func (o *KVS) Get(ctx context.Context, id string, state interface{}) error {
 		if len(raw) == 0 {
 			return errors.Errorf("state [%s,%s] does not exist", o.namespace, id)
 		}
+
+		// Add to cache (write lock)
+		o.putMutex.Lock()
+		o.cache.Add(id, raw)
+		o.putMutex.Unlock()
+	} else {
+		// cachedRaw is nil but ok is true unlock cache
+		o.putMutex.RUnlock()
 	}
 
 	if err := json.Unmarshal(raw, state); err != nil {
