@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreds(t *testing.T) {
@@ -53,13 +53,13 @@ func TestCreds(t *testing.T) {
 
 	creds := grpc.NewServerTransportCredentials(config, logger)
 	_, _, err = creds.ClientHandshake(context.Background(), "", nil)
-	assert.EqualError(t, err, grpc.ErrClientHandshakeNotImplemented.Error())
+	require.EqualError(t, err, grpc.ErrClientHandshakeNotImplemented.Error())
 	//lint:ignore SA1019: creds.OverrideServerName is deprecated: use grpc.WithAuthority instead. Will be supported throughout 1.x.
 	err = creds.OverrideServerName("") //nolint:all
-	assert.EqualError(t, err, grpc.ErrOverrideHostnameNotSupported.Error())
+	require.EqualError(t, err, grpc.ErrOverrideHostnameNotSupported.Error())
 	//lint:ignore SA1019: creds.Info().SecurityVersion is deprecated: please use Peer.AuthInfo.
-	assert.Equal(t, "1.2", creds.Info().SecurityVersion) //nolint:all
-	assert.Equal(t, "tls", creds.Info().SecurityProtocol)
+	require.Equal(t, "1.2", creds.Info().SecurityVersion) //nolint:all
+	require.Equal(t, "tls", creds.Info().SecurityProtocol)
 
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -68,7 +68,7 @@ func TestCreds(t *testing.T) {
 	defer utils.IgnoreErrorFunc(lis.Close)
 
 	_, port, err := net.SplitHostPort(lis.Addr().String())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	addr := net.JoinHostPort("localhost", port)
 
 	handshake := func(wg *sync.WaitGroup) {
@@ -88,7 +88,7 @@ func TestCreds(t *testing.T) {
 	go handshake(wg)
 	_, err = tls.Dial("tcp", addr, &tls.Config{RootCAs: certPool})
 	wg.Wait()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	wg = &sync.WaitGroup{}
 	wg.Add(1)
@@ -98,11 +98,11 @@ func TestCreds(t *testing.T) {
 		MaxVersion: tls.VersionTLS10,
 	})
 	wg.Wait()
-	assert.True(t,
+	require.True(t,
 		strings.Contains(err.Error(), "tls: no supported versions satisfy MinVersion and MaxVersion") || // go1.17
 			strings.Contains(err.Error(), "protocol version not supported"), // go1.18
 	)
-	assert.Contains(t, recorder.Messages()[0], "TLS handshake failed with error")
+	require.Contains(t, recorder.Messages()[0], "TLS handshake failed with error")
 }
 
 func TestNewTLSConfig(t *testing.T) {
@@ -111,7 +111,7 @@ func TestNewTLSConfig(t *testing.T) {
 
 	config := grpc.NewTLSConfig(tlsConfig)
 
-	assert.NotEmpty(t, config, "TLSConfig is not empty")
+	require.NotEmpty(t, config, "TLSConfig is not empty")
 }
 
 func TestConfig(t *testing.T) {
@@ -125,7 +125,7 @@ func TestConfig(t *testing.T) {
 	certPool := x509.NewCertPool()
 	config.SetClientCAs(certPool)
 
-	assert.NotEqual(t, config.Config(), &configCopy, "TLSConfig should have new certs")
+	require.NotEqual(t, config.Config(), &configCopy, "TLSConfig should have new certs")
 }
 
 func TestAddRootCA(t *testing.T) {
@@ -159,12 +159,12 @@ func TestAddRootCA(t *testing.T) {
 	}
 	config := grpc.NewTLSConfig(tlsConfig)
 
-	assert.Equal(t, config.Config().ClientCAs, certPool)
+	require.Equal(t, config.Config().ClientCAs, certPool)
 
 	config.AddClientRootCA(cert)
 
 	//lint:ignore SA1019: config.Config().ClientCAs.Subjects has been deprecated since Go 1.18: if s was returned by [SystemCertPool], Subjects will not include the system roots.
-	assert.Equal(t, config.Config().ClientCAs.Subjects(), expectedCertPool.Subjects(), "The CertPools should be equal") //nolint:all
+	require.Equal(t, config.Config().ClientCAs.Subjects(), expectedCertPool.Subjects(), "The CertPools should be equal") //nolint:all
 }
 
 func TestSetClientCAs(t *testing.T) {
@@ -174,10 +174,10 @@ func TestSetClientCAs(t *testing.T) {
 	}
 	config := grpc.NewTLSConfig(tlsConfig)
 
-	assert.Empty(t, config.Config().ClientCAs, "No CertPool should be defined")
+	require.Empty(t, config.Config().ClientCAs, "No CertPool should be defined")
 
 	certPool := x509.NewCertPool()
 	config.SetClientCAs(certPool)
 
-	assert.NotNil(t, config.Config().ClientCAs, "The CertPools' should not be the same")
+	require.NotNil(t, config.Config().ClientCAs, "The CertPools' should not be the same")
 }

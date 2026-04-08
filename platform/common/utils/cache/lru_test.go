@@ -12,9 +12,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLRUSimple(t *testing.T) {
@@ -28,16 +28,16 @@ func TestLRUSimple(t *testing.T) {
 	c.Put(4, "d")
 	c.Put(5, "e")
 
-	assert.Equal(0, len(allEvicted))
-	assert.Equal(5, c.Len())
+	require.Empty(t, allEvicted)
+	require.Equal(t, 5, c.Len())
 	v, _ := c.Get(1)
-	assert.Equal("a", v)
+	require.Equal(t, "a", v)
 
 	c.Put(6, "f")
-	assert.Equal(map[int]string{1: "a", 2: "b", 3: "c"}, allEvicted)
-	assert.Equal(3, c.Len())
+	require.Equal(t, map[int]string{1: "a", 2: "b", 3: "c"}, allEvicted)
+	require.Equal(t, 3, c.Len())
 	_, ok := c.Get(1)
-	assert.False(ok)
+	require.False(t, ok)
 }
 
 func TestLRUSameKey(t *testing.T) {
@@ -51,40 +51,40 @@ func TestLRUSameKey(t *testing.T) {
 	c.Put(1, "d")
 	c.Put(1, "e")
 	c.Put(1, "f")
-	assert.Equal(0, len(allEvicted))
-	assert.Equal(3, c.Len())
+	require.Empty(t, allEvicted)
+	require.Equal(t, 3, c.Len())
 	v, _ := c.Get(1)
-	assert.Equal("f", v)
+	require.Equal(t, "f", v)
 
 	c.Put(4, "g")
 	c.Put(5, "h")
-	assert.Equal(0, len(allEvicted))
-	assert.Equal(5, c.Len())
+	require.Empty(t, allEvicted)
+	require.Equal(t, 5, c.Len())
 	v, _ = c.Get(1)
-	assert.Equal("f", v)
+	require.Equal(t, "f", v)
 
 	c.Put(6, "i")
-	assert.Equal(map[int]string{1: "f", 2: "b", 3: "c"}, allEvicted)
-	assert.Equal(3, c.Len())
+	require.Equal(t, map[int]string{1: "f", 2: "b", 3: "c"}, allEvicted)
+	require.Equal(t, 3, c.Len())
 	_, ok := c.Get(1)
-	assert.False(ok)
+	require.False(t, ok)
 
 	allEvicted = map[int]string{}
 
 	c.Put(1, "j")
 	c.Put(2, "k")
 
-	assert.Equal(0, len(allEvicted))
-	assert.Equal(5, c.Len())
+	require.Empty(t, allEvicted)
+	require.Equal(t, 5, c.Len())
 	v, _ = c.Get(4)
-	assert.Equal("g", v)
+	require.Equal(t, "g", v)
 
 	c.Put(3, "l")
 
-	assert.Equal(map[int]string{4: "g", 5: "h", 6: "i"}, allEvicted)
-	assert.Equal(3, c.Len())
+	require.Equal(t, map[int]string{4: "g", 5: "h", 6: "i"}, allEvicted)
+	require.Equal(t, 3, c.Len())
 	v, _ = c.Get(1)
-	assert.Equal("j", v)
+	require.Equal(t, "j", v)
 }
 
 func TestLRUParallel(t *testing.T) {
@@ -101,6 +101,6 @@ func TestLRUParallel(t *testing.T) {
 	}
 	wg.Wait()
 
-	assert.Equal(4, c.Len())
-	assert.Equal(96, int(evictedCount.Load()))
+	require.Equal(t, 4, c.Len())
+	require.Equal(t, 96, int(evictedCount.Load()))
 }

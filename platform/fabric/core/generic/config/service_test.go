@@ -70,7 +70,7 @@ func TestNewService_defaultsAndOrderers(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "mynet", svc.NetworkName())
 	require.Equal(t, cfg.GenericDriver, svc.DriverName())
-	require.Equal(t, 1, len(svc.Orderers()))
+	require.Len(t, svc.Orderers(), 1)
 	require.Equal(t, "TRANSLATED:o.pem", svc.Orderers()[0].TLSRootCertFile)
 	require.Equal(t, "ch1", svc.DefaultChannel())
 }

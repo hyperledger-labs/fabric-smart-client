@@ -12,7 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSessionsDelete(t *testing.T) {
@@ -22,29 +22,29 @@ func TestSessionsDelete(t *testing.T) {
 func TestServiceProviderString(t *testing.T) {
 	sp := view.NewServiceProvider()
 	err := sp.RegisterService("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	s := sp.String()
-	assert.Contains(t, s, "services [")
-	assert.Contains(t, s, "string")
+	require.Contains(t, s, "services [")
+	require.Contains(t, s, "string")
 }
 
 func TestStream(t *testing.T) {
 	sp := view.NewServiceProvider()
 	mockStream := &mock.Stream{}
 	err := sp.RegisterService(mockStream)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	s := view.GetStream(sp)
-	assert.Equal(t, mockStream, s)
+	require.Equal(t, mockStream, s)
 
 	s2, err := view.GetStreamIfExists(sp)
-	assert.NoError(t, err)
-	assert.Equal(t, mockStream, s2)
+	require.NoError(t, err)
+	require.Equal(t, mockStream, s2)
 
 	spEmpty := view.NewServiceProvider()
-	assert.Panics(t, func() { view.GetStream(spEmpty) })
+	require.Panics(t, func() { view.GetStream(spEmpty) })
 	_, err = view.GetStreamIfExists(spEmpty)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestWrappedContext(t *testing.T) {
@@ -52,5 +52,5 @@ func TestWrappedContext(t *testing.T) {
 	parent := &mock.ParentContext{}
 	ctx := context.WithValue(context.Background(), contextKey("key"), "value")
 	wrapped := view.WrapContext(parent, ctx)
-	assert.Equal(t, ctx, wrapped.Context())
+	require.Equal(t, ctx, wrapped.Context())
 }

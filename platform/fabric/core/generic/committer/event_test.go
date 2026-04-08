@@ -24,7 +24,7 @@ func TestEvent(t *testing.T) {
 			}
 
 			validity := validChaincodeEvent(event)
-			require.Equal(t, validity, true, "Valid chaincode Event")
+			require.True(t, validity, "Valid chaincode Event")
 		})
 
 		t.Run("Returns false for empty transaction ID", func(t *testing.T) {
@@ -36,7 +36,7 @@ func TestEvent(t *testing.T) {
 			}
 
 			validity := validChaincodeEvent(event)
-			require.Equal(t, validity, false, "Invalid transaction ID")
+			require.False(t, validity, "Invalid transaction ID")
 		})
 
 		t.Run("Returns false for empty event name", func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestEvent(t *testing.T) {
 			}
 
 			validity := validChaincodeEvent(event)
-			require.Equal(t, validity, false, "Invalid event name")
+			require.False(t, validity, "Invalid event name")
 		})
 
 		t.Run("Returns false for empty chaincode ID", func(t *testing.T) {
@@ -60,7 +60,7 @@ func TestEvent(t *testing.T) {
 			}
 
 			validity := validChaincodeEvent(event)
-			require.Equal(t, validity, false, "Invalid chaincode ID")
+			require.False(t, validity, "Invalid chaincode ID")
 		})
 	})
 }

@@ -31,7 +31,7 @@ func TestVarintReader_ReadData(t *testing.T) {
 		r := newVarintReader(buf, 1024)
 		readData, err := r.ReadData()
 		require.NoError(t, err)
-		assert.Equal(t, data, readData)
+		require.Equal(t, data, readData)
 	})
 
 	t.Run("read empty data", func(t *testing.T) {
@@ -43,7 +43,7 @@ func TestVarintReader_ReadData(t *testing.T) {
 		r := newVarintReader(buf, 1024)
 		readData, err := r.ReadData()
 		require.NoError(t, err)
-		assert.Equal(t, []byte{}, readData)
+		require.Equal(t, []byte{}, readData)
 	})
 
 	t.Run("read multiple messages", func(t *testing.T) {
@@ -65,7 +65,7 @@ func TestVarintReader_ReadData(t *testing.T) {
 		for i, expected := range messages {
 			readData, err := r.ReadData()
 			require.NoError(t, err, "failed reading message %d", i)
-			assert.Equal(t, expected, readData)
+			require.Equal(t, expected, readData)
 		}
 	})
 
@@ -74,8 +74,8 @@ func TestVarintReader_ReadData(t *testing.T) {
 		r := newVarintReader(buf, 1024)
 
 		_, err := r.ReadData()
-		assert.Error(t, err)
-		assert.Equal(t, io.EOF, err)
+		require.Error(t, err)
+		require.Equal(t, io.EOF, err)
 	})
 
 	t.Run("error on incomplete message", func(t *testing.T) {
@@ -87,8 +87,8 @@ func TestVarintReader_ReadData(t *testing.T) {
 
 		r := newVarintReader(buf, 1024)
 		_, err := r.ReadData()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error reading message")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error reading message")
 	})
 }
 
@@ -98,8 +98,8 @@ func TestVarintReader_Close(t *testing.T) {
 		r := newVarintReader(closer, 1024)
 
 		err := r.Close()
-		assert.NoError(t, err)
-		assert.True(t, closer.closed)
+		require.NoError(t, err)
+		require.True(t, closer.closed)
 	})
 
 	t.Run("close without closer", func(t *testing.T) {
@@ -107,7 +107,7 @@ func TestVarintReader_Close(t *testing.T) {
 		r := newVarintReader(buf, 1024)
 
 		err := r.Close()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("close error", func(t *testing.T) {
@@ -118,8 +118,8 @@ func TestVarintReader_Close(t *testing.T) {
 		r := newVarintReader(closer, 1024)
 
 		err := r.Close()
-		assert.Error(t, err)
-		assert.Equal(t, assert.AnError, err)
+		require.Error(t, err)
+		require.Equal(t, assert.AnError, err)
 	})
 }
 
@@ -139,8 +139,8 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 		readMsg := &anypb.Any{}
 		err = r.ReadMsg(readMsg)
 		require.NoError(t, err)
-		assert.Equal(t, msg.TypeUrl, readMsg.TypeUrl)
-		assert.Equal(t, msg.Value, readMsg.Value)
+		require.Equal(t, msg.TypeUrl, readMsg.TypeUrl)
+		require.Equal(t, msg.Value, readMsg.Value)
 	})
 
 	t.Run("read multiple messages", func(t *testing.T) {
@@ -162,8 +162,8 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 			readMsg := &anypb.Any{}
 			err := r.ReadMsg(readMsg)
 			require.NoError(t, err, "failed reading message %d", i)
-			assert.Equal(t, expected.TypeUrl, readMsg.TypeUrl)
-			assert.Equal(t, expected.Value, readMsg.Value)
+			require.Equal(t, expected.TypeUrl, readMsg.TypeUrl)
+			require.Equal(t, expected.Value, readMsg.Value)
 		}
 	})
 
@@ -173,8 +173,8 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 
 		msg := &anypb.Any{}
 		err := r.ReadMsg(msg)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed reading data")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed reading data")
 	})
 
 	t.Run("error on invalid protobuf", func(t *testing.T) {
@@ -189,8 +189,8 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 		r := NewVarintProtoReader(buf, 1024)
 		msg := &anypb.Any{}
 		err := r.ReadMsg(msg)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed unmarshalling message")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed unmarshalling message")
 	})
 }
 
@@ -200,8 +200,8 @@ func TestProtoReader_Close(t *testing.T) {
 		r := NewVarintProtoReader(closer, 1024)
 
 		err := r.Close()
-		assert.NoError(t, err)
-		assert.True(t, closer.closed)
+		require.NoError(t, err)
+		require.True(t, closer.closed)
 	})
 
 	t.Run("close without closer", func(t *testing.T) {
@@ -209,14 +209,14 @@ func TestProtoReader_Close(t *testing.T) {
 		r := NewVarintProtoReader(buf, 1024)
 
 		err := r.Close()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
 func TestNewVarintProtoReader(t *testing.T) {
 	buf := &bytes.Buffer{}
 	r := NewVarintProtoReader(buf, 1024)
-	assert.NotNil(t, r)
+	require.NotNil(t, r)
 }
 
 func TestRoundTrip(t *testing.T) {
@@ -241,8 +241,8 @@ func TestRoundTrip(t *testing.T) {
 			readMsg := &anypb.Any{}
 			err := r.ReadMsg(readMsg)
 			require.NoError(t, err, "failed reading message %d", i)
-			assert.Equal(t, expected.TypeUrl, readMsg.TypeUrl)
-			assert.Equal(t, expected.Value, readMsg.Value)
+			require.Equal(t, expected.TypeUrl, readMsg.TypeUrl)
+			require.Equal(t, expected.Value, readMsg.Value)
 		}
 	})
 }

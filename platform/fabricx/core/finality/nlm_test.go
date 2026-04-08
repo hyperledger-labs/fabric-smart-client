@@ -606,7 +606,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		require.NoError(t, err, "Attempt to remove listener for non-existent TxID should return nil")
 
 		nlm.handlersMu.RLock()
-		require.Len(t, nlm.handlers, 0, "Handler map should remain empty")
+		require.Empty(t, nlm.handlers, "Handler map should remain empty")
 		nlm.handlersMu.RUnlock()
 	})
 

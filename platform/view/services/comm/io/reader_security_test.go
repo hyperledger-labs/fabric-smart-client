@@ -11,7 +11,7 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestVarintReader_OOMProtection(t *testing.T) {
@@ -23,9 +23,9 @@ func TestVarintReader_OOMProtection(t *testing.T) {
 	r := newVarintReader(bytes.NewReader(buf[:n]), 1024)
 
 	data, err := r.ReadData()
-	assert.Error(t, err)
-	assert.Nil(t, data)
-	assert.Contains(t, err.Error(), "exceeds max message size")
+	require.Error(t, err)
+	require.Nil(t, data)
+	require.Contains(t, err.Error(), "exceeds max message size")
 }
 
 func TestVarintReader_NormalMessage(t *testing.T) {
@@ -37,6 +37,6 @@ func TestVarintReader_NormalMessage(t *testing.T) {
 	r := newVarintReader(bytes.NewReader(buf[:n+len(msg)]), 1024)
 
 	data, err := r.ReadData()
-	assert.NoError(t, err)
-	assert.Equal(t, msg, data)
+	require.NoError(t, err)
+	require.Equal(t, msg, data)
 }

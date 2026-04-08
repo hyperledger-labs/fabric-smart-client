@@ -173,7 +173,7 @@ func TestEventListenerDeadlock(t *testing.T) {
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		require.Len(ct, ch, 1)
 		require.Equal(ct, msg1, <-ch)
-		require.Len(ct, ch, 0)
+		require.Empty(ct, ch)
 	}, timeout, tick)
 
 	// next up, we fill our event buffer by publishing msg1

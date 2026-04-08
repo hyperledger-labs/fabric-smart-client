@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
 
@@ -81,9 +82,9 @@ func TestWriter(t *testing.T) {
 		messageOfSize(15),
 	}
 	for _, message := range input {
-		assert.NoError(t, w.WriteMsg(message))
+		require.NoError(t, w.WriteMsg(message))
 	}
-	assert.NoError(t, stream.Close())
+	require.NoError(t, stream.Close())
 
 	output := make([][]byte, 0, len(input))
 	m := sync.RWMutex{}
@@ -95,7 +96,7 @@ func TestWriter(t *testing.T) {
 		}
 	}()
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		m.RLock()
 		defer m.RUnlock()
 		fmt.Printf("input: %v\noutput: %v\n\n", input, output)
@@ -121,7 +122,7 @@ func TestReader(t *testing.T) {
 		messageOfSize(1400000),
 	}
 	for _, message := range input {
-		assert.NoError(t, conn.ReadValue(message))
+		require.NoError(t, conn.ReadValue(message))
 	}
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -136,7 +137,7 @@ func TestReader(t *testing.T) {
 	}()
 	wg.Wait()
 
-	assert.NoError(t, stream.Close())
+	require.NoError(t, stream.Close())
 }
 
 func messageOfSize(size int) proto.Message {

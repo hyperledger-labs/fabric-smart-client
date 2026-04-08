@@ -41,7 +41,7 @@ func TestTimeoutSimple(t *testing.T) {
 	}
 
 	mu.RLock()
-	assert.Equal(t, 0, len(allEvicted))
+	assert.Empty(t, allEvicted)
 	assert.Equal(t, 5, c.Len())
 	for k, expected := range input {
 		actual, _ := c.Get(k)

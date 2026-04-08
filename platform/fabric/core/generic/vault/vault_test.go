@@ -16,7 +16,7 @@ import (
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/exp/slices"
 )
@@ -42,7 +42,7 @@ func TestMemory(t *testing.T) {
 	ap := &artifactsProvider{}
 	for _, c := range vault.SingleDBCases {
 		ddb, err := vault2.OpenMemoryVault(c.Name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer utils.IgnoreErrorFunc(ddb.Close)
 			c.Fn(xt, ddb, ap)
@@ -51,9 +51,9 @@ func TestMemory(t *testing.T) {
 
 	for _, c := range vault.DoubleDBCases {
 		db1, err := vault2.OpenMemoryVault(c.Name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		db2, err := vault2.OpenMemoryVault(c.Name)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer utils.IgnoreErrorFunc(db1.Close)
 			defer utils.IgnoreErrorFunc(db2.Close)
@@ -69,7 +69,7 @@ func TestSqlite(t *testing.T) {
 	ap := &artifactsProvider{}
 	for _, c := range vault.SingleDBCases {
 		ddb, err := vault2.OpenSqliteVault("node1", t.TempDir())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer utils.IgnoreErrorFunc(ddb.Close)
 			c.Fn(xt, ddb, ap)
@@ -78,9 +78,9 @@ func TestSqlite(t *testing.T) {
 
 	for _, c := range vault.DoubleDBCases {
 		db1, err := vault2.OpenSqliteVault("node1", t.TempDir())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		db2, err := vault2.OpenSqliteVault("node2", t.TempDir())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer utils.IgnoreErrorFunc(db1.Close)
 			defer utils.IgnoreErrorFunc(db2.Close)
@@ -96,7 +96,7 @@ func TestPostgres(t *testing.T) {
 	ap := &artifactsProvider{}
 	for _, c := range vault.SingleDBCases {
 		ddb, terminate, err := vault2.OpenPostgresVault("fabric-sdk-node1")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer utils.IgnoreErrorFunc(ddb.Close)
 			defer terminate()
@@ -106,9 +106,9 @@ func TestPostgres(t *testing.T) {
 
 	for _, c := range vault.DoubleDBCases {
 		db1, terminate1, err := vault2.OpenPostgresVault("fabric-sdk-node1")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		db2, terminate2, err := vault2.OpenPostgresVault("fabric-sdk-node2")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
 			defer utils.IgnoreErrorFunc(db1.Close)
 			defer utils.IgnoreErrorFunc(db2.Close)

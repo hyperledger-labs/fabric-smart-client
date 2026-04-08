@@ -41,5 +41,5 @@ func TestSessions(t *testing.T) {
 	assert.Equal(t, "s1", ids[0])
 
 	s.Reset()
-	assert.Len(t, s.GetSessionIDs(), 0)
+	assert.Empty(t, s.GetSessionIDs())
 }

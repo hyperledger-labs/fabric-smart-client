@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const blockSize = 100
@@ -25,8 +26,8 @@ const namespace = "ns"
 
 func BenchmarkPostgresVault(b *testing.B) {
 	ddb, terminate, err := vault.OpenPostgresVault("common-sdk-node1")
-	assert.NoError(b, err)
-	assert.NotNil(b, ddb)
+	require.NoError(b, err)
+	require.NotNil(b, ddb)
 	defer terminate()
 
 	BenchTestSetStateCommit(b, ddb)
@@ -34,24 +35,24 @@ func BenchmarkPostgresVault(b *testing.B) {
 
 func BenchmarkMemoryVault(b *testing.B) {
 	ddb, err := vault.OpenMemoryVault()
-	assert.NoError(b, err)
-	assert.NotNil(b, ddb)
+	require.NoError(b, err)
+	require.NotNil(b, ddb)
 
 	BenchTestSetStateCommit(b, ddb)
 }
 
 func BenchmarkSqliteVault(b *testing.B) {
 	ddb, err := vault.OpenSqliteVault("node1", b.TempDir())
-	assert.NoError(b, err)
-	assert.NotNil(b, ddb)
+	require.NoError(b, err)
+	require.NotNil(b, ddb)
 
 	BenchTestSetStateCommit(b, ddb)
 }
 
 func BenchTestSetStateCommit(b *testing.B, ddb driver.VaultStore) {
 	vault, err := (&testArtifactProvider{}).NewNonCachedVault(ddb)
-	assert.NoError(b, err)
-	defer func() { assert.NoError(b, ddb.Close()) }()
+	require.NoError(b, err)
+	defer func() { require.NoError(b, ddb.Close()) }()
 
 	txs := make(chan *txCommitIndex, 1000)
 	wg := runCommitter(b, txs, vault)
@@ -68,7 +69,7 @@ func BenchTestSetStateCommit(b *testing.B, ddb driver.VaultStore) {
 				indexInBloc: txCtr % blockSize,
 			}
 			err := newRWSet(vault, commitIndex)
-			assert.NoError(b, err)
+			require.NoError(b, err)
 			txs <- commitIndex
 		}
 	})
@@ -81,10 +82,10 @@ func BenchTestSetStateCommit(b *testing.B, ddb driver.VaultStore) {
 
 func verifyResult(b *testing.B, vault *Vault[ValidationCode]) {
 	stateItr, err := vault.vaultStore.GetAllStates(context.Background(), namespace)
-	assert.NoError(b, err)
+	require.NoError(b, err)
 	states, err := collections.ReadAll(stateItr)
-	assert.NoError(b, err)
-	assert.Len(b, states, b.N*rwSetSize, "all states are stored")
+	require.NoError(b, err)
+	require.Len(b, states, b.N*rwSetSize, "all states are stored")
 }
 
 func newRWSet(vault *Vault[ValidationCode], commitIndex *txCommitIndex) error {

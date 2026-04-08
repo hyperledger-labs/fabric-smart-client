@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package ws
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"crypto/ecdsa"
@@ -16,7 +17,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
@@ -84,7 +85,7 @@ func TestConnections(t *testing.T) {
 
 							// ping
 							assert.NoError(t, err)
-							assert.EqualValues(t, []byte("ping"), answer)
+							assert.Equal(t, []byte("ping"), answer)
 
 							// pong
 							serverLogger.Info("[server] sending pong ...")
@@ -106,7 +107,7 @@ func TestConnections(t *testing.T) {
 			t.Run("client cannot connect", func(t *testing.T) {
 				// we should have no clients at this point
 				p.mu.RLock()
-				assert.Equal(t, 0, len(p.clients))
+				require.Empty(t, p.clients)
 				p.mu.RUnlock()
 
 				// creating this client should fail
@@ -118,12 +119,12 @@ func TestConnections(t *testing.T) {
 				}
 
 				client, err := p.NewClientStream(infoWithInvalidHostAddress, t.Context(), srcID, clientTLSConfig)
-				assert.Error(t, err)
-				assert.Nil(t, client)
+				require.Error(t, err)
+				require.Nil(t, client)
 
 				// we should have no clients
 				p.mu.RLock()
-				assert.Equal(t, 0, len(p.clients))
+				require.Empty(t, p.clients)
 				p.mu.RUnlock()
 			})
 
@@ -134,29 +135,34 @@ func TestConnections(t *testing.T) {
 			})
 
 			t.Run("many clients connect concurrently", func(t *testing.T) {
+				errCh := make(chan error, numStreams*totalMsg*3)
 				var wg sync.WaitGroup
 				for i := range numStreams {
 					wg.Add(1)
 					go func(i int) {
 						defer wg.Done()
-						testClientRun(t, p, srvEndpoint, fmt.Sprintf("session-%d", i), srcID, clientTLSConfig)
+						clientRun(p, srvEndpoint, fmt.Sprintf("session-%d", i), srcID, clientTLSConfig, errCh)
 					}(i)
 				}
 				wg.Wait()
+				close(errCh)
+				for err := range errCh {
+					require.NoError(t, err)
+				}
 			})
 
 			// we expect our client connection to still be open
 			p.mu.RLock()
-			assert.Equal(t, 1, len(p.clients))
+			require.Len(t, p.clients, 1)
 			p.mu.RUnlock()
 
 			wg.Wait()
 
 			err := p.KillAll()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			p.mu.RLock()
-			assert.Equal(t, 0, len(p.clients))
+			require.Empty(t, p.clients)
 			p.mu.RUnlock()
 		})
 	}
@@ -188,24 +194,24 @@ func TestSendingOnClosedSubConnections(t *testing.T) {
 
 						// server receives first message
 						answer, err := readMsg(srv)
-						require.NoError(t, err)
-						require.EqualValues(t, []byte("ping"), answer)
+						assert.NoError(t, err)
+						assert.Equal(t, []byte("ping"), answer)
 
 						// sends back a message
 						err = sendMsg(srv, []byte("pong"))
-						require.NoError(t, err)
+						assert.NoError(t, err)
 
 						// we wait for next orders
 						<-wait
 
 						// we send a few messages at a high rate; eventually we should receive a channel closed message
-						require.EventuallyWithT(t, func(c *assert.CollectT) {
+						assert.EventuallyWithT(t, func(c *assert.CollectT) {
 							err = sendMsg(srv, []byte("pong again"))
-							require.ErrorIs(c, err, websocket.ErrCloseSent)
+							assert.ErrorIs(c, err, websocket.ErrCloseSent)
 						}, 100*time.Millisecond, time.Nanosecond)
 					}(s)
 				})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}))
 			srv.TLS = serverTLSConfig
 			srv.StartTLS()
@@ -231,7 +237,7 @@ func TestSendingOnClosedSubConnections(t *testing.T) {
 			// expects pong
 			answer, err := readMsg(client)
 			require.NoError(t, err)
-			require.EqualValues(t, []byte("pong"), answer)
+			require.Equal(t, []byte("pong"), answer)
 
 			// now the client is actually done and closes the subconn
 			err = client.Close()
@@ -246,7 +252,7 @@ func TestSendingOnClosedSubConnections(t *testing.T) {
 			require.NoError(t, err)
 
 			p.mu.RLock()
-			require.Equal(t, 0, len(p.clients))
+			require.Empty(t, p.clients)
 			p.mu.RUnlock()
 		})
 	}
@@ -260,6 +266,9 @@ func TestRejectsPeerIDMismatch(t *testing.T) {
 		mode := fmt.Sprintf("InsecureSkipVerify=%v", insecureSkipVerify)
 		t.Run(mode, func(t *testing.T) {
 			p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+			t.Cleanup(func() {
+				_ = p.KillAll()
+			})
 			serverTLSConfig, clientTLSConfig, _ := testMutualTLSConfigs(t, insecureSkipVerify)
 
 			received := make(chan struct{}, 1)
@@ -294,8 +303,6 @@ func TestRejectsPeerIDMismatch(t *testing.T) {
 				t.Fatal("server accepted a stream with mismatched peer ID")
 			default:
 			}
-
-			require.NoError(t, p.KillAll())
 		})
 	}
 }
@@ -312,8 +319,27 @@ func testSetup(_ *testing.T) {
 	})
 }
 
+// testClientRun creates a new client, sends ping messages, and asserts in the test goroutine.
+// Use clientRun when calling from a spawned goroutine.
 func testClientRun(t *testing.T, p *MultiplexedProvider, srvEndpoint, sessionID string, src host.PeerID, config *tls.Config) {
-	ctx, cancel := context.WithCancel(t.Context())
+	t.Helper()
+	errCh := make(chan error, totalMsg*2+2)
+	clientRun(p, srvEndpoint, sessionID, src, config, errCh)
+	close(errCh)
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+
+	p.mu.RLock()
+	require.Len(t, p.clients, 1)
+	p.mu.RUnlock()
+}
+
+// clientRun creates a new client and sends ping messages, collecting errors into errCh.
+// Safe to call from goroutines: no testify assertions are made directly.
+func clientRun(p *MultiplexedProvider, srvEndpoint, sessionID string, src host.PeerID, config *tls.Config, errCh chan<- error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	info := host.StreamInfo{
 		RemotePeerID:      "serverID",
 		RemotePeerAddress: srvEndpoint,
@@ -321,32 +347,32 @@ func testClientRun(t *testing.T, p *MultiplexedProvider, srvEndpoint, sessionID 
 		SessionID:         sessionID,
 	}
 	client, err := p.NewClientStream(info, ctx, src, config)
-	require.NoError(t, err)
-	require.NotNil(t, client)
-
-	// we should
-	p.mu.RLock()
-	assert.Equal(t, 1, len(p.clients))
-	p.mu.RUnlock()
-
-	for range totalMsg {
-		// send ping
-		clientLogger.Info("[client] sending ping ...")
-		err = sendMsg(client, []byte("ping"))
-		assert.NoError(t, err)
-
-		// expect pong
-		clientLogger.Info("[client] reading ...")
-		answer, err := readMsg(client)
-		assert.NoError(t, err)
-		assert.EqualValues(t, []byte("pong"), answer)
+	if err != nil {
+		errCh <- err
+		return
 	}
 
-	// gracefully shutdown our client
-	err = client.Close()
-	assert.NoError(t, err)
+	for range totalMsg {
+		clientLogger.Info("[client] sending ping ...")
+		if err = sendMsg(client, []byte("ping")); err != nil {
+			errCh <- err
+			continue
+		}
 
-	cancel()
+		clientLogger.Info("[client] reading ...")
+		answer, err := readMsg(client)
+		if err != nil {
+			errCh <- err
+			continue
+		}
+		if !bytes.Equal(answer, []byte("pong")) {
+			errCh <- errors.Errorf("expected pong, got %q", answer)
+		}
+	}
+
+	if err = client.Close(); err != nil {
+		errCh <- err
+	}
 }
 
 func testMutualTLSConfigs(t *testing.T, insecureSkipVerify bool) (*tls.Config, *tls.Config, host.PeerID) {

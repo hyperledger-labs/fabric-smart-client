@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -221,7 +222,7 @@ func TestStreamCallView_Connects_Sends_Input_And_Returns_Stream(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/Views/Stream/myView", r.URL.Path)
+		assert.Equal(t, "/v1/Views/Stream/myView", r.URL.Path)
 
 		conn, err := wsUpgrader.Upgrade(w, r, nil)
 		if err != nil {

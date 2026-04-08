@@ -52,12 +52,12 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 
 	messages := node.incomingMessages
 	msg := <-messages
-	assert.NotNil(t, msg)
-	assert.Equal(t, []byte("msg1"), msg.message.Payload)
+	require.NotNil(t, msg)
+	require.Equal(t, []byte("msg1"), msg.message.Payload)
 
 	msg = <-messages
-	assert.NotNil(t, msg)
-	assert.Equal(t, []byte("msg2"), msg.message.Payload)
+	require.NotNil(t, msg)
+	require.Equal(t, []byte("msg2"), msg.message.Payload)
 
 	info := host2.StreamInfo{
 		RemotePeerID:      bootstrapNode.ID,
@@ -66,7 +66,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 		SessionID:         "session",
 	}
 	err := node.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg3")}, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	wg.Wait()
 
@@ -103,22 +103,22 @@ func SessionsTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 	}()
 
 	masterSession, err := node.MasterSession()
-	assert.NoError(t, err)
-	assert.NotNil(t, masterSession)
+	require.NoError(t, err)
+	require.NotNil(t, masterSession)
 
 	masterSessionMsgs := masterSession.Receive()
 	msg := <-masterSessionMsgs
-	assert.Equal(t, []byte("ciao"), msg.Payload)
+	require.Equal(t, []byte("ciao"), msg.Payload)
 
 	session, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, session)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
-	assert.NoError(t, session.Send([]byte("ciaoback")))
+	require.NoError(t, session.Send([]byte("ciaoback")))
 
 	sessionMsgs := session.Receive()
 	msg = <-sessionMsgs
-	assert.Equal(t, []byte("ciao on session"), msg.Payload)
+	require.Equal(t, []byte("ciao on session"), msg.Payload)
 
 	session.Close()
 
@@ -154,14 +154,14 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNo
 	}()
 
 	session, err := node.NewResponderSession("myawesomempcid", "", bootstrapNode.Address, []byte(bootstrapNode.ID), nil, nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, session)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	sessionMsgs := session.Receive()
 	msg := <-sessionMsgs
-	assert.Equal(t, []byte("ciao"), msg.Payload)
+	require.Equal(t, []byte("ciao"), msg.Payload)
 
-	assert.NoError(t, session.Send([]byte("ciaoback")))
+	require.NoError(t, session.Send([]byte("ciaoback")))
 
 	session.Close()
 
@@ -196,19 +196,19 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, no
 			contextID := fmt.Sprintf("ctx-%d", sessionIndex)
 
 			s, err := bootstrapNode.NewSession(caller, contextID, node.Address, []byte(node.ID))
-			require.NoError(t, err)
-			require.NotNil(t, s)
+			assert.NoError(t, err)
+			assert.NotNil(t, s)
 
 			// Send first message to trigger master session on responder
 			messagesToSend := messages(s.Info().ID)
 			err = s.Send(messagesToSend[0])
-			require.NoError(t, err)
+			assert.NoError(t, err)
 
 			// Wait for READY signal from responder to ensure dedicated session is active
 			select {
 			case msg := <-s.Receive():
-				require.NotNil(t, msg)
-				require.Equal(t, []byte("READY"), msg.Payload)
+				assert.NotNil(t, msg)
+				assert.Equal(t, []byte("READY"), msg.Payload)
 			case <-ctx.Done():
 				t.Errorf("Sender [%s]: Timeout waiting for READY signal", s.Info().ID)
 				return
@@ -218,14 +218,14 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, no
 			for j := 1; j < len(messagesToSend); j++ {
 				// logger.Infof("send message [%s] on session [%s]", string(messagesToSend[j]), s.Info().ID)
 				err = s.Send(messagesToSend[j])
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
 
 			// Wait for FINAL ACK
 			select {
 			case msg := <-s.Receive():
-				require.NotNil(t, msg)
-				require.Equal(t, []byte("FINAL_ACK"), msg.Payload)
+				assert.NotNil(t, msg)
+				assert.Equal(t, []byte("FINAL_ACK"), msg.Payload)
 			case <-ctx.Done():
 				t.Errorf("Sender [%s]: Timeout waiting for FINAL_ACK", s.Info().ID)
 				return
@@ -262,15 +262,15 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, no
 				messagesToReceive := messages(msg.SessionID)
 
 				payload := msg.Payload
-				require.Equal(t, messagesToReceive[0], payload)
+				assert.Equal(t, messagesToReceive[0], payload)
 
 				// Create dedicated session to receive the rest
 				s, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
-				require.NoError(t, err)
-				require.NotNil(t, s)
+				assert.NoError(t, err)
+				assert.NotNil(t, s)
 
 				// Signal READY to sender
-				require.NoError(t, s.Send([]byte("READY")))
+				assert.NoError(t, s.Send([]byte("READY")))
 
 				sessionMsgs := s.Receive()
 				for j := 1; j < len(messagesToReceive); j++ {
@@ -281,7 +281,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, no
 							return
 						}
 						// logger.Infof("received message [%s] on session [%s]", string(m.Payload), s.Info().ID)
-						require.Equal(t, messagesToReceive[j], m.Payload)
+						assert.Equal(t, messagesToReceive[j], m.Payload)
 					case <-ctx.Done():
 						t.Errorf("Responder [%s]: Timeout waiting for message %d on session %s", msg.SessionID, j, msg.SessionID)
 						return
@@ -290,7 +290,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, no
 
 				time.Sleep(time.Second)
 				// Send FINAL ACK
-				require.NoError(t, s.Send([]byte("FINAL_ACK")))
+				assert.NoError(t, s.Send([]byte("FINAL_ACK")))
 
 				s.Close()
 			}(firstMsg)

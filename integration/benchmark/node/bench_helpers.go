@@ -20,7 +20,6 @@ import (
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -157,7 +156,7 @@ func RunAPIBenchmark(b *testing.B, vm ViewManager, wl Workload) {
 	require.NoError(b, err)
 	for range 1000 {
 		_, err = vm.InitiateView(context.Background(), f)
-		assert.NoError(b, err)
+		require.NoError(b, err)
 	}
 	runtime.GC()
 	b.ResetTimer()
@@ -166,11 +165,11 @@ func RunAPIBenchmark(b *testing.B, vm ViewManager, wl Workload) {
 	b.Run(fmt.Sprintf("w=%s/f=0/nc=0", wl.Name), func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			f, err := vm.NewView(wl.Name, in)
-			assert.NoError(b, err)
+			require.NoError(b, err)
 
 			for pb.Next() {
 				_, err = vm.InitiateView(context.Background(), f)
-				assert.NoError(b, err)
+				require.NoError(b, err)
 			}
 		})
 		benchmark.ReportTPS(b)
@@ -181,9 +180,9 @@ func RunAPIBenchmark(b *testing.B, vm ViewManager, wl Workload) {
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
 				f, err := vm.NewView(wl.Name, in)
-				assert.NoError(b, err)
+				require.NoError(b, err)
 				_, err = vm.InitiateView(context.Background(), f)
-				assert.NoError(b, err)
+				require.NoError(b, err)
 			}
 		})
 		benchmark.ReportTPS(b)

@@ -304,7 +304,7 @@ func TestCreateRangeKeysForPartialCompositeKey(t *testing.T) {
 				require.Equal(t, tt.expectedStart, startKey)
 				require.Equal(t, tt.expectedEnd, endKey)
 				// Verify that endKey is greater than startKey
-				require.True(t, endKey > startKey)
+				require.Greater(t, endKey, startKey)
 			}
 		})
 	}

@@ -16,7 +16,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,7 +54,7 @@ func TestSimpleProvider_Security(t *testing.T) {
 
 				select {
 				case s := <-received:
-					assert.Equal(t, srcID, s.RemotePeerID(), "RemotePeerID should match authenticated identity")
+					require.Equal(t, srcID, s.RemotePeerID(), "RemotePeerID should match authenticated identity")
 				case <-time.After(5 * time.Second):
 					t.Fatal("timeout waiting for server stream")
 				}
@@ -84,7 +83,7 @@ func TestSimpleProvider_Security(t *testing.T) {
 
 				// Server should reject and close connection
 				_, _, err = conn.ReadMessage()
-				assert.Error(t, err, "Server should have closed connection")
+				require.Error(t, err, "Server should have closed connection")
 
 				select {
 				case <-received:

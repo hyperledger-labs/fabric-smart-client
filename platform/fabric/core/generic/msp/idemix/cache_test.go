@@ -11,7 +11,7 @@ import (
 
 	api2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIdentityCache(t *testing.T) {
@@ -22,12 +22,12 @@ func TestIdentityCache(t *testing.T) {
 		EIDExtension: true,
 		AuditInfo:    nil,
 	})
-	assert.NoError(t, err)
-	assert.Equal(t, view.Identity([]byte("hello world")), id)
-	assert.Equal(t, []byte("audit"), audit)
+	require.NoError(t, err)
+	require.Equal(t, view.Identity([]byte("hello world")), id)
+	require.Equal(t, []byte("audit"), audit)
 
 	id, audit, err = c.Identity(nil)
-	assert.NoError(t, err)
-	assert.Equal(t, view.Identity([]byte("hello world")), id)
-	assert.Equal(t, []byte("audit"), audit)
+	require.NoError(t, err)
+	require.Equal(t, view.Identity([]byte("hello world")), id)
+	require.Equal(t, []byte("audit"), audit)
 }

@@ -12,10 +12,10 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/vfsdk"
 	registry3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/stretchr/testify/require"
 )
 
 type myInput struct{}
@@ -31,57 +31,57 @@ func (o *myFactory) NewView([]byte) (view.View, error) { return nil, nil }
 func TestInvalidFactory(t *testing.T) {
 	c := vfsdk.NewContainer()
 
-	assert.Error(c.Provide(func() *myInput { return &myInput{} }, vfsdk.WithFactoryId("input")))
+	require.Error(t, c.Provide(func() *myInput { return &myInput{} }, vfsdk.WithFactoryId("input")))
 }
 
 func TestError(t *testing.T) {
 	c := vfsdk.NewContainer()
-	assert.NoError(c.Provide(registry3.NewRegistry))
-	assert.NoError(c.Provide(func() (*myFactory, error) { return nil, errors.New("error occurred") }))
+	require.NoError(t, c.Provide(registry3.NewRegistry))
+	require.NoError(t, c.Provide(func() (*myFactory, error) { return nil, errors.New("error occurred") }))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
-	assert.NoError(sdk.Install())
-	assert.NoError(sdk.Start(context.Background()))
+	require.NoError(t, sdk.Install())
+	require.NoError(t, sdk.Start(context.Background()))
 }
 
 func TestNoReturnError(t *testing.T) {
 	c := vfsdk.NewContainer()
-	assert.NoError(c.Provide(registry3.NewRegistry))
-	assert.NoError(c.Provide(func() *myFactory { return &myFactory{} }))
+	require.NoError(t, c.Provide(registry3.NewRegistry))
+	require.NoError(t, c.Provide(func() *myFactory { return &myFactory{} }))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
-	assert.NoError(sdk.Install())
-	assert.NoError(sdk.Start(context.Background()))
+	require.NoError(t, sdk.Install())
+	require.NoError(t, sdk.Start(context.Background()))
 }
 
 func TestInterdependentFactories(t *testing.T) {
 	c := vfsdk.NewContainer()
-	assert.NoError(c.Provide(registry3.NewRegistry))
-	assert.NoError(c.Provide(func(f *myFactory) (*myDependentFactory, error) { return &myDependentFactory{myFactory: f}, nil }, vfsdk.WithFactoryId("a"), vfsdk.WithInitiators("init")))
-	assert.NoError(c.Provide(func() (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("b")))
+	require.NoError(t, c.Provide(registry3.NewRegistry))
+	require.NoError(t, c.Provide(func(f *myFactory) (*myDependentFactory, error) { return &myDependentFactory{myFactory: f}, nil }, vfsdk.WithFactoryId("a"), vfsdk.WithInitiators("init")))
+	require.NoError(t, c.Provide(func() (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("b")))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
-	assert.NoError(sdk.Install())
-	assert.NoError(sdk.Start(context.Background()))
+	require.NoError(t, sdk.Install())
+	require.NoError(t, sdk.Start(context.Background()))
 }
 
 func TestRegisterWithoutParams(t *testing.T) {
 	c := vfsdk.NewContainer()
-	assert.NoError(c.Provide(registry3.NewRegistry))
-	assert.NoError(c.Provide(func() (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("abc"), vfsdk.WithInitiators("in1", "in2")))
+	require.NoError(t, c.Provide(registry3.NewRegistry))
+	require.NoError(t, c.Provide(func() (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("abc"), vfsdk.WithInitiators("in1", "in2")))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
-	assert.NoError(sdk.Install())
-	assert.NoError(sdk.Start(context.Background()))
+	require.NoError(t, sdk.Install())
+	require.NoError(t, sdk.Start(context.Background()))
 }
 
 func TestRegisterWithParams(t *testing.T) {
 	c := vfsdk.NewContainer()
-	assert.NoError(c.Provide(registry3.NewRegistry))
-	assert.NoError(c.Provide(func() *myInput { return &myInput{} }))
-	assert.NoError(c.Provide(func(_ *myInput) (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("abc"), vfsdk.WithInitiators("in1", "in2")))
+	require.NoError(t, c.Provide(registry3.NewRegistry))
+	require.NoError(t, c.Provide(func() *myInput { return &myInput{} }))
+	require.NoError(t, c.Provide(func(_ *myInput) (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("abc"), vfsdk.WithInitiators("in1", "in2")))
 
 	sdk := vfsdk.NewFrom(dig.NewBaseSDK(c, nil))
-	assert.NoError(sdk.Install())
-	assert.NoError(sdk.Start(context.Background()))
+	require.NoError(t, sdk.Install())
+	require.NoError(t, sdk.Start(context.Background()))
 }

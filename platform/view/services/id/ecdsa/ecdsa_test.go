@@ -9,11 +9,11 @@ package ecdsa
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewIdentityFromPEMCertInvalid(t *testing.T) {
 	_, _, err := NewIdentityFromPEMCert([]byte("invalid PEM"))
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot pem decode")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "cannot pem decode")
 }

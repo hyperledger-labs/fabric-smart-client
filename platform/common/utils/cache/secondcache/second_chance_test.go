@@ -37,7 +37,7 @@ func TestSecondChanceCache(t *testing.T) {
 	obj, ok, err = cache.GetOrLoad("c", func() (interface{}, error) { return "111", errors.New("some err") })
 	require.False(t, ok)
 	require.Error(t, err)
-	require.Equal(t, nil, obj)
+	require.Nil(t, obj)
 
 	obj, ok, err = cache.GetOrLoad("c", func() (interface{}, error) { return "111", nil })
 	require.False(t, ok)
@@ -87,13 +87,13 @@ func TestSecondChanceCacheConcurrent(t *testing.T) {
 
 				val, ok := cache.Get(key1)
 				if ok {
-					require.Equal(t, val1, val.(string))
+					assert.Equal(t, val1, val.(string))
 				}
 				cache.Add(key1, val1)
 
 				val, ok = cache.Get(key2)
 				if ok {
-					require.Equal(t, val2, val.(string))
+					assert.Equal(t, val2, val.(string))
 				}
 				cache.Add(key2, val2)
 
@@ -101,13 +101,13 @@ func TestSecondChanceCacheConcurrent(t *testing.T) {
 				val4 := key4
 				val, ok = cache.Get(key4)
 				if ok {
-					require.Equal(t, val4, val.(string))
+					assert.Equal(t, val4, val.(string))
 				}
 				cache.Add(key4, val4)
 
 				val, ok = cache.Get(key3)
 				if ok {
-					require.Equal(t, val3, val.(string))
+					assert.Equal(t, val3, val.(string))
 				}
 			}
 
@@ -123,7 +123,7 @@ func BenchmarkSecondChanceCache(b *testing.B) {
 		// b.StopTimer()
 		key := make([]byte, 64)
 		_, err := rand.Read(key)
-		assert.NoError(b, err)
+		require.NoError(b, err)
 		// b.StartTimer()
 
 		cache.Add(string(key), fmt.Sprintf("value-%d", i))
@@ -135,7 +135,7 @@ func BenchmarkSecondChanceCacheBytes(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		key := make([]byte, 64)
 		_, err := rand.Read(key)
-		assert.NoError(b, err)
+		require.NoError(b, err)
 
 		cache.Add(key, fmt.Sprintf("value-%d", i))
 	}

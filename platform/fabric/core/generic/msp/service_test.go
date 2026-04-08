@@ -12,13 +12,13 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	msp2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
-	sig2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRegisterIdemixLocalMSP(t *testing.T) {
@@ -26,41 +26,41 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	cp.IsSetReturns(false)
 
 	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	des := sig2.NewMultiplexDeserializer()
+	des := sig.NewMultiplexDeserializer()
 
 	config, err := config2.NewService(cp, "default", true)
-	assert.NoError(t, err)
-	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
+	require.NoError(t, err)
+	mspService := msp.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 
-	assert.NoError(t, mspService.RegisterIdemixMSP("apple", "./idemix/testdata/idemix", "idemix"))
-	ii := mspService.GetIdentityInfoByLabel(msp2.IdemixMSP, "apple")
-	assert.NotNil(t, ii)
-	assert.Equal(t, "apple", ii.ID)
-	assert.Equal(t, "alice", ii.EnrollmentID)
+	require.NoError(t, mspService.RegisterIdemixMSP("apple", "./idemix/testdata/idemix", "idemix"))
+	ii := mspService.GetIdentityInfoByLabel(msp.IdemixMSP, "apple")
+	require.NotNil(t, ii)
+	require.Equal(t, "apple", ii.ID)
+	require.Equal(t, "alice", ii.EnrollmentID)
 
 	id, info, err := ii.GetIdentity(nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, id)
-	assert.Nil(t, info)
+	require.NoError(t, err)
+	require.NotNil(t, id)
+	require.Nil(t, info)
 }
 
 func TestIdemixTypeFolder(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/idemixtypefolder")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
-	assert.NoError(t, err)
-	des := sig2.NewMultiplexDeserializer()
+	require.NoError(t, err)
+	des := sig.NewMultiplexDeserializer()
 	config, err := config2.NewService(cp, "default", true)
-	assert.NoError(t, err)
-	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
+	require.NoError(t, err)
+	mspService := msp.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 
-	assert.NoError(t, mspService.Load())
-	assert.Equal(t, []string{"idemix", "manager.id1", "manager.id2", "manager.id3", "apple"}, mspService.Msps())
+	require.NoError(t, mspService.Load())
+	require.Equal(t, []string{"idemix", "manager.id1", "manager.id2", "manager.id3", "apple"}, mspService.Msps())
 
 	for _, s := range mspService.Msps()[:4] {
-		assert.NotNil(t, mspService.GetIdentityInfoByLabel("idemix", s))
+		require.NotNil(t, mspService.GetIdentityInfoByLabel("idemix", s))
 	}
 }
 
@@ -69,69 +69,69 @@ func TestRegisterX509LocalMSP(t *testing.T) {
 	cp.IsSetReturns(false)
 
 	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	des := sig2.NewMultiplexDeserializer()
+	des := sig.NewMultiplexDeserializer()
 
 	config, err := config2.NewService(cp, "default", true)
-	assert.NoError(t, err)
-	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
+	require.NoError(t, err)
+	mspService := msp.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 
-	assert.NoError(t, mspService.RegisterX509MSP("apple", "./x509/testdata/msp", "x509"))
-	ii := mspService.GetIdentityInfoByLabel(msp2.BccspMSP, "apple")
-	assert.NotNil(t, ii)
-	assert.Equal(t, "apple", ii.ID)
-	assert.Equal(t, "auditor.org1.example.com", ii.EnrollmentID)
+	require.NoError(t, mspService.RegisterX509MSP("apple", "./x509/testdata/msp", "x509"))
+	ii := mspService.GetIdentityInfoByLabel(msp.BccspMSP, "apple")
+	require.NotNil(t, ii)
+	require.Equal(t, "apple", ii.ID)
+	require.Equal(t, "auditor.org1.example.com", ii.EnrollmentID)
 	id, info, err := ii.GetIdentity(nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, id)
-	assert.NotNil(t, info)
+	require.NoError(t, err)
+	require.NotNil(t, id)
+	require.NotNil(t, info)
 }
 
 func TestX509TypeFolder(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/x509typefolder")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	des := sig2.NewMultiplexDeserializer()
+	des := sig.NewMultiplexDeserializer()
 
 	config, err := config2.NewService(cp, "default", true)
-	assert.NoError(t, err)
-	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
+	require.NoError(t, err)
+	mspService := msp.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 
-	assert.NoError(t, mspService.Load())
-	assert.Equal(t, []string{"Admin@org1.example.com", "auditor@org1.example.com", "issuer.id1@org1.example.com"}, mspService.Msps())
+	require.NoError(t, mspService.Load())
+	require.Equal(t, []string{"Admin@org1.example.com", "auditor@org1.example.com", "issuer.id1@org1.example.com"}, mspService.Msps())
 
 	for _, s := range mspService.Msps() {
-		assert.NotNil(t, mspService.GetIdentityInfoByLabel(msp2.BccspMSP, s))
+		require.NotNil(t, mspService.GetIdentityInfoByLabel(msp.BccspMSP, s))
 	}
 }
 
 func TestRefresh(t *testing.T) {
 	cp, err := config.NewProvider("./testdata/x509typefolder")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
-	assert.NoError(t, err)
-	des := sig2.NewMultiplexDeserializer()
+	require.NoError(t, err)
+	des := sig.NewMultiplexDeserializer()
 	config, err := config2.NewService(cp, "default", true)
-	assert.NoError(t, err)
-	mspService := msp2.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
+	require.NoError(t, err)
+	mspService := msp.NewLocalMSPManager(config, kvss, nil, nil, nil, des, 100)
 
-	assert.NoError(t, mspService.Load())
-	assert.Equal(t, []string{"Admin@org1.example.com", "auditor@org1.example.com", "issuer.id1@org1.example.com"}, mspService.Msps())
+	require.NoError(t, mspService.Load())
+	require.Equal(t, []string{"Admin@org1.example.com", "auditor@org1.example.com", "issuer.id1@org1.example.com"}, mspService.Msps())
 
 	for _, s := range mspService.Msps() {
-		assert.NotNil(t, mspService.GetIdentityInfoByLabel(msp2.BccspMSP, s))
+		require.NotNil(t, mspService.GetIdentityInfoByLabel(msp.BccspMSP, s))
 	}
 
 	// copy new identity and refresh
-	assert.NoError(t, os.CopyFS("./testdata/x509typefolder/msps/manager@org2.example.com", os.DirFS("./testdata/manager@org2.example.com")))
+	require.NoError(t, os.CopyFS("./testdata/x509typefolder/msps/manager@org2.example.com", os.DirFS("./testdata/manager@org2.example.com")))
 
-	assert.NoError(t, mspService.Refresh())
-	assert.Equal(t, []string{
+	require.NoError(t, mspService.Refresh())
+	require.Equal(t, []string{
 		"Admin@org1.example.com",
 		"auditor@org1.example.com",
 		"issuer.id1@org1.example.com",
@@ -139,19 +139,19 @@ func TestRefresh(t *testing.T) {
 	}, mspService.Msps())
 
 	for _, s := range mspService.Msps() {
-		assert.NotNil(t, mspService.GetIdentityInfoByLabel(msp2.BccspMSP, s))
+		require.NotNil(t, mspService.GetIdentityInfoByLabel(msp.BccspMSP, s))
 	}
 
-	assert.NoError(t, os.RemoveAll("./testdata/x509typefolder/msps/manager@org2.example.com"))
+	require.NoError(t, os.RemoveAll("./testdata/x509typefolder/msps/manager@org2.example.com"))
 
-	assert.NoError(t, mspService.Refresh())
-	assert.Equal(t, []string{
+	require.NoError(t, mspService.Refresh())
+	require.Equal(t, []string{
 		"Admin@org1.example.com",
 		"auditor@org1.example.com",
 		"issuer.id1@org1.example.com",
 	}, mspService.Msps())
 
 	for _, s := range mspService.Msps() {
-		assert.NotNil(t, mspService.GetIdentityInfoByLabel(msp2.BccspMSP, s))
+		require.NotNil(t, mspService.GetIdentityInfoByLabel(msp.BccspMSP, s))
 	}
 }

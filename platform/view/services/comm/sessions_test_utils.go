@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,7 +25,7 @@ func SessionsNodesTestRound(t *testing.T, initiator *HostNode, nodes []*HostNode
 
 	initiator.Start(ctx)
 	for _, n := range nodes {
-		go RunResponder(t, ctx, n)
+		RunResponder(t, ctx, n)
 		n.Start(ctx)
 	}
 
@@ -64,7 +65,7 @@ func runInitiator(t *testing.T, ctx context.Context, bootstrapNode *HostNode, ta
 			t.Errorf("Sender: failed to create session to %s: %v", targetNode.ID, err)
 			return
 		}
-		require.NotNil(t, s)
+		assert.NotNil(t, s)
 
 		messagesToSend := messages(s.Info().ID)
 		err = s.Send(messagesToSend[0])
@@ -111,7 +112,7 @@ func RunResponder(t *testing.T, ctx context.Context, node *HostNode) {
 	require.NoError(t, err)
 	require.NotNil(t, masterSession)
 
-	var responderWg sync.WaitGroup
+	var wg sync.WaitGroup
 	go func() {
 		for {
 			var firstMsg *view.Message
@@ -124,15 +125,15 @@ func RunResponder(t *testing.T, ctx context.Context, node *HostNode) {
 				return
 			}
 
-			responderWg.Add(1)
+			wg.Add(1)
 			go func(msg *view.Message) {
-				defer responderWg.Done()
+				defer wg.Done()
 				runResponder(t, ctx, node, msg)
 			}(firstMsg)
 		}
 	}()
 	<-ctx.Done()
-	responderWg.Wait()
+	wg.Wait()
 }
 
 func runResponder(t *testing.T, ctx context.Context, node *HostNode, msg *view.Message) {

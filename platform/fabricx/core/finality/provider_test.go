@@ -205,7 +205,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Should be the exact same instance
 		require.Same(t, manager1, manager2, "Should return same manager instance for same network:channel")
-		require.Equal(t, 1, len(provider.managers), "Should only create manager once")
+		require.Len(t, provider.managers, 1, "Should only create manager once")
 	})
 
 	t.Run("Different_Network_Channel_Get_Different_Managers", func(t *testing.T) {
@@ -239,7 +239,7 @@ func TestProvider_NewManager(t *testing.T) {
 		require.NotSame(t, manager1, manager3, "Different networks should have different managers")
 		require.NotSame(t, manager2, manager3, "Different combinations should have different managers")
 
-		require.Equal(t, 3, len(provider.managers), "Should create 3 different managers")
+		require.Len(t, provider.managers, 3, "Should create 3 different managers")
 	})
 
 	t.Run("Manager_Removed_When_Listen_Exits_With_Error", func(t *testing.T) {
@@ -372,7 +372,7 @@ func TestProvider_NewManager(t *testing.T) {
 			go func(idx int) {
 				defer wg.Done()
 				mgr, err := provider.NewManager("network1", "channel1")
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				managers[idx] = mgr
 			}(i)
 		}
@@ -384,7 +384,7 @@ func TestProvider_NewManager(t *testing.T) {
 		}
 
 		// Should only create manager once
-		require.Equal(t, len(provider.managers), 1, "Should create manager only once even with concurrent access")
+		require.Len(t, provider.managers, 1, "Should create manager only once even with concurrent access")
 	})
 }
 

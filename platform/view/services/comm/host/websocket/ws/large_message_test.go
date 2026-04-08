@@ -58,8 +58,8 @@ func TestOversizedMessageRejection(t *testing.T) {
 
 	// Write should fail because it uses the accumulator which checks the size
 	_, err = clientStream.Write(oversizedPayload)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "message header or payload too large")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "message header or payload too large")
 }
 
 // TestValidBoundaryMessage verifies that a message of exactly 1MB passes.
@@ -111,10 +111,10 @@ func TestValidBoundaryMessage(t *testing.T) {
 
 	select {
 	case received := <-receivedChan:
-		assert.NotNil(t, received)
-		assert.Equal(t, 1*1024*1024, len(received))
-		assert.Equal(t, byte(0xAA), received[0])
-		assert.Equal(t, byte(0xBB), received[len(received)-1])
+		require.NotNil(t, received)
+		require.Len(t, received, 1*1024*1024)
+		require.Equal(t, byte(0xAA), received[0])
+		require.Equal(t, byte(0xBB), received[len(received)-1])
 	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for 1MB message")
 	}

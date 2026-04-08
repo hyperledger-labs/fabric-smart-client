@@ -540,9 +540,9 @@ func TestMultiplexDeserializer_ReturnsFirstSuccess(t *testing.T) {
 			mockDes2 := deserializers[1].(*mock.Deserializer)
 
 			// First deserializer should be called
-			require.Greater(t, mockDes1.DeserializeVerifierCallCount()+
+			require.Positive(t, mockDes1.DeserializeVerifierCallCount()+
 				mockDes1.DeserializeSignerCallCount()+
-				mockDes1.InfoCallCount(), 0)
+				mockDes1.InfoCallCount())
 
 			// Second deserializer should not be called
 			require.Equal(t, 0, mockDes2.DeserializeVerifierCallCount()+

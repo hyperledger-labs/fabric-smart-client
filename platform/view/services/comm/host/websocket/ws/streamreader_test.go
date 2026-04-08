@@ -21,7 +21,7 @@ func TestReadExpectedLengthHappyPath(t *testing.T) {
 	read, err := reader.Read(buf[:n])
 	require.NoError(t, err)
 	require.Equal(t, n, read)
-	require.Equal(t, 128+n, reader.expectedLength)
+	require.Equal(t, reader.expectedLength, 128+n)
 }
 
 func TestReadExpectedLengthOversizedPayload(t *testing.T) {

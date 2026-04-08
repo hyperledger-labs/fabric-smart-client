@@ -13,28 +13,27 @@ import (
 	"crypto/x509"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
-
-	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 func TestExtractCertificateHashFromContext(t *testing.T) {
 	t.Parallel()
-	assert.Nil(t, grpc3.ExtractCertificateHashFromContext(context.Background()))
+	require.Nil(t, grpc3.ExtractCertificateHashFromContext(context.Background()))
 
 	p := &peer.Peer{}
 	ctx := peer.NewContext(context.Background(), p)
-	assert.Nil(t, grpc3.ExtractCertificateHashFromContext(ctx))
+	require.Nil(t, grpc3.ExtractCertificateHashFromContext(ctx))
 
 	p.AuthInfo = &nonTLSConnection{}
 	ctx = peer.NewContext(context.Background(), p)
-	assert.Nil(t, grpc3.ExtractCertificateHashFromContext(ctx))
+	require.Nil(t, grpc3.ExtractCertificateHashFromContext(ctx))
 
 	p.AuthInfo = credentials.TLSInfo{}
 	ctx = peer.NewContext(context.Background(), p)
-	assert.Nil(t, grpc3.ExtractCertificateHashFromContext(ctx))
+	require.Nil(t, grpc3.ExtractCertificateHashFromContext(ctx))
 
 	p.AuthInfo = credentials.TLSInfo{
 		State: tls.ConnectionState{
@@ -46,7 +45,7 @@ func TestExtractCertificateHashFromContext(t *testing.T) {
 	ctx = peer.NewContext(context.Background(), p)
 	h := sha256.New()
 	h.Write([]byte{1, 2, 3})
-	assert.Equal(t, h.Sum(nil), grpc3.ExtractCertificateHashFromContext(ctx))
+	require.Equal(t, h.Sum(nil), grpc3.ExtractCertificateHashFromContext(ctx))
 }
 
 type nonTLSConnection struct {
@@ -60,16 +59,16 @@ func TestBindingInspectorBadInit(t *testing.T) {
 	t.Parallel()
 	// nil extractor is only a programming error when mutualTLS is enabled,
 	// because the extractor is not called in noop mode.
-	assert.NotPanics(t, func() {
+	require.NotPanics(t, func() {
 		grpc3.NewBindingInspector(false, nil)
 	})
-	assert.Panics(t, func() {
+	require.Panics(t, func() {
 		grpc3.NewBindingInspector(true, nil)
 	})
 }
 
 func TestGetLocalIP(t *testing.T) {
 	ip, err := grpc3.GetLocalIP()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	t.Log(ip)
 }

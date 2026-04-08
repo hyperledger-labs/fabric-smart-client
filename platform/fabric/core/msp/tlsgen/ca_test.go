@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -52,7 +53,7 @@ func TestTLSCA(t *testing.T) {
 		if errors.Is(err, grpc.ErrServerStopped) {
 			return
 		}
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}()
 	defer func() {
 		srv.Stop()

@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver/file"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/mock"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoad(t *testing.T) {
@@ -27,14 +27,14 @@ func TestLoad(t *testing.T) {
 	sigService := &mock2.SigService{}
 
 	idProvider, err := id2.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
-	assert.NoError(t, err, "failed loading identities")
+	require.NoError(t, err, "failed loading identities")
 
 	raw, err := id2.LoadIdentity("./testdata/default/signcerts/default.pem")
-	assert.NoError(t, err)
-	assert.Equal(t, raw, []byte(idProvider.DefaultIdentity()))
+	require.NoError(t, err)
+	require.Equal(t, raw, []byte(idProvider.DefaultIdentity()))
 
 	raw, err = id2.LoadIdentity("./testdata/client/client.pem")
-	assert.NoError(t, err)
-	assert.Len(t, idProvider.Clients(), 1)
-	assert.Equal(t, raw, []byte(idProvider.Clients()[0]))
+	require.NoError(t, err)
+	require.Len(t, idProvider.Clients(), 1)
+	require.Equal(t, raw, []byte(idProvider.Clients()[0]))
 }
