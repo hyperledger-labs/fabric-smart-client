@@ -8,8 +8,8 @@ package sets
 
 import (
 	"fmt"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/maps"
+	"maps"
+	"slices"
 )
 
 type set[V comparable] map[V]struct{}
@@ -55,7 +55,7 @@ func (s *set[V]) Minus(other Set[V]) Set[V] {
 
 // ToSlice reads all set elements into a slice
 func (s *set[V]) ToSlice() []V {
-	return maps.Keys(*s)
+	return slices.Collect(maps.Keys(*s))
 }
 
 // Length returns the size of the set

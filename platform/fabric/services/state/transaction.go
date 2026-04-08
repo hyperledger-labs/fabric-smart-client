@@ -21,17 +21,6 @@ type Transaction struct {
 	*Namespace
 }
 
-func Wrap(tx *endorser.Transaction) (*Transaction, error) {
-	if err := SetCertificationType(tx, ChaincodeCertification, nil); err != nil {
-		return nil, errors.Wrap(err, "failed appending certification")
-	}
-
-	return &Transaction{
-		Transaction: tx,
-		Namespace:   NewNamespace(tx, false),
-	}, nil
-}
-
 // NewTransaction returns a new instance of a state-based transaction that embeds a single namespace.
 func NewTransaction(viewCtx view.Context) (*Transaction, error) {
 	_, tx, err := endorser.NewTransaction(viewCtx)

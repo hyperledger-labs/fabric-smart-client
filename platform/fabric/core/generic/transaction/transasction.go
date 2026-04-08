@@ -190,7 +190,7 @@ func (t *Transaction) SetFromBytes(raw []byte) error {
 	if err != nil {
 		return errors.Wrapf(err, "SetFromBytes: failed unmarshalling payload [%s]", string(raw))
 	}
-	logger.Debugf("set transient [%s]", logging.Keys(t.TTransient))
+	logger.Debugf("set transient [%s]", logging.MapKeys(t.TTransient))
 
 	if t.TSignedProposal != nil {
 		// TODO: check the current payload is compatible with the content of the signed proposal
@@ -389,7 +389,7 @@ func (t *Transaction) Bytes() ([]byte, error) {
 	if err := t.Done(); err != nil {
 		return nil, err
 	}
-	logger.Debugf("get transient [%s]", logging.Keys(t.TTransient))
+	logger.Debugf("get transient [%s]", logging.MapKeys(t.TTransient))
 
 	return json.Marshal(t)
 }

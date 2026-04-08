@@ -10,12 +10,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
+	maps2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/maps"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
@@ -79,7 +81,7 @@ func (db *KeyValueStore) GetState(ctx context.Context, namespace driver2.Namespa
 
 func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns driver2.Namespace, keys ...driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
 	if len(keys) == 0 {
-		return collections.NewEmptyIterator[*driver.UnversionedRead](), nil
+		return iterators.Empty[*driver.UnversionedRead](), nil
 	}
 	query, params := q.Select().FieldsByName("pkey", "val").
 		From(q.Table(db.table)).
@@ -136,7 +138,7 @@ func (db *KeyValueStore) DeleteStatesWithTx(ctx context.Context, tx dbTransactio
 	}
 
 	if len(namespace) == 0 {
-		return collections.RepeatValue(keys, errors.New("ns or key is empty"))
+		return maps2.RepeatValue(keys, errors.New("ns or key is empty"))
 	}
 	query, params := q.DeleteFrom(db.table).
 		Where(HasKeys(namespace, keys...)).
@@ -192,10 +194,10 @@ func (db *KeyValueStore) SetStatesWithTx(ctx context.Context, tx dbTransaction, 
 
 	errs := make(map[driver2.PKey]error)
 	if len(deleted) > 0 {
-		collections.CopyMap(errs, db.DeleteStatesWithTx(ctx, tx, ns, deleted...))
+		maps.Copy(errs, db.DeleteStatesWithTx(ctx, tx, ns, deleted...))
 	}
 	if len(upserted) > 0 {
-		collections.CopyMap(errs, db.upsertStatesWithTx(ctx, tx, ns, upserted))
+		maps.Copy(errs, db.upsertStatesWithTx(ctx, tx, ns, upserted))
 	}
 	return errs
 }
@@ -213,7 +215,7 @@ func (db *KeyValueStore) upsertStatesWithTx(ctx context.Context, tx dbTransactio
 
 	logger.Debug(query, params)
 	if _, err := tx.ExecContext(ctx, query, params...); err != nil {
-		return collections.RepeatValue(collections.Keys(vals), errors.Wrapf(db.errorWrapper.WrapError(err), "could not upsert"))
+		return maps2.RepeatValue(slices.Collect(maps.Values(vals)), errors.Wrapf(db.errorWrapper.WrapError(err), "could not upsert"))
 	}
 	return nil
 }

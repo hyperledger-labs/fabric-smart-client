@@ -6,7 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package driver
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
+import (
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/maps"
+)
 
 type ValidationCode interface {
 	comparable
@@ -18,7 +20,7 @@ type ValidationCodeProvider[V ValidationCode] interface {
 }
 
 func NewValidationCodeProvider[V ValidationCode](m map[V]TxStatusCode) ValidationCodeProvider[V] {
-	return &validationCodeProvider[V]{a: m, b: collections.InverseMap(m)}
+	return &validationCodeProvider[V]{a: m, b: maps.Inverse(m)}
 }
 
 type validationCodeProvider[V ValidationCode] struct {

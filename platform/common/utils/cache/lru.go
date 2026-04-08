@@ -8,9 +8,9 @@ package cache
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 )
 
 // NewLRUCache creates a cache with limited size with LRU eviction policy.
@@ -72,5 +72,5 @@ func (c *lruEviction[K]) Push(key K) {
 }
 
 func (c *lruEviction[K]) String() string {
-	return fmt.Sprintf("Keys: [%v], KeySet: [%v]", c.keys, collections.Keys(c.keySet))
+	return fmt.Sprintf("Keys: [%v], KeySet: [%v]", c.keys, slices.Collect(maps.Keys(c.keySet)))
 }

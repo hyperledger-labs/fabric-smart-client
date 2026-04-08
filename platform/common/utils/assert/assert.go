@@ -52,20 +52,10 @@ func Error(err error, msgAndArgs ...interface{}) {
 	assert.Error(&panickier{releasers: releasers}, err, ma...)
 }
 
-func NotEmpty(o interface{}, msgAndArgs ...interface{}) {
-	ma, releasers := extractReleasers(msgAndArgs...)
-	assert.NotEmpty(&panickier{releasers: releasers}, o, ma...)
-}
-
 // Equal checks that actual is as expected, it panics otherwise
 func Equal(expected, actual interface{}, msgAndArgs ...interface{}) {
 	ma, releasers := extractReleasers(msgAndArgs...)
 	assert.Equal(&panickier{releasers: releasers}, expected, actual, ma...)
-}
-
-func NotEqual(expected, actual interface{}, msgAndArgs ...interface{}) {
-	ma, releasers := extractReleasers(msgAndArgs...)
-	assert.NotEqual(&panickier{releasers: releasers}, expected, actual, ma...)
 }
 
 func True(value bool, msgAndArgs ...interface{}) {

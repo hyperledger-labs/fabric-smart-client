@@ -84,7 +84,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 
 	query, args := sb.Build()
 
-	logger.Debug(query, txIDs, logging.Keys(writes))
+	logger.Debug(query, txIDs, logging.MapKeys(writes))
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
 	if _, err := db.writeDB.ExecContext(ctx, query, args...); err != nil {
