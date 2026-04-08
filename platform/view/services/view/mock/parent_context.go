@@ -217,7 +217,7 @@ func (fake *ParentContext) Context() context.Context {
 	}{})
 	stub := fake.ContextStub
 	fakeReturns := fake.contextReturns
-	fake.recordInvocation("Context", []any{})
+	fake.recordInvocation("Ctx", []any{})
 	fake.contextMutex.Unlock()
 	if stub != nil {
 		return stub()

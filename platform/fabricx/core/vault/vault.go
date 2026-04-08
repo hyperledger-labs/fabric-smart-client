@@ -66,7 +66,7 @@ func NewVault(qs queryservice.QueryService) *Vault {
 // It delegates all state queries to the remote QueryService.
 type queryExecutor struct {
 	qs  queryservice.QueryService // Remote query service
-	ctx context.Context           // Context for queries
+	ctx context.Context           // Ctx for queries
 }
 
 // GetState retrieves the state for a specific namespace and key from the remote QueryService.

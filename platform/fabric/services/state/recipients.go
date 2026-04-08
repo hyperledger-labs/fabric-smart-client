@@ -71,16 +71,16 @@ type RequestRecipientIdentityView struct {
 	Other   view.Identity
 }
 
-func RequestRecipientIdentity(context view.Context, other view.Identity) (view.Identity, error) {
-	recipientIdentityBoxed, err := context.RunView(&RequestRecipientIdentityView{Other: other})
+func RequestRecipientIdentity(viewCtx view.Context, other view.Identity) (view.Identity, error) {
+	recipientIdentityBoxed, err := viewCtx.RunView(&RequestRecipientIdentityView{Other: other})
 	if err != nil {
 		return nil, err
 	}
 	return recipientIdentityBoxed.(view.Identity), nil
 }
 
-func (f RequestRecipientIdentityView) Call(context view.Context) (interface{}, error) {
-	session, err := context.GetSession(context.Initiator(), f.Other)
+func (f RequestRecipientIdentityView) Call(viewCtx view.Context) (interface{}, error) {
+	session, err := viewCtx.GetSession(viewCtx.Initiator(), f.Other)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (f RequestRecipientIdentityView) Call(context view.Context) (interface{}, e
 	}
 
 	// Update the Endpoint Resolver
-	if err := endpoint.GetService(context).Bind(context.Context(), f.Other, recipientData.Identity); err != nil {
+	if err := endpoint.GetService(viewCtx).Bind(viewCtx.Context(), f.Other, recipientData.Identity); err != nil {
 		return nil, err
 	}
 
@@ -134,8 +134,8 @@ type RespondRequestRecipientIdentityView struct {
 // 2. Unmarshall the message into rr = RecipientRequest
 // 3. If the identity to send back is not set, it is set to fabric.GetFabricNetworkService(context, rr.Network).IdentityProvider().DefaultIdentity()
 // 4. Send back marshalled RecipientData struct
-func (s *RespondRequestRecipientIdentityView) Call(context view.Context) (interface{}, error) {
-	session, payload, err := session2.ReadFirstMessage(context)
+func (s *RespondRequestRecipientIdentityView) Call(viewCtx view.Context) (interface{}, error) {
+	session, payload, err := session2.ReadFirstMessage(viewCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func (s *RespondRequestRecipientIdentityView) Call(context view.Context) (interf
 	}
 
 	if s.Identity.IsNone() {
-		fns, err := fabric.GetFabricNetworkService(context, rr.Network)
+		fns, err := fabric.GetFabricNetworkService(viewCtx, rr.Network)
 		if err != nil {
 			return nil, err
 		}
@@ -168,8 +168,8 @@ func (s *RespondRequestRecipientIdentityView) Call(context view.Context) (interf
 	}
 
 	// Update the Endpoint Resolver
-	resolver := endpoint.GetService(context)
-	err = resolver.Bind(context.Context(), context.Me(), recipientData.Identity)
+	resolver := endpoint.GetService(viewCtx)
+	err = resolver.Bind(viewCtx.Context(), viewCtx.Me(), recipientData.Identity)
 	if err != nil {
 		return nil, err
 	}
@@ -185,8 +185,8 @@ func NewRespondRequestRecipientIdentityView() view.View {
 // RespondRequestRecipientIdentity runs the RespondRequestRecipientIdentityView and
 // returns the identity sent to the requester. In this case, the identity used is the one returned by
 // fabric.GetFabricNetworkService(context, rr.Network).IdentityProvider().DefaultIdentity()a
-func RespondRequestRecipientIdentity(context view.Context) (view.Identity, error) {
-	id, err := context.RunView(NewRespondRequestRecipientIdentityView())
+func RespondRequestRecipientIdentity(viewCtx view.Context) (view.Identity, error) {
+	id, err := viewCtx.RunView(NewRespondRequestRecipientIdentityView())
 	if err != nil {
 		return nil, err
 	}
@@ -202,12 +202,12 @@ type ExchangeRecipientIdentitiesView struct {
 
 // ExchangeRecipientIdentities runs the ExchangeRecipientIdentitiesView against the passed receiver.
 // The function returns, the recipient identity of the sender, the recipient identity of the receiver.
-func ExchangeRecipientIdentities(context view.Context, recipient view.Identity, opts ...ServiceOption) (view.Identity, view.Identity, error) {
+func ExchangeRecipientIdentities(viewCtx view.Context, recipient view.Identity, opts ...ServiceOption) (view.Identity, view.Identity, error) {
 	opt, err := CompileServiceOptions(opts...)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to compile service options")
 	}
-	ids, err := context.RunView(&ExchangeRecipientIdentitiesView{
+	ids, err := viewCtx.RunView(&ExchangeRecipientIdentitiesView{
 		Network:       opt.Network,
 		Other:         recipient,
 		IdentityLabel: opt.Identity,
@@ -219,13 +219,13 @@ func ExchangeRecipientIdentities(context view.Context, recipient view.Identity, 
 	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
 }
 
-func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{}, error) {
-	session, err := context.GetSession(context.Initiator(), f.Other)
+func (f *ExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (interface{}, error) {
+	session, err := viewCtx.GetSession(viewCtx.Initiator(), f.Other)
 	if err != nil {
 		return nil, err
 	}
 
-	fns, err := fabric.GetFabricNetworkService(context, f.Network)
+	fns, err := fabric.GetFabricNetworkService(viewCtx, f.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -270,14 +270,14 @@ func (f *ExchangeRecipientIdentitiesView) Call(context view.Context) (interface{
 
 	// Update the Endpoint Resolver
 	logger.Debugf("bind [%s] to other [%s]", recipientData.Identity, f.Other)
-	resolver := endpoint.GetService(context)
-	err = resolver.Bind(context.Context(), f.Other, recipientData.Identity)
+	resolver := endpoint.GetService(viewCtx)
+	err = resolver.Bind(viewCtx.Context(), f.Other, recipientData.Identity)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Debugf("bind me [%s] to [%s]", me, context.Me())
-	err = resolver.Bind(context.Context(), context.Me(), me)
+	logger.Debugf("bind me [%s] to [%s]", me, viewCtx.Me())
+	err = resolver.Bind(viewCtx.Context(), viewCtx.Me(), me)
 	if err != nil {
 		return nil, err
 	}
@@ -292,12 +292,12 @@ type RespondExchangeRecipientIdentitiesView struct {
 }
 
 // RespondExchangeRecipientIdentities runs the RespondExchangeRecipientIdentitiesView
-func RespondExchangeRecipientIdentities(context view.Context, opts ...ServiceOption) (view.Identity, view.Identity, error) {
+func RespondExchangeRecipientIdentities(viewCtx view.Context, opts ...ServiceOption) (view.Identity, view.Identity, error) {
 	opt, err := CompileServiceOptions(opts...)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to compile service options")
 	}
-	ids, err := context.RunView(&RespondExchangeRecipientIdentitiesView{
+	ids, err := viewCtx.RunView(&RespondExchangeRecipientIdentitiesView{
 		Network:       opt.Network,
 		IdentityLabel: opt.Identity,
 	})
@@ -308,8 +308,8 @@ func RespondExchangeRecipientIdentities(context view.Context, opts ...ServiceOpt
 	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
 }
 
-func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (interface{}, error) {
-	session, requestRaw, err := session2.ReadFirstMessage(context)
+func (s *RespondExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (interface{}, error) {
+	session, requestRaw, err := session2.ReadFirstMessage(viewCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +320,7 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (int
 		return nil, err
 	}
 
-	fns, err := fabric.GetFabricNetworkService(context, s.Network)
+	fns, err := fabric.GetFabricNetworkService(viewCtx, s.Network)
 	if err != nil {
 		return nil, err
 	}
@@ -352,12 +352,12 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(context view.Context) (int
 	}
 
 	// Update the Endpoint Resolver
-	resolver := endpoint.GetService(context)
-	err = resolver.Bind(context.Context(), context.Me(), me)
+	resolver := endpoint.GetService(viewCtx)
+	err = resolver.Bind(viewCtx.Context(), viewCtx.Me(), me)
 	if err != nil {
 		return nil, err
 	}
-	err = resolver.Bind(context.Context(), session.Info().Caller, other)
+	err = resolver.Bind(viewCtx.Context(), session.Info().Caller, other)
 	if err != nil {
 		return nil, err
 	}

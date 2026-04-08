@@ -20,9 +20,9 @@ import (
 
 type Pong struct{}
 
-func (p *Pong) Call(context view.Context) (interface{}, error) {
+func (p *Pong) Call(viewCtx view.Context) (interface{}, error) {
 	// Retrieve the session opened by the initiator
-	session := context.Session()
+	session := viewCtx.Session()
 
 	// Read the message from the initiator
 	ch := session.Receive()
@@ -44,7 +44,7 @@ func (p *Pong) Call(context view.Context) (interface{}, error) {
 		return nil, fmt.Errorf("exptectd ping, got %s", m)
 	default:
 		// reply with pong
-		names, err := fabric.GetFabricNetworkNames(context)
+		names, err := fabric.GetFabricNetworkNames(viewCtx)
 		assert.NoError(err)
 		raw, err := json.Marshal(names)
 		assert.NoError(err)

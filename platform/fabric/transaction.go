@@ -31,7 +31,7 @@ type TransactionOptions struct {
 	Channel         string
 	RawRequest      []byte
 	TransactionType TransactionType
-	Context         context.Context
+	Ctx             context.Context
 }
 
 type TransactionOption func(*TransactionOptions) error
@@ -57,7 +57,7 @@ func WithCreator(creator view.Identity) TransactionOption {
 
 func WithContext(ctx context.Context) TransactionOption {
 	return func(o *TransactionOptions) error {
-		o.Context = ctx
+		o.Ctx = ctx
 		return nil
 	}
 }
@@ -407,7 +407,7 @@ func (t *TransactionManager) NewTransaction(opts ...TransactionOption) (*Transac
 		return nil, err
 	}
 
-	tx, err := t.fns.fns.TransactionManager().NewTransaction(options.Context, driver.TransactionType(options.TransactionType), options.Creator, options.Nonce, options.TxID, ch.Name(), options.RawRequest)
+	tx, err := t.fns.fns.TransactionManager().NewTransaction(options.Ctx, driver.TransactionType(options.TransactionType), options.Creator, options.Nonce, options.TxID, ch.Name(), options.RawRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -428,7 +428,7 @@ func (t *TransactionManager) NewTransactionFromBytes(raw []byte, opts ...Transac
 		return nil, err
 	}
 
-	tx, err := t.fns.fns.TransactionManager().NewTransactionFromBytes(options.Context, ch.Name(), raw)
+	tx, err := t.fns.fns.TransactionManager().NewTransactionFromBytes(options.Ctx, ch.Name(), raw)
 	if err != nil {
 		return nil, err
 	}
@@ -449,7 +449,7 @@ func (t *TransactionManager) NewTransactionFromEnvelopeBytes(raw []byte, opts ..
 		return nil, err
 	}
 
-	tx, err := t.fns.fns.TransactionManager().NewTransactionFromEnvelopeBytes(options.Context, ch.Name(), raw)
+	tx, err := t.fns.fns.TransactionManager().NewTransactionFromEnvelopeBytes(options.Ctx, ch.Name(), raw)
 	if err != nil {
 		return nil, err
 	}

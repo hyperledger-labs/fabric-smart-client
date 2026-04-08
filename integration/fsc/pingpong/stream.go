@@ -14,8 +14,8 @@ import (
 
 type StreamerView struct{}
 
-func (s *StreamerView) Call(context view.Context) (interface{}, error) {
-	stream := view2.GetStream(context)
+func (s *StreamerView) Call(viewCtx view.Context) (interface{}, error) {
+	stream := view2.GetStream(viewCtx)
 	assert.NoError(stream.Send("hello"), "failed to send hello")
 	var msg string
 	assert.NoError(stream.Recv(&msg), "failed to receive message")

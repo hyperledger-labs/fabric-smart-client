@@ -277,7 +277,7 @@ In most of the cases `StartSpan` is enough, as it uses the existing span from th
 ```go
 	ch := session.Receive()
 	var payload []byte
-	var rcvCtx context2.Context
+	var rcvCtx context.Context
 	var rcvSpan trace.Span
 	select {
 	case msg := <-ch:

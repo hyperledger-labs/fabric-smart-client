@@ -196,7 +196,7 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 				}
 				return
 			case <-ctx.Done():
-				logger.Debugf("Context done")
+				logger.Debugf("Ctx done")
 				// Time to cancel
 				if dfCancel != nil {
 					dfCancel()

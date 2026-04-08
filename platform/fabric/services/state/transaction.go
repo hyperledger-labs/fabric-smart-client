@@ -33,8 +33,8 @@ func Wrap(tx *endorser.Transaction) (*Transaction, error) {
 }
 
 // NewTransaction returns a new instance of a state-based transaction that embeds a single namespace.
-func NewTransaction(context view.Context) (*Transaction, error) {
-	_, tx, err := endorser.NewTransaction(context)
+func NewTransaction(viewCtx view.Context) (*Transaction, error) {
+	_, tx, err := endorser.NewTransaction(viewCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +51,8 @@ func NewTransaction(context view.Context) (*Transaction, error) {
 
 // NewAnonymousTransaction returns a new instance of a state-based transaction that embeds a single namespace and is signed
 // by an anonymous identity
-func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
-	fns, err := fabric.GetDefaultFNS(context)
+func NewAnonymousTransaction(viewCtx view.Context) (*Transaction, error) {
+	fns, err := fabric.GetDefaultFNS(viewCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
 		return nil, errors.WithMessagef(err, "failed getting anonymous identity")
 	}
 	_, tx, err := endorser.NewTransactionWithSigner(
-		context,
+		viewCtx,
 		fns.Name(),
 		fns.ConfigService().DefaultChannel(),
 		anonIdentity,
@@ -80,8 +80,8 @@ func NewAnonymousTransaction(context view.Context) (*Transaction, error) {
 	}, nil
 }
 
-func NewTransactionFromBytes(context view.Context, raw []byte) (*Transaction, error) {
-	_, tx, err := endorser.NewTransactionFromBytes(context, raw)
+func NewTransactionFromBytes(viewCtx view.Context, raw []byte) (*Transaction, error) {
+	_, tx, err := endorser.NewTransactionFromBytes(viewCtx, raw)
 	if err != nil {
 		return nil, err
 	}
@@ -106,8 +106,8 @@ func NewReceiveTransactionFromView(party view.Identity) *receiveTransactionView 
 
 // ReceiveTransaction runs the receiveTransactionView that expects on the context's session
 // a byte representation of a state transaction.
-func ReceiveTransaction(context view.Context) (*Transaction, error) {
-	txBoxed, err := context.RunView(NewReceiveTransactionView(), view.WithSameContext())
+func ReceiveTransaction(viewCtx view.Context) (*Transaction, error) {
+	txBoxed, err := viewCtx.RunView(NewReceiveTransactionView(), view.WithSameContext())
 	if err != nil {
 		return nil, err
 	}
@@ -116,8 +116,8 @@ func ReceiveTransaction(context view.Context) (*Transaction, error) {
 	return cctx, nil
 }
 
-func ReceiveTransactionFrom(context view.Context, party view.Identity) (*Transaction, error) {
-	txBoxed, err := context.RunView(NewReceiveTransactionFromView(party), view.WithSameContext())
+func ReceiveTransactionFrom(viewCtx view.Context, party view.Identity) (*Transaction, error) {
+	txBoxed, err := viewCtx.RunView(NewReceiveTransactionFromView(party), view.WithSameContext())
 	if err != nil {
 		return nil, err
 	}
@@ -126,13 +126,13 @@ func ReceiveTransactionFrom(context view.Context, party view.Identity) (*Transac
 	return cctx, nil
 }
 
-func (f *receiveTransactionView) Call(context view.Context) (interface{}, error) {
+func (f *receiveTransactionView) Call(viewCtx view.Context) (interface{}, error) {
 	// Wait to receive a transaction back
 	var ch <-chan *view.Message
 	if f.party.IsNone() {
-		ch = context.Session().Receive()
+		ch = viewCtx.Session().Receive()
 	} else {
-		s, err := context.GetSession(context.Initiator(), f.party, f)
+		s, err := viewCtx.GetSession(viewCtx.Initiator(), f.party, f)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +147,7 @@ func (f *receiveTransactionView) Call(context view.Context) (interface{}, error)
 		if msg.Status == view.ERROR {
 			return nil, errors.New(string(msg.Payload))
 		}
-		tx, err := NewTransactionFromBytes(context, msg.Payload)
+		tx, err := NewTransactionFromBytes(viewCtx, msg.Payload)
 		if err != nil {
 			return nil, err
 		}
@@ -166,11 +166,11 @@ func NewSendTransactionView(tx *Transaction, parties ...view.Identity) *sendTran
 	return &sendTransactionView{tx: tx, parties: parties}
 }
 
-func (f *sendTransactionView) Call(context view.Context) (interface{}, error) {
+func (f *sendTransactionView) Call(viewCtx view.Context) (interface{}, error) {
 	for _, party := range f.parties {
 		logger.Debugf("Send transaction to [%s]", logging.SHA256Base64(party))
 
-		if context.IsMe(party) {
+		if viewCtx.IsMe(party) {
 			logger.Debugf("This is me %s, do not send.", logging.Base64(party))
 			continue
 		}
@@ -180,7 +180,7 @@ func (f *sendTransactionView) Call(context view.Context) (interface{}, error) {
 			return nil, errors.Wrap(err, "failed marshalling transaction content")
 		}
 
-		session, err := context.GetSession(context.Initiator(), party)
+		session, err := viewCtx.GetSession(viewCtx.Initiator(), party)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed getting session")
 		}
@@ -202,13 +202,13 @@ func NewSendTransactionBackView(tx *Transaction) *sendTransactionBackView {
 	return &sendTransactionBackView{tx: tx}
 }
 
-func (f *sendTransactionBackView) Call(context view.Context) (interface{}, error) {
+func (f *sendTransactionBackView) Call(viewCtx view.Context) (interface{}, error) {
 	txRaw, err := f.tx.Bytes()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed marshalling transaction content")
 	}
 
-	session := context.Session()
+	session := viewCtx.Session()
 
 	// Send transaction
 	err = session.Send(txRaw)
@@ -219,20 +219,20 @@ func (f *sendTransactionBackView) Call(context view.Context) (interface{}, error
 	return nil, nil
 }
 
-func SendAndReceiveTransaction(context view.Context, tx *Transaction, party view.Identity) (*Transaction, error) {
-	_, err := context.RunView(NewSendTransactionView(tx, party), view.WithSameContext())
+func SendAndReceiveTransaction(viewCtx view.Context, tx *Transaction, party view.Identity) (*Transaction, error) {
+	_, err := viewCtx.RunView(NewSendTransactionView(tx, party), view.WithSameContext())
 	if err != nil {
 		return nil, err
 	}
 
-	return ReceiveTransactionFrom(context, party)
+	return ReceiveTransactionFrom(viewCtx, party)
 }
 
-func SendBackAndReceiveTransaction(context view.Context, tx *Transaction) (*Transaction, error) {
-	_, err := context.RunView(NewSendTransactionBackView(tx), view.WithSameContext())
+func SendBackAndReceiveTransaction(viewCtx view.Context, tx *Transaction) (*Transaction, error) {
+	_, err := viewCtx.RunView(NewSendTransactionBackView(tx), view.WithSameContext())
 	if err != nil {
 		return nil, err
 	}
 
-	return ReceiveTransaction(context)
+	return ReceiveTransaction(viewCtx)
 }

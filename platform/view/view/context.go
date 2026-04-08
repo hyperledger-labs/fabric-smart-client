@@ -128,7 +128,7 @@ type Context interface {
 	// not to respond to a remote call
 	Session() Session
 
-	// Context return the associated context.Context
+	// Context return the associated context.Ctx
 	Context() context.Context
 
 	// OnError appends to passed callback function to the list of functions called when

@@ -23,8 +23,8 @@ func NewReceiveView(state interface{}) *receiveView {
 	return &receiveView{state: state, unmarshaller: &JSONCodec{}}
 }
 
-func (s receiveView) Call(context view.Context) (interface{}, error) {
-	session := context.Session()
+func (s receiveView) Call(viewCtx view.Context) (interface{}, error) {
+	session := viewCtx.Session()
 
 	// Wait to receive a state
 	ch := session.Receive()
@@ -57,9 +57,9 @@ func NewPayloadReceiveView() *payloadReceiveView {
 	return &payloadReceiveView{}
 }
 
-func (s payloadReceiveView) Call(context view.Context) (interface{}, error) {
+func (s payloadReceiveView) Call(viewCtx view.Context) (interface{}, error) {
 	// Wait to receive a state
-	ch := context.Session().Receive()
+	ch := viewCtx.Session().Receive()
 
 	timeout := time.NewTimer(time.Second * 30)
 	defer timeout.Stop()
@@ -82,8 +82,8 @@ type sendReceiveView struct {
 	party        view.Identity
 }
 
-func (s *sendReceiveView) Call(context view.Context) (interface{}, error) {
-	session, err := context.GetSession(context.Initiator(), s.party)
+func (s *sendReceiveView) Call(viewCtx view.Context) (interface{}, error) {
+	session, err := viewCtx.GetSession(viewCtx.Initiator(), s.party)
 	if err != nil {
 		return nil, err
 	}
@@ -134,8 +134,8 @@ type replyView struct {
 	marshaller Marshaller
 }
 
-func (s *replyView) Call(context view.Context) (interface{}, error) {
-	session := context.Session()
+func (s *replyView) Call(viewCtx view.Context) (interface{}, error) {
+	session := viewCtx.Session()
 
 	raw, err := s.marshaller.Marshal(s.state)
 	if err != nil {

@@ -36,14 +36,14 @@ type CreateIOUView struct {
 	Create
 }
 
-func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
+func (i *CreateIOUView) Call(viewCtx view.Context) (interface{}, error) {
 	// As a first step operation, the borrower contacts the lender's FSC node
 	// to exchange the identities to use to assign ownership of the freshly created IOU state.
-	borrower, lender, err := state.ExchangeRecipientIdentities(context, i.Lender, state.WithIdentity(i.Identity))
+	borrower, lender, err := state.ExchangeRecipientIdentities(viewCtx, i.Lender, state.WithIdentity(i.Identity))
 	assert.NoError(err, "failed exchanging recipient identity")
 
 	// The borrower creates a new transaction
-	tx, err := state.NewTransaction(context)
+	tx, err := state.NewTransaction(viewCtx)
 	assert.NoError(err, "failed creating a new transaction")
 
 	// Sets the namespace where the state should be stored
@@ -65,19 +65,19 @@ func (i *CreateIOUView) Call(context view.Context) (interface{}, error) {
 	// The borrower is ready to collect all the required signatures.
 	// Namely from the borrower itself, the lender, and the approver. In this order.
 	// All signatures are required.
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, borrower, lender, i.Approver))
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, borrower, lender, i.Approver))
 	assert.NoError(err)
 
 	// Check committer events
 	var wg sync.WaitGroup
 	wg.Add(1)
-	_, ch, err := fabric.GetDefaultChannel(context)
+	_, ch, err := fabric.GetDefaultChannel(viewCtx)
 	assert.NoError(err)
 	committer := ch.Committer()
 	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
-	_, err = context.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
+	_, err = viewCtx.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
 	assert.NoError(err)
 
 	wg.Wait()
@@ -109,9 +109,9 @@ type UpdateIOUView struct {
 	Update
 }
 
-func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
+func (u UpdateIOUView) Call(viewCtx view.Context) (interface{}, error) {
 	// The borrower starts by creating a new transaction to update the IOU state
-	tx, err := state.NewTransaction(context)
+	tx, err := state.NewTransaction(viewCtx)
 	assert.NoError(err)
 
 	// Sets the namespace where the state is stored
@@ -133,19 +133,19 @@ func (u UpdateIOUView) Call(context view.Context) (interface{}, error) {
 	// The borrower is ready to collect all the required signatures.
 	// Namely from the borrower itself, the lender, and the approver. In this order.
 	// All signatures are required.
-	_, err = context.RunView(state.NewCollectEndorsementsView(tx, iouState.Owners()[0], iouState.Owners()[1], u.Approver))
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, iouState.Owners()[0], iouState.Owners()[1], u.Approver))
 	assert.NoError(err)
 
 	// Check committer events
 	var wg sync.WaitGroup
 	wg.Add(1)
-	_, ch, err := fabric.GetDefaultChannel(context)
+	_, ch, err := fabric.GetDefaultChannel(viewCtx)
 	assert.NoError(err)
 	committer := ch.Committer()
 	assert.NoError(err, committer.AddFinalityListener(tx.ID(), NewFinalityListener(tx.ID(), driver.Valid, &wg)), "failed to add committer listener")
 
 	// At this point the borrower can send the transaction to the ordering service and wait for finality.
-	_, err = context.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
+	_, err = viewCtx.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, 1*time.Minute))
 	assert.NoError(err, "failed ordering and finalizing")
 	wg.Wait()
 

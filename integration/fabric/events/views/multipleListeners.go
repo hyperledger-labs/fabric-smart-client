@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
-	context2 "context"
+	"context"
 	"encoding/json"
 	"math/rand/v2"
 	"strings"
@@ -33,9 +33,9 @@ type MultipleListenersReceived struct {
 	Events []*chaincode.Event
 }
 
-func (c *MultipleListenersView) Call(context view.Context) (interface{}, error) {
+func (c *MultipleListenersView) Call(viewCtx view.Context) (interface{}, error) {
 	eventReceived := make([]*chaincode.Event, c.ListenerCount)
-	cancels := make([]context2.CancelFunc, c.ListenerCount)
+	cancels := make([]context.CancelFunc, c.ListenerCount)
 
 	eventCh := make(chan struct{}, c.ListenerCount)
 	defer close(eventCh)
@@ -66,9 +66,9 @@ func (c *MultipleListenersView) Call(context view.Context) (interface{}, error) 
 				return false, nil
 			}
 
-			ctx, cancelFunc := context2.WithCancel(context.Context())
+			ctx, cancelFunc := context.WithCancel(viewCtx.Context())
 			cancels[i] = cancelFunc
-			_, err := context.RunView(chaincode.NewListenToEventsViewWithContext(ctx, "events", callBack))
+			_, err := viewCtx.RunView(chaincode.NewListenToEventsViewWithContext(ctx, "events", callBack))
 			assert.NoError(err, "failed to listen to events")
 		}(i)
 	}
@@ -76,7 +76,7 @@ func (c *MultipleListenersView) Call(context view.Context) (interface{}, error) 
 	wg.Wait()
 
 	// Invoke the chaincode to trigger all the listeners once
-	_, err := context.RunView(chaincode.NewInvokeView("events", c.Function))
+	_, err := viewCtx.RunView(chaincode.NewInvokeView("events", c.Function))
 	assert.NoError(err, "Failed Running Invoke View")
 
 	logger.Infof("Waiting for all listeners to complete the event ...")
@@ -109,7 +109,7 @@ func (c *MultipleListenersView) Call(context view.Context) (interface{}, error) 
 	go func() {
 		for i := 0; i < invokes; i++ {
 			time.Sleep(100 * time.Millisecond)
-			_, err := context.RunView(chaincode.NewInvokeView("events", c.Function))
+			_, err := viewCtx.RunView(chaincode.NewInvokeView("events", c.Function))
 			assert.NoError(err, "Failed Running Invoke View")
 			invCh <- struct{}{}
 		}
@@ -126,7 +126,7 @@ func (c *MultipleListenersView) Call(context view.Context) (interface{}, error) 
 	logger.Infof("Start canceling ...")
 	// cancel subscriptions while new transactions are still coming in
 	for _, cancel := range cancels {
-		go func(cn context2.CancelFunc) {
+		go func(cn context.CancelFunc) {
 			cn()
 		}(cancel)
 	}
