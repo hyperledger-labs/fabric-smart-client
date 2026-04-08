@@ -28,8 +28,8 @@ type finalityView struct {
 	timeout time.Duration
 }
 
-func (f *finalityView) Call(ctx view.Context) (interface{}, error) {
-	fns, err := fabric.GetFabricNetworkService(ctx, f.Network)
+func (f *finalityView) Call(viewCtx view.Context) (interface{}, error) {
+	fns, err := fabric.GetFabricNetworkService(viewCtx, f.Network)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", f.Network)
 	}
@@ -37,7 +37,7 @@ func (f *finalityView) Call(ctx view.Context) (interface{}, error) {
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed getting channel [%s:%s]", f.Network, f.Channel)
 	}
-	c := ctx.Context()
+	c := viewCtx.Context()
 	if f.timeout != 0 {
 		var cancel context.CancelFunc
 		c, cancel = context.WithTimeout(c, f.timeout)

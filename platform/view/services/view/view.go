@@ -27,9 +27,9 @@ type ViewContext = view.Context
 //go:generate counterfeiter -o mock/view.go -fake-name View . View
 type View = view.View
 
-// RunCall is a shortcut for `context.RunView(nil, view.WithViewCall(v))` and can be used to run a view call in a given context.
-func RunCall(context view.Context, v func(context view.Context) (any, error)) (any, error) {
-	return context.RunView(
+// RunCall is a shortcut for `viewCtx.RunView(nil, view.WithViewCall(v))` and can be used to run a view call in a given context.
+func RunCall(viewCtx view.Context, v func(viewCtx view.Context) (any, error)) (any, error) {
+	return viewCtx.RunView(
 		nil,
 		view.WithViewCall(v),
 	)
@@ -37,30 +37,30 @@ func RunCall(context view.Context, v func(context view.Context) (any, error)) (a
 
 // Initiate initiates a new protocol whose initiator's view is the passed one.
 // The execution happens in a freshly created context.
-// This is a shortcut for `view.GetManager(context).InitiateView(context.Context(), initiator)`.
-func Initiate(context view.Context, initiator View) (any, error) {
-	m, err := GetManager(context)
+// This is a shortcut for `view.GetManager(viewCtx).InitiateView(viewCtx.Ctx(), initiator)`.
+func Initiate(viewCtx view.Context, initiator View) (any, error) {
+	m, err := GetManager(viewCtx)
 	if err != nil {
 		return nil, err
 	}
-	return m.InitiateView(context.Context(), initiator)
+	return m.InitiateView(viewCtx.Context(), initiator)
 }
 
 // InitiateWithContext initiates a new protocol whose initiator's view is the passed one.
-// The execution happens in a freshly created view context and the given context.Context.
-// This is a shortcut for `view.GetManager(ctx).InitiateView(context, initiator)`.
-func InitiateWithContext(context context.Context, ctx view.Context, initiator View) (any, error) {
-	m, err := GetManager(ctx)
+// The execution happens in a freshly created view context and the given context.Ctx.
+// This is a shortcut for `view.GetManager(viewCtx).InitiateView(ctx, initiator)`.
+func InitiateWithContext(ctx context.Context, viewCtx view.Context, initiator View) (any, error) {
+	m, err := GetManager(viewCtx)
 	if err != nil {
 		return nil, err
 	}
-	return m.InitiateView(context, initiator)
+	return m.InitiateView(ctx, initiator)
 }
 
 // AsResponder can be used by an initiator to behave temporarily as a responder.
-// Recall that a responder is characterized by having a default session (`context.Session()`) established by an initiator.
-func AsResponder(context view.Context, session view.Session, v func(context view.Context) (any, error)) (any, error) {
-	return context.RunView(
+// Recall that a responder is characterized by having a default session (`viewCtx.Session()`) established by an initiator.
+func AsResponder(viewCtx view.Context, session view.Session, v func(viewCtx view.Context) (any, error)) (any, error) {
+	return viewCtx.RunView(
 		nil,
 		view.WithViewCall(v),
 		view.AsResponder(session),
@@ -68,10 +68,10 @@ func AsResponder(context view.Context, session view.Session, v func(context view
 }
 
 // AsInitiatorCall can be used by a responder to behave temporarily as an initiator.
-// Recall that an initiator is characterized by having an initiator (`context.Initiator()`) set when the initiator is instantiated.
-// AsInitiatorCall sets context.Initiator() to the passed initiator, and executes the passed view call.
-func AsInitiatorCall(context view.Context, initiator View, v func(context view.Context) (any, error)) (any, error) {
-	return context.RunView(
+// Recall that an initiator is characterized by having an initiator (`viewCtx.Initiator()`) set when the initiator is instantiated.
+// AsInitiatorCall sets viewCtx.Initiator() to the passed initiator, and executes the passed view call.
+func AsInitiatorCall(viewCtx view.Context, initiator View, v func(viewCtx view.Context) (any, error)) (any, error) {
+	return viewCtx.RunView(
 		initiator,
 		view.WithViewCall(v),
 		view.AsInitiator(),
@@ -79,10 +79,10 @@ func AsInitiatorCall(context view.Context, initiator View, v func(context view.C
 }
 
 // AsInitiatorView can be used by a responder to behave temporarily as an initiator.
-// Recall that an initiator is characterized by having an initiator (`context.Initiator()`) set when the initiator is instantiated.
+// Recall that an initiator is characterized by having an initiator (`viewCtx.Initiator()`) set when the initiator is instantiated.
 // AsInitiatorView sets context.Initiator() to the passed initiator, and executes it.
-func AsInitiatorView(context view.Context, initiator View) (any, error) {
-	return context.RunView(
+func AsInitiatorView(viewCtx view.Context, initiator View) (any, error) {
+	return viewCtx.RunView(
 		initiator,
 		view.AsInitiator(),
 	)
@@ -159,7 +159,7 @@ func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (res a
 }
 
 // RunView runs passed view within the passed context and using the passed options in a separate goroutine.
-func RunView(context view.Context, view View, opts ...view.RunViewOption) {
+func RunView(viewCtx view.Context, view View, opts ...view.RunViewOption) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Debugf("panic in RunView: %v", r)
@@ -171,7 +171,7 @@ func RunView(context view.Context, view View, opts ...view.RunViewOption) {
 				logger.Debugf("panic in RunView: %v", r)
 			}
 		}()
-		_, err := context.RunView(view, opts...)
+		_, err := viewCtx.RunView(view, opts...)
 		if err != nil {
 			logger.Errorf("failed to run view: %s", err)
 		}

@@ -161,7 +161,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) Context() context.Context
 	}{})
 	stub := fake.ContextStub
 	fakeReturns := fake.contextReturns
-	fake.recordInvocation("Context", []interface{}{})
+	fake.recordInvocation("Ctx", []interface{}{})
 	fake.contextMutex.Unlock()
 	if stub != nil {
 		return stub()

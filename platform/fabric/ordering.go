@@ -16,13 +16,13 @@ type Ordering struct {
 	network driver.FabricNetworkService
 }
 
-func (n *Ordering) Broadcast(context context.Context, blob interface{}) error {
+func (n *Ordering) Broadcast(ctx context.Context, blob interface{}) error {
 	switch b := blob.(type) {
 	case *Envelope:
-		return n.network.OrderingService().Broadcast(context, b.Envelope)
+		return n.network.OrderingService().Broadcast(ctx, b.Envelope)
 	case *Transaction:
-		return n.network.OrderingService().Broadcast(context, b.tx)
+		return n.network.OrderingService().Broadcast(ctx, b.tx)
 	default:
-		return n.network.OrderingService().Broadcast(context, blob)
+		return n.network.OrderingService().Broadcast(ctx, blob)
 	}
 }

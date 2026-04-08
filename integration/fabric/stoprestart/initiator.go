@@ -21,14 +21,14 @@ type Initiator struct {
 	in []byte
 }
 
-func (p *Initiator) Call(context view.Context) (interface{}, error) {
+func (p *Initiator) Call(viewCtx view.Context) (interface{}, error) {
 	// Retrieve responder identity
-	identityProvider, err := id.GetProvider(context)
+	identityProvider, err := id.GetProvider(viewCtx)
 	assert.NoError(err, "failed getting identity provider")
 	responder := identityProvider.Identity("bob")
 
 	// Open a session to the responder
-	session, err := context.GetSession(context.Initiator(), responder)
+	session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
 	assert.NoError(err)
 	// Send your input from the client
 	err = session.Send(p.in)

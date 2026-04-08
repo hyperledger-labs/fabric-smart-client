@@ -20,6 +20,6 @@ func (f Factory) NewView(in []byte) (view.View, error) {
 type Initiator struct {
 }
 
-func (i *Initiator) Call(context view.Context) (interface{}, error) {
+func (i *Initiator) Call(_ view.Context) (interface{}, error) {
 	panic("implement me")
 }

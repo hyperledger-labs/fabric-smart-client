@@ -113,7 +113,7 @@ func (s *TestSuite) TestUpgradeChaincode() {
 	Expect(string(eventReceived.Event.Payload)).To(Equal("Invoked Create Asset Successfully"))
 
 	// Update
-	fabricNetwork := fabric.Network(s.II.Ctx, "default")
+	fabricNetwork := fabric.Network(s.II.NWOCtx, "default")
 	Expect(fabricNetwork).ToNot(BeNil(), "failed to find fabric network 'default'")
 	fabricNetwork.UpdateChaincode("events", "Version-1.0", "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode2", "")
 

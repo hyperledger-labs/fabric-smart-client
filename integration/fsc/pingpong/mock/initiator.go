@@ -23,22 +23,22 @@ type Initiator struct {
 	*Params
 }
 
-func (p *Initiator) Call(ctx view.Context) (interface{}, error) {
+func (p *Initiator) Call(viewCtx view.Context) (interface{}, error) {
 	// Retrieve responder identity
-	identityProvider, err := id.GetProvider(ctx)
+	identityProvider, err := id.GetProvider(viewCtx)
 	assert.NoError(err, "failed getting identity provider")
 	responder := identityProvider.Identity("responder")
-	var context view.Context
+	var anotherViewCtx view.Context
 	if p.Mock {
-		c := &DelegatedContext{Ctx: ctx}
-		c.RespondToAs(ctx.Initiator(), responder, &Responder{})
-		context = c
+		c := &DelegatedContext{ViewCtx: viewCtx}
+		c.RespondToAs(viewCtx.Initiator(), responder, &Responder{})
+		anotherViewCtx = c
 	} else {
-		context = ctx
+		anotherViewCtx = viewCtx
 	}
 
 	// Open a session to the responder
-	session, err := context.GetSession(context.Initiator(), responder)
+	session, err := anotherViewCtx.GetSession(anotherViewCtx.Initiator(), responder)
 	assert.NoError(err) // Send a ping
 
 	err = session.Send([]byte("ping"))

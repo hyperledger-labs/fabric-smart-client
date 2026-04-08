@@ -18,11 +18,11 @@ type AgreeToBuyView struct {
 	*AssetPrice
 }
 
-func (a *AgreeToBuyView) Call(context view.Context) (interface{}, error) {
+func (a *AgreeToBuyView) Call(viewCtx view.Context) (interface{}, error) {
 	assetPrice, err := json.Marshal(a.AssetPrice)
 	assert.NoError(err, "failed marshalling assetPrice")
 
-	_, err = context.RunView(
+	_, err = viewCtx.RunView(
 		chaincode.NewInvokeView(
 			"asset_transfer",
 			"AgreeToBuy",

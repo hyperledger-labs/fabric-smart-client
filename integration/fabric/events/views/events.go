@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package views
 
 import (
-	context2 "context"
+	"context"
 	"encoding/json"
 	"sync"
 	"time"
@@ -34,7 +34,7 @@ type EventReceived struct {
 	Event *chaincode.Event
 }
 
-func (c *EventsView) Call(context view.Context) (interface{}, error) {
+func (c *EventsView) Call(viewCtx view.Context) (interface{}, error) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	var eventReceived *chaincode.Event
@@ -59,13 +59,13 @@ func (c *EventsView) Call(context view.Context) (interface{}, error) {
 	}
 
 	// Test timeout
-	ctx, cancelFunc := context2.WithTimeout(context.Context(), 10*time.Second)
+	ctx, cancelFunc := context.WithTimeout(viewCtx.Context(), 10*time.Second)
 	defer cancelFunc()
-	_, err := context.RunView(chaincode.NewListenToEventsViewWithContext(ctx, "events", callBack))
+	_, err := viewCtx.RunView(chaincode.NewListenToEventsViewWithContext(ctx, "events", callBack))
 	assert.NoError(err, "failed to listen to events")
 	wg.Wait()
 	assert.Error(eventError, "expected error to have happened")
-	assert.Equal(errors.Cause(eventError), context2.DeadlineExceeded, "expected deadline exceeded error")
+	assert.Equal(errors.Cause(eventError), context.DeadlineExceeded, "expected deadline exceeded error")
 	cancelFunc()
 
 	// Now invoke the chaincode
@@ -73,11 +73,11 @@ func (c *EventsView) Call(context view.Context) (interface{}, error) {
 	wg.Add(1)
 	eventReceived = nil
 	eventError = nil
-	ctx1, cancelFunc1 := context2.WithTimeout(context.Context(), 1*time.Minute)
+	ctx1, cancelFunc1 := context.WithTimeout(viewCtx.Context(), 1*time.Minute)
 	defer cancelFunc1()
-	_, err = context.RunView(chaincode.NewListenToEventsViewWithContext(ctx1, "events", callBack))
+	_, err = viewCtx.RunView(chaincode.NewListenToEventsViewWithContext(ctx1, "events", callBack))
 	assert.NoError(err, "failed to listen to events")
-	_, err = context.RunView(
+	_, err = viewCtx.RunView(
 		chaincode.NewInvokeView(
 			"events",
 			c.Function,

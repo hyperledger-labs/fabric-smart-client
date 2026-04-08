@@ -64,7 +64,7 @@ func TestManager(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "result", res)
 
-	// Test Context
+	// Test Ctx
 	contexts, err := manager.InitiateContext(ctx, v)
 	assert.NoError(t, err)
 	assert.NotNil(t, contexts)

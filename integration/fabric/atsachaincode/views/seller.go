@@ -21,11 +21,11 @@ type AgreeToSellView struct {
 	*AssetPrice
 }
 
-func (a *AgreeToSellView) Call(context view.Context) (interface{}, error) {
+func (a *AgreeToSellView) Call(viewCtx view.Context) (interface{}, error) {
 	assetPrice, err := a.Bytes()
 	assert.NoError(err, "failed marshalling assetPrice")
 
-	_, err = context.RunView(
+	_, err = viewCtx.RunView(
 		chaincode.NewInvokeView(
 			"asset_transfer",
 			"AgreeToSell",
@@ -55,10 +55,10 @@ type TransferView struct {
 	*Transfer
 }
 
-func (a *TransferView) Call(ctx view.Context) (interface{}, error) {
-	_, ch, err := fabric.GetDefaultChannel(ctx)
+func (a *TransferView) Call(viewCtx view.Context) (interface{}, error) {
+	_, ch, err := fabric.GetDefaultChannel(viewCtx)
 	assert.NoError(err)
-	fns, err := fabric.GetDefaultFNS(ctx)
+	fns, err := fabric.GetDefaultFNS(viewCtx)
 	assert.NoError(err)
 
 	senderMSPID, err := ch.MSPManager().GetMSPIdentifier(
@@ -100,7 +100,7 @@ func (a *TransferView) Call(ctx view.Context) (interface{}, error) {
 		},
 	), "the transaction [%s] has not been broadcast yet", envelope.TxID())
 
-	assert.NoError(fns.Ordering().Broadcast(ctx.Context(), envelope), "failed sending to ordering")
+	assert.NoError(fns.Ordering().Broadcast(viewCtx.Context(), envelope), "failed sending to ordering")
 
 	c, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()

@@ -23,11 +23,11 @@ type QueryView struct {
 	Query
 }
 
-func (q *QueryView) Call(context view.Context) (interface{}, error) {
+func (q *QueryView) Call(viewCtx view.Context) (interface{}, error) {
 	iouState := &states.IOU{}
-	vault, err := state.GetVault(context)
+	vault, err := state.GetVault(viewCtx)
 	assert.NoError(err)
-	assert.NoError(vault.GetState(context.Context(), "iou", q.LinearID, iouState))
+	assert.NoError(vault.GetState(viewCtx.Context(), "iou", q.LinearID, iouState))
 	return iouState.Amount, nil
 }
 
