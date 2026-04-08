@@ -712,7 +712,9 @@ func TestKVS_Iterator(t *testing.T) {
 
 		iter, err := k.GetByPartialCompositeID(context.Background(), "prefix", []string{})
 		require.NoError(t, err)
-		defer iter.Close()
+		defer func() {
+			require.NoError(t, iter.Close())
+		}()
 
 		count := 0
 		for iter.HasNext() {
