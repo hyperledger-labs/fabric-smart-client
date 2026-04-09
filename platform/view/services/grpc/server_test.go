@@ -841,6 +841,7 @@ func TestWithSignedIntermediateCertificates(t *testing.T) {
 
 // utility function for testing client / server communication using TLS
 func runMutualAuth(t *testing.T, servers []testServer, trustedClients, unTrustedClients []*tls.Config) error {
+	t.Helper()
 	// loop through all the test servers
 	for i := 0; i < len(servers); i++ {
 		// create listener

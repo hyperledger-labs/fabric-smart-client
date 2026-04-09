@@ -148,6 +148,7 @@ func loadFileOrPanic(file string) []byte {
 }
 
 func createConnector(t *testing.T, certificate tls.Certificate, targetPort int) func() (*grpc.ClientConn, error) {
+	t.Helper()
 	caCert := loadFileOrPanic(filepath.Join("testdata", "server", "ca.pem"))
 	tlsConf := &tls.Config{
 		RootCAs:      x509.NewCertPool(),

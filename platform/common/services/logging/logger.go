@@ -114,6 +114,7 @@ func GetPackageName() (string, error) {
 }
 
 func NewTestLogger(tb testing.TB, options ...Option) (Logger, *Recorder) {
+	tb.Helper()
 	l, r := floggingtest.NewTestLogger(tb, options...)
 	return &logger{fabricLogger: l}, r
 }

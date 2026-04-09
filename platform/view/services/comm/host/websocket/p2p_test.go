@@ -111,6 +111,7 @@ func TestMTLSCallerIdentityBinding(t *testing.T) {
 }
 
 func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
+	t.Helper()
 	tlsFiles := generateTLSFiles(t)
 
 	bootstrapAddress := freeTCPAddress(t)
@@ -162,6 +163,7 @@ func TestSessionsTwoNodesTestRound(t *testing.T) {
 }
 
 func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
+	t.Helper()
 	// Create TLS certificates for three nodes: bootstrap, node1, node2
 	dir := t.TempDir()
 
@@ -515,6 +517,7 @@ func generateThreeNodesTLSFiles(t *testing.T) threeNodesTLSFiles {
 }
 
 func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) (*comm.HostNode, *comm.HostNode) {
+	t.Helper()
 	aliceAddr := freeTCPAddress(t)
 	bobAddr := freeTCPAddress(t)
 	aliceID := mustPeerIDFromCert(t, alice.cert)

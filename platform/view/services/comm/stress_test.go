@@ -41,6 +41,7 @@ func TestLargeMessages(t *testing.T) {
 }
 
 func runLargeMessageTest(t *testing.T, p *P2PNode, size int) {
+	t.Helper()
 	payload := make([]byte, size)
 	for i := range payload {
 		payload[i] = byte(i % 256)

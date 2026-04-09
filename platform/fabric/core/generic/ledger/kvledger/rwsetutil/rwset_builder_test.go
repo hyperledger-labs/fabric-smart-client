@@ -385,17 +385,20 @@ func TestTxSimulationResultWithMetadata(t *testing.T) {
 	require.Equal(t, expectedPubRWSet, actualSimRes.PubSimulationResults)
 }
 
-func constructTestPvtKVReadHash(_ *testing.T, key string, version *version.Height) *kvrwset.KVReadHash {
+func constructTestPvtKVReadHash(t *testing.T, key string, version *version.Height) *kvrwset.KVReadHash {
+	t.Helper()
 	kvReadHash := newPvtKVReadHash(key, version)
 	return kvReadHash
 }
 
-func constructTestPvtKVWriteHash(_ *testing.T, key string, value []byte) *kvrwset.KVWriteHash {
+func constructTestPvtKVWriteHash(t *testing.T, key string, value []byte) *kvrwset.KVWriteHash {
+	t.Helper()
 	_, kvWriteHash := newPvtKVWriteAndHash(key, value)
 	return kvWriteHash
 }
 
 func serializeTestProtoMsg(t *testing.T, protoMsg proto.Message) []byte {
+	t.Helper()
 	msgBytes, err := proto.Marshal(protoMsg)
 	require.NoError(t, err)
 	return msgBytes

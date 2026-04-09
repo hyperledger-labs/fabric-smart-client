@@ -105,6 +105,7 @@ func id(pk crypto.PubKey) (string, error) {
 }
 
 func newBootstrapNode(t *testing.T, port int) (*node, error) {
+	t.Helper()
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err
@@ -135,6 +136,7 @@ func newBootstrapNode(t *testing.T, port int) (*node, error) {
 }
 
 func newNode(t *testing.T, port int, bootstrapNode *node) (*node, error) {
+	t.Helper()
 	sk, pk, err := crypto.GenerateKeyPair(crypto.ECDSA, 0)
 	if err != nil {
 		return nil, err

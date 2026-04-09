@@ -35,6 +35,7 @@ const (
 var testDir = filepath.Join(os.TempDir(), "msp-test")
 
 func testGenerateLocalMSP(t *testing.T, nodeOUs bool) {
+	t.Helper()
 	cleanup(testDir)
 
 	err := msp2.GenerateLocalMSP(testDir, testName, nil, &ca2.CA{}, &ca2.CA{}, msp2.PEER, nodeOUs, false, nil)
@@ -130,6 +131,7 @@ func TestGenerateLocalMSPWithoutNodeOU(t *testing.T) {
 }
 
 func testGenerateVerifyingMSP(t *testing.T, nodeOUs bool) {
+	t.Helper()
 	caDir := filepath.Join(testDir, "ca")
 	tlsCADir := filepath.Join(testDir, "tlsca")
 	mspDir := filepath.Join(testDir, "msp")

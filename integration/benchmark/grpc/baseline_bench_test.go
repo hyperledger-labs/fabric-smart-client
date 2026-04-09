@@ -39,6 +39,7 @@ func BenchmarkGRPCBaseline(b *testing.B) {
 }
 
 func runGPRCBaseline(b *testing.B, w string) {
+	b.Helper()
 	srvEndpoint := setupBaselineServer(b, w)
 
 	// we share a single connection among all client goroutines

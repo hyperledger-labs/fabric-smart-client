@@ -102,6 +102,7 @@ func TestEnvSubstitution(t *testing.T) {
 }
 
 func testMerge(t *testing.T, p *Provider) {
+	t.Helper()
 	newKey := p.GetString("newKey")
 	assert.Empty(t, newKey)
 	wg := sync.WaitGroup{}
@@ -146,6 +147,7 @@ func testMerge(t *testing.T, p *Provider) {
 }
 
 func testBasics(t *testing.T, p *Provider) {
+	t.Helper()
 	path, _ := filepath.Abs("testdata/file.name")
 
 	assert.Equal(t, "a string", p.GetString("str"))

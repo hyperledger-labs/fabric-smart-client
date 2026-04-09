@@ -32,6 +32,7 @@ import (
 // low code coverage count, so here they are.
 
 func basicTest(t *testing.T, sv *StandardConfigValue) {
+	t.Helper()
 	require.NotNil(t, sv)
 	require.NotEmpty(t, sv.Key())
 	require.NotNil(t, sv.Value())
@@ -55,6 +56,7 @@ func TestUtilsBasic(t *testing.T) {
 
 // createCfgBlockWithSupportedCapabilities will create a config block that contains valid capabilities and should be accepted by the peer
 func createCfgBlockWithSupportedCapabilities(t *testing.T) *cb.Block {
+	t.Helper()
 	// Create a config
 	config := &cb.Config{
 		Sequence:     0,
@@ -169,6 +171,7 @@ func createCfgBlockWithSupportedCapabilities(t *testing.T) *cb.Block {
 
 // createCfgBlockWithUnsupportedCapabilities will create a config block that contains mismatched capabilities and should be rejected by the peer
 func createCfgBlockWithUnsupportedCapabilities(t *testing.T) *cb.Block {
+	t.Helper()
 	// Create a config
 	config := &cb.Config{
 		Sequence:     0,
