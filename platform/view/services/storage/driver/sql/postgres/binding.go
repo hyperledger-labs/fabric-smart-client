@@ -9,6 +9,7 @@ package postgres
 import (
 	"database/sql"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
@@ -28,7 +29,7 @@ func NewBindingStore(dbs *common2.RWDB, tables common3.TableNames) (*BindingStor
 func newBindingStore(readDB, writeDB *sql.DB, table string) *BindingStore {
 	errorWrapper := &ErrorMapper{}
 	return &BindingStore{
-		BindingStore: common3.NewBindingStore(readDB, writeDB, table, errorWrapper, NewConditionInterpreter()),
+		BindingStore: common3.NewBindingStore(readDB, writeDB, table, errorWrapper, sq.Dollar),
 		table:        table,
 		writeDB:      writeDB,
 		errorWrapper: errorWrapper,

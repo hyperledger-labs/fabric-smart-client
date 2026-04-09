@@ -7,6 +7,7 @@ require (
 	github.com/IBM/idemix v0.0.2-0.20250313153527-832db18b9478
 	github.com/IBM/idemix/bccsp/types v0.0.0-20250313153527-832db18b9478
 	github.com/IBM/mathlib v0.0.3-0.20250709075152-a138079496c3
+	github.com/Masterminds/squirrel v1.5.4
 	github.com/cockroachdb/errors v1.12.0
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0
@@ -66,6 +67,12 @@ require (
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v2 v2.4.0
 	modernc.org/sqlite v1.32.0
+)
+
+require (
+	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
+	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
+	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 )
 
 require (
@@ -194,7 +201,6 @@ require (
 	github.com/mikioh/tcpopt v0.0.0-20190314235656-172688c1accc // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
-	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect

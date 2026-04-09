@@ -11,22 +11,20 @@ import (
 	"database/sql"
 	"fmt"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func NewSignerInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *SignerInfoStore {
+func NewSignerInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *SignerInfoStore {
 	return &SignerInfoStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
-		ci:           ci,
+		sb:           sq.StatementBuilder.PlaceholderFormat(ph),
 	}
 }
 
@@ -35,7 +33,7 @@ type SignerInfoStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
-	ci           common.CondInterpreter
+	sb           sq.StatementBuilderType
 }
 
 func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...view.Identity) ([]view.Identity, error) {
@@ -47,10 +45,18 @@ func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...vie
 		inverseMap[idHash] = id
 	}
 
-	query, params := q.Select().FieldsByName("id").
-		From(q.Table(db.table)).
-		Where(cond.In("id", idHashes...)).
-		Format(db.ci)
+	inVals := make([]interface{}, len(idHashes))
+	for i, h := range idHashes {
+		inVals[i] = h
+	}
+
+	query, params, err := db.sb.Select("id").
+		From(db.table).
+		Where(sq.Eq{"id": inVals}).
+		ToSql()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build query")
+	}
 	logger.Debug(query, params)
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
@@ -72,23 +78,28 @@ func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...vie
 }
 
 func (db *SignerInfoStore) PutSigner(ctx context.Context, id view.Identity) error {
-	query, params := q.InsertInto(db.table).
-		Fields("id").
-		Row(id.UniqueID()).
-		Format()
+	query, params, err := db.sb.Insert(db.table).
+		Columns("id").
+		Values(id.UniqueID()).
+		ToSql()
+	if err != nil {
+		return errors.Wrapf(err, "failed to build query")
+	}
 
 	logger.Debug(query, params)
-	_, err := db.writeDB.ExecContext(ctx, query, params...)
-	if err == nil {
+	_, execErr := db.writeDB.ExecContext(ctx, query, params...)
+	if execErr == nil {
 		logger.DebugfContext(ctx, "signer [%s] registered", id)
+
 		return nil
 	}
-	if errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
+	if errors.Is(db.errorWrapper.WrapError(execErr), driver.UniqueKeyViolation) {
 		logger.InfofContext(ctx, "signer [%s] already in db. Skipping...", id)
+
 		return nil
 	}
 
-	return errors.Wrapf(err, "failed executing query [%s]", query)
+	return errors.Wrapf(execErr, "failed executing query [%s]", query)
 }
 
 func (db *SignerInfoStore) CreateSchema() error {
