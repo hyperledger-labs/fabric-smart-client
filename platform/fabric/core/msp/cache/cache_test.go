@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/mocks"
 	msp2 "github.com/hyperledger/fabric-protos-go-apiv2/msp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -129,8 +130,8 @@ func TestDeserializeIdentity(t *testing.T) {
 				expectedIdentity = mockIdentity2
 			}
 			id, err := wrappedMSP.DeserializeIdentity(sIdentity)
-			require.NoError(t, err)
-			require.Equal(t, expectedIdentity, id.(*cachedIdentity).Identity)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedIdentity, id.(*cachedIdentity).Identity)
 		}(wrappedMSP, i)
 	}
 	wg.Wait()
@@ -143,7 +144,7 @@ func TestDeserializeIdentity(t *testing.T) {
 	// Check the same object is returned
 	id, err := wrappedMSP.DeserializeIdentity(serializedIdentity)
 	require.NoError(t, err)
-	require.True(t, mockIdentity == id.(*cachedIdentity).Identity)
+	require.Equal(t, mockIdentity, id.(*cachedIdentity).Identity)
 	mockMSP.AssertExpectations(t)
 
 	// Check id is not cached

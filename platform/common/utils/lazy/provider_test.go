@@ -12,7 +12,8 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type entry struct{ key, value string }
@@ -22,63 +23,63 @@ func TestNoErrors(t *testing.T) {
 
 	// Get non existing
 	val, err := cache.Get(entry{"key", "v1"})
-	assert.NoError(err)
-	assert.Equal("v1", val)
+	require.NoError(t, err)
+	require.Equal(t, "v1", val)
 
 	// Get existing
 	val, err = cache.Get(entry{"key", "v2"})
-	assert.NoError(err)
-	assert.Equal("v1", val)
+	require.NoError(t, err)
+	require.Equal(t, "v1", val)
 
 	// Update existing
 	oldVal, newVal, err := cache.Update(entry{"key", "v3"})
-	assert.NoError(err)
-	assert.Equal("v1", oldVal)
-	assert.Equal("v3", newVal)
+	require.NoError(t, err)
+	require.Equal(t, "v1", oldVal)
+	require.Equal(t, "v3", newVal)
 
 	// Get updated
 	val, err = cache.Get(entry{"key", "v4"})
-	assert.NoError(err)
-	assert.Equal("v3", val)
+	require.NoError(t, err)
+	require.Equal(t, "v3", val)
 
 	// Delete existing
 	val, ok := cache.Delete(entry{"key", "v5"})
-	assert.True(ok)
-	assert.Equal("v3", val)
+	require.True(t, ok)
+	require.Equal(t, "v3", val)
 
 	// Get deleted
 	val, err = cache.Get(entry{"key", "v6"})
-	assert.NoError(err)
-	assert.Equal("v6", val)
+	require.NoError(t, err)
+	require.Equal(t, "v6", val)
 }
 
 func TestDeleteNonExisting(t *testing.T) {
 	cache := newTestCache()
 
 	val, ok := cache.Delete(entry{"key", "v1"})
-	assert.False(ok)
-	assert.Equal("", val)
+	require.False(t, ok)
+	require.Empty(t, val)
 }
 
 func TestUpdateNonExisting(t *testing.T) {
 	cache := newTestCache()
 
 	oldVal, newVal, err := cache.Update(entry{"key", "v1"})
-	assert.NoError(err)
-	assert.Equal("", oldVal)
-	assert.Equal("v1", newVal)
+	require.NoError(t, err)
+	require.Empty(t, oldVal)
+	require.Equal(t, "v1", newVal)
 }
 
 func TestError(t *testing.T) {
 	cache := newTestCache()
 
 	val, err := cache.Get(entry{"error", "e1"})
-	assert.Error(err, "e1")
-	assert.Equal("", val)
+	require.Error(t, err, "e1")
+	require.Empty(t, val)
 
 	val, err = cache.Get(entry{"key", "v1"})
-	assert.NoError(err)
-	assert.Equal("v1", val)
+	require.NoError(t, err)
+	require.Equal(t, "v1", val)
 }
 
 func TestParallel(t *testing.T) {
@@ -101,7 +102,7 @@ func TestParallel(t *testing.T) {
 		val := fmt.Sprintf("v%d", i)
 		go func() {
 			val, err := cache.Get(entry{"key", val})
-			assert.NoError(err)
+			assert.NoError(t, err)
 			vals <- val
 			wg.Done()
 		}()
@@ -110,8 +111,8 @@ func TestParallel(t *testing.T) {
 	close(vals)
 
 	<-done
-	assert.Equal(1, cache.Length(), "we only updated one key")
-	assert.Equal(1, len(values), "we always got one value back (the one we first set)")
+	require.Equal(t, 1, cache.Length(), "we only updated one key")
+	require.Len(t, values, 1, "we always got one value back (the one we first set)")
 }
 
 func newTestCache() Provider[entry, string] {

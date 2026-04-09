@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type viewManagerMock struct {
@@ -76,7 +76,7 @@ func TestService(t *testing.T) {
 	defer cancel()
 
 	err := service.Start(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Send a message
 	msg := &view.Message{
@@ -89,11 +89,11 @@ func TestService(t *testing.T) {
 	}
 
 	vm.ExistResponderForCallerFunc = func(caller string) (view.View, view.Identity, error) {
-		assert.Equal(t, "caller1", caller)
+		require.Equal(t, "caller1", caller)
 		return &mock.View{}, nil, nil
 	}
 	vm.NewSessionContextFunc = func(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error) {
-		assert.Equal(t, "ctx1", contextID)
+		require.Equal(t, "ctx1", contextID)
 		vm.HandleResponderCalled <- struct{}{}
 		return &mock.Context{}, true, nil
 	}
@@ -115,8 +115,8 @@ func TestService_MasterSessionError(t *testing.T) {
 
 	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
 	err := service.Start(context.Background())
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed getting master session")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed getting master session")
 }
 
 func TestService_HandleResponderError(t *testing.T) {
@@ -139,7 +139,7 @@ func TestService_HandleResponderError(t *testing.T) {
 	defer cancel()
 
 	err := service.Start(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Send a message
 	msg := &view.Message{

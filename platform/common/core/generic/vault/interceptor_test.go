@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/mocks"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConcurrency(t *testing.T) {
@@ -23,28 +23,28 @@ func TestConcurrency(t *testing.T) {
 
 	i := newInterceptor(logging.MustGetLogger(), context.Background(), EmptyRWSet(), qe, idsr, "1")
 	s, err := i.GetState("ns", "key")
-	assert.NoError(t, err)
-	assert.Equal(t, qe.State.Raw, s, "with no opts, getstate should return the FromStorage value (query executor)")
+	require.NoError(t, err)
+	require.Equal(t, qe.State.Raw, s, "with no opts, getstate should return the FromStorage value (query executor)")
 
 	md, err := i.GetStateMetadata("ns", "key")
-	assert.NoError(t, err)
-	assert.Equal(t, qe.Metadata, md, "with no opts, GetStateMetadata should return the FromStorage value (query executor)")
+	require.NoError(t, err)
+	require.Equal(t, qe.Metadata, md, "with no opts, GetStateMetadata should return the FromStorage value (query executor)")
 
 	s, err = i.GetState("ns", "key", driver.FromBoth)
-	assert.NoError(t, err)
-	assert.Equal(t, qe.State.Raw, s, "FromBoth should fallback to FromStorage with empty rwset")
+	require.NoError(t, err)
+	require.Equal(t, qe.State.Raw, s, "FromBoth should fallback to FromStorage with empty rwset")
 
 	md, err = i.GetStateMetadata("ns", "key", driver.FromBoth)
-	assert.NoError(t, err)
-	assert.Equal(t, qe.Metadata, md, "FromBoth should fallback to FromStorage with empty rwset")
+	require.NoError(t, err)
+	require.Equal(t, qe.Metadata, md, "FromBoth should fallback to FromStorage with empty rwset")
 
 	s, err = i.GetState("ns", "key", driver.FromIntermediate)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte(nil), s, "FromIntermediate should return empty result from empty rwset")
+	require.NoError(t, err)
+	require.Equal(t, []byte(nil), s, "FromIntermediate should return empty result from empty rwset")
 
 	md, err = i.GetStateMetadata("ns", "key", driver.FromIntermediate)
-	assert.NoError(t, err)
-	assert.True(t, md == nil, "FromIntermediate should return empty result from empty rwset")
+	require.NoError(t, err)
+	require.Nil(t, md, "FromIntermediate should return empty result from empty rwset")
 
 	// Done in parallel
 	wg := sync.WaitGroup{}
@@ -59,7 +59,7 @@ func TestConcurrency(t *testing.T) {
 	wg.Wait()
 
 	_, err = i.GetState("ns", "key")
-	assert.Error(t, err, "this instance was closed")
+	require.Error(t, err, "this instance was closed")
 }
 
 func TestAddReadAt(t *testing.T) {
@@ -67,7 +67,7 @@ func TestAddReadAt(t *testing.T) {
 	idsr := mocks.MockTxStatusStore{}
 	i := newInterceptor(logging.MustGetLogger(), context.Background(), EmptyRWSet(), qe, idsr, "1")
 
-	assert.NoError(t, i.AddReadAt("ns", "key", []byte("version")))
-	assert.Len(t, i.RWs().Reads, 1)
-	assert.Equal(t, []byte("version"), i.RWs().Reads["ns"]["key"])
+	require.NoError(t, i.AddReadAt("ns", "key", []byte("version")))
+	require.Len(t, i.RWs().Reads, 1)
+	require.Equal(t, []byte("version"), i.RWs().Reads["ns"]["key"])
 }

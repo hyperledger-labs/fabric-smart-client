@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 )
 
@@ -37,7 +38,7 @@ func testGenerateLocalMSP(t *testing.T, nodeOUs bool) {
 	cleanup(testDir)
 
 	err := msp2.GenerateLocalMSP(testDir, testName, nil, &ca2.CA{}, &ca2.CA{}, msp2.PEER, nodeOUs, false, nil)
-	assert.Error(t, err, "Empty CA should have failed")
+	require.Error(t, err, "Empty CA should have failed")
 
 	caDir := filepath.Join(testDir, "ca")
 	tlsCADir := filepath.Join(testDir, "tlsca")
@@ -46,10 +47,10 @@ func testGenerateLocalMSP(t *testing.T, nodeOUs bool) {
 
 	// generate signing CA
 	signCA, err := ca2.NewCA(caDir, testCAOrg, testCAName, testCountry, testProvince, testLocality, testOrganizationalUnit, testStreetAddress, testPostalCode)
-	assert.NoError(t, err, "Error generating CA")
+	require.NoError(t, err, "Error generating CA")
 	// generate TLS CA
 	tlsCA, err := ca2.NewCA(tlsCADir, testCAOrg, testCAName, testCountry, testProvince, testLocality, testOrganizationalUnit, testStreetAddress, testPostalCode)
-	assert.NoError(t, err, "Error generating CA")
+	require.NoError(t, err, "Error generating CA")
 
 	assert.NotEmpty(t, signCA.SignCert.Subject.Country, "country cannot be empty.")
 	assert.Equal(t, testCountry, signCA.SignCert.Subject.Country[0], "Failed to match country")
@@ -66,7 +67,7 @@ func testGenerateLocalMSP(t *testing.T, nodeOUs bool) {
 
 	// generate local MSP for nodeType=PEER
 	err = msp2.GenerateLocalMSP(testDir, testName, nil, signCA, tlsCA, msp2.PEER, nodeOUs, false, nil)
-	assert.NoError(t, err, "Failed to generate local MSP")
+	require.NoError(t, err, "Failed to generate local MSP")
 
 	// check to see that the right files were generated/saved
 	mspFiles := []string{
@@ -88,34 +89,34 @@ func testGenerateLocalMSP(t *testing.T, nodeOUs bool) {
 	}
 
 	for _, file := range mspFiles {
-		assert.Equal(t, true, checkForFile(file),
+		assert.True(t, checkForFile(file),
 			"Expected to find file "+file)
 	}
 	for _, file := range tlsFiles {
-		assert.Equal(t, true, checkForFile(file),
+		assert.True(t, checkForFile(file),
 			"Expected to find file "+file)
 	}
 
 	// generate local MSP for nodeType=CLIENT
 	err = msp2.GenerateLocalMSP(testDir, testName, nil, signCA, tlsCA, msp2.CLIENT, nodeOUs, false, nil)
-	assert.NoError(t, err, "Failed to generate local MSP")
+	require.NoError(t, err, "Failed to generate local MSP")
 	// check all
 	for _, file := range mspFiles {
-		assert.Equal(t, true, checkForFile(file),
+		assert.True(t, checkForFile(file),
 			"Expected to find file "+file)
 	}
 
 	for _, file := range tlsFiles {
-		assert.Equal(t, true, checkForFile(file),
+		assert.True(t, checkForFile(file),
 			"Expected to find file "+file)
 	}
 
 	tlsCA.Name = "test/fail"
 	err = msp2.GenerateLocalMSP(testDir, testName, nil, signCA, tlsCA, msp2.CLIENT, nodeOUs, false, nil)
-	assert.Error(t, err, "Should have failed with CA name 'test/fail'")
+	require.Error(t, err, "Should have failed with CA name 'test/fail'")
 	signCA.Name = "test/fail"
 	err = msp2.GenerateLocalMSP(testDir, testName, nil, signCA, tlsCA, msp2.ORDERER, nodeOUs, false, nil)
-	assert.Error(t, err, "Should have failed with CA name 'test/fail'")
+	require.Error(t, err, "Should have failed with CA name 'test/fail'")
 	t.Log(err)
 	cleanup(testDir)
 }
@@ -134,13 +135,13 @@ func testGenerateVerifyingMSP(t *testing.T, nodeOUs bool) {
 	mspDir := filepath.Join(testDir, "msp")
 	// generate signing CA
 	signCA, err := ca2.NewCA(caDir, testCAOrg, testCAName, testCountry, testProvince, testLocality, testOrganizationalUnit, testStreetAddress, testPostalCode)
-	assert.NoError(t, err, "Error generating CA")
+	require.NoError(t, err, "Error generating CA")
 	// generate TLS CA
 	tlsCA, err := ca2.NewCA(tlsCADir, testCAOrg, testCAName, testCountry, testProvince, testLocality, testOrganizationalUnit, testStreetAddress, testPostalCode)
-	assert.NoError(t, err, "Error generating CA")
+	require.NoError(t, err, "Error generating CA")
 
 	err = msp2.GenerateVerifyingMSP(mspDir, signCA, tlsCA, nodeOUs)
-	assert.NoError(t, err, "Failed to generate verifying MSP")
+	require.NoError(t, err, "Failed to generate verifying MSP")
 
 	// check to see that the right files were generated/saved
 	files := []string{
@@ -155,16 +156,16 @@ func testGenerateVerifyingMSP(t *testing.T, nodeOUs bool) {
 	}
 
 	for _, file := range files {
-		assert.Equal(t, true, checkForFile(file),
+		assert.True(t, checkForFile(file),
 			"Expected to find file "+file)
 	}
 
 	tlsCA.Name = "test/fail"
 	err = msp2.GenerateVerifyingMSP(mspDir, signCA, tlsCA, nodeOUs)
-	assert.Error(t, err, "Should have failed with CA name 'test/fail'")
+	require.Error(t, err, "Should have failed with CA name 'test/fail'")
 	signCA.Name = "test/fail"
 	err = msp2.GenerateVerifyingMSP(mspDir, signCA, tlsCA, nodeOUs)
-	assert.Error(t, err, "Should have failed with CA name 'test/fail'")
+	require.Error(t, err, "Should have failed with CA name 'test/fail'")
 	t.Log(err)
 	cleanup(testDir)
 
@@ -184,23 +185,17 @@ func TestExportConfig(t *testing.T) {
 	caFile := "ca.pem"
 	t.Log(path)
 	err := os.MkdirAll(path, 0755)
-	if err != nil {
-		t.Fatalf("failed to create test directory: [%s]", err)
-	}
+	require.NoError(t, err, "failed to create test directory")
 
 	err = msp2.ExportConfig(path, caFile, true)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	configBytes, err := os.ReadFile(configFile)
-	if err != nil {
-		t.Fatalf("failed to read config file: [%s]", err)
-	}
+	require.NoError(t, err, "failed to read config file")
 
 	config := &fabricmsp.Configuration{}
 	err = yaml.Unmarshal(configBytes, config)
-	if err != nil {
-		t.Fatalf("failed to unmarshal config: [%s]", err)
-	}
+	require.NoError(t, err, "failed to unmarshal config")
 	assert.True(t, config.NodeOUs.Enable)
 	assert.Equal(t, caFile, config.NodeOUs.ClientOUIdentifier.Certificate)
 	assert.Equal(t, msp2.CLIENTOU, config.NodeOUs.ClientOUIdentifier.OrganizationalUnitIdentifier)

@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -232,8 +233,8 @@ func TestCallView_Returns_Result_On_Valid_Server_Response(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodPut, r.Method)
-		require.Equal(t, "/v1/Views/myView", r.URL.Path)
+		assert.Equal(t, http.MethodPut, r.Method)
+		assert.Equal(t, "/v1/Views/myView", r.URL.Path)
 
 		resp := &protos.CommandResponse_CallViewResponse{
 			CallViewResponse: &protos.CallViewResponse{
@@ -242,7 +243,7 @@ func TestCallView_Returns_Result_On_Valid_Server_Response(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 		err := json.NewEncoder(w).Encode(resp)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}))
 	defer server.Close()
 
@@ -360,8 +361,8 @@ func TestMetrics_Parses_And_Returns_Prometheus_Families(t *testing.T) {
 			t.Parallel()
 
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				require.Equal(t, http.MethodGet, r.Method)
-				require.Equal(t, "/metrics", r.URL.Path)
+				assert.Equal(t, http.MethodGet, r.Method)
+				assert.Equal(t, "/metrics", r.URL.Path)
 
 				w.WriteHeader(tc.statusCode)
 				if tc.body != "" {

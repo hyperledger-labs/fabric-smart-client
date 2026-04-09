@@ -22,9 +22,9 @@ func TestReader_ErrorHandling(t *testing.T) {
 
 		buf := make([]byte, 10)
 		n, err := reader.Read(buf)
-		assert.Error(t, err)
-		assert.Equal(t, expectedErr, err)
-		assert.Equal(t, 0, n)
+		require.Error(t, err)
+		require.Equal(t, expectedErr, err)
+		require.Equal(t, 0, n)
 	})
 
 	t.Run("nil message from reader", func(t *testing.T) {
@@ -33,8 +33,8 @@ func TestReader_ErrorHandling(t *testing.T) {
 
 		buf := make([]byte, 10)
 		n, err := reader.Read(buf)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, n)
+		require.NoError(t, err)
+		require.Equal(t, 0, n)
 	})
 
 	t.Run("empty message from reader", func(t *testing.T) {
@@ -43,8 +43,8 @@ func TestReader_ErrorHandling(t *testing.T) {
 
 		buf := make([]byte, 10)
 		n, err := reader.Read(buf)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, n)
+		require.NoError(t, err)
+		require.Equal(t, 0, n)
 	})
 }
 
@@ -60,14 +60,14 @@ func TestReader_BufferManagement(t *testing.T) {
 		// First read gets first 10 bytes
 		n, err := reader.Read(buf)
 		require.NoError(t, err)
-		assert.Equal(t, 10, n)
-		assert.Equal(t, largeMsg[:10], buf)
+		require.Equal(t, 10, n)
+		require.Equal(t, largeMsg[:10], buf)
 
 		// Second read gets next 10 bytes
 		n, err = reader.Read(buf)
 		require.NoError(t, err)
-		assert.Equal(t, 10, n)
-		assert.Equal(t, largeMsg[10:20], buf)
+		require.Equal(t, 10, n)
+		require.Equal(t, largeMsg[10:20], buf)
 
 		// Continue reading until message is exhausted
 		totalRead := 20
@@ -76,7 +76,7 @@ func TestReader_BufferManagement(t *testing.T) {
 			require.NoError(t, err)
 			totalRead += n
 		}
-		assert.Equal(t, len(largeMsg), totalRead)
+		require.Equal(t, len(largeMsg), totalRead)
 	})
 
 	t.Run("buffer larger than message", func(t *testing.T) {
@@ -88,8 +88,8 @@ func TestReader_BufferManagement(t *testing.T) {
 		buf := make([]byte, 100)
 		n, err := reader.Read(buf)
 		require.NoError(t, err)
-		assert.Equal(t, len(smallMsg), n)
-		assert.Equal(t, smallMsg, buf[:n])
+		require.Len(t, smallMsg, n)
+		require.Equal(t, smallMsg, buf[:n])
 	})
 
 	t.Run("exact buffer size match", func(t *testing.T) {
@@ -100,8 +100,8 @@ func TestReader_BufferManagement(t *testing.T) {
 		buf := make([]byte, len(msg))
 		n, err := reader.Read(buf)
 		require.NoError(t, err)
-		assert.Equal(t, len(msg), n)
-		assert.Equal(t, msg, buf)
+		require.Len(t, msg, n)
+		require.Equal(t, msg, buf)
 	})
 }
 
@@ -121,13 +121,13 @@ func TestReader_MultipleMessages(t *testing.T) {
 		for _, expected := range messages {
 			n, err := reader.Read(buf)
 			require.NoError(t, err)
-			assert.Equal(t, expected, buf[:n])
+			require.Equal(t, expected, buf[:n])
 		}
 
 		// Next read should return nil/nil (no more messages)
 		n, err := reader.Read(buf)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, n)
+		require.NoError(t, err)
+		require.Equal(t, 0, n)
 	})
 
 	t.Run("partial reads across messages", func(t *testing.T) {

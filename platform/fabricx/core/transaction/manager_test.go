@@ -39,7 +39,7 @@ func TestManagerBasics(t *testing.T) {
 
 	env := m.NewEnvelope()
 	require.NotNil(t, env)
-	require.Equal(t, "", env.TxID())
+	require.Empty(t, env.TxID())
 	require.Equal(t, []byte(nil), env.Nonce())
 	require.Equal(t, []byte(nil), env.Creator())
 	require.Equal(t, []byte(nil), env.Results())

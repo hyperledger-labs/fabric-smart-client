@@ -39,7 +39,7 @@ func TestHttpHandler(t *testing.T) {
 			res.Fruits = append(res.Fruits, query.Name)
 		}
 
-		require.Equal(t, ctx.Vars["Fruit"], "pineapple")
+		require.Equal(t, "pineapple", ctx.Vars["Fruit"])
 
 		return res, 200
 	}

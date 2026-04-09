@@ -15,8 +15,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
@@ -44,14 +44,14 @@ func TestFinalityManager_AddListener(t *testing.T) {
 	listener := &MockFinalityListener{}
 
 	err := manager.AddListener("txID", listener)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(manager.listenerManager.TxIDs()))
-	assert.Contains(t, manager.listenerManager.TxIDs(), "txID")
+	require.NoError(t, err)
+	require.Len(t, manager.listenerManager.TxIDs(), 1)
+	require.Contains(t, manager.listenerManager.TxIDs(), "txID")
 
 	// Adding listener with empty txID should return an error
 	err = manager.AddListener("", listener)
-	assert.Error(t, err)
-	assert.Equal(t, 1, len(manager.listenerManager.TxIDs()))
+	require.Error(t, err)
+	require.Len(t, manager.listenerManager.TxIDs(), 1)
 }
 
 func TestFinalityManager_RemoveListener(t *testing.T) {
@@ -60,14 +60,14 @@ func TestFinalityManager_RemoveListener(t *testing.T) {
 	manager := NewFinalityManager[int](listenerManager, logging.MustGetLogger(), vault, noop.NewTracerProvider(), 10)
 	listener := &MockFinalityListener{}
 
-	assert.NoError(t, manager.AddListener("txID", listener))
+	require.NoError(t, manager.AddListener("txID", listener))
 
 	manager.RemoveListener("txID", listener)
-	assert.Empty(t, manager.listenerManager.TxIDs())
+	require.Empty(t, manager.listenerManager.TxIDs())
 
 	// Removing non-existing listener should do nothing
 	manager.RemoveListener("non-existing", listener)
-	assert.Empty(t, manager.listenerManager.TxIDs())
+	require.Empty(t, manager.listenerManager.TxIDs())
 }
 
 func TestFinalityManager_Run(t *testing.T) {
@@ -108,7 +108,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 	}}, nil)
 	listener := &MockFinalityListener{}
 	listener.On("OnStatus", event.TxID, event.ValidationCode, event.ValidationMessage).Once()
-	assert.NoError(t, manager.AddListener("txID", listener))
+	require.NoError(t, manager.AddListener("txID", listener))
 
 	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -120,7 +120,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 	vault.On("Statuses", []string{"txID"}).Return(nil, errors.New("some error"))
 	listener = &MockFinalityListener{}
 	listener.On("OnStatus", event.TxID, event.ValidationCode, event.ValidationMessage)
-	assert.NoError(t, manager.AddListener("txID", listener))
+	require.NoError(t, manager.AddListener("txID", listener))
 	manager.listenerManager.(*finalityListenerManager[int]).txIDListeners["txID"] = []driver.FinalityListener[int]{listener}
 
 	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
@@ -136,11 +136,11 @@ func TestFinalityManager_CloneListeners(t *testing.T) {
 	vault := &MockVault{}
 	manager := NewFinalityManager[int](listenerManager, logging.MustGetLogger(), vault, noop.NewTracerProvider(), 10)
 	listener := &MockFinalityListener{}
-	assert.NoError(t, manager.AddListener("txID", listener))
+	require.NoError(t, manager.AddListener("txID", listener))
 
 	clone := listenerManager.cloneListeners("txID")
-	assert.Len(t, clone, 1)
-	assert.Equal(t, clone[0], listener)
+	require.Len(t, clone, 1)
+	require.Equal(t, clone[0], listener)
 }
 
 func TestFinalityManager_Dispatch_PanicRecovery(t *testing.T) {
@@ -153,12 +153,12 @@ func TestFinalityManager_Dispatch_PanicRecovery(t *testing.T) {
 		TxID:           "txID",
 		ValidationCode: 1,
 	}
-	assert.NoError(t, manager.AddListener("txID", listener))
+	require.NoError(t, manager.AddListener("txID", listener))
 
 	listener.On("OnStatus", event.TxID, event.ValidationCode, event.ValidationMessage).Once().Run(func(args mock.Arguments) {
 		panic("listener panic")
 	})
-	assert.NotPanics(t, func() {
+	require.NotPanics(t, func() {
 		manager.listenerManager.InvokeListeners(event)
 	})
 	listener.AssertExpectations(t)

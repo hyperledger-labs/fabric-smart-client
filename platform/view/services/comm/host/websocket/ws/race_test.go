@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type raceConn struct {
@@ -54,7 +54,7 @@ func TestReadRace(t *testing.T) {
 
 		// Read "hello"
 		_, err := s.Read(p)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Now Read should return io.EOF
 		// Give it a tiny bit of time for readMessages to deliver streamEOF and Close()
@@ -64,7 +64,7 @@ func TestReadRace(t *testing.T) {
 		if errors.Is(err, context.Canceled) {
 			t.Fatalf("REPRODUCED: Iteration %d: Got context.Canceled instead of io.EOF", i)
 		}
-		assert.Equal(t, io.EOF, err)
+		require.Equal(t, io.EOF, err)
 		_ = s.Close()
 	}
 }

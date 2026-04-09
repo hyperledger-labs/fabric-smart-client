@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 )
 
@@ -26,7 +26,7 @@ type Network []*node
 
 func TestSessionTwoParties(t *testing.T) {
 	network, err := NewVirtualNetwork(t, 12345, 2)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	io.SessionTwoParties(t, network[0], network[1])
 }

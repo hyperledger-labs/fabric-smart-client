@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -29,8 +29,8 @@ func TestRunViewNow(t *testing.T) {
 	v.CallReturns("result", nil)
 
 	res, err := view.RunViewNow(parent, v)
-	assert.NoError(t, err)
-	assert.Equal(t, "result", res)
+	require.NoError(t, err)
+	require.Equal(t, "result", res)
 }
 
 func TestRunViewNow_CallOption(t *testing.T) {
@@ -45,8 +45,8 @@ func TestRunViewNow_CallOption(t *testing.T) {
 	}
 
 	res, err := view.RunViewNow(parent, nil, view2.WithViewCall(call))
-	assert.NoError(t, err)
-	assert.Equal(t, "call-result", res)
+	require.NoError(t, err)
+	require.Equal(t, "call-result", res)
 }
 
 func TestRunViewNow_AsInitiator_NoSession(t *testing.T) {
@@ -60,8 +60,8 @@ func TestRunViewNow_AsInitiator_NoSession(t *testing.T) {
 	v := &mock.View{}
 
 	_, err := view.RunViewNow(parent, v, view2.AsInitiator())
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot convert a non-responder context to an initiator context")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "cannot convert a non-responder context to an initiator context")
 }
 
 func TestRunViewNow_AsInitiator_PutSessionError(t *testing.T) {
@@ -78,8 +78,8 @@ func TestRunViewNow_AsInitiator_PutSessionError(t *testing.T) {
 	parent.PutSessionReturns(errors.New("put-error"))
 
 	_, err := view.RunViewNow(parent, v, view2.AsInitiator())
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed registering default session")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed registering default session")
 }
 
 func TestRunViewNow_PanicInView_CallsCleanupAndReturnsError(t *testing.T) {
@@ -95,9 +95,9 @@ func TestRunViewNow_PanicInView_CallsCleanupAndReturnsError(t *testing.T) {
 	}
 
 	res, err := view.RunViewNow(parent, v)
-	assert.Error(t, err)
-	assert.Nil(t, res)
-	assert.Contains(t, err.Error(), "caught panic: boom")
+	require.Error(t, err)
+	require.Nil(t, res)
+	require.Contains(t, err.Error(), "caught panic: boom")
 }
 
 func TestRunViewNow_NoViewAndNoCall(t *testing.T) {
@@ -108,8 +108,8 @@ func TestRunViewNow_NoViewAndNoCall(t *testing.T) {
 	}
 
 	_, err := view.RunViewNow(parent, nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no view passed")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no view passed")
 }
 
 func TestRunCall(t *testing.T) {
@@ -120,8 +120,8 @@ func TestRunCall(t *testing.T) {
 	ctx.RunViewReturns("res", nil)
 
 	res, err := view.RunCall(ctx, call)
-	assert.NoError(t, err)
-	assert.Equal(t, "res", res)
+	require.NoError(t, err)
+	require.Equal(t, "res", res)
 }
 
 func TestAsResponder(t *testing.T) {
@@ -133,8 +133,8 @@ func TestAsResponder(t *testing.T) {
 	ctx.RunViewReturns("res", nil)
 
 	res, err := view.AsResponder(ctx, session, call)
-	assert.NoError(t, err)
-	assert.Equal(t, "res", res)
+	require.NoError(t, err)
+	require.Equal(t, "res", res)
 }
 
 func TestAsInitiatorCall(t *testing.T) {
@@ -146,8 +146,8 @@ func TestAsInitiatorCall(t *testing.T) {
 	ctx.RunViewReturns("res", nil)
 
 	res, err := view.AsInitiatorCall(ctx, v, call)
-	assert.NoError(t, err)
-	assert.Equal(t, "res", res)
+	require.NoError(t, err)
+	require.Equal(t, "res", res)
 }
 
 func TestAsInitiatorView(t *testing.T) {
@@ -156,8 +156,8 @@ func TestAsInitiatorView(t *testing.T) {
 	ctx.RunViewReturns("res", nil)
 
 	res, err := view.AsInitiatorView(ctx, v)
-	assert.NoError(t, err)
-	assert.Equal(t, "res", res)
+	require.NoError(t, err)
+	require.Equal(t, "res", res)
 }
 
 func TestRunView(t *testing.T) {

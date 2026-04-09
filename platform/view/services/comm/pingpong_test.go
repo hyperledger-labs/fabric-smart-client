@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
@@ -65,7 +66,7 @@ func TestPingPongSessionLevel(t *testing.T) {
 			for i := 0; i < msgsPerSession; i++ {
 				msg := fmt.Sprintf("ping-%d-%d", sessionID, i)
 				err := sess.Send([]byte(msg))
-				require.NoError(t, err, "Failed to send message")
+				assert.NoError(t, err, "Failed to send message")
 				atomic.AddInt64(&sentCount, 1)
 
 				// Small delay to simulate processing time
@@ -91,12 +92,12 @@ func TestPingPongSessionLevel(t *testing.T) {
 			select {
 			case msg := <-received:
 				// Verify we got a ping message
-				require.Contains(t, string(msg.Payload), "ping-", "Expected ping message")
+				assert.Contains(t, string(msg.Payload), "ping-", "Expected ping message")
 
 				// Send a pong back
 				pongMsg := fmt.Sprintf("pong-%s", string(msg.Payload))
 				err := sess.Send([]byte(pongMsg))
-				require.NoError(t, err, "Failed to send pong message")
+				assert.NoError(t, err, "Failed to send pong message")
 				atomic.AddInt64(&receivedCount, 1)
 
 				// Small delay to simulate processing time

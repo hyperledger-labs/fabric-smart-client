@@ -79,22 +79,22 @@ func TestEnvSubstitution(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, DriverType("sqlite"), db.Driver)
 	assert.Equal(t, "new data source", db.DataSource)
-	assert.Equal(t, true, db.SkipPragmas)
+	assert.True(t, db.SkipPragmas)
 	assert.Equal(t, 0, db.MaxOpenConns)
 	err = p.UnmarshalKey("FSC.kvs.PerSistEnce.opTs", &db)
 	require.NoError(t, err)
 	assert.Equal(t, DriverType("sqlite"), db.Driver)
 	assert.Equal(t, "new data source", db.DataSource)
-	assert.Equal(t, true, db.SkipPragmas)
+	assert.True(t, db.SkipPragmas)
 	assert.Equal(t, 0, db.MaxOpenConns)
 
 	// ensure other keys higher up the tree are not removed
-	assert.Equal(t, true, p.GetBool("fsc.kvs.keyexists"))
+	assert.True(t, p.GetBool("fsc.kvs.keyexists"))
 	var c map[string]any
 	err = p.UnmarshalKey("fsc.kvs", &c)
 	require.NoError(t, err)
 	assert.NotNil(t, c["keyexists"])
-	assert.Equal(t, true, c["keyexists"].(bool))
+	assert.True(t, c["keyexists"].(bool))
 
 	assert.Equal(t, "new", p.GetString("non.existent.key"))
 	assert.Equal(t, 1, p.GetInt("nested.keys.one"))
@@ -156,9 +156,9 @@ func testBasics(t *testing.T, p *Provider) {
 	assert.Equal(t, "/absolute/path/dir", p.GetPath("path.dir"))
 	assert.Equal(t, "/absolute/path/dir/", p.GetPath("path.trailing"))
 
-	assert.Equal(t, "", p.GetString("emptykey"))
-	assert.Equal(t, true, p.GetBool("CAPITALS"))
-	assert.Equal(t, true, p.GetBool("capitals"))
+	assert.Empty(t, p.GetString("emptykey"))
+	assert.True(t, p.GetBool("CAPITALS"))
+	assert.True(t, p.GetBool("capitals"))
 
 	var db Opts
 	assert.Equal(t, "sql", p.GetString("fsc.kvs.persistence.type"))
@@ -166,7 +166,7 @@ func testBasics(t *testing.T, p *Provider) {
 	require.NoError(t, err)
 	assert.Equal(t, DriverType("sqlite"), db.Driver)
 	assert.Equal(t, "ds", db.DataSource)
-	assert.Equal(t, true, db.SkipPragmas)
+	assert.True(t, db.SkipPragmas)
 	assert.Equal(t, 0, db.MaxOpenConns)
 }
 
@@ -223,7 +223,7 @@ func TestProviderMore(t *testing.T) {
 	// Test TranslatePath (method)
 	p.fullPath = "/tmp/config/core.yaml"
 	assert.Equal(t, "/tmp/config/file.txt", p.TranslatePath("file.txt"))
-	assert.Equal(t, "", p.TranslatePath(""))
+	assert.Empty(t, p.TranslatePath(""))
 
 	// Test MergeConfigEvent Message
 	event := &MergeConfigEvent{}
@@ -253,16 +253,16 @@ env:
 	p, err := (&Provider{}).ProvideFromRaw(raw)
 	require.NoError(t, err)
 
-	assert.Equal(t, 123, p.GetInt("env.int"))
-	assert.Equal(t, true, p.GetBool("env.bool"))
+	require.Equal(t, 123, p.GetInt("env.int"))
+	require.True(t, p.GetBool("env.bool"))
 	// koanf doesn't have GetFloat, but we can unmarshal
 	var floatVal float64
 	err = p.UnmarshalKey("env.float", &floatVal)
 	require.NoError(t, err)
-	assert.Equal(t, 1.23, floatVal)
+	require.InEpsilon(t, 1.23, floatVal, 0.001)
 
 	var mapVal map[string]any
 	err = p.UnmarshalKey("env.map", &mapVal)
 	require.NoError(t, err)
-	assert.Equal(t, "b", mapVal["a"])
+	require.Equal(t, "b", mapVal["a"])
 }

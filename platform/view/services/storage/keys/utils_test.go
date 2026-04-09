@@ -13,7 +13,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/keys"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -51,17 +51,17 @@ func validateCompositeKeyAttribute(str string) error {
 }
 
 func TestValidateKey(t *testing.T) {
-	assert.NoError(t, keys.ValidateKey("_key"))
-	assert.NoError(t, keys.ValidateKey("1lm7v0uzXp9p+Q/K4z0LM0bRWEAEi0qun3jTg8uNYrI="))
+	require.NoError(t, keys.ValidateKey("_key"))
+	require.NoError(t, keys.ValidateKey("1lm7v0uzXp9p+Q/K4z0LM0bRWEAEi0qun3jTg8uNYrI="))
 	key, err := createCompositeKey("token", []string{"thistype", "alice"})
-	assert.NoError(t, err)
-	assert.NoError(t, keys.ValidateKey(key))
-	assert.EqualError(t, keys.ValidateKey("_key?"), "key '_key?' is invalid")
-	assert.NoError(t, keys.ValidateKey("\x00"+string(utf8.MaxRune)+"initialized"))
-	assert.NoError(t, keys.ValidateKey("~tok~b9ae75c1c94e6389e543670fb5bb597553bcd6a4ae70d3ed0d0bf8822d10c793~0~"))
+	require.NoError(t, err)
+	require.NoError(t, keys.ValidateKey(key))
+	require.EqualError(t, keys.ValidateKey("_key?"), "key '_key?' is invalid")
+	require.NoError(t, keys.ValidateKey("\x00"+string(utf8.MaxRune)+"initialized"))
+	require.NoError(t, keys.ValidateKey("~tok~b9ae75c1c94e6389e543670fb5bb597553bcd6a4ae70d3ed0d0bf8822d10c793~0~"))
 }
 
 func TestValidateNamespace(t *testing.T) {
-	assert.NoError(t, keys.ValidateNs("_token"))
-	assert.EqualError(t, keys.ValidateNs("+lifecycle"), "namespace '+lifecycle' is invalid")
+	require.NoError(t, keys.ValidateNs("_token"))
+	require.EqualError(t, keys.ValidateNs("+lifecycle"), "namespace '+lifecycle' is invalid")
 }

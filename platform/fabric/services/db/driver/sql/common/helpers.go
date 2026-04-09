@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/keys"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // This file exposes functions that db drivers can use for integration tests
@@ -71,19 +72,19 @@ func TTestDuplicate(t *testing.T, _ *sql.DB, writeDB common.WriteDB, errorWrappe
 	ns := "namespace"
 
 	tx, err := writeDB.Begin()
-	assert.NoError(t, err, "should start tx")
+	require.NoError(t, err, "should start tx")
 
 	query := fmt.Sprintf("INSERT INTO %s (ns, pkey, val) VALUES ($1, $2, $3)", table)
 
 	_, err = tx.Exec(query, ns, "key", []byte("test 1"))
-	assert.NoError(t, err, "should insert first row")
+	require.NoError(t, err, "should insert first row")
 
 	_, err = tx.Exec(query, ns, "key", []byte("test 2"))
-	assert.Error(t, err, "should fail on duplicate")
-	assert.True(t, errors.HasCause(errorWrapper.WrapError(err), driver.UniqueKeyViolation), "should be a unique-key violation")
+	require.Error(t, err, "should fail on duplicate")
+	require.True(t, errors.HasCause(errorWrapper.WrapError(err), driver.UniqueKeyViolation), "should be a unique-key violation")
 
 	err = tx.Rollback()
-	assert.NoError(t, err, "should rollback")
+	require.NoError(t, err, "should rollback")
 }
 
 func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
@@ -91,11 +92,11 @@ func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	populateForRangeQueries(t, db, ns)
 
 	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, "", "")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	res, err := collections.ReadAll(itr)
-	assert.NoError(t, err)
-	assert.Len(t, res, 4)
-	assert.Equal(t, []driver.UnversionedRead{
+	require.NoError(t, err)
+	require.Len(t, res, 4)
+	require.Equal(t, []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
@@ -103,27 +104,27 @@ func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	}, res)
 
 	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	res, err = collections.ReadAll(itr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
 	}
-	assert.Len(t, res, 3)
-	assert.Equal(t, expected, res)
+	require.Len(t, res, 3)
+	require.Equal(t, expected, res)
 
 	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	res, err = collections.ReadFirst(itr, 2)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected = []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
 	}
-	assert.Len(t, res, 2)
-	assert.Equal(t, expected, res)
+	require.Len(t, res, 2)
+	require.Equal(t, expected, res)
 
 	expected = []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
@@ -131,23 +132,23 @@ func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 		{Key: "k2", Raw: []byte("k2_value")},
 	}
 	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	res, err = collections.ReadAll(itr)
-	assert.NoError(t, err)
-	assert.Len(t, res, 3)
-	assert.Equal(t, expected, res)
+	require.NoError(t, err)
+	require.Len(t, res, 3)
+	require.Equal(t, expected, res)
 
 	expected = []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k3", Raw: []byte("k3_value")},
 	}
 	itr, err = db.GetStateSetIterator(context.Background(), ns, "k1", "k3")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	res, err = collections.ReadAll(itr)
-	assert.NoError(t, err)
-	assert.Len(t, res, 2)
+	require.NoError(t, err)
+	require.Len(t, res, 2)
 	for _, read := range expected {
-		assert.Contains(t, res, read)
+		require.Contains(t, res, read)
 	}
 }
 
@@ -157,104 +158,104 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 
 	// empty state
 	vv, err := db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue{}, vv)
+	require.NoError(t, err)
+	require.Equal(t, driver.UnversionedValue{}, vv)
 
 	// add data
 	err = db.SetState(context.Background(), ns, key, driver.UnversionedValue("val"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// get data
 	vv, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue("val"), vv)
+	require.NoError(t, err)
+	require.Equal(t, driver.UnversionedValue("val"), vv)
 
 	// logging because this can cause a deadlock if maxOpenConnections is only 1
 	t.Logf("get state [%s] during set state tx", key)
 	err = db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, key, driver.UnversionedValue("val1"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	vv, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue("val"), vv)
+	require.NoError(t, err)
+	require.Equal(t, driver.UnversionedValue("val"), vv)
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	t.Logf("get state after tx [%s]", key)
 	vv, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue("val1"), vv)
+	require.NoError(t, err)
+	require.Equal(t, driver.UnversionedValue("val1"), vv)
 
 	// Discard an update
 	err = db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, key, driver.UnversionedValue("val0"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.Discard()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Expect state to be same as before the rollback
 	vv, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue("val1"), vv)
+	require.NoError(t, err)
+	require.Equal(t, driver.UnversionedValue("val1"), vv)
 
 	// deleteOp state
 	err = db.DeleteState(context.Background(), ns, key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// expect state to be empty
 	vv, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue{}, vv)
+	require.NoError(t, err)
+	require.Equal(t, driver.UnversionedValue{}, vv)
 }
 
 func populateDB(t *testing.T, db driver.KeyValueStore, ns, key, keyWithSuffix string) {
 	err := db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.SetState(context.Background(), ns, key, driver.UnversionedValue("bar"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.SetState(context.Background(), ns, keyWithSuffix, driver.UnversionedValue("bar1"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	vv, err := db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue("bar"), vv)
+	require.NoError(t, err)
+	require.Equal(t, driver.UnversionedValue("bar"), vv)
 
 	vv, err = db.GetState(context.Background(), ns, keyWithSuffix)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue("bar1"), vv)
+	require.NoError(t, err)
+	require.Equal(t, driver.UnversionedValue("bar1"), vv)
 
 	vv, err = db.GetState(context.Background(), ns, "barf")
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue{}, vv)
+	require.NoError(t, err)
+	require.Equal(t, driver.UnversionedValue{}, vv)
 
 	vv, err = db.GetState(context.Background(), "barf", "barf")
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue{}, vv)
+	require.NoError(t, err)
+	require.Equal(t, driver.UnversionedValue{}, vv)
 }
 
 func populateForRangeQueries(t *testing.T, db driver.KeyValueStore, ns string) {
 	err := db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.SetState(context.Background(), ns, "k2", driver.UnversionedValue("k2_value"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, "k3", driver.UnversionedValue("k3_value"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, "k1", driver.UnversionedValue("k1_value"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, "k111", driver.UnversionedValue("k111_value"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TTestGetNonExistent(t *testing.T, db driver.KeyValueStore) {
@@ -262,8 +263,8 @@ func TTestGetNonExistent(t *testing.T, db driver.KeyValueStore) {
 	key := "foo"
 
 	vv, err := db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, driver.UnversionedValue{}, vv)
+	require.NoError(t, err)
+	require.Equal(t, driver.UnversionedValue{}, vv)
 }
 
 func TTestDB1(t *testing.T, db driver.KeyValueStore) {
@@ -274,16 +275,16 @@ func TTestDB1(t *testing.T, db driver.KeyValueStore) {
 	populateDB(t, db, ns, key, keyWithSuffix)
 
 	err := db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.DeleteState(context.Background(), ns, keyWithSuffix)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.DeleteState(context.Background(), ns, key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TTestDB2(t *testing.T, db driver.KeyValueStore) {
@@ -294,42 +295,42 @@ func TTestDB2(t *testing.T, db driver.KeyValueStore) {
 	populateDB(t, db, ns, key, keyWithSuffix)
 
 	err := db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.DeleteState(context.Background(), ns, key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.DeleteState(context.Background(), ns, keyWithSuffix)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 
 	err := db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.SetState(context.Background(), ns, "k2", driver.UnversionedValue("k2_value"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, "k3", driver.UnversionedValue("k3_value"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, "k1", driver.UnversionedValue("k1_value"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, "k111", driver.UnversionedValue("k111_value"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, "", "")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	res, err := collections.ReadAll(itr)
-	assert.NoError(t, err)
-	assert.Len(t, res, 4)
-	assert.Equal(t, []driver.UnversionedRead{
+	require.NoError(t, err)
+	require.Len(t, res, 4)
+	require.Equal(t, []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
@@ -337,11 +338,11 @@ func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
 	}, res)
 
 	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	res, err = collections.ReadAll(itr)
-	assert.NoError(t, err)
-	assert.Len(t, res, 3)
-	assert.Equal(t, []driver.UnversionedRead{
+	require.NoError(t, err)
+	require.Len(t, res, 3)
+	require.Equal(t, []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
@@ -350,41 +351,41 @@ func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
 
 func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
-	assert.NoError(t, db.BeginUpdate())
+	require.NoError(t, db.BeginUpdate())
 
-	assert.NoError(t, db.SetState(context.Background(), ns, "k2", driver.UnversionedValue("k2_value")))
-	assert.NoError(t, db.SetState(context.Background(), ns, "k3", driver.UnversionedValue("k3_value")))
-	assert.NoError(t, db.SetState(context.Background(), ns, "k1", driver.UnversionedValue("k1_value")))
-	assert.NoError(t, db.SetState(context.Background(), ns, "k111", driver.UnversionedValue("k111_value")))
+	require.NoError(t, db.SetState(context.Background(), ns, "k2", driver.UnversionedValue("k2_value")))
+	require.NoError(t, db.SetState(context.Background(), ns, "k3", driver.UnversionedValue("k3_value")))
+	require.NoError(t, db.SetState(context.Background(), ns, "k1", driver.UnversionedValue("k1_value")))
+	require.NoError(t, db.SetState(context.Background(), ns, "k111", driver.UnversionedValue("k111_value")))
 
-	assert.NoError(t, db.Commit())
+	require.NoError(t, db.Commit())
 
 	var wg sync.WaitGroup
 	wg.Add(4)
 	go func() {
+		defer wg.Done()
 		assert.NoError(t, db.SetState(context.Background(), ns, key, []byte("k2_value")))
-		wg.Done()
 	}()
 	go func() {
+		defer wg.Done()
 		assert.NoError(t, db.SetState(context.Background(), ns, key, []byte("k3_value")))
-		wg.Done()
 	}()
 	go func() {
+		defer wg.Done()
 		assert.NoError(t, db.SetState(context.Background(), ns, key, []byte("k1_value")))
-		wg.Done()
 	}()
 	go func() {
+		defer wg.Done()
 		assert.NoError(t, db.SetState(context.Background(), ns, key, []byte("k111_value")))
-		wg.Done()
 	}()
 	wg.Wait()
 
 	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, "", "")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	res, err := collections.ReadAll(itr)
-	assert.NoError(t, err)
-	assert.Len(t, res, 4)
-	assert.Equal(t, []driver.UnversionedRead{
+	require.NoError(t, err)
+	require.Len(t, res, 4)
+	require.Equal(t, []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
@@ -392,27 +393,27 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 	}, res)
 
 	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	res, err = collections.ReadAll(itr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
 	}
-	assert.Len(t, res, 3)
-	assert.Equal(t, expected, res)
+	require.Len(t, res, 3)
+	require.Equal(t, expected, res)
 
 	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	res, err = collections.ReadFirst(itr, 2)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected = []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
 	}
-	assert.Len(t, res, 2)
-	assert.Equal(t, expected, res)
+	require.Len(t, res, 2)
+	require.Equal(t, expected, res)
 
 	expected = []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
@@ -420,11 +421,11 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 		{Key: "k2", Raw: []byte("k2_value")},
 	}
 	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	res, err = collections.ReadAll(itr)
-	assert.NoError(t, err)
-	assert.Len(t, res, 3)
-	assert.Equal(t, expected, res)
+	require.NoError(t, err)
+	require.Len(t, res, 3)
+	require.Equal(t, expected, res)
 }
 
 func TTestMultiWrites(t *testing.T, db driver.KeyValueStore) {
@@ -434,8 +435,8 @@ func TTestMultiWrites(t *testing.T, db driver.KeyValueStore) {
 	wg.Add(n)
 	for i := 0; i < n; i++ {
 		go func(i int) {
+			defer wg.Done()
 			assert.NoError(t, db.SetState(context.Background(), ns, key, []byte(fmt.Sprintf("TTestMultiWrites_value_%d", i))))
-			wg.Done()
 		}(i)
 	}
 	wg.Wait()
@@ -479,7 +480,7 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 	keyPrefix := "prefix"
 
 	err := db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for _, comps := range [][]string{
 		{"a", "b", "1"},
@@ -488,27 +489,27 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 		{"a", "d"},
 	} {
 		k, err := createCompositeKey(keyPrefix, comps)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = db.SetState(context.Background(), ns, k, driver.UnversionedValue(k))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	partialCompositeKey, err := createCompositeKey(keyPrefix, []string{"a"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	startKey := partialCompositeKey
 	endKey := partialCompositeKey + string(maxUnicodeRuneValue)
 
 	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, startKey, endKey)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	res, err := iterators.ReadAllValues(itr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.Len(t, res, 4)
-	assert.Equal(t, []driver.UnversionedRead{
+	require.Len(t, res, 4)
+	require.Equal(t, []driver.UnversionedRead{
 		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}},
 		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}},
 		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}},
@@ -516,18 +517,18 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 	}, res)
 
 	partialCompositeKey, err = createCompositeKey(keyPrefix, []string{"a", "b"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	startKey = partialCompositeKey
 	endKey = partialCompositeKey + string(maxUnicodeRuneValue)
 
 	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, startKey, endKey)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	res, err = iterators.ReadAllValues(itr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.Len(t, res, 3)
-	assert.Equal(t, []driver.UnversionedRead{
+	require.Len(t, res, 3)
+	require.Equal(t, []driver.UnversionedRead{
 		{Key: "\x00prefix0a0b0", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30}},
 		{Key: "\x00prefix0a0b010", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x31, 0x30}},
 		{Key: "\x00prefix0a0b030", Raw: []uint8{0x0, 0x70, 0x72, 0x65, 0x66, 0x69, 0x78, 0x30, 0x61, 0x30, 0x62, 0x30, 0x33, 0x30}},
@@ -561,10 +562,10 @@ func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
 	}
 
 	err := db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	for name, key := range utf8 {
 		err = db.SetState(context.Background(), ns, string(key), key)
-		assert.NoError(t, err, fmt.Sprintf("%s should be stored (%v)", name, key))
+		require.NoError(t, err, "%s should be stored (%v)", name, key)
 	}
 	err = db.Commit()
 	if err != nil {
@@ -572,10 +573,10 @@ func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
 	}
 
 	err = db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	for name, key := range utf8 {
 		err = db.SetState(context.Background(), ns, string(key), key)
-		assert.NoError(t, err, fmt.Sprintf("%s should be updated (%v)", name, key))
+		require.NoError(t, err, "%s should be updated (%v)", name, key)
 	}
 	err = db.Commit()
 	if err != nil {
@@ -584,13 +585,13 @@ func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
 
 	for name, key := range utf8 {
 		v, err := db.GetState(context.Background(), ns, string(key))
-		assert.NoError(t, err, fmt.Sprintf("%s should be retrieved (%v)", name, key))
-		assert.Equal(t, key, v)
+		require.NoError(t, err, "%s should be retrieved (%v)", name, key)
+		require.Equal(t, key, v)
 	}
 
 	v, err := db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte(nil), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte(nil), v)
 }
 
 var (
@@ -604,28 +605,28 @@ func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 	ns := "namespace"
 
 	err = db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.SetState(context.Background(), ns, "k2", []byte("k2_value"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, "k3", []byte("k3_value"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, "k1", []byte("k1_value"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, "k111", []byte("k111_value"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	itr, err := db.GetStateRangeScanIterator(context.Background(), ns, "", "")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	res, err := iterators.ReadAllValues(itr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.Len(t, res, 4)
-	assert.Equal(t, []driver.UnversionedRead{
+	require.Len(t, res, 4)
+	require.Equal(t, []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
@@ -633,29 +634,29 @@ func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 	}, res)
 
 	itr, err = db.GetStateRangeScanIterator(context.Background(), ns, "k1", "k3")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	res, err = iterators.ReadAllValues(itr)
-	assert.NoError(t, err)
-	assert.Len(t, res, 3)
-	assert.Equal(t, []driver.UnversionedRead{
+	require.NoError(t, err)
+	require.Len(t, res, 3)
+	require.Equal(t, []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k111", Raw: []byte("k111_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
 	}, res)
 
 	itr, err = db.GetStateSetIterator(context.Background(), ns, "k1", "k2")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	res, err = iterators.ReadAllValues(itr)
-	assert.NoError(t, err)
-	assert.Len(t, res, 2)
+	require.NoError(t, err)
+	require.Len(t, res, 2)
 	expected := []driver.UnversionedRead{
 		{Key: "k1", Raw: []byte("k1_value")},
 		{Key: "k2", Raw: []byte("k2_value")},
 	}
 	for _, read := range expected {
-		assert.Contains(t, res, read)
+		require.Contains(t, res, read)
 	}
 }
 
@@ -664,60 +665,60 @@ func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
 	key := "key"
 
 	v, err := db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte(nil), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte(nil), v)
 
 	err = db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, key, []byte("val"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	v, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("val"), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte("val"), v)
 
 	err = db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.SetState(context.Background(), ns, key, []byte("val1"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	v, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("val"), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte("val"), v)
 
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	v, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("val1"), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte("val1"), v)
 
 	// Discard an update
 	err = db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, key, []byte("val0"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.Discard()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Expect state to be same as before the rollback
 	v, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("val1"), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte("val1"), v)
 
 	err = db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.DeleteState(context.Background(), ns, key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	v, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte(nil), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte(nil), v)
 }
 
 func BenchmarkConcatenation(b *testing.B) {
@@ -764,70 +765,70 @@ func waitForResults[V any](ch <-chan V, times int, timeout time.Duration) ([]V, 
 
 func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier) {
 	ch, err := subscribe(db)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	ns := "ns"
 	key := "key"
 
 	v, err := db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte(nil), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte(nil), v)
 
 	err = db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, key, []byte("val"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	v, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("val"), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte("val"), v)
 
 	err = db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = db.SetState(context.Background(), ns, key, []byte("val1"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	v, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("val"), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte("val"), v)
 
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	v, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("val1"), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte("val1"), v)
 
 	// Discard an update
 	err = db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.SetState(context.Background(), ns, key, []byte("val0"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.Discard()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Expect state to be same as before the rollback
 	v, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("val1"), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte("val1"), v)
 
 	err = db.BeginUpdate()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.DeleteState(context.Background(), ns, key)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = db.Commit()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	v, err = db.GetState(context.Background(), ns, key)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte(nil), v)
+	require.NoError(t, err)
+	require.Equal(t, []byte(nil), v)
 
 	results, err := waitForResults(ch, 3, 1*time.Second)
-	assert.NoError(t, err)
-	assert.Equal(t, []notifyEvent{{upsertOp, "ns", "key"}, {upsertOp, "ns", "key"}, {deleteOp, "ns", "key"}}, results)
+	require.NoError(t, err)
+	require.Equal(t, []notifyEvent{{upsertOp, "ns", "key"}, {upsertOp, "ns", "key"}, {deleteOp, "ns", "key"}}, results)
 }
 
 type opType int

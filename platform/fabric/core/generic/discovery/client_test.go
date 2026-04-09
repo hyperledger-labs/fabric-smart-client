@@ -159,9 +159,6 @@ func createConnector(t *testing.T, certificate tls.Certificate, targetPort int) 
 	return func() (*grpc.ClientConn, error) {
 		conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)))
 		require.NoError(t, err)
-		if err != nil {
-			panic(err)
-		}
 		return conn, nil
 	}
 }

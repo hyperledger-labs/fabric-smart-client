@@ -13,106 +13,106 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRegistry(t *testing.T) {
 	registry := view.NewRegistry()
-	assert.NotNil(t, registry)
+	require.NotNil(t, registry)
 
 	// RegisterFactory / NewView
 	factory := &mock.Factory{}
 	err := registry.RegisterFactory("v1", factory)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	v := &mock.View{}
 	factory.NewViewReturns(v, nil)
 	v2, err := registry.NewView("v1", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, v, v2)
+	require.NoError(t, err)
+	require.Equal(t, v, v2)
 
 	// NewView - factory not found
 	_, err = registry.NewView("v2", nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no factory found")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no factory found")
 
 	// NewView - panic in factory
 	factory.NewViewStub = func(in []byte) (view2.View, error) {
 		panic("factory-panic")
 	}
 	_, err = registry.NewView("v1", nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "panic creating view")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "panic creating view")
 
 	// RegisterResponderFactory
 	rfactory := &mock.Factory{}
 	responder := &mock.View{}
 	rfactory.NewViewReturns(responder, nil)
 	err = registry.RegisterResponderFactory(rfactory, "initiator")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	r, err := registry.GetResponder("initiator")
-	assert.NoError(t, err)
-	assert.Equal(t, responder, r)
+	require.NoError(t, err)
+	require.Equal(t, responder, r)
 
 	// GetResponder - not found
 	_, err = registry.GetResponder("not-found")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "responder not found")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "responder not found")
 
 	// GetResponder - error initiatedBy type
 	_, err = registry.GetResponder(123)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// RegisterResponderWithIdentity / ExistResponderForCaller
 	err = registry.RegisterResponderWithIdentity(responder, view2.Identity("id"), "initiator2")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test RegisterResponderWithIdentity with view
 	err = registry.RegisterResponderWithIdentity(responder, view2.Identity("id"), v)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test RegisterResponderWithIdentity with invalid type
 	err = registry.RegisterResponderWithIdentity(responder, view2.Identity("id"), 123)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "must be a view or a string")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must be a view or a string")
 
 	// Test RegisterResponderFactory error path
 	factory.NewViewReturns(nil, errors.New("factory-error"))
 	err = registry.RegisterResponderFactory(factory, "initiator3")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	r2, id, err := registry.ExistResponderForCaller("initiator2")
-	assert.NoError(t, err)
-	assert.Equal(t, responder, r2)
-	assert.Equal(t, view2.Identity("id"), id)
+	require.NoError(t, err)
+	require.Equal(t, responder, r2)
+	require.Equal(t, view2.Identity("id"), id)
 
 	// ExistResponderForCaller - not found
 	_, _, err = registry.ExistResponderForCaller("not-found")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// GetView - not found
 	_, err = registry.GetView("not-found")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// GetView
 	err = registry.RegisterResponder(responder, "") // This registers it as initiator
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	v3, err := registry.GetView(view.GetIdentifier(responder))
-	assert.NoError(t, err)
-	assert.Equal(t, responder, v3)
+	require.NoError(t, err)
+	require.Equal(t, responder, v3)
 
 	// GetIdentifier / GetName
-	assert.NotEmpty(t, view.GetIdentifier(v))
-	assert.NotEmpty(t, registry.GetIdentifier(v))
-	assert.NotEmpty(t, view.GetName(v))
-	assert.Equal(t, "<nil view>", view.GetIdentifier(nil))
-	assert.Equal(t, "<nil view>", view.GetName(nil))
+	require.NotEmpty(t, view.GetIdentifier(v))
+	require.NotEmpty(t, registry.GetIdentifier(v))
+	require.NotEmpty(t, view.GetName(v))
+	require.Equal(t, "<nil view>", view.GetIdentifier(nil))
+	require.Equal(t, "<nil view>", view.GetName(nil))
 
 	// GetRegistry
 	sp := view.NewServiceProvider()
 	err = sp.RegisterService(registry)
-	assert.NoError(t, err)
-	assert.Equal(t, registry, view.GetRegistry(sp))
+	require.NoError(t, err)
+	require.Equal(t, registry, view.GetRegistry(sp))
 }

@@ -35,7 +35,7 @@ func NotNil(object interface{}, msgAndArgs ...interface{}) {
 func ValidIdentity(id view.Identity, err error, msgAndArgs ...interface{}) view.Identity {
 	ma, releasers := extractReleasers(msgAndArgs...)
 	p := &panickier{releasers: releasers}
-	assert.NoError(p, err, ma...)
+	assert.NoError(p, err, ma...) //nolint:testifylint
 	assert.False(p, id.IsNone(), ma...)
 	return id
 }

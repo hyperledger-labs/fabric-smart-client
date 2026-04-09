@@ -11,9 +11,9 @@ import (
 
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWiring(t *testing.T) {
-	assert.NoError(t, DryRunWiring(digutils.Identity[dig2.SDK]()))
+	require.NoError(t, DryRunWiring(digutils.Identity[dig2.SDK]()))
 }

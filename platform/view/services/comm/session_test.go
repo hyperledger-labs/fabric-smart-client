@@ -171,8 +171,8 @@ func TestSessionLifecycleConcurrent(t *testing.T) {
 
 	wg.Wait()
 	<-consumerFinished
-	assert.Equal(t, enqueuedCount.Load(), receivedCount.Load())
-	assert.True(t, enqueuedCount.Load() > 0)
+	require.Equal(t, enqueuedCount.Load(), receivedCount.Load())
+	require.Positive(t, enqueuedCount.Load())
 }
 
 func TestSessionDeadlock(t *testing.T) {
@@ -188,7 +188,7 @@ func TestSessionDeadlock(t *testing.T) {
 	msg1 := []byte("msg")
 
 	// we publish and then consume
-	assert.True(t, s.enqueue(&view.Message{Payload: msg1}))
+	require.True(t, s.enqueue(&view.Message{Payload: msg1}))
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		require.Equal(c, msg1, (<-ch).Payload)
 	}, timeout, 10*time.Millisecond)
@@ -199,7 +199,7 @@ func TestSessionDeadlock(t *testing.T) {
 	// But the goal of the change was to make it non-blocking.
 
 	// Let's just verify it's non-blocking by trying to enqueue.
-	assert.True(t, s.enqueue(&view.Message{Payload: msg1}))
+	require.True(t, s.enqueue(&view.Message{Payload: msg1}))
 
 	var wg sync.WaitGroup
 	wg.Add(1)

@@ -14,12 +14,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
 	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -51,7 +49,7 @@ func TestLoadCertificateECDSA(t *testing.T) {
 		t.Fatalf("Failed to create certs directory: %s", err)
 	}
 	priv, err := csp2.GeneratePrivateKey(certDir)
-	assert.NoError(t, err, "Failed to generate signed certificate")
+	require.NoError(t, err, "Failed to generate signed certificate")
 
 	// create our CA
 	caDir := filepath.Join(testDir, "ca")
@@ -66,20 +64,20 @@ func TestLoadCertificateECDSA(t *testing.T) {
 		testStreetAddress,
 		testPostalCode,
 	)
-	assert.NoError(t, err, "Error generating CA")
+	require.NoError(t, err, "Error generating CA")
 
 	cert, err := rootCA.SignCertificate(certDir, testName3, nil, nil, &priv.PublicKey, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment, []x509.ExtKeyUsage{x509.ExtKeyUsageAny}, 0)
-	assert.NoError(t, err, "Failed to generate signed certificate")
+	require.NoError(t, err, "Failed to generate signed certificate")
 	// KeyUsage should be x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
-	assert.Equal(t, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment,
+	require.Equal(t, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment,
 		cert.KeyUsage)
-	assert.Contains(t, cert.ExtKeyUsage, x509.ExtKeyUsageAny)
+	require.Contains(t, cert.ExtKeyUsage, x509.ExtKeyUsageAny)
 
 	loadedCert, err := ca2.LoadCertificateECDSA(certDir)
-	assert.NoError(t, err)
-	assert.NotNil(t, loadedCert, "Should load cert")
-	assert.Equal(t, cert.SerialNumber, loadedCert.SerialNumber, "Should have same serial number")
-	assert.Equal(t, cert.Subject.CommonName, loadedCert.Subject.CommonName, "Should have same CN")
+	require.NoError(t, err)
+	require.NotNil(t, loadedCert, "Should load cert")
+	require.Equal(t, cert.SerialNumber, loadedCert.SerialNumber, "Should have same serial number")
+	require.Equal(t, cert.Subject.CommonName, loadedCert.Subject.CommonName, "Should have same CN")
 }
 
 func TestLoadCertificateECDSA_wrongEncoding(t *testing.T) {
@@ -92,8 +90,8 @@ func TestLoadCertificateECDSA_wrongEncoding(t *testing.T) {
 	require.NoErrorf(t, err, "failed to create file %s", filename)
 
 	_, err = ca2.LoadCertificateECDSA(testDir)
-	assert.NotNil(t, err)
-	assert.EqualError(t, err, filename+": wrong PEM encoding")
+	require.Error(t, err)
+	require.EqualError(t, err, filename+": wrong PEM encoding")
 }
 
 func TestLoadCertificateECDSA_empty_DER_cert(t *testing.T) {
@@ -107,9 +105,9 @@ func TestLoadCertificateECDSA_empty_DER_cert(t *testing.T) {
 	require.NoErrorf(t, err, "failed to create file %s", filename)
 
 	cert, err := ca2.LoadCertificateECDSA(testDir)
-	assert.Nil(t, cert)
-	assert.NotNil(t, err)
-	assert.EqualError(t, err, filename+": wrong DER encoding")
+	require.Nil(t, cert)
+	require.Error(t, err)
+	require.EqualError(t, err, filename+": wrong DER encoding")
 }
 
 func TestNewCA(t *testing.T) {
@@ -131,30 +129,30 @@ func TestNewCA(t *testing.T) {
 		testStreetAddress,
 		testPostalCode,
 	)
-	assert.NoError(t, err, "Error generating CA")
-	assert.NotNil(t, rootCA, "Failed to return CA")
-	assert.NotNil(t, rootCA.Signer,
+	require.NoError(t, err, "Error generating CA")
+	require.NotNil(t, rootCA, "Failed to return CA")
+	require.NotNil(t, rootCA.Signer,
 		"rootCA.Signer should not be empty")
-	assert.IsType(t, &x509.Certificate{}, rootCA.SignCert,
+	require.IsType(t, &x509.Certificate{}, rootCA.SignCert,
 		"rootCA.SignCert should be type x509.Certificate")
 
 	// check to make sure the root public key was stored
 	pemFile := filepath.Join(caDir, testCAName+"-cert.pem")
-	assert.Equal(t, true, checkForFile(pemFile),
+	require.True(t, checkForFile(pemFile),
 		"Expected to find file "+pemFile)
 
-	assert.NotEmpty(t, rootCA.SignCert.Subject.Country, "country cannot be empty.")
-	assert.Equal(t, testCountry, rootCA.SignCert.Subject.Country[0], "Failed to match country")
-	assert.NotEmpty(t, rootCA.SignCert.Subject.Province, "province cannot be empty.")
-	assert.Equal(t, testProvince, rootCA.SignCert.Subject.Province[0], "Failed to match province")
-	assert.NotEmpty(t, rootCA.SignCert.Subject.Locality, "locality cannot be empty.")
-	assert.Equal(t, testLocality, rootCA.SignCert.Subject.Locality[0], "Failed to match locality")
-	assert.NotEmpty(t, rootCA.SignCert.Subject.OrganizationalUnit, "organizationalUnit cannot be empty.")
-	assert.Equal(t, testOrganizationalUnit, rootCA.SignCert.Subject.OrganizationalUnit[0], "Failed to match organizationalUnit")
-	assert.NotEmpty(t, rootCA.SignCert.Subject.StreetAddress, "streetAddress cannot be empty.")
-	assert.Equal(t, testStreetAddress, rootCA.SignCert.Subject.StreetAddress[0], "Failed to match streetAddress")
-	assert.NotEmpty(t, rootCA.SignCert.Subject.PostalCode, "postalCode cannot be empty.")
-	assert.Equal(t, testPostalCode, rootCA.SignCert.Subject.PostalCode[0], "Failed to match postalCode")
+	require.NotEmpty(t, rootCA.SignCert.Subject.Country, "country cannot be empty.")
+	require.Equal(t, testCountry, rootCA.SignCert.Subject.Country[0], "Failed to match country")
+	require.NotEmpty(t, rootCA.SignCert.Subject.Province, "province cannot be empty.")
+	require.Equal(t, testProvince, rootCA.SignCert.Subject.Province[0], "Failed to match province")
+	require.NotEmpty(t, rootCA.SignCert.Subject.Locality, "locality cannot be empty.")
+	require.Equal(t, testLocality, rootCA.SignCert.Subject.Locality[0], "Failed to match locality")
+	require.NotEmpty(t, rootCA.SignCert.Subject.OrganizationalUnit, "organizationalUnit cannot be empty.")
+	require.Equal(t, testOrganizationalUnit, rootCA.SignCert.Subject.OrganizationalUnit[0], "Failed to match organizationalUnit")
+	require.NotEmpty(t, rootCA.SignCert.Subject.StreetAddress, "streetAddress cannot be empty.")
+	require.Equal(t, testStreetAddress, rootCA.SignCert.Subject.StreetAddress[0], "Failed to match streetAddress")
+	require.NotEmpty(t, rootCA.SignCert.Subject.PostalCode, "postalCode cannot be empty.")
+	require.Equal(t, testPostalCode, rootCA.SignCert.Subject.PostalCode[0], "Failed to match postalCode")
 }
 
 func TestGenerateSignCertificate(t *testing.T) {
@@ -170,7 +168,7 @@ func TestGenerateSignCertificate(t *testing.T) {
 		t.Fatalf("Failed to create certs directory: %s", err)
 	}
 	priv, err := csp2.GeneratePrivateKey(certDir)
-	assert.NoError(t, err, "Failed to generate signed certificate")
+	require.NoError(t, err, "Failed to generate signed certificate")
 
 	// create our CA
 	caDir := filepath.Join(testDir, "ca")
@@ -185,42 +183,40 @@ func TestGenerateSignCertificate(t *testing.T) {
 		testStreetAddress,
 		testPostalCode,
 	)
-	assert.NoError(t, err, "Error generating CA")
+	require.NoError(t, err, "Error generating CA")
 
 	cert, err := rootCA.SignCertificate(certDir, testName, nil, nil, &priv.PublicKey, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment, []x509.ExtKeyUsage{x509.ExtKeyUsageAny}, 0)
-	assert.NoError(t, err, "Failed to generate signed certificate")
+	require.NoError(t, err, "Failed to generate signed certificate")
 	// KeyUsage should be x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
-	assert.Equal(t, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment,
+	require.Equal(t, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment,
 		cert.KeyUsage)
-	assert.Contains(t, cert.ExtKeyUsage, x509.ExtKeyUsageAny)
+	require.Contains(t, cert.ExtKeyUsage, x509.ExtKeyUsageAny)
 
 	cert, err = rootCA.SignCertificate(certDir, testName, nil, nil, &priv.PublicKey, x509.KeyUsageDigitalSignature, []x509.ExtKeyUsage{}, 0)
-	assert.NoError(t, err, "Failed to generate signed certificate")
-	assert.Equal(t, 0, len(cert.ExtKeyUsage))
+	require.NoError(t, err, "Failed to generate signed certificate")
+	require.Empty(t, cert.ExtKeyUsage)
 
 	// make sure ous are correctly set
 	ous := []string{"TestOU", "PeerOU"}
 	cert, err = rootCA.SignCertificate(certDir, testName, ous, nil, &priv.PublicKey, x509.KeyUsageDigitalSignature, []x509.ExtKeyUsage{}, 0)
-	assert.NoError(t, err)
-	assert.Contains(t, cert.Subject.OrganizationalUnit, ous[0])
-	assert.Contains(t, cert.Subject.OrganizationalUnit, ous[1])
+	require.NoError(t, err)
+	require.Contains(t, cert.Subject.OrganizationalUnit, ous[0])
+	require.Contains(t, cert.Subject.OrganizationalUnit, ous[1])
 
 	// make sure sans are correctly set
 	sans := []string{testName2, testName3, testIP}
 	cert, err = rootCA.SignCertificate(certDir, testName, nil, sans, &priv.PublicKey, x509.KeyUsageDigitalSignature, []x509.ExtKeyUsage{}, 0)
-	assert.NoError(t, err)
-	assert.Contains(t, cert.DNSNames, testName2)
-	assert.Contains(t, cert.DNSNames, testName3)
-	assert.Contains(t, cert.IPAddresses, net.ParseIP(testIP).To4())
-	assert.Equal(t, len(cert.DNSNames), 2)
+	require.NoError(t, err)
+	require.Contains(t, cert.DNSNames, testName2)
+	require.Contains(t, cert.DNSNames, testName3)
+	require.Contains(t, cert.IPAddresses, net.ParseIP(testIP).To4())
+	require.Len(t, cert.DNSNames, 2)
 
 	// check to make sure the signed public key was stored
 	pemFile := filepath.Join(certDir, testName+"-cert.pem")
-	assert.Equal(t, true, checkForFile(pemFile),
-		"Expected to find file "+pemFile)
-
+	require.True(t, checkForFile(pemFile), "Expected to find file "+pemFile)
 	_, err = rootCA.SignCertificate(certDir, "empty/CA", nil, nil, &priv.PublicKey, x509.KeyUsageKeyEncipherment, []x509.ExtKeyUsage{x509.ExtKeyUsageAny}, 0)
-	assert.Error(t, err, "Bad name should fail")
+	require.Error(t, err, "Bad name should fail")
 
 	// use an empty CA to test error path
 	badCA := &ca2.CA{
@@ -228,7 +224,7 @@ func TestGenerateSignCertificate(t *testing.T) {
 		SignCert: &x509.Certificate{},
 	}
 	_, err = badCA.SignCertificate(certDir, testName, nil, nil, &ecdsa.PublicKey{}, x509.KeyUsageKeyEncipherment, []x509.ExtKeyUsage{x509.ExtKeyUsageAny}, 0)
-	assert.Error(t, err, "Empty CA should not be able to sign")
+	require.Error(t, err, "Empty CA should not be able to sign")
 
 }
 

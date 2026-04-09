@@ -22,9 +22,7 @@ func BenchmarkUUID(b *testing.B) {
 		uuid := make([]byte, 16)
 
 		_, err := io.ReadFull(rand.Reader, uuid[:])
-		if err != nil {
-			panic(fmt.Sprintf("Error generating UUID: %s", err))
-		}
+		require.NoError(b, err, "Error generating UUID: %v", err)
 
 		// variant bits; see section 4.1.1
 		uuid[8] = uuid[8]&^0xc0 | 0x80
@@ -103,9 +101,11 @@ func TestGenerateBytesUUID_Length(t *testing.T) {
 }
 
 func TestGenerateUUID_Unique(t *testing.T) {
-	require.NotEqual(t, GenerateUUID(), GenerateUUID())
+	a, b := GenerateUUID(), GenerateUUID()
+	require.NotEqual(t, a, b)
 }
 
 func TestGenerateBytesUUID_Unique(t *testing.T) {
-	require.NotEqual(t, GenerateBytesUUID(), GenerateBytesUUID())
+	a, b := GenerateBytesUUID(), GenerateBytesUUID()
+	require.NotEqual(t, a, b)
 }

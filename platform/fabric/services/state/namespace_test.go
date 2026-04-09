@@ -9,9 +9,8 @@ package state
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	"github.com/stretchr/testify/require"
 )
 
 type House struct {
@@ -49,14 +48,14 @@ func TestMarshalTagsPointerToStruct(t *testing.T) {
 		Owner:     []byte("Apple"),
 	}
 	h2, mapping, err := n.marshalTags(nil, h)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = n.unmarshalTags(nil, h2, mapping)
-	assert.NoError(t, err)
-	assert.Equal(t, h, h2)
+	require.NoError(t, err)
+	require.Equal(t, h, h2)
 
 	id, err := n.getStateID(h2)
-	assert.NoError(t, err)
-	assert.Equal(t, id, h2.(*House).LinearID)
+	require.NoError(t, err)
+	require.Equal(t, id, h2.(*House).LinearID)
 }
 
 func TestMarshalTagsPointerToStruct2(t *testing.T) {
@@ -69,8 +68,8 @@ func TestMarshalTagsPointerToStruct2(t *testing.T) {
 		Owner:             []byte("Apple"),
 	}
 	h2, mapping, err := n.marshalTags(nil, h)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = n.unmarshalTags(nil, h2, mapping)
-	assert.NoError(t, err)
-	assert.Equal(t, h, h2)
+	require.NoError(t, err)
+	require.Equal(t, h, h2)
 }

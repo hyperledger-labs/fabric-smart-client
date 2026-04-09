@@ -31,11 +31,11 @@ func TestVarintWriter_WriteData(t *testing.T) {
 
 		// Read the length prefix
 		length, n := binary.Uvarint(written)
-		assert.Equal(t, uint64(len(data)), length)
+		require.Equal(t, uint64(len(data)), length)
 
 		// Verify the actual data
 		actualData := written[n:]
-		assert.Equal(t, data, actualData)
+		require.Equal(t, data, actualData)
 	})
 
 	t.Run("write empty data", func(t *testing.T) {
@@ -47,7 +47,7 @@ func TestVarintWriter_WriteData(t *testing.T) {
 
 		written := buf.Bytes()
 		length, _ := binary.Uvarint(written)
-		assert.Equal(t, uint64(0), length)
+		require.Equal(t, uint64(0), length)
 	})
 
 	t.Run("write large data", func(t *testing.T) {
@@ -64,22 +64,22 @@ func TestVarintWriter_WriteData(t *testing.T) {
 
 		written := buf.Bytes()
 		length, n := binary.Uvarint(written)
-		assert.Equal(t, uint64(len(data)), length)
-		assert.Equal(t, data, written[n:])
+		require.Equal(t, uint64(len(data)), length)
+		require.Equal(t, data, written[n:])
 	})
 
 	t.Run("write error on length", func(t *testing.T) {
 		w := newVarintWriter(&errorWriter{failOn: 0})
 		err := w.WriteData([]byte("test"))
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "could not write message length")
 	})
 
 	t.Run("write error on data", func(t *testing.T) {
 		w := newVarintWriter(&errorWriter{failOn: 1})
 		err := w.WriteData([]byte("test"))
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "could not write data")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "could not write data")
 	})
 }
 
@@ -89,8 +89,8 @@ func TestVarintWriter_Close(t *testing.T) {
 		w := newVarintWriter(closer)
 
 		err := w.Close()
-		assert.NoError(t, err)
-		assert.True(t, closer.closed)
+		require.NoError(t, err)
+		require.True(t, closer.closed)
 	})
 
 	t.Run("close without closer", func(t *testing.T) {
@@ -98,7 +98,7 @@ func TestVarintWriter_Close(t *testing.T) {
 		w := newVarintWriter(buf)
 
 		err := w.Close()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("close error", func(t *testing.T) {
@@ -106,8 +106,8 @@ func TestVarintWriter_Close(t *testing.T) {
 		w := newVarintWriter(closer)
 
 		err := w.Close()
-		assert.Error(t, err)
-		assert.Equal(t, assert.AnError, err)
+		require.Error(t, err)
+		require.ErrorIs(t, err, assert.AnError)
 	})
 }
 
@@ -129,8 +129,8 @@ func TestProtoWriter_WriteMsg(t *testing.T) {
 		readMsg := &anypb.Any{}
 		err = r.ReadMsg(readMsg)
 		require.NoError(t, err)
-		assert.Equal(t, msg.TypeUrl, readMsg.TypeUrl)
-		assert.Equal(t, msg.Value, readMsg.Value)
+		require.Equal(t, msg.TypeUrl, readMsg.TypeUrl)
+		require.Equal(t, msg.Value, readMsg.Value)
 	})
 
 	t.Run("write multiple messages", func(t *testing.T) {
@@ -154,8 +154,8 @@ func TestProtoWriter_WriteMsg(t *testing.T) {
 			readMsg := &anypb.Any{}
 			err := r.ReadMsg(readMsg)
 			require.NoError(t, err, "failed reading message %d", i)
-			assert.Equal(t, expected.TypeUrl, readMsg.TypeUrl)
-			assert.Equal(t, expected.Value, readMsg.Value)
+			require.Equal(t, expected.TypeUrl, readMsg.TypeUrl)
+			require.Equal(t, expected.Value, readMsg.Value)
 		}
 	})
 }
@@ -166,8 +166,8 @@ func TestProtoWriter_Close(t *testing.T) {
 		w := NewVarintProtoWriter(closer)
 
 		err := w.Close()
-		assert.NoError(t, err)
-		assert.True(t, closer.closed)
+		require.NoError(t, err)
+		require.True(t, closer.closed)
 	})
 
 	t.Run("close without closer", func(t *testing.T) {
@@ -175,19 +175,19 @@ func TestProtoWriter_Close(t *testing.T) {
 		w := NewVarintProtoWriter(buf)
 
 		err := w.Close()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
 func TestNewVarintProtoWriter(t *testing.T) {
 	buf := &bytes.Buffer{}
 	w := NewVarintProtoWriter(buf)
-	assert.NotNil(t, w)
+	require.NotNil(t, w)
 
 	// Verify it's functional
 	msg := &anypb.Any{TypeUrl: "test", Value: []byte("data")}
 	err := w.WriteMsg(msg)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 // Helper types for testing

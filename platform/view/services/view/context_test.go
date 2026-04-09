@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 )
 
@@ -55,101 +56,101 @@ func TestContext(t *testing.T) {
 		emptyTracer,
 		nil,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Session
-	assert.Equal(t, session, ctx.Session())
+	require.Equal(t, session, ctx.Session())
 
 	// Test NewContext with nil context
 	_, err = view2.NewContext(nil, nil, "", nil, nil, nil, nil, nil, nil, nil, nil) //nolint:staticcheck
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ctx should not be nil")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "ctx should not be nil")
 
 	// Test NewContextForInitiator with nil context
 	_, err = view2.NewContextForInitiator("", nil, nil, nil, nil, nil, nil, nil, nil, nil) //nolint:staticcheck
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ctx should not be nil")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "ctx should not be nil")
 
 	// Test Session with nil session
 	ctxNoSession, _ := view2.NewContext(context.TODO(), registry, "p", nil, resolver, idProvider, nil, nil, nil, emptyTracer, nil)
-	assert.Nil(t, ctxNoSession.Session())
+	require.Nil(t, ctxNoSession.Session())
 
 	// Id
-	assert.Equal(t, "pineapple", ctx.ID())
+	require.Equal(t, "pineapple", ctx.ID())
 
 	// Caller
-	assert.Equal(t, view.Identity("caller"), ctx.Caller())
+	require.Equal(t, view.Identity("caller"), ctx.Caller())
 
 	// Identity
 	id, err := ctx.Identity("bob")
-	assert.NoError(t, err)
-	assert.Equal(t, view.Identity("bob"), id)
+	require.NoError(t, err)
+	require.Equal(t, view.Identity("bob"), id)
 	arg0, arg1 := resolver.GetIdentityArgsForCall(0)
-	assert.Equal(t, "bob", arg0)
-	assert.Nil(t, arg1)
+	require.Equal(t, "bob", arg0)
+	require.Nil(t, arg1)
 
 	// Me
-	assert.Equal(t, view.Identity("charlie"), ctx.Me())
+	require.Equal(t, view.Identity("charlie"), ctx.Me())
 
 	// Ctx
-	assert.NotNil(t, ctx.Context())
+	require.NotNil(t, ctx.Context())
 
 	// OnError / Cleanup
 	called := false
 	ctx.OnError(func() { called = true })
 	ctx.Cleanup()
-	assert.True(t, called)
+	require.True(t, called)
 
 	// PutService / GetService
 	err = ctx.PutService("service")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	s, err := ctx.GetService(reflect.TypeOf(""))
-	assert.NoError(t, err)
-	assert.Equal(t, "service", s)
+	require.NoError(t, err)
+	require.Equal(t, "service", s)
 
 	// GetService from registry
 	err = registry.RegisterService(123)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	s2, err := ctx.GetService(reflect.TypeOf(0))
-	assert.NoError(t, err)
-	assert.Equal(t, 123, s2)
+	require.NoError(t, err)
+	require.Equal(t, 123, s2)
 
 	// IsMe
 	lic := &mock.LocalIdentityChecker{}
 	ctx, _ = view2.NewContext(context.TODO(), registry, "p", nil, resolver, idProvider, nil, nil, nil, emptyTracer, lic)
 	lic.IsMeReturns(true)
-	assert.True(t, ctx.IsMe([]byte("me")))
+	require.True(t, ctx.IsMe([]byte("me")))
 
 	// StartSpan
 	span := ctx.StartSpan("test")
-	assert.NotNil(t, span)
+	require.NotNil(t, span)
 
 	// Initiator
 	initiator := &mock.View{}
 	ctx, _ = view2.NewContextForInitiator("p2", context.TODO(), registry, nil, resolver, idProvider, nil, initiator, emptyTracer, lic)
-	assert.Equal(t, initiator, ctx.Initiator())
+	require.Equal(t, initiator, ctx.Initiator())
 
 	// RunView
 	v := &mock.View{}
 	v.CallReturns("view-result", nil)
 	res, err := ctx.RunView(v)
-	assert.NoError(t, err)
-	assert.Equal(t, "view-result", res)
+	require.NoError(t, err)
+	require.Equal(t, "view-result", res)
 
 	// ResetSessions
 	err = ctx.ResetSessions()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// PutSession
 	session2 := &mock.Session{}
 	err = ctx.PutSession(v, []byte("party"), session2)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Dispose
 	sessionFactory := &mock.SessionFactory{}
 	ctx, _ = view2.NewContext(context.TODO(), registry, "p", sessionFactory, resolver, idProvider, nil, session, nil, emptyTracer, lic)
 	ctx.Dispose()
-	assert.Equal(t, 2, sessionFactory.DeleteSessionsCallCount())
+	require.Equal(t, 2, sessionFactory.DeleteSessionsCallCount())
 }
 
 func TestContextGetSession(t *testing.T) {
@@ -168,22 +169,22 @@ func TestContextGetSession(t *testing.T) {
 	resolver.ResolverReturns(&endpoint.Resolver{ResolverInfo: endpoint.ResolverInfo{ID: party2}}, []byte("pkid"), nil)
 	sessionFactory.NewSessionReturns(session, nil)
 	s2, err := ctx.GetSession(dv, party2)
-	assert.NoError(t, err)
-	assert.NotNil(t, s2)
+	require.NoError(t, err)
+	require.NotNil(t, s2)
 
 	// Case: session already exists (reusing s2)
 	s, err := ctx.GetSession(dv, party2)
-	assert.NoError(t, err)
-	assert.Equal(t, session, s)
+	require.NoError(t, err)
+	require.Equal(t, session, s)
 
 	// Case: session by ID
 	// PutSession only puts it under ViewID + PartyID.
 	// GetSessionByID expects it under SessionID + PartyID.
 	err = ctx.PutSessionByID("sid", party2, session)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	s3, err := ctx.GetSessionByID("sid", party2)
-	assert.NoError(t, err)
-	assert.Equal(t, session, s3)
+	require.NoError(t, err)
+	require.Equal(t, session, s3)
 }
 
 func TestContextRace(t *testing.T) {
@@ -206,34 +207,24 @@ func TestContextRace(t *testing.T) {
 	sessionFactory := &mock.SessionFactory{}
 	sessionFactory.NewSessionReturns(session, nil)
 
-	ctx, err := view2.NewContext(context.TODO(), registry, "pineapple", sessionFactory, resolver, idProvider, []byte("charlie"), defaultSession, []byte("caller"), emptyTracer, nil)
-	assert.NoError(t, err)
+	viewCtx, err := view2.NewContext(context.TODO(), registry, "pineapple", sessionFactory, resolver, idProvider, []byte("charlie"), defaultSession, []byte("caller"), emptyTracer, nil)
+	require.NoError(t, err)
 
-	wg := &sync.WaitGroup{}
 	dv := &DummyView{}
+	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
-		wg.Add(3)
-		go getSession(t, wg, ctx, dv)
-		go getSessionByID(t, wg, ctx)
-		go getSessionByIDSame(t, wg, ctx)
+		wg.Go(func() {
+			_, err := viewCtx.GetSession(dv, []byte("alice"))
+			assert.NoError(t, err)
+		})
+		wg.Go(func() {
+			_, err := viewCtx.GetSessionByID(utils.GenerateUUID(), []byte("alice"))
+			assert.NoError(t, err)
+		})
+		wg.Go(func() {
+			_, err := viewCtx.GetSessionByID("session id", []byte("alice"))
+			assert.NoError(t, err)
+		})
 	}
 	wg.Wait()
-}
-
-func getSession(t *testing.T, wg *sync.WaitGroup, m Context, dv view.View) {
-	_, err := m.GetSession(dv, []byte("alice"))
-	wg.Done()
-	assert.NoError(t, err)
-}
-
-func getSessionByID(t *testing.T, wg *sync.WaitGroup, m Context) {
-	_, err := m.GetSessionByID(utils.GenerateUUID(), []byte("alice"))
-	wg.Done()
-	assert.NoError(t, err)
-}
-
-func getSessionByIDSame(t *testing.T, wg *sync.WaitGroup, m Context) {
-	_, err := m.GetSessionByID("session id", []byte("alice"))
-	wg.Done()
-	assert.NoError(t, err)
 }

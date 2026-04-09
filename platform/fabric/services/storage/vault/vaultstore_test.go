@@ -17,8 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/pagination"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/slices"
+	"github.com/stretchr/testify/require"
 )
 
 type vc int
@@ -265,8 +264,8 @@ func testPagination(store driver.VaultStore) {
 func TestPaginationStoreMem(t *testing.T) {
 	RegisterTestingT(t)
 	db, err := OpenMemoryVault("testdb")
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
+	require.NoError(t, err)
+	require.NotNil(t, db)
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
@@ -277,8 +276,8 @@ func TestPaginationStoreMem(t *testing.T) {
 func TestPaginationStoreSqlite(t *testing.T) {
 	RegisterTestingT(t)
 	db, err := OpenSqliteVault("testdb", t.TempDir())
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
+	require.NoError(t, err)
+	require.NotNil(t, db)
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
@@ -289,8 +288,8 @@ func TestPaginationStoreSqlite(t *testing.T) {
 func TestPaginationStoreSPostgres(t *testing.T) {
 	RegisterTestingT(t)
 	db, terminate, err := OpenPostgresVault("testdb")
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
+	require.NoError(t, err)
+	require.NotNil(t, db)
 	t.Cleanup(terminate)
 
 	testPagination(db)
@@ -299,8 +298,8 @@ func TestPaginationStoreSPostgres(t *testing.T) {
 func TestVaultStoreMem(t *testing.T) {
 	RegisterTestingT(t)
 	db, err := OpenMemoryVault("testdb")
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
+	require.NoError(t, err)
+	require.NotNil(t, db)
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
@@ -312,8 +311,8 @@ func TestVaultStoreMem(t *testing.T) {
 func TestVaultStoreSqlite(t *testing.T) {
 	RegisterTestingT(t)
 	db, err := OpenSqliteVault("testdb", t.TempDir())
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
+	require.NoError(t, err)
+	require.NotNil(t, db)
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
@@ -325,8 +324,8 @@ func TestVaultStoreSqlite(t *testing.T) {
 func TestVaultStorePostgres(t *testing.T) {
 	RegisterTestingT(t)
 	db, terminate, err := OpenPostgresVault("testdb")
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
+	require.NoError(t, err)
+	require.NotNil(t, db)
 	t.Cleanup(terminate)
 
 	testVaultStore(t, db)
@@ -337,45 +336,45 @@ func testOneMore(t *testing.T, store driver.VaultStore) {
 	t.Helper()
 
 	err := store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "", "txid3")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	tx, err := store.GetTxStatus(context.Background(), "txid3")
-	assert.NoError(t, err)
-	assert.Equal(t, driver.TxStatusCode(valid), tx.Code)
+	require.NoError(t, err)
+	require.Equal(t, driver.TxStatusCode(valid), tx.Code)
 
 	txids, err := fetchAll(store)
-	assert.NoError(t, err)
-	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3"}, txids)
+	require.NoError(t, err)
+	require.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3"}, txids)
 
 	last, err := store.GetLast(context.Background())
-	assert.NoError(t, err)
-	assert.Equal(t, "txid3", last.TxID)
+	require.NoError(t, err)
+	require.Equal(t, "txid3", last.TxID)
 
 	// add a busy tx
 	err = store.SetStatuses(context.Background(), driver.TxStatusCode(busy), "", "txid4")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	last, err = store.GetLast(context.Background())
-	assert.NoError(t, err)
-	assert.Equal(t, "txid3", last.TxID)
+	require.NoError(t, err)
+	require.Equal(t, "txid3", last.TxID)
 
 	// iterate again
 	txids, err = fetchAll(store)
-	assert.NoError(t, err)
-	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4"}, txids)
+	require.NoError(t, err)
+	require.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4"}, txids)
 
 	// update the busy tx
 	err = store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "", "txid4")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	last, err = store.GetLast(context.Background())
-	assert.NoError(t, err)
-	assert.Equal(t, "txid4", last.TxID)
+	require.NoError(t, err)
+	require.Equal(t, "txid4", last.TxID)
 
 	// iterate again
 	txids, err = fetchAll(store)
-	assert.NoError(t, err)
-	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4"}, txids)
+	require.NoError(t, err)
+	require.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025", "txid3", "txid4"}, txids)
 }
 
 func fetchAll(store driver.VaultStore) ([]driver.TxID, error) {
@@ -398,43 +397,49 @@ func testVaultStore(t *testing.T, store driver.VaultStore) {
 	t.Helper()
 
 	txids, err := fetchAll(store)
-	assert.NoError(t, err)
-	assert.Empty(t, txids)
+	require.NoError(t, err)
+	require.Empty(t, txids)
 
 	err = store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "",
 		"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	itr, err := store.GetTxStatuses(context.Background(), "txid3", "txid10")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	txStatuses, err := collections.ReadAll(itr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	slices.ContainsFunc(txStatuses, func(s driver.TxStatus) bool { return s.TxID == "txid3" && s.Code == driver.TxStatusCode(unknown) })
-	slices.ContainsFunc(txStatuses, func(s driver.TxStatus) bool { return s.TxID == "txid10" && s.Code == driver.TxStatusCode(valid) })
+	// Build lookup
+	statusByID := make(map[string]driver.TxStatusCode)
+	for _, s := range txStatuses {
+		statusByID[s.TxID] = s.Code
+	}
+	require.NotContains(t, statusByID, "txid3")
+	require.Contains(t, statusByID, "txid10")
+	require.Equal(t, driver.TxStatusCode(valid), statusByID["txid10"])
 
 	last, err := store.GetLast(context.Background())
-	assert.NoError(t, err)
-	assert.Equal(t, "txid1025", last.TxID)
+	require.NoError(t, err)
+	require.Equal(t, "txid1025", last.TxID)
 
 	txids, err = fetchAll(store)
-	assert.NoError(t, err)
-	assert.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025"}, txids)
+	require.NoError(t, err)
+	require.Equal(t, []string{"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025"}, txids)
 
 	itr, err = store.GetTxStatuses(context.Background(), "boh")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	txStatuses, err = collections.ReadAll(itr)
-	assert.NoError(t, err)
-	assert.Empty(t, txStatuses)
+	require.NoError(t, err)
+	require.Empty(t, txStatuses)
 
 	itr, err = store.GetTxStatuses(context.Background(), "txid1025", "txid999", "txid21")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	txStatuses, err = collections.ReadAll(itr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	txids = make([]driver.TxID, len(txStatuses))
 	for i, txStatus := range txStatuses {
 		txids[i] = txStatus.TxID
 	}
-	assert.Contains(t, txids, "txid21")
-	assert.Contains(t, txids, "txid1025")
+	require.Contains(t, txids, "txid21")
+	require.Contains(t, txids, "txid1025")
 }

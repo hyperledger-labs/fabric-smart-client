@@ -9,19 +9,19 @@ package tracing
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
 )
 
 func TestUnmarshal(t *testing.T) {
 	ctx, err := UnmarshalContext([]byte(`{"trace_id":"00000000000000000000000000000000","span_id":"0000000000000000","trace_flags":0,"trace_state":"","remote":false}`))
-	assert.NoError(err)
-	assert.True(ctx.Equal(trace.SpanContext{}))
+	require.NoError(t, err)
+	require.True(t, ctx.Equal(trace.SpanContext{}))
 }
 
 func TestMarshalUnmarshal(t *testing.T) {
 	state, err := trace.ParseTraceState("abcdefghijklmnopqrstuvwxyz0123456789_-*/= !\"#$%&'()*+-./0123456789:;<>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~")
-	assert.NoError(err)
+	require.NoError(t, err)
 	ctx := trace.NewSpanContext(trace.SpanContextConfig{
 		TraceID:    trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
 		SpanID:     trace.SpanID{1, 2, 3, 4, 5, 6, 7, 8},
@@ -31,10 +31,10 @@ func TestMarshalUnmarshal(t *testing.T) {
 	})
 
 	m, err := MarshalContext(ctx)
-	assert.NoError(err)
+	require.NoError(t, err)
 
 	newCtx, err := UnmarshalContext(m)
-	assert.NoError(err)
+	require.NoError(t, err)
 
-	assert.True(ctx.Equal(newCtx))
+	require.True(t, ctx.Equal(newCtx))
 }

@@ -24,7 +24,7 @@ func TestNewMsgConn(t *testing.T) {
 
 		conn, err := NewMsgConn(0, session)
 		require.NoError(t, err)
-		assert.NotNil(t, conn)
+		require.NotNil(t, conn)
 	})
 }
 
@@ -40,9 +40,9 @@ func TestMsgConn_Write(t *testing.T) {
 		data := []byte("test message")
 		n, err := conn.Write(data)
 		require.NoError(t, err)
-		assert.Equal(t, len(data), n)
-		assert.Equal(t, 1, len(session.sentMessages))
-		assert.Equal(t, data, session.sentMessages[0])
+		require.Equal(t, len(data), n)
+		require.Len(t, session.sentMessages, 1)
+		require.Equal(t, data, session.sentMessages[0])
 	})
 
 	t.Run("write empty data", func(t *testing.T) {
@@ -55,7 +55,7 @@ func TestMsgConn_Write(t *testing.T) {
 
 		n, err := conn.Write([]byte{})
 		require.NoError(t, err)
-		assert.Equal(t, 0, n)
+		require.Equal(t, 0, n)
 	})
 
 	t.Run("write error", func(t *testing.T) {
@@ -68,9 +68,9 @@ func TestMsgConn_Write(t *testing.T) {
 		require.NoError(t, err)
 
 		n, err := conn.Write([]byte("test"))
-		assert.Error(t, err)
-		assert.Equal(t, 0, n)
-		assert.Contains(t, err.Error(), "failed sending message")
+		require.Error(t, err)
+		require.Equal(t, 0, n)
+		require.Contains(t, err.Error(), "failed sending message")
 	})
 
 	t.Run("multiple writes", func(t *testing.T) {
@@ -90,12 +90,12 @@ func TestMsgConn_Write(t *testing.T) {
 		for _, msg := range messages {
 			n, err := conn.Write(msg)
 			require.NoError(t, err)
-			assert.Equal(t, len(msg), n)
+			require.Equal(t, len(msg), n)
 		}
 
-		assert.Equal(t, len(messages), len(session.sentMessages))
+		require.Len(t, session.sentMessages, len(messages))
 		for i, expected := range messages {
-			assert.Equal(t, expected, session.sentMessages[i])
+			require.Equal(t, expected, session.sentMessages[i])
 		}
 	})
 }
@@ -116,7 +116,7 @@ func TestMsgConn_Read(t *testing.T) {
 
 		data, err := conn.Read()
 		require.NoError(t, err)
-		assert.Equal(t, expectedData, data)
+		require.Equal(t, expectedData, data)
 	})
 
 	t.Run("read multiple messages", func(t *testing.T) {
@@ -143,7 +143,7 @@ func TestMsgConn_Read(t *testing.T) {
 		for _, expected := range messages {
 			data, err := msgConn.Read()
 			require.NoError(t, err)
-			assert.Equal(t, expected, data)
+			require.Equal(t, expected, data)
 		}
 	})
 
@@ -157,9 +157,9 @@ func TestMsgConn_Read(t *testing.T) {
 		close(ch)
 
 		data, err := conn.Read()
-		assert.Error(t, err)
-		assert.Nil(t, data)
-		assert.Contains(t, err.Error(), "channel closed")
+		require.Error(t, err)
+		require.Nil(t, data)
+		require.Contains(t, err.Error(), "channel closed")
 	})
 
 	t.Run("nil message", func(t *testing.T) {
@@ -172,9 +172,9 @@ func TestMsgConn_Read(t *testing.T) {
 		ch <- nil
 
 		data, err := conn.Read()
-		assert.Error(t, err)
-		assert.Nil(t, data)
-		assert.Contains(t, err.Error(), "received nil message")
+		require.Error(t, err)
+		require.Nil(t, data)
+		require.Contains(t, err.Error(), "received nil message")
 	})
 
 	t.Run("error status", func(t *testing.T) {
@@ -190,9 +190,9 @@ func TestMsgConn_Read(t *testing.T) {
 		}
 
 		data, err := conn.Read()
-		assert.Error(t, err)
-		assert.Nil(t, data)
-		assert.Equal(t, "error message", err.Error())
+		require.Error(t, err)
+		require.Nil(t, data)
+		require.Equal(t, "error message", err.Error())
 	})
 
 	t.Run("empty payload", func(t *testing.T) {
@@ -208,9 +208,9 @@ func TestMsgConn_Read(t *testing.T) {
 		}
 
 		data, err := conn.Read()
-		assert.Error(t, err)
-		assert.Nil(t, data)
-		assert.Contains(t, err.Error(), "failed receiving message")
+		require.Error(t, err)
+		require.Nil(t, data)
+		require.Contains(t, err.Error(), "failed receiving message")
 	})
 }
 
@@ -224,7 +224,7 @@ func TestMsgConn_Flush(t *testing.T) {
 		require.NoError(t, err)
 
 		err = conn.Flush()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 

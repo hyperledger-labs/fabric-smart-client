@@ -14,7 +14,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,8 +73,8 @@ func TestGetIdentity(t *testing.T) {
 	)
 	require.NoError(t, err)
 	resolvers := service.Resolvers()
-	assert.Len(t, resolvers, 1)
-	assert.Equal(t, 0, bindingStore.PutBindingsCallCount())
+	require.Len(t, resolvers, 1)
+	require.Equal(t, 0, bindingStore.PutBindingsCallCount())
 
 	_, err = service.AddResolver(
 		"alice",
@@ -86,8 +85,8 @@ func TestGetIdentity(t *testing.T) {
 	)
 	require.NoError(t, err)
 	resolvers = service.Resolvers()
-	assert.Len(t, resolvers, 1)
-	assert.Equal(t, 1, bindingStore.PutBindingsCallCount())
+	require.Len(t, resolvers, 1)
+	require.Equal(t, 1, bindingStore.PutBindingsCallCount())
 
 	err = service.AddPublicKeyExtractor(ext)
 	require.NoError(t, err)
@@ -104,19 +103,19 @@ func TestGetIdentity(t *testing.T) {
 	} {
 		resultID, err := service.GetIdentity(label, []byte{})
 		require.NoError(t, err)
-		assert.Equal(t, []byte("alice_id"), []byte(resultID))
+		require.Equal(t, []byte("alice_id"), []byte(resultID))
 
 		resultID, _, _, err = service.Resolve(context.Background(), view.Identity(label))
 		require.NoError(t, err)
-		assert.Equal(t, []byte("alice_id"), []byte(resultID))
+		require.Equal(t, []byte("alice_id"), []byte(resultID))
 
 		resolver, _, err := service.Resolver(context.Background(), view.Identity(label))
 		require.NoError(t, err)
-		assert.Equal(t, []byte("alice_id"), resolver.ID)
+		require.Equal(t, []byte("alice_id"), resolver.ID)
 
 		resolver, err = service.GetResolver(context.Background(), view.Identity(label))
 		require.NoError(t, err)
-		assert.Equal(t, []byte("alice_id"), resolver.ID)
+		require.Equal(t, []byte("alice_id"), resolver.ID)
 	}
 
 	// not found
@@ -129,21 +128,21 @@ func TestGetIdentity(t *testing.T) {
 		"alice_id2",
 	} {
 		resultID, err := service.GetIdentity(label, []byte("no"))
-		assert.Error(t, err)
-		assert.ErrorIs(t, err, endpoint.ErrNotFound)
-		assert.Equal(t, []byte(nil), []byte(resultID))
+		require.Error(t, err)
+		require.ErrorIs(t, err, endpoint.ErrNotFound)
+		require.Equal(t, []byte(nil), []byte(resultID))
 
 		_, _, _, err = service.Resolve(context.Background(), view.Identity(label))
 		require.Error(t, err)
-		assert.ErrorIs(t, err, endpoint.ErrNotFound)
+		require.ErrorIs(t, err, endpoint.ErrNotFound)
 
 		_, _, err = service.Resolver(context.Background(), view.Identity(label))
 		require.Error(t, err)
-		assert.ErrorIs(t, err, endpoint.ErrNotFound)
+		require.ErrorIs(t, err, endpoint.ErrNotFound)
 
 		_, err = service.GetResolver(context.Background(), view.Identity(label))
 		require.Error(t, err)
-		assert.ErrorIs(t, err, endpoint.ErrNotFound)
+		require.ErrorIs(t, err, endpoint.ErrNotFound)
 	}
 
 	for _, label := range []string{
@@ -157,10 +156,10 @@ func TestGetIdentity(t *testing.T) {
 	} {
 		ok, err := service.RemoveResolver(view.Identity(label))
 		require.NoError(t, err)
-		assert.True(t, ok)
+		require.True(t, ok)
 
 		resolvers = service.Resolvers()
-		assert.Len(t, resolvers, 0)
+		require.Empty(t, resolvers)
 
 		// add again
 		_, err = service.AddResolver(
@@ -176,6 +175,6 @@ func TestGetIdentity(t *testing.T) {
 	// remove something that does not exist
 	ok, err := service.RemoveResolver(view.Identity("bob"))
 	require.Error(t, err)
-	assert.ErrorIs(t, err, endpoint.ErrNotFound)
-	assert.False(t, ok)
+	require.ErrorIs(t, err, endpoint.ErrNotFound)
+	require.False(t, ok)
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,8 +43,8 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 			"mychannel",
 		)
 		require.NoError(t, err)
-		assert.NotNil(t, monitor)
-		assert.False(t, monitor.IsRunning())
+		require.NotNil(t, monitor)
+		require.False(t, monitor.IsRunning())
 	})
 
 	t.Run("nil config", func(t *testing.T) {
@@ -58,9 +57,9 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 			"testnet",
 			"mychannel",
 		)
-		assert.Error(t, err)
-		assert.Nil(t, monitor)
-		assert.Contains(t, err.Error(), "config cannot be nil")
+		require.Error(t, err)
+		require.Nil(t, monitor)
+		require.Contains(t, err.Error(), "config cannot be nil")
 	})
 
 	t.Run("nil query service", func(t *testing.T) {
@@ -73,9 +72,9 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 			"testnet",
 			"mychannel",
 		)
-		assert.Error(t, err)
-		assert.Nil(t, monitor)
-		assert.Contains(t, err.Error(), "queryService cannot be nil")
+		require.Error(t, err)
+		require.Nil(t, monitor)
+		require.Contains(t, err.Error(), "queryService cannot be nil")
 	})
 
 	t.Run("nil membership service", func(t *testing.T) {
@@ -88,9 +87,9 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 			"testnet",
 			"mychannel",
 		)
-		assert.Error(t, err)
-		assert.Nil(t, monitor)
-		assert.Contains(t, err.Error(), "membershipService cannot be nil")
+		require.Error(t, err)
+		require.Nil(t, monitor)
+		require.Contains(t, err.Error(), "membershipService cannot be nil")
 	})
 
 	t.Run("nil ordering service", func(t *testing.T) {
@@ -103,9 +102,9 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 			"testnet",
 			"mychannel",
 		)
-		assert.Error(t, err)
-		assert.Nil(t, monitor)
-		assert.Contains(t, err.Error(), "orderingService cannot be nil")
+		require.Error(t, err)
+		require.Nil(t, monitor)
+		require.Contains(t, err.Error(), "orderingService cannot be nil")
 	})
 
 	t.Run("nil config service", func(t *testing.T) {
@@ -118,9 +117,9 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 			"testnet",
 			"mychannel",
 		)
-		assert.Error(t, err)
-		assert.Nil(t, monitor)
-		assert.Contains(t, err.Error(), "configService cannot be nil")
+		require.Error(t, err)
+		require.Nil(t, monitor)
+		require.Contains(t, err.Error(), "configService cannot be nil")
 	})
 
 	t.Run("empty channel name", func(t *testing.T) {
@@ -133,9 +132,9 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 			"testnet",
 			"",
 		)
-		assert.Error(t, err)
-		assert.Nil(t, monitor)
-		assert.Contains(t, err.Error(), "channel name cannot be empty")
+		require.Error(t, err)
+		require.Nil(t, monitor)
+		require.Contains(t, err.Error(), "channel name cannot be empty")
 	})
 }
 
@@ -165,12 +164,12 @@ func TestServiceLifecycle(t *testing.T) {
 		require.NoError(t, err)
 
 		// Initially not running
-		assert.False(t, monitor.IsRunning())
+		require.False(t, monitor.IsRunning())
 
 		// Start monitoring
 		err = monitor.Start(context.Background())
 		require.NoError(t, err)
-		assert.True(t, monitor.IsRunning())
+		require.True(t, monitor.IsRunning())
 
 		// Wait a bit for initial check
 		time.Sleep(50 * time.Millisecond)
@@ -178,7 +177,7 @@ func TestServiceLifecycle(t *testing.T) {
 		// Stop monitoring
 		err = monitor.Stop()
 		require.NoError(t, err)
-		assert.False(t, monitor.IsRunning())
+		require.False(t, monitor.IsRunning())
 	})
 
 	t.Run("start already running", func(t *testing.T) {
@@ -196,8 +195,8 @@ func TestServiceLifecycle(t *testing.T) {
 
 		// Try to start again
 		err = monitor.Start(context.Background())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "already running")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "already running")
 	})
 
 	t.Run("stop not running", func(t *testing.T) {
@@ -208,8 +207,8 @@ func TestServiceLifecycle(t *testing.T) {
 		require.NoError(t, err)
 
 		err = monitor.Stop()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "not running")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not running")
 	})
 
 	t.Run("start with nil context", func(t *testing.T) {
@@ -221,7 +220,7 @@ func TestServiceLifecycle(t *testing.T) {
 
 		err = monitor.Start(context.TODO())
 		require.NoError(t, err)
-		assert.True(t, monitor.IsRunning())
+		require.True(t, monitor.IsRunning())
 
 		err = monitor.Stop()
 		require.NoError(t, err)
@@ -289,15 +288,15 @@ func TestConfigurationUpdate(t *testing.T) {
 
 		// Verify services were called at least the expected number of times
 		// The monitor polls continuously, so we use GreaterOrEqual
-		assert.GreaterOrEqual(t, queryService.GetConfigTransactionCallCount(), 2)
+		require.GreaterOrEqual(t, queryService.GetConfigTransactionCallCount(), 2)
 		// Both version 1 and version 2 should trigger updates
-		assert.Equal(t, 2, membershipService.UpdateCallCount())
-		assert.Equal(t, 2, membershipService.OrdererConfigCallCount())
-		assert.Equal(t, 2, orderingService.ConfigureCallCount())
+		require.Equal(t, 2, membershipService.UpdateCallCount())
+		require.Equal(t, 2, membershipService.OrdererConfigCallCount())
+		require.Equal(t, 2, orderingService.ConfigureCallCount())
 
 		// Verify correct parameters for the first call
 		_, capturedOrderers := orderingService.ConfigureArgsForCall(0)
-		assert.Equal(t, orderers, capturedOrderers)
+		require.Equal(t, orderers, capturedOrderers)
 	})
 
 	t.Run("no update on same version", func(t *testing.T) {
@@ -330,10 +329,10 @@ func TestConfigurationUpdate(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify query was called and initial version triggered one update
-		assert.Greater(t, queryService.GetConfigTransactionCallCount(), 0)
+		require.Positive(t, queryService.GetConfigTransactionCallCount())
 		// The first time we see version 1, it's treated as new (0 -> 1), so one update
-		assert.Equal(t, 1, membershipService.UpdateCallCount())
-		assert.Equal(t, 1, orderingService.ConfigureCallCount())
+		require.Equal(t, 1, membershipService.UpdateCallCount())
+		require.Equal(t, 1, orderingService.ConfigureCallCount())
 	})
 }
 
@@ -380,7 +379,7 @@ func TestErrorHandling(t *testing.T) {
 		require.NoError(t, err)
 
 		// Should have retried at least 3 times (2 failures + 1 success)
-		assert.GreaterOrEqual(t, queryService.GetConfigTransactionCallCount(), 3)
+		require.GreaterOrEqual(t, queryService.GetConfigTransactionCallCount(), 3)
 	})
 
 	t.Run("membership update error", func(t *testing.T) {
@@ -413,7 +412,7 @@ func TestErrorHandling(t *testing.T) {
 		require.NoError(t, err)
 
 		// Should have tried to update membership multiple times (with retries)
-		assert.Greater(t, membershipService.UpdateCallCount(), 1)
+		require.Greater(t, membershipService.UpdateCallCount(), 1)
 	})
 
 	t.Run("nil config transaction info", func(t *testing.T) {
@@ -439,7 +438,7 @@ func TestErrorHandling(t *testing.T) {
 		require.NoError(t, err)
 
 		// Should not have called update services
-		assert.Equal(t, 0, membershipService.UpdateCallCount())
+		require.Equal(t, 0, membershipService.UpdateCallCount())
 	})
 }
 
@@ -471,7 +470,7 @@ func TestContextCancellation(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		err = monitor.Start(ctx)
 		require.NoError(t, err)
-		assert.True(t, monitor.IsRunning())
+		require.True(t, monitor.IsRunning())
 
 		// Cancel context
 		cancel()
@@ -480,11 +479,11 @@ func TestContextCancellation(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Monitor should still report running until Stop is called
-		assert.True(t, monitor.IsRunning())
+		require.True(t, monitor.IsRunning())
 
 		// Stop should succeed
 		err = monitor.Stop()
 		require.NoError(t, err)
-		assert.False(t, monitor.IsRunning())
+		require.False(t, monitor.IsRunning())
 	})
 }
