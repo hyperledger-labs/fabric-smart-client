@@ -58,6 +58,7 @@ var DefaultWorkloads = []Workload{
 // CreateClients creates numConn ViewClients using the given client config path.
 // It returns the clients and a cleanup function that closes all connections.
 func CreateClients(tb testing.TB, numConn int, clientConfPath string) ([]*benchmark.ViewClient, func()) {
+	tb.Helper()
 	ccs := make([]*benchmark.ViewClient, numConn)
 	closers := make([]func(), numConn)
 
@@ -78,6 +79,7 @@ func CreateClients(tb testing.TB, numConn int, clientConfPath string) ([]*benchm
 // round-robin caller selection. This is the core gRPC benchmark loop used by
 // both local and remote node benchmarks.
 func RunGRPCBenchmark(b *testing.B, ccs []*benchmark.ViewClient, makeCaller func(cli *benchmark.ViewClient) func(ctx context.Context) error) {
+	b.Helper()
 	callers := make([]func(ctx context.Context) error, len(ccs))
 	for i, cc := range ccs {
 		callers[i] = makeCaller(cc)
@@ -105,6 +107,7 @@ func RunGRPCBenchmark(b *testing.B, ccs []*benchmark.ViewClient, makeCaller func
 // for the given workload name and input. The signed command is created once
 // and reused across all calls for efficiency.
 func MakeGRPCCaller(tb testing.TB, cli *benchmark.ViewClient, fid string, input []byte) func(ctx context.Context) error {
+	tb.Helper()
 	sc, err := cli.CreateSignedCommand(buildCommand(fid, input))
 	require.NoError(tb, err)
 
@@ -144,6 +147,7 @@ func executeSignedCommand(cli *benchmark.ViewClient, sc *protos2.SignedCommand, 
 //   - f=0: reuses a single view instance per goroutine (measures pure view performance)
 //   - f=1: creates a new view per invocation (measures view + factory overhead)
 func RunAPIBenchmark(b *testing.B, vm ViewManager, wl Workload) {
+	b.Helper()
 	var in []byte
 	var err error
 	if wl.Params != nil {
@@ -193,6 +197,7 @@ func RunAPIBenchmark(b *testing.B, vm ViewManager, wl Workload) {
 // across multiple connection counts. It handles client creation, warmup,
 // and cleanup.
 func RunAPIGRPCBenchmark(b *testing.B, wl Workload, clientConfPath string, connCounts []int) {
+	b.Helper()
 	var in []byte
 	var err error
 	if wl.Params != nil {

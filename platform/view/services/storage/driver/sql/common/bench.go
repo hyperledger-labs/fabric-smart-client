@@ -28,6 +28,7 @@ var (
 )
 
 func ReadExisting(b *testing.B, db driver.KeyValueStore) {
+	b.Helper()
 	require.NoError(b, db.BeginUpdate())
 	require.NoError(b, db.SetState(context.Background(), namespace, key, payload))
 	require.NoError(b, db.Commit())
@@ -45,6 +46,7 @@ func ReadExisting(b *testing.B, db driver.KeyValueStore) {
 }
 
 func ReadNonExisting(b *testing.B, db driver.KeyValueStore) {
+	b.Helper()
 	var v []byte
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -58,6 +60,7 @@ func ReadNonExisting(b *testing.B, db driver.KeyValueStore) {
 }
 
 func WriteOne(b *testing.B, db driver.KeyValueStore) {
+	b.Helper()
 	var err error
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -74,6 +77,7 @@ func WriteOne(b *testing.B, db driver.KeyValueStore) {
 }
 
 func WriteMany(b *testing.B, db driver.KeyValueStore) {
+	b.Helper()
 	var err error
 	var k string
 	b.Logf("before: %+v", db.Stats())
@@ -100,6 +104,7 @@ func WriteMany(b *testing.B, db driver.KeyValueStore) {
 }
 
 func WriteParallel(b *testing.B, db driver.KeyValueStore) {
+	b.Helper()
 	var err error
 	var k string
 	var i int

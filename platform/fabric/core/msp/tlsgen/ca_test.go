@@ -24,6 +24,7 @@ import (
 )
 
 func createTLSService(t *testing.T, ca CA, host string) *grpc.Server {
+	t.Helper()
 	keyPair, err := ca.NewServerCertKeyPair(host)
 	require.NoError(t, err)
 	cert, err := tls.X509KeyPair(keyPair.Cert, keyPair.Key)

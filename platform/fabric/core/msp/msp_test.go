@@ -1418,6 +1418,7 @@ func TestMain(m *testing.M) {
 }
 
 func getIdentity(t *testing.T, path string) Identity {
+	t.Helper()
 	mspDir := "testdata/sampleconfig"
 	pems, err := getPemMaterialFromDir(filepath.Join(mspDir, path))
 	require.NoError(t, err)
@@ -1429,6 +1430,7 @@ func getIdentity(t *testing.T, path string) Identity {
 }
 
 func getLocalMSPWithVersionAndError(t *testing.T, dir string, version MSPVersion) (MSP, error) {
+	t.Helper()
 	conf, err := GetLocalMspConfig(dir, nil, "SampleOrg")
 	require.NoError(t, err)
 
@@ -1443,6 +1445,7 @@ func getLocalMSPWithVersionAndError(t *testing.T, dir string, version MSPVersion
 }
 
 func getLocalMSP(t *testing.T, dir string) MSP {
+	t.Helper()
 	conf, err := GetLocalMspConfig(dir, nil, "SampleOrg")
 	require.NoError(t, err)
 
@@ -1460,6 +1463,7 @@ func getLocalMSP(t *testing.T, dir string) MSP {
 }
 
 func getLocalMSPWithVersion(t *testing.T, dir string, version MSPVersion) MSP {
+	t.Helper()
 	conf, err := GetLocalMspConfig(dir, nil, "SampleOrg")
 	require.NoError(t, err)
 

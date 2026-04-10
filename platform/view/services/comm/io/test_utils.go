@@ -24,6 +24,7 @@ type networkNode interface {
 }
 
 func SessionTwoParties(t *testing.T, network ...networkNode) {
+	t.Helper()
 	ctx := t.Context()
 	for _, node := range network {
 		node.Start(ctx)

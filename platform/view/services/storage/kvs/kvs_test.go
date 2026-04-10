@@ -40,6 +40,7 @@ type stuff struct {
 }
 
 func testRound(t *testing.T, drv driver2.Driver) {
+	t.Helper()
 	kvstore, err := kvs2.New(utils.MustGet(drv.NewKVS("")), "_default", kvs2.DefaultCacheSize)
 	require.NoError(t, err)
 	defer kvstore.Stop()
@@ -128,6 +129,7 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 }
 
 func testParallelWrites(t *testing.T, drv driver2.Driver) {
+	t.Helper()
 	kvstore, err := kvs2.New(utils.MustGet(drv.NewKVS("")), "_default", kvs2.DefaultCacheSize)
 	require.NoError(t, err)
 	defer kvstore.Stop()

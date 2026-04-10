@@ -86,6 +86,7 @@ func BenchmarkUUID(b *testing.B) {
 }
 
 func report(b *testing.B) {
+	b.Helper()
 	b.ReportAllocs()
 }
 

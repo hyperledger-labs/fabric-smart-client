@@ -27,6 +27,7 @@ type HostNode struct {
 }
 
 func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
+	t.Helper()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -75,6 +76,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 }
 
 func SessionsTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
+	t.Helper()
 	ctx := t.Context()
 	bootstrapNode.Start(ctx)
 	node.Start(ctx)
@@ -129,6 +131,7 @@ func SessionsTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 }
 
 func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
+	t.Helper()
 	ctx := t.Context()
 	bootstrapNode.Start(ctx)
 	node.Start(ctx)
@@ -172,6 +175,7 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNo
 }
 
 func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
+	t.Helper()
 	numSessions := 100
 	// numWorkers := 20
 	// Set numWorkers to 20 to test true concurrency

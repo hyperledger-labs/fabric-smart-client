@@ -20,6 +20,7 @@ import (
 
 // SessionsNodesTestRound tests multiple parallel sessions between an initiator node and multiple other nodes
 func SessionsNodesTestRound(t *testing.T, initiator *HostNode, nodes []*HostNode, numSessionsPerNode int) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
 
@@ -50,6 +51,7 @@ func SessionsNodesTestRound(t *testing.T, initiator *HostNode, nodes []*HostNode
 }
 
 func runInitiator(t *testing.T, ctx context.Context, bootstrapNode *HostNode, targetNode *HostNode, numSessionsPerNode int) {
+	t.Helper()
 	for i := 0; i < numSessionsPerNode; i++ {
 		select {
 		case <-ctx.Done():
@@ -108,6 +110,7 @@ func runInitiator(t *testing.T, ctx context.Context, bootstrapNode *HostNode, ta
 }
 
 func RunResponder(t *testing.T, ctx context.Context, node *HostNode) {
+	t.Helper()
 	masterSession, err := node.MasterSession()
 	require.NoError(t, err)
 	require.NotNil(t, masterSession)
@@ -137,6 +140,7 @@ func RunResponder(t *testing.T, ctx context.Context, node *HostNode) {
 }
 
 func runResponder(t *testing.T, ctx context.Context, node *HostNode, msg *view.Message) {
+	t.Helper()
 	messagesToReceive := messages(msg.SessionID)
 	if string(messagesToReceive[0]) != string(msg.Payload) {
 		t.Errorf("Responder [%s]: expected first message %s, got %s", msg.SessionID, string(messagesToReceive[0]), string(msg.Payload))
