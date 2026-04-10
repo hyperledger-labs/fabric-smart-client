@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package endpoint_test
 
 import (
+	"net"
 	"sync"
 	"testing"
 
@@ -182,6 +183,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv4 with port",
 			endpoint: "192.168.1.1:8080",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv4 address should be returned as-is")
 			},
 		},
@@ -189,6 +191,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv4 loopback with port",
 			endpoint: "127.0.0.1:9000",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv4 loopback should be returned as-is")
 			},
 		},
@@ -196,6 +199,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv4 with high port",
 			endpoint: "10.0.0.1:65535",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv4 with high port should be returned as-is")
 			},
 		},
@@ -205,6 +209,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv6 loopback with port",
 			endpoint: "[::1]:8080",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv6 loopback should be returned as-is")
 			},
 		},
@@ -213,6 +218,7 @@ func TestLookupIP(t *testing.T) {
 			endpoint: "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:443",
 			checkFunc: func(t *testing.T, input, output string) {
 				// Go normalizes IPv6 addresses, so the full form gets compressed
+				t.Helper()
 				assert.Equal(t, "[2001:db8:85a3::8a2e:370:7334]:443", output,
 					"IPv6 full address should be normalized by Go")
 			},
@@ -221,6 +227,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv6 compressed address with port",
 			endpoint: "[2001:db8::1]:8080",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv6 compressed address should be returned as-is")
 			},
 		},
@@ -228,6 +235,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv6 all zeros compressed with port",
 			endpoint: "[::]:8080",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv6 all zeros should be returned as-is")
 			},
 		},
@@ -235,6 +243,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv6 link-local with port",
 			endpoint: "[fe80::1]:8080",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv6 link-local should be returned as-is")
 			},
 		},
@@ -245,6 +254,7 @@ func TestLookupIP(t *testing.T) {
 			endpoint: "localhost:8080",
 			checkFunc: func(t *testing.T, input, output string) {
 				// localhost should resolve to either 127.0.0.1:8080 or [::1]:8080
+				t.Helper()
 				assert.Contains(t, []string{"127.0.0.1:8080", "[::1]:8080"}, output,
 					"localhost should resolve to loopback address")
 			},
@@ -255,6 +265,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "no port",
 			endpoint: "192.168.1.1",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "address without port should be returned as-is")
 			},
 		},
@@ -262,6 +273,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv6 without brackets",
 			endpoint: "::1:8080",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "malformed IPv6 should be returned as-is")
 			},
 		},
@@ -269,6 +281,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "empty string",
 			endpoint: "",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "empty string should be returned as-is")
 			},
 		},
@@ -276,6 +289,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "only port",
 			endpoint: ":8080",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "only port should be returned as-is")
 			},
 		},
@@ -283,6 +297,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "invalid port",
 			endpoint: "192.168.1.1:invalid",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "invalid port should be returned as-is")
 			},
 		},
@@ -290,6 +305,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "multiple colons without brackets",
 			endpoint: "2001:db8::1:8080",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv6 without brackets should be returned as-is")
 			},
 		},
@@ -297,6 +313,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "hostname only",
 			endpoint: "example.com",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "hostname without port should be returned as-is")
 			},
 		},
@@ -306,6 +323,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv4 with port 0",
 			endpoint: "192.168.1.1:0",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv4 with port 0 should be returned as-is")
 			},
 		},
@@ -313,6 +331,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv6 with port 0",
 			endpoint: "[::1]:0",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv6 with port 0 should be returned as-is")
 			},
 		},
@@ -321,6 +340,7 @@ func TestLookupIP(t *testing.T) {
 			endpoint: "[::ffff:192.0.2.1]:8080",
 			checkFunc: func(t *testing.T, input, output string) {
 				// Go converts IPv4-mapped IPv6 addresses to IPv4 format
+				t.Helper()
 				assert.Equal(t, "192.0.2.1:8080", output,
 					"IPv4-mapped IPv6 should be converted to IPv4 by Go")
 			},
@@ -330,6 +350,7 @@ func TestLookupIP(t *testing.T) {
 			endpoint: "[fe80::1%eth0]:8080",
 			checkFunc: func(t *testing.T, input, output string) {
 				// Zone IDs might not be preserved, so just check it doesn't panic
+				t.Helper()
 				assert.NotEmpty(t, output, "IPv6 with zone ID should return something")
 			},
 		},
@@ -339,6 +360,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "unresolvable hostname",
 			endpoint: "this-hostname-does-not-exist-12345.invalid:8080",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "unresolvable hostname should be returned as-is")
 			},
 		},
@@ -348,6 +370,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv4 broadcast",
 			endpoint: "255.255.255.255:8080",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv4 broadcast should be returned as-is")
 			},
 		},
@@ -355,6 +378,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv4 any address",
 			endpoint: "0.0.0.0:8080",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv4 any address should be returned as-is")
 			},
 		},
@@ -362,6 +386,7 @@ func TestLookupIP(t *testing.T) {
 			name:     "IPv6 multicast",
 			endpoint: "[ff02::1]:8080",
 			checkFunc: func(t *testing.T, input, output string) {
+				t.Helper()
 				assert.Equal(t, input, output, "IPv6 multicast should be returned as-is")
 			},
 		},
@@ -393,6 +418,7 @@ func TestLookupIP_HostnameResolution(t *testing.T) {
 		}
 	}
 
+	t.Helper()
 	assert.True(t, found, "localhost should resolve to a loopback address, got: %s", result)
 }
 
@@ -412,48 +438,13 @@ func TestLookupIP_PreservesPort(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
 			result := endpoint.LookupIP(tt.endpoint)
 			// Extract port from result
-			_, port, err := splitHostPort(result)
+			_, port, err := net.SplitHostPort(result)
 			if err == nil {
 				assert.Equal(t, tt.wantPort, port, "port should be preserved")
 			}
 		})
 	}
-}
-
-// Helper function for tests
-func splitHostPort(endpoint string) (host, port string, err error) {
-	// Simple implementation for testing
-	if len(endpoint) == 0 {
-		return "", "", nil
-	}
-
-	// Try to find the last colon
-	lastColon := -1
-	inBrackets := false
-
-	for i, c := range endpoint {
-		if c == '[' {
-			inBrackets = true
-		} else if c == ']' {
-			inBrackets = false
-		} else if c == ':' && !inBrackets {
-			lastColon = i
-		}
-	}
-
-	if lastColon == -1 {
-		return endpoint, "", nil
-	}
-
-	host = endpoint[:lastColon]
-	port = endpoint[lastColon+1:]
-
-	// Remove brackets from IPv6
-	if len(host) > 0 && host[0] == '[' && host[len(host)-1] == ']' {
-		host = host[1 : len(host)-1]
-	}
-
-	return host, port, nil
 }

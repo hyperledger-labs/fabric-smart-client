@@ -23,6 +23,7 @@ import (
 )
 
 func TestDefaultPublicKeyIDSynthesizer_PublicKeyID(t *testing.T) {
+	t.Parallel()
 	synthesizer := endpoint.DefaultPublicKeyIDSynthesizer{}
 
 	t.Run("RSA public key", func(t *testing.T) {

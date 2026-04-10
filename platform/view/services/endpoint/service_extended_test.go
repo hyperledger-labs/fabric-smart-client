@@ -25,6 +25,7 @@ import (
 )
 
 func TestBind(t *testing.T) {
+	t.Parallel()
 	t.Run("bind single ephemeral identity", func(t *testing.T) {
 		bindingStore := &mock.BindingStore{}
 		bindingStore.PutBindingsReturns(nil)
@@ -135,6 +136,7 @@ func TestBind(t *testing.T) {
 }
 
 func TestIsBoundTo(t *testing.T) {
+	t.Parallel()
 	t.Run("identities are bound", func(t *testing.T) {
 		bindingStore := &mock.BindingStore{}
 		bindingStore.HaveSameBindingReturns(true, nil)
@@ -185,6 +187,7 @@ func TestIsBoundTo(t *testing.T) {
 }
 
 func TestUpdateResolver(t *testing.T) {
+	t.Parallel()
 	t.Run("update existing resolver addresses", func(t *testing.T) {
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
@@ -324,6 +327,8 @@ func (m *mockPublicKeyIDSynthesizer) PublicKeyID(key any) ([]byte, error) {
 }
 
 func TestExtractPKI(t *testing.T) {
+	t.Parallel()
+
 	t.Run("extract with single extractor", func(t *testing.T) {
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
@@ -423,6 +428,7 @@ func (m *mockPublicKeyExtractor) ExtractPublicKey(id view.Identity) (any, error)
 }
 
 func TestResolveIdentities(t *testing.T) {
+	t.Parallel()
 	t.Run("resolve single endpoint", func(t *testing.T) {
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
@@ -489,6 +495,7 @@ func TestResolveIdentities(t *testing.T) {
 }
 
 func TestResolverMethods(t *testing.T) {
+	t.Parallel()
 	t.Run("GetName", func(t *testing.T) {
 		resolver := &endpoint.Resolver{
 			ResolverInfo: endpoint.ResolverInfo{
@@ -514,6 +521,7 @@ func TestResolverMethods(t *testing.T) {
 }
 
 func TestResolveWithBinding(t *testing.T) {
+	t.Parallel()
 	t.Run("resolve ephemeral identity through binding", func(t *testing.T) {
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
@@ -559,6 +567,7 @@ func TestResolveWithBinding(t *testing.T) {
 }
 
 func TestConcurrency(t *testing.T) {
+	t.Parallel()
 	t.Run("concurrent resolver additions", func(t *testing.T) {
 		bindingStore := &mock.BindingStore{}
 		bindingStore.PutBindingsReturns(nil)
@@ -674,6 +683,7 @@ func TestConcurrency(t *testing.T) {
 }
 
 func TestEdgeCases(t *testing.T) {
+	t.Parallel()
 	t.Run("empty identity", func(t *testing.T) {
 		bindingStore := &mock.BindingStore{}
 		bindingStore.GetLongTermReturns(nil, nil)
