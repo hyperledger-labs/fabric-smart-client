@@ -410,16 +410,7 @@ func TestLookupIP_HostnameResolution(t *testing.T) {
 		"[::1]:8080",     // IPv6 loopback
 	}
 
-	found := false
-	for _, valid := range validResults {
-		if result == valid {
-			found = true
-			break
-		}
-	}
-
-	t.Helper()
-	assert.True(t, found, "localhost should resolve to a loopback address, got: %s", result)
+	require.Containsf(t, validResults, result, "localhost should resolve to a loopback address, got: %s", result)
 }
 
 func TestLookupIP_PreservesPort(t *testing.T) {
