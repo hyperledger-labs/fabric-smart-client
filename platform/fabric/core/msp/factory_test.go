@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewInvalidOpts(t *testing.T) {
+func TestNewInvalidOpts(t *testing.T) { //nolint:paralleltest
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -35,7 +35,7 @@ func TestNewInvalidOpts(t *testing.T) {
 	require.Nil(t, i)
 }
 
-func TestNew(t *testing.T) {
+func TestNew(t *testing.T) { //nolint:paralleltest
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 

@@ -66,7 +66,7 @@ func (c *mockConn) WrittenValues() <-chan []byte {
 	return c.written
 }
 
-func TestWriter(t *testing.T) {
+func TestWriter(t *testing.T) { //nolint:paralleltest
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
@@ -104,7 +104,7 @@ func TestWriter(t *testing.T) {
 	}, 5*time.Second, time.Second)
 }
 
-func TestReader(t *testing.T) {
+func TestReader(t *testing.T) { //nolint:paralleltest
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 

@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestEndToEnd(t *testing.T) {
+func TestEndToEnd(t *testing.T) { //nolint:paralleltest
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "deployment Suite")
 }

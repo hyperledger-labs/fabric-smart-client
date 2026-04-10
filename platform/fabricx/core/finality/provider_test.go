@@ -73,6 +73,7 @@ func setupMockNotificationManager(t *testing.T, streamBehavior func(context.Cont
 }
 
 func TestProvider_Initialize(t *testing.T) {
+	t.Parallel()
 	t.Run("Sets_BaseContext_On_First_Call", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
@@ -122,6 +123,7 @@ func TestProvider_Initialize(t *testing.T) {
 }
 
 func TestProvider_NewManager(t *testing.T) {
+	t.Parallel()
 	t.Run("Panics_If_Not_Initialized", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
@@ -389,6 +391,7 @@ func TestProvider_NewManager(t *testing.T) {
 }
 
 func TestGetListenerManager(t *testing.T) {
+	t.Parallel()
 	t.Run("Returns_Manager_From_Service_Provider", func(t *testing.T) {
 		t.Parallel()
 

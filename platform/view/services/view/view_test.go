@@ -19,6 +19,7 @@ import (
 )
 
 func TestRunViewNow(t *testing.T) {
+	t.Parallel()
 	parent := &mock.ParentContext{}
 	parent.ContextReturns(context.Background())
 	parent.StartSpanFromStub = func(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
@@ -34,6 +35,7 @@ func TestRunViewNow(t *testing.T) {
 }
 
 func TestRunViewNow_CallOption(t *testing.T) {
+	t.Parallel()
 	parent := &mock.ParentContext{}
 	parent.ContextReturns(context.Background())
 	parent.StartSpanFromStub = func(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
@@ -50,6 +52,7 @@ func TestRunViewNow_CallOption(t *testing.T) {
 }
 
 func TestRunViewNow_AsInitiator_NoSession(t *testing.T) {
+	t.Parallel()
 	parent := &mock.ParentContext{}
 	parent.ContextReturns(context.Background())
 	parent.StartSpanFromStub = func(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
@@ -65,6 +68,7 @@ func TestRunViewNow_AsInitiator_NoSession(t *testing.T) {
 }
 
 func TestRunViewNow_AsInitiator_PutSessionError(t *testing.T) {
+	t.Parallel()
 	parent := &mock.ParentContext{}
 	parent.ContextReturns(context.Background())
 	parent.StartSpanFromStub = func(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
@@ -83,6 +87,7 @@ func TestRunViewNow_AsInitiator_PutSessionError(t *testing.T) {
 }
 
 func TestRunViewNow_PanicInView_CallsCleanupAndReturnsError(t *testing.T) {
+	t.Parallel()
 	parent := &mock.ParentContext{}
 	parent.ContextReturns(context.Background())
 	parent.StartSpanFromStub = func(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
@@ -101,6 +106,7 @@ func TestRunViewNow_PanicInView_CallsCleanupAndReturnsError(t *testing.T) {
 }
 
 func TestRunViewNow_NoViewAndNoCall(t *testing.T) {
+	t.Parallel()
 	parent := &mock.ParentContext{}
 	parent.ContextReturns(context.Background())
 	parent.StartSpanFromStub = func(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
@@ -113,6 +119,7 @@ func TestRunViewNow_NoViewAndNoCall(t *testing.T) {
 }
 
 func TestRunCall(t *testing.T) {
+	t.Parallel()
 	ctx := &mock.Context{}
 	call := func(viewCtx view2.Context) (any, error) {
 		return "res", nil
@@ -125,6 +132,7 @@ func TestRunCall(t *testing.T) {
 }
 
 func TestAsResponder(t *testing.T) {
+	t.Parallel()
 	ctx := &mock.Context{}
 	session := &mock.Session{}
 	call := func(viewCtx view2.Context) (any, error) {
@@ -138,6 +146,7 @@ func TestAsResponder(t *testing.T) {
 }
 
 func TestAsInitiatorCall(t *testing.T) {
+	t.Parallel()
 	ctx := &mock.Context{}
 	v := &mock.View{}
 	call := func(viewCtx view2.Context) (any, error) {
@@ -151,6 +160,7 @@ func TestAsInitiatorCall(t *testing.T) {
 }
 
 func TestAsInitiatorView(t *testing.T) {
+	t.Parallel()
 	ctx := &mock.Context{}
 	v := &mock.View{}
 	ctx.RunViewReturns("res", nil)
@@ -161,6 +171,7 @@ func TestAsInitiatorView(t *testing.T) {
 }
 
 func TestRunView(t *testing.T) {
+	t.Parallel()
 	ctx := &mock.Context{}
 	v := &mock.View{}
 

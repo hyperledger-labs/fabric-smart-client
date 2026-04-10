@@ -20,6 +20,7 @@ import (
 )
 
 func TestInfoIdemix(t *testing.T) {
+	t.Parallel()
 	driver := mem.NewDriver()
 	persistence, err := driver.NewKVS("")
 	require.NoError(t, err)
@@ -47,6 +48,7 @@ func TestInfoIdemix(t *testing.T) {
 }
 
 func TestInfoX509(t *testing.T) {
+	t.Parallel()
 	p, err := x509.NewProvider("./testdata/x509", "", "apple", nil)
 	require.NoError(t, err)
 	id, _, err := p.Identity(nil)

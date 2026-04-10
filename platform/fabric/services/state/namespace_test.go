@@ -40,6 +40,7 @@ type Asset struct {
 }
 
 func TestMarshalTagsPointerToStruct(t *testing.T) {
+	t.Parallel()
 	n := &Namespace{}
 	h := &House{
 		Address:   "Universe Drive",
@@ -59,6 +60,7 @@ func TestMarshalTagsPointerToStruct(t *testing.T) {
 }
 
 func TestMarshalTagsPointerToStruct2(t *testing.T) {
+	t.Parallel()
 	n := &Namespace{}
 	h := &Asset{
 		ObjectType:        "otype",

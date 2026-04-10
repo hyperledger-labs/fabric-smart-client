@@ -20,6 +20,7 @@ import (
 )
 
 func TestLoad(t *testing.T) {
+	t.Parallel()
 	v := koanf.New(".")
 	require.NoError(t, v.Load(koanffile.Provider("./testdata/core.yaml"), configservice.LowercaseParser{Parser: koanfyaml.Parser()}))
 

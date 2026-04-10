@@ -15,6 +15,7 @@ import (
 )
 
 func TestVarintReader_OOMProtection(t *testing.T) {
+	t.Parallel()
 	// Create a buffer with a huge length prefix (e.g., 1GB)
 	hugeLength := uint64(1024 * 1024 * 1024)
 	buf := make([]byte, 10)
@@ -29,6 +30,7 @@ func TestVarintReader_OOMProtection(t *testing.T) {
 }
 
 func TestVarintReader_NormalMessage(t *testing.T) {
+	t.Parallel()
 	msg := []byte("hello world")
 	buf := make([]byte, 20)
 	n := binary.PutUvarint(buf, uint64(len(msg)))

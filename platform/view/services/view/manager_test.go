@@ -26,6 +26,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestManager(t *testing.T) {
+	t.Parallel()
 	sp := &servicesmock.ServiceProvider{}
 	sf := &mock.SessionFactory{}
 	es := &mock.EndpointService{}
@@ -120,6 +121,7 @@ func TestManager(t *testing.T) {
 }
 
 func TestManagerRegistry(t *testing.T) {
+	t.Parallel()
 	sp := &servicesmock.ServiceProvider{}
 	sf := &mock.SessionFactory{}
 	es := &mock.EndpointService{}
@@ -151,6 +153,7 @@ func TestManagerRegistry(t *testing.T) {
 }
 
 func TestNewSessionContext(t *testing.T) {
+	t.Parallel()
 	sp := &servicesmock.ServiceProvider{}
 	sf := &mock.SessionFactory{}
 	es := &mock.EndpointService{}
@@ -190,6 +193,7 @@ func TestNewSessionContext(t *testing.T) {
 }
 
 func TestManagerOther(t *testing.T) {
+	t.Parallel()
 	sp := &servicesmock.ServiceProvider{}
 	sf := &mock.SessionFactory{}
 	es := &mock.EndpointService{}

@@ -15,7 +15,9 @@ import (
 )
 
 func TestReader_ErrorHandling(t *testing.T) {
+	t.Parallel()
 	t.Run("error from message reader", func(t *testing.T) {
+		t.Parallel()
 		expectedErr := errors.New("read error")
 		mrr := &errorMsgReader{err: expectedErr}
 		reader := NewReader(mrr)
@@ -28,6 +30,7 @@ func TestReader_ErrorHandling(t *testing.T) {
 	})
 
 	t.Run("nil message from reader", func(t *testing.T) {
+		t.Parallel()
 		mrr := &nilMsgReader{}
 		reader := NewReader(mrr)
 
@@ -38,6 +41,7 @@ func TestReader_ErrorHandling(t *testing.T) {
 	})
 
 	t.Run("empty message from reader", func(t *testing.T) {
+		t.Parallel()
 		mrr := newMockMessageReader([][]byte{{}})
 		reader := NewReader(mrr)
 
@@ -49,7 +53,9 @@ func TestReader_ErrorHandling(t *testing.T) {
 }
 
 func TestReader_BufferManagement(t *testing.T) {
+	t.Parallel()
 	t.Run("message larger than buffer", func(t *testing.T) {
+		t.Parallel()
 		largeMsg := []byte("this is a very long message that exceeds buffer size")
 		mrr := newMockMessageReader([][]byte{largeMsg})
 		reader := NewReader(mrr)
@@ -80,6 +86,7 @@ func TestReader_BufferManagement(t *testing.T) {
 	})
 
 	t.Run("buffer larger than message", func(t *testing.T) {
+		t.Parallel()
 		smallMsg := []byte("small")
 		mrr := newMockMessageReader([][]byte{smallMsg})
 		reader := NewReader(mrr)
@@ -93,6 +100,7 @@ func TestReader_BufferManagement(t *testing.T) {
 	})
 
 	t.Run("exact buffer size match", func(t *testing.T) {
+		t.Parallel()
 		msg := []byte("exact")
 		mrr := newMockMessageReader([][]byte{msg})
 		reader := NewReader(mrr)
@@ -106,7 +114,9 @@ func TestReader_BufferManagement(t *testing.T) {
 }
 
 func TestReader_MultipleMessages(t *testing.T) {
+	t.Parallel()
 	t.Run("sequential reads across messages", func(t *testing.T) {
+		t.Parallel()
 		messages := [][]byte{
 			[]byte("first"),
 			[]byte("second"),
@@ -131,6 +141,7 @@ func TestReader_MultipleMessages(t *testing.T) {
 	})
 
 	t.Run("partial reads across messages", func(t *testing.T) {
+		t.Parallel()
 		messages := [][]byte{
 			[]byte("message1"),
 			[]byte("message2"),

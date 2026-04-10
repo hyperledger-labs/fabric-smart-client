@@ -14,6 +14,7 @@ import (
 )
 
 func TestSatisfied(t *testing.T) {
+	t.Parallel()
 	var capsMap map[string]*cb.Capability
 	for _, provider := range []*registry{
 		NewChannelProvider(capsMap).registry,
@@ -25,6 +26,7 @@ func TestSatisfied(t *testing.T) {
 }
 
 func TestNotSatisfied(t *testing.T) {
+	t.Parallel()
 	capsMap := map[string]*cb.Capability{
 		"FakeCapability": {},
 	}

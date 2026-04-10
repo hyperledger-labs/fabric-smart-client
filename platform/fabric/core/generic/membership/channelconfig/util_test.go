@@ -39,6 +39,7 @@ func basicTest(t *testing.T, sv *StandardConfigValue) {
 }
 
 func TestUtilsBasic(t *testing.T) {
+	t.Parallel()
 	basicTest(t, ConsortiumValue("foo"))
 	basicTest(t, HashingAlgorithmValue())
 	basicTest(t, BlockDataHashingStructureValue())
@@ -285,6 +286,7 @@ func createCfgBlockWithUnsupportedCapabilities(t *testing.T) *cb.Block {
 }
 
 func TestValidateCapabilities(t *testing.T) {
+	t.Parallel()
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -300,6 +302,7 @@ func TestValidateCapabilities(t *testing.T) {
 }
 
 func TestExtractMSPIDsForApplicationOrgs(t *testing.T) {
+	t.Parallel()
 	// load test_configblock.json that contains the application group
 	// and other properties needed to build channel config and extract MSPIDs
 	blockData, err := os.ReadFile("testdata/test_configblock.json")
@@ -316,6 +319,7 @@ func TestExtractMSPIDsForApplicationOrgs(t *testing.T) {
 }
 
 func TestMarshalEtcdRaftMetadata(t *testing.T) {
+	t.Parallel()
 	md := &etcdraft.ConfigMetadata{
 		Consenters: []*etcdraft.Consenter{
 			{

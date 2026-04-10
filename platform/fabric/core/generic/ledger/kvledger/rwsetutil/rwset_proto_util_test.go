@@ -28,6 +28,7 @@ import (
 )
 
 func TestTxRWSetMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	txRwSet := &TxRwSet{}
 
 	rqi1 := &kvrwset.RangeQueryInfo{StartKey: "k0", EndKey: "k9", ItrExhausted: true}
@@ -73,6 +74,7 @@ func TestTxRWSetMarshalUnmarshal(t *testing.T) {
 }
 
 func TestTxRwSetConversion(t *testing.T) {
+	t.Parallel()
 	txRwSet := sampleTxRwSet()
 	protoMsg, err := txRwSet.toProtoMsg()
 	require.NoError(t, err)
@@ -92,6 +94,7 @@ func TestTxRwSetConversion(t *testing.T) {
 }
 
 func TestNsRwSetConversion(t *testing.T) {
+	t.Parallel()
 	nsRwSet := sampleNsRwSet("ns-1")
 	protoMsg, err := nsRwSet.toProtoMsg()
 	require.NoError(t, err)
@@ -108,6 +111,7 @@ func TestNsRwSetConversion(t *testing.T) {
 }
 
 func TestNsRWSetConversionNoCollHashedRWs(t *testing.T) {
+	t.Parallel()
 	nsRwSet := sampleNsRwSetWithNoCollHashedRWs("ns-1")
 	protoMsg, err := nsRwSet.toProtoMsg()
 	require.NoError(t, err)
@@ -115,6 +119,7 @@ func TestNsRWSetConversionNoCollHashedRWs(t *testing.T) {
 }
 
 func TestCollHashedRwSetConversion(t *testing.T) {
+	t.Parallel()
 	collHashedRwSet := sampleCollHashedRwSet("coll-1")
 	protoMsg, err := collHashedRwSet.toProtoMsg()
 	require.NoError(t, err)
@@ -126,6 +131,7 @@ func TestCollHashedRwSetConversion(t *testing.T) {
 }
 
 func TestNumCollections(t *testing.T) {
+	t.Parallel()
 	var txRwSet *TxRwSet
 	require.Equal(t, 0, txRwSet.NumCollections())         // nil TxRwSet
 	require.Equal(t, 0, (&TxRwSet{}).NumCollections())    // empty TxRwSet
@@ -192,6 +198,7 @@ func sampleCollHashedRwSet(collectionName string) *CollHashedRwSet {
 // /////////////////////////////////////////////////////////////////////////////
 
 func TestTxPvtRwSetConversion(t *testing.T) {
+	t.Parallel()
 	txPvtRwSet := sampleTxPvtRwSet()
 	protoMsg, err := txPvtRwSet.ToProtoMsg()
 	require.NoError(t, err)
@@ -233,6 +240,7 @@ func sampleCollPvtRwSet(collectionName string) *CollPvtRwSet {
 }
 
 func TestVersionConversion(t *testing.T) {
+	t.Parallel()
 	protoVer := &kvrwset.Version{BlockNum: 5, TxNum: 2}
 	internalVer := version.NewHeight(5, 2)
 	// convert proto to internal
@@ -245,7 +253,9 @@ func TestVersionConversion(t *testing.T) {
 }
 
 func TestIsDelete(t *testing.T) {
+	t.Parallel()
 	t.Run("kvWrite", func(t *testing.T) {
+		t.Parallel()
 		kvWritesToBeInterpretedAsDelete := []*kvrwset.KVWrite{
 			{Value: nil, IsDelete: true},
 			{Value: nil, IsDelete: false},
@@ -259,6 +269,7 @@ func TestIsDelete(t *testing.T) {
 	})
 
 	t.Run("kvhashwrite", func(t *testing.T) {
+		t.Parallel()
 		kvHashesWritesToBeInterpretedAsDelete := []*kvrwset.KVWriteHash{
 			{ValueHash: nil, IsDelete: true},
 			{ValueHash: nil, IsDelete: false},

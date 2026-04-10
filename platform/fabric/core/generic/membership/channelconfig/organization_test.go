@@ -11,5 +11,6 @@ import (
 )
 
 func TestOrganization(t *testing.T) {
+	t.Parallel()
 	_ = Org(&OrganizationConfig{})
 }

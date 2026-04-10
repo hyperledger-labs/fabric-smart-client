@@ -22,7 +22,7 @@ import (
 )
 
 // TestHostStartupTimeout tests that the host properly handles startup failures
-func TestHostStartupTimeout(t *testing.T) {
+func TestHostStartupTimeout(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Use an invalid address that will cause the server to fail to listen
@@ -49,7 +49,7 @@ func TestHostStartupTimeout(t *testing.T) {
 }
 
 // TestHostStartupReadinessTimeout tests the 2-second startup readiness timeout
-func TestHostStartupReadinessTimeout(t *testing.T) {
+func TestHostStartupReadinessTimeout(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Use a valid localhost address but don't actually start a listener

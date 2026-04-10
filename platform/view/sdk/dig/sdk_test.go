@@ -15,5 +15,6 @@ import (
 )
 
 func TestWiring(t *testing.T) {
+	t.Parallel()
 	require.NoError(t, DryRunWiring(digutils.Identity[dig2.SDK]()))
 }

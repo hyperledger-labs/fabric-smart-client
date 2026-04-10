@@ -39,6 +39,7 @@ func createTLSService(t *testing.T, ca CA, host string) *grpc.Server {
 }
 
 func TestTLSCA(t *testing.T) {
+	t.Parallel()
 	// This test checks that the CA can create certificates
 	// and corresponding keys that are signed by itself
 
@@ -109,6 +110,7 @@ func TestTLSCA(t *testing.T) {
 }
 
 func TestTLSCASigner(t *testing.T) {
+	t.Parallel()
 	tlsCA, err := NewCA()
 	require.NoError(t, err)
 	require.Equal(t, tlsCA.(*ca).caCert.Signer, tlsCA.Signer())

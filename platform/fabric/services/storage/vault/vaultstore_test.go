@@ -261,7 +261,7 @@ func testPagination(store driver.VaultStore) {
 	}
 }
 
-func TestPaginationStoreMem(t *testing.T) {
+func TestPaginationStoreMem(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, err := OpenMemoryVault("testdb")
 	require.NoError(t, err)
@@ -273,7 +273,7 @@ func TestPaginationStoreMem(t *testing.T) {
 	testPagination(db)
 }
 
-func TestPaginationStoreSqlite(t *testing.T) {
+func TestPaginationStoreSqlite(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, err := OpenSqliteVault("testdb", t.TempDir())
 	require.NoError(t, err)
@@ -285,7 +285,7 @@ func TestPaginationStoreSqlite(t *testing.T) {
 	testPagination(db)
 }
 
-func TestPaginationStoreSPostgres(t *testing.T) {
+func TestPaginationStoreSPostgres(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, terminate, err := OpenPostgresVault("testdb")
 	require.NoError(t, err)
@@ -295,7 +295,7 @@ func TestPaginationStoreSPostgres(t *testing.T) {
 	testPagination(db)
 }
 
-func TestVaultStoreMem(t *testing.T) {
+func TestVaultStoreMem(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, err := OpenMemoryVault("testdb")
 	require.NoError(t, err)
@@ -308,7 +308,7 @@ func TestVaultStoreMem(t *testing.T) {
 	testOneMore(t, db)
 }
 
-func TestVaultStoreSqlite(t *testing.T) {
+func TestVaultStoreSqlite(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, err := OpenSqliteVault("testdb", t.TempDir())
 	require.NoError(t, err)
@@ -321,7 +321,7 @@ func TestVaultStoreSqlite(t *testing.T) {
 	testOneMore(t, db)
 }
 
-func TestVaultStorePostgres(t *testing.T) {
+func TestVaultStorePostgres(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, terminate, err := OpenPostgresVault("testdb")
 	require.NoError(t, err)

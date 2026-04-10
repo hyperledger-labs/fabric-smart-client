@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestOffsetSimple(t *testing.T) {
+func TestOffsetSimple(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	query, args := q.Select().

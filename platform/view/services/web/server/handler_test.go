@@ -28,6 +28,7 @@ type FruitBasket struct {
 }
 
 func TestHttpHandler(t *testing.T) {
+	t.Parallel()
 	h := web2.NewHttpHandler()
 
 	rh := &mocks2.FakeRequestHandler{}

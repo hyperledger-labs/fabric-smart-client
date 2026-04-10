@@ -23,6 +23,7 @@ func (s *simpleSession) Info() view.SessionInfo {
 }
 
 func TestSessions(t *testing.T) {
+	t.Parallel()
 	s := newSessions()
 	party := view.Identity("alice")
 	sess := &simpleSession{id: "s1"}

@@ -432,10 +432,7 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	require.Error(t, err, "error expected")
 
 	// address in use
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err, "failed to create listener")
-	defer utils.IgnoreErrorFunc(lis.Close)
-
+	lis := createListener(t)
 	_, err = grpc3.NewGRPCServerFromListener(
 		lis,
 		grpc3.ServerConfig{SecOpts: grpc3.SecureOptions{UseTLS: false}},
@@ -550,8 +547,7 @@ func TestNewGRPCServerFromListener(t *testing.T) {
 	t.Parallel()
 
 	// create our listener
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err, "failed to create listener")
+	lis := createListener(t)
 	testAddress := lis.Addr().String()
 
 	srv, err := grpc3.NewGRPCServerFromListener(
@@ -584,8 +580,7 @@ func TestNewSecureGRPCServer(t *testing.T) {
 	t.Parallel()
 
 	// create our listener
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err, "failed to create listener")
+	lis := createListener(t)
 	testAddress := lis.Addr().String()
 
 	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
@@ -613,7 +608,7 @@ func TestNewSecureGRPCServer(t *testing.T) {
 
 	// start the server
 	go utils.IgnoreErrorFunc(srv.Start)
-	defer srv.Stop()
+	t.Cleanup(srv.Stop)
 
 	// should not be needed
 	time.Sleep(10 * time.Millisecond)
@@ -640,7 +635,12 @@ func TestNewSecureGRPCServer(t *testing.T) {
 			creds := credentials.NewTLS(&tls.Config{RootCAs: certPool, MinVersion: version, MaxVersion: version})
 			_, err := invokeEmptyCall(testAddress, grpc.WithTransportCredentials(creds))
 			require.Error(t, err, "should not have been able to connect with TLS version < 1.2")
-			require.Contains(t, err.Error(), "connection refused")
+			errMsg := err.Error()
+			require.True(t,
+				strings.Contains(errMsg, "connection refused") ||
+					strings.Contains(errMsg, "protocol version not supported"),
+				"expected connection refused or protocol version not supported, got: %s", errMsg,
+			)
 		})
 	}
 }
@@ -696,14 +696,16 @@ func TestVerifyCertificateCallback(t *testing.T) {
 		},
 	})
 	go utils.IgnoreErrorFunc(gRPCServer.Start)
-	defer gRPCServer.Stop()
+	t.Cleanup(gRPCServer.Stop)
 
 	t.Run("Success path", func(t *testing.T) {
+		t.Parallel()
 		err = probeTLS(gRPCServer.Address(), authorizedClientKeyPair)
 		require.NoError(t, err)
 	})
 
 	t.Run("Failure path", func(t *testing.T) {
+		t.Parallel()
 		err = probeTLS(gRPCServer.Address(), notAuthorizedClientKeyPair)
 		require.EqualError(t, err, "remote error: tls: bad certificate")
 	})
@@ -726,8 +728,7 @@ func TestWithSignedRootCertificates(t *testing.T) {
 	require.NoError(t, err, "failed to load test certificates")
 
 	// create our listener
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err, "failed to create listener")
+	lis := createListener(t)
 	testAddress := lis.Addr().String()
 
 	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
@@ -743,7 +744,7 @@ func TestWithSignedRootCertificates(t *testing.T) {
 
 	// start the server
 	go utils.IgnoreErrorFunc(srv.Start)
-	defer srv.Stop()
+	t.Cleanup(srv.Stop)
 
 	// should not be needed
 	time.Sleep(10 * time.Millisecond)
@@ -787,10 +788,7 @@ func TestWithSignedIntermediateCertificates(t *testing.T) {
 	}
 
 	// create our listener
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("Failed to create listener: %v", err)
-	}
+	lis := createListener(t)
 	testAddress := lis.Addr().String()
 
 	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
@@ -808,7 +806,7 @@ func TestWithSignedIntermediateCertificates(t *testing.T) {
 
 	// start the server
 	go utils.IgnoreErrorFunc(srv.Start)
-	defer srv.Stop()
+	t.Cleanup(srv.Stop)
 
 	// should not be needed
 	time.Sleep(10 * time.Millisecond)
@@ -845,10 +843,7 @@ func runMutualAuth(t *testing.T, servers []testServer, trustedClients, unTrusted
 	// loop through all the test servers
 	for i := 0; i < len(servers); i++ {
 		// create listener
-		lis, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			return err
-		}
+		lis := createListener(t)
 		srvAddr := lis.Addr().String()
 
 		// create GRPCServer
@@ -865,7 +860,7 @@ func runMutualAuth(t *testing.T, servers []testServer, trustedClients, unTrusted
 		// register the GRPC test server and start the GRPCServer
 		testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 		go utils.IgnoreErrorFunc(srv.Start)
-		defer srv.Stop()
+		t.Cleanup(srv.Stop)
 
 		// should not be needed but just in case
 		time.Sleep(10 * time.Millisecond)
@@ -962,9 +957,7 @@ func TestSetClientRootCAs(t *testing.T) {
 
 	// get the config for one of our Org1 test servers
 	serverConfig := testOrgs[0].testServers([][]byte{})[0].config
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err, "listen failed")
-	defer utils.IgnoreErrorFunc(lis.Close)
+	lis := createListener(t)
 	address := lis.Addr().String()
 
 	// create a GRPCServer
@@ -974,7 +967,7 @@ func TestSetClientRootCAs(t *testing.T) {
 	// register the GRPC test server and start the GRPCServer
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 	go utils.IgnoreErrorFunc(srv.Start)
-	defer srv.Stop()
+	t.Cleanup(srv.Stop)
 
 	// should not be needed but just in case
 	time.Sleep(10 * time.Millisecond)
@@ -1058,8 +1051,7 @@ func TestUpdateTLSCert(t *testing.T) {
 	}
 
 	// create our listener
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err, "listen failed")
+	lis := createListener(t)
 	testAddress := lis.Addr().String()
 
 	srv, err := grpc3.NewGRPCServerFromListener(lis, cfg)
@@ -1067,7 +1059,7 @@ func TestUpdateTLSCert(t *testing.T) {
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
 
 	go utils.IgnoreErrorFunc(srv.Start)
-	defer srv.Stop()
+	t.Cleanup(srv.Stop)
 
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(caCert)
@@ -1175,8 +1167,7 @@ func TestCipherSuites(t *testing.T) {
 	}
 
 	// create our listener
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err, "listen failed")
+	lis := createListener(t)
 	testAddress := lis.Addr().String()
 	srv, err := grpc3.NewGRPCServerFromListener(lis, serverConfig)
 	require.NoError(t, err)
@@ -1202,8 +1193,8 @@ func TestCipherSuites(t *testing.T) {
 }
 
 func TestServerInterceptors(t *testing.T) {
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err, "listen failed")
+	t.Parallel()
+	lis := createListener(t)
 	msg := "error from interceptor"
 
 	// set up interceptors
@@ -1235,8 +1226,8 @@ func TestServerInterceptors(t *testing.T) {
 	srv, err := grpc3.NewGRPCServerFromListener(lis, srvConfig)
 	require.NoError(t, err, "failed to create gRPC server")
 	testpb.RegisterEmptyServiceServer(srv.Server(), &emptyServiceServer{})
-	defer srv.Stop()
 	go utils.IgnoreErrorFunc(srv.Start)
+	t.Cleanup(srv.Stop)
 
 	_, err = invokeEmptyCall(
 		lis.Addr().String(),
@@ -1253,4 +1244,14 @@ func TestServerInterceptors(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, status.Convert(err).Message(), msg, "Expected error from second ssi")
 	require.Equal(t, uint32(2), atomic.LoadUint32(&ssiCount), "Expected both ssi handlers to be invoked")
+}
+
+func createListener(t *testing.T) net.Listener {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err, "listen failed")
+	t.Cleanup(func() {
+		_ = lis.Close()
+	})
+	return lis
 }

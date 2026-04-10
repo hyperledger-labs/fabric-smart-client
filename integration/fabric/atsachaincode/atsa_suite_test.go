@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 )
 
-func TestEndToEnd(t *testing.T) {
+func TestEndToEnd(t *testing.T) { //nolint:paralleltest
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Asset Transfer Secured Agreement (With Chaincode)")
 }

@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegisterIdemixLocalMSP(t *testing.T) {
+func TestRegisterIdemixLocalMSP(t *testing.T) { //nolint:paralleltest
 	cp := &mock.ConfigProvider{}
 	cp.IsSetReturns(false)
 
@@ -46,7 +46,7 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	require.Nil(t, info)
 }
 
-func TestIdemixTypeFolder(t *testing.T) {
+func TestIdemixTypeFolder(t *testing.T) { //nolint:paralleltest
 	cp, err := config.NewProvider("./testdata/idemixtypefolder")
 	require.NoError(t, err)
 	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
@@ -64,7 +64,7 @@ func TestIdemixTypeFolder(t *testing.T) {
 	}
 }
 
-func TestRegisterX509LocalMSP(t *testing.T) {
+func TestRegisterX509LocalMSP(t *testing.T) { //nolint:paralleltest
 	cp := &mock.ConfigProvider{}
 	cp.IsSetReturns(false)
 
@@ -88,7 +88,7 @@ func TestRegisterX509LocalMSP(t *testing.T) {
 	require.NotNil(t, info)
 }
 
-func TestX509TypeFolder(t *testing.T) {
+func TestX509TypeFolder(t *testing.T) { //nolint:paralleltest
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	require.NoError(t, err)
 
@@ -110,6 +110,7 @@ func TestX509TypeFolder(t *testing.T) {
 }
 
 func TestRefresh(t *testing.T) {
+	t.Parallel()
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	require.NoError(t, err)
 

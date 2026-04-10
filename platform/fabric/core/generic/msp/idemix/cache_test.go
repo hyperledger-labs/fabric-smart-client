@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIdentityCache(t *testing.T) {
+func TestIdentityCache(t *testing.T) { //nolint:paralleltest
 	c := NewIdentityCache(func(opts *api2.IdentityOptions) (view.Identity, []byte, error) {
 		return []byte("hello world"), []byte("audit"), nil
 	}, 100, nil)

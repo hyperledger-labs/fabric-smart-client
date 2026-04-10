@@ -40,7 +40,7 @@ func (c *raceConn) Close() error {
 	return nil
 }
 
-func TestReadRace(t *testing.T) {
+func TestReadRace(t *testing.T) { //nolint:paralleltest
 	p := make([]byte, 100)
 	for i := 0; i < 100; i++ {
 		readChan := make(chan resultMsg, 2)
