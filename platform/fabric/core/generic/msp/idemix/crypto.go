@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package idemix
 
 import (
+	"strings"
+
 	idemix "github.com/IBM/idemix/bccsp"
 	"github.com/IBM/idemix/bccsp/keystore"
 	idemix2 "github.com/IBM/idemix/bccsp/schemes/dlog/crypto"
@@ -74,4 +76,27 @@ func GetCurveAndTranslator(curveID math.CurveID) (*math.Curve, idemix2.Translato
 		return nil, nil, errors.Errorf("unsupported curve ID: %d", curveID)
 	}
 	return curve, tr, nil
+}
+
+// ParseCurveID maps a curve name string to its math.CurveID constant.
+// If name is empty, it defaults to math.FP256BN_AMCL for backward compatibility.
+func ParseCurveID(name string) (math.CurveID, error) {
+	if name == "" {
+		return math.FP256BN_AMCL, nil
+	}
+
+	switch strings.ToUpper(name) {
+	case "BN254":
+		return math.BN254, nil
+	case "FP256BN_AMCL":
+		return math.FP256BN_AMCL, nil
+	case "FP256BN_AMCL_MIRACL":
+		return math.FP256BN_AMCL_MIRACL, nil
+	case "BLS12_377_GURVY":
+		return math.BLS12_377_GURVY, nil
+	case "BLS12_381_BBS":
+		return math.BLS12_381_BBS, nil
+	default:
+		return 0, errors.Errorf("unsupported idemix curve: %s", name)
+	}
 }

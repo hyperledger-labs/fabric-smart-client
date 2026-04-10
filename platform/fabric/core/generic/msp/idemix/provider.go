@@ -85,7 +85,11 @@ func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.
 }
 
 func NewProviderWithSigType(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService, sigType bccsp.SignatureType) (*Provider, error) {
-	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{KVS}, math.FP256BN_AMCL, false)
+	curveID, err := GetCurveIDFromConfig(conf1)
+	if err != nil {
+		return nil, err
+	}
+	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{KVS}, curveID, false)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +102,24 @@ func NewProviderWithSigTypeAncCurve(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.Si
 		return nil, err
 	}
 	return NewProvider(conf1, sp, sigType, cryptoProvider)
+}
+
+func GetCurveIDFromConfig(conf1 *m.MSPConfig) (math.CurveID, error) {
+	if conf1 == nil {
+		return 0, errors.Errorf("nil conf reference")
+	}
+	var conf idemixmsp.IdemixMSPConfig
+	err := proto.UnmarshalV1(conf1.Config, &conf)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed unmarshalling idemix provider config")
+	}
+	if len(conf.CurveId) != 0 {
+		return ParseCurveID(conf.CurveId)
+	}
+	if conf.Signer != nil && len(conf.Signer.CurveId) != 0 {
+		return ParseCurveID(conf.Signer.CurveId)
+	}
+	return math.FP256BN_AMCL, nil
 }
 
 func NewProvider(conf1 *m.MSPConfig, signerService mspdriver.SignerService, sigType bccsp.SignatureType, cryptoProvider bccsp.BCCSP) (*Provider, error) {
