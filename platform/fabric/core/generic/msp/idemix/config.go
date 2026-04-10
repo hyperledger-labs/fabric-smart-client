@@ -106,8 +106,10 @@ func GetFabricCAIdemixMspConfig(dir, ID string) (*m.MSPConfig, error) {
 			EnrollmentId:                    si.EnrollmentID,
 			CredentialRevocationInformation: si.CredentialRevocationInformation,
 			RevocationHandle:                si.RevocationHandle,
+			CurveId:                         si.CurveID,
 		}
 		idemixConfig.Signer = signerConfig
+		idemixConfig.CurveId = si.CurveID
 	} else {
 		if !os.IsNotExist(errors.Cause(err)) {
 			return nil, errors.Wrapf(err, "failed to read the content of signer config at [%s]", path)

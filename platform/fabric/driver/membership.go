@@ -35,6 +35,7 @@ type LocalMembership interface {
 	DefaultSigningIdentity() SigningIdentity
 	RegisterX509MSP(id, path, mspID string) error
 	RegisterIdemixMSP(id, path, mspID string) error
+	RegisterIdemixMSPWithCurve(id, path, mspID, curveID string) error
 	GetIdentityByID(id string) (view.Identity, error)
 	GetIdentityInfoByLabel(mspType, label string) *IdentityInfo
 	GetIdentityInfoByIdentity(mspType string, id view.Identity) *IdentityInfo

@@ -114,6 +114,20 @@ type FakeLocalMembership struct {
 	registerIdemixMSPReturnsOnCall map[int]struct {
 		result1 error
 	}
+	RegisterIdemixMSPWithCurveStub        func(string, string, string, string) error
+	registerIdemixMSPWithCurveMutex       sync.RWMutex
+	registerIdemixMSPWithCurveArgsForCall []struct {
+		arg1 string
+		arg2 string
+		arg3 string
+		arg4 string
+	}
+	registerIdemixMSPWithCurveReturns struct {
+		result1 error
+	}
+	registerIdemixMSPWithCurveReturnsOnCall map[int]struct {
+		result1 error
+	}
 	RegisterX509MSPStub        func(string, string, string) error
 	registerX509MSPMutex       sync.RWMutex
 	registerX509MSPArgsForCall []struct {
@@ -655,6 +669,70 @@ func (fake *FakeLocalMembership) RegisterIdemixMSPReturnsOnCall(i int, result1 e
 		})
 	}
 	fake.registerIdemixMSPReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeLocalMembership) RegisterIdemixMSPWithCurve(arg1 string, arg2 string, arg3 string, arg4 string) error {
+	fake.registerIdemixMSPWithCurveMutex.Lock()
+	ret, specificReturn := fake.registerIdemixMSPWithCurveReturnsOnCall[len(fake.registerIdemixMSPWithCurveArgsForCall)]
+	fake.registerIdemixMSPWithCurveArgsForCall = append(fake.registerIdemixMSPWithCurveArgsForCall, struct {
+		arg1 string
+		arg2 string
+		arg3 string
+		arg4 string
+	}{arg1, arg2, arg3, arg4})
+	stub := fake.RegisterIdemixMSPWithCurveStub
+	fakeReturns := fake.registerIdemixMSPWithCurveReturns
+	fake.recordInvocation("RegisterIdemixMSPWithCurve", []interface{}{arg1, arg2, arg3, arg4})
+	fake.registerIdemixMSPWithCurveMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeLocalMembership) RegisterIdemixMSPWithCurveCallCount() int {
+	fake.registerIdemixMSPWithCurveMutex.RLock()
+	defer fake.registerIdemixMSPWithCurveMutex.RUnlock()
+	return len(fake.registerIdemixMSPWithCurveArgsForCall)
+}
+
+func (fake *FakeLocalMembership) RegisterIdemixMSPWithCurveCalls(stub func(string, string, string, string) error) {
+	fake.registerIdemixMSPWithCurveMutex.Lock()
+	defer fake.registerIdemixMSPWithCurveMutex.Unlock()
+	fake.RegisterIdemixMSPWithCurveStub = stub
+}
+
+func (fake *FakeLocalMembership) RegisterIdemixMSPWithCurveArgsForCall(i int) (string, string, string, string) {
+	fake.registerIdemixMSPWithCurveMutex.RLock()
+	defer fake.registerIdemixMSPWithCurveMutex.RUnlock()
+	argsForCall := fake.registerIdemixMSPWithCurveArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *FakeLocalMembership) RegisterIdemixMSPWithCurveReturns(result1 error) {
+	fake.registerIdemixMSPWithCurveMutex.Lock()
+	defer fake.registerIdemixMSPWithCurveMutex.Unlock()
+	fake.RegisterIdemixMSPWithCurveStub = nil
+	fake.registerIdemixMSPWithCurveReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeLocalMembership) RegisterIdemixMSPWithCurveReturnsOnCall(i int, result1 error) {
+	fake.registerIdemixMSPWithCurveMutex.Lock()
+	defer fake.registerIdemixMSPWithCurveMutex.Unlock()
+	fake.RegisterIdemixMSPWithCurveStub = nil
+	if fake.registerIdemixMSPWithCurveReturnsOnCall == nil {
+		fake.registerIdemixMSPWithCurveReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.registerIdemixMSPWithCurveReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }

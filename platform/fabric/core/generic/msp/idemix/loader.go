@@ -30,6 +30,7 @@ func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", manager.Config().TranslatePath(c.Path))
 	}
+
 	provider, err := NewProviderWithAnyPolicy(conf, i.KVS, i.SignerService)
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", manager.Config().TranslatePath(c.Path))
@@ -68,6 +69,7 @@ func (f *FolderIdentityLoader) Load(manager driver.Manager, c config.MSP) error 
 			MSPType: MSPType,
 			MSPID:   id,
 			Path:    filepath.Join(manager.Config().TranslatePath(c.Path), id),
+			CurveID: c.CurveID,
 		}); err != nil {
 			return errors.WithMessagef(err, "failed to load Idemix MSP configuration [%s]", id)
 		}

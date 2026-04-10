@@ -50,12 +50,16 @@ type MSPOpts struct {
 }
 
 type MSP struct {
-	ID        string                      `yaml:"id"`
-	MSPType   string                      `yaml:"mspType"`
-	MSPID     string                      `yaml:"mspID"`
-	Path      string                      `yaml:"path"`
-	CacheSize int                         `yaml:"cacheSize"`
-	Opts      map[interface{}]interface{} `yaml:"opts, omitempty"`
+	ID        string `yaml:"id"`
+	MSPType   string `yaml:"mspType"`
+	MSPID     string `yaml:"mspID"`
+	Path      string `yaml:"path"`
+	CacheSize int    `yaml:"cacheSize"`
+	// CurveID specifies the elliptic curve to use for idemix identities.
+	// Supported values: "BN254", "FP256BN_AMCL", "FP256BN_AMCL_MIRACL", "BLS12_377_GURVY", "BLS12_381_BBS".
+	// Defaults to "FP256BN_AMCL" if empty.
+	CurveID string                      `yaml:"curveID,omitempty"`
+	Opts    map[interface{}]interface{} `yaml:"opts, omitempty"`
 }
 
 type File struct {
