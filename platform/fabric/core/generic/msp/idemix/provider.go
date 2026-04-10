@@ -71,7 +71,7 @@ func NewProviderWithStandardPolicy(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.Sig
 }
 
 func NewProviderWithAnyPolicy(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService) (*Provider, error) {
-	return NewProviderWithSigType(conf1, KVS, sp, Any)
+	return NewProviderWithAnyPolicyAndCurve(conf1, KVS, sp, math.FP256BN_AMCL)
 }
 
 func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService, curveID math.CurveID) (*Provider, error) {
@@ -83,11 +83,7 @@ func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.
 }
 
 func NewProviderWithSigType(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService, sigType bccsp.SignatureType) (*Provider, error) {
-	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{KVS}, math.FP256BN_AMCL, false)
-	if err != nil {
-		return nil, err
-	}
-	return NewProvider(conf1, sp, sigType, cryptoProvider)
+	return NewProviderWithSigTypeAncCurve(conf1, KVS, sp, sigType, math.FP256BN_AMCL)
 }
 
 func NewProviderWithSigTypeAncCurve(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {

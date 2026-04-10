@@ -242,14 +242,23 @@ func (s *service) GetIdentityByID(id string) (view.Identity, error) {
 }
 
 func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error {
+	return s.RegisterIdemixMSPWithCurve(id, path, mspID, "")
+}
+
+func (s *service) RegisterIdemixMSPWithCurve(id string, path string, mspID string, curveIDName string) error {
 	s.mspsMutex.Lock()
 	defer s.mspsMutex.Unlock()
+
+	curveID, err := idemix.ParseCurveID(curveIDName)
+	if err != nil {
+		return errors.Wrapf(err, "invalid curve ID [%s] for idemix msp [%s]", curveIDName, id)
+	}
 
 	conf, err := msp.GetLocalMspConfigWithType(path, nil, mspID, IdemixMSP)
 	if err != nil {
 		return errors.Wrapf(err, "failed reading idemix msp configuration from [%s]", path)
 	}
-	provider, err := idemix.NewProviderWithAnyPolicy(conf, s.KVS, s.signerService)
+	provider, err := idemix.NewProviderWithAnyPolicyAndCurve(conf, s.KVS, s.signerService, curveID)
 	if err != nil {
 		return errors.Wrapf(err, "failed instantiating idemix msp provider from [%s]", path)
 	}
@@ -258,7 +267,7 @@ func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error 
 	if err := s.AddMSP(id, IdemixMSP, provider.EnrollmentID(), idemix.NewIdentityCache(provider.Identity, s.cacheSize, nil).Identity); err != nil {
 		return errors.Wrapf(err, "failed adding idemix msp [%s] to [%s]", id, path)
 	}
-	logger.Debugf("added IdemixMSP msp for id %s with cache of size %d", id+"@"+provider.EnrollmentID(), s.cacheSize)
+	logger.Debugf("added IdemixMSP msp for id %s with curve %d and cache of size %d", id+"@"+provider.EnrollmentID(), curveID, s.cacheSize)
 	return nil
 }
 
