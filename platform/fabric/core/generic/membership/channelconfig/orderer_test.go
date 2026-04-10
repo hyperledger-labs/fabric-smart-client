@@ -14,6 +14,7 @@ import (
 )
 
 func TestBatchSize(t *testing.T) {
+	t.Parallel()
 	validMaxMessageCount := uint32(10)
 	validAbsoluteMaxBytes := uint32(1000)
 	validPreferredMaxBytes := uint32(500)
@@ -32,6 +33,7 @@ func TestBatchSize(t *testing.T) {
 }
 
 func TestBatchTimeout(t *testing.T) {
+	t.Parallel()
 	oc := &OrdererConfig{protos: &OrdererProtos{BatchTimeout: &ab.BatchTimeout{Timeout: "1s"}}}
 	require.NoError(t, oc.validateBatchTimeout(), "Valid batch timeout")
 

@@ -68,6 +68,7 @@ func TestBindingInspectorBadInit(t *testing.T) {
 }
 
 func TestGetLocalIP(t *testing.T) {
+	t.Parallel()
 	ip, err := grpc3.GetLocalIP()
 	require.NoError(t, err)
 	t.Log(ip)

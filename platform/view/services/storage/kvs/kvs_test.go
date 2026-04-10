@@ -165,11 +165,13 @@ func testParallelWrites(t *testing.T, drv driver2.Driver) {
 }
 
 func TestMemoryKVS(t *testing.T) {
+	t.Parallel()
 	testRound(t, mem.NewDriver())
 	testParallelWrites(t, mem.NewDriver())
 }
 
 func TestSQLiteKVS(t *testing.T) {
+	t.Parallel()
 	cp := multiplexed.MockTypeConfig(sqlite2.Persistence, sqlite2.Config{
 		DataSource:      fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(t.TempDir(), "sqlite_test")),
 		TablePrefix:     "",
@@ -184,6 +186,7 @@ func TestSQLiteKVS(t *testing.T) {
 }
 
 func TestPostgresKVS(t *testing.T) {
+	t.Parallel()
 	t.Log("starting postgres")
 	terminate, pgConnStr, err := postgres2.StartPostgres(t.Context(), postgres2.ConfigFromEnv(), nil)
 	if err != nil {
@@ -240,6 +243,7 @@ func (m *mockIterator) Close() {
 }
 
 func TestNew(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		namespace string
@@ -268,6 +272,7 @@ func TestNew(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockStore := &mock.KeyValueStore{}
 			k, err := kvs2.New(mockStore, tt.namespace, tt.cacheSize)
 			if tt.wantErr {
@@ -282,6 +287,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestKVS_Put(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		id        string
@@ -323,6 +329,7 @@ func TestKVS_Put(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockStore := &mock.KeyValueStore{}
 			tt.setupMock(mockStore)
 
@@ -344,6 +351,7 @@ func TestKVS_Put(t *testing.T) {
 }
 
 func TestKVS_Get(t *testing.T) {
+	t.Parallel()
 	validJSON := []byte(`{"name":"test","value":42}`)
 
 	tests := []struct {
@@ -394,6 +402,7 @@ func TestKVS_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockStore := &mock.KeyValueStore{}
 			tt.setupMock(mockStore)
 
@@ -417,9 +426,11 @@ func TestKVS_Get(t *testing.T) {
 }
 
 func TestKVS_Get_CacheBehavior(t *testing.T) {
+	t.Parallel()
 	validJSON := []byte(`{"name":"cached","value":100}`)
 
 	t.Run("cache populated by Put, used by Get", func(t *testing.T) {
+		t.Parallel()
 		mockStore := &mock.KeyValueStore{}
 		mockStore.SetStateReturns(nil)
 
@@ -441,6 +452,7 @@ func TestKVS_Get_CacheBehavior(t *testing.T) {
 	})
 
 	t.Run("Get populates cache on miss (read-through)", func(t *testing.T) {
+		t.Parallel()
 		mockStore := &mock.KeyValueStore{}
 		mockStore.GetStateReturns(validJSON, nil)
 
@@ -466,6 +478,7 @@ func TestKVS_Get_CacheBehavior(t *testing.T) {
 }
 
 func TestKVS_Delete(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		id        string
@@ -492,6 +505,7 @@ func TestKVS_Delete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockStore := &mock.KeyValueStore{}
 			tt.setupMock(mockStore)
 
@@ -510,6 +524,7 @@ func TestKVS_Delete(t *testing.T) {
 }
 
 func TestKVS_Exists(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		id        string
@@ -550,6 +565,7 @@ func TestKVS_Exists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockStore := &mock.KeyValueStore{}
 			tt.setupMock(mockStore)
 
@@ -563,6 +579,7 @@ func TestKVS_Exists(t *testing.T) {
 }
 
 func TestKVS_GetExisting(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		ids       []string
@@ -618,6 +635,7 @@ func TestKVS_GetExisting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockStore := &mock.KeyValueStore{}
 			tt.setupMock(mockStore)
 
@@ -631,6 +649,7 @@ func TestKVS_GetExisting(t *testing.T) {
 }
 
 func TestKVS_GetByPartialCompositeID(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		prefix    string
@@ -675,6 +694,7 @@ func TestKVS_GetByPartialCompositeID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockStore := &mock.KeyValueStore{}
 			tt.setupMock(mockStore)
 
@@ -700,7 +720,9 @@ func TestKVS_GetByPartialCompositeID(t *testing.T) {
 }
 
 func TestKVS_Iterator(t *testing.T) {
+	t.Parallel()
 	t.Run("iterate through results", func(t *testing.T) {
+		t.Parallel()
 		mockStore := &mock.KeyValueStore{}
 		items := []*driver.UnversionedRead{
 			{Key: "key1", Raw: []byte(`{"name":"test1","value":1}`)},
@@ -731,6 +753,7 @@ func TestKVS_Iterator(t *testing.T) {
 	})
 
 	t.Run("close iterator", func(t *testing.T) {
+		t.Parallel()
 		mockStore := &mock.KeyValueStore{}
 		items := []*driver.UnversionedRead{
 			{Key: "key1", Raw: []byte(`{"name":"test1","value":1}`)},
@@ -749,7 +772,9 @@ func TestKVS_Iterator(t *testing.T) {
 }
 
 func TestKVS_Stop(t *testing.T) {
+	t.Parallel()
 	t.Run("successful stop", func(t *testing.T) {
+		t.Parallel()
 		mockStore := &mock.KeyValueStore{}
 		mockStore.CloseReturns(nil)
 
@@ -761,6 +786,7 @@ func TestKVS_Stop(t *testing.T) {
 	})
 
 	t.Run("stop with error", func(t *testing.T) {
+		t.Parallel()
 		mockStore := &mock.KeyValueStore{}
 		mockStore.CloseReturns(fmt.Errorf("close error"))
 
@@ -776,6 +802,7 @@ func TestKVS_Stop(t *testing.T) {
 // Concurrent operations are thoroughly tested by testParallelWrites with real databases (100 goroutines)
 
 func TestCacheSizeFromConfig(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		setupMock      func(*mock.ConfigProvider)
@@ -818,6 +845,7 @@ func TestCacheSizeFromConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockConfig := &mock.ConfigProvider{}
 			tt.setupMock(mockConfig)
 
@@ -835,7 +863,9 @@ func TestCacheSizeFromConfig(t *testing.T) {
 }
 
 func TestKVS_CacheInvalidation(t *testing.T) {
+	t.Parallel()
 	t.Run("delete invalidates cache", func(t *testing.T) {
+		t.Parallel()
 		mockStore := &mock.KeyValueStore{}
 		validJSON := []byte(`{"name":"test","value":42}`)
 
@@ -865,6 +895,7 @@ func TestKVS_CacheInvalidation(t *testing.T) {
 	})
 
 	t.Run("put updates cache", func(t *testing.T) {
+		t.Parallel()
 		mockStore := &mock.KeyValueStore{}
 		mockStore.SetStateReturns(nil)
 

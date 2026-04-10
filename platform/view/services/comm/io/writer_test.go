@@ -18,7 +18,9 @@ import (
 )
 
 func TestVarintWriter_WriteData(t *testing.T) {
+	t.Parallel()
 	t.Run("successful write", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		w := newVarintWriter(buf)
 
@@ -39,6 +41,7 @@ func TestVarintWriter_WriteData(t *testing.T) {
 	})
 
 	t.Run("write empty data", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		w := newVarintWriter(buf)
 
@@ -51,6 +54,7 @@ func TestVarintWriter_WriteData(t *testing.T) {
 	})
 
 	t.Run("write large data", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		w := newVarintWriter(buf)
 
@@ -69,6 +73,7 @@ func TestVarintWriter_WriteData(t *testing.T) {
 	})
 
 	t.Run("write error on length", func(t *testing.T) {
+		t.Parallel()
 		w := newVarintWriter(&errorWriter{failOn: 0})
 		err := w.WriteData([]byte("test"))
 		require.Error(t, err)
@@ -76,6 +81,7 @@ func TestVarintWriter_WriteData(t *testing.T) {
 	})
 
 	t.Run("write error on data", func(t *testing.T) {
+		t.Parallel()
 		w := newVarintWriter(&errorWriter{failOn: 1})
 		err := w.WriteData([]byte("test"))
 		require.Error(t, err)
@@ -84,7 +90,9 @@ func TestVarintWriter_WriteData(t *testing.T) {
 }
 
 func TestVarintWriter_Close(t *testing.T) {
+	t.Parallel()
 	t.Run("close with closer", func(t *testing.T) {
+		t.Parallel()
 		closer := &mockCloser{Buffer: &bytes.Buffer{}}
 		w := newVarintWriter(closer)
 
@@ -94,6 +102,7 @@ func TestVarintWriter_Close(t *testing.T) {
 	})
 
 	t.Run("close without closer", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		w := newVarintWriter(buf)
 
@@ -102,6 +111,7 @@ func TestVarintWriter_Close(t *testing.T) {
 	})
 
 	t.Run("close error", func(t *testing.T) {
+		t.Parallel()
 		closer := &mockCloser{Buffer: &bytes.Buffer{}, closeErr: assert.AnError}
 		w := newVarintWriter(closer)
 
@@ -112,7 +122,9 @@ func TestVarintWriter_Close(t *testing.T) {
 }
 
 func TestProtoWriter_WriteMsg(t *testing.T) {
+	t.Parallel()
 	t.Run("successful write", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		w := NewVarintProtoWriter(buf)
 
@@ -134,6 +146,7 @@ func TestProtoWriter_WriteMsg(t *testing.T) {
 	})
 
 	t.Run("write multiple messages", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		w := NewVarintProtoWriter(buf)
 
@@ -161,7 +174,9 @@ func TestProtoWriter_WriteMsg(t *testing.T) {
 }
 
 func TestProtoWriter_Close(t *testing.T) {
+	t.Parallel()
 	t.Run("close successfully", func(t *testing.T) {
+		t.Parallel()
 		closer := &mockCloser{Buffer: &bytes.Buffer{}}
 		w := NewVarintProtoWriter(closer)
 
@@ -171,6 +186,7 @@ func TestProtoWriter_Close(t *testing.T) {
 	})
 
 	t.Run("close without closer", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		w := NewVarintProtoWriter(buf)
 
@@ -180,6 +196,7 @@ func TestProtoWriter_Close(t *testing.T) {
 }
 
 func TestNewVarintProtoWriter(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	w := NewVarintProtoWriter(buf)
 	require.NotNil(t, w)

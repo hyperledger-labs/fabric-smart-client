@@ -18,7 +18,9 @@ import (
 )
 
 func TestVarintReader_ReadData(t *testing.T) {
+	t.Parallel()
 	t.Run("successful read", func(t *testing.T) {
+		t.Parallel()
 		data := []byte("test message")
 		buf := &bytes.Buffer{}
 
@@ -35,6 +37,7 @@ func TestVarintReader_ReadData(t *testing.T) {
 	})
 
 	t.Run("read empty data", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		lenBuf := make([]byte, binary.MaxVarintLen64)
 		n := binary.PutUvarint(lenBuf, 0)
@@ -47,6 +50,7 @@ func TestVarintReader_ReadData(t *testing.T) {
 	})
 
 	t.Run("read multiple messages", func(t *testing.T) {
+		t.Parallel()
 		messages := [][]byte{
 			[]byte("first"),
 			[]byte("second"),
@@ -70,6 +74,7 @@ func TestVarintReader_ReadData(t *testing.T) {
 	})
 
 	t.Run("error on EOF reading length", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		r := newVarintReader(buf, 1024)
 
@@ -79,6 +84,7 @@ func TestVarintReader_ReadData(t *testing.T) {
 	})
 
 	t.Run("error on incomplete message", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		lenBuf := make([]byte, binary.MaxVarintLen64)
 		n := binary.PutUvarint(lenBuf, 10)
@@ -93,7 +99,9 @@ func TestVarintReader_ReadData(t *testing.T) {
 }
 
 func TestVarintReader_Close(t *testing.T) {
+	t.Parallel()
 	t.Run("close with closer", func(t *testing.T) {
+		t.Parallel()
 		closer := &mockReadCloser{Buffer: bytes.NewBuffer(nil)}
 		r := newVarintReader(closer, 1024)
 
@@ -103,6 +111,7 @@ func TestVarintReader_Close(t *testing.T) {
 	})
 
 	t.Run("close without closer", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		r := newVarintReader(buf, 1024)
 
@@ -111,6 +120,7 @@ func TestVarintReader_Close(t *testing.T) {
 	})
 
 	t.Run("close error", func(t *testing.T) {
+		t.Parallel()
 		closer := &mockReadCloser{
 			Buffer:   bytes.NewBuffer(nil),
 			closeErr: assert.AnError,
@@ -124,7 +134,9 @@ func TestVarintReader_Close(t *testing.T) {
 }
 
 func TestProtoReader_ReadMsg(t *testing.T) {
+	t.Parallel()
 	t.Run("successful read", func(t *testing.T) {
+		t.Parallel()
 		msg := &anypb.Any{
 			TypeUrl: "test.type",
 			Value:   []byte("test value"),
@@ -144,6 +156,7 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 	})
 
 	t.Run("read multiple messages", func(t *testing.T) {
+		t.Parallel()
 		messages := []*anypb.Any{
 			{TypeUrl: "type1", Value: []byte("value1")},
 			{TypeUrl: "type2", Value: []byte("value2")},
@@ -168,6 +181,7 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 	})
 
 	t.Run("error on EOF", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		r := NewVarintProtoReader(buf, 1024)
 
@@ -178,6 +192,7 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 	})
 
 	t.Run("error on invalid protobuf", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		// Write invalid protobuf data
 		lenBuf := make([]byte, binary.MaxVarintLen64)
@@ -195,7 +210,9 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 }
 
 func TestProtoReader_Close(t *testing.T) {
+	t.Parallel()
 	t.Run("close successfully", func(t *testing.T) {
+		t.Parallel()
 		closer := &mockReadCloser{Buffer: bytes.NewBuffer(nil)}
 		r := NewVarintProtoReader(closer, 1024)
 
@@ -205,6 +222,7 @@ func TestProtoReader_Close(t *testing.T) {
 	})
 
 	t.Run("close without closer", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 		r := NewVarintProtoReader(buf, 1024)
 
@@ -214,13 +232,16 @@ func TestProtoReader_Close(t *testing.T) {
 }
 
 func TestNewVarintProtoReader(t *testing.T) {
+	t.Parallel()
 	buf := &bytes.Buffer{}
 	r := NewVarintProtoReader(buf, 1024)
 	require.NotNil(t, r)
 }
 
 func TestRoundTrip(t *testing.T) {
+	t.Parallel()
 	t.Run("write and read back", func(t *testing.T) {
+		t.Parallel()
 		buf := &bytes.Buffer{}
 
 		// Write messages

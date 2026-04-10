@@ -42,26 +42,31 @@ func TestMain(m *testing.M) {
 }
 
 func TestP2PLayerTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 	comm.P2PLayerTestRound(t, bootstrapNode, node)
 }
 
 func TestSessionsTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 	comm.SessionsTestRound(t, bootstrapNode, node)
 }
 
 func TestSessionsForMPCTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
 }
 
 func TestSessionsMultipleMessagesTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node := setupTwoNodes(t)
 	comm.SessionsMultipleMessagesTestRound(t, bootstrapNode, node)
 }
 
 func TestSessionsTwoNodesTestRound(t *testing.T) {
+	t.Parallel()
 	bootstrapNode, node1, node2 := setupThreeNodes(t)
 	<-time.After(100 * time.Millisecond)
 

@@ -13,6 +13,7 @@ import (
 )
 
 func TestLabels(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		label   string
 		success bool
@@ -46,6 +47,7 @@ func TestLabels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.label, func(t *testing.T) {
+			t.Parallel()
 			err := ValidateLabel(tt.label)
 			if tt.success {
 				require.NoError(t, err)

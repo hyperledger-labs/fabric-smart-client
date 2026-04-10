@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/stretchr/testify/require"
 )
@@ -61,12 +60,7 @@ func TestCreds(t *testing.T) {
 	require.Equal(t, "1.2", creds.Info().SecurityVersion) //nolint:all
 	require.Equal(t, "tls", creds.Info().SecurityProtocol)
 
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("failed to start listener [%s]", err)
-	}
-	defer utils.IgnoreErrorFunc(lis.Close)
-
+	lis := createListener(t)
 	_, port, err := net.SplitHostPort(lis.Addr().String())
 	require.NoError(t, err)
 	addr := net.JoinHostPort("localhost", port)

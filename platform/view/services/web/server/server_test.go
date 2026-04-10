@@ -37,7 +37,7 @@ func init() {
 	tlsCA, _ = tlsgen.NewCA()
 }
 
-func TestFabHTTP(t *testing.T) {
+func TestFabHTTP(t *testing.T) { //nolint:paralleltest
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "FabHTTP Suite")
 }

@@ -19,7 +19,7 @@ import (
 	"go.uber.org/goleak"
 )
 
-func TestSessionDeadlockDueToSlowReceiver(t *testing.T) {
+func TestSessionDeadlockDueToSlowReceiver(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Create a session with unbuffered incoming channel to block the goroutine on send.
@@ -79,7 +79,7 @@ func TestSessionDeadlockDueToSlowReceiver(t *testing.T) {
 	_ = sess
 }
 
-func TestSessionDeadlockDueToMiddlewareChannelFull(t *testing.T) {
+func TestSessionDeadlockDueToMiddlewareChannelFull(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Create a session with unbuffered incoming channel to block the goroutine on send.
@@ -140,7 +140,7 @@ func TestSessionDeadlockDueToMiddlewareChannelFull(t *testing.T) {
 	_ = sess
 }
 
-func TestSessionRecoverAfterClose(t *testing.T) {
+func TestSessionRecoverAfterClose(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	s := &NetworkStreamSession{

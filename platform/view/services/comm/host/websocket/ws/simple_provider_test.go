@@ -19,10 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSimpleProvider_Security(t *testing.T) {
+func TestSimpleProvider_Security(t *testing.T) { //nolint:paralleltest
 	testSetup(t)
 
-	for _, insecureSkipVerify := range []bool{true, false} {
+	for _, insecureSkipVerify := range []bool{true, false} { //nolint:paralleltest
 		mode := fmt.Sprintf("InsecureSkipVerify=%v", insecureSkipVerify)
 		t.Run(mode, func(t *testing.T) {
 			p := NewSimpleProvider()
@@ -36,11 +36,11 @@ func TestSimpleProvider_Security(t *testing.T) {
 			}))
 			srv.TLS = serverTLSConfig
 			srv.StartTLS()
-			defer srv.Close()
+			t.Cleanup(srv.Close)
 
 			srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 
-			t.Run("successful connection and verified RemotePeerID", func(t *testing.T) {
+			t.Run("successful connection and verified RemotePeerID", func(t *testing.T) { //nolint:paralleltest
 				info := host.StreamInfo{
 					RemotePeerID:      "serverID",
 					RemotePeerAddress: srvEndpoint,
@@ -60,7 +60,7 @@ func TestSimpleProvider_Security(t *testing.T) {
 				}
 			})
 
-			t.Run("reject spoofed PeerID", func(t *testing.T) {
+			t.Run("reject spoofed PeerID", func(t *testing.T) { //nolint:paralleltest
 				// Attacker tries to claim they are "Alice-ID"
 				spoofedID := host.PeerID("Alice-ID")
 

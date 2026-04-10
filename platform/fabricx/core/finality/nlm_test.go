@@ -139,6 +139,7 @@ func runManager(t *testing.T, nlm *notificationListenerManager) {
 }
 
 func TestNotificationListenerManager(t *testing.T) {
+	t.Parallel()
 	t.Run("Listen_Shutdown_Lifecycle_And_Cleanup", func(t *testing.T) {
 		t.Parallel()
 		nlm, fakeStream := setupTest(t)

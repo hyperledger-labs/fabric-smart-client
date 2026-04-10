@@ -31,7 +31,7 @@ func (d *dummyErrorWrapper) WrapError(err error) error {
 	return err
 }
 
-func TestGetState(t *testing.T) {
+func TestGetState(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mock, err := sqlmock.New()
@@ -49,7 +49,7 @@ func TestGetState(t *testing.T) {
 	Expect(result).To(Equal(driver.UnversionedValue(value)))
 }
 
-func TestGetState_QueryError(t *testing.T) {
+func TestGetState_QueryError(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mock, err := sqlmock.New()
@@ -65,7 +65,7 @@ func TestGetState_QueryError(t *testing.T) {
 	Expect(err).To(HaveOccurred())
 }
 
-func TestSetState(t *testing.T) {
+func TestSetState(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mock, err := sqlmock.New()
@@ -81,7 +81,7 @@ func TestSetState(t *testing.T) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func TestSetState_ExecError(t *testing.T) {
+func TestSetState_ExecError(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mock, err := sqlmock.New()
@@ -97,7 +97,7 @@ func TestSetState_ExecError(t *testing.T) {
 	Expect(err).To(HaveOccurred())
 }
 
-func TestDeleteState(t *testing.T) {
+func TestDeleteState(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mock, err := sqlmock.New()
@@ -113,7 +113,7 @@ func TestDeleteState(t *testing.T) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func TestDeleteState_ExecError(t *testing.T) {
+func TestDeleteState_ExecError(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mock, err := sqlmock.New()
@@ -128,7 +128,7 @@ func TestDeleteState_ExecError(t *testing.T) {
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 	Expect(err).To(HaveOccurred())
 }
-func TestGetStateRangeScanIterator(t *testing.T) {
+func TestGetStateRangeScanIterator(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
@@ -158,7 +158,7 @@ func TestGetStateRangeScanIterator(t *testing.T) {
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 }
 
-func TestGetStateSetIterator(t *testing.T) {
+func TestGetStateSetIterator(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
@@ -187,7 +187,7 @@ func TestGetStateSetIterator(t *testing.T) {
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 }
 
-func TestExec(t *testing.T) {
+func TestExec(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
@@ -209,7 +209,7 @@ func TestExec(t *testing.T) {
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 }
 
-func TestStats(t *testing.T) {
+func TestStats(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, _, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
@@ -219,7 +219,7 @@ func TestStats(t *testing.T) {
 	Expect(stats).ToNot(BeNil())
 }
 
-func TestClose(t *testing.T) {
+func TestClose(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mock, err := sqlmock.New()

@@ -27,20 +27,24 @@ var sampleAPIsProvider = map[string]*pb.APIResource{
 }
 
 func TestGreenAPIsPath(t *testing.T) {
+	t.Parallel()
 	ag := newAPIsProvider(sampleAPIsProvider)
 	require.NotNil(t, ag)
 
 	t.Run("PresentAPIs", func(t *testing.T) {
+		t.Parallel()
 		require.Equal(t, "/Channel/Application/"+sampleAPI1PolicyRef, ag.PolicyRefForAPI(sampleAPI1Name))
 		require.Equal(t, sampleAPI2PolicyRef, ag.PolicyRefForAPI(sampleAPI2Name))
 	})
 
 	t.Run("MissingAPIs", func(t *testing.T) {
+		t.Parallel()
 		require.Empty(t, ag.PolicyRefForAPI("missing"))
 	})
 }
 
 func TestNilACLs(t *testing.T) {
+	t.Parallel()
 	ccg := newAPIsProvider(nil)
 
 	require.NotNil(t, ccg)
@@ -49,6 +53,7 @@ func TestNilACLs(t *testing.T) {
 }
 
 func TestEmptyACLs(t *testing.T) {
+	t.Parallel()
 	ccg := newAPIsProvider(map[string]*pb.APIResource{})
 
 	require.NotNil(t, ccg)
@@ -57,6 +62,7 @@ func TestEmptyACLs(t *testing.T) {
 }
 
 func TestEmptyPolicyRef(t *testing.T) {
+	t.Parallel()
 	ars := map[string]*pb.APIResource{
 		"unsetAPI": {PolicyRef: ""},
 	}

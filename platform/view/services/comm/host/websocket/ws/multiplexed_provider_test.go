@@ -51,15 +51,18 @@ var (
 	serverLogger = logging.MustGetLogger("server")
 )
 
-func TestConnections(t *testing.T) {
+func TestConnections(t *testing.T) { //nolint:tparallel,paralleltest
 	testSetup(t)
 
 	// let check that at the end of this test all our go routines are stopped
-	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+	t.Cleanup(func() {
+		goleak.VerifyNone(t, goleak.IgnoreCurrent())
+	})
 
-	for _, insecureSkipVerify := range []bool{true, false} {
+	for _, insecureSkipVerify := range []bool{true, false} { //nolint:paralleltest
 		mode := fmt.Sprintf("InsecureSkipVerify=%v", insecureSkipVerify)
 		t.Run(mode, func(t *testing.T) {
+			t.Parallel()
 			p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 			serverTLSConfig, clientTLSConfig, srcID := testMutualTLSConfigs(t, insecureSkipVerify)
 
@@ -98,13 +101,13 @@ func TestConnections(t *testing.T) {
 			}))
 			srv.TLS = serverTLSConfig
 			srv.StartTLS()
-			defer srv.Close()
+			t.Cleanup(srv.Close)
 
 			srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 
 			time.Sleep(snoozeTime)
 
-			t.Run("client cannot connect", func(t *testing.T) {
+			t.Run("client cannot connect", func(t *testing.T) { //nolint:paralleltest
 				// we should have no clients at this point
 				p.mu.RLock()
 				require.Empty(t, p.clients)
@@ -128,13 +131,13 @@ func TestConnections(t *testing.T) {
 				p.mu.RUnlock()
 			})
 
-			t.Run("many clients connect sequentially", func(t *testing.T) {
+			t.Run("many clients connect sequentially", func(t *testing.T) { //nolint:paralleltest
 				for i := range numStreams {
 					testClientRun(t, p, srvEndpoint, fmt.Sprintf("session-%d", i), srcID, clientTLSConfig)
 				}
 			})
 
-			t.Run("many clients connect concurrently", func(t *testing.T) {
+			t.Run("many clients connect concurrently", func(t *testing.T) { //nolint:paralleltest
 				errCh := make(chan error, numStreams*totalMsg*3)
 				var wg sync.WaitGroup
 				for i := range numStreams {
@@ -168,15 +171,18 @@ func TestConnections(t *testing.T) {
 	}
 }
 
-func TestSendingOnClosedSubConnections(t *testing.T) {
+func TestSendingOnClosedSubConnections(t *testing.T) { //nolint:paralleltest,tparallel
 	testSetup(t)
 
 	// let check that at the end of this test all our go routines are stopped
-	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+	t.Cleanup(func() {
+		goleak.VerifyNone(t, goleak.IgnoreCurrent())
+	})
 
 	for _, insecureSkipVerify := range []bool{true, false} {
 		mode := fmt.Sprintf("InsecureSkipVerify=%v", insecureSkipVerify)
 		t.Run(mode, func(t *testing.T) {
+			t.Parallel()
 			p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 			serverTLSConfig, clientTLSConfig, srcID := testMutualTLSConfigs(t, insecureSkipVerify)
 			var wg sync.WaitGroup
@@ -215,7 +221,7 @@ func TestSendingOnClosedSubConnections(t *testing.T) {
 			}))
 			srv.TLS = serverTLSConfig
 			srv.StartTLS()
-			defer srv.Close()
+			t.Cleanup(srv.Close)
 
 			srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 
@@ -258,13 +264,16 @@ func TestSendingOnClosedSubConnections(t *testing.T) {
 	}
 }
 
-func TestRejectsPeerIDMismatch(t *testing.T) {
+func TestRejectsPeerIDMismatch(t *testing.T) { //nolint:paralleltest,tparallel
 	testSetup(t)
-	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+	t.Cleanup(func() {
+		goleak.VerifyNone(t, goleak.IgnoreCurrent())
+	})
 
 	for _, insecureSkipVerify := range []bool{true, false} {
 		mode := fmt.Sprintf("InsecureSkipVerify=%v", insecureSkipVerify)
 		t.Run(mode, func(t *testing.T) {
+			t.Parallel()
 			p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 			t.Cleanup(func() {
 				_ = p.KillAll()
@@ -280,7 +289,7 @@ func TestRejectsPeerIDMismatch(t *testing.T) {
 			}))
 			srv.TLS = serverTLSConfig
 			srv.StartTLS()
-			defer srv.Close()
+			t.Cleanup(srv.Close)
 
 			srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 			info := host.StreamInfo{

@@ -28,7 +28,7 @@ import (
 // TestAttack_SpoofPeerID attempts to reproduce the attack where an attacker
 // connects with their own certificate but claims a different PeerID in the meta message.
 // This is a regression test for Issue #1037.
-func TestAttack_SpoofPeerID(t *testing.T) {
+func TestAttack_SpoofPeerID(t *testing.T) { //nolint:paralleltest
 	testSetup(t)
 	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 	serverTLSConfig, clientTLSConfig, _ := testMutualTLSConfigs(t, false)
@@ -37,7 +37,7 @@ func TestAttack_SpoofPeerID(t *testing.T) {
 	srv := startTestServer(t, p, serverTLSConfig, func(s host.P2PStream) {
 		received <- s
 	})
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 
 	srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 
@@ -85,7 +85,7 @@ func TestAttack_SpoofPeerID(t *testing.T) {
 // TestAttack_HijackSessionID attempts to reproduce the attack where an attacker
 // uses a legitimate PeerID (their own) but tries to inject a message into someone else's SessionID.
 // This is a regression test for Issue #1037.
-func TestAttack_HijackSessionID(t *testing.T) {
+func TestAttack_HijackSessionID(t *testing.T) { //nolint:paralleltest
 	testSetup(t)
 	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 	serverTLSConfig, clientTLSConfig, charlieID := testMutualTLSConfigs(t, false)
@@ -94,7 +94,7 @@ func TestAttack_HijackSessionID(t *testing.T) {
 	srv := startTestServer(t, p, serverTLSConfig, func(s host.P2PStream) {
 		received <- s
 	})
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 
 	srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 

@@ -27,6 +27,7 @@ func TestDefaultPublicKeyIDSynthesizer_PublicKeyID(t *testing.T) {
 	synthesizer := endpoint.DefaultPublicKeyIDSynthesizer{}
 
 	t.Run("RSA public key", func(t *testing.T) {
+		t.Parallel()
 		// Generate RSA key
 		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 		require.NoError(t, err)
@@ -50,6 +51,7 @@ func TestDefaultPublicKeyIDSynthesizer_PublicKeyID(t *testing.T) {
 	})
 
 	t.Run("ECDSA public key", func(t *testing.T) {
+		t.Parallel()
 		// Generate ECDSA key
 		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		require.NoError(t, err)
@@ -67,6 +69,7 @@ func TestDefaultPublicKeyIDSynthesizer_PublicKeyID(t *testing.T) {
 	})
 
 	t.Run("different keys produce different IDs", func(t *testing.T) {
+		t.Parallel()
 		// Generate two different keys
 		key1, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		require.NoError(t, err)
@@ -82,6 +85,7 @@ func TestDefaultPublicKeyIDSynthesizer_PublicKeyID(t *testing.T) {
 	})
 
 	t.Run("unsupported key type", func(t *testing.T) {
+		t.Parallel()
 		// Test with unsupported key type
 		_, err := synthesizer.PublicKeyID("not a key")
 		require.Error(t, err)
@@ -89,11 +93,13 @@ func TestDefaultPublicKeyIDSynthesizer_PublicKeyID(t *testing.T) {
 	})
 
 	t.Run("nil key", func(t *testing.T) {
+		t.Parallel()
 		_, err := synthesizer.PublicKeyID(nil)
 		require.Error(t, err)
 	})
 
 	t.Run("byte slice key (should fail)", func(t *testing.T) {
+		t.Parallel()
 		// This should fail as x509.MarshalPKIXPublicKey doesn't support []byte
 		_, err := synthesizer.PublicKeyID([]byte("some bytes"))
 		require.Error(t, err)

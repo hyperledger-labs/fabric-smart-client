@@ -31,6 +31,7 @@ func setupDB(tb testing.TB) string {
 }
 
 func TestPostgres(t *testing.T) {
+	t.Parallel()
 	pgConnStr := setupDB(t)
 	t.Log("postgres ready")
 

@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestMiddleware(t *testing.T) {
+func TestMiddleware(t *testing.T) { //nolint:paralleltest
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Middleware Suite")
 }

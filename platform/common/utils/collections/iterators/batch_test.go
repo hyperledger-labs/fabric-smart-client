@@ -45,7 +45,7 @@ var testMatrix = []struct {
 	},
 }
 
-func TestBatchedIterator(t *testing.T) {
+func TestBatchedIterator(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	for _, testCase := range testMatrix {

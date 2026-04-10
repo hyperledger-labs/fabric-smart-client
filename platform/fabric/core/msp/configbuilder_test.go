@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSetupBCCSPKeystoreConfig(t *testing.T) {
+func TestSetupBCCSPKeystoreConfig(t *testing.T) { //nolint:paralleltest
 	keystoreDir := "/tmp"
 
 	// Case 1 : Check with empty FactoryOpts
@@ -80,18 +80,18 @@ func TestSetupBCCSPKeystoreConfig(t *testing.T) {
 	require.Equal(t, rtnConfig.SW.FileKeystore.KeyStorePath, keystoreDir)
 }
 
-func TestGetLocalMspConfig(t *testing.T) {
+func TestGetLocalMspConfig(t *testing.T) { //nolint:paralleltest
 	mspDir := "testdata/sampleconfig"
 	_, err := GetLocalMspConfig(mspDir, nil, "SampleOrg")
 	require.NoError(t, err)
 }
 
-func TestGetLocalMspConfigFails(t *testing.T) {
+func TestGetLocalMspConfigFails(t *testing.T) { //nolint:paralleltest
 	_, err := GetLocalMspConfig("/tmp/", nil, "SampleOrg")
 	require.Error(t, err)
 }
 
-func TestGetPemMaterialFromDirWithFile(t *testing.T) {
+func TestGetPemMaterialFromDirWithFile(t *testing.T) { //nolint:paralleltest
 	tempDir := t.TempDir()
 	tempFile, err := os.CreateTemp(tempDir, "fabric-msp-test")
 	require.NoError(t, err)
@@ -102,7 +102,7 @@ func TestGetPemMaterialFromDirWithFile(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestGetPemMaterialFromDirWithSymlinks(t *testing.T) {
+func TestGetPemMaterialFromDirWithSymlinks(t *testing.T) { //nolint:paralleltest
 	mspDir, err := filepath.Abs("testdata/sampleconfig")
 	require.NoError(t, err)
 	tempDir := t.TempDir()
@@ -123,7 +123,7 @@ func TestGetPemMaterialFromDirWithSymlinks(t *testing.T) {
 	require.Equal(t, expected, pemdataSymlink)
 }
 
-func TestReadFileUtils(t *testing.T) {
+func TestReadFileUtils(t *testing.T) { //nolint:paralleltest
 	// test that reading a file with an empty path doesn't crash
 	_, err := readPemFile("")
 	require.Error(t, err)

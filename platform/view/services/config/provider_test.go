@@ -26,14 +26,14 @@ type Opts struct {
 	MaxOpenConns int
 }
 
-func TestReadFile(t *testing.T) {
+func TestReadFile(t *testing.T) { //nolint:paralleltest
 	p, err := NewProvider("./testdata")
 	require.NoError(t, err)
 	testBasics(t, p)
 	testMerge(t, p)
 }
 
-func TestProvideFromRaw(t *testing.T) {
+func TestProvideFromRaw(t *testing.T) { //nolint:paralleltest
 	p, err := NewProvider("./testdata")
 	require.NoError(t, err)
 
@@ -49,7 +49,7 @@ func TestProvideFromRaw(t *testing.T) {
 	testMerge(t, newProvider)
 }
 
-func TestEnvSubstitution(t *testing.T) {
+func TestEnvSubstitution(t *testing.T) { //nolint:paralleltest
 	_ = os.Setenv("CORE_FSC_KVS_PERSISTENCE_OPTS_DATASOURCE", "new data source")
 	_ = os.Setenv("CORE_STR", "new=string=with=characters.\\AND.CAPS")
 	_ = os.Setenv("CORE_NUMBER", "10")
@@ -189,6 +189,7 @@ func (m *mockProvider) GetService(v any) (any, error) {
 }
 
 func TestGetProvider(t *testing.T) {
+	t.Parallel()
 	p := &Provider{}
 	mp := &mockProvider{service: p}
 	assert.Equal(t, p, GetProvider(mp))
@@ -199,6 +200,7 @@ func TestGetProvider(t *testing.T) {
 }
 
 func TestProviderMore(t *testing.T) {
+	t.Parallel()
 	_ = os.Setenv("CORE_FSC_ID", "node1")
 	p, err := NewProvider("./testdata")
 	require.NoError(t, err)
@@ -234,11 +236,13 @@ func TestProviderMore(t *testing.T) {
 }
 
 func TestProviderError(t *testing.T) {
+	t.Parallel()
 	_, err := NewProvider("./non-existent-path")
 	require.Error(t, err)
 }
 
 func TestEnvConversions(t *testing.T) {
+	t.Parallel()
 	_ = os.Setenv("CORE_ENV_INT", "123")
 	_ = os.Setenv("CORE_ENV_BOOL", "true")
 	_ = os.Setenv("CORE_ENV_FLOAT", "1.23")

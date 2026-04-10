@@ -36,6 +36,7 @@ func (m *MockMsgReader) Read() ([]byte, error) {
 }
 
 func TestRead(t *testing.T) {
+	t.Parallel()
 	buf := make([]byte, 7)
 	mrr := newMockMessageReader([][]byte{
 		[]byte("hello"),

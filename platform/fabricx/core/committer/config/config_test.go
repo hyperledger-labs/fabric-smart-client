@@ -17,7 +17,9 @@ import (
 )
 
 func TestNewNotificationServiceConfig(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
 		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
 			if key == "notificationService" {
@@ -38,6 +40,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 	})
 
 	t.Run("default timeout", func(t *testing.T) {
+		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
 		fakeConfigService.UnmarshalKeyReturns(nil)
 
@@ -48,6 +51,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 	})
 
 	t.Run("error unmarshal", func(t *testing.T) {
+		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
 		fakeConfigService.UnmarshalKeyReturns(errors.New("unmarshal-error"))
 
@@ -59,7 +63,9 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 }
 
 func TestNewQueryServiceConfig(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
 		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
 			if key == "queryService" {
@@ -80,6 +86,7 @@ func TestNewQueryServiceConfig(t *testing.T) {
 	})
 
 	t.Run("default timeout", func(t *testing.T) {
+		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
 		fakeConfigService.UnmarshalKeyReturns(nil)
 
@@ -90,6 +97,7 @@ func TestNewQueryServiceConfig(t *testing.T) {
 	})
 
 	t.Run("error unmarshal", func(t *testing.T) {
+		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
 		fakeConfigService.UnmarshalKeyReturns(errors.New("unmarshal-error"))
 

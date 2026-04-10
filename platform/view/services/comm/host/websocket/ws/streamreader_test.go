@@ -14,6 +14,7 @@ import (
 )
 
 func TestReadExpectedLengthHappyPath(t *testing.T) {
+	t.Parallel()
 	reader := newDelimitedReader()
 	buf := make([]byte, binary.MaxVarintLen64)
 	n := binary.PutUvarint(buf, 128)
@@ -25,6 +26,7 @@ func TestReadExpectedLengthHappyPath(t *testing.T) {
 }
 
 func TestReadExpectedLengthOversizedPayload(t *testing.T) {
+	t.Parallel()
 	reader := newDelimitedReader()
 	buf := make([]byte, binary.MaxVarintLen64)
 	n := binary.PutUvarint(buf, maxDelimitedPayloadSize+1)
@@ -35,6 +37,7 @@ func TestReadExpectedLengthOversizedPayload(t *testing.T) {
 }
 
 func TestReadExpectedLengthPartialVarint(t *testing.T) {
+	t.Parallel()
 	reader := newDelimitedReader()
 
 	// 128 in varint is [0x80, 0x01]

@@ -16,6 +16,7 @@ import (
 )
 
 func TestToLowS(t *testing.T) {
+	t.Parallel()
 	curve := elliptic.P256()
 	halfOrder := new(big.Int).Div(curve.Params().N, big.NewInt(2))
 
@@ -65,6 +66,7 @@ func TestToLowS(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			curve := elliptic.P256()
 			key := ecdsa.PublicKey{
 				Curve: curve,

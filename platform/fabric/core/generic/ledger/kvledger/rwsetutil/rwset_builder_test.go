@@ -17,6 +17,7 @@ import (
 )
 
 func TestTxSimulationResultWithOnlyPubData(t *testing.T) {
+	t.Parallel()
 	rwSetBuilder := NewRWSetBuilder()
 
 	rwSetBuilder.AddToReadSet("ns1", "key2", version.NewHeight(1, 2))
@@ -75,6 +76,7 @@ func TestTxSimulationResultWithOnlyPubData(t *testing.T) {
 }
 
 func TestTxSimulationResultWithPvtData(t *testing.T) {
+	t.Parallel()
 	rwSetBuilder := NewRWSetBuilder()
 	// public rws ns1 + ns2
 	rwSetBuilder.AddToReadSet("ns1", "key1", version.NewHeight(1, 1))
@@ -259,6 +261,7 @@ func TestTxSimulationResultWithPvtData(t *testing.T) {
 }
 
 func TestTxSimulationResultWithMetadata(t *testing.T) {
+	t.Parallel()
 	rwSetBuilder := NewRWSetBuilder()
 	// public rws ns1
 	rwSetBuilder.AddToReadSet("ns1", "key1", version.NewHeight(1, 1))
@@ -405,7 +408,9 @@ func serializeTestProtoMsg(t *testing.T, protoMsg proto.Message) []byte {
 }
 
 func TestNilOrZeroLengthByteArrayValueConvertedToDelete(t *testing.T) {
+	t.Parallel()
 	t.Run("public_writeset", func(t *testing.T) {
+		t.Parallel()
 		rwsetBuilder := NewRWSetBuilder()
 		rwsetBuilder.AddToWriteSet("ns", "key1", nil)
 		rwsetBuilder.AddToWriteSet("ns", "key2", []byte{})
@@ -429,6 +434,7 @@ func TestNilOrZeroLengthByteArrayValueConvertedToDelete(t *testing.T) {
 	})
 
 	t.Run("pvtdata_and_hashes_writesets", func(t *testing.T) {
+		t.Parallel()
 		rwsetBuilder := NewRWSetBuilder()
 		rwsetBuilder.AddToPvtAndHashedWriteSet("ns", "coll", "key1", nil)
 		rwsetBuilder.AddToPvtAndHashedWriteSet("ns", "coll", "key2", []byte{})
@@ -437,6 +443,7 @@ func TestNilOrZeroLengthByteArrayValueConvertedToDelete(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("hashed_writeset", func(t *testing.T) {
+			t.Parallel()
 			hashedRWSet := &kvrwset.HashedRWSet{}
 			require.NoError(
 				t,
@@ -454,6 +461,7 @@ func TestNilOrZeroLengthByteArrayValueConvertedToDelete(t *testing.T) {
 		})
 
 		t.Run("pvtdata_writeset", func(t *testing.T) {
+			t.Parallel()
 			pvtWSet := &kvrwset.KVRWSet{}
 			require.NoError(
 				t,

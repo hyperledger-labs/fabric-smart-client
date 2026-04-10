@@ -11,5 +11,6 @@ import (
 )
 
 func TestApplicationOrgInterface(t *testing.T) {
+	t.Parallel()
 	_ = ApplicationOrg(&ApplicationOrgConfig{})
 }

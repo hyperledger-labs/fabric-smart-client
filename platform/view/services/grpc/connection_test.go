@@ -59,6 +59,7 @@ func loadRootCAs() [][]byte {
 }
 
 func TestNewCredentialSupport(t *testing.T) {
+	t.Parallel()
 	expected := &CredentialSupport{
 		appRootCAsByChain: make(map[string][][]byte),
 	}

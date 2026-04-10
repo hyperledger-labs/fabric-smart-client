@@ -16,6 +16,7 @@ import (
 )
 
 func TestNode_AddSDKWithBase(t *testing.T) {
+	t.Parallel()
 	node := NewNode("pineapple")
 	n := node.AddSDKWithBase(&sdk1.DummySDK{}, &sdk2.DummySDK{}, &sdk3.DummySDK{})
 	assert.NotNil(t, n)

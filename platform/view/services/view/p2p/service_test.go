@@ -64,6 +64,7 @@ func (m *viewManagerMock) DefaultIdentity() view.Identity {
 }
 
 func TestService(t *testing.T) {
+	t.Parallel()
 	vm := &viewManagerMock{HandleResponderCalled: make(chan struct{}, 10)}
 	cl := &mock2.CommLayer{}
 	sess := &mock.Session{}
@@ -109,6 +110,7 @@ func TestService(t *testing.T) {
 }
 
 func TestService_MasterSessionError(t *testing.T) {
+	t.Parallel()
 	vm := &viewManagerMock{}
 	cl := &mock2.CommLayer{}
 	cl.MasterSessionReturns(nil, errors.New("master session error"))
@@ -120,6 +122,7 @@ func TestService_MasterSessionError(t *testing.T) {
 }
 
 func TestService_HandleResponderError(t *testing.T) {
+	t.Parallel()
 	vm := &viewManagerMock{
 		HandleResponderCalled: make(chan struct{}, 10),
 	}

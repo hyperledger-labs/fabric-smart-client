@@ -16,6 +16,7 @@ import (
 )
 
 func TestLoadCert(t *testing.T) {
+	t.Parallel()
 	pair, err := newCertKeyPair(false, false, "", nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, pair)

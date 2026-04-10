@@ -19,6 +19,7 @@ import (
 )
 
 func TestPKIResolveConcurrency(t *testing.T) {
+	t.Parallel()
 	bindingStore := &mock.BindingStore{}
 	bindingStore.GetLongTermReturns(nil, nil)
 	bindingStore.HaveSameBindingReturns(false, nil)
@@ -46,6 +47,7 @@ func TestPKIResolveConcurrency(t *testing.T) {
 }
 
 func TestGetIdentity(t *testing.T) {
+	t.Parallel()
 	// setup
 	bindingStore := &mock.BindingStore{}
 	bindingStore.PutBindingsReturns(nil)
@@ -172,6 +174,8 @@ func TestGetIdentity(t *testing.T) {
 }
 
 func TestLookupIP(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		endpoint string
@@ -394,6 +398,7 @@ func TestLookupIP(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := endpoint.LookupIP(tt.endpoint)
 			tt.checkFunc(t, tt.endpoint, result)
 		})
@@ -401,6 +406,7 @@ func TestLookupIP(t *testing.T) {
 }
 
 func TestLookupIP_HostnameResolution(t *testing.T) {
+	t.Parallel()
 	// Test that localhost actually resolves
 	result := endpoint.LookupIP("localhost:8080")
 
@@ -414,6 +420,7 @@ func TestLookupIP_HostnameResolution(t *testing.T) {
 }
 
 func TestLookupIP_PreservesPort(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		endpoint string
@@ -429,7 +436,7 @@ func TestLookupIP_PreservesPort(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Helper()
+			t.Parallel()
 			result := endpoint.LookupIP(tt.endpoint)
 			// Extract port from result
 			_, port, err := net.SplitHostPort(result)

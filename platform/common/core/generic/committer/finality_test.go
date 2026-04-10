@@ -38,6 +38,7 @@ func (m *MockFinalityListener) OnStatus(_ context.Context, txID driver.TxID, sta
 }
 
 func TestFinalityManager_AddListener(t *testing.T) {
+	t.Parallel()
 	listenerManager := newFinalityListenerManager[int](logging.MustGetLogger(), &noop.Tracer{})
 	vault := &MockVault{}
 	manager := NewFinalityManager[int](listenerManager, logging.MustGetLogger(), vault, noop.NewTracerProvider(), 10)
@@ -55,6 +56,7 @@ func TestFinalityManager_AddListener(t *testing.T) {
 }
 
 func TestFinalityManager_RemoveListener(t *testing.T) {
+	t.Parallel()
 	listenerManager := newFinalityListenerManager[int](logging.MustGetLogger(), &noop.Tracer{})
 	vault := &MockVault{}
 	manager := NewFinalityManager[int](listenerManager, logging.MustGetLogger(), vault, noop.NewTracerProvider(), 10)
@@ -71,6 +73,7 @@ func TestFinalityManager_RemoveListener(t *testing.T) {
 }
 
 func TestFinalityManager_Run(t *testing.T) {
+	t.Parallel()
 	listenerManager := newFinalityListenerManager[int](logging.MustGetLogger(), &noop.Tracer{})
 	vault := &MockVault{}
 	manager := NewFinalityManager[int](listenerManager, logging.MustGetLogger(), vault, noop.NewTracerProvider(), 10)
@@ -84,6 +87,7 @@ func TestFinalityManager_Run(t *testing.T) {
 }
 
 func TestFinalityManager_RunStatusListener(t *testing.T) {
+	t.Parallel()
 	event := driver.FinalityEvent[int]{
 		TxID:              "txID",
 		ValidationCode:    1,
@@ -132,6 +136,7 @@ func TestFinalityManager_RunStatusListener(t *testing.T) {
 }
 
 func TestFinalityManager_CloneListeners(t *testing.T) {
+	t.Parallel()
 	listenerManager := newFinalityListenerManager[int](logging.MustGetLogger(), &noop.Tracer{})
 	vault := &MockVault{}
 	manager := NewFinalityManager[int](listenerManager, logging.MustGetLogger(), vault, noop.NewTracerProvider(), 10)
@@ -144,6 +149,7 @@ func TestFinalityManager_CloneListeners(t *testing.T) {
 }
 
 func TestFinalityManager_Dispatch_PanicRecovery(t *testing.T) {
+	t.Parallel()
 	listenerManager := newFinalityListenerManager[int](logging.MustGetLogger(), &noop.Tracer{})
 	vault := &MockVault{}
 	manager := NewFinalityManager[int](listenerManager, logging.MustGetLogger(), vault, noop.NewTracerProvider(), 10)

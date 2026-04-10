@@ -96,6 +96,7 @@ func (m *mockEndpointService) GetResolver(ctx context.Context, id view.Identity)
 }
 
 func TestDynamicCA(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 
 	// Generate Server Cert

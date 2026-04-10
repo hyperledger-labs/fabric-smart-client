@@ -176,6 +176,7 @@ func appChannelGenesisEnvelope(t *testing.T, channelID string) *cb.Envelope {
 // --- tests ---
 
 func TestNewService(t *testing.T) {
+	t.Parallel()
 	s := NewService("mychannel")
 	require.NotNil(t, s)
 	require.Equal(t, "mychannel", s.channelID)
@@ -183,7 +184,9 @@ func TestNewService(t *testing.T) {
 }
 
 func TestToMSPIdentity(t *testing.T) {
+	t.Parallel()
 	t.Run("valid identity", func(t *testing.T) {
+		t.Parallel()
 		data := serializedIdentity(t, "Org1MSP")
 		result, err := toMSPIdentity(data)
 		require.NoError(t, err)
@@ -191,6 +194,7 @@ func TestToMSPIdentity(t *testing.T) {
 	})
 
 	t.Run("empty bytes yield empty identity", func(t *testing.T) {
+		t.Parallel()
 		result, err := toMSPIdentity([]byte{})
 		require.NoError(t, err)
 		require.NotNil(t, result)
@@ -198,6 +202,7 @@ func TestToMSPIdentity(t *testing.T) {
 	})
 
 	t.Run("invalid proto bytes return error", func(t *testing.T) {
+		t.Parallel()
 		// 0xff is an incomplete varint — invalid protobuf
 		_, err := toMSPIdentity([]byte{0xff})
 		require.Error(t, err)
@@ -205,7 +210,9 @@ func TestToMSPIdentity(t *testing.T) {
 }
 
 func TestCapabilitiesSupported(t *testing.T) {
+	t.Parallel()
 	t.Run("no application config returns error with channel id", func(t *testing.T) {
+		t.Parallel()
 		r := &mockResources{
 			appCfgOK:    false,
 			txValidator: &mockConfigtxValidator{id: "ch1"},
@@ -216,6 +223,7 @@ func TestCapabilitiesSupported(t *testing.T) {
 	})
 
 	t.Run("application capabilities not supported", func(t *testing.T) {
+		t.Parallel()
 		r := &mockResources{
 			appCfg:      &mockApplication{caps: &mockAppCapabilities{err: errors.New("app cap unsupported")}},
 			appCfgOK:    true,
@@ -227,6 +235,7 @@ func TestCapabilitiesSupported(t *testing.T) {
 	})
 
 	t.Run("channel capabilities not supported", func(t *testing.T) {
+		t.Parallel()
 		r := &mockResources{
 			appCfg:      &mockApplication{caps: &mockAppCapabilities{}},
 			appCfgOK:    true,
@@ -239,6 +248,7 @@ func TestCapabilitiesSupported(t *testing.T) {
 	})
 
 	t.Run("all capabilities supported", func(t *testing.T) {
+		t.Parallel()
 		r := &mockResources{
 			appCfg:   &mockApplication{caps: &mockAppCapabilities{}},
 			appCfgOK: true,
@@ -250,13 +260,16 @@ func TestCapabilitiesSupported(t *testing.T) {
 }
 
 func TestService_Update(t *testing.T) {
+	t.Parallel()
 	t.Run("invalid envelope payload returns error", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		err := s.Update(&cb.Envelope{Payload: []byte("not-a-proto")})
 		require.Error(t, err)
 	})
 
 	t.Run("valid genesis envelope succeeds", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("testchannel")
 		env := appChannelGenesisEnvelope(t, "testchannel")
 		err := s.Update(env)
@@ -266,13 +279,16 @@ func TestService_Update(t *testing.T) {
 }
 
 func TestService_DryUpdate(t *testing.T) {
+	t.Parallel()
 	t.Run("invalid envelope payload returns error", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		err := s.DryUpdate(&cb.Envelope{Payload: []byte("not-a-proto")})
 		require.Error(t, err)
 	})
 
 	t.Run("valid genesis envelope succeeds without mutating resources", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("testchannel")
 		env := appChannelGenesisEnvelope(t, "testchannel")
 		err := s.DryUpdate(env)
@@ -282,7 +298,9 @@ func TestService_DryUpdate(t *testing.T) {
 }
 
 func TestService_IsValid(t *testing.T) {
+	t.Parallel()
 	t.Run("invalid identity bytes return error", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		s.channelResources = &mockResources{}
 		err := s.IsValid([]byte{0xff})
@@ -290,6 +308,7 @@ func TestService_IsValid(t *testing.T) {
 	})
 
 	t.Run("deserialization error is propagated", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		s.channelResources = &mockResources{
 			mspMgr: &mockMSPManager{deserializeErr: errors.New("deserialization failed")},
@@ -300,6 +319,7 @@ func TestService_IsValid(t *testing.T) {
 	})
 
 	t.Run("validate error is propagated", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		s.channelResources = &mockResources{
 			mspMgr: &mockMSPManager{identity: &mockMSPIdentity{validateErr: errors.New("invalid cert")}},
@@ -310,6 +330,7 @@ func TestService_IsValid(t *testing.T) {
 	})
 
 	t.Run("valid identity returns nil", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		s.channelResources = &mockResources{
 			mspMgr: &mockMSPManager{identity: &mockMSPIdentity{}},
@@ -320,7 +341,9 @@ func TestService_IsValid(t *testing.T) {
 }
 
 func TestService_GetVerifier(t *testing.T) {
+	t.Parallel()
 	t.Run("invalid identity bytes return error", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		s.channelResources = &mockResources{}
 		_, err := s.GetVerifier([]byte{0xff})
@@ -328,6 +351,7 @@ func TestService_GetVerifier(t *testing.T) {
 	})
 
 	t.Run("deserialization error is propagated", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		s.channelResources = &mockResources{
 			mspMgr: &mockMSPManager{deserializeErr: errors.New("deserialization failed")},
@@ -337,6 +361,7 @@ func TestService_GetVerifier(t *testing.T) {
 	})
 
 	t.Run("success returns verifier", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		identity := &mockMSPIdentity{}
 		s.channelResources = &mockResources{
@@ -349,13 +374,16 @@ func TestService_GetVerifier(t *testing.T) {
 }
 
 func TestService_GetMSPIDs(t *testing.T) {
+	t.Parallel()
 	t.Run("no application config returns nil", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		s.channelResources = &mockResources{appCfgOK: false}
 		require.Nil(t, s.GetMSPIDs())
 	})
 
 	t.Run("nil organizations returns nil", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		s.channelResources = &mockResources{
 			appCfg:   &mockApplication{orgs: nil},
@@ -365,6 +393,7 @@ func TestService_GetMSPIDs(t *testing.T) {
 	})
 
 	t.Run("returns MSP IDs from all organizations", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		s.channelResources = &mockResources{
 			appCfg: &mockApplication{
@@ -382,7 +411,9 @@ func TestService_GetMSPIDs(t *testing.T) {
 }
 
 func TestService_OrdererConfig(t *testing.T) {
+	t.Parallel()
 	t.Run("no orderer config returns error", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		s.channelResources = &mockResources{ordCfgOK: false}
 		_, _, err := s.OrdererConfig(&mockConfigService{})
@@ -390,6 +421,7 @@ func TestService_OrdererConfig(t *testing.T) {
 	})
 
 	t.Run("nil organizations returns error", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		s.channelResources = &mockResources{
 			ordCfg:   &mockOrderer{consensusType: "etcdraft", orgs: nil},
@@ -400,6 +432,7 @@ func TestService_OrdererConfig(t *testing.T) {
 	})
 
 	t.Run("empty endpoint is skipped", func(t *testing.T) {
+		t.Parallel()
 		mspImpl := &mockMSP{tlsRootCerts: [][]byte{[]byte("root")}}
 		s := NewService("ch1")
 		s.channelResources = &mockResources{
@@ -418,6 +451,7 @@ func TestService_OrdererConfig(t *testing.T) {
 	})
 
 	t.Run("tls settings taken from ordering config when set", func(t *testing.T) {
+		t.Parallel()
 		mspImpl := &mockMSP{
 			tlsRootCerts: [][]byte{[]byte("root")},
 			tlsIntCerts:  [][]byte{[]byte("int")},
@@ -452,6 +486,7 @@ func TestService_OrdererConfig(t *testing.T) {
 	})
 
 	t.Run("tls falls back to cs when not set in ordering config", func(t *testing.T) {
+		t.Parallel()
 		mspImpl := &mockMSP{}
 		s := NewService("ch1")
 		s.channelResources = &mockResources{
@@ -480,7 +515,9 @@ func TestService_OrdererConfig(t *testing.T) {
 }
 
 func TestService_MSPManager(t *testing.T) {
+	t.Parallel()
 	t.Run("wraps resources MSPManager", func(t *testing.T) {
+		t.Parallel()
 		identity := &mockMSPIdentity{}
 		s := NewService("ch1")
 		s.channelResources = &mockResources{
@@ -495,6 +532,7 @@ func TestService_MSPManager(t *testing.T) {
 	})
 
 	t.Run("invalid bytes return error from DeserializeIdentity", func(t *testing.T) {
+		t.Parallel()
 		s := NewService("ch1")
 		s.channelResources = &mockResources{
 			mspMgr: &mockMSPManager{},

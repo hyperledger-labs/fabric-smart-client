@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestOperations(t *testing.T) {
+func TestOperations(t *testing.T) { //nolint:paralleltest
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Operations Suite")
 }

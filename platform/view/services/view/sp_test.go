@@ -23,6 +23,7 @@ type MyImpl struct{}
 func (m *MyImpl) Foo() {}
 
 func TestSP(t *testing.T) {
+	t.Parallel()
 	sp := view.NewServiceProvider()
 
 	impl := &MyImpl{}

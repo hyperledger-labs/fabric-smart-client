@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestInsertSimple(t *testing.T) {
+func TestInsertSimple(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	query, params := q.InsertInto("my_table").
@@ -30,7 +30,7 @@ func TestInsertSimple(t *testing.T) {
 	Expect(params).To(ConsistOf("val1", "val2"))
 }
 
-func TestInsertOnConflict(t *testing.T) {
+func TestInsertOnConflict(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	query, params := q.InsertInto("my_table").

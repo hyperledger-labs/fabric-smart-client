@@ -103,10 +103,10 @@ UdiVmT6jldSKIETZm+kszfkANWxzKZXcXg==
 // sign the MESSAGE, while the ECDSA signing will
 // sign the DIGEST
 // The same applies to the Verify function
-func TestSignatureAlgorithms(t *testing.T) {
+func TestSignatureAlgorithms(t *testing.T) { //nolint:paralleltest
 	gt := gomega.NewGomegaWithT(t)
 
-	t.Run("Test ecdsa sign with digest and ed25519 sign with full message", func(t *testing.T) {
+	t.Run("Test ecdsa sign with digest and ed25519 sign with full message", func(t *testing.T) { //nolint:paralleltest
 		bccspDefault := factory.GetDefault()
 		mspImpl, _ := newBccspMsp(MSPv3_0, bccspDefault)
 		mspImpl.(*bccspmsp).cryptoConfig = &msp.FabricCryptoConfig{
@@ -166,9 +166,9 @@ func TestSignatureAlgorithms(t *testing.T) {
 	})
 }
 
-func TestIdentityValidation(t *testing.T) {
+func TestIdentityValidation(t *testing.T) { //nolint:paralleltest
 	gt := gomega.NewGomegaWithT(t)
-	t.Run("Test MSPv3_0 ed2551 identity validation", func(t *testing.T) {
+	t.Run("Test MSPv3_0 ed2551 identity validation", func(t *testing.T) { //nolint:paralleltest
 		bccspDefault := factory.GetDefault()
 		mspImpl, _ := newBccspMsp(MSPv1_4_3, bccspDefault)
 		cryptoConfig := &msp.FabricCryptoConfig{
