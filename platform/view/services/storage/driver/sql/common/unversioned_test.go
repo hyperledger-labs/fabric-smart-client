@@ -9,6 +9,8 @@ package common_test
 import (
 	"context"
 	"database/sql"
+
+	sq "github.com/Masterminds/squirrel"
 	"regexp"
 	"testing"
 
@@ -17,7 +19,6 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 var (
@@ -38,7 +39,7 @@ func TestGetState(t *testing.T) { //nolint:paralleltest
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	query := regexp.QuoteMeta("SELECT val FROM kv_table WHERE (ns = $1) AND (pkey = $2)")
+	query := regexp.QuoteMeta("SELECT val FROM kv_table WHERE (ns = $1 AND pkey = $2)")
 	mock.ExpectQuery(query).WithArgs(ns, key).
 		WillReturnRows(mock.NewRows([]string{"val"}).AddRow(value))
 
@@ -56,7 +57,7 @@ func TestGetState_QueryError(t *testing.T) { //nolint:paralleltest
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	query := regexp.QuoteMeta("SELECT val FROM kv_table WHERE (ns = $1) AND (pkey = $2)")
+	query := regexp.QuoteMeta("SELECT val FROM kv_table WHERE (ns = $1 AND pkey = $2)")
 	mock.ExpectQuery(query).WithArgs(ns, key).WillReturnError(sql.ErrConnDone)
 
 	store := mockKeyValueStore(db, db)
@@ -72,7 +73,7 @@ func TestSetState(t *testing.T) { //nolint:paralleltest
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	query := regexp.QuoteMeta("INSERT INTO kv_table (ns, pkey, val) VALUES ($1, $2, $3)")
+	query := regexp.QuoteMeta("INSERT INTO kv_table (ns,pkey,val) VALUES ($1,$2,$3) ON CONFLICT (ns, pkey) DO UPDATE SET val = EXCLUDED.val")
 	mock.ExpectExec(query).WithArgs(ns, key, value).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	store := mockKeyValueStore(db, db)
@@ -88,7 +89,7 @@ func TestSetState_ExecError(t *testing.T) { //nolint:paralleltest
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	query := regexp.QuoteMeta("INSERT INTO kv_table (ns, pkey, val) VALUES ($1, $2, $3)")
+	query := regexp.QuoteMeta("INSERT INTO kv_table (ns,pkey,val) VALUES ($1,$2,$3) ON CONFLICT (ns, pkey) DO UPDATE SET val = EXCLUDED.val")
 	mock.ExpectExec(query).WithArgs(ns, key, value).WillReturnError(sql.ErrConnDone)
 
 	store := mockKeyValueStore(db, db)
@@ -104,7 +105,7 @@ func TestDeleteState(t *testing.T) { //nolint:paralleltest
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	query := regexp.QuoteMeta("DELETE FROM kv_table WHERE (ns = $1) AND (pkey = $2)")
+	query := regexp.QuoteMeta("DELETE FROM kv_table WHERE (ns = $1 AND pkey = $2)")
 	mock.ExpectExec(query).WithArgs(ns, key).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	store := mockKeyValueStore(db, db)
@@ -120,7 +121,7 @@ func TestDeleteState_ExecError(t *testing.T) { //nolint:paralleltest
 	db, mock, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
 
-	query := regexp.QuoteMeta("DELETE FROM kv_table WHERE (ns = $1) AND (pkey = $2)")
+	query := regexp.QuoteMeta("DELETE FROM kv_table WHERE (ns = $1 AND pkey = $2)")
 	mock.ExpectExec(query).WithArgs(ns, key).WillReturnError(sql.ErrConnDone)
 
 	store := mockKeyValueStore(db, db)
@@ -138,7 +139,7 @@ func TestGetStateRangeScanIterator(t *testing.T) { //nolint:paralleltest
 	startKey := []byte("a")
 	endKey := []byte("z")
 
-	query := regexp.QuoteMeta("SELECT pkey, val FROM kv_table WHERE (ns = $1) AND ((pkey >= $2) AND (pkey < $3)) ORDER BY pkey ASC")
+	query := regexp.QuoteMeta("SELECT pkey, val FROM kv_table WHERE (ns = $1 AND pkey >= $2 AND pkey < $3) ORDER BY pkey ASC")
 	mock.ExpectQuery(query).
 		WithArgs(ns, startKey, endKey).
 		WillReturnRows(sqlmock.NewRows([]string{"pkey", "val"}).AddRow("a", []byte("val1")).AddRow("b", []byte("val2")))
@@ -167,7 +168,7 @@ func TestGetStateSetIterator(t *testing.T) { //nolint:paralleltest
 
 	keys := []string{"a", "b"}
 
-	query := regexp.QuoteMeta("SELECT pkey, val FROM kv_table WHERE (ns = $1) AND ((pkey) IN (($2), ($3)))")
+	query := regexp.QuoteMeta("SELECT pkey, val FROM kv_table WHERE (ns = $1 AND pkey IN ($2,$3))")
 	mock.ExpectQuery(query).
 		WithArgs(ns, []byte("a"), []byte("b")).
 		WillReturnRows(sqlmock.NewRows([]string{"pkey", "val"}).AddRow("a", []byte("val1")).AddRow("b", []byte("val2")))
@@ -236,6 +237,6 @@ func TestClose(t *testing.T) { //nolint:paralleltest
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 }
 
-func mockKeyValueStore(write, read *sql.DB) *common2.KeyValueStore {
-	return common2.NewKeyValueStore(write, read, "kv_table", &dummyErrorWrapper{}, sqlite.NewConditionInterpreter())
+func mockKeyValueStore(write *sql.DB, read *sql.DB) *common2.KeyValueStore {
+	return common2.NewKeyValueStore(write, read, "kv_table", &dummyErrorWrapper{}, sq.Dollar)
 }

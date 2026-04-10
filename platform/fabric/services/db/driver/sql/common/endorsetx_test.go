@@ -8,11 +8,12 @@ package common_test
 import (
 	"context"
 	"database/sql"
+
+	sq "github.com/Masterminds/squirrel"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 func TestEnvelope_GetData(t *testing.T) { //nolint:paralleltest
@@ -52,5 +53,5 @@ func TestEnvelope_PutData_Conflict(t *testing.T) { //nolint:paralleltest
 }
 
 func mockEnvelopeStore(db *sql.DB) *common.EnvelopeStore {
-	return common.NewEnvelopeStore(db, db, "test_table", &mock.SQLErrorWrapper{}, sqlite.NewConditionInterpreter())
+	return common.NewEnvelopeStore(db, db, "test_table", &mock.SQLErrorWrapper{}, sq.Dollar)
 }

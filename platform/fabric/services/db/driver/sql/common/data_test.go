@@ -120,7 +120,7 @@ func PutData_Success(t *testing.T, put putFunc) {
 
 	key := "key1"
 	data := []byte("value1")
-	query := regexp.QuoteMeta("INSERT INTO test_table (key, data) VALUES ($1, $2) ON CONFLICT DO NOTHING")
+	query := regexp.QuoteMeta("INSERT INTO test_table (key,data) VALUES ($1,$2) ON CONFLICT DO NOTHING")
 
 	mockDB.
 		ExpectExec(query).
@@ -142,7 +142,7 @@ func PutData_Conflict(t *testing.T, put putFunc) {
 
 	key := "key1"
 	data := []byte("value1")
-	query := regexp.QuoteMeta("INSERT INTO test_table (key, data) VALUES ($1, $2) ON CONFLICT DO NOTHING")
+	query := regexp.QuoteMeta("INSERT INTO test_table (key,data) VALUES ($1,$2) ON CONFLICT DO NOTHING")
 
 	mockDB.
 		ExpectExec(query).
