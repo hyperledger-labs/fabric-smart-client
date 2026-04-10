@@ -17,10 +17,12 @@ import (
 )
 
 func TestApplicationInterface(t *testing.T) {
+	t.Parallel()
 	_ = Application((*ApplicationConfig)(nil))
 }
 
 func TestACL(t *testing.T) {
+	t.Parallel()
 	g := NewGomegaWithT(t)
 	cgt := &cb.ConfigGroup{
 		Values: map[string]*cb.ConfigValue{
@@ -40,6 +42,7 @@ func TestACL(t *testing.T) {
 	}
 
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		cg := proto.Clone(cgt).(*cb.ConfigGroup)
 		_, err := NewApplicationConfig(proto.Clone(cg).(*cb.ConfigGroup), nil)
 		g.Expect(err).NotTo(HaveOccurred())

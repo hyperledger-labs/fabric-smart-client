@@ -7,28 +7,25 @@ SPDX-License-Identifier: Apache-2.0
 package testlogger_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMustGetLogger_WithParams(t *testing.T) {
-	RegisterTestingT(t)
+	t.Parallel()
+	const expectedSuffix = "fsc.platform.common.services.logging.testlogger_test.some.thing"
 	l := logging.MustGetLogger("some", "thing")
-
-	name := l.Zap().Name()
-
-	Expect(name).To(HaveSuffix("fsc.platform.common.services.logging.testlogger_test.some.thing"))
+	require.True(t, strings.HasSuffix(l.Zap().Name(), expectedSuffix))
 }
 
 func TestMustGetLogger_WithOutParams(t *testing.T) {
-	RegisterTestingT(t)
+	t.Parallel()
+	const expectedSuffix = "fsc.platform.common.services.logging.testlogger_test"
 	l := logging.MustGetLogger()
-
-	name := l.Zap().Name()
-
-	Expect(name).To(HaveSuffix("fsc.platform.common.services.logging.testlogger_test"))
+	require.True(t, strings.HasSuffix(l.Zap().Name(), expectedSuffix))
 }
 
 func level1() (string, error) {
@@ -48,12 +45,11 @@ func level4() (string, error) {
 }
 
 func TestGetPackageName(t *testing.T) {
-	RegisterTestingT(t)
-
+	t.Parallel()
+	const expectedPkg = "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging/testlogger_test"
 	pkg, err := level1()
-	Expect(err).NotTo(HaveOccurred())
-
-	Expect(pkg).To(BeIdenticalTo("github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging/testlogger_test"))
+	require.NoError(t, err)
+	require.Equal(t, expectedPkg, pkg)
 }
 
 type VersionInfoHandler struct{}
@@ -63,11 +59,10 @@ func (h *VersionInfoHandler) sendResponseLikeMethod() (string, error) {
 }
 
 func TestGetPackageName_FromStructMethod(t *testing.T) {
-	RegisterTestingT(t)
-
+	t.Parallel()
+	const expectedPkg = "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging/testlogger_test"
 	handler := &VersionInfoHandler{}
 	pkg, err := handler.sendResponseLikeMethod()
-	Expect(err).NotTo(HaveOccurred())
-
-	Expect(pkg).To(BeIdenticalTo("github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging/testlogger_test"))
+	require.NoError(t, err)
+	require.Equal(t, expectedPkg, pkg)
 }

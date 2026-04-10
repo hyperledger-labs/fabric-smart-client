@@ -16,10 +16,12 @@ import (
 )
 
 func TestInterface(t *testing.T) {
+	t.Parallel()
 	_ = Channel(&ChannelConfig{})
 }
 
 func TestChannelConfig(t *testing.T) {
+	t.Parallel()
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -32,6 +34,7 @@ func TestChannelConfig(t *testing.T) {
 }
 
 func TestBlockDataHashingStructure(t *testing.T) {
+	t.Parallel()
 	cc := &ChannelConfig{protos: &ChannelProtos{BlockDataHashingStructure: &cb.BlockDataHashingStructure{}}}
 	require.Error(t, cc.validateBlockDataHashingStructure(), "Must supply block data hashing structure")
 
@@ -46,6 +49,7 @@ func TestBlockDataHashingStructure(t *testing.T) {
 }
 
 func TestOrdererAddresses(t *testing.T) {
+	t.Parallel()
 	cc := &ChannelConfig{protos: &ChannelProtos{OrdererAddresses: &cb.OrdererAddresses{}}}
 	require.Error(t, cc.validateOrdererAddresses(), "Must supply orderer addresses")
 
@@ -56,6 +60,7 @@ func TestOrdererAddresses(t *testing.T) {
 }
 
 func TestConsortiumName(t *testing.T) {
+	t.Parallel()
 	cc := &ChannelConfig{protos: &ChannelProtos{Consortium: &cb.Consortium{Name: "TestConsortium"}}}
 	require.Equal(t, "TestConsortium", cc.ConsortiumName(), "Unexpected consortium name returned")
 }

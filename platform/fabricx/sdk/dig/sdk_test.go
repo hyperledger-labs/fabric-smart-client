@@ -16,5 +16,6 @@ import (
 )
 
 func TestWiring(t *testing.T) {
+	t.Parallel()
 	require.NoError(t, sdk.DryRunWiring(func(sdk common.SDK) *SDK { return NewFrom(fabric.NewFrom(sdk)) }, sdk.WithBool("fabric.enabled", true)))
 }

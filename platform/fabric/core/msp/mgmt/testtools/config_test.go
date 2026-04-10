@@ -15,6 +15,7 @@ import (
 )
 
 func TestFakeSetup(t *testing.T) {
+	t.Parallel()
 	err := LoadMSPSetupForTesting()
 	if err != nil {
 		t.Fatalf("LoadLocalMsp failed, err %s", err)

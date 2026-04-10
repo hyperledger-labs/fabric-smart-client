@@ -122,11 +122,11 @@ func testGenerateLocalMSP(t *testing.T, nodeOUs bool) {
 	cleanup(testDir)
 }
 
-func TestGenerateLocalMSPWithNodeOU(t *testing.T) {
+func TestGenerateLocalMSPWithNodeOU(t *testing.T) { //nolint:paralleltest
 	testGenerateLocalMSP(t, true)
 }
 
-func TestGenerateLocalMSPWithoutNodeOU(t *testing.T) {
+func TestGenerateLocalMSPWithoutNodeOU(t *testing.T) { //nolint:paralleltest
 	testGenerateLocalMSP(t, false)
 }
 
@@ -174,14 +174,17 @@ func testGenerateVerifyingMSP(t *testing.T, nodeOUs bool) {
 }
 
 func TestGenerateVerifyingMSPWithNodeOU(t *testing.T) {
+	t.Parallel()
 	testGenerateVerifyingMSP(t, true)
 }
 
 func TestGenerateVerifyingMSPWithoutNodeOU(t *testing.T) {
+	t.Parallel()
 	testGenerateVerifyingMSP(t, true)
 }
 
 func TestExportConfig(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(testDir, "export-test")
 	configFile := filepath.Join(path, "config.yaml")
 	caFile := "ca.pem"

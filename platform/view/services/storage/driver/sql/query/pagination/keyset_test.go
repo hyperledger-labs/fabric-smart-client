@@ -52,7 +52,7 @@ func setupPaginationWithLastId() *driver.PageIterator[*interface{}] {
 	return page
 }
 
-func TestKeysetSimple(t *testing.T) {
+func TestKeysetSimple(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	page := setupPaginationWithLastId()
@@ -70,7 +70,7 @@ func TestKeysetSimple(t *testing.T) {
 	Expect(args).To(ConsistOf("last", 10))
 }
 
-func TestKeysetSkippingPage(t *testing.T) {
+func TestKeysetSkippingPage(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	page := setupPaginationWithLastId()
@@ -92,7 +92,7 @@ func TestKeysetSkippingPage(t *testing.T) {
 	Expect(args).To(ConsistOf(10, 220))
 }
 
-func TestKeysetGoingBack(t *testing.T) {
+func TestKeysetGoingBack(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	page := setupPaginationWithLastId()
@@ -110,7 +110,7 @@ func TestKeysetGoingBack(t *testing.T) {
 	Expect(args).To(ConsistOf(10, 190))
 }
 
-func TestKeysetGoingNextBack(t *testing.T) {
+func TestKeysetGoingNextBack(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	page := setupPaginationWithLastId()
@@ -136,7 +136,7 @@ func TestKeysetGoingNextBack(t *testing.T) {
 	Expect(args).To(ConsistOf(10, 210))
 }
 
-func TestKeysetEmptyResults(t *testing.T) {
+func TestKeysetEmptyResults(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	p := utils.MustGet(pagination.KeysetWithField[string](200, 10, "col_id", "StringField"))
@@ -165,7 +165,7 @@ func TestKeysetEmptyResults(t *testing.T) {
 	Expect(args).To(ConsistOf(10, 210))
 }
 
-func TestKeysetPartialResults(t *testing.T) {
+func TestKeysetPartialResults(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	p := utils.MustGet(pagination.KeysetWithField[string](200, 20, "col_id", "StringField"))
@@ -194,7 +194,7 @@ func TestKeysetPartialResults(t *testing.T) {
 	Expect(args).To(ConsistOf(20, 220))
 }
 
-func TestKeysetDoubleAddField(t *testing.T) {
+func TestKeysetDoubleAddField(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	page := setupPaginationWithLastId()
@@ -212,7 +212,7 @@ func TestKeysetDoubleAddField(t *testing.T) {
 	Expect(args).To(ConsistOf("last", 10))
 }
 
-func TestKeysetAsterixAddField(t *testing.T) {
+func TestKeysetAsterixAddField(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	page := setupPaginationWithLastId()
@@ -231,6 +231,7 @@ func TestKeysetAsterixAddField(t *testing.T) {
 }
 
 func TestKeysetInt(t *testing.T) {
+	t.Parallel()
 	// This test fails because there it is hard coded in
 	// func NewPage[V any](results collections.Iterator[*V], pagination driver.Pagination) (*driver.PageIterator[*V], error) {
 	// 	return NewTypedPage[string, V](results, pagination)
@@ -276,7 +277,7 @@ func TestKeysetInt(t *testing.T) {
 	Expect(args).To(ConsistOf(10, 10))
 }
 
-func TestKeysetSeriliazation(t *testing.T) {
+func TestKeysetSeriliazation(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	page := setupPaginationWithLastId()

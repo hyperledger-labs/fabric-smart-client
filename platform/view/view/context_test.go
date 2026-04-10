@@ -15,6 +15,7 @@ import (
 )
 
 func TestCompileRunViewOptions(t *testing.T) {
+	t.Parallel()
 	ctx1 := t.Context()
 	ctx2, cancel := context.WithCancel(ctx1)
 	t.Cleanup(cancel)

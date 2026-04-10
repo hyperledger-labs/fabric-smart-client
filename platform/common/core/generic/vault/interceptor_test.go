@@ -18,6 +18,7 @@ import (
 )
 
 func TestConcurrency(t *testing.T) {
+	t.Parallel()
 	qe := mocks.NewMockQE()
 	idsr := mocks.MockTxStatusStore{}
 
@@ -63,6 +64,7 @@ func TestConcurrency(t *testing.T) {
 }
 
 func TestAddReadAt(t *testing.T) {
+	t.Parallel()
 	qe := mocks.MockQE{}
 	idsr := mocks.MockTxStatusStore{}
 	i := newInterceptor(logging.MustGetLogger(), context.Background(), EmptyRWSet(), qe, idsr, "1")

@@ -26,7 +26,13 @@ import (
 
 //go:generate counterfeiter -o mocks/config.go -fake-name Config . config
 
-type testArtifactProvider struct{}
+type testArtifactProvider struct {
+	removeNils func([]driver2.VaultRead) []driver2.VaultRead
+}
+
+func (p *testArtifactProvider) RemoveNils(items []driver2.VaultRead) []driver2.VaultRead {
+	return p.removeNils(items)
+}
 
 func (p *testArtifactProvider) NewCachedVault(ddb driver.VaultStore) (*Vault[ValidationCode], error) {
 	vaultLogger := logging.MustGetLogger()
@@ -156,25 +162,27 @@ func (m *marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string
 	return nil
 }
 
-func TestMemory(t *testing.T) {
-	RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead { return items }
-	artifactProvider := &testArtifactProvider{}
-	for _, c := range SingleDBCases {
-		ddb, err := vault2.OpenMemoryVault(c.Name)
-		require.NoError(t, err)
-		require.NotNil(t, ddb)
+func TestMemory(t *testing.T) { //nolint:tparallel
+	t.Parallel()
+	artifactProvider := &testArtifactProvider{
+		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead { return items },
+	}
+	for _, c := range SingleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
+			ddb, err := vault2.OpenMemoryVault(c.Name)
+			require.NoError(t, err)
+			require.NotNil(t, ddb)
 			defer utils.IgnoreErrorFunc(ddb.Close)
 			c.Fn(xt, ddb, artifactProvider)
 		})
 	}
 
-	for _, c := range DoubleDBCases {
-		db1, err := vault2.OpenMemoryVault(c.Name)
-		require.NoError(t, err)
-		db2, err := vault2.OpenMemoryVault(c.Name)
-		require.NoError(t, err)
+	for _, c := range DoubleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
+			db1, err := vault2.OpenMemoryVault(c.Name)
+			require.NoError(t, err)
+			db2, err := vault2.OpenMemoryVault(c.Name)
+			require.NoError(t, err)
 			defer utils.IgnoreErrorFunc(db1.Close)
 			defer utils.IgnoreErrorFunc(db2.Close)
 			c.Fn(xt, db1, db2, artifactProvider)
@@ -182,27 +190,29 @@ func TestMemory(t *testing.T) {
 	}
 }
 
-func TestSqlite(t *testing.T) {
-	RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead {
-		return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
+func TestSqlite(t *testing.T) { //nolint:tparallel
+	t.Parallel()
+	artifactProvider := &testArtifactProvider{
+		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead {
+			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
+		},
 	}
-	artifactProvider := &testArtifactProvider{}
 
-	for _, c := range SingleDBCases {
-		ddb, err := vault2.OpenSqliteVault("node1", t.TempDir())
-		require.NoError(t, err)
+	for _, c := range SingleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
+			ddb, err := vault2.OpenSqliteVault("node1", t.TempDir())
+			require.NoError(t, err)
 			defer utils.IgnoreErrorFunc(ddb.Close)
 			c.Fn(xt, ddb, artifactProvider)
 		})
 	}
 
-	for _, c := range DoubleDBCases {
-		db1, err := vault2.OpenSqliteVault("node1", t.TempDir())
-		require.NoError(t, err)
-		db2, err := vault2.OpenSqliteVault("node2", t.TempDir())
-		require.NoError(t, err)
+	for _, c := range DoubleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
+			db1, err := vault2.OpenSqliteVault("node1", t.TempDir())
+			require.NoError(t, err)
+			db2, err := vault2.OpenSqliteVault("node2", t.TempDir())
+			require.NoError(t, err)
 			defer utils.IgnoreErrorFunc(db1.Close)
 			defer utils.IgnoreErrorFunc(db2.Close)
 			c.Fn(xt, db1, db2, artifactProvider)
@@ -210,28 +220,30 @@ func TestSqlite(t *testing.T) {
 	}
 }
 
-func TestPostgres(t *testing.T) {
-	RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead {
-		return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
+func TestPostgres(t *testing.T) { //nolint:tparallel
+	t.Parallel()
+	artifactProvider := &testArtifactProvider{
+		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead {
+			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
+		},
 	}
-	artifactProvider := &testArtifactProvider{}
 
-	for _, c := range append(SingleDBCases, ReadCommittedDBCases...) {
-		ddb, terminate, err := vault2.OpenPostgresVault("common-sdk-node1")
-		require.NoError(t, err)
+	for _, c := range append(SingleDBCases, ReadCommittedDBCases...) { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
+			ddb, terminate, err := vault2.OpenPostgresVault("common-sdk-node1")
+			require.NoError(t, err)
 			defer utils.IgnoreErrorFunc(ddb.Close)
 			defer terminate()
 			c.Fn(xt, ddb, artifactProvider)
 		})
 	}
 
-	for _, c := range DoubleDBCases {
-		db1, terminate1, err := vault2.OpenPostgresVault("common-sdk-node1")
-		require.NoError(t, err)
-		db2, terminate2, err := vault2.OpenPostgresVault("common-sdk-node2")
-		require.NoError(t, err)
+	for _, c := range DoubleDBCases { //nolint:paralleltest
 		t.Run(c.Name, func(xt *testing.T) {
+			db1, terminate1, err := vault2.OpenPostgresVault("common-sdk-node1")
+			require.NoError(t, err)
+			db2, terminate2, err := vault2.OpenPostgresVault("common-sdk-node2")
+			require.NoError(t, err)
 			defer utils.IgnoreErrorFunc(db1.Close)
 			defer utils.IgnoreErrorFunc(db2.Close)
 			defer terminate1()

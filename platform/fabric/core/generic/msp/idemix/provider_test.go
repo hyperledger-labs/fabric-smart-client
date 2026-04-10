@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestProvider(t *testing.T) {
+func TestProvider(t *testing.T) { //nolint:paralleltest
 	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
@@ -57,7 +57,7 @@ func newKVS() driver.KeyValueStore {
 	return utils.MustGet(mem.NewDriver().NewKVS(""))
 }
 
-func TestIdentityWithEidRhNymPolicy(t *testing.T) {
+func TestIdentityWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
 	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
@@ -119,7 +119,7 @@ func TestIdentityWithEidRhNymPolicy(t *testing.T) {
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
-func TestIdentityStandard(t *testing.T) {
+func TestIdentityStandard(t *testing.T) { //nolint:paralleltest
 	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
@@ -183,7 +183,7 @@ func TestIdentityStandard(t *testing.T) {
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
-func TestAuditWithEidRhNymPolicy(t *testing.T) {
+func TestAuditWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
 	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -221,7 +221,7 @@ func TestAuditWithEidRhNymPolicy(t *testing.T) {
 	require.Error(t, auditInfo.Match(id))
 }
 
-func TestProvider_DeserializeSigner(t *testing.T) {
+func TestProvider_DeserializeSigner(t *testing.T) { //nolint:paralleltest
 	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
@@ -274,7 +274,7 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 	require.NoError(t, verifier.Verify(msg, sigma))
 }
 
-func TestIdentityFromFabricCA(t *testing.T) {
+func TestIdentityFromFabricCA(t *testing.T) { //nolint:paralleltest
 	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
@@ -337,7 +337,7 @@ func TestIdentityFromFabricCA(t *testing.T) {
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
-func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) {
+func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
 	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())

@@ -15,6 +15,7 @@ import (
 )
 
 func TestGetQueryType(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		q        *discovery.Query
 		expected QueryType
@@ -29,6 +30,7 @@ func TestGetQueryType(t *testing.T) {
 
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			t.Parallel()
 			require.Equal(t, tt.expected, GetQueryType(tt.q))
 		})
 	}

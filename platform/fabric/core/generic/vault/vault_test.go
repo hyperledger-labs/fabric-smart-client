@@ -23,7 +23,13 @@ import (
 
 //go:generate counterfeiter -o mocks/config.go -fake-name Config . config
 
-type artifactsProvider struct{}
+type artifactsProvider struct {
+	removeNils func([]driver2.VaultRead) []driver2.VaultRead
+}
+
+func (p *artifactsProvider) RemoveNils(items []driver2.VaultRead) []driver2.VaultRead {
+	return p.removeNils(items)
+}
 
 func (p *artifactsProvider) NewCachedVault(ddb dbdriver.VaultStore) (*vault.Vault[fdriver.ValidationCode], error) {
 	return NewVault(vault2.NewCachedVault(ddb, 100), &disabled.Provider{}, &noop.TracerProvider{}), nil
@@ -38,8 +44,10 @@ func (p *artifactsProvider) NewMarshaller() vault.Marshaller {
 }
 
 func TestMemory(t *testing.T) {
-	vault.RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead { return items }
-	ap := &artifactsProvider{}
+	t.Parallel()
+	ap := &artifactsProvider{
+		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead { return items },
+	}
 	for _, c := range vault.SingleDBCases {
 		ddb, err := vault2.OpenMemoryVault(c.Name)
 		require.NoError(t, err)
@@ -55,6 +63,7 @@ func TestMemory(t *testing.T) {
 		db2, err := vault2.OpenMemoryVault(c.Name)
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
+			xt.Parallel()
 			defer utils.IgnoreErrorFunc(db1.Close)
 			defer utils.IgnoreErrorFunc(db2.Close)
 			c.Fn(xt, db1, db2, ap)
@@ -63,10 +72,12 @@ func TestMemory(t *testing.T) {
 }
 
 func TestSqlite(t *testing.T) {
-	vault.RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead {
-		return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
+	t.Parallel()
+	ap := &artifactsProvider{
+		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead {
+			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
+		},
 	}
-	ap := &artifactsProvider{}
 	for _, c := range vault.SingleDBCases {
 		ddb, err := vault2.OpenSqliteVault("node1", t.TempDir())
 		require.NoError(t, err)
@@ -82,6 +93,7 @@ func TestSqlite(t *testing.T) {
 		db2, err := vault2.OpenSqliteVault("node2", t.TempDir())
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
+			xt.Parallel()
 			defer utils.IgnoreErrorFunc(db1.Close)
 			defer utils.IgnoreErrorFunc(db2.Close)
 			c.Fn(xt, db1, db2, ap)
@@ -90,10 +102,12 @@ func TestSqlite(t *testing.T) {
 }
 
 func TestPostgres(t *testing.T) {
-	vault.RemoveNils = func(items []driver2.VaultRead) []driver2.VaultRead {
-		return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
+	t.Parallel()
+	ap := &artifactsProvider{
+		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead {
+			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
+		},
 	}
-	ap := &artifactsProvider{}
 	for _, c := range vault.SingleDBCases {
 		ddb, terminate, err := vault2.OpenPostgresVault("fabric-sdk-node1")
 		require.NoError(t, err)
@@ -110,6 +124,7 @@ func TestPostgres(t *testing.T) {
 		db2, terminate2, err := vault2.OpenPostgresVault("fabric-sdk-node2")
 		require.NoError(t, err)
 		t.Run(c.Name, func(xt *testing.T) {
+			xt.Parallel()
 			defer utils.IgnoreErrorFunc(db1.Close)
 			defer utils.IgnoreErrorFunc(db2.Close)
 			defer terminate1()

@@ -18,6 +18,7 @@ import (
 )
 
 func TestMSPConfigManager(t *testing.T) {
+	t.Parallel()
 	mspDir := getDevMspDir()
 	conf, err := msp.GetLocalMspConfig(mspDir, nil, "SampleOrg")
 	require.NoError(t, err)
@@ -59,17 +60,20 @@ func getDevMspDir() string {
 }
 
 func TestMSPConfigFailure(t *testing.T) {
+	t.Parallel()
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 	mspCH := NewMSPConfigHandler(msp.MSPv1_0, cryptoProvider)
 
 	// begin/propose/commit
 	t.Run("Bad proto", func(t *testing.T) {
+		t.Parallel()
 		_, err := mspCH.ProposeMSP(&mspprotos.MSPConfig{Config: []byte("BARF!")})
 		require.Error(t, err)
 	})
 
 	t.Run("Bad MSP Type", func(t *testing.T) {
+		t.Parallel()
 		_, err := mspCH.ProposeMSP(&mspprotos.MSPConfig{Type: int32(10)})
 		require.Error(t, err)
 	})

@@ -18,6 +18,7 @@ import (
 )
 
 func TestChildContext(t *testing.T) {
+	t.Parallel()
 	parent := &mock.MutableParentContext{}
 	parent.IDReturns("parent-id")
 	parent.MeReturns(view2.Identity("me"))

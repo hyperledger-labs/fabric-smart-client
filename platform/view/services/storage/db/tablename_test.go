@@ -18,6 +18,7 @@ type testCase struct {
 }
 
 func TestEscapeTableName(t *testing.T) {
+	t.Parallel()
 	cases := []testCase{
 		{[]string{}, ""},
 		{[]string{"alpha", "testchannel"}, "alpha__testchannel"},
@@ -30,6 +31,7 @@ func TestEscapeTableName(t *testing.T) {
 }
 
 func TestEscapeTableNameError(t *testing.T) {
+	t.Parallel()
 	cases := [][]string{
 		{"alpha", "testchannel!"},
 		{"alpha", "test-#channel"},

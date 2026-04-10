@@ -22,7 +22,7 @@ import (
 	"go.uber.org/goleak"
 )
 
-func TestPingPongSessionLevel(t *testing.T) {
+func TestPingPongSessionLevel(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Test ping-pong behavior at the session level with multiple sessions

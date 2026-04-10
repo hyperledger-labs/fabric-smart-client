@@ -13,6 +13,7 @@ import (
 )
 
 func TestDeserializer(t *testing.T) {
+	t.Parallel()
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 	id, auditInfo, err := p.Identity(nil)

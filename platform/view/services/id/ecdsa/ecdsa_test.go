@@ -13,6 +13,7 @@ import (
 )
 
 func TestNewIdentityFromPEMCertInvalid(t *testing.T) {
+	t.Parallel()
 	_, _, err := NewIdentityFromPEMCert([]byte("invalid PEM"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot pem decode")

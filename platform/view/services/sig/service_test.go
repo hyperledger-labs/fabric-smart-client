@@ -757,6 +757,7 @@ func TestSigningIdentityWrapper(t *testing.T) {
 	}
 
 	t.Run("Sign", func(t *testing.T) {
+		t.Parallel()
 		sig, err := si.Sign(message)
 		require.NoError(t, err)
 		require.Equal(t, signature, sig)
@@ -765,17 +766,20 @@ func TestSigningIdentityWrapper(t *testing.T) {
 	})
 
 	t.Run("Serialize", func(t *testing.T) {
+		t.Parallel()
 		serialized, err := si.Serialize()
 		require.NoError(t, err)
 		require.Equal(t, identity, view.Identity(serialized))
 	})
 
 	t.Run("GetPublicVersion", func(t *testing.T) {
+		t.Parallel()
 		pub := si.GetPublicVersion()
 		require.Equal(t, si, pub)
 	})
 
 	t.Run("Verify panics", func(t *testing.T) {
+		t.Parallel()
 		require.Panics(t, func() {
 			_ = si.Verify(message, signature)
 		})

@@ -27,6 +27,7 @@ type TestStruct struct {
 }
 
 func TestEnhancedExactUnmarshal(t *testing.T) {
+	t.Parallel()
 	// Prepare a temporary file for testing stringFromFileDecodeHook
 	contentFile, err := os.CreateTemp(t.TempDir(), "test-content")
 	require.NoError(t, err)
@@ -77,6 +78,7 @@ test:
 }
 
 func TestByteSizeDecodeHookExtra(t *testing.T) {
+	t.Parallel()
 	k := koanf.New(".")
 	raw := []byte(`
 test:

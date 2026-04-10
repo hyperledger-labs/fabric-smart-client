@@ -15,7 +15,9 @@ import (
 
 // Test Fix #1: Safer calculation method (Pow vs Exp/Log) - maintains exponential spacing
 func TestFix1_SaferCalculation_MaintainsExponentialSpacing(t *testing.T) {
+	t.Parallel()
 	t.Run("Verify exponential spacing with constant ratio", func(t *testing.T) {
+		t.Parallel()
 		buckets := ExponentialBucketTimeRange(0, 1*time.Second, 10)
 
 		// Calculate ratios between consecutive buckets
@@ -47,6 +49,7 @@ func TestFix1_SaferCalculation_MaintainsExponentialSpacing(t *testing.T) {
 
 // Test Fix #2: Guaranteed exact bucket count
 func TestFix2_GuaranteedExactBucketCount(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name    string
 		start   time.Duration
@@ -62,6 +65,7 @@ func TestFix2_GuaranteedExactBucketCount(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := ExponentialBucketTimeRange(tc.start, tc.end, tc.buckets)
 
 			if len(result) != tc.buckets {
@@ -76,7 +80,9 @@ func TestFix2_GuaranteedExactBucketCount(t *testing.T) {
 
 // Test Fix #3: Independent calculation (no error accumulation)
 func TestFix3_IndependentCalculation_NoErrorAccumulation(t *testing.T) {
+	t.Parallel()
 	t.Run("Verify monotonically increasing values", func(t *testing.T) {
+		t.Parallel()
 		buckets := ExponentialBucketTimeRange(0, 5*time.Second, 15)
 
 		for i := 1; i < len(buckets); i++ {
@@ -90,6 +96,7 @@ func TestFix3_IndependentCalculation_NoErrorAccumulation(t *testing.T) {
 	})
 
 	t.Run("Verify first and last buckets match start and end", func(t *testing.T) {
+		t.Parallel()
 		start := 0 * time.Second
 		end := 1 * time.Second
 		buckets := ExponentialBucketTimeRange(start, end, 10)
@@ -112,7 +119,9 @@ func TestFix3_IndependentCalculation_NoErrorAccumulation(t *testing.T) {
 
 // Test Fix #4: Rounding to significant digits produces clean values
 func TestFix4_RoundingProducesCleanValues(t *testing.T) {
+	t.Parallel()
 	t.Run("Verify Prometheus output format is clean", func(t *testing.T) {
+		t.Parallel()
 		buckets := ExponentialBucketTimeRange(0, 1*time.Second, 10)
 
 		for i, v := range buckets {
@@ -129,6 +138,7 @@ func TestFix4_RoundingProducesCleanValues(t *testing.T) {
 	})
 
 	t.Run("Compare internal vs Prometheus representation", func(t *testing.T) {
+		t.Parallel()
 		buckets := ExponentialBucketTimeRange(0, 100*time.Millisecond, 10)
 
 		t.Logf("\nInternal vs Prometheus representation:")
@@ -147,6 +157,7 @@ func TestFix4_RoundingProducesCleanValues(t *testing.T) {
 
 // Test Fix #5: Edge case handling
 func TestFix5_EdgeCaseHandling(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name           string
 		start          time.Duration
@@ -165,6 +176,7 @@ func TestFix5_EdgeCaseHandling(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			defer func() {
 				if r := recover(); r != nil {
 					if !tc.shouldPanic {
@@ -188,7 +200,9 @@ func TestFix5_EdgeCaseHandling(t *testing.T) {
 
 // Comprehensive test combining all fixes
 func TestAllFixes_Comprehensive(t *testing.T) {
+	t.Parallel()
 	t.Run("10 buckets from 0 to 1 second", func(t *testing.T) {
+		t.Parallel()
 		buckets := ExponentialBucketTimeRange(0, 1*time.Second, 10)
 
 		// Fix #2: Exact count
@@ -236,6 +250,7 @@ func TestAllFixes_Comprehensive(t *testing.T) {
 
 // Test for LinearBucketTimeRange (unchanged, for completeness)
 func TestLinearBucketTimeRange(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		start   time.Duration
@@ -248,6 +263,7 @@ func TestLinearBucketTimeRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			buckets := LinearBucketTimeRange(tt.start, tt.end, tt.buckets)
 
 			expectedLen := tt.buckets + 1
@@ -270,6 +286,7 @@ func TestLinearBucketTimeRange(t *testing.T) {
 
 // Test for LinearBucketRange (unchanged, for completeness)
 func TestLinearBucketRange(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		start   int64
@@ -282,6 +299,7 @@ func TestLinearBucketRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			buckets := LinearBucketRange(tt.start, tt.end, tt.buckets)
 
 			expectedLen := tt.buckets + 1

@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestDeleteSimple(t *testing.T) {
+func TestDeleteSimple(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	query, params := q.DeleteFrom("my_table").

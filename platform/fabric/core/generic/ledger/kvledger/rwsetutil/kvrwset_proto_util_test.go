@@ -14,6 +14,7 @@ import (
 )
 
 func TestSetRawReads(t *testing.T) {
+	t.Parallel()
 	rqi := &kvrwset.RangeQueryInfo{StartKey: "start", EndKey: "end"}
 	kvReads := []*kvrwset.KVRead{{Key: "key1"}, {Key: "key2"}}
 
@@ -30,6 +31,7 @@ func TestSetRawReads(t *testing.T) {
 }
 
 func TestSetMerkelSummary(t *testing.T) {
+	t.Parallel()
 	rqi := &kvrwset.RangeQueryInfo{StartKey: "start", EndKey: "end"}
 	merkleSummary := &kvrwset.QueryReadsMerkleSummary{MaxDegree: 12, MaxLevel: 99}
 

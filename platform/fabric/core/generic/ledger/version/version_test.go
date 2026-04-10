@@ -24,6 +24,7 @@ import (
 )
 
 func TestVersionSerialization(t *testing.T) {
+	t.Parallel()
 	h1 := NewHeight(10, 100)
 	b := h1.ToBytes()
 	h2, n, err := NewHeightFromBytes(b)
@@ -37,6 +38,7 @@ func TestVersionSerialization(t *testing.T) {
 }
 
 func TestVersionComparison(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, 1, NewHeight(10, 100).Compare(NewHeight(9, 1000)))
 	require.Equal(t, 1, NewHeight(10, 100).Compare(NewHeight(10, 90)))
 	require.Equal(t, -1, NewHeight(10, 100).Compare(NewHeight(11, 1)))
@@ -48,6 +50,7 @@ func TestVersionComparison(t *testing.T) {
 }
 
 func TestVersionExtraBytes(t *testing.T) {
+	t.Parallel()
 	extraBytes := []byte("junk")
 	h1 := NewHeight(10, 100)
 	b := h1.ToBytes()
@@ -60,6 +63,7 @@ func TestVersionExtraBytes(t *testing.T) {
 }
 
 func TestVersionString(t *testing.T) {
+	t.Parallel()
 	h1 := NewHeight(10, 100)
 	require.Equal(t, fmt.Sprintf("{BlockNum: %d, TxNum: %d}", 10, 100), h1.String())
 

@@ -22,7 +22,7 @@ import (
 
 const testDataPath = "./out/testdata"
 
-func TestEndToEnd(t *testing.T) {
+func TestEndToEnd(t *testing.T) { //nolint:paralleltest
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "simple suite")
 }

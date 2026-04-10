@@ -19,6 +19,7 @@ import (
 var packageTestDir = filepath.Join(os.TempDir(), "ccmetadata-validator-test")
 
 func TestGoodIndexJSON(t *testing.T) {
+	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "GoodIndexJSON")
 	defer utils.IgnoreError(cleanupDir(testDir))
 
@@ -30,6 +31,7 @@ func TestGoodIndexJSON(t *testing.T) {
 }
 
 func TestBadIndexJSON(t *testing.T) {
+	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "BadIndexJSON")
 	defer utils.IgnoreError(cleanupDir(testDir))
 
@@ -49,6 +51,7 @@ func TestBadIndexJSON(t *testing.T) {
 }
 
 func TestIndexWrongLocation(t *testing.T) {
+	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "IndexWrongLocation")
 	defer utils.IgnoreError(cleanupDir(testDir))
 
@@ -67,6 +70,7 @@ func TestIndexWrongLocation(t *testing.T) {
 }
 
 func TestInvalidMetadataType(t *testing.T) {
+	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "InvalidMetadataType")
 	defer utils.IgnoreError(cleanupDir(testDir))
 
@@ -83,6 +87,7 @@ func TestInvalidMetadataType(t *testing.T) {
 }
 
 func TestBadMetadataExtension(t *testing.T) {
+	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "BadMetadataExtension")
 	defer utils.IgnoreError(cleanupDir(testDir))
 
@@ -95,6 +100,7 @@ func TestBadMetadataExtension(t *testing.T) {
 }
 
 func TestBadFilePaths(t *testing.T) {
+	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "BadMetadataExtension")
 	defer utils.IgnoreError(cleanupDir(testDir))
 
@@ -156,6 +162,7 @@ func TestBadFilePaths(t *testing.T) {
 }
 
 func TestIndexValidation(t *testing.T) {
+	t.Parallel()
 
 	// Test valid index with field sorts
 	indexDef := []byte(`{"index":{"fields":[{"size":"desc"}, {"color":"desc"}]},"ddoc":"indexSizeSortName", "name":"indexSizeSortName","type":"json"}`)
@@ -195,6 +202,7 @@ func TestIndexValidation(t *testing.T) {
 }
 
 func TestIndexValidationInvalidParameters(t *testing.T) {
+	t.Parallel()
 	// Test numeric values passed in for parameters
 	indexDef := []byte(`{"index":{"fields":[{"size":"desc"}, {"color":"desc"}]},"ddoc":1, "name":"indexSizeSortName","type":"json"}`)
 	_, indexDefinition := isJSON(indexDef)
@@ -240,6 +248,7 @@ func TestIndexValidationInvalidParameters(t *testing.T) {
 }
 
 func TestIndexValidationInvalidFields(t *testing.T) {
+	t.Parallel()
 
 	// Test invalid fields parameter
 	indexDef := []byte(`{"index":{"fields1":[{"size":"desc"}, {"color":"desc"}]},"ddoc":"indexSizeSortName", "name":"indexSizeSortName","type":"json"}`)

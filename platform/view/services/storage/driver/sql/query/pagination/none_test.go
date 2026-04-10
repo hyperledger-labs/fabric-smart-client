@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestNone(t *testing.T) {
+func TestNone(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	query, args := q.Select().
@@ -27,7 +27,7 @@ func TestNone(t *testing.T) {
 	Expect(args).To(BeEmpty())
 }
 
-func TestEmpty(t *testing.T) {
+func TestEmpty(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	query, args := q.Select().
