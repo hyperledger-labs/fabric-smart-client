@@ -9,6 +9,8 @@ package postgres
 import (
 	"database/sql"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
@@ -23,5 +25,5 @@ func NewMetadataStore(dbs *common2.RWDB, tables common.TableNames) (*MetadataSto
 }
 
 func newMetadataStore(readDB, writeDB *sql.DB, table string) *MetadataStore {
-	return &MetadataStore{MetadataStore: common.NewMetadataStore(readDB, writeDB, table, &postgres2.ErrorMapper{}, postgres2.NewConditionInterpreter())}
+	return &MetadataStore{MetadataStore: common.NewMetadataStore(readDB, writeDB, table, &postgres2.ErrorMapper{}, sq.Dollar)}
 }
