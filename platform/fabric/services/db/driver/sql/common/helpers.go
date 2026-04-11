@@ -69,6 +69,7 @@ var ErrorCases = []struct {
 }
 
 func TTestDuplicate(t *testing.T, _ *sql.DB, writeDB common.WriteDB, errorWrapper driver.SQLErrorWrapper, table string) {
+	t.Helper()
 	ns := "namespace"
 
 	tx, err := writeDB.Begin()
@@ -88,6 +89,7 @@ func TTestDuplicate(t *testing.T, _ *sql.DB, writeDB common.WriteDB, errorWrappe
 }
 
 func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	populateForRangeQueries(t, db, ns)
 
@@ -153,6 +155,7 @@ func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "ns"
 	key := "key"
 
@@ -212,6 +215,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 }
 
 func populateDB(t *testing.T, db driver.KeyValueStore, ns, key, keyWithSuffix string) {
+	t.Helper()
 	err := db.BeginUpdate()
 	require.NoError(t, err)
 
@@ -242,6 +246,7 @@ func populateDB(t *testing.T, db driver.KeyValueStore, ns, key, keyWithSuffix st
 }
 
 func populateForRangeQueries(t *testing.T, db driver.KeyValueStore, ns string) {
+	t.Helper()
 	err := db.BeginUpdate()
 	require.NoError(t, err)
 
@@ -259,6 +264,7 @@ func populateForRangeQueries(t *testing.T, db driver.KeyValueStore, ns string) {
 }
 
 func TTestGetNonExistent(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	key := "foo"
 
@@ -268,6 +274,7 @@ func TTestGetNonExistent(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestDB1(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	key := "foo"
 	keyWithSuffix := key + "/suffix"
@@ -288,6 +295,7 @@ func TTestDB1(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestDB2(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	key := "foo"
 	keyWithSuffix := key + "/suffix"
@@ -308,6 +316,7 @@ func TTestDB2(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 
 	err := db.BeginUpdate()
@@ -350,6 +359,7 @@ func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	require.NoError(t, db.BeginUpdate())
 
@@ -429,6 +439,7 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestMultiWrites(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	var wg sync.WaitGroup
 	n := 20
@@ -476,6 +487,7 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 }
 
 func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	keyPrefix := "prefix"
 
@@ -538,6 +550,7 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 // Postgres doesn't like non-utf8 in TEXT fields, so we made it a BYTEA.
 // cannot check if key exists: pq: invalid byte sequence for encoding "UTF8": 0xc2 0x32]
 func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 
 	// adapted from https://www.php.net/manual/en/reference.pcre.pattern.modifiers.php#54805
@@ -600,6 +613,7 @@ var (
 )
 
 func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	var err error
 
 	ns := "namespace"
@@ -661,6 +675,7 @@ func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "ns"
 	key := "key"
 
@@ -764,6 +779,7 @@ func waitForResults[V any](ch <-chan V, times int, timeout time.Duration) ([]V, 
 }
 
 func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier) {
+	t.Helper()
 	ch, err := subscribe(db)
 	require.NoError(t, err)
 

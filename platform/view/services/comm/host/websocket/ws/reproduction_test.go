@@ -137,6 +137,7 @@ func TestAttack_HijackSessionID(t *testing.T) {
 }
 
 func startTestServer(t *testing.T, p websocket.StreamProvider, tlsConfig *tls.Config, newStreamCallback func(s host.P2PStream)) *httptest.Server {
+	t.Helper()
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := p.NewServerStream(w, r, newStreamCallback)
 		assert.NoError(t, err)

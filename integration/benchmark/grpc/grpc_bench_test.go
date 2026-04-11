@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
 	benchviews "github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/views"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
@@ -82,6 +83,7 @@ func BenchmarkGRPCImpl(b *testing.B) {
 }
 
 func runGPRCImpl(b *testing.B, srvOptions []ServerOption, clientOptions []ClientOption) {
+	b.Helper()
 	srvEndpoint := setupServer(b, srvOptions...)
 
 	// we share a single connection among all client goroutines
@@ -102,6 +104,7 @@ func runGPRCImpl(b *testing.B, srvOptions []ServerOption, clientOptions []Client
 // setupCrypto generates certificates and writes them to temporary files.
 // It returns the paths and a cleanup function to delete the files after the test.
 func setupCrypto(tb testing.TB) (certPath, keyPath string) {
+	tb.Helper()
 	// 1. Call your helper to get PEM bytes
 	keyPEM, certPEM, err := makeSelfSignedCert()
 	require.NoError(tb, err)
@@ -134,43 +137,41 @@ type clientConfig struct {
 	signer client.SigningIdentity
 }
 
-type ServerOption func(tb testing.TB, c *serverConfig)
-type ClientOption func(tb testing.TB, c *clientConfig)
+type ServerOption func(c *serverConfig)
+type ClientOption func(c *clientConfig)
 
 // --- Server Options ---
 
 func WithNOOPWorkload() ServerOption {
-	return func(tb testing.TB, c *serverConfig) {
+	return func(c *serverConfig) {
 		factory := &benchviews.NoopViewFactory{}
-		v, _ := factory.NewView(nil)
+		v := utils.MustGet(factory.NewView(nil))
 		c.workload = v
 	}
 }
 
 func WithCPUWorkload(n int) ServerOption {
-	return func(tb testing.TB, c *serverConfig) {
+	return func(c *serverConfig) {
 		params := &benchviews.CPUParams{N: n}
 		input, _ := json.Marshal(params)
 		factory := &benchviews.CPUViewFactory{}
-		v, err := factory.NewView(input)
-		require.NoError(tb, err)
+		v := utils.MustGet(factory.NewView(input))
 		c.workload = v
 	}
 }
 
 func WithECDSAWorkload() ServerOption {
-	return func(tb testing.TB, c *serverConfig) {
+	return func(c *serverConfig) {
 		params := &benchviews.ECDSASignParams{}
 		input, _ := json.Marshal(params)
 		factory := &benchviews.ECDSASignViewFactory{}
-		v, err := factory.NewView(input)
-		require.NoError(tb, err)
+		v := utils.MustGet(factory.NewView(input))
 		c.workload = v
 	}
 }
 
 func WithServerMockSigner(id string) ServerOption {
-	return func(tb testing.TB, c *serverConfig) {
+	return func(c *serverConfig) {
 		mIdentity := view.Identity(id)
 		c.signer = &benchmark.MockSigner{
 			SerializeFunc: func() ([]byte, error) { return mIdentity.Bytes(), nil },
@@ -181,9 +182,8 @@ func WithServerMockSigner(id string) ServerOption {
 }
 
 func WithServerECDSASigner(certPath, keyPath string) ServerOption {
-	return func(tb testing.TB, c *serverConfig) {
-		signer, err := client.NewX509SigningIdentity(certPath, keyPath)
-		require.NoError(tb, err)
+	return func(c *serverConfig) {
+		signer := utils.MustGet(client.NewX509SigningIdentity(certPath, keyPath))
 		c.signer = signer
 		serialized, _ := signer.Serialize()
 		c.idProvider = &benchmark.MockIdentityProvider{DefaultSigner: serialized}
@@ -193,7 +193,7 @@ func WithServerECDSASigner(certPath, keyPath string) ServerOption {
 // --- Client Options ---
 
 func WithClientMockSigner(id string) ClientOption {
-	return func(tb testing.TB, c *clientConfig) {
+	return func(c *clientConfig) {
 		mIdentity := view.Identity(id)
 		c.signer = &benchmark.MockSigner{
 			SerializeFunc: func() ([]byte, error) { return mIdentity.Bytes(), nil },
@@ -203,9 +203,8 @@ func WithClientMockSigner(id string) ClientOption {
 }
 
 func WithClientECDSASigner(certPath, keyPath string) ClientOption {
-	return func(tb testing.TB, c *clientConfig) {
-		signer, err := client.NewX509SigningIdentity(certPath, keyPath)
-		require.NoError(tb, err)
+	return func(c *clientConfig) {
+		signer := utils.MustGet(client.NewX509SigningIdentity(certPath, keyPath))
 		c.signer = signer
 	}
 }
@@ -217,7 +216,7 @@ func setupServer(tb testing.TB, opts ...ServerOption) string {
 	cfg := &serverConfig{}
 	// Apply options
 	for _, opt := range opts {
-		opt(tb, cfg)
+		opt(cfg)
 	}
 
 	// Validate that the options successfully populated the config
@@ -281,7 +280,7 @@ func setupClient(tb testing.TB, srvEndpoint string, opts ...ClientOption) (*benc
 	cfg := &clientConfig{}
 	// Apply options
 	for _, opt := range opts {
-		opt(tb, cfg)
+		opt(cfg)
 	}
 	// Validate that the signer is present before proceeding
 	require.NotNil(tb, cfg.signer, "client signer was not configured by options")

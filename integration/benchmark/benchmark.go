@@ -11,5 +11,6 @@ import (
 )
 
 func ReportTPS(b *testing.B) {
+	b.Helper()
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "TPS")
 }

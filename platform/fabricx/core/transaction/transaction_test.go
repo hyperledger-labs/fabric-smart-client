@@ -135,6 +135,7 @@ func TestTransactionFrom(t *testing.T) {
 			name:  "copies fields",
 			input: src,
 			assert: func(t *testing.T, dst *Transaction) {
+				t.Helper()
 				require.Equal(t, src.TCreator, dst.TCreator)
 				require.Equal(t, src.TNonce, dst.TNonce)
 				require.Equal(t, src.TTxID, dst.TTxID)
@@ -277,6 +278,7 @@ func TestAppendProposalResponse(t *testing.T) {
 			response:      &peer.ProposalResponse{Endorsement: &peer.Endorsement{Endorser: []byte("endorser-1")}},
 			expectedCount: 1,
 			assert: func(t *testing.T, tx *Transaction) {
+				t.Helper()
 				require.Equal(t, []byte("endorser-1"), tx.TProposalResponses[0].Endorsement.Endorser)
 			},
 		},
@@ -317,6 +319,7 @@ func TestAppendProposalResponseDriverWrapper(t *testing.T) {
 			name:     "wrapped proposal response",
 			response: wrappedResp,
 			assert: func(t *testing.T, tx *Transaction) {
+				t.Helper()
 				require.Len(t, tx.TProposalResponses, 1)
 			},
 		},

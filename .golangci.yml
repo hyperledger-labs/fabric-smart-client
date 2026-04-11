@@ -1,0 +1,14 @@
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+---
+version: "2"
+linters:
+  enable:
+    - thelper
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+run:
+  allow-parallel-runners: true

@@ -96,6 +96,7 @@ func freeLibP2PAddresses(t *testing.T, n int) []string {
 }
 
 func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
+	t.Helper()
 	bootstrapSK, bootstrapID := generateKey(t)
 	nodeSK, nodeID := generateKey(t)
 
@@ -124,6 +125,7 @@ func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 }
 
 func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
+	t.Helper()
 	bootstrapSK, bootstrapID := generateKey(t)
 	node1SK, node1ID := generateKey(t)
 	node2SK, node2ID := generateKey(t)

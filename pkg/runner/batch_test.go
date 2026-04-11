@@ -74,6 +74,7 @@ func newBatchRunner() (BatchRunner[int], map[string]string, *uint32) {
 }
 
 func run(t *testing.T, ctr *atomic.Uint32, runner BatchRunner[int], times int) {
+	t.Helper()
 	var wg sync.WaitGroup
 	wg.Add(times)
 	for i := 0; i < times; i++ {
