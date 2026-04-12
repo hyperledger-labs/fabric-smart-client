@@ -22,11 +22,16 @@ type Deserializer struct {
 	*Idemix
 }
 
-// NewDeserializer returns a new deserializer for the best effort strategy
+// NewDeserializer returns a new deserializer for the best effort strategy using the default FP256BN_AMCL curve
 func NewDeserializer(ipk []byte) (*Deserializer, error) {
-	bccsp, err := NewBCCSP(math.FP256BN_AMCL)
+	return NewDeserializerWithCurve(ipk, math.FP256BN_AMCL)
+}
+
+// NewDeserializerWithCurve returns a new deserializer for the best effort strategy using the specified curve
+func NewDeserializerWithCurve(ipk []byte, curveID math.CurveID) (*Deserializer, error) {
+	bccsp, err := NewBCCSP(curveID)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to instantiate bccsp")
+		return nil, errors.WithMessagef(err, "failed to instantiate bccsp for curve %d", curveID)
 	}
 	return NewDeserializerWithBCCSP(ipk, csp.BestEffort, nil, bccsp)
 }

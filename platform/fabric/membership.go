@@ -67,6 +67,10 @@ func (s *LocalMembership) RegisterIdemixMSP(id string, path string, mspID string
 	return s.network.LocalMembership().RegisterIdemixMSP(id, path, mspID)
 }
 
+func (s *LocalMembership) RegisterIdemixMSPWithCurve(id string, path string, mspID string, curveID string) error {
+	return s.network.LocalMembership().RegisterIdemixMSPWithCurve(id, path, mspID, curveID)
+}
+
 func (s *LocalMembership) RegisterX509MSP(id string, path string, mspID string) error {
 	return s.network.LocalMembership().RegisterX509MSP(id, path, mspID)
 }
