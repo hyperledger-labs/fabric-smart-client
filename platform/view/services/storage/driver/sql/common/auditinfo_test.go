@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestGetAuditInfo(t *testing.T) {
+func TestGetAuditInfo(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, mockDB, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())
@@ -37,7 +37,7 @@ func TestGetAuditInfo(t *testing.T) {
 	Expect(info).To(Equal(output))
 }
 
-func TestPutAuditInfo(t *testing.T) {
+func TestPutAuditInfo(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, mockDB, err := sqlmock.New()
 	Expect(err).ToNot(HaveOccurred())

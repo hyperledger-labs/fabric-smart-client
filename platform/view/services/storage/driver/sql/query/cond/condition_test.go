@@ -84,7 +84,7 @@ var testMatrix = []testCase{
 	},
 }
 
-func TestConditions(t *testing.T) {
+func TestConditions(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	for _, tc := range testMatrix {

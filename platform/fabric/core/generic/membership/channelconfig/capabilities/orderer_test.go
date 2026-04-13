@@ -14,6 +14,7 @@ import (
 )
 
 func TestOrdererV10(t *testing.T) {
+	t.Parallel()
 	op := NewOrdererProvider(map[string]*cb.Capability{})
 	require.NoError(t, op.Supported())
 	require.Equal(t, ordererTypeName, op.Type())
@@ -25,6 +26,7 @@ func TestOrdererV10(t *testing.T) {
 }
 
 func TestOrdererV11(t *testing.T) {
+	t.Parallel()
 	op := NewOrdererProvider(map[string]*cb.Capability{
 		OrdererV1_1: {},
 	})
@@ -37,6 +39,7 @@ func TestOrdererV11(t *testing.T) {
 }
 
 func TestOrdererV142(t *testing.T) {
+	t.Parallel()
 	op := NewOrdererProvider(map[string]*cb.Capability{
 		OrdererV1_4_2: {},
 	})
@@ -49,6 +52,7 @@ func TestOrdererV142(t *testing.T) {
 }
 
 func TestOrdererV20(t *testing.T) {
+	t.Parallel()
 	op := NewOrdererProvider(map[string]*cb.Capability{
 		OrdererV2_0: {},
 	})
@@ -61,6 +65,7 @@ func TestOrdererV20(t *testing.T) {
 }
 
 func TestNotSupported(t *testing.T) {
+	t.Parallel()
 	op := NewOrdererProvider(map[string]*cb.Capability{
 		OrdererV1_1: {}, OrdererV2_0: {}, "Bogus_Not_Supported": {},
 	})

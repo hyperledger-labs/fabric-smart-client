@@ -27,6 +27,7 @@ import (
 func TestBind(t *testing.T) {
 	t.Parallel()
 	t.Run("bind single ephemeral identity", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.PutBindingsReturns(nil)
 
@@ -47,6 +48,7 @@ func TestBind(t *testing.T) {
 	})
 
 	t.Run("bind multiple ephemeral identities", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.PutBindingsReturns(nil)
 
@@ -67,6 +69,7 @@ func TestBind(t *testing.T) {
 	})
 
 	t.Run("filter out identities equal to longTerm", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.PutBindingsReturns(nil)
 
@@ -88,6 +91,7 @@ func TestBind(t *testing.T) {
 	})
 
 	t.Run("no binding when all ephemeral IDs equal longTerm", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.PutBindingsReturns(nil)
 
@@ -104,6 +108,7 @@ func TestBind(t *testing.T) {
 	})
 
 	t.Run("no binding when no ephemeral IDs provided", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.PutBindingsReturns(nil)
 
@@ -119,6 +124,7 @@ func TestBind(t *testing.T) {
 	})
 
 	t.Run("error from binding store", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		expectedErr := errors.New("storage error")
 		bindingStore.PutBindingsReturns(expectedErr)
@@ -138,6 +144,7 @@ func TestBind(t *testing.T) {
 func TestIsBoundTo(t *testing.T) {
 	t.Parallel()
 	t.Run("identities are bound", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.HaveSameBindingReturns(true, nil)
 
@@ -158,6 +165,7 @@ func TestIsBoundTo(t *testing.T) {
 	})
 
 	t.Run("identities are not bound", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.HaveSameBindingReturns(false, nil)
 
@@ -172,6 +180,7 @@ func TestIsBoundTo(t *testing.T) {
 	})
 
 	t.Run("error from binding store returns false", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.HaveSameBindingReturns(false, errors.New("storage error"))
 
@@ -189,6 +198,7 @@ func TestIsBoundTo(t *testing.T) {
 func TestUpdateResolver(t *testing.T) {
 	t.Parallel()
 	t.Run("update existing resolver addresses", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -224,6 +234,7 @@ func TestUpdateResolver(t *testing.T) {
 	})
 
 	t.Run("update adds new aliases", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -255,6 +266,7 @@ func TestUpdateResolver(t *testing.T) {
 	})
 
 	t.Run("update non-existent resolver adds it", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.PutBindingsReturns(nil)
 		service, err := endpoint.NewService(bindingStore)
@@ -279,7 +291,9 @@ func TestUpdateResolver(t *testing.T) {
 }
 
 func TestSetPublicKeyIDSynthesizer(t *testing.T) {
+	t.Parallel()
 	t.Run("set custom synthesizer", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -330,6 +344,7 @@ func TestExtractPKI(t *testing.T) {
 	t.Parallel()
 
 	t.Run("extract with single extractor", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -350,6 +365,7 @@ func TestExtractPKI(t *testing.T) {
 	})
 
 	t.Run("extract with multiple extractors", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -379,6 +395,7 @@ func TestExtractPKI(t *testing.T) {
 	})
 
 	t.Run("no extractors returns nil", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -389,6 +406,7 @@ func TestExtractPKI(t *testing.T) {
 	})
 
 	t.Run("all extractors fail returns nil", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -406,6 +424,7 @@ func TestExtractPKI(t *testing.T) {
 	})
 
 	t.Run("nil extractor returns error", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -430,6 +449,7 @@ func (m *mockPublicKeyExtractor) ExtractPublicKey(id view.Identity) (any, error)
 func TestResolveIdentities(t *testing.T) {
 	t.Parallel()
 	t.Run("resolve single endpoint", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -451,6 +471,7 @@ func TestResolveIdentities(t *testing.T) {
 	})
 
 	t.Run("resolve multiple endpoints", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -471,6 +492,7 @@ func TestResolveIdentities(t *testing.T) {
 	})
 
 	t.Run("error when endpoint not found", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -481,6 +503,7 @@ func TestResolveIdentities(t *testing.T) {
 	})
 
 	t.Run("error on first of multiple endpoints", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -497,6 +520,7 @@ func TestResolveIdentities(t *testing.T) {
 func TestResolverMethods(t *testing.T) {
 	t.Parallel()
 	t.Run("GetName", func(t *testing.T) {
+		t.Parallel()
 		resolver := &endpoint.Resolver{
 			ResolverInfo: endpoint.ResolverInfo{
 				Name: "test-name",
@@ -506,6 +530,7 @@ func TestResolverMethods(t *testing.T) {
 	})
 
 	t.Run("GetAddress", func(t *testing.T) {
+		t.Parallel()
 		resolver := &endpoint.Resolver{
 			ResolverInfo: endpoint.ResolverInfo{
 				Addresses: map[endpoint.PortName]string{
@@ -523,6 +548,7 @@ func TestResolverMethods(t *testing.T) {
 func TestResolveWithBinding(t *testing.T) {
 	t.Parallel()
 	t.Run("resolve ephemeral identity through binding", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -555,6 +581,7 @@ func TestResolveWithBinding(t *testing.T) {
 	})
 
 	t.Run("resolve returns nil when identity not found", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.GetLongTermReturns([]byte("unknown-id"), nil)
 		service, err := endpoint.NewService(bindingStore)
@@ -569,6 +596,7 @@ func TestResolveWithBinding(t *testing.T) {
 func TestConcurrency(t *testing.T) {
 	t.Parallel()
 	t.Run("concurrent resolver additions", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.PutBindingsReturns(nil)
 		service, err := endpoint.NewService(bindingStore)
@@ -600,6 +628,7 @@ func TestConcurrency(t *testing.T) {
 	})
 
 	t.Run("concurrent resolver updates", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -635,6 +664,7 @@ func TestConcurrency(t *testing.T) {
 	})
 
 	t.Run("concurrent reads and writes", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.GetLongTermReturns(nil, nil)
 		service, err := endpoint.NewService(bindingStore)
@@ -685,6 +715,7 @@ func TestConcurrency(t *testing.T) {
 func TestEdgeCases(t *testing.T) {
 	t.Parallel()
 	t.Run("empty identity", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.GetLongTermReturns(nil, nil)
 		service, err := endpoint.NewService(bindingStore)
@@ -695,6 +726,7 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("nil identity", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		bindingStore.GetLongTermReturns(nil, nil)
 		service, err := endpoint.NewService(bindingStore)
@@ -705,6 +737,7 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("resolver with empty addresses", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -725,6 +758,7 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("resolver with nil aliases", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)
@@ -745,6 +779,7 @@ func TestEdgeCases(t *testing.T) {
 	})
 
 	t.Run("resolver with empty string aliases", func(t *testing.T) {
+		t.Parallel()
 		bindingStore := &mock.BindingStore{}
 		service, err := endpoint.NewService(bindingStore)
 		require.NoError(t, err)

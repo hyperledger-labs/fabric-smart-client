@@ -59,7 +59,7 @@ func (m *mockHost) StreamHash(info host2.StreamInfo) host2.StreamHash {
 	return "hash"
 }
 
-func TestDispatcherDoS(t *testing.T) {
+func TestDispatcherDoS(t *testing.T) { //nolint:paralleltest
 	logging.Init(logging.Config{
 		LogSpec: "fsc.view.services.comm=error",
 	})
@@ -139,7 +139,7 @@ func TestDispatcherDoS(t *testing.T) {
 	}
 }
 
-func TestMasterSessionDoSProtection(t *testing.T) {
+func TestMasterSessionDoSProtection(t *testing.T) { //nolint:paralleltest
 	logging.Init(logging.Config{
 		LogSpec: "fsc.view.services.comm=error",
 	})
@@ -239,7 +239,7 @@ func TestMasterSessionDoSProtection(t *testing.T) {
 	}
 }
 
-func TestStreamLeak(t *testing.T) {
+func TestStreamLeak(t *testing.T) { //nolint:paralleltest
 	logging.Init(logging.Config{
 		LogSpec: "fsc.view.services.comm=error",
 	})

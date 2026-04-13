@@ -32,8 +32,6 @@ const (
 	unknown
 )
 
-var RemoveNils func(items []driver.VaultRead) []driver.VaultRead
-
 var VCProvider = driver.NewValidationCodeProvider(map[ValidationCode]driver.TxStatusCode{
 	valid:   driver.Valid,
 	invalid: driver.Invalid,
@@ -45,6 +43,7 @@ type artifactsProvider interface {
 	NewCachedVault(ddb driver2.VaultStore) (*Vault[ValidationCode], error)
 	NewNonCachedVault(ddb driver2.VaultStore) (*Vault[ValidationCode], error)
 	NewMarshaller() Marshaller
+	RemoveNils(items []driver.VaultRead) []driver.VaultRead
 }
 
 var SingleDBCases = []struct {
@@ -263,7 +262,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultStore, vp artifactsProvid
 	require.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	require.NoError(t, err)
-	var expected = RemoveNils([]driver.VaultRead{
+	var expected = vp.RemoveNils([]driver.VaultRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: versionBlockTxNumToBytes(35, 3)},
 	})
 	require.Equal(t, expected, res)

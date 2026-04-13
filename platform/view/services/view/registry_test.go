@@ -17,6 +17,7 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
+	t.Parallel()
 	registry := view.NewRegistry()
 	require.NotNil(t, registry)
 

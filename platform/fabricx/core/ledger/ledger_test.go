@@ -21,6 +21,7 @@ import (
 )
 
 func TestLedger_GetLedgerInfo(t *testing.T) {
+	t.Parallel()
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
@@ -45,6 +46,7 @@ func TestLedger_GetLedgerInfo(t *testing.T) {
 }
 
 func TestLedger_GetTransactionByID(t *testing.T) {
+	t.Parallel()
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
@@ -92,6 +94,7 @@ func TestLedger_GetTransactionByID(t *testing.T) {
 }
 
 func TestLedger_GetBlockNumberByTxID(t *testing.T) {
+	t.Parallel()
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
@@ -111,6 +114,7 @@ func TestLedger_GetBlockNumberByTxID(t *testing.T) {
 }
 
 func TestLedger_GetBlockByNumber(t *testing.T) {
+	t.Parallel()
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
@@ -134,6 +138,7 @@ func TestLedger_GetBlockByNumber(t *testing.T) {
 }
 
 func TestProcessedTransaction_IsValid(t *testing.T) {
+	t.Parallel()
 	pt := ledger.NewProcessedTransaction("", nil, int32(committerpb.Status_COMMITTED), nil)
 	require.True(t, pt.IsValid())
 
@@ -142,18 +147,21 @@ func TestProcessedTransaction_IsValid(t *testing.T) {
 }
 
 func TestProcessedTransaction_Envelope(t *testing.T) {
+	t.Parallel()
 	env := []byte("test-payload")
 	pt := ledger.NewProcessedTransaction("", nil, int32(committerpb.Status_COMMITTED), env)
 	require.Equal(t, env, pt.Envelope())
 }
 
 func TestProcessedTransaction_Results(t *testing.T) {
+	t.Parallel()
 	results := []byte("rwset-data")
 	pt := ledger.NewProcessedTransaction("", results, int32(committerpb.Status_COMMITTED), nil)
 	require.Equal(t, results, pt.Results())
 }
 
 func TestLedger_GetLedgerInfo_Error(t *testing.T) {
+	t.Parallel()
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
@@ -169,6 +177,7 @@ func TestLedger_GetLedgerInfo_Error(t *testing.T) {
 }
 
 func TestLedger_GetTransactionByID_GetTxByIDError(t *testing.T) {
+	t.Parallel()
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
@@ -185,6 +194,7 @@ func TestLedger_GetTransactionByID_GetTxByIDError(t *testing.T) {
 }
 
 func TestLedger_GetTransactionByID_GetTransactionStatusError(t *testing.T) {
+	t.Parallel()
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
@@ -222,6 +232,7 @@ func TestLedger_GetTransactionByID_GetTransactionStatusError(t *testing.T) {
 }
 
 func TestLedger_GetTransactionByID_NoStatusReturned(t *testing.T) {
+	t.Parallel()
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
@@ -259,6 +270,7 @@ func TestLedger_GetTransactionByID_NoStatusReturned(t *testing.T) {
 }
 
 func TestLedger_GetTransactionByID_InvalidPayload(t *testing.T) {
+	t.Parallel()
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
@@ -279,6 +291,7 @@ func TestLedger_GetTransactionByID_InvalidPayload(t *testing.T) {
 }
 
 func TestLedger_GetTransactionByID_InvalidHeaderType(t *testing.T) {
+	t.Parallel()
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
@@ -315,6 +328,7 @@ func TestLedger_GetTransactionByID_InvalidHeaderType(t *testing.T) {
 }
 
 func TestLedger_GetBlockNumberByTxID_Error(t *testing.T) {
+	t.Parallel()
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
@@ -331,6 +345,7 @@ func TestLedger_GetBlockNumberByTxID_Error(t *testing.T) {
 }
 
 func TestLedger_GetBlockByNumber_Error(t *testing.T) {
+	t.Parallel()
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	ctx := context.Background()
@@ -347,6 +362,7 @@ func TestLedger_GetBlockByNumber_Error(t *testing.T) {
 }
 
 func TestBlock_DataAt(t *testing.T) {
+	t.Parallel()
 	data := [][]byte{
 		[]byte("tx1"),
 		[]byte("tx2"),
@@ -366,6 +382,7 @@ func TestBlock_DataAt(t *testing.T) {
 }
 
 func TestBlock_ProcessedTransaction(t *testing.T) {
+	t.Parallel()
 	txID := "test-tx-id"
 
 	// Create a valid transaction envelope
@@ -416,6 +433,7 @@ func TestBlock_ProcessedTransaction(t *testing.T) {
 }
 
 func TestBlock_ProcessedTransaction_UnmarshalError(t *testing.T) {
+	t.Parallel()
 	block := &ledger.Block{
 		Block: &cb.Block{
 			Data: &cb.BlockData{
@@ -431,6 +449,7 @@ func TestBlock_ProcessedTransaction_UnmarshalError(t *testing.T) {
 }
 
 func TestBlock_ProcessedTransaction_InvalidPayload(t *testing.T) {
+	t.Parallel()
 	// Create an envelope with invalid payload that will fail unpackResults
 	env := &cb.Envelope{Payload: []byte("invalid-payload")}
 	envRaw, err := protoutil.Marshal(env)
@@ -458,12 +477,14 @@ func TestBlock_ProcessedTransaction_InvalidPayload(t *testing.T) {
 }
 
 func TestProcessedTransaction_TxID(t *testing.T) {
+	t.Parallel()
 	txID := "test-tx-id"
 	pt := ledger.NewProcessedTransaction(txID, nil, 0, nil)
 	assert.Equal(t, txID, pt.TxID())
 }
 
 func TestProcessedTransaction_ValidationCode(t *testing.T) {
+	t.Parallel()
 	code := int32(committerpb.Status_COMMITTED)
 	pt := ledger.NewProcessedTransaction("", nil, code, nil)
 	assert.Equal(t, code, pt.ValidationCode())

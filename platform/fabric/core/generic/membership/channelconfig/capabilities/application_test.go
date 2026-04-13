@@ -14,11 +14,13 @@ import (
 )
 
 func TestApplicationV10(t *testing.T) {
+	t.Parallel()
 	ap := NewApplicationProvider(map[string]*cb.Capability{})
 	require.NoError(t, ap.Supported())
 }
 
 func TestApplicationV11(t *testing.T) {
+	t.Parallel()
 	ap := NewApplicationProvider(map[string]*cb.Capability{
 		ApplicationV1_1: {},
 	})
@@ -28,6 +30,7 @@ func TestApplicationV11(t *testing.T) {
 }
 
 func TestApplicationV12(t *testing.T) {
+	t.Parallel()
 	ap := NewApplicationProvider(map[string]*cb.Capability{
 		ApplicationV1_2: {},
 	})
@@ -41,6 +44,7 @@ func TestApplicationV12(t *testing.T) {
 }
 
 func TestApplicationV13(t *testing.T) {
+	t.Parallel()
 	ap := NewApplicationProvider(map[string]*cb.Capability{
 		ApplicationV1_3: {},
 	})
@@ -56,6 +60,7 @@ func TestApplicationV13(t *testing.T) {
 }
 
 func TestApplicationV142(t *testing.T) {
+	t.Parallel()
 	ap := NewApplicationProvider(map[string]*cb.Capability{
 		ApplicationV1_4_2: {},
 	})
@@ -72,6 +77,7 @@ func TestApplicationV142(t *testing.T) {
 }
 
 func TestApplicationV20(t *testing.T) {
+	t.Parallel()
 	ap := NewApplicationProvider(map[string]*cb.Capability{
 		ApplicationV2_0: {},
 	})
@@ -90,6 +96,7 @@ func TestApplicationV20(t *testing.T) {
 }
 
 func TestApplicationV25(t *testing.T) {
+	t.Parallel()
 	ap := NewApplicationProvider(map[string]*cb.Capability{
 		ApplicationV2_5: {},
 	})
@@ -109,6 +116,7 @@ func TestApplicationV25(t *testing.T) {
 }
 
 func TestApplicationPvtDataExperimental(t *testing.T) {
+	t.Parallel()
 	ap := NewApplicationProvider(map[string]*cb.Capability{
 		ApplicationPvtDataExperimental: {},
 	})
@@ -116,6 +124,7 @@ func TestApplicationPvtDataExperimental(t *testing.T) {
 }
 
 func TestHasCapability(t *testing.T) {
+	t.Parallel()
 	ap := NewApplicationProvider(map[string]*cb.Capability{})
 	require.True(t, ap.HasCapability(ApplicationV1_1))
 	require.True(t, ap.HasCapability(ApplicationV1_2))

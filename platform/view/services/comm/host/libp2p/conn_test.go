@@ -25,6 +25,7 @@ import (
 type Network []*node
 
 func TestSessionTwoParties(t *testing.T) {
+	t.Parallel()
 	network, err := NewVirtualNetwork(t, 12345, 2)
 	require.NoError(t, err)
 

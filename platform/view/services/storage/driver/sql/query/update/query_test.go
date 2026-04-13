@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestUpdateSimple(t *testing.T) {
+func TestUpdateSimple(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	query, params := q.Update("my_table").

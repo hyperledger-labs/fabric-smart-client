@@ -403,6 +403,9 @@ func startTestServer(t *testing.T, opts ...grpc.ServerOption) string {
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = lis.Close()
+	})
 
 	srv := grpc.NewServer(opts...)
 	hs := health.NewServer()

@@ -36,6 +36,7 @@ type Context interface {
 }
 
 func TestContext(t *testing.T) {
+	t.Parallel()
 	registry := view2.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
@@ -154,6 +155,7 @@ func TestContext(t *testing.T) {
 }
 
 func TestContextGetSession(t *testing.T) {
+	t.Parallel()
 	registry := view2.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	resolver := &mock.EndpointService{}
@@ -188,6 +190,7 @@ func TestContextGetSession(t *testing.T) {
 }
 
 func TestContextRace(t *testing.T) {
+	t.Parallel()
 	registry := view2.NewServiceProvider()
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))

@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestPersistence(t *testing.T) {
+func TestPersistence(t *testing.T) { //nolint:paralleltest
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Persistence Suite")
 }

@@ -150,6 +150,9 @@ func setupBaselineServer(tb testing.TB, workloadType string) string {
 	// setup server
 	lis, err := net.Listen("tcp", "localhost:0")
 	require.NoError(tb, err)
+	tb.Cleanup(func() {
+		_ = lis.Close()
+	})
 
 	var opts []grpc.ServerOption
 	opts = append(opts, grpc.Creds(credentials.NewTLS(serverTLS)))

@@ -16,7 +16,9 @@ import (
 )
 
 func TestNewConfig(t *testing.T) {
+	t.Parallel()
 	t.Run("with default values", func(t *testing.T) {
+		t.Parallel()
 		cs := &mock.ConfigService{}
 		config, err := channelconfig.NewConfig(cs)
 		require.NoError(t, err)
@@ -28,6 +30,7 @@ func TestNewConfig(t *testing.T) {
 	})
 
 	t.Run("with custom values", func(t *testing.T) {
+		t.Parallel()
 		cs := &mock.ConfigService{}
 		cs.IsSetReturnsOnCall(0, true) // pollInterval
 		cs.GetDurationReturnsOnCall(0, 30*time.Second)
@@ -48,6 +51,7 @@ func TestNewConfig(t *testing.T) {
 	})
 
 	t.Run("with all custom values set", func(t *testing.T) {
+		t.Parallel()
 		cs := &mock.ConfigService{}
 		cs.IsSetReturns(true)
 		cs.GetDurationReturns(45 * time.Second)
@@ -60,7 +64,9 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestConfigValidate(t *testing.T) {
+	t.Parallel()
 	t.Run("valid configuration", func(t *testing.T) {
+		t.Parallel()
 		config := &channelconfig.Config{
 			PollInterval:      1 * time.Minute,
 			MaxRetries:        5,
@@ -72,6 +78,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("invalid poll interval - zero", func(t *testing.T) {
+		t.Parallel()
 		config := &channelconfig.Config{
 			PollInterval:      0,
 			MaxRetries:        5,
@@ -84,6 +91,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("invalid poll interval - negative", func(t *testing.T) {
+		t.Parallel()
 		config := &channelconfig.Config{
 			PollInterval:      -1 * time.Second,
 			MaxRetries:        5,
@@ -96,6 +104,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("invalid max retries - negative", func(t *testing.T) {
+		t.Parallel()
 		config := &channelconfig.Config{
 			PollInterval:      1 * time.Minute,
 			MaxRetries:        -1,
@@ -108,6 +117,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("valid max retries - zero", func(t *testing.T) {
+		t.Parallel()
 		config := &channelconfig.Config{
 			PollInterval:      1 * time.Minute,
 			MaxRetries:        0,
@@ -119,6 +129,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("invalid initial retry delay - zero", func(t *testing.T) {
+		t.Parallel()
 		config := &channelconfig.Config{
 			PollInterval:      1 * time.Minute,
 			MaxRetries:        5,
@@ -131,6 +142,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("invalid max retry delay - zero", func(t *testing.T) {
+		t.Parallel()
 		config := &channelconfig.Config{
 			PollInterval:      1 * time.Minute,
 			MaxRetries:        5,
@@ -143,6 +155,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("invalid - initial delay exceeds max delay", func(t *testing.T) {
+		t.Parallel()
 		config := &channelconfig.Config{
 			PollInterval:      1 * time.Minute,
 			MaxRetries:        5,

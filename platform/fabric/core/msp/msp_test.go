@@ -47,7 +47,7 @@ RgIhAOTTpQYkGO+gwVe1LQOcNMD5fzFViOwBUraMrk6dRMlmAiEA8z2dpXKGwHrj
 FRBbKkDnSpaVcZgjns+mLdHV2JkF0gk=
 -----END X509 CRL-----`
 
-func TestMSPParsers(t *testing.T) {
+func TestMSPParsers(t *testing.T) { //nolint:paralleltest
 	_, _, err := localMsp.(*bccspmsp).getIdentityFromConf(nil)
 	require.Error(t, err)
 	_, _, err = localMsp.(*bccspmsp).getIdentityFromConf([]byte("barf"))
@@ -68,7 +68,7 @@ func TestMSPParsers(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestGetSigningIdentityFromConfWithWrongPrivateCert(t *testing.T) {
+func TestGetSigningIdentityFromConfWithWrongPrivateCert(t *testing.T) { //nolint:paralleltest
 	// Temporary Replace root certs
 	oldRoots := localMsp.(*bccspmsp).opts.Roots
 	defer func() {
@@ -92,7 +92,7 @@ func TestGetSigningIdentityFromConfWithWrongPrivateCert(t *testing.T) {
 	require.EqualError(t, err, "MyPrivateKey: wrong PEM encoding")
 }
 
-func TestMSPSetupNoCryptoConf(t *testing.T) {
+func TestMSPSetupNoCryptoConf(t *testing.T) { //nolint:paralleltest
 	mspDir := "testdata/sampleconfig"
 	conf, err := GetLocalMspConfig(mspDir, nil, "SampleOrg")
 	if err != nil {
@@ -143,14 +143,14 @@ func TestMSPSetupNoCryptoConf(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestGetters(t *testing.T) {
+func TestGetters(t *testing.T) { //nolint:paralleltest
 	typ := localMsp.GetType()
 	require.Equal(t, FABRIC, typ)
 	require.NotNil(t, localMsp.GetTLSRootCerts())
 	require.NotNil(t, localMsp.GetTLSIntermediateCerts())
 }
 
-func TestMSPSetupBad(t *testing.T) {
+func TestMSPSetupBad(t *testing.T) { //nolint:paralleltest
 	_, err := GetLocalMspConfig("barf", nil, "SampleOrg")
 	if err == nil {
 		t.Fatalf("Setup should have failed on an invalid config file")
@@ -164,7 +164,7 @@ func TestMSPSetupBad(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDoubleSetup(t *testing.T) {
+func TestDoubleSetup(t *testing.T) { //nolint:paralleltest
 	// note that we've already called setup once on this
 	err := mspMgr.Setup(nil)
 	require.NoError(t, err)
@@ -178,7 +178,7 @@ func (*bccspNoKeyLookupKS) GetKey(ski []byte) (k bccsp.Key, err error) {
 	return nil, errors.New("not found")
 }
 
-func TestNotFoundInBCCSP(t *testing.T) {
+func TestNotFoundInBCCSP(t *testing.T) { //nolint:paralleltest
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -200,7 +200,7 @@ func TestNotFoundInBCCSP(t *testing.T) {
 	require.Contains(t, "KeyMaterial not found in SigningIdentityInfo", err.Error())
 }
 
-func TestGetIdentities(t *testing.T) {
+func TestGetIdentities(t *testing.T) { //nolint:paralleltest
 	_, err := localMsp.GetDefaultSigningIdentity()
 	if err != nil {
 		t.Fatalf("GetDefaultSigningIdentity failed with err %s", err)
@@ -208,7 +208,7 @@ func TestGetIdentities(t *testing.T) {
 	}
 }
 
-func TestDeserializeIdentityFails(t *testing.T) {
+func TestDeserializeIdentityFails(t *testing.T) { //nolint:paralleltest
 	_, err := localMsp.DeserializeIdentity([]byte("barf"))
 	require.Error(t, err)
 
@@ -225,7 +225,7 @@ func TestDeserializeIdentityFails(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestGetSigningIdentityFromVerifyingMSP(t *testing.T) {
+func TestGetSigningIdentityFromVerifyingMSP(t *testing.T) { //nolint:paralleltest
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -245,7 +245,7 @@ func TestGetSigningIdentityFromVerifyingMSP(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestValidateDefaultSigningIdentity(t *testing.T) {
+func TestValidateDefaultSigningIdentity(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -253,7 +253,7 @@ func TestValidateDefaultSigningIdentity(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSerializeIdentities(t *testing.T) {
+func TestSerializeIdentities(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	if err != nil {
 		t.Fatalf("GetDefaultSigningIdentity should have succeeded, got err %s", err)
@@ -295,6 +295,7 @@ func computeSKI(key *ecdsa.PublicKey) ([]byte, error) {
 }
 
 func TestValidHostname(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		valid bool
@@ -321,7 +322,7 @@ func TestValidHostname(t *testing.T) {
 	}
 }
 
-func TestValidateCANameConstraintsMitigation(t *testing.T) {
+func TestValidateCANameConstraintsMitigation(t *testing.T) { //nolint:paralleltest
 	// Prior to Go 1.15, if a signing certificate contains a name constraint, the
 	// leaf certificate does not include a SAN, and the leaf common name looks
 	// like a valid hostname, the certificate chain would fail to validate.
@@ -374,7 +375,7 @@ func TestValidateCANameConstraintsMitigation(t *testing.T) {
 	leafCertPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafCertBytes})
 	leafKeyPem := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes})
 
-	t.Run("VerifyNameConstraintsSingleCert", func(t *testing.T) {
+	t.Run("VerifyNameConstraintsSingleCert", func(t *testing.T) { //nolint:paralleltest
 		for _, der := range [][]byte{caCertBytes, leafCertBytes} {
 			cert, err := x509.ParseCertificate(der)
 			require.NoError(t, err, "failed to parse certificate")
@@ -384,7 +385,7 @@ func TestValidateCANameConstraintsMitigation(t *testing.T) {
 		}
 	})
 
-	t.Run("VerifyNameConstraints", func(t *testing.T) {
+	t.Run("VerifyNameConstraints", func(t *testing.T) { //nolint:paralleltest
 		var certs []*x509.Certificate
 		for _, der := range [][]byte{leafCertBytes, caCertBytes} {
 			cert, err := x509.ParseCertificate(der)
@@ -399,7 +400,7 @@ func TestValidateCANameConstraintsMitigation(t *testing.T) {
 		require.Equal(t, x509.NameConstraintsWithoutSANs, cie.Reason)
 	})
 
-	t.Run("VerifyNameConstraintsWithSAN", func(t *testing.T) {
+	t.Run("VerifyNameConstraintsWithSAN", func(t *testing.T) { //nolint:paralleltest
 		caCert, err := x509.ParseCertificate(caCertBytes)
 		require.NoError(t, err)
 
@@ -416,7 +417,7 @@ func TestValidateCANameConstraintsMitigation(t *testing.T) {
 		require.NoError(t, err, "signer with name constraints and leaf with SANs should be valid")
 	})
 
-	t.Run("ValidationAtSetup", func(t *testing.T) {
+	t.Run("ValidationAtSetup", func(t *testing.T) { //nolint:paralleltest
 		fabricMSPConfig := &msp.FabricMSPConfig{
 			Name:      "ConstraintsMSP",
 			RootCerts: [][]byte{caCertPem},
@@ -449,7 +450,7 @@ func TestValidateCANameConstraintsMitigation(t *testing.T) {
 	})
 }
 
-func TestIsWellFormed(t *testing.T) {
+func TestIsWellFormed(t *testing.T) { //nolint:paralleltest
 	mspMgr := NewMSPManager()
 
 	id, err := localMsp.GetDefaultSigningIdentity()
@@ -552,14 +553,14 @@ type rst struct {
 	R, S, T *big.Int
 }
 
-func TestValidateCAIdentity(t *testing.T) {
+func TestValidateCAIdentity(t *testing.T) { //nolint:paralleltest
 	caID := getIdentity(t, cacerts)
 
 	err := localMsp.Validate(caID)
 	require.Error(t, err)
 }
 
-func TestBadAdminIdentity(t *testing.T) {
+func TestBadAdminIdentity(t *testing.T) { //nolint:paralleltest
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -578,14 +579,14 @@ func TestBadAdminIdentity(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestValidateAdminIdentity(t *testing.T) {
+func TestValidateAdminIdentity(t *testing.T) { //nolint:paralleltest
 	caID := getIdentity(t, admincerts)
 
 	err := localMsp.Validate(caID)
 	require.NoError(t, err)
 }
 
-func TestSerializeIdentitiesWithWrongMSP(t *testing.T) {
+func TestSerializeIdentitiesWithWrongMSP(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	if err != nil {
 		t.Fatalf("GetDefaultSigningIdentity should have succeeded, got err %s", err)
@@ -611,7 +612,7 @@ func TestSerializeIdentitiesWithWrongMSP(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestSerializeIdentitiesWithMSPManager(t *testing.T) {
+func TestSerializeIdentitiesWithMSPManager(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	if err != nil {
 		t.Fatalf("GetDefaultSigningIdentity should have succeeded, got err %s", err)
@@ -645,7 +646,7 @@ func TestSerializeIdentitiesWithMSPManager(t *testing.T) {
 	require.Contains(t, err.Error(), "could not deserialize")
 }
 
-func TestIdentitiesGetters(t *testing.T) {
+func TestIdentitiesGetters(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	if err != nil {
 		t.Fatalf("GetDefaultSigningIdentity should have succeeded, got err %s", err)
@@ -659,7 +660,7 @@ func TestIdentitiesGetters(t *testing.T) {
 	require.False(t, id.Anonymous())
 }
 
-func TestSignAndVerify(t *testing.T) {
+func TestSignAndVerify(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	if err != nil {
 		t.Fatalf("GetDefaultSigningIdentity should have succeeded")
@@ -703,7 +704,7 @@ func TestSignAndVerify(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestSignAndVerifyFailures(t *testing.T) {
+func TestSignAndVerifyFailures(t *testing.T) { //nolint:paralleltest
 	msg := []byte("foo")
 
 	id, err := localMspBad.GetDefaultSigningIdentity()
@@ -734,7 +735,7 @@ func TestSignAndVerifyFailures(t *testing.T) {
 	id.(*signingidentity).msp.cryptoConfig.SignatureHashFamily = hash
 }
 
-func TestSignAndVerifyOtherHash(t *testing.T) {
+func TestSignAndVerifyOtherHash(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	if err != nil {
 		t.Fatalf("GetDefaultSigningIdentity should have succeeded")
@@ -757,7 +758,7 @@ func TestSignAndVerifyOtherHash(t *testing.T) {
 	id.(*signingidentity).msp.cryptoConfig.SignatureHashFamily = hash
 }
 
-func TestSignAndVerify_longMessage(t *testing.T) {
+func TestSignAndVerify_longMessage(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	if err != nil {
 		t.Fatalf("GetDefaultSigningIdentity should have succeeded")
@@ -796,7 +797,7 @@ func TestSignAndVerify_longMessage(t *testing.T) {
 	}
 }
 
-func TestGetOU(t *testing.T) {
+func TestGetOU(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	if err != nil {
 		t.Fatalf("GetDefaultSigningIdentity should have succeeded")
@@ -806,7 +807,7 @@ func TestGetOU(t *testing.T) {
 	require.Equal(t, "COP", id.GetOrganizationalUnits()[0].OrganizationalUnitIdentifier)
 }
 
-func TestGetOUFail(t *testing.T) {
+func TestGetOUFail(t *testing.T) { //nolint:paralleltest
 	id, err := localMspBad.GetDefaultSigningIdentity()
 	if err != nil {
 		t.Fatalf("GetDefaultSigningIdentity should have succeeded")
@@ -828,7 +829,7 @@ func TestGetOUFail(t *testing.T) {
 	id.(*signingidentity).msp.opts = opts
 }
 
-func TestCertificationIdentifierComputation(t *testing.T) {
+func TestCertificationIdentifierComputation(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -851,7 +852,7 @@ func TestCertificationIdentifierComputation(t *testing.T) {
 	require.Equal(t, sum, id.GetOrganizationalUnits()[0].CertifiersIdentifier)
 }
 
-func TestOUPolicyPrincipal(t *testing.T) {
+func TestOUPolicyPrincipal(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -875,7 +876,7 @@ func TestOUPolicyPrincipal(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestOUPolicyPrincipalBadPrincipal(t *testing.T) {
+func TestOUPolicyPrincipalBadPrincipal(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -888,7 +889,7 @@ func TestOUPolicyPrincipalBadPrincipal(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestOUPolicyPrincipalBadMSPID(t *testing.T) {
+func TestOUPolicyPrincipalBadMSPID(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -912,7 +913,7 @@ func TestOUPolicyPrincipalBadMSPID(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestOUPolicyPrincipalBadPath(t *testing.T) {
+func TestOUPolicyPrincipalBadPath(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -949,7 +950,7 @@ func TestOUPolicyPrincipalBadPath(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestPolicyPrincipalBogusType(t *testing.T) {
+func TestPolicyPrincipalBogusType(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -965,7 +966,7 @@ func TestPolicyPrincipalBogusType(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestPolicyPrincipalBogusRole(t *testing.T) {
+func TestPolicyPrincipalBogusRole(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -981,7 +982,7 @@ func TestPolicyPrincipalBogusRole(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestPolicyPrincipalWrongMSPID(t *testing.T) {
+func TestPolicyPrincipalWrongMSPID(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -997,7 +998,7 @@ func TestPolicyPrincipalWrongMSPID(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestMemberPolicyPrincipal(t *testing.T) {
+func TestMemberPolicyPrincipal(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -1013,7 +1014,7 @@ func TestMemberPolicyPrincipal(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestAdminPolicyPrincipal(t *testing.T) {
+func TestAdminPolicyPrincipal(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -1045,7 +1046,7 @@ func createCombinedPrincipal(principals ...*msp.MSPPrincipal) (*msp.MSPPrincipal
 	return principalsCombined, nil
 }
 
-func TestMultilevelAdminAndMemberPolicyPrincipal(t *testing.T) {
+func TestMultilevelAdminAndMemberPolicyPrincipal(t *testing.T) { //nolint:paralleltest
 	id, err := localMspV13.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -1084,7 +1085,7 @@ func TestMultilevelAdminAndMemberPolicyPrincipal(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestMultilevelAdminAndMemberPolicyPrincipalPreV12(t *testing.T) {
+func TestMultilevelAdminAndMemberPolicyPrincipalPreV12(t *testing.T) { //nolint:paralleltest
 	id, err := localMspV11.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -1123,7 +1124,7 @@ func TestMultilevelAdminAndMemberPolicyPrincipalPreV12(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestAdminPolicyPrincipalFails(t *testing.T) {
+func TestAdminPolicyPrincipalFails(t *testing.T) { //nolint:paralleltest
 	id, err := localMspV13.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -1142,7 +1143,7 @@ func TestAdminPolicyPrincipalFails(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestMultilevelAdminAndMemberPolicyPrincipalFails(t *testing.T) {
+func TestMultilevelAdminAndMemberPolicyPrincipalFails(t *testing.T) { //nolint:paralleltest
 	id, err := localMspV13.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -1184,7 +1185,7 @@ func TestMultilevelAdminAndMemberPolicyPrincipalFails(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestIdentityExpiresAt(t *testing.T) {
+func TestIdentityExpiresAt(t *testing.T) { //nolint:paralleltest
 	thisMSP := getLocalMSP(t, "testdata/expiration")
 	require.NotNil(t, thisMSP)
 	si, err := thisMSP.GetDefaultSigningIdentity()
@@ -1193,7 +1194,7 @@ func TestIdentityExpiresAt(t *testing.T) {
 	require.Equal(t, time.Date(2027, 8, 17, 12, 19, 48, 0, time.UTC), expirationDate)
 }
 
-func TestIdentityExpired(t *testing.T) {
+func TestIdentityExpired(t *testing.T) { //nolint:paralleltest
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -1219,7 +1220,7 @@ func TestIdentityExpired(t *testing.T) {
 	}
 }
 
-func TestIdentityPolicyPrincipal(t *testing.T) {
+func TestIdentityPolicyPrincipal(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -1236,6 +1237,7 @@ func TestIdentityPolicyPrincipal(t *testing.T) {
 }
 
 func TestIdentityPolicyPrincipalBadBytes(t *testing.T) {
+	t.Parallel()
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -1248,7 +1250,7 @@ func TestIdentityPolicyPrincipalBadBytes(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestMSPOus(t *testing.T) {
+func TestMSPOus(t *testing.T) { //nolint:paralleltest
 	// Set the OUIdentifiers
 	backup := localMsp.(*bccspmsp).ouIdentifiers
 	defer func() { localMsp.(*bccspmsp).ouIdentifiers = backup }()
@@ -1302,7 +1304,7 @@ HeamPGiDTQ==
 -----END CERTIFICATE-----
 `
 
-func TestIdentityPolicyPrincipalFails(t *testing.T) {
+func TestIdentityPolicyPrincipalFails(t *testing.T) { //nolint:paralleltest
 	id, err := localMsp.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -1480,7 +1482,7 @@ func getLocalMSPWithVersion(t *testing.T, dir string, version MSPVersion) MSP {
 	return thisMSP
 }
 
-func TestCollectEmptyCombinedPrincipal(t *testing.T) {
+func TestCollectEmptyCombinedPrincipal(t *testing.T) { //nolint:paralleltest
 	var principalsArray []*msp.MSPPrincipal
 	combinedPrincipal := &msp.CombinedPrincipal{Principals: principalsArray}
 	combinedPrincipalBytes, err := proto.Marshal(combinedPrincipal)
@@ -1490,7 +1492,7 @@ func TestCollectEmptyCombinedPrincipal(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestCollectPrincipalContainingEmptyCombinedPrincipal(t *testing.T) {
+func TestCollectPrincipalContainingEmptyCombinedPrincipal(t *testing.T) { //nolint:paralleltest
 	var principalsArray []*msp.MSPPrincipal
 	combinedPrincipal := &msp.CombinedPrincipal{Principals: principalsArray}
 	combinedPrincipalBytes, err := proto.Marshal(combinedPrincipal)
@@ -1502,7 +1504,7 @@ func TestCollectPrincipalContainingEmptyCombinedPrincipal(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestMSPIdentityIdentifier(t *testing.T) {
+func TestMSPIdentityIdentifier(t *testing.T) { //nolint:paralleltest
 	// testdata/mspid
 	// 1) a key and a signcert (used to populate the default signing identity) with the cert having a HighS signature
 	thisMSP := getLocalMSP(t, "testdata/mspid")
@@ -1559,7 +1561,7 @@ func TestMSPIdentityIdentifier(t *testing.T) {
 	require.NotEqual(t, idid.Id, hex.EncodeToString(digest))
 }
 
-func TestAnonymityIdentity(t *testing.T) {
+func TestAnonymityIdentity(t *testing.T) { //nolint:paralleltest
 	id, err := localMspV13.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -1575,7 +1577,7 @@ func TestAnonymityIdentity(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestAnonymityIdentityPreV12Fail(t *testing.T) {
+func TestAnonymityIdentityPreV12Fail(t *testing.T) { //nolint:paralleltest
 	id, err := localMspV11.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -1591,7 +1593,7 @@ func TestAnonymityIdentityPreV12Fail(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestAnonymityIdentityFail(t *testing.T) {
+func TestAnonymityIdentityFail(t *testing.T) { //nolint:paralleltest
 	id, err := localMspV13.GetDefaultSigningIdentity()
 	require.NoError(t, err)
 
@@ -1607,7 +1609,7 @@ func TestAnonymityIdentityFail(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestProviderTypeToString(t *testing.T) {
+func TestProviderTypeToString(t *testing.T) { //nolint:paralleltest
 	// Check that the provider type is found for FABRIC
 	pt := ProviderTypeToString(FABRIC)
 	require.Equal(t, "bccsp", pt)

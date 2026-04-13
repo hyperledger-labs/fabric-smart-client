@@ -18,6 +18,7 @@ import (
 )
 
 func TestManagerWithMockFactory(t *testing.T) {
+	t.Parallel()
 	ip := &mock.IdentityProvider{}
 	registry := view.NewRegistry()
 	mp := &disabled.Provider{}
@@ -27,6 +28,7 @@ func TestManagerWithMockFactory(t *testing.T) {
 	manager := view.NewManager(ip, registry, metrics, cf)
 
 	t.Run("InitiateContextCallsFactory", func(t *testing.T) {
+		t.Parallel()
 		v := &mock.View{}
 		parentCtx := &mock.ParentContext{}
 		parentCtx.ContextReturns(context.Background())
@@ -44,6 +46,7 @@ func TestManagerWithMockFactory(t *testing.T) {
 	})
 
 	t.Run("NewSessionContextCallsFactory", func(t *testing.T) {
+		t.Parallel()
 		session := &mock.Session{}
 		session.InfoReturns(view2.SessionInfo{ID: "s1", Caller: view2.Identity("alice")})
 		party := view2.Identity("alice")

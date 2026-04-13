@@ -17,6 +17,7 @@ import (
 )
 
 func TestGetVersionInfo(t *testing.T) {
+	t.Parallel()
 	expected := fmt.Sprintf(
 		"%s:\n Version: %s\n Commit SHA: %s\n Go version: %s\n OS/Arch: %s",
 		metadata2.ProgramName,

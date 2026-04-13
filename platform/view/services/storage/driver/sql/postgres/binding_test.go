@@ -30,11 +30,13 @@ func newBindingStoreForTests(tb testing.TB) *BindingStore {
 }
 
 func TestPutBindingsMultipleEphemeralsPostgres(t *testing.T) {
+	t.Parallel()
 	db := newBindingStoreForTests(t)
 	common.TestPutBindingsMultipleEphemeralsCommon(t, db.BindingStore)
 }
 
 func TestManyManyPutBindingsPostgres(t *testing.T) {
+	t.Parallel()
 	db := newBindingStoreForTests(t)
 	common.TestManyManyPutBindingsCommon(t, db.BindingStore)
 }

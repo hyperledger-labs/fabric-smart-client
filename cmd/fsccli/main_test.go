@@ -20,13 +20,14 @@ import (
 )
 
 func TestCompile(t *testing.T) {
+	t.Parallel()
 	gt := NewGomegaWithT(t)
 	_, err := gexec.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli")
 	gt.Expect(err).NotTo(HaveOccurred())
 	defer gexec.CleanupBuildArtifacts()
 }
 
-func TestArtifactsGen(t *testing.T) {
+func TestArtifactsGen(t *testing.T) { //nolint:paralleltest
 	RegisterFailHandler(func(message string, callerSkip ...int) {
 		panic(message)
 	})

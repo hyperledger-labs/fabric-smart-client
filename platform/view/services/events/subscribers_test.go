@@ -22,6 +22,7 @@ type B struct {
 }
 
 func TestSubscribers(t *testing.T) {
+	t.Parallel()
 	s := events.NewSubscribers()
 	a := &A{Name: "a"}
 	a2 := &A{Name: "a"}

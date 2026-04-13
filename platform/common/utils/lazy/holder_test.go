@@ -27,6 +27,7 @@ func (d *dummyCloser) Close() error {
 }
 
 func TestLazyHolderRaceCondition(t *testing.T) {
+	t.Parallel()
 	// Provider function for the lazyHolder.
 	provider := func() (*dummyCloser, error) {
 		time.Sleep(10 * time.Millisecond) // Simulate some delay

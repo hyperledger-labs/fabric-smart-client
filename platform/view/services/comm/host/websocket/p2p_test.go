@@ -50,31 +50,31 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestP2PLayerTestRound(t *testing.T) {
+func TestP2PLayerTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 
 	comm.P2PLayerTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsTestRound(t *testing.T) {
+func TestSessionsTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 	<-time.After(1 * time.Second)
 	comm.SessionsTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsForMPCTestRound(t *testing.T) {
+func TestSessionsForMPCTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 	<-time.After(1 * time.Second)
 	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsMultipleMessagesTestRound(t *testing.T) {
+func TestSessionsMultipleMessagesTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 	<-time.After(1 * time.Second)
 	comm.SessionsMultipleMessagesTestRound(t, bootstrapNode, node)
 }
 
-func TestMTLSCallerIdentityBinding(t *testing.T) {
+func TestMTLSCallerIdentityBinding(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 	ctx := t.Context()
 	bootstrapNode.Start(ctx)
@@ -157,7 +157,7 @@ func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 		&comm.HostNode{P2PNode: otherNode, ID: otherID, Address: otherAddress}
 }
 
-func TestSessionsTwoNodesTestRound(t *testing.T) {
+func TestSessionsTwoNodesTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node1, node2 := setupThreeNodes(t)
 	comm.SessionsNodesTestRound(t, bootstrapNode, []*comm.HostNode{node1, node2}, 50)
 }
@@ -389,6 +389,7 @@ func generateTLSFiles(t *testing.T) generatedTLSFiles {
 }
 
 func TestSessionInfoSecurityGuarantees(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	// Simpler: Alice, Bob and Charlie all share the same CA.
 	allTlsFiles := generateThreeNodesTLSFiles(t)

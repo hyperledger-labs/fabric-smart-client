@@ -70,7 +70,7 @@ func setup() *NetworkStreamSession {
 	return setupWithBufferSize(DefaultIncomingMessagesBufferSize)
 }
 
-func TestSessionLifecycle(t *testing.T) {
+func TestSessionLifecycle(t *testing.T) { //nolint:paralleltest
 	s := setup()
 
 	// hide the impl behind the session interface as a consumer
@@ -125,7 +125,7 @@ func TestSessionLifecycle(t *testing.T) {
 	sess.Close()
 }
 
-func TestSessionLifecycleConcurrent(t *testing.T) {
+func TestSessionLifecycleConcurrent(t *testing.T) { //nolint:paralleltest
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
@@ -175,7 +175,7 @@ func TestSessionLifecycleConcurrent(t *testing.T) {
 	require.Positive(t, enqueuedCount.Load())
 }
 
-func TestSessionDeadlock(t *testing.T) {
+func TestSessionDeadlock(t *testing.T) { //nolint:paralleltest
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
@@ -217,7 +217,7 @@ func TestSessionDeadlock(t *testing.T) {
 	sess.Close()
 }
 
-func TestSessionCloseDeadlockPrevention(t *testing.T) {
+func TestSessionCloseDeadlockPrevention(t *testing.T) { //nolint:paralleltest
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 

@@ -37,6 +37,7 @@ const (
 )
 
 func TestLoadCertificateECDSA(t *testing.T) {
+	t.Parallel()
 	testDir, err := os.MkdirTemp("", "ca-test")
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
@@ -81,6 +82,7 @@ func TestLoadCertificateECDSA(t *testing.T) {
 }
 
 func TestLoadCertificateECDSA_wrongEncoding(t *testing.T) {
+	t.Parallel()
 	testDir, err := os.MkdirTemp("", "wrongEncoding")
 	require.NoError(t, err, "failed to create test directory")
 	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
@@ -95,6 +97,7 @@ func TestLoadCertificateECDSA_wrongEncoding(t *testing.T) {
 }
 
 func TestLoadCertificateECDSA_empty_DER_cert(t *testing.T) {
+	t.Parallel()
 	testDir, err := os.MkdirTemp("", "ca-test")
 	require.NoError(t, err, "failed to create test directory")
 	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
@@ -111,6 +114,7 @@ func TestLoadCertificateECDSA_empty_DER_cert(t *testing.T) {
 }
 
 func TestNewCA(t *testing.T) {
+	t.Parallel()
 	testDir, err := os.MkdirTemp("", "ca-test")
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
@@ -156,6 +160,7 @@ func TestNewCA(t *testing.T) {
 }
 
 func TestGenerateSignCertificate(t *testing.T) {
+	t.Parallel()
 	testDir, err := os.MkdirTemp("", "ca-test")
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)

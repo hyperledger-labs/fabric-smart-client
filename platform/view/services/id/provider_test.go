@@ -17,6 +17,7 @@ import (
 )
 
 func TestLoad(t *testing.T) {
+	t.Parallel()
 	cp := &mock2.ConfigProvider{}
 	cp.GetPathReturnsOnCall(0, "./testdata/default/signcerts/default.pem")
 	cp.GetPathReturnsOnCall(1, "./testdata/default/keystore/priv_sk")

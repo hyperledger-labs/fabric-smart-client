@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestSelectSimple(t *testing.T) {
+func TestSelectSimple(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	myTable := q.Table("my_table")
@@ -37,7 +37,7 @@ func TestSelectSimple(t *testing.T) {
 	Expect(params).To(ConsistOf(5, 2, 1))
 }
 
-func TestSelectJoin(t *testing.T) {
+func TestSelectJoin(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	myTable, yourTable, theirTable := q.Table("my_table"), q.Table("your_table"), q.AliasedTable("their_table", "tt")

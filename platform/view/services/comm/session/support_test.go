@@ -62,6 +62,7 @@ func (m *mockContext) StartSpanFrom(ctx context.Context, _ string, _ ...trace.Sp
 }
 
 func TestReadMessageWithTimeoutClosedChannel(t *testing.T) {
+	t.Parallel()
 	ch := make(chan *view.Message)
 	close(ch)
 
@@ -70,6 +71,7 @@ func TestReadMessageWithTimeoutClosedChannel(t *testing.T) {
 }
 
 func TestReadFirstMessageClosedChannel(t *testing.T) {
+	t.Parallel()
 	ch := make(chan *view.Message)
 	close(ch)
 
@@ -79,11 +81,13 @@ func TestReadFirstMessageClosedChannel(t *testing.T) {
 }
 
 func TestReadMessageWithTimeoutNilChannel(t *testing.T) {
+	t.Parallel()
 	_, err := ReadMessageWithTimeout(&mockSession{ch: nil}, 50*time.Millisecond)
 	require.EqualError(t, err, "session receive channel is nil")
 }
 
 func TestReadFirstMessageOrPanicClosedChannel(t *testing.T) {
+	t.Parallel()
 	ch := make(chan *view.Message)
 	close(ch)
 

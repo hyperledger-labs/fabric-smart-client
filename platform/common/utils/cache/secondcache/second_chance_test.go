@@ -18,6 +18,7 @@ import (
 )
 
 func TestSecondChanceCache(t *testing.T) {
+	t.Parallel()
 	cache := New(2)
 	require.NotNil(t, cache)
 
@@ -65,6 +66,7 @@ func TestSecondChanceCache(t *testing.T) {
 }
 
 func TestSecondChanceCacheConcurrent(t *testing.T) {
+	t.Parallel()
 	cache := New(25)
 
 	workers := 16
