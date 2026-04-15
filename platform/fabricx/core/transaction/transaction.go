@@ -9,7 +9,10 @@ package transaction
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -39,6 +42,12 @@ type Transaction struct {
 
 	signedProposal   *SignedProposal
 	proposalResponse *pb.ProposalResponse
+
+	// useCachedIdentities controls whether endorser and client signatures
+	// use a compact certificate ID hash (Identity_CertificateId) instead of
+	// the full certificate bytes (Identity_Certificate). When true, the
+	// SHA-256 hash of the certificate is attached, reducing bandwidth.
+	useCachedIdentities bool
 
 	TCreator view.Identity
 	TNonce   []byte
@@ -613,7 +622,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 	}
 
 	// convert serialized identity to the msppb.Identity expected by Fabric-X
-	signerIdentity, err := toMSPSignerIdentityWithCertificate(view.Identity(creator))
+	signerIdentity, err := toMSPSignerIdentity(view.Identity(creator), t.useCachedIdentities)
 	if err != nil {
 		return nil, errors.Wrap(err, "converting signer identity to msp identity")
 	}
@@ -673,4 +682,43 @@ func toMSPSignerIdentityWithCertificate(identity view.Identity) (*msppb.Identity
 			Certificate: sID.GetIdBytes(),
 		},
 	}, nil
+}
+
+// toMSPSignerIdentityWithCertificateId converts a serialized identity to an
+// msppb.Identity using a SHA-256 hash of the raw DER certificate bytes
+// (Identity_CertificateId) instead of the full certificate bytes.
+// This is the compact representation for Fabric-X where the committer
+// already has all identities cached.
+// Note: The hash must be computed over the raw DER bytes (cert.Raw),
+// not the PEM-encoded bytes, to match fabric-x-common's identity resolution.
+func toMSPSignerIdentityWithCertificateId(identity view.Identity) (*msppb.Identity, error) {
+	sID := &msp.SerializedIdentity{}
+	if err := proto.Unmarshal(identity, sID); err != nil {
+		return nil, errors.Wrap(err, "unmarshal serialized identity")
+	}
+	// Decode PEM to get raw DER bytes for hashing.
+	// fabric-x-common computes cert ID as hash(cert.Raw) where cert.Raw is DER.
+	certPEM := sID.GetIdBytes()
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return nil, errors.New("failed to decode certificate PEM")
+	}
+	certHash := sha256.Sum256(block.Bytes)
+	return &msppb.Identity{
+		MspId: sID.GetMspid(),
+		Creator: &msppb.Identity_CertificateId{
+			CertificateId: hex.EncodeToString(certHash[:]),
+		},
+	}, nil
+}
+
+// toMSPSignerIdentity converts a serialized identity to an msppb.Identity.
+// When useCachedIdentities is true, it produces a compact Identity_CertificateId
+// (SHA-256 hash of the certificate). Otherwise, it produces the full
+// Identity_Certificate with the raw certificate bytes attached.
+func toMSPSignerIdentity(identity view.Identity, useCachedIdentities bool) (*msppb.Identity, error) {
+	if useCachedIdentities {
+		return toMSPSignerIdentityWithCertificateId(identity)
+	}
+	return toMSPSignerIdentityWithCertificate(identity)
 }

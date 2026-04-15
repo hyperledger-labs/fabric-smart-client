@@ -39,16 +39,25 @@ func (e *Factory) NewTransaction(ctx context.Context, channelName string, nonce,
 		txID = protoutil.ComputeTxID(nonce, creator)
 	}
 
+	// Default to using cached identities (cert ID hash) for fabric-x.
+	// This can be overridden via core.yaml: endorser.useCachedIdentities: false
+	useCachedIdentities := true
+	configKey := "endorser.useCachedIdentities"
+	if cs := e.fns.ConfigService(); cs != nil && cs.IsSet(configKey) {
+		useCachedIdentities = cs.GetBool(configKey)
+	}
+
 	return &Transaction{
-		ctx:        ctx,
-		fns:        e.fns,
-		channel:    ch,
-		TCreator:   creator,
-		TNonce:     nonce,
-		TTxID:      txID,
-		TNetwork:   e.fns.Name(),
-		TChannel:   channelName,
-		TTransient: map[string][]byte{},
+		ctx:                 ctx,
+		fns:                 e.fns,
+		channel:             ch,
+		useCachedIdentities: useCachedIdentities,
+		TCreator:            creator,
+		TNonce:              nonce,
+		TTxID:               txID,
+		TNetwork:            e.fns.Name(),
+		TChannel:            channelName,
+		TTransient:          map[string][]byte{},
 		// TODO: we need the correct values here
 		// TODO: we need a mapper that link between classic strings to new sc namespace
 		// TODO: fix the relevant unitest

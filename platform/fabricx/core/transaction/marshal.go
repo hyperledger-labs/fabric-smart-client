@@ -51,7 +51,21 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
 	}
 
-	signatureHeader := &cb.SignatureHeader{Creator: signerID, Nonce: t.Nonce()}
+	// Use cached identity (cert ID hash) for the client signature's Creator
+	// field when configured, matching the endorser identity format.
+	creator := signerID
+	if t.useCachedIdentities {
+		mspID, err := toMSPSignerIdentityWithCertificateId(signerID)
+		if err != nil {
+			return nil, errors.Wrap(err, "converting client identity to cached format")
+		}
+		creator, err = proto.Marshal(mspID)
+		if err != nil {
+			return nil, errors.Wrap(err, "marshaling cached client identity")
+		}
+	}
+
+	signatureHeader := &cb.SignatureHeader{Creator: creator, Nonce: t.Nonce()}
 	channelHeader := protoutil.MakeChannelHeader(cb.HeaderType_MESSAGE, 0, t.Channel(), 0)
 	channelHeader.TxId = t.ID()
 	header := &cb.Header{
@@ -59,7 +73,7 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 		SignatureHeader: protoutil.MarshalOrPanic(signatureHeader),
 	}
 	return fabricutils.CreateEnvelope(
-		&signerWrapper{creator: t.Creator(), signer: signer},
+		&signerWrapper{creator: creator, signer: signer},
 		header,
 		rawTx,
 	)

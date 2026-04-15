@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
 	"github.com/stretchr/testify/require"
 )
@@ -123,4 +124,73 @@ func TestFactoryNewTransaction(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFactoryNewTransactionCachedIdentitiesConfig(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	creator := []byte("creator")
+
+	t.Run("defaults to true when ConfigService is nil", func(t *testing.T) {
+		t.Parallel()
+		fns := &mocks.FakeFabricNetworkService{}
+		fns.NameReturns("test-network")
+		fns.ChannelReturns((*mocks.FakeChannel)(nil), nil)
+		// ConfigService returns nil (default zero value)
+		factory := NewFactory(fns)
+
+		rawTx, err := factory.NewTransaction(ctx, "ch1", []byte("nonce"), creator, "tx1", nil)
+		require.NoError(t, err)
+		tx := rawTx.(*Transaction)
+		require.True(t, tx.useCachedIdentities)
+	})
+
+	t.Run("defaults to true when key is not set", func(t *testing.T) {
+		t.Parallel()
+		fns := &mocks.FakeFabricNetworkService{}
+		fns.NameReturns("test-network")
+		fns.ChannelReturns((*mocks.FakeChannel)(nil), nil)
+		fns.ConfigServiceReturns(&stubConfigService{values: map[string]interface{}{}})
+		factory := NewFactory(fns)
+
+		rawTx, err := factory.NewTransaction(ctx, "ch1", []byte("nonce"), creator, "tx1", nil)
+		require.NoError(t, err)
+		tx := rawTx.(*Transaction)
+		require.True(t, tx.useCachedIdentities)
+	})
+
+	t.Run("respects false override from config", func(t *testing.T) {
+		t.Parallel()
+		fns := &mocks.FakeFabricNetworkService{}
+		fns.NameReturns("test-network")
+		fns.ChannelReturns((*mocks.FakeChannel)(nil), nil)
+		fns.ConfigServiceReturns(&stubConfigService{
+			values: map[string]interface{}{"endorser.useCachedIdentities": false},
+		})
+		factory := NewFactory(fns)
+
+		rawTx, err := factory.NewTransaction(ctx, "ch1", []byte("nonce"), creator, "tx1", nil)
+		require.NoError(t, err)
+		tx := rawTx.(*Transaction)
+		require.False(t, tx.useCachedIdentities)
+	})
+}
+
+// stubConfigService is a minimal ConfigService implementation for config tests.
+type stubConfigService struct {
+	fdriver.ConfigService
+	values map[string]interface{}
+}
+
+func (s *stubConfigService) IsSet(key string) bool {
+	_, ok := s.values[key]
+	return ok
+}
+
+func (s *stubConfigService) GetBool(key string) bool {
+	v, ok := s.values[key]
+	if !ok {
+		return false
+	}
+	return v.(bool)
 }
