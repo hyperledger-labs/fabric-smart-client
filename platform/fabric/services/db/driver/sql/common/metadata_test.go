@@ -9,8 +9,9 @@ import (
 	"context"
 	"database/sql"
 
-	sq "github.com/Masterminds/squirrel"
 	"testing"
+
+	sq "github.com/Masterminds/squirrel"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"

@@ -39,7 +39,7 @@ func (db *KeyValueStoreNotifier) CreateSchema() error {
 }
 
 func newKeyValueStore(readDB, writeDB *sql.DB, table string) *common4.KeyValueStore {
-	
+
 	errorWrapper := &ErrorMapper{}
 
 	return common4.NewKeyValueStore(readDB, writeDB, table, errorWrapper, sq.Dollar)

@@ -10,9 +10,10 @@ import (
 	"context"
 	"database/sql"
 
-	sq "github.com/Masterminds/squirrel"
 	"regexp"
 	"testing"
+
+	sq "github.com/Masterminds/squirrel"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	. "github.com/onsi/gomega"
