@@ -14,8 +14,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote"
 	"google.golang.org/grpc"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote"
 )
 
 const (

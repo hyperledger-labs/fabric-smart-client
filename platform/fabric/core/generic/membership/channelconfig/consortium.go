@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package channelconfig
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 const (

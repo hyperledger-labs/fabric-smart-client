@@ -10,8 +10,9 @@ import (
 	"path"
 	"testing"
 
-	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/stretchr/testify/require"
+
+	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 // BenchmarkAPI exercises the ViewAPI

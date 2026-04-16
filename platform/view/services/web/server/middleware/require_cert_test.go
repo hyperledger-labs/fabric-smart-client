@@ -11,10 +11,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	middleware2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware/fakes"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	middleware2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware/fakes"
 )
 
 var _ = Describe("RequireCert", func() {

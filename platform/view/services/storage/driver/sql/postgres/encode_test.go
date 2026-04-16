@@ -10,9 +10,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
-	"github.com/stretchr/testify/require"
 )
 
 var someCompositeKey = utils.MustGet(kvs.CreateCompositeKey("prefix", []string{"a", "b", "c"}))

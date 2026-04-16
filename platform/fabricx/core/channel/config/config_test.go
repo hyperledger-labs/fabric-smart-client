@@ -10,9 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	channelconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewConfig(t *testing.T) {

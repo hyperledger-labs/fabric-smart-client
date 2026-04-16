@@ -12,8 +12,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 var packageTestDir = filepath.Join(os.TempDir(), "ccmetadata-validator-test")

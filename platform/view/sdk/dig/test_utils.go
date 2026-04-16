@@ -10,9 +10,10 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/dig"
+
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	"go.uber.org/dig"
 )
 
 type mockConfigService struct {

@@ -9,13 +9,13 @@ package stoprestart_test
 import (
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/stoprestart"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
 var _ = Describe("EndToEnd", func() {

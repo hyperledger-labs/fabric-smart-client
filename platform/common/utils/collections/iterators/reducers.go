@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package iterators
 
 import (
+	"golang.org/x/exp/constraints"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/sets"
-	"golang.org/x/exp/constraints"
 )
 
 // NewReducer creates a generic reducer

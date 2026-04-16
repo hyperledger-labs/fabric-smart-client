@@ -11,13 +11,14 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"google.golang.org/grpc"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
-	"github.com/hyperledger/fabric-x-common/api/committerpb"
-	"google.golang.org/grpc"
 )
 
 // GRPCClientProvider provides gRPC client connections for a given network.

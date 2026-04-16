@@ -15,6 +15,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
+	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/compose"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -28,11 +34,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
-	"golang.org/x/sync/errgroup"
 )
 
 const (

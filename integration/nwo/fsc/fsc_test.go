@@ -11,6 +11,9 @@ import (
 	"context"
 	"os"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	nwocontext "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/mocks"
 	mocks2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/mocks/mocks"
@@ -18,8 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/foo/initiator"
 	initiator2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/initiator"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/responder"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 type DummySDK struct{}

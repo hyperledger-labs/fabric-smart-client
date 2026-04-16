@@ -9,9 +9,10 @@ package msptesttools
 import (
 	"path/filepath"
 
+	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/mgmt"
-	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 )
 
 // LoadMSPSetupForTesting sets up the local MSP

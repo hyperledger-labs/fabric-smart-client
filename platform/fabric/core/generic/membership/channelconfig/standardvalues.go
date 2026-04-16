@@ -10,9 +10,10 @@ import (
 	"fmt"
 	"reflect"
 
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 )
 
 // DeserializeProtoValuesFromGroup deserializes the value for all values in a config group

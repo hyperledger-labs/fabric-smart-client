@@ -14,13 +14,14 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/views"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/require"
 )
 
 // ViewManager is the minimal interface needed for API benchmarks.

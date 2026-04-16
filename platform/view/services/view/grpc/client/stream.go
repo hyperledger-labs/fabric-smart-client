@@ -9,11 +9,12 @@ package client
 import (
 	"encoding/json"
 
+	"google.golang.org/grpc"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
-	"google.golang.org/grpc"
 )
 
 // Stream models a communication stream between a client and a view.

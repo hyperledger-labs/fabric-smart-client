@@ -14,8 +14,9 @@ import (
 	"net"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"google.golang.org/grpc/credentials"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 var (

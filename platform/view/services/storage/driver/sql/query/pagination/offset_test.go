@@ -9,10 +9,11 @@ package pagination_test
 import (
 	"testing"
 
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/pagination"
-	. "github.com/onsi/gomega"
 )
 
 func TestOffsetSimple(t *testing.T) { //nolint:paralleltest

@@ -16,8 +16,9 @@ import (
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/knadh/koanf/v2"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // customDecodeHook adds the additional functions of parsing durations from strings

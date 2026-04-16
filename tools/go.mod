@@ -9,7 +9,6 @@ require (
 	github.com/gordonklaus/ineffassign v0.1.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.1
 	github.com/onsi/ginkgo/v2 v2.27.3
-	golang.org/x/tools v0.43.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1
 	google.golang.org/protobuf v1.36.11
 	honnef.co/go/tools v0.6.1
@@ -26,9 +25,8 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20240823005443-9b4947da3948 // indirect
 	golang.org/x/mod v0.34.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260311193753-579e4da9a98c // indirect
 	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/tools v0.43.0 // indirect
 	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect
 	google.golang.org/grpc v1.79.3 // indirect
 )

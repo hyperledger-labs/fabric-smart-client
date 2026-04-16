@@ -11,9 +11,10 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/keys"
-	"github.com/stretchr/testify/require"
 )
 
 const (

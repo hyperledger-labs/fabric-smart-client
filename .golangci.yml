@@ -11,10 +11,16 @@ linters:
     - paralleltest
 formatters:
   enable:
+    - gci
     - gofumpt
   settings:
     gofumpt:
       extra-rules: true
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/hyperledger-labs/fabric-smart-client)
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

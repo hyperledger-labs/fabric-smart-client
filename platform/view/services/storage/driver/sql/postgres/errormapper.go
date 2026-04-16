@@ -9,9 +9,10 @@ package postgres
 import (
 	errors2 "errors"
 
+	"github.com/jackc/pgx/v5/pgconn"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var errorMap = map[string]error{

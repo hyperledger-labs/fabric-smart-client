@@ -9,10 +9,11 @@ package node
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node/mocks/sdk1"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node/mocks/sdk2"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node/mocks/sdk3"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestNode_AddSDKWithBase(t *testing.T) {

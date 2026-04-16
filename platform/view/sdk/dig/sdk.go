@@ -11,6 +11,8 @@ import (
 	"errors"
 
 	"github.com/go-kit/log"
+	"go.uber.org/dig"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -43,7 +45,6 @@ import (
 	viewgrpcserver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
-	"go.uber.org/dig"
 )
 
 var logger = logging.MustGetLogger()

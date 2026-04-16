@@ -9,15 +9,16 @@ package iou
 import (
 	"fmt"
 
+	model2 "github.com/jaegertracing/jaeger-idl/model/v1"
+	"github.com/jaegertracing/jaeger-idl/proto-gen/api_v2"
+	"github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
-	model2 "github.com/jaegertracing/jaeger-idl/model/v1"
-	"github.com/jaegertracing/jaeger-idl/proto-gen/api_v2"
-	"github.com/onsi/gomega"
 )
 
 const (

@@ -7,11 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package network
 
 import (
+	"github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/onsi/gomega"
 )
 
 // CheckTopology checks the topology of the network

@@ -9,11 +9,12 @@ package network
 import (
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/spf13/cobra"
 )
 
 type (

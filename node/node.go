@@ -9,11 +9,12 @@ package node
 import (
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/hyperledger-labs/fabric-smart-client/node/start"
 	"github.com/hyperledger-labs/fabric-smart-client/node/version"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/spf13/cobra"
 )
 
 var logger = logging.MustGetLogger()

@@ -8,8 +8,9 @@ package msp
 
 import (
 	"github.com/IBM/idemix"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger/fabric-lib-go/bccsp"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 type MSPVersion int

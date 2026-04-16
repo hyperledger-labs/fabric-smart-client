@@ -9,9 +9,10 @@ package channelconfig
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 const (

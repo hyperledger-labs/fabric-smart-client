@@ -14,8 +14,9 @@ import (
 
 	kitmetrics "github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/prometheus"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	prom "github.com/prometheus/client_golang/prometheus"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
 
 type Provider struct {

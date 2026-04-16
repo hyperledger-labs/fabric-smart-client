@@ -14,13 +14,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/onsi/gomega"
+	"gopkg.in/yaml.v2"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	"github.com/onsi/gomega"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"gopkg.in/yaml.v2"
 )
 
 type PersistenceKey string

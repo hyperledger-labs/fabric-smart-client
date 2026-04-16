@@ -10,9 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	msp_proto "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/hyperledger/fabric-x-common/api/msppb"
@@ -23,6 +20,10 @@ import (
 	"github.com/hyperledger/fabric-x-common/protoutil"
 	"github.com/hyperledger/fabric-x-common/tools/configtxgen"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 // --- minimal mocks ---

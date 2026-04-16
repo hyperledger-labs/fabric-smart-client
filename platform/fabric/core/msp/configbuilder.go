@@ -12,12 +12,13 @@ import (
 	"path/filepath"
 
 	"github.com/IBM/idemix"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"gopkg.in/yaml.v3"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
 // OrganizationalUnitIdentifiersConfiguration is used to represent an OU

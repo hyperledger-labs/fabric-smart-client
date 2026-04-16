@@ -13,6 +13,7 @@ import (
 	"github.com/IBM/idemix/bccsp/schemes/dlog/crypto/translator/amcl"
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	math "github.com/IBM/mathlib"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 

@@ -12,6 +12,10 @@ import (
 	"net/http"
 	"os"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"google.golang.org/grpc"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -23,9 +27,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/web"
 	web "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"google.golang.org/grpc"
 )
 
 const (

@@ -12,6 +12,10 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"go.uber.org/atomic"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/mock"
@@ -23,9 +27,6 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
 	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"go.uber.org/atomic"
 )
 
 var _ = Describe("EndToEnd", func() {

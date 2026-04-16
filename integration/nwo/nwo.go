@@ -14,6 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/onsi/gomega"
+	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
@@ -21,9 +25,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/reporting/jaeger"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/reporting/prometheus"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/onsi/gomega"
-	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
 )
 
 var logger = logging.MustGetLogger()

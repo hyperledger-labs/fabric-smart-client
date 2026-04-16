@@ -12,8 +12,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 const (

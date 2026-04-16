@@ -10,12 +10,13 @@ import (
 	"context"
 	"sync"
 
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
-	"github.com/hyperledger/fabric-x-common/api/committerpb"
 )
 
 // txStatusInfo holds local transaction status information including validation code,

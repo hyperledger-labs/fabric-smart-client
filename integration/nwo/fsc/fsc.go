@@ -24,6 +24,14 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/miracl/conflate"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
+	"github.com/spf13/viper"
+	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
@@ -42,13 +50,6 @@ import (
 	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/cmd"
 	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
-	"github.com/miracl/conflate"
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
-	"github.com/spf13/viper"
-	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
 )
 
 var logger = logging.MustGetLogger()

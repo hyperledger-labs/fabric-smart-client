@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 
+	"go.uber.org/dig"
+
 	e "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
@@ -33,7 +35,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
-	"go.uber.org/dig"
 )
 
 var logger = logging.MustGetLogger()

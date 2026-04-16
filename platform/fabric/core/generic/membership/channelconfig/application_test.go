@@ -9,11 +9,12 @@ package channelconfig
 import (
 	"testing"
 
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig/capabilities"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
-	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	. "github.com/onsi/gomega"
 )
 
 func TestApplicationInterface(t *testing.T) {

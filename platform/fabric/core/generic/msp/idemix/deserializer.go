@@ -12,6 +12,7 @@ import (
 	msp "github.com/IBM/idemix"
 	csp "github.com/IBM/idemix/bccsp/types"
 	math "github.com/IBM/mathlib"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"

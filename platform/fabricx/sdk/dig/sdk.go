@@ -9,6 +9,8 @@ package sdk
 import (
 	"context"
 
+	"go.uber.org/dig"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
@@ -19,7 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
-	"go.uber.org/dig"
 )
 
 // SDK extends the fabric SDK with fabricX.

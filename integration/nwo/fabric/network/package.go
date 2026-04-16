@@ -13,9 +13,10 @@ import (
 	"io"
 	"os"
 
+	"github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/onsi/gomega"
 )
 
 // PackageChaincodeBinary is a helper function to package

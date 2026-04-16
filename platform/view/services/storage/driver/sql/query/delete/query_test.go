@@ -9,10 +9,11 @@ package _delete_test
 import (
 	"testing"
 
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
-	. "github.com/onsi/gomega"
 )
 
 func TestDeleteSimple(t *testing.T) { //nolint:paralleltest

@@ -10,14 +10,15 @@ import (
 	"context"
 	"testing"
 
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/pagination"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
-	"github.com/stretchr/testify/require"
 )
 
 type vc int

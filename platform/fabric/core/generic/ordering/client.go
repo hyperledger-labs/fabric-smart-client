@@ -9,10 +9,11 @@ package ordering
 import (
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 type Connection struct {

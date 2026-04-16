@@ -9,8 +9,9 @@ package driver
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type TransactionType int32

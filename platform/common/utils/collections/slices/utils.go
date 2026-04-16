@@ -9,8 +9,9 @@ package slices
 import (
 	"slices"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/sets"
 	"golang.org/x/exp/constraints"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/sets"
 )
 
 // Remove removes the first occurrence of the input item from the input slice

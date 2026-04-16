@@ -10,9 +10,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	viewsvc "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	"github.com/stretchr/testify/require"
 )
 
 // mockSDK is a minimal SDK implementation for testing.

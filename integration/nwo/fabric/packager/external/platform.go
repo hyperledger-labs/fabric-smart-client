@@ -16,9 +16,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // Default compression to use for production. Test packages disable compression.

@@ -12,13 +12,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	commonmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	commonmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
 )
 
 var _ = Describe("Provider", func() {

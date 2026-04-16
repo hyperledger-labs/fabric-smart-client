@@ -23,6 +23,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/sdk/freeport"
+	"github.com/mr-tron/base58/base58"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -31,9 +35,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/mr-tron/base58/base58"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestMain(m *testing.M) {

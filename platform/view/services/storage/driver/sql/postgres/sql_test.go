@@ -9,11 +9,12 @@ package postgres
 import (
 	"testing"
 
+	_ "modernc.org/sqlite"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	_ "modernc.org/sqlite"
 )
 
 // setupDB starts a postgres container in a go test environment.

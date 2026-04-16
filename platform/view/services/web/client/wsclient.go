@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 
 	"github.com/gorilla/websocket"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
 

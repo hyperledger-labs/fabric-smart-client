@@ -9,8 +9,9 @@ package iterators_test
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	. "github.com/onsi/gomega"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 )
 
 var testMatrix = []struct {

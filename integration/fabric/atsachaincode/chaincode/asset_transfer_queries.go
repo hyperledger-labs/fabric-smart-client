@@ -14,8 +14,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger/fabric-contract-api-go/v2/contractapi"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 // QueryResult structure used for handling result of query

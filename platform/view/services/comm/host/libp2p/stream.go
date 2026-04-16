@@ -9,8 +9,9 @@ package libp2p
 import (
 	"context"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/libp2p/go-libp2p/core/network"
+
+	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 type stream struct {

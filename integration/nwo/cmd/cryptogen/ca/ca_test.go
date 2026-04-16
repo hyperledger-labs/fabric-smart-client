@@ -14,10 +14,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
 	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/stretchr/testify/require"
 )
 
 const (

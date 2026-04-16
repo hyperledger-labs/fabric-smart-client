@@ -9,9 +9,10 @@ package mocks
 import (
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	pmsp "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
 type MockMSP struct {

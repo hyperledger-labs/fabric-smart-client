@@ -14,11 +14,12 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"gopkg.in/yaml.v2"
+
 	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
 	msp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"gopkg.in/yaml.v2"
 )
 
 const (

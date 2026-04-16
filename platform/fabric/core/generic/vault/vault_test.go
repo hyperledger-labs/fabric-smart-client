@@ -9,6 +9,10 @@ package vault
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace/noop"
+	"golang.org/x/exp/slices"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -16,9 +20,6 @@ import (
 	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace/noop"
-	"golang.org/x/exp/slices"
 )
 
 //go:generate counterfeiter -o mocks/config.go -fake-name Config . config

@@ -10,9 +10,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSessionsDelete(t *testing.T) {

@@ -7,11 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package client_test
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
 )
 
 var _ = Describe("Config", func() {

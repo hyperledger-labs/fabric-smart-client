@@ -12,12 +12,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil/fakes"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil/fakes"
 )
 
 func TestGetPayloads(t *testing.T) {

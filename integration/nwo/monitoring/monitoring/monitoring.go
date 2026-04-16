@@ -12,12 +12,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/onsi/gomega"
+	"gopkg.in/yaml.v2"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/onsi/gomega"
-	"gopkg.in/yaml.v2"
 )
 
 var logger = logging.MustGetLogger()

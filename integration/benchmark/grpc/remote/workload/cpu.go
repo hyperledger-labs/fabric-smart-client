@@ -9,8 +9,9 @@ package workload
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote"
 	"google.golang.org/grpc"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote"
 )
 
 const CPU = "cpu"

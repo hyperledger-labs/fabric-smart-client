@@ -9,12 +9,13 @@ package api
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/tedsuo/ifrit/grouper"
 	"gopkg.in/yaml.v2"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 )
 
 type (

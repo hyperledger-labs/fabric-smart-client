@@ -17,12 +17,13 @@ import (
 	"time"
 
 	gwebsocket "github.com/gorilla/websocket"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 )
 
 // TestAttack_SpoofPeerID attempts to reproduce the attack where an attacker

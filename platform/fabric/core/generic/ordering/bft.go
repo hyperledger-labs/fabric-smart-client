@@ -13,13 +13,14 @@ import (
 	"sync"
 	"time"
 
+	common2 "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"golang.org/x/sync/semaphore"
+	"google.golang.org/grpc/status"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	common2 "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"golang.org/x/sync/semaphore"
-	"google.golang.org/grpc/status"
 )
 
 type BFTBroadcaster struct {

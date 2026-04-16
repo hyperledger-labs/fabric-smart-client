@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package generic
 
 import (
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"go.uber.org/dig"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	committer2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -34,8 +37,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"go.uber.org/dig"
 )
 
 type ChannelHandlerProviderResult struct {

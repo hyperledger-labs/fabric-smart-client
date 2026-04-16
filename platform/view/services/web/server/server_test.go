@@ -19,14 +19,15 @@ import (
 	"syscall"
 	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/tedsuo/ifrit"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations/fakes"
 	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	mocks2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/mocks"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/tedsuo/ifrit"
 )
 
 var tlsCA tlsgen.CA

@@ -11,11 +11,12 @@ import (
 	"path"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	_ "modernc.org/sqlite"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	"github.com/stretchr/testify/assert"
-	_ "modernc.org/sqlite"
 )
 
 func TestSqlite(t *testing.T) {

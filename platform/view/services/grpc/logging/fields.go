@@ -9,9 +9,10 @@ package logging
 import (
 	"encoding/json"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
 type protoMarshaler struct {

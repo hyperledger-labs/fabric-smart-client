@@ -7,14 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package fsc_test
 
 import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	atsa "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/states"
 	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 type node = [2]string
