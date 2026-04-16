@@ -167,7 +167,7 @@ func NewSerializedIdentity(mspID string, certPEM []byte) ([]byte, error) {
 // Verify checks against a signature and a message
 // to determine whether this identity produced the
 // signature; it returns nil if so or an error otherwise
-func (id *identity) Verify(msg []byte, sig []byte) error {
+func (id *identity) Verify(msg, sig []byte) error {
 	// mspIdentityLogger.Infof("Verifying signature")
 
 	digestOrMsg := msg

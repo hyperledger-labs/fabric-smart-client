@@ -75,7 +75,7 @@ func (s *TestSuite) TestSucceeded() {
 	s.TestSucceededWithUsers(node{"issuer", "issuer"}, node{"alice", "alice"}, node{"bob", "bob"}, node{"alice", "alice"})
 }
 
-func (s *TestSuite) TestSucceededWithUsers(issuerId node, sellerId node, buyerId node, transferringUserId node) {
+func (s *TestSuite) TestSucceededWithUsers(issuerId, sellerId, buyerId, transferringUserId node) {
 	approver := s.II.Identity("approver")
 
 	issuer := client.New(s.II.Client(issuerId[1]), s.II.Identity(issuerId[0]), approver)

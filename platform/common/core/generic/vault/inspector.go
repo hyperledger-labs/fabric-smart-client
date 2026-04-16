@@ -78,7 +78,6 @@ func (i *Inspector) GetReadAt(ns driver.Namespace, pos int) (driver.PKey, driver
 }
 
 func (i *Inspector) GetWriteAt(ns driver.Namespace, pos int) (driver.PKey, driver.RawValue, error) {
-
 	key, in := i.Rws.WriteSet.GetAt(ns, pos)
 	if !in {
 		return "", nil, errors.Errorf("no write at position %d for namespace %s", pos, ns)
@@ -126,7 +125,6 @@ func (i *Inspector) Equals(other interface{}, nss ...driver.Namespace) error {
 }
 
 func (i *Inspector) Done() {
-
 }
 
 func (i *Inspector) Clear(driver.Namespace) error {

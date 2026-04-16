@@ -39,10 +39,12 @@ type mockConn struct {
 func (c *mockConn) ReadMessage() (int, []byte, error) {
 	return 0, <-c.read, nil
 }
+
 func (c *mockConn) WriteMessage(_ int, data []byte) error {
 	c.written <- data
 	return nil
 }
+
 func (c *mockConn) Close() error {
 	c.once.Do(func() {
 		close(c.read)
@@ -50,6 +52,7 @@ func (c *mockConn) Close() error {
 	})
 	return nil
 }
+
 func (c *mockConn) ReadValue(message proto.Message) error {
 	data, err := proto.Marshal(message)
 	if err != nil {

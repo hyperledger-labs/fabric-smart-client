@@ -47,11 +47,9 @@ func (s receiveView) Call(viewCtx view.Context) (interface{}, error) {
 	case <-timeout.C:
 		return nil, errors.New("timeout reading from session")
 	}
-
 }
 
-type payloadReceiveView struct {
-}
+type payloadReceiveView struct{}
 
 func NewPayloadReceiveView() *payloadReceiveView {
 	return &payloadReceiveView{}

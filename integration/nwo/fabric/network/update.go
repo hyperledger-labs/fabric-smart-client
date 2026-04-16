@@ -57,7 +57,7 @@ func computePoliciesMapUpdate(original, updated map[string]*cb.ConfigPolicy) (re
 		}
 	}
 
-	return
+	return readSet, writeSet, sameSet, updatedMembers
 }
 
 func computeValuesMapUpdate(original, updated map[string]*cb.ConfigValue) (readSet, writeSet, sameSet map[string]*cb.ConfigValue, updatedMembers bool) {
@@ -102,7 +102,7 @@ func computeValuesMapUpdate(original, updated map[string]*cb.ConfigValue) (readS
 		}
 	}
 
-	return
+	return readSet, writeSet, sameSet, updatedMembers
 }
 
 func computeGroupsMapUpdate(original, updated map[string]*cb.ConfigGroup) (readSet, writeSet, sameSet map[string]*cb.ConfigGroup, updatedMembers bool) {
@@ -152,7 +152,7 @@ func computeGroupsMapUpdate(original, updated map[string]*cb.ConfigGroup) (readS
 		}
 	}
 
-	return
+	return readSet, writeSet, sameSet, updatedMembers
 }
 
 func computeGroupUpdate(original, updated *cb.ConfigGroup) (readSet, writeSet *cb.ConfigGroup, updatedGroup bool) {

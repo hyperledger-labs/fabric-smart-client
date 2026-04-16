@@ -55,7 +55,8 @@ func (p *SDK) Start(ctx context.Context) error {
 		dig.In
 		ViewProvider   factoryRegisterer
 		FactoryEntries []*factoryEntry `group:"view-factories"`
-	}) error {
+	},
+	) error {
 		for _, entry := range in.FactoryEntries {
 			logger.Infof("Register factory [%T] for id's [%v] and initiators [%v]", entry.factory, entry.fids, entry.initiators)
 			for _, fid := range entry.fids {

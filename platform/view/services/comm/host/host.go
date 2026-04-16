@@ -11,9 +11,11 @@ import (
 	"io"
 )
 
-type PeerID = string
-type PeerIPAddress = string
-type StreamHash = string
+type (
+	PeerID        = string
+	PeerIPAddress = string
+	StreamHash    = string
+)
 
 // GeneratorProvider provides the hosts and generates their PKs
 type GeneratorProvider interface {

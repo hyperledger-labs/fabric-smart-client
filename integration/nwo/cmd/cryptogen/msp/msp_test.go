@@ -182,7 +182,7 @@ func TestExportConfig(t *testing.T) { //nolint:paralleltest
 	configFile := filepath.Join(path, "config.yaml")
 	caFile := "ca.pem"
 	t.Log(path)
-	err := os.MkdirAll(path, 0755)
+	err := os.MkdirAll(path, 0o755)
 	require.NoError(t, err, "failed to create test directory")
 
 	err = msp2.ExportConfig(path, caFile, true)

@@ -10,8 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type NoopView struct {
-}
+type NoopView struct{}
 
 func (q *NoopView) Call(viewCtx view.Context) (interface{}, error) {
 	return "OK", nil

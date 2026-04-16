@@ -168,7 +168,6 @@ func toMSPIdentity(identity view.Identity) (*msppb.Identity, error) {
 }
 
 func (s *Service) IsValid(identity view.Identity) error {
-
 	sid, err := toMSPIdentity(identity)
 	if err != nil {
 		return err

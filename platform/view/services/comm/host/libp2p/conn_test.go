@@ -43,7 +43,7 @@ func (n *node) ID() string {
 	return n.id
 }
 
-func NewVirtualNetwork(t *testing.T, port int, numNodes int) (Network, error) {
+func NewVirtualNetwork(t *testing.T, port, numNodes int) (Network, error) {
 	t.Helper()
 
 	var res []*node
@@ -166,7 +166,7 @@ func newNode(t *testing.T, port int, bootstrapNode *node) (*node, error) {
 	}, nil
 }
 
-func eventually(condition func() bool, waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) error {
+func eventually(condition func() bool, waitFor, tick time.Duration, msgAndArgs ...interface{}) error {
 	timer := time.NewTimer(waitFor)
 	defer timer.Stop()
 

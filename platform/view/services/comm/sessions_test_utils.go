@@ -50,7 +50,7 @@ func SessionsNodesTestRound(t *testing.T, initiator *HostNode, nodes []*HostNode
 	}
 }
 
-func runInitiator(t *testing.T, ctx context.Context, bootstrapNode *HostNode, targetNode *HostNode, numSessionsPerNode int) {
+func runInitiator(t *testing.T, ctx context.Context, bootstrapNode, targetNode *HostNode, numSessionsPerNode int) {
 	t.Helper()
 	for i := 0; i < numSessionsPerNode; i++ {
 		select {

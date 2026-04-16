@@ -39,7 +39,7 @@ const (
 func BenchmarkGRPCImpl(b *testing.B) {
 	cPath, kPath := setupCrypto(b)
 
-	var benchmarks = []struct {
+	benchmarks := []struct {
 		name          string
 		serverOptions []ServerOption
 		clientOptions []ClientOption
@@ -116,10 +116,10 @@ func setupCrypto(tb testing.TB) (certPath, keyPath string) {
 	keyPath = filepath.Join(tmpDir, "key.pem")
 
 	// 3. Write the PEM bytes directly to files
-	err = os.WriteFile(certPath, certPEM, 0644)
+	err = os.WriteFile(certPath, certPEM, 0o644)
 	require.NoError(tb, err)
 
-	err = os.WriteFile(keyPath, keyPEM, 0600)
+	err = os.WriteFile(keyPath, keyPEM, 0o600)
 	require.NoError(tb, err)
 
 	return certPath, keyPath
@@ -137,8 +137,10 @@ type clientConfig struct {
 	signer client.SigningIdentity
 }
 
-type ServerOption func(c *serverConfig)
-type ClientOption func(c *clientConfig)
+type (
+	ServerOption func(c *serverConfig)
+	ClientOption func(c *clientConfig)
+)
 
 // --- Server Options ---
 

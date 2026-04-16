@@ -124,7 +124,7 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 	cr, err = s.Marshaller.MarshalCommandResponse(sc.Command, payload)
 	logger.DebugfContext(ctx, "done with err [%s]", err)
 
-	return
+	return cr, err
 }
 
 // StreamCommand processes the passed streaming command ensuring proper access control.

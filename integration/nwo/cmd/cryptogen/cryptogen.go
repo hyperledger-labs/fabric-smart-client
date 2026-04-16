@@ -261,7 +261,6 @@ func generate() {
 }
 
 func parseTemplate(input string, data interface{}) (string, error) {
-
 	t, err := template.New("parse").Parse(input)
 	if err != nil {
 		return "", errors.Errorf("error parsing template: %s", err)
@@ -277,7 +276,6 @@ func parseTemplate(input string, data interface{}) (string, error) {
 }
 
 func parseTemplateWithDefault(input, defaultInput string, data interface{}) (string, error) {
-
 	// Use the default if the input is an empty string
 	if len(input) == 0 {
 		input = defaultInput
@@ -364,7 +362,6 @@ func renderOrgSpec(orgSpec *OrgSpec, prefix string) error {
 }
 
 func generatePeerOrg(baseDir string, orgSpec OrgSpec) {
-
 	orgName := orgSpec.Domain
 
 	fmt.Println(orgName)
@@ -460,7 +457,7 @@ func copyAdminCert(usersDir, adminCertsDir, adminUserName string) error {
 		return err
 	}
 	// recreate the admincerts directory
-	err = os.MkdirAll(adminCertsDir, 0755)
+	err = os.MkdirAll(adminCertsDir, 0o755)
 	if err != nil {
 		return err
 	}
@@ -473,7 +470,7 @@ func copyAdminCert(usersDir, adminCertsDir, adminUserName string) error {
 	return nil
 }
 
-func generateNodes(baseDir string, nodes []NodeSpec, signCA *ca2.CA, tlsCA *ca2.CA, nodeType int, nodeOUs bool) {
+func generateNodes(baseDir string, nodes []NodeSpec, signCA, tlsCA *ca2.CA, nodeType int, nodeOUs bool) {
 	for _, node := range nodes {
 		nodeDir := filepath.Join(baseDir, node.CommonName)
 		if _, err := os.Stat(nodeDir); os.IsNotExist(err) {
@@ -491,7 +488,6 @@ func generateNodes(baseDir string, nodes []NodeSpec, signCA *ca2.CA, tlsCA *ca2.
 }
 
 func generateOrdererOrg(baseDir string, orgSpec OrgSpec) {
-
 	orgName := orgSpec.Domain
 
 	// generate CAs
@@ -557,7 +553,6 @@ func generateOrdererOrg(baseDir string, orgSpec OrgSpec) {
 			os.Exit(1)
 		}
 	}
-
 }
 
 func copyFile(src, dst string) error {

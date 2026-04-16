@@ -23,11 +23,10 @@ import (
 
 var logger = logging.MustGetLogger()
 
-type EndorseTransaction interface {
-}
+type EndorseTransaction interface{}
 
 type MetaHandler interface {
-	StoreMeta(ns *Namespace, s interface{}, namespace string, key string, options *addOutputOptions) error
+	StoreMeta(ns *Namespace, s interface{}, namespace, key string, options *addOutputOptions) error
 }
 
 // Command models an operation that involve given business parties
@@ -488,7 +487,7 @@ func (n *Namespace) getStateID(s interface{}) (string, error) {
 	return key, nil
 }
 
-func (n *Namespace) setMeta(s interface{}, namespace string, key string, options *addOutputOptions) error {
+func (n *Namespace) setMeta(s interface{}, namespace, key string, options *addOutputOptions) error {
 	for _, handler := range n.metaHandlers {
 		if err := handler.StoreMeta(n, s, namespace, key, options); err != nil {
 			return errors.Wrapf(err, "failed storing meta for [%s:%s]", namespace, key)

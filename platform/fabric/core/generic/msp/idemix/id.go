@@ -89,7 +89,7 @@ func (id *MSPIdentity) Validate() error {
 	return id.verifyProof()
 }
 
-func (id *MSPIdentity) Verify(msg []byte, sig []byte) error {
+func (id *MSPIdentity) Verify(msg, sig []byte) error {
 	_, err := id.Idemix.Csp.Verify(
 		id.NymPublicKey,
 		sig,

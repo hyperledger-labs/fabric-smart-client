@@ -54,7 +54,7 @@ type (
 )
 
 type FabricFinality interface {
-	IsFinal(txID string, address string) error
+	IsFinal(txID, address string) error
 }
 
 type CommitTx struct {
@@ -225,8 +225,7 @@ func (c *Committer) AddTransactionFilter(sr driver.TransactionFilter) error {
 	return nil
 }
 
-func (c *Committer) DiscardTx(ctx context.Context, txID string, message string) error {
-
+func (c *Committer) DiscardTx(ctx context.Context, txID, message string) error {
 	c.logger.Debugf("discarding transaction [%s] with message [%s]", txID, message)
 
 	vc, _, err := c.Status(ctx, txID)
@@ -551,7 +550,7 @@ func (c *Committer) commitConfig(ctx context.Context, txID driver2.TxID, blockNu
 	return nil
 }
 
-func (c *Committer) commit(ctx context.Context, txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
+func (c *Committer) commit(ctx context.Context, txID string, block, indexInBlock uint64, envelope *common.Envelope) error {
 	// This is a normal transaction, validated by Fabric.
 	// Commit it cause Fabric says it is valid.
 	c.logger.DebugfContext(ctx, "[%s] committing", txID)
@@ -613,7 +612,7 @@ func (c *Committer) commit(ctx context.Context, txID string, block uint64, index
 	return nil
 }
 
-func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64, indexInBlock uint64, envelope *common.Envelope) error {
+func (c *Committer) commitUnknown(ctx context.Context, txID string, block, indexInBlock uint64, envelope *common.Envelope) error {
 	// if an envelope exists for the passed txID, then commit it
 	if c.EnvelopeService.Exists(ctx, txID) {
 		return c.commitStoredEnvelope(ctx, txID, block, indexInBlock)
@@ -652,7 +651,7 @@ func (c *Committer) commitUnknown(ctx context.Context, txID string, block uint64
 	return c.commit(ctx, txID, block, indexInBlock, envelope)
 }
 
-func (c *Committer) commitStoredEnvelope(ctx context.Context, txID string, block uint64, indexInBlock uint64) error {
+func (c *Committer) commitStoredEnvelope(ctx context.Context, txID string, block, indexInBlock uint64) error {
 	c.logger.Debugf("found envelope for transaction [%s], committing it...", txID)
 	if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
 		return err

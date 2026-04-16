@@ -15,9 +15,7 @@ import (
 )
 
 var _ = Describe("Config", func() {
-	var (
-		config client.Config
-	)
+	var config client.Config
 
 	BeforeEach(func() {
 		config = client.Config{

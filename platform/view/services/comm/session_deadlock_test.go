@@ -8,9 +8,8 @@ package comm
 
 import (
 	"context"
-	"time"
-
 	"testing"
+	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"

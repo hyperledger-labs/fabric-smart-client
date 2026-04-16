@@ -31,13 +31,14 @@ type Docker struct {
 	Client *docker.Client
 }
 
-var once sync.Once
-var singleInstance *Docker
-var instanceError error
+var (
+	once           sync.Once
+	singleInstance *Docker
+	instanceError  error
+)
 
 // GetInstance a Docker instance, returns nil and an error in case of a failure.
 func GetInstance() (*Docker, error) {
-
 	once.Do(func() {
 		dockerClient, err := docker.NewClientFromEnv()
 		if err != nil {
@@ -86,7 +87,6 @@ func (d *Docker) CreateNetwork(networkID string) error {
 // It removes all container that meet the condition of the `matchName` predicate function, removes the attached volumes,
 // container images, the network.
 func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) error {
-
 	// TODO this method is a beast and should be refactored
 	containers, err := d.Client.ListContainers(docker.ListContainersOptions{All: true})
 	if err != nil {
@@ -225,7 +225,7 @@ func PortBindings(ports ...int) nat.PortMap {
 	return m
 }
 
-func StartLogs(cli *client.Client, containerID string, loggerName string) error {
+func StartLogs(cli *client.Client, containerID, loggerName string) error {
 	dockerLogger := logging.MustGetLogger()
 	reader, err := cli.ContainerLogs(context.Background(), containerID, container.LogsOptions{
 		ShowStdout: true,

@@ -204,7 +204,7 @@ func GetVerifyingMspConfig(dir, ID, mspType string) (*msp.MSPConfig, error) {
 	}
 }
 
-func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.MSPConfig, error) {
+func getMspConfig(dir, ID string, sigid *msp.SigningIdentityInfo) (*msp.MSPConfig, error) {
 	cacertDir := filepath.Join(dir, cacerts)
 	admincertDir := filepath.Join(dir, admincerts)
 	intermediatecertsDir := filepath.Join(dir, intermediatecerts)
@@ -362,7 +362,7 @@ func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.M
 	return &msp.MSPConfig{Config: fmpsjs, Type: int32(FABRIC)}, nil
 }
 
-func loadCertificateAt(dir, certificatePath string, ouType string) []byte {
+func loadCertificateAt(dir, certificatePath, ouType string) []byte {
 	if certificatePath == "" {
 		mspLogger.Debugf("Specific certificate for %s is not configured", ouType)
 		return nil

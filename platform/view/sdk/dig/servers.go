@@ -210,7 +210,6 @@ func Serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *ope
 		if err := operationsSystem.Stop(); err != nil {
 			logger.Errorf("failed stopping operations system [%s]", err)
 		}
-
 	}()
 }
 

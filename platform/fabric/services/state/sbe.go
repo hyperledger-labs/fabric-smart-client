@@ -22,7 +22,7 @@ type sbeMetaHandler struct {
 	forceSBE bool
 }
 
-func (s2 *sbeMetaHandler) StoreMeta(ns *Namespace, s interface{}, namespace string, key string, options *addOutputOptions) error {
+func (s2 *sbeMetaHandler) StoreMeta(ns *Namespace, s interface{}, namespace, key string, options *addOutputOptions) error {
 	if !s2.forceSBE && !options.sbe {
 		return nil
 	}

@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 )
 
-func (n *Namespace) setFieldMapping(namespace string, key string, mapping map[string][]byte) error {
+func (n *Namespace) setFieldMapping(namespace, key string, mapping map[string][]byte) error {
 	logger.Debugf("setting field mapping for [%s:%s]", namespace, key)
 	if len(mapping) == 0 {
 		logger.Debugf("setting field mapping for [%s:%s], empty, skipping", namespace, key)
@@ -46,7 +46,7 @@ func (n *Namespace) setFieldMapping(namespace string, key string, mapping map[st
 	return nil
 }
 
-func (n *Namespace) getFieldMapping(namespace string, key string, flag bool) (map[string][]byte, error) {
+func (n *Namespace) getFieldMapping(namespace, key string, flag bool) (map[string][]byte, error) {
 	logger.Debugf("getting field mapping for [%s:%s]", namespace, key)
 
 	k, err := fieldMappingKey(namespace, key)

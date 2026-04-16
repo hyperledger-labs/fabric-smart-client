@@ -95,5 +95,4 @@ func TestConditions(t *testing.T) { //nolint:paralleltest
 		Expect(query).To(Equal(tc.expectedQuery))
 		Expect(params).To(ConsistOf(tc.expectedParams...))
 	}
-
 }

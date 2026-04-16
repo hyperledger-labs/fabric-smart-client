@@ -103,7 +103,7 @@ func (*MockIdentity) GetOrganizationalUnits() []*msp.OUIdentifier {
 	panic("implement me")
 }
 
-func (*MockIdentity) Verify(msg []byte, sig []byte) error {
+func (*MockIdentity) Verify(msg, sig []byte) error {
 	return nil
 }
 

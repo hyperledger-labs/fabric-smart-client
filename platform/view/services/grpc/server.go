@@ -53,7 +53,6 @@ func NewGRPCServer(address string, serverConfig ServerConfig) (*GRPCServer, erro
 	}
 	// create our listener
 	lis, err := net.Listen("tcp", address)
-
 	if err != nil {
 		return nil, err
 	}

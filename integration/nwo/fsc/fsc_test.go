@@ -22,8 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type DummySDK struct {
-}
+type DummySDK struct{}
 
 func NewDummySDK() *DummySDK {
 	return &DummySDK{}
@@ -39,7 +38,6 @@ func (d *DummySDK) Start(ctx context.Context) error {
 
 var _ = Describe("EndToEnd", func() {
 	Describe("generate main", func() {
-
 		It("should not fail", func() {
 			p := NewPlatform(nwocontext.New("", 0, nil), NewTopology(), nil)
 
@@ -92,6 +90,5 @@ var _ = Describe("EndToEnd", func() {
 			Expect(buf.String()).To(BeEquivalentTo(string(ExpectedMainOne)))
 			// Expect(os.WriteFile("./testdata/main/main.go.output", buf.Bytes(), 0777)).ToNot(HaveOccurred())
 		})
-
 	})
 })

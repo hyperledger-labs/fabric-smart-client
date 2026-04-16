@@ -31,7 +31,6 @@ type SerializableSigner interface {
 func UnmarshalTx(tx []byte) (*common.Envelope, *common.Payload, *common.ChannelHeader, error) {
 	env, err := protoutil.UnmarshalEnvelope(tx)
 	if err != nil {
-
 		return nil, nil, nil, errors.Wrap(err, "Error getting tx from block")
 	}
 	payl, err := protoutil.UnmarshalPayload(env.Payload)

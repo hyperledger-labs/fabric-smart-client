@@ -58,7 +58,6 @@ func (c *IdentityCache) Identity(opts *driver.IdentityOptions) (view.Identity, [
 	logger.Debugf("fetching identity from cache...")
 
 	return c.fetchIdentityFromCache(opts)
-
 }
 
 func (c *IdentityCache) fetchIdentityFromCache(opts *driver.IdentityOptions) (view.Identity, []byte, error) {

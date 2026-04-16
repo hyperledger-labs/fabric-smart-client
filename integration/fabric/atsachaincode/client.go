@@ -61,7 +61,7 @@ func (c *Client) ReadAsset(id string) (*views.Asset, error) {
 	return asset, nil
 }
 
-func (c *Client) ChangePublicDescription(id string, publicDescription string) error {
+func (c *Client) ChangePublicDescription(id, publicDescription string) error {
 	_, err := c.c.CallView("ChangePublicDescription", common.JSONMarshall(&views.ChangePublicDescription{
 		ID:                id,
 		PublicDescription: publicDescription,

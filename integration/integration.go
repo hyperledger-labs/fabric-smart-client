@@ -72,7 +72,7 @@ func New(startPort int, path string, topologies ...api.Topology) (*Infrastructur
 			return nil, err
 		}
 		if _, err := os.Stat(testDir); os.IsNotExist(err) {
-			err = os.MkdirAll(testDir, 0700)
+			err = os.MkdirAll(testDir, 0o700)
 			if err != nil {
 				return nil, err
 			}
@@ -357,7 +357,7 @@ func (i *Infrastructure) storeAdditionalConfigurations() {
 	if err != nil {
 		panic(err)
 	}
-	if err := os.WriteFile(filepath.Join(i.TestDir, "conf.json"), raw, 0770); err != nil {
+	if err := os.WriteFile(filepath.Join(i.TestDir, "conf.json"), raw, 0o770); err != nil {
 		panic(err)
 	}
 
@@ -367,7 +367,7 @@ func (i *Infrastructure) storeAdditionalConfigurations() {
 	if err != nil {
 		panic(err)
 	}
-	if err := os.WriteFile(filepath.Join(i.TestDir, "topology.yaml"), raw, 0770); err != nil {
+	if err := os.WriteFile(filepath.Join(i.TestDir, "topology.yaml"), raw, 0o770); err != nil {
 		panic(err)
 	}
 }
@@ -393,6 +393,7 @@ type fscDefaultPlatformFactory struct{}
 func (p *fscDefaultPlatformFactory) Name() string {
 	return "fsc"
 }
+
 func (p *fscDefaultPlatformFactory) New(registry api.Context, t api.Topology, builder api.Builder) api.Platform {
 	return fsc.NewPlatform(registry, t, builder)
 }

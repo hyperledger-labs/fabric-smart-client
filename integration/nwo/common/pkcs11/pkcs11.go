@@ -274,5 +274,5 @@ func FindPKCS11Lib() (lib, pin, label string, err error) {
 		label = DefaultLabel
 	}
 
-	return
+	return lib, pin, label, err
 }

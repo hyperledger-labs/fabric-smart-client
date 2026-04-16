@@ -280,7 +280,7 @@ func (n *Network) AddExtension(ex Extension) {
 }
 
 // UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
-func (n *Network) UpdateChaincode(chaincodeId string, version string, path string, packageFile string) {
+func (n *Network) UpdateChaincode(chaincodeId, version, path, packageFile string) {
 	var cc *topology.ChannelChaincode
 	for _, chaincode := range n.topology.Chaincodes {
 		if chaincode.Chaincode.Name == chaincodeId {

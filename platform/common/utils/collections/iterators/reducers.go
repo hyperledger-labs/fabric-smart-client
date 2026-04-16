@@ -13,7 +13,7 @@ import (
 )
 
 // NewReducer creates a generic reducer
-func NewReducer[V any, S any](initial S, merge ReduceFunc[V, S]) Reducer[V, S] {
+func NewReducer[V, S any](initial S, merge ReduceFunc[V, S]) Reducer[V, S] {
 	return &reducer[V, S]{initial: initial, merge: merge}
 }
 
@@ -59,7 +59,7 @@ type maxByReducer[V any, K constraints.Ordered] struct {
 
 func (r *maxByReducer[V, K]) Produce() V { return utils.Zero[V]() }
 
-func (r *maxByReducer[V, K]) Reduce(maxVal V, v V) (V, error) {
+func (r *maxByReducer[V, K]) Reduce(maxVal, v V) (V, error) {
 	if currKey, err := r.fn(v); err != nil {
 		return utils.Zero[V](), err
 	} else if r.maxKey < currKey {

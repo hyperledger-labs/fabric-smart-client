@@ -52,7 +52,6 @@ func (m BlockTxIndexVersionMarshaller) FromBytes(data Version) (driver2.BlockNum
 	Block := driver2.BlockNum(binary.BigEndian.Uint32(data[:4]))
 	TxNum := driver2.TxNum(binary.BigEndian.Uint32(data[4:]))
 	return Block, TxNum, nil
-
 }
 
 func (m BlockTxIndexVersionMarshaller) ToBytes(bn driver2.BlockNum, txn driver2.TxNum) Version {

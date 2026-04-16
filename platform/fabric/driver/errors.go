@@ -10,7 +10,5 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
-var (
-	// ErrNotImplemented signals that a function is not implemented
-	ErrNotImplemented = errors.New("not implemented")
-)
+// ErrNotImplemented signals that a function is not implemented
+var ErrNotImplemented = errors.New("not implemented")

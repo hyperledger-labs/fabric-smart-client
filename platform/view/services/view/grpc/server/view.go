@@ -76,7 +76,6 @@ func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (an
 	}
 	logger.DebugfContext(ctx, "Initiate new view")
 	result, err := s.viewManager.InitiateView(ctx, f)
-
 	if err != nil {
 		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}

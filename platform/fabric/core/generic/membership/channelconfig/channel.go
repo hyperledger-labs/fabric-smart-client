@@ -202,7 +202,7 @@ func (cc *ChannelConfig) validateHashingAlgorithm() error {
 		if err != nil {
 			panic(errors.Errorf("failed computing SHA3_256 on [% x]", data))
 		}
-		return
+		return hash
 	}
 
 	computeSHA3256 := func(data []byte) (hash []byte) {
@@ -210,7 +210,7 @@ func (cc *ChannelConfig) validateHashingAlgorithm() error {
 		if err != nil {
 			panic(errors.Errorf("Failed computing SHA3_256 on [% x]", data))
 		}
-		return
+		return hash
 	}
 
 	switch cc.protos.HashingAlgorithm.Name {

@@ -257,7 +257,7 @@ func (t *Transaction) SignedProposal() *SignedProposal {
 	return &SignedProposal{s: t.tx.SignedProposal()}
 }
 
-func (t *Transaction) SetProposal(chaincode string, version string, function string, params ...string) {
+func (t *Transaction) SetProposal(chaincode, version, function string, params ...string) {
 	t.tx.SetProposal(chaincode, version, function, params...)
 }
 

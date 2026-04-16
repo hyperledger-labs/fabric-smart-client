@@ -177,12 +177,12 @@ func (t *Transaction) From(tx driver.Transaction) (err error) {
 	if payload.TSignedProposal != nil {
 		t.signedProposal, err = newSignedProposal(payload.TSignedProposal)
 		if err != nil {
-			return
+			return err
 		}
 	}
 	t.TProposalResponses = payload.TProposalResponses
 	t.TTransient = payload.TTransient
-	return
+	return err
 }
 
 func (t *Transaction) SetFromBytes(raw []byte) error {
@@ -274,7 +274,7 @@ func (t *Transaction) SignedProposal() driver.SignedProposal {
 	return t.signedProposal
 }
 
-func (t *Transaction) SetProposal(chaincode string, version string, function string, params ...string) {
+func (t *Transaction) SetProposal(chaincode, version, function string, params ...string) {
 	t.TChaincode = chaincode
 	t.TChaincodeVersion = version
 	t.TFunction = function
@@ -404,7 +404,6 @@ func (t *Transaction) BytesNoTransient() ([]byte, error) {
 	}
 	temp.ResetTransient()
 	return json.Marshal(temp)
-
 }
 
 func (t *Transaction) Endorse() error {

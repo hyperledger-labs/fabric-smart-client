@@ -26,6 +26,7 @@ var (
 type SQLError = error
 
 type UnversionedRead = driver.UnversionedRead
+
 type UnversionedValue = driver.UnversionedValue
 
 type QueryExecutor = driver.QueryExecutor

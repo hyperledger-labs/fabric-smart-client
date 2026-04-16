@@ -36,7 +36,7 @@ type keyset[I comparable, V any] struct {
 }
 
 // KeysetWithField creates a keyset pagination where the id has field name idFieldName
-func KeysetWithField[I comparable](offset int, pageSize int, sqlIdName common.FieldName, idFieldName PropertyName[I]) (*keyset[I, any], error) {
+func KeysetWithField[I comparable](offset, pageSize int, sqlIdName common.FieldName, idFieldName PropertyName[I]) (*keyset[I, any], error) {
 	if strings.ToUpper(string(idFieldName[0])) != string(idFieldName[0]) {
 		return nil, fmt.Errorf("must use exported field")
 	}
@@ -48,7 +48,7 @@ type id[I comparable] interface {
 }
 
 // KeysetWithId creates a keyset pagination where the result object implements id[I]
-func KeysetWithId[I comparable, V id[I]](offset int, pageSize int, sqlIdName common.FieldName) (*keyset[I, V], error) {
+func KeysetWithId[I comparable, V id[I]](offset, pageSize int, sqlIdName common.FieldName) (*keyset[I, V], error) {
 	return Keyset[I, V](offset, pageSize, sqlIdName, func(v V) I { return v.Id() })
 }
 
@@ -79,7 +79,7 @@ func KeysetFromRaw[I comparable](raw []byte, idFieldName PropertyName[I]) (*keys
 }
 
 // Keyset creates a keyset pagination
-func Keyset[I comparable, V any](offset int, pageSize int, sqlIdName common.FieldName, idGetter func(V) I) (*keyset[I, V], error) {
+func Keyset[I comparable, V any](offset, pageSize int, sqlIdName common.FieldName, idGetter func(V) I) (*keyset[I, V], error) {
 	if offset < 0 {
 		return nil, fmt.Errorf("offset must be greater than zero. Offset: %d", offset)
 	}

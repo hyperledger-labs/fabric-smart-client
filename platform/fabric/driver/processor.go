@@ -34,6 +34,6 @@ type Processor interface {
 type ProcessorManager interface {
 	AddProcessor(ns string, processor Processor) error
 	SetDefaultProcessor(processor Processor) error
-	AddChannelProcessor(channel string, ns string, processor Processor) error
+	AddChannelProcessor(channel, ns string, processor Processor) error
 	ProcessByID(ctx context.Context, channel string, txid driver.TxID) error
 }

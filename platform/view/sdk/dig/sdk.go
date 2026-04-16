@@ -217,7 +217,8 @@ func (p *SDK) Start(ctx context.Context) error {
 		KVS              *kvs.KVS
 		TracerProvider   tracing.Provider
 		IdentityProvider viewgrpcserver.IdentityProvider
-	}) error {
+	},
+	) error {
 		if in.GRPCServer != nil {
 			protos.RegisterViewServiceServer(in.GRPCServer.Server(), in.ViewService)
 		}

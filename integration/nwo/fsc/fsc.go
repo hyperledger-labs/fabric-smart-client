@@ -522,7 +522,7 @@ func (p *Platform) RoutingConfigPath() string {
 }
 
 func (p *Platform) GenerateCryptoConfig() {
-	gomega.Expect(os.MkdirAll(p.CryptoPath(), 0755)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(os.MkdirAll(p.CryptoPath(), 0o755)).NotTo(gomega.HaveOccurred())
 
 	crypto, err := os.Create(p.CryptoConfigPath())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -546,7 +546,7 @@ func (p *Platform) GenerateRoutingConfig() {
 }
 
 func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
-	err := os.MkdirAll(p.NodeDir(peer), 0755)
+	err := os.MkdirAll(p.NodeDir(peer), 0o755)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	core, err := os.Create(p.NodeConfigPath(peer))
@@ -598,7 +598,6 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		Parse(p.Topology.Templates.CoreTemplate())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(t.Execute(io.MultiWriter(core), p)).NotTo(gomega.HaveOccurred())
-
 }
 
 func GetPersistenceNames(o *node2.Options, prefixes ...node2.PersistenceKey) map[node2.PersistenceKey]driver.PersistenceName {
@@ -687,7 +686,7 @@ func (p *Platform) FSCNodeRunner(node *node2.Replica, env ...string) *runner2.Ru
 	if p.Topology.LogToFile {
 		logDir := filepath.Join(p.NodeDir(node), "logs")
 		// set stdout to a file
-		gomega.Expect(os.MkdirAll(logDir, 0755)).ToNot(gomega.HaveOccurred())
+		gomega.Expect(os.MkdirAll(logDir, 0o755)).ToNot(gomega.HaveOccurred())
 		f, err := os.Create(
 			filepath.Join(
 				logDir,
@@ -732,7 +731,7 @@ func (p *Platform) fscNodeCommand(node *node2.Replica, command common.Command, t
 }
 
 func (p *Platform) GenerateCmd(output io.Writer, node *node2.Replica) string {
-	err := os.MkdirAll(p.NodeCmdDir(node), 0755)
+	err := os.MkdirAll(p.NodeCmdDir(node), 0o755)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	if output == nil {
@@ -768,7 +767,7 @@ func (p *Platform) NodeStorages(uniqueName string) string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", uniqueName)
 }
 
-func (p *Platform) NodeStorageDir(uniqueName string, dirName string) string {
+func (p *Platform) NodeStorageDir(uniqueName, dirName string) string {
 	return filepath.Join(p.NodeStorages(uniqueName), dirName)
 }
 
@@ -898,7 +897,7 @@ func (p *Platform) ConcatenateTLSCACertificates() {
 		return
 	}
 
-	err := os.WriteFile(p.CACertsBundlePath(), bundle.Bytes(), 0660)
+	err := os.WriteFile(p.CACertsBundlePath(), bundle.Bytes(), 0o660)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 

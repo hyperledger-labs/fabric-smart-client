@@ -46,7 +46,6 @@ func TestPostgres(t *testing.T) {
 				KeyValueStore: newKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
 				Notifier:      NewNotifier(dbs.WriteDB, tables.KVS, pgConnStr, AllOperations, *NewSimplePrimaryKey("ns"), *NewBytePrimaryKey("pkey")),
 			}, nil
-
 		})
 	}, func(p driver.KeyValueStore) *common3.KeyValueStore {
 		return p.(*common3.KeyValueStore)

@@ -1,23 +1,10 @@
 .PHONY: checks
-checks: licensecheck gofmt goimports govet misspell ineffassign staticcheck
+checks: lint licensecheck goimports govet misspell ineffassign staticcheck
 
 .PHONY: licensecheck
 licensecheck:
 	@echo Running license check
 	@find . -name '*.go' | grep -v .pb.go | xargs addlicense -check || (echo "Missing license headers"; exit 1)
-
-.PHONY: gofmt
-gofmt:
-	@echo Running gofmt
-	@{ \
-	OUTPUT="$$(gofmt -l -s . || true)"; \
-	if [ -n "$$OUTPUT" ]; then \
-		echo "The following gofmt issues were flagged:"; \
-		echo "$$OUTPUT"; \
-		echo "The gofmt command 'gofmt -l -s -w' must be run for these files"; \
-		exit 1; \
-	fi \
-	}
 
 .PHONY: goimports
 goimports:

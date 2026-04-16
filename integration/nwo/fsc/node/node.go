@@ -306,7 +306,6 @@ func (n *Node) AddSDKWithBase(base node.SDK, sdks ...node.SDK) *Node {
 	current := baseConstruction
 	for i := len(sdks) - 1; i >= 0; i-- {
 		current = fmt.Sprintf("%s.NewFrom(%s)", elements[i].Alias, current)
-
 	}
 	n.SDKs = append(n.SDKs, SDKEntry{Type: current})
 	return n
@@ -329,7 +328,7 @@ func (n *Node) RegisterViewFactory(id string, factory Factory) *Node {
 }
 
 // RegisterResponder registers the passed responder to the passed initiator
-func (n *Node) RegisterResponder(responder view.View, initiator view.View) *Node {
+func (n *Node) RegisterResponder(responder, initiator view.View) *Node {
 	isResponderPtr := reflect.ValueOf(responder).Kind() == reflect.Ptr
 	isInitiatorPtr := reflect.ValueOf(initiator).Kind() == reflect.Ptr
 	responderType := reflect.Indirect(reflect.ValueOf(responder)).Type()

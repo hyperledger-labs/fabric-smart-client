@@ -129,7 +129,7 @@ func (n *Network) WriteOrdererConfig(o *topology.Orderer, config *fabricconfig.O
 	ordererBytes, err := yaml.Marshal(config)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	err = os.WriteFile(n.OrdererConfigPath(o), ordererBytes, 0644)
+	err = os.WriteFile(n.OrdererConfigPath(o), ordererBytes, 0o644)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
@@ -151,7 +151,7 @@ func (n *Network) WriteConfigTxConfig(config *fabricconfig.ConfigTx) {
 	configtxBytes, err := yaml.Marshal(config)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	err = os.WriteFile(n.ConfigTxConfigPath(), configtxBytes, 0644)
+	err = os.WriteFile(n.ConfigTxConfigPath(), configtxBytes, 0o644)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
@@ -195,7 +195,7 @@ func (n *Network) WritePeerConfig(p *topology.Peer, config *fabricconfig.Core) {
 	coreBytes, err := yaml.Marshal(config)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	err = os.WriteFile(n.PeerConfigPath(p), coreBytes, 0644)
+	err = os.WriteFile(n.PeerConfigPath(p), coreBytes, 0o644)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
@@ -645,7 +645,7 @@ func (n *Network) ConcatenateTLSCACertificates() {
 		return
 	}
 
-	err := os.WriteFile(n.CACertsBundlePath(), bundle.Bytes(), 0660)
+	err := os.WriteFile(n.CACertsBundlePath(), bundle.Bytes(), 0o660)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
@@ -903,7 +903,7 @@ func (n *Network) OrdererRunner(o *topology.Orderer) *runner2.Runner {
 
 	if n.Topology().LogOrderersToFile {
 		// set stdout to a file
-		gomega.Expect(os.MkdirAll(n.OrdererLogsFolder(), 0755)).ToNot(gomega.HaveOccurred())
+		gomega.Expect(os.MkdirAll(n.OrdererLogsFolder(), 0o755)).ToNot(gomega.HaveOccurred())
 		f, err := os.Create(
 			filepath.Join(
 				n.OrdererLogsFolder(),
@@ -959,7 +959,7 @@ func (n *Network) PeerRunner(p *topology.Peer, env ...string) *runner2.Runner {
 	}
 	if n.Topology().LogPeersToFile {
 		// set stdout to a file
-		gomega.Expect(os.MkdirAll(n.PeerLogsFolder(), 0755)).ToNot(gomega.HaveOccurred())
+		gomega.Expect(os.MkdirAll(n.PeerLogsFolder(), 0o755)).ToNot(gomega.HaveOccurred())
 		f, err := os.Create(
 			filepath.Join(
 				n.PeerLogsFolder(),
@@ -1465,7 +1465,7 @@ func (n *Network) NodeStorages(uniqueName string) string {
 	return filepath.Join(n.Context.RootDir(), "fsc", "nodes", uniqueName)
 }
 
-func (n *Network) FSCNodeStorageDir(uniqueName string, suffix string) string {
+func (n *Network) FSCNodeStorageDir(uniqueName, suffix string) string {
 	return filepath.Join(n.FSCNodeStorages(uniqueName), suffix)
 }
 
@@ -1495,7 +1495,7 @@ func (n *Network) StartSession(cmd *exec.Cmd, name string) (*gexec.Session, erro
 }
 
 func (n *Network) GenerateCryptoConfig() {
-	gomega.Expect(os.MkdirAll(n.CryptoPath(), 0770)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(os.MkdirAll(n.CryptoPath(), 0o770)).NotTo(gomega.HaveOccurred())
 	crypto, err := os.Create(n.CryptoConfigPath())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer utils.IgnoreErrorFunc(crypto.Close)
@@ -1522,7 +1522,7 @@ func (n *Network) GenerateConfigTxConfig() {
 }
 
 func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
-	err := os.MkdirAll(n.OrdererDir(o), 0755)
+	err := os.MkdirAll(n.OrdererDir(o), 0o755)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	orderer, err := os.Create(n.OrdererConfigPath(o))
@@ -1545,7 +1545,7 @@ func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
 func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 	switch p.Type {
 	case topology.FabricPeer:
-		err := os.MkdirAll(n.PeerDir(p), 0755)
+		err := os.MkdirAll(n.PeerDir(p), 0o755)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		core, err := os.Create(n.PeerConfigPath(p))
@@ -1568,7 +1568,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		n.Context.AddExtension(p.ID(), api.FabricExtension, extension.String())
 	case topology.FSCPeer:
-		err := os.MkdirAll(n.PeerDir(p), 0755)
+		err := os.MkdirAll(n.PeerDir(p), 0o755)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		var refPeers []*topology.Peer

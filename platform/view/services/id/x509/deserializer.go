@@ -16,8 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type Deserializer struct {
-}
+type Deserializer struct{}
 
 func (x *Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	genericPublicKey, err := PemDecodeKey(raw)
@@ -36,7 +35,7 @@ func (x *Deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 
-func (x *Deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
+func (x *Deserializer) Info(raw, auditInfo []byte) (string, error) {
 	cert, err := PemDecodeCert(raw)
 	if err != nil {
 		return "", err

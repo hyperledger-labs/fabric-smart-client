@@ -20,9 +20,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const blockSize = 100
-const rwSetSize = 5
-const namespace = "ns"
+const (
+	blockSize = 100
+	rwSetSize = 5
+	namespace = "ns"
+)
 
 func BenchmarkPostgresVault(b *testing.B) {
 	ddb, terminate, err := vault.OpenPostgresVault("common-sdk-node1")

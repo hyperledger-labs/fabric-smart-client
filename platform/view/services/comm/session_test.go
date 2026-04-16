@@ -29,8 +29,7 @@ const (
 	maxVal  = 1000
 )
 
-type mockSender struct {
-}
+type mockSender struct{}
 
 func (m *mockSender) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
 	return nil

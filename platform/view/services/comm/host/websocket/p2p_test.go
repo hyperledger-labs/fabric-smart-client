@@ -336,7 +336,7 @@ func generateTLSFiles(t *testing.T) generatedTLSFiles {
 	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caPriv.PublicKey, caPriv)
 	require.NoError(t, err)
 
-	writePEM := func(path string, typ string, raw []byte) {
+	writePEM := func(path, typ string, raw []byte) {
 		f, err := os.Create(path)
 		require.NoError(t, err)
 		defer func() { require.NoError(t, f.Close()) }()
@@ -535,7 +535,7 @@ func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) 
 		&comm.HostNode{P2PNode: bobNode, ID: bobID, Address: bobAddr}
 }
 
-func writePEM(t *testing.T, path string, typ string, raw []byte) {
+func writePEM(t *testing.T, path, typ string, raw []byte) {
 	t.Helper()
 	f, err := os.Create(path)
 	require.NoError(t, err)

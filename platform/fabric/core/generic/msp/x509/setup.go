@@ -122,7 +122,7 @@ func LoadLocalMSPSignerCert(dir string) ([]byte, error) {
 
 // GetBCCSPFromConf returns a BCCSP instance and its relative key store from the passed configuration.
 // If no configuration is passed, the default one is used, namely the `SW` provider.
-func GetBCCSPFromConf(dir string, keyStorePath string, conf *config.BCCSP) (bccsp.BCCSP, bccsp.KeyStore, error) {
+func GetBCCSPFromConf(dir, keyStorePath string, conf *config.BCCSP) (bccsp.BCCSP, bccsp.KeyStore, error) {
 	if len(keyStorePath) == 0 {
 		keyStorePath = filepath.Join(dir, "keystore")
 	}

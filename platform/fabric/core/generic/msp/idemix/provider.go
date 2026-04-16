@@ -48,6 +48,7 @@ type kvsAdapter struct {
 func (k *kvsAdapter) Put(id string, state interface{}) error {
 	return k.kvs.Put(context.Background(), id, state)
 }
+
 func (k *kvsAdapter) Get(id string, state interface{}) error {
 	return k.kvs.Get(context.Background(), id, state)
 }
@@ -387,7 +388,7 @@ func (p *Provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return si, nil
 }
 
-func (p *Provider) Info(raw []byte, auditInfo []byte) (string, error) {
+func (p *Provider) Info(raw, auditInfo []byte) (string, error) {
 	r, err := p.Deserialize(raw, true)
 	if err != nil {
 		return "", err

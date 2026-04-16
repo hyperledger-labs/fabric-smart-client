@@ -31,9 +31,11 @@ type T struct {
 	Topologies []interface{} `yaml:"topologies,omitempty"`
 }
 
-var topologyFile string
-var output string
-var port int
+var (
+	topologyFile string
+	output       string
+	port         int
+)
 
 // NewCmd returns the Cobra Command for the artifactsgen
 func NewCmd() *cobra.Command {

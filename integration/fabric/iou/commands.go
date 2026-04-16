@@ -73,7 +73,7 @@ func InitApprover(ii *integration.Infrastructure, approver string) {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
-func CheckLocalMetrics(ii *integration.Infrastructure, user string, viewName string) {
+func CheckLocalMetrics(ii *integration.Infrastructure, user, viewName string) {
 	metrics, err := ii.WebClient(user).Metrics()
 	gomega.Expect(err).To(gomega.BeNil())
 	gomega.Expect(metrics).NotTo(gomega.BeEmpty())

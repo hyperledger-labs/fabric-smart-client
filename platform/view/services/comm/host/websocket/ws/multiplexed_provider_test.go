@@ -78,7 +78,6 @@ func TestConnections(t *testing.T) { //nolint:tparallel,paralleltest
 						for {
 							serverLogger.Debugf("[server] reading ...")
 							answer, err := readMsg(srv)
-
 							// deal with EOF
 							if err != nil {
 								if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {

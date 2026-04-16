@@ -69,5 +69,4 @@ func TestVersionString(t *testing.T) {
 
 	var h2 *Height
 	require.Equal(t, "<nil>", h2.String())
-
 }

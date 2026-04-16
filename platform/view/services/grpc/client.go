@@ -185,7 +185,8 @@ func (client *Client) parseSecureOptions(opts SecureOptions) error {
 
 	client.tlsConfig = &tls.Config{
 		VerifyPeerCertificate: opts.VerifyCertificate,
-		MinVersion:            tls.VersionTLS12} // TLS 1.2 only
+		MinVersion:            tls.VersionTLS12, // TLS 1.2 only
+	}
 	if len(opts.ServerRootCAs) > 0 {
 		client.tlsConfig.RootCAs = x509.NewCertPool()
 		for _, certBytes := range opts.ServerRootCAs {
@@ -260,7 +261,6 @@ func (client *Client) SetMaxSendMsgSize(size int) {
 // SetServerRootCAs sets the list of authorities used to verify server
 // certificates based on a list of PEM-encoded X509 certificate authorities
 func (client *Client) SetServerRootCAs(serverRoots [][]byte) error {
-
 	// NOTE: if no serverRoots are specified, the current cert pool will be
 	// replaced with an empty one
 	certPool := x509.NewCertPool()

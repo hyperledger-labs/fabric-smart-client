@@ -28,7 +28,7 @@ type ViewManager interface {
 	// ExistResponderForCaller returns the responder view for the given caller.
 	ExistResponderForCaller(caller string) (view.View, view.Identity, error)
 	// NewResponderContext returns a context used to respond to an invocation.
-	NewResponderContext(ctx context.Context, contextID string, session view.Session, me view.Identity, remote view.Identity) (view.Context, bool, error)
+	NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, bool, error)
 	// DeleteContext deletes the view context for the given context ID.
 	DeleteContext(contextID string)
 }

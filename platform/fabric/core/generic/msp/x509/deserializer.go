@@ -41,7 +41,7 @@ func (i *Deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 
-func (i *Deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
+func (i *Deserializer) Info(raw, auditInfo []byte) (string, error) {
 	si := &msp.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {

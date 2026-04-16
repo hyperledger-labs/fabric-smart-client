@@ -12,7 +12,7 @@ import (
 )
 
 // Flatten flattens a nested iterator
-func Flatten[A any, B any](iterator Iterator[A], transformer Transformer[A, []B]) Iterator[B] {
+func Flatten[A, B any](iterator Iterator[A], transformer Transformer[A, []B]) Iterator[B] {
 	return &flattenedPointers[A, B]{Iterator: iterator, transformer: transformer, remaining: []B{}}
 }
 
@@ -40,7 +40,8 @@ func (it *flattenedPointers[A, B]) Next() (B, error) {
 		return next[0], nil
 	}
 }
-func FlattenValues[A any, B any](iterator Iterator[A], transformer Transformer[A, []B]) Iterator[*B] {
+
+func FlattenValues[A, B any](iterator Iterator[A], transformer Transformer[A, []B]) Iterator[*B] {
 	return &flattenedValues[A, B]{Iterator: iterator, transformer: transformer, remaining: []B{}}
 }
 

@@ -262,7 +262,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultStore, vp artifactsProvid
 	require.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	require.NoError(t, err)
-	var expected = vp.RemoveNils([]driver.VaultRead{
+	expected := vp.RemoveNils([]driver.VaultRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: versionBlockTxNumToBytes(35, 3)},
 	})
 	require.Equal(t, expected, res)

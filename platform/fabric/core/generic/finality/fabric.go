@@ -60,7 +60,7 @@ func NewFabricFinality(
 	return d, nil
 }
 
-func (d *FabricFinality) IsFinal(txID string, address string) error {
+func (d *FabricFinality) IsFinal(txID, address string) error {
 	d.Logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.Channel)
 	var eventCh chan delivery.TxEvent
 	var ctx context.Context

@@ -24,7 +24,7 @@ type mds struct {
 	key         func(driver2.TxID) driver.Key
 }
 
-func NewMetadataService(metadataKVS driver.MetadataStore, network string, channel string) *mds {
+func NewMetadataService(metadataKVS driver.MetadataStore, network, channel string) *mds {
 	return &mds{metadataKVS: metadataKVS, key: keyMapper(network, channel)}
 }
 
@@ -46,7 +46,7 @@ type envs struct {
 	key         func(driver2.TxID) driver.Key
 }
 
-func NewEnvelopeService(envelopeKVS driver.EnvelopeStore, network string, channel string) *envs {
+func NewEnvelopeService(envelopeKVS driver.EnvelopeStore, network, channel string) *envs {
 	return &envs{envelopeKVS: envelopeKVS, key: keyMapper(network, channel)}
 }
 
@@ -79,7 +79,7 @@ type ets struct {
 	key          func(driver2.TxID) driver.Key
 }
 
-func NewEndorseTransactionService(endorseTxKVS driver.EndorseTxStore, network string, channel string) *ets {
+func NewEndorseTransactionService(endorseTxKVS driver.EndorseTxStore, network, channel string) *ets {
 	return &ets{endorseTxKVS: endorseTxKVS, key: keyMapper(network, channel)}
 }
 

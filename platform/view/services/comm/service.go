@@ -124,7 +124,7 @@ func (s *Service) NewSessionWithID(sessionID, contextID, endpoint string, pkid [
 	return s.Node.NewSessionWithID(sessionID, contextID, endpoint, pkid)
 }
 
-func (s *Service) NewSession(caller string, contextID string, endpoint string, pkid []byte) (view.Session, error) {
+func (s *Service) NewSession(caller, contextID, endpoint string, pkid []byte) (view.Session, error) {
 	if err := s.init(); err != nil {
 		return nil, ErrNotInitialized
 	}

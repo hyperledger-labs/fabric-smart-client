@@ -30,13 +30,11 @@ import (
 
 var logger = logging.MustGetLogger()
 
-var (
-	StartGenesis = &ab.SeekPosition{
-		Type: &ab.SeekPosition_Oldest{
-			Oldest: &ab.SeekOldest{},
-		},
-	}
-)
+var StartGenesis = &ab.SeekPosition{
+	Type: &ab.SeekPosition_Oldest{
+		Oldest: &ab.SeekOldest{},
+	},
+}
 
 type blockResponse struct {
 	ctx   context.Context
@@ -82,9 +80,7 @@ type Delivery struct {
 	stop                chan error
 }
 
-var (
-	ctr = atomic.Uint32{}
-)
+var ctr = atomic.Uint32{}
 
 func New(
 	networkName string,

@@ -16,7 +16,7 @@ import (
 const CPU = "cpu"
 
 func CreateClientFuncCPU(conn *grpc.ClientConn) ClientFunc {
-	var msg = &remote.Request{
+	msg := &remote.Request{
 		Workload: CPU,
 		Input:    []byte("Hello"),
 	}

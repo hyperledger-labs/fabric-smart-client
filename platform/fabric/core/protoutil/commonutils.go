@@ -68,7 +68,7 @@ func MakeChannelHeader(headerType common.HeaderType, version int32, chainID stri
 }
 
 // MakeSignatureHeader creates a SignatureHeader.
-func MakeSignatureHeader(serializedCreatorCertChain []byte, nonce []byte) *common.SignatureHeader {
+func MakeSignatureHeader(serializedCreatorCertChain, nonce []byte) *common.SignatureHeader {
 	return &common.SignatureHeader{
 		Creator: serializedCreatorCertChain,
 		Nonce:   nonce,

@@ -31,7 +31,8 @@ var (
 // grpc/credentials.TransportCredentials
 func NewServerTransportCredentials(
 	serverConfig *TLSConfig,
-	logger logging.Logger) credentials.TransportCredentials {
+	logger logging.Logger,
+) credentials.TransportCredentials {
 	// NOTE: unlike the default grpc/credentials implementation, we do not
 	// clone the tls.Config which allows us to update it dynamically
 	serverConfig.config.NextProtos = alpnProtoStr
@@ -88,7 +89,8 @@ func (t *TLSConfig) SetClientCAs(certPool *x509.CertPool) {
 
 // ClientHandshake is not implemented for `serverCreds`.
 func (sc *serverCreds) ClientHandshake(context.Context,
-	string, net.Conn) (net.Conn, credentials.AuthInfo, error) {
+	string, net.Conn,
+) (net.Conn, credentials.AuthInfo, error) {
 	return nil, nil, ErrClientHandshakeNotImplemented
 }
 

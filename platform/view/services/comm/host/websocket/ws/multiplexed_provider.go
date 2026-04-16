@@ -243,7 +243,6 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.
 	logger.Debugf("Created client subconn with id [%s]", sc.id)
 
 	err = c.write(MultiplexedMessage{ID: sc.id, Msg: payload})
-
 	if err != nil {
 		_ = sc.Close()
 		return nil, errors.Wrapf(err, "failed to send meta message")

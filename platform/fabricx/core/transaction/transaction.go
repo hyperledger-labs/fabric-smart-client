@@ -661,6 +661,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 		},
 	}, nil
 }
+
 func toMSPSignerIdentityWithCertificate(identity view.Identity) (*msppb.Identity, error) {
 	sID := &msp.SerializedIdentity{}
 	if err := proto.Unmarshal(identity, sID); err != nil {

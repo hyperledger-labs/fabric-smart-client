@@ -51,7 +51,8 @@ func newMultiplexedDriver(in struct {
 	dig.In
 	Config  vdriver.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"db-drivers"`
-}) multiplexed.Driver {
+},
+) multiplexed.Driver {
 	return multiplexed.NewDriver(in.Config, in.Drivers...)
 }
 
@@ -68,7 +69,8 @@ func newKMSDriver(in struct {
 	dig.In
 	Config  vdriver.ConfigService
 	Drivers []driver2.NamedDriver `group:"kms-drivers"`
-}) (*kms.KMS, error) {
+},
+) (*kms.KMS, error) {
 	driverName := utils.DefaultString(in.Config.GetString("fsc.identity.type"), "file")
 	for _, driver := range in.Drivers {
 		if string(driver.Name) == driverName {

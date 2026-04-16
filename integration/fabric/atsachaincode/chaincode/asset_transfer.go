@@ -100,7 +100,7 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 }
 
 // ChangePublicDescription updates the assets public description. Only the current owner can update the public description
-func (s *SmartContract) ChangePublicDescription(ctx contractapi.TransactionContextInterface, assetID string, newDescription string) error {
+func (s *SmartContract) ChangePublicDescription(ctx contractapi.TransactionContextInterface, assetID, newDescription string) error {
 	// No need to check client org id matches peer org id, rely on the asset ownership check instead.
 	fmt.Println("get client org id")
 	clientOrgID, err := getClientOrgID(ctx, false)
@@ -156,7 +156,7 @@ func (s *SmartContract) AgreeToBuy(ctx contractapi.TransactionContextInterface, 
 }
 
 // agreeToPrice adds a bid or ask price to caller's implicit private data collection
-func agreeToPrice(ctx contractapi.TransactionContextInterface, assetID string, priceType string) error {
+func agreeToPrice(ctx contractapi.TransactionContextInterface, assetID, priceType string) error {
 	// In this scenario, client is only authorized to read/write private data from its own peer.
 	clientOrgID, err := getClientOrgID(ctx, true)
 	if err != nil {
@@ -238,7 +238,7 @@ func (s *SmartContract) VerifyAssetProperties(ctx contractapi.TransactionContext
 
 // TransferAsset checks transfer conditions and then transfers asset state to buyer.
 // TransferAsset can only be called by current owner
-func (s *SmartContract) TransferAsset(ctx contractapi.TransactionContextInterface, assetID string, buyerOrgID string) error {
+func (s *SmartContract) TransferAsset(ctx contractapi.TransactionContextInterface, assetID, buyerOrgID string) error {
 	clientOrgID, err := getClientOrgID(ctx, false)
 	if err != nil {
 		return fmt.Errorf("failed to get verified OrgID: %v", err)
@@ -281,7 +281,6 @@ func (s *SmartContract) TransferAsset(ctx contractapi.TransactionContextInterfac
 	}
 
 	return nil
-
 }
 
 // verifyTransferConditions checks that client org currently owns asset and that both parties have agreed on price
@@ -290,8 +289,8 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 	immutablePropertiesJSON []byte,
 	clientOrgID string,
 	buyerOrgID string,
-	priceJSON []byte) error {
-
+	priceJSON []byte,
+) error {
 	// CHECK1: Auth check to ensure that client's org actually owns the asset
 
 	if clientOrgID != asset.OwnerOrg {
@@ -377,7 +376,7 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 }
 
 // transferAssetState performs the public and private state updates for the transferred asset
-func transferAssetState(ctx contractapi.TransactionContextInterface, asset *Asset, immutablePropertiesJSON []byte, clientOrgID string, buyerOrgID string, price int) error {
+func transferAssetState(ctx contractapi.TransactionContextInterface, asset *Asset, immutablePropertiesJSON []byte, clientOrgID, buyerOrgID string, price int) error {
 	asset.OwnerOrg = buyerOrgID
 
 	if err := updateAssetState(ctx, asset); err != nil {
@@ -529,7 +528,7 @@ func verifyClientOrgMatchesPeerOrg(clientOrgID string) error {
 
 // setAssetStateBasedEndorsement adds an endorsement policy to a asset so that only a peer from an owning org
 // can update or transfer the asset.
-func setAssetStateBasedEndorsement(ctx contractapi.TransactionContextInterface, assetID string, orgToEndorse string) error {
+func setAssetStateBasedEndorsement(ctx contractapi.TransactionContextInterface, assetID, orgToEndorse string) error {
 	endorsementPolicy, err := statebased.NewStateEP(nil)
 	if err != nil {
 		return err

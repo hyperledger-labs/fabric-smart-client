@@ -74,7 +74,7 @@ func (d *MultiplexDeserializer) DeserializeSigner(raw []byte) (driver2.Signer, e
 	return nil, errors.Errorf("failed signer deserialization [%v]", errs)
 }
 
-func (d *MultiplexDeserializer) Info(raw []byte, auditInfo []byte) (string, error) {
+func (d *MultiplexDeserializer) Info(raw, auditInfo []byte) (string, error) {
 	var errs []error
 
 	copyDeserial := d.threadSafeCopyDeserializers()

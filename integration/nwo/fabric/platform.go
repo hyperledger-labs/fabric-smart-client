@@ -103,7 +103,6 @@ type Platform struct {
 }
 
 func NewPlatform(context api.Context, t api.Topology, components BuilderClient) *Platform {
-
 	// create a new network name
 	networkID := common.UniqueName()
 
@@ -170,7 +169,6 @@ func (p *Platform) PostRun(load bool) {
 			}
 		}
 	}
-
 }
 
 func (p *Platform) Cleanup() {
@@ -194,7 +192,7 @@ func (p *Platform) DeleteVault(id string) {
 }
 
 // UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
-func (p *Platform) UpdateChaincode(chaincodeId string, version string, path string, packageFile string) {
+func (p *Platform) UpdateChaincode(chaincodeId, version, path, packageFile string) {
 	p.Network.UpdateChaincode(chaincodeId, version, path, packageFile)
 }
 
@@ -227,7 +225,7 @@ func (p *Platform) PeerOrgs() []*fabric.Org {
 	return orgs
 }
 
-func (p *Platform) PeersByOrg(fabricHost string, orgName string, includeAll bool) []*fabric.Peer {
+func (p *Platform) PeersByOrg(fabricHost, orgName string, includeAll bool) []*fabric.Peer {
 	if len(fabricHost) == 0 {
 		if runtime.GOOS == "darwin" {
 			fabricHost = "host.docker.internal"
@@ -268,7 +266,7 @@ func (p *Platform) PeersByOrg(fabricHost string, orgName string, includeAll bool
 	return peers
 }
 
-func (p *Platform) UserByOrg(orgName string, user string) *fabric.User {
+func (p *Platform) UserByOrg(orgName, user string) *fabric.User {
 	peer := p.Network.PeersInOrg(orgName)[0]
 
 	return &fabric.User{

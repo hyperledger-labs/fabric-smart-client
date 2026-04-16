@@ -54,7 +54,7 @@ func GetBytesPayload(payl *common.Payload) ([]byte, error) {
 }
 
 // GetBytesProposalResponsePayload gets proposal response payload
-func GetBytesProposalResponsePayload(hash []byte, response *peer.Response, result []byte, event []byte, ccid *peer.ChaincodeID) ([]byte, error) {
+func GetBytesProposalResponsePayload(hash []byte, response *peer.Response, result, event []byte, ccid *peer.ChaincodeID) ([]byte, error) {
 	cAct := &peer.ChaincodeAction{
 		Events: event, Results: result,
 		Response:    response,

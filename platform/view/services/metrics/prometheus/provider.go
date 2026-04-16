@@ -38,7 +38,7 @@ var (
 	}
 )
 
-func RegisterReplacer(s string, replaceWith string) {
+func RegisterReplacer(s, replaceWith string) {
 	replacersMutex.Lock()
 	defer replacersMutex.Unlock()
 

@@ -14,8 +14,7 @@ import (
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 )
 
-type provider struct {
-}
+type provider struct{}
 
 func NewProvider() *provider {
 	return &provider{}

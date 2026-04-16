@@ -50,7 +50,7 @@ func (m *mockEndpointService) AddResolver(id []byte) {
 	m.resolvers = append(m.resolvers, endpoint.ResolverInfo{ID: id})
 }
 
-func (m *mockEndpointService) UpdateResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
+func (m *mockEndpointService) UpdateResolver(name, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	found := false
@@ -104,16 +104,16 @@ func TestDynamicCA(t *testing.T) {
 	serverCertFile := filepath.Join(tempDir, "server.crt")
 	serverCertPEM, serverKeyPEM, err := websocket.GenerateTestCert("server")
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(serverKeyFile, serverKeyPEM, 0600))
-	require.NoError(t, os.WriteFile(serverCertFile, serverCertPEM, 0600))
+	require.NoError(t, os.WriteFile(serverKeyFile, serverKeyPEM, 0o600))
+	require.NoError(t, os.WriteFile(serverCertFile, serverCertPEM, 0o600))
 
 	// Generate Client Cert (NOT in initial root CAs)
 	clientKeyFile := filepath.Join(tempDir, "client.key")
 	clientCertFile := filepath.Join(tempDir, "client.crt")
 	clientCertPEM, clientKeyPEM, err := websocket.GenerateTestCert("client")
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(clientKeyFile, clientKeyPEM, 0600))
-	require.NoError(t, os.WriteFile(clientCertFile, clientCertPEM, 0600))
+	require.NoError(t, os.WriteFile(clientKeyFile, clientKeyPEM, 0o600))
+	require.NoError(t, os.WriteFile(clientCertFile, clientCertPEM, 0o600))
 
 	config := websocket.NewConfigFromProperties(
 		"127.0.0.1:0",

@@ -16,7 +16,7 @@ import (
 const ECHO = "echo"
 
 func CreateClientFuncEcho(conn *grpc.ClientConn) ClientFunc {
-	var msg = &remote.Request{
+	msg := &remote.Request{
 		Workload: ECHO,
 		Input:    []byte("Hello"),
 	}

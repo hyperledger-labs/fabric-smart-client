@@ -17,11 +17,15 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type PortName string
-type Ports map[PortName]uint16
+type (
+	PortName string
+	Ports    map[PortName]uint16
+)
 
-type ExtensionName string
-type Extensions map[ExtensionName][]string
+type (
+	ExtensionName string
+	Extensions    map[ExtensionName][]string
+)
 
 const (
 	FabricExtension ExtensionName = "FabricExtension"
@@ -53,17 +57,17 @@ type Context interface {
 	AddExtension(id string, extension ExtensionName, s string)
 	ExtensionsByPeerID(name string) Extensions
 
-	PortsByPeerID(prefix string, id string) Ports
-	SetPortsByPeerID(prefix string, id string, ports Ports)
-	HostByPeerID(prefix string, id string) string
-	SetHostByPeerID(prefix string, id string, host string)
+	PortsByPeerID(prefix, id string) Ports
+	SetPortsByPeerID(prefix, id string, ports Ports)
+	HostByPeerID(prefix, id string) string
+	SetHostByPeerID(prefix, id, host string)
 
-	PortsByOrdererID(prefix string, id string) Ports
-	SetPortsByOrdererID(prefix string, id string, ports Ports)
-	HostByOrdererID(prefix string, id string) string
-	SetHostByOrdererID(prefix string, id string, host string)
+	PortsByOrdererID(prefix, id string) Ports
+	SetPortsByOrdererID(prefix, id string, ports Ports)
+	HostByOrdererID(prefix, id string) string
+	SetHostByOrdererID(prefix, id, host string)
 
-	AddIdentityAlias(name string, alias string)
+	AddIdentityAlias(name, alias string)
 	TopologyByName(name string) Topology
 	SetConnectionConfig(name string, cc *grpc.ConnectionConfig)
 	SetClientSigningIdentity(name string, id client2.SigningIdentity)

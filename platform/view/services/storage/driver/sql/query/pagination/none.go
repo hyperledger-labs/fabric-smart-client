@@ -8,8 +8,7 @@ package pagination
 
 import "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 
-type empty struct {
-}
+type empty struct{}
 
 // Empty returns a pagination instance that will force a query an empty page
 func Empty() *empty {
@@ -37,8 +36,7 @@ func EmptyFromRaw(raw []byte) (*empty, error) {
 	return &empty{}, nil
 }
 
-type none struct {
-}
+type none struct{}
 
 // None returns a pagination instance that will force a query to return everything in one shot
 func None() *none {

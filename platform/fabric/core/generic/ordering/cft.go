@@ -98,7 +98,6 @@ func (o *CFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 }
 
 func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error) {
-
 	defer logger.DebugfContext(ctx, "End get connection")
 	for {
 		logger.DebugfContext(ctx, "Try acquire connection")

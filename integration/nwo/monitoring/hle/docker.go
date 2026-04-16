@@ -122,7 +122,6 @@ func (n *Extension) startExplorerDB() {
 			dockerLogger.Debugf("%s", scanner.Text())
 		}
 	}()
-
 }
 
 func (n *Extension) startExplorer() {
@@ -240,5 +239,4 @@ func (n *Extension) startExplorer() {
 			dockerLogger.Debugf("%s", scanner.Text())
 		}
 	}()
-
 }

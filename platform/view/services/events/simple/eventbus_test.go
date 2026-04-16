@@ -22,7 +22,6 @@ func TestEvents(t *testing.T) { //nolint:paralleltest
 }
 
 var _ = Describe("Event system", func() {
-
 	When("creating a notifier service", func() {
 		It("should succeed", func() {
 			notifier := NewEventBus()

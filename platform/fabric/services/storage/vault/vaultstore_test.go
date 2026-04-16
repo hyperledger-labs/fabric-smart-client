@@ -163,7 +163,7 @@ var matrix = []matrixItem{
 	},
 }
 
-func NewOffsetPagination(offset int, pageSize int) driver.Pagination {
+func NewOffsetPagination(offset, pageSize int) driver.Pagination {
 	offsetPagination, err := pagination.Offset(offset, pageSize)
 	if err != nil {
 		Expect(err).ToNot(HaveOccurred())
@@ -171,7 +171,7 @@ func NewOffsetPagination(offset int, pageSize int) driver.Pagination {
 	return offsetPagination
 }
 
-func NewKeysetPagination(offset int, pageSize int, sqlIdName common.FieldName, idFieldName pagination.PropertyName[string]) driver.Pagination {
+func NewKeysetPagination(offset, pageSize int, sqlIdName common.FieldName, idFieldName pagination.PropertyName[string]) driver.Pagination {
 	keysetPagination, err := pagination.KeysetWithField[string](offset, pageSize, sqlIdName, idFieldName)
 	if err != nil {
 		Expect(err).ToNot(HaveOccurred())

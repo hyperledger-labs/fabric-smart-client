@@ -207,7 +207,7 @@ func setupBaselineClient(tb testing.TB, srvEndpoint string) (protos.ViewServiceC
 	var clientOpts []grpc.DialOption
 	clientOpts = append(clientOpts, grpc.WithTransportCredentials(credentials.NewTLS(clientTLS)))
 
-	//conn, err := grpc.NewClient(srvEndpoint, clientOpts...)
+	// conn, err := grpc.NewClient(srvEndpoint, clientOpts...)
 	conn, err := grpc.NewClient(srvEndpoint,
 		clientOpts...,
 	)

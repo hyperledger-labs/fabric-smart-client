@@ -68,7 +68,7 @@ func NewRWSet(rws driver.RWSet) *RWSet {
 }
 
 // KeyExist returns true if a key exist in the rwset otherwise false.
-func (r *RWSet) KeyExist(key string, ns string) (bool, error) {
+func (r *RWSet) KeyExist(key, ns string) (bool, error) {
 	for i := 0; i < r.NumReads(ns); i++ {
 		keyRead, _, err := r.GetReadAt(ns, i)
 		if err != nil {

@@ -96,7 +96,7 @@ func NewService(sp services.Provider, fnsp *fabric.NetworkServiceProvider) *serv
 	return &service{sp: sp, fnsp: fnsp}
 }
 
-func (w *service) Vault(network string, channel string) (state.Vault, error) {
+func (w *service) Vault(network, channel string) (state.Vault, error) {
 	fns, err := w.fnsp.FabricNetworkService(network)
 	if err != nil {
 		return nil, err

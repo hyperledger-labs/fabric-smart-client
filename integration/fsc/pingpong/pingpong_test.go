@@ -29,7 +29,6 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-
 	Describe("Node-based Ping pong", func() {
 		var (
 			initiator FSCNode
@@ -129,7 +128,6 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})
-
 	})
 
 	Describe("Network-based Ping pong With LibP2P", func() {
@@ -218,7 +216,7 @@ func NewTestSuite(commType fsc.P2PCommunicationType, alwaysGenerate bool, nodeOp
 				ii, err = integration.Load(0, testdataDir, integration.WithRaceDetection, topologies...)
 			}
 			ii.DeleteOnStop = false
-			return
+			return ii, err
 		}),
 		commType: commType,
 		nodeOpts: nodeOpts,

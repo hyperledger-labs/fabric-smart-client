@@ -46,8 +46,7 @@ func (qe MockQE) Done() error {
 	return nil
 }
 
-type MockTxStatusStore struct {
-}
+type MockTxStatusStore struct{}
 
 func (m MockTxStatusStore) GetTxStatus(_ context.Context, txID driver.TxID) (*driver.TxStatus, error) {
 	return &driver.TxStatus{TxID: txID, Code: 1}, nil

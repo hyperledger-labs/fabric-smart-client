@@ -29,9 +29,7 @@ import (
 	"github.com/tedsuo/ifrit"
 )
 
-var (
-	tlsCA tlsgen.CA
-)
+var tlsCA tlsgen.CA
 
 func init() {
 	tlsCA, _ = tlsgen.NewCA()
@@ -43,22 +41,22 @@ func TestFabHTTP(t *testing.T) { //nolint:paralleltest
 }
 
 func generateCertificates(tempDir string) {
-	err := os.WriteFile(filepath.Join(tempDir, "server-ca.pem"), tlsCA.CertBytes(), 0640)
+	err := os.WriteFile(filepath.Join(tempDir, "server-ca.pem"), tlsCA.CertBytes(), 0o640)
 	Expect(err).NotTo(HaveOccurred())
 	serverKeyPair, err := tlsCA.NewServerCertKeyPair("127.0.0.1")
 	Expect(err).NotTo(HaveOccurred())
-	err = os.WriteFile(filepath.Join(tempDir, "server-cert.pem"), serverKeyPair.Cert, 0640)
+	err = os.WriteFile(filepath.Join(tempDir, "server-cert.pem"), serverKeyPair.Cert, 0o640)
 	Expect(err).NotTo(HaveOccurred())
-	err = os.WriteFile(filepath.Join(tempDir, "server-key.pem"), serverKeyPair.Key, 0640)
+	err = os.WriteFile(filepath.Join(tempDir, "server-key.pem"), serverKeyPair.Key, 0o640)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = os.WriteFile(filepath.Join(tempDir, "client-ca.pem"), tlsCA.CertBytes(), 0640)
+	err = os.WriteFile(filepath.Join(tempDir, "client-ca.pem"), tlsCA.CertBytes(), 0o640)
 	Expect(err).NotTo(HaveOccurred())
 	clientKeyPair, err := tlsCA.NewClientCertKeyPair()
 	Expect(err).NotTo(HaveOccurred())
-	err = os.WriteFile(filepath.Join(tempDir, "client-cert.pem"), clientKeyPair.Cert, 0640)
+	err = os.WriteFile(filepath.Join(tempDir, "client-cert.pem"), clientKeyPair.Cert, 0o640)
 	Expect(err).NotTo(HaveOccurred())
-	err = os.WriteFile(filepath.Join(tempDir, "client-key.pem"), clientKeyPair.Key, 0640)
+	err = os.WriteFile(filepath.Join(tempDir, "client-key.pem"), clientKeyPair.Key, 0o640)
 	Expect(err).NotTo(HaveOccurred())
 }
 

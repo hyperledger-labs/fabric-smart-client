@@ -46,7 +46,6 @@ func (o *Options) Organizations() []Organization {
 		})
 	}
 	return res
-
 }
 
 func (o *Options) AddOrganization(org string) {

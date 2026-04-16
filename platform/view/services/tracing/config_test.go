@@ -88,5 +88,4 @@ func TestWithMetricsOpts_EmptyOptions(t *testing.T) { //nolint:paralleltest
 	labelNamesVal, ok := attrs.Value("label_names")
 	Expect(ok).To(BeTrue())
 	Expect(labelNamesVal.AsStringSlice()).To(BeEmpty())
-
 }

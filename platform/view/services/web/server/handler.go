@@ -59,7 +59,7 @@ func (h *HttpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	h.r.ServeHTTP(w, req)
 }
 
-func (h *HttpHandler) RegisterURI(uri string, method string, rh RequestHandler) {
+func (h *HttpHandler) RegisterURI(uri, method string, rh RequestHandler) {
 	f := func(backToClient http.ResponseWriter, req *http.Request) {
 		h.handle(backToClient, req, rh)
 	}

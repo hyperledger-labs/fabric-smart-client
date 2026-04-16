@@ -27,7 +27,7 @@ type pkiExtractor interface {
 type endpointService interface {
 	pkiExtractor
 	Resolvers() []endpoint.ResolverInfo
-	UpdateResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
+	UpdateResolver(name, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
 }
 
 type endpointServiceBasedProvider struct {

@@ -36,7 +36,6 @@ var (
 	ctx = context.Background()
 
 	expectedOrgCombinations = []map[string]struct{}{
-
 		{
 			"A": {},
 		},
@@ -241,7 +240,7 @@ func TestClient(t *testing.T) {
 		},
 	}, nil).Once()
 
-	//sup.On("PeersOfChannel").Return(channelPeersWithoutChaincodes).Times(2)
+	// sup.On("PeersOfChannel").Return(channelPeersWithoutChaincodes).Times(2)
 	req := NewRequest()
 	req, err = req.OfChannel("mychannel").AddPeersQuery().AddConfigQuery().AddEndorsersQuery(interest("mycc"))
 	require.NoError(t, err)
@@ -360,7 +359,8 @@ func TestClient(t *testing.T) {
 						},
 					},
 				},
-			}}).Once()
+			},
+		}).Once()
 
 		req = NewRequest()
 		req, err = req.OfChannel("mychannel").AddPeersQuery().AddEndorsersQuery(interest("mycc"))

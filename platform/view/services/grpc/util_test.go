@@ -48,8 +48,7 @@ func TestExtractCertificateHashFromContext(t *testing.T) {
 	require.Equal(t, h.Sum(nil), grpc3.ExtractCertificateHashFromContext(ctx))
 }
 
-type nonTLSConnection struct {
-}
+type nonTLSConnection struct{}
 
 func (*nonTLSConnection) AuthType() string {
 	return ""

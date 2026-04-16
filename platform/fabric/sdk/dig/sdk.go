@@ -148,7 +148,8 @@ func registerProcessorsForDrivers(in struct {
 	CoreConfig             *core.Config
 	NetworkServiceProvider *fabric.NetworkServiceProvider
 	Drivers                []core.NamedDriver `group:"fabric-platform-drivers"`
-}) error {
+},
+) error {
 	if len(in.CoreConfig.Names()) == 0 {
 		return errors.New("no fabric network names found")
 	}
@@ -188,7 +189,8 @@ func registerRWSetLoaderHandlerProviders(in struct {
 	FSNProvider      *core.FSNProvider
 	CoreConfig       *core.Config
 	HandlerProviders []generic2.RWSetPayloadHandlerProvider `group:"handler-providers"`
-}) error {
+},
+) error {
 	for _, network := range in.CoreConfig.Names() {
 		fsn, err := in.FSNProvider.FabricNetworkService(network)
 		if err != nil {

@@ -64,7 +64,6 @@ func (i *invokeChaincodeView) Invoke(viewCtx view.Context) (string, []byte, erro
 		identitiy:     i.InvokerIdentity,
 	}
 	chaincode, err := getChaincode(viewCtx, info)
-
 	if err != nil {
 		return "", nil, err
 	}

@@ -87,7 +87,7 @@ func (s *TestSuite) TestSucceeded() {
 	Expect(m).NotTo(BeNil())
 
 	// JaegerUI is running. Add a delay to check the traces generated during the test
-	//time.Sleep(100 * time.Minute)
+	// time.Sleep(100 * time.Minute)
 }
 
 func (s *TestSuite) TestSucceededWithReplicas() {

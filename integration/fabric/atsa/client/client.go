@@ -24,7 +24,7 @@ type Client struct {
 	approver view.Identity
 }
 
-func New(c ViewClient, id view.Identity, approver view.Identity) *Client {
+func New(c ViewClient, id, approver view.Identity) *Client {
 	return &Client{c: c, id: id, approver: approver}
 }
 
@@ -66,7 +66,7 @@ func (c *Client) AgreeToBuy(agreement *states.AgreementToBuy) (string, error) {
 	return agreement.GetLinearID()
 }
 
-func (c *Client) Transfer(assetID string, agreementID string, recipient view.Identity) error {
+func (c *Client) Transfer(assetID, agreementID string, recipient view.Identity) error {
 	_, err := c.c.CallView("transfer", common.JSONMarshall(&atsa.Transfer{
 		AssetId:     assetID,
 		AgreementId: agreementID,

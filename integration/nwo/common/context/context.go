@@ -83,35 +83,35 @@ func (c *NWOContext) RootDir() string {
 	return c.rootDir
 }
 
-func (c *NWOContext) PortsByPeerID(prefix string, id string) api.Ports {
+func (c *NWOContext) PortsByPeerID(prefix, id string) api.Ports {
 	return c.portsByPeerID[prefix+id]
 }
 
-func (c *NWOContext) SetPortsByPeerID(prefix string, id string, ports api.Ports) {
+func (c *NWOContext) SetPortsByPeerID(prefix, id string, ports api.Ports) {
 	c.portsByPeerID[prefix+id] = ports
 }
 
-func (c *NWOContext) HostByPeerID(prefix string, id string) string {
+func (c *NWOContext) HostByPeerID(prefix, id string) string {
 	return c.hostByPeerID[prefix+id]
 }
 
-func (c *NWOContext) SetHostByPeerID(prefix string, id string, host string) {
+func (c *NWOContext) SetHostByPeerID(prefix, id, host string) {
 	c.hostByPeerID[prefix+id] = host
 }
 
-func (c *NWOContext) PortsByOrdererID(prefix string, id string) api.Ports {
+func (c *NWOContext) PortsByOrdererID(prefix, id string) api.Ports {
 	return c.portsByOrdererID[prefix+id]
 }
 
-func (c *NWOContext) SetPortsByOrdererID(prefix string, id string, ports api.Ports) {
+func (c *NWOContext) SetPortsByOrdererID(prefix, id string, ports api.Ports) {
 	c.portsByOrdererID[prefix+id] = ports
 }
 
-func (c *NWOContext) HostByOrdererID(prefix string, id string) string {
+func (c *NWOContext) HostByOrdererID(prefix, id string) string {
 	return c.hostByOrdererID[prefix+id]
 }
 
-func (c *NWOContext) SetHostByOrdererID(prefix string, id string, host string) {
+func (c *NWOContext) SetHostByOrdererID(prefix, id, host string) {
 	c.hostByOrdererID[prefix+id] = host
 }
 
@@ -181,7 +181,7 @@ func (c *NWOContext) AddExtension(id string, name api.ExtensionName, extension s
 	extensions[name] = append(extensions[name], extension)
 }
 
-func (c *NWOContext) AddIdentityAlias(id string, alias string) {
+func (c *NWOContext) AddIdentityAlias(id, alias string) {
 	c.ViewIdentityAliases[id] = append(c.ViewIdentityAliases[id], alias)
 }
 

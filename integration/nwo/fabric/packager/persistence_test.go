@@ -22,9 +22,7 @@ func TestPersistence(t *testing.T) { //nolint:paralleltest
 
 var _ = Describe("Persistence", func() {
 	Describe("FilesystemWriter", func() {
-		var (
-			testDir string
-		)
+		var testDir string
 
 		BeforeEach(func() {
 			var err error
@@ -53,5 +51,4 @@ var _ = Describe("Persistence", func() {
 			})
 		})
 	})
-
 })

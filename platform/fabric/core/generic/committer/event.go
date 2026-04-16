@@ -74,5 +74,4 @@ func readChaincodeEvent(env *common.Envelope, blockNumber uint64) (*ChaincodeEve
 	}
 
 	return chaincodeEvent, nil
-
 }

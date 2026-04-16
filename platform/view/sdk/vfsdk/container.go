@@ -20,9 +20,11 @@ import (
 
 var logger = logging.MustGetLogger()
 
-var viewFactoryInterface = reflect.TypeOf(new(view.Factory)).Elem()
-var errorInterface = reflect.TypeOf(new(error)).Elem()
-var factoryEntryType = reflect.TypeOf(&factoryEntry{})
+var (
+	viewFactoryInterface = reflect.TypeOf(new(view.Factory)).Elem()
+	errorInterface       = reflect.TypeOf(new(error)).Elem()
+	factoryEntryType     = reflect.TypeOf(&factoryEntry{})
+)
 
 var nilError = reflect.Zero(reflect.TypeOf((*error)(nil)).Elem())
 

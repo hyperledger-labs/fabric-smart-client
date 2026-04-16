@@ -19,9 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
-var (
-	logger = logging.MustGetLogger()
-)
+var logger = logging.MustGetLogger()
 
 const (
 	cacheSizeConfigKey       = "fsc.kvs.cache.size"

@@ -19,7 +19,7 @@ import (
 )
 
 // WriteBytesToPackage writes a file to a tar stream with the contents as provided via the raw parameter.
-func WriteBytesToPackage(raw []byte, localpath string, packagepath string, tw *tar.Writer) error {
+func WriteBytesToPackage(raw []byte, localpath, packagepath string, tw *tar.Writer) error {
 	fd, err := os.Open(localpath)
 	if err != nil {
 		return fmt.Errorf("%s: %s", localpath, err)
@@ -63,7 +63,7 @@ func WriteBytesToPackage(raw []byte, localpath string, packagepath string, tw *t
 }
 
 // WriteFileToPackage writes a file to a tar stream.
-func WriteFileToPackage(localpath string, packagepath string, tw *tar.Writer) error {
+func WriteFileToPackage(localpath, packagepath string, tw *tar.Writer) error {
 	fd, err := os.Open(localpath)
 	if err != nil {
 		return fmt.Errorf("%s: %s", localpath, err)

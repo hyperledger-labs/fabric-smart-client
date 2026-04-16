@@ -38,7 +38,8 @@ type echoServer struct {
 }
 
 func (es *echoServer) EchoCall(ctx context.Context,
-	echo *testpb.Echo) (*testpb.Echo, error) {
+	echo *testpb.Echo,
+) (*testpb.Echo, error) {
 	return echo, nil
 }
 
@@ -495,7 +496,7 @@ func TestSetMessageSize(t *testing.T) {
 	go utils.IgnoreErrorFunc(srv.Start)
 	t.Cleanup(srv.Stop)
 
-	var tests = []struct {
+	tests := []struct {
 		name        string
 		maxRecvSize int
 		maxSendSize int

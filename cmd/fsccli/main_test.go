@@ -55,5 +55,4 @@ func TestArtifactsGen(t *testing.T) { //nolint:paralleltest
 	}
 
 	Expect(stringEntries).To(Equal([]string{"conf.json", "fabric.default", "fsc", "topology.yaml"}))
-
 }

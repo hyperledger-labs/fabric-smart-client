@@ -44,6 +44,7 @@ AwEHoUQDQgAEDB3l94vM7EqKr2L/vhqU5IsEub0rviqCAaWGiVAPp3orb/LJqFLS
 yo/k60rhUiir6iD4S4pb5TEb2ouWylQI3A==
 -----END EC PRIVATE KEY-----
 `
+
 var selfSignedCertPEM = `-----BEGIN CERTIFICATE-----
 MIIBdDCCARqgAwIBAgIRAKCiW5r6W32jGUn+l9BORMAwCgYIKoZIzj0EAwIwEjEQ
 MA4GA1UEChMHQWNtZSBDbzAeFw0xODA4MjExMDI1MzJaFw0yODA4MTgxMDI1MzJa
@@ -226,7 +227,7 @@ func (org *testOrg) testServers(clientRootCAs [][]byte) []testServer {
 	clientRootCAs = append(clientRootCAs, org.rootCA)
 
 	// loop through the serverCerts and create testServers
-	var testServers = []testServer{}
+	testServers := []testServer{}
 	for _, serverCert := range org.serverCerts {
 		testServer := testServer{
 			grpc3.ServerConfig{
@@ -254,7 +255,7 @@ func (org *testOrg) trustedClients(serverRootCAs [][]byte) []*tls.Config {
 	}
 
 	// loop through the clientCerts and create tls.Configs
-	var trustedClients = []*tls.Config{}
+	trustedClients := []*tls.Config{}
 	for _, clientCert := range org.clientCerts {
 		trustedClient := &tls.Config{
 			Certificates: []tls.Certificate{clientCert},
@@ -278,7 +279,7 @@ func createCertPool(rootCAs [][]byte) (*x509.CertPool, error) {
 
 // utility function to load crypto material for organizations
 func loadOrg(parent int) (testOrg, error) {
-	var org = testOrg{}
+	org := testOrg{}
 	// load the CA
 	caPEM, err := os.ReadFile(fmt.Sprintf(orgCACert, parent))
 	if err != nil {
@@ -286,7 +287,7 @@ func loadOrg(parent int) (testOrg, error) {
 	}
 
 	// loop through and load servers
-	var serverCerts = []serverCert{}
+	serverCerts := []serverCert{}
 	for i := 1; i <= numServerCerts; i++ {
 		keyPEM, err := os.ReadFile(fmt.Sprintf(orgServerKey, parent, i))
 		if err != nil {
@@ -300,7 +301,7 @@ func loadOrg(parent int) (testOrg, error) {
 	}
 
 	// loop through and load clients
-	var clientCerts = []tls.Certificate{}
+	clientCerts := []tls.Certificate{}
 	for j := 1; j <= numServerCerts; j++ {
 		clientCert, err := loadTLSKeyPairFromFile(fmt.Sprintf(orgClientKey, parent, j),
 			fmt.Sprintf(orgClientCert, parent, j))
@@ -311,7 +312,7 @@ func loadOrg(parent int) (testOrg, error) {
 	}
 
 	// loop through and load child orgs
-	var childOrgs = []testOrg{}
+	childOrgs := []testOrg{}
 	for k := 1; k <= numChildOrgs; k++ {
 		childOrg, err := loadChildOrg(parent, k)
 		if err != nil {
@@ -332,7 +333,7 @@ func loadChildOrg(parent, child int) (testOrg, error) {
 	}
 
 	// loop through and load servers
-	var serverCerts = []serverCert{}
+	serverCerts := []serverCert{}
 	for i := 1; i <= numServerCerts; i++ {
 		keyPEM, err := os.ReadFile(fmt.Sprintf(childServerKey, parent, child, i))
 		if err != nil {
@@ -346,7 +347,7 @@ func loadChildOrg(parent, child int) (testOrg, error) {
 	}
 
 	// loop through and load clients
-	var clientCerts = []tls.Certificate{}
+	clientCerts := []tls.Certificate{}
 	for j := 1; j <= numServerCerts; j++ {
 		clientCert, err := loadTLSKeyPairFromFile(
 			fmt.Sprintf(childClientKey, parent, child, j),
@@ -461,7 +462,8 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 		grpc3.ServerConfig{
 			SecOpts: grpc3.SecureOptions{
 				UseTLS:      true,
-				Certificate: []byte{}},
+				Certificate: []byte{},
+			},
 		},
 	)
 	require.EqualError(t, err, "serverConfig.SecOpts must contain both Key and Certificate when UseTLS is true")
@@ -486,7 +488,8 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 			SecOpts: grpc3.SecureOptions{
 				UseTLS:      true,
 				Certificate: []byte{},
-				Key:         []byte(selfSignedKeyPEM)},
+				Key:         []byte(selfSignedKeyPEM),
+			},
 		},
 	)
 	require.EqualError(t, err, "tls: failed to find any PEM data in certificate input")
@@ -498,7 +501,8 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 				UseTLS:            true,
 				Certificate:       []byte(selfSignedCertPEM),
 				Key:               []byte(selfSignedKeyPEM),
-				RequireClientCert: true},
+				RequireClientCert: true,
+			},
 		},
 	)
 	require.NoError(t, err)
@@ -588,7 +592,8 @@ func TestNewSecureGRPCServer(t *testing.T) {
 		SecOpts: grpc3.SecureOptions{
 			UseTLS:      true,
 			Certificate: []byte(selfSignedCertPEM),
-			Key:         []byte(selfSignedKeyPEM)},
+			Key:         []byte(selfSignedKeyPEM),
+		},
 	},
 	)
 	require.NoError(t, err, "failed to create new grpc server")
@@ -795,7 +800,9 @@ func TestWithSignedIntermediateCertificates(t *testing.T) {
 		SecOpts: grpc3.SecureOptions{
 			UseTLS:      true,
 			Certificate: certPEMBlock,
-			Key:         keyPEMBlock}})
+			Key:         keyPEMBlock,
+		},
+	})
 	// check for error
 	if err != nil {
 		t.Fatalf("Failed to return new GRPC server: %v", err)
@@ -899,7 +906,7 @@ func runMutualAuth(t *testing.T, servers []testServer, trustedClients, unTrusted
 func TestMutualAuth(t *testing.T) {
 	t.Parallel()
 
-	var tests = []struct {
+	tests := []struct {
 		name             string
 		servers          []testServer
 		trustedClients   []*tls.Config
@@ -1037,7 +1044,7 @@ func TestUpdateTLSCert(t *testing.T) {
 		cert = readFile(filepath.Join(prefix, "server.crt"))
 		key = readFile(filepath.Join(prefix, "server.key"))
 		caCert = readFile(filepath.Join("ca.crt"))
-		return
+		return key, cert, caCert
 	}
 
 	key, cert, caCert := loadBytes("notlocalhost")
@@ -1143,9 +1150,10 @@ func TestCipherSuites(t *testing.T) {
 			Certificate: certPEM,
 			Key:         keyPEM,
 			UseTLS:      true,
-		}}
+		},
+	}
 
-	var tests = []struct {
+	tests := []struct {
 		name          string
 		clientCiphers []uint16
 		success       bool

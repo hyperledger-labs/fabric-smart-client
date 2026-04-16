@@ -80,7 +80,7 @@ func (s *SmartContract) GetAssetBidPrice(ctx contractapi.TransactionContextInter
 }
 
 // getAssetPrice gets the bid or ask price from caller's implicit private data collection
-func getAssetPrice(ctx contractapi.TransactionContextInterface, assetID string, priceType string) (string, error) {
+func getAssetPrice(ctx contractapi.TransactionContextInterface, assetID, priceType string) (string, error) {
 	collection, err := getClientImplicitCollectionName(ctx)
 	if err != nil {
 		return "", err

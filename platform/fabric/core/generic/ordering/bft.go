@@ -125,7 +125,6 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 					return
 				}
 			}(orderer)
-
 		}
 
 		wg.Wait()

@@ -57,6 +57,7 @@ func (c *Config) url(protocol string) string {
 	}
 	return fmt.Sprintf("%s://%s", protocol, c.Host)
 }
+
 func (c *Config) isTlsEnabled() bool {
 	return c.CACertPath != "" || len(c.CACertRaw) != 0
 }
@@ -139,7 +140,7 @@ func (c *Client) StreamCallView(fid string, in []byte) (*WSStream, error) {
 	return stream, nil
 }
 
-func (c *Client) req(ctx context.Context, method string, url string, in []byte) (io.ReadCloser, error) {
+func (c *Client) req(ctx context.Context, method, url string, in []byte) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(in))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create http request to [%s], input length [%d]", url, len(in))

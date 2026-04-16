@@ -92,7 +92,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) { //nolint:tparallel
 			err := os.WriteFile(
 				badPEMFile,
 				test.data,
-				0755,
+				0o755,
 			)
 			require.NoError(t, err, "failed to write to wrong encoding file")
 			_, err = csp2.LoadPrivateKey(badPEMFile)

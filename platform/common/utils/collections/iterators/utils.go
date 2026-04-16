@@ -70,11 +70,11 @@ func GetFirst[T any](vs Iterator[T]) (T, error) {
 }
 
 // Reduce reduces the elements of an iterator into an aggregated structure
-func Reduce[V any, S any](it Iterator[*V], reducer Reducer[*V, S]) (S, error) {
+func Reduce[V, S any](it Iterator[*V], reducer Reducer[*V, S]) (S, error) {
 	return ReduceValue(it, reducer.Produce(), reducer.Reduce)
 }
 
-func ReduceValue[V any, S any](it Iterator[*V], result S, reduce ReduceFunc[*V, S]) (S, error) {
+func ReduceValue[V, S any](it Iterator[*V], result S, reduce ReduceFunc[*V, S]) (S, error) {
 	defer it.Close()
 	for {
 		item, err := it.Next()

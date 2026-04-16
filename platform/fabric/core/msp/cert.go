@@ -73,7 +73,7 @@ func isECDSASignedCert(cert *x509.Certificate) bool {
 // is in low-S. This is checked against the public key of parentCert.
 // If the signature is not in low-S, then a new certificate is generated
 // that is equals to cert but the signature that is in low-S.
-func sanitizeECDSASignedCert(cert *x509.Certificate, parentCert *x509.Certificate) (*x509.Certificate, error) {
+func sanitizeECDSASignedCert(cert, parentCert *x509.Certificate) (*x509.Certificate, error) {
 	if cert == nil {
 		return nil, errors.New("certificate must be different from nil")
 	}

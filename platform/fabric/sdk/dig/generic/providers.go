@@ -64,7 +64,8 @@ func NewDriver(in struct {
 	TracerProvider  tracing.Provider
 	ChannelProvider generic.ChannelProvider        `name:"generic-channel-provider"`
 	IdentityLoaders []identity.NamedIdentityLoader `group:"identity-loaders"`
-}) core.NamedDriver {
+},
+) core.NamedDriver {
 	d := core.NamedDriver{
 		Name: config2.GenericDriver,
 		Driver: gdriver.NewProvider(
@@ -92,7 +93,8 @@ func NewChannelProvider(in struct {
 	TracerProvider  tracing.Provider
 	Drivers         multiplexed.Driver
 	MetricsProvider metrics.Provider
-}) generic.ChannelProvider {
+},
+) generic.ChannelProvider {
 	flmProvider := committer2.NewFinalityListenerManagerProvider[driver.ValidationCode](in.TracerProvider)
 	channelConfigProvider := generic.NewChannelConfigProvider(in.ConfigProvider)
 	return generic.NewChannelProvider(
@@ -224,6 +226,7 @@ func NewMultiplexedDriver(in struct {
 	dig.In
 	Config  driver2.ConfigService
 	Drivers []dbdriver.NamedDriver `group:"fabric-db-drivers" optional:"false"`
-}) multiplexed.Driver {
+},
+) multiplexed.Driver {
 	return multiplexed.NewDriver(in.Config, in.Drivers...)
 }

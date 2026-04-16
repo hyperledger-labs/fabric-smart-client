@@ -34,10 +34,8 @@ const (
 	P2PPort PortName = "P2P"
 )
 
-var (
-	// ErrNotFound signals that a resolver was not found
-	ErrNotFound = errors.New("not found")
-)
+// ErrNotFound signals that a resolver was not found
+var ErrNotFound = errors.New("not found")
 
 // PublicKeyExtractor extracts public keys from identities for PKI operations.
 //
@@ -186,7 +184,7 @@ func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs
 }
 
 // IsBoundTo checks if two identities are bound to the same long-term identity.
-func (r *Service) IsBoundTo(ctx context.Context, a view.Identity, b view.Identity) bool {
+func (r *Service) IsBoundTo(ctx context.Context, a, b view.Identity) bool {
 	ok, err := r.bindingKVS.HaveSameBinding(ctx, a, b)
 	if err != nil {
 		logger.Errorf("error fetching entries [%s] and [%s]: %v", a, b, err)

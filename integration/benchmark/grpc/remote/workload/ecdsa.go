@@ -22,16 +22,14 @@ const (
 	ECDSA = "ecdsa"
 )
 
-var (
-	sk *ecdsa.PrivateKey
-)
+var sk *ecdsa.PrivateKey
 
 func init() {
 	sk, _ = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 }
 
 func CreateClientFuncECDSA(conn *grpc.ClientConn) ClientFunc {
-	var msg = &remote.Request{
+	msg := &remote.Request{
 		Workload: ECDSA,
 		Input:    []byte("Hello"),
 	}

@@ -319,7 +319,7 @@ func (p *Provider) initConfigPaths(confPath string) ([]string, error) {
 		paths = append(paths, confPath)
 	}
 
-	var altPath = os.Getenv("FSCNODE_CFG_PATH")
+	altPath := os.Getenv("FSCNODE_CFG_PATH")
 	if altPath != "" {
 		// If the user has overridden the path with an envvar, its the only path
 		// we will consider
@@ -383,8 +383,7 @@ func (e *eventListener) OnReceive(event events.Event) {
 	e.handler.OnMergeConfig()
 }
 
-type MergeConfigEvent struct {
-}
+type MergeConfigEvent struct{}
 
 // Topic returns the merge configuration event topic.
 func (m *MergeConfigEvent) Topic() string {

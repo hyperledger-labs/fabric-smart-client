@@ -16,6 +16,7 @@ func NewProvider(in struct {
 	dig.In
 	ConfigService driver.ConfigService
 	Drivers       []core.NamedDriver `group:"fabric-platform-drivers"`
-}) (*core.FSNProvider, error) {
+},
+) (*core.FSNProvider, error) {
 	return core.NewFabricNetworkServiceProvider(in.ConfigService, in.Drivers)
 }

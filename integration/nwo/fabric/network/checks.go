@@ -50,7 +50,7 @@ func (n *Network) CheckTopologyOrderers() {
 func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[string][]topology.UserSpec) {
 	t := n.Context.TopologyByName("fsc")
 	if t == nil {
-		return
+		return users, userSpecs
 	}
 	fscTopology := t.(*fsc.Topology)
 
@@ -142,7 +142,7 @@ func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[s
 		n.Context.SetHostByPeerID("fsc", p.ID(), n.Context.HostByPeerID(n.Prefix, node.Name))
 	}
 
-	return
+	return users, userSpecs
 }
 
 // CheckTopologyOrgs allocates users for each organization

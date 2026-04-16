@@ -9,6 +9,12 @@ linters:
     - thelper
     - tparallel
     - paralleltest
+formatters:
+  enable:
+    - gofumpt
+  settings:
+    gofumpt:
+      extra-rules: true
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

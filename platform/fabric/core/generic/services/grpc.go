@@ -25,7 +25,7 @@ type GRPCClient struct {
 	connect func() (*grpc2.ClientConn, error)
 }
 
-func NewGRPCClient(client *grpc.Client, address string, sn string, signer discovery2.Signer) *GRPCClient {
+func NewGRPCClient(client *grpc.Client, address, sn string, signer discovery2.Signer) *GRPCClient {
 	return newClient(client, address, signer, func() (*grpc2.ClientConn, error) {
 		return client.NewConnection(address, grpc.ServerNameOverride(sn))
 	})
