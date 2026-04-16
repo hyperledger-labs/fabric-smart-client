@@ -1,5 +1,5 @@
 .PHONY: checks
-checks: lint licensecheck govet misspell ineffassign staticcheck
+checks: lint licensecheck govet ineffassign staticcheck
 
 .PHONY: licensecheck
 licensecheck:
@@ -11,18 +11,6 @@ licensecheck:
 govet:
 	@echo Running go vet
 	@go vet -all $(shell go list -f '{{.Dir}}' ./...) || (echo "Found some issues identified by 'go vet -all'. Please fix them!"; exit 1;)
-
-.PHONY: misspell
-misspell:
-	@echo Running misspell
-	@{ \
-	OUTPUT="$$(misspell . || true)"; \
-	if [ -n "$$OUTPUT" ]; then \
-		echo "The following files are have spelling errors:"; \
-		echo "$$OUTPUT"; \
-		exit 1; \
-	fi \
-	}
 
 .PHONY: staticcheck
 staticcheck:

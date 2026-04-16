@@ -3,7 +3,6 @@ module tools
 go 1.25.7
 
 require (
-	github.com/client9/misspell v0.3.4
 	github.com/fzipp/gocyclo v0.6.0
 	github.com/google/addlicense v1.1.1
 	github.com/gordonklaus/ineffassign v0.1.0

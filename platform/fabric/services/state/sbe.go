@@ -131,7 +131,7 @@ func (s *stateEP) setMSPIDsFromSP(sp *common.SignaturePolicyEnvelope) error {
 	return nil
 }
 
-// listOrgs returns an array of channel orgs that are required to endorse chnages
+// listOrgs returns an array of channel orgs that are required to endorse changes
 func (s *stateEP) listOrgs() []string {
 	orgNames := make([]string, 0, len(s.orgs))
 	for mspid := range s.orgs {
