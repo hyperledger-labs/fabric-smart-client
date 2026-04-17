@@ -105,7 +105,7 @@ jobs:
       - name: Set up Fabric-x
         if: startsWith(matrix.tests, 'fabricx')
         run: |
-          make install-fxconfig install-configtxgen fabricx-docker-images
+          make install-fabricx-tools fabricx-docker-images
 
       - name: Set up Softhsm
         # we only need this for a subset of integration tests
