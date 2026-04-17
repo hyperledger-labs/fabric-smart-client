@@ -40,7 +40,7 @@ install-tools: ## Install all tools
 .PHONY: install-linter-tool
 install-linter-tool: ## Install linter in $(go env GOPATH)/bin
 	@echo "Installing golangci Linter"
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $$(go env GOPATH)/bin v2.10.1
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $$(go env GOPATH)/bin v2.11.4
 
 .PHONY: install-fxconfig
 install-fxconfig: ## Install fxconfig in $(FAB_BINS)
