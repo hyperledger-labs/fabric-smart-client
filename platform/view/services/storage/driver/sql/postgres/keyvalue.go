@@ -10,6 +10,7 @@ import (
 	"database/sql"
 
 	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common4 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
@@ -39,7 +40,6 @@ func (db *KeyValueStoreNotifier) CreateSchema() error {
 }
 
 func newKeyValueStore(readDB, writeDB *sql.DB, table string) *common4.KeyValueStore {
-
 	errorWrapper := &ErrorMapper{}
 
 	return common4.NewKeyValueStore(readDB, writeDB, table, errorWrapper, sq.Dollar)

@@ -8,7 +8,6 @@ package common_test
 import (
 	"context"
 	"database/sql"
-
 	"testing"
 
 	sq "github.com/Masterminds/squirrel"
