@@ -19,9 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	comm "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go-apiv2/discovery"
 	"github.com/hyperledger/fabric-protos-go-apiv2/gossip"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
@@ -30,13 +27,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	comm "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 var (
 	ctx = context.Background()
 
 	expectedOrgCombinations = []map[string]struct{}{
-
 		{
 			"A": {},
 		},
@@ -241,7 +241,7 @@ func TestClient(t *testing.T) {
 		},
 	}, nil).Once()
 
-	//sup.On("PeersOfChannel").Return(channelPeersWithoutChaincodes).Times(2)
+	// sup.On("PeersOfChannel").Return(channelPeersWithoutChaincodes).Times(2)
 	req := NewRequest()
 	req, err = req.OfChannel("mychannel").AddPeersQuery().AddConfigQuery().AddEndorsersQuery(interest("mycc"))
 	require.NoError(t, err)
@@ -360,7 +360,8 @@ func TestClient(t *testing.T) {
 						},
 					},
 				},
-			}}).Once()
+			},
+		}).Once()
 
 		req = NewRequest()
 		req, err = req.OfChannel("mychannel").AddPeersQuery().AddEndorsersQuery(interest("mycc"))

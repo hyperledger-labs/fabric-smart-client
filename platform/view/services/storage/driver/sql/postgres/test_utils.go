@@ -19,8 +19,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	_ "modernc.org/sqlite"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 const (

@@ -11,12 +11,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	cfg "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	sdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewService_missingConfig(t *testing.T) {

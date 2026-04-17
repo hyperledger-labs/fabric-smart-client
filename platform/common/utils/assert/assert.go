@@ -9,8 +9,9 @@ package assert
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type panickier struct {

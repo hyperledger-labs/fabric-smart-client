@@ -13,10 +13,11 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	sq "github.com/Masterminds/squirrel"
+	. "github.com/onsi/gomega"
+
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	. "github.com/onsi/gomega"
 )
 
 func TestGetLongTerm(t *testing.T) { //nolint:paralleltest

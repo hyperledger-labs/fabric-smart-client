@@ -11,11 +11,12 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/vfsdk"
 	registry3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/require"
 )
 
 type myInput struct{}

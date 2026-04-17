@@ -12,12 +12,13 @@ import (
 	"log"
 	"reflect"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"go.opentelemetry.io/otel/trace"
 )
 
 const fidLabel tracing.LabelName = "fid"
@@ -76,7 +77,6 @@ func (s *viewHandler) callView(ctx context.Context, command *protos.Command) (an
 	}
 	logger.DebugfContext(ctx, "Initiate new view")
 	result, err := s.viewManager.InitiateView(ctx, f)
-
 	if err != nil {
 		return nil, errors.Wrapf(view.ErrViewExecutionFailed, "failed running view [%s]: %v", fid, err)
 	}

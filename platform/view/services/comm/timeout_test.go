@@ -11,13 +11,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 )
 
 func TestEnqueueTimeoutBehavior(t *testing.T) { //nolint:paralleltest

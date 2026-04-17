@@ -20,7 +20,6 @@ var (
 		LabelNames: []string{PeerId, ProtocolId},
 	}
 	bytesReceived = metrics2.CounterOpts{
-
 		Name:       "bytes_received",
 		Help:       "The amount of data received.",
 		LabelNames: []string{PeerId, ProtocolId},

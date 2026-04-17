@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 
+	"go.uber.org/dig"
+
 	e "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	dig2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
@@ -33,7 +35,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
-	"go.uber.org/dig"
 )
 
 var logger = logging.MustGetLogger()
@@ -148,7 +149,8 @@ func registerProcessorsForDrivers(in struct {
 	CoreConfig             *core.Config
 	NetworkServiceProvider *fabric.NetworkServiceProvider
 	Drivers                []core.NamedDriver `group:"fabric-platform-drivers"`
-}) error {
+},
+) error {
 	if len(in.CoreConfig.Names()) == 0 {
 		return errors.New("no fabric network names found")
 	}
@@ -188,7 +190,8 @@ func registerRWSetLoaderHandlerProviders(in struct {
 	FSNProvider      *core.FSNProvider
 	CoreConfig       *core.Config
 	HandlerProviders []generic2.RWSetPayloadHandlerProvider `group:"handler-providers"`
-}) error {
+},
+) error {
 	for _, network := range in.CoreConfig.Names() {
 		fsn, err := in.FSNProvider.FabricNetworkService(network)
 		if err != nil {

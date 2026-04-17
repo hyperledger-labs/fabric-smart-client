@@ -38,7 +38,6 @@ func doWork(n int) uint64 {
 type CPUViewFactory struct{}
 
 func (c *CPUViewFactory) NewView(in []byte) (view.View, error) {
-
 	f := &CPUView{}
 	if err := json.Unmarshal(in, &f.params); err != nil {
 		return nil, err

@@ -11,9 +11,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -23,6 +20,10 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 type TracerType string

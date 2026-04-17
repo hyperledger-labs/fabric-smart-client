@@ -12,10 +12,11 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 )
 
 // namespaceApproverOrgs returns the list of org names that appear

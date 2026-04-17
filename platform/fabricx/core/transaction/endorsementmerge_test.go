@@ -10,11 +10,12 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/hyperledger/fabric-x-common/api/msppb"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 // mockProposalResponse is a lightweight test double for driver.ProposalResponse.

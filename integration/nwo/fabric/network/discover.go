@@ -10,10 +10,11 @@ import (
 	"encoding/json"
 	"path/filepath"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 )
 
 // DiscoveredPeer defines a struct for discovering peers using discovery service.

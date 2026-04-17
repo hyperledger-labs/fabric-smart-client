@@ -13,6 +13,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
+	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -22,21 +27,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
-	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = logging.MustGetLogger()
 
-var (
-	StartGenesis = &ab.SeekPosition{
-		Type: &ab.SeekPosition_Oldest{
-			Oldest: &ab.SeekOldest{},
-		},
-	}
-)
+var StartGenesis = &ab.SeekPosition{
+	Type: &ab.SeekPosition_Oldest{
+		Oldest: &ab.SeekOldest{},
+	},
+}
 
 type blockResponse struct {
 	ctx   context.Context
@@ -82,9 +81,7 @@ type Delivery struct {
 	stop                chan error
 }
 
-var (
-	ctr = atomic.Uint32{}
-)
+var ctr = atomic.Uint32{}
 
 func New(
 	networkName string,

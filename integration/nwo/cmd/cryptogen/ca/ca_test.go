@@ -14,10 +14,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
 	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -88,7 +89,7 @@ func TestLoadCertificateECDSA_wrongEncoding(t *testing.T) {
 	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
 
 	filename := filepath.Join(testDir, "wrong_encoding.pem")
-	err = os.WriteFile(filename, []byte("wrong_encoding"), 0644) // Wrong encoded cert
+	err = os.WriteFile(filename, []byte("wrong_encoding"), 0o644) // Wrong encoded cert
 	require.NoErrorf(t, err, "failed to create file %s", filename)
 
 	_, err = ca2.LoadCertificateECDSA(testDir)
@@ -104,7 +105,7 @@ func TestLoadCertificateECDSA_empty_DER_cert(t *testing.T) {
 
 	filename := filepath.Join(testDir, "empty.pem")
 	empty_cert := "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----"
-	err = os.WriteFile(filename, []byte(empty_cert), 0644)
+	err = os.WriteFile(filename, []byte(empty_cert), 0o644)
 	require.NoErrorf(t, err, "failed to create file %s", filename)
 
 	cert, err := ca2.LoadCertificateECDSA(testDir)
@@ -230,7 +231,6 @@ func TestGenerateSignCertificate(t *testing.T) {
 	}
 	_, err = badCA.SignCertificate(certDir, testName, nil, nil, &ecdsa.PublicKey{}, x509.KeyUsageKeyEncipherment, []x509.ExtKeyUsage{x509.ExtKeyUsageAny}, 0)
 	require.Error(t, err, "Empty CA should not be able to sign")
-
 }
 
 func checkForFile(file string) bool {

@@ -12,9 +12,10 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote/workload"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/benchmark/flags"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote/workload"
 )
 
 var (

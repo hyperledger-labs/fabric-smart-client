@@ -58,7 +58,6 @@ func (v *lazyProvider[I, K, V]) Update(input I) (V, V, error) {
 	v.cache[key] = res
 
 	return oldRes, res, nil
-
 }
 
 func (v *lazyProvider[I, K, V]) Get(input I) (V, error) {

@@ -11,11 +11,12 @@ import (
 	"time"
 
 	bccsp "github.com/IBM/idemix/bccsp/types"
+	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
-	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 )
 
 type MSPIdentity struct {
@@ -89,7 +90,7 @@ func (id *MSPIdentity) Validate() error {
 	return id.verifyProof()
 }
 
-func (id *MSPIdentity) Verify(msg []byte, sig []byte) error {
+func (id *MSPIdentity) Verify(msg, sig []byte) error {
 	_, err := id.Idemix.Csp.Verify(
 		id.NymPublicKey,
 		sig,

@@ -57,15 +57,17 @@ type TxStatus struct {
 	Message string
 }
 
-type TxStatusIterator = iterators.Iterator[*TxStatus]
-type TxStateIterator = iterators.Iterator[*VaultRead]
+type (
+	TxStatusIterator = iterators.Iterator[*TxStatus]
+	TxStateIterator  = iterators.Iterator[*VaultRead]
+)
 
 type VersionedResultsIterator = iterators.Iterator[*VaultRead]
 
 type QueryExecutor interface {
 	GetState(ctx context.Context, namespace Namespace, key PKey) (*VaultRead, error)
 	GetStateMetadata(ctx context.Context, namespace Namespace, key PKey) (Metadata, RawVersion, error)
-	GetStateRange(ctx context.Context, namespace Namespace, startKey PKey, endKey PKey) (VersionedResultsIterator, error)
+	GetStateRange(ctx context.Context, namespace Namespace, startKey, endKey PKey) (VersionedResultsIterator, error)
 	Done() error
 }
 

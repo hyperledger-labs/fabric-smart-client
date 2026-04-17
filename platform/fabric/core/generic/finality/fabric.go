@@ -10,6 +10,8 @@ import (
 	"context"
 	"time"
 
+	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -17,7 +19,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 )
 
 type Services interface {
@@ -60,7 +61,7 @@ func NewFabricFinality(
 	return d, nil
 }
 
-func (d *FabricFinality) IsFinal(txID string, address string) error {
+func (d *FabricFinality) IsFinal(txID, address string) error {
 	d.Logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.Channel)
 	var eventCh chan delivery.TxEvent
 	var ctx context.Context

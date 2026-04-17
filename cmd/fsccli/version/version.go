@@ -10,8 +10,9 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/spf13/cobra"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // ProgramName is the program name

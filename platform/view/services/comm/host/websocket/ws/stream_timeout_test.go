@@ -16,10 +16,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
+
+	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 )
 
 // TestWebSocketStreamDeliveryTimeout tests the stream delivery timeout in the deliver function

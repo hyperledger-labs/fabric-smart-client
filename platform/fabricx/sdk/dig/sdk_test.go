@@ -9,10 +9,11 @@ package sdk
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
-	"github.com/stretchr/testify/require"
 )
 
 func TestWiring(t *testing.T) {

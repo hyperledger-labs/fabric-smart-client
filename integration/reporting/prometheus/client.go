@@ -11,11 +11,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/monitoring"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	prom_api "github.com/prometheus/client_golang/api"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring/monitoring"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 const (

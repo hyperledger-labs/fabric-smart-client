@@ -11,6 +11,9 @@ import (
 	"context"
 	"os"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	nwocontext "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/mocks"
 	mocks2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/mocks/mocks"
@@ -18,12 +21,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/foo/initiator"
 	initiator2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/initiator"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/responder"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
-type DummySDK struct {
-}
+type DummySDK struct{}
 
 func NewDummySDK() *DummySDK {
 	return &DummySDK{}
@@ -39,7 +39,6 @@ func (d *DummySDK) Start(ctx context.Context) error {
 
 var _ = Describe("EndToEnd", func() {
 	Describe("generate main", func() {
-
 		It("should not fail", func() {
 			p := NewPlatform(nwocontext.New("", 0, nil), NewTopology(), nil)
 
@@ -92,6 +91,5 @@ var _ = Describe("EndToEnd", func() {
 			Expect(buf.String()).To(BeEquivalentTo(string(ExpectedMainOne)))
 			// Expect(os.WriteFile("./testdata/main/main.go.output", buf.Bytes(), 0777)).ToNot(HaveOccurred())
 		})
-
 	})
 })

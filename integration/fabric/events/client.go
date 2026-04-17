@@ -25,7 +25,7 @@ func NewClient(c ViewClient, id view.Identity) *Client {
 	return &Client{c: c, id: id}
 }
 
-func (c *Client) EventsView(chaincodeFunction string, eventName string) (interface{}, error) {
+func (c *Client) EventsView(chaincodeFunction, eventName string) (interface{}, error) {
 	event, err := c.c.CallView("EventsView", common.JSONMarshall(&views.Events{
 		Function:  chaincodeFunction,
 		EventName: eventName,
@@ -33,7 +33,7 @@ func (c *Client) EventsView(chaincodeFunction string, eventName string) (interfa
 	return event, err
 }
 
-func (c *Client) MultipleListenersView(chaincodeFunction string, eventName string, listenerCount int) (interface{}, error) {
+func (c *Client) MultipleListenersView(chaincodeFunction, eventName string, listenerCount int) (interface{}, error) {
 	event, err := c.c.CallView("MultipleListenersView", common.JSONMarshall(&views.MultipleListeners{
 		Function:      chaincodeFunction,
 		EventName:     eventName,

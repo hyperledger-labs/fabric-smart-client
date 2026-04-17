@@ -9,11 +9,12 @@ package mgmt
 import (
 	"sync"
 
+	"github.com/hyperledger/fabric-lib-go/bccsp"
+	"github.com/spf13/viper"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/cache"
-	"github.com/hyperledger/fabric-lib-go/bccsp"
-	"github.com/spf13/viper"
 )
 
 // FIXME: AS SOON AS THE CHAIN MANAGEMENT CODE IS COMPLETE,

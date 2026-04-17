@@ -77,7 +77,7 @@ func New(opts ...Option) (*Profile, error) {
 func (p *Profile) Start() error {
 	logger.Infof("Starting profiling")
 
-	if err := os.MkdirAll(p.path, 0755); err != nil {
+	if err := os.MkdirAll(p.path, 0o755); err != nil {
 		return errors.Wrapf(err, "failed to create profile directory: %s", p.path)
 	}
 	if p.cpu {
@@ -145,7 +145,6 @@ func (p *Profile) startCPUProfile() error {
 		}
 	})
 	return nil
-
 }
 
 func (p *Profile) appendCloser(f func()) {

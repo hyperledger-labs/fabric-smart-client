@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package discovery
 
 import (
+	"github.com/hyperledger/fabric-protos-go-apiv2/gossip"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger/fabric-protos-go-apiv2/gossip"
 )
 
 // SignedGossipMessage contains a GossipMessage and the Envelope from which it

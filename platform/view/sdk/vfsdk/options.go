@@ -13,6 +13,7 @@ func WithFactoryId(fid string) FactoryOption {
 		f.fids = append(f.fids, fid)
 	}
 }
+
 func WithInitiators(initiators ...any) FactoryOption {
 	return func(f *factoryEntry) {
 		f.initiators = append(f.initiators, initiators...)

@@ -19,6 +19,7 @@ datasources:
     version: 1
     editable: true
 `
+
 const DashboardTemplate = `apiVersion: 1
 
 providers:

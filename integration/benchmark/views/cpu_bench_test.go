@@ -14,7 +14,6 @@ import (
 )
 
 func BenchmarkCPU(b *testing.B) {
-
 	f := &CPUViewFactory{}
 	// tune up/down for longer/shorter ops
 	p := &CPUParams{N: 200000}

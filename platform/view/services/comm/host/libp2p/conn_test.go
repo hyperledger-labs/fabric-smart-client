@@ -11,15 +11,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 )
 
 type Network []*node
@@ -43,7 +44,7 @@ func (n *node) ID() string {
 	return n.id
 }
 
-func NewVirtualNetwork(t *testing.T, port int, numNodes int) (Network, error) {
+func NewVirtualNetwork(t *testing.T, port, numNodes int) (Network, error) {
 	t.Helper()
 
 	var res []*node
@@ -166,7 +167,7 @@ func newNode(t *testing.T, port int, bootstrapNode *node) (*node, error) {
 	}, nil
 }
 
-func eventually(condition func() bool, waitFor time.Duration, tick time.Duration, msgAndArgs ...interface{}) error {
+func eventually(condition func() bool, waitFor, tick time.Duration, msgAndArgs ...interface{}) error {
 	timer := time.NewTimer(waitFor)
 	defer timer.Stop()
 

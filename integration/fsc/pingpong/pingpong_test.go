@@ -12,6 +12,10 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"go.uber.org/atomic"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/mock"
@@ -23,13 +27,9 @@ import (
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
 	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"go.uber.org/atomic"
 )
 
 var _ = Describe("EndToEnd", func() {
-
 	Describe("Node-based Ping pong", func() {
 		var (
 			initiator FSCNode
@@ -129,7 +129,6 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 		})
-
 	})
 
 	Describe("Network-based Ping pong With LibP2P", func() {
@@ -218,7 +217,7 @@ func NewTestSuite(commType fsc.P2PCommunicationType, alwaysGenerate bool, nodeOp
 				ii, err = integration.Load(0, testdataDir, integration.WithRaceDetection, topologies...)
 			}
 			ii.DeleteOnStop = false
-			return
+			return ii, err
 		}),
 		commType: commType,
 		nodeOpts: nodeOpts,

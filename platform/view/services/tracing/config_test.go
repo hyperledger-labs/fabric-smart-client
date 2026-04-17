@@ -9,9 +9,10 @@ package tracing_test
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	. "github.com/onsi/gomega"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
 func callGetPackageName() string {
@@ -88,5 +89,4 @@ func TestWithMetricsOpts_EmptyOptions(t *testing.T) { //nolint:paralleltest
 	labelNamesVal, ok := attrs.Value("label_names")
 	Expect(ok).To(BeTrue())
 	Expect(labelNamesVal.AsStringSlice()).To(BeEmpty())
-
 }

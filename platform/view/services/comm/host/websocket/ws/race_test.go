@@ -13,8 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 type raceConn struct {

@@ -10,12 +10,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protowire"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/encoding/protowire"
 )
 
 // mockQueryService implements queryservice.QueryService for testing

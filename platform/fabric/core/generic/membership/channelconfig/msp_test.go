@@ -10,11 +10,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	mspprotos "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
 func TestMSPConfigManager(t *testing.T) {

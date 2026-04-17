@@ -9,8 +9,9 @@ package state
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type House struct {

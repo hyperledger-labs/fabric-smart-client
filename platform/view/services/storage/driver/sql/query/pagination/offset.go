@@ -19,7 +19,7 @@ type offset struct {
 }
 
 // Offset creates a pagination using OFFSET
-func Offset(os int, pageSize int) (*offset, error) {
+func Offset(os, pageSize int) (*offset, error) {
 	if os < 0 {
 		return nil, fmt.Errorf("offset shoud be grater than zero. Offset: %d", os)
 	}

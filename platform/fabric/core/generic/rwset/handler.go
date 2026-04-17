@@ -10,10 +10,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	vault2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 )
 
 type endorserTransactionHandler struct {

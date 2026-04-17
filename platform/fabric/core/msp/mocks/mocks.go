@@ -9,9 +9,10 @@ package mocks
 import (
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	pmsp "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
 type MockMSP struct {
@@ -103,7 +104,7 @@ func (*MockIdentity) GetOrganizationalUnits() []*msp.OUIdentifier {
 	panic("implement me")
 }
 
-func (*MockIdentity) Verify(msg []byte, sig []byte) error {
+func (*MockIdentity) Verify(msg, sig []byte) error {
 	return nil
 }
 

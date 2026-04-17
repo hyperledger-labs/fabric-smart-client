@@ -9,9 +9,10 @@ package tracing
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/embedded"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
 
 const namespaceLabel LabelName = "namespace"

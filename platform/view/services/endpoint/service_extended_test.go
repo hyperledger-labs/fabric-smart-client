@@ -17,11 +17,12 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBind(t *testing.T) {

@@ -9,11 +9,12 @@ package events_test
 import (
 	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 func TestEvents(t *testing.T) { //nolint:paralleltest

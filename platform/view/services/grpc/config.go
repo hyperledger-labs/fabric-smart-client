@@ -11,10 +11,11 @@ import (
 	"crypto/x509"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/stats"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 // Configuration defaults

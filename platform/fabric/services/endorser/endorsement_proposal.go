@@ -103,7 +103,8 @@ func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 	viewCtx view.Context,
 	party view.Identity,
 	raw []byte,
-	answerChan chan *answer) {
+	answerChan chan *answer,
+) {
 	defer logger.Debugf("Received answer for endorsement of TX [%s] from [%v]", c.tx.ID(), party)
 	s, err := session.NewJSON(viewCtx, viewCtx.Initiator(), party)
 	if err != nil {

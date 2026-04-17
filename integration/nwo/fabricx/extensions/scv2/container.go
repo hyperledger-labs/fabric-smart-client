@@ -18,6 +18,9 @@ import (
 	docker_network "github.com/docker/docker/api/types/network"
 	docker_client "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapio"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
@@ -25,8 +28,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapio"
 )
 
 var (

@@ -9,9 +9,10 @@ package pagination_test
 import (
 	"testing"
 
+	. "github.com/onsi/gomega"
+
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/pagination"
-	. "github.com/onsi/gomega"
 )
 
 func TestNone(t *testing.T) { //nolint:paralleltest

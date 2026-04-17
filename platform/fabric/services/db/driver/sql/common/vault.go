@@ -28,9 +28,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/pagination"
 )
 
-var (
-	logger = logging.MustGetLogger()
-)
+var logger = logging.MustGetLogger()
 
 type VaultTables struct {
 	StateTable  string
@@ -209,7 +207,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 			metaWrite = map[driver.PKey]driver.VaultMetadataValue{}
 		}
 		for pkey, val := range write {
-			var metadata = make([]byte, 0)
+			metadata := make([]byte, 0)
 			var metaVersion driver.RawVersion
 			var err error
 			if metaVal, ok := metaWrite[pkey]; ok {
@@ -307,24 +305,28 @@ func (db *txVaultReader) GetStates(ctx context.Context, namespace driver.Namespa
 	}
 	return db.vr.GetStates(ctx, namespace, keys...)
 }
+
 func (db *txVaultReader) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
 	if err := db.setVaultReader(); err != nil {
 		return nil, err
 	}
 	return db.vr.GetStateRange(ctx, namespace, startKey, endKey)
 }
+
 func (db *txVaultReader) GetAllStates(ctx context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
 	if err := db.setVaultReader(); err != nil {
 		return nil, err
 	}
 	return db.vr.GetAllStates(ctx, namespace)
 }
+
 func (db *txVaultReader) GetStateMetadata(ctx context.Context, namespace driver.Namespace, key driver.PKey) (driver.Metadata, driver.RawVersion, error) {
 	if err := db.setVaultReader(); err != nil {
 		return nil, nil, err
 	}
 	return db.vr.GetStateMetadata(ctx, namespace, key)
 }
+
 func (db *txVaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
 	if err := db.setVaultReader(); err != nil {
 		return nil, err
@@ -338,6 +340,7 @@ func (db *txVaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*dr
 	}
 	return db.vr.GetTxStatus(ctx, txID)
 }
+
 func (db *txVaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) (driver.TxStatusIterator, error) {
 	if err := db.setVaultReader(); err != nil {
 		return nil, err
@@ -472,6 +475,7 @@ func (db *vaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driv
 	}
 	return collections.GetUnique(it)
 }
+
 func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) (driver.TxStatusIterator, error) {
 	if len(txIDs) == 0 {
 		return collections.NewEmptyIterator[*driver.TxStatus](), nil
@@ -479,6 +483,7 @@ func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) 
 
 	return db.queryStatus(ctx, cond2.In("tx_id", txIDs...), pagination.None())
 }
+
 func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
 	if p == nil {
 		return nil, fmt.Errorf("invalid input pagination: %+v", p)
@@ -516,18 +521,18 @@ func marshallMetadata(metadata map[string][]byte) (m []byte, err error) {
 	var buf bytes.Buffer
 	err = gob.NewEncoder(&buf).Encode(metadata)
 	if err != nil {
-		return
+		return m, err
 	}
 	return buf.Bytes(), nil
 }
 
 func unmarshalMetadata(input []byte) (m map[string][]byte, err error) {
 	if len(input) == 0 {
-		return
+		return m, err
 	}
 
 	buf := bytes.NewBuffer(input)
 	decoder := gob.NewDecoder(buf)
 	err = decoder.Decode(&m)
-	return
+	return m, err
 }

@@ -10,10 +10,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // GetBytesChaincodeProposalPayload gets the chaincode proposal payload
@@ -54,7 +55,7 @@ func GetBytesPayload(payl *common.Payload) ([]byte, error) {
 }
 
 // GetBytesProposalResponsePayload gets proposal response payload
-func GetBytesProposalResponsePayload(hash []byte, response *peer.Response, result []byte, event []byte, ccid *peer.ChaincodeID) ([]byte, error) {
+func GetBytesProposalResponsePayload(hash []byte, response *peer.Response, result, event []byte, ccid *peer.ChaincodeID) ([]byte, error) {
 	cAct := &peer.ChaincodeAction{
 		Events: event, Results: result,
 		Response:    response,

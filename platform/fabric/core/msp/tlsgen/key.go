@@ -49,7 +49,7 @@ func newCertTemplate() (x509.Certificate, error) {
 	}, nil
 }
 
-func newCertKeyPair(isCA bool, isServer bool, certSigner crypto.Signer, parent *x509.Certificate, hosts ...string) (*CertKeyPair, error) {
+func newCertKeyPair(isCA, isServer bool, certSigner crypto.Signer, parent *x509.Certificate, hosts ...string) (*CertKeyPair, error) {
 	privateKey, privBytes, err := newPrivKey()
 	if err != nil {
 		return nil, err

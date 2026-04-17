@@ -40,7 +40,7 @@ func (m *Manager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalRespo
 	return NewProposalResponseFromBytes(raw)
 }
 
-func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.TransactionType, creator view2.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (driver.Transaction, error) {
+func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.TransactionType, creator view2.Identity, nonce []byte, txid, channel string, rawRequest []byte) (driver.Transaction, error) {
 	factory, ok := m.factories[transactionType]
 	if !ok {
 		return nil, errors.Errorf("transaction tyep [%d] not recognized", transactionType)
@@ -119,7 +119,7 @@ func NewEndorserTransactionFactory(networkName string, channelProvider ChannelPr
 	return &EndorserTransactionFactory{networkName: networkName, channelProvider: channelProvider, sigService: sigService}
 }
 
-func (e *EndorserTransactionFactory) NewTransaction(ctx context.Context, channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (driver.Transaction, error) {
+func (e *EndorserTransactionFactory) NewTransaction(ctx context.Context, channel string, nonce, creator []byte, txid string, rawRequest []byte) (driver.Transaction, error) {
 	ch, err := e.channelProvider.Channel(channel)
 	if err != nil {
 		return nil, err

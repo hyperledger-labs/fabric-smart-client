@@ -7,10 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package sdk
 
 import (
+	"go.uber.org/dig"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
-	"go.uber.org/dig"
 )
 
 func NewContainer(opts ...dig.Option) *baseContainer {

@@ -9,10 +9,10 @@ package postgres
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-
-	"github.com/stretchr/testify/require"
 )
 
 func newBindingStoreForTests(tb testing.TB) *BindingStore {

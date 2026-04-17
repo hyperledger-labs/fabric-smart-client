@@ -101,7 +101,7 @@ func NewConfig(cs configService) (*config, error) {
 	), nil
 }
 
-func NewConfigFromProperties(listenAddress string, privateKeyPath, certPath string, serverRootCAs, clientRootCAs []string, clientAuthRequired bool, maxSubConns int, corsAllowedOrigins []string) *config {
+func NewConfigFromProperties(listenAddress, privateKeyPath, certPath string, serverRootCAs, clientRootCAs []string, clientAuthRequired bool, maxSubConns int, corsAllowedOrigins []string) *config {
 	return &config{
 		listenAddress:      listenAddress,
 		privateKeyPath:     privateKeyPath,
@@ -267,7 +267,8 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, keyFile, certFile strin
 				return errors.New("custom reject: no client cert provided")
 			}
 			return nil
-		}}
+		},
+	}
 
 	if !clientAuthRequired {
 		return tlsConfig, nil

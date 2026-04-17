@@ -10,12 +10,13 @@ import (
 	"context"
 	"sync"
 
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
-	"github.com/hyperledger/fabric-x-common/api/committerpb"
 )
 
 // txStatusInfo holds local transaction status information including validation code,
@@ -103,7 +104,7 @@ func (qe *queryExecutor) GetStateMetadata(ctx context.Context, namespace cdriver
 }
 
 // GetStateRange returns an error as range queries are not supported by the QueryService.
-func (qe *queryExecutor) GetStateRange(ctx context.Context, namespace cdriver.Namespace, startKey cdriver.PKey, endKey cdriver.PKey) (cdriver.VersionedResultsIterator, error) {
+func (qe *queryExecutor) GetStateRange(ctx context.Context, namespace cdriver.Namespace, startKey, endKey cdriver.PKey) (cdriver.VersionedResultsIterator, error) {
 	// QueryService doesn't support range queries
 	return nil, errors.New("GetStateRange not supported by VaultX QueryService")
 }

@@ -12,9 +12,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig/capabilities"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger/fabric-config/protolator"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -23,6 +20,10 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/orderer/etcdraft"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig/capabilities"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 )
 
 // The tests in this file are all relatively pointless, as all of this function is exercised

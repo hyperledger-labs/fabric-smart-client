@@ -9,9 +9,10 @@ package dig
 import (
 	"context"
 
+	"go.uber.org/dig"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"go.uber.org/dig"
 )
 
 type (

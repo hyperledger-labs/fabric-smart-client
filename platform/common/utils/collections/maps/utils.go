@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package maps
 
 // Copy copies the elements of the second map to the first
-func Copy[K comparable, V any](to map[K]V, from map[K]V) {
+func Copy[K comparable, V any](to, from map[K]V) {
 	if from == nil {
 		return
 	}
@@ -17,7 +17,7 @@ func Copy[K comparable, V any](to map[K]V, from map[K]V) {
 }
 
 // Inverse creates a map by inversing the keys with the values to enable searching a key by the value
-func Inverse[K comparable, V comparable](in map[K]V) map[V]K {
+func Inverse[K, V comparable](in map[K]V) map[V]K {
 	out := make(map[V]K, len(in))
 	for k, v := range in {
 		out[v] = k

@@ -10,7 +10,5 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-var (
-	// ErrNotImplemented signals that a function is not implemented
-	ErrNotImplemented = driver.ErrNotImplemented
-)
+// ErrNotImplemented signals that a function is not implemented
+var ErrNotImplemented = driver.ErrNotImplemented

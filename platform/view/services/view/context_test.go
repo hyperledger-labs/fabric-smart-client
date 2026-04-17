@@ -12,14 +12,15 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
 var emptyTracer = noop.NewTracerProvider().Tracer("empty")

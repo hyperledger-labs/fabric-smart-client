@@ -13,9 +13,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/stretchr/testify/assert"
 )
 
 const (

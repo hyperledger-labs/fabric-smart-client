@@ -12,9 +12,10 @@ import (
 	"crypto/x509"
 	"net/http"
 
+	"github.com/mr-tron/base58/base58"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/mr-tron/base58/base58"
 )
 
 // expectedPeerIDFromRequest extracts the PeerID from the verified TLS certificate in the request.

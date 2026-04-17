@@ -10,11 +10,12 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/onsi/gomega"
+
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 	cond2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
-	. "github.com/onsi/gomega"
 )
 
 type testCase struct {
@@ -95,5 +96,4 @@ func TestConditions(t *testing.T) { //nolint:paralleltest
 		Expect(query).To(Equal(tc.expectedQuery))
 		Expect(params).To(ConsistOf(tc.expectedParams...))
 	}
-
 }

@@ -10,13 +10,14 @@ import (
 	"context"
 	"time"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"github.com/hyperledger/fabric-protos-go-apiv2/common"
-	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 )
 
 type ValidationFlags []uint8

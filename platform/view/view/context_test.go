@@ -10,8 +10,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 func TestCompileRunViewOptions(t *testing.T) {

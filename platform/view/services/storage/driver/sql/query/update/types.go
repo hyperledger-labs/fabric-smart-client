@@ -13,7 +13,6 @@ import (
 
 // Query is the query state after UPDATE
 type Query interface {
-
 	// Set specifies a column to update
 	Set(common.FieldName, common.Param) setQuery
 }

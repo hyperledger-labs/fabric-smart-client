@@ -10,8 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 func TestMustGetLogger_WithParams(t *testing.T) {

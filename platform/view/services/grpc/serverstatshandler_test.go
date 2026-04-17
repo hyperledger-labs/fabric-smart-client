@@ -12,15 +12,16 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/onsi/gomega"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/stats"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/metricsfakes"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	. "github.com/onsi/gomega"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/stats"
 )
 
 func TestConnectionCounters(t *testing.T) {

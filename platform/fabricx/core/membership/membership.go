@@ -9,12 +9,6 @@ package membership
 import (
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
@@ -28,6 +22,13 @@ import (
 	"github.com/hyperledger/fabric-x-common/msp"
 	"github.com/hyperledger/fabric-x-common/msp/mgmt"
 	"github.com/hyperledger/fabric-x-common/protoutil"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 var logger = logging.MustGetLogger()
@@ -168,7 +169,6 @@ func toMSPIdentity(identity view.Identity) (*msppb.Identity, error) {
 }
 
 func (s *Service) IsValid(identity view.Identity) error {
-
 	sid, err := toMSPIdentity(identity)
 	if err != nil {
 		return err

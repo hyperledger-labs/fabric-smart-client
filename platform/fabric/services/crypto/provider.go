@@ -9,13 +9,13 @@ package crypto
 import (
 	"hash"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
-type provider struct {
-}
+type provider struct{}
 
 func NewProvider() *provider {
 	return &provider{}

@@ -15,13 +15,14 @@ import (
 	bccsp "github.com/IBM/idemix/bccsp/types"
 	"github.com/IBM/idemix/idemixmsp"
 	math "github.com/IBM/mathlib"
+	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	mspdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 )
 
 var logger = logging.MustGetLogger()
@@ -48,6 +49,7 @@ type kvsAdapter struct {
 func (k *kvsAdapter) Put(id string, state interface{}) error {
 	return k.kvs.Put(context.Background(), id, state)
 }
+
 func (k *kvsAdapter) Get(id string, state interface{}) error {
 	return k.kvs.Get(context.Background(), id, state)
 }
@@ -387,7 +389,7 @@ func (p *Provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 	return si, nil
 }
 
-func (p *Provider) Info(raw []byte, auditInfo []byte) (string, error) {
+func (p *Provider) Info(raw, auditInfo []byte) (string, error) {
 	r, err := p.Deserialize(raw, true)
 	if err != nil {
 		return "", err

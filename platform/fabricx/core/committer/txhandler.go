@@ -9,12 +9,13 @@ package committer
 import (
 	"context"
 
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-x-common/api/committerpb"
 )
 
 const statusIdx = int(cb.BlockMetadataIndex_TRANSACTIONS_FILTER)

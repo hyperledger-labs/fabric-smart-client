@@ -10,8 +10,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 type MyInterface interface {

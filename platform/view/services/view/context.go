@@ -12,6 +12,8 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -20,7 +22,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"go.opentelemetry.io/otel/trace"
 )
 
 // LocalIdentityChecker models the dependency to the view-sdk's sig service.

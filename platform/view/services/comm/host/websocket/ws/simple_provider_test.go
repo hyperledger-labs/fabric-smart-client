@@ -15,8 +15,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 func TestSimpleProvider_Security(t *testing.T) { //nolint:paralleltest

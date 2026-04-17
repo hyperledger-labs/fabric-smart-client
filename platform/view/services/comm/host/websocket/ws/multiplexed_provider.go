@@ -21,13 +21,14 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
-	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -243,7 +244,6 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.
 	logger.Debugf("Created client subconn with id [%s]", sc.id)
 
 	err = c.write(MultiplexedMessage{ID: sc.id, Msg: payload})
-
 	if err != nil {
 		_ = sc.Close()
 		return nil, errors.Wrapf(err, "failed to send meta message")

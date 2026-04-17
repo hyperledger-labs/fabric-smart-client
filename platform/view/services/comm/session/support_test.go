@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type mockSession struct {
@@ -45,6 +46,7 @@ func (m *mockContext) Initiator() view.View    { return nil }
 func (m *mockContext) GetSession(view.View, view.Identity, ...view.View) (view.Session, error) {
 	return nil, nil
 }
+
 func (m *mockContext) GetSessionByID(string, view.Identity) (view.Session, error) {
 	return nil, nil
 }
@@ -57,6 +59,7 @@ func (m *mockContext) OnError(func()) {}
 func (m *mockContext) GetService(interface{}) (interface{}, error) {
 	return nil, nil
 }
+
 func (m *mockContext) StartSpanFrom(ctx context.Context, _ string, _ ...trace.SpanStartOption) (context.Context, trace.Span) {
 	return ctx, trace.SpanFromContext(ctx)
 }

@@ -12,8 +12,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote/workload"
 	"google.golang.org/grpc"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote/workload"
 )
 
 func BenchmarkLocal(b *testing.B) {

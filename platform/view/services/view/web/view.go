@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
@@ -18,7 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"go.opentelemetry.io/otel/trace"
 )
 
 const (

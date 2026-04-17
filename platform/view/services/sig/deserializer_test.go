@@ -11,8 +11,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig/mock"
 )
 
 //go:generate counterfeiter -o mock/deserializer.go -fake-name Deserializer github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.SigDeserializer

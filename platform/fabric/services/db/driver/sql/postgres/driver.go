@@ -19,9 +19,7 @@ import (
 	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
 )
 
-var (
-	logger = logging.MustGetLogger()
-)
+var logger = logging.MustGetLogger()
 
 const (
 	Persistence driver2.PersistenceType = "postgres"

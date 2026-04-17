@@ -19,8 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type ECDSASignParams struct {
-}
+type ECDSASignParams struct{}
 
 type ECDSASignView struct {
 	params ECDSASignParams
@@ -45,7 +44,6 @@ func (q *ECDSASignView) Call(viewCtx view.Context) (interface{}, error) {
 type ECDSASignViewFactory struct{}
 
 func (c *ECDSASignViewFactory) NewView(in []byte) (view.View, error) {
-
 	f := &ECDSASignView{}
 	if err := json.Unmarshal(in, &f.params); err != nil {
 		return nil, err

@@ -10,8 +10,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"gopkg.in/yaml.v2"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // SignerConfig defines the configuration of a signer.

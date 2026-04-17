@@ -13,10 +13,11 @@ import (
 	"crypto/x509"
 	"testing"
 
-	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+
+	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 func TestExtractCertificateHashFromContext(t *testing.T) {
@@ -48,8 +49,7 @@ func TestExtractCertificateHashFromContext(t *testing.T) {
 	require.Equal(t, h.Sum(nil), grpc3.ExtractCertificateHashFromContext(ctx))
 }
 
-type nonTLSConnection struct {
-}
+type nonTLSConnection struct{}
 
 func (*nonTLSConnection) AuthType() string {
 	return ""

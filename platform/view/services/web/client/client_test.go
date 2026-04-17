@@ -23,11 +23,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
 
 // --- Config URL generation ---
@@ -401,7 +402,7 @@ func newTestClient(t *testing.T, server *httptest.Server) *Client {
 }
 
 // generateSelfSignedCert returns a PEM-encoded self-signed CA cert and private key.
-func generateSelfSignedCert(t *testing.T) (certPEM []byte, keyPEM []byte) {
+func generateSelfSignedCert(t *testing.T) (certPEM, keyPEM []byte) {
 	t.Helper()
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -432,6 +433,6 @@ func generateSelfSignedCert(t *testing.T) (certPEM []byte, keyPEM []byte) {
 func writeTempFile(t *testing.T, name string, data []byte) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
-	require.NoError(t, os.WriteFile(path, data, 0600))
+	require.NoError(t, os.WriteFile(path, data, 0o600))
 	return path
 }

@@ -18,6 +18,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -25,10 +30,6 @@ import (
 	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/credentials"
 )
 
 const testTimeout = 1 * time.Second // conservative
@@ -38,7 +39,8 @@ type echoServer struct {
 }
 
 func (es *echoServer) EchoCall(ctx context.Context,
-	echo *testpb.Echo) (*testpb.Echo, error) {
+	echo *testpb.Echo,
+) (*testpb.Echo, error) {
 	return echo, nil
 }
 
@@ -495,7 +497,7 @@ func TestSetMessageSize(t *testing.T) {
 	go utils.IgnoreErrorFunc(srv.Start)
 	t.Cleanup(srv.Stop)
 
-	var tests = []struct {
+	tests := []struct {
 		name        string
 		maxRecvSize int
 		maxSendSize int

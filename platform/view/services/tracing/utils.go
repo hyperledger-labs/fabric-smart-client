@@ -10,8 +10,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 func MarshalContext(c trace.SpanContext) ([]byte, error) {

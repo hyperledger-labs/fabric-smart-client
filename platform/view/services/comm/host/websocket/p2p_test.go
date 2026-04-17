@@ -23,6 +23,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/sdk/freeport"
+	"github.com/mr-tron/base58/base58"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -31,9 +35,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/mr-tron/base58/base58"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestMain(m *testing.M) {
@@ -336,7 +337,7 @@ func generateTLSFiles(t *testing.T) generatedTLSFiles {
 	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caPriv.PublicKey, caPriv)
 	require.NoError(t, err)
 
-	writePEM := func(path string, typ string, raw []byte) {
+	writePEM := func(path, typ string, raw []byte) {
 		f, err := os.Create(path)
 		require.NoError(t, err)
 		defer func() { require.NoError(t, f.Close()) }()
@@ -535,7 +536,7 @@ func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) 
 		&comm.HostNode{P2PNode: bobNode, ID: bobID, Address: bobAddr}
 }
 
-func writePEM(t *testing.T, path string, typ string, raw []byte) {
+func writePEM(t *testing.T, path, typ string, raw []byte) {
 	t.Helper()
 	f, err := os.Create(path)
 	require.NoError(t, err)

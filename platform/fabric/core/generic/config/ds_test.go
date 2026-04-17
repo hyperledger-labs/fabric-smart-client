@@ -9,14 +9,15 @@ package config_test
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
-	configservice "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	koanfyaml "github.com/knadh/koanf/parsers/yaml"
 	koanffile "github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
+	configservice "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 )
 
 func TestLoad(t *testing.T) {

@@ -52,7 +52,7 @@ type DeserializerManager interface {
 
 type Manager interface {
 	AddDeserializer(deserializer Deserializer)
-	AddMSP(name string, mspType string, enrollmentID string, idGetter driver.GetIdentityFunc) error
+	AddMSP(name, mspType, enrollmentID string, idGetter driver.GetIdentityFunc) error
 	Config() Config
 	DefaultMSP() string
 	SignerService() SignerService
@@ -68,7 +68,7 @@ type IdentityLoader interface {
 type Identity interface {
 	Serialize() ([]byte, error)
 
-	Verify(msg []byte, sig []byte) error
+	Verify(msg, sig []byte) error
 }
 
 // SigningIdentity defines the functions necessary to sign an

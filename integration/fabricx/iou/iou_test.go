@@ -9,14 +9,14 @@ package iou_test
 import (
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/iou"
-
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 const (

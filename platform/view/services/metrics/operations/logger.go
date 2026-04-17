@@ -8,6 +8,7 @@ package operations
 
 import (
 	log2 "github.com/go-kit/log"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 

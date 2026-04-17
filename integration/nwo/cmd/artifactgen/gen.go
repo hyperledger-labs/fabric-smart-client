@@ -9,14 +9,14 @@ package artifactgen
 import (
 	"os"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"gopkg.in/yaml.v2"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 type Topology struct {
@@ -31,9 +31,11 @@ type T struct {
 	Topologies []interface{} `yaml:"topologies,omitempty"`
 }
 
-var topologyFile string
-var output string
-var port int
+var (
+	topologyFile string
+	output       string
+	port         int
+)
 
 // NewCmd returns the Cobra Command for the artifactsgen
 func NewCmd() *cobra.Command {

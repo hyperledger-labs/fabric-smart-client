@@ -12,8 +12,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/onsi/gomega"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 )
 
 const (

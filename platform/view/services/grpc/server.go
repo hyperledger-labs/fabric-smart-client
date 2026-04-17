@@ -15,10 +15,11 @@ import (
 	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 type GRPCServer struct {
@@ -53,7 +54,6 @@ func NewGRPCServer(address string, serverConfig ServerConfig) (*GRPCServer, erro
 	}
 	// create our listener
 	lis, err := net.Listen("tcp", address)
-
 	if err != nil {
 		return nil, err
 	}

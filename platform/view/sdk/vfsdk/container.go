@@ -10,19 +10,22 @@ import (
 	errors2 "errors"
 	"reflect"
 
+	"go.uber.org/dig"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	"go.uber.org/dig"
 )
 
 var logger = logging.MustGetLogger()
 
-var viewFactoryInterface = reflect.TypeOf(new(view.Factory)).Elem()
-var errorInterface = reflect.TypeOf(new(error)).Elem()
-var factoryEntryType = reflect.TypeOf(&factoryEntry{})
+var (
+	viewFactoryInterface = reflect.TypeOf(new(view.Factory)).Elem()
+	errorInterface       = reflect.TypeOf(new(error)).Elem()
+	factoryEntryType     = reflect.TypeOf(&factoryEntry{})
+)
 
 var nilError = reflect.Zero(reflect.TypeOf((*error)(nil)).Elem())
 

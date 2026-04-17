@@ -10,13 +10,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
-	"github.com/stretchr/testify/require"
 )
 
 func TestInfoIdemix(t *testing.T) {

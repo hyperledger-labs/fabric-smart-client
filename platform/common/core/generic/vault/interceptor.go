@@ -188,7 +188,7 @@ func (i *Interceptor[V]) Namespaces() []string {
 	return namespaces
 }
 
-func (i *Interceptor[V]) DeleteState(namespace string, key string) error {
+func (i *Interceptor[V]) DeleteState(namespace, key string) error {
 	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
@@ -196,7 +196,7 @@ func (i *Interceptor[V]) DeleteState(namespace string, key string) error {
 	return i.SetState(namespace, key, nil)
 }
 
-func (i *Interceptor[V]) SetState(namespace string, key string, value []byte) error {
+func (i *Interceptor[V]) SetState(namespace, key string, value []byte) error {
 	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}
@@ -205,7 +205,7 @@ func (i *Interceptor[V]) SetState(namespace string, key string, value []byte) er
 	return i.rws.WriteSet.Add(namespace, key, value)
 }
 
-func (i *Interceptor[V]) SetStateMetadata(namespace string, key string, value map[string][]byte) error {
+func (i *Interceptor[V]) SetStateMetadata(namespace, key string, value map[string][]byte) error {
 	if i.IsClosed() {
 		return errors.New("this instance was closed")
 	}

@@ -12,5 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote"
 )
 
-type ClientFunc func(ctx context.Context) error
-type ServerFunc func(ctx context.Context, in *remote.Request) (*remote.Response, error)
+type (
+	ClientFunc func(ctx context.Context) error
+	ServerFunc func(ctx context.Context, in *remote.Request) (*remote.Response, error)
+)

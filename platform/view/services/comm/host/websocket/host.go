@@ -44,7 +44,6 @@ func NewHost(nodeID host2.PeerID, routing routing2.ServiceDiscovery, streamProvi
 	return &host{
 		nodeID: nodeID,
 		server: &server{
-
 			srv: &http.Server{
 				Addr:              config.ListenAddress(),
 				TLSConfig:         serverConfig,

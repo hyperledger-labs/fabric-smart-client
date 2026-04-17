@@ -12,8 +12,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 var packageTestDir = filepath.Join(os.TempDir(), "ccmetadata-validator-test")
@@ -96,7 +97,6 @@ func TestBadMetadataExtension(t *testing.T) {
 
 	err := ValidateMetadataFile(fileName, fileBytes)
 	require.Error(t, err, "Should have received an error")
-
 }
 
 func TestBadFilePaths(t *testing.T) {
@@ -198,7 +198,6 @@ func TestIndexValidation(t *testing.T) {
 	_, indexDefinition = isJSON(indexDef)
 	err = validateIndexJSON(indexDefinition)
 	require.NoError(t, err)
-
 }
 
 func TestIndexValidationInvalidParameters(t *testing.T) {
@@ -244,7 +243,6 @@ func TestIndexValidationInvalidParameters(t *testing.T) {
 	_, indexDefinition = isJSON(indexDef)
 	err = validateIndexJSON(indexDefinition)
 	require.Error(t, err, "Error should have been thrown for missing index parameter")
-
 }
 
 func TestIndexValidationInvalidFields(t *testing.T) {
@@ -285,7 +283,6 @@ func TestIndexValidationInvalidFields(t *testing.T) {
 	_, indexDefinition = isJSON(indexDef)
 	err = validateIndexJSON(indexDefinition)
 	require.Error(t, err, "Error should have been thrown for missing JSON for fields")
-
 }
 
 func cleanupDir(dir string) error {

@@ -15,15 +15,16 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/hyperledger/fabric-lib-go/bccsp"
+	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
+	msp2 "github.com/hyperledger/fabric-protos-go-apiv2/msp"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509/pkcs11"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
-	"github.com/hyperledger/fabric-lib-go/bccsp"
-	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
-	msp2 "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 )
 
 const (
@@ -122,7 +123,7 @@ func LoadLocalMSPSignerCert(dir string) ([]byte, error) {
 
 // GetBCCSPFromConf returns a BCCSP instance and its relative key store from the passed configuration.
 // If no configuration is passed, the default one is used, namely the `SW` provider.
-func GetBCCSPFromConf(dir string, keyStorePath string, conf *config.BCCSP) (bccsp.BCCSP, bccsp.KeyStore, error) {
+func GetBCCSPFromConf(dir, keyStorePath string, conf *config.BCCSP) (bccsp.BCCSP, bccsp.KeyStore, error) {
 	if len(keyStorePath) == 0 {
 		keyStorePath = filepath.Join(dir, "keystore")
 	}

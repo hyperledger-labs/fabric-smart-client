@@ -9,9 +9,10 @@ package _insert_test
 import (
 	"testing"
 
+	. "github.com/onsi/gomega"
+
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-	. "github.com/onsi/gomega"
 )
 
 func TestInsertSimple(t *testing.T) { //nolint:paralleltest

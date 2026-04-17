@@ -10,13 +10,14 @@ import (
 	"context"
 	"strings"
 
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = logging.MustGetLogger()

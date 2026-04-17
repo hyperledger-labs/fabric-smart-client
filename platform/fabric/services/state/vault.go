@@ -40,5 +40,5 @@ type Vault interface {
 // VaultService models a vault instance provider
 type VaultService interface {
 	// Vault returns the world state for the passed channel.
-	Vault(network string, channel string) (Vault, error)
+	Vault(network, channel string) (Vault, error)
 }

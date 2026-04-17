@@ -36,7 +36,7 @@ func NewSliceIterator[T any](items []T) iterators.Iterator[T] {
 	return iterators.Slice(items)
 }
 
-func Map[A any, B any](iterator iterators.Iterator[A], transformer func(A) (B, error)) iterators.Iterator[B] {
+func Map[A, B any](iterator iterators.Iterator[A], transformer func(A) (B, error)) iterators.Iterator[B] {
 	return iterators.Map(iterator, transformer)
 }
 

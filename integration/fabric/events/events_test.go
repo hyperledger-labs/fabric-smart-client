@@ -9,14 +9,15 @@ package events_test
 import (
 	"encoding/json"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("EndToEnd", func() {

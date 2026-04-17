@@ -11,11 +11,12 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 //go:generate counterfeiter -o mock/signer_info_store.go -fake-name SignerInfoStore github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.SignerInfoStore

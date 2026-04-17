@@ -13,10 +13,11 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/spf13/cobra"
+
 	"github.com/hyperledger-labs/fabric-smart-client/node/start/profile"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -51,7 +52,7 @@ var nodeCmd = &cobra.Command{
 }
 
 func startCmd() *cobra.Command {
-	var nodeStartCmd = &cobra.Command{
+	nodeStartCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Starts the fabric smart client node.",
 		Long:  `Starts the fabric smart client node that interacts with the network.`,
@@ -86,7 +87,7 @@ func serve() error {
 
 	if enableProfile {
 		logger.Infof("Profiling enabled")
-		var profiler, err = profile.New(profile.WithPath(configPath), profile.WithAll())
+		profiler, err := profile.New(profile.WithPath(configPath), profile.WithAll())
 		if err != nil {
 			logger.Errorf("error creating profiler: [%s]", err)
 			callback(err)

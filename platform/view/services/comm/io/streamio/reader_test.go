@@ -32,7 +32,6 @@ func (m *MockMsgReader) Read() ([]byte, error) {
 	}
 
 	return nil, nil
-
 }
 
 func TestRead(t *testing.T) {
@@ -53,7 +52,6 @@ func TestRead(t *testing.T) {
 	// We are doing 4 reads of at most 7 characters
 	for i := 0; i < 4; i++ {
 		n, err := reader.Read(buf)
-
 		if err != nil {
 			t.Errorf("Expected err to be nil but was %v", err)
 		}

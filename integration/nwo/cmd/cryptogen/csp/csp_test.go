@@ -20,10 +20,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/require"
 
 	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 func TestLoadPrivateKey(t *testing.T) {
@@ -92,7 +92,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) { //nolint:tparallel
 			err := os.WriteFile(
 				badPEMFile,
 				test.data,
-				0755,
+				0o755,
 			)
 			require.NoError(t, err, "failed to write to wrong encoding file")
 			_, err = csp2.LoadPrivateKey(badPEMFile)

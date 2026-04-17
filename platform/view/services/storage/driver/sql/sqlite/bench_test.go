@@ -12,10 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkReadExistingSqlite(b *testing.B) {

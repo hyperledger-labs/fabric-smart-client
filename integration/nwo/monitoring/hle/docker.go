@@ -19,10 +19,11 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/onsi/gomega"
 )
 
 const (
@@ -122,7 +123,6 @@ func (n *Extension) startExplorerDB() {
 			dockerLogger.Debugf("%s", scanner.Text())
 		}
 	}()
-
 }
 
 func (n *Extension) startExplorer() {
@@ -240,5 +240,4 @@ func (n *Extension) startExplorer() {
 			dockerLogger.Debugf("%s", scanner.Text())
 		}
 	}()
-
 }

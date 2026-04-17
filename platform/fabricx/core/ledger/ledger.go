@@ -9,6 +9,10 @@ package ledger
 import (
 	"context"
 
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
@@ -16,9 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
-	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-x-common/api/committerpb"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // logger is the ledger package logger.

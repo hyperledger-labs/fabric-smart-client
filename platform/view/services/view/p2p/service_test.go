@@ -12,11 +12,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/p2p/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/require"
 )
 
 type viewManagerMock struct {
@@ -43,7 +44,7 @@ func (m *viewManagerMock) GetIdentity(endpoint string, pkID []byte) (view.Identi
 	return view.Identity("caller"), nil
 }
 
-func (m *viewManagerMock) NewResponderContext(ctx context.Context, contextID string, session view.Session, me view.Identity, remote view.Identity) (view.Context, bool, error) {
+func (m *viewManagerMock) NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, bool, error) {
 	if m.NewSessionContextFunc != nil {
 		return m.NewSessionContextFunc(ctx, contextID, session, me)
 	}

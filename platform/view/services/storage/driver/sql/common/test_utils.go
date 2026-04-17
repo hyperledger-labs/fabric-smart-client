@@ -10,11 +10,12 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	_ "modernc.org/sqlite"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/require"
-	_ "modernc.org/sqlite"
 )
 
 type provider[V any] func(name string) (V, error)

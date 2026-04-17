@@ -12,13 +12,11 @@ import (
 
 var (
 	requestsReceived = metrics.CounterOpts{
-
 		Name:       "requests_received",
 		Help:       "The number of view requests that have been received.",
 		LabelNames: []string{"command"},
 	}
 	requestsCompleted = metrics.CounterOpts{
-
 		Name:       "requests_completed",
 		Help:       "The number of view requests that have been completed.",
 		LabelNames: []string{"command", "success"},

@@ -36,7 +36,6 @@ func (e *resolver) GetIdentity(label string) (view.Identity, error) {
 	if res.IsNone() {
 		// lookup for a level up
 		return e.es.GetIdentity(label, nil)
-
 	}
 	return res, nil
 }

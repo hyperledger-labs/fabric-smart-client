@@ -12,6 +12,7 @@ import (
 	msp "github.com/IBM/idemix"
 	csp "github.com/IBM/idemix/bccsp/types"
 	math "github.com/IBM/mathlib"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -78,7 +79,7 @@ func (i *Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) 
 	}, nil
 }
 
-func (i *Deserializer) DeserializeVerifierAgainstNymEID(raw []byte, nymEID []byte) (driver.Verifier, error) {
+func (i *Deserializer) DeserializeVerifierAgainstNymEID(raw, nymEID []byte) (driver.Verifier, error) {
 	identity, err := i.DeserializeAgainstNymEID(raw, true, nymEID)
 	if err != nil {
 		return nil, err
@@ -99,7 +100,7 @@ func (i *Deserializer) DeserializeAuditInfo(raw []byte) (*AuditInfo, error) {
 	return i.Idemix.DeserializeAuditInfo(raw)
 }
 
-func (i *Deserializer) Info(raw []byte, auditInfo []byte) (string, error) {
+func (i *Deserializer) Info(raw, auditInfo []byte) (string, error) {
 	r, err := i.Deserialize(raw, false)
 	if err != nil {
 		return "", err

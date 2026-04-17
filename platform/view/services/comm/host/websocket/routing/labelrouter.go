@@ -9,9 +9,10 @@ package routing
 import (
 	"os"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"gopkg.in/yaml.v2"
 )
 
 // staticLabelRouter is a map implementation of label routing

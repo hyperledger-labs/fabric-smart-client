@@ -14,8 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 func TestConfig(t *testing.T) {

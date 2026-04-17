@@ -10,16 +10,17 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"github.com/hyperledger/fabric-x-common/api/committerpb"
-	"github.com/stretchr/testify/require"
 )
 
 type stubTransactionFactory struct {

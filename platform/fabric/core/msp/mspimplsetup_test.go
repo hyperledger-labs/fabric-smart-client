@@ -10,11 +10,12 @@ import (
 	"crypto/x509"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/tlsgen"
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/onsi/gomega"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/tlsgen"
 )
 
 var (

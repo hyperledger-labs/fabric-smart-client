@@ -13,16 +13,19 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-const blockSize = 100
-const rwSetSize = 5
-const namespace = "ns"
+const (
+	blockSize = 100
+	rwSetSize = 5
+	namespace = "ns"
+)
 
 func BenchmarkPostgresVault(b *testing.B) {
 	ddb, terminate, err := vault.OpenPostgresVault("common-sdk-node1")

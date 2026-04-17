@@ -10,6 +10,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
@@ -18,7 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRegisterIdemixLocalMSP(t *testing.T) { //nolint:paralleltest

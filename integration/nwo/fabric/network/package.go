@@ -13,9 +13,10 @@ import (
 	"io"
 	"os"
 
+	"github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/onsi/gomega"
 )
 
 // PackageChaincodeBinary is a helper function to package
@@ -57,7 +58,7 @@ func writeMetadataJSON(tw *tar.Writer, path, ccType, label string) {
 	err = tw.WriteHeader(&tar.Header{
 		Name: "metadata.json",
 		Size: int64(len(metadata)),
-		Mode: 0100644,
+		Mode: 0o100644,
 	})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	_, err = tw.Write(metadata)

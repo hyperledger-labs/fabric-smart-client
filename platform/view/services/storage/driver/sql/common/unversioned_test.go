@@ -13,10 +13,11 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
-	. "github.com/onsi/gomega"
 )
 
 var (
@@ -128,6 +129,7 @@ func TestDeleteState_ExecError(t *testing.T) { //nolint:paralleltest
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 	Expect(err).To(HaveOccurred())
 }
+
 func TestGetStateRangeScanIterator(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, mock, err := sqlmock.New()
@@ -234,6 +236,6 @@ func TestClose(t *testing.T) { //nolint:paralleltest
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 }
 
-func mockKeyValueStore(write *sql.DB, read *sql.DB) *common2.KeyValueStore {
+func mockKeyValueStore(write, read *sql.DB) *common2.KeyValueStore {
 	return common2.NewKeyValueStore(write, read, "kv_table", &dummyErrorWrapper{}, sqlite.NewConditionInterpreter())
 }

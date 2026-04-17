@@ -17,9 +17,10 @@ import (
 	"crypto/x509"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 )
 
 func TestDefaultPublicKeyIDSynthesizer_PublicKeyID(t *testing.T) {

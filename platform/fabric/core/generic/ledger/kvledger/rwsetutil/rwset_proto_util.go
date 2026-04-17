@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"crypto/sha256"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger/version"
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset"
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset/kvrwset"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger/version"
 )
 
 // ///////////////////////////////////////////////////////////////

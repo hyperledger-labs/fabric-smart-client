@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewNotificationServiceConfig(t *testing.T) {

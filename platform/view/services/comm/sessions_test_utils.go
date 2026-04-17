@@ -13,9 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // SessionsNodesTestRound tests multiple parallel sessions between an initiator node and multiple other nodes
@@ -50,7 +51,7 @@ func SessionsNodesTestRound(t *testing.T, initiator *HostNode, nodes []*HostNode
 	}
 }
 
-func runInitiator(t *testing.T, ctx context.Context, bootstrapNode *HostNode, targetNode *HostNode, numSessionsPerNode int) {
+func runInitiator(t *testing.T, ctx context.Context, bootstrapNode, targetNode *HostNode, numSessionsPerNode int) {
 	t.Helper()
 	for i := 0; i < numSessionsPerNode; i++ {
 		select {

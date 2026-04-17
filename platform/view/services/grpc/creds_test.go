@@ -17,9 +17,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/stretchr/testify/require"
 )
 
 func TestCreds(t *testing.T) {

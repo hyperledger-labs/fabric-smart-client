@@ -13,13 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
-	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 )
 
 type ValidationCode = int
@@ -262,7 +263,7 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultStore, vp artifactsProvid
 	require.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	require.NoError(t, err)
-	var expected = vp.RemoveNils([]driver.VaultRead{
+	expected := vp.RemoveNils([]driver.VaultRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: versionBlockTxNumToBytes(35, 3)},
 	})
 	require.Equal(t, expected, res)

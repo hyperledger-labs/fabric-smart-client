@@ -10,10 +10,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/hyperledger/fabric-x-common/api/applicationpb"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 )
 
 // mergeProposalResponseEndorsements merges the endorsements carried by multiple

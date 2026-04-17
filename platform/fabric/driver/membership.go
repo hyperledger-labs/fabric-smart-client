@@ -9,9 +9,10 @@ package driver
 import (
 	"context"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 )
 
 type IdentityOptions struct {
@@ -32,10 +33,10 @@ type LocalMembership interface {
 	AnonymousIdentity() (view.Identity, error)
 	IsMe(ctx context.Context, id view.Identity) bool
 	DefaultSigningIdentity() SigningIdentity
-	RegisterX509MSP(id string, path string, mspID string) error
-	RegisterIdemixMSP(id string, path string, mspID string) error
+	RegisterX509MSP(id, path, mspID string) error
+	RegisterIdemixMSP(id, path, mspID string) error
 	GetIdentityByID(id string) (view.Identity, error)
-	GetIdentityInfoByLabel(mspType string, label string) *IdentityInfo
+	GetIdentityInfoByLabel(mspType, label string) *IdentityInfo
 	GetIdentityInfoByIdentity(mspType string, id view.Identity) *IdentityInfo
 	Refresh() error
 }

@@ -11,8 +11,9 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/mr-tron/base58/base58"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 type PKIDSynthesizer struct{}

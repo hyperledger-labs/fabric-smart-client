@@ -16,13 +16,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/stretchr/testify/require"
 )
 
 //go:generate counterfeiter -o mock/libp2p_config.go -fake-name LibP2PConfig . libp2pConfig
