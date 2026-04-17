@@ -389,8 +389,7 @@ func generateTLSFiles(t *testing.T) generatedTLSFiles {
 	}
 }
 
-func TestSessionInfoSecurityGuarantees(t *testing.T) {
-	t.Parallel()
+func TestSessionInfoSecurityGuarantees(t *testing.T) { //nolint:paralleltest
 	ctx := t.Context()
 	// Simpler: Alice, Bob and Charlie all share the same CA.
 	allTlsFiles := generateThreeNodesTLSFiles(t)

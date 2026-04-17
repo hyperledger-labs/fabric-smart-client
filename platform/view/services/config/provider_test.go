@@ -199,8 +199,7 @@ func TestGetProvider(t *testing.T) {
 	})
 }
 
-func TestProviderMore(t *testing.T) {
-	t.Parallel()
+func TestProviderMore(t *testing.T) { //nolint:paralleltest
 	_ = os.Setenv("CORE_FSC_ID", "node1")
 	p, err := NewProvider("./testdata")
 	require.NoError(t, err)
@@ -241,8 +240,7 @@ func TestProviderError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestEnvConversions(t *testing.T) {
-	t.Parallel()
+func TestEnvConversions(t *testing.T) { //nolint:paralleltest
 	_ = os.Setenv("CORE_ENV_INT", "123")
 	_ = os.Setenv("CORE_ENV_BOOL", "true")
 	_ = os.Setenv("CORE_ENV_FLOAT", "1.23")
