@@ -187,6 +187,12 @@ func (a *orderingServiceAdapter) Configure(consensusType string, orderers []*grp
 	if !ok {
 		return errors.New("ordering service is not an *ordering.ChannelConfigMonitor")
 	}
+	// [CBDC-ARMA] FSC v0.9+ dropped the arma -> BFT broadcaster alias that v0.8.2 had
+	// in NewCommitter. fabric-x-orderer writes ConsensusType="arma" to genesis, so
+	// translate it to FSC's BFT broadcaster here. Tracking upstream PR.
+	if consensusType == "arma" {
+		consensusType = ordering.BFT
+	}
 	return orderingService.Configure(consensusType, orderers)
 }
 
