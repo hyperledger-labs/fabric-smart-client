@@ -109,7 +109,7 @@ func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns driver2.Nam
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to build query")
 	}
-	logger.Debug(query[:30] + "...")
+	logger.Debug(query[:min(30, len(query))] + "...")
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {

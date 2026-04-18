@@ -40,7 +40,7 @@ func (db *SimpleKeyDataStore) GetData(ctx context.Context, key string) ([]byte, 
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to build query")
 	}
-	logger.Debug(query, params)
+	logger.Debug(query)
 	return QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
 }
 
