@@ -322,3 +322,117 @@ func TestSatisfiesPrincipal(t *testing.T) {
 	require.NotNil(t, v)
 	require.Contains(t, "Invalid", v.(error).Error())
 }
+
+func TestDeserializeSigningIdentity(t *testing.T) {
+	t.Parallel()
+	mockMSP := &mocks.MockMSP{}
+	wrappedMSP, err := New(mockMSP)
+	require.NoError(t, err)
+
+	// Mock a signing identity
+	mockIdentity := &mocks.MockSigningIdentity{}
+	serializedIdentity := []byte{1, 2, 3}
+	mockMSP.On("DeserializeIdentity", serializedIdentity).Return(mockIdentity, nil)
+
+	// Deserialize identity
+	id, err := wrappedMSP.DeserializeIdentity(serializedIdentity)
+	require.NoError(t, err)
+
+	// Verify that the cached identity still implements msp.SigningIdentity
+	_, ok := id.(msp.SigningIdentity)
+	require.True(t, ok, "cached identity should implement msp.SigningIdentity")
+}
+
+func TestCachedSigningIdentity_GetPublicVersion(t *testing.T) {
+	t.Parallel()
+	mockMSP := &mocks.MockMSP{}
+	wrappedMSP, err := New(mockMSP)
+	require.NoError(t, err)
+
+	mockPublicIdentity := &mocks.MockIdentity{ID: "Alice-Public"}
+	mockSigningIdentity := &mocks.MockSigningIdentity{MockIdentity: &mocks.MockIdentity{ID: "Alice"}}
+	mockSigningIdentity.On("GetPublicVersion").Return(mockPublicIdentity)
+
+	serializedIdentity := []byte("Alice-Serialized")
+	mockMSP.On("DeserializeIdentity", serializedIdentity).Return(mockSigningIdentity, nil)
+
+	id, err := wrappedMSP.DeserializeIdentity(serializedIdentity)
+	require.NoError(t, err)
+
+	signingId, ok := id.(msp.SigningIdentity)
+	require.True(t, ok)
+
+	publicId := signingId.GetPublicVersion()
+	require.NotNil(t, publicId)
+
+	// Verify it's a cached identity
+	_, ok = publicId.(*cachedIdentity)
+	require.True(t, ok)
+	require.Equal(t, mockPublicIdentity, publicId.(*cachedIdentity).Identity)
+
+	mockSigningIdentity.AssertExpectations(t)
+}
+
+func TestCachedSigningIdentity_Sign(t *testing.T) {
+	t.Parallel()
+	mockMSP := &mocks.MockMSP{}
+	wrappedMSP, err := New(mockMSP)
+	require.NoError(t, err)
+
+	mockSigningIdentity := &mocks.MockSigningIdentity{MockIdentity: &mocks.MockIdentity{ID: "Alice"}}
+	msg := []byte("hello")
+	sig := []byte("signature")
+	mockSigningIdentity.On("Sign", msg).Return(sig, nil)
+
+	serializedIdentity := []byte("Alice-Serialized")
+	mockMSP.On("DeserializeIdentity", serializedIdentity).Return(mockSigningIdentity, nil)
+
+	id, err := wrappedMSP.DeserializeIdentity(serializedIdentity)
+	require.NoError(t, err)
+
+	signingId, ok := id.(msp.SigningIdentity)
+	require.True(t, ok)
+
+	res, err := signingId.Sign(msg)
+	require.NoError(t, err)
+	require.Equal(t, sig, res)
+
+	mockSigningIdentity.AssertExpectations(t)
+}
+
+func TestCachedIdentity_DirectCalls(t *testing.T) {
+	t.Parallel()
+	mockMSP := &mocks.MockMSP{}
+	wrappedMSP, err := New(mockMSP)
+	require.NoError(t, err)
+
+	mockIdentity := &mocks.MockIdentity{ID: "Alice"}
+	mockIdentity.On("GetIdentifier").Return(&msp.IdentityIdentifier{Mspid: "MSP", Id: "Alice"})
+
+	serializedIdentity := []byte("Alice-Serialized")
+	mockMSP.On("DeserializeIdentity", serializedIdentity).Return(mockIdentity, nil)
+
+	id, err := wrappedMSP.DeserializeIdentity(serializedIdentity)
+	require.NoError(t, err)
+
+	// Test Validate
+	mockMSP.On("Validate", mockIdentity).Return(nil).Once()
+	err = id.Validate()
+	require.NoError(t, err)
+
+	// Second call should be cached
+	err = id.Validate()
+	require.NoError(t, err)
+
+	// Test SatisfiesPrincipal
+	principal := &msp2.MSPPrincipal{PrincipalClassification: msp2.MSPPrincipal_IDENTITY, Principal: []byte("Alice")}
+	mockMSP.On("SatisfiesPrincipal", mockIdentity, principal).Return(nil).Once()
+	err = id.SatisfiesPrincipal(principal)
+	require.NoError(t, err)
+
+	// Second call should be cached
+	err = id.SatisfiesPrincipal(principal)
+	require.NoError(t, err)
+
+	mockMSP.AssertExpectations(t)
+}
