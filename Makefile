@@ -201,3 +201,11 @@ fmt: ## Run gofmt on the entire project
 .PHONY: clean-fabric-peer-images
 clean-fabric-peer-images:
 	docker images -a | grep "_peer_" | awk '{print $3}' | xargs docker rmi
+
+.PHONY: coverage-local
+coverage-local: ## Run unit tests and show filtered coverage
+	@echo "Running unit tests with coverage..."
+	@env FABRIC_LOGGING_SPEC=error FAB_BINS=$(FAB_BINS) go test -coverprofile=coverage.tmp $(GO_PACKAGES)
+	@./scripts/filter-coverage.sh coverage.tmp coverage.out
+	@go tool cover -func=coverage.out | tail -n 1
+	@rm coverage.tmp
