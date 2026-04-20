@@ -11,21 +11,20 @@ import (
 	"database/sql"
 	"fmt"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func NewAuditInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *AuditInfoStore {
+func NewAuditInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *AuditInfoStore {
 	return &AuditInfoStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
-		ci:           ci,
+		sb:           sq.StatementBuilder.PlaceholderFormat(ph),
 	}
 }
 
@@ -34,33 +33,40 @@ type AuditInfoStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
-	ci           common.CondInterpreter
+	sb           sq.StatementBuilderType
 }
 
 func (db *AuditInfoStore) GetAuditInfo(ctx context.Context, id view.Identity) ([]byte, error) {
-	query, params := q.Select().FieldsByName("audit_info").
-		From(q.Table(db.table)).
-		Where(cond.Eq("id", id.UniqueID())).
-		Format(db.ci)
+	query, params, err := db.sb.Select("audit_info").
+		From(db.table).
+		Where(sq.Eq{"id": id.UniqueID()}).
+		ToSql()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build query")
+	}
+
 	logger.Debug(query, params)
 
 	return QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
 }
 
 func (db *AuditInfoStore) PutAuditInfo(ctx context.Context, id view.Identity, info []byte) error {
-	query, params := q.InsertInto(db.table).
-		Fields("id", "audit_info").
-		Row(id.UniqueID(), info).
-		Format()
+	query, params, err := db.sb.Insert(db.table).
+		Columns("id", "audit_info").
+		Values(id.UniqueID(), info).
+		ToSql()
+	if err != nil {
+		return errors.Wrapf(err, "failed to build query")
+	}
 
 	logger.Debug(query, params)
-	_, err := db.writeDB.ExecContext(ctx, query, params...)
-	if err != nil && errors.Is(db.errorWrapper.WrapError(err), driver.UniqueKeyViolation) {
+	_, execErr := db.writeDB.ExecContext(ctx, query, params...)
+	if execErr != nil && errors.Is(db.errorWrapper.WrapError(execErr), driver.UniqueKeyViolation) {
 		logger.Infof("Audit info [%s] already in db. Skipping...", id)
 		return nil
 	}
-	if err != nil {
-		return errors.Wrapf(err, "failed executing query [%s]", query)
+	if execErr != nil {
+		return errors.Wrapf(execErr, "failed executing query [%s]", query)
 	}
 	logger.DebugfContext(ctx, "signer [%s] registered", id)
 	return nil
