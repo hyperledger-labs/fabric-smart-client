@@ -446,7 +446,18 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 		grpc3.ServerConfig{SecOpts: grpc3.SecureOptions{UseTLS: false}},
 	)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "address already in use")
+	msgs = []string{
+		"address already in use",
+		"Only one usage of each socket address",
+	}
+	require.Condition(t, func() bool {
+		for _, msg := range msgs {
+			if strings.Contains(err.Error(), msg) {
+				return true
+			}
+		}
+		return false
+	}, "unexpected error: %v", err)
 
 	// missing server Certificate
 	_, err = grpc3.NewGRPCServerFromListener(
@@ -516,12 +527,12 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 func TestNewGRPCServer(t *testing.T) {
 	t.Parallel()
 
-	testAddress := "127.0.0.1:9053"
 	srv, err := grpc3.NewGRPCServer(
-		testAddress,
+		"127.0.0.1:0",
 		grpc3.ServerConfig{SecOpts: grpc3.SecureOptions{UseTLS: false}},
 	)
 	require.NoError(t, err, "failed to create new GRPC server")
+	testAddress := srv.Address()
 
 	// resolve the address
 	addr, err := net.ResolveTCPAddr("tcp", testAddress)
