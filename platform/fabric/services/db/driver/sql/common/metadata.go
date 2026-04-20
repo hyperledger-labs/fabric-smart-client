@@ -10,13 +10,14 @@ import (
 	"context"
 	"database/sql"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 )
 
-func NewMetadataStore(writeDB common3.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *MetadataStore {
-	return &MetadataStore{p: common3.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
+func NewMetadataStore(writeDB common3.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *MetadataStore {
+	return &MetadataStore{p: common3.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ph)}
 }
 
 type MetadataStore struct {

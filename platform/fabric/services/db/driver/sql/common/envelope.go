@@ -10,13 +10,14 @@ import (
 	"context"
 	"database/sql"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 )
 
-func NewEnvelopeStore(writeDB common3.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common.CondInterpreter) *EnvelopeStore {
-	return &EnvelopeStore{p: common3.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ci)}
+func NewEnvelopeStore(writeDB common3.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *EnvelopeStore {
+	return &EnvelopeStore{p: common3.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ph)}
 }
 
 type EnvelopeStore struct {
