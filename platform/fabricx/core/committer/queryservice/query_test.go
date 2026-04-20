@@ -388,10 +388,10 @@ func TestQueryService(t *testing.T) {
 	// New tests for GetTransactionStatus
 	t.Run("GetTransactionStatus", func(t *testing.T) {
 		t.Parallel()
-		qs, fake := setupTest(t)
 
 		t.Run("happy path", func(t *testing.T) {
 			t.Parallel()
+			qs, fake := setupTest(t)
 			// return a response with one status
 			fake.GetTransactionStatusReturns(&committerpb.TxStatusResponse{
 				Statuses: []*committerpb.TxStatus{
@@ -408,6 +408,7 @@ func TestQueryService(t *testing.T) {
 
 		t.Run("client error", func(t *testing.T) {
 			t.Parallel()
+			qs, fake := setupTest(t)
 			expectedError := errors.New("some error")
 			fake.GetTransactionStatusReturns(nil, expectedError)
 
@@ -417,6 +418,7 @@ func TestQueryService(t *testing.T) {
 
 		t.Run("no statuses", func(t *testing.T) {
 			t.Parallel()
+			qs, fake := setupTest(t)
 			fake.GetTransactionStatusReturns(&committerpb.TxStatusResponse{Statuses: []*committerpb.TxStatus{}}, nil)
 
 			_, err := qs.GetTransactionStatus("tx3")
@@ -427,10 +429,10 @@ func TestQueryService(t *testing.T) {
 	// New tests for GetConfigTransaction
 	t.Run("GetConfigTransaction", func(t *testing.T) {
 		t.Parallel()
-		qs, fake := setupTest(t)
 
 		t.Run("happy path", func(t *testing.T) {
 			t.Parallel()
+			qs, fake := setupTest(t)
 			// Create a valid protobuf envelope
 			envelope := &cb.Envelope{
 				Payload:   []byte("test-payload"),
@@ -456,6 +458,7 @@ func TestQueryService(t *testing.T) {
 
 		t.Run("client error", func(t *testing.T) {
 			t.Parallel()
+			qs, fake := setupTest(t)
 			expectedError := errors.New("some error")
 			fake.GetConfigTransactionReturns(nil, expectedError)
 

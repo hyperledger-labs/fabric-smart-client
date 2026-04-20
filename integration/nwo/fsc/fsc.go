@@ -797,7 +797,7 @@ func (p *Platform) NodeCmdPackage(peer *node2.Replica) string {
 			string(filepath.Separator),
 		)
 	}
-	return filepath.Join(wd, "out", "cmd", peer.Name)
+	return "./" + filepath.ToSlash(filepath.Join("out", "cmd", peer.Name))
 }
 
 func (p *Platform) NodeCmdPath(peer *node2.Replica) string {

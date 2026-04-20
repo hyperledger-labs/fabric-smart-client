@@ -8,6 +8,7 @@ package integration
 
 import (
 	"cmp"
+	"context"
 	"encoding/json"
 	"os"
 	"os/signal"
@@ -22,7 +23,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
+	nwo_context "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
@@ -51,7 +52,7 @@ const WithRaceDetection = true
 type Infrastructure struct {
 	TestDir           string
 	StartPort         int
-	NWOCtx            *context.NWOContext
+	NWOCtx            *nwo_context.NWOContext
 	NWO               *nwo.NWO
 	BuildServer       *common.BuildServer
 	DeleteOnStop      bool
@@ -113,7 +114,7 @@ outer:
 	n := &Infrastructure{
 		TestDir:      testDir,
 		StartPort:    startPort,
-		NWOCtx:       context.New(testDir, uint16(startPort), builder, topologies...),
+		NWOCtx:       nwo_context.New(testDir, uint16(startPort), builder, topologies...),
 		BuildServer:  buildServer,
 		DeleteOnStop: true,
 		Topologies:   topologies,
@@ -226,29 +227,16 @@ func (i *Infrastructure) Stop() {
 }
 
 func (i *Infrastructure) Serve() error {
-	serve := make(chan error, 10)
-	go handleSignals(map[os.Signal]func(){
-		syscall.SIGINT: func() {
-			logger.Infof("Received SIGINT, exiting...")
-			serve <- nil
-		},
-		syscall.SIGTERM: func() {
-			logger.Infof("Received SIGTERM, exiting...")
-			serve <- nil
-		},
-		syscall.SIGSTOP: func() {
-			logger.Infof("Received SIGSTOP, exiting...")
-			serve <- nil
-		},
-		syscall.SIGHUP: func() {
-			logger.Infof("Received SIGHUP, exiting...")
-			serve <- nil
-		},
-	})
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	logger.Infof("All GOOD, networks up and running...")
 	logger.Infof("If you want to shut down the networks, press CTRL+C")
 	logger.Infof("Open another terminal to interact with the networks")
-	return <-serve
+
+	<-ctx.Done()
+	logger.Infof("Received signal, exiting...")
+	return nil
 }
 
 func (i *Infrastructure) Client(name string) api.GRPCClient {
@@ -375,18 +363,6 @@ func (i *Infrastructure) storeAdditionalConfigurations() {
 
 func failMe(message string, callerSkip ...int) {
 	panic(message)
-}
-
-func handleSignals(handlers map[os.Signal]func()) {
-	var signals []os.Signal
-	for sig := range handlers {
-		signals = append(signals, sig)
-	}
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, signals...)
-	for sig := range signalChan {
-		handlers[sig]()
-	}
 }
 
 type fscDefaultPlatformFactory struct{}
