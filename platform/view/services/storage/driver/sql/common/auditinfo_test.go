@@ -12,22 +12,22 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	sq "github.com/Masterminds/squirrel"
 	. "github.com/onsi/gomega"
 
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 func TestGetAuditInfo(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
-	db, mockDB, err := sqlmock.New()
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
 
 	input, output := view.Identity("an_id"), []byte("some_result")
 	mockDB.
-		ExpectQuery("SELECT audit_info FROM audit_info WHERE id = \\$1").
+		ExpectQuery("SELECT audit_info FROM audit_info WHERE id = $1").
 		WithArgs(input.UniqueID()).
 		WillReturnRows(mockDB.NewRows([]string{"audit_info"}).AddRow(output))
 
@@ -40,12 +40,12 @@ func TestGetAuditInfo(t *testing.T) { //nolint:paralleltest
 
 func TestPutAuditInfo(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
-	db, mockDB, err := sqlmock.New()
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	Expect(err).ToNot(HaveOccurred())
 
 	input, output := view.Identity("an_id"), []byte("some_result")
 	mockDB.
-		ExpectExec("INSERT INTO audit_info \\(id, audit_info\\) VALUES \\(\\$1, \\$2\\)").
+		ExpectExec("INSERT INTO audit_info (id,audit_info) VALUES ($1,$2)").
 		WithArgs(input.UniqueID(), output).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -56,5 +56,5 @@ func TestPutAuditInfo(t *testing.T) { //nolint:paralleltest
 }
 
 func mockAuditInfoStore(db *sql.DB) *common2.AuditInfoStore {
-	return common2.NewAuditInfoStore(db, db, "audit_info", &mock.SQLErrorWrapper{}, sqlite.NewConditionInterpreter())
+	return common2.NewAuditInfoStore(db, db, "audit_info", &mock.SQLErrorWrapper{}, sq.Dollar)
 }
