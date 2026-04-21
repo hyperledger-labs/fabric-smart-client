@@ -20,8 +20,9 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"google.golang.org/protobuf/encoding/protowire"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // encodeOrderPreservingVarUint64 returns a byte-representation for a uint64 number such that

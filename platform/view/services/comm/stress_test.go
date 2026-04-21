@@ -13,34 +13,39 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestLargeMessages verifies that the system can handle messages up to the 10MB limit.
 func TestLargeMessages(t *testing.T) {
+	t.Parallel()
 	logging.Init(logging.Config{LogSpec: "error"})
 	h := &mockHost{}
 	p, err := NewNode(t.Context(), h, &disabled.Provider{})
 	require.NoError(t, err)
-	defer p.Stop()
+	t.Cleanup(p.Stop)
 
 	// 5MB Message
 	t.Run("5MB Payload", func(t *testing.T) {
+		t.Parallel()
 		runLargeMessageTest(t, p, 5*1024*1024)
 	})
 
 	// 9.9MB Message (To stay within the 10MB total message limit)
 	t.Run("9.9MB Payload", func(t *testing.T) {
+		t.Parallel()
 		runLargeMessageTest(t, p, 9900*1024)
 	})
 }
 
 func runLargeMessageTest(t *testing.T, p *P2PNode, size int) {
+	t.Helper()
 	payload := make([]byte, size)
 	for i := range payload {
 		payload[i] = byte(i % 256)
@@ -56,7 +61,7 @@ func runLargeMessageTest(t *testing.T, p *P2PNode, size int) {
 
 // TestDroppedMessagesMetricValidation verifies that the DroppedMessages metric
 // correctly tracks messages lost due to buffer saturation.
-func TestDroppedMessagesMetricValidation(t *testing.T) {
+func TestDroppedMessagesMetricValidation(t *testing.T) { //nolint:paralleltest
 	logging.Init(logging.Config{LogSpec: "error"})
 
 	// Create a node with a custom metrics provider to inspect the counter
@@ -142,7 +147,7 @@ func TestDroppedMessagesMetricValidation(t *testing.T) {
 
 // TestConcurrentSendAndClose ensures no panics occur when closing a session
 // while multiple goroutines are actively sending.
-func TestConcurrentSendAndClose(t *testing.T) {
+func TestConcurrentSendAndClose(t *testing.T) { //nolint:paralleltest
 	logging.Init(logging.Config{LogSpec: "error"})
 	h := &mockHost{}
 	p, err := NewNode(t.Context(), h, &disabled.Provider{})
@@ -176,7 +181,7 @@ func TestConcurrentSendAndClose(t *testing.T) {
 
 // TestRecipientOversizedRejection verifies that the recipient immediately closes
 // the connection when receiving a length prefix exceeding the 10MB limit.
-func TestRecipientOversizedRejection(t *testing.T) {
+func TestRecipientOversizedRejection(t *testing.T) { //nolint:paralleltest
 	logging.Init(logging.Config{LogSpec: "error"})
 	h := &mockHost{}
 	p, err := NewNode(t.Context(), h, &disabled.Provider{})

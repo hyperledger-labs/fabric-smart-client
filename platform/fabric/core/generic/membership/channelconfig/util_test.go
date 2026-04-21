@@ -12,9 +12,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig/capabilities"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger/fabric-config/protolator"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -23,6 +20,10 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/orderer/etcdraft"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig/capabilities"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 )
 
 // The tests in this file are all relatively pointless, as all of this function is exercised
@@ -32,12 +33,14 @@ import (
 // low code coverage count, so here they are.
 
 func basicTest(t *testing.T, sv *StandardConfigValue) {
+	t.Helper()
 	require.NotNil(t, sv)
 	require.NotEmpty(t, sv.Key())
 	require.NotNil(t, sv.Value())
 }
 
 func TestUtilsBasic(t *testing.T) {
+	t.Parallel()
 	basicTest(t, ConsortiumValue("foo"))
 	basicTest(t, HashingAlgorithmValue())
 	basicTest(t, BlockDataHashingStructureValue())
@@ -55,6 +58,7 @@ func TestUtilsBasic(t *testing.T) {
 
 // createCfgBlockWithSupportedCapabilities will create a config block that contains valid capabilities and should be accepted by the peer
 func createCfgBlockWithSupportedCapabilities(t *testing.T) *cb.Block {
+	t.Helper()
 	// Create a config
 	config := &cb.Config{
 		Sequence:     0,
@@ -169,6 +173,7 @@ func createCfgBlockWithSupportedCapabilities(t *testing.T) *cb.Block {
 
 // createCfgBlockWithUnsupportedCapabilities will create a config block that contains mismatched capabilities and should be rejected by the peer
 func createCfgBlockWithUnsupportedCapabilities(t *testing.T) *cb.Block {
+	t.Helper()
 	// Create a config
 	config := &cb.Config{
 		Sequence:     0,
@@ -282,6 +287,7 @@ func createCfgBlockWithUnsupportedCapabilities(t *testing.T) *cb.Block {
 }
 
 func TestValidateCapabilities(t *testing.T) {
+	t.Parallel()
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -297,6 +303,7 @@ func TestValidateCapabilities(t *testing.T) {
 }
 
 func TestExtractMSPIDsForApplicationOrgs(t *testing.T) {
+	t.Parallel()
 	// load test_configblock.json that contains the application group
 	// and other properties needed to build channel config and extract MSPIDs
 	blockData, err := os.ReadFile("testdata/test_configblock.json")
@@ -313,6 +320,7 @@ func TestExtractMSPIDsForApplicationOrgs(t *testing.T) {
 }
 
 func TestMarshalEtcdRaftMetadata(t *testing.T) {
+	t.Parallel()
 	md := &etcdraft.ConfigMetadata{
 		Consenters: []*etcdraft.Consenter{
 			{

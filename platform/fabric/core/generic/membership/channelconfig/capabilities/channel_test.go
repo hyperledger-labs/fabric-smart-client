@@ -9,12 +9,14 @@ package capabilities
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
 func TestChannelV10(t *testing.T) {
+	t.Parallel()
 	cp := NewChannelProvider(map[string]*cb.Capability{})
 	require.NoError(t, cp.Supported())
 	require.EqualValues(t, msp.MSPv1_0, cp.MSPVersion())
@@ -24,6 +26,7 @@ func TestChannelV10(t *testing.T) {
 }
 
 func TestChannelV11(t *testing.T) {
+	t.Parallel()
 	cp := NewChannelProvider(map[string]*cb.Capability{
 		ChannelV1_1: {},
 	})
@@ -35,6 +38,7 @@ func TestChannelV11(t *testing.T) {
 }
 
 func TestChannelV13(t *testing.T) {
+	t.Parallel()
 	cp := NewChannelProvider(map[string]*cb.Capability{
 		ChannelV1_1: {},
 		ChannelV1_3: {},
@@ -56,6 +60,7 @@ func TestChannelV13(t *testing.T) {
 }
 
 func TestChannelV142(t *testing.T) {
+	t.Parallel()
 	cp := NewChannelProvider(map[string]*cb.Capability{
 		ChannelV1_3:   {},
 		ChannelV1_4_2: {},
@@ -77,6 +82,7 @@ func TestChannelV142(t *testing.T) {
 }
 
 func TestChannelV143(t *testing.T) {
+	t.Parallel()
 	cp := NewChannelProvider(map[string]*cb.Capability{
 		ChannelV1_3:   {},
 		ChannelV1_4_2: {},
@@ -99,6 +105,7 @@ func TestChannelV143(t *testing.T) {
 }
 
 func TestChannelV20(t *testing.T) {
+	t.Parallel()
 	cp := NewChannelProvider(map[string]*cb.Capability{
 		ChannelV2_0: {},
 	})
@@ -110,6 +117,7 @@ func TestChannelV20(t *testing.T) {
 }
 
 func TestChannelV30(t *testing.T) {
+	t.Parallel()
 	cp := NewChannelProvider(map[string]*cb.Capability{
 		ChannelV3_0: {},
 	})
@@ -121,6 +129,7 @@ func TestChannelV30(t *testing.T) {
 }
 
 func TestChannelNotSupported(t *testing.T) {
+	t.Parallel()
 	cp := NewChannelProvider(map[string]*cb.Capability{
 		ChannelV1_1:           {},
 		ChannelV1_3:           {},

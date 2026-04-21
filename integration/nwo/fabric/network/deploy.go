@@ -11,14 +11,15 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer/lifecycle"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/gstruct"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 func PackageAndInstallChaincode(n *Network, chaincode *topology.Chaincode, peers ...*topology.Peer) {

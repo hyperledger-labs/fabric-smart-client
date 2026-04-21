@@ -13,11 +13,12 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	sq "github.com/Masterminds/squirrel"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	. "github.com/onsi/gomega"
 )
 
 type dummyUniqueErrorWrapper struct{}
@@ -26,7 +27,7 @@ func (d *dummyUniqueErrorWrapper) WrapError(err error) error {
 	return driver.UniqueKeyViolation
 }
 
-func TestFilterExistingSigners(t *testing.T) {
+func TestFilterExistingSigners(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
@@ -52,7 +53,7 @@ func TestFilterExistingSigners(t *testing.T) {
 	Expect(result).To(ContainElements(id1, id2))
 }
 
-func TestFilterExistingSigners_QueryError(t *testing.T) {
+func TestFilterExistingSigners_QueryError(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
@@ -74,7 +75,7 @@ func TestFilterExistingSigners_QueryError(t *testing.T) {
 	Expect(err.Error()).To(ContainSubstring("error querying db"))
 }
 
-func TestFilterExistingSigners_ScanError(t *testing.T) {
+func TestFilterExistingSigners_ScanError(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
@@ -96,7 +97,7 @@ func TestFilterExistingSigners_ScanError(t *testing.T) {
 	Expect(err.Error()).To(ContainSubstring("failed scanning row"))
 }
 
-func TestPutSigner(t *testing.T) {
+func TestPutSigner(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
@@ -118,7 +119,7 @@ func TestPutSigner(t *testing.T) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func TestPutSigner_ExecError(t *testing.T) {
+func TestPutSigner_ExecError(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
@@ -140,7 +141,7 @@ func TestPutSigner_ExecError(t *testing.T) {
 	Expect(err.Error()).To(ContainSubstring("failed executing query"))
 }
 
-func TestPutSigner_UniqueViolation(t *testing.T) {
+func TestPutSigner_UniqueViolation(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))

@@ -15,12 +15,6 @@ import (
 	"encoding/pem"
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
@@ -29,6 +23,13 @@ import (
 	"github.com/hyperledger/fabric-x-common/protoutil"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 var logger = logging.MustGetLogger()
@@ -671,6 +672,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 		},
 	}, nil
 }
+
 func toMSPSignerIdentityWithCertificate(identity view.Identity) (*msppb.Identity, error) {
 	sID := &msp.SerializedIdentity{}
 	if err := proto.Unmarshal(identity, sID); err != nil {

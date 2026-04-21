@@ -14,15 +14,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
+
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 )
 
 // TestHostStartupTimeout tests that the host properly handles startup failures
-func TestHostStartupTimeout(t *testing.T) {
+func TestHostStartupTimeout(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Use an invalid address that will cause the server to fail to listen
@@ -49,7 +50,7 @@ func TestHostStartupTimeout(t *testing.T) {
 }
 
 // TestHostStartupReadinessTimeout tests the 2-second startup readiness timeout
-func TestHostStartupReadinessTimeout(t *testing.T) {
+func TestHostStartupReadinessTimeout(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Use a valid localhost address but don't actually start a listener

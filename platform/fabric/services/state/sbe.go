@@ -9,20 +9,21 @@ package state
 import (
 	"sort"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
+	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
-	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 )
 
 type sbeMetaHandler struct {
 	forceSBE bool
 }
 
-func (s2 *sbeMetaHandler) StoreMeta(ns *Namespace, s interface{}, namespace string, key string, options *addOutputOptions) error {
+func (s2 *sbeMetaHandler) StoreMeta(ns *Namespace, s interface{}, namespace, key string, options *addOutputOptions) error {
 	if !s2.forceSBE && !options.sbe {
 		return nil
 	}
@@ -130,7 +131,7 @@ func (s *stateEP) setMSPIDsFromSP(sp *common.SignaturePolicyEnvelope) error {
 	return nil
 }
 
-// listOrgs returns an array of channel orgs that are required to endorse chnages
+// listOrgs returns an array of channel orgs that are required to endorse changes
 func (s *stateEP) listOrgs() []string {
 	orgNames := make([]string, 0, len(s.orgs))
 	for mspid := range s.orgs {

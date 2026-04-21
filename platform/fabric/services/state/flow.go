@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -47,11 +46,9 @@ func (s receiveView) Call(viewCtx view.Context) (interface{}, error) {
 	case <-timeout.C:
 		return nil, errors.New("timeout reading from session")
 	}
-
 }
 
-type payloadReceiveView struct {
-}
+type payloadReceiveView struct{}
 
 func NewPayloadReceiveView() *payloadReceiveView {
 	return &payloadReceiveView{}

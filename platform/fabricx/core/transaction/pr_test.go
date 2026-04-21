@@ -11,12 +11,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
 )
 
 //go:generate counterfeiter -o mocks/verifier_provider.go --fake-name FakeVerifierProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.VerifierProvider
@@ -25,6 +26,7 @@ import (
 // TestNewProposalResponseFromResponse verifies that wrapping a protobuf proposal
 // response preserves the underlying pointer.
 func TestNewProposalResponseFromResponse(t *testing.T) {
+	t.Parallel()
 	rawPR := &peer.ProposalResponse{
 		Payload: []byte("payload"),
 		Endorsement: &peer.Endorsement{
@@ -46,6 +48,7 @@ func TestNewProposalResponseFromResponse(t *testing.T) {
 // TestNewProposalResponseFromBytes verifies the happy path for deserializing a
 // protobuf proposal response from bytes.
 func TestNewProposalResponseFromBytes(t *testing.T) {
+	t.Parallel()
 	rawPR := &peer.ProposalResponse{
 		Payload: []byte("payload"),
 		Endorsement: &peer.Endorsement{
@@ -70,6 +73,7 @@ func TestNewProposalResponseFromBytes(t *testing.T) {
 // TestNewProposalResponseFromBytesInvalidProto verifies that invalid protobuf
 // bytes are rejected.
 func TestNewProposalResponseFromBytesInvalidProto(t *testing.T) {
+	t.Parallel()
 	_, err := NewProposalResponseFromBytes([]byte("not-a-protobuf"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unmarshal proposal response")
@@ -77,6 +81,7 @@ func TestNewProposalResponseFromBytesInvalidProto(t *testing.T) {
 
 // TestProposalResponseAccessors verifies the simple getters.
 func TestProposalResponseAccessors(t *testing.T) {
+	t.Parallel()
 	rawPR := &peer.ProposalResponse{
 		Payload: []byte("payload"),
 		Endorsement: &peer.Endorsement{
@@ -105,6 +110,7 @@ func TestProposalResponseAccessors(t *testing.T) {
 // TestProposalResponseBytes verifies that a wrapped proposal response can be
 // marshaled back into protobuf bytes.
 func TestProposalResponseBytes(t *testing.T) {
+	t.Parallel()
 	rawPR := &peer.ProposalResponse{
 		Payload: []byte("payload"),
 		Endorsement: &peer.Endorsement{
@@ -135,6 +141,7 @@ func TestProposalResponseBytes(t *testing.T) {
 // of endorsement sets matches the number of namespaces, and the verifier accepts
 // each namespace signature.
 func TestVerifyEndorsement(t *testing.T) {
+	t.Parallel()
 	txID := "tx1"
 	tx := sampleTx("ns1", "key1", "value1")
 	rawTx, err := proto.Marshal(tx)
@@ -172,6 +179,7 @@ func TestVerifyEndorsement(t *testing.T) {
 // TestVerifyEndorsementGetVerifierFails verifies that verification fails when
 // the provider cannot return a verifier for the endorser.
 func TestVerifyEndorsementGetVerifierFails(t *testing.T) {
+	t.Parallel()
 	pr, err := NewProposalResponseFromResponse(&peer.ProposalResponse{
 		Payload: []byte("payload"),
 		Endorsement: &peer.Endorsement{
@@ -191,6 +199,7 @@ func TestVerifyEndorsementGetVerifierFails(t *testing.T) {
 // TestVerifyEndorsementInvalidPayload verifies that verification fails when the
 // proposal response payload is not a valid serialized tx.
 func TestVerifyEndorsementInvalidPayload(t *testing.T) {
+	t.Parallel()
 	pr, err := NewProposalResponseFromResponse(&peer.ProposalResponse{
 		Payload: []byte("not-a-valid-tx"),
 		Endorsement: &peer.Endorsement{
@@ -216,6 +225,7 @@ func TestVerifyEndorsementInvalidPayload(t *testing.T) {
 // TestVerifyEndorsementInvalidSerializedEndorsements verifies that verification
 // fails when the serialized endorsement container cannot be decoded.
 func TestVerifyEndorsementInvalidSerializedEndorsements(t *testing.T) {
+	t.Parallel()
 	tx := sampleTx("ns1", "key1", "value1")
 	rawTx, err := proto.Marshal(tx)
 	require.NoError(t, err)
@@ -245,6 +255,7 @@ func TestVerifyEndorsementInvalidSerializedEndorsements(t *testing.T) {
 // TestVerifyEndorsementNamespaceCountMismatch verifies that verification fails
 // when the number of endorsement sets does not match the number of namespaces.
 func TestVerifyEndorsementNamespaceCountMismatch(t *testing.T) {
+	t.Parallel()
 	tx := sampleTx("ns1", "key1", "value1")
 	rawTx, err := proto.Marshal(tx)
 	require.NoError(t, err)
@@ -274,6 +285,7 @@ func TestVerifyEndorsementNamespaceCountMismatch(t *testing.T) {
 // TestVerifyEndorsementMissingNamespaceEndorsement verifies that verification
 // fails when a namespace has no endorsement items.
 func TestVerifyEndorsementMissingNamespaceEndorsement(t *testing.T) {
+	t.Parallel()
 	txID := "tx1"
 	tx := sampleTx("ns1", "key1", "value1")
 	rawTx, err := proto.Marshal(tx)
@@ -306,6 +318,7 @@ func TestVerifyEndorsementMissingNamespaceEndorsement(t *testing.T) {
 // TestVerifyEndorsementInvalidNamespaceSignature verifies that verification
 // fails when the verifier rejects the namespace signature.
 func TestVerifyEndorsementInvalidNamespaceSignature(t *testing.T) {
+	t.Parallel()
 	txID := "tx1"
 	tx := sampleTx("ns1", "key1", "value1")
 	rawTx, err := proto.Marshal(tx)
@@ -340,6 +353,7 @@ func TestVerifyEndorsementInvalidNamespaceSignature(t *testing.T) {
 // endorsements are marshaled into the proposal-response representation and then
 // unmarshaled back without losing content.
 func TestMarshalAndUnmarshalEndorsementsForProposalResponse(t *testing.T) {
+	t.Parallel()
 	endorsements := []*applicationpb.Endorsements{
 		sampleNamespaceEndorsements("Org1MSP", "sig-org1"),
 		sampleNamespaceEndorsements("Org2MSP", "sig-org2"),
@@ -359,6 +373,7 @@ func TestMarshalAndUnmarshalEndorsementsForProposalResponse(t *testing.T) {
 // TestMarshalEndorsementsForProposalResponseNilEntry verifies that a nil
 // endorsement entry is serialized as a nil raw item in the JSON array.
 func TestMarshalEndorsementsForProposalResponseNilEntry(t *testing.T) {
+	t.Parallel()
 	endorsements := []*applicationpb.Endorsements{
 		sampleNamespaceEndorsements("Org1MSP", "sig-org1"),
 		nil,
@@ -379,6 +394,7 @@ func TestMarshalEndorsementsForProposalResponseNilEntry(t *testing.T) {
 // TestUnmarshalEndorsementsFromProposalResponseNilEntry verifies that a nil
 // serialized endorsement entry is converted into an empty endorsements object.
 func TestUnmarshalEndorsementsFromProposalResponseNilEntry(t *testing.T) {
+	t.Parallel()
 	raw := mustSerializedEndorsements(t, []*applicationpb.Endorsements{
 		sampleNamespaceEndorsements("Org1MSP", "sig-org1"),
 		nil,
@@ -395,6 +411,7 @@ func TestUnmarshalEndorsementsFromProposalResponseNilEntry(t *testing.T) {
 // TestUnmarshalEndorsementsFromProposalResponseEmptyBytes verifies that an
 // empty raw protobuf entry is treated as an empty endorsements object.
 func TestUnmarshalEndorsementsFromProposalResponseEmptyBytes(t *testing.T) {
+	t.Parallel()
 	rawItems := [][]byte{
 		{},
 	}
@@ -412,6 +429,7 @@ func TestUnmarshalEndorsementsFromProposalResponseEmptyBytes(t *testing.T) {
 // TestUnmarshalEndorsementsFromProposalResponseInvalidJSON verifies that
 // invalid JSON input is rejected.
 func TestUnmarshalEndorsementsFromProposalResponseInvalidJSON(t *testing.T) {
+	t.Parallel()
 	_, err := unmarshalEndorsementsFromProposalResponse([]byte("not-json"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unmarshal serialized endorsements")
@@ -420,6 +438,7 @@ func TestUnmarshalEndorsementsFromProposalResponseInvalidJSON(t *testing.T) {
 // TestUnmarshalEndorsementsFromProposalResponseInvalidProto verifies that
 // invalid protobuf bytes inside the JSON array are rejected.
 func TestUnmarshalEndorsementsFromProposalResponseInvalidProto(t *testing.T) {
+	t.Parallel()
 	raw, err := json.Marshal([][]byte{
 		[]byte("not-a-protobuf"),
 	})

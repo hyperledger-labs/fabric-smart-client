@@ -7,14 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package fsc_test
 
 import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	atsa "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/states"
 	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 type node = [2]string
@@ -75,7 +76,7 @@ func (s *TestSuite) TestSucceeded() {
 	s.TestSucceededWithUsers(node{"issuer", "issuer"}, node{"alice", "alice"}, node{"bob", "bob"}, node{"alice", "alice"})
 }
 
-func (s *TestSuite) TestSucceededWithUsers(issuerId node, sellerId node, buyerId node, transferringUserId node) {
+func (s *TestSuite) TestSucceededWithUsers(issuerId, sellerId, buyerId, transferringUserId node) {
 	approver := s.II.Identity("approver")
 
 	issuer := client.New(s.II.Client(issuerId[1]), s.II.Identity(issuerId[0]), approver)

@@ -23,10 +23,9 @@ import (
 	"strings"
 	"time"
 
+	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-
-	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 )
 
 const (
@@ -73,10 +72,9 @@ func NewCA(
 	streetAddress,
 	postalCode string,
 ) (*CA, error) {
-
 	var ca *CA
 
-	err := os.MkdirAll(baseDir, 0755)
+	err := os.MkdirAll(baseDir, 0o755)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +189,6 @@ func LoadCA(baseDir string) (*CA, error) {
 // SignCertificate creates a signed certificate based on a built-in template
 // and saves it in baseDir/name
 func (ca *CA) SignCertificate(baseDir, name string, orgUnits, alternateNames []string, pub *ecdsa.PublicKey, ku x509.KeyUsage, eku []x509.ExtKeyUsage, nodeType int) (*x509.Certificate, error) {
-
 	template := x509Template()
 	template.KeyUsage = ku
 	template.ExtKeyUsage = eku
@@ -256,7 +253,6 @@ func (ca *CA) SignCertificate(baseDir, name string, orgUnits, alternateNames []s
 		pub,
 		ca.Signer,
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +317,6 @@ func subjectTemplateAdditional(
 
 // default template for X509 certificates
 func x509Template() x509.Certificate {
-
 	// generate a serial number
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, _ := rand.Int(rand.Reader, serialNumberLimit)
@@ -339,7 +334,6 @@ func x509Template() x509.Certificate {
 		BasicConstraintsValid: true,
 	}
 	return x509
-
 }
 
 // generate a signed X509 certificate using ECDSA
@@ -351,7 +345,6 @@ func genCertificateECDSA(
 	pub *ecdsa.PublicKey,
 	priv interface{},
 ) (*x509.Certificate, error) {
-
 	// create the x509 public cert
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pub, priv)
 	if err != nil {

@@ -9,6 +9,9 @@ package finality
 import (
 	"context"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -18,8 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
 type ListenerManager[T events.EventInfo] interface {

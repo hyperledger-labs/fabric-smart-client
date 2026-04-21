@@ -14,15 +14,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 func TestConfig(t *testing.T) {
+	t.Parallel()
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 	configFilePath := filepath.Join(os.TempDir(), fmt.Sprintf("config-%d.yaml", rand.Int()))
 	fmt.Println(configFilePath)
 	t.Run("save and load a config", func(t *testing.T) {
+		t.Parallel()
 		c := Config{
 			TLSConfig: TLSConfig{
 				CertPath:       "foo",
@@ -47,17 +50,20 @@ func TestConfig(t *testing.T) {
 	})
 
 	t.Run("bad config isn't saved", func(t *testing.T) {
+		t.Parallel()
 		c := Config{}
 		err := c.ToFile(configFilePath)
 		require.Contains(t, err.Error(), "config isn't valid")
 	})
 
 	t.Run("bad config isn't loaded", func(t *testing.T) {
+		t.Parallel()
 		_, err := ConfigFromFile(filepath.Join("testdata", "not_a_yaml.yaml"))
 		require.Contains(t, err.Error(), "error unmarshalling YAML file")
 	})
 
 	t.Run("file that doesn't exist isn't loaded", func(t *testing.T) {
+		t.Parallel()
 		_, err := ConfigFromFile(filepath.Join("testdata", "not_a_file.yaml"))
 		require.Contains(t, err.Error(), "no such file or directory")
 	})

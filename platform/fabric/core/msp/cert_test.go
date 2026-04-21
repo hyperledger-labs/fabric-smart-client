@@ -33,7 +33,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSanitizeCertWithRSA(t *testing.T) {
+func TestSanitizeCertWithRSA(t *testing.T) { //nolint:paralleltest
 	cert := &x509.Certificate{}
 	cert.SignatureAlgorithm = x509.MD2WithRSA
 	result := isECDSASignedCert(cert)
@@ -44,7 +44,7 @@ func TestSanitizeCertWithRSA(t *testing.T) {
 	require.True(t, result)
 }
 
-func TestSanitizeCertInvalidInput(t *testing.T) {
+func TestSanitizeCertInvalidInput(t *testing.T) { //nolint:paralleltest
 	_, err := sanitizeECDSASignedCert(nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "certificate must be different from nil")
@@ -67,7 +67,7 @@ func TestSanitizeCertInvalidInput(t *testing.T) {
 	require.Contains(t, err.Error(), "asn1: structure error: tags don't match")
 }
 
-func TestSanitizeCert(t *testing.T) {
+func TestSanitizeCert(t *testing.T) { //nolint:paralleltest
 	var k *ecdsa.PrivateKey
 	var cert *x509.Certificate
 	for {
@@ -96,7 +96,7 @@ func TestSanitizeCert(t *testing.T) {
 	require.True(t, lowS)
 }
 
-func TestCertExpiration(t *testing.T) {
+func TestCertExpiration(t *testing.T) { //nolint:paralleltest
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 	msp := &bccspmsp{bccsp: cryptoProvider}
@@ -126,6 +126,7 @@ func TestCertExpiration(t *testing.T) {
 }
 
 func generateSelfSignedCert(t *testing.T, now time.Time) (*ecdsa.PrivateKey, *x509.Certificate) {
+	t.Helper()
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 

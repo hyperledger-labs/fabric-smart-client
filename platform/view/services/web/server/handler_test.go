@@ -13,9 +13,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	mocks2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/mocks"
-	"github.com/stretchr/testify/require"
 )
 
 type Fruit struct {
@@ -28,6 +29,7 @@ type FruitBasket struct {
 }
 
 func TestHttpHandler(t *testing.T) {
+	t.Parallel()
 	h := web2.NewHttpHandler()
 
 	rh := &mocks2.FakeRequestHandler{}

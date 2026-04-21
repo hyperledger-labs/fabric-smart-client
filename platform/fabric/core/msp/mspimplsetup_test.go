@@ -10,11 +10,12 @@ import (
 	"crypto/x509"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/tlsgen"
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/onsi/gomega"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/tlsgen"
 )
 
 var (
@@ -81,10 +82,10 @@ oVYZAX2M8G3clTu+f6Si5KrRezNflbVHmvCrJWM=
 -----END CERTIFICATE-----`
 )
 
-func TestTLSCAValidation(t *testing.T) {
+func TestTLSCAValidation(t *testing.T) { //nolint:paralleltest
 	gt := gomega.NewGomegaWithT(t)
 
-	t.Run("GoodCert", func(t *testing.T) {
+	t.Run("GoodCert", func(t *testing.T) { //nolint:paralleltest
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
@@ -95,7 +96,7 @@ func TestTLSCAValidation(t *testing.T) {
 		gt.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
-	t.Run("ExpiredCert", func(t *testing.T) {
+	t.Run("ExpiredCert", func(t *testing.T) { //nolint:paralleltest
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
@@ -106,7 +107,7 @@ func TestTLSCAValidation(t *testing.T) {
 		gt.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
-	t.Run("NonCACert", func(t *testing.T) {
+	t.Run("NonCACert", func(t *testing.T) { //nolint:paralleltest
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
@@ -117,7 +118,7 @@ func TestTLSCAValidation(t *testing.T) {
 		gt.Expect(err).To(gomega.MatchError("CA Certificate did not have the CA attribute, (SN: c9dff7f76657d46f082570f6965051f5)"))
 	})
 
-	t.Run("NoSKICert", func(t *testing.T) {
+	t.Run("NoSKICert", func(t *testing.T) { //nolint:paralleltest
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
@@ -129,7 +130,7 @@ func TestTLSCAValidation(t *testing.T) {
 	})
 }
 
-func TestMalformedCertsChainSetup(t *testing.T) {
+func TestMalformedCertsChainSetup(t *testing.T) { //nolint:paralleltest
 	gt := gomega.NewGomegaWithT(t)
 
 	ca, err := tlsgen.NewCA()
@@ -167,10 +168,10 @@ func TestMalformedCertsChainSetup(t *testing.T) {
 	gt.Expect(err.Error()).To(gomega.ContainSubstring("failed to traverse certificate verification chain"))
 }
 
-func TestCAValidation(t *testing.T) {
+func TestCAValidation(t *testing.T) { //nolint:paralleltest
 	gt := gomega.NewGomegaWithT(t)
 
-	t.Run("GoodCert", func(t *testing.T) {
+	t.Run("GoodCert", func(t *testing.T) { //nolint:paralleltest
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
@@ -184,7 +185,7 @@ func TestCAValidation(t *testing.T) {
 		gt.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
-	t.Run("NonCACert", func(t *testing.T) {
+	t.Run("NonCACert", func(t *testing.T) { //nolint:paralleltest
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}
@@ -198,7 +199,7 @@ func TestCAValidation(t *testing.T) {
 		gt.Expect(err).To(gomega.MatchError("CA Certificate did not have the CA attribute, (SN: c9dff7f76657d46f082570f6965051f5)"))
 	})
 
-	t.Run("NoSKICert", func(t *testing.T) {
+	t.Run("NoSKICert", func(t *testing.T) { //nolint:paralleltest
 		mspImpl := &bccspmsp{
 			opts: &x509.VerifyOptions{Roots: x509.NewCertPool(), Intermediates: x509.NewCertPool()},
 		}

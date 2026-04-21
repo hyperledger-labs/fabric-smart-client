@@ -150,7 +150,7 @@ func (t *Topology) AddOrganizationsByMapping(mapping map[string][]string) *Topol
 	return t
 }
 
-func (t *Topology) AddPeer(name string, org string, typ PeerType, bootstrap bool) *Peer {
+func (t *Topology) AddPeer(name, org string, typ PeerType, bootstrap bool) *Peer {
 	peerChannels := []*PeerChannel{}
 	for _, channel := range t.Channels {
 		peerChannels = append(peerChannels, &PeerChannel{Name: channel.Name, Anchor: true})
@@ -167,7 +167,7 @@ func (t *Topology) AddPeer(name string, org string, typ PeerType, bootstrap bool
 	return p
 }
 
-func (t *Topology) AddNamespace(name string, policy string, peers ...string) {
+func (t *Topology) AddNamespace(name, policy string, peers ...string) {
 	cc := &ChannelChaincode{
 		Chaincode: Chaincode{
 			Name:            name,
@@ -268,7 +268,7 @@ func (t *Topology) AddNamespaceWithOneOutOfN(name string, orgs ...string) {
 	t.AddChaincode(cc)
 }
 
-func (t *Topology) AddManagedNamespace(name string, policy string, chaincode string, ctor string, peers ...string) {
+func (t *Topology) AddManagedNamespace(name, policy, chaincode, ctor string, peers ...string) {
 	InitRequired := len(ctor) != 0
 
 	cc := &ChannelChaincode{

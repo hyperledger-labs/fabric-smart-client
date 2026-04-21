@@ -13,9 +13,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -25,6 +26,7 @@ const (
 )
 
 func TestTimeoutSimple(t *testing.T) {
+	t.Parallel()
 	var mu sync.RWMutex
 	allEvicted := make(map[int]string)
 
@@ -63,6 +65,7 @@ func TestTimeoutSimple(t *testing.T) {
 }
 
 func TestTimeoutParallel(t *testing.T) {
+	t.Parallel()
 	numItem := 100
 
 	var evictedCount atomic.Int32

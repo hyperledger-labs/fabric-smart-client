@@ -9,8 +9,9 @@ package view
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type simpleSession struct {
@@ -23,6 +24,7 @@ func (s *simpleSession) Info() view.SessionInfo {
 }
 
 func TestSessions(t *testing.T) {
+	t.Parallel()
 	s := newSessions()
 	party := view.Identity("alice")
 	sess := &simpleSession{id: "s1"}

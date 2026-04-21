@@ -9,6 +9,9 @@ package simple_test
 import (
 	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
@@ -16,13 +19,11 @@ import (
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 const testDataPath = "./out/testdata"
 
-func TestEndToEnd(t *testing.T) {
+func TestEndToEnd(t *testing.T) { //nolint:paralleltest
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "simple suite")
 }

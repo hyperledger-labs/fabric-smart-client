@@ -11,13 +11,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"go.uber.org/zap/zapcore"
 )
 
 var logger = logging.MustGetLogger()
@@ -31,7 +32,6 @@ type SerializableSigner interface {
 func UnmarshalTx(tx []byte) (*common.Envelope, *common.Payload, *common.ChannelHeader, error) {
 	env, err := protoutil.UnmarshalEnvelope(tx)
 	if err != nil {
-
 		return nil, nil, nil, errors.Wrap(err, "Error getting tx from block")
 	}
 	payl, err := protoutil.UnmarshalPayload(env.Payload)

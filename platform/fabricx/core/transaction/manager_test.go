@@ -10,16 +10,17 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
-	"github.com/hyperledger/fabric-x-common/api/committerpb"
-	"github.com/stretchr/testify/require"
 )
 
 type stubTransactionFactory struct {
@@ -31,6 +32,7 @@ func (s *stubTransactionFactory) NewTransaction(ctx context.Context, channel str
 }
 
 func TestManagerBasics(t *testing.T) {
+	t.Parallel()
 	m := NewManager()
 	require.NotNil(t, m)
 
@@ -53,7 +55,9 @@ func TestManagerBasics(t *testing.T) {
 }
 
 func TestManagerTransactionFactory(t *testing.T) {
+	t.Parallel()
 	t.Run("missing factory", func(t *testing.T) {
+		t.Parallel()
 		m := NewManager()
 
 		_, err := m.transactionFactory(driver.EndorserTransaction)
@@ -62,6 +66,7 @@ func TestManagerTransactionFactory(t *testing.T) {
 	})
 
 	t.Run("wrong stored type panics", func(t *testing.T) {
+		t.Parallel()
 		m := NewManager()
 		m.transactionFactories.Store(driver.EndorserTransaction, "not-a-factory")
 
@@ -71,6 +76,7 @@ func TestManagerTransactionFactory(t *testing.T) {
 	})
 
 	t.Run("returns stored factory", func(t *testing.T) {
+		t.Parallel()
 		m := NewManager()
 		expected := &stubTransactionFactory{}
 		m.AddTransactionFactory(driver.EndorserTransaction, expected)
@@ -82,12 +88,14 @@ func TestManagerTransactionFactory(t *testing.T) {
 }
 
 func TestManagerNewTransaction(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	creator := view.Identity([]byte("creator"))
 	nonce := []byte("nonce")
 	rawRequest := []byte("request")
 
 	t.Run("factory lookup fails", func(t *testing.T) {
+		t.Parallel()
 		m := NewManager()
 
 		tx, err := m.NewTransaction(ctx, driver.EndorserTransaction, creator, nonce, "tx1", "ch1", rawRequest)
@@ -97,6 +105,7 @@ func TestManagerNewTransaction(t *testing.T) {
 	})
 
 	t.Run("delegates to factory", func(t *testing.T) {
+		t.Parallel()
 		m := NewManager()
 		expectedTx := &Transaction{TTxID: "tx1", TChannel: "ch1"}
 
@@ -120,9 +129,11 @@ func TestManagerNewTransaction(t *testing.T) {
 }
 
 func TestManagerNewTransactionFromBytes(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	t.Run("missing default factory", func(t *testing.T) {
+		t.Parallel()
 		m := NewManager()
 
 		tx, err := m.NewTransactionFromBytes(ctx, "ch1", []byte(`{"TTxID":"tx1"}`))
@@ -132,6 +143,7 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 	})
 
 	t.Run("factory creation fails", func(t *testing.T) {
+		t.Parallel()
 		m := NewManager()
 		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
 			newTransaction: func(context.Context, string, []byte, []byte, driver2.TxID, []byte) (driver.Transaction, error) {
@@ -145,6 +157,7 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 	})
 
 	t.Run("SetFromBytes fails", func(t *testing.T) {
+		t.Parallel()
 		m := NewManager()
 		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
 			newTransaction: func(context.Context, string, []byte, []byte, driver2.TxID, []byte) (driver.Transaction, error) {
@@ -159,6 +172,7 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		m := NewManager()
 		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
 			newTransaction: func(context.Context, string, []byte, []byte, driver2.TxID, []byte) (driver.Transaction, error) {
@@ -180,6 +194,7 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 }
 
 func TestManagerNewTransactionFromEnvelopeBytesPanics(t *testing.T) {
+	t.Parallel()
 	m := NewManager()
 
 	require.PanicsWithValue(t, "NewTransactionFromEnvelopeBytes >> implement me", func() {
@@ -188,6 +203,7 @@ func TestManagerNewTransactionFromEnvelopeBytesPanics(t *testing.T) {
 }
 
 func TestManagerProcessedTransactionDelegation(t *testing.T) {
+	t.Parallel()
 	m := NewManager()
 	payloadRaw := mustEnvelopePayloadBytes(t, "tx1", []byte("results"))
 	envRaw := mustEnvelopeBytes(t, payloadRaw)
@@ -215,7 +231,9 @@ func TestManagerProcessedTransactionDelegation(t *testing.T) {
 }
 
 func TestNewProcessedTransactionConstructorsAndAccessors(t *testing.T) {
+	t.Parallel()
 	t.Run("from envelope payload invalid payload", func(t *testing.T) {
+		t.Parallel()
 		pt, headerType, err := NewProcessedTransactionFromEnvelopePayload([]byte("not-a-payload"))
 		require.Nil(t, pt)
 		require.Equal(t, int32(-1), headerType)
@@ -224,12 +242,14 @@ func TestNewProcessedTransactionConstructorsAndAccessors(t *testing.T) {
 	})
 
 	t.Run("from envelope raw invalid envelope", func(t *testing.T) {
+		t.Parallel()
 		pt, err := NewProcessedTransactionFromEnvelopeRaw([]byte("not-an-envelope"))
 		require.Nil(t, pt)
 		require.Error(t, err)
 	})
 
 	t.Run("from processed transaction invalid protobuf", func(t *testing.T) {
+		t.Parallel()
 		pt, err := NewProcessedTransaction([]byte("not-a-processed-tx"))
 		require.Nil(t, pt)
 		require.Error(t, err)
@@ -237,6 +257,7 @@ func TestNewProcessedTransactionConstructorsAndAccessors(t *testing.T) {
 	})
 
 	t.Run("from processed transaction invalid embedded envelope", func(t *testing.T) {
+		t.Parallel()
 		raw, err := proto.Marshal(&peer.ProcessedTransaction{
 			ValidationCode:      int32(committerpb.Status_COMMITTED),
 			TransactionEnvelope: &common.Envelope{Payload: []byte("not-a-payload")},
@@ -250,6 +271,7 @@ func TestNewProcessedTransactionConstructorsAndAccessors(t *testing.T) {
 	})
 
 	t.Run("is valid false when validation code differs", func(t *testing.T) {
+		t.Parallel()
 		payloadRaw := mustEnvelopePayloadBytes(t, "tx2", []byte("results-2"))
 		raw := mustProcessedTransactionBytes(t, int32(committerpb.Status_ABORTED_SIGNATURE_INVALID), payloadRaw)
 

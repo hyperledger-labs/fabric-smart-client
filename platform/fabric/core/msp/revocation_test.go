@@ -24,14 +24,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
-func TestRevocation(t *testing.T) {
-	t.Run("ValidCRLSignature", func(t *testing.T) {
+func TestRevocation(t *testing.T) { //nolint:paralleltest
+	t.Run("ValidCRLSignature", func(t *testing.T) { //nolint:paralleltest
 		// testdata/revocation
 		// 1) a key and a signcert (used to populate the default signing identity);
 		// 2) cacert is the CA that signed the intermediate;
@@ -46,7 +47,7 @@ func TestRevocation(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("MalformedCRLSignature", func(t *testing.T) {
+	t.Run("MalformedCRLSignature", func(t *testing.T) { //nolint:paralleltest
 		// This test appends an extra int to the CRL signature. This extra data is
 		// ignored in go 1.14, the signature is considered valid, and the identity
 		// is treated as revoked.
@@ -109,7 +110,7 @@ func TestRevocation(t *testing.T) {
 		require.EqualError(t, err, "could not validate identity against certification chain: The certificate has been revoked")
 	})
 
-	t.Run("InvalidCRLSignature", func(t *testing.T) {
+	t.Run("InvalidCRLSignature", func(t *testing.T) { //nolint:paralleltest
 		// This MSP is identical to the previous one, with only 1 difference:
 		// the signature on the CRL is invalid
 		thisMSP := getLocalMSP(t, "testdata/revocation2")
@@ -124,7 +125,7 @@ func TestRevocation(t *testing.T) {
 	})
 }
 
-func TestIdentityPolicyPrincipalAgainstRevokedIdentity(t *testing.T) {
+func TestIdentityPolicyPrincipalAgainstRevokedIdentity(t *testing.T) { //nolint:paralleltest
 	// testdata/revocation
 	// 1) a key and a signcert (used to populate the default signing identity);
 	// 2) cacert is the CA that signed the intermediate;
@@ -146,7 +147,7 @@ func TestIdentityPolicyPrincipalAgainstRevokedIdentity(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRevokedIntermediateCA(t *testing.T) {
+func TestRevokedIntermediateCA(t *testing.T) { //nolint:paralleltest
 	// testdata/revokedica
 	// 1) a key and a signcert (used to populate the default signing identity);
 	// 2) cacert is the CA that signed the intermediate;

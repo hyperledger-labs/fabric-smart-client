@@ -13,15 +13,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
-	"github.com/hyperledger/fabric-x-common/api/committerpb"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 )
 
 // To re-generate the mock/ run "go generate" directive
@@ -139,6 +140,7 @@ func runManager(t *testing.T, nlm *notificationListenerManager) {
 }
 
 func TestNotificationListenerManager(t *testing.T) {
+	t.Parallel()
 	t.Run("Listen_Shutdown_Lifecycle_And_Cleanup", func(t *testing.T) {
 		t.Parallel()
 		nlm, fakeStream := setupTest(t)

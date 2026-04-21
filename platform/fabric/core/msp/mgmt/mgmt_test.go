@@ -11,14 +11,15 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
-func TestGetManagerForChains(t *testing.T) {
+func TestGetManagerForChains(t *testing.T) { //nolint:paralleltest
 	// MSPManager for channel does not exist prior to this call
 	mspMgr1 := GetManagerForChain("test")
 	// ensure MSPManager is set
@@ -34,7 +35,7 @@ func TestGetManagerForChains(t *testing.T) {
 	}
 }
 
-func TestGetManagerForChains_usingMSPConfigHandlers(t *testing.T) {
+func TestGetManagerForChains_usingMSPConfigHandlers(t *testing.T) { //nolint:paralleltest
 	XXXSetMSPManager("foo", msp.NewMSPManager())
 	msp2 := GetManagerForChain("foo")
 	// return value should be set because the MSPManager was initialized
@@ -43,7 +44,7 @@ func TestGetManagerForChains_usingMSPConfigHandlers(t *testing.T) {
 	}
 }
 
-func TestGetIdentityDeserializer(t *testing.T) {
+func TestGetIdentityDeserializer(t *testing.T) { //nolint:paralleltest
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 
@@ -54,7 +55,7 @@ func TestGetIdentityDeserializer(t *testing.T) {
 	require.NotNil(t, ids)
 }
 
-func TestUpdateLocalMspCache(t *testing.T) {
+func TestUpdateLocalMspCache(t *testing.T) { //nolint:paralleltest
 	// reset localMsp to force it to be initialized on the first call
 	localMsp = nil
 
@@ -77,7 +78,7 @@ func TestUpdateLocalMspCache(t *testing.T) {
 	}
 }
 
-func TestNewMSPMgmtMgr(t *testing.T) {
+func TestNewMSPMgmtMgr(t *testing.T) { //nolint:paralleltest
 	cryptoProvider, err := LoadMSPSetupForTesting()
 	require.NoError(t, err)
 
@@ -126,7 +127,7 @@ func LoadMSPSetupForTesting() (bccsp.BCCSP, error) {
 	return cryptoProvider, nil
 }
 
-func TestLocalMSP(t *testing.T) {
+func TestLocalMSP(t *testing.T) { //nolint:paralleltest
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 

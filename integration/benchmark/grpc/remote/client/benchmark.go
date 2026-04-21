@@ -16,11 +16,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote/workload"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/benchmark/stats"
 	"google.golang.org/grpc/credentials"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote/workload"
 )
 
 // grpcBufferSize is used to increase the grpc read and write buffer sizes from default 32k to 128k

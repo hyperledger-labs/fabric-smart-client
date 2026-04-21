@@ -8,18 +8,18 @@ package comm
 
 import (
 	"context"
+	"testing"
 	"time"
 
-	"testing"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 )
 
-func TestSessionDeadlockDueToSlowReceiver(t *testing.T) {
+func TestSessionDeadlockDueToSlowReceiver(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Create a session with unbuffered incoming channel to block the goroutine on send.
@@ -79,7 +79,7 @@ func TestSessionDeadlockDueToSlowReceiver(t *testing.T) {
 	_ = sess
 }
 
-func TestSessionDeadlockDueToMiddlewareChannelFull(t *testing.T) {
+func TestSessionDeadlockDueToMiddlewareChannelFull(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Create a session with unbuffered incoming channel to block the goroutine on send.
@@ -140,7 +140,7 @@ func TestSessionDeadlockDueToMiddlewareChannelFull(t *testing.T) {
 	_ = sess
 }
 
-func TestSessionRecoverAfterClose(t *testing.T) {
+func TestSessionRecoverAfterClose(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	s := &NetworkStreamSession{

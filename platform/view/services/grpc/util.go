@@ -14,10 +14,11 @@ import (
 	"encoding/pem"
 	"net"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
 // AddPemToCertPool adds PEM-encoded certs to a cert pool

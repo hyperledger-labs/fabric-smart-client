@@ -14,10 +14,11 @@ import (
 	"testing"
 	"time"
 
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type HostNode struct {
@@ -26,7 +27,8 @@ type HostNode struct {
 	Address host2.PeerIPAddress
 }
 
-func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
+func P2PLayerTestRound(t *testing.T, bootstrapNode, node *HostNode) {
+	t.Helper()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -74,7 +76,8 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 	node.Stop()
 }
 
-func SessionsTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
+func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
+	t.Helper()
 	ctx := t.Context()
 	bootstrapNode.Start(ctx)
 	node.Start(ctx)
@@ -128,7 +131,8 @@ func SessionsTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
 	node.Stop()
 }
 
-func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
+func SessionsForMPCTestRound(t *testing.T, bootstrapNode, node *HostNode) {
+	t.Helper()
 	ctx := t.Context()
 	bootstrapNode.Start(ctx)
 	node.Start(ctx)
@@ -171,7 +175,8 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNo
 	node.Stop()
 }
 
-func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode *HostNode, node *HostNode) {
+func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode, node *HostNode) {
+	t.Helper()
 	numSessions := 100
 	// numWorkers := 20
 	// Set numWorkers to 20 to test true concurrency

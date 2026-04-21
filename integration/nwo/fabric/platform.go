@@ -15,6 +15,11 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
+	"github.com/onsi/gomega/gexec"
+	"github.com/tedsuo/ifrit/grouper"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
@@ -23,10 +28,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
-	"github.com/onsi/gomega/gexec"
-	"github.com/tedsuo/ifrit/grouper"
 )
 
 const CCEnvDefaultImage = "hyperledger/fabric-ccenv:latest"
@@ -103,7 +104,6 @@ type Platform struct {
 }
 
 func NewPlatform(context api.Context, t api.Topology, components BuilderClient) *Platform {
-
 	// create a new network name
 	networkID := common.UniqueName()
 
@@ -170,7 +170,6 @@ func (p *Platform) PostRun(load bool) {
 			}
 		}
 	}
-
 }
 
 func (p *Platform) Cleanup() {
@@ -194,7 +193,7 @@ func (p *Platform) DeleteVault(id string) {
 }
 
 // UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
-func (p *Platform) UpdateChaincode(chaincodeId string, version string, path string, packageFile string) {
+func (p *Platform) UpdateChaincode(chaincodeId, version, path, packageFile string) {
 	p.Network.UpdateChaincode(chaincodeId, version, path, packageFile)
 }
 
@@ -227,7 +226,7 @@ func (p *Platform) PeerOrgs() []*fabric.Org {
 	return orgs
 }
 
-func (p *Platform) PeersByOrg(fabricHost string, orgName string, includeAll bool) []*fabric.Peer {
+func (p *Platform) PeersByOrg(fabricHost, orgName string, includeAll bool) []*fabric.Peer {
 	if len(fabricHost) == 0 {
 		if runtime.GOOS == "darwin" {
 			fabricHost = "host.docker.internal"
@@ -268,7 +267,7 @@ func (p *Platform) PeersByOrg(fabricHost string, orgName string, includeAll bool
 	return peers
 }
 
-func (p *Platform) UserByOrg(orgName string, user string) *fabric.User {
+func (p *Platform) UserByOrg(orgName, user string) *fabric.User {
 	peer := p.Network.PeersInOrg(orgName)[0]
 
 	return &fabric.User{

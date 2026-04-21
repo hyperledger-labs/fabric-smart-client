@@ -13,13 +13,14 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	sq "github.com/Masterminds/squirrel"
+	. "github.com/onsi/gomega"
+
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	. "github.com/onsi/gomega"
 )
 
-func TestGetLongTerm(t *testing.T) {
+func TestGetLongTerm(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
@@ -40,7 +41,7 @@ func TestGetLongTerm(t *testing.T) {
 	Expect(result).To(Equal(longTerm))
 }
 
-func TestHaveSameBinding(t *testing.T) {
+func TestHaveSameBinding(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
@@ -67,7 +68,7 @@ func TestHaveSameBinding(t *testing.T) {
 	Expect(result).To(BeTrue())
 }
 
-func TestHaveSameBinding_NotEqual(t *testing.T) {
+func TestHaveSameBinding_NotEqual(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
@@ -95,7 +96,7 @@ func TestHaveSameBinding_NotEqual(t *testing.T) {
 	Expect(result).To(BeFalse())
 }
 
-func TestHaveSameBinding_MissingEntries(t *testing.T) {
+func TestHaveSameBinding_MissingEntries(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))

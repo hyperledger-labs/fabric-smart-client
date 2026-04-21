@@ -9,13 +9,15 @@ package diag_test
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/node/start/diag"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
+
+	"github.com/hyperledger-labs/fabric-smart-client/node/start/diag"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 func TestCaptureGoRoutines(t *testing.T) {
+	t.Parallel()
 	gt := NewGomegaWithT(t)
 	output, err := diag.CaptureGoRoutines()
 	gt.Expect(err).NotTo(HaveOccurred())
@@ -25,6 +27,7 @@ func TestCaptureGoRoutines(t *testing.T) {
 }
 
 func TestLogGoRoutines(t *testing.T) {
+	t.Parallel()
 	gt := NewGomegaWithT(t)
 	logger, recorder := logging.NewTestLogger(t, logging.Named("goroutine"))
 	diag.LogGoRoutines(logger)

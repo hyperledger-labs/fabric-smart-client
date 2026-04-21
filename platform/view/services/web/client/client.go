@@ -17,14 +17,15 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
 
 var logger = logging.MustGetLogger()
@@ -57,6 +58,7 @@ func (c *Config) url(protocol string) string {
 	}
 	return fmt.Sprintf("%s://%s", protocol, c.Host)
 }
+
 func (c *Config) isTlsEnabled() bool {
 	return c.CACertPath != "" || len(c.CACertRaw) != 0
 }
@@ -139,7 +141,7 @@ func (c *Client) StreamCallView(fid string, in []byte) (*WSStream, error) {
 	return stream, nil
 }
 
-func (c *Client) req(ctx context.Context, method string, url string, in []byte) (io.ReadCloser, error) {
+func (c *Client) req(ctx context.Context, method, url string, in []byte) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(in))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create http request to [%s], input length [%d]", url, len(in))

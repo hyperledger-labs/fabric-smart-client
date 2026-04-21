@@ -9,9 +9,10 @@ package channelconfig
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 )
 
 type foo struct {
@@ -37,6 +38,7 @@ type unexported struct {
 }
 
 func TestSingle(t *testing.T) {
+	t.Parallel()
 	fooVal := &foo{}
 	sv, err := NewStandardValues(fooVal)
 	require.NoError(t, err, "Valid non-nested structure provided")
@@ -53,6 +55,7 @@ func TestSingle(t *testing.T) {
 }
 
 func TestPair(t *testing.T) {
+	t.Parallel()
 	fooVal := &foo{}
 	barVal := &bar{}
 	sv, err := NewStandardValues(fooVal, barVal)
@@ -75,26 +78,31 @@ func TestPair(t *testing.T) {
 }
 
 func TestPairConflict(t *testing.T) {
+	t.Parallel()
 	_, err := NewStandardValues(&foo{}, &conflict{})
 	require.Error(t, err, "Conflicting keys provided")
 }
 
 func TestNonProtosStruct(t *testing.T) {
+	t.Parallel()
 	_, err := NewStandardValues(&nonProtos{})
 	require.Error(t, err, "Structure with non-struct non-proto fields provided")
 }
 
 func TestUnexportedField(t *testing.T) {
+	t.Parallel()
 	_, err := NewStandardValues(&unexported{msg: nil})
 	require.Error(t, err, "Structure with unexported fields")
 }
 
 func TestNonPointerParam(t *testing.T) {
+	t.Parallel()
 	_, err := NewStandardValues(foo{})
 	require.Error(t, err, "Parameter must be pointer")
 }
 
 func TestPointerToNonStruct(t *testing.T) {
+	t.Parallel()
 	nonStruct := "foo"
 	_, err := NewStandardValues(&nonStruct)
 	require.Error(t, err, "Pointer must be to a struct")

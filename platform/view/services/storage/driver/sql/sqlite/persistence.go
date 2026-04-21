@@ -15,12 +15,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/uptrace/opentelemetry-go-extra/otelsql"
+	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	"github.com/uptrace/opentelemetry-go-extra/otelsql"
-	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
 )
 
 const (
@@ -76,10 +77,10 @@ func open(opts Opts) (*common.RWDB, error) {
 	}, nil
 }
 
-func openDB(dataSourceName string, maxOpenConns int, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool, tracing *common2.TracingConfig) (*sql.DB, error) {
+func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool, tracing *common2.TracingConfig) (*sql.DB, error) {
 	// Create directories if they do not exist to avoid error "out of memory (14)", see below
 	path := getDir(dataSourceName)
-	if err := os.MkdirAll(path, 0777); err != nil {
+	if err := os.MkdirAll(path, 0o777); err != nil {
 		logger.Warnf("failed creating dir [%s]: %s", path, err)
 	}
 

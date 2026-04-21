@@ -13,20 +13,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 func TestCompile(t *testing.T) {
+	t.Parallel()
 	gt := NewGomegaWithT(t)
 	_, err := gexec.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli")
 	gt.Expect(err).NotTo(HaveOccurred())
 	defer gexec.CleanupBuildArtifacts()
 }
 
-func TestArtifactsGen(t *testing.T) {
+func TestArtifactsGen(t *testing.T) { //nolint:paralleltest
 	RegisterFailHandler(func(message string, callerSkip ...int) {
 		panic(message)
 	})
@@ -54,5 +56,4 @@ func TestArtifactsGen(t *testing.T) {
 	}
 
 	Expect(stringEntries).To(Equal([]string{"conf.json", "fabric.default", "fsc", "topology.yaml"}))
-
 }

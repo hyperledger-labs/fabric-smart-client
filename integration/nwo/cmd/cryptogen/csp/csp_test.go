@@ -20,13 +20,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/require"
 
 	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 func TestLoadPrivateKey(t *testing.T) {
+	t.Parallel()
 	testDir, err := os.MkdirTemp("", "csp-test")
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
@@ -44,13 +45,9 @@ func TestLoadPrivateKey(t *testing.T) {
 	require.Equal(t, priv, loadedPriv, "Expected private keys to match")
 }
 
-func TestLoadPrivateKey_BadPEM(t *testing.T) {
-	testDir, err := os.MkdirTemp("", "csp-test")
-	if err != nil {
-		t.Fatalf("Failed to create test directory: %s", err)
-	}
-	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
-
+func TestLoadPrivateKey_BadPEM(t *testing.T) { //nolint:tparallel
+	t.Parallel()
+	testDir := t.TempDir()
 	badPEMFile := filepath.Join(testDir, "badpem_sk")
 
 	rsaKey, err := rsa.GenerateKey(rand.Reader, 1024)
@@ -70,7 +67,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) {
 	}
 	pkcs1RSAPem := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: pkcs1Encoded})
 
-	for _, test := range []struct {
+	for _, test := range []struct { //nolint: tparallel,paralleltest
 		name   string
 		data   []byte
 		errMsg string
@@ -95,7 +92,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) {
 			err := os.WriteFile(
 				badPEMFile,
 				test.data,
-				0755,
+				0o755,
 			)
 			require.NoError(t, err, "failed to write to wrong encoding file")
 			_, err = csp2.LoadPrivateKey(badPEMFile)
@@ -107,6 +104,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) {
 }
 
 func TestGeneratePrivateKey(t *testing.T) {
+	t.Parallel()
 	testDir, err := os.MkdirTemp("", "csp-test")
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %s", err)
@@ -125,6 +123,7 @@ func TestGeneratePrivateKey(t *testing.T) {
 }
 
 func TestECDSASigner(t *testing.T) {
+	t.Parallel()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatalf("Failed to generate private key: %s", err)

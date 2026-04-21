@@ -20,11 +20,13 @@ func AlwaysFirst[T any]() SelectionStrategy[T] {
 		return sets[0]
 	}
 }
+
 func AlwaysLast[T any]() SelectionStrategy[T] {
 	return func(sets []T) T {
 		return sets[len(sets)-1]
 	}
 }
+
 func RoundRobin[T any]() SelectionStrategy[T] {
 	it := uint64(0)
 	return func(sets []T) T {
@@ -48,6 +50,7 @@ type serviceDiscovery struct {
 func (d *serviceDiscovery) LookupAll(id host2.PeerID) ([]host2.PeerIPAddress, bool) {
 	return d.router.Lookup(id)
 }
+
 func (d *serviceDiscovery) Lookup(id host2.PeerID) host2.PeerIPAddress {
 	if endpoints, ok := d.router.Lookup(id); ok && len(endpoints) > 0 {
 		return d.strategy(endpoints)

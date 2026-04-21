@@ -16,9 +16,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // Default compression to use for production. Test packages disable compression.
@@ -77,7 +76,7 @@ func (p *Platform) ValidateCodePackage(code []byte) error {
 
 		// only files and directories; no links or special files
 		mode := header.FileInfo().Mode()
-		if mode&^(os.ModeDir|0777) != 0 {
+		if mode&^(os.ModeDir|0o777) != 0 {
 			return fmt.Errorf("illegal file mode in payload: %s", header.Name)
 		}
 	}
@@ -125,7 +124,7 @@ func WriteBytesToPackage(raw []byte, packagepath string, tw *tar.Writer) error {
 	header.ModTime = zeroTime
 	header.ChangeTime = zeroTime
 	header.Name = packagepath
-	header.Mode = 0100644
+	header.Mode = 0o100644
 	header.Uid = 500
 	header.Gid = 500
 	header.Uname = ""

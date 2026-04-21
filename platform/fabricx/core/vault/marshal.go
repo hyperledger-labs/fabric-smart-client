@@ -10,14 +10,15 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/hyperledger/fabric-x-common/api/applicationpb"
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protowire"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger/fabric-x-common/api/applicationpb"
-	"go.uber.org/zap"
-	"google.golang.org/protobuf/encoding/protowire"
 )
 
 // Marshaller is the custom marshaller for fabricx that handles serialization and deserialization

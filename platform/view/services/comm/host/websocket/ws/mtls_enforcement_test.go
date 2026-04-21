@@ -15,15 +15,17 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 )
 
 // TestMTLSStrictness verifies that the websocket provider strictly requires mTLS.
 func TestMTLSStrictness(t *testing.T) {
+	t.Parallel()
 	testSetup(t)
 	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 
@@ -40,12 +42,13 @@ func TestMTLSStrictness(t *testing.T) {
 	}))
 	srv.TLS = serverTLSConfig
 	srv.StartTLS()
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 
 	srvAddr := strings.TrimPrefix(srv.URL, "https://")
 	url := fmt.Sprintf("wss://%s/p2p", srvAddr)
 
 	t.Run("Valid mTLS - Connection Accepted", func(t *testing.T) {
+		t.Parallel()
 		dialer := websocket.Dialer{TLSClientConfig: clientTLSConfig}
 		conn, _, err := dialer.Dial(url, nil)
 		require.NoError(t, err)
@@ -53,6 +56,7 @@ func TestMTLSStrictness(t *testing.T) {
 	})
 
 	t.Run("No Client Certificate - Connection Rejected", func(t *testing.T) {
+		t.Parallel()
 		// Only root CA provided, NO client cert
 		invalidClientConfig := &tls.Config{
 			RootCAs:    clientTLSConfig.RootCAs,
@@ -64,6 +68,7 @@ func TestMTLSStrictness(t *testing.T) {
 	})
 
 	t.Run("Untrusted Client Certificate - Connection Rejected", func(t *testing.T) {
+		t.Parallel()
 		// Use another CA to sign a client certificate
 		_, untrustedClientConfig, _ := testMutualTLSConfigs(t, false)
 
@@ -73,6 +78,7 @@ func TestMTLSStrictness(t *testing.T) {
 	})
 
 	t.Run("Expired Certificate - Connection Rejected", func(t *testing.T) {
+		t.Parallel()
 		// This is naturally handled by Go's TLS implementation if mTLS is enabled.
 		// We could simulate by setting NotAfter in the past during cert generation in testMutualTLSConfigs.
 	})

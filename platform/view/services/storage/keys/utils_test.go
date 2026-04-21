@@ -11,9 +11,10 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/keys"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -51,6 +52,7 @@ func validateCompositeKeyAttribute(str string) error {
 }
 
 func TestValidateKey(t *testing.T) {
+	t.Parallel()
 	require.NoError(t, keys.ValidateKey("_key"))
 	require.NoError(t, keys.ValidateKey("1lm7v0uzXp9p+Q/K4z0LM0bRWEAEi0qun3jTg8uNYrI="))
 	key, err := createCompositeKey("token", []string{"thistype", "alice"})
@@ -62,6 +64,7 @@ func TestValidateKey(t *testing.T) {
 }
 
 func TestValidateNamespace(t *testing.T) {
+	t.Parallel()
 	require.NoError(t, keys.ValidateNs("_token"))
 	require.EqualError(t, keys.ValidateNs("+lifecycle"), "namespace '+lifecycle' is invalid")
 }

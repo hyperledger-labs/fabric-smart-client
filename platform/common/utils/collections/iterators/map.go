@@ -11,7 +11,7 @@ import (
 )
 
 // Map lazily maps an iterator to another
-func Map[A any, B any](iterator Iterator[A], transformer Transformer[A, B]) Iterator[B] {
+func Map[A, B any](iterator Iterator[A], transformer Transformer[A, B]) Iterator[B] {
 	return &mapped[A, B]{Iterator: iterator, transformer: transformer}
 }
 

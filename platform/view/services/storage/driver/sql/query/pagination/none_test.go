@@ -9,12 +9,13 @@ package pagination_test
 import (
 	"testing"
 
+	. "github.com/onsi/gomega"
+
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/pagination"
-	. "github.com/onsi/gomega"
 )
 
-func TestNone(t *testing.T) {
+func TestNone(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	query, args := q.Select().
@@ -27,7 +28,7 @@ func TestNone(t *testing.T) {
 	Expect(args).To(BeEmpty())
 }
 
-func TestEmpty(t *testing.T) {
+func TestEmpty(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	query, args := q.Select().

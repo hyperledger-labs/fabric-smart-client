@@ -17,6 +17,7 @@ import (
 )
 
 func TestJson(t *testing.T) {
+	t.Parallel()
 	asset := &Asset{
 		ObjectType:        "coin",
 		ID:                "1234",

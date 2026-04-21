@@ -11,14 +11,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 //go:generate counterfeiter -o mocks/fabric_network_service.go --fake-name FakeFabricNetworkService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.FabricNetworkService
@@ -28,6 +27,7 @@ import (
 // TestCreateSCEnvelopeNoProposalResponses verifies that envelope creation fails
 // when the transaction carries no proposal responses at all.
 func TestCreateSCEnvelopeNoProposalResponses(t *testing.T) {
+	t.Parallel()
 	tx := &Transaction{
 		TTxID: "tx1",
 	}
@@ -40,6 +40,7 @@ func TestCreateSCEnvelopeNoProposalResponses(t *testing.T) {
 // TestCreateSCEnvelopeInvalidBaseTransaction verifies that envelope creation fails
 // when the first proposal response does not contain a valid serialized tx payload.
 func TestCreateSCEnvelopeInvalidBaseTransaction(t *testing.T) {
+	t.Parallel()
 	tx := &Transaction{
 		TTxID: "tx1",
 		TProposalResponses: []*peer.ProposalResponse{
@@ -63,6 +64,7 @@ func TestCreateSCEnvelopeInvalidBaseTransaction(t *testing.T) {
 // TestCreateSCEnvelopeMergeProposalResponsesPayloadMismatch verifies that
 // envelope creation fails when proposal responses refer to different tx payloads.
 func TestCreateSCEnvelopeMergeProposalResponsesPayloadMismatch(t *testing.T) {
+	t.Parallel()
 	tx1 := sampleTx("ns1", "key1", "value1")
 	tx2 := sampleTx("ns1", "key2", "value2")
 
@@ -104,6 +106,7 @@ func TestCreateSCEnvelopeMergeProposalResponsesPayloadMismatch(t *testing.T) {
 // after marshaling the merged tx if the signer service cannot provide a signer
 // for the transaction creator.
 func TestCreateSCEnvelopeSignerNotFound(t *testing.T) {
+	t.Parallel()
 	rawTx := mustRawTx(t, sampleTx("ns1", "key1", "value1"))
 
 	resp := &peer.ProposalResponse{
@@ -140,6 +143,7 @@ func TestCreateSCEnvelopeSignerNotFound(t *testing.T) {
 // proposal responses are merged, the merged tx is marshaled, and the envelope
 // is created and signed successfully.
 func TestCreateSCEnvelopeSuccess(t *testing.T) {
+	t.Parallel()
 	rawTx := mustRawTx(t, sampleTx("ns1", "key1", "value1"))
 
 	resp1 := &peer.ProposalResponse{

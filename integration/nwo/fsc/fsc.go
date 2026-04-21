@@ -24,6 +24,14 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/miracl/conflate"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
+	"github.com/spf13/viper"
+	"github.com/tedsuo/ifrit"
+	"github.com/tedsuo/ifrit/grouper"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
@@ -42,13 +50,6 @@ import (
 	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/cmd"
 	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
-	"github.com/miracl/conflate"
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
-	"github.com/spf13/viper"
-	"github.com/tedsuo/ifrit"
-	"github.com/tedsuo/ifrit/grouper"
 )
 
 var logger = logging.MustGetLogger()
@@ -522,7 +523,7 @@ func (p *Platform) RoutingConfigPath() string {
 }
 
 func (p *Platform) GenerateCryptoConfig() {
-	gomega.Expect(os.MkdirAll(p.CryptoPath(), 0755)).NotTo(gomega.HaveOccurred())
+	gomega.Expect(os.MkdirAll(p.CryptoPath(), 0o755)).NotTo(gomega.HaveOccurred())
 
 	crypto, err := os.Create(p.CryptoConfigPath())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -546,7 +547,7 @@ func (p *Platform) GenerateRoutingConfig() {
 }
 
 func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
-	err := os.MkdirAll(p.NodeDir(peer), 0755)
+	err := os.MkdirAll(p.NodeDir(peer), 0o755)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	core, err := os.Create(p.NodeConfigPath(peer))
@@ -598,7 +599,6 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		Parse(p.Topology.Templates.CoreTemplate())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(t.Execute(io.MultiWriter(core), p)).NotTo(gomega.HaveOccurred())
-
 }
 
 func GetPersistenceNames(o *node2.Options, prefixes ...node2.PersistenceKey) map[node2.PersistenceKey]driver.PersistenceName {
@@ -687,7 +687,7 @@ func (p *Platform) FSCNodeRunner(node *node2.Replica, env ...string) *runner2.Ru
 	if p.Topology.LogToFile {
 		logDir := filepath.Join(p.NodeDir(node), "logs")
 		// set stdout to a file
-		gomega.Expect(os.MkdirAll(logDir, 0755)).ToNot(gomega.HaveOccurred())
+		gomega.Expect(os.MkdirAll(logDir, 0o755)).ToNot(gomega.HaveOccurred())
 		f, err := os.Create(
 			filepath.Join(
 				logDir,
@@ -732,7 +732,7 @@ func (p *Platform) fscNodeCommand(node *node2.Replica, command common.Command, t
 }
 
 func (p *Platform) GenerateCmd(output io.Writer, node *node2.Replica) string {
-	err := os.MkdirAll(p.NodeCmdDir(node), 0755)
+	err := os.MkdirAll(p.NodeCmdDir(node), 0o755)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	if output == nil {
@@ -768,7 +768,7 @@ func (p *Platform) NodeStorages(uniqueName string) string {
 	return filepath.Join(p.Context.RootDir(), "fsc", "nodes", uniqueName)
 }
 
-func (p *Platform) NodeStorageDir(uniqueName string, dirName string) string {
+func (p *Platform) NodeStorageDir(uniqueName, dirName string) string {
 	return filepath.Join(p.NodeStorages(uniqueName), dirName)
 }
 
@@ -797,7 +797,7 @@ func (p *Platform) NodeCmdPackage(peer *node2.Replica) string {
 			string(filepath.Separator),
 		)
 	}
-	return filepath.Join(wd, "out", "cmd", peer.Name)
+	return "./" + filepath.ToSlash(filepath.Join("out", "cmd", peer.Name))
 }
 
 func (p *Platform) NodeCmdPath(peer *node2.Replica) string {
@@ -898,7 +898,7 @@ func (p *Platform) ConcatenateTLSCACertificates() {
 		return
 	}
 
-	err := os.WriteFile(p.CACertsBundlePath(), bundle.Bytes(), 0660)
+	err := os.WriteFile(p.CACertsBundlePath(), bundle.Bytes(), 0o660)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 }
 

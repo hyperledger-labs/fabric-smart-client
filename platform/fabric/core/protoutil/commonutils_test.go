@@ -10,12 +10,14 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
 func TestNonceRandomness(t *testing.T) {
+	t.Parallel()
 	n1, err := CreateNonce()
 	if err != nil {
 		t.Fatal(err)
@@ -30,6 +32,7 @@ func TestNonceRandomness(t *testing.T) {
 }
 
 func TestNonceLength(t *testing.T) {
+	t.Parallel()
 	n, err := CreateNonce()
 	if err != nil {
 		t.Fatal(err)
@@ -42,6 +45,7 @@ func TestNonceLength(t *testing.T) {
 }
 
 func TestUnmarshalPayload(t *testing.T) {
+	t.Parallel()
 	var payload *cb.Payload
 	good, _ := proto.Marshal(&cb.Payload{
 		Data: []byte("payload"),
@@ -52,13 +56,16 @@ func TestUnmarshalPayload(t *testing.T) {
 }
 
 func TestUnmarshalSignatureHeader(t *testing.T) {
+	t.Parallel()
 	t.Run("invalid header", func(t *testing.T) {
+		t.Parallel()
 		sighdrBytes := []byte("invalid signature header")
 		_, err := UnmarshalSignatureHeader(sighdrBytes)
 		require.Error(t, err, "Expected unmarshalling error")
 	})
 
 	t.Run("valid empty header", func(t *testing.T) {
+		t.Parallel()
 		sighdr := &cb.SignatureHeader{}
 		sighdrBytes := MarshalOrPanic(sighdr)
 		sighdr, err := UnmarshalSignatureHeader(sighdrBytes)
@@ -68,6 +75,7 @@ func TestUnmarshalSignatureHeader(t *testing.T) {
 	})
 
 	t.Run("valid header", func(t *testing.T) {
+		t.Parallel()
 		sighdr := &cb.SignatureHeader{
 			Creator: []byte("creator"),
 			Nonce:   []byte("nonce"),
@@ -81,6 +89,7 @@ func TestUnmarshalSignatureHeader(t *testing.T) {
 }
 
 func TestUnmarshalEnvelope(t *testing.T) {
+	t.Parallel()
 	var env *cb.Envelope
 	good, _ := proto.Marshal(&cb.Envelope{})
 	env, err := UnmarshalEnvelope(good)
@@ -89,6 +98,7 @@ func TestUnmarshalEnvelope(t *testing.T) {
 }
 
 func TestUnmarshalBlock(t *testing.T) {
+	t.Parallel()
 	var env *cb.Block
 	good, _ := proto.Marshal(&cb.Block{})
 	env, err := UnmarshalBlock(good)
@@ -97,6 +107,7 @@ func TestUnmarshalBlock(t *testing.T) {
 }
 
 func TestUnmarshalEnvelopeOfType(t *testing.T) {
+	t.Parallel()
 	env := &cb.Envelope{}
 
 	env.Payload = []byte("bad payload")
@@ -160,12 +171,14 @@ func TestUnmarshalEnvelopeOfType(t *testing.T) {
 }
 
 func TestExtractEnvelopeNilData(t *testing.T) {
+	t.Parallel()
 	block := &cb.Block{}
 	_, err := ExtractEnvelope(block, 0)
 	require.Error(t, err, "Nil data")
 }
 
 func TestExtractEnvelopeWrongIndex(t *testing.T) {
+	t.Parallel()
 	block := testBlock()
 	if _, err := ExtractEnvelope(block, len(block.GetData().Data)); err == nil {
 		t.Fatal("Expected envelope extraction to fail (wrong index)")
@@ -173,6 +186,7 @@ func TestExtractEnvelopeWrongIndex(t *testing.T) {
 }
 
 func TestExtractEnvelope(t *testing.T) {
+	t.Parallel()
 	if envelope, err := ExtractEnvelope(testBlock(), 0); err != nil {
 		t.Fatalf("Expected envelop extraction to succeed: %s", err)
 	} else if !proto.Equal(envelope, testEnvelope()) {
@@ -181,6 +195,7 @@ func TestExtractEnvelope(t *testing.T) {
 }
 
 func TestExtractPayload(t *testing.T) {
+	t.Parallel()
 	if payload, err := UnmarshalPayload(testEnvelope().Payload); err != nil {
 		t.Fatalf("Expected payload extraction to succeed: %s", err)
 	} else if !proto.Equal(payload, testPayload()) {
@@ -214,6 +229,7 @@ func testBlock() *cb.Block {
 }
 
 func TestGetRandomNonce(t *testing.T) {
+	t.Parallel()
 	key1, err := getRandomNonce()
 	require.NoErrorf(t, err, "error getting random bytes")
 	require.Len(t, key1, NonceSize)

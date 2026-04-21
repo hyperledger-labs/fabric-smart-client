@@ -13,10 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 )
 
 const (
@@ -55,6 +56,7 @@ func (m *mockSubscriber) Publish(chaincodeName string, event *committer.Chaincod
 }
 
 func TestEventListener(t *testing.T) {
+	t.Parallel()
 	subscriber := &mockSubscriber{}
 	listener := newEventListener(subscriber, "testChaincode")
 	ch := listener.ChaincodeEvents()
@@ -121,6 +123,7 @@ func TestEventListener(t *testing.T) {
 }
 
 func TestEventServiceMultipleClose(t *testing.T) {
+	t.Parallel()
 	subscriber := &mockSubscriber{}
 	listener := newEventListener(subscriber, "testChaincode")
 	ch := listener.ChaincodeEvents()
@@ -148,6 +151,7 @@ func TestEventServiceMultipleClose(t *testing.T) {
 }
 
 func TestEventListenerDeadlock(t *testing.T) {
+	t.Parallel()
 	subscriber := &mockSubscriber{}
 
 	const customBufferLen = 1

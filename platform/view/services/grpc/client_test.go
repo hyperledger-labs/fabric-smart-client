@@ -11,13 +11,17 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"net"
 	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -26,10 +30,6 @@ import (
 	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/credentials"
 )
 
 const testTimeout = 1 * time.Second // conservative
@@ -39,7 +39,8 @@ type echoServer struct {
 }
 
 func (es *echoServer) EchoCall(ctx context.Context,
-	echo *testpb.Echo) (*testpb.Echo, error) {
+	echo *testpb.Echo,
+) (*testpb.Echo, error) {
 	return echo, nil
 }
 
@@ -154,10 +155,8 @@ func TestNewConnection(t *testing.T) {
 	t.Parallel()
 	testCerts := loadCerts(t)
 
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
+	l := createListener(t)
 	badAddress := l.Addr().String()
-	defer utils.IgnoreErrorFunc(l.Close)
 
 	certPool := x509.NewCertPool()
 	ok := certPool.AppendCertsFromPEM(testCerts.caPEM)
@@ -337,15 +336,13 @@ func TestNewConnection(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			lis, err := net.Listen("tcp", "127.0.0.1:0")
-			require.NoError(t, err, "error creating server for test")
-			defer utils.IgnoreErrorFunc(lis.Close)
+			lis := createListener(t)
 			serverOpts := []grpc.ServerOption{}
 			if test.serverTLS != nil {
 				serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(test.serverTLS)))
 			}
 			srv := grpc.NewServer(serverOpts...)
-			defer srv.Stop()
+			t.Cleanup(srv.Stop)
 			go utils.IgnoreErrorFunc(func() error {
 				return srv.Serve(lis)
 			})
@@ -382,16 +379,14 @@ func TestNewConnection_TLSCertificateSANMismatch(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start a TLS server
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	defer utils.IgnoreErrorFunc(lis.Close)
+	lis := createListener(t)
 
 	serverTLS := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
 	}
 
 	srv := grpc.NewServer(grpc.Creds(credentials.NewTLS(serverTLS)))
-	defer srv.Stop()
+	t.Cleanup(srv.Stop)
 	go utils.IgnoreErrorFunc(func() error {
 		return srv.Serve(lis)
 	})
@@ -443,16 +438,14 @@ func TestSetServerRootCAs(t *testing.T) {
 	require.NoError(t, err, "error creating base client")
 
 	// set up test TLS server
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err, "failed to create listener for test server")
+	lis := createListener(t)
 	address := lis.Addr().String()
 	t.Logf("server listening on [%s]", lis.Addr().String())
 	t.Logf("client will use [%s]", address)
-	defer utils.IgnoreErrorFunc(lis.Close)
 	srv := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{testCerts.serverCert},
 	})))
-	defer srv.Stop()
+	t.Cleanup(srv.Stop)
 	go utils.IgnoreErrorFunc(func() error {
 		return srv.Serve(lis)
 	})
@@ -496,15 +489,15 @@ func TestSetMessageSize(t *testing.T) {
 	t.Parallel()
 
 	// setup test server
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err, "failed to create listener for test server")
+	lis := createListener(t)
+	address := lis.Addr().String()
 	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{})
 	require.NoError(t, err, "failed to create test server")
 	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
-	defer srv.Stop()
 	go utils.IgnoreErrorFunc(srv.Start)
+	t.Cleanup(srv.Stop)
 
-	var tests = []struct {
+	tests := []struct {
 		name        string
 		maxRecvSize int
 		maxSendSize int
@@ -537,16 +530,17 @@ func TestSetMessageSize(t *testing.T) {
 		},
 	}
 
-	// set up test client
-	client, err := grpc3.NewGRPCClient(grpc3.ClientConfig{
-		Timeout: testTimeout,
-	})
 	require.NoError(t, err, "error creating test client")
 	// run tests
 	for _, test := range tests {
-		address := lis.Addr().String()
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			t.Log(test.name)
+			// set up test client
+			client, err := grpc3.NewGRPCClient(grpc3.ClientConfig{
+				Timeout: testTimeout,
+			})
+			require.NoError(t, err)
 			if test.maxRecvSize > 0 {
 				client.SetMaxRecvMsgSize(test.maxRecvSize)
 			}
@@ -555,12 +549,15 @@ func TestSetMessageSize(t *testing.T) {
 			}
 			conn, err := client.NewConnection(address)
 			require.NoError(t, err)
+			t.Cleanup(func() {
+				_ = conn.Close
+			})
 			defer utils.IgnoreErrorFunc(conn.Close)
 			// create service client from conn
 			svcClient := testpb.NewEchoServiceClient(conn)
 			callCtx := context.Background()
 			callCtx, cancel := context.WithTimeout(callCtx, testTimeout)
-			defer cancel()
+			t.Cleanup(cancel)
 			// invoke service
 			echo := &testpb.Echo{
 				Payload: []byte{0, 0, 0, 0, 0},
@@ -613,6 +610,7 @@ func loadCerts(t *testing.T) testCerts {
 }
 
 func TestServerNameOverride(t *testing.T) {
+	t.Parallel()
 	tlsOption := grpc3.ServerNameOverride("override-name")
 	testConfig := &tls.Config{}
 	tlsOption(testConfig)
@@ -622,6 +620,7 @@ func TestServerNameOverride(t *testing.T) {
 }
 
 func TestCertPoolOverride(t *testing.T) {
+	t.Parallel()
 	tlsOption := grpc3.CertPoolOverride(&x509.CertPool{})
 	testConfig := &tls.Config{}
 	require.NotEqual(t, &tls.Config{

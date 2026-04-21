@@ -12,8 +12,9 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"go.uber.org/dig"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
 type invoker interface {

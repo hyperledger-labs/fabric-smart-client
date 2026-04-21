@@ -157,7 +157,7 @@ func (s *service) DefaultSigningIdentity() fdriver.SigningIdentity {
 	return s.defaultSigningIdentity
 }
 
-func (s *service) GetIdentityInfoByLabel(mspType string, label string) *fdriver.IdentityInfo {
+func (s *service) GetIdentityInfoByLabel(mspType, label string) *fdriver.IdentityInfo {
 	s.mspsMutex.RLock()
 	defer s.mspsMutex.RUnlock()
 
@@ -241,7 +241,7 @@ func (s *service) GetIdentityByID(id string) (view.Identity, error) {
 	return identity, nil
 }
 
-func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error {
+func (s *service) RegisterIdemixMSP(id, path, mspID string) error {
 	s.mspsMutex.Lock()
 	defer s.mspsMutex.Unlock()
 
@@ -262,7 +262,7 @@ func (s *service) RegisterIdemixMSP(id string, path string, mspID string) error 
 	return nil
 }
 
-func (s *service) RegisterX509MSP(id string, path string, mspID string) error {
+func (s *service) RegisterX509MSP(id, path, mspID string) error {
 	s.mspsMutex.Lock()
 	defer s.mspsMutex.Unlock()
 
@@ -298,7 +298,7 @@ func (s *service) Refresh() error {
 	return nil
 }
 
-func (s *service) AddMSP(name string, mspType string, enrollmentID string, IdentityGetter fdriver.GetIdentityFunc) error {
+func (s *service) AddMSP(name, mspType, enrollmentID string, IdentityGetter fdriver.GetIdentityFunc) error {
 	if mspType == BccspMSP && s.binderService != nil {
 		id, _, err := IdentityGetter(nil)
 		if err != nil {

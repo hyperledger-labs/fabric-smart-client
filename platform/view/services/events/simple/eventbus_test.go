@@ -10,19 +10,19 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/fakes"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/fakes"
 )
 
-func TestEvents(t *testing.T) {
+func TestEvents(t *testing.T) { //nolint:paralleltest
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Test simple event system")
 }
 
 var _ = Describe("Event system", func() {
-
 	When("creating a notifier service", func() {
 		It("should succeed", func() {
 			notifier := NewEventBus()

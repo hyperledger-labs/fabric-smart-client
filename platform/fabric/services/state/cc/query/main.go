@@ -18,8 +18,7 @@ const (
 	CertificationFnc string = "state_certification"
 )
 
-type CC struct {
-}
+type CC struct{}
 
 func (cc *CC) Init(stub shim.ChaincodeStubInterface) *pb.Response {
 	fmt.Println("Init...")

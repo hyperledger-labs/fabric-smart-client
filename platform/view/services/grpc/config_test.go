@@ -58,6 +58,7 @@ func TestClientKeepaliveOptions(t *testing.T) {
 }
 
 func TestClientConfigClone(t *testing.T) {
+	t.Parallel()
 	origin := ClientConfig{
 		KeepAliveConfig: &ClientKeepAliveConfig{
 			Time: time.Second,

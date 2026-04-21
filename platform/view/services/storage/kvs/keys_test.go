@@ -15,6 +15,7 @@ import (
 )
 
 func TestCreateCompositeKey(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		objectType  string
@@ -111,6 +112,7 @@ func TestCreateCompositeKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := CreateCompositeKey(tt.objectType, tt.attributes)
 
 			if tt.expectError {
@@ -127,6 +129,7 @@ func TestCreateCompositeKey(t *testing.T) {
 }
 
 func TestValidateCompositeKeyAttribute(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		input       string
@@ -187,6 +190,7 @@ func TestValidateCompositeKeyAttribute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := validateCompositeKeyAttribute(tt.input)
 
 			if tt.expectError {
@@ -202,6 +206,7 @@ func TestValidateCompositeKeyAttribute(t *testing.T) {
 }
 
 func TestCreateCompositeKeyOrPanic(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		objectType  string
@@ -226,6 +231,7 @@ func TestCreateCompositeKeyOrPanic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if tt.shouldPanic {
 				require.Panics(t, func() {
 					CreateCompositeKeyOrPanic(tt.objectType, tt.attributes)
@@ -239,6 +245,7 @@ func TestCreateCompositeKeyOrPanic(t *testing.T) {
 }
 
 func TestCreateRangeKeysForPartialCompositeKey(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		objectType    string
@@ -290,6 +297,7 @@ func TestCreateRangeKeysForPartialCompositeKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			startKey, endKey, err := CreateRangeKeysForPartialCompositeKey(tt.objectType, tt.attributes)
 
 			if tt.expectError {
@@ -311,6 +319,7 @@ func TestCreateRangeKeysForPartialCompositeKey(t *testing.T) {
 }
 
 func TestSplitCompositeKey(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name               string
 		compositeKey       string
@@ -364,6 +373,7 @@ func TestSplitCompositeKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			objectType, attributes, err := SplitCompositeKey(tt.compositeKey)
 
 			if tt.expectError {
@@ -378,6 +388,7 @@ func TestSplitCompositeKey(t *testing.T) {
 }
 
 func TestCompositeKeyRoundTrip(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		objectType string
@@ -417,6 +428,7 @@ func TestCompositeKeyRoundTrip(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			// Create composite key
 			compositeKey, err := CreateCompositeKey(tt.objectType, tt.attributes)
 			require.NoError(t, err)
@@ -433,6 +445,7 @@ func TestCompositeKeyRoundTrip(t *testing.T) {
 }
 
 func TestRangeKeysContainment(t *testing.T) {
+	t.Parallel()
 	// Create a partial composite key for "user" with attribute "alice"
 	startKey, endKey, err := CreateRangeKeysForPartialCompositeKey("user", []string{"alice"})
 	require.NoError(t, err)
@@ -471,6 +484,7 @@ func TestRangeKeysContainment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			inRange := tt.key >= startKey && tt.key < endKey
 			require.Equal(t, tt.shouldFit, inRange)
 		})
@@ -478,20 +492,25 @@ func TestRangeKeysContainment(t *testing.T) {
 }
 
 func TestCompositeKeyConstants(t *testing.T) {
+	t.Parallel()
 	t.Run("minUnicodeRuneValue is zero", func(t *testing.T) {
+		t.Parallel()
 		require.Equal(t, rune(0), minUnicodeRuneValue)
 	})
 
 	t.Run("maxUnicodeRuneValue is MaxRune", func(t *testing.T) {
+		t.Parallel()
 		require.Equal(t, utf8.MaxRune, maxUnicodeRuneValue)
 	})
 
 	t.Run("compositeKeyNamespace is null byte", func(t *testing.T) {
+		t.Parallel()
 		require.Equal(t, "\x00", compositeKeyNamespace)
 	})
 }
 
 func TestCreateCompositeKeyPerformance(t *testing.T) {
+	t.Parallel()
 	// This test ensures that CreateCompositeKey uses strings.Builder efficiently
 	objectType := "user"
 	attributes := make([]string, 100)

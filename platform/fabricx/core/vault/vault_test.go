@@ -10,12 +10,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protowire"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/encoding/protowire"
 )
 
 // mockQueryService implements queryservice.QueryService for testing
@@ -79,6 +80,7 @@ func (m *mockQueryService) setTxStatus(txID string, status int32) {
 }
 
 func TestVaultX_NewQueryExecutor(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	qs.setState("ns1", "key1", []byte("value1"), 1)
 
@@ -107,6 +109,7 @@ func TestVaultX_NewQueryExecutor(t *testing.T) {
 }
 
 func TestVaultX_NewRWSet(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	qs.setState("ns1", "key1", []byte("value1"), 1)
 
@@ -139,6 +142,7 @@ func TestVaultX_NewRWSet(t *testing.T) {
 }
 
 func TestVaultX_NewRWSetFromBytes(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	v := vault.NewVault(qs)
 	ctx := context.Background()
@@ -163,6 +167,7 @@ func TestVaultX_NewRWSetFromBytes(t *testing.T) {
 }
 
 func TestVaultX_Status(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	qs.setTxStatus("tx1", 1) // COMMITTED
 
@@ -176,6 +181,7 @@ func TestVaultX_Status(t *testing.T) {
 }
 
 func TestVaultX_Statuses(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	qs.setTxStatus("tx1", 1) // COMMITTED
 	qs.setTxStatus("tx2", 0) // UNSPECIFIED
@@ -195,6 +201,7 @@ func TestVaultX_Statuses(t *testing.T) {
 }
 
 func TestVaultX_SetDiscarded(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	v := vault.NewVault(qs)
 	ctx := context.Background()
@@ -210,6 +217,7 @@ func TestVaultX_SetDiscarded(t *testing.T) {
 }
 
 func TestVaultX_DiscardTx(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	v := vault.NewVault(qs)
 	ctx := context.Background()
@@ -225,6 +233,7 @@ func TestVaultX_DiscardTx(t *testing.T) {
 }
 
 func TestVaultX_CommitTX(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	v := vault.NewVault(qs)
 	ctx := context.Background()
@@ -240,6 +249,7 @@ func TestVaultX_CommitTX(t *testing.T) {
 }
 
 func TestVaultX_InspectRWSet(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	v := vault.NewVault(qs)
 	ctx := context.Background()
@@ -268,6 +278,7 @@ func TestVaultX_InspectRWSet(t *testing.T) {
 }
 
 func TestVaultX_RWSExists(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	v := vault.NewVault(qs)
 	ctx := context.Background()
@@ -284,6 +295,7 @@ func TestVaultX_RWSExists(t *testing.T) {
 }
 
 func TestVaultX_Match(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	v := vault.NewVault(qs)
 	ctx := context.Background()
@@ -312,6 +324,7 @@ func TestVaultX_Match(t *testing.T) {
 }
 
 func TestVaultX_Close(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	v := vault.NewVault(qs)
 	ctx := context.Background()
@@ -332,6 +345,7 @@ func TestVaultX_Close(t *testing.T) {
 }
 
 func TestRWSet_Operations(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	qs.setState("ns1", "existing", []byte("existing_value"), 1)
 
@@ -383,6 +397,7 @@ func TestRWSet_Operations(t *testing.T) {
 }
 
 func TestRWSet_GetReadAt(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	qs.setState("ns1", "key1", []byte("value1"), 1)
 	qs.setState("ns1", "key2", []byte("value2"), 2)
@@ -411,6 +426,7 @@ func TestRWSet_GetReadAt(t *testing.T) {
 }
 
 func TestRWSet_GetWriteAt(t *testing.T) {
+	t.Parallel()
 	qs := newMockQueryService()
 	v := vault.NewVault(qs)
 	ctx := context.Background()

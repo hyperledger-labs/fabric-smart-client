@@ -22,6 +22,7 @@ type (
 )
 
 func GetData(t *testing.T, get getFunc) {
+	t.Helper()
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
@@ -44,6 +45,7 @@ func GetData(t *testing.T, get getFunc) {
 }
 
 func GetData_NoData(t *testing.T, get getFunc) {
+	t.Helper()
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
@@ -65,6 +67,7 @@ func GetData_NoData(t *testing.T, get getFunc) {
 }
 
 func ExistData_True(t *testing.T, exists existsFunc) {
+	t.Helper()
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
@@ -87,6 +90,7 @@ func ExistData_True(t *testing.T, exists existsFunc) {
 }
 
 func ExistData_False(t *testing.T, exist existsFunc) {
+	t.Helper()
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
@@ -108,6 +112,7 @@ func ExistData_False(t *testing.T, exist existsFunc) {
 }
 
 func PutData_Success(t *testing.T, put putFunc) {
+	t.Helper()
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
@@ -115,7 +120,7 @@ func PutData_Success(t *testing.T, put putFunc) {
 
 	key := "key1"
 	data := []byte("value1")
-	query := regexp.QuoteMeta("INSERT INTO test_table (key, data) VALUES ($1, $2) ON CONFLICT DO NOTHING")
+	query := regexp.QuoteMeta("INSERT INTO test_table (key,data) VALUES ($1,$2) ON CONFLICT DO NOTHING")
 
 	mockDB.
 		ExpectExec(query).
@@ -129,6 +134,7 @@ func PutData_Success(t *testing.T, put putFunc) {
 }
 
 func PutData_Conflict(t *testing.T, put putFunc) {
+	t.Helper()
 	RegisterTestingT(t)
 
 	db, mockDB, err := sqlmock.New()
@@ -136,7 +142,7 @@ func PutData_Conflict(t *testing.T, put putFunc) {
 
 	key := "key1"
 	data := []byte("value1")
-	query := regexp.QuoteMeta("INSERT INTO test_table (key, data) VALUES ($1, $2) ON CONFLICT DO NOTHING")
+	query := regexp.QuoteMeta("INSERT INTO test_table (key,data) VALUES ($1,$2) ON CONFLICT DO NOTHING")
 
 	mockDB.
 		ExpectExec(query).

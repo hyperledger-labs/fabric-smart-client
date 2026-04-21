@@ -13,6 +13,9 @@ import (
 	"path"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/deployment"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
@@ -22,8 +25,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/fxconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 const (

@@ -10,14 +10,16 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
-	"github.com/stretchr/testify/require"
 )
 
 var someCompositeKey = utils.MustGet(kvs.CreateCompositeKey("prefix", []string{"a", "b", "c"}))
 
 func TestDecodeBYTEA(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		input       string
@@ -53,6 +55,7 @@ func TestDecodeBYTEA(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := decodeBYTEA(tc.input)
 			if tc.expectError {
 				require.Error(t, err)
@@ -65,6 +68,7 @@ func TestDecodeBYTEA(t *testing.T) {
 }
 
 func TestIdentity(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		input string
@@ -79,6 +83,7 @@ func TestIdentity(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := identity(tc.input)
 			require.NoError(t, err)
 			require.Equal(t, tc.input, got)

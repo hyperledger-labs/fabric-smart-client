@@ -8,9 +8,9 @@ package collections
 
 import "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/maps"
 
-func CopyMap[K comparable, V any](to map[K]V, from map[K]V) { maps.Copy(to, from) }
+func CopyMap[K comparable, V any](to, from map[K]V) { maps.Copy(to, from) }
 
-func InverseMap[K comparable, V comparable](in map[K]V) map[V]K { return maps.Inverse(in) }
+func InverseMap[K, V comparable](in map[K]V) map[V]K { return maps.Inverse(in) }
 
 func Values[K comparable, V any](m map[K]V) []V { return maps.Values(m) }
 

@@ -14,12 +14,14 @@ import (
 )
 
 func TestUnmarshal(t *testing.T) {
+	t.Parallel()
 	ctx, err := UnmarshalContext([]byte(`{"trace_id":"00000000000000000000000000000000","span_id":"0000000000000000","trace_flags":0,"trace_state":"","remote":false}`))
 	require.NoError(t, err)
 	require.True(t, ctx.Equal(trace.SpanContext{}))
 }
 
 func TestMarshalUnmarshal(t *testing.T) {
+	t.Parallel()
 	state, err := trace.ParseTraceState("abcdefghijklmnopqrstuvwxyz0123456789_-*/= !\"#$%&'()*+-./0123456789:;<>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~")
 	require.NoError(t, err)
 	ctx := trace.NewSpanContext(trace.SpanContextConfig{

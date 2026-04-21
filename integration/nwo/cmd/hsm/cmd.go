@@ -11,10 +11,10 @@ package hsm
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	"github.com/spf13/cobra"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/pkcs11"
-	"github.com/spf13/cobra"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 )
 
 // NewCmd returns the Cobra Command for the HSM related utilities

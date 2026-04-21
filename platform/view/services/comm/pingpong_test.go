@@ -14,15 +14,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func TestPingPongSessionLevel(t *testing.T) {
+func TestPingPongSessionLevel(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Test ping-pong behavior at the session level with multiple sessions

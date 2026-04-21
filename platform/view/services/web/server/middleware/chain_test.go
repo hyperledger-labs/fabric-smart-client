@@ -10,9 +10,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
 )
 
 var _ = Describe("Chain", func() {

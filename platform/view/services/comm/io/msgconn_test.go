@@ -11,13 +11,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 func TestNewMsgConn(t *testing.T) {
+	t.Parallel()
 	t.Run("successful creation", func(t *testing.T) {
+		t.Parallel()
 		session := &mockSession{
 			ch: make(chan *view.Message, 10),
 		}
@@ -29,7 +32,9 @@ func TestNewMsgConn(t *testing.T) {
 }
 
 func TestMsgConn_Write(t *testing.T) {
+	t.Parallel()
 	t.Run("successful write", func(t *testing.T) {
+		t.Parallel()
 		session := &mockSession{
 			ch: make(chan *view.Message, 10),
 		}
@@ -46,6 +51,7 @@ func TestMsgConn_Write(t *testing.T) {
 	})
 
 	t.Run("write empty data", func(t *testing.T) {
+		t.Parallel()
 		session := &mockSession{
 			ch: make(chan *view.Message, 10),
 		}
@@ -59,6 +65,7 @@ func TestMsgConn_Write(t *testing.T) {
 	})
 
 	t.Run("write error", func(t *testing.T) {
+		t.Parallel()
 		session := &mockSession{
 			ch:        make(chan *view.Message, 10),
 			sendError: assert.AnError,
@@ -74,6 +81,7 @@ func TestMsgConn_Write(t *testing.T) {
 	})
 
 	t.Run("multiple writes", func(t *testing.T) {
+		t.Parallel()
 		session := &mockSession{
 			ch: make(chan *view.Message, 10),
 		}
@@ -101,7 +109,9 @@ func TestMsgConn_Write(t *testing.T) {
 }
 
 func TestMsgConn_Read(t *testing.T) {
+	t.Parallel()
 	t.Run("successful read", func(t *testing.T) {
+		t.Parallel()
 		ch := make(chan *view.Message, 10)
 		session := &mockSession{ch: ch}
 
@@ -120,6 +130,7 @@ func TestMsgConn_Read(t *testing.T) {
 	})
 
 	t.Run("read multiple messages", func(t *testing.T) {
+		t.Parallel()
 		ch := make(chan *view.Message, 10)
 		session := &mockSession{ch: ch}
 
@@ -148,6 +159,7 @@ func TestMsgConn_Read(t *testing.T) {
 	})
 
 	t.Run("channel closed", func(t *testing.T) {
+		t.Parallel()
 		ch := make(chan *view.Message, 10)
 		session := &mockSession{ch: ch}
 
@@ -163,6 +175,7 @@ func TestMsgConn_Read(t *testing.T) {
 	})
 
 	t.Run("nil message", func(t *testing.T) {
+		t.Parallel()
 		ch := make(chan *view.Message, 10)
 		session := &mockSession{ch: ch}
 
@@ -178,6 +191,7 @@ func TestMsgConn_Read(t *testing.T) {
 	})
 
 	t.Run("error status", func(t *testing.T) {
+		t.Parallel()
 		ch := make(chan *view.Message, 10)
 		session := &mockSession{ch: ch}
 
@@ -196,6 +210,7 @@ func TestMsgConn_Read(t *testing.T) {
 	})
 
 	t.Run("empty payload", func(t *testing.T) {
+		t.Parallel()
 		ch := make(chan *view.Message, 10)
 		session := &mockSession{ch: ch}
 
@@ -215,7 +230,9 @@ func TestMsgConn_Read(t *testing.T) {
 }
 
 func TestMsgConn_Flush(t *testing.T) {
+	t.Parallel()
 	t.Run("flush always succeeds", func(t *testing.T) {
+		t.Parallel()
 		session := &mockSession{
 			ch: make(chan *view.Message, 10),
 		}

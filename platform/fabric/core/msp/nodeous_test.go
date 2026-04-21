@@ -20,13 +20,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
-func TestInvalidAdminNodeOU(t *testing.T) {
+func TestInvalidAdminNodeOU(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeous1:
 	// the configuration enables NodeOUs but the administrator does not carry
 	// any valid NodeOUS. Therefore MSP initialization must fail
@@ -40,8 +41,8 @@ func TestInvalidAdminNodeOU(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestInvalidSigningIdentityNodeOU(t *testing.T) {
-	t.Run("signing_identity_validation_fails_with_MSPv1_4_3", func(t *testing.T) {
+func TestInvalidSigningIdentityNodeOU(t *testing.T) { //nolint:paralleltest
+	t.Run("signing_identity_validation_fails_with_MSPv1_4_3", func(t *testing.T) { //nolint:paralleltest
 		// testdata/nodeous2:
 		// the configuration enables NodeOUs but the signing identity does not carry
 		// any valid NodeOUS. Therefore signing identity validation should fail
@@ -55,7 +56,7 @@ func TestInvalidSigningIdentityNodeOU(t *testing.T) {
 		require.EqualError(t, err, "could not validate identity's OUs: the identity does not have an OU that resolves to client, peer, orderer, or admin role. OUs: [], MSP: [SampleOrg]")
 	})
 
-	t.Run("signing_identity_validation_fails_with_MSPv1_1", func(t *testing.T) {
+	t.Run("signing_identity_validation_fails_with_MSPv1_1", func(t *testing.T) { //nolint:paralleltest
 		// testdata/nodeous2:
 		// the configuration enables NodeOUs but the signing identity does not carry
 		// any valid NodeOUS. Therefore signing identity validation should fail
@@ -69,7 +70,7 @@ func TestInvalidSigningIdentityNodeOU(t *testing.T) {
 		require.EqualError(t, err, "could not validate identity's OUs: the identity does not have an OU that resolves to client or peer. OUs: [], MSP: [SampleOrg]")
 	})
 
-	t.Run("signing_identity_validation_succeeds_with_MSPv1_0", func(t *testing.T) {
+	t.Run("signing_identity_validation_succeeds_with_MSPv1_0", func(t *testing.T) { //nolint:paralleltest
 		// MSPv1_0 should not fail, node OUs not yet implemented in 1_0
 		thisMSP, err := getLocalMSPWithVersionAndError(t, "testdata/nodeous1", MSPv1_0)
 		require.False(t, thisMSP.(*bccspmsp).ouEnforcement)
@@ -83,7 +84,7 @@ func TestInvalidSigningIdentityNodeOU(t *testing.T) {
 	})
 }
 
-func TestValidMSPWithNodeOU(t *testing.T) {
+func TestValidMSPWithNodeOU(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeous3:
 	// the configuration enables NodeOUs and admin and signing identity are valid
 	thisMSP := getLocalMSPWithVersion(t, "testdata/nodeous3", MSPv1_1)
@@ -106,7 +107,7 @@ func TestValidMSPWithNodeOU(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestValidMSPWithNodeOUAndOrganizationalUnits(t *testing.T) {
+func TestValidMSPWithNodeOUAndOrganizationalUnits(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeous6:
 	// the configuration enables NodeOUs and OrganizationalUnits, and admin and signing identity are valid
 	thisMSP := getLocalMSPWithVersion(t, "testdata/nodeous6", MSPv1_1)
@@ -129,7 +130,7 @@ func TestValidMSPWithNodeOUAndOrganizationalUnits(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestInvalidMSPWithNodeOUAndOrganizationalUnits(t *testing.T) {
+func TestInvalidMSPWithNodeOUAndOrganizationalUnits(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeous6:
 	// the configuration enables NodeOUs and OrganizationalUnits,
 	// and admin and signing identity are not valid because they don't have
@@ -146,7 +147,7 @@ func TestInvalidMSPWithNodeOUAndOrganizationalUnits(t *testing.T) {
 	require.Contains(t, err.Error(), "could not validate identity's OUs: none of the identity's organizational units")
 }
 
-func TestInvalidAdminOU(t *testing.T) {
+func TestInvalidAdminOU(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeous4:
 	// the configuration enables NodeOUs and admin does not match the certifier chain specified at config
 	thisMSP, err := getLocalMSPWithVersionAndError(t, "testdata/nodeous4", MSPv1_1)
@@ -160,7 +161,7 @@ func TestInvalidAdminOU(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestInvalidAdminOUNotAClient(t *testing.T) {
+func TestInvalidAdminOUNotAClient(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeous4:
 	// the configuration enables NodeOUs and admin is not a client
 	thisMSP, err := getLocalMSPWithVersionAndError(t, "testdata/nodeous8", MSPv1_1)
@@ -174,7 +175,7 @@ func TestInvalidAdminOUNotAClient(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestSatisfiesPrincipalPeer(t *testing.T) {
+func TestSatisfiesPrincipalPeer(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeous3:
 	// the configuration enables NodeOUs and admin and signing identity are valid
 	thisMSP := getLocalMSPWithVersion(t, "testdata/nodeous3", MSPv1_1)
@@ -187,7 +188,7 @@ func TestSatisfiesPrincipalPeer(t *testing.T) {
 	err = id.Validate()
 	require.NoError(t, err)
 
-	require.True(t, t.Run("Check that id is a peer", func(t *testing.T) {
+	require.True(t, t.Run("Check that id is a peer", func(t *testing.T) { //nolint:paralleltest
 		// Check that id is a peer
 		mspID, err := thisMSP.GetIdentifier()
 		require.NoError(t, err)
@@ -201,7 +202,7 @@ func TestSatisfiesPrincipalPeer(t *testing.T) {
 		require.NoError(t, err)
 	}))
 
-	require.True(t, t.Run("Check that id is not a client", func(t *testing.T) {
+	require.True(t, t.Run("Check that id is not a client", func(t *testing.T) { //nolint:paralleltest
 		// Check that id is not a client
 		mspID, err := thisMSP.GetIdentifier()
 		require.NoError(t, err)
@@ -217,7 +218,7 @@ func TestSatisfiesPrincipalPeer(t *testing.T) {
 	}))
 }
 
-func TestSatisfiesPrincipalClient(t *testing.T) {
+func TestSatisfiesPrincipalClient(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeous3:
 	// the configuration enables NodeOUs and admin and signing identity are valid
 	thisMSP := getLocalMSPWithVersion(t, "testdata/nodeous3", MSPv1_1)
@@ -231,7 +232,7 @@ func TestSatisfiesPrincipalClient(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that id is a client
-	require.True(t, t.Run("Check that id is a client", func(t *testing.T) {
+	require.True(t, t.Run("Check that id is a client", func(t *testing.T) { //nolint:paralleltest
 		mspID, err := thisMSP.GetIdentifier()
 		require.NoError(t, err)
 		principalBytes, err := proto.Marshal(&msp.MSPRole{Role: msp.MSPRole_CLIENT, MspIdentifier: mspID})
@@ -244,7 +245,7 @@ func TestSatisfiesPrincipalClient(t *testing.T) {
 		require.NoError(t, err)
 	}))
 
-	require.True(t, t.Run("Check that id is not a peer", func(t *testing.T) {
+	require.True(t, t.Run("Check that id is not a peer", func(t *testing.T) { //nolint:paralleltest
 		// Check that id is not a peer
 		mspID, err := thisMSP.GetIdentifier()
 		require.NoError(t, err)
@@ -260,7 +261,7 @@ func TestSatisfiesPrincipalClient(t *testing.T) {
 	}))
 }
 
-func TestSatisfiesPrincipalAdmin(t *testing.T) {
+func TestSatisfiesPrincipalAdmin(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeouadmin:
 	// the configuration enables NodeOUs (with adminOU) and admin and signing identity are valid
 	thisMSP := getLocalMSPWithVersion(t, "testdata/nodeouadmin", MSPv1_4_3)
@@ -282,7 +283,7 @@ func TestSatisfiesPrincipalAdmin(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestLoad142MSPWithInvalidAdminConfiguration(t *testing.T) {
+func TestLoad142MSPWithInvalidAdminConfiguration(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeouadmin2:
 	// the configuration enables NodeOUs (with adminOU) but no valid identifier for the AdminOU
 	conf, err := GetLocalMspConfig("testdata/nodeouadmin2", nil, "SampleOrg")
@@ -314,7 +315,7 @@ func TestLoad142MSPWithInvalidAdminConfiguration(t *testing.T) {
 	require.Equal(t, "administrators must be declared when no admin ou classification is set", err.Error())
 }
 
-func TestAdminInAdmincertsWith143MSP(t *testing.T) {
+func TestAdminInAdmincertsWith143MSP(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeouadminclient enables NodeOU classification and contains in the admincerts folder
 	// a certificate classified as client. This test checks that identity is considered an admin anyway.
 	// testdata/nodeouadminclient2 enables NodeOU classification and contains in the admincerts folder
@@ -346,7 +347,7 @@ func TestAdminInAdmincertsWith143MSP(t *testing.T) {
 	}
 }
 
-func TestSatisfiesPrincipalOrderer(t *testing.T) {
+func TestSatisfiesPrincipalOrderer(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeouorderer:
 	// the configuration enables NodeOUs (with orderOU)
 	thisMSP := getLocalMSPWithVersion(t, "testdata/nodeouorderer", MSPv1_4_3)
@@ -365,7 +366,7 @@ func TestSatisfiesPrincipalOrderer(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestLoad142MSPWithInvalidOrdererConfiguration(t *testing.T) {
+func TestLoad142MSPWithInvalidOrdererConfiguration(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeouorderer2:
 	// the configuration enables NodeOUs (with orderOU) but no valid identifier for the OrdererOU
 	conf, err := GetLocalMspConfig("testdata/nodeouorderer2", nil, "SampleOrg")
@@ -419,7 +420,7 @@ func TestLoad142MSPWithInvalidOrdererConfiguration(t *testing.T) {
 	require.Equal(t, "The identity is not a [ORDERER] under this MSP [SampleOrg]: cannot test for classification, node ou for type [ORDERER], not defined, msp: [SampleOrg]", err.Error())
 }
 
-func TestValidMSPWithNodeOUMissingClassification(t *testing.T) {
+func TestValidMSPWithNodeOUMissingClassification(t *testing.T) { //nolint:paralleltest
 	// testdata/nodeousbadconf1:
 	// the configuration enables NodeOUs but client ou identifier is missing
 	_, err := getLocalMSPWithVersionAndError(t, "testdata/nodeousbadconf1", MSPv1_3)

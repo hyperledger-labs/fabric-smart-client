@@ -7,11 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package network
 
 import (
+	"github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/opts"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/onsi/gomega"
 )
 
 // CheckTopology checks the topology of the network
@@ -50,7 +51,7 @@ func (n *Network) CheckTopologyOrderers() {
 func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[string][]topology.UserSpec) {
 	t := n.Context.TopologyByName("fsc")
 	if t == nil {
-		return
+		return users, userSpecs
 	}
 	fscTopology := t.(*fsc.Topology)
 
@@ -142,7 +143,7 @@ func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[s
 		n.Context.SetHostByPeerID("fsc", p.ID(), n.Context.HostByPeerID(n.Prefix, node.Name))
 	}
 
-	return
+	return users, userSpecs
 }
 
 // CheckTopologyOrgs allocates users for each organization

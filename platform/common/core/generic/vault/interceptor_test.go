@@ -11,13 +11,15 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/mocks"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/stretchr/testify/require"
 )
 
 func TestConcurrency(t *testing.T) {
+	t.Parallel()
 	qe := mocks.NewMockQE()
 	idsr := mocks.MockTxStatusStore{}
 
@@ -63,6 +65,7 @@ func TestConcurrency(t *testing.T) {
 }
 
 func TestAddReadAt(t *testing.T) {
+	t.Parallel()
 	qe := mocks.MockQE{}
 	idsr := mocks.MockTxStatusStore{}
 	i := newInterceptor(logging.MustGetLogger(), context.Background(), EmptyRWSet(), qe, idsr, "1")

@@ -11,13 +11,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestConfigProvider_NotificationServiceConfig(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		fakeConfigProvider := &mock.FabricConfigProvider{}
 		fakeConfigService := &mock.FabricConfigService{}
 		fakeConfigProvider.GetConfigReturns(fakeConfigService, nil)
@@ -42,6 +45,7 @@ func TestConfigProvider_NotificationServiceConfig(t *testing.T) {
 	})
 
 	t.Run("config provider error", func(t *testing.T) {
+		t.Parallel()
 		fakeConfigProvider := &mock.FabricConfigProvider{}
 		fakeConfigProvider.GetConfigReturns(nil, errors.New("config-error"))
 
@@ -53,6 +57,7 @@ func TestConfigProvider_NotificationServiceConfig(t *testing.T) {
 	})
 
 	t.Run("new config error", func(t *testing.T) {
+		t.Parallel()
 		fakeConfigProvider := &mock.FabricConfigProvider{}
 		fakeConfigService := &mock.FabricConfigService{}
 		fakeConfigProvider.GetConfigReturns(fakeConfigService, nil)
@@ -67,7 +72,9 @@ func TestConfigProvider_NotificationServiceConfig(t *testing.T) {
 }
 
 func TestConfigProvider_QueryServiceConfig(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		fakeConfigProvider := &mock.FabricConfigProvider{}
 		fakeConfigService := &mock.FabricConfigService{}
 		fakeConfigProvider.GetConfigReturns(fakeConfigService, nil)
@@ -92,6 +99,7 @@ func TestConfigProvider_QueryServiceConfig(t *testing.T) {
 	})
 
 	t.Run("config provider error", func(t *testing.T) {
+		t.Parallel()
 		fakeConfigProvider := &mock.FabricConfigProvider{}
 		fakeConfigProvider.GetConfigReturns(nil, errors.New("config-error"))
 
@@ -103,6 +111,7 @@ func TestConfigProvider_QueryServiceConfig(t *testing.T) {
 	})
 
 	t.Run("new config error", func(t *testing.T) {
+		t.Parallel()
 		fakeConfigProvider := &mock.FabricConfigProvider{}
 		fakeConfigService := &mock.FabricConfigService{}
 		fakeConfigProvider.GetConfigReturns(fakeConfigService, nil)

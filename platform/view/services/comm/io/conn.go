@@ -47,7 +47,7 @@ func (c *commSCCConn) Read(p []byte) (n int, err error) {
 	logger.Debugf("Reading...")
 	n, err = c.r.Read(p)
 	logger.Debugf("Read [%d,%d][%s]", n, len(p), logging.SHA256Base64(p[:n]))
-	return
+	return n, err
 }
 
 func (c *commSCCConn) Flush() error {

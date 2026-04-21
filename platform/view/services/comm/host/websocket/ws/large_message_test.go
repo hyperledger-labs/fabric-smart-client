@@ -16,17 +16,19 @@ import (
 	"time"
 
 	gorilla_websocket "github.com/gorilla/websocket"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
 
 // TestOversizedMessageRejection verifies that messages exceeding maxDelimitedPayloadSize (10MB)
 // are rejected by the delimitedReader.
 func TestOversizedMessageRejection(t *testing.T) {
+	t.Parallel()
 	testSetup(t)
 	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
 	serverTLSConfig, clientTLSConfig, srcID := testMutualTLSConfigs(t, false)
@@ -36,7 +38,7 @@ func TestOversizedMessageRejection(t *testing.T) {
 		buf := make([]byte, 1024)
 		_, _ = s.Read(buf)
 	})
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 
 	srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 
@@ -64,6 +66,7 @@ func TestOversizedMessageRejection(t *testing.T) {
 
 // TestValidBoundaryMessage verifies that a message of exactly 1MB passes.
 func TestValidBoundaryMessage(t *testing.T) {
+	t.Parallel()
 	testSetup(t)
 	serverTLSConfig, clientTLSConfig, srcID := testMutualTLSConfigs(t, false)
 
@@ -87,7 +90,7 @@ func TestValidBoundaryMessage(t *testing.T) {
 	}))
 	srv.TLS = serverTLSConfig
 	srv.StartTLS()
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 
 	srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 
@@ -123,6 +126,7 @@ func TestValidBoundaryMessage(t *testing.T) {
 // TestMultipleMessagesOrderAndContent verifies that multiple messages of different lengths
 // are received in the correct order and with correct content.
 func TestMultipleMessagesOrderAndContent(t *testing.T) {
+	t.Parallel()
 	testSetup(t)
 	serverTLSConfig, clientTLSConfig, srcID := testMutualTLSConfigs(t, false)
 
@@ -164,7 +168,7 @@ func TestMultipleMessagesOrderAndContent(t *testing.T) {
 	}))
 	srv.TLS = serverTLSConfig
 	srv.StartTLS()
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 
 	srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
 

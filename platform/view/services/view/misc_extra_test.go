@@ -10,16 +10,19 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSessionsDelete(t *testing.T) {
+	t.Parallel()
 	// Already tested in sessions_test.go
 }
 
 func TestServiceProviderString(t *testing.T) {
+	t.Parallel()
 	sp := view.NewServiceProvider()
 	err := sp.RegisterService("foo")
 	require.NoError(t, err)
@@ -29,6 +32,7 @@ func TestServiceProviderString(t *testing.T) {
 }
 
 func TestStream(t *testing.T) {
+	t.Parallel()
 	sp := view.NewServiceProvider()
 	mockStream := &mock.Stream{}
 	err := sp.RegisterService(mockStream)
@@ -48,6 +52,7 @@ func TestStream(t *testing.T) {
 }
 
 func TestWrappedContext(t *testing.T) {
+	t.Parallel()
 	type contextKey string
 	parent := &mock.ParentContext{}
 	ctx := context.WithValue(context.Background(), contextKey("key"), "value")

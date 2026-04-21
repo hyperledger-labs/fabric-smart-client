@@ -6,8 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package network
 
-type T struct {
-}
+type T struct{}
 
 type Timeout struct {
 	Peer map[string]string `json:"peer"`

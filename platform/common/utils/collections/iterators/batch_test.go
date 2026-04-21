@@ -9,8 +9,9 @@ package iterators_test
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	. "github.com/onsi/gomega"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 )
 
 var testMatrix = []struct {
@@ -45,7 +46,7 @@ var testMatrix = []struct {
 	},
 }
 
-func TestBatchedIterator(t *testing.T) {
+func TestBatchedIterator(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
 	for _, testCase := range testMatrix {

@@ -10,9 +10,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
 )
 
 type fscCLIViewClient struct {

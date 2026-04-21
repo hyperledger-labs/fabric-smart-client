@@ -11,15 +11,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	cfg "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	sdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewService_missingConfig(t *testing.T) {
+	t.Parallel()
 	m := &mock.Configuration{}
 	m.IsSetReturns(false)
 	// when defaultConfig=false and fabric.<name> is not set, error expected
@@ -28,6 +30,7 @@ func TestNewService_missingConfig(t *testing.T) {
 }
 
 func TestNewService_defaultsAndOrderers(t *testing.T) {
+	t.Parallel()
 	m := &mock.Configuration{}
 	// simulate fabirc.mynet present
 	m.IsSetReturnsOnCall(0, true)   // called for fabric.mynet check
@@ -76,6 +79,7 @@ func TestNewService_defaultsAndOrderers(t *testing.T) {
 }
 
 func TestClientKeepAliveConfig_UnmarshalError(t *testing.T) {
+	t.Parallel()
 	m := &mock.Configuration{}
 	m.IsSetReturns(true) // keepalive.interval is set
 	m.UnmarshalKeyReturnsOnCall(0, errors.New("boom"))
@@ -87,6 +91,7 @@ func TestClientKeepAliveConfig_UnmarshalError(t *testing.T) {
 }
 
 func TestVaultAndMSPSettings(t *testing.T) {
+	t.Parallel()
 	m := &mock.Configuration{}
 	// fabric prefix empty
 	m.GetStringReturnsOnCall(0, "persistenceName") // vault.persistence
@@ -113,6 +118,7 @@ func TestVaultAndMSPSettings(t *testing.T) {
 }
 
 func TestChannelHelpers(t *testing.T) {
+	t.Parallel()
 	ch := &cfg.Channel{}
 	// default values
 	require.Equal(t, time.Duration(5*time.Minute), ch.DiscoveryDefaultTTLS())
@@ -137,6 +143,7 @@ func TestChannelHelpers(t *testing.T) {
 }
 
 func TestCreatePeerMapAndPickPeer(t *testing.T) {
+	t.Parallel()
 	m := &mock.Configuration{}
 	m.IsSetReturnsOnCall(0, true) // fabric.network present for NewService
 	m.GetStringReturnsOnCall(0, "")
@@ -181,6 +188,7 @@ func TestCreatePeerMapAndPickPeer(t *testing.T) {
 }
 
 func TestPickOrderer_nilAndSetConfigOrderers(t *testing.T) {
+	t.Parallel()
 	m := &mock.Configuration{}
 	svc := &cfg.Service{Configuration: m}
 	// nil case
@@ -194,6 +202,7 @@ func TestPickOrderer_nilAndSetConfigOrderers(t *testing.T) {
 }
 
 func TestServiceGetters(t *testing.T) {
+	t.Parallel()
 	m := &mock.Configuration{}
 	// Initialize with some basic setup to avoid NewService errors
 	m.IsSetReturns(true)
@@ -283,9 +292,11 @@ func TestServiceGetters(t *testing.T) {
 }
 
 func TestService_MoreCases(t *testing.T) {
+	t.Parallel()
 	m := &mock.Configuration{}
 
 	t.Run("NewService_Errors", func(t *testing.T) {
+		t.Parallel()
 		m := &mock.Configuration{}
 		m.IsSetReturns(true)
 		// Error in readItems (orderers)
@@ -323,6 +334,7 @@ func TestService_MoreCases(t *testing.T) {
 	})
 
 	t.Run("MSPs_Resolvers", func(t *testing.T) {
+		t.Parallel()
 		svc := &cfg.Service{Configuration: m}
 		m.UnmarshalKeyReturns(errors.New("unmarshal-err"))
 		_, err := svc.MSPs()
@@ -340,6 +352,7 @@ func TestService_MoreCases(t *testing.T) {
 	})
 
 	t.Run("PickPeer_Fallback", func(t *testing.T) {
+		t.Parallel()
 		m := &mock.Configuration{}
 		m.IsSetReturns(true)
 		m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
@@ -363,6 +376,7 @@ func TestService_MoreCases(t *testing.T) {
 	})
 
 	t.Run("Vault_TranslatePath", func(t *testing.T) {
+		t.Parallel()
 		m := &mock.Configuration{}
 		svc := &cfg.Service{Configuration: m}
 		m.GetStringReturnsOnCall(0, "p1")
@@ -373,6 +387,7 @@ func TestService_MoreCases(t *testing.T) {
 	})
 
 	t.Run("Channels", func(t *testing.T) {
+		t.Parallel()
 		m := &mock.Configuration{}
 		m.IsSetReturns(true)
 		m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {

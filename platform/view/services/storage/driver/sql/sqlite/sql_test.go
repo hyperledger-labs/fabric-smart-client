@@ -11,14 +11,16 @@ import (
 	"path"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	_ "modernc.org/sqlite"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	"github.com/stretchr/testify/assert"
-	_ "modernc.org/sqlite"
 )
 
 func TestSqlite(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 	o := Opts{
 		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, "benchmark")),
@@ -39,6 +41,7 @@ func TestSqlite(t *testing.T) {
 }
 
 func TestGetSqliteDir(t *testing.T) {
+	t.Parallel()
 	assert.Equal(t, "/test/dir", getDir("file:/test/dir/db.sqlite"))
 	assert.Equal(t, "/test/dir", getDir("file:/test/dir/db.sqlite?_txlock=immediate"))
 	assert.Equal(t, "/test/dir", getDir("file:/test/dir/db.sqlite?_txlock=immediate&key=val"))
@@ -47,6 +50,7 @@ func TestGetSqliteDir(t *testing.T) {
 }
 
 func TestFolderDoesNotExistError(t *testing.T) {
+	t.Parallel()
 	o := Opts{
 		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join("/this/folder/does/not/exist", "folder-does-not-exist")),
 	}

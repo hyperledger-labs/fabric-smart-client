@@ -10,13 +10,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // EventuallyWithRetry will call the function provided, and asserts that the
 // function returns with no error within the provided number of attempts.
 func EventuallyWithRetry(t *testing.T, attempts int, sleep time.Duration, f func() error, msgAndArgs ...interface{}) {
+	t.Helper()
 	assert.NoError(t, Retry(attempts, sleep, f), msgAndArgs...)
 }
 

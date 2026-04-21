@@ -9,8 +9,9 @@ package events_test
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 )
 
 type A struct {
@@ -22,6 +23,7 @@ type B struct {
 }
 
 func TestSubscribers(t *testing.T) {
+	t.Parallel()
 	s := events.NewSubscribers()
 	a := &A{Name: "a"}
 	a2 := &A{Name: "a"}

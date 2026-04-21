@@ -20,9 +20,10 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger/version"
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset"
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset/kvrwset"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger/version"
 )
 
 // RWSetBuilder helps building the read-write set
@@ -72,13 +73,13 @@ func NewRWSetBuilder() *RWSetBuilder {
 }
 
 // AddToReadSet adds a key and corresponding version to the read-set
-func (b *RWSetBuilder) AddToReadSet(ns string, key string, version *version.Height) {
+func (b *RWSetBuilder) AddToReadSet(ns, key string, version *version.Height) {
 	nsPubRwBuilder := b.getOrCreateNsPubRwBuilder(ns)
 	nsPubRwBuilder.readMap[key] = NewKVRead(key, version)
 }
 
 // AddToWriteSet adds a key and value to the write-set
-func (b *RWSetBuilder) AddToWriteSet(ns string, key string, value []byte) {
+func (b *RWSetBuilder) AddToWriteSet(ns, key string, value []byte) {
 	nsPubRwBuilder := b.getOrCreateNsPubRwBuilder(ns)
 	nsPubRwBuilder.writeMap[key] = newKVWrite(key, value)
 }
@@ -102,20 +103,20 @@ func (b *RWSetBuilder) AddToRangeQuerySet(ns string, rqi *kvrwset.RangeQueryInfo
 }
 
 // AddToHashedReadSet adds a key and corresponding version to the hashed read-set
-func (b *RWSetBuilder) AddToHashedReadSet(ns string, coll string, key string, version *version.Height) {
+func (b *RWSetBuilder) AddToHashedReadSet(ns, coll, key string, version *version.Height) {
 	kvReadHash := newPvtKVReadHash(key, version)
 	b.getOrCreateCollHashedRwBuilder(ns, coll).readMap[key] = kvReadHash
 }
 
 // AddToPvtAndHashedWriteSet adds a key and value to the private and hashed write-set
-func (b *RWSetBuilder) AddToPvtAndHashedWriteSet(ns string, coll string, key string, value []byte) {
+func (b *RWSetBuilder) AddToPvtAndHashedWriteSet(ns, coll, key string, value []byte) {
 	kvWrite, kvWriteHash := newPvtKVWriteAndHash(key, value)
 	b.getOrCreateCollPvtRwBuilder(ns, coll).writeMap[key] = kvWrite
 	b.getOrCreateCollHashedRwBuilder(ns, coll).writeMap[key] = kvWriteHash
 }
 
 // AddToPvtAndHashedWriteSetForPurge adds a purge key to the hashed write-set
-func (b *RWSetBuilder) AddToPvtAndHashedWriteSetForPurge(ns string, coll string, key string) {
+func (b *RWSetBuilder) AddToPvtAndHashedWriteSetForPurge(ns, coll, key string) {
 	kvWrite, kvWriteHash := newPvtKVWriteAndHash(key, nil)
 	kvWriteHash.IsPurge = true
 	b.getOrCreateCollPvtRwBuilder(ns, coll).writeMap[key] = kvWrite
@@ -171,7 +172,7 @@ type TxSimulationResults struct {
 	PvtSimulationResults *rwset.TxPvtReadWriteSet
 }
 
-func (b *RWSetBuilder) setPvtCollectionHash(ns string, coll string, pvtDataProto []byte) {
+func (b *RWSetBuilder) setPvtCollectionHash(ns, coll string, pvtDataProto []byte) {
 	collHashedBuilder := b.getOrCreateCollHashedRwBuilder(ns, coll)
 	collHashedBuilder.pvtDataHash = computeHash(pvtDataProto)
 }
@@ -302,7 +303,7 @@ func (b *RWSetBuilder) getOrCreateNsPvtRwBuilder(ns string) *nsPvtRwBuilder {
 	return nsPvtRwBuilder
 }
 
-func (b *RWSetBuilder) getOrCreateCollHashedRwBuilder(ns string, coll string) *collHashRwBuilder {
+func (b *RWSetBuilder) getOrCreateCollHashedRwBuilder(ns, coll string) *collHashRwBuilder {
 	nsPubRwBuilder := b.getOrCreateNsPubRwBuilder(ns)
 	collHashRwBuilder, ok := nsPubRwBuilder.collHashRwBuilder[coll]
 	if !ok {
@@ -312,7 +313,7 @@ func (b *RWSetBuilder) getOrCreateCollHashedRwBuilder(ns string, coll string) *c
 	return collHashRwBuilder
 }
 
-func (b *RWSetBuilder) getOrCreateCollPvtRwBuilder(ns string, coll string) *collPvtRwBuilder {
+func (b *RWSetBuilder) getOrCreateCollPvtRwBuilder(ns, coll string) *collPvtRwBuilder {
 	nsPvtRwBuilder := b.getOrCreateNsPvtRwBuilder(ns)
 	collPvtRwBuilder, ok := nsPvtRwBuilder.collPvtRwBuilders[coll]
 	if !ok {
@@ -393,7 +394,7 @@ func getSortedKeys(m interface{}) []string {
 // getValuesBySortedKeys returns the values of the map (mapPtr) in the list (listPtr) in the sorted order of key of the map
 // This function assumes that the mapPtr is a pointer to a map and listPtr is a pointer to a list. Further type of keys of the
 // map are assumed to be string and the types of the values of the maps and the list are same
-func getValuesBySortedKeys(mapPtr interface{}, listPtr interface{}) {
+func getValuesBySortedKeys(mapPtr, listPtr interface{}) {
 	mapVal := reflect.ValueOf(mapPtr).Elem()
 	keyVals := mapVal.MapKeys()
 	if len(keyVals) == 0 {

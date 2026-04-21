@@ -10,11 +10,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 func TestCompileRunViewOptions(t *testing.T) {
+	t.Parallel()
 	ctx1 := t.Context()
 	ctx2, cancel := context.WithCancel(ctx1)
 	t.Cleanup(cancel)
@@ -35,6 +37,7 @@ func TestCompileRunViewOptions(t *testing.T) {
 			name: "No_Options_Returns_Zero_Value",
 			opts: nil,
 			check: func(t *testing.T, opts *RunViewOptions) {
+				t.Helper()
 				require.NotNil(t, opts)
 				require.Nil(t, opts.Session)
 				require.False(t, opts.AsInitiator)
@@ -47,6 +50,7 @@ func TestCompileRunViewOptions(t *testing.T) {
 			name: "AsInitiator_Sets_Flag",
 			opts: []RunViewOption{AsInitiator()},
 			check: func(t *testing.T, opts *RunViewOptions) {
+				t.Helper()
 				require.True(t, opts.AsInitiator)
 			},
 		},
@@ -54,6 +58,7 @@ func TestCompileRunViewOptions(t *testing.T) {
 			name: "AsResponder_Sets_Session",
 			opts: []RunViewOption{AsResponder(nil)},
 			check: func(t *testing.T, opts *RunViewOptions) {
+				t.Helper()
 				require.Nil(t, opts.Session)
 			},
 		},
@@ -61,6 +66,7 @@ func TestCompileRunViewOptions(t *testing.T) {
 			name: "WithViewCall_Sets_Call_Function",
 			opts: []RunViewOption{WithViewCall(callFn)},
 			check: func(t *testing.T, opts *RunViewOptions) {
+				t.Helper()
 				require.NotNil(t, opts.Call)
 				result, err := opts.Call(nil)
 				require.NoError(t, err)
@@ -71,6 +77,7 @@ func TestCompileRunViewOptions(t *testing.T) {
 			name: "WithSameContext_Sets_Flag_Without_Ctx",
 			opts: []RunViewOption{WithSameContext()},
 			check: func(t *testing.T, opts *RunViewOptions) {
+				t.Helper()
 				require.True(t, opts.SameContext)
 				require.Nil(t, opts.Ctx)
 			},
@@ -79,6 +86,7 @@ func TestCompileRunViewOptions(t *testing.T) {
 			name: "WithContext_Sets_Both_SameContext_And_Ctx",
 			opts: []RunViewOption{WithContext(ctx1)},
 			check: func(t *testing.T, opts *RunViewOptions) {
+				t.Helper()
 				require.True(t, opts.SameContext)
 				require.Equal(t, ctx1, opts.Ctx)
 			},
@@ -87,6 +95,7 @@ func TestCompileRunViewOptions(t *testing.T) {
 			name: "Multiple_Options_All_Applied_In_Order",
 			opts: []RunViewOption{AsInitiator(), WithViewCall(callFn), WithContext(ctx1)},
 			check: func(t *testing.T, opts *RunViewOptions) {
+				t.Helper()
 				require.True(t, opts.AsInitiator)
 				require.NotNil(t, opts.Call)
 				require.True(t, opts.SameContext)
@@ -97,6 +106,7 @@ func TestCompileRunViewOptions(t *testing.T) {
 			name: "Later_Option_Overrides_Earlier",
 			opts: []RunViewOption{AsInitiator(), resetInitiator},
 			check: func(t *testing.T, opts *RunViewOptions) {
+				t.Helper()
 				require.False(t, opts.AsInitiator)
 			},
 		},
@@ -104,6 +114,7 @@ func TestCompileRunViewOptions(t *testing.T) {
 			name: "Later_WithContext_Overrides_Earlier",
 			opts: []RunViewOption{WithContext(ctx1), WithContext(ctx2)},
 			check: func(t *testing.T, opts *RunViewOptions) {
+				t.Helper()
 				require.Equal(t, ctx2, opts.Ctx)
 			},
 		},

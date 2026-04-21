@@ -12,13 +12,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	commonmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	commonmetrics "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
 )
 
 var _ = Describe("Provider", func() {
@@ -235,7 +236,7 @@ var _ = Describe("Provider", func() {
 				panicMessage := func() (panicMessage interface{}) {
 					defer func() { panicMessage = recover() }()
 					counter.With("alpha", "a", "beta", "b", "charlie", "c").Add(1)
-					return
+					return panicMessage
 				}()
 				Expect(panicMessage).To(MatchError(MatchRegexp(`inconsistent label cardinality: expected 2 label values but got 3 in prometheus.Labels\{.*\}`)))
 			})
@@ -247,7 +248,7 @@ var _ = Describe("Provider", func() {
 				panicMessage := func() (panicMessage interface{}) {
 					defer func() { panicMessage = recover() }()
 					counter.Add(1)
-					return
+					return panicMessage
 				}()
 				Expect(panicMessage).To(MatchError(`inconsistent label cardinality: expected 2 label values but got 0 in prometheus.Labels{}`))
 			})

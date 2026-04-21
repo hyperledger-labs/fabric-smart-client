@@ -13,13 +13,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
 )
 
 // To re-generate the mocks, run "go generate ./listenermanager_test.go"
@@ -73,6 +74,7 @@ func setupMockNotificationManager(t *testing.T, streamBehavior func(context.Cont
 }
 
 func TestProvider_Initialize(t *testing.T) {
+	t.Parallel()
 	t.Run("Sets_BaseContext_On_First_Call", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
@@ -122,6 +124,7 @@ func TestProvider_Initialize(t *testing.T) {
 }
 
 func TestProvider_NewManager(t *testing.T) {
+	t.Parallel()
 	t.Run("Panics_If_Not_Initialized", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
@@ -389,6 +392,7 @@ func TestProvider_NewManager(t *testing.T) {
 }
 
 func TestGetListenerManager(t *testing.T) {
+	t.Parallel()
 	t.Run("Returns_Manager_From_Service_Provider", func(t *testing.T) {
 		t.Parallel()
 

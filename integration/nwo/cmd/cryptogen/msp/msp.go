@@ -13,13 +13,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"gopkg.in/yaml.v2"
+
 	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
 	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/pkcs11"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -53,7 +54,7 @@ func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA
 		return err
 	}
 
-	err = os.MkdirAll(tlsDir, 0755)
+	err = os.MkdirAll(tlsDir, 0o755)
 	if err != nil {
 		return err
 	}
@@ -150,8 +151,10 @@ func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA
 	}
 
 	// generate X509 certificate using TLS CA
-	_, err = tlsCA.SignCertificate(filepath.Join(tlsDir), name, nil, sans, &tlsPrivKey.PublicKey, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth,
-		x509.ExtKeyUsageClientAuth}, 0)
+	_, err = tlsCA.SignCertificate(filepath.Join(tlsDir), name, nil, sans, &tlsPrivKey.PublicKey, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment, []x509.ExtKeyUsage{
+		x509.ExtKeyUsageServerAuth,
+		x509.ExtKeyUsageClientAuth,
+	}, 0)
 	if err != nil {
 		return err
 	}
@@ -185,7 +188,6 @@ func GenerateVerifyingMSP(
 	tlsCA *ca2.CA,
 	nodeOUs bool,
 ) error {
-
 	// create folder structure and write artifacts to proper locations
 	err := createFolderStructure(baseDir, false)
 	if err != nil {
@@ -225,7 +227,7 @@ func GenerateVerifyingMSP(
 	}
 
 	ksDir := filepath.Join(baseDir, "keystore")
-	err = os.Mkdir(ksDir, 0755)
+	err = os.Mkdir(ksDir, 0o755)
 	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, ksDir)
 	if err != nil {
 		return errors.WithMessage(err, "failed to create keystore directory")
@@ -243,7 +245,6 @@ func GenerateVerifyingMSP(
 }
 
 func createFolderStructure(rootDir string, local bool) error {
-
 	var folders []string
 	// create admincerts, cacerts, keystore and signcerts folders
 	folders = []string{
@@ -257,7 +258,7 @@ func createFolderStructure(rootDir string, local bool) error {
 	}
 
 	for _, folder := range folders {
-		err := os.MkdirAll(folder, 0755)
+		err := os.MkdirAll(folder, 0o755)
 		if err != nil {
 			return err
 		}
@@ -290,7 +291,7 @@ func pemExport(path, pemType string, bytes []byte) error {
 }
 
 func exportConfig(mspDir, caFile string, enable bool) error {
-	var config = &fabricmsp.Configuration{
+	config := &fabricmsp.Configuration{
 		NodeOUs: &fabricmsp.NodeOUs{
 			Enable: enable,
 			ClientOUIdentifier: &fabricmsp.OrganizationalUnitIdentifiersConfiguration{

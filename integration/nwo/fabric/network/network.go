@@ -11,6 +11,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
+	"github.com/tedsuo/ifrit/grouper"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
@@ -19,9 +23,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
-	"github.com/tedsuo/ifrit/grouper"
 )
 
 var logger = logging.MustGetLogger()
@@ -280,7 +281,7 @@ func (n *Network) AddExtension(ex Extension) {
 }
 
 // UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
-func (n *Network) UpdateChaincode(chaincodeId string, version string, path string, packageFile string) {
+func (n *Network) UpdateChaincode(chaincodeId, version, path, packageFile string) {
 	var cc *topology.ChannelChaincode
 	for _, chaincode := range n.topology.Chaincodes {
 		if chaincode.Chaincode.Name == chaincodeId {

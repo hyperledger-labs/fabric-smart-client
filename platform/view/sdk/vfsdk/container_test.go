@@ -11,11 +11,12 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/vfsdk"
 	registry3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/require"
 )
 
 type myInput struct{}
@@ -29,12 +30,14 @@ type myFactory struct{}
 func (o *myFactory) NewView([]byte) (view.View, error) { return nil, nil }
 
 func TestInvalidFactory(t *testing.T) {
+	t.Parallel()
 	c := vfsdk.NewContainer()
 
 	require.Error(t, c.Provide(func() *myInput { return &myInput{} }, vfsdk.WithFactoryId("input")))
 }
 
 func TestError(t *testing.T) {
+	t.Parallel()
 	c := vfsdk.NewContainer()
 	require.NoError(t, c.Provide(registry3.NewRegistry))
 	require.NoError(t, c.Provide(func() (*myFactory, error) { return nil, errors.New("error occurred") }))
@@ -45,6 +48,7 @@ func TestError(t *testing.T) {
 }
 
 func TestNoReturnError(t *testing.T) {
+	t.Parallel()
 	c := vfsdk.NewContainer()
 	require.NoError(t, c.Provide(registry3.NewRegistry))
 	require.NoError(t, c.Provide(func() *myFactory { return &myFactory{} }))
@@ -55,6 +59,7 @@ func TestNoReturnError(t *testing.T) {
 }
 
 func TestInterdependentFactories(t *testing.T) {
+	t.Parallel()
 	c := vfsdk.NewContainer()
 	require.NoError(t, c.Provide(registry3.NewRegistry))
 	require.NoError(t, c.Provide(func(f *myFactory) (*myDependentFactory, error) { return &myDependentFactory{myFactory: f}, nil }, vfsdk.WithFactoryId("a"), vfsdk.WithInitiators("init")))
@@ -66,6 +71,7 @@ func TestInterdependentFactories(t *testing.T) {
 }
 
 func TestRegisterWithoutParams(t *testing.T) {
+	t.Parallel()
 	c := vfsdk.NewContainer()
 	require.NoError(t, c.Provide(registry3.NewRegistry))
 	require.NoError(t, c.Provide(func() (*myFactory, error) { return &myFactory{}, nil }, vfsdk.WithFactoryId("abc"), vfsdk.WithInitiators("in1", "in2")))
@@ -76,6 +82,7 @@ func TestRegisterWithoutParams(t *testing.T) {
 }
 
 func TestRegisterWithParams(t *testing.T) {
+	t.Parallel()
 	c := vfsdk.NewContainer()
 	require.NoError(t, c.Provide(registry3.NewRegistry))
 	require.NoError(t, c.Provide(func() *myInput { return &myInput{} }))

@@ -12,12 +12,13 @@ import (
 	"net/http"
 	"net/url"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	web2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
-	"go.opentelemetry.io/otel/trace"
 )
 
 func NewSimpleProvider() *SimpleProvider {

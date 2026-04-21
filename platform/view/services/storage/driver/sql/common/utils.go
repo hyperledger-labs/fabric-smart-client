@@ -73,7 +73,7 @@ func InitSchema(db WriteDB, schemas ...string) (err error) {
 	if err = tx.Commit(); err != nil {
 		return err
 	}
-	return
+	return err
 }
 
 func QueryUnique[T any](db *sql.DB, query string, args ...any) (T, error) {

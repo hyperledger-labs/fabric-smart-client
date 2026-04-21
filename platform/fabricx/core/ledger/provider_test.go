@@ -12,13 +12,15 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger/mock"
 )
 
 func TestProvider_Initialize(t *testing.T) {
+	t.Parallel()
 	mockGRPC := &mock.GRPCClientProvider{}
 	mockQS := &mock.QueryServiceProvider{}
 	p := ledger.NewProvider(mockGRPC, mockQS)
@@ -34,6 +36,7 @@ func TestProvider_Initialize(t *testing.T) {
 }
 
 func TestProvider_NewLedger(t *testing.T) {
+	t.Parallel()
 	mockGRPC := &mock.GRPCClientProvider{}
 	mockQS := &mock.QueryServiceProvider{}
 	mockGRPC.NotificationServiceClientReturns(&grpc.ClientConn{}, nil)
@@ -67,6 +70,7 @@ func TestProvider_NewLedger(t *testing.T) {
 }
 
 func TestGetLedgerProvider(t *testing.T) {
+	t.Parallel()
 	fakeSP := &mock.ServicesProvider{}
 	p := ledger.NewProvider(nil, nil)
 
@@ -82,6 +86,7 @@ func TestGetLedgerProvider(t *testing.T) {
 }
 
 func TestProvider_NewLedger_GRPCClientError(t *testing.T) {
+	t.Parallel()
 	mockGRPC := &mock.GRPCClientProvider{}
 	mockQS := &mock.QueryServiceProvider{}
 	expectedErr := errors.New("grpc connection error")
@@ -98,6 +103,7 @@ func TestProvider_NewLedger_GRPCClientError(t *testing.T) {
 }
 
 func TestGetLedgerProvider_Error(t *testing.T) {
+	t.Parallel()
 	fakeSP := &mock.ServicesProvider{}
 	expectedErr := errors.New("service not found")
 	fakeSP.GetServiceReturns(nil, expectedErr)

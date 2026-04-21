@@ -14,13 +14,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 )
 
 const (
@@ -29,8 +30,7 @@ const (
 	maxVal  = 1000
 )
 
-type mockSender struct {
-}
+type mockSender struct{}
 
 func (m *mockSender) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
 	return nil
@@ -70,7 +70,7 @@ func setup() *NetworkStreamSession {
 	return setupWithBufferSize(DefaultIncomingMessagesBufferSize)
 }
 
-func TestSessionLifecycle(t *testing.T) {
+func TestSessionLifecycle(t *testing.T) { //nolint:paralleltest
 	s := setup()
 
 	// hide the impl behind the session interface as a consumer
@@ -125,7 +125,7 @@ func TestSessionLifecycle(t *testing.T) {
 	sess.Close()
 }
 
-func TestSessionLifecycleConcurrent(t *testing.T) {
+func TestSessionLifecycleConcurrent(t *testing.T) { //nolint:paralleltest
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
@@ -175,7 +175,7 @@ func TestSessionLifecycleConcurrent(t *testing.T) {
 	require.Positive(t, enqueuedCount.Load())
 }
 
-func TestSessionDeadlock(t *testing.T) {
+func TestSessionDeadlock(t *testing.T) { //nolint:paralleltest
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
@@ -217,7 +217,7 @@ func TestSessionDeadlock(t *testing.T) {
 	sess.Close()
 }
 
-func TestSessionCloseDeadlockPrevention(t *testing.T) {
+func TestSessionCloseDeadlockPrevention(t *testing.T) { //nolint:paralleltest
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 

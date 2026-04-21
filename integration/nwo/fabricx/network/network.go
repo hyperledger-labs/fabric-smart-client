@@ -12,6 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
+	"github.com/tedsuo/ifrit/grouper"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
@@ -20,9 +24,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/fxconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
-	"github.com/tedsuo/ifrit/grouper"
 )
 
 var logger = logging.MustGetLogger()
@@ -64,11 +65,11 @@ func (n *Network) GenerateConfigTree() {
 	n.GenerateCryptoConfig()
 
 	// generate genesis blocks
-	//n.WriteConfigTxConfig()
+	// n.WriteConfigTxConfig()
 	n.GenerateConfigTxConfig()
 
-	//err := generateConfigTxYaml(n)
-	//utils.Must(err)
+	// err := generateConfigTxYaml(n)
+	// utils.Must(err)
 }
 
 func (n *Network) GenerateArtifacts() {

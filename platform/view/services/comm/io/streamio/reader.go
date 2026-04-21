@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package streamio
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 var logger = logging.MustGetLogger()

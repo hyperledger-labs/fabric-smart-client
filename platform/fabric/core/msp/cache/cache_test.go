@@ -10,16 +10,18 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/mocks"
 	msp2 "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/mocks"
 )
 
 func TestNewCacheMsp(t *testing.T) {
+	t.Parallel()
 	i, err := New(nil)
 	require.Error(t, err)
 	require.Nil(t, i)
@@ -31,6 +33,7 @@ func TestNewCacheMsp(t *testing.T) {
 }
 
 func TestSetup(t *testing.T) {
+	t.Parallel()
 	mockMSP := &mocks.MockMSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
@@ -42,6 +45,7 @@ func TestSetup(t *testing.T) {
 }
 
 func TestGetType(t *testing.T) {
+	t.Parallel()
 	mockMSP := &mocks.MockMSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
@@ -52,6 +56,7 @@ func TestGetType(t *testing.T) {
 }
 
 func TestGetIdentifier(t *testing.T) {
+	t.Parallel()
 	mockMSP := &mocks.MockMSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
@@ -64,6 +69,7 @@ func TestGetIdentifier(t *testing.T) {
 }
 
 func TestGetDefaultSigningIdentity(t *testing.T) {
+	t.Parallel()
 	mockMSP := &mocks.MockMSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
@@ -77,6 +83,7 @@ func TestGetDefaultSigningIdentity(t *testing.T) {
 }
 
 func TestGetTLSRootCerts(t *testing.T) {
+	t.Parallel()
 	mockMSP := &mocks.MockMSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
@@ -88,6 +95,7 @@ func TestGetTLSRootCerts(t *testing.T) {
 }
 
 func TestGetTLSIntermediateCerts(t *testing.T) {
+	t.Parallel()
 	mockMSP := &mocks.MockMSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
@@ -99,6 +107,7 @@ func TestGetTLSIntermediateCerts(t *testing.T) {
 }
 
 func TestDeserializeIdentity(t *testing.T) {
+	t.Parallel()
 	mockMSP := &mocks.MockMSP{}
 	wrappedMSP, err := New(mockMSP)
 	require.NoError(t, err)
@@ -161,6 +170,7 @@ func TestDeserializeIdentity(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	mockMSP := &mocks.MockMSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
@@ -200,6 +210,7 @@ func TestValidate(t *testing.T) {
 }
 
 func TestSatisfiesValidateIndirectCall(t *testing.T) {
+	t.Parallel()
 	mockMSP := &mocks.MockMSP{}
 
 	mockIdentity := &mocks.MockIdentity{ID: "Alice"}
@@ -229,6 +240,7 @@ func TestSatisfiesValidateIndirectCall(t *testing.T) {
 }
 
 func TestSatisfiesPrincipalIndirectCall(t *testing.T) {
+	t.Parallel()
 	mockMSP := &mocks.MockMSP{}
 	mockMSPPrincipal := &msp2.MSPPrincipal{PrincipalClassification: msp2.MSPPrincipal_IDENTITY, Principal: []byte{1, 2, 3}}
 
@@ -260,6 +272,7 @@ func TestSatisfiesPrincipalIndirectCall(t *testing.T) {
 }
 
 func TestSatisfiesPrincipal(t *testing.T) {
+	t.Parallel()
 	mockMSP := &mocks.MockMSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)

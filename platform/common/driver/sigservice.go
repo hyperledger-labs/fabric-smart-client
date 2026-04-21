@@ -17,7 +17,7 @@ type VerifyingIdentity interface {
 	Serialize() ([]byte, error)
 
 	// Verify verifies the signature over the passed message.
-	Verify(message []byte, signature []byte) error
+	Verify(message, signature []byte) error
 }
 
 type SigningIdentity interface {
@@ -81,5 +81,5 @@ type SigRegistry interface {
 type SigDeserializer interface {
 	DeserializeVerifier(raw []byte) (Verifier, error)
 	DeserializeSigner(raw []byte) (Signer, error)
-	Info(raw []byte, auditInfo []byte) (string, error)
+	Info(raw, auditInfo []byte) (string, error)
 }

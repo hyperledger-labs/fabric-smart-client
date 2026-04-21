@@ -9,13 +9,13 @@ package stoprestart_test
 import (
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/stoprestart"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -87,7 +87,7 @@ func (s *TestSuite) TestSucceeded() {
 	Expect(m).NotTo(BeNil())
 
 	// JaegerUI is running. Add a delay to check the traces generated during the test
-	//time.Sleep(100 * time.Minute)
+	// time.Sleep(100 * time.Minute)
 }
 
 func (s *TestSuite) TestSucceededWithReplicas() {

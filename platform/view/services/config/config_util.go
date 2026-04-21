@@ -16,14 +16,15 @@ import (
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/knadh/koanf/v2"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // customDecodeHook adds the additional functions of parsing durations from strings
 // as well as parsing strings of the format "[thing1, thing2, thing3]" into string slices
 // Note that whitespace around slice elements is removed
-func customDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+func customDecodeHook(f, t reflect.Type, data interface{}) (interface{}, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
@@ -42,7 +43,7 @@ func customDecodeHook(f reflect.Type, t reflect.Type, data interface{}) (interfa
 }
 
 // byteSizeDecodeHook parses strings like "10mb", "5gb" into uint32 bytes.
-func byteSizeDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
+func byteSizeDecodeHook(f, t reflect.Kind, data interface{}) (interface{}, error) {
 	if f != reflect.String || t != reflect.Uint32 {
 		return data, nil
 	}
@@ -50,7 +51,7 @@ func byteSizeDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) (inter
 	if raw == "" {
 		return data, nil
 	}
-	var re = regexp.MustCompile(`^(?P<size>[0-9]+)\s*(?i)(?P<unit>(k|m|g))b?$`)
+	re := regexp.MustCompile(`^(?P<size>[0-9]+)\s*(?i)(?P<unit>(k|m|g))b?$`)
 	if re.MatchString(raw) {
 		size, err := strconv.ParseUint(re.ReplaceAllString(raw, "${size}"), 0, 64)
 		if err != nil {
@@ -76,7 +77,7 @@ func byteSizeDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) (inter
 }
 
 // stringFromFileDecodeHook reads a string from a file if the input is a map with a "File" key.
-func stringFromFileDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
+func stringFromFileDecodeHook(f, t reflect.Kind, data interface{}) (interface{}, error) {
 	// "to" type should be string
 	if t != reflect.String {
 		return data, nil
@@ -111,7 +112,7 @@ func stringFromFileDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) 
 }
 
 // pemBlocksFromFileDecodeHook reads PEM blocks from a file if the input is a map with a "File" key.
-func pemBlocksFromFileDecodeHook(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
+func pemBlocksFromFileDecodeHook(f, t reflect.Kind, data interface{}) (interface{}, error) {
 	// "to" type should be string
 	if t != reflect.Slice {
 		return data, nil

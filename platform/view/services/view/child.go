@@ -10,8 +10,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // ParentContext models the functions required by a parent context.

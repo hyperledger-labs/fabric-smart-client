@@ -10,8 +10,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 )
 
 type MyInterface interface {
@@ -23,6 +24,7 @@ type MyImpl struct{}
 func (m *MyImpl) Foo() {}
 
 func TestSP(t *testing.T) {
+	t.Parallel()
 	sp := view.NewServiceProvider()
 
 	impl := &MyImpl{}

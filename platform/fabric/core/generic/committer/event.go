@@ -7,10 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package committer
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 )
 
 // ChaincodeEvent models the chaincode event details.
@@ -74,5 +75,4 @@ func readChaincodeEvent(env *common.Envelope, blockNumber uint64) (*ChaincodeEve
 	}
 
 	return chaincodeEvent, nil
-
 }

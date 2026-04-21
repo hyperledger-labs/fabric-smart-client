@@ -23,7 +23,7 @@ type LocalBidirectionalChannel struct {
 }
 
 // NewLocalBidirectionalChannel creates a new bidirectional channel
-func NewLocalBidirectionalChannel(caller string, contextID string, endpoint string, pkid []byte) (*LocalBidirectionalChannel, error) {
+func NewLocalBidirectionalChannel(caller, contextID, endpoint string, pkid []byte) (*LocalBidirectionalChannel, error) {
 	ID, err := GetRandomNonce()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate session ID")

@@ -34,22 +34,29 @@ const (
 	P2PPort PortName = "P2P"
 )
 
-var (
-	// ErrNotFound signals that a resolver was not found
-	ErrNotFound = errors.New("not found")
-)
+// ErrNotFound signals that a resolver was not found
+var ErrNotFound = errors.New("not found")
 
-// PublicKeyExtractor extracts public keys from identities
+// PublicKeyExtractor extracts public keys from identities for PKI operations.
+//
+//go:generate counterfeiter -o mock/key_extractor.go -fake-name PublicKeyExtractor . PublicKeyExtractor
 type PublicKeyExtractor interface {
-	// ExtractPublicKey returns the public key corresponding to the passed identity
+	// ExtractPublicKey returns the public key corresponding to the passed identity.
+	// Returns nil and an error if the public key cannot be extracted.
 	ExtractPublicKey(id view.Identity) (any, error)
 }
 
+// PublicKeyIDSynthesizer generates unique identifiers from public keys.
+//
+//go:generate counterfeiter -o mock/id_synth.go -fake-name PublicKeyIDSynthesizer . PublicKeyIDSynthesizer
 type PublicKeyIDSynthesizer interface {
+	// PublicKeyID generates a unique identifier for the given public key.
+	// Returns an error if the key type is unsupported or cannot be processed.
 	PublicKeyID(any) ([]byte, error)
 }
 
-// ResolverInfo carries information about a resolver
+// ResolverInfo carries information about a resolver including its identity,
+// network addresses, and aliases.
 type ResolverInfo struct {
 	ID          []byte
 	Name        string
@@ -60,25 +67,32 @@ type ResolverInfo struct {
 	PKI         []byte
 }
 
-// Resolver wraps ResolverInfo with additional management fields
+// Resolver wraps ResolverInfo with additional management fields including
+// a lock for thread-safe PKI operations.
 type Resolver struct {
 	ResolverInfo
 	PKILock sync.RWMutex
 }
 
+// GetName returns the name of the resolver.
 func (r *Resolver) GetName() string { return r.Name }
 
+// GetId returns the identity associated with this resolver.
 func (r *Resolver) GetId() view.Identity { return r.ID }
 
+// GetAddress returns the address for the specified port name.
 func (r *Resolver) GetAddress(port PortName) string { return r.Addresses[port] }
 
+// GetAddresses returns all addresses mapped by port name.
 func (r *Resolver) GetAddresses() map[PortName]string { return r.Addresses }
 
+// GetIdentity returns the identity associated with this resolver.
 func (r *Resolver) GetIdentity() (view.Identity, error) {
 	return r.ID, nil
 }
 
-// NetworkMember is a peer's representation
+// NetworkMember represents a peer in the network with its endpoint information
+// and metadata.
 type NetworkMember struct {
 	Endpoint         string
 	Metadata         []byte
@@ -86,10 +100,13 @@ type NetworkMember struct {
 	InternalEndpoint string
 }
 
+// BindingStore is an alias for cdriver.BindingStore
+//
 //go:generate counterfeiter -o mock/binding_store.go -fake-name BindingStore . BindingStore
-
 type BindingStore = cdriver.BindingStore
 
+// Service manages endpoint resolution, identity binding, and PKI extraction
+// for the view service layer.
 type Service struct {
 	resolvers      []*Resolver
 	resolversMap   map[string]*Resolver
@@ -142,10 +159,13 @@ func (r *Service) Resolve(ctx context.Context, id view.Identity) (view.Identity,
 	return resolver.GetId(), out, raw, nil
 }
 
+// GetResolver returns the resolver associated with the given identity.
 func (r *Service) GetResolver(ctx context.Context, id view.Identity) (*Resolver, error) {
 	return r.resolver(ctx, id)
 }
 
+// Bind associates ephemeral identities with a long-term identity in the binding store.
+// Identities that are equal to the longTerm identity are filtered out.
 func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs ...view.Identity) error {
 	// filter out any identities equal to the longTerm identity
 	var toBind []view.Identity
@@ -163,7 +183,8 @@ func (r *Service) Bind(ctx context.Context, longTerm view.Identity, ephemeralIDs
 	return nil
 }
 
-func (r *Service) IsBoundTo(ctx context.Context, a view.Identity, b view.Identity) bool {
+// IsBoundTo checks if two identities are bound to the same long-term identity.
+func (r *Service) IsBoundTo(ctx context.Context, a, b view.Identity) bool {
 	ok, err := r.bindingKVS.HaveSameBinding(ctx, a, b)
 	if err != nil {
 		logger.Errorf("error fetching entries [%s] and [%s]: %v", a, b, err)
@@ -171,6 +192,8 @@ func (r *Service) IsBoundTo(ctx context.Context, a view.Identity, b view.Identit
 	return ok
 }
 
+// GetIdentity returns the identity associated with the given label or public key ID.
+// It first searches by label, then by pkID if the label lookup fails.
 func (r *Service) GetIdentity(label string, pkID []byte) (view.Identity, error) {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
@@ -205,7 +228,7 @@ func (r *Service) UpdateResolver(
 		// update addresses
 		addressList := make([]string, 0, len(addresses))
 		for k, v := range addresses {
-			addresses[k] = LookupIPv4(v)
+			addresses[k] = LookupIP(v)
 			addressList = append(addressList, v)
 		}
 		resolver.Addresses = convert(addresses)
@@ -253,7 +276,7 @@ func (r *Service) AddResolver(
 	// resolve addresses to their IPs, if needed
 	addressList := make([]string, 0, len(addresses))
 	for k, v := range addresses {
-		addresses[k] = LookupIPv4(v)
+		addresses[k] = LookupIP(v)
 		addressList = append(addressList, v)
 	}
 
@@ -322,6 +345,8 @@ func (r *Service) RemoveResolver(id view.Identity) (bool, error) {
 	return true, nil
 }
 
+// AddPublicKeyExtractor adds a public key extractor to the service.
+// Returns an error if the extractor is nil.
 func (r *Service) AddPublicKeyExtractor(publicKeyExtractor PublicKeyExtractor) error {
 	r.pkiExtractorsLock.Lock()
 	defer r.pkiExtractorsLock.Unlock()
@@ -333,10 +358,14 @@ func (r *Service) AddPublicKeyExtractor(publicKeyExtractor PublicKeyExtractor) e
 	return nil
 }
 
+// SetPublicKeyIDSynthesizer sets the synthesizer used to generate public key IDs.
 func (r *Service) SetPublicKeyIDSynthesizer(publicKeyIDSynthesizer PublicKeyIDSynthesizer) {
 	r.publicKeyIDSynthesizer = publicKeyIDSynthesizer
 }
 
+// ExtractPKI extracts and synthesizes a public key ID from the given identity.
+// It tries each registered extractor in order until one succeeds.
+// Returns nil if no extractor can extract a public key.
 func (r *Service) ExtractPKI(id []byte) []byte {
 	r.pkiExtractorsLock.RLock()
 	defer r.pkiExtractorsLock.RUnlock()
@@ -358,6 +387,8 @@ func (r *Service) ExtractPKI(id []byte) []byte {
 	return nil
 }
 
+// ResolveIdentities resolves a list of endpoint strings to their corresponding identities.
+// Returns an error if any endpoint cannot be resolved.
 func (r *Service) ResolveIdentities(endpoints ...string) ([]view.Identity, error) {
 	var ids []view.Identity
 	for _, endpoint := range endpoints {
@@ -371,6 +402,7 @@ func (r *Service) ResolveIdentities(endpoints ...string) ([]view.Identity, error
 	return ids, nil
 }
 
+// Resolver returns the resolver and PKI ID for the given identity.
 func (r *Service) Resolver(ctx context.Context, id view.Identity) (*Resolver, []byte, error) {
 	resolver, err := r.resolver(ctx, id)
 	if err != nil {
@@ -379,6 +411,7 @@ func (r *Service) Resolver(ctx context.Context, id view.Identity) (*Resolver, []
 	return resolver, r.PkiResolve(resolver), nil
 }
 
+// Resolvers returns a copy of all registered resolver information.
 func (r *Service) Resolvers() []ResolverInfo {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
@@ -391,6 +424,8 @@ func (r *Service) Resolvers() []ResolverInfo {
 	return res
 }
 
+// appendResolver adds a resolver to the internal maps and list, indexing it by
+// name, aliases, domain, addresses, ID, and PKI ID for efficient lookup.
 func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
 	r.resolvers = append(r.resolvers, newResolver)
 
@@ -430,6 +465,8 @@ func (r *Service) appendResolver(newResolver *Resolver, pkiID []byte) {
 	}
 }
 
+// PkiResolve extracts and caches the PKI ID for a resolver.
+// It uses double-checked locking to ensure thread-safe lazy initialization.
 func (r *Service) PkiResolve(resolver *Resolver) []byte {
 	resolver.PKILock.RLock()
 	if len(resolver.PKI) != 0 {
@@ -446,6 +483,8 @@ func (r *Service) PkiResolve(resolver *Resolver) []byte {
 	return resolver.PKI
 }
 
+// resolver attempts to find a resolver for the given identity, checking both
+// direct lookups and binding store lookups for long-term identities.
 func (r *Service) resolver(ctx context.Context, party view.Identity) (*Resolver, error) {
 	// We can skip this check, but in case the long term was passed directly, this is going to spare us a DB lookup
 	resolver, err := r.resolverByIdentity(party)
@@ -466,6 +505,7 @@ func (r *Service) resolver(ctx context.Context, party view.Identity) (*Resolver,
 	return resolver, nil
 }
 
+// resolverByIdentity looks up a resolver directly by identity without checking bindings.
 func (r *Service) resolverByIdentity(party view.Identity) (*Resolver, error) {
 	r.resolversMutex.RLock()
 	defer r.resolversMutex.RUnlock()
@@ -479,12 +519,14 @@ func (r *Service) resolverByIdentity(party view.Identity) (*Resolver, error) {
 	return nil, errors.Wrapf(ErrNotFound, "endpoint not found for identity %s", party.UniqueID())
 }
 
+// portNameMap maps lowercase port name strings to their PortName constants.
 var portNameMap = map[string]PortName{
 	strings.ToLower(string(ListenPort)): ListenPort,
 	strings.ToLower(string(ViewPort)):   ViewPort,
 	strings.ToLower(string(P2PPort)):    P2PPort,
 }
 
+// convert transforms a map of string keys to PortName keys using the portNameMap.
 func convert(o map[string]string) map[PortName]string {
 	r := map[PortName]string{}
 	for k, v := range o {
@@ -493,18 +535,23 @@ func convert(o map[string]string) map[PortName]string {
 	return r
 }
 
-func LookupIPv4(endpoint string) string {
-	s := strings.Split(endpoint, ":")
-	if len(s) < 2 {
+// LookupIP resolves a hostname in an endpoint to its IP address.
+// If the endpoint is already an IP address or resolution fails, returns the original endpoint.
+// The endpoint must be in "host:port" format.
+func LookupIP(endpoint string) string {
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil {
 		return endpoint
 	}
-	var addrS string
-	addr, err := net.LookupIP(s[0])
+
+	addrs, err := net.LookupIP(host)
 	if err != nil {
-		addrS = s[0]
-	} else {
-		addrS = addr[0].String()
+		return endpoint
 	}
-	port := s[1]
-	return net.JoinHostPort(addrS, port)
+
+	if len(addrs) > 0 {
+		return net.JoinHostPort(addrs[0].String(), port)
+	}
+
+	return endpoint
 }

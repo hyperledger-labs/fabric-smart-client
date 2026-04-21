@@ -9,11 +9,12 @@ package postgres
 import (
 	"testing"
 
+	_ "modernc.org/sqlite"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	_ "modernc.org/sqlite"
 )
 
 // setupDB starts a postgres container in a go test environment.
@@ -31,6 +32,7 @@ func setupDB(tb testing.TB) string {
 }
 
 func TestPostgres(t *testing.T) {
+	t.Parallel()
 	pgConnStr := setupDB(t)
 	t.Log("postgres ready")
 
@@ -45,7 +47,6 @@ func TestPostgres(t *testing.T) {
 				KeyValueStore: newKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
 				Notifier:      NewNotifier(dbs.WriteDB, tables.KVS, pgConnStr, AllOperations, *NewSimplePrimaryKey("ns"), *NewBytePrimaryKey("pkey")),
 			}, nil
-
 		})
 	}, func(p driver.KeyValueStore) *common3.KeyValueStore {
 		return p.(*common3.KeyValueStore)

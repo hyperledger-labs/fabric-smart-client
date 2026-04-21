@@ -11,13 +11,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	"github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli/version"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/hsm"
 	view "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/cmd"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 const CmdRoot = "fsccli"

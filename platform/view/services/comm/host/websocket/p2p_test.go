@@ -23,6 +23,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/sdk/freeport"
+	"github.com/mr-tron/base58/base58"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -31,9 +35,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/mr-tron/base58/base58"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestMain(m *testing.M) {
@@ -50,31 +51,31 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestP2PLayerTestRound(t *testing.T) {
+func TestP2PLayerTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 
 	comm.P2PLayerTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsTestRound(t *testing.T) {
+func TestSessionsTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 	<-time.After(1 * time.Second)
 	comm.SessionsTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsForMPCTestRound(t *testing.T) {
+func TestSessionsForMPCTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 	<-time.After(1 * time.Second)
 	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsMultipleMessagesTestRound(t *testing.T) {
+func TestSessionsMultipleMessagesTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 	<-time.After(1 * time.Second)
 	comm.SessionsMultipleMessagesTestRound(t, bootstrapNode, node)
 }
 
-func TestMTLSCallerIdentityBinding(t *testing.T) {
+func TestMTLSCallerIdentityBinding(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 	ctx := t.Context()
 	bootstrapNode.Start(ctx)
@@ -111,6 +112,7 @@ func TestMTLSCallerIdentityBinding(t *testing.T) {
 }
 
 func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
+	t.Helper()
 	tlsFiles := generateTLSFiles(t)
 
 	bootstrapAddress := freeTCPAddress(t)
@@ -156,12 +158,13 @@ func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 		&comm.HostNode{P2PNode: otherNode, ID: otherID, Address: otherAddress}
 }
 
-func TestSessionsTwoNodesTestRound(t *testing.T) {
+func TestSessionsTwoNodesTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node1, node2 := setupThreeNodes(t)
 	comm.SessionsNodesTestRound(t, bootstrapNode, []*comm.HostNode{node1, node2}, 50)
 }
 
 func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
+	t.Helper()
 	// Create TLS certificates for three nodes: bootstrap, node1, node2
 	dir := t.TempDir()
 
@@ -334,7 +337,7 @@ func generateTLSFiles(t *testing.T) generatedTLSFiles {
 	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caPriv.PublicKey, caPriv)
 	require.NoError(t, err)
 
-	writePEM := func(path string, typ string, raw []byte) {
+	writePEM := func(path, typ string, raw []byte) {
 		f, err := os.Create(path)
 		require.NoError(t, err)
 		defer func() { require.NoError(t, f.Close()) }()
@@ -386,7 +389,7 @@ func generateTLSFiles(t *testing.T) generatedTLSFiles {
 	}
 }
 
-func TestSessionInfoSecurityGuarantees(t *testing.T) {
+func TestSessionInfoSecurityGuarantees(t *testing.T) { //nolint:paralleltest
 	ctx := t.Context()
 	// Simpler: Alice, Bob and Charlie all share the same CA.
 	allTlsFiles := generateThreeNodesTLSFiles(t)
@@ -515,6 +518,7 @@ func generateThreeNodesTLSFiles(t *testing.T) threeNodesTLSFiles {
 }
 
 func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) (*comm.HostNode, *comm.HostNode) {
+	t.Helper()
 	aliceAddr := freeTCPAddress(t)
 	bobAddr := freeTCPAddress(t)
 	aliceID := mustPeerIDFromCert(t, alice.cert)
@@ -531,7 +535,7 @@ func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) 
 		&comm.HostNode{P2PNode: bobNode, ID: bobID, Address: bobAddr}
 }
 
-func writePEM(t *testing.T, path string, typ string, raw []byte) {
+func writePEM(t *testing.T, path, typ string, raw []byte) {
 	t.Helper()
 	f, err := os.Create(path)
 	require.NoError(t, err)

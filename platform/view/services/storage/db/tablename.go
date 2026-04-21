@@ -16,6 +16,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
 )
 
+var (
+	validName = regexp.MustCompile(`^[a-zA-Z_]+$`) // Thread safe
+	replacers = []*replacer{
+		newReplacer("_", "__"),
+		newReplacer("-", "_d"),
+		newReplacer("\\.", "_f"),
+	}
+)
+
 type TableNameCreator struct {
 	formatterProvider lazy.Provider[string, *tableNameFormatter]
 }
@@ -63,13 +72,6 @@ func (c *TableNameCreator) CreateTableName(tablePrefix, name string, params ...s
 	return nc.Format(name, params...)
 }
 
-var validName = regexp.MustCompile(`^[a-zA-Z_]+$`) // Thread safe
-var replacers = []*replacer{
-	newReplacer("_", "__"),
-	newReplacer("-", "_d"),
-	newReplacer("\\.", "_f"),
-}
-
 type replacer struct {
 	regex *regexp.Regexp
 	repl  string
@@ -100,6 +102,7 @@ func newReplacer(escaped, repl string) *replacer {
 		repl:  repl,
 	}
 }
+
 func (r *replacer) Escape(s string) string {
 	return r.regex.ReplaceAllString(s, r.repl)
 }

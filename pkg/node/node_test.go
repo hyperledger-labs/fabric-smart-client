@@ -10,9 +10,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	viewsvc "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
-	"github.com/stretchr/testify/require"
 )
 
 // mockSDK is a minimal SDK implementation for testing.
@@ -69,17 +70,20 @@ func newTestNode() *Node {
 }
 
 func TestNode_ID(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	require.Equal(t, "test-node", n.ID())
 }
 
 func TestNode_AddSDK(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	n.AddSDK(&mockSDK{})
 	require.Len(t, n.sdks, 1)
 }
 
 func TestNode_AddSDK_Multiple(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	n.AddSDK(&mockSDK{})
 	n.AddSDK(&mockSDK{})
@@ -87,6 +91,7 @@ func TestNode_AddSDK_Multiple(t *testing.T) {
 }
 
 func TestNode_Start_Success(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	sdk := &mockSDK{}
 	n.AddSDK(sdk)
@@ -96,11 +101,13 @@ func TestNode_Start_Success(t *testing.T) {
 }
 
 func TestNode_Start_NoSDKs(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	require.NoError(t, n.Start())
 }
 
 func TestNode_Start_InstallError(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	n.AddSDK(&mockSDK{installErr: errors.New("install failed")})
 	require.Error(t, n.Start())
@@ -108,6 +115,7 @@ func TestNode_Start_InstallError(t *testing.T) {
 }
 
 func TestNode_Start_StartError(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	n.AddSDK(&mockSDK{startErr: errors.New("start failed")})
 	require.Error(t, n.Start())
@@ -115,6 +123,7 @@ func TestNode_Start_StartError(t *testing.T) {
 }
 
 func TestNode_Start_PostStart(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	sdk := &mockSDKWithPostStart{}
 	n.AddSDK(sdk)
@@ -123,12 +132,14 @@ func TestNode_Start_PostStart(t *testing.T) {
 }
 
 func TestNode_Start_PostStartError(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	n.AddSDK(&mockSDKWithPostStart{postStartErr: errors.New("post-start failed")})
 	require.Error(t, n.Start())
 }
 
 func TestNode_Start_PanicRecovery(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	n.AddSDK(&panicSDK{})
 	err := n.Start()
@@ -137,6 +148,7 @@ func TestNode_Start_PanicRecovery(t *testing.T) {
 }
 
 func TestNode_Stop(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	require.NoError(t, n.Start())
 	require.True(t, n.running)
@@ -145,6 +157,7 @@ func TestNode_Stop(t *testing.T) {
 }
 
 func TestNode_Stop_BeforeStart(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	// Stop without Start must not panic (cancel is nil)
 	require.NotPanics(t, func() { n.Stop() })
@@ -152,12 +165,14 @@ func TestNode_Stop_BeforeStart(t *testing.T) {
 }
 
 func TestNode_InstallSDK_WhenNotRunning(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	require.NoError(t, n.InstallSDK(&mockSDK{}))
 	require.Len(t, n.sdks, 1)
 }
 
 func TestNode_InstallSDK_WhenRunning(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	require.NoError(t, n.Start())
 	err := n.InstallSDK(&mockSDK{})
@@ -165,6 +180,7 @@ func TestNode_InstallSDK_WhenRunning(t *testing.T) {
 }
 
 func TestNode_RegisterAndGetService(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	svc := &mockSDK{}
 	require.NoError(t, n.RegisterService(svc))
@@ -174,6 +190,7 @@ func TestNode_RegisterAndGetService(t *testing.T) {
 }
 
 func TestNode_GetService_NotFound(t *testing.T) {
+	t.Parallel()
 	n := newTestNode()
 	_, err := n.GetService((*mockSDK)(nil))
 	require.Error(t, err)

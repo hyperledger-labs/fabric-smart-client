@@ -14,8 +14,11 @@ import (
 )
 
 func TestEvent(t *testing.T) {
+	t.Parallel()
 	t.Run("validChaincodeEvent", func(t *testing.T) {
+		t.Parallel()
 		t.Run("Returns true for valid chaincode event ", func(t *testing.T) {
+			t.Parallel()
 			event := &peer.ChaincodeEvent{
 				ChaincodeId: "1",
 				TxId:        "TXNID1",
@@ -28,6 +31,7 @@ func TestEvent(t *testing.T) {
 		})
 
 		t.Run("Returns false for empty transaction ID", func(t *testing.T) {
+			t.Parallel()
 			event := &peer.ChaincodeEvent{
 				ChaincodeId: "1",
 				TxId:        "",
@@ -40,6 +44,7 @@ func TestEvent(t *testing.T) {
 		})
 
 		t.Run("Returns false for empty event name", func(t *testing.T) {
+			t.Parallel()
 			event := &peer.ChaincodeEvent{
 				ChaincodeId: "1",
 				TxId:        "TXNID1",
@@ -52,6 +57,7 @@ func TestEvent(t *testing.T) {
 		})
 
 		t.Run("Returns false for empty chaincode ID", func(t *testing.T) {
+			t.Parallel()
 			event := &peer.ChaincodeEvent{
 				ChaincodeId: "",
 				TxId:        "TXNID1",

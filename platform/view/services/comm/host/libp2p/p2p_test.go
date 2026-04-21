@@ -16,13 +16,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
-	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/stretchr/testify/require"
 )
 
 //go:generate counterfeiter -o mock/libp2p_config.go -fake-name LibP2PConfig . libp2pConfig
@@ -41,27 +42,27 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestP2PLayerTestRound(t *testing.T) {
+func TestP2PLayerTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 	comm.P2PLayerTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsTestRound(t *testing.T) {
+func TestSessionsTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 	comm.SessionsTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsForMPCTestRound(t *testing.T) {
+func TestSessionsForMPCTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 	comm.SessionsForMPCTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsMultipleMessagesTestRound(t *testing.T) {
+func TestSessionsMultipleMessagesTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node := setupTwoNodes(t)
 	comm.SessionsMultipleMessagesTestRound(t, bootstrapNode, node)
 }
 
-func TestSessionsTwoNodesTestRound(t *testing.T) {
+func TestSessionsTwoNodesTestRound(t *testing.T) { //nolint:paralleltest
 	bootstrapNode, node1, node2 := setupThreeNodes(t)
 	<-time.After(100 * time.Millisecond)
 
@@ -96,6 +97,7 @@ func freeLibP2PAddresses(t *testing.T, n int) []string {
 }
 
 func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
+	t.Helper()
 	bootstrapSK, bootstrapID := generateKey(t)
 	nodeSK, nodeID := generateKey(t)
 
@@ -124,6 +126,7 @@ func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 }
 
 func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
+	t.Helper()
 	bootstrapSK, bootstrapID := generateKey(t)
 	node1SK, node1ID := generateKey(t)
 	node2SK, node2ID := generateKey(t)

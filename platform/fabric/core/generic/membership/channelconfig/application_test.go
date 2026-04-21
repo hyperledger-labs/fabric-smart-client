@@ -9,18 +9,21 @@ package channelconfig
 import (
 	"testing"
 
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig/capabilities"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
-	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	. "github.com/onsi/gomega"
 )
 
 func TestApplicationInterface(t *testing.T) {
+	t.Parallel()
 	_ = Application((*ApplicationConfig)(nil))
 }
 
 func TestACL(t *testing.T) {
+	t.Parallel()
 	g := NewGomegaWithT(t)
 	cgt := &cb.ConfigGroup{
 		Values: map[string]*cb.ConfigValue{
@@ -40,6 +43,7 @@ func TestACL(t *testing.T) {
 	}
 
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		cg := proto.Clone(cgt).(*cb.ConfigGroup)
 		_, err := NewApplicationConfig(proto.Clone(cg).(*cb.ConfigGroup), nil)
 		g.Expect(err).NotTo(HaveOccurred())

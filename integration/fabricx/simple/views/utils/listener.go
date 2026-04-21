@@ -24,6 +24,7 @@ type FinalityListener struct {
 func NewFinalityListener(expectedTxID string, expectedVC fdriver.ValidationCode, waitGroup *sync.WaitGroup) *FinalityListener {
 	return &FinalityListener{ExpectedTxID: expectedTxID, ExpectedVC: expectedVC, WaitGroup: waitGroup}
 }
+
 func (t *FinalityListener) OnStatus(_ context.Context, txID driver.TxID, vc fdriver.ValidationCode, _ string) {
 	if txID == t.ExpectedTxID && vc == t.ExpectedVC {
 		time.Sleep(5 * time.Second)

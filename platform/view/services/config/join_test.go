@@ -14,6 +14,7 @@ import (
 
 // TestJoin tests the Join function
 func TestJoin(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		components []string
@@ -68,6 +69,7 @@ func TestJoin(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := Join(tt.components...)
 			assert.Equal(t, tt.expected, got, "Join(%v) = %q; want %q", tt.components, got, tt.expected)
 		})

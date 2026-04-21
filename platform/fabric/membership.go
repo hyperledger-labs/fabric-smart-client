@@ -10,7 +10,6 @@ import (
 	"context"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -63,11 +62,11 @@ type LocalMembership struct {
 	network driver.FabricNetworkService
 }
 
-func (s *LocalMembership) RegisterIdemixMSP(id string, path string, mspID string) error {
+func (s *LocalMembership) RegisterIdemixMSP(id, path, mspID string) error {
 	return s.network.LocalMembership().RegisterIdemixMSP(id, path, mspID)
 }
 
-func (s *LocalMembership) RegisterX509MSP(id string, path string, mspID string) error {
+func (s *LocalMembership) RegisterX509MSP(id, path, mspID string) error {
 	return s.network.LocalMembership().RegisterX509MSP(id, path, mspID)
 }
 
@@ -91,7 +90,7 @@ func (s *LocalMembership) GetIdentityByID(id string) (view.Identity, error) {
 	return s.network.LocalMembership().GetIdentityByID(id)
 }
 
-func (s *LocalMembership) GetIdentityInfoByLabel(mspType string, label string) *IdentityInfo {
+func (s *LocalMembership) GetIdentityInfoByLabel(mspType, label string) *IdentityInfo {
 	iInfo := s.network.LocalMembership().GetIdentityInfoByLabel(mspType, label)
 	if iInfo == nil {
 		return nil

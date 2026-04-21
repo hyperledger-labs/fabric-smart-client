@@ -13,13 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
-	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 )
 
 type ValidationCode = int
@@ -32,8 +33,6 @@ const (
 	unknown
 )
 
-var RemoveNils func(items []driver.VaultRead) []driver.VaultRead
-
 var VCProvider = driver.NewValidationCodeProvider(map[ValidationCode]driver.TxStatusCode{
 	valid:   driver.Valid,
 	invalid: driver.Invalid,
@@ -45,6 +44,7 @@ type artifactsProvider interface {
 	NewCachedVault(ddb driver2.VaultStore) (*Vault[ValidationCode], error)
 	NewNonCachedVault(ddb driver2.VaultStore) (*Vault[ValidationCode], error)
 	NewMarshaller() Marshaller
+	RemoveNils(items []driver.VaultRead) []driver.VaultRead
 }
 
 var SingleDBCases = []struct {
@@ -75,6 +75,7 @@ var DoubleDBCases = []struct {
 }
 
 func TTestInterceptorErr(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+	t.Helper()
 	vault1, err := vp.NewNonCachedVault(ddb)
 	require.NoError(t, err)
 	rws, err := vault1.NewRWSet(context.Background(), "txid")
@@ -121,6 +122,7 @@ func TTestInterceptorErr(t *testing.T, ddb driver2.VaultStore, vp artifactsProvi
 }
 
 func TTestInterceptorConcurrency(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+	t.Helper()
 	ns := "namespace"
 	k := "key1"
 
@@ -151,6 +153,7 @@ func TTestInterceptorConcurrency(t *testing.T, ddb driver2.VaultStore, vp artifa
 }
 
 func TTestInterceptorConcurrencyNoConsistency(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+	t.Helper()
 	ns := "namespace"
 	k := "key1"
 	mk := "meyakey1"
@@ -196,6 +199,7 @@ func TTestInterceptorConcurrencyNoConsistency(t *testing.T, ddb driver2.VaultSto
 }
 
 func TTestQueryExecutor(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+	t.Helper()
 	ns := "namespace"
 
 	aVault, err := vp.NewNonCachedVault(ddb)
@@ -259,13 +263,14 @@ func TTestQueryExecutor(t *testing.T, ddb driver2.VaultStore, vp artifactsProvid
 	require.NoError(t, err)
 	res, err = collections.ReadAll(itr)
 	require.NoError(t, err)
-	var expected = RemoveNils([]driver.VaultRead{
+	expected := vp.RemoveNils([]driver.VaultRead{
 		{Key: "k1", Raw: []byte("k1_value"), Version: versionBlockTxNumToBytes(35, 3)},
 	})
 	require.Equal(t, expected, res)
 }
 
 func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+	t.Helper()
 	ns := "namespace"
 	k1 := "key1"
 	k2 := "key2"
@@ -389,6 +394,7 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultStore, vp artifactsProv
 }
 
 func TTestVaultErr(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+	t.Helper()
 	vault1, err := vp.NewNonCachedVault(ddb)
 	require.NoError(t, err)
 	err = vault1.CommitTX(context.TODO(), "non-existent", 0, 0)
@@ -436,6 +442,7 @@ func TTestVaultErr(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 }
 
 func TTestMerge(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+	t.Helper()
 	ns := "namespace"
 	k1 := "key1"
 	k2 := "key2"
@@ -564,6 +571,7 @@ func TTestMerge(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 }
 
 func TTestInspector(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
+	t.Helper()
 	txid := "txid"
 	ns := "ns"
 	k1 := "\x00k1"
@@ -631,6 +639,7 @@ func TTestInspector(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) 
 }
 
 func TTestRun(t *testing.T, db1, db2 driver2.VaultStore, vp artifactsProvider) {
+	t.Helper()
 	ns := "namespace"
 	k1 := "key1"
 	k1Meta := "key1Meta"
@@ -1029,6 +1038,7 @@ func TTestRun(t *testing.T, db1, db2 driver2.VaultStore, vp artifactsProvider) {
 }
 
 func compare(t *testing.T, ns string, db1, db2 driver2.VaultStore) {
+	t.Helper()
 	// we expect the underlying databases to be identical
 	itr, err := db1.GetAllStates(context.Background(), ns)
 	require.NoError(t, err)

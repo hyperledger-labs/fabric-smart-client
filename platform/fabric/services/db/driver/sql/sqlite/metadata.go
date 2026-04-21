@@ -9,6 +9,8 @@ package sqlite
 import (
 	"database/sql"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
@@ -24,5 +26,5 @@ func NewMetadataStore(dbs *common3.RWDB, tables common.TableNames) (*MetadataSto
 }
 
 func newMetadataStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *MetadataStore {
-	return &MetadataStore{MetadataStore: common.NewMetadataStore(writeDB, readDB, table, &sqlite2.ErrorMapper{}, sqlite2.NewConditionInterpreter())}
+	return &MetadataStore{MetadataStore: common.NewMetadataStore(writeDB, readDB, table, &sqlite2.ErrorMapper{}, sq.Question)}
 }

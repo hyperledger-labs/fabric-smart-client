@@ -17,26 +17,25 @@ import (
 	"encoding/pem"
 	"math/big"
 
+	"github.com/hyperledger/fabric-lib-go/bccsp/utils"
+	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger/fabric-lib-go/bccsp/utils"
-	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 )
 
-var (
-	// curveHalfOrders contains the precomputed curve group orders halved.
-	// It is used to ensure that signature' S value is lower or equal to the
-	// curve group order halved. We accept only low-S signatures.
-	// They are precomputed for efficiency reasons.
-	curveHalfOrders = map[elliptic.Curve]*big.Int{
-		elliptic.P224(): new(big.Int).Rsh(elliptic.P224().Params().N, 1),
-		elliptic.P256(): new(big.Int).Rsh(elliptic.P256().Params().N, 1),
-		elliptic.P384(): new(big.Int).Rsh(elliptic.P384().Params().N, 1),
-		elliptic.P521(): new(big.Int).Rsh(elliptic.P521().Params().N, 1),
-	}
-)
+// curveHalfOrders contains the precomputed curve group orders halved.
+// It is used to ensure that signature' S value is lower or equal to the
+// curve group order halved. We accept only low-S signatures.
+// They are precomputed for efficiency reasons.
+var curveHalfOrders = map[elliptic.Curve]*big.Int{
+	elliptic.P224(): new(big.Int).Rsh(elliptic.P224().Params().N, 1),
+	elliptic.P256(): new(big.Int).Rsh(elliptic.P256().Params().N, 1),
+	elliptic.P384(): new(big.Int).Rsh(elliptic.P384().Params().N, 1),
+	elliptic.P521(): new(big.Int).Rsh(elliptic.P521().Params().N, 1),
+}
 
 type ecdsaSignature struct {
 	R, S *big.Int
@@ -201,7 +200,6 @@ func IsLowS(k *ecdsa.PublicKey, s *big.Int) (bool, error) {
 	}
 
 	return s.Cmp(halfOrder) != 1, nil
-
 }
 
 func ToLowS(k *ecdsa.PublicKey, s *big.Int) (*big.Int, bool, error) {

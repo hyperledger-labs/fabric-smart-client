@@ -10,11 +10,12 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/hyperledger/fabric-x-common/api/msppb"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
 // mockProposalResponse is a lightweight test double for driver.ProposalResponse.
@@ -42,6 +43,7 @@ func (m *mockProposalResponse) VerifyEndorsement(_ driver.VerifierProvider) erro
 // one endorsement for the same namespace from a different MSP, should be merged
 // into a single tx containing both endorsements sorted by MSP ID.
 func TestMergeProposalResponseEndorsements(t *testing.T) {
+	t.Parallel()
 	tx := sampleTx("ns1", "key1", "value1")
 	rawTx, err := proto.Marshal(tx)
 	require.NoError(t, err)
@@ -75,6 +77,7 @@ func TestMergeProposalResponseEndorsements(t *testing.T) {
 // TestMergeProposalResponseEndorsementsSingleResponse verifies that a single
 // proposal response is accepted and its endorsements are preserved.
 func TestMergeProposalResponseEndorsementsSingleResponse(t *testing.T) {
+	t.Parallel()
 	tx := sampleTx("ns1", "key1", "value1")
 	rawTx, err := proto.Marshal(tx)
 	require.NoError(t, err)
@@ -99,6 +102,7 @@ func TestMergeProposalResponseEndorsementsSingleResponse(t *testing.T) {
 // endorsements are not appended twice when multiple proposal responses carry
 // endorsements from the same MSP.
 func TestMergeProposalResponseEndorsementsDeduplicatesByMSPID(t *testing.T) {
+	t.Parallel()
 	tx := sampleTx("ns1", "key1", "value1")
 	rawTx, err := proto.Marshal(tx)
 	require.NoError(t, err)
@@ -129,6 +133,7 @@ func TestMergeProposalResponseEndorsementsDeduplicatesByMSPID(t *testing.T) {
 // if proposal responses do not refer to the exact same tx payload.
 // Endorsements may only be merged across identical transactions.
 func TestMergeProposalResponseEndorsementsPayloadMismatch(t *testing.T) {
+	t.Parallel()
 	tx1 := sampleTx("ns1", "key1", "value1")
 	tx2 := sampleTx("ns1", "key2", "value2")
 
@@ -159,6 +164,7 @@ func TestMergeProposalResponseEndorsementsPayloadMismatch(t *testing.T) {
 // fails when a namespace endorsement set exists but contains no actual
 // EndorsementsWithIdentity entries.
 func TestMergeProposalResponseEndorsementsMissingEndorsement(t *testing.T) {
+	t.Parallel()
 	tx := sampleTx("ns1", "key1", "value1")
 	rawTx, err := proto.Marshal(tx)
 	require.NoError(t, err)
@@ -179,6 +185,7 @@ func TestMergeProposalResponseEndorsementsMissingEndorsement(t *testing.T) {
 // fails when the number of serialized endorsement sets does not match the
 // number of namespaces in the tx.
 func TestMergeProposalResponseEndorsementsWrongNamespaceCount(t *testing.T) {
+	t.Parallel()
 	tx := sampleTx("ns1", "key1", "value1")
 	rawTx, err := proto.Marshal(tx)
 	require.NoError(t, err)
@@ -196,6 +203,7 @@ func TestMergeProposalResponseEndorsementsWrongNamespaceCount(t *testing.T) {
 // TestMergeProposalResponseEndorsementsNilNamespaceEndorsements verifies that
 // a nil endorsement object for a namespace is treated as missing endorsements.
 func TestMergeProposalResponseEndorsementsNilNamespaceEndorsements(t *testing.T) {
+	t.Parallel()
 	tx := sampleTx("ns1", "key1", "value1")
 	rawTx, err := proto.Marshal(tx)
 	require.NoError(t, err)
@@ -215,6 +223,7 @@ func TestMergeProposalResponseEndorsementsNilNamespaceEndorsements(t *testing.T)
 // TestMergeProposalResponseEndorsementsMissingMSPID verifies that merge fails
 // when an endorsement does not carry an MSP ID.
 func TestMergeProposalResponseEndorsementsMissingMSPID(t *testing.T) {
+	t.Parallel()
 	tx := sampleTx("ns1", "key1", "value1")
 	rawTx, err := proto.Marshal(tx)
 	require.NoError(t, err)
@@ -241,6 +250,7 @@ func TestMergeProposalResponseEndorsementsMissingMSPID(t *testing.T) {
 // TestMergeProposalResponseEndorsementsNoResponses verifies that merge fails
 // when no proposal responses are provided.
 func TestMergeProposalResponseEndorsementsNoResponses(t *testing.T) {
+	t.Parallel()
 	_, err := mergeProposalResponseEndorsements(nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no proposal responses provided")

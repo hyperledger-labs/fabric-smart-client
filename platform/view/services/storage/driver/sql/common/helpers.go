@@ -15,12 +15,13 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // This file exposes functions that db drivers can use for integration tests
@@ -64,6 +65,7 @@ var ErrorCases = []struct {
 }
 
 func TTestDuplicate(t *testing.T, _ *sql.DB, writeDB WriteDB, errorWrapper driver.SQLErrorWrapper, table string) {
+	t.Helper()
 	ns := "namespace"
 
 	tx, err := writeDB.Begin()
@@ -83,6 +85,7 @@ func TTestDuplicate(t *testing.T, _ *sql.DB, writeDB WriteDB, errorWrapper drive
 }
 
 func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	entries := map[string]driver.UnversionedValue{
 		"k1":   driver.UnversionedValue("k1_value"),
@@ -155,6 +158,7 @@ func TTestRangeQueries(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "ns"
 	key := "key"
 	defer cleanupDB(t, db, ns)
@@ -215,6 +219,7 @@ func TTestSimpleReadWrite(t *testing.T, db driver.KeyValueStore) {
 }
 
 func populateDB(t *testing.T, db driver.KeyValueStore, ns string, entries map[string]driver.UnversionedValue) {
+	t.Helper()
 	require.NoError(t, db.BeginUpdate())
 	require.Empty(t, db.SetStates(t.Context(), ns, entries))
 	require.NoError(t, db.Commit())
@@ -235,6 +240,7 @@ func populateDB(t *testing.T, db driver.KeyValueStore, ns string, entries map[st
 }
 
 func cleanupDB(t *testing.T, db driver.KeyValueStore, ns string) {
+	t.Helper()
 	require.NoError(t, db.BeginUpdate())
 	itr, err := db.GetStateRangeScanIterator(t.Context(), ns, "", "")
 	require.NoError(t, err)
@@ -253,6 +259,7 @@ func cleanupDB(t *testing.T, db driver.KeyValueStore, ns string) {
 }
 
 func TTestGetNonExistent(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	key := "foo"
 
@@ -262,6 +269,7 @@ func TTestGetNonExistent(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestDB1(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	key := "foo"
 	keyWithSuffix := key + "/suffix"
@@ -286,6 +294,7 @@ func TTestDB1(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestDB2(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	key := "foo"
 	keyWithSuffix := key + "/suffix"
@@ -310,6 +319,7 @@ func TTestDB2(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	entries := map[string]driver.UnversionedValue{
 		"k2":   driver.UnversionedValue("k2_value"),
@@ -345,6 +355,7 @@ func TTestRangeQueries1(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	entries := map[string]driver.UnversionedValue{
 		"k1":   driver.UnversionedValue("k1_value"),
@@ -414,6 +425,7 @@ func TTestMultiWritesAndRangeQueries(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestMultiWrites(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	key := "test_key"
 	defer cleanupDB(t, db, ns)
@@ -463,6 +475,7 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 }
 
 func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	keyPrefix := "prefix"
 	defer cleanupDB(t, db, ns)
@@ -526,6 +539,7 @@ func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {
 // Postgres doesn't like non-utf8 in TEXT fields, so we made it a BYTEA.
 // cannot check if key exists: pq: invalid byte sequence for encoding "UTF8": 0xc2 0x32]
 func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "namespace"
 	key := "test_key"
 	defer cleanupDB(t, db, ns)
@@ -581,6 +595,7 @@ func TTestNonUTF8keys(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	var err error
 
 	ns := "namespace"
@@ -643,6 +658,7 @@ func TTestUnversionedRange(t *testing.T, db driver.KeyValueStore) {
 }
 
 func TTestUnversionedSimple(t *testing.T, db driver.KeyValueStore) {
+	t.Helper()
 	ns := "ns"
 	key := "key"
 	defer cleanupDB(t, db, ns)
@@ -727,6 +743,7 @@ func waitForResults[V any](ch <-chan V, times int, timeout time.Duration) ([]V, 
 }
 
 func TTestUnversionedNotifierSimple(t *testing.T, db driver.UnversionedNotifier) {
+	t.Helper()
 	ch, err := subscribe(db)
 	require.NoError(t, err)
 

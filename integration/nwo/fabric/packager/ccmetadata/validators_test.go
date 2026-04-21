@@ -12,13 +12,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 var packageTestDir = filepath.Join(os.TempDir(), "ccmetadata-validator-test")
 
 func TestGoodIndexJSON(t *testing.T) {
+	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "GoodIndexJSON")
 	defer utils.IgnoreError(cleanupDir(testDir))
 
@@ -30,6 +32,7 @@ func TestGoodIndexJSON(t *testing.T) {
 }
 
 func TestBadIndexJSON(t *testing.T) {
+	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "BadIndexJSON")
 	defer utils.IgnoreError(cleanupDir(testDir))
 
@@ -49,6 +52,7 @@ func TestBadIndexJSON(t *testing.T) {
 }
 
 func TestIndexWrongLocation(t *testing.T) {
+	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "IndexWrongLocation")
 	defer utils.IgnoreError(cleanupDir(testDir))
 
@@ -67,6 +71,7 @@ func TestIndexWrongLocation(t *testing.T) {
 }
 
 func TestInvalidMetadataType(t *testing.T) {
+	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "InvalidMetadataType")
 	defer utils.IgnoreError(cleanupDir(testDir))
 
@@ -83,6 +88,7 @@ func TestInvalidMetadataType(t *testing.T) {
 }
 
 func TestBadMetadataExtension(t *testing.T) {
+	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "BadMetadataExtension")
 	defer utils.IgnoreError(cleanupDir(testDir))
 
@@ -91,10 +97,10 @@ func TestBadMetadataExtension(t *testing.T) {
 
 	err := ValidateMetadataFile(fileName, fileBytes)
 	require.Error(t, err, "Should have received an error")
-
 }
 
 func TestBadFilePaths(t *testing.T) {
+	t.Parallel()
 	testDir := filepath.Join(packageTestDir, "BadMetadataExtension")
 	defer utils.IgnoreError(cleanupDir(testDir))
 
@@ -156,6 +162,7 @@ func TestBadFilePaths(t *testing.T) {
 }
 
 func TestIndexValidation(t *testing.T) {
+	t.Parallel()
 
 	// Test valid index with field sorts
 	indexDef := []byte(`{"index":{"fields":[{"size":"desc"}, {"color":"desc"}]},"ddoc":"indexSizeSortName", "name":"indexSizeSortName","type":"json"}`)
@@ -191,10 +198,10 @@ func TestIndexValidation(t *testing.T) {
 	_, indexDefinition = isJSON(indexDef)
 	err = validateIndexJSON(indexDefinition)
 	require.NoError(t, err)
-
 }
 
 func TestIndexValidationInvalidParameters(t *testing.T) {
+	t.Parallel()
 	// Test numeric values passed in for parameters
 	indexDef := []byte(`{"index":{"fields":[{"size":"desc"}, {"color":"desc"}]},"ddoc":1, "name":"indexSizeSortName","type":"json"}`)
 	_, indexDefinition := isJSON(indexDef)
@@ -236,10 +243,10 @@ func TestIndexValidationInvalidParameters(t *testing.T) {
 	_, indexDefinition = isJSON(indexDef)
 	err = validateIndexJSON(indexDefinition)
 	require.Error(t, err, "Error should have been thrown for missing index parameter")
-
 }
 
 func TestIndexValidationInvalidFields(t *testing.T) {
+	t.Parallel()
 
 	// Test invalid fields parameter
 	indexDef := []byte(`{"index":{"fields1":[{"size":"desc"}, {"color":"desc"}]},"ddoc":"indexSizeSortName", "name":"indexSizeSortName","type":"json"}`)
@@ -276,7 +283,6 @@ func TestIndexValidationInvalidFields(t *testing.T) {
 	_, indexDefinition = isJSON(indexDef)
 	err = validateIndexJSON(indexDefinition)
 	require.Error(t, err, "Error should have been thrown for missing JSON for fields")
-
 }
 
 func cleanupDir(dir string) error {

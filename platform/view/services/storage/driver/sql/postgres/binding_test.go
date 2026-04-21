@@ -9,10 +9,10 @@ package postgres
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-
-	"github.com/stretchr/testify/require"
 )
 
 func newBindingStoreForTests(tb testing.TB) *BindingStore {
@@ -30,11 +30,13 @@ func newBindingStoreForTests(tb testing.TB) *BindingStore {
 }
 
 func TestPutBindingsMultipleEphemeralsPostgres(t *testing.T) {
+	t.Parallel()
 	db := newBindingStoreForTests(t)
 	common.TestPutBindingsMultipleEphemeralsCommon(t, db.BindingStore)
 }
 
 func TestManyManyPutBindingsPostgres(t *testing.T) {
+	t.Parallel()
 	db := newBindingStoreForTests(t)
 	common.TestManyManyPutBindingsCommon(t, db.BindingStore)
 }

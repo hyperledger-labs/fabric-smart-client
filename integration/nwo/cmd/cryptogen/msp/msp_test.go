@@ -11,13 +11,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
-	msp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/msp"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
+
+	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
+	msp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/msp"
+	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
 const (
@@ -32,10 +32,9 @@ const (
 	testPostalCode         = "123456"
 )
 
-var testDir = filepath.Join(os.TempDir(), "msp-test")
-
 func testGenerateLocalMSP(t *testing.T, nodeOUs bool) {
-	cleanup(testDir)
+	t.Helper()
+	testDir := t.TempDir()
 
 	err := msp2.GenerateLocalMSP(testDir, testName, nil, &ca2.CA{}, &ca2.CA{}, msp2.PEER, nodeOUs, false, nil)
 	require.Error(t, err, "Empty CA should have failed")
@@ -118,18 +117,19 @@ func testGenerateLocalMSP(t *testing.T, nodeOUs bool) {
 	err = msp2.GenerateLocalMSP(testDir, testName, nil, signCA, tlsCA, msp2.ORDERER, nodeOUs, false, nil)
 	require.Error(t, err, "Should have failed with CA name 'test/fail'")
 	t.Log(err)
-	cleanup(testDir)
 }
 
-func TestGenerateLocalMSPWithNodeOU(t *testing.T) {
+func TestGenerateLocalMSPWithNodeOU(t *testing.T) { //nolint:paralleltest
 	testGenerateLocalMSP(t, true)
 }
 
-func TestGenerateLocalMSPWithoutNodeOU(t *testing.T) {
+func TestGenerateLocalMSPWithoutNodeOU(t *testing.T) { //nolint:paralleltest
 	testGenerateLocalMSP(t, false)
 }
 
 func testGenerateVerifyingMSP(t *testing.T, nodeOUs bool) {
+	t.Helper()
+	testDir := t.TempDir()
 	caDir := filepath.Join(testDir, "ca")
 	tlsCADir := filepath.Join(testDir, "tlsca")
 	mspDir := filepath.Join(testDir, "msp")
@@ -167,24 +167,23 @@ func testGenerateVerifyingMSP(t *testing.T, nodeOUs bool) {
 	err = msp2.GenerateVerifyingMSP(mspDir, signCA, tlsCA, nodeOUs)
 	require.Error(t, err, "Should have failed with CA name 'test/fail'")
 	t.Log(err)
-	cleanup(testDir)
-
 }
 
-func TestGenerateVerifyingMSPWithNodeOU(t *testing.T) {
+func TestGenerateVerifyingMSPWithNodeOU(t *testing.T) { //nolint:paralleltest
 	testGenerateVerifyingMSP(t, true)
 }
 
-func TestGenerateVerifyingMSPWithoutNodeOU(t *testing.T) {
+func TestGenerateVerifyingMSPWithoutNodeOU(t *testing.T) { //nolint:paralleltest
 	testGenerateVerifyingMSP(t, true)
 }
 
-func TestExportConfig(t *testing.T) {
+func TestExportConfig(t *testing.T) { //nolint:paralleltest
+	testDir := t.TempDir()
 	path := filepath.Join(testDir, "export-test")
 	configFile := filepath.Join(path, "config.yaml")
 	caFile := "ca.pem"
 	t.Log(path)
-	err := os.MkdirAll(path, 0755)
+	err := os.MkdirAll(path, 0o755)
 	require.NoError(t, err, "failed to create test directory")
 
 	err = msp2.ExportConfig(path, caFile, true)
@@ -205,10 +204,6 @@ func TestExportConfig(t *testing.T) {
 	assert.Equal(t, msp2.ADMINOU, config.NodeOUs.AdminOUIdentifier.OrganizationalUnitIdentifier)
 	assert.Equal(t, caFile, config.NodeOUs.OrdererOUIdentifier.Certificate)
 	assert.Equal(t, msp2.ORDEREROU, config.NodeOUs.OrdererOUIdentifier.OrganizationalUnitIdentifier)
-}
-
-func cleanup(dir string) {
-	utils.IgnoreErrorWithOneArg(os.RemoveAll, dir)
 }
 
 func checkForFile(file string) bool {

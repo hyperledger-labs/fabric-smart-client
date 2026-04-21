@@ -8,8 +8,7 @@ package mocks
 
 import "context"
 
-type SDK struct {
-}
+type SDK struct{}
 
 func NewSDK() *SDK {
 	return &SDK{}

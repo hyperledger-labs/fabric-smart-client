@@ -11,16 +11,18 @@ import (
 	"testing"
 	"time"
 
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	channelconfig "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/channel/config/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewChannelConfigMonitor(t *testing.T) {
+	t.Parallel()
 	config := &channelconfig.Config{
 		PollInterval:      1 * time.Minute,
 		MaxRetries:        5,
@@ -33,6 +35,7 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 	configService := &mock.ConfigService{}
 
 	t.Run("successful creation", func(t *testing.T) {
+		t.Parallel()
 		monitor, err := channelconfig.NewChannelConfigMonitor(
 			config,
 			queryService,
@@ -48,6 +51,7 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 	})
 
 	t.Run("nil config", func(t *testing.T) {
+		t.Parallel()
 		monitor, err := channelconfig.NewChannelConfigMonitor(
 			nil,
 			queryService,
@@ -63,6 +67,7 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 	})
 
 	t.Run("nil query service", func(t *testing.T) {
+		t.Parallel()
 		monitor, err := channelconfig.NewChannelConfigMonitor(
 			config,
 			nil,
@@ -78,6 +83,7 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 	})
 
 	t.Run("nil membership service", func(t *testing.T) {
+		t.Parallel()
 		monitor, err := channelconfig.NewChannelConfigMonitor(
 			config,
 			queryService,
@@ -93,6 +99,7 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 	})
 
 	t.Run("nil ordering service", func(t *testing.T) {
+		t.Parallel()
 		monitor, err := channelconfig.NewChannelConfigMonitor(
 			config,
 			queryService,
@@ -108,6 +115,7 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 	})
 
 	t.Run("nil config service", func(t *testing.T) {
+		t.Parallel()
 		monitor, err := channelconfig.NewChannelConfigMonitor(
 			config,
 			queryService,
@@ -123,6 +131,7 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 	})
 
 	t.Run("empty channel name", func(t *testing.T) {
+		t.Parallel()
 		monitor, err := channelconfig.NewChannelConfigMonitor(
 			config,
 			queryService,
@@ -139,6 +148,7 @@ func TestNewChannelConfigMonitor(t *testing.T) {
 }
 
 func TestServiceLifecycle(t *testing.T) {
+	t.Parallel()
 	config := &channelconfig.Config{
 		PollInterval:      100 * time.Millisecond,
 		MaxRetries:        2,
@@ -157,6 +167,7 @@ func TestServiceLifecycle(t *testing.T) {
 	}, nil)
 
 	t.Run("start and stop", func(t *testing.T) {
+		t.Parallel()
 		monitor, err := channelconfig.NewChannelConfigMonitor(
 			config, queryService, membershipService,
 			orderingService, configService, "testnet", "mychannel",
@@ -181,6 +192,7 @@ func TestServiceLifecycle(t *testing.T) {
 	})
 
 	t.Run("start already running", func(t *testing.T) {
+		t.Parallel()
 		monitor, err := channelconfig.NewChannelConfigMonitor(
 			config, queryService, membershipService,
 			orderingService, configService, "testnet", "mychannel",
@@ -200,6 +212,7 @@ func TestServiceLifecycle(t *testing.T) {
 	})
 
 	t.Run("stop not running", func(t *testing.T) {
+		t.Parallel()
 		monitor, err := channelconfig.NewChannelConfigMonitor(
 			config, queryService, membershipService,
 			orderingService, configService, "testnet", "mychannel",
@@ -212,6 +225,7 @@ func TestServiceLifecycle(t *testing.T) {
 	})
 
 	t.Run("start with nil context", func(t *testing.T) {
+		t.Parallel()
 		monitor, err := channelconfig.NewChannelConfigMonitor(
 			config, queryService, membershipService,
 			orderingService, configService, "testnet", "mychannel",
@@ -228,6 +242,7 @@ func TestServiceLifecycle(t *testing.T) {
 }
 
 func TestConfigurationUpdate(t *testing.T) {
+	t.Parallel()
 	config := &channelconfig.Config{
 		PollInterval:      100 * time.Millisecond,
 		MaxRetries:        2,
@@ -236,6 +251,7 @@ func TestConfigurationUpdate(t *testing.T) {
 	}
 
 	t.Run("successful update on new version", func(t *testing.T) {
+		t.Parallel()
 		queryService := &mock.QueryService{}
 		membershipService := &mock.MembershipService{}
 		orderingService := &mock.OrderingService{}
@@ -300,6 +316,7 @@ func TestConfigurationUpdate(t *testing.T) {
 	})
 
 	t.Run("no update on same version", func(t *testing.T) {
+		t.Parallel()
 		queryService := &mock.QueryService{}
 		membershipService := &mock.MembershipService{}
 		orderingService := &mock.OrderingService{}
@@ -337,6 +354,7 @@ func TestConfigurationUpdate(t *testing.T) {
 }
 
 func TestErrorHandling(t *testing.T) {
+	t.Parallel()
 	config := &channelconfig.Config{
 		PollInterval:      50 * time.Millisecond,
 		MaxRetries:        2,
@@ -345,6 +363,7 @@ func TestErrorHandling(t *testing.T) {
 	}
 
 	t.Run("query service error with retry", func(t *testing.T) {
+		t.Parallel()
 		queryService := &mock.QueryService{}
 		membershipService := &mock.MembershipService{}
 		orderingService := &mock.OrderingService{}
@@ -383,6 +402,7 @@ func TestErrorHandling(t *testing.T) {
 	})
 
 	t.Run("membership update error", func(t *testing.T) {
+		t.Parallel()
 		queryService := &mock.QueryService{}
 		membershipService := &mock.MembershipService{}
 		orderingService := &mock.OrderingService{}
@@ -416,6 +436,7 @@ func TestErrorHandling(t *testing.T) {
 	})
 
 	t.Run("nil config transaction info", func(t *testing.T) {
+		t.Parallel()
 		queryService := &mock.QueryService{}
 		membershipService := &mock.MembershipService{}
 		orderingService := &mock.OrderingService{}
@@ -443,6 +464,7 @@ func TestErrorHandling(t *testing.T) {
 }
 
 func TestContextCancellation(t *testing.T) {
+	t.Parallel()
 	config := &channelconfig.Config{
 		PollInterval:      1 * time.Second,
 		MaxRetries:        5,
@@ -461,6 +483,7 @@ func TestContextCancellation(t *testing.T) {
 	}, nil)
 
 	t.Run("context cancellation stops monitoring", func(t *testing.T) {
+		t.Parallel()
 		monitor, err := channelconfig.NewChannelConfigMonitor(
 			config, queryService, membershipService,
 			orderingService, configService, "testnet", "mychannel",

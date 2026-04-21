@@ -11,12 +11,13 @@ import (
 	"encoding/pem"
 	"os"
 
+	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 )
 
-func Serialize(mspID string, certPath string) ([]byte, error) {
+func Serialize(mspID, certPath string) ([]byte, error) {
 	raw, err := readPemFile(certPath)
 	if err != nil {
 		return nil, err
@@ -46,7 +47,7 @@ func SerializeRaw(mspID string, raw []byte) ([]byte, error) {
 	return idBytes, nil
 }
 
-func SerializeFromMSP(mspID string, path string) ([]byte, error) {
+func SerializeFromMSP(mspID, path string) ([]byte, error) {
 	msp, err := LoadVerifyingMSPAt(path, mspID, BCCSPType)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load msp at [%s:%s]", mspID, path)

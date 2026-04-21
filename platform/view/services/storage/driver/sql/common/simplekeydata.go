@@ -11,20 +11,19 @@ import (
 	"database/sql"
 	"fmt"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
-	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
 )
 
-func NewSimpleKeyDataStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common2.CondInterpreter) *SimpleKeyDataStore {
+func NewSimpleKeyDataStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *SimpleKeyDataStore {
 	return &SimpleKeyDataStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
-		ci:           ci,
+		sb:           sq.StatementBuilder.PlaceholderFormat(ph),
 	}
 }
 
@@ -33,15 +32,15 @@ type SimpleKeyDataStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
-	ci           common2.CondInterpreter
+	sb           sq.StatementBuilderType
 }
 
 func (db *SimpleKeyDataStore) GetData(ctx context.Context, key string) ([]byte, error) {
-	query, params := q.Select().FieldsByName("data").
-		From(q.Table(db.table)).
-		Where(cond.Eq("key", key)).
-		Format(db.ci)
-
+	query, params, err := db.sb.Select("data").From(db.table).Where(sq.Eq{"key": key}).ToSql()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build query")
+	}
+	logger.Debug(query)
 	return QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
 }
 
@@ -51,11 +50,14 @@ func (db *SimpleKeyDataStore) ExistData(ctx context.Context, key string) (bool, 
 }
 
 func (db *SimpleKeyDataStore) PutData(ctx context.Context, key string, data []byte) error {
-	query, params := q.InsertInto(db.table).
-		Fields("key", "data").
-		Row(key, data).
-		OnConflictDoNothing().
-		Format()
+	query, params, err := db.sb.Insert(db.table).
+		Columns("key", "data").
+		Values(key, data).
+		Suffix("ON CONFLICT DO NOTHING").
+		ToSql()
+	if err != nil {
+		return errors.Wrapf(err, "failed to build query")
+	}
 	logger.Debug(query, string(data))
 	result, err := db.writeDB.ExecContext(ctx, query, params...)
 	if err != nil {

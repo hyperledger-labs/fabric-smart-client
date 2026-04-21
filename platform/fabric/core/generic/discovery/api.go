@@ -7,10 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package discovery
 
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger/fabric-protos-go-apiv2/discovery"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"google.golang.org/grpc"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // ErrNotFound defines an error that means that an element wasn't found

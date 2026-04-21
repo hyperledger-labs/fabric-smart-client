@@ -16,12 +16,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 var mspIdentityLogger = logging.MustGetLogger("msp.identity")
@@ -167,7 +168,7 @@ func NewSerializedIdentity(mspID string, certPEM []byte) ([]byte, error) {
 // Verify checks against a signature and a message
 // to determine whether this identity produced the
 // signature; it returns nil if so or an error otherwise
-func (id *identity) Verify(msg []byte, sig []byte) error {
+func (id *identity) Verify(msg, sig []byte) error {
 	// mspIdentityLogger.Infof("Verifying signature")
 
 	digestOrMsg := msg

@@ -9,12 +9,14 @@ package msptesttools
 import (
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/mgmt"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/mgmt"
 )
 
 func TestFakeSetup(t *testing.T) {
+	t.Parallel()
 	err := LoadMSPSetupForTesting()
 	if err != nil {
 		t.Fatalf("LoadLocalMsp failed, err %s", err)

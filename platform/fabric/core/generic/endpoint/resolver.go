@@ -38,7 +38,7 @@ func (r *Resolver) GetIdentity() (view.Identity, error) {
 
 type Service interface {
 	Bind(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error
-	AddResolver(name string, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
+	AddResolver(name, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
 	AddPublicKeyExtractor(extractor endpoint.PublicKeyExtractor) error
 }
 

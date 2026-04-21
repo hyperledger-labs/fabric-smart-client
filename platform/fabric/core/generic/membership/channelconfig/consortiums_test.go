@@ -13,6 +13,7 @@ import (
 )
 
 func TestConsortiums(t *testing.T) {
+	t.Parallel()
 	_, err := NewConsortiumsConfig(&cb.ConfigGroup{}, nil)
 	require.NoError(t, err)
 }

@@ -21,15 +21,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
-	benchviews "github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/views"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
+	benchviews "github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/views"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 func BenchmarkGRPCBaseline(b *testing.B) {
@@ -39,6 +40,7 @@ func BenchmarkGRPCBaseline(b *testing.B) {
 }
 
 func runGPRCBaseline(b *testing.B, w string) {
+	b.Helper()
 	srvEndpoint := setupBaselineServer(b, w)
 
 	// we share a single connection among all client goroutines
@@ -149,6 +151,9 @@ func setupBaselineServer(tb testing.TB, workloadType string) string {
 	// setup server
 	lis, err := net.Listen("tcp", "localhost:0")
 	require.NoError(tb, err)
+	tb.Cleanup(func() {
+		_ = lis.Close()
+	})
 
 	var opts []grpc.ServerOption
 	opts = append(opts, grpc.Creds(credentials.NewTLS(serverTLS)))
@@ -203,7 +208,7 @@ func setupBaselineClient(tb testing.TB, srvEndpoint string) (protos.ViewServiceC
 	var clientOpts []grpc.DialOption
 	clientOpts = append(clientOpts, grpc.WithTransportCredentials(credentials.NewTLS(clientTLS)))
 
-	//conn, err := grpc.NewClient(srvEndpoint, clientOpts...)
+	// conn, err := grpc.NewClient(srvEndpoint, clientOpts...)
 	conn, err := grpc.NewClient(srvEndpoint,
 		clientOpts...,
 	)

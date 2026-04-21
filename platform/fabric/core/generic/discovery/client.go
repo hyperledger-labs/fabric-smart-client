@@ -13,11 +13,12 @@ import (
 	"fmt"
 	"math/rand/v2"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger/fabric-protos-go-apiv2/discovery"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
 var configTypes = []QueryType{
@@ -419,7 +420,8 @@ func isStateInfoExpected(qt QueryType) bool {
 func (resp response) mapEndorsers(
 	channel2index map[string]int,
 	r *discovery.Response,
-	chaincodeQueryMapping map[int][]InvocationChain) error {
+	chaincodeQueryMapping map[int][]InvocationChain,
+) error {
 	for ch, index := range channel2index {
 		ccQueryRes, err := ResponseEndorsersAt(r, index)
 		if ccQueryRes == nil && err == nil {

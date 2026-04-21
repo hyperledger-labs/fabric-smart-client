@@ -12,15 +12,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil/fakes"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil/fakes"
 )
 
 func TestGetPayloads(t *testing.T) {
+	t.Parallel()
 	var txAction *pb.TransactionAction
 	var err error
 
@@ -118,6 +120,7 @@ func TestGetPayloads(t *testing.T) {
 }
 
 func TestDeduplicateEndorsements(t *testing.T) {
+	t.Parallel()
 	signID := &fakes.SignerSerializer{}
 	signID.SerializeReturns([]byte("signer"), nil)
 	signerBytes, err := signID.Serialize()
@@ -153,6 +156,7 @@ func TestDeduplicateEndorsements(t *testing.T) {
 }
 
 func TestCreateSignedTx(t *testing.T) {
+	t.Parallel()
 	var err error
 	prop := &pb.Proposal{}
 
@@ -269,11 +273,13 @@ func TestCreateSignedTx(t *testing.T) {
 }
 
 func TestCreateSignedTxNoSigner(t *testing.T) {
+	t.Parallel()
 	_, err := protoutil.CreateSignedTx(nil, nil, &pb.ProposalResponse{})
 	require.ErrorContains(t, err, "signer is required when creating a signed transaction")
 }
 
 func TestCreateSignedTxStatus(t *testing.T) {
+	t.Parallel()
 	serializedExtension, err := proto.Marshal(&pb.ChaincodeHeaderExtension{})
 	require.NoError(t, err)
 	serializedChannelHeader, err := proto.Marshal(&cb.ChannelHeader{
@@ -315,6 +321,7 @@ func TestCreateSignedTxStatus(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(strconv.Itoa(int(tc.status)), func(t *testing.T) {
+			t.Parallel()
 			response := &pb.ProposalResponse{
 				Payload:     []byte("payload"),
 				Endorsement: &pb.Endorsement{},
@@ -335,6 +342,7 @@ func TestCreateSignedTxStatus(t *testing.T) {
 }
 
 func TestCreateSignedEnvelope(t *testing.T) {
+	t.Parallel()
 	var env *cb.Envelope
 	channelID := "mychannelID"
 	msg := &cb.ConfigEnvelope{}
@@ -362,6 +370,7 @@ func TestCreateSignedEnvelope(t *testing.T) {
 }
 
 func TestCreateSignedEnvelopeNilSigner(t *testing.T) {
+	t.Parallel()
 	var env *cb.Envelope
 	channelID := "mychannelID"
 	msg := &cb.ConfigEnvelope{}
@@ -381,6 +390,7 @@ func TestCreateSignedEnvelopeNilSigner(t *testing.T) {
 }
 
 func TestGetSignedProposal(t *testing.T) {
+	t.Parallel()
 	var signedProp *pb.SignedProposal
 	var err error
 
@@ -405,6 +415,7 @@ func TestGetSignedProposal(t *testing.T) {
 }
 
 func TestGetBytesProposalPayloadForTx(t *testing.T) {
+	t.Parallel()
 	input := &pb.ChaincodeProposalPayload{
 		Input:        []byte("input"),
 		TransientMap: make(map[string][]byte),

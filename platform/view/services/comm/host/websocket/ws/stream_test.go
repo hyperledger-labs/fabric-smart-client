@@ -15,14 +15,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 )
 
 func newMockStream(conn *mockConn) host.P2PStream {
@@ -39,10 +40,12 @@ type mockConn struct {
 func (c *mockConn) ReadMessage() (int, []byte, error) {
 	return 0, <-c.read, nil
 }
+
 func (c *mockConn) WriteMessage(_ int, data []byte) error {
 	c.written <- data
 	return nil
 }
+
 func (c *mockConn) Close() error {
 	c.once.Do(func() {
 		close(c.read)
@@ -50,6 +53,7 @@ func (c *mockConn) Close() error {
 	})
 	return nil
 }
+
 func (c *mockConn) ReadValue(message proto.Message) error {
 	data, err := proto.Marshal(message)
 	if err != nil {
@@ -66,7 +70,7 @@ func (c *mockConn) WrittenValues() <-chan []byte {
 	return c.written
 }
 
-func TestWriter(t *testing.T) {
+func TestWriter(t *testing.T) { //nolint:paralleltest
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
@@ -104,7 +108,7 @@ func TestWriter(t *testing.T) {
 	}, 5*time.Second, time.Second)
 }
 
-func TestReader(t *testing.T) {
+func TestReader(t *testing.T) { //nolint:paralleltest
 	// let check that at the end of this test all our go routines are stopped
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 

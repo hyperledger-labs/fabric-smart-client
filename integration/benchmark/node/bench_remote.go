@@ -16,8 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
 	"google.golang.org/grpc/benchmark/stats"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
 )
 
 // HistogramOptions are the default bucket settings for latency histograms

@@ -13,8 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 )
 
 type raceConn struct {
@@ -40,7 +41,7 @@ func (c *raceConn) Close() error {
 	return nil
 }
 
-func TestReadRace(t *testing.T) {
+func TestReadRace(t *testing.T) { //nolint:paralleltest
 	p := make([]byte, 100)
 	for i := 0; i < 100; i++ {
 		readChan := make(chan resultMsg, 2)

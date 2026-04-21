@@ -12,8 +12,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote/workload"
 	"google.golang.org/grpc"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote/workload"
 )
 
 func BenchmarkLocal(b *testing.B) {
@@ -38,6 +39,7 @@ func BenchmarkLocal(b *testing.B) {
 }
 
 func runBenchmark(b *testing.B, ccs []*grpc.ClientConn, makeCaller func(conn *grpc.ClientConn) workload.ClientFunc) {
+	b.Helper()
 	callers := make([]workload.ClientFunc, len(ccs))
 	for i, cc := range ccs {
 		callers[i] = makeCaller(cc)
@@ -63,5 +65,6 @@ func runBenchmark(b *testing.B, ccs []*grpc.ClientConn, makeCaller func(conn *gr
 }
 
 func ReportTPS(b *testing.B) {
+	b.Helper()
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "TPS")
 }

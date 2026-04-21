@@ -9,6 +9,8 @@ package sqlite
 import (
 	"database/sql"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common4 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
@@ -24,5 +26,5 @@ func NewEndorseTxStore(dbs *common3.RWDB, tables common.TableNames) (*EndorseTxS
 }
 
 func newEndorseTxStore(readDB *sql.DB, writeDB common4.WriteDB, table string) *EndorseTxStore {
-	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(writeDB, readDB, table, &sqlite2.ErrorMapper{}, sqlite2.NewConditionInterpreter())}
+	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(writeDB, readDB, table, &sqlite2.ErrorMapper{}, sq.Question)}
 }

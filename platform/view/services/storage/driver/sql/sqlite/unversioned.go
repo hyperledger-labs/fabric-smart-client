@@ -9,6 +9,8 @@ package sqlite
 import (
 	"database/sql"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/notifier"
@@ -30,6 +32,6 @@ func NewKeyValueStoreNotifier(dbs *common3.RWDB, table string) (*notifier.Unvers
 func newKeyValueStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *KeyValueStore {
 	var wrapper driver.SQLErrorWrapper = &ErrorMapper{}
 	return &KeyValueStore{
-		KeyValueStore: common2.NewKeyValueStore(writeDB, readDB, table, wrapper, NewConditionInterpreter()),
+		KeyValueStore: common2.NewKeyValueStore(writeDB, readDB, table, wrapper, sq.Question),
 	}
 }

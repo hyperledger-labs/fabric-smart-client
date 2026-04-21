@@ -10,12 +10,13 @@ import (
 	"crypto/sha256"
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // UnmarshalCommand unmarshals a Command message.

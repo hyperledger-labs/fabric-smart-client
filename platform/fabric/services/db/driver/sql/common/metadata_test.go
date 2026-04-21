@@ -10,47 +10,48 @@ import (
 	"database/sql"
 	"testing"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
-func TestMetadata_GetData(t *testing.T) {
+func TestMetadata_GetData(t *testing.T) { //nolint:paralleltest
 	GetData(t, func(db *sql.DB, key string) ([]byte, error) {
 		return mockMetadataStore(db).GetMetadata(context.Background(), key)
 	})
 }
 
-func TestMetadata_GetData_NoData(t *testing.T) {
+func TestMetadata_GetData_NoData(t *testing.T) { //nolint:paralleltest
 	GetData_NoData(t, func(db *sql.DB, key string) ([]byte, error) {
 		return mockMetadataStore(db).GetMetadata(context.Background(), key)
 	})
 }
 
-func TestMetadata_ExistData_True(t *testing.T) {
+func TestMetadata_ExistData_True(t *testing.T) { //nolint:paralleltest
 	ExistData_True(t, func(db *sql.DB, key string) (bool, error) {
 		return mockMetadataStore(db).ExistMetadata(context.Background(), key)
 	})
 }
 
-func TestMetadata_ExistData_False(t *testing.T) {
+func TestMetadata_ExistData_False(t *testing.T) { //nolint:paralleltest
 	ExistData_False(t, func(db *sql.DB, key string) (bool, error) {
 		return mockMetadataStore(db).ExistMetadata(context.Background(), key)
 	})
 }
 
-func TestMetadata_PutData_Success(t *testing.T) {
+func TestMetadata_PutData_Success(t *testing.T) { //nolint:paralleltest
 	PutData_Success(t, func(db *sql.DB, key string, data []byte) error {
 		return mockMetadataStore(db).PutMetadata(context.Background(), key, data)
 	})
 }
 
-func TestMetadata_PutData_Conflict(t *testing.T) {
+func TestMetadata_PutData_Conflict(t *testing.T) { //nolint:paralleltest
 	PutData_Conflict(t, func(db *sql.DB, key string, data []byte) error {
 		return mockMetadataStore(db).PutMetadata(context.Background(), key, data)
 	})
 }
 
 func mockMetadataStore(db *sql.DB) *common.MetadataStore {
-	return common.NewMetadataStore(db, db, "test_table", &mock.SQLErrorWrapper{}, sqlite.NewConditionInterpreter())
+	return common.NewMetadataStore(db, db, "test_table", &mock.SQLErrorWrapper{}, sq.Dollar)
 }

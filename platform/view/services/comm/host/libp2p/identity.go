@@ -12,8 +12,9 @@ import (
 	"encoding/pem"
 	"os"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/libp2p/go-libp2p/core/crypto"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 func newCryptoPrivKeyFromMSP(secretKeyPath string) (crypto.PrivKey, error) {

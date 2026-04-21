@@ -9,14 +9,15 @@ package atsachaincode_test
 import (
 	"encoding/base64"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	atsa "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsachaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsachaincode/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("EndToEnd", func() {

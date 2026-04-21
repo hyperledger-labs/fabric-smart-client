@@ -13,10 +13,11 @@ import (
 	"time"
 
 	gwebsocket "github.com/gorilla/websocket"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
-	"go.uber.org/zap/zapcore"
 )
 
 type connection interface {

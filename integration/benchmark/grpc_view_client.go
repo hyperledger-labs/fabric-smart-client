@@ -13,9 +13,10 @@ import (
 	"io"
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	protos2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ViewClient struct {

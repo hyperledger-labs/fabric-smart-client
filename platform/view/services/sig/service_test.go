@@ -11,11 +11,12 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 //go:generate counterfeiter -o mock/signer_info_store.go -fake-name SignerInfoStore github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.SignerInfoStore
@@ -757,6 +758,7 @@ func TestSigningIdentityWrapper(t *testing.T) {
 	}
 
 	t.Run("Sign", func(t *testing.T) {
+		t.Parallel()
 		sig, err := si.Sign(message)
 		require.NoError(t, err)
 		require.Equal(t, signature, sig)
@@ -765,17 +767,20 @@ func TestSigningIdentityWrapper(t *testing.T) {
 	})
 
 	t.Run("Serialize", func(t *testing.T) {
+		t.Parallel()
 		serialized, err := si.Serialize()
 		require.NoError(t, err)
 		require.Equal(t, identity, view.Identity(serialized))
 	})
 
 	t.Run("GetPublicVersion", func(t *testing.T) {
+		t.Parallel()
 		pub := si.GetPublicVersion()
 		require.Equal(t, si, pub)
 	})
 
 	t.Run("Verify panics", func(t *testing.T) {
+		t.Parallel()
 		require.Panics(t, func() {
 			_ = si.Verify(message, signature)
 		})

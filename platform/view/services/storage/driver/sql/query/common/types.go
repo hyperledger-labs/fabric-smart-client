@@ -13,6 +13,7 @@ import (
 )
 
 type OrderBy Serializable
+
 type Condition ConditionSerializable
 
 // Tuple is a tuple of parameters

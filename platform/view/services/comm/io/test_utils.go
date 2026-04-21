@@ -12,9 +12,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/require"
 )
 
 type networkNode interface {
@@ -24,6 +25,7 @@ type networkNode interface {
 }
 
 func SessionTwoParties(t *testing.T, network ...networkNode) {
+	t.Helper()
 	ctx := t.Context()
 	for _, node := range network {
 		node.Start(ctx)

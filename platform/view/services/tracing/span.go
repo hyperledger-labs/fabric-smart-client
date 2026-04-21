@@ -9,9 +9,10 @@ package tracing
 import (
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
 
 type (

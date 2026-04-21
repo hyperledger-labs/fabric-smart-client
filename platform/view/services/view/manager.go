@@ -12,13 +12,14 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -238,7 +239,7 @@ func (cm *Manager) RegisterContext(contextID string, ctx DisposableContext) erro
 
 // NewResponderContext returns a context to be used to respond to an incoming message on the given session.
 // It returns the context, a boolean indicating if it's new, and an error.
-func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, session view.Session, me view.Identity, remote view.Identity) (view.Context, bool, error) {
+func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, bool, error) {
 	cm.contextsMu.Lock()
 	defer cm.contextsMu.Unlock()
 

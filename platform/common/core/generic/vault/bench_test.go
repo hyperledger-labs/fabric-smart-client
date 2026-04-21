@@ -13,16 +13,19 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/vault"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-const blockSize = 100
-const rwSetSize = 5
-const namespace = "ns"
+const (
+	blockSize = 100
+	rwSetSize = 5
+	namespace = "ns"
+)
 
 func BenchmarkPostgresVault(b *testing.B) {
 	ddb, terminate, err := vault.OpenPostgresVault("common-sdk-node1")
@@ -30,7 +33,7 @@ func BenchmarkPostgresVault(b *testing.B) {
 	require.NotNil(b, ddb)
 	defer terminate()
 
-	BenchTestSetStateCommit(b, ddb)
+	runBenchmarkSetStateCommit(b, ddb)
 }
 
 func BenchmarkMemoryVault(b *testing.B) {
@@ -38,7 +41,7 @@ func BenchmarkMemoryVault(b *testing.B) {
 	require.NoError(b, err)
 	require.NotNil(b, ddb)
 
-	BenchTestSetStateCommit(b, ddb)
+	runBenchmarkSetStateCommit(b, ddb)
 }
 
 func BenchmarkSqliteVault(b *testing.B) {
@@ -46,10 +49,11 @@ func BenchmarkSqliteVault(b *testing.B) {
 	require.NoError(b, err)
 	require.NotNil(b, ddb)
 
-	BenchTestSetStateCommit(b, ddb)
+	runBenchmarkSetStateCommit(b, ddb)
 }
 
-func BenchTestSetStateCommit(b *testing.B, ddb driver.VaultStore) {
+func runBenchmarkSetStateCommit(b *testing.B, ddb driver.VaultStore) {
+	b.Helper()
 	vault, err := (&testArtifactProvider{}).NewNonCachedVault(ddb)
 	require.NoError(b, err)
 	defer func() { require.NoError(b, ddb.Close()) }()
@@ -81,6 +85,7 @@ func BenchTestSetStateCommit(b *testing.B, ddb driver.VaultStore) {
 }
 
 func verifyResult(b *testing.B, vault *Vault[ValidationCode]) {
+	b.Helper()
 	stateItr, err := vault.vaultStore.GetAllStates(context.Background(), namespace)
 	require.NoError(b, err)
 	states, err := collections.ReadAll(stateItr)
@@ -105,6 +110,7 @@ func newRWSet(vault *Vault[ValidationCode], commitIndex *txCommitIndex) error {
 }
 
 func runCommitter(b *testing.B, txs chan *txCommitIndex, vault *Vault[ValidationCode]) *sync.WaitGroup {
+	b.Helper()
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {

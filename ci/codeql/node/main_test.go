@@ -14,6 +14,7 @@ import (
 )
 
 func TestCompile(t *testing.T) {
+	t.Parallel()
 	gt := NewGomegaWithT(t)
 	_, err := gexec.Build("github.com/hyperledger-labs/fabric-smart-client/ci/codeql/node")
 	gt.Expect(err).NotTo(HaveOccurred())

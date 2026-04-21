@@ -7,16 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package start
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 
+	"github.com/spf13/cobra"
+
 	"github.com/hyperledger-labs/fabric-smart-client/node/start/profile"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -51,7 +53,7 @@ var nodeCmd = &cobra.Command{
 }
 
 func startCmd() *cobra.Command {
-	var nodeStartCmd = &cobra.Command{
+	nodeStartCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Starts the fabric smart client node.",
 		Long:  `Starts the fabric smart client node that interacts with the network.`,
@@ -86,7 +88,7 @@ func serve() error {
 
 	if enableProfile {
 		logger.Infof("Profiling enabled")
-		var profiler, err = profile.New(profile.WithPath(configPath), profile.WithAll())
+		profiler, err := profile.New(profile.WithPath(configPath), profile.WithAll())
 		if err != nil {
 			logger.Errorf("error creating profiler: [%s]", err)
 			callback(err)
@@ -102,46 +104,8 @@ func serve() error {
 		defer profiler.Stop()
 	}
 
-	// sigup
-	sighupIgnore := false
-	sighupIgnoreEnv := os.Getenv("FSCNODE_SIGHUP_IGNORE")
-	if len(sighupIgnoreEnv) != 0 {
-		var err error
-		sighupIgnore, err = strconv.ParseBool(sighupIgnoreEnv)
-		if err != nil {
-			logger.Infof("Error parsing boolean environment variable FSCNODE_SIGHUP_IGNORE: %s\n", err.Error())
-		} else {
-			logger.Infof("SIGHUP signal will be ignored: %t", sighupIgnore)
-		}
-	}
-
-	serve := make(chan error, 10)
-	go handleSignals(addPlatformSignals(map[os.Signal]func(){
-		syscall.SIGINT: func() {
-			logger.Infof("Received SIGINT, exiting...")
-			node.Stop()
-			serve <- nil
-		},
-		syscall.SIGTERM: func() {
-			logger.Infof("Received SIGTERM, exiting...")
-			node.Stop()
-			serve <- nil
-		},
-		syscall.SIGSTOP: func() {
-			logger.Infof("Received SIGSTOP, exiting...")
-			node.Stop()
-			serve <- nil
-		},
-		syscall.SIGHUP: func() {
-			if sighupIgnore {
-				logger.Infof("Received SIGHUP, but ignoring it")
-			} else {
-				logger.Infof("Received SIGHUP, exiting...")
-				node.Stop()
-				serve <- nil
-			}
-		},
-	}))
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	if err := node.Start(); err != nil {
 		logger.Errorf("Failed starting platform [%s]", err)
@@ -152,24 +116,14 @@ func serve() error {
 	callback(nil)
 
 	logger.Infof("Started peer with ID=[%s]", node.ID())
-	return <-serve
+
+	<-ctx.Done()
+	logger.Infof("Received signal, exiting...")
+	node.Stop()
+
+	return nil
 }
 
 func callback(err error) {
 	node.Callback() <- err
-}
-
-func handleSignals(handlers map[os.Signal]func()) {
-	var signals []os.Signal
-	for sig := range handlers {
-		signals = append(signals, sig)
-	}
-
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, signals...)
-
-	for sig := range signalChan {
-		logger.Infof("Received signal: %d (%s)", sig, sig)
-		handlers[sig]()
-	}
 }

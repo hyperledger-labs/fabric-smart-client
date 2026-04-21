@@ -1,0 +1,29 @@
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+---
+version: "2"
+linters:
+  enable:
+    - misspell
+    - thelper
+    - tparallel
+    - paralleltest
+formatters:
+  enable:
+    - gci
+    - gofumpt
+  settings:
+    gofumpt:
+      extra-rules: true
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/hyperledger-labs/fabric-smart-client)
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+run:
+  allow-parallel-runners: true

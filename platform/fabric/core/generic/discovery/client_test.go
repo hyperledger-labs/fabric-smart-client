@@ -19,9 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	comm "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger/fabric-protos-go-apiv2/discovery"
 	"github.com/hyperledger/fabric-protos-go-apiv2/gossip"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
@@ -30,13 +27,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	comm "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 var (
 	ctx = context.Background()
 
 	expectedOrgCombinations = []map[string]struct{}{
-
 		{
 			"A": {},
 		},
@@ -148,6 +148,7 @@ func loadFileOrPanic(file string) []byte {
 }
 
 func createConnector(t *testing.T, certificate tls.Certificate, targetPort int) func() (*grpc.ClientConn, error) {
+	t.Helper()
 	caCert := loadFileOrPanic(filepath.Join("testdata", "server", "ca.pem"))
 	tlsConf := &tls.Config{
 		RootCAs:      x509.NewCertPool(),
@@ -164,6 +165,7 @@ func createConnector(t *testing.T, certificate tls.Certificate, targetPort int) 
 }
 
 func TestClient(t *testing.T) {
+	t.Parallel()
 	clientCert := loadFileOrPanic(filepath.Join("testdata", "client", "cert.pem"))
 	clientKey := loadFileOrPanic(filepath.Join("testdata", "client", "key.pem"))
 	clientTLSCert, err := tls.X509KeyPair(clientCert, clientKey)
@@ -239,7 +241,7 @@ func TestClient(t *testing.T) {
 		},
 	}, nil).Once()
 
-	//sup.On("PeersOfChannel").Return(channelPeersWithoutChaincodes).Times(2)
+	// sup.On("PeersOfChannel").Return(channelPeersWithoutChaincodes).Times(2)
 	req := NewRequest()
 	req, err = req.OfChannel("mychannel").AddPeersQuery().AddConfigQuery().AddEndorsersQuery(interest("mycc"))
 	require.NoError(t, err)
@@ -247,6 +249,7 @@ func TestClient(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Channel mismatch", func(t *testing.T) {
+		t.Parallel()
 		// Check behavior for channels that we didn't query for.
 		fakeChannel := r.ForChannel("fakeChannel")
 		peers, err := fakeChannel.Peers()
@@ -263,6 +266,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("Peer membership query", func(t *testing.T) {
+		t.Parallel()
 		// Check response for the correct channel
 		mychannel := r.ForChannel("mychannel")
 		conf, err := mychannel.Config()
@@ -275,6 +279,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("Endorser query without chaincode installed", func(t *testing.T) {
+		t.Parallel()
 		mychannel := r.ForChannel("mychannel")
 		endorsers, err := mychannel.Endorsers(ccCall("mycc"), NoFilter)
 		// However, since we didn't provide any chaincodes to these peers - the server shouldn't
@@ -285,6 +290,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("Endorser query with chaincodes installed", func(t *testing.T) {
+		t.Parallel()
 		// Next, we check the case when the peers publish chaincode for themselves.
 		// TODO: produce output
 
@@ -354,7 +360,8 @@ func TestClient(t *testing.T) {
 						},
 					},
 				},
-			}}).Once()
+			},
+		}).Once()
 
 		req = NewRequest()
 		req, err = req.OfChannel("mychannel").AddPeersQuery().AddEndorsersQuery(interest("mycc"))
@@ -381,6 +388,7 @@ func computeSHA256(bytes []byte) []byte {
 }
 
 func TestUnableToSign(t *testing.T) {
+	t.Parallel()
 	signer := func(msg []byte) ([]byte, error) {
 		return nil, errors.New("not enough entropy")
 	}
@@ -399,6 +407,7 @@ func TestUnableToSign(t *testing.T) {
 }
 
 func TestUnableToConnect(t *testing.T) {
+	t.Parallel()
 	signer := func(msg []byte) ([]byte, error) {
 		return msg, nil
 	}
@@ -417,6 +426,7 @@ func TestUnableToConnect(t *testing.T) {
 }
 
 func TestBadResponses(t *testing.T) {
+	t.Parallel()
 	signer := func(msg []byte) ([]byte, error) {
 		return msg, nil
 	}
@@ -527,6 +537,7 @@ func TestBadResponses(t *testing.T) {
 }
 
 func TestAddEndorsersQueryInvalidInput(t *testing.T) {
+	t.Parallel()
 	_, err := NewRequest().AddEndorsersQuery()
 	require.Contains(t, err.Error(), "no chaincode interests given")
 
@@ -543,6 +554,7 @@ func TestAddEndorsersQueryInvalidInput(t *testing.T) {
 }
 
 func TestValidateAliveMessage(t *testing.T) {
+	t.Parallel()
 	am := aliveMessage(1)
 	msg, _ := EnvelopeToGossipMessage(am)
 
@@ -566,6 +578,7 @@ func TestValidateAliveMessage(t *testing.T) {
 }
 
 func TestValidateStateInfoMessage(t *testing.T) {
+	t.Parallel()
 	si := stateInfoWithHeight(100)
 
 	// Scenario I: Valid state info message
@@ -588,6 +601,7 @@ func TestValidateStateInfoMessage(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
+	t.Parallel()
 	var ic InvocationChain
 	ic = append(ic, &peer.ChaincodeCall{
 		Name:            "foo",

@@ -10,14 +10,16 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
 	mspprotos "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
 
 func TestMSPConfigManager(t *testing.T) {
+	t.Parallel()
 	mspDir := getDevMspDir()
 	conf, err := msp.GetLocalMspConfig(mspDir, nil, "SampleOrg")
 	require.NoError(t, err)
@@ -59,17 +61,20 @@ func getDevMspDir() string {
 }
 
 func TestMSPConfigFailure(t *testing.T) {
+	t.Parallel()
 	cryptoProvider, err := sw.NewDefaultSecurityLevelWithKeystore(sw.NewDummyKeyStore())
 	require.NoError(t, err)
 	mspCH := NewMSPConfigHandler(msp.MSPv1_0, cryptoProvider)
 
 	// begin/propose/commit
 	t.Run("Bad proto", func(t *testing.T) {
+		t.Parallel()
 		_, err := mspCH.ProposeMSP(&mspprotos.MSPConfig{Config: []byte("BARF!")})
 		require.Error(t, err)
 	})
 
 	t.Run("Bad MSP Type", func(t *testing.T) {
+		t.Parallel()
 		_, err := mspCH.ProposeMSP(&mspprotos.MSPConfig{Type: int32(10)})
 		require.Error(t, err)
 	})

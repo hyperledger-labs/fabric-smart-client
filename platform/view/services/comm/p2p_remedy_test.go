@@ -13,12 +13,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type mockHost struct {
@@ -59,7 +60,7 @@ func (m *mockHost) StreamHash(info host2.StreamInfo) host2.StreamHash {
 	return "hash"
 }
 
-func TestDispatcherDoS(t *testing.T) {
+func TestDispatcherDoS(t *testing.T) { //nolint:paralleltest
 	logging.Init(logging.Config{
 		LogSpec: "fsc.view.services.comm=error",
 	})
@@ -139,7 +140,7 @@ func TestDispatcherDoS(t *testing.T) {
 	}
 }
 
-func TestMasterSessionDoSProtection(t *testing.T) {
+func TestMasterSessionDoSProtection(t *testing.T) { //nolint:paralleltest
 	logging.Init(logging.Config{
 		LogSpec: "fsc.view.services.comm=error",
 	})
@@ -239,7 +240,7 @@ func TestMasterSessionDoSProtection(t *testing.T) {
 	}
 }
 
-func TestStreamLeak(t *testing.T) {
+func TestStreamLeak(t *testing.T) { //nolint:paralleltest
 	logging.Init(logging.Config{
 		LogSpec: "fsc.view.services.comm=error",
 	})

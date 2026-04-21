@@ -9,8 +9,9 @@ package driver
 import (
 	"context"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type TransactionType int32
@@ -66,14 +67,14 @@ type EndorserTransactionService interface {
 }
 
 type TransactionFactory interface {
-	NewTransaction(ctx context.Context, channel string, nonce []byte, creator []byte, txid string, rawRequest []byte) (Transaction, error)
+	NewTransaction(ctx context.Context, channel string, nonce, creator []byte, txid string, rawRequest []byte) (Transaction, error)
 }
 
 type TransactionManager interface {
 	ComputeTxID(id *TxIDComponents) string
 	NewEnvelope() Envelope
 	NewProposalResponseFromBytes(raw []byte) (ProposalResponse, error)
-	NewTransaction(ctx context.Context, transactionType TransactionType, creator view.Identity, nonce []byte, txid string, channel string, rawRequest []byte) (Transaction, error)
+	NewTransaction(ctx context.Context, transactionType TransactionType, creator view.Identity, nonce []byte, txid, channel string, rawRequest []byte) (Transaction, error)
 	NewTransactionFromBytes(ctx context.Context, channel string, raw []byte) (Transaction, error)
 	NewTransactionFromEnvelopeBytes(ctx context.Context, channel string, raw []byte) (Transaction, error)
 	AddTransactionFactory(tt TransactionType, factory TransactionFactory)
@@ -99,7 +100,7 @@ type Transaction interface {
 	SetFromEnvelopeBytes(raw []byte) error
 	Proposal() Proposal
 	SignedProposal() SignedProposal
-	SetProposal(chaincode string, version string, function string, params ...string)
+	SetProposal(chaincode, version, function string, params ...string)
 	AppendParameter(p []byte)
 	SetParameterAt(i int, p []byte) error
 	Transient() TransientMap

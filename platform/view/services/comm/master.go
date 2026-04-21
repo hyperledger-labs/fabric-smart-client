@@ -75,7 +75,7 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	return s, nil
 }
 
-func (p *P2PNode) NewSession(callerViewID string, contextID string, endpoint string, pkid []byte) (view.Session, error) {
+func (p *P2PNode) NewSession(callerViewID, contextID, endpoint string, pkid []byte) (view.Session, error) {
 	logger.Debugf("new p2p session [%s,%s,%s,%s]", callerViewID, contextID, endpoint, logging.Base64(pkid))
 	ID, err := GetRandomNonce()
 	if err != nil {

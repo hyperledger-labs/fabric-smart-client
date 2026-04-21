@@ -10,10 +10,11 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewFactory(t *testing.T) {

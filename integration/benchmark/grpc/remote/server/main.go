@@ -21,12 +21,13 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote/workload"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote/workload"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 var workloadProcessors = map[string]workload.ServerFunc{

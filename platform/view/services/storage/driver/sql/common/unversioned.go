@@ -11,6 +11,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -18,9 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/iterators"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
-	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
-	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-	cond2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
 )
 
 var logger = logging.MustGetLogger()
@@ -37,27 +36,47 @@ type KeyValueStore struct {
 	table   string
 
 	errorWrapper driver.SQLErrorWrapper
-	ci           common2.CondInterpreter
+	sb           sq.StatementBuilderType
 }
 
-func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ci common2.CondInterpreter) *KeyValueStore {
+func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *KeyValueStore {
 	return &KeyValueStore{
 		BaseDB:       common.NewBaseDB(func() (*sql.Tx, error) { return writeDB.Begin() }),
 		readDB:       readDB,
 		writeDB:      writeDB,
 		table:        table,
 		errorWrapper: errorWrapper,
-		ci:           ci,
+		sb:           sq.StatementBuilder.PlaceholderFormat(ph),
 	}
 }
 
-func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns driver2.Namespace, startKey, endKey driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
-	query, params := q.Select().FieldsByName("pkey", "val").
-		From(q.Table(db.table)).
-		Where(cond2.And(cond2.Eq("ns", ns), cond2.BetweenBytes("pkey", []byte(startKey), []byte(endKey)))).
-		OrderBy(q.Asc(common2.FieldName("pkey"))).
-		Format(db.ci)
+func hasKeysCondition(ns driver2.Namespace, keys ...driver2.PKey) sq.Sqlizer {
+	if len(keys) == 1 {
+		return sq.And{sq.Eq{"ns": ns}, sq.Eq{"pkey": []byte(keys[0])}}
+	}
+	pkeys := make([][]byte, len(keys))
+	for i, k := range keys {
+		pkeys[i] = []byte(k)
+	}
+	return sq.And{sq.Eq{"ns": ns}, sq.Eq{"pkey": pkeys}}
+}
 
+func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns driver2.Namespace, startKey, endKey driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
+	conds := sq.And{sq.Eq{"ns": ns}}
+	if len(startKey) != 0 {
+		conds = append(conds, sq.GtOrEq{"pkey": []byte(startKey)})
+	}
+	if len(endKey) != 0 {
+		conds = append(conds, sq.Lt{"pkey": []byte(endKey)})
+	}
+	query, params, err := db.sb.Select("pkey", "val").
+		From(db.table).
+		Where(conds).
+		OrderBy("pkey ASC").
+		ToSql()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build query")
+	}
 	logger.Debug(query, params)
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
@@ -69,11 +88,13 @@ func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns drive
 }
 
 func (db *KeyValueStore) GetState(ctx context.Context, namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
-	query, params := q.Select().FieldsByName("val").
-		From(q.Table(db.table)).
-		Where(HasKeys(namespace, key)).
-		Format(db.ci)
-
+	query, params, err := db.sb.Select("val").
+		From(db.table).
+		Where(hasKeysCondition(namespace, key)).
+		ToSql()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build query")
+	}
 	return QueryUniqueContext[driver.UnversionedValue](ctx, db.readDB, query, params...)
 }
 
@@ -81,12 +102,14 @@ func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns driver2.Nam
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*driver.UnversionedRead](), nil
 	}
-	query, params := q.Select().FieldsByName("pkey", "val").
-		From(q.Table(db.table)).
-		Where(HasKeys(ns, keys...)).
-		Format(db.ci)
-
-	logger.Debug(query[:30] + "...")
+	query, params, err := db.sb.Select("pkey", "val").
+		From(db.table).
+		Where(hasKeysCondition(ns, keys...)).
+		ToSql()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build query")
+	}
+	logger.Debug(query[:min(30, len(query))] + "...")
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
 	if err != nil {
@@ -96,21 +119,12 @@ func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns driver2.Nam
 	return NewIterator(rows, func(r *driver.UnversionedRead) error { return rows.Scan(&r.Key, &r.Raw) }), nil
 }
 
-func HasKeys(ns driver2.Namespace, keys ...driver2.PKey) cond2.Condition {
-	kbytes := make([][]byte, len(keys))
-	for i, k := range keys {
-		kbytes[i] = []byte(k)
-	}
-	return cond2.And(cond2.Eq("ns", ns), cond2.In("pkey", kbytes...))
-}
-
 func (db *KeyValueStore) Close() error {
 	logger.Info("closing database")
 	err := db.writeDB.Close()
 	if err != nil {
 		return errors.Wrapf(err, "could not close DB")
 	}
-
 	return nil
 }
 
@@ -138,20 +152,22 @@ func (db *KeyValueStore) DeleteStatesWithTx(ctx context.Context, tx dbTransactio
 	if len(namespace) == 0 {
 		return collections.RepeatValue(keys, errors.New("ns or key is empty"))
 	}
-	query, params := q.DeleteFrom(db.table).
-		Where(HasKeys(namespace, keys...)).
-		Format(db.ci)
+	query, params, err := db.sb.Delete(db.table).
+		Where(hasKeysCondition(namespace, keys...)).
+		ToSql()
+	if err != nil {
+		return collections.RepeatValue(keys, errors.Wrapf(err, "failed to build query"))
+	}
 
 	logger.Debug(query, params)
-	_, err := tx.ExecContext(ctx, query, params...)
-	if err != nil {
+	_, execErr := tx.ExecContext(ctx, query, params...)
+	if execErr != nil {
 		errs := make(map[driver2.PKey]error)
 		for _, key := range keys {
-			errs[key] = errors.Wrapf(db.errorWrapper.WrapError(err), "could not deleteOp val for key [%s]", key)
+			errs[key] = errors.Wrapf(db.errorWrapper.WrapError(execErr), "could not deleteOp val for key [%s]", key)
 		}
 		return errs
 	}
-
 	return nil
 }
 
@@ -179,13 +195,11 @@ func (db *KeyValueStore) SetStatesWithTx(ctx context.Context, tx dbTransaction, 
 	upserted := make(map[driver2.PKey]driver.UnversionedValue, len(kvs))
 	deleted := make([]driver2.PKey, 0, len(kvs))
 	for pkey, val := range kvs {
-		// Get rawVal
 		if len(val) == 0 {
 			logger.DebugfContext(ctx, "set key [%s:%s] to nil value, will be deleted instead", ns, pkey)
 			deleted = append(deleted, pkey)
 		} else {
 			logger.DebugfContext(ctx, "set state [%s,%s]", ns, pkey)
-			// Overwrite rawVal
 			upserted[pkey] = append([]byte(nil), val...)
 		}
 	}
@@ -201,19 +215,20 @@ func (db *KeyValueStore) SetStatesWithTx(ctx context.Context, tx dbTransaction, 
 }
 
 func (db *KeyValueStore) upsertStatesWithTx(ctx context.Context, tx dbTransaction, ns driver2.Namespace, vals map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
-	rows := make([]common2.Tuple, 0, len(vals))
+	insert := db.sb.Insert(db.table).Columns("ns", "pkey", "val")
 	for pkey, val := range vals {
-		rows = append(rows, common2.Tuple{ns, []byte(pkey), val})
+		insert = insert.Values(ns, []byte(pkey), val)
 	}
-	query, params := q.InsertInto(db.table).
-		Fields("ns", "pkey", "val").
-		Rows(rows).
-		OnConflict([]common2.FieldName{"ns", "pkey"}, q.OverwriteValue("val")).
-		Format()
+	query, params, err := insert.
+		Suffix("ON CONFLICT (ns, pkey) DO UPDATE SET val = EXCLUDED.val").
+		ToSql()
+	if err != nil {
+		return collections.RepeatValue(collections.Keys(vals), errors.Wrapf(err, "failed to build query"))
+	}
 
 	logger.Debug(query, params)
-	if _, err := tx.ExecContext(ctx, query, params...); err != nil {
-		return collections.RepeatValue(collections.Keys(vals), errors.Wrapf(db.errorWrapper.WrapError(err), "could not upsert"))
+	if _, execErr := tx.ExecContext(ctx, query, params...); execErr != nil {
+		return collections.RepeatValue(collections.Keys(vals), errors.Wrapf(db.errorWrapper.WrapError(execErr), "could not upsert"))
 	}
 	return nil
 }

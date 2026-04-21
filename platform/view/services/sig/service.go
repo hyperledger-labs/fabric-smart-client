@@ -13,13 +13,14 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"go.uber.org/zap/zapcore"
 )
 
 type Verifier = driver2.Verifier
@@ -313,7 +314,7 @@ type si struct {
 	signer driver2.Signer
 }
 
-func (s *si) Verify(message []byte, signature []byte) error {
+func (s *si) Verify(message, signature []byte) error {
 	panic("implement me")
 }
 

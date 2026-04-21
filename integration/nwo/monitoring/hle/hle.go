@@ -12,11 +12,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/onsi/gomega"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	nnetwork "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/onsi/gomega"
 )
 
 var logger = logging.MustGetLogger()

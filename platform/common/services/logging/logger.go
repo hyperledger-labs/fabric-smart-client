@@ -13,12 +13,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 	"github.com/hyperledger/fabric-lib-go/common/flogging/floggingtest"
 	"github.com/hyperledger/fabric-lib-go/common/flogging/httpadmin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 type (
@@ -114,6 +115,7 @@ func GetPackageName() (string, error) {
 }
 
 func NewTestLogger(tb testing.TB, options ...Option) (Logger, *Recorder) {
+	tb.Helper()
 	l, r := floggingtest.NewTestLogger(tb, options...)
 	return &logger{fabricLogger: l}, r
 }

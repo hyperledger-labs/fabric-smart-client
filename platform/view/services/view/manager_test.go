@@ -10,14 +10,15 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	servicesmock "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/mock"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestMain(m *testing.M) {
@@ -26,6 +27,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestManager(t *testing.T) {
+	t.Parallel()
 	sp := &servicesmock.ServiceProvider{}
 	sf := &mock.SessionFactory{}
 	es := &mock.EndpointService{}
@@ -120,6 +122,7 @@ func TestManager(t *testing.T) {
 }
 
 func TestManagerRegistry(t *testing.T) {
+	t.Parallel()
 	sp := &servicesmock.ServiceProvider{}
 	sf := &mock.SessionFactory{}
 	es := &mock.EndpointService{}
@@ -151,6 +154,7 @@ func TestManagerRegistry(t *testing.T) {
 }
 
 func TestNewSessionContext(t *testing.T) {
+	t.Parallel()
 	sp := &servicesmock.ServiceProvider{}
 	sf := &mock.SessionFactory{}
 	es := &mock.EndpointService{}
@@ -190,6 +194,7 @@ func TestNewSessionContext(t *testing.T) {
 }
 
 func TestManagerOther(t *testing.T) {
+	t.Parallel()
 	sp := &servicesmock.ServiceProvider{}
 	sf := &mock.SessionFactory{}
 	es := &mock.EndpointService{}

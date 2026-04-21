@@ -14,24 +14,23 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote"
 	"google.golang.org/grpc"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark/grpc/remote"
 )
 
 const (
 	ECDSA = "ecdsa"
 )
 
-var (
-	sk *ecdsa.PrivateKey
-)
+var sk *ecdsa.PrivateKey
 
 func init() {
 	sk, _ = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 }
 
 func CreateClientFuncECDSA(conn *grpc.ClientConn) ClientFunc {
-	var msg = &remote.Request{
+	msg := &remote.Request{
 		Workload: ECDSA,
 		Input:    []byte("Hello"),
 	}

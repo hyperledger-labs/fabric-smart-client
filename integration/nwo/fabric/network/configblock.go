@@ -11,17 +11,18 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	protosorderer "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 )
 
 // GetConfigBlock retrieves the current config block for a channel.
@@ -93,7 +94,7 @@ func UpdateConfig(n *Network, orderer *topology.Orderer, channel string, current
 	gomega.Expect(signedEnvelope).NotTo(gomega.BeNil())
 
 	updateFile := filepath.Join(tempDir, "update.pb")
-	err = os.WriteFile(updateFile, protoutil.MarshalOrPanic(signedEnvelope), 0600)
+	err = os.WriteFile(updateFile, protoutil.MarshalOrPanic(signedEnvelope), 0o600)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	for _, signer := range additionalSigners {
@@ -181,7 +182,7 @@ func CurrentConfigBlockNumberFromPeer(n *Network, peer *topology.Peer, channel, 
 }
 
 // FetchConfigBlock fetches latest config block.
-func FetchConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel string, output string) {
+func FetchConfigBlock(n *Network, peer *topology.Peer, orderer *topology.Orderer, channel, output string) {
 	fetch := func() int {
 		sess, err := n.OrdererAdminSession(orderer, peer, commands.ChannelFetch{
 			NetworkPrefix: n.Prefix,
@@ -274,7 +275,7 @@ func ComputeUpdateOrdererConfig(updateFile string, n *Network, channel string, c
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(signedEnvelope).NotTo(gomega.BeNil())
 
-	err = os.WriteFile(updateFile, protoutil.MarshalOrPanic(signedEnvelope), 0600)
+	err = os.WriteFile(updateFile, protoutil.MarshalOrPanic(signedEnvelope), 0o600)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	for _, signer := range additionalSigners {

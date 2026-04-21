@@ -10,14 +10,15 @@ import (
 	"context"
 	"testing"
 
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/pagination"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
-	"github.com/stretchr/testify/require"
 )
 
 type vc int
@@ -163,7 +164,7 @@ var matrix = []matrixItem{
 	},
 }
 
-func NewOffsetPagination(offset int, pageSize int) driver.Pagination {
+func NewOffsetPagination(offset, pageSize int) driver.Pagination {
 	offsetPagination, err := pagination.Offset(offset, pageSize)
 	if err != nil {
 		Expect(err).ToNot(HaveOccurred())
@@ -171,7 +172,7 @@ func NewOffsetPagination(offset int, pageSize int) driver.Pagination {
 	return offsetPagination
 }
 
-func NewKeysetPagination(offset int, pageSize int, sqlIdName common.FieldName, idFieldName pagination.PropertyName[string]) driver.Pagination {
+func NewKeysetPagination(offset, pageSize int, sqlIdName common.FieldName, idFieldName pagination.PropertyName[string]) driver.Pagination {
 	keysetPagination, err := pagination.KeysetWithField[string](offset, pageSize, sqlIdName, idFieldName)
 	if err != nil {
 		Expect(err).ToNot(HaveOccurred())
@@ -261,7 +262,7 @@ func testPagination(store driver.VaultStore) {
 	}
 }
 
-func TestPaginationStoreMem(t *testing.T) {
+func TestPaginationStoreMem(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, err := OpenMemoryVault("testdb")
 	require.NoError(t, err)
@@ -273,7 +274,7 @@ func TestPaginationStoreMem(t *testing.T) {
 	testPagination(db)
 }
 
-func TestPaginationStoreSqlite(t *testing.T) {
+func TestPaginationStoreSqlite(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, err := OpenSqliteVault("testdb", t.TempDir())
 	require.NoError(t, err)
@@ -285,7 +286,7 @@ func TestPaginationStoreSqlite(t *testing.T) {
 	testPagination(db)
 }
 
-func TestPaginationStoreSPostgres(t *testing.T) {
+func TestPaginationStoreSPostgres(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, terminate, err := OpenPostgresVault("testdb")
 	require.NoError(t, err)
@@ -295,7 +296,7 @@ func TestPaginationStoreSPostgres(t *testing.T) {
 	testPagination(db)
 }
 
-func TestVaultStoreMem(t *testing.T) {
+func TestVaultStoreMem(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, err := OpenMemoryVault("testdb")
 	require.NoError(t, err)
@@ -308,7 +309,7 @@ func TestVaultStoreMem(t *testing.T) {
 	testOneMore(t, db)
 }
 
-func TestVaultStoreSqlite(t *testing.T) {
+func TestVaultStoreSqlite(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, err := OpenSqliteVault("testdb", t.TempDir())
 	require.NoError(t, err)
@@ -321,7 +322,7 @@ func TestVaultStoreSqlite(t *testing.T) {
 	testOneMore(t, db)
 }
 
-func TestVaultStorePostgres(t *testing.T) {
+func TestVaultStorePostgres(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 	db, terminate, err := OpenPostgresVault("testdb")
 	require.NoError(t, err)

@@ -9,10 +9,11 @@ package committer
 import (
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type Metrics struct {

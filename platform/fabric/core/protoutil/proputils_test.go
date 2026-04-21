@@ -11,11 +11,13 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 )
 
 func TestComputeProposalTxID(t *testing.T) {
+	t.Parallel()
 	txid := protoutil.ComputeTxID([]byte{1}, []byte{1})
 
 	// Compute the function computed by ComputeTxID,

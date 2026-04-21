@@ -77,7 +77,7 @@ func (h *Height) String() string {
 }
 
 // AreSame returns true if both the heights are either nil or equal
-func AreSame(h1 *Height, h2 *Height) bool {
+func AreSame(h1, h2 *Height) bool {
 	if h1 == nil {
 		return h2 == nil
 	}

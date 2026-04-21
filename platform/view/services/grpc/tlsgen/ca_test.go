@@ -14,13 +14,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 func createTLSService(t *testing.T, ca CA, host string) *grpc.Server {
+	t.Helper()
 	keyPair, err := ca.NewServerCertKeyPair(host)
 	require.NoError(t, err)
 	cert, err := tls.X509KeyPair(keyPair.Cert, keyPair.Key)
@@ -35,6 +37,7 @@ func createTLSService(t *testing.T, ca CA, host string) *grpc.Server {
 }
 
 func TestTLSCA(t *testing.T) {
+	t.Parallel()
 	// This test checks that the CA can create certificates
 	// and corresponding keys that are signed by itself
 

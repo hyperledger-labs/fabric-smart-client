@@ -11,14 +11,16 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 type entry struct{ key, value string }
 
 func TestNoErrors(t *testing.T) {
+	t.Parallel()
 	cache := newTestCache()
 
 	// Get non existing
@@ -54,6 +56,7 @@ func TestNoErrors(t *testing.T) {
 }
 
 func TestDeleteNonExisting(t *testing.T) {
+	t.Parallel()
 	cache := newTestCache()
 
 	val, ok := cache.Delete(entry{"key", "v1"})
@@ -62,6 +65,7 @@ func TestDeleteNonExisting(t *testing.T) {
 }
 
 func TestUpdateNonExisting(t *testing.T) {
+	t.Parallel()
 	cache := newTestCache()
 
 	oldVal, newVal, err := cache.Update(entry{"key", "v1"})
@@ -71,6 +75,7 @@ func TestUpdateNonExisting(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
+	t.Parallel()
 	cache := newTestCache()
 
 	val, err := cache.Get(entry{"error", "e1"})
@@ -83,6 +88,7 @@ func TestError(t *testing.T) {
 }
 
 func TestParallel(t *testing.T) {
+	t.Parallel()
 	const iterations = 100
 	cache := newTestCache()
 	vals := make(chan string, iterations)

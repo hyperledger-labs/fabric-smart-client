@@ -13,9 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 func TestBatchRunner(t *testing.T) {
@@ -74,6 +75,7 @@ func newBatchRunner() (BatchRunner[int], map[string]string, *uint32) {
 }
 
 func run(t *testing.T, ctr *atomic.Uint32, runner BatchRunner[int], times int) {
+	t.Helper()
 	var wg sync.WaitGroup
 	wg.Add(times)
 	for i := 0; i < times; i++ {

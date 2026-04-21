@@ -14,6 +14,10 @@ import (
 	"runtime"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+	realgrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
@@ -24,9 +28,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/cmd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
-	"golang.org/x/sync/errgroup"
-	realgrpc "google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 // grpcBufferSize is used to increase the grpc read and write buffer sizes from default 32k to 128k

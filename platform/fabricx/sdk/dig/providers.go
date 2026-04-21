@@ -7,6 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package sdk
 
 import (
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/dig"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic"
@@ -26,9 +30,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
-	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/dig"
 )
 
 type P2PCommunicationType = string

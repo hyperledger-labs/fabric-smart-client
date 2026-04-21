@@ -17,12 +17,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 func TestWriteBytesToPackage(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 
 	buf := bytes.NewBuffer(nil)
@@ -45,7 +47,9 @@ func TestWriteBytesToPackage(t *testing.T) {
 	r := bytes.NewReader(buf.Bytes())
 	gr, err := gzip.NewReader(r)
 	require.NoError(t, err, "Error creating a gzip reader")
-	defer require.NoError(t, gr.Close())
+	t.Cleanup(func() {
+		require.NoError(t, gr.Close())
+	})
 
 	tr := tar.NewReader(gr)
 	header, err := tr.Next()
@@ -67,6 +71,7 @@ func TestWriteBytesToPackage(t *testing.T) {
 	require.Equal(t, filecontent, string(b), "file content from archive does not equal original content")
 
 	t.Run("non existent file", func(t *testing.T) {
+		t.Parallel()
 		tw := tar.NewWriter(&bytes.Buffer{})
 		err := WriteBytesToPackage([]byte(filecontent), "missing-file", "", tw)
 		require.Error(t, err, "expected error writing a non existent file")
@@ -74,6 +79,7 @@ func TestWriteBytesToPackage(t *testing.T) {
 	})
 
 	t.Run("closed tar writer", func(t *testing.T) {
+		t.Parallel()
 		tw := tar.NewWriter(&bytes.Buffer{})
 		require.NoError(t, tw.Close())
 		err := WriteBytesToPackage([]byte(filecontent), filePath, "test.txt", tw)
@@ -81,6 +87,7 @@ func TestWriteBytesToPackage(t *testing.T) {
 	})
 
 	t.Run("stream write failure", func(t *testing.T) {
+		t.Parallel()
 		failWriter := &failingWriter{failAt: 514}
 		tw := tar.NewWriter(failWriter)
 		err := WriteBytesToPackage([]byte(filecontent), filePath, "test.txt", tw)
@@ -89,6 +96,7 @@ func TestWriteBytesToPackage(t *testing.T) {
 }
 
 func TestWriteFileToPackage(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 
 	buf := bytes.NewBuffer(nil)
@@ -111,7 +119,9 @@ func TestWriteFileToPackage(t *testing.T) {
 	r := bytes.NewReader(buf.Bytes())
 	gr, err := gzip.NewReader(r)
 	require.NoError(t, err, "Error creating a gzip reader")
-	defer require.NoError(t, gr.Close())
+	t.Cleanup(func() {
+		require.NoError(t, gr.Close())
+	})
 
 	tr := tar.NewReader(gr)
 	header, err := tr.Next()
@@ -133,6 +143,7 @@ func TestWriteFileToPackage(t *testing.T) {
 	require.Equal(t, filecontent, string(b), "file content from archive does not equal original content")
 
 	t.Run("non existent file", func(t *testing.T) {
+		t.Parallel()
 		tw := tar.NewWriter(&bytes.Buffer{})
 		err := WriteFileToPackage("missing-file", "", tw)
 		require.Error(t, err, "expected error writing a non existent file")
@@ -140,6 +151,7 @@ func TestWriteFileToPackage(t *testing.T) {
 	})
 
 	t.Run("closed tar writer", func(t *testing.T) {
+		t.Parallel()
 		tw := tar.NewWriter(&bytes.Buffer{})
 		require.NoError(t, tw.Close())
 		err := WriteFileToPackage(filePath, "test.txt", tw)
@@ -147,6 +159,7 @@ func TestWriteFileToPackage(t *testing.T) {
 	})
 
 	t.Run("stream write failure", func(t *testing.T) {
+		t.Parallel()
 		failWriter := &failingWriter{failAt: 514}
 		tw := tar.NewWriter(failWriter)
 		err := WriteFileToPackage(filePath, "test.txt", tw)

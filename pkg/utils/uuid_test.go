@@ -86,26 +86,31 @@ func BenchmarkUUID(b *testing.B) {
 }
 
 func report(b *testing.B) {
+	b.Helper()
 	b.ReportAllocs()
 }
 
 func TestGenerateUUID_Format(t *testing.T) {
+	t.Parallel()
 	id := GenerateUUID()
 	_, err := uuid.Parse(id)
 	require.NoError(t, err)
 }
 
 func TestGenerateBytesUUID_Length(t *testing.T) {
+	t.Parallel()
 	b := GenerateBytesUUID()
 	require.Len(t, b, 16)
 }
 
 func TestGenerateUUID_Unique(t *testing.T) {
+	t.Parallel()
 	a, b := GenerateUUID(), GenerateUUID()
 	require.NotEqual(t, a, b)
 }
 
 func TestGenerateBytesUUID_Unique(t *testing.T) {
+	t.Parallel()
 	a, b := GenerateBytesUUID(), GenerateBytesUUID()
 	require.NotEqual(t, a, b)
 }

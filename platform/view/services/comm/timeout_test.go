@@ -11,16 +11,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 )
 
-func TestEnqueueTimeoutBehavior(t *testing.T) {
+func TestEnqueueTimeoutBehavior(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Test that enqueueWithTimeout respects the timeout value and logs appropriately
@@ -68,7 +69,7 @@ func TestEnqueueTimeoutBehavior(t *testing.T) {
 	_ = sess
 }
 
-func TestDefaultEnqueueTimeout(t *testing.T) {
+func TestDefaultEnqueueTimeout(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Test that the default timeout (1 minute) is used when not set
@@ -118,7 +119,7 @@ func TestDefaultEnqueueTimeout(t *testing.T) {
 	_ = sess
 }
 
-func TestDrainTimeoutOnClose(t *testing.T) {
+func TestDrainTimeoutOnClose(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Test that drain timeout works when closing session with blocked consumer
@@ -162,7 +163,7 @@ func TestDrainTimeoutOnClose(t *testing.T) {
 	_ = sess
 }
 
-func TestServiceStartRetryDelay(t *testing.T) {
+func TestServiceStartRetryDelay(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Test that service startup retries with appropriate delay

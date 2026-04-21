@@ -23,14 +23,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
-	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
+	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc/mock"
 )
 
 func TestClientProvider_NotificationServiceClient(t *testing.T) {
@@ -403,6 +404,9 @@ func startTestServer(t *testing.T, opts ...grpc.ServerOption) string {
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = lis.Close()
+	})
 
 	srv := grpc.NewServer(opts...)
 	hs := health.NewServer()

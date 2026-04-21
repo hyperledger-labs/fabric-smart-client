@@ -11,9 +11,10 @@ import (
 	"path"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	"github.com/stretchr/testify/assert"
 )
 
 func newBindingStoreForTests(tb testing.TB) *BindingStore {
@@ -31,11 +32,13 @@ func newBindingStoreForTests(tb testing.TB) *BindingStore {
 }
 
 func TestPutBindingsMultipleEphemeralsSqlite(t *testing.T) {
+	t.Parallel()
 	db := newBindingStoreForTests(t)
 	common.TestPutBindingsMultipleEphemeralsCommon(t, db.BindingStore)
 }
 
 func TestManyManyPutBindingsSqlite(t *testing.T) {
+	t.Parallel()
 	db := newBindingStoreForTests(t)
 	common.TestManyManyPutBindingsCommon(t, db.BindingStore)
 }

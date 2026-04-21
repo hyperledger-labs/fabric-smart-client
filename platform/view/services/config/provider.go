@@ -15,16 +15,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 	koanfyaml "github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/env/v2"
 	koanffile "github.com/knadh/koanf/providers/file"
 	koanfbytes "github.com/knadh/koanf/providers/rawbytes"
 	"github.com/knadh/koanf/v2"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/simple"
 )
 
 const (
@@ -319,7 +320,7 @@ func (p *Provider) initConfigPaths(confPath string) ([]string, error) {
 		paths = append(paths, confPath)
 	}
 
-	var altPath = os.Getenv("FSCNODE_CFG_PATH")
+	altPath := os.Getenv("FSCNODE_CFG_PATH")
 	if altPath != "" {
 		// If the user has overridden the path with an envvar, its the only path
 		// we will consider
@@ -383,8 +384,7 @@ func (e *eventListener) OnReceive(event events.Event) {
 	e.handler.OnMergeConfig()
 }
 
-type MergeConfigEvent struct {
-}
+type MergeConfigEvent struct{}
 
 // Topic returns the merge configuration event topic.
 func (m *MergeConfigEvent) Topic() string {

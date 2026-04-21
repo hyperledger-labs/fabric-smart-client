@@ -25,6 +25,7 @@ import (
 )
 
 func TestBasicEncodingDecoding(t *testing.T) {
+	t.Parallel()
 	for i := 0; i < 10000; i++ {
 		value := encodeOrderPreservingVarUint64(uint64(i))
 		nextValue := encodeOrderPreservingVarUint64(uint64(i + 1))
@@ -36,6 +37,7 @@ func TestBasicEncodingDecoding(t *testing.T) {
 }
 
 func TestDecodingAppendedValues(t *testing.T) {
+	t.Parallel()
 	appendedValues := []byte{}
 	for i := 0; i < 1000; i++ {
 		appendedValues = append(appendedValues, encodeOrderPreservingVarUint64(uint64(i))...)
@@ -53,6 +55,7 @@ func TestDecodingAppendedValues(t *testing.T) {
 }
 
 func TestDecodingBadInputBytes(t *testing.T) {
+	t.Parallel()
 	// error case when num consumed bytes > 1
 	sizeBytes := protowire.AppendVarint(nil, uint64(1000))
 	_, _, err := decodeOrderPreservingVarUint64(sizeBytes)

@@ -16,14 +16,15 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
+
+	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
 )
 
 // TestWebSocketStreamDeliveryTimeout tests the stream delivery timeout in the deliver function
-func TestWebSocketStreamDeliveryTimeout(t *testing.T) {
+func TestWebSocketStreamDeliveryTimeout(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Create a mock connection that simulates a hung read operation
@@ -60,7 +61,7 @@ func TestWebSocketStreamDeliveryTimeout(t *testing.T) {
 }
 
 // TestWebSocketContextCancellationWithTimeouts tests that context cancellation works alongside timeouts
-func TestWebSocketContextCancellationWithTimeouts(t *testing.T) {
+func TestWebSocketContextCancellationWithTimeouts(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Create a mock connection
@@ -101,7 +102,7 @@ func TestWebSocketContextCancellationWithTimeouts(t *testing.T) {
 // TestWebSocketPeerCloseRace fixes a race condition where if a peer sends a message and then
 // immediately closes the connection, the receiver might get a context cancellation error
 // instead of receiving the message.
-func TestWebSocketPeerCloseRace(t *testing.T) {
+func TestWebSocketPeerCloseRace(t *testing.T) { //nolint:paralleltest
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	// Create a mock connection

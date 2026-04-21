@@ -12,12 +12,14 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	"github.com/stretchr/testify/require"
 )
 
 func TestLRUSimple(t *testing.T) {
+	t.Parallel()
 	allEvicted := make(map[int]string)
 
 	c := cache.NewLRUCache(3, 2, func(evicted map[int]string) { collections.CopyMap(allEvicted, evicted) })
@@ -41,6 +43,7 @@ func TestLRUSimple(t *testing.T) {
 }
 
 func TestLRUSameKey(t *testing.T) {
+	t.Parallel()
 	allEvicted := make(map[int]string)
 
 	c := cache.NewLRUCache(3, 2, func(evicted map[int]string) { collections.CopyMap(allEvicted, evicted) })
@@ -88,6 +91,7 @@ func TestLRUSameKey(t *testing.T) {
 }
 
 func TestLRUParallel(t *testing.T) {
+	t.Parallel()
 	evictedCount := atomic.Int32{}
 	c := cache.NewLRUCache(3, 2, func(evicted map[int]string) { evictedCount.Add(int32(len(evicted))) })
 

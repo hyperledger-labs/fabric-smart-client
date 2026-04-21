@@ -10,6 +10,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
@@ -17,8 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
-	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 )
 
 type Service struct {

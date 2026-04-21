@@ -44,7 +44,7 @@ func (t *Transaction) FunctionAndParameters() (string, []string) {
 	return t.Transaction.Function(), params
 }
 
-func (t *Transaction) SetProposal(chaincode string, version string, function string, params ...string) {
+func (t *Transaction) SetProposal(chaincode, version, function string, params ...string) {
 	t.Transaction.SetProposal(chaincode, version, function, params...)
 }
 

@@ -10,6 +10,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	config2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp"
@@ -18,10 +20,9 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
-	"github.com/stretchr/testify/require"
 )
 
-func TestRegisterIdemixLocalMSP(t *testing.T) {
+func TestRegisterIdemixLocalMSP(t *testing.T) { //nolint:paralleltest
 	cp := &mock.ConfigProvider{}
 	cp.IsSetReturns(false)
 
@@ -46,7 +47,7 @@ func TestRegisterIdemixLocalMSP(t *testing.T) {
 	require.Nil(t, info)
 }
 
-func TestIdemixTypeFolder(t *testing.T) {
+func TestIdemixTypeFolder(t *testing.T) { //nolint:paralleltest
 	cp, err := config.NewProvider("./testdata/idemixtypefolder")
 	require.NoError(t, err)
 	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
@@ -64,7 +65,7 @@ func TestIdemixTypeFolder(t *testing.T) {
 	}
 }
 
-func TestRegisterX509LocalMSP(t *testing.T) {
+func TestRegisterX509LocalMSP(t *testing.T) { //nolint:paralleltest
 	cp := &mock.ConfigProvider{}
 	cp.IsSetReturns(false)
 
@@ -88,7 +89,7 @@ func TestRegisterX509LocalMSP(t *testing.T) {
 	require.NotNil(t, info)
 }
 
-func TestX509TypeFolder(t *testing.T) {
+func TestX509TypeFolder(t *testing.T) { //nolint:paralleltest
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	require.NoError(t, err)
 
@@ -110,6 +111,7 @@ func TestX509TypeFolder(t *testing.T) {
 }
 
 func TestRefresh(t *testing.T) {
+	t.Parallel()
 	cp, err := config.NewProvider("./testdata/x509typefolder")
 	require.NoError(t, err)
 

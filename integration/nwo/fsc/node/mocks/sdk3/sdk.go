@@ -8,8 +8,7 @@ package sdk3
 
 import "context"
 
-type DummySDK struct {
-}
+type DummySDK struct{}
 
 func (d *DummySDK) Install() error {
 	panic("implement me")

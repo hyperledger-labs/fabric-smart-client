@@ -21,10 +21,11 @@ import (
 	"sort"
 	"strings"
 
+	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/ccmetadata"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager/replacer"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 )
 
 // var logger = logging.MustGetLogger()
