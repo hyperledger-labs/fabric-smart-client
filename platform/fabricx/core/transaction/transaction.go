@@ -13,6 +13,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -701,6 +702,11 @@ func toMSPSignerIdentityWithCertificateId(identity view.Identity) (*msppb.Identi
 	certPEM := sID.GetIdBytes()
 	block, _ := pem.Decode(certPEM)
 	if block == nil {
+		// Idemix identities do not carry X.509 cert PEM bytes.
+		// In that case, preserve the original identity bytes instead of failing.
+		if strings.Contains(strings.ToLower(sID.GetMspid()), "idemix") {
+			return toMSPSignerIdentityWithCertificate(identity)
+		}
 		return nil, errors.New("failed to decode certificate PEM")
 	}
 	certHash := sha256.Sum256(block.Bytes)

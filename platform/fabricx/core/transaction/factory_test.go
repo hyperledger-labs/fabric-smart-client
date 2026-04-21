@@ -165,6 +165,22 @@ func TestFactoryNewTransactionCachedIdentitiesConfig(t *testing.T) {
 		fns.NameReturns("test-network")
 		fns.ChannelReturns((*mocks.FakeChannel)(nil), nil)
 		fns.ConfigServiceReturns(&stubConfigService{
+			values: map[string]interface{}{"fabric-x.endorser.useCachedIdentities": false},
+		})
+		factory := NewFactory(fns)
+
+		rawTx, err := factory.NewTransaction(ctx, "ch1", []byte("nonce"), creator, "tx1", nil)
+		require.NoError(t, err)
+		tx := rawTx.(*Transaction)
+		require.False(t, tx.useCachedIdentities)
+	})
+
+	t.Run("supports legacy key for backward compatibility", func(t *testing.T) {
+		t.Parallel()
+		fns := &mocks.FakeFabricNetworkService{}
+		fns.NameReturns("test-network")
+		fns.ChannelReturns((*mocks.FakeChannel)(nil), nil)
+		fns.ConfigServiceReturns(&stubConfigService{
 			values: map[string]interface{}{"endorser.useCachedIdentities": false},
 		})
 		factory := NewFactory(fns)

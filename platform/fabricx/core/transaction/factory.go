@@ -40,11 +40,18 @@ func (e *Factory) NewTransaction(ctx context.Context, channelName string, nonce,
 	}
 
 	// Default to using cached identities (cert ID hash) for fabric-x.
-	// This can be overridden via core.yaml: endorser.useCachedIdentities: false
+	// This can be overridden via core.yaml:
+	// fabric-x.endorser.useCachedIdentities: false
 	useCachedIdentities := true
-	configKey := "endorser.useCachedIdentities"
-	if cs := e.fns.ConfigService(); cs != nil && cs.IsSet(configKey) {
-		useCachedIdentities = cs.GetBool(configKey)
+	configKey := "fabric-x.endorser.useCachedIdentities"
+	legacyConfigKey := "endorser.useCachedIdentities"
+	if cs := e.fns.ConfigService(); cs != nil {
+		if cs.IsSet(configKey) {
+			useCachedIdentities = cs.GetBool(configKey)
+		} else if cs.IsSet(legacyConfigKey) {
+			// Backward compatibility for existing deployments.
+			useCachedIdentities = cs.GetBool(legacyConfigKey)
+		}
 	}
 
 	return &Transaction{

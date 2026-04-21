@@ -7,12 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"encoding/pem"
 	"errors"
 	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/stretchr/testify/require"
@@ -180,6 +183,84 @@ func TestCreateSCEnvelopeSuccess(t *testing.T) {
 	require.Equal(t, 1, fakeFNS.SignerServiceCallCount())
 	require.Equal(t, 1, fakeSignerService.GetSignerCallCount())
 	require.Equal(t, 1, fakeSigner.SignCallCount())
+}
+
+func TestCreateSCEnvelopeSignatureHeaderCreatorCachedIdentityModes(t *testing.T) {
+	t.Parallel()
+
+	derBytes := []byte("fake-der-cert-bytes")
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	signerIdentityRaw, err := proto.Marshal(&msp.SerializedIdentity{Mspid: "Org1MSP", IdBytes: certPEM})
+	require.NoError(t, err)
+
+	rawTx := mustRawTx(t, sampleTx("ns1", "key1", "value1"))
+	resp := &peer.ProposalResponse{
+		Payload: rawTx,
+		Endorsement: &peer.Endorsement{
+			Signature: mustSerializedEndorsements(t, []*applicationpb.Endorsements{
+				sampleNamespaceEndorsements("Org1MSP", "sig-org1"),
+			}),
+		},
+	}
+
+	tests := []struct {
+		name                string
+		useCachedIdentities bool
+	}{
+		{name: "cached identities enabled", useCachedIdentities: true},
+		{name: "cached identities disabled", useCachedIdentities: false},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fakeFNS := &mocks.FakeFabricNetworkService{}
+			fakeSignerService := &mocks.FakeSignerService{}
+			fakeSigner := &mocks.FakeSigner{}
+
+			fakeFNS.SignerServiceReturns(fakeSignerService)
+			fakeSignerService.GetSignerReturns(fakeSigner, nil)
+			fakeSigner.SignReturns([]byte("envelope-signature"), nil)
+
+			tx := &Transaction{
+				TTxID:               "tx1",
+				TNonce:              []byte("nonce"),
+				TCreator:            view.Identity(signerIdentityRaw),
+				TChannel:            "testchannel",
+				TProposalResponses:  []*peer.ProposalResponse{resp},
+				fns:                 fakeFNS,
+				useCachedIdentities: tc.useCachedIdentities,
+			}
+
+			env, err := tx.createSCEnvelope()
+			require.NoError(t, err)
+			require.NotNil(t, env)
+
+			payload := &cb.Payload{}
+			require.NoError(t, proto.Unmarshal(env.Payload, payload))
+			require.NotNil(t, payload.Header)
+
+			signatureHeader := &cb.SignatureHeader{}
+			require.NoError(t, proto.Unmarshal(payload.Header.SignatureHeader, signatureHeader))
+			require.Equal(t, tx.Nonce(), signatureHeader.Nonce)
+
+			expectedCreator := []byte(signerIdentityRaw)
+			if tc.useCachedIdentities {
+				cachedIdentity, err := toMSPSignerIdentityWithCertificateId(view.Identity(signerIdentityRaw))
+				require.NoError(t, err)
+
+				expectedCreator, err = proto.Marshal(cachedIdentity)
+				require.NoError(t, err)
+			}
+			require.Equal(t, expectedCreator, signatureHeader.Creator)
+
+			channelHeader := &cb.ChannelHeader{}
+			require.NoError(t, proto.Unmarshal(payload.Header.ChannelHeader, channelHeader))
+			require.Equal(t, tx.ID(), channelHeader.TxId)
+		})
+	}
 }
 
 func mustRawTx(t *testing.T, tx *applicationpb.Tx) []byte {

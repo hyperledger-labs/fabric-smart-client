@@ -914,11 +914,11 @@ func TestToMSPSignerIdentityWithCertificateId(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name             string
-		identity         view.Identity
-		expectedMSP      string
-		expectedCertID   string
-		expectedError    string
+		name           string
+		identity       view.Identity
+		expectedMSP    string
+		expectedCertID string
+		expectedError  string
 	}{
 		{
 			name:        "success",
@@ -943,6 +943,14 @@ func TestToMSPSignerIdentityWithCertificateId(t *testing.T) {
 			}(),
 			expectedError: "failed to decode certificate PEM",
 		},
+		{
+			name: "idemix identity falls back to certificate bytes",
+			identity: func() view.Identity {
+				raw, _ := proto.Marshal(&msp.SerializedIdentity{Mspid: "Org1IdemixMSP", IdBytes: []byte("idemix-serialized-identity")})
+				return view.Identity(raw)
+			}(),
+			expectedMSP: "Org1IdemixMSP",
+		},
 	}
 
 	for _, tc := range tests {
@@ -957,9 +965,14 @@ func TestToMSPSignerIdentityWithCertificateId(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedMSP, id.GetMspId())
-			require.Equal(t, tc.expectedCertID, id.GetCertificateId())
-			// Ensure Certificate is NOT set (it's the other oneof variant)
-			require.Nil(t, id.GetCertificate())
+			if tc.expectedCertID != "" {
+				require.Equal(t, tc.expectedCertID, id.GetCertificateId())
+				// Ensure Certificate is NOT set (it's the other oneof variant)
+				require.Nil(t, id.GetCertificate())
+			} else {
+				require.Empty(t, id.GetCertificateId())
+				require.NotEmpty(t, id.GetCertificate())
+			}
 		})
 	}
 }
@@ -1067,4 +1080,3 @@ func TestGetProposalResponseWithCachedIdentities(t *testing.T) {
 		}
 	})
 }
-
