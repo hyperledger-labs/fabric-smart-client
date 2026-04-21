@@ -130,7 +130,6 @@ func invokeEmptyCall(address string, dialOptions ...grpc.DialOption) (*testpb.Em
 	return empty, nil
 }
 
-// invoke the EmptyStream RPC
 func invokeEmptyStream(address string, dialOptions ...grpc.DialOption) (*testpb.Empty, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
@@ -232,7 +231,8 @@ func (org *testOrg) testServers(clientRootCAs [][]byte) []testServer {
 	for _, serverCert := range org.serverCerts {
 		testServer := testServer{
 			grpc3.ServerConfig{
-				ConnectionTimeout: 250 * time.Millisecond,
+				ConnectionTimeout:  250 * time.Millisecond,
+				HealthCheckEnabled: true,
 				SecOpts: grpc3.SecureOptions{
 					UseTLS:            true,
 					Certificate:       serverCert.certPEM,
@@ -389,14 +389,20 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	// missing address
 	_, err := grpc3.NewGRPCServer(
 		"",
-		grpc3.ServerConfig{SecOpts: grpc3.SecureOptions{UseTLS: false}},
+		grpc3.ServerConfig{
+			HealthCheckEnabled: true,
+			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+		},
 	)
 	require.EqualError(t, err, "missing address parameter")
 
 	// missing port
 	_, err = grpc3.NewGRPCServer(
 		"abcdef",
-		grpc3.ServerConfig{SecOpts: grpc3.SecureOptions{UseTLS: false}},
+		grpc3.ServerConfig{
+			HealthCheckEnabled: true,
+			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+		},
 	)
 	require.Error(t, err, "Expected error with missing port")
 	require.Contains(t, err.Error(), "missing port in address")
@@ -404,7 +410,10 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	// bad port
 	_, err = grpc3.NewGRPCServer(
 		"127.0.0.1:1BBB",
-		grpc3.ServerConfig{SecOpts: grpc3.SecureOptions{UseTLS: false}},
+		grpc3.ServerConfig{
+			HealthCheckEnabled: true,
+			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+		},
 	)
 	// check for possible errors based on platform and Go release
 	msgs := []string{
@@ -426,7 +435,10 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	// bad hostname
 	_, err = grpc3.NewGRPCServer(
 		"hostdoesnotexist.localdomain:9050",
-		grpc3.ServerConfig{SecOpts: grpc3.SecureOptions{UseTLS: false}},
+		grpc3.ServerConfig{
+			HealthCheckEnabled: true,
+			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+		},
 	)
 	// We cannot check for a specific error message due to the fact that some
 	// systems will automatically resolve unknown host names to a "search"
@@ -437,13 +449,19 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	lis := createListener(t)
 	_, err = grpc3.NewGRPCServerFromListener(
 		lis,
-		grpc3.ServerConfig{SecOpts: grpc3.SecureOptions{UseTLS: false}},
+		grpc3.ServerConfig{
+			HealthCheckEnabled: true,
+			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+		},
 	)
 	require.NoError(t, err, "failed to create grpc server")
 
 	_, err = grpc3.NewGRPCServer(
 		lis.Addr().String(),
-		grpc3.ServerConfig{SecOpts: grpc3.SecureOptions{UseTLS: false}},
+		grpc3.ServerConfig{
+			HealthCheckEnabled: true,
+			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+		},
 	)
 	require.Error(t, err)
 	msgs = []string{
@@ -463,7 +481,8 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	_, err = grpc3.NewGRPCServerFromListener(
 		lis,
 		grpc3.ServerConfig{
-			SecOpts: grpc3.SecureOptions{UseTLS: true, Key: []byte{}},
+			HealthCheckEnabled: true,
+			SecOpts:            grpc3.SecureOptions{UseTLS: true, Key: []byte{}},
 		},
 	)
 	require.EqualError(t, err, "serverConfig.SecOpts must contain both Key and Certificate when UseTLS is true")
@@ -472,6 +491,7 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	_, err = grpc3.NewGRPCServerFromListener(
 		lis,
 		grpc3.ServerConfig{
+			HealthCheckEnabled: true,
 			SecOpts: grpc3.SecureOptions{
 				UseTLS:      true,
 				Certificate: []byte{},
@@ -484,6 +504,7 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	_, err = grpc3.NewGRPCServerFromListener(
 		lis,
 		grpc3.ServerConfig{
+			HealthCheckEnabled: true,
 			SecOpts: grpc3.SecureOptions{
 				UseTLS:      true,
 				Certificate: []byte(selfSignedCertPEM),
@@ -497,6 +518,7 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	_, err = grpc3.NewGRPCServerFromListener(
 		lis,
 		grpc3.ServerConfig{
+			HealthCheckEnabled: true,
 			SecOpts: grpc3.SecureOptions{
 				UseTLS:      true,
 				Certificate: []byte{},
@@ -509,6 +531,7 @@ func TestNewGRPCServerInvalidParameters(t *testing.T) {
 	srv, err := grpc3.NewGRPCServerFromListener(
 		lis,
 		grpc3.ServerConfig{
+			HealthCheckEnabled: true,
 			SecOpts: grpc3.SecureOptions{
 				UseTLS:            true,
 				Certificate:       []byte(selfSignedCertPEM),
@@ -529,7 +552,10 @@ func TestNewGRPCServer(t *testing.T) {
 
 	srv, err := grpc3.NewGRPCServer(
 		"127.0.0.1:0",
-		grpc3.ServerConfig{SecOpts: grpc3.SecureOptions{UseTLS: false}},
+		grpc3.ServerConfig{
+			HealthCheckEnabled: true,
+			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+		},
 	)
 	require.NoError(t, err, "failed to create new GRPC server")
 	testAddress := srv.Address()
@@ -551,8 +577,7 @@ func TestNewGRPCServer(t *testing.T) {
 	go utils.IgnoreErrorFunc(srv.Start)
 	defer srv.Stop()
 
-	// should not be needed
-	time.Sleep(10 * time.Millisecond)
+	waitServerReady(t, testAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	// invoke the EmptyCall service
 	_, err = invokeEmptyCall(testAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -568,7 +593,10 @@ func TestNewGRPCServerFromListener(t *testing.T) {
 
 	srv, err := grpc3.NewGRPCServerFromListener(
 		lis,
-		grpc3.ServerConfig{SecOpts: grpc3.SecureOptions{UseTLS: false}},
+		grpc3.ServerConfig{
+			HealthCheckEnabled: true,
+			SecOpts:            grpc3.SecureOptions{UseTLS: false},
+		},
 	)
 	require.NoError(t, err, "failed to create new GRPC server")
 
@@ -584,8 +612,7 @@ func TestNewGRPCServerFromListener(t *testing.T) {
 	go utils.IgnoreErrorFunc(srv.Start)
 	defer srv.Stop()
 
-	// should not be needed
-	time.Sleep(10 * time.Millisecond)
+	waitServerReady(t, testAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	// invoke the EmptyCall service
 	_, err = invokeEmptyCall(testAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -600,7 +627,8 @@ func TestNewSecureGRPCServer(t *testing.T) {
 	testAddress := lis.Addr().String()
 
 	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
-		ConnectionTimeout: 250 * time.Millisecond,
+		ConnectionTimeout:  250 * time.Millisecond,
+		HealthCheckEnabled: true,
 		SecOpts: grpc3.SecureOptions{
 			UseTLS:      true,
 			Certificate: []byte(selfSignedCertPEM),
@@ -627,15 +655,14 @@ func TestNewSecureGRPCServer(t *testing.T) {
 	go utils.IgnoreErrorFunc(srv.Start)
 	t.Cleanup(srv.Stop)
 
-	// should not be needed
-	time.Sleep(10 * time.Millisecond)
-
 	// create the client credentials
 	certPool := x509.NewCertPool()
 	if !certPool.AppendCertsFromPEM([]byte(selfSignedCertPEM)) {
 		t.Fatal("Failed to append certificate to client credentials")
 	}
 	creds := credentials.NewClientTLSFromCert(certPool, "")
+
+	waitServerReady(t, testAddress, grpc.WithTransportCredentials(creds))
 
 	// invoke the EmptyCall service
 	_, err = invokeEmptyCall(testAddress, grpc.WithTransportCredentials(creds))
@@ -704,6 +731,7 @@ func TestVerifyCertificateCallback(t *testing.T) {
 	}
 
 	gRPCServer, err := grpc3.NewGRPCServer("127.0.0.1:", grpc3.ServerConfig{
+		HealthCheckEnabled: true,
 		SecOpts: grpc3.SecureOptions{
 			ClientRootCAs:     [][]byte{ca.CertBytes()},
 			Key:               serverKeyPair.Key,
@@ -749,6 +777,7 @@ func TestWithSignedRootCertificates(t *testing.T) {
 	testAddress := lis.Addr().String()
 
 	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
+		HealthCheckEnabled: true,
 		SecOpts: grpc3.SecureOptions{
 			UseTLS:      true,
 			Certificate: certPEMBlock,
@@ -763,13 +792,12 @@ func TestWithSignedRootCertificates(t *testing.T) {
 	go utils.IgnoreErrorFunc(srv.Start)
 	t.Cleanup(srv.Stop)
 
-	// should not be needed
-	time.Sleep(10 * time.Millisecond)
-
-	// create a CertPool for use by the client with the server cert only
+	// create a CertPool
 	certPoolServer, err := createCertPool([][]byte{certPEMBlock})
 	require.NoError(t, err, "failed to load root certificates into pool")
 	creds := credentials.NewClientTLSFromCert(certPoolServer, "")
+
+	waitServerReady(t, testAddress, grpc.WithTransportCredentials(creds))
 
 	// invoke the EmptyCall service
 	_, err = invokeEmptyCall(testAddress, grpc.WithTransportCredentials(creds))
@@ -809,6 +837,7 @@ func TestWithSignedIntermediateCertificates(t *testing.T) {
 	testAddress := lis.Addr().String()
 
 	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{
+		HealthCheckEnabled: true,
 		SecOpts: grpc3.SecureOptions{
 			UseTLS:      true,
 			Certificate: certPEMBlock,
@@ -827,16 +856,12 @@ func TestWithSignedIntermediateCertificates(t *testing.T) {
 	go utils.IgnoreErrorFunc(srv.Start)
 	t.Cleanup(srv.Stop)
 
-	// should not be needed
-	time.Sleep(10 * time.Millisecond)
-
-	// create a CertPool for use by the client with the server cert only
+	// create a CertPool
 	certPoolServer, err := createCertPool([][]byte{certPEMBlock})
-	if err != nil {
-		t.Fatalf("Failed to load root certificates into pool: %v", err)
-	}
-	// create the client credentials
+	require.NoError(t, err, "failed to load root certificates into pool")
 	creds := credentials.NewClientTLSFromCert(certPoolServer, "")
+
+	waitServerReady(t, testAddress, grpc.WithTransportCredentials(creds))
 
 	// invoke the EmptyCall service
 	_, err = invokeEmptyCall(testAddress, grpc.WithTransportCredentials(creds))
@@ -881,8 +906,8 @@ func runMutualAuth(t *testing.T, servers []testServer, trustedClients, unTrusted
 		go utils.IgnoreErrorFunc(srv.Start)
 		t.Cleanup(srv.Stop)
 
-		// should not be needed but just in case
-		time.Sleep(10 * time.Millisecond)
+		// should be ready
+		waitServerReady(t, srvAddr, grpc.WithTransportCredentials(credentials.NewTLS(trustedClients[0])))
 
 		// loop through all the trusted clients
 		for j := 0; j < len(trustedClients); j++ {
@@ -988,11 +1013,11 @@ func TestSetClientRootCAs(t *testing.T) {
 	go utils.IgnoreErrorFunc(srv.Start)
 	t.Cleanup(srv.Stop)
 
-	// should not be needed but just in case
-	time.Sleep(10 * time.Millisecond)
-
-	// set up our test clients
 	// Org1
+	clientConfigOrg1 := testOrgs[0].trustedClients([][]byte{})[0]
+
+	// should be ready
+	waitServerReady(t, address, grpc.WithTransportCredentials(credentials.NewTLS(clientConfigOrg1)))
 	clientConfigOrg1Child1 := testOrgs[0].childOrgs[0].trustedClients([][]byte{testOrgs[0].rootCA})[0]
 	clientConfigOrg1Child2 := testOrgs[0].childOrgs[1].trustedClients([][]byte{testOrgs[0].rootCA})[0]
 	clientConfigsOrg1Children := []*tls.Config{clientConfigOrg1Child1, clientConfigOrg1Child2}
@@ -1062,6 +1087,7 @@ func TestUpdateTLSCert(t *testing.T) {
 	key, cert, caCert := loadBytes("notlocalhost")
 
 	cfg := grpc3.ServerConfig{
+		HealthCheckEnabled: true,
 		SecOpts: grpc3.SecureOptions{
 			UseTLS:      true,
 			Key:         key,
@@ -1158,6 +1184,7 @@ func TestCipherSuites(t *testing.T) {
 	require.NoError(t, err)
 
 	serverConfig := grpc3.ServerConfig{
+		HealthCheckEnabled: true,
 		SecOpts: grpc3.SecureOptions{
 			Certificate: certPEM,
 			Key:         keyPEM,
@@ -1237,7 +1264,7 @@ func TestServerInterceptors(t *testing.T) {
 		return status.Error(codes.Aborted, msg)
 	}
 
-	srvConfig := grpc3.ServerConfig{}
+	srvConfig := grpc3.ServerConfig{HealthCheckEnabled: true}
 	srvConfig.UnaryInterceptors = append(srvConfig.UnaryInterceptors, usi1)
 	srvConfig.UnaryInterceptors = append(srvConfig.UnaryInterceptors, usi2)
 	srvConfig.StreamInterceptors = append(srvConfig.StreamInterceptors, ssi1)

@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -491,11 +492,13 @@ func TestSetMessageSize(t *testing.T) {
 	// setup test server
 	lis := createListener(t)
 	address := lis.Addr().String()
-	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{})
+	srv, err := grpc3.NewGRPCServerFromListener(lis, grpc3.ServerConfig{HealthCheckEnabled: true})
 	require.NoError(t, err, "failed to create test server")
 	testpb.RegisterEchoServiceServer(srv.Server(), &echoServer{})
 	go utils.IgnoreErrorFunc(srv.Start)
 	t.Cleanup(srv.Stop)
+
+	waitServerReady(t, address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	tests := []struct {
 		name        string
@@ -659,7 +662,8 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 	require.NoError(t, err)
 
 	server, err := grpc3.NewGRPCServer("127.0.0.1:0", grpc3.ServerConfig{
-		Logger: logging.MustGetLogger(),
+		HealthCheckEnabled: true,
+		Logger:             logging.MustGetLogger(),
 		SecOpts: grpc3.SecureOptions{
 			UseTLS:      true,
 			Key:         serverKP.Key,
