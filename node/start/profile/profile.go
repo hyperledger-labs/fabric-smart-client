@@ -161,7 +161,11 @@ func (p *Profile) startMemProfile(memProfileType string) error {
 	runtime.MemProfileRate = p.memProfileRate
 	p.appendCloser(func() {
 		logger.Infof("Stopping memory profile")
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				logger.Errorf("failed to close memory profile file: %s", err)
+			}
+		}()
 		mp := pprof.Lookup(memProfileType)
 		if mp == nil {
 			logger.Errorf("failed to find memory profile: %s", memProfileType)
