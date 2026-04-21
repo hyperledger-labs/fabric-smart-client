@@ -22,6 +22,10 @@ The exact filename depends on the application, but the standard FSC node command
 
 This guide does not cover `fsccli`, which is a separate developer-oriented utility with a different command tree.
 
+Some FSC application binaries initialize the node before Cobra help is evaluated.
+As a result, even `--help` may require a readable `core.yaml`.
+If that happens, run the command from the configuration directory or set `FSCNODE_CFG_PATH` first.
+
 ## What Happens on Startup
 
 When an FSC-based application runs `node start`, the standard node package performs the following steps:
@@ -45,6 +49,10 @@ Before starting an FSC node, make sure you have:
 
 If the configuration uses relative paths, FSC resolves them relative to the directory that contains `core.yaml`.
 This makes it practical to keep certificates, keys, and local databases next to the configuration file.
+
+Many hand-written FSC configurations use relative paths.
+By contrast, generated NWO configurations commonly use absolute paths for certificates, keys, and SQLite files.
+If you move a generated node directory to another location, review those paths carefully or regenerate the artifacts.
 
 ## Starting the Node
 
@@ -220,6 +228,24 @@ This endpoint allows operators to inspect or update the active logging specifica
 When web TLS is enabled, `/logspec` is registered as a secure handler.
 In practice, this means operators should configure client certificate verification if they plan to use it.
 
+`GET /logspec` returns JSON in the form:
+
+```json
+{"spec":"grpc=error:info"}
+```
+
+`PUT /logspec` expects a JSON body, not a multipart form body.
+For example:
+
+```bash
+curl --cacert /path/to/tls/ca.crt \
+  --cert /path/to/tls/client.crt \
+  --key /path/to/tls/client.key \
+  -H 'Content-Type: application/json' \
+  -d '{"spec":"grpc=error:warn"}' \
+  https://<host>:<port>/logspec
+```
+
 ### `/metrics`
 
 Metrics are exposed only when `fsc.metrics.provider = prometheus`.
@@ -231,6 +257,14 @@ The handler security is controlled by `fsc.metrics.prometheus.tls`:
 - If `true`, the handler is registered as a secure handler and therefore requires a verified client certificate.
 
 If the web server itself uses TLS, the metrics endpoint is still served over HTTPS even when `fsc.metrics.prometheus.tls` is `false`.
+
+For example:
+
+```bash
+curl --cacert /path/to/tls/ca.crt https://<host>:<port>/metrics
+```
+
+If `fsc.metrics.prometheus.tls` is `true`, the scraper or operator must also present a trusted client certificate.
 
 ## Choosing a P2P Transport
 
@@ -244,8 +278,14 @@ Use `libp2p` when:
 - the deployment is natively peer-to-peer
 - custom P2P ports are acceptable
 - peer discovery and decentralized networking behavior are expected
+- the operator can control bootstrap-node startup order
 
 This is the default transport in the configuration reference.
+
+Operational note:
+
+- if `fsc.p2p.opts.libp2p.bootstrapNode` is set, start the bootstrap node first
+- a non-bootstrap `libp2p` node can fail during startup if it cannot reach its configured bootstrap node
 
 ### WebSocket
 
@@ -441,6 +481,18 @@ If startup fails with a configuration lookup error:
 - make sure `FSCNODE_CFG_PATH` points to a directory, not to the file itself
 - confirm that the process can read the directory
 
+If `FSCNODE_CFG_PATH` is set, FSC uses it as the configuration location instead of falling back to the current working directory.
+
+### `--help` panics instead of showing usage
+
+Some FSC application binaries call `fscnode.New()` during process startup.
+If the binary cannot find `core.yaml`, even `--help` can fail before Cobra prints usage information.
+
+If that happens:
+
+- run the binary from the configuration directory
+- or set `FSCNODE_CFG_PATH` before invoking the binary
+
 ### Listener fails to bind
 
 If the node cannot bind a port:
@@ -448,6 +500,15 @@ If the node cannot bind a port:
 - check whether another process is already using the address
 - verify that the configured address format matches the service type
 - confirm that the service is actually enabled before expecting it to listen
+
+### `libp2p` node fails with bootstrap connection errors
+
+If startup fails with an error similar to `failed to connect host to bootstrap node`:
+
+- check whether the configured bootstrap node is already running
+- verify that the bootstrap node address is reachable from this node
+- confirm that the resolver entry for the bootstrap node points to the correct P2P address
+- if independent startup order is important, consider using `websocket` transport instead
 
 ### TLS files cannot be loaded
 
