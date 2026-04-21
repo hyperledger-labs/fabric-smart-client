@@ -121,10 +121,12 @@ type MockSigningIdentity struct {
 	*MockIdentity
 }
 
-func (*MockSigningIdentity) Sign(msg []byte) ([]byte, error) {
-	panic("implement me")
+func (m *MockSigningIdentity) Sign(msg []byte) ([]byte, error) {
+	args := m.Called(msg)
+	return args.Get(0).([]byte), args.Error(1)
 }
 
-func (*MockSigningIdentity) GetPublicVersion() msp.Identity {
-	panic("implement me")
+func (m *MockSigningIdentity) GetPublicVersion() msp.Identity {
+	args := m.Called()
+	return args.Get(0).(msp.Identity)
 }

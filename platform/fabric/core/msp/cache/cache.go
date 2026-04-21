@@ -69,24 +69,57 @@ func (id *cachedIdentity) Validate() error {
 	return id.cache.Validate(id.Identity)
 }
 
+type cachedSigningIdentity struct {
+	cachedIdentity
+	msp.SigningIdentity
+}
+
+func (id *cachedSigningIdentity) SatisfiesPrincipal(principal *pmsp.MSPPrincipal) error {
+	return id.cachedIdentity.SatisfiesPrincipal(principal)
+}
+
+func (id *cachedSigningIdentity) Validate() error {
+	return id.cachedIdentity.Validate()
+}
+
+func (id *cachedSigningIdentity) Sign(msg []byte) ([]byte, error) {
+	return id.SigningIdentity.Sign(msg)
+}
+
+func (id *cachedSigningIdentity) GetPublicVersion() msp.Identity {
+	return id.cache.wrap(id.SigningIdentity.GetPublicVersion())
+}
+
 func (c *cachedMSP) DeserializeIdentity(serializedIdentity []byte) (msp.Identity, error) {
 	id, ok := c.deserializeIdentityCache.Get(string(serializedIdentity))
 	if ok {
-		return &cachedIdentity{
-			cache:    c,
-			Identity: id.(msp.Identity),
-		}, nil
+		return c.wrap(id.(msp.Identity)), nil
 	}
 
 	id, err := c.MSP.DeserializeIdentity(serializedIdentity)
 	if err == nil {
 		c.deserializeIdentityCache.Add(string(serializedIdentity), id)
-		return &cachedIdentity{
-			cache:    c,
-			Identity: id.(msp.Identity),
-		}, nil
+		return c.wrap(id.(msp.Identity)), nil
 	}
 	return nil, err
+}
+
+// wrap returns a cached identity wrapper that preserves the SigningIdentity
+// interface if the underlying identity supports signing operations.
+func (c *cachedMSP) wrap(id msp.Identity) msp.Identity {
+	if sid, ok := id.(msp.SigningIdentity); ok {
+		return &cachedSigningIdentity{
+			cachedIdentity: cachedIdentity{
+				Identity: id,
+				cache:    c,
+			},
+			SigningIdentity: sid,
+		}
+	}
+	return &cachedIdentity{
+		Identity: id,
+		cache:    c,
+	}
 }
 
 func (c *cachedMSP) Setup(config *pmsp.MSPConfig) error {

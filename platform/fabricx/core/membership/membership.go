@@ -240,13 +240,24 @@ func (s *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 				continue
 			}
 
+			ep, err := parseEndpoint(epStr)
+			if err != nil {
+				return "", nil, errors.Wrapf(err, "parse orderer endpoint [%s]", epStr)
+			}
+
+			// Skip deliver-typed endpoints; FSC clients only broadcast here.
+			// Deliver is sourced from the local sidecar / committer.
+			if ep.Type != OrdererBroadcastType {
+				continue
+			}
+
 			newOrderers = append(newOrderers, &grpc.ConnectionConfig{
-				Address:           epStr,
+				Address:           ep.Endpoint,
 				ConnectionTimeout: connectionTimeout,
 				TLSEnabled:        tlsEnabled,
 				TLSClientSideAuth: tlsClientSideAuth,
 				TLSRootCertBytes:  tlsRootCerts,
-				Usage:             "broadcast",
+				Usage:             ep.Type,
 			})
 		}
 	}
