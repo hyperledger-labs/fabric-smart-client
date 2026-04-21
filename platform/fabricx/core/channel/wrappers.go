@@ -54,6 +54,8 @@ type DeliveryConstructor func(
 
 type MembershipConstructor func(channelName string) fdriver.MembershipService
 
+const armaConsensusType = "arma"
+
 // finalityServiceAdapter adapts finality.ListenerManager to implement driver.Finality
 type finalityServiceAdapter struct {
 	manager finality.ListenerManager
@@ -186,6 +188,11 @@ func (a *orderingServiceAdapter) Configure(consensusType string, orderers []*grp
 	orderingService, ok := a.os.(*ordering.Service)
 	if !ok {
 		return errors.New("ordering service is not an *ordering.ChannelConfigMonitor")
+	}
+	// Translate "arma" to BFT for backward compatibility with fabric-x-orderer,
+	// which uses "arma" as the consensus type in genesis blocks.
+	if consensusType == armaConsensusType {
+		consensusType = ordering.BFT
 	}
 	return orderingService.Configure(consensusType, orderers)
 }
