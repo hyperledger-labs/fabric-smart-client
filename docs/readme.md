@@ -203,4 +203,6 @@ Indeed, the Approvers are Business Parties that play the role of `Fabric Endorse
 Every Fabric Smart Client node requires a `core.yaml` to provide configuration details. 
 It will contain multiple sections depending on the sdks being used. 
 There will be a main section which configures the core part of an Fabric Smart Client node and then specific sdk sections.
-An example with details on the various keys for a Fabric Smart Client node using the Fabric sdk is provided in [Example Configuration](./configuration.md)
+An example with details on the various keys for a Fabric Smart Client node using the Fabric sdk is provided in [Example Configuration](./configuration.md).
+
+For practical startup and operational usage patterns, see the [Node Operations Guide](./guides/node-operations.md).
