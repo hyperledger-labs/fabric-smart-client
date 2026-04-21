@@ -252,15 +252,7 @@ func TestCreateSCEnvelopeSignatureHeaderCreatorCachedIdentityModes(t *testing.T)
 			require.NoError(t, proto.Unmarshal(payload.Header.SignatureHeader, signatureHeader))
 			require.Equal(t, tx.Nonce(), signatureHeader.Nonce)
 
-			expectedCreator := []byte(signerIdentityRaw)
-			if tc.useCachedIdentities {
-				cachedIdentity, err := toMSPSignerIdentityWithCertificateId(view.Identity(signerIdentityRaw))
-				require.NoError(t, err)
-
-				expectedCreator, err = proto.Marshal(cachedIdentity)
-				require.NoError(t, err)
-			}
-			require.Equal(t, expectedCreator, signatureHeader.Creator)
+			require.Equal(t, []byte(signerIdentityRaw), signatureHeader.Creator)
 
 			channelHeader := &cb.ChannelHeader{}
 			require.NoError(t, proto.Unmarshal(payload.Header.ChannelHeader, channelHeader))

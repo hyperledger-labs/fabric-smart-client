@@ -52,19 +52,11 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
 	}
 
-	// Use cached identity (cert ID hash) for the client signature's Creator
-	// field when configured, matching the endorser identity format.
+	// Keep the original serialized identity in the envelope signature header.
+	// The transaction ID is precomputed from nonce+creator and used across the
+	// flow (proposal, endorsements, finality). Replacing creator bytes here can
+	// lead to tx validation mismatches at commit time.
 	creator := signerID
-	if t.useCachedIdentities {
-		mspID, err := toMSPSignerIdentityWithCertificateId(signerID)
-		if err != nil {
-			return nil, errors.Wrap(err, "converting client identity to cached format")
-		}
-		creator, err = proto.Marshal(mspID)
-		if err != nil {
-			return nil, errors.Wrap(err, "marshaling cached client identity")
-		}
-	}
 
 	signatureHeader := &cb.SignatureHeader{Creator: creator, Nonce: t.Nonce()}
 	channelHeader := protoutil.MakeChannelHeader(cb.HeaderType_MESSAGE, 0, t.Channel(), 0)
