@@ -113,19 +113,20 @@ include $(TOP)/checks.mk
 GO_PACKAGES = $$(go list ./... | grep -Ev '/(integration/)'; go list ./integration/nwo/...)
 GO_PACKAGES_SDK = $$(go list ./... | grep '/sdk/dig$$')
 GO_TEST_PARAMS ?= -race -cover
+TEST_PKGS ?= $(GO_PACKAGES)
 
 .PHONY: unit-tests
 unit-tests: ## Run unit tests
 	@echo "Running unit tests..."
 	export FABRIC_LOGGING_SPEC=error; \
 	export FAB_BINS=$(FAB_BINS); \
-	go test $(GO_TEST_PARAMS) --skip '(Postgres)' $(GO_PACKAGES)
+	go test $(GO_TEST_PARAMS) --skip '(Postgres)' $(TEST_PKGS)
 
 .PHONY: unit-tests-postgres
 unit-tests-postgres: ## Run unit tests for postgres (requires container images as defined in testing-docker-images)
 	@echo "Running unit tests..."
 	export FABRIC_LOGGING_SPEC=error; \
-	go test $(GO_TEST_PARAMS) --run '(Postgres)' $(GO_PACKAGES)
+	go test $(GO_TEST_PARAMS) --run '(Postgres)' $(TEST_PKGS)
 
 .PHONY: unit-tests-sdk
 unit-tests-sdk: ## Run sdk wiring tests
@@ -201,3 +202,11 @@ fmt: ## Run gofmt on the entire project
 .PHONY: clean-fabric-peer-images
 clean-fabric-peer-images:
 	docker images -a | grep "_peer_" | awk '{print $3}' | xargs docker rmi
+
+.PHONY: coverage-local
+coverage-local: ## Run unit tests and show filtered coverage
+	@echo "Running unit tests with coverage..."
+	@env FABRIC_LOGGING_SPEC=error FAB_BINS=$(FAB_BINS) go test $(GO_TEST_PARAMS) -coverprofile=coverage.tmp $(TEST_PKGS)
+	@./scripts/filter-coverage.sh coverage.tmp coverage.out
+	@go tool cover -func=coverage.out | tail -n 1
+	@rm coverage.tmp
