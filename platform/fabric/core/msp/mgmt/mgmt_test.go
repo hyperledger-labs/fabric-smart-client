@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
@@ -139,6 +140,59 @@ func TestLocalMSP(t *testing.T) { //nolint:paralleltest
 
 	_, err = GetLocalMSP(cryptoProvider).GetDefaultSigningIdentity()
 	require.NoError(t, err, "failed to get default signing identity")
+}
+
+func TestGetDeserializers(t *testing.T) { //nolint:paralleltest
+	// Verify that GetDeserializers returns a cloned map of registered managers.
+	const testID = "test-deserializer-id"
+	XXXSetMSPManager(testID, msp.NewMSPManager())
+
+	deserializers := GetDeserializers()
+	require.NotNil(t, deserializers)
+	require.Contains(t, deserializers, testID, "expected test ID to be in deserializers map")
+
+	// Verify it's a clone — modifying the returned map should not affect the original
+	deserializers["bar"] = nil
+	deserializers2 := GetDeserializers()
+	require.NotContains(t, deserializers2, "bar", "GetDeserializers should return a clone")
+}
+
+func TestLoadLocalMSP_IdemixType(t *testing.T) { //nolint:paralleltest
+	// Save and restore global state
+	savedMsp := localMsp
+	defer func() { localMsp = savedMsp }()
+	localMsp = nil
+
+	// Set idemix type via viper
+	const k = "peer.localMspType"
+	orig := viper.GetString(k)
+	defer viper.Set(k, orig)
+	viper.Set(k, msp.ProviderTypeToString(msp.IDEMIX))
+
+	cryptoProvider := factory.GetDefault()
+
+	// GetLocalMSP should initialize an idemix MSP without wrapping in cache
+	result := GetLocalMSP(cryptoProvider)
+	require.NotNil(t, result, "idemix MSP should be initialized")
+	require.Equal(t, msp.IDEMIX, result.GetType(), "result should be an idemix MSP")
+}
+
+func TestLoadLocalMSP_UnknownType(t *testing.T) { //nolint:paralleltest
+	// Save and restore global state
+	savedMsp := localMsp
+	defer func() { localMsp = savedMsp }()
+	localMsp = nil
+
+	// Set an unknown MSP type — loadLocalMSP should panic
+	const k = "peer.localMspType"
+	orig := viper.GetString(k)
+	defer viper.Set(k, orig)
+	viper.Set(k, "unknown-type")
+
+	require.Panics(t, func() {
+		cryptoProvider := factory.GetDefault()
+		GetLocalMSP(cryptoProvider)
+	}, "expected panic for unknown MSP type")
 }
 
 func TestMain(m *testing.M) {
