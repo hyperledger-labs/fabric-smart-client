@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"net"
 	"testing"
 	"time"
@@ -115,4 +116,93 @@ func TestTLSCASigner(t *testing.T) {
 	tlsCA, err := NewCA()
 	require.NoError(t, err)
 	require.Equal(t, tlsCA.(*ca).caCert.Signer, tlsCA.Signer())
+}
+
+func TestIntermediateCA(t *testing.T) {
+	t.Parallel()
+
+	// Create root CA
+	rootCA, err := NewCA()
+	require.NoError(t, err)
+	require.NotNil(t, rootCA)
+
+	// Create intermediate CA
+	intermediateCA, err := rootCA.NewIntermediateCA()
+	require.NoError(t, err)
+	require.NotNil(t, intermediateCA)
+
+	// Intermediate CA cert should differ from root CA cert
+	require.NotEqual(t, rootCA.CertBytes(), intermediateCA.CertBytes())
+
+	// Verify intermediate CA cert is signed by the root CA and is a CA
+	rootPool := x509.NewCertPool()
+	rootPool.AppendCertsFromPEM(rootCA.CertBytes())
+
+	block, _ := pem.Decode(intermediateCA.CertBytes())
+	require.NotNil(t, block)
+	intermediateCert, err := x509.ParseCertificate(block.Bytes)
+	require.NoError(t, err)
+	require.True(t, intermediateCert.IsCA)
+
+	_, err = intermediateCert.Verify(x509.VerifyOptions{
+		Roots: rootPool,
+	})
+	require.NoError(t, err)
+
+	// Generate a client cert from the intermediate CA
+	clientKP, err := intermediateCA.NewClientCertKeyPair()
+	require.NoError(t, err)
+	require.NotNil(t, clientKP)
+
+	// Verify that the client cert is trusted by the root CA (with intermediate cert in between)
+	clientBlock, _ := pem.Decode(clientKP.Cert)
+	require.NotNil(t, clientBlock)
+	clientCert, err := x509.ParseCertificate(clientBlock.Bytes)
+	require.NoError(t, err)
+
+	intermediatePool := x509.NewCertPool()
+	intermediatePool.AppendCertsFromPEM(intermediateCA.CertBytes())
+
+	_, err = clientCert.Verify(x509.VerifyOptions{
+		Roots:         rootPool,
+		Intermediates: intermediatePool,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	})
+	require.NoError(t, err)
+}
+
+func TestNewServerCertKeyPair_MultipleHosts(t *testing.T) {
+	t.Parallel()
+
+	ca, err := NewCA()
+	require.NoError(t, err)
+
+	// Mix of IP addresses and DNS names
+	hosts := []string{"127.0.0.1", "localhost", "10.0.0.1", "example.com"}
+	kp, err := ca.NewServerCertKeyPair(hosts...)
+	require.NoError(t, err)
+	require.NotNil(t, kp)
+
+	// Parse the generated certificate and verify host entries
+	block, _ := pem.Decode(kp.Cert)
+	require.NotNil(t, block)
+	cert, err := x509.ParseCertificate(block.Bytes)
+	require.NoError(t, err)
+
+	// Verify IP addresses are correctly set
+	require.Len(t, cert.IPAddresses, 2, "expected 2 IP addresses")
+	var ips []string
+	for _, ip := range cert.IPAddresses {
+		ips = append(ips, ip.String())
+	}
+	require.Contains(t, ips, "127.0.0.1")
+	require.Contains(t, ips, "10.0.0.1")
+
+	// Verify DNS names are correctly set
+	require.Len(t, cert.DNSNames, 2, "expected 2 DNS names")
+	require.Contains(t, cert.DNSNames, "localhost")
+	require.Contains(t, cert.DNSNames, "example.com")
+
+	// Verify the cert is a server cert (has ServerAuth usage)
+	require.Contains(t, cert.ExtKeyUsage, x509.ExtKeyUsageServerAuth)
 }
