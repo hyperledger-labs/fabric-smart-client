@@ -17,8 +17,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/mgmt"
 )
 
+//nolint:paralleltest
 func TestFakeSetup(t *testing.T) {
-	t.Parallel()
 	err := LoadMSPSetupForTesting()
 	if err != nil {
 		t.Fatalf("LoadLocalMsp failed, err %s", err)
@@ -41,14 +41,14 @@ func TestFakeSetup(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest
 func TestLoadMSPSetupForTestingFromDir_InvalidPath(t *testing.T) {
-	t.Parallel()
 	err := LoadMSPSetupForTestingFromDir("/nonexistent/path/to/msp")
 	require.Error(t, err, "expected error for non-existent MSP directory")
 }
 
+//nolint:paralleltest
 func TestLoadMSPSetupForTestingFromDir_InvalidCerts(t *testing.T) {
-	t.Parallel()
 	// Create a fake MSP directory with valid PEM structure but invalid cert content.
 	// This should pass GetLocalMspConfig (which only reads PEM bytes) but fail on Setup
 	// (which actually parses the certificates).
