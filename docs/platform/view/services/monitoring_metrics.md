@@ -1,6 +1,6 @@
 # Metrics Catalog
 
-This document complements [Monitoring](./monitoring.md) and catalogs the metric families currently defined by the Fabric Smart Client (FSC) codebase. For each family, it records the exported name, type, labels, and operational meaning. It focuses on the metrics that FSC itself declares and emits. It excludes the standard Go runtime, process, and Prometheus HTTP handler metrics that exporters expose independently of FSC.
+This document catalogs the metric families currently defined by the Fabric Smart Client (FSC) codebase. For each family, it records the exported name, type, labels, and operational meaning. It focuses on the metrics that FSC itself declares and emits. It excludes the standard Go runtime, process, and Prometheus HTTP handler metrics that exporters expose independently of FSC.
 
 ## Overview
 
@@ -16,7 +16,7 @@ At the time of writing, the repository defines:
 
 This catalog is organized by subsystem and records the metric family names that Prometheus sees.
 
-Not every family appears in every deployment. The activation conditions in the current codebase are:
+The activation conditions in the current codebase are:
 
 - libp2p transport families appear only when the node uses the libp2p communication stack
 - WebSocket transport families appear only when the node uses the WebSocket communication stack
@@ -42,8 +42,6 @@ fsc:
 The exporter is exposed through the FSC web server on `/metrics`. When the metrics provider is disabled, FSC still instantiates the metric objects, but they are backed by a no-op provider and no data is exported.
 
 ### Metric Families vs. Time Series
-
-This document catalogs **metric families**, not every Prometheus time series:
 
 - A counter or gauge family exports one time series for each distinct label combination
 - A histogram family exports `*_bucket`, `*_sum`, and `*_count` series for each label combination
@@ -76,7 +74,7 @@ For trace-derived metrics, the namespace and subsystem are also fixed by `tracin
 
 ### Node Export vs. Library Metrics
 
-The node-facing families in this catalog are exported by an FSC node when `fsc.metrics.provider = prometheus`. These include:
+The node-facing families are exported by an FSC node when `fsc.metrics.provider = prometheus`. These include:
 
 - all 29 explicit metric families
 - all trace-derived families except `fsc_view_services_view_grpc_client_client_*` and `fsc_view_services_view_grpc_client_node_view_client_*`
@@ -350,12 +348,11 @@ The following labels are part of the current FSC metric surface.
 
 ## Current Caveats
 
-The catalog above reflects the current code. The following families have implementation caveats:
+The following families have implementation caveats:
 
-- `fsc_view_services_view_calls_*`: the current implementation sets the `success` attribute to `err != nil` in the local view runtime. In other words, `success="true"` currently means the view failed.
 - `fsc_view_services_view_grpc_server_view_service_*`: the tracer is declared, but no span start was found in the current code path, so these families are expected to remain idle.
 - `fsc_view_services_view_grpc_server_view_handler_*`: the tracer is active for `initiate_view`, but the `success` label is declared without a matching attribute update. The exported `initiate_view` series therefore uses `success=""`.
-- `fsc_view_services_tracing_listens_*`: this tracer is logically part of the Fabric committer, but because it is created without `tracing.WithMetricsOpts(...)`, the exported metric families are currently namespaced under `platform/view/services/tracing` rather than `platform/fabric/core/generic/committer`. No active span start was found in the current code path.
+- `fsc_view_services_tracing_listens_*`: this tracer is logically part of the Fabric committer, but because it is created without `tracing.WithMetricsOpts(...)`, the exported metric families are currently namespaced under `platform/view/services/tracing` rather than `platform/fabric/core/generic/committer`. 
 - `fsc_view_services_comm_host_websocket_ws_closed_subconns`: the counter family is declared, but no increment site was found in the current production code.
 - `fsc_view_services_grpc_conn_opened` and `fsc_view_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring currently uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.
 - `fsc_view_services_view_grpc_client_client_*`: these are caller-process metrics. The standard integration harness creates its external gRPC client with `tracing.NewProviderFromConfig(...)`, not with the metrics-wrapping tracing provider, so these families are not expected on the FSC node's `/metrics`.
@@ -440,23 +437,3 @@ The Fabric transaction scenarios require more than the FSC-only scenarios:
 - the required Fabric images, notably `hyperledger/fabric-baseos:latest` and `hyperledger/fabric-ccenv:latest`, must exist in that container runtime
 
 Without those prerequisites, the FSC-only scenarios are still sufficient to validate the node-exported view and transport families, but the Fabric transaction families cannot be exercised end to end.
-
-### Recommended Validation Strategy
-
-To validate the full catalog, use a small scenario matrix rather than a single test:
-
-1. **Node export checks**
-   - scrape `/metrics` from the FSC node
-   - assert that the metric family is present
-   - assert that the value is non-zero or the gauge changes after the relevant action
-
-2. **Prometheus scrape checks**
-   - enable the monitoring topology
-   - query Prometheus for the same family
-   - assert that the family is visible and increases as expected
-
-3. **Scenario coverage**
-   - use a Fabric transaction flow such as IOU for view, ordering, committer, and vault metrics
-   - use a libp2p transport topology for libp2p traffic metrics
-   - use a WebSocket transport topology for WebSocket multiplexer metrics
-   - use a gRPC invocation path for the view gRPC request counters
