@@ -46,7 +46,7 @@ type Provider interface {
 	NewHistogram(HistogramOpts) Histogram
 }
 ```
-FSC provides two built-in provider implementations (custom ones can also be added), that can be configured in the `core.yaml`:
+FSC provides three provider implementations (custom ones can also be added), that can be configured in the `core.yaml`:
 * `disabled.Provider`: No metrics are registered, when `fsc.metrics.provider = disabled`
 * `prometheus.Provider`: The default implementation, when `fsc.metrics.provider = prometheus`
 
