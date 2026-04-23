@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"cmp"
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -36,7 +38,7 @@ const (
 	defaultPass          = "example"
 	defaultHost          = "localhost"
 	defaultPort          = "0" // we let the container runtime select a port
-	defaultTimeout       = 5 * time.Second
+	defaultTimeout       = 30 * time.Second
 )
 
 type Logger interface {
@@ -264,6 +266,12 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 		return nil, "", err
 	}
 
+	// wait until we can actually connect to the database
+	if err := waitUntilPing(ctx, c.DataSource(), defaultTimeout); err != nil {
+		closeFunc()
+		return nil, "", err
+	}
+
 	return closeFunc, c.DataSource(), nil
 }
 
@@ -313,14 +321,34 @@ func waitUntilHealth(ctx context.Context, cli *client.Client, containerID string
 
 		switch inspect.State.Health.Status {
 		case container.Healthy:
-			// yeah - our postgres container is read
-			// wait a bit longer, the healthcheck can be overly optimistic
-			time.Sleep(2000 * time.Millisecond)
+			// yeah - our postgres container is ready
 			return nil
 		case container.Unhealthy:
 			// :(
 			return fmt.Errorf("container %s unhealthy", containerID)
 		default:
+		}
+
+		// sleep and try again
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func waitUntilPing(ctx context.Context, dataSource string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for database to respond to ping")
+		}
+
+		db, err := sql.Open("pgx", dataSource)
+		if err == nil {
+			err = db.PingContext(ctx)
+			_ = db.Close()
+		}
+
+		if err == nil {
+			return nil
 		}
 
 		// sleep and try again
