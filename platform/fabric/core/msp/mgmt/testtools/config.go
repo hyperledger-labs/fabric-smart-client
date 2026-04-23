@@ -23,6 +23,12 @@ func LoadMSPSetupForTesting() error {
 		return err
 	}
 
+	return LoadMSPSetupForTestingFromDir(dir)
+}
+
+// LoadMSPSetupForTestingFromDir sets up the local MSP
+// and a chain MSP for the default chain using the given directory
+func LoadMSPSetupForTestingFromDir(dir string) error {
 	conf, err := msp.GetLocalMspConfig(dir, nil, "SampleOrg")
 	if err != nil {
 		return err
