@@ -24,6 +24,7 @@ type MSP struct {
 
 type Deserializer = driver2.SigDeserializer
 
+//go:generate counterfeiter -o mock/config.go -fake-name Config . Config
 type Config interface {
 	NetworkName() string
 	DefaultMSP() string
@@ -31,6 +32,7 @@ type Config interface {
 	TranslatePath(path string) string
 }
 
+//go:generate counterfeiter -o mock/signer_service.go -fake-name SignerService . SignerService
 type SignerService interface {
 	RegisterSigner(ctx context.Context, identity view.Identity, signer driver.Signer, verifier driver.Verifier) error
 	IsMe(ctx context.Context, id view.Identity) bool
@@ -50,6 +52,7 @@ type DeserializerManager interface {
 	AddDeserializer(deserializer Deserializer)
 }
 
+//go:generate counterfeiter -o mock/manager.go -fake-name Manager . Manager
 type Manager interface {
 	AddDeserializer(deserializer Deserializer)
 	AddMSP(name, mspType, enrollmentID string, idGetter driver.GetIdentityFunc) error
