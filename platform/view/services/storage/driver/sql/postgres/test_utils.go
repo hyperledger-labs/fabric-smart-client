@@ -303,13 +303,10 @@ func startContainerLogger(ctx context.Context, cli *client.Client, containerID s
 }
 
 func waitUntilHealth(ctx context.Context, cli *client.Client, containerID string, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	for {
-		// check timeout first
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for container %s to become healthy", containerID)
-		}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
+	for {
 		inspect, err := cli.ContainerInspect(ctx, containerID)
 		if err != nil {
 			return fmt.Errorf("inspect failed: %w", err)
@@ -329,41 +326,42 @@ func waitUntilHealth(ctx context.Context, cli *client.Client, containerID string
 		default:
 		}
 
-		// sleep and try again
-		time.Sleep(500 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
 }
 
+// waitUntilPing waits until the database at the given data source is ready to respond to a ping.
 func waitUntilPing(ctx context.Context, dataSource string, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
+	db, err := sql.Open("pgx", dataSource)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	for {
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for database to respond to ping")
-		}
-
-		db, err := sql.Open("pgx", dataSource)
-		if err == nil {
-			err = db.PingContext(ctx)
-			_ = db.Close()
-		}
-
-		if err == nil {
+		if err := db.PingContext(ctx); err == nil {
 			return nil
 		}
-
-		// sleep and try again
-		time.Sleep(500 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
 }
 
 func waitUntilContainerRemoved(ctx context.Context, cli *client.Client, containerID string, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	for {
-		// check timeout first
-		if time.Now().After(deadline) {
-			return fmt.Errorf("container %s was not removed in time", containerID)
-		}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
+	for {
 		_, err := cli.ContainerInspect(ctx, containerID)
 		if err != nil {
 			// When the container is truly gone, Docker returns an error
@@ -373,8 +371,11 @@ func waitUntilContainerRemoved(ctx context.Context, cli *client.Client, containe
 			return err // any other error is unexpected
 		}
 
-		// sleep and try again
-		time.Sleep(500 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
 }
 
