@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"cmp"
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -36,7 +38,7 @@ const (
 	defaultPass          = "example"
 	defaultHost          = "localhost"
 	defaultPort          = "0" // we let the container runtime select a port
-	defaultTimeout       = 5 * time.Second
+	defaultTimeout       = 30 * time.Second
 )
 
 type Logger interface {
@@ -264,6 +266,12 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 		return nil, "", err
 	}
 
+	// wait until we can actually connect to the database
+	if err := waitUntilPing(ctx, c.DataSource(), defaultTimeout); err != nil {
+		closeFunc()
+		return nil, "", err
+	}
+
 	return closeFunc, c.DataSource(), nil
 }
 
@@ -295,13 +303,10 @@ func startContainerLogger(ctx context.Context, cli *client.Client, containerID s
 }
 
 func waitUntilHealth(ctx context.Context, cli *client.Client, containerID string, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	for {
-		// check timeout first
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timeout waiting for container %s to become healthy", containerID)
-		}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
+	for {
 		inspect, err := cli.ContainerInspect(ctx, containerID)
 		if err != nil {
 			return fmt.Errorf("inspect failed: %w", err)
@@ -313,9 +318,7 @@ func waitUntilHealth(ctx context.Context, cli *client.Client, containerID string
 
 		switch inspect.State.Health.Status {
 		case container.Healthy:
-			// yeah - our postgres container is read
-			// wait a bit longer, the healthcheck can be overly optimistic
-			time.Sleep(2000 * time.Millisecond)
+			// yeah - our postgres container is ready
 			return nil
 		case container.Unhealthy:
 			// :(
@@ -323,19 +326,42 @@ func waitUntilHealth(ctx context.Context, cli *client.Client, containerID string
 		default:
 		}
 
-		// sleep and try again
-		time.Sleep(500 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+}
+
+// waitUntilPing waits until the database at the given data source is ready to respond to a ping.
+func waitUntilPing(ctx context.Context, dataSource string, timeout time.Duration) error {
+	db, err := sql.Open("pgx", dataSource)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	for {
+		if err := db.PingContext(ctx); err == nil {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
 }
 
 func waitUntilContainerRemoved(ctx context.Context, cli *client.Client, containerID string, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	for {
-		// check timeout first
-		if time.Now().After(deadline) {
-			return fmt.Errorf("container %s was not removed in time", containerID)
-		}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
+	for {
 		_, err := cli.ContainerInspect(ctx, containerID)
 		if err != nil {
 			// When the container is truly gone, Docker returns an error
@@ -345,8 +371,11 @@ func waitUntilContainerRemoved(ctx context.Context, cli *client.Client, containe
 			return err // any other error is unexpected
 		}
 
-		// sleep and try again
-		time.Sleep(500 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
 }
 
