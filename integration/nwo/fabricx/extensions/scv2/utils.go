@@ -8,16 +8,17 @@ package scv2
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 )
 
-func peerDockerMSPDir(n *network.Network, p *topology.Peer) string {
+func scDockerMSPDir(n *network.Network, p *topology.Peer) string {
 	org := n.Organization(p.Organization)
 
-	return filepath.Join(
+	return path.Join(
 		"/",
 		"root",
 		"artifacts",
@@ -27,6 +28,22 @@ func peerDockerMSPDir(n *network.Network, p *topology.Peer) string {
 		"peers",
 		fmt.Sprintf("%s.%s", p.Name, org.Domain),
 		"msp",
+	)
+}
+
+func scDockerTLSDir(n *network.Network, p *topology.Peer) string {
+	org := n.Organization(p.Organization)
+
+	return path.Join(
+		"/",
+		"root",
+		"artifacts",
+		"crypto",
+		"peerOrganizations",
+		org.Domain,
+		"peers",
+		fmt.Sprintf("%s.%s", p.Name, org.Domain),
+		"tls",
 	)
 }
 
