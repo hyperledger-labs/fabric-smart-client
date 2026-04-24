@@ -11,7 +11,7 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
@@ -24,7 +24,7 @@ jobs:
       - checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
@@ -47,7 +47,7 @@ jobs:
       - checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
@@ -71,7 +71,7 @@ jobs:
       tests: ${{ steps.set-itest-tests.outputs.tests }}
       all-tests: ${{ steps.set-all-tests.outputs.all-tests }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: list itest targets
         id: set-itest-tests
         run: |
@@ -93,7 +93,7 @@ jobs:
         # run all test as listed via `make list-integration-tests`
         tests: ${{ fromJson(needs.itest-list.outputs.tests) }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
