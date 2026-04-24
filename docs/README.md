@@ -22,6 +22,5 @@ Each platform section includes a local `README.md` plus a `configuration.md` pag
 
 ## Guides and Tutorials
 
-- [Integration examples](../integration/README.md)
 - [FSC CLI reference](reference/fsc-cli.md)
 - [Benchmark examples](../integration/benchmark/README.md)
