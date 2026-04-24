@@ -8,9 +8,14 @@ package scv2
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net/netip"
+	"os"
+	"path"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -20,6 +25,7 @@ import (
 	dcli "github.com/moby/moby/client"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
@@ -34,10 +40,10 @@ var (
 	scalableCommitterImages = map[string]string{
 		v3.CommitterVersion: v3.ScalableCommitterImage,
 	}
-	envVars = map[string]func(peerMSPDir, scMSPID, channelName, ordererEndpoint string) []string{
+	envVars = map[string]func(scMSPDir, scTLSDir, scMSPID, channelName, ordererEndpoint string, tlsEnabled bool, ordererTLSCACert string) []string{
 		v3.CommitterVersion: v3.ContainerEnvVars,
 	}
-	containerCmds = map[string][]string{
+	containerCmds = map[string]func(tlsEnabled bool) []string{
 		// note that v1 and v2 don't use any specified cmds
 		v3.CommitterVersion: v3.ContainerCmd,
 	}
@@ -74,7 +80,8 @@ func (e *Extension) launchContainer() {
 	scMSPID := fmt.Sprintf("%sMSP", orgName)
 
 	rootCryptoDir := rootCrypto(e.network)
-	peerMSPDir := peerDockerMSPDir(e.network, scPeer)
+	scMSPDir := scDockerMSPDir(e.network, scPeer)
+	scTLSDir := scDockerTLSDir(e.network, scPeer)
 
 	// genesis block
 	configBlockPath := e.network.OutputBlockPath(e.channel.Name)
@@ -96,8 +103,8 @@ func (e *Extension) launchContainer() {
 		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
 	}
 
-	containerEnvOverride := envVars[committerVersion](peerMSPDir, scMSPID, e.channel.Name, ordererEndpoint)
-	containerCmd := containerCmds[committerVersion]
+	containerEnvOverride := envVars[committerVersion](scMSPDir, scTLSDir, scMSPID, e.channel.Name, ordererEndpoint, e.network.TLSEnabled, path.Join(scTLSDir, "ca.crt"))
+	containerCmd := containerCmds[committerVersion](e.network.TLSEnabled)
 	containerSidecarPort := sidecarDefaultPort[committerVersion]
 	containerQueryServicePort := queryServiceDefaultPort[committerVersion]
 
@@ -127,7 +134,7 @@ func (e *Extension) launchContainer() {
 			},
 			HostConfig: &container.HostConfig{
 				ExtraHosts: extraHosts,
-				Mounts: []mount.Mount{
+				Mounts: append([]mount.Mount{
 					{
 						// crypto
 						Type:   mount.TypeBind,
@@ -140,7 +147,20 @@ func (e *Extension) launchContainer() {
 						Target:   "/root/artifacts/config-block.pb.bin",
 						ReadOnly: true,
 					},
-				},
+				}, func() []mount.Mount {
+					if !e.network.TLSEnabled {
+						return nil
+					}
+					hostTLSDir := e.network.PeerLocalTLSDir(scPeer)
+					return []mount.Mount{
+						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "server.crt"), Target: "/server-certs/public-key.pem"},
+						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "server.key"), Target: "/server-certs/private-key.pem"},
+						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "ca.crt"), Target: "/server-certs/ca-certificate.pem"},
+						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "server.crt"), Target: "/client-certs/public-key.pem"},
+						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "server.key"), Target: "/client-certs/private-key.pem"},
+						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "ca.crt"), Target: "/client-certs/ca-certificate.pem"},
+					}
+				}()...),
 				PortBindings: network.PortMap{
 					// sidecar port binding
 					containerSidecarPort: []network.PortBinding{
@@ -213,8 +233,44 @@ func (e *Extension) launchContainer() {
 	defer cancel()
 
 	logger.Infof("Checking sidecar health-check at %v", sidecarEndpoint)
-	err = fabric.WaitUntilReady(ctx, sidecarEndpoint)
-	utils.Must(err)
+	var tlsConfig credentials.TransportCredentials
+	if e.network.TLSEnabled {
+		caCertPath := filepath.Join(e.network.PeerLocalTLSDir(scPeer), "ca.crt")
+		caCert, err := os.ReadFile(caCertPath)
+		utils.Must(err)
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+
+		cert, err := tls.LoadX509KeyPair(
+			filepath.Join(e.network.PeerLocalTLSDir(scPeer), "server.crt"),
+			filepath.Join(e.network.PeerLocalTLSDir(scPeer), "server.key"),
+		)
+		utils.Must(err)
+
+		tlsConfig = credentials.NewTLS(&tls.Config{
+			RootCAs:            caCertPool,
+			Certificates:       []tls.Certificate{cert},
+			InsecureSkipVerify: true,
+		})
+	}
+
+	err = fabric.WaitUntilReadyWithTLS(ctx, sidecarEndpoint, tlsConfig)
+	if err != nil {
+		// dump logs
+		logger.Errorf("healthcheck failed for container [%s]: %v", containerName, err)
+		reader, errLog := cli.ContainerLogs(context.Background(), resp.ID, dcli.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+		})
+		if errLog == nil {
+			payload, errRead := io.ReadAll(reader)
+			if errRead == nil {
+				logger.Errorf("Container [%s] logs:\n%s", containerName, string(payload))
+			}
+			_ = reader.Close()
+		}
+		utils.Must(err)
+	}
 
 	time.Sleep(1 * time.Second)
 }

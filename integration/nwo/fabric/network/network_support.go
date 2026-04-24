@@ -237,6 +237,10 @@ func (n *Network) OrgPeerCACertificatePath(org *topology.Organization) string {
 	return n.orgCACertificatePath(org, "peerOrganizations")
 }
 
+func (n *Network) OrgPeerTLSCACertificatePath(org *topology.Organization) string {
+	return n.orgTLSCACertificatePath(org, "peerOrganizations")
+}
+
 func (n *Network) OrgOrdererCACertificatePath(org *topology.Organization) string {
 	return n.orgCACertificatePath(org, "ordererOrganizations")
 }

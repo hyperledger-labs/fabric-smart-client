@@ -93,7 +93,7 @@ func (e *Extension) addSCPeer() {
 			Usage:        "",
 			SkipInit:     true,
 			SkipRunning:  true,
-			TLSDisabled:  true,
+			TLSDisabled:  !e.network.TLSEnabled,
 			// Hostname:       "scalable-committer",
 		}
 		e.network.AppendPeer(p)
