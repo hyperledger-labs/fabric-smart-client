@@ -37,7 +37,7 @@ func main() {
 
 ### Configuration
 
-> TODO: Configuration details for Fabric-x platform here soon.
+Start with the [Fabric-x platform configuration](configuration.md) page for the documented `notificationService` and `queryService` settings, then layer those on top of the shared FSC [node configuration](../../configuration.md).
 
 ## Notification Service (Transaction Finality)
 

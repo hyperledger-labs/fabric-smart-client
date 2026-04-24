@@ -18,7 +18,7 @@ FSC abstracts away the complexity of a DLT network, enabling developers to build
 - **Token SDK** as an example of building distributed ledger applications on top of FSC.
 
 ## Quick links
-- **Documentation:** [docs/](docs/)
+- **Documentation:** [docs/README.md](docs/README.md)
 - **Examples and integration tests:** [`integration/fabric/`](integration/fabric/) and [`integration/fabricx/`](integration/fabricx/)  
 - **Token SDK:** https://github.com/hyperledger-labs/fabric-token-sdk
 
