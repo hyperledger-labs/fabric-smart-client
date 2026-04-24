@@ -9,17 +9,11 @@ package sdk
 import (
 	"context"
 
-	"go.uber.org/dig"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
-	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/sdk/dig/client"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/sdk/dig/endorser"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
@@ -45,23 +39,8 @@ func (p *SDK) Install() error {
 		return p.SDK.Install()
 	}
 	err := errors.Join(
-		// Register the new fabricx platform driver
-		p.Container().Provide(NewDriver, dig.Group("fabric-platform-drivers")),
-		p.Container().Provide(NewChannelProvider, dig.As(new(ChannelProvider))),
-		p.Container().Provide(config.NewProvider, dig.As(
-			new(grpc.ServiceConfigProvider),
-			new(finality.ServiceConfigProvider),
-			new(queryservice.ServiceConfigProvider),
-		)),
-		p.Container().Provide(grpc.NewClientProvider, dig.As(
-			new(ledger.GRPCClientProvider),
-			new(queryservice.GRPCClientProvider),
-			new(finality.GRPCClientProvider),
-		)),
-		p.Container().Provide(ledger.NewProvider),
-		p.Container().Provide(finality.NewListenerManagerProvider),
-		p.Container().Provide(digutils.Identity[*finality.Provider](), dig.As(new(finality.ListenerManagerProvider))),
-		p.Container().Provide(queryservice.NewProvider, dig.As(new(queryservice.Provider))),
+		endorser.Install(p.SDK),
+		client.Install(p.SDK),
 	)
 	if err != nil {
 		return err
@@ -72,11 +51,7 @@ func (p *SDK) Install() error {
 	}
 
 	// Backward compatibility with SP
-	return errors.Join(
-		digutils.Register[finality.ListenerManagerProvider](p.Container()),
-		digutils.Register[queryservice.Provider](p.Container()),
-		digutils.Register[*ledger.Provider](p.Container()),
-	)
+	return client.RegisterLegacy(p.SDK)
 }
 
 func (p *SDK) Start(ctx context.Context) error {
@@ -84,19 +59,8 @@ func (p *SDK) Start(ctx context.Context) error {
 		return p.SDK.Start(ctx)
 	}
 
-	// Wire the finality Listener Manager Provider and Ledger Provider with the application's root context.
-	// This context is cancelled when the FSC application shuts down.
-	err := p.Container().Invoke(func(in struct {
-		dig.In
-		FinalityProvider *finality.Provider
-		LedgerProvider   *ledger.Provider
-	},
-	) error {
-		in.FinalityProvider.Initialize(ctx)
-		in.LedgerProvider.Initialize(ctx)
-		return nil
-	})
-	if err != nil {
+	// Wire the client-side providers with the application's root context.
+	if err := client.InitializeProviders(p.SDK, ctx); err != nil {
 		return err
 	}
 
