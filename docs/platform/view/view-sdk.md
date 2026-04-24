@@ -10,3 +10,7 @@ This is the architecture of the View SDK:
 - [Configuration Service](services/config-service.md)
 - [DB Drivers](services/db-driver.md)
 - [Monitoring](services/monitoring.md)
+
+## Configuration
+
+See [View platform configuration](configuration.md) for the runtime sections that back the View SDK.
