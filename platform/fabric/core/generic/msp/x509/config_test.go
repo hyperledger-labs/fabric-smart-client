@@ -49,5 +49,5 @@ func TestToBCCSPOpts_Invalid(t *testing.T) {
 	// Pass something that cannot be decoded
 	opts, err := ToBCCSPOpts("not a map")
 	require.Error(t, err)
-	require.NotNil(t, opts)
+	require.Nil(t, opts)
 }

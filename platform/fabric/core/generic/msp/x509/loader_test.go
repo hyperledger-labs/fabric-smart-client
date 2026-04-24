@@ -51,18 +51,13 @@ func TestIdentityLoader_Load_WithMSPSubdir(t *testing.T) {
 	for _, sub := range []string{"cacerts", "signcerts", "keystore", "admincerts"} {
 		require.NoError(t, os.MkdirAll(filepath.Join(mspDir, sub), 0o755))
 	}
-	copyFile := func(src, dst string) {
-		data, err := os.ReadFile(src)
-		require.NoError(t, err)
-		require.NoError(t, os.WriteFile(dst, data, 0o644))
-	}
-	copyFile(filepath.Join("testdata", "msp", "cacerts", "ca.org1.example.com-cert.pem"),
+	copyFile(t, filepath.Join("testdata", "msp", "cacerts", "ca.org1.example.com-cert.pem"),
 		filepath.Join(mspDir, "cacerts", "ca.pem"))
-	copyFile(filepath.Join("testdata", "msp", "signcerts", "auditor.org1.example.com-cert.pem"),
+	copyFile(t, filepath.Join("testdata", "msp", "signcerts", "auditor.org1.example.com-cert.pem"),
 		filepath.Join(mspDir, "signcerts", "cert.pem"))
-	copyFile(filepath.Join("testdata", "msp", "keystore", "priv_sk"),
+	copyFile(t, filepath.Join("testdata", "msp", "keystore", "priv_sk"),
 		filepath.Join(mspDir, "keystore", "priv_sk"))
-	copyFile(filepath.Join("testdata", "msp", "signcerts", "auditor.org1.example.com-cert.pem"),
+	copyFile(t, filepath.Join("testdata", "msp", "signcerts", "auditor.org1.example.com-cert.pem"),
 		filepath.Join(mspDir, "admincerts", "admin.pem"))
 
 	mCfg := &mspdrivermock.Config{}
@@ -161,18 +156,13 @@ func TestFolderIdentityLoader_Load(t *testing.T) {
 	for _, sub := range []string{"cacerts", "signcerts", "keystore", "admincerts"} {
 		require.NoError(t, os.MkdirAll(filepath.Join(mspDir, sub), 0o755))
 	}
-	copyFile := func(src, dst string) {
-		data, err := os.ReadFile(src)
-		require.NoError(t, err)
-		require.NoError(t, os.WriteFile(dst, data, 0o644))
-	}
-	copyFile(filepath.Join("testdata", "msp", "cacerts", "ca.org1.example.com-cert.pem"),
+	copyFile(t, filepath.Join("testdata", "msp", "cacerts", "ca.org1.example.com-cert.pem"),
 		filepath.Join(mspDir, "cacerts", "ca.pem"))
-	copyFile(filepath.Join("testdata", "msp", "signcerts", "auditor.org1.example.com-cert.pem"),
+	copyFile(t, filepath.Join("testdata", "msp", "signcerts", "auditor.org1.example.com-cert.pem"),
 		filepath.Join(mspDir, "signcerts", "cert.pem"))
-	copyFile(filepath.Join("testdata", "msp", "keystore", "priv_sk"),
+	copyFile(t, filepath.Join("testdata", "msp", "keystore", "priv_sk"),
 		filepath.Join(mspDir, "keystore", "priv_sk"))
-	copyFile(filepath.Join("testdata", "msp", "signcerts", "auditor.org1.example.com-cert.pem"),
+	copyFile(t, filepath.Join("testdata", "msp", "signcerts", "auditor.org1.example.com-cert.pem"),
 		filepath.Join(mspDir, "admincerts", "admin.pem"))
 
 	mCfg := &mspdrivermock.Config{}

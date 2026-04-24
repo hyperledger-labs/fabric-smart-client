@@ -10,8 +10,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/go-viper/mapstructure/v2"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
@@ -103,20 +101,4 @@ func (f *FolderIdentityLoader) Load(manager driver.Manager, c config.MSP) error 
 		}
 	}
 	return nil
-}
-
-func ToBCCSPOpts(boxed interface{}) (*config.BCCSP, error) {
-	opts := &config.BCCSP{}
-	config := &mapstructure.DecoderConfig{
-		WeaklyTypedInput: true, // allow pin to be a string
-		Result:           &opts,
-	}
-
-	decoder, err := mapstructure.NewDecoder(config)
-	if err != nil {
-		return opts, err
-	}
-
-	err = decoder.Decode(boxed)
-	return opts, err
 }

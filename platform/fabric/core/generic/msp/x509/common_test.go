@@ -1,7 +1,6 @@
 /*
 Copyright IBM Corp. All Rights Reserved.
 
-Height: 2500
 SPDX-License-Identifier: Apache-2.0
 */
 
@@ -15,6 +14,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -49,4 +49,11 @@ func serializeIdentity(t *testing.T, mspID string, certPEM []byte) []byte {
 	raw, err := proto.Marshal(sID)
 	require.NoError(t, err)
 	return raw
+}
+
+func copyFile(t *testing.T, src, dst string) {
+	t.Helper()
+	data, err := os.ReadFile(src)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(dst, data, 0o644))
 }

@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/pem"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
+	mspdrivermock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver/mock"
 )
 
 func TestProvider_IsRemote(t *testing.T) {
@@ -208,4 +210,43 @@ func TestNewProviderWithBCCSPConfig_SWExplicit(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, p)
 	require.False(t, p.IsRemote())
+}
+
+func TestProvider_RegisterSigner(t *testing.T) {
+	t.Parallel()
+	mSignerSvc := &mspdrivermock.SignerService{}
+	p, err := NewProvider("./testdata/msp", "", "apple", mSignerSvc)
+	require.NoError(t, err)
+	require.NotNil(t, p)
+
+	require.Equal(t, 1, mSignerSvc.RegisterSignerCallCount())
+	_, idRaw, signer, verifier := mSignerSvc.RegisterSignerArgsForCall(0)
+	require.NotEmpty(t, idRaw)
+	require.NotNil(t, signer)
+	require.NotNil(t, verifier)
+	// signer and verifier should be the same object (SigningIdentity)
+	require.Equal(t, signer, verifier)
+}
+
+func TestProvider_RegisterSigner_Error(t *testing.T) {
+	t.Parallel()
+	mSignerSvc := &mspdrivermock.SignerService{}
+	mSignerSvc.RegisterSignerReturns(fmt.Errorf("registration failed"))
+
+	// Use an invalid path to ensure the fallback to verify-only also fails
+	_, err := NewProvider("/nonexistent", "", "apple", mSignerSvc)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to load msp identity")
+}
+
+func TestProvider_RegisterSigner_Fallback(t *testing.T) {
+	t.Parallel()
+	mSignerSvc := &mspdrivermock.SignerService{}
+	mSignerSvc.RegisterSignerReturns(fmt.Errorf("registration failed"))
+
+	// Use a valid path. Registration fails, so it should fall back to verify-only
+	p, err := NewProvider("./testdata/msp", "", "apple", mSignerSvc)
+	require.NoError(t, err)
+	require.NotNil(t, p)
+	require.True(t, p.IsRemote())
 }
