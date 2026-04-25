@@ -10,6 +10,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protowire"
 
@@ -62,6 +63,10 @@ func (m *mockQueryService) GetTransactionStatus(txID string) (int32, error) {
 }
 
 func (m *mockQueryService) GetConfigTransaction() (*queryservice.ConfigTransactionInfo, error) {
+	return nil, nil
+}
+
+func (m *mockQueryService) GetNamespacePolicies() (*applicationpb.NamespacePolicies, error) {
 	return nil, nil
 }
 

@@ -10,6 +10,7 @@ import (
 	"reflect"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"google.golang.org/grpc"
 
@@ -38,6 +39,7 @@ type QueryService interface {
 	GetStates(map[driver.Namespace][]driver.PKey) (map[driver.Namespace]map[driver.PKey]driver.VaultValue, error)
 	GetTransactionStatus(txID string) (int32, error)
 	GetConfigTransaction() (*ConfigTransactionInfo, error)
+	GetNamespacePolicies() (*applicationpb.NamespacePolicies, error)
 }
 
 // ServiceConfigProvider provides gRPC configuration for a given network.

@@ -6,6 +6,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
+	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 )
 
 type QueryService struct {
@@ -119,6 +120,11 @@ func (fake *QueryService) GetConfigTransactionReturnsOnCall(i int, result1 *quer
 		result1 *queryservice.ConfigTransactionInfo
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *QueryService) GetNamespacePolicies() (*applicationpb.NamespacePolicies, error) {
+	fake.recordInvocation("GetNamespacePolicies", []interface{}{})
+	return nil, nil
 }
 
 func (fake *QueryService) GetState(arg1 driver.Namespace, arg2 driver.PKey) (*driver.VaultValue, error) {

@@ -466,4 +466,33 @@ func TestQueryService(t *testing.T) {
 			require.ErrorIs(t, err, expectedError)
 		})
 	})
+
+	t.Run("GetNamespacePolicies", func(t *testing.T) {
+		t.Parallel()
+
+		t.Run("happy path", func(t *testing.T) {
+			t.Parallel()
+			qs, fake := setupTest(t)
+			expected := &applicationpb.NamespacePolicies{
+				Policies: []*applicationpb.PolicyItem{
+					{Namespace: "ns1", Version: 1},
+				},
+			}
+			fake.GetNamespacePoliciesReturns(expected, nil)
+
+			resp, err := qs.GetNamespacePolicies()
+			require.NoError(t, err)
+			require.Equal(t, expected, resp)
+		})
+
+		t.Run("client error", func(t *testing.T) {
+			t.Parallel()
+			qs, fake := setupTest(t)
+			expectedError := errors.New("some error")
+			fake.GetNamespacePoliciesReturns(nil, expectedError)
+
+			_, err := qs.GetNamespacePolicies()
+			require.ErrorIs(t, err, expectedError)
+		})
+	})
 }
