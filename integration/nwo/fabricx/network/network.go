@@ -207,13 +207,16 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 			OrdererConfig: fxconfig.OrdererConfig{
 				Address: n.OrdererAddress(n.Orderers[0], fabric_network.ListenPort),
 				TLSConfig: fxconfig.TLSConfig{
-					Enabled:   false,
-					RootCerts: []string{n.OrgOrdererTLSCACertificatePath(n.Organizations[0])},
+					Enabled:   n.TLSEnabled,
+					RootCerts: []string{n.OrgOrdererTLSCACertificatePath(n.OrdererOrgs()[0])},
 				},
 			},
 			NotificationsConfig: fxconfig.NotificationsConfig{
-				Address:   notificationsEndpoint,
-				TLSConfig: fxconfig.TLSConfig{},
+				Address: notificationsEndpoint,
+				TLSConfig: fxconfig.TLSConfig{
+					Enabled:   n.TLSEnabled,
+					RootCerts: []string{n.OrgOrdererTLSCACertificatePath(n.OrdererOrgs()[0])},
+				},
 			},
 			Policy: chaincode.Chaincode.Policy,
 		},
@@ -234,8 +237,11 @@ func (n *Network) UpdateNamespace(chaincodeID, version, path, packageFile string
 // gomega.Eventually for retrying.
 func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	cmd := &fxconfig.ListNamespaces{QueryConfig: fxconfig.QueryConfig{
-		Address:   "127.0.0.1:7001",
-		TLSConfig: fxconfig.TLSConfig{},
+		Address: "127.0.0.1:7001",
+		TLSConfig: fxconfig.TLSConfig{
+			Enabled:   n.TLSEnabled,
+			RootCerts: []string{n.OrgOrdererTLSCACertificatePath(n.OrdererOrgs()[0])},
+		},
 	}}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	if err != nil {
