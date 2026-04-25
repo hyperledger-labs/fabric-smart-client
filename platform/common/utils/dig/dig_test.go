@@ -10,9 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"go.uber.org/dig"
-
 	"github.com/stretchr/testify/require"
+	"go.uber.org/dig"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/mock"
