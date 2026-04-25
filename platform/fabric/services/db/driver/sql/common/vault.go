@@ -111,7 +111,7 @@ func (db *VaultStore) newTxLockVaultReader(ctx context.Context, isolationLevel d
 	}
 	return &vaultReader{
 		readDB:    tx,
-		sb:        db.vaultReader.sb,
+		sb:        db.sb,
 		sanitizer: db.sanitizer,
 		tables:    db.tables,
 	}, tx.Commit, nil
@@ -131,7 +131,7 @@ func (db *VaultStore) newGlobalLockVaultReader() (*vaultReader, releaseFunc, err
 	}
 	return &vaultReader{
 		readDB:    db.readDB,
-		sb:        db.vaultReader.sb,
+		sb:        db.sb,
 		sanitizer: db.sanitizer,
 		tables:    db.tables,
 	}, release, nil
