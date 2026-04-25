@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"sync"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -41,13 +43,15 @@ type Sanitizer interface {
 	Decode(string) (string, error)
 }
 
-func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci common4.CondInterpreter, pi common4.PagInterpreter, sanitizer sql2.Sanitizer, il common3.IsolationLevelMapper) *VaultStore {
+// NewVaultStore creates a VaultStore. ph is the squirrel PlaceholderFormat (sq.Dollar or sq.Question)
+// used for all SELECT queries; write queries continue to use the legacy builder with $N placeholders.
+func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci common4.CondInterpreter, ph sq.PlaceholderFormat, sanitizer sql2.Sanitizer, il common3.IsolationLevelMapper) *VaultStore {
+	sb := sq.StatementBuilder.PlaceholderFormat(ph)
 	vaultSanitizer := common3.NewSanitizer(sanitizer)
 	return &VaultStore{
 		vaultReader: &vaultReader{
 			readDB:    readDB,
-			ci:        ci,
-			pi:        pi,
+			sb:        sb,
 			sanitizer: vaultSanitizer,
 			tables:    tables,
 		},
@@ -67,8 +71,7 @@ type VaultStore struct {
 	errorWrapper driver2.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      common3.WriteDB
-	ci           common4.CondInterpreter
-	pi           common4.PagInterpreter
+	ci           common4.CondInterpreter // kept for legacy write-path methods
 	GlobalLock   sync.RWMutex
 	sanitizer    Sanitizer
 	il           common3.IsolationLevelMapper
@@ -108,8 +111,7 @@ func (db *VaultStore) newTxLockVaultReader(ctx context.Context, isolationLevel d
 	}
 	return &vaultReader{
 		readDB:    tx,
-		ci:        db.ci,
-		pi:        db.pi,
+		sb:        db.vaultReader.sb,
 		sanitizer: db.sanitizer,
 		tables:    db.tables,
 	}, tx.Commit, nil
@@ -129,8 +131,7 @@ func (db *VaultStore) newGlobalLockVaultReader() (*vaultReader, releaseFunc, err
 	}
 	return &vaultReader{
 		readDB:    db.readDB,
-		ci:        db.ci,
-		pi:        db.pi,
+		sb:        db.vaultReader.sb,
 		sanitizer: db.sanitizer,
 		tables:    db.tables,
 	}, release, nil
@@ -221,7 +222,6 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 				return nil, errors.Wrapf(err, "failed to marshal metadata for [%s:%s]", ns, pkey)
 			}
 			if len(val.Raw) == 0 {
-				// Deleting value
 				logger.Debugf("setting version of [%s] to nil", pkey)
 				val.Version = nil
 			}
@@ -244,7 +244,6 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 		}
 		for pkey, metaVal := range metaWrite {
 			if _, ok = write[pkey]; ok {
-				// MetaWrites already written in the previous section
 				continue
 			}
 			metadata, err := marshallMetadata(metaVal.Metadata)
@@ -260,7 +259,6 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 				return nil, err
 			}
 			states = append(states, common4.Tuple{ns, pkey, []byte{}, metaVal.Version, metadata})
-
 		}
 	}
 	return states, nil
@@ -348,21 +346,21 @@ func (db *txVaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID
 	return db.vr.GetTxStatuses(ctx, txIDs...)
 }
 
-func (db *txVaultReader) GetAllTxStatuses(ctx context.Context, pagination driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
+func (db *txVaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
 	if err := db.setVaultReader(); err != nil {
 		return nil, err
 	}
-	return db.vr.GetAllTxStatuses(ctx, pagination)
+	return db.vr.GetAllTxStatuses(ctx, p)
 }
 
 func (db *txVaultReader) Done() error {
 	return db.release()
 }
 
+// vaultReader handles all read queries using squirrel for SELECT statements.
 type vaultReader struct {
 	readDB    dbReader
-	ci        common4.CondInterpreter
-	pi        common4.PagInterpreter
+	sb        sq.StatementBuilderType
 	sanitizer Sanitizer
 	tables    VaultTables
 }
@@ -376,29 +374,44 @@ func (db *vaultReader) GetState(ctx context.Context, namespace driver.Namespace,
 }
 
 func (db *vaultReader) GetStates(ctx context.Context, namespace driver.Namespace, keys ...driver.PKey) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, cond2.And(cond2.Eq("ns", namespace), cond2.In("pkey", keys...)))
+	return db.queryState(ctx, sq.And{sq.Eq{"ns": namespace}, sq.Eq{"pkey": keys}})
 }
 
 func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, cond2.And(cond2.Eq("ns", namespace), cond2.BetweenStrings("pkey", startKey, endKey)))
+	return db.queryState(ctx, sq.And{sq.Eq{"ns": namespace}, betweenStrings("pkey", startKey, endKey)})
 }
 
 func (db *vaultReader) GetAllStates(ctx context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, cond2.Eq("ns", namespace))
+	return db.queryState(ctx, sq.Eq{"ns": namespace})
 }
 
-func (db *vaultReader) queryState(ctx context.Context, where cond2.Condition) (driver.TxStateIterator, error) {
-	query, params := q.Select().FieldsByName("pkey", "kversion", "val").
-		From(q.Table(db.tables.StateTable)).
+// betweenStrings returns a half-open [start, end) range condition, omitting a bound when it is empty.
+func betweenStrings(col, start, end string) sq.Sqlizer {
+	var parts sq.And
+	if start != "" {
+		parts = append(parts, sq.GtOrEq{col: start})
+	}
+	if end != "" {
+		parts = append(parts, sq.Lt{col: end})
+	}
+	return parts
+}
+
+func (db *vaultReader) queryState(ctx context.Context, where sq.Sqlizer) (driver.TxStateIterator, error) {
+	query, params, err := db.sb.Select("pkey", "kversion", "val").
+		From(db.tables.StateTable).
 		Where(where).
-		Format(db.ci)
-	params, err := db.sanitizer.EncodeAll(params)
+		ToSql()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build query")
+	}
+	encodedParams, err := db.sanitizer.EncodeAll(params)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Debug(query, params)
-	rows, err := db.readDB.QueryContext(ctx, query, params...)
+	logger.Debug(query, encodedParams)
+	rows, err := db.readDB.QueryContext(ctx, query, encodedParams...)
 	if err != nil {
 		return nil, err
 	}
@@ -421,10 +434,13 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 		return nil, nil, err
 	}
 
-	query, params := q.Select().FieldsByName("metadata", "kversion").
-		From(q.Table(db.tables.StateTable)).
-		Where(cond2.And(cond2.Eq("ns", namespace), cond2.Eq("pkey", key))).
-		Format(db.ci)
+	query, params, err := db.sb.Select("metadata", "kversion").
+		From(db.tables.StateTable).
+		Where(sq.And{sq.Eq{"ns": namespace}, sq.Eq{"pkey": key}}).
+		ToSql()
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to build query")
+	}
 	logger.Debug(query, params)
 
 	row := db.readDB.QueryRowContext(ctx, query, params...)
@@ -441,35 +457,22 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 	if err != nil {
 		return meta, nil, fmt.Errorf("error decoding metadata: %w", err)
 	}
-
 	return meta, kversion, err
 }
 
 func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
-	it, err := db.queryStatus(ctx, IsLast(common4.TableName(db.tables.StatusTable)), pagination.None())
+	// Select the row with the highest pos that is not Busy
+	it, err := db.queryStatus(ctx,
+		sq.Expr("pos=(SELECT max(pos) FROM "+db.tables.StatusTable+" WHERE code!=?)", driver.Busy),
+		pagination.None())
 	if err != nil {
 		return nil, err
 	}
 	return collections.GetUnique(it)
 }
 
-func IsLast(tableName common4.TableName) *isLast {
-	return &isLast{tableName: tableName}
-}
-
-type isLast struct {
-	tableName common4.TableName
-}
-
-func (c *isLast) WriteString(_ common4.CondInterpreter, sb common4.Builder) {
-	sb.WriteString("pos=(SELECT max(pos) FROM ").
-		WriteString(string(c.tableName)).WriteString(" WHERE code!=").
-		WriteParam(driver.Busy).
-		WriteRune(')')
-}
-
 func (db *vaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
-	it, err := db.queryStatus(ctx, cond2.Eq("tx_id", txID), pagination.None())
+	it, err := db.queryStatus(ctx, sq.Eq{"tx_id": txID}, pagination.None())
 	if err != nil {
 		return nil, err
 	}
@@ -480,15 +483,13 @@ func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) 
 	if len(txIDs) == 0 {
 		return collections.NewEmptyIterator[*driver.TxStatus](), nil
 	}
-
-	return db.queryStatus(ctx, cond2.In("tx_id", txIDs...), pagination.None())
+	return db.queryStatus(ctx, sq.Eq{"tx_id": txIDs}, pagination.None())
 }
 
 func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
 	if p == nil {
 		return nil, fmt.Errorf("invalid input pagination: %+v", p)
 	}
-
 	txStatusIterator, err := db.queryStatus(ctx, nil, p)
 	if err != nil {
 		return nil, err
@@ -496,12 +497,17 @@ func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination
 	return pagination.NewPage[driver.TxStatus](txStatusIterator, p)
 }
 
-func (db *vaultReader) queryStatus(ctx context.Context, where cond2.Condition, pagination driver.Pagination) (driver.TxStatusIterator, error) {
-	query, params := q.Select().FieldsByName("tx_id", "code", "message").
-		From(q.Table(db.tables.StatusTable)).
-		Where(where).
-		Paginated(pagination).
-		FormatPaginated(db.ci, db.pi)
+func (db *vaultReader) queryStatus(ctx context.Context, where sq.Sqlizer, p driver.Pagination) (driver.TxStatusIterator, error) {
+	sb := db.sb.Select("tx_id", "code", "message").From(db.tables.StatusTable)
+	if where != nil {
+		sb = sb.Where(where)
+	}
+	sb = pagination.ApplyToSquirrel(p, sb)
+
+	query, params, err := sb.ToSql()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build query")
+	}
 	logger.Debug(query, params)
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)

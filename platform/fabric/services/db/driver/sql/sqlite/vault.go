@@ -11,6 +11,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -28,7 +30,6 @@ type VaultStore struct {
 	writeDB common5.WriteDB
 
 	ci common4.CondInterpreter
-	pi common4.PagInterpreter
 }
 
 func NewVaultStore(dbs *common3.RWDB, tables common.TableNames) (*VaultStore, error) {
@@ -40,13 +41,11 @@ func NewVaultStore(dbs *common3.RWDB, tables common.TableNames) (*VaultStore, er
 
 func newVaultStore(readDB *sql.DB, writeDB common5.WriteDB, tables common.VaultTables) *VaultStore {
 	ci := sqlite2.NewConditionInterpreter()
-	pi := sqlite2.NewPaginationInterpreter()
 	return &VaultStore{
-		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite2.ErrorMapper{}, ci, pi, sqlite2.NewSanitizer(), sqlite2.IsolationLevels),
+		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite2.ErrorMapper{}, ci, sq.Question, sqlite2.NewSanitizer(), sqlite2.IsolationLevels),
 		tables:     tables,
 		writeDB:    writeDB,
 		ci:         ci,
-		pi:         pi,
 	}
 }
 
