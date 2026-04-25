@@ -91,7 +91,9 @@ func NewClient(config *Config) (*Client, error) {
 		}
 		rootCAs.AppendCertsFromPEM(caCert)
 		tlsClientConfig = &tls.Config{
-			RootCAs: rootCAs,
+			RootCAs:    rootCAs,
+			MinVersion: tls.VersionTLS12,
+			MaxVersion: tls.VersionTLS13,
 		}
 
 		if len(config.TLSCertPath) != 0 && len(config.TLSKeyPath) != 0 {

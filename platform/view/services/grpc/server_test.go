@@ -719,6 +719,8 @@ func TestVerifyCertificateCallback(t *testing.T) {
 		tlsCfg := &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			RootCAs:      x509.NewCertPool(),
+			MinVersion:   tls.VersionTLS12,
+			MaxVersion:   tls.VersionTLS12,
 		}
 		tlsCfg.RootCAs.AppendCertsFromPEM(ca.CertBytes())
 
@@ -1227,6 +1229,8 @@ func TestCipherSuites(t *testing.T) {
 			tlsConfig := &tls.Config{
 				RootCAs:      certPool,
 				CipherSuites: test.clientCiphers,
+				MinVersion:   tls.VersionTLS12,
+				MaxVersion:   tls.VersionTLS12,
 			}
 			_, err := tls.Dial("tcp", testAddress, tlsConfig)
 			if test.success {

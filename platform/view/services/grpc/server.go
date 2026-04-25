@@ -99,6 +99,8 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 				GetCertificate:         getCert,
 				SessionTicketsDisabled: true,
 				CipherSuites:           secureConfig.CipherSuites,
+				MinVersion:             tls.VersionTLS12,
+				MaxVersion:             tls.VersionTLS13,
 			})
 
 			if serverConfig.SecOpts.TimeShift > 0 {

@@ -37,9 +37,9 @@ func NewServerTransportCredentials(
 	// NOTE: unlike the default grpc/credentials implementation, we do not
 	// clone the tls.Config which allows us to update it dynamically
 	serverConfig.config.NextProtos = alpnProtoStr
-	// override TLS version and ensure it is 1.2
+	// Pin the accepted TLS range to the Go defaults we support explicitly.
 	serverConfig.config.MinVersion = tls.VersionTLS12
-	serverConfig.config.MaxVersion = tls.VersionTLS12
+	serverConfig.config.MaxVersion = tls.VersionTLS13
 	return &serverCreds{
 		serverConfig: serverConfig,
 		logger:       logger,

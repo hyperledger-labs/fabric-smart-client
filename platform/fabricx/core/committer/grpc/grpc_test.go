@@ -334,6 +334,7 @@ func TestClientConn_Integration(t *testing.T) {
 		serverTLSCfg := &tls.Config{
 			Certificates: []tls.Certificate{serverCert},
 			MinVersion:   tls.VersionTLS12,
+			MaxVersion:   tls.VersionTLS12,
 		}
 		addr := startTestServer(t, grpc.Creds(credentials.NewTLS(serverTLSCfg)))
 
@@ -373,6 +374,7 @@ func TestClientConn_Integration(t *testing.T) {
 			ClientAuth:   tls.RequireAndVerifyClientCert,
 			ClientCAs:    clientCAs,
 			MinVersion:   tls.VersionTLS12,
+			MaxVersion:   tls.VersionTLS12,
 		}
 		addr := startTestServer(t, grpc.Creds(credentials.NewTLS(serverTLSCfg)))
 

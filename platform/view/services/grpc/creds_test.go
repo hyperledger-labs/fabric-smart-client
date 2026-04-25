@@ -52,6 +52,8 @@ func TestCreds(t *testing.T) {
 	logger, recorder := logging.NewTestLogger(t)
 
 	creds := grpc.NewServerTransportCredentials(config, logger)
+	require.Equal(t, uint16(tls.VersionTLS12), config.Config().MinVersion)
+	require.Equal(t, uint16(tls.VersionTLS13), config.Config().MaxVersion)
 	_, _, err = creds.ClientHandshake(context.Background(), "", nil)
 	require.EqualError(t, err, grpc.ErrClientHandshakeNotImplemented.Error())
 	//lint:ignore SA1019: creds.OverrideServerName is deprecated: use grpc.WithAuthority instead. Will be supported throughout 1.x.
