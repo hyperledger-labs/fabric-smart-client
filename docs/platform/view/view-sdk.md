@@ -12,16 +12,9 @@ This is the architecture of the View SDK:
 
 ![architecture.png](./uml/architecture.png)
 
-## Documentation Map
-
-- [View API](view-api.md) - Public programming surface for `view.View`, `view.Context`, `view.Session`, identities, and nested execution options
-- [View Service](services/view-service.md) - Runtime orchestration of contexts, registries, responders, and view execution
-- [Configuration Service](services/config-service.md)
-- [DB Drivers](services/db-driver.md)
-- [Monitoring](services/monitoring.md)
-
 ## Components
 
+- [View API](view-api.md) - Public programming surface for `view.View`, `view.Context`, `view.Session`, identities, and nested execution options
 - [View Service](services/view-service.md) - Core orchestration layer for view lifecycle and protocol coordination
 - [Configuration Service](services/config-service.md)
 - [DB Drivers](services/db-driver.md)
