@@ -26,6 +26,7 @@ In FSC:
 ## Example
 
 ```bash
+cd examples/chaincode-to-fsc
 go run ./cmd/token-transfer --asset-id a1 --new-owner bob
 ```
 
