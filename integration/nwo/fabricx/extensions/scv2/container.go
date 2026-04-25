@@ -8,8 +8,10 @@ package scv2
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -70,11 +72,15 @@ func (e *Extension) launchContainer() {
 	logger.Infof("Sidecar running on port [%s]", sidecarPort)
 	containerName := fmt.Sprintf("%s-scalable-committer", networkID)
 	orderer := e.network.Orderer("orderer")
-	ordererEndpoint := fmt.Sprintf("%s:%d", dockerHostAlias(), e.network.OrdererPort(orderer, fabric_network.ListenPort))
+	ordererEndpoint := ""
+	if e.network.TLSEnabled {
+		ordererEndpoint = fmt.Sprintf("%s:%d", dockerHostAlias(), e.network.OrdererPort(orderer, fabric_network.ListenPort))
+	}
 	scMSPID := fmt.Sprintf("%sMSP", orgName)
 
 	rootCryptoDir := rootCrypto(e.network)
 	peerMSPDir := peerDockerMSPDir(e.network, scPeer)
+	ordererTLSDir := e.network.OrdererLocalTLSDir(orderer)
 
 	// genesis block
 	configBlockPath := e.network.OutputBlockPath(e.channel.Name)
@@ -97,7 +103,10 @@ func (e *Extension) launchContainer() {
 	}
 
 	containerEnvOverride := envVars[committerVersion](peerMSPDir, scMSPID, e.channel.Name, ordererEndpoint)
-	containerCmd := containerCmds[committerVersion]
+	containerCmd := append([]string(nil), containerCmds[committerVersion]...)
+	if !e.network.TLSEnabled {
+		containerCmd = append(containerCmd, "--insecure")
+	}
 	containerSidecarPort := sidecarDefaultPort[committerVersion]
 	containerQueryServicePort := queryServiceDefaultPort[committerVersion]
 
@@ -131,6 +140,42 @@ func (e *Extension) launchContainer() {
 					Type:   mount.TypeBind,
 					Source: rootCryptoDir,
 					Target: "/root/artifacts/crypto",
+				},
+				{
+					Type:     mount.TypeBind,
+					Source:   filepath.Join(ordererTLSDir, "server.crt"),
+					Target:   "/server-certs/public-key.pem",
+					ReadOnly: true,
+				},
+				{
+					Type:     mount.TypeBind,
+					Source:   filepath.Join(ordererTLSDir, "server.key"),
+					Target:   "/server-certs/private-key.pem",
+					ReadOnly: true,
+				},
+				{
+					Type:     mount.TypeBind,
+					Source:   filepath.Join(ordererTLSDir, "ca.crt"),
+					Target:   "/server-certs/ca-certificate.pem",
+					ReadOnly: true,
+				},
+				{
+					Type:     mount.TypeBind,
+					Source:   filepath.Join(ordererTLSDir, "server.crt"),
+					Target:   "/client-certs/public-key.pem",
+					ReadOnly: true,
+				},
+				{
+					Type:     mount.TypeBind,
+					Source:   filepath.Join(ordererTLSDir, "server.key"),
+					Target:   "/client-certs/private-key.pem",
+					ReadOnly: true,
+				},
+				{
+					Type:     mount.TypeBind,
+					Source:   filepath.Join(ordererTLSDir, "ca.crt"),
+					Target:   "/client-certs/ca-certificate.pem",
+					ReadOnly: true,
 				},
 				{ // config block
 					Type:     mount.TypeBind,
@@ -204,14 +249,19 @@ func (e *Extension) launchContainer() {
 	}()
 
 	// let's wait until the sidecar is ready
-	sidecarEndpoint := fmt.Sprintf("%s:%s", localIP, sidecarPort)
-	timeout := 90 * time.Second
+	sidecarEndpoint := "127.0.0.1:" + sidecarPort
+	timeout := 240 * time.Second
 
 	ctx, cancel = context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	logger.Infof("Checking sidecar health-check at %v", sidecarEndpoint)
-	err = fabric.WaitUntilReady(ctx, sidecarEndpoint)
+	var healthCheckTLSConfig *tls.Config
+	if e.network.TLSEnabled {
+		healthCheckTLSConfig, err = fabric.TLSClientConfig([]string{filepath.Join(ordererTLSDir, "ca.crt")})
+		utils.Must(err)
+	}
+	err = fabric.WaitUntilReadyWithTLS(ctx, sidecarEndpoint, healthCheckTLSConfig)
 	utils.Must(err)
 
 	time.Sleep(1 * time.Second)

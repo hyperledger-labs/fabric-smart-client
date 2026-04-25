@@ -8,12 +8,16 @@ package fabric
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	healthgrpc "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
@@ -67,6 +71,10 @@ func (d *Docker) Cleanup() error {
 }
 
 func WaitUntilReady(ctx context.Context, grpcEndpoint string) error {
+	return WaitUntilReadyWithTLS(ctx, grpcEndpoint, nil)
+}
+
+func WaitUntilReadyWithTLS(ctx context.Context, grpcEndpoint string, tlsConfig *tls.Config) error {
 	logger.Infof("Wait until ready %v", grpcEndpoint)
 
 	startWaitingAt := time.Now()
@@ -88,8 +96,13 @@ func WaitUntilReady(ctx context.Context, grpcEndpoint string) error {
 		}]
 	}`
 
+	creds := insecure.NewCredentials()
+	if tlsConfig != nil {
+		creds = credentials.NewTLS(tlsConfig)
+	}
+
 	options := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 		grpc.WithDefaultServiceConfig(serviceConfig),
 	}
 
@@ -116,4 +129,22 @@ func WaitUntilReady(ctx context.Context, grpcEndpoint string) error {
 
 	logger.Infof("Ready! (t=%v)", time.Since(startWaitingAt))
 	return nil
+}
+
+func TLSClientConfig(rootCertPaths []string) (*tls.Config, error) {
+	cp := x509.NewCertPool()
+	for _, rootCertPath := range rootCertPaths {
+		rootCert, err := os.ReadFile(rootCertPath)
+		if err != nil {
+			return nil, fmt.Errorf("read root cert %q: %w", rootCertPath, err)
+		}
+		if !cp.AppendCertsFromPEM(rootCert) {
+			return nil, fmt.Errorf("parse root cert %q", rootCertPath)
+		}
+	}
+
+	return &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		RootCAs:    cp,
+	}, nil
 }

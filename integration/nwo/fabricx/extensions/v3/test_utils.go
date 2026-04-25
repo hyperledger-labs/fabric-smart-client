@@ -13,14 +13,13 @@ const (
 	QueryServiceDefaultPort = "7001/tcp"
 )
 
-var ContainerCmd = []string{"run", "db", "orderer", "committer", "--insecure"}
+var ContainerCmd = []string{"run", "db", "orderer", "committer"}
 
 func ContainerEnvVars(peerMSPDir, scMSPID, channelName, ordererEndpoint string) []string {
-	return []string{
+	env := []string{
 		"SC_SIDECAR_LOGGING_LOGSPEC=debug",
 		"SC_SIDECAR_ORDERER_CHANNEL_ID=" + channelName,
 		"SC_SIDECAR_ORDERER_SIGNED_ENVELOPES=true",
-		"SC_SIDECAR_ORDERER_TLS_MODE=none",
 		"SC_SIDECAR_ORDERER_IDENTITY_MSP_ID=" + scMSPID,
 		"SC_SIDECAR_ORDERER_IDENTITY_MSP_DIR=" + peerMSPDir,
 		"SC_QUERY_SERVICE_SERVER_ENDPOINT=:7001",
@@ -32,4 +31,26 @@ func ContainerEnvVars(peerMSPDir, scMSPID, channelName, ordererEndpoint string) 
 		"SC_VERIFIER_LOGGING_LOGSPEC=INFO",
 		"SC_SIDECAR_SERVER_MAX_CONCURRENT_STREAMS=0",
 	}
+
+	if ordererEndpoint == "" {
+		return append(env, "SC_SIDECAR_ORDERER_TLS_MODE=none")
+	}
+
+	return append(env,
+		"SC_COORDINATOR_SERVER_TLS_MODE=none",
+		"SC_COORDINATOR_VERIFIER_TLS_MODE=none",
+		"SC_COORDINATOR_VALIDATOR_COMMITTER_TLS_MODE=none",
+		"SC_COORDINATOR_MONITORING_TLS_MODE=none",
+		"SC_QUERY_SERVER_TLS_MODE=tls",
+		"SC_QUERY_MONITORING_TLS_MODE=none",
+		"SC_SIDECAR_SERVER_TLS_MODE=tls",
+		"SC_SIDECAR_MONITORING_TLS_MODE=none",
+		"SC_SIDECAR_COMMITTER_TLS_MODE=none",
+		"SC_SIDECAR_ORDERER_TLS_MODE=tls",
+		"SC_VC_SERVER_TLS_MODE=none",
+		"SC_VC_MONITORING_TLS_MODE=none",
+		"SC_VERIFIER_SERVER_TLS_MODE=none",
+		"SC_VERIFIER_MONITORING_TLS_MODE=none",
+		"SC_ORDERER_SERVER_TLS_MODE=tls",
+	)
 }

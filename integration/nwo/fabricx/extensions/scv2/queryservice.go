@@ -45,10 +45,8 @@ func generateQSExtension(n *network.Network) {
 				Address:           fmt.Sprintf("%s:%v", queryServiceHost, queryServicePort),
 				ConnectionTimeout: grpc.DefaultConnectionTimeout,
 				TLS: &config.TLSConfig{
-					// TODO: allow TLS and mTLS integration tests
-					Enabled: false,
-					// note that this bundle contains all root certs of the network
-					RootCertPaths: []string{n.CACertsBundlePath()},
+					Enabled:       n.TLSEnabled,
+					RootCertPaths: []string{n.OrgOrdererTLSCACertificatePath(n.OrdererOrgs()[0])},
 				},
 			},
 		},

@@ -73,7 +73,6 @@ func (n *CreateNamespace) Args() []string {
 		"--policy=" + n.Policy,
 		"--endorse",
 		"--submit",
-		"--wait",
 	}
 }
 
@@ -125,7 +124,6 @@ func (n *UpdateNamespace) Args() []string {
 		"--policy=" + n.Policy,
 		"--endorse",
 		"--submit",
-		"--wait",
 	}
 }
 
