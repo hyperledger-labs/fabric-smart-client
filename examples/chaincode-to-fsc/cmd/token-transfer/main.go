@@ -20,7 +20,7 @@ func main() {
 
 	result, err := flow.TransferAsset(*assetID, *newOwner)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 

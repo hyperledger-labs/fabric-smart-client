@@ -18,7 +18,7 @@ func TransferAsset(assetID, newOwner string) (string, error) {
 	fmt.Println("reading asset")
 	asset, err := protocol.GetAsset(assetID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("get asset failed: %w", err)
 	}
 
 	fmt.Println("validating transfer")
@@ -28,20 +28,20 @@ func TransferAsset(assetID, newOwner string) (string, error) {
 
 	fmt.Println("preparing transaction")
 	fmt.Println("endorsing transaction")
+	fmt.Println("submitting transaction")
 	if err := protocol.SubmitTransfer(assetID, newOwner); err != nil {
-		return "", err
+		return "", fmt.Errorf("submit transfer failed: %w", err)
 	}
 
-	fmt.Println("submitting transaction")
+	fmt.Println("verifying state")
 	updated, err := protocol.GetAsset(assetID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("verify asset failed: %w", err)
 	}
 	if updated.Owner != newOwner {
 		return "", fmt.Errorf("transfer verification failed: expected owner %s, got %s", newOwner, updated.Owner)
 	}
 
 	result := fmt.Sprintf("success: asset %s now owned by %s", updated.ID, updated.Owner)
-	fmt.Println(result)
 	return result, nil
 }
