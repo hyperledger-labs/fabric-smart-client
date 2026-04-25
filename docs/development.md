@@ -83,7 +83,13 @@ Run static analysis and linting:
 ```bash
 make checks
 make lint
+make lint-auto-fix
+make lint-fmt
 ```
+
+Use `make lint` to run the configured linters on the changes in your branch.
+Use `make lint-auto-fix` to apply automatic fixes where `golangci-lint` supports them.
+Use `make lint-fmt` to apply the formatter configuration used by CI before pushing a branch.
 
 ### Unit Tests
 
@@ -120,11 +126,12 @@ make coverage-local
 
 The CI workflow runs:
 - `make checks`
+- `make lint-fmt`
 - `make unit-tests`
 - `make unit-tests-postgres`
 - `make integration-tests-*`
 
-If you are preparing a pull request that only touches unit-tested code, running `make checks` together with a targeted `make unit-tests` command is usually the fastest high-signal validation pass before pushing.
+If you are preparing a pull request that only touches unit-tested code, running `make lint-fmt`, `make checks`, and a targeted `make unit-tests` command is usually the fastest high-signal validation pass before pushing.
 
 ### Integration Tests
 
