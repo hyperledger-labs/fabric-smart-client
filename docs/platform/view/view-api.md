@@ -424,11 +424,3 @@ This example shows the core API pattern:
 - return an application result.
 
 For a full architecture-level walkthrough of how initiators, responders, contexts, and the registry interact, see the [View service](services/view-service.md).
-
-## Related Documentation
-
-- [View SDK architecture](view-sdk.md)
-- [View service](services/view-service.md)
-- [Communication service](services/comm/readme.md)
-- [View platform configuration](configuration.md)
-- [View runtime security model](security-model.md)
