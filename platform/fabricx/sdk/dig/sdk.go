@@ -71,12 +71,7 @@ func (p *SDK) Install() error {
 		return err
 	}
 
-	// Backward compatibility with SP
-	return errors.Join(
-		digutils.Register[finality.ListenerManagerProvider](p.Container()),
-		digutils.Register[queryservice.Provider](p.Container()),
-		digutils.Register[*ledger.Provider](p.Container()),
-	)
+	return nil
 }
 
 func (p *SDK) Start(ctx context.Context) error {
