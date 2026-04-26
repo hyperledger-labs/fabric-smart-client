@@ -52,7 +52,10 @@ func GenerateConfig(testdataDir string) error {
 }
 
 func SetupNode(confPath string, factories ...NamedFactory) (*node.Node, error) {
-	fsc := node.NewWithConfPath(confPath)
+	fsc, err := node.NewWithConfPathE(confPath)
+	if err != nil {
+		return nil, err
+	}
 	if err := fsc.InstallSDK(viewsdk.NewSDK(fsc)); err != nil {
 		return nil, err
 	}

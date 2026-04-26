@@ -8,6 +8,8 @@ package node
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -193,5 +195,24 @@ func TestNode_GetService_NotFound(t *testing.T) {
 	t.Parallel()
 	n := newTestNode()
 	_, err := n.GetService((*mockSDK)(nil))
+	require.Error(t, err)
+}
+
+func TestNewFromConfPathE(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	err := os.WriteFile(filepath.Join(dir, "core.yaml"), []byte("fsc:\n  id: test-node\n"), 0o600)
+	require.NoError(t, err)
+
+	n, err := NewFromConfPathE(dir)
+	require.NoError(t, err)
+	require.Equal(t, "test-node", n.ID())
+}
+
+func TestNewFromConfPathE_InvalidPath(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewFromConfPathE("./does-not-exist")
 	require.Error(t, err)
 }

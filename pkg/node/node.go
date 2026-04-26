@@ -39,20 +39,28 @@ type Node struct {
 }
 
 func NewFromConfPath(confPath string) *Node {
-	configService, err := config.NewProvider(confPath)
+	node, err := NewFromConfPathE(confPath)
 	if err != nil {
 		panic(err)
 	}
+	return node
+}
+
+func NewFromConfPathE(confPath string) (*Node, error) {
+	configService, err := config.NewProvider(confPath)
+	if err != nil {
+		return nil, err
+	}
 	registry := view.NewServiceProvider()
 	if err := registry.RegisterService(configService); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	return &Node{
 		sdks:     []SDK{},
 		registry: registry,
 		id:       configService.ID(),
-	}
+	}, nil
 }
 
 func (n *Node) AddSDK(sdk SDK) {
