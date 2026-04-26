@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/IBM/idemix"
 	bccsp "github.com/IBM/idemix/bccsp/types"
@@ -85,7 +86,11 @@ func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.
 }
 
 func NewProviderWithSigType(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService, sigType bccsp.SignatureType) (*Provider, error) {
-	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{KVS}, math.FP256BN_AMCL, false)
+	curveID, err := CurveIDFromMSPConfig(conf1)
+	if err != nil {
+		return nil, err
+	}
+	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{KVS}, curveID, false)
 	if err != nil {
 		return nil, err
 	}
@@ -216,6 +221,46 @@ func NewProvider(conf1 *m.MSPConfig, signerService mspdriver.SignerService, sigT
 		sigType:       sigType,
 		verType:       verType,
 	}, nil
+}
+
+func CurveIDFromMSPConfig(conf1 *m.MSPConfig) (math.CurveID, error) {
+	if conf1 == nil {
+		return math.FP256BN_AMCL, errors.Errorf("setup error: nil conf reference")
+	}
+
+	var conf idemixmsp.IdemixMSPConfig
+	if err := proto.UnmarshalV1(conf1.Config, &conf); err != nil {
+		return math.FP256BN_AMCL, errors.Wrap(err, "failed unmarshalling idemix provider config")
+	}
+
+	curveLabel := conf.CurveId
+	if len(curveLabel) == 0 && conf.Signer != nil {
+		curveLabel = conf.Signer.CurveId
+	}
+	return CurveIDFromString(curveLabel)
+}
+
+func CurveIDFromString(curveLabel string) (math.CurveID, error) {
+	switch strings.TrimSpace(strings.ToUpper(curveLabel)) {
+	case "", "AMCL.FP256BN", "FP256BN_AMCL":
+		return math.FP256BN_AMCL, nil
+	case "GURVY.BN254", "BN254":
+		return math.BN254, nil
+	case "AMCL.FP256BNMIRACL", "FP256BN_AMCL_MIRACL":
+		return math.FP256BN_AMCL_MIRACL, nil
+	case "BLS12_381":
+		return math.BLS12_381, nil
+	case "GURVY.BLS12_377", "BLS12_377_GURVY":
+		return math.BLS12_377_GURVY, nil
+	case "GURVY.BLS12_381", "BLS12_381_GURVY":
+		return math.BLS12_381_GURVY, nil
+	case "BLS12_381_BBS":
+		return math.BLS12_381_BBS, nil
+	case "BLS12_381_BBS_GURVY":
+		return math.BLS12_381_BBS_GURVY, nil
+	default:
+		return math.FP256BN_AMCL, errors.Errorf("unsupported curve id [%s]", curveLabel)
+	}
 }
 
 func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte, error) {

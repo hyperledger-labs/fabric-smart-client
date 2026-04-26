@@ -338,6 +338,33 @@ func TestIdentityFromFabricCA(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
+func TestProviderUsesCurveConfiguredInFabricCAConfig(t *testing.T) { //nolint:paralleltest
+	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	require.NoError(t, err)
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+
+	config, err := idemix2.GetLocalMspConfigWithType("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
+	require.NoError(t, err)
+
+	p, err := idemix2.NewProviderWithSigType(config, kvss, sigService, bccsp.Standard)
+	require.NoError(t, err)
+	require.NotNil(t, p)
+
+	id, audit, err := p.Identity(nil)
+	require.NoError(t, err)
+	require.NotNil(t, id)
+	require.Nil(t, audit)
+
+	signer, err := p.DeserializeSigner(id)
+	require.NoError(t, err)
+	verifier, err := p.DeserializeVerifier(id)
+	require.NoError(t, err)
+
+	sigma, err := signer.Sign([]byte("hello world!!!"))
+	require.NoError(t, err)
+	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
+}
+
 func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) { //nolint:paralleltest
 	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
