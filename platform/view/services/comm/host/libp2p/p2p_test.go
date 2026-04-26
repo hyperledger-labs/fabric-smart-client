@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package libp2p
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -69,7 +70,7 @@ func TestSessionsTwoNodesTestRound(t *testing.T) { //nolint:paralleltest
 	comm.SessionsNodesTestRound(t, bootstrapNode, []*comm.HostNode{node1, node2}, 2)
 }
 
-func generateKey(t *testing.T) (crypto.PrivKey, string) {
+func generateKey(t testing.TB) (crypto.PrivKey, string) {
 	t.Helper()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
@@ -80,7 +81,7 @@ func generateKey(t *testing.T) (crypto.PrivKey, string) {
 	return privKey, ID.String()
 }
 
-func freeLibP2PAddresses(t *testing.T, n int) []string {
+func freeLibP2PAddresses(t testing.TB, n int) []string {
 	t.Helper()
 	listeners := make([]net.Listener, n)
 	addresses := make([]string, n)
@@ -96,7 +97,7 @@ func freeLibP2PAddresses(t *testing.T, n int) []string {
 	return addresses
 }
 
-func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
+func setupTwoNodes(t testing.TB) (*comm.HostNode, *comm.HostNode) {
 	t.Helper()
 	bootstrapSK, bootstrapID := generateKey(t)
 	nodeSK, nodeID := generateKey(t)
@@ -109,14 +110,14 @@ func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 	bootstrapConfig.ListenAddressReturns(bootstrapNodeEndpoint)
 	bootstrapHost, err := newLibP2PHost(bootstrapConfig, bootstrapSK, newMetrics(&disabled.Provider{}), true, "")
 	require.NoError(t, err)
-	bootstrapNode, err := comm.NewNode(t.Context(), bootstrapHost, &disabled.Provider{})
+	bootstrapNode, err := comm.NewNode(context.Background(), bootstrapHost, &disabled.Provider{})
 	require.NoError(t, err)
 
 	nodeConfig := &mock.LibP2PConfig{}
 	nodeConfig.ListenAddressReturns(nodeEndpoint)
 	anotherHost, err := newLibP2PHost(nodeConfig, nodeSK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
 	require.NoError(t, err)
-	anotherNode, err := comm.NewNode(t.Context(), anotherHost, &disabled.Provider{})
+	anotherNode, err := comm.NewNode(context.Background(), anotherHost, &disabled.Provider{})
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
@@ -125,7 +126,7 @@ func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 		&comm.HostNode{P2PNode: anotherNode, ID: nodeID, Address: nodeEndpoint}
 }
 
-func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
+func setupThreeNodes(t testing.TB) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
 	t.Helper()
 	bootstrapSK, bootstrapID := generateKey(t)
 	node1SK, node1ID := generateKey(t)
@@ -140,21 +141,21 @@ func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNo
 	bootstrapConfig.ListenAddressReturns(bootstrapNodeEndpoint)
 	bootstrapHost, err := newLibP2PHost(bootstrapConfig, bootstrapSK, newMetrics(&disabled.Provider{}), true, "")
 	require.NoError(t, err)
-	bootstrapNode, err := comm.NewNode(t.Context(), bootstrapHost, &disabled.Provider{})
+	bootstrapNode, err := comm.NewNode(context.Background(), bootstrapHost, &disabled.Provider{})
 	require.NoError(t, err)
 
 	node1Config := &mock.LibP2PConfig{}
 	node1Config.ListenAddressReturns(node1Endpoint)
 	node1Host, err := newLibP2PHost(node1Config, node1SK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
 	require.NoError(t, err)
-	node1, err := comm.NewNode(t.Context(), node1Host, &disabled.Provider{})
+	node1, err := comm.NewNode(context.Background(), node1Host, &disabled.Provider{})
 	require.NoError(t, err)
 
 	node2Config := &mock.LibP2PConfig{}
 	node2Config.ListenAddressReturns(node2Endpoint)
 	node2Host, err := newLibP2PHost(node2Config, node2SK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
 	require.NoError(t, err)
-	node2, err := comm.NewNode(t.Context(), node2Host, &disabled.Provider{})
+	node2, err := comm.NewNode(context.Background(), node2Host, &disabled.Provider{})
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
