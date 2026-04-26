@@ -170,6 +170,42 @@ func TestParallel(t *testing.T) {
 	require.Len(t, values, 1, "we always got one value back (the one we first set)")
 }
 
+// TestLengthConcurrentWithWrites exercises Length alongside Update / Delete
+// to expose the missing read lock. Without the RLock fix on Length, this
+// test panics under `go test -race` with "concurrent map iteration and map
+// write" or trips the race detector.
+func TestLengthConcurrentWithWrites(t *testing.T) {
+	t.Parallel()
+	const iterations = 200
+	cache := newTestCache()
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			_, _, _ = cache.Update(entry{key: fmt.Sprintf("k%d", i), value: fmt.Sprintf("v%d", i)})
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			_, _ = cache.Delete(entry{key: fmt.Sprintf("k%d", i)})
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			_ = cache.Length()
+		}
+	}()
+
+	wg.Wait()
+}
+
 func newTestCache() Provider[entry, string] {
 	return NewProviderWithKeyMapper(func(in entry) string {
 		return in.key
