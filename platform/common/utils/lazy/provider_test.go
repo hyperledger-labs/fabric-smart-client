@@ -87,6 +87,55 @@ func TestError(t *testing.T) {
 	require.Equal(t, "v1", val)
 }
 
+func TestProviderMethods(t *testing.T) {
+	t.Parallel()
+
+	// Test NewProvider
+	p := NewProvider(func(k string) (string, error) {
+		return k + "-val", nil
+	})
+
+	val, err := p.Get("k1")
+	require.NoError(t, err)
+	require.Equal(t, "k1-val", val)
+
+	// Test Peek
+	v, ok := p.Peek("k1")
+	require.True(t, ok)
+	require.Equal(t, "k1-val", v)
+
+	v, ok = p.Peek("k2")
+	require.False(t, ok)
+	require.Empty(t, v)
+
+	// Test Length
+	require.Equal(t, 1, p.Length())
+}
+
+func TestProviderErrors(t *testing.T) {
+	t.Parallel()
+
+	p := NewProvider(func(k string) (string, error) {
+		if k == "error" {
+			return "", errors.New("provider error")
+		}
+		return k, nil
+	})
+
+	// Test Get error
+	val, err := p.Get("error")
+	require.Error(t, err)
+	require.Equal(t, "provider error", err.Error())
+	require.Empty(t, val)
+
+	// Test Update error
+	oldVal, newVal, err := p.Update("error")
+	require.Error(t, err)
+	require.Equal(t, "provider error", err.Error())
+	require.Empty(t, oldVal)
+	require.Empty(t, newVal)
+}
+
 func TestParallel(t *testing.T) {
 	t.Parallel()
 	const iterations = 100
