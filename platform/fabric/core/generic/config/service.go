@@ -79,12 +79,16 @@ func NewService(configService Configuration, name string, defaultConfig bool) (*
 	}
 
 	tlsEnabled := configService.GetBool(fmt.Sprintf("fabric.%stls.enabled", prefix))
+	tlsRootCertFile := tlsRootCertFile(configService, prefix)
 	orderers, err := readItems[*ConnectionConfig](configService, prefix, "orderers")
 	if err != nil {
 		return nil, err
 	}
 	for _, v := range orderers {
 		v.TLSEnabled = tlsEnabled
+		if tlsEnabled && len(v.TLSRootCertFile) == 0 {
+			v.TLSRootCertFile = tlsRootCertFile
+		}
 		if tlsEnabled && len(v.TLSRootCertFile) > 0 {
 			v.TLSRootCertFile = configService.TranslatePath(v.TLSRootCertFile)
 		}
@@ -93,7 +97,7 @@ func NewService(configService Configuration, name string, defaultConfig bool) (*
 	if err != nil {
 		return nil, err
 	}
-	peerMapping := createPeerMap(configService, peers, tlsEnabled)
+	peerMapping := createPeerMap(configService, peers, tlsEnabled, tlsRootCertFile)
 
 	channels, err := readItems[*Channel](configService, prefix, "channels")
 	if err != nil {
@@ -355,10 +359,13 @@ func createChannelMap(channels []*Channel) (map[string]*Channel, string, error) 
 	return channelMap, defaultChannel, nil
 }
 
-func createPeerMap(configService Configuration, peers []*ConnectionConfig, tlsEnabled bool) map[driver.PeerFunctionType][]*ConnectionConfig {
+func createPeerMap(configService Configuration, peers []*ConnectionConfig, tlsEnabled bool, tlsRootCertFile string) map[driver.PeerFunctionType][]*ConnectionConfig {
 	peerMapping := map[driver.PeerFunctionType][]*ConnectionConfig{}
 	for _, peerCC := range peers {
 		peerCC.TLSEnabled = tlsEnabled && !peerCC.TLSDisabled
+		if peerCC.TLSEnabled && len(peerCC.TLSRootCertFile) == 0 {
+			peerCC.TLSRootCertFile = tlsRootCertFile
+		}
 		if peerCC.TLSEnabled && len(peerCC.TLSRootCertFile) > 0 {
 			peerCC.TLSRootCertFile = configService.TranslatePath(peerCC.TLSRootCertFile)
 		}
@@ -370,6 +377,16 @@ func createPeerMap(configService Configuration, peers []*ConnectionConfig, tlsEn
 		}
 	}
 	return peerMapping
+}
+
+func tlsRootCertFile(configService Configuration, prefix string) string {
+	rootCertFile := configService.GetPath(fmt.Sprintf("fabric.%stls.rootCert.file", prefix))
+	if len(rootCertFile) != 0 {
+		return rootCertFile
+	}
+
+	// Keep supporting the legacy flat key while the TLS model is being aligned.
+	return configService.GetPath(fmt.Sprintf("fabric.%stls.rootCertFile", prefix))
 }
 
 func readItems[T any](configService Configuration, prefix, key string) ([]T, error) {

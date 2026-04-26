@@ -78,6 +78,139 @@ func TestNewService_defaultsAndOrderers(t *testing.T) {
 	require.Equal(t, "ch1", svc.DefaultChannel())
 }
 
+func TestNewService_usesSharedTLSRootCertForOrderersAndPeers(t *testing.T) {
+	t.Parallel()
+
+	m := &mock.Configuration{}
+	m.IsSetReturnsOnCall(0, true)
+	m.GetStringReturnsOnCall(0, "")
+	m.GetBoolReturns(true)
+	m.GetPathReturnsOnCall(0, "shared-root.pem")
+	m.TranslatePathStub = func(path string) string {
+		return "TRANSLATED:" + path
+	}
+	m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		switch key {
+		case "fabric.mynet.orderers", "fabric.mynetorderers":
+			p, ok := rawVal.(*[]*grpc.ConnectionConfig)
+			if !ok {
+				return nil
+			}
+			*p = []*grpc.ConnectionConfig{{Address: "o:7050"}}
+			return nil
+		case "fabric.mynet.peers", "fabric.mynetpeers":
+			p, ok := rawVal.(*[]*grpc.ConnectionConfig)
+			if !ok {
+				return nil
+			}
+			*p = []*grpc.ConnectionConfig{{Address: "p:7051", Usage: "query"}}
+			return nil
+		case "fabric.mynet.channels", "fabric.mynetchannels":
+			p, ok := rawVal.(*[]*cfg.Channel)
+			if !ok {
+				return nil
+			}
+			*p = []*cfg.Channel{{Name: "ch1", Default: true}}
+			return nil
+		}
+		return nil
+	}
+
+	svc, err := cfg.NewService(m, "mynet", false)
+	require.NoError(t, err)
+	require.Equal(t, "TRANSLATED:shared-root.pem", svc.Orderers()[0].TLSRootCertFile)
+	require.Equal(t, "TRANSLATED:shared-root.pem", svc.PickPeer(driver.PeerForQuery).TLSRootCertFile)
+}
+
+func TestNewService_prefersPerEndpointTLSRootCertOverSharedTLSRootCert(t *testing.T) {
+	t.Parallel()
+
+	m := &mock.Configuration{}
+	m.IsSetReturnsOnCall(0, true)
+	m.GetStringReturnsOnCall(0, "")
+	m.GetBoolReturns(true)
+	m.GetPathReturnsOnCall(0, "shared-root.pem")
+	m.TranslatePathStub = func(path string) string {
+		return "TRANSLATED:" + path
+	}
+	m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		switch key {
+		case "fabric.mynet.orderers", "fabric.mynetorderers":
+			p, ok := rawVal.(*[]*grpc.ConnectionConfig)
+			if !ok {
+				return nil
+			}
+			*p = []*grpc.ConnectionConfig{{Address: "o:7050", TLSRootCertFile: "orderer-root.pem"}}
+			return nil
+		case "fabric.mynet.peers", "fabric.mynetpeers":
+			p, ok := rawVal.(*[]*grpc.ConnectionConfig)
+			if !ok {
+				return nil
+			}
+			*p = []*grpc.ConnectionConfig{{Address: "p:7051", Usage: "query", TLSRootCertFile: "peer-root.pem"}}
+			return nil
+		case "fabric.mynet.channels", "fabric.mynetchannels":
+			p, ok := rawVal.(*[]*cfg.Channel)
+			if !ok {
+				return nil
+			}
+			*p = []*cfg.Channel{{Name: "ch1", Default: true}}
+			return nil
+		}
+		return nil
+	}
+
+	svc, err := cfg.NewService(m, "mynet", false)
+	require.NoError(t, err)
+	require.Equal(t, "TRANSLATED:orderer-root.pem", svc.Orderers()[0].TLSRootCertFile)
+	require.Equal(t, "TRANSLATED:peer-root.pem", svc.PickPeer(driver.PeerForQuery).TLSRootCertFile)
+}
+
+func TestNewService_supportsLegacySharedTLSRootCertKey(t *testing.T) {
+	t.Parallel()
+
+	m := &mock.Configuration{}
+	m.IsSetReturnsOnCall(0, true)
+	m.GetStringReturnsOnCall(0, "")
+	m.GetBoolReturns(true)
+	m.GetPathReturnsOnCall(0, "")
+	m.GetPathReturnsOnCall(1, "legacy-root.pem")
+	m.TranslatePathStub = func(path string) string {
+		return "TRANSLATED:" + path
+	}
+	m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		switch key {
+		case "fabric.mynet.orderers", "fabric.mynetorderers":
+			p, ok := rawVal.(*[]*grpc.ConnectionConfig)
+			if !ok {
+				return nil
+			}
+			*p = []*grpc.ConnectionConfig{{Address: "o:7050"}}
+			return nil
+		case "fabric.mynet.peers", "fabric.mynetpeers":
+			p, ok := rawVal.(*[]*grpc.ConnectionConfig)
+			if !ok {
+				return nil
+			}
+			*p = []*grpc.ConnectionConfig{{Address: "p:7051", Usage: "query"}}
+			return nil
+		case "fabric.mynet.channels", "fabric.mynetchannels":
+			p, ok := rawVal.(*[]*cfg.Channel)
+			if !ok {
+				return nil
+			}
+			*p = []*cfg.Channel{{Name: "ch1", Default: true}}
+			return nil
+		}
+		return nil
+	}
+
+	svc, err := cfg.NewService(m, "mynet", false)
+	require.NoError(t, err)
+	require.Equal(t, "TRANSLATED:legacy-root.pem", svc.Orderers()[0].TLSRootCertFile)
+	require.Equal(t, "TRANSLATED:legacy-root.pem", svc.PickPeer(driver.PeerForQuery).TLSRootCertFile)
+}
+
 func TestClientKeepAliveConfig_UnmarshalError(t *testing.T) {
 	t.Parallel()
 	m := &mock.Configuration{}
@@ -253,9 +386,17 @@ func TestServiceGetters(t *testing.T) {
 	require.Equal(t, 5*time.Second, svc.ClientConnTimeout())
 
 	// TLS Files
-	m.GetPathReturnsOnCall(0, "client-key")
+	m.GetPathStub = func(key string) string {
+		switch key {
+		case "fabric.mynet.tls.clientKey.file":
+			return "client-key"
+		case "fabric.mynet.tls.clientCert.file":
+			return "client-cert"
+		default:
+			return ""
+		}
+	}
 	require.Equal(t, "client-key", svc.TLSClientKeyFile())
-	m.GetPathReturnsOnCall(1, "client-cert")
 	require.Equal(t, "client-cert", svc.TLSClientCertFile())
 
 	// Vault
