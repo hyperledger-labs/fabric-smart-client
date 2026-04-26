@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer/lifecycle"
 	"github.com/onsi/gomega"
@@ -192,19 +194,34 @@ func InitChaincode(n *Network, channel string, orderer *topology.Orderer, chainc
 		}
 	}
 
-	sess, err := n.PeerUserSession(peers[0], "User1", commands.ChaincodeInvoke{
-		NetworkPrefix: n.Prefix,
-		ChannelID:     channel,
-		Orderer:       n.OrdererAddress(orderer, ListenPort),
-		Name:          chaincode.Name,
-		Ctor:          chaincode.Ctor,
-		PeerAddresses: peerAddresses,
-		WaitForEvent:  true,
-		IsInit:        true,
-		ClientAuth:    n.ClientAuthRequired,
-	})
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	deadline := time.Now().Add(n.EventuallyTimeout)
+	var sess *gexec.Session
+	for {
+		var err error
+		sess, err = n.PeerUserSession(peers[0], "User1", commands.ChaincodeInvoke{
+			NetworkPrefix: n.Prefix,
+			ChannelID:     channel,
+			Orderer:       n.OrdererAddress(orderer, ListenPort),
+			Name:          chaincode.Name,
+			Ctor:          chaincode.Ctor,
+			PeerAddresses: peerAddresses,
+			WaitForEvent:  true,
+			IsInit:        true,
+			ClientAuth:    n.ClientAuthRequired,
+		})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit())
+		if sess.ExitCode() == 0 {
+			break
+		}
+
+		stderr := string(sess.Err.Contents())
+		if !strings.Contains(stderr, "No such image:") || time.Now().After(deadline) {
+			gomega.Expect(sess.ExitCode()).To(gomega.Equal(0), stderr)
+		}
+
+		time.Sleep(500 * time.Millisecond)
+	}
 	for i := 0; i < len(peerAddresses); i++ {
 		gomega.Eventually(sess.Err, n.EventuallyTimeout).Should(gbytes.Say(`\Qcommitted with status (VALID)\E`))
 	}
