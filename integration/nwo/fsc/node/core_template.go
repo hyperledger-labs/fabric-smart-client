@@ -134,8 +134,18 @@ fsc:
     # metrics provider is one of prometheus, or disabled
     provider: {{ Topology.Monitoring.MetricsType }}
     prometheus:
-      # defines whether we should use a certificate to access the metrics under /metrics
-      tls: {{ Topology.Monitoring.TLS }}
+      # If set, metrics are exposed on a dedicated listener instead of the main web server.
+      address:
+      tls:
+        enabled: {{ Topology.Monitoring.TLS }}
+        cert:
+          file: {{ .NodeLocalTLSDir Peer }}/server.crt
+        key:
+          file: {{ .NodeLocalTLSDir Peer }}/server.key
+        clientAuthRequired: {{ Topology.Monitoring.TLS }}
+        clientRootCAs:
+          files:
+          - {{ .NodeLocalTLSDir Peer }}/ca.crt
 
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.
