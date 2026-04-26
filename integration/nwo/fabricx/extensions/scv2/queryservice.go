@@ -9,7 +9,6 @@ package scv2
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"text/template"
 	"time"
@@ -22,6 +21,23 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
+func queryServiceConfig(n *network.Network) config.Config {
+	return config.Config{
+		RequestTimeout: 10 * time.Second,
+		Endpoints: []config.Endpoint{
+			{
+				Address:           "127.0.0.1:7001",
+				ConnectionTimeout: grpc.DefaultConnectionTimeout,
+				TLS: &config.TLSConfig{
+					Enabled:            n.TLSEnabled,
+					RootCertPaths:      []string{n.OrgOrdererTLSCACertificatePath(n.OrdererOrgs()[0])},
+					ServerNameOverride: ordererTLSServerName(n),
+				},
+			},
+		},
+	}
+}
+
 // generateQSExtension adds the query service endpoint configuration to the core.yaml
 // of every FSC node in the network topology.
 func generateQSExtension(n *network.Network) {
@@ -32,25 +48,8 @@ func generateQSExtension(n *network.Network) {
 		utils.Must(errors.New("cannot get fsc topo instance"))
 	}
 
-	// TODO set correct values
-	queryServiceHost := "localhost"
-	queryServicePort := 7001
-
 	// TODO: most of this logic should go into the query service package
-
-	c := config.Config{
-		RequestTimeout: 10 * time.Second,
-		Endpoints: []config.Endpoint{
-			{
-				Address:           fmt.Sprintf("%s:%v", queryServiceHost, queryServicePort),
-				ConnectionTimeout: grpc.DefaultConnectionTimeout,
-				TLS: &config.TLSConfig{
-					Enabled:       n.TLSEnabled,
-					RootCertPaths: []string{n.OrgOrdererTLSCACertificatePath(n.OrdererOrgs()[0])},
-				},
-			},
-		},
-	}
+	c := queryServiceConfig(n)
 
 	t, err := template.New("view_extension").Funcs(template.FuncMap{
 		"NetworkName":    func() string { return n.Topology().Name() },
@@ -87,6 +86,9 @@ fabric:
             {{- if .TLS.Enabled }}
             rootCerts:{{- range .TLS.RootCertPaths }}
               - {{ . }}
+            {{- end }}
+            {{- if .TLS.ServerNameOverride }}
+            serverNameOverride: {{ .TLS.ServerNameOverride }}
             {{- end }}
             {{- if .TLS.ClientKeyPath }}
             clientKey: {{ .TLS.ClientKeyPath }}

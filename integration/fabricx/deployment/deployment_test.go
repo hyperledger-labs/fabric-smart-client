@@ -74,7 +74,7 @@ func UpdateNamespacePolicy(ii *integration.Infrastructure, policy string) {
 	// committer details
 	committerNode := fx.Network.Peer("Org1", "SC")
 	committerSidecarPort := fmt.Sprintf("%d", fx.Network.PeerPort(committerNode, fabric_network.ListenPort))
-	notificationsEndpoint := net.JoinHostPort("localhost", committerSidecarPort)
+	notificationsEndpoint := net.JoinHostPort("127.0.0.1", committerSidecarPort)
 
 	// setup our new endorser
 	command := &fxconfig.UpdateNamespace{
@@ -88,15 +88,20 @@ func UpdateNamespacePolicy(ii *integration.Infrastructure, policy string) {
 			OrdererConfig: fxconfig.OrdererConfig{
 				Address: ordererEndpoint,
 				TLSConfig: fxconfig.TLSConfig{
-					Enabled: false, // FIXME
+					Enabled: fx.Network.TLSEnabled,
 					RootCerts: []string{
-						fx.Network.OrgOrdererTLSCACertificatePath(fx.Network.Organizations[0]),
+						fx.Network.OrgOrdererTLSCACertificatePath(fx.Network.OrdererOrgs()[0]),
 					},
 				},
 			},
 			NotificationsConfig: fxconfig.NotificationsConfig{
-				Address:   notificationsEndpoint,
-				TLSConfig: fxconfig.TLSConfig{},
+				Address: notificationsEndpoint,
+				TLSConfig: fxconfig.TLSConfig{
+					Enabled: fx.Network.TLSEnabled,
+					RootCerts: []string{
+						fx.Network.OrgOrdererTLSCACertificatePath(fx.Network.OrdererOrgs()[0]),
+					},
+				},
 			},
 			Policy: policy,
 		},

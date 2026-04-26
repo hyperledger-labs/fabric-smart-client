@@ -104,6 +104,16 @@ func (n *NamespaceCommon) Env() []string {
 		)
 	}
 
+	// fxconfig's env loader does not currently populate service-specific TLS
+	// pointer configs from environment variables, so export the same settings
+	// through the global TLS section as a compatibility path.
+	switch {
+	case n.OrdererConfig.TLSConfig.Enabled:
+		env = appendGlobalTLSConfig(env, n.OrdererConfig.TLSConfig)
+	case n.NotificationsConfig.TLSConfig.Enabled:
+		env = appendGlobalTLSConfig(env, n.NotificationsConfig.TLSConfig)
+	}
+
 	return env
 }
 
@@ -148,6 +158,23 @@ func (n *ListNamespaces) Env() []string {
 			"FXCONFIG_QUERIES_TLS_ENABLED=true",
 			"FXCONFIG_QUERIES_TLS_ROOTCERTS="+rootCerts,
 		)
+		env = appendGlobalTLSConfig(env, n.QueryConfig.TLSConfig)
+	}
+
+	return env
+}
+
+func appendGlobalTLSConfig(env []string, tlsConfig TLSConfig) []string {
+	env = append(env, "FXCONFIG_TLS_ENABLED=true")
+
+	if len(tlsConfig.RootCerts) != 0 {
+		env = append(env, "FXCONFIG_TLS_ROOTCERTS="+strings.Join(tlsConfig.RootCerts, ","))
+	}
+	if tlsConfig.ClientKeyPath != "" {
+		env = append(env, "FXCONFIG_TLS_CLIENTKEY="+tlsConfig.ClientKeyPath)
+	}
+	if tlsConfig.ClientCertPath != "" {
+		env = append(env, "FXCONFIG_TLS_CLIENTCERT="+tlsConfig.ClientCertPath)
 	}
 
 	return env

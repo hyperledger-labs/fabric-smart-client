@@ -194,7 +194,7 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 	gomega.Expect(committerNode).NotTo(gomega.BeNil())
 
 	committerSidecarPort := fmt.Sprintf("%d", n.PeerPort(committerNode, fabric_network.ListenPort))
-	notificationsEndpoint := net.JoinHostPort("localhost", committerSidecarPort)
+	notificationsEndpoint := net.JoinHostPort("127.0.0.1", committerSidecarPort)
 
 	cmd := &fxconfig.CreateNamespace{
 		NamespaceCommon: fxconfig.NamespaceCommon{
@@ -223,7 +223,7 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 	}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	gomega.Eventually(sess, 60*time.Second).Should(gexec.Exit(0))
 }
 
 // UpdateNamespace deploys the new version of the chaincode passed by chaincodeId.

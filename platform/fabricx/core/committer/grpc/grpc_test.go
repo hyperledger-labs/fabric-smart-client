@@ -174,21 +174,21 @@ func TestTransportCredentials(t *testing.T) {
 	t.Parallel()
 	t.Run("nil tls config", func(t *testing.T) {
 		t.Parallel()
-		creds, err := grpc2.TransportCredentials(nil)
+		creds, err := grpc2.TransportCredentials("", nil)
 		require.NoError(t, err)
 		require.Equal(t, "insecure", creds.Info().SecurityProtocol)
 	})
 
 	t.Run("tls disabled", func(t *testing.T) {
 		t.Parallel()
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{Enabled: false})
+		creds, err := grpc2.TransportCredentials("", &config.TLSConfig{Enabled: false})
 		require.NoError(t, err)
 		require.Equal(t, "insecure", creds.Info().SecurityProtocol)
 	})
 
 	t.Run("tls enabled no root certs uses system pool", func(t *testing.T) {
 		t.Parallel()
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
+		creds, err := grpc2.TransportCredentials("", &config.TLSConfig{
 			Enabled:       true,
 			RootCertPaths: []string{},
 		})
@@ -198,7 +198,7 @@ func TestTransportCredentials(t *testing.T) {
 
 	t.Run("tls enabled root cert not found", func(t *testing.T) {
 		t.Parallel()
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
+		creds, err := grpc2.TransportCredentials("", &config.TLSConfig{
 			Enabled:       true,
 			RootCertPaths: []string{"non-existent-file"},
 		})
@@ -212,7 +212,7 @@ func TestTransportCredentials(t *testing.T) {
 		certFile := filepath.Join(tmpDir, "cert.pem")
 		require.NoError(t, os.WriteFile(certFile, []byte("invalid-cert"), 0o644))
 
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
+		creds, err := grpc2.TransportCredentials("", &config.TLSConfig{
 			Enabled:       true,
 			RootCertPaths: []string{certFile},
 		})
@@ -224,7 +224,7 @@ func TestTransportCredentials(t *testing.T) {
 		t.Parallel()
 		certFile, _ := generateCertAndKey(t)
 
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
+		creds, err := grpc2.TransportCredentials("127.0.0.1:7050", &config.TLSConfig{
 			Enabled:            true,
 			RootCertPaths:      []string{certFile},
 			ServerNameOverride: "test-server",
@@ -237,7 +237,7 @@ func TestTransportCredentials(t *testing.T) {
 		t.Parallel()
 		certFile, _ := generateCertAndKey(t)
 
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
+		creds, err := grpc2.TransportCredentials("", &config.TLSConfig{
 			Enabled:        true,
 			RootCertPaths:  []string{certFile},
 			ClientCertPath: certFile,
@@ -250,7 +250,7 @@ func TestTransportCredentials(t *testing.T) {
 		t.Parallel()
 		certFile, keyFile := generateCertAndKey(t)
 
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
+		creds, err := grpc2.TransportCredentials("", &config.TLSConfig{
 			Enabled:       true,
 			RootCertPaths: []string{certFile},
 			ClientKeyPath: keyFile,
@@ -264,7 +264,7 @@ func TestTransportCredentials(t *testing.T) {
 		certFile1, _ := generateCertAndKey(t)
 		_, keyFile2 := generateCertAndKey(t)
 
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
+		creds, err := grpc2.TransportCredentials("", &config.TLSConfig{
 			Enabled:        true,
 			RootCertPaths:  []string{certFile1},
 			ClientCertPath: certFile1,
@@ -278,7 +278,7 @@ func TestTransportCredentials(t *testing.T) {
 		t.Parallel()
 		certFile, keyFile := generateCertAndKey(t)
 
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
+		creds, err := grpc2.TransportCredentials("", &config.TLSConfig{
 			Enabled:        true,
 			RootCertPaths:  []string{certFile},
 			ClientCertPath: certFile,
@@ -343,6 +343,37 @@ func TestClientConn_Integration(t *testing.T) {
 				TLS: &config.TLSConfig{
 					Enabled:       true,
 					RootCertPaths: []string{certFile},
+				},
+			}},
+		}
+		cc, err := grpc2.ClientConn(cfg)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			_ = cc.Close()
+		})
+
+		invokeHealthCheck(t, cc)
+	})
+
+	t.Run("server tls with server name override", func(t *testing.T) {
+		t.Parallel()
+		certFile, keyFile := generateServerCertAndKeyWithDNSName(t, "orderer.example.com")
+
+		serverCert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		require.NoError(t, err)
+		serverTLSCfg := &tls.Config{
+			Certificates: []tls.Certificate{serverCert},
+			MinVersion:   tls.VersionTLS12,
+		}
+		addr := startTestServer(t, grpc.Creds(credentials.NewTLS(serverTLSCfg)))
+
+		cfg := &config.Config{
+			Endpoints: []config.Endpoint{{
+				Address: addr,
+				TLS: &config.TLSConfig{
+					Enabled:            true,
+					RootCertPaths:      []string{certFile},
+					ServerNameOverride: "orderer.example.com",
 				},
 			}},
 		}
@@ -437,6 +468,12 @@ func invokeHealthCheck(t *testing.T, cc *grpc.ClientConn) {
 // as both a server certificate and an mTLS client certificate in tests.
 func generateServerCertAndKey(t *testing.T) (certFile, keyFile string) {
 	t.Helper()
+
+	return generateServerCertAndKeyWithDNSName(t, "")
+}
+
+func generateServerCertAndKeyWithDNSName(t *testing.T, dnsName string) (certFile, keyFile string) {
+	t.Helper()
 	tmpDir := t.TempDir()
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -452,6 +489,9 @@ func generateServerCertAndKey(t *testing.T) (certFile, keyFile string) {
 		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
 		IsCA:                  true,
 		BasicConstraintsValid: true,
+	}
+	if dnsName != "" {
+		template.DNSNames = []string{dnsName}
 	}
 
 	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)

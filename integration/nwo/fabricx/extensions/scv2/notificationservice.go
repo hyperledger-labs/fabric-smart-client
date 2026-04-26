@@ -22,6 +22,27 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
+func notificationServiceConfig(n *network.Network, notificationServicePort uint16, notificationServiceHost string) fxgrpc.Config {
+	if notificationServiceHost == "" {
+		notificationServiceHost = "127.0.0.1"
+	}
+
+	return fxgrpc.Config{
+		RequestTimeout: 10 * time.Second,
+		Endpoints: []fxgrpc.Endpoint{
+			{
+				Address:           fmt.Sprintf("%s:%v", notificationServiceHost, notificationServicePort),
+				ConnectionTimeout: grpc.DefaultConnectionTimeout,
+				TLS: &fxgrpc.TLSConfig{
+					Enabled:            n.TLSEnabled,
+					RootCertPaths:      []string{n.OrgOrdererTLSCACertificatePath(n.OrdererOrgs()[0])},
+					ServerNameOverride: ordererTLSServerName(n),
+				},
+			},
+		},
+	}
+}
+
 // generateNSExtensions adds the committers notification service information to the config
 func generateNSExtension(n *network.Network, notificationServicePort uint16, notificationServiceHost string) {
 	context := n.Context
@@ -32,20 +53,7 @@ func generateNSExtension(n *network.Network, notificationServicePort uint16, not
 	}
 
 	// TODO: most of this logic should go somewhere
-
-	config := fxgrpc.Config{
-		RequestTimeout: 10 * time.Second,
-		Endpoints: []fxgrpc.Endpoint{
-			{
-				Address:           fmt.Sprintf("%s:%v", notificationServiceHost, notificationServicePort),
-				ConnectionTimeout: grpc.DefaultConnectionTimeout,
-				TLS: &fxgrpc.TLSConfig{
-					Enabled:       n.TLSEnabled,
-					RootCertPaths: []string{n.OrgOrdererTLSCACertificatePath(n.OrdererOrgs()[0])},
-				},
-			},
-		},
-	}
+	config := notificationServiceConfig(n, notificationServicePort, notificationServiceHost)
 
 	t, err := template.New("view_extension").Funcs(template.FuncMap{
 		"NetworkName":    func() string { return n.Topology().Name() },
@@ -82,6 +90,9 @@ fabric:
             {{- if .TLS.Enabled }}
             rootCerts:{{- range .TLS.RootCertPaths }}
               - {{ . }}
+            {{- end }}
+            {{- if .TLS.ServerNameOverride }}
+            serverNameOverride: {{ .TLS.ServerNameOverride }}
             {{- end }}
             {{- if .TLS.ClientKeyPath }}
             clientKey: {{ .TLS.ClientKeyPath }}
