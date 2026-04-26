@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	commondriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -22,6 +23,28 @@ import (
 //go:generate counterfeiter -o mocks/fabric_network_service.go --fake-name FakeFabricNetworkService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.FabricNetworkService
 //go:generate counterfeiter -o mocks/signer_service.go --fake-name FakeSignerService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.SignerService
 //go:generate counterfeiter -o mocks/signer.go --fake-name FakeSigner github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Signer
+
+type testEnvelopeSigningIdentity struct {
+	creator []byte
+	signRes []byte
+	signErr error
+}
+
+func (s *testEnvelopeSigningIdentity) Serialize() ([]byte, error) {
+	return s.creator, nil
+}
+
+func (s *testEnvelopeSigningIdentity) Sign(message []byte) ([]byte, error) {
+	return s.signRes, s.signErr
+}
+
+func (s *testEnvelopeSigningIdentity) Verify(message, signature []byte) error {
+	return nil
+}
+
+func (s *testEnvelopeSigningIdentity) GetPublicVersion() commondriver.VerifyingIdentity {
+	return nil
+}
 
 // TestCreateSCEnvelopeNoProposalResponses verifies that envelope creation fails
 // when the transaction carries no proposal responses at all.
@@ -102,7 +125,7 @@ func TestCreateSCEnvelopeMergeProposalResponsesPayloadMismatch(t *testing.T) {
 }
 
 // TestCreateSCEnvelopeSignerNotFound verifies that envelope creation fails
-// after marshaling the merged tx if the signer service cannot provide a signer
+// after marshaling the merged tx if the signer service cannot provide a signing identity
 // for the transaction creator.
 func TestCreateSCEnvelopeSignerNotFound(t *testing.T) {
 	t.Parallel()
@@ -121,7 +144,7 @@ func TestCreateSCEnvelopeSignerNotFound(t *testing.T) {
 	fakeSignerService := &mocks.FakeSignerService{}
 
 	fakeFNS.SignerServiceReturns(fakeSignerService)
-	fakeSignerService.GetSignerReturns(nil, errors.New("boom"))
+	fakeSignerService.GetSigningIdentityReturns(nil, errors.New("boom"))
 
 	tx := &Transaction{
 		TTxID:              "tx1",
@@ -164,11 +187,11 @@ func TestCreateSCEnvelopeSuccess(t *testing.T) {
 
 	fakeFNS := &mocks.FakeFabricNetworkService{}
 	fakeSignerService := &mocks.FakeSignerService{}
-	fakeSigner := &mocks.FakeSigner{}
-
 	fakeFNS.SignerServiceReturns(fakeSignerService)
-	fakeSignerService.GetSignerReturns(fakeSigner, nil)
-	fakeSigner.SignReturns([]byte("envelope-signature"), nil)
+	fakeSignerService.GetSigningIdentityReturns(&testEnvelopeSigningIdentity{
+		creator: []byte("creator"),
+		signRes: []byte("envelope-signature"),
+	}, nil)
 
 	tx := &Transaction{
 		TTxID:              "tx1",
@@ -184,8 +207,7 @@ func TestCreateSCEnvelopeSuccess(t *testing.T) {
 	require.NotNil(t, env)
 
 	require.Equal(t, 1, fakeFNS.SignerServiceCallCount())
-	require.Equal(t, 1, fakeSignerService.GetSignerCallCount())
-	require.Equal(t, 1, fakeSigner.SignCallCount())
+	require.Equal(t, 1, fakeSignerService.GetSigningIdentityCallCount())
 }
 
 func mustRawTx(t *testing.T, tx *applicationpb.Tx) []byte {
