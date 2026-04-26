@@ -84,8 +84,8 @@ func NewService(configService Configuration, name string, defaultConfig bool) (*
 		return nil, err
 	}
 	for _, v := range orderers {
-		v.TLSEnabled = tlsEnabled
-		if tlsEnabled && len(v.TLSRootCertFile) > 0 {
+		v.TLSEnabled = effectiveTLSEnabled(tlsEnabled, v)
+		if v.TLSEnabled && len(v.TLSRootCertFile) > 0 {
 			v.TLSRootCertFile = configService.TranslatePath(v.TLSRootCertFile)
 		}
 	}
@@ -358,7 +358,7 @@ func createChannelMap(channels []*Channel) (map[string]*Channel, string, error) 
 func createPeerMap(configService Configuration, peers []*ConnectionConfig, tlsEnabled bool) map[driver.PeerFunctionType][]*ConnectionConfig {
 	peerMapping := map[driver.PeerFunctionType][]*ConnectionConfig{}
 	for _, peerCC := range peers {
-		peerCC.TLSEnabled = tlsEnabled && !peerCC.TLSDisabled
+		peerCC.TLSEnabled = effectiveTLSEnabled(tlsEnabled, peerCC)
 		if peerCC.TLSEnabled && len(peerCC.TLSRootCertFile) > 0 {
 			peerCC.TLSRootCertFile = configService.TranslatePath(peerCC.TLSRootCertFile)
 		}
@@ -370,6 +370,14 @@ func createPeerMap(configService Configuration, peers []*ConnectionConfig, tlsEn
 		}
 	}
 	return peerMapping
+}
+
+func effectiveTLSEnabled(defaultEnabled bool, cc *ConnectionConfig) bool {
+	if cc.TLSDisabled {
+		return false
+	}
+
+	return defaultEnabled || cc.TLSEnabled
 }
 
 func readItems[T any](configService Configuration, prefix, key string) ([]T, error) {

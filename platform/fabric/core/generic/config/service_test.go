@@ -187,6 +187,102 @@ func TestCreatePeerMapAndPickPeer(t *testing.T) {
 	require.NotNil(t, p)
 }
 
+func TestNewService_honorsPerEndpointTLSEnabledOverride(t *testing.T) {
+	t.Parallel()
+
+	m := &mock.Configuration{}
+	m.IsSetReturnsOnCall(0, true)
+	m.GetStringReturnsOnCall(0, "")
+	m.GetBoolReturns(false) // shared fabric.<network>.tls.enabled
+	m.TranslatePathStub = func(path string) string {
+		return "TR:" + path
+	}
+	m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		switch key {
+		case "fabric.test.peers", "fabric.testpeers":
+			p, ok := rawVal.(*[]*grpc.ConnectionConfig)
+			if !ok {
+				return nil
+			}
+			*p = []*grpc.ConnectionConfig{
+				{Address: "p1", Usage: "query", TLSEnabled: true, TLSRootCertFile: "peer.pem"},
+				{Address: "p2", Usage: "delivery"},
+			}
+			return nil
+		case "fabric.test.orderers", "fabric.testorderers":
+			p, ok := rawVal.(*[]*grpc.ConnectionConfig)
+			if !ok {
+				return nil
+			}
+			*p = []*grpc.ConnectionConfig{{Address: "o1", TLSEnabled: true, TLSRootCertFile: "orderer.pem"}}
+			return nil
+		case "fabric.test.channels", "fabric.testchannels":
+			p, ok := rawVal.(*[]*cfg.Channel)
+			if !ok {
+				return nil
+			}
+			*p = []*cfg.Channel{{Name: "ch1"}}
+			return nil
+		}
+		return nil
+	}
+
+	svc, err := cfg.NewService(m, "test", false)
+	require.NoError(t, err)
+
+	orderer := svc.Orderers()[0]
+	require.True(t, orderer.TLSEnabled)
+	require.Equal(t, "TR:orderer.pem", orderer.TLSRootCertFile)
+
+	peer := svc.PickPeer(driver.PeerForQuery)
+	require.NotNil(t, peer)
+	require.True(t, peer.TLSEnabled)
+	require.Equal(t, "TR:peer.pem", peer.TLSRootCertFile)
+}
+
+func TestNewService_tlsDisabledOverridesGlobalAndEndpointTLS(t *testing.T) {
+	t.Parallel()
+
+	m := &mock.Configuration{}
+	m.IsSetReturnsOnCall(0, true)
+	m.GetStringReturnsOnCall(0, "")
+	m.GetBoolReturns(true) // shared fabric.<network>.tls.enabled
+	m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		switch key {
+		case "fabric.test.peers", "fabric.testpeers":
+			p, ok := rawVal.(*[]*grpc.ConnectionConfig)
+			if !ok {
+				return nil
+			}
+			*p = []*grpc.ConnectionConfig{
+				{Address: "p1", Usage: "query", TLSEnabled: true, TLSDisabled: true, TLSRootCertFile: "peer.pem"},
+			}
+			return nil
+		case "fabric.test.orderers", "fabric.testorderers":
+			p, ok := rawVal.(*[]*grpc.ConnectionConfig)
+			if !ok {
+				return nil
+			}
+			*p = []*grpc.ConnectionConfig{{Address: "o1", TLSEnabled: true, TLSDisabled: true, TLSRootCertFile: "orderer.pem"}}
+			return nil
+		case "fabric.test.channels", "fabric.testchannels":
+			p, ok := rawVal.(*[]*cfg.Channel)
+			if !ok {
+				return nil
+			}
+			*p = []*cfg.Channel{{Name: "ch1"}}
+			return nil
+		}
+		return nil
+	}
+
+	svc, err := cfg.NewService(m, "test", false)
+	require.NoError(t, err)
+
+	require.False(t, svc.Orderers()[0].TLSEnabled)
+	require.False(t, svc.PickPeer(driver.PeerForQuery).TLSEnabled)
+}
+
 func TestPickOrderer_nilAndSetConfigOrderers(t *testing.T) {
 	t.Parallel()
 	m := &mock.Configuration{}

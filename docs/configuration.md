@@ -389,6 +389,7 @@ fabric:
         # it is possible to customize per orderer the TLS behaviour, by using the following attributes
         tlsClientSideAuth: true
         tlsDisabled: true
+        # set to true to enable TLS for this orderer even if fabric.<network>.tls.enabled is false
         tlsEnabled: false
 
     # List of trusted peers this node can connect to.
@@ -405,6 +406,7 @@ fabric:
         # it is possible to customize per peer the TLS behaviour, by using the following attributes
         tlsClientSideAuth: true
         tlsDisabled: true
+        # set to true to enable TLS for this peer even if fabric.<network>.tls.enabled is false
         tlsEnabled: false
         # `usage` allows the developer to specify the function for which this peer should be used.
         # The available functions are: delivery, discovery, finality, and query.
