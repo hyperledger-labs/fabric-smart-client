@@ -57,11 +57,19 @@ func (k *kvsAdapter) Get(id string, state interface{}) error {
 type Provider struct {
 	*Idemix
 	userKey       bccsp.Key
-	conf          idemixmsp.IdemixMSPConfig
-	SignerService mspdriver.SignerService
+	signerConfig  signerConfig
+	signerService mspdriver.SignerService
+	sigType       bccsp.SignatureType
+	verType       bccsp.VerificationType
+}
 
-	sigType bccsp.SignatureType
-	verType bccsp.VerificationType
+type signerConfig struct {
+	organizationalUnitIdentifier string
+	role                         int
+	enrollmentID                 string
+	credentialRevocationInfo     []byte
+	revocationHandle             string
+	cred                         []byte
 }
 
 func NewProviderWithEidRhNymPolicy(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService) (*Provider, error) {
@@ -211,11 +219,26 @@ func NewProvider(conf1 *m.MSPConfig, signerService mspdriver.SignerService, sigT
 			VerType:         verType,
 		},
 		userKey:       userKey,
-		conf:          conf,
-		SignerService: signerService,
+		signerConfig:  newSignerConfig(conf.GetSigner()),
+		signerService: signerService,
 		sigType:       sigType,
 		verType:       verType,
 	}, nil
+}
+
+func newSignerConfig(conf *idemixmsp.IdemixMSPSignerConfig) signerConfig {
+	if conf == nil {
+		return signerConfig{}
+	}
+
+	return signerConfig{
+		organizationalUnitIdentifier: conf.OrganizationalUnitIdentifier,
+		role:                         int(conf.Role),
+		enrollmentID:                 conf.EnrollmentId,
+		credentialRevocationInfo:     conf.CredentialRevocationInformation,
+		revocationHandle:             conf.RevocationHandle,
+		cred:                         conf.Cred,
+	}
 }
 
 func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
@@ -239,18 +262,18 @@ func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte
 		MspIdentifier: p.Name,
 		Role:          m.MSPRole_MEMBER,
 	}
-	if CheckRole(int(p.conf.Signer.Role), ADMIN) {
+	if CheckRole(p.signerConfig.role, ADMIN) {
 		role.Role = m.MSPRole_ADMIN
 	}
 
 	ou := &m.OrganizationUnit{
 		MspIdentifier:                p.Name,
-		OrganizationalUnitIdentifier: p.conf.Signer.OrganizationalUnitIdentifier,
+		OrganizationalUnitIdentifier: p.signerConfig.organizationalUnitIdentifier,
 		CertifiersIdentifier:         p.IssuerPublicKey.SKI(),
 	}
 
-	enrollmentID := p.conf.Signer.EnrollmentId
-	rh := p.conf.Signer.RevocationHandle
+	enrollmentID := p.signerConfig.enrollmentID
+	rh := p.signerConfig.revocationHandle
 	sigType := p.sigType
 	var signerMetadata *bccsp.IdemixSignerMetadata
 	if opts != nil {
@@ -272,7 +295,7 @@ func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte
 
 	// Create the cryptographic evidence that this identity is valid
 	sigOpts := &bccsp.IdemixSignerOpts{
-		Credential: p.conf.Signer.Cred,
+		Credential: p.signerConfig.cred,
 		Nym:        nymKey,
 		IssuerPK:   p.IssuerPublicKey,
 		Attributes: []bccsp.IdemixAttribute{
@@ -283,7 +306,7 @@ func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte
 		},
 		RhIndex:  RHIndex,
 		EidIndex: EIDIndex,
-		CRI:      p.conf.Signer.CredentialRevocationInformation,
+		CRI:      p.signerConfig.credentialRevocationInfo,
 		SigType:  sigType,
 		Metadata: signerMetadata,
 	}
@@ -303,7 +326,7 @@ func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte
 	}
 	sID := &MSPSigningIdentity{
 		MSPIdentity:  id,
-		Cred:         p.conf.Signer.Cred,
+		Cred:         p.signerConfig.cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
 		EnrollmentId: enrollmentID,
@@ -313,8 +336,8 @@ func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte
 		return nil, nil, err
 	}
 
-	if p.SignerService != nil {
-		if err := p.SignerService.RegisterSigner(context.Background(), raw, sID, sID); err != nil {
+	if p.signerService != nil {
+		if err := p.signerService.RegisterSigner(context.Background(), raw, sID, sID); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -330,7 +353,7 @@ func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte
 			EidNymAuditData: sigOpts.Metadata.EidNymAuditData,
 			RhNymAuditData:  sigOpts.Metadata.RhNymAuditData,
 			Attributes: [][]byte{
-				[]byte(p.conf.Signer.OrganizationalUnitIdentifier),
+				[]byte(p.signerConfig.organizationalUnitIdentifier),
 				[]byte(strconv.Itoa(GetIdemixRoleFromMSPRole(role))),
 				[]byte(enrollmentID),
 				[]byte(rh),
@@ -373,10 +396,10 @@ func (p *Provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
 
 	si := &MSPSigningIdentity{
 		MSPIdentity:  r.Identity,
-		Cred:         p.conf.Signer.Cred,
+		Cred:         p.signerConfig.cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		EnrollmentId: p.conf.Signer.EnrollmentId,
+		EnrollmentId: p.signerConfig.enrollmentID,
 	}
 	msg := []byte("hello world!!!")
 	sigma, err := si.Sign(msg)
@@ -418,7 +441,7 @@ func (p *Provider) String() string {
 }
 
 func (p *Provider) EnrollmentID() string {
-	return p.conf.Signer.EnrollmentId
+	return p.signerConfig.enrollmentID
 }
 
 func (p *Provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentity, error) {
@@ -474,9 +497,9 @@ func (p *Provider) DeserializeSigningIdentity(raw []byte) (driver.SigningIdentit
 
 	return &MSPSigningIdentity{
 		MSPIdentity:  id,
-		Cred:         p.conf.Signer.Cred,
+		Cred:         p.signerConfig.cred,
 		UserKey:      p.userKey,
 		NymKey:       nymKey,
-		EnrollmentId: p.conf.Signer.EnrollmentId,
+		EnrollmentId: p.signerConfig.enrollmentID,
 	}, nil
 }
