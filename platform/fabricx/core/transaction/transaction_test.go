@@ -392,8 +392,21 @@ type testSerializableSigner struct {
 	signErr error
 }
 
-func (s *testSerializableSigner) Sign(message []byte) ([]byte, error) { return s.signRes, s.signErr }
-func (s *testSerializableSigner) Serialize() ([]byte, error)          { return s.creator, nil }
+func (s *testSerializableSigner) Sign(message []byte) ([]byte, error) {
+	return s.signRes, s.signErr
+}
+
+func (s *testSerializableSigner) Serialize() ([]byte, error) {
+	return s.creator, nil
+}
+
+func (s *testSerializableSigner) Verify(message, signature []byte) error {
+	return nil
+}
+
+func (s *testSerializableSigner) GetPublicVersion() commondriver.VerifyingIdentity {
+	return nil
+}
 
 func testSignedProposalBytes(t *testing.T) *peer.SignedProposal {
 	t.Helper()
@@ -669,10 +682,8 @@ func TestEndorseWithIdentity(t *testing.T) {
 		t.Parallel()
 		fakeFNS := &mocks.FakeFabricNetworkService{}
 		fakeSS := &mocks.FakeSignerService{}
-		fakeSigner := &mocks.FakeSigner{}
-		fakeSigner.SignReturns([]byte("sig"), nil)
 		fakeFNS.SignerServiceReturns(fakeSS)
-		fakeSS.GetSignerReturns(fakeSigner, nil)
+		fakeSS.GetSigningIdentityReturns(&testSerializableSigner{creator: testID, signRes: []byte("sig")}, nil)
 
 		tx := &Transaction{
 			ctx:            t.Context(),
@@ -687,8 +698,8 @@ func TestEndorseWithIdentity(t *testing.T) {
 
 		err := tx.EndorseWithIdentity(testID)
 		require.NoError(t, err)
-		require.Equal(t, 1, fakeSS.GetSignerCallCount())
-		require.Equal(t, testID, fakeSS.GetSignerArgsForCall(0))
+		require.Equal(t, 1, fakeSS.GetSigningIdentityCallCount())
+		require.Equal(t, testID, fakeSS.GetSigningIdentityArgsForCall(0))
 	})
 }
 
@@ -771,9 +782,7 @@ func TestEndorseProposalResponseWithIdentity(t *testing.T) {
 			name: "success",
 			mockSetup: func(fns *mocks.FakeFabricNetworkService, ss *mocks.FakeSignerService) {
 				fns.SignerServiceReturns(ss)
-				fakeSigner := &mocks.FakeSigner{}
-				fakeSigner.SignReturns([]byte("sig"), nil)
-				ss.GetSignerReturns(fakeSigner, nil)
+				ss.GetSigningIdentityReturns(&testSerializableSigner{creator: signerIdentityRaw, signRes: []byte("sig")}, nil)
 			},
 			rwsetPayload: validRWSet,
 			withProposal: true,
@@ -782,7 +791,7 @@ func TestEndorseProposalResponseWithIdentity(t *testing.T) {
 			name: "signer service fails",
 			mockSetup: func(fns *mocks.FakeFabricNetworkService, ss *mocks.FakeSignerService) {
 				fns.SignerServiceReturns(ss)
-				ss.GetSignerReturns(nil, errors.New("signer not found"))
+				ss.GetSigningIdentityReturns(nil, errors.New("signer not found"))
 			},
 			rwsetPayload:  validRWSet,
 			expectedError: "get signer",
@@ -791,9 +800,7 @@ func TestEndorseProposalResponseWithIdentity(t *testing.T) {
 			name: "proposal response generation fails",
 			mockSetup: func(fns *mocks.FakeFabricNetworkService, ss *mocks.FakeSignerService) {
 				fns.SignerServiceReturns(ss)
-				fakeSigner := &mocks.FakeSigner{}
-				fakeSigner.SignReturns([]byte("sig"), nil)
-				ss.GetSignerReturns(fakeSigner, nil)
+				ss.GetSigningIdentityReturns(&testSerializableSigner{creator: testID, signRes: []byte("sig")}, nil)
 			},
 			rwsetPayload:  validRWSet,
 			expectedError: "generate signed proposal response",
@@ -838,7 +845,7 @@ func TestEndorseProposalResponseWithIdentity(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Len(t, tx.TProposalResponses, 1)
-			require.Equal(t, 1, fakeSS.GetSignerCallCount())
+			require.Equal(t, 1, fakeSS.GetSigningIdentityCallCount())
 		})
 	}
 }
@@ -857,14 +864,14 @@ func TestEndorseProposalWithIdentity(t *testing.T) {
 			name: "success",
 			mockSetup: func(fns *mocks.FakeFabricNetworkService, ss *mocks.FakeSignerService) {
 				fns.SignerServiceReturns(ss)
-				ss.GetSignerReturns(&testSerializableSigner{creator: testID, signRes: []byte("prop-sig")}, nil)
+				ss.GetSigningIdentityReturns(&testSerializableSigner{creator: testID, signRes: []byte("prop-sig")}, nil)
 			},
 		},
 		{
 			name: "signer service fails",
 			mockSetup: func(fns *mocks.FakeFabricNetworkService, ss *mocks.FakeSignerService) {
 				fns.SignerServiceReturns(ss)
-				ss.GetSignerReturns(nil, errors.New("identity not found"))
+				ss.GetSigningIdentityReturns(nil, errors.New("identity not found"))
 			},
 			expectedError: "get signer",
 		},
@@ -899,8 +906,8 @@ func TestEndorseProposalWithIdentity(t *testing.T) {
 			require.NotNil(t, tx.TProposal)
 			require.NotNil(t, tx.TSignedProposal)
 			require.NotNil(t, tx.SignedProposal())
-			require.Equal(t, 1, fakeSS.GetSignerCallCount())
-			require.Equal(t, testID, fakeSS.GetSignerArgsForCall(0))
+			require.Equal(t, 1, fakeSS.GetSigningIdentityCallCount())
+			require.Equal(t, testID, fakeSS.GetSigningIdentityArgsForCall(0))
 		})
 	}
 }

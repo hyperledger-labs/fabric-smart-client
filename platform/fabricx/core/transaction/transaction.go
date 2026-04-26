@@ -382,13 +382,11 @@ func (t *Transaction) EndorseWithIdentity(identity view.Identity) error {
 		return errors.New("signer service not initialized")
 	}
 
-	// prepare signer
-	s, err := t.fns.SignerService().GetSigner(identity)
+	// Use the cached signing identity so endorsement signing can reuse serialized identities.
+	signer, err := t.fns.SignerService().GetSigningIdentity(identity)
 	if err != nil {
 		return errors.Wrapf(err, "get signer identity")
 	}
-	signer := &signerWrapper{creator: identity, signer: s}
-
 	return t.EndorseWithSigner(identity, signer)
 }
 
@@ -433,12 +431,11 @@ func (t *Transaction) EndorseProposal() error {
 }
 
 func (t *Transaction) EndorseProposalWithIdentity(identity view.Identity) error {
-	// prepare signer
-	s, err := t.fns.SignerService().GetSigner(identity)
+	// Use the cached signing identity so endorsement signing can reuse serialized identities.
+	signer, err := t.fns.SignerService().GetSigningIdentity(identity)
 	if err != nil {
 		return errors.Wrap(err, "get signer")
 	}
-	signer := &signerWrapper{creator: identity, signer: s}
 
 	defer t.Close()
 	if err = t.generateProposal(signer); err != nil {
@@ -454,12 +451,11 @@ func (t *Transaction) EndorseProposalResponse() error {
 
 func (t *Transaction) EndorseProposalResponseWithIdentity(identity view.Identity) error {
 	logger.Debugf("endorse with [%s]", identity)
-	// prepare signer
-	s, err := t.fns.SignerService().GetSigner(identity)
+	// Use the cached signing identity so endorsement signing can reuse serialized identities.
+	signer, err := t.fns.SignerService().GetSigningIdentity(identity)
 	if err != nil {
 		return errors.Wrap(err, "get signer")
 	}
-	signer := &signerWrapper{creator: identity, signer: s}
 
 	defer t.Close()
 	t.proposalResponse, err = t.getProposalResponse(signer)
