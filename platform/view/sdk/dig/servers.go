@@ -53,11 +53,11 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 		clientRootCAs = append(clientRootCAs, configProvider.TranslatePath(path))
 	}
 	tlsConfig = web.TLS{
-		Enabled:           configProvider.GetBool("fsc.web.tls.enabled"),
-		CertFile:          configProvider.GetPath("fsc.web.tls.cert.file"),
-		KeyFile:           configProvider.GetPath("fsc.web.tls.key.file"),
-		ClientAuth:        configProvider.GetBool("fsc.web.tls.clientAuthRequired"),
-		ClientCACertFiles: clientRootCAs,
+		Enabled:            configProvider.GetBool("fsc.web.tls.enabled"),
+		CertFile:           configProvider.GetPath("fsc.web.tls.cert.file"),
+		KeyFile:            configProvider.GetPath("fsc.web.tls.key.file"),
+		ClientAuthRequired: configProvider.GetBool("fsc.web.tls.clientAuthRequired"),
+		ClientRootCAs:      clientRootCAs,
 	}
 	webServer := web.NewServer(web.Options{
 		ListenAddress: listenAddr,

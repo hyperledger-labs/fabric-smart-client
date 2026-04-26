@@ -108,11 +108,11 @@ var _ = Describe("Server", func() {
 		options = server2.Options{
 			ListenAddress: "127.0.0.1:0",
 			TLS: server2.TLS{
-				Enabled:           true,
-				CertFile:          filepath.Join(tempDir, "server-cert.pem"),
-				KeyFile:           filepath.Join(tempDir, "server-key.pem"),
-				ClientAuth:        true,
-				ClientCACertFiles: []string{filepath.Join(tempDir, "client-ca.pem")},
+				Enabled:            true,
+				CertFile:           filepath.Join(tempDir, "server-cert.pem"),
+				KeyFile:            filepath.Join(tempDir, "server-key.pem"),
+				ClientAuthRequired: true,
+				ClientRootCAs:      []string{filepath.Join(tempDir, "client-ca.pem")},
 			},
 		}
 
@@ -196,8 +196,8 @@ var _ = Describe("Server", func() {
 
 	When("TLS is enabled without client authentication", func() {
 		BeforeEach(func() {
-			options.TLS.ClientAuth = false
-			options.TLS.ClientCACertFiles = []string{} // No client CA files
+			options.TLS.ClientAuthRequired = false
+			options.TLS.ClientRootCAs = []string{} // No client CA files
 			server = server2.NewServer(options)
 			client = newHTTPClient(tempDir, false) // Client without cert
 		})

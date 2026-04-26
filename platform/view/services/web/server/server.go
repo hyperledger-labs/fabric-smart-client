@@ -27,11 +27,11 @@ var logger = logging.MustGetLogger()
 //go:generate counterfeiter -o fakes/logger.go -fake-name Logger . Logger
 
 type TLS struct {
-	Enabled           bool
-	CertFile          string
-	KeyFile           string
-	ClientAuth        bool
-	ClientCACertFiles []string
+	Enabled            bool
+	CertFile           string
+	KeyFile            string
+	ClientAuthRequired bool
+	ClientRootCAs      []string
 }
 
 func (t TLS) Config() (*tls.Config, error) {
@@ -64,11 +64,11 @@ func (t TLS) Config() (*tls.Config, error) {
 		MaxVersion: tls.VersionTLS13,
 	}
 
-	if !t.ClientAuth {
+	if !t.ClientAuthRequired {
 		// no mTLS
 		// Optional: verify client certificates if provided, but don't require them
-		if len(t.ClientCACertFiles) > 0 {
-			caCertPool, err := loadClientCAs(t.ClientCACertFiles)
+		if len(t.ClientRootCAs) > 0 {
+			caCertPool, err := loadClientCAs(t.ClientRootCAs)
 			if err != nil {
 				return nil, err
 			}
@@ -80,14 +80,14 @@ func (t TLS) Config() (*tls.Config, error) {
 
 	// mTLS
 	// Require client certificates and verify them
-	if len(t.ClientCACertFiles) == 0 {
+	if len(t.ClientRootCAs) == 0 {
 		return nil, errors.Errorf("client TLS CA certificate pool must not be empty when clientAuthRequired is true")
 	}
 
 	// mTLS Enforcement:
 	// 1. Require client certificates: The handshake will fail if the client doesn't provide one.
 	// 2. Verify client certificates: The certificate must be signed by one of the CAs in the pool.
-	caCertPool, err := loadClientCAs(t.ClientCACertFiles)
+	caCertPool, err := loadClientCAs(t.ClientRootCAs)
 	if err != nil {
 		return nil, err
 	}
