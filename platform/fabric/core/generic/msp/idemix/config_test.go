@@ -17,6 +17,8 @@ import (
 )
 
 func TestGetFabricCAIdemixMspConfigPreservesCurveID(t *testing.T) {
+	t.Parallel()
+
 	conf, err := idemix2.GetFabricCAIdemixMspConfig("./testdata/charlie.ExtraId2", "charlie.ExtraId2")
 	require.NoError(t, err)
 
