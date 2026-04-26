@@ -11,6 +11,7 @@ import (
 	"time"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
@@ -113,6 +114,20 @@ func (s *RemoteQueryService) GetConfigTransaction() (*ConfigTransactionInfo, err
 		Envelope: envelope,
 		Version:  res.GetVersion(),
 	}, nil
+}
+
+func (s *RemoteQueryService) GetNamespacePolicies() (*applicationpb.NamespacePolicies, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
+	defer cancel()
+
+	now := time.Now()
+	res, err := s.client.GetNamespacePolicies(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, errors.Wrap(err, "get namespace policies")
+	}
+	logger.Debugf("QS GetNamespacePolicies: got response in %v", time.Since(now))
+
+	return res, nil
 }
 
 func (s *RemoteQueryService) query(m map[driver.Namespace][]driver.PKey) (map[driver.Namespace]map[driver.PKey]driver.VaultValue, error) {
