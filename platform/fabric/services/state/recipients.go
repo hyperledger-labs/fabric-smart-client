@@ -84,7 +84,7 @@ func RequestRecipientIdentity(viewCtx view.Context, other view.Identity) (view.I
 }
 
 // RequestRecipientIdentityFromNode requests a recipient identity from the passed node for the passed wallet alias.
-func RequestRecipientIdentityFromNode(viewCtx view.Context, node view.Identity, wallet view.Identity, opts ...ServiceOption) (view.Identity, error) {
+func RequestRecipientIdentityFromNode(viewCtx view.Context, node, wallet view.Identity, opts ...ServiceOption) (view.Identity, error) {
 	opt, err := CompileServiceOptions(opts...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to compile service options")
@@ -263,7 +263,7 @@ func ExchangeRecipientIdentities(viewCtx view.Context, recipient view.Identity, 
 }
 
 // ExchangeRecipientIdentitiesWithNode exchanges recipient identities with the passed node for the passed wallet alias.
-func ExchangeRecipientIdentitiesWithNode(viewCtx view.Context, node view.Identity, wallet view.Identity, opts ...ServiceOption) (view.Identity, view.Identity, error) {
+func ExchangeRecipientIdentitiesWithNode(viewCtx view.Context, node, wallet view.Identity, opts ...ServiceOption) (view.Identity, view.Identity, error) {
 	opt, err := CompileServiceOptions(opts...)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to compile service options")
