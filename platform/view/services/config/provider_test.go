@@ -20,7 +20,8 @@ import (
 type DriverType string
 
 type Opts struct {
-	Driver       DriverType
+	// DriverType has on purpose a different name from what we expect in the configuration file as signaled by the yaml tag.
+	DriverType   DriverType `yaml:"driver"`
 	DataSource   string
 	SkipPragmas  bool
 	MaxOpenConns int
@@ -77,13 +78,13 @@ func TestEnvSubstitution(t *testing.T) { //nolint:paralleltest
 
 	err = p.UnmarshalKey("fsc.kvs.persistence.opts", &db)
 	require.NoError(t, err)
-	assert.Equal(t, DriverType("sqlite"), db.Driver)
+	assert.Equal(t, DriverType("sqlite"), db.DriverType)
 	assert.Equal(t, "new data source", db.DataSource)
 	assert.True(t, db.SkipPragmas)
 	assert.Equal(t, 0, db.MaxOpenConns)
 	err = p.UnmarshalKey("FSC.kvs.PerSistEnce.opTs", &db)
 	require.NoError(t, err)
-	assert.Equal(t, DriverType("sqlite"), db.Driver)
+	assert.Equal(t, DriverType("sqlite"), db.DriverType)
 	assert.Equal(t, "new data source", db.DataSource)
 	assert.True(t, db.SkipPragmas)
 	assert.Equal(t, 0, db.MaxOpenConns)
@@ -166,7 +167,7 @@ func testBasics(t *testing.T, p *Provider) {
 	assert.Equal(t, "sql", p.GetString("fsc.kvs.persistence.type"))
 	err := p.UnmarshalKey("fsc.kvs.persistence.opts", &db)
 	require.NoError(t, err)
-	assert.Equal(t, DriverType("sqlite"), db.Driver)
+	assert.Equal(t, DriverType("sqlite"), db.DriverType)
 	assert.Equal(t, "ds", db.DataSource)
 	assert.True(t, db.SkipPragmas)
 	assert.Equal(t, 0, db.MaxOpenConns)
