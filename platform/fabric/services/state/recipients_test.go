@@ -12,13 +12,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
-	"github.com/hyperledger/fabric-protos-go-apiv2/common"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
 )
 
 func TestRequestRecipientIdentityFromNodeUsesExplicitNodeAndWallet(t *testing.T) {
@@ -401,17 +401,3 @@ func (l *testLocalMembership) GetIdentityInfoByIdentity(mspType string, id view.
 func (l *testLocalMembership) Refresh() error {
 	return nil
 }
-
-type testChannelMembership struct{}
-
-func (testChannelMembership) GetMSPIDs() []string                  { return nil }
-func (testChannelMembership) MSPManager() fdriver.MSPManager       { return nil }
-func (testChannelMembership) IsValid(identity view.Identity) error { return nil }
-func (testChannelMembership) GetVerifier(identity view.Identity) (fdriver.Verifier, error) {
-	return nil, nil
-}
-func (testChannelMembership) CheckACL(fdriver.SignedProposal) error { return nil }
-
-type testOrdering struct{}
-
-func (testOrdering) Broadcast(context.Context, *common.Envelope) error { return nil }
