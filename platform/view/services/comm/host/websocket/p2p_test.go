@@ -113,8 +113,8 @@ func TestMTLSCallerIdentityBinding(t *testing.T) { //nolint:paralleltest
 }
 
 func setupTwoNodes(tb testing.TB) (*comm.HostNode, *comm.HostNode) {
+	tb.Helper()
 	t := tb
-	t.Helper()
 	tlsFiles := generateTLSFiles(t)
 
 	bootstrapAddress := freeTCPAddress(t)
@@ -166,8 +166,8 @@ func TestSessionsTwoNodesTestRound(t *testing.T) { //nolint:paralleltest
 }
 
 func setupThreeNodes(tb testing.TB) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
+	tb.Helper()
 	t := tb
-	t.Helper()
 	// Create TLS certificates for three nodes: bootstrap, node1, node2
 	dir := t.TempDir()
 
@@ -289,15 +289,15 @@ func setupThreeNodes(tb testing.TB) (*comm.HostNode, *comm.HostNode, *comm.HostN
 }
 
 func freeTCPAddress(tb testing.TB) string {
+	tb.Helper()
 	t := tb
-	t.Helper()
 	ports := freeport.GetT(t, 1)
 	return fmt.Sprintf("127.0.0.1:%d", ports[0])
 }
 
 func mustPeerIDFromCert(tb testing.TB, certPath string) string {
+	tb.Helper()
 	t := tb
-	t.Helper()
 	raw, err := os.ReadFile(certPath)
 	require.NoError(t, err)
 	block, _ := pem.Decode(raw)
@@ -324,8 +324,8 @@ type generatedTLSFiles struct {
 }
 
 func generateTLSFiles(tb testing.TB) generatedTLSFiles {
+	tb.Helper()
 	t := tb
-	t.Helper()
 	dir := t.TempDir()
 
 	caPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -524,8 +524,8 @@ func generateThreeNodesTLSFiles(t *testing.T) threeNodesTLSFiles {
 }
 
 func setupTwoNodesFromTLS(tb testing.TB, alice, bob nodeTLSFiles, caCert string) (*comm.HostNode, *comm.HostNode) {
+	tb.Helper()
 	t := tb
-	t.Helper()
 	aliceAddr := freeTCPAddress(t)
 	bobAddr := freeTCPAddress(t)
 	aliceID := mustPeerIDFromCert(t, alice.cert)
@@ -543,8 +543,8 @@ func setupTwoNodesFromTLS(tb testing.TB, alice, bob nodeTLSFiles, caCert string)
 }
 
 func writePEM(tb testing.TB, path, typ string, raw []byte) {
+	tb.Helper()
 	t := tb
-	t.Helper()
 	f, err := os.Create(path)
 	require.NoError(t, err)
 	defer func() { _ = f.Close() }()
