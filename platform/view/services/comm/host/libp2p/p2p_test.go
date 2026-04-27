@@ -70,55 +70,55 @@ func TestSessionsTwoNodesTestRound(t *testing.T) { //nolint:paralleltest
 	comm.SessionsNodesTestRound(t, bootstrapNode, []*comm.HostNode{node1, node2}, 2)
 }
 
-func generateKey(t testing.TB) (crypto.PrivKey, string) {
-	t.Helper()
+func generateKey(tb testing.TB) (crypto.PrivKey, string) {
+	tb.Helper()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	privKey, pubKey, err := crypto.ECDSAKeyPairFromKey(priv)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	ID, err := peer.IDFromPublicKey(pubKey)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	return privKey, ID.String()
 }
 
-func freeLibP2PAddresses(t testing.TB, n int) []string {
-	t.Helper()
+func freeLibP2PAddresses(tb testing.TB, n int) []string {
+	tb.Helper()
 	listeners := make([]net.Listener, n)
 	addresses := make([]string, n)
 	for i := range n {
 		l, err := net.Listen("tcp", "127.0.0.1:0")
-		require.NoError(t, err)
+		require.NoError(tb, err)
 		listeners[i] = l
 		addresses[i] = fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", l.Addr().(*net.TCPAddr).Port)
 	}
 	for _, l := range listeners {
-		require.NoError(t, l.Close())
+		require.NoError(tb, l.Close())
 	}
 	return addresses
 }
 
-func setupTwoNodes(t testing.TB) (*comm.HostNode, *comm.HostNode) {
-	t.Helper()
-	bootstrapSK, bootstrapID := generateKey(t)
-	nodeSK, nodeID := generateKey(t)
+func setupTwoNodes(tb testing.TB) (*comm.HostNode, *comm.HostNode) {
+	tb.Helper()
+	bootstrapSK, bootstrapID := generateKey(tb)
+	nodeSK, nodeID := generateKey(tb)
 
-	addrs := freeLibP2PAddresses(t, 2)
+	addrs := freeLibP2PAddresses(tb, 2)
 	bootstrapNodeEndpoint := addrs[0]
 	nodeEndpoint := addrs[1]
 
 	bootstrapConfig := &mock.LibP2PConfig{}
 	bootstrapConfig.ListenAddressReturns(bootstrapNodeEndpoint)
 	bootstrapHost, err := newLibP2PHost(bootstrapConfig, bootstrapSK, newMetrics(&disabled.Provider{}), true, "")
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	bootstrapNode, err := comm.NewNode(context.Background(), bootstrapHost, &disabled.Provider{})
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	nodeConfig := &mock.LibP2PConfig{}
 	nodeConfig.ListenAddressReturns(nodeEndpoint)
 	anotherHost, err := newLibP2PHost(nodeConfig, nodeSK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	anotherNode, err := comm.NewNode(context.Background(), anotherHost, &disabled.Provider{})
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	time.Sleep(1 * time.Second)
 
@@ -126,13 +126,13 @@ func setupTwoNodes(t testing.TB) (*comm.HostNode, *comm.HostNode) {
 		&comm.HostNode{P2PNode: anotherNode, ID: nodeID, Address: nodeEndpoint}
 }
 
-func setupThreeNodes(t testing.TB) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
-	t.Helper()
-	bootstrapSK, bootstrapID := generateKey(t)
-	node1SK, node1ID := generateKey(t)
-	node2SK, node2ID := generateKey(t)
+func setupThreeNodes(tb testing.TB) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
+	tb.Helper()
+	bootstrapSK, bootstrapID := generateKey(tb)
+	node1SK, node1ID := generateKey(tb)
+	node2SK, node2ID := generateKey(tb)
 
-	addrs := freeLibP2PAddresses(t, 3)
+	addrs := freeLibP2PAddresses(tb, 3)
 	bootstrapNodeEndpoint := addrs[0]
 	node1Endpoint := addrs[1]
 	node2Endpoint := addrs[2]
@@ -140,23 +140,23 @@ func setupThreeNodes(t testing.TB) (*comm.HostNode, *comm.HostNode, *comm.HostNo
 	bootstrapConfig := &mock.LibP2PConfig{}
 	bootstrapConfig.ListenAddressReturns(bootstrapNodeEndpoint)
 	bootstrapHost, err := newLibP2PHost(bootstrapConfig, bootstrapSK, newMetrics(&disabled.Provider{}), true, "")
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	bootstrapNode, err := comm.NewNode(context.Background(), bootstrapHost, &disabled.Provider{})
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	node1Config := &mock.LibP2PConfig{}
 	node1Config.ListenAddressReturns(node1Endpoint)
 	node1Host, err := newLibP2PHost(node1Config, node1SK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	node1, err := comm.NewNode(context.Background(), node1Host, &disabled.Provider{})
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	node2Config := &mock.LibP2PConfig{}
 	node2Config.ListenAddressReturns(node2Endpoint)
 	node2Host, err := newLibP2PHost(node2Config, node2SK, newMetrics(&disabled.Provider{}), false, bootstrapNodeEndpoint+"/p2p/"+bootstrapID)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	node2, err := comm.NewNode(context.Background(), node2Host, &disabled.Provider{})
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	time.Sleep(1 * time.Second)
 

@@ -112,7 +112,8 @@ func TestMTLSCallerIdentityBinding(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, []byte("pong"), reply.Payload)
 }
 
-func setupTwoNodes(t testing.TB) (*comm.HostNode, *comm.HostNode) {
+func setupTwoNodes(tb testing.TB) (*comm.HostNode, *comm.HostNode) {
+	t := tb
 	t.Helper()
 	tlsFiles := generateTLSFiles(t)
 
@@ -164,7 +165,8 @@ func TestSessionsTwoNodesTestRound(t *testing.T) { //nolint:paralleltest
 	comm.SessionsNodesTestRound(t, bootstrapNode, []*comm.HostNode{node1, node2}, 50)
 }
 
-func setupThreeNodes(t testing.TB) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
+func setupThreeNodes(tb testing.TB) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
+	t := tb
 	t.Helper()
 	// Create TLS certificates for three nodes: bootstrap, node1, node2
 	dir := t.TempDir()
@@ -286,13 +288,15 @@ func setupThreeNodes(t testing.TB) (*comm.HostNode, *comm.HostNode, *comm.HostNo
 		&comm.HostNode{P2PNode: node2Node, ID: node2ID, Address: node2Address}
 }
 
-func freeTCPAddress(t testing.TB) string {
+func freeTCPAddress(tb testing.TB) string {
+	t := tb
 	t.Helper()
 	ports := freeport.GetT(t, 1)
 	return fmt.Sprintf("127.0.0.1:%d", ports[0])
 }
 
-func mustPeerIDFromCert(t testing.TB, certPath string) string {
+func mustPeerIDFromCert(tb testing.TB, certPath string) string {
+	t := tb
 	t.Helper()
 	raw, err := os.ReadFile(certPath)
 	require.NoError(t, err)
@@ -319,7 +323,8 @@ type generatedTLSFiles struct {
 	otherKey      string
 }
 
-func generateTLSFiles(t testing.TB) generatedTLSFiles {
+func generateTLSFiles(tb testing.TB) generatedTLSFiles {
+	t := tb
 	t.Helper()
 	dir := t.TempDir()
 
@@ -518,7 +523,8 @@ func generateThreeNodesTLSFiles(t *testing.T) threeNodesTLSFiles {
 	}
 }
 
-func setupTwoNodesFromTLS(t testing.TB, alice, bob nodeTLSFiles, caCert string) (*comm.HostNode, *comm.HostNode) {
+func setupTwoNodesFromTLS(tb testing.TB, alice, bob nodeTLSFiles, caCert string) (*comm.HostNode, *comm.HostNode) {
+	t := tb
 	t.Helper()
 	aliceAddr := freeTCPAddress(t)
 	bobAddr := freeTCPAddress(t)
@@ -536,7 +542,8 @@ func setupTwoNodesFromTLS(t testing.TB, alice, bob nodeTLSFiles, caCert string) 
 		&comm.HostNode{P2PNode: bobNode, ID: bobID, Address: bobAddr}
 }
 
-func writePEM(t testing.TB, path, typ string, raw []byte) {
+func writePEM(tb testing.TB, path, typ string, raw []byte) {
+	t := tb
 	t.Helper()
 	f, err := os.Create(path)
 	require.NoError(t, err)
