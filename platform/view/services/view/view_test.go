@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -119,6 +120,42 @@ func TestRunViewNow_NoViewAndNoCall(t *testing.T) {
 	require.Contains(t, err.Error(), "no view passed")
 }
 
+func TestRunViewNow_SetsTracingSuccessAttribute(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		callErr  error
+		expected bool
+	}{
+		{name: "success", expected: true},
+		{name: "failure", callErr: errors.New("boom"), expected: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			parent := &mock.ParentContext{}
+			parent.ContextReturns(context.Background())
+			captured := &capturingSpan{Span: trace.SpanFromContext(context.Background())}
+			parent.StartSpanFromStub = func(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+				return ctx, captured
+			}
+
+			v := &mock.View{}
+			v.CallReturns("result", tc.callErr)
+
+			_, err := view.RunViewNow(parent, v)
+			if tc.callErr != nil {
+				require.ErrorIs(t, err, tc.callErr)
+			} else {
+				require.NoError(t, err)
+			}
+
+			require.Contains(t, captured.attrs, attribute.Bool(view.SuccessLabel, tc.expected))
+		})
+	}
+}
+
 func TestRunCall(t *testing.T) {
 	t.Parallel()
 	ctx := &mock.Context{}
@@ -178,4 +215,13 @@ func TestRunView(t *testing.T) {
 
 	view.RunView(ctx, v)
 	// it's a goroutine, hard to test easily but we call it for coverage
+}
+
+type capturingSpan struct {
+	trace.Span
+	attrs []attribute.KeyValue
+}
+
+func (s *capturingSpan) SetAttributes(kv ...attribute.KeyValue) {
+	s.attrs = append(s.attrs, kv...)
 }
