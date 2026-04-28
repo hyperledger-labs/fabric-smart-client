@@ -9,7 +9,7 @@ package fabricconfig
 import (
 	"time"
 
-	dcontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/container"
 )
 
 type Core struct {
@@ -213,7 +213,7 @@ type VM struct {
 type Docker struct {
 	TLS          *TLS                  `yaml:"tls,omitempty"`
 	AttachStdout bool                  `yaml:"attachStdout"`
-	HostConfig   *dcontainer.HostConfig `yaml:"hostConfig,omitempty"`
+	HostConfig   *container.HostConfig `yaml:"hostConfig,omitempty"`
 }
 
 type Chaincode struct {
