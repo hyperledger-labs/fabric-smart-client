@@ -17,8 +17,8 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
-	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/client"
 	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
@@ -62,7 +62,7 @@ func (n *Extension) startExplorerDB() {
 	d, err := docker.GetInstance()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	net, err := d.Client.NetworkInfo(n.platform.NetworkID())
+	net, err := d.NetworkInfo(n.platform.NetworkID())
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	containerName := n.platform.NetworkID() + "-explorerdb.mynetwork.com"
@@ -133,7 +133,7 @@ func (n *Extension) startExplorer() {
 	d, err := docker.GetInstance()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	net, err := d.Client.NetworkInfo(n.platform.NetworkID())
+	net, err := d.NetworkInfo(n.platform.NetworkID())
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	containerName := n.platform.NetworkID() + "-explorer.mynetwork.com"

@@ -16,8 +16,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	docker_network "github.com/docker/docker/api/types/network"
-	docker_client "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	docker_client "github.com/moby/moby/client"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
 
@@ -83,7 +83,7 @@ func (e *Extension) launchContainer() {
 	d, err := docker.GetInstance()
 	utils.Must(err)
 
-	net, err := d.Client.NetworkInfo(networkID)
+	net, err := d.NetworkInfo(networkID)
 	utils.Must(err)
 	logger.Infof("net id: %s", net.ID)
 

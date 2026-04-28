@@ -17,8 +17,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/client"
 	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
@@ -75,7 +75,7 @@ func (n *Extension) startPrometheus() {
 	d, err := docker.GetInstance()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	net, err := d.Client.NetworkInfo(n.platform.NetworkID())
+	net, err := d.NetworkInfo(n.platform.NetworkID())
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	containerName := n.platform.NetworkID() + "-prometheus"
@@ -164,7 +164,7 @@ func (n *Extension) startGrafana() {
 	d, err := docker.GetInstance()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	net, err := d.Client.NetworkInfo(n.platform.NetworkID())
+	net, err := d.NetworkInfo(n.platform.NetworkID())
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	containerName := n.platform.NetworkID() + "-grafana"

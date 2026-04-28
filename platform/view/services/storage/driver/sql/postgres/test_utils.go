@@ -18,9 +18,9 @@ import (
 
 	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/moby/moby/client"
 	_ "modernc.org/sqlite"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
