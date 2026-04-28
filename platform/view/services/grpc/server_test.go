@@ -740,18 +740,19 @@ func TestVerifyCertificateCallback(t *testing.T) {
 			VerifyCertificate: verifyFunc,
 		},
 	})
+	require.NoError(t, err)
 	go utils.IgnoreErrorFunc(gRPCServer.Start)
 	t.Cleanup(gRPCServer.Stop)
 
 	t.Run("Success path", func(t *testing.T) {
 		t.Parallel()
-		err = probeTLS(gRPCServer.Address(), authorizedClientKeyPair)
+		err := probeTLS(gRPCServer.Address(), authorizedClientKeyPair)
 		require.NoError(t, err)
 	})
 
 	t.Run("Failure path", func(t *testing.T) {
 		t.Parallel()
-		err = probeTLS(gRPCServer.Address(), notAuthorizedClientKeyPair)
+		err := probeTLS(gRPCServer.Address(), notAuthorizedClientKeyPair)
 		require.EqualError(t, err, "remote error: tls: bad certificate")
 	})
 }

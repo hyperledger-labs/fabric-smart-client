@@ -52,7 +52,7 @@ func GetTLSCertHash(cert *tls.Certificate) ([]byte, error) {
 // Client models a GRPC client
 type Client struct {
 	// TLS configuration used by the grpc.ClientConn
-	tlsConfig *tls.Config
+	tlsConfig *TLSConfig
 	// Options for setting up new connections
 	dialOpts []grpc.DialOption
 	// Duration for which to block while established a new connection
@@ -66,6 +66,8 @@ type Client struct {
 	grpcConns []*grpc.ClientConn
 	// Mutex on grpcConns
 	grpcCMux sync.Mutex
+	// Mutex on Client fields
+	lock sync.RWMutex
 }
 
 // NewGRPCClient creates a new implementation of Client given an address
@@ -184,14 +186,17 @@ func (client *Client) parseSecureOptions(opts SecureOptions) error {
 		return nil
 	}
 
-	client.tlsConfig = &tls.Config{
+	client.lock.Lock()
+	defer client.lock.Unlock()
+
+	client.tlsConfig = NewTLSConfig(&tls.Config{
 		VerifyPeerCertificate: opts.VerifyCertificate,
 		MinVersion:            tls.VersionTLS12, // TLS 1.2 only
-	}
+	})
 	if len(opts.ServerRootCAs) > 0 {
-		client.tlsConfig.RootCAs = x509.NewCertPool()
+		client.tlsConfig.config.RootCAs = x509.NewCertPool()
 		for _, certBytes := range opts.ServerRootCAs {
-			err := AddPemToCertPool(certBytes, client.tlsConfig.RootCAs)
+			err := AddPemToCertPool(certBytes, client.tlsConfig.config.RootCAs)
 			if err != nil {
 				commLogger.Errorf("error adding root certificate: %v", err)
 				return errors.WithMessage(err,
@@ -209,8 +214,8 @@ func (client *Client) parseSecureOptions(opts SecureOptions) error {
 				return errors.WithMessage(err, "failed to "+
 					"load client certificate")
 			}
-			client.tlsConfig.Certificates = append(
-				client.tlsConfig.Certificates, cert)
+			client.tlsConfig.config.Certificates = append(
+				client.tlsConfig.config.Certificates, cert)
 		} else {
 			return errors.New("both Key and Certificate " +
 				"are required when using mutual TLS")
@@ -218,7 +223,7 @@ func (client *Client) parseSecureOptions(opts SecureOptions) error {
 	}
 
 	if opts.TimeShift > 0 {
-		client.tlsConfig.Time = func() time.Time {
+		client.tlsConfig.config.Time = func() time.Time {
 			return time.Now().Add((-1) * opts.TimeShift)
 		}
 	}
@@ -229,9 +234,14 @@ func (client *Client) parseSecureOptions(opts SecureOptions) error {
 // Certificate returns the tls.Certificate used to make TLS connections
 // when client certificates are required by the server
 func (client *Client) Certificate() tls.Certificate {
+	client.lock.RLock()
+	defer client.lock.RUnlock()
 	cert := tls.Certificate{}
-	if client.tlsConfig != nil && len(client.tlsConfig.Certificates) > 0 {
-		cert = client.tlsConfig.Certificates[0]
+	if client.tlsConfig != nil {
+		c := client.tlsConfig.Config()
+		if len(c.Certificates) > 0 {
+			cert = c.Certificates[0]
+		}
 	}
 	return cert
 }
@@ -239,23 +249,31 @@ func (client *Client) Certificate() tls.Certificate {
 // TLSEnabled is a flag indicating whether to use TLS for client
 // connections
 func (client *Client) TLSEnabled() bool {
+	client.lock.RLock()
+	defer client.lock.RUnlock()
 	return client.tlsConfig != nil
 }
 
 // MutualTLSRequired is a flag indicating whether the client
 // must send a certificate when making TLS connections
 func (client *Client) MutualTLSRequired() bool {
+	client.lock.RLock()
+	defer client.lock.RUnlock()
 	return client.tlsConfig != nil &&
-		len(client.tlsConfig.Certificates) > 0
+		len(client.tlsConfig.Config().Certificates) > 0
 }
 
 // SetMaxRecvMsgSize sets the maximum message size the client can receive
 func (client *Client) SetMaxRecvMsgSize(size int) {
+	client.lock.Lock()
+	defer client.lock.Unlock()
 	client.maxRecvMsgSize = size
 }
 
 // SetMaxSendMsgSize sets the maximum message size the client can send
 func (client *Client) SetMaxSendMsgSize(size int) {
+	client.lock.Lock()
+	defer client.lock.Unlock()
 	client.maxSendMsgSize = size
 }
 
@@ -271,7 +289,9 @@ func (client *Client) SetServerRootCAs(serverRoots [][]byte) error {
 			return errors.WithMessage(err, "error adding root certificate")
 		}
 	}
-	client.tlsConfig.RootCAs = certPool
+	client.lock.Lock()
+	defer client.lock.Unlock()
+	client.tlsConfig.SetRootCAs(certPool)
 	return nil
 }
 
@@ -283,6 +303,7 @@ func (client *Client) NewConnection(address string, tlsOptions ...TLSOption) (*g
 		return nil, errors.New("address is empty")
 	}
 
+	client.lock.RLock()
 	var dialOpts []grpc.DialOption
 	dialOpts = append(dialOpts, client.dialOpts...)
 
@@ -305,8 +326,10 @@ func (client *Client) NewConnection(address string, tlsOptions ...TLSOption) (*g
 		grpc.MaxCallRecvMsgSize(client.maxRecvMsgSize),
 		grpc.MaxCallSendMsgSize(client.maxSendMsgSize),
 	))
+	timeout := client.timeout
+	client.lock.RUnlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), client.timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	//lint:ignore SA1019 Refactor in next change
 	conn, err := grpc.DialContext(ctx, address, dialOpts...) //nolint:all

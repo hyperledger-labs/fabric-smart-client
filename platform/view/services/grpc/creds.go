@@ -36,10 +36,12 @@ func NewServerTransportCredentials(
 ) credentials.TransportCredentials {
 	// NOTE: unlike the default grpc/credentials implementation, we do not
 	// clone the tls.Config which allows us to update it dynamically
+	serverConfig.lock.Lock()
 	serverConfig.config.NextProtos = alpnProtoStr
 	// override TLS version and ensure it is 1.2
 	serverConfig.config.MinVersion = tls.VersionTLS12
 	serverConfig.config.MaxVersion = tls.VersionTLS12
+	serverConfig.lock.Unlock()
 	return &serverCreds{
 		serverConfig: serverConfig,
 		logger:       logger,
@@ -88,6 +90,13 @@ func (t *TLSConfig) SetClientCAs(certPool *x509.CertPool) {
 	t.config.ClientCAs = certPool
 }
 
+func (t *TLSConfig) SetRootCAs(certPool *x509.CertPool) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	t.config.RootCAs = certPool
+}
+
 // ClientHandshake is not implemented for `serverCreds`.
 func (sc *serverCreds) ClientHandshake(context.Context,
 	string, net.Conn,
@@ -132,12 +141,13 @@ func (sc *serverCreds) OverrideServerName(string) error {
 }
 
 type DynamicClientCredentials struct {
-	TLSConfig  *tls.Config
+	TLSConfig  *TLSConfig
 	TLSOptions []TLSOption
 }
 
 func (dtc *DynamicClientCredentials) latestConfig() *tls.Config {
-	tlsConfigCopy := dtc.TLSConfig.Clone()
+	config := dtc.TLSConfig.Config()
+	tlsConfigCopy := &config
 	for _, tlsOption := range dtc.TLSOptions {
 		tlsOption(tlsConfigCopy)
 	}
@@ -161,6 +171,8 @@ func (dtc *DynamicClientCredentials) Clone() credentials.TransportCredentials {
 }
 
 func (dtc *DynamicClientCredentials) OverrideServerName(name string) error {
-	dtc.TLSConfig.ServerName = name
+	dtc.TLSConfig.lock.Lock()
+	defer dtc.TLSConfig.lock.Unlock()
+	dtc.TLSConfig.config.ServerName = name
 	return nil
 }
