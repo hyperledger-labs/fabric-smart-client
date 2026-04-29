@@ -20,7 +20,6 @@ import (
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
-	common5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 )
 
 type VaultStore struct {
@@ -28,7 +27,6 @@ type VaultStore struct {
 
 	tables  common4.VaultTables
 	writeDB *sql.DB
-	ci      common5.CondInterpreter
 }
 
 func NewVaultStore(dbs *common3.RWDB, tables common4.TableNames) (*VaultStore, error) {
@@ -39,12 +37,10 @@ func NewVaultStore(dbs *common3.RWDB, tables common4.TableNames) (*VaultStore, e
 }
 
 func newVaultStore(readDB, writeDB *sql.DB, tables common4.VaultTables) *VaultStore {
-	ci := postgres2.NewConditionInterpreter()
 	return &VaultStore{
-		VaultStore: common4.NewVaultStore(writeDB, readDB, tables, &postgres2.ErrorMapper{}, ci, sq.Dollar, postgres2.NewSanitizer(), postgres2.IsolationLevels),
+		VaultStore: common4.NewVaultStore(writeDB, readDB, tables, &postgres2.ErrorMapper{}, sq.Dollar, postgres2.NewSanitizer(), postgres2.IsolationLevels),
 		tables:     tables,
 		writeDB:    writeDB,
-		ci:         ci,
 	}
 }
 
@@ -58,28 +54,32 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	}
 
 	if len(txIDs) > 0 {
-		sb := common5.NewBuilder()
-		db.SetStatusesBusy(txIDs, sb)
-		query, args := sb.Build()
-		if err := execOrRollback(ctx, tx, query, args); err != nil {
+		query, params, err := db.SetStatusesBusy(txIDs)
+		if err != nil {
+			_ = tx.Rollback()
+			return errors.Wrapf(err, "failed building busy query")
+		}
+		if err := execOrRollback(ctx, tx, query, params); err != nil {
 			return errors.Wrapf(err, "failed setting tx to busy")
 		}
 	}
 	if len(writes) > 0 || len(metaWrites) > 0 {
-		sb := common5.NewBuilder()
-		if err := db.UpsertStates(writes, metaWrites, sb); err != nil {
-			return err
+		query, params, err := db.UpsertStates(writes, metaWrites)
+		if err != nil {
+			_ = tx.Rollback()
+			return errors.Wrapf(err, "failed building upsert states query")
 		}
-		query, args := sb.Build()
-		if err := execOrRollback(ctx, tx, query, args); err != nil {
+		if err := execOrRollback(ctx, tx, query, params); err != nil {
 			return errors.Wrapf(err, "failed writing state")
 		}
 	}
 	if len(txIDs) > 0 {
-		sb := common5.NewBuilder()
-		db.SetStatusesValid(txIDs, sb)
-		query, args := sb.Build()
-		if err := execOrRollback(ctx, tx, query, args); err != nil {
+		query, params, err := db.SetStatusesValid(txIDs)
+		if err != nil {
+			_ = tx.Rollback()
+			return errors.Wrapf(err, "failed building valid query")
+		}
+		if err := execOrRollback(ctx, tx, query, params); err != nil {
 			return errors.Wrapf(err, "failed setting tx to valid")
 		}
 	}

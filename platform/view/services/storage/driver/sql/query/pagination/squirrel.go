@@ -19,6 +19,9 @@ import (
 // It lives in this package because it needs access to the unexported pagination types.
 func ApplyToSquirrel(p driver.Pagination, sb sq.SelectBuilder) sq.SelectBuilder {
 	switch pg := p.(type) {
+	case nil:
+		return sb
+
 	case *none:
 		return sb
 

@@ -9,6 +9,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	errors2 "errors"
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
@@ -19,7 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	common4 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
@@ -28,8 +28,6 @@ type VaultStore struct {
 
 	tables  common.VaultTables
 	writeDB common5.WriteDB
-
-	ci common4.CondInterpreter
 }
 
 func NewVaultStore(dbs *common3.RWDB, tables common.TableNames) (*VaultStore, error) {
@@ -40,12 +38,10 @@ func NewVaultStore(dbs *common3.RWDB, tables common.TableNames) (*VaultStore, er
 }
 
 func newVaultStore(readDB *sql.DB, writeDB common5.WriteDB, tables common.VaultTables) *VaultStore {
-	ci := sqlite2.NewConditionInterpreter()
 	return &VaultStore{
-		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite2.ErrorMapper{}, ci, sq.Question, sqlite2.NewSanitizer(), sqlite2.IsolationLevels),
+		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite2.ErrorMapper{}, sq.Question, sqlite2.NewSanitizer(), sqlite2.IsolationLevels),
 		tables:     tables,
 		writeDB:    writeDB,
-		ci:         ci,
 	}
 }
 
@@ -55,39 +51,58 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 		return nil
 	}
 
-	sb := common4.NewBuilder().
-		WriteString(`
-		BEGIN;
-`)
+	db.GlobalLock.RLock()
+	defer db.GlobalLock.RUnlock()
+
+	tx, err := db.writeDB.Begin()
+	if err != nil {
+		return errors.Wrapf(err, "failed to initiate db transaction")
+	}
 
 	if len(txIDs) > 0 {
-		db.SetStatusesBusy(txIDs, sb)
-		sb.WriteRune(';')
+		query, params, err := db.SetStatusesBusy(txIDs)
+		if err != nil {
+			_ = tx.Rollback()
+			return errors.Wrapf(err, "failed building busy query")
+		}
+		logger.Debug(query, txIDs)
+		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
+			_ = tx.Rollback()
+			return errors.Wrapf(err, "failed setting tx to busy")
+		}
 	}
 
 	if len(writes) > 0 || len(metaWrites) > 0 {
-		if err := db.UpsertStates(writes, metaWrites, sb); err != nil {
-			return err
+		query, params, err := db.UpsertStates(writes, metaWrites)
+		if err != nil {
+			_ = tx.Rollback()
+			return errors.Wrapf(err, "failed building upsert states query")
 		}
-		sb.WriteRune(';')
+		logger.Debug(query, logging.Keys(writes))
+		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
+			_ = tx.Rollback()
+			return errors.Wrapf(err, "failed writing state")
+		}
 	}
 
 	if len(txIDs) > 0 {
-		db.SetStatusesValid(txIDs, sb)
-		sb.WriteRune(';')
+		query, params, err := db.SetStatusesValid(txIDs)
+		if err != nil {
+			_ = tx.Rollback()
+			return errors.Wrapf(err, "failed building valid query")
+		}
+		logger.Debug(query, txIDs)
+		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
+			_ = tx.Rollback()
+			return errors.Wrapf(err, "failed setting tx to valid")
+		}
 	}
 
-	sb.WriteString(`
-		COMMIT;
-`)
-
-	query, args := sb.Build()
-
-	logger.Debug(query, txIDs, logging.Keys(writes))
-	db.GlobalLock.RLock()
-	defer db.GlobalLock.RUnlock()
-	if _, err := db.writeDB.ExecContext(ctx, query, args...); err != nil {
-		return errors.Wrapf(err, "failed to store writes and metawrites for %d txs", len(txIDs))
+	if err := tx.Commit(); err != nil {
+		if err2 := tx.Rollback(); err2 != nil {
+			return errors2.Join(err, err2)
+		}
+		return err
 	}
 	return nil
 }
