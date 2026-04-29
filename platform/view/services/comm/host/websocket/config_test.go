@@ -13,9 +13,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTLSConfigVersions(t *testing.T) {

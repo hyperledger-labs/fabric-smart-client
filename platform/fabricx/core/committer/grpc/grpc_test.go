@@ -329,31 +329,42 @@ func TestClientConn_Integration(t *testing.T) {
 		t.Parallel()
 		certFile, keyFile := generateServerCertAndKey(t)
 
-		serverCert, err := tls.LoadX509KeyPair(certFile, keyFile)
-		require.NoError(t, err)
-		serverTLSCfg := &tls.Config{
-			Certificates: []tls.Certificate{serverCert},
-			MinVersion:   tls.VersionTLS12,
-			MaxVersion:   tls.VersionTLS12,
-		}
-		addr := startTestServer(t, grpc.Creds(credentials.NewTLS(serverTLSCfg)))
+		t.Run("tls12", func(t *testing.T) {
+			t.Parallel()
 
-		cfg := &config.Config{
-			Endpoints: []config.Endpoint{{
-				Address: addr,
-				TLS: &config.TLSConfig{
-					Enabled:       true,
-					RootCertPaths: []string{certFile},
-				},
-			}},
-		}
-		cc, err := grpc2.ClientConn(cfg)
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			_ = cc.Close()
+			addr := startTestServer(t, grpc.Creds(credentials.NewTLS(newServerTLSConfig(t, certFile, keyFile, nil, tls.VersionTLS12, tls.VersionTLS12))))
+			cc := newClientConnWithTLS(t, addr, certFile, "", "")
+			t.Cleanup(func() {
+				_ = cc.Close()
+			})
+
+			invokeHealthCheck(t, cc)
 		})
 
-		invokeHealthCheck(t, cc)
+		t.Run("tls13", func(t *testing.T) {
+			t.Parallel()
+
+			addr := startTestServer(t, grpc.Creds(credentials.NewTLS(newServerTLSConfig(t, certFile, keyFile, nil, tls.VersionTLS13, tls.VersionTLS13))))
+			cc := newClientConnWithTLS(t, addr, certFile, "", "")
+			t.Cleanup(func() {
+				_ = cc.Close()
+			})
+
+			invokeHealthCheck(t, cc)
+		})
+
+		t.Run("tls10-tls11 rejected", func(t *testing.T) {
+			t.Parallel()
+
+			addr := startTestServer(t, grpc.Creds(credentials.NewTLS(newServerTLSConfig(t, certFile, keyFile, nil, tls.VersionTLS10, tls.VersionTLS11))))
+			cc := newClientConnWithTLS(t, addr, certFile, "", "")
+			t.Cleanup(func() {
+				_ = cc.Close()
+			})
+
+			err := invokeHealthCheckErr(t, cc)
+			require.ErrorContains(t, err, "tls: protocol version not supported")
+		})
 	})
 
 	t.Run("mtls", func(t *testing.T) {
@@ -361,42 +372,79 @@ func TestClientConn_Integration(t *testing.T) {
 		serverCertFile, serverKeyFile := generateServerCertAndKey(t)
 		clientCertFile, clientKeyFile := generateServerCertAndKey(t)
 
-		serverCert, err := tls.LoadX509KeyPair(serverCertFile, serverKeyFile)
-		require.NoError(t, err)
-
 		clientCACert, err := os.ReadFile(clientCertFile)
 		require.NoError(t, err)
 		clientCAs := x509.NewCertPool()
 		require.True(t, clientCAs.AppendCertsFromPEM(clientCACert))
 
-		serverTLSCfg := &tls.Config{
-			Certificates: []tls.Certificate{serverCert},
-			ClientAuth:   tls.RequireAndVerifyClientCert,
-			ClientCAs:    clientCAs,
-			MinVersion:   tls.VersionTLS12,
-			MaxVersion:   tls.VersionTLS12,
-		}
-		addr := startTestServer(t, grpc.Creds(credentials.NewTLS(serverTLSCfg)))
+		t.Run("tls12", func(t *testing.T) {
+			t.Parallel()
 
-		cfg := &config.Config{
-			Endpoints: []config.Endpoint{{
-				Address: addr,
-				TLS: &config.TLSConfig{
-					Enabled:        true,
-					RootCertPaths:  []string{serverCertFile},
-					ClientCertPath: clientCertFile,
-					ClientKeyPath:  clientKeyFile,
-				},
-			}},
-		}
-		cc, err := grpc2.ClientConn(cfg)
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			_ = cc.Close()
+			addr := startTestServer(t, grpc.Creds(credentials.NewTLS(newServerTLSConfig(t, serverCertFile, serverKeyFile, clientCAs, tls.VersionTLS12, tls.VersionTLS12))))
+			cc := newClientConnWithTLS(t, addr, serverCertFile, clientCertFile, clientKeyFile)
+			t.Cleanup(func() {
+				_ = cc.Close()
+			})
+
+			invokeHealthCheck(t, cc)
 		})
 
-		invokeHealthCheck(t, cc)
+		t.Run("tls13", func(t *testing.T) {
+			t.Parallel()
+
+			addr := startTestServer(t, grpc.Creds(credentials.NewTLS(newServerTLSConfig(t, serverCertFile, serverKeyFile, clientCAs, tls.VersionTLS13, tls.VersionTLS13))))
+			cc := newClientConnWithTLS(t, addr, serverCertFile, clientCertFile, clientKeyFile)
+			t.Cleanup(func() {
+				_ = cc.Close()
+			})
+
+			invokeHealthCheck(t, cc)
+		})
 	})
+}
+
+func newClientConnWithTLS(t *testing.T, addr, rootCertFile, clientCertFile, clientKeyFile string) *grpc.ClientConn {
+	t.Helper()
+
+	tlsCfg := &config.TLSConfig{
+		Enabled:       true,
+		RootCertPaths: []string{rootCertFile},
+	}
+	if clientCertFile != "" {
+		tlsCfg.ClientCertPath = clientCertFile
+	}
+	if clientKeyFile != "" {
+		tlsCfg.ClientKeyPath = clientKeyFile
+	}
+
+	cc, err := grpc2.ClientConn(&config.Config{
+		Endpoints: []config.Endpoint{{
+			Address: addr,
+			TLS:     tlsCfg,
+		}},
+	})
+	require.NoError(t, err)
+
+	return cc
+}
+
+func newServerTLSConfig(t *testing.T, certFile, keyFile string, clientCAs *x509.CertPool, minVersion, maxVersion uint16) *tls.Config {
+	t.Helper()
+
+	serverCert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	require.NoError(t, err)
+
+	tlsCfg := &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		MinVersion:   minVersion,
+		MaxVersion:   maxVersion,
+	}
+	if clientCAs != nil {
+		tlsCfg.ClientAuth = tls.RequireAndVerifyClientCert
+		tlsCfg.ClientCAs = clientCAs
+	}
+
+	return tlsCfg
 }
 
 // startTestServer starts an in-process gRPC server with a health service on a random
@@ -426,12 +474,25 @@ func startTestServer(t *testing.T, opts ...grpc.ServerOption) string {
 func invokeHealthCheck(t *testing.T, cc *grpc.ClientConn) {
 	t.Helper()
 
+	resp, err := invokeHealthCheckResp(cc)
+	require.NoError(t, err)
+	require.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.GetStatus())
+}
+
+func invokeHealthCheckErr(t *testing.T, cc *grpc.ClientConn) error {
+	t.Helper()
+
+	_, err := invokeHealthCheckResp(cc)
+	require.Error(t, err)
+
+	return err
+}
+
+func invokeHealthCheckResp(cc *grpc.ClientConn) (*healthpb.HealthCheckResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	resp, err := healthpb.NewHealthClient(cc).Check(ctx, &healthpb.HealthCheckRequest{Service: ""})
-	require.NoError(t, err)
-	require.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.GetStatus())
+	return healthpb.NewHealthClient(cc).Check(ctx, &healthpb.HealthCheckRequest{Service: ""})
 }
 
 // generateServerCertAndKey creates a self-signed certificate with IP SAN 127.0.0.1
