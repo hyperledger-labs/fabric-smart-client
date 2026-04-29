@@ -241,6 +241,23 @@ func TestServiceGetters(t *testing.T) {
 	m.GetBoolReturns(true)
 	require.True(t, svc.TLSClientAuthRequired())
 
+	m.GetStringStub = func(key string) string {
+		if key == "fabric.mynet.tls.serverNameOverride" {
+			return "server-name"
+		}
+		return ""
+	}
+	require.Equal(t, "server-name", svc.TLSServerHostOverride())
+
+	m.GetStringStub = func(key string) string {
+		if key == "fabric.mynet.tls.serverhostoverride" {
+			return "legacy-server-host"
+		}
+		return ""
+	}
+	require.Equal(t, "legacy-server-host", svc.TLSServerHostOverride())
+
+	m.GetStringStub = nil
 	m.GetStringReturns("server-host")
 	require.Equal(t, "server-host", svc.TLSServerHostOverride())
 
