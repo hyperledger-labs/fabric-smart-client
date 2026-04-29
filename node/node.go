@@ -43,12 +43,34 @@ type Node struct {
 
 // New returns a new instance of Node from the default configuration path.
 func New() *Node {
-	return NewWithConfPath("")
+	node, err := NewE()
+	if err != nil {
+		panic(err)
+	}
+	return node
+}
+
+// NewE returns a new instance of Node from the default configuration path.
+func NewE() (*Node, error) {
+	return NewWithConfPathE("")
 }
 
 // NewWithConfPath returns a new instance of Node whose configuration is loaded from the passed path.
 func NewWithConfPath(confPath string) *Node {
-	return newWithFSCNode(node.NewFromConfPath(confPath))
+	node, err := NewWithConfPathE(confPath)
+	if err != nil {
+		panic(err)
+	}
+	return node
+}
+
+// NewWithConfPathE returns a new instance of Node whose configuration is loaded from the passed path.
+func NewWithConfPathE(confPath string) (*Node, error) {
+	fscNode, err := node.NewFromConfPathE(confPath)
+	if err != nil {
+		return nil, err
+	}
+	return newWithFSCNode(fscNode), nil
 }
 
 func newWithFSCNode(fscNode FSCNode) *Node {
