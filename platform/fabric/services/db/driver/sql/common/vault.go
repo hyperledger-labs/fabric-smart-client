@@ -24,9 +24,7 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	sql2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
 	common4 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-	cond2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/pagination"
 )
 
@@ -44,8 +42,8 @@ type Sanitizer interface {
 }
 
 // NewVaultStore creates a VaultStore. ph is the squirrel PlaceholderFormat (sq.Dollar or sq.Question)
-// used for all SELECT queries; write queries continue to use the legacy builder with $N placeholders.
-func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ci common4.CondInterpreter, ph sq.PlaceholderFormat, sanitizer sql2.Sanitizer, il common3.IsolationLevelMapper) *VaultStore {
+// used for all read and write queries.
+func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ph sq.PlaceholderFormat, sanitizer sql2.Sanitizer, il common3.IsolationLevelMapper) *VaultStore {
 	sb := sq.StatementBuilder.PlaceholderFormat(ph)
 	vaultSanitizer := common3.NewSanitizer(sanitizer)
 	return &VaultStore{
@@ -59,7 +57,6 @@ func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, 
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
-		ci:           ci,
 		sanitizer:    vaultSanitizer,
 		il:           il,
 	}
@@ -71,7 +68,6 @@ type VaultStore struct {
 	errorWrapper driver2.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      common3.WriteDB
-	ci           common4.CondInterpreter // kept for legacy write-path methods
 	GlobalLock   sync.RWMutex
 	sanitizer    Sanitizer
 	il           common3.IsolationLevelMapper
@@ -81,11 +77,14 @@ func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID
 	logger.DebugfContext(ctx, "acquire tx id lock for [%s]", txID)
 
 	// Ignore conflicts in case replicas create the same entry when receiving the envelope
-	query, params := q.InsertInto(db.tables.StatusTable).
-		Fields("tx_id", "code").
-		Row(txID, driver.Busy).
-		OnConflictDoNothing().
-		Format()
+	query, params, err := db.sb.Insert(db.tables.StatusTable).
+		Columns("tx_id", "code").
+		Values(txID, driver.Busy).
+		Suffix("ON CONFLICT DO NOTHING").
+		ToSql()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to build query")
+	}
 	logger.Debug(query, params)
 
 	if _, err := db.writeDB.ExecContext(ctx, query, params...); err != nil {
@@ -141,19 +140,17 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
 
-	rows := make([]common4.Tuple, len(txIDs))
-	for i, txID := range txIDs {
-		rows[i] = common4.Tuple{txID, code, message}
+	ib := db.sb.Insert(db.tables.StatusTable).
+		Columns("tx_id", "code", "message")
+	for _, txID := range txIDs {
+		ib = ib.Values(txID, code, message)
 	}
-
-	query, params := q.InsertInto(db.tables.StatusTable).
-		Fields("tx_id", "code", "message").
-		Rows(rows).
-		OnConflict([]common4.FieldName{"tx_id"},
-			q.SetValue("code", code),
-			q.SetValue("message", message),
-		).
-		Format()
+	query, params, err := ib.
+		Suffix("ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code, message = EXCLUDED.message").
+		ToSql()
+	if err != nil {
+		return errors.Wrapf(err, "failed to build query")
+	}
 
 	logger.Debug(query, params)
 
@@ -163,41 +160,37 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 	return nil
 }
 
-func (db *VaultStore) SetStatusesBusy(txIDs []driver.TxID, sb common4.Builder) {
-	rows := make([]common4.Tuple, len(txIDs))
-	for i, txID := range txIDs {
-		rows[i] = common4.Tuple{txID, driver.Busy}
+func (db *VaultStore) SetStatusesBusy(txIDs []driver.TxID) (string, []any, error) {
+	ib := db.sb.Insert(db.tables.StatusTable).
+		Columns("tx_id", "code")
+	for _, txID := range txIDs {
+		ib = ib.Values(txID, driver.Busy)
 	}
-
-	q.InsertInto(db.tables.StatusTable).
-		Fields("tx_id", "code").
-		Rows(rows).
-		OnConflict([]common4.FieldName{"tx_id"}, q.SetValue("code", driver.Busy)).
-		FormatTo(sb)
+	return ib.
+		Suffix("ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code").
+		ToSql()
 }
 
-func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaWrites, sb common4.Builder) error {
+func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaWrites) (string, []any, error) {
 	states, err := db.convertStateRows(writes, metaWrites)
 	if err != nil {
-		return err
+		return "", nil, err
 	}
-	q.InsertInto(db.tables.StateTable).
-		Fields("ns", "pkey", "val", "kversion", "metadata").
-		Rows(states).
-		OnConflict([]common4.FieldName{"ns", "pkey"},
-			q.OverwriteValue("val"),
-			q.OverwriteValue("kversion"),
-			q.OverwriteValue("metadata"),
-		).
-		FormatTo(sb)
-	return nil
+	ib := db.sb.Insert(db.tables.StateTable).
+		Columns("ns", "pkey", "val", "kversion", "metadata")
+	for _, s := range states {
+		ib = ib.Values(s...)
+	}
+	return ib.
+		Suffix("ON CONFLICT (ns,pkey) DO UPDATE SET val = EXCLUDED.val, kversion = EXCLUDED.kversion, metadata = EXCLUDED.metadata").
+		ToSql()
 }
 
-func (db *VaultStore) SetStatusesValid(txIDs []driver.TxID, sb common4.Builder) {
-	q.Update(db.tables.StatusTable).
+func (db *VaultStore) SetStatusesValid(txIDs []driver.TxID) (string, []any, error) {
+	return db.sb.Update(db.tables.StatusTable).
 		Set("code", driver.Valid).
-		Where(cond2.In("tx_id", txIDs...)).
-		FormatTo(db.ci, sb)
+		Where(sq.Eq{"tx_id": txIDs}).
+		ToSql()
 }
 
 func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.MetaWrites) ([]common4.Tuple, error) {
