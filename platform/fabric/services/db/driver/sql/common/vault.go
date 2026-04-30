@@ -145,6 +145,7 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 	for _, txID := range txIDs {
 		ib = ib.Values(txID, code, message)
 	}
+
 	query, params, err := ib.
 		Suffix("ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code, message = EXCLUDED.message").
 		ToSql()
@@ -170,6 +171,7 @@ func (db *VaultStore) SetStatusesBusy(txIDs []driver.TxID) (string, []any, error
 	for _, txID := range txIDs {
 		ib = ib.Values(txID, driver.Busy)
 	}
+
 	return ib.
 		Suffix("ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code").
 		ToSql()
@@ -242,6 +244,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 		}
 		for pkey, metaVal := range metaWrite {
 			if _, ok = write[pkey]; ok {
+				// MetaWrites already written in the previous section
 				continue
 			}
 			metadata, err := marshallMetadata(metaVal.Metadata)
@@ -257,6 +260,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 				return nil, err
 			}
 			states = append(states, common4.Tuple{ns, pkey, []byte{}, metaVal.Version, metadata})
+
 		}
 	}
 	return states, nil
@@ -455,6 +459,7 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 	if err != nil {
 		return meta, nil, fmt.Errorf("error decoding metadata: %w", err)
 	}
+
 	return meta, kversion, err
 }
 
@@ -488,6 +493,7 @@ func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination
 	if p == nil {
 		return nil, fmt.Errorf("invalid input pagination: %+v", p)
 	}
+
 	txStatusIterator, err := db.queryStatus(ctx, nil, p)
 	if err != nil {
 		return nil, err
