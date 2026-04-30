@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	sq "github.com/Masterminds/squirrel"
-	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/pagination"
 )
@@ -19,44 +19,85 @@ func baseQuery() sq.SelectBuilder {
 	return sq.Select("tx_id", "code").From("status")
 }
 
-func TestApplyToSquirrel_None(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
-
-	q, args, err := pagination.ApplyToSquirrel(pagination.None(), baseQuery()).ToSql()
-	Expect(err).ToNot(HaveOccurred())
-	Expect(q).To(Equal("SELECT tx_id, code FROM status"))
-	Expect(args).To(BeEmpty())
-}
-
-func TestApplyToSquirrel_PageSizeOnly(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
-
-	p, err := pagination.Offset(0, 10)
-	Expect(err).ToNot(HaveOccurred())
-
-	q, args, err := pagination.ApplyToSquirrel(p, baseQuery()).ToSql()
-	Expect(err).ToNot(HaveOccurred())
-	Expect(q).To(Equal("SELECT tx_id, code FROM status LIMIT 10"))
-	Expect(args).To(BeEmpty())
-}
-
-func TestApplyToSquirrel_PageSizeAndOffset(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
-
-	p, err := pagination.Offset(5, 10)
-	Expect(err).ToNot(HaveOccurred())
-
-	q, args, err := pagination.ApplyToSquirrel(p, baseQuery()).ToSql()
-	Expect(err).ToNot(HaveOccurred())
-	Expect(q).To(Equal("SELECT tx_id, code FROM status LIMIT 10 OFFSET 5"))
-	Expect(args).To(BeEmpty())
-}
-
 func TestApplyToSquirrel_Nil(t *testing.T) { //nolint:paralleltest
-	RegisterTestingT(t)
-
 	q, args, err := pagination.ApplyToSquirrel(nil, baseQuery()).ToSql()
-	Expect(err).ToNot(HaveOccurred())
-	Expect(q).To(Equal("SELECT tx_id, code FROM status"))
-	Expect(args).To(BeEmpty())
+	require.NoError(t, err)
+	require.Equal(t, "SELECT tx_id, code FROM status", q)
+	require.Empty(t, args)
+}
+
+func TestApplyToSquirrel_None(t *testing.T) { //nolint:paralleltest
+	q, args, err := pagination.ApplyToSquirrel(pagination.None(), baseQuery()).ToSql()
+	require.NoError(t, err)
+	require.Equal(t, "SELECT tx_id, code FROM status", q)
+	require.Empty(t, args)
+}
+
+func TestApplyToSquirrel_Empty(t *testing.T) { //nolint:paralleltest
+	q, args, err := pagination.ApplyToSquirrel(pagination.Empty(), baseQuery()).ToSql()
+	require.NoError(t, err)
+	require.Equal(t, "SELECT tx_id, code FROM status LIMIT 0", q)
+	require.Empty(t, args)
+}
+
+func TestApplyToSquirrel_OffsetPageSizeOnly(t *testing.T) { //nolint:paralleltest
+	p, err := pagination.Offset(0, 10)
+	require.NoError(t, err)
+
+	q, args, err := pagination.ApplyToSquirrel(p, baseQuery()).ToSql()
+	require.NoError(t, err)
+	require.Equal(t, "SELECT tx_id, code FROM status LIMIT 10", q)
+	require.Empty(t, args)
+}
+
+func TestApplyToSquirrel_OffsetAndPageSize(t *testing.T) { //nolint:paralleltest
+	p, err := pagination.Offset(5, 10)
+	require.NoError(t, err)
+
+	q, args, err := pagination.ApplyToSquirrel(p, baseQuery()).ToSql()
+	require.NoError(t, err)
+	require.Equal(t, "SELECT tx_id, code FROM status LIMIT 10 OFFSET 5", q)
+	require.Empty(t, args)
+}
+
+func TestApplyToSquirrel_KeysetString_NoFirstID(t *testing.T) { //nolint:paralleltest
+	p, err := pagination.Keyset[string, any](0, 10, "tx_id", nil)
+	require.NoError(t, err)
+
+	q, args, err := pagination.ApplyToSquirrel(p, baseQuery()).ToSql()
+	require.NoError(t, err)
+	require.Equal(t, "SELECT tx_id, code FROM status ORDER BY tx_id ASC LIMIT 10", q)
+	require.Empty(t, args)
+}
+
+func TestApplyToSquirrel_KeysetString_WithFirstID(t *testing.T) { //nolint:paralleltest
+	raw := []byte(`{"offset":0,"page_size":10,"sqlid_name":"tx_id","first_id":"abc","last_id":""}`)
+	p, err := pagination.KeysetFromRaw[string](raw, "TxID")
+	require.NoError(t, err)
+
+	q, args, err := pagination.ApplyToSquirrel(p, baseQuery()).ToSql()
+	require.NoError(t, err)
+	require.Equal(t, "SELECT tx_id, code FROM status WHERE tx_id > ? ORDER BY tx_id ASC LIMIT 10", q)
+	require.Equal(t, []any{"abc"}, args)
+}
+
+func TestApplyToSquirrel_KeysetString_WithOffset(t *testing.T) { //nolint:paralleltest
+	p, err := pagination.Keyset[string, any](5, 10, "tx_id", nil)
+	require.NoError(t, err)
+
+	q, args, err := pagination.ApplyToSquirrel(p, baseQuery()).ToSql()
+	require.NoError(t, err)
+	require.Equal(t, "SELECT tx_id, code FROM status ORDER BY tx_id ASC LIMIT 10 OFFSET 5", q)
+	require.Empty(t, args)
+}
+
+func TestApplyToSquirrel_KeysetInt_NoFirstID(t *testing.T) { //nolint:paralleltest
+	raw := []byte(`{"offset":0,"page_size":10,"sqlid_name":"pos","first_id":-1,"last_id":-1}`)
+	p, err := pagination.KeysetFromRaw[int](raw, "Pos")
+	require.NoError(t, err)
+
+	q, args, err := pagination.ApplyToSquirrel(p, baseQuery()).ToSql()
+	require.NoError(t, err)
+	require.Equal(t, "SELECT tx_id, code FROM status ORDER BY pos ASC LIMIT 10", q)
+	require.Empty(t, args)
 }

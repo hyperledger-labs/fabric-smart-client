@@ -215,6 +215,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 				return nil, errors.Wrapf(err, "failed to marshal metadata for [%s:%s]", ns, pkey)
 			}
 			if len(val.Raw) == 0 {
+				// Deleting value
 				logger.Debugf("setting version of [%s] to nil", pkey)
 				val.Version = nil
 			}
@@ -456,7 +457,7 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
 	// Select the row with the highest pos that is not Busy
 	it, err := db.queryStatus(ctx,
-		sq.Expr("pos=(SELECT max(pos) FROM "+db.tables.StatusTable+" WHERE code!=?)", driver.Busy),
+		sq.Expr(fmt.Sprintf("pos=(SELECT max(pos) FROM %s WHERE code!=?)", db.tables.StatusTable), driver.Busy),
 		pagination.None())
 	if err != nil {
 		return nil, err
