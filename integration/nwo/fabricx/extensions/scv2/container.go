@@ -16,8 +16,8 @@ import (
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/mount"
-	docker_network "github.com/moby/moby/api/types/network"
-	docker_client "github.com/moby/moby/client"
+	"github.com/moby/moby/api/types/network"
+	dcli "github.com/moby/moby/client"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
 
@@ -41,11 +41,11 @@ var (
 		// note that v1 and v2 don't use any specified cmds
 		v3.CommitterVersion: v3.ContainerCmd,
 	}
-	sidecarDefaultPort = map[string]docker_network.Port{
-		v3.CommitterVersion: docker_network.MustParsePort(v3.SidecarDefaultPort),
+	sidecarDefaultPort = map[string]network.Port{
+		v3.CommitterVersion: network.MustParsePort(v3.SidecarDefaultPort),
 	}
-	queryServiceDefaultPort = map[string]docker_network.Port{
-		v3.CommitterVersion: docker_network.MustParsePort(v3.QueryServiceDefaultPort),
+	queryServiceDefaultPort = map[string]network.Port{
+		v3.CommitterVersion: network.MustParsePort(v3.QueryServiceDefaultPort),
 	}
 
 	committerVersion = v3.CommitterVersion
@@ -104,23 +104,23 @@ func (e *Extension) launchContainer() {
 	logger.Infof("Run Scalable Committer container on %v ports: %v %v\ncontainer env vars: %v", localIP, sidecarPort, queryServicePort, containerEnvOverride)
 	defer logger.Infof("Run Scalable Committer container on port [%s]...done", sidecarPort)
 
-	cli, err := docker_client.New(docker_client.FromEnv)
+	cli, err := dcli.New(dcli.FromEnv)
 	utils.Must(err)
 
 	ctx := context.TODO()
 	resp, err := cli.ContainerCreate(
 		ctx,
-		docker_client.ContainerCreateOptions{
+		dcli.ContainerCreateOptions{
 			Name: containerName,
 			Config: &container.Config{
 				Image:        scalableCommitterImages[committerVersion],
 				Tty:          true,
 				AttachStdout: true,
 				AttachStderr: true,
-				ExposedPorts: docker_network.PortSet{
-					docker_network.MustParsePort(sidecarPort + "/tcp"):         struct{}{},
-					docker_network.MustParsePort(queryServicePort + "/tcp"):    struct{}{},
-					docker_network.MustParsePort(orderingServicePort + "/tcp"): struct{}{},
+				ExposedPorts: network.PortSet{
+					network.MustParsePort(sidecarPort + "/tcp"):         struct{}{},
+					network.MustParsePort(queryServicePort + "/tcp"):    struct{}{},
+					network.MustParsePort(orderingServicePort + "/tcp"): struct{}{},
 				},
 				Env: containerEnvOverride,
 				Cmd: containerCmd,
@@ -141,23 +141,23 @@ func (e *Extension) launchContainer() {
 						ReadOnly: true,
 					},
 				},
-				PortBindings: docker_network.PortMap{
+				PortBindings: network.PortMap{
 					// sidecar port binding
-					containerSidecarPort: []docker_network.PortBinding{
+					containerSidecarPort: []network.PortBinding{
 						{
 							HostIP:   netip.MustParseAddr("0.0.0.0"),
 							HostPort: sidecarPort,
 						},
 					},
 					// query service port bindings
-					containerQueryServicePort: []docker_network.PortBinding{
+					containerQueryServicePort: []network.PortBinding{
 						{
 							HostIP:   netip.MustParseAddr("0.0.0.0"),
 							HostPort: queryServicePort,
 						},
 					},
 					// sidecar port binding
-					docker_network.MustParsePort(orderingServicePort + "/tcp"): []docker_network.PortBinding{
+					network.MustParsePort(orderingServicePort + "/tcp"): []network.PortBinding{
 						{
 							HostIP:   netip.MustParseAddr("0.0.0.0"),
 							HostPort: orderingServicePort,
@@ -165,8 +165,8 @@ func (e *Extension) launchContainer() {
 					},
 				},
 			},
-			NetworkingConfig: &docker_network.NetworkingConfig{
-				EndpointsConfig: map[string]*docker_network.EndpointSettings{
+			NetworkingConfig: &network.NetworkingConfig{
+				EndpointsConfig: map[string]*network.EndpointSettings{
 					networkID: {},
 				},
 			},
@@ -174,7 +174,7 @@ func (e *Extension) launchContainer() {
 	)
 	utils.Must(err)
 
-	_, err = cli.ContainerStart(ctx, resp.ID, docker_client.ContainerStartOptions{})
+	_, err = cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{})
 	utils.Must(err)
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -184,7 +184,7 @@ func (e *Extension) launchContainer() {
 		dockerLogger.Debugf("fetch logs from container [%s]", containerName)
 		defer dockerLogger.Debugf("stopped container log fetcher [%s], ", containerName)
 
-		reader, errx := cli.ContainerLogs(context.TODO(), resp.ID, docker_client.ContainerLogsOptions{
+		reader, errx := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,

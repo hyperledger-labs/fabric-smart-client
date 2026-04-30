@@ -283,7 +283,7 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 // startContainerLogger forwards the container logs for the given logger.
 // If the given logger is nil, the function returns. Errors are logged via the given logger.
 // The actual container logs are logged with the DEBUG log level.
-func startContainerLogger(ctx context.Context, cli *dcli.Client, containerID string, logger Logger) {
+func startContainerLogger(ctx context.Context, cli dcli.APIClient, containerID string, logger Logger) {
 	if logger == nil {
 		return
 	}
@@ -307,7 +307,7 @@ func startContainerLogger(ctx context.Context, cli *dcli.Client, containerID str
 	}()
 }
 
-func waitUntilHealth(ctx context.Context, cli *dcli.Client, containerID string, timeout time.Duration) error {
+func waitUntilHealth(ctx context.Context, cli dcli.APIClient, containerID string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -362,7 +362,7 @@ func waitUntilPing(ctx context.Context, dataSource string, timeout time.Duration
 	}
 }
 
-func waitUntilContainerRemoved(ctx context.Context, cli *dcli.Client, containerID string, timeout time.Duration) error {
+func waitUntilContainerRemoved(ctx context.Context, cli dcli.APIClient, containerID string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -384,7 +384,7 @@ func waitUntilContainerRemoved(ctx context.Context, cli *dcli.Client, containerI
 	}
 }
 
-func getPostgresPort(ctx context.Context, cli *dcli.Client, containerID string) (string, error) {
+func getPostgresPort(ctx context.Context, cli dcli.APIClient, containerID string) (string, error) {
 	inspection, err := cli.ContainerInspect(ctx, containerID, dcli.ContainerInspectOptions{})
 	if err != nil {
 		return "", err
