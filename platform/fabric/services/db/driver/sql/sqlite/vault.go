@@ -9,7 +9,6 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	errors2 "errors"
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
@@ -58,16 +57,15 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	if err != nil {
 		return errors.Wrapf(err, "failed to initiate db transaction")
 	}
+	defer func() { _ = tx.Rollback() }()
 
 	if len(txIDs) > 0 {
 		query, params, err := db.SetStatusesBusy(txIDs)
 		if err != nil {
-			_ = tx.Rollback()
 			return errors.Wrapf(err, "failed building busy query")
 		}
 		logger.Debug(query, txIDs)
 		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
-			_ = tx.Rollback()
 			return errors.Wrapf(err, "failed setting tx to busy")
 		}
 	}
@@ -75,12 +73,10 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	if len(writes) > 0 || len(metaWrites) > 0 {
 		query, params, err := db.UpsertStates(writes, metaWrites)
 		if err != nil {
-			_ = tx.Rollback()
 			return errors.Wrapf(err, "failed building upsert states query")
 		}
 		logger.Debug(query, logging.Keys(writes))
 		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
-			_ = tx.Rollback()
 			return errors.Wrapf(err, "failed writing state")
 		}
 	}
@@ -88,23 +84,15 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	if len(txIDs) > 0 {
 		query, params, err := db.SetStatusesValid(txIDs)
 		if err != nil {
-			_ = tx.Rollback()
 			return errors.Wrapf(err, "failed building valid query")
 		}
 		logger.Debug(query, txIDs)
 		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
-			_ = tx.Rollback()
 			return errors.Wrapf(err, "failed setting tx to valid")
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		if err2 := tx.Rollback(); err2 != nil {
-			return errors2.Join(err, err2)
-		}
-		return err
-	}
-	return nil
+	return tx.Commit()
 }
 
 func (db *VaultStore) CreateSchema() error {
