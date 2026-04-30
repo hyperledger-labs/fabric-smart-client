@@ -12,6 +12,9 @@ import (
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
 	fabricx "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
@@ -34,6 +37,9 @@ func (p *SDK) Install() error {
 	}
 
 	return errors.Join(
+		digutils.Register[*ledger.Provider](p.Container()),
+		digutils.Register[queryservice.Provider](p.Container()),
+		digutils.Register[finality.ListenerManagerProvider](p.Container()),
 		digutils.Register[state.VaultService](p.Container()),
 	)
 }
