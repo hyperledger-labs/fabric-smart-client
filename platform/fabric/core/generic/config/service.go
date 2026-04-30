@@ -79,13 +79,23 @@ func NewService(configService Configuration, name string, defaultConfig bool) (*
 	}
 
 	tlsEnabled := configService.GetBool(fmt.Sprintf("fabric.%stls.enabled", prefix))
+	tlsClientAuthRequired := configService.GetBool(fmt.Sprintf("fabric.%stls.clientAuthRequired", prefix))
+	orderingTLSEnabled, ok := orderingTLSEnabled(configService, prefix)
+	if !ok {
+		orderingTLSEnabled = tlsEnabled
+	}
+	orderingTLSClientAuthRequired, ok := orderingTLSClientAuthRequired(configService, prefix)
+	if !ok {
+		orderingTLSClientAuthRequired = tlsClientAuthRequired
+	}
 	orderers, err := readItems[*ConnectionConfig](configService, prefix, "orderers")
 	if err != nil {
 		return nil, err
 	}
 	for _, v := range orderers {
-		v.TLSEnabled = tlsEnabled
-		if tlsEnabled && len(v.TLSRootCertFile) > 0 {
+		v.TLSEnabled = effectiveTLSEnabled(orderingTLSEnabled, v)
+		v.TLSClientSideAuth = orderingTLSClientAuthRequired || v.TLSClientSideAuth
+		if v.TLSEnabled && len(v.TLSRootCertFile) > 0 {
 			v.TLSRootCertFile = configService.TranslatePath(v.TLSRootCertFile)
 		}
 	}
@@ -370,6 +380,30 @@ func createPeerMap(configService Configuration, peers []*ConnectionConfig, tlsEn
 		}
 	}
 	return peerMapping
+}
+
+func orderingTLSEnabled(configService Configuration, prefix string) (bool, bool) {
+	key := fmt.Sprintf("fabric.%sordering.tlsEnabled", prefix)
+	if !configService.IsSet(key) {
+		return false, false
+	}
+	return configService.GetBool(key), true
+}
+
+func orderingTLSClientAuthRequired(configService Configuration, prefix string) (bool, bool) {
+	key := fmt.Sprintf("fabric.%sordering.tlsClientAuthRequired", prefix)
+	if !configService.IsSet(key) {
+		return false, false
+	}
+	return configService.GetBool(key), true
+}
+
+func effectiveTLSEnabled(defaultEnabled bool, cc *ConnectionConfig) bool {
+	if cc.TLSDisabled {
+		return false
+	}
+
+	return defaultEnabled || cc.TLSEnabled
 }
 
 func readItems[T any](configService Configuration, prefix, key string) ([]T, error) {
