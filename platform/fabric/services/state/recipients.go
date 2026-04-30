@@ -54,6 +54,8 @@ func (r *ExchangeRecipientRequest) FromBytes(raw []byte) error {
 type RecipientRequest struct {
 	// Network identifier
 	Network string
+	// WalletID optionally identifies the recipient account to resolve on the remote node.
+	WalletID []byte
 }
 
 // Bytes returns the byte representation of this struct
@@ -69,6 +71,8 @@ func (r *RecipientRequest) FromBytes(raw []byte) error {
 type RequestRecipientIdentityView struct {
 	Network string
 	Other   view.Identity
+	Node    view.Identity
+	Wallet  view.Identity
 }
 
 func RequestRecipientIdentity(viewCtx view.Context, other view.Identity) (view.Identity, error) {
@@ -79,15 +83,45 @@ func RequestRecipientIdentity(viewCtx view.Context, other view.Identity) (view.I
 	return recipientIdentityBoxed.(view.Identity), nil
 }
 
+// RequestRecipientIdentityFromNode requests a recipient identity from the passed node for the passed wallet alias.
+func RequestRecipientIdentityFromNode(viewCtx view.Context, node, wallet view.Identity, opts ...ServiceOption) (view.Identity, error) {
+	opt, err := CompileServiceOptions(opts...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to compile service options")
+	}
+	recipientIdentityBoxed, err := viewCtx.RunView(&RequestRecipientIdentityView{
+		Network: opt.Network,
+		Node:    node,
+		Wallet:  wallet,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return recipientIdentityBoxed.(view.Identity), nil
+}
+
+func (f RequestRecipientIdentityView) remoteNode() view.Identity {
+	if !f.Node.IsNone() {
+		return f.Node
+	}
+	return f.Other
+}
+
+func (f RequestRecipientIdentityView) requestedWallet() view.Identity {
+	return f.Wallet
+}
+
 func (f RequestRecipientIdentityView) Call(viewCtx view.Context) (interface{}, error) {
-	session, err := viewCtx.GetSession(viewCtx.Initiator(), f.Other)
+	remoteNode := f.remoteNode()
+	session, err := viewCtx.GetSession(viewCtx.Initiator(), remoteNode)
 	if err != nil {
 		return nil, err
 	}
 
 	// Ask for identity
 	rr := &RecipientRequest{
-		Network: f.Network,
+		Network:  f.Network,
+		WalletID: f.requestedWallet(),
 	}
 	rrRaw, err := rr.Bytes()
 	if err != nil {
@@ -117,7 +151,7 @@ func (f RequestRecipientIdentityView) Call(viewCtx view.Context) (interface{}, e
 	}
 
 	// Update the Endpoint Resolver
-	if err := endpoint.GetService(viewCtx).Bind(viewCtx.Context(), f.Other, recipientData.Identity); err != nil {
+	if err := endpoint.GetService(viewCtx).Bind(viewCtx.Context(), remoteNode, recipientData.Identity); err != nil {
 		return nil, err
 	}
 
@@ -150,7 +184,14 @@ func (s *RespondRequestRecipientIdentityView) Call(viewCtx view.Context) (interf
 		if err != nil {
 			return nil, err
 		}
-		s.Identity = fns.IdentityProvider().DefaultIdentity()
+		if !view.Identity(rr.WalletID).IsNone() {
+			s.Identity, err = fns.LocalMembership().GetIdentityByID(string(rr.WalletID))
+			if err != nil {
+				return nil, errors.WithMessagef(err, "failed to get identity with label %s", string(rr.WalletID))
+			}
+		} else {
+			s.Identity = fns.IdentityProvider().DefaultIdentity()
+		}
 	}
 
 	recipientData := &RecipientData{
@@ -198,6 +239,8 @@ type ExchangeRecipientIdentitiesView struct {
 	Network       string
 	IdentityLabel string
 	Other         view.Identity
+	Node          view.Identity
+	Wallet        view.Identity
 }
 
 // ExchangeRecipientIdentities runs the ExchangeRecipientIdentitiesView against the passed receiver.
@@ -219,8 +262,39 @@ func ExchangeRecipientIdentities(viewCtx view.Context, recipient view.Identity, 
 	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
 }
 
+// ExchangeRecipientIdentitiesWithNode exchanges recipient identities with the passed node for the passed wallet alias.
+func ExchangeRecipientIdentitiesWithNode(viewCtx view.Context, node, wallet view.Identity, opts ...ServiceOption) (view.Identity, view.Identity, error) {
+	opt, err := CompileServiceOptions(opts...)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to compile service options")
+	}
+	ids, err := viewCtx.RunView(&ExchangeRecipientIdentitiesView{
+		Network:       opt.Network,
+		IdentityLabel: opt.Identity,
+		Node:          node,
+		Wallet:        wallet,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
+}
+
+func (f *ExchangeRecipientIdentitiesView) remoteNode() view.Identity {
+	if !f.Node.IsNone() {
+		return f.Node
+	}
+	return f.Other
+}
+
+func (f *ExchangeRecipientIdentitiesView) requestedWallet() view.Identity {
+	return f.Wallet
+}
+
 func (f *ExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (interface{}, error) {
-	session, err := viewCtx.GetSession(viewCtx.Initiator(), f.Other)
+	remoteNode := f.remoteNode()
+	session, err := viewCtx.GetSession(viewCtx.Initiator(), remoteNode)
 	if err != nil {
 		return nil, err
 	}
@@ -244,10 +318,12 @@ func (f *ExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (interface{
 
 	// Send request
 	request := &ExchangeRecipientRequest{
-		WalletID: f.Other,
 		RecipientData: &RecipientData{
 			Identity: me,
 		},
+	}
+	if !f.requestedWallet().IsNone() {
+		request.WalletID = f.requestedWallet()
 	}
 	requestRaw, err := request.Bytes()
 	if err != nil {
@@ -269,9 +345,9 @@ func (f *ExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (interface{
 	}
 
 	// Update the Endpoint Resolver
-	logger.Debugf("bind [%s] to other [%s]", recipientData.Identity, f.Other)
+	logger.Debugf("bind [%s] to other [%s]", recipientData.Identity, remoteNode)
 	resolver := endpoint.GetService(viewCtx)
-	err = resolver.Bind(viewCtx.Context(), f.Other, recipientData.Identity)
+	err = resolver.Bind(viewCtx.Context(), remoteNode, recipientData.Identity)
 	if err != nil {
 		return nil, err
 	}
@@ -335,6 +411,12 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (int
 	}
 	if me.IsNone() {
 		return nil, errors.Errorf("no identity found with label %s", s.IdentityLabel)
+	}
+	if len(request.WalletID) != 0 && len(s.IdentityLabel) == 0 {
+		me, err = fns.LocalMembership().GetIdentityByID(string(request.WalletID))
+		if err != nil {
+			return nil, errors.WithMessagef(err, "failed to get identity with label %s", string(request.WalletID))
+		}
 	}
 
 	other := request.RecipientData.Identity
