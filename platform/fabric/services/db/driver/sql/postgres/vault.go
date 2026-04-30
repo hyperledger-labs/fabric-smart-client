@@ -9,7 +9,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	errors2 "errors"
 	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
@@ -52,58 +51,40 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	if err != nil {
 		return errors.Wrapf(err, "failed to initiate db transaction")
 	}
+	defer func() { _ = tx.Rollback() }()
 
 	if len(txIDs) > 0 {
 		query, params, err := db.SetStatusesBusy(txIDs)
 		if err != nil {
-			_ = tx.Rollback()
 			return errors.Wrapf(err, "failed building busy query")
 		}
-		if err := execOrRollback(ctx, tx, query, params); err != nil {
+		logger.Debug(query, len(params), params)
+		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
 			return errors.Wrapf(err, "failed setting tx to busy")
 		}
 	}
 	if len(writes) > 0 || len(metaWrites) > 0 {
 		query, params, err := db.UpsertStates(writes, metaWrites)
 		if err != nil {
-			_ = tx.Rollback()
 			return errors.Wrapf(err, "failed building upsert states query")
 		}
-		if err := execOrRollback(ctx, tx, query, params); err != nil {
+		logger.Debug(query, len(params), params)
+		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
 			return errors.Wrapf(err, "failed writing state")
 		}
 	}
 	if len(txIDs) > 0 {
 		query, params, err := db.SetStatusesValid(txIDs)
 		if err != nil {
-			_ = tx.Rollback()
 			return errors.Wrapf(err, "failed building valid query")
 		}
-		if err := execOrRollback(ctx, tx, query, params); err != nil {
+		logger.Debug(query, len(params), params)
+		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
 			return errors.Wrapf(err, "failed setting tx to valid")
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		if err2 := tx.Rollback(); err2 != nil {
-			return errors2.Join(err, err2)
-		}
-		return err
-	}
-
-	return nil
-}
-
-func execOrRollback(ctx context.Context, tx *sql.Tx, query string, params []any) error {
-	logger.Debug(query, len(params), params)
-
-	if _, err := tx.ExecContext(ctx, query, params...); err != nil {
-		if err2 := tx.Rollback(); err2 != nil {
-			return errors2.Join(err, err2)
-		}
-		return err
-	}
-	return nil
+	return tx.Commit()
 }
 
 func (db *VaultStore) CreateSchema() error {
