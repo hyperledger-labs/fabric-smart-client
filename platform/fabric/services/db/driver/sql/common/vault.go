@@ -387,7 +387,8 @@ func (db *vaultReader) GetAllStates(ctx context.Context, namespace driver.Namesp
 	return db.queryState(ctx, sq.Eq{"ns": namespace})
 }
 
-// betweenStrings returns a half-open [start, end) range condition, omitting a bound when it is empty.
+// betweenStrings returns a squirrel condition matching rows where col falls
+// in the half-open range [start, end). Empty start or end omits that bound.
 func betweenStrings(col, start, end string) sq.Sqlizer {
 	var parts sq.And
 	if start != "" {
@@ -399,6 +400,8 @@ func betweenStrings(col, start, end string) sq.Sqlizer {
 	return parts
 }
 
+// queryState runs a SELECT on the state table filtered by where and returns
+// an iterator over the matching rows.
 func (db *vaultReader) queryState(ctx context.Context, where sq.Sqlizer) (driver.TxStateIterator, error) {
 	query, params, err := db.sb.Select("pkey", "kversion", "val").
 		From(db.tables.StateTable).
@@ -501,6 +504,8 @@ func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination
 	return pagination.NewPage[driver.TxStatus](txStatusIterator, p)
 }
 
+// queryStatus runs a SELECT on the status table filtered by the optional
+// where condition, applies pagination, and returns an iterator over the results.
 func (db *vaultReader) queryStatus(ctx context.Context, where sq.Sqlizer, p driver.Pagination) (driver.TxStatusIterator, error) {
 	sb := db.sb.Select("tx_id", "code", "message").From(db.tables.StatusTable)
 	if where != nil {

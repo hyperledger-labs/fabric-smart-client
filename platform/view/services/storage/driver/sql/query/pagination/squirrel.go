@@ -14,6 +14,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
+// ApplyToSquirrel translates a driver.Pagination into squirrel limit/offset
+// clauses applied to sb and returns the modified SelectBuilder.
 // ApplyToSquirrel applies a driver.Pagination to a squirrel SelectBuilder by adding
 // the appropriate LIMIT, OFFSET, ORDER BY, and WHERE clauses.
 // It lives in this package because it needs access to the unexported pagination types.
