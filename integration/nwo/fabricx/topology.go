@@ -11,7 +11,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 )
 
-const DefaultTopologyName = "default"
+const (
+	TopologyName        = PlatformName
+	DefaultTopologyName = "default"
+)
+
+// NewTopology returns a new topology whose name is empty
+func NewTopology() *topology.Topology {
+	return NewTopologyWithName("")
+}
 
 // NewDefaultTopology is a configuration with two organizations and one peer per org.
 func NewDefaultTopology() *topology.Topology {

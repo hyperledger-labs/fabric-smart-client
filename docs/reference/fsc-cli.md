@@ -121,7 +121,8 @@ topologies:
 **For more topology examples, see the integration tests in [`integration/`](../../integration/) directory.**
 
 **Supported Topology Types:**
-- `fabric` - Hyperledger Fabric(x) network topology
+- `fabric` - Hyperledger Fabric network topology
+- `fabricx` - Hyperledger Fabric-X network topology
 - `fsc` - Fabric Smart Client network topology
 
 **Output:**
