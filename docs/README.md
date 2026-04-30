@@ -23,4 +23,5 @@ Each platform section includes a local `README.md` plus a `configuration.md` pag
 ## Guides and Tutorials
 
 - [FSC CLI reference](reference/fsc-cli.md)
+- [Node CLI reference](reference/node-cli.md)
 - [Benchmark examples](../integration/benchmark/README.md)
