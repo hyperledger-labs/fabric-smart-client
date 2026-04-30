@@ -20,7 +20,7 @@ import (
 	"github.com/containerd/errdefs"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/moby/moby/api/types/container"
-	docker_network "github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/api/types/network"
 	dcli "github.com/moby/moby/client"
 	_ "modernc.org/sqlite"
 
@@ -194,7 +194,7 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 	}
 
 	// define postgres port inside the container
-	postgresPort := docker_network.MustParsePort("5432/tcp")
+	postgresPort := network.MustParsePort("5432/tcp")
 
 	containerCfg := &container.Config{
 		Image: c.Image,
@@ -206,7 +206,7 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 			"POSTGRES_USER=" + c.User,
 			"POSTGRES_PASSWORD=" + c.Pass,
 		},
-		ExposedPorts: docker_network.PortSet{
+		ExposedPorts: network.PortSet{
 			// we use the default postgres port
 			postgresPort: struct{}{},
 		},
@@ -220,8 +220,8 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 
 	// define postgres port exposed by the container
 	hostCfg := &container.HostConfig{
-		PortBindings: docker_network.PortMap{
-			postgresPort: []docker_network.PortBinding{
+		PortBindings: network.PortMap{
+			postgresPort: []network.PortBinding{
 				{
 					HostIP:   netip.MustParseAddr("127.0.0.1"),
 					HostPort: c.Port, // if c.Port is empty or 0, the container runtime selects a free port
@@ -391,7 +391,7 @@ func getPostgresPort(ctx context.Context, cli dcli.APIClient, containerID string
 	}
 
 	// Look for the exposed port 5432/tcp
-	portBindings := inspection.Container.NetworkSettings.Ports[docker_network.MustParsePort("5432/tcp")]
+	portBindings := inspection.Container.NetworkSettings.Ports[network.MustParsePort("5432/tcp")]
 	if len(portBindings) == 0 {
 		return "", fmt.Errorf("port 5432 not mapped")
 	}
