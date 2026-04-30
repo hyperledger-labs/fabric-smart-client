@@ -40,12 +40,24 @@ func TestValidIdentityReturnsIdentity(t *testing.T) {
 	require.Equal(t, id, ValidIdentity(id, nil))
 }
 
-func TestValidIdentityPanicsOnEmptyIdentity(t *testing.T) {
+func TestValidIdentityPanicsWhenIdentityIsNil(t *testing.T) {
 	t.Parallel()
 
 	released := false
+
 	require.Panics(t, func() {
 		ValidIdentity(nil, nil, func() { released = true })
+	})
+	require.True(t, released)
+}
+
+func TestValidIdentityPanicsWhenErrorIsNotNil(t *testing.T) {
+	t.Parallel()
+
+	released := false
+
+	require.Panics(t, func() {
+		ValidIdentity(view.Identity([]byte("alice")), errors.New("boom"), func() { released = true })
 	})
 	require.True(t, released)
 }
