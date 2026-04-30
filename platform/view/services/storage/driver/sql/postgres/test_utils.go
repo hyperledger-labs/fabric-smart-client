@@ -12,15 +12,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/netip"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/containerd/errdefs"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/go-connections/nat"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/moby/moby/client"
+	"github.com/moby/moby/api/types/container"
+	docker_network "github.com/moby/moby/api/types/network"
+	dcli "github.com/moby/moby/client"
 	_ "modernc.org/sqlite"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -187,13 +188,13 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 		return nil, "", fmt.Errorf("container config is nil")
 	}
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := dcli.New(dcli.FromEnv)
 	if err != nil {
 		return nil, "", fmt.Errorf("can't get docker client: %w", err)
 	}
 
 	// define postgres port inside the container
-	postgresPort, _ := nat.NewPort("tcp", "5432")
+	postgresPort := docker_network.MustParsePort("5432/tcp")
 
 	containerCfg := &container.Config{
 		Image: c.Image,
@@ -205,7 +206,7 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 			"POSTGRES_USER=" + c.User,
 			"POSTGRES_PASSWORD=" + c.Pass,
 		},
-		ExposedPorts: nat.PortSet{
+		ExposedPorts: docker_network.PortSet{
 			// we use the default postgres port
 			postgresPort: struct{}{},
 		},
@@ -219,17 +220,21 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 
 	// define postgres port exposed by the container
 	hostCfg := &container.HostConfig{
-		PortBindings: nat.PortMap{
-			postgresPort: []nat.PortBinding{
+		PortBindings: docker_network.PortMap{
+			postgresPort: []docker_network.PortBinding{
 				{
-					HostIP:   "127.0.0.1",
+					HostIP:   netip.MustParseAddr("127.0.0.1"),
 					HostPort: c.Port, // if c.Port is empty or 0, the container runtime selects a free port
 				},
 			},
 		},
 	}
 
-	resp, err := cli.ContainerCreate(ctx, containerCfg, hostCfg, nil, nil, c.Container)
+	resp, err := cli.ContainerCreate(ctx, dcli.ContainerCreateOptions{
+		Name:       c.Container,
+		Config:     containerCfg,
+		HostConfig: hostCfg,
+	})
 	if err != nil {
 		return nil, "", fmt.Errorf("can't create postgres container: %w", err)
 	}
@@ -239,11 +244,11 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 		// we use a fresh context here as the provided ctx may be canceled already.
 		// this is particularly the case if ctx is provided by a test harness and closeFunc is called via t.Cleanup.
 		cctx := context.Background()
-		_ = cli.ContainerRemove(cctx, resp.ID, container.RemoveOptions{RemoveVolumes: true, Force: true})
+		_, _ = cli.ContainerRemove(cctx, resp.ID, dcli.ContainerRemoveOptions{RemoveVolumes: true, Force: true})
 		_ = waitUntilContainerRemoved(cctx, cli, resp.ID, defaultTimeout)
 	}
 
-	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+	if _, err := cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{}); err != nil {
 		closeFunc()
 		return nil, "", fmt.Errorf("can't start postgres container: %w", err)
 	}
@@ -278,13 +283,13 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 // startContainerLogger forwards the container logs for the given logger.
 // If the given logger is nil, the function returns. Errors are logged via the given logger.
 // The actual container logs are logged with the DEBUG log level.
-func startContainerLogger(ctx context.Context, cli *client.Client, containerID string, logger Logger) {
+func startContainerLogger(ctx context.Context, cli *dcli.Client, containerID string, logger Logger) {
 	if logger == nil {
 		return
 	}
 
 	go func() {
-		reader, err := cli.ContainerLogs(ctx, containerID, container.LogsOptions{
+		reader, err := cli.ContainerLogs(ctx, containerID, dcli.ContainerLogsOptions{
 			ShowStdout: false,
 			ShowStderr: true,
 			Follow:     true,
@@ -302,21 +307,21 @@ func startContainerLogger(ctx context.Context, cli *client.Client, containerID s
 	}()
 }
 
-func waitUntilHealth(ctx context.Context, cli *client.Client, containerID string, timeout time.Duration) error {
+func waitUntilHealth(ctx context.Context, cli *dcli.Client, containerID string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	for {
-		inspect, err := cli.ContainerInspect(ctx, containerID)
+		inspect, err := cli.ContainerInspect(ctx, containerID, dcli.ContainerInspectOptions{})
 		if err != nil {
 			return fmt.Errorf("inspect failed: %w", err)
 		}
 
-		if inspect.State.Health == nil {
+		if inspect.Container.State.Health == nil {
 			return fmt.Errorf("no healthcheck defined in container %s", containerID)
 		}
 
-		switch inspect.State.Health.Status {
+		switch inspect.Container.State.Health.Status {
 		case container.Healthy:
 			// yeah - our postgres container is ready
 			return nil
@@ -357,12 +362,12 @@ func waitUntilPing(ctx context.Context, dataSource string, timeout time.Duration
 	}
 }
 
-func waitUntilContainerRemoved(ctx context.Context, cli *client.Client, containerID string, timeout time.Duration) error {
+func waitUntilContainerRemoved(ctx context.Context, cli *dcli.Client, containerID string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	for {
-		_, err := cli.ContainerInspect(ctx, containerID)
+		_, err := cli.ContainerInspect(ctx, containerID, dcli.ContainerInspectOptions{})
 		if err != nil {
 			// When the container is truly gone, Docker returns an error
 			if errdefs.IsNotFound(err) {
@@ -379,14 +384,14 @@ func waitUntilContainerRemoved(ctx context.Context, cli *client.Client, containe
 	}
 }
 
-func getPostgresPort(ctx context.Context, cli *client.Client, containerID string) (string, error) {
-	inspection, err := cli.ContainerInspect(ctx, containerID)
+func getPostgresPort(ctx context.Context, cli *dcli.Client, containerID string) (string, error) {
+	inspection, err := cli.ContainerInspect(ctx, containerID, dcli.ContainerInspectOptions{})
 	if err != nil {
 		return "", err
 	}
 
 	// Look for the exposed port 5432/tcp
-	portBindings := inspection.NetworkSettings.Ports["5432/tcp"]
+	portBindings := inspection.Container.NetworkSettings.Ports[docker_network.MustParsePort("5432/tcp")]
 	if len(portBindings) == 0 {
 		return "", fmt.Errorf("port 5432 not mapped")
 	}

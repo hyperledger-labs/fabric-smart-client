@@ -9,7 +9,7 @@ package fabricconfig
 import (
 	"time"
 
-	"github.com/docker/docker/api/types/container"
+	"github.com/moby/moby/api/types/container"
 )
 
 type Core struct {

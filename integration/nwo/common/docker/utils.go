@@ -11,18 +11,14 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/containerd/errdefs"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/volume"
-	"github.com/docker/go-connections/nat"
-	"github.com/moby/moby/client"
+	"github.com/moby/moby/api/types/network"
+	dcli "github.com/moby/moby/client"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -33,7 +29,7 @@ var logger = logging.MustGetLogger()
 
 // Docker is a helper to manage container related actions within nwo.
 type Docker struct {
-	Client *client.Client
+	Client dcli.APIClient
 }
 
 var (
@@ -45,7 +41,7 @@ var (
 // GetInstance a Docker instance, returns nil and an error in case of a failure.
 func GetInstance() (*Docker, error) {
 	once.Do(func() {
-		dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		dockerClient, err := dcli.New(dcli.FromEnv)
 		if err != nil {
 			instanceError = errors.Wrapf(err, "failed to create new docker client instance")
 		}
@@ -59,16 +55,16 @@ func GetInstance() (*Docker, error) {
 // CheckImagesExist returns an error if a given container images is not available, returns an error in case of a failure.
 // It receives a list of container image names that are checked.
 func (d *Docker) CheckImagesExist(requiredImages ...string) error {
-	ctx := context.Background()
+	ctx := context.TODO()
 	for _, imageName := range requiredImages {
-		images, err := d.Client.ImageList(ctx, image.ListOptions{
-			Filters: filters.NewArgs(filters.Arg("reference", imageName)),
+		images, err := d.Client.ImageList(ctx, dcli.ImageListOptions{
+			Filters: make(dcli.Filters).Add("reference", imageName),
 		})
 		if err != nil {
 			return err
 		}
 
-		if len(images) != 1 {
+		if len(images.Items) != 1 {
 			return errors.Errorf("missing required image: %s", imageName)
 		}
 	}
@@ -77,7 +73,7 @@ func (d *Docker) CheckImagesExist(requiredImages ...string) error {
 
 // CreateNetwork starts a docker network with the provided `networkID` as name, returns an error in case of a failure.
 func (d *Docker) CreateNetwork(networkID string) error {
-	_, err := d.Client.NetworkCreate(context.Background(), networkID, network.CreateOptions{Driver: "bridge"})
+	_, err := d.Client.NetworkCreate(context.TODO(), networkID, dcli.NetworkCreateOptions{Driver: "bridge"})
 	if err != nil {
 		return errors.Wrapf(err, "failed creating new docker network with ID='%s'", networkID)
 	}
@@ -85,7 +81,11 @@ func (d *Docker) CreateNetwork(networkID string) error {
 }
 
 func (d *Docker) NetworkInfo(networkID string) (network.Inspect, error) {
-	return d.Client.NetworkInspect(context.Background(), networkID, network.InspectOptions{})
+	result, err := d.Client.NetworkInspect(context.TODO(), networkID, dcli.NetworkInspectOptions{})
+	if err != nil {
+		return network.Inspect{}, err
+	}
+	return result.Network, nil
 }
 
 // Cleanup is a helper function to release all container associated with `networkID`, returns an error in case of a failure.
@@ -93,22 +93,25 @@ func (d *Docker) NetworkInfo(networkID string) (network.Inspect, error) {
 // container images, the network.
 func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) error {
 	// TODO this method is a beast and should be refactored
-	ctx := context.Background()
-	containers, err := d.Client.ContainerList(ctx, container.ListOptions{All: true})
+	ctx := context.TODO()
+	containers, err := d.Client.ContainerList(ctx, dcli.ContainerListOptions{All: true})
 	if err != nil {
 		return err
 	}
 
-	for _, c := range containers {
+	for _, c := range containers.Items {
 		for _, name := range c.Names {
 			if matchName(name) {
 				logger.Infof("cleanup container [%s]", name)
 
 				// disconnect the container first
-				_ = d.Client.NetworkDisconnect(ctx, networkID, c.ID, true)
+				_, _ = d.Client.NetworkDisconnect(ctx, networkID, dcli.NetworkDisconnectOptions{
+					Container: c.ID,
+					Force:     true,
+				})
 
 				// remove container
-				if err := d.Client.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true}); err != nil {
+				if _, err := d.Client.ContainerRemove(ctx, c.ID, dcli.ContainerRemoveOptions{Force: true}); err != nil {
 					return errors.Wrapf(err, "failed removing docker container='%s'", c.ID)
 				}
 				break
@@ -116,15 +119,15 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 		}
 	}
 
-	volumes, err := d.Client.VolumeList(ctx, volume.ListOptions{})
+	volumes, err := d.Client.VolumeList(ctx, dcli.VolumeListOptions{})
 	if err != nil {
 		return err
 	}
 
-	for _, i := range volumes.Volumes {
-		if i != nil && matchName(i.Name) {
+	for _, i := range volumes.Items {
+		if matchName(i.Name) {
 			logger.Infof("cleanup volume [%s]", i.Name)
-			err := d.Client.VolumeRemove(ctx, i.Name, false)
+			_, err := d.Client.VolumeRemove(ctx, i.Name, dcli.VolumeRemoveOptions{})
 			if err != nil {
 				return errors.Wrapf(err, "failed removing docker volume='%s'", i.Name)
 			}
@@ -132,15 +135,15 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 		}
 	}
 
-	images, err := d.Client.ImageList(ctx, image.ListOptions{All: true})
+	images, err := d.Client.ImageList(ctx, dcli.ImageListOptions{All: true})
 	if err != nil {
 		return err
 	}
-	for _, i := range images {
+	for _, i := range images.Items {
 		for _, tag := range i.RepoTags {
 			if matchName(tag) {
 				logger.Infof("cleanup image [%s]", tag)
-				if _, err := d.Client.ImageRemove(ctx, i.ID, image.RemoveOptions{}); err != nil {
+				if _, err := d.Client.ImageRemove(ctx, i.ID, dcli.ImageRemoveOptions{}); err != nil {
 					return errors.Wrapf(err, "failed removing docker image='%s'", i.ID)
 				}
 				break
@@ -158,7 +161,7 @@ func (d *Docker) Cleanup(networkID string, matchName func(name string) bool) err
 		return nil
 	}
 
-	err = d.Client.NetworkRemove(ctx, nw.ID)
+	_, err = d.Client.NetworkRemove(ctx, nw.ID, dcli.NetworkRemoveOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "failed removing docker network='%s' with networkID='%s'", nw.ID, networkID)
 	}
@@ -184,7 +187,8 @@ func (d *Docker) LocalIP(networkID string) (string, error) {
 		break
 	}
 
-	dockerPrefix := config.Subnet[:strings.Index(config.Subnet, ".0")]
+	subnet := config.Subnet.Addr().String()
+	dockerPrefix := subnet[:strings.Index(subnet, ".0")]
 
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -208,29 +212,30 @@ func (d *Docker) LocalIP(networkID string) (string, error) {
 	return "127.0.0.1", nil
 }
 
-func PortSet(ports ...int) nat.PortSet {
-	m := make(nat.PortSet, len(ports))
+func PortSet(ports ...int) network.PortSet {
+	m := make(network.PortSet, len(ports))
 	for _, port := range ports {
-		m[nat.Port(fmt.Sprintf("%d/tcp", port))] = struct{}{}
+		m[network.MustParsePort(fmt.Sprintf("%d/tcp", port))] = struct{}{}
 	}
 	return m
 }
 
-func PortBindings(ports ...int) nat.PortMap {
-	m := make(nat.PortMap, len(ports))
+func PortBindings(ports ...int) network.PortMap {
+	m := make(network.PortMap, len(ports))
+	hostIP := netip.MustParseAddr("0.0.0.0")
 	for _, p := range ports {
 		port := strconv.Itoa(p)
-		m[nat.Port(port+"/tcp")] = []nat.PortBinding{{
-			HostIP:   "0.0.0.0",
+		m[network.MustParsePort(port+"/tcp")] = []network.PortBinding{{
+			HostIP:   hostIP,
 			HostPort: port,
 		}}
 	}
 	return m
 }
 
-func StartLogs(cli *client.Client, containerID, loggerName string) error {
+func StartLogs(cli dcli.APIClient, containerID, loggerName string) error {
 	dockerLogger := logging.MustGetLogger()
-	reader, err := cli.ContainerLogs(context.Background(), containerID, container.LogsOptions{
+	reader, err := cli.ContainerLogs(context.TODO(), containerID, dcli.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     true,
