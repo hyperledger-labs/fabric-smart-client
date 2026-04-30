@@ -160,6 +160,10 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 	return nil
 }
 
+// SetStatusesBusy builds an INSERT ... ON CONFLICT DO UPDATE statement that marks all
+// transactions in txIDs as Busy in the status table. It returns the SQL query string
+// and the corresponding argument slice ready for execution, or an error if the query
+// cannot be built.
 func (db *VaultStore) SetStatusesBusy(txIDs []driver.TxID) (string, []any, error) {
 	ib := db.sb.Insert(db.tables.StatusTable).
 		Columns("tx_id", "code")
