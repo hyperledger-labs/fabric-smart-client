@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package websocket_test
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -111,8 +112,9 @@ func TestMTLSCallerIdentityBinding(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, []byte("pong"), reply.Payload)
 }
 
-func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
-	t.Helper()
+func setupTwoNodes(tb testing.TB) (*comm.HostNode, *comm.HostNode) {
+	tb.Helper()
+	t := tb
 	tlsFiles := generateTLSFiles(t)
 
 	bootstrapAddress := freeTCPAddress(t)
@@ -134,7 +136,7 @@ func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 		true,
 		100, nil,
 	)).GetNewHost()
-	bootstrapNode, err := comm.NewNode(t.Context(), bootstrap, &disabled.Provider{})
+	bootstrapNode, err := comm.NewNode(context.Background(), bootstrap, &disabled.Provider{})
 	require.NoError(t, err)
 
 	other, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
@@ -149,7 +151,7 @@ func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 		true,
 		100, nil,
 	)).GetNewHost()
-	otherNode, err := comm.NewNode(t.Context(), other, &disabled.Provider{})
+	otherNode, err := comm.NewNode(context.Background(), other, &disabled.Provider{})
 	require.NoError(t, err)
 
 	<-time.After(1 * time.Second)
@@ -163,8 +165,9 @@ func TestSessionsTwoNodesTestRound(t *testing.T) { //nolint:paralleltest
 	comm.SessionsNodesTestRound(t, bootstrapNode, []*comm.HostNode{node1, node2}, 50)
 }
 
-func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
-	t.Helper()
+func setupThreeNodes(tb testing.TB) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
+	tb.Helper()
+	t := tb
 	// Create TLS certificates for three nodes: bootstrap, node1, node2
 	dir := t.TempDir()
 
@@ -285,14 +288,16 @@ func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNo
 		&comm.HostNode{P2PNode: node2Node, ID: node2ID, Address: node2Address}
 }
 
-func freeTCPAddress(t *testing.T) string {
-	t.Helper()
+func freeTCPAddress(tb testing.TB) string {
+	tb.Helper()
+	t := tb
 	ports := freeport.GetT(t, 1)
 	return fmt.Sprintf("127.0.0.1:%d", ports[0])
 }
 
-func mustPeerIDFromCert(t *testing.T, certPath string) string {
-	t.Helper()
+func mustPeerIDFromCert(tb testing.TB, certPath string) string {
+	tb.Helper()
+	t := tb
 	raw, err := os.ReadFile(certPath)
 	require.NoError(t, err)
 	block, _ := pem.Decode(raw)
@@ -318,8 +323,9 @@ type generatedTLSFiles struct {
 	otherKey      string
 }
 
-func generateTLSFiles(t *testing.T) generatedTLSFiles {
-	t.Helper()
+func generateTLSFiles(tb testing.TB) generatedTLSFiles {
+	tb.Helper()
+	t := tb
 	dir := t.TempDir()
 
 	caPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -517,8 +523,9 @@ func generateThreeNodesTLSFiles(t *testing.T) threeNodesTLSFiles {
 	}
 }
 
-func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) (*comm.HostNode, *comm.HostNode) {
-	t.Helper()
+func setupTwoNodesFromTLS(tb testing.TB, alice, bob nodeTLSFiles, caCert string) (*comm.HostNode, *comm.HostNode) {
+	tb.Helper()
+	t := tb
 	aliceAddr := freeTCPAddress(t)
 	bobAddr := freeTCPAddress(t)
 	aliceID := mustPeerIDFromCert(t, alice.cert)
@@ -528,15 +535,16 @@ func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) 
 		bobID:   []host2.PeerIPAddress{bobAddr},
 	}
 	aliceH, _ := newStaticRouteHostProvider(routes, websocket.NewConfigFromProperties(aliceAddr, alice.key, alice.cert, []string{caCert}, []string{caCert}, true, 100, nil)).GetNewHost()
-	aliceNode, _ := comm.NewNode(t.Context(), aliceH, &disabled.Provider{})
+	aliceNode, _ := comm.NewNode(context.Background(), aliceH, &disabled.Provider{})
 	bobH, _ := newStaticRouteHostProvider(routes, websocket.NewConfigFromProperties(bobAddr, bob.key, bob.cert, []string{caCert}, []string{caCert}, true, 100, nil)).GetNewHost()
-	bobNode, _ := comm.NewNode(t.Context(), bobH, &disabled.Provider{})
+	bobNode, _ := comm.NewNode(context.Background(), bobH, &disabled.Provider{})
 	return &comm.HostNode{P2PNode: aliceNode, ID: aliceID, Address: aliceAddr},
 		&comm.HostNode{P2PNode: bobNode, ID: bobID, Address: bobAddr}
 }
 
-func writePEM(t *testing.T, path, typ string, raw []byte) {
-	t.Helper()
+func writePEM(tb testing.TB, path, typ string, raw []byte) {
+	tb.Helper()
+	t := tb
 	f, err := os.Create(path)
 	require.NoError(t, err)
 	defer func() { _ = f.Close() }()
