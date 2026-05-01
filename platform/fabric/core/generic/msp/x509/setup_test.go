@@ -293,7 +293,8 @@ func TestGetSigningIdentity(t *testing.T) {
 }
 
 func TestGetSigningIdentity_InvalidPath(t *testing.T) {
-	t.Parallel()
+	// This test intentionally triggers a failing BCCSP factory initialization.
+	// Run it serially because Fabric's BCCSP factory keeps global process state.
 	_, err := GetSigningIdentity("/nonexistent", "", "msp1", nil)
 	require.Error(t, err)
 }

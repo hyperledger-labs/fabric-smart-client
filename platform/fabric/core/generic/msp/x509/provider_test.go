@@ -105,7 +105,8 @@ func TestProvider_SerializedIdentity(t *testing.T) {
 }
 
 func TestProvider_InvalidPath(t *testing.T) {
-	t.Parallel()
+	// This test intentionally triggers a failing BCCSP factory initialization.
+	// Run it serially because Fabric's BCCSP factory keeps global process state.
 	_, err := NewProvider("/nonexistent/path", "", "mspid", nil)
 	require.Error(t, err)
 }
@@ -229,7 +230,8 @@ func TestProvider_RegisterSigner(t *testing.T) {
 }
 
 func TestProvider_RegisterSigner_Error(t *testing.T) {
-	t.Parallel()
+	// This test intentionally triggers a failing BCCSP factory initialization.
+	// Run it serially because Fabric's BCCSP factory keeps global process state.
 	mSignerSvc := &mspdrivermock.SignerService{}
 	mSignerSvc.RegisterSignerReturns(fmt.Errorf("registration failed"))
 
