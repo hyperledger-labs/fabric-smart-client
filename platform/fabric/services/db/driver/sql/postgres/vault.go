@@ -28,6 +28,8 @@ type VaultStore struct {
 	writeDB *sql.DB
 }
 
+// NewVaultStore creates a postgres-backed VaultStore for the given
+// read/write database and table names.
 func NewVaultStore(dbs *common3.RWDB, tables common4.TableNames) (*VaultStore, error) {
 	return newVaultStore(dbs.ReadDB, dbs.WriteDB, common4.VaultTables{
 		StateTable:  tables.State,
@@ -35,6 +37,8 @@ func NewVaultStore(dbs *common3.RWDB, tables common4.TableNames) (*VaultStore, e
 	}), nil
 }
 
+// newVaultStore is the internal constructor. It uses sq.Dollar as the
+// squirrel placeholder format for all PostgreSQL queries.
 func newVaultStore(readDB, writeDB *sql.DB, tables common4.VaultTables) *VaultStore {
 	return &VaultStore{
 		VaultStore: common4.NewVaultStore(writeDB, readDB, tables, &postgres2.ErrorMapper{}, sq.Dollar, postgres2.NewSanitizer(), postgres2.IsolationLevels),
