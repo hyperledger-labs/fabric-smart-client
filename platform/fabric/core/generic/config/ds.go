@@ -67,14 +67,13 @@ type Files struct {
 }
 
 type TLS struct {
+	// TLS config under fabric.<network>.tls is client-side network config.
+	// Endpoint-specific peer/orderer settings can override these defaults.
 	Enabled            bool
 	ClientAuthRequired bool
-	Cert               File   `yaml:"cert"`
-	Key                File   `yaml:"key"`
 	ClientCert         File   `yaml:"clientCert"`
 	ClientKey          File   `yaml:"clientKey"`
 	RootCert           File   `yaml:"rootCert"`
-	ClientRootCAs      Files  `yaml:"clientRootCAs"`
 	RootCertFile       string `yaml:"rootCertFile"`
 }
 
