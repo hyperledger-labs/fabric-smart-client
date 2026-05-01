@@ -25,6 +25,7 @@ import (
 
 func TestProvider_IsRemote(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 	require.False(t, p.IsRemote())
@@ -32,6 +33,7 @@ func TestProvider_IsRemote(t *testing.T) {
 
 func TestProvider_DeserializeVerifier(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 
@@ -46,6 +48,7 @@ func TestProvider_DeserializeVerifier(t *testing.T) {
 
 func TestProvider_DeserializeVerifier_Invalid(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 
@@ -55,6 +58,7 @@ func TestProvider_DeserializeVerifier_Invalid(t *testing.T) {
 
 func TestProvider_DeserializeSigner(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 
@@ -65,6 +69,7 @@ func TestProvider_DeserializeSigner(t *testing.T) {
 
 func TestProvider_Info(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 
@@ -80,6 +85,7 @@ func TestProvider_Info(t *testing.T) {
 
 func TestProvider_Info_Invalid(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 
@@ -89,6 +95,7 @@ func TestProvider_Info_Invalid(t *testing.T) {
 
 func TestProvider_String(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 	require.Contains(t, p.String(), "X509 Provider for EID")
@@ -96,6 +103,7 @@ func TestProvider_String(t *testing.T) {
 
 func TestProvider_SerializedIdentity(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 
@@ -106,12 +114,14 @@ func TestProvider_SerializedIdentity(t *testing.T) {
 
 func TestProvider_InvalidPath(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	_, err := NewProvider("/nonexistent/path", "", "mspid", nil)
 	require.Error(t, err)
 }
 
 func TestProvider_DeserializeVerifier_BadKey(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 
@@ -126,6 +136,7 @@ func TestProvider_DeserializeVerifier_BadKey(t *testing.T) {
 
 func TestProvider_Info_BadCert(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 
@@ -140,6 +151,7 @@ func TestProvider_Info_BadCert(t *testing.T) {
 
 func TestNewProviderWithBCCSPConfig_VerifyOnly(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	// Create a temp MSP dir with signcerts and cacerts but NO keystore
 	dir := t.TempDir()
 	mspDir := filepath.Join(dir, "msp")
@@ -169,6 +181,7 @@ func TestNewProviderWithBCCSPConfig_VerifyOnly(t *testing.T) {
 
 func TestProvider_Identity_FullFlow(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 
@@ -185,6 +198,7 @@ func TestProvider_Identity_FullFlow(t *testing.T) {
 
 func TestProvider_DeserializeVerifier_NonECDSA(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	p, err := NewProvider("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 
@@ -205,6 +219,7 @@ func TestProvider_DeserializeVerifier_NonECDSA(t *testing.T) {
 
 func TestNewProviderWithBCCSPConfig_SWExplicit(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	conf := &config.BCCSP{Default: "SW"}
 	p, err := NewProviderWithBCCSPConfig("./testdata/msp", "", "apple", nil, conf)
 	require.NoError(t, err)
@@ -214,6 +229,7 @@ func TestNewProviderWithBCCSPConfig_SWExplicit(t *testing.T) {
 
 func TestProvider_RegisterSigner(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	mSignerSvc := &mspdrivermock.SignerService{}
 	p, err := NewProvider("./testdata/msp", "", "apple", mSignerSvc)
 	require.NoError(t, err)
@@ -230,6 +246,7 @@ func TestProvider_RegisterSigner(t *testing.T) {
 
 func TestProvider_RegisterSigner_Error(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	mSignerSvc := &mspdrivermock.SignerService{}
 	mSignerSvc.RegisterSignerReturns(fmt.Errorf("registration failed"))
 
@@ -241,6 +258,7 @@ func TestProvider_RegisterSigner_Error(t *testing.T) {
 
 func TestProvider_RegisterSigner_Fallback(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	mSignerSvc := &mspdrivermock.SignerService{}
 	mSignerSvc.RegisterSignerReturns(fmt.Errorf("registration failed"))
 

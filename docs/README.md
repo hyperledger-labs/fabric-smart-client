@@ -18,7 +18,7 @@ Each platform section includes a local `README.md` plus a `configuration.md` pag
 ## Development
 
 - [Development guide](development.md)
-- [Contributor guide](../CONTRIBUTING.md)
+- [Contributor guide and process](../CONTRIBUTING.md)
 
 ## Guides and Tutorials
 
