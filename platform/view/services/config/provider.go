@@ -142,11 +142,9 @@ func (p *Provider) GetString(key string) string {
 	return p.Backend.String(strings.ToLower(key))
 }
 
-// ConfigFileUsed returns the configuration file used.
-// Currently, this returns an empty string as koanf does not track it directly.
+// ConfigFileUsed returns the absolute path of the configuration file used.
 func (p *Provider) ConfigFileUsed() string {
-	// koanf does not track the config file used, so we return empty string
-	return ""
+	return p.fullPath
 }
 
 // MergeConfig merges the given raw configuration into the current configuration.

@@ -9,6 +9,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -219,7 +220,8 @@ func TestProviderMore(t *testing.T) { //nolint:paralleltest
 	assert.Equal(t, []string{"a", "b", "c"}, p.GetStringSlice("slice"))
 
 	// Test ConfigFileUsed
-	assert.Empty(t, p.ConfigFileUsed())
+	assert.NotEmpty(t, p.ConfigFileUsed())
+	assert.True(t, strings.HasSuffix(p.ConfigFileUsed(), filepath.Join("testdata", "core.yaml")))
 
 	// Test String
 	assert.NotEmpty(t, p.String())

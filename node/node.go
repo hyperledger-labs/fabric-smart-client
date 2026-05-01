@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger-labs/fabric-smart-client/node/start"
+	"github.com/hyperledger-labs/fabric-smart-client/node/validate"
 	"github.com/hyperledger-labs/fabric-smart-client/node/version"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -61,6 +62,7 @@ func newWithFSCNode(fscNode FSCNode) *Node {
 
 	mainCmd.AddCommand(version.Cmd())
 	mainCmd.AddCommand(start.Cmd(node))
+	mainCmd.AddCommand(validate.Cmd())
 
 	return node
 }
