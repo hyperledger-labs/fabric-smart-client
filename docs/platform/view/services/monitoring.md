@@ -6,6 +6,8 @@ We use the following two methods to monitor the performance of the application:
 * **Metrics** provide an overview of the overall system performance using aggregated results, e.g. total requests, requests per second, current state of a variable, average duration, percentile of duration
 * **Traces** help us analyze single requests by breaking down their lifecycles into smaller components
 
+For a complete list of the metric families currently defined by FSC, see the [Metrics Catalog](./monitoring_metrics.md).
+
 ## Metrics
 
 There are three types of metrics:
@@ -26,6 +28,8 @@ type Histogram interface {
 ```
 
 For more information on their meaning and how they are used, refer to [this article](https://prometheus.io/docs/concepts/metric_types/).
+
+For the catalog of FSC metric families, including the exported names, labels, and operational meaning, see the [Metrics Catalog](./monitoring_metrics.md).
 
 ### Types of providers
 

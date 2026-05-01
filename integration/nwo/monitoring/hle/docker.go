@@ -10,15 +10,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/volume"
-	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
+	dcli "github.com/moby/moby/client"
 	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
@@ -55,61 +52,69 @@ func (n *Extension) startContainer() {
 }
 
 func (n *Extension) startExplorerDB() {
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	ctx := context.TODO()
+	cli, err := dcli.New(dcli.FromEnv)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	d, err := docker.GetInstance()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	net, err := d.Client.NetworkInfo(n.platform.NetworkID())
+	net, err := d.NetworkInfo(n.platform.NetworkID())
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	containerName := n.platform.NetworkID() + "-explorerdb.mynetwork.com"
 
 	pgdataVolumeName := n.platform.NetworkID() + "-pgdata"
-	_, err = cli.VolumeCreate(ctx, volume.CreateOptions{
+	_, err = cli.VolumeCreate(ctx, dcli.VolumeCreateOptions{
 		Name: pgdataVolumeName,
 	})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Hostname: "explorerdb.mynetwork.com",
-		Image:    ExplorerDB,
-		Tty:      false,
-		Env: []string{
-			"DATABASE_DATABASE=fabricexplorer",
-			"DATABASE_USERNAME=hppoc",
-			"DATABASE_PASSWORD=password",
-		},
-	}, &container.HostConfig{
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeVolume,
-				Source: pgdataVolumeName,
-				Target: "/var/lib/postgresql/data",
+	resp, err := cli.ContainerCreate(ctx, dcli.ContainerCreateOptions{
+		Name: containerName,
+		Config: &container.Config{
+			Hostname: "explorerdb.mynetwork.com",
+			Image:    ExplorerDB,
+			Tty:      false,
+			Env: []string{
+				"DATABASE_DATABASE=fabricexplorer",
+				"DATABASE_USERNAME=hppoc",
+				"DATABASE_PASSWORD=password",
 			},
 		},
-	}, &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{
-			n.platform.NetworkID(): {
-				NetworkID: net.ID,
+		HostConfig: &container.HostConfig{
+			Mounts: []mount.Mount{
+				{
+					Type:   mount.TypeVolume,
+					Source: pgdataVolumeName,
+					Target: "/var/lib/postgresql/data",
+				},
 			},
 		},
-	}, nil, containerName,
-	)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
-		NetworkID: n.platform.NetworkID(),
+		NetworkingConfig: &network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				n.platform.NetworkID(): {
+					NetworkID: net.ID,
+				},
+			},
+		},
 	})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	gomega.Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(gomega.HaveOccurred())
+	_, err = cli.NetworkConnect(context.TODO(), n.platform.NetworkID(), dcli.NetworkConnectOptions{
+		Container: resp.ID,
+		EndpointConfig: &network.EndpointSettings{
+			NetworkID: n.platform.NetworkID(),
+		},
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	_, err = cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	dockerLogger := logging.MustGetLogger()
 	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
+		reader, err := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,
@@ -126,20 +131,20 @@ func (n *Extension) startExplorerDB() {
 }
 
 func (n *Extension) startExplorer() {
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	ctx := context.TODO()
+	cli, err := dcli.New(dcli.FromEnv)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	d, err := docker.GetInstance()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	net, err := d.Client.NetworkInfo(n.platform.NetworkID())
+	net, err := d.NetworkInfo(n.platform.NetworkID())
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	containerName := n.platform.NetworkID() + "-explorer.mynetwork.com"
 
 	walletStoreVolumeName := n.platform.NetworkID() + "-walletstore"
-	_, err = cli.VolumeCreate(ctx, volume.CreateOptions{
+	_, err = cli.VolumeCreate(ctx, dcli.VolumeCreateOptions{
 		Name: walletStoreVolumeName,
 	})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -147,86 +152,83 @@ func (n *Extension) startExplorer() {
 	localIP, err := d.LocalIP(n.platform.NetworkID())
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	port := strconv.Itoa(n.platform.HyperledgerExplorerPort())
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Hostname: "explorer.mynetwork.com",
-		Image:    Explorer,
-		Tty:      false,
-		Env: []string{
-			"DATABASE_HOST=explorerdb.mynetwork.com",
-			"DATABASE_DATABASE=fabricexplorer",
-			"DATABASE_USERNAME=hppoc",
-			"DATABASE_PASSWD=password",
-			"LOG_LEVEL_APP=debug",
-			"LOG_LEVEL_DB=debug",
-			"LOG_LEVEL_CONSOLE=debug",
-			"LOG_CONSOLE_STDOUT=true",
-			"DISCOVERY_AS_LOCALHOST=false",
-		},
-		// Healthcheck: &container.HealthConfig{
-		// 	Test:        []string{"pg_isready", "-h", "localhost", "-p", "5432", "-q", "-U", "postgres"},
-		// 	Interval:    30 * time.Second,
-		// 	Timeout:     10 * time.Second,
-		// 	Retries:     5,
-		// },
-		ExposedPorts: nat.PortSet{
-			nat.Port(port + "/tcp"): struct{}{},
-		},
-	}, &container.HostConfig{
-		ExtraHosts: []string{fmt.Sprintf("fabric:%s", localIP)},
-		Links:      []string{n.platform.NetworkID() + "-explorerdb.mynetwork.com"},
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeBind,
-				Source: n.configFilePath(),
-				Target: "/opt/explorer/app/platform/fabric/config.json",
+	resp, err := cli.ContainerCreate(ctx, dcli.ContainerCreateOptions{
+		Name: containerName,
+		Config: &container.Config{
+			Hostname: "explorer.mynetwork.com",
+			Image:    Explorer,
+			Tty:      false,
+			Env: []string{
+				"DATABASE_HOST=explorerdb.mynetwork.com",
+				"DATABASE_DATABASE=fabricexplorer",
+				"DATABASE_USERNAME=hppoc",
+				"DATABASE_PASSWD=password",
+				"LOG_LEVEL_APP=debug",
+				"LOG_LEVEL_DB=debug",
+				"LOG_LEVEL_CONSOLE=debug",
+				"LOG_CONSOLE_STDOUT=true",
+				"DISCOVERY_AS_LOCALHOST=false",
 			},
-			{
-				Type:   mount.TypeBind,
-				Source: n.cpFileDir(),
-				Target: "/opt/explorer/app/platform/fabric/connection-profile",
-			},
-			// {
-			// 	Type:   mount.TypeBind,
-			// 	Source: n.platform.CryptoPath(),
-			// 	Target: "/tmp/crypto",
+			// Healthcheck: &container.HealthConfig{
+			// 	Test:        []string{"pg_isready", "-h", "localhost", "-p", "5432", "-q", "-U", "postgres"},
+			// 	Interval:    30 * time.Second,
+			// 	Timeout:     10 * time.Second,
+			// 	Retries:     5,
 			// },
-			{
-				Type:   mount.TypeVolume,
-				Source: walletStoreVolumeName,
-				Target: "/opt/explorer/wallet",
-			},
+			ExposedPorts: docker.PortSet(n.platform.HyperledgerExplorerPort()),
 		},
-		PortBindings: nat.PortMap{
-			nat.Port(port + "/tcp"): []nat.PortBinding{
+		HostConfig: &container.HostConfig{
+			ExtraHosts: []string{fmt.Sprintf("fabric:%s", localIP)},
+			Links:      []string{n.platform.NetworkID() + "-explorerdb.mynetwork.com"},
+			Mounts: []mount.Mount{
 				{
-					HostIP:   "0.0.0.0",
-					HostPort: port,
+					Type:   mount.TypeBind,
+					Source: n.configFilePath(),
+					Target: "/opt/explorer/app/platform/fabric/config.json",
+				},
+				{
+					Type:   mount.TypeBind,
+					Source: n.cpFileDir(),
+					Target: "/opt/explorer/app/platform/fabric/connection-profile",
+				},
+				// {
+				// 	Type:   mount.TypeBind,
+				// 	Source: n.platform.CryptoPath(),
+				// 	Target: "/tmp/crypto",
+				// },
+				{
+					Type:   mount.TypeVolume,
+					Source: walletStoreVolumeName,
+					Target: "/opt/explorer/wallet",
 				},
 			},
+			PortBindings: docker.PortBindings(n.platform.HyperledgerExplorerPort()),
 		},
-	},
-		&network.NetworkingConfig{
+		NetworkingConfig: &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
 				n.platform.NetworkID(): {
 					NetworkID: net.ID,
 				},
 			},
-		}, nil, containerName,
-	)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
-		NetworkID: n.platform.NetworkID(),
+		},
 	})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	gomega.Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(gomega.HaveOccurred())
+	_, err = cli.NetworkConnect(context.TODO(), n.platform.NetworkID(), dcli.NetworkConnectOptions{
+		Container: resp.ID,
+		EndpointConfig: &network.EndpointSettings{
+			NetworkID: n.platform.NetworkID(),
+		},
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	_, err = cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	time.Sleep(3 * time.Second)
 
 	dockerLogger := logging.MustGetLogger()
 	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
+		reader, err := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,

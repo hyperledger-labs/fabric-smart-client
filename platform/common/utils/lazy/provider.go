@@ -114,5 +114,7 @@ func (v *lazyProvider[I, K, V]) Delete(input I) (V, bool) {
 }
 
 func (v *lazyProvider[I, K, V]) Length() int {
+	v.cacheLock.RLock()
+	defer v.cacheLock.RUnlock()
 	return len(v.cache)
 }

@@ -14,11 +14,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
+	dcli "github.com/moby/moby/client"
 	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
@@ -67,15 +66,15 @@ func (n *Extension) startContainer() {
 }
 
 func (n *Extension) startPrometheus() {
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	ctx := context.TODO()
+	cli, err := dcli.New(dcli.FromEnv)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// getting our docker helper, check required images exists and launch a docker network
 	d, err := docker.GetInstance()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	net, err := d.Client.NetworkInfo(n.platform.NetworkID())
+	net, err := d.NetworkInfo(n.platform.NetworkID())
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	containerName := n.platform.NetworkID() + "-prometheus"
@@ -84,61 +83,60 @@ func (n *Extension) startPrometheus() {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	port := strconv.Itoa(n.platform.PrometheusPort())
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Hostname: "prometheus",
-		Image:    "prom/prometheus:latest",
-		Tty:      true,
-		ExposedPorts: nat.PortSet{
-			nat.Port(port + "/tcp"): struct{}{},
-		},
-		Cmd: []string{
-			"--config.file=/etc/prometheus/prometheus.yml",
-			"--storage.tsdb.path=/prometheus",
-			"--enable-feature=native-histograms",
-		},
-	}, &container.HostConfig{
-		ExtraHosts:    []string{fmt.Sprintf("fabric:%s", localIP)},
-		RestartPolicy: container.RestartPolicy{Name: "always"},
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeBind,
-				Source: n.prometheusConfigFilePath(),
-				Target: "/etc/prometheus/prometheus.yml",
-			},
-			{
-				Type:   mount.TypeBind,
-				Source: n.fscCryptoDir(),
-				Target: "/etc/prometheus/fsc/crypto",
+	resp, err := cli.ContainerCreate(ctx, dcli.ContainerCreateOptions{
+		Name: containerName,
+		Config: &container.Config{
+			Hostname:     "prometheus",
+			Image:        "prom/prometheus:latest",
+			Tty:          true,
+			ExposedPorts: docker.PortSet(n.platform.PrometheusPort()),
+			Cmd: []string{
+				"--config.file=/etc/prometheus/prometheus.yml",
+				"--storage.tsdb.path=/prometheus",
+				"--enable-feature=native-histograms",
 			},
 		},
-		PortBindings: nat.PortMap{
-			nat.Port(port + "/tcp"): []nat.PortBinding{
+		HostConfig: &container.HostConfig{
+			ExtraHosts:    []string{fmt.Sprintf("fabric:%s", localIP)},
+			RestartPolicy: container.RestartPolicy{Name: "always"},
+			Mounts: []mount.Mount{
 				{
-					HostIP:   "0.0.0.0",
-					HostPort: port,
+					Type:   mount.TypeBind,
+					Source: n.prometheusConfigFilePath(),
+					Target: "/etc/prometheus/prometheus.yml",
+				},
+				{
+					Type:   mount.TypeBind,
+					Source: n.fscCryptoDir(),
+					Target: "/etc/prometheus/fsc/crypto",
+				},
+			},
+			PortBindings: docker.PortBindings(n.platform.PrometheusPort()),
+		},
+		NetworkingConfig: &network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				n.platform.NetworkID(): {
+					NetworkID: net.ID,
 				},
 			},
 		},
-	}, &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{
-			n.platform.NetworkID(): {
-				NetworkID: net.ID,
-			},
-		},
-	}, nil, containerName,
-	)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
-		NetworkID: n.platform.NetworkID(),
 	})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	gomega.Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(gomega.HaveOccurred())
+	_, err = cli.NetworkConnect(context.TODO(), n.platform.NetworkID(), dcli.NetworkConnectOptions{
+		Container: resp.ID,
+		EndpointConfig: &network.EndpointSettings{
+			NetworkID: n.platform.NetworkID(),
+		},
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	_, err = cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	dockerLogger := logging.MustGetLogger()
 	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
+		reader, err := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,
@@ -157,73 +155,71 @@ func (n *Extension) startPrometheus() {
 }
 
 func (n *Extension) startGrafana() {
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	ctx := context.TODO()
+	cli, err := dcli.New(dcli.FromEnv)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	d, err := docker.GetInstance()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	net, err := d.Client.NetworkInfo(n.platform.NetworkID())
+	net, err := d.NetworkInfo(n.platform.NetworkID())
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	containerName := n.platform.NetworkID() + "-grafana"
 
 	port := strconv.Itoa(n.platform.GrafanaPort())
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Hostname: "grafana",
-		Image:    GrafanaImg,
-		Tty:      false,
-		Env: []string{
-			"GF_AUTH_PROXY_ENABLED=true",
-			"GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning/",
-		},
-		ExposedPorts: nat.PortSet{
-			nat.Port(port + "/tcp"): struct{}{},
-		},
-	}, &container.HostConfig{
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeBind,
-				Source: n.grafanaProvisioningDirPath(),
-				Target: "/var/lib/grafana/provisioning/",
+	resp, err := cli.ContainerCreate(ctx, dcli.ContainerCreateOptions{
+		Name: containerName,
+		Config: &container.Config{
+			Hostname: "grafana",
+			Image:    GrafanaImg,
+			Tty:      false,
+			Env: []string{
+				"GF_AUTH_PROXY_ENABLED=true",
+				"GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning/",
 			},
-			{
-				Type:   mount.TypeBind,
-				Source: n.grafanaDashboardDirPath(),
-				Target: "/var/lib/grafana/dashboards/",
-			},
+			ExposedPorts: docker.PortSet(n.platform.GrafanaPort()),
 		},
-		PortBindings: nat.PortMap{
-			nat.Port(port + "/tcp"): []nat.PortBinding{
+		HostConfig: &container.HostConfig{
+			Mounts: []mount.Mount{
 				{
-					HostIP:   "0.0.0.0",
-					HostPort: port,
+					Type:   mount.TypeBind,
+					Source: n.grafanaProvisioningDirPath(),
+					Target: "/var/lib/grafana/provisioning/",
+				},
+				{
+					Type:   mount.TypeBind,
+					Source: n.grafanaDashboardDirPath(),
+					Target: "/var/lib/grafana/dashboards/",
 				},
 			},
+			PortBindings: docker.PortBindings(n.platform.GrafanaPort()),
 		},
-	},
-		&network.NetworkingConfig{
+		NetworkingConfig: &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
 				n.platform.NetworkID(): {
 					NetworkID: net.ID,
 				},
 			},
-		}, nil, containerName,
-	)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-	err = cli.NetworkConnect(context.Background(), n.platform.NetworkID(), resp.ID, &network.EndpointSettings{
-		NetworkID: n.platform.NetworkID(),
+		},
 	})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	gomega.Expect(cli.ContainerStart(ctx, resp.ID, container.StartOptions{})).ToNot(gomega.HaveOccurred())
+	_, err = cli.NetworkConnect(context.TODO(), n.platform.NetworkID(), dcli.NetworkConnectOptions{
+		Container: resp.ID,
+		EndpointConfig: &network.EndpointSettings{
+			NetworkID: n.platform.NetworkID(),
+		},
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	_, err = cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	time.Sleep(3 * time.Second)
 
 	dockerLogger := logging.MustGetLogger()
 	go func() {
-		reader, err := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
+		reader, err := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,

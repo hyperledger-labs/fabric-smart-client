@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 type dummyCloser struct {
@@ -67,4 +69,91 @@ func TestLazyHolderRaceCondition(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestHolderBasic(t *testing.T) {
+	t.Parallel()
+
+	count := 0
+	provider := func() (int, error) {
+		count++
+		return 42, nil
+	}
+
+	h := NewHolder(provider, func(v int) error { return nil })
+
+	// Test Get
+	v, err := h.Get()
+	require.NoError(t, err)
+	require.Equal(t, 42, v)
+	require.Equal(t, 1, count)
+
+	// Test Get again (cached)
+	v, err = h.Get()
+	require.NoError(t, err)
+	require.Equal(t, 42, v)
+	require.Equal(t, 1, count)
+}
+
+func TestHolderErrors(t *testing.T) {
+	t.Parallel()
+
+	provider := func() (int, error) {
+		return 0, errors.New("provider error")
+	}
+
+	h := NewHolder(provider, func(v int) error { return nil })
+
+	v, err := h.Get()
+	require.Error(t, err)
+	require.Equal(t, "provider error", err.Error())
+	require.Equal(t, 0, v)
+}
+
+func TestHolderReset(t *testing.T) {
+	t.Parallel()
+
+	count := 0
+	provider := func() (int, error) {
+		count++
+		return count, nil
+	}
+
+	closed := false
+	closer := func(v int) error {
+		closed = true
+		if v == 2 {
+			return errors.New("closer error")
+		}
+		return nil
+	}
+
+	h := NewHolder(provider, closer)
+
+	// Get first value
+	v, err := h.Get()
+	require.NoError(t, err)
+	require.Equal(t, 1, v)
+
+	// Reset
+	err = h.Reset()
+	require.NoError(t, err)
+	require.True(t, closed)
+
+	// Get second value
+	v, err = h.Get()
+	require.NoError(t, err)
+	require.Equal(t, 2, v)
+
+	// Reset with error
+	err = h.Reset()
+	require.Error(t, err)
+	require.Equal(t, "closer error", err.Error())
+}
+
+func TestResetEmpty(t *testing.T) {
+	t.Parallel()
+	h := NewHolder(func() (int, error) { return 42, nil }, func(int) error { return nil })
+	err := h.Reset()
+	require.NoError(t, err)
 }

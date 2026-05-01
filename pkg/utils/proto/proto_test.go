@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/protoadapt"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -61,4 +62,21 @@ func TestClone(t *testing.T) {
 	// Mutating the clone must not affect the original
 	cloned.Value = "modified"
 	require.Equal(t, "original", msg.Value)
+}
+
+func TestMarshalUnmarshalV1(t *testing.T) {
+	t.Parallel()
+	msg := &wrapperspb.StringValue{Value: "hello v1"}
+
+	// Convert V2 message to V1 using protoadapt
+	msgV1 := protoadapt.MessageV1Of(msg)
+
+	b, err := MarshalV1(msgV1)
+	require.NoError(t, err)
+
+	got := &wrapperspb.StringValue{}
+	gotV1 := protoadapt.MessageV1Of(got)
+
+	require.NoError(t, UnmarshalV1(b, gotV1))
+	require.Equal(t, msg.Value, got.Value)
 }

@@ -21,6 +21,7 @@ PeerOrgs:{{ range .PeerOrgs }}
     - 127.0.0.1
     - ::1
     - "::"
+    - host.docker.internal
   {{- end }}
   {{- end }}
   Users:
@@ -42,6 +43,7 @@ PeerOrgs:{{ range .PeerOrgs }}
     - 127.0.0.1
     - ::1
     - "::"
+    - host.docker.internal
   {{- end }}
 {{- end }}
 {{- end }}
