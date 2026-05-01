@@ -51,7 +51,7 @@ func TestSortedSliceAddDeduplicates(t *testing.T) {
 
 	sorted := SortedSlice[int]{1, 3}
 	sorted.Add(2)
-	sorted.Add(3)
+	sorted.Add(3) // ensure de-duplication
 	sorted.Add(3) // ensure de-duplication
 
 	require.Equal(t, SortedSlice[int]{1, 2, 3}, sorted)
