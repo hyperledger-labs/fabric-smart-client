@@ -13,7 +13,6 @@ import (
 	"net"
 	"net/netip"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/containerd/errdefs"
@@ -64,7 +63,7 @@ func (d *Docker) CheckImagesExist(requiredImages ...string) error {
 			return err
 		}
 
-		if len(images.Items) != 1 {
+		if len(images.Items) == 0 {
 			return errors.Errorf("missing required image: %s", imageName)
 		}
 	}
@@ -187,9 +186,6 @@ func (d *Docker) LocalIP(networkID string) (string, error) {
 		break
 	}
 
-	subnet := config.Subnet.Addr().String()
-	dockerPrefix := subnet[:strings.Index(subnet, ".0")]
-
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return "", err
@@ -201,10 +197,9 @@ func (d *Docker) LocalIP(networkID string) (string, error) {
 			return "", err
 		}
 		for _, addr := range addrs {
-			if strings.Index(addr.String(), dockerPrefix) == 0 {
-				ipWithSubnet := addr.String()
-				i := strings.Index(ipWithSubnet, "/")
-				return ipWithSubnet[:i], nil
+			prefix, err := netip.ParsePrefix(addr.String())
+			if err == nil && config.Subnet.Contains(prefix.Addr()) {
+				return prefix.Addr().String(), nil
 			}
 		}
 	}
