@@ -46,12 +46,13 @@ func TestRepeat(t *testing.T) {
 	require.Equal(t, []int{7, 7, 7}, Repeat(7, 3))
 }
 
-func TestSortedSliceAdd(t *testing.T) {
+func TestSortedSliceAddDeduplicates(t *testing.T) {
 	t.Parallel()
 
 	sorted := SortedSlice[int]{1, 3}
 	sorted.Add(2)
 	sorted.Add(3)
+	sorted.Add(3) // ensure de-duplication
 
 	require.Equal(t, SortedSlice[int]{1, 2, 3}, sorted)
 }

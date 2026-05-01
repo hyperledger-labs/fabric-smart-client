@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCopyCopiesSourceEntries(t *testing.T) {
+func TestCopyOverwritesExistingKeys(t *testing.T) {
 	t.Parallel()
 
 	target := map[string]int{"existing": 1}

@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-
-	pkgerrors "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 func TestRetrySucceedsImmediately(t *testing.T) {
@@ -33,10 +31,10 @@ func TestRetryEventuallySucceeds(t *testing.T) {
 	t.Parallel()
 
 	calls := 0
-	err := Retry(4, 0, func() error {
+	err := Retry(4, time.Microsecond, func() error {
 		calls++
 		if calls < 3 {
-			return pkgerrors.New("not yet")
+			return errors.New("not yet")
 		}
 		return nil
 	})
@@ -61,10 +59,10 @@ func TestEventuallyWithRetry(t *testing.T) {
 	t.Parallel()
 
 	calls := 0
-	EventuallyWithRetry(t, 3, time.Nanosecond, func() error {
+	EventuallyWithRetry(t, 3, time.Microsecond, func() error {
 		calls++
 		if calls < 2 {
-			return pkgerrors.New("retry")
+			return errors.New("retry")
 		}
 		return nil
 	})
