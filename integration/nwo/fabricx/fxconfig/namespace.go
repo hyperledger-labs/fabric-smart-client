@@ -93,6 +93,12 @@ func (n *NamespaceCommon) Env() []string {
 			"FXCONFIG_ORDERER_TLS_ENABLED=true",
 			"FXCONFIG_ORDERER_TLS_ROOTCERTS="+rootCerts,
 		)
+		if n.OrdererConfig.TLSConfig.ClientCertPath != "" {
+			env = append(env, "FXCONFIG_ORDERER_TLS_CLIENTCERT="+n.OrdererConfig.TLSConfig.ClientCertPath)
+		}
+		if n.OrdererConfig.TLSConfig.ClientKeyPath != "" {
+			env = append(env, "FXCONFIG_ORDERER_TLS_CLIENTKEY="+n.OrdererConfig.TLSConfig.ClientKeyPath)
+		}
 	}
 
 	// notifications
@@ -103,6 +109,12 @@ func (n *NamespaceCommon) Env() []string {
 			"FXCONFIG_NOTIFICATIONS_TLS_ENABLED=true",
 			"FXCONFIG_NOTIFICATIONS_TLS_ROOTCERTS="+rootCerts,
 		)
+		if n.NotificationsConfig.TLSConfig.ClientCertPath != "" {
+			env = append(env, "FXCONFIG_NOTIFICATIONS_TLS_CLIENTCERT="+n.NotificationsConfig.TLSConfig.ClientCertPath)
+		}
+		if n.NotificationsConfig.TLSConfig.ClientKeyPath != "" {
+			env = append(env, "FXCONFIG_NOTIFICATIONS_TLS_CLIENTKEY="+n.NotificationsConfig.TLSConfig.ClientKeyPath)
+		}
 	}
 
 	return env
@@ -150,6 +162,12 @@ func (n *ListNamespaces) Env() []string {
 			"FXCONFIG_QUERIES_TLS_ENABLED=true",
 			"FXCONFIG_QUERIES_TLS_ROOTCERTS="+rootCerts,
 		)
+		if n.QueryConfig.TLSConfig.ClientCertPath != "" {
+			env = append(env, "FXCONFIG_QUERIES_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath)
+		}
+		if n.QueryConfig.TLSConfig.ClientKeyPath != "" {
+			env = append(env, "FXCONFIG_QUERIES_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath)
+		}
 	}
 
 	return env

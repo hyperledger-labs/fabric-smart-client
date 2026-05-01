@@ -41,7 +41,7 @@ func generateNSExtension(n *network.Network, notificationServicePort uint16, not
 				ConnectionTimeout: grpc.DefaultConnectionTimeout,
 				TLS: &fxgrpc.TLSConfig{
 					// TODO: allow TLS and mTLS integration tests
-					Enabled: false,
+					Enabled: n.TLSEnabled,
 					// note that this bundle contains all root certs of the network
 					RootCertPaths: []string{n.CACertsBundlePath()},
 				},
