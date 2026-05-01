@@ -18,7 +18,7 @@ func TestRetrySucceedsImmediately(t *testing.T) {
 	t.Parallel()
 
 	calls := 0
-	err := Retry(2, 0, func() error {
+	err := Retry(2, time.Microsecond, func() error {
 		calls++
 		return nil
 	})
@@ -46,7 +46,7 @@ func TestRetryReturnsLastErrorAfterAttempts(t *testing.T) {
 	t.Parallel()
 
 	sentinelErr := errors.New("still no luck")
-	err := Retry(2, time.Nanosecond, func() error {
+	err := Retry(2, time.Microsecond, func() error {
 		return sentinelErr
 	})
 
