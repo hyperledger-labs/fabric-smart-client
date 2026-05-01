@@ -1,0 +1,25 @@
+name: "Bot: Assign On Comment"
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  assign:
+    if: github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    concurrency:
+      group: assign-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+      - name: Handle /assign command
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const handler = require('./.github/scripts/bot-assign-on-comment.js');
+            await handler({ github, context });

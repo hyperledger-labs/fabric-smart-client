@@ -1,0 +1,32 @@
+name: "Bot: Linked Issue Enforcer"
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "If true, log intended changes without commenting or closing PRs"
+        required: false
+        default: "true"
+        type: string
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  enforce-linked-issues:
+    runs-on: ubuntu-latest
+    env:
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+      HOURS_BEFORE_CLOSE: "12"
+      REQUIRE_AUTHOR_ASSIGNED: "true"
+    steps:
+      - uses: actions/checkout@v6
+      - name: Enforce linked issues on PRs
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const handler = require('./.github/scripts/cron-enforcer-pr-linked-issue.js');
+            await handler({ github, context });

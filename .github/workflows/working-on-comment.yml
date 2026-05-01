@@ -1,0 +1,36 @@
+name: "Bot: Working On Comment"
+
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Log the run without making any changes"
+        required: false
+        default: "true"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  working:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.comment.body, '/working')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    concurrency:
+      group: working-${{ github.event.issue.number || github.run_id }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+      - name: Handle /working command
+        uses: actions/github-script@v8
+        env:
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        with:
+          script: |
+            const handler = require('./.github/scripts/bot-working-on-comment.js');
+            await handler({ github, context });
