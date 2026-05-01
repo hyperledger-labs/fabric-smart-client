@@ -38,6 +38,7 @@ type SignerService interface {
 	IsMe(ctx context.Context, id view.Identity) bool
 }
 
+//go:generate counterfeiter -o mock/binder_service.go -fake-name BinderService . BinderService
 type BinderService interface {
 	Bind(ctx context.Context, longTerm view.Identity, ephemeral ...view.Identity) error
 	GetIdentity(label string, pkiID []byte) (view.Identity, error)
@@ -77,6 +78,8 @@ type Identity interface {
 // SigningIdentity defines the functions necessary to sign an
 // array of bytes; it is needed to sign the commands transmitted to
 // the prover peer service.
+//
+//go:generate counterfeiter -o mock/signing_identity.go -fake-name SigningIdentity . SigningIdentity
 type SigningIdentity interface {
 	Identity // extends Identity
 
