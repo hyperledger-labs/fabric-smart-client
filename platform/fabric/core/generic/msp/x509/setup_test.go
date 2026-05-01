@@ -169,6 +169,7 @@ func TestLoadVerifyingMSPAt_InvalidType(t *testing.T) {
 
 func TestSerializeFromMSP(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	raw, err := SerializeFromMSP("apple", "./testdata/msp")
 	require.NoError(t, err)
 	require.NotEmpty(t, raw)
@@ -176,6 +177,7 @@ func TestSerializeFromMSP(t *testing.T) {
 
 func TestSerializeFromMSP_InvalidPath(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	_, err := SerializeFromMSP("apple", "/nonexistent")
 	require.Error(t, err)
 }
@@ -283,6 +285,7 @@ func TestGetPemMaterialFromDir_SkipsNonPEM(t *testing.T) {
 
 func TestGetSigningIdentity(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	sID, err := GetSigningIdentity("./testdata/msp", "", "apple", nil)
 	require.NoError(t, err)
 	require.NotNil(t, sID)
@@ -293,14 +296,15 @@ func TestGetSigningIdentity(t *testing.T) {
 }
 
 func TestGetSigningIdentity_InvalidPath(t *testing.T) {
-	// This test intentionally triggers a failing BCCSP factory initialization.
-	// Run it serially because Fabric's BCCSP factory keeps global process state.
+	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	_, err := GetSigningIdentity("/nonexistent", "", "msp1", nil)
 	require.Error(t, err)
 }
 
 func TestLoadLocalMSPAt(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	mspInst, err := LoadLocalMSPAt("./testdata/msp", "", "apple", BCCSPType, nil)
 	require.NoError(t, err)
 	require.NotNil(t, mspInst)
@@ -308,6 +312,7 @@ func TestLoadLocalMSPAt(t *testing.T) {
 
 func TestLoadVerifyingMSPAt(t *testing.T) {
 	t.Parallel()
+	serializesBCCSPFactoryState(t)
 	mspInst, err := LoadVerifyingMSPAt("./testdata/msp", "apple", BCCSPType)
 	require.NoError(t, err)
 	require.NotNil(t, mspInst)

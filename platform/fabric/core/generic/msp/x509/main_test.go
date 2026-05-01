@@ -8,10 +8,19 @@ package x509
 
 import (
 	"os"
+	"sync"
 	"testing"
 
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 )
+
+var bccspFactoryTestMu sync.Mutex
+
+func serializesBCCSPFactoryState(t *testing.T) {
+	t.Helper()
+	bccspFactoryTestMu.Lock()
+	t.Cleanup(bccspFactoryTestMu.Unlock)
+}
 
 func TestMain(m *testing.M) {
 	// Fabric's BCCSP factory is initialized through a global sync.Once.
