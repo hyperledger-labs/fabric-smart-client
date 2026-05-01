@@ -172,14 +172,14 @@ func GetLocalMspConfig(dir string, bccspConfig *factory.FactoryOpts, ID string) 
 	keystoreDir := filepath.Join(dir, keystore)
 	bccspConfig = SetupBCCSPKeystoreConfig(bccspConfig, keystoreDir)
 
-	err := factory.InitFactories(bccspConfig)
-	if err != nil {
-		return nil, errors.WithMessage(err, "could not initialize BCCSP Factories")
-	}
-
 	signcert, err := getPemMaterialFromDir(signcertDir)
 	if err != nil || len(signcert) == 0 {
 		return nil, errors.Wrapf(err, "could not load a valid signer certificate from directory %s", signcertDir)
+	}
+
+	err = factory.InitFactories(bccspConfig)
+	if err != nil {
+		return nil, errors.WithMessage(err, "could not initialize BCCSP Factories")
 	}
 
 	/* FIXME: for now we're making the following assumptions
