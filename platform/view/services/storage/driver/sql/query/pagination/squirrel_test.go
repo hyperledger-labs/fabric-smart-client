@@ -19,28 +19,31 @@ func baseQuery() sq.SelectBuilder {
 	return sq.Select("tx_id", "code").From("status")
 }
 
-func TestApplyToSquirrel_Nil(t *testing.T) { //nolint:paralleltest
+func TestApplyToSquirrel_Nil(t *testing.T) {
+	t.Parallel()
 	q, args, err := pagination.ApplyToSquirrel(nil, baseQuery()).ToSql()
 	require.NoError(t, err)
 	require.Equal(t, "SELECT tx_id, code FROM status", q)
 	require.Empty(t, args)
 }
 
-func TestApplyToSquirrel_None(t *testing.T) { //nolint:paralleltest
+func TestApplyToSquirrel_None(t *testing.T) {
+	t.Parallel()
 	q, args, err := pagination.ApplyToSquirrel(pagination.None(), baseQuery()).ToSql()
 	require.NoError(t, err)
 	require.Equal(t, "SELECT tx_id, code FROM status", q)
 	require.Empty(t, args)
 }
 
-func TestApplyToSquirrel_Empty(t *testing.T) { //nolint:paralleltest
+func TestApplyToSquirrel_Empty(t *testing.T) {
+	t.Parallel()
 	q, args, err := pagination.ApplyToSquirrel(pagination.Empty(), baseQuery()).ToSql()
 	require.NoError(t, err)
 	require.Equal(t, "SELECT tx_id, code FROM status LIMIT 0", q)
 	require.Empty(t, args)
 }
 
-func TestApplyToSquirrel_OffsetPageSizeOnly(t *testing.T) { //nolint:paralleltest
+func TestApplyToSquirrel_OffsetPageSizeOnly(t *testing.T) {
 	p, err := pagination.Offset(0, 10)
 	require.NoError(t, err)
 
@@ -50,7 +53,8 @@ func TestApplyToSquirrel_OffsetPageSizeOnly(t *testing.T) { //nolint:paralleltes
 	require.Empty(t, args)
 }
 
-func TestApplyToSquirrel_OffsetAndPageSize(t *testing.T) { //nolint:paralleltest
+func TestApplyToSquirrel_OffsetAndPageSize(t *testing.T) {
+	t.Parallel()
 	p, err := pagination.Offset(5, 10)
 	require.NoError(t, err)
 
@@ -60,7 +64,8 @@ func TestApplyToSquirrel_OffsetAndPageSize(t *testing.T) { //nolint:paralleltest
 	require.Empty(t, args)
 }
 
-func TestApplyToSquirrel_KeysetString_NoFirstID(t *testing.T) { //nolint:paralleltest
+func TestApplyToSquirrel_KeysetString_NoFirstID(t *testing.T) {
+	t.Parallel()
 	p, err := pagination.Keyset[string, any](0, 10, "tx_id", nil)
 	require.NoError(t, err)
 
@@ -70,7 +75,8 @@ func TestApplyToSquirrel_KeysetString_NoFirstID(t *testing.T) { //nolint:paralle
 	require.Empty(t, args)
 }
 
-func TestApplyToSquirrel_KeysetString_WithFirstID(t *testing.T) { //nolint:paralleltest
+func TestApplyToSquirrel_KeysetString_WithFirstID(t *testing.T) {
+	t.Parallel()
 	raw := []byte(`{"offset":0,"page_size":10,"sqlid_name":"tx_id","first_id":"abc","last_id":""}`)
 	p, err := pagination.KeysetFromRaw[string](raw, "TxID")
 	require.NoError(t, err)
@@ -81,7 +87,8 @@ func TestApplyToSquirrel_KeysetString_WithFirstID(t *testing.T) { //nolint:paral
 	require.Equal(t, []any{"abc"}, args)
 }
 
-func TestApplyToSquirrel_KeysetString_WithOffset(t *testing.T) { //nolint:paralleltest
+func TestApplyToSquirrel_KeysetString_WithOffset(t *testing.T) {
+	t.Parallel()
 	p, err := pagination.Keyset[string, any](5, 10, "tx_id", nil)
 	require.NoError(t, err)
 
@@ -91,7 +98,8 @@ func TestApplyToSquirrel_KeysetString_WithOffset(t *testing.T) { //nolint:parall
 	require.Empty(t, args)
 }
 
-func TestApplyToSquirrel_KeysetInt_NoFirstID(t *testing.T) { //nolint:paralleltest
+func TestApplyToSquirrel_KeysetInt_NoFirstID(t *testing.T) {
+	t.Parallel()
 	raw := []byte(`{"offset":0,"page_size":10,"sqlid_name":"pos","first_id":-1,"last_id":-1}`)
 	p, err := pagination.KeysetFromRaw[int](raw, "Pos")
 	require.NoError(t, err)
