@@ -44,6 +44,7 @@ func TestApplyToSquirrel_Empty(t *testing.T) {
 }
 
 func TestApplyToSquirrel_OffsetPageSizeOnly(t *testing.T) {
+	t.Parallel()
 	p, err := pagination.Offset(0, 10)
 	require.NoError(t, err)
 
