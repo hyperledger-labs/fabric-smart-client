@@ -39,7 +39,7 @@ func NewServerTransportCredentials(
 	serverConfig.config.NextProtos = alpnProtoStr
 	// override TLS version and ensure it is 1.2
 	serverConfig.config.MinVersion = tls.VersionTLS12
-	serverConfig.config.MaxVersion = tls.VersionTLS12
+	serverConfig.config.MaxVersion = tls.VersionTLS13
 	return &serverCreds{
 		serverConfig: serverConfig,
 		logger:       logger,
