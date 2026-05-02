@@ -12,13 +12,10 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	routing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
-
-var logger = logging.MustGetLogger()
 
 type host struct {
 	nodeID  host2.PeerID
