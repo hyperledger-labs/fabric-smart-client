@@ -163,7 +163,8 @@ func (p *SDK) Install() error {
 
 		// Web server
 		p.Container().Provide(NewWebServer),
-		p.Container().Provide(digutils.Identity[Server](), dig.As(new(operations.Server))),
+		p.Container().Provide(NewMetricsServer),
+		p.Container().Provide(NewOperationsServer, dig.As(new(operations.Server))),
 
 		// GRPC server
 		p.Container().Provide(viewgrpcserver.NewResponseMarshaler, dig.As(new(viewgrpcserver.Marshaller))),
@@ -214,6 +215,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		ViewService      viewgrpcserver.Service
 		CommService      *comm.Service
 		WebServer        Server
+		MetricsServer    *MetricsServer
 		System           *operations.System
 		KVS              *kvs.KVS
 		TracerProvider   tracing.Provider
@@ -230,7 +232,7 @@ func (p *SDK) Start(ctx context.Context) error {
 			return err
 		}
 
-		Serve(in.GRPCServer, in.WebServer, in.System, in.KVS, ctx)
+		Serve(in.GRPCServer, in.WebServer, in.MetricsServer, in.System, in.KVS, ctx)
 
 		return nil
 	})

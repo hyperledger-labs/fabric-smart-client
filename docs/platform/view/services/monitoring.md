@@ -128,7 +128,7 @@ func (p *SDK) Install() error {
 ### Visualization
 
 The visualization of the prometheus metrics can be done in three different steps:
-* **Prometheus Exporter:** The application collects the metrics and exposes them using a Prometheus exporter server that runs by default on `fsc.web.address`. To access them, you can open on your browser `http://{{fsc.web.address}}/metrics`.
+* **Prometheus Exporter:** The application collects the metrics and exposes them using a Prometheus exporter. By default it runs on `fsc.web.address`, but it can also be bound to a dedicated listener via `fsc.metrics.prometheus.address`. To access it, open `http://{{listener}}/metrics` or the TLS equivalent when metrics TLS is enabled.
 * **Prometheus Server:** A separate server can be run on the same or a different host that scrapes the data from the endpoint we explained above and presents aggregated results. The fastest way is using the Docker image `prom/prometheus:latest` and adding in the `prometheus.yaml` configuration file the endpoints that need to be scraped. The Prometheus server keeps a local database to record the history of the scraped metrics. The server provides a simple UI, as well as a REST interface to query the aggregated metrics.
 * **Grafana UI:** On top of the Prometheus server we can use a separate UI that issues queries to the Prometheus server and visualizes the results in more complex graphs. Additionally, dashboard pages can be defined to collect different graphs. The fastest way is using the Docker image `grafana/grafana:latest`, where the endpoint of the Prometheus server is passed in the configuration as a datasource, and the various dashboards are mounted on the image, so they don't need to be configured each time.
 

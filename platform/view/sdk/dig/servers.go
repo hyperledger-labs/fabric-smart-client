@@ -39,6 +39,47 @@ type Server interface {
 	Stop() error
 }
 
+type MetricsServer struct {
+	Server
+	enabled bool
+}
+
+func (m *MetricsServer) Enabled() bool {
+	return m != nil && m.enabled
+}
+
+type OperationsServer struct {
+	web     Server
+	metrics *MetricsServer
+}
+
+func (o *OperationsServer) RegisterHandler(path string, handler http.Handler, secure bool) {
+	if path == "/metrics" && o.metrics.Enabled() {
+		o.metrics.RegisterHandler(path, handler, secure)
+		return
+	}
+
+	o.web.RegisterHandler(path, handler, secure)
+}
+
+func readClientRootCAs(configProvider driver.ConfigService, key string) []string {
+	var clientRootCAs []string
+	for _, path := range configProvider.GetStringSlice(key) {
+		clientRootCAs = append(clientRootCAs, configProvider.TranslatePath(path))
+	}
+	return clientRootCAs
+}
+
+func readTLSConfig(configProvider driver.ConfigService, prefix string) web.TLS {
+	return web.TLS{
+		Enabled:           configProvider.GetBool(prefix + ".enabled"),
+		CertFile:          configProvider.GetPath(prefix + ".cert.file"),
+		KeyFile:           configProvider.GetPath(prefix + ".key.file"),
+		ClientAuth:        configProvider.GetBool(prefix + ".clientAuthRequired"),
+		ClientCACertFiles: readClientRootCAs(configProvider, prefix+".clientRootCAs.files"),
+	}
+}
+
 func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewManager, identityProvider server.IdentityProvider, tracerProvider tracing.Provider) Server {
 	if !configProvider.GetBool("fsc.web.enabled") {
 		logger.Info("web server not enabled")
@@ -46,19 +87,7 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 	}
 
 	listenAddr := configProvider.GetString("fsc.web.address")
-
-	var tlsConfig web.TLS
-	var clientRootCAs []string
-	for _, path := range configProvider.GetStringSlice("fsc.web.tls.clientRootCAs.files") {
-		clientRootCAs = append(clientRootCAs, configProvider.TranslatePath(path))
-	}
-	tlsConfig = web.TLS{
-		Enabled:           configProvider.GetBool("fsc.web.tls.enabled"),
-		CertFile:          configProvider.GetPath("fsc.web.tls.cert.file"),
-		KeyFile:           configProvider.GetPath("fsc.web.tls.key.file"),
-		ClientAuth:        configProvider.GetBool("fsc.web.tls.clientAuthRequired"),
-		ClientCACertFiles: clientRootCAs,
-	}
+	tlsConfig := readTLSConfig(configProvider, "fsc.web.tls")
 	webServer := web.NewServer(web.Options{
 		ListenAddress: listenAddr,
 		TLS:           tlsConfig,
@@ -71,17 +100,47 @@ func NewWebServer(configProvider driver.ConfigService, viewManager server.ViewMa
 	return webServer
 }
 
+func NewMetricsServer(configProvider driver.ConfigService) *MetricsServer {
+	listenAddr := configProvider.GetString("fsc.metrics.prometheus.address")
+	if listenAddr == "" {
+		return &MetricsServer{Server: web.NewDummyServer()}
+	}
+
+	metricsServer := web.NewServer(web.Options{
+		ListenAddress: listenAddr,
+		TLS:           readTLSConfig(configProvider, "fsc.metrics.prometheus.tls"),
+	})
+
+	return &MetricsServer{
+		Server:  metricsServer,
+		enabled: true,
+	}
+}
+
+func NewOperationsServer(webServer Server, metricsServer *MetricsServer) *OperationsServer {
+	return &OperationsServer{
+		web:     webServer,
+		metrics: metricsServer,
+	}
+}
+
 func NewOperationsOptions(configProvider driver.ConfigService) (*operations.Options, error) {
 	tlsEnabled := configProvider.IsSet("fsc.web.tls.enabled") && configProvider.GetBool("fsc.web.tls.enabled")
 
 	provider := configProvider.GetString("fsc.metrics.provider")
-	prometheusTls := configProvider.IsSet("fsc.metrics.prometheus.tls") && configProvider.GetBool("fsc.metrics.prometheus.tls")
-	logger.Infof("Starting operations with TLS: %v", prometheusTls)
+	prometheusTLS := false
+	switch {
+	case configProvider.IsSet("fsc.metrics.prometheus.tls.clientAuthRequired"):
+		prometheusTLS = configProvider.GetBool("fsc.metrics.prometheus.tls.clientAuthRequired")
+	case configProvider.IsSet("fsc.metrics.prometheus.tls"):
+		prometheusTLS = configProvider.GetBool("fsc.metrics.prometheus.tls")
+	}
+	logger.Infof("Starting operations with mTLS-protected metrics: %v", prometheusTLS)
 
 	return &operations.Options{
 		Metrics: operations.MetricsOptions{
 			Provider: provider,
-			TLS:      prometheusTls,
+			TLS:      prometheusTLS,
 		},
 		TLS: operations.TLS{
 			Enabled: tlsEnabled,
@@ -160,7 +219,7 @@ func NewServerConfig(configProvider driver.ConfigService) (grpc2.ServerConfig, e
 	return serverConfig, nil
 }
 
-func Serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *operations.System, kvss *kvs.KVS, ctx context.Context) {
+func Serve(grpcServer *grpc2.GRPCServer, webServer Server, metricsServer *MetricsServer, operationsSystem *operations.System, kvss *kvs.KVS, ctx context.Context) {
 	go func() {
 		if grpcServer == nil {
 			return
@@ -175,6 +234,15 @@ func Serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *ope
 		logger.Info("Starting WEB server...")
 		if err := webServer.Start(); err != nil {
 			logger.Fatalf("Failed starting WEB server: %v", err)
+		}
+	}()
+	go func() {
+		if !metricsServer.Enabled() {
+			return
+		}
+		logger.Info("Starting metrics server...")
+		if err := metricsServer.Start(); err != nil {
+			logger.Fatalf("Failed starting metrics server: %v", err)
 		}
 	}()
 	go func() {
@@ -193,6 +261,14 @@ func Serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *ope
 			logger.Errorf("failed stopping web server [%s]", err)
 		}
 		logger.Info("web server stopping...done")
+
+		if metricsServer.Enabled() {
+			logger.Info("metrics server stopping...")
+			if err := metricsServer.Stop(); err != nil {
+				logger.Errorf("failed stopping metrics server [%s]", err)
+			}
+			logger.Info("metrics server stopping...done")
+		}
 
 		if grpcServer != nil {
 			logger.Info("grpc server stopping...")

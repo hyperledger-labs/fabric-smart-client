@@ -184,8 +184,8 @@ fsc:
         dataSource: host=localhost port=5432 user=postgres password=example dbname=tokendb sslmode=disable
         maxOpenConns: 20
   # ------------------- Web Server Configuration -------------------------
-  # Web server must be enabled to support healthz, version and prometheus /metrics
-  # end points.
+  # Web server must be enabled to support healthz and version end points.
+  # Prometheus metrics can either be served here or on a dedicated metrics listener.
   web:
     enabled: true
     address: 0.0.0.0:20002
@@ -227,6 +227,20 @@ fsc:
   metrics:
     # provider can be prometheus, none or disabled
     provider: prometheus
+    prometheus:
+      # If set, FSC exposes /metrics on this dedicated listener instead of fsc.web.address
+      address: 0.0.0.0:20003
+      tls:
+        enabled: true
+        cert:
+          file: /path/to/tls/server.crt
+        key:
+          file: /path/to/tls/server.key
+        # Require client certificates / mutual TLS for metrics scraping.
+        clientAuthRequired: false
+        clientRootCAs:
+          files:
+          - /path/to/client/tls/ca.crt
 
     
   # ------------------- FSC Node endpoint resolvers -------------------------

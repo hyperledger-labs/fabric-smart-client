@@ -36,6 +36,7 @@ jobs:
           GO_TEST_PARAMS="-race -coverprofile=coverage.profile" make unit-tests
           ./scripts/filter-coverage.sh coverage.profile coverage.profile
       - uses: coverallsapp/github-action@v2
+        continue-on-error: true
         with:
           file: coverage.profile
           flag-name: utest
@@ -59,6 +60,7 @@ jobs:
           GO_TEST_PARAMS="-race -coverprofile=coverage.profile" make unit-tests-postgres
           ./scripts/filter-coverage.sh coverage.profile coverage.profile
       - uses: coverallsapp/github-action@v2
+        continue-on-error: true
         with:
           file: coverage.profile
           flag-name: utest-postgres
@@ -122,6 +124,7 @@ jobs:
           ./scripts/filter-coverage.sh coverage.profile coverage.profile
 
       - uses: coverallsapp/github-action@v2
+        continue-on-error: true
         with:
           file: coverage.profile
           flag-name: itest-${{ matrix.tests }}
@@ -137,6 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: coverallsapp/github-action@v2
+        continue-on-error: true
         with:
           parallel-finished: true
           carryforward: ${{ needs.itest-list.outputs.all-tests }}

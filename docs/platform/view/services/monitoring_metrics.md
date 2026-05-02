@@ -39,7 +39,7 @@ fsc:
     provider: prometheus
 ```
 
-The exporter is exposed through the FSC web server on `/metrics`. When the metrics provider is disabled, FSC still instantiates the metric objects, but they are backed by a no-op provider and no data is exported.
+The exporter is exposed on `/metrics`, either through the FSC web server or a dedicated listener configured via `fsc.metrics.prometheus.address`. When the metrics provider is disabled, FSC still instantiates the metric objects, but they are backed by a no-op provider and no data is exported.
 
 ### Metric Families vs. Time Series
 
@@ -357,4 +357,3 @@ The following families have implementation caveats:
 - `fsc_view_services_grpc_conn_opened` and `fsc_view_services_grpc_conn_closed`: FSC's custom handler for these counters is tested, but the default runtime wiring currently uses OpenTelemetry's gRPC server handler instead of the FSC-specific one.
 - `fsc_view_services_view_grpc_client_client_*`: these are caller-process metrics. The standard integration harness creates its external gRPC client with `tracing.NewProviderFromConfig(...)`, not with the metrics-wrapping tracing provider, so these families are not expected on the FSC node's `/metrics`.
 - `fsc_view_services_view_grpc_client_node_view_client_*`: these are emitted only when the in-process local client helper is used inside the node. They are not part of the normal external gRPC or web ingress path.
-
