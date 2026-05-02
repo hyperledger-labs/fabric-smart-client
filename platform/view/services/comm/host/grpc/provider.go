@@ -74,6 +74,7 @@ func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 		P2PHost:         h,
 		endpointService: p.endpointService,
 		nodeID:          nodeID,
+		rawIdentity:     append([]byte(nil), raw...),
 	}, nil
 }
 
@@ -81,6 +82,7 @@ type hostWrapper struct {
 	host2.P2PHost
 	endpointService endpointService
 	nodeID          string
+	rawIdentity     []byte
 }
 
 func (h *hostWrapper) ID() string {
@@ -102,7 +104,7 @@ func (h *hostWrapper) Start(newStreamCallback func(stream host2.P2PStream)) erro
 		"",
 		map[string]string{string(endpoint.P2PPort): actualAddr},
 		nil,
-		[]byte(h.nodeID),
+		h.rawIdentity,
 	)
 	return err
 }

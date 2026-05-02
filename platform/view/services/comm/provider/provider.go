@@ -32,10 +32,11 @@ func NewHostProvider(
 		return nil, err
 	}
 
-	if p2pCommType := config.GetString("fsc.p2p.type"); strings.EqualFold(p2pCommType, websocket.P2PCommunicationType) {
+	p2pCommType := config.GetString("fsc.p2p.type")
+	if strings.EqualFold(p2pCommType, websocket.P2PCommunicationType) {
 		return NewWebSocketHostProvider(config, endpointService, tracerProvider, metricsProvider)
 	}
-	if p2pCommType := config.GetString("fsc.p2p.type"); strings.EqualFold(p2pCommType, grpccomm.P2PCommunicationType) {
+	if strings.EqualFold(p2pCommType, grpccomm.P2PCommunicationType) {
 		return NewGRPCHostProvider(config, endpointService)
 	}
 
