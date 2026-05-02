@@ -47,7 +47,7 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 
 	// produce the envelope and sign it
 	signerID := t.Creator()
-	signer, err := t.fns.SignerService().GetSigner(signerID)
+	signer, err := t.fns.SignerService().GetSigningIdentity(signerID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
 	}
@@ -60,7 +60,7 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 		SignatureHeader: protoutil.MarshalOrPanic(signatureHeader),
 	}
 	return fabricutils.CreateEnvelope(
-		&signerWrapper{creator: t.Creator(), signer: signer},
+		signer,
 		header,
 		rawTx,
 	)
