@@ -33,7 +33,7 @@ type TestSuite struct {
 }
 
 var _ = Describe("EndToEnd", func() {
-	for _, c := range []nwofsc.P2PCommunicationType{nwofsc.WebSocket} {
+	for _, c := range []nwofsc.P2PCommunicationType{nwofsc.WebSocket, nwofsc.GRPC} {
 		Describe("simple Life Cycle", Label(c), func() {
 			s := NewTestSuite(c)
 			BeforeEach(s.Setup)

@@ -9,6 +9,7 @@ package fsc
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	grpccomm "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
@@ -29,6 +30,7 @@ type P2PCommunicationType = string
 const (
 	LibP2P    P2PCommunicationType = libp2p.P2PCommunicationType
 	WebSocket P2PCommunicationType = websocket.P2PCommunicationType
+	GRPC      P2PCommunicationType = grpccomm.P2PCommunicationType
 )
 
 type Topology struct {

@@ -91,10 +91,13 @@ fsc:
 
   # ------------------- P2P Configuration -------------------------
   p2p:
-    # Type of p2p communication. Currently supported: libp2p (default), websocket
+    # Type of p2p communication. Currently supported: libp2p (default), websocket, grpc
     type: libp2p
-    # listen address see https://github.com/libp2p/specs/blob/master/addressing/README.md
-    # for information on the format
+    # P2P listen address. FSC currently expects the same multiaddress-style
+    # input for all supported P2P transports. The websocket and grpc transports
+    # convert this value internally to host:port form.
+    # See https://github.com/libp2p/specs/blob/master/addressing/README.md for
+    # information on the format.
     listenAddress: /dns4/myhostname/tcp/20001
     # Buffer size for the incoming messages channel. Default: 4096
     # This controls how many messages can be queued before blocking message dispatch.
@@ -146,6 +149,33 @@ fsc:
             files:
               - /path/to/server/tls/ca.crt
           # Root certificates used by this node (as a websocket server) to verify remote client certificates.
+          clientRootCAs:
+            files:
+              - /path/to/client/tls/ca.crt
+
+      # ------------------- grpc specific options -------------------------
+      # Only needed when type == grpc
+      grpc:
+        # Connection timeout for outbound grpc peer dials.
+        # Format: Go duration string.
+        connectionTimeout: 10s
+        # TLS configuration for grpc peer connections
+        tls:
+          # grpc p2p requires mutual TLS, so this must remain true.
+          # If omitted, FSC defaults it to true.
+          clientAuthRequired: true
+          # Optional dedicated key and certificate for grpc p2p transport.
+          # If omitted, FSC falls back to fsc.identity.key.file and
+          # fsc.identity.cert.file.
+          key:
+            file: /path/to/transport/key.pem
+          cert:
+            file: /path/to/transport/cert.pem
+          # Root certificates used by this node (as a grpc client) to verify remote server certificates.
+          serverRootCAs:
+            files:
+              - /path/to/server/tls/ca.crt
+          # Root certificates used by this node (as a grpc server) to verify remote client certificates.
           clientRootCAs:
             files:
               - /path/to/client/tls/ca.crt

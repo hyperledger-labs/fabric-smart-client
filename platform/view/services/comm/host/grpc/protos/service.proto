@@ -1,0 +1,29 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+syntax = "proto3";
+
+option go_package = "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/grpc/protos";
+
+package protos;
+
+message StreamOpen {
+  string context_id = 1;
+  string session_id = 2;
+  string peer_id = 3;
+  bytes span_context = 4;
+}
+
+message StreamPacket {
+  oneof body {
+    StreamOpen open = 1;
+    bytes payload = 2;
+  }
+}
+
+service P2PService {
+  rpc OpenStream(stream StreamPacket) returns (stream StreamPacket);
+}

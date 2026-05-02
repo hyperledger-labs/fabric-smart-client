@@ -33,6 +33,13 @@ var _ = Describe("EndToEnd", func() {
 		It("stop and restart successfully", s.TestSucceeded)
 	})
 
+	Describe("Stop and Restart With gRPC", func() {
+		s := NewTestSuite(fsc.GRPC, integration.NoReplication)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("stop and restart successfully", s.TestSucceeded)
+	})
+
 	Describe("Stop and Restart with Fabric With Replicas many to one", func() {
 		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
 			ReplicationFactors: map[string]int{

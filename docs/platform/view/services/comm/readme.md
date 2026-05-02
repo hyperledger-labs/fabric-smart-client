@@ -16,7 +16,7 @@ The Comm layer abstracts the underlying network transport and provides a session
 
 1.  **P2PNode**: The central orchestrator that manages active streams, sessions, and message dispatching. It uses a **bounded worker pool** for concurrent message dispatching to prevent resource exhaustion.
 2.  **EndpointService**: The source of truth for peer identities and addresses. It manages resolvers that map PeerIDs to network endpoints and provides the public keys used for dynamic trust updates.
-3.  **P2PHost**: An interface for transport-specific implementations. FSC supports multiple transport types (e.g., Libp2p, WebSocket).
+3.  **P2PHost**: An interface for transport-specific implementations. FSC supports multiple transport types (e.g., Libp2p, WebSocket, gRPC).
 4.  **NetworkStreamSession**: Implements the `view.Session` interface. It provides the high-level API (`Send`, `Receive`, `Close`) used by View developers. It includes **automatic cleanup** of dead stream references to prevent memory bloat.
 
 ### Message Flow
@@ -38,12 +38,15 @@ A robust, decentralized P2P stack based on the industry-standard `libp2p` librar
 ### [WebSocket](websocket.md)
 A lightweight transport suitable for environments where standard HTTP/HTTPS ports are preferred. It uses standard HTTPS for handshakes and upgrades to WebSockets for communication.
 
+### [gRPC](./grpc.md)
+A bidirectional streaming transport suitable for deployments that already standardize on gRPC and HTTP/2 for server-to-server communication. It uses mutual TLS and transport-level identity binding in the same Comm/session architecture used by the other FSC transports.
+
 ## Security
 
 Security is integrated at every level of the Comm stack:
 
--   **Node Identity**: All transport implementations use the node's main identity (configured via `fsc.identity.key.file` and `fsc.identity.cert.file`) for securing the transport layer.
--   **Transport Security**: All communication is encrypted and authenticated at the transport layer (e.g., mTLS for Websocket, Noise/TLS for Libp2p).
+-   **Transport Identity**: Each transport uses a certificate/key pair for transport security. Libp2p and WebSocket use the node's main identity (`fsc.identity.key.file` and `fsc.identity.cert.file`). The gRPC transport can either use dedicated transport credentials under `fsc.p2p.opts.grpc.tls.cert.file` and `fsc.p2p.opts.grpc.tls.key.file` or fall back to `fsc.identity.*` if those fields are not set.
+-   **Transport Security**: All communication is encrypted and authenticated at the transport layer (e.g., mTLS for WebSocket and gRPC, Noise/TLS for Libp2p).
 -   **Identity Binding**: The identity asserted in the application layer is strictly validated against the cryptographically verified identity from the transport layer. This ensures that the remote peer's identity is a verified source of truth.
 -   **Session Isolation**: All logical sessions are internally identified by a combination of the `SessionID` and the **authenticated** `PeerID` of the remote participant. This prevents attackers from injecting messages into sessions between other peers.
 -   **Resource Hardening**: The Comm layer enforces strict limits to prevent Denial of Service (DoS) attacks:
@@ -127,8 +130,11 @@ Configuration is managed via the FSC configuration file (usually `core.yaml`). F
 ```yaml
 fsc:
   p2p:
-    # Transport type: "libp2p" or "websocket"
+    # Transport type: "libp2p", "websocket", or "grpc"
     type: libp2p
+    # FSC currently expects the same multiaddress-style input for all P2P
+    # transports. The websocket and grpc transports convert this internally to
+    # host:port form.
     listenAddress: /ip4/0.0.0.0/tcp/11511
     # Buffer size for the incoming messages channel. Default: 1024
     # This controls how many messages can be queued before blocking message dispatch.
@@ -138,7 +144,7 @@ fsc:
     streamReaderBufferSize: 4096
 ```
 
-For transport-specific configuration options and detailed examples, see the [Libp2p](./libp2p.md) and [WekSocket](websocket.md) documentation.
+For transport-specific configuration options and detailed examples, see the [Libp2p](./libp2p.md), [WebSocket](./websocket.md), and [gRPC](./grpc.md) documentation.
 
 ## Observability
 
