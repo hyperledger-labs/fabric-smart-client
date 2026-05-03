@@ -8,6 +8,7 @@ package mem
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -19,8 +20,11 @@ import (
 
 const Persistence driver2.PersistenceType = "memory"
 
+var driverCounter uint64
+
 type Driver struct {
 	dbProvider sqlite2.DbProvider
+	dataSource string
 }
 
 func NewNamedDriver(dbProvider sqlite2.DbProvider) driver.NamedDriver {
@@ -35,27 +39,31 @@ func NewDriver() *Driver {
 }
 
 func NewDriverWithDbProvider(dbProvider sqlite2.DbProvider) *Driver {
-	return &Driver{dbProvider: dbProvider}
+	return &Driver{
+		dbProvider: dbProvider,
+		dataSource: fmt.Sprintf("file:memdb_%d?mode=memory&cache=shared", atomic.AddUint64(&driverCounter, 1)),
+	}
 }
 
 func (d *Driver) NewKVS(_ driver.PersistenceName, params ...string) (driver.KeyValueStore, error) {
-	return newPersistenceWithOpts(d.dbProvider, sqlite2.NewKeyValueStore, params...)
+	return newPersistenceWithOpts(d.dbProvider, d.dataSource, sqlite2.NewKeyValueStore, params...)
 }
 
 func (d *Driver) NewBinding(_ driver.PersistenceName, params ...string) (driver.BindingStore, error) {
-	return newPersistenceWithOpts(d.dbProvider, sqlite2.NewBindingStore, params...)
+	return newPersistenceWithOpts(d.dbProvider, d.dataSource, sqlite2.NewBindingStore, params...)
 }
 
 func (d *Driver) NewSignerInfo(_ driver.PersistenceName, params ...string) (driver.SignerInfoStore, error) {
-	return newPersistenceWithOpts(d.dbProvider, sqlite2.NewSignerInfoStore, params...)
+	return newPersistenceWithOpts(d.dbProvider, d.dataSource, sqlite2.NewSignerInfoStore, params...)
 }
 
 func (d *Driver) NewAuditInfo(_ driver.PersistenceName, params ...string) (driver.AuditInfoStore, error) {
-	return newPersistenceWithOpts(d.dbProvider, sqlite2.NewAuditInfoStore, params...)
+	return newPersistenceWithOpts(d.dbProvider, d.dataSource, sqlite2.NewAuditInfoStore, params...)
 }
 
-func newPersistenceWithOpts[V common.DBObject](dbProvider sqlite2.DbProvider, constructor common2.PersistenceConstructor[V], params ...string) (V, error) {
+func newPersistenceWithOpts[V common.DBObject](dbProvider sqlite2.DbProvider, dataSource string, constructor common2.PersistenceConstructor[V], params ...string) (V, error) {
 	opts := Op.GetOpts(params...)
+	opts.DataSource = dataSource
 	dbs, err := dbProvider.Get(opts)
 	if err != nil {
 		return utils.Zero[V](), fmt.Errorf("error opening db: %w", err)

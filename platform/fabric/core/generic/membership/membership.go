@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package membership
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
@@ -69,8 +68,15 @@ func (c *Service) parseConfig(env *cb.Envelope) (*channelconfig.ChannelConfig, e
 	return channelconfig.NewChannelConfig(cenv.Config.ChannelGroup, factory.GetDefault())
 }
 
+// IsValid checks if the given identity is valid.
+// Returns an error if the channel resources are not yet initialized.
 func (c *Service) IsValid(identity view.Identity) error {
-	id, err := c.resources().MSPManager().DeserializeIdentity(identity)
+	res := c.resources()
+	if res == nil {
+		return errors.Errorf("cannot validate identity, channel resources not yet initialized for channel [%s]", c.channelName)
+	}
+
+	id, err := res.MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
 	}
@@ -78,18 +84,31 @@ func (c *Service) IsValid(identity view.Identity) error {
 	return id.Validate()
 }
 
+// GetVerifier returns the verifier for the given identity.
+// Returns an error if the channel resources are not yet initialized.
 func (c *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
-	id, err := c.resources().MSPManager().DeserializeIdentity(identity)
+	res := c.resources()
+	if res == nil {
+		return nil, errors.Errorf("cannot get verifier, channel resources not yet initialized for channel [%s]", c.channelName)
+	}
+
+	id, err := res.MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
 	}
+
 	return id, nil
 }
 
 // GetMSPIDs retrieves the MSP IDs of the organizations in the current Channel
-// configuration.
+// configuration. Returns nil if the channel resources are not yet initialized.
 func (c *Service) GetMSPIDs() []string {
-	ac := c.resources().ApplicationConfig()
+	res := c.resources()
+	if res == nil {
+		return nil
+	}
+
+	ac := res.ApplicationConfig()
 	if ac == nil || ac.Organizations() == nil {
 		return nil
 	}
@@ -102,10 +121,17 @@ func (c *Service) GetMSPIDs() []string {
 	return mspIDs
 }
 
+// OrdererConfig returns the orderer configuration for the channel.
+// Returns an error if the channel resources are not yet initialized.
 func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
-	oc := c.resources().OrdererConfig()
+	res := c.resources()
+	if res == nil {
+		return "", nil, errors.Errorf("orderer config does not exist, channel resources not yet initialized for channel [%s]", c.channelName)
+	}
+
+	oc := res.OrdererConfig()
 	if oc == nil {
-		return "", nil, fmt.Errorf("orderer config does not exist")
+		return "", nil, errors.Errorf("orderer config does not exist for channel [%s]", c.channelName)
 	}
 
 	tlsEnabled, isSet := cs.OrderingTLSEnabled()
@@ -142,10 +168,10 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 	return oc.ConsensusType(), newOrderers, nil
 }
 
-// MSPManager returns the msp.MSPManager that reflects the current Channel
+// MSPManager returns the driver.MSPManager that reflects the current Channel
 // configuration. Users should not memoize references to this object.
 func (c *Service) MSPManager() driver.MSPManager {
-	return &mspManager{FabricMSPManager: c.resources().MSPManager()}
+	return &mspManager{service: c}
 }
 
 func (c *Service) CheckACL(signedProp driver.SignedProposal) error {
@@ -157,9 +183,16 @@ type FabricMSPManager interface {
 }
 
 type mspManager struct {
-	FabricMSPManager
+	service *Service
 }
 
+// DeserializeIdentity deserializes an identity.
+// Returns an error if the channel resources are not yet initialized.
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
-	return m.FabricMSPManager.DeserializeIdentity(serializedIdentity)
+	res := m.service.resources()
+	if res == nil {
+		return nil, errors.Errorf("cannot deserialize identity, channel resources not yet initialized for channel [%s]", m.service.channelName)
+	}
+
+	return res.MSPManager().DeserializeIdentity(serializedIdentity)
 }

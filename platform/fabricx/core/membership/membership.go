@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger/fabric-x-common/core/aclmgmt"
 	"github.com/hyperledger/fabric-x-common/core/aclmgmt/resources"
 	"github.com/hyperledger/fabric-x-common/core/policy"
-	"github.com/hyperledger/fabric-x-common/msp"
 	"github.com/hyperledger/fabric-x-common/msp/mgmt"
 	"github.com/hyperledger/fabric-x-common/protoutil"
 
@@ -46,8 +45,7 @@ type Service struct {
 
 func NewService(channelID string) *Service {
 	s := &Service{
-		channelID:   channelID,
-		ACLProvider: nil,
+		channelID: channelID,
 	}
 	policyChecker := policy.NewPolicyChecker(
 		&policyManagerGetterFunc{channelID: channelID, resourcesGetter: s.resources},
@@ -168,13 +166,20 @@ func toMSPIdentity(identity view.Identity) (*msppb.Identity, error) {
 	return sid, nil
 }
 
+// IsValid checks if the given identity is valid.
+// Returns an error if the channel resources are not yet initialized.
 func (s *Service) IsValid(identity view.Identity) error {
+	res := s.resources()
+	if res == nil {
+		return errors.Errorf("cannot validate identity, channel resources not yet initialized for channel [%s]", s.channelID)
+	}
+
 	sid, err := toMSPIdentity(identity)
 	if err != nil {
 		return err
 	}
 
-	id, err := s.resources().MSPManager().DeserializeIdentity(sid)
+	id, err := res.MSPManager().DeserializeIdentity(sid)
 	if err != nil {
 		return errors.Wrapf(err, "deserializing identity [%s]", identity.String())
 	}
@@ -182,13 +187,20 @@ func (s *Service) IsValid(identity view.Identity) error {
 	return id.Validate()
 }
 
+// GetVerifier returns the verifier for the given identity.
+// Returns an error if the channel resources are not yet initialized.
 func (s *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
+	res := s.resources()
+	if res == nil {
+		return nil, errors.Errorf("cannot get verifier, channel resources not yet initialized for channel [%s]", s.channelID)
+	}
+
 	sid, err := toMSPIdentity(identity)
 	if err != nil {
 		return nil, err
 	}
 
-	id, err := s.resources().MSPManager().DeserializeIdentity(sid)
+	id, err := res.MSPManager().DeserializeIdentity(sid)
 	if err != nil {
 		return nil, errors.Wrapf(err, "deserializing identity [%s]", identity.String())
 	}
@@ -196,9 +208,14 @@ func (s *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 }
 
 // GetMSPIDs retrieves the MSP IDs of the organizations in the current Channel
-// configuration.
+// configuration. Returns nil if the channel resources are not yet initialized.
 func (s *Service) GetMSPIDs() []string {
-	ac, ok := s.resources().ApplicationConfig()
+	res := s.resources()
+	if res == nil {
+		return nil
+	}
+
+	ac, ok := res.ApplicationConfig()
 	if !ok || ac.Organizations() == nil {
 		return nil
 	}
@@ -211,8 +228,15 @@ func (s *Service) GetMSPIDs() []string {
 	return mspIDs
 }
 
+// OrdererConfig returns the orderer configuration for the channel.
+// Returns an error if the channel resources are not yet initialized.
 func (s *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
-	oc, ok := s.resources().OrdererConfig()
+	res := s.resources()
+	if res == nil {
+		return "", nil, errors.Errorf("orderer config does not exist, channel resources not yet initialized for channel [%s]", s.channelID)
+	}
+
+	oc, ok := res.OrdererConfig()
 	if !ok || oc.Organizations() == nil {
 		return "", nil, errors.New("orderer config does not exist")
 	}
@@ -265,10 +289,10 @@ func (s *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 	return oc.ConsensusType(), newOrderers, nil
 }
 
-// MSPManager returns the msp.MSPManager that reflects the current Channel
+// MSPManager returns the driver.MSPManager that reflects the current Channel
 // configuration. Users should not memoize references to this object.
 func (s *Service) MSPManager() driver.MSPManager {
-	return &mspManager{s.resources().MSPManager()}
+	return &mspManager{service: s}
 }
 
 // CheckACL checks the ACL for the resource for the Channel using the
@@ -278,16 +302,23 @@ func (s *Service) CheckACL(signedProp driver.SignedProposal) error {
 }
 
 type mspManager struct {
-	msp.MSPManager
+	service *Service
 }
 
+// DeserializeIdentity deserializes an identity.
+// Returns an error if the channel resources are not yet initialized.
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
+	res := m.service.resources()
+	if res == nil {
+		return nil, errors.Errorf("cannot deserialize identity, channel resources not yet initialized for channel [%s]", m.service.channelID)
+	}
+
 	sid, err := toMSPIdentity(serializedIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	return m.MSPManager.DeserializeIdentity(sid)
+	return res.MSPManager().DeserializeIdentity(sid)
 }
 
 type policyManagerGetterFunc struct {
@@ -297,7 +328,10 @@ type policyManagerGetterFunc struct {
 
 func (p *policyManagerGetterFunc) Manager(channelID string) policies.Manager {
 	if p.channelID == channelID {
-		return p.resourcesGetter().PolicyManager()
+		res := p.resourcesGetter()
+		if res != nil {
+			return res.PolicyManager()
+		}
 	}
 	return nil
 }
