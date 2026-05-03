@@ -120,17 +120,18 @@ func createTLSSecOpts(connConfig ConnectionConfig) (*SecureOptions, error) {
 func createSecOpts(connConfig ConnectionConfig, forceTLS bool, cliConfig *TLSClientConfig) (*SecureOptions, error) {
 	var certs [][]byte
 	if connConfig.TLSEnabled {
-		switch {
-		case len(connConfig.TLSRootCertFile) != 0:
+		if len(connConfig.TLSRootCertFile) != 0 {
 			caPEM, err := os.ReadFile(connConfig.TLSRootCertFile)
 			if err != nil {
 				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", connConfig.TLSRootCertFile)
 			}
 			certs = append(certs, caPEM)
-		case len(connConfig.TLSRootCertBytes) != 0:
-			certs = connConfig.TLSRootCertBytes
-		default:
-			return nil, errors.New("missing TLSRootCertFile in client config")
+		}
+		if len(connConfig.TLSRootCertBytes) != 0 {
+			certs = append(certs, connConfig.TLSRootCertBytes...)
+		}
+		if len(certs) == 0 {
+			return nil, errors.New("missing TLSRootCertFile and TLSRootCertBytes in client config")
 		}
 	}
 
