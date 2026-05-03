@@ -70,18 +70,7 @@ It defines:
 
 Multiple stores can share the same persistence.
 Multiple persistences can also point to the same underlying database while using different table prefixes.
-
-### Store
-
-A store is a logical runtime data partition.
-Examples include:
-
-- the View platform KVS
-- the Fabric envelope store
-- the Fabric vault state store
-
-Each store exposes a Go interface and is backed by one or more tables.
-
+- **Store**: A logical runtime data partition (e.g., KVS, vault, envelope store) backed by one or more tables
 ### Runtime Service
 
 A runtime service is the API that application code uses from a running view.
