@@ -403,74 +403,31 @@ For SQLite-backed vaults, no extra sanitizer is applied.
 
 ## Inspecting a Live Database
 
-### SQLite
+### Locating the Database
 
-The SQLite file path comes from `fsc.persistences.<name>.opts.dataSource`.
-In generated local examples this is often `default.sqlite`.
+**SQLite**: The file path is defined in `fsc.persistences.<name>.opts.dataSource` (e.g., `/path/to/default.sqlite`)
 
-List the tables:
+**Postgres**: The connection string is defined in `fsc.persistences.<name>.opts.dataSource`
 
-```bash
-sqlite3 /path/to/default.sqlite '.tables'
-```
+### Key Tables and Columns
 
-Inspect a specific table schema:
+**Transaction status** (`fsc_<network>__<channel>_vstatus`):
+- `tx_id`, `code`, `message`, `pos`
 
-```bash
-sqlite3 /path/to/default.sqlite "PRAGMA table_info('fsc_kvs');"
-```
+**Vault state** (`fsc_<network>__<channel>_vstate`):
+- `ns`, `pkey`, `val`, `metadata`, `version`
 
-Read recent Fabric transaction statuses:
+**Envelopes** (`fsc_default_env`):
+- `key` (format: `network.channel.txid`), `data`
 
-```bash
-sqlite3 /path/to/default.sqlite \
-  "SELECT tx_id, code, message FROM fsc_default__testchannel_vstatus ORDER BY pos DESC LIMIT 20;"
-```
+**View KVS** (`fsc_kvs`):
+- `ns`, `pkey`, `val`
 
-Inspect Fabric vault state rows:
+### Important Notes
 
-```bash
-sqlite3 /path/to/default.sqlite \
-  "SELECT ns, hex(pkey), length(val), length(metadata) FROM fsc_default__testchannel_vstate ORDER BY ns, pkey LIMIT 20;"
-```
-
-Inspect stored envelopes:
-
-```bash
-sqlite3 /path/to/default.sqlite \
-  "SELECT key, length(data) FROM fsc_default_env ORDER BY key LIMIT 20;"
-```
-
-### Postgres
-
-List the tables:
-
-```bash
-psql "$DSN" -c '\dt'
-```
-
-Inspect recent Fabric transaction statuses:
-
-```bash
-psql "$DSN" -c \
-  "SELECT tx_id, code, message FROM fsc_default__testchannel_vstatus ORDER BY pos DESC LIMIT 20;"
-```
-
-Inspect persisted View KVS namespaces:
-
-```bash
-psql "$DSN" -c \
-  "SELECT ns, COUNT(*) FROM fsc_kvs GROUP BY ns ORDER BY ns;"
-```
-
-When inspecting payload columns such as `val`, `data`, or `metadata`, keep in mind that these fields may contain:
-
-- JSON bytes
-- protobuf bytes
-- transaction bytes
-- encoded metadata
-
-These fields are not guaranteed to contain human-readable text.
+- Payload columns (`val`, `data`, `metadata`) contain binary data that may be JSON, protobuf, or encoded bytes
+- Use `hex()` or `length()` functions when inspecting binary columns
+- Always use read-only access to avoid corrupting the database or invalidating caches
 
 ## What Is Safe at Runtime
 
