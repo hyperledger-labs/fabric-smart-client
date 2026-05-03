@@ -6,7 +6,7 @@ The goal is to keep contributions simple, well-scoped, and easy to review.
 
 ---
 
-## 1. Getting Started
+## Getting Started
 
 * Browse open issues
 * Comment on the issue to express interest
@@ -16,7 +16,7 @@ The goal is to keep contributions simple, well-scoped, and easy to review.
 
 ---
 
-## 2. Development
+## Development
 
 * Create a branch:
 
@@ -28,7 +28,7 @@ The goal is to keep contributions simple, well-scoped, and easy to review.
 
 ---
 
-## 3. Pull Requests
+## Pull Requests
 
 * Open a PR against `main`
 * Include:
@@ -39,7 +39,7 @@ The goal is to keep contributions simple, well-scoped, and easy to review.
 
 ---
 
-## 4. Review
+## Review
 
 * Maintainers will review the PR
 * Address feedback promptly
@@ -47,7 +47,7 @@ The goal is to keep contributions simple, well-scoped, and easy to review.
 
 ---
 
-## 5. Merge
+## Merge
 
 * PRs are merged after approval
 * Referenced issues are closed automatically
