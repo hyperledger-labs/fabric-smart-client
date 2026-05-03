@@ -11,6 +11,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -178,4 +181,59 @@ func TestRunView(t *testing.T) {
 
 	view.RunView(ctx, v)
 	// it's a goroutine, hard to test easily but we call it for coverage
+}
+
+func newRecordingParent(t *testing.T) (*mock.ParentContext, *tracetest.InMemoryExporter) {
+	t.Helper()
+	exp := tracetest.NewInMemoryExporter()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exp))
+	tracer := tp.Tracer("test")
+
+	parent := &mock.ParentContext{}
+	parent.ContextReturns(context.Background())
+	parent.StartSpanFromStub = func(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+		return tracer.Start(ctx, name, opts...)
+	}
+	return parent, exp
+}
+
+func spanSuccessAttr(spans tracetest.SpanStubs) (bool, bool) {
+	for _, s := range spans {
+		for _, a := range s.Attributes {
+			if a.Key == attribute.Key(view.SuccessLabel) {
+				return a.Value.AsBool(), true
+			}
+		}
+	}
+	return false, false
+}
+
+func TestRunViewNow_SuccessLabel_TrueOnSuccess(t *testing.T) {
+	t.Parallel()
+	parent, exp := newRecordingParent(t)
+
+	v := &mock.View{}
+	v.CallReturns("result", nil)
+
+	_, err := view.RunViewNow(parent, v)
+	require.NoError(t, err)
+
+	val, found := spanSuccessAttr(exp.GetSpans())
+	require.True(t, found, "success attribute not set on span")
+	require.True(t, val, "expected success=true for a successful view execution")
+}
+
+func TestRunViewNow_SuccessLabel_FalseOnError(t *testing.T) {
+	t.Parallel()
+	parent, exp := newRecordingParent(t)
+
+	v := &mock.View{}
+	v.CallReturns(nil, errors.New("view-error"))
+
+	_, err := view.RunViewNow(parent, v)
+	require.Error(t, err)
+
+	val, found := spanSuccessAttr(exp.GetSpans())
+	require.True(t, found, "success attribute not set on span")
+	require.False(t, val, "expected success=false for a failed view execution")
 }
