@@ -61,15 +61,7 @@ Key runtime concepts:```
 
 - **Persistence**: A named database configuration under `fsc.persistences` that defines the backend type and connection details
 - **Store**: A logical runtime data partition (e.g., KVS, vault, envelope store) backed by one or more tables
-### Runtime Service
-
-A runtime service is the API that application code uses from a running view.
-For example:
-
-- `view.Context.GetService(...)`
-- `state.GetVault(viewCtx)`
-- `fabric.GetDefaultChannel(viewCtx).Vault()`
-
+- **Runtime Service**: The API that application code uses from a running view (e.g., `state.GetVault(viewCtx)`)
 ### Direct DB Access
 
 Direct DB access means inspecting the underlying SQLite or Postgres database with external tools such as:
