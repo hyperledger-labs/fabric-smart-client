@@ -270,14 +270,7 @@ fabric:
 
 ## Table Naming
 
-### Prefixes
-
-The default table prefix is `fsc`.
-It can be overridden with `tablePrefix` in the persistence options.
-The physical table name is then derived from:
-
-- the logical store suffix, such as `kvs`, `env`, or `vstate`
-- any store-specific naming parameters, such as `default`, `network`, or `channel`
+Table names are derived from the configured `tablePrefix` (default: `fsc`) combined with store-specific suffixes and parameters. For complete details on table naming conventions and prefix configuration, see [Database drivers](db-driver.md).
 
 ### View Platform Tables
 
