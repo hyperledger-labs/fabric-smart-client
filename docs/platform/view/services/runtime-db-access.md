@@ -59,17 +59,7 @@ For detailed definitions of persistence, store, and driver concepts, see the [Da
 
 Key runtime concepts:```
 
-### Persistence
-
-A persistence is a named database configuration under `fsc.persistences`.
-It defines:
-
-- the backend type (`memory`, `sqlite`, `postgres`)
-- the concrete database connection (`dataSource`)
-- optional DB-specific settings such as `tablePrefix`, `skipCreateTable`, or `skipPragmas`
-
-Multiple stores can share the same persistence.
-Multiple persistences can also point to the same underlying database while using different table prefixes.
+- **Persistence**: A named database configuration under `fsc.persistences` that defines the backend type and connection details
 - **Store**: A logical runtime data partition (e.g., KVS, vault, envelope store) backed by one or more tables
 ### Runtime Service
 
