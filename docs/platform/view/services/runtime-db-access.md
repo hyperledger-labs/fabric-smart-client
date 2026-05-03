@@ -250,23 +250,12 @@ fabric:
 
 ### Backend Types
 
-#### `memory`
+The three supported backend types are `memory`, `sqlite`, and `postgres`. For detailed configuration options and behavior, see the [Database drivers](db-driver.md) and [Shared node configuration](../../../configuration.md) documentation.
 
-- implemented as an in-memory SQLite database
-- useful for tests and short-lived runtimes
-- not useful for external inspection after process exit
-
-#### `sqlite`
-
-- persisted to a local file path
-- easiest backend for local inspection
-- uses separate read and write DB handles internally
-
-#### `postgres`
-
-- persisted to an external Postgres database
-- easiest backend for shared or remote inspection
-- uses one connection pool for reads and writes internally
+At runtime:
+- **memory**: in-memory SQLite, useful for tests but not inspectable after process exit
+- **sqlite**: local file-based, easiest for local inspection with separate read/write handles
+- **postgres**: external database, best for shared/remote inspection with a single connection pool
 
 ## Table Naming
 
