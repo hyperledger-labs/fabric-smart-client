@@ -220,7 +220,11 @@ func (p *Platform) setIdentities(address string, peer *node2.Replica) {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	p.Context.SetAdminSigningIdentity(peer.Name, adminID)
 
-	cert, err := os.ReadFile(p.LocalMSPIdentityCert(peer.Peer))
+	identityPath := p.LocalMSPIdentityCert(peer.Peer)
+	if p.P2PCommunicationType() == GRPC {
+		identityPath = path.Join(p.NodeLocalTLSDir(peer.Peer), "server.crt")
+	}
+	cert, err := os.ReadFile(identityPath)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	p.Context.SetViewIdentity(peer.Name, cert)
 }
