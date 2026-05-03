@@ -107,6 +107,41 @@ func TestProposalResponseAccessors(t *testing.T) {
 	require.Equal(t, "accepted", pr.ResponseMessage())
 }
 
+// TestProposalResponseAccessorsNilEndorsement verifies that accessors do not
+// panic when the underlying ProposalResponse has a nil Endorsement field.
+// This can happen with malformed or rejected responses from misbehaving peers.
+func TestProposalResponseAccessorsNilEndorsement(t *testing.T) {
+	t.Parallel()
+	pr, err := NewProposalResponseFromResponse(&peer.ProposalResponse{
+		Payload:  []byte("payload"),
+		Response: &peer.Response{Status: 500, Message: "internal error"},
+		// Endorsement intentionally nil
+	})
+	require.NoError(t, err)
+
+	require.Nil(t, pr.Endorser())
+	require.Nil(t, pr.EndorserSignature())
+	require.Equal(t, []byte("payload"), pr.Payload())
+}
+
+// TestProposalResponseAccessorsNilResponse verifies that accessors do not
+// panic when the underlying ProposalResponse has a nil Response field.
+func TestProposalResponseAccessorsNilResponse(t *testing.T) {
+	t.Parallel()
+	pr, err := NewProposalResponseFromResponse(&peer.ProposalResponse{
+		Payload: []byte("payload"),
+		Endorsement: &peer.Endorsement{
+			Endorser:  []byte("endorser"),
+			Signature: []byte("signature"),
+		},
+		// Response intentionally nil
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, int32(0), pr.ResponseStatus())
+	require.Equal(t, "", pr.ResponseMessage())
+}
+
 // TestProposalResponseBytes verifies that a wrapped proposal response can be
 // marshaled back into protobuf bytes.
 func TestProposalResponseBytes(t *testing.T) {
