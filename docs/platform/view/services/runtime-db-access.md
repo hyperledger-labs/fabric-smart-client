@@ -39,11 +39,11 @@ At runtime, persistence-backed data flows through the following layers:
 
 ```mermaid
 flowchart LR
-    App[Application view] --> Ctx[view.Context or platform API]
-    Ctx --> Service[Runtime service]
-    Service --> Store[Logical store]
-    Store --> Persistence[Configured persistence]
-    Persistence --> Backend[memory | sqlite | postgres]
+    App["Application view"] --> Ctx["view.Context or platform API"]
+    Ctx --> Service["Runtime service"]
+    Service --> Store["Logical store"]
+    Store --> Persistence["Configured persistence"]
+    Persistence --> Backend["memory / sqlite / postgres"]
 ```
 
 These layers have different responsibilities:
