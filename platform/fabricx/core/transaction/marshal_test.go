@@ -191,7 +191,7 @@ func TestCreateSCEnvelopeSuccess(t *testing.T) {
 	require.Equal(t, 1, fakeSigner.SignCallCount())
 }
 
-func TestCreateSCEnvelopeSignatureHeaderCreatorCachedIdentityModes(t *testing.T) {
+func TestCreateSCEnvelopeSignatureHeaderPreservesOriginalCreator(t *testing.T) {
 	t.Parallel()
 
 	derBytes := []byte("fake-der-cert-bytes")
@@ -209,56 +209,43 @@ func TestCreateSCEnvelopeSignatureHeaderCreatorCachedIdentityModes(t *testing.T)
 		},
 	}
 
-	tests := []struct {
-		name                string
-		useCachedIdentities bool
-	}{
-		{name: "cached identities enabled", useCachedIdentities: true},
-		{name: "cached identities disabled", useCachedIdentities: false},
+	fakeFNS := &mocks.FakeFabricNetworkService{}
+	fakeSignerService := &mocks.FakeSignerService{}
+	fakeSigner := &mocks.FakeSigner{}
+
+	fakeFNS.SignerServiceReturns(fakeSignerService)
+	fakeSignerService.GetSignerReturns(fakeSigner, nil)
+	fakeSigner.SignReturns([]byte("envelope-signature"), nil)
+
+	// The envelope must always use the original serialized identity in
+	// SignatureHeader.Creator to preserve TxID determinism.
+	tx := &Transaction{
+		TTxID:              "tx1",
+		TNonce:             []byte("nonce"),
+		TCreator:           view.Identity(signerIdentityRaw),
+		TChannel:           "testchannel",
+		TProposalResponses: []*peer.ProposalResponse{resp},
+		fns:                fakeFNS,
 	}
 
-	for _, tc := range tests {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+	env, err := tx.createSCEnvelope()
+	require.NoError(t, err)
+	require.NotNil(t, env)
 
-			fakeFNS := &mocks.FakeFabricNetworkService{}
-			fakeSignerService := &mocks.FakeSignerService{}
-			fakeSigner := &mocks.FakeSigner{}
+	payload := &cb.Payload{}
+	require.NoError(t, proto.Unmarshal(env.Payload, payload))
+	require.NotNil(t, payload.Header)
 
-			fakeFNS.SignerServiceReturns(fakeSignerService)
-			fakeSignerService.GetSignerReturns(fakeSigner, nil)
-			fakeSigner.SignReturns([]byte("envelope-signature"), nil)
+	signatureHeader := &cb.SignatureHeader{}
+	require.NoError(t, proto.Unmarshal(payload.Header.SignatureHeader, signatureHeader))
+	require.Equal(t, tx.Nonce(), signatureHeader.Nonce)
 
-			tx := &Transaction{
-				TTxID:               "tx1",
-				TNonce:              []byte("nonce"),
-				TCreator:            view.Identity(signerIdentityRaw),
-				TChannel:            "testchannel",
-				TProposalResponses:  []*peer.ProposalResponse{resp},
-				fns:                 fakeFNS,
-				useCachedIdentities: tc.useCachedIdentities,
-			}
+	// Creator must be the original serialized identity, not a hashed version.
+	require.Equal(t, []byte(signerIdentityRaw), signatureHeader.Creator)
 
-			env, err := tx.createSCEnvelope()
-			require.NoError(t, err)
-			require.NotNil(t, env)
-
-			payload := &cb.Payload{}
-			require.NoError(t, proto.Unmarshal(env.Payload, payload))
-			require.NotNil(t, payload.Header)
-
-			signatureHeader := &cb.SignatureHeader{}
-			require.NoError(t, proto.Unmarshal(payload.Header.SignatureHeader, signatureHeader))
-			require.Equal(t, tx.Nonce(), signatureHeader.Nonce)
-
-			require.Equal(t, []byte(signerIdentityRaw), signatureHeader.Creator)
-
-			channelHeader := &cb.ChannelHeader{}
-			require.NoError(t, proto.Unmarshal(payload.Header.ChannelHeader, channelHeader))
-			require.Equal(t, tx.ID(), channelHeader.TxId)
-		})
-	}
+	channelHeader := &cb.ChannelHeader{}
+	require.NoError(t, proto.Unmarshal(payload.Header.ChannelHeader, channelHeader))
+	require.Equal(t, tx.ID(), channelHeader.TxId)
 }
 
 func mustRawTx(t *testing.T, tx *applicationpb.Tx) []byte {

@@ -52,10 +52,12 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
 	}
 
-	// Keep the original serialized identity in the envelope signature header.
-	// The transaction ID is precomputed from nonce+creator and used across the
-	// flow (proposal, endorsements, finality). Replacing creator bytes here can
-	// lead to tx validation mismatches at commit time.
+	// The envelope's SignatureHeader.Creator must use the original serialized
+	// identity bytes (not the hashed cert ID). The transaction ID was
+	// precomputed as ComputeTxID(nonce, creator) in factory.go using these
+	// bytes, and the orderer/committer may re-derive TxID from the envelope.
+	// Endorsement identities (in applicationpb.Tx) use the compact
+	// Identity_CertificateId format separately.
 	creator := signerID
 
 	signatureHeader := &cb.SignatureHeader{Creator: creator, Nonce: t.Nonce()}
