@@ -52,7 +52,15 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
 	}
 
-	signatureHeader := &cb.SignatureHeader{Creator: signerID, Nonce: t.Nonce()}
+	// The envelope's SignatureHeader.Creator must use the original serialized
+	// identity bytes (not the hashed cert ID). The transaction ID was
+	// precomputed as ComputeTxID(nonce, creator) in factory.go using these
+	// bytes, and the orderer/committer may re-derive TxID from the envelope.
+	// Endorsement identities (in applicationpb.Tx) use the compact
+	// Identity_CertificateId format separately.
+	creator := signerID
+
+	signatureHeader := &cb.SignatureHeader{Creator: creator, Nonce: t.Nonce()}
 	channelHeader := protoutil.MakeChannelHeader(cb.HeaderType_MESSAGE, 0, t.Channel(), 0)
 	channelHeader.TxId = t.ID()
 	header := &cb.Header{
@@ -60,7 +68,7 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 		SignatureHeader: protoutil.MarshalOrPanic(signatureHeader),
 	}
 	return fabricutils.CreateEnvelope(
-		&signerWrapper{creator: t.Creator(), signer: signer},
+		&signerWrapper{creator: creator, signer: signer},
 		header,
 		rawTx,
 	)

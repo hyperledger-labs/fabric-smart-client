@@ -125,3 +125,4 @@ func TestFactoryNewTransaction(t *testing.T) {
 		})
 	}
 }
+

@@ -7,7 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"testing"
 
@@ -343,7 +346,7 @@ func TestAppendProposalResponseDriverWrapper(t *testing.T) {
 	}
 }
 
-func TestToMSPSignerIdentityWithCertificate(t *testing.T) {
+func TestToMSPSignerIdentityNonPEMFallback(t *testing.T) {
 	t.Parallel()
 
 	raw, err := proto.Marshal(&msp.SerializedIdentity{Mspid: "Org1MSP", IdBytes: []byte("cert-bytes")})
@@ -357,7 +360,7 @@ func TestToMSPSignerIdentityWithCertificate(t *testing.T) {
 		expectedError string
 	}{
 		{
-			name:         "success",
+			name:         "non-PEM falls back to Certificate",
 			identity:     view.Identity(raw),
 			expectedMSP:  "Org1MSP",
 			expectedCert: []byte("cert-bytes"),
@@ -370,9 +373,10 @@ func TestToMSPSignerIdentityWithCertificate(t *testing.T) {
 	}
 
 	for _, tc := range tests {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			id, err := toMSPSignerIdentityWithCertificate(tc.identity)
+			id, err := toMSPSignerIdentity(tc.identity)
 			if tc.expectedError != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.expectedError)
@@ -904,3 +908,116 @@ func TestEndorseProposalWithIdentity(t *testing.T) {
 		})
 	}
 }
+
+func TestToMSPSignerIdentity(t *testing.T) {
+	t.Parallel()
+
+	// Use PEM-encoded certificate so the test exercises the PEM decode + DER hash path.
+	derBytes := []byte("fake-der-cert-bytes")
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	raw, err := proto.Marshal(&msp.SerializedIdentity{Mspid: "Org1MSP", IdBytes: certPEM})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name           string
+		identity       view.Identity
+		expectedMSP    string
+		expectedCertID string
+		expectCertFall bool // true if we expect Identity_Certificate fallback
+		expectedError  string
+	}{
+		{
+			name:        "x509 identity uses CertificateId",
+			identity:    view.Identity(raw),
+			expectedMSP: "Org1MSP",
+			// SHA-256 of raw DER bytes (not PEM), matching upstream behavior
+			expectedCertID: func() string {
+				h := sha256.Sum256(derBytes)
+				return hex.EncodeToString(h[:])
+			}(),
+		},
+		{
+			name:          "invalid serialized identity",
+			identity:      view.Identity([]byte("not-a-protobuf")),
+			expectedError: "unmarshal serialized identity",
+		},
+		{
+			name: "non-PEM identity falls back to Certificate",
+			identity: func() view.Identity {
+				raw, _ := proto.Marshal(&msp.SerializedIdentity{Mspid: "Org1IdemixMSP", IdBytes: []byte("idemix-serialized-identity")})
+				return view.Identity(raw)
+			}(),
+			expectedMSP:    "Org1IdemixMSP",
+			expectCertFall: true,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			id, err := toMSPSignerIdentity(tc.identity)
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedMSP, id.GetMspId())
+			if tc.expectedCertID != "" {
+				require.Equal(t, tc.expectedCertID, id.GetCertificateId())
+				// Ensure Certificate is NOT set (it's the other oneof variant)
+				require.Nil(t, id.GetCertificate())
+			}
+			if tc.expectCertFall {
+				require.Empty(t, id.GetCertificateId())
+				require.NotEmpty(t, id.GetCertificate())
+			}
+		})
+	}
+}
+
+func TestGetProposalResponseWithCachedIdentities(t *testing.T) {
+	t.Parallel()
+
+	derBytes := []byte("fake-der-cert-bytes")
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	signerIdentityRaw, err := proto.Marshal(&msp.SerializedIdentity{Mspid: "Org1MSP", IdBytes: certPEM})
+	require.NoError(t, err)
+
+	txPayload := &applicationpb.Tx{Namespaces: []*applicationpb.TxNamespace{{NsId: "ns1"}}}
+	rwsetBytes, err := proto.Marshal(txPayload)
+	require.NoError(t, err)
+
+	fakeRWSet := &mocks.FakeRWSet{}
+	fakeRWSet.BytesReturns(rwsetBytes, nil)
+	fakeSigner := &testSerializableSigner{creator: signerIdentityRaw, signRes: []byte("signature-data")}
+
+	signedProposal := testSignedProposalBytes(t)
+	sp, err := newSignedProposal(signedProposal)
+	require.NoError(t, err)
+
+	tx := &Transaction{TTxID: "tx1", signedProposal: sp, rwset: fakeRWSet}
+	resp, err := tx.getProposalResponse(fakeSigner)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.NotNil(t, resp.Endorsement)
+
+	// Unmarshal the endorsement signature to check the identity format
+	endorsements, err := unmarshalEndorsementsFromProposalResponse(resp.Endorsement.Signature)
+	require.NoError(t, err)
+	require.NotEmpty(t, endorsements)
+
+	// The identity should use CertificateId (hash), not Certificate (full cert)
+	for _, endorsement := range endorsements {
+		for _, eid := range endorsement.GetEndorsementsWithIdentity() {
+			identity := eid.GetIdentity()
+			require.NotNil(t, identity)
+			require.Equal(t, "Org1MSP", identity.GetMspId())
+			require.NotEmpty(t, identity.GetCertificateId())
+			require.Nil(t, identity.GetCertificate())
+		}
+	}
+}
+
