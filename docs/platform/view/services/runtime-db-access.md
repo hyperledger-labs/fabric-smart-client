@@ -55,6 +55,10 @@ These layers have different responsibilities:
 
 ## Key Terms
 
+For detailed definitions of persistence, store, and driver concepts, see the [Database drivers](db-driver.md) documentation.
+
+Key runtime concepts:```
+
 ### Persistence
 
 A persistence is a named database configuration under `fsc.persistences`.
