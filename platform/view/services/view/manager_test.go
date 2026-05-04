@@ -39,7 +39,7 @@ func TestManager(t *testing.T) {
 
 	metrics := view.NewMetrics(mp)
 	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
-	manager := view.NewManager(ip, registry, metrics, cf)
+	manager := view.NewManager(ip, registry, metrics, cf, view.NewDefaultRunner())
 	require.NotNil(t, manager)
 
 	// Test Me
@@ -134,7 +134,7 @@ func TestManagerRegistry(t *testing.T) {
 
 	metrics := view.NewMetrics(mp)
 	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
-	manager := view.NewManager(ip, registry, metrics, cf)
+	manager := view.NewManager(ip, registry, metrics, cf, view.NewDefaultRunner())
 
 	responder := &mock.View{}
 	err := manager.RegisterResponder(responder, "initiator")
@@ -166,7 +166,7 @@ func TestNewSessionContext(t *testing.T) {
 
 	metrics := view.NewMetrics(mp)
 	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
-	manager := view.NewManager(ip, registry, metrics, cf)
+	manager := view.NewManager(ip, registry, metrics, cf, view.NewDefaultRunner())
 	ip.DefaultIdentityReturns(view2.Identity("me"))
 
 	session := &mock.Session{}
@@ -206,7 +206,7 @@ func TestManagerOther(t *testing.T) {
 
 	metrics := view.NewMetrics(mp)
 	cf := view.NewContextFactory(sp, sf, es, ip, registry, tp, metrics, lic)
-	manager := view.NewManager(ip, registry, metrics, cf)
+	manager := view.NewManager(ip, registry, metrics, cf, view.NewDefaultRunner())
 
 	// RegisterContext
 	mockCtx := &mock.DisposableContext{}
