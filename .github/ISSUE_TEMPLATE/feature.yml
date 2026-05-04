@@ -1,0 +1,55 @@
+name: Feature
+description: Propose a new capability for the Fabric Smart Client
+labels: ['status: awaiting triage']
+projects: ["hyperledger-labs/8"]
+type: Feature
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Description
+      description: |
+        What problem are you trying to solve? Describe the need or gap clearly.
+        Focus on the problem itself — the proposed solution comes next.
+        If you already have a specific solution in mind, describe it under "Proposed Solution" — just include a brief summary of the need here.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: |
+        Describe the feature you'd like to propose. What would the API or behavior look like?
+        Include examples, pseudocode, or sketches that help illustrate the idea.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: |
+        What other approaches did you consider? Why is the proposed solution preferred?
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: Implementation Notes
+      description: |
+        Any hints about where or how this might be implemented in the Fabric Smart Client?
+        This is optional — maintainers will fill in detailed implementation guidance during triage.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information
+      description: |
+        Links to prior art, related features, discussions, or any other context that might
+        be helpful for evaluating this request.
+    validations:
+      required: false
