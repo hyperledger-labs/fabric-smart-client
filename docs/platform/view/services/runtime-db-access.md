@@ -57,7 +57,7 @@ These layers have different responsibilities:
 
 For detailed definitions of persistence, store, and driver concepts, see the [Database drivers](db-driver.md) documentation.
 
-Key runtime concepts:```
+Key runtime concepts:
 
 - **Persistence**: A named database configuration under `fsc.persistences` that defines the backend type and connection details
 - **Store**: A logical runtime data partition (e.g., KVS, vault, envelope store) backed by one or more tables
