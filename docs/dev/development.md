@@ -10,7 +10,7 @@ For general development best practices, see the following guidelines:
 
 Before you begin, ensure you have the following installed:
 
-- **Go** — [Install Go](https://go.dev/doc/install) (see the required version in [`go.mod`](../go.mod))
+- **Go** — [Install Go](https://go.dev/doc/install) (see the required version in [`go.mod`](../../go.mod))
 - **Docker** — [Install Docker Engine](https://docs.docker.com/engine) (or a compatible container manager)
 
 ## Clone the Repository
@@ -49,7 +49,7 @@ To install a specific Fabric version, set the `FABRIC_VERSION` variable:
 FABRIC_VERSION=3.1.0 make install-fabric-bins
 ```
 
-The default `FABRIC_VERSION` is defined in the project [Makefile](../Makefile). 
+The default `FABRIC_VERSION` is defined in the project [Makefile](../../Makefile). 
 
 
 ### Fabric-x
@@ -69,7 +69,8 @@ Set the `FAB_BINS` environment variable to point to the directory containing the
 export FAB_BINS=/home/yourusername/fabric/bin
 ```
 
-> NOTE: Do *not* store the Fabric binaries inside your fabric-smart-client repository.
+> [!NOTE]
+> Do *not* store the Fabric binaries inside your fabric-smart-client repository.
 Doing so may cause integration tests to fail when installing chaincode.
 
 ## Running Tests
@@ -146,7 +147,7 @@ Run all integration tests:
 make integration-tests
 ```
 
-Run a specific integration tests (e.g., Fabric IOU test):
+Run a specific integration test (e.g., Fabric IOU test):
 ```bash
 make integration-tests-fabric-iou
 ```
@@ -189,7 +190,7 @@ go test -race -coverprofile=cov.out ./platform/common/utils/dig
 go tool cover -func=cov.out
 ```
 
-## Write your own integration test
+## Write Your Own Integration Test
 
 Creating a new integration test is straightforward.
 Each test includes a **test harness** and a **network topology** file.
@@ -205,7 +206,7 @@ touch integration/fabricx/helloworld/helloworld_test.go
 - `topology.go` — defines the network topology (organizations, peers, orderers, etc.)
 - `helloworld_test.go` — defines the test harness and scenarios
 
-For reference, review existing tests in the [`integration/`](../integration/) directory.
+For reference, review existing tests in the [`integration/`](../../integration/) directory.
 
 Run your new integration test:
 ```bash
