@@ -10,7 +10,7 @@ For general development best practices, see the following guidelines:
 
 Before you begin, ensure you have the following installed:
 
-- **Go** — [Install Go](https://go.dev/doc/install) (see the required version in [`go.mod`](../go.mod))
+- **Go** — [Install Go](https://go.dev/doc/install) (see the required version in [`go.mod`](../../go.mod))
 - **Docker** — [Install Docker Engine](https://docs.docker.com/engine) (or a compatible container manager)
 
 ## Clone the Repository
@@ -49,7 +49,7 @@ To install a specific Fabric version, set the `FABRIC_VERSION` variable:
 FABRIC_VERSION=3.1.0 make install-fabric-bins
 ```
 
-The default `FABRIC_VERSION` is defined in the project [Makefile](../Makefile). 
+The default `FABRIC_VERSION` is defined in the project [Makefile](../../Makefile). 
 
 
 ### Fabric-x
@@ -205,7 +205,7 @@ touch integration/fabricx/helloworld/helloworld_test.go
 - `topology.go` — defines the network topology (organizations, peers, orderers, etc.)
 - `helloworld_test.go` — defines the test harness and scenarios
 
-For reference, review existing tests in the [`integration/`](../integration/) directory.
+For reference, review existing tests in the [`integration/`](../../integration/) directory.
 
 Run your new integration test:
 ```bash
