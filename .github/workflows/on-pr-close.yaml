@@ -1,0 +1,51 @@
+name: Bot - On PR Close
+
+# Runs on PR close (merged). Executes issue recommendation workflow:
+# determines completed issue difficulty, finds next/same/fallback issues,
+# and posts a recommendation comment via bot-on-pr-close.js.
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+jobs:
+  on-pr-close:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+
+    concurrency:
+      group: on-pr-close-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Run PR Close Handler
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const script = require('./.github/scripts/bot-on-pr-close.js');
+            await script({ github, context });
+
+  on-pr-merged-conflict-check:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Run Sibling Conflict Check
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const script = require('./.github/scripts/bot-on-pr-merged.js');
+            await script({ github, context });
