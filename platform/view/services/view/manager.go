@@ -69,6 +69,7 @@ type Manager struct {
 	identityProvider IdentityProvider
 	registry         *Registry
 	metrics          *Metrics
+	runner           Runner
 
 	contexts   map[string]DisposableContext
 	contextsMu sync.RWMutex
@@ -80,6 +81,7 @@ func NewManager(
 	registry *Registry,
 	metrics *Metrics,
 	contextFactory ContextFactory,
+	runner Runner,
 ) *Manager {
 	return &Manager{
 		identityProvider: identityProvider,
@@ -89,6 +91,8 @@ func NewManager(
 
 		metrics:        metrics,
 		contextFactory: contextFactory,
+
+		runner: runner,
 	}
 }
 
@@ -156,7 +160,7 @@ func (cm *Manager) InitiateViewWithIdentity(ctx context.Context, view view.View,
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s], from [%s]", id, logging.Identifier(view), c.ID(), string(debug.Stack()))
 	}
-	res, err := c.RunView(view)
+	res, err := cm.runner.RunView(c, view)
 	if err != nil {
 		logger.DebugfContext(ctx, "[%s] InitiateView [view:%s], [ContextID:%s] failed [%s]", id, logging.Identifier(view), c.ID(), err)
 		return nil, err
@@ -321,4 +325,21 @@ func (cm *Manager) DeleteContext(contextID string) {
 		delete(cm.contexts, contextID)
 		cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 	}
+}
+
+// Runner models a view runner.
+type Runner interface {
+	// RunView runs the given responder view in the given view context.
+	RunView(viewCtx view.Context, responder view.View) (any, error)
+}
+
+type defaultRunner struct{}
+
+func (r *defaultRunner) RunView(viewCtx view.Context, responder view.View) (any, error) {
+	return viewCtx.RunView(responder)
+}
+
+// NewDefaultRunner returns a new instance of the default view runner.
+func NewDefaultRunner() Runner {
+	return &defaultRunner{}
 }

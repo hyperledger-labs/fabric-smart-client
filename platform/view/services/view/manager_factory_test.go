@@ -26,7 +26,7 @@ func TestManagerWithMockFactory(t *testing.T) {
 
 	metrics := view.NewMetrics(mp)
 	cf := &mock.ContextFactory{}
-	manager := view.NewManager(ip, registry, metrics, cf)
+	manager := view.NewManager(ip, registry, metrics, cf, view.NewDefaultRunner())
 
 	t.Run("InitiateContextCallsFactory", func(t *testing.T) {
 		t.Parallel()
