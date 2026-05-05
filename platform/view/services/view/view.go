@@ -151,7 +151,7 @@ func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (res a
 	} else {
 		res, err = v.Call(cc)
 	}
-	span.SetAttributes(attribute.Bool(SuccessLabel, err != nil))
+	span.SetAttributes(attribute.Bool(SuccessLabel, err == nil))
 	if err != nil {
 		cc.Cleanup()
 		return nil, err
