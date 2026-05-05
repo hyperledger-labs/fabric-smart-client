@@ -228,43 +228,14 @@ func TestService_DefaultAccessors(t *testing.T) {
 
 func TestService_SetDefaultIdentity(t *testing.T) {
 	t.Parallel()
-	// NOTE: Since defaultMSP is unexported and only set via Load(),
-	// and Load() requires a complex setup, we might need a workaround.
-	// But wait! If we are in msp_test, we can't set it.
-	// Let's see if Load() can be made to work.
-
-	cp := &mock.ConfigProvider{}
-	cp.IsSetReturns(false)
-	cp.GetStringReturns("default_msp")
-
-	kvss, err := kvs.New(utils.MustGet(mem.NewDriver().NewKVS("")), "", kvs.DefaultCacheSize)
-	require.NoError(t, err)
-	des := sig.NewMultiplexDeserializer()
-	config, err := config2.NewService(cp, "default", true)
-	require.NoError(t, err)
-	signerService := &mock.SignerService{}
-	binderService := &mock.BinderService{}
-
-	mspService := msp.NewLocalMSPManager(config, kvss, signerService, binderService, view.Identity("default"), des, testCacheSize)
-
-	// We need Load() to set s.defaultMSP.
-	// loadLocalMSPs() calls s.config.MSPs().
-	// config2.Service.MSPs() reads from ConfigProvider.
-	// It looks for "msps" slice.
-	cp.IsSetReturns(true)
-	// If we don't want to provide a real slice, we can just let it be empty.
-
-	// Actually, there is a simpler way. The maintainer wants msp_test.
-	// If the test needs to set an unexported field, it's a sign that:
-	// a) The field should be set via an exported method (like Load).
-	// b) The test belongs in the internal package.
-	// But the maintainer specifically asked for msp_test.
-
-	// I'll use a small trick: use Load() and mock the config enough.
-	require.Error(t, mspService.Load()) // It will fail because no default identity, but it will set s.defaultMSP
-
 	t.Run("MatchingDefaultMSP", func(t *testing.T) {
 		t.Parallel()
+		mspService, _, _, _ := setup(t)
+
+		// Load() is needed to initialize the internal defaultMSP field
+		// We expect it to fail since no MSPs are configured, but it will set defaultMSP
+		_ = mspService.Load()
+
 		id := view.Identity("id1")
 		sid := &mock.SigningIdentity{}
 		mspService.SetDefaultIdentity("default_msp", id, sid)
@@ -274,13 +245,24 @@ func TestService_SetDefaultIdentity(t *testing.T) {
 
 	t.Run("NonMatchingID", func(t *testing.T) {
 		t.Parallel()
-		id := view.Identity("id2")
-		sid := &mock.SigningIdentity{}
-		currentId := mspService.DefaultIdentity()
-		currentSid := mspService.DefaultSigningIdentity()
-		mspService.SetDefaultIdentity("other_msp", id, sid)
-		require.Equal(t, currentId, mspService.DefaultIdentity())
-		require.Equal(t, currentSid, mspService.DefaultSigningIdentity())
+		mspService, _, _, _ := setup(t)
+
+		// Load() is needed to initialize the internal defaultMSP field
+		_ = mspService.Load()
+
+		// Set initial identity
+		initialId := view.Identity("initial_id")
+		initialSid := &mock.SigningIdentity{}
+		mspService.SetDefaultIdentity("default_msp", initialId, initialSid)
+
+		// Try to set with non-matching id - should be no-op
+		newId := view.Identity("new_id")
+		newSid := &mock.SigningIdentity{}
+		mspService.SetDefaultIdentity("non_matching_msp", newId, newSid)
+
+		// Verify identity remains unchanged
+		require.Equal(t, initialId, mspService.DefaultIdentity())
+		require.Equal(t, initialSid, mspService.DefaultSigningIdentity())
 	})
 }
 
