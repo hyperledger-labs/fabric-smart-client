@@ -135,8 +135,8 @@ func TestRunViewNow_SetsTracingSuccessAttribute(t *testing.T) {
 			t.Parallel()
 
 			parent := &mock.ParentContext{}
-			parent.ContextReturns(context.Background())
-			captured := &capturingSpan{Span: trace.SpanFromContext(context.Background())}
+			parent.ContextReturns(t.Context())
+			captured := &capturingSpan{Span: trace.SpanFromContext(t.Context())}
 			parent.StartSpanFromStub = func(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
 				return ctx, captured
 			}
