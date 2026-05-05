@@ -231,35 +231,35 @@ func TestService_SetDefaultIdentity(t *testing.T) {
 	t.Run("MatchingDefaultMSP", func(t *testing.T) {
 		t.Parallel()
 		mspService, _, _, _ := setup(t)
-		
+
 		// Load() is needed to initialize the internal defaultMSP field
 		// We expect it to fail since no MSPs are configured, but it will set defaultMSP
 		_ = mspService.Load()
-		
+
 		id := view.Identity("id1")
 		sid := &mock.SigningIdentity{}
 		mspService.SetDefaultIdentity("default_msp", id, sid)
 		require.Equal(t, id, mspService.DefaultIdentity())
 		require.Equal(t, sid, mspService.DefaultSigningIdentity())
 	})
-	
+
 	t.Run("NonMatchingID", func(t *testing.T) {
 		t.Parallel()
 		mspService, _, _, _ := setup(t)
-		
+
 		// Load() is needed to initialize the internal defaultMSP field
 		_ = mspService.Load()
-		
+
 		// Set initial identity
 		initialId := view.Identity("initial_id")
 		initialSid := &mock.SigningIdentity{}
 		mspService.SetDefaultIdentity("default_msp", initialId, initialSid)
-		
+
 		// Try to set with non-matching id - should be no-op
 		newId := view.Identity("new_id")
 		newSid := &mock.SigningIdentity{}
 		mspService.SetDefaultIdentity("non_matching_msp", newId, newSid)
-		
+
 		// Verify identity remains unchanged
 		require.Equal(t, initialId, mspService.DefaultIdentity())
 		require.Equal(t, initialSid, mspService.DefaultSigningIdentity())
