@@ -97,11 +97,14 @@ func (p *Provider) NewHistogram(o metrics.HistogramOpts) metrics.Histogram {
 	p.applyNamespaceSubsystem(&o.Namespace, &o.Subsystem)
 
 	hv := prom.NewHistogramVec(prom.HistogramOpts{
-		Namespace: o.Namespace,
-		Subsystem: o.Subsystem,
-		Name:      o.Name,
-		Help:      o.Help,
-		Buckets:   o.Buckets,
+		Namespace:                      o.Namespace,
+		Subsystem:                      o.Subsystem,
+		Name:                           o.Name,
+		Help:                           o.Help,
+		Buckets:                        o.Buckets,
+		NativeHistogramBucketFactor:    o.NativeHistogramBucketFactor,
+		NativeHistogramMaxBucketNumber: o.NativeHistogramMaxBucketNumber,
+		NativeHistogramZeroThreshold:   o.NativeHistogramZeroThreshold,
 	}, o.LabelNames)
 	p.register(hv)
 	return &Histogram{prometheus.NewHistogram(hv)}

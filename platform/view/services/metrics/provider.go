@@ -124,6 +124,25 @@ type HistogramOpts struct {
 	// omitted, the default Prometheus bucket values are used.
 	Buckets []float64
 
+	// NativeHistogramBucketFactor determines the resolution of native histogram
+	// buckets. A value of 1.1 (schema=3) means each bucket boundary is ~9% wider
+	// than the previous. Setting this to a value > 1 enables native histogram
+	// collection alongside classic buckets (dual mode). When zero, only classic
+	// buckets are used.
+	NativeHistogramBucketFactor float64
+
+	// NativeHistogramMaxBucketNumber is the maximum number of populated sparse
+	// buckets allowed. If this limit is exceeded during observation, the
+	// histogram resolution is reduced (buckets are merged) to stay within the
+	// limit. A value of 0 means no limit.
+	NativeHistogramMaxBucketNumber uint32
+
+	// NativeHistogramZeroThreshold defines the width of the zero bucket.
+	// Observations in the range [-ZeroThreshold, +ZeroThreshold] are counted in
+	// a dedicated zero bucket. A value of 0 means the zero bucket only contains
+	// observations that are exactly zero.
+	NativeHistogramZeroThreshold float64
+
 	// LabelNames provides the names of the labels that can be attached to this
 	// metric. When a metric is recorded, label values must be provided for each
 	// of these label names.
