@@ -21,7 +21,7 @@ The typical lifecycle is:
 2. The runtime creates a `view.Context`.
 3. The view executes through `Call(context)`.
 4. The view uses the context to retrieve services, open sessions, invoke nested views, and manage cleanup.
-5. In the standard `InitiateView` and responder execution paths, the runtime disposes the context when the protocol branch completes. In explicit `InitiateContext*` flows, the caller owns the context lifecycle and is responsible for deleting it when it is no longer needed.
+5. In the standard `InitiateView` and responder execution paths, the runtime disposes the context when the protocol branch completes.
 
 ## Packages
 
