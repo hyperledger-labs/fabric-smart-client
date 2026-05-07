@@ -22,7 +22,7 @@ This model lets you write business protocols directly as Go code instead of push
 
 A view is the unit of application logic in FSC.
 
-A view implements a [`Call()`](platform/view/view/view.go:1) method with the general shape:
+A view implements a [`Call()`](../../../platform/view/view/view.go#L13) method with the general shape:
 
 ```go
 type MyView struct{}
@@ -37,7 +37,7 @@ A view can act as:
 
 - an **initiator**, which starts a protocol
 - a **responder**, which reacts to a protocol started by another party
-- a **child view**, executed from another view with [`RunView()`](platform/view/services/view-service.md:76)
+- a **child view**, executed from another view with [`RunView()`](services/view-service.md#L76)
 
 Views are intentionally application-focused. They should express the steps of a business interaction: gather input, identify counterparties, exchange messages, invoke platform APIs, validate results, and return an outcome.
 
@@ -45,14 +45,14 @@ For more detail on the runtime that creates and executes views, see [View servic
 
 ### Context
 
-Each running view receives a [`view.Context`](platform/view/services/view-service.md:62), which is the runtime handle for interacting with the FSC platform.
+Each running view receives a [`view.Context`](services/view-service.md#L62), which is the runtime handle for interacting with the FSC platform.
 
 The context gives access to:
 
-- the local identity with [`Me()`](platform/view/services/view-service.md:65)
-- session management with [`Session()`](platform/view/services/view-service.md:67) and [`GetSession()`](platform/view/services/view-service.md:68)
-- platform and application services with [`GetService()`](platform/view/services/view-service.md:72)
-- nested view execution with [`RunView()`](platform/view/services/view-service.md:76)
+- the local identity with [`Me()`](services/view-service.md#L65)
+- session management with [`Session()`](services/view-service.md#L67) and [`GetSession()`](services/view-service.md#L68)
+- platform and application services with [`GetService()`](services/view-service.md#L72)
+- nested view execution with [`RunView()`](services/view-service.md#L76)
 
 In practice, the context is the main object your view uses to talk to the rest of the runtime.
 
@@ -65,9 +65,9 @@ Sessions are how initiators and responders exchange protocol messages. The initi
 Common usage pattern:
 
 - initiator obtains a remote identity
-- initiator opens a session with [`GetSession()`](platform/view/services/view-service.md:68)
+- initiator opens a session with [`GetSession()`](services/view-service.md#L68)
 - initiator sends a message
-- responder reads from [`Session()`](platform/view/services/view-service.md:67)
+- responder reads from [`Session()`](services/view-service.md#L67)
 - responder replies on the same session
 
 ### Identities
@@ -82,7 +82,7 @@ The example in [`integration/fabric/stoprestart/initiator.go`](../../../integrat
 
 FSC uses a service-oriented runtime.
 
-Views can retrieve services from the context using [`GetService()`](platform/view/services/view-service.md:72). These services can be:
+Views can retrieve services from the context using [`GetService()`](services/view-service.md#L72). These services can be:
 
 - FSC runtime services
 - platform services from View, Fabric, or Fabric-x
@@ -123,15 +123,28 @@ func main() {
 	}
 
 	node.Execute(func() error {
-		// register views and services here
+		// Get the view registry
+		registry := view.GetRegistry(node)
+		
+		// Register an initiator view factory
+		if err := registry.RegisterFactory("myInitiator", &MyInitiatorViewFactory{}); err != nil {
+			return err
+		}
+		
+		// Register a responder for the initiator
+		initiatorID := registry.GetIdentifier(&MyInitiator{})
+		if err := registry.RegisterResponder(&MyResponder{}, initiatorID); err != nil {
+			return err
+		}
+		
 		return nil
 	})
 }
 ```
 
-The node runtime is provided by [`node.New()`](../../../node/node.go:45) and started through [`Node.Execute()`](../../../node/node.go:72).
+The node runtime is provided by [`node.New()`](../../../node/node.go#L45) and started through [`Node.Execute()`](../../../node/node.go#L72).
 
-If the application also needs Fabric capabilities, it installs the Fabric SDK in the same startup flow, as described in [Fabric SDK architecture](../fabric/fabric-sdk.md).
+If the application also needs Fabric capabilities, it installs the Fabric SDK in the same startup flow, as described in [Fabric SDK architecture](../fabric/fabric-sdk.md). For Fabric-X capabilities, see [Fabric-X](../fabric-x/README.md).
 
 For node startup configuration, see [View platform configuration](configuration.md) and [Shared node configuration](../../configuration.md).
 
@@ -179,6 +192,8 @@ func (p *Initiator) Call(viewCtx view.Context) (interface{}, error) {
 }
 ```
 
+For a more complete example with error handling, timeouts, and message validation, see the [stoprestart integration test](../../../integration/fabric/stoprestart/initiator.go).
+
 This shows the essential mechanics:
 
 - resolve a remote identity
@@ -195,7 +210,7 @@ A responder view typically:
 3. performs local business logic
 4. sends back a response or status
 
-From [`integration/fabric/stoprestart/responder.go`](integration/fabric/stoprestart/responder.go), the responder pattern is:
+The responder pattern is:
 
 ```go
 type Responder struct{}
@@ -210,6 +225,8 @@ func (p *Responder) Call(viewCtx view.Context) (interface{}, error) {
 	return "OK", nil
 }
 ```
+
+For a more complete example with error handling and timeouts, see the [stoprestart integration test](../../../integration/fabric/stoprestart/responder.go).
 
 The responder does not create the session. It consumes the session associated with the incoming protocol request.
 
@@ -237,13 +254,13 @@ Factories are useful when:
 
 Responder views are registered against the initiator type so the runtime knows which responder to launch when a session arrives.
 
-Conceptually, registration happens during node startup inside the callback passed to [`Execute()`](../../../node/node.go:72).
+Conceptually, registration happens during node startup inside the callback passed to [`Execute()`](../../../node/node.go#L72).
 
 ## Running Child Views
 
 Large business protocols are easier to maintain if they are split into smaller views.
 
-A parent view can call another view using [`RunView()`](platform/view/services/view-service.md:76). This is useful when you want to separate:
+A parent view can call another view using [`RunView()`](services/view-service.md#L76). This is useful when you want to separate:
 
 - identity lookup
 - validation
@@ -298,7 +315,7 @@ Less ideal examples:
 
 - embed raw database code in every view
 - spread identity resolution logic across unrelated files
-- mix transport, persistence, and domain logic in a single huge [`Call()`](platform/view/view/view.go:1)
+- mix transport, persistence, and domain logic in a single huge [`Call()`](../../../platform/view/view/view.go)
 
 ### Use services for reusable logic
 
@@ -328,7 +345,27 @@ Distributed protocols fail in real systems, so views should handle:
 - invalid or unexpected replies
 - downstream Fabric errors
 
-The initiator and responder examples in [`integration/fabric/stoprestart/initiator.go`](integration/fabric/stoprestart/initiator.go) and [`integration/fabric/stoprestart/responder.go`](integration/fabric/stoprestart/responder.go) illustrate timeout handling and reply validation.
+Here's an example of timeout handling with message validation:
+
+```go
+ch := session.Receive()
+select {
+case msg := <-ch:
+	if msg.Status == view.ERROR {
+		return nil, errors.New(string(msg.Payload))
+	}
+	if string(msg.Payload) != "expected_value" {
+		return nil, errors.Errorf("expected expected_value, got %s", string(msg.Payload))
+	}
+case <-time.After(1 * time.Minute):
+	return nil, errors.New("timeout waiting for response")
+}
+```
+
+For complete examples, see:
+- [pingpong](../../../integration/fsc/pingpong) - Simple ping/pong protocol with timeout and validation
+- [stoprestart](../../../integration/fabric/stoprestart) - Session handling with stop/restart scenarios
+- [IOU](../../../integration/fabric/iou) - Complex Fabric integration with state management and endorsement collection
 
 ## Suggested Development Flow
 
