@@ -15,9 +15,11 @@ This is the architecture of the View SDK:
 ## Components
 
 - [View API](view-api.md) - Public programming surface for `view.View`, `view.Context`, `view.Session`, identities, and nested execution options
+- [Programming Model Guide](programming-model.md) - How to build FSC applications around views, sessions, services, and platform APIs
 - [View Service](services/view-service.md) - Core orchestration layer for view lifecycle and protocol coordination
 - [Configuration Service](services/config-service.md)
 - [DB Drivers](services/db-driver.md)
+- [Runtime DB Access](services/runtime-db-access.md)
 - [Monitoring](services/monitoring.md)
 
 ## Configuration

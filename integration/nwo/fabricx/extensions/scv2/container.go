@@ -10,14 +10,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/netip"
 	"runtime"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	docker_network "github.com/docker/docker/api/types/network"
-	docker_client "github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
+	dcli "github.com/moby/moby/client"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
 
@@ -41,11 +41,11 @@ var (
 		// note that v1 and v2 don't use any specified cmds
 		v3.CommitterVersion: v3.ContainerCmd,
 	}
-	sidecarDefaultPort = map[string]nat.Port{
-		v3.CommitterVersion: v3.SidecarDefaultPort,
+	sidecarDefaultPort = map[string]network.Port{
+		v3.CommitterVersion: network.MustParsePort(v3.SidecarDefaultPort),
 	}
-	queryServiceDefaultPort = map[string]nat.Port{
-		v3.CommitterVersion: v3.QueryServiceDefaultPort,
+	queryServiceDefaultPort = map[string]network.Port{
+		v3.CommitterVersion: network.MustParsePort(v3.QueryServiceDefaultPort),
 	}
 
 	committerVersion = v3.CommitterVersion
@@ -83,7 +83,7 @@ func (e *Extension) launchContainer() {
 	d, err := docker.GetInstance()
 	utils.Must(err)
 
-	net, err := d.Client.NetworkInfo(networkID)
+	net, err := d.NetworkInfo(networkID)
 	utils.Must(err)
 	logger.Infof("net id: %s", net.ID)
 
@@ -104,85 +104,87 @@ func (e *Extension) launchContainer() {
 	logger.Infof("Run Scalable Committer container on %v ports: %v %v\ncontainer env vars: %v", localIP, sidecarPort, queryServicePort, containerEnvOverride)
 	defer logger.Infof("Run Scalable Committer container on port [%s]...done", sidecarPort)
 
-	cli, err := docker_client.NewClientWithOpts(docker_client.FromEnv, docker_client.WithAPIVersionNegotiation())
+	cli, err := dcli.New(dcli.FromEnv)
 	utils.Must(err)
 
-	ctx := context.Background()
+	ctx := context.TODO()
 	resp, err := cli.ContainerCreate(
 		ctx,
-		&container.Config{
-			Image:        scalableCommitterImages[committerVersion],
-			Tty:          true,
-			AttachStdout: true,
-			AttachStderr: true,
-			ExposedPorts: nat.PortSet{
-				nat.Port(sidecarPort + "/tcp"):         struct{}{},
-				nat.Port(queryServicePort + "/tcp"):    struct{}{},
-				nat.Port(orderingServicePort + "/tcp"): struct{}{},
-			},
-			Env: containerEnvOverride,
-			Cmd: containerCmd,
-		},
-		&container.HostConfig{
-			ExtraHosts: extraHosts,
-			Mounts: []mount.Mount{
-				{
-					// crypto
-					Type:   mount.TypeBind,
-					Source: rootCryptoDir,
-					Target: "/root/artifacts/crypto",
+		dcli.ContainerCreateOptions{
+			Name: containerName,
+			Config: &container.Config{
+				Image:        scalableCommitterImages[committerVersion],
+				Tty:          true,
+				AttachStdout: true,
+				AttachStderr: true,
+				ExposedPorts: network.PortSet{
+					network.MustParsePort(sidecarPort + "/tcp"):         struct{}{},
+					network.MustParsePort(queryServicePort + "/tcp"):    struct{}{},
+					network.MustParsePort(orderingServicePort + "/tcp"): struct{}{},
 				},
-				{ // config block
-					Type:     mount.TypeBind,
-					Source:   configBlockPath,
-					Target:   "/root/artifacts/config-block.pb.bin",
-					ReadOnly: true,
-				},
+				Env: containerEnvOverride,
+				Cmd: containerCmd,
 			},
-			PortBindings: nat.PortMap{
-				// sidecar port binding
-				containerSidecarPort: []nat.PortBinding{
+			HostConfig: &container.HostConfig{
+				ExtraHosts: extraHosts,
+				Mounts: []mount.Mount{
 					{
-						HostIP:   "0.0.0.0",
-						HostPort: sidecarPort,
+						// crypto
+						Type:   mount.TypeBind,
+						Source: rootCryptoDir,
+						Target: "/root/artifacts/crypto",
+					},
+					{ // config block
+						Type:     mount.TypeBind,
+						Source:   configBlockPath,
+						Target:   "/root/artifacts/config-block.pb.bin",
+						ReadOnly: true,
 					},
 				},
-				// query service port bindings
-				containerQueryServicePort: []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: queryServicePort,
+				PortBindings: network.PortMap{
+					// sidecar port binding
+					containerSidecarPort: []network.PortBinding{
+						{
+							HostIP:   netip.MustParseAddr("0.0.0.0"),
+							HostPort: sidecarPort,
+						},
 					},
-				},
-				// sidecar port binding
-				nat.Port(orderingServicePort + "/tcp"): []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: orderingServicePort,
+					// query service port bindings
+					containerQueryServicePort: []network.PortBinding{
+						{
+							HostIP:   netip.MustParseAddr("0.0.0.0"),
+							HostPort: queryServicePort,
+						},
+					},
+					// sidecar port binding
+					network.MustParsePort(orderingServicePort + "/tcp"): []network.PortBinding{
+						{
+							HostIP:   netip.MustParseAddr("0.0.0.0"),
+							HostPort: orderingServicePort,
+						},
 					},
 				},
 			},
-		},
-		&docker_network.NetworkingConfig{
-			EndpointsConfig: map[string]*docker_network.EndpointSettings{
-				networkID: {},
+			NetworkingConfig: &network.NetworkingConfig{
+				EndpointsConfig: map[string]*network.EndpointSettings{
+					networkID: {},
+				},
 			},
 		},
-		nil, containerName,
 	)
 	utils.Must(err)
 
-	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
+	_, err = cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{})
 	utils.Must(err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.TODO())
 	dockerLogger := logging.MustGetLogger("sc.container." + resp.ID[:8])
 	go func() {
 		defer cancel()
 		dockerLogger.Debugf("fetch logs from container [%s]", containerName)
 		defer dockerLogger.Debugf("stopped container log fetcher [%s], ", containerName)
 
-		reader, errx := cli.ContainerLogs(context.Background(), resp.ID, container.LogsOptions{
+		reader, errx := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
 			Follow:     true,

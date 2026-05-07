@@ -26,7 +26,7 @@ func TestSecondChanceCache(t *testing.T) {
 	cache.Add("a", "xyz")
 
 	cache.Add("b", "123")
-	// Get b, b referenced bit is set to true
+	// Get b, b referenced bit is set to true (accessed via Get). a's referenced bit is 0.
 	obj, ok := cache.Get("b")
 	require.True(t, ok)
 	require.Equal(t, "123", obj.(string))
@@ -50,7 +50,9 @@ func TestSecondChanceCache(t *testing.T) {
 	_, ok = cache.Get("a")
 	require.False(t, ok)
 
-	// Add d. victim scan: b referenced bit is set to false and delete c
+	// Add d. Adding d should trigger eviction. The second-chance algorithm should evict c
+	// because c's referenced bit is 0, while b's referenced bit is 1.
+	// In the process, b's referenced bit is set to 0.
 	cache.Add("d", "555")
 
 	// check c is deleted
@@ -118,6 +120,90 @@ func TestSecondChanceCacheConcurrent(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestSecondChanceCacheDelete(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		setupFunc func() (addFunc func(interface{}, interface{}), getFunc func(interface{}) (interface{}, bool), deleteFunc func(interface{}))
+	}{
+		{
+			name: "TypedCache",
+			setupFunc: func() (func(interface{}, interface{}), func(interface{}) (interface{}, bool), func(interface{})) {
+				cache := New(10)
+				return func(k, v interface{}) { cache.Add(k.(string), v) },
+					func(k interface{}) (interface{}, bool) { return cache.Get(k.(string)) },
+					func(k interface{}) { cache.Delete(k.(string)) }
+			},
+		},
+		{
+			name: "BytesCache",
+			setupFunc: func() (func(interface{}, interface{}), func(interface{}) (interface{}, bool), func(interface{})) {
+				cache := NewBytes(10)
+				return func(k, v interface{}) { cache.Add(k.([]byte), v) },
+					func(k interface{}) (interface{}, bool) { return cache.Get(k.([]byte)) },
+					func(k interface{}) { cache.Delete(k.([]byte)) }
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			add, get, del := tt.setupFunc()
+
+			var key interface{}
+			if tt.name == "TypedCache" {
+				key = "k1"
+			} else {
+				key = []byte("k1")
+			}
+
+			add(key, "v1")
+			v, ok := get(key)
+			require.True(t, ok)
+			require.Equal(t, "v1", v)
+
+			del(key)
+			v, ok = get(key)
+			require.True(t, ok)
+			require.Nil(t, v)
+		})
+	}
+}
+
+func TestSecondChanceCacheBytes(t *testing.T) {
+	t.Parallel()
+	cache := NewBytes(2)
+	k1 := []byte("key1")
+	k2 := []byte("key2")
+	k3 := []byte("key3")
+
+	cache.Add(k1, "v1")
+	cache.Add(k2, "v2")
+
+	v, ok := cache.Get(k1)
+	require.True(t, ok)
+	require.Equal(t, "v1", v)
+
+	// k1 is now referenced (accessed via Get). k2 is not referenced.
+	// Adding k3 should trigger eviction. The second-chance algorithm should evict k2
+	// because k2's referenced bit is 0, while k1's referenced bit is 1.
+	cache.Add(k3, "v3")
+
+	_, ok = cache.Get(k2)
+	require.False(t, ok)
+
+	v, ok = cache.Get(k1)
+	require.True(t, ok)
+	require.Equal(t, "v1", v)
+
+	v, ok = cache.Get(k3)
+	require.True(t, ok)
+	require.Equal(t, "v3", v)
 }
 
 func BenchmarkSecondChanceCache(b *testing.B) {

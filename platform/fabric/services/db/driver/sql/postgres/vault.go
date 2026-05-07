@@ -9,8 +9,9 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	errors2 "errors"
 	"fmt"
+
+	sq "github.com/Masterminds/squirrel"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -18,7 +19,6 @@ import (
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
-	common5 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 )
 
 type VaultStore struct {
@@ -26,10 +26,10 @@ type VaultStore struct {
 
 	tables  common4.VaultTables
 	writeDB *sql.DB
-	ci      common5.CondInterpreter
-	pi      common5.PagInterpreter
 }
 
+// NewVaultStore creates a postgres-backed VaultStore for the given
+// read/write database and table names.
 func NewVaultStore(dbs *common3.RWDB, tables common4.TableNames) (*VaultStore, error) {
 	return newVaultStore(dbs.ReadDB, dbs.WriteDB, common4.VaultTables{
 		StateTable:  tables.State,
@@ -37,15 +37,13 @@ func NewVaultStore(dbs *common3.RWDB, tables common4.TableNames) (*VaultStore, e
 	}), nil
 }
 
+// newVaultStore is the internal constructor. It uses sq.Dollar as the
+// squirrel placeholder format for all PostgreSQL queries.
 func newVaultStore(readDB, writeDB *sql.DB, tables common4.VaultTables) *VaultStore {
-	ci := postgres2.NewConditionInterpreter()
-	pi := postgres2.NewPaginationInterpreter()
 	return &VaultStore{
-		VaultStore: common4.NewVaultStore(writeDB, readDB, tables, &postgres2.ErrorMapper{}, ci, pi, postgres2.NewSanitizer(), postgres2.IsolationLevels),
+		VaultStore: common4.NewVaultStore(writeDB, readDB, tables, &postgres2.ErrorMapper{}, sq.Dollar, postgres2.NewSanitizer(), postgres2.IsolationLevels),
 		tables:     tables,
 		writeDB:    writeDB,
-		ci:         ci,
-		pi:         pi,
 	}
 }
 
@@ -57,54 +55,40 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	if err != nil {
 		return errors.Wrapf(err, "failed to initiate db transaction")
 	}
+	defer func() { _ = tx.Rollback() }()
 
 	if len(txIDs) > 0 {
-		sb := common5.NewBuilder()
-		db.SetStatusesBusy(txIDs, sb)
-		query, args := sb.Build()
-		if err := execOrRollback(ctx, tx, query, args); err != nil {
+		query, params, err := db.SetStatusesBusy(txIDs)
+		if err != nil {
+			return errors.Wrapf(err, "failed building busy query")
+		}
+		logger.Debug(query, len(params), params)
+		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
 			return errors.Wrapf(err, "failed setting tx to busy")
 		}
 	}
 	if len(writes) > 0 || len(metaWrites) > 0 {
-		sb := common5.NewBuilder()
-		if err := db.UpsertStates(writes, metaWrites, sb); err != nil {
-			return err
+		query, params, err := db.UpsertStates(writes, metaWrites)
+		if err != nil {
+			return errors.Wrapf(err, "failed building upsert states query")
 		}
-		query, args := sb.Build()
-		if err := execOrRollback(ctx, tx, query, args); err != nil {
+		logger.Debug(query, len(params), params)
+		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
 			return errors.Wrapf(err, "failed writing state")
 		}
 	}
 	if len(txIDs) > 0 {
-		sb := common5.NewBuilder()
-		db.SetStatusesValid(txIDs, sb)
-		query, args := sb.Build()
-		if err := execOrRollback(ctx, tx, query, args); err != nil {
+		query, params, err := db.SetStatusesValid(txIDs)
+		if err != nil {
+			return errors.Wrapf(err, "failed building valid query")
+		}
+		logger.Debug(query, len(params), params)
+		if _, err := tx.ExecContext(ctx, query, params...); err != nil {
 			return errors.Wrapf(err, "failed setting tx to valid")
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		if err2 := tx.Rollback(); err2 != nil {
-			return errors2.Join(err, err2)
-		}
-		return err
-	}
-
-	return nil
-}
-
-func execOrRollback(ctx context.Context, tx *sql.Tx, query string, params []any) error {
-	logger.Debug(query, len(params), params)
-
-	if _, err := tx.ExecContext(ctx, query, params...); err != nil {
-		if err2 := tx.Rollback(); err2 != nil {
-			return errors2.Join(err, err2)
-		}
-		return err
-	}
-	return nil
+	return tx.Commit()
 }
 
 func (db *VaultStore) CreateSchema() error {

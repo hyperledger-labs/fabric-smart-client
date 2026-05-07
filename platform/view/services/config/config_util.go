@@ -193,5 +193,6 @@ func EnhancedExactUnmarshal(v *koanf.Koanf, key string, output interface{}) erro
 	}
 	return v.UnmarshalWithConf(key, output, koanf.UnmarshalConf{
 		DecoderConfig: config,
+		Tag:           "yaml",
 	})
 }

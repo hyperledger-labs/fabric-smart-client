@@ -1,0 +1,35 @@
+name: Task
+description: Propose a maintenance, improvement, or operational task
+labels: ['status: awaiting triage']
+projects: ["hyperledger-labs/8"]
+type: Task
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: |
+        What needs to be done and why? Describe the current state and what should change.
+        Describe the intended strategy and any constraints or tradeoffs to be aware of.
+        Include relevant file paths, class names, or modules if you know them.
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Steps
+      description: |
+        Walk through how to complete this task step by step.
+        Use checkboxes for actionable items.
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information
+      description: |
+        Links to changelogs, related issues, PRs, or any other relevant context.
+    validations:
+      required: false

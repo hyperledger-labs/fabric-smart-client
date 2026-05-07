@@ -8,7 +8,6 @@ package endpoint
 
 import (
 	"context"
-	"net"
 	"reflect"
 	"strings"
 	"sync"
@@ -228,7 +227,7 @@ func (r *Service) UpdateResolver(
 		// update addresses
 		addressList := make([]string, 0, len(addresses))
 		for k, v := range addresses {
-			addresses[k] = LookupIP(v)
+			addresses[k] = v
 			addressList = append(addressList, v)
 		}
 		resolver.Addresses = convert(addresses)
@@ -276,7 +275,7 @@ func (r *Service) AddResolver(
 	// resolve addresses to their IPs, if needed
 	addressList := make([]string, 0, len(addresses))
 	for k, v := range addresses {
-		addresses[k] = LookupIP(v)
+		addresses[k] = v
 		addressList = append(addressList, v)
 	}
 
@@ -533,25 +532,4 @@ func convert(o map[string]string) map[PortName]string {
 		r[portNameMap[strings.ToLower(k)]] = v
 	}
 	return r
-}
-
-// LookupIP resolves a hostname in an endpoint to its IP address.
-// If the endpoint is already an IP address or resolution fails, returns the original endpoint.
-// The endpoint must be in "host:port" format.
-func LookupIP(endpoint string) string {
-	host, port, err := net.SplitHostPort(endpoint)
-	if err != nil {
-		return endpoint
-	}
-
-	addrs, err := net.LookupIP(host)
-	if err != nil {
-		return endpoint
-	}
-
-	if len(addrs) > 0 {
-		return net.JoinHostPort(addrs[0].String(), port)
-	}
-
-	return endpoint
 }

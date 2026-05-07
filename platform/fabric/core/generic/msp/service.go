@@ -36,6 +36,7 @@ type KVS interface {
 }
 
 type service struct {
+	defaultIdentityMutex   sync.RWMutex
 	defaultIdentity        view.Identity
 	defaultSigningIdentity driver.SigningIdentity
 	signerService          driver.SignerService
@@ -115,6 +116,9 @@ func (s *service) CacheSize() int {
 }
 
 func (s *service) SetDefaultIdentity(id string, defaultIdentity view.Identity, defaultSigningIdentity driver.SigningIdentity) {
+	s.defaultIdentityMutex.Lock()
+	defer s.defaultIdentityMutex.Unlock()
+
 	if id == s.defaultMSP {
 		if s.defaultIdentity == nil {
 			logger.Debugf("setting default identity to [%s]", id)
@@ -127,6 +131,8 @@ func (s *service) SetDefaultIdentity(id string, defaultIdentity view.Identity, d
 }
 
 func (s *service) DefaultIdentity() view.Identity {
+	s.defaultIdentityMutex.RLock()
+	defer s.defaultIdentityMutex.RUnlock()
 	return s.defaultIdentity
 }
 
@@ -154,6 +160,8 @@ func (s *service) IsMe(ctx context.Context, id view.Identity) bool {
 }
 
 func (s *service) DefaultSigningIdentity() fdriver.SigningIdentity {
+	s.defaultIdentityMutex.RLock()
+	defer s.defaultIdentityMutex.RUnlock()
 	return s.defaultSigningIdentity
 }
 
@@ -235,7 +243,7 @@ func (s *service) GetIdentityByID(id string) (view.Identity, error) {
 	}
 
 	identity, err := s.binderService.GetIdentity(id, nil)
-	if err != nil {
+	if err != nil || identity == nil {
 		return nil, errors.Errorf("identity [%s] not found", id)
 	}
 	return identity, nil
@@ -367,14 +375,17 @@ func (s *service) loadLocalMSPs() error {
 	if err != nil {
 		return errors.WithMessagef(err, "failed loading local MSP configs")
 	}
+	s.defaultIdentityMutex.Lock()
 	s.defaultMSP = s.config.DefaultMSP()
 	if len(s.defaultMSP) == 0 {
 		if len(configs) == 0 {
+			s.defaultIdentityMutex.Unlock()
 			return errors.New("default MSP not configured and no MSPs set")
 		}
 		logger.Warnf("default MSP not configured, set it to [%s]", configs[0].ID)
 		s.defaultMSP = configs[0].ID
 	}
+	s.defaultIdentityMutex.Unlock()
 
 	logger.Debugf("Local Local [%d] MSPS using default [%s]", len(configs), s.defaultMSP)
 	for _, config := range configs {
@@ -388,6 +399,8 @@ func (s *service) loadLocalMSPs() error {
 		}
 	}
 
+	s.defaultIdentityMutex.RLock()
+	defer s.defaultIdentityMutex.RUnlock()
 	if s.defaultIdentity == nil {
 		return errors.Errorf("no default identity set for network [%s]", s.config.NetworkName())
 	}

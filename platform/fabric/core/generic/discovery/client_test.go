@@ -366,10 +366,10 @@ func TestClient(t *testing.T) {
 		req = NewRequest()
 		req, err = req.OfChannel("mychannel").AddPeersQuery().AddEndorsersQuery(interest("mycc"))
 		require.NoError(t, err)
-		r, err = cl.Send(ctx, req, authInfo)
+		r2, err := cl.Send(ctx, req, authInfo)
 		require.NoError(t, err)
 
-		mychannel := r.ForChannel("mychannel")
+		mychannel := r2.ForChannel("mychannel")
 		peers, err := mychannel.Peers()
 		require.NoError(t, err)
 		require.Len(t, peers, 3)

@@ -94,7 +94,7 @@ var joinTypeMap = map[JoinType]string{
 	Left:  " LEFT JOIN ",  // same as JOIN, LEFT OUTER JOIN
 	Right: " RIGHT JOIN ", // same as RIGHT OUTER JOIN
 	Full:  " FULL JOIN ",  // same as FULL OUTER JOIN
-	Inner: " INNER JOIN",
+	Inner: " INNER JOIN ",
 	Cross: " CROSS JOIN ",
 }
 

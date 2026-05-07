@@ -122,6 +122,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(view.NewMetrics),
 		p.Container().Provide(view.NewContextFactory),
 		p.Container().Provide(view.NewManager),
+		p.Container().Provide(view.NewDefaultRunner),
 		p.Container().Provide(
 			digutils.Identity[*view.Manager](),
 			dig.As(new(viewgrpcserver.ViewManager), new(p2p.ViewManager)),

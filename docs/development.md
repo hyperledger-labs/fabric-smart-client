@@ -83,7 +83,13 @@ Run static analysis and linting:
 ```bash
 make checks
 make lint
+make lint-auto-fix
+make lint-fmt
 ```
+
+Use `make lint` to run the configured linters on the changes in your branch.
+Use `make lint-auto-fix` to apply automatic fixes where `golangci-lint` supports them.
+Use `make lint-fmt` to apply the formatter configuration used by CI before pushing a branch.
 
 ### Unit Tests
 
@@ -94,12 +100,38 @@ make unit-tests-postgres
 make unit-tests-sdk
 ```
 
+Use `make unit-tests` for the default unit-test suite.
+Use `make unit-tests-postgres` only for tests that explicitly exercise the PostgreSQL-backed storage implementations.
+Use `make unit-tests-sdk` when validating dependency-injection wiring in SDK packages.
+
+To keep the feedback loop fast while working on a single package, scope the test run with `TEST_PKGS`:
+
+```bash
+TEST_PKGS=./platform/common/utils/... make unit-tests
+TEST_PKGS=./platform/common/utils/dig go test -race -cover ./platform/common/utils/dig
+```
+
 For coverage analysis:
 ```bash
 GO_TEST_PARAMS="-coverprofile=cov.out" make unit-tests
 go tool cover -func=cov.out
 go tool cover -html=cov.out
 ```
+
+To reproduce the filtered local coverage used in CI:
+
+```bash
+make coverage-local
+```
+
+The CI workflow runs:
+- `make checks`
+- `make lint-fmt`
+- `make unit-tests`
+- `make unit-tests-postgres`
+- `make integration-tests-*`
+
+If you are preparing a pull request that only touches unit-tested code, running `make lint-fmt`, `make checks`, and a targeted `make unit-tests` command is usually the fastest high-signal validation pass before pushing.
 
 ### Integration Tests
 
@@ -130,6 +162,31 @@ Enable coverage profiling:
 mkdir -p covdata
 GOCOVERDIR=covdata make integration-tests
 go tool covdata textfmt -i=covdata -o profile.txt
+```
+
+## Troubleshooting Test Setup
+
+### Missing `FAB_BINS`
+
+If integration tests fail early because Fabric binaries cannot be found, confirm that `FAB_BINS` points to the directory created by `make install-fabric-bins`:
+
+```bash
+echo $FAB_BINS
+ls $FAB_BINS
+```
+
+### PostgreSQL unit tests
+
+The PostgreSQL-specific unit tests expect the container image pulled by `make testing-docker-images`.
+Run that target once before `make unit-tests-postgres` on a new machine.
+
+### Coverage for a single package
+
+When you are improving unit-test coverage for one package, it is often easier to generate coverage for just that package first:
+
+```bash
+go test -race -coverprofile=cov.out ./platform/common/utils/dig
+go tool cover -func=cov.out
 ```
 
 ## Write your own integration test
