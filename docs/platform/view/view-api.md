@@ -240,8 +240,8 @@ type Message struct {
 
 The `Status` field uses the constants:
 
-- `view.OK`
-- `view.ERROR`
+- `view.OK` with value `200`
+- `view.ERROR` with value `500`
 
 The metadata are part of the API contract:
 
