@@ -37,7 +37,7 @@ A view can act as:
 
 - an **initiator**, which starts a protocol
 - a **responder**, which reacts to a protocol started by another party
-- a **child view**, executed from another view with [`RunView()`](services/view-service.md#L76)
+- a **child view**, executed from another view with [`RunView()`](services/view-service.md#view-context)
 
 Views are intentionally application-focused. They should express the steps of a business interaction: gather input, identify counterparties, exchange messages, invoke platform APIs, validate results, and return an outcome.
 
@@ -45,14 +45,14 @@ For more detail on the runtime that creates and executes views, see [View servic
 
 ### Context
 
-Each running view receives a [`view.Context`](services/view-service.md#L62), which is the runtime handle for interacting with the FSC platform.
+Each running view receives a [`view.Context`](services/view-service.md#view-context), which is the runtime handle for interacting with the FSC platform.
 
 The context gives access to:
 
-- the local identity with [`Me()`](services/view-service.md#L65)
-- session management with [`Session()`](services/view-service.md#L67) and [`GetSession()`](services/view-service.md#L68)
-- platform and application services with [`GetService()`](services/view-service.md#L72)
-- nested view execution with [`RunView()`](services/view-service.md#L76)
+- the local identity with [`Me()`](services/view-service.md#view-context)
+- session management with [`Session()`](services/view-service.md#view-context) and [`GetSession()`](services/view-service.md#view-context)
+- platform and application services with [`GetService()`](services/view-service.md#view-context)
+- nested view execution with [`RunView()`](services/view-service.md#view-context)
 
 In practice, the context is the main object your view uses to talk to the rest of the runtime.
 
@@ -65,9 +65,9 @@ Sessions are how initiators and responders exchange protocol messages. The initi
 Common usage pattern:
 
 - initiator obtains a remote identity
-- initiator opens a session with [`GetSession()`](services/view-service.md#L68)
+- initiator opens a session with [`GetSession()`](services/view-service.md#view-context)
 - initiator sends a message
-- responder reads from [`Session()`](services/view-service.md#L67)
+- responder reads from [`Session()`](services/view-service.md#view-context)
 - responder replies on the same session
 
 ### Identities
@@ -82,7 +82,7 @@ The example in [`integration/fabric/stoprestart/initiator.go`](../../../integrat
 
 FSC uses a service-oriented runtime.
 
-Views can retrieve services from the context using [`GetService()`](services/view-service.md#L72). These services can be:
+Views can retrieve services from the context using [`GetService()`](services/view-service.md#view-context). These services can be:
 
 - FSC runtime services
 - platform services from View, Fabric, or Fabric-x
@@ -260,7 +260,7 @@ Conceptually, registration happens during node startup inside the callback passe
 
 Large business protocols are easier to maintain if they are split into smaller views.
 
-A parent view can call another view using [`RunView()`](services/view-service.md#L76). This is useful when you want to separate:
+A parent view can call another view using [`RunView()`](services/view-service.md#view-context). This is useful when you want to separate:
 
 - identity lookup
 - validation
