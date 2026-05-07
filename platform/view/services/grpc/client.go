@@ -155,9 +155,6 @@ func createSecOpts(connConfig ConnectionConfig, forceTLS bool, cliConfig *TLSCli
 	}
 
 	if tlsEnabled {
-		if len(certs) == 0 {
-			return nil, errors.New("tls root cert file must be set")
-		}
 		secOpts.ServerRootCAs = certs
 	}
 	return secOpts, nil

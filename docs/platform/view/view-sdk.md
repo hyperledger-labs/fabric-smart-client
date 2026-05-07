@@ -6,6 +6,7 @@ This is the architecture of the View SDK:
 
 ## Components
 
+- [Programming Model Guide](programming-model.md) - How to build FSC applications around views, sessions, services, and platform APIs
 - [View Service](services/view-service.md) - Core orchestration layer for view lifecycle and protocol coordination
 - [Configuration Service](services/config-service.md)
 - [DB Drivers](services/db-driver.md)
