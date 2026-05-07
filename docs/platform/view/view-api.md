@@ -42,7 +42,7 @@ type View interface {
 }
 ```
 
-A view is a unit of distributed application logic, A view may:
+A view is a unit of distributed application logic. A view may:
 
 - start a protocol with one or more remote parties;
 - respond to an incoming protocol step;
