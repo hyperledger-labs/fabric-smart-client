@@ -226,6 +226,16 @@ func TestNewClient_Error_Returns_Descriptive_Failure(t *testing.T) {
 	}
 }
 
+func TestNewClient_Error_Returns_Missing_Config(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient(nil)
+
+	require.Error(t, err)
+	require.Nil(t, client)
+	require.Contains(t, err.Error(), "missing client config")
+}
+
 // --- CallView / CallViewWithContext ---
 
 // Verifies the full happy path: CallView sends a PUT to /v1/Views/{fid},
@@ -326,6 +336,18 @@ func TestCallViewWithContext_Cancelled_Context_Returns_Error(t *testing.T) {
 	result, err := client.CallViewWithContext(ctx, "slowView", nil)
 	require.Error(t, err)
 	require.Nil(t, result)
+}
+
+func TestInitiate_Returns_Not_Supported_Error(t *testing.T) {
+	t.Parallel()
+
+	client := &Client{}
+
+	contextID, err := client.Initiate("someView", []byte("input"))
+
+	require.Error(t, err)
+	require.Empty(t, contextID)
+	require.Contains(t, err.Error(), "initiate is not supported by the web client")
 }
 
 // --- Metrics ---

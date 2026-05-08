@@ -81,6 +81,13 @@ type client struct {
 
 // NewClient returns a new instance of the view service client.
 func NewClient(config *Config, sID SigningIdentity, tracerProvider tracing.Provider) (*client, error) {
+	if config == nil {
+		return nil, errors.New("missing client config")
+	}
+	if config.ConnectionConfig == nil {
+		return nil, errors.New("missing fsc peer connection config")
+	}
+
 	// create a grpc client for view peer
 	grpcClient, err := grpc2.CreateGRPCClient(config.ConnectionConfig)
 	if err != nil {
@@ -125,13 +132,35 @@ func (s *client) CallViewWithContext(ctx context.Context, fid string, input []by
 	}
 
 	if commandResp.GetCallViewResponse() == nil {
-		return nil, errors.New("expected initiate view response, got nothing")
+		return nil, errors.New("expected call view response, got nothing")
 	}
 	return commandResp.GetCallViewResponse().GetResult(), nil
 }
 
-func (*client) Initiate(_ string, _ []byte) (string, error) {
-	panic("implement me")
+// Initiate initiates a protocol on the remote peer for the given view factory
+// identifier and returns the ID of the resulting context.
+func (s *client) Initiate(fid string, in []byte) (string, error) {
+	logger.Debugf("Initiating view [%s] on input [%s]", fid, string(in))
+	payload := &protos2.Command_InitiateView{InitiateView: &protos2.InitiateView{
+		Fid:   fid,
+		Input: in,
+	}}
+	sc, err := s.CreateSignedCommand(payload, s.SigningIdentity)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed creating signed command for [%s,%s]", fid, string(in))
+	}
+
+	ctx, span := s.tracer.Start(context.Background(), "GrpcViewInitiate", tracing.WithAttributes(tracing.String("fid", fid)), trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+	commandResp, err := s.processCommand(ctx, sc)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed process command for [%s,%s]", fid, string(in))
+	}
+
+	if commandResp.GetInitiateViewResponse() == nil {
+		return "", errors.New("expected initiate view response, got nothing")
+	}
+	return commandResp.GetInitiateViewResponse().GetCid(), nil
 }
 
 // StreamCallView calls the given view with the given input and returns a stream to communicate with it.
