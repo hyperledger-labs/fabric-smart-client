@@ -62,7 +62,7 @@ func (p *endpointServiceBasedProvider) GetNewHost() (host2.P2PHost, error) {
 	}
 
 	return &hostWrapper{
-		P2PHost:         NewHost(nodeID, p.routing, p.streamProvider, p.config, p),
+		P2PHost:         NewHost(nodeID, p.routing, p.streamProvider, p.config, p, raw),
 		endpointService: p.endpointService,
 		nodeID:          nodeID,
 	}, nil

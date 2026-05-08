@@ -13,6 +13,7 @@ import (
 )
 
 type libp2pConfig interface {
+	PublicKeyPath() string
 	PrivateKeyPath() string
 	Bootstrap() bool
 	ListenAddress() host2.PeerIPAddress
@@ -33,6 +34,7 @@ type config struct {
 	listenAddress          host2.PeerIPAddress
 	bootstrapListenAddress host2.PeerIPAddress
 	privateKeyPath         string
+	publicKeyPath          string
 	connManagerLowWater    int
 	connManagerHighWater   int
 	connManagerGracePeriod time.Duration
@@ -57,6 +59,7 @@ func NewConfig(cs configService) *config {
 	return &config{
 		listenAddress:          cs.GetString("fsc.p2p.listenAddress"),
 		bootstrapListenAddress: cs.GetString("fsc.p2p.opts.libp2p.bootstrapNode"),
+		publicKeyPath:          cs.GetString("fsc.identity.cert.file"),
 		privateKeyPath:         cs.GetPath("fsc.identity.key.file"),
 		connManagerLowWater:    lowWater,
 		connManagerHighWater:   highWater,
@@ -64,6 +67,7 @@ func NewConfig(cs configService) *config {
 	}
 }
 
+func (c *config) PublicKeyPath() string                       { return c.publicKeyPath }
 func (c *config) PrivateKeyPath() string                      { return c.privateKeyPath }
 func (c *config) Bootstrap() bool                             { return len(c.bootstrapListenAddress) == 0 }
 func (c *config) ListenAddress() host2.PeerIPAddress          { return c.listenAddress }

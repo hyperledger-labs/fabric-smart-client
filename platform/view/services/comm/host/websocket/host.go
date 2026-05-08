@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	routing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 var logger = logging.MustGetLogger()
@@ -28,6 +29,7 @@ type host struct {
 	routing routing2.ServiceDiscovery
 	server  *server
 	client  *client
+	caller  view.Identity
 }
 
 type StreamProvider interface {
@@ -36,7 +38,14 @@ type StreamProvider interface {
 	io.Closer
 }
 
-func NewHost(nodeID host2.PeerID, routing routing2.ServiceDiscovery, streamProvider StreamProvider, config Config, caPoolProvider ExtraCAPoolProvider) *host {
+func NewHost(
+	nodeID host2.PeerID,
+	routing routing2.ServiceDiscovery,
+	streamProvider StreamProvider,
+	config Config,
+	caPoolProvider ExtraCAPoolProvider,
+	caller []byte,
+) *host {
 	clientConfig := config.ClientTLSConfig(caPoolProvider)
 	serverConfig := config.ServerTLSConfig(caPoolProvider)
 	logger.Debugf("Create p2p client for node ID [%s] with TLS config [server: %v] [client: %v]", nodeID, serverConfig, clientConfig)
@@ -61,6 +70,7 @@ func NewHost(nodeID host2.PeerID, routing routing2.ServiceDiscovery, streamProvi
 			streamProvider: streamProvider,
 		},
 		routing: routing,
+		caller:  caller,
 	}
 }
 
@@ -156,6 +166,10 @@ func (h *host) Close() error {
 }
 
 func (h *host) Wait() {}
+
+func (h *host) Caller() view.Identity {
+	return h.caller
+}
 
 func StreamHash(info host2.StreamInfo) host2.StreamHash {
 	var sb strings.Builder

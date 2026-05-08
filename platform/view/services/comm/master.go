@@ -75,26 +75,55 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	return s, nil
 }
 
-func (p *P2PNode) NewSession(callerViewID, contextID, endpoint string, pkid []byte) (view.Session, error) {
-	logger.Debugf("new p2p session [%s,%s,%s,%s]", callerViewID, contextID, endpoint, logging.Base64(pkid))
+func (p *P2PNode) MasterSession() (view.Session, error) {
+	return p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
+}
+
+func (p *P2PNode) NewSession(callerViewID, contextID, endpoint string, pkID []byte) (view.Session, error) {
+	logger.Debugf("new p2p session [%s,%s,%s,%s]", callerViewID, contextID, endpoint, logging.Base64(pkID))
 	ID, err := GetRandomNonce()
 	if err != nil {
 		return nil, err
 	}
 
-	return p.getOrCreateSession(base64.StdEncoding.EncodeToString(ID), endpoint, contextID, callerViewID, nil, pkid, nil)
-}
-
-func (p *P2PNode) NewResponderSession(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error) {
-	return p.getOrCreateSession(sessionID, endpoint, contextID, "", caller, pkid, msg)
+	return p.getOrCreateSession(
+		base64.StdEncoding.EncodeToString(ID),
+		endpoint,
+		contextID,
+		callerViewID,
+		p.host.Caller(),
+		pkID,
+		nil,
+	)
 }
 
 func (p *P2PNode) NewSessionWithID(sessionID, contextID, endpoint string, pkid []byte) (view.Session, error) {
-	return p.getOrCreateSession(sessionID, endpoint, contextID, "", nil, pkid, nil)
+	return p.getOrCreateSession(
+		sessionID,
+		endpoint,
+		contextID,
+		"",
+		p.host.Caller(),
+		pkid,
+		nil,
+	)
 }
 
-func (p *P2PNode) MasterSession() (view.Session, error) {
-	return p.getOrCreateSession(masterSession, "", "", "", nil, []byte{}, nil)
+func (p *P2PNode) NewResponderSession(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error) {
+	var callerViewID string
+	if msg != nil {
+		callerViewID = msg.Caller
+	}
+
+	return p.getOrCreateSession(
+		sessionID,
+		endpoint,
+		contextID,
+		callerViewID,
+		caller,
+		pkid,
+		msg,
+	)
 }
 
 func (p *P2PNode) DeleteSessions(_ context.Context, sessionID string) {

@@ -112,6 +112,10 @@ func newBootstrapNode(t *testing.T, port int) (*node, error) {
 	if err != nil {
 		return nil, err
 	}
+	pkRaw, err := pk.Raw()
+	if err != nil {
+		return nil, err
+	}
 	nodeID, err := id(pk)
 	if err != nil {
 		return nil, err
@@ -120,7 +124,7 @@ func newBootstrapNode(t *testing.T, port int) (*node, error) {
 	nodeDHTEndpoint := nodeEndpoint + "/p2p/" + nodeID
 	config := &mock.LibP2PConfig{}
 	config.ListenAddressReturns(nodeEndpoint)
-	h, err := newLibP2PHost(config, sk, newMetrics(&disabled.Provider{}), true, "")
+	h, err := newLibP2PHost(config, pkRaw, sk, newMetrics(&disabled.Provider{}), true, "")
 	if err != nil {
 		return nil, err
 	}
@@ -143,6 +147,10 @@ func newNode(t *testing.T, port int, bootstrapNode *node) (*node, error) {
 	if err != nil {
 		return nil, err
 	}
+	pkRaw, err := pk.Raw()
+	if err != nil {
+		return nil, err
+	}
 	nodeID, err := id(pk)
 	if err != nil {
 		return nil, err
@@ -151,7 +159,7 @@ func newNode(t *testing.T, port int, bootstrapNode *node) (*node, error) {
 
 	config := &mock.LibP2PConfig{}
 	config.ListenAddressReturns(nodeEndpoint)
-	h, err := newLibP2PHost(config, sk, newMetrics(&disabled.Provider{}), false, bootstrapNode.dhtEndpoint)
+	h, err := newLibP2PHost(config, pkRaw, sk, newMetrics(&disabled.Provider{}), false, bootstrapNode.dhtEndpoint)
 	if err != nil {
 		return nil, err
 	}

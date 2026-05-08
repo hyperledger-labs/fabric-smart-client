@@ -15,7 +15,20 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
+
+func newCryptoPublicKeyFromMSP(publicKeyPath string) (view.Identity, error) {
+	logger.Debugf("libp2p: loading public key from...")
+	fileCont, err := os.ReadFile(publicKeyPath)
+	if err != nil {
+		return nil, err
+	}
+	if len(fileCont) == 0 {
+		return nil, errors.New("invalid pem, it must be different from nil")
+	}
+	return fileCont, nil
+}
 
 func newCryptoPrivKeyFromMSP(secretKeyPath string) (crypto.PrivKey, error) {
 	logger.Debugf("libp2p: loading private key from...")

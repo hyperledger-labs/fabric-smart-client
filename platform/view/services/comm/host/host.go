@@ -9,6 +9,8 @@ package host
 import (
 	"context"
 	"io"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 type (
@@ -49,6 +51,7 @@ type P2PHost interface {
 	StreamHash(info StreamInfo) StreamHash
 	// Wait waits until all dependencies are closed after we call P2PHost.Close
 	Wait()
+	Caller() view.Identity
 
 	io.Closer
 }

@@ -79,6 +79,16 @@ type LibP2PConfig struct {
 	privateKeyPathReturnsOnCall map[int]struct {
 		result1 string
 	}
+	PublicKeyPathStub        func() string
+	publicKeyPathMutex       sync.RWMutex
+	publicKeyPathArgsForCall []struct {
+	}
+	publicKeyPathReturns struct {
+		result1 string
+	}
+	publicKeyPathReturnsOnCall map[int]struct {
+		result1 string
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -450,6 +460,59 @@ func (fake *LibP2PConfig) PrivateKeyPathReturnsOnCall(i int, result1 string) {
 		})
 	}
 	fake.privateKeyPathReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *LibP2PConfig) PublicKeyPath() string {
+	fake.publicKeyPathMutex.Lock()
+	ret, specificReturn := fake.publicKeyPathReturnsOnCall[len(fake.publicKeyPathArgsForCall)]
+	fake.publicKeyPathArgsForCall = append(fake.publicKeyPathArgsForCall, struct {
+	}{})
+	stub := fake.PublicKeyPathStub
+	fakeReturns := fake.publicKeyPathReturns
+	fake.recordInvocation("PublicKeyPath", []interface{}{})
+	fake.publicKeyPathMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *LibP2PConfig) PublicKeyPathCallCount() int {
+	fake.publicKeyPathMutex.RLock()
+	defer fake.publicKeyPathMutex.RUnlock()
+	return len(fake.publicKeyPathArgsForCall)
+}
+
+func (fake *LibP2PConfig) PublicKeyPathCalls(stub func() string) {
+	fake.publicKeyPathMutex.Lock()
+	defer fake.publicKeyPathMutex.Unlock()
+	fake.PublicKeyPathStub = stub
+}
+
+func (fake *LibP2PConfig) PublicKeyPathReturns(result1 string) {
+	fake.publicKeyPathMutex.Lock()
+	defer fake.publicKeyPathMutex.Unlock()
+	fake.PublicKeyPathStub = nil
+	fake.publicKeyPathReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *LibP2PConfig) PublicKeyPathReturnsOnCall(i int, result1 string) {
+	fake.publicKeyPathMutex.Lock()
+	defer fake.publicKeyPathMutex.Unlock()
+	fake.PublicKeyPathStub = nil
+	if fake.publicKeyPathReturnsOnCall == nil {
+		fake.publicKeyPathReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.publicKeyPathReturnsOnCall[i] = struct {
 		result1 string
 	}{result1}
 }

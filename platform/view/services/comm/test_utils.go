@@ -91,6 +91,7 @@ func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 		session, err := bootstrapNode.NewSession("", "", node.Address, []byte(node.ID))
 		assert.NoError(t, err)
 		assert.NotNil(t, session)
+		assert.NotEmpty(t, session.Info().Caller)
 
 		err = session.Send([]byte("ciao"))
 		assert.NoError(t, err)
@@ -113,13 +114,16 @@ func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 	msg := <-masterSessionMsgs
 	require.Equal(t, []byte("ciao"), msg.Payload)
 
-	session, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
+	session, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, msg.FromPKID, msg)
 	require.NoError(t, err)
 	require.NotNil(t, session)
+	assert.NotEmpty(t, session.Info().Caller)
 
 	require.NoError(t, session.Send([]byte("ciaoback")))
 
 	sessionMsgs := session.Receive()
+	msg = <-sessionMsgs
+	require.Equal(t, []byte("ciao"), msg.Payload)
 	msg = <-sessionMsgs
 	require.Equal(t, []byte("ciao on session"), msg.Payload)
 

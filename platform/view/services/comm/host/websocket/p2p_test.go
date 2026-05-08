@@ -27,12 +27,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -554,5 +556,16 @@ func (p *staticRoutHostProvider) ExtraCAs() [][]byte {
 func (p *staticRoutHostProvider) GetNewHost() (host2.P2PHost, error) {
 	nodeID, _ := p.routes.ReverseLookup(p.config.ListenAddress())
 	discovery := routing.NewServiceDiscovery(p.routes, routing.RoundRobin[host2.PeerIPAddress]())
-	return websocket.NewHost(nodeID, discovery, ws.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0), p.config, p), nil
+	raw, err := id.LoadIdentity(p.config.CertPath())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to load identity in [%s]", p.config.CertPath())
+	}
+	return websocket.NewHost(
+		nodeID,
+		discovery,
+		ws.NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0),
+		p.config,
+		p,
+		raw,
+	), nil
 }

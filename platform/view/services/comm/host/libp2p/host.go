@@ -33,6 +33,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 var logger = logging.MustGetLogger()
@@ -52,10 +53,12 @@ type host struct {
 	peers         map[host2.PeerID]peer.AddrInfo
 	bootstrap     bool
 	bootstrapNode host2.PeerIPAddress
+	pub           view.Identity
 }
 
 func newLibP2PHost(
 	config libp2pConfig,
+	pub view.Identity,
 	priv crypto.PrivKey,
 	metrics *metrics,
 	bootstrap bool,
@@ -120,6 +123,7 @@ func newLibP2PHost(
 		peers:         make(map[string]peer.AddrInfo),
 		bootstrap:     bootstrap,
 		bootstrapNode: bootstrapNode,
+		pub:           pub,
 	}
 	logger.Debugf("libp2p: successfully created new host [%s] at [%s]", libp2pHost.ID(), listenAddress)
 	return libp2pHost, nil
@@ -243,6 +247,10 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 		Stream: nwStream,
 		info:   info,
 	}, nil
+}
+
+func (h *host) Caller() view.Identity {
+	return h.pub
 }
 
 func (h *host) startFinder() {

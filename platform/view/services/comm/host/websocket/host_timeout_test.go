@@ -35,13 +35,7 @@ func TestHostStartupTimeout(t *testing.T) { //nolint:paralleltest
 	}
 
 	// Create a host with the invalid address
-	host := websocket.NewHost(
-		"test-node",
-		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
-		noopProvider(),
-		cfg,
-		nil, // caPoolProvider
-	)
+	host := websocket.NewHost("test-node", routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()), noopProvider(), cfg, nil, nil)
 
 	// Attempt to start the host - should fail due to inability to listen
 	err := host.Start(func(host2.P2PStream) {})
@@ -67,13 +61,7 @@ func TestHostStartupReadinessTimeout(t *testing.T) { //nolint:paralleltest
 	}
 
 	// Create a host
-	h := websocket.NewHost(
-		"test-node",
-		routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()),
-		noopProvider(),
-		cfg,
-		nil, // caPoolProvider
-	)
+	h := websocket.NewHost("test-node", routing.NewServiceDiscovery(&routing.StaticIDRouter{}, routing.AlwaysFirst[host2.PeerIPAddress]()), noopProvider(), cfg, nil, nil)
 
 	// Ensure we clean up resources
 	defer func() {
