@@ -51,6 +51,9 @@ func FromJSON(raw []byte) (Configs, error) {
 
 // ValidateClientConfig validates the given client config.
 func ValidateClientConfig(config Config) error {
+	if config.ConnectionConfig == nil {
+		return errors.New("missing fsc peer connection config")
+	}
 	if config.ConnectionConfig.Address == "" {
 		return errors.New("missing fsc peer address")
 	}

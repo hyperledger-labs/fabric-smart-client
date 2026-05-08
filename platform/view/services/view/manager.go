@@ -148,7 +148,7 @@ func (cm *Manager) InitiateView(ctx context.Context, view view.View) (any, error
 // InitiateViewWithIdentity initiates a protocol for the given view and initiator identity.
 func (cm *Manager) InitiateViewWithIdentity(ctx context.Context, view view.View, id view.Identity) (any, error) {
 	if ctx == nil {
-		panic("context is nil")
+		return nil, errors.New("context is nil")
 	}
 	ctx = trace.ContextWithSpanContext(ctx, trace.SpanContextFromContext(ctx))
 	c, err := cm.newChildContextForInitiator(ctx, view, id, "")
