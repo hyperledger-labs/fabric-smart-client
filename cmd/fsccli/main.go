@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli/validate"
 	"github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli/version"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen"
@@ -38,6 +39,7 @@ func main() {
 	mainCmd.AddCommand(cryptogen.NewCmd())
 	mainCmd.AddCommand(view.NewCmd())
 	mainCmd.AddCommand(hsm.NewCmd())
+	mainCmd.AddCommand(validate.NewCmd())
 	mainCmd.AddCommand(version.Cmd())
 
 	// On failure Cobra prints the usage message and error string, so we only
