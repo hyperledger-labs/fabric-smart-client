@@ -70,7 +70,12 @@ func (c *Service) parseConfig(env *cb.Envelope) (*channelconfig.ChannelConfig, e
 }
 
 func (c *Service) IsValid(identity view.Identity) error {
-	id, err := c.resources().MSPManager().DeserializeIdentity(identity)
+	res := c.resources()
+	if res == nil {
+		return errors.Errorf("channel resources not initialized")
+	}
+
+	id, err := res.MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
 	}
@@ -79,7 +84,12 @@ func (c *Service) IsValid(identity view.Identity) error {
 }
 
 func (c *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
-	id, err := c.resources().MSPManager().DeserializeIdentity(identity)
+	res := c.resources()
+	if res == nil {
+		return nil, errors.Errorf("channel resources not initialized")
+	}
+
+	id, err := res.MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
 	}
@@ -89,7 +99,12 @@ func (c *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 // GetMSPIDs retrieves the MSP IDs of the organizations in the current Channel
 // configuration.
 func (c *Service) GetMSPIDs() []string {
-	ac := c.resources().ApplicationConfig()
+	res := c.resources()
+	if res == nil {
+		return nil
+	}
+
+	ac := res.ApplicationConfig()
 	if ac == nil || ac.Organizations() == nil {
 		return nil
 	}
@@ -103,7 +118,12 @@ func (c *Service) GetMSPIDs() []string {
 }
 
 func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
-	oc := c.resources().OrdererConfig()
+	res := c.resources()
+	if res == nil {
+		return "", nil, fmt.Errorf("channel resources not initialized")
+	}
+
+	oc := res.OrdererConfig()
 	if oc == nil {
 		return "", nil, fmt.Errorf("orderer config does not exist")
 	}
@@ -145,7 +165,7 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 // MSPManager returns the msp.MSPManager that reflects the current Channel
 // configuration. Users should not memoize references to this object.
 func (c *Service) MSPManager() driver.MSPManager {
-	return &mspManager{FabricMSPManager: c.resources().MSPManager()}
+	return &mspManager{c: c}
 }
 
 func (c *Service) CheckACL(signedProp driver.SignedProposal) error {
@@ -157,9 +177,14 @@ type FabricMSPManager interface {
 }
 
 type mspManager struct {
-	FabricMSPManager
+	c *Service
 }
 
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
-	return m.FabricMSPManager.DeserializeIdentity(serializedIdentity)
+	res := m.c.resources()
+	if res == nil {
+		return nil, errors.Errorf("channel resources not initialized")
+	}
+
+	return res.MSPManager().DeserializeIdentity(serializedIdentity)
 }

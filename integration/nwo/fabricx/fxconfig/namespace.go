@@ -81,29 +81,86 @@ func (n *NamespaceCommon) Env() []string {
 	// msp
 	env := []string{
 		"FXCONFIG_MSP_LOCALMSPID=" + n.MSPConfig.LocalMspID,
+		"FX_MSP_LOCALMSPID=" + n.MSPConfig.LocalMspID,
 		"FXCONFIG_MSP_CONFIGPATH=" + n.MSPConfig.ConfigPath,
+		"FX_MSP_CONFIGPATH=" + n.MSPConfig.ConfigPath,
 		"FXCONFIG_ORDERER_CHANNEL=" + n.Channel,
+		"FX_ORDERER_CHANNEL=" + n.Channel,
 	}
 
 	// orderer
 	env = append(env, "FXCONFIG_ORDERER_ADDRESS="+n.OrdererConfig.Address)
+	env = append(env, "FX_ORDERER_ADDRESS="+n.OrdererConfig.Address)
+	env = append(env, "FXCONFIG_ORDERERS_ADDRESS="+n.OrdererConfig.Address)
+	env = append(env, "FX_ORDERERS_ADDRESS="+n.OrdererConfig.Address)
 
 	// notifications
 	env = append(env, "FXCONFIG_NOTIFICATIONS_ADDRESS="+n.NotificationsConfig.Address)
+	env = append(env, "FX_NOTIFICATIONS_ADDRESS="+n.NotificationsConfig.Address)
+	env = append(env, "FXCONFIG_NOTIFICATION_ADDRESS="+n.NotificationsConfig.Address)
+	env = append(env, "FX_NOTIFICATION_ADDRESS="+n.NotificationsConfig.Address)
 
 	// global TLS (applies to orderer, notifications, etc.)
 	if n.OrdererConfig.TLSConfig.Enabled {
 		rootCerts := strings.Join(n.OrdererConfig.TLSConfig.RootCerts, ",")
 		env = append(env,
 			"FXCONFIG_TLS_ENABLED=true",
+			"FX_TLS_ENABLED=true",
 			"FXCONFIG_TLS_ROOTCERTS="+rootCerts,
+			"FX_TLS_ROOTCERTS="+rootCerts,
 		)
 		if n.OrdererConfig.TLSConfig.ClientCertPath != "" {
-			env = append(env, "FXCONFIG_TLS_CLIENTCERT="+n.OrdererConfig.TLSConfig.ClientCertPath)
+			env = append(env,
+				"FXCONFIG_TLS_CLIENTCERT="+n.OrdererConfig.TLSConfig.ClientCertPath,
+				"FX_TLS_CLIENTCERT="+n.OrdererConfig.TLSConfig.ClientCertPath,
+				"FXCONFIG_TLS_CLIENTSIDEAUTH=true",
+				"FX_TLS_CLIENTSIDEAUTH=true",
+				"FXCONFIG_TLS_CLIENTAUTHREQUIRED=true",
+				"FX_TLS_CLIENTAUTHREQUIRED=true",
+				"FXCONFIG_ORDERER_TLS_CLIENTCERT="+n.OrdererConfig.TLSConfig.ClientCertPath,
+				"FX_ORDERER_TLS_CLIENTCERT="+n.OrdererConfig.TLSConfig.ClientCertPath,
+				"FXCONFIG_ORDERER_TLS_CLIENTSIDEAUTH=true",
+				"FX_ORDERER_TLS_CLIENTSIDEAUTH=true",
+				"FXCONFIG_ORDERER_TLS_CLIENTAUTHREQUIRED=true",
+				"FX_ORDERER_TLS_CLIENTAUTHREQUIRED=true",
+				"FXCONFIG_NOTIFICATIONS_TLS_CLIENTCERT="+n.NotificationsConfig.TLSConfig.ClientCertPath,
+				"FX_NOTIFICATIONS_TLS_CLIENTCERT="+n.NotificationsConfig.TLSConfig.ClientCertPath,
+				"FXCONFIG_NOTIFICATIONS_TLS_CLIENTSIDEAUTH=true",
+				"FX_NOTIFICATIONS_TLS_CLIENTSIDEAUTH=true",
+				"FXCONFIG_NOTIFICATIONS_TLS_CLIENTAUTHREQUIRED=true",
+				"FX_NOTIFICATIONS_TLS_CLIENTAUTHREQUIRED=true",
+			)
 		}
 		if n.OrdererConfig.TLSConfig.ClientKeyPath != "" {
-			env = append(env, "FXCONFIG_TLS_CLIENTKEY="+n.OrdererConfig.TLSConfig.ClientKeyPath)
+			env = append(env,
+				"FXCONFIG_TLS_CLIENTKEY="+n.OrdererConfig.TLSConfig.ClientKeyPath,
+				"FX_TLS_CLIENTKEY="+n.OrdererConfig.TLSConfig.ClientKeyPath,
+				"FXCONFIG_ORDERER_TLS_CLIENTKEY="+n.OrdererConfig.TLSConfig.ClientKeyPath,
+				"FX_ORDERER_TLS_CLIENTKEY="+n.OrdererConfig.TLSConfig.ClientKeyPath,
+				"FXCONFIG_NOTIFICATIONS_TLS_CLIENTKEY="+n.NotificationsConfig.TLSConfig.ClientKeyPath,
+				"FX_NOTIFICATIONS_TLS_CLIENTKEY="+n.NotificationsConfig.TLSConfig.ClientKeyPath,
+			)
 		}
+		// Explicitly set orderer and notifications root certs to avoid overrides
+		env = append(env,
+			"FXCONFIG_ORDERER_TLS_ENABLED=true",
+			"FX_ORDERER_TLS_ENABLED=true",
+			"FXCONFIG_ORDERER_TLS_ROOTCERTS="+rootCerts,
+			"FX_ORDERER_TLS_ROOTCERTS="+rootCerts,
+			"FXCONFIG_NOTIFICATIONS_TLS_ENABLED=true",
+			"FX_NOTIFICATIONS_TLS_ENABLED=true",
+			"FXCONFIG_NOTIFICATIONS_TLS_ROOTCERTS="+strings.Join(n.NotificationsConfig.TLSConfig.RootCerts, ","),
+			"FX_NOTIFICATIONS_TLS_ROOTCERTS="+strings.Join(n.NotificationsConfig.TLSConfig.RootCerts, ","),
+		)
+	} else {
+		env = append(env,
+			"FXCONFIG_TLS_ENABLED=false",
+			"FX_TLS_ENABLED=false",
+			"FXCONFIG_ORDERER_TLS_ENABLED=false",
+			"FX_ORDERER_TLS_ENABLED=false",
+			"FXCONFIG_NOTIFICATIONS_TLS_ENABLED=false",
+			"FX_NOTIFICATIONS_TLS_ENABLED=false",
+		)
 	}
 
 	return env
@@ -143,19 +200,62 @@ func (n *ListNamespaces) Args() []string {
 }
 
 func (n *ListNamespaces) Env() []string {
-	env := []string{"FXCONFIG_QUERIES_ADDRESS=" + n.QueryConfig.Address}
+	env := []string{
+		"FXCONFIG_QUERIES_ADDRESS=" + n.QueryConfig.Address,
+		"FX_QUERIES_ADDRESS=" + n.QueryConfig.Address,
+		"FXCONFIG_QUERY_ADDRESS=" + n.QueryConfig.Address,
+		"FX_QUERY_ADDRESS=" + n.QueryConfig.Address,
+		"FXCONFIG_QUERYSERVICE_ADDRESS=" + n.QueryConfig.Address,
+		"FX_QUERYSERVICE_ADDRESS=" + n.QueryConfig.Address,
+	}
 
 	if n.QueryConfig.TLSConfig.Enabled {
 		rootCerts := strings.Join(n.QueryConfig.TLSConfig.RootCerts, ",")
 		env = append(env,
 			"FXCONFIG_TLS_ENABLED=true",
+			"FX_TLS_ENABLED=true",
 			"FXCONFIG_TLS_ROOTCERTS="+rootCerts,
+			"FX_TLS_ROOTCERTS="+rootCerts,
+			"FXCONFIG_QUERIES_TLS_ENABLED=true",
+			"FX_QUERIES_TLS_ENABLED=true",
+			"FXCONFIG_QUERIES_TLS_ROOTCERTS="+rootCerts,
+			"FX_QUERIES_TLS_ROOTCERTS="+rootCerts,
+			"FXCONFIG_QUERY_TLS_ENABLED=true",
+			"FX_QUERY_TLS_ENABLED=true",
+			"FXCONFIG_QUERY_TLS_ROOTCERTS="+rootCerts,
+			"FX_QUERY_TLS_ROOTCERTS="+rootCerts,
 		)
 		if n.QueryConfig.TLSConfig.ClientCertPath != "" {
-			env = append(env, "FXCONFIG_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath)
+			env = append(env,
+				"FXCONFIG_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
+				"FX_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
+				"FXCONFIG_TLS_CLIENTSIDEAUTH=true",
+				"FX_TLS_CLIENTSIDEAUTH=true",
+				"FXCONFIG_TLS_CLIENTAUTHREQUIRED=true",
+				"FX_TLS_CLIENTAUTHREQUIRED=true",
+				"FXCONFIG_QUERIES_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
+				"FX_QUERIES_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
+				"FXCONFIG_QUERIES_TLS_CLIENTSIDEAUTH=true",
+				"FX_QUERIES_TLS_CLIENTSIDEAUTH=true",
+				"FXCONFIG_QUERIES_TLS_CLIENTAUTHREQUIRED=true",
+				"FX_QUERIES_TLS_CLIENTAUTHREQUIRED=true",
+				"FXCONFIG_QUERY_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
+				"FX_QUERY_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
+				"FXCONFIG_QUERY_TLS_CLIENTSIDEAUTH=true",
+				"FX_QUERY_TLS_CLIENTSIDEAUTH=true",
+				"FXCONFIG_QUERY_TLS_CLIENTAUTHREQUIRED=true",
+				"FX_QUERY_TLS_CLIENTAUTHREQUIRED=true",
+			)
 		}
 		if n.QueryConfig.TLSConfig.ClientKeyPath != "" {
-			env = append(env, "FXCONFIG_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath)
+			env = append(env,
+				"FXCONFIG_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
+				"FX_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
+				"FXCONFIG_QUERIES_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
+				"FX_QUERIES_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
+				"FXCONFIG_QUERY_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
+				"FX_QUERY_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
+			)
 		}
 	}
 

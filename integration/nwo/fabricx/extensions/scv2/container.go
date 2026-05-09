@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"net"
 	"net/netip"
 	"os"
 	"path"
@@ -40,7 +41,7 @@ var (
 	scalableCommitterImages = map[string]string{
 		v3.CommitterVersion: v3.ScalableCommitterImage,
 	}
-	envVars = map[string]func(scMSPDir, scTLSDir, scMSPID, channelName, ordererEndpoint string, tlsEnabled bool, ordererTLSCACert string) []string{
+	envVars = map[string]func(scMSPDir, scTLSDir, scMSPID, channelName, ordererEndpoint string, tlsEnabled bool, ordererTLSCACert, clientCACertsBundle string) []string{
 		v3.CommitterVersion: v3.ContainerEnvVars,
 	}
 	containerCmds = map[string]func(tlsEnabled bool) []string{
@@ -53,6 +54,8 @@ var (
 	queryServiceDefaultPort = map[string]network.Port{
 		v3.CommitterVersion: network.MustParsePort(v3.QueryServiceDefaultPort),
 	}
+
+	containerOrderingServicePort = network.MustParsePort("7050/tcp")
 
 	committerVersion = v3.CommitterVersion
 )
@@ -69,14 +72,16 @@ func (e *Extension) launchContainer() {
 	scPeer := e.network.Peer(orgName, e.sidecar.Name)
 	sidecarPort := fmt.Sprintf("%d", e.network.PeerPort(scPeer, fabric_network.ListenPort))
 
-	// TODO: get this via network config
-	queryServicePort := "7001"
-	orderingServicePort := fmt.Sprintf("%d", e.network.OrdererPort(e.network.Orderers[0], fabric_network.ListenPort))
+	queryServicePort := fmt.Sprintf("%d", e.network.PeerPort(scPeer, "QueryServicePort"))
+	orderingServicePort := fmt.Sprintf("%d", e.network.PeerPort(scPeer, "OrderingServicePort"))
 
 	logger.Infof("Sidecar running on port [%s]", sidecarPort)
-	containerName := fmt.Sprintf("%s-scalable-committer", networkID)
-	orderer := e.network.Orderer("orderer")
-	ordererEndpoint := fmt.Sprintf("%s:%d", dockerHostAlias(), e.network.OrdererPort(orderer, fabric_network.ListenPort))
+	containerName := fmt.Sprintf("%s-%s-scalable-committer", networkID, orgName)
+	orderer := e.network.Orderers[0]
+	allPorts := e.network.Context.PortsByOrdererID(e.network.Prefix, orderer.ID())
+	logger.Infof("Orderer ports: %v", allPorts)
+	upstreamPort := allPorts[".upstream"]
+	ordererEndpoint := net.JoinHostPort(dockerHostAlias(), fmt.Sprintf("%d", upstreamPort))
 	scMSPID := fmt.Sprintf("%sMSP", orgName)
 
 	rootCryptoDir := rootCrypto(e.network)
@@ -86,14 +91,19 @@ func (e *Extension) launchContainer() {
 	// genesis block
 	configBlockPath := e.network.OutputBlockPath(e.channel.Name)
 
-	// mock orderer config
-	// Temporary fix - committer v1.0.0-alpha.1 has a bug https://github.com/hyperledger/fabric-x-committer/issues/567
-	// that prevents us from setting the mock orderer msp via environment variables. For that reason we create a mock
-	// orderer config file and load it into the container.
-	// This can be removed and replaced with proper configuration via env vars once the issue #567 is fixed.
-	mockOrdererConfigPath := filepath.Clean(filepath.Join(e.network.Context.RootDir(), e.network.Prefix, "mock-orderer.yaml"))
-	err := generateMockOrdererConfigFile(mockOrdererConfigPath)
+	// Prepare TLS files for the sidecar
+	sidecarLocalTLSDir := e.network.PeerLocalTLSDir(scPeer)
+	caBundle, err := os.ReadFile(e.network.CACertsBundlePath())
 	utils.Must(err)
+	utils.Must(os.WriteFile(filepath.Join(sidecarLocalTLSDir, "ca-certificate.pem"), caBundle, 0o644))
+
+	serverCert, err := os.ReadFile(filepath.Join(sidecarLocalTLSDir, "server.crt"))
+	utils.Must(err)
+	utils.Must(os.WriteFile(filepath.Join(sidecarLocalTLSDir, "public-key.pem"), serverCert, 0o644))
+
+	serverKey, err := os.ReadFile(filepath.Join(sidecarLocalTLSDir, "server.key"))
+	utils.Must(err)
+	utils.Must(os.WriteFile(filepath.Join(sidecarLocalTLSDir, "private-key.pem"), serverKey, 0o644))
 
 	// TODO: remove this old docker dino
 	d, err := docker.GetInstance()
@@ -112,7 +122,9 @@ func (e *Extension) launchContainer() {
 		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
 	}
 
-	containerEnvOverride := envVars[committerVersion](scMSPDir, scTLSDir, scMSPID, e.channel.Name, ordererEndpoint, e.network.TLSEnabled, path.Join(scTLSDir, "ca.crt"))
+	// The CA bundle contains all org CAs so the sidecar trusts client certs from every org.
+	clientCACertsBundle := path.Join("/root/artifacts/crypto", "ca-certs.pem")
+	containerEnvOverride := envVars[committerVersion](scMSPDir, scTLSDir, scMSPID, e.channel.Name, ordererEndpoint, e.network.TLSEnabled, path.Join(scTLSDir, "ca.crt"), clientCACertsBundle)
 	containerCmd := containerCmds[committerVersion](e.network.TLSEnabled)
 	containerSidecarPort := sidecarDefaultPort[committerVersion]
 	containerQueryServicePort := queryServiceDefaultPort[committerVersion]
@@ -134,9 +146,9 @@ func (e *Extension) launchContainer() {
 				AttachStdout: true,
 				AttachStderr: true,
 				ExposedPorts: network.PortSet{
-					network.MustParsePort(sidecarPort + "/tcp"):         struct{}{},
-					network.MustParsePort(queryServicePort + "/tcp"):    struct{}{},
-					network.MustParsePort(orderingServicePort + "/tcp"): struct{}{},
+					network.MustParsePort(sidecarPort + "/tcp"):      struct{}{},
+					network.MustParsePort(queryServicePort + "/tcp"): struct{}{},
+					containerOrderingServicePort:                     struct{}{},
 				},
 				Env: containerEnvOverride,
 				Cmd: containerCmd,
@@ -156,24 +168,18 @@ func (e *Extension) launchContainer() {
 						Target:   "/root/artifacts/config-block.pb.bin",
 						ReadOnly: true,
 					},
-					{ // custom orderer config
-						Type:     mount.TypeBind,
-						Source:   mockOrdererConfigPath,
-						Target:   "/root/config/mock-orderer.yaml",
-						ReadOnly: true,
-					},
 				}, func() []mount.Mount {
 					if !e.network.TLSEnabled {
 						return nil
 					}
 					hostTLSDir := e.network.PeerLocalTLSDir(scPeer)
 					return []mount.Mount{
-						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "server.crt"), Target: "/server-certs/public-key.pem"},
-						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "server.key"), Target: "/server-certs/private-key.pem"},
-						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "ca.crt"), Target: "/server-certs/ca-certificate.pem"},
-						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "server.crt"), Target: "/client-certs/public-key.pem"},
-						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "server.key"), Target: "/client-certs/private-key.pem"},
-						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "ca.crt"), Target: "/client-certs/ca-certificate.pem"},
+						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "public-key.pem"), Target: "/server-certs/public-key.pem"},
+						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "private-key.pem"), Target: "/server-certs/private-key.pem"},
+						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "ca-certificate.pem"), Target: "/server-certs/ca-certificate.pem"},
+						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "public-key.pem"), Target: "/client-certs/public-key.pem"},
+						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "private-key.pem"), Target: "/client-certs/private-key.pem"},
+						{Type: mount.TypeBind, Source: filepath.Join(hostTLSDir, "ca-certificate.pem"), Target: "/client-certs/ca-certificate.pem"},
 					}
 				}()...),
 				PortBindings: network.PortMap{
@@ -191,8 +197,8 @@ func (e *Extension) launchContainer() {
 							HostPort: queryServicePort,
 						},
 					},
-					// sidecar port binding
-					network.MustParsePort(orderingServicePort + "/tcp"): []network.PortBinding{
+					// ordering service port binding
+					containerOrderingServicePort: []network.PortBinding{
 						{
 							HostIP:   netip.MustParseAddr("0.0.0.0"),
 							HostPort: orderingServicePort,
@@ -207,17 +213,23 @@ func (e *Extension) launchContainer() {
 			},
 		},
 	)
-	utils.Must(err)
+	if err != nil {
+		logger.Errorf("failed to create container [%s]: %v", containerName, err)
+		utils.Must(err)
+	}
 
 	_, err = cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{})
-	utils.Must(err)
+	if err != nil {
+		logger.Errorf("failed to start container [%s]: %v", containerName, err)
+		utils.Must(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	dockerLogger := logging.MustGetLogger("sc.container." + resp.ID[:8])
 	go func() {
 		defer cancel()
-		dockerLogger.Debugf("fetch logs from container [%s]", containerName)
-		defer dockerLogger.Debugf("stopped container log fetcher [%s], ", containerName)
+		dockerLogger.Infof("fetch logs from container [%s]", containerName)
+		defer dockerLogger.Infof("stopped container log fetcher [%s], ", containerName)
 
 		reader, errx := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
 			ShowStdout: true,
@@ -231,7 +243,7 @@ func (e *Extension) launchContainer() {
 
 		w := &zapio.Writer{
 			Log:   dockerLogger.Zap(),
-			Level: zap.DebugLevel,
+			Level: zap.InfoLevel,
 		}
 
 		_, err = io.Copy(w, reader)

@@ -74,7 +74,7 @@ func UpdateNamespacePolicy(ii *integration.Infrastructure, policy string) {
 	// committer details
 	committerNode := fx.Network.Peer("Org1", "SC")
 	committerSidecarPort := fmt.Sprintf("%d", fx.Network.PeerPort(committerNode, fabric_network.ListenPort))
-	notificationsEndpoint := net.JoinHostPort("localhost", committerSidecarPort)
+	notificationsEndpoint := net.JoinHostPort("127.0.0.1", committerSidecarPort)
 
 	// setup our new endorser
 	command := &fxconfig.UpdateNamespace{

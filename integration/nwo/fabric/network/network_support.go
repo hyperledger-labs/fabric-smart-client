@@ -1196,6 +1196,9 @@ func (n *Network) PeerOrgs() []*topology.Organization {
 	for _, org := range orgsByName {
 		orgs = append(orgs, org)
 	}
+	sort.Slice(orgs, func(i, j int) bool {
+		return orgs[i].Name < orgs[j].Name
+	})
 	return orgs
 }
 
@@ -1222,6 +1225,9 @@ func (n *Network) IdemixOrgs() []*topology.Organization {
 			orgs = append(orgs, org)
 		}
 	}
+	sort.Slice(orgs, func(i, j int) bool {
+		return orgs[i].Name < orgs[j].Name
+	})
 	return orgs
 }
 

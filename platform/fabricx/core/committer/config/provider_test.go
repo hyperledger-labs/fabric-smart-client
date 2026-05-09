@@ -26,7 +26,7 @@ func TestConfigProvider_NotificationServiceConfig(t *testing.T) {
 		fakeConfigProvider.GetConfigReturns(fakeConfigService, nil)
 
 		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
-			if key == "notificationService" {
+			if key == "notificationservice" {
 				if cfg, ok := rawVal.(**config.Config); ok {
 					(*cfg).Endpoints = []config.Endpoint{{Address: "localhost:1234"}}
 					(*cfg).RequestTimeout = 10 * time.Second
@@ -80,7 +80,7 @@ func TestConfigProvider_QueryServiceConfig(t *testing.T) {
 		fakeConfigProvider.GetConfigReturns(fakeConfigService, nil)
 
 		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
-			if key == "queryService" {
+			if key == "queryservice" {
 				if cfg, ok := rawVal.(**config.Config); ok {
 					(*cfg).Endpoints = []config.Endpoint{{Address: "localhost:5678"}}
 					(*cfg).RequestTimeout = 15 * time.Second

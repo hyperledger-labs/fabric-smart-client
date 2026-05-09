@@ -23,7 +23,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
 		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
-			if key == "notificationService" {
+			if key == "notificationservice" {
 				if cfg, ok := rawVal.(**config.Config); ok {
 					(*cfg).Endpoints = []config.Endpoint{{Address: "test-address"}}
 					(*cfg).RequestTimeout = 10 * time.Second
@@ -69,7 +69,7 @@ func TestNewQueryServiceConfig(t *testing.T) {
 		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
 		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
-			if key == "queryService" {
+			if key == "queryservice" {
 				if cfg, ok := rawVal.(**config.Config); ok {
 					(*cfg).Endpoints = []config.Endpoint{{Address: "test-address"}}
 					(*cfg).RequestTimeout = 10 * time.Second

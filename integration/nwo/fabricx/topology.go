@@ -35,6 +35,7 @@ func NewTopologyWithName(name string) *topology.Topology {
 
 	// the ordering service provided by the committer all-in-one supports TLS
 	topo.TLSEnabled = true
+	topo.ClientAuthRequired = true
 
 	// set fabricx specific settings
 	topo.TopologyType = PlatformName

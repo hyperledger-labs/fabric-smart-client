@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -21,59 +20,11 @@ import (
 
 // namespaceApproverOrgs returns the list of org names that appear
 // in the channel LifecycleEndorsement policy
-func namespaceApproverOrgs(n *Network) ([]string, error) {
-	// This regex extracts the org name from policy expressions
-	mspMemberPolicyRE := regexp.MustCompile(`'([^']+)MSP\.member'`)
-
-	fabricTopology := n.Topology()
-	if fabricTopology == nil {
-		return nil, fmt.Errorf("fabric topology not available")
-	}
-
-	for _, profile := range fabricTopology.Profiles {
-		if profile.Name != "OrgsChannel" {
-			continue
-		}
-
-		for _, policy := range profile.Policies {
-			if policy.Name != "LifecycleEndorsement" {
-				continue
-			}
-
-			matches := mspMemberPolicyRE.FindAllStringSubmatch(policy.Rule, -1)
-			if len(matches) == 0 {
-				return nil, fmt.Errorf("no MSP orgs found in LifecycleEndorsement policy [%s]", policy.Rule)
-			}
-
-			orgs := make([]string, 0, len(matches))
-			seen := map[string]struct{}{}
-			for _, match := range matches {
-				org := match[1]
-				if _, ok := seen[org]; ok {
-					continue
-				}
-				seen[org] = struct{}{}
-				orgs = append(orgs, org)
-			}
-			return orgs, nil
-		}
-
-		return nil, fmt.Errorf("LifecycleEndorsement policy not found in profile [%s]", profile.Name)
-	}
-
-	return nil, fmt.Errorf("profile [OrgsChannel] not found")
-}
-
-// namespaceApproverOrg is a helper that returns a single org, the first one
 func namespaceApproverOrg(n *Network) (string, error) {
-	orgs, err := namespaceApproverOrgs(n)
-	if err != nil {
-		return "", err
+	if len(n.PeerOrgs()) > 0 {
+		return n.PeerOrgs()[0].Name, nil
 	}
-	if len(orgs) == 0 {
-		return "", fmt.Errorf("no namespace approver orgs found")
-	}
-	return orgs[0], nil
+	return "", fmt.Errorf("no peer orgs found")
 }
 
 func createMetanamespaceKey(n *Network) error {

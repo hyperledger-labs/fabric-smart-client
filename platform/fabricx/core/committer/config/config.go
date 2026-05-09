@@ -72,7 +72,7 @@ func NewNotificationServiceConfig(configService ServiceBackend) (*Config, error)
 		RequestTimeout: DefaultRequestTimeout,
 	}
 
-	err := configService.UnmarshalKey("notificationService", &config)
+	err := configService.UnmarshalKey("notificationservice", &config)
 	if err != nil {
 		return config, errors.Wrap(err, "unmarshal notificationService")
 	}
@@ -87,7 +87,7 @@ func NewQueryServiceConfig(configService ServiceBackend) (*Config, error) {
 		RequestTimeout: DefaultRequestTimeout,
 	}
 
-	err := configService.UnmarshalKey("queryService", &config)
+	err := configService.UnmarshalKey("queryservice", &config)
 	if err != nil {
 		return config, errors.Wrap(err, "unmarshal queryService")
 	}
