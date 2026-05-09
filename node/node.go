@@ -17,7 +17,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
-var logger = logging.MustGetLogger()
+var (
+	logger = logging.MustGetLogger()
+	exit   = os.Exit
+)
 
 type ExecuteCallbackFunc = func() error
 
@@ -41,6 +44,17 @@ type Node struct {
 	executeCallbackFunc ExecuteCallbackFunc
 }
 
+type failedNode struct {
+	err error
+}
+
+func (f *failedNode) ID() string                                    { return "" }
+func (f *failedNode) Start() error                                  { return f.err }
+func (f *failedNode) Stop()                                         {}
+func (f *failedNode) InstallSDK(p node.SDK) error                   { return f.err }
+func (f *failedNode) GetService(v interface{}) (interface{}, error) { return nil, f.err }
+func (f *failedNode) RegisterService(service interface{}) error     { return f.err }
+
 // New returns a new instance of Node from the default configuration path.
 func New() *Node {
 	return NewWithConfPath("")
@@ -48,7 +62,11 @@ func New() *Node {
 
 // NewWithConfPath returns a new instance of Node whose configuration is loaded from the passed path.
 func NewWithConfPath(confPath string) *Node {
-	return newWithFSCNode(node.NewFromConfPath(confPath))
+	fscNode, err := node.NewFromConfPathE(confPath)
+	if err != nil {
+		return newWithFSCNode(&failedNode{err: err})
+	}
+	return newWithFSCNode(fscNode)
 }
 
 func newWithFSCNode(fscNode FSCNode) *Node {
@@ -82,13 +100,16 @@ func (n *Node) listen() {
 	err := <-n.callbackChannel
 	logger.Debugf("Callback signal came with err [%s]", err)
 	if err != nil {
-		panic(err)
+		logger.Errorf("Node startup failed: %s", err)
+		exit(1)
+		return
 	}
 	if n.executeCallbackFunc != nil {
 		logger.Debugf("Calling callback...")
 		err = n.executeCallbackFunc()
 		if err != nil {
-			panic(err)
+			logger.Errorf("Node callback failed: %s", err)
+			exit(1)
 		}
 	}
 }
