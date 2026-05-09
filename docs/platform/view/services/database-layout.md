@@ -6,22 +6,9 @@ This document describes the physical database layout created by an FSC node.
 It focuses on the concrete tables, naming rules, and stored data shapes used by the current implementation.
 Unless otherwise noted, the examples and default names below refer to the standard generated node path with the default table prefix and default store parameters.
 
-This page is intentionally narrower than the surrounding storage documentation:
-
 - [Database drivers](db-driver.md) explains persistence, store, and driver concepts
 - [Runtime DB access](runtime-db-access.md) explains how application code and operators access persisted data at runtime
 - this document explains what tables and columns exist in the underlying database
-
-## Scope and Stability
-
-The layout documented here reflects the current FSC implementation.
-It is useful for debugging, operational inspection, and understanding how FSC maps logical stores to physical tables.
-
-However:
-
-- this document does not define a stable external schema contract
-- payload columns often contain binary or encoded data rather than human-readable values
-- direct writes are unsupported while a node is running
 
 ## How FSC Storage Maps to Tables
 
@@ -161,35 +148,16 @@ Notes:
 
 ## Fabric Auxiliary Tables
 
-Fabric adds three persistence-backed auxiliary stores in addition to the local vault:
+Fabric adds three persistence-backed auxiliary stores in addition to the local vault.  
+They all use the same physical table shape: a logical transaction key mapped to opaque payload bytes.
 
-- envelope storage
-- metadata storage
-- endorse transaction storage
-
-These three stores use the same physical shape.
-
-### EnvelopeStore
-
-Default table:
-
-- `fsc_default_env`
-
-### MetadataStore
-
-Default table:
-
-- `fsc_default_meta`
-
-### EndorseTxStore
-
-Default table:
-
-- `fsc_default_etx`
+| Store | Default table | Payload |
+| --- | --- | --- |
+| EnvelopeStore | `fsc_default_env` | Fabric envelope bytes |
+| MetadataStore | `fsc_default_meta` | JSON-marshaled metadata bytes |
+| EndorseTxStore | `fsc_default_etx` | opaque transaction bytes |
 
 ### Shared Schema
-
-All three use:
 
 | Column | Meaning |
 | --- | --- |
@@ -200,9 +168,7 @@ Notes:
 
 - `key` is the primary key
 - the logical key format is `network.channel.txid`
-- envelope rows typically store Fabric envelope bytes
-- metadata rows are written through the metadata service and are JSON-marshaled at that service boundary
-- endorse-tx rows store opaque transaction bytes
+- metadata rows are JSON-marshaled at the metadata service boundary
 
 ## Fabric Vault Tables
 
@@ -254,18 +220,12 @@ Notes:
 
 ## Backend Differences
 
-The logical layout is the same across supported SQL backends, but there are a few physical differences.
+The logical layout is the same across supported SQL backends, but some physical SQL details differ.
 
-### SQLite
+| Area | SQLite | Postgres |
+| --- | --- | --- |
+| Vault `pos` column | `INTEGER PRIMARY KEY` | `SERIAL PRIMARY KEY` |
+| Vault byte columns | `val`, `kversion`, and `metadata` default to empty byte values | stored as `BYTEA` without SQLite-style empty defaults |
+| String handling | uses a no-op sanitizer for vault namespace and key text | sanitizes vault namespace and key strings before persistence |
 
-- uses `INTEGER PRIMARY KEY` for the vault `pos` column
-- gives `val`, `kversion`, and `metadata` default empty byte values in the vault state table
-- uses a no-op string sanitizer for vault namespace and key text
-
-### Postgres
-
-- uses `SERIAL PRIMARY KEY` for the vault `pos` column
-- stores vault payload columns as `BYTEA` without SQLite-style default empty values
-- applies a sanitizer to vault namespace and key strings before persistence
-
-These differences do not change the logical meaning of the data, but they do affect direct inspection and backend-specific SQL behavior.
+These differences do not change the logical meaning of the data, but they matter when directly inspecting tables or writing backend-specific SQL.
