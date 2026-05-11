@@ -1,6 +1,6 @@
 module tools
 
-go 1.25.7
+go 1.26.3
 
 require (
 	github.com/fzipp/gocyclo v0.6.0
