@@ -41,6 +41,16 @@ Table names are built from:
 
 If no `tablePrefix` is set, FSC uses `fsc`.
 
+### Parameter Escaping
+
+When table names include parameters, FSC escapes special characters before composing the final name:
+
+| Character | Escaped form |
+| --- | --- |
+| `_` | `__` |
+| `-` | `_d` |
+| `.` | `_f` |
+
 With the default prefix `fsc`:
 
 - `kvs` becomes `fsc_kvs`
