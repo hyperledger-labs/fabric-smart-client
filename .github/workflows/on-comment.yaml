@@ -1,0 +1,69 @@
+name: Bot - On Comment
+
+# ──────────────────────────────────────────────────────────────────────
+# Workflow: Bot - On Comment
+#
+# Purpose:
+#   Runs when a NEW comment is created on an issue. Dispatches to
+#   bot-on-comment.js which parses slash commands (e.g. /assign) from
+#   the comment body and runs the appropriate handler.
+#
+# Currently supported commands:
+#   /assign — Assign the commenter to the issue (see commands/assign.js
+#             for eligibility checks: skill prerequisites, assignment
+#             limits, required status labels).
+#   /unassign — Unassign the commenter from the issue (see commands/unassign.js
+#               for authorization and label reversion details).
+#   /finalize — Finalize the issue (see commands/finalize.js for triage
+#               permission requirements, label validation, and status updates).
+#
+# Security:
+#   - Checks out the default branch (never the PR branch) to prevent
+#     running untrusted code with the write token.
+#   - The if-guard ensures this only fires on issue comments, not on
+#     PR review comments (which have a different payload shape).
+#
+# Concurrency:
+#   Serialized per issue number (cancel-in-progress: false) to prevent
+#   same-issue races where two different users both see assignees=[] and
+#   both get assigned. Same-issue collisions are caught by the pre-write
+#   fresh issues.get() in assignAndFinalize(). Same-user multi-issue limits
+#   are enforced via REST API counting in enforceAssignmentLimit().
+# ──────────────────────────────────────────────────────────────────────
+on:
+  issue_comment:
+    types:
+      - created
+  workflow_dispatch: # Manual trigger for testing
+
+
+permissions:
+  issues: write  # Required to add assignees, labels, reactions, and post comments
+  contents: read # Required to checkout the default branch for bot scripts
+
+jobs:
+  on-comment:
+    # Only run on issue comments (not PR review comments which also trigger issue_comment)
+    if: github.event.issue.pull_request == null
+
+    runs-on: ubuntu-latest
+
+    # Serialize per issue to prevent same-issue races without blocking other issues.
+    # IMPORTANT: keep this keyed by issue.number (not github.actor), otherwise
+    # two different users can run /assign on the same issue concurrently.
+    concurrency:
+      group: on-comment-${{ github.event.issue.number }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Run On-Comment Handler
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const script = require('./.github/scripts/bot-on-comment.js');
+            await script({ github, context });
