@@ -90,7 +90,7 @@ Views can retrieve services from the context using [`GetService()`](services/vie
 
 This keeps business logic decoupled from concrete wiring and storage details.
 
-For persistence-related service boundaries, see [Runtime DB access](services/runtime-db-access.md) and [Database drivers](services/db-driver.md).
+For persistence-related service boundaries, see [Runtime DB access](services/runtime-db-access.md), [Database layout](services/database-layout.md), and [Database drivers](services/db-driver.md).
 
 ## Application Structure
 

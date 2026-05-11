@@ -1,5 +1,9 @@
 # DB Drivers
 
+This document explains FSC persistence, store, and driver concepts.
+If you are looking for the physical tables and columns created by those stores, see [Database layout](database-layout.md).
+If you are looking for runtime usage and operator inspection guidance, see [Runtime DB access](runtime-db-access.md).
+
 ## Project terminology
 
 ### Database

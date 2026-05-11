@@ -16,6 +16,7 @@ The following principles apply throughout the runtime:
 Related documentation:
 
 - [Database drivers](db-driver.md)
+- [Database layout](database-layout.md)
 - [View platform configuration](../configuration.md)
 - [Shared node configuration](../../../configuration.md)
 - [Fabric platform](../../fabric/README.md)
@@ -259,7 +260,7 @@ At runtime:
 
 ## Table Naming
 
-Table names are derived from the configured `tablePrefix` (default: `fsc`) combined with store-specific suffixes and parameters. For complete details on table naming conventions and prefix configuration, see [Database drivers](db-driver.md).
+Table names are derived from the configured `tablePrefix` (default: `fsc`) combined with store-specific suffixes and parameters. For complete details on table naming conventions, table families, and physical schemas, see [Database layout](database-layout.md) and [Database drivers](db-driver.md).
 
 ### View Platform Tables
 
