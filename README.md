@@ -12,7 +12,7 @@ FSC abstracts away the complexity of a DLT network, enabling developers to build
 
 ## Key Features
 - **High-level APIs** that abstract away the complexity of interactive distributed applications.
-- **Peer-to-peer client overlay** enabling interacting directly as needed.
+- **Peer-to-peer client overlay** enabling direct interaction as needed.
 - **Advanced transaction orchestration** to implement complex application business processes.
 - **Integration-ready with Fabric and Fabric-x networks** via simple configuration, with support for multiple versions.
 - **Token SDK** as an example of building distributed ledger applications on top of FSC.
@@ -55,7 +55,7 @@ Meeting notes are available [here](https://docs.google.com/document/d/13t5-9tfA-
 
 ## Versioning
 
-This projects follows [Semantic Versioning (SemVer)](https://semver.org/). See available releases here: https://github.com/hyperledger-labs/fabric-smart-client/tags
+This project follows [Semantic Versioning (SemVer)](https://semver.org/). See available releases here: https://github.com/hyperledger-labs/fabric-smart-client/tags
 
 ## Disclaimer and License
 
