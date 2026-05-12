@@ -14,7 +14,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"fmt"
 	"math/big"
 	"net"
 	"os"
@@ -22,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -115,8 +113,9 @@ func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
 	t.Helper()
 	tlsFiles := generateTLSFiles(t)
 
-	bootstrapAddress := freeTCPAddress(t)
-	otherAddress := freeTCPAddress(t)
+	addresses := freeTCPAddresses(t, 2)
+	bootstrapAddress := addresses[0]
+	otherAddress := addresses[1]
 	bootstrapCertPath := tlsFiles.bootstrapCert
 	otherCertPath := tlsFiles.otherCert
 	bootstrapID := mustPeerIDFromCert(t, bootstrapCertPath)
@@ -226,9 +225,10 @@ func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNo
 	node1ID := mustPeerIDFromCert(t, node1Cert)
 	node2ID := mustPeerIDFromCert(t, node2Cert)
 
-	bootstrapAddress := freeTCPAddress(t)
-	node1Address := freeTCPAddress(t)
-	node2Address := freeTCPAddress(t)
+	addresses := freeTCPAddresses(t, 3)
+	bootstrapAddress := addresses[0]
+	node1Address := addresses[1]
+	node2Address := addresses[2]
 
 	bootstrapHost, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
 		bootstrapID: []host2.PeerIPAddress{bootstrapAddress},
@@ -285,10 +285,20 @@ func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNo
 		&comm.HostNode{P2PNode: node2Node, ID: node2ID, Address: node2Address}
 }
 
-func freeTCPAddress(t *testing.T) string {
+func freeTCPAddresses(t *testing.T, n int) []string {
 	t.Helper()
-	ports := freeport.GetT(t, 1)
-	return fmt.Sprintf("127.0.0.1:%d", ports[0])
+	var listeners []net.Listener
+	for i := 0; i < n; i++ {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		listeners = append(listeners, l)
+	}
+	var addresses []string
+	for _, l := range listeners {
+		addresses = append(addresses, l.Addr().String())
+		_ = l.Close()
+	}
+	return addresses
 }
 
 func mustPeerIDFromCert(t *testing.T, certPath string) string {
@@ -420,11 +430,12 @@ func TestSessionInfoSecurityGuarantees(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, []byte(aliceNode.ID), info.EndpointPKID, "EndpointPKID mismatch")
 
 	charlieID := mustPeerIDFromCert(t, allTlsFiles.charlie.cert)
+	charlieAddresses := freeTCPAddresses(t, 2)
 	charlieHost, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
-		charlieID:  []host2.PeerIPAddress{freeTCPAddress(t)},
+		charlieID:  []host2.PeerIPAddress{charlieAddresses[0]},
 		bobNode.ID: []host2.PeerIPAddress{bobNode.Address},
 	}, websocket.NewConfigFromProperties(
-		freeTCPAddress(t),
+		charlieAddresses[1],
 		allTlsFiles.charlie.key,
 		allTlsFiles.charlie.cert,
 		[]string{allTlsFiles.caCert},
@@ -519,8 +530,9 @@ func generateThreeNodesTLSFiles(t *testing.T) threeNodesTLSFiles {
 
 func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) (*comm.HostNode, *comm.HostNode) {
 	t.Helper()
-	aliceAddr := freeTCPAddress(t)
-	bobAddr := freeTCPAddress(t)
+	addrs := freeTCPAddresses(t, 2)
+	aliceAddr := addrs[0]
+	bobAddr := addrs[1]
 	aliceID := mustPeerIDFromCert(t, alice.cert)
 	bobID := mustPeerIDFromCert(t, bob.cert)
 	routes := &routing.StaticIDRouter{
