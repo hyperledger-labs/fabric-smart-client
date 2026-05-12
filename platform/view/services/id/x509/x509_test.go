@@ -49,11 +49,7 @@ func TestPemDecodeKey(t *testing.T) {
 	require.NoError(t, err)
 	privateKeyOut, ok := key.(*ecdsa.PrivateKey)
 	require.True(t, ok)
-	privateKeyBytes, err := privateKey.Bytes()
-	require.NoError(t, err)
-	privateKeyOutBytes, err := privateKeyOut.Bytes()
-	require.NoError(t, err)
-	require.Equal(t, privateKeyBytes, privateKeyOutBytes)
+	require.True(t, privateKey.Equal(privateKeyOut))
 
 	key, err = PemDecodeKey(publicKeyPEM)
 	require.NoError(t, err)
