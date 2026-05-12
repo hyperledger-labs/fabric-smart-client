@@ -65,6 +65,6 @@ func TestConfig(t *testing.T) {
 	t.Run("file that doesn't exist isn't loaded", func(t *testing.T) {
 		t.Parallel()
 		_, err := ConfigFromFile(filepath.Join("testdata", "not_a_file.yaml"))
-		require.Contains(t, err.Error(), "no such file or directory")
+		require.ErrorIs(t, err, os.ErrNotExist)
 	})
 }

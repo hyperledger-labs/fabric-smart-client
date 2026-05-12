@@ -133,7 +133,7 @@ func (s *client) StreamCallView(vid string, writer http.ResponseWriter, request 
 	// register the web socket
 	mutable, ok := viewContext.(view2.MutableContext)
 	if !ok {
-		return errors.Errorf("expected a mutable contexdt")
+		return errors.Errorf("expected a mutable context")
 	}
 	if err := mutable.PutService(stream); err != nil {
 		return errors.Errorf("failed registering stream command server")
