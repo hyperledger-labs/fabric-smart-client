@@ -11,8 +11,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
 // mockCache implements the cache interface.
