@@ -172,6 +172,7 @@ func (s *Service) respond(responder view.View, id view.Identity, msg *view.Messa
 
 // getOrCreateContext returns a view context for the given arguments.
 func (s *Service) getOrCreateContext(me view.Identity, msg *view.Message) (view.Context, bool, error) {
+	logger.Debugf("create context for [%s:%s]", msg.FromEndpoint, msg.FromIdentity)
 	// get the caller identity
 	caller, err := s.endpointService.GetIdentity(msg.FromEndpoint, msg.FromIdentity)
 	if err != nil {
