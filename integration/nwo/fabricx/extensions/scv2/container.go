@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/netip"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -79,6 +80,15 @@ func (e *Extension) launchContainer() {
 	// genesis block
 	configBlockPath := e.network.OutputBlockPath(e.channel.Name)
 
+	// mock orderer config
+	// Temporary fix - committer v1.0.0-alpha.1 has a bug https://github.com/hyperledger/fabric-x-committer/issues/567
+	// that prevents us from setting the mock orderer msp via environment variables. For that reason we create a mock
+	// orderer config file and load it into the container.
+	// This can be removed and replaced with proper configuration via env vars once the issue #567 is fixed.
+	mockOrdererConfigPath := filepath.Clean(filepath.Join(e.network.Context.RootDir(), e.network.Prefix, "mock-orderer.yaml"))
+	err := generateMockOrdererConfigFile(mockOrdererConfigPath)
+	utils.Must(err)
+
 	// TODO: remove this old docker dino
 	d, err := docker.GetInstance()
 	utils.Must(err)
@@ -138,6 +148,12 @@ func (e *Extension) launchContainer() {
 						Type:     mount.TypeBind,
 						Source:   configBlockPath,
 						Target:   "/root/artifacts/config-block.pb.bin",
+						ReadOnly: true,
+					},
+					{ // custom orderer config
+						Type:     mount.TypeBind,
+						Source:   mockOrdererConfigPath,
+						Target:   "/root/config/mock-orderer.yaml",
 						ReadOnly: true,
 					},
 				},
