@@ -75,7 +75,7 @@ func (c *commSCCMsgConn) Read() ([]byte, error) {
 	}
 
 	if len(msg.Payload) == 0 {
-		logger.Error("failed receiving message [%s][%s]", "", "")
+		logger.Errorf("failed receiving message [%s][%s]", "", "")
 		errMsg := errors.Errorf("failed receiving message [%s][%s]", "", "")
 		return nil, errMsg
 	}

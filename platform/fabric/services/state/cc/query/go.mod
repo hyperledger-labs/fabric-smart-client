@@ -1,6 +1,6 @@
 module github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/cc/query
 
-go 1.25.7
+go 1.26.3
 
 require (
 	github.com/hyperledger/fabric-chaincode-go/v2 v2.3.0
