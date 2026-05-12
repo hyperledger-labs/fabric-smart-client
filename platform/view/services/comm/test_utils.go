@@ -91,7 +91,7 @@ func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 		session, err := bootstrapNode.NewSession("", "", node.Address, []byte(node.ID))
 		assert.NoError(t, err)
 		assert.NotNil(t, session)
-		assert.NotEmpty(t, session.Info().Caller)
+		assert.NotEmpty(t, session.Info().CallerIdentity)
 
 		err = session.Send([]byte("ciao"))
 		assert.NoError(t, err)
@@ -114,10 +114,10 @@ func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 	msg := <-masterSessionMsgs
 	require.Equal(t, []byte("ciao"), msg.Payload)
 
-	session, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, msg.FromPKID, msg)
+	session, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromIdentity, msg.FromIdentity, msg)
 	require.NoError(t, err)
 	require.NotNil(t, session)
-	assert.NotEmpty(t, session.Info().Caller)
+	assert.NotEmpty(t, session.Info().CallerIdentity)
 
 	require.NoError(t, session.Send([]byte("ciaoback")))
 
@@ -274,7 +274,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode, node *HostNo
 				assert.Equal(t, messagesToReceive[0], payload)
 
 				// Create dedicated session to receive the rest
-				s, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, nil, nil)
+				s, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromIdentity, nil, nil)
 				assert.NoError(t, err)
 				assert.NotNil(t, s)
 

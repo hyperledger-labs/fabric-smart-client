@@ -124,8 +124,8 @@ func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (res a
 			if contextSession == nil {
 				return nil, errors.WithMessage(ErrContextConversionFailed, "cannot convert a non-responder context to an initiator context")
 			}
-			if err := cc.PutSession(initiator, contextSession.Info().Caller, contextSession); err != nil {
-				return nil, errors.Wrapf(err, "failed registering default session as initiated by [%s:%s]", initiator, contextSession.Info().Caller)
+			if err := cc.PutSession(initiator, contextSession.Info().CallerIdentity, contextSession); err != nil {
+				return nil, errors.Wrapf(err, "failed registering default session as initiated by [%s:%s]", initiator, contextSession.Info().CallerIdentity)
 			}
 		} else {
 			cc = NewChildContext(WrapContext(parent, newCtx), options.Session, initiator)

@@ -252,7 +252,7 @@ func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, se
 	}
 
 	sessionID := session.Info().ID
-	caller := session.Info().Caller
+	caller := session.Info().CallerIdentity
 
 	// check if a viewContext already exists for the given contextID
 	viewContext, ok := cm.contexts[contextID]

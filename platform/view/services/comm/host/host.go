@@ -51,7 +51,7 @@ type P2PHost interface {
 	StreamHash(info StreamInfo) StreamHash
 	// Wait waits until all dependencies are closed after we call P2PHost.Close
 	Wait()
-	Caller() view.Identity
+	Identity() view.Identity
 
 	io.Closer
 }

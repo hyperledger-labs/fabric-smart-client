@@ -167,7 +167,7 @@ func (h *host) Close() error {
 
 func (h *host) Wait() {}
 
-func (h *host) Caller() view.Identity {
+func (h *host) Identity() view.Identity {
 	return h.caller
 }
 

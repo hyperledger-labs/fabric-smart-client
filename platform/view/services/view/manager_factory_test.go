@@ -49,7 +49,7 @@ func TestManagerWithMockFactory(t *testing.T) {
 	t.Run("NewSessionContextCallsFactory", func(t *testing.T) {
 		t.Parallel()
 		session := &mock.Session{}
-		session.InfoReturns(view2.SessionInfo{ID: "s1", Caller: view2.Identity("alice")})
+		session.InfoReturns(view2.SessionInfo{ID: "s1", CallerIdentity: view2.Identity("alice")})
 		party := view2.Identity("alice")
 
 		parentCtx := &mock.ParentContext{}

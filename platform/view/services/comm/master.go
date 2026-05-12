@@ -91,7 +91,7 @@ func (p *P2PNode) NewSession(callerViewID, contextID, endpoint string, pkID []by
 		endpoint,
 		contextID,
 		callerViewID,
-		p.host.Caller(),
+		p.host.Identity(),
 		pkID,
 		nil,
 	)
@@ -103,7 +103,7 @@ func (p *P2PNode) NewSessionWithID(sessionID, contextID, endpoint string, pkid [
 		endpoint,
 		contextID,
 		"",
-		p.host.Caller(),
+		p.host.Identity(),
 		pkid,
 		nil,
 	)
@@ -112,7 +112,7 @@ func (p *P2PNode) NewSessionWithID(sessionID, contextID, endpoint string, pkid [
 func (p *P2PNode) NewResponderSession(sessionID, contextID, endpoint string, pkid []byte, caller view.Identity, msg *view.Message) (view.Session, error) {
 	var callerViewID string
 	if msg != nil {
-		callerViewID = msg.Caller
+		callerViewID = msg.FromViewID
 	}
 
 	return p.getOrCreateSession(

@@ -44,7 +44,7 @@ func TestContext(t *testing.T) {
 	resolver := &mock.EndpointService{}
 	resolver.GetIdentityReturns([]byte("bob"), nil)
 	session := &mock.Session{}
-	session.InfoReturns(view.SessionInfo{ID: "s1", Caller: view.Identity("caller")})
+	session.InfoReturns(view.SessionInfo{ID: "s1", CallerIdentity: view.Identity("caller")})
 	ctx, err := view2.NewContext(
 		context.TODO(),
 		registry,
@@ -201,12 +201,12 @@ func TestContextRace(t *testing.T) {
 	defaultSession := &mock.Session{}
 	session := &mock.Session{}
 	session.InfoReturns(view.SessionInfo{
-		ID:           "",
-		Caller:       nil,
-		CallerViewID: "",
-		Endpoint:     "",
-		EndpointPKID: nil,
-		Closed:       false,
+		ID:               "",
+		CallerIdentity:   nil,
+		CallerViewID:     "",
+		Endpoint:         "",
+		EndpointIdentity: nil,
+		Closed:           false,
 	})
 	sessionFactory := &mock.SessionFactory{}
 	sessionFactory.NewSessionReturns(session, nil)

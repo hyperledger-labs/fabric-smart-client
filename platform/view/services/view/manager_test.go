@@ -170,7 +170,7 @@ func TestNewSessionContext(t *testing.T) {
 	ip.DefaultIdentityReturns(view2.Identity("me"))
 
 	session := &mock.Session{}
-	session.InfoReturns(view2.SessionInfo{ID: "s1", Caller: view2.Identity("alice")})
+	session.InfoReturns(view2.SessionInfo{ID: "s1", CallerIdentity: view2.Identity("alice")})
 
 	// Case 1: New context
 	ctx, isNew, err := manager.NewResponderContext(context.Background(), "c1", session, view2.Identity("alice"), nil)
@@ -186,7 +186,7 @@ func TestNewSessionContext(t *testing.T) {
 
 	// Case 3: Update session in existing context
 	session2 := &mock.Session{}
-	session2.InfoReturns(view2.SessionInfo{ID: "s2", Caller: view2.Identity("bob")})
+	session2.InfoReturns(view2.SessionInfo{ID: "s2", CallerIdentity: view2.Identity("bob")})
 	ctx3, isNew, err := manager.NewResponderContext(context.Background(), "c1", session2, view2.Identity("bob"), nil)
 	require.NoError(t, err)
 	require.False(t, isNew)

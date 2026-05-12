@@ -110,7 +110,7 @@ func (s *Service) NewResponderSession(caller []byte, msg *view.Message) (view.Se
 		msg.SessionID,
 		msg.ContextID,
 		msg.FromEndpoint,
-		msg.FromPKID,
+		s.Node.host.Identity(),
 		caller,
 		msg,
 	)

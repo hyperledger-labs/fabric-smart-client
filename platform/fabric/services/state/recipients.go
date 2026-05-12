@@ -357,7 +357,7 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (int
 	if err != nil {
 		return nil, err
 	}
-	err = resolver.Bind(viewCtx.Context(), session.Info().Caller, other)
+	err = resolver.Bind(viewCtx.Context(), session.Info().CallerIdentity, other)
 	if err != nil {
 		return nil, err
 	}

@@ -233,7 +233,7 @@ func NewContext(
 	}
 	if session != nil {
 		// Register default session
-		viewCtxt.sessions.PutDefault(session.Info().Caller, session)
+		viewCtxt.sessions.PutDefault(session.Info().CallerIdentity, session)
 	}
 
 	return viewCtxt, nil
@@ -398,7 +398,7 @@ func (c *Context) Dispose() {
 
 	if c.session != nil {
 		info := c.session.Info()
-		logger.DebugfContext(c.Context(), "Delete one session to %s", string(info.Caller))
+		logger.DebugfContext(c.Context(), "Delete one session to %s", string(info.CallerIdentity))
 		c.sessionFactory.DeleteSessions(c.Context(), info.ID)
 	}
 

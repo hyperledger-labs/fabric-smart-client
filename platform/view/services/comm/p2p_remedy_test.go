@@ -115,9 +115,9 @@ func TestDispatcherDoS(t *testing.T) { //nolint:paralleltest
 	for i := 0; i < capacity+1; i++ {
 		p.incomingMessages <- &messageWithStream{
 			message: &view.Message{
-				SessionID: "slow",
-				FromPKID:  []byte("slow-peer"),
-				Payload:   []byte(fmt.Sprintf("slow-%d", i)),
+				SessionID:    "slow",
+				FromIdentity: []byte("slow-peer"),
+				Payload:      []byte(fmt.Sprintf("slow-%d", i)),
 			},
 			stream: sh,
 		}
@@ -125,9 +125,9 @@ func TestDispatcherDoS(t *testing.T) { //nolint:paralleltest
 
 	p.incomingMessages <- &messageWithStream{
 		message: &view.Message{
-			SessionID: "fast",
-			FromPKID:  []byte("fast-peer"),
-			Payload:   []byte("fast-msg"),
+			SessionID:    "fast",
+			FromIdentity: []byte("fast-peer"),
+			Payload:      []byte("fast-msg"),
 		},
 		stream: sh,
 	}
@@ -205,9 +205,9 @@ func TestMasterSessionDoSProtection(t *testing.T) { //nolint:paralleltest
 	for i := 0; i < numWorkers; i++ {
 		p.incomingMessages <- &messageWithStream{
 			message: &view.Message{
-				SessionID: fmt.Sprintf("unknown-%d", i),
-				FromPKID:  []byte("attacker"),
-				Payload:   []byte("clog"),
+				SessionID:    fmt.Sprintf("unknown-%d", i),
+				FromIdentity: []byte("attacker"),
+				Payload:      []byte("clog"),
 			},
 			stream: sh,
 		}
@@ -221,9 +221,9 @@ func TestMasterSessionDoSProtection(t *testing.T) { //nolint:paralleltest
 	start := time.Now()
 	p.incomingMessages <- &messageWithStream{
 		message: &view.Message{
-			SessionID: "fast",
-			FromPKID:  []byte("fast-peer"),
-			Payload:   []byte("fast-msg"),
+			SessionID:    "fast",
+			FromIdentity: []byte("fast-peer"),
+			Payload:      []byte("fast-msg"),
 		},
 		stream: sh,
 	}

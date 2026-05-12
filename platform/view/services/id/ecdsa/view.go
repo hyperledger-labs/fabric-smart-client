@@ -139,7 +139,7 @@ func (s *twoPartyEphemeralKeyResponderView) Call(viewCtx view.Context) (interfac
 	if err != nil {
 		return nil, err
 	}
-	err = resolver.Bind(viewCtx.Context(), session.Info().Caller, id2)
+	err = resolver.Bind(viewCtx.Context(), session.Info().CallerIdentity, id2)
 	if err != nil {
 		return nil, err
 	}

@@ -119,7 +119,7 @@ func (s *Service) Start(ctx context.Context) error {
 // handleMessage handles an incoming message.
 func (s *Service) handleMessage(msg *view.Message) {
 	logger.Debugf("Will call responder view for context [%s]", msg.ContextID)
-	responder, id, err := s.viewManager.ExistResponderForCaller(msg.Caller)
+	responder, id, err := s.viewManager.ExistResponderForCaller(msg.FromViewID)
 	if err != nil {
 		logger.Errorf("[%s] No responder exists for [%s]: [%s]", s.identityProvider.DefaultIdentity(), msg.String(), err)
 		return
@@ -173,13 +173,13 @@ func (s *Service) respond(responder view.View, id view.Identity, msg *view.Messa
 // getOrCreateContext returns a view context for the given arguments.
 func (s *Service) getOrCreateContext(me view.Identity, msg *view.Message) (view.Context, bool, error) {
 	// get the caller identity
-	remote, err := s.endpointService.GetIdentity(msg.FromEndpoint, msg.FromPKID)
+	caller, err := s.endpointService.GetIdentity(msg.FromEndpoint, msg.FromIdentity)
 	if err != nil {
 		return nil, false, err
 	}
 
 	// create a new session with the ID we received
-	responderSession, err := s.commLayer.NewResponderSession(remote, msg)
+	responderSession, err := s.commLayer.NewResponderSession(caller, msg)
 	if err != nil {
 		return nil, false, err
 	}
@@ -189,6 +189,6 @@ func (s *Service) getOrCreateContext(me view.Identity, msg *view.Message) (view.
 		msg.ContextID,
 		responderSession,
 		me,
-		remote,
+		caller,
 	)
 }

@@ -146,11 +146,11 @@ func (m *pingPongMockNode) sendTo(ctx context.Context, info host2.StreamInfo, ms
 
 		// Create a response message that looks like a pong
 		response := &view.Message{
-			ContextID: msg.(*ViewPacket).ContextID,
-			SessionID: msg.(*ViewPacket).SessionID,
-			Caller:    "ponger", // Indicate this is a pong
-			Payload:   append([]byte("pong-"), msg.(*ViewPacket).Payload...),
-			Status:    msg.(*ViewPacket).Status,
+			ContextID:  msg.(*ViewPacket).ContextID,
+			SessionID:  msg.(*ViewPacket).SessionID,
+			FromViewID: "ponger", // Indicate this is a pong
+			Payload:    append([]byte("pong-"), msg.(*ViewPacket).Payload...),
+			Status:     msg.(*ViewPacket).Status,
 		}
 
 		// Enqueue the response back to the session

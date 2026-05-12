@@ -98,14 +98,14 @@ func TestMTLSCallerIdentityBinding(t *testing.T) { //nolint:paralleltest
 	require.NotNil(t, msg)
 	require.Equal(t, []byte("ping"), msg.Payload)
 
-	responder, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, view.Identity(msg.FromPKID), nil)
+	responder, err := node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromIdentity, view.Identity(msg.FromIdentity), nil)
 	require.NoError(t, err)
-	require.True(t, responder.Info().Caller.Equal(view.Identity(msg.FromPKID)))
+	require.True(t, responder.Info().CallerIdentity.Equal(view.Identity(msg.FromIdentity)))
 
 	maliciousCaller := view.Identity([]byte("malicious-caller"))
-	_, err = node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, maliciousCaller, nil)
+	_, err = node.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromIdentity, maliciousCaller, nil)
 	require.Error(t, err)
-	require.True(t, responder.Info().Caller.Equal(view.Identity(msg.FromPKID)))
+	require.True(t, responder.Info().CallerIdentity.Equal(view.Identity(msg.FromIdentity)))
 
 	require.NoError(t, responder.Send([]byte("pong")))
 	reply := <-session.Receive()
@@ -412,14 +412,14 @@ func TestSessionInfoSecurityGuarantees(t *testing.T) { //nolint:paralleltest
 	msg := <-masterSession.Receive()
 	require.NotNil(t, msg)
 
-	responder, err := bobNode.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromPKID, view.Identity(msg.FromPKID), nil)
+	responder, err := bobNode.NewResponderSession(msg.SessionID, msg.ContextID, "", msg.FromIdentity, view.Identity(msg.FromIdentity), nil)
 	require.NoError(t, err)
 
 	info := responder.Info()
 	// Claim 1: Caller is the authenticated identity of the remote peer (Alice)
-	require.Equal(t, view.Identity(aliceNode.ID), info.Caller, "Caller identity mismatch")
+	require.Equal(t, view.Identity(aliceNode.ID), info.CallerIdentity, "Caller identity mismatch")
 	// Claim 2: EndpointPKID is cryptographically verified and bound to transport identity
-	require.Equal(t, []byte(aliceNode.ID), info.EndpointPKID, "EndpointPKID mismatch")
+	require.Equal(t, []byte(aliceNode.ID), info.EndpointIdentity, "EndpointPKID mismatch")
 
 	charlieID := mustPeerIDFromCert(t, allTlsFiles.charlie.cert)
 	charlieHost, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{

@@ -84,9 +84,9 @@ func TestService(t *testing.T) {
 	msg := &view.Message{
 		ContextID:    "ctx1",
 		SessionID:    "sess1",
-		Caller:       "caller1",
+		FromViewID:   "caller1",
 		FromEndpoint: "endpoint1",
-		FromPKID:     []byte("pkid1"),
+		FromIdentity: []byte("pkid1"),
 		Ctx:          ctx,
 	}
 

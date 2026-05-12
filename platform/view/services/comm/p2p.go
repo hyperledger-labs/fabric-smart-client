@@ -150,12 +150,12 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 				return
 			}
 
-			logger.Debugf("dispatch message for context [%s] from [%s,%s] on session [%s]", msg.message.ContextID, msg.message.FromEndpoint, view.Identity(msg.message.FromPKID), msg.message.SessionID)
+			logger.Debugf("dispatch message for context [%s] from [%s,%s] on session [%s]", msg.message.ContextID, msg.message.FromEndpoint, view.Identity(msg.message.FromIdentity), msg.message.SessionID)
 
 			p.dispatchMutex.Lock()
 
 			p.sessionsMutex.Lock()
-			internalSessionID := computeInternalSessionID(msg.message.SessionID, msg.message.FromPKID)
+			internalSessionID := computeInternalSessionID(msg.message.SessionID, msg.message.FromIdentity)
 			logger.Debugf("dispatch message on internal session [%s]", internalSessionID)
 			session, in := p.sessions[internalSessionID]
 			if in {
@@ -167,7 +167,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 					logger.Debugf("internal session [%s] is closed", internalSessionID)
 				} else {
 					logger.Debugf("internal session [%s] is open, updating session info", internalSessionID)
-					session.callerViewID = msg.message.Caller
+					session.callerViewID = msg.message.FromViewID
 					session.contextID = msg.message.ContextID
 					session.endpointAddress = msg.message.FromEndpoint
 					session.mutex.Unlock()
@@ -207,7 +207,7 @@ func (p *P2PNode) dispatchMessages(ctx context.Context) {
 				logger.Debugf("pushing message to [%s], [%s]", internalSessionID, msg.message)
 			} else {
 				p.m.DroppedMessages.Add(1)
-				logger.Warnf("dropping message from %s for closed session [%s]", msg.message.Caller, msg.message.SessionID)
+				logger.Warnf("dropping message from %s for closed session [%s]", msg.message.FromViewID, msg.message.SessionID)
 			}
 
 		case <-ctx.Done():
@@ -451,9 +451,9 @@ func (s *streamHandler) handleIncoming() {
 				SessionID:    msg.SessionID,
 				Status:       msg.Status,
 				Payload:      msg.Payload,
-				Caller:       msg.Caller,
+				FromViewID:   msg.Caller,
 				FromEndpoint: s.stream.RemotePeerAddress(),
-				FromPKID:     []byte(s.stream.RemotePeerID()),
+				FromIdentity: []byte(s.stream.RemotePeerID()),
 				Ctx:          s.stream.Context(),
 			},
 			stream: s,

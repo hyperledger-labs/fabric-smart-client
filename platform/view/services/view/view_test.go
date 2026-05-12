@@ -77,7 +77,7 @@ func TestRunViewNow_AsInitiator_PutSessionError(t *testing.T) {
 		return ctx, trace.SpanFromContext(ctx)
 	}
 	session := &mock.Session{}
-	session.InfoReturns(view2.SessionInfo{Caller: view2.Identity("alice")})
+	session.InfoReturns(view2.SessionInfo{CallerIdentity: view2.Identity("alice")})
 	parent.SessionReturns(session)
 
 	v := &mock.View{}

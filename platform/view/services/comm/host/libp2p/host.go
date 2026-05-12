@@ -249,7 +249,7 @@ func (h *host) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PS
 	}, nil
 }
 
-func (h *host) Caller() view.Identity {
+func (h *host) Identity() view.Identity {
 	return h.pub
 }
 
