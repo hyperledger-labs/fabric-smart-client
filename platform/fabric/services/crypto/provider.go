@@ -21,8 +21,24 @@ func NewProvider() *provider {
 	return &provider{}
 }
 
+// getDefaultFactory is a package-level variable that returns the default
+// factory. It is assigned to factory.GetDefault by default and can be
+// replaced in tests to simulate error conditions without changing
+// production APIs.
+// bccspFactory is a local interface with the small subset of methods
+// used by this package. It is satisfied by the real `bccsp.BCCSP`.
+type bccspFactory interface {
+	Hash([]byte, bccsp.HashOpts) ([]byte, error)
+	GetHash(bccsp.HashOpts) (hash.Hash, error)
+}
+
+// getDefaultFactory returns a bccspFactory. By default it wraps
+// `factory.GetDefault`, but tests can replace it with a function
+// returning a test double that implements `bccspFactory`.
+var getDefaultFactory = func() bccspFactory { return factory.GetDefault() }
+
 func (p *provider) Hash(msg []byte) ([]byte, error) {
-	hash, err := factory.GetDefault().Hash(msg, &bccsp.SHA256Opts{})
+	hash, err := getDefaultFactory().Hash(msg, &bccsp.SHA256Opts{})
 	if err != nil {
 		panic(errors.Errorf("failed computing SHA256 on [% x]", msg))
 	}
@@ -30,7 +46,7 @@ func (p *provider) Hash(msg []byte) ([]byte, error) {
 }
 
 func (p *provider) GetHash() hash.Hash {
-	hash, err := factory.GetDefault().GetHash(&bccsp.SHA256Opts{})
+	hash, err := getDefaultFactory().GetHash(&bccsp.SHA256Opts{})
 	if err != nil {
 		panic(errors.Errorf("failed getting SHA256"))
 	}
