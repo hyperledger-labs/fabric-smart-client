@@ -11,8 +11,8 @@ It lets you focus on **business logic and distributed workflows**, rather than l
 FSC abstracts away the complexity of a DLT network, enabling developers to build distributed applications with ease.
 
 ## Key Features
-- **High-level APIs** that abstract away the complexity of interactive distribute applications.
-- **Peer-to-peer client overlay** enabling interatcting directly as needed.
+- **High-level APIs** that abstract away the complexity of interactive distributed applications.
+- **Peer-to-peer client overlay** enabling direct interaction as needed.
 - **Advanced transaction orchestration** to implement complex application business processes.
 - **Integration-ready with Fabric and Fabric-x networks** via simple configuration, with support for multiple versions.
 - **Token SDK** as an example of building distributed ledger applications on top of FSC.
@@ -27,7 +27,7 @@ FSC abstracts away the complexity of a DLT network, enabling developers to build
 
 To start developing and testing your application with the Fabric Smart Client:
 
-Ensure you have a working [Go environment](docs/development.md).
+Ensure you have a working [Go environment](docs/dev/development.md).
 
 Clone the repository:
 ```bash
@@ -49,20 +49,13 @@ These examples demonstrate common FSC patterns, transaction flows, and how to wi
 
 We welcome contributions from everyone. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines. 
 
-In summary:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests and documentation
-4. Submit a Pull Request
-
-Join our community on the LFDT Discord [#fabric-smart-client](https://discord.gg/hyperledger).
+Join our community on the LFDT Discord [#fabric-smart-client](https://discord.com/channels/905194001349627914/945691888348967012).
 We also have a community meeting every Wednesday at 1300 CET on [Zoom](https://zoom-lfx.platform.linuxfoundation.org/meeting/96953495257?password=0517864f-e5ef-4ef5-89fa-8638e15fddec). Please see the [Hyperledger Fabric community calendar](https://zoom-lfx.platform.linuxfoundation.org/meetings/lf-decentralized-trust?view=week) for details.
 Meeting notes are available [here](https://docs.google.com/document/d/13t5-9tfA-7L0Ok4DaK3da_3TpAz5CCd5h5_LryhJyRM/edit?usp=sharing).
 
 ## Versioning
 
-This projects follows [Semantic Versioning (SemVer)](https://semver.org/). See available releases here: https://github.com/hyperledger-labs/fabric-smart-client/tags
+This project follows [Semantic Versioning (SemVer)](https://semver.org/). See available releases here: https://github.com/hyperledger-labs/fabric-smart-client/tags
 
 ## Disclaimer and License
 

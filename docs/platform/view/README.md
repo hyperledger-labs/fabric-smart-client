@@ -4,7 +4,9 @@ The View platform is the core runtime of the Fabric Smart Client. It provides th
 
 ## Start Here
 
+- [Programming Model Guide](programming-model.md)
 - [View SDK architecture](view-sdk.md)
+- [View API](view-api.md)
 - [View platform configuration](configuration.md)
 - [View runtime security model](security-model.md)
 
@@ -13,6 +15,8 @@ The View platform is the core runtime of the Fabric Smart Client. It provides th
 - [View service](services/view-service.md)
 - [Configuration service](services/config-service.md)
 - [Database drivers](services/db-driver.md)
+- [Database layout](services/database-layout.md)
+- [Runtime DB access](services/runtime-db-access.md)
 - [Monitoring](services/monitoring.md)
 - [Communication services](services/comm/readme.md)
 

@@ -1,0 +1,61 @@
+name: Bot - Inactivity Check
+
+# ──────────────────────────────────────────────────────────────────────
+# Workflow: Bot - Inactivity Check
+#
+# Purpose:
+#   Runs daily to detect assigned issues and PRs that have gone inactive.
+#   Uses bot-inactivity.js to:
+#     - Warn after 5 days of inactivity (idempotent comment via HTML marker)
+#     - Close, unassign, and reset to "status: ready for dev" after 7 days
+#
+# Activity signals (reset the 5-day clock):
+#   - A non-bot comment by the author or any assignee
+#   - A commit pushed to a PR branch by the PR author
+#
+# Cross-referencing:
+#   - Issues linked to open PRs with recent activity are not flagged
+#   - When a PR is closed for inactivity, its linked issues are also reset
+#
+# Exemptions:
+#   - Items with the "status: blocked" label are skipped
+#
+# Security:
+#   - Always checks out the default branch (never a PR branch)
+#   - workflow_dispatch allows manual triggering for testing
+#
+# Concurrency:
+#   Serialized globally — only one inactivity check runs at a time to
+#   avoid double-warning or double-closing the same items.
+# ──────────────────────────────────────────────────────────────────────
+on:
+  schedule:
+    - cron: '0 0 * * *'    # Daily at midnight UTC
+  workflow_dispatch:       # Manual trigger for testing
+
+permissions:
+  issues: write            # Add/remove labels, assignees, comments, close issues
+  pull-requests: write     # Close PRs
+  contents: read           # Checkout repository for bot scripts
+
+jobs:
+  inactivity-check:
+    name: Inactivity Check
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: inactivity-check
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Run Inactivity Check
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const script = require('./.github/scripts/bot-inactivity.js');
+            await script({ github, context });

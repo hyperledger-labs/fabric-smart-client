@@ -1,0 +1,34 @@
+name: Bot - On PR Review
+
+on:
+  pull_request_review:
+    types:
+      - submitted
+  workflow_dispatch: # Manual trigger for testing
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  on-pr-review:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    concurrency:
+      group: pr-bot-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Run Bot
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const script = require('./.github/scripts/bot-on-pr-review.js');
+            await script({ github, context });
