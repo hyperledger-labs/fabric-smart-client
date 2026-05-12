@@ -51,6 +51,7 @@ func newTestStore() *envelopeStore[testKey] {
 }
 
 func TestEnvelopePutAndGet(t *testing.T) {
+	t.Parallel()
 	s := newTestStore()
 	ctx := context.Background()
 	key := testKey{"tx1"}
@@ -62,6 +63,7 @@ func TestEnvelopePutAndGet(t *testing.T) {
 }
 
 func TestEnvelopeExistsFalseBeforePut(t *testing.T) {
+	t.Parallel()
 	s := newTestStore()
 	exists, err := s.ExistsEnvelope(context.Background(), testKey{"missing"})
 	require.NoError(t, err)
@@ -69,6 +71,7 @@ func TestEnvelopeExistsFalseBeforePut(t *testing.T) {
 }
 
 func TestEnvelopeExistsTrueAfterPut(t *testing.T) {
+	t.Parallel()
 	s := newTestStore()
 	ctx := context.Background()
 	key := testKey{"tx2"}
@@ -79,6 +82,7 @@ func TestEnvelopeExistsTrueAfterPut(t *testing.T) {
 }
 
 func TestEnvelopeUniqueKeyRouting(t *testing.T) {
+	t.Parallel()
 	s := newTestStore()
 	ctx := context.Background()
 	require.NoError(t, s.PutEnvelope(ctx, testKey{"a"}, []byte("aaa")))
@@ -92,6 +96,7 @@ func TestEnvelopeUniqueKeyRouting(t *testing.T) {
 }
 
 func TestEnvelopePropagatesErrors(t *testing.T) {
+	t.Parallel()
 	dbErr := errors.New("db error")
 	s := &envelopeStore[testKey]{e: &mockEnvelopeStore{data: make(map[string][]byte), err: dbErr}}
 	ctx := context.Background()

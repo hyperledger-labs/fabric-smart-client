@@ -72,15 +72,19 @@ func (m *mockVaultStore) SetStatuses(_ context.Context, code driver.TxStatusCode
 func (m *mockVaultStore) GetStateMetadata(_ context.Context, _ driver.Namespace, _ driver.PKey) (driver.Metadata, driver.RawVersion, error) {
 	return nil, nil, nil
 }
+
 func (m *mockVaultStore) GetState(_ context.Context, _ driver.Namespace, _ driver.PKey) (*driver.VaultRead, error) {
 	return nil, nil
 }
+
 func (m *mockVaultStore) GetStates(_ context.Context, _ driver.Namespace, _ ...driver.PKey) (driver.TxStateIterator, error) {
 	return nil, nil
 }
+
 func (m *mockVaultStore) GetStateRange(_ context.Context, _ driver.Namespace, _, _ driver.PKey) (driver.TxStateIterator, error) {
 	return nil, nil
 }
+
 func (m *mockVaultStore) GetAllStates(_ context.Context, _ driver.Namespace) (driver.TxStateIterator, error) {
 	return nil, nil
 }
@@ -88,12 +92,15 @@ func (m *mockVaultStore) GetLast(_ context.Context) (*driver.TxStatus, error) { 
 func (m *mockVaultStore) GetTxStatuses(_ context.Context, _ ...driver.TxID) (driver.TxStatusIterator, error) {
 	return nil, nil
 }
+
 func (m *mockVaultStore) GetAllTxStatuses(_ context.Context, _ driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
 	return nil, nil
 }
+
 func (m *mockVaultStore) NewTxLockVaultReader(_ context.Context, _ driver.TxID, _ driver.IsolationLevel) (driver.LockedVaultReader, error) {
 	return nil, nil
 }
+
 func (m *mockVaultStore) NewGlobalLockVaultReader(_ context.Context) (driver.LockedVaultReader, error) {
 	return nil, nil
 }
@@ -102,12 +109,14 @@ func (m *mockVaultStore) Close() error { return nil }
 // --- notCachedStore tests ---
 
 func TestNotCachedStoreInvalidateIsNoop(t *testing.T) {
+	t.Parallel()
 	s := &notCachedStore{VaultStore: newMockVaultStore()}
 	// Should not panic and is a no-op
 	s.Invalidate("tx1", "tx2")
 }
 
 func TestNotCachedStoreDelegatesToBacked(t *testing.T) {
+	t.Parallel()
 	backed := newMockVaultStore()
 	backed.statuses["tx1"] = &driver.TxStatus{TxID: "tx1", Code: driver.Valid}
 	s := &notCachedStore{VaultStore: backed}
@@ -124,6 +133,7 @@ func newCachedTestStore(backed *mockVaultStore) *cachedStore {
 }
 
 func TestCachedStoreGetTxStatusCacheHit(t *testing.T) {
+	t.Parallel()
 	backed := newMockVaultStore()
 	s := newCachedTestStore(backed)
 	// Pre-populate cache
@@ -138,6 +148,7 @@ func TestCachedStoreGetTxStatusCacheHit(t *testing.T) {
 }
 
 func TestCachedStoreGetTxStatusCacheMissPopulatesCache(t *testing.T) {
+	t.Parallel()
 	backed := newMockVaultStore()
 	backed.statuses["tx1"] = &driver.TxStatus{TxID: "tx1", Code: driver.Valid, Message: "from-backed"}
 	s := newCachedTestStore(backed)
@@ -153,6 +164,7 @@ func TestCachedStoreGetTxStatusCacheMissPopulatesCache(t *testing.T) {
 }
 
 func TestCachedStoreGetTxStatusMissNotFound(t *testing.T) {
+	t.Parallel()
 	s := newCachedTestStore(newMockVaultStore())
 
 	got, err := s.GetTxStatus(context.Background(), "missing")
@@ -161,6 +173,7 @@ func TestCachedStoreGetTxStatusMissNotFound(t *testing.T) {
 }
 
 func TestCachedStoreInvalidateDeletesFromCache(t *testing.T) {
+	t.Parallel()
 	s := newCachedTestStore(newMockVaultStore())
 	s.cache.Add("tx1", &entry{Code: driver.Valid})
 	s.cache.Add("tx2", &entry{Code: driver.Valid})
@@ -174,6 +187,7 @@ func TestCachedStoreInvalidateDeletesFromCache(t *testing.T) {
 }
 
 func TestCachedStoreStoreUpdatesCache(t *testing.T) {
+	t.Parallel()
 	backed := newMockVaultStore()
 	s := newCachedTestStore(backed)
 
@@ -188,6 +202,7 @@ func TestCachedStoreStoreUpdatesCache(t *testing.T) {
 }
 
 func TestCachedStoreStorePropagatesError(t *testing.T) {
+	t.Parallel()
 	backed := newMockVaultStore()
 	backed.storeErr = errors.New("store error")
 	s := newCachedTestStore(backed)
@@ -200,6 +215,7 @@ func TestCachedStoreStorePropagatesError(t *testing.T) {
 }
 
 func TestCachedStoreSetStatusesUpdatesCache(t *testing.T) {
+	t.Parallel()
 	backed := newMockVaultStore()
 	s := newCachedTestStore(backed)
 
@@ -215,6 +231,7 @@ func TestCachedStoreSetStatusesUpdatesCache(t *testing.T) {
 }
 
 func TestCachedStoreSetStatusesPropagatesError(t *testing.T) {
+	t.Parallel()
 	backed := newMockVaultStore()
 	backed.setErr = errors.New("set error")
 	s := newCachedTestStore(backed)

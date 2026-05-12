@@ -51,6 +51,7 @@ func newTestStore() *endorseTxStore[testKey] {
 }
 
 func TestEndorseTxPutAndGet(t *testing.T) {
+	t.Parallel()
 	s := newTestStore()
 	ctx := context.Background()
 	key := testKey{"tx1"}
@@ -64,6 +65,7 @@ func TestEndorseTxPutAndGet(t *testing.T) {
 }
 
 func TestEndorseTxExistsFalseBeforePut(t *testing.T) {
+	t.Parallel()
 	s := newTestStore()
 	exists, err := s.ExistsEndorseTx(context.Background(), testKey{"missing"})
 	require.NoError(t, err)
@@ -71,6 +73,7 @@ func TestEndorseTxExistsFalseBeforePut(t *testing.T) {
 }
 
 func TestEndorseTxExistsTrueAfterPut(t *testing.T) {
+	t.Parallel()
 	s := newTestStore()
 	ctx := context.Background()
 	key := testKey{"tx2"}
@@ -81,6 +84,7 @@ func TestEndorseTxExistsTrueAfterPut(t *testing.T) {
 }
 
 func TestEndorseTxUniqueKeyRouting(t *testing.T) {
+	t.Parallel()
 	s := newTestStore()
 	ctx := context.Background()
 	require.NoError(t, s.PutEndorseTx(ctx, testKey{"a"}, []byte("aaa")))
@@ -94,6 +98,7 @@ func TestEndorseTxUniqueKeyRouting(t *testing.T) {
 }
 
 func TestEndorseTxPropagatesErrors(t *testing.T) {
+	t.Parallel()
 	dbErr := errors.New("db error")
 	s := &endorseTxStore[testKey]{e: &mockEndorseTxStore{data: make(map[string][]byte), err: dbErr}}
 	ctx := context.Background()

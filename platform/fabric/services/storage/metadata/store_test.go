@@ -57,6 +57,7 @@ func newTestStore() *store[testKey, testMeta] {
 }
 
 func TestMetadataPutAndGet(t *testing.T) {
+	t.Parallel()
 	s := newTestStore()
 	ctx := context.Background()
 	key := testKey{"tx1"}
@@ -70,6 +71,7 @@ func TestMetadataPutAndGet(t *testing.T) {
 }
 
 func TestMetadataExistsFalseBeforePut(t *testing.T) {
+	t.Parallel()
 	s := newTestStore()
 	exists, err := s.ExistMetadata(context.Background(), testKey{"missing"})
 	require.NoError(t, err)
@@ -77,6 +79,7 @@ func TestMetadataExistsFalseBeforePut(t *testing.T) {
 }
 
 func TestMetadataExistsTrueAfterPut(t *testing.T) {
+	t.Parallel()
 	s := newTestStore()
 	ctx := context.Background()
 	key := testKey{"tx2"}
@@ -87,6 +90,7 @@ func TestMetadataExistsTrueAfterPut(t *testing.T) {
 }
 
 func TestMetadataJSONRoundTrip(t *testing.T) {
+	t.Parallel()
 	s := newTestStore()
 	ctx := context.Background()
 	key := testKey{"tx3"}
@@ -102,6 +106,7 @@ func TestMetadataJSONRoundTrip(t *testing.T) {
 }
 
 func TestMetadataPropagatesErrors(t *testing.T) {
+	t.Parallel()
 	dbErr := errors.New("db error")
 	s := &store[testKey, testMeta]{m: &mockMetadataStore{data: make(map[string][]byte), err: dbErr}}
 	ctx := context.Background()
