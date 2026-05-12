@@ -32,7 +32,11 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 				session.caller = caller
 			} else if !session.caller.Equal(caller) {
 				session.mutex.Unlock()
-				return nil, errors.Errorf("caller identity mismatch for session [%s]", internalSessionID)
+				return nil, errors.Errorf(
+					"caller identity mismatch for session [%s], [%s]!=[%s]",
+					internalSessionID,
+					session.caller, caller,
+				)
 			}
 		}
 		session.endpointAddress = endpointAddress
