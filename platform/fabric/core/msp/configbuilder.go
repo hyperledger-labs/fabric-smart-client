@@ -154,6 +154,7 @@ func SetupBCCSPKeystoreConfig(bccspConfig *factory.FactoryOpts, keystoreDir stri
 	return bccspConfig
 }
 
+// cloneFactoryOpts shallow-copies provider options other than SW; callers must not mutate those fields.
 func cloneFactoryOpts(opts *factory.FactoryOpts) *factory.FactoryOpts {
 	if opts == nil {
 		return nil
