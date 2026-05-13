@@ -137,10 +137,11 @@ func SetupBCCSPKeystoreConfig(bccspConfig *factory.FactoryOpts, keystoreDir stri
 	if bccspConfig == nil {
 		bccspConfig = factory.GetDefaultOpts()
 	}
+	bccspConfig = cloneFactoryOpts(bccspConfig)
 
 	if bccspConfig.Default == "SW" || bccspConfig.SW != nil {
 		if bccspConfig.SW == nil {
-			bccspConfig.SW = factory.GetDefaultOpts().SW
+			bccspConfig.SW = cloneFactoryOpts(factory.GetDefaultOpts()).SW
 		}
 
 		// Only override the KeyStorePath if it was left empty
@@ -151,6 +152,25 @@ func SetupBCCSPKeystoreConfig(bccspConfig *factory.FactoryOpts, keystoreDir stri
 	}
 
 	return bccspConfig
+}
+
+// cloneFactoryOpts shallow-copies provider options other than SW; callers must not mutate those fields.
+func cloneFactoryOpts(opts *factory.FactoryOpts) *factory.FactoryOpts {
+	if opts == nil {
+		return nil
+	}
+
+	cloned := *opts
+	if opts.SW != nil {
+		swOpts := *opts.SW
+		if opts.SW.FileKeystore != nil {
+			fileKeystore := *opts.SW.FileKeystore
+			swOpts.FileKeystore = &fileKeystore
+		}
+		cloned.SW = &swOpts
+	}
+
+	return &cloned
 }
 
 // GetLocalMspConfigWithType returns a local MSP

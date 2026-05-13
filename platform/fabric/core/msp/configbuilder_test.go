@@ -80,6 +80,46 @@ func TestSetupBCCSPKeystoreConfig(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, rtnConfig.SW.FileKeystore.KeyStorePath, keystoreDir)
 }
 
+func TestSetupBCCSPKeystoreConfig_DoesNotMutateDefaultOpts(t *testing.T) { //nolint:paralleltest
+	defaultOpts := factory.GetDefaultOpts()
+	require.NotNil(t, defaultOpts)
+	require.NotNil(t, defaultOpts.SW)
+	originalSW := *defaultOpts.SW
+	var originalKeyStorePath string
+	if defaultOpts.SW.FileKeystore != nil {
+		originalKeyStorePath = defaultOpts.SW.FileKeystore.KeyStorePath
+	}
+
+	rtnConfig := SetupBCCSPKeystoreConfig(nil, "/tmp/fabric-smart-client-test-keystore")
+
+	require.NotNil(t, rtnConfig)
+	require.Equal(t, "/tmp/fabric-smart-client-test-keystore", rtnConfig.SW.FileKeystore.KeyStorePath)
+	require.Equal(t, originalSW.Hash, defaultOpts.SW.Hash)
+	require.Equal(t, originalSW.Security, defaultOpts.SW.Security)
+	if defaultOpts.SW.FileKeystore == nil {
+		require.Empty(t, originalKeyStorePath)
+	} else {
+		require.Equal(t, originalKeyStorePath, defaultOpts.SW.FileKeystore.KeyStorePath)
+	}
+}
+
+func TestSetupBCCSPKeystoreConfig_DoesNotMutateInput(t *testing.T) { //nolint:paralleltest
+	bccspConfig := &factory.FactoryOpts{
+		Default: "SW",
+		SW: &factory.SwOpts{
+			Hash:         "SHA2",
+			Security:     256,
+			FileKeystore: &factory.FileKeystoreOpts{},
+		},
+	}
+
+	rtnConfig := SetupBCCSPKeystoreConfig(bccspConfig, "/tmp/fabric-smart-client-input-keystore")
+
+	require.NotNil(t, rtnConfig)
+	require.Equal(t, "/tmp/fabric-smart-client-input-keystore", rtnConfig.SW.FileKeystore.KeyStorePath)
+	require.Empty(t, bccspConfig.SW.FileKeystore.KeyStorePath)
+}
+
 func TestGetLocalMspConfig(t *testing.T) { //nolint:paralleltest
 	mspDir := "testdata/sampleconfig"
 	_, err := GetLocalMspConfig(mspDir, nil, "SampleOrg")
