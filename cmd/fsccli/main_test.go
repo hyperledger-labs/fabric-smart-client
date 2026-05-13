@@ -57,3 +57,36 @@ func TestArtifactsGen(t *testing.T) { //nolint:paralleltest
 
 	Expect(stringEntries).To(Equal([]string{"conf.json", "fabric.default", "fsc", "topology.yaml"}))
 }
+
+func TestArtifactsGenWithEnv(t *testing.T) { //nolint:paralleltest
+	RegisterFailHandler(func(message string, callerSkip ...int) {
+		panic(message)
+	})
+
+	cli, err := gexec.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli")
+	Expect(err).NotTo(HaveOccurred())
+	defer gexec.CleanupBuildArtifacts()
+
+	tmpDir, err := os.MkdirTemp("", t.Name())
+	Expect(err).NotTo(HaveOccurred())
+	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, tmpDir)
+
+	topologyFolder, err := filepath.Abs(filepath.Join("testdata", "fabric_iou.yaml"))
+	Expect(err).NotTo(HaveOccurred())
+
+	cmd := exec.Command(cli, "artifactsgen", "gen", "-o", tmpDir)
+	cmd.Env = append(os.Environ(), "FSCCLI_TOPOLOGY="+topologyFolder)
+
+	session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+	Expect(err).NotTo(HaveOccurred())
+	Eventually(session, time.Minute*2).Should(gexec.Exit(0))
+
+	entries, err := os.ReadDir(tmpDir)
+	Expect(err).NotTo(HaveOccurred())
+
+	var stringEntries []string
+	for _, entry := range entries {
+		stringEntries = append(stringEntries, entry.Name())
+	}
+	Expect(stringEntries).To(ContainElement("topology.yaml"))
+}
