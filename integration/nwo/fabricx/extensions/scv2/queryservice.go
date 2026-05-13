@@ -11,6 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"path/filepath"
+	"strconv"
 	"text/template"
 	"time"
 
@@ -22,9 +25,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
+const queryServicePortName = "QueryService"
+
 // generateQSExtension adds the query service endpoint configuration to the core.yaml
 // of every FSC node in the network topology.
-func generateQSExtension(n *network.Network) {
+// When TLS is enabled, each FSC node gets its own extension with mTLS client
+// credentials taken from the fabric peer's TLS directory.
+func generateQSExtension(n *network.Network, sidecarOrg, sidecarName string) {
 	context := n.Context
 
 	fscTop, ok := context.TopologyByName("fsc").(*fsc.Topology)
@@ -32,43 +39,49 @@ func generateQSExtension(n *network.Network) {
 		utils.Must(errors.New("cannot get fsc topo instance"))
 	}
 
-	// TODO set correct values
-	queryServiceHost := "localhost"
-	queryServicePort := 7001
-
-	// TODO: most of this logic should go into the query service package
-
-	c := config.Config{
-		RequestTimeout: 10 * time.Second,
-		Endpoints: []config.Endpoint{
-			{
-				Address:           fmt.Sprintf("%s:%v", queryServiceHost, queryServicePort),
-				ConnectionTimeout: grpc.DefaultConnectionTimeout,
-				TLS: &config.TLSConfig{
-					// TODO: allow TLS and mTLS integration tests
-					Enabled: n.TLSEnabled,
-					// note that this bundle contains all root certs of the network
-					RootCertPaths: []string{n.CACertsBundlePath()},
-				},
-			},
-		},
-	}
-
-	t, err := template.New("view_extension").Funcs(template.FuncMap{
-		"NetworkName":    func() string { return n.Topology().Name() },
-		"RequestTimeout": func() time.Duration { return c.RequestTimeout },
-		"Endpoints":      func() []config.Endpoint { return c.Endpoints },
-	}).Parse(qsExtensionTemplate)
-	utils.Must(err)
-
-	extension := bytes.NewBuffer([]byte{})
-	err = t.Execute(io.MultiWriter(extension), nil)
-	utils.Must(err)
+	queryServiceHost := "127.0.0.1"
+	scPeer := n.Peer(sidecarOrg, sidecarName)
+	queryServicePort := n.PeerPort(scPeer, queryServicePortName)
 
 	for _, fscNode := range fscTop.Nodes {
-		// TODO: find the correct SC instance to connect ...
+		endpoint := config.Endpoint{
+			Address:           net.JoinHostPort(queryServiceHost, strconv.Itoa(int(queryServicePort))),
+			ConnectionTimeout: grpc.DefaultConnectionTimeout,
+			TLS: &config.TLSConfig{
+				Enabled:       n.TLSEnabled,
+				RootCertPaths: []string{n.CACertsBundlePath()},
+			},
+		}
 
-		logger.Infof(">>> %v", fscNode)
+		// When TLS is enabled, the sidecar query service requires mTLS.
+		// Use the fabric peer's TLS certs (signed by the fabric org CA)
+		// as client credentials so the sidecar accepts the connection.
+		if n.TLSEnabled {
+			fscPeer := n.FSCPeerByName(fscNode.Name)
+			if fscPeer == nil {
+				utils.Must(fmt.Errorf("failed to get fsc peer by name: %v", fscNode.Name))
+			}
+			tlsDir := n.PeerLocalTLSDir(fscPeer)
+			endpoint.TLS.ClientCertPath = filepath.Join(tlsDir, "server.crt")
+			endpoint.TLS.ClientKeyPath = filepath.Join(tlsDir, "server.key")
+		}
+
+		c := config.Config{
+			RequestTimeout: 10 * time.Second,
+			Endpoints:      []config.Endpoint{endpoint},
+		}
+
+		t, err := template.New("view_extension").Funcs(template.FuncMap{
+			"NetworkName":    func() string { return n.Topology().Name() },
+			"RequestTimeout": func() time.Duration { return c.RequestTimeout },
+			"Endpoints":      func() []config.Endpoint { return c.Endpoints },
+		}).Parse(qsExtensionTemplate)
+		utils.Must(err)
+
+		extension := bytes.NewBuffer([]byte{})
+		err = t.Execute(io.MultiWriter(extension), nil)
+		utils.Must(err)
+
 		for _, uniqueName := range fscNode.ReplicaUniqueNames() {
 			context.AddExtension(uniqueName, api2.FabricExtension, extension.String())
 		}

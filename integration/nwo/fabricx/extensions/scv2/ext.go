@@ -58,7 +58,7 @@ func (e *Extension) CheckTopology() {
 }
 
 func (e *Extension) GenerateArtifacts() {
-	generateQSExtension(e.network)
+	generateQSExtension(e.network, e.sidecar.Org, e.sidecar.Name)
 	generateNSExtension(e.network, e.sidecar.Ports[fabric_network.ListenPort], e.sidecar.Host)
 }
 
@@ -76,13 +76,12 @@ func (e *Extension) addSCPeer() {
 	// reserve ports
 	if len(e.sidecar.Ports) == 0 {
 		e.sidecar.Ports = api.Ports{}
-		for _, portName := range fabric_network.PeerPortNames() {
-			e.sidecar.Ports[portName] = e.network.Context.ReservePort()
-		}
+		e.sidecar.Ports[fabric_network.ListenPort] = e.network.Context.ReservePort() // sidecar and notification service
+		e.sidecar.Ports[queryServicePortName] = e.network.Context.ReservePort()      // query service
 	}
 
 	for _, org := range e.network.PeerOrgs() {
-		logger.Infof("Add (virtual) SC Peer for org=%v", org.Name)
+		logger.Infof("Add committer for org=%v", org.Name)
 		// we add "another peer" for the scalable committer to use its credentials
 		p := &fabric_topo.Peer{
 			Name:         e.sidecar.Name,
@@ -94,7 +93,6 @@ func (e *Extension) addSCPeer() {
 			SkipInit:     true,
 			SkipRunning:  true,
 			TLSDisabled:  !e.network.TLSEnabled,
-			// Hostname:       "scalable-committer",
 		}
 		e.network.AppendPeer(p)
 		e.network.Context.SetPortsByPeerID(e.network.Prefix, p.ID(), e.sidecar.Ports)
