@@ -41,13 +41,13 @@ func ValidateConfig(confPath string) (Report, error) {
 
 	n, err := node.NewFromConfPathE(confPath)
 	if err != nil {
-		return report, errors.Wrap(err, "failed validating node configuration")
+		return report, errors.Wrap(err, "invalid node configuration")
 	}
 	report.Checks = append(report.Checks, fmt.Sprintf("loaded node configuration for [%s]", n.ID()))
 
 	configService, err := config.NewProvider(confPath)
 	if err != nil {
-		return report, errors.Wrap(err, "failed loading configuration")
+		return report, errors.Wrap(err, "invalid configuration path")
 	}
 
 	if configService.IsSet("fabric") {

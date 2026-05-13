@@ -239,6 +239,56 @@ fsccli view [flags]
 - `-t, --tlsCert <file>` - Client TLS certificate (optional, for mutual TLS)
 - `-k, --tlsKey <file>` - Client TLS key (optional, for mutual TLS)
 
+
+### `validate`
+
+Validate an FSC configuration before starting a node.
+
+**Usage:**
+```bash
+fsccli validate config --path <config-dir>
+```
+
+#### Subcommands
+
+##### `config`
+
+Run preflight validation on an FSC configuration directory.
+
+**Flags:**
+- `-p, --path <dir>` - **(Required)** Path to the FSC configuration directory
+
+**Examples:**
+
+1. **Validate a local FSC node configuration:**
+```bash
+fsccli validate config --path ./testdata/fsc/nodes/default
+```
+
+2. **Using environment variables:**
+```bash
+export FSCCLI_PATH=./testdata/fsc/nodes/default
+fsccli validate config
+```
+
+**Validation Coverage:**
+- node configuration loading
+- Fabric network configuration (when present)
+- gRPC server configuration (when enabled)
+- web server and TLS configuration (when enabled)
+- tracing configuration (when present)
+
+**Output:**
+
+On success, the command prints a validation summary such as:
+
+```text
+configuration is valid
+- loaded node configuration for [alice]
+- validated fabric networks [default]
+- validated fsc.grpc server configuration
+```
+
 **Authentication:**
 - `-r, --userCert <file>` - User certificate for message authentication
 - `-u, --userKey <file>` - User key for message signing
