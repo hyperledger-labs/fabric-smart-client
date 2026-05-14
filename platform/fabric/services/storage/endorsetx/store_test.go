@@ -12,6 +12,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
+	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 type testKey struct{ k string }
@@ -107,4 +111,13 @@ func TestEndorseTxPropagatesErrors(t *testing.T) {
 	require.ErrorIs(t, err, dbErr)
 	_, err = s.ExistsEndorseTx(ctx, testKey{"tx1"})
 	require.ErrorIs(t, err, dbErr)
+}
+
+func TestNewStoreMemory(t *testing.T) {
+	t.Parallel()
+	cp := multiplexed.MockTypeConfig(mem.Persistence, struct{}{})
+	d := multiplexed.NewDriver(cp, mem.NewNamedDriver(sqlite2.NewDbProvider()))
+	store, err := NewStore[testKey](cp, d)
+	require.NoError(t, err)
+	require.NotNil(t, store)
 }
