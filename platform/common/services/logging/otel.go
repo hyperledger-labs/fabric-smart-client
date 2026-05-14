@@ -80,7 +80,7 @@ func (l *spanLogger) Emit(ctx context.Context, record log.Record) {
 	trace.SpanFromContext(ctx).AddEvent(record.Body().AsString(), trace.WithAttributes(attribute.String(loggerNameKey, l.loggerName)))
 }
 
-func (l *spanLogger) Enabled(context.Context, log.Record) bool { return true }
+func (l *spanLogger) Enabled(context.Context, log.EnabledParameters) bool { return true }
 
 type sanitizedSpanLogger struct {
 	log.Logger
@@ -94,4 +94,4 @@ func (l *sanitizedSpanLogger) Emit(ctx context.Context, record log.Record) {
 	trace.SpanFromContext(ctx).AddEvent(str, trace.WithAttributes(attribute.String(loggerNameKey, l.loggerName)))
 }
 
-func (l *sanitizedSpanLogger) Enabled(context.Context, log.Record) bool { return true }
+func (l *sanitizedSpanLogger) Enabled(context.Context, log.EnabledParameters) bool { return true }
