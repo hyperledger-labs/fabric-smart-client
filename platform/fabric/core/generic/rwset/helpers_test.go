@@ -15,13 +15,13 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset/kvrwset"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/stretchr/testify/require"
+	gproto "google.golang.org/protobuf/proto"
 
 	pkgproto "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	protofakes "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil/fakes"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	gproto "google.golang.org/protobuf/proto"
 )
 
 type fakeRWSet struct {
