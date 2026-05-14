@@ -19,15 +19,18 @@ import (
 	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
+// testKey is a minimal identifier implementation for testing.
 type testKey struct{ k string }
 
 func (t testKey) UniqueKey() string { return t.k }
 
+// testMeta is a sample metadata type for testing JSON marshaling.
 type testMeta struct {
 	Name  string
 	Value int
 }
 
+// mockMetadataStore is an in-memory implementation of driver2.MetadataStore for testing.
 type mockMetadataStore struct {
 	data map[string][]byte
 	err  error

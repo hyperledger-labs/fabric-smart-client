@@ -18,10 +18,12 @@ import (
 	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
+// testKey is a minimal identifier implementation for testing.
 type testKey struct{ k string }
 
 func (t testKey) UniqueKey() string { return t.k }
 
+// mockEndorseTxStore is an in-memory implementation of driver2.EndorseTxStore for testing.
 type mockEndorseTxStore struct {
 	data map[string][]byte
 	err  error
