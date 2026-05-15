@@ -262,6 +262,10 @@ func (s *Service) GetString(key string) string {
 	return s.Configuration.GetString("fabric." + s.prefix + key)
 }
 
+func (s *Service) GetInt(key string) int {
+	return s.Configuration.GetInt("fabric." + s.prefix + key)
+}
+
 func (s *Service) GetDuration(key string) time.Duration {
 	return s.Configuration.GetDuration("fabric." + s.prefix + key)
 }
