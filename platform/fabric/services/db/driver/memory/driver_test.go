@@ -71,9 +71,8 @@ func TestNewDriverWithDbProvider_NotNil(t *testing.T) {
 }
 
 func TestNewEndorseTx_CRUD(t *testing.T) {
-	t.Parallel()
 	d := mem.NewDriver()
-	store, err := d.NewEndorseTx(viewdriver.PersistenceName("test"), t.Name())
+	store, err := d.NewEndorseTx(viewdriver.PersistenceName(t.Name()), t.Name())
 	require.NoError(t, err)
 	require.NotNil(t, store)
 
@@ -97,7 +96,6 @@ func TestNewEndorseTx_CRUD(t *testing.T) {
 }
 
 func TestNewMetadata_CRUD(t *testing.T) {
-	t.Parallel()
 	d := mem.NewDriver()
 	store, err := d.NewMetadata(viewdriver.PersistenceName(t.Name()), t.Name())
 	require.NoError(t, err)
@@ -123,7 +121,6 @@ func TestNewMetadata_CRUD(t *testing.T) {
 }
 
 func TestNewEnvelope_CRUD(t *testing.T) {
-	t.Parallel()
 	d := mem.NewDriver()
 	store, err := d.NewEnvelope(viewdriver.PersistenceName(t.Name()), t.Name())
 	require.NoError(t, err)
@@ -149,7 +146,6 @@ func TestNewEnvelope_CRUD(t *testing.T) {
 }
 
 func TestNewVault_CRUD(t *testing.T) {
-	t.Parallel()
 	d := mem.NewDriver()
 	store, err := d.NewVault(viewdriver.PersistenceName(t.Name()), t.Name())
 	require.NoError(t, err)
@@ -158,19 +154,23 @@ func TestNewVault_CRUD(t *testing.T) {
 	ctx := t.Context()
 	txID := "tx1"
 
+	// Confirm clean state before writing
+	status, err := store.GetTxStatus(ctx, txID)
+	require.NoError(t, err)
+	require.Nil(t, status)
+
 	// Write status
 	err = store.SetStatuses(ctx, fabricdriver.Valid, "ok", txID)
 	require.NoError(t, err)
 
 	// Read status
-	status, err := store.GetTxStatus(ctx, txID)
+	status, err = store.GetTxStatus(ctx, txID)
 	require.NoError(t, err)
 	require.NotNil(t, status)
 	require.Equal(t, fabricdriver.Valid, status.Code)
 }
 
 func TestNewEndorseTx_MultipleInstances(t *testing.T) {
-	t.Parallel()
 	d := mem.NewDriver()
 
 	store1, err := d.NewEndorseTx(viewdriver.PersistenceName(t.Name()+"_1"), "alpha")
