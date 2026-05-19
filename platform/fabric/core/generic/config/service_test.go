@@ -269,9 +269,11 @@ func TestServiceGetters(t *testing.T) {
 	require.Equal(t, 3, svc.MSPCacheSize())
 
 	// Ordering retries
-	m.GetIntReturnsOnCall(0, 5)
+	getIntCallsBefore := m.GetIntCallCount()
+	m.GetIntReturnsOnCall(getIntCallsBefore, 5)
 	require.Equal(t, 5, svc.BroadcastNumRetries())
-	m.GetIntReturnsOnCall(1, 0)
+	require.Equal(t, "fabric.mynet.ordering.numRetries", m.GetIntArgsForCall(getIntCallsBefore))
+	m.GetIntReturnsOnCall(getIntCallsBefore+1, 0)
 	require.Equal(t, 3, svc.BroadcastNumRetries())
 
 	m.IsSetReturns(true)
@@ -283,7 +285,9 @@ func TestServiceGetters(t *testing.T) {
 	// Orderer connection pool
 	m.IsSetReturns(true)
 	m.GetIntReturns(20)
+	poolCallIndex := m.GetIntCallCount()
 	require.Equal(t, 20, svc.OrdererConnectionPoolSize())
+	require.Equal(t, "fabric.mynet.ordering.connectionPoolSize", m.GetIntArgsForCall(poolCallIndex))
 	m.IsSetReturns(false)
 	require.Equal(t, 10, svc.OrdererConnectionPoolSize())
 
