@@ -265,6 +265,7 @@ func TestService_SetDefaultIdentity(t *testing.T) {
 		require.Equal(t, initialSid, mspService.DefaultSigningIdentity())
 	})
 }
+
 func TestService_IsMe(t *testing.T) {
 	t.Parallel()
 	id := view.Identity("id1")
