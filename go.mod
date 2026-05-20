@@ -22,7 +22,7 @@ require (
 	github.com/hyperledger/fabric-contract-api-go/v2 v2.2.0
 	github.com/hyperledger/fabric-lib-go v1.1.3
 	github.com/hyperledger/fabric-protos-go-apiv2 v0.3.7
-	github.com/hyperledger/fabric-x-common v0.2.2
+	github.com/hyperledger/fabric-x-common v0.2.4
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/jackc/pgxlisten v0.0.0-20241106001234-1d6f6656415c
 	github.com/jaegertracing/jaeger-idl v0.6.0
