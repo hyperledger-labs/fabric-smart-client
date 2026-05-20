@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package tracing_test
 
 import (
-	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,9 +30,7 @@ func TestNewProviderFromConfig_NoneProvider(t *testing.T) {
 	require.NotNil(t, provider)
 }
 
-func TestNewProviderFromConfig_ConsoleProvider(t *testing.T) {
-	t.Parallel()
-
+func TestNewProviderFromConfig_ConsoleProvider(t *testing.T) { //nolint:paralleltest
 	config := tracing.Config{
 		Provider: tracing.Console,
 	}
@@ -41,9 +40,7 @@ func TestNewProviderFromConfig_ConsoleProvider(t *testing.T) {
 	require.NotNil(t, provider)
 }
 
-func TestNewProviderFromConfig_FileProvider(t *testing.T) {
-	t.Parallel()
-
+func TestNewProviderFromConfig_FileProvider(t *testing.T) { //nolint:paralleltest
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "traces.txt")
 
@@ -106,29 +103,7 @@ func TestNewProviderFromConfig_OtlpProvider_EmptyAddress(t *testing.T) {
 	require.Contains(t, err.Error(), "empty url")
 }
 
-func TestNewProviderFromConfig_OtlpProvider(t *testing.T) {
-	t.Parallel()
-
-	t.Skip("Skipping OTLP test as it requires external service")
-
-	config := tracing.Config{
-		Provider: tracing.Otlp,
-		Otlp: tracing.OtlpConfig{
-			Address: "localhost:4317",
-		},
-		Sampling: tracing.SamplingConfig{
-			Ratio: 1.0,
-		},
-	}
-
-	provider, err := tracing.NewProviderFromConfig(config)
-	require.NoError(t, err)
-	require.NotNil(t, provider)
-}
-
-func TestNewProviderFromConfig_WithSampling(t *testing.T) {
-	t.Parallel()
-
+func TestNewProviderFromConfig_WithSampling(t *testing.T) { //nolint:paralleltest
 	config := tracing.Config{
 		Provider: tracing.Console,
 		Sampling: tracing.SamplingConfig{
@@ -176,13 +151,15 @@ func TestExtractMetricsOpts_WithNodeName(t *testing.T) {
 	nodeNameProvider := tracing.NewProviderWithNodeName(provider, "test-node")
 	tracer := nodeNameProvider.Tracer("test-tracer")
 
-	ctx, span := tracer.Start(context.Background(), "test-span")
+	ctx, span := tracer.Start(t.Context(), "test-span")
 	defer span.End()
 
 	require.NotNil(t, ctx)
 	require.NotNil(t, span)
 }
 
+var uniqueKeyCounter atomic.Int64
+
 func randomSuffix() string {
-	return "unique_" + os.Getenv("TEST_PROCESS_PID")
+	return fmt.Sprintf("%d", uniqueKeyCounter.Add(1))
 }

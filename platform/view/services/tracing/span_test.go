@@ -7,13 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package tracing_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
@@ -44,17 +41,8 @@ func TestLabels_AppendAndToLabels(t *testing.T) {
 func TestTracer_Start_CreatesSpanContext(t *testing.T) {
 	t.Parallel()
 
-	backingProvider := noop.NewTracerProvider()
-	metricsProvider := &disabled.Provider{}
-
-	provider := tracing.NewProviderWithBackingProvider(backingProvider, metricsProvider)
-	tracer := provider.Tracer("test-tracer", tracing.WithMetricsOpts(tracing.MetricsOpts{
-		Namespace:  "test",
-		Subsystem:  "test",
-		LabelNames: []string{"status"},
-	}))
-
-	ctx := context.Background()
+	tracer := newTestTracer(t, "status")
+	ctx := t.Context()
 	_, span := tracer.Start(ctx, "operation")
 
 	require.NotNil(t, span)
@@ -65,17 +53,8 @@ func TestTracer_Start_CreatesSpanContext(t *testing.T) {
 func TestTracer_Start_WithAttributes(t *testing.T) {
 	t.Parallel()
 
-	backingProvider := noop.NewTracerProvider()
-	metricsProvider := &disabled.Provider{}
-
-	provider := tracing.NewProviderWithBackingProvider(backingProvider, metricsProvider)
-	tracer := provider.Tracer("test-tracer", tracing.WithMetricsOpts(tracing.MetricsOpts{
-		Namespace:  "test",
-		Subsystem:  "test",
-		LabelNames: []string{"status"},
-	}))
-
-	ctx := context.Background()
+	tracer := newTestTracer(t, "status")
+	ctx := t.Context()
 	_, span := tracer.Start(
 		ctx,
 		"operation",
@@ -90,17 +69,8 @@ func TestTracer_Start_WithAttributes(t *testing.T) {
 func TestSpan_SetAttributes(t *testing.T) {
 	t.Parallel()
 
-	backingProvider := noop.NewTracerProvider()
-	metricsProvider := &disabled.Provider{}
-
-	provider := tracing.NewProviderWithBackingProvider(backingProvider, metricsProvider)
-	tracer := provider.Tracer("test-tracer", tracing.WithMetricsOpts(tracing.MetricsOpts{
-		Namespace:  "test",
-		Subsystem:  "test",
-		LabelNames: []string{"status"},
-	}))
-
-	ctx := context.Background()
+	tracer := newTestTracer(t, "status")
+	ctx := t.Context()
 	_, span := tracer.Start(ctx, "operation")
 
 	span.SetAttributes(
@@ -116,17 +86,8 @@ func TestSpan_SetAttributes(t *testing.T) {
 func TestSpan_AddEvent(t *testing.T) {
 	t.Parallel()
 
-	backingProvider := noop.NewTracerProvider()
-	metricsProvider := &disabled.Provider{}
-
-	provider := tracing.NewProviderWithBackingProvider(backingProvider, metricsProvider)
-	tracer := provider.Tracer("test-tracer", tracing.WithMetricsOpts(tracing.MetricsOpts{
-		Namespace:  "test",
-		Subsystem:  "test",
-		LabelNames: []string{"level"},
-	}))
-
-	ctx := context.Background()
+	tracer := newTestTracer(t, "level")
+	ctx := t.Context()
 	_, span := tracer.Start(ctx, "operation")
 
 	span.AddEvent("event1", tracing.WithAttributes(tracing.String("level", "info")))
@@ -139,17 +100,8 @@ func TestSpan_AddEvent(t *testing.T) {
 func TestSpan_End_WithTimestamp(t *testing.T) {
 	t.Parallel()
 
-	backingProvider := noop.NewTracerProvider()
-	metricsProvider := &disabled.Provider{}
-
-	provider := tracing.NewProviderWithBackingProvider(backingProvider, metricsProvider)
-	tracer := provider.Tracer("test-tracer", tracing.WithMetricsOpts(tracing.MetricsOpts{
-		Namespace:  "test",
-		Subsystem:  "test",
-		LabelNames: []string{"status"},
-	}))
-
-	ctx := context.Background()
+	tracer := newTestTracer(t, "status")
+	ctx := t.Context()
 	_, span := tracer.Start(ctx, "operation")
 
 	span.End()
@@ -159,17 +111,8 @@ func TestSpan_End_WithTimestamp(t *testing.T) {
 func TestSpan_CompleteLifecycle(t *testing.T) {
 	t.Parallel()
 
-	backingProvider := noop.NewTracerProvider()
-	metricsProvider := &disabled.Provider{}
-
-	provider := tracing.NewProviderWithBackingProvider(backingProvider, metricsProvider)
-	tracer := provider.Tracer("test-tracer", tracing.WithMetricsOpts(tracing.MetricsOpts{
-		Namespace:  "test",
-		Subsystem:  "test",
-		LabelNames: []string{"status", "error"},
-	}))
-
-	ctx := context.Background()
+	tracer := newTestTracer(t, "status", "error")
+	ctx := t.Context()
 	newCtx, span := tracer.Start(
 		ctx,
 		"complex-operation",

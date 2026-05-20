@@ -7,26 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package tracing_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
 func TestProviderWithNodeName(t *testing.T) {
 	t.Parallel()
 
-	baseProvider := noop.NewTracerProvider()
-	nodeName := "test-node"
-
-	provider := tracing.NewProviderWithNodeName(baseProvider, nodeName)
+	provider := tracing.NewProviderWithNodeName(newTestProvider(t), "test-node")
 	require.NotNil(t, provider)
 
 	tracer := provider.Tracer("test-tracer")
@@ -36,13 +30,10 @@ func TestProviderWithNodeName(t *testing.T) {
 func TestProviderWithNodeName_TracerIncludesNodeName(t *testing.T) {
 	t.Parallel()
 
-	baseProvider := noop.NewTracerProvider()
-	nodeName := "my-node-123"
-
-	provider := tracing.NewProviderWithNodeName(baseProvider, nodeName)
+	provider := tracing.NewProviderWithNodeName(newTestProvider(t), "my-node-123")
 	tracer := provider.Tracer("test-tracer")
 
-	ctx, span := tracer.Start(context.Background(), "test-span")
+	ctx, span := tracer.Start(t.Context(), "test-span")
 	defer span.End()
 
 	require.NotNil(t, ctx)
@@ -52,10 +43,7 @@ func TestProviderWithNodeName_TracerIncludesNodeName(t *testing.T) {
 func TestNewProviderWithBackingProvider(t *testing.T) {
 	t.Parallel()
 
-	backingProvider := noop.NewTracerProvider()
-	metricsProvider := &disabled.Provider{}
-
-	provider := tracing.NewProviderWithBackingProvider(backingProvider, metricsProvider)
+	provider := newTestProvider(t)
 	require.NotNil(t, provider)
 
 	tracer := provider.Tracer("test-tracer")
@@ -65,10 +53,7 @@ func TestNewProviderWithBackingProvider(t *testing.T) {
 func TestTracerProvider_Tracer_EmptyName(t *testing.T) {
 	t.Parallel()
 
-	backingProvider := noop.NewTracerProvider()
-	metricsProvider := &disabled.Provider{}
-
-	provider := tracing.NewProviderWithBackingProvider(backingProvider, metricsProvider)
+	provider := newTestProvider(t)
 
 	require.Panics(t, func() {
 		provider.Tracer("")
@@ -78,10 +63,7 @@ func TestTracerProvider_Tracer_EmptyName(t *testing.T) {
 func TestTracerProvider_TracerWithMetricsOpts(t *testing.T) {
 	t.Parallel()
 
-	backingProvider := noop.NewTracerProvider()
-	metricsProvider := &disabled.Provider{}
-
-	provider := tracing.NewProviderWithBackingProvider(backingProvider, metricsProvider)
+	provider := newTestProvider(t)
 
 	opts := tracing.WithMetricsOpts(tracing.MetricsOpts{
 		Namespace:  "test_ns",
@@ -92,7 +74,7 @@ func TestTracerProvider_TracerWithMetricsOpts(t *testing.T) {
 	tracer := provider.Tracer("test-tracer", opts)
 	require.NotNil(t, tracer)
 
-	ctx, span := tracer.Start(context.Background(), "test-span")
+	ctx, span := tracer.Start(t.Context(), "test-span")
 	defer span.End()
 
 	require.NotNil(t, ctx)
@@ -145,13 +127,12 @@ func (mp *mockMetricsProvider) NewHistogram(opts metrics.HistogramOpts) metrics.
 func TestTracerProvider_CompleteTraceLifecycle(t *testing.T) {
 	t.Parallel()
 
-	backingProvider := noop.NewTracerProvider()
 	metricsProvider := &mockMetricsProvider{
 		counters:   make(map[string]*mockCounter),
 		histograms: make(map[string]*mockHistogram),
 	}
 
-	provider := tracing.NewProviderWithBackingProvider(backingProvider, metricsProvider)
+	provider := tracing.NewProviderWithBackingProvider(newTestProvider(t), metricsProvider)
 
 	opts := tracing.WithMetricsOpts(tracing.MetricsOpts{
 		Namespace:  "test_ns",
@@ -160,7 +141,7 @@ func TestTracerProvider_CompleteTraceLifecycle(t *testing.T) {
 	})
 
 	tracer := provider.Tracer("test-tracer", opts)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	ctx, span := tracer.Start(ctx, "operation", tracing.WithAttributes(tracing.String("status", "success")))
 	require.NotNil(t, ctx)
@@ -177,7 +158,7 @@ func TestTracerProvider_CompleteTraceLifecycle(t *testing.T) {
 func TestGetProvider_Success(t *testing.T) {
 	t.Parallel()
 
-	provider := noop.NewTracerProvider()
+	provider := newTestProvider(t)
 
 	retrievedProvider, err := tracing.GetProvider(mockServiceProvider{provider: provider})
 	require.NoError(t, err)

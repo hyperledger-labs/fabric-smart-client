@@ -53,7 +53,12 @@ func RegisterReplacer(s, replaceWith string) {
 func Replacers() map[string]string {
 	replacersMutex.RLock()
 	defer replacersMutex.RUnlock()
-	return replacers
+	// Return a copy so callers can safely iterate without holding the lock.
+	copy := make(map[string]string, len(replacers))
+	for k, v := range replacers {
+		copy[k] = v
+	}
+	return copy
 }
 
 func WithMetricsOpts(o MetricsOpts) trace.TracerOption {
