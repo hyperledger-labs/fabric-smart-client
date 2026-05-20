@@ -64,43 +64,39 @@ new clients can read each other's data byte-for-byte.
 
 ## 3. The topology
 
-We use five FSC nodes across three Fabric organisations:
+We use three FSC nodes across three Fabric organisations:
 
 ```mermaid
 flowchart LR
-    CLI[Client tests / CLI] -->|view-factory call| Issuer[FSC node: issuer · Org1]
+    CLI[Client tests / CLI] -->|view-factory call| Endorser[FSC node: endorser · Org1]
     CLI -->|view-factory call| Alice[FSC node: alice · Org2]
     CLI -->|view-factory call| Bob[FSC node: bob · Org3]
-    Issuer -->|RegisterResponder| Endorser[FSC node: endorser · Org1<br/>approver role]
+    Endorser -->|RegisterResponder| Endorser
     Alice -->|RegisterResponder| Endorser
     Bob -->|RegisterResponder| Endorser
-    Issuer -->|RegisterResponder| Auditor[FSC node: auditor · Org1]
-    Alice -->|RegisterResponder| Auditor
-    Bob -->|RegisterResponder| Auditor
     Alice -->|TransferReceiver| Bob
     Bob -->|TransferReceiver| Alice
     Endorser --> Orderer[(Fabric-X Arma orderer)]
     Orderer --> Sidecar[Fabric-X-Committer Sidecar]
     Sidecar --> Coordinator[Coordinator]
     Coordinator --> Validator[Validator-Committer]
-    Issuer -->|read-only| QS[Query Service]
+    Endorser -->|read-only| QS[Query Service]
     Alice -->|read-only| QS
     Bob -->|read-only| QS
 ```
 
 | Node       | Org  | Role                                                           |
 | ---------- | ---- | -------------------------------------------------------------- |
-| `issuer`   | Org1 | Initiator for `InitLedger` and `CreateAsset`.                  |
-| `endorser` | Org1 | Approver. Holds the chaincode-equivalent validation logic.     |
-| `auditor`  | Org1 | Witness responder on every state-changing transaction.         |
+| `endorser` | Org1 | Initiator for `InitLedger` and `CreateAsset`; responder for   |
+|            |      | all state-changing transactions.                               |
 | `alice`    | Org2 | Asset owner. Initiates Update/Delete/Transfer; receives.       |
 | `bob`      | Org3 | Asset owner. Same shape as Alice.                              |
 
 The Fabric-X namespace is named `asset-transfer` and is approved by Org1
 with unanimity. The endorser FSC node is therefore the only node whose
-signature is *strictly* required by the namespace policy. The auditor and
-the receiver still sign — those signatures are enforced at the
-initiator's `CollectEndorsementsView` step, not at the namespace policy.
+signature is *strictly* required by the namespace policy. The receiver
+still signs — that signature is enforced at the initiator's
+`CollectEndorsementsView` step, not at the namespace policy.
 
 The full topology is in [`topology.go`](topology.go). It mirrors
 `integration/fabricx/iou/topology.go` so reviewers familiar with IOU can
@@ -136,9 +132,8 @@ Each row is exercised by code in this directory. The file map:
 | [`views/transfer.go`](views/transfer.go) |   ~140 | TransferAssetView + TransferAssetReceiverView           |
 | [`views/get_all.go`](views/get_all.go)   |   ~100 | GetAllAssetsView (explicit-ID-list pattern)             |
 | [`views/endorser.go`](views/endorser.go) |   ~140 | EndorserView (the chaincode replacement)                |
-| [`views/auditor.go`](views/auditor.go)   |    ~60 | AuditorView (witness responder)                         |
 | [`views/utils.go`](views/utils.go)       |    ~50 | FinalityListener helper                                 |
-| [`topology.go`](topology.go)             |   ~120 | Topology() — five FSC nodes, three orgs, one namespace  |
+| [`topology.go`](topology.go)             |   ~120 | Topology() — three FSC nodes, three orgs, one namespace |
 | [`sdk.go`](sdk.go)                       |    ~40 | Per-example FSC SDK (mirrors iou/sdk.go)                |
 | [`commands_test.go`](commands_test.go)   |   ~150 | Test helpers — one per chaincode method                 |
 | [`chaincode_to_fsc_test.go`](chaincode_to_fsc_test.go) | ~120 | Single end-to-end test, reads as a tutorial |
@@ -172,7 +167,7 @@ tx.AddCommand("init")
 for _, asset := range SeedAssets() {
     tx.AddOutput(asset)
 }
-viewCtx.RunView(state.NewCollectEndorsementsView(tx, i.Endorser, i.Auditor))
+viewCtx.RunView(state.NewCollectEndorsementsView(tx, i.Endorser))
 viewCtx.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, FinalityTimeout))
 ```
 
@@ -213,13 +208,13 @@ Chaincode mutates `asset.Owner` and PutState's. The new owner has no say
 in whether they receive the asset.
 
 FSC's [`TransferAssetView`](views/transfer.go) collects endorsements in
-this order: **new owner first**, **endorser**, **auditor**. The new
-owner runs [`TransferAssetReceiverView`](views/transfer.go) and signs
-**only if it accepts** the incoming asset. This is a strictly stronger
-property than the chaincode could express:
-
-> A buggy or malicious caller can no longer force an asset onto an
-> unwilling new owner. Receiver acceptance is part of the protocol.
+this order: **new owner first**, **endorser**. The new owner runs
+[`TransferAssetReceiverView`](views/transfer.go) and signs **only if it
+accepts** the incoming asset. This is a strictly stronger property than
+the chaincode could express:
+. The new owner runs
+[`TransferAssetReceiverView`](views/transfer.go) and signs **only if it
+accepts** the incoming asset. This is a strictly stronger property than
 
 The endorser additionally requires that `Color`, `Size`, and
 `AppraisedValue` do **not** change on a transfer — another tightening
@@ -245,15 +240,11 @@ tutorial's Section 9 walks through all three.
 
 ## 6. Running the example
 
-Prerequisites — match the Fabric-X compatibility matrix at the time of
-writing:
+See the FSC documentation for prerequisites and local setup:
 
-| Tool                | Version          |
-| ------------------- | ---------------- |
-| Go                  | 1.26+            |
-| Docker              | 20.x+            |
-| Fabric-X-Orderer    | v0.0.21 / v0.0.23 |
-| Fabric-X-Committer  | v0.1.7  / v0.1.9 |
+- [Prerequisites and installation](../../../docs/README.md)
+- [Development environment](../../../docs/dev/development.md)
+- [FSC CLI reference](../../../docs/reference/fsc-cli.md)
 
 Run the test from the FSC repo root:
 
@@ -305,23 +296,14 @@ behavioural assertion. Highlights:
 
 ## 8. Architectural choices we made and why
 
-### 8.1 Why a separate auditor node
-
-Classical chaincode applications often retrofitted an auditor by
-emitting chaincode events and scraping them off-chain. With FSC the
-auditor becomes a topology-level role — register an FSC node, hand it
-`AuditorView` as a responder, and every state-changing transaction
-automatically pulls the auditor into the endorsement flow. We did this
-to demonstrate the pattern; the example would still work without it.
-
-### 8.2 Why receiver-as-responder for Transfer
+### 8.1 Why receiver-as-responder for Transfer
 
 The chaincode TransferAsset is one-sided. The FSC version is two-sided.
 This is not a faithful migration in the strict sense — it changes the
 protocol's security model — but it is *the* migration's most useful
 upgrade for any application where asset receipts have side effects.
 
-### 8.3 Why the asset's JSON shape is preserved verbatim
+### 8.2 Why the asset's JSON shape is preserved verbatim
 
 Apps that store hashes of on-chain payloads, or apps with off-chain
 indexers that watch for chaincode-era state transitions, do not need to
@@ -387,21 +369,3 @@ has no private data. The follow-on demo (asset-transfer-private-data)
 will demonstrate option 2.
 
 ---
-
-## 10. Where to next
-
-- **Second demo (work-in-progress).** A port of
-  `asset-transfer-private-data` that exercises the
-  hash-on-ledger / body-via-P2P pattern from §9.4.
-- **CC-Tools port (stretch).** Show that the methodology generalises
-  beyond hand-written chaincode.
-- **Index-key range scan helper (stretch).** A reusable FSC view that
-  implements the index-key pattern from §9.1, so applications get a
-  drop-in substitute for `GetStateByRange`.
-- **Blog post.** A 1500–2500-word digest of this README aimed at the
-  LFDT community.
-- **Meetup talk.** A 15-minute walkthrough with slides.
-
-Issues and PRs welcome. The mentorship project that produced this
-example is tracked in
-[LF-Decentralized-Trust-Mentorships/mentorship-program#59](https://github.com/LF-Decentralized-Trust-Mentorships/mentorship-program/issues/59).
