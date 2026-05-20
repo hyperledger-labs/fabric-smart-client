@@ -34,10 +34,9 @@ func initEndorser(ii *integration.Infrastructure) {
 func initLedger(ii *integration.Infrastructure) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultViewTimeout)
 	defer cancel()
-	_, err := ii.Client(chaincodetofsc.IssuerNode).CallViewWithContext(ctx, "init_ledger",
+	_, err := ii.Client(chaincodetofsc.EndorserNode).CallViewWithContext(ctx, "init_ledger",
 		common.JSONMarshall(views.InitParams{
 			Endorser: ii.Identity(chaincodetofsc.EndorserNode),
-			Auditor:  ii.Identity(chaincodetofsc.AuditorNode),
 		}))
 	Expect(err).NotTo(HaveOccurred(), "init_ledger should succeed")
 }
@@ -53,7 +52,6 @@ func createAsset(ii *integration.Infrastructure, initiator string, a *states.Ass
 			Owner:          a.Owner,
 			AppraisedValue: a.AppraisedValue,
 			Endorser:       ii.Identity(chaincodetofsc.EndorserNode),
-			Auditor:        ii.Identity(chaincodetofsc.AuditorNode),
 		}))
 	Expect(err).NotTo(HaveOccurred(), "create_asset %s", a.ID)
 }
@@ -65,7 +63,6 @@ func createAssetExpectFail(ii *integration.Infrastructure, initiator string, a *
 		common.JSONMarshall(views.CreateParams{
 			ID: a.ID, Color: a.Color, Size: a.Size, Owner: a.Owner, AppraisedValue: a.AppraisedValue,
 			Endorser: ii.Identity(chaincodetofsc.EndorserNode),
-			Auditor:  ii.Identity(chaincodetofsc.AuditorNode),
 		}))
 	Expect(err).To(HaveOccurred(), "create_asset %s should have failed", a.ID)
 }
@@ -111,7 +108,6 @@ func updateAsset(ii *integration.Infrastructure, initiator string, a *states.Ass
 		common.JSONMarshall(views.UpdateParams{
 			ID: a.ID, Color: a.Color, Size: a.Size, Owner: a.Owner, AppraisedValue: a.AppraisedValue,
 			Endorser: ii.Identity(chaincodetofsc.EndorserNode),
-			Auditor:  ii.Identity(chaincodetofsc.AuditorNode),
 		}))
 	Expect(err).NotTo(HaveOccurred(), "update_asset %s", a.ID)
 }
@@ -123,7 +119,6 @@ func deleteAsset(ii *integration.Infrastructure, initiator, id string) {
 		common.JSONMarshall(views.DeleteParams{
 			ID:       id,
 			Endorser: ii.Identity(chaincodetofsc.EndorserNode),
-			Auditor:  ii.Identity(chaincodetofsc.AuditorNode),
 		}))
 	Expect(err).NotTo(HaveOccurred(), "delete_asset %s", id)
 }
@@ -137,7 +132,6 @@ func transferAsset(ii *integration.Infrastructure, initiator, id, newOwnerLabel,
 			NewOwnerLabel: newOwnerLabel,
 			NewOwner:      ii.Identity(newOwnerNode),
 			Endorser:      ii.Identity(chaincodetofsc.EndorserNode),
-			Auditor:       ii.Identity(chaincodetofsc.AuditorNode),
 		}))
 	Expect(err).NotTo(HaveOccurred(), "transfer_asset %s -> %s", id, newOwnerLabel)
 	return common.JSONUnmarshalString(res)
@@ -152,7 +146,6 @@ func transferAssetExpectFail(ii *integration.Infrastructure, initiator, id, newO
 			NewOwnerLabel: newOwnerLabel,
 			NewOwner:      ii.Identity(newOwnerNode),
 			Endorser:      ii.Identity(chaincodetofsc.EndorserNode),
-			Auditor:       ii.Identity(chaincodetofsc.AuditorNode),
 		}))
 	Expect(err).To(HaveOccurred())
 }

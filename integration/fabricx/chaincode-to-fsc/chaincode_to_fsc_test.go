@@ -66,24 +66,24 @@ func (s *TestSuite) TestEndToEnd() {
 	initLedger(s.II)
 
 	By("ReadAsset — chaincode used GetState; FSC uses Query Service")
-	a1 := readAsset(s.II, chaincodetofsc.IssuerNode, "asset1")
+	a1 := readAsset(s.II, chaincodetofsc.EndorserNode, "asset1")
 	Expect(a1).To(Equal(&states.Asset{
 		ID: "asset1", Color: "blue", Size: 5, Owner: "Tomoko", AppraisedValue: 300,
 	}))
 
 	By("AssetExists — chaincode read+nil-check; FSC same shape, no unmarshal")
-	Expect(assetExists(s.II, chaincodetofsc.IssuerNode, "asset1")).To(BeTrue())
-	Expect(assetExists(s.II, chaincodetofsc.IssuerNode, "doesNotExist")).To(BeFalse())
+	Expect(assetExists(s.II, chaincodetofsc.EndorserNode, "asset1")).To(BeTrue())
+	Expect(assetExists(s.II, chaincodetofsc.EndorserNode, "doesNotExist")).To(BeFalse())
 
 	By("CreateAsset — happy path: brand-new ID")
 	newAsset := &states.Asset{
 		ID: "asset7", Color: "purple", Size: 7, Owner: "alice", AppraisedValue: 777,
 	}
-	createAsset(s.II, chaincodetofsc.IssuerNode, newAsset)
-	Expect(readAsset(s.II, chaincodetofsc.IssuerNode, "asset7")).To(Equal(newAsset))
+	createAsset(s.II, chaincodetofsc.EndorserNode, newAsset)
+	Expect(readAsset(s.II, chaincodetofsc.EndorserNode, "asset7")).To(Equal(newAsset))
 
 	By("CreateAsset — negative path: duplicate ID is rejected by the endorser")
-	createAssetExpectFail(s.II, chaincodetofsc.IssuerNode, newAsset)
+	createAssetExpectFail(s.II, chaincodetofsc.EndorserNode, newAsset)
 
 	By("UpdateAsset — chaincode existence-check + PutState; FSC uses AddInputByLinearID")
 	updated := &states.Asset{
@@ -106,12 +106,12 @@ func (s *TestSuite) TestEndToEnd() {
 
 	By("DeleteAsset — chaincode existence-check + DelState; FSC: AddInputByLinearID, no output")
 	deleteAsset(s.II, chaincodetofsc.BobNode, "asset7")
-	Expect(assetExists(s.II, chaincodetofsc.IssuerNode, "asset7")).To(BeFalse())
-	readAssetExpectFail(s.II, chaincodetofsc.IssuerNode, "asset7")
+	Expect(assetExists(s.II, chaincodetofsc.EndorserNode, "asset7")).To(BeFalse())
+	readAssetExpectFail(s.II, chaincodetofsc.EndorserNode, "asset7")
 
 	By("GetAllAssets — chaincode used GetStateByRange; Fabric-X has no range query, FSC uses explicit-ID-list")
 	allIDs := []string{"asset1", "asset2", "asset3", "asset4", "asset5", "asset6", "asset7"}
-	all := getAllAssets(s.II, chaincodetofsc.IssuerNode, allIDs)
+	all := getAllAssets(s.II, chaincodetofsc.EndorserNode, allIDs)
 	// asset7 was deleted, the seed six remain
 	Expect(all).To(HaveLen(6))
 	seedIDs := make([]string, len(views.SeedAssets()))
