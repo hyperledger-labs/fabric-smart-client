@@ -268,19 +268,20 @@ func TestService_SetDefaultIdentity(t *testing.T) {
 
 func TestService_IsMe(t *testing.T) {
 	t.Parallel()
-	mspService, signerService, _, _ := setup(t)
 	id := view.Identity("id1")
 
 	t.Run("True", func(t *testing.T) {
 		t.Parallel()
+		mspService, signerService, _, _ := setup(t)
 		signerService.IsMeReturns(true)
-		require.True(t, mspService.IsMe(context.Background(), id))
+		require.True(t, mspService.IsMe(t.Context(), id))
 	})
 
 	t.Run("False", func(t *testing.T) {
 		t.Parallel()
+		mspService, signerService, _, _ := setup(t)
 		signerService.IsMeReturns(false)
-		require.False(t, mspService.IsMe(context.Background(), id))
+		require.False(t, mspService.IsMe(t.Context(), id))
 	})
 }
 
