@@ -70,7 +70,7 @@ func TestNewDriverWithDbProvider_NotNil(t *testing.T) {
 	require.NotNil(t, d)
 }
 
-func TestNewEndorseTx_CRUD(t *testing.T) {
+func TestNewEndorseTx_CRUD(t *testing.T) { //nolint:paralleltest
 	d := mem.NewDriver()
 	store, err := d.NewEndorseTx(viewdriver.PersistenceName(t.Name()), t.Name())
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestNewEndorseTx_CRUD(t *testing.T) {
 	require.Equal(t, []byte("payload"), val)
 }
 
-func TestNewMetadata_CRUD(t *testing.T) {
+func TestNewMetadata_CRUD(t *testing.T) { //nolint:paralleltest
 	d := mem.NewDriver()
 	store, err := d.NewMetadata(viewdriver.PersistenceName(t.Name()), t.Name())
 	require.NoError(t, err)
@@ -120,7 +120,7 @@ func TestNewMetadata_CRUD(t *testing.T) {
 	require.Equal(t, []byte("meta-value"), val)
 }
 
-func TestNewEnvelope_CRUD(t *testing.T) {
+func TestNewEnvelope_CRUD(t *testing.T) { //nolint:paralleltest
 	d := mem.NewDriver()
 	store, err := d.NewEnvelope(viewdriver.PersistenceName(t.Name()), t.Name())
 	require.NoError(t, err)
@@ -145,7 +145,7 @@ func TestNewEnvelope_CRUD(t *testing.T) {
 	require.Equal(t, []byte("env-data"), val)
 }
 
-func TestNewVault_CRUD(t *testing.T) {
+func TestNewVault_CRUD(t *testing.T) { //nolint:paralleltest
 	d := mem.NewDriver()
 	store, err := d.NewVault(viewdriver.PersistenceName(t.Name()), t.Name())
 	require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestNewVault_CRUD(t *testing.T) {
 	require.Equal(t, fabricdriver.Valid, status.Code)
 }
 
-func TestNewEndorseTx_MultipleInstances(t *testing.T) {
+func TestNewEndorseTx_MultipleInstances(t *testing.T) { //nolint:paralleltest
 	d := mem.NewDriver()
 
 	store1, err := d.NewEndorseTx(viewdriver.PersistenceName(t.Name()+"_1"), "alpha")
