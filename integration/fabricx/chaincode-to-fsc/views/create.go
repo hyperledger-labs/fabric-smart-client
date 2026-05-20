@@ -23,9 +23,9 @@ import (
 //
 //	CreateAsset(ctx, id, color, size, owner, appraisedValue)
 //
-// The Endorser and Auditor identities are FSC-specific — they tell the
-// initiator which FSC nodes to collect endorsement signatures from. In the
-// chaincode world the endorsement targets were resolved from the chaincode
+// The Endorser identity is FSC-specific — it tells the initiator which
+// FSC node to collect the endorsement signature from. In the chaincode
+// world the endorsement targets were resolved from the chaincode
 // definition and the channel; here they are explicit.
 type CreateParams struct {
 	ID             string
@@ -35,7 +35,6 @@ type CreateParams struct {
 	AppraisedValue int
 
 	Endorser view.Identity
-	Auditor  view.Identity
 }
 
 // CreateAssetView is the FSC analogue of:
@@ -65,7 +64,7 @@ func (c *CreateAssetView) Call(viewCtx view.Context) (interface{}, error) {
 	}
 	assert.NoError(tx.AddOutput(asset), "Create failed adding output")
 
-	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, c.Endorser, c.Auditor))
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, c.Endorser))
 	assert.NoError(err, "Create failed collecting endorsements")
 
 	var wg sync.WaitGroup

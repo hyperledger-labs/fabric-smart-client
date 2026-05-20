@@ -31,11 +31,10 @@ const FinalityTimeout = 1 * time.Minute
 
 // InitParams carries the input to the InitLedgerView.
 //
-// Endorser and Auditor are the FSC identities of the endorser and auditor
-// nodes. The initiator collects their signatures during CollectEndorsements.
+// Endorser is the FSC identity of the endorser node. The initiator
+// collects its signature during CollectEndorsements.
 type InitParams struct {
 	Endorser view.Identity
-	Auditor  view.Identity
 }
 
 // InitLedgerView is the FSC analogue of the InitLedger chaincode method.
@@ -47,7 +46,7 @@ type InitParams struct {
 // FSC view:
 //
 //	build one transaction with six AddOutput calls; CollectEndorsements
-//	from issuer + endorser + auditor; submit to orderer; wait for finality.
+//	from endorser; submit to orderer; wait for finality.
 //
 // The six assets and their values match the chaincode constants verbatim.
 type InitLedgerView struct {
@@ -77,9 +76,9 @@ func (i *InitLedgerView) Call(viewCtx view.Context) (interface{}, error) {
 		assert.NoError(tx.AddOutput(asset), "InitLedger failed adding asset %s", asset.ID)
 	}
 
-	// CollectEndorsements gathers signatures in order: initiator (issuer),
-	// then the endorser (chaincode replacement), then the auditor.
-	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, i.Endorser, i.Auditor))
+	// CollectEndorsements gathers signatures in order: initiator, then the
+	// endorser (chaincode replacement).
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, i.Endorser))
 	assert.NoError(err, "InitLedger failed collecting endorsements")
 
 	// Register a finality listener BEFORE submitting so we don't miss the

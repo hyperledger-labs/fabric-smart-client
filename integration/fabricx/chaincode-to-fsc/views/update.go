@@ -29,7 +29,6 @@ type UpdateParams struct {
 	AppraisedValue int
 
 	Endorser view.Identity
-	Auditor  view.Identity
 }
 
 // UpdateAssetView is the FSC analogue of:
@@ -64,7 +63,7 @@ func (u *UpdateAssetView) Call(viewCtx view.Context) (interface{}, error) {
 	}
 	assert.NoError(tx.AddOutput(out))
 
-	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, u.Endorser, u.Auditor))
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, u.Endorser))
 	assert.NoError(err)
 
 	var wg sync.WaitGroup

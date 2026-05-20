@@ -18,12 +18,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// DeleteParams identifies the asset to delete plus the FSC identities
+// DeleteParams identifies the asset to delete plus the FSC identity
 // needed for endorsement.
 type DeleteParams struct {
 	ID       string
 	Endorser view.Identity
-	Auditor  view.Identity
 }
 
 // DeleteAssetView is the FSC analogue of:
@@ -48,7 +47,7 @@ func (d *DeleteAssetView) Call(viewCtx view.Context) (interface{}, error) {
 	// No AddOutput — the absence of an output keyed at d.ID is what causes
 	// the world-state key to be removed at commit time.
 
-	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, d.Endorser, d.Auditor))
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, d.Endorser))
 	assert.NoError(err)
 
 	var wg sync.WaitGroup

@@ -29,7 +29,6 @@ type TransferParams struct {
 
 	NewOwner view.Identity
 	Endorser view.Identity
-	Auditor  view.Identity
 }
 
 // TransferAssetView is the FSC analogue of:
@@ -74,8 +73,8 @@ func (t *TransferAssetView) Call(viewCtx view.Context) (interface{}, error) {
 
 	// Collect endorsements: receiver first, so the receiver's refusal
 	// short-circuits before we bother the endorser; then the endorser
-	// (chaincode logic); then the auditor.
-	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, t.NewOwner, t.Endorser, t.Auditor))
+	// (chaincode logic).
+	_, err = viewCtx.RunView(state.NewCollectEndorsementsView(tx, t.NewOwner, t.Endorser))
 	assert.NoError(err)
 
 	var wg sync.WaitGroup
