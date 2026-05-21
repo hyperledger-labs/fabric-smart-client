@@ -96,7 +96,7 @@ func (n *Namespace) VerifyInputCertificationAt(index int, key string) error {
 		return errors.Wrapf(err, "failed getting certification type")
 	}
 	if len(typ) == 0 {
-		return errors.Wrapf(err, "no certification type found")
+		return errors.Errorf("no certification type found")
 	}
 	switch typ {
 	case ChaincodeCertification:
@@ -167,7 +167,7 @@ func (n *Namespace) certifyInput(id string) error {
 		return errors.Wrapf(err, "failed getting certification type")
 	}
 	if len(typ) == 0 {
-		return errors.Wrapf(err, "no certification type found")
+		return errors.Errorf("no certification type found")
 	}
 	switch typ {
 	case ChaincodeCertification:
