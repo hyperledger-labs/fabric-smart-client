@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
-	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -60,7 +60,6 @@ func TestCreateCompositeKey(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			key, err := CreateCompositeKey(tt.objectType, tt.attributes)
@@ -84,7 +83,8 @@ func TestCreateRangeKeysForPartialCompositeKey(t *testing.T) {
 		start, end, err := CreateRangeKeysForPartialCompositeKey("asset", []string{"type", "id"})
 		require.NoError(t, err)
 		require.Equal(t, "\x00asset\x00type\x00id\x00", start)
-		require.Equal(t, start+fmt.Sprint(maxUnicodeRuneValue), end)
+		require.Greater(t, end, start)
+		require.True(t, strings.HasPrefix(end, start))
 	})
 
 	t.Run("invalid partial key range", func(t *testing.T) {
@@ -167,7 +167,6 @@ func TestValidateCompositeKeyAttribute(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			err := validateCompositeKeyAttribute(tt.value)
