@@ -9,10 +9,8 @@ package main
 import (
 	_ "net/http/pprof"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli/validate"
 	"github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli/version"
@@ -22,18 +20,8 @@ import (
 	view "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/cmd"
 )
 
-const CmdRoot = "fsccli"
-
-// The main command describes the service and
-// defaults to printing the help message.
-var mainCmd = &cobra.Command{Use: "fsccli"}
-
 func main() {
-	// For environment variables.
-	viper.SetEnvPrefix(CmdRoot)
-	viper.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	viper.SetEnvKeyReplacer(replacer)
+	mainCmd := &cobra.Command{Use: "fsccli"}
 
 	mainCmd.AddCommand(artifactgen.NewCmd())
 	mainCmd.AddCommand(cryptogen.NewCmd())

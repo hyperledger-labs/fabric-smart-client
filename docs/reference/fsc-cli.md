@@ -22,18 +22,6 @@ make fsccli
 fsccli [command] [flags]
 ```
 
-### Environment Variables
-
-All flags can be set via environment variables using the `FSCCLI_` prefix:
-
-```bash
-# Example: Set config file via environment variable
-export FSCCLI_CONFIG=/path/to/config.yaml
-```
-
-Environment variable names use underscores instead of dots:
-- `fsccli.config.path` → `FSCCLI_CONFIG_PATH`
-
 
 
 ## Commands
@@ -96,13 +84,6 @@ fsccli artifactsgen gen \
   --port 30000
 ```
 
-3. **Using environment variables:**
-```bash
-export FSCCLI_TOPOLOGY=./topology.yaml
-export FSCCLI_OUTPUT=./artifacts
-export FSCCLI_PORT=25000
-fsccli artifactsgen gen
-```
 
 **Topology File Format:**
 
@@ -265,11 +246,6 @@ Run preflight validation on an FSC configuration directory.
 fsccli validate config --path ./testdata/fsc/nodes/default
 ```
 
-2. **Using environment variables:**
-```bash
-export FSCCLI_PATH=./testdata/fsc/nodes/default
-fsccli validate config
-```
 
 **Validation Coverage:**
 - node configuration loading

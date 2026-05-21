@@ -24,11 +24,13 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/knadh/koanf/parsers/yaml"
+	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/v2"
 	"github.com/miracl/conflate"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	"github.com/spf13/viper"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 
@@ -298,9 +300,9 @@ func startPostgres(p *Platform) {
 
 func (p *Platform) PostRun(bool) {
 	for _, peer := range p.Peers {
-		v := p.viper(peer)
+		k := p.koanf(peer)
 
-		address := v.GetString("fsc.grpc.address")
+		address := k.String("fsc.grpc.address")
 		p.setIdentities(address, peer)
 	}
 	tracerProvider, err := tracing2.NewProviderFromConfig(tracing2.Config{
@@ -318,14 +320,14 @@ func (p *Platform) PostRun(bool) {
 
 	for _, node := range p.Peers {
 
-		v := p.viper(node)
+		k := p.koanf(node)
 
 		// Prepare GRPC Client, Web Client, and CLI
 
 		// GRPC client
 		grpcClient, err := client3.NewClient(
 			&client3.Config{
-				ID:               v.GetString("fsc.id"),
+				ID:               k.String("fsc.id"),
 				ConnectionConfig: p.Context.ConnectionConfig(node.UniqueName),
 			},
 			p.Context.ClientSigningIdentity(node.Name),
@@ -378,12 +380,11 @@ func (p *Platform) PostRun(bool) {
 	}
 }
 
-func (p *Platform) viper(peer *node2.Replica) *viper.Viper {
-	v := viper.New()
-	v.SetConfigFile(p.NodeConfigPath(peer))
-	err := v.ReadInConfig() // Find and read the config file
+func (p *Platform) koanf(peer *node2.Replica) *koanf.Koanf {
+	k := koanf.New(".")
+	err := k.Load(file.Provider(p.NodeConfigPath(peer)), yaml.Parser())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	return v
+	return k
 }
 
 func (p *Platform) Cleanup() {

@@ -14,7 +14,6 @@ import (
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	"github.com/hyperledger/fabric-lib-go/bccsp/sw"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
@@ -163,11 +162,11 @@ func TestLoadLocalMSP_IdemixType(t *testing.T) { //nolint:paralleltest
 	defer func() { localMsp = savedMsp }()
 	localMsp = nil
 
-	// Set idemix type via viper
-	const k = "peer.localMspType"
-	orig := viper.GetString(k)
-	defer viper.Set(k, orig)
-	viper.Set(k, msp.ProviderTypeToString(msp.IDEMIX))
+	// Set idemix type via os.Setenv
+	const k = "CORE_PEER_LOCALMSPTYPE"
+	orig := os.Getenv(k)
+	defer func() { _ = os.Setenv(k, orig) }()
+	_ = os.Setenv(k, msp.ProviderTypeToString(msp.IDEMIX))
 
 	cryptoProvider := factory.GetDefault()
 
@@ -184,10 +183,10 @@ func TestLoadLocalMSP_UnknownType(t *testing.T) { //nolint:paralleltest
 	localMsp = nil
 
 	// Set an unknown MSP type — loadLocalMSP should panic
-	const k = "peer.localMspType"
-	orig := viper.GetString(k)
-	defer viper.Set(k, orig)
-	viper.Set(k, "unknown-type")
+	const k = "CORE_PEER_LOCALMSPTYPE"
+	orig := os.Getenv(k)
+	defer func() { _ = os.Setenv(k, orig) }()
+	_ = os.Setenv(k, "unknown-type")
 
 	require.Panics(t, func() {
 		cryptoProvider := factory.GetDefault()

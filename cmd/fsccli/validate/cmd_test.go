@@ -25,7 +25,7 @@ func TestValidateConfigCommand(t *testing.T) {
 	out := &bytes.Buffer{}
 	cmd.SetOut(out)
 	cmd.SetErr(out)
-	cmd.SetArgs([]string{"config", "--config-path", confPath})
+	cmd.SetArgs([]string{"config", "--path", confPath})
 
 	require.NoError(t, cmd.Execute())
 	require.Contains(t, out.String(), "configuration is valid")

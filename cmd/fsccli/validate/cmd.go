@@ -51,7 +51,7 @@ func newConfigCmd() *cobra.Command {
 	}
 
 	flags := cmd.Flags()
-	flags.StringVarP(&configPath, "config-path", "c", "./", "path to the directory containing core.yaml")
+	flags.StringVarP(&configPath, "path", "p", "./", "path to the directory containing core.yaml")
 
 	return cmd
 }

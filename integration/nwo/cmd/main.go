@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
@@ -39,12 +38,6 @@ func (m *Main) Cmd() *cobra.Command {
 }
 
 func (m *Main) Execute() {
-	// For environment variables.
-	viper.SetEnvPrefix(m.ProgramName)
-	viper.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	viper.SetEnvKeyReplacer(replacer)
-
 	// On failure Cobra prints the usage message and error string, so we only
 	// need to exit with a non-0 status
 	if m.mainCmd.Execute() != nil {
