@@ -104,7 +104,7 @@ outer:
 
 	// build with coverage profiling, more details: https://go.dev/doc/build-cover
 	if _, ok := os.LookupEnv("GOCOVERDIR"); ok {
-		params = append(params, "-cover")
+		params = append(params, "-cover", "-coverpkg=./...")
 	}
 
 	buildServer := common.NewBuildServer(params...)
