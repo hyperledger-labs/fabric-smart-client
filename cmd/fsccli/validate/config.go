@@ -14,7 +14,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	fabriccore "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
+	identity "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
+	filekms "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver/file"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	webserver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
@@ -48,6 +51,22 @@ func ValidateConfig(confPath string) (Report, error) {
 	configService, err := config.NewProvider(confPath)
 	if err != nil {
 		return report, errors.Wrap(err, "invalid configuration path")
+	}
+	if err := validateNodeIdentity(configService); err != nil {
+		return report, err
+	}
+	report.Checks = append(report.Checks, "validated FSC node identity configuration")
+
+	if err := validateP2PConfig(configService); err != nil {
+		return report, err
+	}
+	report.Checks = append(report.Checks, "validated fsc.p2p configuration")
+
+	if err := validateResolvers(configService); err != nil {
+		return report, err
+	}
+	if configService.IsSet("fsc.endpoint.resolvers") {
+		report.Checks = append(report.Checks, "validated fsc.endpoint resolvers")
 	}
 
 	if configService.IsSet("fabric") {
@@ -126,4 +145,63 @@ func translatePaths(configService *config.Provider, paths []string) []string {
 		translated = append(translated, configService.TranslatePath(path))
 	}
 	return translated
+}
+
+type resolverConfig struct {
+	Identity struct {
+		Path string `yaml:"path"`
+	} `yaml:"identity"`
+}
+
+func validateNodeIdentity(configService *config.Provider) error {
+	if configService.GetString("fsc.id") == "" {
+		return errors.New("invalid fsc configuration: missing id")
+	}
+
+	identityType := configService.GetString("fsc.identity.type")
+	if identityType != "" && identityType != "file" {
+		return errors.Errorf("invalid fsc.identity configuration: unsupported type [%s]", identityType)
+	}
+
+	if _, _, _, err := (&filekms.Driver{}).Load(configService); err != nil {
+		return errors.Wrap(err, "invalid fsc.identity configuration")
+	}
+
+	return nil
+}
+
+func validateP2PConfig(configService *config.Provider) error {
+	listenAddress := configService.GetString("fsc.p2p.listenAddress")
+	if listenAddress == "" {
+		return errors.New("invalid fsc.p2p configuration: missing listenAddress")
+	}
+
+	if _, err := comm.ConvertAddress(listenAddress); err != nil {
+		return errors.Wrap(err, "invalid fsc.p2p configuration")
+	}
+
+	return nil
+}
+
+func validateResolvers(configService *config.Provider) error {
+	if !configService.IsSet("fsc.endpoint.resolvers") {
+		return nil
+	}
+
+	var resolvers []resolverConfig
+	if err := configService.UnmarshalKey("fsc.endpoint.resolvers", &resolvers); err != nil {
+		return errors.Wrap(err, "invalid fsc.endpoint resolvers configuration")
+	}
+
+	for i, resolver := range resolvers {
+		if resolver.Identity.Path == "" {
+			return errors.Errorf("invalid fsc.endpoint.resolvers[%d].identity.path: missing path", i)
+		}
+
+		if _, err := identity.LoadIdentity(configService.TranslatePath(resolver.Identity.Path)); err != nil {
+			return errors.Wrapf(err, "invalid fsc.endpoint.resolvers[%d].identity.path", i)
+		}
+	}
+
+	return nil
 }

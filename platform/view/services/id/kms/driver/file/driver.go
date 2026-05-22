@@ -25,13 +25,15 @@ func NewDriver() driver.NamedDriver {
 type Driver struct{}
 
 func (d *Driver) Load(configProvider driver.ConfigProvider) (view.Identity, driver.Signer, driver.Verifier, error) {
-	idPEM, err := os.ReadFile(configProvider.GetPath("fsc.identity.cert.file"))
+	certPath := configProvider.GetPath("fsc.identity.cert.file")
+	idPEM, err := os.ReadFile(certPath)
 	if err != nil {
-		return nil, nil, nil, errors.Wrapf(err, "failed loading SFC Node Identity")
+		return nil, nil, nil, errors.Wrapf(err, "failed loading FSC node identity from [%s]", certPath)
 	}
-	fileCont, err := os.ReadFile(configProvider.GetPath("fsc.identity.key.file"))
+	keyPath := configProvider.GetPath("fsc.identity.key.file")
+	fileCont, err := os.ReadFile(keyPath)
 	if err != nil {
-		return nil, nil, nil, errors.Wrapf(err, "failed reading file [%s]", fileCont)
+		return nil, nil, nil, errors.Wrapf(err, "failed reading FSC node identity key from [%s]", keyPath)
 	}
 	id, verifier, err := ecdsa.NewIdentityFromPEMCert(idPEM)
 	if err != nil {

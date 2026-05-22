@@ -25,9 +25,48 @@ func TestValidateConfig_Success(t *testing.T) {
 	report, err := ValidateConfig(confPath)
 	require.NoError(t, err)
 	require.Contains(t, report.String(), "configuration is valid")
+	require.Contains(t, report.String(), "validated FSC node identity configuration")
+	require.Contains(t, report.String(), "validated fsc.p2p configuration")
 	require.Contains(t, report.String(), "validated fsc.grpc server configuration")
 	require.Contains(t, report.String(), "validated fsc.web server configuration")
 	require.Contains(t, report.String(), "validated fabric networks [default]")
+}
+
+func TestValidateConfig_MissingNodeID(t *testing.T) {
+	t.Parallel()
+
+	confPath := t.TempDir()
+	raw := strings.Replace(validConfigYAML(t), "  id: node1\n", "", 1)
+	require.NoError(t, os.WriteFile(filepath.Join(confPath, "core.yaml"), []byte(raw), 0o600))
+
+	_, err := ValidateConfig(confPath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid fsc configuration: missing id")
+}
+
+func TestValidateConfig_MissingP2PListenAddress(t *testing.T) {
+	t.Parallel()
+
+	confPath := t.TempDir()
+	raw := strings.Replace(validConfigYAML(t), "  p2p:\n    listenAddress: /ip4/127.0.0.1/tcp/7001\n", "", 1)
+	require.NoError(t, os.WriteFile(filepath.Join(confPath, "core.yaml"), []byte(raw), 0o600))
+
+	_, err := ValidateConfig(confPath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid fsc.p2p configuration: missing listenAddress")
+}
+
+func TestValidateConfig_MissingIdentityKeyPath(t *testing.T) {
+	t.Parallel()
+
+	confPath := t.TempDir()
+	raw := strings.Replace(validConfigYAML(t), "      file: "+repoPath(t, "integration", "fsc", "pingpong", "testdata", "fsc", "crypto", "peerOrganizations", "fsc.example.com", "peers", "initiator.fsc.example.com", "msp", "keystore", "priv_sk")+"\n", "", 1)
+	require.NoError(t, os.WriteFile(filepath.Join(confPath, "core.yaml"), []byte(raw), 0o600))
+
+	_, err := ValidateConfig(confPath)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid fsc.identity configuration")
+	require.Contains(t, err.Error(), "failed reading FSC node identity key")
 }
 
 func TestValidateConfig_MissingGRPCAddress(t *testing.T) {
@@ -61,10 +100,19 @@ func validConfigYAML(t *testing.T) string {
 	cert := repoPath(t, "integration", "fsc", "pingpong", "testdata", "fsc", "crypto", "peerOrganizations", "fsc.example.com", "peers", "initiator.fsc.example.com", "tls", "server.crt")
 	key := repoPath(t, "integration", "fsc", "pingpong", "testdata", "fsc", "crypto", "peerOrganizations", "fsc.example.com", "peers", "initiator.fsc.example.com", "tls", "server.key")
 	ca := repoPath(t, "integration", "fsc", "pingpong", "testdata", "fsc", "crypto", "peerOrganizations", "fsc.example.com", "peers", "initiator.fsc.example.com", "tls", "ca.crt")
+	identityCert := repoPath(t, "integration", "fsc", "pingpong", "testdata", "fsc", "crypto", "peerOrganizations", "fsc.example.com", "peers", "initiator.fsc.example.com", "msp", "signcerts", "initiator.fsc.example.com-cert.pem")
+	identityKey := repoPath(t, "integration", "fsc", "pingpong", "testdata", "fsc", "crypto", "peerOrganizations", "fsc.example.com", "peers", "initiator.fsc.example.com", "msp", "keystore", "priv_sk")
 
 	return "" +
 		"fsc:\n" +
 		"  id: node1\n" +
+		"  identity:\n" +
+		"    cert:\n" +
+		"      file: " + identityCert + "\n" +
+		"    key:\n" +
+		"      file: " + identityKey + "\n" +
+		"  p2p:\n" +
+		"    listenAddress: /ip4/127.0.0.1/tcp/7001\n" +
 		"  grpc:\n" +
 		"    enabled: true\n" +
 		"    address: 127.0.0.1:7051\n" +
