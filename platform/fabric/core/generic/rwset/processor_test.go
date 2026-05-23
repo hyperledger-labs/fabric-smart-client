@@ -57,7 +57,7 @@ func TestProcessorManagerProcessByID(t *testing.T) {
 			},
 			nil,
 		)
-		err := pm.ProcessByID(context.Background(), "ch1", "tx1")
+		err := pm.ProcessByID(t.Context(), "ch1", "tx1")
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed getting channel")
 	})
@@ -83,7 +83,7 @@ func TestProcessorManagerProcessByID(t *testing.T) {
 			},
 			nil,
 		)
-		require.NoError(t, pm.ProcessByID(context.Background(), "ch1", "tx1"))
+		require.NoError(t, pm.ProcessByID(t.Context(), "ch1", "tx1"))
 	})
 
 	t.Run("extraction error", func(t *testing.T) {
@@ -107,7 +107,7 @@ func TestProcessorManagerProcessByID(t *testing.T) {
 			},
 			nil,
 		)
-		err := pm.ProcessByID(context.Background(), "ch1", "tx1")
+		err := pm.ProcessByID(t.Context(), "ch1", "tx1")
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed extraction")
 	})
@@ -154,7 +154,7 @@ func TestProcessorManagerProcessByID(t *testing.T) {
 			defaultP,
 		)
 		require.NoError(t, pm.AddProcessor("ns-custom", custom))
-		require.NoError(t, pm.ProcessByID(context.Background(), "ch1", "tx1"))
+		require.NoError(t, pm.ProcessByID(t.Context(), "ch1", "tx1"))
 
 		require.Equal(t, []string{"tx1:ns-custom"}, customCalls)
 		require.Equal(t, []string{"tx1:ns-default"}, defaultCalls)
@@ -188,8 +188,8 @@ func TestProcessorManagerProcessByID(t *testing.T) {
 				},
 			},
 		)
-		err := pm.ProcessByID(context.Background(), "ch1", "tx1")
-		require.EqualError(t, err, "process-failed")
+		err := pm.ProcessByID(t.Context(), "ch1", "tx1")
+		require.ErrorContains(t, err, "process-failed")
 		require.Equal(t, 1, rws.doneCalls)
 	})
 }

@@ -62,7 +62,7 @@ func TestEndorserTransactionHandlerLoad(t *testing.T) {
 		}
 		h := NewEndorserTransactionHandler("test-network", "mychannel", inspector)
 		_, _, err := h.Load(payl, chdr)
-		require.EqualError(t, err, "new-rwset-failed")
+		require.ErrorContains(t, err, "new-rwset-failed")
 	})
 }
 
@@ -127,9 +127,9 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 			nil,
 			nil,
 		)
-		_, _, err := loader.GetRWSetFromEvn(context.Background(), "tx1")
+		_, _, err := loader.GetRWSetFromEvn(t.Context(), "tx1")
 		require.Error(t, err)
-		require.ErrorContains(t, err, "envelope does not exists")
+		require.ErrorContains(t, err, "envelope does not exist")
 	})
 
 	t.Run("load envelope error", func(t *testing.T) {
@@ -145,7 +145,7 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 			nil,
 			nil,
 		)
-		_, _, err := loader.GetRWSetFromEvn(context.Background(), "tx1")
+		_, _, err := loader.GetRWSetFromEvn(t.Context(), "tx1")
 		require.Error(t, err)
 		require.ErrorContains(t, err, "cannot load envelope")
 	})
@@ -163,7 +163,7 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 			nil,
 			nil,
 		)
-		_, _, err := loader.GetRWSetFromEvn(context.Background(), "tx1")
+		_, _, err := loader.GetRWSetFromEvn(t.Context(), "tx1")
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed unmarshalling envelope")
 	})
@@ -182,9 +182,9 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 			nil,
 			nil,
 		)
-		_, _, err := loader.GetRWSetFromEvn(context.Background(), cdriver.TxID(chdr.TxId))
+		_, _, err := loader.GetRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId))
 		require.Error(t, err)
-		require.ErrorContains(t, err, "header type not support")
+		require.ErrorContains(t, err, "header type not supported")
 	})
 
 	t.Run("success", func(t *testing.T) {
@@ -216,7 +216,7 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		rws, tx, err := loader.GetRWSetFromEvn(context.Background(), cdriver.TxID(chdr.TxId))
+		rws, tx, err := loader.GetRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId))
 		require.NoError(t, err)
 		require.Same(t, expectedRWS, rws)
 		require.Same(t, expectedTx, tx)
@@ -236,9 +236,9 @@ func TestLoaderGetRWSetFromETx(t *testing.T) {
 			nil,
 			nil,
 		)
-		_, _, err := loader.GetRWSetFromETx(context.Background(), "tx1")
+		_, _, err := loader.GetRWSetFromETx(t.Context(), "tx1")
 		require.Error(t, err)
-		require.ErrorContains(t, err, "transaction does not exists")
+		require.ErrorContains(t, err, "transaction does not exist")
 	})
 
 	t.Run("load transaction error", func(t *testing.T) {
@@ -254,7 +254,7 @@ func TestLoaderGetRWSetFromETx(t *testing.T) {
 			nil,
 			nil,
 		)
-		_, _, err := loader.GetRWSetFromETx(context.Background(), "tx1")
+		_, _, err := loader.GetRWSetFromETx(t.Context(), "tx1")
 		require.Error(t, err)
 		require.ErrorContains(t, err, "cannot load etx")
 	})
@@ -276,8 +276,8 @@ func TestLoaderGetRWSetFromETx(t *testing.T) {
 			},
 			nil,
 		)
-		_, _, err := loader.GetRWSetFromETx(context.Background(), "tx1")
-		require.EqualError(t, err, "new-tx-failed")
+		_, _, err := loader.GetRWSetFromETx(t.Context(), "tx1")
+		require.ErrorContains(t, err, "new-tx-failed")
 	})
 
 	t.Run("get rwset error", func(t *testing.T) {
@@ -301,8 +301,8 @@ func TestLoaderGetRWSetFromETx(t *testing.T) {
 			},
 			nil,
 		)
-		_, _, err := loader.GetRWSetFromETx(context.Background(), "tx1")
-		require.EqualError(t, err, "get-rwset-failed")
+		_, _, err := loader.GetRWSetFromETx(t.Context(), "tx1")
+		require.ErrorContains(t, err, "get-rwset-failed")
 	})
 
 	t.Run("success", func(t *testing.T) {
@@ -327,7 +327,7 @@ func TestLoaderGetRWSetFromETx(t *testing.T) {
 			},
 			nil,
 		)
-		rws, tx, err := loader.GetRWSetFromETx(context.Background(), "tx1")
+		rws, tx, err := loader.GetRWSetFromETx(t.Context(), "tx1")
 		require.NoError(t, err)
 		require.Same(t, expectedRWS, rws)
 		require.Same(t, expectedTx, tx)
@@ -340,7 +340,7 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 	t.Run("invalid envelope", func(t *testing.T) {
 		t.Parallel()
 		loader := NewLoader("network", "channel", nil, nil, nil, &fakeInspector{})
-		_, _, err := loader.GetInspectingRWSetFromEvn(context.Background(), "tx1", []byte("bad-envelope"))
+		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), "tx1", []byte("bad-envelope"))
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed unmarshalling envelope")
 	})
@@ -349,7 +349,7 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 		t.Parallel()
 		env, _, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_CONFIG, []byte("rwset"))
 		loader := NewLoader("network", "channel", nil, nil, nil, &fakeInspector{})
-		_, _, err := loader.GetInspectingRWSetFromEvn(context.Background(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
+		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed unpacking envelope")
 	})
@@ -369,8 +369,8 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 				},
 			},
 		)
-		_, _, err := loader.GetInspectingRWSetFromEvn(context.Background(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
-		require.EqualError(t, err, "inspect-failed")
+		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
+		require.ErrorContains(t, err, "inspect-failed")
 	})
 
 	t.Run("success", func(t *testing.T) {
@@ -391,7 +391,7 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 				},
 			},
 		)
-		rws, tx, err := loader.GetInspectingRWSetFromEvn(context.Background(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
+		rws, tx, err := loader.GetInspectingRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
 		require.NoError(t, err)
 		require.Same(t, expectedRWS, rws)
 		require.Equal(t, chdr.TxId, tx.ID())

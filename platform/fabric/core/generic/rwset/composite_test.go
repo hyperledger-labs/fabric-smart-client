@@ -59,7 +59,6 @@ func TestCreateCompositeKey(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			key, err := CreateCompositeKey(tt.objectType, tt.attributes)
@@ -166,7 +165,6 @@ func TestValidateCompositeKeyAttribute(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			err := validateCompositeKeyAttribute(tt.value)
