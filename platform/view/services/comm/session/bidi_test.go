@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -29,14 +30,16 @@ func TestLocalBidirectionalChannel_SendReceive(t *testing.T) {
 	require.NoError(t, err)
 	payload := []byte("hello")
 	require.NoError(t, ch.LeftSession().Send(payload))
-	select {
-	case msg := <-ch.RightSession().Receive():
-		require.NotNil(t, msg)
-		require.Equal(t, payload, msg.Payload)
-		require.EqualValues(t, view.OK, msg.Status)
-	case <-time.After(time.Second):
-		t.Fatal("timeout waiting for message")
-	}
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		select {
+		case msg := <-ch.RightSession().Receive():
+			assert.NotNil(c, msg)
+			assert.Equal(c, payload, msg.Payload)
+			assert.EqualValues(c, view.OK, msg.Status)
+		default:
+			assert.Fail(c, "no message received yet")
+		}
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestLocalBidirectionalChannel_BidirectionalCommunication(t *testing.T) {
@@ -46,19 +49,23 @@ func TestLocalBidirectionalChannel_BidirectionalCommunication(t *testing.T) {
 	left := ch.LeftSession()
 	right := ch.RightSession()
 	require.NoError(t, left.Send([]byte("from left")))
-	select {
-	case msg := <-right.Receive():
-		require.Equal(t, []byte("from left"), msg.Payload)
-	case <-time.After(time.Second):
-		t.Fatal("timeout")
-	}
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		select {
+		case msg := <-right.Receive():
+			assert.Equal(c, []byte("from left"), msg.Payload)
+		default:
+			assert.Fail(c, "no message received yet")
+		}
+	}, time.Second, 10*time.Millisecond)
 	require.NoError(t, right.Send([]byte("from right")))
-	select {
-	case msg := <-left.Receive():
-		require.Equal(t, []byte("from right"), msg.Payload)
-	case <-time.After(time.Second):
-		t.Fatal("timeout")
-	}
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		select {
+		case msg := <-left.Receive():
+			assert.Equal(c, []byte("from right"), msg.Payload)
+		default:
+			assert.Fail(c, "no message received yet")
+		}
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestLocalBidirectionalChannel_SendError(t *testing.T) {
@@ -67,13 +74,15 @@ func TestLocalBidirectionalChannel_SendError(t *testing.T) {
 	require.NoError(t, err)
 	errPayload := []byte("something went wrong")
 	require.NoError(t, ch.LeftSession().SendError(errPayload))
-	select {
-	case msg := <-ch.RightSession().Receive():
-		require.EqualValues(t, view.ERROR, msg.Status)
-		require.Equal(t, errPayload, msg.Payload)
-	case <-time.After(time.Second):
-		t.Fatal("timeout")
-	}
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		select {
+		case msg := <-ch.RightSession().Receive():
+			assert.EqualValues(c, view.ERROR, msg.Status)
+			assert.Equal(c, errPayload, msg.Payload)
+		default:
+			assert.Fail(c, "no message received yet")
+		}
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestLocalBidirectionalChannel_CloseReceive(t *testing.T) {
@@ -124,20 +133,22 @@ func TestLocalBidirectionalChannel_SendWithContext(t *testing.T) {
 	ch, err := NewLocalBidirectionalChannel("caller", "ctx", "endpoint", nil)
 	require.NoError(t, err)
 	payload := []byte("with context")
-	require.NoError(t, ch.LeftSession().SendWithContext(context.Background(), payload))
-	select {
-	case msg := <-ch.RightSession().Receive():
-		require.Equal(t, payload, msg.Payload)
-	case <-time.After(time.Second):
-		t.Fatal("timeout")
-	}
+	require.NoError(t, ch.LeftSession().SendWithContext(t.Context(), payload))
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		select {
+		case msg := <-ch.RightSession().Receive():
+			assert.Equal(c, payload, msg.Payload)
+		default:
+			assert.Fail(c, "no message received yet")
+		}
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestLocalBidirectionalChannel_SendWithCancelledContext(t *testing.T) {
 	t.Parallel()
 	ch, err := NewLocalBidirectionalChannel("caller", "ctx", "endpoint", nil)
 	require.NoError(t, err)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	err = ch.LeftSession().SendWithContext(ctx, []byte("data"))
 	require.Error(t, err)
