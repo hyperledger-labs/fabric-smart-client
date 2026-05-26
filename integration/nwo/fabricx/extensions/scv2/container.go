@@ -32,6 +32,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
+	fabricx_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
@@ -47,7 +48,7 @@ func (e *Extension) launchContainer() {
 
 	// get ports
 	sidecarPort := int(e.network.PeerPort(sidecarPeer, fabric_network.ListenPort))
-	queryServicePort := int(e.network.PeerPort(sidecarPeer, queryServicePortName))
+	queryServicePort := int(e.network.PeerPort(sidecarPeer, fabricx_network.QueryServicePortName))
 	orderingServicePort := int(e.network.OrdererPort(e.network.Orderers[0], fabric_network.ListenPort))
 
 	// genesis block
@@ -183,9 +184,11 @@ func (e *Extension) launchContainer() {
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
 
+		// get first peer
+		p := e.network.Peers[0]
 		cert, err := tls.LoadX509KeyPair(
-			filepath.Join(e.network.PeerLocalTLSDir(sidecarPeer), "server.crt"),
-			filepath.Join(e.network.PeerLocalTLSDir(sidecarPeer), "server.key"),
+			filepath.Join(e.network.PeerUserTLSDir(p, "Admin"), "client.crt"),
+			filepath.Join(e.network.PeerUserTLSDir(p, "Admin"), "client.key"),
 		)
 		utils.Must(err)
 

@@ -25,8 +25,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
-const queryServicePortName = "QueryService"
-
 // generateQSExtension adds the query service endpoint configuration to the core.yaml
 // of every FSC node in the network topology.
 // When TLS is enabled, each FSC node gets its own extension with mTLS client
@@ -41,7 +39,7 @@ func generateQSExtension(n *network.Network, sidecarOrg, sidecarName string) {
 
 	queryServiceHost := "127.0.0.1"
 	scPeer := n.Peer(sidecarOrg, sidecarName)
-	queryServicePort := n.PeerPort(scPeer, queryServicePortName)
+	queryServicePort := n.PeerPort(scPeer, network.QueryServicePortName)
 
 	for _, fscNode := range fscTop.Nodes {
 		endpoint := config.Endpoint{

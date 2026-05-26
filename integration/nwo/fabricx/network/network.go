@@ -30,12 +30,14 @@ var logger = logging.MustGetLogger()
 
 const (
 	DefaultConsensusType     = "etcdraft"
-	scVersionKey             = "sc_version"
 	defaultEventuallyTimeout = 30 * time.Second
 
 	// namespacePropagationTimeout is the maximum time to wait for deployed
 	// namespaces to become visible through the SC query service.
 	namespacePropagationTimeout = 30 * time.Second
+
+	// QueryServicePortName is the port name for the fabric-x committer query service
+	QueryServicePortName = "QueryService"
 )
 
 type Network struct {
@@ -222,7 +224,7 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	if committerNode == nil {
 		return nil, fmt.Errorf("no committer peer (name=%v) found for org=%v", "SC", orgName)
 	}
-	queryEndpoint := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committerNode, "QueryService"))
+	queryEndpoint := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committerNode, QueryServicePortName))
 
 	cmd := &fxconfig.ListNamespaces{QueryConfig: fxconfig.QueryConfig{
 		Address: queryEndpoint,

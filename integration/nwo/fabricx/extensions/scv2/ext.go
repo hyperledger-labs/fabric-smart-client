@@ -76,8 +76,8 @@ func (e *Extension) addSCPeer() {
 	// reserve ports
 	if len(e.sidecar.Ports) == 0 {
 		e.sidecar.Ports = api.Ports{}
-		e.sidecar.Ports[fabric_network.ListenPort] = e.network.Context.ReservePort() // sidecar and notification service
-		e.sidecar.Ports[queryServicePortName] = e.network.Context.ReservePort()      // query service
+		e.sidecar.Ports[fabric_network.ListenPort] = e.network.Context.ReservePort()    // sidecar and notification service
+		e.sidecar.Ports[network.QueryServicePortName] = e.network.Context.ReservePort() // query service
 	}
 
 	for _, org := range e.network.PeerOrgs() {
