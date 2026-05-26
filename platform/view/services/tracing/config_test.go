@@ -19,7 +19,7 @@ func callGetPackageName() string {
 	return tracing.GetPackageName()
 }
 
-func TestGetPackageName(t *testing.T) { //nolint:paralleltest
+func TestGetPackageName(t *testing.T) {
 	t.Parallel()
 
 	pkg := callGetPackageName()
@@ -33,7 +33,7 @@ func (h *ConfigHandler) sendResponseLikeMethod() string {
 	return callGetPackageName()
 }
 
-func TestGetPackageName_FromStructMethod(t *testing.T) { //nolint:paralleltest
+func TestGetPackageName_FromStructMethod(t *testing.T) {
 	t.Parallel()
 
 	handler := &ConfigHandler{}
@@ -42,7 +42,7 @@ func TestGetPackageName_FromStructMethod(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing_test", pkg)
 }
 
-func TestWithMetricsOpts_CustomSubsystem(t *testing.T) { //nolint:paralleltest
+func TestWithMetricsOpts_CustomSubsystem(t *testing.T) {
 	t.Parallel()
 
 	opts := tracing.MetricsOpts{
@@ -68,7 +68,7 @@ func TestWithMetricsOpts_CustomSubsystem(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, []string{"label1", "label2"}, labelNamesVal.AsStringSlice())
 }
 
-func TestWithMetricsOpts_EmptyOptions(t *testing.T) { //nolint:paralleltest
+func TestWithMetricsOpts_EmptyOptions(t *testing.T) {
 	t.Parallel()
 
 	opts := tracing.MetricsOpts{}
