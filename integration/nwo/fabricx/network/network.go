@@ -140,7 +140,6 @@ func (n *Network) PostRun(load bool) {
 	}
 
 	logger.Infof("Next up: Deploying namespaces")
-	time.Sleep(20 * time.Second)
 
 	expNss := make([]Namespace, 0, len(n.Topology().Chaincodes))
 	for _, chaincode := range n.Topology().Chaincodes {

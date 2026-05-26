@@ -109,9 +109,7 @@ func WaitUntilReadyWithTLS(ctx context.Context, grpcEndpoint string, tlsConfig c
 	defer utils.IgnoreErrorFunc(conn.Close)
 
 	healthClient := healthgrpc.NewHealthClient(conn)
-	res, err := healthClient.Check(ctx, &healthgrpc.HealthCheckRequest{
-		Service: "",
-	})
+	res, err := healthClient.Check(ctx, &healthgrpc.HealthCheckRequest{})
 	if status.Code(err) == codes.Canceled {
 		return fmt.Errorf("healthcheck canceled: %w", err)
 	}
