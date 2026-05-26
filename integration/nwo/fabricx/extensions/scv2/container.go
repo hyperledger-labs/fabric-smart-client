@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"net"
 	"net/netip"
 	"os"
 	"path"
@@ -63,9 +64,9 @@ func (e *Extension) launchContainer() {
 	d, err := docker.GetInstance()
 	utils.Must(err)
 
-	net, err := d.NetworkInfo(networkID)
+	netInfo, err := d.NetworkInfo(networkID)
 	utils.Must(err)
-	logger.Infof("net id: %s", net.ID)
+	logger.Infof("netInfo id: %s", netInfo.ID)
 
 	localIP, err := d.LocalIP(networkID)
 	utils.Must(err)
@@ -92,6 +93,7 @@ func (e *Extension) launchContainer() {
 	logger.Infof("Run fabric-x committer test container on %v ports: sidecar=%v query=%v orderer=%v",
 		localIP, sidecarPort, queryServicePort, orderingServicePort)
 
+	// we use our loopback to expose the services from the container
 	localAddr := netip.MustParseAddr("127.0.0.1")
 
 	containerSidecarPort := network.MustParsePort(sidecarPort + "/tcp")
@@ -202,7 +204,7 @@ func (e *Extension) launchContainer() {
 	}()
 
 	// let's wait until the sidecar is ready
-	hostSidecarEndpoint := fmt.Sprintf("%s:%s", localIP, sidecarPort)
+	hostSidecarEndpoint := net.JoinHostPort(localAddr.String(), sidecarPort)
 	logger.Infof("Checking sidecar health-check at %v", hostSidecarEndpoint)
 
 	var tlsConfig credentials.TransportCredentials

@@ -148,8 +148,6 @@ func (n *ListNamespaces) Args() []string {
 func (n *ListNamespaces) Env() []string {
 	env := []string{
 		"FXCONFIG_QUERIES_ADDRESS=" + n.QueryConfig.Address,
-		"FXCONFIG_QUERY_ADDRESS=" + n.QueryConfig.Address,
-		"FXCONFIG_QUERYSERVICE_ADDRESS=" + n.QueryConfig.Address,
 	}
 
 	if n.QueryConfig.TLSConfig.Enabled {
