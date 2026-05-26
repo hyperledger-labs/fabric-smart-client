@@ -225,6 +225,7 @@ func (e *Extension) launchContainer() {
 		tlsConfig = credentials.NewTLS(&tls.Config{
 			RootCAs:      caCertPool,
 			Certificates: []tls.Certificate{cert},
+			ServerName:   "127.0.0.1", // use local loopback, which is in the cert's SANs
 		})
 	}
 
