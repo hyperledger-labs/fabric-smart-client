@@ -8,7 +8,6 @@ package network
 
 import (
 	"fmt"
-	"net"
 	"path/filepath"
 	"strings"
 	"time"
@@ -32,7 +31,7 @@ var logger = logging.MustGetLogger()
 const (
 	DefaultConsensusType     = "etcdraft"
 	scVersionKey             = "sc_version"
-	defaultEventuallyTimeout = 10 * time.Second
+	defaultEventuallyTimeout = 30 * time.Second
 
 	// namespacePropagationTimeout is the maximum time to wait for deployed
 	// namespaces to become visible through the SC query service.
@@ -53,29 +52,7 @@ func New(reg api.Context, topology *topology.Topology, builderClient fabric_netw
 func (n *Network) GenerateConfigTree() {
 	n.CheckTopology()
 	n.Network.CheckTopology()
-
-	o := n.Orderers[0]
-	ports := n.Context.PortsByOrdererID(n.Prefix, o.ID())
-
-	// Set context to 127.0.0.1 for the genesis block and FSC nodes
-	n.Context.SetHostByOrdererID(n.Prefix, o.ID(), "127.0.0.1")
-
-	// Use the dynamic OrderingServicePort from the SC peer
-	for _, p := range n.Peers {
-		if p.Name == "SC" {
-			scPorts := n.Context.PortsByPeerID(n.Prefix, p.ID())
-			if scPorts["OrderingServicePort"] != 0 {
-				ports[fabric_network.ListenPort] = scPorts["OrderingServicePort"]
-			}
-			break
-		}
-	}
-	n.Context.SetPortsByOrdererID(n.Prefix, o.ID(), ports)
-
-	// generate crypto
 	n.GenerateCryptoConfig()
-
-	// generate genesis blocks (using 127.0.0.1:OrderingServicePort)
 	n.GenerateConfigTxConfig()
 }
 
@@ -155,25 +132,12 @@ func (n *Network) removePeers() {
 func (n *Network) PostRun(load bool) {
 	logger.Infof("Post execution [%s]...", n.Prefix)
 
-	// NOTE: we skip the orderer join chanel as the committer test image deals with this
-	// if !load {
-	//	orderer := n.Orderer("orderer")
-	//	for _, channel := range n.Channels {
-	//		// orderer join the channel
-	//		n.OrdererJoinChannel(channel.Name, orderer)
-	//	}
-	//
-	//	// Wait a few second to make peers discovering each other
-	//	time.Sleep(5 * time.Second)
-	//}
-
 	// Extensions
 	for _, extension := range n.Extensions {
 		extension.PostRun(load)
 	}
 
 	logger.Infof("Next up: Deploying namespaces")
-	time.Sleep(n.EventuallyTimeout)
 
 	expNss := make([]Namespace, 0, len(n.Topology().Chaincodes))
 	for _, chaincode := range n.Topology().Chaincodes {
@@ -200,8 +164,7 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 	committerNode := n.Peer(orgName, "SC")
 	gomega.Expect(committerNode).NotTo(gomega.BeNil())
 
-	committerSidecarPort := fmt.Sprintf("%d", n.PeerPort(committerNode, fabric_network.ListenPort))
-	notificationsEndpoint := net.JoinHostPort("127.0.0.1", committerSidecarPort)
+	notificationsEndpoint := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committerNode, fabric_network.ListenPort))
 
 	cmd := &fxconfig.CreateNamespace{
 		NamespaceCommon: fxconfig.NamespaceCommon{
@@ -234,7 +197,7 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 	}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Eventually(sess, 60*time.Second).Should(gexec.Exit(0), "fxconfig command failed: %s", string(sess.Err.Contents()))
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0), "fxconfig command failed: %s", string(sess.Err.Contents()))
 }
 
 // UpdateNamespace deploys the new version of the chaincode passed by chaincodeId.
@@ -259,7 +222,7 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	if committerNode == nil {
 		return nil, fmt.Errorf("no committer peer (name=%v) found for org=%v", "SC", orgName)
 	}
-	queryEndpoint := net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", n.PeerPort(committerNode, "QueryService")))
+	queryEndpoint := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committerNode, "QueryService"))
 
 	cmd := &fxconfig.ListNamespaces{QueryConfig: fxconfig.QueryConfig{
 		Address: queryEndpoint,

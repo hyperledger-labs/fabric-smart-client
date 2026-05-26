@@ -146,10 +146,7 @@ func (n *ListNamespaces) Args() []string {
 }
 
 func (n *ListNamespaces) Env() []string {
-	env := []string{
-		"FXCONFIG_QUERIES_ADDRESS=" + n.QueryConfig.Address,
-	}
-
+	env := []string{"FXCONFIG_QUERIES_ADDRESS=" + n.QueryConfig.Address}
 	if n.QueryConfig.TLSConfig.Enabled {
 		rootCerts := strings.Join(n.QueryConfig.TLSConfig.RootCerts, ",")
 		env = append(env,
