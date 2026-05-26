@@ -13,11 +13,11 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/netip"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/moby/moby/api/types/container"
@@ -45,9 +45,9 @@ func (e *Extension) launchContainer() {
 	rootCryptoDir := rootCrypto(e.network)
 
 	// get ports
-	sidecarPort := fmt.Sprintf("%d", e.network.PeerPort(sidecarPeer, fabric_network.ListenPort))
-	queryServicePort := fmt.Sprintf("%d", e.network.PeerPort(sidecarPeer, queryServicePortName))
-	orderingServicePort := fmt.Sprintf("%d", e.network.OrdererPort(e.network.Orderers[0], fabric_network.ListenPort))
+	sidecarPort := int(e.network.PeerPort(sidecarPeer, fabric_network.ListenPort))
+	queryServicePort := int(e.network.PeerPort(sidecarPeer, queryServicePortName))
+	orderingServicePort := int(e.network.OrdererPort(e.network.Orderers[0], fabric_network.ListenPort))
 
 	// genesis block
 	configBlockPath := e.network.OutputBlockPath(e.channel.Name)
@@ -81,9 +81,9 @@ func (e *Extension) launchContainer() {
 		ChannelName:           e.channel.Name,
 		SidecarMSPDir:         containerSidecarMSPDir(e.network, sidecarPeer),
 		SidecarMSPID:          fmt.Sprintf("%sMSP", orgName),
-		SidecarServerEndpoint: ":" + sidecarPort,
-		QueryServerEndpoint:   ":" + queryServicePort,
-		OrdererServerEndpoint: ":" + orderingServicePort,
+		SidecarServerEndpoint: net.JoinHostPort("", strconv.Itoa(sidecarPort)),
+		QueryServerEndpoint:   net.JoinHostPort("", strconv.Itoa(queryServicePort)),
+		OrdererServerEndpoint: net.JoinHostPort("", strconv.Itoa(orderingServicePort)),
 		TLSEnabled:            e.network.TLSEnabled,
 		CertsBundle:           path.Join("/root/artifacts/crypto", "ca-certs.pem"),
 		SidecarTLSDir:         containerSidecarTLSDir(e.network, sidecarPeer),
@@ -92,14 +92,6 @@ func (e *Extension) launchContainer() {
 
 	logger.Infof("Run fabric-x committer test container on %v ports: sidecar=%v query=%v orderer=%v",
 		localIP, sidecarPort, queryServicePort, orderingServicePort)
-
-	// bind our container services to all interfaces;
-	// works on macos and on linux when the Docker userland proxy is disabled (iptables NAT skips loopback traffic)
-	bindLocalAddr := netip.MustParseAddr("0.0.0.0")
-
-	containerSidecarPort := network.MustParsePort(sidecarPort + "/tcp")
-	querySidecarPort := network.MustParsePort(queryServicePort + "/tcp")
-	orderingSidecarPort := network.MustParsePort(orderingServicePort + "/tcp")
 
 	cli, err := dcli.New(dcli.FromEnv)
 	utils.Must(err)
@@ -113,6 +105,7 @@ func (e *Extension) launchContainer() {
 				Tty:          true,
 				AttachStdout: true,
 				AttachStderr: true,
+				ExposedPorts: docker.PortSet(sidecarPort, queryServicePort, orderingServicePort),
 				Env:          containerEnvVars(cfg),
 				Cmd:          containerCmd(cfg),
 			},
@@ -138,29 +131,7 @@ func (e *Extension) launchContainer() {
 						ReadOnly: true,
 					},
 				},
-				PortBindings: network.PortMap{
-					// sidecar port binding
-					containerSidecarPort: []network.PortBinding{
-						{
-							HostIP:   bindLocalAddr,
-							HostPort: sidecarPort,
-						},
-					},
-					// query service port bindings
-					querySidecarPort: []network.PortBinding{
-						{
-							HostIP:   bindLocalAddr,
-							HostPort: queryServicePort,
-						},
-					},
-					// orderer port binding
-					orderingSidecarPort: []network.PortBinding{
-						{
-							HostIP:   bindLocalAddr,
-							HostPort: orderingServicePort,
-						},
-					},
-				},
+				PortBindings: docker.PortBindings(sidecarPort, queryServicePort, orderingServicePort),
 			},
 			NetworkingConfig: &network.NetworkingConfig{
 				EndpointsConfig: map[string]*network.EndpointSettings{
@@ -205,7 +176,7 @@ func (e *Extension) launchContainer() {
 	}()
 
 	// let's wait until the sidecar is ready
-	hostSidecarEndpoint := net.JoinHostPort(localIP, sidecarPort)
+	hostSidecarEndpoint := net.JoinHostPort("127.0.0.1", strconv.Itoa(sidecarPort))
 	logger.Infof("Checking sidecar health-check at %v", hostSidecarEndpoint)
 
 	var tlsConfig credentials.TransportCredentials
@@ -225,7 +196,6 @@ func (e *Extension) launchContainer() {
 		tlsConfig = credentials.NewTLS(&tls.Config{
 			RootCAs:      caCertPool,
 			Certificates: []tls.Certificate{cert},
-			ServerName:   "127.0.0.1", // use local loopback, which is in the cert's SANs
 		})
 	}
 
