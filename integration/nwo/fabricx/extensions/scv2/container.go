@@ -115,7 +115,7 @@ func (e *Extension) launchContainer() {
 			},
 			HostConfig: &container.HostConfig{
 				ExtraHosts: extraHosts,
-				Mounts: append([]mount.Mount{
+				Mounts: []mount.Mount{
 					{
 						// crypto
 						Type:   mount.TypeBind,
@@ -134,7 +134,7 @@ func (e *Extension) launchContainer() {
 						Target:   "/root/config/mock-orderer.yaml",
 						ReadOnly: true,
 					},
-				}),
+				},
 				PortBindings: network.PortMap{
 					// sidecar port binding
 					containerSidecarPort: []network.PortBinding{
@@ -196,7 +196,7 @@ func (e *Extension) launchContainer() {
 		// copy returns when the container is stopped
 		// and therefore cancels the context
 		_, copyErr := io.Copy(w, reader)
-		if err != nil {
+		if copyErr != nil {
 			dockerLogger.Error(copyErr)
 		}
 	}()
@@ -220,9 +220,8 @@ func (e *Extension) launchContainer() {
 		utils.Must(err)
 
 		tlsConfig = credentials.NewTLS(&tls.Config{
-			RootCAs:            caCertPool,
-			Certificates:       []tls.Certificate{cert},
-			InsecureSkipVerify: true,
+			RootCAs:      caCertPool,
+			Certificates: []tls.Certificate{cert},
 		})
 	}
 

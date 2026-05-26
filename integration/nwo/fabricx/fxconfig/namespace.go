@@ -155,33 +155,11 @@ func (n *ListNamespaces) Env() []string {
 	if n.QueryConfig.TLSConfig.Enabled {
 		rootCerts := strings.Join(n.QueryConfig.TLSConfig.RootCerts, ",")
 		env = append(env,
-			"FXCONFIG_TLS_ENABLED=true",
-			"FXCONFIG_TLS_ROOTCERTS="+rootCerts,
 			"FXCONFIG_QUERIES_TLS_ENABLED=true",
+			"FXCONFIG_QUERIES_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
+			"FXCONFIG_QUERIES_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
 			"FXCONFIG_QUERIES_TLS_ROOTCERTS="+rootCerts,
-			"FXCONFIG_QUERY_TLS_ENABLED=true",
-			"FXCONFIG_QUERY_TLS_ROOTCERTS="+rootCerts,
 		)
-		if n.QueryConfig.TLSConfig.ClientCertPath != "" {
-			env = append(env,
-				"FXCONFIG_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
-				"FXCONFIG_TLS_CLIENTSIDEAUTH=true",
-				"FXCONFIG_TLS_CLIENTAUTHREQUIRED=true",
-				"FXCONFIG_QUERIES_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
-				"FXCONFIG_QUERIES_TLS_CLIENTSIDEAUTH=true",
-				"FXCONFIG_QUERIES_TLS_CLIENTAUTHREQUIRED=true",
-				"FXCONFIG_QUERY_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
-				"FXCONFIG_QUERY_TLS_CLIENTSIDEAUTH=true",
-				"FXCONFIG_QUERY_TLS_CLIENTAUTHREQUIRED=true",
-			)
-		}
-		if n.QueryConfig.TLSConfig.ClientKeyPath != "" {
-			env = append(env,
-				"FXCONFIG_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
-				"FXCONFIG_QUERIES_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
-				"FXCONFIG_QUERY_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
-			)
-		}
 	}
 
 	return env
