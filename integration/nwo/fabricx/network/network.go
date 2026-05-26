@@ -30,7 +30,7 @@ var logger = logging.MustGetLogger()
 
 const (
 	DefaultConsensusType     = "etcdraft"
-	defaultEventuallyTimeout = 30 * time.Second
+	defaultEventuallyTimeout = 60 * time.Second
 
 	// namespacePropagationTimeout is the maximum time to wait for deployed
 	// namespaces to become visible through the SC query service.
