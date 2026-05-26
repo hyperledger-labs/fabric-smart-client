@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/fabric-x-common/core/aclmgmt"
 	"github.com/hyperledger/fabric-x-common/core/aclmgmt/resources"
 	"github.com/hyperledger/fabric-x-common/core/policy"
+	"github.com/hyperledger/fabric-x-common/msp"
 	"github.com/hyperledger/fabric-x-common/msp/mgmt"
 	"github.com/hyperledger/fabric-x-common/protoutil"
 
@@ -173,12 +174,7 @@ func (s *Service) IsValid(identity view.Identity) error {
 		return err
 	}
 
-	res := s.resources()
-	if res == nil {
-		return errors.Errorf("channel resources not initialized")
-	}
-
-	id, err := res.MSPManager().DeserializeIdentity(sid)
+	id, err := s.resources().MSPManager().DeserializeIdentity(sid)
 	if err != nil {
 		return errors.Wrapf(err, "deserializing identity [%s]", identity.String())
 	}
@@ -192,12 +188,7 @@ func (s *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 		return nil, err
 	}
 
-	res := s.resources()
-	if res == nil {
-		return nil, errors.Errorf("channel resources not initialized")
-	}
-
-	id, err := res.MSPManager().DeserializeIdentity(sid)
+	id, err := s.resources().MSPManager().DeserializeIdentity(sid)
 	if err != nil {
 		return nil, errors.Wrapf(err, "deserializing identity [%s]", identity.String())
 	}
@@ -207,12 +198,7 @@ func (s *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 // GetMSPIDs retrieves the MSP IDs of the organizations in the current Channel
 // configuration.
 func (s *Service) GetMSPIDs() []string {
-	res := s.resources()
-	if res == nil {
-		return nil
-	}
-
-	ac, ok := res.ApplicationConfig()
+	ac, ok := s.resources().ApplicationConfig()
 	if !ok || ac.Organizations() == nil {
 		return nil
 	}
@@ -226,12 +212,7 @@ func (s *Service) GetMSPIDs() []string {
 }
 
 func (s *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
-	res := s.resources()
-	if res == nil {
-		return "", nil, errors.New("channel resources not initialized")
-	}
-
-	oc, ok := res.OrdererConfig()
+	oc, ok := s.resources().OrdererConfig()
 	if !ok || oc.Organizations() == nil {
 		return "", nil, errors.New("orderer config does not exist")
 	}
@@ -287,7 +268,7 @@ func (s *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 // MSPManager returns the msp.MSPManager that reflects the current Channel
 // configuration. Users should not memoize references to this object.
 func (s *Service) MSPManager() driver.MSPManager {
-	return &mspManager{s: s}
+	return &mspManager{s.resources().MSPManager()}
 }
 
 // CheckACL checks the ACL for the resource for the Channel using the
@@ -297,7 +278,7 @@ func (s *Service) CheckACL(signedProp driver.SignedProposal) error {
 }
 
 type mspManager struct {
-	s *Service
+	msp.MSPManager
 }
 
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
@@ -306,12 +287,7 @@ func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPI
 		return nil, err
 	}
 
-	res := m.s.resources()
-	if res == nil {
-		return nil, errors.Errorf("channel resources not initialized")
-	}
-
-	return res.MSPManager().DeserializeIdentity(sid)
+	return m.MSPManager.DeserializeIdentity(sid)
 }
 
 type policyManagerGetterFunc struct {
@@ -321,10 +297,7 @@ type policyManagerGetterFunc struct {
 
 func (p *policyManagerGetterFunc) Manager(channelID string) policies.Manager {
 	if p.channelID == channelID {
-		res := p.resourcesGetter()
-		if res != nil {
-			return res.PolicyManager()
-		}
+		return p.resourcesGetter().PolicyManager()
 	}
 	return nil
 }

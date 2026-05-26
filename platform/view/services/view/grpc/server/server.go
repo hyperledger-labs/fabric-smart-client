@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"runtime/debug"
 	"strconv"
-	"strings"
 
 	"go.opentelemetry.io/otel/trace"
 
@@ -118,7 +117,7 @@ func (s *Server) ProcessCommand(ctx context.Context, sc *protos.SignedCommand) (
 	if err != nil {
 		logger.ErrorfContext(ctx, "command execution failed with err [%s]", err.Error())
 		payload = &protos.CommandResponse_Err{
-			Err: &protos.Error{Message: strings.ToValidUTF8(err.Error(), "")},
+			Err: &protos.Error{Message: err.Error()},
 		}
 	}
 
@@ -207,7 +206,7 @@ func (s *Server) MarshalErrorResponse(command []byte, e error) (*protos.SignedCo
 	return s.Marshaller.MarshalCommandResponse(
 		command,
 		&protos.CommandResponse_Err{
-			Err: &protos.Error{Message: strings.ToValidUTF8(e.Error(), "")},
+			Err: &protos.Error{Message: e.Error()},
 		})
 }
 

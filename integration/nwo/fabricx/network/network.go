@@ -9,7 +9,6 @@ package network
 import (
 	"fmt"
 	"net"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -37,7 +36,7 @@ const (
 
 	// namespacePropagationTimeout is the maximum time to wait for deployed
 	// namespaces to become visible through the SC query service.
-	namespacePropagationTimeout = 120 * time.Second
+	namespacePropagationTimeout = 30 * time.Second
 )
 
 type Network struct {
@@ -58,29 +57,20 @@ func (n *Network) GenerateConfigTree() {
 	// TODO: remove this
 	o := n.Orderers[0]
 	ports := n.Context.PortsByOrdererID(n.Prefix, o.ID())
-	upstreamPort := ports[fabric_network.ListenPort]
-	ports[".upstream"] = upstreamPort
+	ports[fabric_network.ListenPort] = 7050
 
-	// Set context to 127.0.0.1 for the genesis block and FSC nodes
+	n.Context.SetPortsByOrdererID(n.Prefix, o.ID(), ports)
 	n.Context.SetHostByOrdererID(n.Prefix, o.ID(), "127.0.0.1")
 
-	// Use the dynamic OrderingServicePort from the SC peer
-	for _, p := range n.Peers {
-		if p.Name == "SC" {
-			scPorts := n.Context.PortsByPeerID(n.Prefix, p.ID())
-			if scPorts["OrderingServicePort"] != 0 {
-				ports[fabric_network.ListenPort] = scPorts["OrderingServicePort"]
-			}
-			break
-		}
-	}
-	n.Context.SetPortsByOrdererID(n.Prefix, o.ID(), ports)
-
-	// generate crypto
+	// generate cyroto
 	n.GenerateCryptoConfig()
 
-	// generate genesis blocks (using 127.0.0.1:OrderingServicePort)
+	// generate genesis blocks
+	// n.WriteConfigTxConfig()
 	n.GenerateConfigTxConfig()
+
+	// err := generateConfigTxYaml(n)
+	// utils.Must(err)
 }
 
 func (n *Network) GenerateArtifacts() {
@@ -205,7 +195,7 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 	gomega.Expect(committerNode).NotTo(gomega.BeNil())
 
 	committerSidecarPort := fmt.Sprintf("%d", n.PeerPort(committerNode, fabric_network.ListenPort))
-	notificationsEndpoint := net.JoinHostPort("127.0.0.1", committerSidecarPort)
+	notificationsEndpoint := net.JoinHostPort("localhost", committerSidecarPort)
 
 	cmd := &fxconfig.CreateNamespace{
 		NamespaceCommon: fxconfig.NamespaceCommon{
@@ -236,12 +226,9 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 			Policy: chaincode.Chaincode.Policy,
 		},
 	}
-	command := common.NewCommand(fxconfig.CMDPath(), cmd)
-	command.Env = append(os.Environ(), "FABRIC_LOGGING_SPEC=debug")
-	command.Env = append(command.Env, cmd.Env()...)
-	sess, err := n.StartSession(command, cmd.SessionName())
+	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Eventually(sess, 60*time.Second).Should(gexec.Exit(0), "fxconfig command failed: %s", string(sess.Err.Contents()))
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 }
 
 // UpdateNamespace deploys the new version of the chaincode passed by chaincodeId.
@@ -262,11 +249,9 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	if len(peers) == 0 {
 		return nil, fmt.Errorf("no peers found for org %s", orgName)
 	}
-	committerNode := n.Peer(orgName, "SC")
-	queryEndpoint := net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", n.PeerPort(committerNode, "QueryServicePort")))
 
 	cmd := &fxconfig.ListNamespaces{QueryConfig: fxconfig.QueryConfig{
-		Address: queryEndpoint,
+		Address: "127.0.0.1:7001",
 		TLSConfig: fxconfig.TLSConfig{
 			Enabled:        n.TLSEnabled,
 			RootCerts:      []string{n.CACertsBundlePath()},
@@ -274,15 +259,13 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 			ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
 		},
 	}}
-	command := common.NewCommand(fxconfig.CMDPath(), cmd)
-	command.Env = append(os.Environ(), cmd.Env()...)
-	sess, err := n.StartSession(command, cmd.SessionName())
+	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	if err != nil {
 		return nil, err
 	}
 	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit())
 	if sess.ExitCode() != 0 {
-		return nil, fmt.Errorf("namespace list returned non-zero exit code %d: %s", sess.ExitCode(), string(sess.Err.Contents()))
+		return nil, fmt.Errorf("namespace list returned non-zero exit code %d", sess.ExitCode())
 	}
 	return parseNamespaceList(string(sess.Out.Contents())), nil
 }
@@ -292,7 +275,7 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 // gomega.Eventually, use tryListInstalledNames instead.
 func (n *Network) ListInstalledNames() []Namespace {
 	namespaces, err := n.tryListInstalledNames()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to list namespaces: %v", err)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	return namespaces
 }
 
@@ -306,9 +289,10 @@ type Namespace struct {
 // Example: "0) perf: version 0 policy: 0a05454344534112b201..."
 func parseNamespaceList(output string) []Namespace {
 	namespaces := make([]Namespace, 0)
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
+
+	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
+		// Skip header, empty lines, and error messages
 		if line == "" ||
 			strings.HasPrefix(line, "Installed namespaces") ||
 			strings.HasPrefix(line, "Error:") ||
@@ -317,41 +301,38 @@ func parseNamespaceList(output string) []Namespace {
 			continue
 		}
 
-		// Look for name and version in the line
-		// Expected format: "N) name: version X policy: <hex>"
-		idx := strings.Index(line, ")")
-		if idx > 0 {
+		// Parse line format: "0) perf: version 0 policy: ..."
+		if idx := strings.Index(line, ")"); idx > 0 {
 			rest := strings.TrimSpace(line[idx+1:])
-			colonIdx := strings.Index(rest, ":")
-			if colonIdx > 0 {
-				name := strings.TrimSpace(rest[:colonIdx])
 
-				// Extract version
-				vIdx := strings.Index(rest, " version ")
-				if vIdx > 0 {
-					vPart := strings.TrimSpace(rest[vIdx+len(" version "):])
-					spaceIdx := strings.Index(vPart, " ")
-					if spaceIdx > 0 {
-						vPart = vPart[:spaceIdx]
-					}
-					version := 0
-					n, err := fmt.Sscanf(vPart, "%d", &version)
-					if err != nil || n != 1 {
-						logger.Warnf("Failed to parse version from '%s': %v, skipping entry", vPart, err)
-						continue
-					}
+			// Split by "version" keyword
+			parts := strings.Split(rest, " version ")
+			if len(parts) != 2 {
+				continue
+			}
 
-					namespaces = append(namespaces, Namespace{
-						Name:    name,
-						Version: version,
-					})
+			// Extract name (before ":")
+			namePart := strings.TrimSpace(parts[0])
+			if colonIdx := strings.Index(namePart, ":"); colonIdx > 0 {
+				name := strings.TrimSpace(namePart[:colonIdx])
+
+				// Extract version (ignore policy)
+				versionPart := strings.TrimSpace(parts[1])
+				versionPolicyParts := strings.Split(versionPart, " policy: ")
+
+				version := 0
+				_, err := fmt.Sscanf(versionPolicyParts[0], "%d", &version)
+				if err != nil {
+					logger.Warnf("Failed to parse version from '%s': %v, skipping entry", versionPolicyParts[0], err)
+					continue
 				}
+
+				namespaces = append(namespaces, Namespace{
+					Name:    name,
+					Version: version,
+				})
 			}
 		}
-	}
-
-	if len(namespaces) == 0 && len(output) > 0 {
-		logger.Debugf("Failed to parse any namespaces from output: %s", output)
 	}
 
 	return namespaces

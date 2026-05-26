@@ -105,6 +105,22 @@ func validateInput(config *Config) error {
 	return nil
 }
 
+func parseFlagsToConfig() Config {
+	conf := Config{
+		Address: endpoint,
+		SignerConfig: SignerConfig{
+			IdentityPath: userCert,
+			KeyPath:      userKey,
+		},
+		TLSConfig: TLSConfig{
+			KeyPath:        tlsKey,
+			CertPath:       tlsCert,
+			PeerCACertPath: tlsCA,
+		},
+	}
+	return conf
+}
+
 func loadConfig(file string) Config {
 	conf, err := ConfigFromFile(file)
 	if err != nil {
@@ -121,28 +137,10 @@ func out(a ...any) {
 
 func invoke() error {
 	var config Config
-	if configFile != "" {
+	if configFile == "" {
+		config = parseFlagsToConfig()
+	} else {
 		config = loadConfig(configFile)
-	}
-
-	// Override with flags if specified
-	if endpoint != "" {
-		config.Address = endpoint
-	}
-	if tlsCA != "" {
-		config.TLSConfig.PeerCACertPath = tlsCA
-	}
-	if tlsCert != "" {
-		config.TLSConfig.CertPath = tlsCert
-	}
-	if tlsKey != "" {
-		config.TLSConfig.KeyPath = tlsKey
-	}
-	if userKey != "" {
-		config.SignerConfig.KeyPath = userKey
-	}
-	if userCert != "" {
-		config.SignerConfig.IdentityPath = userCert
 	}
 
 	if err := validateInput(&config); err != nil {

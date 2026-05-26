@@ -58,7 +58,7 @@ func (e *Extension) CheckTopology() {
 }
 
 func (e *Extension) GenerateArtifacts() {
-	generateQSExtension(e.network, e.sidecar.Org, e.sidecar.Name)
+	generateQSExtension(e.network)
 	generateNSExtension(e.network, e.sidecar.Ports[fabric_network.ListenPort], e.sidecar.Host)
 }
 
@@ -74,11 +74,9 @@ func (e *Extension) addSCPeer() {
 	}
 
 	// reserve ports
-	if e.sidecar.Ports == nil {
+	if len(e.sidecar.Ports) == 0 {
 		e.sidecar.Ports = api.Ports{}
-	}
-	for _, portName := range []api.PortName{fabric_network.ListenPort, "QueryServicePort", "OrderingServicePort"} {
-		if _, ok := e.sidecar.Ports[portName]; !ok || e.sidecar.Ports[portName] == 0 {
+		for _, portName := range fabric_network.PeerPortNames() {
 			e.sidecar.Ports[portName] = e.network.Context.ReservePort()
 		}
 	}
