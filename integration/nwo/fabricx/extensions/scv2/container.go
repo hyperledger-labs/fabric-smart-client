@@ -178,7 +178,6 @@ func (e *Extension) launchContainer() {
 
 	var tlsConfig credentials.TransportCredentials
 	if e.network.TLSEnabled {
-		//caCertPath := filepath.Join(e.network.PeerLocalTLSDir(sidecarPeer), "ca.crt")
 		caCert, err := os.ReadFile(e.network.CACertsBundlePath())
 		utils.Must(err)
 		caCertPool := x509.NewCertPool()
