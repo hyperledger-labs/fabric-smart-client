@@ -165,10 +165,6 @@ func TestReplacers_ContainsExpectedMapping(t *testing.T) {
 func TestGetPackageName_Caller(t *testing.T) {
 	t.Parallel()
 
-	pkg := getTestPackageName()
+	pkg := tracing.GetPackageName()
 	require.Contains(t, pkg, "tracing_test")
-}
-
-func getTestPackageName() string {
-	return tracing.GetPackageName()
 }
