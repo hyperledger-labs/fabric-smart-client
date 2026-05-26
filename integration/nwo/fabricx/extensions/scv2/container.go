@@ -26,6 +26,7 @@ import (
 	dcli "github.com/moby/moby/client"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
@@ -175,14 +176,10 @@ func (e *Extension) launchContainer() {
 		}
 	}()
 
-	// let's wait until the sidecar is ready
-	hostSidecarEndpoint := net.JoinHostPort("127.0.0.1", strconv.Itoa(sidecarPort))
-	logger.Infof("Checking sidecar health-check at %v", hostSidecarEndpoint)
-
 	var tlsConfig credentials.TransportCredentials
 	if e.network.TLSEnabled {
-		caCertPath := filepath.Join(e.network.PeerLocalTLSDir(sidecarPeer), "ca.crt")
-		caCert, err := os.ReadFile(caCertPath)
+		//caCertPath := filepath.Join(e.network.PeerLocalTLSDir(sidecarPeer), "ca.crt")
+		caCert, err := os.ReadFile(e.network.CACertsBundlePath())
 		utils.Must(err)
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
@@ -205,6 +202,15 @@ func (e *Extension) launchContainer() {
 	// the context is canceled and aborts the wait function
 	ctx, cancel = context.WithTimeout(ctx, timeout)
 	defer cancel()
-	err = fabric.WaitUntilReadyWithTLS(ctx, hostSidecarEndpoint, tlsConfig)
+
+	// let's wait until the sidecar is ready
+	g, ctx := errgroup.WithContext(ctx)
+	for _, p := range []int{sidecarPort, orderingServicePort, queryServicePort} {
+		g.Go(func() error {
+			addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(p))
+			return fabric.WaitUntilReadyWithTLS(ctx, addr, tlsConfig)
+		})
+	}
+	err = g.Wait()
 	utils.Must(err)
 }
