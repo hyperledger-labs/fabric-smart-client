@@ -93,8 +93,9 @@ func (e *Extension) launchContainer() {
 	logger.Infof("Run fabric-x committer test container on %v ports: sidecar=%v query=%v orderer=%v",
 		localIP, sidecarPort, queryServicePort, orderingServicePort)
 
-	// we use our loopback to expose the services from the container
-	localAddr := netip.MustParseAddr("127.0.0.1")
+	// bind our container services to all interfaces;
+	// works on macos and on linux when the Docker userland proxy is disabled (iptables NAT skips loopback traffic)
+	bindLocalAddr := netip.MustParseAddr("0.0.0.0")
 
 	containerSidecarPort := network.MustParsePort(sidecarPort + "/tcp")
 	querySidecarPort := network.MustParsePort(queryServicePort + "/tcp")
@@ -141,21 +142,21 @@ func (e *Extension) launchContainer() {
 					// sidecar port binding
 					containerSidecarPort: []network.PortBinding{
 						{
-							HostIP:   localAddr,
+							HostIP:   bindLocalAddr,
 							HostPort: sidecarPort,
 						},
 					},
 					// query service port bindings
 					querySidecarPort: []network.PortBinding{
 						{
-							HostIP:   localAddr,
+							HostIP:   bindLocalAddr,
 							HostPort: queryServicePort,
 						},
 					},
 					// orderer port binding
 					orderingSidecarPort: []network.PortBinding{
 						{
-							HostIP:   localAddr,
+							HostIP:   bindLocalAddr,
 							HostPort: orderingServicePort,
 						},
 					},
@@ -204,7 +205,7 @@ func (e *Extension) launchContainer() {
 	}()
 
 	// let's wait until the sidecar is ready
-	hostSidecarEndpoint := net.JoinHostPort(localAddr.String(), sidecarPort)
+	hostSidecarEndpoint := net.JoinHostPort(localIP, sidecarPort)
 	logger.Infof("Checking sidecar health-check at %v", hostSidecarEndpoint)
 
 	var tlsConfig credentials.TransportCredentials
