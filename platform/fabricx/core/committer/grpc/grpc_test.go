@@ -20,6 +20,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,6 +93,29 @@ func TestClientProvider_NotificationServiceClient(t *testing.T) {
 		require.Nil(t, cc)
 		require.Contains(t, err.Error(), "we need a single endpoint")
 	})
+
+	t.Run("caches per network", func(t *testing.T) {
+		t.Parallel()
+		fakeConfigProvider := &mock.ServiceConfigProvider{}
+		fakeConfigProvider.NotificationServiceConfigStub = func(network string) (*config.Config, error) {
+			return &config.Config{
+				Endpoints: []config.Endpoint{{Address: "localhost:1234"}},
+			}, nil
+		}
+
+		cp := grpc2.NewClientProvider(fakeConfigProvider)
+		cc1, err := cp.NotificationServiceClient("net-a")
+		require.NoError(t, err)
+		cc2, err := cp.NotificationServiceClient("net-a")
+		require.NoError(t, err)
+		require.Same(t, cc1, cc2)
+		require.Equal(t, 1, fakeConfigProvider.NotificationServiceConfigCallCount())
+
+		cc3, err := cp.NotificationServiceClient("net-b")
+		require.NoError(t, err)
+		require.NotSame(t, cc1, cc3)
+		require.Equal(t, 2, fakeConfigProvider.NotificationServiceConfigCallCount())
+	})
 }
 
 func TestClientProvider_QueryServiceClient(t *testing.T) {
@@ -137,6 +162,53 @@ func TestClientProvider_QueryServiceClient(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, cc)
 		require.Contains(t, err.Error(), "we need a single endpoint")
+	})
+
+	t.Run("caches per network", func(t *testing.T) {
+		t.Parallel()
+		fakeConfigProvider := &mock.ServiceConfigProvider{}
+		fakeConfigProvider.QueryServiceConfigStub = func(network string) (*config.Config, error) {
+			return &config.Config{
+				Endpoints: []config.Endpoint{{Address: "localhost:5678"}},
+			}, nil
+		}
+
+		cp := grpc2.NewClientProvider(fakeConfigProvider)
+		cc1, err := cp.QueryServiceClient("net-a")
+		require.NoError(t, err)
+		cc2, err := cp.QueryServiceClient("net-a")
+		require.NoError(t, err)
+		require.Same(t, cc1, cc2)
+		require.Equal(t, 1, fakeConfigProvider.QueryServiceConfigCallCount())
+
+		cc3, err := cp.QueryServiceClient("net-b")
+		require.NoError(t, err)
+		require.NotSame(t, cc1, cc3)
+		require.Equal(t, 2, fakeConfigProvider.QueryServiceConfigCallCount())
+	})
+
+	t.Run("notification and query caches are independent", func(t *testing.T) {
+		t.Parallel()
+		fakeConfigProvider := &mock.ServiceConfigProvider{}
+		fakeConfigProvider.NotificationServiceConfigStub = func(network string) (*config.Config, error) {
+			return &config.Config{
+				Endpoints: []config.Endpoint{{Address: "localhost:1111"}},
+			}, nil
+		}
+		fakeConfigProvider.QueryServiceConfigStub = func(network string) (*config.Config, error) {
+			return &config.Config{
+				Endpoints: []config.Endpoint{{Address: "localhost:2222"}},
+			}, nil
+		}
+
+		cp := grpc2.NewClientProvider(fakeConfigProvider)
+		notif, err := cp.NotificationServiceClient("net-a")
+		require.NoError(t, err)
+		query, err := cp.QueryServiceClient("net-a")
+		require.NoError(t, err)
+		require.NotSame(t, notif, query)
+		require.Equal(t, "localhost:1111", notif.Target())
+		require.Equal(t, "localhost:2222", query.Target())
 	})
 }
 
@@ -511,4 +583,125 @@ func generateCertAndKey(t *testing.T) (certFile, keyFile string) {
 	require.NoError(t, f.Close())
 
 	return certFile, keyFile
+}
+
+// TestClientProvider_CachingPreventsPerCallGoroutineLeak reproduces, in miniature,
+// the leak that motivated per-(service,network) connection caching. Every live
+// *grpc.ClientConn carries a handful of long-lived worker goroutines (http2
+// reader, loopyWriter, dns resolver watcher, callback serializer), so dialing a
+// fresh connection on every call — as the provider did before this fix — grows
+// the goroutine count linearly and never reclaims the connections.
+//
+// Both paths run against the same real server with identical usage:
+//   - cached:   ClientProvider.QueryServiceClient reuses one connection
+//   - uncached: grpc.ClientConn dialed per call and kept alive (the pre-fix
+//     behavior: the old QueryServiceClient called ClientConn(cfg) every time and
+//     returned it; callers never closed it)
+//
+// We assert the cached path adds ~no goroutines across many calls while the
+// uncached path leaks roughly a connection's worth per call. Assertions use
+// NumGoroutine deltas (robust across grpc versions); the per-worker breakdown is
+// logged only, since those internal symbol names are version-specific.
+//
+// This test does NOT call t.Parallel(): runtime.NumGoroutine() is process-global,
+// and Go runs non-parallel tests while every t.Parallel() test is paused, which
+// gives a clean measurement window.
+func TestClientProvider_CachingPreventsPerCallGoroutineLeak(t *testing.T) { //nolint:paralleltest
+	addr := startTestServer(t)
+	cfg := &config.Config{Endpoints: []config.Endpoint{{Address: addr}}}
+
+	fakeConfigProvider := &mock.ServiceConfigProvider{}
+	fakeConfigProvider.QueryServiceConfigStub = func(string) (*config.Config, error) {
+		return &config.Config{Endpoints: []config.Endpoint{{Address: addr}}}, nil
+	}
+
+	const calls = 30
+
+	// --- cached path (this fix): one shared connection serves every call ---
+	cp := grpc2.NewClientProvider(fakeConfigProvider)
+	first, err := cp.QueryServiceClient("net")
+	require.NoError(t, err)
+	invokeHealthCheck(t, first) // establish the single connection up front
+
+	cachedBase := settledGoroutineCount()
+	for i := 0; i < calls; i++ {
+		cc, err := cp.QueryServiceClient("net")
+		require.NoError(t, err)
+		require.Same(t, first, cc) // every call returns the cached connection
+		invokeHealthCheck(t, cc)
+	}
+	cachedGrowth := settledGoroutineCount() - cachedBase
+	require.Equal(t, 1, fakeConfigProvider.QueryServiceConfigCallCount()) // dialed exactly once
+
+	// --- uncached path (pre-fix behavior): a fresh conn per call, never closed ---
+	leaked := make([]*grpc.ClientConn, 0, calls)
+	t.Cleanup(func() {
+		for _, cc := range leaked {
+			_ = cc.Close()
+		}
+	})
+	uncachedBase := settledGoroutineCount()
+	for i := 0; i < calls; i++ {
+		cc, err := grpc2.ClientConn(cfg) // exactly what QueryServiceClient did before caching
+		require.NoError(t, err)
+		invokeHealthCheck(t, cc)
+		leaked = append(leaked, cc)
+	}
+	uncachedGrowth := settledGoroutineCount() - uncachedBase
+
+	t.Logf("goroutine growth over %d calls: cached=%d uncached=%d", calls, cachedGrowth, uncachedGrowth)
+	t.Logf("per-connection worker goroutines now live: %v", grpcConnGoroutineBreakdown())
+
+	// cached: well under one new goroutine per call (true value ~0).
+	require.Less(t, cachedGrowth, calls,
+		"cached provider should not grow goroutines per call (grew %d over %d calls)", cachedGrowth, calls)
+	// uncached: at least one extra goroutine per call beyond the cached path.
+	require.Greater(t, uncachedGrowth, cachedGrowth+calls,
+		"dialing per call should leak ~a connection's worth of goroutines each time (cached grew %d, uncached grew %d over %d calls)",
+		cachedGrowth, uncachedGrowth, calls)
+}
+
+// settledGoroutineCount returns runtime.NumGoroutine() after letting transient
+// goroutines (e.g. just-finished RPCs) wind down, so two readings are comparable.
+func settledGoroutineCount() int {
+	prev := -1
+	n := 0
+	for i := 0; i < 25; i++ {
+		runtime.GC()
+		time.Sleep(10 * time.Millisecond)
+		n = runtime.NumGoroutine()
+		if n == prev {
+			break
+		}
+		prev = n
+	}
+	return n
+}
+
+// grpcConnGoroutineBreakdown counts live goroutines whose stacks match grpc's
+// per-connection workers — the ones the PR's production profile saw accumulate.
+// Diagnostic only (logged, never asserted): these internal symbols are grpc
+// version-specific, whereas the test's assertions use NumGoroutine deltas.
+func grpcConnGoroutineBreakdown() map[string]int {
+	buf := make([]byte, 1<<20)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			buf = buf[:n]
+			break
+		}
+		buf = make([]byte, 2*len(buf))
+	}
+	dump := string(buf)
+	markers := map[string]string{
+		"http2.reader":        "http2Client).reader",
+		"loopyWriter.run":     "loopyWriter).run",
+		"dnsResolver.watcher": "dnsResolver).watcher",
+		"callbackSerializer":  "CallbackSerializer).run",
+	}
+	out := make(map[string]int, len(markers))
+	for label, sig := range markers {
+		out[label] = strings.Count(dump, sig)
+	}
+	return out
 }

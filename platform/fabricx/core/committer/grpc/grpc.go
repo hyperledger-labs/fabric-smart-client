@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"os"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -35,9 +36,18 @@ type ServiceConfigProvider interface {
 }
 
 // ClientProvider provides gRPC client connections for a given network.
+//
+// Connections are cached per (service, network). grpc.NewClient spawns ~6
+// long-lived goroutines per ClientConn (resolver watcher, callback serializers,
+// http2 reader/writer, balancer); callers like fabric-token-sdk's qe.Executor
+// invoke these methods on every state query, so without caching the goroutine
+// count grows linearly with throughput and leaks the underlying connections.
 type ClientProvider struct {
 	// configProvider is used to retrieve the configuration for a network.
 	configProvider ServiceConfigProvider
+
+	notificationConn sync.Map // network -> *grpc.ClientConn
+	queryConn        sync.Map // network -> *grpc.ClientConn
 }
 
 // NewClientProvider returns a new ClientProvider instance.
@@ -46,27 +56,30 @@ func NewClientProvider(configProvider ServiceConfigProvider) *ClientProvider {
 }
 
 // NotificationServiceClient returns a gRPC client connection to the notification service for the specified network.
-// It loads the configuration for the network and creates a connection.
+// The connection is created on first use and cached for subsequent calls.
 func (c *ClientProvider) NotificationServiceClient(network string) (*grpc.ClientConn, error) {
-	// Load the specific configuration for this network
-	cfg, err := c.configProvider.NotificationServiceConfig(network)
-	if err != nil {
-		return nil, err
-	}
-
-	cc, err := ClientConn(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return cc, nil
+	return c.getOrCreate(&c.notificationConn, network, c.configProvider.NotificationServiceConfig)
 }
 
 // QueryServiceClient returns a gRPC client connection to the query service for the specified network.
-// It loads the configuration for the network and creates a connection.
+// The connection is created on first use and cached for subsequent calls.
 func (c *ClientProvider) QueryServiceClient(network string) (*grpc.ClientConn, error) {
-	// Load the specific configuration for this network
-	cfg, err := c.configProvider.QueryServiceConfig(network)
+	return c.getOrCreate(&c.queryConn, network, c.configProvider.QueryServiceConfig)
+}
+
+// getOrCreate returns the cached *grpc.ClientConn for the given network, or
+// dials a new one via loadCfg and caches it. Under a benign race two callers
+// may both dial; the loser closes its connection and returns the winner's.
+func (c *ClientProvider) getOrCreate(
+	cache *sync.Map,
+	network string,
+	loadCfg func(string) (*config.Config, error),
+) (*grpc.ClientConn, error) {
+	if v, ok := cache.Load(network); ok {
+		return v.(*grpc.ClientConn), nil
+	}
+
+	cfg, err := loadCfg(network)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +87,11 @@ func (c *ClientProvider) QueryServiceClient(network string) (*grpc.ClientConn, e
 	cc, err := ClientConn(cfg)
 	if err != nil {
 		return nil, err
+	}
+
+	if actual, loaded := cache.LoadOrStore(network, cc); loaded {
+		_ = cc.Close()
+		return actual.(*grpc.ClientConn), nil
 	}
 
 	return cc, nil
