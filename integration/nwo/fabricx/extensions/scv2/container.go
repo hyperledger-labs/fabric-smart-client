@@ -151,8 +151,8 @@ func (e *Extension) launchContainer() {
 	dockerLogger := logging.MustGetLogger("sc.container." + resp.ID[:8])
 	go func() {
 		defer cancel()
-		dockerLogger.Debugf("fetch logs from container [%s]", containerName)
-		defer dockerLogger.Debugf("stopped container log fetcher [%s], ", containerName)
+		dockerLogger.Infof("fetch logs from container [%s]", containerName)
+		defer dockerLogger.Infof("stopped container log fetcher [%s], ", containerName)
 
 		reader, errx := cli.ContainerLogs(context.TODO(), resp.ID, dcli.ContainerLogsOptions{
 			ShowStdout: true,
@@ -166,7 +166,7 @@ func (e *Extension) launchContainer() {
 
 		w := &zapio.Writer{
 			Log:   dockerLogger.Zap(),
-			Level: zap.DebugLevel,
+			Level: zap.InfoLevel,
 		}
 
 		// copy returns when the container is stopped
