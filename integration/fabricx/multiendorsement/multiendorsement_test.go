@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package multiendorsement_test
 
 import (
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -102,7 +103,7 @@ func UpdateNamespacePolicy(ii *integration.Infrastructure, name, policy string, 
 	c := &topology.ChannelChaincode{
 		Chaincode: topology.Chaincode{
 			Name:    name,
-			Version: string(version),
+			Version: strconv.Itoa(version),
 			Policy:  policy,
 		},
 		Channel: "testchannel",
