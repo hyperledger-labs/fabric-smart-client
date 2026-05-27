@@ -22,18 +22,15 @@ const (
 )
 
 type OrdererConfig struct {
-	Address   string
-	TLSConfig TLSConfig
+	Address string
 }
 
 type NotificationsConfig struct {
-	Address   string
-	TLSConfig TLSConfig
+	Address string
 }
 
 type QueryConfig struct {
-	Address   string
-	TLSConfig TLSConfig
+	Address string
 }
 
 type MSPConfig struct {
@@ -84,31 +81,9 @@ func (n *NamespaceCommon) Env() []string {
 		"FXCONFIG_MSP_LOCALMSPID=" + n.MSPConfig.LocalMspID,
 		"FXCONFIG_MSP_CONFIGPATH=" + n.MSPConfig.ConfigPath,
 		"FXCONFIG_ORDERER_CHANNEL=" + n.Channel,
+		"FXCONFIG_ORDERER_ADDRESS=" + n.OrdererConfig.Address,
+		"FXCONFIG_NOTIFICATIONS_ADDRESS=" + n.NotificationsConfig.Address,
 	}
-
-	// orderer
-	env = append(env, "FXCONFIG_ORDERER_ADDRESS="+n.OrdererConfig.Address)
-	//if n.OrdererConfig.TLSConfig.Enabled {
-	//	rootCerts := strings.Join(n.OrdererConfig.TLSConfig.RootCerts, ",")
-	//	env = append(env,
-	//		"FXCONFIG_ORDERER_TLS_ENABLED=true",
-	//		"FXCONFIG_ORDERER_TLS_CLIENTKEY="+n.OrdererConfig.TLSConfig.ClientKeyPath,
-	//		"FXCONFIG_ORDERER_TLS_CLIENTCERT="+n.OrdererConfig.TLSConfig.ClientCertPath,
-	//		"FXCONFIG_ORDERER_TLS_ROOTCERTS="+rootCerts,
-	//	)
-	//}
-
-	// notifications
-	env = append(env, "FXCONFIG_NOTIFICATIONS_ADDRESS="+n.NotificationsConfig.Address)
-	//if n.NotificationsConfig.TLSConfig.Enabled {
-	//	rootCerts := strings.Join(n.NotificationsConfig.TLSConfig.RootCerts, ",")
-	//	env = append(env,
-	//		"FXCONFIG_NOTIFICATIONS_TLS_ENABLED=true",
-	//		"FXCONFIG_NOTIFICATIONS_TLS_CLIENTKEY="+n.NotificationsConfig.TLSConfig.ClientKeyPath,
-	//		"FXCONFIG_NOTIFICATIONS_TLS_CLIENTCERT="+n.NotificationsConfig.TLSConfig.ClientCertPath,
-	//		"FXCONFIG_NOTIFICATIONS_TLS_ROOTCERTS="+rootCerts,
-	//	)
-	//}
 
 	// TLS
 	if n.TLSConfig.Enabled {
@@ -160,17 +135,6 @@ func (n *ListNamespaces) Args() []string {
 
 func (n *ListNamespaces) Env() []string {
 	env := []string{"FXCONFIG_QUERIES_ADDRESS=" + n.QueryConfig.Address}
-	//if n.QueryConfig.TLSConfig.Enabled {
-	//	rootCerts := strings.Join(n.QueryConfig.TLSConfig.RootCerts, ",")
-	//	env = append(env,
-	//		"FXCONFIG_QUERIES_TLS_ENABLED=true",
-	//		"FXCONFIG_QUERIES_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
-	//		"FXCONFIG_QUERIES_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
-	//		"FXCONFIG_QUERIES_TLS_ROOTCERTS="+rootCerts,
-	//	)
-	//}
-
-	// TLS
 	if n.TLSConfig.Enabled {
 		rootCerts := strings.Join(n.TLSConfig.RootCerts, ",")
 		env = append(env,

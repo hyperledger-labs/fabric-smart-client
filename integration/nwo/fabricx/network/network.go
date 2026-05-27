@@ -9,6 +9,7 @@ package network
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -140,8 +141,6 @@ func (n *Network) PostRun(load bool) {
 	}
 
 	logger.Infof("Next up: Deploying namespaces")
-	time.Sleep(n.EventuallyTimeout)
-
 	expNss := make([]Namespace, 0, len(n.Topology().Chaincodes))
 	for _, chaincode := range n.Topology().Chaincodes {
 		n.DeployNamespace(chaincode)
@@ -154,6 +153,29 @@ func (n *Network) PostRun(load bool) {
 }
 
 func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
+	c := n.createNSCommon(chaincode)
+	cmd := &fxconfig.CreateNamespace{NamespaceCommon: c}
+	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0), "fxconfig command failed: %s", string(sess.Err.Contents()))
+}
+
+// UpdateNamespace deploys the new version of the chaincode passed by chaincodeId.
+func (n *Network) UpdateNamespace(chaincode *topology.ChannelChaincode) {
+	v, err := strconv.Atoi(chaincode.Chaincode.Version)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c := n.createNSCommon(chaincode)
+	cmd := &fxconfig.UpdateNamespace{
+		NamespaceCommon: c,
+		Version:         v,
+	}
+	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0), "fxconfig command failed: %s", string(sess.Err.Contents()))
+}
+
+func (n *Network) createNSCommon(chaincode *topology.ChannelChaincode) fxconfig.NamespaceCommon {
 	orgName, err := namespaceApproverOrg(n)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -169,49 +191,27 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 
 	notificationsEndpoint := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committerNode, fabric_network.ListenPort))
 
-	cmd := &fxconfig.CreateNamespace{
-		NamespaceCommon: fxconfig.NamespaceCommon{
-			Name:    chaincode.Chaincode.Name,
-			Channel: chaincode.Channel,
-			MSPConfig: fxconfig.MSPConfig{
-				ConfigPath: adminMspDir,
-				LocalMspID: adminMspID,
-			},
-			OrdererConfig: fxconfig.OrdererConfig{
-				Address: n.OrdererAddress(n.Orderers[0], fabric_network.ListenPort),
-				//TLSConfig: fxconfig.TLSConfig{
-				//	Enabled:        n.TLSEnabled,
-				//	RootCerts:      []string{n.CACertsBundlePath()},
-				//	ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
-				//	ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
-				//},
-			},
-			NotificationsConfig: fxconfig.NotificationsConfig{
-				Address: notificationsEndpoint,
-				//TLSConfig: fxconfig.TLSConfig{
-				//	Enabled:        n.TLSEnabled,
-				//	RootCerts:      []string{n.CACertsBundlePath()},
-				//	ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
-				//	ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
-				//},
-			},
-			TLSConfig: fxconfig.TLSConfig{
-				Enabled:        n.TLSEnabled,
-				RootCerts:      []string{n.CACertsBundlePath()},
-				ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
-				ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
-			},
-			Policy: chaincode.Chaincode.Policy,
+	return fxconfig.NamespaceCommon{
+		Name:    chaincode.Chaincode.Name,
+		Channel: chaincode.Channel,
+		MSPConfig: fxconfig.MSPConfig{
+			ConfigPath: adminMspDir,
+			LocalMspID: adminMspID,
 		},
+		OrdererConfig: fxconfig.OrdererConfig{
+			Address: n.OrdererAddress(n.Orderers[0], fabric_network.ListenPort),
+		},
+		NotificationsConfig: fxconfig.NotificationsConfig{
+			Address: notificationsEndpoint,
+		},
+		TLSConfig: fxconfig.TLSConfig{
+			Enabled:        n.TLSEnabled,
+			RootCerts:      []string{n.CACertsBundlePath()},
+			ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
+			ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
+		},
+		Policy: chaincode.Chaincode.Policy,
 	}
-	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0), "fxconfig command failed: %s", string(sess.Err.Contents()))
-}
-
-// UpdateNamespace deploys the new version of the chaincode passed by chaincodeId.
-func (n *Network) UpdateNamespace(chaincodeID, version, path, packageFile string) {
-	// TODO:
 }
 
 // tryListInstalledNames is a polling-safe variant of ListInstalledNames.
@@ -236,12 +236,6 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	cmd := &fxconfig.ListNamespaces{
 		QueryConfig: fxconfig.QueryConfig{
 			Address: queryEndpoint,
-			//TLSConfig: fxconfig.TLSConfig{
-			//	Enabled:        n.TLSEnabled,
-			//	RootCerts:      []string{n.CACertsBundlePath()},
-			//	ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
-			//	ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
-			//},
 		},
 		TLSConfig: fxconfig.TLSConfig{
 			Enabled:        n.TLSEnabled,
