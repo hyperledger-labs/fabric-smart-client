@@ -9,9 +9,9 @@ package fabricx
 import (
 	"fmt"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/tedsuo/ifrit/grouper"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
