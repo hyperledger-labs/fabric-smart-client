@@ -61,6 +61,7 @@ type NamespaceCommon struct {
 	MSPConfig           MSPConfig
 	OrdererConfig       OrdererConfig
 	NotificationsConfig NotificationsConfig
+	TLSConfig           TLSConfig
 }
 
 type CreateNamespace struct {
@@ -87,25 +88,36 @@ func (n *NamespaceCommon) Env() []string {
 
 	// orderer
 	env = append(env, "FXCONFIG_ORDERER_ADDRESS="+n.OrdererConfig.Address)
-	if n.OrdererConfig.TLSConfig.Enabled {
-		rootCerts := strings.Join(n.OrdererConfig.TLSConfig.RootCerts, ",")
-		env = append(env,
-			"FXCONFIG_ORDERER_TLS_ENABLED=true",
-			"FXCONFIG_ORDERER_TLS_CLIENTKEY="+n.OrdererConfig.TLSConfig.ClientKeyPath,
-			"FXCONFIG_ORDERER_TLS_CLIENTCERT="+n.OrdererConfig.TLSConfig.ClientCertPath,
-			"FXCONFIG_ORDERER_TLS_ROOTCERTS="+rootCerts,
-		)
-	}
+	//if n.OrdererConfig.TLSConfig.Enabled {
+	//	rootCerts := strings.Join(n.OrdererConfig.TLSConfig.RootCerts, ",")
+	//	env = append(env,
+	//		"FXCONFIG_ORDERER_TLS_ENABLED=true",
+	//		"FXCONFIG_ORDERER_TLS_CLIENTKEY="+n.OrdererConfig.TLSConfig.ClientKeyPath,
+	//		"FXCONFIG_ORDERER_TLS_CLIENTCERT="+n.OrdererConfig.TLSConfig.ClientCertPath,
+	//		"FXCONFIG_ORDERER_TLS_ROOTCERTS="+rootCerts,
+	//	)
+	//}
 
 	// notifications
 	env = append(env, "FXCONFIG_NOTIFICATIONS_ADDRESS="+n.NotificationsConfig.Address)
-	if n.NotificationsConfig.TLSConfig.Enabled {
-		rootCerts := strings.Join(n.NotificationsConfig.TLSConfig.RootCerts, ",")
+	//if n.NotificationsConfig.TLSConfig.Enabled {
+	//	rootCerts := strings.Join(n.NotificationsConfig.TLSConfig.RootCerts, ",")
+	//	env = append(env,
+	//		"FXCONFIG_NOTIFICATIONS_TLS_ENABLED=true",
+	//		"FXCONFIG_NOTIFICATIONS_TLS_CLIENTKEY="+n.NotificationsConfig.TLSConfig.ClientKeyPath,
+	//		"FXCONFIG_NOTIFICATIONS_TLS_CLIENTCERT="+n.NotificationsConfig.TLSConfig.ClientCertPath,
+	//		"FXCONFIG_NOTIFICATIONS_TLS_ROOTCERTS="+rootCerts,
+	//	)
+	//}
+
+	// TLS
+	if n.TLSConfig.Enabled {
+		rootCerts := strings.Join(n.TLSConfig.RootCerts, ",")
 		env = append(env,
-			"FXCONFIG_NOTIFICATIONS_TLS_ENABLED=true",
-			"FXCONFIG_NOTIFICATIONS_TLS_CLIENTKEY="+n.NotificationsConfig.TLSConfig.ClientKeyPath,
-			"FXCONFIG_NOTIFICATIONS_TLS_CLIENTCERT="+n.NotificationsConfig.TLSConfig.ClientCertPath,
-			"FXCONFIG_NOTIFICATIONS_TLS_ROOTCERTS="+rootCerts,
+			"FXCONFIG_TLS_ENABLED=true",
+			"FXCONFIG_TLS_CLIENTKEY="+n.TLSConfig.ClientKeyPath,
+			"FXCONFIG_TLS_CLIENTCERT="+n.TLSConfig.ClientCertPath,
+			"FXCONFIG_TLS_ROOTCERTS="+rootCerts,
 		)
 	}
 
@@ -139,6 +151,7 @@ func (n *UpdateNamespace) SessionName() string {
 
 type ListNamespaces struct {
 	QueryConfig QueryConfig
+	TLSConfig   TLSConfig
 }
 
 func (n *ListNamespaces) Args() []string {
@@ -147,13 +160,24 @@ func (n *ListNamespaces) Args() []string {
 
 func (n *ListNamespaces) Env() []string {
 	env := []string{"FXCONFIG_QUERIES_ADDRESS=" + n.QueryConfig.Address}
-	if n.QueryConfig.TLSConfig.Enabled {
-		rootCerts := strings.Join(n.QueryConfig.TLSConfig.RootCerts, ",")
+	//if n.QueryConfig.TLSConfig.Enabled {
+	//	rootCerts := strings.Join(n.QueryConfig.TLSConfig.RootCerts, ",")
+	//	env = append(env,
+	//		"FXCONFIG_QUERIES_TLS_ENABLED=true",
+	//		"FXCONFIG_QUERIES_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
+	//		"FXCONFIG_QUERIES_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
+	//		"FXCONFIG_QUERIES_TLS_ROOTCERTS="+rootCerts,
+	//	)
+	//}
+
+	// TLS
+	if n.TLSConfig.Enabled {
+		rootCerts := strings.Join(n.TLSConfig.RootCerts, ",")
 		env = append(env,
-			"FXCONFIG_QUERIES_TLS_ENABLED=true",
-			"FXCONFIG_QUERIES_TLS_CLIENTKEY="+n.QueryConfig.TLSConfig.ClientKeyPath,
-			"FXCONFIG_QUERIES_TLS_CLIENTCERT="+n.QueryConfig.TLSConfig.ClientCertPath,
-			"FXCONFIG_QUERIES_TLS_ROOTCERTS="+rootCerts,
+			"FXCONFIG_TLS_ENABLED=true",
+			"FXCONFIG_TLS_CLIENTKEY="+n.TLSConfig.ClientKeyPath,
+			"FXCONFIG_TLS_CLIENTCERT="+n.TLSConfig.ClientCertPath,
+			"FXCONFIG_TLS_ROOTCERTS="+rootCerts,
 		)
 	}
 

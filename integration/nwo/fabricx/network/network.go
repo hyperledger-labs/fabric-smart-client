@@ -179,21 +179,27 @@ func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
 			},
 			OrdererConfig: fxconfig.OrdererConfig{
 				Address: n.OrdererAddress(n.Orderers[0], fabric_network.ListenPort),
-				TLSConfig: fxconfig.TLSConfig{
-					Enabled:        n.TLSEnabled,
-					RootCerts:      []string{n.CACertsBundlePath()},
-					ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
-					ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
-				},
+				//TLSConfig: fxconfig.TLSConfig{
+				//	Enabled:        n.TLSEnabled,
+				//	RootCerts:      []string{n.CACertsBundlePath()},
+				//	ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
+				//	ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
+				//},
 			},
 			NotificationsConfig: fxconfig.NotificationsConfig{
 				Address: notificationsEndpoint,
-				TLSConfig: fxconfig.TLSConfig{
-					Enabled:        n.TLSEnabled,
-					RootCerts:      []string{n.CACertsBundlePath()},
-					ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
-					ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
-				},
+				//TLSConfig: fxconfig.TLSConfig{
+				//	Enabled:        n.TLSEnabled,
+				//	RootCerts:      []string{n.CACertsBundlePath()},
+				//	ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
+				//	ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
+				//},
+			},
+			TLSConfig: fxconfig.TLSConfig{
+				Enabled:        n.TLSEnabled,
+				RootCerts:      []string{n.CACertsBundlePath()},
+				ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
+				ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
 			},
 			Policy: chaincode.Chaincode.Policy,
 		},
@@ -227,15 +233,23 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	}
 	queryEndpoint := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committerNode, QueryServicePortName))
 
-	cmd := &fxconfig.ListNamespaces{QueryConfig: fxconfig.QueryConfig{
-		Address: queryEndpoint,
+	cmd := &fxconfig.ListNamespaces{
+		QueryConfig: fxconfig.QueryConfig{
+			Address: queryEndpoint,
+			//TLSConfig: fxconfig.TLSConfig{
+			//	Enabled:        n.TLSEnabled,
+			//	RootCerts:      []string{n.CACertsBundlePath()},
+			//	ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
+			//	ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
+			//},
+		},
 		TLSConfig: fxconfig.TLSConfig{
 			Enabled:        n.TLSEnabled,
 			RootCerts:      []string{n.CACertsBundlePath()},
 			ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
 			ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
 		},
-	}}
+	}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	if err != nil {
 		return nil, err
