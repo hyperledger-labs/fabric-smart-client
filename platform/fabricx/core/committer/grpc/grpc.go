@@ -37,11 +37,7 @@ type ServiceConfigProvider interface {
 
 // ClientProvider provides gRPC client connections for a given network.
 //
-// Connections are cached per (service, network). grpc.NewClient spawns ~6
-// long-lived goroutines per ClientConn (resolver watcher, callback serializers,
-// http2 reader/writer, balancer); callers like fabric-token-sdk's qe.Executor
-// invoke these methods on every state query, so without caching the goroutine
-// count grows linearly with throughput and leaks the underlying connections.
+// Connections are cached per (service, network) to prevent goroutine groth.
 type ClientProvider struct {
 	// configProvider is used to retrieve the configuration for a network.
 	configProvider ServiceConfigProvider
