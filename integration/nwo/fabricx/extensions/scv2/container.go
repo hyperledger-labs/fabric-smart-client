@@ -8,11 +8,17 @@ package scv2
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
-	"net/netip"
+	"net"
+	"os"
+	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/moby/moby/api/types/container"
@@ -21,61 +27,30 @@ import (
 	dcli "github.com/moby/moby/client"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapio"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/docker"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
-	v3 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/extensions/v3"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	fabricx_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
-
-var (
-	scalableCommitterImages = map[string]string{
-		v3.CommitterVersion: v3.ScalableCommitterImage,
-	}
-	envVars = map[string]func(peerMSPDir, scMSPID, channelName, ordererEndpoint string) []string{
-		v3.CommitterVersion: v3.ContainerEnvVars,
-	}
-	containerCmds = map[string][]string{
-		// note that v1 and v2 don't use any specified cmds
-		v3.CommitterVersion: v3.ContainerCmd,
-	}
-	sidecarDefaultPort = map[string]network.Port{
-		v3.CommitterVersion: network.MustParsePort(v3.SidecarDefaultPort),
-	}
-	queryServiceDefaultPort = map[string]network.Port{
-		v3.CommitterVersion: network.MustParsePort(v3.QueryServiceDefaultPort),
-	}
-
-	committerVersion = v3.CommitterVersion
-)
-
-func dockerHostAlias() string {
-	return "host.docker.internal"
-}
 
 func (e *Extension) launchContainer() {
 	logger.Infof("Launch container")
 
 	networkID := e.network.NetworkID
 	orgName := e.network.PeerOrgs()[0].Name
-	scPeer := e.network.Peer(orgName, e.sidecar.Name)
-	sidecarPort := fmt.Sprintf("%d", e.network.PeerPort(scPeer, fabric_network.ListenPort))
-
-	// TODO: get this via network config
-	queryServicePort := "7001"
-	orderingServicePort := fmt.Sprintf("%d", e.network.OrdererPort(e.network.Orderers[0], fabric_network.ListenPort))
-
-	logger.Infof("Sidecar running on port [%s]", sidecarPort)
-	containerName := fmt.Sprintf("%s-scalable-committer", networkID)
-	orderer := e.network.Orderer("orderer")
-	ordererEndpoint := fmt.Sprintf("%s:%d", dockerHostAlias(), e.network.OrdererPort(orderer, fabric_network.ListenPort))
-	scMSPID := fmt.Sprintf("%sMSP", orgName)
-
+	sidecarPeer := e.network.Peer(orgName, e.sidecar.Name)
+	containerName := fmt.Sprintf("%s-%s-scalable-committer", networkID, orgName)
 	rootCryptoDir := rootCrypto(e.network)
-	peerMSPDir := peerDockerMSPDir(e.network, scPeer)
+
+	// get ports
+	sidecarPort := int(e.network.PeerPort(sidecarPeer, fabric_network.ListenPort))
+	queryServicePort := int(e.network.PeerPort(sidecarPeer, fabricx_network.QueryServicePortName))
+	orderingServicePort := int(e.network.OrdererPort(e.network.Orderers[0], fabric_network.ListenPort))
 
 	// genesis block
 	configBlockPath := e.network.OutputBlockPath(e.channel.Name)
@@ -89,13 +64,12 @@ func (e *Extension) launchContainer() {
 	err := generateMockOrdererConfigFile(mockOrdererConfigPath)
 	utils.Must(err)
 
-	// TODO: remove this old docker dino
 	d, err := docker.GetInstance()
 	utils.Must(err)
 
-	net, err := d.NetworkInfo(networkID)
+	netInfo, err := d.NetworkInfo(networkID)
 	utils.Must(err)
-	logger.Infof("net id: %s", net.ID)
+	logger.Infof("netInfo id: %s", netInfo.ID)
 
 	localIP, err := d.LocalIP(networkID)
 	utils.Must(err)
@@ -106,34 +80,37 @@ func (e *Extension) launchContainer() {
 		extraHosts = append(extraHosts, "host.docker.internal:host-gateway")
 	}
 
-	containerEnvOverride := envVars[committerVersion](peerMSPDir, scMSPID, e.channel.Name, ordererEndpoint)
-	containerCmd := containerCmds[committerVersion]
-	containerSidecarPort := sidecarDefaultPort[committerVersion]
-	containerQueryServicePort := queryServiceDefaultPort[committerVersion]
+	cfg := containerConfig{
+		ChannelName:           e.channel.Name,
+		SidecarMSPDir:         containerSidecarMSPDir(e.network, sidecarPeer),
+		SidecarMSPID:          fmt.Sprintf("%sMSP", orgName),
+		SidecarServerEndpoint: net.JoinHostPort("", strconv.Itoa(sidecarPort)),
+		QueryServerEndpoint:   net.JoinHostPort("", strconv.Itoa(queryServicePort)),
+		OrdererServerEndpoint: net.JoinHostPort("", strconv.Itoa(orderingServicePort)),
+		TLSEnabled:            e.network.TLSEnabled,
+		CertsBundle:           path.Join("/root/artifacts/crypto", "ca-certs.pem"),
+		SidecarTLSDir:         containerSidecarTLSDir(e.network, sidecarPeer),
+		OrdererTLSDir:         containerOrdererTLSDir(e.network, e.network.Orderers[0]),
+	}
 
-	logger.Infof("Run Scalable Committer container on %v ports: %v %v\ncontainer env vars: %v", localIP, sidecarPort, queryServicePort, containerEnvOverride)
-	defer logger.Infof("Run Scalable Committer container on port [%s]...done", sidecarPort)
+	logger.Infof("Run fabric-x committer test container on %v ports: sidecar=%v query=%v orderer=%v",
+		localIP, sidecarPort, queryServicePort, orderingServicePort)
 
 	cli, err := dcli.New(dcli.FromEnv)
 	utils.Must(err)
-
 	ctx := context.TODO()
 	resp, err := cli.ContainerCreate(
 		ctx,
 		dcli.ContainerCreateOptions{
 			Name: containerName,
 			Config: &container.Config{
-				Image:        scalableCommitterImages[committerVersion],
+				Image:        scalableCommitterImage,
 				Tty:          true,
 				AttachStdout: true,
 				AttachStderr: true,
-				ExposedPorts: network.PortSet{
-					network.MustParsePort(sidecarPort + "/tcp"):         struct{}{},
-					network.MustParsePort(queryServicePort + "/tcp"):    struct{}{},
-					network.MustParsePort(orderingServicePort + "/tcp"): struct{}{},
-				},
-				Env: containerEnvOverride,
-				Cmd: containerCmd,
+				ExposedPorts: docker.PortSet(sidecarPort, queryServicePort, orderingServicePort),
+				Env:          containerEnvVars(cfg),
+				Cmd:          containerCmd(cfg),
 			},
 			HostConfig: &container.HostConfig{
 				ExtraHosts: extraHosts,
@@ -157,29 +134,7 @@ func (e *Extension) launchContainer() {
 						ReadOnly: true,
 					},
 				},
-				PortBindings: network.PortMap{
-					// sidecar port binding
-					containerSidecarPort: []network.PortBinding{
-						{
-							HostIP:   netip.MustParseAddr("0.0.0.0"),
-							HostPort: sidecarPort,
-						},
-					},
-					// query service port bindings
-					containerQueryServicePort: []network.PortBinding{
-						{
-							HostIP:   netip.MustParseAddr("0.0.0.0"),
-							HostPort: queryServicePort,
-						},
-					},
-					// sidecar port binding
-					network.MustParsePort(orderingServicePort + "/tcp"): []network.PortBinding{
-						{
-							HostIP:   netip.MustParseAddr("0.0.0.0"),
-							HostPort: orderingServicePort,
-						},
-					},
-				},
+				PortBindings: docker.PortBindings(sidecarPort, queryServicePort, orderingServicePort),
 			},
 			NetworkingConfig: &network.NetworkingConfig{
 				EndpointsConfig: map[string]*network.EndpointSettings{
@@ -215,22 +170,49 @@ func (e *Extension) launchContainer() {
 			Level: zap.DebugLevel,
 		}
 
-		_, err = io.Copy(w, reader)
-		if err != nil && errors.Is(err, io.EOF) {
-			dockerLogger.Fatal(err)
+		// copy returns when the container is stopped
+		// and therefore cancels the context
+		_, copyErr := io.Copy(w, reader)
+		if copyErr != nil && !errors.Is(copyErr, io.EOF) && !errors.Is(copyErr, io.ErrClosedPipe) {
+			dockerLogger.Error(copyErr)
 		}
 	}()
 
-	// let's wait until the sidecar is ready
-	sidecarEndpoint := fmt.Sprintf("%s:%s", localIP, sidecarPort)
-	timeout := 90 * time.Second
+	var tlsConfig credentials.TransportCredentials
+	if e.network.TLSEnabled {
+		caCert, err := os.ReadFile(e.network.CACertsBundlePath())
+		utils.Must(err)
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
 
+		tlsDir := e.network.PeerUserTLSDir(sidecarPeer, "Admin")
+		cert, err := tls.LoadX509KeyPair(
+			filepath.Join(tlsDir, "client.crt"),
+			filepath.Join(tlsDir, "client.key"),
+		)
+		utils.Must(err)
+
+		tlsConfig = credentials.NewTLS(&tls.Config{
+			RootCAs:      caCertPool,
+			Certificates: []tls.Certificate{cert},
+		})
+	}
+
+	const timeout = 90 * time.Second
+	// we extend container logging context with a timeout;
+	// if the container is closed or the timeout fires;
+	// the context is canceled and aborts the wait function
 	ctx, cancel = context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	logger.Infof("Checking sidecar health-check at %v", sidecarEndpoint)
-	err = fabric.WaitUntilReady(ctx, sidecarEndpoint)
+	// let's wait until the sidecar is ready
+	g, ctx := errgroup.WithContext(ctx)
+	for _, p := range []int{sidecarPort, orderingServicePort, queryServicePort} {
+		g.Go(func() error {
+			addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(p))
+			return fabric.WaitUntilReadyWithTLS(ctx, addr, tlsConfig)
+		})
+	}
+	err = g.Wait()
 	utils.Must(err)
-
-	time.Sleep(1 * time.Second)
 }

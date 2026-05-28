@@ -11,6 +11,7 @@ import (
 
 	"github.com/tedsuo/ifrit/grouper"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
@@ -106,6 +107,15 @@ func (*PlatformFactory) New(registry api.Context, t api.Topology, builder api.Bu
 	}
 
 	return p
+}
+
+func FxPlatform(ii *integration.Infrastructure) *Platform {
+	for _, t := range ii.NWO.Platforms {
+		if fx, ok := t.(*Platform); ok {
+			return fx
+		}
+	}
+	return nil
 }
 
 type Platform struct {

@@ -7,9 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package multiendorsement_test
 
 import (
-	"fmt"
-	"net"
-	"os"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,10 +16,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/multiendorsement"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
-	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/fxconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
 	nwofsc "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
@@ -60,62 +56,6 @@ func NewTestSuite(commType nwofsc.P2PCommunicationType, nodeOpts *integration.Re
 	})}
 }
 
-func namespaceUpdateCommon(ii *integration.Infrastructure) fxconfig.NamespaceCommon {
-	fx := fxPlatform(ii)
-	Expect(fx).NotTo(BeNil())
-
-	// set up our admin identity used by fxconfig
-	adminMspID := fx.Network.Organization("Org1").MSPID
-	adminMspDir := fx.Network.PeerUserMSPDir(fx.Network.PeersInOrg("Org1")[0], "Admin")
-
-	ordererEndpoint := fx.Network.OrdererAddress(fx.Network.Orderers[0], fabric_network.ListenPort)
-
-	// committer details
-	committerNode := fx.Network.Peer("Org1", "SC")
-	committerSidecarPort := fmt.Sprintf("%d", fx.Network.PeerPort(committerNode, fabric_network.ListenPort))
-	notificationsEndpoint := net.JoinHostPort("localhost", committerSidecarPort)
-
-	return fxconfig.NamespaceCommon{
-		Name:    "simple",
-		Channel: "testchannel",
-		MSPConfig: fxconfig.MSPConfig{
-			ConfigPath: adminMspDir,
-			LocalMspID: adminMspID,
-		},
-		OrdererConfig: fxconfig.OrdererConfig{
-			Address: ordererEndpoint,
-			TLSConfig: fxconfig.TLSConfig{
-				Enabled: false,
-				RootCerts: []string{
-					fx.Network.OrgOrdererTLSCACertificatePath(fx.Network.Organizations[0]),
-				},
-			},
-		},
-		NotificationsConfig: fxconfig.NotificationsConfig{
-			Address:   notificationsEndpoint,
-			TLSConfig: fxconfig.TLSConfig{},
-		},
-	}
-}
-
-func UpdateNamespacePolicyRequirements(ii *integration.Infrastructure, policy string, version int) {
-	// Require one endorsement according to policy
-	command := &fxconfig.UpdateNamespace{
-		NamespaceCommon: func() fxconfig.NamespaceCommon {
-			common := namespaceUpdateCommon(ii)
-			common.Policy = policy
-			return common
-		}(),
-		Version: version,
-	}
-
-	cmd := common.NewCommand(fxconfig.CMDPath(), command)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	err := cmd.Run()
-	Expect(err).NotTo(HaveOccurred())
-}
-
 func (s *TestSuite) TestMultiEndorsementMerge() {
 	By("verifying namespace is present with initial version")
 	CheckNamespaceExists(s.II, "simple", 0)
@@ -125,7 +65,7 @@ func (s *TestSuite) TestMultiEndorsementMerge() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("updating namespace policy to require endorsements from Org1 and Org2 or Org3")
-	UpdateNamespacePolicyRequirements(s.II, "OR(AND('Org1MSP.member','Org2MSP.member'),'Org3MSP.member')", 0)
+	UpdateNamespacePolicy(s.II, "simple", "OR(AND('Org1MSP.member','Org2MSP.member'),'Org3MSP.member')", 0)
 	By("waiting for namespace update to be finalized")
 	CheckNamespaceExists(s.II, "simple", 1)
 
@@ -156,20 +96,27 @@ func (s *TestSuite) TestMultiEndorsementMerge() {
 	CheckState(s.II, "creator", []views.SomeObject{{Owner: "Frank", Value: 50}})
 }
 
+func UpdateNamespacePolicy(ii *integration.Infrastructure, name, policy string, version int) {
+	fx := nwofabricx.FxPlatform(ii)
+	Expect(fx).NotTo(BeNil())
+
+	c := &topology.ChannelChaincode{
+		Chaincode: topology.Chaincode{
+			Name:    name,
+			Version: strconv.Itoa(version),
+			Policy:  policy,
+		},
+		Channel: "testchannel",
+	}
+
+	fx.Network.UpdateNamespace(c)
+}
+
 func CheckNamespaceExists(ii *integration.Infrastructure, name string, version int) {
 	exp := network.Namespace{Name: name, Version: version}
 
 	// first we find out fabric-x platform
-	fx := fxPlatform(ii)
+	fx := nwofabricx.FxPlatform(ii)
 	Expect(fx).NotTo(BeNil())
 	Eventually(fx.Network.ListInstalledNames, timeout, interval).Should(ContainElements(exp), "namespace '%s' should be present with version %d after update", name, version)
-}
-
-func fxPlatform(ii *integration.Infrastructure) *nwofabricx.Platform {
-	for _, t := range ii.NWO.Platforms {
-		if fx, ok := t.(*nwofabricx.Platform); ok {
-			return fx
-		}
-	}
-	return nil
 }

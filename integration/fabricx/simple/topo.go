@@ -11,7 +11,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/extensions/scv2"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 )
@@ -34,7 +33,6 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 
 	fscTopology.AddNodeByName(ApproverNode).
 		AddOptions(fabric.WithOrganization("Org1")).
-		AddOptions(scv2.WithApproverRole()).
 		// simple approval
 		RegisterResponder(&simpleviews.ApproveView{}, &simpleviews.CreateView{})
 

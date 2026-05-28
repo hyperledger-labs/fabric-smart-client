@@ -14,6 +14,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	healthgrpc "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
@@ -67,7 +68,11 @@ func (d *Docker) Cleanup() error {
 }
 
 func WaitUntilReady(ctx context.Context, grpcEndpoint string) error {
-	logger.Infof("Wait until ready %v", grpcEndpoint)
+	return WaitUntilReadyWithTLS(ctx, grpcEndpoint, nil)
+}
+
+func WaitUntilReadyWithTLS(ctx context.Context, grpcEndpoint string, tlsConfig credentials.TransportCredentials) error {
+	logger.Infof("Wait until ready %v (tls=%v)", grpcEndpoint, tlsConfig != nil)
 
 	startWaitingAt := time.Now()
 
@@ -76,7 +81,7 @@ func WaitUntilReady(ctx context.Context, grpcEndpoint string) error {
 			"serviceName": ""
 		},
 		"methodConfig": [{
-			"name": [{"service": ""}],
+			"name": [{ "service": "" }],
 			"waitForReady": true,
 			"retryPolicy": {
 				"MaxAttempts": 5,
@@ -89,8 +94,12 @@ func WaitUntilReady(ctx context.Context, grpcEndpoint string) error {
 	}`
 
 	options := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultServiceConfig(serviceConfig),
+	}
+	if tlsConfig == nil {
+		options = append(options, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		options = append(options, grpc.WithTransportCredentials(tlsConfig))
 	}
 
 	conn, err := grpc.NewClient(grpcEndpoint, options...)
@@ -100,9 +109,7 @@ func WaitUntilReady(ctx context.Context, grpcEndpoint string) error {
 	defer utils.IgnoreErrorFunc(conn.Close)
 
 	healthClient := healthgrpc.NewHealthClient(conn)
-	res, err := healthClient.Check(ctx, &healthgrpc.HealthCheckRequest{
-		Service: "",
-	})
+	res, err := healthClient.Check(ctx, &healthgrpc.HealthCheckRequest{})
 	if status.Code(err) == codes.Canceled {
 		return fmt.Errorf("healthcheck canceled: %w", err)
 	}
