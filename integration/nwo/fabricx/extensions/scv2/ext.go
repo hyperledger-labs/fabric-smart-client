@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
-	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	fabric_topo "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
@@ -161,7 +160,7 @@ func generateExtensions(n *network.Network, scAddr string, t *template.Template)
 		utils.Must(err)
 
 		for _, uniqueName := range fscNode.ReplicaUniqueNames() {
-			context.AddExtension(uniqueName, api2.FabricExtension, extension.String())
+			context.AddExtension(uniqueName, api.FabricExtension, extension.String())
 		}
 	}
 }
