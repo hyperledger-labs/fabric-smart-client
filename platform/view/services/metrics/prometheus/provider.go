@@ -12,8 +12,6 @@ import (
 	"strings"
 	"sync"
 
-	kitmetrics "github.com/go-kit/kit/metrics"
-	"github.com/go-kit/kit/metrics/prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
@@ -77,7 +75,7 @@ func (p *Provider) NewCounter(o metrics.CounterOpts) metrics.Counter {
 		Help:      o.Help,
 	}, o.LabelNames)
 	p.register(cv)
-	return &Counter{Counter: prometheus.NewCounter(cv)}
+	return &counter{cv: cv}
 }
 
 func (p *Provider) NewGauge(o metrics.GaugeOpts) metrics.Gauge {
@@ -90,7 +88,7 @@ func (p *Provider) NewGauge(o metrics.GaugeOpts) metrics.Gauge {
 		Help:      o.Help,
 	}, o.LabelNames)
 	p.register(gv)
-	return &Gauge{Gauge: prometheus.NewGauge(gv)}
+	return &gauge{gv: gv}
 }
 
 func (p *Provider) NewHistogram(o metrics.HistogramOpts) metrics.Histogram {
@@ -107,7 +105,7 @@ func (p *Provider) NewHistogram(o metrics.HistogramOpts) metrics.Histogram {
 		NativeHistogramZeroThreshold:   o.NativeHistogramZeroThreshold,
 	}, o.LabelNames)
 	p.register(hv)
-	return &Histogram{prometheus.NewHistogram(hv)}
+	return &histogram{hv: hv}
 }
 
 func GetPackageName() string {
@@ -143,20 +141,74 @@ func (p *Provider) register(c prom.Collector) {
 	}
 }
 
-type Counter struct{ kitmetrics.Counter }
-
-func (c *Counter) With(labelValues ...string) metrics.Counter {
-	return &Counter{Counter: c.Counter.With(labelValues...)}
+type counter struct {
+	cv  *prom.CounterVec
+	lvs labelValues
 }
 
-type Gauge struct{ kitmetrics.Gauge }
-
-func (g *Gauge) With(labelValues ...string) metrics.Gauge {
-	return &Gauge{Gauge: g.Gauge.With(labelValues...)}
+func (c *counter) With(labelValues ...string) metrics.Counter {
+	return &counter{
+		cv:  c.cv,
+		lvs: c.lvs.With(labelValues...),
+	}
 }
 
-type Histogram struct{ kitmetrics.Histogram }
+func (c *counter) Add(delta float64) {
+	c.cv.With(makeLabels(c.lvs...)).Add(delta)
+}
 
-func (h *Histogram) With(labelValues ...string) metrics.Histogram {
-	return &Histogram{Histogram: h.Histogram.With(labelValues...)}
+type gauge struct {
+	gv  *prom.GaugeVec
+	lvs labelValues
+}
+
+func (g *gauge) With(labelValues ...string) metrics.Gauge {
+	return &gauge{
+		gv:  g.gv,
+		lvs: g.lvs.With(labelValues...),
+	}
+}
+
+func (g *gauge) Set(value float64) {
+	g.gv.With(makeLabels(g.lvs...)).Set(value)
+}
+
+func (g *gauge) Add(delta float64) {
+	g.gv.With(makeLabels(g.lvs...)).Add(delta)
+}
+
+type histogram struct {
+	hv  *prom.HistogramVec
+	lvs labelValues
+}
+
+func (h *histogram) With(labelValues ...string) metrics.Histogram {
+	return &histogram{
+		hv:  h.hv,
+		lvs: h.lvs.With(labelValues...),
+	}
+}
+
+func (h *histogram) Observe(value float64) {
+	h.hv.With(makeLabels(h.lvs...)).Observe(value)
+}
+
+func makeLabels(labelValues ...string) prom.Labels {
+	labels := prom.Labels{}
+	for i := 0; i < len(labelValues); i += 2 {
+		labels[labelValues[i]] = labelValues[i+1]
+	}
+	return labels
+}
+
+type labelValues []string
+
+func (lvs labelValues) With(pairs ...string) labelValues {
+	if len(pairs)%2 != 0 {
+		pairs = append(pairs, "unknown")
+	}
+	next := make(labelValues, len(lvs)+len(pairs))
+	copy(next, lvs)
+	copy(next[len(lvs):], pairs)
+	return next
 }
