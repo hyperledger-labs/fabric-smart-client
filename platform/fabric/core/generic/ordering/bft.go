@@ -130,8 +130,11 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 
 		wg.Wait()
 
-		// did we send to enough orderers?
-		// if not, discard all connections
+		// Discard errored connections on every path, including threshold success.
+		for _, connection := range usedConnections {
+			o.discardConnection(connection)
+		}
+
 		if counter >= threshold {
 			// success
 			return nil
@@ -139,10 +142,6 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 
 		// fail
 		logger.WarnfContext(ctx, "failed to broadcast, got [%d of %d] success and errs [%v], retry after a delay", counter, threshold, errs)
-		// cleanup connections
-		for _, connection := range usedConnections {
-			o.discardConnection(connection)
-		}
 	}
 
 	return errors.Errorf("failed to send transaction to the orderering service")
