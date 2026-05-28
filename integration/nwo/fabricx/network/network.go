@@ -280,8 +280,10 @@ type Namespace struct {
 // Example: "0) perf: version 0 policy: 0a05454344534112b201..."
 func parseNamespaceList(output string) []Namespace {
 	namespaces := make([]Namespace, 0)
-	for _, line := range strings.Split(output, "\n") {
+
+	for line := range strings.SplitSeq(output, "\n") {
 		line = strings.TrimSpace(line)
+		// Skip header, empty lines, and error messages
 		if line == "" ||
 			strings.HasPrefix(line, "Installed namespaces") ||
 			strings.HasPrefix(line, "Error:") ||
