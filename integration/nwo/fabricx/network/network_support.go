@@ -8,7 +8,6 @@ package network
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 
@@ -74,28 +73,6 @@ func namespaceApproverOrg(n *Network) (string, error) {
 		return "", fmt.Errorf("no namespace approver orgs found")
 	}
 	return orgs[0], nil
-}
-
-func createMetanamespaceKey(n *Network) error {
-	orgName, err := namespaceApproverOrg(n)
-	if err != nil {
-		return err
-	}
-
-	peers := n.PeersInOrg(orgName)
-	if len(peers) == 0 {
-		return fmt.Errorf("no peers found for namespace approver org [%s]", orgName)
-	}
-
-	certPath := n.PeerUserCert(peers[0], "Admin")
-	certBytes, err := os.ReadFile(certPath)
-	if err != nil {
-		return err
-	}
-
-	pkPath := filepath.Join(n.RootDir, n.Prefix, "crypto", "sc_pubkey.pem")
-	logger.Infof("Write admin pk for org [%s] from [%s] to [%s]", orgName, certPath, pkPath)
-	return os.WriteFile(pkPath, certBytes, 0o644)
 }
 
 func createChannelBlock(n *Network, c *topology.Channel) commands.OutputBlock {

@@ -49,7 +49,7 @@ func containerEnvVars(cfg containerConfig) []string {
 		"SC_QUERY_SERVER_ENDPOINT=" + cfg.QueryServerEndpoint,
 		"SC_QUERY_LOGGING_LOGSPEC=info:grpc=error",
 		"SC_COORDINATOR_LOGGING_LOGSPEC=info:grpc=error",
-		"SC_ORDERER_LOGGING_LOGSPEC=debug",
+		"SC_ORDERER_LOGGING_LOGSPEC=info:grpc=error",
 		"SC_ORDERER_BLOCK_SIZE=1",
 		"SC_ORDERER_SERVER_ENDPOINT=" + cfg.OrdererServerEndpoint,
 		"SC_VC_LOGGING_LOGSPEC=info:grpc=error",

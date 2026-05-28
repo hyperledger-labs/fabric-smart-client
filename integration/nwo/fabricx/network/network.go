@@ -24,7 +24,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/fxconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
 var logger = logging.MustGetLogger()
@@ -71,11 +70,6 @@ func (n *Network) GenerateArtifacts() {
 
 	bootstrapIdemix(n)
 	bootstrapExtraIdentities(n)
-
-	// we use the approver initially as out metanamespace EP
-	// TODO: eventually we will set the metanamespace key based on the channel EP
-	err = createMetanamespaceKey(n)
-	utils.Must(err)
 
 	// create channels
 	for _, c := range n.Channels {
@@ -153,7 +147,7 @@ func (n *Network) PostRun(load bool) {
 }
 
 func (n *Network) DeployNamespace(chaincode *topology.ChannelChaincode) {
-	c := n.createNSCommon(chaincode)
+	c := createNSCommon(n, chaincode)
 	cmd := &fxconfig.CreateNamespace{NamespaceCommon: c}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -165,7 +159,7 @@ func (n *Network) UpdateNamespace(chaincode *topology.ChannelChaincode) {
 	v, err := strconv.Atoi(chaincode.Chaincode.Version)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	c := n.createNSCommon(chaincode)
+	c := createNSCommon(n, chaincode)
 	cmd := &fxconfig.UpdateNamespace{
 		NamespaceCommon: c,
 		Version:         v,
@@ -175,7 +169,7 @@ func (n *Network) UpdateNamespace(chaincode *topology.ChannelChaincode) {
 	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0), "fxconfig command failed: %s", string(sess.Err.Contents()))
 }
 
-func (n *Network) createNSCommon(chaincode *topology.ChannelChaincode) fxconfig.NamespaceCommon {
+func createNSCommon(n *Network, chaincode *topology.ChannelChaincode) fxconfig.NamespaceCommon {
 	orgName, err := namespaceApproverOrg(n)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -184,13 +178,23 @@ func (n *Network) createNSCommon(chaincode *topology.ChannelChaincode) fxconfig.
 
 	adminMspID := n.Organization(orgName).MSPID
 	adminMspDir := n.PeerUserMSPDir(peers[0], "Admin")
-	tlsDir := n.PeerUserTLSDir(peers[0], "Admin")
 
 	// get notification service endpoint
 	committerNode := n.Peer(orgName, "SC")
 	gomega.Expect(committerNode).NotTo(gomega.BeNil())
 
 	notificationsEndpoint := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committerNode, fabric_network.ListenPort))
+
+	var tlsConfig fxconfig.TLSConfig
+	if n.TLSEnabled {
+		tlsDir := n.PeerUserTLSDir(peers[0], "Admin")
+		tlsConfig = fxconfig.TLSConfig{
+			Enabled:        n.TLSEnabled,
+			RootCerts:      []string{n.CACertsBundlePath()},
+			ClientCertPath: filepath.Join(tlsDir, "client.crt"),
+			ClientKeyPath:  filepath.Join(tlsDir, "client.key"),
+		}
+	}
 
 	return fxconfig.NamespaceCommon{
 		Name:    chaincode.Chaincode.Name,
@@ -205,13 +209,8 @@ func (n *Network) createNSCommon(chaincode *topology.ChannelChaincode) fxconfig.
 		NotificationsConfig: fxconfig.NotificationsConfig{
 			Address: notificationsEndpoint,
 		},
-		TLSConfig: fxconfig.TLSConfig{
-			Enabled:        n.TLSEnabled,
-			RootCerts:      []string{n.CACertsBundlePath()},
-			ClientCertPath: filepath.Join(tlsDir, "client.crt"),
-			ClientKeyPath:  filepath.Join(tlsDir, "client.key"),
-		},
-		Policy: chaincode.Chaincode.Policy,
+		TLSConfig: tlsConfig,
+		Policy:    chaincode.Chaincode.Policy,
 	}
 }
 
@@ -228,23 +227,28 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	if len(peers) == 0 {
 		return nil, fmt.Errorf("no peers found for org %s", orgName)
 	}
-	tlsDir := n.PeerUserTLSDir(peers[0], "Admin")
 	committerNode := n.Peer(orgName, "SC")
 	if committerNode == nil {
 		return nil, fmt.Errorf("no committer peer (name=%v) found for org=%v", "SC", orgName)
 	}
 	queryEndpoint := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committerNode, QueryServicePortName))
 
-	cmd := &fxconfig.ListNamespaces{
-		QueryConfig: fxconfig.QueryConfig{
-			Address: queryEndpoint,
-		},
-		TLSConfig: fxconfig.TLSConfig{
+	var tlsConfig fxconfig.TLSConfig
+	if n.TLSEnabled {
+		tlsDir := n.PeerUserTLSDir(peers[0], "Admin")
+		tlsConfig = fxconfig.TLSConfig{
 			Enabled:        n.TLSEnabled,
 			RootCerts:      []string{n.CACertsBundlePath()},
 			ClientCertPath: filepath.Join(tlsDir, "client.crt"),
 			ClientKeyPath:  filepath.Join(tlsDir, "client.key"),
+		}
+	}
+
+	cmd := &fxconfig.ListNamespaces{
+		QueryConfig: fxconfig.QueryConfig{
+			Address: queryEndpoint,
 		},
+		TLSConfig: tlsConfig,
 	}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
 	if err != nil {
@@ -262,7 +266,7 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 // gomega.Eventually, use tryListInstalledNames instead.
 func (n *Network) ListInstalledNames() []Namespace {
 	namespaces, err := n.tryListInstalledNames()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to list namespaces: %v", err)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to list namespaces")
 	return namespaces
 }
 
@@ -276,8 +280,7 @@ type Namespace struct {
 // Example: "0) perf: version 0 policy: 0a05454344534112b201..."
 func parseNamespaceList(output string) []Namespace {
 	namespaces := make([]Namespace, 0)
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
+	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" ||
 			strings.HasPrefix(line, "Installed namespaces") ||

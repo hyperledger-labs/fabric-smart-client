@@ -7,88 +7,21 @@ SPDX-License-Identifier: Apache-2.0
 package scv2
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
-	"io"
-	"net"
-	"path/filepath"
-	"strconv"
 	"text/template"
-	"time"
 
-	api2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
+	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	fxgrpc "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
-
-// generateNSExtensions adds the committers notification service information to the config.
-// When TLS is enabled, each FSC node gets its own extension with mTLS client
-// credentials taken from the fabric peer's TLS directory.
-func generateNSExtension(n *network.Network, notificationServicePort uint16, notificationServiceHost string) {
-	context := n.Context
-
-	fscTop, ok := context.TopologyByName("fsc").(*fsc.Topology)
-	if !ok {
-		utils.Must(errors.New("cannot get fsc topo instance"))
-	}
-
-	for _, fscNode := range fscTop.Nodes {
-		endpoint := fxgrpc.Endpoint{
-			Address:           net.JoinHostPort(notificationServiceHost, strconv.Itoa(int(notificationServicePort))),
-			ConnectionTimeout: grpc.DefaultConnectionTimeout,
-			TLS: &fxgrpc.TLSConfig{
-				Enabled:       n.TLSEnabled,
-				RootCertPaths: []string{n.CACertsBundlePath()},
-			},
-		}
-
-		// When TLS is enabled, the sidecar notification service requires mTLS.
-		// Use the fabric peer's TLS certs (signed by the fabric org CA)
-		// as client credentials so the sidecar accepts the connection.
-		if n.TLSEnabled {
-			fscPeer := n.FSCPeerByName(fscNode.Name)
-			if fscPeer == nil {
-				utils.Must(fmt.Errorf("failed to get fsc peer by name: %v", fscNode.Name))
-			}
-			tlsDir := n.PeerLocalTLSDir(fscPeer)
-			endpoint.TLS.ClientCertPath = filepath.Join(tlsDir, "server.crt")
-			endpoint.TLS.ClientKeyPath = filepath.Join(tlsDir, "server.key")
-		}
-
-		config := fxgrpc.Config{
-			RequestTimeout: 10 * time.Second,
-			Endpoints:      []fxgrpc.Endpoint{endpoint},
-		}
-
-		t, err := template.New("view_extension").Funcs(template.FuncMap{
-			"NetworkName":    func() string { return n.Topology().Name() },
-			"RequestTimeout": func() time.Duration { return config.RequestTimeout },
-			"Endpoints":      func() []fxgrpc.Endpoint { return config.Endpoints },
-		}).Parse(nsExtensionTemplate)
-		utils.Must(err)
-
-		extension := bytes.NewBuffer([]byte{})
-		err = t.Execute(io.MultiWriter(extension), nil)
-		utils.Must(err)
-
-		for _, uniqueName := range fscNode.ReplicaUniqueNames() {
-			context.AddExtension(uniqueName, api2.FabricExtension, extension.String())
-		}
-	}
-}
 
 const nsExtensionTemplate = `
 fabric:
-  {{ NetworkName }}:
+  {{ .NetworkName }}:
     notificationService:
-      requestTimeout: {{ RequestTimeout }}
-      endpoints:{{- range Endpoints }}
+      requestTimeout: {{ .RequestTimeout }}
+      endpoints:{{- range .Endpoints }}
         - address: {{ .Address }}
-          connectionTimeout: {{ .ConnectionTimeout }}        
+          connectionTimeout: {{ .ConnectionTimeout }}
           {{- if .TLS}}
           tls:
             enabled: {{ .TLS.Enabled }}
@@ -106,3 +39,9 @@ fabric:
           {{- end }}
     {{- end }}
 `
+
+func generateNSExtension(n *network.Network, sidecarOrg, sidecarName string) {
+	scPeer := n.Peer(sidecarOrg, sidecarName)
+	scAddr := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(scPeer, fabric_network.ListenPort))
+	generateExtensions(n, scAddr, template.Must(template.New("ns").Parse(nsExtensionTemplate)))
+}
