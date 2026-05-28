@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package ordering
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
@@ -68,7 +67,7 @@ func TestBFTBroadcaster_DiscardsFailedConnectionsOnPartialFailureSuccess(t *test
 
 	// Pre-fill the pools and hold the matching semaphore units, so
 	// getConnection bypasses ClientFactory and discard accounting balances.
-	require.NoError(t, b.connSem.Acquire(context.Background(), int64(len(orderers))))
+	require.NoError(t, b.connSem.Acquire(t.Context(), int64(len(orderers))))
 	streams := map[string]*fakeBroadcastStream{
 		"o1": {status: common.Status_SUCCESS},
 		"o2": {status: common.Status_SUCCESS},
@@ -79,7 +78,7 @@ func TestBFTBroadcaster_DiscardsFailedConnectionsOnPartialFailureSuccess(t *test
 		b.connectionPool(o.Address) <- &Connection{Stream: streams[o.Address]}
 	}
 
-	err := b.Broadcast(context.Background(), &common.Envelope{})
+	err := b.Broadcast(t.Context(), &common.Envelope{})
 	require.NoError(t, err)
 
 	// Exactly one unit should be free: o4's discarded connection.
