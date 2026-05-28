@@ -8,6 +8,7 @@ package deployment_test
 
 import (
 	"path"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -73,7 +74,7 @@ func (s *TestSuite) TestSucceeded() {
 	// update the EP to require approver2
 	By("update EP to approver2")
 	endorserPKPath := path.Join(s.II.TestDir, "fabric.default/crypto/peerOrganizations/org2.example.com/users/approver2@org2.example.com/msp/signcerts/approver2@org2.example.com-cert.pem")
-	UpdateNamespacePolicy(s.II, "threshold:"+endorserPKPath)
+	UpdateNamespacePolicy(s.II, "simple", "threshold:"+endorserPKPath, 0)
 
 	// Wait for namespace update transaction to be finalized and propagated
 	// The namespace update is a transaction that needs to be committed and
@@ -89,14 +90,14 @@ func (s *TestSuite) TestSucceeded() {
 	CheckState(s.II, "creator", []views.SomeObject{{Owner: "Alice", Value: 20}})
 }
 
-func UpdateNamespacePolicy(ii *integration.Infrastructure, policy string) {
+func UpdateNamespacePolicy(ii *integration.Infrastructure, name, policy string, version int) {
 	fx := nwofabricx.FxPlatform(ii)
 	Expect(fx).NotTo(BeNil())
 
 	c := &topology.ChannelChaincode{
 		Chaincode: topology.Chaincode{
-			Name:    "simple",
-			Version: "0",
+			Name:    name,
+			Version: strconv.Itoa(version),
 			Policy:  policy,
 		},
 		Channel: "testchannel",

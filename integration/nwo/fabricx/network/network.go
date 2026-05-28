@@ -184,6 +184,7 @@ func (n *Network) createNSCommon(chaincode *topology.ChannelChaincode) fxconfig.
 
 	adminMspID := n.Organization(orgName).MSPID
 	adminMspDir := n.PeerUserMSPDir(peers[0], "Admin")
+	tlsDir := n.PeerUserTLSDir(peers[0], "Admin")
 
 	// get notification service endpoint
 	committerNode := n.Peer(orgName, "SC")
@@ -207,8 +208,8 @@ func (n *Network) createNSCommon(chaincode *topology.ChannelChaincode) fxconfig.
 		TLSConfig: fxconfig.TLSConfig{
 			Enabled:        n.TLSEnabled,
 			RootCerts:      []string{n.CACertsBundlePath()},
-			ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
-			ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
+			ClientCertPath: filepath.Join(tlsDir, "client.crt"),
+			ClientKeyPath:  filepath.Join(tlsDir, "client.key"),
 		},
 		Policy: chaincode.Chaincode.Policy,
 	}
@@ -227,6 +228,7 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	if len(peers) == 0 {
 		return nil, fmt.Errorf("no peers found for org %s", orgName)
 	}
+	tlsDir := n.PeerUserTLSDir(peers[0], "Admin")
 	committerNode := n.Peer(orgName, "SC")
 	if committerNode == nil {
 		return nil, fmt.Errorf("no committer peer (name=%v) found for org=%v", "SC", orgName)
@@ -240,8 +242,8 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 		TLSConfig: fxconfig.TLSConfig{
 			Enabled:        n.TLSEnabled,
 			RootCerts:      []string{n.CACertsBundlePath()},
-			ClientCertPath: filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.crt"),
-			ClientKeyPath:  filepath.Join(n.PeerUserTLSDir(peers[0], "Admin"), "client.key"),
+			ClientCertPath: filepath.Join(tlsDir, "client.crt"),
+			ClientKeyPath:  filepath.Join(tlsDir, "client.key"),
 		},
 	}
 	sess, err := n.StartSession(common.NewCommand(fxconfig.CMDPath(), cmd), cmd.SessionName())
@@ -299,7 +301,7 @@ func parseNamespaceList(output string) []Namespace {
 				if vIdx > 0 {
 					vPart := strings.TrimSpace(rest[vIdx+len(" version "):])
 					spaceIdx := strings.Index(vPart, " ")
-					if spaceIdx > 0 {
+					if spaceIdx != -1 {
 						vPart = vPart[:spaceIdx]
 					}
 					version := 0

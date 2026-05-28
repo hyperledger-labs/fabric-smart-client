@@ -184,11 +184,10 @@ func (e *Extension) launchContainer() {
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
 
-		// get first peer
-		p := e.network.Peers[0]
+		tlsDir := e.network.PeerUserTLSDir(sidecarPeer, "Admin")
 		cert, err := tls.LoadX509KeyPair(
-			filepath.Join(e.network.PeerUserTLSDir(p, "Admin"), "client.crt"),
-			filepath.Join(e.network.PeerUserTLSDir(p, "Admin"), "client.key"),
+			filepath.Join(tlsDir, "client.crt"),
+			filepath.Join(tlsDir, "client.key"),
 		)
 		utils.Must(err)
 

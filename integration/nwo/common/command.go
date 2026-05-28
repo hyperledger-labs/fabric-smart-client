@@ -46,7 +46,6 @@ func NewCommand(path string, command Command) *exec.Cmd {
 	cmd := exec.Command(path, command.Args()...)
 	cmd.Env = os.Environ()
 	if ce, ok := command.(Enver); ok {
-		logger.Infof("env: %v", ce.Env())
 		cmd.Env = append(cmd.Env, ce.Env()...)
 	}
 	if wd, ok := command.(WorkingDirer); ok {

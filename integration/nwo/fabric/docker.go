@@ -77,6 +77,9 @@ func WaitUntilReadyWithTLS(ctx context.Context, grpcEndpoint string, tlsConfig c
 	startWaitingAt := time.Now()
 
 	serviceConfig := `{
+    	"healthCheckConfig": {
+      		"serviceName": ""
+    	},
 		"methodConfig": [{
 			"name": [{ "service": "" }],
 			"waitForReady": true,
