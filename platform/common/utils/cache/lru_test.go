@@ -97,7 +97,7 @@ func TestLRUParallel(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		go func(i int) {
 			c.Put(i, fmt.Sprintf("item-%d", i))
 			wg.Done()

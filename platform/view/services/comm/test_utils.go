@@ -30,9 +30,7 @@ type HostNode struct {
 func P2PLayerTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 	t.Helper()
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		messages := bootstrapNode.incomingMessages
 
 		info := host2.StreamInfo{
@@ -50,7 +48,7 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 		msg := <-messages
 		assert.NotNil(t, msg)
 		assert.Equal(t, []byte("msg3"), msg.message.Payload)
-	}()
+	})
 
 	messages := node.incomingMessages
 	msg := <-messages
@@ -83,11 +81,8 @@ func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 	node.Start(ctx)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		session, err := bootstrapNode.NewSession("", "", node.Address, []byte(node.ID))
 		assert.NoError(t, err)
 		assert.NotNil(t, session)
@@ -103,7 +98,7 @@ func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 		assert.NoError(t, err)
 
 		session.Close()
-	}()
+	})
 
 	masterSession, err := node.MasterSession()
 	require.NoError(t, err)
@@ -138,11 +133,8 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 	node.Start(ctx)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		session, err := bootstrapNode.NewResponderSession("myawesomempcid", "", bootstrapNode.Address, []byte(node.ID), nil, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, session)
@@ -155,7 +147,7 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 		assert.Equal(t, []byte("ciaoback"), msg.Payload)
 
 		session.Close()
-	}()
+	})
 
 	session, err := node.NewResponderSession("myawesomempcid", "", bootstrapNode.Address, []byte(bootstrapNode.ID), nil, nil)
 	require.NoError(t, err)
@@ -193,7 +185,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode, node *HostNo
 	wg.Add(numSessions)
 
 	// Initiator
-	for i := 0; i < numSessions; i++ {
+	for i := range numSessions {
 		go func(sessionIndex int) {
 			defer wg.Done()
 
@@ -314,7 +306,7 @@ func messages(sessionIndex string) [][]byte {
 	res := make([][]byte, 0, l*5)
 	counter := 0
 	for range l {
-		res = append(res, []byte(fmt.Sprintf("msg-%d-short-%s", counter, sessionIndex)))
+		res = append(res, fmt.Appendf(nil, "msg-%d-short-%s", counter, sessionIndex))
 		counter++
 		res = append(res, []byte(fmt.Sprintf("msg-%d-medium-%s-", counter, sessionIndex)+strings.Repeat("a", 1024)))
 		counter++
@@ -322,7 +314,7 @@ func messages(sessionIndex string) [][]byte {
 		counter++
 		res = append(res, []byte(fmt.Sprintf("msg-%d-xlarge-%s-", counter, sessionIndex)+strings.Repeat("c", 1000*1024)))
 		counter++
-		res = append(res, []byte(fmt.Sprintf("msg-%d-end-%s", counter, sessionIndex)))
+		res = append(res, fmt.Appendf(nil, "msg-%d-end-%s", counter, sessionIndex))
 		counter++
 	}
 	return res

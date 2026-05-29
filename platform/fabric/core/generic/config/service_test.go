@@ -40,7 +40,7 @@ func TestNewService_defaultsAndOrderers(t *testing.T) {
 
 	// orderers: return a slice with one connection config
 	orderers := []*grpc.ConnectionConfig{{Address: "o:7050", TLSRootCertFile: "o.pem"}}
-	m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+	m.UnmarshalKeyStub = func(key string, rawVal any) error {
 		// support both key formats used across tests
 		switch key {
 		case "fabric.mynet.orderers", "fabric.mynetorderers":
@@ -97,7 +97,7 @@ func TestVaultAndMSPSettings(t *testing.T) {
 	m.GetStringReturnsOnCall(0, "persistenceName") // vault.persistence
 	m.GetStringReturnsOnCall(1, "50")              // vault.txidstore.cache.size (string that parses)
 	m.GetStringReturnsOnCall(2, "defaultMSP")      // defaultMSP
-	m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+	m.UnmarshalKeyStub = func(key string, rawVal any) error {
 		if key == "fabric.msps" {
 			p, ok := rawVal.(*[]cfg.MSP)
 			if !ok {
@@ -148,7 +148,7 @@ func TestCreatePeerMapAndPickPeer(t *testing.T) {
 	m.IsSetReturnsOnCall(0, true) // fabric.network present for NewService
 	m.GetStringReturnsOnCall(0, "")
 	m.GetBoolReturns(true) // TLS enabled
-	m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+	m.UnmarshalKeyStub = func(key string, rawVal any) error {
 		switch key {
 		case "fabric.test.peers", "fabric.testpeers":
 			p, ok := rawVal.(*[]*grpc.ConnectionConfig)
@@ -325,7 +325,7 @@ func TestService_MoreCases(t *testing.T) {
 		require.Contains(t, err.Error(), "channel-err")
 
 		// Error in createChannelMap (verify fails)
-		m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		m.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "fabric.mynet.channels" {
 				p := rawVal.(*[]*cfg.Channel)
 				*p = []*cfg.Channel{{Name: ""}} // invalid name
@@ -359,7 +359,7 @@ func TestService_MoreCases(t *testing.T) {
 		t.Parallel()
 		m := &mock.Configuration{}
 		m.IsSetReturns(true)
-		m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		m.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "fabric.mynet.peers" {
 				p := rawVal.(*[]*grpc.ConnectionConfig)
 				*p = []*grpc.ConnectionConfig{
@@ -394,7 +394,7 @@ func TestService_MoreCases(t *testing.T) {
 		t.Parallel()
 		m := &mock.Configuration{}
 		m.IsSetReturns(true)
-		m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		m.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "fabric.mynet.channels" {
 				p := rawVal.(*[]*cfg.Channel)
 				*p = []*cfg.Channel{

@@ -25,7 +25,7 @@ type Core struct {
 type Logging struct {
 	Format string `yaml:"format,omitempty"`
 
-	ExtraProperties map[string]interface{} `yaml:",inline,omitempty"`
+	ExtraProperties map[string]any `yaml:",inline,omitempty"`
 }
 
 type Peer struct {
@@ -51,7 +51,7 @@ type Peer struct {
 	ValidatorPoolSize      int             `yaml:"validatorPoolSize,omitempty"`
 	Discovery              *Discovery      `yaml:"discovery,omitempty"`
 
-	ExtraProperties map[string]interface{} `yaml:",inline,omitempty"`
+	ExtraProperties map[string]any `yaml:",inline,omitempty"`
 }
 
 type Keepalive struct {
@@ -231,22 +231,22 @@ type Chaincode struct {
 	Logging          *Logging           `yaml:"logging,omitempty"`
 	ExternalBuilders []*ExternalBuilder `yaml:"externalBuilders"`
 
-	ExtraProperties map[string]interface{} `yaml:",inline,omitempty"`
+	ExtraProperties map[string]any `yaml:",inline,omitempty"`
 }
 
 type Golang struct {
 	Runtime     string `yaml:"runtime,omitempty"`
 	DynamicLink bool   `yaml:"dynamicLink"`
 
-	ExtraProperties map[string]interface{} `yaml:",inline,omitempty"`
+	ExtraProperties map[string]any `yaml:",inline,omitempty"`
 }
 
 type Java struct {
-	ExtraProperties map[string]interface{} `yaml:",inline,omitempty"`
+	ExtraProperties map[string]any `yaml:",inline,omitempty"`
 }
 
 type Node struct {
-	ExtraProperties map[string]interface{} `yaml:",inline,omitempty"`
+	ExtraProperties map[string]any `yaml:",inline,omitempty"`
 }
 
 type ExternalBuilder struct {

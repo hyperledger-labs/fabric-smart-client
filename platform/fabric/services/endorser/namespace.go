@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package endorser
 
+import "slices"
+
 type Namespaces []string
 
 func (k Namespaces) Count() int {
@@ -17,13 +19,7 @@ func (k Namespaces) Match(keys Namespaces) bool {
 		return false
 	}
 	for _, id := range k {
-		found := false
-		for _, identity := range keys {
-			if identity == id {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(keys, id)
 		if !found {
 			return false
 		}

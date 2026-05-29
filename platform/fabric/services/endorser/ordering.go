@@ -20,7 +20,7 @@ type orderingView struct {
 	timeout  time.Duration
 }
 
-func (o *orderingView) Call(viewCtx view.Context) (interface{}, error) {
+func (o *orderingView) Call(viewCtx view.Context) (any, error) {
 	fns, err := fabric.GetFabricNetworkService(viewCtx, o.tx.Network())
 	if err != nil {
 		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", o.tx.Network())

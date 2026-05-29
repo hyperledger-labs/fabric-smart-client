@@ -9,6 +9,7 @@ package chaincode
 import (
 	"bytes"
 	"context"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,14 +42,14 @@ type Invoke struct {
 	EndorsersByConnConfig          []*grpc.ConnectionConfig
 	DiscoveredEndorsersByEndpoints []string
 	Function                       string
-	Args                           []interface{}
+	Args                           []any
 	MatchEndorsementPolicy         bool
 	NumRetries                     int
 	RetrySleep                     time.Duration
 	Ctx                            context.Context
 }
 
-func NewInvoke(chaincode *Chaincode, function string, args ...interface{}) *Invoke {
+func NewInvoke(chaincode *Chaincode, function string, args ...any) *Invoke {
 	return &Invoke{
 		Chaincode:     chaincode,
 		ChaincodeName: chaincode.name,
@@ -193,7 +194,7 @@ func (i *Invoke) WithContext(ctx context.Context) driver.ChaincodeInvocation {
 	return i
 }
 
-func (i *Invoke) WithTransientEntry(k string, v interface{}) (driver.ChaincodeInvocation, error) {
+func (i *Invoke) WithTransientEntry(k string, v any) (driver.ChaincodeInvocation, error) {
 	if i.TransientMap == nil {
 		i.TransientMap = map[string][]byte{}
 	}
@@ -314,12 +315,9 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 		}
 		if len(i.DiscoveredEndorsersByEndpoints) != 0 {
 			for _, peer := range peers {
-				for _, endpoint := range i.DiscoveredEndorsersByEndpoints {
-					if peer.Endpoint == endpoint {
-						// append
-						discoveredPeers = append(discoveredPeers, peer)
-						break
-					}
+				if slices.Contains(i.DiscoveredEndorsersByEndpoints, peer.Endpoint) {
+					// append
+					discoveredPeers = append(discoveredPeers, peer)
 				}
 			}
 		} else {
@@ -500,7 +498,7 @@ func (i *Invoke) prepareArgs() ([][]byte, error) {
 	return args, nil
 }
 
-func (i *Invoke) toBytes(arg interface{}) ([]byte, error) {
+func (i *Invoke) toBytes(arg any) ([]byte, error) {
 	switch v := arg.(type) {
 	case []byte:
 		return v, nil

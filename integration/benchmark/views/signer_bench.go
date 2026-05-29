@@ -30,7 +30,7 @@ type ECDSASignView struct {
 
 var msgBytes = []byte("hello, world")
 
-func (q *ECDSASignView) Call(viewCtx view.Context) (interface{}, error) {
+func (q *ECDSASignView) Call(viewCtx view.Context) (any, error) {
 	hash := sha256.Sum256(msgBytes)
 
 	sig, err := ecdsa.SignASN1(q.r, q.pr, hash[:])

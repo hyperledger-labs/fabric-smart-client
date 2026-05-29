@@ -343,7 +343,7 @@ func genCertificateECDSA(
 	template,
 	parent *x509.Certificate,
 	pub *ecdsa.PublicKey,
-	priv interface{},
+	priv any,
 ) (*x509.Certificate, error) {
 	// create the x509 public cert
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pub, priv)

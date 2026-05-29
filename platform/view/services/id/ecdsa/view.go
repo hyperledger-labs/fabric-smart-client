@@ -25,7 +25,7 @@ func NewTwoPartyCollectEphemeralKeysView(other view.Identity) *twoPartyCollectEp
 	return &twoPartyCollectEphemeralKeyView{Other: other}
 }
 
-func (f twoPartyCollectEphemeralKeyView) Call(viewCtx view.Context) (interface{}, error) {
+func (f twoPartyCollectEphemeralKeyView) Call(viewCtx view.Context) (any, error) {
 	session, err := viewCtx.GetSession(viewCtx.Initiator(), f.Other)
 	if err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func (f twoPartyCollectEphemeralKeyView) Call(viewCtx view.Context) (interface{}
 
 type twoPartyEphemeralKeyResponderView struct{}
 
-func (s *twoPartyEphemeralKeyResponderView) Call(viewCtx view.Context) (interface{}, error) {
+func (s *twoPartyEphemeralKeyResponderView) Call(viewCtx view.Context) (any, error) {
 	session, payload, err := session2.ReadFirstMessage(viewCtx)
 	if err != nil {
 		return nil, err

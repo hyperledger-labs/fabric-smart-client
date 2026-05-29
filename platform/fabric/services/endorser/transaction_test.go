@@ -254,8 +254,8 @@ func TestBuilder(t *testing.T) {
 
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
 
-	networkServiceProviderType := reflect.TypeOf((*fabric.NetworkServiceProvider)(nil))
-	fakeSP.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fakeNSP, nil
 		}

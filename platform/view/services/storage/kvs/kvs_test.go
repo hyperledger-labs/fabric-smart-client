@@ -139,7 +139,7 @@ func testParallelWrites(t *testing.T, drv driver2.Driver) {
 	wg := sync.WaitGroup{}
 	n := 100
 	wg.Add(n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		go func(i int) {
 			k1, err := createCompositeKey("parallel_key_1_", []string{fmt.Sprintf("%d", i)})
 			assert.NoError(t, err) // assert: in goroutine, require would only stop goroutine not test
@@ -155,7 +155,7 @@ func testParallelWrites(t *testing.T, drv driver2.Driver) {
 	wg.Add(n)
 	k1, err := createCompositeKey("parallel_key_2_", []string{"1"})
 	require.NoError(t, err)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		go func(i int) {
 			err := kvstore.Put(context.Background(), k1, &stuff{"santa", 1})
 			assert.NoError(t, err) // assert: in goroutine
@@ -292,7 +292,7 @@ func TestKVS_Put(t *testing.T) {
 	tests := []struct {
 		name      string
 		id        string
-		state     interface{}
+		state     any
 		setupMock func(*mock.KeyValueStore)
 		wantErr   bool
 		errMsg    string

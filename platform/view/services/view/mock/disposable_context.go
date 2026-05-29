@@ -25,17 +25,17 @@ type DisposableContext struct {
 	disposeMutex       sync.RWMutex
 	disposeArgsForCall []struct {
 	}
-	GetServiceStub        func(interface{}) (interface{}, error)
+	GetServiceStub        func(any) (any, error)
 	getServiceMutex       sync.RWMutex
 	getServiceArgsForCall []struct {
-		arg1 interface{}
+		arg1 any
 	}
 	getServiceReturns struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	getServiceReturnsOnCall map[int]struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	GetSessionStub        func(viewa.View, viewa.Identity, ...viewa.View) (viewa.Session, error)
@@ -126,18 +126,18 @@ type DisposableContext struct {
 	putSessionByIDReturnsOnCall map[int]struct {
 		result1 error
 	}
-	RunViewStub        func(viewa.View, ...viewa.RunViewOption) (interface{}, error)
+	RunViewStub        func(viewa.View, ...viewa.RunViewOption) (any, error)
 	runViewMutex       sync.RWMutex
 	runViewArgsForCall []struct {
 		arg1 viewa.View
 		arg2 []viewa.RunViewOption
 	}
 	runViewReturns struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	runViewReturnsOnCall map[int]struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	SessionStub        func() viewa.Session
@@ -246,11 +246,11 @@ func (fake *DisposableContext) DisposeCalls(stub func()) {
 	fake.DisposeStub = stub
 }
 
-func (fake *DisposableContext) GetService(arg1 interface{}) (interface{}, error) {
+func (fake *DisposableContext) GetService(arg1 any) (any, error) {
 	fake.getServiceMutex.Lock()
 	ret, specificReturn := fake.getServiceReturnsOnCall[len(fake.getServiceArgsForCall)]
 	fake.getServiceArgsForCall = append(fake.getServiceArgsForCall, struct {
-		arg1 interface{}
+		arg1 any
 	}{arg1})
 	stub := fake.GetServiceStub
 	fakeReturns := fake.getServiceReturns
@@ -271,41 +271,41 @@ func (fake *DisposableContext) GetServiceCallCount() int {
 	return len(fake.getServiceArgsForCall)
 }
 
-func (fake *DisposableContext) GetServiceCalls(stub func(interface{}) (interface{}, error)) {
+func (fake *DisposableContext) GetServiceCalls(stub func(any) (any, error)) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = stub
 }
 
-func (fake *DisposableContext) GetServiceArgsForCall(i int) interface{} {
+func (fake *DisposableContext) GetServiceArgsForCall(i int) any {
 	fake.getServiceMutex.RLock()
 	defer fake.getServiceMutex.RUnlock()
 	argsForCall := fake.getServiceArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *DisposableContext) GetServiceReturns(result1 interface{}, result2 error) {
+func (fake *DisposableContext) GetServiceReturns(result1 any, result2 error) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = nil
 	fake.getServiceReturns = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *DisposableContext) GetServiceReturnsOnCall(i int, result1 interface{}, result2 error) {
+func (fake *DisposableContext) GetServiceReturnsOnCall(i int, result1 any, result2 error) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = nil
 	if fake.getServiceReturnsOnCall == nil {
 		fake.getServiceReturnsOnCall = make(map[int]struct {
-			result1 interface{}
+			result1 any
 			result2 error
 		})
 	}
 	fake.getServiceReturnsOnCall[i] = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
@@ -756,7 +756,7 @@ func (fake *DisposableContext) PutSessionByIDReturnsOnCall(i int, result1 error)
 	}{result1}
 }
 
-func (fake *DisposableContext) RunView(arg1 viewa.View, arg2 ...viewa.RunViewOption) (interface{}, error) {
+func (fake *DisposableContext) RunView(arg1 viewa.View, arg2 ...viewa.RunViewOption) (any, error) {
 	fake.runViewMutex.Lock()
 	ret, specificReturn := fake.runViewReturnsOnCall[len(fake.runViewArgsForCall)]
 	fake.runViewArgsForCall = append(fake.runViewArgsForCall, struct {
@@ -782,7 +782,7 @@ func (fake *DisposableContext) RunViewCallCount() int {
 	return len(fake.runViewArgsForCall)
 }
 
-func (fake *DisposableContext) RunViewCalls(stub func(viewa.View, ...viewa.RunViewOption) (interface{}, error)) {
+func (fake *DisposableContext) RunViewCalls(stub func(viewa.View, ...viewa.RunViewOption) (any, error)) {
 	fake.runViewMutex.Lock()
 	defer fake.runViewMutex.Unlock()
 	fake.RunViewStub = stub
@@ -795,28 +795,28 @@ func (fake *DisposableContext) RunViewArgsForCall(i int) (viewa.View, []viewa.Ru
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *DisposableContext) RunViewReturns(result1 interface{}, result2 error) {
+func (fake *DisposableContext) RunViewReturns(result1 any, result2 error) {
 	fake.runViewMutex.Lock()
 	defer fake.runViewMutex.Unlock()
 	fake.RunViewStub = nil
 	fake.runViewReturns = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *DisposableContext) RunViewReturnsOnCall(i int, result1 interface{}, result2 error) {
+func (fake *DisposableContext) RunViewReturnsOnCall(i int, result1 any, result2 error) {
 	fake.runViewMutex.Lock()
 	defer fake.runViewMutex.Unlock()
 	fake.RunViewStub = nil
 	if fake.runViewReturnsOnCall == nil {
 		fake.runViewReturnsOnCall = make(map[int]struct {
-			result1 interface{}
+			result1 any
 			result2 error
 		})
 	}
 	fake.runViewReturnsOnCall[i] = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }

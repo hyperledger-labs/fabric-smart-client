@@ -15,7 +15,7 @@ import (
 
 type ApproverView struct{}
 
-func (a *ApproverView) Call(viewCtx view.Context) (interface{}, error) {
+func (a *ApproverView) Call(viewCtx view.Context) (any, error) {
 	// When a business party runs the CollectEndorsementsView, at some point, this party sends the assembled transaction
 	// to the approver. Therefore, the approver waits to receive the transaction.
 	tx, err := state.ReceiveTransaction(viewCtx)

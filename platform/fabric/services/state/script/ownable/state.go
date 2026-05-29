@@ -13,11 +13,11 @@ import (
 
 type State struct {
 	state2.EmbeddingState
-	State interface{}
+	State any
 
 	Owners []view.Identity
 }
 
-func (m *State) GetState() interface{} {
+func (m *State) GetState() any {
 	return m.State
 }

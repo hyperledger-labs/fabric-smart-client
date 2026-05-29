@@ -73,10 +73,10 @@ type RWSet struct {
 	doneMutex       sync.RWMutex
 	doneArgsForCall []struct {
 	}
-	EqualsStub        func(interface{}, ...drivera.Namespace) error
+	EqualsStub        func(any, ...drivera.Namespace) error
 	equalsMutex       sync.RWMutex
 	equalsArgsForCall []struct {
-		arg1 interface{}
+		arg1 any
 		arg2 []drivera.Namespace
 	}
 	equalsReturns struct {
@@ -590,11 +590,11 @@ func (fake *RWSet) DoneCalls(stub func()) {
 	fake.DoneStub = stub
 }
 
-func (fake *RWSet) Equals(arg1 interface{}, arg2 ...drivera.Namespace) error {
+func (fake *RWSet) Equals(arg1 any, arg2 ...drivera.Namespace) error {
 	fake.equalsMutex.Lock()
 	ret, specificReturn := fake.equalsReturnsOnCall[len(fake.equalsArgsForCall)]
 	fake.equalsArgsForCall = append(fake.equalsArgsForCall, struct {
-		arg1 interface{}
+		arg1 any
 		arg2 []drivera.Namespace
 	}{arg1, arg2})
 	stub := fake.EqualsStub
@@ -616,13 +616,13 @@ func (fake *RWSet) EqualsCallCount() int {
 	return len(fake.equalsArgsForCall)
 }
 
-func (fake *RWSet) EqualsCalls(stub func(interface{}, ...drivera.Namespace) error) {
+func (fake *RWSet) EqualsCalls(stub func(any, ...drivera.Namespace) error) {
 	fake.equalsMutex.Lock()
 	defer fake.equalsMutex.Unlock()
 	fake.EqualsStub = stub
 }
 
-func (fake *RWSet) EqualsArgsForCall(i int) (interface{}, []drivera.Namespace) {
+func (fake *RWSet) EqualsArgsForCall(i int) (any, []drivera.Namespace) {
 	fake.equalsMutex.RLock()
 	defer fake.equalsMutex.RUnlock()
 	argsForCall := fake.equalsArgsForCall[i]

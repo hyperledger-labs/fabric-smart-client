@@ -13,19 +13,19 @@ import (
 	"github.com/onsi/gomega"
 )
 
-func JSONMarshall(v interface{}) []byte {
+func JSONMarshall(v any) []byte {
 	raw, err := json.Marshal(v)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	return raw
 }
 
-func JSONUnmarshal(raw []byte, v interface{}) interface{} {
+func JSONUnmarshal(raw []byte, v any) any {
 	err := json.Unmarshal(raw, v)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	return v
 }
 
-func JSONUnmarshalString(v interface{}) string {
+func JSONUnmarshalString(v any) string {
 	var s string
 	switch vv := v.(type) {
 	case []byte:
@@ -38,7 +38,7 @@ func JSONUnmarshalString(v interface{}) string {
 	return s
 }
 
-func JSONUnmarshalInt(v interface{}) int {
+func JSONUnmarshalInt(v any) int {
 	var s int
 	switch v := v.(type) {
 	case []byte:

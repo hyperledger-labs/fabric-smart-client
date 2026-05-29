@@ -796,19 +796,19 @@ func (f *fakeServiceProvider) GetService(v any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("expected reflect.Type")
 	}
-	if t == reflect.TypeOf((*tracing.Provider)(nil)) {
+	if t == reflect.TypeFor[*tracing.Provider]() {
 		if f.tpErr != nil {
 			return nil, f.tpErr
 		}
 		return noop.NewTracerProvider(), nil
 	}
-	if t == reflect.TypeOf((*view.Manager)(nil)) {
+	if t == reflect.TypeFor[*view.Manager]() {
 		if f.vmErr != nil {
 			return nil, f.vmErr
 		}
 		return f.vm, nil
 	}
-	if t == reflect.TypeOf((*view.Registry)(nil)) {
+	if t == reflect.TypeFor[*view.Registry]() {
 		return f.registry, nil
 	}
 	return nil, fmt.Errorf("service not found: %v", t)
@@ -822,7 +822,7 @@ func (f *fakeFactory) NewView(in []byte) (view2.View, error) {
 
 type fakeView struct{}
 
-func (f *fakeView) Call(context view2.Context) (interface{}, error) {
+func (f *fakeView) Call(context view2.Context) (any, error) {
 	return nil, nil
 }
 

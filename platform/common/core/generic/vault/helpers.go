@@ -9,13 +9,13 @@ package vault
 import (
 	"context"
 	"encoding/binary"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"

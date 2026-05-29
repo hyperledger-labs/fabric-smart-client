@@ -138,7 +138,7 @@ func TestBFTBroadcaster_GetConnectionHonorsContextCancellation(t *testing.T) {
 
 	// Exhaust the target: create poolSize connections and keep them checked
 	// out, so the next getConnection can neither reuse nor create.
-	for i := 0; i < poolSize; i++ {
+	for range poolSize {
 		c, err := b.getConnection(t.Context(), to)
 		require.NoError(t, err)
 		require.NotNil(t, c)

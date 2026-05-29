@@ -94,10 +94,10 @@ func (t *testAutoLinearState) GetLinearID() (string, error) {
 }
 
 type testEmbeddingState struct {
-	state interface{}
+	state any
 }
 
-func (t *testEmbeddingState) GetState() interface{} {
+func (t *testEmbeddingState) GetState() any {
 	return t.state
 }
 
@@ -105,7 +105,7 @@ type testMetaHandler struct {
 	err error
 }
 
-func (t *testMetaHandler) StoreMeta(_ *Namespace, _ interface{}, _, _ string, _ *addOutputOptions) error {
+func (t *testMetaHandler) StoreMeta(_ *Namespace, _ any, _, _ string, _ *addOutputOptions) error {
 	return t.err
 }
 
@@ -450,9 +450,9 @@ func TestHelperErrorPathsAndStreamMethods(t *testing.T) {
 					return nil, errors.New("unexpected service key")
 				}
 				switch rt {
-				case reflect.TypeOf((*VaultService)(nil)):
+				case reflect.TypeFor[*VaultService]():
 					return vs, nil
-				case reflect.TypeOf((*fabric.NetworkServiceProvider)(nil)):
+				case reflect.TypeFor[*fabric.NetworkServiceProvider]():
 					return nsp, nil
 				default:
 					return nil, errors.New("service missing")

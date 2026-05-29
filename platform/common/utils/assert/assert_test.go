@@ -179,7 +179,7 @@ func TestExtractReleasersSeparatesFunctions(t *testing.T) {
 
 	releaser := func() {}
 	msgs, releasers := extractReleasers("hello", 42, releaser)
-	require.Equal(t, []interface{}{"hello", 42}, msgs)
+	require.Equal(t, []any{"hello", 42}, msgs)
 	require.Len(t, releasers, 1)
 }
 

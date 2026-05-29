@@ -6,8 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package server
 
-//go:generate counterfeiter -o client/mock/identity.go -fake-name Identity . Identity
-
 // Identity refers to the creator of a transaction or command.
 type Identity interface {
 	// Serialize returns the serialized representation of the identity.

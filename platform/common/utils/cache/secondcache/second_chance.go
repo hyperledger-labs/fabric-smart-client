@@ -40,10 +40,10 @@ type cacheItem[T any] struct {
 	referenced int32
 }
 
-type secondChanceCache = typedSecondChanceCache[interface{}]
+type secondChanceCache = typedSecondChanceCache[any]
 
 func New(cacheSize int) *secondChanceCache {
-	return NewTyped[interface{}](cacheSize)
+	return NewTyped[any](cacheSize)
 }
 
 func NewTyped[T any](cacheSize int) *typedSecondChanceCache[T] {
@@ -183,7 +183,7 @@ type secondChanceCacheBytes struct {
 
 type cacheItemBytes struct {
 	key   Slice
-	value interface{}
+	value any
 	// set to 1 when Get() is called. set to 0 when victim scan
 	referenced int32
 }
@@ -197,7 +197,7 @@ func NewBytes(cacheSize int) *secondChanceCacheBytes {
 	return &cache
 }
 
-func (cache *secondChanceCacheBytes) Get(key []byte) (interface{}, bool) {
+func (cache *secondChanceCacheBytes) Get(key []byte) (any, bool) {
 	cache.rwlock.RLock()
 	defer cache.rwlock.RUnlock()
 
@@ -212,7 +212,7 @@ func (cache *secondChanceCacheBytes) Get(key []byte) (interface{}, bool) {
 	return item.value, true
 }
 
-func (cache *secondChanceCacheBytes) Add(key []byte, value interface{}) {
+func (cache *secondChanceCacheBytes) Add(key []byte, value any) {
 	cache.rwlock.Lock()
 	defer cache.rwlock.Unlock()
 

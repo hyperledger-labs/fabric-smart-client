@@ -59,7 +59,7 @@ func (m *MockViewManager) NewView(id string, in []byte) (view.View, error) {
 	return m.Constructor(), nil
 }
 
-func (m *MockViewManager) InitiateView(ctx context.Context, view view.View) (interface{}, error) {
+func (m *MockViewManager) InitiateView(ctx context.Context, view view.View) (any, error) {
 	return view.Call(nil)
 }
 

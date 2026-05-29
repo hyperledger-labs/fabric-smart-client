@@ -46,7 +46,7 @@ func (t *TransactionStatusChanged) Topic() string {
 }
 
 // Message returns the message for the transaction status change
-func (t *TransactionStatusChanged) Message() interface{} {
+func (t *TransactionStatusChanged) Message() any {
 	return t
 }
 

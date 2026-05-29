@@ -47,7 +47,7 @@ func TestJSONSession_ReceiveErrorMessage(t *testing.T) {
 	ch := make(chan *view.Message, 1)
 	ch <- &view.Message{Payload: []byte("remote error"), Status: view.ERROR}
 	js := newTestJSONSession(t, ch)
-	var result interface{}
+	var result any
 	err := js.Receive(&result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "received error from remote")
@@ -58,7 +58,7 @@ func TestJSONSession_ReceiveNilMessage(t *testing.T) {
 	ch := make(chan *view.Message, 1)
 	ch <- nil
 	js := newTestJSONSession(t, ch)
-	var result interface{}
+	var result any
 	err := js.Receive(&result)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "received message is nil")
@@ -149,7 +149,7 @@ func TestJSONSession_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	js := newJSONSession(&mockSession{ch: ch}, ctx)
 	cancel()
-	var result interface{}
+	var result any
 	err := js.ReceiveWithTimeout(&result, time.Second)
 	require.Error(t, err)
 }

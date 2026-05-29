@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package opts
 
 import (
+	"maps"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 )
 
@@ -16,7 +18,7 @@ type Organization struct {
 }
 
 type Options struct {
-	Mapping map[string]interface{}
+	Mapping map[string]any
 }
 
 func (o *Options) Organizations() []Organization {
@@ -25,10 +27,10 @@ func (o *Options) Organizations() []Organization {
 		return nil
 	}
 	var res []Organization
-	list, ok := boxed.([]interface{})
+	list, ok := boxed.([]any)
 	if ok {
 		for _, entry := range list {
-			m := entry.(map[string]interface{})
+			m := entry.(map[string]any)
 			res = append(res, Organization{
 				Network: m["Network"].(string),
 				Org:     m["Org"].(string),
@@ -127,7 +129,7 @@ func (o *Options) X509Identities() []string {
 		return res
 	}
 	res = []string{}
-	for _, v := range boxed.([]interface{}) {
+	for _, v := range boxed.([]any) {
 		res = append(res, v.(string))
 	}
 	return res
@@ -148,7 +150,7 @@ func (o *Options) X509IdentitiesByHSM() []string {
 		return res
 	}
 	res = []string{}
-	for _, v := range boxed.([]interface{}) {
+	for _, v := range boxed.([]any) {
 		res = append(res, v.(string))
 	}
 	return res
@@ -169,7 +171,7 @@ func (o *Options) IdemixIdentities() []string {
 		return res
 	}
 	res = []string{}
-	for _, v := range boxed.([]interface{}) {
+	for _, v := range boxed.([]any) {
 		res = append(res, v.(string))
 	}
 	return res
@@ -198,7 +200,7 @@ func (o *Options) DefaultIdentityLabel() string {
 func Get(o *node.Options) *Options {
 	opt, ok := o.Mapping["fabric"]
 	if !ok {
-		opt = &Options{Mapping: map[string]interface{}{}}
+		opt = &Options{Mapping: map[string]any{}}
 		o.Mapping["fabric"] = opt
 	}
 	res, ok := opt.(*Options)
@@ -206,7 +208,7 @@ func Get(o *node.Options) *Options {
 		return res
 	}
 	// go.yaml.in/yaml/v3 decodes into map[string]interface{}
-	if mapping, ok := opt.(map[string]interface{}); ok {
+	if mapping, ok := opt.(map[string]any); ok {
 		opts := convert(mapping)
 		o.Mapping["fabric"] = opts
 		return opts
@@ -214,14 +216,12 @@ func Get(o *node.Options) *Options {
 	panic("invalid options")
 }
 
-func convert(m map[string]interface{}) *Options {
+func convert(m map[string]any) *Options {
 	opts := &Options{
-		Mapping: map[string]interface{}{},
+		Mapping: map[string]any{},
 	}
-	if mapping, ok := m["mapping"].(map[string]interface{}); ok {
-		for k, v := range mapping {
-			opts.Mapping[k] = v
-		}
+	if mapping, ok := m["mapping"].(map[string]any); ok {
+		maps.Copy(opts.Mapping, mapping)
 	}
 	return opts
 }

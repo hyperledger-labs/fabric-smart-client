@@ -24,11 +24,11 @@ const (
 )
 
 type Logger interface {
-	Debugf(template string, args ...interface{})
-	DebugfContext(ctx context.Context, template string, args ...interface{})
-	Infof(template string, args ...interface{})
-	Warnf(template string, args ...interface{})
-	Errorf(template string, args ...interface{})
+	Debugf(template string, args ...any)
+	DebugfContext(ctx context.Context, template string, args ...any)
+	Infof(template string, args ...any)
+	Warnf(template string, args ...any)
+	Errorf(template string, args ...any)
 }
 
 type Vault[V comparable] interface {

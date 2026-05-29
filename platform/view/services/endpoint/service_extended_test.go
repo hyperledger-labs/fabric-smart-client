@@ -607,7 +607,7 @@ func TestConcurrency(t *testing.T) {
 		numGoroutines := 50
 
 		wg.Add(numGoroutines)
-		for i := 0; i < numGoroutines; i++ {
+		for i := range numGoroutines {
 			go func(idx int) {
 				defer wg.Done()
 				name := string(rune('a' + idx))
@@ -648,7 +648,7 @@ func TestConcurrency(t *testing.T) {
 		numGoroutines := 50
 
 		wg.Add(numGoroutines)
-		for i := 0; i < numGoroutines; i++ {
+		for i := range numGoroutines {
 			go func(idx int) {
 				defer wg.Done()
 				_, err := service.UpdateResolver(
@@ -686,7 +686,7 @@ func TestConcurrency(t *testing.T) {
 
 		// Half readers, half writers
 		wg.Add(numGoroutines)
-		for i := 0; i < numGoroutines; i++ {
+		for i := range numGoroutines {
 			if i%2 == 0 {
 				// Reader
 				go func() {

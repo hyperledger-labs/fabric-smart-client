@@ -16,7 +16,7 @@ import (
 
 type AcceptAssetView struct{}
 
-func (a *AcceptAssetView) Call(viewCtx view.Context) (interface{}, error) {
+func (a *AcceptAssetView) Call(viewCtx view.Context) (any, error) {
 	// As a first step, the owner responds to the request to exchange recipient identities.
 	id, err := state.RespondRequestRecipientIdentity(viewCtx)
 	assert.NoError(err, "failed to respond to identity request")

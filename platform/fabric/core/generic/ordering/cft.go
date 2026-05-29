@@ -52,7 +52,7 @@ func (o *CFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 	retryInterval := o.ConfigService.BroadcastRetryInterval()
 	forceConnect := true
 	var err error
-	for i := 0; i < retries; i++ {
+	for i := range retries {
 		if connection != nil {
 			// throw away this connection
 			logger.DebugfContext(ctx, "Discard connection")

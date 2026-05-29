@@ -278,7 +278,7 @@ func (s *Service) IsSet(key string) bool {
 	return s.Configuration.IsSet("fabric." + s.prefix + key)
 }
 
-func (s *Service) UnmarshalKey(key string, rawVal interface{}) error {
+func (s *Service) UnmarshalKey(key string, rawVal any) error {
 	return s.Configuration.UnmarshalKey("fabric."+s.prefix+key, rawVal)
 }
 

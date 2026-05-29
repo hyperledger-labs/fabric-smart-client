@@ -13,7 +13,7 @@ import (
 
 func MockConfig[T any](config T) *common.Config {
 	cp := &mock.ConfigProvider{}
-	cp.UnmarshalKeyCalls(func(_ string, val interface{}) error {
+	cp.UnmarshalKeyCalls(func(_ string, val any) error {
 		*val.(*T) = config
 		return nil
 	})

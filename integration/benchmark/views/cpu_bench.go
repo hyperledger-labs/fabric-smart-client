@@ -20,7 +20,7 @@ type CPUView struct {
 	params CPUParams
 }
 
-func (q *CPUView) Call(viewCtx view.Context) (interface{}, error) {
+func (q *CPUView) Call(viewCtx view.Context) (any, error) {
 	k := doWork(q.params.N)
 	_ = k
 	return "OK", nil
@@ -29,7 +29,7 @@ func (q *CPUView) Call(viewCtx view.Context) (interface{}, error) {
 // doWork just burns CPU cycles
 func doWork(n int) uint64 {
 	var x uint64
-	for i := 0; i < n; i++ {
+	for i := range n {
 		x += uint64(i * i)
 	}
 	return x

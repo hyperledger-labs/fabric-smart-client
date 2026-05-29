@@ -36,7 +36,7 @@ type CreateIOUView struct {
 	Create
 }
 
-func (i *CreateIOUView) Call(viewCtx view.Context) (interface{}, error) {
+func (i *CreateIOUView) Call(viewCtx view.Context) (any, error) {
 	// As a first step operation, the borrower contacts the lender's FSC node
 	// to exchange the identities to use to assign ownership of the freshly created IOU state.
 	borrower, lender, err := state.ExchangeRecipientIdentities(viewCtx, i.Lender, state.WithIdentity(i.Identity))
@@ -109,7 +109,7 @@ type UpdateIOUView struct {
 	Update
 }
 
-func (u UpdateIOUView) Call(viewCtx view.Context) (interface{}, error) {
+func (u UpdateIOUView) Call(viewCtx view.Context) (any, error) {
 	// The borrower starts by creating a new transaction to update the IOU state
 	tx, err := state.NewTransaction(viewCtx)
 	assert.NoError(err)

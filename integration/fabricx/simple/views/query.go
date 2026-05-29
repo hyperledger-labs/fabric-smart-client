@@ -26,7 +26,7 @@ type QueryView struct {
 	params QueryParams
 }
 
-func (q *QueryView) Call(viewCtx view.Context) (interface{}, error) {
+func (q *QueryView) Call(viewCtx view.Context) (any, error) {
 	network, ch, err := fabric.GetDefaultChannel(viewCtx)
 	if err != nil {
 		return nil, err

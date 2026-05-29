@@ -673,12 +673,10 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		_ = server.Start()
-	}()
+	})
 
 	var dynamicRootCerts atomic.Value
 	dynamicRootCerts.Store(ca1.CertBytes())

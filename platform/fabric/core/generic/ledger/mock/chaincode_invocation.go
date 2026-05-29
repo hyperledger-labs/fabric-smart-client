@@ -158,11 +158,11 @@ type ChaincodeInvocation struct {
 	withSignerIdentityReturnsOnCall map[int]struct {
 		result1 driver.ChaincodeInvocation
 	}
-	WithTransientEntryStub        func(string, interface{}) (driver.ChaincodeInvocation, error)
+	WithTransientEntryStub        func(string, any) (driver.ChaincodeInvocation, error)
 	withTransientEntryMutex       sync.RWMutex
 	withTransientEntryArgsForCall []struct {
 		arg1 string
-		arg2 interface{}
+		arg2 any
 	}
 	withTransientEntryReturns struct {
 		result1 driver.ChaincodeInvocation
@@ -952,12 +952,12 @@ func (fake *ChaincodeInvocation) WithSignerIdentityReturnsOnCall(i int, result1 
 	}{result1}
 }
 
-func (fake *ChaincodeInvocation) WithTransientEntry(arg1 string, arg2 interface{}) (driver.ChaincodeInvocation, error) {
+func (fake *ChaincodeInvocation) WithTransientEntry(arg1 string, arg2 any) (driver.ChaincodeInvocation, error) {
 	fake.withTransientEntryMutex.Lock()
 	ret, specificReturn := fake.withTransientEntryReturnsOnCall[len(fake.withTransientEntryArgsForCall)]
 	fake.withTransientEntryArgsForCall = append(fake.withTransientEntryArgsForCall, struct {
 		arg1 string
-		arg2 interface{}
+		arg2 any
 	}{arg1, arg2})
 	stub := fake.WithTransientEntryStub
 	fakeReturns := fake.withTransientEntryReturns
@@ -978,13 +978,13 @@ func (fake *ChaincodeInvocation) WithTransientEntryCallCount() int {
 	return len(fake.withTransientEntryArgsForCall)
 }
 
-func (fake *ChaincodeInvocation) WithTransientEntryCalls(stub func(string, interface{}) (driver.ChaincodeInvocation, error)) {
+func (fake *ChaincodeInvocation) WithTransientEntryCalls(stub func(string, any) (driver.ChaincodeInvocation, error)) {
 	fake.withTransientEntryMutex.Lock()
 	defer fake.withTransientEntryMutex.Unlock()
 	fake.WithTransientEntryStub = stub
 }
 
-func (fake *ChaincodeInvocation) WithTransientEntryArgsForCall(i int) (string, interface{}) {
+func (fake *ChaincodeInvocation) WithTransientEntryArgsForCall(i int) (string, any) {
 	fake.withTransientEntryMutex.RLock()
 	defer fake.withTransientEntryMutex.RUnlock()
 	argsForCall := fake.withTransientEntryArgsForCall[i]

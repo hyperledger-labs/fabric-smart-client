@@ -45,7 +45,7 @@ func TestChildContext(t *testing.T) {
 	child4.StartSpanFrom(context.Background(), "test")
 	require.Equal(t, 1, parent.StartSpanFromCallCount())
 
-	_, err := child4.GetService(reflect.TypeOf(""))
+	_, err := child4.GetService(reflect.TypeFor[string]())
 	require.NoError(t, err)
 	require.Equal(t, 1, parent.GetServiceCallCount())
 

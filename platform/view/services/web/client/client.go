@@ -165,11 +165,11 @@ func (c *Client) req(ctx context.Context, method, url string, in []byte) (io.Rea
 // factory f bound to fid on input in. The view returned by the factory is invoked on
 // a freshly created context. This call is blocking until the result is produced or
 // an error is returned.
-func (c *Client) CallView(fid string, in []byte) (interface{}, error) {
+func (c *Client) CallView(fid string, in []byte) (any, error) {
 	return c.CallViewWithContext(context.Background(), fid, in)
 }
 
-func (c *Client) CallViewWithContext(ctx context.Context, fid string, in []byte) (interface{}, error) {
+func (c *Client) CallViewWithContext(ctx context.Context, fid string, in []byte) (any, error) {
 	url := fmt.Sprintf("%s/v1/Views/%s", c.url, fid)
 	body, err := c.req(ctx, http.MethodPut, url, in)
 	if err != nil {

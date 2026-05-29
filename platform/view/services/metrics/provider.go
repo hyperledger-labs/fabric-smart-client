@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
-var key = reflect.TypeOf((*Provider)(nil))
+var key = reflect.TypeFor[*Provider]()
 
 // A Provider is an abstraction for a metrics provider. It is a factory for
 // Counter, Gauge, and Histogram meters.

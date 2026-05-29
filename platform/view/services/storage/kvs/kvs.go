@@ -29,8 +29,8 @@ const (
 )
 
 type cache interface {
-	Get(key string) (interface{}, bool)
-	Add(key string, value interface{})
+	Get(key string) (any, bool)
+	Add(key string, value any)
 	Delete(key string)
 }
 
@@ -39,7 +39,7 @@ type cache interface {
 // ConfigProvider models the DB configuration provider
 type ConfigProvider interface {
 	// UnmarshalKey takes a single key and unmarshals it into a Struct
-	UnmarshalKey(key string, rawVal interface{}) error
+	UnmarshalKey(key string, rawVal any) error
 	// IsSet checks to see if the key has been set in any of the data locations
 	IsSet(key string) bool
 	// GetInt returns the value associated with the key as an integer
@@ -49,7 +49,7 @@ type ConfigProvider interface {
 type Iterator interface {
 	HasNext() bool
 	Close() error
-	Next(state interface{}) (string, error)
+	Next(state any) (string, error)
 }
 
 type KVS struct {
@@ -129,7 +129,7 @@ func (o *KVS) Exists(ctx context.Context, id string) bool {
 	return len(o.GetExisting(ctx, id)) > 0
 }
 
-func (o *KVS) Put(ctx context.Context, id string, state interface{}) error {
+func (o *KVS) Put(ctx context.Context, id string, state any) error {
 	raw, err := json.Marshal(state)
 	if err != nil {
 		return errors.Wrapf(err, "cannot marshal state with id [%s]", id)
@@ -149,7 +149,7 @@ func (o *KVS) Put(ctx context.Context, id string, state interface{}) error {
 	return nil
 }
 
-func (o *KVS) Get(ctx context.Context, id string, state interface{}) error {
+func (o *KVS) Get(ctx context.Context, id string, state any) error {
 	var err error
 	var raw []byte
 
@@ -248,7 +248,7 @@ func (i *it) Close() error {
 
 // Next unmarshals the current state into the given state object.
 // It also returns the key of the current state.
-func (i *it) Next(state interface{}) (string, error) {
+func (i *it) Next(state any) (string, error) {
 	return i.next.Key, json.Unmarshal(i.next.Raw, state)
 }
 

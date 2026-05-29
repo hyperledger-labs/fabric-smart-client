@@ -32,7 +32,7 @@ type Factory interface {
 }
 
 type Options struct {
-	Mapping map[string]interface{}
+	Mapping map[string]any
 }
 
 func (o *Options) Parse(opts ...Option) error {
@@ -45,14 +45,14 @@ func (o *Options) Parse(opts ...Option) error {
 	return nil
 }
 
-func (o *Options) Put(k string, v interface{}) {
+func (o *Options) Put(k string, v any) {
 	if o.Mapping == nil {
-		o.Mapping = map[string]interface{}{}
+		o.Mapping = map[string]any{}
 	}
 	o.Mapping[k] = v
 }
 
-func (o *Options) Get(k string) interface{} {
+func (o *Options) Get(k string) any {
 	if o.Mapping == nil {
 		return nil
 	}
@@ -145,7 +145,7 @@ func (o *Options) Aliases() []string {
 		return res
 	}
 	res = []string{}
-	for _, v := range boxed.([]interface{}) {
+	for _, v := range boxed.([]any) {
 		res = append(res, v.(string))
 	}
 	return res
@@ -153,7 +153,7 @@ func (o *Options) Aliases() []string {
 
 func (o *Options) AddAlias(alias string) {
 	if o.Mapping == nil {
-		o.Mapping = map[string]interface{}{}
+		o.Mapping = map[string]any{}
 	}
 	aliasesBoxed, ok := o.Mapping["Aliases"]
 	if !ok {
@@ -167,7 +167,7 @@ func (o *Options) AddAlias(alias string) {
 		return
 	}
 
-	for _, v := range aliasesBoxed.([]interface{}) {
+	for _, v := range aliasesBoxed.([]any) {
 		aliases = append(aliases, v.(string))
 	}
 	aliases = append(aliases, alias)
@@ -228,7 +228,7 @@ func NewNode(name string) *Node {
 			SDKs:       []SDKEntry{},
 		},
 		Name:    name,
-		Options: &Options{Mapping: map[string]interface{}{}},
+		Options: &Options{Mapping: map[string]any{}},
 	}
 }
 
@@ -248,7 +248,7 @@ func NewNodeFromTemplate(name string, template *Node) *Node {
 func (n *Node) ReplicaUniqueNames() []string {
 	replicationFactor := n.Options.ReplicationFactor()
 	names := make([]string, replicationFactor)
-	for r := 0; r < replicationFactor; r++ {
+	for r := range replicationFactor {
 		names[r] = ReplicaUniqueName(n.Name, r)
 	}
 	return names

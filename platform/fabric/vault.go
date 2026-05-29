@@ -37,7 +37,7 @@ func (m TransientMap) Exists(key string) bool {
 	return ok
 }
 
-func (m TransientMap) SetState(key string, state interface{}) error {
+func (m TransientMap) SetState(key string, state any) error {
 	raw, err := json.Marshal(state)
 	if err != nil {
 		return err
@@ -47,7 +47,7 @@ func (m TransientMap) SetState(key string, state interface{}) error {
 	return nil
 }
 
-func (m TransientMap) GetState(key driver.PKey, state interface{}) error {
+func (m TransientMap) GetState(key driver.PKey, state any) error {
 	value, ok := m[key]
 	if !ok {
 		return errors.Errorf("transient map key [%s] does not exists", key)
@@ -81,7 +81,7 @@ func (r *RWSet) KeyExist(key, ns string) (bool, error) {
 	return false, nil
 }
 
-func (r *RWSet) Equals(rws interface{}, nss ...string) error {
+func (r *RWSet) Equals(rws any, nss ...string) error {
 	if rw, ok := rws.(*RWSet); !ok {
 		return errors.Errorf("expected instance of *RWSet, got [%t]", rws)
 	} else {

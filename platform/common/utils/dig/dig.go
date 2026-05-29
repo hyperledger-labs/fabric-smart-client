@@ -18,7 +18,7 @@ import (
 )
 
 type invoker interface {
-	Invoke(function interface{}, opts ...dig.InvokeOption) error
+	Invoke(function any, opts ...dig.InvokeOption) error
 }
 
 func Visualize(c *dig.Container) string {
@@ -41,7 +41,7 @@ func Register[T any](c invoker) error {
 	return nil
 }
 
-func ProvideAll(c *dig.Container, constructors ...interface{}) error {
+func ProvideAll(c *dig.Container, constructors ...any) error {
 	errs := make([]error, len(constructors))
 	for i, constructor := range constructors {
 		errs[i] = c.Provide(constructor)

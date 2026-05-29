@@ -27,7 +27,7 @@ type ChaincodeInvocation interface {
 
 	Submit() (string, []byte, error)
 
-	WithTransientEntry(k string, v interface{}) (ChaincodeInvocation, error)
+	WithTransientEntry(k string, v any) (ChaincodeInvocation, error)
 
 	WithEndorsersByMSPIDs(mspIDs ...string) ChaincodeInvocation
 
@@ -80,7 +80,7 @@ type ChaincodeDiscover interface {
 
 // Chaincode exposes chaincode-related functions
 type Chaincode interface {
-	NewInvocation(function string, args ...interface{}) ChaincodeInvocation
+	NewInvocation(function string, args ...any) ChaincodeInvocation
 	NewDiscover() ChaincodeDiscover
 	IsAvailable() (bool, error)
 	IsPrivate() bool

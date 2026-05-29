@@ -24,7 +24,7 @@ type collectEndorsementsView struct {
 	verifierProviders []fabric.VerifierProvider
 }
 
-func (c *collectEndorsementsView) Call(viewCtx view.Context) (interface{}, error) {
+func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 	// Prepare verifiers
 	ch, err := c.tx.FabricNetworkService().Channel(c.tx.Channel())
 	if err != nil {
@@ -192,7 +192,7 @@ type endorseView struct {
 	identities []view.Identity
 }
 
-func (s *endorseView) Call(viewCtx view.Context) (interface{}, error) {
+func (s *endorseView) Call(viewCtx view.Context) (any, error) {
 	if len(s.identities) == 0 {
 		fns, err := fabric.GetFabricNetworkService(viewCtx, s.tx.Network())
 		if err != nil {

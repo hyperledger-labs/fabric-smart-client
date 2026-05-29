@@ -7,11 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
-	"golang.org/x/exp/slices"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"

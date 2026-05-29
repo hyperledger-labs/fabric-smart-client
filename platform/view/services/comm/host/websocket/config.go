@@ -74,8 +74,8 @@ func NewConfig(cs configService) (*config, error) {
 	if cs.IsSet("fsc.p2p.opts.websocket.corsAllowedOrigins") {
 		raw := cs.GetString("fsc.p2p.opts.websocket.corsAllowedOrigins")
 		if raw != "" {
-			parts := strings.Split(raw, ",")
-			for _, p := range parts {
+			parts := strings.SplitSeq(raw, ",")
+			for p := range parts {
 				if s := strings.TrimSpace(p); s != "" {
 					corsAllowedOrigins = append(corsAllowedOrigins, s)
 				}

@@ -83,7 +83,7 @@ func (o Orderer) ID() string {
 
 type PostRunInvocation struct {
 	FunctionName   string
-	ExpectedResult interface{}
+	ExpectedResult any
 	Args           [][]byte
 }
 
@@ -97,7 +97,7 @@ type ChannelChaincode struct {
 	PostRunInvocations []PostRunInvocation `yaml:"postruninvocations,omitempty"`
 }
 
-func (c *ChannelChaincode) AddPostRunInvocation(functionName string, expectedResult interface{}, args ...[]byte) {
+func (c *ChannelChaincode) AddPostRunInvocation(functionName string, expectedResult any, args ...[]byte) {
 	c.PostRunInvocations = append(c.PostRunInvocations, PostRunInvocation{
 		FunctionName:   functionName,
 		ExpectedResult: expectedResult,

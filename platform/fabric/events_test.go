@@ -67,9 +67,7 @@ func TestEventListener(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Publish events
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-stopPublisher:
@@ -79,16 +77,14 @@ func TestEventListener(t *testing.T) {
 				time.Sleep(publicationSnooze)
 			}
 		}
-	}()
+	})
 
 	// Stop the consumer and close the event listener while the producer is still publishing
 	ctx, cancel := context.WithTimeout(context.Background(), waitFor)
 	defer cancel()
 
 	// Consumer
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case event := <-ch:
@@ -101,7 +97,7 @@ func TestEventListener(t *testing.T) {
 				return
 			}
 		}
-	}()
+	})
 
 	// let's wait until our timeout is fired
 	<-ctx.Done()
@@ -197,12 +193,10 @@ func TestEventListenerDeadlock(t *testing.T) {
 
 	// we kick off our producer to publish msg2
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		// as msg1 is not yet consumed, our producer is blocked
 		subscriber.Publish("testChaincode", msg2)
-	}()
+	})
 
 	// let's give the producer a bit time
 	runtime.Gosched()

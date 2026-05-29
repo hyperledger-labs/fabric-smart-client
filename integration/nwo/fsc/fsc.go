@@ -792,7 +792,7 @@ func (p *Platform) NodeCmdPackage(peer *node2.Replica) string {
 	// if gopath is set to path within codebase, node command package will be relative within the codebase
 	// if gopath is not set or not within codebase, then it will be absolute path where the fsc node code is
 	// both can be built from these paths
-	if withoutGoPath := strings.TrimPrefix(wd, filepath.Join(gopath, "src")); withoutGoPath != wd {
+	if withoutGoPath, ok := strings.CutPrefix(wd, filepath.Join(gopath, "src")); ok {
 		return strings.TrimPrefix(
 			filepath.Join(withoutGoPath, "out", "cmd", peer.Name),
 			string(filepath.Separator),

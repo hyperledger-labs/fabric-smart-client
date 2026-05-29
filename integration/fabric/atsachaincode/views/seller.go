@@ -21,7 +21,7 @@ type AgreeToSellView struct {
 	*AssetPrice
 }
 
-func (a *AgreeToSellView) Call(viewCtx view.Context) (interface{}, error) {
+func (a *AgreeToSellView) Call(viewCtx view.Context) (any, error) {
 	assetPrice, err := a.Bytes()
 	assert.NoError(err, "failed marshalling assetPrice")
 
@@ -55,7 +55,7 @@ type TransferView struct {
 	*Transfer
 }
 
-func (a *TransferView) Call(viewCtx view.Context) (interface{}, error) {
+func (a *TransferView) Call(viewCtx view.Context) (any, error) {
 	_, ch, err := fabric.GetDefaultChannel(viewCtx)
 	assert.NoError(err)
 	fns, err := fabric.GetDefaultFNS(viewCtx)
@@ -82,7 +82,7 @@ func (a *TransferView) Call(viewCtx view.Context) (interface{}, error) {
 		recipientMSPID,
 	).WithImplicitCollections(
 		senderMSPID, recipientMSPID,
-	).WithTransientEntries(map[string]interface{}{
+	).WithTransientEntries(map[string]any{
 		"asset_price":      assetPrice,
 		"asset_properties": assetProperties,
 	})

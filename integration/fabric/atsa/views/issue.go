@@ -29,7 +29,7 @@ type IssueView struct {
 	*Issue
 }
 
-func (f *IssueView) Call(viewCtx view.Context) (interface{}, error) {
+func (f *IssueView) Call(viewCtx view.Context) (any, error) {
 	// As a first step operation, the issuer contacts the recipient's FSC node
 	// to request the identity to use to assign ownership of the freshly created asset.
 	assetOwner, err := state.RequestRecipientIdentity(viewCtx, f.Recipient)

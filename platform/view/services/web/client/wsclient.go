@@ -46,11 +46,11 @@ func NewWSStream(url string, config *tls.Config) (*WSStream, error) {
 	return &WSStream{conn: ws}, nil
 }
 
-func (c *WSStream) Send(v interface{}) error {
+func (c *WSStream) Send(v any) error {
 	return c.conn.WriteJSON(v)
 }
 
-func (c *WSStream) Recv(v interface{}) error {
+func (c *WSStream) Recv(v any) error {
 	return c.conn.ReadJSON(v)
 }
 

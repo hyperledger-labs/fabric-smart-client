@@ -22,9 +22,9 @@ type (
 )
 
 type Container interface {
-	Provide(constructor interface{}, opts ...ProvideOption) error
-	Invoke(function interface{}, opts ...InvokeOption) error
-	Decorate(decorator interface{}, opts ...DecorateOption) error
+	Provide(constructor any, opts ...ProvideOption) error
+	Invoke(function any, opts ...InvokeOption) error
+	Decorate(decorator any, opts ...DecorateOption) error
 	Visualize() string
 }
 

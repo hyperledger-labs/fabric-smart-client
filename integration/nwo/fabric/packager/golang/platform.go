@@ -289,9 +289,9 @@ func moduleInfo(path string) (*ModuleInfo, error) {
 	moduleRootDir := filepath.Dir(string(moduleRoot))
 	// TODO: should remove all this hardcoded strings to be more generic, also see
 	// integration/nwo/fabric/topology/topology.go(AddNamespace) for another hardcoded path
-	index := strings.Index(moduleRootDir, "github.")
-	if index != -1 {
-		path = moduleRootDir[:index] + path
+	before, _, ok := strings.Cut(moduleRootDir, "github.")
+	if ok {
+		path = before + path
 	} else {
 		const fscDirName = "fabric-smart-client"
 		path = moduleRootDir + path[strings.Index(path, fscDirName)+len(fscDirName):]

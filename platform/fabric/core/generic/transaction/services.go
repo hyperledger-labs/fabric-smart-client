@@ -56,7 +56,7 @@ func (s *envs) Exists(ctx context.Context, txid string) bool {
 	return ok
 }
 
-func (s *envs) StoreEnvelope(ctx context.Context, txID string, env interface{}) error {
+func (s *envs) StoreEnvelope(ctx context.Context, txID string, env any) error {
 	switch e := env.(type) {
 	case []byte:
 		return s.envelopeKVS.PutEnvelope(ctx, s.key(txID), e)

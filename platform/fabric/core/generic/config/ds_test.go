@@ -25,7 +25,7 @@ func TestLoad(t *testing.T) {
 	v := koanf.New(".")
 	require.NoError(t, v.Load(koanffile.Provider("./testdata/core.yaml"), configservice.LowercaseParser{Parser: koanfyaml.Parser()}))
 
-	var value interface{}
+	var value any
 	require.NoError(t, v.Unmarshal("fabric", &value))
 
 	var network config.Network

@@ -16,7 +16,7 @@ type Ordering struct {
 	network driver.FabricNetworkService
 }
 
-func (n *Ordering) Broadcast(ctx context.Context, blob interface{}) error {
+func (n *Ordering) Broadcast(ctx context.Context, blob any) error {
 	switch b := blob.(type) {
 	case *Envelope:
 		return n.network.OrderingService().Broadcast(ctx, b.Envelope)

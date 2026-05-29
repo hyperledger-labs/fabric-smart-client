@@ -28,7 +28,7 @@ func newBatcher[I, O any](executor func([]I) []O, capacity int, timeout time.Dur
 	inputs := make([]chan I, capacity)
 	outputs := make([]chan O, capacity)
 	locks := make([]sync.Mutex, capacity)
-	for i := 0; i < capacity; i++ {
+	for i := range capacity {
 		inputs[i] = make(chan I)
 		outputs[i] = make(chan O)
 		locks[i] = sync.Mutex{}

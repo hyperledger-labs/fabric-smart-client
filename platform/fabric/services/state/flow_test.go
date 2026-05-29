@@ -57,8 +57,8 @@ func (m *mockSession) Close() {}
 type mockViewContext struct {
 	session      view.Session
 	getSessionFn func(caller view.View, party view.Identity, boundToViews ...view.View) (view.Session, error)
-	runViewFn    func(v view.View, opts ...view.RunViewOption) (interface{}, error)
-	getServiceFn func(v interface{}) (interface{}, error)
+	runViewFn    func(v view.View, opts ...view.RunViewOption) (any, error)
+	getServiceFn func(v any) (any, error)
 	isMeFn       func(id view.Identity) bool
 }
 
@@ -83,14 +83,14 @@ func (m *mockViewContext) GetSessionByID(string, view.Identity) (view.Session, e
 }
 func (m *mockViewContext) Session() view.Session    { return m.session }
 func (m *mockViewContext) Context() context.Context { return context.Background() }
-func (m *mockViewContext) RunView(v view.View, opts ...view.RunViewOption) (interface{}, error) {
+func (m *mockViewContext) RunView(v view.View, opts ...view.RunViewOption) (any, error) {
 	if m.runViewFn != nil {
 		return m.runViewFn(v, opts...)
 	}
 	return nil, nil
 }
 func (m *mockViewContext) OnError(func()) {}
-func (m *mockViewContext) GetService(v interface{}) (interface{}, error) {
+func (m *mockViewContext) GetService(v any) (any, error) {
 	if m.getServiceFn != nil {
 		return m.getServiceFn(v)
 	}
@@ -106,17 +106,17 @@ type mockCodec struct {
 	marshalErr    error
 	unmarshalErr  error
 	lastUnmarshal []byte
-	unmarshalFn   func(raw []byte, v interface{}) error
+	unmarshalFn   func(raw []byte, v any) error
 }
 
-func (m *mockCodec) Marshal(v interface{}) ([]byte, error) {
+func (m *mockCodec) Marshal(v any) ([]byte, error) {
 	if m.marshalErr != nil {
 		return nil, m.marshalErr
 	}
 	return append([]byte(nil), m.marshalRaw...), nil
 }
 
-func (m *mockCodec) Unmarshal(raw []byte, v interface{}) error {
+func (m *mockCodec) Unmarshal(raw []byte, v any) error {
 	m.lastUnmarshal = append([]byte(nil), raw...)
 	if m.unmarshalFn != nil {
 		return m.unmarshalFn(raw, v)
@@ -129,7 +129,7 @@ type mockMarshaller struct {
 	err error
 }
 
-func (m *mockMarshaller) Marshal(v interface{}) ([]byte, error) {
+func (m *mockMarshaller) Marshal(v any) ([]byte, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -348,7 +348,7 @@ func TestSendReceiveViewCall(t *testing.T) {
 		srv := NewSendReceiveView("send", dst, party)
 		srv.coded = &mockCodec{
 			marshalRaw: []byte("send"),
-			unmarshalFn: func(raw []byte, v interface{}) error {
+			unmarshalFn: func(raw []byte, v any) error {
 				require.Equal(t, []byte(`{"v":"ok"}`), raw)
 				target := v.(*struct {
 					V string `json:"v"`
@@ -458,7 +458,7 @@ func TestRunViewWrappers(t *testing.T) {
 	t.Run("RequestRecipientIdentity wrapper", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (interface{}, error) {
+			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
 				return view.Identity("recipient"), nil
 			},
 		}
@@ -470,7 +470,7 @@ func TestRunViewWrappers(t *testing.T) {
 	t.Run("ReceiveTransaction wrapper error", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (interface{}, error) {
+			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
 				return nil, errors.New("run failed")
 			},
 		}
@@ -482,7 +482,7 @@ func TestRunViewWrappers(t *testing.T) {
 		t.Parallel()
 		expected := &Transaction{}
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (interface{}, error) {
+			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
 				return expected, nil
 			},
 		}
@@ -495,7 +495,7 @@ func TestRunViewWrappers(t *testing.T) {
 		t.Parallel()
 		expected := &Transaction{}
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (interface{}, error) {
+			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
 				return expected, nil
 			},
 		}
@@ -507,7 +507,7 @@ func TestRunViewWrappers(t *testing.T) {
 	t.Run("SendAndReceiveTransaction wrapper error on send", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (interface{}, error) {
+			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
 				return nil, errors.New("send failed")
 			},
 		}
@@ -520,7 +520,7 @@ func TestRunViewWrappers(t *testing.T) {
 		expected := &Transaction{}
 		callCount := 0
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (interface{}, error) {
+			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
 				callCount++
 				if callCount == 1 {
 					return nil, nil
@@ -537,7 +537,7 @@ func TestRunViewWrappers(t *testing.T) {
 	t.Run("SendBackAndReceiveTransaction wrapper error on send", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (interface{}, error) {
+			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
 				return nil, errors.New("send back failed")
 			},
 		}
@@ -550,7 +550,7 @@ func TestRunViewWrappers(t *testing.T) {
 		expected := &Transaction{}
 		callCount := 0
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (interface{}, error) {
+			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
 				callCount++
 				if callCount == 1 {
 					return nil, nil
@@ -582,7 +582,7 @@ func TestTransactionConstructorsErrorAndWrap(t *testing.T) {
 	t.Run("new transaction error paths", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			getServiceFn: func(v interface{}) (interface{}, error) {
+			getServiceFn: func(v any) (any, error) {
 				return nil, errors.New("service missing")
 			},
 		}
@@ -795,7 +795,7 @@ func TestRecipientViewsAndWrappers(t *testing.T) {
 	t.Run("recipient wrappers", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (interface{}, error) {
+			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
 				switch v.(type) {
 				case *RespondRequestRecipientIdentityView:
 					return view.Identity("me"), nil
@@ -843,17 +843,17 @@ func TestRecipientViewsSuccessfulFlows(t *testing.T) {
 			getSessionFn: func(view.View, view.Identity, ...view.View) (view.Session, error) {
 				return session, nil
 			},
-			getServiceFn: func(v interface{}) (interface{}, error) {
+			getServiceFn: func(v any) (any, error) {
 				rt, ok := v.(reflect.Type)
 				if !ok {
 					return nil, errors.New("service key is not a reflect.Type")
 				}
 				switch rt {
-				case reflect.TypeOf((*fabric.NetworkServiceProvider)(nil)):
+				case reflect.TypeFor[*fabric.NetworkServiceProvider]():
 					return nsp, nil
-				case reflect.TypeOf((*endpoint.Service)(nil)):
+				case reflect.TypeFor[*endpoint.Service]():
 					return endpointService, nil
-				case reflect.TypeOf((*VaultService)(nil)):
+				case reflect.TypeFor[*VaultService]():
 					return &mockVaultService{}, nil
 				default:
 					return nil, errors.New("service missing")

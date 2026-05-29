@@ -8,37 +8,37 @@ import (
 )
 
 type RequestHandler struct {
-	HandleRequestStub        func(*server.ReqContext) (interface{}, int)
+	HandleRequestStub        func(*server.ReqContext) (any, int)
 	handleRequestMutex       sync.RWMutex
 	handleRequestArgsForCall []struct {
 		arg1 *server.ReqContext
 	}
 	handleRequestReturns struct {
-		result1 interface{}
+		result1 any
 		result2 int
 	}
 	handleRequestReturnsOnCall map[int]struct {
-		result1 interface{}
+		result1 any
 		result2 int
 	}
-	ParsePayloadStub        func([]byte) (interface{}, error)
+	ParsePayloadStub        func([]byte) (any, error)
 	parsePayloadMutex       sync.RWMutex
 	parsePayloadArgsForCall []struct {
 		arg1 []byte
 	}
 	parsePayloadReturns struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	parsePayloadReturnsOnCall map[int]struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *RequestHandler) HandleRequest(arg1 *server.ReqContext) (interface{}, int) {
+func (fake *RequestHandler) HandleRequest(arg1 *server.ReqContext) (any, int) {
 	fake.handleRequestMutex.Lock()
 	ret, specificReturn := fake.handleRequestReturnsOnCall[len(fake.handleRequestArgsForCall)]
 	fake.handleRequestArgsForCall = append(fake.handleRequestArgsForCall, struct {
@@ -63,7 +63,7 @@ func (fake *RequestHandler) HandleRequestCallCount() int {
 	return len(fake.handleRequestArgsForCall)
 }
 
-func (fake *RequestHandler) HandleRequestCalls(stub func(*server.ReqContext) (interface{}, int)) {
+func (fake *RequestHandler) HandleRequestCalls(stub func(*server.ReqContext) (any, int)) {
 	fake.handleRequestMutex.Lock()
 	defer fake.handleRequestMutex.Unlock()
 	fake.HandleRequestStub = stub
@@ -76,33 +76,33 @@ func (fake *RequestHandler) HandleRequestArgsForCall(i int) *server.ReqContext {
 	return argsForCall.arg1
 }
 
-func (fake *RequestHandler) HandleRequestReturns(result1 interface{}, result2 int) {
+func (fake *RequestHandler) HandleRequestReturns(result1 any, result2 int) {
 	fake.handleRequestMutex.Lock()
 	defer fake.handleRequestMutex.Unlock()
 	fake.HandleRequestStub = nil
 	fake.handleRequestReturns = struct {
-		result1 interface{}
+		result1 any
 		result2 int
 	}{result1, result2}
 }
 
-func (fake *RequestHandler) HandleRequestReturnsOnCall(i int, result1 interface{}, result2 int) {
+func (fake *RequestHandler) HandleRequestReturnsOnCall(i int, result1 any, result2 int) {
 	fake.handleRequestMutex.Lock()
 	defer fake.handleRequestMutex.Unlock()
 	fake.HandleRequestStub = nil
 	if fake.handleRequestReturnsOnCall == nil {
 		fake.handleRequestReturnsOnCall = make(map[int]struct {
-			result1 interface{}
+			result1 any
 			result2 int
 		})
 	}
 	fake.handleRequestReturnsOnCall[i] = struct {
-		result1 interface{}
+		result1 any
 		result2 int
 	}{result1, result2}
 }
 
-func (fake *RequestHandler) ParsePayload(arg1 []byte) (interface{}, error) {
+func (fake *RequestHandler) ParsePayload(arg1 []byte) (any, error) {
 	var arg1Copy []byte
 	if arg1 != nil {
 		arg1Copy = make([]byte, len(arg1))
@@ -132,7 +132,7 @@ func (fake *RequestHandler) ParsePayloadCallCount() int {
 	return len(fake.parsePayloadArgsForCall)
 }
 
-func (fake *RequestHandler) ParsePayloadCalls(stub func([]byte) (interface{}, error)) {
+func (fake *RequestHandler) ParsePayloadCalls(stub func([]byte) (any, error)) {
 	fake.parsePayloadMutex.Lock()
 	defer fake.parsePayloadMutex.Unlock()
 	fake.ParsePayloadStub = stub
@@ -145,28 +145,28 @@ func (fake *RequestHandler) ParsePayloadArgsForCall(i int) []byte {
 	return argsForCall.arg1
 }
 
-func (fake *RequestHandler) ParsePayloadReturns(result1 interface{}, result2 error) {
+func (fake *RequestHandler) ParsePayloadReturns(result1 any, result2 error) {
 	fake.parsePayloadMutex.Lock()
 	defer fake.parsePayloadMutex.Unlock()
 	fake.ParsePayloadStub = nil
 	fake.parsePayloadReturns = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *RequestHandler) ParsePayloadReturnsOnCall(i int, result1 interface{}, result2 error) {
+func (fake *RequestHandler) ParsePayloadReturnsOnCall(i int, result1 any, result2 error) {
 	fake.parsePayloadMutex.Lock()
 	defer fake.parsePayloadMutex.Unlock()
 	fake.ParsePayloadStub = nil
 	if fake.parsePayloadReturnsOnCall == nil {
 		fake.parsePayloadReturnsOnCall = make(map[int]struct {
-			result1 interface{}
+			result1 any
 			result2 error
 		})
 	}
 	fake.parsePayloadReturnsOnCall[i] = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }

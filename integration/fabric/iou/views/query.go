@@ -23,7 +23,7 @@ type QueryView struct {
 	Query
 }
 
-func (q *QueryView) Call(viewCtx view.Context) (interface{}, error) {
+func (q *QueryView) Call(viewCtx view.Context) (any, error) {
 	iouState := &states.IOU{}
 	vault, err := state.GetVault(viewCtx)
 	assert.NoError(err)

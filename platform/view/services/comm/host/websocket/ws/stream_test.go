@@ -129,16 +129,14 @@ func TestReader(t *testing.T) { //nolint:paralleltest
 		require.NoError(t, conn.ReadValue(message))
 	}
 	wg := sync.WaitGroup{}
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for _, in := range input {
 			read := &comm.ViewPacket{}
 			assert.NoError(t, r.ReadMsg(read))
 			assert.True(t, proto.Equal(in, read))
 		}
-	}()
+	})
 	wg.Wait()
 
 	require.NoError(t, stream.Close())

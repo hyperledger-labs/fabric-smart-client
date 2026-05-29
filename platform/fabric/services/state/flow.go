@@ -15,14 +15,14 @@ import (
 
 type receiveView struct {
 	unmarshaller Unmarshaller
-	state        interface{}
+	state        any
 }
 
-func NewReceiveView(state interface{}) *receiveView {
+func NewReceiveView(state any) *receiveView {
 	return &receiveView{state: state, unmarshaller: &JSONCodec{}}
 }
 
-func (s receiveView) Call(viewCtx view.Context) (interface{}, error) {
+func (s receiveView) Call(viewCtx view.Context) (any, error) {
 	session := viewCtx.Session()
 
 	// Wait to receive a state
@@ -54,7 +54,7 @@ func NewPayloadReceiveView() *payloadReceiveView {
 	return &payloadReceiveView{}
 }
 
-func (s payloadReceiveView) Call(viewCtx view.Context) (interface{}, error) {
+func (s payloadReceiveView) Call(viewCtx view.Context) (any, error) {
 	// Wait to receive a state
 	ch := viewCtx.Session().Receive()
 
@@ -73,13 +73,13 @@ func (s payloadReceiveView) Call(viewCtx view.Context) (interface{}, error) {
 }
 
 type sendReceiveView struct {
-	sendState    interface{}
-	receiveState interface{}
+	sendState    any
+	receiveState any
 	coded        Codec
 	party        view.Identity
 }
 
-func (s *sendReceiveView) Call(viewCtx view.Context) (interface{}, error) {
+func (s *sendReceiveView) Call(viewCtx view.Context) (any, error) {
 	session, err := viewCtx.GetSession(viewCtx.Initiator(), s.party)
 	if err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func (s *sendReceiveView) Call(viewCtx view.Context) (interface{}, error) {
 	}
 }
 
-func NewSendReceiveView(sendState, receiveState interface{}, party view.Identity) *sendReceiveView {
+func NewSendReceiveView(sendState, receiveState any, party view.Identity) *sendReceiveView {
 	return &sendReceiveView{
 		sendState:    sendState,
 		receiveState: receiveState,
@@ -127,11 +127,11 @@ func NewSendReceiveView(sendState, receiveState interface{}, party view.Identity
 }
 
 type replyView struct {
-	state      interface{}
+	state      any
 	marshaller Marshaller
 }
 
-func (s *replyView) Call(viewCtx view.Context) (interface{}, error) {
+func (s *replyView) Call(viewCtx view.Context) (any, error) {
 	session := viewCtx.Session()
 
 	raw, err := s.marshaller.Marshal(s.state)
@@ -147,6 +147,6 @@ func (s *replyView) Call(viewCtx view.Context) (interface{}, error) {
 	return nil, nil
 }
 
-func NewReplyView(state interface{}) *replyView {
+func NewReplyView(state any) *replyView {
 	return &replyView{state: state, marshaller: &JSONCodec{}}
 }

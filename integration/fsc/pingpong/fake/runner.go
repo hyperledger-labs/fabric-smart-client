@@ -40,7 +40,7 @@ func (c *DelegatedContext) StartSpan(string, ...trace.SpanStartOption) trace.Spa
 	return noop.Span{}
 }
 
-func (c *DelegatedContext) GetService(v interface{}) (interface{}, error) {
+func (c *DelegatedContext) GetService(v any) (any, error) {
 	return c.ViewCtx.GetService(v)
 }
 
@@ -48,7 +48,7 @@ func (c *DelegatedContext) ID() string {
 	return c.ViewCtx.ID()
 }
 
-func (c *DelegatedContext) RunView(view view.View, opts ...view.RunViewOption) (interface{}, error) {
+func (c *DelegatedContext) RunView(view view.View, opts ...view.RunViewOption) (any, error) {
 	return c.ViewCtx.RunView(view, opts...)
 }
 

@@ -126,7 +126,7 @@ func ReceiveTransactionFrom(viewCtx view.Context, party view.Identity) (*Transac
 	return cctx, nil
 }
 
-func (f *receiveTransactionView) Call(viewCtx view.Context) (interface{}, error) {
+func (f *receiveTransactionView) Call(viewCtx view.Context) (any, error) {
 	// Wait to receive a transaction back
 	var ch <-chan *view.Message
 	if f.party.IsNone() {
@@ -166,7 +166,7 @@ func NewSendTransactionView(tx *Transaction, parties ...view.Identity) *sendTran
 	return &sendTransactionView{tx: tx, parties: parties}
 }
 
-func (f *sendTransactionView) Call(viewCtx view.Context) (interface{}, error) {
+func (f *sendTransactionView) Call(viewCtx view.Context) (any, error) {
 	for _, party := range f.parties {
 		logger.Debugf("Send transaction to [%s]", logging.SHA256Base64(party))
 
@@ -202,7 +202,7 @@ func NewSendTransactionBackView(tx *Transaction) *sendTransactionBackView {
 	return &sendTransactionBackView{tx: tx}
 }
 
-func (f *sendTransactionBackView) Call(viewCtx view.Context) (interface{}, error) {
+func (f *sendTransactionBackView) Call(viewCtx view.Context) (any, error) {
 	txRaw, err := f.tx.Bytes()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed marshalling transaction content")

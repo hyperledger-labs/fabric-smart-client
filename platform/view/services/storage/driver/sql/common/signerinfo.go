@@ -46,7 +46,7 @@ func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...vie
 		inverseMap[idHash] = id
 	}
 
-	inVals := make([]interface{}, len(idHashes))
+	inVals := make([]any, len(idHashes))
 	for i, h := range idHashes {
 		inVals[i] = h
 	}

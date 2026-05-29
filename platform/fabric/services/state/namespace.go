@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -22,10 +23,10 @@ import (
 
 var logger = logging.MustGetLogger()
 
-type EndorseTransaction interface{}
+type EndorseTransaction any
 
 type MetaHandler interface {
-	StoreMeta(ns *Namespace, s interface{}, namespace, key string, options *addOutputOptions) error
+	StoreMeta(ns *Namespace, s any, namespace, key string, options *addOutputOptions) error
 }
 
 // Command models an operation that involve given business parties
@@ -80,12 +81,7 @@ func (n *Namespace) Present() bool {
 	}
 
 	ns := n.namespace()
-	for _, s := range rwSet.Namespaces() {
-		if s == ns {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(rwSet.Namespaces(), ns)
 }
 
 // SetNamespace sets the name of this namespace
@@ -131,7 +127,7 @@ func (n *Namespace) AddCommand(command string, ids ...view.Identity) error {
 // In addition, the function pupulates the passed state with the content of state associated to the passed id and
 // stored in the vault.
 // Options can be passed to change the behaviour of the function.
-func (n *Namespace) AddInputByLinearID(id string, state interface{}, opts ...AddInputOption) error {
+func (n *Namespace) AddInputByLinearID(id string, state any, opts ...AddInputOption) error {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
 		return errors.Wrap(err, "filed getting rw set")
@@ -188,7 +184,7 @@ func (n *Namespace) AddInputByLinearID(id string, state interface{}, opts ...Add
 
 // AddOutput adds the passed state following the passed options.
 // This corresponds to a write entry in the RWSet
-func (n *Namespace) AddOutput(st interface{}, opts ...AddOutputOption) error {
+func (n *Namespace) AddOutput(st any, opts ...AddOutputOption) error {
 	var err error
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
@@ -259,7 +255,7 @@ func (n *Namespace) AddOutput(st interface{}, opts ...AddOutputOption) error {
 }
 
 // GetOutputAt populates the passed state with the content of the output in the passed position
-func (n *Namespace) GetOutputAt(index int, state interface{}) error {
+func (n *Namespace) GetOutputAt(index int, state any) error {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
 		return errors.Wrap(err, "filed getting rw set")
@@ -295,7 +291,7 @@ func (n *Namespace) GetOutputAt(index int, state interface{}) error {
 
 // GetInputAt populates the passed state with the content of the input in the passed position.
 // The content of the input is loaded from the vault.
-func (n *Namespace) GetInputAt(index int, state interface{}) error {
+func (n *Namespace) GetInputAt(index int, state any) error {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
 		return errors.Wrap(err, "filed getting rw set")
@@ -343,7 +339,7 @@ func (n *Namespace) GetInputAt(index int, state interface{}) error {
 	return nil
 }
 
-func (n *Namespace) Delete(state interface{}) error {
+func (n *Namespace) Delete(state any) error {
 	var err error
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
@@ -456,11 +452,11 @@ func (n *Namespace) RWSet() (*fabric.RWSet, error) {
 	return n.tx.RWSet()
 }
 
-func (n *Namespace) GetService(v interface{}) (interface{}, error) {
+func (n *Namespace) GetService(v any) (any, error) {
 	return n.tx.GetService(v)
 }
 
-func (n *Namespace) getStateID(s interface{}) (string, error) {
+func (n *Namespace) getStateID(s any) (string, error) {
 	logger.Debugf("getStateID %v...", s)
 	defer logger.Debugf("getStateID...done")
 	var key string
@@ -486,7 +482,7 @@ func (n *Namespace) getStateID(s interface{}) (string, error) {
 	return key, nil
 }
 
-func (n *Namespace) setMeta(s interface{}, namespace, key string, options *addOutputOptions) error {
+func (n *Namespace) setMeta(s any, namespace, key string, options *addOutputOptions) error {
 	for _, handler := range n.metaHandlers {
 		if err := handler.StoreMeta(n, s, namespace, key, options); err != nil {
 			return errors.Wrapf(err, "failed storing meta for [%s:%s]", namespace, key)

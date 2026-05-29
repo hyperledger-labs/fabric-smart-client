@@ -120,7 +120,7 @@ func (i *Inspector) Bytes() ([]byte, error) {
 	panic("programming error: unexpected call")
 }
 
-func (i *Inspector) Equals(other interface{}, nss ...driver.Namespace) error {
+func (i *Inspector) Equals(other any, nss ...driver.Namespace) error {
 	panic("programming error: unexpected call")
 }
 

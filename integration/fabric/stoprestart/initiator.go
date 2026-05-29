@@ -21,7 +21,7 @@ type Initiator struct {
 	in []byte
 }
 
-func (p *Initiator) Call(viewCtx view.Context) (interface{}, error) {
+func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 	// Retrieve responder identity
 	identityProvider, err := id.GetProvider(viewCtx)
 	assert.NoError(err, "failed getting identity provider")

@@ -21,7 +21,7 @@ type operationsLogger struct {
 	Logger
 }
 
-func (l *operationsLogger) Log(keyvals ...interface{}) error {
+func (l *operationsLogger) Log(keyvals ...any) error {
 	l.Warn(keyvals...)
 	return nil
 }

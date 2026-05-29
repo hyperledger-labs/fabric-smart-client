@@ -91,8 +91,8 @@ func TestProvider_Initialize(t *testing.T) {
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 
 		ctx1 := t.Context()
-		ctx2, cancel2 := context.WithCancel(context.Background())
-		defer cancel2()
+		ctx2, cancel := context.WithCancel(t.Context())
+		t.Cleanup(cancel)
 
 		provider.Initialize(ctx1)
 		provider.Initialize(ctx2) // Should be ignored due to sync.Once
@@ -110,11 +110,9 @@ func TestProvider_Initialize(t *testing.T) {
 
 		var wg sync.WaitGroup
 		for range 100 {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				provider.Initialize(ctx)
-			}()
+			})
 		}
 		wg.Wait()
 
@@ -423,7 +421,7 @@ func TestGetListenerManager(t *testing.T) {
 		// Verify GetService was called with correct type
 		require.Equal(t, 1, mockSP.GetServiceCallCount())
 		serviceType := mockSP.GetServiceArgsForCall(0)
-		require.Equal(t, reflect.TypeOf((*ListenerManagerProvider)(nil)), serviceType)
+		require.Equal(t, reflect.TypeFor[*ListenerManagerProvider](), serviceType)
 	})
 
 	t.Run("Returns_Error_When_Service_Not_Found", func(t *testing.T) {

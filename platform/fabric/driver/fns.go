@@ -49,7 +49,7 @@ type FabricNetworkServiceProvider interface {
 }
 
 func GetFabricManagementService(ctx services.Provider) FabricNetworkServiceProvider {
-	s, err := ctx.GetService(reflect.TypeOf((*FabricNetworkServiceProvider)(nil)))
+	s, err := ctx.GetService(reflect.TypeFor[*FabricNetworkServiceProvider]())
 	if err != nil {
 		panic(err)
 	}

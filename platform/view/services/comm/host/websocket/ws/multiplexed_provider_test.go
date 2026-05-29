@@ -499,7 +499,7 @@ func sendMsg(stream host.P2PStream, msg []byte) error {
 func readMsg(stream host.P2PStream) ([]byte, error) {
 	// read length frame
 	lenBuf := make([]byte, 0, binary.MaxVarintLen64)
-	for i := 0; i < binary.MaxVarintLen64; i++ {
+	for range binary.MaxVarintLen64 {
 		b := make([]byte, 1)
 		if _, err := stream.Read(b); err != nil {
 			return nil, err

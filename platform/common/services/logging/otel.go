@@ -22,16 +22,16 @@ const (
 )
 
 type otelLogger interface {
-	DebugfContext(ctx context.Context, template string, args ...interface{})
-	DebugwContext(ctx context.Context, template string, args ...interface{})
-	InfofContext(ctx context.Context, template string, args ...interface{})
-	InfowContext(ctx context.Context, template string, args ...interface{})
-	WarnfContext(ctx context.Context, template string, args ...interface{})
-	WarnwContext(ctx context.Context, template string, args ...interface{})
-	ErrorfContext(ctx context.Context, template string, args ...interface{})
-	ErrorwContext(ctx context.Context, template string, args ...interface{})
-	PanicfContext(ctx context.Context, template string, args ...interface{})
-	PanicwContext(ctx context.Context, template string, args ...interface{})
+	DebugfContext(ctx context.Context, template string, args ...any)
+	DebugwContext(ctx context.Context, template string, args ...any)
+	InfofContext(ctx context.Context, template string, args ...any)
+	InfowContext(ctx context.Context, template string, args ...any)
+	WarnfContext(ctx context.Context, template string, args ...any)
+	WarnwContext(ctx context.Context, template string, args ...any)
+	ErrorfContext(ctx context.Context, template string, args ...any)
+	ErrorwContext(ctx context.Context, template string, args ...any)
+	PanicfContext(ctx context.Context, template string, args ...any)
+	PanicwContext(ctx context.Context, template string, args ...any)
 }
 
 func NewOtelLogger(zapLogger *zap.Logger) otelLogger {

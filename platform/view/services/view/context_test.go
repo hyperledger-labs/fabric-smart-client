@@ -106,14 +106,14 @@ func TestContext(t *testing.T) {
 	// PutService / GetService
 	err = ctx.PutService("service")
 	require.NoError(t, err)
-	s, err := ctx.GetService(reflect.TypeOf(""))
+	s, err := ctx.GetService(reflect.TypeFor[string]())
 	require.NoError(t, err)
 	require.Equal(t, "service", s)
 
 	// GetService from registry
 	err = registry.RegisterService(123)
 	require.NoError(t, err)
-	s2, err := ctx.GetService(reflect.TypeOf(0))
+	s2, err := ctx.GetService(reflect.TypeFor[int]())
 	require.NoError(t, err)
 	require.Equal(t, 123, s2)
 
@@ -216,7 +216,7 @@ func TestContextRace(t *testing.T) {
 
 	dv := &DummyView{}
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		wg.Go(func() {
 			_, err := viewCtx.GetSession(dv, []byte("alice"))
 			assert.NoError(t, err)

@@ -22,7 +22,7 @@ import (
 
 type factoryRegisterer interface {
 	RegisterFactory(id string, factory view.Factory) error
-	RegisterResponderFactory(factory view.Factory, initiatedBy interface{}) error
+	RegisterResponderFactory(factory view.Factory, initiatedBy any) error
 }
 
 type SDK struct {

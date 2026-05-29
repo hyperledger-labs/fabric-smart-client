@@ -56,7 +56,7 @@ type MetadataService interface {
 
 type EnvelopeService interface {
 	Exists(ctx context.Context, txid string) bool
-	StoreEnvelope(ctx context.Context, txid string, env interface{}) error
+	StoreEnvelope(ctx context.Context, txid string, env any) error
 	LoadEnvelope(ctx context.Context, txid string) ([]byte, error)
 }
 

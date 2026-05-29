@@ -34,7 +34,7 @@ func GetStream(sp services.Provider) Stream {
 
 // GetStreamIfExists returns the stream from the service provider if it exists.
 func GetStreamIfExists(sp services.Provider) (Stream, error) {
-	scsBoxed, err := sp.GetService(reflect.TypeOf((*Stream)(nil)))
+	scsBoxed, err := sp.GetService(reflect.TypeFor[*Stream]())
 	if err != nil {
 		return nil, err
 	}

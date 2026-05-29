@@ -9,8 +9,8 @@ package events
 import "sync"
 
 type entry struct {
-	Wrapped interface{}
-	Wrapper interface{}
+	Wrapped any
+	Wrapper any
 }
 
 // Subscribers is a thread-safe map of subscribers.
@@ -29,7 +29,7 @@ func NewSubscribers() *Subscribers {
 
 // Set sets a new binding between a wrapped listener and its wrapper.
 // The binding is indexed by the passed id.
-func (s *Subscribers) Set(id string, wrapped, wrapper interface{}) {
+func (s *Subscribers) Set(id string, wrapped, wrapper any) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -37,7 +37,7 @@ func (s *Subscribers) Set(id string, wrapped, wrapper interface{}) {
 }
 
 // Get returns the wrapper listener for the given id and wrapped listener.
-func (s *Subscribers) Get(id string, wrapped interface{}) (interface{}, bool) {
+func (s *Subscribers) Get(id string, wrapped any) (any, bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -54,7 +54,7 @@ func (s *Subscribers) Get(id string, wrapped interface{}) (interface{}, bool) {
 }
 
 // Delete removes the binding for the given id and wrapped listener
-func (s *Subscribers) Delete(id string, wrapped interface{}) {
+func (s *Subscribers) Delete(id string, wrapped any) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

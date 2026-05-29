@@ -52,11 +52,11 @@ func (m *mockContext) GetSessionByID(string, view.Identity) (view.Session, error
 }
 func (m *mockContext) Context() context.Context { return context.Background() }
 func (m *mockContext) Session() view.Session    { return m.s }
-func (m *mockContext) RunView(view.View, ...view.RunViewOption) (interface{}, error) {
+func (m *mockContext) RunView(view.View, ...view.RunViewOption) (any, error) {
 	return nil, nil
 }
 func (m *mockContext) OnError(func()) {}
-func (m *mockContext) GetService(interface{}) (interface{}, error) {
+func (m *mockContext) GetService(any) (any, error) {
 	return nil, nil
 }
 

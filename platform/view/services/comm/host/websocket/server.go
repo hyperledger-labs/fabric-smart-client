@@ -36,7 +36,7 @@ func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stre
 	r := gin.New()
 
 	// Recovery middleware to catch panics and log them
-	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
+	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered any) {
 		logger.Errorf("Panic recovered in websocket handler from [%s]: %v", c.Request.RemoteAddr, recovered)
 		c.AbortWithStatus(http.StatusInternalServerError)
 	}))

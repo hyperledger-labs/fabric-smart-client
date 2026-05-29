@@ -71,13 +71,10 @@ func RunRemoteBenchmark(
 	}
 
 	var wg sync.WaitGroup
-	for idx := 0; idx < numWorker; idx++ {
+	for idx := range numWorker {
 		slot := idx
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			hist := stats.NewHistogram(HistogramOptions)
 			for ctx.Err() == nil {
 				caller := pickCaller()
@@ -92,7 +89,7 @@ func RunRemoteBenchmark(
 			}
 
 			hists[slot] = hist
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -142,7 +139,7 @@ func CreateRemoteClients(numConn int, clientConfPath string) ([]*benchmark.ViewC
 	ccs := make([]*benchmark.ViewClient, numConn)
 	closers := make([]func(), numConn)
 
-	for i := 0; i < numConn; i++ {
+	for i := range numConn {
 		var err error
 		ccs[i], closers[i], err = SetupClient(clientConfPath)
 		if err != nil {

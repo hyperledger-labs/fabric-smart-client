@@ -26,8 +26,8 @@ type FSCNode interface {
 	Start() error
 	Stop()
 	InstallSDK(p node.SDK) error
-	GetService(v interface{}) (interface{}, error)
-	RegisterService(service interface{}) error
+	GetService(v any) (any, error)
+	RegisterService(service any) error
 }
 
 // Node is a cobra based application that offers the following commands:

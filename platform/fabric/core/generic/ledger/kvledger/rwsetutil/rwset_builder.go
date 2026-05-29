@@ -380,7 +380,7 @@ func mapToMetadataWriteHash(key string, m map[string][]byte) *kvrwset.KVMetadata
 }
 
 // getSortedKeys returns the keys of the map in a sorted order. This function assumes that the keys are string
-func getSortedKeys(m interface{}) []string {
+func getSortedKeys(m any) []string {
 	mapVal := reflect.ValueOf(m)
 	keyVals := mapVal.MapKeys()
 	var keys []string
@@ -394,7 +394,7 @@ func getSortedKeys(m interface{}) []string {
 // getValuesBySortedKeys returns the values of the map (mapPtr) in the list (listPtr) in the sorted order of key of the map
 // This function assumes that the mapPtr is a pointer to a map and listPtr is a pointer to a list. Further type of keys of the
 // map are assumed to be string and the types of the values of the maps and the list are same
-func getValuesBySortedKeys(mapPtr, listPtr interface{}) {
+func getValuesBySortedKeys(mapPtr, listPtr any) {
 	mapVal := reflect.ValueOf(mapPtr).Elem()
 	keyVals := mapVal.MapKeys()
 	if len(keyVals) == 0 {

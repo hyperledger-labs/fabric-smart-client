@@ -328,7 +328,7 @@ func (f *fakeViewManager) DeleteContext(contextID string) {}
 
 type fakeView struct{}
 
-func (f *fakeView) Call(context view2.Context) (interface{}, error) {
+func (f *fakeView) Call(context view2.Context) (any, error) {
 	return nil, nil
 }
 

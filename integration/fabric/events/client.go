@@ -13,7 +13,7 @@ import (
 )
 
 type ViewClient interface {
-	CallView(fid string, in []byte) (interface{}, error)
+	CallView(fid string, in []byte) (any, error)
 }
 
 type Client struct {
@@ -25,7 +25,7 @@ func NewClient(c ViewClient, id view.Identity) *Client {
 	return &Client{c: c, id: id}
 }
 
-func (c *Client) EventsView(chaincodeFunction, eventName string) (interface{}, error) {
+func (c *Client) EventsView(chaincodeFunction, eventName string) (any, error) {
 	event, err := c.c.CallView("EventsView", common.JSONMarshall(&views.Events{
 		Function:  chaincodeFunction,
 		EventName: eventName,
@@ -33,7 +33,7 @@ func (c *Client) EventsView(chaincodeFunction, eventName string) (interface{}, e
 	return event, err
 }
 
-func (c *Client) MultipleListenersView(chaincodeFunction, eventName string, listenerCount int) (interface{}, error) {
+func (c *Client) MultipleListenersView(chaincodeFunction, eventName string, listenerCount int) (any, error) {
 	event, err := c.c.CallView("MultipleListenersView", common.JSONMarshall(&views.MultipleListeners{
 		Function:      chaincodeFunction,
 		EventName:     eventName,
@@ -42,7 +42,7 @@ func (c *Client) MultipleListenersView(chaincodeFunction, eventName string, list
 	return event, err
 }
 
-func (c *Client) MultipleEventsView(chaincodeFunctions []string, eventCount uint8) (interface{}, error) {
+func (c *Client) MultipleEventsView(chaincodeFunctions []string, eventCount uint8) (any, error) {
 	event, err := c.c.CallView("MultipleEventsView", common.JSONMarshall(&views.MultipleEvents{
 		Functions:  chaincodeFunctions,
 		EventCount: eventCount,

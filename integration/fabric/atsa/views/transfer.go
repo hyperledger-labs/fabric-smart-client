@@ -29,7 +29,7 @@ type TransferView struct {
 	*Transfer
 }
 
-func (f *TransferView) Call(viewCtx view.Context) (interface{}, error) {
+func (f *TransferView) Call(viewCtx view.Context) (any, error) {
 	assetOwner, err := state.RequestRecipientIdentity(viewCtx, f.Recipient)
 	assert.NoError(err, "failed getting recipient identity")
 
@@ -90,7 +90,7 @@ func (p *TransferViewFactory) NewView(in []byte) (view.View, error) {
 
 type TransferResponderView struct{}
 
-func (t *TransferResponderView) Call(viewCtx view.Context) (interface{}, error) {
+func (t *TransferResponderView) Call(viewCtx view.Context) (any, error) {
 	// First, respond to a request for an identity
 	id, err := state.RespondRequestRecipientIdentity(viewCtx)
 	assert.NoError(err, "failed to respond to identity request")

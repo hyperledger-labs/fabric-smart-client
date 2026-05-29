@@ -28,7 +28,7 @@ import (
 // It is satisfied by the value returned from viewregistry.GetManager().
 type ViewManager interface {
 	NewView(id string, in []byte) (view.View, error)
-	InitiateView(ctx context.Context, view view.View) (interface{}, error)
+	InitiateView(ctx context.Context, view view.View) (any, error)
 }
 
 // Workload defines a benchmark workload: a named view factory with optional parameters.
@@ -64,7 +64,7 @@ func CreateClients(tb testing.TB, numConn int, clientConfPath string) ([]*benchm
 	closers := make([]func(), numConn)
 
 	var err error
-	for i := 0; i < len(ccs); i++ {
+	for i := range ccs {
 		ccs[i], closers[i], err = SetupClient(clientConfPath)
 		require.NoError(tb, err)
 	}

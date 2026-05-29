@@ -26,11 +26,11 @@ type ViewClient struct {
 	Client      protos2.ViewServiceClient
 }
 
-func (vc *ViewClient) CallView(fid string, input []byte) (interface{}, error) {
+func (vc *ViewClient) CallView(fid string, input []byte) (any, error) {
 	return vc.CallViewWithContext(context.TODO(), fid, input)
 }
 
-func (vc *ViewClient) CallViewWithContext(ctx context.Context, fid string, input []byte) (interface{}, error) {
+func (vc *ViewClient) CallViewWithContext(ctx context.Context, fid string, input []byte) (any, error) {
 	c := &protos2.Command{Payload: &protos2.Command_CallView{CallView: &protos2.CallView{Fid: fid, Input: input}}}
 
 	sc, err := vc.CreateSignedCommand(c)

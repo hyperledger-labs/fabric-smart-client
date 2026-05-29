@@ -205,12 +205,12 @@ func (t *Transaction) GetTransient(key string) []byte {
 	return transient.Get(key)
 }
 
-func (t *Transaction) SetTransientState(key string, state interface{}) error {
+func (t *Transaction) SetTransientState(key string, state any) error {
 	transient := t.Transaction.Transient()
 	return transient.SetState(key, state)
 }
 
-func (t *Transaction) GetTransientState(key string, state interface{}) error {
+func (t *Transaction) GetTransientState(key string, state any) error {
 	transient := t.Transaction.Transient()
 	return transient.GetState(key, state)
 }

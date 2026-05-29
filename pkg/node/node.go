@@ -136,10 +136,10 @@ func (n *Node) InstallSDK(p SDK) error {
 	return nil
 }
 
-func (n *Node) RegisterService(service interface{}) error {
+func (n *Node) RegisterService(service any) error {
 	return n.registry.RegisterService(service)
 }
 
-func (n *Node) GetService(v interface{}) (interface{}, error) {
+func (n *Node) GetService(v any) (any, error) {
 	return n.registry.GetService(v)
 }

@@ -24,7 +24,7 @@ type Listener interface {
 
 type Event interface {
 	Topic() string
-	Message() interface{}
+	Message() any
 }
 
 type EventSystem interface {

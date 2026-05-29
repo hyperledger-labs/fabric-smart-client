@@ -74,8 +74,7 @@ func TestService(t *testing.T) {
 	sess.ReceiveReturns(ch)
 
 	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	err := service.Start(ctx)
 	require.NoError(t, err)
@@ -139,8 +138,7 @@ func TestService_HandleResponderError(t *testing.T) {
 	sess.ReceiveReturns(ch)
 
 	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	err := service.Start(ctx)
 	require.NoError(t, err)

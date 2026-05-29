@@ -27,7 +27,7 @@ type ConfigProvider interface {
 	// IsSet checks to see if the key has been set in any of the data locations
 	IsSet(key string) bool
 	// UnmarshalKey takes the value corresponding to the passed key and unmarshals it into the passed structure
-	UnmarshalKey(key string, rawVal interface{}) error
+	UnmarshalKey(key string, rawVal any) error
 }
 
 func GetPersistenceName(cs ConfigProvider, prefix string) driver2.PersistenceName {

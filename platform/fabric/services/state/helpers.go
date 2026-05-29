@@ -14,7 +14,7 @@ import (
 )
 
 func GetVaultService(ctx services.Provider) (VaultService, error) {
-	s, err := ctx.GetService(reflect.TypeOf((*VaultService)(nil)))
+	s, err := ctx.GetService(reflect.TypeFor[*VaultService]())
 	if err != nil {
 		return nil, err
 	}

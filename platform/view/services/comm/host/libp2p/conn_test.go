@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package libp2p
 
 import (
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
@@ -167,7 +167,7 @@ func newNode(t *testing.T, port int, bootstrapNode *node) (*node, error) {
 	}, nil
 }
 
-func eventually(condition func() bool, waitFor, tick time.Duration, msgAndArgs ...interface{}) error {
+func eventually(condition func() bool, waitFor, tick time.Duration, msgAndArgs ...any) error {
 	timer := time.NewTimer(waitFor)
 	defer timer.Stop()
 

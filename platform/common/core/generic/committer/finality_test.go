@@ -79,8 +79,7 @@ func TestFinalityManager_Run(t *testing.T) {
 	vault := &MockVault{}
 	manager := NewFinalityManager[int](listenerManager, logging.MustGetLogger(), vault, noop.NewTracerProvider(), 10)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	manager.Run(ctx)
 

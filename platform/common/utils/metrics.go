@@ -60,10 +60,7 @@ func ExponentialBucketTimeRange(start, end time.Duration, buckets int) []float64
 
 	// Generate exactly buckets-1 additional buckets
 	for i := 1; i < buckets; i++ {
-		v := time.Duration(math.Pow(factor, float64(i)) * precision)
-		if v > interval {
-			v = interval
-		}
+		v := min(time.Duration(math.Pow(factor, float64(i))*precision), interval)
 		// Round to sigDigits significant digits to avoid ugly floating-point representations
 		bs = append(bs, roundToSignificantDigits((start + v).Seconds()))
 	}

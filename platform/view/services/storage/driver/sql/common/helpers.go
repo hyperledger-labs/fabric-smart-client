@@ -10,6 +10,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -431,11 +432,11 @@ func TTestMultiWrites(t *testing.T, db driver.KeyValueStore) {
 	defer cleanupDB(t, db, ns)
 
 	var wg sync.WaitGroup
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			assert.NoError(t, db.SetState(context.Background(), ns, key, []byte(fmt.Sprintf("TTestMultiWrites_value_%d", i))))
+			assert.NoError(t, db.SetState(context.Background(), ns, key, fmt.Appendf(nil, "TTestMultiWrites_value_%d", i)))
 		}(i)
 	}
 	wg.Wait()
@@ -464,14 +465,15 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 	if err := validateCompositeKeyAttribute(objectType); err != nil {
 		return "", err
 	}
-	ck := compositeKeyNamespace + objectType + fmt.Sprint(minUnicodeRuneValue)
+	var ck strings.Builder
+	ck.WriteString(compositeKeyNamespace + objectType + fmt.Sprint(minUnicodeRuneValue))
 	for _, att := range attributes {
 		if err := validateCompositeKeyAttribute(att); err != nil {
 			return "", err
 		}
-		ck += att + fmt.Sprint(minUnicodeRuneValue)
+		ck.WriteString(att + fmt.Sprint(minUnicodeRuneValue))
 	}
-	return ck, nil
+	return ck.String(), nil
 }
 
 func TTestCompositeKeys(t *testing.T, db driver.KeyValueStore) {

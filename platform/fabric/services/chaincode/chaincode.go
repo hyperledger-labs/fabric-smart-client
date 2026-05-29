@@ -15,7 +15,7 @@ import (
 
 type Endorse interface {
 	WithInvokerIdentity(identity view.Identity) Endorse
-	WithTransientEntry(k string, v interface{}) error
+	WithTransientEntry(k string, v any) error
 	WithEndorsersByMSPIDs(ds ...string)
 	WithEndorsersFromMyOrg()
 	WithTxID(txID fabric.TxID) Endorse
@@ -26,7 +26,7 @@ type Endorse interface {
 
 type Query interface {
 	WithInvokerIdentity(identity view.Identity) Query
-	WithTransientEntry(k string, v interface{}) error
+	WithTransientEntry(k string, v any) error
 	WithEndorsersByMSPIDs(ds ...string)
 	WithEndorsersFromMyOrg()
 	WithMatchEndorsementPolicy()
@@ -37,8 +37,8 @@ type Query interface {
 
 type Chaincode interface {
 	IsPrivate() bool
-	Endorse(function string, args ...interface{}) Endorse
-	Query(function string, args ...interface{}) Query
+	Endorse(function string, args ...any) Endorse
+	Query(function string, args ...any) Query
 }
 
 type stdEndorse struct {
@@ -59,7 +59,7 @@ func (s *stdEndorse) WithInvokerIdentity(identity view.Identity) Endorse {
 	return s
 }
 
-func (s *stdEndorse) WithTransientEntry(k string, v interface{}) error {
+func (s *stdEndorse) WithTransientEntry(k string, v any) error {
 	_, err := s.che.WithTransientEntry(k, v)
 	return err
 }
@@ -93,7 +93,7 @@ func (s *stdQuery) WithInvokerIdentity(identity view.Identity) Query {
 	return s
 }
 
-func (s *stdQuery) WithTransientEntry(k string, v interface{}) error {
+func (s *stdQuery) WithTransientEntry(k string, v any) error {
 	_, err := s.chq.WithTransientEntry(k, v)
 	return err
 }
@@ -126,10 +126,10 @@ func (s *stdChaincode) IsPrivate() bool {
 	return s.ch.IsPrivate()
 }
 
-func (s *stdChaincode) Endorse(function string, args ...interface{}) Endorse {
+func (s *stdChaincode) Endorse(function string, args ...any) Endorse {
 	return &stdEndorse{che: s.ch.Endorse(function, args...)}
 }
 
-func (s *stdChaincode) Query(function string, args ...interface{}) Query {
+func (s *stdChaincode) Query(function string, args ...any) Query {
 	return &stdQuery{chq: s.ch.Query(function, args...)}
 }

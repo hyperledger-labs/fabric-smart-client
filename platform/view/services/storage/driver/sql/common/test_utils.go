@@ -104,7 +104,7 @@ func TestManyManyPutBindingsCommon(t *testing.T, db *BindingStore) {
 	// Input identities
 	longTerm := view.Identity("long")
 	e := []view.Identity{}
-	for i := 0; i < BindingStoreMaxEphemerals+1; i++ {
+	for i := range BindingStoreMaxEphemerals + 1 {
 		e = append(e, view.Identity("eph"+strconv.Itoa(i)))
 	}
 	err := db.PutBindings(ctx, longTerm, e...)

@@ -13,7 +13,7 @@ import (
 )
 
 type ConfigProvider interface {
-	UnmarshalKey(key string, rawVal interface{}) error
+	UnmarshalKey(key string, rawVal any) error
 }
 
 type FSNConfig struct {
@@ -28,11 +28,11 @@ type Config struct {
 }
 
 func NewConfig(configProvider ConfigProvider) (*Config, error) {
-	var value interface{}
+	var value any
 	if err := configProvider.UnmarshalKey("fabric", &value); err != nil {
 		return nil, errors.Wrap(err, "failed unmarshalling `fabric` key")
 	}
-	m := value.(map[string]interface{})
+	m := value.(map[string]any)
 	var names []string
 	var defaultName string
 	configurations := map[string]*FSNConfig{}

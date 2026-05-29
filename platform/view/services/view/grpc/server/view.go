@@ -36,9 +36,9 @@ func InstallViewHandler(viewManager ViewManager, server Service, tracerProvider 
 			LabelNames: []tracing.LabelName{fidLabel, successLabel},
 		})),
 	}
-	server.RegisterProcessor(reflect.TypeOf(&protos.Command_InitiateView{}), fh.initiateView)
-	server.RegisterProcessor(reflect.TypeOf(&protos.Command_CallView{}), fh.callView)
-	server.RegisterStreamer(reflect.TypeOf(&protos.Command_CallView{}), fh.streamCallView)
+	server.RegisterProcessor(reflect.TypeFor[*protos.Command_InitiateView](), fh.initiateView)
+	server.RegisterProcessor(reflect.TypeFor[*protos.Command_CallView](), fh.callView)
+	server.RegisterStreamer(reflect.TypeFor[*protos.Command_CallView](), fh.streamCallView)
 }
 
 func (s *viewHandler) initiateView(ctx context.Context, command *protos.Command) (any, error) {

@@ -53,19 +53,19 @@ type Chaincode struct {
 }
 
 // Invoke returns a chaincode invocation proxy struct for the passed function and arguments
-func (c *Chaincode) Invoke(function string, args ...interface{}) *ChaincodeInvocation {
+func (c *Chaincode) Invoke(function string, args ...any) *ChaincodeInvocation {
 	ci := &ChaincodeInvocation{ChaincodeInvocation: c.chaincode.NewInvocation(function, args...)}
 	ci.WithInvokerIdentity(c.fns.LocalMembership().DefaultIdentity())
 	return ci
 }
 
-func (c *Chaincode) Query(function string, args ...interface{}) *ChaincodeQuery {
+func (c *Chaincode) Query(function string, args ...any) *ChaincodeQuery {
 	ci := &ChaincodeQuery{ChaincodeInvocation: c.chaincode.NewInvocation(function, args...)}
 	ci.WithInvokerIdentity(c.fns.LocalMembership().DefaultIdentity())
 	return ci
 }
 
-func (c *Chaincode) Endorse(function string, args ...interface{}) *ChaincodeEndorse {
+func (c *Chaincode) Endorse(function string, args ...any) *ChaincodeEndorse {
 	ci := &ChaincodeEndorse{ChaincodeInvocation: c.chaincode.NewInvocation(function, args...)}
 	ci.WithInvokerIdentity(c.fns.LocalMembership().DefaultIdentity())
 	return ci
@@ -132,7 +132,7 @@ func (i *ChaincodeInvocation) WithContext(ctx context.Context) *ChaincodeInvocat
 	return i
 }
 
-func (i *ChaincodeInvocation) WithTransientEntry(k string, v interface{}) (*ChaincodeInvocation, error) {
+func (i *ChaincodeInvocation) WithTransientEntry(k string, v any) (*ChaincodeInvocation, error) {
 	_, err := i.ChaincodeInvocation.WithTransientEntry(k, v)
 	if err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func (i *ChaincodeQuery) WithContext(ctx context.Context) *ChaincodeQuery {
 	return i
 }
 
-func (i *ChaincodeQuery) WithTransientEntry(k string, v interface{}) (*ChaincodeQuery, error) {
+func (i *ChaincodeQuery) WithTransientEntry(k string, v any) (*ChaincodeQuery, error) {
 	_, err := i.ChaincodeInvocation.WithTransientEntry(k, v)
 	if err != nil {
 		return nil, err
@@ -254,7 +254,7 @@ func (i *ChaincodeEndorse) WithContext(ctx context.Context) *ChaincodeEndorse {
 	return i
 }
 
-func (i *ChaincodeEndorse) WithTransientEntry(k string, v interface{}) (*ChaincodeEndorse, error) {
+func (i *ChaincodeEndorse) WithTransientEntry(k string, v any) (*ChaincodeEndorse, error) {
 	_, err := i.ChaincodeInvocation.WithTransientEntry(k, v)
 	if err != nil {
 		return nil, err
@@ -262,7 +262,7 @@ func (i *ChaincodeEndorse) WithTransientEntry(k string, v interface{}) (*Chainco
 	return i, nil
 }
 
-func (i *ChaincodeEndorse) WithTransientEntries(entries map[string]interface{}) (*ChaincodeEndorse, error) {
+func (i *ChaincodeEndorse) WithTransientEntries(entries map[string]any) (*ChaincodeEndorse, error) {
 	for k, v := range entries {
 		_, err := i.ChaincodeInvocation.WithTransientEntry(k, v)
 		if err != nil {

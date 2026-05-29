@@ -46,7 +46,7 @@ func (r *entry) GetIdentity() (view.Identity, error) {
 type ConfigService interface {
 	GetString(key string) string
 	IsSet(s string) bool
-	UnmarshalKey(s string, i interface{}) error
+	UnmarshalKey(s string, i any) error
 	TranslatePath(path string) string
 }
 
@@ -142,9 +142,9 @@ func convertAddress(addr string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if strings.HasPrefix(result, "0.0.0.0") {
+	if after, ok := strings.CutPrefix(result, "0.0.0.0"); ok {
 		// change the prefix to 127.0.0.1
-		result = "127.0.0.1" + strings.TrimPrefix(result, "0.0.0.0")
+		result = "127.0.0.1" + after
 	}
 	return result, nil
 }

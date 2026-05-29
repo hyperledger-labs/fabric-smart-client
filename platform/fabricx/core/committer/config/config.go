@@ -62,7 +62,7 @@ func (c *TLSConfig) IsEnabled() bool {
 //go:generate counterfeiter -o mock/service_backend.go --fake-name ServiceBackend . ServiceBackend
 type ServiceBackend interface {
 	// UnmarshalKey takes a single key and unmarshal it into a struct.
-	UnmarshalKey(key string, rawVal interface{}) error
+	UnmarshalKey(key string, rawVal any) error
 }
 
 // NewNotificationServiceConfig creates a new Config instance by unmarshaling the "notificationService" key

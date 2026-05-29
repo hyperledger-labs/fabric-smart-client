@@ -38,19 +38,19 @@ const (
 
 type KVS interface {
 	Exists(ctx context.Context, id string) bool
-	Put(ctx context.Context, id string, state interface{}) error
-	Get(ctx context.Context, id string, state interface{}) error
+	Put(ctx context.Context, id string, state any) error
+	Get(ctx context.Context, id string, state any) error
 }
 
 type kvsAdapter struct {
 	kvs KVS
 }
 
-func (k *kvsAdapter) Put(id string, state interface{}) error {
+func (k *kvsAdapter) Put(id string, state any) error {
 	return k.kvs.Put(context.Background(), id, state)
 }
 
-func (k *kvsAdapter) Get(id string, state interface{}) error {
+func (k *kvsAdapter) Get(id string, state any) error {
 	return k.kvs.Get(context.Background(), id, state)
 }
 

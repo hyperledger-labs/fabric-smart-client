@@ -24,7 +24,7 @@ import (
 // customDecodeHook adds the additional functions of parsing durations from strings
 // as well as parsing strings of the format "[thing1, thing2, thing3]" into string slices
 // Note that whitespace around slice elements is removed
-func customDecodeHook(f, t reflect.Type, data interface{}) (interface{}, error) {
+func customDecodeHook(f, t reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}
@@ -43,7 +43,7 @@ func customDecodeHook(f, t reflect.Type, data interface{}) (interface{}, error) 
 }
 
 // byteSizeDecodeHook parses strings like "10mb", "5gb" into uint32 bytes.
-func byteSizeDecodeHook(f, t reflect.Kind, data interface{}) (interface{}, error) {
+func byteSizeDecodeHook(f, t reflect.Kind, data any) (any, error) {
 	if f != reflect.String || t != reflect.Uint32 {
 		return data, nil
 	}
@@ -77,7 +77,7 @@ func byteSizeDecodeHook(f, t reflect.Kind, data interface{}) (interface{}, error
 }
 
 // stringFromFileDecodeHook reads a string from a file if the input is a map with a "File" key.
-func stringFromFileDecodeHook(f, t reflect.Kind, data interface{}) (interface{}, error) {
+func stringFromFileDecodeHook(f, t reflect.Kind, data any) (any, error) {
 	// "to" type should be string
 	if t != reflect.String {
 		return data, nil
@@ -91,7 +91,7 @@ func stringFromFileDecodeHook(f, t reflect.Kind, data interface{}) (interface{},
 	case reflect.String:
 		return data, nil
 	case reflect.Map:
-		d := data.(map[string]interface{})
+		d := data.(map[string]any)
 		fileName, ok := d["File"]
 		if !ok {
 			fileName, ok = d["file"]
@@ -112,7 +112,7 @@ func stringFromFileDecodeHook(f, t reflect.Kind, data interface{}) (interface{},
 }
 
 // pemBlocksFromFileDecodeHook reads PEM blocks from a file if the input is a map with a "File" key.
-func pemBlocksFromFileDecodeHook(f, t reflect.Kind, data interface{}) (interface{}, error) {
+func pemBlocksFromFileDecodeHook(f, t reflect.Kind, data any) (any, error) {
 	// "to" type should be string
 	if t != reflect.Slice {
 		return data, nil
@@ -134,8 +134,8 @@ func pemBlocksFromFileDecodeHook(f, t reflect.Kind, data interface{}) (interface
 			if !ok {
 				fileName, ok = d["file"]
 			}
-		case map[string]interface{}:
-			var fileI interface{}
+		case map[string]any:
+			var fileI any
 			fileI, ok = d["File"]
 			if !ok {
 				fileI = d["file"]
@@ -173,7 +173,7 @@ func pemBlocksFromFileDecodeHook(f, t reflect.Kind, data interface{}) (interface
 // EnhancedExactUnmarshal is intended to unmarshal a config file into a structure
 // producing error when extraneous variables are introduced and supporting
 // the time.Duration type
-func EnhancedExactUnmarshal(v *koanf.Koanf, key string, output interface{}) error {
+func EnhancedExactUnmarshal(v *koanf.Koanf, key string, output any) error {
 	oType := reflect.TypeOf(output)
 	if oType.Kind() != reflect.Pointer {
 		return errors.Errorf("supplied output argument must be a pointer to a struct but is not pointer")

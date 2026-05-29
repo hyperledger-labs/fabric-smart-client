@@ -12,7 +12,7 @@ import (
 
 type NoopView struct{}
 
-func (q *NoopView) Call(viewCtx view.Context) (interface{}, error) {
+func (q *NoopView) Call(viewCtx view.Context) (any, error) {
 	return "OK", nil
 }
 

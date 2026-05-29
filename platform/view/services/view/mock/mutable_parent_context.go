@@ -29,17 +29,17 @@ type MutableParentContext struct {
 	disposeMutex       sync.RWMutex
 	disposeArgsForCall []struct {
 	}
-	GetServiceStub        func(interface{}) (interface{}, error)
+	GetServiceStub        func(any) (any, error)
 	getServiceMutex       sync.RWMutex
 	getServiceArgsForCall []struct {
-		arg1 interface{}
+		arg1 any
 	}
 	getServiceReturns struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	getServiceReturnsOnCall map[int]struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	GetSessionStub        func(viewa.View, viewa.Identity, ...viewa.View) (viewa.Session, error)
@@ -117,10 +117,10 @@ type MutableParentContext struct {
 	onErrorArgsForCall []struct {
 		arg1 func()
 	}
-	PutServiceStub        func(interface{}) error
+	PutServiceStub        func(any) error
 	putServiceMutex       sync.RWMutex
 	putServiceArgsForCall []struct {
-		arg1 interface{}
+		arg1 any
 	}
 	putServiceReturns struct {
 		result1 error
@@ -164,18 +164,18 @@ type MutableParentContext struct {
 	resetSessionsReturnsOnCall map[int]struct {
 		result1 error
 	}
-	RunViewStub        func(viewa.View, ...viewa.RunViewOption) (interface{}, error)
+	RunViewStub        func(viewa.View, ...viewa.RunViewOption) (any, error)
 	runViewMutex       sync.RWMutex
 	runViewArgsForCall []struct {
 		arg1 viewa.View
 		arg2 []viewa.RunViewOption
 	}
 	runViewReturns struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	runViewReturnsOnCall map[int]struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	SessionStub        func() viewa.Session
@@ -308,11 +308,11 @@ func (fake *MutableParentContext) DisposeCalls(stub func()) {
 	fake.DisposeStub = stub
 }
 
-func (fake *MutableParentContext) GetService(arg1 interface{}) (interface{}, error) {
+func (fake *MutableParentContext) GetService(arg1 any) (any, error) {
 	fake.getServiceMutex.Lock()
 	ret, specificReturn := fake.getServiceReturnsOnCall[len(fake.getServiceArgsForCall)]
 	fake.getServiceArgsForCall = append(fake.getServiceArgsForCall, struct {
-		arg1 interface{}
+		arg1 any
 	}{arg1})
 	stub := fake.GetServiceStub
 	fakeReturns := fake.getServiceReturns
@@ -333,41 +333,41 @@ func (fake *MutableParentContext) GetServiceCallCount() int {
 	return len(fake.getServiceArgsForCall)
 }
 
-func (fake *MutableParentContext) GetServiceCalls(stub func(interface{}) (interface{}, error)) {
+func (fake *MutableParentContext) GetServiceCalls(stub func(any) (any, error)) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = stub
 }
 
-func (fake *MutableParentContext) GetServiceArgsForCall(i int) interface{} {
+func (fake *MutableParentContext) GetServiceArgsForCall(i int) any {
 	fake.getServiceMutex.RLock()
 	defer fake.getServiceMutex.RUnlock()
 	argsForCall := fake.getServiceArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *MutableParentContext) GetServiceReturns(result1 interface{}, result2 error) {
+func (fake *MutableParentContext) GetServiceReturns(result1 any, result2 error) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = nil
 	fake.getServiceReturns = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *MutableParentContext) GetServiceReturnsOnCall(i int, result1 interface{}, result2 error) {
+func (fake *MutableParentContext) GetServiceReturnsOnCall(i int, result1 any, result2 error) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = nil
 	if fake.getServiceReturnsOnCall == nil {
 		fake.getServiceReturnsOnCall = make(map[int]struct {
-			result1 interface{}
+			result1 any
 			result2 error
 		})
 	}
 	fake.getServiceReturnsOnCall[i] = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
@@ -755,11 +755,11 @@ func (fake *MutableParentContext) OnErrorArgsForCall(i int) func() {
 	return argsForCall.arg1
 }
 
-func (fake *MutableParentContext) PutService(arg1 interface{}) error {
+func (fake *MutableParentContext) PutService(arg1 any) error {
 	fake.putServiceMutex.Lock()
 	ret, specificReturn := fake.putServiceReturnsOnCall[len(fake.putServiceArgsForCall)]
 	fake.putServiceArgsForCall = append(fake.putServiceArgsForCall, struct {
-		arg1 interface{}
+		arg1 any
 	}{arg1})
 	stub := fake.PutServiceStub
 	fakeReturns := fake.putServiceReturns
@@ -780,13 +780,13 @@ func (fake *MutableParentContext) PutServiceCallCount() int {
 	return len(fake.putServiceArgsForCall)
 }
 
-func (fake *MutableParentContext) PutServiceCalls(stub func(interface{}) error) {
+func (fake *MutableParentContext) PutServiceCalls(stub func(any) error) {
 	fake.putServiceMutex.Lock()
 	defer fake.putServiceMutex.Unlock()
 	fake.PutServiceStub = stub
 }
 
-func (fake *MutableParentContext) PutServiceArgsForCall(i int) interface{} {
+func (fake *MutableParentContext) PutServiceArgsForCall(i int) any {
 	fake.putServiceMutex.RLock()
 	defer fake.putServiceMutex.RUnlock()
 	argsForCall := fake.putServiceArgsForCall[i]
@@ -995,7 +995,7 @@ func (fake *MutableParentContext) ResetSessionsReturnsOnCall(i int, result1 erro
 	}{result1}
 }
 
-func (fake *MutableParentContext) RunView(arg1 viewa.View, arg2 ...viewa.RunViewOption) (interface{}, error) {
+func (fake *MutableParentContext) RunView(arg1 viewa.View, arg2 ...viewa.RunViewOption) (any, error) {
 	fake.runViewMutex.Lock()
 	ret, specificReturn := fake.runViewReturnsOnCall[len(fake.runViewArgsForCall)]
 	fake.runViewArgsForCall = append(fake.runViewArgsForCall, struct {
@@ -1021,7 +1021,7 @@ func (fake *MutableParentContext) RunViewCallCount() int {
 	return len(fake.runViewArgsForCall)
 }
 
-func (fake *MutableParentContext) RunViewCalls(stub func(viewa.View, ...viewa.RunViewOption) (interface{}, error)) {
+func (fake *MutableParentContext) RunViewCalls(stub func(viewa.View, ...viewa.RunViewOption) (any, error)) {
 	fake.runViewMutex.Lock()
 	defer fake.runViewMutex.Unlock()
 	fake.RunViewStub = stub
@@ -1034,28 +1034,28 @@ func (fake *MutableParentContext) RunViewArgsForCall(i int) (viewa.View, []viewa
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *MutableParentContext) RunViewReturns(result1 interface{}, result2 error) {
+func (fake *MutableParentContext) RunViewReturns(result1 any, result2 error) {
 	fake.runViewMutex.Lock()
 	defer fake.runViewMutex.Unlock()
 	fake.RunViewStub = nil
 	fake.runViewReturns = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *MutableParentContext) RunViewReturnsOnCall(i int, result1 interface{}, result2 error) {
+func (fake *MutableParentContext) RunViewReturnsOnCall(i int, result1 any, result2 error) {
 	fake.runViewMutex.Lock()
 	defer fake.runViewMutex.Unlock()
 	fake.RunViewStub = nil
 	if fake.runViewReturnsOnCall == nil {
 		fake.runViewReturnsOnCall = make(map[int]struct {
-			result1 interface{}
+			result1 any
 			result2 error
 		})
 	}
 	fake.runViewReturnsOnCall[i] = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }

@@ -78,7 +78,7 @@ func run(t *testing.T, ctr *atomic.Uint32, runner BatchRunner[int], times int) {
 	t.Helper()
 	var wg sync.WaitGroup
 	wg.Add(times)
-	for i := 0; i < times; i++ {
+	for range times {
 		v := int(ctr.Add(1))
 		go func() {
 			defer wg.Done()

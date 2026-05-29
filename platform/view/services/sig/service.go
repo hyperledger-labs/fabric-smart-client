@@ -55,7 +55,7 @@ func NewService(deserializer Deserializer, auditInfoKVS driver2.AuditInfoStore, 
 }
 
 func GetService(sp services.Provider) (*Service, error) {
-	s, err := sp.GetService(reflect.TypeOf((*Service)(nil)))
+	s, err := sp.GetService(reflect.TypeFor[*Service]())
 	if err != nil {
 		return nil, err
 	}

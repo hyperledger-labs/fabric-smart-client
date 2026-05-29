@@ -135,13 +135,13 @@ var _ = Describe("Server", func() {
 
 			rh := &mock.RequestHandler{}
 
-			rh.HandleRequestStub = func(ctx *server.ReqContext) (interface{}, int) {
-				m := make(map[string]interface{})
+			rh.HandleRequestStub = func(ctx *server.ReqContext) (any, int) {
+				m := make(map[string]any)
 				m["status"] = "OK"
 				return m, 200
 			}
 
-			rh.ParsePayloadStub = func(payload []byte) (interface{}, error) {
+			rh.ParsePayloadStub = func(payload []byte) (any, error) {
 				return string(payload), nil
 			}
 
