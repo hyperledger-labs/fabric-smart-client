@@ -18,7 +18,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
@@ -303,12 +303,12 @@ func (s *TestSuite) TestLoadInitPingPong() {
 
 func (s *TestSuite) TestGenerateAndMockPingPong() {
 	// Init with mock=false, a failure must happen
-	_, err := s.II.Client("initiator").CallView("mockInit", common.JSONMarshall(&mock.Params{Mock: false}))
+	_, err := s.II.Client("initiator").CallView("mockInit", common.JSONMarshall(&fake.Params{Mock: false}))
 	Expect(err).To(HaveOccurred())
 	Expect(strings.Contains(err.Error(), "expected mock pong, got pong")).To(BeTrue())
 
 	// Init with mock=true, a success must happen
-	res, err := s.II.Client("initiator").CallView("mockInit", common.JSONMarshall(&mock.Params{Mock: true}))
+	res, err := s.II.Client("initiator").CallView("mockInit", common.JSONMarshall(&fake.Params{Mock: true}))
 	Expect(err).NotTo(HaveOccurred())
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 }

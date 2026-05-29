@@ -24,8 +24,6 @@ import (
 
 var logger = logging.MustGetLogger()
 
-//go:generate counterfeiter -o fakes/logger.go -fake-name Logger . Logger
-
 type TLS struct {
 	Enabled           bool
 	CertFile          string

@@ -19,14 +19,14 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	commondriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-//go:generate counterfeiter -o mocks/rwset.go --fake-name FakeRWSet github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.RWSet
-//go:generate counterfeiter -o mocks/vault.go --fake-name FakeVault github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Vault
-//go:generate counterfeiter -o mocks/metadata_service.go --fake-name FakeMetadataService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.MetadataService
-//go:generate counterfeiter -o mocks/channel.go --fake-name FakeChannel github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Channel
+//go:generate counterfeiter -o mock/rwset.go --fake-name RWSet github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.RWSet
+//go:generate counterfeiter -o mock/vault.go --fake-name Vault github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Vault
+//go:generate counterfeiter -o mock/metadata_service.go --fake-name MetadataService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.MetadataService
+//go:generate counterfeiter -o mock/channel.go --fake-name Channel github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Channel
 
 func TestTransactionGetters(t *testing.T) {
 	t.Parallel()
@@ -454,12 +454,12 @@ func TestTransactionSetRWSet(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			fakeVault := &mocks.FakeVault{}
-			fakeRWSet := &mocks.FakeRWSet{}
+			fakeVault := &mock.Vault{}
+			fakeRWSet := &mock.RWSet{}
 			fakeVault.NewRWSetReturns(fakeRWSet, nil)
 			fakeVault.NewRWSetFromBytesReturns(fakeRWSet, nil)
 
-			ch := &mocks.FakeChannel{}
+			ch := &mock.Channel{}
 			ch.VaultReturns(fakeVault)
 			tc.tx.channel = ch
 
@@ -486,7 +486,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 
 	t.Run("done stores rwset bytes", func(t *testing.T) {
 		t.Parallel()
-		fakeRWSet := &mocks.FakeRWSet{}
+		fakeRWSet := &mock.RWSet{}
 		fakeRWSet.BytesReturns([]byte("rwset-bytes"), nil)
 		fakeRWSet.NamespacesReturns([]commondriver.Namespace{"ns1"})
 
@@ -499,7 +499,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 
 	t.Run("done wraps rwset bytes error", func(t *testing.T) {
 		t.Parallel()
-		fakeRWSet := &mocks.FakeRWSet{}
+		fakeRWSet := &mock.RWSet{}
 		fakeRWSet.BytesReturns(nil, errors.New("boom"))
 
 		tx := &Transaction{TTxID: "tx1", rwset: fakeRWSet}
@@ -510,7 +510,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 
 	t.Run("raw serializes current rwset", func(t *testing.T) {
 		t.Parallel()
-		fakeRWSet := &mocks.FakeRWSet{}
+		fakeRWSet := &mock.RWSet{}
 		fakeRWSet.BytesReturns([]byte("raw-rwset"), nil)
 
 		tx := &Transaction{TTxID: "tx1", rwset: fakeRWSet}
@@ -521,7 +521,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 
 	t.Run("raw wraps rwset bytes error", func(t *testing.T) {
 		t.Parallel()
-		fakeRWSet := &mocks.FakeRWSet{}
+		fakeRWSet := &mock.RWSet{}
 		fakeRWSet.BytesReturns(nil, errors.New("boom"))
 
 		tx := &Transaction{TTxID: "tx1", rwset: fakeRWSet}
@@ -532,7 +532,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 
 	t.Run("get rwset returns existing one", func(t *testing.T) {
 		t.Parallel()
-		fakeRWSet := &mocks.FakeRWSet{}
+		fakeRWSet := &mock.RWSet{}
 		tx := &Transaction{rwset: fakeRWSet}
 		got, err := tx.GetRWSet()
 		require.NoError(t, err)
@@ -541,11 +541,11 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 
 	t.Run("get rwset initializes it", func(t *testing.T) {
 		t.Parallel()
-		fakeVault := &mocks.FakeVault{}
-		fakeRWSet := &mocks.FakeRWSet{}
+		fakeVault := &mock.Vault{}
+		fakeRWSet := &mock.RWSet{}
 		fakeVault.NewRWSetReturns(fakeRWSet, nil)
 
-		tx := &Transaction{ctx: t.Context(), channel: func() *mocks.FakeChannel { ch := &mocks.FakeChannel{}; ch.VaultReturns(fakeVault); return ch }(), TTxID: "tx2"}
+		tx := &Transaction{ctx: t.Context(), channel: func() *mock.Channel { ch := &mock.Channel{}; ch.VaultReturns(fakeVault); return ch }(), TTxID: "tx2"}
 		got, err := tx.GetRWSet()
 		require.NoError(t, err)
 		require.Equal(t, 1, fakeVault.NewRWSetCallCount())
@@ -554,7 +554,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 
 	t.Run("close terminates and clears rwset", func(t *testing.T) {
 		t.Parallel()
-		fakeRWSet := &mocks.FakeRWSet{}
+		fakeRWSet := &mock.RWSet{}
 		tx := &Transaction{TTxID: "tx3", rwset: fakeRWSet}
 		tx.Close()
 		require.Equal(t, 1, fakeRWSet.DoneCallCount())
@@ -565,7 +565,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 func TestTransactionBytesNoTransient(t *testing.T) {
 	t.Parallel()
 
-	fakeRWSet := &mocks.FakeRWSet{}
+	fakeRWSet := &mock.RWSet{}
 	fakeRWSet.BytesReturns([]byte("rwset-bytes"), nil)
 	fakeRWSet.NamespacesReturns([]commondriver.Namespace{"ns1"})
 
@@ -629,8 +629,8 @@ func TestTransactionSetFromBytes(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			fakeFNS := &mocks.FakeFabricNetworkService{}
-			fakeFNS.ChannelReturns(&mocks.FakeChannel{}, tc.channelErr)
+			fakeFNS := &mock.FabricNetworkService{}
+			fakeFNS.ChannelReturns(&mock.Channel{}, tc.channelErr)
 
 			tx := &Transaction{fns: fakeFNS}
 			err := tx.SetFromBytes(tc.raw)
@@ -667,9 +667,9 @@ func TestEndorseWithIdentity(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
-		fakeFNS := &mocks.FakeFabricNetworkService{}
-		fakeSS := &mocks.FakeSignerService{}
-		fakeSigner := &mocks.FakeSigner{}
+		fakeFNS := &mock.FabricNetworkService{}
+		fakeSS := &mock.SignerService{}
+		fakeSigner := &mock.Signer{}
 		fakeSigner.SignReturns([]byte("sig"), nil)
 		fakeFNS.SignerServiceReturns(fakeSS)
 		fakeSS.GetSignerReturns(fakeSigner, nil)
@@ -678,9 +678,9 @@ func TestEndorseWithIdentity(t *testing.T) {
 			ctx:            t.Context(),
 			fns:            fakeFNS,
 			signedProposal: &SignedProposal{},
-			channel: func() *mocks.FakeChannel {
-				ch := &mocks.FakeChannel{}
-				ch.MetadataServiceReturns(&mocks.FakeMetadataService{})
+			channel: func() *mock.Channel {
+				ch := &mock.Channel{}
+				ch.MetadataServiceReturns(&mock.MetadataService{})
 				return ch
 			}(),
 		}
@@ -704,7 +704,7 @@ func TestGetProposalResponse(t *testing.T) {
 		rwsetBytes, err := proto.Marshal(txPayload)
 		require.NoError(t, err)
 
-		fakeRWSet := &mocks.FakeRWSet{}
+		fakeRWSet := &mock.RWSet{}
 		fakeRWSet.BytesReturns(rwsetBytes, nil)
 		fakeSigner := &testSerializableSigner{creator: signerIdentityRaw, signRes: []byte("signature-data")}
 
@@ -729,7 +729,7 @@ func TestGetProposalResponse(t *testing.T) {
 		rwsetBytes, err := proto.Marshal(txPayload)
 		require.NoError(t, err)
 
-		fakeRWSet := &mocks.FakeRWSet{}
+		fakeRWSet := &mock.RWSet{}
 		fakeRWSet.BytesReturns(rwsetBytes, nil)
 
 		tx := &Transaction{TTxID: "tx1", signedProposal: &SignedProposal{}, rwset: fakeRWSet}
@@ -762,16 +762,16 @@ func TestEndorseProposalResponseWithIdentity(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		mockSetup     func(*mocks.FakeFabricNetworkService, *mocks.FakeSignerService)
+		mockSetup     func(*mock.FabricNetworkService, *mock.SignerService)
 		rwsetPayload  []byte
 		withProposal  bool
 		expectedError string
 	}{
 		{
 			name: "success",
-			mockSetup: func(fns *mocks.FakeFabricNetworkService, ss *mocks.FakeSignerService) {
+			mockSetup: func(fns *mock.FabricNetworkService, ss *mock.SignerService) {
 				fns.SignerServiceReturns(ss)
-				fakeSigner := &mocks.FakeSigner{}
+				fakeSigner := &mock.Signer{}
 				fakeSigner.SignReturns([]byte("sig"), nil)
 				ss.GetSignerReturns(fakeSigner, nil)
 			},
@@ -780,7 +780,7 @@ func TestEndorseProposalResponseWithIdentity(t *testing.T) {
 		},
 		{
 			name: "signer service fails",
-			mockSetup: func(fns *mocks.FakeFabricNetworkService, ss *mocks.FakeSignerService) {
+			mockSetup: func(fns *mock.FabricNetworkService, ss *mock.SignerService) {
 				fns.SignerServiceReturns(ss)
 				ss.GetSignerReturns(nil, errors.New("signer not found"))
 			},
@@ -789,9 +789,9 @@ func TestEndorseProposalResponseWithIdentity(t *testing.T) {
 		},
 		{
 			name: "proposal response generation fails",
-			mockSetup: func(fns *mocks.FakeFabricNetworkService, ss *mocks.FakeSignerService) {
+			mockSetup: func(fns *mock.FabricNetworkService, ss *mock.SignerService) {
 				fns.SignerServiceReturns(ss)
-				fakeSigner := &mocks.FakeSigner{}
+				fakeSigner := &mock.Signer{}
 				fakeSigner.SignReturns([]byte("sig"), nil)
 				ss.GetSignerReturns(fakeSigner, nil)
 			},
@@ -803,11 +803,11 @@ func TestEndorseProposalResponseWithIdentity(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			fakeFNS := &mocks.FakeFabricNetworkService{}
-			fakeSS := &mocks.FakeSignerService{}
+			fakeFNS := &mock.FabricNetworkService{}
+			fakeSS := &mock.SignerService{}
 			tc.mockSetup(fakeFNS, fakeSS)
 
-			fakeRWSet := &mocks.FakeRWSet{}
+			fakeRWSet := &mock.RWSet{}
 			fakeRWSet.BytesReturns(tc.rwsetPayload, nil)
 
 			tx := &Transaction{
@@ -815,9 +815,9 @@ func TestEndorseProposalResponseWithIdentity(t *testing.T) {
 				TTxID: "tx1",
 				fns:   fakeFNS,
 				rwset: fakeRWSet,
-				channel: func() *mocks.FakeChannel {
-					ch := &mocks.FakeChannel{}
-					ch.MetadataServiceReturns(&mocks.FakeMetadataService{})
+				channel: func() *mock.Channel {
+					ch := &mock.Channel{}
+					ch.MetadataServiceReturns(&mock.MetadataService{})
 					return ch
 				}(),
 			}
@@ -850,19 +850,19 @@ func TestEndorseProposalWithIdentity(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		mockSetup     func(*mocks.FakeFabricNetworkService, *mocks.FakeSignerService)
+		mockSetup     func(*mock.FabricNetworkService, *mock.SignerService)
 		expectedError string
 	}{
 		{
 			name: "success",
-			mockSetup: func(fns *mocks.FakeFabricNetworkService, ss *mocks.FakeSignerService) {
+			mockSetup: func(fns *mock.FabricNetworkService, ss *mock.SignerService) {
 				fns.SignerServiceReturns(ss)
 				ss.GetSignerReturns(&testSerializableSigner{creator: testID, signRes: []byte("prop-sig")}, nil)
 			},
 		},
 		{
 			name: "signer service fails",
-			mockSetup: func(fns *mocks.FakeFabricNetworkService, ss *mocks.FakeSignerService) {
+			mockSetup: func(fns *mock.FabricNetworkService, ss *mock.SignerService) {
 				fns.SignerServiceReturns(ss)
 				ss.GetSignerReturns(nil, errors.New("identity not found"))
 			},
@@ -873,8 +873,8 @@ func TestEndorseProposalWithIdentity(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			fakeFNS := &mocks.FakeFabricNetworkService{}
-			fakeSS := &mocks.FakeSignerService{}
+			fakeFNS := &mock.FabricNetworkService{}
+			fakeSS := &mock.SignerService{}
 			tc.mockSetup(fakeFNS, fakeSS)
 
 			tx := &Transaction{

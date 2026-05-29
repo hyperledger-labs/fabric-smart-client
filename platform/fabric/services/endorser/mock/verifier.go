@@ -7,7 +7,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
-type FakeVerifier struct {
+type Verifier struct {
 	VerifyStub        func([]byte, []byte) error
 	verifyMutex       sync.RWMutex
 	verifyArgsForCall []struct {
@@ -24,7 +24,7 @@ type FakeVerifier struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeVerifier) Verify(arg1 []byte, arg2 []byte) error {
+func (fake *Verifier) Verify(arg1 []byte, arg2 []byte) error {
 	var arg1Copy []byte
 	if arg1 != nil {
 		arg1Copy = make([]byte, len(arg1))
@@ -54,26 +54,26 @@ func (fake *FakeVerifier) Verify(arg1 []byte, arg2 []byte) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeVerifier) VerifyCallCount() int {
+func (fake *Verifier) VerifyCallCount() int {
 	fake.verifyMutex.RLock()
 	defer fake.verifyMutex.RUnlock()
 	return len(fake.verifyArgsForCall)
 }
 
-func (fake *FakeVerifier) VerifyCalls(stub func([]byte, []byte) error) {
+func (fake *Verifier) VerifyCalls(stub func([]byte, []byte) error) {
 	fake.verifyMutex.Lock()
 	defer fake.verifyMutex.Unlock()
 	fake.VerifyStub = stub
 }
 
-func (fake *FakeVerifier) VerifyArgsForCall(i int) ([]byte, []byte) {
+func (fake *Verifier) VerifyArgsForCall(i int) ([]byte, []byte) {
 	fake.verifyMutex.RLock()
 	defer fake.verifyMutex.RUnlock()
 	argsForCall := fake.verifyArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeVerifier) VerifyReturns(result1 error) {
+func (fake *Verifier) VerifyReturns(result1 error) {
 	fake.verifyMutex.Lock()
 	defer fake.verifyMutex.Unlock()
 	fake.VerifyStub = nil
@@ -82,7 +82,7 @@ func (fake *FakeVerifier) VerifyReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeVerifier) VerifyReturnsOnCall(i int, result1 error) {
+func (fake *Verifier) VerifyReturnsOnCall(i int, result1 error) {
 	fake.verifyMutex.Lock()
 	defer fake.verifyMutex.Unlock()
 	fake.VerifyStub = nil
@@ -96,7 +96,7 @@ func (fake *FakeVerifier) VerifyReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeVerifier) Invocations() map[string][][]interface{} {
+func (fake *Verifier) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -106,7 +106,7 @@ func (fake *FakeVerifier) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeVerifier) recordInvocation(key string, args []interface{}) {
+func (fake *Verifier) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -118,4 +118,4 @@ func (fake *FakeVerifier) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.Verifier = new(FakeVerifier)
+var _ driver.Verifier = new(Verifier)

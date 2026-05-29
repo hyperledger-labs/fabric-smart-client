@@ -22,7 +22,7 @@ type Factory struct {
 		result1 viewa.View
 		result2 error
 	}
-	invocations      map[string][][]any
+	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
@@ -39,7 +39,7 @@ func (fake *Factory) NewView(arg1 []byte) (viewa.View, error) {
 	}{arg1Copy})
 	stub := fake.NewViewStub
 	fakeReturns := fake.newViewReturns
-	fake.recordInvocation("NewView", []any{arg1Copy})
+	fake.recordInvocation("NewView", []interface{}{arg1Copy})
 	fake.newViewMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -95,24 +95,24 @@ func (fake *Factory) NewViewReturnsOnCall(i int, result1 viewa.View, result2 err
 	}{result1, result2}
 }
 
-func (fake *Factory) Invocations() map[string][][]any {
+func (fake *Factory) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	copiedInvocations := map[string][][]any{}
+	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *Factory) recordInvocation(key string, args []any) {
+func (fake *Factory) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]any{}
+		fake.invocations = map[string][][]interface{}{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]any{}
+		fake.invocations[key] = [][]interface{}{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

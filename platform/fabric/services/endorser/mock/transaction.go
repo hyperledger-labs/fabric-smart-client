@@ -8,7 +8,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type FakeTransaction struct {
+type Transaction struct {
 	AppendParameterStub        func([]byte)
 	appendParameterMutex       sync.RWMutex
 	appendParameterArgsForCall []struct {
@@ -444,7 +444,7 @@ type FakeTransaction struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeTransaction) AppendParameter(arg1 []byte) {
+func (fake *Transaction) AppendParameter(arg1 []byte) {
 	var arg1Copy []byte
 	if arg1 != nil {
 		arg1Copy = make([]byte, len(arg1))
@@ -462,26 +462,26 @@ func (fake *FakeTransaction) AppendParameter(arg1 []byte) {
 	}
 }
 
-func (fake *FakeTransaction) AppendParameterCallCount() int {
+func (fake *Transaction) AppendParameterCallCount() int {
 	fake.appendParameterMutex.RLock()
 	defer fake.appendParameterMutex.RUnlock()
 	return len(fake.appendParameterArgsForCall)
 }
 
-func (fake *FakeTransaction) AppendParameterCalls(stub func([]byte)) {
+func (fake *Transaction) AppendParameterCalls(stub func([]byte)) {
 	fake.appendParameterMutex.Lock()
 	defer fake.appendParameterMutex.Unlock()
 	fake.AppendParameterStub = stub
 }
 
-func (fake *FakeTransaction) AppendParameterArgsForCall(i int) []byte {
+func (fake *Transaction) AppendParameterArgsForCall(i int) []byte {
 	fake.appendParameterMutex.RLock()
 	defer fake.appendParameterMutex.RUnlock()
 	argsForCall := fake.appendParameterArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeTransaction) AppendProposalResponse(arg1 driver.ProposalResponse) error {
+func (fake *Transaction) AppendProposalResponse(arg1 driver.ProposalResponse) error {
 	fake.appendProposalResponseMutex.Lock()
 	ret, specificReturn := fake.appendProposalResponseReturnsOnCall[len(fake.appendProposalResponseArgsForCall)]
 	fake.appendProposalResponseArgsForCall = append(fake.appendProposalResponseArgsForCall, struct {
@@ -500,26 +500,26 @@ func (fake *FakeTransaction) AppendProposalResponse(arg1 driver.ProposalResponse
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) AppendProposalResponseCallCount() int {
+func (fake *Transaction) AppendProposalResponseCallCount() int {
 	fake.appendProposalResponseMutex.RLock()
 	defer fake.appendProposalResponseMutex.RUnlock()
 	return len(fake.appendProposalResponseArgsForCall)
 }
 
-func (fake *FakeTransaction) AppendProposalResponseCalls(stub func(driver.ProposalResponse) error) {
+func (fake *Transaction) AppendProposalResponseCalls(stub func(driver.ProposalResponse) error) {
 	fake.appendProposalResponseMutex.Lock()
 	defer fake.appendProposalResponseMutex.Unlock()
 	fake.AppendProposalResponseStub = stub
 }
 
-func (fake *FakeTransaction) AppendProposalResponseArgsForCall(i int) driver.ProposalResponse {
+func (fake *Transaction) AppendProposalResponseArgsForCall(i int) driver.ProposalResponse {
 	fake.appendProposalResponseMutex.RLock()
 	defer fake.appendProposalResponseMutex.RUnlock()
 	argsForCall := fake.appendProposalResponseArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeTransaction) AppendProposalResponseReturns(result1 error) {
+func (fake *Transaction) AppendProposalResponseReturns(result1 error) {
 	fake.appendProposalResponseMutex.Lock()
 	defer fake.appendProposalResponseMutex.Unlock()
 	fake.AppendProposalResponseStub = nil
@@ -528,7 +528,7 @@ func (fake *FakeTransaction) AppendProposalResponseReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) AppendProposalResponseReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) AppendProposalResponseReturnsOnCall(i int, result1 error) {
 	fake.appendProposalResponseMutex.Lock()
 	defer fake.appendProposalResponseMutex.Unlock()
 	fake.AppendProposalResponseStub = nil
@@ -542,7 +542,7 @@ func (fake *FakeTransaction) AppendProposalResponseReturnsOnCall(i int, result1 
 	}{result1}
 }
 
-func (fake *FakeTransaction) Bytes() ([]byte, error) {
+func (fake *Transaction) Bytes() ([]byte, error) {
 	fake.bytesMutex.Lock()
 	ret, specificReturn := fake.bytesReturnsOnCall[len(fake.bytesArgsForCall)]
 	fake.bytesArgsForCall = append(fake.bytesArgsForCall, struct {
@@ -560,19 +560,19 @@ func (fake *FakeTransaction) Bytes() ([]byte, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeTransaction) BytesCallCount() int {
+func (fake *Transaction) BytesCallCount() int {
 	fake.bytesMutex.RLock()
 	defer fake.bytesMutex.RUnlock()
 	return len(fake.bytesArgsForCall)
 }
 
-func (fake *FakeTransaction) BytesCalls(stub func() ([]byte, error)) {
+func (fake *Transaction) BytesCalls(stub func() ([]byte, error)) {
 	fake.bytesMutex.Lock()
 	defer fake.bytesMutex.Unlock()
 	fake.BytesStub = stub
 }
 
-func (fake *FakeTransaction) BytesReturns(result1 []byte, result2 error) {
+func (fake *Transaction) BytesReturns(result1 []byte, result2 error) {
 	fake.bytesMutex.Lock()
 	defer fake.bytesMutex.Unlock()
 	fake.BytesStub = nil
@@ -582,7 +582,7 @@ func (fake *FakeTransaction) BytesReturns(result1 []byte, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) BytesReturnsOnCall(i int, result1 []byte, result2 error) {
+func (fake *Transaction) BytesReturnsOnCall(i int, result1 []byte, result2 error) {
 	fake.bytesMutex.Lock()
 	defer fake.bytesMutex.Unlock()
 	fake.BytesStub = nil
@@ -598,7 +598,7 @@ func (fake *FakeTransaction) BytesReturnsOnCall(i int, result1 []byte, result2 e
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) BytesNoTransient() ([]byte, error) {
+func (fake *Transaction) BytesNoTransient() ([]byte, error) {
 	fake.bytesNoTransientMutex.Lock()
 	ret, specificReturn := fake.bytesNoTransientReturnsOnCall[len(fake.bytesNoTransientArgsForCall)]
 	fake.bytesNoTransientArgsForCall = append(fake.bytesNoTransientArgsForCall, struct {
@@ -616,19 +616,19 @@ func (fake *FakeTransaction) BytesNoTransient() ([]byte, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeTransaction) BytesNoTransientCallCount() int {
+func (fake *Transaction) BytesNoTransientCallCount() int {
 	fake.bytesNoTransientMutex.RLock()
 	defer fake.bytesNoTransientMutex.RUnlock()
 	return len(fake.bytesNoTransientArgsForCall)
 }
 
-func (fake *FakeTransaction) BytesNoTransientCalls(stub func() ([]byte, error)) {
+func (fake *Transaction) BytesNoTransientCalls(stub func() ([]byte, error)) {
 	fake.bytesNoTransientMutex.Lock()
 	defer fake.bytesNoTransientMutex.Unlock()
 	fake.BytesNoTransientStub = stub
 }
 
-func (fake *FakeTransaction) BytesNoTransientReturns(result1 []byte, result2 error) {
+func (fake *Transaction) BytesNoTransientReturns(result1 []byte, result2 error) {
 	fake.bytesNoTransientMutex.Lock()
 	defer fake.bytesNoTransientMutex.Unlock()
 	fake.BytesNoTransientStub = nil
@@ -638,7 +638,7 @@ func (fake *FakeTransaction) BytesNoTransientReturns(result1 []byte, result2 err
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) BytesNoTransientReturnsOnCall(i int, result1 []byte, result2 error) {
+func (fake *Transaction) BytesNoTransientReturnsOnCall(i int, result1 []byte, result2 error) {
 	fake.bytesNoTransientMutex.Lock()
 	defer fake.bytesNoTransientMutex.Unlock()
 	fake.BytesNoTransientStub = nil
@@ -654,7 +654,7 @@ func (fake *FakeTransaction) BytesNoTransientReturnsOnCall(i int, result1 []byte
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) Chaincode() string {
+func (fake *Transaction) Chaincode() string {
 	fake.chaincodeMutex.Lock()
 	ret, specificReturn := fake.chaincodeReturnsOnCall[len(fake.chaincodeArgsForCall)]
 	fake.chaincodeArgsForCall = append(fake.chaincodeArgsForCall, struct {
@@ -672,19 +672,19 @@ func (fake *FakeTransaction) Chaincode() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) ChaincodeCallCount() int {
+func (fake *Transaction) ChaincodeCallCount() int {
 	fake.chaincodeMutex.RLock()
 	defer fake.chaincodeMutex.RUnlock()
 	return len(fake.chaincodeArgsForCall)
 }
 
-func (fake *FakeTransaction) ChaincodeCalls(stub func() string) {
+func (fake *Transaction) ChaincodeCalls(stub func() string) {
 	fake.chaincodeMutex.Lock()
 	defer fake.chaincodeMutex.Unlock()
 	fake.ChaincodeStub = stub
 }
 
-func (fake *FakeTransaction) ChaincodeReturns(result1 string) {
+func (fake *Transaction) ChaincodeReturns(result1 string) {
 	fake.chaincodeMutex.Lock()
 	defer fake.chaincodeMutex.Unlock()
 	fake.ChaincodeStub = nil
@@ -693,7 +693,7 @@ func (fake *FakeTransaction) ChaincodeReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) ChaincodeReturnsOnCall(i int, result1 string) {
+func (fake *Transaction) ChaincodeReturnsOnCall(i int, result1 string) {
 	fake.chaincodeMutex.Lock()
 	defer fake.chaincodeMutex.Unlock()
 	fake.ChaincodeStub = nil
@@ -707,7 +707,7 @@ func (fake *FakeTransaction) ChaincodeReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) ChaincodeVersion() string {
+func (fake *Transaction) ChaincodeVersion() string {
 	fake.chaincodeVersionMutex.Lock()
 	ret, specificReturn := fake.chaincodeVersionReturnsOnCall[len(fake.chaincodeVersionArgsForCall)]
 	fake.chaincodeVersionArgsForCall = append(fake.chaincodeVersionArgsForCall, struct {
@@ -725,19 +725,19 @@ func (fake *FakeTransaction) ChaincodeVersion() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) ChaincodeVersionCallCount() int {
+func (fake *Transaction) ChaincodeVersionCallCount() int {
 	fake.chaincodeVersionMutex.RLock()
 	defer fake.chaincodeVersionMutex.RUnlock()
 	return len(fake.chaincodeVersionArgsForCall)
 }
 
-func (fake *FakeTransaction) ChaincodeVersionCalls(stub func() string) {
+func (fake *Transaction) ChaincodeVersionCalls(stub func() string) {
 	fake.chaincodeVersionMutex.Lock()
 	defer fake.chaincodeVersionMutex.Unlock()
 	fake.ChaincodeVersionStub = stub
 }
 
-func (fake *FakeTransaction) ChaincodeVersionReturns(result1 string) {
+func (fake *Transaction) ChaincodeVersionReturns(result1 string) {
 	fake.chaincodeVersionMutex.Lock()
 	defer fake.chaincodeVersionMutex.Unlock()
 	fake.ChaincodeVersionStub = nil
@@ -746,7 +746,7 @@ func (fake *FakeTransaction) ChaincodeVersionReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) ChaincodeVersionReturnsOnCall(i int, result1 string) {
+func (fake *Transaction) ChaincodeVersionReturnsOnCall(i int, result1 string) {
 	fake.chaincodeVersionMutex.Lock()
 	defer fake.chaincodeVersionMutex.Unlock()
 	fake.ChaincodeVersionStub = nil
@@ -760,7 +760,7 @@ func (fake *FakeTransaction) ChaincodeVersionReturnsOnCall(i int, result1 string
 	}{result1}
 }
 
-func (fake *FakeTransaction) Channel() string {
+func (fake *Transaction) Channel() string {
 	fake.channelMutex.Lock()
 	ret, specificReturn := fake.channelReturnsOnCall[len(fake.channelArgsForCall)]
 	fake.channelArgsForCall = append(fake.channelArgsForCall, struct {
@@ -778,19 +778,19 @@ func (fake *FakeTransaction) Channel() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) ChannelCallCount() int {
+func (fake *Transaction) ChannelCallCount() int {
 	fake.channelMutex.RLock()
 	defer fake.channelMutex.RUnlock()
 	return len(fake.channelArgsForCall)
 }
 
-func (fake *FakeTransaction) ChannelCalls(stub func() string) {
+func (fake *Transaction) ChannelCalls(stub func() string) {
 	fake.channelMutex.Lock()
 	defer fake.channelMutex.Unlock()
 	fake.ChannelStub = stub
 }
 
-func (fake *FakeTransaction) ChannelReturns(result1 string) {
+func (fake *Transaction) ChannelReturns(result1 string) {
 	fake.channelMutex.Lock()
 	defer fake.channelMutex.Unlock()
 	fake.ChannelStub = nil
@@ -799,7 +799,7 @@ func (fake *FakeTransaction) ChannelReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) ChannelReturnsOnCall(i int, result1 string) {
+func (fake *Transaction) ChannelReturnsOnCall(i int, result1 string) {
 	fake.channelMutex.Lock()
 	defer fake.channelMutex.Unlock()
 	fake.ChannelStub = nil
@@ -813,7 +813,7 @@ func (fake *FakeTransaction) ChannelReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) Close() {
+func (fake *Transaction) Close() {
 	fake.closeMutex.Lock()
 	fake.closeArgsForCall = append(fake.closeArgsForCall, struct {
 	}{})
@@ -825,19 +825,19 @@ func (fake *FakeTransaction) Close() {
 	}
 }
 
-func (fake *FakeTransaction) CloseCallCount() int {
+func (fake *Transaction) CloseCallCount() int {
 	fake.closeMutex.RLock()
 	defer fake.closeMutex.RUnlock()
 	return len(fake.closeArgsForCall)
 }
 
-func (fake *FakeTransaction) CloseCalls(stub func()) {
+func (fake *Transaction) CloseCalls(stub func()) {
 	fake.closeMutex.Lock()
 	defer fake.closeMutex.Unlock()
 	fake.CloseStub = stub
 }
 
-func (fake *FakeTransaction) Creator() view.Identity {
+func (fake *Transaction) Creator() view.Identity {
 	fake.creatorMutex.Lock()
 	ret, specificReturn := fake.creatorReturnsOnCall[len(fake.creatorArgsForCall)]
 	fake.creatorArgsForCall = append(fake.creatorArgsForCall, struct {
@@ -855,19 +855,19 @@ func (fake *FakeTransaction) Creator() view.Identity {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) CreatorCallCount() int {
+func (fake *Transaction) CreatorCallCount() int {
 	fake.creatorMutex.RLock()
 	defer fake.creatorMutex.RUnlock()
 	return len(fake.creatorArgsForCall)
 }
 
-func (fake *FakeTransaction) CreatorCalls(stub func() view.Identity) {
+func (fake *Transaction) CreatorCalls(stub func() view.Identity) {
 	fake.creatorMutex.Lock()
 	defer fake.creatorMutex.Unlock()
 	fake.CreatorStub = stub
 }
 
-func (fake *FakeTransaction) CreatorReturns(result1 view.Identity) {
+func (fake *Transaction) CreatorReturns(result1 view.Identity) {
 	fake.creatorMutex.Lock()
 	defer fake.creatorMutex.Unlock()
 	fake.CreatorStub = nil
@@ -876,7 +876,7 @@ func (fake *FakeTransaction) CreatorReturns(result1 view.Identity) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) CreatorReturnsOnCall(i int, result1 view.Identity) {
+func (fake *Transaction) CreatorReturnsOnCall(i int, result1 view.Identity) {
 	fake.creatorMutex.Lock()
 	defer fake.creatorMutex.Unlock()
 	fake.CreatorStub = nil
@@ -890,7 +890,7 @@ func (fake *FakeTransaction) CreatorReturnsOnCall(i int, result1 view.Identity) 
 	}{result1}
 }
 
-func (fake *FakeTransaction) Done() error {
+func (fake *Transaction) Done() error {
 	fake.doneMutex.Lock()
 	ret, specificReturn := fake.doneReturnsOnCall[len(fake.doneArgsForCall)]
 	fake.doneArgsForCall = append(fake.doneArgsForCall, struct {
@@ -908,19 +908,19 @@ func (fake *FakeTransaction) Done() error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) DoneCallCount() int {
+func (fake *Transaction) DoneCallCount() int {
 	fake.doneMutex.RLock()
 	defer fake.doneMutex.RUnlock()
 	return len(fake.doneArgsForCall)
 }
 
-func (fake *FakeTransaction) DoneCalls(stub func() error) {
+func (fake *Transaction) DoneCalls(stub func() error) {
 	fake.doneMutex.Lock()
 	defer fake.doneMutex.Unlock()
 	fake.DoneStub = stub
 }
 
-func (fake *FakeTransaction) DoneReturns(result1 error) {
+func (fake *Transaction) DoneReturns(result1 error) {
 	fake.doneMutex.Lock()
 	defer fake.doneMutex.Unlock()
 	fake.DoneStub = nil
@@ -929,7 +929,7 @@ func (fake *FakeTransaction) DoneReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) DoneReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) DoneReturnsOnCall(i int, result1 error) {
 	fake.doneMutex.Lock()
 	defer fake.doneMutex.Unlock()
 	fake.DoneStub = nil
@@ -943,7 +943,7 @@ func (fake *FakeTransaction) DoneReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) Endorse() error {
+func (fake *Transaction) Endorse() error {
 	fake.endorseMutex.Lock()
 	ret, specificReturn := fake.endorseReturnsOnCall[len(fake.endorseArgsForCall)]
 	fake.endorseArgsForCall = append(fake.endorseArgsForCall, struct {
@@ -961,19 +961,19 @@ func (fake *FakeTransaction) Endorse() error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) EndorseCallCount() int {
+func (fake *Transaction) EndorseCallCount() int {
 	fake.endorseMutex.RLock()
 	defer fake.endorseMutex.RUnlock()
 	return len(fake.endorseArgsForCall)
 }
 
-func (fake *FakeTransaction) EndorseCalls(stub func() error) {
+func (fake *Transaction) EndorseCalls(stub func() error) {
 	fake.endorseMutex.Lock()
 	defer fake.endorseMutex.Unlock()
 	fake.EndorseStub = stub
 }
 
-func (fake *FakeTransaction) EndorseReturns(result1 error) {
+func (fake *Transaction) EndorseReturns(result1 error) {
 	fake.endorseMutex.Lock()
 	defer fake.endorseMutex.Unlock()
 	fake.EndorseStub = nil
@@ -982,7 +982,7 @@ func (fake *FakeTransaction) EndorseReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) EndorseReturnsOnCall(i int, result1 error) {
 	fake.endorseMutex.Lock()
 	defer fake.endorseMutex.Unlock()
 	fake.EndorseStub = nil
@@ -996,7 +996,7 @@ func (fake *FakeTransaction) EndorseReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseProposal() error {
+func (fake *Transaction) EndorseProposal() error {
 	fake.endorseProposalMutex.Lock()
 	ret, specificReturn := fake.endorseProposalReturnsOnCall[len(fake.endorseProposalArgsForCall)]
 	fake.endorseProposalArgsForCall = append(fake.endorseProposalArgsForCall, struct {
@@ -1014,19 +1014,19 @@ func (fake *FakeTransaction) EndorseProposal() error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) EndorseProposalCallCount() int {
+func (fake *Transaction) EndorseProposalCallCount() int {
 	fake.endorseProposalMutex.RLock()
 	defer fake.endorseProposalMutex.RUnlock()
 	return len(fake.endorseProposalArgsForCall)
 }
 
-func (fake *FakeTransaction) EndorseProposalCalls(stub func() error) {
+func (fake *Transaction) EndorseProposalCalls(stub func() error) {
 	fake.endorseProposalMutex.Lock()
 	defer fake.endorseProposalMutex.Unlock()
 	fake.EndorseProposalStub = stub
 }
 
-func (fake *FakeTransaction) EndorseProposalReturns(result1 error) {
+func (fake *Transaction) EndorseProposalReturns(result1 error) {
 	fake.endorseProposalMutex.Lock()
 	defer fake.endorseProposalMutex.Unlock()
 	fake.EndorseProposalStub = nil
@@ -1035,7 +1035,7 @@ func (fake *FakeTransaction) EndorseProposalReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseProposalReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) EndorseProposalReturnsOnCall(i int, result1 error) {
 	fake.endorseProposalMutex.Lock()
 	defer fake.endorseProposalMutex.Unlock()
 	fake.EndorseProposalStub = nil
@@ -1049,7 +1049,7 @@ func (fake *FakeTransaction) EndorseProposalReturnsOnCall(i int, result1 error) 
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseProposalResponse() error {
+func (fake *Transaction) EndorseProposalResponse() error {
 	fake.endorseProposalResponseMutex.Lock()
 	ret, specificReturn := fake.endorseProposalResponseReturnsOnCall[len(fake.endorseProposalResponseArgsForCall)]
 	fake.endorseProposalResponseArgsForCall = append(fake.endorseProposalResponseArgsForCall, struct {
@@ -1067,19 +1067,19 @@ func (fake *FakeTransaction) EndorseProposalResponse() error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) EndorseProposalResponseCallCount() int {
+func (fake *Transaction) EndorseProposalResponseCallCount() int {
 	fake.endorseProposalResponseMutex.RLock()
 	defer fake.endorseProposalResponseMutex.RUnlock()
 	return len(fake.endorseProposalResponseArgsForCall)
 }
 
-func (fake *FakeTransaction) EndorseProposalResponseCalls(stub func() error) {
+func (fake *Transaction) EndorseProposalResponseCalls(stub func() error) {
 	fake.endorseProposalResponseMutex.Lock()
 	defer fake.endorseProposalResponseMutex.Unlock()
 	fake.EndorseProposalResponseStub = stub
 }
 
-func (fake *FakeTransaction) EndorseProposalResponseReturns(result1 error) {
+func (fake *Transaction) EndorseProposalResponseReturns(result1 error) {
 	fake.endorseProposalResponseMutex.Lock()
 	defer fake.endorseProposalResponseMutex.Unlock()
 	fake.EndorseProposalResponseStub = nil
@@ -1088,7 +1088,7 @@ func (fake *FakeTransaction) EndorseProposalResponseReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseProposalResponseReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) EndorseProposalResponseReturnsOnCall(i int, result1 error) {
 	fake.endorseProposalResponseMutex.Lock()
 	defer fake.endorseProposalResponseMutex.Unlock()
 	fake.EndorseProposalResponseStub = nil
@@ -1102,7 +1102,7 @@ func (fake *FakeTransaction) EndorseProposalResponseReturnsOnCall(i int, result1
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseProposalResponseWithIdentity(arg1 view.Identity) error {
+func (fake *Transaction) EndorseProposalResponseWithIdentity(arg1 view.Identity) error {
 	fake.endorseProposalResponseWithIdentityMutex.Lock()
 	ret, specificReturn := fake.endorseProposalResponseWithIdentityReturnsOnCall[len(fake.endorseProposalResponseWithIdentityArgsForCall)]
 	fake.endorseProposalResponseWithIdentityArgsForCall = append(fake.endorseProposalResponseWithIdentityArgsForCall, struct {
@@ -1121,26 +1121,26 @@ func (fake *FakeTransaction) EndorseProposalResponseWithIdentity(arg1 view.Ident
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) EndorseProposalResponseWithIdentityCallCount() int {
+func (fake *Transaction) EndorseProposalResponseWithIdentityCallCount() int {
 	fake.endorseProposalResponseWithIdentityMutex.RLock()
 	defer fake.endorseProposalResponseWithIdentityMutex.RUnlock()
 	return len(fake.endorseProposalResponseWithIdentityArgsForCall)
 }
 
-func (fake *FakeTransaction) EndorseProposalResponseWithIdentityCalls(stub func(view.Identity) error) {
+func (fake *Transaction) EndorseProposalResponseWithIdentityCalls(stub func(view.Identity) error) {
 	fake.endorseProposalResponseWithIdentityMutex.Lock()
 	defer fake.endorseProposalResponseWithIdentityMutex.Unlock()
 	fake.EndorseProposalResponseWithIdentityStub = stub
 }
 
-func (fake *FakeTransaction) EndorseProposalResponseWithIdentityArgsForCall(i int) view.Identity {
+func (fake *Transaction) EndorseProposalResponseWithIdentityArgsForCall(i int) view.Identity {
 	fake.endorseProposalResponseWithIdentityMutex.RLock()
 	defer fake.endorseProposalResponseWithIdentityMutex.RUnlock()
 	argsForCall := fake.endorseProposalResponseWithIdentityArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeTransaction) EndorseProposalResponseWithIdentityReturns(result1 error) {
+func (fake *Transaction) EndorseProposalResponseWithIdentityReturns(result1 error) {
 	fake.endorseProposalResponseWithIdentityMutex.Lock()
 	defer fake.endorseProposalResponseWithIdentityMutex.Unlock()
 	fake.EndorseProposalResponseWithIdentityStub = nil
@@ -1149,7 +1149,7 @@ func (fake *FakeTransaction) EndorseProposalResponseWithIdentityReturns(result1 
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseProposalResponseWithIdentityReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) EndorseProposalResponseWithIdentityReturnsOnCall(i int, result1 error) {
 	fake.endorseProposalResponseWithIdentityMutex.Lock()
 	defer fake.endorseProposalResponseWithIdentityMutex.Unlock()
 	fake.EndorseProposalResponseWithIdentityStub = nil
@@ -1163,7 +1163,7 @@ func (fake *FakeTransaction) EndorseProposalResponseWithIdentityReturnsOnCall(i 
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseProposalWithIdentity(arg1 view.Identity) error {
+func (fake *Transaction) EndorseProposalWithIdentity(arg1 view.Identity) error {
 	fake.endorseProposalWithIdentityMutex.Lock()
 	ret, specificReturn := fake.endorseProposalWithIdentityReturnsOnCall[len(fake.endorseProposalWithIdentityArgsForCall)]
 	fake.endorseProposalWithIdentityArgsForCall = append(fake.endorseProposalWithIdentityArgsForCall, struct {
@@ -1182,26 +1182,26 @@ func (fake *FakeTransaction) EndorseProposalWithIdentity(arg1 view.Identity) err
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) EndorseProposalWithIdentityCallCount() int {
+func (fake *Transaction) EndorseProposalWithIdentityCallCount() int {
 	fake.endorseProposalWithIdentityMutex.RLock()
 	defer fake.endorseProposalWithIdentityMutex.RUnlock()
 	return len(fake.endorseProposalWithIdentityArgsForCall)
 }
 
-func (fake *FakeTransaction) EndorseProposalWithIdentityCalls(stub func(view.Identity) error) {
+func (fake *Transaction) EndorseProposalWithIdentityCalls(stub func(view.Identity) error) {
 	fake.endorseProposalWithIdentityMutex.Lock()
 	defer fake.endorseProposalWithIdentityMutex.Unlock()
 	fake.EndorseProposalWithIdentityStub = stub
 }
 
-func (fake *FakeTransaction) EndorseProposalWithIdentityArgsForCall(i int) view.Identity {
+func (fake *Transaction) EndorseProposalWithIdentityArgsForCall(i int) view.Identity {
 	fake.endorseProposalWithIdentityMutex.RLock()
 	defer fake.endorseProposalWithIdentityMutex.RUnlock()
 	argsForCall := fake.endorseProposalWithIdentityArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeTransaction) EndorseProposalWithIdentityReturns(result1 error) {
+func (fake *Transaction) EndorseProposalWithIdentityReturns(result1 error) {
 	fake.endorseProposalWithIdentityMutex.Lock()
 	defer fake.endorseProposalWithIdentityMutex.Unlock()
 	fake.EndorseProposalWithIdentityStub = nil
@@ -1210,7 +1210,7 @@ func (fake *FakeTransaction) EndorseProposalWithIdentityReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseProposalWithIdentityReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) EndorseProposalWithIdentityReturnsOnCall(i int, result1 error) {
 	fake.endorseProposalWithIdentityMutex.Lock()
 	defer fake.endorseProposalWithIdentityMutex.Unlock()
 	fake.EndorseProposalWithIdentityStub = nil
@@ -1224,7 +1224,7 @@ func (fake *FakeTransaction) EndorseProposalWithIdentityReturnsOnCall(i int, res
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseWithIdentity(arg1 view.Identity) error {
+func (fake *Transaction) EndorseWithIdentity(arg1 view.Identity) error {
 	fake.endorseWithIdentityMutex.Lock()
 	ret, specificReturn := fake.endorseWithIdentityReturnsOnCall[len(fake.endorseWithIdentityArgsForCall)]
 	fake.endorseWithIdentityArgsForCall = append(fake.endorseWithIdentityArgsForCall, struct {
@@ -1243,26 +1243,26 @@ func (fake *FakeTransaction) EndorseWithIdentity(arg1 view.Identity) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) EndorseWithIdentityCallCount() int {
+func (fake *Transaction) EndorseWithIdentityCallCount() int {
 	fake.endorseWithIdentityMutex.RLock()
 	defer fake.endorseWithIdentityMutex.RUnlock()
 	return len(fake.endorseWithIdentityArgsForCall)
 }
 
-func (fake *FakeTransaction) EndorseWithIdentityCalls(stub func(view.Identity) error) {
+func (fake *Transaction) EndorseWithIdentityCalls(stub func(view.Identity) error) {
 	fake.endorseWithIdentityMutex.Lock()
 	defer fake.endorseWithIdentityMutex.Unlock()
 	fake.EndorseWithIdentityStub = stub
 }
 
-func (fake *FakeTransaction) EndorseWithIdentityArgsForCall(i int) view.Identity {
+func (fake *Transaction) EndorseWithIdentityArgsForCall(i int) view.Identity {
 	fake.endorseWithIdentityMutex.RLock()
 	defer fake.endorseWithIdentityMutex.RUnlock()
 	argsForCall := fake.endorseWithIdentityArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeTransaction) EndorseWithIdentityReturns(result1 error) {
+func (fake *Transaction) EndorseWithIdentityReturns(result1 error) {
 	fake.endorseWithIdentityMutex.Lock()
 	defer fake.endorseWithIdentityMutex.Unlock()
 	fake.EndorseWithIdentityStub = nil
@@ -1271,7 +1271,7 @@ func (fake *FakeTransaction) EndorseWithIdentityReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseWithIdentityReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) EndorseWithIdentityReturnsOnCall(i int, result1 error) {
 	fake.endorseWithIdentityMutex.Lock()
 	defer fake.endorseWithIdentityMutex.Unlock()
 	fake.EndorseWithIdentityStub = nil
@@ -1285,7 +1285,7 @@ func (fake *FakeTransaction) EndorseWithIdentityReturnsOnCall(i int, result1 err
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseWithSigner(arg1 view.Identity, arg2 driver.Signer) error {
+func (fake *Transaction) EndorseWithSigner(arg1 view.Identity, arg2 driver.Signer) error {
 	fake.endorseWithSignerMutex.Lock()
 	ret, specificReturn := fake.endorseWithSignerReturnsOnCall[len(fake.endorseWithSignerArgsForCall)]
 	fake.endorseWithSignerArgsForCall = append(fake.endorseWithSignerArgsForCall, struct {
@@ -1305,26 +1305,26 @@ func (fake *FakeTransaction) EndorseWithSigner(arg1 view.Identity, arg2 driver.S
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) EndorseWithSignerCallCount() int {
+func (fake *Transaction) EndorseWithSignerCallCount() int {
 	fake.endorseWithSignerMutex.RLock()
 	defer fake.endorseWithSignerMutex.RUnlock()
 	return len(fake.endorseWithSignerArgsForCall)
 }
 
-func (fake *FakeTransaction) EndorseWithSignerCalls(stub func(view.Identity, driver.Signer) error) {
+func (fake *Transaction) EndorseWithSignerCalls(stub func(view.Identity, driver.Signer) error) {
 	fake.endorseWithSignerMutex.Lock()
 	defer fake.endorseWithSignerMutex.Unlock()
 	fake.EndorseWithSignerStub = stub
 }
 
-func (fake *FakeTransaction) EndorseWithSignerArgsForCall(i int) (view.Identity, driver.Signer) {
+func (fake *Transaction) EndorseWithSignerArgsForCall(i int) (view.Identity, driver.Signer) {
 	fake.endorseWithSignerMutex.RLock()
 	defer fake.endorseWithSignerMutex.RUnlock()
 	argsForCall := fake.endorseWithSignerArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeTransaction) EndorseWithSignerReturns(result1 error) {
+func (fake *Transaction) EndorseWithSignerReturns(result1 error) {
 	fake.endorseWithSignerMutex.Lock()
 	defer fake.endorseWithSignerMutex.Unlock()
 	fake.EndorseWithSignerStub = nil
@@ -1333,7 +1333,7 @@ func (fake *FakeTransaction) EndorseWithSignerReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) EndorseWithSignerReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) EndorseWithSignerReturnsOnCall(i int, result1 error) {
 	fake.endorseWithSignerMutex.Lock()
 	defer fake.endorseWithSignerMutex.Unlock()
 	fake.EndorseWithSignerStub = nil
@@ -1347,7 +1347,7 @@ func (fake *FakeTransaction) EndorseWithSignerReturnsOnCall(i int, result1 error
 	}{result1}
 }
 
-func (fake *FakeTransaction) Envelope() (driver.Envelope, error) {
+func (fake *Transaction) Envelope() (driver.Envelope, error) {
 	fake.envelopeMutex.Lock()
 	ret, specificReturn := fake.envelopeReturnsOnCall[len(fake.envelopeArgsForCall)]
 	fake.envelopeArgsForCall = append(fake.envelopeArgsForCall, struct {
@@ -1365,19 +1365,19 @@ func (fake *FakeTransaction) Envelope() (driver.Envelope, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeTransaction) EnvelopeCallCount() int {
+func (fake *Transaction) EnvelopeCallCount() int {
 	fake.envelopeMutex.RLock()
 	defer fake.envelopeMutex.RUnlock()
 	return len(fake.envelopeArgsForCall)
 }
 
-func (fake *FakeTransaction) EnvelopeCalls(stub func() (driver.Envelope, error)) {
+func (fake *Transaction) EnvelopeCalls(stub func() (driver.Envelope, error)) {
 	fake.envelopeMutex.Lock()
 	defer fake.envelopeMutex.Unlock()
 	fake.EnvelopeStub = stub
 }
 
-func (fake *FakeTransaction) EnvelopeReturns(result1 driver.Envelope, result2 error) {
+func (fake *Transaction) EnvelopeReturns(result1 driver.Envelope, result2 error) {
 	fake.envelopeMutex.Lock()
 	defer fake.envelopeMutex.Unlock()
 	fake.EnvelopeStub = nil
@@ -1387,7 +1387,7 @@ func (fake *FakeTransaction) EnvelopeReturns(result1 driver.Envelope, result2 er
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) EnvelopeReturnsOnCall(i int, result1 driver.Envelope, result2 error) {
+func (fake *Transaction) EnvelopeReturnsOnCall(i int, result1 driver.Envelope, result2 error) {
 	fake.envelopeMutex.Lock()
 	defer fake.envelopeMutex.Unlock()
 	fake.EnvelopeStub = nil
@@ -1403,7 +1403,7 @@ func (fake *FakeTransaction) EnvelopeReturnsOnCall(i int, result1 driver.Envelop
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) From(arg1 driver.Transaction) error {
+func (fake *Transaction) From(arg1 driver.Transaction) error {
 	fake.fromMutex.Lock()
 	ret, specificReturn := fake.fromReturnsOnCall[len(fake.fromArgsForCall)]
 	fake.fromArgsForCall = append(fake.fromArgsForCall, struct {
@@ -1422,26 +1422,26 @@ func (fake *FakeTransaction) From(arg1 driver.Transaction) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) FromCallCount() int {
+func (fake *Transaction) FromCallCount() int {
 	fake.fromMutex.RLock()
 	defer fake.fromMutex.RUnlock()
 	return len(fake.fromArgsForCall)
 }
 
-func (fake *FakeTransaction) FromCalls(stub func(driver.Transaction) error) {
+func (fake *Transaction) FromCalls(stub func(driver.Transaction) error) {
 	fake.fromMutex.Lock()
 	defer fake.fromMutex.Unlock()
 	fake.FromStub = stub
 }
 
-func (fake *FakeTransaction) FromArgsForCall(i int) driver.Transaction {
+func (fake *Transaction) FromArgsForCall(i int) driver.Transaction {
 	fake.fromMutex.RLock()
 	defer fake.fromMutex.RUnlock()
 	argsForCall := fake.fromArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeTransaction) FromReturns(result1 error) {
+func (fake *Transaction) FromReturns(result1 error) {
 	fake.fromMutex.Lock()
 	defer fake.fromMutex.Unlock()
 	fake.FromStub = nil
@@ -1450,7 +1450,7 @@ func (fake *FakeTransaction) FromReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) FromReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) FromReturnsOnCall(i int, result1 error) {
 	fake.fromMutex.Lock()
 	defer fake.fromMutex.Unlock()
 	fake.FromStub = nil
@@ -1464,7 +1464,7 @@ func (fake *FakeTransaction) FromReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) Function() string {
+func (fake *Transaction) Function() string {
 	fake.functionMutex.Lock()
 	ret, specificReturn := fake.functionReturnsOnCall[len(fake.functionArgsForCall)]
 	fake.functionArgsForCall = append(fake.functionArgsForCall, struct {
@@ -1482,19 +1482,19 @@ func (fake *FakeTransaction) Function() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) FunctionCallCount() int {
+func (fake *Transaction) FunctionCallCount() int {
 	fake.functionMutex.RLock()
 	defer fake.functionMutex.RUnlock()
 	return len(fake.functionArgsForCall)
 }
 
-func (fake *FakeTransaction) FunctionCalls(stub func() string) {
+func (fake *Transaction) FunctionCalls(stub func() string) {
 	fake.functionMutex.Lock()
 	defer fake.functionMutex.Unlock()
 	fake.FunctionStub = stub
 }
 
-func (fake *FakeTransaction) FunctionReturns(result1 string) {
+func (fake *Transaction) FunctionReturns(result1 string) {
 	fake.functionMutex.Lock()
 	defer fake.functionMutex.Unlock()
 	fake.FunctionStub = nil
@@ -1503,7 +1503,7 @@ func (fake *FakeTransaction) FunctionReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) FunctionReturnsOnCall(i int, result1 string) {
+func (fake *Transaction) FunctionReturnsOnCall(i int, result1 string) {
 	fake.functionMutex.Lock()
 	defer fake.functionMutex.Unlock()
 	fake.FunctionStub = nil
@@ -1517,7 +1517,7 @@ func (fake *FakeTransaction) FunctionReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) FunctionAndParameters() (string, []string) {
+func (fake *Transaction) FunctionAndParameters() (string, []string) {
 	fake.functionAndParametersMutex.Lock()
 	ret, specificReturn := fake.functionAndParametersReturnsOnCall[len(fake.functionAndParametersArgsForCall)]
 	fake.functionAndParametersArgsForCall = append(fake.functionAndParametersArgsForCall, struct {
@@ -1535,19 +1535,19 @@ func (fake *FakeTransaction) FunctionAndParameters() (string, []string) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeTransaction) FunctionAndParametersCallCount() int {
+func (fake *Transaction) FunctionAndParametersCallCount() int {
 	fake.functionAndParametersMutex.RLock()
 	defer fake.functionAndParametersMutex.RUnlock()
 	return len(fake.functionAndParametersArgsForCall)
 }
 
-func (fake *FakeTransaction) FunctionAndParametersCalls(stub func() (string, []string)) {
+func (fake *Transaction) FunctionAndParametersCalls(stub func() (string, []string)) {
 	fake.functionAndParametersMutex.Lock()
 	defer fake.functionAndParametersMutex.Unlock()
 	fake.FunctionAndParametersStub = stub
 }
 
-func (fake *FakeTransaction) FunctionAndParametersReturns(result1 string, result2 []string) {
+func (fake *Transaction) FunctionAndParametersReturns(result1 string, result2 []string) {
 	fake.functionAndParametersMutex.Lock()
 	defer fake.functionAndParametersMutex.Unlock()
 	fake.FunctionAndParametersStub = nil
@@ -1557,7 +1557,7 @@ func (fake *FakeTransaction) FunctionAndParametersReturns(result1 string, result
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) FunctionAndParametersReturnsOnCall(i int, result1 string, result2 []string) {
+func (fake *Transaction) FunctionAndParametersReturnsOnCall(i int, result1 string, result2 []string) {
 	fake.functionAndParametersMutex.Lock()
 	defer fake.functionAndParametersMutex.Unlock()
 	fake.FunctionAndParametersStub = nil
@@ -1573,7 +1573,7 @@ func (fake *FakeTransaction) FunctionAndParametersReturnsOnCall(i int, result1 s
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) GetRWSet() (driver.RWSet, error) {
+func (fake *Transaction) GetRWSet() (driver.RWSet, error) {
 	fake.getRWSetMutex.Lock()
 	ret, specificReturn := fake.getRWSetReturnsOnCall[len(fake.getRWSetArgsForCall)]
 	fake.getRWSetArgsForCall = append(fake.getRWSetArgsForCall, struct {
@@ -1591,19 +1591,19 @@ func (fake *FakeTransaction) GetRWSet() (driver.RWSet, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeTransaction) GetRWSetCallCount() int {
+func (fake *Transaction) GetRWSetCallCount() int {
 	fake.getRWSetMutex.RLock()
 	defer fake.getRWSetMutex.RUnlock()
 	return len(fake.getRWSetArgsForCall)
 }
 
-func (fake *FakeTransaction) GetRWSetCalls(stub func() (driver.RWSet, error)) {
+func (fake *Transaction) GetRWSetCalls(stub func() (driver.RWSet, error)) {
 	fake.getRWSetMutex.Lock()
 	defer fake.getRWSetMutex.Unlock()
 	fake.GetRWSetStub = stub
 }
 
-func (fake *FakeTransaction) GetRWSetReturns(result1 driver.RWSet, result2 error) {
+func (fake *Transaction) GetRWSetReturns(result1 driver.RWSet, result2 error) {
 	fake.getRWSetMutex.Lock()
 	defer fake.getRWSetMutex.Unlock()
 	fake.GetRWSetStub = nil
@@ -1613,7 +1613,7 @@ func (fake *FakeTransaction) GetRWSetReturns(result1 driver.RWSet, result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) GetRWSetReturnsOnCall(i int, result1 driver.RWSet, result2 error) {
+func (fake *Transaction) GetRWSetReturnsOnCall(i int, result1 driver.RWSet, result2 error) {
 	fake.getRWSetMutex.Lock()
 	defer fake.getRWSetMutex.Unlock()
 	fake.GetRWSetStub = nil
@@ -1629,7 +1629,7 @@ func (fake *FakeTransaction) GetRWSetReturnsOnCall(i int, result1 driver.RWSet, 
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) ID() string {
+func (fake *Transaction) ID() string {
 	fake.iDMutex.Lock()
 	ret, specificReturn := fake.iDReturnsOnCall[len(fake.iDArgsForCall)]
 	fake.iDArgsForCall = append(fake.iDArgsForCall, struct {
@@ -1647,19 +1647,19 @@ func (fake *FakeTransaction) ID() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) IDCallCount() int {
+func (fake *Transaction) IDCallCount() int {
 	fake.iDMutex.RLock()
 	defer fake.iDMutex.RUnlock()
 	return len(fake.iDArgsForCall)
 }
 
-func (fake *FakeTransaction) IDCalls(stub func() string) {
+func (fake *Transaction) IDCalls(stub func() string) {
 	fake.iDMutex.Lock()
 	defer fake.iDMutex.Unlock()
 	fake.IDStub = stub
 }
 
-func (fake *FakeTransaction) IDReturns(result1 string) {
+func (fake *Transaction) IDReturns(result1 string) {
 	fake.iDMutex.Lock()
 	defer fake.iDMutex.Unlock()
 	fake.IDStub = nil
@@ -1668,7 +1668,7 @@ func (fake *FakeTransaction) IDReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) IDReturnsOnCall(i int, result1 string) {
+func (fake *Transaction) IDReturnsOnCall(i int, result1 string) {
 	fake.iDMutex.Lock()
 	defer fake.iDMutex.Unlock()
 	fake.IDStub = nil
@@ -1682,7 +1682,7 @@ func (fake *FakeTransaction) IDReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) Network() string {
+func (fake *Transaction) Network() string {
 	fake.networkMutex.Lock()
 	ret, specificReturn := fake.networkReturnsOnCall[len(fake.networkArgsForCall)]
 	fake.networkArgsForCall = append(fake.networkArgsForCall, struct {
@@ -1700,19 +1700,19 @@ func (fake *FakeTransaction) Network() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) NetworkCallCount() int {
+func (fake *Transaction) NetworkCallCount() int {
 	fake.networkMutex.RLock()
 	defer fake.networkMutex.RUnlock()
 	return len(fake.networkArgsForCall)
 }
 
-func (fake *FakeTransaction) NetworkCalls(stub func() string) {
+func (fake *Transaction) NetworkCalls(stub func() string) {
 	fake.networkMutex.Lock()
 	defer fake.networkMutex.Unlock()
 	fake.NetworkStub = stub
 }
 
-func (fake *FakeTransaction) NetworkReturns(result1 string) {
+func (fake *Transaction) NetworkReturns(result1 string) {
 	fake.networkMutex.Lock()
 	defer fake.networkMutex.Unlock()
 	fake.NetworkStub = nil
@@ -1721,7 +1721,7 @@ func (fake *FakeTransaction) NetworkReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) NetworkReturnsOnCall(i int, result1 string) {
+func (fake *Transaction) NetworkReturnsOnCall(i int, result1 string) {
 	fake.networkMutex.Lock()
 	defer fake.networkMutex.Unlock()
 	fake.NetworkStub = nil
@@ -1735,7 +1735,7 @@ func (fake *FakeTransaction) NetworkReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) Nonce() []byte {
+func (fake *Transaction) Nonce() []byte {
 	fake.nonceMutex.Lock()
 	ret, specificReturn := fake.nonceReturnsOnCall[len(fake.nonceArgsForCall)]
 	fake.nonceArgsForCall = append(fake.nonceArgsForCall, struct {
@@ -1753,19 +1753,19 @@ func (fake *FakeTransaction) Nonce() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) NonceCallCount() int {
+func (fake *Transaction) NonceCallCount() int {
 	fake.nonceMutex.RLock()
 	defer fake.nonceMutex.RUnlock()
 	return len(fake.nonceArgsForCall)
 }
 
-func (fake *FakeTransaction) NonceCalls(stub func() []byte) {
+func (fake *Transaction) NonceCalls(stub func() []byte) {
 	fake.nonceMutex.Lock()
 	defer fake.nonceMutex.Unlock()
 	fake.NonceStub = stub
 }
 
-func (fake *FakeTransaction) NonceReturns(result1 []byte) {
+func (fake *Transaction) NonceReturns(result1 []byte) {
 	fake.nonceMutex.Lock()
 	defer fake.nonceMutex.Unlock()
 	fake.NonceStub = nil
@@ -1774,7 +1774,7 @@ func (fake *FakeTransaction) NonceReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) NonceReturnsOnCall(i int, result1 []byte) {
+func (fake *Transaction) NonceReturnsOnCall(i int, result1 []byte) {
 	fake.nonceMutex.Lock()
 	defer fake.nonceMutex.Unlock()
 	fake.NonceStub = nil
@@ -1788,7 +1788,7 @@ func (fake *FakeTransaction) NonceReturnsOnCall(i int, result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) Parameters() [][]byte {
+func (fake *Transaction) Parameters() [][]byte {
 	fake.parametersMutex.Lock()
 	ret, specificReturn := fake.parametersReturnsOnCall[len(fake.parametersArgsForCall)]
 	fake.parametersArgsForCall = append(fake.parametersArgsForCall, struct {
@@ -1806,19 +1806,19 @@ func (fake *FakeTransaction) Parameters() [][]byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) ParametersCallCount() int {
+func (fake *Transaction) ParametersCallCount() int {
 	fake.parametersMutex.RLock()
 	defer fake.parametersMutex.RUnlock()
 	return len(fake.parametersArgsForCall)
 }
 
-func (fake *FakeTransaction) ParametersCalls(stub func() [][]byte) {
+func (fake *Transaction) ParametersCalls(stub func() [][]byte) {
 	fake.parametersMutex.Lock()
 	defer fake.parametersMutex.Unlock()
 	fake.ParametersStub = stub
 }
 
-func (fake *FakeTransaction) ParametersReturns(result1 [][]byte) {
+func (fake *Transaction) ParametersReturns(result1 [][]byte) {
 	fake.parametersMutex.Lock()
 	defer fake.parametersMutex.Unlock()
 	fake.ParametersStub = nil
@@ -1827,7 +1827,7 @@ func (fake *FakeTransaction) ParametersReturns(result1 [][]byte) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) ParametersReturnsOnCall(i int, result1 [][]byte) {
+func (fake *Transaction) ParametersReturnsOnCall(i int, result1 [][]byte) {
 	fake.parametersMutex.Lock()
 	defer fake.parametersMutex.Unlock()
 	fake.ParametersStub = nil
@@ -1841,7 +1841,7 @@ func (fake *FakeTransaction) ParametersReturnsOnCall(i int, result1 [][]byte) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) Proposal() driver.Proposal {
+func (fake *Transaction) Proposal() driver.Proposal {
 	fake.proposalMutex.Lock()
 	ret, specificReturn := fake.proposalReturnsOnCall[len(fake.proposalArgsForCall)]
 	fake.proposalArgsForCall = append(fake.proposalArgsForCall, struct {
@@ -1859,19 +1859,19 @@ func (fake *FakeTransaction) Proposal() driver.Proposal {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) ProposalCallCount() int {
+func (fake *Transaction) ProposalCallCount() int {
 	fake.proposalMutex.RLock()
 	defer fake.proposalMutex.RUnlock()
 	return len(fake.proposalArgsForCall)
 }
 
-func (fake *FakeTransaction) ProposalCalls(stub func() driver.Proposal) {
+func (fake *Transaction) ProposalCalls(stub func() driver.Proposal) {
 	fake.proposalMutex.Lock()
 	defer fake.proposalMutex.Unlock()
 	fake.ProposalStub = stub
 }
 
-func (fake *FakeTransaction) ProposalReturns(result1 driver.Proposal) {
+func (fake *Transaction) ProposalReturns(result1 driver.Proposal) {
 	fake.proposalMutex.Lock()
 	defer fake.proposalMutex.Unlock()
 	fake.ProposalStub = nil
@@ -1880,7 +1880,7 @@ func (fake *FakeTransaction) ProposalReturns(result1 driver.Proposal) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) ProposalReturnsOnCall(i int, result1 driver.Proposal) {
+func (fake *Transaction) ProposalReturnsOnCall(i int, result1 driver.Proposal) {
 	fake.proposalMutex.Lock()
 	defer fake.proposalMutex.Unlock()
 	fake.ProposalStub = nil
@@ -1894,7 +1894,7 @@ func (fake *FakeTransaction) ProposalReturnsOnCall(i int, result1 driver.Proposa
 	}{result1}
 }
 
-func (fake *FakeTransaction) ProposalHasBeenEndorsedBy(arg1 view.Identity) error {
+func (fake *Transaction) ProposalHasBeenEndorsedBy(arg1 view.Identity) error {
 	fake.proposalHasBeenEndorsedByMutex.Lock()
 	ret, specificReturn := fake.proposalHasBeenEndorsedByReturnsOnCall[len(fake.proposalHasBeenEndorsedByArgsForCall)]
 	fake.proposalHasBeenEndorsedByArgsForCall = append(fake.proposalHasBeenEndorsedByArgsForCall, struct {
@@ -1913,26 +1913,26 @@ func (fake *FakeTransaction) ProposalHasBeenEndorsedBy(arg1 view.Identity) error
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) ProposalHasBeenEndorsedByCallCount() int {
+func (fake *Transaction) ProposalHasBeenEndorsedByCallCount() int {
 	fake.proposalHasBeenEndorsedByMutex.RLock()
 	defer fake.proposalHasBeenEndorsedByMutex.RUnlock()
 	return len(fake.proposalHasBeenEndorsedByArgsForCall)
 }
 
-func (fake *FakeTransaction) ProposalHasBeenEndorsedByCalls(stub func(view.Identity) error) {
+func (fake *Transaction) ProposalHasBeenEndorsedByCalls(stub func(view.Identity) error) {
 	fake.proposalHasBeenEndorsedByMutex.Lock()
 	defer fake.proposalHasBeenEndorsedByMutex.Unlock()
 	fake.ProposalHasBeenEndorsedByStub = stub
 }
 
-func (fake *FakeTransaction) ProposalHasBeenEndorsedByArgsForCall(i int) view.Identity {
+func (fake *Transaction) ProposalHasBeenEndorsedByArgsForCall(i int) view.Identity {
 	fake.proposalHasBeenEndorsedByMutex.RLock()
 	defer fake.proposalHasBeenEndorsedByMutex.RUnlock()
 	argsForCall := fake.proposalHasBeenEndorsedByArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeTransaction) ProposalHasBeenEndorsedByReturns(result1 error) {
+func (fake *Transaction) ProposalHasBeenEndorsedByReturns(result1 error) {
 	fake.proposalHasBeenEndorsedByMutex.Lock()
 	defer fake.proposalHasBeenEndorsedByMutex.Unlock()
 	fake.ProposalHasBeenEndorsedByStub = nil
@@ -1941,7 +1941,7 @@ func (fake *FakeTransaction) ProposalHasBeenEndorsedByReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) ProposalHasBeenEndorsedByReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) ProposalHasBeenEndorsedByReturnsOnCall(i int, result1 error) {
 	fake.proposalHasBeenEndorsedByMutex.Lock()
 	defer fake.proposalHasBeenEndorsedByMutex.Unlock()
 	fake.ProposalHasBeenEndorsedByStub = nil
@@ -1955,7 +1955,7 @@ func (fake *FakeTransaction) ProposalHasBeenEndorsedByReturnsOnCall(i int, resul
 	}{result1}
 }
 
-func (fake *FakeTransaction) ProposalResponse() ([]byte, error) {
+func (fake *Transaction) ProposalResponse() ([]byte, error) {
 	fake.proposalResponseMutex.Lock()
 	ret, specificReturn := fake.proposalResponseReturnsOnCall[len(fake.proposalResponseArgsForCall)]
 	fake.proposalResponseArgsForCall = append(fake.proposalResponseArgsForCall, struct {
@@ -1973,19 +1973,19 @@ func (fake *FakeTransaction) ProposalResponse() ([]byte, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeTransaction) ProposalResponseCallCount() int {
+func (fake *Transaction) ProposalResponseCallCount() int {
 	fake.proposalResponseMutex.RLock()
 	defer fake.proposalResponseMutex.RUnlock()
 	return len(fake.proposalResponseArgsForCall)
 }
 
-func (fake *FakeTransaction) ProposalResponseCalls(stub func() ([]byte, error)) {
+func (fake *Transaction) ProposalResponseCalls(stub func() ([]byte, error)) {
 	fake.proposalResponseMutex.Lock()
 	defer fake.proposalResponseMutex.Unlock()
 	fake.ProposalResponseStub = stub
 }
 
-func (fake *FakeTransaction) ProposalResponseReturns(result1 []byte, result2 error) {
+func (fake *Transaction) ProposalResponseReturns(result1 []byte, result2 error) {
 	fake.proposalResponseMutex.Lock()
 	defer fake.proposalResponseMutex.Unlock()
 	fake.ProposalResponseStub = nil
@@ -1995,7 +1995,7 @@ func (fake *FakeTransaction) ProposalResponseReturns(result1 []byte, result2 err
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) ProposalResponseReturnsOnCall(i int, result1 []byte, result2 error) {
+func (fake *Transaction) ProposalResponseReturnsOnCall(i int, result1 []byte, result2 error) {
 	fake.proposalResponseMutex.Lock()
 	defer fake.proposalResponseMutex.Unlock()
 	fake.ProposalResponseStub = nil
@@ -2011,7 +2011,7 @@ func (fake *FakeTransaction) ProposalResponseReturnsOnCall(i int, result1 []byte
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) ProposalResponses() ([]driver.ProposalResponse, error) {
+func (fake *Transaction) ProposalResponses() ([]driver.ProposalResponse, error) {
 	fake.proposalResponsesMutex.Lock()
 	ret, specificReturn := fake.proposalResponsesReturnsOnCall[len(fake.proposalResponsesArgsForCall)]
 	fake.proposalResponsesArgsForCall = append(fake.proposalResponsesArgsForCall, struct {
@@ -2029,19 +2029,19 @@ func (fake *FakeTransaction) ProposalResponses() ([]driver.ProposalResponse, err
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeTransaction) ProposalResponsesCallCount() int {
+func (fake *Transaction) ProposalResponsesCallCount() int {
 	fake.proposalResponsesMutex.RLock()
 	defer fake.proposalResponsesMutex.RUnlock()
 	return len(fake.proposalResponsesArgsForCall)
 }
 
-func (fake *FakeTransaction) ProposalResponsesCalls(stub func() ([]driver.ProposalResponse, error)) {
+func (fake *Transaction) ProposalResponsesCalls(stub func() ([]driver.ProposalResponse, error)) {
 	fake.proposalResponsesMutex.Lock()
 	defer fake.proposalResponsesMutex.Unlock()
 	fake.ProposalResponsesStub = stub
 }
 
-func (fake *FakeTransaction) ProposalResponsesReturns(result1 []driver.ProposalResponse, result2 error) {
+func (fake *Transaction) ProposalResponsesReturns(result1 []driver.ProposalResponse, result2 error) {
 	fake.proposalResponsesMutex.Lock()
 	defer fake.proposalResponsesMutex.Unlock()
 	fake.ProposalResponsesStub = nil
@@ -2051,7 +2051,7 @@ func (fake *FakeTransaction) ProposalResponsesReturns(result1 []driver.ProposalR
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) ProposalResponsesReturnsOnCall(i int, result1 []driver.ProposalResponse, result2 error) {
+func (fake *Transaction) ProposalResponsesReturnsOnCall(i int, result1 []driver.ProposalResponse, result2 error) {
 	fake.proposalResponsesMutex.Lock()
 	defer fake.proposalResponsesMutex.Unlock()
 	fake.ProposalResponsesStub = nil
@@ -2067,7 +2067,7 @@ func (fake *FakeTransaction) ProposalResponsesReturnsOnCall(i int, result1 []dri
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) RWS() driver.RWSet {
+func (fake *Transaction) RWS() driver.RWSet {
 	fake.rWSMutex.Lock()
 	ret, specificReturn := fake.rWSReturnsOnCall[len(fake.rWSArgsForCall)]
 	fake.rWSArgsForCall = append(fake.rWSArgsForCall, struct {
@@ -2085,19 +2085,19 @@ func (fake *FakeTransaction) RWS() driver.RWSet {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) RWSCallCount() int {
+func (fake *Transaction) RWSCallCount() int {
 	fake.rWSMutex.RLock()
 	defer fake.rWSMutex.RUnlock()
 	return len(fake.rWSArgsForCall)
 }
 
-func (fake *FakeTransaction) RWSCalls(stub func() driver.RWSet) {
+func (fake *Transaction) RWSCalls(stub func() driver.RWSet) {
 	fake.rWSMutex.Lock()
 	defer fake.rWSMutex.Unlock()
 	fake.RWSStub = stub
 }
 
-func (fake *FakeTransaction) RWSReturns(result1 driver.RWSet) {
+func (fake *Transaction) RWSReturns(result1 driver.RWSet) {
 	fake.rWSMutex.Lock()
 	defer fake.rWSMutex.Unlock()
 	fake.RWSStub = nil
@@ -2106,7 +2106,7 @@ func (fake *FakeTransaction) RWSReturns(result1 driver.RWSet) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) RWSReturnsOnCall(i int, result1 driver.RWSet) {
+func (fake *Transaction) RWSReturnsOnCall(i int, result1 driver.RWSet) {
 	fake.rWSMutex.Lock()
 	defer fake.rWSMutex.Unlock()
 	fake.RWSStub = nil
@@ -2120,7 +2120,7 @@ func (fake *FakeTransaction) RWSReturnsOnCall(i int, result1 driver.RWSet) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) Raw() ([]byte, error) {
+func (fake *Transaction) Raw() ([]byte, error) {
 	fake.rawMutex.Lock()
 	ret, specificReturn := fake.rawReturnsOnCall[len(fake.rawArgsForCall)]
 	fake.rawArgsForCall = append(fake.rawArgsForCall, struct {
@@ -2138,19 +2138,19 @@ func (fake *FakeTransaction) Raw() ([]byte, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeTransaction) RawCallCount() int {
+func (fake *Transaction) RawCallCount() int {
 	fake.rawMutex.RLock()
 	defer fake.rawMutex.RUnlock()
 	return len(fake.rawArgsForCall)
 }
 
-func (fake *FakeTransaction) RawCalls(stub func() ([]byte, error)) {
+func (fake *Transaction) RawCalls(stub func() ([]byte, error)) {
 	fake.rawMutex.Lock()
 	defer fake.rawMutex.Unlock()
 	fake.RawStub = stub
 }
 
-func (fake *FakeTransaction) RawReturns(result1 []byte, result2 error) {
+func (fake *Transaction) RawReturns(result1 []byte, result2 error) {
 	fake.rawMutex.Lock()
 	defer fake.rawMutex.Unlock()
 	fake.RawStub = nil
@@ -2160,7 +2160,7 @@ func (fake *FakeTransaction) RawReturns(result1 []byte, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) RawReturnsOnCall(i int, result1 []byte, result2 error) {
+func (fake *Transaction) RawReturnsOnCall(i int, result1 []byte, result2 error) {
 	fake.rawMutex.Lock()
 	defer fake.rawMutex.Unlock()
 	fake.RawStub = nil
@@ -2176,7 +2176,7 @@ func (fake *FakeTransaction) RawReturnsOnCall(i int, result1 []byte, result2 err
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) ResetTransient() {
+func (fake *Transaction) ResetTransient() {
 	fake.resetTransientMutex.Lock()
 	fake.resetTransientArgsForCall = append(fake.resetTransientArgsForCall, struct {
 	}{})
@@ -2188,19 +2188,19 @@ func (fake *FakeTransaction) ResetTransient() {
 	}
 }
 
-func (fake *FakeTransaction) ResetTransientCallCount() int {
+func (fake *Transaction) ResetTransientCallCount() int {
 	fake.resetTransientMutex.RLock()
 	defer fake.resetTransientMutex.RUnlock()
 	return len(fake.resetTransientArgsForCall)
 }
 
-func (fake *FakeTransaction) ResetTransientCalls(stub func()) {
+func (fake *Transaction) ResetTransientCalls(stub func()) {
 	fake.resetTransientMutex.Lock()
 	defer fake.resetTransientMutex.Unlock()
 	fake.ResetTransientStub = stub
 }
 
-func (fake *FakeTransaction) Results() ([]byte, error) {
+func (fake *Transaction) Results() ([]byte, error) {
 	fake.resultsMutex.Lock()
 	ret, specificReturn := fake.resultsReturnsOnCall[len(fake.resultsArgsForCall)]
 	fake.resultsArgsForCall = append(fake.resultsArgsForCall, struct {
@@ -2218,19 +2218,19 @@ func (fake *FakeTransaction) Results() ([]byte, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeTransaction) ResultsCallCount() int {
+func (fake *Transaction) ResultsCallCount() int {
 	fake.resultsMutex.RLock()
 	defer fake.resultsMutex.RUnlock()
 	return len(fake.resultsArgsForCall)
 }
 
-func (fake *FakeTransaction) ResultsCalls(stub func() ([]byte, error)) {
+func (fake *Transaction) ResultsCalls(stub func() ([]byte, error)) {
 	fake.resultsMutex.Lock()
 	defer fake.resultsMutex.Unlock()
 	fake.ResultsStub = stub
 }
 
-func (fake *FakeTransaction) ResultsReturns(result1 []byte, result2 error) {
+func (fake *Transaction) ResultsReturns(result1 []byte, result2 error) {
 	fake.resultsMutex.Lock()
 	defer fake.resultsMutex.Unlock()
 	fake.ResultsStub = nil
@@ -2240,7 +2240,7 @@ func (fake *FakeTransaction) ResultsReturns(result1 []byte, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) ResultsReturnsOnCall(i int, result1 []byte, result2 error) {
+func (fake *Transaction) ResultsReturnsOnCall(i int, result1 []byte, result2 error) {
 	fake.resultsMutex.Lock()
 	defer fake.resultsMutex.Unlock()
 	fake.ResultsStub = nil
@@ -2256,7 +2256,7 @@ func (fake *FakeTransaction) ResultsReturnsOnCall(i int, result1 []byte, result2
 	}{result1, result2}
 }
 
-func (fake *FakeTransaction) SetFromBytes(arg1 []byte) error {
+func (fake *Transaction) SetFromBytes(arg1 []byte) error {
 	var arg1Copy []byte
 	if arg1 != nil {
 		arg1Copy = make([]byte, len(arg1))
@@ -2280,26 +2280,26 @@ func (fake *FakeTransaction) SetFromBytes(arg1 []byte) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) SetFromBytesCallCount() int {
+func (fake *Transaction) SetFromBytesCallCount() int {
 	fake.setFromBytesMutex.RLock()
 	defer fake.setFromBytesMutex.RUnlock()
 	return len(fake.setFromBytesArgsForCall)
 }
 
-func (fake *FakeTransaction) SetFromBytesCalls(stub func([]byte) error) {
+func (fake *Transaction) SetFromBytesCalls(stub func([]byte) error) {
 	fake.setFromBytesMutex.Lock()
 	defer fake.setFromBytesMutex.Unlock()
 	fake.SetFromBytesStub = stub
 }
 
-func (fake *FakeTransaction) SetFromBytesArgsForCall(i int) []byte {
+func (fake *Transaction) SetFromBytesArgsForCall(i int) []byte {
 	fake.setFromBytesMutex.RLock()
 	defer fake.setFromBytesMutex.RUnlock()
 	argsForCall := fake.setFromBytesArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeTransaction) SetFromBytesReturns(result1 error) {
+func (fake *Transaction) SetFromBytesReturns(result1 error) {
 	fake.setFromBytesMutex.Lock()
 	defer fake.setFromBytesMutex.Unlock()
 	fake.SetFromBytesStub = nil
@@ -2308,7 +2308,7 @@ func (fake *FakeTransaction) SetFromBytesReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) SetFromBytesReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) SetFromBytesReturnsOnCall(i int, result1 error) {
 	fake.setFromBytesMutex.Lock()
 	defer fake.setFromBytesMutex.Unlock()
 	fake.SetFromBytesStub = nil
@@ -2322,7 +2322,7 @@ func (fake *FakeTransaction) SetFromBytesReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) SetFromEnvelopeBytes(arg1 []byte) error {
+func (fake *Transaction) SetFromEnvelopeBytes(arg1 []byte) error {
 	var arg1Copy []byte
 	if arg1 != nil {
 		arg1Copy = make([]byte, len(arg1))
@@ -2346,26 +2346,26 @@ func (fake *FakeTransaction) SetFromEnvelopeBytes(arg1 []byte) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) SetFromEnvelopeBytesCallCount() int {
+func (fake *Transaction) SetFromEnvelopeBytesCallCount() int {
 	fake.setFromEnvelopeBytesMutex.RLock()
 	defer fake.setFromEnvelopeBytesMutex.RUnlock()
 	return len(fake.setFromEnvelopeBytesArgsForCall)
 }
 
-func (fake *FakeTransaction) SetFromEnvelopeBytesCalls(stub func([]byte) error) {
+func (fake *Transaction) SetFromEnvelopeBytesCalls(stub func([]byte) error) {
 	fake.setFromEnvelopeBytesMutex.Lock()
 	defer fake.setFromEnvelopeBytesMutex.Unlock()
 	fake.SetFromEnvelopeBytesStub = stub
 }
 
-func (fake *FakeTransaction) SetFromEnvelopeBytesArgsForCall(i int) []byte {
+func (fake *Transaction) SetFromEnvelopeBytesArgsForCall(i int) []byte {
 	fake.setFromEnvelopeBytesMutex.RLock()
 	defer fake.setFromEnvelopeBytesMutex.RUnlock()
 	argsForCall := fake.setFromEnvelopeBytesArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeTransaction) SetFromEnvelopeBytesReturns(result1 error) {
+func (fake *Transaction) SetFromEnvelopeBytesReturns(result1 error) {
 	fake.setFromEnvelopeBytesMutex.Lock()
 	defer fake.setFromEnvelopeBytesMutex.Unlock()
 	fake.SetFromEnvelopeBytesStub = nil
@@ -2374,7 +2374,7 @@ func (fake *FakeTransaction) SetFromEnvelopeBytesReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) SetFromEnvelopeBytesReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) SetFromEnvelopeBytesReturnsOnCall(i int, result1 error) {
 	fake.setFromEnvelopeBytesMutex.Lock()
 	defer fake.setFromEnvelopeBytesMutex.Unlock()
 	fake.SetFromEnvelopeBytesStub = nil
@@ -2388,7 +2388,7 @@ func (fake *FakeTransaction) SetFromEnvelopeBytesReturnsOnCall(i int, result1 er
 	}{result1}
 }
 
-func (fake *FakeTransaction) SetParameterAt(arg1 int, arg2 []byte) error {
+func (fake *Transaction) SetParameterAt(arg1 int, arg2 []byte) error {
 	var arg2Copy []byte
 	if arg2 != nil {
 		arg2Copy = make([]byte, len(arg2))
@@ -2413,26 +2413,26 @@ func (fake *FakeTransaction) SetParameterAt(arg1 int, arg2 []byte) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) SetParameterAtCallCount() int {
+func (fake *Transaction) SetParameterAtCallCount() int {
 	fake.setParameterAtMutex.RLock()
 	defer fake.setParameterAtMutex.RUnlock()
 	return len(fake.setParameterAtArgsForCall)
 }
 
-func (fake *FakeTransaction) SetParameterAtCalls(stub func(int, []byte) error) {
+func (fake *Transaction) SetParameterAtCalls(stub func(int, []byte) error) {
 	fake.setParameterAtMutex.Lock()
 	defer fake.setParameterAtMutex.Unlock()
 	fake.SetParameterAtStub = stub
 }
 
-func (fake *FakeTransaction) SetParameterAtArgsForCall(i int) (int, []byte) {
+func (fake *Transaction) SetParameterAtArgsForCall(i int) (int, []byte) {
 	fake.setParameterAtMutex.RLock()
 	defer fake.setParameterAtMutex.RUnlock()
 	argsForCall := fake.setParameterAtArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeTransaction) SetParameterAtReturns(result1 error) {
+func (fake *Transaction) SetParameterAtReturns(result1 error) {
 	fake.setParameterAtMutex.Lock()
 	defer fake.setParameterAtMutex.Unlock()
 	fake.SetParameterAtStub = nil
@@ -2441,7 +2441,7 @@ func (fake *FakeTransaction) SetParameterAtReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) SetParameterAtReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) SetParameterAtReturnsOnCall(i int, result1 error) {
 	fake.setParameterAtMutex.Lock()
 	defer fake.setParameterAtMutex.Unlock()
 	fake.SetParameterAtStub = nil
@@ -2455,7 +2455,7 @@ func (fake *FakeTransaction) SetParameterAtReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) SetProposal(arg1 string, arg2 string, arg3 string, arg4 ...string) {
+func (fake *Transaction) SetProposal(arg1 string, arg2 string, arg3 string, arg4 ...string) {
 	fake.setProposalMutex.Lock()
 	fake.setProposalArgsForCall = append(fake.setProposalArgsForCall, struct {
 		arg1 string
@@ -2471,26 +2471,26 @@ func (fake *FakeTransaction) SetProposal(arg1 string, arg2 string, arg3 string, 
 	}
 }
 
-func (fake *FakeTransaction) SetProposalCallCount() int {
+func (fake *Transaction) SetProposalCallCount() int {
 	fake.setProposalMutex.RLock()
 	defer fake.setProposalMutex.RUnlock()
 	return len(fake.setProposalArgsForCall)
 }
 
-func (fake *FakeTransaction) SetProposalCalls(stub func(string, string, string, ...string)) {
+func (fake *Transaction) SetProposalCalls(stub func(string, string, string, ...string)) {
 	fake.setProposalMutex.Lock()
 	defer fake.setProposalMutex.Unlock()
 	fake.SetProposalStub = stub
 }
 
-func (fake *FakeTransaction) SetProposalArgsForCall(i int) (string, string, string, []string) {
+func (fake *Transaction) SetProposalArgsForCall(i int) (string, string, string, []string) {
 	fake.setProposalMutex.RLock()
 	defer fake.setProposalMutex.RUnlock()
 	argsForCall := fake.setProposalArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
-func (fake *FakeTransaction) SetRWSet() error {
+func (fake *Transaction) SetRWSet() error {
 	fake.setRWSetMutex.Lock()
 	ret, specificReturn := fake.setRWSetReturnsOnCall[len(fake.setRWSetArgsForCall)]
 	fake.setRWSetArgsForCall = append(fake.setRWSetArgsForCall, struct {
@@ -2508,19 +2508,19 @@ func (fake *FakeTransaction) SetRWSet() error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) SetRWSetCallCount() int {
+func (fake *Transaction) SetRWSetCallCount() int {
 	fake.setRWSetMutex.RLock()
 	defer fake.setRWSetMutex.RUnlock()
 	return len(fake.setRWSetArgsForCall)
 }
 
-func (fake *FakeTransaction) SetRWSetCalls(stub func() error) {
+func (fake *Transaction) SetRWSetCalls(stub func() error) {
 	fake.setRWSetMutex.Lock()
 	defer fake.setRWSetMutex.Unlock()
 	fake.SetRWSetStub = stub
 }
 
-func (fake *FakeTransaction) SetRWSetReturns(result1 error) {
+func (fake *Transaction) SetRWSetReturns(result1 error) {
 	fake.setRWSetMutex.Lock()
 	defer fake.setRWSetMutex.Unlock()
 	fake.SetRWSetStub = nil
@@ -2529,7 +2529,7 @@ func (fake *FakeTransaction) SetRWSetReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) SetRWSetReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) SetRWSetReturnsOnCall(i int, result1 error) {
 	fake.setRWSetMutex.Lock()
 	defer fake.setRWSetMutex.Unlock()
 	fake.SetRWSetStub = nil
@@ -2543,7 +2543,7 @@ func (fake *FakeTransaction) SetRWSetReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) SignedProposal() driver.SignedProposal {
+func (fake *Transaction) SignedProposal() driver.SignedProposal {
 	fake.signedProposalMutex.Lock()
 	ret, specificReturn := fake.signedProposalReturnsOnCall[len(fake.signedProposalArgsForCall)]
 	fake.signedProposalArgsForCall = append(fake.signedProposalArgsForCall, struct {
@@ -2561,19 +2561,19 @@ func (fake *FakeTransaction) SignedProposal() driver.SignedProposal {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) SignedProposalCallCount() int {
+func (fake *Transaction) SignedProposalCallCount() int {
 	fake.signedProposalMutex.RLock()
 	defer fake.signedProposalMutex.RUnlock()
 	return len(fake.signedProposalArgsForCall)
 }
 
-func (fake *FakeTransaction) SignedProposalCalls(stub func() driver.SignedProposal) {
+func (fake *Transaction) SignedProposalCalls(stub func() driver.SignedProposal) {
 	fake.signedProposalMutex.Lock()
 	defer fake.signedProposalMutex.Unlock()
 	fake.SignedProposalStub = stub
 }
 
-func (fake *FakeTransaction) SignedProposalReturns(result1 driver.SignedProposal) {
+func (fake *Transaction) SignedProposalReturns(result1 driver.SignedProposal) {
 	fake.signedProposalMutex.Lock()
 	defer fake.signedProposalMutex.Unlock()
 	fake.SignedProposalStub = nil
@@ -2582,7 +2582,7 @@ func (fake *FakeTransaction) SignedProposalReturns(result1 driver.SignedProposal
 	}{result1}
 }
 
-func (fake *FakeTransaction) SignedProposalReturnsOnCall(i int, result1 driver.SignedProposal) {
+func (fake *Transaction) SignedProposalReturnsOnCall(i int, result1 driver.SignedProposal) {
 	fake.signedProposalMutex.Lock()
 	defer fake.signedProposalMutex.Unlock()
 	fake.SignedProposalStub = nil
@@ -2596,7 +2596,7 @@ func (fake *FakeTransaction) SignedProposalReturnsOnCall(i int, result1 driver.S
 	}{result1}
 }
 
-func (fake *FakeTransaction) StoreTransient() error {
+func (fake *Transaction) StoreTransient() error {
 	fake.storeTransientMutex.Lock()
 	ret, specificReturn := fake.storeTransientReturnsOnCall[len(fake.storeTransientArgsForCall)]
 	fake.storeTransientArgsForCall = append(fake.storeTransientArgsForCall, struct {
@@ -2614,19 +2614,19 @@ func (fake *FakeTransaction) StoreTransient() error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) StoreTransientCallCount() int {
+func (fake *Transaction) StoreTransientCallCount() int {
 	fake.storeTransientMutex.RLock()
 	defer fake.storeTransientMutex.RUnlock()
 	return len(fake.storeTransientArgsForCall)
 }
 
-func (fake *FakeTransaction) StoreTransientCalls(stub func() error) {
+func (fake *Transaction) StoreTransientCalls(stub func() error) {
 	fake.storeTransientMutex.Lock()
 	defer fake.storeTransientMutex.Unlock()
 	fake.StoreTransientStub = stub
 }
 
-func (fake *FakeTransaction) StoreTransientReturns(result1 error) {
+func (fake *Transaction) StoreTransientReturns(result1 error) {
 	fake.storeTransientMutex.Lock()
 	defer fake.storeTransientMutex.Unlock()
 	fake.StoreTransientStub = nil
@@ -2635,7 +2635,7 @@ func (fake *FakeTransaction) StoreTransientReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) StoreTransientReturnsOnCall(i int, result1 error) {
+func (fake *Transaction) StoreTransientReturnsOnCall(i int, result1 error) {
 	fake.storeTransientMutex.Lock()
 	defer fake.storeTransientMutex.Unlock()
 	fake.StoreTransientStub = nil
@@ -2649,7 +2649,7 @@ func (fake *FakeTransaction) StoreTransientReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) Transient() driver.TransientMap {
+func (fake *Transaction) Transient() driver.TransientMap {
 	fake.transientMutex.Lock()
 	ret, specificReturn := fake.transientReturnsOnCall[len(fake.transientArgsForCall)]
 	fake.transientArgsForCall = append(fake.transientArgsForCall, struct {
@@ -2667,19 +2667,19 @@ func (fake *FakeTransaction) Transient() driver.TransientMap {
 	return fakeReturns.result1
 }
 
-func (fake *FakeTransaction) TransientCallCount() int {
+func (fake *Transaction) TransientCallCount() int {
 	fake.transientMutex.RLock()
 	defer fake.transientMutex.RUnlock()
 	return len(fake.transientArgsForCall)
 }
 
-func (fake *FakeTransaction) TransientCalls(stub func() driver.TransientMap) {
+func (fake *Transaction) TransientCalls(stub func() driver.TransientMap) {
 	fake.transientMutex.Lock()
 	defer fake.transientMutex.Unlock()
 	fake.TransientStub = stub
 }
 
-func (fake *FakeTransaction) TransientReturns(result1 driver.TransientMap) {
+func (fake *Transaction) TransientReturns(result1 driver.TransientMap) {
 	fake.transientMutex.Lock()
 	defer fake.transientMutex.Unlock()
 	fake.TransientStub = nil
@@ -2688,7 +2688,7 @@ func (fake *FakeTransaction) TransientReturns(result1 driver.TransientMap) {
 	}{result1}
 }
 
-func (fake *FakeTransaction) TransientReturnsOnCall(i int, result1 driver.TransientMap) {
+func (fake *Transaction) TransientReturnsOnCall(i int, result1 driver.TransientMap) {
 	fake.transientMutex.Lock()
 	defer fake.transientMutex.Unlock()
 	fake.TransientStub = nil
@@ -2702,7 +2702,7 @@ func (fake *FakeTransaction) TransientReturnsOnCall(i int, result1 driver.Transi
 	}{result1}
 }
 
-func (fake *FakeTransaction) Invocations() map[string][][]interface{} {
+func (fake *Transaction) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -2712,7 +2712,7 @@ func (fake *FakeTransaction) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeTransaction) recordInvocation(key string, args []interface{}) {
+func (fake *Transaction) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -2724,4 +2724,4 @@ func (fake *FakeTransaction) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.Transaction = new(FakeTransaction)
+var _ driver.Transaction = new(Transaction)

@@ -20,7 +20,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	finalitymock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality/fake"
 	viewgrpc "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -204,29 +204,29 @@ func TestFabricFinality_IsFinal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			mockConfig := &finalitymock.ConfigService{}
+			mockConfig := &fake.ConfigService{}
 			mockConfig.On("PickPeer", mock.Anything).Return(&viewgrpc.ConnectionConfig{Address: "peer1"})
 
-			mockPeerClient := &finalitymock.PeerClient{}
+			mockPeerClient := &fake.PeerClient{}
 			mockPeerClient.On("Close").Return()
 			mockPeerClient.On("Certificate").Return(tls.Certificate{})
 			mockPeerClient.On("Address").Return("peer1")
 
-			mockDeliverClient := &finalitymock.DeliverClient{}
+			mockDeliverClient := &fake.DeliverClient{}
 			mockPeerClient.On("DeliverClient").Return(mockDeliverClient, tt.deliverErr)
 
-			mockStream := &finalitymock.DeliverFilteredStream{}
+			mockStream := &fake.DeliverFilteredStream{}
 			if tt.useFiltered {
 				mockDeliverClient.On("DeliverFiltered", mock.Anything, mock.Anything).Return(mockStream, tt.streamErr)
 			} else {
 				mockDeliverClient.On("Deliver", mock.Anything, mock.Anything).Return(mockStream, tt.streamErr)
 			}
 
-			mockIdentity := &finalitymock.SigningIdentity{}
+			mockIdentity := &fake.SigningIdentity{}
 			mockIdentity.On("Serialize").Return([]byte("creator"), nil)
 			mockIdentity.On("Sign", mock.Anything).Return([]byte("signature"), tt.signErr)
 
-			mockServices := &finalitymock.Services{}
+			mockServices := &fake.Services{}
 			mockServices.On("NewPeerClient", mock.Anything).Return(mockPeerClient, tt.peerErr)
 
 			timeout := 5 * time.Second

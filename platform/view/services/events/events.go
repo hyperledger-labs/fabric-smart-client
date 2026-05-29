@@ -6,8 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package events
 
-//go:generate counterfeiter -o fakes/listener.go -fake-name Listener . Listener
-//go:generate counterfeiter -o fakes/event.go -fake-name Event . Event
+//go:generate counterfeiter -o mock/listener.go -fake-name Listener . Listener
+//go:generate counterfeiter -o mock/event.go -fake-name Event . Event
 
 type Subscriber interface {
 	Subscribe(topic string, receiver Listener)

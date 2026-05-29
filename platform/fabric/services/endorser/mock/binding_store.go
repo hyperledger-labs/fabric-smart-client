@@ -9,7 +9,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type FakeBindingStore struct {
+type BindingStore struct {
 	GetLongTermStub        func(context.Context, view.Identity) (view.Identity, error)
 	getLongTermMutex       sync.RWMutex
 	getLongTermArgsForCall []struct {
@@ -56,7 +56,7 @@ type FakeBindingStore struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeBindingStore) GetLongTerm(arg1 context.Context, arg2 view.Identity) (view.Identity, error) {
+func (fake *BindingStore) GetLongTerm(arg1 context.Context, arg2 view.Identity) (view.Identity, error) {
 	fake.getLongTermMutex.Lock()
 	ret, specificReturn := fake.getLongTermReturnsOnCall[len(fake.getLongTermArgsForCall)]
 	fake.getLongTermArgsForCall = append(fake.getLongTermArgsForCall, struct {
@@ -76,26 +76,26 @@ func (fake *FakeBindingStore) GetLongTerm(arg1 context.Context, arg2 view.Identi
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeBindingStore) GetLongTermCallCount() int {
+func (fake *BindingStore) GetLongTermCallCount() int {
 	fake.getLongTermMutex.RLock()
 	defer fake.getLongTermMutex.RUnlock()
 	return len(fake.getLongTermArgsForCall)
 }
 
-func (fake *FakeBindingStore) GetLongTermCalls(stub func(context.Context, view.Identity) (view.Identity, error)) {
+func (fake *BindingStore) GetLongTermCalls(stub func(context.Context, view.Identity) (view.Identity, error)) {
 	fake.getLongTermMutex.Lock()
 	defer fake.getLongTermMutex.Unlock()
 	fake.GetLongTermStub = stub
 }
 
-func (fake *FakeBindingStore) GetLongTermArgsForCall(i int) (context.Context, view.Identity) {
+func (fake *BindingStore) GetLongTermArgsForCall(i int) (context.Context, view.Identity) {
 	fake.getLongTermMutex.RLock()
 	defer fake.getLongTermMutex.RUnlock()
 	argsForCall := fake.getLongTermArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeBindingStore) GetLongTermReturns(result1 view.Identity, result2 error) {
+func (fake *BindingStore) GetLongTermReturns(result1 view.Identity, result2 error) {
 	fake.getLongTermMutex.Lock()
 	defer fake.getLongTermMutex.Unlock()
 	fake.GetLongTermStub = nil
@@ -105,7 +105,7 @@ func (fake *FakeBindingStore) GetLongTermReturns(result1 view.Identity, result2 
 	}{result1, result2}
 }
 
-func (fake *FakeBindingStore) GetLongTermReturnsOnCall(i int, result1 view.Identity, result2 error) {
+func (fake *BindingStore) GetLongTermReturnsOnCall(i int, result1 view.Identity, result2 error) {
 	fake.getLongTermMutex.Lock()
 	defer fake.getLongTermMutex.Unlock()
 	fake.GetLongTermStub = nil
@@ -121,7 +121,7 @@ func (fake *FakeBindingStore) GetLongTermReturnsOnCall(i int, result1 view.Ident
 	}{result1, result2}
 }
 
-func (fake *FakeBindingStore) HaveSameBinding(arg1 context.Context, arg2 view.Identity, arg3 view.Identity) (bool, error) {
+func (fake *BindingStore) HaveSameBinding(arg1 context.Context, arg2 view.Identity, arg3 view.Identity) (bool, error) {
 	fake.haveSameBindingMutex.Lock()
 	ret, specificReturn := fake.haveSameBindingReturnsOnCall[len(fake.haveSameBindingArgsForCall)]
 	fake.haveSameBindingArgsForCall = append(fake.haveSameBindingArgsForCall, struct {
@@ -142,26 +142,26 @@ func (fake *FakeBindingStore) HaveSameBinding(arg1 context.Context, arg2 view.Id
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeBindingStore) HaveSameBindingCallCount() int {
+func (fake *BindingStore) HaveSameBindingCallCount() int {
 	fake.haveSameBindingMutex.RLock()
 	defer fake.haveSameBindingMutex.RUnlock()
 	return len(fake.haveSameBindingArgsForCall)
 }
 
-func (fake *FakeBindingStore) HaveSameBindingCalls(stub func(context.Context, view.Identity, view.Identity) (bool, error)) {
+func (fake *BindingStore) HaveSameBindingCalls(stub func(context.Context, view.Identity, view.Identity) (bool, error)) {
 	fake.haveSameBindingMutex.Lock()
 	defer fake.haveSameBindingMutex.Unlock()
 	fake.HaveSameBindingStub = stub
 }
 
-func (fake *FakeBindingStore) HaveSameBindingArgsForCall(i int) (context.Context, view.Identity, view.Identity) {
+func (fake *BindingStore) HaveSameBindingArgsForCall(i int) (context.Context, view.Identity, view.Identity) {
 	fake.haveSameBindingMutex.RLock()
 	defer fake.haveSameBindingMutex.RUnlock()
 	argsForCall := fake.haveSameBindingArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeBindingStore) HaveSameBindingReturns(result1 bool, result2 error) {
+func (fake *BindingStore) HaveSameBindingReturns(result1 bool, result2 error) {
 	fake.haveSameBindingMutex.Lock()
 	defer fake.haveSameBindingMutex.Unlock()
 	fake.HaveSameBindingStub = nil
@@ -171,7 +171,7 @@ func (fake *FakeBindingStore) HaveSameBindingReturns(result1 bool, result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeBindingStore) HaveSameBindingReturnsOnCall(i int, result1 bool, result2 error) {
+func (fake *BindingStore) HaveSameBindingReturnsOnCall(i int, result1 bool, result2 error) {
 	fake.haveSameBindingMutex.Lock()
 	defer fake.haveSameBindingMutex.Unlock()
 	fake.HaveSameBindingStub = nil
@@ -187,7 +187,7 @@ func (fake *FakeBindingStore) HaveSameBindingReturnsOnCall(i int, result1 bool, 
 	}{result1, result2}
 }
 
-func (fake *FakeBindingStore) PutBindings(arg1 context.Context, arg2 view.Identity, arg3 ...view.Identity) error {
+func (fake *BindingStore) PutBindings(arg1 context.Context, arg2 view.Identity, arg3 ...view.Identity) error {
 	fake.putBindingsMutex.Lock()
 	ret, specificReturn := fake.putBindingsReturnsOnCall[len(fake.putBindingsArgsForCall)]
 	fake.putBindingsArgsForCall = append(fake.putBindingsArgsForCall, struct {
@@ -208,26 +208,26 @@ func (fake *FakeBindingStore) PutBindings(arg1 context.Context, arg2 view.Identi
 	return fakeReturns.result1
 }
 
-func (fake *FakeBindingStore) PutBindingsCallCount() int {
+func (fake *BindingStore) PutBindingsCallCount() int {
 	fake.putBindingsMutex.RLock()
 	defer fake.putBindingsMutex.RUnlock()
 	return len(fake.putBindingsArgsForCall)
 }
 
-func (fake *FakeBindingStore) PutBindingsCalls(stub func(context.Context, view.Identity, ...view.Identity) error) {
+func (fake *BindingStore) PutBindingsCalls(stub func(context.Context, view.Identity, ...view.Identity) error) {
 	fake.putBindingsMutex.Lock()
 	defer fake.putBindingsMutex.Unlock()
 	fake.PutBindingsStub = stub
 }
 
-func (fake *FakeBindingStore) PutBindingsArgsForCall(i int) (context.Context, view.Identity, []view.Identity) {
+func (fake *BindingStore) PutBindingsArgsForCall(i int) (context.Context, view.Identity, []view.Identity) {
 	fake.putBindingsMutex.RLock()
 	defer fake.putBindingsMutex.RUnlock()
 	argsForCall := fake.putBindingsArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeBindingStore) PutBindingsReturns(result1 error) {
+func (fake *BindingStore) PutBindingsReturns(result1 error) {
 	fake.putBindingsMutex.Lock()
 	defer fake.putBindingsMutex.Unlock()
 	fake.PutBindingsStub = nil
@@ -236,7 +236,7 @@ func (fake *FakeBindingStore) PutBindingsReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeBindingStore) PutBindingsReturnsOnCall(i int, result1 error) {
+func (fake *BindingStore) PutBindingsReturnsOnCall(i int, result1 error) {
 	fake.putBindingsMutex.Lock()
 	defer fake.putBindingsMutex.Unlock()
 	fake.PutBindingsStub = nil
@@ -250,7 +250,7 @@ func (fake *FakeBindingStore) PutBindingsReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeBindingStore) Invocations() map[string][][]interface{} {
+func (fake *BindingStore) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -260,7 +260,7 @@ func (fake *FakeBindingStore) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeBindingStore) recordInvocation(key string, args []interface{}) {
+func (fake *BindingStore) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -272,4 +272,4 @@ func (fake *FakeBindingStore) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.BindingStore = new(FakeBindingStore)
+var _ driver.BindingStore = new(BindingStore)

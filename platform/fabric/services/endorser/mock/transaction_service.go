@@ -8,7 +8,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-type FakeEndorserTransactionService struct {
+type EndorserTransactionService struct {
 	ExistsStub        func(context.Context, string) bool
 	existsMutex       sync.RWMutex
 	existsArgsForCall []struct {
@@ -52,7 +52,7 @@ type FakeEndorserTransactionService struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeEndorserTransactionService) Exists(arg1 context.Context, arg2 string) bool {
+func (fake *EndorserTransactionService) Exists(arg1 context.Context, arg2 string) bool {
 	fake.existsMutex.Lock()
 	ret, specificReturn := fake.existsReturnsOnCall[len(fake.existsArgsForCall)]
 	fake.existsArgsForCall = append(fake.existsArgsForCall, struct {
@@ -72,26 +72,26 @@ func (fake *FakeEndorserTransactionService) Exists(arg1 context.Context, arg2 st
 	return fakeReturns.result1
 }
 
-func (fake *FakeEndorserTransactionService) ExistsCallCount() int {
+func (fake *EndorserTransactionService) ExistsCallCount() int {
 	fake.existsMutex.RLock()
 	defer fake.existsMutex.RUnlock()
 	return len(fake.existsArgsForCall)
 }
 
-func (fake *FakeEndorserTransactionService) ExistsCalls(stub func(context.Context, string) bool) {
+func (fake *EndorserTransactionService) ExistsCalls(stub func(context.Context, string) bool) {
 	fake.existsMutex.Lock()
 	defer fake.existsMutex.Unlock()
 	fake.ExistsStub = stub
 }
 
-func (fake *FakeEndorserTransactionService) ExistsArgsForCall(i int) (context.Context, string) {
+func (fake *EndorserTransactionService) ExistsArgsForCall(i int) (context.Context, string) {
 	fake.existsMutex.RLock()
 	defer fake.existsMutex.RUnlock()
 	argsForCall := fake.existsArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeEndorserTransactionService) ExistsReturns(result1 bool) {
+func (fake *EndorserTransactionService) ExistsReturns(result1 bool) {
 	fake.existsMutex.Lock()
 	defer fake.existsMutex.Unlock()
 	fake.ExistsStub = nil
@@ -100,7 +100,7 @@ func (fake *FakeEndorserTransactionService) ExistsReturns(result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeEndorserTransactionService) ExistsReturnsOnCall(i int, result1 bool) {
+func (fake *EndorserTransactionService) ExistsReturnsOnCall(i int, result1 bool) {
 	fake.existsMutex.Lock()
 	defer fake.existsMutex.Unlock()
 	fake.ExistsStub = nil
@@ -114,7 +114,7 @@ func (fake *FakeEndorserTransactionService) ExistsReturnsOnCall(i int, result1 b
 	}{result1}
 }
 
-func (fake *FakeEndorserTransactionService) LoadTransaction(arg1 context.Context, arg2 string) ([]byte, error) {
+func (fake *EndorserTransactionService) LoadTransaction(arg1 context.Context, arg2 string) ([]byte, error) {
 	fake.loadTransactionMutex.Lock()
 	ret, specificReturn := fake.loadTransactionReturnsOnCall[len(fake.loadTransactionArgsForCall)]
 	fake.loadTransactionArgsForCall = append(fake.loadTransactionArgsForCall, struct {
@@ -134,26 +134,26 @@ func (fake *FakeEndorserTransactionService) LoadTransaction(arg1 context.Context
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeEndorserTransactionService) LoadTransactionCallCount() int {
+func (fake *EndorserTransactionService) LoadTransactionCallCount() int {
 	fake.loadTransactionMutex.RLock()
 	defer fake.loadTransactionMutex.RUnlock()
 	return len(fake.loadTransactionArgsForCall)
 }
 
-func (fake *FakeEndorserTransactionService) LoadTransactionCalls(stub func(context.Context, string) ([]byte, error)) {
+func (fake *EndorserTransactionService) LoadTransactionCalls(stub func(context.Context, string) ([]byte, error)) {
 	fake.loadTransactionMutex.Lock()
 	defer fake.loadTransactionMutex.Unlock()
 	fake.LoadTransactionStub = stub
 }
 
-func (fake *FakeEndorserTransactionService) LoadTransactionArgsForCall(i int) (context.Context, string) {
+func (fake *EndorserTransactionService) LoadTransactionArgsForCall(i int) (context.Context, string) {
 	fake.loadTransactionMutex.RLock()
 	defer fake.loadTransactionMutex.RUnlock()
 	argsForCall := fake.loadTransactionArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeEndorserTransactionService) LoadTransactionReturns(result1 []byte, result2 error) {
+func (fake *EndorserTransactionService) LoadTransactionReturns(result1 []byte, result2 error) {
 	fake.loadTransactionMutex.Lock()
 	defer fake.loadTransactionMutex.Unlock()
 	fake.LoadTransactionStub = nil
@@ -163,7 +163,7 @@ func (fake *FakeEndorserTransactionService) LoadTransactionReturns(result1 []byt
 	}{result1, result2}
 }
 
-func (fake *FakeEndorserTransactionService) LoadTransactionReturnsOnCall(i int, result1 []byte, result2 error) {
+func (fake *EndorserTransactionService) LoadTransactionReturnsOnCall(i int, result1 []byte, result2 error) {
 	fake.loadTransactionMutex.Lock()
 	defer fake.loadTransactionMutex.Unlock()
 	fake.LoadTransactionStub = nil
@@ -179,7 +179,7 @@ func (fake *FakeEndorserTransactionService) LoadTransactionReturnsOnCall(i int, 
 	}{result1, result2}
 }
 
-func (fake *FakeEndorserTransactionService) StoreTransaction(arg1 context.Context, arg2 string, arg3 []byte) error {
+func (fake *EndorserTransactionService) StoreTransaction(arg1 context.Context, arg2 string, arg3 []byte) error {
 	var arg3Copy []byte
 	if arg3 != nil {
 		arg3Copy = make([]byte, len(arg3))
@@ -205,26 +205,26 @@ func (fake *FakeEndorserTransactionService) StoreTransaction(arg1 context.Contex
 	return fakeReturns.result1
 }
 
-func (fake *FakeEndorserTransactionService) StoreTransactionCallCount() int {
+func (fake *EndorserTransactionService) StoreTransactionCallCount() int {
 	fake.storeTransactionMutex.RLock()
 	defer fake.storeTransactionMutex.RUnlock()
 	return len(fake.storeTransactionArgsForCall)
 }
 
-func (fake *FakeEndorserTransactionService) StoreTransactionCalls(stub func(context.Context, string, []byte) error) {
+func (fake *EndorserTransactionService) StoreTransactionCalls(stub func(context.Context, string, []byte) error) {
 	fake.storeTransactionMutex.Lock()
 	defer fake.storeTransactionMutex.Unlock()
 	fake.StoreTransactionStub = stub
 }
 
-func (fake *FakeEndorserTransactionService) StoreTransactionArgsForCall(i int) (context.Context, string, []byte) {
+func (fake *EndorserTransactionService) StoreTransactionArgsForCall(i int) (context.Context, string, []byte) {
 	fake.storeTransactionMutex.RLock()
 	defer fake.storeTransactionMutex.RUnlock()
 	argsForCall := fake.storeTransactionArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeEndorserTransactionService) StoreTransactionReturns(result1 error) {
+func (fake *EndorserTransactionService) StoreTransactionReturns(result1 error) {
 	fake.storeTransactionMutex.Lock()
 	defer fake.storeTransactionMutex.Unlock()
 	fake.StoreTransactionStub = nil
@@ -233,7 +233,7 @@ func (fake *FakeEndorserTransactionService) StoreTransactionReturns(result1 erro
 	}{result1}
 }
 
-func (fake *FakeEndorserTransactionService) StoreTransactionReturnsOnCall(i int, result1 error) {
+func (fake *EndorserTransactionService) StoreTransactionReturnsOnCall(i int, result1 error) {
 	fake.storeTransactionMutex.Lock()
 	defer fake.storeTransactionMutex.Unlock()
 	fake.StoreTransactionStub = nil
@@ -247,7 +247,7 @@ func (fake *FakeEndorserTransactionService) StoreTransactionReturnsOnCall(i int,
 	}{result1}
 }
 
-func (fake *FakeEndorserTransactionService) Invocations() map[string][][]interface{} {
+func (fake *EndorserTransactionService) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -257,7 +257,7 @@ func (fake *FakeEndorserTransactionService) Invocations() map[string][][]interfa
 	return copiedInvocations
 }
 
-func (fake *FakeEndorserTransactionService) recordInvocation(key string, args []interface{}) {
+func (fake *EndorserTransactionService) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -269,4 +269,4 @@ func (fake *FakeEndorserTransactionService) recordInvocation(key string, args []
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.EndorserTransactionService = new(FakeEndorserTransactionService)
+var _ driver.EndorserTransactionService = new(EndorserTransactionService)

@@ -22,8 +22,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 )
 
-//go:generate counterfeiter -o mocks/config.go -fake-name Config . config
-
 type artifactsProvider struct {
 	removeNils func([]driver2.VaultRead) []driver2.VaultRead
 }

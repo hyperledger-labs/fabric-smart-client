@@ -26,8 +26,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations/fakes"
-	server2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
-	mocks2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/mocks"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/mock"
 )
 
 var tlsCA tlsgen.CA
@@ -93,8 +93,8 @@ var _ = Describe("Server", func() {
 		tempDir string
 
 		client  *http.Client
-		options server2.Options
-		server  *server2.Server
+		options server.Options
+		srv     *server.Server
 	)
 
 	BeforeEach(func() {
@@ -105,9 +105,9 @@ var _ = Describe("Server", func() {
 		generateCertificates(tempDir)
 		client = newHTTPClient(tempDir, true)
 
-		options = server2.Options{
+		options = server.Options{
 			ListenAddress: "127.0.0.1:0",
-			TLS: server2.TLS{
+			TLS: server.TLS{
 				Enabled:           true,
 				CertFile:          filepath.Join(tempDir, "server-cert.pem"),
 				KeyFile:           filepath.Join(tempDir, "server-key.pem"),
@@ -116,26 +116,26 @@ var _ = Describe("Server", func() {
 			},
 		}
 
-		server = server2.NewServer(options)
+		srv = server.NewServer(options)
 	})
 
 	AfterEach(func() {
 		utils.IgnoreErrorWithOneArg(os.RemoveAll, tempDir)
-		if server != nil {
-			utils.IgnoreError(server.Stop())
+		if srv != nil {
+			utils.IgnoreError(srv.Stop())
 		}
 	})
 
-	When("the HttpHandler is mounted on the server", func() {
+	When("the HttpHandler is mounted on the srv", func() {
 		It("succeeds in servicing", func() {
-			handler := server2.NewHttpHandler()
-			server.RegisterHandler("/", handler, true)
-			err := server.Start()
+			handler := server.NewHttpHandler()
+			srv.RegisterHandler("/", handler, true)
+			err := srv.Start()
 			Expect(err).NotTo(HaveOccurred())
 
-			rh := &mocks2.FakeRequestHandler{}
+			rh := &mock.RequestHandler{}
 
-			rh.HandleRequestStub = func(ctx *server2.ReqContext) (interface{}, int) {
+			rh.HandleRequestStub = func(ctx *server.ReqContext) (interface{}, int) {
 				m := make(map[string]interface{})
 				m["status"] = "OK"
 				return m, 200
@@ -147,7 +147,7 @@ var _ = Describe("Server", func() {
 
 			handler.RegisterURI("/service", "GET", rh)
 
-			url := fmt.Sprintf("https://%s%s", server.Addr(), "/v1/service")
+			url := fmt.Sprintf("https://%s%s", srv.Addr(), "/v1/service")
 			resp, err := client.Get(url)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
@@ -164,10 +164,10 @@ var _ = Describe("Server", func() {
 			client = newHTTPClient(tempDir, false)
 		})
 		It("is rejected", func() {
-			err := server.Start()
+			err := srv.Start()
 			Expect(err).NotTo(HaveOccurred())
 
-			url := fmt.Sprintf("https://%s%s", server.Addr(), someURL)
+			url := fmt.Sprintf("https://%s%s", srv.Addr(), someURL)
 			resp, err := client.Get(url)
 			Expect(err).To(HaveOccurred())
 			go120message := "remote error: tls: bad certificate"
@@ -179,11 +179,11 @@ var _ = Describe("Server", func() {
 	})
 
 	It("hosts a secure endpoint for additional APIs when added", func() {
-		server.RegisterHandler(someURL, &fakes.Handler{Code: http.StatusOK, Text: "secure"}, true)
-		err := server.Start()
+		srv.RegisterHandler(someURL, &fakes.Handler{Code: http.StatusOK, Text: "secure"}, true)
+		err := srv.Start()
 		Expect(err).NotTo(HaveOccurred())
 
-		addApiURL := fmt.Sprintf("https://%s%s", server.Addr(), someURL)
+		addApiURL := fmt.Sprintf("https://%s%s", srv.Addr(), someURL)
 		resp, err := client.Get(addApiURL)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
@@ -198,17 +198,17 @@ var _ = Describe("Server", func() {
 		BeforeEach(func() {
 			options.TLS.ClientAuth = false
 			options.TLS.ClientCACertFiles = []string{} // No client CA files
-			server = server2.NewServer(options)
+			srv = server.NewServer(options)
 			client = newHTTPClient(tempDir, false) // Client without cert
 		})
 
 		It("starts successfully and accepts connections without client certificates", func() {
-			handler := server2.NewHttpHandler()
-			server.RegisterHandler("/", handler, false)
-			err := server.Start()
+			handler := server.NewHttpHandler()
+			srv.RegisterHandler("/", handler, false)
+			err := srv.Start()
 			Expect(err).NotTo(HaveOccurred())
 
-			url := fmt.Sprintf("https://%s%s", server.Addr(), someURL)
+			url := fmt.Sprintf("https://%s%s", srv.Addr(), someURL)
 			resp, err := client.Get(url)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound)) // No handler registered for someURL
@@ -219,14 +219,14 @@ var _ = Describe("Server", func() {
 	Context("when TLS is disabled", func() {
 		BeforeEach(func() {
 			options.TLS.Enabled = false
-			server = server2.NewServer(options)
+			srv = server.NewServer(options)
 		})
 
 		It("does not host an insecure endpoint for additional APIs by default", func() {
-			err := server.Start()
+			err := srv.Start()
 			Expect(err).NotTo(HaveOccurred())
 
-			addApiURL := fmt.Sprintf("http://%s%s", server.Addr(), someURL)
+			addApiURL := fmt.Sprintf("http://%s%s", srv.Addr(), someURL)
 			resp, err := client.Get(addApiURL)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
@@ -243,7 +243,7 @@ var _ = Describe("Server", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			options.ListenAddress = listener.Addr().String()
-			server = server2.NewServer(options)
+			srv = server.NewServer(options)
 		})
 
 		AfterEach(func() {
@@ -251,7 +251,7 @@ var _ = Describe("Server", func() {
 		})
 
 		It("returns an error", func() {
-			err := server.Start()
+			err := srv.Start()
 			Expect(err).To(MatchError(ContainSubstring("bind: address already in use")))
 		})
 	})
@@ -259,17 +259,17 @@ var _ = Describe("Server", func() {
 	Context("when a bad TLS configuration is provided", func() {
 		BeforeEach(func() {
 			options.TLS.CertFile = "cert-file-does-not-exist"
-			server = server2.NewServer(options)
+			srv = server.NewServer(options)
 		})
 
 		It("returns an error", func() {
-			err := server.Start()
+			err := srv.Start()
 			Expect(err).To(MatchError("open cert-file-does-not-exist: no such file or directory"))
 		})
 	})
 
 	It("supports ifrit", func() {
-		process := ifrit.Invoke(server)
+		process := ifrit.Invoke(srv)
 		Eventually(process.Ready()).Should(BeClosed())
 
 		process.Signal(syscall.SIGTERM)
@@ -279,11 +279,11 @@ var _ = Describe("Server", func() {
 	Context("when start fails and ifrit is used", func() {
 		BeforeEach(func() {
 			options.TLS.CertFile = "non-existent-file"
-			server = server2.NewServer(options)
+			srv = server.NewServer(options)
 		})
 
 		It("does not close the ready chan", func() {
-			process := ifrit.Invoke(server)
+			process := ifrit.Invoke(srv)
 			Consistently(process.Ready()).ShouldNot(BeClosed())
 			Eventually(process.Wait()).Should(Receive(MatchError("open non-existent-file: no such file or directory")))
 		})

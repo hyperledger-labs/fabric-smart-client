@@ -8,7 +8,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type FakeSession struct {
+type Session struct {
 	CloseStub        func()
 	closeMutex       sync.RWMutex
 	closeArgsForCall []struct {
@@ -83,7 +83,7 @@ type FakeSession struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeSession) Close() {
+func (fake *Session) Close() {
 	fake.closeMutex.Lock()
 	fake.closeArgsForCall = append(fake.closeArgsForCall, struct {
 	}{})
@@ -95,19 +95,19 @@ func (fake *FakeSession) Close() {
 	}
 }
 
-func (fake *FakeSession) CloseCallCount() int {
+func (fake *Session) CloseCallCount() int {
 	fake.closeMutex.RLock()
 	defer fake.closeMutex.RUnlock()
 	return len(fake.closeArgsForCall)
 }
 
-func (fake *FakeSession) CloseCalls(stub func()) {
+func (fake *Session) CloseCalls(stub func()) {
 	fake.closeMutex.Lock()
 	defer fake.closeMutex.Unlock()
 	fake.CloseStub = stub
 }
 
-func (fake *FakeSession) Info() view.SessionInfo {
+func (fake *Session) Info() view.SessionInfo {
 	fake.infoMutex.Lock()
 	ret, specificReturn := fake.infoReturnsOnCall[len(fake.infoArgsForCall)]
 	fake.infoArgsForCall = append(fake.infoArgsForCall, struct {
@@ -125,19 +125,19 @@ func (fake *FakeSession) Info() view.SessionInfo {
 	return fakeReturns.result1
 }
 
-func (fake *FakeSession) InfoCallCount() int {
+func (fake *Session) InfoCallCount() int {
 	fake.infoMutex.RLock()
 	defer fake.infoMutex.RUnlock()
 	return len(fake.infoArgsForCall)
 }
 
-func (fake *FakeSession) InfoCalls(stub func() view.SessionInfo) {
+func (fake *Session) InfoCalls(stub func() view.SessionInfo) {
 	fake.infoMutex.Lock()
 	defer fake.infoMutex.Unlock()
 	fake.InfoStub = stub
 }
 
-func (fake *FakeSession) InfoReturns(result1 view.SessionInfo) {
+func (fake *Session) InfoReturns(result1 view.SessionInfo) {
 	fake.infoMutex.Lock()
 	defer fake.infoMutex.Unlock()
 	fake.InfoStub = nil
@@ -146,7 +146,7 @@ func (fake *FakeSession) InfoReturns(result1 view.SessionInfo) {
 	}{result1}
 }
 
-func (fake *FakeSession) InfoReturnsOnCall(i int, result1 view.SessionInfo) {
+func (fake *Session) InfoReturnsOnCall(i int, result1 view.SessionInfo) {
 	fake.infoMutex.Lock()
 	defer fake.infoMutex.Unlock()
 	fake.InfoStub = nil
@@ -160,7 +160,7 @@ func (fake *FakeSession) InfoReturnsOnCall(i int, result1 view.SessionInfo) {
 	}{result1}
 }
 
-func (fake *FakeSession) Receive() <-chan *view.Message {
+func (fake *Session) Receive() <-chan *view.Message {
 	fake.receiveMutex.Lock()
 	ret, specificReturn := fake.receiveReturnsOnCall[len(fake.receiveArgsForCall)]
 	fake.receiveArgsForCall = append(fake.receiveArgsForCall, struct {
@@ -178,19 +178,19 @@ func (fake *FakeSession) Receive() <-chan *view.Message {
 	return fakeReturns.result1
 }
 
-func (fake *FakeSession) ReceiveCallCount() int {
+func (fake *Session) ReceiveCallCount() int {
 	fake.receiveMutex.RLock()
 	defer fake.receiveMutex.RUnlock()
 	return len(fake.receiveArgsForCall)
 }
 
-func (fake *FakeSession) ReceiveCalls(stub func() <-chan *view.Message) {
+func (fake *Session) ReceiveCalls(stub func() <-chan *view.Message) {
 	fake.receiveMutex.Lock()
 	defer fake.receiveMutex.Unlock()
 	fake.ReceiveStub = stub
 }
 
-func (fake *FakeSession) ReceiveReturns(result1 <-chan *view.Message) {
+func (fake *Session) ReceiveReturns(result1 <-chan *view.Message) {
 	fake.receiveMutex.Lock()
 	defer fake.receiveMutex.Unlock()
 	fake.ReceiveStub = nil
@@ -199,7 +199,7 @@ func (fake *FakeSession) ReceiveReturns(result1 <-chan *view.Message) {
 	}{result1}
 }
 
-func (fake *FakeSession) ReceiveReturnsOnCall(i int, result1 <-chan *view.Message) {
+func (fake *Session) ReceiveReturnsOnCall(i int, result1 <-chan *view.Message) {
 	fake.receiveMutex.Lock()
 	defer fake.receiveMutex.Unlock()
 	fake.ReceiveStub = nil
@@ -213,7 +213,7 @@ func (fake *FakeSession) ReceiveReturnsOnCall(i int, result1 <-chan *view.Messag
 	}{result1}
 }
 
-func (fake *FakeSession) Send(arg1 []byte) error {
+func (fake *Session) Send(arg1 []byte) error {
 	var arg1Copy []byte
 	if arg1 != nil {
 		arg1Copy = make([]byte, len(arg1))
@@ -237,26 +237,26 @@ func (fake *FakeSession) Send(arg1 []byte) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeSession) SendCallCount() int {
+func (fake *Session) SendCallCount() int {
 	fake.sendMutex.RLock()
 	defer fake.sendMutex.RUnlock()
 	return len(fake.sendArgsForCall)
 }
 
-func (fake *FakeSession) SendCalls(stub func([]byte) error) {
+func (fake *Session) SendCalls(stub func([]byte) error) {
 	fake.sendMutex.Lock()
 	defer fake.sendMutex.Unlock()
 	fake.SendStub = stub
 }
 
-func (fake *FakeSession) SendArgsForCall(i int) []byte {
+func (fake *Session) SendArgsForCall(i int) []byte {
 	fake.sendMutex.RLock()
 	defer fake.sendMutex.RUnlock()
 	argsForCall := fake.sendArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeSession) SendReturns(result1 error) {
+func (fake *Session) SendReturns(result1 error) {
 	fake.sendMutex.Lock()
 	defer fake.sendMutex.Unlock()
 	fake.SendStub = nil
@@ -265,7 +265,7 @@ func (fake *FakeSession) SendReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeSession) SendReturnsOnCall(i int, result1 error) {
+func (fake *Session) SendReturnsOnCall(i int, result1 error) {
 	fake.sendMutex.Lock()
 	defer fake.sendMutex.Unlock()
 	fake.SendStub = nil
@@ -279,7 +279,7 @@ func (fake *FakeSession) SendReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeSession) SendError(arg1 []byte) error {
+func (fake *Session) SendError(arg1 []byte) error {
 	var arg1Copy []byte
 	if arg1 != nil {
 		arg1Copy = make([]byte, len(arg1))
@@ -303,26 +303,26 @@ func (fake *FakeSession) SendError(arg1 []byte) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeSession) SendErrorCallCount() int {
+func (fake *Session) SendErrorCallCount() int {
 	fake.sendErrorMutex.RLock()
 	defer fake.sendErrorMutex.RUnlock()
 	return len(fake.sendErrorArgsForCall)
 }
 
-func (fake *FakeSession) SendErrorCalls(stub func([]byte) error) {
+func (fake *Session) SendErrorCalls(stub func([]byte) error) {
 	fake.sendErrorMutex.Lock()
 	defer fake.sendErrorMutex.Unlock()
 	fake.SendErrorStub = stub
 }
 
-func (fake *FakeSession) SendErrorArgsForCall(i int) []byte {
+func (fake *Session) SendErrorArgsForCall(i int) []byte {
 	fake.sendErrorMutex.RLock()
 	defer fake.sendErrorMutex.RUnlock()
 	argsForCall := fake.sendErrorArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeSession) SendErrorReturns(result1 error) {
+func (fake *Session) SendErrorReturns(result1 error) {
 	fake.sendErrorMutex.Lock()
 	defer fake.sendErrorMutex.Unlock()
 	fake.SendErrorStub = nil
@@ -331,7 +331,7 @@ func (fake *FakeSession) SendErrorReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeSession) SendErrorReturnsOnCall(i int, result1 error) {
+func (fake *Session) SendErrorReturnsOnCall(i int, result1 error) {
 	fake.sendErrorMutex.Lock()
 	defer fake.sendErrorMutex.Unlock()
 	fake.SendErrorStub = nil
@@ -345,7 +345,7 @@ func (fake *FakeSession) SendErrorReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeSession) SendErrorWithContext(arg1 context.Context, arg2 []byte) error {
+func (fake *Session) SendErrorWithContext(arg1 context.Context, arg2 []byte) error {
 	var arg2Copy []byte
 	if arg2 != nil {
 		arg2Copy = make([]byte, len(arg2))
@@ -370,26 +370,26 @@ func (fake *FakeSession) SendErrorWithContext(arg1 context.Context, arg2 []byte)
 	return fakeReturns.result1
 }
 
-func (fake *FakeSession) SendErrorWithContextCallCount() int {
+func (fake *Session) SendErrorWithContextCallCount() int {
 	fake.sendErrorWithContextMutex.RLock()
 	defer fake.sendErrorWithContextMutex.RUnlock()
 	return len(fake.sendErrorWithContextArgsForCall)
 }
 
-func (fake *FakeSession) SendErrorWithContextCalls(stub func(context.Context, []byte) error) {
+func (fake *Session) SendErrorWithContextCalls(stub func(context.Context, []byte) error) {
 	fake.sendErrorWithContextMutex.Lock()
 	defer fake.sendErrorWithContextMutex.Unlock()
 	fake.SendErrorWithContextStub = stub
 }
 
-func (fake *FakeSession) SendErrorWithContextArgsForCall(i int) (context.Context, []byte) {
+func (fake *Session) SendErrorWithContextArgsForCall(i int) (context.Context, []byte) {
 	fake.sendErrorWithContextMutex.RLock()
 	defer fake.sendErrorWithContextMutex.RUnlock()
 	argsForCall := fake.sendErrorWithContextArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeSession) SendErrorWithContextReturns(result1 error) {
+func (fake *Session) SendErrorWithContextReturns(result1 error) {
 	fake.sendErrorWithContextMutex.Lock()
 	defer fake.sendErrorWithContextMutex.Unlock()
 	fake.SendErrorWithContextStub = nil
@@ -398,7 +398,7 @@ func (fake *FakeSession) SendErrorWithContextReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeSession) SendErrorWithContextReturnsOnCall(i int, result1 error) {
+func (fake *Session) SendErrorWithContextReturnsOnCall(i int, result1 error) {
 	fake.sendErrorWithContextMutex.Lock()
 	defer fake.sendErrorWithContextMutex.Unlock()
 	fake.SendErrorWithContextStub = nil
@@ -412,7 +412,7 @@ func (fake *FakeSession) SendErrorWithContextReturnsOnCall(i int, result1 error)
 	}{result1}
 }
 
-func (fake *FakeSession) SendWithContext(arg1 context.Context, arg2 []byte) error {
+func (fake *Session) SendWithContext(arg1 context.Context, arg2 []byte) error {
 	var arg2Copy []byte
 	if arg2 != nil {
 		arg2Copy = make([]byte, len(arg2))
@@ -437,26 +437,26 @@ func (fake *FakeSession) SendWithContext(arg1 context.Context, arg2 []byte) erro
 	return fakeReturns.result1
 }
 
-func (fake *FakeSession) SendWithContextCallCount() int {
+func (fake *Session) SendWithContextCallCount() int {
 	fake.sendWithContextMutex.RLock()
 	defer fake.sendWithContextMutex.RUnlock()
 	return len(fake.sendWithContextArgsForCall)
 }
 
-func (fake *FakeSession) SendWithContextCalls(stub func(context.Context, []byte) error) {
+func (fake *Session) SendWithContextCalls(stub func(context.Context, []byte) error) {
 	fake.sendWithContextMutex.Lock()
 	defer fake.sendWithContextMutex.Unlock()
 	fake.SendWithContextStub = stub
 }
 
-func (fake *FakeSession) SendWithContextArgsForCall(i int) (context.Context, []byte) {
+func (fake *Session) SendWithContextArgsForCall(i int) (context.Context, []byte) {
 	fake.sendWithContextMutex.RLock()
 	defer fake.sendWithContextMutex.RUnlock()
 	argsForCall := fake.sendWithContextArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeSession) SendWithContextReturns(result1 error) {
+func (fake *Session) SendWithContextReturns(result1 error) {
 	fake.sendWithContextMutex.Lock()
 	defer fake.sendWithContextMutex.Unlock()
 	fake.SendWithContextStub = nil
@@ -465,7 +465,7 @@ func (fake *FakeSession) SendWithContextReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeSession) SendWithContextReturnsOnCall(i int, result1 error) {
+func (fake *Session) SendWithContextReturnsOnCall(i int, result1 error) {
 	fake.sendWithContextMutex.Lock()
 	defer fake.sendWithContextMutex.Unlock()
 	fake.SendWithContextStub = nil
@@ -479,7 +479,7 @@ func (fake *FakeSession) SendWithContextReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeSession) Invocations() map[string][][]interface{} {
+func (fake *Session) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -489,7 +489,7 @@ func (fake *FakeSession) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeSession) recordInvocation(key string, args []interface{}) {
+func (fake *Session) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -501,4 +501,4 @@ func (fake *FakeSession) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ view.Session = new(FakeSession)
+var _ view.Session = new(Session)

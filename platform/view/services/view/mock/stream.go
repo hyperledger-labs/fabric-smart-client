@@ -30,7 +30,7 @@ type Stream struct {
 	sendReturnsOnCall map[int]struct {
 		result1 error
 	}
-	invocations      map[string][][]any
+	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
@@ -42,7 +42,7 @@ func (fake *Stream) Recv(arg1 any) error {
 	}{arg1})
 	stub := fake.RecvStub
 	fakeReturns := fake.recvReturns
-	fake.recordInvocation("Recv", []any{arg1})
+	fake.recordInvocation("Recv", []interface{}{arg1})
 	fake.recvMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -103,7 +103,7 @@ func (fake *Stream) Send(arg1 any) error {
 	}{arg1})
 	stub := fake.SendStub
 	fakeReturns := fake.sendReturns
-	fake.recordInvocation("Send", []any{arg1})
+	fake.recordInvocation("Send", []interface{}{arg1})
 	fake.sendMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -156,24 +156,24 @@ func (fake *Stream) SendReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Stream) Invocations() map[string][][]any {
+func (fake *Stream) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	copiedInvocations := map[string][][]any{}
+	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *Stream) recordInvocation(key string, args []any) {
+func (fake *Stream) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]any{}
+		fake.invocations = map[string][][]interface{}{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]any{}
+		fake.invocations[key] = [][]interface{}{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

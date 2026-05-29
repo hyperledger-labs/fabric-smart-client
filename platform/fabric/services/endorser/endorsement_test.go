@@ -24,40 +24,40 @@ import (
 
 func TestCollectEndorsementsView(t *testing.T) {
 	t.Parallel()
-	fakeCtx := &mock.FakeContext{}
-	fakeSP := &mock.FakeProvider{}
+	fakeCtx := &mock.Context{}
+	fakeSP := &mock.Provider{}
 	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
 		return fakeSP.GetService(v)
 	})
 
-	fakeTx := &mock.FakeTransaction{}
+	fakeTx := &mock.Transaction{}
 	fakeTx.ChannelReturns("ch1")
 	fakeTx.NetworkReturns("net1")
 
-	fakeRWS := &mock.FakeRWSet{}
+	fakeRWS := &mock.RWSet{}
 	fakeRWS.BytesReturns([]byte("results"), nil)
 	fakeTx.GetRWSetReturns(fakeRWS, nil)
 	fakeTx.BytesReturns([]byte("bytes"), nil)
 	fakeTx.BytesNoTransientReturns([]byte("bytes-no-transient"), nil)
 	fakeTx.ResultsReturns([]byte("results"), nil)
 
-	fakeFNS := &mock.FakeFabricNetworkService{}
+	fakeFNS := &mock.FabricNetworkService{}
 	fakeFNS.NameReturns("net1")
-	fakeCH := &mock.FakeChannel{}
+	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
 	fakeFNS.ChannelReturns(fakeCH, nil)
 
-	fakeCM := &mock.FakeChannelMembership{}
+	fakeCM := &mock.ChannelMembership{}
 	fakeCH.ChannelMembershipReturns(fakeCM)
 
-	fakeTM := &mock.FakeTransactionManager{}
+	fakeTM := &mock.TransactionManager{}
 	fakeFNS.TransactionManagerReturns(fakeTM)
 
-	fakeFNSP := &mock.FakeFabricNetworkServiceProvider{}
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
 
-	fakeBindingStore := &mock.FakeBindingStore{}
+	fakeBindingStore := &mock.BindingStore{}
 	endpointService, _ := endpoint.NewService(fakeBindingStore)
 
 	networkServiceProviderType := reflect.TypeOf((*fabric.NetworkServiceProvider)(nil))
@@ -91,18 +91,18 @@ func TestCollectEndorsementsView(t *testing.T) {
 	ev = NewCollectApprovesView(et, []byte("bob"))
 
 	// Mock session and message
-	fakeSession := &mock.FakeSession{}
+	fakeSession := &mock.Session{}
 	fakeCtx.GetSessionReturns(fakeSession, nil)
 	msgCh := make(chan *view.Message, 1)
 	fakeSession.ReceiveReturns(msgCh)
 
-	resp := &mock.FakeProposalResponse{}
+	resp := &mock.ProposalResponse{}
 	resp.EndorserReturns([]byte("bob"))
 	resp.ResultsReturns([]byte("results"))
 	fakeTM.NewProposalResponseFromBytesReturns(resp, nil)
 
 	// Mock verification
-	fakeVerifier := &mock.FakeVerifier{}
+	fakeVerifier := &mock.Verifier{}
 	fakeCM.GetVerifierReturns(fakeVerifier, nil)
 
 	payload, _ := json.Marshal([][]byte{[]byte("resp1")})
@@ -127,40 +127,40 @@ func TestCollectEndorsementsView(t *testing.T) {
 
 func TestEndorseView(t *testing.T) {
 	t.Parallel()
-	fakeCtx := &mock.FakeContext{}
-	fakeSP := &mock.FakeProvider{}
+	fakeCtx := &mock.Context{}
+	fakeSP := &mock.Provider{}
 	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
 		return fakeSP.GetService(v)
 	})
 
-	fakeTx := &mock.FakeTransaction{}
+	fakeTx := &mock.Transaction{}
 	fakeTx.NetworkReturns("net1")
 	fakeTx.ChannelReturns("ch1")
 	fakeTx.IDReturns("tx1")
 	fakeTx.BytesReturns([]byte("txraw"), nil)
 	fakeTx.ProposalResponseReturns([]byte("pr"), nil)
 
-	fakeFNS := &mock.FakeFabricNetworkService{}
+	fakeFNS := &mock.FabricNetworkService{}
 	fakeFNS.NameReturns("net1")
-	fakeCH := &mock.FakeChannel{}
+	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
 	fakeFNS.ChannelReturns(fakeCH, nil)
 
-	fakeVault := &mock.FakeVault{}
+	fakeVault := &mock.Vault{}
 	fakeCH.VaultReturns(fakeVault)
 
-	fakeTS := &mock.FakeEndorserTransactionService{}
+	fakeTS := &mock.EndorserTransactionService{}
 	fakeCH.TransactionServiceReturns(fakeTS)
 
-	fakeLM := &mock.FakeLocalMembership{}
+	fakeLM := &mock.LocalMembership{}
 	fakeLM.DefaultIdentityReturns([]byte("alice"))
 	fakeFNS.LocalMembershipReturns(fakeLM)
 
-	fakeIP := &mock.FakeIdentityProvider{}
+	fakeIP := &mock.IdentityProvider{}
 	fakeIP.IdentityReturns([]byte("alice"), nil)
 	fakeFNS.IdentityProviderReturns(fakeIP)
 
-	fakeFNSP := &mock.FakeFabricNetworkServiceProvider{}
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
 
@@ -180,7 +180,7 @@ func TestEndorseView(t *testing.T) {
 
 	ev := NewEndorseView(et)
 
-	fakeSession := &mock.FakeSession{}
+	fakeSession := &mock.Session{}
 	fakeCtx.SessionReturns(fakeSession)
 
 	_, err := ev.Call(fakeCtx)
@@ -201,35 +201,35 @@ func TestEndorseView(t *testing.T) {
 
 func TestAcceptView(t *testing.T) {
 	t.Parallel()
-	fakeCtx := &mock.FakeContext{}
-	fakeSP := &mock.FakeProvider{}
+	fakeCtx := &mock.Context{}
+	fakeSP := &mock.Provider{}
 	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
 		return fakeSP.GetService(v)
 	})
 
-	fakeTx := &mock.FakeTransaction{}
+	fakeTx := &mock.Transaction{}
 	fakeTx.NetworkReturns("net1")
 	fakeTx.ChannelReturns("ch1")
 	fakeTx.IDReturns("tx1")
 	fakeTx.BytesReturns([]byte("txraw"), nil)
 	fakeTx.ProposalResponseReturns([]byte("pr"), nil)
 
-	fakeFNS := &mock.FakeFabricNetworkService{}
+	fakeFNS := &mock.FabricNetworkService{}
 	fakeFNS.NameReturns("net1")
-	fakeCH := &mock.FakeChannel{}
+	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
 	fakeFNS.ChannelReturns(fakeCH, nil)
 
-	fakeVault := &mock.FakeVault{}
+	fakeVault := &mock.Vault{}
 	fakeCH.VaultReturns(fakeVault)
-	fakeTS := &mock.FakeEndorserTransactionService{}
+	fakeTS := &mock.EndorserTransactionService{}
 	fakeCH.TransactionServiceReturns(fakeTS)
 
-	fakeIP := &mock.FakeIdentityProvider{}
+	fakeIP := &mock.IdentityProvider{}
 	fakeIP.IdentityReturns([]byte("alice"), nil)
 	fakeFNS.IdentityProviderReturns(fakeIP)
 
-	fakeFNSP := &mock.FakeFabricNetworkServiceProvider{}
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
 
@@ -247,7 +247,7 @@ func TestAcceptView(t *testing.T) {
 		Transaction: ft,
 	}
 
-	fakeSession := &mock.FakeSession{}
+	fakeSession := &mock.Session{}
 	fakeCtx.SessionReturns(fakeSession)
 
 	ev := NewAcceptView(et, []byte("alice"))
@@ -257,23 +257,23 @@ func TestAcceptView(t *testing.T) {
 
 func TestFinalityView(t *testing.T) {
 	t.Parallel()
-	fakeCtx := &mock.FakeContext{}
+	fakeCtx := &mock.Context{}
 	fakeCtx.ContextReturns(context.Background())
-	fakeSP := &mock.FakeProvider{}
+	fakeSP := &mock.Provider{}
 	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
 		return fakeSP.GetService(v)
 	})
 
-	fakeFNS := &mock.FakeFabricNetworkService{}
+	fakeFNS := &mock.FabricNetworkService{}
 	fakeFNS.NameReturns("net1")
-	fakeCH := &mock.FakeChannel{}
+	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
 	fakeFNS.ChannelReturns(fakeCH, nil)
 
-	fakeFinality := &mock.FakeFinality{}
+	fakeFinality := &mock.Finality{}
 	fakeCH.FinalityReturns(fakeFinality)
 
-	fakeFNSP := &mock.FakeFabricNetworkServiceProvider{}
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
 
@@ -285,7 +285,7 @@ func TestFinalityView(t *testing.T) {
 		return nil, nil
 	})
 
-	fakeTx := &mock.FakeTransaction{}
+	fakeTx := &mock.Transaction{}
 	fakeTx.IDReturns("tx1")
 	fakeTx.NetworkReturns("net1")
 	fakeTx.ChannelReturns("ch1")
@@ -339,23 +339,23 @@ func TestFinalityView(t *testing.T) {
 
 func TestOrderingView(t *testing.T) {
 	t.Parallel()
-	fakeCtx := &mock.FakeContext{}
+	fakeCtx := &mock.Context{}
 	fakeCtx.ContextReturns(context.Background())
-	fakeSP := &mock.FakeProvider{}
+	fakeSP := &mock.Provider{}
 	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
 		return fakeSP.GetService(v)
 	})
 
-	fakeFNS := &mock.FakeFabricNetworkService{}
+	fakeFNS := &mock.FabricNetworkService{}
 	fakeFNS.NameReturns("net1")
-	fakeCH := &mock.FakeChannel{}
+	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
 	fakeFNS.ChannelReturns(fakeCH, nil)
 
-	fakeOrdering := &mock.FakeOrdering{}
+	fakeOrdering := &mock.Ordering{}
 	fakeFNS.OrderingServiceReturns(fakeOrdering)
 
-	fakeFNSP := &mock.FakeFabricNetworkServiceProvider{}
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
 
@@ -367,7 +367,7 @@ func TestOrderingView(t *testing.T) {
 		return nil, nil
 	})
 
-	fakeTx := &mock.FakeTransaction{}
+	fakeTx := &mock.Transaction{}
 	fakeTx.NetworkReturns("net1")
 	fakeTx.ChannelReturns("ch1")
 
@@ -383,7 +383,7 @@ func TestOrderingView(t *testing.T) {
 	require.Equal(t, 1, fakeOrdering.BroadcastCallCount())
 
 	// With Finality
-	fakeFinality := &mock.FakeFinality{}
+	fakeFinality := &mock.Finality{}
 	fakeCH.FinalityReturns(fakeFinality)
 	fakeCtx.RunViewReturns(nil, nil)
 
@@ -432,8 +432,8 @@ func TestNamespaces(t *testing.T) {
 
 func TestReceiveView(t *testing.T) {
 	t.Parallel()
-	fakeCtx := &mock.FakeContext{}
-	fakeSession := &mock.FakeSession{}
+	fakeCtx := &mock.Context{}
+	fakeSession := &mock.Session{}
 	fakeCtx.SessionReturns(fakeSession)
 
 	msgCh := make(chan *view.Message, 1)
@@ -453,7 +453,7 @@ func TestReceiveView(t *testing.T) {
 
 func TestReceiveTransactionView(t *testing.T) {
 	t.Parallel()
-	fakeCtx := &mock.FakeContext{}
+	fakeCtx := &mock.Context{}
 	rv := &receiveTransactionView{}
 
 	// Case 1: RunView fails
@@ -463,21 +463,21 @@ func TestReceiveTransactionView(t *testing.T) {
 
 	// Case 2: NewTransactionFromBytes fails
 	fakeCtx.RunViewReturns([]byte("invalid"), nil)
-	fakeSP := &mock.FakeProvider{}
+	fakeSP := &mock.Provider{}
 	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
 		return fakeSP.GetService(v)
 	})
-	fakeFNSP := &mock.FakeFabricNetworkServiceProvider{}
-	fakeFNS := &mock.FakeFabricNetworkService{}
-	fakeCH := &mock.FakeChannel{}
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
+	fakeFNS := &mock.FabricNetworkService{}
+	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
 	fakeFNS.ChannelReturns(fakeCH, nil)
-	fakeTM := &mock.FakeTransactionManager{}
+	fakeTM := &mock.TransactionManager{}
 	fakeFNS.TransactionManagerReturns(fakeTM)
-	fakeLM := &mock.FakeLocalMembership{}
+	fakeLM := &mock.LocalMembership{}
 	fakeLM.DefaultIdentityReturns([]byte("alice"))
 	fakeFNS.LocalMembershipReturns(fakeLM)
-	fakeIP := &mock.FakeIdentityProvider{}
+	fakeIP := &mock.IdentityProvider{}
 	fakeFNS.IdentityProviderReturns(fakeIP)
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
@@ -495,15 +495,15 @@ func TestReceiveTransactionView(t *testing.T) {
 
 func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
 	t.Parallel()
-	fakeCtx := &mock.FakeContext{}
+	fakeCtx := &mock.Context{}
 	fakeCtx.ContextReturns(context.Background())
-	fakeSP := &mock.FakeProvider{}
+	fakeSP := &mock.Provider{}
 	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
 		return fakeSP.GetService(v)
 	})
 
-	fakeFNSP := &mock.FakeFabricNetworkServiceProvider{}
-	fakeFNS := &mock.FakeFabricNetworkService{}
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
+	fakeFNS := &mock.FabricNetworkService{}
 	fakeFNS.NameReturns("net1")
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
@@ -515,10 +515,10 @@ func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
 		return nil, nil
 	})
 
-	fakeTM := &mock.FakeTransactionManager{}
+	fakeTM := &mock.TransactionManager{}
 	fakeFNS.TransactionManagerReturns(fakeTM)
 
-	fakeTx := &mock.FakeTransaction{}
+	fakeTx := &mock.Transaction{}
 	fakeTx.NetworkReturns("net1")
 	fakeTx.BytesReturns([]byte("raw"), nil)
 	fakeTx.IDReturns("tx1")
@@ -530,7 +530,7 @@ func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
 	v := NewParallelCollectEndorsementsOnProposalView(ft, []byte("bob"))
 	v.WithTimeout(1 * time.Second)
 
-	fakeSession := &mock.FakeSession{}
+	fakeSession := &mock.Session{}
 	fakeCtx.GetSessionReturns(fakeSession, nil)
 	fakeCtx.InitiatorReturns(&fakeView{})
 
@@ -542,7 +542,7 @@ func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
 	msgCh <- &view.Message{Payload: respPayload}
 	fakeSession.ReceiveReturns(msgCh)
 
-	fakeResp := &mock.FakeProposalResponse{}
+	fakeResp := &mock.ProposalResponse{}
 	fakeTM.NewProposalResponseFromBytesReturns(fakeResp, nil)
 
 	_, err := v.Call(fakeCtx)
@@ -571,15 +571,15 @@ func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
 
 func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
 	t.Parallel()
-	fakeCtx := &mock.FakeContext{}
+	fakeCtx := &mock.Context{}
 	fakeCtx.ContextReturns(context.Background())
-	fakeSP := &mock.FakeProvider{}
+	fakeSP := &mock.Provider{}
 	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
 		return fakeSP.GetService(v)
 	})
 
-	fakeFNSP := &mock.FakeFabricNetworkServiceProvider{}
-	fakeFNS := &mock.FakeFabricNetworkService{}
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
+	fakeFNS := &mock.FabricNetworkService{}
 	fakeFNS.NameReturns("net1")
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
@@ -591,18 +591,18 @@ func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
 		return nil, nil
 	})
 
-	fakeLM := &mock.FakeLocalMembership{}
+	fakeLM := &mock.LocalMembership{}
 	fakeLM.DefaultIdentityReturns([]byte("alice"))
 	fakeFNS.LocalMembershipReturns(fakeLM)
-	fakeIP := &mock.FakeIdentityProvider{}
+	fakeIP := &mock.IdentityProvider{}
 	fakeFNS.IdentityProviderReturns(fakeIP)
-	fakeTM := &mock.FakeTransactionManager{}
+	fakeTM := &mock.TransactionManager{}
 	fakeFNS.TransactionManagerReturns(fakeTM)
-	fakeCH := &mock.FakeChannel{}
+	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
 	fakeFNS.ChannelReturns(fakeCH, nil)
 
-	fakeTx := &mock.FakeTransaction{}
+	fakeTx := &mock.Transaction{}
 	fakeTx.NetworkReturns("net1")
 	fakeTx.ChannelReturns("ch1")
 	fakeTM.NewTransactionReturns(fakeTx, nil)
@@ -614,7 +614,7 @@ func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
 	}
 
 	ev := NewEndorsementOnProposalResponderView(et)
-	fakeSession := &mock.FakeSession{}
+	fakeSession := &mock.Session{}
 	fakeCtx.SessionReturns(fakeSession)
 
 	// Case 1: Success

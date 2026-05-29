@@ -17,11 +17,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mock"
 )
 
-//go:generate counterfeiter -o mocks/verifier_provider.go --fake-name FakeVerifierProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.VerifierProvider
-//go:generate counterfeiter -o mocks/verifier.go --fake-name FakeVerifier github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Verifier
+//go:generate counterfeiter -o mock/verifier_provider.go --fake-name VerifierProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.VerifierProvider
+//go:generate counterfeiter -o mock/verifier.go --fake-name Verifier github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Verifier
 
 // TestNewProposalResponseFromResponse verifies that wrapping a protobuf proposal
 // response preserves the underlying pointer.
@@ -163,8 +163,8 @@ func TestVerifyEndorsement(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	fakeProvider := &mocks.FakeVerifierProvider{}
-	fakeVerifier := &mocks.FakeVerifier{}
+	fakeProvider := &mock.VerifierProvider{}
+	fakeVerifier := &mock.Verifier{}
 
 	fakeProvider.GetVerifierReturns(fakeVerifier, nil)
 	fakeVerifier.VerifyReturns(nil)
@@ -188,7 +188,7 @@ func TestVerifyEndorsementGetVerifierFails(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	fakeProvider := &mocks.FakeVerifierProvider{}
+	fakeProvider := &mock.VerifierProvider{}
 	fakeProvider.GetVerifierReturns(nil, errors.New("boom"))
 
 	err = pr.VerifyEndorsement(fakeProvider)
@@ -212,8 +212,8 @@ func TestVerifyEndorsementInvalidPayload(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	fakeProvider := &mocks.FakeVerifierProvider{}
-	fakeVerifier := &mocks.FakeVerifier{}
+	fakeProvider := &mock.VerifierProvider{}
+	fakeVerifier := &mock.Verifier{}
 
 	fakeProvider.GetVerifierReturns(fakeVerifier, nil)
 
@@ -242,8 +242,8 @@ func TestVerifyEndorsementInvalidSerializedEndorsements(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	fakeProvider := &mocks.FakeVerifierProvider{}
-	fakeVerifier := &mocks.FakeVerifier{}
+	fakeProvider := &mock.VerifierProvider{}
+	fakeVerifier := &mock.Verifier{}
 
 	fakeProvider.GetVerifierReturns(fakeVerifier, nil)
 
@@ -272,8 +272,8 @@ func TestVerifyEndorsementNamespaceCountMismatch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	fakeProvider := &mocks.FakeVerifierProvider{}
-	fakeVerifier := &mocks.FakeVerifier{}
+	fakeProvider := &mock.VerifierProvider{}
+	fakeVerifier := &mock.Verifier{}
 
 	fakeProvider.GetVerifierReturns(fakeVerifier, nil)
 
@@ -305,8 +305,8 @@ func TestVerifyEndorsementMissingNamespaceEndorsement(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	fakeProvider := &mocks.FakeVerifierProvider{}
-	fakeVerifier := &mocks.FakeVerifier{}
+	fakeProvider := &mock.VerifierProvider{}
+	fakeVerifier := &mock.Verifier{}
 
 	fakeProvider.GetVerifierReturns(fakeVerifier, nil)
 
@@ -338,8 +338,8 @@ func TestVerifyEndorsementInvalidNamespaceSignature(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	fakeProvider := &mocks.FakeVerifierProvider{}
-	fakeVerifier := &mocks.FakeVerifier{}
+	fakeProvider := &mock.VerifierProvider{}
+	fakeVerifier := &mock.Verifier{}
 
 	fakeProvider.GetVerifierReturns(fakeVerifier, nil)
 	fakeVerifier.VerifyReturns(errors.New("bad signature"))

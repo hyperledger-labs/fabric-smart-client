@@ -9,7 +9,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type FakeContext struct {
+type Context struct {
 	ContextStub        func() context.Context
 	contextMutex       sync.RWMutex
 	contextArgsForCall []struct {
@@ -151,7 +151,7 @@ type FakeContext struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeContext) Context() context.Context {
+func (fake *Context) Context() context.Context {
 	fake.contextMutex.Lock()
 	ret, specificReturn := fake.contextReturnsOnCall[len(fake.contextArgsForCall)]
 	fake.contextArgsForCall = append(fake.contextArgsForCall, struct {
@@ -169,19 +169,19 @@ func (fake *FakeContext) Context() context.Context {
 	return fakeReturns.result1
 }
 
-func (fake *FakeContext) ContextCallCount() int {
+func (fake *Context) ContextCallCount() int {
 	fake.contextMutex.RLock()
 	defer fake.contextMutex.RUnlock()
 	return len(fake.contextArgsForCall)
 }
 
-func (fake *FakeContext) ContextCalls(stub func() context.Context) {
+func (fake *Context) ContextCalls(stub func() context.Context) {
 	fake.contextMutex.Lock()
 	defer fake.contextMutex.Unlock()
 	fake.ContextStub = stub
 }
 
-func (fake *FakeContext) ContextReturns(result1 context.Context) {
+func (fake *Context) ContextReturns(result1 context.Context) {
 	fake.contextMutex.Lock()
 	defer fake.contextMutex.Unlock()
 	fake.ContextStub = nil
@@ -190,7 +190,7 @@ func (fake *FakeContext) ContextReturns(result1 context.Context) {
 	}{result1}
 }
 
-func (fake *FakeContext) ContextReturnsOnCall(i int, result1 context.Context) {
+func (fake *Context) ContextReturnsOnCall(i int, result1 context.Context) {
 	fake.contextMutex.Lock()
 	defer fake.contextMutex.Unlock()
 	fake.ContextStub = nil
@@ -204,7 +204,7 @@ func (fake *FakeContext) ContextReturnsOnCall(i int, result1 context.Context) {
 	}{result1}
 }
 
-func (fake *FakeContext) GetService(arg1 interface{}) (interface{}, error) {
+func (fake *Context) GetService(arg1 interface{}) (interface{}, error) {
 	fake.getServiceMutex.Lock()
 	ret, specificReturn := fake.getServiceReturnsOnCall[len(fake.getServiceArgsForCall)]
 	fake.getServiceArgsForCall = append(fake.getServiceArgsForCall, struct {
@@ -223,26 +223,26 @@ func (fake *FakeContext) GetService(arg1 interface{}) (interface{}, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeContext) GetServiceCallCount() int {
+func (fake *Context) GetServiceCallCount() int {
 	fake.getServiceMutex.RLock()
 	defer fake.getServiceMutex.RUnlock()
 	return len(fake.getServiceArgsForCall)
 }
 
-func (fake *FakeContext) GetServiceCalls(stub func(interface{}) (interface{}, error)) {
+func (fake *Context) GetServiceCalls(stub func(interface{}) (interface{}, error)) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = stub
 }
 
-func (fake *FakeContext) GetServiceArgsForCall(i int) interface{} {
+func (fake *Context) GetServiceArgsForCall(i int) interface{} {
 	fake.getServiceMutex.RLock()
 	defer fake.getServiceMutex.RUnlock()
 	argsForCall := fake.getServiceArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeContext) GetServiceReturns(result1 interface{}, result2 error) {
+func (fake *Context) GetServiceReturns(result1 interface{}, result2 error) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = nil
@@ -252,7 +252,7 @@ func (fake *FakeContext) GetServiceReturns(result1 interface{}, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeContext) GetServiceReturnsOnCall(i int, result1 interface{}, result2 error) {
+func (fake *Context) GetServiceReturnsOnCall(i int, result1 interface{}, result2 error) {
 	fake.getServiceMutex.Lock()
 	defer fake.getServiceMutex.Unlock()
 	fake.GetServiceStub = nil
@@ -268,7 +268,7 @@ func (fake *FakeContext) GetServiceReturnsOnCall(i int, result1 interface{}, res
 	}{result1, result2}
 }
 
-func (fake *FakeContext) GetSession(arg1 view.View, arg2 view.Identity, arg3 ...view.View) (view.Session, error) {
+func (fake *Context) GetSession(arg1 view.View, arg2 view.Identity, arg3 ...view.View) (view.Session, error) {
 	fake.getSessionMutex.Lock()
 	ret, specificReturn := fake.getSessionReturnsOnCall[len(fake.getSessionArgsForCall)]
 	fake.getSessionArgsForCall = append(fake.getSessionArgsForCall, struct {
@@ -289,26 +289,26 @@ func (fake *FakeContext) GetSession(arg1 view.View, arg2 view.Identity, arg3 ...
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeContext) GetSessionCallCount() int {
+func (fake *Context) GetSessionCallCount() int {
 	fake.getSessionMutex.RLock()
 	defer fake.getSessionMutex.RUnlock()
 	return len(fake.getSessionArgsForCall)
 }
 
-func (fake *FakeContext) GetSessionCalls(stub func(view.View, view.Identity, ...view.View) (view.Session, error)) {
+func (fake *Context) GetSessionCalls(stub func(view.View, view.Identity, ...view.View) (view.Session, error)) {
 	fake.getSessionMutex.Lock()
 	defer fake.getSessionMutex.Unlock()
 	fake.GetSessionStub = stub
 }
 
-func (fake *FakeContext) GetSessionArgsForCall(i int) (view.View, view.Identity, []view.View) {
+func (fake *Context) GetSessionArgsForCall(i int) (view.View, view.Identity, []view.View) {
 	fake.getSessionMutex.RLock()
 	defer fake.getSessionMutex.RUnlock()
 	argsForCall := fake.getSessionArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeContext) GetSessionReturns(result1 view.Session, result2 error) {
+func (fake *Context) GetSessionReturns(result1 view.Session, result2 error) {
 	fake.getSessionMutex.Lock()
 	defer fake.getSessionMutex.Unlock()
 	fake.GetSessionStub = nil
@@ -318,7 +318,7 @@ func (fake *FakeContext) GetSessionReturns(result1 view.Session, result2 error) 
 	}{result1, result2}
 }
 
-func (fake *FakeContext) GetSessionReturnsOnCall(i int, result1 view.Session, result2 error) {
+func (fake *Context) GetSessionReturnsOnCall(i int, result1 view.Session, result2 error) {
 	fake.getSessionMutex.Lock()
 	defer fake.getSessionMutex.Unlock()
 	fake.GetSessionStub = nil
@@ -334,7 +334,7 @@ func (fake *FakeContext) GetSessionReturnsOnCall(i int, result1 view.Session, re
 	}{result1, result2}
 }
 
-func (fake *FakeContext) GetSessionByID(arg1 string, arg2 view.Identity) (view.Session, error) {
+func (fake *Context) GetSessionByID(arg1 string, arg2 view.Identity) (view.Session, error) {
 	fake.getSessionByIDMutex.Lock()
 	ret, specificReturn := fake.getSessionByIDReturnsOnCall[len(fake.getSessionByIDArgsForCall)]
 	fake.getSessionByIDArgsForCall = append(fake.getSessionByIDArgsForCall, struct {
@@ -354,26 +354,26 @@ func (fake *FakeContext) GetSessionByID(arg1 string, arg2 view.Identity) (view.S
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeContext) GetSessionByIDCallCount() int {
+func (fake *Context) GetSessionByIDCallCount() int {
 	fake.getSessionByIDMutex.RLock()
 	defer fake.getSessionByIDMutex.RUnlock()
 	return len(fake.getSessionByIDArgsForCall)
 }
 
-func (fake *FakeContext) GetSessionByIDCalls(stub func(string, view.Identity) (view.Session, error)) {
+func (fake *Context) GetSessionByIDCalls(stub func(string, view.Identity) (view.Session, error)) {
 	fake.getSessionByIDMutex.Lock()
 	defer fake.getSessionByIDMutex.Unlock()
 	fake.GetSessionByIDStub = stub
 }
 
-func (fake *FakeContext) GetSessionByIDArgsForCall(i int) (string, view.Identity) {
+func (fake *Context) GetSessionByIDArgsForCall(i int) (string, view.Identity) {
 	fake.getSessionByIDMutex.RLock()
 	defer fake.getSessionByIDMutex.RUnlock()
 	argsForCall := fake.getSessionByIDArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeContext) GetSessionByIDReturns(result1 view.Session, result2 error) {
+func (fake *Context) GetSessionByIDReturns(result1 view.Session, result2 error) {
 	fake.getSessionByIDMutex.Lock()
 	defer fake.getSessionByIDMutex.Unlock()
 	fake.GetSessionByIDStub = nil
@@ -383,7 +383,7 @@ func (fake *FakeContext) GetSessionByIDReturns(result1 view.Session, result2 err
 	}{result1, result2}
 }
 
-func (fake *FakeContext) GetSessionByIDReturnsOnCall(i int, result1 view.Session, result2 error) {
+func (fake *Context) GetSessionByIDReturnsOnCall(i int, result1 view.Session, result2 error) {
 	fake.getSessionByIDMutex.Lock()
 	defer fake.getSessionByIDMutex.Unlock()
 	fake.GetSessionByIDStub = nil
@@ -399,7 +399,7 @@ func (fake *FakeContext) GetSessionByIDReturnsOnCall(i int, result1 view.Session
 	}{result1, result2}
 }
 
-func (fake *FakeContext) ID() string {
+func (fake *Context) ID() string {
 	fake.iDMutex.Lock()
 	ret, specificReturn := fake.iDReturnsOnCall[len(fake.iDArgsForCall)]
 	fake.iDArgsForCall = append(fake.iDArgsForCall, struct {
@@ -417,19 +417,19 @@ func (fake *FakeContext) ID() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeContext) IDCallCount() int {
+func (fake *Context) IDCallCount() int {
 	fake.iDMutex.RLock()
 	defer fake.iDMutex.RUnlock()
 	return len(fake.iDArgsForCall)
 }
 
-func (fake *FakeContext) IDCalls(stub func() string) {
+func (fake *Context) IDCalls(stub func() string) {
 	fake.iDMutex.Lock()
 	defer fake.iDMutex.Unlock()
 	fake.IDStub = stub
 }
 
-func (fake *FakeContext) IDReturns(result1 string) {
+func (fake *Context) IDReturns(result1 string) {
 	fake.iDMutex.Lock()
 	defer fake.iDMutex.Unlock()
 	fake.IDStub = nil
@@ -438,7 +438,7 @@ func (fake *FakeContext) IDReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeContext) IDReturnsOnCall(i int, result1 string) {
+func (fake *Context) IDReturnsOnCall(i int, result1 string) {
 	fake.iDMutex.Lock()
 	defer fake.iDMutex.Unlock()
 	fake.IDStub = nil
@@ -452,7 +452,7 @@ func (fake *FakeContext) IDReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeContext) Initiator() view.View {
+func (fake *Context) Initiator() view.View {
 	fake.initiatorMutex.Lock()
 	ret, specificReturn := fake.initiatorReturnsOnCall[len(fake.initiatorArgsForCall)]
 	fake.initiatorArgsForCall = append(fake.initiatorArgsForCall, struct {
@@ -470,19 +470,19 @@ func (fake *FakeContext) Initiator() view.View {
 	return fakeReturns.result1
 }
 
-func (fake *FakeContext) InitiatorCallCount() int {
+func (fake *Context) InitiatorCallCount() int {
 	fake.initiatorMutex.RLock()
 	defer fake.initiatorMutex.RUnlock()
 	return len(fake.initiatorArgsForCall)
 }
 
-func (fake *FakeContext) InitiatorCalls(stub func() view.View) {
+func (fake *Context) InitiatorCalls(stub func() view.View) {
 	fake.initiatorMutex.Lock()
 	defer fake.initiatorMutex.Unlock()
 	fake.InitiatorStub = stub
 }
 
-func (fake *FakeContext) InitiatorReturns(result1 view.View) {
+func (fake *Context) InitiatorReturns(result1 view.View) {
 	fake.initiatorMutex.Lock()
 	defer fake.initiatorMutex.Unlock()
 	fake.InitiatorStub = nil
@@ -491,7 +491,7 @@ func (fake *FakeContext) InitiatorReturns(result1 view.View) {
 	}{result1}
 }
 
-func (fake *FakeContext) InitiatorReturnsOnCall(i int, result1 view.View) {
+func (fake *Context) InitiatorReturnsOnCall(i int, result1 view.View) {
 	fake.initiatorMutex.Lock()
 	defer fake.initiatorMutex.Unlock()
 	fake.InitiatorStub = nil
@@ -505,7 +505,7 @@ func (fake *FakeContext) InitiatorReturnsOnCall(i int, result1 view.View) {
 	}{result1}
 }
 
-func (fake *FakeContext) IsMe(arg1 view.Identity) bool {
+func (fake *Context) IsMe(arg1 view.Identity) bool {
 	fake.isMeMutex.Lock()
 	ret, specificReturn := fake.isMeReturnsOnCall[len(fake.isMeArgsForCall)]
 	fake.isMeArgsForCall = append(fake.isMeArgsForCall, struct {
@@ -524,26 +524,26 @@ func (fake *FakeContext) IsMe(arg1 view.Identity) bool {
 	return fakeReturns.result1
 }
 
-func (fake *FakeContext) IsMeCallCount() int {
+func (fake *Context) IsMeCallCount() int {
 	fake.isMeMutex.RLock()
 	defer fake.isMeMutex.RUnlock()
 	return len(fake.isMeArgsForCall)
 }
 
-func (fake *FakeContext) IsMeCalls(stub func(view.Identity) bool) {
+func (fake *Context) IsMeCalls(stub func(view.Identity) bool) {
 	fake.isMeMutex.Lock()
 	defer fake.isMeMutex.Unlock()
 	fake.IsMeStub = stub
 }
 
-func (fake *FakeContext) IsMeArgsForCall(i int) view.Identity {
+func (fake *Context) IsMeArgsForCall(i int) view.Identity {
 	fake.isMeMutex.RLock()
 	defer fake.isMeMutex.RUnlock()
 	argsForCall := fake.isMeArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeContext) IsMeReturns(result1 bool) {
+func (fake *Context) IsMeReturns(result1 bool) {
 	fake.isMeMutex.Lock()
 	defer fake.isMeMutex.Unlock()
 	fake.IsMeStub = nil
@@ -552,7 +552,7 @@ func (fake *FakeContext) IsMeReturns(result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeContext) IsMeReturnsOnCall(i int, result1 bool) {
+func (fake *Context) IsMeReturnsOnCall(i int, result1 bool) {
 	fake.isMeMutex.Lock()
 	defer fake.isMeMutex.Unlock()
 	fake.IsMeStub = nil
@@ -566,7 +566,7 @@ func (fake *FakeContext) IsMeReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeContext) Me() view.Identity {
+func (fake *Context) Me() view.Identity {
 	fake.meMutex.Lock()
 	ret, specificReturn := fake.meReturnsOnCall[len(fake.meArgsForCall)]
 	fake.meArgsForCall = append(fake.meArgsForCall, struct {
@@ -584,19 +584,19 @@ func (fake *FakeContext) Me() view.Identity {
 	return fakeReturns.result1
 }
 
-func (fake *FakeContext) MeCallCount() int {
+func (fake *Context) MeCallCount() int {
 	fake.meMutex.RLock()
 	defer fake.meMutex.RUnlock()
 	return len(fake.meArgsForCall)
 }
 
-func (fake *FakeContext) MeCalls(stub func() view.Identity) {
+func (fake *Context) MeCalls(stub func() view.Identity) {
 	fake.meMutex.Lock()
 	defer fake.meMutex.Unlock()
 	fake.MeStub = stub
 }
 
-func (fake *FakeContext) MeReturns(result1 view.Identity) {
+func (fake *Context) MeReturns(result1 view.Identity) {
 	fake.meMutex.Lock()
 	defer fake.meMutex.Unlock()
 	fake.MeStub = nil
@@ -605,7 +605,7 @@ func (fake *FakeContext) MeReturns(result1 view.Identity) {
 	}{result1}
 }
 
-func (fake *FakeContext) MeReturnsOnCall(i int, result1 view.Identity) {
+func (fake *Context) MeReturnsOnCall(i int, result1 view.Identity) {
 	fake.meMutex.Lock()
 	defer fake.meMutex.Unlock()
 	fake.MeStub = nil
@@ -619,7 +619,7 @@ func (fake *FakeContext) MeReturnsOnCall(i int, result1 view.Identity) {
 	}{result1}
 }
 
-func (fake *FakeContext) OnError(arg1 func()) {
+func (fake *Context) OnError(arg1 func()) {
 	fake.onErrorMutex.Lock()
 	fake.onErrorArgsForCall = append(fake.onErrorArgsForCall, struct {
 		arg1 func()
@@ -632,26 +632,26 @@ func (fake *FakeContext) OnError(arg1 func()) {
 	}
 }
 
-func (fake *FakeContext) OnErrorCallCount() int {
+func (fake *Context) OnErrorCallCount() int {
 	fake.onErrorMutex.RLock()
 	defer fake.onErrorMutex.RUnlock()
 	return len(fake.onErrorArgsForCall)
 }
 
-func (fake *FakeContext) OnErrorCalls(stub func(func())) {
+func (fake *Context) OnErrorCalls(stub func(func())) {
 	fake.onErrorMutex.Lock()
 	defer fake.onErrorMutex.Unlock()
 	fake.OnErrorStub = stub
 }
 
-func (fake *FakeContext) OnErrorArgsForCall(i int) func() {
+func (fake *Context) OnErrorArgsForCall(i int) func() {
 	fake.onErrorMutex.RLock()
 	defer fake.onErrorMutex.RUnlock()
 	argsForCall := fake.onErrorArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeContext) RunView(arg1 view.View, arg2 ...view.RunViewOption) (interface{}, error) {
+func (fake *Context) RunView(arg1 view.View, arg2 ...view.RunViewOption) (interface{}, error) {
 	fake.runViewMutex.Lock()
 	ret, specificReturn := fake.runViewReturnsOnCall[len(fake.runViewArgsForCall)]
 	fake.runViewArgsForCall = append(fake.runViewArgsForCall, struct {
@@ -671,26 +671,26 @@ func (fake *FakeContext) RunView(arg1 view.View, arg2 ...view.RunViewOption) (in
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeContext) RunViewCallCount() int {
+func (fake *Context) RunViewCallCount() int {
 	fake.runViewMutex.RLock()
 	defer fake.runViewMutex.RUnlock()
 	return len(fake.runViewArgsForCall)
 }
 
-func (fake *FakeContext) RunViewCalls(stub func(view.View, ...view.RunViewOption) (interface{}, error)) {
+func (fake *Context) RunViewCalls(stub func(view.View, ...view.RunViewOption) (interface{}, error)) {
 	fake.runViewMutex.Lock()
 	defer fake.runViewMutex.Unlock()
 	fake.RunViewStub = stub
 }
 
-func (fake *FakeContext) RunViewArgsForCall(i int) (view.View, []view.RunViewOption) {
+func (fake *Context) RunViewArgsForCall(i int) (view.View, []view.RunViewOption) {
 	fake.runViewMutex.RLock()
 	defer fake.runViewMutex.RUnlock()
 	argsForCall := fake.runViewArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeContext) RunViewReturns(result1 interface{}, result2 error) {
+func (fake *Context) RunViewReturns(result1 interface{}, result2 error) {
 	fake.runViewMutex.Lock()
 	defer fake.runViewMutex.Unlock()
 	fake.RunViewStub = nil
@@ -700,7 +700,7 @@ func (fake *FakeContext) RunViewReturns(result1 interface{}, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeContext) RunViewReturnsOnCall(i int, result1 interface{}, result2 error) {
+func (fake *Context) RunViewReturnsOnCall(i int, result1 interface{}, result2 error) {
 	fake.runViewMutex.Lock()
 	defer fake.runViewMutex.Unlock()
 	fake.RunViewStub = nil
@@ -716,7 +716,7 @@ func (fake *FakeContext) RunViewReturnsOnCall(i int, result1 interface{}, result
 	}{result1, result2}
 }
 
-func (fake *FakeContext) Session() view.Session {
+func (fake *Context) Session() view.Session {
 	fake.sessionMutex.Lock()
 	ret, specificReturn := fake.sessionReturnsOnCall[len(fake.sessionArgsForCall)]
 	fake.sessionArgsForCall = append(fake.sessionArgsForCall, struct {
@@ -734,19 +734,19 @@ func (fake *FakeContext) Session() view.Session {
 	return fakeReturns.result1
 }
 
-func (fake *FakeContext) SessionCallCount() int {
+func (fake *Context) SessionCallCount() int {
 	fake.sessionMutex.RLock()
 	defer fake.sessionMutex.RUnlock()
 	return len(fake.sessionArgsForCall)
 }
 
-func (fake *FakeContext) SessionCalls(stub func() view.Session) {
+func (fake *Context) SessionCalls(stub func() view.Session) {
 	fake.sessionMutex.Lock()
 	defer fake.sessionMutex.Unlock()
 	fake.SessionStub = stub
 }
 
-func (fake *FakeContext) SessionReturns(result1 view.Session) {
+func (fake *Context) SessionReturns(result1 view.Session) {
 	fake.sessionMutex.Lock()
 	defer fake.sessionMutex.Unlock()
 	fake.SessionStub = nil
@@ -755,7 +755,7 @@ func (fake *FakeContext) SessionReturns(result1 view.Session) {
 	}{result1}
 }
 
-func (fake *FakeContext) SessionReturnsOnCall(i int, result1 view.Session) {
+func (fake *Context) SessionReturnsOnCall(i int, result1 view.Session) {
 	fake.sessionMutex.Lock()
 	defer fake.sessionMutex.Unlock()
 	fake.SessionStub = nil
@@ -769,7 +769,7 @@ func (fake *FakeContext) SessionReturnsOnCall(i int, result1 view.Session) {
 	}{result1}
 }
 
-func (fake *FakeContext) StartSpanFrom(arg1 context.Context, arg2 string, arg3 ...trace.SpanStartOption) (context.Context, trace.Span) {
+func (fake *Context) StartSpanFrom(arg1 context.Context, arg2 string, arg3 ...trace.SpanStartOption) (context.Context, trace.Span) {
 	fake.startSpanFromMutex.Lock()
 	ret, specificReturn := fake.startSpanFromReturnsOnCall[len(fake.startSpanFromArgsForCall)]
 	fake.startSpanFromArgsForCall = append(fake.startSpanFromArgsForCall, struct {
@@ -790,26 +790,26 @@ func (fake *FakeContext) StartSpanFrom(arg1 context.Context, arg2 string, arg3 .
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeContext) StartSpanFromCallCount() int {
+func (fake *Context) StartSpanFromCallCount() int {
 	fake.startSpanFromMutex.RLock()
 	defer fake.startSpanFromMutex.RUnlock()
 	return len(fake.startSpanFromArgsForCall)
 }
 
-func (fake *FakeContext) StartSpanFromCalls(stub func(context.Context, string, ...trace.SpanStartOption) (context.Context, trace.Span)) {
+func (fake *Context) StartSpanFromCalls(stub func(context.Context, string, ...trace.SpanStartOption) (context.Context, trace.Span)) {
 	fake.startSpanFromMutex.Lock()
 	defer fake.startSpanFromMutex.Unlock()
 	fake.StartSpanFromStub = stub
 }
 
-func (fake *FakeContext) StartSpanFromArgsForCall(i int) (context.Context, string, []trace.SpanStartOption) {
+func (fake *Context) StartSpanFromArgsForCall(i int) (context.Context, string, []trace.SpanStartOption) {
 	fake.startSpanFromMutex.RLock()
 	defer fake.startSpanFromMutex.RUnlock()
 	argsForCall := fake.startSpanFromArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *FakeContext) StartSpanFromReturns(result1 context.Context, result2 trace.Span) {
+func (fake *Context) StartSpanFromReturns(result1 context.Context, result2 trace.Span) {
 	fake.startSpanFromMutex.Lock()
 	defer fake.startSpanFromMutex.Unlock()
 	fake.StartSpanFromStub = nil
@@ -819,7 +819,7 @@ func (fake *FakeContext) StartSpanFromReturns(result1 context.Context, result2 t
 	}{result1, result2}
 }
 
-func (fake *FakeContext) StartSpanFromReturnsOnCall(i int, result1 context.Context, result2 trace.Span) {
+func (fake *Context) StartSpanFromReturnsOnCall(i int, result1 context.Context, result2 trace.Span) {
 	fake.startSpanFromMutex.Lock()
 	defer fake.startSpanFromMutex.Unlock()
 	fake.StartSpanFromStub = nil
@@ -835,7 +835,7 @@ func (fake *FakeContext) StartSpanFromReturnsOnCall(i int, result1 context.Conte
 	}{result1, result2}
 }
 
-func (fake *FakeContext) Invocations() map[string][][]interface{} {
+func (fake *Context) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -845,7 +845,7 @@ func (fake *FakeContext) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeContext) recordInvocation(key string, args []interface{}) {
+func (fake *Context) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -857,4 +857,4 @@ func (fake *FakeContext) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ view.Context = new(FakeContext)
+var _ view.Context = new(Context)

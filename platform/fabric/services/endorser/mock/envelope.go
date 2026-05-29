@@ -7,7 +7,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-type FakeEnvelope struct {
+type Envelope struct {
 	BytesStub        func() ([]byte, error)
 	bytesMutex       sync.RWMutex
 	bytesArgsForCall []struct {
@@ -85,7 +85,7 @@ type FakeEnvelope struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeEnvelope) Bytes() ([]byte, error) {
+func (fake *Envelope) Bytes() ([]byte, error) {
 	fake.bytesMutex.Lock()
 	ret, specificReturn := fake.bytesReturnsOnCall[len(fake.bytesArgsForCall)]
 	fake.bytesArgsForCall = append(fake.bytesArgsForCall, struct {
@@ -103,19 +103,19 @@ func (fake *FakeEnvelope) Bytes() ([]byte, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeEnvelope) BytesCallCount() int {
+func (fake *Envelope) BytesCallCount() int {
 	fake.bytesMutex.RLock()
 	defer fake.bytesMutex.RUnlock()
 	return len(fake.bytesArgsForCall)
 }
 
-func (fake *FakeEnvelope) BytesCalls(stub func() ([]byte, error)) {
+func (fake *Envelope) BytesCalls(stub func() ([]byte, error)) {
 	fake.bytesMutex.Lock()
 	defer fake.bytesMutex.Unlock()
 	fake.BytesStub = stub
 }
 
-func (fake *FakeEnvelope) BytesReturns(result1 []byte, result2 error) {
+func (fake *Envelope) BytesReturns(result1 []byte, result2 error) {
 	fake.bytesMutex.Lock()
 	defer fake.bytesMutex.Unlock()
 	fake.BytesStub = nil
@@ -125,7 +125,7 @@ func (fake *FakeEnvelope) BytesReturns(result1 []byte, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeEnvelope) BytesReturnsOnCall(i int, result1 []byte, result2 error) {
+func (fake *Envelope) BytesReturnsOnCall(i int, result1 []byte, result2 error) {
 	fake.bytesMutex.Lock()
 	defer fake.bytesMutex.Unlock()
 	fake.BytesStub = nil
@@ -141,7 +141,7 @@ func (fake *FakeEnvelope) BytesReturnsOnCall(i int, result1 []byte, result2 erro
 	}{result1, result2}
 }
 
-func (fake *FakeEnvelope) Creator() []byte {
+func (fake *Envelope) Creator() []byte {
 	fake.creatorMutex.Lock()
 	ret, specificReturn := fake.creatorReturnsOnCall[len(fake.creatorArgsForCall)]
 	fake.creatorArgsForCall = append(fake.creatorArgsForCall, struct {
@@ -159,19 +159,19 @@ func (fake *FakeEnvelope) Creator() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeEnvelope) CreatorCallCount() int {
+func (fake *Envelope) CreatorCallCount() int {
 	fake.creatorMutex.RLock()
 	defer fake.creatorMutex.RUnlock()
 	return len(fake.creatorArgsForCall)
 }
 
-func (fake *FakeEnvelope) CreatorCalls(stub func() []byte) {
+func (fake *Envelope) CreatorCalls(stub func() []byte) {
 	fake.creatorMutex.Lock()
 	defer fake.creatorMutex.Unlock()
 	fake.CreatorStub = stub
 }
 
-func (fake *FakeEnvelope) CreatorReturns(result1 []byte) {
+func (fake *Envelope) CreatorReturns(result1 []byte) {
 	fake.creatorMutex.Lock()
 	defer fake.creatorMutex.Unlock()
 	fake.CreatorStub = nil
@@ -180,7 +180,7 @@ func (fake *FakeEnvelope) CreatorReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeEnvelope) CreatorReturnsOnCall(i int, result1 []byte) {
+func (fake *Envelope) CreatorReturnsOnCall(i int, result1 []byte) {
 	fake.creatorMutex.Lock()
 	defer fake.creatorMutex.Unlock()
 	fake.CreatorStub = nil
@@ -194,7 +194,7 @@ func (fake *FakeEnvelope) CreatorReturnsOnCall(i int, result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeEnvelope) FromBytes(arg1 []byte) error {
+func (fake *Envelope) FromBytes(arg1 []byte) error {
 	var arg1Copy []byte
 	if arg1 != nil {
 		arg1Copy = make([]byte, len(arg1))
@@ -218,26 +218,26 @@ func (fake *FakeEnvelope) FromBytes(arg1 []byte) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeEnvelope) FromBytesCallCount() int {
+func (fake *Envelope) FromBytesCallCount() int {
 	fake.fromBytesMutex.RLock()
 	defer fake.fromBytesMutex.RUnlock()
 	return len(fake.fromBytesArgsForCall)
 }
 
-func (fake *FakeEnvelope) FromBytesCalls(stub func([]byte) error) {
+func (fake *Envelope) FromBytesCalls(stub func([]byte) error) {
 	fake.fromBytesMutex.Lock()
 	defer fake.fromBytesMutex.Unlock()
 	fake.FromBytesStub = stub
 }
 
-func (fake *FakeEnvelope) FromBytesArgsForCall(i int) []byte {
+func (fake *Envelope) FromBytesArgsForCall(i int) []byte {
 	fake.fromBytesMutex.RLock()
 	defer fake.fromBytesMutex.RUnlock()
 	argsForCall := fake.fromBytesArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeEnvelope) FromBytesReturns(result1 error) {
+func (fake *Envelope) FromBytesReturns(result1 error) {
 	fake.fromBytesMutex.Lock()
 	defer fake.fromBytesMutex.Unlock()
 	fake.FromBytesStub = nil
@@ -246,7 +246,7 @@ func (fake *FakeEnvelope) FromBytesReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeEnvelope) FromBytesReturnsOnCall(i int, result1 error) {
+func (fake *Envelope) FromBytesReturnsOnCall(i int, result1 error) {
 	fake.fromBytesMutex.Lock()
 	defer fake.fromBytesMutex.Unlock()
 	fake.FromBytesStub = nil
@@ -260,7 +260,7 @@ func (fake *FakeEnvelope) FromBytesReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeEnvelope) Nonce() []byte {
+func (fake *Envelope) Nonce() []byte {
 	fake.nonceMutex.Lock()
 	ret, specificReturn := fake.nonceReturnsOnCall[len(fake.nonceArgsForCall)]
 	fake.nonceArgsForCall = append(fake.nonceArgsForCall, struct {
@@ -278,19 +278,19 @@ func (fake *FakeEnvelope) Nonce() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeEnvelope) NonceCallCount() int {
+func (fake *Envelope) NonceCallCount() int {
 	fake.nonceMutex.RLock()
 	defer fake.nonceMutex.RUnlock()
 	return len(fake.nonceArgsForCall)
 }
 
-func (fake *FakeEnvelope) NonceCalls(stub func() []byte) {
+func (fake *Envelope) NonceCalls(stub func() []byte) {
 	fake.nonceMutex.Lock()
 	defer fake.nonceMutex.Unlock()
 	fake.NonceStub = stub
 }
 
-func (fake *FakeEnvelope) NonceReturns(result1 []byte) {
+func (fake *Envelope) NonceReturns(result1 []byte) {
 	fake.nonceMutex.Lock()
 	defer fake.nonceMutex.Unlock()
 	fake.NonceStub = nil
@@ -299,7 +299,7 @@ func (fake *FakeEnvelope) NonceReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeEnvelope) NonceReturnsOnCall(i int, result1 []byte) {
+func (fake *Envelope) NonceReturnsOnCall(i int, result1 []byte) {
 	fake.nonceMutex.Lock()
 	defer fake.nonceMutex.Unlock()
 	fake.NonceStub = nil
@@ -313,7 +313,7 @@ func (fake *FakeEnvelope) NonceReturnsOnCall(i int, result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeEnvelope) Results() []byte {
+func (fake *Envelope) Results() []byte {
 	fake.resultsMutex.Lock()
 	ret, specificReturn := fake.resultsReturnsOnCall[len(fake.resultsArgsForCall)]
 	fake.resultsArgsForCall = append(fake.resultsArgsForCall, struct {
@@ -331,19 +331,19 @@ func (fake *FakeEnvelope) Results() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeEnvelope) ResultsCallCount() int {
+func (fake *Envelope) ResultsCallCount() int {
 	fake.resultsMutex.RLock()
 	defer fake.resultsMutex.RUnlock()
 	return len(fake.resultsArgsForCall)
 }
 
-func (fake *FakeEnvelope) ResultsCalls(stub func() []byte) {
+func (fake *Envelope) ResultsCalls(stub func() []byte) {
 	fake.resultsMutex.Lock()
 	defer fake.resultsMutex.Unlock()
 	fake.ResultsStub = stub
 }
 
-func (fake *FakeEnvelope) ResultsReturns(result1 []byte) {
+func (fake *Envelope) ResultsReturns(result1 []byte) {
 	fake.resultsMutex.Lock()
 	defer fake.resultsMutex.Unlock()
 	fake.ResultsStub = nil
@@ -352,7 +352,7 @@ func (fake *FakeEnvelope) ResultsReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeEnvelope) ResultsReturnsOnCall(i int, result1 []byte) {
+func (fake *Envelope) ResultsReturnsOnCall(i int, result1 []byte) {
 	fake.resultsMutex.Lock()
 	defer fake.resultsMutex.Unlock()
 	fake.ResultsStub = nil
@@ -366,7 +366,7 @@ func (fake *FakeEnvelope) ResultsReturnsOnCall(i int, result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeEnvelope) String() string {
+func (fake *Envelope) String() string {
 	fake.stringMutex.Lock()
 	ret, specificReturn := fake.stringReturnsOnCall[len(fake.stringArgsForCall)]
 	fake.stringArgsForCall = append(fake.stringArgsForCall, struct {
@@ -384,19 +384,19 @@ func (fake *FakeEnvelope) String() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeEnvelope) StringCallCount() int {
+func (fake *Envelope) StringCallCount() int {
 	fake.stringMutex.RLock()
 	defer fake.stringMutex.RUnlock()
 	return len(fake.stringArgsForCall)
 }
 
-func (fake *FakeEnvelope) StringCalls(stub func() string) {
+func (fake *Envelope) StringCalls(stub func() string) {
 	fake.stringMutex.Lock()
 	defer fake.stringMutex.Unlock()
 	fake.StringStub = stub
 }
 
-func (fake *FakeEnvelope) StringReturns(result1 string) {
+func (fake *Envelope) StringReturns(result1 string) {
 	fake.stringMutex.Lock()
 	defer fake.stringMutex.Unlock()
 	fake.StringStub = nil
@@ -405,7 +405,7 @@ func (fake *FakeEnvelope) StringReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeEnvelope) StringReturnsOnCall(i int, result1 string) {
+func (fake *Envelope) StringReturnsOnCall(i int, result1 string) {
 	fake.stringMutex.Lock()
 	defer fake.stringMutex.Unlock()
 	fake.StringStub = nil
@@ -419,7 +419,7 @@ func (fake *FakeEnvelope) StringReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeEnvelope) TxID() string {
+func (fake *Envelope) TxID() string {
 	fake.txIDMutex.Lock()
 	ret, specificReturn := fake.txIDReturnsOnCall[len(fake.txIDArgsForCall)]
 	fake.txIDArgsForCall = append(fake.txIDArgsForCall, struct {
@@ -437,19 +437,19 @@ func (fake *FakeEnvelope) TxID() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeEnvelope) TxIDCallCount() int {
+func (fake *Envelope) TxIDCallCount() int {
 	fake.txIDMutex.RLock()
 	defer fake.txIDMutex.RUnlock()
 	return len(fake.txIDArgsForCall)
 }
 
-func (fake *FakeEnvelope) TxIDCalls(stub func() string) {
+func (fake *Envelope) TxIDCalls(stub func() string) {
 	fake.txIDMutex.Lock()
 	defer fake.txIDMutex.Unlock()
 	fake.TxIDStub = stub
 }
 
-func (fake *FakeEnvelope) TxIDReturns(result1 string) {
+func (fake *Envelope) TxIDReturns(result1 string) {
 	fake.txIDMutex.Lock()
 	defer fake.txIDMutex.Unlock()
 	fake.TxIDStub = nil
@@ -458,7 +458,7 @@ func (fake *FakeEnvelope) TxIDReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeEnvelope) TxIDReturnsOnCall(i int, result1 string) {
+func (fake *Envelope) TxIDReturnsOnCall(i int, result1 string) {
 	fake.txIDMutex.Lock()
 	defer fake.txIDMutex.Unlock()
 	fake.TxIDStub = nil
@@ -472,7 +472,7 @@ func (fake *FakeEnvelope) TxIDReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *FakeEnvelope) Invocations() map[string][][]interface{} {
+func (fake *Envelope) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -482,7 +482,7 @@ func (fake *FakeEnvelope) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeEnvelope) recordInvocation(key string, args []interface{}) {
+func (fake *Envelope) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -494,4 +494,4 @@ func (fake *FakeEnvelope) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.Envelope = new(FakeEnvelope)
+var _ driver.Envelope = new(Envelope)

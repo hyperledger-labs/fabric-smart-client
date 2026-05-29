@@ -18,7 +18,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil/fakes"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil/mock"
 )
 
 func TestGetPayloads(t *testing.T) {
@@ -121,7 +121,7 @@ func TestGetPayloads(t *testing.T) {
 
 func TestDeduplicateEndorsements(t *testing.T) {
 	t.Parallel()
-	signID := &fakes.SignerSerializer{}
+	signID := &mock.SignerSerializer{}
 	signID.SerializeReturns([]byte("signer"), nil)
 	signerBytes, err := signID.Serialize()
 	require.NoError(t, err, "Unexpected error serializing signing identity")
@@ -160,7 +160,7 @@ func TestCreateSignedTx(t *testing.T) {
 	var err error
 	prop := &pb.Proposal{}
 
-	signID := &fakes.SignerSerializer{}
+	signID := &mock.SignerSerializer{}
 	signID.SerializeReturns([]byte("signer"), nil)
 	signerBytes, err := signID.Serialize()
 	require.NoError(t, err, "Unexpected error serializing signing identity")
@@ -287,7 +287,7 @@ func TestCreateSignedTxStatus(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	signingID := &fakes.SignerSerializer{}
+	signingID := &mock.SignerSerializer{}
 	signingID.SerializeReturns([]byte("signer"), nil)
 	serializedSigningID, err := signingID.Serialize()
 	require.NoError(t, err)
@@ -347,7 +347,7 @@ func TestCreateSignedEnvelope(t *testing.T) {
 	channelID := "mychannelID"
 	msg := &cb.ConfigEnvelope{}
 
-	id := &fakes.SignerSerializer{}
+	id := &mock.SignerSerializer{}
 	id.SignReturnsOnCall(0, []byte("goodsig"), nil)
 	id.SignReturnsOnCall(1, nil, errors.New("bad signature"))
 	env, err := protoutil.CreateSignedEnvelope(cb.HeaderType_CONFIG, channelID,
@@ -396,7 +396,7 @@ func TestGetSignedProposal(t *testing.T) {
 
 	sig := []byte("signature")
 
-	signID := &fakes.SignerSerializer{}
+	signID := &mock.SignerSerializer{}
 	signID.SignReturns(sig, nil)
 
 	prop := &pb.Proposal{}

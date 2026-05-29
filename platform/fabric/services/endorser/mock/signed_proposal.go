@@ -7,7 +7,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-type FakeSignedProposal struct {
+type SignedProposal struct {
 	ChaincodeNameStub        func() string
 	chaincodeNameMutex       sync.RWMutex
 	chaincodeNameArgsForCall []struct {
@@ -72,7 +72,7 @@ type FakeSignedProposal struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeSignedProposal) ChaincodeName() string {
+func (fake *SignedProposal) ChaincodeName() string {
 	fake.chaincodeNameMutex.Lock()
 	ret, specificReturn := fake.chaincodeNameReturnsOnCall[len(fake.chaincodeNameArgsForCall)]
 	fake.chaincodeNameArgsForCall = append(fake.chaincodeNameArgsForCall, struct {
@@ -90,19 +90,19 @@ func (fake *FakeSignedProposal) ChaincodeName() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeSignedProposal) ChaincodeNameCallCount() int {
+func (fake *SignedProposal) ChaincodeNameCallCount() int {
 	fake.chaincodeNameMutex.RLock()
 	defer fake.chaincodeNameMutex.RUnlock()
 	return len(fake.chaincodeNameArgsForCall)
 }
 
-func (fake *FakeSignedProposal) ChaincodeNameCalls(stub func() string) {
+func (fake *SignedProposal) ChaincodeNameCalls(stub func() string) {
 	fake.chaincodeNameMutex.Lock()
 	defer fake.chaincodeNameMutex.Unlock()
 	fake.ChaincodeNameStub = stub
 }
 
-func (fake *FakeSignedProposal) ChaincodeNameReturns(result1 string) {
+func (fake *SignedProposal) ChaincodeNameReturns(result1 string) {
 	fake.chaincodeNameMutex.Lock()
 	defer fake.chaincodeNameMutex.Unlock()
 	fake.ChaincodeNameStub = nil
@@ -111,7 +111,7 @@ func (fake *FakeSignedProposal) ChaincodeNameReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeSignedProposal) ChaincodeNameReturnsOnCall(i int, result1 string) {
+func (fake *SignedProposal) ChaincodeNameReturnsOnCall(i int, result1 string) {
 	fake.chaincodeNameMutex.Lock()
 	defer fake.chaincodeNameMutex.Unlock()
 	fake.ChaincodeNameStub = nil
@@ -125,7 +125,7 @@ func (fake *FakeSignedProposal) ChaincodeNameReturnsOnCall(i int, result1 string
 	}{result1}
 }
 
-func (fake *FakeSignedProposal) ChaincodeVersion() string {
+func (fake *SignedProposal) ChaincodeVersion() string {
 	fake.chaincodeVersionMutex.Lock()
 	ret, specificReturn := fake.chaincodeVersionReturnsOnCall[len(fake.chaincodeVersionArgsForCall)]
 	fake.chaincodeVersionArgsForCall = append(fake.chaincodeVersionArgsForCall, struct {
@@ -143,19 +143,19 @@ func (fake *FakeSignedProposal) ChaincodeVersion() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeSignedProposal) ChaincodeVersionCallCount() int {
+func (fake *SignedProposal) ChaincodeVersionCallCount() int {
 	fake.chaincodeVersionMutex.RLock()
 	defer fake.chaincodeVersionMutex.RUnlock()
 	return len(fake.chaincodeVersionArgsForCall)
 }
 
-func (fake *FakeSignedProposal) ChaincodeVersionCalls(stub func() string) {
+func (fake *SignedProposal) ChaincodeVersionCalls(stub func() string) {
 	fake.chaincodeVersionMutex.Lock()
 	defer fake.chaincodeVersionMutex.Unlock()
 	fake.ChaincodeVersionStub = stub
 }
 
-func (fake *FakeSignedProposal) ChaincodeVersionReturns(result1 string) {
+func (fake *SignedProposal) ChaincodeVersionReturns(result1 string) {
 	fake.chaincodeVersionMutex.Lock()
 	defer fake.chaincodeVersionMutex.Unlock()
 	fake.ChaincodeVersionStub = nil
@@ -164,7 +164,7 @@ func (fake *FakeSignedProposal) ChaincodeVersionReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeSignedProposal) ChaincodeVersionReturnsOnCall(i int, result1 string) {
+func (fake *SignedProposal) ChaincodeVersionReturnsOnCall(i int, result1 string) {
 	fake.chaincodeVersionMutex.Lock()
 	defer fake.chaincodeVersionMutex.Unlock()
 	fake.ChaincodeVersionStub = nil
@@ -178,7 +178,7 @@ func (fake *FakeSignedProposal) ChaincodeVersionReturnsOnCall(i int, result1 str
 	}{result1}
 }
 
-func (fake *FakeSignedProposal) Internal() any {
+func (fake *SignedProposal) Internal() any {
 	fake.internalMutex.Lock()
 	ret, specificReturn := fake.internalReturnsOnCall[len(fake.internalArgsForCall)]
 	fake.internalArgsForCall = append(fake.internalArgsForCall, struct {
@@ -196,19 +196,19 @@ func (fake *FakeSignedProposal) Internal() any {
 	return fakeReturns.result1
 }
 
-func (fake *FakeSignedProposal) InternalCallCount() int {
+func (fake *SignedProposal) InternalCallCount() int {
 	fake.internalMutex.RLock()
 	defer fake.internalMutex.RUnlock()
 	return len(fake.internalArgsForCall)
 }
 
-func (fake *FakeSignedProposal) InternalCalls(stub func() any) {
+func (fake *SignedProposal) InternalCalls(stub func() any) {
 	fake.internalMutex.Lock()
 	defer fake.internalMutex.Unlock()
 	fake.InternalStub = stub
 }
 
-func (fake *FakeSignedProposal) InternalReturns(result1 any) {
+func (fake *SignedProposal) InternalReturns(result1 any) {
 	fake.internalMutex.Lock()
 	defer fake.internalMutex.Unlock()
 	fake.InternalStub = nil
@@ -217,7 +217,7 @@ func (fake *FakeSignedProposal) InternalReturns(result1 any) {
 	}{result1}
 }
 
-func (fake *FakeSignedProposal) InternalReturnsOnCall(i int, result1 any) {
+func (fake *SignedProposal) InternalReturnsOnCall(i int, result1 any) {
 	fake.internalMutex.Lock()
 	defer fake.internalMutex.Unlock()
 	fake.InternalStub = nil
@@ -231,7 +231,7 @@ func (fake *FakeSignedProposal) InternalReturnsOnCall(i int, result1 any) {
 	}{result1}
 }
 
-func (fake *FakeSignedProposal) ProposalBytes() []byte {
+func (fake *SignedProposal) ProposalBytes() []byte {
 	fake.proposalBytesMutex.Lock()
 	ret, specificReturn := fake.proposalBytesReturnsOnCall[len(fake.proposalBytesArgsForCall)]
 	fake.proposalBytesArgsForCall = append(fake.proposalBytesArgsForCall, struct {
@@ -249,19 +249,19 @@ func (fake *FakeSignedProposal) ProposalBytes() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeSignedProposal) ProposalBytesCallCount() int {
+func (fake *SignedProposal) ProposalBytesCallCount() int {
 	fake.proposalBytesMutex.RLock()
 	defer fake.proposalBytesMutex.RUnlock()
 	return len(fake.proposalBytesArgsForCall)
 }
 
-func (fake *FakeSignedProposal) ProposalBytesCalls(stub func() []byte) {
+func (fake *SignedProposal) ProposalBytesCalls(stub func() []byte) {
 	fake.proposalBytesMutex.Lock()
 	defer fake.proposalBytesMutex.Unlock()
 	fake.ProposalBytesStub = stub
 }
 
-func (fake *FakeSignedProposal) ProposalBytesReturns(result1 []byte) {
+func (fake *SignedProposal) ProposalBytesReturns(result1 []byte) {
 	fake.proposalBytesMutex.Lock()
 	defer fake.proposalBytesMutex.Unlock()
 	fake.ProposalBytesStub = nil
@@ -270,7 +270,7 @@ func (fake *FakeSignedProposal) ProposalBytesReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeSignedProposal) ProposalBytesReturnsOnCall(i int, result1 []byte) {
+func (fake *SignedProposal) ProposalBytesReturnsOnCall(i int, result1 []byte) {
 	fake.proposalBytesMutex.Lock()
 	defer fake.proposalBytesMutex.Unlock()
 	fake.ProposalBytesStub = nil
@@ -284,7 +284,7 @@ func (fake *FakeSignedProposal) ProposalBytesReturnsOnCall(i int, result1 []byte
 	}{result1}
 }
 
-func (fake *FakeSignedProposal) ProposalHash() []byte {
+func (fake *SignedProposal) ProposalHash() []byte {
 	fake.proposalHashMutex.Lock()
 	ret, specificReturn := fake.proposalHashReturnsOnCall[len(fake.proposalHashArgsForCall)]
 	fake.proposalHashArgsForCall = append(fake.proposalHashArgsForCall, struct {
@@ -302,19 +302,19 @@ func (fake *FakeSignedProposal) ProposalHash() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeSignedProposal) ProposalHashCallCount() int {
+func (fake *SignedProposal) ProposalHashCallCount() int {
 	fake.proposalHashMutex.RLock()
 	defer fake.proposalHashMutex.RUnlock()
 	return len(fake.proposalHashArgsForCall)
 }
 
-func (fake *FakeSignedProposal) ProposalHashCalls(stub func() []byte) {
+func (fake *SignedProposal) ProposalHashCalls(stub func() []byte) {
 	fake.proposalHashMutex.Lock()
 	defer fake.proposalHashMutex.Unlock()
 	fake.ProposalHashStub = stub
 }
 
-func (fake *FakeSignedProposal) ProposalHashReturns(result1 []byte) {
+func (fake *SignedProposal) ProposalHashReturns(result1 []byte) {
 	fake.proposalHashMutex.Lock()
 	defer fake.proposalHashMutex.Unlock()
 	fake.ProposalHashStub = nil
@@ -323,7 +323,7 @@ func (fake *FakeSignedProposal) ProposalHashReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeSignedProposal) ProposalHashReturnsOnCall(i int, result1 []byte) {
+func (fake *SignedProposal) ProposalHashReturnsOnCall(i int, result1 []byte) {
 	fake.proposalHashMutex.Lock()
 	defer fake.proposalHashMutex.Unlock()
 	fake.ProposalHashStub = nil
@@ -337,7 +337,7 @@ func (fake *FakeSignedProposal) ProposalHashReturnsOnCall(i int, result1 []byte)
 	}{result1}
 }
 
-func (fake *FakeSignedProposal) Signature() []byte {
+func (fake *SignedProposal) Signature() []byte {
 	fake.signatureMutex.Lock()
 	ret, specificReturn := fake.signatureReturnsOnCall[len(fake.signatureArgsForCall)]
 	fake.signatureArgsForCall = append(fake.signatureArgsForCall, struct {
@@ -355,19 +355,19 @@ func (fake *FakeSignedProposal) Signature() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeSignedProposal) SignatureCallCount() int {
+func (fake *SignedProposal) SignatureCallCount() int {
 	fake.signatureMutex.RLock()
 	defer fake.signatureMutex.RUnlock()
 	return len(fake.signatureArgsForCall)
 }
 
-func (fake *FakeSignedProposal) SignatureCalls(stub func() []byte) {
+func (fake *SignedProposal) SignatureCalls(stub func() []byte) {
 	fake.signatureMutex.Lock()
 	defer fake.signatureMutex.Unlock()
 	fake.SignatureStub = stub
 }
 
-func (fake *FakeSignedProposal) SignatureReturns(result1 []byte) {
+func (fake *SignedProposal) SignatureReturns(result1 []byte) {
 	fake.signatureMutex.Lock()
 	defer fake.signatureMutex.Unlock()
 	fake.SignatureStub = nil
@@ -376,7 +376,7 @@ func (fake *FakeSignedProposal) SignatureReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeSignedProposal) SignatureReturnsOnCall(i int, result1 []byte) {
+func (fake *SignedProposal) SignatureReturnsOnCall(i int, result1 []byte) {
 	fake.signatureMutex.Lock()
 	defer fake.signatureMutex.Unlock()
 	fake.SignatureStub = nil
@@ -390,7 +390,7 @@ func (fake *FakeSignedProposal) SignatureReturnsOnCall(i int, result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeSignedProposal) Invocations() map[string][][]interface{} {
+func (fake *SignedProposal) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -400,7 +400,7 @@ func (fake *FakeSignedProposal) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeSignedProposal) recordInvocation(key string, args []interface{}) {
+func (fake *SignedProposal) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -412,4 +412,4 @@ func (fake *FakeSignedProposal) recordInvocation(key string, args []interface{})
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.SignedProposal = new(FakeSignedProposal)
+var _ driver.SignedProposal = new(SignedProposal)

@@ -11,9 +11,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node/mocks/sdk1"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node/mocks/sdk2"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node/mocks/sdk3"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node/fake/sdk1"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node/fake/sdk2"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node/fake/sdk3"
 )
 
 func TestNode_AddSDKWithBase(t *testing.T) {

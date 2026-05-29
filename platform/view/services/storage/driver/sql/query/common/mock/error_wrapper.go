@@ -87,8 +87,6 @@ func (fake *SQLErrorWrapper) WrapErrorReturnsOnCall(i int, result1 error) {
 func (fake *SQLErrorWrapper) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.wrapErrorMutex.RLock()
-	defer fake.wrapErrorMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -7,7 +7,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-type FakeProposalResponse struct {
+type ProposalResponse struct {
 	BytesStub        func() ([]byte, error)
 	bytesMutex       sync.RWMutex
 	bytesArgsForCall []struct {
@@ -95,7 +95,7 @@ type FakeProposalResponse struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeProposalResponse) Bytes() ([]byte, error) {
+func (fake *ProposalResponse) Bytes() ([]byte, error) {
 	fake.bytesMutex.Lock()
 	ret, specificReturn := fake.bytesReturnsOnCall[len(fake.bytesArgsForCall)]
 	fake.bytesArgsForCall = append(fake.bytesArgsForCall, struct {
@@ -113,19 +113,19 @@ func (fake *FakeProposalResponse) Bytes() ([]byte, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeProposalResponse) BytesCallCount() int {
+func (fake *ProposalResponse) BytesCallCount() int {
 	fake.bytesMutex.RLock()
 	defer fake.bytesMutex.RUnlock()
 	return len(fake.bytesArgsForCall)
 }
 
-func (fake *FakeProposalResponse) BytesCalls(stub func() ([]byte, error)) {
+func (fake *ProposalResponse) BytesCalls(stub func() ([]byte, error)) {
 	fake.bytesMutex.Lock()
 	defer fake.bytesMutex.Unlock()
 	fake.BytesStub = stub
 }
 
-func (fake *FakeProposalResponse) BytesReturns(result1 []byte, result2 error) {
+func (fake *ProposalResponse) BytesReturns(result1 []byte, result2 error) {
 	fake.bytesMutex.Lock()
 	defer fake.bytesMutex.Unlock()
 	fake.BytesStub = nil
@@ -135,7 +135,7 @@ func (fake *FakeProposalResponse) BytesReturns(result1 []byte, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeProposalResponse) BytesReturnsOnCall(i int, result1 []byte, result2 error) {
+func (fake *ProposalResponse) BytesReturnsOnCall(i int, result1 []byte, result2 error) {
 	fake.bytesMutex.Lock()
 	defer fake.bytesMutex.Unlock()
 	fake.BytesStub = nil
@@ -151,7 +151,7 @@ func (fake *FakeProposalResponse) BytesReturnsOnCall(i int, result1 []byte, resu
 	}{result1, result2}
 }
 
-func (fake *FakeProposalResponse) Endorser() []byte {
+func (fake *ProposalResponse) Endorser() []byte {
 	fake.endorserMutex.Lock()
 	ret, specificReturn := fake.endorserReturnsOnCall[len(fake.endorserArgsForCall)]
 	fake.endorserArgsForCall = append(fake.endorserArgsForCall, struct {
@@ -169,19 +169,19 @@ func (fake *FakeProposalResponse) Endorser() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeProposalResponse) EndorserCallCount() int {
+func (fake *ProposalResponse) EndorserCallCount() int {
 	fake.endorserMutex.RLock()
 	defer fake.endorserMutex.RUnlock()
 	return len(fake.endorserArgsForCall)
 }
 
-func (fake *FakeProposalResponse) EndorserCalls(stub func() []byte) {
+func (fake *ProposalResponse) EndorserCalls(stub func() []byte) {
 	fake.endorserMutex.Lock()
 	defer fake.endorserMutex.Unlock()
 	fake.EndorserStub = stub
 }
 
-func (fake *FakeProposalResponse) EndorserReturns(result1 []byte) {
+func (fake *ProposalResponse) EndorserReturns(result1 []byte) {
 	fake.endorserMutex.Lock()
 	defer fake.endorserMutex.Unlock()
 	fake.EndorserStub = nil
@@ -190,7 +190,7 @@ func (fake *FakeProposalResponse) EndorserReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) EndorserReturnsOnCall(i int, result1 []byte) {
+func (fake *ProposalResponse) EndorserReturnsOnCall(i int, result1 []byte) {
 	fake.endorserMutex.Lock()
 	defer fake.endorserMutex.Unlock()
 	fake.EndorserStub = nil
@@ -204,7 +204,7 @@ func (fake *FakeProposalResponse) EndorserReturnsOnCall(i int, result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) EndorserSignature() []byte {
+func (fake *ProposalResponse) EndorserSignature() []byte {
 	fake.endorserSignatureMutex.Lock()
 	ret, specificReturn := fake.endorserSignatureReturnsOnCall[len(fake.endorserSignatureArgsForCall)]
 	fake.endorserSignatureArgsForCall = append(fake.endorserSignatureArgsForCall, struct {
@@ -222,19 +222,19 @@ func (fake *FakeProposalResponse) EndorserSignature() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeProposalResponse) EndorserSignatureCallCount() int {
+func (fake *ProposalResponse) EndorserSignatureCallCount() int {
 	fake.endorserSignatureMutex.RLock()
 	defer fake.endorserSignatureMutex.RUnlock()
 	return len(fake.endorserSignatureArgsForCall)
 }
 
-func (fake *FakeProposalResponse) EndorserSignatureCalls(stub func() []byte) {
+func (fake *ProposalResponse) EndorserSignatureCalls(stub func() []byte) {
 	fake.endorserSignatureMutex.Lock()
 	defer fake.endorserSignatureMutex.Unlock()
 	fake.EndorserSignatureStub = stub
 }
 
-func (fake *FakeProposalResponse) EndorserSignatureReturns(result1 []byte) {
+func (fake *ProposalResponse) EndorserSignatureReturns(result1 []byte) {
 	fake.endorserSignatureMutex.Lock()
 	defer fake.endorserSignatureMutex.Unlock()
 	fake.EndorserSignatureStub = nil
@@ -243,7 +243,7 @@ func (fake *FakeProposalResponse) EndorserSignatureReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) EndorserSignatureReturnsOnCall(i int, result1 []byte) {
+func (fake *ProposalResponse) EndorserSignatureReturnsOnCall(i int, result1 []byte) {
 	fake.endorserSignatureMutex.Lock()
 	defer fake.endorserSignatureMutex.Unlock()
 	fake.EndorserSignatureStub = nil
@@ -257,7 +257,7 @@ func (fake *FakeProposalResponse) EndorserSignatureReturnsOnCall(i int, result1 
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) Payload() []byte {
+func (fake *ProposalResponse) Payload() []byte {
 	fake.payloadMutex.Lock()
 	ret, specificReturn := fake.payloadReturnsOnCall[len(fake.payloadArgsForCall)]
 	fake.payloadArgsForCall = append(fake.payloadArgsForCall, struct {
@@ -275,19 +275,19 @@ func (fake *FakeProposalResponse) Payload() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeProposalResponse) PayloadCallCount() int {
+func (fake *ProposalResponse) PayloadCallCount() int {
 	fake.payloadMutex.RLock()
 	defer fake.payloadMutex.RUnlock()
 	return len(fake.payloadArgsForCall)
 }
 
-func (fake *FakeProposalResponse) PayloadCalls(stub func() []byte) {
+func (fake *ProposalResponse) PayloadCalls(stub func() []byte) {
 	fake.payloadMutex.Lock()
 	defer fake.payloadMutex.Unlock()
 	fake.PayloadStub = stub
 }
 
-func (fake *FakeProposalResponse) PayloadReturns(result1 []byte) {
+func (fake *ProposalResponse) PayloadReturns(result1 []byte) {
 	fake.payloadMutex.Lock()
 	defer fake.payloadMutex.Unlock()
 	fake.PayloadStub = nil
@@ -296,7 +296,7 @@ func (fake *FakeProposalResponse) PayloadReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) PayloadReturnsOnCall(i int, result1 []byte) {
+func (fake *ProposalResponse) PayloadReturnsOnCall(i int, result1 []byte) {
 	fake.payloadMutex.Lock()
 	defer fake.payloadMutex.Unlock()
 	fake.PayloadStub = nil
@@ -310,7 +310,7 @@ func (fake *FakeProposalResponse) PayloadReturnsOnCall(i int, result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) ResponseMessage() string {
+func (fake *ProposalResponse) ResponseMessage() string {
 	fake.responseMessageMutex.Lock()
 	ret, specificReturn := fake.responseMessageReturnsOnCall[len(fake.responseMessageArgsForCall)]
 	fake.responseMessageArgsForCall = append(fake.responseMessageArgsForCall, struct {
@@ -328,19 +328,19 @@ func (fake *FakeProposalResponse) ResponseMessage() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeProposalResponse) ResponseMessageCallCount() int {
+func (fake *ProposalResponse) ResponseMessageCallCount() int {
 	fake.responseMessageMutex.RLock()
 	defer fake.responseMessageMutex.RUnlock()
 	return len(fake.responseMessageArgsForCall)
 }
 
-func (fake *FakeProposalResponse) ResponseMessageCalls(stub func() string) {
+func (fake *ProposalResponse) ResponseMessageCalls(stub func() string) {
 	fake.responseMessageMutex.Lock()
 	defer fake.responseMessageMutex.Unlock()
 	fake.ResponseMessageStub = stub
 }
 
-func (fake *FakeProposalResponse) ResponseMessageReturns(result1 string) {
+func (fake *ProposalResponse) ResponseMessageReturns(result1 string) {
 	fake.responseMessageMutex.Lock()
 	defer fake.responseMessageMutex.Unlock()
 	fake.ResponseMessageStub = nil
@@ -349,7 +349,7 @@ func (fake *FakeProposalResponse) ResponseMessageReturns(result1 string) {
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) ResponseMessageReturnsOnCall(i int, result1 string) {
+func (fake *ProposalResponse) ResponseMessageReturnsOnCall(i int, result1 string) {
 	fake.responseMessageMutex.Lock()
 	defer fake.responseMessageMutex.Unlock()
 	fake.ResponseMessageStub = nil
@@ -363,7 +363,7 @@ func (fake *FakeProposalResponse) ResponseMessageReturnsOnCall(i int, result1 st
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) ResponseStatus() int32 {
+func (fake *ProposalResponse) ResponseStatus() int32 {
 	fake.responseStatusMutex.Lock()
 	ret, specificReturn := fake.responseStatusReturnsOnCall[len(fake.responseStatusArgsForCall)]
 	fake.responseStatusArgsForCall = append(fake.responseStatusArgsForCall, struct {
@@ -381,19 +381,19 @@ func (fake *FakeProposalResponse) ResponseStatus() int32 {
 	return fakeReturns.result1
 }
 
-func (fake *FakeProposalResponse) ResponseStatusCallCount() int {
+func (fake *ProposalResponse) ResponseStatusCallCount() int {
 	fake.responseStatusMutex.RLock()
 	defer fake.responseStatusMutex.RUnlock()
 	return len(fake.responseStatusArgsForCall)
 }
 
-func (fake *FakeProposalResponse) ResponseStatusCalls(stub func() int32) {
+func (fake *ProposalResponse) ResponseStatusCalls(stub func() int32) {
 	fake.responseStatusMutex.Lock()
 	defer fake.responseStatusMutex.Unlock()
 	fake.ResponseStatusStub = stub
 }
 
-func (fake *FakeProposalResponse) ResponseStatusReturns(result1 int32) {
+func (fake *ProposalResponse) ResponseStatusReturns(result1 int32) {
 	fake.responseStatusMutex.Lock()
 	defer fake.responseStatusMutex.Unlock()
 	fake.ResponseStatusStub = nil
@@ -402,7 +402,7 @@ func (fake *FakeProposalResponse) ResponseStatusReturns(result1 int32) {
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) ResponseStatusReturnsOnCall(i int, result1 int32) {
+func (fake *ProposalResponse) ResponseStatusReturnsOnCall(i int, result1 int32) {
 	fake.responseStatusMutex.Lock()
 	defer fake.responseStatusMutex.Unlock()
 	fake.ResponseStatusStub = nil
@@ -416,7 +416,7 @@ func (fake *FakeProposalResponse) ResponseStatusReturnsOnCall(i int, result1 int
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) Results() []byte {
+func (fake *ProposalResponse) Results() []byte {
 	fake.resultsMutex.Lock()
 	ret, specificReturn := fake.resultsReturnsOnCall[len(fake.resultsArgsForCall)]
 	fake.resultsArgsForCall = append(fake.resultsArgsForCall, struct {
@@ -434,19 +434,19 @@ func (fake *FakeProposalResponse) Results() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeProposalResponse) ResultsCallCount() int {
+func (fake *ProposalResponse) ResultsCallCount() int {
 	fake.resultsMutex.RLock()
 	defer fake.resultsMutex.RUnlock()
 	return len(fake.resultsArgsForCall)
 }
 
-func (fake *FakeProposalResponse) ResultsCalls(stub func() []byte) {
+func (fake *ProposalResponse) ResultsCalls(stub func() []byte) {
 	fake.resultsMutex.Lock()
 	defer fake.resultsMutex.Unlock()
 	fake.ResultsStub = stub
 }
 
-func (fake *FakeProposalResponse) ResultsReturns(result1 []byte) {
+func (fake *ProposalResponse) ResultsReturns(result1 []byte) {
 	fake.resultsMutex.Lock()
 	defer fake.resultsMutex.Unlock()
 	fake.ResultsStub = nil
@@ -455,7 +455,7 @@ func (fake *FakeProposalResponse) ResultsReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) ResultsReturnsOnCall(i int, result1 []byte) {
+func (fake *ProposalResponse) ResultsReturnsOnCall(i int, result1 []byte) {
 	fake.resultsMutex.Lock()
 	defer fake.resultsMutex.Unlock()
 	fake.ResultsStub = nil
@@ -469,7 +469,7 @@ func (fake *FakeProposalResponse) ResultsReturnsOnCall(i int, result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) VerifyEndorsement(arg1 driver.VerifierProvider) error {
+func (fake *ProposalResponse) VerifyEndorsement(arg1 driver.VerifierProvider) error {
 	fake.verifyEndorsementMutex.Lock()
 	ret, specificReturn := fake.verifyEndorsementReturnsOnCall[len(fake.verifyEndorsementArgsForCall)]
 	fake.verifyEndorsementArgsForCall = append(fake.verifyEndorsementArgsForCall, struct {
@@ -488,26 +488,26 @@ func (fake *FakeProposalResponse) VerifyEndorsement(arg1 driver.VerifierProvider
 	return fakeReturns.result1
 }
 
-func (fake *FakeProposalResponse) VerifyEndorsementCallCount() int {
+func (fake *ProposalResponse) VerifyEndorsementCallCount() int {
 	fake.verifyEndorsementMutex.RLock()
 	defer fake.verifyEndorsementMutex.RUnlock()
 	return len(fake.verifyEndorsementArgsForCall)
 }
 
-func (fake *FakeProposalResponse) VerifyEndorsementCalls(stub func(driver.VerifierProvider) error) {
+func (fake *ProposalResponse) VerifyEndorsementCalls(stub func(driver.VerifierProvider) error) {
 	fake.verifyEndorsementMutex.Lock()
 	defer fake.verifyEndorsementMutex.Unlock()
 	fake.VerifyEndorsementStub = stub
 }
 
-func (fake *FakeProposalResponse) VerifyEndorsementArgsForCall(i int) driver.VerifierProvider {
+func (fake *ProposalResponse) VerifyEndorsementArgsForCall(i int) driver.VerifierProvider {
 	fake.verifyEndorsementMutex.RLock()
 	defer fake.verifyEndorsementMutex.RUnlock()
 	argsForCall := fake.verifyEndorsementArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeProposalResponse) VerifyEndorsementReturns(result1 error) {
+func (fake *ProposalResponse) VerifyEndorsementReturns(result1 error) {
 	fake.verifyEndorsementMutex.Lock()
 	defer fake.verifyEndorsementMutex.Unlock()
 	fake.VerifyEndorsementStub = nil
@@ -516,7 +516,7 @@ func (fake *FakeProposalResponse) VerifyEndorsementReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) VerifyEndorsementReturnsOnCall(i int, result1 error) {
+func (fake *ProposalResponse) VerifyEndorsementReturnsOnCall(i int, result1 error) {
 	fake.verifyEndorsementMutex.Lock()
 	defer fake.verifyEndorsementMutex.Unlock()
 	fake.VerifyEndorsementStub = nil
@@ -530,7 +530,7 @@ func (fake *FakeProposalResponse) VerifyEndorsementReturnsOnCall(i int, result1 
 	}{result1}
 }
 
-func (fake *FakeProposalResponse) Invocations() map[string][][]interface{} {
+func (fake *ProposalResponse) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -540,7 +540,7 @@ func (fake *FakeProposalResponse) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeProposalResponse) recordInvocation(key string, args []interface{}) {
+func (fake *ProposalResponse) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -552,4 +552,4 @@ func (fake *FakeProposalResponse) recordInvocation(key string, args []interface{
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.ProposalResponse = new(FakeProposalResponse)
+var _ driver.ProposalResponse = new(ProposalResponse)

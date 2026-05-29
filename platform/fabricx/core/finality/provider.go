@@ -42,8 +42,6 @@ type ListenerManagerProvider interface {
 }
 
 // ServiceConfigProvider provides gRPC configuration for a given network.
-//
-//go:generate counterfeiter -o mock/service_config_provider.go --fake-name ServiceConfigProvider . ServiceConfigProvider
 type ServiceConfigProvider interface {
 	// NotificationServiceConfig returns the configuration for the notification service for the specified network.
 	NotificationServiceConfig(network string) (*config.Config, error)

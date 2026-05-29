@@ -13,15 +13,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/mocks"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/vault/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
 func TestConcurrency(t *testing.T) {
 	t.Parallel()
-	qe := mocks.NewMockQE()
-	idsr := mocks.MockTxStatusStore{}
+	qe := fake.NewQE()
+	idsr := fake.TxStatusStore{}
 
 	i := newInterceptor(logging.MustGetLogger(), context.Background(), EmptyRWSet(), qe, idsr, "1")
 	s, err := i.GetState("ns", "key")
@@ -66,8 +66,8 @@ func TestConcurrency(t *testing.T) {
 
 func TestAddReadAt(t *testing.T) {
 	t.Parallel()
-	qe := mocks.MockQE{}
-	idsr := mocks.MockTxStatusStore{}
+	qe := fake.QE{}
+	idsr := fake.TxStatusStore{}
 	i := newInterceptor(logging.MustGetLogger(), context.Background(), EmptyRWSet(), qe, idsr, "1")
 
 	require.NoError(t, i.AddReadAt("ns", "key", []byte("version")))
