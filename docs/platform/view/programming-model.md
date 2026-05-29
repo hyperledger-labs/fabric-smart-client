@@ -27,7 +27,7 @@ A view implements a [`Call()`](../../../platform/view/view/view.go#L13) method w
 ```go
 type MyView struct{}
 
-func (v *MyView) Call(viewCtx view.Context) (interface{}, error) {
+func (v *MyView) Call(viewCtx view.Context) (any, error) {
 	// business logic
 	return nil, nil
 }
@@ -171,7 +171,7 @@ type Initiator struct {
 	in []byte
 }
 
-func (p *Initiator) Call(viewCtx view.Context) (interface{}, error) {
+func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 	identityProvider, err := id.GetProvider(viewCtx)
 	if err != nil {
 		return nil, err
@@ -215,7 +215,7 @@ The responder pattern is:
 ```go
 type Responder struct{}
 
-func (p *Responder) Call(viewCtx view.Context) (interface{}, error) {
+func (p *Responder) Call(viewCtx view.Context) (any, error) {
 	session := viewCtx.Session()
 	msg := <-session.Receive()
 

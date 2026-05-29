@@ -300,7 +300,7 @@ When `GetSession(caller, party)` is called:
 The `RunViewNow` function is the core view execution engine:
 
 ```go
-func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (interface{}, error)
+func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (any, error)
 ```
 
 **Execution Flow:**

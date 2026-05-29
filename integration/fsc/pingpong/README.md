@@ -41,7 +41,7 @@ import (
 
 type Initiator struct{}
 
-func (p *Initiator) Call(viewCtx view.Context) (interface{}, error) {
+func (p *Initiator) Call(viewCtx view.Context) (any, error) {
   // Retrieve responder identity
   responder := view2.GetIdentityProvider(viewCtx).Identity("responder")
 
@@ -102,7 +102,7 @@ import (
 
 type Responder struct{}
 
-func (p *Responder) Call(viewCtx view.Context) (interface{}, error) {
+func (p *Responder) Call(viewCtx view.Context) (any, error) {
   // Retrieve the session opened by the initiator
   session := viewCtx.Session()
 

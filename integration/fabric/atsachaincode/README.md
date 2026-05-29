@@ -224,7 +224,7 @@ type CreateAssetView struct {
 	*CreateAsset
 }
 
-func (c *CreateAssetView) Call(viewCtx view.Context) (interface{}, error) {
+func (c *CreateAssetView) Call(viewCtx view.Context) (any, error) {
 	apRaw, err := c.AssetProperties.Bytes()
 	assert.NoError(err, "failed marshalling asset properties struct")
 
