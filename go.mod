@@ -11,7 +11,6 @@ require (
 	github.com/cockroachdb/errors v1.12.0
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
-	github.com/go-kit/kit v0.13.0
 	github.com/go-kit/log v0.2.1
 	github.com/go-viper/mapstructure/v2 v2.4.0
 	github.com/gorilla/mux v1.8.1
