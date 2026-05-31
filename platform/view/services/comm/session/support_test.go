@@ -99,3 +99,114 @@ func TestReadFirstMessageOrPanicClosedChannel(t *testing.T) {
 		_ = ReadFirstMessageOrPanic(ctx)
 	})
 }
+
+func TestReadMessageWithTimeoutSuccess(t *testing.T) {
+	t.Parallel()
+	ch := make(chan *view.Message, 1)
+	ch <- &view.Message{Payload: []byte("hello"), Status: view.OK}
+	payload, err := ReadMessageWithTimeout(&mockSession{ch: ch}, time.Second)
+	require.NoError(t, err)
+	require.Equal(t, []byte("hello"), payload)
+}
+
+func TestReadMessageWithTimeoutError(t *testing.T) {
+	t.Parallel()
+	ch := make(chan *view.Message, 1)
+	ch <- &view.Message{Payload: []byte("err"), Status: view.ERROR}
+	_, err := ReadMessageWithTimeout(&mockSession{ch: ch}, time.Second)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "received error from remote")
+}
+
+func TestReadMessageWithTimeoutNilMessage(t *testing.T) {
+	t.Parallel()
+	ch := make(chan *view.Message, 1)
+	ch <- nil
+	_, err := ReadMessageWithTimeout(&mockSession{ch: ch}, time.Second)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "received message is nil")
+}
+
+func TestReadMessageWithTimeoutExpired(t *testing.T) {
+	t.Parallel()
+	ch := make(chan *view.Message)
+	_, err := ReadMessageWithTimeout(&mockSession{ch: ch}, 50*time.Millisecond)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "time out reached")
+}
+
+func TestReadFirstMessageSuccess(t *testing.T) {
+	t.Parallel()
+	ch := make(chan *view.Message, 1)
+	ch <- &view.Message{Payload: []byte("first"), Status: view.OK}
+	ctx := &mockContext{s: &mockSession{ch: ch}}
+	session, payload, err := ReadFirstMessage(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, session)
+	require.Equal(t, []byte("first"), payload)
+}
+
+func TestReadFirstMessageErrorMessage(t *testing.T) {
+	t.Parallel()
+	ch := make(chan *view.Message, 1)
+	ch <- &view.Message{Payload: []byte("remote err"), Status: view.ERROR}
+	ctx := &mockContext{s: &mockSession{ch: ch}}
+	_, _, err := ReadFirstMessage(ctx)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "received error from remote")
+}
+
+func TestReadFirstMessageNilMessage(t *testing.T) {
+	t.Parallel()
+	ch := make(chan *view.Message, 1)
+	ch <- nil
+	ctx := &mockContext{s: &mockSession{ch: ch}}
+	_, _, err := ReadFirstMessage(ctx)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "received message is nil")
+}
+
+func TestReadFirstMessageOrPanicSuccess(t *testing.T) {
+	t.Parallel()
+	ch := make(chan *view.Message, 1)
+	ch <- &view.Message{Payload: []byte("panic-test"), Status: view.OK}
+	ctx := &mockContext{s: &mockSession{ch: ch}}
+	payload := ReadFirstMessageOrPanic(ctx)
+	require.Equal(t, []byte("panic-test"), payload)
+}
+
+func TestReadFirstMessageOrPanicNilMessage(t *testing.T) {
+	t.Parallel()
+	ch := make(chan *view.Message, 1)
+	ch <- nil
+	ctx := &mockContext{s: &mockSession{ch: ch}}
+	require.PanicsWithValue(t, "received message is nil", func() {
+		ReadFirstMessageOrPanic(ctx)
+	})
+}
+
+func TestReadFirstMessageOrPanicErrorMessage(t *testing.T) {
+	t.Parallel()
+	ch := make(chan *view.Message, 1)
+	ch <- &view.Message{Payload: []byte("err"), Status: view.ERROR}
+	ctx := &mockContext{s: &mockSession{ch: ch}}
+	require.Panics(t, func() {
+		ReadFirstMessageOrPanic(ctx)
+	})
+}
+
+func TestReadFirstMessageNilChannel(t *testing.T) {
+	t.Parallel()
+	ctx := &mockContext{s: &mockSession{ch: nil}}
+	_, _, err := ReadFirstMessage(ctx)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "session receive channel is nil")
+}
+
+func TestReadFirstMessageOrPanicNilChannel(t *testing.T) {
+	t.Parallel()
+	ctx := &mockContext{s: &mockSession{ch: nil}}
+	require.PanicsWithValue(t, "session receive channel is nil", func() {
+		ReadFirstMessageOrPanic(ctx)
+	})
+}
