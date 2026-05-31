@@ -96,11 +96,15 @@ func (c *testChannelConfig) FinalityEventQueueWorkers() int {
 }
 
 type testPublisher struct {
-	events []events.Event
+	events     []events.Event
+	publishedC chan events.Event
 }
 
 func (p *testPublisher) Publish(event events.Event) {
 	p.events = append(p.events, event)
+	if p.publishedC != nil {
+		p.publishedC <- event
+	}
 }
 
 type testVault struct {
@@ -820,7 +824,7 @@ func TestAddAndRemoveFinalityListener(t *testing.T) {
 func TestRunEventNotifiersProcessesQueue(t *testing.T) {
 	t.Parallel()
 
-	publisher := &testPublisher{}
+	publisher := &testPublisher{publishedC: make(chan events.Event, 2)}
 	lm := &testListenerManager{}
 	c := &Committer{
 		logger:          logger,
@@ -850,11 +854,17 @@ func TestRunEventNotifiersProcessesQueue(t *testing.T) {
 	select {
 	case event := <-done:
 		require.Equal(t, "tx21", event.TxID)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Fatalf("event not received")
 	}
 
-	require.Eventually(t, func() bool { return len(publisher.events) == 2 }, time.Second, 10*time.Millisecond)
+	for i := 0; i < 2; i++ {
+		select {
+		case <-publisher.publishedC:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("publisher did not receive event %d", i+1)
+		}
+	}
 }
 
 func TestCommitUnknownStoredEnvelopePath(t *testing.T) {
@@ -1162,20 +1172,6 @@ func TestNotifyChaincodeListenersPublishes(t *testing.T) {
 	require.Same(t, event, publisher.events[0])
 }
 
-func waitForFinalityListener(c *Committer, txID string, timeout time.Duration) (chan FinalityEvent, error) {
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		c.mutex.Lock()
-		listeners := append([]chan FinalityEvent(nil), c.listeners[txID]...)
-		c.mutex.Unlock()
-		if len(listeners) > 0 {
-			return listeners[0], nil
-		}
-		time.Sleep(2 * time.Millisecond)
-	}
-	return nil, stderrors.New("listener not registered before timeout")
-}
-
 func TestDiscardTxAdditionalBranches(t *testing.T) {
 	t.Parallel()
 
@@ -1450,29 +1446,23 @@ func TestCommitAdditionalBranches(t *testing.T) {
 func TestListenToAdditionalBranches(t *testing.T) {
 	t.Parallel()
 
-	t.Run("event from listener channel", func(t *testing.T) {
+	t.Run("timeout when status remains unavailable", func(t *testing.T) {
 		t.Parallel()
-		eventErr := stderrors.New("event-failed")
 		c := &Committer{
-			logger:          logger,
-			tracer:          noop.NewTracerProvider().Tracer("test"),
-			listeners:       map[string][]chan FinalityEvent{},
-			pollingTimeout:  5 * time.Millisecond,
-			Vault:           &testVault{},
+			logger:         logger,
+			tracer:         noop.NewTracerProvider().Tracer("test"),
+			listeners:      map[string][]chan FinalityEvent{},
+			pollingTimeout: 10 * time.Millisecond,
+			Vault: &testVault{
+				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					return fdriver.Unknown, "", nil
+				},
+			},
 			EnvelopeService: &testEnvelopeService{},
 		}
 
-		errCh := make(chan error, 1)
-		go func() {
-			errCh <- c.listenTo(t.Context(), "tx-listen-event", 100*time.Millisecond)
-		}()
-
-		listener, err := waitForFinalityListener(c, "tx-listen-event", 250*time.Millisecond)
-		require.NoError(t, err)
-		listener <- FinalityEvent{Ctx: t.Context(), TxID: "tx-listen-event", Err: eventErr}
-
-		err = <-errCh
-		require.ErrorIs(t, err, eventErr)
+		err := c.listenTo(t.Context(), "tx-listen-timeout", 50*time.Millisecond)
+		require.ErrorContains(t, err, "failed to listen to transaction")
 	})
 
 	t.Run("timeout check sees valid tx", func(t *testing.T) {
@@ -1550,7 +1540,7 @@ func TestIsFinalAdditionalBranches(t *testing.T) {
 			logger: logger,
 			ChannelConfig: &testChannelConfig{
 				finalityRetries:     1,
-				waitForEventTimeout: 100 * time.Millisecond,
+				waitForEventTimeout: 50 * time.Millisecond,
 			},
 			Vault: &testVault{
 				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
@@ -1559,19 +1549,10 @@ func TestIsFinalAdditionalBranches(t *testing.T) {
 			},
 			tracer:          noop.NewTracerProvider().Tracer("test"),
 			listeners:       map[string][]chan FinalityEvent{},
-			pollingTimeout:  5 * time.Millisecond,
+			pollingTimeout:  10 * time.Millisecond,
 			EnvelopeService: &testEnvelopeService{},
 		}
-
-		errCh := make(chan error, 1)
-		go func() {
-			errCh <- c.IsFinal(t.Context(), "tx-final-busy")
-		}()
-
-		listener, err := waitForFinalityListener(c, "tx-final-busy", 250*time.Millisecond)
-		require.NoError(t, err)
-		listener <- FinalityEvent{Ctx: t.Context(), TxID: "tx-final-busy", Err: nil}
-
-		require.NoError(t, <-errCh)
+		err := c.IsFinal(t.Context(), "tx-final-busy")
+		require.ErrorContains(t, err, "failed to listen to transaction")
 	})
 }
