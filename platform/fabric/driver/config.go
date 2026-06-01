@@ -137,5 +137,5 @@ type MSP interface {
 	MSPID() string
 	Path() string
 	CacheSize() int
-	Opts() map[interface{}]interface{}
+	Opts() map[string]interface{}
 }
