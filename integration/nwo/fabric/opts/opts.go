@@ -28,7 +28,7 @@ func (o *Options) Organizations() []Organization {
 	list, ok := boxed.([]interface{})
 	if ok {
 		for _, entry := range list {
-			m := entry.(map[interface{}]interface{})
+			m := entry.(map[string]interface{})
 			res = append(res, Organization{
 				Network: m["Network"].(string),
 				Org:     m["Org"].(string),
@@ -205,8 +205,8 @@ func Get(o *node.Options) *Options {
 	if ok {
 		return res
 	}
-	mapping, ok := opt.(map[interface{}]interface{})
-	if ok {
+	// go.yaml.in/yaml/v3 decodes into map[string]interface{}
+	if mapping, ok := opt.(map[string]interface{}); ok {
 		opts := convert(mapping)
 		o.Mapping["fabric"] = opts
 		return opts
@@ -214,12 +214,14 @@ func Get(o *node.Options) *Options {
 	panic("invalid options")
 }
 
-func convert(m map[interface{}]interface{}) *Options {
+func convert(m map[string]interface{}) *Options {
 	opts := &Options{
 		Mapping: map[string]interface{}{},
 	}
-	for k, v := range m["mapping"].(map[interface{}]interface{}) {
-		opts.Mapping[k.(string)] = v
+	if mapping, ok := m["mapping"].(map[string]interface{}); ok {
+		for k, v := range mapping {
+			opts.Mapping[k] = v
+		}
 	}
 	return opts
 }
