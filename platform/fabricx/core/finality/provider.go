@@ -159,7 +159,7 @@ func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider) (*
 // from the view service provider. It relies on the service provider to locate
 // the registered ListenerManagerProvider and then delegates the creation/retrieval.
 func GetListenerManager(sp services.Provider, network, channel string) (ListenerManager, error) {
-	lmp, err := sp.GetService(reflect.TypeOf((*ListenerManagerProvider)(nil)))
+	lmp, err := sp.GetService(reflect.TypeFor[*ListenerManagerProvider]())
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find provider")
 	}

@@ -53,7 +53,7 @@ type Transaction interface {
 
 	// GetInputAt retrieves the state referenced by the index-th input. In addition, it returns
 	// the worldstate reference to that state and the associated birth and death scripts
-	GetInputAt(index int, state interface{}) (*StateReference, *Scripts, error)
+	GetInputAt(index int, state any) (*StateReference, *Scripts, error)
 
 	// GetInputScriptsAt returns the birth and death scripts associated to worldstate
 	// referenced by the index-th input
@@ -61,7 +61,7 @@ type Transaction interface {
 
 	// GetOutputAt retrieves the state referenced by the index-th output. In addition, it returns
 	// the associated birth and death scripts
-	GetOutputAt(index int, state interface{}) (*Scripts, error)
+	GetOutputAt(index int, state any) (*Scripts, error)
 
 	// GetOutputScriptsAt returns the birth and death scripts associated to transaction's output
 	// referenced by the index-th input

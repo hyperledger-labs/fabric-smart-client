@@ -137,7 +137,7 @@ func NewIdentityFromBytes(raw []byte) (view.Identity, driver.Verifier, error) {
 }
 
 // PemEncodeKey takes a Go key and converts it to bytes
-func PemEncodeKey(key interface{}) ([]byte, error) {
+func PemEncodeKey(key any) ([]byte, error) {
 	var encoded []byte
 	var err error
 	var keyType string
@@ -160,13 +160,13 @@ func PemEncodeKey(key interface{}) ([]byte, error) {
 }
 
 // PemDecodeKey takes bytes and returns a Go key
-func PemDecodeKey(keyBytes []byte) (interface{}, error) {
+func PemDecodeKey(keyBytes []byte) (any, error) {
 	block, _ := pem.Decode(keyBytes)
 	if block == nil {
 		return nil, errors.New("bytes are not PEM encoded")
 	}
 
-	var key interface{}
+	var key any
 	var err error
 	switch block.Type {
 	case "PRIVATE KEY":

@@ -26,13 +26,13 @@ type CommonIteratorInterface interface {
 type QueryIteratorInterface interface {
 	CommonIteratorInterface
 
-	Next(state interface{}) (string, error)
+	Next(state any) (string, error)
 }
 
 // Vault models a container of states
 type Vault interface {
 	// GetState loads the state identified by the tuple [namespace, id] into the passed state reference.
-	GetState(ctx context.Context, namespace driver.Namespace, id driver.PKey, state interface{}) error
+	GetState(ctx context.Context, namespace driver.Namespace, id driver.PKey, state any) error
 
 	GetStateCertification(ctx context.Context, namespace driver.Namespace, key driver.PKey) ([]byte, error)
 }

@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package _select
 
 import (
+	"slices"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/cond"
@@ -80,10 +82,8 @@ func (q *query) AddField(field common.Field) {
 	if (len(q.fields) > 0) && (q.fields[0] == common.FieldName("*")) {
 		return
 	}
-	for _, n := range q.fields {
-		if n == field {
-			return
-		}
+	if slices.Contains(q.fields, field) {
+		return
 	}
 	q.Fields(append(q.fields, field)...)
 }

@@ -31,17 +31,17 @@ func TestSecondChanceCache(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "123", obj.(string))
 
-	obj, ok, err := cache.GetOrLoad("b", func() (interface{}, error) { return "111", nil })
+	obj, ok, err := cache.GetOrLoad("b", func() (any, error) { return "111", nil })
 	require.True(t, ok)
 	require.NoError(t, err)
 	require.Equal(t, "123", obj.(string))
 
-	obj, ok, err = cache.GetOrLoad("c", func() (interface{}, error) { return "111", errors.New("some err") })
+	obj, ok, err = cache.GetOrLoad("c", func() (any, error) { return "111", errors.New("some err") })
 	require.False(t, ok)
 	require.Error(t, err)
 	require.Nil(t, obj)
 
-	obj, ok, err = cache.GetOrLoad("c", func() (interface{}, error) { return "111", nil })
+	obj, ok, err = cache.GetOrLoad("c", func() (any, error) { return "111", nil })
 	require.False(t, ok)
 	require.NoError(t, err)
 	require.Equal(t, "111", obj.(string))
@@ -79,13 +79,13 @@ func TestSecondChanceCacheConcurrent(t *testing.T) {
 	key1 := "key1"
 	val1 := key1
 
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		id := i
 		key2 := fmt.Sprintf("key2-%d", i)
 		val2 := key2
 
 		go func() {
-			for j := 0; j < 10000; j++ {
+			for j := range 10000 {
 				key3 := fmt.Sprintf("key3-%d-%d", id, j)
 				val3 := key3
 				cache.Add(key3, val3)
@@ -127,35 +127,34 @@ func TestSecondChanceCacheDelete(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		setupFunc func() (addFunc func(interface{}, interface{}), getFunc func(interface{}) (interface{}, bool), deleteFunc func(interface{}))
+		setupFunc func() (addFunc func(any, any), getFunc func(any) (any, bool), deleteFunc func(any))
 	}{
 		{
 			name: "TypedCache",
-			setupFunc: func() (func(interface{}, interface{}), func(interface{}) (interface{}, bool), func(interface{})) {
+			setupFunc: func() (func(any, any), func(any) (any, bool), func(any)) {
 				cache := New(10)
-				return func(k, v interface{}) { cache.Add(k.(string), v) },
-					func(k interface{}) (interface{}, bool) { return cache.Get(k.(string)) },
-					func(k interface{}) { cache.Delete(k.(string)) }
+				return func(k, v any) { cache.Add(k.(string), v) },
+					func(k any) (any, bool) { return cache.Get(k.(string)) },
+					func(k any) { cache.Delete(k.(string)) }
 			},
 		},
 		{
 			name: "BytesCache",
-			setupFunc: func() (func(interface{}, interface{}), func(interface{}) (interface{}, bool), func(interface{})) {
+			setupFunc: func() (func(any, any), func(any) (any, bool), func(any)) {
 				cache := NewBytes(10)
-				return func(k, v interface{}) { cache.Add(k.([]byte), v) },
-					func(k interface{}) (interface{}, bool) { return cache.Get(k.([]byte)) },
-					func(k interface{}) { cache.Delete(k.([]byte)) }
+				return func(k, v any) { cache.Add(k.([]byte), v) },
+					func(k any) (any, bool) { return cache.Get(k.([]byte)) },
+					func(k any) { cache.Delete(k.([]byte)) }
 			},
 		},
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			add, get, del := tt.setupFunc()
 
-			var key interface{}
+			var key any
 			if tt.name == "TypedCache" {
 				key = "k1"
 			} else {

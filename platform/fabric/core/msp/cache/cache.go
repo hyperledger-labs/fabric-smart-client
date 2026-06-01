@@ -38,8 +38,8 @@ func New(o msp.MSP) (msp.MSP, error) {
 }
 
 type cache interface {
-	Get(key string) (interface{}, bool)
-	Add(key string, value interface{})
+	Get(key string) (any, bool)
+	Add(key string, value any)
 }
 
 type cachedMSP struct {

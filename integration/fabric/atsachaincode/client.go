@@ -13,7 +13,7 @@ import (
 )
 
 type ViewClient interface {
-	CallView(fid string, in []byte) (interface{}, error)
+	CallView(fid string, in []byte) (any, error)
 }
 
 type Client struct {

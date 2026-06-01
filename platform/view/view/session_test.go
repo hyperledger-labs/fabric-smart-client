@@ -70,7 +70,6 @@ func TestMessage_String(t *testing.T) {
 	}
 
 	for _, tc := range table {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -124,7 +123,6 @@ func TestSessionInfo_String(t *testing.T) {
 	}
 
 	for _, tc := range table {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

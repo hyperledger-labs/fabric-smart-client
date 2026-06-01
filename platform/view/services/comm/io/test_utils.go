@@ -62,7 +62,7 @@ func SessionTwoParties(t *testing.T, network ...networkNode) {
 }
 
 func receive(session Conn, num int, payload []byte, errCh chan<- error) {
-	for i := 0; i < num; i++ {
+	for range num {
 		msg := make([]byte, len(payload))
 		n, err := session.Read(msg)
 		if err != nil {
@@ -80,7 +80,7 @@ func receive(session Conn, num int, payload []byte, errCh chan<- error) {
 }
 
 func send(session Conn, num int, payload []byte, errCh chan<- error) {
-	for i := 0; i < num; i++ {
+	for range num {
 		n, err := session.Write(payload)
 		if err != nil {
 			errCh <- err

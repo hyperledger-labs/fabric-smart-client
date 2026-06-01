@@ -25,7 +25,7 @@ func TestConfigProvider_NotificationServiceConfig(t *testing.T) {
 		fakeConfigService := &mock.FabricConfigService{}
 		fakeConfigProvider.GetConfigReturns(fakeConfigService, nil)
 
-		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "notificationService" {
 				if cfg, ok := rawVal.(**config.Config); ok {
 					(*cfg).Endpoints = []config.Endpoint{{Address: "localhost:1234"}}
@@ -79,7 +79,7 @@ func TestConfigProvider_QueryServiceConfig(t *testing.T) {
 		fakeConfigService := &mock.FabricConfigService{}
 		fakeConfigProvider.GetConfigReturns(fakeConfigService, nil)
 
-		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "queryService" {
 				if cfg, ok := rawVal.(**config.Config); ok {
 					(*cfg).Endpoints = []config.Endpoint{{Address: "localhost:5678"}}

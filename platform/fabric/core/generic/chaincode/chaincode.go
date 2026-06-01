@@ -23,7 +23,7 @@ type Services interface {
 }
 
 type Broadcaster interface {
-	Broadcast(ctx context.Context, blob interface{}) error
+	Broadcast(ctx context.Context, blob any) error
 }
 
 type SerializableSigner interface {
@@ -80,7 +80,7 @@ func NewChaincode(
 	}
 }
 
-func (c *Chaincode) NewInvocation(function string, args ...interface{}) driver.ChaincodeInvocation {
+func (c *Chaincode) NewInvocation(function string, args ...any) driver.ChaincodeInvocation {
 	return NewInvoke(c, function, args...)
 }
 

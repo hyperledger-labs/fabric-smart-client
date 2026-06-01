@@ -8,15 +8,15 @@ import (
 )
 
 type Event struct {
-	MessageStub        func() interface{}
+	MessageStub        func() any
 	messageMutex       sync.RWMutex
 	messageArgsForCall []struct {
 	}
 	messageReturns struct {
-		result1 interface{}
+		result1 any
 	}
 	messageReturnsOnCall map[int]struct {
-		result1 interface{}
+		result1 any
 	}
 	TopicStub        func() string
 	topicMutex       sync.RWMutex
@@ -32,7 +32,7 @@ type Event struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *Event) Message() interface{} {
+func (fake *Event) Message() any {
 	fake.messageMutex.Lock()
 	ret, specificReturn := fake.messageReturnsOnCall[len(fake.messageArgsForCall)]
 	fake.messageArgsForCall = append(fake.messageArgsForCall, struct {
@@ -56,32 +56,32 @@ func (fake *Event) MessageCallCount() int {
 	return len(fake.messageArgsForCall)
 }
 
-func (fake *Event) MessageCalls(stub func() interface{}) {
+func (fake *Event) MessageCalls(stub func() any) {
 	fake.messageMutex.Lock()
 	defer fake.messageMutex.Unlock()
 	fake.MessageStub = stub
 }
 
-func (fake *Event) MessageReturns(result1 interface{}) {
+func (fake *Event) MessageReturns(result1 any) {
 	fake.messageMutex.Lock()
 	defer fake.messageMutex.Unlock()
 	fake.MessageStub = nil
 	fake.messageReturns = struct {
-		result1 interface{}
+		result1 any
 	}{result1}
 }
 
-func (fake *Event) MessageReturnsOnCall(i int, result1 interface{}) {
+func (fake *Event) MessageReturnsOnCall(i int, result1 any) {
 	fake.messageMutex.Lock()
 	defer fake.messageMutex.Unlock()
 	fake.MessageStub = nil
 	if fake.messageReturnsOnCall == nil {
 		fake.messageReturnsOnCall = make(map[int]struct {
-			result1 interface{}
+			result1 any
 		})
 	}
 	fake.messageReturnsOnCall[i] = struct {
-		result1 interface{}
+		result1 any
 	}{result1}
 }
 

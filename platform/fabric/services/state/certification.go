@@ -206,7 +206,7 @@ type CertificationView struct {
 	*CertificationRequest
 }
 
-func (c *CertificationView) Call(viewCtx view.Context) (interface{}, error) {
+func (c *CertificationView) Call(viewCtx view.Context) (any, error) {
 	vault, err := GetVaultForChannel(viewCtx, c.Channel)
 	if err != nil {
 		return nil, err

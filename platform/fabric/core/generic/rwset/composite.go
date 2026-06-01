@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
+	"strings"
 	"unicode/utf8"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -22,14 +23,15 @@ func CreateCompositeKey(objectType string, attributes []string) (string, error) 
 	if err := validateCompositeKeyAttribute(objectType); err != nil {
 		return "", err
 	}
-	ck := compositeKeyNamespace + objectType + string(rune(minUnicodeRuneValue))
+	var ck strings.Builder
+	ck.WriteString(compositeKeyNamespace + objectType + string(rune(minUnicodeRuneValue)))
 	for _, att := range attributes {
 		if err := validateCompositeKeyAttribute(att); err != nil {
 			return "", err
 		}
-		ck += att + string(rune(minUnicodeRuneValue))
+		ck.WriteString(att + string(rune(minUnicodeRuneValue)))
 	}
-	return ck, nil
+	return ck.String(), nil
 }
 
 func CreateRangeKeysForPartialCompositeKey(objectType string, attributes []string) (string, string, error) {

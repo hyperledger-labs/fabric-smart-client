@@ -96,13 +96,10 @@ func run(ccs []*grpc.ClientConn, makeCaller func(conn *grpc.ClientConn) workload
 
 	var wg sync.WaitGroup
 	// we create multiple concurrent RPC calls per connection
-	for idx := 0; idx < numWorker; idx++ {
+	for idx := range numWorker {
 		slot := idx
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			hist := stats.NewHistogram(hopts)
 			for ctx.Err() == nil {
 				caller := pickCaller()
@@ -117,7 +114,7 @@ func run(ccs []*grpc.ClientConn, makeCaller func(conn *grpc.ClientConn) workload
 			}
 
 			hists[slot] = hist
-		}()
+		})
 	}
 	wg.Wait()
 

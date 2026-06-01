@@ -36,7 +36,7 @@ func TestToPKCS11OptsOpts(t *testing.T) {
 
 func TestToBCCSPOpts(t *testing.T) {
 	t.Parallel()
-	input := map[string]interface{}{
+	input := map[string]any{
 		"Default": "SW",
 	}
 	opts, err := ToBCCSPOpts(input)

@@ -17,7 +17,7 @@ import (
 
 // EventuallyWithRetry will call the function provided, and asserts that the
 // function returns with no error within the provided number of attempts.
-func EventuallyWithRetry(t *testing.T, attempts int, sleep time.Duration, f func() error, msgAndArgs ...interface{}) {
+func EventuallyWithRetry(t *testing.T, attempts int, sleep time.Duration, f func() error, msgAndArgs ...any) {
 	t.Helper()
 	assert.NoError(t, Retry(attempts, sleep, f), msgAndArgs...)
 }
@@ -25,7 +25,7 @@ func EventuallyWithRetry(t *testing.T, attempts int, sleep time.Duration, f func
 // Retry retries the given function until it returns nil or the given
 // number of attempts has been reached.
 func Retry(attempts int, sleep time.Duration, f func() error) (err error) {
-	for i := 0; i < attempts; i++ {
+	for i := range attempts {
 		if i > 0 {
 			time.Sleep(sleep)
 			sleep *= 2

@@ -66,7 +66,7 @@ func NewListenToEventsViewWithContext(ctx context.Context, chaincode string, cal
 	}
 }
 
-func (r *ListenToEventsView) Call(viewCtx view.Context) (interface{}, error) {
+func (r *ListenToEventsView) Call(viewCtx view.Context) (any, error) {
 	err := r.RegisterChaincodeEvents(viewCtx)
 	if err != nil {
 		return nil, err

@@ -188,7 +188,7 @@ var _ = Describe("EndToEnd", func() {
 type FSCNode interface {
 	Stop()
 	Start() error
-	GetService(v interface{}) (interface{}, error)
+	GetService(v any) (any, error)
 }
 
 func newNode(conf string) FSCNode {
@@ -323,7 +323,7 @@ func newWebClient(confDir string) *client2.Client {
 
 func GetFSCReplicaNames(nodeName string, replicationFactor int) []string {
 	result := make([]string, replicationFactor)
-	for i := 0; i < replicationFactor; i++ {
+	for i := range replicationFactor {
 		result[i] = fmt.Sprintf("fsc.%s.%d", nodeName, i)
 	}
 	return result

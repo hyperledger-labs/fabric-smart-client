@@ -8,6 +8,7 @@ package endpoint
 
 import (
 	"context"
+	"maps"
 	"reflect"
 	"strings"
 	"sync"
@@ -132,7 +133,7 @@ func NewService(bindingKVS BindingStore) (*Service, error) {
 // GetService returns an instance of the endpoint service.
 // It panics, if no instance is found.
 func GetService(sp services.Provider) *Service {
-	s, err := sp.GetService(reflect.TypeOf((*Service)(nil)))
+	s, err := sp.GetService(reflect.TypeFor[*Service]())
 	if err != nil {
 		panic(err)
 	}
@@ -152,9 +153,7 @@ func (r *Service) Resolve(ctx context.Context, id view.Identity) (view.Identity,
 	}
 	logger.DebugfContext(ctx, "resolved [%s] to [%s] with ports [%v]", id, resolver.GetId(), resolver.GetAddresses())
 	out := map[PortName]string{}
-	for name, s := range resolver.GetAddresses() {
-		out[name] = s
-	}
+	maps.Copy(out, resolver.GetAddresses())
 	return resolver.GetId(), out, raw, nil
 }
 

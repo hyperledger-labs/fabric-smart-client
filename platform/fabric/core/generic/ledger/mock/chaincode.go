@@ -40,11 +40,11 @@ type Chaincode struct {
 	newDiscoverReturnsOnCall map[int]struct {
 		result1 driver.ChaincodeDiscover
 	}
-	NewInvocationStub        func(string, ...interface{}) driver.ChaincodeInvocation
+	NewInvocationStub        func(string, ...any) driver.ChaincodeInvocation
 	newInvocationMutex       sync.RWMutex
 	newInvocationArgsForCall []struct {
 		arg1 string
-		arg2 []interface{}
+		arg2 []any
 	}
 	newInvocationReturns struct {
 		result1 driver.ChaincodeInvocation
@@ -230,12 +230,12 @@ func (fake *Chaincode) NewDiscoverReturnsOnCall(i int, result1 driver.ChaincodeD
 	}{result1}
 }
 
-func (fake *Chaincode) NewInvocation(arg1 string, arg2 ...interface{}) driver.ChaincodeInvocation {
+func (fake *Chaincode) NewInvocation(arg1 string, arg2 ...any) driver.ChaincodeInvocation {
 	fake.newInvocationMutex.Lock()
 	ret, specificReturn := fake.newInvocationReturnsOnCall[len(fake.newInvocationArgsForCall)]
 	fake.newInvocationArgsForCall = append(fake.newInvocationArgsForCall, struct {
 		arg1 string
-		arg2 []interface{}
+		arg2 []any
 	}{arg1, arg2})
 	stub := fake.NewInvocationStub
 	fakeReturns := fake.newInvocationReturns
@@ -256,13 +256,13 @@ func (fake *Chaincode) NewInvocationCallCount() int {
 	return len(fake.newInvocationArgsForCall)
 }
 
-func (fake *Chaincode) NewInvocationCalls(stub func(string, ...interface{}) driver.ChaincodeInvocation) {
+func (fake *Chaincode) NewInvocationCalls(stub func(string, ...any) driver.ChaincodeInvocation) {
 	fake.newInvocationMutex.Lock()
 	defer fake.newInvocationMutex.Unlock()
 	fake.NewInvocationStub = stub
 }
 
-func (fake *Chaincode) NewInvocationArgsForCall(i int) (string, []interface{}) {
+func (fake *Chaincode) NewInvocationArgsForCall(i int) (string, []any) {
 	fake.newInvocationMutex.RLock()
 	defer fake.newInvocationMutex.RUnlock()
 	argsForCall := fake.newInvocationArgsForCall[i]

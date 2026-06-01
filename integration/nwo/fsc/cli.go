@@ -22,11 +22,11 @@ type fscCLIViewClient struct {
 	CMD     commands.View
 }
 
-func (f *fscCLIViewClient) CallView(fid string, in []byte) (interface{}, error) {
+func (f *fscCLIViewClient) CallView(fid string, in []byte) (any, error) {
 	return f.CallViewWithContext(context.Background(), fid, in)
 }
 
-func (f *fscCLIViewClient) CallViewWithContext(_ context.Context, fid string, in []byte) (interface{}, error) {
+func (f *fscCLIViewClient) CallViewWithContext(_ context.Context, fid string, in []byte) (any, error) {
 	f.CMD.Input = string(in)
 	f.CMD.Function = fid
 

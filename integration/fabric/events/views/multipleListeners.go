@@ -33,7 +33,7 @@ type MultipleListenersReceived struct {
 	Events []*chaincode.Event
 }
 
-func (c *MultipleListenersView) Call(viewCtx view.Context) (interface{}, error) {
+func (c *MultipleListenersView) Call(viewCtx view.Context) (any, error) {
 	eventReceived := make([]*chaincode.Event, c.ListenerCount)
 	cancels := make([]context.CancelFunc, c.ListenerCount)
 
@@ -107,7 +107,7 @@ func (c *MultipleListenersView) Call(viewCtx view.Context) (interface{}, error) 
 
 	logger.Infof("Start transacting ...")
 	go func() {
-		for i := 0; i < invokes; i++ {
+		for range invokes {
 			time.Sleep(100 * time.Millisecond)
 			_, err := viewCtx.RunView(chaincode.NewInvokeView("events", c.Function))
 			assert.NoError(err, "Failed Running Invoke View")

@@ -26,7 +26,7 @@ type AgreeToSellView struct {
 	*AgreeToSell
 }
 
-func (a *AgreeToSellView) Call(viewCtx view.Context) (interface{}, error) {
+func (a *AgreeToSellView) Call(viewCtx view.Context) (any, error) {
 	// The asset owner creates a new transaction, and
 	tx, err := state.NewAnonymousTransaction(viewCtx)
 	assert.NoError(err, "failed creating transaction")
@@ -92,7 +92,7 @@ type AgreeToBuyView struct {
 	*AgreeToBuy
 }
 
-func (a *AgreeToBuyView) Call(viewCtx view.Context) (interface{}, error) {
+func (a *AgreeToBuyView) Call(viewCtx view.Context) (any, error) {
 	// Prepare transaction
 	tx, err := state.NewAnonymousTransaction(viewCtx)
 	assert.NoError(err, "failed creating transaction")

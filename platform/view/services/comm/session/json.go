@@ -56,11 +56,11 @@ func newJSONSession(s Session, ctx context.Context) *jsonSession {
 	return &jsonSession{s: s, ctx: ctx}
 }
 
-func (j *jsonSession) Receive(state interface{}) error {
+func (j *jsonSession) Receive(state any) error {
 	return j.ReceiveWithTimeout(state, defaultReceiveTimeout)
 }
 
-func (j *jsonSession) ReceiveWithTimeout(state interface{}, d time.Duration) error {
+func (j *jsonSession) ReceiveWithTimeout(state any, d time.Duration) error {
 	raw, err := j.ReceiveRawWithTimeout(d)
 	if err != nil {
 		return err
@@ -106,11 +106,11 @@ func (j *jsonSession) ReceiveRawWithTimeout(d time.Duration) ([]byte, error) {
 	return raw, nil
 }
 
-func (j *jsonSession) Send(state interface{}) error {
+func (j *jsonSession) Send(state any) error {
 	return j.SendWithContext(j.ctx, state)
 }
 
-func (j *jsonSession) SendWithContext(ctx context.Context, state interface{}) error {
+func (j *jsonSession) SendWithContext(ctx context.Context, state any) error {
 	v, err := json.Marshal(state)
 	if err != nil {
 		return err

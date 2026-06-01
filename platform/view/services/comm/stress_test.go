@@ -163,11 +163,11 @@ func TestConcurrentSendAndClose(t *testing.T) { //nolint:paralleltest
 	var wg sync.WaitGroup
 	wg.Add(numSenders)
 
-	for i := 0; i < numSenders; i++ {
+	for i := range numSenders {
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < msgsPerSender; j++ {
-				_ = session.Send([]byte(fmt.Sprintf("msg-%d-%d", id, j)))
+			for j := range msgsPerSender {
+				_ = session.Send(fmt.Appendf(nil, "msg-%d-%d", id, j))
 			}
 		}(i)
 	}

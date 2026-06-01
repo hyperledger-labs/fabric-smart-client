@@ -156,7 +156,7 @@ func ConfigFromEnv() *ContainerConfig {
 // ConfigFromDataSource returns a Postgres container configuration based on a given postgres connection string.
 func ConfigFromDataSource(s string) (*ContainerConfig, error) {
 	cfg := make(map[string]string, 6)
-	for _, prop := range strings.Split(s, " ") {
+	for prop := range strings.SplitSeq(s, " ") {
 		pair := strings.Split(prop, "=")
 		k, v := pair[0], pair[1]
 		cfg[k] = v

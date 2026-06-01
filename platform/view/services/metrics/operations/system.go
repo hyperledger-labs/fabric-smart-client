@@ -18,10 +18,10 @@ import (
 )
 
 type Logger interface {
-	Debugf(template string, args ...interface{})
-	Info(...interface{})
-	Warn(args ...interface{})
-	Warnf(template string, args ...interface{})
+	Debugf(template string, args ...any)
+	Info(...any)
+	Warn(args ...any)
+	Warnf(template string, args ...any)
 }
 
 type MetricsOptions struct {
@@ -86,7 +86,7 @@ func (s *System) Stop() error {
 	return nil
 }
 
-func (s *System) Log(keyvals ...interface{}) error {
+func (s *System) Log(keyvals ...any) error {
 	return s.logger.Log(keyvals)
 }
 

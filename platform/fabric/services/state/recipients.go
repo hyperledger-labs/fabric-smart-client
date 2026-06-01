@@ -79,7 +79,7 @@ func RequestRecipientIdentity(viewCtx view.Context, other view.Identity) (view.I
 	return recipientIdentityBoxed.(view.Identity), nil
 }
 
-func (f RequestRecipientIdentityView) Call(viewCtx view.Context) (interface{}, error) {
+func (f RequestRecipientIdentityView) Call(viewCtx view.Context) (any, error) {
 	session, err := viewCtx.GetSession(viewCtx.Initiator(), f.Other)
 	if err != nil {
 		return nil, err
@@ -134,7 +134,7 @@ type RespondRequestRecipientIdentityView struct {
 // 2. Unmarshall the message into rr = RecipientRequest
 // 3. If the identity to send back is not set, it is set to fabric.GetFabricNetworkService(context, rr.Network).IdentityProvider().DefaultIdentity()
 // 4. Send back marshalled RecipientData struct
-func (s *RespondRequestRecipientIdentityView) Call(viewCtx view.Context) (interface{}, error) {
+func (s *RespondRequestRecipientIdentityView) Call(viewCtx view.Context) (any, error) {
 	session, payload, err := session2.ReadFirstMessage(viewCtx)
 	if err != nil {
 		return nil, err
@@ -219,7 +219,7 @@ func ExchangeRecipientIdentities(viewCtx view.Context, recipient view.Identity, 
 	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
 }
 
-func (f *ExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (interface{}, error) {
+func (f *ExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any, error) {
 	session, err := viewCtx.GetSession(viewCtx.Initiator(), f.Other)
 	if err != nil {
 		return nil, err
@@ -308,7 +308,7 @@ func RespondExchangeRecipientIdentities(viewCtx view.Context, opts ...ServiceOpt
 	return ids.([]view.Identity)[0], ids.([]view.Identity)[1], nil
 }
 
-func (s *RespondExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (interface{}, error) {
+func (s *RespondExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any, error) {
 	session, requestRaw, err := session2.ReadFirstMessage(viewCtx)
 	if err != nil {
 		return nil, err

@@ -142,32 +142,28 @@ func TestSessionLifecycleConcurrent(t *testing.T) { //nolint:paralleltest
 	// consumer
 	consumerStarted := make(chan struct{})
 	consumerFinished := make(chan struct{})
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer close(consumerFinished)
 		close(consumerStarted)
 
 		for range sess.Receive() {
 			receivedCount.Add(1)
 		}
-	}()
+	})
 
 	// sender
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		<-consumerStarted
 		time.Sleep(10 * time.Millisecond)
 
-		for i := 0; i < numMessage; i++ {
-			if s.enqueue(&view.Message{Payload: []byte(fmt.Sprintf("msg #%v", i))}) {
+		for i := range numMessage {
+			if s.enqueue(&view.Message{Payload: fmt.Appendf(nil, "msg #%v", i)}) {
 				enqueuedCount.Add(1)
 			}
 		}
 
 		sess.Close()
-	}()
+	})
 
 	wg.Wait()
 	<-consumerFinished
@@ -202,13 +198,11 @@ func TestSessionDeadlock(t *testing.T) { //nolint:paralleltest
 	require.True(t, s.enqueue(&view.Message{Payload: msg1}))
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 	// another producer
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		// it should return immediately (either true or false depending on if it's full)
 		s.enqueue(&view.Message{Payload: msg1})
-	}()
+	})
 
 	// wait for the producer to finish
 	wg.Wait()
@@ -227,7 +221,7 @@ func TestSessionCloseDeadlockPrevention(t *testing.T) { //nolint:paralleltest
 
 	// Fill the buffers
 	msg := &view.Message{Payload: []byte("msg")}
-	for i := 0; i < bufferSize*2+1; i++ {
+	for range bufferSize*2 + 1 {
 		s.enqueue(msg)
 	}
 

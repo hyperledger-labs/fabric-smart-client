@@ -72,5 +72,5 @@ type RWSet interface {
 
 	Done()
 
-	Equals(rws interface{}, nss ...Namespace) error
+	Equals(rws any, nss ...Namespace) error
 }

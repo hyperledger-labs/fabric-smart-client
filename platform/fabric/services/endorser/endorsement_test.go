@@ -26,7 +26,7 @@ func TestCollectEndorsementsView(t *testing.T) {
 	t.Parallel()
 	fakeCtx := &mock.Context{}
 	fakeSP := &mock.Provider{}
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		return fakeSP.GetService(v)
 	})
 
@@ -60,10 +60,10 @@ func TestCollectEndorsementsView(t *testing.T) {
 	fakeBindingStore := &mock.BindingStore{}
 	endpointService, _ := endpoint.NewService(fakeBindingStore)
 
-	networkServiceProviderType := reflect.TypeOf((*fabric.NetworkServiceProvider)(nil))
-	endpointServiceType := reflect.TypeOf((*endpoint.Service)(nil))
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	endpointServiceType := reflect.TypeFor[*endpoint.Service]()
 
-	fakeSP.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fakeNSP, nil
 		}
@@ -129,7 +129,7 @@ func TestEndorseView(t *testing.T) {
 	t.Parallel()
 	fakeCtx := &mock.Context{}
 	fakeSP := &mock.Provider{}
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		return fakeSP.GetService(v)
 	})
 
@@ -164,8 +164,8 @@ func TestEndorseView(t *testing.T) {
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
 
-	networkServiceProviderType := reflect.TypeOf((*fabric.NetworkServiceProvider)(nil))
-	fakeSP.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fakeNSP, nil
 		}
@@ -203,7 +203,7 @@ func TestAcceptView(t *testing.T) {
 	t.Parallel()
 	fakeCtx := &mock.Context{}
 	fakeSP := &mock.Provider{}
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		return fakeSP.GetService(v)
 	})
 
@@ -233,8 +233,8 @@ func TestAcceptView(t *testing.T) {
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
 
-	networkServiceProviderType := reflect.TypeOf((*fabric.NetworkServiceProvider)(nil))
-	fakeSP.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fakeNSP, nil
 		}
@@ -260,7 +260,7 @@ func TestFinalityView(t *testing.T) {
 	fakeCtx := &mock.Context{}
 	fakeCtx.ContextReturns(context.Background())
 	fakeSP := &mock.Provider{}
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		return fakeSP.GetService(v)
 	})
 
@@ -277,8 +277,8 @@ func TestFinalityView(t *testing.T) {
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
 
-	networkServiceProviderType := reflect.TypeOf((*fabric.NetworkServiceProvider)(nil))
-	fakeSP.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fakeNSP, nil
 		}
@@ -319,7 +319,7 @@ func TestFinalityView(t *testing.T) {
 
 	// Error path: GetFabricNetworkService failure
 	fakeFNSP.FabricNetworkServiceReturns(nil, fmt.Errorf("err"))
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fabric.NewNetworkServiceProvider(fakeFNSP, nil), nil
 		}
@@ -329,7 +329,7 @@ func TestFinalityView(t *testing.T) {
 	require.Error(t, err)
 	// Reset
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fakeNSP, nil
 		}
@@ -342,7 +342,7 @@ func TestOrderingView(t *testing.T) {
 	fakeCtx := &mock.Context{}
 	fakeCtx.ContextReturns(context.Background())
 	fakeSP := &mock.Provider{}
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		return fakeSP.GetService(v)
 	})
 
@@ -359,8 +359,8 @@ func TestOrderingView(t *testing.T) {
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
 
-	networkServiceProviderType := reflect.TypeOf((*fabric.NetworkServiceProvider)(nil))
-	fakeSP.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fakeNSP, nil
 		}
@@ -404,7 +404,7 @@ func TestOrderingView(t *testing.T) {
 
 	// Error path: GetFabricNetworkService failure
 	fakeFNSP.FabricNetworkServiceReturns(nil, fmt.Errorf("err"))
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fabric.NewNetworkServiceProvider(fakeFNSP, nil), nil
 		}
@@ -464,7 +464,7 @@ func TestReceiveTransactionView(t *testing.T) {
 	// Case 2: NewTransactionFromBytes fails
 	fakeCtx.RunViewReturns([]byte("invalid"), nil)
 	fakeSP := &mock.Provider{}
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		return fakeSP.GetService(v)
 	})
 	fakeFNSP := &mock.FabricNetworkServiceProvider{}
@@ -481,8 +481,8 @@ func TestReceiveTransactionView(t *testing.T) {
 	fakeFNS.IdentityProviderReturns(fakeIP)
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
-	networkServiceProviderType := reflect.TypeOf((*fabric.NetworkServiceProvider)(nil))
-	fakeSP.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fakeNSP, nil
 		}
@@ -498,7 +498,7 @@ func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
 	fakeCtx := &mock.Context{}
 	fakeCtx.ContextReturns(context.Background())
 	fakeSP := &mock.Provider{}
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		return fakeSP.GetService(v)
 	})
 
@@ -507,8 +507,8 @@ func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
 	fakeFNS.NameReturns("net1")
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
-	networkServiceProviderType := reflect.TypeOf((*fabric.NetworkServiceProvider)(nil))
-	fakeSP.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fakeNSP, nil
 		}
@@ -574,7 +574,7 @@ func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
 	fakeCtx := &mock.Context{}
 	fakeCtx.ContextReturns(context.Background())
 	fakeSP := &mock.Provider{}
-	fakeCtx.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
 		return fakeSP.GetService(v)
 	})
 
@@ -583,8 +583,8 @@ func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
 	fakeFNS.NameReturns("net1")
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
-	networkServiceProviderType := reflect.TypeOf((*fabric.NetworkServiceProvider)(nil))
-	fakeSP.GetServiceCalls(func(v interface{}) (interface{}, error) {
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fakeNSP, nil
 		}
@@ -642,4 +642,4 @@ func TestVerifierProviderWrapper(t *testing.T) {
 
 type fakeView struct{}
 
-func (v *fakeView) Call(context view.Context) (interface{}, error) { return nil, nil }
+func (v *fakeView) Call(context view.Context) (any, error) { return nil, nil }

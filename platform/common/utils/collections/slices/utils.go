@@ -49,7 +49,7 @@ func Intersection[V comparable](a, b []V) []V {
 // Repeat returns a slice with the same element repeated {{times}} times
 func Repeat[T any](item T, times int) []T {
 	items := make([]T, times)
-	for i := 0; i < times; i++ {
+	for i := range times {
 		items[i] = item
 	}
 	return items

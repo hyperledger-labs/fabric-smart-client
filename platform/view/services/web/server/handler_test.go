@@ -33,7 +33,7 @@ func TestHttpHandler(t *testing.T) {
 	h := server.NewHttpHandler()
 
 	rh := &mock.RequestHandler{}
-	rh.HandleRequestStub = func(ctx *server.ReqContext) (interface{}, int) {
+	rh.HandleRequestStub = func(ctx *server.ReqContext) (any, int) {
 		query := ctx.Query.(*Fruit)
 
 		var res FruitBasket
@@ -46,7 +46,7 @@ func TestHttpHandler(t *testing.T) {
 		return res, 200
 	}
 
-	rh.ParsePayloadStub = func(payload []byte) (interface{}, error) {
+	rh.ParsePayloadStub = func(payload []byte) (any, error) {
 		var f Fruit
 		err := json.Unmarshal(payload, &f)
 		require.NoError(t, err)

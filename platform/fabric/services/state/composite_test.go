@@ -35,10 +35,10 @@ func (t *testSerializable) SetFromBytes(raw []byte) error {
 type testUnmarshaller struct {
 	err     error
 	lastRaw []byte
-	lastV   interface{}
+	lastV   any
 }
 
-func (t *testUnmarshaller) Unmarshal(raw []byte, v interface{}) error {
+func (t *testUnmarshaller) Unmarshal(raw []byte, v any) error {
 	t.lastRaw = append([]byte(nil), raw...)
 	t.lastV = v
 	return t.err

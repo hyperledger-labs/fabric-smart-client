@@ -18,7 +18,7 @@ import (
 
 type CreateIOUResponderView struct{}
 
-func (i *CreateIOUResponderView) Call(viewCtx view.Context) (interface{}, error) {
+func (i *CreateIOUResponderView) Call(viewCtx view.Context) (any, error) {
 	// As a first step, the lender responds to the request to exchange recipient identities.
 	lender, borrower, err := state.RespondExchangeRecipientIdentities(viewCtx)
 	assert.NoError(err, "failed exchanging recipient identities")
@@ -67,7 +67,7 @@ func (i *CreateIOUResponderView) Call(viewCtx view.Context) (interface{}, error)
 
 type UpdateIOUResponderView struct{}
 
-func (i *UpdateIOUResponderView) Call(viewCtx view.Context) (interface{}, error) {
+func (i *UpdateIOUResponderView) Call(viewCtx view.Context) (any, error) {
 	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
 	// to the lender. Therefore, the lender waits to receive the transaction.
 	tx, err := state.ReceiveTransaction(viewCtx)

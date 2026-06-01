@@ -273,7 +273,7 @@ type testCertificationVault struct {
 	keyCalled cdriver.PKey
 }
 
-func (t *testCertificationVault) GetState(context.Context, cdriver.Namespace, cdriver.PKey, interface{}) error {
+func (t *testCertificationVault) GetState(context.Context, cdriver.Namespace, cdriver.PKey, any) error {
 	return nil
 }
 
@@ -311,15 +311,15 @@ func TestCertificationViewCall(t *testing.T) {
 			&mockDriverChannel{name: "default-channel", metadata: &mockDriverMetadataService{}},
 		)
 		return &mockViewContext{
-			getServiceFn: func(v interface{}) (interface{}, error) {
+			getServiceFn: func(v any) (any, error) {
 				rt, ok := v.(reflect.Type)
 				if !ok {
 					return nil, errors.New("unexpected service key")
 				}
 				switch rt {
-				case reflect.TypeOf((*VaultService)(nil)):
+				case reflect.TypeFor[*VaultService]():
 					return vs, nil
-				case reflect.TypeOf((*fabric.NetworkServiceProvider)(nil)):
+				case reflect.TypeFor[*fabric.NetworkServiceProvider]():
 					return nsp, nil
 				default:
 					return nil, errors.New("service missing")
@@ -331,7 +331,7 @@ func TestCertificationViewCall(t *testing.T) {
 	t.Run("vault lookup failure", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			getServiceFn: func(interface{}) (interface{}, error) {
+			getServiceFn: func(any) (any, error) {
 				return nil, errors.New("service missing")
 			},
 		}

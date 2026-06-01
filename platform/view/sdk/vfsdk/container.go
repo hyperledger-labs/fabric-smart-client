@@ -22,12 +22,12 @@ import (
 var logger = logging.MustGetLogger()
 
 var (
-	viewFactoryInterface = reflect.TypeOf(new(view.Factory)).Elem()
-	errorInterface       = reflect.TypeOf(new(error)).Elem()
-	factoryEntryType     = reflect.TypeOf(&factoryEntry{})
+	viewFactoryInterface = reflect.TypeFor[view.Factory]()
+	errorInterface       = reflect.TypeFor[error]()
+	factoryEntryType     = reflect.TypeFor[*factoryEntry]()
 )
 
-var nilError = reflect.Zero(reflect.TypeOf((*error)(nil)).Elem())
+var nilError = reflect.Zero(reflect.TypeFor[error]())
 
 type vfContainer struct{ *dig.Container }
 

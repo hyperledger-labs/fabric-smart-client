@@ -17,7 +17,7 @@ import (
 
 type ApproveView struct{}
 
-func (i *ApproveView) Call(viewCtx view.Context) (interface{}, error) {
+func (i *ApproveView) Call(viewCtx view.Context) (any, error) {
 	logger.Infof("Approve View called! great")
 
 	tx, err := state.ReceiveTransaction(viewCtx)

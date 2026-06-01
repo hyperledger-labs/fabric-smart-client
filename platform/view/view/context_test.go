@@ -21,7 +21,7 @@ func TestCompileRunViewOptions(t *testing.T) {
 	ctx2, cancel := context.WithCancel(ctx1)
 	t.Cleanup(cancel)
 
-	callFn := func(Context) (interface{}, error) { return "ok", nil }
+	callFn := func(Context) (any, error) { return "ok", nil }
 	resetInitiator := func(o *RunViewOptions) error {
 		o.AsInitiator = false
 		return nil

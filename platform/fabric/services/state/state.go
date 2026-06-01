@@ -32,7 +32,7 @@ type AutoLinearState interface {
 }
 
 type EmbeddingState interface {
-	GetState() interface{}
+	GetState() any
 }
 
 type Bytes struct {

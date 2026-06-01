@@ -7,11 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 type Marshaller interface {
-	Marshal(v interface{}) ([]byte, error)
+	Marshal(v any) ([]byte, error)
 }
 
 type Unmarshaller interface {
-	Unmarshal(data []byte, v interface{}) error
+	Unmarshal(data []byte, v any) error
 }
 
 type Codec interface {
@@ -19,6 +19,6 @@ type Codec interface {
 	Unmarshaller
 }
 
-func Unmarshal(unmarshaller Unmarshaller, data []byte, v interface{}) error {
+func Unmarshal(unmarshaller Unmarshaller, data []byte, v any) error {
 	return unmarshaller.Unmarshal(data, v)
 }

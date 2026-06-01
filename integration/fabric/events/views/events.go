@@ -34,7 +34,7 @@ type EventReceived struct {
 	Event *chaincode.Event
 }
 
-func (c *EventsView) Call(viewCtx view.Context) (interface{}, error) {
+func (c *EventsView) Call(viewCtx view.Context) (any, error) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	var eventReceived *chaincode.Event

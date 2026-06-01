@@ -89,7 +89,7 @@ var _ = Describe("Event system", func() {
 			alice.Subscribe("topicAAA", listener)
 			Expect(notifier.handlers).ToNot(BeEmpty())
 
-			for i := 0; i < 100000; i++ {
+			for i := range 100000 {
 				bob.Publish(event)
 				Expect(event.TopicCallCount()).To(Equal(i + 2))
 				Expect(listener.OnReceiveCallCount()).To(Equal(i + 1))
@@ -104,7 +104,7 @@ var _ = Describe("Event system", func() {
 			alice.Subscribe("topicAAA", listener)
 			Expect(notifier.handlers).ToNot(BeEmpty())
 
-			for i := 0; i < 100000; i++ {
+			for i := range 100000 {
 				bob.Publish(event)
 				Expect(event.TopicCallCount()).To(Equal(i + 1))
 				Expect(listener.OnReceiveCallCount()).To(Equal(i + 1))
@@ -115,7 +115,7 @@ var _ = Describe("Event system", func() {
 			event := &mock.Event{}
 			event.TopicReturns("topicAAA")
 			event.MessageReturns("HelloWorld")
-			for i := 0; i < 10000; i++ {
+			for i := range 10000 {
 				l := &mock.Listener{}
 				alice.Subscribe(fmt.Sprintf("topic_%d", i), l)
 				Expect(len(notifier.handlers)).To(Equal(i + 1))
@@ -126,7 +126,7 @@ var _ = Describe("Event system", func() {
 			event := &mock.Event{}
 			event.TopicReturns("topicAAA")
 			event.MessageReturns("HelloWorld")
-			for i := 0; i < 10000; i++ {
+			for i := range 10000 {
 				l := &mock.Listener{}
 				alice.Subscribe("topic", l)
 				Expect(len(notifier.handlers)).To(Equal(1))

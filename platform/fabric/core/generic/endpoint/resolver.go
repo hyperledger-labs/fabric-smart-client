@@ -9,6 +9,7 @@ package endpoint
 import (
 	"context"
 	"os"
+	"slices"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -133,10 +134,8 @@ func (r *ResolverService) GetIdentity(label string) view.Identity {
 		if resolver.Name == label {
 			return resolver.Id
 		}
-		for _, alias := range resolver.Aliases {
-			if alias == label {
-				return resolver.Id
-			}
+		if slices.Contains(resolver.Aliases, label) {
+			return resolver.Id
 		}
 		if view.Identity(resolver.Id).UniqueID() == label {
 			return resolver.Id

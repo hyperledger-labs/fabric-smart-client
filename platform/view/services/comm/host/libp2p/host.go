@@ -268,7 +268,7 @@ func (h *host) startFinder() {
 		}
 
 	sleep:
-		for i := 0; i < 4; i++ {
+		for range 4 {
 			if atomic.LoadInt32(&h.stopFinder) != 0 {
 				logger.Debugf("libp2p: stopping peer finder for host [%s]", h.ID())
 				h.finderWg.Done()

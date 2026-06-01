@@ -200,12 +200,10 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 	defer n.handlersMu.Unlock()
 
 	handlers := n.handlers[txID]
-	for _, h := range handlers {
-		if h == listener {
-			logger.Warnf("The exact same listener is already registered for txID=%v. Skipping.", txID)
-			// Do not register the same instance twice
-			return nil
-		}
+	if slices.Contains(handlers, listener) {
+		logger.Warnf("The exact same listener is already registered for txID=%v. Skipping.", txID)
+		// Do not register the same instance twice
+		return nil
 	}
 	n.handlers[txID] = append(handlers, listener)
 

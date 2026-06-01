@@ -26,7 +26,7 @@ func Must(err error) {
 	}
 }
 
-func DefaultZero[A any](v interface{}) A {
+func DefaultZero[A any](v any) A {
 	var a A
 	if v == nil {
 		return a
@@ -37,7 +37,7 @@ func DefaultZero[A any](v interface{}) A {
 	return a
 }
 
-func DefaultInt(a interface{}, b int) int {
+func DefaultInt(a any, b int) int {
 	if a == nil {
 		return b
 	}
@@ -47,7 +47,7 @@ func DefaultInt(a interface{}, b int) int {
 	return b
 }
 
-func DefaultString(a interface{}, b string) string {
+func DefaultString(a any, b string) string {
 	if a == nil {
 		return b
 	}

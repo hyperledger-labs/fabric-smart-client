@@ -35,7 +35,7 @@ type vault struct {
 	localMembership localMembership
 }
 
-func (f *vault) GetState(ctx context.Context, namespace driver.Namespace, id driver.PKey, state interface{}) error {
+func (f *vault) GetState(ctx context.Context, namespace driver.Namespace, id driver.PKey, state any) error {
 	qe, err := f.vaultStore.NewQueryExecutor(ctx)
 	if err != nil {
 		return err

@@ -95,7 +95,7 @@ func (p *tracerProvider) Tracer(name string, options ...trace.TracerOption) trac
 }
 
 // This wrapper is needed in order to be able to fetch the provider using the SP from the Node
-var providerType = reflect.TypeOf((*Provider)(nil))
+var providerType = reflect.TypeFor[*Provider]()
 
 // GetProvider returns the Provider from the passed services.Provider.
 // It returns an error if Provider does not exit.

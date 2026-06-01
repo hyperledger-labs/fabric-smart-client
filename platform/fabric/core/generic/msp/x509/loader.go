@@ -105,7 +105,7 @@ func (f *FolderIdentityLoader) Load(manager driver.Manager, c config.MSP) error 
 	return nil
 }
 
-func ToBCCSPOpts(boxed interface{}) (*config.BCCSP, error) {
+func ToBCCSPOpts(boxed any) (*config.BCCSP, error) {
 	opts := &config.BCCSP{}
 	cfg := &mapstructure.DecoderConfig{
 		WeaklyTypedInput: true, // allow pin to be a string

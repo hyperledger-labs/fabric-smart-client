@@ -42,10 +42,8 @@ func TestLazyHolderRaceCondition(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Concurrently call Get.
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			v, err := holder.Get()
 			if err != nil {
 				t.Errorf("Get() error: %v", err)
@@ -53,19 +51,17 @@ func TestLazyHolderRaceCondition(t *testing.T) {
 			if v == nil {
 				t.Errorf("Get() returned nil value")
 			}
-		}()
+		})
 	}
 
 	// Concurrently call Reset.
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 5 {
+		wg.Go(func() {
 			err := holder.Reset()
 			if err != nil && !errors.Is(err, io.EOF) {
 				t.Errorf("Reset() error: %v", err)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

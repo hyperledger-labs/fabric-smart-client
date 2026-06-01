@@ -81,7 +81,7 @@ func (r *RemoteQueryServiceProvider) Get(network, channel string) (QueryService,
 }
 
 func GetQueryService(sp services.Provider, network, channel string) (QueryService, error) {
-	qsp, err := sp.GetService(reflect.TypeOf((*Provider)(nil)))
+	qsp, err := sp.GetService(reflect.TypeFor[*Provider]())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not find provider")
 	}

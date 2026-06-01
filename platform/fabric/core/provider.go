@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	fabricNetworkServiceType = reflect.TypeOf((*driver.FabricNetworkServiceProvider)(nil))
+	fabricNetworkServiceType = reflect.TypeFor[*driver.FabricNetworkServiceProvider]()
 	logger                   = logging.MustGetLogger()
 )
 

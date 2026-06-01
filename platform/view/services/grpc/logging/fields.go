@@ -21,7 +21,7 @@ type protoMarshaler struct {
 
 func (m *protoMarshaler) MarshalJSON() ([]byte, error) { return json.Marshal(m.Message) }
 
-func ProtoMessage(key string, val interface{}) zapcore.Field {
+func ProtoMessage(key string, val any) zapcore.Field {
 	if pm, ok := val.(proto.Message); ok {
 		return zap.Reflect(key, &protoMarshaler{pm})
 	}

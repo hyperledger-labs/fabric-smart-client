@@ -9,11 +9,11 @@ import (
 )
 
 type Ordering struct {
-	BroadcastStub        func(context.Context, interface{}) error
+	BroadcastStub        func(context.Context, any) error
 	broadcastMutex       sync.RWMutex
 	broadcastArgsForCall []struct {
 		arg1 context.Context
-		arg2 interface{}
+		arg2 any
 	}
 	broadcastReturns struct {
 		result1 error
@@ -36,12 +36,12 @@ type Ordering struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *Ordering) Broadcast(arg1 context.Context, arg2 interface{}) error {
+func (fake *Ordering) Broadcast(arg1 context.Context, arg2 any) error {
 	fake.broadcastMutex.Lock()
 	ret, specificReturn := fake.broadcastReturnsOnCall[len(fake.broadcastArgsForCall)]
 	fake.broadcastArgsForCall = append(fake.broadcastArgsForCall, struct {
 		arg1 context.Context
-		arg2 interface{}
+		arg2 any
 	}{arg1, arg2})
 	stub := fake.BroadcastStub
 	fakeReturns := fake.broadcastReturns
@@ -62,13 +62,13 @@ func (fake *Ordering) BroadcastCallCount() int {
 	return len(fake.broadcastArgsForCall)
 }
 
-func (fake *Ordering) BroadcastCalls(stub func(context.Context, interface{}) error) {
+func (fake *Ordering) BroadcastCalls(stub func(context.Context, any) error) {
 	fake.broadcastMutex.Lock()
 	defer fake.broadcastMutex.Unlock()
 	fake.BroadcastStub = stub
 }
 
-func (fake *Ordering) BroadcastArgsForCall(i int) (context.Context, interface{}) {
+func (fake *Ordering) BroadcastArgsForCall(i int) (context.Context, any) {
 	fake.broadcastMutex.RLock()
 	defer fake.broadcastMutex.RUnlock()
 	argsForCall := fake.broadcastArgsForCall[i]

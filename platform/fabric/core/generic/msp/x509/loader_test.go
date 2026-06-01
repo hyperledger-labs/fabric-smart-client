@@ -105,8 +105,8 @@ func TestIdentityLoader_Load_WithOpts(t *testing.T) {
 		ID:    "test-id",
 		MSPID: "apple",
 		Path:  "./testdata/msp",
-		Opts: map[string]interface{}{
-			"bccsp": map[string]interface{}{"Default": "SW"},
+		Opts: map[string]any{
+			"bccsp": map[string]any{"Default": "SW"},
 		},
 	})
 	require.NoError(t, err)
@@ -121,7 +121,7 @@ func TestIdentityLoader_Load_WithBadOpts(t *testing.T) {
 		ID:    "test-id",
 		MSPID: "apple",
 		Path:  "ignored",
-		Opts: map[string]interface{}{
+		Opts: map[string]any{
 			"bccsp": "invalid-not-a-map",
 		},
 	})

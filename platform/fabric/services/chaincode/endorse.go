@@ -18,7 +18,7 @@ type endorseChaincodeView struct {
 	*InvokeCall
 }
 
-func NewEndorseView(chaincode, function string, args ...interface{}) *endorseChaincodeView {
+func NewEndorseView(chaincode, function string, args ...any) *endorseChaincodeView {
 	return &endorseChaincodeView{
 		InvokeCall: &InvokeCall{
 			ChaincodeName: chaincode,
@@ -28,7 +28,7 @@ func NewEndorseView(chaincode, function string, args ...interface{}) *endorseCha
 	}
 }
 
-func (i *endorseChaincodeView) Call(viewCtx view.Context) (interface{}, error) {
+func (i *endorseChaincodeView) Call(viewCtx view.Context) (any, error) {
 	return i.Endorse(viewCtx)
 }
 
@@ -87,9 +87,9 @@ func (i *endorseChaincodeView) Endorse(viewCtx view.Context) (*fabric.Envelope, 
 	return envelope, nil
 }
 
-func (i *endorseChaincodeView) WithTransientEntry(k string, v interface{}) *endorseChaincodeView {
+func (i *endorseChaincodeView) WithTransientEntry(k string, v any) *endorseChaincodeView {
 	if i.TransientMap == nil {
-		i.TransientMap = map[string]interface{}{}
+		i.TransientMap = map[string]any{}
 	}
 	i.TransientMap[k] = v
 	return i

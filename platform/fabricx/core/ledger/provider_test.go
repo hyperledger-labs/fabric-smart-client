@@ -29,8 +29,7 @@ func TestProvider_Initialize(t *testing.T) {
 	require.Equal(t, ctx, p.Context())
 
 	// Second initialization should not change anything
-	ctx2, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx2 := t.Context()
 	p.Initialize(ctx2)
 	require.Equal(t, ctx, p.Context())
 }
@@ -82,7 +81,7 @@ func TestGetLedgerProvider(t *testing.T) {
 
 	require.Equal(t, 1, fakeSP.GetServiceCallCount())
 	arg := fakeSP.GetServiceArgsForCall(0)
-	require.Equal(t, reflect.TypeOf((*ledger.Provider)(nil)), arg)
+	require.Equal(t, reflect.TypeFor[*ledger.Provider](), arg)
 }
 
 func TestProvider_NewLedger_GRPCClientError(t *testing.T) {

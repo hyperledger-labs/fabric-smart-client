@@ -28,7 +28,7 @@ type MultipleEventsReceived struct {
 	Events []*chaincode.Event
 }
 
-func (c *MultipleEventsView) Call(viewCtx view.Context) (interface{}, error) {
+func (c *MultipleEventsView) Call(viewCtx view.Context) (any, error) {
 	wg := sync.WaitGroup{}
 	wg.Add(int(c.EventCount))
 	var eventReceived []*chaincode.Event

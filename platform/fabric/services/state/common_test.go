@@ -9,7 +9,7 @@ package state
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -180,7 +180,7 @@ func (t *testRWSet) Namespaces() []cdriver.Namespace {
 	for ns := range set {
 		namespaces = append(namespaces, ns)
 	}
-	sort.Slice(namespaces, func(i, j int) bool { return namespaces[i] < namespaces[j] })
+	slices.Sort(namespaces)
 	return namespaces
 }
 
@@ -194,7 +194,7 @@ func (t *testRWSet) Bytes() ([]byte, error) {
 
 func (t *testRWSet) Done() {}
 
-func (t *testRWSet) Equals(_ interface{}, _ ...cdriver.Namespace) error {
+func (t *testRWSet) Equals(_ any, _ ...cdriver.Namespace) error {
 	return nil
 }
 

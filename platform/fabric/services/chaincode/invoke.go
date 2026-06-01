@@ -20,11 +20,11 @@ type InvokeCall struct {
 	ChaincodePath          string
 	ChaincodeName          string
 	ChaincodeVersion       string
-	TransientMap           map[string]interface{}
+	TransientMap           map[string]any
 	EndorsersMSPIDs        []string
 	EndorsersFromMyOrg     bool
 	Function               string
-	Args                   []interface{}
+	Args                   []any
 	MatchEndorsementPolicy bool
 	SetNumRetries          bool
 	NumRetries             uint
@@ -37,7 +37,7 @@ type invokeChaincodeView struct {
 	*InvokeCall
 }
 
-func NewInvokeView(chaincode, function string, args ...interface{}) *invokeChaincodeView {
+func NewInvokeView(chaincode, function string, args ...any) *invokeChaincodeView {
 	return &invokeChaincodeView{
 		InvokeCall: &InvokeCall{
 			ChaincodeName: chaincode,
@@ -47,12 +47,12 @@ func NewInvokeView(chaincode, function string, args ...interface{}) *invokeChain
 	}
 }
 
-func (i *invokeChaincodeView) Call(viewCtx view.Context) (interface{}, error) {
+func (i *invokeChaincodeView) Call(viewCtx view.Context) (any, error) {
 	txid, result, err := i.Invoke(viewCtx)
 	if err != nil {
 		return nil, err
 	}
-	return []interface{}{txid, result}, nil
+	return []any{txid, result}, nil
 }
 
 func (i *invokeChaincodeView) Invoke(viewCtx view.Context) (string, []byte, error) {
@@ -96,9 +96,9 @@ func (i *invokeChaincodeView) Invoke(viewCtx view.Context) (string, []byte, erro
 	return txid, result, nil
 }
 
-func (i *invokeChaincodeView) WithTransientEntry(k string, v interface{}) *invokeChaincodeView {
+func (i *invokeChaincodeView) WithTransientEntry(k string, v any) *invokeChaincodeView {
 	if i.TransientMap == nil {
-		i.TransientMap = map[string]interface{}{}
+		i.TransientMap = map[string]any{}
 	}
 	i.TransientMap[k] = v
 	return i

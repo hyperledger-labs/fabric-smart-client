@@ -43,7 +43,7 @@ func (c *raceConn) Close() error {
 
 func TestReadRace(t *testing.T) { //nolint:paralleltest
 	p := make([]byte, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		readChan := make(chan resultMsg, 2)
 		conn := &raceConn{read: readChan}
 		// Send one message

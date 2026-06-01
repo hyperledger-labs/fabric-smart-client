@@ -17,7 +17,7 @@ import (
 )
 
 // DeserializeProtoValuesFromGroup deserializes the value for all values in a config group
-func DeserializeProtoValuesFromGroup(group *cb.ConfigGroup, protosStructs ...interface{}) error {
+func DeserializeProtoValuesFromGroup(group *cb.ConfigGroup, protosStructs ...any) error {
 	sv, err := NewStandardValues(protosStructs...)
 	if err != nil {
 		panic(errors.Wrap(err, "This is a compile time bug only, the proto structures are somehow invalid"))
@@ -40,7 +40,7 @@ type StandardValues struct {
 // the same condition.  NewStandard values will instantiate memory for all the proto
 // messages and build a lookup map from structure field name to proto message instance
 // This is a useful way to easily implement the Values interface
-func NewStandardValues(protosStructs ...interface{}) (*StandardValues, error) {
+func NewStandardValues(protosStructs ...any) (*StandardValues, error) {
 	sv := &StandardValues{
 		lookup: make(map[string]proto.Message),
 	}
@@ -81,7 +81,7 @@ func (sv *StandardValues) initializeProtosStruct(objValue reflect.Value) error {
 	}
 
 	numFields := objValue.Elem().NumField()
-	for i := 0; i < numFields; i++ {
+	for i := range numFields {
 		structField := objType.Elem().Field(i)
 		switch structField.Type.Kind() {
 		case reflect.Pointer:

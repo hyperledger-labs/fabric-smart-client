@@ -22,7 +22,7 @@ import (
 
 type ApproverView struct{}
 
-func (i *ApproverView) Call(viewCtx view.Context) (interface{}, error) {
+func (i *ApproverView) Call(viewCtx view.Context) (any, error) {
 	// When the borrower runs the CollectEndorsementsView, at some point, the borrower sends the assembled transaction
 	// to the approver. Therefore, the approver waits to receive the transaction.
 	tx, err := state.ReceiveTransaction(viewCtx)
@@ -109,7 +109,7 @@ func (i *ApproverView) Call(viewCtx view.Context) (interface{}, error) {
 
 type ApproverInitView struct{}
 
-func (a *ApproverInitView) Call(viewCtx view.Context) (interface{}, error) {
+func (a *ApproverInitView) Call(viewCtx view.Context) (any, error) {
 	_, ch, err := fabric.GetDefaultChannel(viewCtx)
 	assert.NoError(err)
 	assert.NoError(ch.Committer().ProcessNamespace("iou"), "failed to setup namespace to process")

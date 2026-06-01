@@ -9,6 +9,7 @@ package common
 import (
 	"os"
 	"os/exec"
+	"slices"
 )
 
 type Command interface {
@@ -25,21 +26,11 @@ type WorkingDirer interface {
 }
 
 func ConnectsToOrderer(c Command) bool {
-	for _, arg := range c.Args() {
-		if arg == "--orderer" {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(c.Args(), "--orderer")
 }
 
 func ClientAuthEnabled(c Command) bool {
-	for _, arg := range c.Args() {
-		if arg == "--clientauth" {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(c.Args(), "--clientauth")
 }
 
 func NewCommand(path string, command Command) *exec.Cmd {

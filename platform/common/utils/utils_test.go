@@ -28,7 +28,7 @@ func TestCloseMute(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		closer     interface{}
+		closer     any
 		wantCalled bool
 	}{
 		{
@@ -49,7 +49,6 @@ func TestCloseMute(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var mc *mockCloser
@@ -82,7 +81,6 @@ func TestIgnoreError(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			require.NotPanics(t, func() { IgnoreError(tt.err) })
@@ -138,7 +136,6 @@ func TestMust(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			if tt.wantPanic {
@@ -174,7 +171,6 @@ func TestMustGet(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			if tt.wantPanic {
@@ -191,7 +187,7 @@ func TestDefaultZero(t *testing.T) {
 
 	tests := []struct {
 		name string
-		val  interface{}
+		val  any
 		want int
 	}{
 		{
@@ -212,7 +208,6 @@ func TestDefaultZero(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			require.Equal(t, tt.want, DefaultZero[int](tt.val))
@@ -225,7 +220,7 @@ func TestDefaultInt(t *testing.T) {
 
 	tests := []struct {
 		name string
-		val  interface{}
+		val  any
 		def  int
 		want int
 	}{
@@ -256,7 +251,6 @@ func TestDefaultInt(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			require.Equal(t, tt.want, DefaultInt(tt.val, tt.def))
@@ -269,7 +263,7 @@ func TestDefaultString(t *testing.T) {
 
 	tests := []struct {
 		name string
-		val  interface{}
+		val  any
 		def  string
 		want string
 	}{
@@ -300,7 +294,6 @@ func TestDefaultString(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			require.Equal(t, tt.want, DefaultString(tt.val, tt.def))
@@ -319,7 +312,7 @@ func TestIsNil(t *testing.T) {
 
 	tests := []struct {
 		name string
-		val  interface{}
+		val  any
 		want bool
 	}{
 		{
@@ -365,7 +358,6 @@ func TestIsNil(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			require.Equal(t, tt.want, IsNil(tt.val))

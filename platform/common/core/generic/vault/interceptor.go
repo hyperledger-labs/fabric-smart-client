@@ -359,7 +359,7 @@ func (i *Interceptor[V]) Bytes() ([]byte, error) {
 	return i.marshaller.Marshal(i.txID, &i.rws)
 }
 
-func (i *Interceptor[V]) Equals(other interface{}, nss ...string) error {
+func (i *Interceptor[V]) Equals(other any, nss ...string) error {
 	switch o := other.(type) {
 	case *Interceptor[V]:
 		if err := i.rws.Reads.Equals(o.rws.Reads, nss...); err != nil {

@@ -37,7 +37,7 @@ type Service interface {
 // GetService returns the view service from the service provider.
 // It panics if no service is found.
 func GetService(sp services.Provider) Service {
-	s, err := sp.GetService(reflect.TypeOf((*Service)(nil)))
+	s, err := sp.GetService(reflect.TypeFor[*Service]())
 	if err != nil {
 		panic(err)
 	}

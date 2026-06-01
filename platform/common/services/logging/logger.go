@@ -32,27 +32,27 @@ type Logger interface {
 	fabricLogger
 	otelLogger
 
-	With(args ...interface{}) Logger
+	With(args ...any) Logger
 	Named(name string) Logger
 }
 
 type fabricLogger interface {
-	Debug(args ...interface{})
-	Debugf(format string, args ...interface{})
-	Error(args ...interface{})
-	Errorf(format string, args ...interface{})
-	Fatal(args ...interface{})
-	Fatalf(format string, args ...interface{})
-	Info(args ...interface{})
-	Infof(format string, args ...interface{})
-	Panic(args ...interface{})
-	Panicf(format string, args ...interface{})
-	Warn(args ...interface{})
-	Warnf(format string, args ...interface{})
+	Debug(args ...any)
+	Debugf(format string, args ...any)
+	Error(args ...any)
+	Errorf(format string, args ...any)
+	Fatal(args ...any)
+	Fatalf(format string, args ...any)
+	Info(args ...any)
+	Infof(format string, args ...any)
+	Panic(args ...any)
+	Panicf(format string, args ...any)
+	Warn(args ...any)
+	Warnf(format string, args ...any)
 	IsEnabledFor(level zapcore.Level) bool
-	Warnw(format string, args ...interface{})
-	Warningf(format string, args ...interface{})
-	Errorw(format string, args ...interface{})
+	Warnw(format string, args ...any)
+	Warningf(format string, args ...any)
+	Errorw(format string, args ...any)
 	Zap() *zap.Logger
 }
 
@@ -72,7 +72,7 @@ func (l *logger) Named(name string) Logger {
 	return newLogger(l.Zap().Named(name))
 }
 
-func (l *logger) With(args ...interface{}) Logger {
+func (l *logger) With(args ...any) Logger {
 	return newLogger(l.Zap().Sugar().With(args...).Desugar())
 }
 

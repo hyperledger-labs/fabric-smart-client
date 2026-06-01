@@ -14,7 +14,7 @@ type Orderer struct {
 	Kafka      *Kafka             `yaml:"Kafka,omitempty"`
 	Operations *OrdererOperations `yaml:"Operations,omitempty"`
 
-	ExtraProperties map[string]interface{} `yaml:",inline,omitempty"`
+	ExtraProperties map[string]any `yaml:",inline,omitempty"`
 }
 
 type General struct {
@@ -28,7 +28,7 @@ type General struct {
 	BCCSP          *BCCSP                 `yaml:"BCCSP,omitempty"`
 	Authentication *OrdererAuthentication `yaml:"Authentication,omitempty"`
 
-	ExtraProperties map[string]interface{} `yaml:",inline,omitempty"`
+	ExtraProperties map[string]any `yaml:",inline,omitempty"`
 }
 
 type OrdererTLS struct {

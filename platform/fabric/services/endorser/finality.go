@@ -28,7 +28,7 @@ type finalityView struct {
 	timeout time.Duration
 }
 
-func (f *finalityView) Call(viewCtx view.Context) (interface{}, error) {
+func (f *finalityView) Call(viewCtx view.Context) (any, error) {
 	fns, err := fabric.GetFabricNetworkService(viewCtx, f.Network)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "fabric network service [%s] not found", f.Network)

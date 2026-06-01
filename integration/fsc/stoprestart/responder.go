@@ -20,7 +20,7 @@ import (
 
 type Responder struct{}
 
-func (p *Responder) Call(viewCtx view.Context) (interface{}, error) {
+func (p *Responder) Call(viewCtx view.Context) (any, error) {
 	// Retrieve the session opened by the initiator
 	session := viewCtx.Session()
 
@@ -44,7 +44,7 @@ func (p *Responder) Call(viewCtx view.Context) (interface{}, error) {
 	switch {
 	case m != "ping":
 		// reply with an error
-		err := session.SendErrorWithContext(rcvCtx, []byte(fmt.Sprintf("exptectd ping, got %s", m)))
+		err := session.SendErrorWithContext(rcvCtx, fmt.Appendf(nil, "exptectd ping, got %s", m))
 		assert.NoError(err)
 		return nil, errors.Errorf("exptectd ping, got %s", m)
 	default:

@@ -106,7 +106,7 @@ func (p *Provider) Context() context.Context {
 
 // GetLedgerProvider fetches the Provider for the specified network and channel
 func GetLedgerProvider(sp services.Provider) (*Provider, error) {
-	lp, err := sp.GetService(reflect.TypeOf((*Provider)(nil)))
+	lp, err := sp.GetService(reflect.TypeFor[*Provider]())
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find ledger provider")
 	}

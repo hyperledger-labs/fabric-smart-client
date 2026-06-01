@@ -9,6 +9,7 @@ package chaincode
 import (
 	"context"
 	"crypto/sha256"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -357,13 +358,7 @@ func (f *byMSPIDs) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
 	var filteredEndorsers discovery.Endorsers
 	for _, endorser := range endorsers {
 		endorserMSPID := endorser.MSPID
-		found := false
-		for _, mspID := range f.mspIDs {
-			if mspID == endorserMSPID {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(f.mspIDs, endorserMSPID)
 		if !found {
 			continue
 		}

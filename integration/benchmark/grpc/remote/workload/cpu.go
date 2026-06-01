@@ -42,7 +42,7 @@ func ProcessCPU(_ context.Context, in *remote.Request) (*remote.Response, error)
 // doWork just burns CPU cycles
 func doWork(n int) uint64 {
 	var x uint64
-	for i := 0; i < n; i++ {
+	for i := range n {
 		x += uint64(i * i)
 	}
 	return x

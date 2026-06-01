@@ -24,7 +24,7 @@ type ChaincodeEvent struct {
 	Err           error
 }
 
-func (chaincodeEvent *ChaincodeEvent) Message() interface{} {
+func (chaincodeEvent *ChaincodeEvent) Message() any {
 	return chaincodeEvent
 }
 

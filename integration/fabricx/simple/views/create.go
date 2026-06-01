@@ -38,7 +38,7 @@ type CreateView struct {
 	params CreateParams
 }
 
-func (i *CreateView) Call(viewCtx view.Context) (interface{}, error) {
+func (i *CreateView) Call(viewCtx view.Context) (any, error) {
 	// this is our state we want to
 	obj := &SomeObject{
 		Owner: i.params.Owner,

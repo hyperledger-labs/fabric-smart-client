@@ -38,7 +38,7 @@ The core abstraction is `view.View`:
 
 ```go
 type View interface {
-    Call(context Context) (interface{}, error)
+    Call(context Context) (any, error)
 }
 ```
 
@@ -58,9 +58,9 @@ The return value is application-defined. The runtime passes it back to synchrono
 ```go
 type Context interface {
     SpanStarter
-    GetService(v interface{}) (interface{}, error)
+    GetService(v any) (any, error)
     ID() string
-    RunView(view View, opts ...RunViewOption) (interface{}, error)
+    RunView(view View, opts ...RunViewOption) (any, error)
     Me() Identity
     IsMe(id Identity) bool
     Initiator() View
@@ -163,7 +163,7 @@ Some runtime paths expose the optional `view.MutableContext` interface:
 ```go
 type MutableContext interface {
     ResetSessions() error
-    PutService(v interface{}) error
+    PutService(v any) error
 }
 ```
 
@@ -357,7 +357,7 @@ The initiator view:
 ```go
 type Initiator struct{}
 
-func (p *Initiator) Call(viewCtx view.Context) (interface{}, error) {
+func (p *Initiator) Call(viewCtx view.Context) (any, error) {
     identityProvider, err := id.GetProvider(viewCtx)
     if err != nil {
         return nil, err
@@ -393,7 +393,7 @@ The responder view:
 ```go
 type Responder struct{}
 
-func (p *Responder) Call(viewCtx view.Context) (interface{}, error) {
+func (p *Responder) Call(viewCtx view.Context) (any, error) {
     session := viewCtx.Session()
 
     select {

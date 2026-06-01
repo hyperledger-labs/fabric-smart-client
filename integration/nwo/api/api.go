@@ -89,8 +89,8 @@ type Builder interface {
 }
 
 type ViewClient interface {
-	CallViewWithContext(ctx context.Context, fid string, in []byte) (interface{}, error)
-	CallView(fid string, in []byte) (interface{}, error)
+	CallViewWithContext(ctx context.Context, fid string, in []byte) (any, error)
+	CallView(fid string, in []byte) (any, error)
 }
 
 type GRPCClient interface {

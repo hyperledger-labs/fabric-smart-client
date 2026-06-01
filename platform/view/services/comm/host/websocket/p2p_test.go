@@ -288,7 +288,7 @@ func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNo
 func freeTCPAddresses(t *testing.T, n int) []string {
 	t.Helper()
 	var listeners []net.Listener
-	for i := 0; i < n; i++ {
+	for range n {
 		l, err := net.Listen("tcp", "127.0.0.1:0")
 		require.NoError(t, err)
 		listeners = append(listeners, l)

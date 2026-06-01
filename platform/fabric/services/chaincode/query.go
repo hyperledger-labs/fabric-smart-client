@@ -18,7 +18,7 @@ type queryChaincodeView struct {
 	*InvokeCall
 }
 
-func NewQueryView(chaincode, function string, args ...interface{}) *queryChaincodeView {
+func NewQueryView(chaincode, function string, args ...any) *queryChaincodeView {
 	return &queryChaincodeView{
 		InvokeCall: &InvokeCall{
 			ChaincodeName: chaincode,
@@ -28,7 +28,7 @@ func NewQueryView(chaincode, function string, args ...interface{}) *queryChainco
 	}
 }
 
-func (i *queryChaincodeView) Call(viewCtx view.Context) (interface{}, error) {
+func (i *queryChaincodeView) Call(viewCtx view.Context) (any, error) {
 	return i.Query(viewCtx)
 }
 
@@ -79,9 +79,9 @@ func (i *queryChaincodeView) Query(viewCtx view.Context) ([]byte, error) {
 	return invocation.Call()
 }
 
-func (i *queryChaincodeView) WithTransientEntry(k string, v interface{}) *queryChaincodeView {
+func (i *queryChaincodeView) WithTransientEntry(k string, v any) *queryChaincodeView {
 	if i.TransientMap == nil {
-		i.TransientMap = map[string]interface{}{}
+		i.TransientMap = map[string]any{}
 	}
 	i.TransientMap[k] = v
 	return i

@@ -514,7 +514,7 @@ func TestCreateCompositeKeyPerformance(t *testing.T) {
 	// This test ensures that CreateCompositeKey uses strings.Builder efficiently
 	objectType := "user"
 	attributes := make([]string, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		attributes[i] = "attribute_" + string(rune('a'+i%26))
 	}
 

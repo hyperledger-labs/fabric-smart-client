@@ -103,10 +103,9 @@ func TestDispatcherDoS(t *testing.T) { //nolint:paralleltest
 	sessionFast.tryStart()
 
 	sh := &streamHandler{}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	numWorkers := 10
-	for i := 0; i < numWorkers; i++ {
+	for range numWorkers {
 		p.dispatchWg.Add(1)
 		go p.dispatchMessages(ctx)
 	}
@@ -117,7 +116,7 @@ func TestDispatcherDoS(t *testing.T) { //nolint:paralleltest
 			message: &view.Message{
 				SessionID: "slow",
 				FromPKID:  []byte("slow-peer"),
-				Payload:   []byte(fmt.Sprintf("slow-%d", i)),
+				Payload:   fmt.Appendf(nil, "slow-%d", i),
 			},
 			stream: sh,
 		}
@@ -193,16 +192,15 @@ func TestMasterSessionDoSProtection(t *testing.T) { //nolint:paralleltest
 	masterSess.middleCh <- &view.Message{Payload: []byte("clogger-3")} // Master is now full (incoming=1, tryStart blocked, middleCh=1)
 
 	sh := &streamHandler{}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	numWorkers := 10
-	for i := 0; i < numWorkers; i++ {
+	for range numWorkers {
 		p.dispatchWg.Add(1)
 		go p.dispatchMessages(ctx)
 	}
 
 	// Attacker sends 10 messages for unknown sessions, clogging all 10 workers
-	for i := 0; i < numWorkers; i++ {
+	for i := range numWorkers {
 		p.incomingMessages <- &messageWithStream{
 			message: &view.Message{
 				SessionID: fmt.Sprintf("unknown-%d", i),

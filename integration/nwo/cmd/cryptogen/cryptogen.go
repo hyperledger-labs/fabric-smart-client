@@ -261,7 +261,7 @@ func generate() {
 	}
 }
 
-func parseTemplate(input string, data interface{}) (string, error) {
+func parseTemplate(input string, data any) (string, error) {
 	t, err := template.New("parse").Parse(input)
 	if err != nil {
 		return "", errors.Errorf("error parsing template: %s", err)
@@ -276,7 +276,7 @@ func parseTemplate(input string, data interface{}) (string, error) {
 	return output.String(), nil
 }
 
-func parseTemplateWithDefault(input, defaultInput string, data interface{}) (string, error) {
+func parseTemplateWithDefault(input, defaultInput string, data any) (string, error) {
 	// Use the default if the input is an empty string
 	if len(input) == 0 {
 		input = defaultInput

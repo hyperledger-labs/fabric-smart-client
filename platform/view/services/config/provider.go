@@ -50,7 +50,7 @@ type OnMergeConfigEventHandler interface {
 	OnMergeConfig()
 }
 
-type DecodeHookFuncType func(reflect.Type, reflect.Type, interface{}) (interface{}, error)
+type DecodeHookFuncType func(reflect.Type, reflect.Type, any) (any, error)
 
 type Provider struct {
 	Backend     *koanf.Koanf
@@ -75,7 +75,7 @@ func NewProvider(confPath string) (*Provider, error) {
 // GetProvider returns an instance of the config service.
 // It panics, if no instance is found.
 func GetProvider(sp services.Provider) *Provider {
-	s, err := sp.GetService(reflect.TypeOf((*Provider)(nil)))
+	s, err := sp.GetService(reflect.TypeFor[*Provider]())
 	if err != nil {
 		panic(err)
 	}
@@ -108,7 +108,7 @@ func (p *Provider) GetStringSlice(key string) []string {
 }
 
 // UnmarshalKey unmarshals the configuration value associated with the given key into the raw value.
-func (p *Provider) UnmarshalKey(key string, rawVal interface{}) error {
+func (p *Provider) UnmarshalKey(key string, rawVal any) error {
 	return EnhancedExactUnmarshal(p.Backend, strings.ToLower(key), rawVal)
 }
 
@@ -392,7 +392,7 @@ func (m *MergeConfigEvent) Topic() string {
 }
 
 // Message returns the merge configuration event message.
-func (m *MergeConfigEvent) Message() interface{} {
+func (m *MergeConfigEvent) Message() any {
 	return nil
 }
 

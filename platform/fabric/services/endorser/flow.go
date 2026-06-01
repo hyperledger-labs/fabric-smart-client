@@ -13,7 +13,7 @@ import (
 
 type receiveTransactionView struct{}
 
-func (r *receiveTransactionView) Call(viewCtx view.Context) (interface{}, error) {
+func (r *receiveTransactionView) Call(viewCtx view.Context) (any, error) {
 	raw, err := viewCtx.RunView(&receiveView{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed receiving transaction content")
@@ -33,7 +33,7 @@ func NewReceiveTransactionView() *receiveTransactionView {
 
 type receiveView struct{}
 
-func (s receiveView) Call(viewCtx view.Context) (interface{}, error) {
+func (s receiveView) Call(viewCtx view.Context) (any, error) {
 	session := viewCtx.Session()
 
 	// Wait to receive a state

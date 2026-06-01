@@ -233,7 +233,7 @@ var _ = Describe("Provider", func() {
 		Context("when With is called with an extra label", func() {
 			It("panics", func() {
 				counter := p.NewCounter(counterOpts)
-				panicMessage := func() (panicMessage interface{}) {
+				panicMessage := func() (panicMessage any) {
 					defer func() { panicMessage = recover() }()
 					counter.With("alpha", "a", "beta", "b", "charlie", "c").Add(1)
 					return panicMessage
@@ -245,7 +245,7 @@ var _ = Describe("Provider", func() {
 		Context("when label values are not provided", func() {
 			It("it panics with a cardinaility message", func() {
 				counter := p.NewCounter(counterOpts)
-				panicMessage := func() (panicMessage interface{}) {
+				panicMessage := func() (panicMessage any) {
 					defer func() { panicMessage = recover() }()
 					counter.Add(1)
 					return panicMessage

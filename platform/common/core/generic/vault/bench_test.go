@@ -99,7 +99,7 @@ func newRWSet(vault *Vault[ValidationCode], commitIndex *txCommitIndex) error {
 		return err
 	}
 	defer rws.Done()
-	for i := 0; i < rwSetSize; i++ {
+	for i := range rwSetSize {
 		key := fmt.Sprintf("%s_%d", commitIndex.txID, i)
 		err = rws.SetState(namespace, key, []byte(key))
 		if err != nil {
@@ -112,9 +112,7 @@ func newRWSet(vault *Vault[ValidationCode], commitIndex *txCommitIndex) error {
 func runCommitter(b *testing.B, txs chan *txCommitIndex, vault *Vault[ValidationCode]) *sync.WaitGroup {
 	b.Helper()
 	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for commitIndex := range txs {
 			if commitIndex == nil {
 				return
@@ -122,6 +120,6 @@ func runCommitter(b *testing.B, txs chan *txCommitIndex, vault *Vault[Validation
 			err := vault.CommitTX(commitIndex.ctx, commitIndex.txID, commitIndex.block, commitIndex.indexInBloc)
 			assert.NoError(b, err)
 		}
-	}()
+	})
 	return wg
 }

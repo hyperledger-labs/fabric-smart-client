@@ -361,7 +361,7 @@ func TestMultiplexDeserializer_ThreadSafety(t *testing.T) {
 	md := NewMultiplexDeserializer()
 
 	// Add initial deserializers
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		des := &mock.Deserializer{}
 		des.DeserializeVerifierReturns(&mock.Verifier{}, nil)
 		des.DeserializeSignerReturns(&mock.Signer{}, nil)
@@ -373,41 +373,33 @@ func TestMultiplexDeserializer_ThreadSafety(t *testing.T) {
 	numGoroutines := 10
 
 	// Concurrently add deserializers
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range numGoroutines {
+		wg.Go(func() {
 			des := &mock.Deserializer{}
 			des.DeserializeVerifierReturns(&mock.Verifier{}, nil)
 			md.AddDeserializer(des)
-		}()
+		})
 	}
 
 	// Concurrently call DeserializeVerifier
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range numGoroutines {
+		wg.Go(func() {
 			_, _ = md.DeserializeVerifier([]byte("test"))
-		}()
+		})
 	}
 
 	// Concurrently call DeserializeSigner
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range numGoroutines {
+		wg.Go(func() {
 			_, _ = md.DeserializeSigner([]byte("test"))
-		}()
+		})
 	}
 
 	// Concurrently call Info
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range numGoroutines {
+		wg.Go(func() {
 			_, _ = md.Info([]byte("test"), []byte("audit"))
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -467,12 +459,12 @@ func TestMultiplexDeserializer_ReturnsFirstSuccess(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		testFunc func(*MultiplexDeserializer) (interface{}, error)
+		testFunc func(*MultiplexDeserializer) (any, error)
 		setup    func() []Deserializer
 	}{
 		{
 			name: "DeserializeVerifier returns first success",
-			testFunc: func(md *MultiplexDeserializer) (interface{}, error) {
+			testFunc: func(md *MultiplexDeserializer) (any, error) {
 				return md.DeserializeVerifier([]byte("test"))
 			},
 			setup: func() []Deserializer {
@@ -489,7 +481,7 @@ func TestMultiplexDeserializer_ReturnsFirstSuccess(t *testing.T) {
 		},
 		{
 			name: "DeserializeSigner returns first success",
-			testFunc: func(md *MultiplexDeserializer) (interface{}, error) {
+			testFunc: func(md *MultiplexDeserializer) (any, error) {
 				return md.DeserializeSigner([]byte("test"))
 			},
 			setup: func() []Deserializer {
@@ -506,7 +498,7 @@ func TestMultiplexDeserializer_ReturnsFirstSuccess(t *testing.T) {
 		},
 		{
 			name: "Info returns first success",
-			testFunc: func(md *MultiplexDeserializer) (interface{}, error) {
+			testFunc: func(md *MultiplexDeserializer) (any, error) {
 				return md.Info([]byte("test"), []byte("audit"))
 			},
 			setup: func() []Deserializer {

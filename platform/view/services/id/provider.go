@@ -62,7 +62,7 @@ func NewProvider(configProvider ConfigProvider, sigService SigService, endpointS
 }
 
 func GetProvider(sp services.Provider) (*Provider, error) {
-	s, err := sp.GetService(reflect.TypeOf((*Provider)(nil)))
+	s, err := sp.GetService(reflect.TypeFor[*Provider]())
 	if err != nil {
 		return nil, err
 	}

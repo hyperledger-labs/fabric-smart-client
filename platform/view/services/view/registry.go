@@ -235,7 +235,7 @@ func GetName(f view.View) string {
 // GetRegistry returns an instance of the view registry from the service provider.
 // It panics if no instance is found.
 func GetRegistry(sp services.Provider) *Registry {
-	s, err := sp.GetService(reflect.TypeOf((*Registry)(nil)))
+	s, err := sp.GetService(reflect.TypeFor[*Registry]())
 	if err != nil {
 		panic(err)
 	}

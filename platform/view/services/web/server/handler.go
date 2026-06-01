@@ -37,7 +37,7 @@ type ReqContext struct {
 	ResponseWriter http.ResponseWriter
 	Req            *http.Request
 	Vars           map[string]string
-	Query          interface{}
+	Query          any
 }
 
 //go:generate counterfeiter -o mock/request_handler.go -fake-name RequestHandler . RequestHandler
@@ -45,10 +45,10 @@ type ReqContext struct {
 type RequestHandler interface {
 	// HandleRequest dispatches the request in the backend by parsing the given request context
 	// and returning a status code and a response back to the client.
-	HandleRequest(*ReqContext) (response interface{}, statusCode int)
+	HandleRequest(*ReqContext) (response any, statusCode int)
 
 	// ParsePayload parses the payload to handler specific form or returns an error
-	ParsePayload([]byte) (interface{}, error)
+	ParsePayload([]byte) (any, error)
 }
 
 func NewHttpHandler() *HttpHandler {
@@ -139,8 +139,8 @@ func negotiateContentType(req *http.Request) (string, error) {
 		return "application/json", nil
 	}
 
-	options := strings.Split(acceptReq, ",")
-	for _, opt := range options {
+	options := strings.SplitSeq(acceptReq, ",")
+	for opt := range options {
 		if strings.Contains(opt, "application/json") ||
 			strings.Contains(opt, "application/*") ||
 			strings.Contains(opt, "*/*") {

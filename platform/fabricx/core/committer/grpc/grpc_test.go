@@ -624,7 +624,7 @@ func TestClientProvider_CachingPreventsPerCallGoroutineLeak(t *testing.T) { //no
 	invokeHealthCheck(t, first) // establish the single connection up front
 
 	cachedBase := settledGoroutineCount()
-	for i := 0; i < calls; i++ {
+	for range calls {
 		cc, err := cp.QueryServiceClient("net")
 		require.NoError(t, err)
 		require.Same(t, first, cc) // every call returns the cached connection
@@ -641,7 +641,7 @@ func TestClientProvider_CachingPreventsPerCallGoroutineLeak(t *testing.T) { //no
 		}
 	})
 	uncachedBase := settledGoroutineCount()
-	for i := 0; i < calls; i++ {
+	for range calls {
 		cc, err := grpc2.ClientConn(cfg) // exactly what QueryServiceClient did before caching
 		require.NoError(t, err)
 		invokeHealthCheck(t, cc)
@@ -666,7 +666,7 @@ func TestClientProvider_CachingPreventsPerCallGoroutineLeak(t *testing.T) { //no
 func settledGoroutineCount() int {
 	prev := -1
 	n := 0
-	for i := 0; i < 25; i++ {
+	for range 25 {
 		runtime.GC()
 		time.Sleep(10 * time.Millisecond)
 		n = runtime.NumGoroutine()

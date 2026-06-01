@@ -30,17 +30,17 @@ type Client struct {
 }
 
 type Organization struct {
-	MSPID                  string                 `json:"mspid"`
-	Peers                  []string               `json:"peers"`
-	CertificateAuthorities []string               `json:"certificateAuthorities,omitempty"`
-	SignedCert             map[string]interface{} `json:"signedCert,omitempty"`
-	AdminPrivateKey        map[string]interface{} `json:"adminPrivateKey,omitempty"`
+	MSPID                  string         `json:"mspid"`
+	Peers                  []string       `json:"peers"`
+	CertificateAuthorities []string       `json:"certificateAuthorities,omitempty"`
+	SignedCert             map[string]any `json:"signedCert,omitempty"`
+	AdminPrivateKey        map[string]any `json:"adminPrivateKey,omitempty"`
 }
 
 type Peer struct {
-	URL         string                 `json:"url"`
-	TLSCACerts  map[string]interface{} `json:"tlsCACerts"`
-	GrpcOptions map[string]interface{} `json:"grpcOptions"`
+	URL         string         `json:"url"`
+	TLSCACerts  map[string]any `json:"tlsCACerts"`
+	GrpcOptions map[string]any `json:"grpcOptions"`
 }
 
 type HttpOptions struct {
@@ -68,9 +68,9 @@ type Channel struct {
 }
 
 type Orderer struct {
-	URL         string                 `json:"url"`
-	TLSCACerts  map[string]interface{} `json:"tlsCACerts"`
-	GrpcOptions map[string]interface{} `json:"grpcOptions"`
+	URL         string         `json:"url"`
+	TLSCACerts  map[string]any `json:"tlsCACerts"`
+	GrpcOptions map[string]any `json:"grpcOptions"`
 }
 
 type ConnectionProfile struct {

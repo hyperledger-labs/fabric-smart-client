@@ -98,7 +98,7 @@ func NewManager(
 
 // GetManager returns an instance of *Manager, if available, an error otherwise.
 func GetManager(sp services.Provider) (*Manager, error) {
-	s, err := sp.GetService(reflect.TypeOf((*Manager)(nil)))
+	s, err := sp.GetService(reflect.TypeFor[*Manager]())
 	if err != nil {
 		return nil, err
 	}

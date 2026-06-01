@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package fsc
 
 import (
+	"slices"
+
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
@@ -126,11 +128,8 @@ func (t *Topology) ListNodes(ids ...string) []*node.Node {
 	}
 	var res []*node.Node
 	for _, n := range t.Nodes {
-		for _, id := range ids {
-			if n.Name == id {
-				res = append(res, n)
-				break
-			}
+		if slices.Contains(ids, n.Name) {
+			res = append(res, n)
 		}
 	}
 	return res

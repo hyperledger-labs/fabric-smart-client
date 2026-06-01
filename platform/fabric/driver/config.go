@@ -76,7 +76,7 @@ type Configuration interface {
 	// IsSet checks to see if the key has been set in any of the data locations
 	IsSet(key string) bool
 	// UnmarshalKey takes a single key and unmarshals it into a Struct
-	UnmarshalKey(key string, rawVal interface{}) error
+	UnmarshalKey(key string, rawVal any) error
 	// ConfigFileUsed returns the file used to populate the config registry
 	ConfigFileUsed() string
 	// GetPath allows configuration strings that specify a (config-file) relative path
@@ -137,5 +137,5 @@ type MSP interface {
 	MSPID() string
 	Path() string
 	CacheSize() int
-	Opts() map[string]interface{}
+	Opts() map[string]any
 }

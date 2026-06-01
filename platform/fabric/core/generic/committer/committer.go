@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -682,11 +683,9 @@ func (c *Committer) filterUnknownEnvelope(ctx context.Context, txID string, enve
 	// check namespaces
 	c.logger.DebugfContext(ctx, "[%s] contains namespaces [%v] or `initialized` key", txID, rws.Namespaces())
 	for _, ns := range rws.Namespaces() {
-		for _, namespace := range c.ProcessNamespaces {
-			if namespace == ns {
-				c.logger.Debugf("[%s] contains namespaces [%v], select it", txID, rws.Namespaces())
-				return true, nil
-			}
+		if slices.Contains(c.ProcessNamespaces, ns) {
+			c.logger.Debugf("[%s] contains namespaces [%v], select it", txID, rws.Namespaces())
+			return true, nil
 		}
 
 		// search a read dependency on a key containing "initialized"

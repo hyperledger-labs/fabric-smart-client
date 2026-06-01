@@ -16,7 +16,7 @@ import (
 type RunViewOptions struct {
 	Session     Session
 	AsInitiator bool
-	Call        func(Context) (interface{}, error)
+	Call        func(Context) (any, error)
 	SameContext bool
 	Ctx         context.Context
 }
@@ -52,7 +52,7 @@ func AsInitiator() RunViewOption {
 }
 
 // WithViewCall sets the Call function to invoke. When specified, it overrides all options and arguments passing a view
-func WithViewCall(f func(Context) (interface{}, error)) RunViewOption {
+func WithViewCall(f func(Context) (any, error)) RunViewOption {
 	return func(o *RunViewOptions) error {
 		o.Call = f
 		return nil
@@ -82,7 +82,7 @@ type MutableContext interface {
 	// ResetSessions disposes all sessions created in this context
 	ResetSessions() error
 	// PutService registers a service in this context
-	PutService(v interface{}) error
+	PutService(v any) error
 }
 
 // SpanStarter creates new spans
@@ -96,13 +96,13 @@ type Context interface {
 	SpanStarter
 
 	// GetService returns an instance of the given type
-	GetService(v interface{}) (interface{}, error)
+	GetService(v any) (any, error)
 
 	// ID returns the identifier of this context
 	ID() string
 
 	// RunView runs the passed view on input this context
-	RunView(view View, opts ...RunViewOption) (interface{}, error)
+	RunView(view View, opts ...RunViewOption) (any, error)
 
 	// Me returns the identity bound to this context
 	Me() Identity

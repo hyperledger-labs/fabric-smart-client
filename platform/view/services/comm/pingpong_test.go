@@ -59,12 +59,12 @@ func TestPingPongSessionLevel(t *testing.T) { //nolint:paralleltest
 	// Sender goroutine: sends ping messages
 	go func() {
 		defer wg.Done()
-		for sessionID := 0; sessionID < numSessions; sessionID++ {
+		for sessionID := range numSessions {
 			// sessionIDStr := fmt.Sprintf("session-%d", sessionID) // Not used, but kept for clarity
 
 			// Update session ID for this round (in real usage, we'd create new sessions)
 			// For this test, we'll just use the same session and vary the message content
-			for i := 0; i < msgsPerSession; i++ {
+			for i := range msgsPerSession {
 				msg := fmt.Sprintf("ping-%d-%d", sessionID, i)
 				err := sess.Send([]byte(msg))
 				assert.NoError(t, err, "Failed to send message")
@@ -89,7 +89,7 @@ func TestPingPongSessionLevel(t *testing.T) { //nolint:paralleltest
 		}()
 
 		// Process received messages and send pongs
-		for i := 0; i < numSessions*msgsPerSession; i++ {
+		for range numSessions * msgsPerSession {
 			select {
 			case msg := <-received:
 				// Verify we got a ping message

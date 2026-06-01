@@ -153,7 +153,7 @@ func TestParallel(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(iterations)
-	for i := 0; i < iterations; i++ {
+	for i := range iterations {
 		val := fmt.Sprintf("v%d", i)
 		go func() {
 			val, err := cache.Get(entry{"key", val})
@@ -184,21 +184,21 @@ func TestLengthConcurrentWithWrites(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		for i := 0; i < iterations; i++ {
+		for i := range iterations {
 			_, _, _ = cache.Update(entry{key: fmt.Sprintf("k%d", i), value: fmt.Sprintf("v%d", i)})
 		}
 	}()
 
 	go func() {
 		defer wg.Done()
-		for i := 0; i < iterations; i++ {
+		for i := range iterations {
 			_, _ = cache.Delete(entry{key: fmt.Sprintf("k%d", i)})
 		}
 	}()
 
 	go func() {
 		defer wg.Done()
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			_ = cache.Length()
 		}
 	}()

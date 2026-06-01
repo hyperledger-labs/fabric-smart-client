@@ -29,7 +29,7 @@ type Topologies struct {
 }
 
 type T struct {
-	Topologies []interface{} `yaml:"topologies,omitempty"`
+	Topologies []any `yaml:"topologies,omitempty"`
 }
 
 var (

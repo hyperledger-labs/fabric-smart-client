@@ -363,7 +363,7 @@ func (r *rwSetWrapper) Done() {
 // Equals compares this RWSet with another RWSet for equality.
 // If namespaces are specified, only those namespaces are compared.
 // Returns an error if the RWSets are not equal or if the input is not an *rwSetWrapper.
-func (r *rwSetWrapper) Equals(rws interface{}, nss ...cdriver.Namespace) error {
+func (r *rwSetWrapper) Equals(rws any, nss ...cdriver.Namespace) error {
 	other, ok := rws.(*rwSetWrapper)
 	if !ok {
 		return errors.Errorf("expected *rwSetWrapper, got %T", rws)

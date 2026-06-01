@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	networkServiceProviderType = reflect.TypeOf((*NetworkServiceProvider)(nil))
+	networkServiceProviderType = reflect.TypeFor[*NetworkServiceProvider]()
 	logger                     = logging.MustGetLogger()
 )
 

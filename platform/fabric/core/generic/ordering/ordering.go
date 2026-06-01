@@ -84,7 +84,7 @@ func NewService(
 	return s
 }
 
-func (o *Service) Broadcast(ctx context.Context, blob interface{}) error {
+func (o *Service) Broadcast(ctx context.Context, blob any) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}

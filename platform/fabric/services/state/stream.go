@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
+	"slices"
+
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 )
 
@@ -47,13 +49,7 @@ func (k IDs) Match(keys IDs) bool {
 		return false
 	}
 	for _, id := range k {
-		found := false
-		for _, identity := range keys {
-			if identity == id {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(keys, id)
 		if !found {
 			return false
 		}
@@ -83,13 +79,7 @@ func (k Namespaces) Match(keys Namespaces) bool {
 		return false
 	}
 	for _, id := range k {
-		found := false
-		for _, identity := range keys {
-			if identity == id {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(keys, id)
 		if !found {
 			return false
 		}
@@ -115,7 +105,7 @@ type output struct {
 	delete    bool
 }
 
-func (o *output) State(state interface{}) error {
+func (o *output) State(state any) error {
 	return o.namespace.GetOutputAt(o.index, state)
 }
 
@@ -194,7 +184,7 @@ func (i *input) VerifyCertification() error {
 	return i.namespace.VerifyInputCertificationAt(i.index, string(i.key))
 }
 
-func (i *input) State(state interface{}) error {
+func (i *input) State(state any) error {
 	return i.namespace.GetInputAt(i.index, state)
 }
 

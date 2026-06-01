@@ -18,7 +18,7 @@ type AgreeToBuyView struct {
 	*AssetPrice
 }
 
-func (a *AgreeToBuyView) Call(viewCtx view.Context) (interface{}, error) {
+func (a *AgreeToBuyView) Call(viewCtx view.Context) (any, error) {
 	assetPrice, err := json.Marshal(a.AssetPrice)
 	assert.NoError(err, "failed marshalling assetPrice")
 

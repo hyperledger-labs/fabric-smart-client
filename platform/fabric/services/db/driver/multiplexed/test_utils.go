@@ -15,7 +15,7 @@ import (
 
 func MockTypeConfig[T any](typ driver.PersistenceType, config T) *mock.ConfigProvider {
 	cp := &mock.ConfigProvider{}
-	cp.UnmarshalKeyCalls(func(key string, val interface{}) error {
+	cp.UnmarshalKeyCalls(func(key string, val any) error {
 		if strings.Contains(key, "type") {
 			*val.(*driver.PersistenceType) = typ
 		} else if strings.Contains(key, "opts") {

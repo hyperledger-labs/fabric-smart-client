@@ -8,6 +8,7 @@ package view
 
 import (
 	"os"
+	"slices"
 	"time"
 
 	"go.yaml.in/yaml/v3"
@@ -71,10 +72,8 @@ func validateConfig(conf Config) error {
 		conf.SignerConfig.KeyPath,
 	}
 
-	for _, s := range nonEmptyStrings {
-		if s == "" {
-			return errors.New("empty string that is mandatory")
-		}
+	if slices.Contains(nonEmptyStrings, "") {
+		return errors.New("empty string that is mandatory")
 	}
 	return nil
 }

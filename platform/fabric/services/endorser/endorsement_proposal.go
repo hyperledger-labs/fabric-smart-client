@@ -46,7 +46,7 @@ func NewParallelCollectEndorsementsOnProposalView(tx *Transaction, parties ...vi
 	return &parallelCollectEndorsementsOnProposalView{tx: tx, parties: parties}
 }
 
-func (c *parallelCollectEndorsementsOnProposalView) Call(viewCtx view.Context) (interface{}, error) {
+func (c *parallelCollectEndorsementsOnProposalView) Call(viewCtx view.Context) (any, error) {
 	// send Transaction to each party and wait for their responses
 	stateRaw, err := c.tx.Bytes()
 	if err != nil {
@@ -137,7 +137,7 @@ func NewEndorsementOnProposalResponderView(tx EndorsementsOnProposalTransaction,
 	return &endorsementsOnProposalResponderView{tx: tx, identities: identities}
 }
 
-func (s *endorsementsOnProposalResponderView) Call(viewCtx view.Context) (interface{}, error) {
+func (s *endorsementsOnProposalResponderView) Call(viewCtx view.Context) (any, error) {
 	if len(s.identities) == 0 {
 		fns, err := fabric.GetFabricNetworkService(viewCtx, s.tx.Network())
 		if err != nil {

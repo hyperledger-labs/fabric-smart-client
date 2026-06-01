@@ -73,7 +73,7 @@ func TestTimeoutParallel(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(numItem)
-	for i := 0; i < numItem; i++ {
+	for i := range numItem {
 		go func(i int) {
 			c.Put(i, fmt.Sprintf("item-%d", i))
 			wg.Done()

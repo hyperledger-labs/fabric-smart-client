@@ -19,7 +19,7 @@ import (
 
 type Pong struct{}
 
-func (p *Pong) Call(viewCtx view.Context) (interface{}, error) {
+func (p *Pong) Call(viewCtx view.Context) (any, error) {
 	// Retrieve the session opened by the initiator
 	session := viewCtx.Session()
 
@@ -38,7 +38,7 @@ func (p *Pong) Call(viewCtx view.Context) (interface{}, error) {
 	switch {
 	case m != "ping":
 		// reply with an error
-		err := session.SendError([]byte(fmt.Sprintf("exptectd ping, got %s", m)))
+		err := session.SendError(fmt.Appendf(nil, "exptectd ping, got %s", m))
 		assert.NoError(err)
 		return nil, fmt.Errorf("exptectd ping, got %s", m)
 	default:

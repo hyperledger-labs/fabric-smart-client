@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -364,13 +365,7 @@ func (p *Platform) Channels() []*fabric.Channel {
 				var orgs []string
 				var orgMSPIDs []string
 				for _, peer := range peers {
-					found := false
-					for _, org := range orgs {
-						if org == peer.Organization {
-							found = true
-							break
-						}
-					}
+					found := slices.Contains(orgs, peer.Organization)
 					if !found {
 						orgs = append(orgs, peer.Organization)
 					}
@@ -463,10 +458,10 @@ func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionPr
 			cp.Organizations[org.Name] = network.Organization{
 				MSPID: org.MSPID,
 				Peers: names,
-				SignedCert: map[string]interface{}{
+				SignedCert: map[string]any{
 					"pem": string(signCert),
 				},
-				AdminPrivateKey: map[string]interface{}{
+				AdminPrivateKey: map[string]any{
 					"pem": string(adminPrivateKey),
 				},
 			}
@@ -492,12 +487,12 @@ func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionPr
 				bb.WriteString(string(raw))
 			}
 
-			gRPCopts := make(map[string]interface{})
+			gRPCopts := make(map[string]any)
 			gRPCopts["request-timeout"] = 120001
 
 			cp.Peers[peer.FullName] = network.Peer{
 				URL: "grpcs://" + net.JoinHostPort(fabricHost, port),
-				TLSCACerts: map[string]interface{}{
+				TLSCACerts: map[string]any{
 					"pem": bb.String(),
 				},
 				GrpcOptions: gRPCopts,
@@ -523,12 +518,12 @@ func (p *Platform) ConnectionProfile(name string, ca bool) *network.ConnectionPr
 			bb.WriteString(string(raw))
 		}
 
-		gRPCopts := make(map[string]interface{})
+		gRPCopts := make(map[string]any)
 		gRPCopts["request-timeout"] = 120001
 
 		cp.Orderers[orderer.FullName] = network.Orderer{
 			URL: "grpcs://" + net.JoinHostPort(fabricHost, port),
-			TLSCACerts: map[string]interface{}{
+			TLSCACerts: map[string]any{
 				"pem": bb.String(),
 			},
 			GrpcOptions: gRPCopts,

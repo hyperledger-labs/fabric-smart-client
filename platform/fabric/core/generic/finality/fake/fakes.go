@@ -195,8 +195,8 @@ func (m *DeliverFilteredStream) Header() (metadata.MD, error) { return nil, nil 
 func (m *DeliverFilteredStream) Trailer() metadata.MD         { return nil }
 func (m *DeliverFilteredStream) CloseRead() error             { return nil }
 func (m *DeliverFilteredStream) Context() context.Context     { return context.Background() }
-func (m *DeliverFilteredStream) SendMsg(m_ interface{}) error { return nil }
-func (m *DeliverFilteredStream) RecvMsg(m_ interface{}) error { return nil }
+func (m *DeliverFilteredStream) SendMsg(m_ any) error         { return nil }
+func (m *DeliverFilteredStream) RecvMsg(m_ any) error         { return nil }
 
 type SigningIdentity struct {
 	mock.Mock

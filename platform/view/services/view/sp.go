@@ -8,6 +8,7 @@ package view
 
 import (
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -108,9 +109,10 @@ func (sp *ServiceProvider) RegisterService(service any) error {
 }
 
 func (sp *ServiceProvider) String() string {
-	res := "services ["
+	var res strings.Builder
+	res.WriteString("services [")
 	for _, service := range sp.services {
-		res += logging.Identifier(service).String() + ", "
+		res.WriteString(logging.Identifier(service).String() + ", ")
 	}
-	return res + "]"
+	return res.String() + "]"
 }

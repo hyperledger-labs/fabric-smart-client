@@ -9,24 +9,24 @@ import (
 )
 
 type View struct {
-	CallStub        func(viewa.Context) (interface{}, error)
+	CallStub        func(viewa.Context) (any, error)
 	callMutex       sync.RWMutex
 	callArgsForCall []struct {
 		arg1 viewa.Context
 	}
 	callReturns struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	callReturnsOnCall map[int]struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *View) Call(arg1 viewa.Context) (interface{}, error) {
+func (fake *View) Call(arg1 viewa.Context) (any, error) {
 	fake.callMutex.Lock()
 	ret, specificReturn := fake.callReturnsOnCall[len(fake.callArgsForCall)]
 	fake.callArgsForCall = append(fake.callArgsForCall, struct {
@@ -51,7 +51,7 @@ func (fake *View) CallCallCount() int {
 	return len(fake.callArgsForCall)
 }
 
-func (fake *View) CallCalls(stub func(viewa.Context) (interface{}, error)) {
+func (fake *View) CallCalls(stub func(viewa.Context) (any, error)) {
 	fake.callMutex.Lock()
 	defer fake.callMutex.Unlock()
 	fake.CallStub = stub
@@ -64,28 +64,28 @@ func (fake *View) CallArgsForCall(i int) viewa.Context {
 	return argsForCall.arg1
 }
 
-func (fake *View) CallReturns(result1 interface{}, result2 error) {
+func (fake *View) CallReturns(result1 any, result2 error) {
 	fake.callMutex.Lock()
 	defer fake.callMutex.Unlock()
 	fake.CallStub = nil
 	fake.callReturns = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *View) CallReturnsOnCall(i int, result1 interface{}, result2 error) {
+func (fake *View) CallReturnsOnCall(i int, result1 any, result2 error) {
 	fake.callMutex.Lock()
 	defer fake.callMutex.Unlock()
 	fake.CallStub = nil
 	if fake.callReturnsOnCall == nil {
 		fake.callReturnsOnCall = make(map[int]struct {
-			result1 interface{}
+			result1 any
 			result2 error
 		})
 	}
 	fake.callReturnsOnCall[i] = struct {
-		result1 interface{}
+		result1 any
 		result2 error
 	}{result1, result2}
 }

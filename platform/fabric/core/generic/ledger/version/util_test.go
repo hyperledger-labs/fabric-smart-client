@@ -26,7 +26,7 @@ import (
 
 func TestBasicEncodingDecoding(t *testing.T) {
 	t.Parallel()
-	for i := 0; i < 10000; i++ {
+	for i := range 10000 {
 		value := encodeOrderPreservingVarUint64(uint64(i))
 		nextValue := encodeOrderPreservingVarUint64(uint64(i + 1))
 		require.Greaterf(t, nextValue, value, "A smaller integer should result into smaller bytes. Encoded bytes for [%d] is [%x] and for [%d] is [%x]", i, i+1, value, nextValue)
@@ -39,14 +39,14 @@ func TestBasicEncodingDecoding(t *testing.T) {
 func TestDecodingAppendedValues(t *testing.T) {
 	t.Parallel()
 	appendedValues := []byte{}
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		appendedValues = append(appendedValues, encodeOrderPreservingVarUint64(uint64(i))...)
 	}
 
 	len := 0
 	value := uint64(0)
 	var err error
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		appendedValues = appendedValues[len:]
 		value, len, err = decodeOrderPreservingVarUint64(appendedValues)
 		require.NoError(t, err, "Error via calling DecodeOrderPreservingVarUint64")

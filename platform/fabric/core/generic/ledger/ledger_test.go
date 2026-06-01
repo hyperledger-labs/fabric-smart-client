@@ -77,7 +77,6 @@ func TestGetLedgerInfo(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			l, mockCM, mockLM, mockCS, _ := setupTestLedger(t)
@@ -131,7 +130,6 @@ func TestGetTransactionByID(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			l, mockCM, mockLM, mockCS, mockTM := setupTestLedger(t)
@@ -193,7 +191,6 @@ func TestGetBlockNumberByTxID(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			l, mockCM, mockLM, mockCS, _ := setupTestLedger(t)
@@ -258,7 +255,6 @@ func TestGetBlockByNumber(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			l, mockCM, mockLM, mockCS, _ := setupTestLedger(t)

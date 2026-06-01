@@ -32,8 +32,8 @@ func TestSP(t *testing.T) {
 	require.NoError(t, err)
 
 	// Implementation check
-	typ := reflect.TypeOf((*MyInterface)(nil)).Elem()
-	require.True(t, reflect.TypeOf(impl).Implements(typ))
+	typ := reflect.TypeFor[MyInterface]()
+	require.True(t, reflect.TypeFor[*MyImpl]().Implements(typ))
 
 	// Get by interface type
 	s2, err := sp.GetService(typ)
@@ -41,7 +41,7 @@ func TestSP(t *testing.T) {
 	require.Equal(t, impl, s2)
 
 	// Get by ptr to interface
-	ptrToInterface := reflect.TypeOf((*MyInterface)(nil))
+	ptrToInterface := reflect.TypeFor[*MyInterface]()
 	s, err := sp.GetService(ptrToInterface)
 	require.NoError(t, err, "Failed to get by ptr to interface")
 	require.Equal(t, impl, s)
