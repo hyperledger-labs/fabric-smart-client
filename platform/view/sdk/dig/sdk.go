@@ -10,7 +10,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/go-kit/log"
 	"go.uber.org/dig"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -152,13 +151,13 @@ func (p *SDK) Install() error {
 
 		// Tracing
 		p.Container().Provide(NewOperationsLogger),
-		p.Container().Provide(digutils.Identity[operations.OperationsLogger](), dig.As(new(operations.Logger)), dig.As(new(log.Logger))),
+		p.Container().Provide(digutils.Identity[operations.OperationsLogger](), dig.As(new(operations.Logger))),
 		p.Container().Provide(NewOperationsOptions),
 		p.Container().Provide(operations.NewOperationSystem),
 		p.Container().Provide(newTracerProvider),
 		// Metrics
-		p.Container().Provide(func(o *operations.Options, l operations.OperationsLogger) metrics2.Provider {
-			return operations.NewMetricsProvider(o.Metrics, l, true)
+		p.Container().Provide(func(o *operations.Options) metrics2.Provider {
+			return operations.NewMetricsProvider(o.Metrics, true)
 		}),
 		p.Container().Provide(viewgrpcserver.NewMetrics),
 
