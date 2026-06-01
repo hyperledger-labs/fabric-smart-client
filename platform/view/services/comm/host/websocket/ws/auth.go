@@ -10,9 +10,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"net/http"
-
-	"github.com/mr-tron/base58/base58"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -45,7 +44,7 @@ func peerIDFromCertificate(cert *x509.Certificate) (host2.PeerID, error) {
 			return "", errors.Wrapf(err, "failed to marshal public key")
 		}
 		h := sha256.Sum256(marshaledPubKey)
-		return host2.PeerID(base58.Encode(h[:])), nil
+		return base64.StdEncoding.EncodeToString(h[:]), nil
 	default:
 		return "", errors.Errorf("unsupported public key type [%T]", cert.PublicKey)
 	}

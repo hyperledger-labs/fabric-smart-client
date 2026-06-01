@@ -10,8 +10,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
-
-	"github.com/mr-tron/base58/base58"
+	"encoding/base64"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
@@ -40,5 +39,7 @@ func ecdsaPubKeyID(key *ecdsa.PublicKey) ([]byte, error) {
 	}
 
 	h := sha256.Sum256(marshaledPubKey)
-	return []byte(base58.Encode(h[:])), nil
+	buf := make([]byte, base64.StdEncoding.EncodedLen(len(h[:])))
+	base64.StdEncoding.Encode(buf, h[:])
+	return buf, nil
 }
