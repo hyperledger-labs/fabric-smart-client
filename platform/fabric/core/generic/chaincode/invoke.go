@@ -9,6 +9,7 @@ package chaincode
 import (
 	"bytes"
 	"context"
+	stderrors "errors"
 	"strconv"
 	"strings"
 	"sync"
@@ -366,7 +367,7 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 	}
 
 	// collect responses
-	responses, err := i.collectResponses(endorserClients, signedProp)
+	responses, err := i.collectResponses(endorserClients, signedProp, query)
 	if err != nil {
 		return "", nil, nil, nil, errors.Wrapf(err, "failed collecting proposal responses")
 	}
@@ -434,7 +435,7 @@ func (i *Invoke) createChaincodeProposalWithTxIDAndTransient(typ common.HeaderTy
 }
 
 // collectResponses sends a signed proposal to a set of peers, and gathers all the responses.
-func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedProposal *pb.SignedProposal) ([]*pb.ProposalResponse, error) {
+func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedProposal *pb.SignedProposal, ignorePeerErrors bool) ([]*pb.ProposalResponse, error) {
 	responsesCh := make(chan *pb.ProposalResponse, len(endorserClients))
 	errorCh := make(chan error, len(endorserClients))
 	wg := sync.WaitGroup{}
@@ -453,13 +454,24 @@ func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedPro
 	wg.Wait()
 	close(responsesCh)
 	close(errorCh)
-	for err := range errorCh {
-		return nil, err
-	}
+
 	var responses []*pb.ProposalResponse
 	for response := range responsesCh {
 		responses = append(responses, response)
 	}
+
+	var errs []error
+	for err := range errorCh {
+		errs = append(errs, err)
+	}
+	if len(errs) == 0 {
+		return responses, nil
+	}
+	if !ignorePeerErrors || len(responses) == 0 {
+		return nil, stderrors.Join(errs...)
+	}
+
+	logger.Warnf("ignoring %d failed proposal responses because %d peers replied successfully", len(errs), len(responses))
 	return responses, nil
 }
 
