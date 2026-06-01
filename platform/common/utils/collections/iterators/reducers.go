@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package iterators
 
 import (
-	"golang.org/x/exp/constraints"
+	"cmp"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/sets"
@@ -49,11 +49,11 @@ func (r *flatReducer[V]) Produce() []V { return []V{} }
 func (r *flatReducer[V]) Reduce(vs []V, v *[]V) ([]V, error) { return append(vs, *v...), nil }
 
 // ToMaxBy calculates the max element of an iterator
-func ToMaxBy[V any, K constraints.Ordered](fn Transformer[V, K]) Reducer[V, V] {
+func ToMaxBy[V any, K cmp.Ordered](fn Transformer[V, K]) Reducer[V, V] {
 	return &maxByReducer[V, K]{fn: fn}
 }
 
-type maxByReducer[V any, K constraints.Ordered] struct {
+type maxByReducer[V any, K cmp.Ordered] struct {
 	fn     Transformer[V, K]
 	maxKey K
 }

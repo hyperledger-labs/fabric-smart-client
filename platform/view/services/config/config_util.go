@@ -175,7 +175,7 @@ func pemBlocksFromFileDecodeHook(f, t reflect.Kind, data interface{}) (interface
 // the time.Duration type
 func EnhancedExactUnmarshal(v *koanf.Koanf, key string, output interface{}) error {
 	oType := reflect.TypeOf(output)
-	if oType.Kind() != reflect.Ptr {
+	if oType.Kind() != reflect.Pointer {
 		return errors.Errorf("supplied output argument must be a pointer to a struct but is not pointer")
 	}
 	config := &mapstructure.DecoderConfig{

@@ -66,7 +66,7 @@ func (t identifier) String() string {
 		return "<nil>"
 	}
 	tt := reflect.TypeOf(t.f)
-	for tt.Kind() == reflect.Ptr {
+	for tt.Kind() == reflect.Pointer {
 		tt = tt.Elem()
 	}
 	return tt.PkgPath() + "/" + tt.Name()

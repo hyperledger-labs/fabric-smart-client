@@ -205,7 +205,7 @@ func GetIdentifier(f view.View) string {
 	}
 
 	ptr := t
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	id := t.PkgPath() + "/" + t.Name()
@@ -224,7 +224,7 @@ func GetName(f view.View) string {
 	}
 
 	ptr := t
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	name := t.Name()

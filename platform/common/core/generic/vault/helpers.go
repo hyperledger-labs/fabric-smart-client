@@ -1044,13 +1044,13 @@ func compare(t *testing.T, ns string, db1, db2 driver2.VaultStore) {
 	require.NoError(t, err)
 	res1, err := collections.ReadAll(itr)
 	require.NoError(t, err)
-	slices.SortFunc(res1, byKey)
+	slices.SortFunc(res1, byKey) //nolint:govet
 
 	itr, err = db2.GetAllStates(context.Background(), ns)
 	require.NoError(t, err)
 	res2, err := collections.ReadAll(itr)
 	require.NoError(t, err)
-	slices.SortFunc(res2, byKey)
+	slices.SortFunc(res2, byKey) //nolint:govet
 
 	require.Equal(t, res1, res2)
 }

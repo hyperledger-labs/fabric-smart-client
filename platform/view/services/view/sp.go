@@ -61,7 +61,7 @@ func (sp *ServiceProvider) GetService(v any) (any, error) {
 		}
 
 		// Match 2: if requested is pointer to interface
-		if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Interface && styp.AssignableTo(typ.Elem()) {
+		if typ.Kind() == reflect.Pointer && typ.Elem().Kind() == reflect.Interface && styp.AssignableTo(typ.Elem()) {
 			found = s
 			break
 		}
@@ -73,13 +73,13 @@ func (sp *ServiceProvider) GetService(v any) (any, error) {
 		}
 
 		// Match 4: struct match (typ is struct, s is ptr to struct)
-		if typ.Kind() == reflect.Struct && styp.Kind() == reflect.Ptr && styp.Elem() == typ {
+		if typ.Kind() == reflect.Struct && styp.Kind() == reflect.Pointer && styp.Elem() == typ {
 			found = s
 			break
 		}
 
 		// Match 5: pointer match (typ is ptr to struct, s is struct)
-		if typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Struct && styp == typ.Elem() {
+		if typ.Kind() == reflect.Pointer && typ.Elem().Kind() == reflect.Struct && styp == typ.Elem() {
 			found = s
 			break
 		}

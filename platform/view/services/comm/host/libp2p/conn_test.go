@@ -71,7 +71,7 @@ func NewVirtualNetwork(t *testing.T, port, numNodes int) (Network, error) {
 		err := eventually(
 			func() bool {
 				addrs, ok := bootstrapNode.Lookup(node.id)
-				return ok && slices.Contains(addrs, node.endpoint)
+				return ok && slices.Contains(addrs, node.endpoint) //nolint:govet
 			},
 			10*time.Second,
 			500*time.Millisecond,
@@ -85,7 +85,7 @@ func NewVirtualNetwork(t *testing.T, port, numNodes int) (Network, error) {
 		err := eventually(
 			func() bool {
 				addrs, ok := node.Lookup(bootstrapNode.id)
-				return ok && slices.Contains(addrs, bootstrapNode.endpoint)
+				return ok && slices.Contains(addrs, bootstrapNode.endpoint) //nolint:govet
 			},
 			10*time.Second,
 			500*time.Millisecond,

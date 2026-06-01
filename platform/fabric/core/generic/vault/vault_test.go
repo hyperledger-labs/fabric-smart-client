@@ -74,7 +74,7 @@ func TestSqlite(t *testing.T) {
 	t.Parallel()
 	ap := &artifactsProvider{
 		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead {
-			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
+			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil }) //nolint:govet
 		},
 	}
 	for _, c := range vault.SingleDBCases {
@@ -104,7 +104,7 @@ func TestPostgres(t *testing.T) {
 	t.Parallel()
 	ap := &artifactsProvider{
 		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead {
-			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
+			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil }) //nolint:govet
 		},
 	}
 	for _, c := range vault.SingleDBCases {

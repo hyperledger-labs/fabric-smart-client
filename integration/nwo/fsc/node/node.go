@@ -312,7 +312,7 @@ func (n *Node) AddSDKWithBase(base node.SDK, sdks ...node.SDK) *Node {
 }
 
 func (n *Node) RegisterViewFactory(id string, factory Factory) *Node {
-	isFactoryPtr := reflect.ValueOf(factory).Kind() == reflect.Ptr
+	isFactoryPtr := reflect.ValueOf(factory).Kind() == reflect.Pointer
 	factoryType := reflect.Indirect(reflect.ValueOf(factory)).Type()
 
 	alias := n.addImport(factoryType.PkgPath())
@@ -329,8 +329,8 @@ func (n *Node) RegisterViewFactory(id string, factory Factory) *Node {
 
 // RegisterResponder registers the passed responder to the passed initiator
 func (n *Node) RegisterResponder(responder, initiator view.View) *Node {
-	isResponderPtr := reflect.ValueOf(responder).Kind() == reflect.Ptr
-	isInitiatorPtr := reflect.ValueOf(initiator).Kind() == reflect.Ptr
+	isResponderPtr := reflect.ValueOf(responder).Kind() == reflect.Pointer
+	isInitiatorPtr := reflect.ValueOf(initiator).Kind() == reflect.Pointer
 	responderType := reflect.Indirect(reflect.ValueOf(responder)).Type()
 	initiatorType := reflect.Indirect(reflect.ValueOf(initiator)).Type()
 
