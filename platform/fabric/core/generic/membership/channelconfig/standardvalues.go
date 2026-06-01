@@ -73,7 +73,7 @@ func (sv *StandardValues) Deserialize(key string, value []byte) (proto.Message, 
 
 func (sv *StandardValues) initializeProtosStruct(objValue reflect.Value) error {
 	objType := objValue.Type()
-	if objType.Kind() != reflect.Ptr {
+	if objType.Kind() != reflect.Pointer {
 		return fmt.Errorf("non pointer type")
 	}
 	if objType.Elem().Kind() != reflect.Struct {
@@ -84,7 +84,7 @@ func (sv *StandardValues) initializeProtosStruct(objValue reflect.Value) error {
 	for i := 0; i < numFields; i++ {
 		structField := objType.Elem().Field(i)
 		switch structField.Type.Kind() {
-		case reflect.Ptr:
+		case reflect.Pointer:
 			fieldPtr := objValue.Elem().Field(i)
 			if !fieldPtr.CanSet() {
 				return fmt.Errorf("cannot set structure field %s (unexported?)", structField.Name)

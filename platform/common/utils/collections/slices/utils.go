@@ -7,9 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package slices
 
 import (
+	"cmp"
 	"slices"
-
-	"golang.org/x/exp/constraints"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections/sets"
 )
@@ -56,7 +55,7 @@ func Repeat[T any](item T, times int) []T {
 	return items
 }
 
-type SortedSlice[T constraints.Ordered] []T
+type SortedSlice[T cmp.Ordered] []T
 
 func (s *SortedSlice[T]) Add(t T) {
 	if i, found := slices.BinarySearch(*s, t); !found {

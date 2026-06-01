@@ -193,7 +193,7 @@ func TestSqlite(t *testing.T) { //nolint:tparallel
 	t.Parallel()
 	artifactProvider := &testArtifactProvider{
 		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead {
-			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
+			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil }) //nolint:govet
 		},
 	}
 
@@ -223,7 +223,7 @@ func TestPostgres(t *testing.T) { //nolint:tparallel
 	t.Parallel()
 	artifactProvider := &testArtifactProvider{
 		removeNils: func(items []driver2.VaultRead) []driver2.VaultRead {
-			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil })
+			return slices.DeleteFunc(items, func(e driver2.VaultRead) bool { return e.Raw == nil }) //nolint:govet
 		},
 	}
 

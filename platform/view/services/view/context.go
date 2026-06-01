@@ -504,7 +504,7 @@ func getViewIdentifier(f view.View) string {
 		return ""
 	}
 	t := reflect.TypeOf(f)
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	return t.PkgPath() + "/" + t.Name()
