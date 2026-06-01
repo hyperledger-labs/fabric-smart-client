@@ -8,7 +8,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type FakeIdentityProvider struct {
+type IdentityProvider struct {
 	IdentityStub        func(string) (view.Identity, error)
 	identityMutex       sync.RWMutex
 	identityArgsForCall []struct {
@@ -26,7 +26,7 @@ type FakeIdentityProvider struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeIdentityProvider) Identity(arg1 string) (view.Identity, error) {
+func (fake *IdentityProvider) Identity(arg1 string) (view.Identity, error) {
 	fake.identityMutex.Lock()
 	ret, specificReturn := fake.identityReturnsOnCall[len(fake.identityArgsForCall)]
 	fake.identityArgsForCall = append(fake.identityArgsForCall, struct {
@@ -45,26 +45,26 @@ func (fake *FakeIdentityProvider) Identity(arg1 string) (view.Identity, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeIdentityProvider) IdentityCallCount() int {
+func (fake *IdentityProvider) IdentityCallCount() int {
 	fake.identityMutex.RLock()
 	defer fake.identityMutex.RUnlock()
 	return len(fake.identityArgsForCall)
 }
 
-func (fake *FakeIdentityProvider) IdentityCalls(stub func(string) (view.Identity, error)) {
+func (fake *IdentityProvider) IdentityCalls(stub func(string) (view.Identity, error)) {
 	fake.identityMutex.Lock()
 	defer fake.identityMutex.Unlock()
 	fake.IdentityStub = stub
 }
 
-func (fake *FakeIdentityProvider) IdentityArgsForCall(i int) string {
+func (fake *IdentityProvider) IdentityArgsForCall(i int) string {
 	fake.identityMutex.RLock()
 	defer fake.identityMutex.RUnlock()
 	argsForCall := fake.identityArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeIdentityProvider) IdentityReturns(result1 view.Identity, result2 error) {
+func (fake *IdentityProvider) IdentityReturns(result1 view.Identity, result2 error) {
 	fake.identityMutex.Lock()
 	defer fake.identityMutex.Unlock()
 	fake.IdentityStub = nil
@@ -74,7 +74,7 @@ func (fake *FakeIdentityProvider) IdentityReturns(result1 view.Identity, result2
 	}{result1, result2}
 }
 
-func (fake *FakeIdentityProvider) IdentityReturnsOnCall(i int, result1 view.Identity, result2 error) {
+func (fake *IdentityProvider) IdentityReturnsOnCall(i int, result1 view.Identity, result2 error) {
 	fake.identityMutex.Lock()
 	defer fake.identityMutex.Unlock()
 	fake.IdentityStub = nil
@@ -90,7 +90,7 @@ func (fake *FakeIdentityProvider) IdentityReturnsOnCall(i int, result1 view.Iden
 	}{result1, result2}
 }
 
-func (fake *FakeIdentityProvider) Invocations() map[string][][]interface{} {
+func (fake *IdentityProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -100,7 +100,7 @@ func (fake *FakeIdentityProvider) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeIdentityProvider) recordInvocation(key string, args []interface{}) {
+func (fake *IdentityProvider) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -112,4 +112,4 @@ func (fake *FakeIdentityProvider) recordInvocation(key string, args []interface{
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.IdentityProvider = new(FakeIdentityProvider)
+var _ driver.IdentityProvider = new(IdentityProvider)

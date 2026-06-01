@@ -41,8 +41,6 @@ type Verifier interface {
 	Verify(message, sigma []byte) error
 }
 
-//go:generate counterfeiter -o mock/sig_service.go -fake-name SigService . SigService
-
 // SigService models a repository of sign and verify keys.
 type SigService interface {
 	// GetSigner returns the signer bound to the passed identity

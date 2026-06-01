@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 )
 
-//go:generate counterfeiter -o fakes/signer_serializer.go --fake-name SignerSerializer . Signer
+//go:generate counterfeiter -o mock/signer_serializer.go --fake-name SignerSerializer . Signer
 
 // Signer is the interface needed to sign a transaction
 type Signer interface {

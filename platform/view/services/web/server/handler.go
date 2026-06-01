@@ -40,7 +40,7 @@ type ReqContext struct {
 	Query          interface{}
 }
 
-//go:generate counterfeiter -o mocks/request_handler.go -fake-name FakeRequestHandler . RequestHandler
+//go:generate counterfeiter -o mock/request_handler.go -fake-name RequestHandler . RequestHandler
 
 type RequestHandler interface {
 	// HandleRequest dispatches the request in the backend by parsing the given request context

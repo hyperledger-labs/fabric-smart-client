@@ -7,7 +7,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-type FakeProposal struct {
+type Proposal struct {
 	HeaderStub        func() []byte
 	headerMutex       sync.RWMutex
 	headerArgsForCall []struct {
@@ -32,7 +32,7 @@ type FakeProposal struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeProposal) Header() []byte {
+func (fake *Proposal) Header() []byte {
 	fake.headerMutex.Lock()
 	ret, specificReturn := fake.headerReturnsOnCall[len(fake.headerArgsForCall)]
 	fake.headerArgsForCall = append(fake.headerArgsForCall, struct {
@@ -50,19 +50,19 @@ func (fake *FakeProposal) Header() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeProposal) HeaderCallCount() int {
+func (fake *Proposal) HeaderCallCount() int {
 	fake.headerMutex.RLock()
 	defer fake.headerMutex.RUnlock()
 	return len(fake.headerArgsForCall)
 }
 
-func (fake *FakeProposal) HeaderCalls(stub func() []byte) {
+func (fake *Proposal) HeaderCalls(stub func() []byte) {
 	fake.headerMutex.Lock()
 	defer fake.headerMutex.Unlock()
 	fake.HeaderStub = stub
 }
 
-func (fake *FakeProposal) HeaderReturns(result1 []byte) {
+func (fake *Proposal) HeaderReturns(result1 []byte) {
 	fake.headerMutex.Lock()
 	defer fake.headerMutex.Unlock()
 	fake.HeaderStub = nil
@@ -71,7 +71,7 @@ func (fake *FakeProposal) HeaderReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeProposal) HeaderReturnsOnCall(i int, result1 []byte) {
+func (fake *Proposal) HeaderReturnsOnCall(i int, result1 []byte) {
 	fake.headerMutex.Lock()
 	defer fake.headerMutex.Unlock()
 	fake.HeaderStub = nil
@@ -85,7 +85,7 @@ func (fake *FakeProposal) HeaderReturnsOnCall(i int, result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeProposal) Payload() []byte {
+func (fake *Proposal) Payload() []byte {
 	fake.payloadMutex.Lock()
 	ret, specificReturn := fake.payloadReturnsOnCall[len(fake.payloadArgsForCall)]
 	fake.payloadArgsForCall = append(fake.payloadArgsForCall, struct {
@@ -103,19 +103,19 @@ func (fake *FakeProposal) Payload() []byte {
 	return fakeReturns.result1
 }
 
-func (fake *FakeProposal) PayloadCallCount() int {
+func (fake *Proposal) PayloadCallCount() int {
 	fake.payloadMutex.RLock()
 	defer fake.payloadMutex.RUnlock()
 	return len(fake.payloadArgsForCall)
 }
 
-func (fake *FakeProposal) PayloadCalls(stub func() []byte) {
+func (fake *Proposal) PayloadCalls(stub func() []byte) {
 	fake.payloadMutex.Lock()
 	defer fake.payloadMutex.Unlock()
 	fake.PayloadStub = stub
 }
 
-func (fake *FakeProposal) PayloadReturns(result1 []byte) {
+func (fake *Proposal) PayloadReturns(result1 []byte) {
 	fake.payloadMutex.Lock()
 	defer fake.payloadMutex.Unlock()
 	fake.PayloadStub = nil
@@ -124,7 +124,7 @@ func (fake *FakeProposal) PayloadReturns(result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeProposal) PayloadReturnsOnCall(i int, result1 []byte) {
+func (fake *Proposal) PayloadReturnsOnCall(i int, result1 []byte) {
 	fake.payloadMutex.Lock()
 	defer fake.payloadMutex.Unlock()
 	fake.PayloadStub = nil
@@ -138,7 +138,7 @@ func (fake *FakeProposal) PayloadReturnsOnCall(i int, result1 []byte) {
 	}{result1}
 }
 
-func (fake *FakeProposal) Invocations() map[string][][]interface{} {
+func (fake *Proposal) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -148,7 +148,7 @@ func (fake *FakeProposal) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeProposal) recordInvocation(key string, args []interface{}) {
+func (fake *Proposal) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -160,4 +160,4 @@ func (fake *FakeProposal) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.Proposal = new(FakeProposal)
+var _ driver.Proposal = new(Proposal)

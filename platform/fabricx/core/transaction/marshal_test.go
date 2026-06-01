@@ -15,13 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-//go:generate counterfeiter -o mocks/fabric_network_service.go --fake-name FakeFabricNetworkService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.FabricNetworkService
-//go:generate counterfeiter -o mocks/signer_service.go --fake-name FakeSignerService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.SignerService
-//go:generate counterfeiter -o mocks/signer.go --fake-name FakeSigner github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Signer
+//go:generate counterfeiter -o mock/fabric_network_service.go --fake-name FabricNetworkService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.FabricNetworkService
+//go:generate counterfeiter -o mock/signer_service.go --fake-name SignerService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.SignerService
+//go:generate counterfeiter -o mock/signer.go --fake-name Signer github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Signer
 
 // TestCreateSCEnvelopeNoProposalResponses verifies that envelope creation fails
 // when the transaction carries no proposal responses at all.
@@ -117,8 +117,8 @@ func TestCreateSCEnvelopeSignerNotFound(t *testing.T) {
 		},
 	}
 
-	fakeFNS := &mocks.FakeFabricNetworkService{}
-	fakeSignerService := &mocks.FakeSignerService{}
+	fakeFNS := &mock.FabricNetworkService{}
+	fakeSignerService := &mock.SignerService{}
 
 	fakeFNS.SignerServiceReturns(fakeSignerService)
 	fakeSignerService.GetSignerReturns(nil, errors.New("boom"))
@@ -162,9 +162,9 @@ func TestCreateSCEnvelopeSuccess(t *testing.T) {
 		},
 	}
 
-	fakeFNS := &mocks.FakeFabricNetworkService{}
-	fakeSignerService := &mocks.FakeSignerService{}
-	fakeSigner := &mocks.FakeSigner{}
+	fakeFNS := &mock.FabricNetworkService{}
+	fakeSignerService := &mock.SignerService{}
+	fakeSigner := &mock.Signer{}
 
 	fakeFNS.SignerServiceReturns(fakeSignerService)
 	fakeSignerService.GetSignerReturns(fakeSigner, nil)

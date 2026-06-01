@@ -8,7 +8,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-type FakeFinality struct {
+type Finality struct {
 	IsFinalStub        func(context.Context, string) error
 	isFinalMutex       sync.RWMutex
 	isFinalArgsForCall []struct {
@@ -25,7 +25,7 @@ type FakeFinality struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeFinality) IsFinal(arg1 context.Context, arg2 string) error {
+func (fake *Finality) IsFinal(arg1 context.Context, arg2 string) error {
 	fake.isFinalMutex.Lock()
 	ret, specificReturn := fake.isFinalReturnsOnCall[len(fake.isFinalArgsForCall)]
 	fake.isFinalArgsForCall = append(fake.isFinalArgsForCall, struct {
@@ -45,26 +45,26 @@ func (fake *FakeFinality) IsFinal(arg1 context.Context, arg2 string) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeFinality) IsFinalCallCount() int {
+func (fake *Finality) IsFinalCallCount() int {
 	fake.isFinalMutex.RLock()
 	defer fake.isFinalMutex.RUnlock()
 	return len(fake.isFinalArgsForCall)
 }
 
-func (fake *FakeFinality) IsFinalCalls(stub func(context.Context, string) error) {
+func (fake *Finality) IsFinalCalls(stub func(context.Context, string) error) {
 	fake.isFinalMutex.Lock()
 	defer fake.isFinalMutex.Unlock()
 	fake.IsFinalStub = stub
 }
 
-func (fake *FakeFinality) IsFinalArgsForCall(i int) (context.Context, string) {
+func (fake *Finality) IsFinalArgsForCall(i int) (context.Context, string) {
 	fake.isFinalMutex.RLock()
 	defer fake.isFinalMutex.RUnlock()
 	argsForCall := fake.isFinalArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeFinality) IsFinalReturns(result1 error) {
+func (fake *Finality) IsFinalReturns(result1 error) {
 	fake.isFinalMutex.Lock()
 	defer fake.isFinalMutex.Unlock()
 	fake.IsFinalStub = nil
@@ -73,7 +73,7 @@ func (fake *FakeFinality) IsFinalReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeFinality) IsFinalReturnsOnCall(i int, result1 error) {
+func (fake *Finality) IsFinalReturnsOnCall(i int, result1 error) {
 	fake.isFinalMutex.Lock()
 	defer fake.isFinalMutex.Unlock()
 	fake.IsFinalStub = nil
@@ -87,7 +87,7 @@ func (fake *FakeFinality) IsFinalReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeFinality) Invocations() map[string][][]interface{} {
+func (fake *Finality) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -97,7 +97,7 @@ func (fake *FakeFinality) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeFinality) recordInvocation(key string, args []interface{}) {
+func (fake *Finality) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -109,4 +109,4 @@ func (fake *FakeFinality) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.Finality = new(FakeFinality)
+var _ driver.Finality = new(Finality)

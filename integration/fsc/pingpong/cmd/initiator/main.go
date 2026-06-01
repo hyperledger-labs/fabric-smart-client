@@ -8,7 +8,7 @@ package main
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong/fake"
 	fscnode "github.com/hyperledger-labs/fabric-smart-client/node"
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
@@ -24,7 +24,7 @@ func main() {
 		if err := registry.RegisterFactory("init", &pingpong.InitiatorViewFactory{}); err != nil {
 			return err
 		}
-		if err := registry.RegisterFactory("mockInit", &mock.InitiatorViewFactory{}); err != nil {
+		if err := registry.RegisterFactory("mockInit", &fake.InitiatorViewFactory{}); err != nil {
 			return err
 		}
 		if err := registry.RegisterFactory("stream", &pingpong.StreamerViewFactory{}); err != nil {

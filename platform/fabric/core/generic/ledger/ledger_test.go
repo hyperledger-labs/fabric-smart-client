@@ -6,6 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 
 package ledger
 
+//go:generate counterfeiter -o mock/chaincode.go -fake-name Chaincode github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Chaincode
+//go:generate counterfeiter -o mock/chaincode_invocation.go -fake-name ChaincodeInvocation github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ChaincodeInvocation
+//go:generate counterfeiter -o mock/chaincode_manager.go -fake-name ChaincodeManager github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ChaincodeManager
+//go:generate counterfeiter -o mock/local_membership.go -fake-name LocalMembership github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.LocalMembership
+//go:generate counterfeiter -o mock/config_service.go -fake-name ConfigService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ConfigService
+//go:generate counterfeiter -o mock/processed_transaction.go -fake-name ProcessedTransaction github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ProcessedTransaction
+//go:generate counterfeiter -o mock/transaction_manager.go -fake-name TransactionManager github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.TransactionManager
+
 import (
 	"errors"
 	"testing"
@@ -19,12 +27,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func setupTestLedger(t *testing.T) (*Ledger, *mock.FakeChaincodeManager, *mock.FakeLocalMembership, *mock.FakeConfigService, *mock.FakeTransactionManager) {
+func setupTestLedger(t *testing.T) (*Ledger, *mock.ChaincodeManager, *mock.LocalMembership, *mock.ConfigService, *mock.TransactionManager) {
 	t.Helper()
-	mockCM := &mock.FakeChaincodeManager{}
-	mockLM := &mock.FakeLocalMembership{}
-	mockCS := &mock.FakeConfigService{}
-	mockTM := &mock.FakeTransactionManager{}
+	mockCM := &mock.ChaincodeManager{}
+	mockLM := &mock.LocalMembership{}
+	mockCS := &mock.ConfigService{}
+	mockTM := &mock.TransactionManager{}
 	l := New("test-channel", mockCM, mockLM, mockCS, mockTM)
 	return l, mockCM, mockLM, mockCS, mockTM
 }
@@ -74,12 +82,12 @@ func TestGetLedgerInfo(t *testing.T) {
 			t.Parallel()
 			l, mockCM, mockLM, mockCS, _ := setupTestLedger(t)
 
-			mockInvocation := &mock.FakeChaincodeInvocation{}
+			mockInvocation := &mock.ChaincodeInvocation{}
 			mockInvocation.QueryReturns(tt.queryRes, tt.queryErr)
 			mockInvocation.WithSignerIdentityReturns(mockInvocation)
 			mockInvocation.WithEndorsersByConnConfigReturns(mockInvocation)
 
-			mockCC := &mock.FakeChaincode{}
+			mockCC := &mock.Chaincode{}
 			mockCC.NewInvocationReturns(mockInvocation)
 
 			mockCM.ChaincodeReturns(mockCC)
@@ -128,19 +136,19 @@ func TestGetTransactionByID(t *testing.T) {
 			t.Parallel()
 			l, mockCM, mockLM, mockCS, mockTM := setupTestLedger(t)
 
-			mockInvocation := &mock.FakeChaincodeInvocation{}
+			mockInvocation := &mock.ChaincodeInvocation{}
 			mockInvocation.QueryReturns(tt.queryRes, tt.queryErr)
 			mockInvocation.WithSignerIdentityReturns(mockInvocation)
 			mockInvocation.WithEndorsersByConnConfigReturns(mockInvocation)
 
-			mockCC := &mock.FakeChaincode{}
+			mockCC := &mock.Chaincode{}
 			mockCC.NewInvocationReturns(mockInvocation)
 
 			mockCM.ChaincodeReturns(mockCC)
 			mockLM.DefaultIdentityReturns(view.Identity("alice"))
 			mockCS.PickPeerReturns(nil)
 
-			mockPT := &mock.FakeProcessedTransaction{}
+			mockPT := &mock.ProcessedTransaction{}
 			mockTM.NewProcessedTransactionReturns(mockPT, nil)
 
 			res, err := l.GetTransactionByID("tx1")
@@ -190,12 +198,12 @@ func TestGetBlockNumberByTxID(t *testing.T) {
 			t.Parallel()
 			l, mockCM, mockLM, mockCS, _ := setupTestLedger(t)
 
-			mockInvocation := &mock.FakeChaincodeInvocation{}
+			mockInvocation := &mock.ChaincodeInvocation{}
 			mockInvocation.QueryReturns(tt.queryRes, tt.queryErr)
 			mockInvocation.WithSignerIdentityReturns(mockInvocation)
 			mockInvocation.WithEndorsersByConnConfigReturns(mockInvocation)
 
-			mockCC := &mock.FakeChaincode{}
+			mockCC := &mock.Chaincode{}
 			mockCC.NewInvocationReturns(mockInvocation)
 
 			mockCM.ChaincodeReturns(mockCC)
@@ -255,12 +263,12 @@ func TestGetBlockByNumber(t *testing.T) {
 			t.Parallel()
 			l, mockCM, mockLM, mockCS, _ := setupTestLedger(t)
 
-			mockInvocation := &mock.FakeChaincodeInvocation{}
+			mockInvocation := &mock.ChaincodeInvocation{}
 			mockInvocation.QueryReturns(tt.queryRes, tt.queryErr)
 			mockInvocation.WithSignerIdentityReturns(mockInvocation)
 			mockInvocation.WithEndorsersByConnConfigReturns(mockInvocation)
 
-			mockCC := &mock.FakeChaincode{}
+			mockCC := &mock.Chaincode{}
 			mockCC.NewInvocationReturns(mockInvocation)
 
 			mockCM.ChaincodeReturns(mockCC)
@@ -281,8 +289,8 @@ func TestGetBlockByNumber(t *testing.T) {
 func TestBlock(t *testing.T) {
 	t.Parallel()
 
-	setup := func() (*Block, *mock.FakeTransactionManager, []byte) {
-		mockTM := &mock.FakeTransactionManager{}
+	setup := func() (*Block, *mock.TransactionManager, []byte) {
+		mockTM := &mock.TransactionManager{}
 		env := &common.Envelope{Payload: []byte("payload1")}
 		rawEnv, _ := proto.Marshal(env)
 
@@ -315,7 +323,7 @@ func TestBlock(t *testing.T) {
 	t.Run("ProcessedTransaction", func(t *testing.T) {
 		t.Parallel()
 		b, mockTM, rawEnv := setup()
-		mockTM.NewProcessedTransactionReturns(&mock.FakeProcessedTransaction{}, nil)
+		mockTM.NewProcessedTransactionReturns(&mock.ProcessedTransaction{}, nil)
 		pt, err := b.ProcessedTransaction(0)
 		require.NoError(t, err)
 		require.NotNil(t, pt)

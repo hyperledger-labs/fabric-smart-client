@@ -38,8 +38,6 @@ type SigningIdentity interface {
 	Sign(msg []byte) ([]byte, error)
 }
 
-//go:generate counterfeiter -o mock/view_peer_client.go -fake-name ViewServiceClient . ViewServiceClient
-
 // ViewServiceClient defines an interface that creates a client to communicate with the view service in a peer.
 type ViewServiceClient interface {
 	// CreateViewClient creates a grpc connection and client to view peer

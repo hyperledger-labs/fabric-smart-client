@@ -37,8 +37,6 @@ type TxEvent struct {
 	Err          error
 }
 
-//go:generate counterfeiter -o mock/deliver_filtered.go -fake-name DeliverFiltered . DeliverFiltered
-
 // DeliverFiltered defines the interface that abstracts deliver filtered grpc calls to peer
 type DeliverFiltered interface {
 	Send(*common.Envelope) error
@@ -52,8 +50,6 @@ type DeliverStream interface {
 	Recv() (*pb.DeliverResponse, error)
 	CloseSend() error
 }
-
-//go:generate counterfeiter -o mock/deliver_client.go -fake-name DeliverClient . DeliverClient
 
 // DeliverClient defines the interface to create a DeliverStream client
 type DeliverClient interface {

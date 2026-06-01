@@ -17,8 +17,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
 
-//go:generate counterfeiter -o fakes/logger.go -fake-name Logger . Logger
-
 type Logger interface {
 	Debugf(template string, args ...interface{})
 	Info(...interface{})

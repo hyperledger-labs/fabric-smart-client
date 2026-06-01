@@ -7,7 +7,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-type FakeFabricNetworkServiceProvider struct {
+type FabricNetworkServiceProvider struct {
 	DefaultNameStub        func() string
 	defaultNameMutex       sync.RWMutex
 	defaultNameArgsForCall []struct {
@@ -45,7 +45,7 @@ type FakeFabricNetworkServiceProvider struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeFabricNetworkServiceProvider) DefaultName() string {
+func (fake *FabricNetworkServiceProvider) DefaultName() string {
 	fake.defaultNameMutex.Lock()
 	ret, specificReturn := fake.defaultNameReturnsOnCall[len(fake.defaultNameArgsForCall)]
 	fake.defaultNameArgsForCall = append(fake.defaultNameArgsForCall, struct {
@@ -63,19 +63,19 @@ func (fake *FakeFabricNetworkServiceProvider) DefaultName() string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeFabricNetworkServiceProvider) DefaultNameCallCount() int {
+func (fake *FabricNetworkServiceProvider) DefaultNameCallCount() int {
 	fake.defaultNameMutex.RLock()
 	defer fake.defaultNameMutex.RUnlock()
 	return len(fake.defaultNameArgsForCall)
 }
 
-func (fake *FakeFabricNetworkServiceProvider) DefaultNameCalls(stub func() string) {
+func (fake *FabricNetworkServiceProvider) DefaultNameCalls(stub func() string) {
 	fake.defaultNameMutex.Lock()
 	defer fake.defaultNameMutex.Unlock()
 	fake.DefaultNameStub = stub
 }
 
-func (fake *FakeFabricNetworkServiceProvider) DefaultNameReturns(result1 string) {
+func (fake *FabricNetworkServiceProvider) DefaultNameReturns(result1 string) {
 	fake.defaultNameMutex.Lock()
 	defer fake.defaultNameMutex.Unlock()
 	fake.DefaultNameStub = nil
@@ -84,7 +84,7 @@ func (fake *FakeFabricNetworkServiceProvider) DefaultNameReturns(result1 string)
 	}{result1}
 }
 
-func (fake *FakeFabricNetworkServiceProvider) DefaultNameReturnsOnCall(i int, result1 string) {
+func (fake *FabricNetworkServiceProvider) DefaultNameReturnsOnCall(i int, result1 string) {
 	fake.defaultNameMutex.Lock()
 	defer fake.defaultNameMutex.Unlock()
 	fake.DefaultNameStub = nil
@@ -98,7 +98,7 @@ func (fake *FakeFabricNetworkServiceProvider) DefaultNameReturnsOnCall(i int, re
 	}{result1}
 }
 
-func (fake *FakeFabricNetworkServiceProvider) FabricNetworkService(arg1 string) (driver.FabricNetworkService, error) {
+func (fake *FabricNetworkServiceProvider) FabricNetworkService(arg1 string) (driver.FabricNetworkService, error) {
 	fake.fabricNetworkServiceMutex.Lock()
 	ret, specificReturn := fake.fabricNetworkServiceReturnsOnCall[len(fake.fabricNetworkServiceArgsForCall)]
 	fake.fabricNetworkServiceArgsForCall = append(fake.fabricNetworkServiceArgsForCall, struct {
@@ -117,26 +117,26 @@ func (fake *FakeFabricNetworkServiceProvider) FabricNetworkService(arg1 string) 
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeFabricNetworkServiceProvider) FabricNetworkServiceCallCount() int {
+func (fake *FabricNetworkServiceProvider) FabricNetworkServiceCallCount() int {
 	fake.fabricNetworkServiceMutex.RLock()
 	defer fake.fabricNetworkServiceMutex.RUnlock()
 	return len(fake.fabricNetworkServiceArgsForCall)
 }
 
-func (fake *FakeFabricNetworkServiceProvider) FabricNetworkServiceCalls(stub func(string) (driver.FabricNetworkService, error)) {
+func (fake *FabricNetworkServiceProvider) FabricNetworkServiceCalls(stub func(string) (driver.FabricNetworkService, error)) {
 	fake.fabricNetworkServiceMutex.Lock()
 	defer fake.fabricNetworkServiceMutex.Unlock()
 	fake.FabricNetworkServiceStub = stub
 }
 
-func (fake *FakeFabricNetworkServiceProvider) FabricNetworkServiceArgsForCall(i int) string {
+func (fake *FabricNetworkServiceProvider) FabricNetworkServiceArgsForCall(i int) string {
 	fake.fabricNetworkServiceMutex.RLock()
 	defer fake.fabricNetworkServiceMutex.RUnlock()
 	argsForCall := fake.fabricNetworkServiceArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeFabricNetworkServiceProvider) FabricNetworkServiceReturns(result1 driver.FabricNetworkService, result2 error) {
+func (fake *FabricNetworkServiceProvider) FabricNetworkServiceReturns(result1 driver.FabricNetworkService, result2 error) {
 	fake.fabricNetworkServiceMutex.Lock()
 	defer fake.fabricNetworkServiceMutex.Unlock()
 	fake.FabricNetworkServiceStub = nil
@@ -146,7 +146,7 @@ func (fake *FakeFabricNetworkServiceProvider) FabricNetworkServiceReturns(result
 	}{result1, result2}
 }
 
-func (fake *FakeFabricNetworkServiceProvider) FabricNetworkServiceReturnsOnCall(i int, result1 driver.FabricNetworkService, result2 error) {
+func (fake *FabricNetworkServiceProvider) FabricNetworkServiceReturnsOnCall(i int, result1 driver.FabricNetworkService, result2 error) {
 	fake.fabricNetworkServiceMutex.Lock()
 	defer fake.fabricNetworkServiceMutex.Unlock()
 	fake.FabricNetworkServiceStub = nil
@@ -162,7 +162,7 @@ func (fake *FakeFabricNetworkServiceProvider) FabricNetworkServiceReturnsOnCall(
 	}{result1, result2}
 }
 
-func (fake *FakeFabricNetworkServiceProvider) Names() []string {
+func (fake *FabricNetworkServiceProvider) Names() []string {
 	fake.namesMutex.Lock()
 	ret, specificReturn := fake.namesReturnsOnCall[len(fake.namesArgsForCall)]
 	fake.namesArgsForCall = append(fake.namesArgsForCall, struct {
@@ -180,19 +180,19 @@ func (fake *FakeFabricNetworkServiceProvider) Names() []string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeFabricNetworkServiceProvider) NamesCallCount() int {
+func (fake *FabricNetworkServiceProvider) NamesCallCount() int {
 	fake.namesMutex.RLock()
 	defer fake.namesMutex.RUnlock()
 	return len(fake.namesArgsForCall)
 }
 
-func (fake *FakeFabricNetworkServiceProvider) NamesCalls(stub func() []string) {
+func (fake *FabricNetworkServiceProvider) NamesCalls(stub func() []string) {
 	fake.namesMutex.Lock()
 	defer fake.namesMutex.Unlock()
 	fake.NamesStub = stub
 }
 
-func (fake *FakeFabricNetworkServiceProvider) NamesReturns(result1 []string) {
+func (fake *FabricNetworkServiceProvider) NamesReturns(result1 []string) {
 	fake.namesMutex.Lock()
 	defer fake.namesMutex.Unlock()
 	fake.NamesStub = nil
@@ -201,7 +201,7 @@ func (fake *FakeFabricNetworkServiceProvider) NamesReturns(result1 []string) {
 	}{result1}
 }
 
-func (fake *FakeFabricNetworkServiceProvider) NamesReturnsOnCall(i int, result1 []string) {
+func (fake *FabricNetworkServiceProvider) NamesReturnsOnCall(i int, result1 []string) {
 	fake.namesMutex.Lock()
 	defer fake.namesMutex.Unlock()
 	fake.NamesStub = nil
@@ -215,7 +215,7 @@ func (fake *FakeFabricNetworkServiceProvider) NamesReturnsOnCall(i int, result1 
 	}{result1}
 }
 
-func (fake *FakeFabricNetworkServiceProvider) Invocations() map[string][][]interface{} {
+func (fake *FabricNetworkServiceProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -225,7 +225,7 @@ func (fake *FakeFabricNetworkServiceProvider) Invocations() map[string][][]inter
 	return copiedInvocations
 }
 
-func (fake *FakeFabricNetworkServiceProvider) recordInvocation(key string, args []interface{}) {
+func (fake *FabricNetworkServiceProvider) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -237,4 +237,4 @@ func (fake *FakeFabricNetworkServiceProvider) recordInvocation(key string, args 
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.FabricNetworkServiceProvider = new(FakeFabricNetworkServiceProvider)
+var _ driver.FabricNetworkServiceProvider = new(FabricNetworkServiceProvider)

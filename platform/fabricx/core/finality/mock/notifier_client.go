@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type FakeNotifier_OpenNotificationStreamClient struct {
+type Notifier_OpenNotificationStreamClient struct {
 	CloseSendStub        func() error
 	closeSendMutex       sync.RWMutex
 	closeSendArgsForCall []struct {
@@ -101,7 +101,7 @@ type FakeNotifier_OpenNotificationStreamClient struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) CloseSend() error {
+func (fake *Notifier_OpenNotificationStreamClient) CloseSend() error {
 	fake.closeSendMutex.Lock()
 	ret, specificReturn := fake.closeSendReturnsOnCall[len(fake.closeSendArgsForCall)]
 	fake.closeSendArgsForCall = append(fake.closeSendArgsForCall, struct {
@@ -119,19 +119,19 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) CloseSend() error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) CloseSendCallCount() int {
+func (fake *Notifier_OpenNotificationStreamClient) CloseSendCallCount() int {
 	fake.closeSendMutex.RLock()
 	defer fake.closeSendMutex.RUnlock()
 	return len(fake.closeSendArgsForCall)
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) CloseSendCalls(stub func() error) {
+func (fake *Notifier_OpenNotificationStreamClient) CloseSendCalls(stub func() error) {
 	fake.closeSendMutex.Lock()
 	defer fake.closeSendMutex.Unlock()
 	fake.CloseSendStub = stub
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) CloseSendReturns(result1 error) {
+func (fake *Notifier_OpenNotificationStreamClient) CloseSendReturns(result1 error) {
 	fake.closeSendMutex.Lock()
 	defer fake.closeSendMutex.Unlock()
 	fake.CloseSendStub = nil
@@ -140,7 +140,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) CloseSendReturns(result1 
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) CloseSendReturnsOnCall(i int, result1 error) {
+func (fake *Notifier_OpenNotificationStreamClient) CloseSendReturnsOnCall(i int, result1 error) {
 	fake.closeSendMutex.Lock()
 	defer fake.closeSendMutex.Unlock()
 	fake.CloseSendStub = nil
@@ -154,14 +154,14 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) CloseSendReturnsOnCall(i 
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) Context() context.Context {
+func (fake *Notifier_OpenNotificationStreamClient) Context() context.Context {
 	fake.contextMutex.Lock()
 	ret, specificReturn := fake.contextReturnsOnCall[len(fake.contextArgsForCall)]
 	fake.contextArgsForCall = append(fake.contextArgsForCall, struct {
 	}{})
 	stub := fake.ContextStub
 	fakeReturns := fake.contextReturns
-	fake.recordInvocation("Ctx", []interface{}{})
+	fake.recordInvocation("Context", []interface{}{})
 	fake.contextMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -172,19 +172,19 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) Context() context.Context
 	return fakeReturns.result1
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) ContextCallCount() int {
+func (fake *Notifier_OpenNotificationStreamClient) ContextCallCount() int {
 	fake.contextMutex.RLock()
 	defer fake.contextMutex.RUnlock()
 	return len(fake.contextArgsForCall)
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) ContextCalls(stub func() context.Context) {
+func (fake *Notifier_OpenNotificationStreamClient) ContextCalls(stub func() context.Context) {
 	fake.contextMutex.Lock()
 	defer fake.contextMutex.Unlock()
 	fake.ContextStub = stub
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) ContextReturns(result1 context.Context) {
+func (fake *Notifier_OpenNotificationStreamClient) ContextReturns(result1 context.Context) {
 	fake.contextMutex.Lock()
 	defer fake.contextMutex.Unlock()
 	fake.ContextStub = nil
@@ -193,7 +193,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) ContextReturns(result1 co
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) ContextReturnsOnCall(i int, result1 context.Context) {
+func (fake *Notifier_OpenNotificationStreamClient) ContextReturnsOnCall(i int, result1 context.Context) {
 	fake.contextMutex.Lock()
 	defer fake.contextMutex.Unlock()
 	fake.ContextStub = nil
@@ -207,7 +207,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) ContextReturnsOnCall(i in
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) Header() (metadata.MD, error) {
+func (fake *Notifier_OpenNotificationStreamClient) Header() (metadata.MD, error) {
 	fake.headerMutex.Lock()
 	ret, specificReturn := fake.headerReturnsOnCall[len(fake.headerArgsForCall)]
 	fake.headerArgsForCall = append(fake.headerArgsForCall, struct {
@@ -225,19 +225,19 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) Header() (metadata.MD, er
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) HeaderCallCount() int {
+func (fake *Notifier_OpenNotificationStreamClient) HeaderCallCount() int {
 	fake.headerMutex.RLock()
 	defer fake.headerMutex.RUnlock()
 	return len(fake.headerArgsForCall)
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) HeaderCalls(stub func() (metadata.MD, error)) {
+func (fake *Notifier_OpenNotificationStreamClient) HeaderCalls(stub func() (metadata.MD, error)) {
 	fake.headerMutex.Lock()
 	defer fake.headerMutex.Unlock()
 	fake.HeaderStub = stub
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) HeaderReturns(result1 metadata.MD, result2 error) {
+func (fake *Notifier_OpenNotificationStreamClient) HeaderReturns(result1 metadata.MD, result2 error) {
 	fake.headerMutex.Lock()
 	defer fake.headerMutex.Unlock()
 	fake.HeaderStub = nil
@@ -247,7 +247,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) HeaderReturns(result1 met
 	}{result1, result2}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) HeaderReturnsOnCall(i int, result1 metadata.MD, result2 error) {
+func (fake *Notifier_OpenNotificationStreamClient) HeaderReturnsOnCall(i int, result1 metadata.MD, result2 error) {
 	fake.headerMutex.Lock()
 	defer fake.headerMutex.Unlock()
 	fake.HeaderStub = nil
@@ -263,7 +263,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) HeaderReturnsOnCall(i int
 	}{result1, result2}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) Recv() (*committerpb.NotificationResponse, error) {
+func (fake *Notifier_OpenNotificationStreamClient) Recv() (*committerpb.NotificationResponse, error) {
 	fake.recvMutex.Lock()
 	ret, specificReturn := fake.recvReturnsOnCall[len(fake.recvArgsForCall)]
 	fake.recvArgsForCall = append(fake.recvArgsForCall, struct {
@@ -281,19 +281,19 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) Recv() (*committerpb.Noti
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvCallCount() int {
+func (fake *Notifier_OpenNotificationStreamClient) RecvCallCount() int {
 	fake.recvMutex.RLock()
 	defer fake.recvMutex.RUnlock()
 	return len(fake.recvArgsForCall)
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvCalls(stub func() (*committerpb.NotificationResponse, error)) {
+func (fake *Notifier_OpenNotificationStreamClient) RecvCalls(stub func() (*committerpb.NotificationResponse, error)) {
 	fake.recvMutex.Lock()
 	defer fake.recvMutex.Unlock()
 	fake.RecvStub = stub
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvReturns(result1 *committerpb.NotificationResponse, result2 error) {
+func (fake *Notifier_OpenNotificationStreamClient) RecvReturns(result1 *committerpb.NotificationResponse, result2 error) {
 	fake.recvMutex.Lock()
 	defer fake.recvMutex.Unlock()
 	fake.RecvStub = nil
@@ -303,7 +303,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) RecvReturns(result1 *comm
 	}{result1, result2}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvReturnsOnCall(i int, result1 *committerpb.NotificationResponse, result2 error) {
+func (fake *Notifier_OpenNotificationStreamClient) RecvReturnsOnCall(i int, result1 *committerpb.NotificationResponse, result2 error) {
 	fake.recvMutex.Lock()
 	defer fake.recvMutex.Unlock()
 	fake.RecvStub = nil
@@ -319,7 +319,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) RecvReturnsOnCall(i int, 
 	}{result1, result2}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvMsg(arg1 any) error {
+func (fake *Notifier_OpenNotificationStreamClient) RecvMsg(arg1 any) error {
 	fake.recvMsgMutex.Lock()
 	ret, specificReturn := fake.recvMsgReturnsOnCall[len(fake.recvMsgArgsForCall)]
 	fake.recvMsgArgsForCall = append(fake.recvMsgArgsForCall, struct {
@@ -338,26 +338,26 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) RecvMsg(arg1 any) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvMsgCallCount() int {
+func (fake *Notifier_OpenNotificationStreamClient) RecvMsgCallCount() int {
 	fake.recvMsgMutex.RLock()
 	defer fake.recvMsgMutex.RUnlock()
 	return len(fake.recvMsgArgsForCall)
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvMsgCalls(stub func(any) error) {
+func (fake *Notifier_OpenNotificationStreamClient) RecvMsgCalls(stub func(any) error) {
 	fake.recvMsgMutex.Lock()
 	defer fake.recvMsgMutex.Unlock()
 	fake.RecvMsgStub = stub
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvMsgArgsForCall(i int) any {
+func (fake *Notifier_OpenNotificationStreamClient) RecvMsgArgsForCall(i int) any {
 	fake.recvMsgMutex.RLock()
 	defer fake.recvMsgMutex.RUnlock()
 	argsForCall := fake.recvMsgArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvMsgReturns(result1 error) {
+func (fake *Notifier_OpenNotificationStreamClient) RecvMsgReturns(result1 error) {
 	fake.recvMsgMutex.Lock()
 	defer fake.recvMsgMutex.Unlock()
 	fake.RecvMsgStub = nil
@@ -366,7 +366,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) RecvMsgReturns(result1 er
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) RecvMsgReturnsOnCall(i int, result1 error) {
+func (fake *Notifier_OpenNotificationStreamClient) RecvMsgReturnsOnCall(i int, result1 error) {
 	fake.recvMsgMutex.Lock()
 	defer fake.recvMsgMutex.Unlock()
 	fake.RecvMsgStub = nil
@@ -380,7 +380,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) RecvMsgReturnsOnCall(i in
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) Send(arg1 *committerpb.NotificationRequest) error {
+func (fake *Notifier_OpenNotificationStreamClient) Send(arg1 *committerpb.NotificationRequest) error {
 	fake.sendMutex.Lock()
 	ret, specificReturn := fake.sendReturnsOnCall[len(fake.sendArgsForCall)]
 	fake.sendArgsForCall = append(fake.sendArgsForCall, struct {
@@ -399,26 +399,26 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) Send(arg1 *committerpb.No
 	return fakeReturns.result1
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendCallCount() int {
+func (fake *Notifier_OpenNotificationStreamClient) SendCallCount() int {
 	fake.sendMutex.RLock()
 	defer fake.sendMutex.RUnlock()
 	return len(fake.sendArgsForCall)
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendCalls(stub func(*committerpb.NotificationRequest) error) {
+func (fake *Notifier_OpenNotificationStreamClient) SendCalls(stub func(*committerpb.NotificationRequest) error) {
 	fake.sendMutex.Lock()
 	defer fake.sendMutex.Unlock()
 	fake.SendStub = stub
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendArgsForCall(i int) *committerpb.NotificationRequest {
+func (fake *Notifier_OpenNotificationStreamClient) SendArgsForCall(i int) *committerpb.NotificationRequest {
 	fake.sendMutex.RLock()
 	defer fake.sendMutex.RUnlock()
 	argsForCall := fake.sendArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendReturns(result1 error) {
+func (fake *Notifier_OpenNotificationStreamClient) SendReturns(result1 error) {
 	fake.sendMutex.Lock()
 	defer fake.sendMutex.Unlock()
 	fake.SendStub = nil
@@ -427,7 +427,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) SendReturns(result1 error
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendReturnsOnCall(i int, result1 error) {
+func (fake *Notifier_OpenNotificationStreamClient) SendReturnsOnCall(i int, result1 error) {
 	fake.sendMutex.Lock()
 	defer fake.sendMutex.Unlock()
 	fake.SendStub = nil
@@ -441,7 +441,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) SendReturnsOnCall(i int, 
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendMsg(arg1 any) error {
+func (fake *Notifier_OpenNotificationStreamClient) SendMsg(arg1 any) error {
 	fake.sendMsgMutex.Lock()
 	ret, specificReturn := fake.sendMsgReturnsOnCall[len(fake.sendMsgArgsForCall)]
 	fake.sendMsgArgsForCall = append(fake.sendMsgArgsForCall, struct {
@@ -460,26 +460,26 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) SendMsg(arg1 any) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendMsgCallCount() int {
+func (fake *Notifier_OpenNotificationStreamClient) SendMsgCallCount() int {
 	fake.sendMsgMutex.RLock()
 	defer fake.sendMsgMutex.RUnlock()
 	return len(fake.sendMsgArgsForCall)
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendMsgCalls(stub func(any) error) {
+func (fake *Notifier_OpenNotificationStreamClient) SendMsgCalls(stub func(any) error) {
 	fake.sendMsgMutex.Lock()
 	defer fake.sendMsgMutex.Unlock()
 	fake.SendMsgStub = stub
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendMsgArgsForCall(i int) any {
+func (fake *Notifier_OpenNotificationStreamClient) SendMsgArgsForCall(i int) any {
 	fake.sendMsgMutex.RLock()
 	defer fake.sendMsgMutex.RUnlock()
 	argsForCall := fake.sendMsgArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendMsgReturns(result1 error) {
+func (fake *Notifier_OpenNotificationStreamClient) SendMsgReturns(result1 error) {
 	fake.sendMsgMutex.Lock()
 	defer fake.sendMsgMutex.Unlock()
 	fake.SendMsgStub = nil
@@ -488,7 +488,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) SendMsgReturns(result1 er
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) SendMsgReturnsOnCall(i int, result1 error) {
+func (fake *Notifier_OpenNotificationStreamClient) SendMsgReturnsOnCall(i int, result1 error) {
 	fake.sendMsgMutex.Lock()
 	defer fake.sendMsgMutex.Unlock()
 	fake.SendMsgStub = nil
@@ -502,7 +502,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) SendMsgReturnsOnCall(i in
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) Trailer() metadata.MD {
+func (fake *Notifier_OpenNotificationStreamClient) Trailer() metadata.MD {
 	fake.trailerMutex.Lock()
 	ret, specificReturn := fake.trailerReturnsOnCall[len(fake.trailerArgsForCall)]
 	fake.trailerArgsForCall = append(fake.trailerArgsForCall, struct {
@@ -520,19 +520,19 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) Trailer() metadata.MD {
 	return fakeReturns.result1
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) TrailerCallCount() int {
+func (fake *Notifier_OpenNotificationStreamClient) TrailerCallCount() int {
 	fake.trailerMutex.RLock()
 	defer fake.trailerMutex.RUnlock()
 	return len(fake.trailerArgsForCall)
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) TrailerCalls(stub func() metadata.MD) {
+func (fake *Notifier_OpenNotificationStreamClient) TrailerCalls(stub func() metadata.MD) {
 	fake.trailerMutex.Lock()
 	defer fake.trailerMutex.Unlock()
 	fake.TrailerStub = stub
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) TrailerReturns(result1 metadata.MD) {
+func (fake *Notifier_OpenNotificationStreamClient) TrailerReturns(result1 metadata.MD) {
 	fake.trailerMutex.Lock()
 	defer fake.trailerMutex.Unlock()
 	fake.TrailerStub = nil
@@ -541,7 +541,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) TrailerReturns(result1 me
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) TrailerReturnsOnCall(i int, result1 metadata.MD) {
+func (fake *Notifier_OpenNotificationStreamClient) TrailerReturnsOnCall(i int, result1 metadata.MD) {
 	fake.trailerMutex.Lock()
 	defer fake.trailerMutex.Unlock()
 	fake.TrailerStub = nil
@@ -555,7 +555,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) TrailerReturnsOnCall(i in
 	}{result1}
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) Invocations() map[string][][]interface{} {
+func (fake *Notifier_OpenNotificationStreamClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -565,7 +565,7 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) Invocations() map[string]
 	return copiedInvocations
 }
 
-func (fake *FakeNotifier_OpenNotificationStreamClient) recordInvocation(key string, args []interface{}) {
+func (fake *Notifier_OpenNotificationStreamClient) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -577,4 +577,4 @@ func (fake *FakeNotifier_OpenNotificationStreamClient) recordInvocation(key stri
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ committerpb.Notifier_OpenNotificationStreamClient = new(FakeNotifier_OpenNotificationStreamClient)
+var _ committerpb.Notifier_OpenNotificationStreamClient = new(Notifier_OpenNotificationStreamClient)

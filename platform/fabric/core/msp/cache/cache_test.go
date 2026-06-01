@@ -12,12 +12,12 @@ import (
 
 	msp2 "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	tmock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/mocks"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/fake"
 )
 
 func TestNewCacheMsp(t *testing.T) {
@@ -27,14 +27,14 @@ func TestNewCacheMsp(t *testing.T) {
 	require.Nil(t, i)
 	require.Contains(t, err.Error(), "Invalid passed MSP. It must be different from nil.")
 
-	i, err = New(&mocks.MockMSP{})
+	i, err = New(&fake.MSP{})
 	require.NoError(t, err)
 	require.NotNil(t, i)
 }
 
 func TestSetup(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
 
@@ -46,7 +46,7 @@ func TestSetup(t *testing.T) {
 
 func TestGetType(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
 
@@ -57,7 +57,7 @@ func TestGetType(t *testing.T) {
 
 func TestGetIdentifier(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
 
@@ -70,11 +70,11 @@ func TestGetIdentifier(t *testing.T) {
 
 func TestGetDefaultSigningIdentity(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
 
-	mockIdentity := &mocks.MockSigningIdentity{Mock: mock.Mock{}, MockIdentity: &mocks.MockIdentity{ID: "Alice"}}
+	mockIdentity := &fake.MockSigningIdentity{Mock: tmock.Mock{}, Identity: &fake.Identity{ID: "Alice"}}
 	mockMSP.On("GetDefaultSigningIdentity").Return(mockIdentity, nil)
 	id, err := i.GetDefaultSigningIdentity()
 	require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestGetDefaultSigningIdentity(t *testing.T) {
 
 func TestGetTLSRootCerts(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
 
@@ -96,7 +96,7 @@ func TestGetTLSRootCerts(t *testing.T) {
 
 func TestGetTLSIntermediateCerts(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
 
@@ -108,13 +108,13 @@ func TestGetTLSIntermediateCerts(t *testing.T) {
 
 func TestDeserializeIdentity(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	wrappedMSP, err := New(mockMSP)
 	require.NoError(t, err)
 
 	// Check id is cached
-	mockIdentity := &mocks.MockIdentity{ID: "Alice"}
-	mockIdentity2 := &mocks.MockIdentity{ID: "Bob"}
+	mockIdentity := &fake.Identity{ID: "Alice"}
+	mockIdentity2 := &fake.Identity{ID: "Bob"}
 	serializedIdentity := []byte{1, 2, 3}
 	serializedIdentity2 := []byte{4, 5, 6}
 	mockMSP.On("DeserializeIdentity", serializedIdentity).Return(mockIdentity, nil)
@@ -157,7 +157,7 @@ func TestDeserializeIdentity(t *testing.T) {
 	mockMSP.AssertExpectations(t)
 
 	// Check id is not cached
-	mockIdentity = &mocks.MockIdentity{ID: "Bob"}
+	mockIdentity = &fake.Identity{ID: "Bob"}
 	serializedIdentity = []byte{1, 2, 3, 4}
 	mockMSP.On("DeserializeIdentity", serializedIdentity).Return(mockIdentity, errors.New("Invalid identity"))
 	_, err = wrappedMSP.DeserializeIdentity(serializedIdentity)
@@ -171,12 +171,12 @@ func TestDeserializeIdentity(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
 
 	// Check validation is cached
-	mockIdentity := &mocks.MockIdentity{ID: "Alice"}
+	mockIdentity := &fake.Identity{ID: "Alice"}
 	mockIdentity.On("GetIdentifier").Return(&msp.IdentityIdentifier{Mspid: "MSP", Id: "Alice"})
 	mockMSP.On("Validate", mockIdentity).Return(nil)
 	err = i.Validate(mockIdentity)
@@ -195,7 +195,7 @@ func TestValidate(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check validation is not cached
-	mockIdentity = &mocks.MockIdentity{ID: "Bob"}
+	mockIdentity = &fake.Identity{ID: "Bob"}
 	mockIdentity.On("GetIdentifier").Return(&msp.IdentityIdentifier{Mspid: "MSP", Id: "Bob"})
 	mockMSP.On("Validate", mockIdentity).Return(errors.New("Invalid identity"))
 	err = i.Validate(mockIdentity)
@@ -211,13 +211,13 @@ func TestValidate(t *testing.T) {
 
 func TestSatisfiesValidateIndirectCall(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 
-	mockIdentity := &mocks.MockIdentity{ID: "Alice"}
-	mockIdentity.On("Validate").Run(func(_ mock.Arguments) {
+	mockIdentity := &fake.Identity{ID: "Alice"}
+	mockIdentity.On("Validate").Run(func(_ tmock.Arguments) {
 		panic("shouldn't have invoked the identity method")
 	})
-	mockMSP.On("DeserializeIdentity", mock.Anything).Return(mockIdentity, nil).Once()
+	mockMSP.On("DeserializeIdentity", tmock.Anything).Return(mockIdentity, nil).Once()
 	mockIdentity.On("GetIdentifier").Return(&msp.IdentityIdentifier{Mspid: "MSP", Id: "Alice"})
 
 	cache, err := New(mockMSP)
@@ -241,14 +241,14 @@ func TestSatisfiesValidateIndirectCall(t *testing.T) {
 
 func TestSatisfiesPrincipalIndirectCall(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	mockMSPPrincipal := &msp2.MSPPrincipal{PrincipalClassification: msp2.MSPPrincipal_IDENTITY, Principal: []byte{1, 2, 3}}
 
-	mockIdentity := &mocks.MockIdentity{ID: "Alice"}
-	mockIdentity.On("SatisfiesPrincipal", mockMSPPrincipal).Run(func(_ mock.Arguments) {
+	mockIdentity := &fake.Identity{ID: "Alice"}
+	mockIdentity.On("SatisfiesPrincipal", mockMSPPrincipal).Run(func(_ tmock.Arguments) {
 		panic("shouldn't have invoked the identity method")
 	})
-	mockMSP.On("DeserializeIdentity", mock.Anything).Return(mockIdentity, nil).Once()
+	mockMSP.On("DeserializeIdentity", tmock.Anything).Return(mockIdentity, nil).Once()
 	mockIdentity.On("GetIdentifier").Return(&msp.IdentityIdentifier{Mspid: "MSP", Id: "Alice"})
 
 	cache, err := New(mockMSP)
@@ -273,12 +273,12 @@ func TestSatisfiesPrincipalIndirectCall(t *testing.T) {
 
 func TestSatisfiesPrincipal(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	i, err := New(mockMSP)
 	require.NoError(t, err)
 
 	// Check validation is cached
-	mockIdentity := &mocks.MockIdentity{ID: "Alice"}
+	mockIdentity := &fake.Identity{ID: "Alice"}
 	mockIdentity.On("GetIdentifier").Return(&msp.IdentityIdentifier{Mspid: "MSP", Id: "Alice"})
 	mockMSPPrincipal := &msp2.MSPPrincipal{PrincipalClassification: msp2.MSPPrincipal_IDENTITY, Principal: []byte{1, 2, 3}}
 	mockMSP.On("SatisfiesPrincipal", mockIdentity, mockMSPPrincipal).Return(nil)
@@ -302,7 +302,7 @@ func TestSatisfiesPrincipal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check validation is not cached
-	mockIdentity = &mocks.MockIdentity{ID: "Bob"}
+	mockIdentity = &fake.Identity{ID: "Bob"}
 	mockIdentity.On("GetIdentifier").Return(&msp.IdentityIdentifier{Mspid: "MSP", Id: "Bob"})
 	mockMSPPrincipal = &msp2.MSPPrincipal{PrincipalClassification: msp2.MSPPrincipal_IDENTITY, Principal: []byte{1, 2, 3, 4}}
 	mockMSP.On("SatisfiesPrincipal", mockIdentity, mockMSPPrincipal).Return(errors.New("Invalid"))
@@ -325,12 +325,12 @@ func TestSatisfiesPrincipal(t *testing.T) {
 
 func TestDeserializeSigningIdentity(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	wrappedMSP, err := New(mockMSP)
 	require.NoError(t, err)
 
 	// Mock a signing identity
-	mockIdentity := &mocks.MockSigningIdentity{}
+	mockIdentity := &fake.MockSigningIdentity{}
 	serializedIdentity := []byte{1, 2, 3}
 	mockMSP.On("DeserializeIdentity", serializedIdentity).Return(mockIdentity, nil)
 
@@ -345,12 +345,12 @@ func TestDeserializeSigningIdentity(t *testing.T) {
 
 func TestCachedSigningIdentity_GetPublicVersion(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	wrappedMSP, err := New(mockMSP)
 	require.NoError(t, err)
 
-	mockPublicIdentity := &mocks.MockIdentity{ID: "Alice-Public"}
-	mockSigningIdentity := &mocks.MockSigningIdentity{MockIdentity: &mocks.MockIdentity{ID: "Alice"}}
+	mockPublicIdentity := &fake.Identity{ID: "Alice-Public"}
+	mockSigningIdentity := &fake.MockSigningIdentity{Identity: &fake.Identity{ID: "Alice"}}
 	mockSigningIdentity.On("GetPublicVersion").Return(mockPublicIdentity)
 
 	serializedIdentity := []byte("Alice-Serialized")
@@ -375,11 +375,11 @@ func TestCachedSigningIdentity_GetPublicVersion(t *testing.T) {
 
 func TestCachedSigningIdentity_Sign(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	wrappedMSP, err := New(mockMSP)
 	require.NoError(t, err)
 
-	mockSigningIdentity := &mocks.MockSigningIdentity{MockIdentity: &mocks.MockIdentity{ID: "Alice"}}
+	mockSigningIdentity := &fake.MockSigningIdentity{Identity: &fake.Identity{ID: "Alice"}}
 	msg := []byte("hello")
 	sig := []byte("signature")
 	mockSigningIdentity.On("Sign", msg).Return(sig, nil)
@@ -402,11 +402,11 @@ func TestCachedSigningIdentity_Sign(t *testing.T) {
 
 func TestCachedIdentity_DirectCalls(t *testing.T) {
 	t.Parallel()
-	mockMSP := &mocks.MockMSP{}
+	mockMSP := &fake.MSP{}
 	wrappedMSP, err := New(mockMSP)
 	require.NoError(t, err)
 
-	mockIdentity := &mocks.MockIdentity{ID: "Alice"}
+	mockIdentity := &fake.Identity{ID: "Alice"}
 	mockIdentity.On("GetIdentifier").Return(&msp.IdentityIdentifier{Mspid: "MSP", Id: "Alice"})
 
 	serializedIdentity := []byte("Alice-Serialized")

@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/events"
-	finalitymock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality/fake"
 	fabricdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -30,9 +30,9 @@ func TestDeliveryScanQueryByID(t *testing.T) {
 
 	logger := logging.MustGetLogger("test")
 
-	setup := func() (*DeliveryScanQueryByID[txInfo], *mockEventInfoMapper, *finalitymock.Delivery, *fabric.Delivery) {
+	setup := func() (*DeliveryScanQueryByID[txInfo], *mockEventInfoMapper, *fake.Delivery, *fabric.Delivery) {
 		mockMapper := &mockEventInfoMapper{}
-		mockD := &finalitymock.Delivery{}
+		mockD := &fake.Delivery{}
 
 		fDelivery := &fabric.Delivery{}
 		v := reflect.ValueOf(fDelivery).Elem()
@@ -60,7 +60,7 @@ func TestDeliveryScanQueryByID(t *testing.T) {
 
 		mockD.On("ScanFromBlock", ctx, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			callback := args.Get(2).(fabricdriver.DeliveryCallback)
-			mockPT := &finalitymock.ProcessedTransaction{}
+			mockPT := &fake.ProcessedTransaction{}
 			mockPT.On("TxID").Return("tx1")
 			mockPT.On("ValidationCode").Return(int32(0))
 			mockPT.On("Results").Return([]byte("results"))
@@ -99,7 +99,7 @@ func TestDeliveryScanQueryByID(t *testing.T) {
 
 		mockD.On("ScanFromBlock", ctx, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			callback := args.Get(2).(fabricdriver.DeliveryCallback)
-			mockPT := &finalitymock.ProcessedTransaction{}
+			mockPT := &fake.ProcessedTransaction{}
 			mockPT.On("TxID").Return("tx1")
 			mockPT.On("ValidationCode").Return(int32(0))
 			mockPT.On("Results").Return([]byte("results"))
@@ -159,7 +159,7 @@ func TestDeliveryScanQueryByID(t *testing.T) {
 			callback := args.Get(2).(fabricdriver.DeliveryCallback)
 
 			// First TX
-			mockPT1 := &finalitymock.ProcessedTransaction{}
+			mockPT1 := &fake.ProcessedTransaction{}
 			mockPT1.On("TxID").Return("tx1")
 			mockPT1.On("ValidationCode").Return(int32(0))
 			mockPT1.On("Results").Return([]byte("results1"))
@@ -171,7 +171,7 @@ func TestDeliveryScanQueryByID(t *testing.T) {
 			require.False(t, stop) // Still waiting for tx2
 
 			// Second TX
-			mockPT2 := &finalitymock.ProcessedTransaction{}
+			mockPT2 := &fake.ProcessedTransaction{}
 			mockPT2.On("TxID").Return("tx2")
 			mockPT2.On("ValidationCode").Return(int32(0))
 			mockPT2.On("Results").Return([]byte("results2"))

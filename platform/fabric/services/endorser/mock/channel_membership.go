@@ -8,7 +8,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type FakeChannelMembership struct {
+type ChannelMembership struct {
 	CheckACLStub        func(driver.SignedProposal) error
 	checkACLMutex       sync.RWMutex
 	checkACLArgsForCall []struct {
@@ -68,7 +68,7 @@ type FakeChannelMembership struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeChannelMembership) CheckACL(arg1 driver.SignedProposal) error {
+func (fake *ChannelMembership) CheckACL(arg1 driver.SignedProposal) error {
 	fake.checkACLMutex.Lock()
 	ret, specificReturn := fake.checkACLReturnsOnCall[len(fake.checkACLArgsForCall)]
 	fake.checkACLArgsForCall = append(fake.checkACLArgsForCall, struct {
@@ -87,26 +87,26 @@ func (fake *FakeChannelMembership) CheckACL(arg1 driver.SignedProposal) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeChannelMembership) CheckACLCallCount() int {
+func (fake *ChannelMembership) CheckACLCallCount() int {
 	fake.checkACLMutex.RLock()
 	defer fake.checkACLMutex.RUnlock()
 	return len(fake.checkACLArgsForCall)
 }
 
-func (fake *FakeChannelMembership) CheckACLCalls(stub func(driver.SignedProposal) error) {
+func (fake *ChannelMembership) CheckACLCalls(stub func(driver.SignedProposal) error) {
 	fake.checkACLMutex.Lock()
 	defer fake.checkACLMutex.Unlock()
 	fake.CheckACLStub = stub
 }
 
-func (fake *FakeChannelMembership) CheckACLArgsForCall(i int) driver.SignedProposal {
+func (fake *ChannelMembership) CheckACLArgsForCall(i int) driver.SignedProposal {
 	fake.checkACLMutex.RLock()
 	defer fake.checkACLMutex.RUnlock()
 	argsForCall := fake.checkACLArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeChannelMembership) CheckACLReturns(result1 error) {
+func (fake *ChannelMembership) CheckACLReturns(result1 error) {
 	fake.checkACLMutex.Lock()
 	defer fake.checkACLMutex.Unlock()
 	fake.CheckACLStub = nil
@@ -115,7 +115,7 @@ func (fake *FakeChannelMembership) CheckACLReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeChannelMembership) CheckACLReturnsOnCall(i int, result1 error) {
+func (fake *ChannelMembership) CheckACLReturnsOnCall(i int, result1 error) {
 	fake.checkACLMutex.Lock()
 	defer fake.checkACLMutex.Unlock()
 	fake.CheckACLStub = nil
@@ -129,7 +129,7 @@ func (fake *FakeChannelMembership) CheckACLReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeChannelMembership) GetMSPIDs() []string {
+func (fake *ChannelMembership) GetMSPIDs() []string {
 	fake.getMSPIDsMutex.Lock()
 	ret, specificReturn := fake.getMSPIDsReturnsOnCall[len(fake.getMSPIDsArgsForCall)]
 	fake.getMSPIDsArgsForCall = append(fake.getMSPIDsArgsForCall, struct {
@@ -147,19 +147,19 @@ func (fake *FakeChannelMembership) GetMSPIDs() []string {
 	return fakeReturns.result1
 }
 
-func (fake *FakeChannelMembership) GetMSPIDsCallCount() int {
+func (fake *ChannelMembership) GetMSPIDsCallCount() int {
 	fake.getMSPIDsMutex.RLock()
 	defer fake.getMSPIDsMutex.RUnlock()
 	return len(fake.getMSPIDsArgsForCall)
 }
 
-func (fake *FakeChannelMembership) GetMSPIDsCalls(stub func() []string) {
+func (fake *ChannelMembership) GetMSPIDsCalls(stub func() []string) {
 	fake.getMSPIDsMutex.Lock()
 	defer fake.getMSPIDsMutex.Unlock()
 	fake.GetMSPIDsStub = stub
 }
 
-func (fake *FakeChannelMembership) GetMSPIDsReturns(result1 []string) {
+func (fake *ChannelMembership) GetMSPIDsReturns(result1 []string) {
 	fake.getMSPIDsMutex.Lock()
 	defer fake.getMSPIDsMutex.Unlock()
 	fake.GetMSPIDsStub = nil
@@ -168,7 +168,7 @@ func (fake *FakeChannelMembership) GetMSPIDsReturns(result1 []string) {
 	}{result1}
 }
 
-func (fake *FakeChannelMembership) GetMSPIDsReturnsOnCall(i int, result1 []string) {
+func (fake *ChannelMembership) GetMSPIDsReturnsOnCall(i int, result1 []string) {
 	fake.getMSPIDsMutex.Lock()
 	defer fake.getMSPIDsMutex.Unlock()
 	fake.GetMSPIDsStub = nil
@@ -182,7 +182,7 @@ func (fake *FakeChannelMembership) GetMSPIDsReturnsOnCall(i int, result1 []strin
 	}{result1}
 }
 
-func (fake *FakeChannelMembership) GetVerifier(arg1 view.Identity) (driver.Verifier, error) {
+func (fake *ChannelMembership) GetVerifier(arg1 view.Identity) (driver.Verifier, error) {
 	fake.getVerifierMutex.Lock()
 	ret, specificReturn := fake.getVerifierReturnsOnCall[len(fake.getVerifierArgsForCall)]
 	fake.getVerifierArgsForCall = append(fake.getVerifierArgsForCall, struct {
@@ -201,26 +201,26 @@ func (fake *FakeChannelMembership) GetVerifier(arg1 view.Identity) (driver.Verif
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeChannelMembership) GetVerifierCallCount() int {
+func (fake *ChannelMembership) GetVerifierCallCount() int {
 	fake.getVerifierMutex.RLock()
 	defer fake.getVerifierMutex.RUnlock()
 	return len(fake.getVerifierArgsForCall)
 }
 
-func (fake *FakeChannelMembership) GetVerifierCalls(stub func(view.Identity) (driver.Verifier, error)) {
+func (fake *ChannelMembership) GetVerifierCalls(stub func(view.Identity) (driver.Verifier, error)) {
 	fake.getVerifierMutex.Lock()
 	defer fake.getVerifierMutex.Unlock()
 	fake.GetVerifierStub = stub
 }
 
-func (fake *FakeChannelMembership) GetVerifierArgsForCall(i int) view.Identity {
+func (fake *ChannelMembership) GetVerifierArgsForCall(i int) view.Identity {
 	fake.getVerifierMutex.RLock()
 	defer fake.getVerifierMutex.RUnlock()
 	argsForCall := fake.getVerifierArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeChannelMembership) GetVerifierReturns(result1 driver.Verifier, result2 error) {
+func (fake *ChannelMembership) GetVerifierReturns(result1 driver.Verifier, result2 error) {
 	fake.getVerifierMutex.Lock()
 	defer fake.getVerifierMutex.Unlock()
 	fake.GetVerifierStub = nil
@@ -230,7 +230,7 @@ func (fake *FakeChannelMembership) GetVerifierReturns(result1 driver.Verifier, r
 	}{result1, result2}
 }
 
-func (fake *FakeChannelMembership) GetVerifierReturnsOnCall(i int, result1 driver.Verifier, result2 error) {
+func (fake *ChannelMembership) GetVerifierReturnsOnCall(i int, result1 driver.Verifier, result2 error) {
 	fake.getVerifierMutex.Lock()
 	defer fake.getVerifierMutex.Unlock()
 	fake.GetVerifierStub = nil
@@ -246,7 +246,7 @@ func (fake *FakeChannelMembership) GetVerifierReturnsOnCall(i int, result1 drive
 	}{result1, result2}
 }
 
-func (fake *FakeChannelMembership) IsValid(arg1 view.Identity) error {
+func (fake *ChannelMembership) IsValid(arg1 view.Identity) error {
 	fake.isValidMutex.Lock()
 	ret, specificReturn := fake.isValidReturnsOnCall[len(fake.isValidArgsForCall)]
 	fake.isValidArgsForCall = append(fake.isValidArgsForCall, struct {
@@ -265,26 +265,26 @@ func (fake *FakeChannelMembership) IsValid(arg1 view.Identity) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeChannelMembership) IsValidCallCount() int {
+func (fake *ChannelMembership) IsValidCallCount() int {
 	fake.isValidMutex.RLock()
 	defer fake.isValidMutex.RUnlock()
 	return len(fake.isValidArgsForCall)
 }
 
-func (fake *FakeChannelMembership) IsValidCalls(stub func(view.Identity) error) {
+func (fake *ChannelMembership) IsValidCalls(stub func(view.Identity) error) {
 	fake.isValidMutex.Lock()
 	defer fake.isValidMutex.Unlock()
 	fake.IsValidStub = stub
 }
 
-func (fake *FakeChannelMembership) IsValidArgsForCall(i int) view.Identity {
+func (fake *ChannelMembership) IsValidArgsForCall(i int) view.Identity {
 	fake.isValidMutex.RLock()
 	defer fake.isValidMutex.RUnlock()
 	argsForCall := fake.isValidArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeChannelMembership) IsValidReturns(result1 error) {
+func (fake *ChannelMembership) IsValidReturns(result1 error) {
 	fake.isValidMutex.Lock()
 	defer fake.isValidMutex.Unlock()
 	fake.IsValidStub = nil
@@ -293,7 +293,7 @@ func (fake *FakeChannelMembership) IsValidReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeChannelMembership) IsValidReturnsOnCall(i int, result1 error) {
+func (fake *ChannelMembership) IsValidReturnsOnCall(i int, result1 error) {
 	fake.isValidMutex.Lock()
 	defer fake.isValidMutex.Unlock()
 	fake.IsValidStub = nil
@@ -307,7 +307,7 @@ func (fake *FakeChannelMembership) IsValidReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeChannelMembership) MSPManager() driver.MSPManager {
+func (fake *ChannelMembership) MSPManager() driver.MSPManager {
 	fake.mSPManagerMutex.Lock()
 	ret, specificReturn := fake.mSPManagerReturnsOnCall[len(fake.mSPManagerArgsForCall)]
 	fake.mSPManagerArgsForCall = append(fake.mSPManagerArgsForCall, struct {
@@ -325,19 +325,19 @@ func (fake *FakeChannelMembership) MSPManager() driver.MSPManager {
 	return fakeReturns.result1
 }
 
-func (fake *FakeChannelMembership) MSPManagerCallCount() int {
+func (fake *ChannelMembership) MSPManagerCallCount() int {
 	fake.mSPManagerMutex.RLock()
 	defer fake.mSPManagerMutex.RUnlock()
 	return len(fake.mSPManagerArgsForCall)
 }
 
-func (fake *FakeChannelMembership) MSPManagerCalls(stub func() driver.MSPManager) {
+func (fake *ChannelMembership) MSPManagerCalls(stub func() driver.MSPManager) {
 	fake.mSPManagerMutex.Lock()
 	defer fake.mSPManagerMutex.Unlock()
 	fake.MSPManagerStub = stub
 }
 
-func (fake *FakeChannelMembership) MSPManagerReturns(result1 driver.MSPManager) {
+func (fake *ChannelMembership) MSPManagerReturns(result1 driver.MSPManager) {
 	fake.mSPManagerMutex.Lock()
 	defer fake.mSPManagerMutex.Unlock()
 	fake.MSPManagerStub = nil
@@ -346,7 +346,7 @@ func (fake *FakeChannelMembership) MSPManagerReturns(result1 driver.MSPManager) 
 	}{result1}
 }
 
-func (fake *FakeChannelMembership) MSPManagerReturnsOnCall(i int, result1 driver.MSPManager) {
+func (fake *ChannelMembership) MSPManagerReturnsOnCall(i int, result1 driver.MSPManager) {
 	fake.mSPManagerMutex.Lock()
 	defer fake.mSPManagerMutex.Unlock()
 	fake.MSPManagerStub = nil
@@ -360,7 +360,7 @@ func (fake *FakeChannelMembership) MSPManagerReturnsOnCall(i int, result1 driver
 	}{result1}
 }
 
-func (fake *FakeChannelMembership) Invocations() map[string][][]interface{} {
+func (fake *ChannelMembership) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -370,7 +370,7 @@ func (fake *FakeChannelMembership) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeChannelMembership) recordInvocation(key string, args []interface{}) {
+func (fake *ChannelMembership) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -382,4 +382,4 @@ func (fake *FakeChannelMembership) recordInvocation(key string, args []interface
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.ChannelMembership = new(FakeChannelMembership)
+var _ driver.ChannelMembership = new(ChannelMembership)

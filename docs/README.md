@@ -18,6 +18,7 @@ Each platform section includes a local `README.md` plus a `configuration.md` pag
 ## Development
 
 - [Development guide](dev/development.md)
+- [Testing - Mocks and fakes](dev/mocks.md)
 - [Commit signing (DCO + GPG)](dev/signing.md)
 - [Contribution workflow](dev/workflow.md)
 - [Contributor guide](../CONTRIBUTING.md)

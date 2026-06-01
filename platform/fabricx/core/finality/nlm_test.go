@@ -26,8 +26,8 @@ import (
 )
 
 // To re-generate the mock/ run "go generate" directive
-//go:generate counterfeiter -o mock/notifier_client.go github.com/hyperledger/fabric-x-common/api/committerpb.Notifier_OpenNotificationStreamClient
-//go:generate counterfeiter -o mock/notifier_grpc_client.go github.com/hyperledger/fabric-x-common/api/committerpb.NotifierClient
+//go:generate counterfeiter -o mock/notifier_client.go --fake-name Notifier_OpenNotificationStreamClient github.com/hyperledger/fabric-x-common/api/committerpb.Notifier_OpenNotificationStreamClient
+//go:generate counterfeiter -o mock/notifier_grpc_client.go --fake-name NotifierClient github.com/hyperledger/fabric-x-common/api/committerpb.NotifierClient
 
 const (
 	tick      = 10 * time.Millisecond
@@ -93,11 +93,11 @@ func (d *delayedListener) OnStatus(ctx context.Context, txID string, status int,
 	d.mockListener.OnStatus(ctx, txID, status, errMsg)
 }
 
-func setupTest(tb testing.TB) (*notificationListenerManager, *mock.FakeNotifier_OpenNotificationStreamClient) {
+func setupTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_OpenNotificationStreamClient) {
 	tb.Helper()
 
-	fakeStream := &mock.FakeNotifier_OpenNotificationStreamClient{}
-	fakeClient := &mock.FakeNotifierClient{}
+	fakeStream := &mock.Notifier_OpenNotificationStreamClient{}
+	fakeClient := &mock.NotifierClient{}
 
 	// Configure the client to return our fake stream
 	fakeClient.OpenNotificationStreamStub = func(c context.Context, opts ...grpc.CallOption) (committerpb.Notifier_OpenNotificationStreamClient, error) {

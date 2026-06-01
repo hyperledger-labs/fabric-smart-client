@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mock"
 )
 
 func TestNewFactory(t *testing.T) {
 	t.Parallel()
 
-	fns := &mocks.FakeFabricNetworkService{}
+	fns := &mock.FabricNetworkService{}
 	factory := NewFactory(fns)
 
 	require.NotNil(t, factory)
@@ -77,9 +77,9 @@ func TestFactoryNewTransaction(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			fns := &mocks.FakeFabricNetworkService{}
+			fns := &mock.FabricNetworkService{}
 			fns.NameReturns(tc.networkName)
-			fns.ChannelReturns((*mocks.FakeChannel)(nil), tc.channelErr)
+			fns.ChannelReturns((*mock.Channel)(nil), tc.channelErr)
 			factory := NewFactory(fns)
 
 			rawTx, err := factory.NewTransaction(ctx, tc.channelName, tc.nonce, creator, tc.txID, []byte("ignored request"))

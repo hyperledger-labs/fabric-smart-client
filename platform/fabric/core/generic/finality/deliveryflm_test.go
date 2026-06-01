@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/events"
-	finalitymock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -37,7 +37,7 @@ func TestDeliveryFLM(t *testing.T) {
 		t.Parallel()
 		mockLM, dlm := setup()
 		mockLM.On("AddEventListener", "tx1", mock.Anything).Return(nil).Once()
-		err := dlm.AddFinalityListener("tx1", &finalitymock.FinalityListener{})
+		err := dlm.AddFinalityListener("tx1", &fake.FinalityListener{})
 		require.NoError(t, err)
 	})
 
@@ -45,13 +45,13 @@ func TestDeliveryFLM(t *testing.T) {
 		t.Parallel()
 		mockLM, dlm := setup()
 		mockLM.On("RemoveEventListener", "tx1", mock.Anything).Return(nil).Once()
-		err := dlm.RemoveFinalityListener("tx1", &finalitymock.FinalityListener{})
+		err := dlm.RemoveFinalityListener("tx1", &fake.FinalityListener{})
 		require.NoError(t, err)
 	})
 
 	t.Run("deliveryListenerEntry", func(t *testing.T) {
 		t.Parallel()
-		mockFL := &finalitymock.FinalityListener{}
+		mockFL := &fake.FinalityListener{}
 		entry := &deliveryListenerEntry{l: mockFL}
 
 		require.Equal(t, driver2.Namespace(""), entry.Namespace())
@@ -64,7 +64,7 @@ func TestDeliveryFLM(t *testing.T) {
 
 		require.True(t, entry.Equals(&deliveryListenerEntry{l: mockFL}))
 		require.False(t, entry.Equals(nil))
-		require.False(t, entry.Equals(&deliveryListenerEntry{l: &finalitymock.FinalityListener{}}))
+		require.False(t, entry.Equals(&deliveryListenerEntry{l: &fake.FinalityListener{}}))
 	})
 
 	t.Run("txInfo_ID", func(t *testing.T) {
@@ -92,8 +92,8 @@ func TestNewDeliveryFLM(t *testing.T) {
 	t.Parallel()
 	logger := logging.MustGetLogger("test")
 
-	mockChannelDriver := &finalitymock.Channel{}
-	mockD := &finalitymock.Delivery{}
+	mockChannelDriver := &fake.Channel{}
+	mockD := &fake.Delivery{}
 	mockChannelDriver.On("Delivery").Return(mockD)
 
 	fCh := &fabric.Channel{}
@@ -115,7 +115,7 @@ func TestTxInfoMapper(t *testing.T) {
 
 	t.Run("MapProcessedTx", func(t *testing.T) {
 		t.Parallel()
-		mockPT := &finalitymock.ProcessedTransaction{}
+		mockPT := &fake.ProcessedTransaction{}
 		mockPT.On("TxID").Return("tx1")
 		mockPT.On("ValidationCode").Return(int32(0)) // Valid
 

@@ -30,7 +30,7 @@ type IdentityProvider struct {
 	identityReturnsOnCall map[int]struct {
 		result1 viewa.Identity
 	}
-	invocations      map[string][][]any
+	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
@@ -41,7 +41,7 @@ func (fake *IdentityProvider) DefaultIdentity() viewa.Identity {
 	}{})
 	stub := fake.DefaultIdentityStub
 	fakeReturns := fake.defaultIdentityReturns
-	fake.recordInvocation("DefaultIdentity", []any{})
+	fake.recordInvocation("DefaultIdentity", []interface{}{})
 	fake.defaultIdentityMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -95,7 +95,7 @@ func (fake *IdentityProvider) Identity(arg1 string) viewa.Identity {
 	}{arg1})
 	stub := fake.IdentityStub
 	fakeReturns := fake.identityReturns
-	fake.recordInvocation("Identity", []any{arg1})
+	fake.recordInvocation("Identity", []interface{}{arg1})
 	fake.identityMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -148,24 +148,24 @@ func (fake *IdentityProvider) IdentityReturnsOnCall(i int, result1 viewa.Identit
 	}{result1}
 }
 
-func (fake *IdentityProvider) Invocations() map[string][][]any {
+func (fake *IdentityProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	copiedInvocations := map[string][][]any{}
+	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *IdentityProvider) recordInvocation(key string, args []any) {
+func (fake *IdentityProvider) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]any{}
+		fake.invocations = map[string][][]interface{}{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]any{}
+		fake.invocations[key] = [][]interface{}{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

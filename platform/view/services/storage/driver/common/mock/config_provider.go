@@ -161,10 +161,6 @@ func (fake *ConfigProvider) UnmarshalKeyReturnsOnCall(i int, result1 error) {
 func (fake *ConfigProvider) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.isSetMutex.RLock()
-	defer fake.isSetMutex.RUnlock()
-	fake.unmarshalKeyMutex.RLock()
-	defer fake.unmarshalKeyMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

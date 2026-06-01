@@ -19,34 +19,34 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/mock"
 )
 
-//go:generate counterfeiter -o mock/binding_store.go -fake-name FakeBindingStore github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.BindingStore
-//go:generate counterfeiter -o mock/channel.go -fake-name FakeChannel github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Channel
-//go:generate counterfeiter -o mock/channel_membership.go -fake-name FakeChannelMembership github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ChannelMembership
-//go:generate counterfeiter -o mock/context.go -fake-name FakeContext github.com/hyperledger-labs/fabric-smart-client/platform/view/view.Context
-//go:generate counterfeiter -o mock/envelope.go -fake-name FakeEnvelope github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Envelope
-//go:generate counterfeiter -o mock/finality.go -fake-name FakeFinality github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Finality
-//go:generate counterfeiter -o mock/fns.go -fake-name FakeFabricNetworkService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.FabricNetworkService
-//go:generate counterfeiter -o mock/fns_provider.go -fake-name FakeFabricNetworkServiceProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.FabricNetworkServiceProvider
-//go:generate counterfeiter -o mock/identity_provider.go -fake-name FakeIdentityProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.IdentityProvider
-//go:generate counterfeiter -o mock/local_membership.go -fake-name FakeLocalMembership github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.LocalMembership
-//go:generate counterfeiter -o mock/ordering.go -fake-name FakeOrdering github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Ordering
-//go:generate counterfeiter -o mock/proposal.go -fake-name FakeProposal github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Proposal
-//go:generate counterfeiter -o mock/proposal_response.go -fake-name FakeProposalResponse github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ProposalResponse
-//go:generate counterfeiter -o mock/provider.go -fake-name FakeProvider github.com/hyperledger-labs/fabric-smart-client/platform/view/services.Provider
-//go:generate counterfeiter -o mock/rwset.go -fake-name FakeRWSet github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.RWSet
-//go:generate counterfeiter -o mock/session.go -fake-name FakeSession github.com/hyperledger-labs/fabric-smart-client/platform/view/view.Session
-//go:generate counterfeiter -o mock/signed_proposal.go -fake-name FakeSignedProposal github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.SignedProposal
-//go:generate counterfeiter -o mock/transaction.go -fake-name FakeTransaction github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Transaction
-//go:generate counterfeiter -o mock/transaction_manager.go -fake-name FakeTransactionManager github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.TransactionManager
-//go:generate counterfeiter -o mock/transaction_service.go -fake-name FakeEndorserTransactionService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.EndorserTransactionService
-//go:generate counterfeiter -o mock/vault.go -fake-name FakeVault github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Vault
-//go:generate counterfeiter -o mock/verifier.go -fake-name FakeVerifier github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.Verifier
+//go:generate counterfeiter -o mock/binding_store.go -fake-name BindingStore github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.BindingStore
+//go:generate counterfeiter -o mock/channel.go -fake-name Channel github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Channel
+//go:generate counterfeiter -o mock/channel_membership.go -fake-name ChannelMembership github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ChannelMembership
+//go:generate counterfeiter -o mock/context.go -fake-name Context github.com/hyperledger-labs/fabric-smart-client/platform/view/view.Context
+//go:generate counterfeiter -o mock/envelope.go -fake-name Envelope github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Envelope
+//go:generate counterfeiter -o mock/finality.go -fake-name Finality github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Finality
+//go:generate counterfeiter -o mock/fns.go -fake-name FabricNetworkService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.FabricNetworkService
+//go:generate counterfeiter -o mock/fns_provider.go -fake-name FabricNetworkServiceProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.FabricNetworkServiceProvider
+//go:generate counterfeiter -o mock/identity_provider.go -fake-name IdentityProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.IdentityProvider
+//go:generate counterfeiter -o mock/local_membership.go -fake-name LocalMembership github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.LocalMembership
+//go:generate counterfeiter -o mock/ordering.go -fake-name Ordering github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Ordering
+//go:generate counterfeiter -o mock/proposal.go -fake-name Proposal github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Proposal
+//go:generate counterfeiter -o mock/proposal_response.go -fake-name ProposalResponse github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ProposalResponse
+//go:generate counterfeiter -o mock/provider.go -fake-name Provider github.com/hyperledger-labs/fabric-smart-client/platform/view/services.Provider
+//go:generate counterfeiter -o mock/rwset.go -fake-name RWSet github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.RWSet
+//go:generate counterfeiter -o mock/session.go -fake-name Session github.com/hyperledger-labs/fabric-smart-client/platform/view/view.Session
+//go:generate counterfeiter -o mock/signed_proposal.go -fake-name SignedProposal github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.SignedProposal
+//go:generate counterfeiter -o mock/transaction.go -fake-name Transaction github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Transaction
+//go:generate counterfeiter -o mock/transaction_manager.go -fake-name TransactionManager github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.TransactionManager
+//go:generate counterfeiter -o mock/transaction_service.go -fake-name EndorserTransactionService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.EndorserTransactionService
+//go:generate counterfeiter -o mock/vault.go -fake-name Vault github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Vault
+//go:generate counterfeiter -o mock/verifier.go -fake-name Verifier github.com/hyperledger-labs/fabric-smart-client/platform/common/driver.Verifier
 
 func TestTransaction(t *testing.T) {
 	t.Parallel()
-	fakeFNS := &mock.FakeFabricNetworkService{}
+	fakeFNS := &mock.FabricNetworkService{}
 	fakeFNS.NameReturns("net1")
-	fakeTx := &mock.FakeTransaction{}
+	fakeTx := &mock.Transaction{}
 
 	fns := fabric.NewNetworkService(nil, fakeFNS, "net1")
 	ft := fabric.NewTransaction(fns, fakeTx)
@@ -90,7 +90,7 @@ func TestTransaction(t *testing.T) {
 	require.Equal(t, 1, fakeTx.SetProposalCallCount())
 
 	// Test RWSet
-	fakeRWS := &mock.FakeRWSet{}
+	fakeRWS := &mock.RWSet{}
 	fakeTx.GetRWSetReturns(fakeRWS, nil)
 	rws, err := et.RWSet()
 	require.NoError(t, err)
@@ -149,7 +149,7 @@ func TestTransaction(t *testing.T) {
 	pr, _ := et.ProposalResponse()
 	require.Equal(t, []byte("pr"), pr)
 
-	fakePR := &mock.FakeProposalResponse{}
+	fakePR := &mock.ProposalResponse{}
 	fakeTx.AppendProposalResponseReturns(nil)
 	require.NoError(t, et.AppendProposalResponse(fabric.NewProposalResponse(fakePR)))
 
@@ -246,9 +246,9 @@ func TestTransaction(t *testing.T) {
 
 func TestBuilder(t *testing.T) {
 	t.Parallel()
-	fakeSP := &mock.FakeProvider{}
-	fakeFNSP := &mock.FakeFabricNetworkServiceProvider{}
-	fakeFNS := &mock.FakeFabricNetworkService{}
+	fakeSP := &mock.Provider{}
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
+	fakeFNS := &mock.FabricNetworkService{}
 	fakeFNS.NameReturns("net1")
 	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
 
@@ -262,23 +262,23 @@ func TestBuilder(t *testing.T) {
 		return nil, nil
 	})
 
-	fakeLM := &mock.FakeLocalMembership{}
+	fakeLM := &mock.LocalMembership{}
 	fakeLM.DefaultIdentityReturns([]byte("alice"))
 	fakeFNS.LocalMembershipReturns(fakeLM)
-	fakeIP := &mock.FakeIdentityProvider{}
+	fakeIP := &mock.IdentityProvider{}
 	fakeFNS.IdentityProviderReturns(fakeIP)
 
 	builder := NewBuilder(fakeSP)
 	require.NotNil(t, builder)
 
 	// Test NewTransaction
-	fakeTM := &mock.FakeTransactionManager{}
+	fakeTM := &mock.TransactionManager{}
 	fakeFNS.TransactionManagerReturns(fakeTM)
-	fakeCH := &mock.FakeChannel{}
+	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
 	fakeFNS.ChannelReturns(fakeCH, nil)
 
-	fakeTx := &mock.FakeTransaction{}
+	fakeTx := &mock.Transaction{}
 	fakeTM.NewTransactionReturns(fakeTx, nil)
 
 	tx, err := builder.NewTransaction(context.Background(), fabric.WithChannel("ch1"))

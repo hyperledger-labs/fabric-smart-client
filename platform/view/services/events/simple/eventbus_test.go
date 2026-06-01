@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/fakes"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/events/mock"
 )
 
 func TestEvents(t *testing.T) { //nolint:paralleltest
@@ -39,7 +39,7 @@ var _ = Describe("Event system", func() {
 		var alice events.Subscriber
 		var bob events.Publisher
 
-		var listener *fakes.Listener
+		var listener *mock.Listener
 
 		BeforeEach(func() {
 			notifier = NewEventBus()
@@ -47,7 +47,7 @@ var _ = Describe("Event system", func() {
 			bob = notifier
 			Expect(notifier.handlers).To(BeEmpty())
 
-			listener = &fakes.Listener{}
+			listener = &mock.Listener{}
 		})
 
 		It("Subscribe", func() {
@@ -69,13 +69,13 @@ var _ = Describe("Event system", func() {
 			alice.Subscribe("topicAAA", listener)
 			Expect(notifier.handlers).ToNot(BeEmpty())
 
-			listener2 := &fakes.Listener{}
+			listener2 := &mock.Listener{}
 			alice.Unsubscribe("topicAAA", listener2)
 			Expect(notifier.handlers).ToNot(BeEmpty())
 		})
 
 		It("Publish", func() {
-			event := &fakes.Event{}
+			event := &mock.Event{}
 			event.TopicReturns("topicAAA")
 			event.MessageReturns("HelloWorld")
 
@@ -97,7 +97,7 @@ var _ = Describe("Event system", func() {
 		})
 
 		It("many events", func() {
-			event := &fakes.Event{}
+			event := &mock.Event{}
 			event.TopicReturns("topicAAA")
 			event.MessageReturns("HelloWorld")
 
@@ -112,22 +112,22 @@ var _ = Describe("Event system", func() {
 		})
 
 		It("many topics", func() {
-			event := &fakes.Event{}
+			event := &mock.Event{}
 			event.TopicReturns("topicAAA")
 			event.MessageReturns("HelloWorld")
 			for i := 0; i < 10000; i++ {
-				l := &fakes.Listener{}
+				l := &mock.Listener{}
 				alice.Subscribe(fmt.Sprintf("topic_%d", i), l)
 				Expect(len(notifier.handlers)).To(Equal(i + 1))
 			}
 		})
 
 		It("many listeners", func() {
-			event := &fakes.Event{}
+			event := &mock.Event{}
 			event.TopicReturns("topicAAA")
 			event.MessageReturns("HelloWorld")
 			for i := 0; i < 10000; i++ {
-				l := &fakes.Listener{}
+				l := &mock.Listener{}
 				alice.Subscribe("topic", l)
 				Expect(len(notifier.handlers)).To(Equal(1))
 				Expect(len(notifier.handlers["topic"])).To(Equal(i + 1))

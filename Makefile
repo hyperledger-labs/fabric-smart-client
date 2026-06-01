@@ -69,6 +69,16 @@ protos: ## Build all proto files
 	./scripts/compile_proto.sh
 
 #########################
+# Generate mocks
+#########################
+
+.PHONY: generate-mocks
+generate-mocks: ## Delete all counterfeiter mock folders and regenerate via go generate ./...
+	@./scripts/find-mocks.sh > /dev/null
+	@./scripts/find-mocks.sh --delete
+	go generate ./...
+
+#########################
 # Container
 #########################
 

@@ -8,7 +8,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-type FakeOrdering struct {
+type Ordering struct {
 	BroadcastStub        func(context.Context, interface{}) error
 	broadcastMutex       sync.RWMutex
 	broadcastArgsForCall []struct {
@@ -36,7 +36,7 @@ type FakeOrdering struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeOrdering) Broadcast(arg1 context.Context, arg2 interface{}) error {
+func (fake *Ordering) Broadcast(arg1 context.Context, arg2 interface{}) error {
 	fake.broadcastMutex.Lock()
 	ret, specificReturn := fake.broadcastReturnsOnCall[len(fake.broadcastArgsForCall)]
 	fake.broadcastArgsForCall = append(fake.broadcastArgsForCall, struct {
@@ -56,26 +56,26 @@ func (fake *FakeOrdering) Broadcast(arg1 context.Context, arg2 interface{}) erro
 	return fakeReturns.result1
 }
 
-func (fake *FakeOrdering) BroadcastCallCount() int {
+func (fake *Ordering) BroadcastCallCount() int {
 	fake.broadcastMutex.RLock()
 	defer fake.broadcastMutex.RUnlock()
 	return len(fake.broadcastArgsForCall)
 }
 
-func (fake *FakeOrdering) BroadcastCalls(stub func(context.Context, interface{}) error) {
+func (fake *Ordering) BroadcastCalls(stub func(context.Context, interface{}) error) {
 	fake.broadcastMutex.Lock()
 	defer fake.broadcastMutex.Unlock()
 	fake.BroadcastStub = stub
 }
 
-func (fake *FakeOrdering) BroadcastArgsForCall(i int) (context.Context, interface{}) {
+func (fake *Ordering) BroadcastArgsForCall(i int) (context.Context, interface{}) {
 	fake.broadcastMutex.RLock()
 	defer fake.broadcastMutex.RUnlock()
 	argsForCall := fake.broadcastArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeOrdering) BroadcastReturns(result1 error) {
+func (fake *Ordering) BroadcastReturns(result1 error) {
 	fake.broadcastMutex.Lock()
 	defer fake.broadcastMutex.Unlock()
 	fake.BroadcastStub = nil
@@ -84,7 +84,7 @@ func (fake *FakeOrdering) BroadcastReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeOrdering) BroadcastReturnsOnCall(i int, result1 error) {
+func (fake *Ordering) BroadcastReturnsOnCall(i int, result1 error) {
 	fake.broadcastMutex.Lock()
 	defer fake.broadcastMutex.Unlock()
 	fake.BroadcastStub = nil
@@ -98,7 +98,7 @@ func (fake *FakeOrdering) BroadcastReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeOrdering) SetConsensusType(arg1 string) error {
+func (fake *Ordering) SetConsensusType(arg1 string) error {
 	fake.setConsensusTypeMutex.Lock()
 	ret, specificReturn := fake.setConsensusTypeReturnsOnCall[len(fake.setConsensusTypeArgsForCall)]
 	fake.setConsensusTypeArgsForCall = append(fake.setConsensusTypeArgsForCall, struct {
@@ -117,26 +117,26 @@ func (fake *FakeOrdering) SetConsensusType(arg1 string) error {
 	return fakeReturns.result1
 }
 
-func (fake *FakeOrdering) SetConsensusTypeCallCount() int {
+func (fake *Ordering) SetConsensusTypeCallCount() int {
 	fake.setConsensusTypeMutex.RLock()
 	defer fake.setConsensusTypeMutex.RUnlock()
 	return len(fake.setConsensusTypeArgsForCall)
 }
 
-func (fake *FakeOrdering) SetConsensusTypeCalls(stub func(string) error) {
+func (fake *Ordering) SetConsensusTypeCalls(stub func(string) error) {
 	fake.setConsensusTypeMutex.Lock()
 	defer fake.setConsensusTypeMutex.Unlock()
 	fake.SetConsensusTypeStub = stub
 }
 
-func (fake *FakeOrdering) SetConsensusTypeArgsForCall(i int) string {
+func (fake *Ordering) SetConsensusTypeArgsForCall(i int) string {
 	fake.setConsensusTypeMutex.RLock()
 	defer fake.setConsensusTypeMutex.RUnlock()
 	argsForCall := fake.setConsensusTypeArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeOrdering) SetConsensusTypeReturns(result1 error) {
+func (fake *Ordering) SetConsensusTypeReturns(result1 error) {
 	fake.setConsensusTypeMutex.Lock()
 	defer fake.setConsensusTypeMutex.Unlock()
 	fake.SetConsensusTypeStub = nil
@@ -145,7 +145,7 @@ func (fake *FakeOrdering) SetConsensusTypeReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeOrdering) SetConsensusTypeReturnsOnCall(i int, result1 error) {
+func (fake *Ordering) SetConsensusTypeReturnsOnCall(i int, result1 error) {
 	fake.setConsensusTypeMutex.Lock()
 	defer fake.setConsensusTypeMutex.Unlock()
 	fake.SetConsensusTypeStub = nil
@@ -159,7 +159,7 @@ func (fake *FakeOrdering) SetConsensusTypeReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeOrdering) Invocations() map[string][][]interface{} {
+func (fake *Ordering) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -169,7 +169,7 @@ func (fake *FakeOrdering) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeOrdering) recordInvocation(key string, args []interface{}) {
+func (fake *Ordering) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -181,4 +181,4 @@ func (fake *FakeOrdering) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ driver.Ordering = new(FakeOrdering)
+var _ driver.Ordering = new(Ordering)

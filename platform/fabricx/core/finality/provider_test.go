@@ -23,8 +23,7 @@ import (
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
 )
 
-// To re-generate the mocks, run "go generate ./listenermanager_test.go"
-//go:generate counterfeiter -o mock/service_provider.go --fake-name FakeServicesProvider github.com/hyperledger-labs/fabric-smart-client/platform/view/services.Provider
+//go:generate counterfeiter -o mock/service_provider.go --fake-name ServicesProvider github.com/hyperledger-labs/fabric-smart-client/platform/view/services.Provider
 
 const (
 	managerTimeout = 2 * time.Second
@@ -45,11 +44,11 @@ func (m *mockGRPCClientProvider) NotificationServiceClient(network string) (*grp
 
 // setupMockNotificationManager creates a notificationListenerManager with mocked gRPC components
 // This allows us to test the REAL listen() behavior with controlled stream responses
-func setupMockNotificationManager(t *testing.T, streamBehavior func(context.Context, *mock2.FakeNotifier_OpenNotificationStreamClient)) *notificationListenerManager {
+func setupMockNotificationManager(t *testing.T, streamBehavior func(context.Context, *mock2.Notifier_OpenNotificationStreamClient)) *notificationListenerManager {
 	t.Helper()
 
-	fakeStream := &mock2.FakeNotifier_OpenNotificationStreamClient{}
-	fakeClient := &mock2.FakeNotifierClient{}
+	fakeStream := &mock2.Notifier_OpenNotificationStreamClient{}
+	fakeClient := &mock2.NotifierClient{}
 
 	// Configure the client to return our fake stream
 	fakeClient.OpenNotificationStreamStub = func(c context.Context, opts ...grpc.CallOption) (committerpb.Notifier_OpenNotificationStreamClient, error) {
@@ -145,7 +144,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Mock with stream that blocks until context is done
 		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
 					<-ctx.Done()
@@ -185,7 +184,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Mock with stream that blocks
 		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -217,7 +216,7 @@ func TestProvider_NewManager(t *testing.T) {
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 
 		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -254,7 +253,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Mock stream that returns error immediately
 		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
 					return nil, errors.New("stream error")
@@ -289,7 +288,7 @@ func TestProvider_NewManager(t *testing.T) {
 
 		// Mock stream that blocks until context canceled
 		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
 					<-ctx.Done()
@@ -354,7 +353,7 @@ func TestProvider_NewManager(t *testing.T) {
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 
 		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -396,12 +395,12 @@ func TestGetListenerManager(t *testing.T) {
 	t.Run("Returns_Manager_From_Service_Provider", func(t *testing.T) {
 		t.Parallel()
 
-		mockSP := &mock2.FakeServicesProvider{}
+		mockSP := &mock2.ServicesProvider{}
 
 		mockGRPC := &mockGRPCClientProvider{}
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
-			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.FakeNotifier_OpenNotificationStreamClient) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
 					return nil, ctx.Err()
@@ -430,7 +429,7 @@ func TestGetListenerManager(t *testing.T) {
 	t.Run("Returns_Error_When_Service_Not_Found", func(t *testing.T) {
 		t.Parallel()
 
-		mockSP := &mock2.FakeServicesProvider{}
+		mockSP := &mock2.ServicesProvider{}
 		expectedErr := errors.New("service not found")
 
 		mockSP.GetServiceStub = func(serviceType any) (any, error) {
@@ -447,7 +446,7 @@ func TestGetListenerManager(t *testing.T) {
 	t.Run("Returns_Error_When_NewManager_Fails", func(t *testing.T) {
 		t.Parallel()
 
-		mockSP := &mock2.FakeServicesProvider{}
+		mockSP := &mock2.ServicesProvider{}
 
 		mockGRPC := &mockGRPCClientProvider{}
 		provider := NewListenerManagerProvider(mockGRPC, nil)

@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type FakeNotifierClient struct {
+type NotifierClient struct {
 	OpenNotificationStreamStub        func(context.Context, ...grpc.CallOption) (grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], error)
 	openNotificationStreamMutex       sync.RWMutex
 	openNotificationStreamArgsForCall []struct {
@@ -28,7 +28,7 @@ type FakeNotifierClient struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeNotifierClient) OpenNotificationStream(arg1 context.Context, arg2 ...grpc.CallOption) (grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], error) {
+func (fake *NotifierClient) OpenNotificationStream(arg1 context.Context, arg2 ...grpc.CallOption) (grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], error) {
 	fake.openNotificationStreamMutex.Lock()
 	ret, specificReturn := fake.openNotificationStreamReturnsOnCall[len(fake.openNotificationStreamArgsForCall)]
 	fake.openNotificationStreamArgsForCall = append(fake.openNotificationStreamArgsForCall, struct {
@@ -48,26 +48,26 @@ func (fake *FakeNotifierClient) OpenNotificationStream(arg1 context.Context, arg
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeNotifierClient) OpenNotificationStreamCallCount() int {
+func (fake *NotifierClient) OpenNotificationStreamCallCount() int {
 	fake.openNotificationStreamMutex.RLock()
 	defer fake.openNotificationStreamMutex.RUnlock()
 	return len(fake.openNotificationStreamArgsForCall)
 }
 
-func (fake *FakeNotifierClient) OpenNotificationStreamCalls(stub func(context.Context, ...grpc.CallOption) (grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], error)) {
+func (fake *NotifierClient) OpenNotificationStreamCalls(stub func(context.Context, ...grpc.CallOption) (grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], error)) {
 	fake.openNotificationStreamMutex.Lock()
 	defer fake.openNotificationStreamMutex.Unlock()
 	fake.OpenNotificationStreamStub = stub
 }
 
-func (fake *FakeNotifierClient) OpenNotificationStreamArgsForCall(i int) (context.Context, []grpc.CallOption) {
+func (fake *NotifierClient) OpenNotificationStreamArgsForCall(i int) (context.Context, []grpc.CallOption) {
 	fake.openNotificationStreamMutex.RLock()
 	defer fake.openNotificationStreamMutex.RUnlock()
 	argsForCall := fake.openNotificationStreamArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeNotifierClient) OpenNotificationStreamReturns(result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], result2 error) {
+func (fake *NotifierClient) OpenNotificationStreamReturns(result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], result2 error) {
 	fake.openNotificationStreamMutex.Lock()
 	defer fake.openNotificationStreamMutex.Unlock()
 	fake.OpenNotificationStreamStub = nil
@@ -77,7 +77,7 @@ func (fake *FakeNotifierClient) OpenNotificationStreamReturns(result1 grpc.BidiS
 	}{result1, result2}
 }
 
-func (fake *FakeNotifierClient) OpenNotificationStreamReturnsOnCall(i int, result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], result2 error) {
+func (fake *NotifierClient) OpenNotificationStreamReturnsOnCall(i int, result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse], result2 error) {
 	fake.openNotificationStreamMutex.Lock()
 	defer fake.openNotificationStreamMutex.Unlock()
 	fake.OpenNotificationStreamStub = nil
@@ -93,7 +93,7 @@ func (fake *FakeNotifierClient) OpenNotificationStreamReturnsOnCall(i int, resul
 	}{result1, result2}
 }
 
-func (fake *FakeNotifierClient) Invocations() map[string][][]interface{} {
+func (fake *NotifierClient) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
@@ -103,7 +103,7 @@ func (fake *FakeNotifierClient) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeNotifierClient) recordInvocation(key string, args []interface{}) {
+func (fake *NotifierClient) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -115,4 +115,4 @@ func (fake *FakeNotifierClient) recordInvocation(key string, args []interface{})
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ committerpb.NotifierClient = new(FakeNotifierClient)
+var _ committerpb.NotifierClient = new(NotifierClient)

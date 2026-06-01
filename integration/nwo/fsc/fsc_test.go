@@ -15,8 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	nwocontext "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/context"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/mocks"
-	mocks2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/mocks/mocks"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/fake"
+	another_fake "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/fake/another"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/foo/initiator"
 	initiator2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/testdata/initiator"
@@ -44,8 +44,8 @@ var _ = Describe("EndToEnd", func() {
 
 			n := node.NewNode("test")
 			n.AddSDK(&DummySDK{})
-			n.AddSDK(&mocks.SDK{})
-			n.AddSDK(&mocks2.SDK{})
+			n.AddSDK(&fake.SDK{})
+			n.AddSDK(&another_fake.SDK{})
 			n.RegisterViewFactory("initiator", &initiator2.Factory{})
 			n.RegisterViewFactory("initiator", &initiator.Factory{})
 			n.RegisterViewFactory("responder", &responder.Factory{})
@@ -76,8 +76,8 @@ var _ = Describe("EndToEnd", func() {
 
 			n := node.NewNodeFromTemplate("test", template)
 			n.AddSDK(&DummySDK{})
-			n.AddSDK(&mocks.SDK{})
-			n.AddSDK(&mocks2.SDK{})
+			n.AddSDK(&fake.SDK{})
+			n.AddSDK(&another_fake.SDK{})
 
 			buf := bytes.NewBuffer(nil)
 			p.GenerateCmd(buf, node.NewReplica(&node.Peer{

@@ -13,15 +13,15 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	finalitymock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality/fake"
 )
 
 func TestCommitterFLM(t *testing.T) {
 	t.Parallel()
 
-	setup := func() (*finalitymock.Committer, *committerListenerManager) {
-		mockCommitter := &finalitymock.Committer{}
-		mockChannel := &finalitymock.Channel{}
+	setup := func() (*fake.Committer, *committerListenerManager) {
+		mockCommitter := &fake.Committer{}
+		mockChannel := &fake.Channel{}
 		mockChannel.On("Committer").Return(mockCommitter)
 
 		committer := fabric.NewCommitter(mockChannel)
@@ -33,7 +33,7 @@ func TestCommitterFLM(t *testing.T) {
 		t.Parallel()
 		mockCommitter, flm := setup()
 		mockCommitter.On("AddFinalityListener", "tx1", mock.Anything).Return(nil).Once()
-		err := flm.AddFinalityListener("", "tx1", &finalitymock.FinalityListener{})
+		err := flm.AddFinalityListener("", "tx1", &fake.FinalityListener{})
 		assert.NoError(t, err)
 	})
 
@@ -41,7 +41,7 @@ func TestCommitterFLM(t *testing.T) {
 		t.Parallel()
 		mockCommitter, flm := setup()
 		mockCommitter.On("RemoveFinalityListener", "tx1", mock.Anything).Return(nil).Once()
-		err := flm.RemoveFinalityListener("tx1", &finalitymock.FinalityListener{})
+		err := flm.RemoveFinalityListener("tx1", &fake.FinalityListener{})
 		assert.NoError(t, err)
 	})
 }

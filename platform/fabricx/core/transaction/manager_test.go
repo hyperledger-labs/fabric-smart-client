@@ -19,7 +19,7 @@ import (
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mocks"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -161,7 +161,7 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 		m := NewManager()
 		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
 			newTransaction: func(context.Context, string, []byte, []byte, driver2.TxID, []byte) (driver.Transaction, error) {
-				return &Transaction{fns: &mocks.FakeFabricNetworkService{ChannelStub: func(string) (driver.Channel, error) { return nil, nil }}}, nil
+				return &Transaction{fns: &mock.FabricNetworkService{ChannelStub: func(string) (driver.Channel, error) { return nil, nil }}}, nil
 			},
 		})
 
@@ -176,7 +176,7 @@ func TestManagerNewTransactionFromBytes(t *testing.T) {
 		m := NewManager()
 		m.AddTransactionFactory(driver.EndorserTransaction, &stubTransactionFactory{
 			newTransaction: func(context.Context, string, []byte, []byte, driver2.TxID, []byte) (driver.Transaction, error) {
-				return &Transaction{fns: &mocks.FakeFabricNetworkService{ChannelStub: func(string) (driver.Channel, error) { return nil, nil }}}, nil
+				return &Transaction{fns: &mock.FabricNetworkService{ChannelStub: func(string) (driver.Channel, error) { return nil, nil }}}, nil
 			},
 		})
 

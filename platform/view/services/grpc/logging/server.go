@@ -29,8 +29,6 @@ type PayloadLeveler interface {
 	PayloadLevel(ctx context.Context, fullMethod string) zapcore.Level
 }
 
-//go:generate counterfeiter -o fakes/leveler.go --fake-name Leveler . LevelerFunc
-
 type LevelerFunc func(ctx context.Context, fullMethod string) zapcore.Level
 
 func (l LevelerFunc) Level(ctx context.Context, fullMethod string) zapcore.Level {

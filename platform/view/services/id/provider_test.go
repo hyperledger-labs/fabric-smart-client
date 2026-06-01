@@ -15,7 +15,7 @@ import (
 	id2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/kms/driver/file"
-	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -44,14 +44,14 @@ func (f *fakeServiceProvider) GetService(any) (any, error) {
 
 func TestLoad(t *testing.T) {
 	t.Parallel()
-	cp := &mock2.ConfigProvider{}
+	cp := &mock.ConfigProvider{}
 	cp.GetPathReturnsOnCall(0, "./testdata/default/signcerts/default.pem")
 	cp.GetPathReturnsOnCall(1, "./testdata/default/keystore/priv_sk")
 	cp.GetStringSliceReturnsOnCall(0, []string{
 		"./testdata/client/client.pem",
 	})
 	cp.TranslatePathReturnsOnCall(0, "./testdata/client/client.pem")
-	sigService := &mock2.SigService{}
+	sigService := &mock.SigService{}
 
 	idProvider, err := id2.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
 	require.NoError(t, err, "failed loading identities")
@@ -72,11 +72,11 @@ func TestNewProviderFailurePaths(t *testing.T) {
 
 	t.Run("default identity load fails", func(t *testing.T) {
 		t.Parallel()
-		cp := &mock2.ConfigProvider{}
+		cp := &mock.ConfigProvider{}
 		cp.GetPathReturnsOnCall(0, "./testdata/default/signcerts/missing.pem")
 		cp.GetPathReturnsOnCall(1, "./testdata/default/keystore/priv_sk")
 		cp.GetStringSliceReturns([]string{})
-		sigService := &mock2.SigService{}
+		sigService := &mock.SigService{}
 
 		_, err := id2.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
 		require.ErrorContains(t, err, "failed loading identities")
@@ -85,11 +85,11 @@ func TestNewProviderFailurePaths(t *testing.T) {
 
 	t.Run("register signer fails", func(t *testing.T) {
 		t.Parallel()
-		cp := &mock2.ConfigProvider{}
+		cp := &mock.ConfigProvider{}
 		cp.GetPathReturnsOnCall(0, "./testdata/default/signcerts/default.pem")
 		cp.GetPathReturnsOnCall(1, "./testdata/default/keystore/priv_sk")
 		cp.GetStringSliceReturns([]string{})
-		sigService := &mock2.SigService{}
+		sigService := &mock.SigService{}
 		sigService.RegisterSignerReturns(errors.New("register-failed"))
 
 		_, err := id2.NewProvider(cp, sigService, nil, &kms.KMS{Driver: &file.Driver{}})
@@ -103,11 +103,11 @@ func TestProviderIdentity(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
-		cp := &mock2.ConfigProvider{}
+		cp := &mock.ConfigProvider{}
 		cp.GetPathReturnsOnCall(0, "./testdata/default/signcerts/default.pem")
 		cp.GetPathReturnsOnCall(1, "./testdata/default/keystore/priv_sk")
 		cp.GetStringSliceReturns([]string{})
-		sigService := &mock2.SigService{}
+		sigService := &mock.SigService{}
 		endpoint := &fakeEndpointService{identity: view.Identity([]byte("alice-id"))}
 
 		idProvider, err := id2.NewProvider(cp, sigService, endpoint, &kms.KMS{Driver: &file.Driver{}})
@@ -120,11 +120,11 @@ func TestProviderIdentity(t *testing.T) {
 
 	t.Run("failure returns nil", func(t *testing.T) {
 		t.Parallel()
-		cp := &mock2.ConfigProvider{}
+		cp := &mock.ConfigProvider{}
 		cp.GetPathReturnsOnCall(0, "./testdata/default/signcerts/default.pem")
 		cp.GetPathReturnsOnCall(1, "./testdata/default/keystore/priv_sk")
 		cp.GetStringSliceReturns([]string{})
-		sigService := &mock2.SigService{}
+		sigService := &mock.SigService{}
 		endpoint := &fakeEndpointService{err: errors.New("lookup-failed")}
 
 		idProvider, err := id2.NewProvider(cp, sigService, endpoint, &kms.KMS{Driver: &file.Driver{}})

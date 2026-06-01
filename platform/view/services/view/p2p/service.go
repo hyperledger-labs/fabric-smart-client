@@ -45,8 +45,6 @@ type CommLayer interface {
 
 // EndpointService models the dependency to the view-sdk's endpoint service.
 // It provides methods to retrieve identities.
-//
-//go:generate counterfeiter -o mock/resolver.go -fake-name EndpointService . EndpointService
 type EndpointService interface {
 	// GetIdentity returns the identity for the given endpoint and public key ID.
 	GetIdentity(endpoint string, pkID []byte) (view.Identity, error)
