@@ -13,8 +13,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
-	"github.com/gorilla/mux"
 )
 
 const (
@@ -30,13 +28,12 @@ type Config struct {
 }
 
 type HttpHandler struct {
-	r *mux.Router
+	mux *http.ServeMux
 }
 
 type ReqContext struct {
 	ResponseWriter http.ResponseWriter
 	Req            *http.Request
-	Vars           map[string]string
 	Query          any
 }
 
@@ -52,19 +49,18 @@ type RequestHandler interface {
 }
 
 func NewHttpHandler() *HttpHandler {
-	return &HttpHandler{r: mux.NewRouter()}
+	return &HttpHandler{mux: http.NewServeMux()}
 }
 
 func (h *HttpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	h.r.ServeHTTP(w, req)
+	h.mux.ServeHTTP(w, req)
 }
 
 func (h *HttpHandler) RegisterURI(uri, method string, rh RequestHandler) {
 	f := func(backToClient http.ResponseWriter, req *http.Request) {
 		h.handle(backToClient, req, rh)
 	}
-
-	h.r.HandleFunc(apiVersion+uri, f).Methods(method)
+	h.mux.HandleFunc(method+" "+apiVersion+uri, f)
 }
 
 func (h *HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request, rh RequestHandler) {
@@ -89,7 +85,6 @@ func (h *HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request
 		Query:          o,
 		ResponseWriter: backToClient,
 		Req:            req,
-		Vars:           mux.Vars(req),
 	}
 
 	resultFromBackend, statusCode := rh.HandleRequest(reqCtx)
