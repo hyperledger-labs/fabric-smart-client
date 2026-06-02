@@ -13,6 +13,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/pem"
 	"math/big"
 	"net"
@@ -21,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
 
@@ -312,7 +312,7 @@ func mustPeerIDFromCert(t *testing.T, certPath string) string {
 	marshaledPK, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
 	require.NoError(t, err)
 	h := sha256.Sum256(marshaledPK)
-	return base58.Encode(h[:])
+	return base64.StdEncoding.EncodeToString(h[:])
 }
 
 type staticRoutHostProvider struct {
