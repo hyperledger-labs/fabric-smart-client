@@ -86,10 +86,6 @@ func (s *System) Stop() error {
 	return nil
 }
 
-func (s *System) Log(keyvals ...any) error {
-	return s.logger.Log(keyvals)
-}
-
 func (s *System) initializeMetricsProvider(provider metrics.Provider, m MetricsOptions) error {
 	s.logger.Debugf("Initializing metrics provider: [%s]", m.Provider)
 	s.Provider = provider

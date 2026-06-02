@@ -19,9 +19,7 @@ package rwsetutil
 import (
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/hyperledger/fabric-protos-go-apiv2/ledger/rwset/kvrwset"
-	"github.com/kr/pretty"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -65,7 +63,6 @@ func TestTxRWSetMarshalUnmarshal(t *testing.T) {
 	require.NoError(t, err)
 	txRwSet1 := &TxRwSet{}
 	require.NoError(t, txRwSet1.FromProtoBytes(protoBytes))
-	t.Logf("txRwSet=%s, txRwSet1=%s", spew.Sdump(txRwSet), spew.Sdump(txRwSet1))
 	require.Len(t, txRwSet.NsRwSets, len(txRwSet1.NsRwSets))
 	for i, rwset := range txRwSet.NsRwSets {
 		require.Equal(t, txRwSet1.NsRwSets[i].NameSpace, rwset.NameSpace)
@@ -81,7 +78,6 @@ func TestTxRwSetConversion(t *testing.T) {
 	require.NoError(t, err)
 	txRwSet1, err := TxRwSetFromProtoMsg(protoMsg)
 	require.NoError(t, err)
-	t.Logf("txRwSet=%s, txRwSet1=%s", spew.Sdump(txRwSet), spew.Sdump(txRwSet1))
 	require.Len(t, txRwSet.NsRwSets, len(txRwSet1.NsRwSets))
 	for i, rwset := range txRwSet.NsRwSets {
 		require.Equal(t, txRwSet1.NsRwSets[i].NameSpace, rwset.NameSpace)
@@ -101,7 +97,6 @@ func TestNsRwSetConversion(t *testing.T) {
 	require.NoError(t, err)
 	nsRwSet1, err := nsRwSetFromProtoMsg(protoMsg)
 	require.NoError(t, err)
-	t.Logf("nsRwSet=%s, nsRwSet1=%s", spew.Sdump(nsRwSet), spew.Sdump(nsRwSet1))
 	require.Equal(t, nsRwSet1.NameSpace, nsRwSet.NameSpace)
 	require.True(t, proto.Equal(nsRwSet1.KvRwSet, nsRwSet.KvRwSet), "proto messages are not equal")
 	for j, hashedRwSet := range nsRwSet.CollHashedRwSets {
@@ -205,7 +200,6 @@ func TestTxPvtRwSetConversion(t *testing.T) {
 	require.NoError(t, err)
 	txPvtRwSet1, err := TxPvtRwSetFromProtoMsg(protoMsg)
 	require.NoError(t, err)
-	t.Logf("txPvtRwSet=%s, txPvtRwSet1=%s, Diff:%s", spew.Sdump(txPvtRwSet), spew.Sdump(txPvtRwSet1), pretty.Diff(txPvtRwSet, txPvtRwSet1))
 	require.Len(t, txPvtRwSet.NsPvtRwSet, len(txPvtRwSet1.NsPvtRwSet))
 	for i, rwset := range txPvtRwSet.NsPvtRwSet {
 		require.Equal(t, txPvtRwSet1.NsPvtRwSet[i].NameSpace, rwset.NameSpace)

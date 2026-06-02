@@ -9,8 +9,6 @@ package operations
 import (
 	"sync"
 
-	log2 "github.com/go-kit/log"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
@@ -42,7 +40,7 @@ func versionGauge(provider metrics.Provider) metrics.Gauge {
 	}
 }
 
-func NewMetricsProvider(m MetricsOptions, l log2.Logger, skipRegisterErr bool) metrics.Provider {
+func NewMetricsProvider(m MetricsOptions, skipRegisterErr bool) metrics.Provider {
 	switch m.Provider {
 	case "prometheus":
 		return &prometheus.Provider{SkipRegisterErr: skipRegisterErr}
