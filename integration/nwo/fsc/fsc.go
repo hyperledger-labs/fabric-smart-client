@@ -27,7 +27,6 @@ import (
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
-	"github.com/miracl/conflate"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -55,18 +54,6 @@ import (
 )
 
 var logger = logging.MustGetLogger()
-
-func init() {
-	// define the unmarshallers for the given file extensions, blank extension is the global unmarshaller
-	conflate.Unmarshallers = conflate.UnmarshallerMap{
-		".jsn":  {conflate.JSONUnmarshal},
-		".yaml": {conflate.YAMLUnmarshal},
-		".yml":  {conflate.YAMLUnmarshal},
-		".toml": {conflate.TOMLUnmarshal},
-		".tml":  {conflate.TOMLUnmarshal},
-		"":      {conflate.JSONUnmarshal, conflate.YAMLUnmarshal, conflate.TOMLUnmarshal},
-	}
-}
 
 const (
 	ListenPort api.PortName = "Listen" // Port at which the fsc node might listen for some service
@@ -559,11 +546,11 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 	for _, extensionsByPeerID := range p.Context.ExtensionsByPeerID(peer.UniqueName) {
 		// if len(extensionsByPeerID) > 1, we need a merge
 		if len(extensionsByPeerID) > 1 {
-			c := conflate.New()
-			for _, ext := range extensionsByPeerID {
-				gomega.Expect(c.AddData([]byte(ext))).NotTo(gomega.HaveOccurred())
+			docs := make([][]byte, len(extensionsByPeerID))
+			for i, ext := range extensionsByPeerID {
+				docs[i] = []byte(ext)
 			}
-			bs, err := c.MarshalYAML()
+			bs, err := common.MergeYAML(docs...)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			extensions = append(extensions, string(bs))
 		} else {
