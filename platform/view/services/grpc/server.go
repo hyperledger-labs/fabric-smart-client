@@ -14,7 +14,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -149,14 +148,14 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 	if len(serverConfig.StreamInterceptors) > 0 {
 		serverOpts = append(
 			serverOpts,
-			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(serverConfig.StreamInterceptors...)),
+			grpc.ChainStreamInterceptor(serverConfig.StreamInterceptors...),
 		)
 	}
 
 	if len(serverConfig.UnaryInterceptors) > 0 {
 		serverOpts = append(
 			serverOpts,
-			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(serverConfig.UnaryInterceptors...)),
+			grpc.ChainUnaryInterceptor(serverConfig.UnaryInterceptors...),
 		)
 	}
 
