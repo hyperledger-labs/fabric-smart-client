@@ -8,13 +8,9 @@ package websocket
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 	"time"
-
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	host2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
@@ -29,51 +25,6 @@ type server struct {
 	streamProvider     serverStreamProvider
 	listener           net.Listener
 	corsAllowedOrigins []string
-}
-
-func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stream host2.P2PStream), corsAllowedOrigins []string) *gin.Engine {
-	logger.Debugf("creating GIN engine for p2p REST endpoint.")
-	r := gin.New()
-
-	// Recovery middleware to catch panics and log them
-	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered any) {
-		logger.Errorf("Panic recovered in websocket handler from [%s]: %v", c.Request.RemoteAddr, recovered)
-		c.AbortWithStatus(http.StatusInternalServerError)
-	}))
-
-	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-		// Log errors at ERROR level, others at INFO level
-		if param.StatusCode >= 400 {
-			logger.Errorf("HTTP %d - %s %s from [%s]: %s",
-				param.StatusCode, param.Method, param.Path, param.ClientIP, param.ErrorMessage)
-		}
-		// Standard format for access logs
-		return fmt.Sprintf("%s - [%s] \"%s %s %s %d %s \"%s\" %s\"\n",
-			param.ClientIP,
-			param.TimeStamp.Format(time.RFC1123),
-			param.Method,
-			param.Path,
-			param.Request.Proto,
-			param.StatusCode,
-			param.Latency,
-			param.Request.UserAgent(),
-			param.ErrorMessage,
-		)
-	}))
-	if len(corsAllowedOrigins) > 0 {
-		config := cors.DefaultConfig()
-		config.AllowOrigins = corsAllowedOrigins
-		config.AllowHeaders = []string{"Origin", "Content-Type", "Accept"}
-		r.Use(cors.New(config))
-	}
-
-	r.GET("/p2p", func(c *gin.Context) {
-		logger.DebugfContext(c.Request.Context(), "new incoming stream from [%s]", c.Request.RemoteAddr)
-		if err := streamProvider.NewServerStream(c.Writer, c.Request, newStreamCallback); err != nil {
-			logger.ErrorfContext(c.Request.Context(), "error receiving websocket: %s", err.Error())
-		}
-	})
-	return r
 }
 
 func (s *server) Listen() error {
@@ -115,4 +66,62 @@ func (s *server) Close() error {
 	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownRelease()
 	return s.srv.Shutdown(shutdownCtx)
+}
+
+func newHandler(streamProvider serverStreamProvider, newStreamCallback func(stream host2.P2PStream), corsAllowedOrigins []string) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /p2p", func(w http.ResponseWriter, r *http.Request) {
+		logger.DebugfContext(r.Context(), "new incoming stream from [%s]", r.RemoteAddr)
+		if err := streamProvider.NewServerStream(w, r, newStreamCallback); err != nil {
+			logger.ErrorfContext(r.Context(), "error receiving websocket: %s", err.Error())
+		}
+	})
+
+	var h http.Handler = mux
+	if len(corsAllowedOrigins) > 0 {
+		h = withCORS(corsAllowedOrigins, h)
+	}
+	h = withLogging(h)
+	h = withRecovery(h)
+	return h
+}
+
+func withRecovery(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				logger.Errorf("Panic recovered in websocket handler from [%s]: %v", r.RemoteAddr, rec)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+func withLogging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		logger.Infof("%s - \"%s %s %s\" %s", r.RemoteAddr, r.Method, r.URL.Path, r.Proto, time.Since(start))
+	})
+}
+
+func withCORS(allowedOrigins []string, next http.Handler) http.Handler {
+	allowed := make(map[string]bool, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		allowed[o] = true
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin != "" && allowed[origin] {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Accept")
+			if r.Method == http.MethodOptions {
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }

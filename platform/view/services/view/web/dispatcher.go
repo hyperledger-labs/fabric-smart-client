@@ -40,7 +40,7 @@ func (rd *Dispatcher) HandleRequest(reqctx *server.ReqContext) (response any, st
 		return &server.ResponseErr{Reason: "internal error"}, 500
 	}
 
-	viewID := reqctx.Vars["View"]
+	viewID := reqctx.Req.PathValue("View")
 	escapedViewID := strings.ReplaceAll(viewID, "\n", "")
 	escapedViewID = strings.ReplaceAll(escapedViewID, "\r", "")
 

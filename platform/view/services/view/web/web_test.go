@@ -31,9 +31,9 @@ func TestDispatcher(t *testing.T) {
 
 	// vc is nil
 	req, _ := http.NewRequest("PUT", "/v1/Views/fid", nil)
+	req.SetPathValue("View", "fid")
 	reqctx := &server2.ReqContext{
 		Req:   req,
-		Vars:  map[string]string{"View": "fid"},
 		Query: []byte("input"),
 	}
 	resp, code := d.HandleRequest(reqctx)
