@@ -34,7 +34,6 @@ To mock a local (same-package) interface, use `.` as the package path:
 ### Generating mocks
 
 Regenerate all mocks from scratch:
-d/p
 ```bash
 make generate-mocks
 ```
@@ -122,6 +121,40 @@ committer.On("AddFinalityListener", txID, mock.Anything).Return(nil)
 ### Integration test fakes
 
 The `integration/` tree uses fakes to stand in for real view implementations (factories, runners, initiators, responders). These are ordinary Go structs that satisfy the relevant interfaces — no generation needed.
+
+## Placement guide — where does the double live?
+
+The right location for a test double depends on how it was created and how widely it is used.
+
+**`mock/` directory** — counterfeiter-generated doubles only, always. No handwritten code ever belongs here.
+
+**`fake/` (or `fakes/`) directory** — handwritten doubles that are shared across more than one test file or package, or that are too complex to sit inline: conditional logic in any method body, state fields that drive behavior, or more than ~5 methods.
+
+**Inline in `_test.go`** — handwritten doubles used only in a single test file, where all of the following hold:
+- All methods are one-liners
+- Every method returns a fixed value — no conditionals, no loops
+- No state fields (the struct carries no behavioral state)
+- The full definition fits in ~15 lines without crowding the test
+
+If any one of those conditions fails, move it to `fake/`.
+
+### Decision tree
+
+![Decision tree](../imgs/test_double_placement_decision_tree.svg)
+
+### Inline example
+
+A double this simple belongs at the top of the `_test.go` file:
+
+```go
+type stubReader struct{ data []byte }
+
+func (r stubReader) Read(_ context.Context, _ string) ([]byte, error) {
+    return r.data, nil
+}
+```
+
+Once it grows a conditional or gets imported by a second test file, move it to `fake/`.
 
 ## Quick-reference checklist
 
