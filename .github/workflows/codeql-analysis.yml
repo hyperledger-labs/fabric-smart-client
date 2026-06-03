@@ -42,7 +42,7 @@ jobs:
           build-mode: manual
 
       - run: make install-fabric-bins
-      - run: make testing-docker-images
+      - run: make pull-images-database
 
       - name: Build manually
         shell: bash

@@ -82,30 +82,29 @@ generate-mocks: ## Delete all counterfeiter mock folders and regenerate via go g
 # Container
 #########################
 
-.PHONY: docker-images
-docker-images: fabric-docker-images monitoring-docker-images testing-docker-images
+.PHONY: pull-images-fabric
+pull-images-fabric: ## Pull fabric images
+	docker pull ghcr.io/hyperledger/fabric-baseos:$(FABRIC_TWO_DIGIT_VERSION)
+	docker tag ghcr.io/hyperledger/fabric-baseos:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-baseos:latest
+	docker pull ghcr.io/hyperledger/fabric-ccenv:$(FABRIC_TWO_DIGIT_VERSION)
+	docker tag ghcr.io/hyperledger/fabric-ccenv:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-ccenv:latest
 
-.PHONY: fabric-docker-images
-fabric-docker-images: ## Pull fabric images
-	docker pull hyperledger/fabric-baseos:$(FABRIC_TWO_DIGIT_VERSION)
-	docker image tag hyperledger/fabric-baseos:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-baseos:latest
-	docker pull hyperledger/fabric-ccenv:$(FABRIC_TWO_DIGIT_VERSION)
-	docker image tag hyperledger/fabric-ccenv:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-ccenv:latest
+.PHONY: pull-images-fabricx
+pull-images-fabricx: ## Pull fabric-x images
+	docker pull ghcr.io/hyperledger/fabric-x-committer-test-node:$(FABRIC_X_COMMITTER_VERSION)
+	docker tag ghcr.io/hyperledger/fabric-x-committer-test-node:$(FABRIC_X_COMMITTER_VERSION) hyperledger/fabric-x-committer-test-node:$(FABRIC_X_COMMITTER_VERSION)
 
-.PHONY: fabricx-docker-images
-fabricx-docker-images: ## Pull fabric-x images
-	docker pull hyperledger/fabric-x-committer-test-node:$(FABRIC_X_COMMITTER_VERSION)
 
-.PHONY: monitoring-docker-images
-monitoring-docker-images: ## Pull images for monitoring
+.PHONY: pull-images-monitoring
+pull-images-monitoring: ## Pull images for monitoring
 	docker pull ghcr.io/hyperledger-labs/explorer-db:latest
 	docker pull ghcr.io/hyperledger-labs/explorer:latest
 	docker pull prom/prometheus:latest
 	docker pull grafana/grafana:latest
 	docker pull cr.jaegertracing.io/jaegertracing/jaeger:2.12.0
 
-.PHONY: testing-docker-images
-testing-docker-images: ## Pull images for system testing
+.PHONY: pull-images-database
+pull-images-database: ## Pull images for system testing
 	docker pull postgres:16.2-alpine
 	docker tag postgres:16.2-alpine fsc.itests/postgres:latest
 
@@ -206,7 +205,7 @@ fmt: ## Run gofmt on the entire project
 	@gofmt -l -s -w .
 
 .PHONY: clean-fabric-peer-images
-clean-fabric-peer-images:
+clean-fabric-peer-images: ## Clean up generated fabric peer images
 	docker images -a | grep "_peer_" | awk '{print $3}' | xargs docker rmi
 
 .PHONY: coverage-local

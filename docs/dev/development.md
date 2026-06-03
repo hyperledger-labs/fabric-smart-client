@@ -30,7 +30,7 @@ FSC provides several helper tools for building, testing, and monitoring.
 Install them using:
 
 ```bash
-make install-tools install-linter-tool monitoring-docker-images testing-docker-images
+make install-tools install-linter-tool pull-images-monitoring pull-images-database
 ```
 
 Platform-specific tools are also required for **Fabric** and **Fabric-x**.
@@ -40,7 +40,7 @@ Platform-specific tools are also required for **Fabric** and **Fabric-x**.
 Install the Fabric binaries and Docker images:
 
 ```bash
-make install-fabric-bins fabric-docker-images 
+make install-fabric-bins pull-images-fabric
 ```
 
 To install a specific Fabric version, set the `FABRIC_VERSION` variable:
@@ -57,7 +57,7 @@ The default `FABRIC_VERSION` is defined in the project [Makefile](../../Makefile
 Install Fabric-x configuration tools and Docker images:
 
 ```bash
-make install-fxconfig install-configtxgen fabricx-docker-images 
+make install-fabricx-tools pull-images-fabricx
 ```
 
 ### Set `FAB_BINS`
