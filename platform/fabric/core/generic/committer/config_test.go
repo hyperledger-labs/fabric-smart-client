@@ -21,75 +21,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
-type testQueryExecutor struct {
-	cdriver.QueryExecutor
-	doneErr     error
-	getStateFn  func(context.Context, cdriver.Namespace, cdriver.PKey) (*cdriver.VaultRead, error)
-	getStateMD  func(context.Context, cdriver.Namespace, cdriver.PKey) (cdriver.Metadata, cdriver.RawVersion, error)
-	getStateRng func(context.Context, cdriver.Namespace, cdriver.PKey, cdriver.PKey) (cdriver.VersionedResultsIterator, error)
-}
-
-func (q *testQueryExecutor) GetState(ctx context.Context, namespace cdriver.Namespace, key cdriver.PKey) (*cdriver.VaultRead, error) {
-	if q.getStateFn == nil {
-		return nil, nil
-	}
-	return q.getStateFn(ctx, namespace, key)
-}
-
-func (q *testQueryExecutor) GetStateMetadata(ctx context.Context, namespace cdriver.Namespace, key cdriver.PKey) (cdriver.Metadata, cdriver.RawVersion, error) {
-	if q.getStateMD == nil {
-		return nil, nil, nil
-	}
-	return q.getStateMD(ctx, namespace, key)
-}
-
-func (q *testQueryExecutor) GetStateRange(ctx context.Context, namespace cdriver.Namespace, startKey, endKey cdriver.PKey) (cdriver.VersionedResultsIterator, error) {
-	if q.getStateRng == nil {
-		return nil, nil
-	}
-	return q.getStateRng(ctx, namespace, startKey, endKey)
-}
-
-func (q *testQueryExecutor) Done() error {
-	return q.doneErr
-}
-
-type testMembershipService struct {
-	fdriver.MembershipService
-	ordererConfigFn func(fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error)
-	updateFn        func(*common.Envelope) error
-}
-
-func (m *testMembershipService) OrdererConfig(cs fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
-	if m.ordererConfigFn == nil {
-		return "", nil, nil
-	}
-	return m.ordererConfigFn(cs)
-}
-
-func (m *testMembershipService) Update(env *common.Envelope) error {
-	if m.updateFn == nil {
-		return nil
-	}
-	return m.updateFn(env)
-}
-
-type testOrderingService struct {
-	consensusType string
-	endpoints     []*grpc.ConnectionConfig
-	err           error
-	configureFn   func(string, []*grpc.ConnectionConfig) error
-}
-
-func (s *testOrderingService) Configure(consensusType string, orderers []*grpc.ConnectionConfig) error {
-	s.consensusType = consensusType
-	s.endpoints = orderers
-	if s.configureFn != nil {
-		return s.configureFn(consensusType, orderers)
-	}
-	return s.err
-}
-
 func TestHandleConfigWrapsCommitError(t *testing.T) {
 	t.Parallel()
 
@@ -144,24 +75,6 @@ func TestReloadConfigTransactions(t *testing.T) {
 		err := c.ReloadConfigTransactions()
 		require.NoError(t, err)
 	})
-}
-
-type testVaultWithQueryErr struct {
-	testVault
-	err error
-}
-
-func (v *testVaultWithQueryErr) NewQueryExecutor(context.Context) (cdriver.QueryExecutor, error) {
-	return nil, v.err
-}
-
-type testVaultWithQuery struct {
-	testVault
-	qe cdriver.QueryExecutor
-}
-
-func (v *testVaultWithQuery) NewQueryExecutor(context.Context) (cdriver.QueryExecutor, error) {
-	return v.qe, nil
 }
 
 func TestCommitConfig(t *testing.T) {
