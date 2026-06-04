@@ -483,7 +483,7 @@ func TestRunEventNotifiersProcessesQueue(t *testing.T) {
 		t.Fatalf("event not received")
 	}
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		select {
 		case <-publisher.publishedC:
 		case <-time.After(2 * time.Second):
@@ -557,7 +557,7 @@ func TestCommitUnknownAdditionalPaths(t *testing.T) {
 			},
 			EnvelopeService: &testEnvelopeService{
 				existsFn: func(context.Context, string) bool { return false },
-				storeEnvelope: func(context.Context, string, interface{}) error {
+				storeEnvelope: func(context.Context, string, any) error {
 					stored = true
 					return nil
 				},
@@ -597,7 +597,7 @@ func TestCommitUnknownAdditionalPaths(t *testing.T) {
 			},
 			EnvelopeService: &testEnvelopeService{
 				existsFn: func(context.Context, string) bool { return false },
-				storeEnvelope: func(context.Context, string, interface{}) error {
+				storeEnvelope: func(context.Context, string, any) error {
 					stored = true
 					return nil
 				},
@@ -994,7 +994,7 @@ func TestCommitAdditionalBranches(t *testing.T) {
 				rwsExistsFn: func(context.Context, cdriver.TxID) bool { return true },
 			},
 			EnvelopeService: &testEnvelopeService{
-				storeEnvelope: func(context.Context, string, interface{}) error {
+				storeEnvelope: func(context.Context, string, any) error {
 					return stderrors.New("store-failed")
 				},
 			},
@@ -1016,7 +1016,7 @@ func TestCommitAdditionalBranches(t *testing.T) {
 				rwsExistsFn: func(context.Context, cdriver.TxID) bool { return true },
 			},
 			EnvelopeService: &testEnvelopeService{
-				storeEnvelope: func(context.Context, string, interface{}) error { return nil },
+				storeEnvelope: func(context.Context, string, any) error { return nil },
 			},
 			RWSetLoaderService: &testRWSetLoader{
 				getFromEnvelopeFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {

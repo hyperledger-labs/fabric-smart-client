@@ -257,7 +257,7 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 			},
 			EnvelopeService: &testEnvelopeService{
 				existsFn: func(context.Context, string) bool { return false },
-				storeEnvelope: func(context.Context, string, interface{}) error {
+				storeEnvelope: func(context.Context, string, any) error {
 					stored = true
 					return nil
 				},
