@@ -9,6 +9,7 @@ package endpoint
 import (
 	"context"
 	"errors"
+	"maps"
 	"path/filepath"
 	"testing"
 
@@ -102,9 +103,7 @@ func (f *fakeResolverServiceBackend) AddPublicKeyExtractor(_ viewendpoint.Public
 
 func copyStringMap(src map[string]string) map[string]string {
 	dst := make(map[string]string, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
+	maps.Copy(dst, src)
 	return dst
 }
 
