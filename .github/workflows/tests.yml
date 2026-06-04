@@ -26,8 +26,8 @@ jobs:
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
-      - run: make install-tools install-linter-tool
-      - run: make checks
+      - run: make -j2 install-tools install-linter-tool
+      - run: make -j4 checks
 
   utest:
     needs:
@@ -39,7 +39,6 @@ jobs:
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
-      - run: make install-tools
       - run: make install-fabric-bins
       - name: unit-tests
         run: |
@@ -62,8 +61,7 @@ jobs:
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
-      - run: make install-tools
-      - run: make testing-docker-images
+      - run: make pull-images-database
       - name: unit-tests-postgres
         run: |
           GO_TEST_PARAMS="-race -coverprofile=coverage.profile" make unit-tests-postgres
@@ -108,14 +106,19 @@ jobs:
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
-      - run: make install-tools
-      - run: make install-fabric-bins
-      - run: make docker-images
+
+      - name: Install ginkgo
+        run: cd tools && go install github.com/onsi/ginkgo/v2/ginkgo
+
+      - name: Set up Fabric
+        if: startsWith(matrix.tests, 'fabric-')
+        run: |
+          make -j4 install-fabric-bins pull-images-fabric pull-images-database
 
       - name: Set up Fabric-x
-        if: startsWith(matrix.tests, 'fabricx')
+        if: startsWith(matrix.tests, 'fabricx-')
         run: |
-          make install-fabricx-tools fabricx-docker-images
+          make -j4 install-fabricx-tools pull-images-fabricx
 
       - name: Set up Softhsm
         # we only need this for a subset of integration tests
@@ -123,6 +126,12 @@ jobs:
         run: |
           make install-softhsm
           ./ci/scripts/setup_softhsm.sh
+
+      - name: Set up monitoring
+        # we only need this for a subset of integration tests
+        if: contains(fromJSON('["fabric-iou", "fsc-stoprestart"]'), matrix.tests)
+        run: |
+          make -j4 pull-images-monitoring
 
       - name: Run the integration test
         run: |

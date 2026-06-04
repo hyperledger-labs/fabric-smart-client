@@ -41,8 +41,7 @@ jobs:
           languages: go
           build-mode: manual
 
-      - run: make install-fabric-bins
-      - run: make testing-docker-images
+      - run: make -j2 install-fabric-bins pull-images-database
 
       - name: Build manually
         shell: bash
