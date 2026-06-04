@@ -26,9 +26,7 @@ jobs:
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
-      - run: |
-          make install-tools
-          make install-linter-tool
+      - run: make -j2 install-tools install-linter-tool
       - run: make checks
 
   utest:
@@ -115,13 +113,12 @@ jobs:
       - name: Set up Fabric
         if: startsWith(matrix.tests, 'fabric-')
         run: |
-          make pull-images-database
-          make install-fabric-bins pull-images-fabric
+          make -j4 install-fabric-bins pull-images-fabric pull-images-database
 
       - name: Set up Fabric-x
         if: startsWith(matrix.tests, 'fabricx-')
         run: |
-          make install-fabricx-tools pull-images-fabricx
+          make -j4 install-fabricx-tools pull-images-fabricx
 
       - name: Set up Softhsm
         # we only need this for a subset of integration tests
@@ -134,7 +131,7 @@ jobs:
         # we only need this for a subset of integration tests
         if: contains(fromJSON('["fabric-iou", "fsc-stoprestart"]'), matrix.tests)
         run: |
-          make pull-images-monitoring
+          make -j4 pull-images-monitoring
 
       - name: Run the integration test
         run: |

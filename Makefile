@@ -82,29 +82,46 @@ generate-mocks: ## Delete all counterfeiter mock folders and regenerate via go g
 # Container
 #########################
 
-.PHONY: pull-images-fabric
-pull-images-fabric: ## Pull fabric images
+.PHONY: pull-images-fabric fabric-baseos fabric-ccenv
+pull-images-fabric: fabric-baseos fabric-ccenv ## Pull fabric images
+
+.PHONY: pull-images-fabricx fabric-x-committer-test-node
+pull-images-fabricx: fabric-x-committer-test-node ## Pull fabric-x images
+
+.PHONY: pull-images-monitoring explorer-db explorer prometheus grafana jaeger
+pull-images-monitoring: explorer-db explorer prometheus grafana jaeger ## Pull images for monitoring
+
+.PHONY: pull-images-database postgres
+pull-images-database: postgres ## Pull images for system testing
+
+fabric-baseos:
 	docker pull ghcr.io/hyperledger/fabric-baseos:$(FABRIC_TWO_DIGIT_VERSION)
 	docker tag ghcr.io/hyperledger/fabric-baseos:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-baseos:latest
+
+fabric-ccenv:
 	docker pull ghcr.io/hyperledger/fabric-ccenv:$(FABRIC_TWO_DIGIT_VERSION)
 	docker tag ghcr.io/hyperledger/fabric-ccenv:$(FABRIC_TWO_DIGIT_VERSION) hyperledger/fabric-ccenv:latest
 
-.PHONY: pull-images-fabricx
-pull-images-fabricx: ## Pull fabric-x images
+fabric-x-committer-test-node:
 	docker pull ghcr.io/hyperledger/fabric-x-committer-test-node:$(FABRIC_X_COMMITTER_VERSION)
 	docker tag ghcr.io/hyperledger/fabric-x-committer-test-node:$(FABRIC_X_COMMITTER_VERSION) hyperledger/fabric-x-committer-test-node:$(FABRIC_X_COMMITTER_VERSION)
 
-
-.PHONY: pull-images-monitoring
-pull-images-monitoring: ## Pull images for monitoring
+explorer-db:
 	docker pull ghcr.io/hyperledger-labs/explorer-db:latest
+
+explorer:
 	docker pull ghcr.io/hyperledger-labs/explorer:latest
+
+prometheus:
 	docker pull prom/prometheus:latest
+
+grafana:
 	docker pull grafana/grafana:latest
+
+jaeger:
 	docker pull cr.jaegertracing.io/jaegertracing/jaeger:2.12.0
 
-.PHONY: pull-images-database
-pull-images-database: ## Pull images for system testing
+postgres:
 	docker pull postgres:16.2-alpine
 	docker tag postgres:16.2-alpine fsc.itests/postgres:latest
 
