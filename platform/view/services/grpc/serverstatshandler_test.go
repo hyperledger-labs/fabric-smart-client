@@ -6,6 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package grpc_test
 
+//go:generate counterfeiter -o mock/counter.go -fake-name Counter github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics.Counter
+//go:generate counterfeiter -o mock/gauge.go -fake-name Gauge github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics.Gauge
+//go:generate counterfeiter -o mock/histogram.go -fake-name Histogram github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics.Histogram
+//go:generate counterfeiter -o mock/provider.go -fake-name Provider github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics.Provider
+
 import (
 	"context"
 	"net"
@@ -19,7 +24,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/mock"
+	metricsfakes "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
