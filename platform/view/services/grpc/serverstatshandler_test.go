@@ -24,7 +24,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	metricsfakes "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/testpb"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
@@ -33,8 +33,8 @@ func TestConnectionCounters(t *testing.T) {
 	t.Parallel()
 	gt := NewGomegaWithT(t)
 
-	openConn := &metricsfakes.Counter{}
-	closedConn := &metricsfakes.Counter{}
+	openConn := &mock.Counter{}
+	closedConn := &mock.Counter{}
 	sh := &grpc3.ServerStatsHandler{
 		OpenConnCounter:   openConn,
 		ClosedConnCounter: closedConn,
@@ -55,9 +55,9 @@ func TestConnMetricsGRPCServer(t *testing.T) {
 	t.Parallel()
 	gt := NewGomegaWithT(t)
 
-	openConn := &metricsfakes.Counter{}
-	closedConn := &metricsfakes.Counter{}
-	fakeProvider := &metricsfakes.Provider{}
+	openConn := &mock.Counter{}
+	closedConn := &mock.Counter{}
+	fakeProvider := &mock.Provider{}
 	fakeProvider.NewCounterStub = func(o metrics.CounterOpts) metrics.Counter {
 		switch o.Name {
 		case "conn_opened":
