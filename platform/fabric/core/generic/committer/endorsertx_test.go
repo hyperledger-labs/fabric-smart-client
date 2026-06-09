@@ -18,6 +18,7 @@ import (
 
 	commoncommitter "github.com/hyperledger-labs/fabric-smart-client/platform/common/core/generic/committer"
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer/fake"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -96,7 +97,7 @@ func TestGetChaincodeEventsReturnsReadError(t *testing.T) {
 func TestGetChaincodeEventsPublishesChaincodeEvent(t *testing.T) {
 	t.Parallel()
 
-	pub := &testPublisher{}
+	pub := &fake.Publisher{}
 	c := &Committer{
 		logger:          logger,
 		EventsPublisher: pub,
@@ -109,9 +110,9 @@ func TestGetChaincodeEventsPublishesChaincodeEvent(t *testing.T) {
 	})
 	err := c.GetChaincodeEvents(env, 9)
 	require.NoError(t, err)
-	require.Len(t, pub.events, 1)
+	require.Len(t, pub.Events, 1)
 
-	evt, ok := pub.events[0].(*ChaincodeEvent)
+	evt, ok := pub.Events[0].(*ChaincodeEvent)
 	require.True(t, ok)
 	require.Equal(t, uint64(9), evt.BlockNumber)
 	require.Equal(t, "tx-chaincode", evt.TransactionID)
@@ -127,8 +128,8 @@ func TestCommitEndorserTransaction(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Valid, "", nil
 				},
 			},
@@ -142,8 +143,8 @@ func TestCommitEndorserTransaction(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Invalid, "", nil
 				},
 			},
@@ -157,8 +158,8 @@ func TestCommitEndorserTransaction(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Unknown, "", stderrors.New("status-failed")
 				},
 			},
@@ -175,7 +176,7 @@ func TestHandleEndorserTransaction(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger:        logger,
-			ChannelConfig: &testChannelConfig{id: "ch-endorser"},
+			ChannelConfig: &fake.ChannelConfig{IDValue: "ch-endorser"},
 		}
 		_, err := c.HandleEndorserTransaction(t.Context(), &common.BlockMetadata{Metadata: [][]byte{}}, CommitTx{TxID: "tx8"})
 		require.ErrorContains(t, err, "block metadata lacks transaction filter")
@@ -188,9 +189,9 @@ func TestHandleEndorserTransaction(t *testing.T) {
 
 		c := &Committer{
 			logger:        logger,
-			ChannelConfig: &testChannelConfig{id: "ch-endorser"},
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			ChannelConfig: &fake.ChannelConfig{IDValue: "ch-endorser"},
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Valid, "", nil
 				},
 			},
@@ -216,8 +217,8 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Valid, "", nil
 				},
 			},
@@ -229,8 +230,8 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Invalid, "", nil
 				},
 			},
@@ -242,31 +243,31 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 		t.Parallel()
 		stored := false
 		setDiscarded := false
-		done := &testRWSet{}
+		done := &fake.RWSet{}
 		c := &Committer{
 			logger:            logger,
 			ProcessNamespaces: []string{"tracked-ns"},
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Unknown, "", nil
 				},
-				setDiscardedFn: func(context.Context, cdriver.TxID, string) error {
+				SetDiscardedFn: func(context.Context, cdriver.TxID, string) error {
 					setDiscarded = true
 					return nil
 				},
 			},
-			EnvelopeService: &testEnvelopeService{
-				existsFn: func(context.Context, string) bool { return false },
-				storeEnvelope: func(context.Context, string, any) error {
+			EnvelopeService: &fake.EnvelopeService{
+				ExistsFn: func(context.Context, string) bool { return false },
+				StoreEnvelopeFn: func(context.Context, string, any) error {
 					stored = true
 					return nil
 				},
 			},
-			RWSetLoaderService: &testRWSetLoader{
-				inspectFromEnvFn: func(context.Context, cdriver.TxID, []byte) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-					return &testRWSet{namespaces: []cdriver.Namespace{"tracked-ns"}}, nil, nil
+			RWSetLoaderService: &fake.RWSetLoader{
+				InspectFromEnvFn: func(context.Context, cdriver.TxID, []byte) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
+					return &fake.RWSet{NamespacesList: []cdriver.Namespace{"tracked-ns"}}, nil, nil
 				},
-				getFromEnvelopeFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
+				GetFromEnvelopeFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
 					return done, nil, nil
 				},
 			},
@@ -276,15 +277,15 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 		require.NoError(t, c.DiscardEndorserTransaction(t.Context(), "tx-unknown", 13, []byte("raw"), event))
 		require.True(t, stored)
 		require.True(t, setDiscarded)
-		require.GreaterOrEqual(t, done.doneCount, 1)
+		require.GreaterOrEqual(t, done.DoneCount, 1)
 	})
 
 	t.Run("status lookup error propagates", func(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Unknown, "", stderrors.New("status-failed")
 				},
 			},
@@ -297,16 +298,16 @@ func TestDiscardEndorserTransactionKnownStatuses(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Unknown, "", nil
 				},
 			},
-			EnvelopeService: &testEnvelopeService{
-				existsFn: func(context.Context, string) bool { return false },
+			EnvelopeService: &fake.EnvelopeService{
+				ExistsFn: func(context.Context, string) bool { return false },
 			},
-			RWSetLoaderService: &testRWSetLoader{
-				inspectFromEnvFn: func(context.Context, cdriver.TxID, []byte) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
+			RWSetLoaderService: &fake.RWSetLoader{
+				InspectFromEnvFn: func(context.Context, cdriver.TxID, []byte) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
 					return nil, nil, stderrors.New("inspect-failed")
 				},
 			},
@@ -332,29 +333,29 @@ func TestHandleEndorserTransactionAdditionalBranches(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			ChannelConfig: &testChannelConfig{
-				id: "ch-endorser-discard",
+			ChannelConfig: &fake.ChannelConfig{
+				IDValue: "ch-endorser-discard",
 			},
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Busy, "", nil
 				},
-				rwsExistsFn: func(context.Context, cdriver.TxID) bool { return false },
-				matchFn: func(context.Context, cdriver.TxID, []byte) error {
+				RWSExistsFn: func(context.Context, cdriver.TxID) bool { return false },
+				MatchFn: func(context.Context, cdriver.TxID, []byte) error {
 					return stderrors.New("mismatch")
 				},
 			},
-			EnvelopeService: &testEnvelopeService{
-				existsFn: func(context.Context, string) bool { return true },
+			EnvelopeService: &fake.EnvelopeService{
+				ExistsFn: func(context.Context, string) bool { return true },
 			},
-			RWSetLoaderService: &testRWSetLoader{
-				getFromEnvelopeFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-					return &testRWSet{}, nil, nil
+			RWSetLoaderService: &fake.RWSetLoader{
+				GetFromEnvelopeFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
+					return &fake.RWSet{}, nil, nil
 				},
 			},
-			TransactionManager: &testTransactionManager{
-				newProcessedFromPayloadFn: func([]byte) (fdriver.ProcessedTransaction, int32, error) {
-					return &testProcessedTransaction{results: []byte("rws")}, int32(common.HeaderType_ENDORSER_TRANSACTION), nil
+			TransactionManager: &fake.TransactionManager{
+				NewProcessedFromPayloadFn: func([]byte) (fdriver.ProcessedTransaction, int32, error) {
+					return &fake.ProcessedTransaction{ResultsBytes: []byte("rws")}, int32(common.HeaderType_ENDORSER_TRANSACTION), nil
 				},
 			},
 		}
@@ -375,19 +376,19 @@ func TestHandleEndorserTransactionAdditionalBranches(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			ChannelConfig: &testChannelConfig{
-				id: "ch-endorser-commit-fail",
+			ChannelConfig: &fake.ChannelConfig{
+				IDValue: "ch-endorser-commit-fail",
 			},
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Busy, "", nil
 				},
-				commitTxFn: func(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error {
+				CommitTxFn: func(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error {
 					return stderrors.New("vault-commit-failed")
 				},
 			},
-			ProcessorManager: &testProcessorManager{
-				processByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
+			ProcessorManager: &fake.ProcessorManager{
+				ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
 			},
 		}
 
@@ -404,20 +405,20 @@ func TestHandleEndorserTransactionAdditionalBranches(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			ChannelConfig: &testChannelConfig{
-				id: "ch-endorser-events-fail",
+			ChannelConfig: &fake.ChannelConfig{
+				IDValue: "ch-endorser-events-fail",
 			},
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Busy, "", nil
 				},
-				commitTxFn: func(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error { return nil },
+				CommitTxFn: func(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error { return nil },
 			},
-			ProcessorManager: &testProcessorManager{
-				processByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
+			ProcessorManager: &fake.ProcessorManager{
+				ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
 			},
-			TransactionManager: &testTransactionManager{
-				newProcessedFromPayloadFn: func([]byte) (fdriver.ProcessedTransaction, int32, error) {
+			TransactionManager: &fake.TransactionManager{
+				NewProcessedFromPayloadFn: func([]byte) (fdriver.ProcessedTransaction, int32, error) {
 					return nil, int32(common.HeaderType_CONFIG), nil
 				},
 			},
@@ -434,24 +435,24 @@ func TestHandleEndorserTransactionAdditionalBranches(t *testing.T) {
 
 	t.Run("valid path commits and publishes event", func(t *testing.T) {
 		t.Parallel()
-		pub := &testPublisher{}
+		pub := &fake.Publisher{}
 		c := &Committer{
 			logger:          logger,
 			EventsPublisher: pub,
-			ChannelConfig: &testChannelConfig{
-				id: "ch-endorser-ok",
+			ChannelConfig: &fake.ChannelConfig{
+				IDValue: "ch-endorser-ok",
 			},
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Busy, "", nil
 				},
-				commitTxFn: func(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error { return nil },
+				CommitTxFn: func(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error { return nil },
 			},
-			ProcessorManager: &testProcessorManager{
-				processByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
+			ProcessorManager: &fake.ProcessorManager{
+				ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
 			},
-			TransactionManager: &testTransactionManager{
-				newProcessedFromPayloadFn: func([]byte) (fdriver.ProcessedTransaction, int32, error) {
+			TransactionManager: &fake.TransactionManager{
+				NewProcessedFromPayloadFn: func([]byte) (fdriver.ProcessedTransaction, int32, error) {
 					return nil, int32(common.HeaderType_CONFIG), nil
 				},
 			},
@@ -473,6 +474,6 @@ func TestHandleEndorserTransactionAdditionalBranches(t *testing.T) {
 		require.NotNil(t, event)
 		require.Equal(t, "tx-ok", event.TxID)
 		require.Equal(t, fdriver.Valid, event.ValidationCode)
-		require.NotEmpty(t, pub.events)
+		require.NotEmpty(t, pub.Events)
 	})
 }

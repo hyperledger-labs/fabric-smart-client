@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer/fake"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
@@ -26,7 +27,7 @@ func TestHandleConfigWrapsCommitError(t *testing.T) {
 
 	c := &Committer{
 		logger:        logger,
-		ChannelConfig: &testChannelConfig{id: "ch1"},
+		ChannelConfig: &fake.ChannelConfig{IDValue: "ch1"},
 	}
 
 	_, err := c.HandleConfig(t.Context(), nil, CommitTx{
@@ -47,11 +48,11 @@ func TestReloadConfigTransactions(t *testing.T) {
 		c := &Committer{
 			logger: logger,
 			tracer: noop.NewTracerProvider().Tracer("test"),
-			Vault: &testVault{
+			Vault: &fake.Vault{
 				Vault: nil,
 			},
 		}
-		c.Vault = &testVaultWithQueryErr{testVault: testVault{}, err: stderrors.New("qe-failed")}
+		c.Vault = &fake.VaultWithQueryErr{Vault: fake.Vault{}, Err: stderrors.New("qe-failed")}
 
 		err := c.ReloadConfigTransactions()
 		require.ErrorContains(t, err, "failed getting query executor")
@@ -62,13 +63,13 @@ func TestReloadConfigTransactions(t *testing.T) {
 		c := &Committer{
 			logger: logger,
 			tracer: noop.NewTracerProvider().Tracer("test"),
-			Vault: &testVaultWithQuery{
-				testVault: testVault{
-					statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.VaultWithQuery{
+				Vault: fake.Vault{
+					StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 						return fdriver.Unknown, "", nil
 					},
 				},
-				qe: &testQueryExecutor{},
+				QE: &fake.QueryExecutor{},
 			},
 		}
 
@@ -93,8 +94,8 @@ func TestCommitConfig(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Unknown, "", stderrors.New("status-failed")
 				},
 			},
@@ -107,8 +108,8 @@ func TestCommitConfig(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Valid, "", nil
 				},
 			},
@@ -121,8 +122,8 @@ func TestCommitConfig(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger: logger,
-			Vault: &testVault{
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.Vault{
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Busy, "", nil
 				},
 			},
@@ -139,14 +140,14 @@ func TestApplyConfigUpdates(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger:        logger,
-			ChannelConfig: &testChannelConfig{id: "ch2"},
-			ConfigService: &testConfigService{networkName: "net1"},
-			MembershipService: &testMembershipService{
-				ordererConfigFn: func(fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
+			ChannelConfig: &fake.ChannelConfig{IDValue: "ch2"},
+			ConfigService: &fake.ConfigService{NetworkNameValue: "net1"},
+			MembershipService: &fake.MembershipService{
+				OrdererConfigFn: func(fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
 					return "", nil, stderrors.New("orderer-config-failed")
 				},
 			},
-			OrderingService: &testOrderingService{},
+			OrderingService: &fake.OrderingService{},
 		}
 		err := c.applyConfigUpdates()
 		require.ErrorContains(t, err, "orderer-config-failed")
@@ -156,68 +157,68 @@ func TestApplyConfigUpdates(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger:        logger,
-			ChannelConfig: &testChannelConfig{id: "ch3"},
-			ConfigService: &testConfigService{networkName: "net1"},
-			MembershipService: &testMembershipService{
-				ordererConfigFn: func(fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
+			ChannelConfig: &fake.ChannelConfig{IDValue: "ch3"},
+			ConfigService: &fake.ConfigService{NetworkNameValue: "net1"},
+			MembershipService: &fake.MembershipService{
+				OrdererConfigFn: func(fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
 					return "raft", nil, nil
 				},
 			},
-			OrderingService: &testOrderingService{},
+			OrderingService: &fake.OrderingService{},
 		}
 		require.NoError(t, c.applyConfigUpdates())
 	})
 
 	t.Run("configure orderers", func(t *testing.T) {
 		t.Parallel()
-		ordering := &testOrderingService{}
+		ordering := &fake.OrderingService{}
 		endpoints := []*grpc.ConnectionConfig{{Address: "orderer1:7050"}}
 		c := &Committer{
 			logger:        logger,
-			ChannelConfig: &testChannelConfig{id: "ch4"},
-			ConfigService: &testConfigService{networkName: "net1"},
-			MembershipService: &testMembershipService{
-				ordererConfigFn: func(fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
+			ChannelConfig: &fake.ChannelConfig{IDValue: "ch4"},
+			ConfigService: &fake.ConfigService{NetworkNameValue: "net1"},
+			MembershipService: &fake.MembershipService{
+				OrdererConfigFn: func(fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
 					return "raft", endpoints, nil
 				},
 			},
 			OrderingService: ordering,
 		}
 		require.NoError(t, c.applyConfigUpdates())
-		require.Equal(t, "raft", ordering.consensusType)
-		require.Equal(t, endpoints, ordering.endpoints)
+		require.Equal(t, "raft", ordering.ConsensusType)
+		require.Equal(t, endpoints, ordering.Endpoints)
 	})
 }
 
 func TestCommitConfigInternalSuccessPath(t *testing.T) {
 	t.Parallel()
 
-	rws := &testRWSet{}
+	rws := &fake.RWSet{}
 	committed := false
 	c := &Committer{
 		logger:        logger,
-		ChannelConfig: &testChannelConfig{id: "ch5"},
-		Vault: &testVault{
-			newRWSetFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, error) {
+		ChannelConfig: &fake.ChannelConfig{IDValue: "ch5"},
+		Vault: &fake.Vault{
+			NewRWSetFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, error) {
 				return rws, nil
 			},
-			statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 				return fdriver.Busy, "", nil
 			},
-			commitTxFn: func(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error {
+			CommitTxFn: func(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error {
 				committed = true
 				return nil
 			},
 		},
-		ProcessorManager: &testProcessorManager{
-			processByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
+		ProcessorManager: &fake.ProcessorManager{
+			ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
 		},
 	}
 
 	err := c.commitConfig(t.Context(), "configtx_1", 8, 1, []byte("env"))
 	require.NoError(t, err)
 	require.True(t, committed)
-	require.GreaterOrEqual(t, rws.doneCount, 1)
+	require.GreaterOrEqual(t, rws.DoneCount, 1)
 }
 
 func TestReloadConfigTransactionsAdditionalBranches(t *testing.T) {
@@ -228,13 +229,13 @@ func TestReloadConfigTransactionsAdditionalBranches(t *testing.T) {
 		c := &Committer{
 			logger: logger,
 			tracer: noop.NewTracerProvider().Tracer("test"),
-			Vault: &testVaultWithQuery{
-				testVault: testVault{
-					statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			Vault: &fake.VaultWithQuery{
+				Vault: fake.Vault{
+					StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 						return fdriver.Invalid, "", nil
 					},
 				},
-				qe: &testQueryExecutor{},
+				QE: &fake.QueryExecutor{},
 			},
 		}
 		err := c.ReloadConfigTransactions()
@@ -249,8 +250,8 @@ func TestReloadConfigTransactionsAdditionalBranches(t *testing.T) {
 		envRaw, err := proto.Marshal(&common.Envelope{Payload: []byte("payload")})
 		require.NoError(t, err)
 
-		ordering := &testOrderingService{
-			configureFn: func(string, []*grpc.ConnectionConfig) error {
+		ordering := &fake.OrderingService{
+			ConfigureFn: func(string, []*grpc.ConnectionConfig) error {
 				configureCalled = true
 				return nil
 			},
@@ -258,29 +259,29 @@ func TestReloadConfigTransactionsAdditionalBranches(t *testing.T) {
 		c := &Committer{
 			logger:        logger,
 			tracer:        noop.NewTracerProvider().Tracer("test"),
-			ChannelConfig: &testChannelConfig{id: "cfg-channel"},
-			ConfigService: &testConfigService{networkName: "cfg-net"},
-			Vault: &testVaultWithQuery{
-				testVault: testVault{
-					statusFn: func(_ context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
+			ChannelConfig: &fake.ChannelConfig{IDValue: "cfg-channel"},
+			ConfigService: &fake.ConfigService{NetworkNameValue: "cfg-net"},
+			Vault: &fake.VaultWithQuery{
+				Vault: fake.Vault{
+					StatusFn: func(_ context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
 						if txID == "configtx_0" {
 							return fdriver.Valid, "", nil
 						}
 						return fdriver.Unknown, "", nil
 					},
 				},
-				qe: &testQueryExecutor{
-					getStateFn: func(context.Context, cdriver.Namespace, cdriver.PKey) (*cdriver.VaultRead, error) {
+				QE: &fake.QueryExecutor{
+					GetStateFn: func(context.Context, cdriver.Namespace, cdriver.PKey) (*cdriver.VaultRead, error) {
 						return &cdriver.VaultRead{Raw: envRaw}, nil
 					},
 				},
 			},
-			MembershipService: &testMembershipService{
-				updateFn: func(*common.Envelope) error {
+			MembershipService: &fake.MembershipService{
+				UpdateFn: func(*common.Envelope) error {
 					updateCalled = true
 					return nil
 				},
-				ordererConfigFn: func(fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
+				OrdererConfigFn: func(fdriver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
 					return "raft", []*grpc.ConnectionConfig{{Address: "orderer1:7050"}}, nil
 				},
 			},
@@ -301,9 +302,9 @@ func TestCommitConfigInternalErrorPaths(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger:        logger,
-			ChannelConfig: &testChannelConfig{id: "cfg-ch-err-1"},
-			Vault: &testVault{
-				newRWSetFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, error) {
+			ChannelConfig: &fake.ChannelConfig{IDValue: "cfg-ch-err-1"},
+			Vault: &fake.Vault{
+				NewRWSetFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, error) {
 					return nil, stderrors.New("new-rws-failed")
 				},
 			},
@@ -316,11 +317,11 @@ func TestCommitConfigInternalErrorPaths(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger:        logger,
-			ChannelConfig: &testChannelConfig{id: "cfg-ch-err-2"},
-			Vault: &testVault{
-				newRWSetFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, error) {
-					return &testRWSet{
-						setStateFn: func(cdriver.Namespace, cdriver.PKey, cdriver.RawValue) error {
+			ChannelConfig: &fake.ChannelConfig{IDValue: "cfg-ch-err-2"},
+			Vault: &fake.Vault{
+				NewRWSetFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, error) {
+					return &fake.RWSet{
+						SetStateFn: func(cdriver.Namespace, cdriver.PKey, cdriver.RawValue) error {
 							return stderrors.New("setstate-failed")
 						},
 					}, nil
@@ -335,23 +336,23 @@ func TestCommitConfigInternalErrorPaths(t *testing.T) {
 		t.Parallel()
 		c := &Committer{
 			logger:        logger,
-			ChannelConfig: &testChannelConfig{id: "cfg-ch"},
-			Vault: &testVault{
-				newRWSetFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, error) {
-					return &testRWSet{}, nil
+			ChannelConfig: &fake.ChannelConfig{IDValue: "cfg-ch"},
+			Vault: &fake.Vault{
+				NewRWSetFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, error) {
+					return &fake.RWSet{}, nil
 				},
-				statusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
 					return fdriver.Busy, "", nil
 				},
-				commitTxFn: func(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error {
+				CommitTxFn: func(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error {
 					return stderrors.New("vault-commit-failed")
 				},
-				discardTxFn: func(context.Context, cdriver.TxID, string) error {
+				DiscardTxFn: func(context.Context, cdriver.TxID, string) error {
 					return nil
 				},
 			},
-			ProcessorManager: &testProcessorManager{
-				processByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
+			ProcessorManager: &fake.ProcessorManager{
+				ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
 			},
 		}
 		err := c.commitConfig(t.Context(), "configtx_4", 4, 4, []byte("env"))
