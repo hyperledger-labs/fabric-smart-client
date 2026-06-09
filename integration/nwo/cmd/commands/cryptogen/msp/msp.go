@@ -15,8 +15,8 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	ca2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/ca"
-	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/cryptogen/ca"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/cryptogen/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/pkcs11"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -44,7 +44,7 @@ var nodeOUMap = map[int]string{
 	ORDERER: ORDEREROU,
 }
 
-func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA, nodeType int, nodeOUs, hsm bool, pk *ecdsa.PublicKey) error {
+func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca.CA, nodeType int, nodeOUs, hsm bool, pk *ecdsa.PublicKey) error {
 	// create folder structure
 	mspDir := filepath.Join(baseDir, "msp")
 	tlsDir := filepath.Join(baseDir, "tls")
@@ -73,7 +73,7 @@ func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA
 		} else {
 			// get keystore path
 			keystore := filepath.Join(mspDir, "keystore")
-			priv, err := csp2.GeneratePrivateKey(keystore)
+			priv, err := csp.GeneratePrivateKey(keystore)
 			if err != nil {
 				return err
 			}
@@ -145,7 +145,7 @@ func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA
 	*/
 
 	// generate private key
-	tlsPrivKey, err := csp2.GeneratePrivateKey(tlsDir)
+	tlsPrivKey, err := csp.GeneratePrivateKey(tlsDir)
 	if err != nil {
 		return err
 	}
@@ -185,7 +185,7 @@ func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca2.CA
 func GenerateVerifyingMSP(
 	baseDir string,
 	signCA,
-	tlsCA *ca2.CA,
+	tlsCA *ca.CA,
 	nodeOUs bool,
 ) error {
 	// create folder structure and write artifacts to proper locations
@@ -232,7 +232,7 @@ func GenerateVerifyingMSP(
 	if err != nil {
 		return errors.WithMessage(err, "failed to create keystore directory")
 	}
-	priv, err := csp2.GeneratePrivateKey(ksDir)
+	priv, err := csp.GeneratePrivateKey(ksDir)
 	if err != nil {
 		return err
 	}

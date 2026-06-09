@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	fabriccore "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
+	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	webserver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"

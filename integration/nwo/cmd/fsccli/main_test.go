@@ -18,10 +18,12 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
+const cliPackagePath = "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/fsccli"
+
 func TestCompile(t *testing.T) {
 	t.Parallel()
 	gt := NewGomegaWithT(t)
-	_, err := gexec.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli")
+	_, err := gexec.Build(cliPackagePath)
 	gt.Expect(err).NotTo(HaveOccurred())
 	defer gexec.CleanupBuildArtifacts()
 }
@@ -31,7 +33,7 @@ func TestArtifactsGen(t *testing.T) { //nolint:paralleltest
 		panic(message)
 	})
 
-	cli, err := gexec.Build("github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli")
+	cli, err := gexec.Build(cliPackagePath)
 	Expect(err).NotTo(HaveOccurred())
 	defer gexec.CleanupBuildArtifacts()
 

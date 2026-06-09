@@ -18,7 +18,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
-	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
 )
 
@@ -159,7 +159,7 @@ func invoke() error {
 		return err
 	}
 
-	tracerProvider, err := tracing2.NewProviderFromConfig(tracing2.NoOp)
+	tracerProvider, err := tracing.NewProviderFromConfig(tracing.NoOp)
 	if err != nil {
 		return err
 	}

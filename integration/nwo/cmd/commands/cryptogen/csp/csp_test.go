@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/cryptogen/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
@@ -33,13 +33,13 @@ func TestLoadPrivateKey(t *testing.T) {
 		t.Fatalf("Failed to create test directory: %s", err)
 	}
 	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
-	priv, err := csp2.GeneratePrivateKey(testDir)
+	priv, err := csp.GeneratePrivateKey(testDir)
 	if err != nil {
 		t.Fatalf("Failed to generate private key: %s", err)
 	}
 	pkFile := filepath.Join(testDir, "priv_sk")
 	require.True(t, checkForFile(pkFile), "Expected to find private key file")
-	loadedPriv, err := csp2.LoadPrivateKey(testDir)
+	loadedPriv, err := csp.LoadPrivateKey(testDir)
 	require.NoError(t, err, "Failed to load private key")
 	require.NotNil(t, loadedPriv, "Should have returned an *ecdsa.PrivateKey")
 	require.Equal(t, priv, loadedPriv, "Expected private keys to match")
@@ -95,7 +95,7 @@ func TestLoadPrivateKey_BadPEM(t *testing.T) { //nolint:tparallel
 				0o755,
 			)
 			require.NoError(t, err, "failed to write to wrong encoding file")
-			_, err = csp2.LoadPrivateKey(badPEMFile)
+			_, err = csp.LoadPrivateKey(badPEMFile)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), test.errMsg)
 			utils.IgnoreErrorWithOneArg(os.Remove, badPEMFile)
@@ -112,13 +112,13 @@ func TestGeneratePrivateKey(t *testing.T) {
 	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
 
 	expectedFile := filepath.Join(testDir, "priv_sk")
-	priv, err := csp2.GeneratePrivateKey(testDir)
+	priv, err := csp.GeneratePrivateKey(testDir)
 	require.NoError(t, err, "Failed to generate private key")
 	require.NotNil(t, priv, "Should have returned an *ecdsa.Key")
 	require.True(t, checkForFile(expectedFile),
 		"Expected to find private key file")
 
-	_, err = csp2.GeneratePrivateKey("notExist")
+	_, err = csp.GeneratePrivateKey("notExist")
 	require.Contains(t, err.Error(), "no such file or directory")
 }
 
@@ -129,7 +129,7 @@ func TestECDSASigner(t *testing.T) {
 		t.Fatalf("Failed to generate private key: %s", err)
 	}
 
-	signer := csp2.ECDSASigner{
+	signer := csp.ECDSASigner{
 		PrivateKey: priv,
 	}
 	require.Equal(t, priv.Public(), signer.Public().(*ecdsa.PublicKey))
@@ -140,7 +140,7 @@ func TestECDSASigner(t *testing.T) {
 	}
 
 	// unmarshal signature
-	ecdsaSig := &csp2.ECDSASignature{}
+	ecdsaSig := &csp.ECDSASignature{}
 	_, err = asn1.Unmarshal(sig, ecdsaSig)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal signature: %s", err)
