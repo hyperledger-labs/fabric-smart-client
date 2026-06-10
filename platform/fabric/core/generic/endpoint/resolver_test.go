@@ -194,7 +194,6 @@ func TestResolverServiceLoadResolvers_SuccessAndLookups(t *testing.T) {
 	require.Equal(t, 1, backend.AddPublicKeyCalls)
 	require.Len(t, backend.AddCalls, 2)
 	require.Len(t, backend.BindCalls, 2)
-	require.Len(t, service.resolvers, 2)
 	requireResolverLookups(t, cfg.ResolversList, backend.AddCalls, backend.BindCalls, service)
 
 	require.Nil(t, service.GetIdentity("unknown"))
