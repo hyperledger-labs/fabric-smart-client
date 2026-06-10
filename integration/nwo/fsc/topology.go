@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/node"
+	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
 	node2 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
@@ -163,10 +164,24 @@ func (t *Topology) AddSDK(sdk node2.SDK) {
 	}
 }
 
+func (t *Topology) AddSDKWithExtensions(base node2.SDK, extensions ...node2.SDK) {
+	for _, n := range t.Nodes {
+		n.AddSDKWithBase(base, extensions...)
+	}
+}
+
 func (t *Topology) addNode(node *node.Node) *node.Node {
 	if len(t.Nodes) == 0 {
 		node.Bootstrap = true
 	}
 	t.Nodes = append(t.Nodes, node)
 	return node
+}
+
+func (t *Topology) AddSDKForCommType(base node2.SDK, commType P2PCommunicationType) {
+	if commType == LibP2P {
+		t.AddSDKWithExtensions(base, &libp2psupport.SDK{})
+	} else {
+		t.AddSDK(base)
+	}
 }
