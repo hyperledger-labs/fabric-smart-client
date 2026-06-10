@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	csp2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen/csp"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/cryptogen/csp"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
@@ -79,7 +79,7 @@ func NewCA(
 		return nil, err
 	}
 
-	priv, err := csp2.GeneratePrivateKey(baseDir)
+	priv, err := csp.GeneratePrivateKey(baseDir)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func NewCA(
 	}
 	ca = &CA{
 		Name: name,
-		Signer: &csp2.ECDSASigner{
+		Signer: &csp.ECDSASigner{
 			PrivateKey: priv,
 		},
 		SignCert:           x509Cert,
@@ -145,7 +145,7 @@ func LoadCA(baseDir string) (*CA, error) {
 	}
 
 	// Load private key
-	priv, err := csp2.LoadPrivateKey(baseDir)
+	priv, err := csp.LoadPrivateKey(baseDir)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func LoadCA(baseDir string) (*CA, error) {
 	// setup ca
 	ca = &CA{
 		Name: x509Cert.Subject.CommonName,
-		Signer: &csp2.ECDSASigner{
+		Signer: &csp.ECDSASigner{
 			PrivateKey: priv,
 		},
 		SignCert: x509Cert,

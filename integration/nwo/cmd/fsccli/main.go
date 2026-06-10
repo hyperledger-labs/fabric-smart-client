@@ -12,12 +12,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli/validate"
-	"github.com/hyperledger-labs/fabric-smart-client/cmd/fsccli/version"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/artifactgen"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/cryptogen"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/hsm"
-	view "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/cmd"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/artifactgen"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/cryptogen"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/hsm"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/validate"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/version"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/view"
 )
 
 func main() {

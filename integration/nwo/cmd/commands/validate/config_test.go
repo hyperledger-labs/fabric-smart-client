@@ -9,7 +9,6 @@ package validate
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -58,9 +57,14 @@ func TestValidateConfig_InvalidTracingConfig(t *testing.T) {
 func validConfigYAML(t *testing.T) string {
 	t.Helper()
 
-	cert := repoPath(t, "integration", "fsc", "pingpong", "testdata", "fsc", "crypto", "peerOrganizations", "fsc.example.com", "peers", "initiator.fsc.example.com", "tls", "server.crt")
-	key := repoPath(t, "integration", "fsc", "pingpong", "testdata", "fsc", "crypto", "peerOrganizations", "fsc.example.com", "peers", "initiator.fsc.example.com", "tls", "server.key")
-	ca := repoPath(t, "integration", "fsc", "pingpong", "testdata", "fsc", "crypto", "peerOrganizations", "fsc.example.com", "peers", "initiator.fsc.example.com", "tls", "ca.crt")
+	abs := func(path string) string {
+		p, err := filepath.Abs(path)
+		require.NoError(t, err)
+		return p
+	}
+	cert := abs(filepath.Join("testdata", "tls", "server.crt"))
+	key := abs(filepath.Join("testdata", "tls", "server.key"))
+	ca := abs(filepath.Join("testdata", "tls", "ca.crt"))
 
 	return "" +
 		"fsc:\n" +
@@ -90,14 +94,4 @@ func validConfigYAML(t *testing.T) string {
 		"  default:\n" +
 		"    default: true\n" +
 		"    driver: generic\n"
-}
-
-func repoPath(t *testing.T, elems ...string) string {
-	t.Helper()
-
-	_, currentFile, _, ok := runtime.Caller(0)
-	require.True(t, ok)
-
-	parts := append([]string{filepath.Dir(currentFile), "..", "..", ".."}, elems...)
-	return filepath.Clean(filepath.Join(parts...))
 }
