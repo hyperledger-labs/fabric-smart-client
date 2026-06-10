@@ -17,76 +17,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
-
-type testSerializableSigner struct {
-	serialized   []byte
-	serializeErr error
-	signature    []byte
-	signErr      error
-}
-
-func (s *testSerializableSigner) Sign(_ []byte) ([]byte, error) {
-	if s.signErr != nil {
-		return nil, s.signErr
-	}
-	if len(s.signature) == 0 {
-		return []byte("signature"), nil
-	}
-	return s.signature, nil
-}
-
-func (s *testSerializableSigner) Serialize() ([]byte, error) {
-	if s.serializeErr != nil {
-		return nil, s.serializeErr
-	}
-	return s.serialized, nil
-}
-
-type testSigner struct {
-	signature []byte
-	signErr   error
-}
-
-func (s *testSigner) Sign(_ []byte) ([]byte, error) {
-	if s.signErr != nil {
-		return nil, s.signErr
-	}
-	if len(s.signature) == 0 {
-		return []byte("signature"), nil
-	}
-	return s.signature, nil
-}
-
-type testProposal struct {
-	header  []byte
-	payload []byte
-}
-
-func (p *testProposal) Header() []byte  { return p.header }
-func (p *testProposal) Payload() []byte { return p.payload }
-
-type testProposalResponse struct {
-	endorser          []byte
-	payload           []byte
-	endorserSignature []byte
-	results           []byte
-	status            int32
-	message           string
-}
-
-func (r *testProposalResponse) Endorser() []byte          { return r.endorser }
-func (r *testProposalResponse) Payload() []byte           { return r.payload }
-func (r *testProposalResponse) EndorserSignature() []byte { return r.endorserSignature }
-func (r *testProposalResponse) Results() []byte           { return r.results }
-func (r *testProposalResponse) ResponseStatus() int32     { return r.status }
-func (r *testProposalResponse) ResponseMessage() string   { return r.message }
-func (r *testProposalResponse) Bytes() ([]byte, error)    { return nil, nil }
-func (r *testProposalResponse) VerifyEndorsement(driver.VerifierProvider) error {
-	return nil
-}
 
 func mustMarshalProto(t *testing.T, msg proto.Message) []byte {
 	t.Helper()
@@ -125,7 +59,7 @@ func buildProposalResponsePayload(t *testing.T, rwsetBytes []byte) []byte {
 	return payload
 }
 
-func buildProposal(t *testing.T, creator []byte, channel string) *testProposal {
+func buildProposal(t *testing.T, creator []byte, channel string) *fake.Proposal {
 	t.Helper()
 	nonce := []byte("nonce")
 	txID := protoutil.ComputeTxID(nonce, creator)
@@ -150,26 +84,26 @@ func buildProposal(t *testing.T, creator []byte, channel string) *testProposal {
 	)
 	require.NoError(t, err)
 
-	return &testProposal{
-		header:  prop.Header,
-		payload: prop.Payload,
+	return &fake.Proposal{
+		HeaderBytes:  prop.Header,
+		PayloadBytes: prop.Payload,
 	}
 }
 
 func buildResponse(status int32, message string, payload []byte) driver.ProposalResponse {
-	return &testProposalResponse{
-		endorser:          []byte("endorser"),
-		payload:           payload,
-		endorserSignature: []byte("endorser-signature"),
-		status:            status,
-		message:           message,
+	return &fake.ProposalResponse{
+		EndorserBytes:          []byte("endorser"),
+		PayloadBytes:           payload,
+		EndorserSignatureBytes: []byte("endorser-signature"),
+		Status:                 status,
+		Message:                message,
 	}
 }
 
 func buildEndorserEnvelopeBytes(t *testing.T) []byte {
 	t.Helper()
 	creator := []byte("creator")
-	signer := &testSerializableSigner{serialized: creator, signature: []byte("signature")}
+	signer := &fake.SerializableSigner{Serialized: creator, Signature: []byte("signature")}
 	proposal := buildProposal(t, creator, "mychannel")
 	resp := buildResponse(200, "OK", buildProposalResponsePayload(t, buildRWSetBytes(t, "k1", []byte("v1"))))
 
@@ -205,6 +139,14 @@ func TestUnmarshalTx(t *testing.T) {
 		require.ErrorContains(t, err, "unmarshal channel header failed")
 	})
 
+	t.Run("nil payload header", func(t *testing.T) {
+		t.Parallel()
+		payl := &common.Payload{Data: []byte("data")}
+		env := &common.Envelope{Payload: mustMarshalProto(t, payl)}
+		_, _, _, err := UnmarshalTx(mustMarshalProto(t, env))
+		require.ErrorContains(t, err, "envelope must have a Header")
+	})
+
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		env, payl, chdr, err := UnmarshalTx(buildEndorserEnvelopeBytes(t))
@@ -222,14 +164,14 @@ func TestCreateEnvelope(t *testing.T) {
 	t.Run("signer error", func(t *testing.T) {
 		t.Parallel()
 		signErr := errors.New("sign-failed")
-		s := &testSigner{signErr: signErr}
+		s := &fake.SerializableSigner{SignErr: signErr}
 		_, err := CreateEnvelope(s, &common.Header{}, []byte("payload"))
 		require.ErrorIs(t, err, signErr)
 	})
 
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
-		s := &testSigner{signature: []byte("sig")}
+		s := &fake.SerializableSigner{Signature: []byte("sig")}
 		env, err := CreateEnvelope(s, &common.Header{}, []byte("payload"))
 		require.NoError(t, err)
 		require.Equal(t, []byte("sig"), env.Signature)
@@ -244,6 +186,8 @@ func TestCreateEndorserTX(t *testing.T) {
 	t.Parallel()
 
 	serializeErr := errors.New("serialize-failed")
+	successCreator := []byte("creator")
+	successResponsePayload := buildProposalResponsePayload(t, buildRWSetBytes(t, "k1", []byte("v1")))
 	tests := []struct {
 		name   string
 		setup  func(*testing.T) (SerializableSigner, driver.Proposal, []driver.ProposalResponse)
@@ -254,7 +198,7 @@ func TestCreateEndorserTX(t *testing.T) {
 			setup: func(t *testing.T) (SerializableSigner, driver.Proposal, []driver.ProposalResponse) {
 				t.Helper()
 				proposal := buildProposal(t, []byte("creator"), "mychannel")
-				signer := &testSerializableSigner{serialized: []byte("creator")}
+				signer := &fake.SerializableSigner{Serialized: []byte("creator")}
 				return signer, proposal, nil
 			},
 			assert: func(t *testing.T, _ *common.Header, _ []byte, err error) {
@@ -266,14 +210,14 @@ func TestCreateEndorserTX(t *testing.T) {
 			name: "invalid proposal header",
 			setup: func(t *testing.T) (SerializableSigner, driver.Proposal, []driver.ProposalResponse) {
 				t.Helper()
-				proposal := &testProposal{header: []byte("bad-header"), payload: []byte("bad-payload")}
-				signer := &testSerializableSigner{serialized: []byte("creator")}
+				proposal := &fake.Proposal{HeaderBytes: []byte("bad-header"), PayloadBytes: []byte("bad-payload")}
+				signer := &fake.SerializableSigner{Serialized: []byte("creator")}
 				resp := buildResponse(200, "OK", []byte("payload"))
 				return signer, proposal, []driver.ProposalResponse{resp}
 			},
 			assert: func(t *testing.T, _ *common.Header, _ []byte, err error) {
 				t.Helper()
-				require.Error(t, err)
+				require.ErrorContains(t, err, "error unmarshalling Header")
 			},
 		},
 		{
@@ -281,14 +225,14 @@ func TestCreateEndorserTX(t *testing.T) {
 			setup: func(t *testing.T) (SerializableSigner, driver.Proposal, []driver.ProposalResponse) {
 				t.Helper()
 				validProposal := buildProposal(t, []byte("creator"), "mychannel")
-				proposal := &testProposal{header: validProposal.Header(), payload: []byte("bad-payload")}
-				signer := &testSerializableSigner{serialized: []byte("creator")}
+				proposal := &fake.Proposal{HeaderBytes: validProposal.Header(), PayloadBytes: []byte("bad-payload")}
+				signer := &fake.SerializableSigner{Serialized: []byte("creator")}
 				resp := buildResponse(200, "OK", []byte("payload"))
 				return signer, proposal, []driver.ProposalResponse{resp}
 			},
 			assert: func(t *testing.T, _ *common.Header, _ []byte, err error) {
 				t.Helper()
-				require.Error(t, err)
+				require.ErrorContains(t, err, "error unmarshalling ChaincodeProposalPayload")
 			},
 		},
 		{
@@ -296,7 +240,7 @@ func TestCreateEndorserTX(t *testing.T) {
 			setup: func(t *testing.T) (SerializableSigner, driver.Proposal, []driver.ProposalResponse) {
 				t.Helper()
 				proposal := buildProposal(t, []byte("creator"), "mychannel")
-				signer := &testSerializableSigner{serializeErr: serializeErr}
+				signer := &fake.SerializableSigner{SerializeErr: serializeErr}
 				resp := buildResponse(200, "OK", buildProposalResponsePayload(t, buildRWSetBytes(t, "k1", []byte("v1"))))
 				return signer, proposal, []driver.ProposalResponse{resp}
 			},
@@ -314,17 +258,17 @@ func TestCreateEndorserTX(t *testing.T) {
 					ChannelHeader:   []byte("channel-header"),
 					SignatureHeader: []byte("bad-signature-header"),
 				}
-				proposal := &testProposal{
-					header:  mustMarshalProto(t, hdr),
-					payload: validProposal.Payload(),
+				proposal := &fake.Proposal{
+					HeaderBytes:  mustMarshalProto(t, hdr),
+					PayloadBytes: validProposal.Payload(),
 				}
-				signer := &testSerializableSigner{serialized: []byte("creator")}
+				signer := &fake.SerializableSigner{Serialized: []byte("creator")}
 				resp := buildResponse(200, "OK", buildProposalResponsePayload(t, buildRWSetBytes(t, "k1", []byte("v1"))))
 				return signer, proposal, []driver.ProposalResponse{resp}
 			},
 			assert: func(t *testing.T, _ *common.Header, _ []byte, err error) {
 				t.Helper()
-				require.Error(t, err)
+				require.ErrorContains(t, err, "error unmarshalling SignatureHeader")
 			},
 		},
 		{
@@ -332,7 +276,7 @@ func TestCreateEndorserTX(t *testing.T) {
 			setup: func(t *testing.T) (SerializableSigner, driver.Proposal, []driver.ProposalResponse) {
 				t.Helper()
 				proposal := buildProposal(t, []byte("creator1"), "mychannel")
-				signer := &testSerializableSigner{serialized: []byte("creator2")}
+				signer := &fake.SerializableSigner{Serialized: []byte("creator2")}
 				resp := buildResponse(200, "OK", buildProposalResponsePayload(t, buildRWSetBytes(t, "k1", []byte("v1"))))
 				return signer, proposal, []driver.ProposalResponse{resp}
 			},
@@ -346,7 +290,7 @@ func TestCreateEndorserTX(t *testing.T) {
 			setup: func(t *testing.T) (SerializableSigner, driver.Proposal, []driver.ProposalResponse) {
 				t.Helper()
 				proposal := buildProposal(t, []byte("creator"), "mychannel")
-				signer := &testSerializableSigner{serialized: []byte("creator")}
+				signer := &fake.SerializableSigner{Serialized: []byte("creator")}
 				resp := buildResponse(500, "boom", buildProposalResponsePayload(t, buildRWSetBytes(t, "k1", []byte("v1"))))
 				return signer, proposal, []driver.ProposalResponse{resp}
 			},
@@ -360,7 +304,7 @@ func TestCreateEndorserTX(t *testing.T) {
 			setup: func(t *testing.T) (SerializableSigner, driver.Proposal, []driver.ProposalResponse) {
 				t.Helper()
 				proposal := buildProposal(t, []byte("creator"), "mychannel")
-				signer := &testSerializableSigner{serialized: []byte("creator")}
+				signer := &fake.SerializableSigner{Serialized: []byte("creator")}
 				resp1 := buildResponse(200, "OK", buildProposalResponsePayload(t, buildRWSetBytes(t, "k1", []byte("v1"))))
 				resp2 := buildResponse(200, "OK", buildProposalResponsePayload(t, buildRWSetBytes(t, "k1", []byte("v2"))))
 				return signer, proposal, []driver.ProposalResponse{resp1, resp2}
@@ -374,11 +318,10 @@ func TestCreateEndorserTX(t *testing.T) {
 			name: "success",
 			setup: func(t *testing.T) (SerializableSigner, driver.Proposal, []driver.ProposalResponse) {
 				t.Helper()
-				proposal := buildProposal(t, []byte("creator"), "mychannel")
-				signer := &testSerializableSigner{serialized: []byte("creator")}
-				payload := buildProposalResponsePayload(t, buildRWSetBytes(t, "k1", []byte("v1")))
-				resp1 := buildResponse(200, "OK", payload)
-				resp2 := buildResponse(200, "OK", payload)
+				proposal := buildProposal(t, successCreator, "mychannel")
+				signer := &fake.SerializableSigner{Serialized: successCreator}
+				resp1 := buildResponse(200, "OK", successResponsePayload)
+				resp2 := buildResponse(200, "OK", successResponsePayload)
 				return signer, proposal, []driver.ProposalResponse{resp1, resp2}
 			},
 			assert: func(t *testing.T, hdr *common.Header, txBytes []byte, err error) {
@@ -386,6 +329,33 @@ func TestCreateEndorserTX(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, hdr)
 				require.NotEmpty(t, txBytes)
+
+				chdr, err := protoutil.UnmarshalChannelHeader(hdr.ChannelHeader)
+				require.NoError(t, err)
+				require.Equal(t, "mychannel", chdr.ChannelId)
+
+				shdr, err := protoutil.UnmarshalSignatureHeader(hdr.SignatureHeader)
+				require.NoError(t, err)
+				require.Equal(t, successCreator, shdr.Creator)
+
+				tx, err := protoutil.UnmarshalTransaction(txBytes)
+				require.NoError(t, err)
+				require.Len(t, tx.Actions, 1)
+				require.Equal(t, hdr.SignatureHeader, tx.Actions[0].Header)
+
+				actionPayload, err := protoutil.UnmarshalChaincodeActionPayload(tx.Actions[0].Payload)
+				require.NoError(t, err)
+				require.Equal(t, successResponsePayload, actionPayload.Action.ProposalResponsePayload)
+				require.Len(t, actionPayload.Action.Endorsements, 2)
+				require.Equal(t, []byte("endorser"), actionPayload.Action.Endorsements[0].Endorser)
+				require.Equal(t, []byte("endorser-signature"), actionPayload.Action.Endorsements[0].Signature)
+
+				proposal := buildProposal(t, successCreator, "mychannel")
+				proposalPayload, err := protoutil.UnmarshalChaincodeProposalPayload(proposal.Payload())
+				require.NoError(t, err)
+				expectedPayload, err := protoutil.GetBytesProposalPayloadForTx(proposalPayload)
+				require.NoError(t, err)
+				require.Equal(t, expectedPayload, actionPayload.ChaincodeProposalPayload)
 			},
 		},
 	}
@@ -406,7 +376,7 @@ func TestCreateEndorserSignedTX(t *testing.T) {
 	t.Run("propagates create endorser tx errors", func(t *testing.T) {
 		t.Parallel()
 		proposal := buildProposal(t, []byte("creator"), "mychannel")
-		signer := &testSerializableSigner{serialized: []byte("creator")}
+		signer := &fake.SerializableSigner{Serialized: []byte("creator")}
 		_, err := CreateEndorserSignedTX(signer, proposal)
 		require.ErrorContains(t, err, "at least one proposal response is required")
 	})
@@ -414,7 +384,7 @@ func TestCreateEndorserSignedTX(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		proposal := buildProposal(t, []byte("creator"), "mychannel")
-		signer := &testSerializableSigner{serialized: []byte("creator"), signature: []byte("sig")}
+		signer := &fake.SerializableSigner{Serialized: []byte("creator"), Signature: []byte("sig")}
 		resp := buildResponse(200, "OK", buildProposalResponsePayload(t, buildRWSetBytes(t, "k1", []byte("v1"))))
 
 		env, err := CreateEndorserSignedTX(signer, proposal, resp)

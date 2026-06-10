@@ -31,7 +31,7 @@ func TestUnpackProposalResponse(t *testing.T) {
 	t.Run("invalid proposal response payload bytes", func(t *testing.T) {
 		t.Parallel()
 		_, err := UnpackProposalResponse([]byte("bad-proposal-response-payload"))
-		require.Error(t, err)
+		require.ErrorContains(t, err, "error unmarshalling ProposalResponsePayload")
 	})
 
 	t.Run("invalid chaincode action extension", func(t *testing.T) {
@@ -41,7 +41,7 @@ func TestUnpackProposalResponse(t *testing.T) {
 		}
 
 		_, err := UnpackProposalResponse(mustMarshalProto(t, prp))
-		require.Error(t, err)
+		require.ErrorContains(t, err, "error unmarshalling ChaincodeAction")
 	})
 
 	t.Run("invalid rwset bytes", func(t *testing.T) {
@@ -54,7 +54,7 @@ func TestUnpackProposalResponse(t *testing.T) {
 		}
 
 		_, err := UnpackProposalResponse(mustMarshalProto(t, prp))
-		require.Error(t, err)
+		require.ErrorContains(t, err, "cannot parse invalid wire-format data")
 	})
 
 	t.Run("success", func(t *testing.T) {
