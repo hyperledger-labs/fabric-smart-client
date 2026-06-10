@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
-	"context"
 	stderrors "errors"
 	"testing"
 
@@ -15,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	rwsetfake "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset/fake"
+	rwsetmock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset/mock"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -25,19 +26,17 @@ func TestEndorserTransactionHandlerLoad(t *testing.T) {
 		t.Parallel()
 		results := []byte("rwset-bytes")
 		_, payl, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_ENDORSER_TRANSACTION, results)
-		expectedRWS := &fakeRWSet{namespaces: []cdriver.Namespace{"ns1"}}
-		inspector := &fakeInspector{
-			newFunc: func(_ context.Context, txID cdriver.TxID, rwset []byte) (fdriver.RWSet, error) {
-				require.Equal(t, cdriver.TxID(chdr.TxId), txID)
-				require.Equal(t, results, rwset)
-				return expectedRWS, nil
-			},
-		}
+		expectedRWS := &rwsetfake.RWSet{NamespacesList: []cdriver.Namespace{"ns1"}}
+		inspector := &rwsetmock.RWSetInspector{}
+		inspector.NewRWSetFromBytesReturns(expectedRWS, nil)
 
 		h := NewEndorserTransactionHandler("test-network", "mychannel", inspector)
 		rws, tx, err := h.Load(payl, chdr)
 		require.NoError(t, err)
 		require.Same(t, expectedRWS, rws)
+		_, txID, rwset := inspector.NewRWSetFromBytesArgsForCall(0)
+		require.Equal(t, cdriver.TxID(chdr.TxId), txID)
+		require.Equal(t, results, rwset)
 		require.Equal(t, chdr.TxId, tx.ID())
 		require.Equal(t, "test-network", tx.Network())
 		require.Equal(t, "mychannel", tx.Channel())
@@ -46,7 +45,7 @@ func TestEndorserTransactionHandlerLoad(t *testing.T) {
 	t.Run("unpack error", func(t *testing.T) {
 		t.Parallel()
 		_, payl, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_CONFIG, []byte("rwset"))
-		h := NewEndorserTransactionHandler("test-network", "mychannel", &fakeInspector{})
+		h := NewEndorserTransactionHandler("test-network", "mychannel", &rwsetmock.RWSetInspector{})
 		_, _, err := h.Load(payl, chdr)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed unpacking envelope")
@@ -55,11 +54,8 @@ func TestEndorserTransactionHandlerLoad(t *testing.T) {
 	t.Run("rwset inspector error", func(t *testing.T) {
 		t.Parallel()
 		_, payl, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_ENDORSER_TRANSACTION, []byte("rwset"))
-		inspector := &fakeInspector{
-			newFunc: func(_ context.Context, _ cdriver.TxID, _ []byte) (fdriver.RWSet, error) {
-				return nil, stderrors.New("new-rwset-failed")
-			},
-		}
+		inspector := &rwsetmock.RWSetInspector{}
+		inspector.NewRWSetFromBytesReturns(nil, stderrors.New("new-rwset-failed"))
 		h := NewEndorserTransactionHandler("test-network", "mychannel", inspector)
 		_, _, err := h.Load(payl, chdr)
 		require.ErrorContains(t, err, "new-rwset-failed")
@@ -99,11 +95,7 @@ func TestLoaderAddHandlerProvider(t *testing.T) {
 
 	loader := NewLoader("network", "channel", nil, nil, nil, nil)
 	provider := func(_, _ string, _ fdriver.RWSetInspector) fdriver.RWSetPayloadHandler {
-		return &fakeRWSetHandler{
-			loadFn: func(_ *cb.Payload, _ *cb.ChannelHeader) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-				return nil, nil, nil
-			},
-		}
+		return &rwsetmock.RWSetPayloadHandler{}
 	}
 
 	err := loader.AddHandlerProvider(cb.HeaderType_ENDORSER_TRANSACTION, provider)
@@ -119,10 +111,11 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 
 	t.Run("envelope missing", func(t *testing.T) {
 		t.Parallel()
+		envelopeService := &rwsetfake.EnvelopeService{}
 		loader := NewLoader(
 			"network",
 			"channel",
-			&fakeEnvelopeService{existsFn: func(_ context.Context, _ string) bool { return false }},
+			envelopeService,
 			nil,
 			nil,
 			nil,
@@ -134,13 +127,11 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 
 	t.Run("load envelope error", func(t *testing.T) {
 		t.Parallel()
+		envelopeService := &rwsetfake.EnvelopeService{ExistsValue: true, LoadErr: stderrors.New("load-failed")}
 		loader := NewLoader(
 			"network",
 			"channel",
-			&fakeEnvelopeService{
-				existsFn: func(_ context.Context, _ string) bool { return true },
-				loadFn:   func(_ context.Context, _ string) ([]byte, error) { return nil, stderrors.New("load-failed") },
-			},
+			envelopeService,
 			nil,
 			nil,
 			nil,
@@ -152,13 +143,11 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 
 	t.Run("invalid envelope bytes", func(t *testing.T) {
 		t.Parallel()
+		envelopeService := &rwsetfake.EnvelopeService{ExistsValue: true, Envelope: []byte("bad-envelope")}
 		loader := NewLoader(
 			"network",
 			"channel",
-			&fakeEnvelopeService{
-				existsFn: func(_ context.Context, _ string) bool { return true },
-				loadFn:   func(_ context.Context, _ string) ([]byte, error) { return []byte("bad-envelope"), nil },
-			},
+			envelopeService,
 			nil,
 			nil,
 			nil,
@@ -171,13 +160,11 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 	t.Run("unsupported header type", func(t *testing.T) {
 		t.Parallel()
 		env, _, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_CONFIG, []byte("rwset"))
+		envelopeService := &rwsetfake.EnvelopeService{ExistsValue: true, Envelope: mustMarshalProto(t, env)}
 		loader := NewLoader(
 			"network",
 			"mychannel",
-			&fakeEnvelopeService{
-				existsFn: func(_ context.Context, _ string) bool { return true },
-				loadFn:   func(_ context.Context, _ string) ([]byte, error) { return mustMarshalProto(t, env), nil },
-			},
+			envelopeService,
 			nil,
 			nil,
 			nil,
@@ -190,13 +177,11 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 	t.Run("channel mismatch", func(t *testing.T) {
 		t.Parallel()
 		env, _, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_ENDORSER_TRANSACTION, []byte("rwset"))
+		envelopeService := &rwsetfake.EnvelopeService{ExistsValue: true, Envelope: mustMarshalProto(t, env)}
 		loader := NewLoader(
 			"network",
 			"channel",
-			&fakeEnvelopeService{
-				existsFn: func(_ context.Context, _ string) bool { return true },
-				loadFn:   func(_ context.Context, _ string) ([]byte, error) { return mustMarshalProto(t, env), nil },
-			},
+			envelopeService,
 			nil,
 			nil,
 			nil,
@@ -208,23 +193,16 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		env, _, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_ENDORSER_TRANSACTION, []byte("rwset"))
-		expectedRWS := &fakeRWSet{namespaces: []cdriver.Namespace{"ns1"}}
-		expectedTx := &fakeProcessTransaction{id: chdr.TxId, network: "network", channel: "mychannel"}
-		handler := &fakeRWSetHandler{
-			loadFn: func(payl *cb.Payload, header *cb.ChannelHeader) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-				require.Equal(t, chdr.TxId, header.TxId)
-				require.NotNil(t, payl)
-				return expectedRWS, expectedTx, nil
-			},
-		}
+		expectedRWS := &rwsetfake.RWSet{NamespacesList: []cdriver.Namespace{"ns1"}}
+		expectedTx := &rwsetfake.ProcessTransaction{IDValue: chdr.TxId, NetworkValue: "network", ChannelValue: "mychannel"}
+		handler := &rwsetmock.RWSetPayloadHandler{}
+		handler.LoadReturns(expectedRWS, expectedTx, nil)
+		envelopeService := &rwsetfake.EnvelopeService{ExistsValue: true, Envelope: mustMarshalProto(t, env)}
 
 		loader := NewLoader(
 			"network",
 			"mychannel",
-			&fakeEnvelopeService{
-				existsFn: func(_ context.Context, _ string) bool { return true },
-				loadFn:   func(_ context.Context, _ string) ([]byte, error) { return mustMarshalProto(t, env), nil },
-			},
+			envelopeService,
 			nil,
 			nil,
 			nil,
@@ -238,6 +216,9 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 		require.NoError(t, err)
 		require.Same(t, expectedRWS, rws)
 		require.Same(t, expectedTx, tx)
+		payl, header := handler.LoadArgsForCall(0)
+		require.Equal(t, chdr.TxId, header.TxId)
+		require.NotNil(t, payl)
 	})
 }
 
@@ -246,11 +227,12 @@ func TestLoaderGetRWSetFromETx(t *testing.T) {
 
 	t.Run("transaction missing", func(t *testing.T) {
 		t.Parallel()
+		transactionService := &rwsetfake.EndorserTransactionService{}
 		loader := NewLoader(
 			"network",
 			"channel",
 			nil,
-			&fakeTransactionService{existsFn: func(_ context.Context, _ string) bool { return false }},
+			transactionService,
 			nil,
 			nil,
 		)
@@ -261,14 +243,12 @@ func TestLoaderGetRWSetFromETx(t *testing.T) {
 
 	t.Run("load transaction error", func(t *testing.T) {
 		t.Parallel()
+		transactionService := &rwsetfake.EndorserTransactionService{ExistsValue: true, LoadErr: stderrors.New("load-etx-failed")}
 		loader := NewLoader(
 			"network",
 			"channel",
 			nil,
-			&fakeTransactionService{
-				existsFn: func(_ context.Context, _ string) bool { return true },
-				loadFn:   func(_ context.Context, _ string) ([]byte, error) { return nil, stderrors.New("load-etx-failed") },
-			},
+			transactionService,
 			nil,
 			nil,
 		)
@@ -279,19 +259,15 @@ func TestLoaderGetRWSetFromETx(t *testing.T) {
 
 	t.Run("new transaction error", func(t *testing.T) {
 		t.Parallel()
+		transactionService := &rwsetfake.EndorserTransactionService{ExistsValue: true, Transaction: []byte("tx-bytes")}
+		transactionManager := &rwsetmock.TransactionManager{}
+		transactionManager.NewTransactionFromBytesReturns(nil, stderrors.New("new-tx-failed"))
 		loader := NewLoader(
 			"network",
 			"channel",
 			nil,
-			&fakeTransactionService{
-				existsFn: func(_ context.Context, _ string) bool { return true },
-				loadFn:   func(_ context.Context, _ string) ([]byte, error) { return []byte("tx-bytes"), nil },
-			},
-			&fakeTransactionManager{
-				newFromBytesFn: func(_ context.Context, _ string, _ []byte) (fdriver.Transaction, error) {
-					return nil, stderrors.New("new-tx-failed")
-				},
-			},
+			transactionService,
+			transactionManager,
 			nil,
 		)
 		_, _, err := loader.GetRWSetFromETx(t.Context(), "tx1")
@@ -300,23 +276,15 @@ func TestLoaderGetRWSetFromETx(t *testing.T) {
 
 	t.Run("get rwset error", func(t *testing.T) {
 		t.Parallel()
+		transactionService := &rwsetfake.EndorserTransactionService{ExistsValue: true, Transaction: []byte("tx-bytes")}
+		transactionManager := &rwsetmock.TransactionManager{}
+		transactionManager.NewTransactionFromBytesReturns(&rwsetfake.Transaction{RWSetErr: stderrors.New("get-rwset-failed")}, nil)
 		loader := NewLoader(
 			"network",
 			"channel",
 			nil,
-			&fakeTransactionService{
-				existsFn: func(_ context.Context, _ string) bool { return true },
-				loadFn:   func(_ context.Context, _ string) ([]byte, error) { return []byte("tx-bytes"), nil },
-			},
-			&fakeTransactionManager{
-				newFromBytesFn: func(_ context.Context, _ string, _ []byte) (fdriver.Transaction, error) {
-					return &fakeTransaction{
-						getRWSetFn: func() (fdriver.RWSet, error) {
-							return nil, stderrors.New("get-rwset-failed")
-						},
-					}, nil
-				},
-			},
+			transactionService,
+			transactionManager,
 			nil,
 		)
 		_, _, err := loader.GetRWSetFromETx(t.Context(), "tx1")
@@ -325,30 +293,25 @@ func TestLoaderGetRWSetFromETx(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
-		expectedRWS := &fakeRWSet{namespaces: []cdriver.Namespace{"ns1"}}
-		expectedTx := &fakeTransaction{
-			getRWSetFn: func() (fdriver.RWSet, error) { return expectedRWS, nil },
-		}
+		expectedRWS := &rwsetfake.RWSet{NamespacesList: []cdriver.Namespace{"ns1"}}
+		expectedTx := &rwsetfake.Transaction{RWSetValue: expectedRWS}
+		transactionService := &rwsetfake.EndorserTransactionService{ExistsValue: true, Transaction: []byte("tx-bytes")}
+		transactionManager := &rwsetmock.TransactionManager{}
+		transactionManager.NewTransactionFromBytesReturns(expectedTx, nil)
 		loader := NewLoader(
 			"network",
 			"channel",
 			nil,
-			&fakeTransactionService{
-				existsFn: func(_ context.Context, _ string) bool { return true },
-				loadFn:   func(_ context.Context, _ string) ([]byte, error) { return []byte("tx-bytes"), nil },
-			},
-			&fakeTransactionManager{
-				newFromBytesFn: func(_ context.Context, _ string, raw []byte) (fdriver.Transaction, error) {
-					require.Equal(t, []byte("tx-bytes"), raw)
-					return expectedTx, nil
-				},
-			},
+			transactionService,
+			transactionManager,
 			nil,
 		)
 		rws, tx, err := loader.GetRWSetFromETx(t.Context(), "tx1")
 		require.NoError(t, err)
 		require.Same(t, expectedRWS, rws)
 		require.Same(t, expectedTx, tx)
+		_, _, raw := transactionManager.NewTransactionFromBytesArgsForCall(0)
+		require.Equal(t, []byte("tx-bytes"), raw)
 	})
 }
 
@@ -357,7 +320,7 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 
 	t.Run("invalid envelope", func(t *testing.T) {
 		t.Parallel()
-		loader := NewLoader("network", "channel", nil, nil, nil, &fakeInspector{})
+		loader := NewLoader("network", "channel", nil, nil, nil, &rwsetmock.RWSetInspector{})
 		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), "tx1", []byte("bad-envelope"))
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed unmarshalling envelope")
@@ -366,7 +329,7 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 	t.Run("unpack error", func(t *testing.T) {
 		t.Parallel()
 		env, _, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_CONFIG, []byte("rwset"))
-		loader := NewLoader("network", "channel", nil, nil, nil, &fakeInspector{})
+		loader := NewLoader("network", "channel", nil, nil, nil, &rwsetmock.RWSetInspector{})
 		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed unpacking envelope")
@@ -375,17 +338,15 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 	t.Run("inspect error", func(t *testing.T) {
 		t.Parallel()
 		env, _, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_ENDORSER_TRANSACTION, []byte("rwset"))
+		inspector := &rwsetmock.RWSetInspector{}
+		inspector.InspectRWSetReturns(nil, stderrors.New("inspect-failed"))
 		loader := NewLoader(
 			"network",
 			"mychannel",
 			nil,
 			nil,
 			nil,
-			&fakeInspector{
-				inspectFunc: func(_ context.Context, _ []byte, _ ...cdriver.Namespace) (fdriver.RWSet, error) {
-					return nil, stderrors.New("inspect-failed")
-				},
-			},
+			inspector,
 		)
 		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
 		require.ErrorContains(t, err, "inspect-failed")
@@ -394,7 +355,7 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 	t.Run("channel mismatch", func(t *testing.T) {
 		t.Parallel()
 		env, _, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_ENDORSER_TRANSACTION, []byte("rwset"))
-		loader := NewLoader("network", "channel", nil, nil, nil, &fakeInspector{})
+		loader := NewLoader("network", "channel", nil, nil, nil, &rwsetmock.RWSetInspector{})
 		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
 		require.ErrorContains(t, err, "channel mismatch, expected [channel], got [mychannel]")
 	})
@@ -403,23 +364,22 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 		t.Parallel()
 		results := []byte("rwset")
 		env, _, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_ENDORSER_TRANSACTION, results)
-		expectedRWS := &fakeRWSet{namespaces: []cdriver.Namespace{"ns1"}}
+		expectedRWS := &rwsetfake.RWSet{NamespacesList: []cdriver.Namespace{"ns1"}}
+		inspector := &rwsetmock.RWSetInspector{}
+		inspector.InspectRWSetReturns(expectedRWS, nil)
 		loader := NewLoader(
 			"network",
 			"mychannel",
 			nil,
 			nil,
 			nil,
-			&fakeInspector{
-				inspectFunc: func(_ context.Context, rwsetBytes []byte, _ ...cdriver.Namespace) (fdriver.RWSet, error) {
-					require.Equal(t, results, rwsetBytes)
-					return expectedRWS, nil
-				},
-			},
+			inspector,
 		)
 		rws, tx, err := loader.GetInspectingRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
 		require.NoError(t, err)
 		require.Same(t, expectedRWS, rws)
+		_, rwsetBytes, _ := inspector.InspectRWSetArgsForCall(0)
+		require.Equal(t, results, rwsetBytes)
 		require.Equal(t, chdr.TxId, tx.ID())
 		require.Equal(t, "network", tx.Network())
 		require.Equal(t, "mychannel", tx.Channel())

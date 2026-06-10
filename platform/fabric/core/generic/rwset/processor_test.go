@@ -7,14 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package rwset
 
 import (
-	"context"
 	stderrors "errors"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	rwsetfake "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset/fake"
+	rwsetmock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/rwset/mock"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -29,15 +29,11 @@ func TestProcessorManagerConfigurationHelpers(t *testing.T) {
 
 	pm := NewProcessorManager(nil, nil)
 
-	custom := &fakeProcessor{processFn: func(_ fdriver.Request, _ fdriver.ProcessTransaction, _ fdriver.RWSet, _ string) error {
-		return nil
-	}}
+	custom := &rwsetmock.Processor{}
 	require.NoError(t, pm.AddProcessor("ns1", custom))
 	require.Same(t, custom, pm.processors["ns1"])
 
-	defaultP := &fakeProcessor{processFn: func(_ fdriver.Request, _ fdriver.ProcessTransaction, _ fdriver.RWSet, _ string) error {
-		return nil
-	}}
+	defaultP := &rwsetmock.Processor{}
 	require.NoError(t, pm.SetDefaultProcessor(defaultP))
 	require.Same(t, defaultP, pm.defaultProcessor)
 
@@ -51,10 +47,9 @@ func TestProcessorManagerProcessByID(t *testing.T) {
 
 	t.Run("channel provider error", func(t *testing.T) {
 		t.Parallel()
+		channelProvider := &rwsetfake.ChannelProvider{ChannelErr: stderrors.New("channel-failed")}
 		pm := NewProcessorManager(
-			&fakeChannelProvider{
-				channelFn: func(_ string) (fdriver.Channel, error) { return nil, stderrors.New("channel-failed") },
-			},
+			channelProvider,
 			nil,
 		)
 		err := pm.ProcessByID(t.Context(), "ch1", "tx1")
@@ -64,47 +59,24 @@ func TestProcessorManagerProcessByID(t *testing.T) {
 
 	t.Run("no entry found", func(t *testing.T) {
 		t.Parallel()
+		loader := &rwsetmock.RWSetLoader{}
+		channelProvider := &rwsetfake.ChannelProvider{ChannelValue: newFakeChannel(false, false, loader)}
 		pm := NewProcessorManager(
-			&fakeChannelProvider{
-				channelFn: func(_ string) (fdriver.Channel, error) {
-					return &fakeChannel{
-						envService: &fakeEnvelopeService{existsFn: func(_ context.Context, _ string) bool { return false }},
-						txService:  &fakeTransactionService{existsFn: func(_ context.Context, _ string) bool { return false }},
-						loader: &fakeRWSetLoader{
-							fromEnvFn: func(_ context.Context, _ cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-								return nil, nil, nil
-							},
-							fromETxFn: func(_ context.Context, _ cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-								return nil, nil, nil
-							},
-						},
-					}, nil
-				},
-			},
+			channelProvider,
 			nil,
 		)
 		require.NoError(t, pm.ProcessByID(t.Context(), "ch1", "tx1"))
+		require.Equal(t, 0, loader.GetRWSetFromEvnCallCount())
+		require.Equal(t, 0, loader.GetRWSetFromETxCallCount())
 	})
 
 	t.Run("extraction error", func(t *testing.T) {
 		t.Parallel()
+		loader := &rwsetmock.RWSetLoader{}
+		loader.GetRWSetFromEvnReturns(nil, nil, stderrors.New("extract-failed"))
+		channelProvider := &rwsetfake.ChannelProvider{ChannelValue: newFakeChannel(true, false, loader)}
 		pm := NewProcessorManager(
-			&fakeChannelProvider{
-				channelFn: func(_ string) (fdriver.Channel, error) {
-					return &fakeChannel{
-						envService: &fakeEnvelopeService{existsFn: func(_ context.Context, _ string) bool { return true }},
-						txService:  &fakeTransactionService{existsFn: func(_ context.Context, _ string) bool { return false }},
-						loader: &fakeRWSetLoader{
-							fromEnvFn: func(_ context.Context, _ cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-								return nil, nil, stderrors.New("extract-failed")
-							},
-							fromETxFn: func(_ context.Context, _ cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-								return nil, nil, nil
-							},
-						},
-					}, nil
-				},
-			},
+			channelProvider,
 			nil,
 		)
 		err := pm.ProcessByID(t.Context(), "ch1", "tx1")
@@ -114,82 +86,57 @@ func TestProcessorManagerProcessByID(t *testing.T) {
 
 	t.Run("custom and default processors are used", func(t *testing.T) {
 		t.Parallel()
-		rws := &fakeRWSet{namespaces: []cdriver.Namespace{"ns-custom", "ns-default"}}
-		tx := &fakeProcessTransaction{id: "tx1", network: "network", channel: "ch1", fn: "invoke", args: []string{"a"}}
-
-		var customCalls []string
-		custom := &fakeProcessor{
-			processFn: func(req fdriver.Request, processTX fdriver.ProcessTransaction, _ fdriver.RWSet, ns string) error {
-				customCalls = append(customCalls, fmt.Sprintf("%s:%s", req.ID(), ns))
-				require.Equal(t, "tx1", processTX.ID())
-				return nil
-			},
-		}
-
-		var defaultCalls []string
-		defaultP := &fakeProcessor{
-			processFn: func(req fdriver.Request, _ fdriver.ProcessTransaction, _ fdriver.RWSet, ns string) error {
-				defaultCalls = append(defaultCalls, fmt.Sprintf("%s:%s", req.ID(), ns))
-				return nil
-			},
-		}
+		rws := &rwsetfake.RWSet{NamespacesList: []cdriver.Namespace{"ns-custom", "ns-default"}}
+		tx := &rwsetfake.ProcessTransaction{IDValue: "tx1", NetworkValue: "network", ChannelValue: "ch1", Function: "invoke", Args: []string{"a"}}
+		custom := &rwsetmock.Processor{}
+		defaultP := &rwsetmock.Processor{}
+		loader := &rwsetmock.RWSetLoader{}
+		loader.GetRWSetFromEvnReturns(rws, tx, nil)
+		channelProvider := &rwsetfake.ChannelProvider{ChannelValue: newFakeChannel(true, false, loader)}
 
 		pm := NewProcessorManager(
-			&fakeChannelProvider{
-				channelFn: func(_ string) (fdriver.Channel, error) {
-					return &fakeChannel{
-						envService: &fakeEnvelopeService{existsFn: func(_ context.Context, _ string) bool { return true }},
-						txService:  &fakeTransactionService{existsFn: func(_ context.Context, _ string) bool { return false }},
-						loader: &fakeRWSetLoader{
-							fromEnvFn: func(_ context.Context, _ cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-								return rws, tx, nil
-							},
-							fromETxFn: func(_ context.Context, _ cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-								return nil, nil, nil
-							},
-						},
-					}, nil
-				},
-			},
+			channelProvider,
 			defaultP,
 		)
 		require.NoError(t, pm.AddProcessor("ns-custom", custom))
 		require.NoError(t, pm.ProcessByID(t.Context(), "ch1", "tx1"))
 
-		require.Equal(t, []string{"tx1:ns-custom"}, customCalls)
-		require.Equal(t, []string{"tx1:ns-default"}, defaultCalls)
-		require.Equal(t, 1, rws.doneCalls)
+		require.Equal(t, 1, custom.ProcessCallCount())
+		req, processTX, _, ns := custom.ProcessArgsForCall(0)
+		require.Equal(t, "tx1", req.ID())
+		require.Equal(t, "tx1", processTX.ID())
+		require.Equal(t, "ns-custom", ns)
+
+		require.Equal(t, 1, defaultP.ProcessCallCount())
+		req, _, _, ns = defaultP.ProcessArgsForCall(0)
+		require.Equal(t, "tx1", req.ID())
+		require.Equal(t, "ns-default", ns)
+		require.Equal(t, 1, rws.DoneCalls)
 	})
 
 	t.Run("etx path and processor error", func(t *testing.T) {
 		t.Parallel()
-		rws := &fakeRWSet{namespaces: []cdriver.Namespace{"ns1"}}
-		tx := &fakeProcessTransaction{id: "tx1", network: "network", channel: "ch1"}
+		rws := &rwsetfake.RWSet{NamespacesList: []cdriver.Namespace{"ns1"}}
+		tx := &rwsetfake.ProcessTransaction{IDValue: "tx1", NetworkValue: "network", ChannelValue: "ch1"}
+		loader := &rwsetmock.RWSetLoader{}
+		loader.GetRWSetFromETxReturns(rws, tx, nil)
+		channelProvider := &rwsetfake.ChannelProvider{ChannelValue: newFakeChannel(false, true, loader)}
+		processor := &rwsetmock.Processor{}
+		processor.ProcessReturns(stderrors.New("process-failed"))
 		pm := NewProcessorManager(
-			&fakeChannelProvider{
-				channelFn: func(_ string) (fdriver.Channel, error) {
-					return &fakeChannel{
-						envService: &fakeEnvelopeService{existsFn: func(_ context.Context, _ string) bool { return false }},
-						txService:  &fakeTransactionService{existsFn: func(_ context.Context, _ string) bool { return true }},
-						loader: &fakeRWSetLoader{
-							fromEnvFn: func(_ context.Context, _ cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-								return nil, nil, nil
-							},
-							fromETxFn: func(_ context.Context, _ cdriver.TxID) (fdriver.RWSet, fdriver.ProcessTransaction, error) {
-								return rws, tx, nil
-							},
-						},
-					}, nil
-				},
-			},
-			&fakeProcessor{
-				processFn: func(_ fdriver.Request, _ fdriver.ProcessTransaction, _ fdriver.RWSet, _ string) error {
-					return stderrors.New("process-failed")
-				},
-			},
+			channelProvider,
+			processor,
 		)
 		err := pm.ProcessByID(t.Context(), "ch1", "tx1")
 		require.ErrorContains(t, err, "process-failed")
-		require.Equal(t, 1, rws.doneCalls)
+		require.Equal(t, 1, rws.DoneCalls)
 	})
+}
+
+func newFakeChannel(envExists, txExists bool, loader fdriver.RWSetLoader) *rwsetfake.Channel {
+	return &rwsetfake.Channel{
+		EnvelopeServiceValue:    &rwsetfake.EnvelopeService{ExistsValue: envExists},
+		TransactionServiceValue: &rwsetfake.EndorserTransactionService{ExistsValue: txExists},
+		RWSetLoaderValue:        loader,
+	}
 }
