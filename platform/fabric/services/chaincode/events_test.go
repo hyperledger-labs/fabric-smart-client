@@ -64,7 +64,7 @@ func TestEventsView(t *testing.T) {
 		t.Parallel()
 
 		sub := &mockSubscriber{}
-		mockCtx, _, _ := setupMockContextWithSubscriber(sub)
+		mockCtx, _, _ := setupMockContextWithSubscriber(t, sub)
 
 		eventCh := make(chan *chaincode.Event, 1)
 		mockCallback := func(event *chaincode.Event) (bool, error) {

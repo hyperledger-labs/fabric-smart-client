@@ -87,7 +87,7 @@ func TestEndorseView(t *testing.T) {
 	t.Run("Endorse happy path", func(t *testing.T) {
 		t.Parallel()
 
-		mockCtx, mockInv, _ := setupMockContext()
+		mockCtx, mockInv, _ := setupMockContext(t)
 
 		v := chaincode.NewEndorseView("my-chaincode", "my-func", "arg1").
 			WithTransientEntry("k1", "v1").

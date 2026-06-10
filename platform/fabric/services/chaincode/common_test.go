@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode_test
 
 import (
-	"context"
+	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	ledgermock "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger/mock"
@@ -21,13 +21,15 @@ type dummySubscriber struct{}
 func (d *dummySubscriber) Subscribe(topic string, listener events.Listener)   {}
 func (d *dummySubscriber) Unsubscribe(topic string, listener events.Listener) {}
 
-func setupMockContext() (*mock.Context, *ledgermock.ChaincodeInvocation, *endorsermock.Envelope) {
-	return setupMockContextWithSubscriber(&dummySubscriber{})
+func setupMockContext(t *testing.T) (*mock.Context, *ledgermock.ChaincodeInvocation, *endorsermock.Envelope) {
+	t.Helper()
+	return setupMockContextWithSubscriber(t, &dummySubscriber{})
 }
 
-func setupMockContextWithSubscriber(sub events.Subscriber) (*mock.Context, *ledgermock.ChaincodeInvocation, *endorsermock.Envelope) {
+func setupMockContextWithSubscriber(t *testing.T, sub events.Subscriber) (*mock.Context, *ledgermock.ChaincodeInvocation, *endorsermock.Envelope) {
+	t.Helper()
 	mockCtx := &mock.Context{}
-	mockCtx.ContextReturns(context.Background())
+	mockCtx.ContextReturns(t.Context())
 	mockChaincodeInvocation := &ledgermock.ChaincodeInvocation{}
 	mockChaincodeInvocation.WithSignerIdentityReturns(mockChaincodeInvocation)
 	mockChaincodeInvocation.WithTransientEntryReturns(mockChaincodeInvocation, nil)
