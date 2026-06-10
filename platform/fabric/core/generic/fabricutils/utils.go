@@ -38,6 +38,9 @@ func UnmarshalTx(tx []byte) (*common.Envelope, *common.Payload, *common.ChannelH
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "unmarshal payload failed")
 	}
+	if payl.Header == nil {
+		return nil, nil, nil, errors.New("envelope must have a Header")
+	}
 	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "unmarshal channel header failed")

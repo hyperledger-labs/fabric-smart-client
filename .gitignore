@@ -7,5 +7,5 @@
 # ignoring all generated artifacts in integration tests
 integration/**/out/
 
-cmd/fsccli/cmd
+integration/nwo/cmd/fsccli/cmd
 /.bob/notes/pending-notes.txt

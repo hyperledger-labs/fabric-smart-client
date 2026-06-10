@@ -27,7 +27,7 @@ jobs:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
       - run: make -j2 install-tools install-linter-tool
-      - run: make -j4 checks
+      - run: make checks
 
   utest:
     needs:
