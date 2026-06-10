@@ -7,105 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package endpoint
 
 import (
-	"context"
 	"errors"
-	"maps"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
-	viewendpoint "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/endpoint/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
-
-type fakeConfig struct {
-	resolvers  []config.Resolver
-	resolveErr error
-	translate  func(path string) string
-}
-
-func (f *fakeConfig) Resolvers() ([]config.Resolver, error) {
-	if f.resolveErr != nil {
-		return nil, f.resolveErr
-	}
-	return f.resolvers, nil
-}
-
-func (f *fakeConfig) TranslatePath(path string) string {
-	if f.translate != nil {
-		return f.translate(path)
-	}
-	return path
-}
-
-type bindCall struct {
-	longTerm  view.Identity
-	ephemeral []view.Identity
-}
-
-type addResolverCall struct {
-	name      string
-	domain    string
-	addresses map[string]string
-	aliases   []string
-	id        []byte
-}
-
-type fakeResolverServiceBackend struct {
-	addPublicKeyExtractorErr error
-	addPublicKeyCalls        int
-
-	addResolverErr error
-	addResolverFn  func(name, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error)
-	addResolverIDs []view.Identity
-	addCalls       []addResolverCall
-
-	bindErr   error
-	bindCalls []bindCall
-}
-
-func (f *fakeResolverServiceBackend) Bind(_ context.Context, longTerm view.Identity, ephemeral ...view.Identity) error {
-	f.bindCalls = append(f.bindCalls, bindCall{
-		longTerm:  longTerm,
-		ephemeral: append([]view.Identity(nil), ephemeral...),
-	})
-	return f.bindErr
-}
-
-func (f *fakeResolverServiceBackend) AddResolver(name, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
-	f.addCalls = append(f.addCalls, addResolverCall{
-		name:      name,
-		domain:    domain,
-		addresses: copyStringMap(addresses),
-		aliases:   append([]string(nil), aliases...),
-		id:        append([]byte(nil), id...),
-	})
-	if f.addResolverErr != nil {
-		return nil, f.addResolverErr
-	}
-	if f.addResolverFn != nil {
-		return f.addResolverFn(name, domain, addresses, aliases, id)
-	}
-	if len(f.addResolverIDs) > 0 {
-		next := f.addResolverIDs[0]
-		f.addResolverIDs = f.addResolverIDs[1:]
-		return next, nil
-	}
-	return view.Identity("root-id"), nil
-}
-
-func (f *fakeResolverServiceBackend) AddPublicKeyExtractor(_ viewendpoint.PublicKeyExtractor) error {
-	f.addPublicKeyCalls++
-	return f.addPublicKeyExtractorErr
-}
-
-func copyStringMap(src map[string]string) map[string]string {
-	dst := make(map[string]string, len(src))
-	maps.Copy(dst, src)
-	return dst
-}
 
 func TestResolverGetIdentity_WithIdentityGetter(t *testing.T) {
 	t.Parallel()
@@ -134,38 +45,37 @@ func TestNewResolverService_AddPublicKeyExtractorError(t *testing.T) {
 	t.Parallel()
 
 	expectedErr := errors.New("extractor registration failed")
-	cfg := &fakeConfig{}
-	backend := &fakeResolverServiceBackend{
-		addPublicKeyExtractorErr: expectedErr,
+	cfg := &fake.Config{}
+	backend := &fake.ResolverServiceBackend{
+		AddPublicKeyExtractorErr: expectedErr,
 	}
 
 	service, err := NewResolverService(cfg, backend)
-	require.Error(t, err)
 	require.ErrorIs(t, err, expectedErr)
 	require.Nil(t, service)
-	require.Equal(t, 1, backend.addPublicKeyCalls)
+	require.Equal(t, 1, backend.AddPublicKeyCalls)
 }
 
 func TestResolverServiceLoadResolvers_ConfigError(t *testing.T) {
 	t.Parallel()
 
 	expectedErr := errors.New("resolvers not available")
-	cfg := &fakeConfig{resolveErr: expectedErr}
-	backend := &fakeResolverServiceBackend{}
+	cfg := &fake.Config{ResolveErr: expectedErr}
+	backend := &fake.ResolverServiceBackend{}
 	service, err := NewResolverService(cfg, backend)
 	require.NoError(t, err)
 
 	err = service.LoadResolvers()
 	require.ErrorIs(t, err, expectedErr)
-	require.Empty(t, backend.addCalls)
-	require.Empty(t, backend.bindCalls)
+	require.Empty(t, backend.AddCalls)
+	require.Empty(t, backend.BindCalls)
 }
 
 func TestResolverServiceLoadResolvers_StatError(t *testing.T) {
 	t.Parallel()
 
-	cfg := &fakeConfig{
-		resolvers: []config.Resolver{
+	cfg := &fake.Config{
+		ResolversList: []config.Resolver{
 			{
 				Name: "alice",
 				Identity: config.MSP{
@@ -175,22 +85,21 @@ func TestResolverServiceLoadResolvers_StatError(t *testing.T) {
 			},
 		},
 	}
-	backend := &fakeResolverServiceBackend{}
+	backend := &fake.ResolverServiceBackend{}
 	service, err := NewResolverService(cfg, backend)
 	require.NoError(t, err)
 
 	err = service.LoadResolvers()
-	require.Error(t, err)
 	require.ErrorContains(t, err, "failed to stat")
-	require.Empty(t, backend.addCalls)
+	require.Empty(t, backend.AddCalls)
 }
 
 func TestResolverServiceLoadResolvers_AddResolverError(t *testing.T) {
 	t.Parallel()
 
 	certPath := filepath.Join("..", "msp", "x509", "testdata", "msp", "signcerts", "auditor.org1.example.com-cert.pem")
-	cfg := &fakeConfig{
-		resolvers: []config.Resolver{
+	cfg := &fake.Config{
+		ResolversList: []config.Resolver{
 			{
 				Name: "alice",
 				Identity: config.MSP{
@@ -201,25 +110,24 @@ func TestResolverServiceLoadResolvers_AddResolverError(t *testing.T) {
 		},
 	}
 	expectedErr := errors.New("add resolver failed")
-	backend := &fakeResolverServiceBackend{
-		addResolverErr: expectedErr,
+	backend := &fake.ResolverServiceBackend{
+		AddResolverErr: expectedErr,
 	}
 	service, err := NewResolverService(cfg, backend)
 	require.NoError(t, err)
 
 	err = service.LoadResolvers()
-	require.Error(t, err)
 	require.ErrorIs(t, err, expectedErr)
-	require.Len(t, backend.addCalls, 1)
-	require.Empty(t, backend.bindCalls)
+	require.Len(t, backend.AddCalls, 1)
+	require.Empty(t, backend.BindCalls)
 }
 
 func TestResolverServiceLoadResolvers_BindAliasError(t *testing.T) {
 	t.Parallel()
 
 	certPath := filepath.Join("..", "msp", "x509", "testdata", "msp", "signcerts", "auditor.org1.example.com-cert.pem")
-	cfg := &fakeConfig{
-		resolvers: []config.Resolver{
+	cfg := &fake.Config{
+		ResolversList: []config.Resolver{
 			{
 				Name: "alice",
 				Identity: config.MSP{
@@ -231,18 +139,17 @@ func TestResolverServiceLoadResolvers_BindAliasError(t *testing.T) {
 		},
 	}
 	expectedErr := errors.New("bind failed")
-	backend := &fakeResolverServiceBackend{
-		bindErr: expectedErr,
+	backend := &fake.ResolverServiceBackend{
+		BindErr: expectedErr,
 	}
 	service, err := NewResolverService(cfg, backend)
 	require.NoError(t, err)
 
 	err = service.LoadResolvers()
-	require.Error(t, err)
 	require.ErrorIs(t, err, expectedErr)
-	require.Len(t, backend.addCalls, 1)
-	require.Len(t, backend.bindCalls, 1)
-	require.Equal(t, view.Identity("alice-alias"), backend.bindCalls[0].ephemeral[0])
+	require.Len(t, backend.AddCalls, 1)
+	require.Len(t, backend.BindCalls, 1)
+	require.Equal(t, view.Identity("alice-alias"), backend.BindCalls[0].Ephemeral[0])
 }
 
 func TestResolverServiceLoadResolvers_SuccessAndLookups(t *testing.T) {
@@ -250,8 +157,8 @@ func TestResolverServiceLoadResolvers_SuccessAndLookups(t *testing.T) {
 
 	mspPath := filepath.Join("..", "msp", "x509", "testdata", "msp")
 	certPath := filepath.Join("..", "msp", "x509", "testdata", "msp", "signcerts", "auditor.org1.example.com-cert.pem")
-	cfg := &fakeConfig{
-		resolvers: []config.Resolver{
+	cfg := &fake.Config{
+		ResolversList: []config.Resolver{
 			{
 				Name:    "alice",
 				Domain:  "example.com",
@@ -274,8 +181,8 @@ func TestResolverServiceLoadResolvers_SuccessAndLookups(t *testing.T) {
 			},
 		},
 	}
-	backend := &fakeResolverServiceBackend{
-		addResolverFn: func(name, _ string, _ map[string]string, _ []string, _ []byte) (view.Identity, error) {
+	backend := &fake.ResolverServiceBackend{
+		AddResolverFn: func(name, _ string, _ map[string]string, _ []string, _ []byte) (view.Identity, error) {
 			return view.Identity("root-" + name), nil
 		},
 	}
@@ -284,23 +191,53 @@ func TestResolverServiceLoadResolvers_SuccessAndLookups(t *testing.T) {
 
 	err = service.LoadResolvers()
 	require.NoError(t, err)
-	require.Equal(t, 1, backend.addPublicKeyCalls)
-	require.Len(t, backend.addCalls, 2)
-	require.Len(t, backend.bindCalls, 2)
+	require.Equal(t, 1, backend.AddPublicKeyCalls)
+	require.Len(t, backend.AddCalls, 2)
+	require.Len(t, backend.BindCalls, 2)
 	require.Len(t, service.resolvers, 2)
-
-	alice := service.resolvers[0]
-	bob := service.resolvers[1]
-
-	require.Equal(t, view.Identity(alice.Id), service.GetIdentity("alice"))
-	require.Equal(t, view.Identity(alice.Id), service.GetIdentity("a1"))
-	require.Equal(t, view.Identity(alice.Id), service.GetIdentity(view.Identity(alice.Id).UniqueID()))
-	require.Equal(t, view.Identity(alice.Id), service.GetIdentity(alice.RootID.UniqueID()))
-
-	require.Equal(t, view.Identity(bob.Id), service.GetIdentity("bob"))
-	require.Equal(t, view.Identity(bob.Id), service.GetIdentity("b1"))
-	require.Equal(t, view.Identity(bob.Id), service.GetIdentity(view.Identity(bob.Id).UniqueID()))
-	require.Equal(t, view.Identity(bob.Id), service.GetIdentity(bob.RootID.UniqueID()))
+	requireResolverLookups(t, cfg.ResolversList, backend.AddCalls, backend.BindCalls, service)
 
 	require.Nil(t, service.GetIdentity("unknown"))
+}
+
+func requireResolverLookups(t *testing.T, resolvers []config.Resolver, addCalls []fake.AddResolverCall, bindCalls []fake.BindCall, service *ResolverService) {
+	t.Helper()
+
+	callsByName := map[string]fake.AddResolverCall{}
+	for _, call := range addCalls {
+		callsByName[call.Name] = call
+	}
+
+	bindCallsByLongTerm := map[string][]fake.BindCall{}
+	for _, call := range bindCalls {
+		bindCallsByLongTerm[string(call.LongTerm)] = append(bindCallsByLongTerm[string(call.LongTerm)], call)
+	}
+
+	for _, resolver := range resolvers {
+		call, ok := callsByName[resolver.Name]
+		require.True(t, ok, "missing add resolver call for %s", resolver.Name)
+		require.Equal(t, resolver.Domain, call.Domain)
+		require.Equal(t, resolver.Addresses, call.Addresses)
+		require.Equal(t, resolver.Aliases, call.Aliases)
+		require.NotEmpty(t, call.ID)
+		require.NotEmpty(t, call.RootID)
+
+		expected := view.Identity(call.ID)
+		require.Equal(t, expected, service.GetIdentity(resolver.Name))
+		require.Equal(t, expected, service.GetIdentity(expected.UniqueID()))
+		require.Equal(t, expected, service.GetIdentity(call.RootID.UniqueID()))
+
+		nameBindCalls := bindCallsByLongTerm[string(expected)]
+		require.Len(t, nameBindCalls, len(resolver.Aliases))
+
+		boundAliases := map[string]struct{}{}
+		for _, call := range nameBindCalls {
+			require.Len(t, call.Ephemeral, 1)
+			boundAliases[string(call.Ephemeral[0])] = struct{}{}
+		}
+		for _, alias := range resolver.Aliases {
+			require.Equal(t, expected, service.GetIdentity(alias))
+			require.Contains(t, boundAliases, alias)
+		}
+	}
 }

@@ -24,7 +24,7 @@ func TestPublicKeyExtractorExtractPublicKey_InvalidSerializedIdentity(t *testing
 
 	extractor := PublicKeyExtractor{}
 	_, err := extractor.ExtractPublicKey([]byte("not-a-protobuf"))
-	require.Error(t, err)
+	require.ErrorContains(t, err, "cannot parse invalid wire-format data")
 }
 
 func TestPublicKeyExtractorExtractPublicKey_X509Identity(t *testing.T) {
@@ -55,7 +55,7 @@ func TestPublicKeyExtractorExtractPublicKey_InvalidCertificatePayload(t *testing
 
 	extractor := PublicKeyExtractor{}
 	_, err = extractor.ExtractPublicKey(rawIdentity)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "malformed certificate")
 }
 
 func TestPublicKeyExtractorExtractPublicKey_InvalidIdemixPayload(t *testing.T) {
@@ -70,7 +70,7 @@ func TestPublicKeyExtractorExtractPublicKey_InvalidIdemixPayload(t *testing.T) {
 
 	extractor := PublicKeyExtractor{}
 	_, err = extractor.ExtractPublicKey(rawIdentity)
-	require.Error(t, err)
+	require.ErrorContains(t, err, "cannot parse invalid wire-format data")
 }
 
 func TestPublicKeyExtractorExtractPublicKey_IdemixIdentity(t *testing.T) {
