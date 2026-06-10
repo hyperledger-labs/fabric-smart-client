@@ -16,7 +16,6 @@ import (
 	atsa "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsachaincode"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsachaincode/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 )
 
@@ -42,7 +41,7 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.GenerateAt(StartPort(), "out/testdata", integration.WithRaceDetection, atsa.Topology(&fabricsdk.SDK{}, commType, nodeOpts)...)
+		return integration.GenerateAt(StartPort(), "out/testdata", integration.WithRaceDetection, atsa.Topology(commType, nodeOpts)...)
 	})}
 }
 

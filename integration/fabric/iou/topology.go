@@ -14,12 +14,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
-	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 )
 
 type Opts struct {
-	SDK             api2.SDK
 	CommType        fsc.P2PCommunicationType
 	ReplicationOpts *integration.ReplicationOptions
 	TLSEnabled      bool
@@ -90,8 +88,8 @@ func Topology(opts *Opts) []api.Topology {
 	monitoringTopology.EnablePrometheusGrafana()
 	monitoringTopology.EnableOTLP()
 
-	// Add Fabric SDK to FSC Nodes
-	fscTopology.AddSDK(opts.SDK)
+	// Add app-specific SDK to FSC Nodes
+	fscTopology.AddSDKForCommType(&SDK{}, opts.CommType)
 
 	return []api.Topology{
 		fabricTopology,

@@ -12,10 +12,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
+	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 )
 
-func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
+func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
 	// Define a new Fabric topology starting from a Default configuration with a single channel `testchannel`
 	// and solo ordering.
 	fabricTopology := fabric.NewDefaultTopology()
@@ -69,7 +69,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		RegisterViewFactory("Transfer", &views.TransferViewFactory{})
 
 	// Add Fabric SDK to FSC Nodes
-	fscTopology.AddSDK(sdk)
+	fscTopology.AddSDKForCommType(&fabricsdk.SDK{}, commType)
 
 	// Done
 	return []api.Topology{fabricTopology, fscTopology}
