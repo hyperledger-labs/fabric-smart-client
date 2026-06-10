@@ -837,7 +837,7 @@ func TestDiscardTxAdditionalBranches(t *testing.T) {
 			},
 		}
 		err := c.DiscardTx(t.Context(), "tx-discard-extract", "bad")
-		require.ErrorContains(t, err, "failed to extract stored enveloper")
+		require.ErrorContains(t, err, "failed to extract stored envelope")
 	})
 
 	t.Run("known status discards tx in vault", func(t *testing.T) {

@@ -209,7 +209,7 @@ func (c *Committer) Status(ctx context.Context, txID driver2.TxID) (driver.Valid
 		// give it a second chance
 		if c.EnvelopeService.Exists(ctx, txID) {
 			if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
-				return driver.Unknown, "", errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
+				return driver.Unknown, "", errors.WithMessagef(err, "failed to extract stored envelope for [%s]", txID)
 			}
 			vc = driver.Busy
 		}
@@ -238,7 +238,7 @@ func (c *Committer) DiscardTx(ctx context.Context, txID, message string) error {
 		// give it a second chance
 		if c.EnvelopeService.Exists(ctx, txID) {
 			if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
-				return errors.WithMessagef(err, "failed to extract stored enveloper for [%s]", txID)
+				return errors.WithMessagef(err, "failed to extract stored envelope for [%s]", txID)
 			}
 		} else {
 			c.logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
@@ -571,7 +571,7 @@ func (c *Committer) commit(ctx context.Context, txID string, block, indexInBlock
 				// Then match rwsets
 				c.logger.DebugfContext(ctx, "Extract stored env to vault")
 				if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
-					return errors.WithMessagef(err, "failed to load stored enveloper into the vault")
+					return errors.WithMessagef(err, "failed to load stored envelope into the vault")
 				}
 				c.logger.DebugfContext(ctx, "Match RWSet")
 				if err := c.Vault.Match(ctx, txID, pt.Results()); err != nil {
