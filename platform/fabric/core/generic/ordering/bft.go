@@ -173,7 +173,7 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 		logger.WarnfContext(ctx, "failed to broadcast, got [%d of %d] success and errs [%v], retry after a delay", counter, threshold, errs)
 	}
 
-	return errors.Errorf("failed to send transaction to the orderering service")
+	return errors.Errorf("failed to send transaction to the ordering service")
 }
 
 func (o *BFTBroadcaster) getConnection(ctx context.Context, to *grpc.ConnectionConfig) (*Connection, error) {
