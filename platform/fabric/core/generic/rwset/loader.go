@@ -85,6 +85,9 @@ func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver
 	if err != nil {
 		return nil, nil, err
 	}
+	if chdr.ChannelId != c.Channel {
+		return nil, nil, errors.Errorf("channel mismatch, expected [%s], got [%s]", c.Channel, chdr.ChannelId)
+	}
 
 	if handler, ok := c.handlers[common.HeaderType(chdr.Type)]; ok {
 		return handler.Load(payl, chdr)
@@ -126,6 +129,9 @@ func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID driver2.TxI
 	upe, err := UnpackEnvelope(c.Network, env)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", txID)
+	}
+	if upe.Ch != c.Channel {
+		return nil, nil, errors.Errorf("channel mismatch, expected [%s], got [%s]", c.Channel, upe.Ch)
 	}
 	logger.Debugf("retrieve rws [%s,%s]", c.Channel, txID)
 
