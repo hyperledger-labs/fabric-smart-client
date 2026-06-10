@@ -35,6 +35,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
+	viewclient "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/view"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	runner2 "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common/runner"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/commands"
@@ -49,7 +50,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	tracing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	client3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/cmd"
 	client2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/client"
 )
 
@@ -141,14 +141,14 @@ func (p *Platform) GenerateArtifacts() {
 			p.GenerateRoutingConfig()
 		}
 
-		c := view2.Config{
+		c := viewclient.Config{
 			Version: 0,
 			Address: p.PeerAddress(peer, ListenPort),
-			TLSConfig: view2.TLSConfig{
+			TLSConfig: viewclient.TLSConfig{
 				PeerCACertPath: path.Join(p.NodeLocalTLSDir(peer.Peer), "ca.crt"),
 				Timeout:        10 * time.Minute,
 			},
-			SignerConfig: view2.SignerConfig{
+			SignerConfig: viewclient.SignerConfig{
 				IdentityPath: p.LocalMSPIdentityCert(peer.Peer),
 				KeyPath:      p.LocalMSPPrivateKey(peer.Peer),
 			},

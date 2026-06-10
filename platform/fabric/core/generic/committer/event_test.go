@@ -15,6 +15,13 @@ import (
 
 func TestEvent(t *testing.T) {
 	t.Parallel()
+	t.Run("chaincode event topic and message", func(t *testing.T) {
+		t.Parallel()
+		event := &ChaincodeEvent{ChaincodeID: "mycc"}
+		require.Equal(t, "mycc", event.Topic())
+		require.Same(t, event, event.Message())
+	})
+
 	t.Run("validChaincodeEvent", func(t *testing.T) {
 		t.Parallel()
 		t.Run("Returns true for valid chaincode event ", func(t *testing.T) {

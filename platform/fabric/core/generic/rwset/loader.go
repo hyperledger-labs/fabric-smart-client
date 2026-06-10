@@ -61,7 +61,7 @@ func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver
 	defer logger.DebugfContext(ctx, "Got RWSet from evn")
 
 	if !c.EnvelopeService.Exists(ctx, txID) {
-		return nil, nil, errors.Errorf("envelope does not exists for [%s]", txID)
+		return nil, nil, errors.Errorf("envelope does not exist for [%s]", txID)
 	}
 
 	rawEnv, err := c.EnvelopeService.LoadEnvelope(ctx, txID)
@@ -85,11 +85,14 @@ func (c *Loader) GetRWSetFromEvn(ctx context.Context, txID driver2.TxID) (driver
 	if err != nil {
 		return nil, nil, err
 	}
+	if chdr.ChannelId != c.Channel {
+		return nil, nil, errors.Errorf("channel mismatch, expected [%s], got [%s]", c.Channel, chdr.ChannelId)
+	}
 
 	if handler, ok := c.handlers[common.HeaderType(chdr.Type)]; ok {
 		return handler.Load(payl, chdr)
 	}
-	return nil, nil, errors.Errorf("header type not support, provided type %d", chdr.Type)
+	return nil, nil, errors.Errorf("header type not supported, provided type %d", chdr.Type)
 }
 
 func (c *Loader) GetRWSetFromETx(ctx context.Context, txID driver2.TxID) (driver.RWSet, driver.ProcessTransaction, error) {
@@ -97,7 +100,7 @@ func (c *Loader) GetRWSetFromETx(ctx context.Context, txID driver2.TxID) (driver
 	defer logger.DebugfContext(ctx, "Got RWSet from etx")
 
 	if !c.TransactionService.Exists(ctx, txID) {
-		return nil, nil, errors.Errorf("transaction does not exists for [%s]", txID)
+		return nil, nil, errors.Errorf("transaction does not exist for [%s]", txID)
 	}
 
 	raw, err := c.TransactionService.LoadTransaction(ctx, txID)
@@ -126,6 +129,9 @@ func (c *Loader) GetInspectingRWSetFromEvn(ctx context.Context, txID driver2.TxI
 	upe, err := UnpackEnvelope(c.Network, env)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed unpacking envelope [%s]", txID)
+	}
+	if upe.Ch != c.Channel {
+		return nil, nil, errors.Errorf("channel mismatch, expected [%s], got [%s]", c.Channel, upe.Ch)
 	}
 	logger.Debugf("retrieve rws [%s,%s]", c.Channel, txID)
 
