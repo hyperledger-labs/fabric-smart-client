@@ -190,10 +190,14 @@ func TestDriver_NewBinding(t *testing.T) {
 		return nil
 	}
 
-	d := NewDriver(config, driver2.NamedDriver{Name: "sqlite", Driver: mockDriver})
-
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
+
+		mockDriver := &mock.Driver{}
+		mockDriver.NewBindingReturns(&mock.BindingStore{}, nil)
+
+		d := NewDriver(config, driver2.NamedDriver{Name: "sqlite", Driver: mockDriver})
+
 		bs, err := d.NewBinding("test", "param1")
 		require.NoError(t, err)
 		require.NotNil(t, bs)
@@ -201,7 +205,12 @@ func TestDriver_NewBinding(t *testing.T) {
 
 	t.Run("error from driver", func(t *testing.T) {
 		t.Parallel()
+
+		mockDriver := &mock.Driver{}
 		mockDriver.NewBindingReturns(nil, errors.New("binding error"))
+
+		d := NewDriver(config, driver2.NamedDriver{Name: "sqlite", Driver: mockDriver})
+
 		bs, err := d.NewBinding("test")
 		require.Error(t, err)
 		require.Nil(t, bs)
@@ -211,9 +220,6 @@ func TestDriver_NewBinding(t *testing.T) {
 func TestDriver_NewSignerInfo(t *testing.T) {
 	t.Parallel()
 
-	mockDriver := &mock.Driver{}
-	mockDriver.NewSignerInfoReturns(&mock.SignerInfoStore{}, nil)
-
 	config := &mock.Config{}
 	config.UnmarshalKeyStub = func(key string, v any) error {
 		if ptr, ok := v.(*driver.PersistenceType); ok {
@@ -222,10 +228,14 @@ func TestDriver_NewSignerInfo(t *testing.T) {
 		return nil
 	}
 
-	d := NewDriver(config, driver2.NamedDriver{Name: "postgres", Driver: mockDriver})
-
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
+
+		mockDriver := &mock.Driver{}
+		mockDriver.NewSignerInfoReturns(&mock.SignerInfoStore{}, nil)
+
+		d := NewDriver(config, driver2.NamedDriver{Name: "postgres", Driver: mockDriver})
+
 		sis, err := d.NewSignerInfo("test", "param1")
 		require.NoError(t, err)
 		require.NotNil(t, sis)
@@ -233,7 +243,12 @@ func TestDriver_NewSignerInfo(t *testing.T) {
 
 	t.Run("error from driver", func(t *testing.T) {
 		t.Parallel()
+
+		mockDriver := &mock.Driver{}
 		mockDriver.NewSignerInfoReturns(nil, errors.New("signer error"))
+
+		d := NewDriver(config, driver2.NamedDriver{Name: "postgres", Driver: mockDriver})
+
 		sis, err := d.NewSignerInfo("test")
 		require.Error(t, err)
 		require.Nil(t, sis)
@@ -243,9 +258,6 @@ func TestDriver_NewSignerInfo(t *testing.T) {
 func TestDriver_NewAuditInfo(t *testing.T) {
 	t.Parallel()
 
-	mockDriver := &mock.Driver{}
-	mockDriver.NewAuditInfoReturns(&mock.AuditInfoStore{}, nil)
-
 	config := &mock.Config{}
 	config.UnmarshalKeyStub = func(key string, v any) error {
 		if ptr, ok := v.(*driver.PersistenceType); ok {
@@ -254,10 +266,14 @@ func TestDriver_NewAuditInfo(t *testing.T) {
 		return nil
 	}
 
-	d := NewDriver(config, driver2.NamedDriver{Name: "memory", Driver: mockDriver})
-
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
+
+		mockDriver := &mock.Driver{}
+		mockDriver.NewAuditInfoReturns(&mock.AuditInfoStore{}, nil)
+
+		d := NewDriver(config, driver2.NamedDriver{Name: "memory", Driver: mockDriver})
+
 		ais, err := d.NewAuditInfo("test", "param1", "param2")
 		require.NoError(t, err)
 		require.NotNil(t, ais)
@@ -265,7 +281,12 @@ func TestDriver_NewAuditInfo(t *testing.T) {
 
 	t.Run("error from driver", func(t *testing.T) {
 		t.Parallel()
+
+		mockDriver := &mock.Driver{}
 		mockDriver.NewAuditInfoReturns(nil, errors.New("audit error"))
+
+		d := NewDriver(config, driver2.NamedDriver{Name: "memory", Driver: mockDriver})
+
 		ais, err := d.NewAuditInfo("test")
 		require.Error(t, err)
 		require.Nil(t, ais)
