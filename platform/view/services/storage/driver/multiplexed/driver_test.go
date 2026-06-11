@@ -46,6 +46,7 @@ func TestNewDriver(t *testing.T) {
 			},
 			expectedCount: 1,
 			checkDrivers: func(t *testing.T, d Driver) {
+				t.Helper()
 				require.Contains(t, d.drivers, driver.PersistenceType("postgres"))
 			},
 		},
@@ -57,6 +58,7 @@ func TestNewDriver(t *testing.T) {
 			},
 			expectedCount: 2,
 			checkDrivers: func(t *testing.T, d Driver) {
+				t.Helper()
 				require.Contains(t, d.drivers, driver.PersistenceType("postgres"))
 				require.Contains(t, d.drivers, driver.PersistenceType("sqlite"))
 			},
@@ -193,12 +195,14 @@ func TestDriver_NewBinding(t *testing.T) {
 	d := NewDriver(config, driver2.NamedDriver{Name: "sqlite", Driver: mockDriver})
 
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		bs, err := d.NewBinding("test", "param1")
 		require.NoError(t, err)
 		require.NotNil(t, bs)
 	})
 
 	t.Run("error from driver", func(t *testing.T) {
+		t.Parallel()
 		mockDriver.NewBindingReturns(nil, errors.New("binding error"))
 		bs, err := d.NewBinding("test")
 		require.Error(t, err)
@@ -223,12 +227,14 @@ func TestDriver_NewSignerInfo(t *testing.T) {
 	d := NewDriver(config, driver2.NamedDriver{Name: "postgres", Driver: mockDriver})
 
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		sis, err := d.NewSignerInfo("test", "param1")
 		require.NoError(t, err)
 		require.NotNil(t, sis)
 	})
 
 	t.Run("error from driver", func(t *testing.T) {
+		t.Parallel()
 		mockDriver.NewSignerInfoReturns(nil, errors.New("signer error"))
 		sis, err := d.NewSignerInfo("test")
 		require.Error(t, err)
@@ -253,12 +259,14 @@ func TestDriver_NewAuditInfo(t *testing.T) {
 	d := NewDriver(config, driver2.NamedDriver{Name: "memory", Driver: mockDriver})
 
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		ais, err := d.NewAuditInfo("test", "param1", "param2")
 		require.NoError(t, err)
 		require.NotNil(t, ais)
 	})
 
 	t.Run("error from driver", func(t *testing.T) {
+		t.Parallel()
 		mockDriver.NewAuditInfoReturns(nil, errors.New("audit error"))
 		ais, err := d.NewAuditInfo("test")
 		require.Error(t, err)

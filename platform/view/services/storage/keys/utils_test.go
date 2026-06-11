@@ -33,13 +33,13 @@ func createCompositeKey(objectType string, attributes []string) (string, error) 
 	var ck strings.Builder
 	ck.WriteString(compositeKeyNamespace)
 	ck.WriteString(objectType)
-	ck.WriteString(fmt.Sprint(minUnicodeRuneValue))
+	fmt.Fprint(&ck, minUnicodeRuneValue)
 	for _, att := range attributes {
 		if err := validateCompositeKeyAttribute(att); err != nil {
 			return "", err
 		}
 		ck.WriteString(att)
-		ck.WriteString(fmt.Sprint(minUnicodeRuneValue))
+		fmt.Fprint(&ck, minUnicodeRuneValue)
 	}
 	return ck.String(), nil
 }
@@ -95,7 +95,7 @@ func TestValidateKey_EdgeCases(t *testing.T) {
 		{"underscore prefix", "_underscore_prefix", false},
 		{"numeric prefix", "0numeric_prefix", false},
 		{"very long key", strings.Repeat("a", 1000), false},
-		
+
 		// Invalid keys - representative samples
 		{"empty", "", true},
 		{"with space", "key with space", true},
@@ -146,7 +146,7 @@ func TestValidateNs_EdgeCases(t *testing.T) {
 		{"underscore prefix", "_underscore_prefix", false},
 		{"single char", "a", false},
 		{"max length", strings.Repeat("a", 128), false},
-		
+
 		// Invalid namespaces - representative samples
 		{"empty", "", true},
 		{"too long", strings.Repeat("a", 129), true},
@@ -186,6 +186,7 @@ func TestDummyVersionedIterator_Next(t *testing.T) {
 	}
 
 	t.Run("iterate through all items", func(t *testing.T) {
+		t.Parallel()
 		iter := &keys.DummyVersionedIterator{Items: items}
 
 		for i, expected := range items {

@@ -91,8 +91,11 @@ func TestNewDriverWithDbProvider(t *testing.T) {
 	require.Equal(t, dbProvider, d.dbProvider)
 }
 
-func TestDriver_NewKVS(t *testing.T) { //nolint:paralleltest
+func TestDriver_NewKVS(t *testing.T) {
+	t.Parallel()
+
 	t.Run("success without params", func(t *testing.T) {
+		t.Parallel()
 		d := NewDriver()
 		kvs, err := d.NewKVS(driver.PersistenceName(t.Name()))
 
@@ -102,6 +105,7 @@ func TestDriver_NewKVS(t *testing.T) { //nolint:paralleltest
 	})
 
 	t.Run("success with params", func(t *testing.T) {
+		t.Parallel()
 		d := NewDriver()
 		kvs, err := d.NewKVS(driver.PersistenceName(t.Name()), "alice", "bob")
 
@@ -125,8 +129,11 @@ func TestDriver_NewKVS(t *testing.T) { //nolint:paralleltest
 	})
 }
 
-func TestDriver_NewBinding(t *testing.T) { //nolint:paralleltest
+func TestDriver_NewBinding(t *testing.T) {
+	t.Parallel()
+
 	t.Run("success without params", func(t *testing.T) {
+		t.Parallel()
 		d := NewDriver()
 		bs, err := d.NewBinding(driver.PersistenceName(t.Name()))
 
@@ -135,6 +142,7 @@ func TestDriver_NewBinding(t *testing.T) { //nolint:paralleltest
 	})
 
 	t.Run("success with params", func(t *testing.T) {
+		t.Parallel()
 		d := NewDriver()
 		bs, err := d.NewBinding(driver.PersistenceName(t.Name()), "alice")
 
@@ -157,8 +165,11 @@ func TestDriver_NewBinding(t *testing.T) { //nolint:paralleltest
 	})
 }
 
-func TestDriver_NewSignerInfo(t *testing.T) { //nolint:paralleltest
+func TestDriver_NewSignerInfo(t *testing.T) {
+	t.Parallel()
+
 	t.Run("success without params", func(t *testing.T) {
+		t.Parallel()
 		d := NewDriver()
 		sis, err := d.NewSignerInfo(driver.PersistenceName(t.Name()))
 
@@ -167,6 +178,7 @@ func TestDriver_NewSignerInfo(t *testing.T) { //nolint:paralleltest
 	})
 
 	t.Run("success with params", func(t *testing.T) {
+		t.Parallel()
 		d := NewDriver()
 		sis, err := d.NewSignerInfo(driver.PersistenceName(t.Name()), "alice", "bob")
 
@@ -189,8 +201,11 @@ func TestDriver_NewSignerInfo(t *testing.T) { //nolint:paralleltest
 	})
 }
 
-func TestDriver_NewAuditInfo(t *testing.T) { //nolint:paralleltest
+func TestDriver_NewAuditInfo(t *testing.T) {
+	t.Parallel()
+
 	t.Run("success without params", func(t *testing.T) {
+		t.Parallel()
 		d := NewDriver()
 		ais, err := d.NewAuditInfo(driver.PersistenceName(t.Name()))
 
@@ -199,6 +214,7 @@ func TestDriver_NewAuditInfo(t *testing.T) { //nolint:paralleltest
 	})
 
 	t.Run("success with params", func(t *testing.T) {
+		t.Parallel()
 		d := NewDriver()
 		ais, err := d.NewAuditInfo(driver.PersistenceName(t.Name()), "alice")
 

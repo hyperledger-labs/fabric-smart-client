@@ -10,9 +10,8 @@ import (
 	"database/sql"
 	"testing"
 
-	_ "modernc.org/sqlite"
-
 	"github.com/stretchr/testify/require"
+	_ "modernc.org/sqlite"
 )
 
 func TestCopyPtr(t *testing.T) {
@@ -71,7 +70,9 @@ func TestRWDB(t *testing.T) {
 		t.Parallel()
 		db, err := sql.Open("sqlite", ":memory:")
 		require.NoError(t, err)
-		defer db.Close()
+		t.Cleanup(func() {
+			require.NoError(t, db.Close())
+		})
 
 		rwdb := &RWDB{ReadDB: db, WriteDB: db}
 		require.Same(t, rwdb.ReadDB, rwdb.WriteDB)
@@ -81,10 +82,14 @@ func TestRWDB(t *testing.T) {
 		t.Parallel()
 		readDB, err := sql.Open("sqlite", ":memory:")
 		require.NoError(t, err)
-		defer readDB.Close()
+		t.Cleanup(func() {
+			require.NoError(t, readDB.Close())
+		})
 		writeDB, err := sql.Open("sqlite", ":memory:")
 		require.NoError(t, err)
-		defer writeDB.Close()
+		t.Cleanup(func() {
+			require.NoError(t, writeDB.Close())
+		})
 
 		rwdb := &RWDB{ReadDB: readDB, WriteDB: writeDB}
 		require.NotSame(t, rwdb.ReadDB, rwdb.WriteDB)

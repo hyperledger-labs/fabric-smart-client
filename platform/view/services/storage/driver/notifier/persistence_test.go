@@ -103,14 +103,14 @@ func TestUnversionedPersistenceNotifier_SetState(t *testing.T) {
 
 			if tt.expectErr {
 				require.Error(t, err)
-				require.Empty(t, upn.Notifier.pending)
+				require.Empty(t, upn.pending)
 			} else {
 				require.NoError(t, err)
 				if tt.expectEnqueued {
-					require.Len(t, upn.Notifier.pending, 1)
-					require.Equal(t, tt.expectedOp, upn.Notifier.pending[0].operation)
-					require.Equal(t, tt.ns, upn.Notifier.pending[0].payload["ns"])
-					require.Equal(t, tt.key, upn.Notifier.pending[0].payload["pkey"])
+					require.Len(t, upn.pending, 1)
+					require.Equal(t, tt.expectedOp, upn.pending[0].operation)
+					require.Equal(t, tt.ns, upn.pending[0].payload["ns"])
+					require.Equal(t, tt.key, upn.pending[0].payload["pkey"])
 				}
 			}
 
@@ -177,7 +177,7 @@ func TestUnversionedPersistenceNotifier_SetStates(t *testing.T) {
 			errs := upn.SetStates(ctx, tt.ns, tt.kvs)
 
 			require.Equal(t, tt.persistenceErr, errs)
-			require.Len(t, upn.Notifier.pending, tt.expectedEvents)
+			require.Len(t, upn.pending, tt.expectedEvents)
 			require.Equal(t, 1, mockKVS.SetStatesCallCount())
 		})
 	}
@@ -226,14 +226,14 @@ func TestUnversionedPersistenceNotifier_DeleteState(t *testing.T) {
 
 			if tt.expectErr {
 				require.Error(t, err)
-				require.Empty(t, upn.Notifier.pending)
+				require.Empty(t, upn.pending)
 			} else {
 				require.NoError(t, err)
 				if tt.expectEnqueued {
-					require.Len(t, upn.Notifier.pending, 1)
-					require.Equal(t, driver.Delete, upn.Notifier.pending[0].operation)
-					require.Equal(t, tt.ns, upn.Notifier.pending[0].payload["ns"])
-					require.Equal(t, tt.key, upn.Notifier.pending[0].payload["pkey"])
+					require.Len(t, upn.pending, 1)
+					require.Equal(t, driver.Delete, upn.pending[0].operation)
+					require.Equal(t, tt.ns, upn.pending[0].payload["ns"])
+					require.Equal(t, tt.key, upn.pending[0].payload["pkey"])
 				}
 			}
 
@@ -293,7 +293,7 @@ func TestUnversionedPersistenceNotifier_DeleteStates(t *testing.T) {
 			errs := upn.DeleteStates(ctx, tt.ns, tt.keys...)
 
 			require.Equal(t, tt.persistenceErr, errs)
-			require.Len(t, upn.Notifier.pending, tt.expectedEvents)
+			require.Len(t, upn.pending, tt.expectedEvents)
 			require.Equal(t, 1, mockKVS.DeleteStatesCallCount())
 		})
 	}
@@ -335,7 +335,7 @@ func TestUnversionedPersistenceNotifier_Commit(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				require.Empty(t, upn.Notifier.pending)
+				require.Empty(t, upn.pending)
 			}
 
 			require.Equal(t, 1, mockKVS.CommitCallCount())
@@ -379,7 +379,7 @@ func TestUnversionedPersistenceNotifier_Discard(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				require.Empty(t, upn.Notifier.pending)
+				require.Empty(t, upn.pending)
 			}
 
 			require.Equal(t, 1, mockKVS.DiscardCallCount())
@@ -495,7 +495,7 @@ func TestUnversionedPersistenceNotifier_Subscribe(t *testing.T) {
 	err := upn.Subscribe(callback)
 
 	require.NoError(t, err)
-	require.Len(t, upn.Notifier.listeners, 1)
+	require.Len(t, upn.listeners, 1)
 
 	upn.EnqueueEvent(driver.Insert, map[driver.ColumnKey]string{"pkey": "key1"})
 	upn.Notifier.Commit()
@@ -511,10 +511,10 @@ func TestUnversionedPersistenceNotifier_UnsubscribeAll(t *testing.T) {
 
 	err := upn.Subscribe(func(driver.Operation, map[driver.ColumnKey]string) {})
 	require.NoError(t, err)
-	require.Len(t, upn.Notifier.listeners, 1)
+	require.Len(t, upn.listeners, 1)
 
 	err = upn.UnsubscribeAll()
 
 	require.NoError(t, err)
-	require.Empty(t, upn.Notifier.listeners)
+	require.Empty(t, upn.listeners)
 }
