@@ -440,7 +440,11 @@ func (i *Invoke) collectResponses(endorserClients []pb.EndorserClient, signedPro
 		wg.Add(1)
 		go func(endorser pb.EndorserClient) {
 			defer wg.Done()
-			proposalResp, err := endorser.ProcessProposal(context.Background(), signedProposal)
+			ctx := i.Ctx
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			proposalResp, err := endorser.ProcessProposal(ctx, signedProposal)
 			if err != nil {
 				errorCh <- err
 				return
@@ -516,8 +520,12 @@ func (i *Invoke) toBytes(arg any) ([]byte, error) {
 }
 
 func (i *Invoke) broadcast(txID string, env *common.Envelope) error {
-	if err := i.Chaincode.Broadcaster.Broadcast(i.Ctx, env); err != nil {
+	ctx := i.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := i.Chaincode.Broadcaster.Broadcast(ctx, env); err != nil {
 		return err
 	}
-	return i.Chaincode.Finality.IsFinal(context.Background(), txID)
+	return i.Chaincode.Finality.IsFinal(ctx, txID)
 }

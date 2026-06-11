@@ -58,7 +58,7 @@ install-softhsm: ## Install softhsm
 
 .PHONY: install-fsccli
 install-fsccli: ## Install fsccli
-	@go install ./cmd/fsccli
+	cd integration; go install ./nwo/cmd/fsccli
 
 #########################
 # Generate protos
@@ -204,7 +204,7 @@ $(addprefix integration-tests-,$(INTEGRATION_TARGETS)) : integration-tests-%:
 
 .PHONY: clean
 clean: $(addprefix clean-,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS)) ## Clean generated testdata
-	rm -rf ./cmd/fsccli/out
+	rm -rf ./integration/nwo/cmd/fsccli/out
 	rm -rf ./out
 
 $(addprefix clean-,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS)) : clean-%:

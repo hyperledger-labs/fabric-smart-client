@@ -46,7 +46,7 @@ jobs:
       - name: Build manually
         shell: bash
         run: |
-          go build -o fsccli ./cmd/fsccli
+          make install-fsccli
           go build -o node ./ci/codeql/node
           make unit-tests unit-tests-postgres
 

@@ -20,13 +20,13 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/benchmark"
+	viewclient "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/view"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/node"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	viewregistry "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/client/cmd"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server/protos"
 )
 
@@ -74,7 +74,7 @@ func SetupNode(confPath string, factories ...NamedFactory) (*node.Node, error) {
 }
 
 func SetupClient(confPath string) (*benchmark.ViewClient, func(), error) {
-	config, err := view2.ConfigFromFile(confPath)
+	config, err := viewclient.ConfigFromFile(confPath)
 	if err != nil {
 		return nil, nil, err
 	}
