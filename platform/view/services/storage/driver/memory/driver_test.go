@@ -134,7 +134,8 @@ func TestDriver_NewBinding(t *testing.T) {
 
 	t.Run("success without params", func(t *testing.T) {
 		t.Parallel()
-		d := NewDriver()
+
+		d := NewDriverWithDbProvider(sqlite.NewDbProvider())
 		bs, err := d.NewBinding(driver.PersistenceName(t.Name()))
 
 		require.NoError(t, err)
@@ -143,7 +144,8 @@ func TestDriver_NewBinding(t *testing.T) {
 
 	t.Run("success with params", func(t *testing.T) {
 		t.Parallel()
-		d := NewDriver()
+
+		d := NewDriverWithDbProvider(sqlite.NewDbProvider())
 		bs, err := d.NewBinding(driver.PersistenceName(t.Name()), "alice")
 
 		require.NoError(t, err)
@@ -170,7 +172,8 @@ func TestDriver_NewSignerInfo(t *testing.T) {
 
 	t.Run("success without params", func(t *testing.T) {
 		t.Parallel()
-		d := NewDriver()
+
+		d := NewDriverWithDbProvider(sqlite.NewDbProvider())
 		sis, err := d.NewSignerInfo(driver.PersistenceName(t.Name()))
 
 		require.NoError(t, err)
@@ -179,7 +182,8 @@ func TestDriver_NewSignerInfo(t *testing.T) {
 
 	t.Run("success with params", func(t *testing.T) {
 		t.Parallel()
-		d := NewDriver()
+
+		d := NewDriverWithDbProvider(sqlite.NewDbProvider())
 		sis, err := d.NewSignerInfo(driver.PersistenceName(t.Name()), "alice", "bob")
 
 		require.NoError(t, err)
@@ -206,7 +210,8 @@ func TestDriver_NewAuditInfo(t *testing.T) {
 
 	t.Run("success without params", func(t *testing.T) {
 		t.Parallel()
-		d := NewDriver()
+
+		d := NewDriverWithDbProvider(sqlite.NewDbProvider())
 		ais, err := d.NewAuditInfo(driver.PersistenceName(t.Name()))
 
 		require.NoError(t, err)
@@ -215,7 +220,8 @@ func TestDriver_NewAuditInfo(t *testing.T) {
 
 	t.Run("success with params", func(t *testing.T) {
 		t.Parallel()
-		d := NewDriver()
+
+		d := NewDriverWithDbProvider(sqlite.NewDbProvider())
 		ais, err := d.NewAuditInfo(driver.PersistenceName(t.Name()), "alice")
 
 		require.NoError(t, err)
