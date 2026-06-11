@@ -470,7 +470,7 @@ func TestUnversionedPersistenceNotifier_Stats(t *testing.T) {
 	t.Parallel()
 
 	mockKVS := &mock.KeyValueStore{}
-	expectedStats := map[string]interface{}{"count": 42}
+	expectedStats := map[string]any{"count": 42}
 	mockKVS.StatsReturns(expectedStats)
 
 	upn := NewUnversioned(mockKVS)

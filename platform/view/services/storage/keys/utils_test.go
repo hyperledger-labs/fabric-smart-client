@@ -114,7 +114,6 @@ func TestValidateKey_EdgeCases(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			err := keys.ValidateKey(tc.key)
@@ -162,7 +161,6 @@ func TestValidateNs_EdgeCases(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			err := keys.ValidateNs(tc.ns)
@@ -218,7 +216,6 @@ func TestDummyVersionedIterator_Next(t *testing.T) {
 		}
 
 		for _, tc := range cases {
-			tc := tc
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 				iter := &keys.DummyVersionedIterator{Items: tc.items}

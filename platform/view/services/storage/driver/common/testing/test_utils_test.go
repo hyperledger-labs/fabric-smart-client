@@ -73,7 +73,7 @@ func TestMockConfig(t *testing.T) {
 
 	t.Run("creates config with map value", func(t *testing.T) {
 		t.Parallel()
-		expectedValue := map[string]interface{}{
+		expectedValue := map[string]any{
 			"key1": "value1",
 			"key2": 123,
 		}
@@ -82,7 +82,7 @@ func TestMockConfig(t *testing.T) {
 
 		require.NotNil(t, config)
 
-		var actualValue map[string]interface{}
+		var actualValue map[string]any
 		err := config.UnmarshalDriverOpts("test", &actualValue)
 		require.NoError(t, err)
 		require.Equal(t, expectedValue, actualValue)

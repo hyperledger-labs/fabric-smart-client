@@ -277,7 +277,6 @@ func TestNotifier_Operations(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -307,10 +306,10 @@ func TestNotifier_ConcurrentEnqueue(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
 
-	for i := 0; i < goroutines; i++ {
+	for i := range goroutines {
 		go func(id int) {
 			defer wg.Done()
-			for j := 0; j < eventsPerGoroutine; j++ {
+			for range eventsPerGoroutine {
 				n.EnqueueEvent(driver.Insert, map[driver.ColumnKey]string{
 					"pkey": "key",
 					"id":   string(rune(id)),
@@ -332,7 +331,7 @@ func TestNotifier_ConcurrentSubscribe(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
 
-	for i := 0; i < goroutines; i++ {
+	for range goroutines {
 		go func() {
 			defer wg.Done()
 			err := n.Subscribe(func(driver.Operation, map[driver.ColumnKey]string) {})
