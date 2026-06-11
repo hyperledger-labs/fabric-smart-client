@@ -64,8 +64,10 @@ install-fsccli: ## Install fsccli
 # Generate protos
 #########################
 
-.PHONY: protos
-protos: ## Build all proto files
+.PHONY: generate-protos
+generate-protos: ## Delete all protoc-generated files and regenerate via compile_proto.sh
+	@./scripts/find-protos.sh > /dev/null
+	@./scripts/find-protos.sh --delete
 	./scripts/compile_proto.sh
 
 #########################
