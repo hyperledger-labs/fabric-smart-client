@@ -127,15 +127,17 @@ func generateExtensions(n *network.Network, scAddr string, t *template.Template)
 
 	topoName := n.Topology().Name()
 	for _, fscNode := range fscTop.Nodes {
+		// check that the fsc node is associated with the fabric network
+		fscPeer := n.FSCPeerByName(fscNode.Name)
+		if fscPeer == nil {
+			continue // node has no identity in this Fabric network (e.g. pure bootstrap node)
+		}
+
 		// When TLS is enabled, the sidecar query service requires mTLS.
 		// Use the fabric peer's TLS certs (signed by the fabric org CA)
 		// as client credentials so the sidecar accepts the connection.
 		var tlsConfig config.TLSConfig
 		if n.TLSEnabled {
-			fscPeer := n.FSCPeerByName(fscNode.Name)
-			if fscPeer == nil {
-				utils.Must(fmt.Errorf("failed to get fsc peer by name: %v", fscNode.Name))
-			}
 			tlsDir := n.PeerLocalTLSDir(fscPeer)
 			tlsConfig.Enabled = true
 			tlsConfig.ClientCertPath = filepath.Join(tlsDir, "server.crt")
