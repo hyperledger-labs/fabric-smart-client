@@ -340,6 +340,9 @@ fabric:
       enabled:  true
       # Specifies whether the fabric network requires mutualTLS
       clientAuthRequired: false
+      # Optional default server name override for outbound TLS hostname verification.
+      # Individual peers/orderers can still override this with serverNameOverride.
+      serverNameOverride: orderer.example.com
       # The client tls certificate if mutualTLS is required
       clientCert:
         file: /path/to/client.crt
