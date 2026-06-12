@@ -563,7 +563,8 @@ func (t *Transaction) generateProposal(signer SerializableSigner) error {
 
 func (t *Transaction) appendProposalResponse(response *pb.ProposalResponse) error {
 	for _, r := range t.TProposalResponses {
-		if bytes.Equal(r.Endorsement.Endorser, response.Endorsement.Endorser) {
+		if r.Endorsement != nil && response.Endorsement != nil &&
+			bytes.Equal(r.Endorsement.Endorser, response.Endorsement.Endorser) {
 			logger.Debugf("an endorsement from [%s] found, skip it", view.Identity(r.Endorsement.Endorser))
 			return nil
 		}

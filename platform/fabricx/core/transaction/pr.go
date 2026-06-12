@@ -39,6 +39,9 @@ func NewProposalResponseFromBytes(raw []byte) (*ProposalResponse, error) {
 }
 
 func (p *ProposalResponse) Endorser() []byte {
+	if p.pr.Endorsement == nil {
+		return nil
+	}
 	return p.pr.Endorsement.Endorser
 }
 
@@ -47,6 +50,9 @@ func (p *ProposalResponse) Payload() []byte {
 }
 
 func (p *ProposalResponse) EndorserSignature() []byte {
+	if p.pr.Endorsement == nil {
+		return nil
+	}
 	return p.pr.Endorsement.Signature
 }
 
@@ -59,10 +65,16 @@ func (p *ProposalResponse) PR() *pb.ProposalResponse {
 }
 
 func (p *ProposalResponse) ResponseStatus() int32 {
+	if p.pr.Response == nil {
+		return 0
+	}
 	return p.pr.Response.Status
 }
 
 func (p *ProposalResponse) ResponseMessage() string {
+	if p.pr.Response == nil {
+		return ""
+	}
 	return p.pr.Response.Message
 }
 
