@@ -84,7 +84,7 @@ func TestQueryView(t *testing.T) {
 	t.Run("Query happy path", func(t *testing.T) {
 		t.Parallel()
 
-		mockCtx, mockInv, _ := setupMockContext()
+		mockCtx, mockInv, _ := setupMockContext(t)
 
 		v := chaincode.NewQueryView("my-chaincode", "my-func", "arg1").
 			WithTransientEntry("k1", "v1").

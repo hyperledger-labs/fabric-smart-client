@@ -81,7 +81,7 @@ func TestInvokeView(t *testing.T) {
 	t.Run("Invoke happy path", func(t *testing.T) {
 		t.Parallel()
 
-		mockCtx, mockInv, _ := setupMockContext()
+		mockCtx, mockInv, _ := setupMockContext(t)
 
 		v := chaincode.NewInvokeView("my-chaincode", "my-func", "arg1").
 			WithTransientEntry("k1", "v1").
@@ -108,7 +108,7 @@ func TestInvokeView(t *testing.T) {
 	t.Run("Call happy path", func(t *testing.T) {
 		t.Parallel()
 
-		mockCtx, mockInv, _ := setupMockContext()
+		mockCtx, mockInv, _ := setupMockContext(t)
 
 		v := chaincode.NewInvokeView("my-chaincode", "my-func", "arg1")
 

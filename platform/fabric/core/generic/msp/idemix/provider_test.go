@@ -400,3 +400,34 @@ func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) { //nolint:paralle
 	require.NoError(t, err)
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
+
+func TestProvider_IdentityManagerMethods(t *testing.T) { //nolint:paralleltest
+	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	require.NoError(t, err)
+
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+
+	config, err := fabricmsp.GetLocalMspConfigWithType("./testdata/idemix", nil, "idemix", "idemix")
+	require.NoError(t, err)
+
+	p, err := idemix2.NewProviderWithEidRhNymPolicy(config, kvss, sigService)
+	require.NoError(t, err)
+	require.NotNil(t, p)
+
+	require.False(t, p.IsRemote())
+	require.NotEmpty(t, p.String())
+
+	id, _, err := p.Identity(nil)
+	require.NoError(t, err)
+
+	sigId, err := p.DeserializeSigningIdentity(id)
+	require.NoError(t, err)
+	require.NotNil(t, sigId)
+
+	_, err = p.DeserializeVerifier(id)
+	require.NoError(t, err)
+
+	info, err := p.Info(id, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, info)
+}
