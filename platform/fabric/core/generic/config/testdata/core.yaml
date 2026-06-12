@@ -74,24 +74,15 @@ fabric:
     tls:
       enabled:  true
       clientAuthRequired: false
-      cert:
-        file: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.crt
-      key:
-        file: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.key
       clientCert:
         file: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.crt
       clientKey:
         file: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.key
-      rootcert:
+      rootCert:
         file: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/ca.crt
-      clientRootCAs:
-        files:
-          - /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/ca.crt
-      rootCertFile: /home/vagrant/testdata/fabric.default/crypto/ca-certs.pem
     peers:
       - address: 127.0.0.1:22013
         connectionTimeout: 10s
-        tlsRootCertFile: /home/vagrant/testdata/fabric.default/crypto/ca-certs.pem
         serverNameOverride:
     channels:
       - name: testchannel

@@ -340,12 +340,16 @@ fabric:
       enabled:  true
       # Specifies whether the fabric network requires mutualTLS
       clientAuthRequired: false
-      # The client tls certificate if mutualTLS is required
+      # The client TLS certificate if mutualTLS is required
       clientCert:
         file: /path/to/client.crt
-      # The client tls key if mutualTLS is required
+      # The client TLS key if mutualTLS is required
       clientKey:
         file: /path/to/client.key
+      # Default root CA used for outbound Fabric peer/orderer connections.
+      # Individual peers/orderers can still override this with tlsRootCertFile.
+      rootCert:
+        file: /path/to/fabric/ca.crt
 
     # Client keepalive settings for GRPC.
     # This section can be omitted.
@@ -382,7 +386,8 @@ fabric:
       - address: 'orderer0:7050'
         # connection timeout
         connectionTimeout: 10s
-        # path to orderer org's ca cert if tls is enabled
+        # path to orderer org's CA cert if TLS is enabled
+        # if omitted, fabric.<network>.tls.rootCert.file is used
         tlsRootCertFile: /path/to/ordererorg/ca.crt
         # server name override if tls cert SANS doesn't match address
         serverNameOverride:
@@ -399,7 +404,8 @@ fabric:
       - address: 'peer2:7051'
         # connection timeout
         connectionTimeout: 10s
-        # path to peer org's ca cert if tls is enabled
+        # path to peer org's CA cert if TLS is enabled
+        # if omitted, fabric.<network>.tls.rootCert.file is used
         tlsRootCertFile: /path/to/peerorg/ca.crt
         serverNameOverride:
         # it is possible to customize per peer the TLS behaviour, by using the following attributes
