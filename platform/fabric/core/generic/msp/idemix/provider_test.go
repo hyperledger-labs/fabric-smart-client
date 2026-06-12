@@ -401,7 +401,7 @@ func TestIdentityFromFabricCAWithEidRhNymPolicy(t *testing.T) { //nolint:paralle
 	require.NoError(t, verifier.Verify([]byte("hello world!!!"), sigma))
 }
 
-func TestProvider_UnusedMethods(t *testing.T) { //nolint:paralleltest
+func TestProvider_IdentityManagerMethods(t *testing.T) { //nolint:paralleltest
 	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
 	require.NoError(t, err)
 
