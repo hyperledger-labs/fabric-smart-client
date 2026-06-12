@@ -31,6 +31,13 @@ var _ = Describe("EndToEnd", func() {
 		It("succeeded", s.TestSucceeded)
 	})
 
+	Describe("IOU Life Cycle With gRPC", Label("T2grpc"), func() {
+		s := NewTestSuite(fsc.GRPC, integration.NoReplication, true)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("succeeded", s.TestSucceeded)
+	})
+
 	Describe("IOU Life Cycle With Websockets and no TLS", Label("T3"), func() {
 		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, false)
 		BeforeEach(s.Setup)

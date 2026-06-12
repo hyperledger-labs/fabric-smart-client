@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
+	grpccomm "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
@@ -31,8 +32,12 @@ func NewHostProvider(
 		return nil, err
 	}
 
-	if p2pCommType := config.GetString("fsc.p2p.type"); strings.EqualFold(p2pCommType, websocket.P2PCommunicationType) {
+	p2pCommType := config.GetString("fsc.p2p.type")
+	if strings.EqualFold(p2pCommType, websocket.P2PCommunicationType) {
 		return NewWebSocketHostProvider(config, endpointService, tracerProvider, metricsProvider)
+	}
+	if strings.EqualFold(p2pCommType, grpccomm.P2PCommunicationType) {
+		return NewGRPCHostProvider(config, endpointService)
 	}
 
 	return NewLibP2PHostProvider(config, endpointService, metricsProvider), nil
@@ -52,4 +57,15 @@ func NewWebSocketHostProvider(config driver.ConfigService, endpointService *endp
 		return nil, err
 	}
 	return websocket.NewEndpointBasedProvider(restConfig, endpointService, discovery, ws.NewMultiplexedProvider(tracerProvider, metricsProvider, restConfig.MaxSubConns())), nil
+}
+
+func NewGRPCHostProvider(config driver.ConfigService, endpointService *endpoint.Service) (host.GeneratorProvider, error) {
+	r := routing.NewEndpointServiceIDRouter(endpointService)
+	discovery := routing.NewServiceDiscovery(r, routing.Random[host.PeerIPAddress]())
+	endpointService.SetPublicKeyIDSynthesizer(&grpccomm.PKIDSynthesizer{})
+	grpcConfig, err := grpccomm.NewConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return grpccomm.NewEndpointBasedProvider(grpcConfig, endpointService, discovery), nil
 }

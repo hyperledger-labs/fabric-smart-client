@@ -8,6 +8,7 @@ package fsc
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 )
@@ -31,6 +32,10 @@ func (p *Platform) GenerateResolverMap() {
 	routing := make(map[string][]string)
 	for i, peer := range p.Peers {
 		org := p.Organization(peer.Organization)
+		identityPath := p.LocalMSPIdentityCert(peer.Peer)
+		if p.P2PCommunicationType() == GRPC {
+			identityPath = filepath.Join(p.NodeLocalTLSDir(peer.Peer), "server.crt")
+		}
 
 		p2pEndpoint := fmt.Sprintf("%s:%d", p.Context.HostByPeerID("fsc", peer.ID()), p.Context.PortsByPeerID("fsc", peer.ID())[P2PPort])
 		addresses := map[api.PortName]string{
@@ -47,7 +52,7 @@ func (p *Platform) GenerateResolverMap() {
 			Name: peer.Name,
 			Identity: ResolverIdentity{
 				ID:   peer.Name,
-				Path: p.LocalMSPIdentityCert(peer.Peer),
+				Path: identityPath,
 			},
 			Domain:    org.Domain,
 			Addresses: addresses,
