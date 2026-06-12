@@ -15,14 +15,21 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
-type provider struct{}
+type hasher interface {
+	Hash(msg []byte, opts bccsp.HashOpts) ([]byte, error)
+	GetHash(opts bccsp.HashOpts) (hash.Hash, error)
+}
+
+type provider struct {
+	hasher hasher
+}
 
 func NewProvider() *provider {
-	return &provider{}
+	return &provider{hasher: factory.GetDefault()}
 }
 
 func (p *provider) Hash(msg []byte) ([]byte, error) {
-	hash, err := factory.GetDefault().Hash(msg, &bccsp.SHA256Opts{})
+	hash, err := p.hasher.Hash(msg, &bccsp.SHA256Opts{})
 	if err != nil {
 		panic(errors.Errorf("failed computing SHA256 on [% x]", msg))
 	}
@@ -30,7 +37,7 @@ func (p *provider) Hash(msg []byte) ([]byte, error) {
 }
 
 func (p *provider) GetHash() hash.Hash {
-	hash, err := factory.GetDefault().GetHash(&bccsp.SHA256Opts{})
+	hash, err := p.hasher.GetHash(&bccsp.SHA256Opts{})
 	if err != nil {
 		panic(errors.Errorf("failed getting SHA256"))
 	}
