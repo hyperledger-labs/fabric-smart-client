@@ -6,8 +6,10 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package deps
+package integration
 
 import (
 	_ "github.com/IBM/idemix/tools/idemixgen"
+
+	_ "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/cc/query"
 )

@@ -31,7 +31,7 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 		AddOptions(fsc.WithAlias("bob_alias")).
 		AddOptions(replicationOpts.For("bob")...)
 
-	topology.AddSDK(&viewsdk.SDK{})
+	topology.AddSDKForCommType(&viewsdk.SDK{}, commType)
 
 	monitoringTopology := monitoring.NewTopology()
 	// monitoringTopology.EnablePrometheusGrafana()

@@ -68,7 +68,7 @@ type TestSuite struct {
 
 func NewTestSuite(commType nwofsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), integration.WithRaceDetection, atsa.Topology(&atsa.SDK{}, commType, nodeOpts)...)
+		return integration.Generate(StartPort(), integration.WithRaceDetection, atsa.Topology(commType, nodeOpts)...)
 	})}
 }
 

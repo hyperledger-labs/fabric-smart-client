@@ -11,14 +11,14 @@ package iouhsm
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 )
 
-func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
+func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
 	// 2. A namespace whose changes can be endorsed by Org1.
@@ -60,8 +60,8 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		RegisterViewFactory("query", &views.QueryViewFactory{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
-	// Add Fabric SDK to FSC Nodes
-	fscTopology.AddSDK(sdk)
+	// Add app-specific SDK to FSC Nodes
+	fscTopology.AddSDKForCommType(&iou.SDK{}, commType)
 
 	return []api.Topology{fabricTopology, fscTopology}
 }

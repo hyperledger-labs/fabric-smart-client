@@ -33,7 +33,7 @@ var _ = Describe("EndToEnd", func() {
 		It("stop and restart successfully", s.TestSucceeded)
 	})
 
-	Describe("Stop and Restart with Fabric With Replicas many to one", func() {
+	Describe("Stop and Restart With Replicas many to one", func() {
 		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
 			ReplicationFactors: map[string]int{
 				"alice": 4,
@@ -45,7 +45,7 @@ var _ = Describe("EndToEnd", func() {
 		It("stop and restart successfully", s.TestSucceededWithReplicas)
 	})
 
-	Describe("Stop and Restart with Fabric With Replicas many to many", func() {
+	Describe("Stop and Restart With Replicas many to many", func() {
 		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
 			ReplicationFactors: map[string]int{
 				"alice": 4,
