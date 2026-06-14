@@ -56,7 +56,7 @@ func LoadLocalMSPAt(dir, keyStorePath, id, mspType string, bccspConfig *config.B
 	}
 	conf, err := msp.GetLocalMspConfig(dir, nil, id)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "could not get msp config from dir [%s]", dir)
+		return nil, err
 	}
 
 	cp, _, err := GetBCCSPFromConf(dir, keyStorePath, bccspConfig)

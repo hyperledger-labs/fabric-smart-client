@@ -188,6 +188,13 @@ func GetLocalMspConfigWithType(dir string, bccspConfig *factory.FactoryOpts, ID,
 }
 
 func GetLocalMspConfig(dir string, bccspConfig *factory.FactoryOpts, ID string) (*msp.MSPConfig, error) {
+	if _, err := os.Stat(dir); err != nil {
+		if os.IsNotExist(err) {
+			return nil, errors.Errorf("msp directory does not exist: %s", dir)
+		}
+		return nil, errors.WithMessagef(err, "could not access msp directory [%s]", dir)
+	}
+
 	signcertDir := filepath.Join(dir, signcerts)
 	keystoreDir := filepath.Join(dir, keystore)
 	bccspConfig = SetupBCCSPKeystoreConfig(bccspConfig, keystoreDir)
