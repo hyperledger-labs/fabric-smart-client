@@ -1,0 +1,42 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package metadata_test
+
+import (
+	"fmt"
+	"runtime"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	metadata "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/cmd/commands/cryptogen/metadata"
+)
+
+func TestGetVersionInfo(t *testing.T) {
+	t.Parallel()
+	expected := fmt.Sprintf(
+		"%s:\n Version: %s\n Commit SHA: %s\n Go version: %s\n OS/Arch: %s",
+		metadata.ProgramName,
+		metadata.Version,
+		"development build",
+		runtime.Version(),
+		fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+	)
+	assert.Equal(t, expected, metadata.GetVersionInfo())
+
+	testSHA := "abcdefg"
+	metadata.CommitSHA = testSHA
+	expected = fmt.Sprintf(
+		"%s:\n Version: %s\n Commit SHA: %s\n Go version: %s\n OS/Arch: %s",
+		metadata.ProgramName,
+		metadata.Version,
+		testSHA,
+		runtime.Version(),
+		fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+	)
+	assert.Equal(t, expected, metadata.GetVersionInfo())
+}
