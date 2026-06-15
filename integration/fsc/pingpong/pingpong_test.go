@@ -155,6 +155,18 @@ var _ = Describe("EndToEnd", func() {
 		It("load artifact & init clients & successful pingpong", s.TestLoadInitPingPong)
 	})
 
+	Describe("Network-based Ping pong With gRPC", func() {
+		s := NewTestSuite(fsc.GRPC, false, integration.NoReplication)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("generate artifacts & successful pingpong", func() { s.TestGenerateAndPingPong("initiator") })
+		It("load artifact & successful pingpong", func() { s.TestLoadAndPingPong("initiator") })
+		It("load artifact & successful pingpong with stream", func() { s.TestLoadAndPingPongStream("initiator") })
+		It("load artifact & successful stream", func() { s.TestLoadAndStream("initiator") })
+		It("load artifact & successful stream with websocket", func() { s.TestLoadAndStreamWebsocket("initiator") })
+		It("load artifact & init clients & successful pingpong", s.TestLoadInitPingPong)
+	})
+
 	Describe("Network-based Ping pong With Websockets and replication", func() {
 		s := NewTestSuite(fsc.WebSocket, true, &integration.ReplicationOptions{
 			ReplicationFactors: map[string]int{
@@ -179,6 +191,12 @@ var _ = Describe("EndToEnd", func() {
 	})
 	Describe("Network-based Mock Ping pong With Websockets", func() {
 		s := NewTestSuite(fsc.WebSocket, false, integration.NoReplication)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("generate artifacts & successful mock pingpong", s.TestGenerateAndMockPingPong)
+	})
+	Describe("Network-based Mock Ping pong With gRPC", func() {
+		s := NewTestSuite(fsc.GRPC, false, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("generate artifacts & successful mock pingpong", s.TestGenerateAndMockPingPong)

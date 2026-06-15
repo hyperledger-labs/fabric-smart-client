@@ -67,6 +67,20 @@ fsc:
       # If empty, this is a P2P boostrap node. Otherwise, it contains the name of the FCS node that is a bootstrap node
       libp2p:
         bootstrapNode: {{ if eq .P2PCommunicationType "libp2p" }}{{ .BootstrapNode Peer }}{{ end}}
+      # Only needed when type == grpc
+      grpc:
+        tls:
+          clientAuthRequired: true
+          cert:
+            file: {{ .NodeLocalTLSDir Peer }}/server.crt
+          key:
+            file: {{ .NodeLocalTLSDir Peer }}/server.key
+          serverRootCAs:
+            files:
+            - {{ .NodeLocalTLSDir Peer }}/ca.crt
+          clientRootCAs:
+            files:
+            - {{ .NodeLocalTLSDir Peer }}/ca.crt
   persistences: {{ range $key, $value := Persistences }}
     {{ $key }}:
       type: {{ $value.Type }}
