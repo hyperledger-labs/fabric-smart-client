@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/client"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
+	libp2psupport "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc/support/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
@@ -194,7 +195,7 @@ type FSCNode interface {
 func newNode(conf string) FSCNode {
 	n := node.NewFromConfPath(conf)
 	Expect(n).NotTo(BeNil())
-	n.AddSDK(viewsdk.NewSDK(n))
+	n.AddSDK(libp2psupport.NewFrom(viewsdk.NewSDK(n)))
 	return n
 }
 
@@ -290,7 +291,7 @@ func (s *TestSuite) TestLoadAndStreamWebsocket(clients ...string) {
 
 func (s *TestSuite) TestLoadInitPingPong() {
 	// Use another ii to create clients
-	iiClients, err := integration.Clients(testdataDir, pingpong.Topology(s.commType, s.nodeOpts)...)
+	iiClients, err := integration.Clients(testdataDir, s.II.Topologies...)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Get a client for the fsc node labelled initiator

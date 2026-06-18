@@ -7,12 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/libp2p"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/routing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/host/websocket/ws"
@@ -27,23 +27,19 @@ func NewHostProvider(
 	metricsProvider metrics.Provider,
 	tracerProvider tracing.Provider,
 ) (host.GeneratorProvider, error) {
-	if err := endpointService.AddPublicKeyExtractor(&comm.PKExtractor{}); err != nil {
-		return nil, err
-	}
-
-	if p2pCommType := config.GetString("fsc.p2p.type"); strings.EqualFold(p2pCommType, websocket.P2PCommunicationType) {
+	p2pCommType := strings.ToLower(config.GetString("fsc.p2p.type"))
+	switch p2pCommType {
+	case websocket.P2PCommunicationType:
 		return NewWebSocketHostProvider(config, endpointService, tracerProvider, metricsProvider)
+	default:
+		return nil, fmt.Errorf("unknown p2p type: %v", p2pCommType)
 	}
-
-	return NewLibP2PHostProvider(config, endpointService, metricsProvider), nil
-}
-
-func NewLibP2PHostProvider(config driver.ConfigService, endpointService *endpoint.Service, metricsProvider metrics.Provider) host.GeneratorProvider {
-	endpointService.SetPublicKeyIDSynthesizer(&libp2p.PKIDSynthesizer{})
-	return libp2p.NewHostGeneratorProvider(libp2p.NewConfig(config), metricsProvider, endpointService)
 }
 
 func NewWebSocketHostProvider(config driver.ConfigService, endpointService *endpoint.Service, tracerProvider tracing.Provider, metricsProvider metrics.Provider) (host.GeneratorProvider, error) {
+	if err := endpointService.AddPublicKeyExtractor(&comm.PKExtractor{}); err != nil {
+		return nil, err
+	}
 	r := routing.NewEndpointServiceIDRouter(endpointService)
 	discovery := routing.NewServiceDiscovery(r, routing.Random[host.PeerIPAddress]())
 	endpointService.SetPublicKeyIDSynthesizer(&websocket.PKIDSynthesizer{})

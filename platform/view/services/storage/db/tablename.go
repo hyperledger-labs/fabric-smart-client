@@ -61,9 +61,6 @@ func (c *TableNameCreator) MustGetTableName(tablePrefix, name string, params ...
 }
 
 func (c *TableNameCreator) CreateTableName(tablePrefix, name string, params ...string) (string, error) {
-	if tablePrefix == "" {
-		tablePrefix = "fsc"
-	}
 	nc, err := c.formatterProvider.Get(tablePrefix)
 	if err != nil {
 		return "", err

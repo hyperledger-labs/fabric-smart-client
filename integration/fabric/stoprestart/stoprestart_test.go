@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/stoprestart"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
-	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 )
 
 var _ = Describe("EndToEnd", func() {
@@ -65,7 +64,7 @@ type TestSuite struct {
 
 func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		return integration.Generate(StartPort(), integration.WithRaceDetection, stoprestart.Topology(&fabricsdk.SDK{}, commType, nodeOpts)...)
+		return integration.Generate(StartPort(), integration.WithRaceDetection, stoprestart.Topology(commType, nodeOpts)...)
 	})}
 }
 
