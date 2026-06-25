@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package idemix
 
 import (
-	"runtime"
+	"context"
 	"sync"
 	"time"
 
@@ -25,21 +25,50 @@ type identityCacheEntry struct {
 	Audit    []byte
 }
 
+type IdentityCacheOptions struct {
+	// CacheTimeout is the max wait time for a cached identity before falling back to backend
+	// Default is 1 second if not specified
+	CacheTimeout time.Duration
+}
+
 type IdentityCache struct {
 	once   sync.Once
 	backed IdentityCacheBackendFunc
 	cache  chan identityCacheEntry
 	opts   *driver.IdentityOptions
+	// Max wait time for cached identity
+	cacheTimeout time.Duration
+	// Cancellation function for background provisioning
+	cancel context.CancelFunc
 }
 
-func NewIdentityCache(backed IdentityCacheBackendFunc, size int, opts *driver.IdentityOptions) *IdentityCache {
+func NewIdentityCache(backed IdentityCacheBackendFunc, size int, opts *driver.IdentityOptions, cacheOpts *IdentityCacheOptions) *IdentityCache {
+	cacheTimeout := 1 * time.Second // default timeout
+	if cacheOpts != nil && cacheOpts.CacheTimeout > 0 {
+		cacheTimeout = cacheOpts.CacheTimeout
+	}
+
 	ci := &IdentityCache{
-		backed: backed,
-		cache:  make(chan identityCacheEntry, size),
-		opts:   opts,
+		backed:       backed,
+		cache:        make(chan identityCacheEntry, size),
+		opts:         opts,
+		cacheTimeout: cacheTimeout,
 	}
 
 	return ci
+}
+
+// Close cancels the background identity provisioning goroutine.
+// It should be called when the IdentityCache is no longer needed to prevent goroutine leaks.
+func (c *IdentityCache) Close() {
+	if c.cancel != nil {
+		c.cancel()
+	}
+}
+
+// CacheSize returns the current number of cached identities available in the cache.
+func (c *IdentityCache) CacheSize() int {
+	return len(c.cache)
 }
 
 func (c *IdentityCache) Identity(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
@@ -49,10 +78,9 @@ func (c *IdentityCache) Identity(opts *driver.IdentityOptions) (view.Identity, [
 
 	c.once.Do(func() {
 		if cap(c.cache) > 0 {
-			// Spin up as many background goroutines as we need to prepare identities in the background.
-			for i := 0; i < runtime.NumCPU(); i++ {
-				go c.provisionIdentities()
-			}
+			var backgroundCtx context.Context
+			backgroundCtx, c.cancel = context.WithCancel(context.Background())
+			go c.provisionIdentities(backgroundCtx)
 		}
 	})
 
@@ -71,7 +99,7 @@ func (c *IdentityCache) fetchIdentityFromCache(opts *driver.IdentityOptions) (vi
 		start = time.Now()
 	}
 
-	timeout := time.NewTimer(time.Second)
+	timeout := time.NewTimer(c.cacheTimeout)
 	defer timeout.Stop()
 
 	select {
@@ -107,15 +135,26 @@ func (c *IdentityCache) fetchIdentityFromBackend(opts *driver.IdentityOptions) (
 	return id, audit, nil
 }
 
-func (c *IdentityCache) provisionIdentities() {
+func (c *IdentityCache) provisionIdentities(ctx context.Context) {
 	count := 0
 	for {
 		id, audit, err := c.backed(c.opts)
 		if err != nil {
-			logger.Errorf("failed to provision identity [%s]", err.Error())
+			logger.Errorf("failed to provision identity [%s]", err)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(1 * time.Second):
+			}
+
 			continue
 		}
-		logger.Debugf("generated new idemix identity [%d]", count)
-		c.cache <- identityCacheEntry{Identity: id, Audit: audit}
+		logger.DebugfContext(ctx, "generated new idemix identity [%d]", count)
+		select {
+		case c.cache <- identityCacheEntry{Identity: id, Audit: audit}:
+			count++
+		case <-ctx.Done():
+			return
+		}
 	}
 }
