@@ -9,8 +9,8 @@ package idemix
 import (
 	"fmt"
 
-	msp "github.com/IBM/idemix"
 	csp "github.com/IBM/idemix/bccsp/types"
+	"github.com/IBM/idemix/msp"
 	math "github.com/IBM/mathlib"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"

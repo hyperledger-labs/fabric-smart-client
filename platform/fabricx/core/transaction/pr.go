@@ -105,7 +105,7 @@ func (p *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
 	// check each namespace signature with the corresponding signature using the endorser verifier
 	for idx, ns := range tx.GetNamespaces() {
 
-		digest, err := tx.Namespaces[idx].ASN1Marshal(txID)
+		digest, err := tx.Namespaces[idx].ASN1Marshal(txID, nil)
 		if err != nil {
 			return errors.Wrapf(err, "failed asn1 marshal for [txID=%s] [ns=%s]", txID, ns)
 		}

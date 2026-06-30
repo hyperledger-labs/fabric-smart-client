@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/IBM/idemix"
 	bccsp "github.com/IBM/idemix/bccsp/types"
-	"github.com/IBM/idemix/idemixmsp"
+	idemixmsp "github.com/IBM/idemix/msp"
+	"github.com/IBM/idemix/msp/config"
 	math "github.com/IBM/mathlib"
 	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 
@@ -57,7 +57,7 @@ func (k *kvsAdapter) Get(id string, state any) error {
 type Provider struct {
 	*Idemix
 	userKey       bccsp.Key
-	conf          idemixmsp.IdemixMSPConfig
+	conf          *config.IdemixMSPConfig
 	SignerService mspdriver.SignerService
 
 	sigType bccsp.SignatureType
@@ -108,7 +108,7 @@ func NewProvider(conf1 *m.MSPConfig, signerService mspdriver.SignerService, sigT
 	}
 
 	// note that the idemix protos are still using proto v1
-	var conf idemixmsp.IdemixMSPConfig
+	var conf config.IdemixMSPConfig
 	err := proto.UnmarshalV1(conf1.Config, &conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed unmarshalling idemix provider config")
@@ -122,10 +122,10 @@ func NewProvider(conf1 *m.MSPConfig, signerService mspdriver.SignerService, sigT
 		&bccsp.IdemixIssuerPublicKeyImportOpts{
 			Temporary: true,
 			AttributeNames: []string{
-				idemix.AttributeNameOU,
-				idemix.AttributeNameRole,
-				idemix.AttributeNameEnrollmentId,
-				idemix.AttributeNameRevocationHandle,
+				idemixmsp.AttributeNameOU,
+				idemixmsp.AttributeNameRole,
+				idemixmsp.AttributeNameEnrollmentId,
+				idemixmsp.AttributeNameRevocationHandle,
 			},
 		})
 	if err != nil {
@@ -211,7 +211,7 @@ func NewProvider(conf1 *m.MSPConfig, signerService mspdriver.SignerService, sigT
 			VerType:         verType,
 		},
 		userKey:       userKey,
-		conf:          conf,
+		conf:          &conf,
 		SignerService: signerService,
 		sigType:       sigType,
 		verType:       verType,
