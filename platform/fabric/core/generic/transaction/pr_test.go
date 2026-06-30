@@ -45,7 +45,8 @@ func createValidProposalResponse(t *testing.T) *peer.ProposalResponse { //nolint
 	}
 }
 
-func TestProposalResponse(t *testing.T) { //nolint:paralleltest
+func TestProposalResponse(t *testing.T) {
+	t.Parallel()
 	pr := createValidProposalResponse(t)
 
 	// Test NewProposalResponseFromResponse
@@ -88,7 +89,8 @@ func TestProposalResponse(t *testing.T) { //nolint:paralleltest
 	require.ErrorContains(t, err, "failed getting verifier")
 }
 
-func TestProposalResponse_Errors(t *testing.T) { //nolint:paralleltest
+func TestProposalResponse_Errors(t *testing.T) {
+	t.Parallel()
 	// Test empty payload
 	pr := &peer.ProposalResponse{
 		Payload: []byte("invalid payload"),

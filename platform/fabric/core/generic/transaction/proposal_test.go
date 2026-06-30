@@ -96,7 +96,8 @@ func mustMarshal(t *testing.T, msg proto.Message) []byte {
 	return b
 }
 
-func TestUnpackSignedProposal(t *testing.T) { //nolint:paralleltest
+func TestUnpackSignedProposal(t *testing.T) {
+	t.Parallel()
 	sp := createValidSignedProposal(t)
 
 	up, err := transaction.UnpackSignedProposal(sp)
@@ -109,7 +110,8 @@ func TestUnpackSignedProposal(t *testing.T) { //nolint:paralleltest
 	require.NotEmpty(t, up.ProposalHash)
 }
 
-func TestUnpackSignedProposal_Validate(t *testing.T) { //nolint:paralleltest
+func TestUnpackSignedProposal_Validate(t *testing.T) {
+	t.Parallel()
 	sp := createValidSignedProposal(t)
 
 	up, err := transaction.UnpackSignedProposal(sp)

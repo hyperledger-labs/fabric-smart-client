@@ -103,7 +103,8 @@ func createValidEnvelope(t *testing.T) *common.Envelope { //nolint:unparam
 	}
 }
 
-func TestEnvelope(t *testing.T) { //nolint:paralleltest
+func TestEnvelope(t *testing.T) {
+	t.Parallel()
 	env := createValidEnvelope(t)
 
 	// Test NewEnvelopeFromEnv
@@ -163,7 +164,8 @@ func TestEnvelope(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, "txid", e2.TxID())
 }
 
-func TestEnvelope_Errors(t *testing.T) { //nolint:paralleltest
+func TestEnvelope_Errors(t *testing.T) {
+	t.Parallel()
 	e := transaction.NewEnvelope()
 	err := e.FromBytes([]byte("invalid bytes"))
 	require.Error(t, err)

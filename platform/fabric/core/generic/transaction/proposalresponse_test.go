@@ -14,7 +14,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 )
 
-func TestProposalResponse_UnpackProposalResponse(t *testing.T) { //nolint:paralleltest
+func TestProposalResponse_UnpackProposalResponse(t *testing.T) {
+	t.Parallel()
 	pr := createValidProposalResponse(t)
 
 	upr, err := transaction.UnpackProposalResponse(pr)
@@ -26,7 +27,8 @@ func TestProposalResponse_UnpackProposalResponse(t *testing.T) { //nolint:parall
 	require.NotNil(t, upr.ChaincodeAction)
 }
 
-func TestProposalResponse_UnpackProposalResponse_Errors(t *testing.T) { //nolint:paralleltest
+func TestProposalResponse_UnpackProposalResponse_Errors(t *testing.T) {
+	t.Parallel()
 	pr := createValidProposalResponse(t)
 	pr.Payload = []byte("invalid payload")
 

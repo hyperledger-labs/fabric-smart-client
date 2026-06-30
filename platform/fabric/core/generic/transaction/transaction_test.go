@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package transaction_test
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
@@ -42,14 +41,15 @@ import (
 //go:generate counterfeiter -o mock/verifier.go -fake-name Verifier github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Verifier
 //go:generate counterfeiter -o mock/verifier_provider.go -fake-name VerifierProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.VerifierProvider
 
-func TestTransaction_GettersAndSetters(t *testing.T) { //nolint:paralleltest
+func TestTransaction_GettersAndSetters(t *testing.T) {
+	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}
 	mockSigService := &mock.SignerService{}
 	mockChannel := &mock.Channel{}
 	mockChannelProvider.ChannelReturns(mockChannel, nil)
 
 	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
-	tx, err := factory.NewTransaction(context.Background(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
 	require.NoError(t, err)
 
 	require.Equal(t, "txid", tx.ID())
@@ -90,14 +90,15 @@ func TestTransaction_GettersAndSetters(t *testing.T) { //nolint:paralleltest
 	require.Empty(t, tx.Transient())
 }
 
-func TestTransaction_Bytes(t *testing.T) { //nolint:paralleltest
+func TestTransaction_Bytes(t *testing.T) {
+	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}
 	mockSigService := &mock.SignerService{}
 	mockChannel := &mock.Channel{}
 	mockChannelProvider.ChannelReturns(mockChannel, nil)
 
 	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
-	tx, err := factory.NewTransaction(context.Background(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
 	require.NoError(t, err)
 
 	b, err := tx.Bytes()
@@ -113,7 +114,8 @@ func TestTransaction_Bytes(t *testing.T) { //nolint:paralleltest
 	require.NotEmpty(t, raw)
 }
 
-func TestTransaction_RWSet(t *testing.T) { //nolint:paralleltest
+func TestTransaction_RWSet(t *testing.T) {
+	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}
 	mockSigService := &mock.SignerService{}
 	mockChannel := &mock.Channel{}
@@ -126,7 +128,7 @@ func TestTransaction_RWSet(t *testing.T) { //nolint:paralleltest
 	mockRWSet.BytesReturns([]byte("rwsetbytes"), nil)
 
 	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
-	tx, err := factory.NewTransaction(context.Background(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
 	require.NoError(t, err)
 
 	// GetRWSet -> populates from scratch
@@ -144,7 +146,8 @@ func TestTransaction_RWSet(t *testing.T) { //nolint:paralleltest
 	require.Nil(t, tx.RWS())
 }
 
-func TestProcessedTransaction(t *testing.T) { //nolint:paralleltest
+func TestProcessedTransaction(t *testing.T) {
+	t.Parallel()
 	env := createValidEnvelope(t)
 	envBytes, err := proto.Marshal(env)
 	require.NoError(t, err)
@@ -152,7 +155,7 @@ func TestProcessedTransaction(t *testing.T) { //nolint:paralleltest
 	pt, ht, err := transaction.NewProcessedTransactionFromEnvelopePayload(env.Payload)
 	require.NoError(t, err)
 	require.NotNil(t, pt)
-	require.Equal(t, int32(3), ht) // ENDORSER_TRANSACTION = 3
+	require.Equal(t, int32(common.HeaderType_ENDORSER_TRANSACTION), ht) // ENDORSER_TRANSACTION = 3
 
 	pt2, err := transaction.NewProcessedTransactionFromEnvelopeRaw(envBytes)
 	require.NoError(t, err)
@@ -175,10 +178,11 @@ func TestProcessedTransaction(t *testing.T) { //nolint:paralleltest
 	require.NotNil(t, pt3)
 
 	require.True(t, pt3.IsValid())
-	require.Equal(t, int32(0), pt3.ValidationCode()) // VALID = 0
+	require.Equal(t, int32(pb.TxValidationCode_VALID), pt3.ValidationCode()) // VALID = 0
 }
 
-func TestTransaction_Endorse(t *testing.T) { //nolint:paralleltest
+func TestTransaction_Endorse(t *testing.T) {
+	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}
 	mockSigService := &mock.SignerService{}
 	mockChannel := &mock.Channel{}
@@ -189,7 +193,7 @@ func TestTransaction_Endorse(t *testing.T) { //nolint:paralleltest
 	mockSigner.SignReturns([]byte("signature"), nil)
 
 	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
-	tx, err := factory.NewTransaction(context.Background(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
 	require.NoError(t, err)
 
 	tx.SetProposal("chaincode", "1.0", "function")
@@ -210,21 +214,22 @@ func TestTransaction_Endorse(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 }
 
-func TestTransaction_SetFromBytes(t *testing.T) { //nolint:paralleltest
+func TestTransaction_SetFromBytes(t *testing.T) {
+	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}
 	mockSigService := &mock.SignerService{}
 	mockChannel := &mock.Channel{}
 	mockChannelProvider.ChannelReturns(mockChannel, nil)
 
 	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
-	tx, err := factory.NewTransaction(context.Background(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
 	require.NoError(t, err)
 
 	b, err := tx.Bytes()
 	require.NoError(t, err)
 
 	// Unmarshal
-	tx2, err := factory.NewTransaction(context.Background(), "channel", nil, nil, "", nil)
+	tx2, err := factory.NewTransaction(t.Context(), "channel", nil, nil, "", nil)
 	require.NoError(t, err)
 
 	err = tx2.SetFromBytes(b)
@@ -246,7 +251,8 @@ func TestTransaction_SetFromBytes(t *testing.T) { //nolint:paralleltest
 	require.ErrorContains(t, err, "channel fail")
 }
 
-func TestTransaction_SetFromEnvelopeBytes(t *testing.T) { //nolint:paralleltest
+func TestTransaction_SetFromEnvelopeBytes(t *testing.T) {
+	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}
 	mockSigService := &mock.SignerService{}
 	mockChannel := &mock.Channel{}
@@ -257,7 +263,7 @@ func TestTransaction_SetFromEnvelopeBytes(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 
 	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
-	tx, err := factory.NewTransaction(context.Background(), "channel", nil, nil, "", nil)
+	tx, err := factory.NewTransaction(t.Context(), "channel", nil, nil, "", nil)
 	require.NoError(t, err)
 
 	err = tx.SetFromEnvelopeBytes(envBytes)
@@ -265,7 +271,8 @@ func TestTransaction_SetFromEnvelopeBytes(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, "txid", tx.ID())
 }
 
-func TestTransaction_MoreCoverage(t *testing.T) { //nolint:paralleltest
+func TestTransaction_EndorsementAndProposal(t *testing.T) {
+	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}
 	mockSigService := &mock.SignerService{}
 	mockChannel := &mock.Channel{}
@@ -283,7 +290,7 @@ func TestTransaction_MoreCoverage(t *testing.T) { //nolint:paralleltest
 	mockSigner.SignReturns([]byte("signature"), nil)
 
 	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
-	tx, err := factory.NewTransaction(context.Background(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
 	require.NoError(t, err)
 
 	tx.SetProposal("chaincode", "1.0", "function")
@@ -329,7 +336,8 @@ func TestTransaction_MoreCoverage(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 }
 
-func TestTransaction_MoreCoverage2(t *testing.T) { //nolint:paralleltest
+func TestTransaction_LifecycleAndFormatting(t *testing.T) {
+	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}
 	mockSigService := &mock.SignerService{}
 	mockChannel := &mock.Channel{}
@@ -351,7 +359,7 @@ func TestTransaction_MoreCoverage2(t *testing.T) { //nolint:paralleltest
 	mockRWSet.BytesReturns([]byte("rwset"), nil)
 
 	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
-	tx, err := factory.NewTransaction(context.Background(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
 	require.NoError(t, err)
 
 	tx.SetProposal("chaincode", "", "function")
@@ -406,7 +414,8 @@ func TestTransaction_MoreCoverage2(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 }
 
-func TestTransaction_MoreCoverage3(t *testing.T) { //nolint:paralleltest
+func TestTransaction_ProcessedTransactionValidation(t *testing.T) {
+	t.Parallel()
 	e := createValidEnvelope(t)
 	raw, err := proto.Marshal(e)
 	require.NoError(t, err)
@@ -433,13 +442,14 @@ func TestTransaction_MoreCoverage3(t *testing.T) { //nolint:paralleltest
 	pt3, err := transaction.NewProcessedTransaction(ptRaw)
 	require.NoError(t, err)
 	require.NotNil(t, pt3)
-	require.Equal(t, int32(0), pt3.ValidationCode())
+	require.Equal(t, int32(pb.TxValidationCode_VALID), pt3.ValidationCode())
 	require.True(t, pt3.IsValid())
 	require.NotEmpty(t, pt3.Results())
 	require.Equal(t, "txid", pt3.TxID())
 }
 
-func TestTransaction_MoreCoverage4(t *testing.T) { //nolint:paralleltest
+func TestTransaction_ErrorHandling(t *testing.T) {
+	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}
 	mockSigService := &mock.SignerService{}
 	mockChannel := &mock.Channel{}
@@ -450,7 +460,7 @@ func TestTransaction_MoreCoverage4(t *testing.T) { //nolint:paralleltest
 	mockSigner.SignReturns([]byte("signature"), nil)
 
 	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
-	tx, err := factory.NewTransaction(context.Background(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
 	require.NoError(t, err)
 
 	// Envelope empty
@@ -468,7 +478,7 @@ func TestTransaction_MoreCoverage4(t *testing.T) { //nolint:paralleltest
 	err = tx.EndorseWithIdentity(view.Identity([]byte("id")))
 	require.Error(t, err)
 
-	tx2, err := factory.NewTransaction(context.Background(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	tx2, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
 	require.NoError(t, err)
 	tx2.SetProposal("chaincode", "1.0", "function")
 
@@ -509,7 +519,8 @@ func TestTransaction_MoreCoverage4(t *testing.T) { //nolint:paralleltest
 	require.Error(t, err)
 }
 
-func TestTransaction_MoreCoverage5(t *testing.T) { //nolint:paralleltest
+func TestTransaction_ProcessedTransactionErrors(t *testing.T) {
+	t.Parallel()
 	// Test error paths in NewProcessedTransaction...
 	_, _, err := transaction.NewProcessedTransactionFromEnvelopePayload([]byte("invalid"))
 	require.Error(t, err)
@@ -522,7 +533,7 @@ func TestTransaction_MoreCoverage5(t *testing.T) { //nolint:paralleltest
 
 	// Transaction empty edge cases
 	factory := transaction.NewEndorserTransactionFactory("network", &mock.ChannelProvider{}, &mock.SignerService{})
-	tx, err := factory.NewTransaction(context.Background(), "channel", nil, nil, "txid", nil)
+	tx, err := factory.NewTransaction(t.Context(), "channel", nil, nil, "txid", nil)
 	require.NoError(t, err)
 
 	_, err = tx.Raw()
@@ -535,7 +546,7 @@ func TestTransaction_MoreCoverage5(t *testing.T) { //nolint:paralleltest
 	txBytes, err := tx.Bytes()
 	require.NoError(t, err)
 
-	tx2, err := factory.NewTransaction(context.Background(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	tx2, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
 	require.NoError(t, err)
 	err = tx2.SetFromBytes(txBytes)
 	require.NoError(t, err)
@@ -544,13 +555,14 @@ func TestTransaction_MoreCoverage5(t *testing.T) { //nolint:paralleltest
 	require.Error(t, err)
 }
 
-func TestTransaction_EnvelopeErrors(t *testing.T) { //nolint:paralleltest
+func TestTransaction_EnvelopeErrors(t *testing.T) {
+	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}
 	mockSigService := &mock.SignerService{}
 	mockChannel := &mock.Channel{}
 	mockChannelProvider.ChannelReturns(mockChannel, nil)
 	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
-	tx, err := factory.NewTransaction(context.Background(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
 	require.NoError(t, err)
 
 	// Error getting signer
@@ -568,7 +580,8 @@ func TestTransaction_EnvelopeErrors(t *testing.T) { //nolint:paralleltest
 	require.ErrorContains(t, err, "failed getting proposalResponses")
 }
 
-func TestTransaction_EndorseWithIdentityErrors(t *testing.T) { //nolint:paralleltest
+func TestTransaction_EndorseWithIdentityErrors(t *testing.T) {
+	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}
 	mockSigService := &mock.SignerService{}
 	mockChannel := &mock.Channel{}
@@ -576,7 +589,7 @@ func TestTransaction_EndorseWithIdentityErrors(t *testing.T) { //nolint:parallel
 	mockChannel.MetadataServiceReturns(mockMetadata)
 	mockChannelProvider.ChannelReturns(mockChannel, nil)
 	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
-	tx, err := factory.NewTransaction(context.Background(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
+	tx, err := factory.NewTransaction(t.Context(), "channel", []byte("nonce"), []byte("creator"), "txid", nil)
 	require.NoError(t, err)
 
 	mockSigService.GetSignerReturns(nil, contextError("signer err"))
@@ -591,12 +604,12 @@ func TestTransaction_EndorseWithIdentityErrors(t *testing.T) { //nolint:parallel
 	mockChannel.VaultReturns(mockVault)
 	mockVault.NewRWSetReturns(nil, contextError("rwset err"))
 	err = tx.EndorseProposalResponseWithIdentity([]byte("id"))
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "rwset err")
 
 	// Test rwset.Bytes() failure handling
 	mockRWSet := &mock.RWSet{}
 	mockVault.NewRWSetReturns(mockRWSet, nil)
 	mockRWSet.BytesReturns(nil, contextError("bytes err"))
 	err = tx.EndorseProposalResponseWithIdentity([]byte("id"))
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "bytes err")
 }

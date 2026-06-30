@@ -15,7 +15,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-func TestComputeTxID(t *testing.T) { //nolint:paralleltest
+func TestComputeTxID(t *testing.T) {
+	t.Parallel()
 	creator := []byte("creator")
 	nonce := []byte("nonce")
 
@@ -37,7 +38,8 @@ func TestComputeTxID(t *testing.T) { //nolint:paralleltest
 	require.NotEmpty(t, id2.Nonce)
 }
 
-func TestGetRandomNonce(t *testing.T) { //nolint:paralleltest
+func TestGetRandomNonce(t *testing.T) {
+	t.Parallel()
 	nonce, err := transaction.GetRandomNonce()
 	require.NoError(t, err)
 	require.Len(t, nonce, 24)

@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package transaction_test
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
@@ -19,10 +18,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func TestManager_NewTransaction(t *testing.T) { //nolint:paralleltest
+func TestManager_NewTransaction(t *testing.T) {
+	t.Parallel()
 	m := transaction.NewManager()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	creator := []byte("creator")
 	nonce := []byte("nonce")
 	txid := "txid"
@@ -31,7 +31,7 @@ func TestManager_NewTransaction(t *testing.T) { //nolint:paralleltest
 
 	// Error when factory not found
 	_, err := m.NewTransaction(ctx, driver.EndorserTransaction, creator, nonce, txid, channel, rawRequest)
-	require.ErrorContains(t, err, "transaction tyep [3] not recognized")
+	require.ErrorContains(t, err, "transaction type [3] not recognized")
 
 	// Add factory and test success
 	mockFactory := &mock.TransactionFactory{}
@@ -45,9 +45,10 @@ func TestManager_NewTransaction(t *testing.T) { //nolint:paralleltest
 	require.NotNil(t, tx)
 }
 
-func TestManager_NewTransactionFromBytes(t *testing.T) { //nolint:paralleltest
+func TestManager_NewTransactionFromBytes(t *testing.T) {
+	t.Parallel()
 	m := transaction.NewManager()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Error on invalid JSON
 	_, err := m.NewTransactionFromBytes(ctx, "testchannel", []byte("invalid json"))
@@ -58,7 +59,7 @@ func TestManager_NewTransactionFromBytes(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 
 	_, err = m.NewTransactionFromBytes(ctx, "testchannel", validJson)
-	require.ErrorContains(t, err, "transaction tyep [3] not recognized")
+	require.ErrorContains(t, err, "transaction type [3] not recognized")
 
 	// Add factory and test success
 	mockFactory := &mock.TransactionFactory{}
@@ -73,7 +74,8 @@ func TestManager_NewTransactionFromBytes(t *testing.T) { //nolint:paralleltest
 	require.NotNil(t, tx)
 }
 
-func TestEndorserTransactionFactory(t *testing.T) { //nolint:paralleltest
+func TestEndorserTransactionFactory(t *testing.T) {
+	t.Parallel()
 	mockChannelProvider := &mock.ChannelProvider{}
 	mockSigService := &mock.SignerService{}
 	mockChannel := &mock.Channel{}
@@ -82,7 +84,7 @@ func TestEndorserTransactionFactory(t *testing.T) { //nolint:paralleltest
 
 	factory := transaction.NewEndorserTransactionFactory("testnetwork", mockChannelProvider, mockSigService)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	creator := []byte("creator")
 	nonce := []byte("nonce")
 	txid := "txid"
@@ -99,7 +101,8 @@ func TestEndorserTransactionFactory(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, "testnetwork", tx.Network())
 }
 
-func TestWrappedTransaction_Bytes(t *testing.T) { //nolint:paralleltest
+func TestWrappedTransaction_Bytes(t *testing.T) {
+	t.Parallel()
 	mockTx := &mock.Transaction{}
 	mockTx.BytesReturns([]byte("raw transaction"), nil)
 
@@ -114,44 +117,51 @@ func TestWrappedTransaction_Bytes(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, []byte("raw transaction"), st.Raw)
 }
 
-func TestManager_ComputeTxID(t *testing.T) { //nolint:paralleltest
+func TestManager_ComputeTxID(t *testing.T) {
+	t.Parallel()
 	m := transaction.NewManager()
 	id := m.ComputeTxID(&driver.TxIDComponents{Nonce: []byte("nonce"), Creator: []byte("creator")})
 	require.NotEmpty(t, id)
 }
 
-func TestManager_NewEnvelope(t *testing.T) { //nolint:paralleltest
+func TestManager_NewEnvelope(t *testing.T) {
+	t.Parallel()
 	m := transaction.NewManager()
 	env := m.NewEnvelope()
 	require.NotNil(t, env)
 }
 
-func TestManager_NewProposalResponseFromBytes(t *testing.T) { //nolint:paralleltest
+func TestManager_NewProposalResponseFromBytes(t *testing.T) {
+	t.Parallel()
 	m := transaction.NewManager()
 	_, err := m.NewProposalResponseFromBytes([]byte("invalid"))
 	require.Error(t, err)
 }
 
-func TestManager_NewTransactionFromEnvelopeBytes(t *testing.T) { //nolint:paralleltest
+func TestManager_NewTransactionFromEnvelopeBytes(t *testing.T) {
+	t.Parallel()
 	m := transaction.NewManager()
-	ctx := context.Background()
+	ctx := t.Context()
 	_, err := m.NewTransactionFromEnvelopeBytes(ctx, "testchannel", []byte("invalid"))
 	require.Error(t, err)
 }
 
-func TestManager_NewProcessedTransactionFromEnvelopePayload(t *testing.T) { //nolint:paralleltest
+func TestManager_NewProcessedTransactionFromEnvelopePayload(t *testing.T) {
+	t.Parallel()
 	m := transaction.NewManager()
 	_, _, err := m.NewProcessedTransactionFromEnvelopePayload([]byte("invalid"))
 	require.Error(t, err)
 }
 
-func TestManager_NewProcessedTransactionFromEnvelopeRaw(t *testing.T) { //nolint:paralleltest
+func TestManager_NewProcessedTransactionFromEnvelopeRaw(t *testing.T) {
+	t.Parallel()
 	m := transaction.NewManager()
 	_, err := m.NewProcessedTransactionFromEnvelopeRaw([]byte("invalid"))
 	require.Error(t, err)
 }
 
-func TestManager_NewProcessedTransaction(t *testing.T) { //nolint:paralleltest
+func TestManager_NewProcessedTransaction(t *testing.T) {
+	t.Parallel()
 	m := transaction.NewManager()
 	_, err := m.NewProcessedTransaction([]byte("invalid"))
 	require.Error(t, err)

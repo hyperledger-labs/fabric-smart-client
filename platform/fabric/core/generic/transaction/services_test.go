@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package transaction_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
@@ -18,11 +17,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
-func TestMetadataService(t *testing.T) { //nolint:paralleltest
+func TestMetadataService(t *testing.T) {
+	t.Parallel()
 	mockStore := &mock.MetadataStore{}
 	mds := transaction.NewMetadataService(mockStore, "network", "channel")
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Exists
 	mockStore.ExistMetadataReturns(true, nil)
@@ -41,11 +41,12 @@ func TestMetadataService(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, driver.TransientMap(tm), loaded)
 }
 
-func TestEnvelopeService(t *testing.T) { //nolint:paralleltest
+func TestEnvelopeService(t *testing.T) {
+	t.Parallel()
 	mockStore := &mock.EnvelopeStore{}
 	envs := transaction.NewEnvelopeService(mockStore, "network", "channel")
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Exists
 	mockStore.ExistsEnvelopeReturns(true, nil)
@@ -72,11 +73,12 @@ func TestEnvelopeService(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, []byte("envelope"), loaded)
 }
 
-func TestEndorseTransactionService(t *testing.T) { //nolint:paralleltest
+func TestEndorseTransactionService(t *testing.T) {
+	t.Parallel()
 	mockStore := &mock.EndorseTxStore{}
 	ets := transaction.NewEndorseTransactionService(mockStore, "network", "channel")
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Exists
 	mockStore.ExistsEndorseTxReturns(true, nil)
