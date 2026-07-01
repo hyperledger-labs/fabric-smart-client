@@ -43,7 +43,7 @@ func (m *Manager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalRespo
 func (m *Manager) NewTransaction(ctx context.Context, transactionType driver.TransactionType, creator view2.Identity, nonce []byte, txid, channel string, rawRequest []byte) (driver.Transaction, error) {
 	factory, ok := m.factories[transactionType]
 	if !ok {
-		return nil, errors.Errorf("transaction tyep [%d] not recognized", transactionType)
+		return nil, errors.Errorf("transaction type [%d] not recognized", transactionType)
 	}
 	tx, err := factory.NewTransaction(ctx, channel, nonce, creator, txid, rawRequest)
 	if err != nil {
@@ -60,7 +60,7 @@ func (m *Manager) NewTransactionFromBytes(ctx context.Context, channel string, r
 	}
 	factory, ok := m.factories[txRaw.Type]
 	if !ok {
-		return nil, errors.Errorf("transaction tyep [%d] not recognized", txRaw.Type)
+		return nil, errors.Errorf("transaction type [%d] not recognized", txRaw.Type)
 	}
 	tx, err := factory.NewTransaction(ctx, channel, nil, nil, "", nil)
 	if err != nil {
@@ -80,7 +80,7 @@ func (m *Manager) NewTransactionFromEnvelopeBytes(ctx context.Context, channel s
 
 	factory, ok := m.factories[driver.TransactionType(cht)]
 	if !ok {
-		return nil, errors.Errorf("transaction tyep [%d] not recognized", cht)
+		return nil, errors.Errorf("transaction type [%d] not recognized", cht)
 	}
 	tx, err := factory.NewTransaction(ctx, channel, nil, nil, "", nil)
 	if err != nil {
