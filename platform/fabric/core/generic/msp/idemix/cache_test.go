@@ -76,7 +76,7 @@ func TestIdentityCacheClose(t *testing.T) { //nolint:paralleltest
 	c.Close()
 
 	// Exhaust all cached identities
-	for i := 0; i < initialCacheSize; i++ {
+	for range initialCacheSize {
 		id, audit, err = c.Identity(nil)
 		require.NoError(t, err)
 		require.Equal(t, view.Identity([]byte("hello world")), id)
