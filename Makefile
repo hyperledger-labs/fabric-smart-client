@@ -201,6 +201,17 @@ $(addprefix integration-tests-,$(INTEGRATION_TARGETS)) : integration-tests-%:
 		ginkgo $(GINKGO_TEST_OPTS) .
 
 #########################
+# Release
+#########################
+
+.PHONY: tag-release
+tag-release: ## Create git tags for all modules at HEAD. Usage: make tag-release VERSION=v0.13.0 [DRY=1]
+ifndef VERSION
+	$(error VERSION is required. Usage: make tag-release VERSION=v0.13.0)
+endif
+	./scripts/tag-release.sh $(if $(DRY),--dry) $(VERSION)
+
+#########################
 # Cleaning
 #########################
 
