@@ -91,6 +91,32 @@ func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
 	return int32(res.Statuses[0].Status), nil
 }
 
+// GetTransactionStatuses resolves the status of many transactions in one query,
+// keyed by transaction ID; transactions unknown to the committer are omitted.
+func (s *RemoteQueryService) GetTransactionStatuses(txIDs []string) (map[string]int32, error) {
+	if len(txIDs) == 0 {
+		return map[string]int32{}, nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
+	defer cancel()
+
+	now := time.Now()
+	res, err := s.client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{TxIds: txIDs})
+	if err != nil {
+		return nil, errors.Wrap(err, "query transaction statuses")
+	}
+	logger.Debugf("QS GetTransactionStatuses: %d ids -> %d statuses in %v", len(txIDs), len(res.GetStatuses()), time.Since(now))
+
+	out := make(map[string]int32, len(res.GetStatuses()))
+	for _, st := range res.GetStatuses() {
+		if ref := st.GetRef(); ref != nil {
+			out[ref.GetTxId()] = int32(st.GetStatus())
+		}
+	}
+	return out, nil
+}
+
 // GetConfigTransaction returns the envelope and version of the most recent config transaction
 func (s *RemoteQueryService) GetConfigTransaction() (*ConfigTransactionInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
