@@ -452,6 +452,22 @@ func TestQueryService(t *testing.T) {
 			require.Equal(t, []string{"tx1", "tx2", "tx3"}, query.GetTxIds())
 		})
 
+		t.Run("duplicate input ids are collapsed", func(t *testing.T) {
+			t.Parallel()
+			qs, fake := setupTest(t)
+			fake.GetTransactionStatusReturns(&committerpb.TxStatusResponse{
+				Statuses: []*committerpb.TxStatus{
+					{Ref: &committerpb.TxRef{TxId: "tx1"}, Status: committerpb.Status_COMMITTED},
+				},
+			}, nil)
+
+			statuses, err := qs.GetTransactionStatuses([]string{"tx1", "tx2", "tx1", "tx2"})
+			require.NoError(t, err)
+			require.Equal(t, map[string]int32{"tx1": int32(committerpb.Status_COMMITTED)}, statuses)
+			_, query, _ := fake.GetTransactionStatusArgsForCall(0)
+			require.Equal(t, []string{"tx1", "tx2"}, query.GetTxIds())
+		})
+
 		t.Run("statuses without ref are dropped", func(t *testing.T) {
 			t.Parallel()
 			qs, fake := setupTest(t)

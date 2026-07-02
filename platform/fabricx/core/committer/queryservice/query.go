@@ -92,21 +92,34 @@ func (s *RemoteQueryService) GetTransactionStatus(txID string) (int32, error) {
 }
 
 // GetTransactionStatuses resolves the status of many transactions in one query,
-// keyed by transaction ID; transactions unknown to the committer are omitted.
+// keyed by transaction ID. Duplicate input IDs are collapsed before querying.
+// Unlike GetTransactionStatus, which returns an error for a transaction unknown
+// to the committer, unknown transactions are omitted from the result so callers
+// can treat a missing entry as "not final yet".
 func (s *RemoteQueryService) GetTransactionStatuses(txIDs []string) (map[string]int32, error) {
 	if len(txIDs) == 0 {
 		return map[string]int32{}, nil
+	}
+
+	seen := make(map[string]struct{}, len(txIDs))
+	unique := make([]string, 0, len(txIDs))
+	for _, txID := range txIDs {
+		if _, ok := seen[txID]; ok {
+			continue
+		}
+		seen[txID] = struct{}{}
+		unique = append(unique, txID)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.config.RequestTimeout)
 	defer cancel()
 
 	now := time.Now()
-	res, err := s.client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{TxIds: txIDs})
+	res, err := s.client.GetTransactionStatus(ctx, &committerpb.TxStatusQuery{TxIds: unique})
 	if err != nil {
 		return nil, errors.Wrap(err, "query transaction statuses")
 	}
-	logger.Debugf("QS GetTransactionStatuses: %d ids -> %d statuses in %v", len(txIDs), len(res.GetStatuses()), time.Since(now))
+	logger.Debugf("QS GetTransactionStatuses: %d ids -> %d statuses in %v", len(unique), len(res.GetStatuses()), time.Since(now))
 
 	out := make(map[string]int32, len(res.GetStatuses()))
 	for _, st := range res.GetStatuses() {
