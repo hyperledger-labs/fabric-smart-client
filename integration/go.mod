@@ -9,7 +9,7 @@ replace (
 )
 
 require (
-	github.com/IBM/idemix v0.1.0
+	github.com/IBM/idemix v0.1.1
 	github.com/IBM/mathlib v0.2.0
 	github.com/containerd/errdefs v1.0.0
 	github.com/hyperledger-labs/fabric-smart-client v0.0.0-00010101000000-000000000000
@@ -102,7 +102,7 @@ require (
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/hyperledger/aries-bbs-go v0.0.0-20240528091251-e950615f2e45 // indirect
 	github.com/hyperledger/fabric-amcl v0.0.0-20230602173724-9e02669dceb2 // indirect
-	github.com/hyperledger/fabric-x-common v0.2.4 // indirect
+	github.com/hyperledger/fabric-x-common v0.2.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/boxo v0.37.0 // indirect
 	github.com/ipfs/go-cid v0.6.1 // indirect
