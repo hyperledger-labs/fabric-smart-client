@@ -225,10 +225,7 @@ $(addprefix clean-,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS)) : clean-%:
 
 .PHONY: tidy
 tidy: ## Run go mod tidy everywhere
-	go mod tidy
-	cd tools; go mod tidy
-	cd integration; go mod tidy
-	cd platform/fabric/services/state/cc/query; go mod tidy
+	@./scripts/gomate.sh tidy
 
 .PHONY: fmt
 fmt: ## Run gofmt on the entire project
