@@ -190,6 +190,38 @@ go test -race -coverprofile=cov.out ./platform/common/utils/dig
 go tool cover -func=cov.out
 ```
 
+## Dependency Management
+
+FSC is a multi-module repository. Use [`scripts/gomate.sh`](../../scripts/gomate.sh) to manage Go dependencies across all modules at once.
+
+Set up a Go workspace so your local editor and tooling resolve cross-module imports correctly:
+
+```bash
+./scripts/gomate.sh initwork
+```
+
+Tidy all modules after any dependency change:
+
+```bash
+./scripts/gomate.sh tidy
+```
+
+Update a specific dependency across every module:
+
+```bash
+./scripts/gomate.sh update github.com/some/dep@v1.2.3
+```
+
+Omit the argument to update all direct dependencies to their latest versions:
+
+```bash
+./scripts/gomate.sh update
+```
+
+Be careful with updating all dependencies at once. This may easily break something.
+Note that `gomate.sh tidy` can also be invoked via `make tidy`. 
+After updating, run `make tidy` and `make checks` to verify the result.
+
 ## Write Your Own Integration Test
 
 Creating a new integration test is straightforward.
