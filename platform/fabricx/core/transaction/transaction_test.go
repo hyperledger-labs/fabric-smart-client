@@ -7,9 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package transaction
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
+	"math/big"
 	"testing"
+	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
@@ -343,36 +353,74 @@ func TestAppendProposalResponseDriverWrapper(t *testing.T) {
 	}
 }
 
-func TestToMSPSignerIdentityWithCertificate(t *testing.T) {
-	t.Parallel()
-
-	raw, err := proto.Marshal(&msp.SerializedIdentity{Mspid: "Org1MSP", IdBytes: []byte("cert-bytes")})
+// mustSerializedIdentityWithRealCert generates a self-signed ECDSA certificate and
+// returns both its PEM encoding and the proto-marshalled msp.SerializedIdentity.
+// Use this in tests that exercise code paths which parse the PEM certificate
+// (e.g. toMSPSignerIdentityWithCertificateID).
+func mustSerializedIdentityWithRealCert(t *testing.T, mspID string) (certPEM, serialized []byte) {
+	t.Helper()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: mspID},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
+	require.NoError(t, err)
+
+	certPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	serialized, err = proto.Marshal(&msp.SerializedIdentity{Mspid: mspID, IdBytes: certPEM})
+	require.NoError(t, err)
+	return certPEM, serialized
+}
+
+func TestToMSPSignerIdentityWithCertificateID(t *testing.T) {
+	t.Parallel()
+
+	certPEM, serialized := mustSerializedIdentityWithRealCert(t, "Org1MSP")
+
+	// derive the expected cert ID: SHA-256 of DER bytes, hex-encoded
+	block, _ := pem.Decode(certPEM)
+	require.NotNil(t, block)
+	digest := sha256.Sum256(block.Bytes)
+	expectedCertID := hex.EncodeToString(digest[:])
+
 	tests := []struct {
-		name          string
-		identity      view.Identity
-		expectedMSP   string
-		expectedCert  []byte
-		expectedError string
+		name           string
+		identity       view.Identity
+		expectedMSP    string
+		expectedCertID string
+		expectedError  string
 	}{
 		{
-			name:         "success",
-			identity:     view.Identity(raw),
-			expectedMSP:  "Org1MSP",
-			expectedCert: []byte("cert-bytes"),
+			name:           "success",
+			identity:       view.Identity(serialized),
+			expectedMSP:    "Org1MSP",
+			expectedCertID: expectedCertID,
 		},
 		{
 			name:          "invalid serialized identity",
 			identity:      view.Identity([]byte("not-a-protobuf")),
 			expectedError: "unmarshal serialized identity",
 		},
+		{
+			name: "non-PEM cert bytes",
+			identity: func() view.Identity {
+				raw, err := proto.Marshal(&msp.SerializedIdentity{Mspid: "Org1MSP", IdBytes: []byte("not-pem")})
+				require.NoError(t, err)
+				return view.Identity(raw)
+			}(),
+			expectedError: "failed to decode PEM certificate",
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			id, err := toMSPSignerIdentityWithCertificate(tc.identity)
+			id, err := toMSPSignerIdentityWithCertificateID(tc.identity)
 			if tc.expectedError != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.expectedError)
@@ -381,7 +429,8 @@ func TestToMSPSignerIdentityWithCertificate(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedMSP, id.GetMspId())
-			require.Equal(t, tc.expectedCert, id.GetCertificate())
+			require.Equal(t, tc.expectedCertID, id.GetCertificateId())
+			require.Empty(t, id.GetCertificate())
 		})
 	}
 }
@@ -695,11 +744,10 @@ func TestEndorseWithIdentity(t *testing.T) {
 func TestGetProposalResponse(t *testing.T) {
 	t.Parallel()
 
-	signerIdentityRaw, err := proto.Marshal(&msp.SerializedIdentity{Mspid: "Org1MSP", IdBytes: []byte("cert-bytes")})
-	require.NoError(t, err)
-
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
+		_, signerIdentityRaw := mustSerializedIdentityWithRealCert(t, "Org1MSP")
+
 		txPayload := &applicationpb.Tx{Namespaces: []*applicationpb.TxNamespace{{NsId: "ns1"}, {NsId: "ns2"}}}
 		rwsetBytes, err := proto.Marshal(txPayload)
 		require.NoError(t, err)
@@ -721,6 +769,14 @@ func TestGetProposalResponse(t *testing.T) {
 		require.Equal(t, rwsetBytes, resp.Payload)
 		require.NotNil(t, resp.Endorsement)
 		require.Equal(t, signerIdentityRaw, resp.Endorsement.Endorser)
+
+		// verify the endorsement identity embedded in the payload uses cert-ID format
+		endorsements, err := unmarshalEndorsementsFromProposalResponse(resp.Endorsement.Signature)
+		require.NoError(t, err)
+		require.Len(t, endorsements, 2)
+		eid := endorsements[0].EndorsementsWithIdentity[0]
+		require.NotEmpty(t, eid.Identity.GetCertificateId())
+		require.Empty(t, eid.Identity.GetCertificate())
 	})
 
 	t.Run("error when proposal already has endorsements", func(t *testing.T) {
@@ -752,8 +808,7 @@ func TestGetProposalResponse(t *testing.T) {
 func TestEndorseProposalResponseWithIdentity(t *testing.T) {
 	t.Parallel()
 
-	signerIdentityRaw, err := proto.Marshal(&msp.SerializedIdentity{Mspid: "Org1MSP", IdBytes: []byte("cert-bytes")})
-	require.NoError(t, err)
+	_, signerIdentityRaw := mustSerializedIdentityWithRealCert(t, "Org1MSP")
 	testID := view.Identity(signerIdentityRaw)
 
 	txPayload := &applicationpb.Tx{Namespaces: []*applicationpb.TxNamespace{{NsId: "ns1"}}}

@@ -119,9 +119,10 @@ func (p *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
 		// that is, at this stage it should only contain "a single" signature (endorsement) per namespace;
 		sig := items[0].GetEndorsement()
 
-		// TODO: check the type of the endorsement
-		// If msp-based with or without attached identity - we need to check it corresponds to the endorser identity
-		// as we specify above using `view.Identity(p.pr.Endorsement.Endorser)`.
+		// TODO: check that eid.Identity corresponds to the endorser identity above.
+		// Note: after the cached-identity change, eid.Identity carries Identity_CertificateId
+		// (SHA-256 of cert DER, hex-encoded) while p.pr.Endorsement.Endorser carries the full
+		// msp.SerializedIdentity — the cross-check must account for this format difference.
 
 		// TODO: for threshold-based endorsement we need to first aggregate signatures shares before verifying.
 

@@ -393,7 +393,8 @@ func generatePeerOrg(baseDir string, orgSpec OrgSpec) {
 		os.Exit(1)
 	}
 
-	generateNodes(peersDir, orgSpec.Specs, signCA, tlsCA, msp.PEER, orgSpec.EnableNodeOUs)
+	knowncertsDir := filepath.Join(mspDir, "knowncerts")
+	generateNodes(peersDir, orgSpec.Specs, signCA, tlsCA, msp.PEER, orgSpec.EnableNodeOUs, knowncertsDir)
 
 	var users []NodeSpec
 	if len(orgSpec.Users.Specs) != 0 {
@@ -420,7 +421,7 @@ func generatePeerOrg(baseDir string, orgSpec OrgSpec) {
 	}
 
 	users = append(users, adminUser)
-	generateNodes(usersDir, users, signCA, tlsCA, msp.CLIENT, orgSpec.EnableNodeOUs)
+	generateNodes(usersDir, users, signCA, tlsCA, msp.CLIENT, orgSpec.EnableNodeOUs, knowncertsDir)
 
 	// copy the admin cert to the org's MSP admincerts
 	if !orgSpec.EnableNodeOUs {
@@ -471,7 +472,7 @@ func copyAdminCert(usersDir, adminCertsDir, adminUserName string) error {
 	return nil
 }
 
-func generateNodes(baseDir string, nodes []NodeSpec, signCA, tlsCA *ca.CA, nodeType int, nodeOUs bool) {
+func generateNodes(baseDir string, nodes []NodeSpec, signCA, tlsCA *ca.CA, nodeType int, nodeOUs bool, knowncertsDir string) {
 	for _, node := range nodes {
 		nodeDir := filepath.Join(baseDir, node.CommonName)
 		if _, err := os.Stat(nodeDir); os.IsNotExist(err) {
@@ -482,6 +483,12 @@ func generateNodes(baseDir string, nodes []NodeSpec, signCA, tlsCA *ca.CA, nodeT
 			err := msp.GenerateLocalMSP(nodeDir, node.CommonName, node.SANS, signCA, tlsCA, currentNodeType, nodeOUs, node.HSM, nil)
 			if err != nil {
 				fmt.Printf("Error generating local MSP for %v:\n%v\n", node, err)
+				os.Exit(1)
+			}
+			src := filepath.Join(nodeDir, "msp", "signcerts", node.CommonName+"-cert.pem")
+			dst := filepath.Join(knowncertsDir, node.CommonName+"-cert.pem")
+			if err := copyFile(src, dst); err != nil {
+				fmt.Printf("Error copying cert for %s to knowncerts:\n%v\n", node.CommonName, err)
 				os.Exit(1)
 			}
 		}
@@ -518,7 +525,8 @@ func generateOrdererOrg(baseDir string, orgSpec OrgSpec) {
 		os.Exit(1)
 	}
 
-	generateNodes(orderersDir, orgSpec.Specs, signCA, tlsCA, msp.ORDERER, orgSpec.EnableNodeOUs)
+	knowncertsDir := filepath.Join(mspDir, "knowncerts")
+	generateNodes(orderersDir, orgSpec.Specs, signCA, tlsCA, msp.ORDERER, orgSpec.EnableNodeOUs, knowncertsDir)
 
 	adminUser := NodeSpec{
 		isAdmin:    true,
@@ -529,7 +537,7 @@ func generateOrdererOrg(baseDir string, orgSpec OrgSpec) {
 	users := []NodeSpec{}
 	// add an admin user
 	users = append(users, adminUser)
-	generateNodes(usersDir, users, signCA, tlsCA, msp.CLIENT, orgSpec.EnableNodeOUs)
+	generateNodes(usersDir, users, signCA, tlsCA, msp.CLIENT, orgSpec.EnableNodeOUs, knowncertsDir)
 
 	// copy the admin cert to the org's MSP admincerts
 	if !orgSpec.EnableNodeOUs {

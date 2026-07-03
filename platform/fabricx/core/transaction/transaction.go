@@ -9,7 +9,10 @@ package transaction
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
@@ -614,7 +617,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 	}
 
 	// convert serialized identity to the msppb.Identity expected by Fabric-X
-	signerIdentity, err := toMSPSignerIdentityWithCertificate(view.Identity(creator))
+	signerIdentity, err := toMSPSignerIdentityWithCertificateID(view.Identity(creator))
 	if err != nil {
 		return nil, errors.Wrap(err, "converting signer identity to msp identity")
 	}
@@ -663,16 +666,22 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 	}, nil
 }
 
-func toMSPSignerIdentityWithCertificate(identity view.Identity) (*msppb.Identity, error) {
+// toMSPSignerIdentityWithCertificateID converts a serialized MSP identity to an
+// msppb.Identity that uses a SHA-256 hash of the DER-encoded certificate as the
+// creator. This matches the cached-identity format expected by Fabric-X committers,
+// which look up the identity by cert hash rather than the full certificate bytes.
+// The hash must be consistent with the IdentityIdentifierHashFunction configured
+// in the committer's MSP (default: SHA-256 of cert.Raw).
+func toMSPSignerIdentityWithCertificateID(identity view.Identity) (*msppb.Identity, error) {
 	sID := &msp.SerializedIdentity{}
 	if err := proto.Unmarshal(identity, sID); err != nil {
 		return nil, errors.Wrap(err, "unmarshal serialized identity")
 	}
-	// Signer identity with certificate attached.
-	return &msppb.Identity{
-		MspId: sID.GetMspid(),
-		Creator: &msppb.Identity_Certificate{
-			Certificate: sID.GetIdBytes(),
-		},
-	}, nil
+	block, _ := pem.Decode(sID.GetIdBytes())
+	if block == nil {
+		return nil, errors.New("failed to decode PEM certificate")
+	}
+	digest := sha256.Sum256(block.Bytes)
+	certID := hex.EncodeToString(digest[:])
+	return msppb.NewIdentityWithIDOfCert(sID.GetMspid(), certID), nil
 }
