@@ -11,8 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/IBM/idemix"
-	im "github.com/IBM/idemix/idemixmsp"
+	im "github.com/IBM/idemix/msp"
+	"github.com/IBM/idemix/msp/config"
 	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -57,7 +57,7 @@ func ReadFile(file string) ([]byte, error) {
 }
 
 func GetLocalMspConfigWithType(dir, id string) (*m.MSPConfig, error) {
-	mspConfig, err := idemix.GetIdemixMspConfigWithType(dir, id, idemix.IDEMIX)
+	mspConfig, err := im.GetIdemixMspConfigWithType(dir, id, im.IDEMIX)
 	if err != nil {
 		// load it using the fabric-ca format
 		mspConfig2, err2 := GetFabricCAIdemixMspConfig(dir, id)
@@ -83,7 +83,7 @@ func GetFabricCAIdemixMspConfig(dir, ID string) (*m.MSPConfig, error) {
 		return nil, errors.Wrapf(err, "failed to read revocation public key file at [%s]", path)
 	}
 
-	idemixConfig := &im.IdemixMSPConfig{
+	idemixConfig := &config.IdemixMSPConfig{
 		Name:         ID,
 		Ipk:          ipkBytes,
 		RevocationPk: revocationPkBytes,
@@ -98,7 +98,7 @@ func GetFabricCAIdemixMspConfig(dir, ID string) (*m.MSPConfig, error) {
 			return nil, errors.Wrapf(err, "failed to json unmarshal signer config read at [%s]", path)
 		}
 
-		signerConfig := &im.IdemixMSPSignerConfig{
+		signerConfig := &config.IdemixMSPSignerConfig{
 			Cred:                            si.Cred,
 			Sk:                              si.Sk,
 			OrganizationalUnitIdentifier:    si.OrganizationalUnitIdentifier,

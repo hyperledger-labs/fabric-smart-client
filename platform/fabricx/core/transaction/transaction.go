@@ -624,7 +624,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 		// TODO we need to check if the signer is an endorser for the given namespace;
 		// if not we should skip that ns.
 
-		digest, err := tx.Namespaces[idx].ASN1Marshal(txID)
+		digest, err := tx.Namespaces[idx].ASN1Marshal(txID, nil)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed asn1 marshalfor [txID=%s] [ns=%s]", txID, ns)
 		}

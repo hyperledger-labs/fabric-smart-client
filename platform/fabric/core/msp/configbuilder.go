@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/IBM/idemix"
+	idemixmsp "github.com/IBM/idemix/msp"
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
@@ -181,7 +181,7 @@ func GetLocalMspConfigWithType(dir string, bccspConfig *factory.FactoryOpts, ID,
 	case ProviderTypeToString(FABRIC):
 		return GetLocalMspConfig(dir, bccspConfig, ID)
 	case ProviderTypeToString(IDEMIX):
-		return idemix.GetIdemixMspConfig(dir, ID)
+		return idemixmsp.GetIdemixMspConfig(dir, ID)
 	default:
 		return nil, errors.Errorf("unknown MSP type '%s'", mspType)
 	}
@@ -226,7 +226,7 @@ func GetVerifyingMspConfig(dir, ID, mspType string) (*msp.MSPConfig, error) {
 	case ProviderTypeToString(FABRIC):
 		return getMspConfig(dir, ID, nil)
 	case ProviderTypeToString(IDEMIX):
-		return idemix.GetIdemixMspConfig(dir, ID)
+		return idemixmsp.GetIdemixMspConfig(dir, ID)
 	default:
 		return nil, errors.Errorf("unknown MSP type '%s'", mspType)
 	}
