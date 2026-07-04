@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -19,8 +18,6 @@ import (
 // config models the DB configuration
 type config interface {
 	UnmarshalDriverOpts(name driver.PersistenceName, v any) error
-	IsSet(key string) bool
-	UnmarshalKey(key string, rawVal interface{}) error
 }
 
 type Config struct {
@@ -32,6 +29,7 @@ type Config struct {
 	SkipCreateTable bool
 	TableNameParams []string
 	Tracing         *common2.TracingConfig
+	TLSConfig       *TLSConfig
 }
 
 func NewConfigProvider(config config) *ConfigProvider {
@@ -59,25 +57,14 @@ func (r *ConfigProvider) GetOpts(name driver.PersistenceName, params ...string) 
 	o.TableNameParams = params
 	o.Tracing = &common2.TracingConfig{}
 
-	var tlsConfig TLSConfig
-	tlsKey := fmt.Sprintf("fsc.persistences.%s.opts.tls", name)
-	if r.config.IsSet(tlsKey) {
-		if err := r.config.UnmarshalKey(tlsKey, &tlsConfig); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal database TLS config: %w", err)
-		}
-	} else {
-		defaultTlsKey := "fsc.persistences.default.opts.tls"
-		if r.config.IsSet(defaultTlsKey) {
-			if err := r.config.UnmarshalKey(defaultTlsKey, &tlsConfig); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal default database TLS config: %w", err)
-			}
-		}
+	if o.TLSConfig == nil {
+		o.TLSConfig = &TLSConfig{}
 	}
 
-	if tlsConfig.Enabled {
-		registeredConnStr, err := RegisterTLSConnection(o.DataSource, tlsConfig)
+	if o.TLSConfig.Enabled {
+		registeredConnStr, err := RegisterTLSConnection(o.DataSource, *o.TLSConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to register TLS connection config: %w", err)
+			return nil, errors.Wrapf(err, "failed to register TLS connection config")
 		}
 		o.DataSource = registeredConnStr
 	}

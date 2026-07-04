@@ -599,6 +599,12 @@ persistence:
     maxOpenConns: 25  # optional: max open read connections to the database. Defaults to unlimited. 
     maxIdleConns: 25  # optional: max idle read connections to the database. Defaults to 2.
     maxIdleTime: 30s  # optional: max duration a connection can be idle before it is closed. Defaults to 1 minute.
+    tls:
+      enabled: true
+      ssl_mode: verify-ca # disable, allow, prefer, require, verify-ca, verify-full
+      cert_path: /path/to/client.crt
+      key_path: /path/to/client.key
+      root_cert_path: /path/to/ca.crt
 ```
 
 For more info about managing connections, see https://go.dev/doc/database/manage-connections. Keep in mind that Fabric Smart Client
