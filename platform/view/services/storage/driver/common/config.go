@@ -60,11 +60,3 @@ func (c *Config) unmarshalPersistenceKey(name driver2.PersistenceName, key strin
 	}
 	return c.configProvider.UnmarshalKey(fmt.Sprintf("fsc.persistences.%s.%s", name, key), v)
 }
-
-func (c *Config) IsSet(key string) bool {
-	return c.configProvider.IsSet(key)
-}
-
-func (c *Config) UnmarshalKey(key string, rawVal any) error {
-	return c.configProvider.UnmarshalKey(key, rawVal)
-}

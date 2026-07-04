@@ -8,6 +8,11 @@ package postgres
 
 import (
 	"testing"
+	"os"
+	"path/filepath"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
+	"github.com/stretchr/testify/require"
 
 	_ "modernc.org/sqlite"
 
@@ -52,3 +57,84 @@ func TestPostgres(t *testing.T) {
 		return p.(*common3.KeyValueStore)
 	})
 }
+
+func setupDBWithTLS(tb testing.TB) (string, string) {
+	tb.Helper()
+
+	tempDir := tb.TempDir()
+	ca, err := tlsgen.NewCA()
+	require.NoError(tb, err)
+	serverKeyPair, err := ca.NewServerCertKeyPair("127.0.0.1")
+	require.NoError(tb, err)
+
+	certPath := filepath.Join(tempDir, "server.crt")
+	err = os.WriteFile(certPath, serverKeyPair.Cert, 0644)
+	require.NoError(tb, err)
+
+	keyPath := filepath.Join(tempDir, "server.key")
+	err = os.WriteFile(keyPath, serverKeyPair.Key, 0644)
+	require.NoError(tb, err)
+
+	scriptPath := filepath.Join(tempDir, "init-ssl.sh")
+	script := `#!/bin/bash
+cp /tmp/certs/server.key /var/lib/postgresql/server.key
+cp /tmp/certs/server.crt /var/lib/postgresql/server.crt
+chown postgres:postgres /var/lib/postgresql/server.key /var/lib/postgresql/server.crt
+chmod 0600 /var/lib/postgresql/server.key
+`
+	err = os.WriteFile(scriptPath, []byte(script), 0755)
+	require.NoError(tb, err)
+
+	cfg := ConfigFromEnv()
+	cfg.Binds = []string{
+		filepath.ToSlash(tempDir) + ":/tmp/certs:ro",
+		filepath.ToSlash(scriptPath) + ":/docker-entrypoint-initdb.d/init-ssl.sh:ro",
+	}
+	cfg.Cmd = []string{
+		"postgres",
+		"-c", "ssl=on",
+		"-c", "ssl_cert_file=/var/lib/postgresql/server.crt",
+		"-c", "ssl_key_file=/var/lib/postgresql/server.key",
+	}
+
+	terminate, pgConnStr, err := StartPostgres(tb.Context(), cfg, nil)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	tb.Cleanup(terminate)
+
+	// Since we are creating a CA from scratch, write it for the client to use.
+	caPath := filepath.Join(tempDir, "ca.crt")
+	err = os.WriteFile(caPath, ca.CertBytes(), 0644)
+	require.NoError(tb, err)
+
+	return pgConnStr, caPath
+}
+
+func TestPostgresWithTLS(t *testing.T) {
+	t.Parallel()
+	pgConnStr, caPath := setupDBWithTLS(t)
+	t.Log("postgres with TLS ready")
+
+	cp := NewConfigProvider(testing2.MockConfig(Config{
+		DataSource: pgConnStr,
+		TLSConfig: &TLSConfig{
+			Enabled:      true,
+			SSLMode:      "verify-ca",
+			RootCertPath: caPath,
+		},
+	}))
+	common3.TestCases(t, func(string) (driver.KeyValueStore, error) {
+		return NewPersistenceWithOpts(cp, NewDbProvider(), "", NewKeyValueStore)
+	}, func(string) (driver.UnversionedNotifier, error) {
+		return NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables common3.TableNames) (*KeyValueStoreNotifier, error) {
+			return &KeyValueStoreNotifier{
+				KeyValueStore: newKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
+				Notifier:      NewNotifier(dbs.WriteDB, tables.KVS, pgConnStr, AllOperations, *NewSimplePrimaryKey("ns"), *NewBytePrimaryKey("pkey")),
+			}, nil
+		})
+	}, func(p driver.KeyValueStore) *common3.KeyValueStore {
+		return p.(*common3.KeyValueStore)
+	})
+}
+

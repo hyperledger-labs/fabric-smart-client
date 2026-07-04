@@ -7,23 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
-	"math/big"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,8 +44,8 @@ func (m *mockConfig) UnmarshalKey(key string, rawVal any) error {
 }
 
 func (m *mockConfig) UnmarshalDriverOpts(name driver2.PersistenceName, v any) error {
-	if baseOpts, ok := m.values["baseOpts"]; ok {
-		return mapstructure.Decode(baseOpts, v)
+	if opts, ok := m.values[string(name)+"Opts"]; ok {
+		return mapstructure.Decode(opts, v)
 	}
 	return nil
 }
@@ -60,46 +53,24 @@ func (m *mockConfig) UnmarshalDriverOpts(name driver2.PersistenceName, v any) er
 func generateSelfSignedCert(t *testing.T, tempDir string) (string, string) {
 	t.Helper()
 
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	ca, err := tlsgen.NewCA()
 	require.NoError(t, err)
 
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			Organization: []string{"Test Org"},
-		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(time.Hour),
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
-		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
-	}
-
-	derBytes, err := x509.CreateCertificate(nil, &template, &template, privateKey.Public(), privateKey)
+	serverKeyPair, err := ca.NewServerCertKeyPair("127.0.0.1")
 	require.NoError(t, err)
 
 	certPath := filepath.Join(tempDir, "cert.pem")
-	certOut, err := os.Create(certPath)
-	require.NoError(t, err)
-	defer certOut.Close()
-	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	err = os.WriteFile(certPath, serverKeyPair.Cert, 0644)
 	require.NoError(t, err)
 
 	keyPath := filepath.Join(tempDir, "key.pem")
-	keyOut, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	require.NoError(t, err)
-	defer keyOut.Close()
-
-	privBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
-	require.NoError(t, err)
-	err = pem.Encode(keyOut, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes})
+	err = os.WriteFile(keyPath, serverKeyPair.Key, 0600)
 	require.NoError(t, err)
 
 	return certPath, keyPath
 }
 
-func TestRegisterTLSConnection(t *testing.T) {
+func TestCreateTLSConnConfig(t *testing.T) {
 	tempDir := t.TempDir()
 	certPath, keyPath := generateSelfSignedCert(t, tempDir)
 
@@ -109,6 +80,16 @@ func TestRegisterTLSConnection(t *testing.T) {
 		tlsCfg     TLSConfig
 		verify     func(t *testing.T, connConfig *pgx.ConnConfig, err error)
 	}{
+		{
+			name:       "empty TLSConfig",
+			dataSource: "host=localhost port=5432 user=postgres dbname=test",
+			tlsCfg:     TLSConfig{},
+			verify: func(t *testing.T, connConfig *pgx.ConnConfig, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				require.NotNil(t, connConfig.TLSConfig)
+			},
+		},
 		{
 			name:       "SSLMode disable",
 			dataSource: "host=localhost port=5432 user=postgres dbname=test",
@@ -231,17 +212,20 @@ func TestTLSConfigProvider(t *testing.T) {
 
 	mockCfg := &mockConfig{
 		values: map[string]any{
-			"baseOpts": map[string]any{
+			"dbOpts": map[string]any{
 				"DataSource": "host=localhost port=5432 dbname=test",
+				"TLSConfig": map[string]any{
+					"enabled":        true,
+					"ssl_mode":       "require",
+					"root_cert_path": certPath,
+				},
 			},
-			"fsc.persistences.db.opts.tls": map[string]any{
-				"enabled":        true,
-				"ssl_mode":       "require",
-				"root_cert_path": certPath,
-			},
-			"fsc.persistences.default.opts.tls": map[string]any{
-				"enabled":  true,
-				"ssl_mode": "verify-full",
+			"otherOpts": map[string]any{
+				"DataSource": "host=localhost port=5432 dbname=test",
+				"TLSConfig": map[string]any{
+					"enabled":  true,
+					"ssl_mode": "verify-full",
+				},
 			},
 		},
 	}
@@ -256,7 +240,7 @@ func TestTLSConfigProvider(t *testing.T) {
 		stdlib.UnregisterConnConfig(opts.DataSource)
 	})
 
-	t.Run("Fallback to default TLS config", func(t *testing.T) {
+	t.Run("Other TLS config", func(t *testing.T) {
 		provider := NewConfigProvider(mockCfg)
 
 		opts, err := provider.GetOpts("other")

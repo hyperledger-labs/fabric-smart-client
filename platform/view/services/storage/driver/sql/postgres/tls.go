@@ -28,7 +28,6 @@ type TLSConfig struct {
 	SSLMode      string `json:"ssl_mode"       mapstructure:"ssl_mode"       yaml:"ssl_mode"`
 }
 
-
 // createTLSConnConfig parses the datasource string and configures standard Go TLS.
 func createTLSConnConfig(dataSource string, tlsCfg TLSConfig) (*pgx.ConnConfig, error) {
 	connConfig, err := pgx.ParseConfig(dataSource)
