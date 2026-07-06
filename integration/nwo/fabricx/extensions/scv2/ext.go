@@ -8,7 +8,6 @@ package scv2
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"text/template"
@@ -27,48 +26,46 @@ import (
 
 var logger = logging.MustGetLogger()
 
+// CommitterConfig holds all configuration for the committer test container and its
+// sidecar peer identity in the Fabric network.
+type CommitterConfig struct {
+	SidecarName  string
+	SidecarOrg   string
+	SidecarHost  string
+	SidecarPorts api.Ports
+	Image        string
+	EnvVars      map[string]string
+}
+
 type Extension struct {
 	channel *fabric_topo.Channel
 	network *network.Network
-
-	sidecar *sidecarConfig
+	cfg     CommitterConfig
 }
 
-type sidecarConfig struct {
-	Host  string
-	Ports api.Ports
-	Name  string
-	Org   string
-}
-
-func NewExtension(topology *fabric_topo.Topology, network *network.Network, sidecarHost string, sidecarPorts api.Ports, sidecarName, sidecarOrg string) *Extension {
+func NewExtension(topology *fabric_topo.Topology, network *network.Network, cfg CommitterConfig) *Extension {
 	if len(topology.Channels) != 1 {
-		utils.Must(fmt.Errorf("we currently support a single channel"))
+		panic(fmt.Sprintf("expected exactly one channel, got %d", len(topology.Channels)))
 	}
-	if len(network.PeersInOrg(sidecarOrg)) == 0 {
-		panic(fmt.Sprintf("org [%s] does not exist in the network", sidecarOrg))
+	if len(network.PeersInOrg(cfg.SidecarOrg)) == 0 {
+		panic(fmt.Sprintf("org [%s] does not exist in the network", cfg.SidecarOrg))
 	}
 	return &Extension{
 		channel: topology.Channels[0],
 		network: network,
-		sidecar: &sidecarConfig{
-			Host:  sidecarHost,
-			Ports: sidecarPorts,
-			Name:  sidecarName,
-			Org:   sidecarOrg,
-		},
+		cfg:     cfg,
 	}
 }
 
 func (e *Extension) CheckTopology() {
-	// we add "another peer" for the scalable committer to use its credentials
+	// we add "another peer" for the committer to use its credentials
 	e.addSCPeer()
 }
 
 func (e *Extension) GenerateArtifacts() {
 	// generate fsc node core yaml extensions
-	generateQSExtension(e.network, e.sidecar.Org, e.sidecar.Name)
-	generateNSExtension(e.network, e.sidecar.Org, e.sidecar.Name)
+	generateQSExtension(e.network, e.cfg.SidecarOrg, e.cfg.SidecarName)
+	generateNSExtension(e.network, e.cfg.SidecarOrg, e.cfg.SidecarName)
 }
 
 func (e *Extension) PostRun(load bool) {
@@ -78,45 +75,41 @@ func (e *Extension) PostRun(load bool) {
 }
 
 func (e *Extension) addSCPeer() {
-	if e.sidecar == nil {
-		return
+	// resolve ports: use pre-allocated ones or reserve new ones
+	ports := e.cfg.SidecarPorts
+	if len(ports) == 0 {
+		ports = api.Ports{
+			fabric_network.ListenPort:    e.network.Context.ReservePort(), // sidecar and notification service
+			network.QueryServicePortName: e.network.Context.ReservePort(), // query service
+		}
 	}
 
-	// reserve ports
-	if len(e.sidecar.Ports) == 0 {
-		e.sidecar.Ports = api.Ports{}
-		e.sidecar.Ports[fabric_network.ListenPort] = e.network.Context.ReservePort()    // sidecar and notification service
-		e.sidecar.Ports[network.QueryServicePortName] = e.network.Context.ReservePort() // query service
+	// we add "another peer" for the committer to use its credentials
+	logger.Infof("Add committer for org=%v", e.cfg.SidecarOrg)
+	p := &fabric_topo.Peer{
+		Name:         e.cfg.SidecarName,
+		Organization: e.cfg.SidecarOrg,
+		Type:         fabric_topo.FabricPeer,
+		Bootstrap:    false,
+		Channels:     []*fabric_topo.PeerChannel{{Name: e.channel.Name, Anchor: false}},
+		Usage:        "",
+		SkipInit:     true,
+		SkipRunning:  true,
+		TLSDisabled:  !e.network.TLSEnabled,
 	}
-
-	for _, org := range e.network.PeerOrgs() {
-		logger.Infof("Add committer for org=%v", org.Name)
-		// we add "another peer" for the scalable committer to use its credentials
-		p := &fabric_topo.Peer{
-			Name:         e.sidecar.Name,
-			Organization: org.Name,
-			Type:         fabric_topo.FabricPeer,
-			Bootstrap:    false,
-			Channels:     []*fabric_topo.PeerChannel{{Name: e.channel.Name, Anchor: true}},
-			Usage:        "",
-			SkipInit:     true,
-			SkipRunning:  true,
-			TLSDisabled:  !e.network.TLSEnabled,
-		}
-		e.network.AppendPeer(p)
-		e.network.Context.SetPortsByPeerID(e.network.Prefix, p.ID(), e.sidecar.Ports)
-		if len(e.sidecar.Host) > 0 {
-			e.network.Context.SetHostByPeerID(e.network.Prefix, p.ID(), e.sidecar.Host)
-		}
+	e.network.AppendPeer(p)
+	e.network.Context.SetPortsByPeerID(e.network.Prefix, p.ID(), ports)
+	if len(e.cfg.SidecarHost) > 0 {
+		e.network.Context.SetHostByPeerID(e.network.Prefix, p.ID(), e.cfg.SidecarHost)
 	}
 }
 
 func generateExtensions(n *network.Network, scAddr string, t *template.Template) {
 	context := n.Context
 
-	fscTop, ok := context.TopologyByName("fsc").(*fsc.Topology)
+	fscTopo, ok := context.TopologyByName("fsc").(*fsc.Topology)
 	if !ok {
-		utils.Must(errors.New("cannot get fsc topo instance"))
+		panic(fmt.Sprintf("expected *fsc.Topology, got %T", context.TopologyByName("fsc")))
 	}
 
 	type extensionData struct {
@@ -126,7 +119,7 @@ func generateExtensions(n *network.Network, scAddr string, t *template.Template)
 	}
 
 	topoName := n.Topology().Name()
-	for _, fscNode := range fscTop.Nodes {
+	for _, fscNode := range fscTopo.Nodes {
 		// check that the fsc node is associated with the fabric network
 		fscPeer := n.FSCPeerByName(fscNode.Name)
 		if fscPeer == nil {
@@ -158,8 +151,7 @@ func generateExtensions(n *network.Network, scAddr string, t *template.Template)
 		}
 
 		var extension bytes.Buffer
-		err := t.Execute(&extension, data)
-		utils.Must(err)
+		utils.Must(t.Execute(&extension, data))
 
 		for _, uniqueName := range fscNode.ReplicaUniqueNames() {
 			context.AddExtension(uniqueName, api.FabricExtension, extension.String())

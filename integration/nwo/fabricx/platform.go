@@ -16,10 +16,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	fabric_network "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/extensions/scv2"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx/network"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
@@ -28,7 +26,7 @@ var logger = logging.MustGetLogger()
 
 const PlatformName = "fabricx"
 
-type ExtensionFactory func(platform *Platform, registry api.Context, t *topology.Topology, builder api.Builder) fabric_network.Extension
+type ExtensionFactory func(platform *Platform, registry api.Context, t api.Topology, builder api.Builder) fabric_network.Extension
 
 type ExtendedPlatformFactory struct {
 	*PlatformFactory
@@ -38,13 +36,8 @@ type ExtendedPlatformFactory struct {
 func (f *ExtendedPlatformFactory) New(registry api.Context, t api.Topology, builder api.Builder) api.Platform {
 	p := f.PlatformFactory.New(registry, t, builder)
 
-	topo, ok := t.(*topology.Topology)
-	if !ok {
-		panic(fmt.Errorf("invalid topology type"))
-	}
-
 	for _, ext := range f.extensions {
-		p.Network.AddExtension(ext(p, registry, topo, builder))
+		p.Network.AddExtension(ext(p, registry, t, builder))
 	}
 
 	return p
@@ -58,13 +51,20 @@ func (f *ExtendedPlatformFactory) WithExtensions(exts ...ExtensionFactory) *Exte
 }
 
 func NewPlatformFactory() *ExtendedPlatformFactory {
-	return NewPlatformFactoryWithSidecar("", nil, "SC", "Org1")
-}
-
-func NewPlatformFactoryWithSidecar(sidecarHost string, sidecarPorts api.Ports, sidecarName, sidecarOrg string) *ExtendedPlatformFactory {
 	return NewFabricxPlatformFactory().WithExtensions(
-		func(platform *Platform, registry api.Context, t *topology.Topology, builder api.Builder) fabric_network.Extension {
-			return scv2.NewExtension(t, platform.Network, sidecarHost, sidecarPorts, sidecarName, sidecarOrg)
+		func(platform *Platform, registry api.Context, t api.Topology, builder api.Builder) fabric_network.Extension {
+			fxTopo, ok := t.(*Topology)
+			if !ok {
+				panic(fmt.Sprintf("expected *fabricx.Topology, got %T", t))
+			}
+			return scv2.NewExtension(fxTopo.Topology, platform.Network, scv2.CommitterConfig{
+				SidecarName:  fxTopo.Committer.Name,
+				SidecarOrg:   fxTopo.Committer.Org,
+				SidecarHost:  fxTopo.Committer.Host,
+				SidecarPorts: fxTopo.Committer.Ports,
+				Image:        fxTopo.Committer.Image,
+				EnvVars:      fxTopo.Committer.EnvVars,
+			})
 		})
 }
 
@@ -86,18 +86,20 @@ func (*PlatformFactory) Name() string {
 }
 
 func (*PlatformFactory) New(registry api.Context, t api.Topology, builder api.Builder) *Platform {
-	topo, ok := t.(*topology.Topology)
+	fxTopo, ok := t.(*Topology)
 	if !ok {
-		utils.Must(errors.New("cannot cast topology"))
+		panic(fmt.Sprintf("expected *fabricx.Topology, got %T", t))
 	}
 
 	// create a new fabricx network
 	n := network.New(
 		registry,
-		topo,
+		fxTopo.Topology,
 		builder,
 		[]fabric_network.ChaincodeProcessor{},
 		common.UniqueName(),
+		fxTopo.Committer.Org,
+		fxTopo.Committer.Name,
 	)
 
 	// create the platform
@@ -153,8 +155,7 @@ func (p *Platform) DeleteVault(id string) {
 
 func (p *Platform) PostRun(load bool) {
 	// set up our docker environment for chaincode containers
-	err := p.dockerSupport.Setup()
-	utils.Must(err)
+	utils.Must(p.dockerSupport.Setup())
 
 	// network post run
 	p.Network.PostRun(load)
@@ -164,6 +165,5 @@ func (p *Platform) Cleanup() {
 	p.Network.Cleanup()
 
 	// cleanup docker environment
-	err := p.dockerSupport.Cleanup()
-	utils.Must(err)
+	utils.Must(p.dockerSupport.Cleanup())
 }

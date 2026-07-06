@@ -1268,21 +1268,15 @@ func (n *Network) AnchorsForChannel(chanName string) []*topology.Peer {
 }
 
 // AnchorsInOrg returns all peers that are an anchor for at least one channel
-// in the named organization.
+// in the named organization. Returns an empty slice when no peer is explicitly
+// marked as an anchor (callers should omit the AnchorPeers section in that case).
 func (n *Network) AnchorsInOrg(orgName string) []*topology.Peer {
-	anchors := []*topology.Peer{}
+	var anchors []*topology.Peer
 	for _, p := range n.PeersInOrg(orgName) {
 		if p.Anchor() {
 			anchors = append(anchors, p)
-			break
 		}
 	}
-
-	// No explicit anchor means all peers are anchors.
-	if len(anchors) == 0 {
-		anchors = n.PeersInOrg(orgName)
-	}
-
 	return anchors
 }
 
