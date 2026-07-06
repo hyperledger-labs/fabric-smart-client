@@ -42,6 +42,10 @@ awk '
   /[^\/]*mock[^\/]*\.go:/ { next }  # Matches any file with mock in filename
   /[^\/]*fake[^\/]*\.go:/ { next }  # Matches any file with fake in filename
 
+  # Exclude test utility files
+  /[^\/]*test_utils\.go:/ { next }  # Matches files ending with test_utils.go
+  /[^\/]*_test_utils\.go:/ { next } # Matches files ending with _test_utils.go
+
   # Exclude integration
   /\/integration\// { next }
 
