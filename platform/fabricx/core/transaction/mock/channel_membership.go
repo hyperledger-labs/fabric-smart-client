@@ -43,17 +43,6 @@ type ChannelMembership struct {
 		result1 driver.Verifier
 		result2 error
 	}
-	IsValidStub        func(view.Identity) error
-	isValidMutex       sync.RWMutex
-	isValidArgsForCall []struct {
-		arg1 view.Identity
-	}
-	isValidReturns struct {
-		result1 error
-	}
-	isValidReturnsOnCall map[int]struct {
-		result1 error
-	}
 	IsIdemixMSPStub        func(string) bool
 	isIdemixMSPMutex       sync.RWMutex
 	isIdemixMSPArgsForCall []struct {
@@ -64,6 +53,17 @@ type ChannelMembership struct {
 	}
 	isIdemixMSPReturnsOnCall map[int]struct {
 		result1 bool
+	}
+	IsValidStub        func(view.Identity) error
+	isValidMutex       sync.RWMutex
+	isValidArgsForCall []struct {
+		arg1 view.Identity
+	}
+	isValidReturns struct {
+		result1 error
+	}
+	isValidReturnsOnCall map[int]struct {
+		result1 error
 	}
 	MSPManagerStub        func() driver.MSPManager
 	mSPManagerMutex       sync.RWMutex
@@ -257,67 +257,6 @@ func (fake *ChannelMembership) GetVerifierReturnsOnCall(i int, result1 driver.Ve
 	}{result1, result2}
 }
 
-func (fake *ChannelMembership) IsValid(arg1 view.Identity) error {
-	fake.isValidMutex.Lock()
-	ret, specificReturn := fake.isValidReturnsOnCall[len(fake.isValidArgsForCall)]
-	fake.isValidArgsForCall = append(fake.isValidArgsForCall, struct {
-		arg1 view.Identity
-	}{arg1})
-	stub := fake.IsValidStub
-	fakeReturns := fake.isValidReturns
-	fake.recordInvocation("IsValid", []interface{}{arg1})
-	fake.isValidMutex.Unlock()
-	if stub != nil {
-		return stub(arg1)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ChannelMembership) IsValidCallCount() int {
-	fake.isValidMutex.RLock()
-	defer fake.isValidMutex.RUnlock()
-	return len(fake.isValidArgsForCall)
-}
-
-func (fake *ChannelMembership) IsValidCalls(stub func(view.Identity) error) {
-	fake.isValidMutex.Lock()
-	defer fake.isValidMutex.Unlock()
-	fake.IsValidStub = stub
-}
-
-func (fake *ChannelMembership) IsValidArgsForCall(i int) view.Identity {
-	fake.isValidMutex.RLock()
-	defer fake.isValidMutex.RUnlock()
-	argsForCall := fake.isValidArgsForCall[i]
-	return argsForCall.arg1
-}
-
-func (fake *ChannelMembership) IsValidReturns(result1 error) {
-	fake.isValidMutex.Lock()
-	defer fake.isValidMutex.Unlock()
-	fake.IsValidStub = nil
-	fake.isValidReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *ChannelMembership) IsValidReturnsOnCall(i int, result1 error) {
-	fake.isValidMutex.Lock()
-	defer fake.isValidMutex.Unlock()
-	fake.IsValidStub = nil
-	if fake.isValidReturnsOnCall == nil {
-		fake.isValidReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.isValidReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
 func (fake *ChannelMembership) IsIdemixMSP(arg1 string) bool {
 	fake.isIdemixMSPMutex.Lock()
 	ret, specificReturn := fake.isIdemixMSPReturnsOnCall[len(fake.isIdemixMSPArgsForCall)]
@@ -376,6 +315,67 @@ func (fake *ChannelMembership) IsIdemixMSPReturnsOnCall(i int, result1 bool) {
 	}
 	fake.isIdemixMSPReturnsOnCall[i] = struct {
 		result1 bool
+	}{result1}
+}
+
+func (fake *ChannelMembership) IsValid(arg1 view.Identity) error {
+	fake.isValidMutex.Lock()
+	ret, specificReturn := fake.isValidReturnsOnCall[len(fake.isValidArgsForCall)]
+	fake.isValidArgsForCall = append(fake.isValidArgsForCall, struct {
+		arg1 view.Identity
+	}{arg1})
+	stub := fake.IsValidStub
+	fakeReturns := fake.isValidReturns
+	fake.recordInvocation("IsValid", []interface{}{arg1})
+	fake.isValidMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ChannelMembership) IsValidCallCount() int {
+	fake.isValidMutex.RLock()
+	defer fake.isValidMutex.RUnlock()
+	return len(fake.isValidArgsForCall)
+}
+
+func (fake *ChannelMembership) IsValidCalls(stub func(view.Identity) error) {
+	fake.isValidMutex.Lock()
+	defer fake.isValidMutex.Unlock()
+	fake.IsValidStub = stub
+}
+
+func (fake *ChannelMembership) IsValidArgsForCall(i int) view.Identity {
+	fake.isValidMutex.RLock()
+	defer fake.isValidMutex.RUnlock()
+	argsForCall := fake.isValidArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ChannelMembership) IsValidReturns(result1 error) {
+	fake.isValidMutex.Lock()
+	defer fake.isValidMutex.Unlock()
+	fake.IsValidStub = nil
+	fake.isValidReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *ChannelMembership) IsValidReturnsOnCall(i int, result1 error) {
+	fake.isValidMutex.Lock()
+	defer fake.isValidMutex.Unlock()
+	fake.IsValidStub = nil
+	if fake.isValidReturnsOnCall == nil {
+		fake.isValidReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.isValidReturnsOnCall[i] = struct {
+		result1 error
 	}{result1}
 }
 

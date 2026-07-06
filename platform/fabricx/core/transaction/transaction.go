@@ -617,7 +617,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 	}
 
 	// convert serialized identity to the msppb.Identity expected by Fabric-X
-	signerIdentity, err := toMSPSignerIdentityWithCertificateID(view.Identity(creator))
+	signerIdentity, err := toEndorserIdentityWithCertID(creator)
 	if err != nil {
 		return nil, errors.Wrap(err, "converting signer identity to msp identity")
 	}
@@ -666,22 +666,62 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 	}, nil
 }
 
-// toMSPSignerIdentityWithCertificateID converts a serialized MSP identity to an
+// toMSPSignerIdentityWithCertificateID is the serializing counterpart of
+// toEndorserIdentityWithCertID. It differs in two ways:
+//   - It returns the proto-marshaled bytes of the resulting msppb.Identity
+//     rather than a pointer, making it suitable for direct use in a
+//     SignatureHeader.Creator field.
+//   - When the identity's MSP is an Idemix MSP (as determined by idemixMSP),
+//     the original identity bytes are returned unchanged, because Idemix
+//     identities carry no X.509 certificate to hash.
+func toMSPSignerIdentityWithCertificateID(identity view.Identity, idemixMSP func(mspID string) bool) ([]byte, error) {
+	sID := &msp.SerializedIdentity{}
+	if err := proto.Unmarshal(identity, sID); err != nil {
+		return nil, errors.Wrap(err, "unmarshal serialized identity")
+	}
+	if idemixMSP(sID.GetMspid()) {
+		logger.Debugf("identity [%s] is an idemix identity, return it. [%s]", identity, sID.GetMspid())
+		return identity, nil
+	}
+
+	logger.Debugf("identity [%s] is NOT an idemix identity, return it. [%s]", identity, sID.GetMspid())
+
+	id, err := pemToMSPIdentity(sID.GetMspid(), sID.GetIdBytes())
+	if err != nil {
+		return nil, errors.Wrap(err, "converting signer identity to msp identity")
+	}
+	return proto.Marshal(id)
+}
+
+// toEndorserIdentityWithCertID converts a serialized MSP identity to an
 // msppb.Identity that uses a SHA-256 hash of the DER-encoded certificate as the
 // creator. This matches the cached-identity format expected by Fabric-X committers,
 // which look up the identity by cert hash rather than the full certificate bytes.
 // The hash must be consistent with the IdentityIdentifierHashFunction configured
 // in the committer's MSP (default: SHA-256 of cert.Raw).
-func toMSPSignerIdentityWithCertificateID(identity view.Identity) (*msppb.Identity, error) {
+func toEndorserIdentityWithCertID(identity view.Identity) (*msppb.Identity, error) {
 	sID := &msp.SerializedIdentity{}
 	if err := proto.Unmarshal(identity, sID); err != nil {
 		return nil, errors.Wrap(err, "unmarshal serialized identity")
 	}
-	block, _ := pem.Decode(sID.GetIdBytes())
+
+	return pemToMSPIdentity(sID.GetMspid(), sID.GetIdBytes())
+}
+
+// pemToMSPIdentity decodes a PEM-encoded X.509 certificate and constructs an
+// msppb.Identity that identifies the signer by a SHA-256 hash of the
+// DER-encoded certificate bytes (hex-encoded). The returned Identity uses the
+// cached-identity (certificate-ID) format expected by Fabric-X committers and
+// contains no raw certificate bytes, keeping the SignatureHeader compact.
+//
+// id is the MSP identifier string (e.g. "Org1MSP").
+// raw must be a PEM block whose Bytes field contains the DER-encoded cert.
+func pemToMSPIdentity(id string, raw []byte) (*msppb.Identity, error) {
+	block, _ := pem.Decode(raw)
 	if block == nil {
 		return nil, errors.New("failed to decode PEM certificate")
 	}
 	digest := sha256.Sum256(block.Bytes)
 	certID := hex.EncodeToString(digest[:])
-	return msppb.NewIdentityWithIDOfCert(sID.GetMspid(), certID), nil
+	return msppb.NewIdentityWithIDOfCert(id, certID), nil
 }
