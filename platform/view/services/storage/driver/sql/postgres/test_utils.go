@@ -52,8 +52,8 @@ type ContainerConfig struct {
 	Image     string
 	Container string
 	*DbConfig
-	Cmd       []string
-	Binds     []string
+	Cmd   []string
+	Binds []string
 }
 
 // DbConfig contains the configuration data about a postgres database.

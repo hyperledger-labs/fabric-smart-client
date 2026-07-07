@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package postgres
 
 import (
-	"testing"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 	"github.com/stretchr/testify/require"
@@ -137,4 +137,3 @@ func TestPostgresWithTLS(t *testing.T) {
 		return p.(*common3.KeyValueStore)
 	})
 }
-
