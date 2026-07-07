@@ -684,8 +684,6 @@ func toMSPSignerIdentityWithCertificateID(identity view.Identity, idemixMSP func
 		return identity, nil
 	}
 
-	logger.Debugf("identity [%s] is NOT an idemix identity, return it. [%s]", identity, sID.GetMspid())
-
 	id, err := pemToMSPIdentity(sID.GetMspid(), sID.GetIdBytes())
 	if err != nil {
 		return nil, errors.Wrap(err, "converting signer identity to msp identity")

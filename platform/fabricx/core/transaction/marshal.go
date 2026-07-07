@@ -61,7 +61,7 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 	if membership == nil {
 		return nil, errors.Errorf("no channel membership for channel [%s]", t.Channel())
 	}
-	creatorBytes, err := toMSPSignerIdentityWithCertificateID(signerID, ch.ChannelMembership().IsIdemixMSP)
+	creatorBytes, err := toMSPSignerIdentityWithCertificateID(signerID, membership.IsIdemixMSP)
 	if err != nil {
 		return nil, errors.Wrap(err, "converting creator to cached identity")
 	}
