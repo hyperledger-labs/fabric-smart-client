@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/fabric-x-common/core/aclmgmt"
 	"github.com/hyperledger/fabric-x-common/core/aclmgmt/resources"
 	"github.com/hyperledger/fabric-x-common/core/policy"
-	"github.com/hyperledger/fabric-x-common/msp"
+	xmsp "github.com/hyperledger/fabric-x-common/msp"
 	"github.com/hyperledger/fabric-x-common/msp/mgmt"
 	"github.com/hyperledger/fabric-x-common/protoutil"
 
@@ -271,6 +271,22 @@ func (s *Service) MSPManager() driver.MSPManager {
 	return &mspManager{s.resources().MSPManager()}
 }
 
+// IsIdemixMSP returns true if the MSP identified by mspID is of type Idemix.
+func (s *Service) IsIdemixMSP(mspID string) bool {
+	ac, ok := s.resources().ApplicationConfig()
+	if !ok || ac.Organizations() == nil {
+		return false
+	}
+
+	for _, org := range ac.Organizations() {
+		if org.MSPID() == mspID {
+			return org.MSP().GetType() == xmsp.IDEMIX
+		}
+	}
+
+	return false
+}
+
 // CheckACL checks the ACL for the resource for the Channel using the
 // SignedProposal from which an id can be extracted for testing against a policy
 func (s *Service) CheckACL(signedProp driver.SignedProposal) error {
@@ -278,7 +294,7 @@ func (s *Service) CheckACL(signedProp driver.SignedProposal) error {
 }
 
 type mspManager struct {
-	msp.MSPManager
+	xmsp.MSPManager
 }
 
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {

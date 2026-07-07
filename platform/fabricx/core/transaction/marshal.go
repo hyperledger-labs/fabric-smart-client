@@ -52,13 +52,18 @@ func (t *Transaction) createSCEnvelope() (*cb.Envelope, error) {
 		return nil, errors.Wrapf(err, "signer not found for %s while creating tx envelope for ordering", signerID.UniqueID())
 	}
 
-	mspIdentity, err := toMSPSignerIdentityWithCertificateID(signerID)
+	ch, err := t.fns.Channel(t.Channel())
+	if err != nil {
+		return nil, errors.Wrapf(err, "get channel [%s]", t.Channel())
+	}
+
+	membership := ch.ChannelMembership()
+	if membership == nil {
+		return nil, errors.Errorf("no channel membership for channel [%s]", t.Channel())
+	}
+	creatorBytes, err := toMSPSignerIdentityWithCertificateID(signerID, membership.IsIdemixMSP)
 	if err != nil {
 		return nil, errors.Wrap(err, "converting creator to cached identity")
-	}
-	creatorBytes, err := proto.Marshal(mspIdentity)
-	if err != nil {
-		return nil, errors.Wrap(err, "marshalling creator identity")
 	}
 	signatureHeader := &cb.SignatureHeader{Creator: creatorBytes, Nonce: t.Nonce()}
 	channelHeader := protoutil.MakeChannelHeader(cb.HeaderType_MESSAGE, 0, t.Channel(), 0)

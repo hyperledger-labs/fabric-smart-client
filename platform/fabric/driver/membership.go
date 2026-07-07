@@ -59,6 +59,8 @@ type ChannelMembership interface {
 	// CheckACL checks the ACL for the resource for the Channel using the
 	// SignedProposal from which an id can be extracted for testing against a policy
 	CheckACL(signedProp SignedProposal) error
+	// IsIdemixMSP returns true if the MSP with the given ID is of type Idemix.
+	IsIdemixMSP(mspID string) bool
 }
 
 type MembershipService interface {

@@ -54,6 +54,17 @@ type ChannelMembership struct {
 	isValidReturnsOnCall map[int]struct {
 		result1 error
 	}
+	IsIdemixMSPStub        func(string) bool
+	isIdemixMSPMutex       sync.RWMutex
+	isIdemixMSPArgsForCall []struct {
+		arg1 string
+	}
+	isIdemixMSPReturns struct {
+		result1 bool
+	}
+	isIdemixMSPReturnsOnCall map[int]struct {
+		result1 bool
+	}
 	MSPManagerStub        func() driver.MSPManager
 	mSPManagerMutex       sync.RWMutex
 	mSPManagerArgsForCall []struct {
@@ -304,6 +315,67 @@ func (fake *ChannelMembership) IsValidReturnsOnCall(i int, result1 error) {
 	}
 	fake.isValidReturnsOnCall[i] = struct {
 		result1 error
+	}{result1}
+}
+
+func (fake *ChannelMembership) IsIdemixMSP(arg1 string) bool {
+	fake.isIdemixMSPMutex.Lock()
+	ret, specificReturn := fake.isIdemixMSPReturnsOnCall[len(fake.isIdemixMSPArgsForCall)]
+	fake.isIdemixMSPArgsForCall = append(fake.isIdemixMSPArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.IsIdemixMSPStub
+	fakeReturns := fake.isIdemixMSPReturns
+	fake.recordInvocation("IsIdemixMSP", []interface{}{arg1})
+	fake.isIdemixMSPMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ChannelMembership) IsIdemixMSPCallCount() int {
+	fake.isIdemixMSPMutex.RLock()
+	defer fake.isIdemixMSPMutex.RUnlock()
+	return len(fake.isIdemixMSPArgsForCall)
+}
+
+func (fake *ChannelMembership) IsIdemixMSPCalls(stub func(string) bool) {
+	fake.isIdemixMSPMutex.Lock()
+	defer fake.isIdemixMSPMutex.Unlock()
+	fake.IsIdemixMSPStub = stub
+}
+
+func (fake *ChannelMembership) IsIdemixMSPArgsForCall(i int) string {
+	fake.isIdemixMSPMutex.RLock()
+	defer fake.isIdemixMSPMutex.RUnlock()
+	argsForCall := fake.isIdemixMSPArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ChannelMembership) IsIdemixMSPReturns(result1 bool) {
+	fake.isIdemixMSPMutex.Lock()
+	defer fake.isIdemixMSPMutex.Unlock()
+	fake.IsIdemixMSPStub = nil
+	fake.isIdemixMSPReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *ChannelMembership) IsIdemixMSPReturnsOnCall(i int, result1 bool) {
+	fake.isIdemixMSPMutex.Lock()
+	defer fake.isIdemixMSPMutex.Unlock()
+	fake.IsIdemixMSPStub = nil
+	if fake.isIdemixMSPReturnsOnCall == nil {
+		fake.isIdemixMSPReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.isIdemixMSPReturnsOnCall[i] = struct {
+		result1 bool
 	}{result1}
 }
 

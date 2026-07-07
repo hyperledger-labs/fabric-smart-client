@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
+	"github.com/hyperledger/fabric-x-common/api/msppb"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -391,15 +392,22 @@ func TestToMSPSignerIdentityWithCertificateID(t *testing.T) {
 	tests := []struct {
 		name           string
 		identity       view.Identity
+		isIdemix       bool
 		expectedMSP    string
 		expectedCertID string
 		expectedError  string
 	}{
 		{
-			name:           "success",
+			name:           "x509 success — cert-ID format",
 			identity:       view.Identity(serialized),
 			expectedMSP:    "Org1MSP",
 			expectedCertID: expectedCertID,
+		},
+		{
+			// Idemix identities carry no X.509 cert; the bytes are returned as-is.
+			name:     "idemix identity — pass-through unchanged",
+			identity: view.Identity(serialized),
+			isIdemix: true,
 		},
 		{
 			name:          "invalid serialized identity",
@@ -420,7 +428,9 @@ func TestToMSPSignerIdentityWithCertificateID(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			id, err := toMSPSignerIdentityWithCertificateID(tc.identity)
+			id, err := toMSPSignerIdentityWithCertificateID(tc.identity, func(mspID string) bool {
+				return tc.isIdemix
+			})
 			if tc.expectedError != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.expectedError)
@@ -428,8 +438,134 @@ func TestToMSPSignerIdentityWithCertificateID(t *testing.T) {
 			}
 
 			require.NoError(t, err)
+
+			if tc.isIdemix {
+				// For Idemix MSPs the original bytes must be returned unchanged.
+				require.Equal(t, []byte(tc.identity), id)
+				return
+			}
+
+			var identity msppb.Identity
+			require.NoError(t, proto.Unmarshal(id, &identity))
+			require.Equal(t, tc.expectedMSP, identity.GetMspId())
+			require.Equal(t, tc.expectedCertID, identity.GetCertificateId())
+			require.Empty(t, identity.GetCertificate())
+		})
+	}
+}
+
+func TestToEndorserIdentityWithCertID(t *testing.T) {
+	t.Parallel()
+
+	certPEM, serialized := mustSerializedIdentityWithRealCert(t, "Org2MSP")
+
+	block, _ := pem.Decode(certPEM)
+	require.NotNil(t, block)
+	digest := sha256.Sum256(block.Bytes)
+	expectedCertID := hex.EncodeToString(digest[:])
+
+	tests := []struct {
+		name           string
+		identity       view.Identity
+		expectedMSP    string
+		expectedCertID string
+		expectedError  string
+	}{
+		{
+			name:           "success — returns msppb.Identity with cert-ID",
+			identity:       view.Identity(serialized),
+			expectedMSP:    "Org2MSP",
+			expectedCertID: expectedCertID,
+		},
+		{
+			name:          "invalid serialized identity",
+			identity:      view.Identity([]byte("not-a-protobuf")),
+			expectedError: "unmarshal serialized identity",
+		},
+		{
+			name: "non-PEM cert bytes",
+			identity: func() view.Identity {
+				raw, err := proto.Marshal(&msp.SerializedIdentity{Mspid: "Org2MSP", IdBytes: []byte("not-pem")})
+				require.NoError(t, err)
+				return view.Identity(raw)
+			}(),
+			expectedError: "failed to decode PEM certificate",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			id, err := toEndorserIdentityWithCertID(tc.identity)
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, id)
 			require.Equal(t, tc.expectedMSP, id.GetMspId())
 			require.Equal(t, tc.expectedCertID, id.GetCertificateId())
+			// Certificate bytes must be absent — only the hash is stored.
+			require.Empty(t, id.GetCertificate())
+		})
+	}
+}
+
+func TestPemToMSPIdentity(t *testing.T) {
+	t.Parallel()
+
+	certPEM, _ := mustSerializedIdentityWithRealCert(t, "Org3MSP")
+
+	block, _ := pem.Decode(certPEM)
+	require.NotNil(t, block)
+	digest := sha256.Sum256(block.Bytes)
+	expectedCertID := hex.EncodeToString(digest[:])
+
+	tests := []struct {
+		name           string
+		mspID          string
+		raw            []byte
+		expectedCertID string
+		expectedError  string
+	}{
+		{
+			name:           "success — SHA-256 cert-ID, no raw cert",
+			mspID:          "Org3MSP",
+			raw:            certPEM,
+			expectedCertID: expectedCertID,
+		},
+		{
+			name:          "nil PEM block",
+			mspID:         "Org3MSP",
+			raw:           []byte("this is not pem"),
+			expectedError: "failed to decode PEM certificate",
+		},
+		{
+			name:          "empty input",
+			mspID:         "Org3MSP",
+			raw:           []byte{},
+			expectedError: "failed to decode PEM certificate",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			id, err := pemToMSPIdentity(tc.mspID, tc.raw)
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedError)
+				require.Nil(t, id)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, id)
+			require.Equal(t, tc.mspID, id.GetMspId())
+			require.Equal(t, tc.expectedCertID, id.GetCertificateId())
+			// The raw certificate bytes must not be embedded.
 			require.Empty(t, id.GetCertificate())
 		})
 	}

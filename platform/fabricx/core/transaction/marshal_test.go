@@ -24,6 +24,7 @@ import (
 //go:generate counterfeiter -o mock/fabric_network_service.go --fake-name FabricNetworkService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.FabricNetworkService
 //go:generate counterfeiter -o mock/signer_service.go --fake-name SignerService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.SignerService
 //go:generate counterfeiter -o mock/signer.go --fake-name Signer github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Signer
+//go:generate counterfeiter -o mock/channel_membership.go --fake-name ChannelMembership github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ChannelMembership
 
 // TestCreateSCEnvelopeNoProposalResponses verifies that envelope creation fails
 // when the transaction carries no proposal responses at all.
@@ -168,10 +169,14 @@ func TestCreateSCEnvelopeSuccess(t *testing.T) {
 	fakeFNS := &mock.FabricNetworkService{}
 	fakeSignerService := &mock.SignerService{}
 	fakeSigner := &mock.Signer{}
+	fakeChannel := &mock.Channel{}
+	fakeMembership := &mock.ChannelMembership{}
 
 	fakeFNS.SignerServiceReturns(fakeSignerService)
 	fakeSignerService.GetSignerReturns(fakeSigner, nil)
 	fakeSigner.SignReturns([]byte("envelope-signature"), nil)
+	fakeChannel.ChannelMembershipReturns(fakeMembership)
+	fakeFNS.ChannelReturns(fakeChannel, nil)
 
 	_, creatorBytes := mustSerializedIdentityWithRealCert(t, "Org1MSP")
 
