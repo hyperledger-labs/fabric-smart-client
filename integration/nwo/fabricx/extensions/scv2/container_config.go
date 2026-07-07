@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	scalableCommitterImage = "hyperledger/fabric-x-committer-test-node:1.0.0"
+	scalableCommitterImage = "hyperledger/fabric-x-committer-test-node:1.0.3"
 )
 
 type containerConfig struct {
