@@ -42,12 +42,14 @@ const (
 
 type Network struct {
 	*fabric_network.Network
+	CommitterOrg  string
+	CommitterName string
 }
 
-func New(reg api.Context, topology *topology.Topology, builderClient fabric_network.BuilderClient, ccps []fabric_network.ChaincodeProcessor, networkID string) *Network {
+func New(reg api.Context, topology *topology.Topology, builderClient fabric_network.BuilderClient, ccps []fabric_network.ChaincodeProcessor, networkID, committerOrg, committerName string) *Network {
 	fabricNetwork := fabric_network.New(reg, topology, builderClient, ccps, networkID)
 	fabricNetwork.EventuallyTimeout = defaultEventuallyTimeout
-	n := &Network{Network: fabricNetwork}
+	n := &Network{Network: fabricNetwork, CommitterOrg: committerOrg, CommitterName: committerName}
 	return n
 }
 
@@ -119,7 +121,6 @@ func (n *Network) CheckTopology() {
 	// cleanup chaincode
 	// TODO cleanup the chaincode
 	n.CheckTopologyOrderers()
-	n.CheckTopologyExtensions()
 }
 
 func (n *Network) removePeers() {
@@ -180,7 +181,7 @@ func createNSCommon(n *Network, chaincode *topology.ChannelChaincode) fxconfig.N
 	adminMspDir := n.PeerUserMSPDir(peers[0], "Admin")
 
 	// get notification service endpoint
-	committerNode := n.Peer(orgName, "SC")
+	committerNode := n.Peer(n.CommitterOrg, n.CommitterName)
 	gomega.Expect(committerNode).NotTo(gomega.BeNil())
 
 	notificationsEndpoint := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committerNode, fabric_network.ListenPort))
@@ -227,9 +228,9 @@ func (n *Network) tryListInstalledNames() ([]Namespace, error) {
 	if len(peers) == 0 {
 		return nil, fmt.Errorf("no peers found for org %s", orgName)
 	}
-	committerNode := n.Peer(orgName, "SC")
+	committerNode := n.Peer(n.CommitterOrg, n.CommitterName)
 	if committerNode == nil {
-		return nil, fmt.Errorf("no committer peer (name=%v) found for org=%v", "SC", orgName)
+		return nil, fmt.Errorf("no committer peer (name=%v) found for org=%v", n.CommitterName, n.CommitterOrg)
 	}
 	queryEndpoint := fmt.Sprintf("127.0.0.1:%d", n.PeerPort(committerNode, QueryServicePortName))
 
