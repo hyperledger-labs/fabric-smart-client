@@ -210,6 +210,10 @@ type mockHostForTimeout struct {
 	host2.P2PHost
 }
 
+func (m *mockHostForTimeout) PeerID() host2.PeerID {
+	return "mock-peer"
+}
+
 func (m *mockHostForTimeout) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	return nil
 }

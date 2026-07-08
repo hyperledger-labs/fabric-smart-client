@@ -26,6 +26,10 @@ type mockHost struct {
 	host2.P2PHost
 }
 
+func (m *mockHost) PeerID() host2.PeerID {
+	return "mock-peer"
+}
+
 func (m *mockHost) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	return nil
 }

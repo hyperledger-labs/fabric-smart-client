@@ -201,12 +201,12 @@ func TestContextRace(t *testing.T) {
 	defaultSession := &mock.Session{}
 	session := &mock.Session{}
 	session.InfoReturns(view.SessionInfo{
-		ID:           "",
-		Caller:       nil,
-		CallerViewID: "",
-		Endpoint:     "",
-		EndpointPKID: nil,
-		Closed:       false,
+		ID:             "",
+		Caller:         nil,
+		CallerViewID:   "",
+		RemoteEndpoint: "",
+		RemotePKID:     nil,
+		Closed:         false,
 	})
 	sessionFactory := &mock.SessionFactory{}
 	sessionFactory.NewSessionReturns(session, nil)

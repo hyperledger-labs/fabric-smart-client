@@ -27,6 +27,7 @@ const (
 	PingPongPort
 	PingPong2Port
 	PingPongWithAdminPort
+	SignedPingPongPort
 	IOUPort
 	IOUHSMPort
 	AssetTransferSecuredAgreementWithChaincode

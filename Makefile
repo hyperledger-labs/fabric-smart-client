@@ -171,6 +171,7 @@ INTEGRATION_TARGETS =
 ## fsc section
 INTEGRATION_TARGETS += fsc-pingpong
 INTEGRATION_TARGETS += fsc-stoprestart
+INTEGRATION_TARGETS += fsc-signedpingpong
 
 ## fabric section
 INTEGRATION_TARGETS += fabric-atsa

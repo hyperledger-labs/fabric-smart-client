@@ -45,6 +45,10 @@ const (
 type host struct {
 	host3.Host
 
+	// peerID caches host3.Host.ID().String() since the underlying libp2p peer ID
+	// never changes over the host's lifetime, avoiding repeated base58 encoding
+	// on every PeerID() call.
+	peerID        host2.PeerID
 	finder        *routing.RoutingDiscovery
 	finderWg      sync.WaitGroup
 	stopFinder    int32
@@ -116,6 +120,7 @@ func newLibP2PHost(
 
 	libp2pHost := &host{
 		Host:          h,
+		peerID:        h.ID().String(),
 		finder:        routing.NewRoutingDiscovery(kademliaDHT),
 		peers:         make(map[string]peer.AddrInfo),
 		bootstrap:     bootstrap,
@@ -127,6 +132,14 @@ func newLibP2PHost(
 
 func (h *host) Wait() {
 	h.finderWg.Wait()
+}
+
+// PeerID returns the local node's libp2p peer identifier as a string. This is
+// the value peers observe as the remote peer ID (and SessionInfo.RemotePKID)
+// when communicating with this node. It shadows the embedded host3.Host.ID(),
+// which returns a peer.ID, to satisfy the host.P2PHost interface.
+func (h *host) PeerID() host2.PeerID {
+	return h.peerID
 }
 
 func (h *host) Lookup(peerID string) ([]host2.PeerIPAddress, bool) {

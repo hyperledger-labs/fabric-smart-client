@@ -98,12 +98,12 @@ func TestSessionInfo_String(t *testing.T) {
 		{
 			name: "All Fields Populated",
 			info: SessionInfo{
-				ID:           "info-1",
-				Caller:       caller,
-				CallerViewID: "caller-view",
-				Endpoint:     "ep-1",
-				EndpointPKID: []byte("pk-1"),
-				Closed:       false,
+				ID:             "info-1",
+				Caller:         caller,
+				CallerViewID:   "caller-view",
+				RemoteEndpoint: "ep-1",
+				RemotePKID:     []byte("pk-1"),
+				Closed:         false,
 			},
 			contains: []string{"info-1", caller.String(), "caller-view", "ep-1", "pk-1", "false"},
 		},
