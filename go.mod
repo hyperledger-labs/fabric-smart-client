@@ -4,8 +4,8 @@ go 1.26.3
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/IBM/idemix v0.1.1
-	github.com/IBM/mathlib v0.2.0
+	github.com/IBM/idemix v0.2.0
+	github.com/IBM/mathlib v0.3.0
 	github.com/Masterminds/squirrel v1.5.4
 	github.com/cockroachdb/errors v1.12.0
 	github.com/containerd/errdefs v1.0.0
@@ -88,7 +88,6 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
-	github.com/kilic/bls12-381 v0.1.0 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
