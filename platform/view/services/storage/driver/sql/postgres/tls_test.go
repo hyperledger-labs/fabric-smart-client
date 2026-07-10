@@ -14,9 +14,10 @@ import (
 	"testing"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
+
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
