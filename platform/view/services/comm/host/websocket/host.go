@@ -72,6 +72,11 @@ func (h *host) ID() string {
 	return h.nodeID
 }
 
+// PeerID returns the local node's public-key identifier (its PKID).
+func (h *host) PeerID() host2.PeerID {
+	return h.nodeID
+}
+
 func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	if err := h.server.Listen(); err != nil {
 		return errors.Wrapf(err, "failed to listen")

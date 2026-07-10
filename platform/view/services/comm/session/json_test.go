@@ -131,7 +131,7 @@ func TestJSONSession_Info(t *testing.T) {
 	require.NoError(t, err)
 	js := newJSONSession(ch.LeftSession(), t.Context())
 	info := js.Info()
-	require.Equal(t, "endpoint", info.Endpoint)
+	require.Equal(t, "endpoint", info.RemoteEndpoint)
 }
 
 func TestJSONSession_Session(t *testing.T) {

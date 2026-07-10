@@ -47,18 +47,25 @@ type SessionInfo struct {
 	// CallerViewID is the string identifier of the View that initiated
 	// the session on the remote peer's side.
 	CallerViewID string
-	// Endpoint is the network address (e.g., IP:port) of the remote peer.
-	Endpoint string
-	// EndpointPKID is the cryptographically verified public key identifier
+	// RemoteEndpoint is the network address (e.g., IP:port) of the remote peer.
+	RemoteEndpoint string
+	// RemotePKID is the cryptographically verified public key identifier
 	// (hash) of the remote peer. The communication layer ensures that
 	// this ID is bound to the verified transport-layer identity.
-	EndpointPKID []byte
+	RemotePKID []byte
+	// LocalPKID is the public key identifier of the local node, i.e. the
+	// identifier of the key-pair that instantiated the local communication
+	// stack. It is the local-side counterpart of RemotePKID and lets a session
+	// consumer select the material (e.g. its signer) bound to its own identity
+	// directly from the session, symmetrically to how RemotePKID identifies
+	// the remote peer.
+	LocalPKID []byte
 	// Closed is true if the session has been closed.
 	Closed bool
 }
 
 func (i *SessionInfo) String() string {
-	return fmt.Sprintf("session info [%s,%s,%s,%s,%s,%v]", i.ID, i.Caller, i.CallerViewID, i.Endpoint, i.EndpointPKID, i.Closed)
+	return fmt.Sprintf("session info [%s,%s,%s,%s,%s,%v]", i.ID, i.Caller, i.CallerViewID, i.RemoteEndpoint, i.RemotePKID, i.Closed)
 }
 
 // Session encapsulates a communication channel to an endpoint

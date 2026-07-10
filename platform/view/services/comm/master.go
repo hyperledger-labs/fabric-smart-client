@@ -44,6 +44,7 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	s := &NetworkStreamSession{
 		node:            p,
 		endpointID:      endpointID,
+		localPKID:       []byte(p.host.PeerID()),
 		endpointAddress: endpointAddress,
 		contextID:       contextID,
 		sessionID:       sessionID,

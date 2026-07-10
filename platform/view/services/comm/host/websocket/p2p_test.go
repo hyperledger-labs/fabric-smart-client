@@ -426,8 +426,8 @@ func TestSessionInfoSecurityGuarantees(t *testing.T) { //nolint:paralleltest
 	info := responder.Info()
 	// Claim 1: Caller is the authenticated identity of the remote peer (Alice)
 	require.Equal(t, view.Identity(aliceNode.ID), info.Caller, "Caller identity mismatch")
-	// Claim 2: EndpointPKID is cryptographically verified and bound to transport identity
-	require.Equal(t, []byte(aliceNode.ID), info.EndpointPKID, "EndpointPKID mismatch")
+	// Claim 2: RemotePKID is cryptographically verified and bound to transport identity
+	require.Equal(t, []byte(aliceNode.ID), info.RemotePKID, "RemotePKID mismatch")
 
 	charlieID := mustPeerIDFromCert(t, allTlsFiles.charlie.cert)
 	charlieAddresses := freeTCPAddresses(t, 2)

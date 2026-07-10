@@ -34,6 +34,11 @@ type StreamInfo struct {
 }
 
 type P2PHost interface {
+	// PeerID returns the identifier of this (local) host. It is the
+	// cryptographically verified public-key identifier of the local node, i.e.
+	// the same value that peers observe as StreamInfo.RemotePeerID (and, at the
+	// session level, as SessionInfo.RemotePKID) when talking to this node.
+	PeerID() PeerID
 	// Start starts a new server that accepts connection requests
 	Start(newStreamCallback func(stream P2PStream)) error
 	// NewStream creates a new stream to a specific address.

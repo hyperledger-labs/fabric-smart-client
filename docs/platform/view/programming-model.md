@@ -364,8 +364,39 @@ case <-time.After(1 * time.Minute):
 
 For complete examples, see:
 - [pingpong](../../../integration/fsc/pingpong) - Simple ping/pong protocol with timeout and validation
+- [signedpingpong](../../../integration/fsc/signedpingpong) - Symmetric message signing using `SessionInfo.LocalPKID` and `SessionInfo.RemotePKID`
 - [stoprestart](../../../integration/fabric/stoprestart) - Session handling with stop/restart scenarios
 - [IOU](../../../integration/fabric/iou) - Complex Fabric integration with state management and endorsement collection
+
+## Symmetric Signing with Session Identity
+
+In protocols where each party must sign its message and verify the counterpart's signature, both identities — local and remote — can be resolved directly from the session without additional parameters or out-of-band lookups.
+
+`SessionInfo` exposes two complementary fields for this:
+
+- `RemotePKID`: the public key identifier of the **remote** peer, cryptographically bound by the transport layer.
+- `LocalPKID`: the public key identifier of the **local** node, the same value the remote peer sees as its `RemotePKID`.
+
+A view uses the endpoint service to map either PKID to a full `view.Identity`, then retrieves a signer or verifier from the sig service:
+
+```go
+endpointSvc := endpoint.GetService(viewCtx)
+sigSvc, err := sig.GetService(viewCtx)
+
+// Resolve own identity and sign the outgoing payload.
+localID, err := endpointSvc.GetIdentity("", session.Info().LocalPKID)
+signer, err := sigSvc.GetSigner(localID)
+signature, err := signer.Sign(payload)
+
+// Resolve the remote identity and verify the incoming signature.
+remoteID, err := endpointSvc.GetIdentity("", session.Info().RemotePKID)
+verifier, err := sigSvc.GetVerifier(remoteID)
+err = verifier.Verify(payload, signature)
+```
+
+Both sides of the protocol apply the same pattern — the initiator's `LocalPKID` equals the responder's `RemotePKID` for the same session, and vice versa. This makes the logic symmetric and avoids hardcoding identity references in either view.
+
+For a complete end-to-end example of this pattern with negative-case checks, see [`integration/fsc/signedpingpong`](../../../integration/fsc/signedpingpong).
 
 ## Suggested Development Flow
 

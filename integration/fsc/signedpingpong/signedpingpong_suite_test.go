@@ -1,0 +1,25 @@
+/*
+Copyright IBM Corp All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package signedpingpong_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration"
+)
+
+func TestEndToEnd(t *testing.T) { //nolint:paralleltest
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Signed Ping Pong Suite")
+}
+
+func StartPort() int {
+	return integration.SignedPingPongPort.StartPortForNode()
+}
