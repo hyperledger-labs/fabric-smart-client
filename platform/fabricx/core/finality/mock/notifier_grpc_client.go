@@ -24,6 +24,21 @@ type NotifierClient struct {
 		result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse]
 		result2 error
 	}
+	StreamAllTransactionsStub        func(context.Context, *committerpb.StreamAllRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[committerpb.TxEventBatch], error)
+	streamAllTransactionsMutex       sync.RWMutex
+	streamAllTransactionsArgsForCall []struct {
+		arg1 context.Context
+		arg2 *committerpb.StreamAllRequest
+		arg3 []grpc.CallOption
+	}
+	streamAllTransactionsReturns struct {
+		result1 grpc.ServerStreamingClient[committerpb.TxEventBatch]
+		result2 error
+	}
+	streamAllTransactionsReturnsOnCall map[int]struct {
+		result1 grpc.ServerStreamingClient[committerpb.TxEventBatch]
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -89,6 +104,72 @@ func (fake *NotifierClient) OpenNotificationStreamReturnsOnCall(i int, result1 g
 	}
 	fake.openNotificationStreamReturnsOnCall[i] = struct {
 		result1 grpc.BidiStreamingClient[committerpb.NotificationRequest, committerpb.NotificationResponse]
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *NotifierClient) StreamAllTransactions(arg1 context.Context, arg2 *committerpb.StreamAllRequest, arg3 ...grpc.CallOption) (grpc.ServerStreamingClient[committerpb.TxEventBatch], error) {
+	fake.streamAllTransactionsMutex.Lock()
+	ret, specificReturn := fake.streamAllTransactionsReturnsOnCall[len(fake.streamAllTransactionsArgsForCall)]
+	fake.streamAllTransactionsArgsForCall = append(fake.streamAllTransactionsArgsForCall, struct {
+		arg1 context.Context
+		arg2 *committerpb.StreamAllRequest
+		arg3 []grpc.CallOption
+	}{arg1, arg2, arg3})
+	stub := fake.StreamAllTransactionsStub
+	fakeReturns := fake.streamAllTransactionsReturns
+	fake.recordInvocation("StreamAllTransactions", []interface{}{arg1, arg2, arg3})
+	fake.streamAllTransactionsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3...)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *NotifierClient) StreamAllTransactionsCallCount() int {
+	fake.streamAllTransactionsMutex.RLock()
+	defer fake.streamAllTransactionsMutex.RUnlock()
+	return len(fake.streamAllTransactionsArgsForCall)
+}
+
+func (fake *NotifierClient) StreamAllTransactionsCalls(stub func(context.Context, *committerpb.StreamAllRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[committerpb.TxEventBatch], error)) {
+	fake.streamAllTransactionsMutex.Lock()
+	defer fake.streamAllTransactionsMutex.Unlock()
+	fake.StreamAllTransactionsStub = stub
+}
+
+func (fake *NotifierClient) StreamAllTransactionsArgsForCall(i int) (context.Context, *committerpb.StreamAllRequest, []grpc.CallOption) {
+	fake.streamAllTransactionsMutex.RLock()
+	defer fake.streamAllTransactionsMutex.RUnlock()
+	argsForCall := fake.streamAllTransactionsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *NotifierClient) StreamAllTransactionsReturns(result1 grpc.ServerStreamingClient[committerpb.TxEventBatch], result2 error) {
+	fake.streamAllTransactionsMutex.Lock()
+	defer fake.streamAllTransactionsMutex.Unlock()
+	fake.StreamAllTransactionsStub = nil
+	fake.streamAllTransactionsReturns = struct {
+		result1 grpc.ServerStreamingClient[committerpb.TxEventBatch]
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *NotifierClient) StreamAllTransactionsReturnsOnCall(i int, result1 grpc.ServerStreamingClient[committerpb.TxEventBatch], result2 error) {
+	fake.streamAllTransactionsMutex.Lock()
+	defer fake.streamAllTransactionsMutex.Unlock()
+	fake.StreamAllTransactionsStub = nil
+	if fake.streamAllTransactionsReturnsOnCall == nil {
+		fake.streamAllTransactionsReturnsOnCall = make(map[int]struct {
+			result1 grpc.ServerStreamingClient[committerpb.TxEventBatch]
+			result2 error
+		})
+	}
+	fake.streamAllTransactionsReturnsOnCall[i] = struct {
+		result1 grpc.ServerStreamingClient[committerpb.TxEventBatch]
 		result2 error
 	}{result1, result2}
 }

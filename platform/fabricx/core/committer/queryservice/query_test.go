@@ -426,6 +426,84 @@ func TestQueryService(t *testing.T) {
 		})
 	})
 
+	// New tests for GetTransactionStatuses
+	t.Run("GetTransactionStatuses", func(t *testing.T) {
+		t.Parallel()
+
+		t.Run("happy path keyed by tx id", func(t *testing.T) {
+			t.Parallel()
+			qs, fake := setupTest(t)
+			// statuses returned out of order and without the unknown tx3
+			fake.GetTransactionStatusReturns(&committerpb.TxStatusResponse{
+				Statuses: []*committerpb.TxStatus{
+					{Ref: &committerpb.TxRef{TxId: "tx2"}, Status: committerpb.Status_ABORTED_MVCC_CONFLICT},
+					{Ref: &committerpb.TxRef{TxId: "tx1"}, Status: committerpb.Status_COMMITTED},
+				},
+			}, nil)
+
+			statuses, err := qs.GetTransactionStatuses([]string{"tx1", "tx2", "tx3"})
+			require.NoError(t, err)
+			require.Equal(t, map[string]int32{
+				"tx1": int32(committerpb.Status_COMMITTED),
+				"tx2": int32(committerpb.Status_ABORTED_MVCC_CONFLICT),
+			}, statuses)
+			require.Equal(t, 1, fake.GetTransactionStatusCallCount())
+			_, query, _ := fake.GetTransactionStatusArgsForCall(0)
+			require.Equal(t, []string{"tx1", "tx2", "tx3"}, query.GetTxIds())
+		})
+
+		t.Run("duplicate input ids are collapsed", func(t *testing.T) {
+			t.Parallel()
+			qs, fake := setupTest(t)
+			fake.GetTransactionStatusReturns(&committerpb.TxStatusResponse{
+				Statuses: []*committerpb.TxStatus{
+					{Ref: &committerpb.TxRef{TxId: "tx1"}, Status: committerpb.Status_COMMITTED},
+				},
+			}, nil)
+
+			statuses, err := qs.GetTransactionStatuses([]string{"tx1", "tx2", "tx1", "tx2"})
+			require.NoError(t, err)
+			require.Equal(t, map[string]int32{"tx1": int32(committerpb.Status_COMMITTED)}, statuses)
+			_, query, _ := fake.GetTransactionStatusArgsForCall(0)
+			require.Equal(t, []string{"tx1", "tx2"}, query.GetTxIds())
+		})
+
+		t.Run("statuses without ref are dropped", func(t *testing.T) {
+			t.Parallel()
+			qs, fake := setupTest(t)
+			fake.GetTransactionStatusReturns(&committerpb.TxStatusResponse{
+				Statuses: []*committerpb.TxStatus{
+					{Status: committerpb.Status_COMMITTED},
+					{Ref: &committerpb.TxRef{TxId: "tx1"}, Status: committerpb.Status_COMMITTED},
+				},
+			}, nil)
+
+			statuses, err := qs.GetTransactionStatuses([]string{"tx1", "tx2"})
+			require.NoError(t, err)
+			require.Equal(t, map[string]int32{"tx1": int32(committerpb.Status_COMMITTED)}, statuses)
+		})
+
+		t.Run("empty input does not query", func(t *testing.T) {
+			t.Parallel()
+			qs, fake := setupTest(t)
+
+			statuses, err := qs.GetTransactionStatuses(nil)
+			require.NoError(t, err)
+			require.Empty(t, statuses)
+			require.Equal(t, 0, fake.GetTransactionStatusCallCount())
+		})
+
+		t.Run("client error", func(t *testing.T) {
+			t.Parallel()
+			qs, fake := setupTest(t)
+			expectedError := errors.New("some error")
+			fake.GetTransactionStatusReturns(nil, expectedError)
+
+			_, err := qs.GetTransactionStatuses([]string{"tx1"})
+			require.ErrorIs(t, err, expectedError)
+		})
+	})
+
 	// New tests for GetConfigTransaction
 	t.Run("GetConfigTransaction", func(t *testing.T) {
 		t.Parallel()

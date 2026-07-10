@@ -138,7 +138,7 @@ func (p *Provider) TranslatePath(path string) string {
 
 // GetString returns the string value associated with the given key.
 func (p *Provider) GetString(key string) string {
-	logger.Infof("Get string [%s]", key)
+	logger.Debugf("Get string [%s]", key)
 	return p.Backend.String(strings.ToLower(key))
 }
 

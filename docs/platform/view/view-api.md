@@ -260,12 +260,13 @@ The metadata are part of the API contract:
 
 ```go
 type SessionInfo struct {
-    ID           string
-    Caller       Identity
-    CallerViewID string
-    Endpoint     string
-    EndpointPKID []byte
-    Closed       bool
+    ID             string
+    Caller         Identity
+    CallerViewID   string
+    RemoteEndpoint string
+    RemotePKID     []byte
+    LocalPKID      []byte
+    Closed         bool
 }
 ```
 
@@ -273,7 +274,8 @@ This metadata serves a different purpose than `Message`:
 
 - `Caller`: Authenticated remote identity.
 - `CallerViewID`: String identifier of the remote view that initiated the session.
-- `Endpoint` and `EndpointPKID`: Transport-level routing and verification data.
+- `RemoteEndpoint` and `RemotePKID`: Transport-level routing and verification data for the remote peer.
+- `LocalPKID`: The public key identifier of the local node — the local-side counterpart of `RemotePKID`. It is the identifier of the key-pair that instantiated the local communication stack. Views can use it to resolve the local identity (for example to retrieve a signer) without additional lookups, symmetrically to how `RemotePKID` identifies the remote peer.
 - `Closed`: Cached session state as reported by the runtime.
 
 The distinction between `Message.Caller` and `SessionInfo.Caller` is important:
@@ -422,5 +424,7 @@ This example shows the core API pattern:
 - receive a message;
 - branch on `view.OK` or `view.ERROR`;
 - return an application result.
+
+For an example that extends this pattern with message signing using `SessionInfo.LocalPKID` and `SessionInfo.RemotePKID`, see `integration/fsc/signedpingpong`. That integration test shows how both parties can symmetrically resolve their own and their peer's identity directly from the session and sign or verify messages without additional out-of-band lookups.
 
 For a full architecture-level walkthrough of how initiators, responders, contexts, and the registry interact, see the [View service](services/view-service.md).

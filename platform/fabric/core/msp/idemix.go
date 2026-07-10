@@ -6,16 +6,16 @@ SPDX-License-Identifier: Apache-2.0
 package msp
 
 import (
-	"github.com/IBM/idemix"
+	msp2 "github.com/IBM/idemix/msp"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 )
 
 type idemixSigningIdentityWrapper struct {
-	*idemix.IdemixSigningIdentity
+	*msp2.IdemixSigningIdentity
 }
 
 func (i *idemixSigningIdentityWrapper) GetPublicVersion() Identity {
-	return &idemixIdentityWrapper{Idemixidentity: i.IdemixSigningIdentity.GetPublicVersion().(*idemix.Idemixidentity)}
+	return &idemixIdentityWrapper{Idemixidentity: i.IdemixSigningIdentity.GetPublicVersion().(*msp2.Idemixidentity)}
 }
 
 func (i *idemixSigningIdentityWrapper) GetIdentifier() *IdentityIdentifier {
@@ -27,7 +27,7 @@ func (i *idemixSigningIdentityWrapper) GetOrganizationalUnits() []*OUIdentifier 
 }
 
 type idemixIdentityWrapper struct {
-	*idemix.Idemixidentity
+	*msp2.Idemixidentity
 }
 
 func (i *idemixIdentityWrapper) GetIdentifier() *IdentityIdentifier {
@@ -53,7 +53,7 @@ func (i *idemixIdentityWrapper) GetOrganizationalUnits() []*OUIdentifier {
 }
 
 type idemixMSPWrapper struct {
-	*idemix.Idemixmsp
+	*msp2.Idemixmsp
 }
 
 func (i *idemixMSPWrapper) deserializeIdentityInternal(serializedIdentity []byte) (Identity, error) {
@@ -62,7 +62,7 @@ func (i *idemixMSPWrapper) deserializeIdentityInternal(serializedIdentity []byte
 		return nil, err
 	}
 
-	return &idemixIdentityWrapper{id.(*idemix.Idemixidentity)}, nil
+	return &idemixIdentityWrapper{id.(*msp2.Idemixidentity)}, nil
 }
 
 func (i *idemixMSPWrapper) DeserializeIdentity(serializedIdentity []byte) (Identity, error) {
@@ -71,7 +71,7 @@ func (i *idemixMSPWrapper) DeserializeIdentity(serializedIdentity []byte) (Ident
 		return nil, err
 	}
 
-	return &idemixIdentityWrapper{id.(*idemix.Idemixidentity)}, nil
+	return &idemixIdentityWrapper{id.(*msp2.Idemixidentity)}, nil
 }
 
 func (i *idemixMSPWrapper) GetVersion() MSPVersion {
@@ -88,7 +88,7 @@ func (i *idemixMSPWrapper) GetDefaultSigningIdentity() (SigningIdentity, error) 
 		return nil, err
 	}
 
-	return &idemixSigningIdentityWrapper{id.(*idemix.IdemixSigningIdentity)}, nil
+	return &idemixSigningIdentityWrapper{id.(*msp2.IdemixSigningIdentity)}, nil
 }
 
 func (i *idemixMSPWrapper) Validate(id Identity) error {

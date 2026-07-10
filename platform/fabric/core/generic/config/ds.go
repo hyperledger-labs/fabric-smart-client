@@ -31,13 +31,14 @@ type PKCS11 struct {
 	Hash     string `yaml:"Hash"`
 
 	// PKCS11 options
-	Library        string         `yaml:"Library"`
-	Label          string         `yaml:"Label"`
-	Pin            string         `yaml:"Pin"`
-	SoftwareVerify bool           `yaml:"SoftwareVerify,omitempty"`
-	Immutable      bool           `yaml:"Immutable,omitempty"`
-	AltID          string         `yaml:"AltId,omitempty"`
-	KeyIDs         []KeyIDMapping `yaml:"KeyIds,omitempty" mapstructure:"KeyIds"`
+	Library          string         `yaml:"Library"`
+	Label            string         `yaml:"Label"`
+	Pin              string         `yaml:"Pin"`
+	SoftwareVerify   bool           `yaml:"SoftwareVerify,omitempty"`
+	Immutable        bool           `yaml:"Immutable,omitempty"`
+	AltID            string         `yaml:"AltId,omitempty"`
+	KeyIDs           []KeyIDMapping `yaml:"KeyIds,omitempty"           mapstructure:"KeyIds"`
+	SessionCacheSize uint           `yaml:"SessionCacheSize,omitempty"`
 }
 
 type KeyIDMapping struct {

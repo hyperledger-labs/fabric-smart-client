@@ -7,11 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package membership
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	msp_proto "github.com/hyperledger/fabric-protos-go-apiv2/msp"
+	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric-x-common/api/msppb"
 	"github.com/hyperledger/fabric-x-common/common/channelconfig"
 	"github.com/hyperledger/fabric-x-common/common/configtx"
@@ -23,7 +25,14 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
+	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
+	storagedriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 )
 
 // --- minimal mocks ---
@@ -542,4 +551,154 @@ func TestService_MSPManager(t *testing.T) {
 		_, err := mgr.DeserializeIdentity([]byte{0xff})
 		require.Error(t, err)
 	})
+}
+
+// TestService_CheckACL_IdemixSignedProposal verifies that CheckACL accepts a
+// SignedProposal whose creator is a real Idemix identity.
+//
+// The test builds a channel configuration bundle that contains a single Idemix
+// MSP org (using the pre-generated testdata from the idemix provider package),
+// loads it into a Service, then creates an authentic signed proposal using the
+// Idemix signing identity and asserts that CheckACL passes.
+func TestService_CheckACL_IdemixSignedProposal(t *testing.T) { //nolint:paralleltest
+	// ── 1. Locate the Idemix MSP testdata (absolute path) ──────────────────
+	idemixMSPDir, err := filepath.Abs("../../../fabric/core/generic/msp/idemix/testdata/idemix")
+	require.NoError(t, err)
+
+	// ── 2. Build a channel genesis block with the Idemix org ───────────────
+	//
+	// Load the standard EtcdRaft application-channel profile, then swap the
+	// application org for our Idemix one.  Because we provide an absolute
+	// MSPDir we do not need to call CompleteInitialization.
+	const (
+		channelID  = "idemix-test"
+		idemixMSPI = "idemix"
+	)
+	prof := configtxgen.Load(configtxgen.SampleAppChannelEtcdRaftProfile, configtest.GetDevConfigDir())
+
+	// Set capabilities to V1_1 on all three levels (channel, orderer,
+	// application) so that the MSP version resolves to MSPv1_1, which is
+	// accepted by the Idemix MSP factory.  The default sampleconfig leaves all
+	// capability maps empty, which yields MSPv1_0 (= 0) — a version the
+	// Idemix factory rejects.  The orderer must also declare capabilities
+	// whenever the channel or application groups do (enforced by preValidate).
+	prof.Capabilities = map[string]bool{"V1_1": true}
+	prof.Orderer.Capabilities = map[string]bool{"V1_1": true}
+	prof.Application.Capabilities = map[string]bool{"V1_1": true}
+
+	idemixOrg := &configtxgen.Organization{
+		Name:           "IdemixOrg",
+		ID:             idemixMSPI,
+		MSPDir:         idemixMSPDir,
+		MSPType:        fxmsp.ProviderTypeToString(fxmsp.IDEMIX),
+		AdminPrincipal: configtxgen.AdminRoleAdminPrincipal,
+		Policies: map[string]*configtxgen.Policy{
+			"Readers":     {Type: "Signature", Rule: "OR('" + idemixMSPI + ".member')"},
+			"Writers":     {Type: "Signature", Rule: "OR('" + idemixMSPI + ".member')"},
+			"Admins":      {Type: "Signature", Rule: "OR('" + idemixMSPI + ".admin')"},
+			"Endorsement": {Type: "Signature", Rule: "OR('" + idemixMSPI + ".member')"},
+		},
+	}
+	prof.Application.Organizations = []*configtxgen.Organization{idemixOrg}
+
+	gb := configtxgen.New(prof).GenesisBlockForChannel(channelID)
+	env := protoutil.ExtractEnvelopeOrPanic(gb, 0)
+
+	s := NewService(channelID)
+	require.NoError(t, s.Update(env))
+
+	// ── 3. Build a real Idemix identity and a matching signer ─────────────
+	mspConf, err := fabricmsp.GetLocalMspConfigWithType(idemixMSPDir, nil, idemixMSPI, "idemix")
+	require.NoError(t, err)
+
+	kvss, err := kvs.New(newKVS(), "", kvs.DefaultCacheSize)
+	require.NoError(t, err)
+
+	sigService := sig.NewService(sig.NewMultiplexDeserializer(), newAuditInfo(), newSignerInfo())
+
+	provider, err := idemix2.NewProviderWithAnyPolicy(mspConf, kvss, sigService)
+	require.NoError(t, err)
+
+	identityBytes, _, err := provider.Identity(nil)
+	require.NoError(t, err)
+
+	signer, err := provider.DeserializeSigner(identityBytes)
+	require.NoError(t, err)
+
+	// ── 4. Create a signed proposal whose creator is the Idemix identity ──
+	//
+	// protoutil.GetSignedProposal requires an identity.SignerSerializer.
+	// We wrap the Idemix signer and the pre-serialised identity bytes.
+	ss := &idemixSignerSerializer{
+		identityBytes: identityBytes,
+		signer:        signer,
+	}
+
+	proposal, _, err := protoutil.CreateChaincodeProposalWithTxIDNonceAndTransient(
+		"txid-1",
+		cb.HeaderType_ENDORSER_TRANSACTION,
+		channelID,
+		&pb.ChaincodeInvocationSpec{
+			ChaincodeSpec: &pb.ChaincodeSpec{
+				Type:        pb.ChaincodeSpec_GOLANG,
+				ChaincodeId: &pb.ChaincodeID{Name: "mychaincode"},
+				Input:       &pb.ChaincodeInput{Args: [][]byte{[]byte("invoke")}},
+			},
+		},
+		[]byte("nonce"),
+		identityBytes,
+		nil,
+	)
+	require.NoError(t, err)
+
+	rawSP, err := protoutil.GetSignedProposal(proposal, ss)
+	require.NoError(t, err)
+
+	// ── 5. CheckACL must pass for a valid Idemix signed proposal ──────────
+	require.NoError(t, s.CheckACL(&rawSignedProposal{sp: rawSP}))
+}
+
+// rawSignedProposal is a minimal driver.SignedProposal that wraps a
+// *pb.SignedProposal for use in unit tests.  CheckACL only needs Internal()
+// to return the underlying *pb.SignedProposal; the remaining methods are
+// not exercised by the ACL path.
+type rawSignedProposal struct {
+	sp *pb.SignedProposal
+}
+
+func (r *rawSignedProposal) ProposalBytes() []byte    { return r.sp.ProposalBytes }
+func (r *rawSignedProposal) Signature() []byte        { return r.sp.Signature }
+func (r *rawSignedProposal) ProposalHash() []byte     { return nil }
+func (r *rawSignedProposal) ChaincodeName() string    { return "" }
+func (r *rawSignedProposal) ChaincodeVersion() string { return "" }
+func (r *rawSignedProposal) Internal() any            { return r.sp }
+
+// idemixSignerSerializer adapts an Idemix driver.Signer and pre-serialised
+// identity bytes to the identity.SignerSerializer interface expected by
+// protoutil.GetSignedProposal.
+type idemixSignerSerializer struct {
+	identityBytes []byte
+	signer        fdriver.Signer
+}
+
+func (s *idemixSignerSerializer) Sign(message []byte) ([]byte, error) {
+	return s.signer.Sign(message)
+}
+
+func (s *idemixSignerSerializer) Serialize() ([]byte, error) {
+	return s.identityBytes, nil
+}
+
+// KVS helpers shared with the Idemix provider test (same pattern as provider_test.go).
+
+func newSignerInfo() storagedriver.SignerInfoStore {
+	return utils.MustGet(mem.NewDriver().NewSignerInfo(""))
+}
+
+func newAuditInfo() storagedriver.AuditInfoStore {
+	return utils.MustGet(mem.NewDriver().NewAuditInfo(""))
+}
+
+func newKVS() storagedriver.KeyValueStore {
+	return utils.MustGet(mem.NewDriver().NewKVS(""))
 }

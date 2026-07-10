@@ -39,9 +39,5 @@ consenter-msp-identities:
   - msp-id: OrdererMSP
     msp-dir: /root/artifacts/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp
 `
-	return generateConfigFile(configPath, []byte(configContent))
-}
-
-func generateConfigFile(configPath string, content []byte) error {
-	return os.WriteFile(configPath, content, 0o600)
+	return os.WriteFile(configPath, []byte(configContent), 0o600)
 }

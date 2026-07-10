@@ -16,7 +16,7 @@ The Comm layer abstracts the underlying network transport and provides a session
 
 1.  **P2PNode**: The central orchestrator that manages active streams, sessions, and message dispatching. It uses a **bounded worker pool** for concurrent message dispatching to prevent resource exhaustion.
 2.  **EndpointService**: The source of truth for peer identities and addresses. It manages resolvers that map PeerIDs to network endpoints and provides the public keys used for dynamic trust updates.
-3.  **P2PHost**: An interface for transport-specific implementations. FSC supports multiple transport types (e.g., Libp2p, WebSocket).
+3.  **P2PHost**: An interface for transport-specific implementations. FSC supports multiple transport types (e.g., Libp2p, WebSocket). The interface exposes `PeerID()`, which returns the local node's cryptographic peer identifier — the same value remote peers observe as `StreamInfo.RemotePeerID` and `SessionInfo.RemotePKID` when they connect to this node.
 4.  **NetworkStreamSession**: Implements the `view.Session` interface. It provides the high-level API (`Send`, `Receive`, `Close`) used by View developers. It includes **automatic cleanup** of dead stream references to prevent memory bloat.
 
 ### Message Flow
@@ -45,6 +45,7 @@ Security is integrated at every level of the Comm stack:
 -   **Node Identity**: All transport implementations use the node's main identity (configured via `fsc.identity.key.file` and `fsc.identity.cert.file`) for securing the transport layer.
 -   **Transport Security**: All communication is encrypted and authenticated at the transport layer (e.g., mTLS for Websocket, Noise/TLS for Libp2p).
 -   **Identity Binding**: The identity asserted in the application layer is strictly validated against the cryptographically verified identity from the transport layer. This ensures that the remote peer's identity is a verified source of truth.
+-   **Session Identity Exposure**: Each `NetworkStreamSession` populates `SessionInfo.RemotePKID` with the cryptographically verified remote peer ID and `SessionInfo.LocalPKID` with the local node's peer ID (obtained via `P2PHost.PeerID()`). Both fields are available to view code through `session.Info()`, enabling symmetric identity resolution and signing without out-of-band lookups.
 -   **Session Isolation**: All logical sessions are internally identified by a combination of the `SessionID` and the **authenticated** `PeerID` of the remote participant. This prevents attackers from injecting messages into sessions between other peers.
 -   **Resource Hardening**: The Comm layer enforces strict limits to prevent Denial of Service (DoS) attacks:
     -   **Message Size Limit**: A global 10MB limit is enforced on all incoming and outgoing messages to prevent remote memory exhaustion (OOM) attacks.

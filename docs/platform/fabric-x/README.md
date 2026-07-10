@@ -154,7 +154,69 @@ This container sets up a test networking including:
 - An ordering service
 - A [committer](https://github.com/hyperledger/fabric-x-committer) instance
 
-The container configuration can be found in: [`integration/nwo/fabricx/extensions/scv2/container.go`](../../../integration/nwo/fabricx/extensions/scv2/container.go).
+### Committer Container Configuration
+
+The committer container is configured through the `nwofabricx.Topology` returned by `NewTopology()`,
+`NewDefaultTopology()`, or `NewTopologyWithName()`. All options have sensible defaults so no additional
+configuration is required for standard test scenarios.
+
+#### Sidecar peer identity
+
+The committer runs as a sidecar peer inside the Fabric network. You can customise the peer name, its
+organisation, and — when running in a non-standard network layout — its host and ports:
+
+| Method | Default | Description |
+|---|---|---|
+| `WithCommitterName(name string)` | `"SC"` | Peer name for the committer sidecar identity in the Fabric network. |
+| `WithCommitterOrg(org string)` | `"Org1"` | Organisation the committer peer belongs to. |
+| `WithCommitterHost(host string)` | *(auto)* | Fixed host for the sidecar peer entry; leave empty to use the Docker bridge IP. |
+| `WithCommitterPorts(ports api.Ports)` | *(auto)* | Pre-allocated ports; leave nil to let the test framework allocate them. |
+
+#### Container image and environment
+
+| Method | Default | Description |
+|---|---|---|
+| `WithCommitterImage(image string)` | `hyperledger/fabric-x-committer-test-node:1.0.0` | Docker image for the committer container. |
+| `WithCommitterEnv(key, value string)` | *(see below)* | Override or add a container environment variable. Pass an empty value to remove a default. |
+
+Default environment variables set by the test framework:
+
+| Variable | Default value |
+|---|---|
+| `SC_SIDECAR_LOGGING_LOGSPEC` | `info:grpc=error` |
+| `SC_QUERY_LOGGING_LOGSPEC` | `info:grpc=error` |
+| `SC_COORDINATOR_LOGGING_LOGSPEC` | `info:grpc=error` |
+| `SC_ORDERER_LOGGING_LOGSPEC` | `info:grpc=error` |
+| `SC_VC_LOGGING_LOGSPEC` | `info:grpc=error` |
+| `SC_VERIFIER_LOGGING_LOGSPEC` | `info:grpc=error` |
+| `SC_ORDERER_BLOCK_SIZE` | `1` |
+| `SC_SIDECAR_ORDERER_SIGNED_ENVELOPES` | `true` |
+| `SC_SIDECAR_SERVER_MAX_CONCURRENT_STREAMS` | `0` |
+| Endpoints and MSP dirs | *(derived from network)* |
+
+#### Example
+
+```go
+fxTopo := nwofabricx.NewDefaultTopology()
+fxTopo.AddOrganizationsByName("Org1", "Org2")
+
+// pin a specific committer image
+fxTopo.WithCommitterImage("hyperledger/fabric-x-committer-test-node:1.1.0")
+
+// increase block size and turn on debug logging for the orderer component
+fxTopo.
+    WithCommitterEnv("SC_ORDERER_BLOCK_SIZE", "10").
+    WithCommitterEnv("SC_ORDERER_LOGGING_LOGSPEC", "debug")
+
+// remove a default env var entirely
+fxTopo.WithCommitterEnv("SC_VC_LOGGING_LOGSPEC", "")
+
+// place the committer in Org2 instead of the default Org1
+fxTopo.WithCommitterOrg("Org2")
+
+// rename the sidecar peer (default is "SC")
+fxTopo.WithCommitterName("committer")
+```
 
 ### Example: Simple Fabric-x Network Topology
 

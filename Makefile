@@ -9,7 +9,7 @@ FABRIC_VERSION ?= 3.1.4
 FABRIC_TWO_DIGIT_VERSION = $(shell echo $(FABRIC_VERSION) | cut -d '.' -f 1,2)
 
 FABRIC_X_TOOLS_VERSION ?= v1.0.0
-FABRIC_X_COMMITTER_VERSION ?= 1.0.0
+FABRIC_X_COMMITTER_VERSION ?= 1.0.3
 
 # need to install fabric binaries outside of fsc tree for now (due to chaincode packaging issues)
 FABRIC_BINARY_BASE ?= $(PWD)/../fabric
@@ -139,18 +139,24 @@ GO_PACKAGES_SDK = $$(go list ./... | grep '/sdk/dig$$')
 GO_TEST_PARAMS ?= -race -cover
 TEST_PKGS ?= $(GO_PACKAGES)
 
+# Instrument every package under the root module so that coverage is credited
+# even when a package is exercised only by tests living in another package
+# (e.g. the exported helpers in .../sql/common used by the sqlite/postgres tests).
+# Kept separate from GO_TEST_PARAMS because CI overrides GO_TEST_PARAMS wholesale.
+GO_COVERPKG ?= -coverpkg=./...
+
 .PHONY: unit-tests
 unit-tests: ## Run unit tests
 	@echo "Running unit tests..."
 	export FABRIC_LOGGING_SPEC=error; \
 	export FAB_BINS=$(FAB_BINS); \
-	go test $(GO_TEST_PARAMS) --skip '(Postgres)' $(TEST_PKGS)
+	go test $(GO_TEST_PARAMS) $(GO_COVERPKG) --skip '(Postgres)' $(TEST_PKGS)
 
 .PHONY: unit-tests-postgres
 unit-tests-postgres: ## Run unit tests for postgres (requires container images as defined in testing-docker-images)
 	@echo "Running unit tests..."
 	export FABRIC_LOGGING_SPEC=error; \
-	go test $(GO_TEST_PARAMS) --run '(Postgres)' $(TEST_PKGS)
+	go test $(GO_TEST_PARAMS) $(GO_COVERPKG) --run '(Postgres)' $(TEST_PKGS)
 
 .PHONY: unit-tests-sdk
 unit-tests-sdk: ## Run sdk wiring tests
@@ -165,6 +171,7 @@ INTEGRATION_TARGETS =
 ## fsc section
 INTEGRATION_TARGETS += fsc-pingpong
 INTEGRATION_TARGETS += fsc-stoprestart
+INTEGRATION_TARGETS += fsc-signedpingpong
 
 ## fabric section
 INTEGRATION_TARGETS += fabric-atsa
@@ -201,6 +208,17 @@ $(addprefix integration-tests-,$(INTEGRATION_TARGETS)) : integration-tests-%:
 		ginkgo $(GINKGO_TEST_OPTS) .
 
 #########################
+# Release
+#########################
+
+.PHONY: tag-release
+tag-release: ## Create git tags for all modules at HEAD. Usage: make tag-release VERSION=v0.13.0 [DRY=1]
+ifndef VERSION
+	$(error VERSION is required. Usage: make tag-release VERSION=v0.13.0)
+endif
+	./scripts/tag-release.sh $(if $(DRY),--dry) $(VERSION)
+
+#########################
 # Cleaning
 #########################
 
@@ -214,9 +232,7 @@ $(addprefix clean-,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS)) : clean-%:
 
 .PHONY: tidy
 tidy: ## Run go mod tidy everywhere
-	go mod tidy
-	cd tools; go mod tidy
-	cd platform/fabric/services/state/cc/query; go mod tidy
+	@./scripts/gomate.sh tidy
 
 .PHONY: fmt
 fmt: ## Run gofmt on the entire project
@@ -230,7 +246,7 @@ clean-fabric-peer-images: ## Clean up generated fabric peer images
 .PHONY: coverage-local
 coverage-local: ## Run unit tests and show filtered coverage
 	@echo "Running unit tests with coverage..."
-	@env FABRIC_LOGGING_SPEC=error FAB_BINS=$(FAB_BINS) go test $(GO_TEST_PARAMS) -coverprofile=coverage.tmp $(TEST_PKGS)
+	@env FABRIC_LOGGING_SPEC=error FAB_BINS=$(FAB_BINS) go test $(GO_TEST_PARAMS) $(GO_COVERPKG) -coverprofile=coverage.tmp $(TEST_PKGS)
 	@./scripts/filter-coverage.sh coverage.tmp coverage.out
 	@go tool cover -func=coverage.out | tail -n 1
 	@rm coverage.tmp

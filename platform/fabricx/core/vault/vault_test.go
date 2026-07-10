@@ -61,6 +61,16 @@ func (m *mockQueryService) GetTransactionStatus(txID string) (int32, error) {
 	return 0, nil
 }
 
+func (m *mockQueryService) GetTransactionStatuses(txIDs []string) (map[string]int32, error) {
+	out := make(map[string]int32, len(txIDs))
+	for _, txID := range txIDs {
+		if status, ok := m.txStatuses[txID]; ok {
+			out[txID] = status
+		}
+	}
+	return out, nil
+}
+
 func (m *mockQueryService) GetConfigTransaction() (*queryservice.ConfigTransactionInfo, error) {
 	return nil, nil
 }

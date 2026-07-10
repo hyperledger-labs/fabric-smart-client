@@ -36,6 +36,7 @@ type sender interface {
 type NetworkStreamSession struct {
 	node            sender
 	endpointID      []byte
+	localPKID       []byte
 	endpointAddress string
 	contextID       string
 	sessionID       string
@@ -129,12 +130,13 @@ func (n *NetworkStreamSession) Info() view.SessionInfo {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 	ret := view.SessionInfo{
-		ID:           n.sessionID,
-		Caller:       n.caller,
-		CallerViewID: n.callerViewID,
-		Endpoint:     n.endpointAddress,
-		EndpointPKID: n.endpointID,
-		Closed:       n.isClosed(),
+		ID:             n.sessionID,
+		Caller:         n.caller,
+		CallerViewID:   n.callerViewID,
+		RemoteEndpoint: n.endpointAddress,
+		RemotePKID:     n.endpointID,
+		LocalPKID:      n.localPKID,
+		Closed:         n.isClosed(),
 	}
 	return ret
 }

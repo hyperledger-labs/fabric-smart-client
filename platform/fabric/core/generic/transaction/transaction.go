@@ -522,7 +522,7 @@ func (t *Transaction) EndorseProposalResponseWithIdentity(identity view.Identity
 	defer t.Close()
 	t.proposalResponse, err = t.getProposalResponse(signer)
 	if err != nil {
-		return nil
+		return err
 	}
 	return t.appendProposalResponse(t.proposalResponse)
 }

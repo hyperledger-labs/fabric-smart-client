@@ -33,27 +33,21 @@ type Node interface {
 	Callback() chan<- error
 }
 
-var (
-	logger = logging.MustGetLogger()
-	node   Node
-)
+var logger = logging.MustGetLogger()
 
 // Cmd returns the cobra command for Node
 func Cmd(n Node) *cobra.Command {
-	node = n
-
-	nodeCmd.AddCommand(startCmd())
+	nodeCmd := &cobra.Command{
+		Use:   nodeFuncName,
+		Short: fmt.Sprint(nodeCmdDes),
+		Long:  fmt.Sprint(nodeCmdDes),
+	}
+	nodeCmd.AddCommand(startCmd(n))
 	return nodeCmd
 }
 
-var nodeCmd = &cobra.Command{
-	Use:   nodeFuncName,
-	Short: fmt.Sprint(nodeCmdDes),
-	Long:  fmt.Sprint(nodeCmdDes),
-}
-
-func startCmd() *cobra.Command {
-	nodeStartCmd := &cobra.Command{
+func startCmd(n Node) *cobra.Command {
+	return &cobra.Command{
 		Use:   "start",
 		Short: "Starts the fabric smart client node.",
 		Long:  `Starts the fabric smart client node that interacts with the network.`,
@@ -62,13 +56,12 @@ func startCmd() *cobra.Command {
 				return errors.Errorf("trailing args detected")
 			}
 			cmd.SilenceUsage = true
-			return serve()
+			return serve(n)
 		},
 	}
-	return nodeStartCmd
 }
 
-func serve() error {
+func serve(n Node) error {
 	// config path
 	configPath := os.Getenv("FSCNODE_CFG_PATH")
 	if configPath == "" {
@@ -91,13 +84,13 @@ func serve() error {
 		profiler, err := profile.New(profile.WithPath(configPath), profile.WithAll())
 		if err != nil {
 			logger.Errorf("error creating profiler: [%s]", err)
-			callback(err)
+			n.Callback() <- err
 			return err
 		}
 		// start profiler
 		if err := profiler.Start(); err != nil {
 			logger.Errorf("error starting profiler: [%s]", err)
-			callback(err)
+			n.Callback() <- err
 			return err
 		}
 
@@ -107,23 +100,19 @@ func serve() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := node.Start(); err != nil {
+	if err := n.Start(); err != nil {
 		logger.Errorf("Failed starting platform [%s]", err)
-		callback(err)
+		n.Callback() <- err
 		return err
 	}
 
-	callback(nil)
+	n.Callback() <- nil
 
-	logger.Infof("Started peer with ID=[%s]", node.ID())
+	logger.Infof("Started peer with ID=[%s]", n.ID())
 
 	<-ctx.Done()
 	logger.Infof("Received signal, exiting...")
-	node.Stop()
+	n.Stop()
 
 	return nil
-}
-
-func callback(err error) {
-	node.Callback() <- err
 }
