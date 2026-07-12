@@ -187,8 +187,7 @@ func TestRecipientOversizedRejection(t *testing.T) { //nolint:paralleltest
 	p, err := NewNode(t.Context(), h, &disabled.Provider{})
 	require.NoError(t, err)
 	defer p.Stop()
-
-	// Create a mock stream that sends an 11MB length prefix
+	// Create a mock stream that sends a 150MB length prefix
 	done := make(chan struct{})
 	ms := &mockOversizedStream{
 		mockStream: mockStream{ctx: t.Context()},
@@ -212,9 +211,9 @@ type mockOversizedStream struct {
 }
 
 func (m *mockOversizedStream) Read(p []byte) (int, error) {
-	// Send a varint for 11MB (11 * 1024 * 1024 = 11534336)
-	// Varint for 11534336 is [0x80, 0x80, 0xBF, 0x05]
-	oversizedVarint := []byte{0x80, 0x80, 0xBF, 0x05}
+	// Send a varint for 150MB (150 * 1024 * 1024 = 157286400)
+	// Varint for 157286400 is [0x80, 0x80, 0x80, 0x4B]
+	oversizedVarint := []byte{0x80, 0x80, 0x80, 0x4B}
 	n := copy(p, oversizedVarint)
 	return n, nil
 }

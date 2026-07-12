@@ -63,6 +63,7 @@ type P2PNode struct {
 	numWorkers                 int
 	incomingMessagesBufferSize int
 	streamReaderBufferSize     int
+	maxMessageSize             int
 }
 
 func NewNode(ctx context.Context, h host2.P2PHost, metricsProvider metrics.Provider) (*P2PNode, error) {
@@ -79,6 +80,9 @@ func NewNodeWithConfig(ctx context.Context, h host2.P2PHost, metricsProvider met
 	if cfg.streamReaderBufferSize <= 0 {
 		cfg.streamReaderBufferSize = DefaultStreamReaderBufferSize
 	}
+	if cfg.maxMessageSize <= 0 {
+		cfg.maxMessageSize = DefaultMaxMessageSize
+	}
 	nodeCtx, cancel := context.WithCancel(ctx)
 	p := &P2PNode{
 		host:                       h,
@@ -92,6 +96,7 @@ func NewNodeWithConfig(ctx context.Context, h host2.P2PHost, metricsProvider met
 		numWorkers:                 DefaultDispatcherWorkers,
 		incomingMessagesBufferSize: cfg.incomingMessagesBufferSize,
 		streamReaderBufferSize:     cfg.streamReaderBufferSize,
+		maxMessageSize:             cfg.maxMessageSize,
 	}
 	if err := h.Start(p.handleIncomingStream); err != nil {
 		cancel()
@@ -309,7 +314,7 @@ func (p *P2PNode) handleIncomingStream(stream host2.P2PStream) {
 func (p *P2PNode) handleStream(stream host2.P2PStream) *streamHandler {
 	sh := &streamHandler{
 		stream: stream,
-		reader: io.NewVarintProtoReader(stream, p.streamReaderBufferSize),
+		reader: io.NewVarintProtoReader(stream, p.streamReaderBufferSize, p.maxMessageSize),
 		writer: io.NewVarintProtoWriter(stream),
 		node:   p,
 	}

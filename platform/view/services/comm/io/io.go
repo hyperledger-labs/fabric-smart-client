@@ -20,8 +20,8 @@ type (
 // NewVarintProtoReader creates a reader that uses:
 // - varint delimiting
 // - protobuf message serialization
-func NewVarintProtoReader(reader io.Reader, capacity int) ProtoReaderCloser {
-	return newProtoReader(newVarintReader(reader, capacity))
+func NewVarintProtoReader(reader io.Reader, capacity, maxMessageSize int) ProtoReaderCloser {
+	return newProtoReader(newVarintReader(reader, capacity, maxMessageSize))
 }
 
 // NewVarintProtoWriter creates a writer that uses:

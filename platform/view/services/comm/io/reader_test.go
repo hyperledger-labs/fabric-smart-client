@@ -30,7 +30,7 @@ func TestVarintReader_ReadData(t *testing.T) {
 		buf.Write(lenBuf[:n])
 		buf.Write(data)
 
-		r := newVarintReader(buf, 1024)
+		r := newVarintReader(buf, 1024, 104857600)
 		readData, err := r.ReadData()
 		require.NoError(t, err)
 		require.Equal(t, data, readData)
@@ -43,7 +43,7 @@ func TestVarintReader_ReadData(t *testing.T) {
 		n := binary.PutUvarint(lenBuf, 0)
 		buf.Write(lenBuf[:n])
 
-		r := newVarintReader(buf, 1024)
+		r := newVarintReader(buf, 1024, 104857600)
 		readData, err := r.ReadData()
 		require.NoError(t, err)
 		require.Equal(t, []byte{}, readData)
@@ -65,7 +65,7 @@ func TestVarintReader_ReadData(t *testing.T) {
 			buf.Write(msg)
 		}
 
-		r := newVarintReader(buf, 1024)
+		r := newVarintReader(buf, 1024, 104857600)
 		for i, expected := range messages {
 			readData, err := r.ReadData()
 			require.NoError(t, err, "failed reading message %d", i)
@@ -76,7 +76,7 @@ func TestVarintReader_ReadData(t *testing.T) {
 	t.Run("error on EOF reading length", func(t *testing.T) {
 		t.Parallel()
 		buf := &bytes.Buffer{}
-		r := newVarintReader(buf, 1024)
+		r := newVarintReader(buf, 1024, 104857600)
 
 		_, err := r.ReadData()
 		require.Error(t, err)
@@ -91,7 +91,7 @@ func TestVarintReader_ReadData(t *testing.T) {
 		buf.Write(lenBuf[:n])
 		buf.Write([]byte("short")) // Only 5 bytes instead of 10
 
-		r := newVarintReader(buf, 1024)
+		r := newVarintReader(buf, 1024, 104857600)
 		_, err := r.ReadData()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error reading message")
@@ -103,7 +103,7 @@ func TestVarintReader_Close(t *testing.T) {
 	t.Run("close with closer", func(t *testing.T) {
 		t.Parallel()
 		closer := &mockReadCloser{Buffer: bytes.NewBuffer(nil)}
-		r := newVarintReader(closer, 1024)
+		r := newVarintReader(closer, 1024, 104857600)
 
 		err := r.Close()
 		require.NoError(t, err)
@@ -113,7 +113,7 @@ func TestVarintReader_Close(t *testing.T) {
 	t.Run("close without closer", func(t *testing.T) {
 		t.Parallel()
 		buf := &bytes.Buffer{}
-		r := newVarintReader(buf, 1024)
+		r := newVarintReader(buf, 1024, 104857600)
 
 		err := r.Close()
 		require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestVarintReader_Close(t *testing.T) {
 			Buffer:   bytes.NewBuffer(nil),
 			closeErr: assert.AnError,
 		}
-		r := newVarintReader(closer, 1024)
+		r := newVarintReader(closer, 1024, 104857600)
 
 		err := r.Close()
 		require.Error(t, err)
@@ -147,7 +147,7 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 		err := w.WriteMsg(msg)
 		require.NoError(t, err)
 
-		r := NewVarintProtoReader(buf, 1024)
+		r := NewVarintProtoReader(buf, 1024, 104857600)
 		readMsg := &anypb.Any{}
 		err = r.ReadMsg(readMsg)
 		require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		r := NewVarintProtoReader(buf, 1024)
+		r := NewVarintProtoReader(buf, 1024, 104857600)
 		for i, expected := range messages {
 			readMsg := &anypb.Any{}
 			err := r.ReadMsg(readMsg)
@@ -183,7 +183,7 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 	t.Run("error on EOF", func(t *testing.T) {
 		t.Parallel()
 		buf := &bytes.Buffer{}
-		r := NewVarintProtoReader(buf, 1024)
+		r := NewVarintProtoReader(buf, 1024, 104857600)
 
 		msg := &anypb.Any{}
 		err := r.ReadMsg(msg)
@@ -201,7 +201,7 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 		buf.Write(lenBuf[:n])
 		buf.Write(invalidData)
 
-		r := NewVarintProtoReader(buf, 1024)
+		r := NewVarintProtoReader(buf, 1024, 104857600)
 		msg := &anypb.Any{}
 		err := r.ReadMsg(msg)
 		require.Error(t, err)
@@ -214,7 +214,7 @@ func TestProtoReader_Close(t *testing.T) {
 	t.Run("close successfully", func(t *testing.T) {
 		t.Parallel()
 		closer := &mockReadCloser{Buffer: bytes.NewBuffer(nil)}
-		r := NewVarintProtoReader(closer, 1024)
+		r := NewVarintProtoReader(closer, 1024, 104857600)
 
 		err := r.Close()
 		require.NoError(t, err)
@@ -224,7 +224,7 @@ func TestProtoReader_Close(t *testing.T) {
 	t.Run("close without closer", func(t *testing.T) {
 		t.Parallel()
 		buf := &bytes.Buffer{}
-		r := NewVarintProtoReader(buf, 1024)
+		r := NewVarintProtoReader(buf, 1024, 104857600)
 
 		err := r.Close()
 		require.NoError(t, err)
@@ -234,7 +234,7 @@ func TestProtoReader_Close(t *testing.T) {
 func TestNewVarintProtoReader(t *testing.T) {
 	t.Parallel()
 	buf := &bytes.Buffer{}
-	r := NewVarintProtoReader(buf, 1024)
+	r := NewVarintProtoReader(buf, 1024, 104857600)
 	require.NotNil(t, r)
 }
 
@@ -257,7 +257,7 @@ func TestRoundTrip(t *testing.T) {
 		}
 
 		// Read messages back
-		r := NewVarintProtoReader(buf, 1024)
+		r := NewVarintProtoReader(buf, 1024, 104857600)
 		for i, expected := range messages {
 			readMsg := &anypb.Any{}
 			err := r.ReadMsg(readMsg)

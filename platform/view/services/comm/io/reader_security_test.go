@@ -21,7 +21,7 @@ func TestVarintReader_OOMProtection(t *testing.T) {
 	buf := make([]byte, 10)
 	n := binary.PutUvarint(buf, hugeLength)
 
-	r := newVarintReader(bytes.NewReader(buf[:n]), 1024)
+	r := newVarintReader(bytes.NewReader(buf[:n]), 1024, 104857600)
 
 	data, err := r.ReadData()
 	require.Error(t, err)
@@ -36,7 +36,7 @@ func TestVarintReader_NormalMessage(t *testing.T) {
 	n := binary.PutUvarint(buf, uint64(len(msg)))
 	copy(buf[n:], msg)
 
-	r := newVarintReader(bytes.NewReader(buf[:n+len(msg)]), 1024)
+	r := newVarintReader(bytes.NewReader(buf[:n+len(msg)]), 1024, 104857600)
 
 	data, err := r.ReadData()
 	require.NoError(t, err)

@@ -137,7 +137,7 @@ func TestProtoWriter_WriteMsg(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify we can read it back
-		r := NewVarintProtoReader(buf, 1024)
+		r := NewVarintProtoReader(buf, 1024, 104857600)
 		readMsg := &anypb.Any{}
 		err = r.ReadMsg(readMsg)
 		require.NoError(t, err)
@@ -162,7 +162,7 @@ func TestProtoWriter_WriteMsg(t *testing.T) {
 		}
 
 		// Read them back
-		r := NewVarintProtoReader(buf, 1024)
+		r := NewVarintProtoReader(buf, 1024, 104857600)
 		for i, expected := range messages {
 			readMsg := &anypb.Any{}
 			err := r.ReadMsg(readMsg)
