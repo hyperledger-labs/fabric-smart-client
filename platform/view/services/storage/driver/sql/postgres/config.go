@@ -64,7 +64,7 @@ func (r *ConfigProvider) GetOpts(name driver.PersistenceName, params ...string) 
 	if o.TLSConfig.Enabled {
 		registeredConnStr, err := RegisterTLSConnection(o.DataSource, *o.TLSConfig)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to register TLS connection config")
+			return nil, errors.Wrap(err, "failed to register TLS connection config")
 		}
 		o.DataSource = registeredConnStr
 	}

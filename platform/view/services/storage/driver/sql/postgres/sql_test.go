@@ -12,11 +12,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
-
 	_ "modernc.org/sqlite"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	testing2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common/testing"
@@ -69,11 +67,11 @@ func setupDBWithTLS(tb testing.TB) (string, string) {
 	require.NoError(tb, err)
 
 	certPath := filepath.Join(tempDir, "server.crt")
-	err = os.WriteFile(certPath, serverKeyPair.Cert, 0644)
+	err = os.WriteFile(certPath, serverKeyPair.Cert, 0o644)
 	require.NoError(tb, err)
 
 	keyPath := filepath.Join(tempDir, "server.key")
-	err = os.WriteFile(keyPath, serverKeyPair.Key, 0644)
+	err = os.WriteFile(keyPath, serverKeyPair.Key, 0o644)
 	require.NoError(tb, err)
 
 	scriptPath := filepath.Join(tempDir, "init-ssl.sh")
@@ -83,7 +81,7 @@ cp /tmp/certs/server.crt /var/lib/postgresql/server.crt
 chown postgres:postgres /var/lib/postgresql/server.key /var/lib/postgresql/server.crt
 chmod 0600 /var/lib/postgresql/server.key
 `
-	err = os.WriteFile(scriptPath, []byte(script), 0755)
+	err = os.WriteFile(scriptPath, []byte(script), 0o755)
 	require.NoError(tb, err)
 
 	cfg := ConfigFromEnv()
@@ -106,7 +104,7 @@ chmod 0600 /var/lib/postgresql/server.key
 
 	// Since we are creating a CA from scratch, write it for the client to use.
 	caPath := filepath.Join(tempDir, "ca.crt")
-	err = os.WriteFile(caPath, ca.CertBytes(), 0644)
+	err = os.WriteFile(caPath, ca.CertBytes(), 0o644)
 	require.NoError(tb, err)
 
 	return pgConnStr, caPath
