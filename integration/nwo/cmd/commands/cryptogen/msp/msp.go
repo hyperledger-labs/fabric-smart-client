@@ -255,6 +255,8 @@ func createFolderStructure(rootDir string, local bool) error {
 	if local {
 		folders = append(folders, filepath.Join(rootDir, "keystore"),
 			filepath.Join(rootDir, "signcerts"))
+	} else {
+		folders = append(folders, filepath.Join(rootDir, "knowncerts"))
 	}
 
 	for _, folder := range folders {

@@ -320,6 +320,11 @@ fabric:
               Pin: 98765432
               Hash: SHA2
               Security: 256
+              # Optional. Maximum number of PKCS11 sessions kept in the pool.
+              # Higher values reduce contention under concurrent signing load, at
+              # the cost of more open HSM sessions. Defaults to the library
+              # default (10) when unset.
+              SessionCacheSize: 10
 
       # For Anonymous identities you need to define an entry with an id of `idemix`
       # and must be of mspType idemix

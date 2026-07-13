@@ -10,8 +10,10 @@ import (
 	"errors"
 	"testing"
 
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
+	"github.com/hyperledger/fabric-x-common/api/msppb"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
@@ -22,6 +24,7 @@ import (
 //go:generate counterfeiter -o mock/fabric_network_service.go --fake-name FabricNetworkService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.FabricNetworkService
 //go:generate counterfeiter -o mock/signer_service.go --fake-name SignerService github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.SignerService
 //go:generate counterfeiter -o mock/signer.go --fake-name Signer github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Signer
+//go:generate counterfeiter -o mock/channel_membership.go --fake-name ChannelMembership github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ChannelMembership
 
 // TestCreateSCEnvelopeNoProposalResponses verifies that envelope creation fails
 // when the transaction carries no proposal responses at all.
@@ -140,7 +143,8 @@ func TestCreateSCEnvelopeSignerNotFound(t *testing.T) {
 
 // TestCreateSCEnvelopeSuccess verifies the happy path:
 // proposal responses are merged, the merged tx is marshaled, and the envelope
-// is created and signed successfully.
+// is created and signed successfully. The SignatureHeader.Creator in the resulting
+// envelope must use the cert-ID (cached identity) format.
 func TestCreateSCEnvelopeSuccess(t *testing.T) {
 	t.Parallel()
 	rawTx := mustRawTx(t, sampleTx("ns1", "key1", "value1"))
@@ -165,15 +169,21 @@ func TestCreateSCEnvelopeSuccess(t *testing.T) {
 	fakeFNS := &mock.FabricNetworkService{}
 	fakeSignerService := &mock.SignerService{}
 	fakeSigner := &mock.Signer{}
+	fakeChannel := &mock.Channel{}
+	fakeMembership := &mock.ChannelMembership{}
 
 	fakeFNS.SignerServiceReturns(fakeSignerService)
 	fakeSignerService.GetSignerReturns(fakeSigner, nil)
 	fakeSigner.SignReturns([]byte("envelope-signature"), nil)
+	fakeChannel.ChannelMembershipReturns(fakeMembership)
+	fakeFNS.ChannelReturns(fakeChannel, nil)
+
+	_, creatorBytes := mustSerializedIdentityWithRealCert(t, "Org1MSP")
 
 	tx := &Transaction{
 		TTxID:              "tx1",
 		TNonce:             []byte("nonce"),
-		TCreator:           view.Identity([]byte("creator")),
+		TCreator:           view.Identity(creatorBytes),
 		TChannel:           "testchannel",
 		TProposalResponses: []*peer.ProposalResponse{resp1, resp2},
 		fns:                fakeFNS,
@@ -186,6 +196,16 @@ func TestCreateSCEnvelopeSuccess(t *testing.T) {
 	require.Equal(t, 1, fakeFNS.SignerServiceCallCount())
 	require.Equal(t, 1, fakeSignerService.GetSignerCallCount())
 	require.Equal(t, 1, fakeSigner.SignCallCount())
+
+	// verify the Creator in the envelope's SignatureHeader uses cert-ID format
+	var payload cb.Payload
+	require.NoError(t, proto.Unmarshal(env.Payload, &payload))
+	var sigHeader cb.SignatureHeader
+	require.NoError(t, proto.Unmarshal(payload.Header.SignatureHeader, &sigHeader))
+	var creator msppb.Identity
+	require.NoError(t, proto.Unmarshal(sigHeader.Creator, &creator))
+	require.NotEmpty(t, creator.GetCertificateId())
+	require.Empty(t, creator.GetCertificate())
 }
 
 func mustRawTx(t *testing.T, tx *applicationpb.Tx) []byte {

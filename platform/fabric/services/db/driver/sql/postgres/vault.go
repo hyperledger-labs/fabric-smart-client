@@ -51,7 +51,7 @@ func (db *VaultStore) Store(ctx context.Context, txIDs []driver.TxID, writes dri
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
 
-	tx, err := db.writeDB.Begin()
+	tx, err := db.writeDB.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrapf(err, "failed to initiate db transaction")
 	}

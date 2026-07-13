@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package msp
 
 import (
-	"github.com/IBM/idemix"
+	msp2 "github.com/IBM/idemix/msp"
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -61,19 +61,19 @@ func New(opts NewOpts, cryptoProvider bccsp.BCCSP) (MSP, error) {
 	case *IdemixNewOpts:
 		switch opts.GetVersion() {
 		case MSPv1_3, MSPv1_4_3:
-			msp, err := idemix.NewIdemixMsp(MSPv1_3)
+			msp, err := msp2.NewIdemixMsp(MSPv1_3)
 			if err != nil {
 				return nil, err
 			}
 
-			return &idemixMSPWrapper{msp.(*idemix.Idemixmsp)}, nil
+			return &idemixMSPWrapper{msp.(*msp2.Idemixmsp)}, nil
 		case MSPv1_1:
-			msp, err := idemix.NewIdemixMsp(MSPv1_1)
+			msp, err := msp2.NewIdemixMsp(MSPv1_1)
 			if err != nil {
 				return nil, err
 			}
 
-			return &idemixMSPWrapper{msp.(*idemix.Idemixmsp)}, nil
+			return &idemixMSPWrapper{msp.(*msp2.Idemixmsp)}, nil
 		default:
 			return nil, errors.Errorf("Invalid *IdemixNewOpts. Version not recognized [%v]", opts.GetVersion())
 		}

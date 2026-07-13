@@ -20,22 +20,20 @@ const ProgramName = "node"
 
 // Cmd returns the Cobra Command for Version
 func Cmd() *cobra.Command {
-	return cobraCommand
-}
-
-var cobraCommand = &cobra.Command{
-	Use:   "version",
-	Short: "Print the fabric smart client version.",
-	Long:  `Print current version of the fabric smart client.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) != 0 {
-			return errors.Errorf("trailing args detected")
-		}
-		// Parsing of the command line is done so silence cmd usage
-		cmd.SilenceUsage = true
-		fmt.Print(GetInfo())
-		return nil
-	},
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the fabric smart client version.",
+		Long:  `Print current version of the fabric smart client.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return errors.Errorf("trailing args detected")
+			}
+			// Parsing of the command line is done so silence cmd usage
+			cmd.SilenceUsage = true
+			fmt.Print(GetInfo())
+			return nil
+		},
+	}
 }
 
 // GetInfo returns version information for the peer

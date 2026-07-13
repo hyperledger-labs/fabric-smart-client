@@ -8,6 +8,7 @@ package tracing
 
 import (
 	"fmt"
+	"maps"
 	"runtime"
 	"strings"
 	"sync"
@@ -50,10 +51,15 @@ func RegisterReplacer(s, replaceWith string) {
 	replacers[s] = replaceWith
 }
 
+// Replacers returns a snapshot of the registered replacer map. The returned
+// map is a copy: callers can read or mutate it freely without affecting the
+// internal state or racing with concurrent RegisterReplacer calls.
 func Replacers() map[string]string {
 	replacersMutex.RLock()
 	defer replacersMutex.RUnlock()
-	return replacers
+	out := make(map[string]string, len(replacers))
+	maps.Copy(out, replacers)
+	return out
 }
 
 func WithMetricsOpts(o MetricsOpts) trace.TracerOption {

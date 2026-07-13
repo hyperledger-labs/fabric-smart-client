@@ -42,9 +42,8 @@ func (e *Extension) launchContainer() {
 	logger.Infof("Launch container")
 
 	networkID := e.network.NetworkID
-	orgName := e.network.PeerOrgs()[0].Name
-	sidecarPeer := e.network.Peer(orgName, e.sidecar.Name)
-	containerName := fmt.Sprintf("%s-%s-scalable-committer", networkID, orgName)
+	sidecarPeer := e.network.Peer(e.cfg.SidecarOrg, e.cfg.SidecarName)
+	containerName := fmt.Sprintf("%s-%s-%s-committer", networkID, e.cfg.SidecarOrg, e.cfg.SidecarName)
 	rootCryptoDir := rootCrypto(e.network)
 
 	// get ports
@@ -61,18 +60,10 @@ func (e *Extension) launchContainer() {
 	// orderer config file and load it into the container.
 	// This can be removed and replaced with proper configuration via env vars once the issue #567 is fixed.
 	mockOrdererConfigPath := filepath.Clean(filepath.Join(e.network.Context.RootDir(), e.network.Prefix, "mock-orderer.yaml"))
-	err := generateMockOrdererConfigFile(mockOrdererConfigPath)
-	utils.Must(err)
+	utils.Must(generateMockOrdererConfigFile(mockOrdererConfigPath))
 
-	d, err := docker.GetInstance()
-	utils.Must(err)
-
-	netInfo, err := d.NetworkInfo(networkID)
-	utils.Must(err)
-	logger.Infof("netInfo id: %s", netInfo.ID)
-
-	localIP, err := d.LocalIP(networkID)
-	utils.Must(err)
+	d := utils.MustGet(docker.GetInstance())
+	localIP := utils.MustGet(d.LocalIP(networkID))
 
 	// prep extra hosts:
 	var extraHosts []string
@@ -83,7 +74,7 @@ func (e *Extension) launchContainer() {
 	cfg := containerConfig{
 		ChannelName:           e.channel.Name,
 		SidecarMSPDir:         containerSidecarMSPDir(e.network, sidecarPeer),
-		SidecarMSPID:          fmt.Sprintf("%sMSP", orgName),
+		SidecarMSPID:          fmt.Sprintf("%sMSP", e.cfg.SidecarOrg),
 		SidecarServerEndpoint: net.JoinHostPort("", strconv.Itoa(sidecarPort)),
 		QueryServerEndpoint:   net.JoinHostPort("", strconv.Itoa(queryServicePort)),
 		OrdererServerEndpoint: net.JoinHostPort("", strconv.Itoa(orderingServicePort)),
@@ -91,20 +82,21 @@ func (e *Extension) launchContainer() {
 		CertsBundle:           path.Join("/root/artifacts/crypto", "ca-certs.pem"),
 		SidecarTLSDir:         containerSidecarTLSDir(e.network, sidecarPeer),
 		OrdererTLSDir:         containerOrdererTLSDir(e.network, e.network.Orderers[0]),
+		Image:                 e.cfg.Image,
+		EnvVarOverrides:       e.cfg.EnvVars,
 	}
 
 	logger.Infof("Run fabric-x committer test container on %v ports: sidecar=%v query=%v orderer=%v",
 		localIP, sidecarPort, queryServicePort, orderingServicePort)
 
-	cli, err := dcli.New(dcli.FromEnv)
-	utils.Must(err)
+	cli := utils.MustGet(dcli.New(dcli.FromEnv))
 	ctx := context.TODO()
-	resp, err := cli.ContainerCreate(
+	resp := utils.MustGet(cli.ContainerCreate(
 		ctx,
 		dcli.ContainerCreateOptions{
 			Name: containerName,
 			Config: &container.Config{
-				Image:        scalableCommitterImage,
+				Image:        containerImage(cfg),
 				Tty:          true,
 				AttachStdout: true,
 				AttachStderr: true,
@@ -142,11 +134,9 @@ func (e *Extension) launchContainer() {
 				},
 			},
 		},
-	)
-	utils.Must(err)
+	))
 
-	_, err = cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{})
-	utils.Must(err)
+	_ = utils.MustGet(cli.ContainerStart(ctx, resp.ID, dcli.ContainerStartOptions{}))
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	dockerLogger := logging.MustGetLogger("sc.container." + resp.ID[:8])
@@ -180,17 +170,15 @@ func (e *Extension) launchContainer() {
 
 	var tlsConfig credentials.TransportCredentials
 	if e.network.TLSEnabled {
-		caCert, err := os.ReadFile(e.network.CACertsBundlePath())
-		utils.Must(err)
+		caCert := utils.MustGet(os.ReadFile(e.network.CACertsBundlePath()))
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
 
 		tlsDir := e.network.PeerUserTLSDir(sidecarPeer, "Admin")
-		cert, err := tls.LoadX509KeyPair(
+		cert := utils.MustGet(tls.LoadX509KeyPair(
 			filepath.Join(tlsDir, "client.crt"),
 			filepath.Join(tlsDir, "client.key"),
-		)
-		utils.Must(err)
+		))
 
 		tlsConfig = credentials.NewTLS(&tls.Config{
 			RootCAs:      caCertPool,
@@ -213,6 +201,5 @@ func (e *Extension) launchContainer() {
 			return fabric.WaitUntilReadyWithTLS(ctx, addr, tlsConfig)
 		})
 	}
-	err = g.Wait()
-	utils.Must(err)
+	utils.Must(g.Wait())
 }

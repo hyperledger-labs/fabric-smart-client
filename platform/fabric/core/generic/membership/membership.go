@@ -102,6 +102,22 @@ func (c *Service) GetMSPIDs() []string {
 	return mspIDs
 }
 
+// IsIdemixMSP returns true if the MSP identified by mspID is of type Idemix.
+func (c *Service) IsIdemixMSP(mspID string) bool {
+	ac := c.resources().ApplicationConfig()
+	if ac == nil || ac.Organizations() == nil {
+		return false
+	}
+
+	for _, org := range ac.Organizations() {
+		if org.MSPID() == mspID {
+			return org.MSP().GetType() == msp.IDEMIX
+		}
+	}
+
+	return false
+}
+
 func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
 	oc := c.resources().OrdererConfig()
 	if oc == nil {

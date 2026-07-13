@@ -123,7 +123,9 @@ func TestLocalBidirectionalChannel_Info(t *testing.T) {
 	left := ch.LeftSession()
 	info := left.Info()
 	require.False(t, info.Closed)
-	require.Equal(t, "endpoint", info.Endpoint)
+	require.Equal(t, "endpoint", info.RemoteEndpoint)
+	require.Equal(t, []byte("pkid"), info.RemotePKID)
+	require.Equal(t, []byte("pkid"), info.LocalPKID)
 	left.Close()
 	require.True(t, left.Info().Closed)
 }

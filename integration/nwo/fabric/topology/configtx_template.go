@@ -41,9 +41,12 @@ Organizations:{{ range .PeerOrgs }}
       Type: Signature
       Rule: OR('{{.MSPID}}.admin')
     {{- end }}
-  AnchorPeers:{{ range $w.AnchorsInOrg .Name }}
+  {{- $anchors := $w.AnchorsInOrg .Name }}
+  {{- if $anchors }}
+  AnchorPeers:{{ range $anchors }}
   - Host: {{ $w.PeerHost . }}
     Port: {{ $w.PeerPort . "Listen" }}
+  {{- end }}
   {{- end }}
 {{- end }}
 {{- range .IdemixOrgs }}

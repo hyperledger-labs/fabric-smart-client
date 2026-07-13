@@ -9,7 +9,10 @@ package transaction
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
@@ -614,7 +617,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 	}
 
 	// convert serialized identity to the msppb.Identity expected by Fabric-X
-	signerIdentity, err := toMSPSignerIdentityWithCertificate(view.Identity(creator))
+	signerIdentity, err := toEndorserIdentityWithCertID(creator)
 	if err != nil {
 		return nil, errors.Wrap(err, "converting signer identity to msp identity")
 	}
@@ -624,7 +627,7 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 		// TODO we need to check if the signer is an endorser for the given namespace;
 		// if not we should skip that ns.
 
-		digest, err := tx.Namespaces[idx].ASN1Marshal(txID)
+		digest, err := tx.Namespaces[idx].ASN1Marshal(txID, nil)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed asn1 marshalfor [txID=%s] [ns=%s]", txID, ns)
 		}
@@ -663,16 +666,60 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 	}, nil
 }
 
-func toMSPSignerIdentityWithCertificate(identity view.Identity) (*msppb.Identity, error) {
+// toMSPSignerIdentityWithCertificateID is the serializing counterpart of
+// toEndorserIdentityWithCertID. It differs in two ways:
+//   - It returns the proto-marshaled bytes of the resulting msppb.Identity
+//     rather than a pointer, making it suitable for direct use in a
+//     SignatureHeader.Creator field.
+//   - When the identity's MSP is an Idemix MSP (as determined by idemixMSP),
+//     the original identity bytes are returned unchanged, because Idemix
+//     identities carry no X.509 certificate to hash.
+func toMSPSignerIdentityWithCertificateID(identity view.Identity, idemixMSP func(mspID string) bool) ([]byte, error) {
 	sID := &msp.SerializedIdentity{}
 	if err := proto.Unmarshal(identity, sID); err != nil {
 		return nil, errors.Wrap(err, "unmarshal serialized identity")
 	}
-	// Signer identity with certificate attached.
-	return &msppb.Identity{
-		MspId: sID.GetMspid(),
-		Creator: &msppb.Identity_Certificate{
-			Certificate: sID.GetIdBytes(),
-		},
-	}, nil
+	if idemixMSP(sID.GetMspid()) {
+		logger.Debugf("identity [%s] is an idemix identity, return it. [%s]", identity, sID.GetMspid())
+		return identity, nil
+	}
+
+	id, err := pemToMSPIdentity(sID.GetMspid(), sID.GetIdBytes())
+	if err != nil {
+		return nil, errors.Wrap(err, "converting signer identity to msp identity")
+	}
+	return proto.Marshal(id)
+}
+
+// toEndorserIdentityWithCertID converts a serialized MSP identity to an
+// msppb.Identity that uses a SHA-256 hash of the DER-encoded certificate as the
+// creator. This matches the cached-identity format expected by Fabric-X committers,
+// which look up the identity by cert hash rather than the full certificate bytes.
+// The hash must be consistent with the IdentityIdentifierHashFunction configured
+// in the committer's MSP (default: SHA-256 of cert.Raw).
+func toEndorserIdentityWithCertID(identity view.Identity) (*msppb.Identity, error) {
+	sID := &msp.SerializedIdentity{}
+	if err := proto.Unmarshal(identity, sID); err != nil {
+		return nil, errors.Wrap(err, "unmarshal serialized identity")
+	}
+
+	return pemToMSPIdentity(sID.GetMspid(), sID.GetIdBytes())
+}
+
+// pemToMSPIdentity decodes a PEM-encoded X.509 certificate and constructs an
+// msppb.Identity that identifies the signer by a SHA-256 hash of the
+// DER-encoded certificate bytes (hex-encoded). The returned Identity uses the
+// cached-identity (certificate-ID) format expected by Fabric-X committers and
+// contains no raw certificate bytes, keeping the SignatureHeader compact.
+//
+// id is the MSP identifier string (e.g. "Org1MSP").
+// raw must be a PEM block whose Bytes field contains the DER-encoded cert.
+func pemToMSPIdentity(id string, raw []byte) (*msppb.Identity, error) {
+	block, _ := pem.Decode(raw)
+	if block == nil {
+		return nil, errors.New("failed to decode PEM certificate")
+	}
+	digest := sha256.Sum256(block.Bytes)
+	certID := hex.EncodeToString(digest[:])
+	return msppb.NewIdentityWithIDOfCert(id, certID), nil
 }

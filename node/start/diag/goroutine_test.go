@@ -9,8 +9,7 @@ package diag_test
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/node/start/diag"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -18,19 +17,17 @@ import (
 
 func TestCaptureGoRoutines(t *testing.T) {
 	t.Parallel()
-	gt := NewGomegaWithT(t)
 	output, err := diag.CaptureGoRoutines()
-	gt.Expect(err).NotTo(HaveOccurred())
+	require.NoError(t, err)
 
-	gt.Expect(output).To(MatchRegexp(`goroutine \d+ \[running\]:`))
-	gt.Expect(output).To(ContainSubstring("github.com/hyperledger-labs/fabric-smart-client/node/start/diag.CaptureGoRoutines"))
+	require.Regexp(t, `goroutine \d+ \[running\]:`, output)
+	require.Contains(t, output, "github.com/hyperledger-labs/fabric-smart-client/node/start/diag.CaptureGoRoutines")
 }
 
 func TestLogGoRoutines(t *testing.T) {
 	t.Parallel()
-	gt := NewGomegaWithT(t)
 	logger, recorder := logging.NewTestLogger(t, logging.Named("goroutine"))
 	diag.LogGoRoutines(logger)
 
-	gt.Expect(recorder).To(gbytes.Say(`goroutine \d+ \[running\]:`))
+	require.NotEmpty(t, recorder.EntriesMatching(`goroutine \d+ \[running\]:`))
 }
