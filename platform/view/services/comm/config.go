@@ -11,8 +11,8 @@ const (
 	DefaultIncomingMessagesBufferSize = 1024
 	// DefaultStreamReaderBufferSize is the default buffer size for stream readers
 	DefaultStreamReaderBufferSize = 4096
-	// DefaultMaxMessageSize is the default max message size limit (100 MiB)
-	DefaultMaxMessageSize = 100 * 1024 * 1024
+	// DefaultMaxMessageSize is the default max message size limit (10 MiB)
+	DefaultMaxMessageSize = 10 * 1024 * 1024
 )
 
 type configService interface {
@@ -40,6 +40,9 @@ func NewConfig(cs configService) *config {
 	maxMessageSize := DefaultMaxMessageSize
 	if cs.IsSet("fsc.p2p.maxMessageSize") {
 		maxMessageSize = cs.GetInt("fsc.p2p.maxMessageSize")
+	}
+	if maxMessageSize < 0 {
+		maxMessageSize = DefaultMaxMessageSize
 	}
 
 	return &config{

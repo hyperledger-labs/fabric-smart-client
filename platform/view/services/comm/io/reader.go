@@ -50,7 +50,7 @@ func (r *varintReader) ReadData() ([]byte, error) {
 		return nil, err
 	}
 
-	if l > uint64(r.maxMessageSize) {
+	if r.maxMessageSize > 0 && l > uint64(r.maxMessageSize) {
 		return nil, errors.Errorf("message length [%d] exceeds max message size [%d]", l, r.maxMessageSize)
 	}
 
