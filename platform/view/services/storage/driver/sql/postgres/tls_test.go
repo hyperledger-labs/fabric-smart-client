@@ -16,12 +16,10 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
@@ -61,11 +59,11 @@ func generateSelfSignedCert(t *testing.T, tempDir string) (string, string) {
 	require.NoError(t, err)
 
 	certPath := filepath.Join(tempDir, "cert.pem")
-	err = os.WriteFile(certPath, serverKeyPair.Cert, 0644)
+	err = os.WriteFile(certPath, serverKeyPair.Cert, 0o644)
 	require.NoError(t, err)
 
 	keyPath := filepath.Join(tempDir, "key.pem")
-	err = os.WriteFile(keyPath, serverKeyPair.Key, 0600)
+	err = os.WriteFile(keyPath, serverKeyPair.Key, 0o600)
 	require.NoError(t, err)
 
 	return certPath, keyPath
