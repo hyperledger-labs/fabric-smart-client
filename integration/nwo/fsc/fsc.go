@@ -772,13 +772,21 @@ func (p *Platform) NodeCmdDir(peer *node2.Replica) string {
 }
 
 func (p *Platform) NodeCmdPackage(peer *node2.Replica) string {
-	gopath := os.Getenv("GOPATH")
 	wd, err := os.Getwd()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "Failed to get working directory: %s", err)
 
-	// if gopath is set to path within codebase, node command package will be relative within the codebase
-	// if gopath is not set or not within codebase, then it will be absolute path where the fsc node code is
-	// both can be built from these paths
+	// Resolve the import path via the module declared in go.mod, rather than assuming the
+	// checkout directory name matches the module name. This keeps things working when the
+	// working directory is a git worktree (whose directory is typically named after the
+	// branch, e.g. "myrepo-1234", while go.mod still declares "module .../myrepo").
+	if modPath, modDir, err := goModuleInfo(wd); err == nil {
+		relDir, err := filepath.Rel(modDir, wd)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		return filepath.ToSlash(filepath.Join(modPath, relDir, "out", "cmd", peer.Name))
+	}
+
+	// Fallback for legacy GOPATH-style checkouts (no go.mod resolvable from wd).
+	gopath := os.Getenv("GOPATH")
 	if withoutGoPath, ok := strings.CutPrefix(wd, filepath.Join(gopath, "src")); ok {
 		return strings.TrimPrefix(
 			filepath.Join(withoutGoPath, "out", "cmd", peer.Name),
@@ -786,6 +794,25 @@ func (p *Platform) NodeCmdPackage(peer *node2.Replica) string {
 		)
 	}
 	return "./" + filepath.ToSlash(filepath.Join("out", "cmd", peer.Name))
+}
+
+// goModuleInfo returns the module path and module root directory (as declared in go.mod)
+// for the module containing dir.
+func goModuleInfo(dir string) (modPath, modDir string, err error) {
+	cmd := exec.Command("go", "list", "-m", "-f", "{{.Path}}|{{.Dir}}")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return "", "", err
+	}
+
+	parts := strings.SplitN(strings.TrimSpace(string(out)), "|", 2)
+	if len(parts) != 2 || parts[1] == "" {
+		// no go.mod found; "go list -m" falls back to the synthetic
+		// "command-line-arguments" pseudo-module with an empty Dir.
+		return "", "", fmt.Errorf("no module found for %s: %s", dir, out)
+	}
+	return parts[0], parts[1], nil
 }
 
 func (p *Platform) NodeCmdPath(peer *node2.Replica) string {
