@@ -61,19 +61,23 @@ func (w *varintWriter) Close() error {
 	return nil
 }
 
-func newProtoWriter(w dataWriter) writerCloser[proto.Message] {
-	return &protoWriter{w: w}
+func newProtoWriter(w dataWriter, maxSendMsgSize int) writerCloser[proto.Message] {
+	return &protoWriter{w: w, maxSendMsgSize: maxSendMsgSize}
 }
 
 // protoWriter uses proto.Message as data container
 type protoWriter struct {
-	w dataWriter
+	w              dataWriter
+	maxSendMsgSize int
 }
 
 func (w *protoWriter) WriteMsg(msg proto.Message) error {
 	data, err := proto.Marshal(msg)
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal the message: [%s]", msg)
+	}
+	if w.maxSendMsgSize > 0 && len(data) > w.maxSendMsgSize {
+		return errors.Errorf("message size %d exceeds maximum send size %d", len(data), w.maxSendMsgSize)
 	}
 	return w.w.WriteData(data)
 }

@@ -145,7 +145,7 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 		}
 
 		buf := &bytes.Buffer{}
-		w := NewVarintProtoWriter(buf)
+		w := NewVarintProtoWriter(buf, 1024)
 		err := w.WriteMsg(msg)
 		require.NoError(t, err)
 
@@ -166,7 +166,7 @@ func TestProtoReader_ReadMsg(t *testing.T) {
 		}
 
 		buf := &bytes.Buffer{}
-		w := NewVarintProtoWriter(buf)
+		w := NewVarintProtoWriter(buf, 1024)
 		for _, msg := range messages {
 			err := w.WriteMsg(msg)
 			require.NoError(t, err)
@@ -247,7 +247,7 @@ func TestRoundTrip(t *testing.T) {
 		buf := &bytes.Buffer{}
 
 		// Write messages
-		w := NewVarintProtoWriter(buf)
+		w := NewVarintProtoWriter(buf, 1024)
 		messages := []*anypb.Any{
 			{TypeUrl: "type1", Value: []byte("value1")},
 			{TypeUrl: "type2", Value: []byte("value2")},

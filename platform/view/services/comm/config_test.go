@@ -38,6 +38,7 @@ func TestNewConfig(t *testing.T) {
 		require.Equal(t, DefaultIncomingMessagesBufferSize, cfg.incomingMessagesBufferSize)
 		require.Equal(t, DefaultStreamReaderBufferSize, cfg.streamReaderBufferSize)
 		require.Equal(t, DefaultMaxMessageSize, cfg.maxRecvMsgSize)
+		require.Equal(t, DefaultMaxMessageSize, cfg.maxSendMsgSize)
 	})
 
 	t.Run("custom values", func(t *testing.T) {
@@ -47,17 +48,20 @@ func TestNewConfig(t *testing.T) {
 				"fsc.p2p.incomingMessagesBufferSize": 2048,
 				"fsc.p2p.streamReaderBufferSize":     8192,
 				"fsc.p2p.maxRecvMsgSize":             5000,
+				"fsc.p2p.maxSendMsgSize":             6000,
 			},
 			sets: map[string]bool{
 				"fsc.p2p.incomingMessagesBufferSize": true,
 				"fsc.p2p.streamReaderBufferSize":     true,
 				"fsc.p2p.maxRecvMsgSize":             true,
+				"fsc.p2p.maxSendMsgSize":             true,
 			},
 		}
 		cfg := NewConfig(cs)
 		require.Equal(t, 2048, cfg.incomingMessagesBufferSize)
 		require.Equal(t, 8192, cfg.streamReaderBufferSize)
 		require.Equal(t, 5000, cfg.maxRecvMsgSize)
+		require.Equal(t, 6000, cfg.maxSendMsgSize)
 	})
 
 	t.Run("clamping invalid values", func(t *testing.T) {
@@ -67,11 +71,13 @@ func TestNewConfig(t *testing.T) {
 				"fsc.p2p.incomingMessagesBufferSize": 0,
 				"fsc.p2p.streamReaderBufferSize":     -5,
 				"fsc.p2p.maxRecvMsgSize":             -100,
+				"fsc.p2p.maxSendMsgSize":             -200,
 			},
 			sets: map[string]bool{
 				"fsc.p2p.incomingMessagesBufferSize": true,
 				"fsc.p2p.streamReaderBufferSize":     true,
 				"fsc.p2p.maxRecvMsgSize":             true,
+				"fsc.p2p.maxSendMsgSize":             true,
 			},
 		}
 		cfg := NewConfig(cs)
@@ -79,19 +85,23 @@ func TestNewConfig(t *testing.T) {
 		require.Equal(t, DefaultIncomingMessagesBufferSize, cfg.incomingMessagesBufferSize)
 		require.Equal(t, DefaultStreamReaderBufferSize, cfg.streamReaderBufferSize)
 		require.Equal(t, DefaultMaxMessageSize, cfg.maxRecvMsgSize)
+		require.Equal(t, DefaultMaxMessageSize, cfg.maxSendMsgSize)
 	})
 
-	t.Run("zero maxRecvMsgSize is allowed", func(t *testing.T) {
+	t.Run("zero maxRecvMsgSize and maxSendMsgSize are allowed", func(t *testing.T) {
 		t.Parallel()
 		cs := &mockConfigServiceForTesting{
 			ints: map[string]int{
 				"fsc.p2p.maxRecvMsgSize": 0,
+				"fsc.p2p.maxSendMsgSize": 0,
 			},
 			sets: map[string]bool{
 				"fsc.p2p.maxRecvMsgSize": true,
+				"fsc.p2p.maxSendMsgSize": true,
 			},
 		}
 		cfg := NewConfig(cs)
 		require.Equal(t, 0, cfg.maxRecvMsgSize)
+		require.Equal(t, 0, cfg.maxSendMsgSize)
 	})
 }

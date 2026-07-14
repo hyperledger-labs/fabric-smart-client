@@ -110,6 +110,9 @@ fsc:
     # This protects the node from memory exhaustion by rejecting oversized payloads before deserialization.
     # Set to 0 to disable the limit (allow arbitrarily large messages - not recommended).
     maxRecvMsgSize: 10485760
+    # Maximum allowed size (in bytes) for outgoing P2P messages. Default: 10485760 (10 MiB)
+    # Set to 0 to disable the limit (allow arbitrarily large messages - not recommended).
+    maxSendMsgSize: 10485760
     opts:
       # ------------------- libp2p specific options -------------------------
       # Only needed when type == libp2p
