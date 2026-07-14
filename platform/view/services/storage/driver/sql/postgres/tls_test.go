@@ -70,6 +70,7 @@ func generateSelfSignedCert(t *testing.T, tempDir string) (string, string) {
 }
 
 func TestCreateTLSConnConfig(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 	certPath, keyPath := generateSelfSignedCert(t, tempDir)
 
@@ -199,13 +200,14 @@ func TestCreateTLSConnConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			connConfig, err := createTLSConnConfig(tt.dataSource, tt.tlsCfg)
 			tt.verify(t, connConfig, err)
 		})
 	}
 }
 
-func TestTLSConfigProvider(t *testing.T) {
+func TestTLSConfigProvider(t *testing.T) { //nolint:paralleltest
 	tempDir := t.TempDir()
 	certPath, _ := generateSelfSignedCert(t, tempDir)
 
@@ -229,7 +231,7 @@ func TestTLSConfigProvider(t *testing.T) {
 		},
 	}
 
-	t.Run("Persistence specific TLS config", func(t *testing.T) {
+	t.Run("Persistence specific TLS config", func(t *testing.T) { //nolint:paralleltest
 		provider := NewConfigProvider(mockCfg)
 
 		opts, err := provider.GetOpts("db")
@@ -239,7 +241,7 @@ func TestTLSConfigProvider(t *testing.T) {
 		stdlib.UnregisterConnConfig(opts.DataSource)
 	})
 
-	t.Run("Other TLS config", func(t *testing.T) {
+	t.Run("Other TLS config", func(t *testing.T) { //nolint:paralleltest
 		provider := NewConfigProvider(mockCfg)
 
 		opts, err := provider.GetOpts("other")
