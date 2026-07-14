@@ -29,21 +29,20 @@ type readerCloser[F any] interface {
 	io.Closer
 }
 
-func newVarintReader(reader io.Reader, capacity int) dataReader {
+func newVarintReader(reader io.Reader, capacity, maxMessageSize int) dataReader {
 	var closer io.Closer
 	if c, ok := reader.(io.Closer); ok {
 		closer = c
 	}
-	return &varintReader{r: bufio.NewReaderSize(reader, capacity), closer: closer}
+	return &varintReader{r: bufio.NewReaderSize(reader, capacity), closer: closer, maxMessageSize: maxMessageSize}
 }
 
 // varintReader reads a varint that contains the length of the message to follow (len([]byte)) and then the message
 type varintReader struct {
-	r      *bufio.Reader
-	closer io.Closer
+	r              *bufio.Reader
+	closer         io.Closer
+	maxMessageSize int
 }
-
-const maxMessageSize = 10 * 1024 * 1024
 
 func (r *varintReader) ReadData() ([]byte, error) {
 	l, err := binary.ReadUvarint(r.r)
@@ -51,8 +50,8 @@ func (r *varintReader) ReadData() ([]byte, error) {
 		return nil, err
 	}
 
-	if l > maxMessageSize {
-		return nil, errors.Errorf("message length [%d] exceeds max message size [%d]", l, maxMessageSize)
+	if r.maxMessageSize > 0 && l > uint64(r.maxMessageSize) {
+		return nil, errors.Errorf("message length [%d] exceeds max message size [%d]", l, r.maxMessageSize)
 	}
 
 	buffer := make([]byte, l) // We can re-use the buffer to avoid allocations

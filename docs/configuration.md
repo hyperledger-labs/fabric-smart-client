@@ -106,6 +106,10 @@ fsc:
     # Larger values can improve read performance for large messages
     # but will consume more memory per active connection.
     streamReaderBufferSize: 4096
+    # Maximum allowed size (in bytes) for incoming P2P messages. Default: 10485760 (10 MiB)
+    # This protects the node from memory exhaustion by rejecting oversized payloads before deserialization.
+    # Set to 0 to disable the limit (allow arbitrarily large messages - not recommended).
+    maxRecvMsgSize: 10485760
     opts:
       # ------------------- libp2p specific options -------------------------
       # Only needed when type == libp2p

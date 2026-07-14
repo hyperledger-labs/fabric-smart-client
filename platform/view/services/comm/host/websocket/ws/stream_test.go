@@ -26,6 +26,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/comm/io"
 )
 
+const testMaxMessageSize = 10 * 1024 * 1024
+
 func newMockStream(conn *mockConn) host.P2PStream {
 	return ws.NewWSStream(conn, context.Background(), host.StreamInfo{})
 }
@@ -117,7 +119,7 @@ func TestReader(t *testing.T) { //nolint:paralleltest
 		read:    make(chan []byte, 100),
 	}
 	stream := newMockStream(conn)
-	r := io.NewVarintProtoReader(stream, 2)
+	r := io.NewVarintProtoReader(stream, 2, testMaxMessageSize)
 
 	input := []proto.Message{
 		messageOfSize(12),
