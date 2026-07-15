@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	committerImageName = "hyperledger/fabric-x-committer-test-node:1.0.3"
+	committerImageName = "hyperledger/fabric-x-committer-test-node:1.0.4"
 )
 
 type containerConfig struct {
