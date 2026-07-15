@@ -9,6 +9,7 @@ package postgres
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -63,7 +64,7 @@ func setupDBWithTLS(tb testing.TB) (string, string) {
 	tempDir := tb.TempDir()
 	ca, err := tlsgen.NewCA()
 	require.NoError(tb, err)
-	serverKeyPair, err := ca.NewServerCertKeyPair("127.0.0.1")
+	serverKeyPair, err := ca.NewServerCertKeyPair("localhost")
 	require.NoError(tb, err)
 
 	certPath := filepath.Join(tempDir, "server.crt")
@@ -78,9 +79,13 @@ func setupDBWithTLS(tb testing.TB) (string, string) {
 	script := `#!/bin/bash
 cp /tmp/certs/server.key /var/lib/postgresql/server.key
 cp /tmp/certs/server.crt /var/lib/postgresql/server.crt
-chown postgres:postgres /var/lib/postgresql/server.key /var/lib/postgresql/server.crt
 chmod 0600 /var/lib/postgresql/server.key
+echo "ssl = on" >> "$PGDATA/postgresql.conf"
+echo "ssl_cert_file = '/var/lib/postgresql/server.crt'" >> "$PGDATA/postgresql.conf"
+echo "ssl_key_file = '/var/lib/postgresql/server.key'" >> "$PGDATA/postgresql.conf"
 `
+	// Ensure Unix line endings even if cloned on Windows with CRLF
+	script = strings.ReplaceAll(script, "\r\n", "\n")
 	err = os.WriteFile(scriptPath, []byte(script), 0o755)
 	require.NoError(tb, err)
 
@@ -89,14 +94,9 @@ chmod 0600 /var/lib/postgresql/server.key
 		filepath.ToSlash(tempDir) + ":/tmp/certs:ro",
 		filepath.ToSlash(scriptPath) + ":/docker-entrypoint-initdb.d/init-ssl.sh:ro",
 	}
-	cfg.Cmd = []string{
-		"postgres",
-		"-c", "ssl=on",
-		"-c", "ssl_cert_file=/var/lib/postgresql/server.crt",
-		"-c", "ssl_key_file=/var/lib/postgresql/server.key",
-	}
 
-	terminate, pgConnStr, err := StartPostgres(tb.Context(), cfg, nil)
+	logger := &testLogger{tb}
+	terminate, pgConnStr, err := StartPostgres(tb.Context(), cfg, logger)
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -135,4 +135,16 @@ func TestPostgresWithTLS(t *testing.T) {
 	}, func(p driver.KeyValueStore) *common3.KeyValueStore {
 		return p.(*common3.KeyValueStore)
 	})
+}
+
+type testLogger struct {
+	testing.TB
+}
+
+func (l *testLogger) Debugf(format string, args ...any) {
+	l.Logf("[DEBUG] "+format, args...)
+}
+
+func (l *testLogger) Errorf(format string, args ...any) {
+	l.Logf("[ERROR] "+format, args...)
 }
