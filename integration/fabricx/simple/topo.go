@@ -40,7 +40,8 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType) []api.Topology {
 		AddOptions(fabric.WithOrganization("Org1")).
 		// simple logic
 		RegisterViewFactory("create", &simpleviews.CreateViewFactory{}).
-		RegisterViewFactory("query", &simpleviews.QueryViewFactory{})
+		RegisterViewFactory("query", &simpleviews.QueryViewFactory{}).
+		RegisterViewFactory("namespacePolicies", &simpleviews.NamespacePoliciesViewFactory{})
 
 	fscTopology.AddSDK(sdk)
 

@@ -131,6 +131,15 @@ func RunTest(n *integration.Infrastructure) {
 		Namespace: simple.Namespace,
 	}))
 	Expect(err).ToNot(HaveOccurred())
+
+	// query the namespace policies and make sure our namespace has one registered
+	res, err = n.Client(simple.CreatorNode).CallView("namespacePolicies", nil)
+	Expect(err).ToNot(HaveOccurred())
+	raw, ok = res.([]byte)
+	Expect(ok).To(BeTrue())
+	var policies views.NamespacePoliciesResult
+	nwocommon.JSONUnmarshal(raw, &policies)
+	Expect(policies.Versions).To(HaveKey(simple.Namespace))
 }
 
 func NewTestSuite(commType nwofsc.P2PCommunicationType) *TestSuite {
