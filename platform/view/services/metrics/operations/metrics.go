@@ -7,37 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package operations
 
 import (
-	"sync"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/prometheus"
 )
 
-var (
-	fscVersion = metrics.GaugeOpts{
-		Name:       "fsc_version",
-		Help:       "The active version of Fabric Smart Client.",
-		LabelNames: []string{"version"},
-	}
-
-	gaugeLock        sync.Mutex
-	promVersionGauge metrics.Gauge
-)
+var fscVersion = metrics.GaugeOpts{
+	Name:       "fsc_version",
+	Help:       "The active version of Fabric Smart Client.",
+	LabelNames: []string{"version"},
+}
 
 func versionGauge(provider metrics.Provider) metrics.Gauge {
-	switch provider.(type) {
-	case *prometheus.Provider:
-		gaugeLock.Lock()
-		defer gaugeLock.Unlock()
-		if promVersionGauge == nil {
-			promVersionGauge = provider.NewGauge(fscVersion)
-		}
-		return promVersionGauge
-
-	default:
-		return provider.NewGauge(fscVersion)
-	}
+	return provider.NewGauge(fscVersion)
 }
 
 func NewMetricsProvider(m MetricsOptions) metrics.Provider {
