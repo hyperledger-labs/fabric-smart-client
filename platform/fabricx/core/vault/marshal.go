@@ -9,6 +9,7 @@ package vault
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"go.uber.org/zap"
@@ -129,21 +130,23 @@ func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[dr
 		}
 	}
 
-	namespaces := make([]*applicationpb.TxNamespace, 0)
-	for _, namespace := range namespaceSet {
+	namespaces := make([]*applicationpb.TxNamespace, 0, len(namespaceSet))
+	for _, ns := range sortedKeys(namespaceSet) {
+		namespace := namespaceSet[ns]
+
 		readsOnly := make([]*applicationpb.Read, 0, len(namespace.readSet))
-		for _, read := range namespace.readSet {
-			readsOnly = append(readsOnly, read)
+		for _, key := range sortedKeys(namespace.readSet) {
+			readsOnly = append(readsOnly, namespace.readSet[key])
 		}
 
 		blindWrites := make([]*applicationpb.Write, 0, len(namespace.writeSet))
-		for _, write := range namespace.writeSet {
-			blindWrites = append(blindWrites, write)
+		for _, key := range sortedKeys(namespace.writeSet) {
+			blindWrites = append(blindWrites, namespace.writeSet[key])
 		}
 
 		readWrites := make([]*applicationpb.ReadWrite, 0, len(namespace.readWriteSet))
-		for _, readWrite := range namespace.readWriteSet {
-			readWrites = append(readWrites, readWrite)
+		for _, key := range sortedKeys(namespace.readWriteSet) {
+			readWrites = append(readWrites, namespace.readWriteSet[key])
 		}
 
 		namespaces = append(namespaces, &applicationpb.TxNamespace{
@@ -171,6 +174,17 @@ func printVer(v *uint64) string {
 		return fmt.Sprintf("%d", *v)
 	}
 	return "nil"
+}
+
+// sortedKeys returns the keys of m in ascending order, so that marshalling
+// output does not depend on Go's randomized map iteration order.
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // RWSetFromBytes deserializes a ReadWriteSet from FabricX protobuf format.
