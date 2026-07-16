@@ -77,18 +77,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tests: ${{ steps.set-itest-tests.outputs.tests }}
-      all-tests: ${{ steps.set-all-tests.outputs.all-tests }}
     steps:
       - uses: actions/checkout@v6
       - name: list itest targets
         id: set-itest-tests
         run: |
           echo "tests=$(make list-integration-tests | jq -R . | jq -s -c .)" >> $GITHUB_OUTPUT
-      - name: build carryforward string
-        id: set-all-tests
-        run: |
-          itests=$(make list-integration-tests | sed 's/^/itest-/' | paste -sd "," -)
-          echo "all-tests=utest,utest-postgres,$itests" >> $GITHUB_OUTPUT
 
   itest:
     needs:
@@ -152,11 +146,15 @@ jobs:
       - utest
       - utest-postgres
       - itest
-      - itest-list
     runs-on: ubuntu-latest
     steps:
+      # Close the parallel Coveralls build. Every test job in this run reports a
+      # flag (the itest matrix has no job-level skips), so all flags are present
+      # and no `carryforward` is needed. Omitting carryforward is deliberate: it
+      # previously masked missing integration-test jobs by silently reusing a
+      # prior build's coverage, so an incomplete run reported a stale-but-
+      # plausible number instead of an obviously low one.
       - uses: coverallsapp/github-action@v2
         with:
           parallel-finished: true
-          carryforward: ${{ needs.itest-list.outputs.all-tests }}
           fail-on-error: false
