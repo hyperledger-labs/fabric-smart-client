@@ -103,8 +103,15 @@ outer:
 	}
 
 	// build with coverage profiling, more details: https://go.dev/doc/build-cover
+	//
+	// -coverpkg is required: without it, `-cover` only instruments each spawned
+	// binary's own packages, which all live under integration/. Those are then
+	// discarded by scripts/filter-coverage.sh (which excludes /integration/), so
+	// the integration tests would report no coverage at all. Instrumenting the
+	// whole module credits the platform/core code the FSC nodes exercise at
+	// runtime, which is the coverage the integration tests are meant to measure.
 	if _, ok := os.LookupEnv("GOCOVERDIR"); ok {
-		params = append(params, "-cover")
+		params = append(params, "-cover", "-coverpkg=github.com/hyperledger-labs/fabric-smart-client/...")
 	}
 
 	buildServer := common.NewBuildServer(params...)
