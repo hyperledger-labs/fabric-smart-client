@@ -81,7 +81,7 @@ func TestWriter(t *testing.T) { //nolint:paralleltest
 		read:    make(chan []byte, 100),
 	}
 	stream := newMockStream(conn)
-	w := io.NewVarintProtoWriter(stream)
+	w := io.NewVarintProtoWriter(stream, 1024*1024)
 
 	input := []proto.Message{
 		messageOfSize(12),

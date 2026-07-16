@@ -24,6 +24,7 @@ type config struct {
 	incomingMessagesBufferSize int
 	streamReaderBufferSize     int
 	maxRecvMsgSize             int
+	maxSendMsgSize             int
 }
 
 func NewConfig(cs configService) *config {
@@ -42,6 +43,11 @@ func NewConfig(cs configService) *config {
 		maxRecvMsgSize = cs.GetInt("fsc.p2p.maxRecvMsgSize")
 	}
 
+	maxSendMsgSize := DefaultMaxMessageSize
+	if cs.IsSet("fsc.p2p.maxSendMsgSize") {
+		maxSendMsgSize = cs.GetInt("fsc.p2p.maxSendMsgSize")
+	}
+
 	if incomingMessagesBufferSize <= 0 {
 		incomingMessagesBufferSize = DefaultIncomingMessagesBufferSize
 	}
@@ -51,10 +57,14 @@ func NewConfig(cs configService) *config {
 	if maxRecvMsgSize < 0 {
 		maxRecvMsgSize = DefaultMaxMessageSize
 	}
+	if maxSendMsgSize < 0 {
+		maxSendMsgSize = DefaultMaxMessageSize
+	}
 
 	return &config{
 		incomingMessagesBufferSize: incomingMessagesBufferSize,
 		streamReaderBufferSize:     streamReaderBufferSize,
 		maxRecvMsgSize:             maxRecvMsgSize,
+		maxSendMsgSize:             maxSendMsgSize,
 	}
 }

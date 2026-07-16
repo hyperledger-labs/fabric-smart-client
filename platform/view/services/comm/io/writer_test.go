@@ -126,7 +126,7 @@ func TestProtoWriter_WriteMsg(t *testing.T) {
 	t.Run("successful write", func(t *testing.T) {
 		t.Parallel()
 		buf := &bytes.Buffer{}
-		w := NewVarintProtoWriter(buf)
+		w := NewVarintProtoWriter(buf, testMaxMessageSize)
 
 		msg := &anypb.Any{
 			TypeUrl: "test.type",
@@ -137,7 +137,7 @@ func TestProtoWriter_WriteMsg(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify we can read it back
-		r := NewVarintProtoReader(buf, 1024, testMaxMessageSize)
+		r := NewVarintProtoReader(buf, testBufferSize, testMaxMessageSize)
 		readMsg := &anypb.Any{}
 		err = r.ReadMsg(readMsg)
 		require.NoError(t, err)
@@ -148,7 +148,7 @@ func TestProtoWriter_WriteMsg(t *testing.T) {
 	t.Run("write multiple messages", func(t *testing.T) {
 		t.Parallel()
 		buf := &bytes.Buffer{}
-		w := NewVarintProtoWriter(buf)
+		w := NewVarintProtoWriter(buf, testMaxMessageSize)
 
 		messages := []*anypb.Any{
 			{TypeUrl: "type1", Value: []byte("value1")},
@@ -162,7 +162,7 @@ func TestProtoWriter_WriteMsg(t *testing.T) {
 		}
 
 		// Read them back
-		r := NewVarintProtoReader(buf, 1024, testMaxMessageSize)
+		r := NewVarintProtoReader(buf, testBufferSize, testMaxMessageSize)
 		for i, expected := range messages {
 			readMsg := &anypb.Any{}
 			err := r.ReadMsg(readMsg)
@@ -178,7 +178,7 @@ func TestProtoWriter_Close(t *testing.T) {
 	t.Run("close successfully", func(t *testing.T) {
 		t.Parallel()
 		closer := &mockCloser{Buffer: &bytes.Buffer{}}
-		w := NewVarintProtoWriter(closer)
+		w := NewVarintProtoWriter(closer, testMaxMessageSize)
 
 		err := w.Close()
 		require.NoError(t, err)
@@ -188,7 +188,7 @@ func TestProtoWriter_Close(t *testing.T) {
 	t.Run("close without closer", func(t *testing.T) {
 		t.Parallel()
 		buf := &bytes.Buffer{}
-		w := NewVarintProtoWriter(buf)
+		w := NewVarintProtoWriter(buf, testMaxMessageSize)
 
 		err := w.Close()
 		require.NoError(t, err)
@@ -198,7 +198,7 @@ func TestProtoWriter_Close(t *testing.T) {
 func TestNewVarintProtoWriter(t *testing.T) {
 	t.Parallel()
 	buf := &bytes.Buffer{}
-	w := NewVarintProtoWriter(buf)
+	w := NewVarintProtoWriter(buf, testMaxMessageSize)
 	require.NotNil(t, w)
 
 	// Verify it's functional
@@ -238,4 +238,15 @@ func (m *mockCloser) Write(p []byte) (n int, err error) {
 		return 0, io.ErrClosedPipe
 	}
 	return m.Buffer.Write(p)
+}
+
+func TestProtoWriter_Oversize(t *testing.T) {
+	t.Parallel()
+	buf := &bytes.Buffer{}
+	w := NewVarintProtoWriter(buf, 5) // max size 5 bytes
+
+	msg := &anypb.Any{TypeUrl: "test", Value: []byte("too large payload here")}
+	err := w.WriteMsg(msg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "exceeds maximum send size")
 }

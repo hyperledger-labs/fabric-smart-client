@@ -27,6 +27,6 @@ func NewVarintProtoReader(reader io.Reader, capacity, maxMessageSize int) ProtoR
 // NewVarintProtoWriter creates a writer that uses:
 // - varint delimiting
 // - protobuf message serialization
-func NewVarintProtoWriter(writer io.Writer) ProtoWriterCloser {
-	return newProtoWriter(newVarintWriter(writer))
+func NewVarintProtoWriter(writer io.Writer, maxSendMsgSize int) ProtoWriterCloser {
+	return newProtoWriter(newVarintWriter(writer), maxSendMsgSize)
 }
