@@ -157,7 +157,7 @@ func (p *SDK) Install() error {
 		p.Container().Provide(newTracerProvider),
 		// Metrics
 		p.Container().Provide(func(o *operations.Options) metrics2.Provider {
-			return operations.NewMetricsProvider(o.Metrics, true)
+			return operations.NewMetricsProvider(o.Metrics)
 		}),
 		p.Container().Provide(viewgrpcserver.NewMetrics),
 

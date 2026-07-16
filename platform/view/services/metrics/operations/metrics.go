@@ -40,10 +40,10 @@ func versionGauge(provider metrics.Provider) metrics.Gauge {
 	}
 }
 
-func NewMetricsProvider(m MetricsOptions, skipRegisterErr bool) metrics.Provider {
+func NewMetricsProvider(m MetricsOptions) metrics.Provider {
 	switch m.Provider {
 	case "prometheus":
-		return &prometheus.Provider{SkipRegisterErr: skipRegisterErr}
+		return &prometheus.Provider{}
 	default:
 		return &disabled.Provider{}
 	}

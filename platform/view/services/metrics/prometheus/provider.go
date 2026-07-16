@@ -9,7 +9,6 @@ package prometheus
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"reflect"
 	"runtime"
 	"slices"
@@ -22,8 +21,6 @@ import (
 )
 
 type Provider struct {
-	SkipRegisterErr bool
-
 	// cache maps "<kind>|<fully-qualified name>" to the collector handed out
 	// for that name, so repeated requests bypass the registry. It assumes the
 	// default registerer is not swapped while the provider is in use.
@@ -82,10 +79,11 @@ func (p *Provider) applyNamespaceSubsystem(namespace, subsystem *string) {
 
 func (p *Provider) NewCounter(o metrics.CounterOpts) metrics.Counter {
 	p.applyNamespaceSubsystem(&o.Namespace, &o.Subsystem)
-	// snapshot the retained slices/maps so later caller mutations cannot
-	// corrupt the cached definition
+	// snapshot the retained slices so later caller mutations cannot corrupt
+	// the cached definition; LabelHelp is doc-only and never reaches the
+	// collector, so it is excluded from the definition
 	o.LabelNames = slices.Clone(o.LabelNames)
-	o.LabelHelp = maps.Clone(o.LabelHelp)
+	o.LabelHelp = nil
 
 	cv := getOrCreate(p, "counter", prom.BuildFQName(o.Namespace, o.Subsystem, o.Name), o, func() *prom.CounterVec {
 		return prom.NewCounterVec(prom.CounterOpts{
@@ -101,7 +99,7 @@ func (p *Provider) NewCounter(o metrics.CounterOpts) metrics.Counter {
 func (p *Provider) NewGauge(o metrics.GaugeOpts) metrics.Gauge {
 	p.applyNamespaceSubsystem(&o.Namespace, &o.Subsystem)
 	o.LabelNames = slices.Clone(o.LabelNames)
-	o.LabelHelp = maps.Clone(o.LabelHelp)
+	o.LabelHelp = nil
 
 	gv := getOrCreate(p, "gauge", prom.BuildFQName(o.Namespace, o.Subsystem, o.Name), o, func() *prom.GaugeVec {
 		return prom.NewGaugeVec(prom.GaugeOpts{
@@ -117,7 +115,7 @@ func (p *Provider) NewGauge(o metrics.GaugeOpts) metrics.Gauge {
 func (p *Provider) NewHistogram(o metrics.HistogramOpts) metrics.Histogram {
 	p.applyNamespaceSubsystem(&o.Namespace, &o.Subsystem)
 	o.LabelNames = slices.Clone(o.LabelNames)
-	o.LabelHelp = maps.Clone(o.LabelHelp)
+	o.LabelHelp = nil
 	o.Buckets = slices.Clone(o.Buckets)
 
 	hv := getOrCreate(p, "histogram", prom.BuildFQName(o.Namespace, o.Subsystem, o.Name), o, func() *prom.HistogramVec {
@@ -176,31 +174,27 @@ func getOrCreate[V prom.Collector, O any](p *Provider, kind, fqName string, opts
 			if e, ok := p.cache.Load(key); ok {
 				return e
 			}
-			entry := &cacheEntry{opts: opts, collector: register(p, fqName, build())}
+			entry := &cacheEntry{opts: opts, collector: register(fqName, build())}
 			p.cache.Store(key, entry)
 			return entry
 		}()
 	}
-	return fromCache(p, key, e.(*cacheEntry), opts, build)
+	return fromCache[V](key, e.(*cacheEntry), opts)
 }
 
 // fromCache returns the cached collector after checking that opts match the
-// ones it was created with. On mismatch it panics, or falls back to a fresh
-// unregistered collector when SkipRegisterErr is set.
-func fromCache[V prom.Collector, O any](p *Provider, key string, e *cacheEntry, opts O, build func() V) V {
+// ones it was created with; it panics on mismatch.
+func fromCache[V prom.Collector, O any](key string, e *cacheEntry, opts O) V {
 	c, sameType := e.collector.(V)
 	if sameType && reflect.DeepEqual(e.opts, opts) {
 		return c
-	}
-	if p.SkipRegisterErr {
-		return build()
 	}
 	panic(fmt.Errorf("metric [%s] was requested with a different type or options than it was created with", key))
 }
 
 // register registers c and returns it. If an identical collector is already
 // registered, that collector is returned instead so all requesters share it.
-func register[V prom.Collector](p *Provider, fqName string, c V) prom.Collector {
+func register[V prom.Collector](fqName string, c V) prom.Collector {
 	err := prom.Register(c)
 	if err == nil {
 		return c
@@ -211,9 +205,6 @@ func register[V prom.Collector](p *Provider, fqName string, c V) prom.Collector 
 			return existing
 		}
 		err = fmt.Errorf("metric [%s] is already registered with an incompatible collector type %T", fqName, are.ExistingCollector)
-	}
-	if p.SkipRegisterErr {
-		return c
 	}
 	panic(err)
 }

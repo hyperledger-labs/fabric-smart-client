@@ -340,12 +340,49 @@ var _ = Describe("Provider", func() {
 				counterOpts.LabelNames = []string{"gamma"}
 				Expect(func() { p.NewCounter(counterOpts) }).To(Panic())
 			})
+		})
 
-			It("does not panic when SkipRegisterErr is set", func() {
-				p.SkipRegisterErr = true
-				p.NewCounter(counterOpts)
-				counterOpts.LabelNames = []string{"gamma"}
-				Expect(func() { p.NewCounter(counterOpts) }).NotTo(Panic())
+		It("ignores differences in the doc-only LabelHelp field", func() {
+			counterOpts.LabelHelp = map[string]string{"alpha": "first label"}
+			c1 := p.NewCounter(counterOpts)
+			counterOpts.LabelHelp = map[string]string{"alpha": "a different description"}
+			var c2 commonmetrics.Counter
+			Expect(func() { c2 = p.NewCounter(counterOpts) }).NotTo(Panic())
+
+			c1.With("alpha", "a", "beta", "b").Add(1)
+			c2.With("alpha", "a", "beta", "b").Add(2)
+
+			resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
+			Expect(err).NotTo(HaveOccurred())
+			defer utils.IgnoreErrorFunc(resp.Body.Close)
+
+			bytes, err := io.ReadAll(resp.Body)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="a",beta="b"} 3`))
+		})
+
+		Context("when an identical collector is already registered outside the provider", func() {
+			It("returns a counter backed by the existing collector", func() {
+				existing := prom.NewCounterVec(prom.CounterOpts{
+					Namespace: counterOpts.Namespace,
+					Subsystem: counterOpts.Subsystem,
+					Name:      counterOpts.Name,
+					Help:      counterOpts.Help,
+				}, counterOpts.LabelNames)
+				Expect(prom.DefaultRegisterer.Register(existing)).To(Succeed())
+				existing.WithLabelValues("a", "b").Add(1)
+
+				var c commonmetrics.Counter
+				Expect(func() { c = p.NewCounter(counterOpts) }).NotTo(Panic())
+				c.With("alpha", "a", "beta", "b").Add(2)
+
+				resp, err := client.Get(fmt.Sprintf("http://%s/metrics", server.Listener.Addr().String()))
+				Expect(err).NotTo(HaveOccurred())
+				defer utils.IgnoreErrorFunc(resp.Body.Close)
+
+				bytes, err := io.ReadAll(resp.Body)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(bytes)).To(ContainSubstring(`peer_playground_counter_name{alpha="a",beta="b"} 3`))
 			})
 		})
 
@@ -385,13 +422,6 @@ var _ = Describe("Provider", func() {
 			It("panics with a descriptive error and does not poison the cache", func() {
 				Expect(func() { p.NewCounter(scalarOpts) }).To(PanicWith(MatchError(ContainSubstring("incompatible collector type"))))
 				Expect(func() { p.NewCounter(counterOpts) }).NotTo(Panic())
-			})
-
-			It("does not panic when SkipRegisterErr is set", func() {
-				p.SkipRegisterErr = true
-				var c commonmetrics.Counter
-				Expect(func() { c = p.NewCounter(scalarOpts) }).NotTo(Panic())
-				Expect(func() { c.Add(1) }).NotTo(Panic())
 			})
 		})
 	})
