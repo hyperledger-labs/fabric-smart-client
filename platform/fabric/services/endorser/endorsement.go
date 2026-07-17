@@ -116,7 +116,7 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 			return nil, errors.Wrapf(err, "failed unmarshalling response")
 		}
 
-		found := true
+		found := false
 		fns, err := fabric.GetFabricNetworkService(viewCtx, c.tx.Network())
 		if err != nil {
 			return nil, errors.WithMessagef(err, "fabric network service [%s] not found", c.tx.Network())
@@ -133,7 +133,7 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 
 			// Check the validity of the response
 			logger.DebugfContext(viewCtx.Context(), "Check response validity")
-			if endpoint.GetService(viewCtx).IsBoundTo(viewCtx.Context(), endorser, party) {
+			if endorser.Equal(party) || endpoint.GetService(viewCtx).IsBoundTo(viewCtx.Context(), endorser, party) {
 				found = true
 			}
 

@@ -9,6 +9,7 @@ package endorser
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -451,6 +452,36 @@ func TestReceiveView(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestReceiveView_TimesOutWhenSilent demonstrates the fix for the DoS in flow.go's
+// receiveView.Call: it now bounds the wait on <-ch with a 10-second timeout instead
+// of blocking forever. A remote peer that opens a session and never sends anything
+// (and never sends an error) no longer parks the responder's view-execution
+// goroutine indefinitely.
+func TestReceiveView_TimesOutWhenSilent(t *testing.T) {
+	t.Parallel()
+	fakeCtx := &mock.Context{}
+	fakeSession := &mock.Session{}
+	fakeCtx.SessionReturns(fakeSession)
+
+	// A malicious/silent remote peer: the channel never receives a message.
+	msgCh := make(chan *view.Message)
+	fakeSession.ReceiveReturns(msgCh)
+
+	rv := &receiveView{}
+	done := make(chan error, 1)
+	go func() {
+		_, err := rv.Call(fakeCtx)
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		require.Error(t, err, "receiveView.Call must return a timeout error when the remote peer stays silent")
+	case <-time.After(15 * time.Second):
+		t.Fatal("receiveView.Call did not return within the expected 10-second timeout window")
+	}
+}
+
 func TestReceiveTransactionView(t *testing.T) {
 	t.Parallel()
 	fakeCtx := &mock.Context{}
@@ -518,8 +549,15 @@ func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
 	fakeTM := &mock.TransactionManager{}
 	fakeFNS.TransactionManagerReturns(fakeTM)
 
+	fakeCH := &mock.Channel{}
+	fakeCH.NameReturns("ch1")
+	fakeFNS.ChannelReturns(fakeCH, nil)
+	fakeCM := &mock.ChannelMembership{}
+	fakeCH.ChannelMembershipReturns(fakeCM)
+
 	fakeTx := &mock.Transaction{}
 	fakeTx.NetworkReturns("net1")
+	fakeTx.ChannelReturns("ch1")
 	fakeTx.BytesReturns([]byte("raw"), nil)
 	fakeTx.IDReturns("tx1")
 
@@ -543,6 +581,8 @@ func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
 	fakeSession.ReceiveReturns(msgCh)
 
 	fakeResp := &mock.ProposalResponse{}
+	fakeResp.EndorserReturns([]byte("bob"))
+	fakeResp.VerifyEndorsementReturns(nil)
 	fakeTM.NewProposalResponseFromBytesReturns(fakeResp, nil)
 
 	_, err := v.Call(fakeCtx)
@@ -567,6 +607,91 @@ func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
 	fakeSession.ReceiveReturns(msgCh)
 	_, err = v.Call(fakeCtx)
 	require.Error(t, err)
+}
+
+// TestParallelCollectEndorsementsOnProposalView_RejectsUnverifiedResponse demonstrates
+// that parallelCollectEndorsementsOnProposalView.Call (endorsement_proposal.go) now
+// calls ProposalResponse.VerifyEndorsement, and checks that the endorser is bound to
+// the contacted party, before appending a remote-supplied proposal response to the
+// transaction - mirroring the sequential collectEndorsementsView.Call, which verifies
+// signatures against a set of VerifierProviders.
+func TestParallelCollectEndorsementsOnProposalView_RejectsUnverifiedResponse(t *testing.T) {
+	t.Parallel()
+	fakeCtx := &mock.Context{}
+	fakeCtx.ContextReturns(context.Background())
+	fakeSP := &mock.Provider{}
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
+		return fakeSP.GetService(v)
+	})
+
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
+	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.NameReturns("net1")
+	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
+	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	endpointServiceType := reflect.TypeFor[*endpoint.Service]()
+
+	fakeBindingStore := &mock.BindingStore{}
+	fakeBindingStore.HaveSameBindingReturns(false, nil)
+	endpointService, _ := endpoint.NewService(fakeBindingStore)
+
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
+		if v == networkServiceProviderType {
+			return fakeNSP, nil
+		}
+		if v == endpointServiceType {
+			return endpointService, nil
+		}
+		return nil, nil
+	})
+
+	fakeTM := &mock.TransactionManager{}
+	fakeFNS.TransactionManagerReturns(fakeTM)
+
+	fakeCH := &mock.Channel{}
+	fakeCH.NameReturns("ch1")
+	fakeFNS.ChannelReturns(fakeCH, nil)
+	fakeCM := &mock.ChannelMembership{}
+	fakeCH.ChannelMembershipReturns(fakeCM)
+
+	fakeTx := &mock.Transaction{}
+	fakeTx.NetworkReturns("net1")
+	fakeTx.ChannelReturns("ch1")
+	fakeTx.BytesReturns([]byte("raw"), nil)
+	fakeTx.IDReturns("tx1")
+
+	ft := &Transaction{
+		Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, fakeFNS, "net1"), fakeTx),
+	}
+
+	// Party contacted is "bob", but the returned response claims to be endorsed by
+	// "mallory" - an identity with no relationship to "bob" whatsoever.
+	v := NewParallelCollectEndorsementsOnProposalView(ft, []byte("bob"))
+	v.WithTimeout(1 * time.Second)
+
+	fakeSession := &mock.Session{}
+	fakeCtx.GetSessionReturns(fakeSession, nil)
+	fakeCtx.InitiatorReturns(&fakeView{})
+
+	respPayload, _ := json.Marshal(&Response{
+		ProposalResponses: [][]byte{[]byte("resp-from-mallory")},
+	})
+	msgCh := make(chan *view.Message, 1)
+	msgCh <- &view.Message{Payload: respPayload}
+	fakeSession.ReceiveReturns(msgCh)
+
+	// This response is neither signed by "bob" nor bound to "bob", so it must be
+	// rejected regardless of what VerifyEndorsement would say.
+	fakeResp := &mock.ProposalResponse{}
+	fakeResp.EndorserReturns([]byte("mallory"))
+	fakeResp.VerifyEndorsementReturns(errors.New("signature verification failed"))
+	fakeTM.NewProposalResponseFromBytesReturns(fakeResp, nil)
+
+	_, err := v.Call(fakeCtx)
+
+	require.Error(t, err, "unverified proposal response from an unrelated identity must be rejected")
+	require.Equal(t, 0, fakeTx.AppendProposalResponseCallCount())
 }
 
 func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
@@ -631,6 +756,103 @@ func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
 	fakeTx.EndorseProposalResponseWithIdentityReturns(fmt.Errorf("err"))
 	_, err = ev.Call(fakeCtx)
 	require.Error(t, err)
+}
+
+// TestCollectEndorsementsView_RejectsEndorsementFromUnboundParty demonstrates that
+// collectEndorsementsView.Call rejects a cryptographically-valid endorsement from an
+// identity that is NOT bound to the expected party. `found` is now initialized to
+// `false` before the IsBoundTo check (endorsement.go), so the final
+// `if !found { return error }` guard correctly rejects a response whose signer is
+// neither the contacted party nor bound to it.
+func TestCollectEndorsementsView_RejectsEndorsementFromUnboundParty(t *testing.T) {
+	t.Parallel()
+	fakeCtx := &mock.Context{}
+	fakeSP := &mock.Provider{}
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
+		return fakeSP.GetService(v)
+	})
+
+	fakeTx := &mock.Transaction{}
+	fakeTx.ChannelReturns("ch1")
+	fakeTx.NetworkReturns("net1")
+
+	fakeRWS := &mock.RWSet{}
+	fakeRWS.BytesReturns([]byte("results"), nil)
+	fakeTx.GetRWSetReturns(fakeRWS, nil)
+	fakeTx.BytesReturns([]byte("bytes"), nil)
+	fakeTx.ResultsReturns([]byte("results"), nil)
+
+	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.NameReturns("net1")
+	fakeCH := &mock.Channel{}
+	fakeCH.NameReturns("ch1")
+	fakeFNS.ChannelReturns(fakeCH, nil)
+
+	fakeCM := &mock.ChannelMembership{}
+	fakeCH.ChannelMembershipReturns(fakeCM)
+
+	fakeTM := &mock.TransactionManager{}
+	fakeFNS.TransactionManagerReturns(fakeTM)
+
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
+	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
+	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
+
+	// A real endpoint.Service backed by a BindingStore that reports the endorser
+	// identity is NOT bound to the party we asked to endorse.
+	fakeBindingStore := &mock.BindingStore{}
+	fakeBindingStore.HaveSameBindingReturns(false, nil)
+	endpointService, _ := endpoint.NewService(fakeBindingStore)
+
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	endpointServiceType := reflect.TypeFor[*endpoint.Service]()
+
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
+		if v == networkServiceProviderType {
+			return fakeNSP, nil
+		}
+		if v == endpointServiceType {
+			return endpointService, nil
+		}
+		return nil, nil
+	})
+
+	fns := fabric.NewNetworkService(nil, fakeFNS, "net1")
+	ft := fabric.NewTransaction(fns, fakeTx)
+	et := &Transaction{
+		Transaction: ft,
+	}
+
+	party := view.Identity("expected-party")
+	ev := NewCollectEndorsementsView(et, party)
+
+	fakeCtx.IsMeReturns(false)
+	fakeSession := &mock.Session{}
+	fakeCtx.GetSessionReturns(fakeSession, nil)
+	msgCh := make(chan *view.Message, 1)
+	fakeSession.ReceiveReturns(msgCh)
+
+	// The response is endorsed by "attacker", a completely different identity than
+	// "expected-party", and the binding store confirms they are not bound together.
+	resp := &mock.ProposalResponse{}
+	resp.EndorserReturns([]byte("attacker"))
+	resp.ResultsReturns([]byte("results"))
+	// VerifyEndorsement succeeds unconditionally here: in a real deployment this
+	// would succeed whenever "attacker" is any validly-enrolled MSP member, since
+	// verification only checks the signature was produced by whoever `Endorser()`
+	// claims to be - it says nothing about whether that signer is `party`.
+	resp.VerifyEndorsementReturns(nil)
+	fakeTM.NewProposalResponseFromBytesReturns(resp, nil)
+
+	payload, _ := json.Marshal([][]byte{[]byte("resp-from-attacker")})
+	msgCh <- &view.Message{Payload: payload}
+
+	_, err := ev.Call(fakeCtx)
+
+	// The overall Call must fail because the endorser is neither the contacted
+	// party nor bound to it, even though the individual response passed signature
+	// verification and was provisionally appended before the post-loop binding check.
+	require.ErrorContains(t, err, "invalid endorsement, expected one signed by", "endorsement from an unbound identity must be rejected")
 }
 
 func TestVerifierProviderWrapper(t *testing.T) {

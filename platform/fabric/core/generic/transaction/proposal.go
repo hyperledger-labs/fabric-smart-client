@@ -106,6 +106,10 @@ func UnpackProposal(prop *pb.Proposal) (*UnpackedProposal, error) {
 		return nil, errors.Errorf("chaincode input did not contain any input")
 	}
 
+	if len(cis.ChaincodeSpec.Input.Args) == 0 {
+		return nil, errors.Errorf("chaincode input has no arguments")
+	}
+
 	cppNoTransient := &pb.ChaincodeProposalPayload{Input: cpp.Input, TransientMap: nil}
 	ppBytes, err := proto.Marshal(cppNoTransient)
 	if err != nil {

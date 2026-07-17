@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package endorser
 
 import (
+	"time"
+
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -39,8 +41,15 @@ func (s receiveView) Call(viewCtx view.Context) (any, error) {
 	// Wait to receive a state
 	ch := session.Receive()
 
-	// TODO: add timeout
-	msg := <-ch
+	timeout := time.NewTimer(time.Second * 10)
+	defer timeout.Stop()
+
+	var msg *view.Message
+	select {
+	case msg = <-ch:
+	case <-timeout.C:
+		return nil, errors.New("timeout reached")
+	}
 
 	if msg.Status == view.ERROR {
 		return nil, errors.New(string(msg.Payload))
