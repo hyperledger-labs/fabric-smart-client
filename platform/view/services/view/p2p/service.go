@@ -159,8 +159,9 @@ func (s *Service) respond(responder view.View, id view.Identity, msg *view.Messa
 	if err != nil {
 		logger.DebugfContext(viewCtx.Context(), "[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
 
-		// try to send error back to caller
-		if serr := viewCtx.Session().SendError([]byte(err.Error())); serr != nil {
+		// send a generic, non-identifying error back to the remote caller; the
+		// detailed error (which may contain internal error/panic text) stays local.
+		if serr := viewCtx.Session().SendError([]byte("responder failed")); serr != nil {
 			logger.Error(serr.Error())
 		}
 	}

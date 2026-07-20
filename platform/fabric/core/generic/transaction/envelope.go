@@ -135,6 +135,9 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 	if err != nil {
 		return nil, -1, errors.Wrap(err, "failed to unmarshal payload")
 	}
+	if payl.Header == nil {
+		return nil, -1, errors.Errorf("payload header is nil")
+	}
 
 	chdr, err := protoutil.UnmarshalChannelHeader(payl.Header.ChannelHeader)
 	if err != nil {
@@ -157,6 +160,9 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 		return nil, chdr.Type, errors.Wrap(err, "VSCC error: GetTransaction failed")
 	}
 
+	if len(tx.Actions) == 0 {
+		return nil, chdr.Type, errors.Errorf("VSCC error: transaction has no actions")
+	}
 	cap, err := protoutil.UnmarshalChaincodeActionPayload(tx.Actions[0].Payload)
 	if err != nil {
 		return nil, chdr.Type, errors.Wrap(err, "VSCC error: GetChaincodeActionPayload failed")
@@ -169,7 +175,22 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 	if err != nil {
 		return nil, chdr.Type, errors.Wrap(err, "VSCC error: UnmarshalChaincodeInvocationSpec failed")
 	}
+	if cis.ChaincodeSpec == nil {
+		return nil, chdr.Type, errors.Errorf("chaincode invocation spec did not contain chaincode spec")
+	}
+	if cis.ChaincodeSpec.Input == nil {
+		return nil, chdr.Type, errors.Errorf("chaincode input did not contain any input")
+	}
+	if len(cis.ChaincodeSpec.Input.Args) == 0 {
+		return nil, chdr.Type, errors.Errorf("chaincode input has no arguments")
+	}
+	if cis.ChaincodeSpec.ChaincodeId == nil {
+		return nil, chdr.Type, errors.Errorf("chaincode invocation spec did not contain chaincode id")
+	}
 
+	if cap.Action == nil {
+		return nil, chdr.Type, errors.Errorf("VSCC error: chaincode action payload has no action")
+	}
 	pRespPayload, err := protoutil.UnmarshalProposalResponsePayload(cap.Action.ProposalResponsePayload)
 	if err != nil {
 		return nil, chdr.Type, errors.Wrap(err, "failed to unmarshal proposal response payload")

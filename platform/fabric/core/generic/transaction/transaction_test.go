@@ -146,6 +146,26 @@ func TestTransaction_RWSet(t *testing.T) {
 	require.Nil(t, tx.RWS())
 }
 
+// TestTransaction_ResultsReturnsErrorOnEmptyProposalResponses demonstrates that
+// Transaction.Results() now rejects an empty TProposalResponses slice with an error
+// instead of indexing t.TProposalResponses[0] and panicking with an
+// index-out-of-range runtime error.
+//
+// TProposalResponses is an exported field and is populated directly from
+// attacker-controlled envelope bytes by SetFromEnvelopeBytes (which sets
+// t.TProposalResponses = upe.ProposalResponses with no length check), so a
+// transaction reconstructed from a crafted envelope with zero proposal responses
+// carries an empty TProposalResponses.
+func TestTransaction_ResultsReturnsErrorOnEmptyProposalResponses(t *testing.T) {
+	t.Parallel()
+
+	tx := &transaction.Transaction{}
+	require.Empty(t, tx.TProposalResponses)
+
+	_, err := tx.Results()
+	require.Error(t, err, "Results() must reject an empty TProposalResponses slice")
+}
+
 func TestProcessedTransaction(t *testing.T) {
 	t.Parallel()
 	env := createValidEnvelope(t)
@@ -249,6 +269,43 @@ func TestTransaction_SetFromBytes(t *testing.T) {
 	mockChannelProvider.ChannelReturns(nil, contextError("channel fail"))
 	err = tx2.SetFromBytes(b)
 	require.ErrorContains(t, err, "channel fail")
+}
+
+// TestTransaction_SetFromBytesReturnsErrorOnEmptyChaincodeArgs demonstrates that
+// Transaction.SetFromBytes now rejects a TSignedProposal whose ChaincodeInput.Args is
+// empty with an error, instead of indexing Args[0] and panicking with an
+// index-out-of-range runtime error.
+//
+// This is directly attacker-reachable: platform/fabric/services/endorser/flow.go's
+// receiveTransactionView.Call and platform/fabric/services/state/transaction.go's
+// receiveTransactionView.Call both read a raw []byte payload off an inbound P2P
+// session and pass it straight to Builder.NewTransactionFromBytes ->
+// Manager.NewTransactionFromBytes -> Transaction.SetFromBytes. A remote peer sending
+// a transaction payload whose embedded proposal has zero chaincode arguments must get
+// a rejected transaction, not a crashed responder goroutine.
+func TestTransaction_SetFromBytesReturnsErrorOnEmptyChaincodeArgs(t *testing.T) {
+	t.Parallel()
+	mockChannelProvider := &mock.ChannelProvider{}
+	mockSigService := &mock.SignerService{}
+	mockChannel := &mock.Channel{}
+	mockChannelProvider.ChannelReturns(mockChannel, nil)
+
+	factory := transaction.NewEndorserTransactionFactory("network", mockChannelProvider, mockSigService)
+	tx2, err := factory.NewTransaction(t.Context(), "channel", nil, nil, "", nil)
+	require.NoError(t, err)
+
+	maliciousSignedProposal := createSignedProposalWithArgs(t, [][]byte{})
+
+	txWithEmptyArgs := &transaction.Transaction{}
+	txWithEmptyArgs.TSignedProposal = &pb.SignedProposal{
+		ProposalBytes: maliciousSignedProposal.ProposalBytes,
+		Signature:     maliciousSignedProposal.Signature,
+	}
+	raw, err := json.Marshal(txWithEmptyArgs)
+	require.NoError(t, err)
+
+	err = tx2.SetFromBytes(raw)
+	require.Error(t, err, "SetFromBytes must reject a zero-argument chaincode input")
 }
 
 func TestTransaction_SetFromEnvelopeBytes(t *testing.T) {

@@ -152,6 +152,9 @@ func (t *Transaction) ChaincodeVersion() string {
 }
 
 func (t *Transaction) Results() ([]byte, error) {
+	if len(t.TProposalResponses) == 0 {
+		return nil, errors.Errorf("no proposal responses available")
+	}
 	upr, err := UnpackProposalResponse(t.TProposalResponses[0])
 	if err != nil {
 		return nil, err

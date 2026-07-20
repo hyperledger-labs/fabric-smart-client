@@ -185,7 +185,7 @@ func (t *Transaction) GetSignatureOf(party view.Identity) ([]byte, error) {
 func (t *Transaction) Namespaces() Namespaces {
 	rwSet, err := t.RWSet()
 	if err != nil {
-		panic(errors.Wrap(err, "filed getting rw set").Error())
+		panic(errors.Wrap(err, "failed getting rw set").Error())
 	}
 
 	return rwSet.Namespaces()

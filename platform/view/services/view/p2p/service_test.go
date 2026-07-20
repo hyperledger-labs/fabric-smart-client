@@ -9,6 +9,7 @@ package p2p_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -119,6 +120,95 @@ func TestService_MasterSessionError(t *testing.T) {
 	err := service.Start(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed getting master session")
+}
+
+// TestService_PanicDoesNotLeakInternalErrorToRemoteCaller demonstrates that when a
+// responder view panics (e.g. endorser.Transaction.Namespaces() panics with
+// `panic(errors.Wrap(err, "failed getting rw set").Error())` when the local RWSet cannot be
+// read), Service.respond now sends a generic, non-identifying error back to the remote,
+// untrusted caller via Session.SendError instead of the raw panic/error text. The
+// detailed error stays local (logged by the recover() in Service.respond), so a remote
+// peer can no longer learn internal error detail (e.g. local storage/db error strings,
+// stack-adjacent context) about the responder's internals by causing a responder view
+// to panic.
+func TestService_PanicDoesNotLeakInternalErrorToRemoteCaller(t *testing.T) {
+	t.Parallel()
+
+	sensitivePanicText := "failed getting rw set: could not open /var/lib/fabric/kvs/vault.db: permission denied"
+
+	panicView := &mock.View{}
+	panicView.CallStub = func(view.Context) (any, error) {
+		panic(sensitivePanicText)
+	}
+
+	vm := &viewManagerMock{
+		HandleResponderCalled: make(chan struct{}, 10),
+	}
+	vm.ExistResponderForCallerFunc = func(caller string) (view.View, view.Identity, error) {
+		return panicView, nil, nil
+	}
+
+	respSession := &mock.Session{}
+	respSession.SendErrorReturns(nil)
+
+	respCtx := &mock.Context{}
+	respCtx.SessionReturns(respSession)
+	// The default Runner (p2p.NewDefaultRunner) just delegates to viewCtx.RunView(responder).
+	// The real implementation (viewpkg.RunViewNow) recovers any panic raised by the
+	// responder's Call and turns it into an error (wrapping ErrViewExecutionFailed with the
+	// panic value) rather than letting it propagate - mirror that here.
+	respCtx.RunViewStub = func(v view.View, _ ...view.RunViewOption) (res any, err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("caught panic: %v", r)
+			}
+		}()
+		return v.Call(respCtx)
+	}
+	vm.NewSessionContextFunc = func(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error) {
+		vm.HandleResponderCalled <- struct{}{}
+		return respCtx, true, nil
+	}
+
+	cl := &mock2.CommLayer{}
+	masterSess := &mock.Session{}
+	ch := make(chan *view.Message, 10)
+	cl.MasterSessionReturns(masterSess, nil)
+	masterSess.ReceiveReturns(ch)
+
+	service := p2p.NewService(vm, vm, cl, vm, p2p.NewDefaultRunner())
+	ctx := t.Context()
+
+	err := service.Start(ctx)
+	require.NoError(t, err)
+
+	ch <- &view.Message{
+		ContextID:    "ctx1",
+		SessionID:    "sess1",
+		Caller:       "caller1",
+		FromEndpoint: "endpoint1",
+		FromPKID:     []byte("pkid1"),
+		Ctx:          ctx,
+	}
+
+	select {
+	case <-vm.HandleResponderCalled:
+	case <-time.After(5 * time.Second):
+		t.Fatal("NewResponderContext was not called")
+	}
+
+	// respond() runs the panicking view asynchronously (handleMessage is invoked via
+	// `go s.handleMessage(msg)`); poll briefly for the resulting SendError call.
+	require.Eventually(t, func() bool {
+		return respSession.SendErrorCallCount() > 0
+	}, 5*time.Second, 10*time.Millisecond, "SendError was never called with the panic's error text")
+
+	// FIXED: a generic message is sent back to the remote peer; the sensitive
+	// internal panic text stays local.
+	sentPayload := respSession.SendErrorArgsForCall(0)
+	require.Equal(t, "responder failed", string(sentPayload))
+	require.NotContains(t, string(sentPayload), sensitivePanicText,
+		"internal panic detail must not be leaked to the remote caller via SendError")
 }
 
 func TestService_HandleResponderError(t *testing.T) {
