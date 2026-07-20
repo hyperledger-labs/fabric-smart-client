@@ -124,7 +124,7 @@ func TestService_MasterSessionError(t *testing.T) {
 
 // TestService_PanicDoesNotLeakInternalErrorToRemoteCaller demonstrates that when a
 // responder view panics (e.g. endorser.Transaction.Namespaces() panics with
-// `panic(errors.Wrap(err, "filed getting rw set").Error())` when the local RWSet cannot be
+// `panic(errors.Wrap(err, "failed getting rw set").Error())` when the local RWSet cannot be
 // read), Service.respond now sends a generic, non-identifying error back to the remote,
 // untrusted caller via Session.SendError instead of the raw panic/error text. The
 // detailed error stays local (logged by the recover() in Service.respond), so a remote
@@ -134,7 +134,7 @@ func TestService_MasterSessionError(t *testing.T) {
 func TestService_PanicDoesNotLeakInternalErrorToRemoteCaller(t *testing.T) {
 	t.Parallel()
 
-	sensitivePanicText := "filed getting rw set: could not open /var/lib/fabric/kvs/vault.db: permission denied"
+	sensitivePanicText := "failed getting rw set: could not open /var/lib/fabric/kvs/vault.db: permission denied"
 
 	panicView := &mock.View{}
 	panicView.CallStub = func(view.Context) (any, error) {

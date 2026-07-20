@@ -38,6 +38,14 @@ type answer struct {
 	party view.Identity
 }
 
+// defaultParallelEndorsementTimeout bounds, in aggregate, how long the initiator waits for
+// all contacted parties to answer when no explicit timeout has been configured via
+// WithTimeout. It matters beyond just the final receive step: session establishment and
+// sending the proposal to each party (both done inside collectEndorsement, before its own
+// receive-timeout kicks in) are not otherwise bounded, so an unresponsive or malicious party
+// could park its goroutine indefinitely and, with it, this view's wait on answerChannel.
+const defaultParallelEndorsementTimeout = 30 * time.Second
+
 type parallelCollectEndorsementsOnProposalView struct {
 	tx      EndorsementsOnProposalTransaction
 	parties []view.Identity
@@ -57,9 +65,14 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(viewCtx view.Context) (
 	}
 	answerChannel := make(chan *answer, len(c.parties))
 
+	timeout := c.timeout
+	if timeout <= 0 {
+		timeout = defaultParallelEndorsementTimeout
+	}
+
 	logger.DebugfContext(viewCtx.Context(), "Collect endorsements from %d parties for TX [%s]", len(c.parties), c.tx.ID())
 	for _, party := range c.parties {
-		go c.collectEndorsement(viewCtx, party, stateRaw, answerChannel)
+		go c.collectEndorsement(viewCtx, party, stateRaw, timeout, answerChannel)
 	}
 
 	fns, err := fabric.GetFabricNetworkService(viewCtx, c.tx.Network())
@@ -74,10 +87,17 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(viewCtx view.Context) (
 	}
 	vProviders := []fabric.VerifierProvider{&verifierProviderWrapper{m: ch.MSPManager()}}
 
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+
 	for i := 0; i < len(c.parties); i++ {
 		logger.DebugfContext(viewCtx.Context(), "Wait for endorsement")
-		// TODO: put a timeout
-		a := <-answerChannel
+		var a *answer
+		select {
+		case a = <-answerChannel:
+		case <-deadline.C:
+			return nil, errors.Errorf("timeout waiting for endorsement from [%d] parties", len(c.parties)-i)
+		}
 		logger.DebugfContext(viewCtx.Context(), "Received endorsement")
 		if a.err != nil {
 			return nil, errors.Wrapf(a.err, "got failure [%s] from [%s]", a.party.String(), a.err)
@@ -127,6 +147,7 @@ func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 	viewCtx view.Context,
 	party view.Identity,
 	raw []byte,
+	timeout time.Duration,
 	answerChan chan *answer,
 ) {
 	defer logger.Debugf("Received answer for endorsement of TX [%s] from [%v]", c.tx.ID(), party)
@@ -145,7 +166,7 @@ func (c *parallelCollectEndorsementsOnProposalView) collectEndorsement(
 		return
 	}
 	r := &Response{}
-	if err := s.ReceiveWithTimeout(r, c.timeout); err != nil {
+	if err := s.ReceiveWithTimeout(r, timeout); err != nil {
 		answerChan <- &answer{err: err, party: party}
 		return
 	}

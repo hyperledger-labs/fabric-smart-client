@@ -694,6 +694,83 @@ func TestParallelCollectEndorsementsOnProposalView_RejectsUnverifiedResponse(t *
 	require.Equal(t, 0, fakeTx.AppendProposalResponseCallCount())
 }
 
+// TestParallelCollectEndorsementsOnProposalView_TimesOutOnSilentParty demonstrates that
+// parallelCollectEndorsementsOnProposalView.Call (endorsement_proposal.go) no longer blocks
+// forever on <-answerChannel when a contacted party never answers. Each per-party goroutine's
+// own ReceiveWithTimeout only bounds the final receive step of collectEndorsement - it does
+// not bound session setup/send, and (per WithTimeout's doc) is zero unless the caller
+// explicitly opts in, which the only production call site (state.NewParallelCollectEndorsementsOnProposalView)
+// never does. Call now applies an aggregate deadline around the wait itself, so the view
+// returns a timeout error instead of hanging indefinitely.
+func TestParallelCollectEndorsementsOnProposalView_TimesOutOnSilentParty(t *testing.T) {
+	t.Parallel()
+	fakeCtx := &mock.Context{}
+	fakeCtx.ContextReturns(context.Background())
+	fakeSP := &mock.Provider{}
+	fakeCtx.GetServiceCalls(func(v any) (any, error) {
+		return fakeSP.GetService(v)
+	})
+
+	fakeFNSP := &mock.FabricNetworkServiceProvider{}
+	fakeFNS := &mock.FabricNetworkService{}
+	fakeFNS.NameReturns("net1")
+	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
+	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
+	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
+	fakeSP.GetServiceCalls(func(v any) (any, error) {
+		if v == networkServiceProviderType {
+			return fakeNSP, nil
+		}
+		return nil, nil
+	})
+
+	fakeTM := &mock.TransactionManager{}
+	fakeFNS.TransactionManagerReturns(fakeTM)
+
+	fakeCH := &mock.Channel{}
+	fakeCH.NameReturns("ch1")
+	fakeFNS.ChannelReturns(fakeCH, nil)
+	fakeCM := &mock.ChannelMembership{}
+	fakeCH.ChannelMembershipReturns(fakeCM)
+
+	fakeTx := &mock.Transaction{}
+	fakeTx.NetworkReturns("net1")
+	fakeTx.ChannelReturns("ch1")
+	fakeTx.BytesReturns([]byte("raw"), nil)
+	fakeTx.IDReturns("tx1")
+
+	ft := &Transaction{
+		Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, fakeFNS, "net1"), fakeTx),
+	}
+
+	// A short timeout so the test doesn't wait out defaultParallelEndorsementTimeout; the
+	// party's session never delivers a response (empty, never-fed channel), simulating a
+	// silent/unresponsive remote peer.
+	v := NewParallelCollectEndorsementsOnProposalView(ft, []byte("bob"))
+	v.WithTimeout(50 * time.Millisecond)
+
+	fakeSession := &mock.Session{}
+	fakeCtx.GetSessionReturns(fakeSession, nil)
+	fakeCtx.InitiatorReturns(&fakeView{})
+	fakeSession.ReceiveReturns(make(chan *view.Message))
+
+	done := make(chan struct{})
+	var err error
+	go func() {
+		_, err = v.Call(fakeCtx)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Call did not return - it appears to be blocking forever on the silent party")
+	}
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "timeout")
+}
+
 func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
 	t.Parallel()
 	fakeCtx := &mock.Context{}
