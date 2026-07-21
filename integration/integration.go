@@ -110,8 +110,19 @@ outer:
 	// the integration tests would report no coverage at all. Instrumenting the
 	// whole module credits the platform/core code the FSC nodes exercise at
 	// runtime, which is the coverage the integration tests are meant to measure.
+	//
+	// Downstream modules that embed FSC nodes (e.g. fabric-token-sdk) run their
+	// own code inside these node binaries and need their packages instrumented
+	// instead of — or in addition to — FSC's. Go's standard channel for that is
+	// -coverpkg supplied via GOFLAGS. Respect it: only fall back to instrumenting
+	// the FSC module when the caller has not set -coverpkg, so a consumer that
+	// exports GOFLAGS=-coverpkg=<their-module>/... has it honoured rather than
+	// silently overridden, while FSC's own coverage build is unchanged.
 	if _, ok := os.LookupEnv("GOCOVERDIR"); ok {
-		params = append(params, "-cover", "-coverpkg=github.com/hyperledger-labs/fabric-smart-client/...")
+		params = append(params, "-cover")
+		if !goflagsHasCoverpkg() {
+			params = append(params, "-coverpkg=github.com/hyperledger-labs/fabric-smart-client/...")
+		}
 	}
 
 	buildServer := common.NewBuildServer(params...)
@@ -131,6 +142,20 @@ outer:
 		},
 	}
 	return n, nil
+}
+
+// goflagsHasCoverpkg reports whether the caller has already supplied a -coverpkg
+// flag through the GOFLAGS environment variable. GOFLAGS is a space-separated
+// list of flags that every go command merges into its own; an explicit -coverpkg
+// there is the standard way for a consumer to select the packages instrumented
+// in the cover-built node binaries.
+func goflagsHasCoverpkg() bool {
+	for _, f := range strings.Fields(os.Getenv("GOFLAGS")) {
+		if strings.HasPrefix(f, "-coverpkg") || strings.HasPrefix(f, "--coverpkg") {
+			return true
+		}
+	}
+	return false
 }
 
 func Generate(startPort int, race bool, topologies ...api.Topology) (*Infrastructure, error) {
