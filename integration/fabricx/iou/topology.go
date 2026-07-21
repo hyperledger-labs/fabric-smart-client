@@ -67,7 +67,6 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		RegisterViewFactory("query", &views.QueryViewFactory{})
 	if idemixEnabled {
 		borrower.AddOptions(fabric.WithIdemixIdentity("IdemixOrg"))
-		borrower.AddOptions(fabric.WithDefaultIdentityWithLabel("IdemixOrg"))
 	}
 
 	// Add the lender's FSC node

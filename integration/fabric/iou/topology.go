@@ -79,7 +79,6 @@ func Topology(opts *Opts) []api.Topology {
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 	if opts.IdemixEnabled {
 		borrower.AddOptions(fabric.WithIdemixIdentity("IdemixOrg"))
-		borrower.AddOptions(fabric.WithDefaultIdentityWithLabel("IdemixOrg"))
 	}
 
 	// Add the lender's FSC node

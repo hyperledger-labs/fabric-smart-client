@@ -39,7 +39,7 @@ var _ = Describe("EndToEnd", func() {
 		s := NewTestSuite(nwofsc.WebSocket, integration.NoReplication, true)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
+		It("succeeded", s.TestSucceededIdemix)
 	})
 })
 
@@ -80,6 +80,20 @@ func (s *TestSuite) TestSucceeded() {
 
 	CheckState(s.II, "borrower", iouState, 10)
 	CheckState(s.II, "lender", iouState, 10)
+
+}
+
+func (s *TestSuite) TestSucceededIdemix() {
+	InitApprover(s.II, "approver1")
+	InitApprover(s.II, "approver2")
+	iouState, err := CreateIOU(s.II, "IdemixOrg", 10, "approver1")
+	Expect(err).NotTo(HaveOccurred())
+	CheckState(s.II, "borrower", iouState, 10)
+	CheckState(s.II, "lender", iouState, 10)
+	UpdateIOU(s.II, iouState, 5, "approver2")
+	CheckState(s.II, "borrower", iouState, 5)
+	CheckState(s.II, "lender", iouState, 5)
+
 }
 
 func CheckNamespaceExists(ii *integration.Infrastructure, name string, version int) {
