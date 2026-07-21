@@ -9,12 +9,12 @@ package postgres
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
-	"fmt"
 	"os"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
+
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
 
 // TLSConfig defines the configuration parameters for securing database connections.
@@ -32,7 +32,7 @@ type TLSConfig struct {
 func createTLSConnConfig(dataSource string, tlsCfg TLSConfig) (*pgx.ConnConfig, error) {
 	connConfig, err := pgx.ParseConfig(dataSource)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse database datasource: %w", err)
+		return nil, errors.Wrap(err, "failed to parse database datasource")
 	}
 
 	tlsConfig := &tls.Config{}
@@ -46,7 +46,7 @@ func createTLSConnConfig(dataSource string, tlsCfg TLSConfig) (*pgx.ConnConfig, 
 	if tlsCfg.RootCertPath != "" {
 		caCert, err := os.ReadFile(tlsCfg.RootCertPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read root certificate: %w", err)
+			return nil, errors.Wrap(err, "failed to read root certificate")
 		}
 		caCertPool := x509.NewCertPool()
 		if !caCertPool.AppendCertsFromPEM(caCert) {
@@ -58,7 +58,7 @@ func createTLSConnConfig(dataSource string, tlsCfg TLSConfig) (*pgx.ConnConfig, 
 	if tlsCfg.CertPath != "" && tlsCfg.KeyPath != "" {
 		cert, err := tls.LoadX509KeyPair(tlsCfg.CertPath, tlsCfg.KeyPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load client key pair: %w", err)
+			return nil, errors.Wrap(err, "failed to load client key pair")
 		}
 		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
@@ -98,7 +98,7 @@ func createTLSConnConfig(dataSource string, tlsCfg TLSConfig) (*pgx.ConnConfig, 
 		// tlsConfig.InsecureSkipVerify defaults to false; no need to set explicitly
 		connConfig.TLSConfig = tlsConfig
 	default:
-		return nil, fmt.Errorf("unsupported ssl mode: %s", sslMode)
+		return nil, errors.Errorf("unsupported ssl mode: %s", sslMode)
 	}
 
 	return connConfig, nil
