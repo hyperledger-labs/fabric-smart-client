@@ -27,22 +27,29 @@ const (
 var _ = Describe("EndToEnd", func() {
 	for _, c := range []nwofsc.P2PCommunicationType{nwofsc.WebSocket} {
 		Describe("IOU Life Cycle", Label(c), func() {
-			s := NewTestSuite(c, integration.NoReplication)
+			s := NewTestSuite(c, integration.NoReplication, false)
 			BeforeEach(s.Setup)
 			AfterEach(s.TearDown)
 
 			It("succeeded", s.TestSucceeded)
 		})
 	}
+
+	Describe("EndToEndIdemix", Label("T5"), func() {
+		s := NewTestSuite(nwofsc.WebSocket, integration.NoReplication, true)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("succeeded", s.TestSucceeded)
+	})
 })
 
 type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType nwofsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+func NewTestSuite(commType nwofsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions, idemixEnabled bool) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		ii, err := integration.New(integration.IOUPort.StartPortForNode(), "", iou.Topology(&iou.SDK{}, commType, nodeOpts)...)
+		ii, err := integration.New(integration.IOUPort.StartPortForNode(), "", iou.Topology(&iou.SDK{}, commType, nodeOpts, idemixEnabled)...)
 		if err != nil {
 			return nil, err
 		}

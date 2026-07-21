@@ -331,10 +331,12 @@ func (n *Network) OrdererJoinChannel(channelID string, orderer *topology.Orderer
 		cmd.ClientKey = filepath.Join(tlsdir, "server.key")
 	}
 
-	sess, err := n.Osnadmin(cmd)
-
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	osnadmin := func() int {
+		sess, err := n.Osnadmin(cmd)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		return sess.Wait(n.EventuallyTimeout).ExitCode()
+	}
+	gomega.Eventually(osnadmin, n.EventuallyTimeout).Should(gomega.Equal(0))
 
 	time.Sleep(4 * time.Second)
 	// TODO: get the orderer process so we can check when the msg has been processed

@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 )
 
-func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions) []api.Topology {
+func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *integration.ReplicationOptions, idemixEnabled bool) []api.Topology {
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
 	// 2. A namespace whose changes can be endorsed by Org1.
@@ -25,6 +25,9 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespaceWithUnanimity("iou", "Org1")
+	if idemixEnabled {
+		fabricTopology.EnableIdemix()
+	}
 
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.
@@ -56,12 +59,16 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		RegisterViewFactory("init", &views.ApproverInitViewFactory{})
 
 	// Add the borrower's FSC node
-	fscTopology.AddNodeByName("borrower").
+	borrower := fscTopology.AddNodeByName("borrower").
 		AddOptions(fabric.WithOrganization("Org2")).
 		AddOptions(replicationOpts.For("borrower")...).
 		RegisterViewFactory("create", &views.CreateIOUViewFactory{}).
 		RegisterViewFactory("update", &views.UpdateIOUViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{})
+	if idemixEnabled {
+		borrower.AddOptions(fabric.WithIdemixIdentity("IdemixOrg"))
+		borrower.AddOptions(fabric.WithDefaultIdentityWithLabel("IdemixOrg"))
+	}
 
 	// Add the lender's FSC node
 	fscTopology.AddNodeByName("lender").

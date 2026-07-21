@@ -21,6 +21,7 @@ type Opts struct {
 	CommType        fsc.P2PCommunicationType
 	ReplicationOpts *integration.ReplicationOptions
 	TLSEnabled      bool
+	IdemixEnabled   bool
 }
 
 func Topology(opts *Opts) []api.Topology {
@@ -32,6 +33,9 @@ func Topology(opts *Opts) []api.Topology {
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 	fabricTopology.AddNamespaceWithUnanimity("iou", "Org1")
 	fabricTopology.TLSEnabled = opts.TLSEnabled
+	if opts.IdemixEnabled {
+		fabricTopology.EnableIdemix()
+	}
 
 	// Define an FSC topology with 3 FCS nodes.
 	// One for the approver, one for the borrower, and one for the lender.
@@ -66,13 +70,17 @@ func Topology(opts *Opts) []api.Topology {
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
 
 	// Add the borrower's FSC node
-	fscTopology.AddNodeByName("borrower").
+	borrower := fscTopology.AddNodeByName("borrower").
 		AddOptions(fabric.WithOrganization("Org2")).
 		AddOptions(opts.ReplicationOpts.For("borrower")...).
 		RegisterViewFactory("create", &views.CreateIOUViewFactory{}).
 		RegisterViewFactory("update", &views.UpdateIOUViewFactory{}).
 		RegisterViewFactory("query", &views.QueryViewFactory{}).
 		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
+	if opts.IdemixEnabled {
+		borrower.AddOptions(fabric.WithIdemixIdentity("IdemixOrg"))
+		borrower.AddOptions(fabric.WithDefaultIdentityWithLabel("IdemixOrg"))
+	}
 
 	// Add the lender's FSC node
 	fscTopology.AddNodeByName("lender").
