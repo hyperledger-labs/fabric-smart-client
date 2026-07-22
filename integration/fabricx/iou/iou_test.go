@@ -27,22 +27,29 @@ const (
 var _ = Describe("EndToEnd", func() {
 	for _, c := range []nwofsc.P2PCommunicationType{nwofsc.WebSocket} {
 		Describe("IOU Life Cycle", Label(c), func() {
-			s := NewTestSuite(c, integration.NoReplication)
+			s := NewTestSuite(c, integration.NoReplication, false)
 			BeforeEach(s.Setup)
 			AfterEach(s.TearDown)
 
 			It("succeeded", s.TestSucceeded)
 		})
 	}
+
+	Describe("EndToEndIdemix", Label("T5"), func() {
+		s := NewTestSuite(nwofsc.WebSocket, integration.NoReplication, true)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("succeeded", s.TestSucceededIdemix)
+	})
 })
 
 type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType nwofsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions) *TestSuite {
+func NewTestSuite(commType nwofsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions, idemixEnabled bool) *TestSuite {
 	return &TestSuite{integration.NewTestSuite(func() (*integration.Infrastructure, error) {
-		ii, err := integration.New(integration.IOUPort.StartPortForNode(), "", iou.Topology(&iou.SDK{}, commType, nodeOpts)...)
+		ii, err := integration.New(integration.IOUPort.StartPortForNode(), "", iou.Topology(&iou.SDK{}, commType, nodeOpts, idemixEnabled)...)
 		if err != nil {
 			return nil, err
 		}
@@ -73,6 +80,20 @@ func (s *TestSuite) TestSucceeded() {
 
 	CheckState(s.II, "borrower", iouState, 10)
 	CheckState(s.II, "lender", iouState, 10)
+
+}
+
+func (s *TestSuite) TestSucceededIdemix() {
+	InitApprover(s.II, "approver1")
+	InitApprover(s.II, "approver2")
+	iouState, err := CreateIOU(s.II, "IdemixOrg", 10, "approver1")
+	Expect(err).NotTo(HaveOccurred())
+	CheckState(s.II, "borrower", iouState, 10)
+	CheckState(s.II, "lender", iouState, 10)
+	UpdateIOU(s.II, iouState, 5, "approver2")
+	CheckState(s.II, "borrower", iouState, 5)
+	CheckState(s.II, "lender", iouState, 5)
+
 }
 
 func CheckNamespaceExists(ii *integration.Infrastructure, name string, version int) {

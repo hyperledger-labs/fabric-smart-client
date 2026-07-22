@@ -319,11 +319,15 @@ func (p *Platform) PeersByID(id string) *Peer {
 	})
 
 	for _, identity := range peer.Identities {
+		mspID := org.MSPID
+		if len(identity.MSPID) != 0 {
+			mspID = identity.MSPID
+		}
 		result.Identities = append(result.Identities, &Identity{
 			ID:    identity.ID,
 			Type:  identity.MSPType,
 			Path:  p.Network.PeerLocalExtraIdentityDir(peer, identity.ID),
-			MSPID: org.MSPID,
+			MSPID: mspID,
 		})
 	}
 

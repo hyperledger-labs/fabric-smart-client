@@ -135,7 +135,19 @@ func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[s
 		if len(defaultIdentityLabel) == 0 {
 			defaultIdentityLabel = node.Name
 		}
-		p.Identities = append(p.Identities, NewX509PeerIdentity(defaultIdentityLabel, node.Name, path, org, bccspDefault, true))
+		foundDefault := false
+		for _, identity := range p.Identities {
+			if identity.ID == defaultIdentityLabel {
+				foundDefault = true
+				if identity.MSPType == "bccsp" && n.topology.NodeOUs {
+					identity.Path = path
+				}
+				break
+			}
+		}
+		if !foundDefault {
+			p.Identities = append(p.Identities, NewX509PeerIdentity(defaultIdentityLabel, node.Name, path, org, bccspDefault, true))
+		}
 		p.DefaultIdentity = defaultIdentityLabel
 
 		n.Peers = append(n.Peers, p)

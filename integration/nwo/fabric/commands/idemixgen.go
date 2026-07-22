@@ -37,13 +37,18 @@ func (c SignerConfig) SessionName() string {
 }
 
 func (c SignerConfig) Args() []string {
-	return []string{
+	args := []string{
 		"signerconfig",
 		"--ca-input", c.CAInput,
 		"--output", c.Output,
-		"--admin",
+	}
+	if c.Admin {
+		args = append(args, "--admin")
+	}
+	args = append(args,
 		"-u", c.OrgUnit,
 		"-e", c.EnrollmentID,
 		"-r", c.RevocationHandle,
-	}
+	)
+	return args
 }
