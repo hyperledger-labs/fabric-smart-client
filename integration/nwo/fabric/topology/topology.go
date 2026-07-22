@@ -41,7 +41,11 @@ type Topology struct {
 	LogOrderersToFile  bool                `yaml:"logOrderersToFile,omitempty"`
 	TLSEnabled         bool                `yaml:"tlsEnabled,omitempty"`
 	ClientAuthRequired bool                `yaml:"clientAuthRequired,omitempty"`
-	ExtraParams        map[string]any      `yaml:"-"`
+	// MinimalFSCFabricConfig, when true, makes NWO emit only `fabric:\n  enabled: true`
+	// into each FSC node's core.yaml instead of the full generated fabric extension,
+	// so the rest of the fabric configuration can be injected at runtime.
+	MinimalFSCFabricConfig bool           `yaml:"minimalFSCFabricConfig,omitempty"`
+	ExtraParams            map[string]any `yaml:"-"`
 }
 
 func (t *Topology) Name() string {
@@ -353,4 +357,10 @@ func (t *Topology) EnableLogPeersToFile() {
 
 func (t *Topology) EnableLogOrderersToFile() {
 	t.LogOrderersToFile = true
+}
+
+// EnableMinimalFSCFabricConfig makes NWO emit only `fabric:\n  enabled: true`
+// into each FSC node's core.yaml, so the rest can be injected at runtime.
+func (t *Topology) EnableMinimalFSCFabricConfig() {
+	t.MinimalFSCFabricConfig = true
 }
