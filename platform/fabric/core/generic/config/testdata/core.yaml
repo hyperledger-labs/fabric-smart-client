@@ -74,6 +74,7 @@ fabric:
     tls:
       enabled:  true
       clientAuthRequired: false
+      serverNameOverride: approver.org1.example.com
       cert:
         file: /home/vagrant/testdata/fabric.default/crypto/peerOrganizations/org1.example.com/peers/approver.org1.example.com/tls/server.crt
       key:

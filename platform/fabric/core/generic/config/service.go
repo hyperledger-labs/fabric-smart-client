@@ -153,6 +153,11 @@ func (s *Service) TLSClientAuthRequired() bool {
 }
 
 func (s *Service) TLSServerHostOverride() string {
+	if override := s.GetString("tls.serverNameOverride"); len(override) != 0 {
+		return override
+	}
+
+	// Keep supporting the legacy key while the TLS model is being aligned.
 	return s.GetString("tls.serverhostoverride")
 }
 
