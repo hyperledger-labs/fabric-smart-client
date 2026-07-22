@@ -207,7 +207,8 @@ func (db *Notifier) GetSchema() string {
 	}
 	funcName := triggerFuncName(primaryKeys)
 	lock := createLockTag(funcName)
-	return fmt.Sprintf(`
+	return fmt.Sprintf(
+		`
 	SELECT pg_advisory_xact_lock(%d);
 	CREATE OR REPLACE FUNCTION %s() RETURNS TRIGGER AS $$
 			DECLARE
