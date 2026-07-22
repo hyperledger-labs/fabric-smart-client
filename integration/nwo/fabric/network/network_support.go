@@ -1574,6 +1574,9 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		tlsEnabled := n.topology.TLSEnabled
 		if p.Type == topology.FSCPeer {
 			coreTemplate = n.Templates.FSCFabricExtensionTemplate()
+			if n.topology.MinimalFSCFabricConfig {
+				coreTemplate = topology.MinimalFSCFabricExtensionTemplate
+			}
 			peers := n.PeersInOrg(p.Organization)
 			defaultNetwork = p.DefaultNetwork
 			for _, peer := range peers {

@@ -240,6 +240,15 @@ metrics:
   provider: {{ .MetricsProvider }}
 `
 
+// MinimalFSCFabricExtensionTemplate is used instead of DefaultFSCFabricExtensionTemplate
+// when Topology.MinimalFSCFabricConfig is enabled: it emits only the top-level
+// `fabric.enabled` flag, leaving the rest of the fabric configuration to be
+// injected into the FSC node at runtime.
+const MinimalFSCFabricExtensionTemplate = `
+fabric:
+  enabled: true
+`
+
 const DefaultFSCFabricExtensionTemplate = `
 fabric:
   enabled: true
