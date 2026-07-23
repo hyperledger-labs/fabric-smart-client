@@ -8,7 +8,6 @@ package vault
 
 import (
 	"context"
-	"sync"
 
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 
@@ -19,31 +18,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 )
 
-// txStatusInfo holds local transaction status information including validation code,
-// error message, and block/transaction index for committed transactions.
-type txStatusInfo struct {
-	code    fdriver.ValidationCode // Validation code (Valid, Invalid, Unknown, etc.)
-	message string                 // Error or status message
-	block   cdriver.BlockNum       // Block number where transaction was committed
-	index   cdriver.TxNum          // Transaction index within the block
-}
-
-// Vault is a vault implementation that uses QueryService for remote state queries
-// and manages read-write sets (RWSets) and transaction statuses locally.
-//
-// It provides a hybrid architecture where:
-//   - Read operations are delegated to a remote QueryService
-//   - RWSets are managed in-memory for performance
-//   - Transaction statuses are cached locally with remote fallback
-//   - All operations are thread-safe using RWMutex
-//
-// Vault implements the fdriver.Vault interface for FabricX.
+// Vault implements the fdriver.Vault interface for FabricX. Several interface methods
+// (CommitTX/DiscardTx/SetDiscarded/Match/RWSExists) exist only to satisfy that contract; FabricX
+// has no local commit pipeline, so they are never invoked in the FabricX wiring and panic if
+// reached (which would indicate the vault was wired into a generic committer by mistake).
 type Vault struct {
-	queryService queryservice.QueryService            // Remote query service for state queries
-	marshaller   *Marshaller                          // Marshaller for RWSet serialization
-	rwsets       map[cdriver.TxID]*vault.ReadWriteSet // Local RWSet storage
-	txStatuses   map[cdriver.TxID]*txStatusInfo       // Local transaction status cache
-	mu           sync.RWMutex                         // Mutex for thread-safe access
+	queryService queryservice.QueryService // Remote query service for state and status queries
+	marshaller   *Marshaller               // Marshaller for RWSet serialization
 }
 
 // NewVault creates a new Vault instance with the given QueryService.
@@ -58,8 +39,6 @@ func NewVault(qs queryservice.QueryService) *Vault {
 	return &Vault{
 		queryService: qs,
 		marshaller:   NewMarshaller(),
-		rwsets:       make(map[cdriver.TxID]*vault.ReadWriteSet),
-		txStatuses:   make(map[cdriver.TxID]*txStatusInfo),
 	}
 }
 
@@ -349,15 +328,13 @@ func (r *rwSetWrapper) Bytes() ([]byte, error) {
 		}
 	}
 
-	// Set nsInfo in marshaller before marshalling
-	r.v.marshaller.NsInfo = nsInfo
-
-	return r.v.marshaller.Marshal(string(r.txID), r.rws)
+	// Pass nsInfo per call rather than through shared marshaller state, so concurrent
+	// Bytes() calls on different RWSets from the same vault do not race.
+	return r.v.marshaller.Marshal(string(r.txID), r.rws, nsInfo)
 }
 
-// Done performs cleanup for this RWSet. Currently a no-op as no cleanup is needed.
+// Done is a no-op. The vault does not retain the ReadWriteSet.
 func (r *rwSetWrapper) Done() {
-	// No cleanup needed
 }
 
 // Equals compares this RWSet with another RWSet for equality.
@@ -382,13 +359,9 @@ func (r *rwSetWrapper) Equals(rws any, nss ...cdriver.Namespace) error {
 }
 
 // NewRWSet creates a new empty RWSet for the given transaction ID.
-// The RWSet is stored locally and can be used to track reads and writes.
+// The returned wrapper owns the ReadWriteSet; the vault does not retain a reference to it.
 func (v *Vault) NewRWSet(ctx context.Context, txID cdriver.TxID) (cdriver.RWSet, error) {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-
 	rws := vault.EmptyRWSet()
-	v.rwsets[txID] = &rws
 
 	qe, err := v.NewQueryExecutor(ctx)
 	if err != nil {
@@ -404,17 +377,12 @@ func (v *Vault) NewRWSet(ctx context.Context, txID cdriver.TxID) (cdriver.RWSet,
 }
 
 // NewRWSetFromBytes creates a new RWSet by deserializing it from bytes.
-// The RWSet is stored locally with the given transaction ID.
+// The returned wrapper owns the ReadWriteSet; the vault does not retain a reference to it.
 func (v *Vault) NewRWSetFromBytes(ctx context.Context, txID cdriver.TxID, rwset []byte) (cdriver.RWSet, error) {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-
 	rws, err := v.marshaller.RWSetFromBytes(rwset)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal rwset")
 	}
-
-	v.rwsets[txID] = rws
 
 	qe, err := v.NewQueryExecutor(ctx)
 	if err != nil {
@@ -429,89 +397,66 @@ func (v *Vault) NewRWSetFromBytes(ctx context.Context, txID cdriver.TxID, rwset 
 	}, nil
 }
 
-// SetDiscarded marks a transaction as discarded (invalid) with the given error message.
-// The status is stored locally.
-func (v *Vault) SetDiscarded(ctx context.Context, txID cdriver.TxID, message string) error {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-
-	v.txStatuses[txID] = &txStatusInfo{
-		code:    fdriver.Invalid,
-		message: message,
-	}
-	return nil
+// SetDiscarded is not supported: the fabricx wiring has no local commit pipeline
+// (see platform/fabricx/core/channel/provider.go). Reaching this method means the
+// vault was wired into a generic committer, which is a programming error.
+func (v *Vault) SetDiscarded(context.Context, cdriver.TxID, string) error {
+	panic("fabricx vault: SetDiscarded called; fabricx has no local commit pipeline")
 }
 
-// Status returns the validation status of a transaction.
-// It first checks the local cache, then queries the remote QueryService if not found locally.
-// The result from the remote service is cached for future queries.
+// Status returns the validation status of a single transaction. It delegates to Statuses so that
+// the two methods answer the same question the same way: a txID the committer does not yet know is
+// reported as Unknown ("not final yet") rather than as an error, which matters for callers polling
+// an in-flight transaction through the public vault facade (platform/fabric/vault.go).
 func (v *Vault) Status(ctx context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
-	v.mu.RLock()
-	// Check local cache first
-	if status, exists := v.txStatuses[txID]; exists {
-		v.mu.RUnlock()
-		return status.code, status.message, nil
-	}
-	v.mu.RUnlock()
-
-	// Query remote service
-	statusCode, err := v.queryService.GetTransactionStatus(string(txID))
+	statuses, err := v.Statuses(ctx, txID)
 	if err != nil {
-		return fdriver.Unknown, "", errors.Wrapf(err, "failed to get transaction status for txID=%s", txID)
+		return fdriver.Unknown, "", err
 	}
-
-	// Map status code to ValidationCode
-	validationCode := v.mapStatusToValidationCode(statusCode)
-
-	// Cache the result
-	v.mu.Lock()
-	v.txStatuses[txID] = &txStatusInfo{
-		code:    validationCode,
-		message: "",
-	}
-	v.mu.Unlock()
-
-	return validationCode, "", nil
+	return statuses[0].ValidationCode, statuses[0].Message, nil
 }
 
-// Statuses returns the validation statuses for multiple transactions.
-// Each transaction status is retrieved using the Status method.
+// Statuses returns the validation statuses for multiple transactions, resolving them from the
+// remote QueryService in a single batched query. A txID that the committer does not know
+// is omitted from the batched result and is reported here as Unknown
+// ("not final yet"). The result preserves the order of the input txIDs.
 func (v *Vault) Statuses(ctx context.Context, txIDs ...cdriver.TxID) ([]cdriver.TxValidationStatus[fdriver.ValidationCode], error) {
-	statuses := make([]cdriver.TxValidationStatus[fdriver.ValidationCode], len(txIDs))
-
+	ids := make([]string, len(txIDs))
 	for i, txID := range txIDs {
-		code, message, err := v.Status(ctx, txID)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get status for txID=%s", txID)
+		ids[i] = string(txID)
+	}
+
+	codes, err := v.queryService.GetTransactionStatuses(ids)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get transaction statuses")
+	}
+
+	statuses := make([]cdriver.TxValidationStatus[fdriver.ValidationCode], len(txIDs))
+	for i, txID := range txIDs {
+		code := fdriver.Unknown // omitted from the batched result => not final yet
+		if statusCode, ok := codes[string(txID)]; ok {
+			code = v.mapStatusToValidationCode(statusCode)
 		}
 		statuses[i] = cdriver.TxValidationStatus[fdriver.ValidationCode]{
 			TxID:           txID,
 			ValidationCode: code,
-			Message:        message,
 		}
 	}
-
 	return statuses, nil
 }
 
-// DiscardTx marks a transaction as discarded. This is an alias for SetDiscarded.
-func (v *Vault) DiscardTx(ctx context.Context, txID cdriver.TxID, message string) error {
-	return v.SetDiscarded(ctx, txID, message)
+// DiscardTx is not supported: the fabricx wiring has no local commit pipeline
+// (see platform/fabricx/core/channel/provider.go). Reaching this method means the
+// vault was wired into a generic committer, which is a programming error.
+func (v *Vault) DiscardTx(context.Context, cdriver.TxID, string) error {
+	panic("fabricx vault: DiscardTx called; fabricx has no local commit pipeline")
 }
 
-// CommitTX marks a transaction as committed (valid) and records its block number and index.
-// The status is stored locally.
-func (v *Vault) CommitTX(ctx context.Context, txID cdriver.TxID, block cdriver.BlockNum, index cdriver.TxNum) error {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-
-	v.txStatuses[txID] = &txStatusInfo{
-		code:    fdriver.Valid,
-		message: "",
-		block:   block,
-		index:   index,
-	}
-	return nil
+// CommitTX is not supported: the fabricx wiring has no local commit pipeline
+// (see platform/fabricx/core/channel/provider.go). Reaching this method means the
+// vault was wired into a generic committer, which is a programming error.
+func (v *Vault) CommitTX(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error {
+	panic("fabricx vault: CommitTX called; fabricx has no local commit pipeline")
 }
 
 // InspectRWSet creates an ephemeral RWSet from bytes for inspection purposes.
@@ -537,55 +482,22 @@ func (v *Vault) InspectRWSet(ctx context.Context, rwset []byte, namespaces ...cd
 	}, nil
 }
 
-// RWSExists checks whether an RWSet exists locally for the given transaction ID.
-func (v *Vault) RWSExists(ctx context.Context, id cdriver.TxID) bool {
-	v.mu.RLock()
-	defer v.mu.RUnlock()
-	_, exists := v.rwsets[id]
-	return exists
+// RWSExists is not supported: the fabricx wiring has no local commit pipeline
+// (see platform/fabricx/core/channel/provider.go). Reaching this method means the
+// vault was wired into a generic committer, which is a programming error.
+func (v *Vault) RWSExists(context.Context, cdriver.TxID) bool {
+	panic("fabricx vault: RWSExists called; fabricx has no local commit pipeline")
 }
 
-// Match compares a stored RWSet with provided bytes to verify they match.
-// Returns an error if the RWSet doesn't exist, or if the bytes don't match.
-func (v *Vault) Match(ctx context.Context, id cdriver.TxID, results []byte) error {
-	v.mu.RLock()
-	rws, exists := v.rwsets[id]
-	v.mu.RUnlock()
-
-	if !exists {
-		return errors.Errorf("rwset not found for txID=%s", id)
-	}
-
-	// Marshal the stored RWSet
-	storedBytes, err := v.marshaller.Marshal(string(id), rws)
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal stored rwset")
-	}
-
-	// Compare bytes
-	if len(storedBytes) != len(results) {
-		return errors.Errorf("rwset mismatch: length differs (stored=%d, provided=%d)", len(storedBytes), len(results))
-	}
-
-	for i := range storedBytes {
-		if storedBytes[i] != results[i] {
-			return errors.Errorf("rwset mismatch at byte %d", i)
-		}
-	}
-
-	return nil
+// Match is not supported: the fabricx wiring has no local commit pipeline
+// (see platform/fabricx/core/channel/provider.go). Reaching this method means the
+// vault was wired into a generic committer, which is a programming error.
+func (v *Vault) Match(context.Context, cdriver.TxID, []byte) error {
+	panic("fabricx vault: Match called; fabricx has no local commit pipeline")
 }
 
-// Close clears all local storage (RWSets and transaction statuses).
-// After closing, the vault can still be used but all cached data is lost.
+// Close is a no-op. The vault holds no per-transaction state to release.
 func (v *Vault) Close() error {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-
-	// Clear local storage
-	v.rwsets = make(map[cdriver.TxID]*vault.ReadWriteSet)
-	v.txStatuses = make(map[cdriver.TxID]*txStatusInfo)
-
 	return nil
 }
 

@@ -8,6 +8,7 @@ package vault_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
@@ -195,25 +196,52 @@ func TestVaultX_Status(t *testing.T) {
 	require.Empty(t, msg)
 }
 
+// TestVaultX_Status_Unknown asserts that Status agrees with Statuses on the "committer doesn't know
+// this tx" case: it reports Unknown ("not final yet") without an error, rather than surfacing the
+// unknown-tx condition as a failure to a caller polling an in-flight transaction.
+func TestVaultX_Status_Unknown(t *testing.T) {
+	t.Parallel()
+	qs := newMockQueryService()
+	// tx1 intentionally left unset => committer does not know it yet.
+
+	v := vault.NewVault(qs)
+	ctx := context.Background()
+
+	code, msg, err := v.Status(ctx, "tx1")
+	require.NoError(t, err)
+	require.Equal(t, fdriver.Unknown, code)
+	require.Empty(t, msg)
+}
+
 func TestVaultX_Statuses(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
 	qs.setTxStatus("tx1", 1) // COMMITTED
 	qs.setTxStatus("tx2", 0) // UNSPECIFIED
+	// tx3 is intentionally left unset: the batched query omits transactions the committer does not
+	// know, and Statuses must report those as Unknown ("not final yet") in the right position.
 
 	v := vault.NewVault(qs)
 	ctx := context.Background()
 
-	statuses, err := v.Statuses(ctx, "tx1", "tx2")
+	statuses, err := v.Statuses(ctx, "tx1", "tx3", "tx2")
 	require.NoError(t, err)
-	require.Len(t, statuses, 2)
+	require.Len(t, statuses, 3)
 
+	// Order matches the input, not the (unordered) map returned by the batched query.
 	require.Equal(t, driver.TxID("tx1"), statuses[0].TxID)
 	require.Equal(t, fdriver.Valid, statuses[0].ValidationCode)
 
-	require.Equal(t, driver.TxID("tx2"), statuses[1].TxID)
+	require.Equal(t, driver.TxID("tx3"), statuses[1].TxID)
 	require.Equal(t, fdriver.Unknown, statuses[1].ValidationCode)
+
+	require.Equal(t, driver.TxID("tx2"), statuses[2].TxID)
+	require.Equal(t, fdriver.Unknown, statuses[2].ValidationCode)
 }
+
+// The commit-pipeline methods (SetDiscarded/DiscardTx/CommitTX/Match/RWSExists) are unreachable in
+// the fabricx wiring, which has no local commit pipeline. They panic if called, so that wiring the
+// vault into a generic committer by mistake fails loudly rather than silently misbehaving.
 
 func TestVaultX_SetDiscarded(t *testing.T) {
 	t.Parallel()
@@ -221,14 +249,9 @@ func TestVaultX_SetDiscarded(t *testing.T) {
 	v := vault.NewVault(qs)
 	ctx := context.Background()
 
-	err := v.SetDiscarded(ctx, "tx1", "test error")
-	require.NoError(t, err)
-
-	// Verify status is set to Invalid
-	code, msg, err := v.Status(ctx, "tx1")
-	require.NoError(t, err)
-	require.Equal(t, fdriver.Invalid, code)
-	require.Equal(t, "test error", msg)
+	require.PanicsWithValue(t,
+		"fabricx vault: SetDiscarded called; fabricx has no local commit pipeline",
+		func() { _ = v.SetDiscarded(ctx, "tx1", "test error") })
 }
 
 func TestVaultX_DiscardTx(t *testing.T) {
@@ -237,14 +260,9 @@ func TestVaultX_DiscardTx(t *testing.T) {
 	v := vault.NewVault(qs)
 	ctx := context.Background()
 
-	err := v.DiscardTx(ctx, "tx1", "discard reason")
-	require.NoError(t, err)
-
-	// Verify status
-	code, msg, err := v.Status(ctx, "tx1")
-	require.NoError(t, err)
-	require.Equal(t, fdriver.Invalid, code)
-	require.Equal(t, "discard reason", msg)
+	require.PanicsWithValue(t,
+		"fabricx vault: DiscardTx called; fabricx has no local commit pipeline",
+		func() { _ = v.DiscardTx(ctx, "tx1", "discard reason") })
 }
 
 func TestVaultX_CommitTX(t *testing.T) {
@@ -253,14 +271,9 @@ func TestVaultX_CommitTX(t *testing.T) {
 	v := vault.NewVault(qs)
 	ctx := context.Background()
 
-	err := v.CommitTX(ctx, "tx1", 10, 5)
-	require.NoError(t, err)
-
-	// Verify status is set to Valid
-	code, msg, err := v.Status(ctx, "tx1")
-	require.NoError(t, err)
-	require.Equal(t, fdriver.Valid, code)
-	require.Empty(t, msg)
+	require.PanicsWithValue(t,
+		"fabricx vault: CommitTX called; fabricx has no local commit pipeline",
+		func() { _ = v.CommitTX(ctx, "tx1", 10, 5) })
 }
 
 func TestVaultX_InspectRWSet(t *testing.T) {
@@ -298,15 +311,10 @@ func TestVaultX_RWSExists(t *testing.T) {
 	v := vault.NewVault(qs)
 	ctx := context.Background()
 
-	// Initially should not exist
-	require.False(t, v.RWSExists(ctx, "tx1"))
-
-	// Create RWSet
-	_, err := v.NewRWSet(ctx, "tx1")
-	require.NoError(t, err)
-
-	// Now should exist
-	require.True(t, v.RWSExists(ctx, "tx1"))
+	// RWSExists has no error channel, so returning a value would be a misleading answer; it panics.
+	require.PanicsWithValue(t,
+		"fabricx vault: RWSExists called; fabricx has no local commit pipeline",
+		func() { _ = v.RWSExists(ctx, "tx1") })
 }
 
 func TestVaultX_Match(t *testing.T) {
@@ -315,7 +323,8 @@ func TestVaultX_Match(t *testing.T) {
 	v := vault.NewVault(qs)
 	ctx := context.Background()
 
-	// Create an RWSet
+	// The vault retains no RWSet to match against, and Match is unreachable in the fabricx wiring,
+	// so it panics — including for a txID whose RWSet was just created and marshalled.
 	rws, err := v.NewRWSet(ctx, "tx1")
 	require.NoError(t, err)
 
@@ -325,17 +334,9 @@ func TestVaultX_Match(t *testing.T) {
 	bytes, err := rws.Bytes()
 	require.NoError(t, err)
 
-	// Match should succeed with same bytes
-	err = v.Match(ctx, "tx1", bytes)
-	require.NoError(t, err)
-
-	// Match should fail with different bytes
-	err = v.Match(ctx, "tx1", []byte("different"))
-	require.Error(t, err)
-
-	// Match should fail for non-existent tx
-	err = v.Match(ctx, "nonexistent", bytes)
-	require.Error(t, err)
+	require.PanicsWithValue(t,
+		"fabricx vault: Match called; fabricx has no local commit pipeline",
+		func() { _ = v.Match(ctx, "tx1", bytes) })
 }
 
 func TestVaultX_Close(t *testing.T) {
@@ -344,19 +345,12 @@ func TestVaultX_Close(t *testing.T) {
 	v := vault.NewVault(qs)
 	ctx := context.Background()
 
-	// Create some data
+	// The vault holds no per-transaction state, so Close is a no-op that always succeeds.
 	_, err := v.NewRWSet(ctx, "tx1")
 	require.NoError(t, err)
 
-	err = v.SetDiscarded(ctx, "tx2", "test")
-	require.NoError(t, err)
-
-	// Close should clear everything
 	err = v.Close()
 	require.NoError(t, err)
-
-	// Verify data is cleared
-	require.False(t, v.RWSExists(ctx, "tx1"))
 }
 
 func TestRWSet_Operations(t *testing.T) {
@@ -461,4 +455,41 @@ func TestRWSet_GetWriteAt(t *testing.T) {
 	// Test out of bounds
 	_, _, err = rws.GetWriteAt("ns1", 100)
 	require.Error(t, err)
+}
+
+// TestRWSet_ConcurrentBytes exercises many goroutines calling Bytes() on different RWSets created
+// from the same vault. All those wrappers share the vault's single Marshaller, so before Bytes()
+// stopped writing the marshaller's namespace-info through shared state, this raced. Run under
+// -race, it fails on the old code and locks the fix in.
+func TestRWSet_ConcurrentBytes(t *testing.T) {
+	t.Parallel()
+	qs := newMockQueryService()
+	// Give the namespaces a non-default _meta version so Bytes() builds a populated nsInfo map.
+	qs.setState("_meta", "ns1", nil, 7)
+	qs.setState("_meta", "ns2", nil, 9)
+
+	v := vault.NewVault(qs)
+	ctx := context.Background()
+
+	const goroutines = 16
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for g := range goroutines {
+		go func(g int) {
+			defer wg.Done()
+			// Each goroutine gets its own RWSet, but they all share v.marshaller.
+			rws, err := v.NewRWSet(ctx, driver.TxID("tx"))
+			require.NoError(t, err)
+			// Vary the namespace per goroutine so the nsInfo maps differ between concurrent calls.
+			ns := driver.Namespace("ns1")
+			if g%2 == 0 {
+				ns = "ns2"
+			}
+			require.NoError(t, rws.SetState(ns, "key", []byte("value")))
+
+			_, err = rws.Bytes()
+			require.NoError(t, err)
+		}(g)
+	}
+	wg.Wait()
 }
