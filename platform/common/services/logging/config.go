@@ -36,6 +36,20 @@ type Config struct {
 	// Sanitization means that any non-printable character is removed.
 	// This protects the traces from undesired behaviours like missing tracing.
 	OtelSanitize bool
+
+	// ContextLogFields lists context keys to extract as zap fields on every context-aware
+	// log call (e.g. InfowContext, ErrorfContext). Merged into the global registry; see
+	// RegisterContextLogField.
+	ContextLogFields []ContextLogField
+}
+
+// ContextLogField maps a context key to the zap field name used when the value is found
+// in the context and added to a log line.
+type ContextLogField struct {
+	// Key is looked up via ctx.Value(Key).
+	Key any
+	// Name is the zap field name the value is logged under.
+	Name string
 }
 
 var (
@@ -52,8 +66,12 @@ func Init(c Config) {
 
 	// set local configurations
 	configMutex.Lock()
-	defer configMutex.Unlock()
 	config.OtelSanitize = c.OtelSanitize
+	configMutex.Unlock()
+
+	for _, f := range c.ContextLogFields {
+		registerContextLogField(f.Name, f.Key, true)
+	}
 }
 
 func OtelSanitize() bool {
@@ -87,4 +105,46 @@ func Replacers() map[string]string {
 	replacersMutex.RLock()
 	defer replacersMutex.RUnlock()
 	return replacers
+}
+
+var (
+	ctxFieldsMutex sync.RWMutex
+	ctxFieldNames  []string
+	ctxLogFields   = map[string]any{}
+)
+
+// RegisterContextLogField registers a context key to extract as a zap field, under the
+// given field name, on every context-aware log call. Panics if name is already
+// registered.
+func RegisterContextLogField(name string, key any) {
+	registerContextLogField(name, key, false)
+}
+
+func registerContextLogField(name string, key any, overwrite bool) {
+	ctxFieldsMutex.Lock()
+	defer ctxFieldsMutex.Unlock()
+
+	if _, ok := ctxLogFields[name]; ok {
+		if overwrite {
+			ctxLogFields[name] = key
+			return
+		}
+		panic("context log field already exists")
+	}
+
+	ctxLogFields[name] = key
+	ctxFieldNames = append(ctxFieldNames, name)
+}
+
+// ContextLogFields returns the current context log field registrations, in
+// registration order.
+func ContextLogFields() []ContextLogField {
+	ctxFieldsMutex.RLock()
+	defer ctxFieldsMutex.RUnlock()
+
+	fields := make([]ContextLogField, len(ctxFieldNames))
+	for i, name := range ctxFieldNames {
+		fields[i] = ContextLogField{Key: ctxLogFields[name], Name: name}
+	}
+	return fields
 }

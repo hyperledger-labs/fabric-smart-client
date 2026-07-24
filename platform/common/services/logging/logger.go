@@ -64,7 +64,7 @@ type logger struct {
 func newLogger(zapLogger *zap.Logger) *logger {
 	return &logger{
 		fabricLogger: flogging.NewFabricLogger(zapLogger),
-		otelLogger:   NewOtelLogger(zapLogger.WithOptions(zap.AddCallerSkip(1))),
+		otelLogger:   NewOtelLogger(zapLogger.WithOptions(zap.AddCallerSkip(2))),
 	}
 }
 
