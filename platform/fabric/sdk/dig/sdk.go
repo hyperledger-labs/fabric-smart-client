@@ -33,34 +33,46 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/vault"
 	viewsdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
+	viewconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/endpoint"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
 )
 
 var logger = logging.MustGetLogger()
 
+// SDK wires the Fabric platform's dig providers on top of a base dig2.SDK (typically the view
+// SDK) and drives the lifecycle of the resulting *core.FSNProvider.
 type SDK struct {
 	dig2.SDK
 	fnsProvider *core.FSNProvider
 }
 
+// NewSDK builds a Fabric SDK on top of a fresh view SDK for the given services.Registry.
 func NewSDK(registry services.Registry) *SDK {
 	return NewFrom(viewsdk.NewSDK(registry))
 }
 
+// NewFrom builds a Fabric SDK on top of an already-constructed base dig2.SDK.
 func NewFrom(sdk dig2.SDK) *SDK {
 	return &SDK{SDK: sdk}
 }
 
+// FabricEnabled reports whether the `fabric.enabled` configuration key is set.
 func (p *SDK) FabricEnabled() bool {
 	return p.ConfigService().GetBool("fabric.enabled")
 }
 
+// Install registers every dig provider needed by the Fabric platform on top of the base SDK.
+// It is a no-op (delegating straight to the base SDK) if `fabric.enabled` is not set.
 func (p *SDK) Install() error {
 	if !p.FabricEnabled() {
 		return p.SDK.Install()
 	}
 	err := errors.Join(
+		// Re-provide the already-registered *viewconfig.Provider singleton under the
+		// core.DynamicConfigService interface, so that config.NewCore, config.NewProvider and
+		// fns.NewProvider can depend on the narrower interface instead of the concrete type.
+		p.Container().Provide(digutils.Identity[*viewconfig.Provider](), dig.As(new(core.DynamicConfigService))),
 		p.Container().Provide(config.NewCore),
 		p.Container().Provide(config.NewProvider),
 		p.Container().Provide(committer.NewFinalityListenerManagerProvider[driver.ValidationCode], dig.As(new(driver.ListenerManagerProvider))),

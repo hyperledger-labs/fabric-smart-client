@@ -15,7 +15,6 @@ import (
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
@@ -26,21 +25,31 @@ var (
 	logger                   = logging.MustGetLogger()
 )
 
+// NamedDriver associates a driver.Driver implementation with the name a network's
+// configuration (FSNConfig.Driver) can reference to select it.
 type NamedDriver struct {
 	Name string
 	driver.Driver
 }
 
+// FSNProvider is the driver.FabricNetworkServiceProvider implementation: it lazily builds and
+// caches, one per network name, the driver.FabricNetworkService for every Fabric network known
+// to its Config, and supports adding further networks at runtime via AddNetwork.
 type FSNProvider struct {
 	config *Config
 
 	networksMutex sync.Mutex
-	configService driver2.ConfigService
+	configService DynamicConfigService
 	networks      map[string]driver.FabricNetworkService
 	drivers       map[string]driver.Driver
+	validators    []NetworkConfigValidator
 }
 
-func NewFabricNetworkServiceProvider(configService driver2.ConfigService, namedDrivers []NamedDriver) (*FSNProvider, error) {
+// NewFabricNetworkServiceProvider builds an FSNProvider from configService (scanned once, at
+// construction time, to seed its Config), the set of named drivers available to instantiate
+// each configured network, and the NetworkConfigValidators (if any) that every subsequent
+// AddNetwork call on the returned provider must satisfy.
+func NewFabricNetworkServiceProvider(configService DynamicConfigService, namedDrivers []NamedDriver, validators []NetworkConfigValidator) (*FSNProvider, error) {
 	fnsConfig, err := NewConfig(configService)
 	if err != nil {
 		return nil, err
@@ -54,11 +63,28 @@ func NewFabricNetworkServiceProvider(configService driver2.ConfigService, namedD
 		configService: configService,
 		networks:      map[string]driver.FabricNetworkService{},
 		drivers:       drivers,
+		validators:    validators,
 	}
 	provider.InitFabricLogging()
 	return provider, nil
 }
 
+// AddNetwork validates the given raw yaml configuration and, if it describes one or more new
+// Fabric networks, merges it into the live configuration tree, making the new network(s)
+// available to subsequent calls to FabricNetworkService. It does not start any committer or
+// delivery service for the new network(s): those are (lazily) created and started the first
+// time FabricNetworkService is called for the new network name.
+//
+// The configuration is checked against the built-in Fabric naming rules for networks and
+// channels, and against every NetworkConfigValidator this provider was configured with.
+func (p *FSNProvider) AddNetwork(raw []byte) error {
+	return p.config.AddNetwork(raw, p.validators...)
+}
+
+// Start instantiates every configured Fabric network and starts the committer and delivery
+// service of each of its channels. It does not start any network added afterwards via
+// AddNetwork; those are instead lazily started via FabricNetworkService/newFNS materialization
+// on first access, without their committer/delivery being started automatically.
 func (p *FSNProvider) Start(ctx context.Context) error {
 	// What's the default network?
 	// TODO: add listener to fabric service when a channel is opened.
@@ -86,6 +112,8 @@ func (p *FSNProvider) Start(ctx context.Context) error {
 	return nil
 }
 
+// Stop closes every channel of every Fabric network that has been instantiated so far (i.e.
+// every network for which FabricNetworkService has been called at least once).
 func (p *FSNProvider) Stop() error {
 	for _, networkName := range p.config.Names() {
 		fns, err := p.FabricNetworkService(networkName)
@@ -105,14 +133,20 @@ func (p *FSNProvider) Stop() error {
 	return nil
 }
 
+// Names returns the names of every currently configured Fabric network, including any added
+// at runtime via AddNetwork.
 func (p *FSNProvider) Names() []string {
 	return p.config.Names()
 }
 
+// DefaultName returns the name of the default Fabric network.
 func (p *FSNProvider) DefaultName() string {
 	return p.config.DefaultName()
 }
 
+// FabricNetworkService returns the driver.FabricNetworkService for the given network name,
+// instantiating and caching it on first access. If network is empty, the default network is
+// used instead.
 func (p *FSNProvider) FabricNetworkService(network string) (driver.FabricNetworkService, error) {
 	p.networksMutex.Lock()
 	defer p.networksMutex.Unlock()
@@ -143,6 +177,10 @@ func (p *FSNProvider) InitFabricLogging() {
 	})
 }
 
+// newFNS instantiates the driver.FabricNetworkService for network by re-reading the live
+// configuration (so that a network added at runtime via AddNetwork is picked up) and
+// delegating to the driver named by its FSNConfig.Driver, or to every registered driver in
+// turn if none is specified.
 func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error) {
 	fnsConfig, err := NewConfig(p.configService)
 	if err != nil {
@@ -183,6 +221,8 @@ func (p *FSNProvider) newFNS(network string) (driver.FabricNetworkService, error
 	return nil, errors.Errorf("no network driver found for [%s]", network)
 }
 
+// GetFabricNetworkServiceProvider retrieves the driver.FabricNetworkServiceProvider registered
+// with the given services.Provider.
 func GetFabricNetworkServiceProvider(sp services.Provider) (driver.FabricNetworkServiceProvider, error) {
 	s, err := sp.GetService(fabricNetworkServiceType)
 	if err != nil {
