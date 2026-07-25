@@ -10,6 +10,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -140,6 +141,59 @@ func TestContextLogFields_SurviveWithAndNamed(t *testing.T) { //nolint:parallelt
 	require.Equal(t, "still-works", field.String)
 }
 
+func TestRegisterContextLogField_AddedToExistingLogger(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	// Create the logger (and a context already carrying the value) before the key is
+	// registered, proving RegisterContextLogField takes effect on loggers that already
+	// exist rather than only ones constructed after registration.
+	logger, observed := newObservedLogger()
+	key := ctxKey{"register.existing"}
+	ctx := context.WithValue(context.Background(), key, "late-registered-value")
+
+	RegisterContextLogField("test.register.existing", key)
+
+	logger.InfowContext(ctx, "hello")
+
+	entries := observed.All()
+	require.Len(t, entries, 1)
+	field, ok := findField(entries[0].Context, "test.register.existing")
+	require.True(t, ok, "expected field %q in %+v", "test.register.existing", entries[0].Context)
+	require.Equal(t, "late-registered-value", field.String)
+}
+
+func TestRegisterContextLogField_SecondCallAddsBoth(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	// A second RegisterContextLogField call for a different key must extend the registry
+	// rather than replace it: the first log call (after only the first key is registered)
+	// should carry only the first field, and the second log call (after the second key is
+	// also registered) should carry both.
+	logger, observed := newObservedLogger()
+	firstKey := ctxKey{"register.multi.first"}
+	secondKey := ctxKey{"register.multi.second"}
+	ctx := context.WithValue(context.Background(), firstKey, "first-value")
+	ctx = context.WithValue(ctx, secondKey, "second-value")
+
+	RegisterContextLogField("test.register.multi.first", firstKey)
+	logger.InfowContext(ctx, "hello")
+
+	RegisterContextLogField("test.register.multi.second", secondKey)
+	logger.InfowContext(ctx, "hello")
+
+	entries := observed.All()
+	require.Len(t, entries, 2)
+
+	field, ok := findField(entries[0].Context, "test.register.multi.first")
+	require.True(t, ok, "expected field %q in %+v", "test.register.multi.first", entries[0].Context)
+	require.Equal(t, "first-value", field.String)
+	_, ok = findField(entries[0].Context, "test.register.multi.second")
+	require.False(t, ok, "did not expect field %q in %+v", "test.register.multi.second", entries[0].Context)
+
+	field, ok = findField(entries[1].Context, "test.register.multi.first")
+	require.True(t, ok, "expected field %q in %+v", "test.register.multi.first", entries[1].Context)
+	require.Equal(t, "first-value", field.String)
+	field, ok = findField(entries[1].Context, "test.register.multi.second")
+	require.True(t, ok, "expected field %q in %+v", "test.register.multi.second", entries[1].Context)
+	require.Equal(t, "second-value", field.String)
+}
+
 func TestRegisterContextLogField_DuplicatePanics(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 	key1 := ctxKey{"dup1"}
 	key2 := ctxKey{"dup2"}
@@ -168,6 +222,32 @@ func TestInit_ContextLogFields_Idempotent(t *testing.T) { //nolint:paralleltest 
 	field, ok := findField(entries[0].Context, "test.idempotent")
 	require.True(t, ok)
 	require.Equal(t, "second-value", field.String)
+}
+
+func TestContextLogFields_SurviveMultipleContextWrapping(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	// ctx.Value walks up the parent chain, so the registered key must still resolve however
+	// deep it sits under further wrapping (WithValue, WithCancel, WithTimeout, ...) layered on
+	// top by unrelated code between where the value was set and where the log call happens.
+	key := ctxKey{"wrapped"}
+	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.wrapped"}}})
+
+	logger, observed := newObservedLogger()
+
+	ctx := context.WithValue(context.Background(), key, "wrapped-value")
+	ctx = context.WithValue(ctx, ctxKey{"unrelated.1"}, "noise-1")
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	ctx, cancelTimeout := context.WithTimeout(ctx, time.Hour)
+	defer cancelTimeout()
+	ctx = context.WithValue(ctx, ctxKey{"unrelated.2"}, "noise-2")
+
+	logger.InfowContext(ctx, "hello")
+
+	entries := observed.All()
+	require.Len(t, entries, 1)
+	field, ok := findField(entries[0].Context, "test.wrapped")
+	require.True(t, ok, "expected field %q in %+v", "test.wrapped", entries[0].Context)
+	require.Equal(t, "wrapped-value", field.String)
 }
 
 func TestContextLogFields_CallerAccuracy(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
