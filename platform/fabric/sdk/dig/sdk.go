@@ -164,7 +164,8 @@ func registerProcessorsForDrivers(in struct {
 },
 ) error {
 	if len(in.CoreConfig.Names()) == 0 {
-		return errors.New("no fabric network names found")
+		logger.Infof("no fabric networks configured at startup, skipping processor registration")
+		return nil
 	}
 
 	for _, d := range in.Drivers {

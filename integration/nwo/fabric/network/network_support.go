@@ -1567,55 +1567,66 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 		err := os.MkdirAll(n.PeerDir(p), 0o755)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		var refPeers []*topology.Peer
-		coreTemplate := n.Templates.CoreTemplate()
-		defaultNetwork := n.topology.Default
-		driver := n.topology.Driver
-		tlsEnabled := n.topology.TLSEnabled
-		if p.Type == topology.FSCPeer {
-			coreTemplate = n.Templates.FSCFabricExtensionTemplate()
-			if n.topology.MinimalFSCFabricConfig {
-				coreTemplate = topology.MinimalFSCFabricExtensionTemplate
-			}
-			peers := n.PeersInOrg(p.Organization)
-			defaultNetwork = p.DefaultNetwork
-			for _, peer := range peers {
-				if peer.Type == topology.FabricPeer {
-					refPeers = append(refPeers, peer)
-				}
-			}
-		}
-		for _, identity := range p.Identities {
-			if len(identity.Path) == 0 {
-				identity.Path = n.PeerLocalExtraIdentityDir(p, identity.ID)
-			}
+		extensionContent := topology.MinimalFSCFabricExtensionTemplate
+		if !n.topology.MinimalFSCFabricConfig {
+			var err error
+			extensionContent, err = n.RenderFSCFabricExtension(p)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		}
 
 		for _, uniqueName := range p.FSCNode.ReplicaUniqueNames() {
-			t, err := template.New("peer").Funcs(template.FuncMap{
-				"Peer":                      func() *topology.Peer { return p },
-				"Orderers":                  func() []*topology.Orderer { return n.Orderers },
-				"PeerLocalExtraIdentityDir": func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
-				"ToLower":                   func(s string) string { return strings.ToLower(s) },
-				"ReplaceAll":                func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
-				"Peers":                     func() []*topology.Peer { return refPeers },
-				"OrdererAddress":            func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
-				"PeerAddress":               func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
-				"CACertsBundlePath":         func() string { return n.CACertsBundlePath() },
-				"FabricName":                func() string { return n.topology.Name() },
-				"DefaultNetwork":            func() bool { return defaultNetwork },
-				"Driver":                    func() string { return driver },
-				"Chaincodes":                func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
-				"TLSEnabled":                func() bool { return tlsEnabled },
-			}).Parse(coreTemplate)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-			extension := bytes.NewBuffer([]byte{})
-			err = t.Execute(io.MultiWriter(extension), n)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			n.Context.AddExtension(uniqueName, api.FabricExtension, extension.String())
+			n.Context.AddExtension(uniqueName, api.FabricExtension, extensionContent)
 		}
 	}
+}
+
+// RenderFSCFabricExtension renders the full Fabric extension for the given FSC peer using
+// DefaultFSCFabricExtensionTemplate, regardless of Topology.MinimalFSCFabricConfig. It is the
+// same content GenerateCoreConfig would bake into the peer's core.yaml were minimal mode
+// disabled, exposed here so it can instead be injected into an already-running FSC node at
+// runtime (see platform/fabric/core.FSNProvider.AddNetwork) when the node was started with
+// MinimalFSCFabricConfig enabled.
+func (n *Network) RenderFSCFabricExtension(p *topology.Peer) (string, error) {
+	var refPeers []*topology.Peer
+	defaultNetwork := p.DefaultNetwork
+	driver := n.topology.Driver
+	tlsEnabled := n.topology.TLSEnabled
+	for _, peer := range n.PeersInOrg(p.Organization) {
+		if peer.Type == topology.FabricPeer {
+			refPeers = append(refPeers, peer)
+		}
+	}
+	for _, identity := range p.Identities {
+		if len(identity.Path) == 0 {
+			identity.Path = n.PeerLocalExtraIdentityDir(p, identity.ID)
+		}
+	}
+
+	t, err := template.New("peer").Funcs(template.FuncMap{
+		"Peer":                      func() *topology.Peer { return p },
+		"Orderers":                  func() []*topology.Orderer { return n.Orderers },
+		"PeerLocalExtraIdentityDir": func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
+		"ToLower":                   func(s string) string { return strings.ToLower(s) },
+		"ReplaceAll":                func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
+		"Peers":                     func() []*topology.Peer { return refPeers },
+		"OrdererAddress":            func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
+		"PeerAddress":               func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },
+		"CACertsBundlePath":         func() string { return n.CACertsBundlePath() },
+		"FabricName":                func() string { return n.topology.Name() },
+		"DefaultNetwork":            func() bool { return defaultNetwork },
+		"Driver":                    func() string { return driver },
+		"Chaincodes":                func(channel string) []*topology.ChannelChaincode { return n.Chaincodes(channel) },
+		"TLSEnabled":                func() bool { return tlsEnabled },
+	}).Parse(n.Templates.FSCFabricExtensionTemplate())
+	if err != nil {
+		return "", err
+	}
+
+	extension := bytes.NewBuffer([]byte{})
+	if err := t.Execute(extension, n); err != nil {
+		return "", err
+	}
+	return extension.String(), nil
 }
 
 func (n *Network) PeersByName(names []string) []*topology.Peer {
