@@ -52,6 +52,26 @@ func TestContextLogFields_ExtractedIntoLogLine(t *testing.T) { //nolint:parallel
 	require.Equal(t, "some-value", field.String)
 }
 
+// ContextKeyType is a named string type used as a context key, as an alternative to the
+// struct-based ctxKey above; some callers prefer this style for keys like "request-id".
+type ContextKeyType string
+
+func TestContextLogFields_NamedStringKeyType_ExtractedIntoLogLine(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	key := ContextKeyType("request-id")
+	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.request-id"}}})
+
+	logger, observed := newObservedLogger()
+	ctx := context.WithValue(context.Background(), key, "abc-123")
+
+	logger.InfowContext(ctx, "hello")
+
+	entries := observed.All()
+	require.Len(t, entries, 1)
+	field, ok := findField(entries[0].Context, "test.request-id")
+	require.True(t, ok, "expected field %q in %+v", "test.request-id", entries[0].Context)
+	require.Equal(t, "abc-123", field.String)
+}
+
 func TestContextLogFields_AbsentKeyNoField(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
 	key := ctxKey{"absent"}
 	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.absent"}}})

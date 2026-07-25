@@ -9,6 +9,7 @@ package logging
 import (
 	"io"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 )
@@ -108,9 +109,14 @@ func Replacers() map[string]string {
 }
 
 var (
-	ctxFieldsMutex sync.RWMutex
+	// ctxFieldsMutex guards registration (rare, startup-time) writes to ctxFieldNames and
+	// ctxLogFields below. The hot read path, ContextLogFields, never takes it: it loads the
+	// immutable snapshot published in ctxFieldsSnap instead, so every context-aware log call
+	// avoids both lock contention and a per-call copy of the registry.
+	ctxFieldsMutex sync.Mutex
 	ctxFieldNames  []string
 	ctxLogFields   = map[string]any{}
+	ctxFieldsSnap  atomic.Pointer[[]ContextLogField]
 )
 
 // RegisterContextLogField registers a context key to extract as a zap field, under the
@@ -125,26 +131,28 @@ func registerContextLogField(name string, key any, overwrite bool) {
 	defer ctxFieldsMutex.Unlock()
 
 	if _, ok := ctxLogFields[name]; ok {
-		if overwrite {
-			ctxLogFields[name] = key
-			return
+		if !overwrite {
+			panic("context log field already exists")
 		}
-		panic("context log field already exists")
+		ctxLogFields[name] = key
+	} else {
+		ctxLogFields[name] = key
+		ctxFieldNames = append(ctxFieldNames, name)
 	}
 
-	ctxLogFields[name] = key
-	ctxFieldNames = append(ctxFieldNames, name)
+	fields := make([]ContextLogField, len(ctxFieldNames))
+	for i, n := range ctxFieldNames {
+		fields[i] = ContextLogField{Key: ctxLogFields[n], Name: n}
+	}
+	ctxFieldsSnap.Store(&fields)
 }
 
 // ContextLogFields returns the current context log field registrations, in
-// registration order.
+// registration order. The returned slice is an immutable snapshot and must not be
+// mutated by the caller.
 func ContextLogFields() []ContextLogField {
-	ctxFieldsMutex.RLock()
-	defer ctxFieldsMutex.RUnlock()
-
-	fields := make([]ContextLogField, len(ctxFieldNames))
-	for i, name := range ctxFieldNames {
-		fields[i] = ContextLogField{Key: ctxLogFields[name], Name: name}
+	if p := ctxFieldsSnap.Load(); p != nil {
+		return *p
 	}
-	return fields
+	return nil
 }

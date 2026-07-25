@@ -74,32 +74,58 @@ func (l ctxFieldLogger) withContextFields(ctx context.Context) *otelzap.SugaredL
 // appendContextLogFields appends the registered ContextLogFields present in ctx to
 // keysAndValues, for the *w*Context (structured) methods. zap.SugaredLogger.sweetenFields
 // natively supports mixing strongly-typed Field values into a keysAndValues slice, so this
-// avoids the extra SugaredLogger clone that With(...) would otherwise allocate. A fresh
-// backing array is always used so the caller's keysAndValues slice (if passed via `...`
-// spread of an existing slice) is never mutated.
+// avoids the extra SugaredLogger clone that With(...) would otherwise allocate. The combined
+// slice is only allocated once a registered key is actually found in ctx (the common case
+// where ctx carries none, or only some, of the registered keys is otherwise allocation-free);
+// when allocated, a fresh backing array is used so the caller's keysAndValues slice (if
+// passed via `...` spread of an existing slice) is never mutated.
 func appendContextLogFields(ctx context.Context, keysAndValues []any) []any {
-	fields := contextLogFieldArgs(ctx)
-	if len(fields) == 0 {
+	if ctx == nil {
 		return keysAndValues
 	}
-	combined := make([]any, len(keysAndValues), len(keysAndValues)+len(fields))
-	copy(combined, keysAndValues)
-	return append(combined, fields...)
+	specs := ContextLogFields()
+	if len(specs) == 0 {
+		return keysAndValues
+	}
+	var combined []any
+	for _, s := range specs {
+		v := ctx.Value(s.Key)
+		if v == nil {
+			continue
+		}
+		if combined == nil {
+			combined = make([]any, len(keysAndValues), len(keysAndValues)+len(specs))
+			copy(combined, keysAndValues)
+		}
+		combined = append(combined, zap.Any(s.Name, v))
+	}
+	if combined == nil {
+		return keysAndValues
+	}
+	return combined
 }
 
 // contextLogFieldArgs extracts the registered ContextLogFields present in ctx, returned
 // as a flat []any of zap.Field values suitable for SugaredLogger.With or a keysAndValues
-// slice.
+// slice. Returns nil, allocation-free, if ctx carries none of the registered keys.
 func contextLogFieldArgs(ctx context.Context) []any {
 	if ctx == nil {
 		return nil
 	}
 	specs := ContextLogFields()
-	args := make([]any, 0, len(specs))
+	if len(specs) == 0 {
+		return nil
+	}
+	var args []any
 	for _, s := range specs {
-		if v := ctx.Value(s.Key); v != nil {
-			args = append(args, zap.Any(s.Name, v))
+		v := ctx.Value(s.Key)
+		if v == nil {
+			continue
 		}
+		if args == nil {
+			args = make([]any, 0, len(specs))
+		}
+		args = append(args, zap.Any(s.Name, v))
 	}
 	return args
 }
