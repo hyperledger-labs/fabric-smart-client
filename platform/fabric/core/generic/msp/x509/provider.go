@@ -106,6 +106,19 @@ func (p *Provider) EnrollmentID() string {
 	return p.enrollmentID
 }
 
+// DeserializeVerifier extracts an ECDSA public key from a serialized
+// identity and returns a Verifier for it. It does NOT validate the identity
+// against any MSP: there is no CA-chain validation, no expiration/CRL
+// check, and no check that the claimed Mspid is trusted. Any caller-supplied
+// bytes containing a well-formed msp.SerializedIdentity with a PEM-encoded
+// ECDSA public key will deserialize successfully, including a self-signed
+// or entirely fabricated identity.
+//
+// This method is only reached via the "verify only" fallback constructed in
+// NewProviderWithBCCSPConfig when full MSP loading fails, so its output
+// must not be treated as an authorization decision on its own - callers
+// must check the resulting identity against an explicit allow-list (e.g.
+// the configured Admins/Clients/DefaultIdentity) before trusting it.
 func (p *Provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	si := &msp.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
@@ -120,8 +133,6 @@ func (p *Provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	if !ok {
 		return nil, errors.New("expected *ecdsa.PublicKey")
 	}
-
-	// TODO: check the validity of the identity against the msp
 
 	return NewVerifier(publicKey), nil
 }

@@ -385,12 +385,18 @@ func peersForChannel(membersRes *discovery.PeerMembershipResult, qt QueryType) (
 	var peers []*Peer
 	for org, peersOfCurrentOrg := range membersRes.PeersByOrg {
 		for _, pp := range peersOfCurrentOrg.Peers {
+			if err := verifyEnvelopeSignature(pp.MembershipInfo, pp.Identity); err != nil {
+				return nil, errors.Wrap(err, "failed verifying alive message signature")
+			}
 			aliveMsg, err := EnvelopeToGossipMessage(pp.MembershipInfo)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed unmarshalling alive message")
 			}
 			var stateInfoMsg *SignedGossipMessage
 			if isStateInfoExpected(qt) {
+				if err := verifyEnvelopeSignature(pp.StateInfo, pp.Identity); err != nil {
+					return nil, errors.Wrap(err, "failed verifying stateInfo message signature")
+				}
 				stateInfoMsg, err = EnvelopeToGossipMessage(pp.StateInfo)
 				if err != nil {
 					return nil, errors.Wrap(err, "failed unmarshalling stateInfo message")
@@ -503,6 +509,12 @@ func (resp response) createEndorsementDescriptor(desc *discovery.EndorsementDesc
 func endorser(peer *discovery.Peer, chaincode, channel string) (*Peer, error) {
 	if peer.MembershipInfo == nil || peer.StateInfo == nil {
 		return nil, errors.Errorf("received empty envelope(s) for endorsers for chaincode %s, channel %s", chaincode, channel)
+	}
+	if err := verifyEnvelopeSignature(peer.MembershipInfo, peer.Identity); err != nil {
+		return nil, errors.Wrap(err, "failed verifying alive message signature")
+	}
+	if err := verifyEnvelopeSignature(peer.StateInfo, peer.Identity); err != nil {
+		return nil, errors.Wrap(err, "failed verifying stateInfo message signature")
 	}
 	aliveMsg, err := EnvelopeToGossipMessage(peer.MembershipInfo)
 	if err != nil {

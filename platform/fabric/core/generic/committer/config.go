@@ -146,8 +146,7 @@ func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNu
 
 	// once committed, we can update the membership service
 	if err := c.MembershipService.Update(env); err != nil {
-		// this should not have happened
-		panic(err)
+		return errors.Wrapf(err, "failed updating membership service for configtx [%s]", txID)
 	}
 
 	// and apply other updates

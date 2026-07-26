@@ -194,6 +194,10 @@ read:
 				}
 			}
 		case *pb.DeliverResponse_Block:
+			if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil {
+				event.Err = errors.Errorf("received malformed block from peer %s", address)
+				break read
+			}
 			for i, tx := range r.Block.Data.Data {
 				_, _, chdr, err := fabricutils.UnmarshalTx(tx)
 				if err != nil {

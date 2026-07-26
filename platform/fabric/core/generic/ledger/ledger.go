@@ -122,13 +122,24 @@ func (b *Block) DataAt(i int) []byte {
 
 // ProcessedTransaction returns the ProcessedTransaction at passed index
 func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error) {
+	if i < 0 || i >= len(b.Data.Data) {
+		return nil, errors.Errorf("transaction index [%d] out of range [0,%d)", i, len(b.Data.Data))
+	}
+	if int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) >= len(b.Metadata.Metadata) {
+		return nil, errors.Errorf("block metadata missing transactions filter entry")
+	}
+	txFilter := b.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER]
+	if i >= len(txFilter) {
+		return nil, errors.Errorf("transactions filter index [%d] out of range [0,%d)", i, len(txFilter))
+	}
+
 	env := &common.Envelope{}
 	if err := proto.Unmarshal(b.Data.Data[i], env); err != nil {
 		return nil, err
 	}
 	pt := &peer.ProcessedTransaction{
 		TransactionEnvelope: env,
-		ValidationCode:      int32(b.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER][i]),
+		ValidationCode:      int32(txFilter[i]),
 	}
 	ptRaw, err := proto.Marshal(pt)
 	if err != nil {

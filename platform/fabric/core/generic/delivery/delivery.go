@@ -236,27 +236,14 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 				switch r := resp.Type.(type) {
 				case *pb.DeliverResponse_Block:
 					span.SetAttributes(tracing.String(messageTypeLabel, block))
-					if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
-						logger.Debugf("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.NetworkName, d.channel)
-						span.RecordError(errors.New("nil block"))
-						time.Sleep(waitTime)
+					if !d.handleBlockResponse(deliveryCtx, span, r, ch, waitTime) {
 						if dfCancel != nil {
 							dfCancel()
 						}
 						df = nil
+						span.End()
+						continue
 					}
-
-					logger.Debugf("delivery service [%s:%s:%s], commit block [%d]", d.client.Address(), d.NetworkName, d.channel, r.Block.Header.Number)
-					d.lastBlockReceived = r.Block.Header.Number
-
-					span.AddEvent(fmt.Sprintf("push_%d_to_channel", r.Block.Header.Number))
-					logger.Debugf("Pushing block [%d] to channel with current length %d", r.Block.Header.Number, len(ch))
-					ch <- blockResponse{
-						ctx:   deliveryCtx,
-						block: r.Block,
-					}
-					logger.Debugf("Pushed block [%d] to channel", r.Block.Header.Number)
-					span.AddEvent("pushed_to_channel")
 				case *pb.DeliverResponse_Status:
 					span.SetAttributes(tracing.String(messageTypeLabel, responseStatus))
 					if r.Status == cb.Status_NOT_FOUND {
@@ -282,6 +269,31 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 			}
 		}
 	}
+}
+
+// handleBlockResponse validates and dispatches a received block to ch.
+// It returns false if the block is malformed (in which case the caller must
+// tear down the current stream and retry), true if the block was handled.
+func (d *Delivery) handleBlockResponse(ctx context.Context, span trace.Span, r *pb.DeliverResponse_Block, ch chan<- blockResponse, waitTime time.Duration) bool {
+	if r.Block == nil || r.Block.Data == nil || r.Block.Header == nil || r.Block.Metadata == nil {
+		logger.Debugf("deliver service [%s:%s:%s], received nil block", d.client.Address(), d.NetworkName, d.channel)
+		span.RecordError(errors.New("nil block"))
+		time.Sleep(waitTime)
+		return false
+	}
+
+	logger.Debugf("delivery service [%s:%s:%s], commit block [%d]", d.client.Address(), d.NetworkName, d.channel, r.Block.Header.Number)
+	d.lastBlockReceived = r.Block.Header.Number
+
+	span.AddEvent(fmt.Sprintf("push_%d_to_channel", r.Block.Header.Number))
+	logger.Debugf("Pushing block [%d] to channel with current length %d", r.Block.Header.Number, len(ch))
+	ch <- blockResponse{
+		ctx:   ctx,
+		block: r.Block,
+	}
+	logger.Debugf("Pushed block [%d] to channel", r.Block.Header.Number)
+	span.AddEvent("pushed_to_channel")
+	return true
 }
 
 func (d *Delivery) untilStop() error {

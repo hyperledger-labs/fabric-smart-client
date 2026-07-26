@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/fabricutils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
@@ -21,6 +22,23 @@ import (
 )
 
 type ValidationFlags []uint8
+
+// validationCodeAt safely returns the validation code for the transaction at
+// index i in block. block.Data.Data and the TRANSACTIONS_FILTER metadata
+// entry are populated independently by whoever produced the block, so a
+// malformed or malicious block (delivered over the peer Deliver gRPC stream)
+// can have a TRANSACTIONS_FILTER entry that is missing or shorter than
+// Data.Data, which would otherwise panic on a bare slice index.
+func validationCodeAt(block *common.Block, i int) (uint8, error) {
+	if block.Metadata == nil || len(block.Metadata.Metadata) <= int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
+		return 0, errors.Errorf("block [%d] metadata lacks transaction filter", block.GetHeader().GetNumber())
+	}
+	flags := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])
+	if i < 0 || i >= len(flags) {
+		return 0, errors.Errorf("transaction index [%d] out of range for validation flags of length [%d] in block [%d]", i, len(flags), block.GetHeader().GetNumber())
+	}
+	return flags[i], nil
+}
 
 type Service struct {
 	channel             string
@@ -132,7 +150,11 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 	return c.scanBlock(ctx, vault,
 		func(_ context.Context, block *common.Block) (bool, error) {
 			for i, tx := range block.Data.Data {
-				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
+				validationCode, err := validationCodeAt(block, i)
+				if err != nil {
+					logger.Errorf("[%s] %s", c.channel, err)
+					return false, err
+				}
 
 				// if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
 				//	continue
@@ -176,7 +198,11 @@ func (c *Service) ScanFromBlock(ctx context.Context, block driver.BlockNum, call
 	return c.scanBlock(ctx, vault,
 		func(_ context.Context, block *common.Block) (bool, error) {
 			for i, tx := range block.Data.Data {
-				validationCode := ValidationFlags(block.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[i]
+				validationCode, err := validationCodeAt(block, i)
+				if err != nil {
+					logger.Errorf("[%s] %s", c.channel, err)
+					return false, err
+				}
 
 				// if pb.TxValidationCode(validationCode) != pb.TxValidationCode_VALID {
 				//	continue

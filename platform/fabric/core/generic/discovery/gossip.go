@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	mspx509 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 )
 
 // SignedGossipMessage contains a GossipMessage and the Envelope from which it
@@ -67,4 +68,25 @@ func EnvelopeToGossipMessage(e *gossip.Envelope) (*SignedGossipMessage, error) {
 		GossipMessage: msg,
 		Envelope:      e,
 	}, nil
+}
+
+// verifyEnvelopeSignature checks that e.Signature is a valid signature over
+// e.Payload produced by the private key corresponding to the given
+// serialized identity. This binds a relayed gossip envelope to the specific
+// identity it is shipped alongside in the same discovery response, so an
+// envelope whose signature does not verify against that identity's key -
+// including a forged/garbage signature, or one produced by a different key -
+// is rejected instead of being trusted unconditionally.
+func verifyEnvelopeSignature(e *gossip.Envelope, identity []byte) error {
+	if e == nil {
+		return errors.New("nil envelope")
+	}
+	_, verifier, err := mspx509.NewIdentityFromBytes(identity)
+	if err != nil {
+		return errors.Wrap(err, "failed deriving verifier from peer identity")
+	}
+	if err := verifier.Verify(e.Payload, e.Signature); err != nil {
+		return errors.Wrap(err, "signature does not verify against claimed identity")
+	}
+	return nil
 }

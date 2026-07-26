@@ -8,15 +8,34 @@ package delivery
 
 import (
 	"context"
+	"crypto/tls"
 	"testing"
 	"time"
 
+	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
+	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
+
+// stubPeerClient implements services.PeerClient with just enough behavior
+// (Address) to satisfy the logging calls inside handleBlockResponse.
+type stubPeerClient struct{}
+
+func (stubPeerClient) Address() string                                { return "peer0" }
+func (stubPeerClient) Certificate() tls.Certificate                   { return tls.Certificate{} }
+func (stubPeerClient) Close()                                         {}
+func (stubPeerClient) EndorserClient() (pb.EndorserClient, error)     { return nil, nil }
+func (stubPeerClient) DiscoveryClient() (services.DiscoveryClient, error) {
+	return nil, nil
+}
+func (stubPeerClient) DeliverClient() (pb.DeliverClient, error) { return nil, nil }
 
 // mockVault implements Vault for testing
 type mockVault struct {
@@ -268,5 +287,94 @@ func TestProcessedTransaction(t *testing.T) {
 	t.Run("ValidationCode returns correct code", func(t *testing.T) {
 		t.Parallel()
 		require.Equal(t, int32(0), pt.ValidationCode())
+	})
+}
+
+// --- Tests for handleBlockResponse ---
+//
+// Regression coverage for a bug where runReceiver's nil-block guard detected
+// a malformed *pb.DeliverResponse_Block (e.g. Block.Header == nil, which a
+// misbehaving or malicious peer can send over the Deliver gRPC stream) and
+// reset connection state, but fell through unconditionally into
+// r.Block.Header.Number afterwards, nil-pointer-panicking. Since runReceiver
+// runs in a bare goroutine with no panic recovery anywhere in the call
+// chain, this crashed the whole process (DoS). The fix, and what this test
+// exercises directly, is that a malformed block must be rejected (returning
+// false) without touching any of its nil fields.
+func TestHandleBlockResponse(t *testing.T) {
+	t.Parallel()
+
+	newSpan := func(t *testing.T) trace.Span {
+		t.Helper()
+		_, span := noop.NewTracerProvider().Tracer("test").Start(t.Context(), "span")
+		return span
+	}
+
+	t.Run("nil block is rejected, not dereferenced", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{client: stubPeerClient{}}
+		ch := make(chan blockResponse, 1)
+		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: nil}, ch, time.Millisecond)
+		require.False(t, ok)
+		require.Empty(t, ch)
+	})
+
+	t.Run("block with nil header is rejected, not dereferenced", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{client: stubPeerClient{}}
+		ch := make(chan blockResponse, 1)
+		malformed := &cb.Block{
+			Data:     &cb.BlockData{},
+			Header:   nil,
+			Metadata: &cb.BlockMetadata{},
+		}
+		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: malformed}, ch, time.Millisecond)
+		require.False(t, ok)
+		require.Empty(t, ch)
+	})
+
+	t.Run("block with nil data is rejected, not dereferenced", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{client: stubPeerClient{}}
+		ch := make(chan blockResponse, 1)
+		malformed := &cb.Block{
+			Data:     nil,
+			Header:   &cb.BlockHeader{Number: 1},
+			Metadata: &cb.BlockMetadata{},
+		}
+		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: malformed}, ch, time.Millisecond)
+		require.False(t, ok)
+		require.Empty(t, ch)
+	})
+
+	t.Run("block with nil metadata is rejected, not dereferenced", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{client: stubPeerClient{}}
+		ch := make(chan blockResponse, 1)
+		malformed := &cb.Block{
+			Data:     &cb.BlockData{},
+			Header:   &cb.BlockHeader{Number: 1},
+			Metadata: nil,
+		}
+		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: malformed}, ch, time.Millisecond)
+		require.False(t, ok)
+		require.Empty(t, ch)
+	})
+
+	t.Run("well-formed block is pushed to channel", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{client: stubPeerClient{}}
+		ch := make(chan blockResponse, 1)
+		good := &cb.Block{
+			Data:     &cb.BlockData{},
+			Header:   &cb.BlockHeader{Number: 42},
+			Metadata: &cb.BlockMetadata{},
+		}
+		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: good}, ch, time.Millisecond)
+		require.True(t, ok)
+		require.Len(t, ch, 1)
+		received := <-ch
+		require.Equal(t, uint64(42), received.block.Header.Number)
+		require.Equal(t, uint64(42), d.lastBlockReceived)
 	})
 }
