@@ -115,14 +115,33 @@ func (p *ProposalResponse) VerifyEndorsement(provider VerifierProvider) error {
 			return errors.Errorf("missing endorsement for [txID=%s] [ns=%s]", txID, ns)
 		}
 
-		// note that we are checking the endorsement returned via a proposal response from the endorser
-		// that is, at this stage it should only contain "a single" signature (endorsement) per namespace;
-		sig := items[0].GetEndorsement()
+		// a single ProposalResponse comes from a single endorsing identity, so
+		// exactly one endorsement is expected per namespace (see how
+		// EndorseProposalResponseWithIdentity builds it in transaction.go).
+		// Anything else is either malformed or an attempt to smuggle extra,
+		// unverified entries past this check -- they would otherwise ride
+		// along, unverified, into mergeProposalResponseEndorsements.
+		if len(items) > 1 {
+			return errors.Errorf("expected exactly one endorsement for [txID=%s] [ns=%s], got %d", txID, ns, len(items))
+		}
 
-		// TODO: check that eid.Identity corresponds to the endorser identity above.
-		// Note: after the cached-identity change, eid.Identity carries Identity_CertificateId
-		// (SHA-256 of cert DER, hex-encoded) while p.pr.Endorsement.Endorser carries the full
-		// msp.SerializedIdentity — the cross-check must account for this format difference.
+		eid := items[0]
+
+		// the endorsement's claimed identity must correspond to the endorser
+		// that actually produced this proposal response -- otherwise a single
+		// malicious/compromised endorser could mislabel its own genuine
+		// signature (or an arbitrary one) as having come from a different org.
+		// eid.Identity carries the cached-identity (cert-ID) form, so we
+		// re-derive the same form from the endorser to compare like with like.
+		expectedIdentity, err := toEndorserIdentityWithCertID(endorser)
+		if err != nil {
+			return errors.Wrapf(err, "deriving expected identity for [%s]", endorser)
+		}
+		if !proto.Equal(expectedIdentity, eid.GetIdentity()) {
+			return errors.Errorf("claimed identity does not correspond to endorser for [txID=%s] [ns=%s]", txID, ns)
+		}
+
+		sig := eid.GetEndorsement()
 
 		// TODO: for threshold-based endorsement we need to first aggregate signatures shares before verifying.
 

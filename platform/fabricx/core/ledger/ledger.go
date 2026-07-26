@@ -93,7 +93,16 @@ func (c *ledger) GetBlockNumberByTxID(txID string) (uint64, error) {
 	if err != nil {
 		return 0, errors.Wrapf(err, "failed to get block for txID [%s]", txID)
 	}
-	return block.Header.Number, nil
+	// A successful (err == nil) response can still carry a Block with no
+	// Header -- a valid zero-value protobuf message -- if the remote
+	// committer is buggy or compromised. GetHeader() is a nil-safe getter,
+	// so guard against it explicitly rather than dereferencing block.Header
+	// directly.
+	header := block.GetHeader()
+	if header == nil {
+		return 0, errors.Errorf("block for txID [%s] has no header", txID)
+	}
+	return header.Number, nil
 }
 
 // GetBlockByNumber returns the block at the given block number.
@@ -111,13 +120,26 @@ type Block struct {
 }
 
 // DataAt returns the data stored at the passed index within the block.
+// The driver.Block interface has no error return for this method, so an
+// out-of-bounds index (which a malicious or buggy remote committer can
+// trigger simply by returning a block whose Data.Data is shorter than the
+// caller expects) returns nil rather than panicking.
 func (b *Block) DataAt(i int) []byte {
-	return b.Data.Data[i]
+	data := b.GetData().GetData()
+	if i < 0 || i >= len(data) {
+		return nil
+	}
+	return data[i]
 }
 
 // ProcessedTransaction returns the ProcessedTransaction at the passed index within the block.
 func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error) {
-	txRaw := b.Data.Data[i]
+	data := b.GetData().GetData()
+	if i < 0 || i >= len(data) {
+		return nil, errors.Errorf("index [%d] out of range for block data of length [%d]", i, len(data))
+	}
+	txRaw := data[i]
+
 	env, _, chdr, err := fabricutils.UnmarshalTx(txRaw)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal tx at index [%d]", i)
@@ -128,10 +150,19 @@ func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error)
 		return nil, errors.Wrapf(err, "failed to unpack results at index [%d]", i)
 	}
 
+	filter := b.GetMetadata().GetMetadata()
+	if int(cb.BlockMetadataIndex_TRANSACTIONS_FILTER) >= len(filter) {
+		return nil, errors.Errorf("block metadata has no transactions filter entry")
+	}
+	txFilter := filter[cb.BlockMetadataIndex_TRANSACTIONS_FILTER]
+	if i >= len(txFilter) {
+		return nil, errors.Errorf("index [%d] out of range for transactions filter of length [%d]", i, len(txFilter))
+	}
+
 	return &ProcessedTransaction{
 		txID:           chdr.TxId,
 		results:        results,
-		validationCode: int32(b.Metadata.Metadata[cb.BlockMetadataIndex_TRANSACTIONS_FILTER][i]),
+		validationCode: int32(txFilter[i]),
 		envelope:       txRaw,
 	}, nil
 }
