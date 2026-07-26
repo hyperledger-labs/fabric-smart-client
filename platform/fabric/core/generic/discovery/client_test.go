@@ -700,6 +700,47 @@ func TestForgedGossipEnvelopeRejected(t *testing.T) {
 		require.Len(t, peers, 1)
 		require.Equal(t, "real-peer.example.com:7051", peers[0].AliveMessage.GetAliveMsg().Membership.Endpoint)
 	})
+
+	// A real Fabric peer signs its own self-referential AliveMessage with
+	// protoext.NoopSign (gossip/discovery's Self()), which produces a nil
+	// Signature by design, and the Discovery service reports that self-entry
+	// as-is whenever the responding peer is itself among the reported peers -
+	// the common case in small test networks, where the peer answering the
+	// query is very often also one of the few endorsers/members it reports
+	// on. This must be accepted, not treated as a forged/garbage signature.
+	t.Run("nil alive message signature from a self-entry is accepted", func(t *testing.T) {
+		t.Parallel()
+		selfEnvelope := &gossip.Envelope{
+			Payload:   payload,
+			Signature: nil,
+		}
+		peers, err := peersForChannel(membersResFor(selfEnvelope, peerIdentity("A", 0)), PeerMembershipQueryType)
+		require.NoError(t, err)
+		require.Len(t, peers, 1)
+		require.Equal(t, "real-peer.example.com:7051", peers[0].AliveMessage.GetAliveMsg().Membership.Endpoint)
+	})
+
+	// Unlike AliveMessage, a real peer's StateInfo self-entry is always
+	// genuinely signed (gossipChannel.setupSignedStateInfoMessage calls a
+	// real signer, not NoopSign), so a nil StateInfo signature has no
+	// legitimate source and must still be rejected.
+	t.Run("nil stateInfo signature is still rejected", func(t *testing.T) {
+		t.Parallel()
+		sig, err := signWithTestPeerKey(payload)
+		require.NoError(t, err)
+		genuineAlive := &gossip.Envelope{
+			Payload:   payload,
+			Signature: sig,
+		}
+		membersRes := membersResFor(genuineAlive, peerIdentity("A", 0))
+		membersRes.PeersByOrg["A"].Peers[0].StateInfo = &gossip.Envelope{
+			Payload:   stateInfoMessage().Payload,
+			Signature: nil,
+		}
+		_, err = peersForChannel(membersRes, PeerMembershipQueryType)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed verifying stateInfo message signature")
+	})
 }
 
 func TestString(t *testing.T) {

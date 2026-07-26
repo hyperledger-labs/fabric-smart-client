@@ -77,9 +77,28 @@ func EnvelopeToGossipMessage(e *gossip.Envelope) (*SignedGossipMessage, error) {
 // envelope whose signature does not verify against that identity's key -
 // including a forged/garbage signature, or one produced by a different key -
 // is rejected instead of being trusted unconditionally.
-func verifyEnvelopeSignature(e *gossip.Envelope, identity []byte) error {
+//
+// allowEmptySignature must be true only for AliveMessage/MembershipInfo
+// envelopes. A real Fabric peer signs its own self-referential AliveMessage
+// with protoext.NoopSign (gossip/discovery's Self()), which produces a nil
+// Signature by design, and the Discovery service exposes that self-entry
+// as-is (discovery/support/gossip's Peers(), via SelfMembershipInfo()). This
+// is inherent to how real Fabric peers answer Discovery queries - even
+// upstream Fabric's own discovery client performs no verification at all on
+// these envelopes - so rejecting a nil signature here would fail every
+// Discovery query in which the responding peer is itself among the reported
+// peers/endorsers, which is the common case in small networks. StateInfo
+// self-entries do not share this exemption: real peers always produce a
+// genuine signature for them, even for themselves (see
+// gossipChannel.setupSignedStateInfoMessage, which calls a real signer, not
+// NoopSign), so callers must pass false for StateInfo envelopes to keep that
+// verification strict.
+func verifyEnvelopeSignature(e *gossip.Envelope, identity []byte, allowEmptySignature bool) error {
 	if e == nil {
 		return errors.New("nil envelope")
+	}
+	if allowEmptySignature && len(e.Signature) == 0 {
+		return nil
 	}
 	_, verifier, err := mspx509.NewIdentityFromBytes(identity)
 	if err != nil {
