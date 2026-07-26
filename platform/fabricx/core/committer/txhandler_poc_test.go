@@ -30,6 +30,8 @@ import (
 // commitTxs, run inside an errgroup per block), i.e. a remotely triggerable
 // DoS against the FSC client process. It must now return an error instead.
 func TestHandleFabricxTransactionShortTransactionsFilterReturnsError(t *testing.T) {
+	t.Parallel()
+
 	h := &handler{committer: &commoncommitter.Committer{}}
 
 	// TRANSACTIONS_FILTER (index 2) is present but empty, i.e. it reports
@@ -63,6 +65,8 @@ func TestHandleFabricxTransactionShortTransactionsFilterReturnsError(t *testing.
 // block metadata slice with exactly statusIdx (2) entries would still panic
 // on Metadata[statusIdx]. The check must require statusIdx+1 entries.
 func TestHandleFabricxTransactionShortMetadataSliceReturnsError(t *testing.T) {
+	t.Parallel()
+
 	h := &handler{committer: &commoncommitter.Committer{}}
 
 	// Only 2 metadata entries -- TRANSACTIONS_FILTER (index 2) is missing

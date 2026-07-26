@@ -38,6 +38,8 @@ import (
 // network/channel. Now, AddFinalityListener fails fast with an error,
 // leaving the manager (and, crucially, handlersMu) usable.
 func TestAddFinalityListenerRecoversAfterStreamFailure(t *testing.T) {
+	t.Parallel()
+
 	nlm, fakeStream := setupTest(t)
 
 	// Simulate the Notifier stream failing immediately, as a malicious or

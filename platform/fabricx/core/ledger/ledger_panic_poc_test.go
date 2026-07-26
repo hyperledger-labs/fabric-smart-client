@@ -47,6 +47,8 @@ func validMessageEnvelope(t *testing.T, txID string) []byte {
 // GetBlockNumberByTxID must now return a wrapped error instead of panicking
 // with a nil-pointer dereference.
 func TestGetBlockNumberByTxIDNilHeaderReturnsError(t *testing.T) {
+	t.Parallel()
+
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	l := ledger.New(fakeBlockClient, fakeQueryService, context.Background())
@@ -68,6 +70,8 @@ func TestGetBlockNumberByTxIDNilHeaderReturnsError(t *testing.T) {
 // now cause ProcessedTransaction to return an error instead of panicking with
 // an index-out-of-range.
 func TestBlockProcessedTransactionShortTransactionsFilterReturnsError(t *testing.T) {
+	t.Parallel()
+
 	fakeBlockClient := &mock.BlockQueryServiceClient{}
 	fakeQueryService := &mock.QueryService{}
 	l := ledger.New(fakeBlockClient, fakeQueryService, context.Background())
@@ -104,6 +108,8 @@ func TestBlockProcessedTransactionShortTransactionsFilterReturnsError(t *testing
 // return in the driver.Block interface, so an out-of-bounds index must return
 // nil rather than panicking with an index-out-of-range.
 func TestBlockDataAtOutOfRangeReturnsNil(t *testing.T) {
+	t.Parallel()
+
 	block := &ledger.Block{
 		Block: &cb.Block{
 			Data: &cb.BlockData{Data: [][]byte{[]byte("tx0")}},
@@ -121,6 +127,8 @@ func TestBlockDataAtOutOfRangeReturnsNil(t *testing.T) {
 // shape a compromised committer could return) is rejected with an error
 // rather than panicking on a nil Metadata dereference.
 func TestBlockProcessedTransactionMissingMetadataReturnsError(t *testing.T) {
+	t.Parallel()
+
 	block := &ledger.Block{
 		Block: &cb.Block{
 			Data: &cb.BlockData{Data: [][]byte{validMessageEnvelope(t, "tx0")}},

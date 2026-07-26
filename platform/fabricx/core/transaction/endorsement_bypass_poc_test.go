@@ -75,7 +75,7 @@ func TestVerifyEndorsementRejectsMultipleEndorsementsPerNamespace(t *testing.T) 
 	fakeProvider := &mock.VerifierProvider{}
 	fakeVerifier := &mock.Verifier{}
 	fakeProvider.GetVerifierReturns(fakeVerifier, nil)
-	fakeVerifier.VerifyStub = func(_ []byte, sig []byte) error {
+	fakeVerifier.VerifyStub = func(_, sig []byte) error {
 		if string(sig) == "sig-org2-forged" {
 			return assert.AnError
 		}
@@ -164,7 +164,7 @@ func TestEndorsementVerificationBypassIsRejectedEndToEnd(t *testing.T) {
 	fakeProvider := &mock.VerifierProvider{}
 	fakeVerifier := &mock.Verifier{}
 	fakeProvider.GetVerifierReturns(fakeVerifier, nil)
-	fakeVerifier.VerifyStub = func(_ []byte, sig []byte) error {
+	fakeVerifier.VerifyStub = func(_, sig []byte) error {
 		if string(sig) == "sig-org2-forged" {
 			return assert.AnError
 		}
