@@ -28,10 +28,10 @@ import (
 // (Address) to satisfy the logging calls inside handleBlockResponse.
 type stubPeerClient struct{}
 
-func (stubPeerClient) Address() string                                { return "peer0" }
-func (stubPeerClient) Certificate() tls.Certificate                   { return tls.Certificate{} }
-func (stubPeerClient) Close()                                         {}
-func (stubPeerClient) EndorserClient() (pb.EndorserClient, error)     { return nil, nil }
+func (stubPeerClient) Address() string                            { return "peer0" }
+func (stubPeerClient) Certificate() tls.Certificate               { return tls.Certificate{} }
+func (stubPeerClient) Close()                                     {}
+func (stubPeerClient) EndorserClient() (pb.EndorserClient, error) { return nil, nil }
 func (stubPeerClient) DiscoveryClient() (services.DiscoveryClient, error) {
 	return nil, nil
 }
