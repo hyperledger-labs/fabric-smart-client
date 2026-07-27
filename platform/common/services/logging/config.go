@@ -9,6 +9,7 @@ package logging
 import (
 	"io"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
 )
@@ -36,6 +37,20 @@ type Config struct {
 	// Sanitization means that any non-printable character is removed.
 	// This protects the traces from undesired behaviours like missing tracing.
 	OtelSanitize bool
+
+	// ContextLogFields lists context keys to extract as zap fields on every context-aware
+	// log call (e.g. InfowContext, ErrorfContext). Merged into the global registry; see
+	// RegisterContextLogField.
+	ContextLogFields []ContextLogField
+}
+
+// ContextLogField maps a context key to the zap field name used when the value is found
+// in the context and added to a log line.
+type ContextLogField struct {
+	// Key is looked up via ctx.Value(Key).
+	Key any
+	// Name is the zap field name the value is logged under.
+	Name string
 }
 
 var (
@@ -43,6 +58,13 @@ var (
 	configMutex = sync.RWMutex{}
 )
 
+// Init (re-)initializes the logging system. Like the rest of Config, it is idempotent:
+// calling it again fully replaces the previous Format/LogSpec/OtelSanitize/Writer, and
+// merges ContextLogFields into the global registry with later calls overwriting the key
+// registered under a given Name. This differs from RegisterContextLogField, which panics
+// on a duplicate Name: Init models "(re-)apply this whole configuration", where a repeated
+// Name is expected on every call after the first, whereas RegisterContextLogField models a
+// one-off, imperative registration, where a duplicate Name is almost always a bug.
 func Init(c Config) {
 	flogging.Init(flogging.Config{
 		Format:  c.Format,
@@ -52,8 +74,12 @@ func Init(c Config) {
 
 	// set local configurations
 	configMutex.Lock()
-	defer configMutex.Unlock()
 	config.OtelSanitize = c.OtelSanitize
+	configMutex.Unlock()
+
+	for _, f := range c.ContextLogFields {
+		registerContextLogField(f.Name, f.Key, true)
+	}
 }
 
 func OtelSanitize() bool {
@@ -87,4 +113,68 @@ func Replacers() map[string]string {
 	replacersMutex.RLock()
 	defer replacersMutex.RUnlock()
 	return replacers
+}
+
+var (
+	// ctxFieldsMutex guards registration (rare, startup-time) writes to ctxFieldNames and
+	// ctxLogFields below. The hot read path, ContextLogFields, never takes it: it loads the
+	// immutable snapshot published in ctxFieldsSnap instead, so every context-aware log call
+	// avoids both lock contention and a per-call copy of the registry.
+	ctxFieldsMutex sync.Mutex
+	ctxFieldNames  []string
+	ctxLogFields   = map[string]any{}
+	ctxFieldsSnap  atomic.Pointer[[]ContextLogField]
+)
+
+// RegisterContextLogField registers a context key to extract as a zap field, under the
+// given field name, on every context-aware log call. Panics if name is already
+// registered.
+func RegisterContextLogField(name string, key any) {
+	registerContextLogField(name, key, false)
+}
+
+func registerContextLogField(name string, key any, overwrite bool) {
+	ctxFieldsMutex.Lock()
+	defer ctxFieldsMutex.Unlock()
+
+	if _, ok := ctxLogFields[name]; ok {
+		if !overwrite {
+			panic("context log field already exists")
+		}
+		ctxLogFields[name] = key
+	} else {
+		ctxLogFields[name] = key
+		ctxFieldNames = append(ctxFieldNames, name)
+	}
+
+	fields := make([]ContextLogField, len(ctxFieldNames))
+	for i, n := range ctxFieldNames {
+		fields[i] = ContextLogField{Key: ctxLogFields[n], Name: n}
+	}
+	ctxFieldsSnap.Store(&fields)
+}
+
+// ContextLogFields returns the current context log field registrations, in
+// registration order. The returned slice is an immutable snapshot and must not be
+// mutated by the caller.
+func ContextLogFields() []ContextLogField {
+	if p := ctxFieldsSnap.Load(); p != nil {
+		return *p
+	}
+	return nil
+}
+
+// resetContextLogFields clears the global context-log-field registry. Test-only: lets
+// each test start from an empty registry (e.g. via t.Cleanup) instead of relying on
+// globally-unique field names to avoid colliding with registrations left behind by
+// other tests.
+//
+//lint:ignore U1000 used for testing
+func resetContextLogFields() {
+	ctxFieldsMutex.Lock()
+	defer ctxFieldsMutex.Unlock()
+
+	ctxFieldNames = nil
+	ctxLogFields = map[string]any{}
+	ctxFieldsSnap.Store(&[]ContextLogField{})
 }
