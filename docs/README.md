@@ -15,6 +15,11 @@ Welcome to the Fabric Smart Client (FSC) documentation.
 
 Each platform section includes a local `README.md` plus a `configuration.md` page as a starting point.
 
+## For Coding Agents
+
+- [Agent guides](agents/README.md) — architecture, conventions, and testing
+  distilled for automated coding agents (entry point: [`AGENTS.md`](../AGENTS.md)).
+
 ## Development
 
 - [Development guide](dev/development.md)
