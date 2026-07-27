@@ -58,6 +58,13 @@ var (
 	configMutex = sync.RWMutex{}
 )
 
+// Init (re-)initializes the logging system. Like the rest of Config, it is idempotent:
+// calling it again fully replaces the previous Format/LogSpec/OtelSanitize/Writer, and
+// merges ContextLogFields into the global registry with later calls overwriting the key
+// registered under a given Name. This differs from RegisterContextLogField, which panics
+// on a duplicate Name: Init models "(re-)apply this whole configuration", where a repeated
+// Name is expected on every call after the first, whereas RegisterContextLogField models a
+// one-off, imperative registration, where a duplicate Name is almost always a bug.
 func Init(c Config) {
 	flogging.Init(flogging.Config{
 		Format:  c.Format,
@@ -155,4 +162,17 @@ func ContextLogFields() []ContextLogField {
 		return *p
 	}
 	return nil
+}
+
+// resetContextLogFields clears the global context-log-field registry. Test-only: lets
+// each test start from an empty registry (e.g. via t.Cleanup) instead of relying on
+// globally-unique field names to avoid colliding with registrations left behind by
+// other tests.
+func resetContextLogFields() {
+	ctxFieldsMutex.Lock()
+	defer ctxFieldsMutex.Unlock()
+
+	ctxFieldNames = nil
+	ctxLogFields = map[string]any{}
+	ctxFieldsSnap.Store(&[]ContextLogField{})
 }

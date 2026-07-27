@@ -38,6 +38,7 @@ func findField(fields []zapcore.Field, name string) (zapcore.Field, bool) {
 }
 
 func TestContextLogFields_ExtractedIntoLogLine(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	t.Cleanup(resetContextLogFields)
 	key := ctxKey{"present"}
 	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.present"}}})
 
@@ -58,6 +59,7 @@ func TestContextLogFields_ExtractedIntoLogLine(t *testing.T) { //nolint:parallel
 type ContextKeyType string
 
 func TestContextLogFields_NamedStringKeyType_ExtractedIntoLogLine(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	t.Cleanup(resetContextLogFields)
 	key := ContextKeyType("request-id")
 	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.request-id"}}})
 
@@ -74,6 +76,7 @@ func TestContextLogFields_NamedStringKeyType_ExtractedIntoLogLine(t *testing.T) 
 }
 
 func TestContextLogFields_AbsentKeyNoField(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	t.Cleanup(resetContextLogFields)
 	key := ctxKey{"absent"}
 	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.absent"}}})
 
@@ -88,6 +91,7 @@ func TestContextLogFields_AbsentKeyNoField(t *testing.T) { //nolint:paralleltest
 }
 
 func TestContextLogFieldArgs_NilContextNoPanic(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	t.Cleanup(resetContextLogFields)
 	key := ctxKey{"nilctx"}
 	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.nilctx"}}})
 
@@ -99,6 +103,7 @@ func TestContextLogFieldArgs_NilContextNoPanic(t *testing.T) { //nolint:parallel
 }
 
 func TestContextLogFields_OnlyPresentKeysAdded(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	t.Cleanup(resetContextLogFields)
 	presentKey := ctxKey{"multi.present"}
 	absentKey := ctxKey{"multi.absent"}
 	Init(Config{ContextLogFields: []ContextLogField{
@@ -121,6 +126,7 @@ func TestContextLogFields_OnlyPresentKeysAdded(t *testing.T) { //nolint:parallel
 }
 
 func TestContextLogFields_SurviveWithAndNamed(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	t.Cleanup(resetContextLogFields)
 	key := ctxKey{"survive"}
 	// Register the field only after the loggers below have already been created and
 	// derived, proving extraction is dynamic (read at call time, not construction time).
@@ -142,6 +148,7 @@ func TestContextLogFields_SurviveWithAndNamed(t *testing.T) { //nolint:parallelt
 }
 
 func TestRegisterContextLogField_AddedToExistingLogger(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	t.Cleanup(resetContextLogFields)
 	// Create the logger (and a context already carrying the value) before the key is
 	// registered, proving RegisterContextLogField takes effect on loggers that already
 	// exist rather than only ones constructed after registration.
@@ -165,6 +172,7 @@ func TestRegisterContextLogField_SecondCallAddsBoth(t *testing.T) { //nolint:par
 	// rather than replace it: the first log call (after only the first key is registered)
 	// should carry only the first field, and the second log call (after the second key is
 	// also registered) should carry both.
+	t.Cleanup(resetContextLogFields)
 	logger, observed := newObservedLogger()
 	firstKey := ctxKey{"register.multi.first"}
 	secondKey := ctxKey{"register.multi.second"}
@@ -195,6 +203,7 @@ func TestRegisterContextLogField_SecondCallAddsBoth(t *testing.T) { //nolint:par
 }
 
 func TestRegisterContextLogField_DuplicatePanics(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	t.Cleanup(resetContextLogFields)
 	key1 := ctxKey{"dup1"}
 	key2 := ctxKey{"dup2"}
 	RegisterContextLogField("test.dup.unique", key1)
@@ -205,6 +214,7 @@ func TestRegisterContextLogField_DuplicatePanics(t *testing.T) { //nolint:parall
 }
 
 func TestInit_ContextLogFields_Idempotent(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	t.Cleanup(resetContextLogFields)
 	firstKey := ctxKey{"idempotent.first"}
 	secondKey := ctxKey{"idempotent.second"}
 
@@ -228,6 +238,7 @@ func TestContextLogFields_SurviveMultipleContextWrapping(t *testing.T) { //nolin
 	// ctx.Value walks up the parent chain, so the registered key must still resolve however
 	// deep it sits under further wrapping (WithValue, WithCancel, WithTimeout, ...) layered on
 	// top by unrelated code between where the value was set and where the log call happens.
+	t.Cleanup(resetContextLogFields)
 	key := ctxKey{"wrapped"}
 	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.wrapped"}}})
 
@@ -251,6 +262,7 @@ func TestContextLogFields_SurviveMultipleContextWrapping(t *testing.T) { //nolin
 }
 
 func TestContextLogFields_CallerAccuracy(t *testing.T) { //nolint:paralleltest // mutates the shared global context-field registry
+	t.Cleanup(resetContextLogFields)
 	key := ctxKey{"caller"}
 	Init(Config{ContextLogFields: []ContextLogField{{Key: key, Name: "test.caller"}}})
 
