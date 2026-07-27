@@ -67,8 +67,9 @@ type Config struct {
 	defaultName    string
 }
 
-// NewConfig builds a Config by scanning the `fabric` key of the given configProvider. It
-// returns an error if no Fabric network is configured.
+// NewConfig builds a Config by scanning the `fabric` key of the given configProvider. Zero
+// Fabric networks is a valid starting state (e.g. when networks are added later at runtime via
+// AddNetwork); in that case Names returns empty and DefaultName returns "".
 func NewConfig(configProvider DynamicConfigProvider) (*Config, error) {
 	configurations, names, defaultName, err := loadNetworks(configProvider)
 	if err != nil {
@@ -126,9 +127,6 @@ func loadNetworks(configProvider ConfigProvider) (map[string]*FSNConfig, []strin
 		configurations[name] = &fsnConfig
 		logger.Debugf("found fabric network [%s], driver [%s]", name, fsnConfig.Driver)
 	}
-	if len(names) == 0 {
-		return nil, nil, "", errors.New("no fabric network configured")
-	}
 
 	defaults := explicitDefaults(configurations, names)
 	if len(defaults) > 1 {
@@ -138,7 +136,7 @@ func loadNetworks(configProvider ConfigProvider) (map[string]*FSNConfig, []strin
 	var defaultName string
 	if len(defaults) == 1 {
 		defaultName = defaults[0]
-	} else {
+	} else if len(names) > 0 {
 		defaultName = names[0]
 		if len(names) > 1 {
 			logger.Warnf("no default network configured, set it to [%s]", defaultName)

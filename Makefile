@@ -178,6 +178,7 @@ INTEGRATION_TARGETS += fabric-atsa
 INTEGRATION_TARGETS += fabric-atsachaincode
 INTEGRATION_TARGETS += fabric-events
 INTEGRATION_TARGETS += fabric-iou
+INTEGRATION_TARGETS += fabric-runtimeconfig
 INTEGRATION_TARGETS += fabric-stoprestart
 INTEGRATION_TARGETS += fabric-twonets
 

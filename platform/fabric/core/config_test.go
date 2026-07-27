@@ -46,6 +46,41 @@ func TestNewConfig(t *testing.T) {
 	assert.Equal(t, "generic", fsnConfig.Driver)
 }
 
+func TestNewConfig_EmptyIsAllowed(t *testing.T) {
+	t.Parallel()
+	p := newTestProvider(t, `
+fabric:
+  enabled: true
+`)
+	cfg, err := NewConfig(p)
+	require.NoError(t, err)
+	assert.Empty(t, cfg.Names())
+	assert.Equal(t, "", cfg.DefaultName())
+}
+
+func TestAddNetwork_IntoEmptyConfig(t *testing.T) {
+	t.Parallel()
+	p := newTestProvider(t, `
+fabric:
+  enabled: true
+`)
+	cfg, err := NewConfig(p)
+	require.NoError(t, err)
+	require.Empty(t, cfg.Names())
+
+	err = cfg.AddNetwork([]byte(`
+fabric:
+  network1:
+    driver: generic
+    channels:
+      - Name: mychannel
+`))
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"network1"}, cfg.Names())
+	// with no explicit default, the only configured network becomes the default
+	assert.Equal(t, "network1", cfg.DefaultName())
+}
+
 func TestNewConfig_RejectsMultipleExplicitDefaults(t *testing.T) {
 	t.Parallel()
 	_, err := NewConfig(newTestProvider(t, `
