@@ -123,7 +123,7 @@ jobs:
 
       - name: Set up monitoring
         # we only need this for a subset of integration tests
-        if: contains(fromJSON('["fabric-iou", "fabric-iou_runtime_config", "fsc-stoprestart"]'), matrix.tests)
+        if: contains(fromJSON('["fabric-iou", "fabric-runtimeconfig", "fsc-stoprestart"]'), matrix.tests)
         run: |
           make -j4 pull-images-monitoring
 

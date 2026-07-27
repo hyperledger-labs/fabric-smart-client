@@ -4,7 +4,7 @@ Copyright IBM Corp All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package iou_runtime_config_test
+package runtimeconfig_test
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 
 func TestEndToEnd(t *testing.T) { //nolint:paralleltest
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "IOU Runtime Config Suite")
+	RunSpecs(t, "Runtime Config Suite")
 }
 
 func StartPort() int {
-	return integration.IOURuntimeConfigPort.StartPortForNode()
+	return integration.RuntimeConfigPort.StartPortForNode()
 }

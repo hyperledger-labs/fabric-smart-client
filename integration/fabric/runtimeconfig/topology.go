@@ -4,13 +4,13 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package iou_runtime_config
+package runtimeconfig
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	iouviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou_runtime_config/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/runtimeconfig/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
@@ -24,6 +24,8 @@ type Opts struct {
 	TLSEnabled      bool
 }
 
+// Topology creates the "classic" IOU topology and additionally registers the
+// InjectNetworkViewFactory for runtime reconfiguration.
 func Topology(opts *Opts) []api.Topology {
 	// Define a Fabric topology with:
 	// 1. Three organization: Org1, Org2, and Org3
