@@ -168,6 +168,8 @@ func ContextLogFields() []ContextLogField {
 // each test start from an empty registry (e.g. via t.Cleanup) instead of relying on
 // globally-unique field names to avoid colliding with registrations left behind by
 // other tests.
+//
+//lint:ignore U1000 used for testing
 func resetContextLogFields() {
 	ctxFieldsMutex.Lock()
 	defer ctxFieldsMutex.Unlock()
