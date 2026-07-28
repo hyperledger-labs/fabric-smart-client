@@ -36,11 +36,25 @@ type handler struct {
 }
 
 func (h *handler) HandleFabricxTransaction(ctx context.Context, blkMetadata *cb.BlockMetadata, tx committer.CommitTx) (*committer.FinalityEvent, error) {
-	if len(blkMetadata.Metadata) < statusIdx {
+	// len(...) < statusIdx would only guarantee indices [0, statusIdx-1]
+	// exist, not statusIdx itself -- an off-by-one that would still let
+	// Metadata[statusIdx] below panic on a block metadata slice exactly
+	// statusIdx entries long. Requiring statusIdx+1 entries guarantees the
+	// TRANSACTIONS_FILTER entry itself is present.
+	if len(blkMetadata.Metadata) < statusIdx+1 {
 		return nil, errors.New("block metadata lacks transaction filter")
 	}
 
-	statusCode := committerpb.Status(blkMetadata.Metadata[statusIdx][tx.TxNum])
+	txFilter := blkMetadata.Metadata[statusIdx]
+	// A malicious or buggy committer/notifier can deliver a TRANSACTIONS_FILTER
+	// entry shorter than the actual number of transactions in the block (or
+	// simply report a tx.TxNum beyond it), which would otherwise panic with
+	// an index-out-of-range and crash the goroutine processing the block.
+	if tx.TxNum >= uint64(len(txFilter)) {
+		return nil, errors.Errorf("transaction filter has no entry for tx index [%d] (filter length [%d])", tx.TxNum, len(txFilter))
+	}
+
+	statusCode := committerpb.Status(txFilter[tx.TxNum])
 	event := &committer.FinalityEvent{
 		Ctx:               ctx,
 		TxID:              tx.TxID,

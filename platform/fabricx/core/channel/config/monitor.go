@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -60,12 +61,13 @@ type ChannelConfigMonitor struct {
 	channel           string
 
 	// State management
-	mu          sync.RWMutex
-	running     bool
-	ctx         context.Context
-	cancel      context.CancelFunc
-	wg          sync.WaitGroup
-	lastVersion int64
+	mu           sync.RWMutex
+	running      bool
+	ctx          context.Context
+	cancel       context.CancelFunc
+	wg           sync.WaitGroup
+	lastVersion  int64
+	lastSequence int64
 }
 
 // NewChannelConfigMonitor creates a new ChannelConfigMonitor service instance
@@ -107,6 +109,7 @@ func NewChannelConfigMonitor(
 		channel:           channel,
 		running:           false,
 		lastVersion:       -1,
+		lastSequence:      -1,
 	}, nil
 }
 
@@ -203,27 +206,66 @@ func (s *ChannelConfigMonitor) checkAndUpdate() error {
 			return errors.New("received nil config transaction info")
 		}
 
+		// configInfo.Version is a plain, out-of-band counter set unilaterally
+		// by the remote committer -- it is not derived from, or bound to, the
+		// envelope content served alongside it. Trusting it in isolation lets
+		// a malicious/compromised committer suppress a genuinely new config
+		// indefinitely simply by reporting a stale Version. Cross-validate it
+		// against the config sequence number embedded in the envelope's own
+		// content: an attacker cannot suppress detection by lying about
+		// Version alone while still serving an envelope whose real,
+		// signed-content sequence has actually advanced.
+		sequence, seqErr := extractConfigSequence(configInfo.Envelope)
+		if seqErr != nil {
+			logger.Warnf("Failed to extract config sequence from envelope for [%s:%s]: %v", s.network, s.channel, seqErr)
+		}
+
+		isNewVersion := int64(configInfo.Version) > s.lastVersion
+		isNewSequence := seqErr == nil && int64(sequence) > s.lastSequence
+
 		// Check if this is a new configuration
-		if int64(configInfo.Version) <= s.lastVersion {
-			logger.Debugf("No new config for [%s:%s], current version: %d", s.network, s.channel, configInfo.Version)
+		if !isNewVersion && !isNewSequence {
+			logger.Debugf("No new config for [%s:%s], current version: %d, sequence: %d", s.network, s.channel, s.lastVersion, s.lastSequence)
 			return nil
 		}
 
-		logger.Debugf("New config detected for [%s:%s], version: %d -> %d",
-			s.network, s.channel, s.lastVersion, configInfo.Version)
+		logger.Debugf("New config detected for [%s:%s], version: %d -> %d, sequence: %d -> %d",
+			s.network, s.channel, s.lastVersion, configInfo.Version, s.lastSequence, sequence)
 
 		// Apply the configuration update
 		if err := s.applyConfigUpdate(configInfo.Envelope); err != nil {
 			return errors.Wrap(err, "failed to apply config update")
 		}
 
-		// Update the last processed config version
+		// Update the last processed config version and sequence
 		s.lastVersion = int64(configInfo.Version)
+		if seqErr == nil {
+			s.lastSequence = int64(sequence)
+		}
 		logger.Debugf("Config update applied successfully for [%s:%s], new version: %d",
 			s.network, s.channel, configInfo.Version)
 
 		return nil
 	})
+}
+
+// extractConfigSequence extracts the config sequence number embedded in the
+// envelope's own content (Config.Sequence). Unlike the Version field reported
+// alongside a ConfigTransactionInfo, this value is derived from the envelope
+// itself, so it can be used to cross-validate that out-of-band report -- see
+// checkAndUpdate.
+func extractConfigSequence(env *cb.Envelope) (uint64, error) {
+	payload, err := protoutil.UnmarshalPayload(env.Payload)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to unmarshal payload")
+	}
+
+	configEnvelope, err := protoutil.UnmarshalConfigEnvelope(payload.Data)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to unmarshal config envelope")
+	}
+
+	return configEnvelope.GetConfig().GetSequence(), nil
 }
 
 // applyConfigUpdate applies the configuration update to membership and ordering services

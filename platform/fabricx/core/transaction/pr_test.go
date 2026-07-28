@@ -14,11 +14,40 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
+	"github.com/hyperledger/fabric-x-common/api/msppb"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
+
+// mustEndorserAndIdentity generates a real self-signed certificate for mspID
+// and returns both the serialized MSP identity (as used in
+// peer.Endorsement.Endorser) and the corresponding cert-ID form msppb.Identity
+// that VerifyEndorsement expects to see on a genuine EndorsementWithIdentity
+// entry produced by that same endorser (see toEndorserIdentityWithCertID).
+func mustEndorserAndIdentity(t *testing.T, mspID string) ([]byte, *msppb.Identity) {
+	t.Helper()
+	_, serialized := mustSerializedIdentityWithRealCert(t, mspID)
+	identity, err := toEndorserIdentityWithCertID(view.Identity(serialized))
+	require.NoError(t, err)
+	return serialized, identity
+}
+
+// namespaceEndorsementWithIdentity builds one namespace-level endorsement set
+// containing a single endorsement entry carrying the given identity verbatim,
+// for tests that need control over the exact claimed identity.
+func namespaceEndorsementWithIdentity(identity *msppb.Identity, sig string) *applicationpb.Endorsements {
+	return &applicationpb.Endorsements{
+		EndorsementsWithIdentity: []*applicationpb.EndorsementWithIdentity{
+			{
+				Identity:    identity,
+				Endorsement: []byte(sig),
+			},
+		},
+	}
+}
 
 //go:generate counterfeiter -o mock/verifier_provider.go --fake-name VerifierProvider github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.VerifierProvider
 //go:generate counterfeiter -o mock/verifier.go --fake-name Verifier github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.Verifier
@@ -147,12 +176,14 @@ func TestVerifyEndorsement(t *testing.T) {
 	rawTx, err := proto.Marshal(tx)
 	require.NoError(t, err)
 
+	endorser, identity := mustEndorserAndIdentity(t, "Org1MSP")
+
 	pr, err := NewProposalResponseFromResponse(&peer.ProposalResponse{
 		Payload: rawTx,
 		Endorsement: &peer.Endorsement{
-			Endorser: mustSerializedIdentity(t, "Org1MSP"),
+			Endorser: endorser,
 			Signature: mustSerializedEndorsements(t, []*applicationpb.Endorsements{
-				sampleNamespaceEndorsements("Org1MSP", "sig-org1"),
+				namespaceEndorsementWithIdentity(identity, "sig-org1"),
 			}),
 		},
 		Response: &peer.Response{
@@ -324,12 +355,14 @@ func TestVerifyEndorsementInvalidNamespaceSignature(t *testing.T) {
 	rawTx, err := proto.Marshal(tx)
 	require.NoError(t, err)
 
+	endorser, identity := mustEndorserAndIdentity(t, "Org1MSP")
+
 	pr, err := NewProposalResponseFromResponse(&peer.ProposalResponse{
 		Payload: rawTx,
 		Endorsement: &peer.Endorsement{
-			Endorser: mustSerializedIdentity(t, "Org1MSP"),
+			Endorser: endorser,
 			Signature: mustSerializedEndorsements(t, []*applicationpb.Endorsements{
-				sampleNamespaceEndorsements("Org1MSP", "sig-org1"),
+				namespaceEndorsementWithIdentity(identity, "sig-org1"),
 			}),
 		},
 		Response: &peer.Response{

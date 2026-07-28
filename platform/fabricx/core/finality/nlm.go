@@ -10,6 +10,7 @@ import (
 	"context"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
@@ -39,6 +40,14 @@ type notificationListenerManager struct {
 
 	handlers   map[driver.TxID][]fabric.FinalityListener
 	handlersMu sync.RWMutex
+
+	// streamCtx holds the errgroup context of the currently active listen()
+	// call, if any. Its Done() channel closes as soon as that stream fails
+	// (errgroup cancels it on the first goroutine error, without waiting for
+	// the others to unwind) or the parent context is canceled. AddFinalityListener
+	// uses it to fail fast on a dead stream instead of blocking forever on
+	// requestQueue.
+	streamCtx atomic.Pointer[context.Context]
 }
 
 // Listen is a blocking method that runs the notification listener stream.
@@ -50,6 +59,14 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	}
 	// Use the base context for errgroup
 	g, gCtx := errgroup.WithContext(ctx)
+
+	// Publish gCtx so AddFinalityListener can select on it instead of
+	// blocking forever on requestQueue once this stream dies. Deliberately
+	// left in place (not cleared) after listen() returns: gCtx.Done() stays
+	// closed forever once this stream fails, which is exactly the permanent
+	// "this stream is dead" signal AddFinalityListener needs until a new
+	// listen() call replaces it with a fresh, live gCtx.
+	n.streamCtx.Store(&gCtx)
 
 	// spawn stream receiver
 	g.Go(func() error {
@@ -214,7 +231,7 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 
 	// this is our first listener registered for the given txID
 	txIDs := []string{txID}
-	n.requestQueue <- &committerpb.NotificationRequest{
+	req := &committerpb.NotificationRequest{
 		TxStatusRequest: &committerpb.TxIDsBatch{
 			TxIds: txIDs,
 		},
@@ -222,7 +239,26 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 		Timeout: durationpb.New(10 * time.Second),
 	}
 
-	return nil
+	// Guard the send against a dead stream: once listen()'s errgroup context
+	// is done (the stream failed, or listen()'s parent context was
+	// canceled), nothing will ever drain requestQueue again, so sending
+	// unconditionally would block forever -- see the streamCtx field doc.
+	// We still hold handlersMu here (never released since the top of this
+	// call), so no other goroutine can have joined this txID's handler list
+	// in the meantime; it is safe to simply undo our own registration on
+	// failure rather than to hand the send off to a would-be next caller.
+	var done <-chan struct{}
+	if sc := n.streamCtx.Load(); sc != nil {
+		done = (*sc).Done()
+	}
+
+	select {
+	case n.requestQueue <- req:
+		return nil
+	case <-done:
+		delete(n.handlers, txID)
+		return errors.Errorf("notification stream unavailable, cannot register listener for txID=%s", txID)
+	}
 }
 
 // RemoveFinalityListener unregisters a previously registered listener for the given txID.
