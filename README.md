@@ -4,6 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger-labs/fabric-smart-client)](https://goreportcard.com/badge/github.com/hyperledger-labs/fabric-smart-client)
 [![Go](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/tests.yml/badge.svg)](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/go.yml)
 [![CodeQL](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/codeql-analysis.yml)
+[![Coverage Status](https://coveralls.io/repos/github/hyperledger-labs/fabric-smart-client/badge.svg?branch=main)](https://coveralls.io/github/hyperledger-labs/fabric-smart-client?branch=main)
 
 The **Fabric Smart Client (FSC)** is a next-generation client-side framework for Hyperledger [Fabric](https://github.com/hyperledger/fabric) and [Fabric-x](https://github.com/hyperledger/fabric-x).  
 It lets you focus on **business logic and distributed workflows**, rather than low-level DLT details.
