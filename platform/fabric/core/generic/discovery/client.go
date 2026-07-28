@@ -14,11 +14,13 @@ import (
 	"math/rand/v2"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/discovery"
+	"github.com/hyperledger/fabric-protos-go-apiv2/gossip"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
 	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	mspx509 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 )
 
 var configTypes = []QueryType{
@@ -381,16 +383,76 @@ func (resp response) mapPeerMembership(key2Index map[string]int, r *discovery.Re
 	return nil
 }
 
+// verifyEnvelopeSignature checks that e.Signature is a valid signature over
+// e.Payload produced by the private key corresponding to the given
+// serialized identity. This binds a relayed gossip envelope to the specific
+// identity it is shipped alongside in the same discovery response, so an
+// envelope whose signature does not verify against that identity's key -
+// including a forged/garbage signature, or one produced by a different key -
+// is rejected instead of being trusted unconditionally.
+//
+// This is a self-consistency check only: it proves the envelope was signed
+// by whoever holds the private key matching the claimed identity, not that
+// the identity itself is a legitimately-issued, MSP-trusted peer. Identity
+// verification here uses the same lightweight, no-CA-binding provider as
+// mspx509.Provider.DeserializeVerifier (see its doc comment) - it accepts
+// any well-formed self-signed identity with no validation against a
+// channel/local MSP's trusted root CAs. A discovery server that is itself
+// malicious, or that is relaying data from a colluding remote peer, can
+// therefore still present a self-consistent but unauthorized identity: this
+// check is not a substitute for MSP/CA-chain validation of discovered peers,
+// which callers must not assume has happened here. See
+// https://github.com/hyperledger-labs/fabric-smart-client/issues/1623 for
+// follow-up hardening around discovery-peer trust.
+//
+// allowEmptySignature must be true only for AliveMessage/MembershipInfo
+// envelopes. A real Fabric peer signs its own self-referential AliveMessage
+// with protoext.NoopSign (gossip/discovery's Self()), which produces a nil
+// Signature by design, and the Discovery service exposes that self-entry
+// as-is (discovery/support/gossip's Peers(), via SelfMembershipInfo()). This
+// is inherent to how real Fabric peers answer Discovery queries - even
+// upstream Fabric's own discovery client performs no verification at all on
+// these envelopes - so rejecting a nil signature here would fail every
+// Discovery query in which the responding peer is itself among the reported
+// peers/endorsers, which is the common case in small networks. StateInfo
+// self-entries do not share this exemption: real peers always produce a
+// genuine signature for them, even for themselves (see
+// gossipChannel.setupSignedStateInfoMessage, which calls a real signer, not
+// NoopSign), so callers must pass false for StateInfo envelopes to keep that
+// verification strict.
+func verifyEnvelopeSignature(e *gossip.Envelope, identity []byte, allowEmptySignature bool) error {
+	if e == nil {
+		return errors.New("nil envelope")
+	}
+	if allowEmptySignature && len(e.Signature) == 0 {
+		return nil
+	}
+	_, verifier, err := mspx509.NewIdentityFromBytes(identity)
+	if err != nil {
+		return errors.Wrap(err, "failed deriving verifier from peer identity")
+	}
+	if err := verifier.Verify(e.Payload, e.Signature); err != nil {
+		return errors.Wrap(err, "signature does not verify against claimed identity")
+	}
+	return nil
+}
+
 func peersForChannel(membersRes *discovery.PeerMembershipResult, qt QueryType) ([]*Peer, error) {
 	var peers []*Peer
 	for org, peersOfCurrentOrg := range membersRes.PeersByOrg {
 		for _, pp := range peersOfCurrentOrg.Peers {
+			if err := verifyEnvelopeSignature(pp.MembershipInfo, pp.Identity, true); err != nil {
+				return nil, errors.Wrap(err, "failed verifying alive message signature")
+			}
 			aliveMsg, err := EnvelopeToGossipMessage(pp.MembershipInfo)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed unmarshalling alive message")
 			}
 			var stateInfoMsg *SignedGossipMessage
 			if isStateInfoExpected(qt) {
+				if err := verifyEnvelopeSignature(pp.StateInfo, pp.Identity, false); err != nil {
+					return nil, errors.Wrap(err, "failed verifying stateInfo message signature")
+				}
 				stateInfoMsg, err = EnvelopeToGossipMessage(pp.StateInfo)
 				if err != nil {
 					return nil, errors.Wrap(err, "failed unmarshalling stateInfo message")
@@ -503,6 +565,12 @@ func (resp response) createEndorsementDescriptor(desc *discovery.EndorsementDesc
 func endorser(peer *discovery.Peer, chaincode, channel string) (*Peer, error) {
 	if peer.MembershipInfo == nil || peer.StateInfo == nil {
 		return nil, errors.Errorf("received empty envelope(s) for endorsers for chaincode %s, channel %s", chaincode, channel)
+	}
+	if err := verifyEnvelopeSignature(peer.MembershipInfo, peer.Identity, true); err != nil {
+		return nil, errors.Wrap(err, "failed verifying alive message signature")
+	}
+	if err := verifyEnvelopeSignature(peer.StateInfo, peer.Identity, false); err != nil {
+		return nil, errors.Wrap(err, "failed verifying stateInfo message signature")
 	}
 	aliveMsg, err := EnvelopeToGossipMessage(peer.MembershipInfo)
 	if err != nil {

@@ -69,6 +69,30 @@ func TestMapFinalityEvent(t *testing.T) {
 		require.Equal(t, fdriver.Valid, event.ValidationCode)
 		require.Equal(t, peer.TxValidationCode_name[int32(peer.TxValidationCode_VALID)], event.ValidationMessage)
 	})
+
+	// Regression test: block.Metadata sized exactly at the TRANSACTIONS_FILTER
+	// index used to pass the `len(...) < index` guard and then panic on
+	// Metadata[index] (index out of range). A malicious/misbehaving peer can
+	// send such a block over the Deliver stream, crashing the process since
+	// nothing in the delivery->committer call chain recovers panics.
+	t.Run("metadata exactly at transactions filter index is rejected, not a panic", func(t *testing.T) {
+		t.Parallel()
+		metadata := make([][]byte, int(common.BlockMetadataIndex_TRANSACTIONS_FILTER))
+		_, _, err := MapFinalityEvent(t.Context(), &common.BlockMetadata{Metadata: metadata}, 0, "tx-boundary")
+		require.ErrorContains(t, err, "block metadata lacks transaction filter")
+	})
+
+	// Regression test: txNum beyond the length of the validation-flags byte
+	// slice used to panic instead of returning an error. Same remote-input
+	// reachability and crash concern as above.
+	t.Run("txNum beyond validation flags length is rejected, not a panic", func(t *testing.T) {
+		t.Parallel()
+		metadata := make([][]byte, int(common.BlockMetadataIndex_TRANSACTIONS_FILTER)+1)
+		metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER] = []byte{uint8(peer.TxValidationCode_VALID)}
+
+		_, _, err := MapFinalityEvent(t.Context(), &common.BlockMetadata{Metadata: metadata}, 5, "tx-oob")
+		require.ErrorContains(t, err, "out of range")
+	})
 }
 
 func TestMapValidationCodeAndConvertValidationCode(t *testing.T) {

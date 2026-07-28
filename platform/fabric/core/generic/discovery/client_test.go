@@ -8,6 +8,9 @@ package discovery
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -19,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/fabric-lib-go/bccsp/utils"
 	"github.com/hyperledger/fabric-protos-go-apiv2/discovery"
 	"github.com/hyperledger/fabric-protos-go-apiv2/gossip"
 	"github.com/hyperledger/fabric-protos-go-apiv2/msp"
@@ -30,6 +34,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	mspx509 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
 	comm "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -600,6 +605,144 @@ func TestValidateStateInfoMessage(t *testing.T) {
 	require.Equal(t, "message isn't a stateInfo message", err.Error())
 }
 
+// TestForgedGossipEnvelopeRejected is a security regression test for a fix
+// to a bug where EnvelopeToGossipMessage and
+// validateAliveMessage/validateStateInfoMessage never checked
+// gossip.Envelope.Signature against gossip.Envelope.Payload. A
+// discovery-service peer that relays Alive/StateInfo entries collected from
+// gossip (peersForChannel, endorser in client.go) could therefore forge the
+// Membership.Endpoint of any org's peer - even one it never received a
+// genuine envelope for - and have it accepted as valid, since there was no
+// signature verification anywhere in the call chain. This held even when the
+// discovery gRPC connection itself was mTLS-authenticated: mTLS only proves
+// who you're talking to, not whether the gossip payload they're relaying was
+// honestly produced by the peer it claims to be from.
+//
+// peersForChannel now verifies the envelope's signature against the public
+// key embedded in the peer's own claimed Identity before trusting its
+// content, so both a garbage signature and a signature produced by the
+// wrong key (i.e. an attacker who doesn't hold the claimed identity's
+// private key) are rejected.
+func TestForgedGossipEnvelopeRejected(t *testing.T) {
+	t.Parallel()
+
+	genuine := &gossip.GossipMessage{
+		Content: &gossip.GossipMessage_AliveMsg{
+			AliveMsg: &gossip.AliveMessage{
+				Timestamp:  &gossip.PeerTime{SeqNum: 1, IncNum: 1},
+				Membership: &gossip.Member{Endpoint: "real-peer.example.com:7051"},
+			},
+		},
+	}
+	payload, err := proto.Marshal(genuine)
+	require.NoError(t, err)
+
+	membersResFor := func(envelope *gossip.Envelope, identity []byte) *discovery.PeerMembershipResult {
+		return &discovery.PeerMembershipResult{
+			PeersByOrg: map[string]*discovery.Peers{
+				"A": {
+					Peers: []*discovery.Peer{
+						{
+							MembershipInfo: envelope,
+							StateInfo:      stateInfoMessage(),
+							Identity:       identity,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("garbage signature", func(t *testing.T) {
+		t.Parallel()
+		forged := &gossip.Envelope{
+			Payload:   payload,
+			Signature: []byte("not-a-real-signature-from-anyone"),
+		}
+		_, err := peersForChannel(membersResFor(forged, peerIdentity("A", 0)), PeerMembershipQueryType)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed verifying alive message signature")
+	})
+
+	t.Run("signature from the wrong key", func(t *testing.T) {
+		t.Parallel()
+		attackerKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		require.NoError(t, err)
+		digest := sha256.Sum256(payload)
+		r, s, err := ecdsa.Sign(rand.Reader, attackerKey, digest[:])
+		require.NoError(t, err)
+		s, _, err = mspx509.ToLowS(&attackerKey.PublicKey, s)
+		require.NoError(t, err)
+		sig, err := utils.MarshalECDSASignature(r, s)
+		require.NoError(t, err)
+
+		forged := &gossip.Envelope{
+			Payload:   payload,
+			Signature: sig,
+		}
+		// Identity claims to be peer "A"/0 (whose key is testPeerKey), but the
+		// signature was produced by an unrelated attacker key.
+		_, err = peersForChannel(membersResFor(forged, peerIdentity("A", 0)), PeerMembershipQueryType)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed verifying alive message signature")
+	})
+
+	t.Run("genuine signature is accepted", func(t *testing.T) {
+		t.Parallel()
+		sig, err := signWithTestPeerKey(payload)
+		require.NoError(t, err)
+		genuineEnvelope := &gossip.Envelope{
+			Payload:   payload,
+			Signature: sig,
+		}
+		peers, err := peersForChannel(membersResFor(genuineEnvelope, peerIdentity("A", 0)), PeerMembershipQueryType)
+		require.NoError(t, err)
+		require.Len(t, peers, 1)
+		require.Equal(t, "real-peer.example.com:7051", peers[0].AliveMessage.GetAliveMsg().Membership.Endpoint)
+	})
+
+	// A real Fabric peer signs its own self-referential AliveMessage with
+	// protoext.NoopSign (gossip/discovery's Self()), which produces a nil
+	// Signature by design, and the Discovery service reports that self-entry
+	// as-is whenever the responding peer is itself among the reported peers -
+	// the common case in small test networks, where the peer answering the
+	// query is very often also one of the few endorsers/members it reports
+	// on. This must be accepted, not treated as a forged/garbage signature.
+	t.Run("nil alive message signature from a self-entry is accepted", func(t *testing.T) {
+		t.Parallel()
+		selfEnvelope := &gossip.Envelope{
+			Payload:   payload,
+			Signature: nil,
+		}
+		peers, err := peersForChannel(membersResFor(selfEnvelope, peerIdentity("A", 0)), PeerMembershipQueryType)
+		require.NoError(t, err)
+		require.Len(t, peers, 1)
+		require.Equal(t, "real-peer.example.com:7051", peers[0].AliveMessage.GetAliveMsg().Membership.Endpoint)
+	})
+
+	// Unlike AliveMessage, a real peer's StateInfo self-entry is always
+	// genuinely signed (gossipChannel.setupSignedStateInfoMessage calls a
+	// real signer, not NoopSign), so a nil StateInfo signature has no
+	// legitimate source and must still be rejected.
+	t.Run("nil stateInfo signature is still rejected", func(t *testing.T) {
+		t.Parallel()
+		sig, err := signWithTestPeerKey(payload)
+		require.NoError(t, err)
+		genuineAlive := &gossip.Envelope{
+			Payload:   payload,
+			Signature: sig,
+		}
+		membersRes := membersResFor(genuineAlive, peerIdentity("A", 0))
+		membersRes.PeersByOrg["A"].Peers[0].StateInfo = &gossip.Envelope{
+			Payload:   stateInfoMessage().Payload,
+			Signature: nil,
+		}
+		_, err = peersForChannel(membersRes, PeerMembershipQueryType)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed verifying stateInfo message signature")
+	})
+}
+
 func TestString(t *testing.T) {
 	t.Parallel()
 	var ic InvocationChain
@@ -638,11 +781,43 @@ func getMSPs(endorsers []*Peer) map[string]struct{} {
 	return m
 }
 
-func peerIdentity(mspID string, i int) []byte {
-	p := fmt.Appendf(nil, "p%d", i)
+// testPeerKey is the ECDSA key shared by every fixture identity/envelope
+// pair produced in this file. Tests here don't exercise per-org key
+// separation (getMSP infers org from the endpoint string, not the key), so
+// one shared key keeps peerIdentity/aliveMessage/stateInfoMessage
+// independently callable, as they were before signature verification
+// existed, while still producing envelopes that verify for real.
+var testPeerKey = mustGenerateTestPeerKey()
+
+func mustGenerateTestPeerKey() *ecdsa.PrivateKey {
+	sk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	return sk
+}
+
+func signWithTestPeerKey(message []byte) ([]byte, error) {
+	digest := sha256.Sum256(message)
+	r, s, err := ecdsa.Sign(rand.Reader, testPeerKey, digest[:])
+	if err != nil {
+		return nil, err
+	}
+	s, _, err = mspx509.ToLowS(&testPeerKey.PublicKey, s)
+	if err != nil {
+		return nil, err
+	}
+	return utils.MarshalECDSASignature(r, s)
+}
+
+func peerIdentity(mspID string, _ int) []byte {
+	pubPEM, err := mspx509.PemEncodeKey(&testPeerKey.PublicKey)
+	if err != nil {
+		panic(err)
+	}
 	sID := &msp.SerializedIdentity{
 		Mspid:   mspID,
-		IdBytes: p,
+		IdBytes: pubPEM,
 	}
 	b, _ := proto.Marshal(sID)
 	return b
@@ -662,7 +837,7 @@ func aliveMessage(id int) *gossip.Envelope {
 			},
 		},
 	}
-	sMsg, _ := noopSign(g)
+	sMsg, _ := signForTest(g)
 	return sMsg.Envelope
 }
 
@@ -685,7 +860,7 @@ func stateInfoMessageWithHeight(ledgerHeight uint64, chaincodes ...*gossip.Chain
 			},
 		},
 	}
-	sMsg, _ := noopSign(g)
+	sMsg, _ := signForTest(g)
 	return sMsg.Envelope
 }
 
@@ -766,15 +941,14 @@ func interest(ccNames ...string) *peer.ChaincodeInterest {
 	return interest
 }
 
-// noopSign creates a SignedGossipMessage with a nil signature
-func noopSign(m *gossip.GossipMessage) (*SignedGossipMessage, error) {
-	signer := func(msg []byte) ([]byte, error) {
-		return nil, nil
-	}
+// signForTest creates a SignedGossipMessage signed with testPeerKey, so that
+// it verifies against the identity produced by peerIdentity in tests that go
+// through the signature-checked path (peersForChannel, endorser).
+func signForTest(m *gossip.GossipMessage) (*SignedGossipMessage, error) {
 	sMsg := &SignedGossipMessage{
 		GossipMessage: m,
 	}
-	_, err := sMsg.Sign(signer)
+	_, err := sMsg.Sign(signWithTestPeerKey)
 	return sMsg, err
 }
 
@@ -789,6 +963,6 @@ func stateInfoWithHeight(h uint64) *SignedGossipMessage {
 			},
 		},
 	}
-	sMsg, _ := noopSign(g)
+	sMsg, _ := signForTest(g)
 	return sMsg
 }

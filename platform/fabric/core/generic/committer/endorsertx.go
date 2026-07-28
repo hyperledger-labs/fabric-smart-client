@@ -55,11 +55,16 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 }
 
 func MapFinalityEvent(ctx context.Context, block *common.BlockMetadata, txNum driver.TxNum, txID string) (uint8, *FinalityEvent, error) {
-	if len(block.Metadata) < int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
+	if len(block.Metadata) <= int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) {
 		return 0, nil, errors.Errorf("block metadata lacks transaction filter")
 	}
 
-	fabricValidationCode := ValidationFlags(block.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])[txNum]
+	validationFlags := ValidationFlags(block.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])
+	if uint64(txNum) >= uint64(len(validationFlags)) {
+		return 0, nil, errors.Errorf("transaction number [%d] out of range for validation flags of length [%d]", txNum, len(validationFlags))
+	}
+
+	fabricValidationCode := validationFlags[txNum]
 	validationCode, validationMessage := MapValidationCode(int32(fabricValidationCode))
 	event := &FinalityEvent{
 		Ctx:               ctx,

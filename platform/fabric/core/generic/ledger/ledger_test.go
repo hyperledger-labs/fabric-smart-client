@@ -335,4 +335,120 @@ func TestBlock(t *testing.T) {
 		_, err = b.ProcessedTransaction(0)
 		require.Error(t, err)
 	})
+
+	// Regression test: ProcessedTransaction used to index straight into
+	// b.Data.Data[i] and b.Metadata.Metadata[TRANSACTIONS_FILTER][i] with no
+	// bounds checking. A malformed/malicious block (e.g. one whose
+	// TRANSACTIONS_FILTER metadata entry is shorter than Data.Data, or an
+	// out-of-range index requested by a caller) crashes the whole process with
+	// an index-out-of-range panic instead of returning an error.
+	t.Run("out of range index does not panic", func(t *testing.T) {
+		t.Parallel()
+		b, _, _ := setup()
+
+		require.NotPanics(t, func() {
+			_, err := b.ProcessedTransaction(5)
+			require.Error(t, err)
+		})
+	})
+
+	t.Run("undersized transactions filter does not panic", func(t *testing.T) {
+		t.Parallel()
+		mockTM := &mock.TransactionManager{}
+		env := &common.Envelope{Payload: []byte("payload1")}
+		rawEnv, _ := proto.Marshal(env)
+
+		// Two data entries but the TRANSACTIONS_FILTER metadata entry only
+		// covers the first one.
+		block := &common.Block{
+			Data: &common.BlockData{
+				Data: [][]byte{rawEnv, rawEnv},
+			},
+			Metadata: &common.BlockMetadata{
+				Metadata: [][]byte{
+					nil,
+					nil,
+					{byte(peer.TxValidationCode_VALID)},
+				},
+			},
+		}
+		b := &Block{Block: block, TransactionManager: mockTM}
+
+		require.NotPanics(t, func() {
+			_, err := b.ProcessedTransaction(1)
+			require.Error(t, err)
+		})
+	})
+
+	t.Run("missing metadata does not panic", func(t *testing.T) {
+		t.Parallel()
+		mockTM := &mock.TransactionManager{}
+		env := &common.Envelope{Payload: []byte("payload1")}
+		rawEnv, _ := proto.Marshal(env)
+
+		block := &common.Block{
+			Data: &common.BlockData{
+				Data: [][]byte{rawEnv},
+			},
+			Metadata: &common.BlockMetadata{
+				Metadata: [][]byte{},
+			},
+		}
+		b := &Block{Block: block, TransactionManager: mockTM}
+
+		require.NotPanics(t, func() {
+			_, err := b.ProcessedTransaction(0)
+			require.Error(t, err)
+		})
+	})
+
+	// Regression test: block.Data and block.Metadata are populated
+	// independently by whoever produced the block, so a malformed block can
+	// have either be nil entirely - not just shorter than expected.
+	t.Run("nil Data does not panic", func(t *testing.T) {
+		t.Parallel()
+		mockTM := &mock.TransactionManager{}
+		block := &common.Block{
+			Metadata: &common.BlockMetadata{
+				Metadata: [][]byte{nil, nil, {byte(peer.TxValidationCode_VALID)}},
+			},
+		}
+		b := &Block{Block: block, TransactionManager: mockTM}
+
+		require.NotPanics(t, func() {
+			require.Nil(t, b.DataAt(0))
+			_, err := b.ProcessedTransaction(0)
+			require.Error(t, err)
+		})
+	})
+
+	t.Run("nil Metadata does not panic", func(t *testing.T) {
+		t.Parallel()
+		mockTM := &mock.TransactionManager{}
+		env := &common.Envelope{Payload: []byte("payload1")}
+		rawEnv, _ := proto.Marshal(env)
+
+		block := &common.Block{
+			Data: &common.BlockData{
+				Data: [][]byte{rawEnv},
+			},
+		}
+		b := &Block{Block: block, TransactionManager: mockTM}
+
+		require.NotPanics(t, func() {
+			require.Equal(t, rawEnv, b.DataAt(0))
+			_, err := b.ProcessedTransaction(0)
+			require.Error(t, err)
+		})
+	})
+
+	t.Run("DataAt out of range returns nil instead of panicking", func(t *testing.T) {
+		t.Parallel()
+		b, _, _ := setup()
+
+		require.NotPanics(t, func() {
+			require.Nil(t, b.DataAt(-1))
+			require.Nil(t, b.DataAt(5))
+		})
+	})
 }

@@ -21,7 +21,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ordering/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	metricsdisabled "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/disabled"
 )
+
+// newTestMetrics returns a *metrics.Metrics backed by working (no-op) counters,
+// for tests that exercise a real Broadcast success path (which increments
+// OrderedTransactions). A bare &metrics.Metrics{} has a nil Counter and panics
+// there.
+func newTestMetrics() *metrics.Metrics {
+	return metrics.NewMetrics(&metricsdisabled.Provider{})
+}
 
 // fakeCFTServices provides orderer clients for testing
 type fakeCFTServices struct {
@@ -68,7 +77,7 @@ func (f *fakeCFTClient) Close() {
 type fakeCFTAB struct{}
 
 func (fakeCFTAB) Broadcast(context.Context, ...ggrpc.CallOption) (ggrpc.BidiStreamingClient[common.Envelope, ab.BroadcastResponse], error) {
-	return &fakeCFTStream{}, nil
+	return &fakeCFTStream{status: common.Status_SUCCESS}, nil
 }
 
 func (fakeCFTAB) Deliver(context.Context, ...ggrpc.CallOption) (ggrpc.BidiStreamingClient[common.Envelope, ab.DeliverResponse], error) {
@@ -139,7 +148,7 @@ func TestCFTBroadcaster_NewCFTBroadcaster(t *testing.T) {
 				PoolSizeValue:    tt.poolSize,
 				NetworkNameValue: tt.networkName,
 			}
-			m := &metrics.Metrics{}
+			m := newTestMetrics()
 
 			b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, m)
 
@@ -167,7 +176,7 @@ func TestCFTBroadcaster_Broadcast_Success(t *testing.T) {
 			NetworkNameValue: "test-network",
 			OrderersValue:    []*grpc.ConnectionConfig{{Address: "orderer-1"}},
 		}
-		m := &metrics.Metrics{}
+		m := newTestMetrics()
 		b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, m)
 
 		err := b.Broadcast(t.Context(), &common.Envelope{})
@@ -182,7 +191,7 @@ func TestCFTBroadcaster_Broadcast_Success(t *testing.T) {
 			NetworkNameValue: "test-network",
 			OrderersValue:    []*grpc.ConnectionConfig{{Address: "orderer-1"}},
 		}
-		m := &metrics.Metrics{}
+		m := newTestMetrics()
 		b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, m)
 
 		// First broadcast creates connection
@@ -266,7 +275,7 @@ func TestCFTBroadcaster_Broadcast_Retries(t *testing.T) {
 			OrderersValue:    []*grpc.ConnectionConfig{{Address: "orderer-1"}},
 		}
 
-		b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, nil)
+		b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, newTestMetrics())
 
 		// First broadcast succeeds and pools connection
 		err := b.Broadcast(t.Context(), &common.Envelope{})
@@ -303,6 +312,51 @@ func TestCFTBroadcaster_Broadcast_Retries(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to send transaction to orderer")
 	})
+}
+
+// TestCFTBroadcaster_Broadcast_OrdererRejection is a regression test: when the
+// orderer responds with a non-SUCCESS status but Send/Recv return no
+// transport error, Broadcast used to call errors.Wrapf(err, ...) with a nil
+// err, which (per github.com/pkg/errors semantics) returns nil. That made
+// Broadcast report success to the caller for a transaction the orderer
+// actually rejected (e.g. BAD_REQUEST, FORBIDDEN, SERVICE_UNAVAILABLE) - the
+// caller has no way to know its transaction was dropped. BFT's equivalent
+// branch uses fmt.Errorf and does not share this defect.
+func TestCFTBroadcaster_Broadcast_OrdererRejection(t *testing.T) {
+	t.Parallel()
+
+	rejectionStatuses := []common.Status{
+		common.Status_BAD_REQUEST,
+		common.Status_FORBIDDEN,
+		common.Status_SERVICE_UNAVAILABLE,
+	}
+
+	for _, st := range rejectionStatuses {
+		t.Run(common.Status_name[int32(st)], func(t *testing.T) {
+			t.Parallel()
+			cfg := &fake.ConfigService{
+				PoolSizeValue:    4,
+				RetriesValue:     3,
+				NetworkNameValue: "test-network",
+				OrderersValue:    []*grpc.ConnectionConfig{{Address: "orderer-1"}},
+			}
+			services := &fakeCFTServices{}
+			b := NewCFTBroadcaster(cfg, services, newTestMetrics())
+
+			// Pre-seed the pool with a connection whose stream reports a
+			// rejection status with no Send/Recv error, so the first attempt
+			// hits the buggy branch directly (no retries involved).
+			conn, err := b.getConnection(t.Context())
+			require.NoError(t, err)
+			conn.Stream = &fakeCFTStream{status: st}
+			b.releaseConnection(conn)
+
+			err = b.Broadcast(t.Context(), &common.Envelope{})
+			require.Error(t, err, "orderer rejection (status %s) must surface as an error, not be silently swallowed", common.Status_name[int32(st)])
+			require.Contains(t, err.Error(), "failed broadcasting")
+			require.Contains(t, err.Error(), common.Status_name[int32(st)])
+		})
+	}
 }
 
 // TestCFTBroadcaster_GetConnection tests connection acquisition
@@ -558,7 +612,7 @@ func TestCFTBroadcaster_ConcurrentBroadcasts(t *testing.T) {
 			NetworkNameValue: "test-network",
 			OrderersValue:    []*grpc.ConnectionConfig{{Address: "orderer-1"}},
 		}
-		b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, &metrics.Metrics{})
+		b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, newTestMetrics())
 
 		const numGoroutines = 20
 		errChan := make(chan error, numGoroutines)
@@ -637,7 +691,7 @@ func TestCFTBroadcaster_ConnectionLifecycle(t *testing.T) {
 			NetworkNameValue: "test-network",
 			OrderersValue:    []*grpc.ConnectionConfig{{Address: "orderer-1"}},
 		}
-		b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, &metrics.Metrics{})
+		b := NewCFTBroadcaster(cfg, &fakeCFTServices{}, newTestMetrics())
 
 		// First broadcast - creates connection
 		err := b.Broadcast(t.Context(), &common.Envelope{})

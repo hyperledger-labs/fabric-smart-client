@@ -131,6 +131,54 @@ func TestCommitConfig(t *testing.T) {
 		err := c.CommitConfig(t.Context(), 1, 4, []byte("raw"), &common.Envelope{})
 		require.ErrorContains(t, err, "invalid configtx's")
 	})
+
+	// Regression test: CommitConfig used to panic (panic(err)) if
+	// MembershipService.Update failed after the configtx was already
+	// committed to the vault. A malformed/malicious config transaction that
+	// the membership service rejects would crash the whole process instead
+	// of returning an error. This confirms the failure now propagates as a
+	// wrapped error.
+	t.Run("membership update failure is returned as error, not a panic", func(t *testing.T) {
+		t.Parallel()
+		// CommitConfig checks Status once itself (must be Unknown to proceed
+		// past the "already committed" guard), then commitConfig->CommitTX
+		// checks Status again internally (must be Busy to take the
+		// already-exercised c.commit()->CommitTxFn path instead of the
+		// unrelated commitUnknown() path). A stateful fake mirrors that.
+		var statusCalls int
+		c := &Committer{
+			logger:        logger,
+			ChannelConfig: &fake.ChannelConfig{IDValue: "ch-update-fail"},
+			Vault: &fake.Vault{
+				NewRWSetFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, error) {
+					return &fake.RWSet{}, nil
+				},
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					statusCalls++
+					if statusCalls == 1 {
+						return fdriver.Unknown, "", nil
+					}
+					return fdriver.Busy, "", nil
+				},
+				CommitTxFn: func(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error {
+					return nil
+				},
+			},
+			ProcessorManager: &fake.ProcessorManager{
+				ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
+			},
+			MembershipService: &fake.MembershipService{
+				UpdateFn: func(*common.Envelope) error {
+					return stderrors.New("membership-update-failed")
+				},
+			},
+		}
+		require.NotPanics(t, func() {
+			err := c.CommitConfig(t.Context(), 1, 5, []byte("raw"), &common.Envelope{})
+			require.ErrorContains(t, err, "failed updating membership service for configtx")
+			require.ErrorContains(t, err, "membership-update-failed")
+		})
+	})
 }
 
 func TestApplyConfigUpdates(t *testing.T) {
