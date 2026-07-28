@@ -115,17 +115,24 @@ type Block struct {
 	TransactionManager driver.TransactionManager
 }
 
-// DataAt returns the data stored at the passed index
+// DataAt returns the data stored at the passed index. block.Data is
+// populated by whoever produced the block, so a malformed or malicious
+// block (e.g. fetched via GetBlockByNumber from a remote peer) can have a
+// nil Data or a Data.Data shorter than the caller expects, which would
+// otherwise panic on a bare slice index.
 func (b *Block) DataAt(i int) []byte {
+	if b.Data == nil || i < 0 || i >= len(b.Data.Data) {
+		return nil
+	}
 	return b.Data.Data[i]
 }
 
 // ProcessedTransaction returns the ProcessedTransaction at passed index
 func (b *Block) ProcessedTransaction(i int) (driver.ProcessedTransaction, error) {
-	if i < 0 || i >= len(b.Data.Data) {
-		return nil, errors.Errorf("transaction index [%d] out of range [0,%d)", i, len(b.Data.Data))
+	if b.Data == nil || i < 0 || i >= len(b.Data.Data) {
+		return nil, errors.Errorf("transaction index [%d] out of range [0,%d)", i, len(b.Data.GetData()))
 	}
-	if int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) >= len(b.Metadata.Metadata) {
+	if b.Metadata == nil || int(common.BlockMetadataIndex_TRANSACTIONS_FILTER) >= len(b.Metadata.Metadata) {
 		return nil, errors.Errorf("block metadata missing transactions filter entry")
 	}
 	txFilter := b.Metadata.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER]
