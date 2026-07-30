@@ -23,28 +23,22 @@ import (
 )
 
 // Marshaller is the custom marshaller for fabricx that handles serialization and deserialization
-// of read-write sets to/from the FabricX protobuf format.
-// It maintains namespace version information (NsInfo) required for proper marshalling.
-type Marshaller struct {
-	// NsInfo maps namespace names to their version information.
-	// This must be populated before calling Marshal.
-	NsInfo map[driver.Namespace]driver.RawVersion
-}
+// of read-write sets to/from the FabricX protobuf format. It is stateless and safe for concurrent
+// use: the namespace version information required for marshalling is passed to Marshal per call
+// rather than stored on the marshaller.
+type Marshaller struct{}
 
-// NewMarshaller creates a new Marshaller instance with an empty namespace info map.
+// NewMarshaller creates a new Marshaller instance.
 func NewMarshaller() *Marshaller {
 	return &Marshaller{}
 }
 
 // Marshal serializes a ReadWriteSet into FabricX protobuf format for the given transaction ID.
-// It uses the namespace version information stored in m.NsInfo to properly encode namespace versions.
-// Returns an error if any namespace in the RWSet is not found in NsInfo or if marshalling fails.
-func (m *Marshaller) Marshal(txID string, rws *vault.ReadWriteSet) ([]byte, error) {
+// nsInfo maps each namespace to its version information and must contain an entry for every
+// namespace present in the RWSet. Returns an error if a namespace is missing from nsInfo or if
+// marshalling fails. Taking nsInfo as a parameter keeps the marshaller stateless and race-free.
+func (m *Marshaller) Marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[driver.Namespace]driver.RawVersion) ([]byte, error) {
 	logger.Debugf("Marshal rws into fabricx proto [txID=%v]", txID)
-	return m.marshal(txID, rws, m.NsInfo)
-}
-
-func (m *Marshaller) marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[driver.Namespace]driver.RawVersion) ([]byte, error) {
 	if logger.IsEnabledFor(zap.DebugLevel) {
 		str, _ := json.MarshalIndent(rws, "", "\t")
 		logger.Debugf("Marshal vault.ReadWriteSet %s", string(str))

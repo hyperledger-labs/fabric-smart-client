@@ -79,14 +79,13 @@ func TestMarshal_Deterministic(t *testing.T) {
 			rws, nsInfo := buildRWSet(t, mode)
 
 			m := vault.NewMarshaller()
-			m.NsInfo = nsInfo
 
-			first, err := m.Marshal("tx1", &rws)
+			first, err := m.Marshal("tx1", &rws, nsInfo)
 			require.NoError(t, err)
 
 			const attempts = 30
 			for i := range attempts {
-				out, err := m.Marshal("tx1", &rws)
+				out, err := m.Marshal("tx1", &rws, nsInfo)
 				require.NoError(t, err)
 				require.Equal(t, first, out,
 					"Marshal produced different bytes for the exact same ReadWriteSet on attempt %d/%d; "+
