@@ -411,7 +411,7 @@ func (v *Vault) SetDiscarded(context.Context, cdriver.TxID, string) error {
 func (v *Vault) Status(ctx context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
 	statuses, err := v.Statuses(ctx, txID)
 	if err != nil {
-		return fdriver.Unknown, "", err
+		return fdriver.Unknown, "", errors.Wrapf(err, "failed to get transaction status for txID=%s", txID)
 	}
 	return statuses[0].ValidationCode, statuses[0].Message, nil
 }

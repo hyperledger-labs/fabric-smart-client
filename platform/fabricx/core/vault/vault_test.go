@@ -8,13 +8,14 @@ package vault_test
 
 import (
 	"context"
-	"sync"
 	"testing"
 
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/encoding/protowire"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
@@ -472,24 +473,29 @@ func TestRWSet_ConcurrentBytes(t *testing.T) {
 	ctx := context.Background()
 
 	const goroutines = 16
-	var wg sync.WaitGroup
-	wg.Add(goroutines)
+	// Assertions must not run off the test goroutine (require.* calls t.FailNow, which is only
+	// valid from the goroutine running the test), so errors are collected and checked below.
+	var eg errgroup.Group
 	for g := range goroutines {
-		go func(g int) {
-			defer wg.Done()
+		eg.Go(func() error {
 			// Each goroutine gets its own RWSet, but they all share v.marshaller.
 			rws, err := v.NewRWSet(ctx, driver.TxID("tx"))
-			require.NoError(t, err)
+			if err != nil {
+				return errors.Wrapf(err, "goroutine %d: NewRWSet", g)
+			}
 			// Vary the namespace per goroutine so the nsInfo maps differ between concurrent calls.
 			ns := driver.Namespace("ns1")
 			if g%2 == 0 {
 				ns = "ns2"
 			}
-			require.NoError(t, rws.SetState(ns, "key", []byte("value")))
-
-			_, err = rws.Bytes()
-			require.NoError(t, err)
-		}(g)
+			if err := rws.SetState(ns, "key", []byte("value")); err != nil {
+				return errors.Wrapf(err, "goroutine %d: SetState", g)
+			}
+			if _, err := rws.Bytes(); err != nil {
+				return errors.Wrapf(err, "goroutine %d: Bytes", g)
+			}
+			return nil
+		})
 	}
-	wg.Wait()
+	require.NoError(t, eg.Wait())
 }
