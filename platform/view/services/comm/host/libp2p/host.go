@@ -108,7 +108,7 @@ func newLibP2PHost(
 	}
 
 	ctx := context.Background()
-	kademliaDHT, err := dht.New(h)
+	kademliaDHT, err := dht.New(ctx, h)
 	if err != nil {
 		return nil, err
 	}

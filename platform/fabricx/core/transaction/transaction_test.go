@@ -489,7 +489,8 @@ func TestToEndorserIdentityWithCertID(t *testing.T) {
 				require.NoError(t, err)
 				return view.Identity(raw)
 			}(),
-			expectedError: "failed to decode PEM certificate",
+			expectedMSP:    "Org2MSP",
+			expectedCertID: "", // No cert ID since it falls back to raw bytes
 		},
 	}
 
@@ -507,8 +508,12 @@ func TestToEndorserIdentityWithCertID(t *testing.T) {
 			require.NotNil(t, id)
 			require.Equal(t, tc.expectedMSP, id.GetMspId())
 			require.Equal(t, tc.expectedCertID, id.GetCertificateId())
-			// Certificate bytes must be absent — only the hash is stored.
-			require.Empty(t, id.GetCertificate())
+			// Certificate bytes are only present if we fell back to raw bytes (non-PEM).
+			if tc.name == "non-PEM cert bytes" {
+				require.NotEmpty(t, id.GetCertificate())
+			} else {
+				require.Empty(t, id.GetCertificate())
+			}
 		})
 	}
 }

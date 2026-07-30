@@ -703,7 +703,16 @@ func toEndorserIdentityWithCertID(identity view.Identity) (*msppb.Identity, erro
 		return nil, errors.Wrap(err, "unmarshal serialized identity")
 	}
 
-	return pemToMSPIdentity(sID.GetMspid(), sID.GetIdBytes())
+	id, err := pemToMSPIdentity(sID.GetMspid(), sID.GetIdBytes())
+	if err != nil && err.Error() == "failed to decode PEM certificate" {
+		// Idemix identities do not have PEM certificates.
+		// If it fails to decode, we treat it as an unhashed raw identity.
+		// If it is actually a malformed X.509 certificate, the endorsement verification
+		// will fail later anyway, so this fallback is safe.
+		logger.Debugf("failed to decode PEM for MSP [%s], assuming Idemix and returning unhashed raw identity", sID.GetMspid())
+		return msppb.NewIdentity(sID.GetMspid(), sID.GetIdBytes()), nil
+	}
+	return id, err
 }
 
 // pemToMSPIdentity decodes a PEM-encoded X.509 certificate and constructs an

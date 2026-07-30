@@ -604,6 +604,18 @@ func (n *Network) bootstrapIdemix() {
 		})
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+
+		// - signerconfig (so the test environment has Idemix signing material for the overall org)
+		sess, err = n.Idemixgen(commands.SignerConfig{
+			NetworkPrefix:    n.Prefix,
+			CAInput:          output,
+			Output:           filepath.Join(output, "user"),
+			OrgUnit:          org.Domain,
+			EnrollmentID:     org.Name,
+			RevocationHandle: "100",
+		})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}
 }
 
@@ -816,28 +828,34 @@ func (n *Network) JoinChannel(name string, o *topology.Orderer, peers ...*topolo
 	utils.IgnoreErrorFunc(tempFile.Close)
 	defer utils.IgnoreErrorWithOneArg(os.Remove, tempFile.Name())
 
-	sess, err := n.PeerAdminSession(peers[0], commands.ChannelFetch{
-		NetworkPrefix: n.Prefix,
-		Block:         "0",
-		ChannelID:     name,
-		Orderer:       n.OrdererAddress(o, ListenPort),
-		OutputFile:    tempFile.Name(),
-		ClientAuth:    n.ClientAuthRequired,
-	})
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+	fetch := func() int {
+		sess, err := n.PeerAdminSession(peers[0], commands.ChannelFetch{
+			NetworkPrefix: n.Prefix,
+			Block:         "0",
+			ChannelID:     name,
+			Orderer:       n.OrdererAddress(o, ListenPort),
+			OutputFile:    tempFile.Name(),
+			ClientAuth:    n.ClientAuthRequired,
+		})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		return sess.Wait(n.EventuallyTimeout).ExitCode()
+	}
+	gomega.Eventually(fetch, n.EventuallyTimeout).Should(gomega.Equal(0))
 
 	for _, p := range peers {
 		if p.SkipInit {
 			continue
 		}
-		sess, err := n.PeerAdminSession(p, commands.ChannelJoin{
-			NetworkPrefix: n.Prefix,
-			BlockPath:     tempFile.Name(),
-			ClientAuth:    n.ClientAuthRequired,
-		})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+		join := func() int {
+			sess, err := n.PeerAdminSession(p, commands.ChannelJoin{
+				NetworkPrefix: n.Prefix,
+				BlockPath:     tempFile.Name(),
+				ClientAuth:    n.ClientAuthRequired,
+			})
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			return sess.Wait(n.EventuallyTimeout).ExitCode()
+		}
+		gomega.Eventually(join, n.EventuallyTimeout).Should(gomega.Equal(0))
 	}
 }
 

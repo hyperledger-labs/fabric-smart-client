@@ -18,21 +18,21 @@ import (
 
 var _ = Describe("EndToEnd", func() {
 	Describe("IOU Life Cycle With LibP2P", Label("T1"), func() {
-		s := NewTestSuite(fsc.LibP2P, integration.NoReplication, true)
+		s := NewTestSuite(fsc.LibP2P, integration.NoReplication, true, false)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
 	})
 
 	Describe("IOU Life Cycle With Websockets", Label("T2"), func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, true)
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, true, false)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
 	})
 
 	Describe("IOU Life Cycle With Websockets and no TLS", Label("T3"), func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, false)
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, false, false)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
@@ -52,10 +52,18 @@ var _ = Describe("EndToEnd", func() {
 				},
 			},
 			true,
+			false,
 		)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceededWithReplicas)
+	})
+
+	Describe("EndToEndIdemix", Label("T5"), func() {
+		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, true, true)
+		BeforeEach(s.Setup)
+		AfterEach(s.TearDown)
+		It("succeeded", s.TestSucceededIdemix)
 	})
 })
 
@@ -63,12 +71,13 @@ type TestSuite struct {
 	*integration.TestSuite
 }
 
-func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions, tlsEnabled bool) *TestSuite {
+func NewTestSuite(commType fsc.P2PCommunicationType, nodeOpts *integration.ReplicationOptions, tlsEnabled bool, idemixEnabled bool) *TestSuite {
 	return &TestSuite{TestSuite: integration.NewTestSuite(func() (*integration.Infrastructure, error) {
 		return integration.Generate(StartPort(), integration.WithRaceDetection, iou.Topology(&iou.Opts{
 			CommType:        commType,
 			ReplicationOpts: nodeOpts,
 			TLSEnabled:      tlsEnabled,
+			IdemixEnabled:   idemixEnabled,
 		})...)
 	})}
 }
@@ -77,6 +86,24 @@ func (s *TestSuite) TestSucceeded() {
 	iou.InitApprover(s.II, "approver1")
 	iou.InitApprover(s.II, "approver2")
 	iouState := iou.CreateIOU(s.II, "", 10, "approver1")
+	iou.CheckState(s.II, "borrower", iouState, 10)
+	iou.CheckState(s.II, "lender", iouState, 10)
+	iou.UpdateIOU(s.II, iouState, 5, "approver2")
+	iou.CheckState(s.II, "borrower", iouState, 5)
+	iou.CheckState(s.II, "lender", iouState, 5)
+
+	iou.CheckLocalMetrics(s.II, "borrower", "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/collectEndorsementsView")
+	iou.CheckPrometheusMetrics(s.II, "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/endorser/collectEndorsementsView")
+	iou.CheckJaegerTraces(s.II, "borrower", "", gomega.And(
+		gomega.Not(gomega.BeNil()),
+		gomega.Not(gomega.BeEmpty()),
+	))
+}
+
+func (s *TestSuite) TestSucceededIdemix() {
+	iou.InitApprover(s.II, "approver1")
+	iou.InitApprover(s.II, "approver2")
+	iouState := iou.CreateIOU(s.II, "IdemixOrg", 10, "approver1")
 	iou.CheckState(s.II, "borrower", iouState, 10)
 	iou.CheckState(s.II, "lender", iouState, 10)
 	iou.UpdateIOU(s.II, iouState, 5, "approver2")

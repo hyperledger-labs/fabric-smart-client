@@ -96,6 +96,18 @@ func bootstrapIdemix(n *Network) {
 		})
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
+
+		// - signerconfig (so the test environment has Idemix signing material for the overall org)
+		sess, err = n.Idemixgen(commands.SignerConfig{
+			NetworkPrefix:    n.Prefix,
+			CAInput:          output,
+			Output:           filepath.Join(output, "user"),
+			OrgUnit:          org.Domain,
+			EnrollmentID:     org.Name,
+			RevocationHandle: "100",
+		})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(sess, n.EventuallyTimeout).Should(gexec.Exit(0))
 	}
 }
 
