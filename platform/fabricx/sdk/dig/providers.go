@@ -97,7 +97,7 @@ func NewChannelProvider(in struct {
 		in.EndorseTxStore,
 		in.Drivers,
 		func(channelName string, configService fdriver.ConfigService, _ driver.VaultStore) (fdriver.Vault, error) {
-			return vault.New(configService, channelName, in.QueryServiceProvider)
+			return vault.New(configService, channelName, in.QueryServiceProvider, in.MetadataStore)
 		},
 		channelConfigProvider,
 		func(channelName string, nw fdriver.FabricNetworkService, chaincodeManager fdriver.ChaincodeManager) (fdriver.Ledger, error) {

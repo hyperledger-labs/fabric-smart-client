@@ -15,6 +15,7 @@ import (
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
@@ -62,6 +63,9 @@ func (p *SDK) Install() error {
 		p.Container().Provide(finality.NewListenerManagerProvider),
 		p.Container().Provide(digutils.Identity[*finality.Provider](), dig.As(new(finality.ListenerManagerProvider))),
 		p.Container().Provide(queryservice.NewProvider, dig.As(new(queryservice.Provider))),
+		// FabricX certifies state inputs against the trusted committer QueryService
+		// instead of chaincode endorsement; the state package resolves this per network.
+		p.Container().Provide(func() state.Certifier { return &state.QueryServiceCertifier{} }),
 	)
 	if err != nil {
 		return err
@@ -76,6 +80,7 @@ func (p *SDK) Install() error {
 		digutils.Register[finality.ListenerManagerProvider](p.Container()),
 		digutils.Register[queryservice.Provider](p.Container()),
 		digutils.Register[*ledger.Provider](p.Container()),
+		digutils.Register[state.Certifier](p.Container()),
 	)
 }
 

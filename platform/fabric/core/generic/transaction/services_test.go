@@ -41,6 +41,38 @@ func TestMetadataService(t *testing.T) {
 	require.Equal(t, driver.TransientMap(tm), loaded)
 }
 
+func TestFieldMappingRoundTrip(t *testing.T) {
+	t.Parallel()
+	mockStore := &mock.MetadataStore{}
+	mds := transaction.NewMetadataService(mockStore, "net", "ch")
+	ctx := t.Context()
+
+	digestA := []byte{0xAA}
+	mappingA := driver.TransientMap{"field_mapping|x": []byte("preimage-A")}
+	mockStore.PutMetadataReturns(nil)
+	require.NoError(t, mds.PutFieldMapping(ctx, "ns", "k", digestA, mappingA))
+
+	// Put targets a (net, ch) key and stores the mapping value verbatim.
+	_, keyA, valA := mockStore.PutMetadataArgsForCall(0)
+	require.Equal(t, "net", keyA.Network)
+	require.Equal(t, "ch", keyA.Channel)
+	require.Equal(t, mappingA, valA)
+
+	// A different digest for the same (ns,key) must map to a distinct KVS key
+	// (overwrite-safe: the old preimage stays resolvable under its own digest).
+	digestB := []byte{0xBB}
+	mappingB := driver.TransientMap{"field_mapping|x": []byte("preimage-B")}
+	require.NoError(t, mds.PutFieldMapping(ctx, "ns", "k", digestB, mappingB))
+	_, keyB, _ := mockStore.PutMetadataArgsForCall(1)
+	require.NotEqual(t, keyA.TxID, keyB.TxID, "different digests must map to different KVS keys")
+
+	// GetFieldMapping returns whatever the store holds for that digest.
+	mockStore.GetMetadataReturns(mappingA, nil)
+	got, err := mds.GetFieldMapping(ctx, "ns", "k", digestA)
+	require.NoError(t, err)
+	require.Equal(t, mappingA, got)
+}
+
 func TestEnvelopeService(t *testing.T) {
 	t.Parallel()
 	mockStore := &mock.EnvelopeStore{}

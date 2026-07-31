@@ -52,6 +52,15 @@ type MetadataService interface {
 	Exists(ctx context.Context, txid string) bool
 	StoreTransient(ctx context.Context, txid string, transientMap TransientMap) error
 	LoadTransient(ctx context.Context, txid string) (TransientMap, error)
+	// PutFieldMapping persists a hash-hiding field-mapping preimage keyed by
+	// (ns, key, valueDigest), where valueDigest = sha256(committed on-ledger value).
+	// Keying by the digest keeps overwrites/deletes unambiguous: a reader resolves
+	// the exact preimage for the value it actually observes on the ledger.
+	// Populated on FabricX (synchronously, at endorsement); Fabric does not use it.
+	PutFieldMapping(ctx context.Context, ns, key string, valueDigest []byte, mapping TransientMap) error
+	// GetFieldMapping returns the field-mapping previously persisted for
+	// (ns, key, valueDigest), or an empty map if none exists.
+	GetFieldMapping(ctx context.Context, ns, key string, valueDigest []byte) (TransientMap, error)
 }
 
 type EnvelopeService interface {

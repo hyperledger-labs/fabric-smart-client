@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package state
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"reflect"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -90,7 +93,43 @@ func certificationKey(key string) (string, error) {
 	return rwset.CreateCompositeKey(Certification, elems)
 }
 
+// Certifier verifies and (on Fabric) produces certification for input states.
+// The concrete implementation is resolved per node platform: ChaincodeCertifier
+// on Fabric (default), QueryServiceCertifier on FabricX (registered by its SDK).
+type Certifier interface {
+	CertifyInput(n *Namespace, id string) error
+	VerifyInputCertificationAt(n *Namespace, index int, key string) error
+}
+
+// resolveCertifier returns the Certifier registered on the transaction's service
+// provider, falling back to ChaincodeCertifier (the Fabric default) when none is
+// registered. Dispatch is by injected certifier, not by the stored type string.
+func (n *Namespace) resolveCertifier() Certifier {
+	// n.tx.Provider may be nil in unit tests that exercise pure type-checking paths;
+	// guard so resolution degrades to the default rather than panicking.
+	if n.tx.Provider != nil {
+		if s, err := n.tx.GetService(reflect.TypeFor[Certifier]()); err == nil {
+			if c, ok := s.(Certifier); ok {
+				return c
+			}
+		}
+	}
+	return &ChaincodeCertifier{}
+}
+
 func (n *Namespace) VerifyInputCertificationAt(index int, key string) error {
+	return n.resolveCertifier().VerifyInputCertificationAt(n, index, key)
+}
+
+func (n *Namespace) certifyInput(id string) error {
+	return n.resolveCertifier().CertifyInput(n, id)
+}
+
+// ChaincodeCertifier is the default (Fabric) certifier. It certifies input states
+// by invoking the generic state query chaincode and verifying peer endorsements.
+type ChaincodeCertifier struct{}
+
+func (c *ChaincodeCertifier) VerifyInputCertificationAt(n *Namespace, index int, key string) error {
 	typ, _, err := GetCertificationType(n.tx)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting certification type")
@@ -161,7 +200,7 @@ func (n *Namespace) VerifyInputCertificationAt(index int, key string) error {
 	}
 }
 
-func (n *Namespace) certifyInput(id string) error {
+func (c *ChaincodeCertifier) CertifyInput(n *Namespace, id string) error {
 	typ, _, err := GetCertificationType(n.tx)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting certification type")
@@ -194,6 +233,50 @@ func (n *Namespace) certifyInput(id string) error {
 	default:
 		return errors.Errorf("certification type [%s] not recognized", typ)
 	}
+}
+
+// QueryServiceCertifier certifies inputs against the trusted committer QueryService.
+// It is registered by the FabricX SDK. CertifyInput is a no-op — every FabricX node
+// self-reads the committed value via GetReadAt→QueryService, so certifiedInputs stays
+// empty and nothing consumes a produced cert. Verification re-reads the committed value
+// and branches on the hiding mode.
+type QueryServiceCertifier struct{}
+
+func (c *QueryServiceCertifier) CertifyInput(n *Namespace, id string) error {
+	return nil
+}
+
+func (c *QueryServiceCertifier) VerifyInputCertificationAt(n *Namespace, index int, key string) error {
+	rwSet, err := n.tx.RWSet()
+	if err != nil {
+		return errors.Wrap(err, "filed getting rw set")
+	}
+	_, committed, err := rwSet.GetReadAt(n.namespace(), index)
+	if err != nil {
+		return errors.Wrapf(err, "failed reading committed state [%s, %d]", n.namespace(), index)
+	}
+	if len(committed) == 0 {
+		return errors.Errorf("no committed value for [%s, %s]", n.namespace(), key)
+	}
+
+	mapping, err := n.getFieldMapping(n.namespace(), key, true)
+	if err != nil {
+		return errors.Wrapf(err, "failed getting field mapping [%s, %s]", n.namespace(), key)
+	}
+
+	if root, ok := mapping["_root_"]; ok && len(root) != 0 {
+		// Whole-state hiding: the committed value is sha256(preimage).
+		h := sha256.Sum256(root)
+		if !bytes.Equal(h[:], committed) {
+			return errors.Errorf("hash mismatch for [%s, %s]", n.namespace(), key)
+		}
+		return nil
+	}
+
+	// Field-level hiding: the committed value IS the marshaled state (the hidden field is
+	// already hashed in place). Integrity of the field is enforced by unmarshalTags during
+	// State(); here we only confirm the state is committed (checked above).
+	return nil
 }
 
 type CertificationRequest struct {

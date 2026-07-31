@@ -8,6 +8,8 @@ package state
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
@@ -37,6 +39,104 @@ func (t *transientStore) SetTransient(key string, raw []byte) error {
 
 func (t *transientStore) GetTransient(key string) []byte {
 	return append([]byte(nil), t.store[key]...)
+}
+
+func TestResolveCertifierDefaultsToChaincode(t *testing.T) {
+	t.Parallel()
+
+	// A Namespace whose tx.Provider resolves no Certifier service must fall back
+	// to ChaincodeCertifier.
+	tx, _, _ := newTestStateTransaction("assetns")
+	tx.Provider = &mockServiceProvider{
+		getFn: func(any) (any, error) { return nil, errors.New("not found") },
+	}
+
+	c := tx.resolveCertifier()
+	_, ok := c.(*ChaincodeCertifier)
+	require.True(t, ok, "expected default ChaincodeCertifier, got %T", c)
+}
+
+type stubCertifier struct{}
+
+func (s *stubCertifier) CertifyInput(*Namespace, string) error                    { return nil }
+func (s *stubCertifier) VerifyInputCertificationAt(*Namespace, int, string) error { return nil }
+
+func TestResolveCertifierUsesRegistered(t *testing.T) {
+	t.Parallel()
+
+	// When a Certifier is registered on the provider, it is resolved (not the default).
+	registered := &stubCertifier{}
+	tx, _, _ := newTestStateTransaction("assetns")
+	tx.Provider = &mockServiceProvider{
+		getFn: func(v any) (any, error) {
+			if rt, ok := v.(reflect.Type); ok && rt == reflect.TypeFor[Certifier]() {
+				return registered, nil
+			}
+			return nil, errors.New("not found")
+		},
+	}
+
+	c := tx.resolveCertifier()
+	require.Same(t, registered, c)
+}
+
+// newCertifierNamespace builds a Namespace whose input at index 0 reads `committed` from the
+// ledger, optionally with a transient field-mapping (for whole-state hiding). Returns the key.
+func newCertifierNamespace(t *testing.T, ns, key string, committed []byte, mapping map[string][]byte) *Namespace {
+	t.Helper()
+	tx, rwset, driverTx := newTestStateTransaction(ns)
+	require.NoError(t, rwset.SetState(cdriver.Namespace(ns), cdriver.PKey(key), committed))
+	require.NoError(t, rwset.AddReadAt(cdriver.Namespace(ns), key, nil))
+	if mapping != nil {
+		fmKey, err := fieldMappingKey(ns, key)
+		require.NoError(t, err)
+		raw, err := json.Marshal(mapping)
+		require.NoError(t, err)
+		driverTx.transient[fmKey] = raw
+	}
+	return tx.Namespace
+}
+
+func TestQueryServiceCertifier_WholeState_OK(t *testing.T) {
+	t.Parallel()
+	root := []byte(`{"asset_id":"1234","price":10}`)
+	h := sha256.Sum256(root)
+	key, err := CreateCompositeKey("S", []string{"1234"})
+	require.NoError(t, err)
+	n := newCertifierNamespace(t, "asset_transfer", key, h[:], map[string][]byte{"_root_": root})
+	require.NoError(t, (&QueryServiceCertifier{}).VerifyInputCertificationAt(n, 0, key))
+}
+
+func TestQueryServiceCertifier_WholeState_Tampered(t *testing.T) {
+	t.Parallel()
+	root := []byte(`{"asset_id":"1234"}`)
+	wrong := sha256.Sum256([]byte("different"))
+	key, err := CreateCompositeKey("S", []string{"1234"})
+	require.NoError(t, err)
+	n := newCertifierNamespace(t, "asset_transfer", key, wrong[:], map[string][]byte{"_root_": root})
+	err = (&QueryServiceCertifier{}).VerifyInputCertificationAt(n, 0, key)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "hash mismatch")
+}
+
+func TestQueryServiceCertifier_FieldLevel_OK(t *testing.T) {
+	t.Parallel()
+	committed := []byte(`{"assetID":"1234","privateProperties":"hash"}`)
+	key, err := CreateCompositeKey("A", []string{"1234"})
+	require.NoError(t, err)
+	// No _root_ mapping: field-level hiding; Verify only confirms the state is committed.
+	n := newCertifierNamespace(t, "asset_transfer", key, committed, nil)
+	require.NoError(t, (&QueryServiceCertifier{}).VerifyInputCertificationAt(n, 0, key))
+}
+
+func TestQueryServiceCertifier_MissingCommitted(t *testing.T) {
+	t.Parallel()
+	key, err := CreateCompositeKey("A", []string{"1234"})
+	require.NoError(t, err)
+	n := newCertifierNamespace(t, "asset_transfer", key, nil, nil)
+	err = (&QueryServiceCertifier{}).VerifyInputCertificationAt(n, 0, key)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "no committed value")
 }
 
 func TestCertificationTypeFunctions(t *testing.T) {

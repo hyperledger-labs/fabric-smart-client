@@ -30,6 +30,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	commondriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/transaction/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -352,6 +353,77 @@ func TestAppendProposalResponseDriverWrapper(t *testing.T) {
 			tc.assert(t, tx)
 		})
 	}
+}
+
+func TestStoreTransientPersistsFieldMappings(t *testing.T) {
+	t.Parallel()
+
+	origKey, err := rwset.CreateCompositeKey("S", []string{"1234"})
+	require.NoError(t, err)
+	fmKey, err := rwset.CreateCompositeKey("field_mapping", []string{"asset_transfer", "S", "1234"})
+	require.NoError(t, err)
+	blob := []byte(`{"_root_":"cHJlaW1hZ2U="}`)
+	writeVal := []byte("on-ledger-hash-bytes")
+
+	fakeMDS := &mock.MetadataService{}
+	fakeRWSet := &mock.RWSet{}
+	fakeRWSet.GetStateReturns(writeVal, nil)
+	ch := &mock.Channel{}
+	ch.MetadataServiceReturns(fakeMDS)
+
+	tx := &Transaction{
+		ctx:     t.Context(),
+		TTxID:   "tx1",
+		channel: ch,
+		rwset:   fakeRWSet,
+		TTransient: driver.TransientMap{
+			fmKey:               blob,
+			"CertificationType": []byte("ChaincodesCertification"), // must be ignored
+		},
+	}
+
+	require.NoError(t, tx.StoreTransient())
+
+	// The transient blob itself is still persisted by txid.
+	require.Equal(t, 1, fakeMDS.StoreTransientCallCount())
+
+	// The field mapping is persisted under (ns, origKey, sha256(writeVal)).
+	require.Equal(t, 1, fakeMDS.PutFieldMappingCallCount())
+	_, ns, key, digest, mapping := fakeMDS.PutFieldMappingArgsForCall(0)
+	wantDigest := sha256.Sum256(writeVal)
+	require.Equal(t, "asset_transfer", ns)
+	require.Equal(t, origKey, key)
+	require.Equal(t, wantDigest[:], digest)
+	require.Equal(t, driver.TransientMap{fmKey: blob}, mapping)
+
+	// The write value came from the tx's own write set (FromIntermediate), for (ns, origKey).
+	require.Equal(t, 1, fakeRWSet.GetStateCallCount())
+	gotNs, gotKey, gotOpts := fakeRWSet.GetStateArgsForCall(0)
+	require.Equal(t, commondriver.Namespace("asset_transfer"), gotNs)
+	require.Equal(t, commondriver.PKey(origKey), gotKey)
+	require.Equal(t, []commondriver.GetStateOpt{commondriver.FromIntermediate}, gotOpts)
+}
+
+func TestStoreTransientNoFieldMappingsIsNoop(t *testing.T) {
+	t.Parallel()
+
+	fakeMDS := &mock.MetadataService{}
+	fakeRWSet := &mock.RWSet{}
+	ch := &mock.Channel{}
+	ch.MetadataServiceReturns(fakeMDS)
+
+	tx := &Transaction{
+		ctx:        t.Context(),
+		TTxID:      "tx1",
+		channel:    ch,
+		rwset:      fakeRWSet,
+		TTransient: driver.TransientMap{"CertificationType": []byte("x")},
+	}
+
+	require.NoError(t, tx.StoreTransient())
+	require.Equal(t, 1, fakeMDS.StoreTransientCallCount())
+	require.Equal(t, 0, fakeMDS.PutFieldMappingCallCount())
+	require.Equal(t, 0, fakeRWSet.GetStateCallCount())
 }
 
 // mustSerializedIdentityWithRealCert generates a self-signed ECDSA certificate and

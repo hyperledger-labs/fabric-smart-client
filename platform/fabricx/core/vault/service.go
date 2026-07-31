@@ -9,6 +9,7 @@ package vault
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 )
@@ -29,10 +30,13 @@ var logger = logging.MustGetLogger()
 // Returns:
 //   - *Vault: A new vault instance configured with the query service
 //   - error: An error if the query service cannot be obtained
-func New(configService fdriver.ConfigService, channel string, queryServiceProvider queryservice.Provider) (*Vault, error) {
+func New(configService fdriver.ConfigService, channel string, queryServiceProvider queryservice.Provider, metadataKVS fdriver.MetadataStore) (*Vault, error) {
 	queryService, err := queryServiceProvider.Get(configService.NetworkName(), channel)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting query service")
 	}
-	return NewVault(queryService), nil
+	// The vault reads field mappings from the same (network, channel)-keyed metadata store
+	// that Transaction.StoreTransient writes them to, so digests written on endorsement resolve here.
+	mds := transaction.NewMetadataService(metadataKVS, configService.NetworkName(), channel)
+	return NewVault(queryService, mds), nil
 }
