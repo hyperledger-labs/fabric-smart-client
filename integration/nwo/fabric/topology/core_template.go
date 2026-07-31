@@ -53,7 +53,7 @@ peer:
     responseWaitTime: 2s
     aliveTimeInterval: 5s
     aliveExpirationTimeout: 25s
-    reconnectInterval: 25s
+    reconnectInterval: 5s
     election:
       startupGracePeriod: 15s
       membershipSampleInterval: 1s

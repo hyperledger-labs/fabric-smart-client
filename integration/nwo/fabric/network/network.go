@@ -82,8 +82,10 @@ type Network struct {
 	Extensions      []Extension
 	PackagerFactory PackagerFactory
 
-	colorIndex uint
-	ccps       []ChaincodeProcessor
+	colorIndex     uint
+	ccps           []ChaincodeProcessor
+	ccaasDeployer  ChaincodeDeployer
+	legacyDeployer ChaincodeDeployer
 }
 
 func New(reg api.Context, topology *topology.Topology, builderClient BuilderClient, ccps []ChaincodeProcessor, NetworkID string) *Network {
@@ -126,6 +128,12 @@ func New(reg api.Context, topology *topology.Topology, builderClient BuilderClie
 			return packager.New()
 		},
 	}
+
+	network.legacyDeployer = &legacyDeployer{}
+	cc, err := newCCaaSDeployer()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	network.ccaasDeployer = cc
+
 	return network
 }
 
@@ -216,7 +224,10 @@ func (n *Network) PostRun(load bool) {
 			n.JoinChannel(channel.Name, orderer, n.PeersWithChannel(channel.Name)...)
 		}
 
-		// Wait a few second to make peers discovering each other
+		// Peers dial the other orgs' anchor peers as soon as they join, so the
+		// peers that have not joined yet reject the handshake and membership
+		// starts out empty. Gossip recovers on its own via reconnectInterval,
+		// which core_template.go keeps short for this reason.
 		time.Sleep(5 * time.Second)
 
 		// Install chaincodes, if needed
@@ -241,37 +252,18 @@ func (n *Network) PostRun(load bool) {
 }
 
 func (n *Network) Cleanup() {
-	// DO nothing
+	if n.ccaasDeployer != nil {
+		if err := n.ccaasDeployer.Cleanup(); err != nil {
+			logger.Errorf("ccaas deployer cleanup failed: %v", err)
+		}
+	}
+	if n.legacyDeployer != nil {
+		_ = n.legacyDeployer.Cleanup()
+	}
 }
 
 func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
-	orderer := n.Orderer("orderer")
-	peers := n.PeersForChaincodeByName(chaincode.Peers)
-
-	if len(chaincode.Chaincode.PackageFile) == 0 {
-		if len(chaincode.Path) != 0 {
-			chaincodePath := n.Builder.Build(chaincode.Path)
-			chaincode.Chaincode.Path = chaincodePath
-			chaincode.Chaincode.Lang = "binary"
-		}
-		chaincode.Chaincode.PackageFile = filepath.Join(n.Context.RootDir(), n.Prefix, chaincode.Chaincode.Name+chaincode.Chaincode.Version+".tar.gz")
-	}
-
-	PackageAndInstallChaincode(n, &chaincode.Chaincode, peers...)
-	ApproveChaincodeForMyOrg(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers...)
-	CheckCommitReadinessUntilReady(n, chaincode.Channel, &chaincode.Chaincode, n.PeerOrgsByPeers(peers), peers...)
-	CommitChaincode(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers[0], peers...)
-	for _, peer := range peers {
-		QueryInstalledReferences(n,
-			chaincode.Channel, chaincode.Chaincode.Label, chaincode.Chaincode.PackageID,
-			peer,
-			[]string{chaincode.Chaincode.Name, chaincode.Chaincode.Version})
-	}
-	if chaincode.Chaincode.InitRequired {
-		InitChaincode(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers...)
-	}
-	// add new chaincode to the topology
-	n.topology.AddChaincode(chaincode)
+	n.deployerFor(chaincode).Deploy(n, chaincode)
 }
 
 func (n *Network) AddExtension(ex Extension) {
@@ -304,6 +296,9 @@ func (n *Network) UpdateChaincode(chaincodeId, version, path, packageFile string
 			Ctor:            cc.Chaincode.Ctor,
 			Policy:          cc.Chaincode.Policy,
 			SignaturePolicy: cc.Chaincode.SignaturePolicy,
+			Image:           topology.ImageForPath(path),
+			Deploy:          cc.Chaincode.Deploy,
+			Extension:       cc.Chaincode.Extension,
 		},
 		Channel: cc.Channel,
 		Peers:   cc.Peers,

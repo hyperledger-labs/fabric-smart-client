@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology/fabric"
@@ -104,6 +105,35 @@ type Platform struct {
 	Docker  *Docker
 }
 
+// ccaasBuilderPath resolves the ccaas external builder shipped with the fabric
+// distribution, a sibling of the FAB_BINS binary directory. The second result
+// is false when the directory does not exist.
+func ccaasBuilderPath() (string, bool) {
+	base := os.Getenv("FAB_BINS")
+	if base == "" {
+		return "", false
+	}
+	p := filepath.Join(filepath.Dir(base), "builders", "ccaas")
+	if _, err := os.Stat(p); err != nil {
+		return "", false
+	}
+	return p, true
+}
+
+// topologyNeedsCCEnv reports whether any chaincode uses the legacy deployer, in
+// which case peers must build source packages and need the ccenv image.
+func topologyNeedsCCEnv(t *topology.Topology) bool {
+	if os.Getenv("FSC_CHAINCODE_DEPLOY") == "legacy" {
+		return true
+	}
+	for _, cc := range t.Chaincodes {
+		if cc.Chaincode.Deploy == "legacy" {
+			return true
+		}
+	}
+	return false
+}
+
 func NewPlatform(context api.Context, t api.Topology, components BuilderClient) *Platform {
 	// create a new network name
 	networkID := common.UniqueName()
@@ -115,9 +145,26 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 		[]network.ChaincodeProcessor{},
 		networkID,
 	)
+
+	if path, ok := ccaasBuilderPath(); ok {
+		n.ExternalBuilders = append(n.ExternalBuilders, fabricconfig.ExternalBuilder{
+			Name:                 "ccaas",
+			Path:                 path,
+			PropagateEnvironment: []string{"CHAINCODE_ID"},
+		})
+	} else {
+		gomega.Expect(topologyNeedsCCEnv(t.(*topology.Topology))).To(gomega.BeTrue(),
+			"ccaas external builder not found next to FAB_BINS; set FAB_BINS to a fabric distribution that ships builders/ccaas, or force the legacy deployer")
+	}
+
+	requiredImages := []string{}
+	if topologyNeedsCCEnv(t.(*topology.Topology)) {
+		requiredImages = append(requiredImages, CCEnvDefaultImage)
+	}
+
 	p := &Platform{
 		Network: n,
-		Docker:  &Docker{NetworkID: networkID, RequiredImages: []string{CCEnvDefaultImage}},
+		Docker:  &Docker{NetworkID: networkID, RequiredImages: requiredImages},
 	}
 
 	return p
