@@ -12,6 +12,8 @@ import (
 
 	"github.com/hyperledger/fabric-chaincode-go/v2/shim"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/ccaas/serve"
 )
 
 type Chaincode struct{}
@@ -28,8 +30,7 @@ func (t *Chaincode) Invoke(stub shim.ChaincodeStubInterface) *pb.Response {
 }
 
 func main() {
-	err := shim.Start(&Chaincode{})
-	if err != nil {
+	if err := serve.Serve(&Chaincode{}); err != nil {
 		fmt.Fprintf(os.Stderr, "Exiting chaincode: %s", err)
 		os.Exit(2)
 	}
