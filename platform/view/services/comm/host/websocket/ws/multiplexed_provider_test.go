@@ -437,14 +437,14 @@ func testMutualTLSConfigs(t *testing.T, insecureSkipVerify bool) (*tls.Config, *
 	caCertPool.AddCert(caCert)
 
 	serverTLSConfig := &tls.Config{
-		MinVersion:   tls.VersionTLS12,
+		MinVersion:   tls.VersionTLS13,
 		MaxVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{serverCert},
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ClientCAs:    caCertPool,
 	}
 	clientTLSConfig := &tls.Config{
-		MinVersion:   tls.VersionTLS12,
+		MinVersion:   tls.VersionTLS13,
 		MaxVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      caCertPool,

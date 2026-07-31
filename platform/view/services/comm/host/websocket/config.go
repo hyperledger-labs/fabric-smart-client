@@ -196,7 +196,7 @@ func newClientTLSConfig(serverRootCAPool *x509.CertPool, keyFile, certFile strin
 	}
 
 	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
+		MinVersion: tls.VersionTLS13,
 		MaxVersion: tls.VersionTLS13,
 		// Certificates:       []tls.Certificate{cert},
 		RootCAs:            caCertPool,

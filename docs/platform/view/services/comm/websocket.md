@@ -11,6 +11,7 @@ This transport is designed for deployments where standard web ports are preferre
 - **WebSocket Upgrade**: Connections are upgraded to WebSockets for persistent, full-duplex messaging.
 - **Multiplexing**: Multiple logical FSC streams are multiplexed over a single physical WebSocket.
 - **Mutual TLS**: mTLS is mandatory and strictly enforced for both server and client authentication (`tls.RequireAndVerifyClientCert`).
+- **TLS 1.3 Only**: Both server and client TLS configurations pin `MinVersion`/`MaxVersion` to `tls.VersionTLS13`; handshakes offering TLS 1.2 or lower are rejected.
 - **Dynamic Port Assignment**: The transport supports starting on a dynamic port (by setting the port to `0` in `listenAddress`). The actual assigned port is automatically retrieved and used for service discovery and readiness checks.
 
 ## Internal Architecture
@@ -66,6 +67,7 @@ type MultiplexedMessage struct {
 ## Performance and Security
 
 -   **TLS Caching**: Trusted root CAs are cached in memory to avoid disk I/O during handshakes. Dynamic trust updates (from the `EndpointService`) are appended to a clone of this cached pool in memory, significantly improving connection throughput.
+-   **Minimum TLS Version**: Both `ClientTLSConfig` and `ServerTLSConfig` (in `config.go`) set `MinVersion: tls.VersionTLS13`, so older protocol versions cannot be negotiated even if a peer offers them.
 -   **Identity Binding (Issue #871)**: The `PeerID` asserted in the application layer (during the WebSocket upgrade) is strictly validated against the public key extracted from the verified TLS certificate. The transport layer rejects any attempt to spoof an identity.
 -   **Runtime Trust Updates**: The transport dynamically integrates with the `EndpointService`. Any peer public key added to the `EndpointService` at runtime is automatically added to the trusted CA pool for both inbound and outbound connections.
 -   **Read Limits**: Each WebSocket connection has a 10MB read limit (`SetReadLimit`) to prevent OOM attacks.
