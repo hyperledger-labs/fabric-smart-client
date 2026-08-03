@@ -134,6 +134,20 @@ func seedHandlers(nlm *notificationListenerManager, txID string, listeners ...fa
 	nlm.handlers[txID] = &handlerEntry{listeners: listeners}
 }
 
+// setExpiry overrides an entry's local expiry deadline.
+func setExpiry(nlm *notificationListenerManager, txID string, at time.Time) {
+	nlm.handlersMu.Lock()
+	defer nlm.handlersMu.Unlock()
+	if entry, ok := nlm.handlers[txID]; ok {
+		entry.expiresAt = at
+	}
+}
+
+// expireNow backdates an entry so the next sweep collects it.
+func expireNow(nlm *notificationListenerManager, txID string) {
+	setExpiry(nlm, txID, time.Now().Add(-time.Second))
+}
+
 // listenersFor returns a copy of the listeners registered for txID, plus whether
 // the entry exists.
 func listenersFor(nlm *notificationListenerManager, txID string) ([]fabric.FinalityListener, bool) {
@@ -965,5 +979,237 @@ func TestNotificationListenerManager(t *testing.T) {
 			assert.Equal(collect, fdriver.Valid, status)
 		}, timeout, tick,
 			"normal listener must be notified despite leaky handler")
+	})
+}
+
+const (
+	testTTL   = 50 * time.Millisecond
+	testSweep = 10 * time.Millisecond
+)
+
+// setupSweepTest builds a manager with local expiry enabled and a blocking Recv,
+// so nothing but the sweeper touches the handlers map.
+func setupSweepTest(tb testing.TB, qs TxStatusQuerier) (*notificationListenerManager, *mock.Notifier_OpenNotificationStreamClient) {
+	tb.Helper()
+	nlm, fakeStream := setupTest(tb)
+	nlm.listenerTTL = testTTL
+	nlm.sweepInterval = testSweep
+	nlm.queryService = qs
+	return nlm, fakeStream
+}
+
+func TestSweepExpired(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Query_Says_Committed_Reports_Valid", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_sweep_committed"
+		qs := &mock.TxStatusQuerier{
+			GetTransactionStatusesStub: func(txIDs []string) (map[string]int32, error) {
+				return map[string]int32{targetTxID: int32(committerpb.Status_COMMITTED)}, nil
+			},
+		}
+		nlm, fakeStream := setupSweepTest(t, qs)
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		ml := &mockListener{}
+		ml.wg.Add(1)
+		seedHandlers(nlm, targetTxID, ml)
+		expireNow(nlm, targetTxID)
+
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			txID, status := ml.getStatus()
+			assert.Equal(collect, targetTxID, txID)
+			assert.Equal(collect, fdriver.Valid, status,
+				"expiry must report the queried status, not a blind Unknown")
+		}, timeout, tick, "timeout waiting for sweeper OnStatus")
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.False(t, exists, "Expired entry must be removed")
+	})
+
+	t.Run("Tx_Absent_From_Query_Reports_Unknown", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_sweep_absent"
+		qs := &mock.TxStatusQuerier{
+			GetTransactionStatusesStub: func(txIDs []string) (map[string]int32, error) {
+				return map[string]int32{}, nil // absent => not final
+			},
+		}
+		nlm, fakeStream := setupSweepTest(t, qs)
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		ml := &mockListener{}
+		ml.wg.Add(1)
+		seedHandlers(nlm, targetTxID, ml)
+		expireNow(nlm, targetTxID)
+
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			_, status := ml.getStatus()
+			assert.Equal(collect, fdriver.Unknown, status)
+		}, timeout, tick, "timeout waiting for Unknown from sweeper")
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.False(t, exists, "Expired entry must be removed")
+	})
+
+	t.Run("Query_Error_Still_Removes_Entry", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_sweep_query_error"
+		qs := &mock.TxStatusQuerier{
+			GetTransactionStatusesStub: func(txIDs []string) (map[string]int32, error) {
+				return nil, errors.New("query service unavailable")
+			},
+		}
+		nlm, fakeStream := setupSweepTest(t, qs)
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		ml := &mockListener{}
+		ml.wg.Add(1)
+		seedHandlers(nlm, targetTxID, ml)
+		expireNow(nlm, targetTxID)
+
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			_, status := ml.getStatus()
+			assert.Equal(collect, fdriver.Unknown, status)
+		}, timeout, tick, "a failed query must still notify with Unknown")
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.False(t, exists,
+			"cleanup must be unconditional: a failed query must not resurrect the leak")
+	})
+
+	t.Run("Nil_Query_Service_Reports_Unknown", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_sweep_nil_qs"
+		nlm, fakeStream := setupSweepTest(t, nil)
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		ml := &mockListener{}
+		ml.wg.Add(1)
+		seedHandlers(nlm, targetTxID, ml)
+		expireNow(nlm, targetTxID)
+
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			_, status := ml.getStatus()
+			assert.Equal(collect, fdriver.Unknown, status)
+		}, timeout, tick, "nil query service must degrade to Unknown")
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.False(t, exists, "Expired entry must be removed")
+	})
+
+	t.Run("Unexpired_Entry_Survives", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_sweep_not_yet"
+		qs := &mock.TxStatusQuerier{}
+		nlm, fakeStream := setupSweepTest(t, qs)
+		nlm.listenerTTL = time.Hour // far in the future
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		ml := &mockListener{} // no wg.Add: OnStatus must NOT be called
+		seedHandlers(nlm, targetTxID, ml)
+		setExpiry(nlm, targetTxID, time.Now().Add(time.Hour))
+
+		runManager(t, nlm)
+		time.Sleep(shortWait) // several sweep intervals
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.True(t, exists, "An unexpired entry must not be swept")
+		require.Equal(t, 0, qs.CallCount(), "No query should be issued when nothing is expired")
+	})
+
+	t.Run("Expiry_Disabled_When_TTL_Zero", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_sweep_disabled"
+		qs := &mock.TxStatusQuerier{}
+		nlm, fakeStream := setupTest(t) // no TTL fields set => disabled
+		nlm.queryService = qs
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		ml := &mockListener{} // no wg.Add: OnStatus must NOT be called
+		seedHandlers(nlm, targetTxID, ml)
+		expireNow(nlm, targetTxID) // even with a past deadline
+
+		runManager(t, nlm)
+		time.Sleep(shortWait)
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.True(t, exists, "listenerTTL==0 must disable expiry entirely")
+		require.Equal(t, 0, qs.CallCount(), "No query when expiry is disabled")
+	})
+
+	t.Run("Notification_Wins_No_Double_Invoke", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_sweep_no_double"
+		qs := &mock.TxStatusQuerier{}
+		nlm, fakeStream := setupSweepTest(t, qs)
+		ctx := t.Context()
+
+		resp := &committerpb.NotificationResponse{
+			TxStatusEvents: []*committerpb.TxStatus{{
+				Ref:    &committerpb.TxRef{TxId: targetTxID},
+				Status: committerpb.Status_COMMITTED,
+			}},
+		}
+		var sent atomic.Bool
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			if !sent.Swap(true) {
+				return resp, nil
+			}
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		// wg.Add(1) means a second OnStatus call panics with "negative WaitGroup
+		// counter" -- which is exactly the double-invoke we are guarding against.
+		ml := &mockListener{}
+		ml.wg.Add(1)
+		seedHandlers(nlm, targetTxID, ml)
+
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			_, status := ml.getStatus()
+			assert.Equal(collect, fdriver.Valid, status)
+		}, timeout, tick, "notification should deliver Valid")
+
+		// let several sweep intervals elapse past the TTL
+		time.Sleep(4 * testTTL)
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.False(t, exists, "entry removed by the notification")
 	})
 }

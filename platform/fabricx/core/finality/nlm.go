@@ -32,13 +32,32 @@ var logger = logging.MustGetLogger()
 // will leak goroutines, but this is preferable to blocking the dispatcher.
 const DefaultHandlerTimeout = 5 * time.Second
 
+// DefaultListenerTTL is how long a finality listener may sit unresolved before
+// the local sweeper settles it. Deliberately far longer than the 10s request
+// timeout in AddFinalityListener: the committer's timeout is documented
+// non-strict (it may notify later), so this is a backstop for genuine silence
+// rather than a competitor to the remote deadline. Because expiry queries the
+// committer for the real status instead of guessing, a generous value costs
+// only delayed cleanup.
+const DefaultListenerTTL = 2 * time.Minute
+
+// DefaultSweepInterval is how often the dispatcher checks for expired entries.
+// An entry's worst-case lifetime is DefaultListenerTTL + DefaultSweepInterval.
+const DefaultSweepInterval = 30 * time.Second
+
+// TxStatusQuerier resolves the committed status of transactions. Narrower than
+// queryservice.QueryService (six methods) because the sweeper needs exactly one;
+// mirrors the locally-declared interfaces in provider.go.
+type TxStatusQuerier interface {
+	GetTransactionStatuses(txIDs []string) (map[string]int32, error)
+}
+
 // handlerEntry holds the listeners registered for one transaction, plus the
 // deadline after which the entry is swept locally. expiresAt is zero when
 // local expiry is disabled (listenerTTL == 0).
 type handlerEntry struct {
 	listeners []fabric.FinalityListener
-	//lint:ignore U1000 set and swept starting in a follow-up task; unused by design here
-	expiresAt time.Time //nolint:unused
+	expiresAt time.Time
 }
 
 type notificationListenerManager struct {
@@ -46,6 +65,16 @@ type notificationListenerManager struct {
 	requestQueue   chan *committerpb.NotificationRequest
 	responseQueue  chan *committerpb.NotificationResponse
 	handlerTimeout time.Duration
+
+	// queryService resolves the true status of expiring entries. When nil, the
+	// sweeper reports Unknown instead of querying.
+	queryService TxStatusQuerier
+	// listenerTTL bounds how long an entry may stay unresolved. Zero disables
+	// local expiry entirely, which is what the test setup relies on and what a
+	// missing wire-up degrades to.
+	listenerTTL time.Duration
+	// sweepInterval is the sweep tick period. Ignored when listenerTTL is zero.
+	sweepInterval time.Duration
 
 	handlers   map[driver.TxID]*handlerEntry
 	handlersMu sync.RWMutex
@@ -120,12 +149,26 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 			message string
 		}
 
+		// Sweep from the dispatcher rather than a separate goroutine: the
+		// dispatcher is the only writer that deletes entries on the notification
+		// path, so a sweep can never interleave with a dispatch. That removes the
+		// notification-vs-expiry race by construction rather than by locking.
+		sweepEvery := n.sweepInterval
+		if sweepEvery <= 0 {
+			sweepEvery = DefaultSweepInterval
+		}
+		ticker := time.NewTicker(sweepEvery)
+		defer ticker.Stop()
+
 		var resp *committerpb.NotificationResponse
 		for {
 			select {
 			case <-gCtx.Done():
 				return gCtx.Err()
 			case resp = <-n.responseQueue:
+			case <-ticker.C:
+				n.sweepExpired(gCtx)
+				continue
 			}
 
 			res := parseResponse(resp)
@@ -157,23 +200,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 			// If a handler ignores the context and never returns, the goroutine
 			// will leak — but the dispatcher remains unblocked.
 			for _, c := range calls {
-				go func() {
-					timeoutCtx, cancel := context.WithTimeout(gCtx, n.handlerTimeout)
-					defer cancel()
-
-					done := make(chan struct{})
-					go func() {
-						c.handler.OnStatus(timeoutCtx, c.txID, c.status, c.message)
-						close(done)
-					}()
-
-					select {
-					case <-done:
-						// Handler completed within timeout
-					case <-timeoutCtx.Done():
-						logger.Warnf("OnStatus handler timed out for txID=%s (timeout=%s)", c.txID, n.handlerTimeout)
-					}
-				}()
+				n.invokeHandler(gCtx, c.handler, c.txID, txOutcome{status: c.status, message: c.message})
 			}
 		}
 	})
@@ -188,6 +215,95 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	logger.Debugf("Cleared handlers map on listen() exit")
 
 	return err
+}
+
+// sweepExpired settles entries whose local deadline has passed.
+//
+// Entries are deleted from the map BEFORE the status query, deliberately:
+// cleanup must never depend on a network call. The query service and the
+// notification stream both talk to the same committer, so the fault that lost
+// the notification is correlated with the query failing -- if removal waited on
+// a successful query, the sweeper would be useless in exactly the situation it
+// exists for. A failed query therefore degrades to Unknown, not to a retained
+// entry.
+func (n *notificationListenerManager) sweepExpired(ctx context.Context) {
+	if n.listenerTTL <= 0 {
+		return
+	}
+
+	now := time.Now()
+
+	// Phase 1: collect and delete under the lock. No I/O here.
+	type expired struct {
+		txID      string
+		listeners []fabric.FinalityListener
+	}
+	var batch []expired
+
+	n.handlersMu.Lock()
+	for txID, entry := range n.handlers {
+		if entry.expiresAt.IsZero() || entry.expiresAt.After(now) {
+			continue
+		}
+		batch = append(batch, expired{txID: txID, listeners: entry.listeners})
+		delete(n.handlers, txID)
+	}
+	n.handlersMu.Unlock()
+
+	if len(batch) == 0 {
+		return
+	}
+
+	txIDs := make([]string, 0, len(batch))
+	for _, e := range batch {
+		txIDs = append(txIDs, e.txID)
+	}
+	logger.Debugf("Sweeping %d expired finality listener(s)", len(txIDs))
+
+	// Phase 2: one batched query, outside the lock. Best-effort.
+	var statuses map[string]int32
+	if n.queryService != nil {
+		var err error
+		statuses, err = n.queryService.GetTransactionStatuses(txIDs)
+		if err != nil {
+			logger.Warnf("Could not resolve status of %d expired listener(s), reporting Unknown: %v", len(txIDs), err)
+			statuses = nil
+		}
+	}
+
+	// Phase 3: notify, outside the lock.
+	for _, e := range batch {
+		outcome := txOutcome{status: fdriver.Unknown}
+		if st, ok := statuses[e.txID]; ok {
+			outcome = txOutcome{status: statusFromCommitter(committerpb.Status(st))}
+		}
+		for _, h := range e.listeners {
+			n.invokeHandler(ctx, h, e.txID, outcome)
+		}
+	}
+}
+
+// invokeHandler runs one listener in its own goroutine, bounded by
+// handlerTimeout. A listener that ignores context cancellation leaks its
+// goroutine, which is preferable to blocking the dispatcher.
+func (n *notificationListenerManager) invokeHandler(ctx context.Context, h fabric.FinalityListener, txID string, outcome txOutcome) {
+	go func() {
+		timeoutCtx, cancel := context.WithTimeout(ctx, n.handlerTimeout)
+		defer cancel()
+
+		done := make(chan struct{})
+		go func() {
+			h.OnStatus(timeoutCtx, txID, outcome.status, outcome.message)
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			// Handler completed within timeout
+		case <-timeoutCtx.Done():
+			logger.Warnf("OnStatus handler timed out for txID=%s (timeout=%s)", txID, n.handlerTimeout)
+		}
+	}()
 }
 
 // txOutcome is the resolved status for one transaction, plus an optional
@@ -247,6 +363,15 @@ func statusFromCommitter(status committerpb.Status) int {
 	}
 }
 
+// expiryFor returns the local expiry deadline for an entry created at now, or
+// the zero time when local expiry is disabled.
+func (n *notificationListenerManager) expiryFor(now time.Time) time.Time {
+	if n.listenerTTL <= 0 {
+		return time.Time{}
+	}
+	return now.Add(n.listenerTTL)
+}
+
 // AddFinalityListener registers a listener to be notified when the transaction with the given txID reaches finality.
 func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, listener fabric.FinalityListener) error {
 	if listener == nil {
@@ -274,7 +399,10 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 		return nil
 	}
 
-	n.handlers[txID] = &handlerEntry{listeners: []fabric.FinalityListener{listener}}
+	n.handlers[txID] = &handlerEntry{
+		listeners: []fabric.FinalityListener{listener},
+		expiresAt: n.expiryFor(time.Now()),
+	}
 
 	// this is our first listener registered for the given txID
 	txIDs := []string{txID}
