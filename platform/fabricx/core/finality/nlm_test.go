@@ -128,6 +128,7 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_Open
 // seedHandlers injects listeners directly into the handlers map, bypassing
 // AddFinalityListener, to isolate dispatch/sweep logic in tests. Localises the
 // map's internal shape so future changes touch one place.
+// Note: expiresAt is left zero (never swept); call setExpiry/expireNow to make the entry sweep-eligible.
 func seedHandlers(nlm *notificationListenerManager, txID string, listeners ...fabric.FinalityListener) {
 	nlm.handlersMu.Lock()
 	defer nlm.handlersMu.Unlock()
@@ -1198,6 +1199,12 @@ func TestSweepExpired(t *testing.T) {
 		ml := &mockListener{}
 		ml.wg.Add(1)
 		seedHandlers(nlm, targetTxID, ml)
+		// A real deadline is essential: seedHandlers leaves expiresAt zero, and
+		// sweepExpired skips zero-expiresAt entries, so without this the sweeper
+		// would never even see the entry and the wg.Add(1) trap would be armed
+		// against nothing. With a deadline the sweeper is a live contender the
+		// notification has to win the race against -- which is the point.
+		setExpiry(nlm, targetTxID, time.Now().Add(testTTL))
 
 		runManager(t, nlm)
 
