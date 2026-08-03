@@ -279,7 +279,7 @@ func TestNamespaceVerifyInputCertificationAtBranches(t *testing.T) {
 		driverTx.getRWSetErr = errors.New("rwset failed")
 		err := tx.VerifyInputCertificationAt(0, "k1")
 		require.Error(t, err)
-		require.ErrorContains(t, err, "filed getting rw set")
+		require.ErrorContains(t, err, "failed getting rw set")
 	})
 
 	t.Run("read key retrieval failure", func(t *testing.T) {

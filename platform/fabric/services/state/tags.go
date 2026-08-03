@@ -113,16 +113,16 @@ func (n *Namespace) marshalTags(set *fabric.RWSet, source any) (any, map[string]
 		if ok {
 			switch tag {
 			case "hash":
-				// todo: supported types are string and byte slice
 				// todo: sample a nonce and add it to the transient
 				// replace the value with the hash
 				field := v.Field(i)
 				switch field.Kind() {
 				case reflect.String:
-					hash := sha256.New()
-					hash.Write([]byte(field.String()))
-					h := hash.Sum(nil)
-					field.SetString(base64.StdEncoding.EncodeToString(h))
+					// Hash-hiding for string fields is unimplemented: no preimage is
+					// retained here, so a reader can neither recover nor verify it (see
+					// unmarshalTags). Fail closed rather than emit an unrecoverable,
+					// unverifiable hash. Use a []byte field for hash-hiding.
+					return nil, nil, errors.Errorf("state:\"hash\" is not supported for string field [%s]; use []byte", t.Field(i).Name)
 				case reflect.Slice:
 					mapping[t.Field(i).Name] = field.Bytes()
 
@@ -147,12 +147,14 @@ func (n *Namespace) unmarshalTags(set *fabric.RWSet, source any, mapping map[str
 		if ok {
 			switch tag {
 			case "hash":
-				// todo: supported types are string and byte slice
 				// replace the value with the hash
 				field := v.Field(i)
 				switch field.Kind() {
 				case reflect.String:
-					// todo: load from transient the preimage, check that the image matches, set the preimage.
+					// Mirror marshalTags: string hash-hiding is unimplemented, so there is
+					// no preimage to verify. Fail closed so a hashed string can never pass
+					// unverified. Use a []byte field for hash-hiding.
+					return errors.Errorf("state:\"hash\" is not supported for string field [%s]; use []byte", t.Field(i).Name)
 				case reflect.Slice:
 					original, ok := mapping[t.Field(i).Name]
 					if !ok {

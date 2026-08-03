@@ -141,7 +141,7 @@ func (c *ChaincodeCertifier) VerifyInputCertificationAt(n *Namespace, index int,
 	case ChaincodeCertification:
 		rwSet, err := n.tx.RWSet()
 		if err != nil {
-			return errors.Wrap(err, "filed getting rw set")
+			return errors.Wrap(err, "failed getting rw set")
 		}
 		id, err := rwSet.GetReadKeyAt(n.namespace(), index)
 		if err != nil {
@@ -274,8 +274,11 @@ func (c *QueryServiceCertifier) VerifyInputCertificationAt(n *Namespace, index i
 	}
 
 	// Field-level hiding: the committed value IS the marshaled state (the hidden field is
-	// already hashed in place). Integrity of the field is enforced by unmarshalTags during
-	// State(); here we only confirm the state is committed (checked above).
+	// already hashed in place). Integrity of []byte hash fields is enforced by unmarshalTags
+	// during State() (recompute + compare against the committed hash; a missing or tampered
+	// preimage errors there). String hash fields are rejected at (un)marshal time, so no
+	// unverified hiding mode reaches this point. Here we only confirm the state is committed
+	// (checked above).
 	return nil
 }
 
