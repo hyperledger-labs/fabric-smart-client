@@ -212,6 +212,12 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 	if listener == nil {
 		return errors.New("listener nil")
 	}
+	// An empty txID can never be matched by any committer notification, so the
+	// map entry would be unremovable. Matches the generic driver's guard in
+	// platform/common/core/generic/committer/listenermgr.go.
+	if len(txID) == 0 {
+		return errors.New("tx id must be not empty")
+	}
 
 	n.handlersMu.Lock()
 	defer n.handlersMu.Unlock()
