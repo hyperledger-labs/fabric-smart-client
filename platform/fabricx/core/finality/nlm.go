@@ -226,6 +226,18 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 // a successful query, the sweeper would be useless in exactly the situation it
 // exists for. A failed query therefore degrades to Unknown, not to a retained
 // entry.
+//
+// Phase 1 (collect + delete) runs INLINE in the dispatcher goroutine: the
+// dispatcher being the only goroutine that deletes on the notification path is
+// what makes a double-invoke impossible by construction, and moving the delete
+// off it would give that up. Phases 2-3 (the status query and the handler
+// notifications) run in a separate goroutine because GetTransactionStatuses is
+// a synchronous, caller-context-ignoring network call: on the dispatcher it
+// backpressures through the unbuffered response queue into Recv and freezes
+// notification delivery for the whole channel for up to the query service's own
+// RequestTimeout -- long enough for an in-flight COMMITTED notification's own
+// TTL to elapse and be mis-settled as Unknown by the next sweep. Do not
+// "simplify" this back inline.
 func (n *notificationListenerManager) sweepExpired(ctx context.Context) {
 	if n.listenerTTL <= 0 {
 		return
@@ -260,27 +272,32 @@ func (n *notificationListenerManager) sweepExpired(ctx context.Context) {
 	}
 	logger.Debugf("Sweeping %d expired finality listener(s)", len(txIDs))
 
-	// Phase 2: one batched query, outside the lock. Best-effort.
-	var statuses map[string]int32
-	if n.queryService != nil {
-		var err error
-		statuses, err = n.queryService.GetTransactionStatuses(txIDs)
-		if err != nil {
-			logger.Warnf("Could not resolve status of %d expired listener(s), reporting Unknown: %v", len(txIDs), err)
-			statuses = nil
+	// Phases 2 and 3 off the dispatcher: batch is already a private copy and its
+	// entries are already out of the map, so nothing here needs handlersMu and no
+	// ordering guarantee depends on running them inline.
+	go func() {
+		// Phase 2: one batched query, outside the lock. Best-effort.
+		var statuses map[string]int32
+		if n.queryService != nil {
+			var err error
+			statuses, err = n.queryService.GetTransactionStatuses(txIDs)
+			if err != nil {
+				logger.Warnf("Could not resolve status of %d expired listener(s), reporting Unknown: %v", len(txIDs), err)
+				statuses = nil
+			}
 		}
-	}
 
-	// Phase 3: notify, outside the lock.
-	for _, e := range batch {
-		outcome := txOutcome{status: fdriver.Unknown}
-		if st, ok := statuses[e.txID]; ok {
-			outcome = txOutcome{status: statusFromCommitter(committerpb.Status(st))}
+		// Phase 3: notify, outside the lock.
+		for _, e := range batch {
+			outcome := txOutcome{status: fdriver.Unknown}
+			if st, ok := statuses[e.txID]; ok {
+				outcome = txOutcome{status: statusFromCommitter(committerpb.Status(st))}
+			}
+			for _, h := range e.listeners {
+				n.invokeHandler(ctx, h, e.txID, outcome)
+			}
 		}
-		for _, h := range e.listeners {
-			n.invokeHandler(ctx, h, e.txID, outcome)
-		}
-	}
+	}()
 }
 
 // invokeHandler runs one listener in its own goroutine, bounded by

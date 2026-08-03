@@ -996,6 +996,11 @@ func setupSweepTest(tb testing.TB, qs TxStatusQuerier) (*notificationListenerMan
 	nlm.listenerTTL = testTTL
 	nlm.sweepInterval = testSweep
 	nlm.queryService = qs
+	// setupTest leaves handlerTimeout at 0, which makes invokeHandler's
+	// context.WithTimeout(ctx, 0) already-expired: a context-respecting listener
+	// (like the real finalityServiceAdapter one) would drop the status entirely.
+	// Give the sweeper tests a real timeout so they exercise the production path.
+	nlm.handlerTimeout = DefaultHandlerTimeout
 	return nlm, fakeStream
 }
 
@@ -1154,6 +1159,12 @@ func TestSweepExpired(t *testing.T) {
 		qs := &mock.TxStatusQuerier{}
 		nlm, fakeStream := setupTest(t) // no TTL fields set => disabled
 		nlm.queryService = qs
+		// A real sweep interval is essential: setupTest leaves sweepInterval at 0,
+		// so listen() falls back to DefaultSweepInterval (30s) and the ticker would
+		// never fire during this test's short sleep -- the assertions below would
+		// then hold for that reason rather than because listenerTTL==0 disables
+		// expiry. With testSweep the ticker fires many times.
+		nlm.sweepInterval = testSweep
 		ctx := t.Context()
 		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
@@ -1170,6 +1181,49 @@ func TestSweepExpired(t *testing.T) {
 		_, exists := listenersFor(nlm, targetTxID)
 		require.True(t, exists, "listenerTTL==0 must disable expiry entirely")
 		require.Equal(t, 0, qs.CallCount(), "No query when expiry is disabled")
+	})
+
+	t.Run("Deadline_Stamped_By_AddFinalityListener", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_sweep_production_deadline"
+		qs := &mock.TxStatusQuerier{
+			GetTransactionStatusesStub: func(txIDs []string) (map[string]int32, error) {
+				return nil, nil // absent => Unknown
+			},
+		}
+		nlm, fakeStream := setupSweepTest(t, qs)
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		// The whole point of this subtest: register through the production path and
+		// make NO setExpiry/expireNow call. The only deadline in play is the one
+		// AddFinalityListener stamps via expiryFor. If that stamping regresses to a
+		// zero time (issue #1626), sweepExpired skips the entry forever and both
+		// assertions below fail.
+		ml := &mockListener{}
+		ml.wg.Add(1)
+
+		// AddFinalityListener sends on the unbuffered requestQueue, so the manager
+		// has to be draining it already -- same ordering as
+		// AddFinalityListener_Triggers_Send.
+		runManager(t, nlm)
+
+		require.NoError(t, nlm.AddFinalityListener(targetTxID, ml))
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			txID, status := ml.getStatus()
+			assert.Equal(collect, targetTxID, txID)
+			assert.Equal(collect, fdriver.Unknown, status)
+		}, timeout, tick,
+			"listener must be settled by the sweeper using the deadline stamped by AddFinalityListener")
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			_, exists := listenersFor(nlm, targetTxID)
+			assert.False(collect, exists)
+		}, timeout, tick, "entry must be removed once its stamped deadline elapses")
 	})
 
 	t.Run("Notification_Wins_No_Double_Invoke", func(t *testing.T) {
