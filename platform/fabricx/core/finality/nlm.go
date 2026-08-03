@@ -117,6 +117,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 			handler fabric.FinalityListener
 			txID    string
 			status  int
+			message string
 		}
 
 		var resp *committerpb.NotificationResponse
@@ -135,14 +136,19 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 			var calls []handlerCall
 
 			n.handlersMu.Lock()
-			for txID, v := range res {
+			for txID, outcome := range res {
 				entry, ok := n.handlers[txID]
 				if !ok {
 					continue
 				}
 				delete(n.handlers, txID)
 				for _, h := range entry.listeners {
-					calls = append(calls, handlerCall{handler: h, txID: txID, status: v})
+					calls = append(calls, handlerCall{
+						handler: h,
+						txID:    txID,
+						status:  outcome.status,
+						message: outcome.message,
+					})
 				}
 			}
 			n.handlersMu.Unlock()
@@ -157,7 +163,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 
 					done := make(chan struct{})
 					go func() {
-						c.handler.OnStatus(timeoutCtx, c.txID, c.status, "")
+						c.handler.OnStatus(timeoutCtx, c.txID, c.status, c.message)
 						close(done)
 					}()
 
@@ -184,36 +190,61 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	return err
 }
 
-func parseResponse(resp *committerpb.NotificationResponse) map[string]int {
-	res := make(map[string]int)
+// txOutcome is the resolved status for one transaction, plus an optional
+// human-readable message (currently only set for committer rejections).
+type txOutcome struct {
+	status  int
+	message string
+}
 
-	// first parse all timeouts
+// parseResponse flattens a NotificationResponse into per-txID outcomes.
+//
+// Precedence, weakest to strongest — a txID appearing in several fields takes
+// the strongest: timeout (Unknown) < rejection (Invalid) < status event. A
+// definitive commit status always wins, and a rejection always beats a mere
+// timeout. Keep this ordering if you add another response field.
+func parseResponse(resp *committerpb.NotificationResponse) map[string]txOutcome {
+	res := make(map[string]txOutcome)
+
+	// weakest: timeouts
 	for _, txID := range resp.GetTimeoutTxIds() {
-		res[txID] = fdriver.Unknown
+		res[txID] = txOutcome{status: fdriver.Unknown}
 	}
 
-	var s int
-	// next we parse the status events
-	for _, r := range resp.GetTxStatusEvents() {
+	// stronger: rejections. The committer will never process these, so they are
+	// definitively Invalid rather than Unknown. One reason applies to the whole
+	// batch. GetRejectedTxIds() is nil-safe on a nil receiver.
+	rejected := resp.GetRejectedTxIds()
+	for _, txID := range rejected.GetTxIds() {
+		res[txID] = txOutcome{status: fdriver.Invalid, message: rejected.GetReason()}
+		logger.Debugf("transaction [%s] rejected by committer: %s", txID, rejected.GetReason())
+	}
 
+	// strongest: actual status events
+	for _, r := range resp.GetTxStatusEvents() {
 		txID := r.GetRef().GetTxId()
 		status := r.GetStatus()
 
 		logger.Debugf("transaction [%s] status [%s]", txID, status)
 
-		switch status {
-		case committerpb.Status_COMMITTED:
-			s = fdriver.Valid
-		case committerpb.Status_STATUS_UNSPECIFIED:
-			s = fdriver.Unknown
-		default:
-			s = fdriver.Invalid
-		}
-
-		res[txID] = s
+		res[txID] = txOutcome{status: statusFromCommitter(status)}
 	}
 
 	return res
+}
+
+// statusFromCommitter maps a committer status onto an fdriver validation code.
+// Shared by parseResponse and the expiry sweeper so both interpret a committer
+// status identically.
+func statusFromCommitter(status committerpb.Status) int {
+	switch status {
+	case committerpb.Status_COMMITTED:
+		return fdriver.Valid
+	case committerpb.Status_STATUS_UNSPECIFIED:
+		return fdriver.Unknown
+	default:
+		return fdriver.Invalid
+	}
 }
 
 // AddFinalityListener registers a listener to be notified when the transaction with the given txID reaches finality.

@@ -40,6 +40,7 @@ const (
 type mockListener struct {
 	txID   string
 	status int
+	errMsg string
 	wg     sync.WaitGroup
 	lock   sync.RWMutex
 }
@@ -48,6 +49,7 @@ func (m *mockListener) OnStatus(ctx context.Context, txID string, status int, er
 	m.lock.Lock()
 	m.txID = txID
 	m.status = status
+	m.errMsg = errMsg
 	m.lock.Unlock()
 	m.wg.Done()
 }
@@ -57,6 +59,13 @@ func (m *mockListener) getStatus() (string, int) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	return m.txID, m.status
+}
+
+// getOutcome additionally returns the status message.
+func (m *mockListener) getOutcome() (string, int, string) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	return m.txID, m.status, m.errMsg
 }
 
 // blockingListener simulates a handler that blocks forever (ignores context).
@@ -295,6 +304,83 @@ func TestNotificationListenerManager(t *testing.T) {
 		_, exists := nlm.handlers[targetTxID]
 		nlm.handlersMu.RUnlock()
 		require.False(t, exists, "Handler should be removed after notification dispatch.")
+	})
+
+	t.Run("Receive_And_Dispatch_Handles_Rejection", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_rejected"
+		const reason = "namespace policy not satisfied"
+		nlm, fakeStream := setupTest(t)
+		ctx := t.Context()
+		ml := &mockListener{}
+		ml.wg.Add(1)
+		seedHandlers(nlm, targetTxID, ml)
+
+		resp := &committerpb.NotificationResponse{
+			RejectedTxIds: &committerpb.RejectedTxIds{
+				TxIds:  []string{targetTxID},
+				Reason: reason,
+			},
+		}
+
+		var sent atomic.Bool
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			if !sent.Swap(true) {
+				return resp, nil
+			}
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			txID, status, errMsg := ml.getOutcome()
+			assert.Equal(collect, targetTxID, txID)
+			assert.Equal(collect, fdriver.Invalid, status, "A rejected tx is definitively Invalid, not Unknown")
+			assert.Equal(collect, reason, errMsg, "The committer's rejection reason must reach the listener")
+		}, timeout, tick, "timeout waiting for OnStatus from rejection response")
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.False(t, exists, "Handler should be removed after a rejection")
+	})
+
+	t.Run("ParseResponse_Precedence", func(t *testing.T) {
+		t.Parallel()
+		const txID = "tx_precedence"
+
+		t.Run("status beats rejection and timeout", func(t *testing.T) {
+			t.Parallel()
+			out := parseResponse(&committerpb.NotificationResponse{
+				TimeoutTxIds:  []string{txID},
+				RejectedTxIds: &committerpb.RejectedTxIds{TxIds: []string{txID}, Reason: "rejected"},
+				TxStatusEvents: []*committerpb.TxStatus{{
+					Ref:    &committerpb.TxRef{TxId: txID},
+					Status: committerpb.Status_COMMITTED,
+				}},
+			})
+			require.Equal(t, fdriver.Valid, out[txID].status)
+			require.Empty(t, out[txID].message, "A committed status carries no message")
+		})
+
+		t.Run("rejection beats timeout", func(t *testing.T) {
+			t.Parallel()
+			out := parseResponse(&committerpb.NotificationResponse{
+				TimeoutTxIds:  []string{txID},
+				RejectedTxIds: &committerpb.RejectedTxIds{TxIds: []string{txID}, Reason: "rejected"},
+			})
+			require.Equal(t, fdriver.Invalid, out[txID].status)
+			require.Equal(t, "rejected", out[txID].message)
+		})
+
+		t.Run("nil rejected field is safe", func(t *testing.T) {
+			t.Parallel()
+			out := parseResponse(&committerpb.NotificationResponse{
+				TimeoutTxIds: []string{txID},
+			})
+			require.Equal(t, fdriver.Unknown, out[txID].status)
+			require.Empty(t, out[txID].message)
+		})
 	})
 
 	t.Run("AddFinalityListener_Triggers_Send", func(t *testing.T) {
