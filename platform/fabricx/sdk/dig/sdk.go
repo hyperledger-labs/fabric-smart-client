@@ -63,9 +63,11 @@ func (p *SDK) Install() error {
 		p.Container().Provide(finality.NewListenerManagerProvider),
 		p.Container().Provide(digutils.Identity[*finality.Provider](), dig.As(new(finality.ListenerManagerProvider))),
 		p.Container().Provide(queryservice.NewProvider, dig.As(new(queryservice.Provider))),
-		// FabricX certifies state inputs against the trusted committer QueryService
-		// instead of chaincode endorsement; the state package resolves this per network.
-		p.Container().Provide(func() state.Certifier { return &state.QueryServiceCertifier{} }),
+		// On FabricX the committer QueryService serves authoritative reads, so state
+		// inputs are certified by trusting the vault's committed read rather than by
+		// chaincode endorsement. Register the trusted-read certifier as the state
+		// Certifier; the state package resolves it per network.
+		p.Container().Provide(func() state.Certifier { return &state.TrustedReadCertifier{} }),
 	)
 	if err != nil {
 		return err

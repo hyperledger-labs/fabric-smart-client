@@ -20,8 +20,9 @@ historically did not. Both are now supported below the view layer:
    metadata miss.
 
 2. **State certification.** `WithCertification()` / `VerifyCertification()` are backed by a
-   `QueryServiceCertifier` (resolved per network via the `state.Certifier` seam, registered by the
-   fabricx SDK) that trusts the committer QueryService instead of chaincode endorsement.
+   `TrustedReadCertifier` (resolved per network via the `state.Certifier` seam, registered by the
+   fabricx SDK) that trusts the vault's committed read — served by the committer QueryService —
+   instead of chaincode endorsement.
 
 See `docs/superpowers/specs/2026-07-22-fabricx-hashhiding-certification-design.md` for the full
 design.

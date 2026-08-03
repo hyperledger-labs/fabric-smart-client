@@ -56,7 +56,9 @@ type MetadataService interface {
 	// (ns, key, valueDigest), where valueDigest = sha256(committed on-ledger value).
 	// Keying by the digest keeps overwrites/deletes unambiguous: a reader resolves
 	// the exact preimage for the value it actually observes on the ledger.
-	// Populated on FabricX (synchronously, at endorsement); Fabric does not use it.
+	// Populated by deployments whose nodes are stateless and resolve hash-hiding from a
+	// trusted committed read rather than local transient; the chaincode-endorsement path
+	// does not use it.
 	PutFieldMapping(ctx context.Context, ns, key string, valueDigest []byte, mapping TransientMap) error
 	// GetFieldMapping returns the field-mapping previously persisted for
 	// (ns, key, valueDigest), or an empty map if none exists.

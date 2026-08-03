@@ -93,9 +93,10 @@ func certificationKey(key string) (string, error) {
 	return rwset.CreateCompositeKey(Certification, elems)
 }
 
-// Certifier verifies and (on Fabric) produces certification for input states.
-// The concrete implementation is resolved per node platform: ChaincodeCertifier
-// on Fabric (default), QueryServiceCertifier on FabricX (registered by its SDK).
+// Certifier verifies and (on the default path) produces certification for input
+// states. The concrete implementation is resolved per node from the registered
+// Certifier service: ChaincodeCertifier (the default) verifies chaincode
+// endorsements; TrustedReadCertifier trusts the vault's committed read.
 type Certifier interface {
 	CertifyInput(n *Namespace, id string) error
 	VerifyInputCertificationAt(n *Namespace, index int, key string) error
@@ -235,21 +236,23 @@ func (c *ChaincodeCertifier) CertifyInput(n *Namespace, id string) error {
 	}
 }
 
-// QueryServiceCertifier certifies inputs against the trusted committer QueryService.
-// It is registered by the FabricX SDK. CertifyInput is a no-op — every FabricX node
-// self-reads the committed value via GetReadAt→QueryService, so certifiedInputs stays
-// empty and nothing consumes a produced cert. Verification re-reads the committed value
-// and branches on the hiding mode.
-type QueryServiceCertifier struct{}
+// TrustedReadCertifier certifies inputs by trusting the vault's committed read
+// instead of verifying chaincode endorsements. It suits nodes whose vault reads are
+// already authoritative, so no per-input endorsement proof is needed. It is opt-in:
+// a platform registers it as the Certifier service (the default stays
+// ChaincodeCertifier). CertifyInput is a no-op — every node self-reads the committed
+// value via GetReadAt, so certifiedInputs stays empty and nothing consumes a produced
+// cert. Verification re-reads the committed value and branches on the hiding mode.
+type TrustedReadCertifier struct{}
 
-func (c *QueryServiceCertifier) CertifyInput(n *Namespace, id string) error {
+func (c *TrustedReadCertifier) CertifyInput(n *Namespace, id string) error {
 	return nil
 }
 
-func (c *QueryServiceCertifier) VerifyInputCertificationAt(n *Namespace, index int, key string) error {
+func (c *TrustedReadCertifier) VerifyInputCertificationAt(n *Namespace, index int, key string) error {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
-		return errors.Wrap(err, "filed getting rw set")
+		return errors.Wrap(err, "failed getting rw set")
 	}
 	_, committed, err := rwSet.GetReadAt(n.namespace(), index)
 	if err != nil {
