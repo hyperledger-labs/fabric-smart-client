@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
 )
 
@@ -77,7 +78,7 @@ func TestProvider_Initialize(t *testing.T) {
 	t.Run("Sets_BaseContext_On_First_Call", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
 
 		ctx := t.Context()
 		provider.Initialize(ctx)
@@ -88,7 +89,7 @@ func TestProvider_Initialize(t *testing.T) {
 	t.Run("Initialize_Only_Once_Ignores_Subsequent_Calls", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
 
 		ctx1 := t.Context()
 		ctx2, cancel := context.WithCancel(t.Context())
@@ -104,7 +105,7 @@ func TestProvider_Initialize(t *testing.T) {
 	t.Run("Thread_Safe_Concurrent_Initialize", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
 
 		ctx := context.Background()
 
@@ -125,7 +126,7 @@ func TestProvider_NewManager(t *testing.T) {
 	t.Run("Panics_If_Not_Initialized", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
 
 		// Don't call Initialize
 		require.Panics(t, func() {
@@ -136,12 +137,12 @@ func TestProvider_NewManager(t *testing.T) {
 	t.Run("Creates_New_Manager_And_Starts_Listen", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
 
 		listenStarted := make(chan struct{})
 
 		// Mock with stream that blocks until context is done
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network, channel string, gcp GRPCClientProvider, qsp queryservice.Provider) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
@@ -178,10 +179,10 @@ func TestProvider_NewManager(t *testing.T) {
 	t.Run("Returns_Existing_Manager_Singleton_Pattern", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
 
 		// Mock with stream that blocks
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network, channel string, gcp GRPCClientProvider, qsp queryservice.Provider) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
@@ -211,9 +212,9 @@ func TestProvider_NewManager(t *testing.T) {
 	t.Run("Different_Network_Channel_Get_Different_Managers", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
 
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network, channel string, gcp GRPCClientProvider, qsp queryservice.Provider) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
@@ -245,12 +246,12 @@ func TestProvider_NewManager(t *testing.T) {
 	t.Run("Manager_Removed_When_Listen_Exits_With_Error", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
 
 		listenStarted := make(chan struct{})
 
 		// Mock stream that returns error immediately
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network, channel string, gcp GRPCClientProvider, qsp queryservice.Provider) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
@@ -280,12 +281,12 @@ func TestProvider_NewManager(t *testing.T) {
 	t.Run("Manager_Removed_When_Context_Canceled", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
 
 		listenStarted := make(chan struct{})
 
 		// Mock stream that blocks until context canceled
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network, channel string, gcp GRPCClientProvider, qsp queryservice.Provider) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
@@ -319,12 +320,12 @@ func TestProvider_NewManager(t *testing.T) {
 	t.Run("NewManager_Handles_Creation_Error", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
 
 		expectedErr := errors.New("failed to create manager")
 
 		// Mock that returns error
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network, channel string, gcp GRPCClientProvider, qsp queryservice.Provider) (*notificationListenerManager, error) {
 			return nil, expectedErr
 		}
 
@@ -348,9 +349,9 @@ func TestProvider_NewManager(t *testing.T) {
 	t.Run("Concurrent_NewManager_Calls_Same_Key", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
 
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network, channel string, gcp GRPCClientProvider, qsp queryservice.Provider) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
@@ -396,8 +397,8 @@ func TestGetListenerManager(t *testing.T) {
 		mockSP := &mock2.ServicesProvider{}
 
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
+		provider.newNotificationManager = func(network, channel string, gcp GRPCClientProvider, qsp queryservice.Provider) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
@@ -447,10 +448,10 @@ func TestGetListenerManager(t *testing.T) {
 		mockSP := &mock2.ServicesProvider{}
 
 		mockGRPC := &mockGRPCClientProvider{}
-		provider := NewListenerManagerProvider(mockGRPC, nil)
+		provider := NewListenerManagerProvider(mockGRPC, nil, nil)
 		expectedErr := errors.New("creation failed")
 
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network, channel string, gcp GRPCClientProvider, qsp queryservice.Provider) (*notificationListenerManager, error) {
 			return nil, expectedErr
 		}
 

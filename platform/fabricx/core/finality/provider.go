@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
@@ -50,10 +51,15 @@ type ServiceConfigProvider interface {
 // NewListenerManagerProvider creates a new instance of the Provider, which implements ListenerManagerProvider.
 // This provider manages the lifecycle of ListenerManager instances, ensuring one per
 // network/channel combination.
-func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, configProvider ServiceConfigProvider) *Provider {
+func NewListenerManagerProvider(
+	grpcClientProvider GRPCClientProvider,
+	configProvider ServiceConfigProvider,
+	queryServiceProvider queryservice.Provider,
+) *Provider {
 	return &Provider{
 		grpcClientProvider:     grpcClientProvider,
 		configProvider:         configProvider,
+		queryServiceProvider:   queryServiceProvider,
 		managers:               make(map[string]ListenerManager),
 		newNotificationManager: newNotifiWithGRPC,
 		// Note: baseCtx will be initialized in the Initialize method.
@@ -63,9 +69,10 @@ func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, configPro
 // Provider implements ListenerManagerProvider and manages ListenerManager instances.
 // IMPORTANT: Initialize method MUST be called once during service setup before calling NewManager method.
 type Provider struct {
-	newNotificationManager func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error)
+	newNotificationManager func(network, channel string, gcp GRPCClientProvider, qsp queryservice.Provider) (*notificationListenerManager, error)
 	configProvider         ServiceConfigProvider
 	grpcClientProvider     GRPCClientProvider
+	queryServiceProvider   queryservice.Provider
 	managers               map[string]ListenerManager // map: "network:channel" -> ListenerManager instance
 	managersMu             sync.Mutex
 	baseCtx                context.Context // The root context for all ListenerManager goroutines. MUST be set via Initialize().
@@ -105,7 +112,7 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 	}
 
 	// 2. Create the concrete ListenerManager
-	lm, err := p.newNotificationManager(network, p.grpcClientProvider)
+	lm, err := p.newNotificationManager(network, channel, p.grpcClientProvider, p.queryServiceProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -134,8 +141,9 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 	return lm, nil
 }
 
-// newNotifiWithGRPC creates and initializes a notificationListenerManager using the GRPCClientProvider.
-func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider) (*notificationListenerManager, error) {
+// newNotifiWithGRPC creates and initializes a notificationListenerManager using
+// the GRPCClientProvider.
+func newNotifiWithGRPC(network, channel string, grpcClientProvider GRPCClientProvider, qsp queryservice.Provider) (*notificationListenerManager, error) {
 	cc, err := grpcClientProvider.NotificationServiceClient(network)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)
@@ -150,6 +158,20 @@ func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider) (*
 		responseQueue:  make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
 		handlers:       make(map[driver.TxID]*handlerEntry),          // Map: txID -> listeners + local expiry deadline
 		handlerTimeout: DefaultHandlerTimeout,
+		listenerTTL:    DefaultListenerTTL,
+		sweepInterval:  DefaultSweepInterval,
+	}
+
+	// The query service lets local expiry report the true transaction status
+	// instead of a blind Unknown. It is optional: if it cannot be resolved the
+	// sweeper still runs and still removes entries.
+	if qsp != nil {
+		qs, err := qsp.Get(network, channel)
+		if err != nil {
+			logger.Warnf("No query service for [network=%s channel=%s]; expired listeners will report Unknown: %v", network, channel, err)
+		} else {
+			nlm.queryService = qs
+		}
 	}
 
 	return nlm, nil
