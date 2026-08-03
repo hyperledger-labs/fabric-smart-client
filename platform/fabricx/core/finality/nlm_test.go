@@ -8,6 +8,7 @@ package finality
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -109,10 +110,31 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_Open
 		notifyClient:  fakeClient,
 		requestQueue:  make(chan *committerpb.NotificationRequest),
 		responseQueue: make(chan *committerpb.NotificationResponse),
-		handlers:      make(map[driver.TxID][]fabric.FinalityListener),
+		handlers:      make(map[driver.TxID]*handlerEntry),
 	}
 
 	return nlm, fakeStream
+}
+
+// seedHandlers injects listeners directly into the handlers map, bypassing
+// AddFinalityListener, to isolate dispatch/sweep logic in tests. Localises the
+// map's internal shape so future changes touch one place.
+func seedHandlers(nlm *notificationListenerManager, txID string, listeners ...fabric.FinalityListener) {
+	nlm.handlersMu.Lock()
+	defer nlm.handlersMu.Unlock()
+	nlm.handlers[txID] = &handlerEntry{listeners: listeners}
+}
+
+// listenersFor returns a copy of the listeners registered for txID, plus whether
+// the entry exists.
+func listenersFor(nlm *notificationListenerManager, txID string) ([]fabric.FinalityListener, bool) {
+	nlm.handlersMu.RLock()
+	defer nlm.handlersMu.RUnlock()
+	entry, ok := nlm.handlers[txID]
+	if !ok {
+		return nil, false
+	}
+	return slices.Clone(entry.listeners), true
 }
 
 // runManager starts the manager asynchronously and ensures cleanup on test completion.
@@ -197,7 +219,7 @@ func TestNotificationListenerManager(t *testing.T) {
 				ml.wg.Add(1)
 
 				// manually inject into the map to isolate the Receive/Dispatch logic
-				nlm.handlers[tc.txID] = []fabric.FinalityListener{ml}
+				seedHandlers(nlm, tc.txID, ml)
 
 				// prepare the incoming gRPC message
 				resp := &committerpb.NotificationResponse{
@@ -245,7 +267,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		ctx := t.Context()
 		ml := &mockListener{}
 		ml.wg.Add(1)
-		nlm.handlers[targetTxID] = []fabric.FinalityListener{ml}
+		seedHandlers(nlm, targetTxID, ml)
 
 		// prepare response with a TimeoutTxId
 		resp := &committerpb.NotificationResponse{
@@ -335,9 +357,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		require.Equal(t, 1, fakeStream.SendCallCount(), "Duplicate AddFinalityListener call should NOT trigger a second Send")
 
 		// verify only one handler was registered internally.
-		nlm.handlersMu.RLock()
-		handlers, exists := nlm.handlers[targetTxID]
-		nlm.handlersMu.RUnlock()
+		handlers, exists := listenersFor(nlm, targetTxID)
 		require.True(t, exists, "Handler list should exist after first registration")
 		require.Len(t, handlers, 1, "There should be exactly ONE registered handler (the duplicate was rejected)")
 		require.Equal(t, ml, handlers[0], "The registered handler must be the original instance (ml)")
@@ -376,9 +396,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		require.Equal(t, 1, fakeStream.SendCallCount(), "Second unique listener should NOT trigger a second Send")
 
 		// verify BOTH unique listeners were registered internally.
-		nlm.handlersMu.RLock()
-		handlers, exists := nlm.handlers[targetTxID]
-		nlm.handlersMu.RUnlock()
+		handlers, exists := listenersFor(nlm, targetTxID)
 
 		require.True(t, exists, "Handler list should exist")
 		require.Len(t, handlers, 2, "There should be exactly TWO registered handlers")
@@ -550,17 +568,15 @@ func TestNotificationListenerManager(t *testing.T) {
 		require.NoError(t, nlm.AddFinalityListener(targetTxID, ml1), "Setup: failed to add ml1")
 		require.NoError(t, nlm.AddFinalityListener(targetTxID, ml2), "Setup: failed to add ml2")
 
-		nlm.handlersMu.RLock()
-		require.Len(t, nlm.handlers[targetTxID], 2, "Setup: Expected 2 listeners")
-		nlm.handlersMu.RUnlock()
+		handlers, exists := listenersFor(nlm, targetTxID)
+		require.True(t, exists, "Setup: entry should exist")
+		require.Len(t, handlers, 2, "Setup: Expected 2 listeners")
 
 		err := nlm.RemoveFinalityListener(targetTxID, ml1)
 		require.NoError(t, err, "RemoveFinalityListener for ml1 should succeed")
 
 		// map entry must still exist and contain only ml2
-		nlm.handlersMu.RLock()
-		handlers, exists := nlm.handlers[targetTxID]
-		nlm.handlersMu.RUnlock()
+		handlers, exists = listenersFor(nlm, targetTxID)
 
 		require.True(t, exists, "Map entry should still exist")
 		require.Len(t, handlers, 1, "Expected 1 listener remaining (ml2)")
@@ -570,9 +586,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		err = nlm.RemoveFinalityListener(targetTxID, ml2)
 		require.NoError(t, err, "RemoveFinalityListener for ml2 should succeed")
 
-		nlm.handlersMu.RLock()
-		_, exists = nlm.handlers[targetTxID]
-		nlm.handlersMu.RUnlock()
+		_, exists = listenersFor(nlm, targetTxID)
 		require.False(t, exists, "Map entry should be deleted after ml2 is removed")
 	})
 
@@ -597,18 +611,16 @@ func TestNotificationListenerManager(t *testing.T) {
 		require.NoError(t, nlm.AddFinalityListener(targetTxID, ml2), "Setup: failed to add ml2")
 
 		// assert initial state
-		nlm.handlersMu.RLock()
-		require.Len(t, nlm.handlers[targetTxID], 2, "Setup: Expected 2 listeners")
-		nlm.handlersMu.RUnlock()
+		handlers, exists := listenersFor(nlm, targetTxID)
+		require.True(t, exists, "Setup: entry should exist")
+		require.Len(t, handlers, 2, "Setup: Expected 2 listeners")
 
 		// attempt to remove ml3 which was never added
 		err := nlm.RemoveFinalityListener(targetTxID, ml3Nonexistent)
 		require.NoError(t, err, "Attempt to remove non-existent listener should return nil")
 
 		// map must be unchanged (still 2 listeners)
-		nlm.handlersMu.RLock()
-		handlers, exists := nlm.handlers[targetTxID]
-		nlm.handlersMu.RUnlock()
+		handlers, exists = listenersFor(nlm, targetTxID)
 
 		require.True(t, exists, "Map entry should still exist")
 		require.Len(t, handlers, 2, "The number of handlers should not change")
@@ -673,7 +685,7 @@ func TestNotificationListenerManager(t *testing.T) {
 			onCalled: slowCalled,
 		}
 
-		nlm.handlers[targetTxID] = []fabric.FinalityListener{slowListener}
+		seedHandlers(nlm, targetTxID, slowListener)
 
 		resp := &committerpb.NotificationResponse{
 			TxStatusEvents: []*committerpb.TxStatus{
@@ -737,7 +749,7 @@ func TestNotificationListenerManager(t *testing.T) {
 			onCalled: stuckCalled,
 		}
 
-		nlm.handlers[targetTxID] = []fabric.FinalityListener{fastML, slowML, stuckListener}
+		seedHandlers(nlm, targetTxID, fastML, slowML, stuckListener)
 
 		resp := &committerpb.NotificationResponse{
 			TxStatusEvents: []*committerpb.TxStatus{
@@ -813,8 +825,8 @@ func TestNotificationListenerManager(t *testing.T) {
 		normalML := &mockListener{}
 		normalML.wg.Add(1)
 
-		nlm.handlers[leakyTxID] = []fabric.FinalityListener{leakyListener}
-		nlm.handlers[normalTxID] = []fabric.FinalityListener{normalML}
+		seedHandlers(nlm, leakyTxID, leakyListener)
+		seedHandlers(nlm, normalTxID, normalML)
 
 		// First response triggers the leaky handler,
 		// second triggers the normal one.

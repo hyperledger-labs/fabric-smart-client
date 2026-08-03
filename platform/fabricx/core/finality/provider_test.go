@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
 )
 
@@ -66,7 +66,7 @@ func setupMockNotificationManager(t *testing.T, streamBehavior func(context.Cont
 		notifyClient:  fakeClient,
 		requestQueue:  make(chan *committerpb.NotificationRequest),
 		responseQueue: make(chan *committerpb.NotificationResponse),
-		handlers:      make(map[string][]fabric.FinalityListener),
+		handlers:      make(map[driver.TxID]*handlerEntry),
 	}
 
 	return nlm

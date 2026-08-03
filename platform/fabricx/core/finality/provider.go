@@ -148,7 +148,7 @@ func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider) (*
 		notifyClient:   notifyClient,
 		requestQueue:   make(chan *committerpb.NotificationRequest),  // Queue for outgoing requests to the committer
 		responseQueue:  make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
-		handlers:       make(map[string][]fabric.FinalityListener),   // Map: txID -> list of listeners
+		handlers:       make(map[driver.TxID]*handlerEntry),          // Map: txID -> listeners + local expiry deadline
 		handlerTimeout: DefaultHandlerTimeout,
 	}
 

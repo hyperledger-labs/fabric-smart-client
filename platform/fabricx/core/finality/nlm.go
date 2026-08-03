@@ -32,13 +32,22 @@ var logger = logging.MustGetLogger()
 // will leak goroutines, but this is preferable to blocking the dispatcher.
 const DefaultHandlerTimeout = 5 * time.Second
 
+// handlerEntry holds the listeners registered for one transaction, plus the
+// deadline after which the entry is swept locally. expiresAt is zero when
+// local expiry is disabled (listenerTTL == 0).
+type handlerEntry struct {
+	listeners []fabric.FinalityListener
+	//lint:ignore U1000 set and swept starting in a follow-up task; unused by design here
+	expiresAt time.Time //nolint:unused
+}
+
 type notificationListenerManager struct {
 	notifyClient   committerpb.NotifierClient
 	requestQueue   chan *committerpb.NotificationRequest
 	responseQueue  chan *committerpb.NotificationResponse
 	handlerTimeout time.Duration
 
-	handlers   map[driver.TxID][]fabric.FinalityListener
+	handlers   map[driver.TxID]*handlerEntry
 	handlersMu sync.RWMutex
 
 	// streamCtx holds the errgroup context of the currently active listen()
@@ -127,12 +136,12 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 
 			n.handlersMu.Lock()
 			for txID, v := range res {
-				handlers, ok := n.handlers[txID]
+				entry, ok := n.handlers[txID]
 				if !ok {
 					continue
 				}
 				delete(n.handlers, txID)
-				for _, h := range handlers {
+				for _, h := range entry.listeners {
 					calls = append(calls, handlerCall{handler: h, txID: txID, status: v})
 				}
 			}
@@ -222,18 +231,19 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 	n.handlersMu.Lock()
 	defer n.handlersMu.Unlock()
 
-	handlers := n.handlers[txID]
-	if slices.Contains(handlers, listener) {
-		logger.Warnf("The exact same listener is already registered for txID=%v. Skipping.", txID)
-		// Do not register the same instance twice
-		return nil
-	}
-	n.handlers[txID] = append(handlers, listener)
-
-	if len(handlers) > 0 {
+	entry, existed := n.handlers[txID]
+	if existed {
+		if slices.Contains(entry.listeners, listener) {
+			logger.Warnf("The exact same listener is already registered for txID=%v. Skipping.", txID)
+			// Do not register the same instance twice
+			return nil
+		}
+		entry.listeners = append(entry.listeners, listener)
 		logger.Debugf("Additional listener registered for txID=%v. Request already sent.", txID)
 		return nil
 	}
+
+	n.handlers[txID] = &handlerEntry{listeners: []fabric.FinalityListener{listener}}
 
 	// this is our first listener registered for the given txID
 	txIDs := []string{txID}
@@ -276,16 +286,16 @@ func (n *notificationListenerManager) RemoveFinalityListener(txID string, listen
 	n.handlersMu.Lock()
 	defer n.handlersMu.Unlock()
 
-	handlers, ok := n.handlers[txID]
-	if !ok || len(handlers) == 0 {
+	entry, ok := n.handlers[txID]
+	if !ok || len(entry.listeners) == 0 {
 		// no handlers registered for this txID, nothing to remove
 		logger.Debugf("RemoveFinalityListener called for unknown txID: %s", txID)
 		return nil
 	}
 
-	initialLength := len(handlers)
+	initialLength := len(entry.listeners)
 
-	newHandlers := slices.DeleteFunc(handlers, func(h fabric.FinalityListener) bool {
+	newHandlers := slices.DeleteFunc(entry.listeners, func(h fabric.FinalityListener) bool {
 		return h == listener
 	})
 
@@ -301,7 +311,7 @@ func (n *notificationListenerManager) RemoveFinalityListener(txID string, listen
 		logger.Debugf("Last finality listener removed for txID=%s.", txID)
 		delete(n.handlers, txID)
 	} else {
-		n.handlers[txID] = newHandlers
+		entry.listeners = newHandlers
 		logger.Debugf("Removed listener for txID=%s. %d listeners remaining.", txID, len(newHandlers))
 	}
 
