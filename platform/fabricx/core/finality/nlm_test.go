@@ -420,6 +420,35 @@ func TestNotificationListenerManager(t *testing.T) {
 		require.False(t, exists, "Handler should not be added to the map for a nil listener")
 	})
 
+	t.Run("AddFinalityListener_Empty_TxID_Fails", func(t *testing.T) {
+		t.Parallel()
+		nlm, fakeStream := setupTest(t)
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		runManager(t, nlm)
+
+		// an empty txID must be rejected: no notification could ever match it, so
+		// the entry would never be removed
+		err := nlm.AddFinalityListener("", &mockListener{})
+
+		require.Error(t, err)
+		require.EqualError(t, err, "tx id must be not empty",
+			"message must match the generic driver's, so both drivers agree")
+
+		nlm.handlersMu.RLock()
+		_, exists := nlm.handlers[""]
+		nlm.handlersMu.RUnlock()
+		require.False(t, exists, "No handler entry should be created for an empty txID")
+
+		// and no subscription should have been sent for it
+		time.Sleep(shortWait)
+		require.Equal(t, 0, fakeStream.SendCallCount(), "Empty txID must not trigger a Send")
+	})
+
 	t.Run("Shutdown_Graceful_Exit", func(t *testing.T) {
 		t.Parallel()
 		nlm, fakeStream := setupTest(t)

@@ -212,6 +212,13 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 	if listener == nil {
 		return errors.New("listener nil")
 	}
+	// An empty txID can never appear in a committer notification, so the entry it
+	// would create is unremovable. The generic driver already rejects this (see
+	// platform/common/core/generic/committer/listenermgr.go); keep the message
+	// identical so both drivers behave the same for the same API call.
+	if len(txID) == 0 {
+		return errors.New("tx id must be not empty")
+	}
 
 	n.handlersMu.Lock()
 	defer n.handlersMu.Unlock()
