@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package runner
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -58,7 +59,7 @@ func newBatchRunner() (BatchRunner[int], map[string]string, *uint32) {
 	var locksObtained uint32
 	m := make(map[string]string)
 	var mu sync.RWMutex
-	runner := NewBatchRunner(func(vs []int) []error {
+	runner := NewBatchRunner(context.Background(), func(vs []int) []error {
 		mu.Lock()
 		atomic.AddUint32(&locksObtained, 1)
 		defer mu.Unlock()
@@ -96,7 +97,7 @@ func run(t *testing.T, ctr *atomic.Uint32, runner BatchRunner[int], times int) {
 func TestBatchExecutor_Success(t *testing.T) {
 	t.Parallel()
 
-	executor := NewBatchExecutor(func(inputs []string) []Output[int] {
+	executor := NewBatchExecutor(context.Background(), func(inputs []string) []Output[int] {
 		outputs := make([]Output[int], len(inputs))
 		for i, input := range inputs {
 			outputs[i] = Output[int]{Val: len(input), Err: nil}
@@ -112,7 +113,7 @@ func TestBatchExecutor_Success(t *testing.T) {
 func TestBatchExecutor_Error(t *testing.T) {
 	t.Parallel()
 
-	executor := NewBatchExecutor(func(inputs []string) []Output[int] {
+	executor := NewBatchExecutor(context.Background(), func(inputs []string) []Output[int] {
 		outputs := make([]Output[int], len(inputs))
 		for i, input := range inputs {
 			if input == "error" {
@@ -135,7 +136,7 @@ func TestBatchExecutor_Concurrent(t *testing.T) {
 	var mu sync.Mutex
 	processed := make(map[string]bool)
 
-	executor := NewBatchExecutor(func(inputs []string) []Output[int] {
+	executor := NewBatchExecutor(context.Background(), func(inputs []string) []Output[int] {
 		mu.Lock()
 		defer mu.Unlock()
 		outputs := make([]Output[int], len(inputs))
@@ -168,7 +169,7 @@ func TestBatchRunner_MultipleCycles(t *testing.T) {
 	var mu sync.Mutex
 	totalProcessed := 0
 
-	runner := NewBatchRunner(func(vals []int) []error {
+	runner := NewBatchRunner(context.Background(), func(vals []int) []error {
 		mu.Lock()
 		totalProcessed += len(vals)
 		mu.Unlock()
@@ -194,7 +195,7 @@ func TestBatchRunner_TimeoutWithNoRequests(t *testing.T) {
 
 	executionCount := atomic.Int32{}
 
-	runner := NewBatchRunner(func(vals []int) []error {
+	runner := NewBatchRunner(context.Background(), func(vals []int) []error {
 		executionCount.Add(1)
 		return make([]error, len(vals))
 	}, 5, 10*time.Millisecond)

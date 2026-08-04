@@ -54,11 +54,11 @@ func (e *deliveryListenerEntry) Equals(other events.ListenerEntry[txInfo]) bool 
 	return other != nil && other.(*deliveryListenerEntry).l == e.l
 }
 
-func NewDeliveryFLM(logger logging.Logger, config events.DeliveryListenerManagerConfig, network string, ch *fabric.Channel) (*deliveryListenerManager, error) {
+func NewDeliveryFLM(ctx context.Context, logger logging.Logger, config events.DeliveryListenerManagerConfig, network string, ch *fabric.Channel) (*deliveryListenerManager, error) {
 	mapper := &txInfoMapper{logger: logger, network: network}
 	delivery := ch.Delivery()
 	queryService := &DeliveryScanQueryByID[txInfo]{Logger: logger, Delivery: delivery, Mapper: mapper}
-	flm, err := events.NewListenerManager[txInfo](logger, config, delivery, queryService, &noop.Tracer{}, mapper)
+	flm, err := events.NewListenerManager[txInfo](ctx, logger, config, delivery, queryService, &noop.Tracer{}, mapper)
 	if err != nil {
 		return nil, err
 	}

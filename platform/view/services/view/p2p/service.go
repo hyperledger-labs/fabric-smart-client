@@ -9,6 +9,7 @@ package p2p
 import (
 	"context"
 	"runtime/debug"
+	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -74,6 +75,10 @@ type Service struct {
 	endpointService  EndpointService
 	commLayer        CommLayer
 	runner           Runner
+
+	// wg tracks in-flight handleMessage goroutines spawned by Start, so that shutdown
+	// (ctx.Done()) can drain them before the Start goroutine returns (Issue #7).
+	wg sync.WaitGroup
 }
 
 // NewService returns a new instance of the P2P service.
@@ -104,9 +109,14 @@ func (s *Service) Start(ctx context.Context) error {
 			ch := session.Receive()
 			select {
 			case msg := <-ch:
-				go s.handleMessage(msg)
+				s.wg.Add(1)
+				go func() {
+					defer s.wg.Done()
+					s.handleMessage(ctx, msg)
+				}()
 			case <-ctx.Done():
-				logger.DebugfContext(ctx, "received done signal, stopping listening to messages on the master session")
+				logger.DebugfContext(ctx, "received done signal, waiting for in-flight handlers")
+				s.wg.Wait()
 				return
 			}
 		}
@@ -114,9 +124,11 @@ func (s *Service) Start(ctx context.Context) error {
 	return nil
 }
 
-// handleMessage handles an incoming message.
-func (s *Service) handleMessage(msg *view.Message) {
-	logger.Debugf("Will call responder view for context [%s]", msg.ContextID)
+// handleMessage handles an incoming message. ctx is the Service's own lifecycle context
+// (as passed to Start); it is threaded down to respond so that responder views have a
+// best-effort way to observe shutdown while Start drains them via its WaitGroup.
+func (s *Service) handleMessage(ctx context.Context, msg *view.Message) {
+	logger.DebugfContext(ctx, "Will call responder view for context [%s]", msg.ContextID)
 	responder, id, err := s.viewManager.ExistResponderForCaller(msg.Caller)
 	if err != nil {
 		logger.Errorf("[%s] No responder exists for [%s]: [%s]", s.identityProvider.DefaultIdentity(), msg.String(), err)
@@ -126,13 +138,13 @@ func (s *Service) handleMessage(msg *view.Message) {
 		id = s.identityProvider.DefaultIdentity()
 	}
 
-	if err := s.respond(responder, id, msg); err != nil {
+	if err := s.respond(ctx, responder, id, msg); err != nil {
 		logger.Errorf("[%s] error during respond [%s]", s.identityProvider.DefaultIdentity(), err)
 	}
 }
 
 // respond executes a given responder view.
-func (s *Service) respond(responder view.View, id view.Identity, msg *view.Message) (err error) {
+func (s *Service) respond(ctx context.Context, responder view.View, id view.Identity, msg *view.Message) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("respond triggered panic: %s\n%s\n", r, debug.Stack())
@@ -141,10 +153,13 @@ func (s *Service) respond(responder view.View, id view.Identity, msg *view.Messa
 	}()
 
 	// get context
-	viewCtx, isNew, err := s.getOrCreateContext(id, msg)
+	viewCtx, isNew, cleanup, err := s.getOrCreateContext(ctx, id, msg)
 	if err != nil {
 		return errors.WithMessagef(err, "failed getting context for [%s,%s]", msg.ContextID, id)
 	}
+	// cleanup deregisters the AfterFunc callback and releases the merged context's
+	// WithCancel resources once this responder is done (see getOrCreateContext).
+	defer cleanup()
 
 	logger.DebugfContext(viewCtx.Context(), "[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, isNew, logging.Identifier(responder))
 
@@ -168,25 +183,51 @@ func (s *Service) respond(responder view.View, id view.Identity, msg *view.Messa
 	return nil
 }
 
-// getOrCreateContext returns a view context for the given arguments.
-func (s *Service) getOrCreateContext(me view.Identity, msg *view.Message) (view.Context, bool, error) {
+// getOrCreateContext returns a view context for the given arguments, along with a cleanup
+// function the caller MUST invoke (typically via defer) once the responder is done with the
+// context, to avoid leaking the AfterFunc registration and WithCancel resources created below.
+func (s *Service) getOrCreateContext(ctx context.Context, me view.Identity, msg *view.Message) (viewCtx view.Context, isNew bool, cleanup func(), err error) {
+	noop := func() {}
+
 	// get the caller identity
 	remote, err := s.endpointService.GetIdentity(msg.FromEndpoint, msg.FromPKID)
 	if err != nil {
-		return nil, false, err
+		return nil, false, noop, err
 	}
 
 	// create a new session with the ID we received
 	responderSession, err := s.commLayer.NewResponderSession(remote, msg)
 	if err != nil {
-		return nil, false, err
+		return nil, false, noop, err
 	}
 
-	return s.viewManager.NewResponderContext(
-		msg.Ctx,
+	// The responder's view.Context must be cancelled when EITHER msg.Ctx is done (e.g. the
+	// peer's stream closes) OR the Service's own lifecycle ctx is done (shutdown), while
+	// still inheriting msg.Ctx's values (notably the incoming distributed-trace span, which
+	// the websocket transport attaches via trace.ContextWithRemoteSpanContext). So derive
+	// mergedCtx from msg.Ctx to preserve values + stream-close cancellation, and additionally
+	// cancel it when ctx (Start's ctx) fires, so Start's wg.Wait() drain can never hang on a
+	// transport (e.g. libp2p) whose stream context never cancels on its own.
+	mergedCtx, cancel := context.WithCancel(msg.Ctx)
+	stop := context.AfterFunc(ctx, cancel)
+	cleanup = func() {
+		// stop deregisters the AfterFunc callback (no-op if it already ran or msg.Ctx/ctx
+		// were already done); cancel releases mergedCtx's WithCancel resources.
+		stop()
+		cancel()
+	}
+
+	viewCtx, isNew, err = s.viewManager.NewResponderContext(
+		mergedCtx,
 		msg.ContextID,
 		responderSession,
 		me,
 		remote,
 	)
+	if err != nil {
+		cleanup()
+		return nil, false, noop, err
+	}
+
+	return viewCtx, isNew, cleanup, nil
 }

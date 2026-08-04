@@ -105,7 +105,7 @@ func (c *DelegatedContext) GetSession(caller view.View, party view.Identity, bou
 			}
 			left := biChannel.LeftSession()
 			right := biChannel.RightSession()
-			view2.RunView(c, responder.ResponderView, view.AsResponder(right))
+			view2.RunView(c.Context(), c, responder.ResponderView, view.AsResponder(right))
 
 			responder.Channel = biChannel
 			return left, nil

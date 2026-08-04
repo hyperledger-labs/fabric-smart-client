@@ -12,6 +12,7 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -48,6 +49,7 @@ type Notifier struct {
 	// callback
 	subscribers []driver.TriggerCallback
 	mu          sync.RWMutex
+	isClosed    bool
 }
 
 var operationMap = map[string]driver.Operation{
@@ -113,32 +115,53 @@ func (db *Notifier) dispatch(operation driver.Operation, m map[driver.ColumnKey]
 }
 
 func (db *Notifier) Subscribe(callback driver.TriggerCallback) error {
-	// register the callback
 	db.mu.Lock()
-	db.subscribers = append(db.subscribers, callback)
 	defer db.mu.Unlock()
 
-	// Note that if the db listener is already closed, we still append subscribers here.
-	// Clearly, this is not very robust. A better implementation would check if the Notifier is still open, otherwise
-	// ignore the Subscribe call or return an error.
-	// Since we deprecated this impl, there is no need improve this behavior.
+	if db.isClosed {
+		return errors.New("notifier is closed")
+	}
 
-	db.startOnce.Do(func() {
-		logger.Debugf("First subscription for notifier of [%s]. Notifier starts listening...", db.table)
-		go func() {
-			if err := db.listener.Listen(db.ctx); err != nil {
-				logger.Errorf("notifier listen for [%s] failed: %s", db.table, err.Error())
-			}
-		}()
-	})
+	// register the callback
+	db.subscribers = append(db.subscribers, callback)
+
+	if db.listener != nil {
+		db.startOnce.Do(func() {
+			logger.Debugf("First subscription for notifier of [%s]. Notifier starts listening...", db.table)
+			go func() {
+				if err := db.listener.Listen(db.ctx); err != nil {
+					logger.Errorf("notifier listen for [%s] failed: %s", db.table, err.Error())
+				}
+			}()
+		})
+	}
 
 	return nil
 }
 
+// Unsubscribe removes the first registered subscriber matching callback by function-pointer identity.
+// It is a concrete convenience method and is NOT part of the driver.Notifier interface.
+func (db *Notifier) Unsubscribe(callback driver.TriggerCallback) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	target := reflect.ValueOf(callback).Pointer()
+	for i, subscriber := range db.subscribers {
+		if reflect.ValueOf(subscriber).Pointer() == target {
+			db.subscribers = append(db.subscribers[:i], db.subscribers[i+1:]...)
+			return nil
+		}
+	}
+	return errors.New("no matching subscriber found")
+}
+
 func (db *Notifier) Close() error {
 	db.closeOnce.Do(func() {
-		db.cancel() // stop listener goroutine
+		if db.cancel != nil {
+			db.cancel() // stop listener goroutine
+		}
 		db.mu.Lock()
+		db.isClosed = true
 		db.subscribers = nil
 		db.mu.Unlock()
 	})
@@ -195,7 +218,7 @@ func (db *Notifier) UnsubscribeAll() error {
 	// unregister all callbacks
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	clear(db.subscribers)
+	db.subscribers = nil
 
 	return nil
 }

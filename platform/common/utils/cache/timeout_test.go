@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package cache_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -32,7 +33,7 @@ func TestTimeoutSimple(t *testing.T) {
 
 	input := map[int]string{1: "a", 2: "b", 3: "c", 4: "d", 5: "e"}
 
-	c := cache.NewTimeoutCache(evictionTimeout, func(evicted map[int]string) {
+	c := cache.NewTimeoutCache(context.Background(), evictionTimeout, func(evicted map[int]string) {
 		mu.Lock()
 		collections.CopyMap(allEvicted, evicted)
 		mu.Unlock()
@@ -69,7 +70,7 @@ func TestTimeoutParallel(t *testing.T) {
 	numItem := 100
 
 	var evictedCount atomic.Int32
-	c := cache.NewTimeoutCache(evictionTimeout, func(evicted map[int]string) { evictedCount.Add(int32(len(evicted))) })
+	c := cache.NewTimeoutCache(context.Background(), evictionTimeout, func(evicted map[int]string) { evictedCount.Add(int32(len(evicted))) })
 
 	var wg sync.WaitGroup
 	wg.Add(numItem)
