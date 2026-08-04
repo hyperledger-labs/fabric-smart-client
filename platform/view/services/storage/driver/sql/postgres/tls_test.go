@@ -39,14 +39,32 @@ func (m *mockConfig) UnmarshalKey(key string, rawVal any) error {
 		return nil
 	}
 
-	return mapstructure.Decode(val, rawVal)
+	return decodeYAML(val, rawVal)
 }
 
 func (m *mockConfig) UnmarshalDriverOpts(name driver2.PersistenceName, v any) error {
 	if opts, ok := m.values[string(name)+"Opts"]; ok {
-		return mapstructure.Decode(opts, v)
+		return decodeYAML(opts, v)
 	}
 	return nil
+}
+
+// decodeYAML mirrors the production config decoder
+// (config.EnhancedExactUnmarshal), which decodes using the "yaml" struct tag.
+// Using it here ensures the test exercises the same tag resolution as the real
+// config path, so a missing/incorrect `yaml` tag (e.g. on Config.TLSConfig) is
+// caught rather than masked by mapstructure's default field-name matching.
+func decodeYAML(input, output any) error {
+	dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		TagName:          "yaml",
+		WeaklyTypedInput: true,
+		Result:           output,
+	})
+	if err != nil {
+		return err
+	}
+
+	return dec.Decode(input)
 }
 
 func generateSelfSignedCert(t *testing.T, tempDir string) (string, string) {
@@ -298,19 +316,22 @@ func TestTLSConfigProvider(t *testing.T) { //nolint:paralleltest
 	tempDir := t.TempDir()
 	certPath, _ := generateSelfSignedCert(t, tempDir)
 
+	// Keys use the same YAML names a user would write under
+	// fsc.persistences.<name>.opts, so the test decodes through the real yaml
+	// tags (in particular the `tls` block -> Config.TLSConfig).
 	mockCfg := &mockConfig{
 		values: map[string]any{
 			"dbOpts": map[string]any{
-				"DataSource": "host=localhost port=5432 dbname=test",
-				"TLSConfig": map[string]any{
+				"dataSource": "host=localhost port=5432 dbname=test",
+				"tls": map[string]any{
 					"enabled":        true,
 					"ssl_mode":       "require",
 					"root_cert_path": certPath,
 				},
 			},
 			"otherOpts": map[string]any{
-				"DataSource": "host=localhost port=5432 dbname=test",
-				"TLSConfig": map[string]any{
+				"dataSource": "host=localhost port=5432 dbname=test",
+				"tls": map[string]any{
 					"enabled":  true,
 					"ssl_mode": "verify-full",
 				},

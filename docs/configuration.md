@@ -636,6 +636,12 @@ persistence:
 > Unlike libpq (whose default is `prefer`), an empty `ssl_mode` defaults to the
 > strictest mode, `verify-full`. Set it explicitly if you need a more permissive mode.
 
+> [!NOTE]
+> For `verify-ca` and `verify-full`, if `root_cert_path` is omitted the server
+> certificate is validated against the host's system CA pool. A server using an
+> internal/self-signed CA (the common case for Postgres) will therefore fail to
+> verify unless you point `root_cert_path` at that CA.
+
 For more info about managing connections, see https://go.dev/doc/database/manage-connections. Keep in mind that Fabric Smart Client
 maintains two independent database instances: one for KVS and one for the Vault. The combined maxOpenConns should not exceed the
 configured max_connections in the postgres server (100 by default).
