@@ -92,8 +92,7 @@ func newRealMetadataStore(t *testing.T) driver.MetadataStore {
 // TestGetFieldMappingHitAgainstRealStore pins the hit path through the real
 // persistence stack, so the miss assertions below cannot be blamed on a
 // mis-wired store.
-func TestGetFieldMappingHitAgainstRealStore(t *testing.T) {
-	t.Parallel()
+func TestGetFieldMappingHitAgainstRealStore(t *testing.T) { //nolint:paralleltest
 	mds := transaction.NewMetadataService(newRealMetadataStore(t), "net", "ch")
 	ctx := t.Context()
 
@@ -111,8 +110,7 @@ func TestGetFieldMappingHitAgainstRealStore(t *testing.T) {
 // returns (nil, nil) for a missing row (QueryUniqueContext swallows
 // sql.ErrNoRows), and metadata.store.GetMetadata then json.Unmarshal's those
 // nil bytes, which fails. Callers must treat the error as "no mapping".
-func TestGetFieldMappingOnMissReturnsError(t *testing.T) {
-	t.Parallel()
+func TestGetFieldMappingOnMissReturnsError(t *testing.T) { //nolint:paralleltest
 	mds := transaction.NewMetadataService(newRealMetadataStore(t), "net", "ch")
 
 	got, err := mds.GetFieldMapping(t.Context(), "ns", "never-stored", []byte{0xDE, 0xAD})
@@ -122,8 +120,7 @@ func TestGetFieldMappingOnMissReturnsError(t *testing.T) {
 
 // TestLoadTransientOnMissReturnsError shows GetFieldMapping's miss behaviour
 // really does mirror LoadTransient's — both error rather than returning empty.
-func TestLoadTransientOnMissReturnsError(t *testing.T) {
-	t.Parallel()
+func TestLoadTransientOnMissReturnsError(t *testing.T) { //nolint:paralleltest
 	mds := transaction.NewMetadataService(newRealMetadataStore(t), "net", "ch")
 
 	got, err := mds.LoadTransient(t.Context(), "never-stored-txid")
