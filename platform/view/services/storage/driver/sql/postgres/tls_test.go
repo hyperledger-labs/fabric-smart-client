@@ -81,6 +81,8 @@ func TestCreateTLSConnConfig(t *testing.T) {
 		verify     func(t *testing.T, connConfig *pgx.ConnConfig, err error)
 	}{
 		{
+			// An empty ssl_mode intentionally defaults to the strictest mode
+			// (verify-full): encrypted with full certificate and hostname checks.
 			name:       "empty TLSConfig",
 			dataSource: "host=localhost port=5432 user=postgres dbname=test",
 			tlsCfg:     TLSConfig{},
@@ -88,6 +90,9 @@ func TestCreateTLSConnConfig(t *testing.T) {
 				t.Helper()
 				require.NoError(t, err)
 				require.NotNil(t, connConfig.TLSConfig)
+				assert.False(t, connConfig.TLSConfig.InsecureSkipVerify)
+				assert.Nil(t, connConfig.TLSConfig.VerifyConnection)
+				assert.Empty(t, connConfig.Fallbacks)
 			},
 		},
 		{
@@ -103,6 +108,7 @@ func TestCreateTLSConnConfig(t *testing.T) {
 			},
 		},
 		{
+			// libpq "require": encrypt, but do not verify the certificate or hostname.
 			name:       "SSLMode require",
 			dataSource: "postgres://postgres:password@localhost:5432/test",
 			tlsCfg: TLSConfig{
@@ -112,8 +118,42 @@ func TestCreateTLSConnConfig(t *testing.T) {
 				t.Helper()
 				require.NoError(t, err)
 				require.NotNil(t, connConfig.TLSConfig)
-				assert.False(t, connConfig.TLSConfig.InsecureSkipVerify)
+				assert.True(t, connConfig.TLSConfig.InsecureSkipVerify)
+				assert.Nil(t, connConfig.TLSConfig.VerifyConnection)
+				assert.Empty(t, connConfig.Fallbacks)
 				assert.Equal(t, "localhost", connConfig.TLSConfig.ServerName)
+			},
+		},
+		{
+			// libpq "allow": try plaintext first, fall back to TLS (no verification).
+			name:       "SSLMode allow",
+			dataSource: "host=localhost port=5432 user=postgres dbname=test",
+			tlsCfg: TLSConfig{
+				SSLMode: "allow",
+			},
+			verify: func(t *testing.T, connConfig *pgx.ConnConfig, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				assert.Nil(t, connConfig.TLSConfig)
+				require.Len(t, connConfig.Fallbacks, 1)
+				require.NotNil(t, connConfig.Fallbacks[0].TLSConfig)
+				assert.True(t, connConfig.Fallbacks[0].TLSConfig.InsecureSkipVerify)
+			},
+		},
+		{
+			// libpq "prefer": try TLS (no verification) first, fall back to plaintext.
+			name:       "SSLMode prefer",
+			dataSource: "host=localhost port=5432 user=postgres dbname=test",
+			tlsCfg: TLSConfig{
+				SSLMode: "prefer",
+			},
+			verify: func(t *testing.T, connConfig *pgx.ConnConfig, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				require.NotNil(t, connConfig.TLSConfig)
+				assert.True(t, connConfig.TLSConfig.InsecureSkipVerify)
+				require.Len(t, connConfig.Fallbacks, 1)
+				assert.Nil(t, connConfig.Fallbacks[0].TLSConfig)
 			},
 		},
 		{
@@ -132,6 +172,10 @@ func TestCreateTLSConnConfig(t *testing.T) {
 			},
 		},
 		{
+			// libpq "verify-ca": verify the certificate chain against the CA, but
+			// not the hostname. Go performs the default hostname check unless
+			// InsecureSkipVerify is set, so verify-ca must set it and delegate the
+			// chain check to a custom VerifyConnection callback.
 			name:       "SSLMode verify-ca with Root CA and Client Certs",
 			dataSource: "host=localhost port=5432 user=postgres dbname=test",
 			tlsCfg: TLSConfig{
@@ -144,10 +188,11 @@ func TestCreateTLSConnConfig(t *testing.T) {
 				t.Helper()
 				require.NoError(t, err)
 				require.NotNil(t, connConfig.TLSConfig)
-				assert.False(t, connConfig.TLSConfig.InsecureSkipVerify)
+				assert.True(t, connConfig.TLSConfig.InsecureSkipVerify)
 				assert.NotNil(t, connConfig.TLSConfig.RootCAs)
 				assert.Len(t, connConfig.TLSConfig.Certificates, 1)
 				assert.NotNil(t, connConfig.TLSConfig.VerifyConnection)
+				assert.Empty(t, connConfig.Fallbacks)
 
 				// Test VerifyConnection callback
 				cs := tls.ConnectionState{
@@ -205,6 +250,48 @@ func TestCreateTLSConnConfig(t *testing.T) {
 			tt.verify(t, connConfig, err)
 		})
 	}
+}
+
+// TestVerifyCAIgnoresHostname asserts that verify-ca validates the server
+// certificate chain against the configured CA while ignoring a hostname
+// mismatch (libpq "verify-ca" semantics), and still rejects a certificate that
+// is not signed by that CA.
+func TestVerifyCAIgnoresHostname(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+
+	ca, err := tlsgen.NewCA()
+	require.NoError(t, err)
+	caPath := filepath.Join(tempDir, "ca.pem")
+	require.NoError(t, os.WriteFile(caPath, ca.CertBytes(), 0o644))
+
+	// Server certificate whose SAN ("db.internal") deliberately differs from the
+	// connection host, so a hostname check would fail.
+	serverKeyPair, err := ca.NewServerCertKeyPair("db.internal")
+	require.NoError(t, err)
+
+	connConfig, err := createTLSConnConfig(
+		"host=127.0.0.1 port=5432 user=postgres dbname=test",
+		TLSConfig{SSLMode: "verify-ca", RootCertPath: caPath},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, connConfig.TLSConfig.VerifyConnection)
+
+	// Chain is valid; hostname differs from ServerName -> must still pass.
+	err = connConfig.TLSConfig.VerifyConnection(tls.ConnectionState{
+		PeerCertificates: []*x509.Certificate{serverKeyPair.TLSCert},
+	})
+	require.NoError(t, err)
+
+	// A certificate signed by a different CA must be rejected.
+	otherCA, err := tlsgen.NewCA()
+	require.NoError(t, err)
+	untrusted, err := otherCA.NewServerCertKeyPair("db.internal")
+	require.NoError(t, err)
+	err = connConfig.TLSConfig.VerifyConnection(tls.ConnectionState{
+		PeerCertificates: []*x509.Certificate{untrusted.TLSCert},
+	})
+	require.Error(t, err)
 }
 
 func TestTLSConfigProvider(t *testing.T) { //nolint:paralleltest

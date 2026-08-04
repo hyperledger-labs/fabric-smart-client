@@ -12,6 +12,7 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -23,19 +24,22 @@ type TLSConfig struct {
 	ServerName   string `json:"server_name"    mapstructure:"server_name"    yaml:"server_name"`
 	CertPath     string `json:"cert_path"      mapstructure:"cert_path"      yaml:"cert_path"`
 	KeyPath      string `json:"key_path"       mapstructure:"key_path"       yaml:"key_path"`
-	ClientCACert string `json:"client_ca_cert" mapstructure:"client_ca_cert" yaml:"client_ca_cert"`
 	RootCertPath string `json:"root_cert_path" mapstructure:"root_cert_path" yaml:"root_cert_path"`
 	SSLMode      string `json:"ssl_mode"       mapstructure:"ssl_mode"       yaml:"ssl_mode"`
 }
 
-// createTLSConnConfig parses the datasource string and configures standard Go TLS.
+// createTLSConnConfig parses the datasource string and maps the libpq sslmode
+// semantics onto Go's crypto/tls behaviour. The supported modes mirror libpq
+// (https://www.postgresql.org/docs/current/libpq-ssl.html), except that an
+// empty ssl_mode defaults to the strictest mode, verify-full, rather than to
+// libpq's default of prefer.
 func createTLSConnConfig(dataSource string, tlsCfg TLSConfig) (*pgx.ConnConfig, error) {
 	connConfig, err := pgx.ParseConfig(dataSource)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse database datasource")
 	}
 
-	tlsConfig := &tls.Config{}
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
 
 	if tlsCfg.ServerName != "" {
 		tlsConfig.ServerName = tlsCfg.ServerName
@@ -63,59 +67,102 @@ func createTLSConnConfig(dataSource string, tlsCfg TLSConfig) (*pgx.ConnConfig, 
 		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
 
-	sslMode := tlsCfg.SSLMode
-	switch sslMode {
+	// pgx.ParseConfig has already derived TLSConfig and Fallbacks from the
+	// datasource's own sslmode (defaulting to prefer). Reset them so the mode
+	// below is authoritative.
+	connConfig.TLSConfig = nil
+	connConfig.Fallbacks = nil
+
+	switch tlsCfg.SSLMode {
 	case "disable":
-		connConfig.TLSConfig = nil
-	case "allow", "prefer":
+		// No encryption.
+	case "allow":
+		// Try a plaintext connection first; fall back to TLS without verifying
+		// the server certificate or hostname.
+		tlsConfig.InsecureSkipVerify = true
+		connConfig.Fallbacks = tlsFallback(connConfig, tlsConfig)
+	case "prefer":
+		// Try TLS without verification first; fall back to a plaintext connection.
+		tlsConfig.InsecureSkipVerify = true
 		connConfig.TLSConfig = tlsConfig
+		connConfig.Fallbacks = plaintextFallback(connConfig)
 	case "require":
-		// 'require' mode enforces TLS handshake; verification follows default behavior
+		// Encrypt, but do not verify the server certificate or hostname.
+		tlsConfig.InsecureSkipVerify = true
 		connConfig.TLSConfig = tlsConfig
 	case "verify-ca":
-		// 'verify-ca' mode uses provided CA for verification
-
-		tlsConfig.VerifyConnection = func(cs tls.ConnectionState) error {
-			if len(cs.PeerCertificates) == 0 {
-				return errors.New("no peer certificates presented")
-			}
-			opts := x509.VerifyOptions{
-				DNSName: "",
-				Roots:   tlsConfig.RootCAs,
-			}
-			if len(cs.PeerCertificates) > 1 {
-				opts.Intermediates = x509.NewCertPool()
-				for _, cert := range cs.PeerCertificates[1:] {
-					opts.Intermediates.AddCert(cert)
-				}
-			}
-			_, err := cs.PeerCertificates[0].Verify(opts)
-
-			return err
-		}
+		// Verify the certificate chain against the CA, but not the hostname. Go
+		// performs the default hostname check unless InsecureSkipVerify is set,
+		// so we skip it and delegate the chain check to VerifyConnection.
+		tlsConfig.InsecureSkipVerify = true
+		tlsConfig.VerifyConnection = verifyChain(tlsConfig.RootCAs)
 		connConfig.TLSConfig = tlsConfig
 	case "verify-full", "":
-		// tlsConfig.InsecureSkipVerify defaults to false; no need to set explicitly
+		// Verify both the certificate chain and the hostname (against ServerName).
 		connConfig.TLSConfig = tlsConfig
 	default:
-		return nil, errors.Errorf("unsupported ssl mode: %s", sslMode)
+		return nil, errors.Errorf("unsupported ssl mode: %s", tlsCfg.SSLMode)
 	}
 
 	return connConfig, nil
 }
 
-// RegisterTLSConnection parses the datasource string, configures standard Go TLS,
-// and registers the customized pgx connection with the stdlib driver.
-func RegisterTLSConnection(dataSource string, tlsCfg TLSConfig) (string, error) {
-	connConfig, err := createTLSConnConfig(dataSource, tlsCfg)
-	if err != nil {
-		return "", err
+// tlsFallback returns a fallback to the same host that upgrades to TLS, used to
+// implement the sslmode=allow behaviour (plaintext primary, TLS fallback).
+func tlsFallback(connConfig *pgx.ConnConfig, tlsConfig *tls.Config) []*pgconn.FallbackConfig {
+	return []*pgconn.FallbackConfig{{
+		Host:      connConfig.Host,
+		Port:      connConfig.Port,
+		TLSConfig: tlsConfig,
+	}}
+}
+
+// plaintextFallback returns a fallback to the same host without TLS, used to
+// implement the sslmode=prefer behaviour (TLS primary, plaintext fallback).
+func plaintextFallback(connConfig *pgx.ConnConfig) []*pgconn.FallbackConfig {
+	return []*pgconn.FallbackConfig{{
+		Host:      connConfig.Host,
+		Port:      connConfig.Port,
+		TLSConfig: nil,
+	}}
+}
+
+// verifyChain returns a tls.Config.VerifyConnection callback that validates the
+// server certificate chain against the given roots without checking the
+// hostname (libpq "verify-ca" semantics).
+func verifyChain(roots *x509.CertPool) func(tls.ConnectionState) error {
+	return func(cs tls.ConnectionState) error {
+		if len(cs.PeerCertificates) == 0 {
+			return errors.New("no peer certificates presented")
+		}
+		opts := x509.VerifyOptions{
+			Roots:         roots,
+			Intermediates: x509.NewCertPool(),
+		}
+		for _, cert := range cs.PeerCertificates[1:] {
+			opts.Intermediates.AddCert(cert)
+		}
+		if _, err := cs.PeerCertificates[0].Verify(opts); err != nil {
+			return errors.Wrap(err, "failed to verify server certificate chain")
+		}
+
+		return nil
 	}
+}
+
+// RegisterTLSConnection maps the sslmode onto a pgx connection config and
+// registers it with the stdlib driver, returning the datasource name to use
+// with sql.Open. For sslmode=disable it returns the original datasource
+// unchanged, avoiding both the registration and any certificate file access.
+func RegisterTLSConnection(dataSource string, tlsCfg TLSConfig) (string, error) {
 	if tlsCfg.SSLMode == "disable" {
 		return dataSource, nil
 	}
 
-	connStr := stdlib.RegisterConnConfig(connConfig)
+	connConfig, err := createTLSConnConfig(dataSource, tlsCfg)
+	if err != nil {
+		return "", err
+	}
 
-	return connStr, nil
+	return stdlib.RegisterConnConfig(connConfig), nil
 }

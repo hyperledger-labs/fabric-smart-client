@@ -612,12 +612,29 @@ persistence:
     maxIdleConns: 25  # optional: max idle read connections to the database. Defaults to 2.
     maxIdleTime: 30s  # optional: max duration a connection can be idle before it is closed. Defaults to 1 minute.
     tls:
-      enabled: true
-      ssl_mode: verify-ca # disable, allow, prefer, require, verify-ca, verify-full
-      cert_path: /path/to/client.crt
-      key_path: /path/to/client.key
-      root_cert_path: /path/to/ca.crt
+      enabled: true              # when false (or omitted) the tls block is ignored and the dataSource is used as-is
+      ssl_mode: verify-full      # optional: defaults to verify-full when empty. See the table below.
+      server_name: db.example.com # optional: overrides the hostname used for verify-full verification/SNI. Defaults to the dataSource host.
+      cert_path: /path/to/client.crt      # optional: client certificate for mutual TLS
+      key_path: /path/to/client.key       # optional: client private key for mutual TLS
+      root_cert_path: /path/to/ca.crt     # optional: CA used to verify the server certificate (verify-ca / verify-full)
 ```
+
+`ssl_mode` follows the standard PostgreSQL/libpq semantics
+(https://www.postgresql.org/docs/current/libpq-ssl.html):
+
+| ssl_mode      | Encrypted | Verifies CA | Verifies hostname | Notes |
+|---------------|-----------|-------------|-------------------|-------|
+| `disable`     | no        | no          | no                | The `dataSource` is used unchanged; no other tls option has any effect. |
+| `allow`       | maybe     | no          | no                | Tries a plaintext connection first, falls back to TLS. |
+| `prefer`      | maybe     | no          | no                | Tries TLS first, falls back to a plaintext connection. |
+| `require`     | yes       | no          | no                | Encrypts but does not validate the server certificate. |
+| `verify-ca`   | yes       | yes         | no                | Validates the certificate chain against `root_cert_path`. |
+| `verify-full` | yes       | yes         | yes               | Validates the chain and that the hostname matches. **This is the default when `ssl_mode` is empty.** |
+
+> [!NOTE]
+> Unlike libpq (whose default is `prefer`), an empty `ssl_mode` defaults to the
+> strictest mode, `verify-full`. Set it explicitly if you need a more permissive mode.
 
 For more info about managing connections, see https://go.dev/doc/database/manage-connections. Keep in mind that Fabric Smart Client
 maintains two independent database instances: one for KVS and one for the Vault. The combined maxOpenConns should not exceed the
