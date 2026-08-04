@@ -55,7 +55,10 @@ func (s *mds) PutFieldMapping(ctx context.Context, ns, key string, valueDigest [
 }
 
 func (s *mds) GetFieldMapping(ctx context.Context, ns, key string, valueDigest []byte) (driver.TransientMap, error) {
-	// GetMetadata is miss-safe (returns an empty map, not an error), mirroring LoadTransient.
+	// A miss is not silent: the store reads no row, gets back nil bytes, and fails
+	// unmarshalling them ("unexpected end of JSON input"). Callers must treat an
+	// error here as "no mapping" rather than a hard failure. LoadTransient behaves
+	// identically on a miss.
 	return s.metadataKVS.GetMetadata(ctx, s.key(fieldMappingStoreKey(ns, key, valueDigest)))
 }
 

@@ -61,7 +61,9 @@ type MetadataService interface {
 	// does not use it.
 	PutFieldMapping(ctx context.Context, ns, key string, valueDigest []byte, mapping TransientMap) error
 	// GetFieldMapping returns the field-mapping previously persisted for
-	// (ns, key, valueDigest), or an empty map if none exists.
+	// (ns, key, valueDigest). Implementations are not required to be miss-safe:
+	// the default store returns an error when no mapping exists, so callers
+	// should treat an error as "no mapping" rather than a hard failure.
 	GetFieldMapping(ctx context.Context, ns, key string, valueDigest []byte) (TransientMap, error)
 }
 
