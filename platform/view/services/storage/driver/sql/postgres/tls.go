@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"os"
+	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -150,13 +151,41 @@ func verifyChain(roots *x509.CertPool) func(tls.ConnectionState) error {
 	}
 }
 
+// tlsConnKey identifies a registered TLS connection by its inputs. TLSConfig
+// contains only comparable (bool/string) fields, so the composite is usable as
+// a map key.
+type tlsConnKey struct {
+	dataSource string
+	tlsCfg     TLSConfig
+}
+
+var (
+	tlsConnMu    sync.Mutex
+	tlsConnNames = map[tlsConnKey]string{}
+)
+
 // RegisterTLSConnection maps the sslmode onto a pgx connection config and
 // registers it with the stdlib driver, returning the datasource name to use
 // with sql.Open. For sslmode=disable it returns the original datasource
 // unchanged, avoiding both the registration and any certificate file access.
+//
+// Registration is memoized per (dataSource, tlsCfg): identical inputs return
+// the same stdlib name on every call. This keeps the returned name stable so
+// the DB provider's connection-pool cache (keyed on the datasource) still
+// deduplicates stores that share a database, and bounds the number of
+// registered configs to one per distinct configuration.
 func RegisterTLSConnection(dataSource string, tlsCfg TLSConfig) (string, error) {
 	if tlsCfg.SSLMode == "disable" {
 		return dataSource, nil
+	}
+
+	key := tlsConnKey{dataSource: dataSource, tlsCfg: tlsCfg}
+
+	tlsConnMu.Lock()
+	defer tlsConnMu.Unlock()
+
+	if name, ok := tlsConnNames[key]; ok {
+		return name, nil
 	}
 
 	connConfig, err := createTLSConnConfig(dataSource, tlsCfg)
@@ -164,5 +193,8 @@ func RegisterTLSConnection(dataSource string, tlsCfg TLSConfig) (string, error) 
 		return "", err
 	}
 
-	return stdlib.RegisterConnConfig(connConfig), nil
+	name := stdlib.RegisterConnConfig(connConfig)
+	tlsConnNames[key] = name
+
+	return name, nil
 }

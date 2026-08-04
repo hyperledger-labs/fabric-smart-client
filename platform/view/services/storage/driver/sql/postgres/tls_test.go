@@ -312,6 +312,48 @@ func TestVerifyCAIgnoresHostname(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestRegisterTLSConnectionMemoized asserts that registering the same
+// (dataSource, TLSConfig) twice returns the same stdlib connection name. This
+// keeps the DB provider's pool cache (keyed on the datasource) deduplicating
+// stores that share a database, and prevents registrations from accumulating.
+// Distinct inputs must yield distinct names.
+func TestRegisterTLSConnectionMemoized(t *testing.T) { //nolint:paralleltest
+	tempDir := t.TempDir()
+	certPath, _ := generateSelfSignedCert(t, tempDir)
+
+	const dataSource = "host=localhost port=5432 dbname=test"
+	cfg := TLSConfig{Enabled: true, SSLMode: "verify-ca", RootCertPath: certPath}
+
+	name1, err := RegisterTLSConnection(dataSource, cfg)
+	require.NoError(t, err)
+	assert.Contains(t, name1, "registeredConnConfig")
+	t.Cleanup(func() { stdlib.UnregisterConnConfig(name1) })
+
+	// Same inputs -> same registered name, no additional registration.
+	name2, err := RegisterTLSConnection(dataSource, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, name1, name2)
+
+	// A different sslmode is a different configuration -> different name.
+	otherMode := cfg
+	otherMode.SSLMode = "require"
+	name3, err := RegisterTLSConnection(dataSource, otherMode)
+	require.NoError(t, err)
+	t.Cleanup(func() { stdlib.UnregisterConnConfig(name3) })
+	assert.NotEqual(t, name1, name3)
+
+	// A different datasource is also a different configuration -> different name.
+	name4, err := RegisterTLSConnection("host=otherhost port=5432 dbname=test", cfg)
+	require.NoError(t, err)
+	t.Cleanup(func() { stdlib.UnregisterConnConfig(name4) })
+	assert.NotEqual(t, name1, name4)
+
+	// sslmode=disable is never registered; the datasource is returned unchanged.
+	name5, err := RegisterTLSConnection(dataSource, TLSConfig{Enabled: true, SSLMode: "disable"})
+	require.NoError(t, err)
+	assert.Equal(t, dataSource, name5)
+}
+
 func TestTLSConfigProvider(t *testing.T) { //nolint:paralleltest
 	tempDir := t.TempDir()
 	certPath, _ := generateSelfSignedCert(t, tempDir)
