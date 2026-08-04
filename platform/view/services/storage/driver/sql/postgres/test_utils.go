@@ -52,6 +52,7 @@ type ContainerConfig struct {
 	Image     string
 	Container string
 	*DbConfig
+	Binds []string
 }
 
 // DbConfig contains the configuration data about a postgres database.
@@ -140,6 +141,13 @@ func WithContainerImage(name string) option {
 	}
 }
 
+// WithBinds sets the Docker container binds.
+func WithBinds(binds ...string) option {
+	return func(c *ContainerConfig) {
+		c.Binds = append(c.Binds, binds...)
+	}
+}
+
 // ConfigFromEnv returns a Postgres container configuration based environment variables.
 func ConfigFromEnv() *ContainerConfig {
 	return DefaultConfig(
@@ -220,6 +228,7 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 
 	// define postgres port exposed by the container
 	hostCfg := &container.HostConfig{
+		Binds: c.Binds,
 		PortBindings: network.PortMap{
 			postgresPort: []network.PortBinding{
 				{

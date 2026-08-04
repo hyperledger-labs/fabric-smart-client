@@ -29,6 +29,7 @@ type Config struct {
 	SkipCreateTable bool
 	TableNameParams []string
 	Tracing         *common2.TracingConfig
+	TLSConfig       *TLSConfig `yaml:"tls" mapstructure:"tls"`
 }
 
 func NewConfigProvider(config config) *ConfigProvider {
@@ -55,5 +56,14 @@ func (r *ConfigProvider) GetOpts(name driver.PersistenceName, params ...string) 
 	}
 	o.TableNameParams = params
 	o.Tracing = &common2.TracingConfig{}
+
+	if o.TLSConfig != nil && o.TLSConfig.Enabled {
+		registeredConnStr, err := RegisterTLSConnection(o.DataSource, *o.TLSConfig)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to register TLS connection config")
+		}
+		o.DataSource = registeredConnStr
+	}
+
 	return o, nil
 }
