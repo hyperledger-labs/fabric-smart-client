@@ -316,6 +316,63 @@ func TestRejectsPeerIDMismatch(t *testing.T) { //nolint:paralleltest,tparallel
 	}
 }
 
+// TestRejectsTLS12ClientHandshake asserts that the server-side TLS config's
+// MinVersion: tls.VersionTLS13 (config.go) is actually enforced: a client
+// that only offers TLS 1.2 must fail the handshake rather than being
+// negotiated down.
+func TestRejectsTLS12ClientHandshake(t *testing.T) { //nolint:paralleltest
+	testSetup(t)
+	t.Cleanup(func() {
+		goleak.VerifyNone(t, goleak.IgnoreCurrent())
+	})
+
+	p := NewMultiplexedProvider(noop.NewTracerProvider(), &disabled.Provider{}, 0)
+	t.Cleanup(func() {
+		_ = p.KillAll()
+	})
+	serverTLSConfig, clientTLSConfig, srcID := testMutualTLSConfigs(t, false)
+
+	received := make(chan struct{}, 1)
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err := p.NewServerStream(w, r, func(_ host.P2PStream) {
+			received <- struct{}{}
+		})
+		assert.NoError(t, err)
+	}))
+	srv.TLS = serverTLSConfig
+	srv.StartTLS()
+	t.Cleanup(srv.Close)
+
+	srvEndpoint := strings.TrimPrefix(strings.TrimPrefix(srv.URL, "http://"), "https://")
+
+	// force the client down to TLS 1.2; the server must reject the handshake
+	tls12ClientConfig := clientTLSConfig.Clone()
+	tls12ClientConfig.MinVersion = tls.VersionTLS12
+	tls12ClientConfig.MaxVersion = tls.VersionTLS12
+
+	info := host.StreamInfo{
+		RemotePeerID:      "serverID",
+		RemotePeerAddress: srvEndpoint,
+		ContextID:         "ctx",
+		SessionID:         "sess",
+	}
+
+	client, err := p.NewClientStream(info, t.Context(), srcID, tls12ClientConfig)
+	require.Error(t, err)
+	require.Nil(t, client)
+	require.Contains(t, err.Error(), "protocol version not supported")
+
+	select {
+	case <-received:
+		t.Fatal("server accepted a stream over a TLS 1.2 handshake")
+	default:
+	}
+
+	p.mu.RLock()
+	require.Empty(t, p.clients)
+	p.mu.RUnlock()
+}
+
 func testSetup(_ *testing.T) {
 	logSpec := cmp.Or(
 		os.Getenv("FABRIC_LOGGING_SPEC"),
@@ -437,14 +494,14 @@ func testMutualTLSConfigs(t *testing.T, insecureSkipVerify bool) (*tls.Config, *
 	caCertPool.AddCert(caCert)
 
 	serverTLSConfig := &tls.Config{
-		MinVersion:   tls.VersionTLS12,
+		MinVersion:   tls.VersionTLS13,
 		MaxVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{serverCert},
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ClientCAs:    caCertPool,
 	}
 	clientTLSConfig := &tls.Config{
-		MinVersion:   tls.VersionTLS12,
+		MinVersion:   tls.VersionTLS13,
 		MaxVersion:   tls.VersionTLS13,
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      caCertPool,
