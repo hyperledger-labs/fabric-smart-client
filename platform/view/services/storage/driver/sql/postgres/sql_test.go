@@ -90,10 +90,10 @@ echo "ssl_key_file = '/var/lib/postgresql/server.key'" >> "$PGDATA/postgresql.co
 	require.NoError(tb, err)
 
 	cfg := ConfigFromEnv()
-	cfg.Binds = []string{
-		filepath.ToSlash(tempDir) + ":/tmp/certs:ro",
-		filepath.ToSlash(scriptPath) + ":/docker-entrypoint-initdb.d/init-ssl.sh:ro",
-	}
+	WithBinds(
+		filepath.ToSlash(tempDir)+":/tmp/certs:ro",
+		filepath.ToSlash(scriptPath)+":/docker-entrypoint-initdb.d/init-ssl.sh:ro",
+	)(cfg)
 
 	logger := &testLogger{tb}
 	terminate, pgConnStr, err := StartPostgres(tb.Context(), cfg, logger)

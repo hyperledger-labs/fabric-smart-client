@@ -52,7 +52,6 @@ type ContainerConfig struct {
 	Image     string
 	Container string
 	*DbConfig
-	Cmd   []string
 	Binds []string
 }
 
@@ -142,13 +141,6 @@ func WithContainerImage(name string) option {
 	}
 }
 
-// WithCmd sets the Docker container command.
-func WithCmd(cmd ...string) option {
-	return func(c *ContainerConfig) {
-		c.Cmd = cmd
-	}
-}
-
 // WithBinds sets the Docker container binds.
 func WithBinds(binds ...string) option {
 	return func(c *ContainerConfig) {
@@ -214,7 +206,6 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 
 	containerCfg := &container.Config{
 		Image: c.Image,
-		Cmd:   c.Cmd,
 		// note that if c.Container is empty, the container runtime picks the container name (aka hostname)
 		Hostname: c.Container,
 		Tty:      false,
