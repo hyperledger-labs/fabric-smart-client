@@ -52,6 +52,19 @@ type MetadataService interface {
 	Exists(ctx context.Context, txid string) bool
 	StoreTransient(ctx context.Context, txid string, transientMap TransientMap) error
 	LoadTransient(ctx context.Context, txid string) (TransientMap, error)
+	// PutFieldMapping persists a hash-hiding field-mapping preimage keyed by
+	// (ns, key, valueDigest), where valueDigest = sha256(committed on-ledger value).
+	// Keying by the digest keeps overwrites/deletes unambiguous: a reader resolves
+	// the exact preimage for the value it actually observes on the ledger.
+	// Populated by deployments whose nodes are stateless and resolve hash-hiding from a
+	// trusted committed read rather than local transient; the chaincode-endorsement path
+	// does not use it.
+	PutFieldMapping(ctx context.Context, ns, key string, valueDigest []byte, mapping TransientMap) error
+	// GetFieldMapping returns the field-mapping previously persisted for
+	// (ns, key, valueDigest). Implementations are not required to be miss-safe:
+	// the default store returns an error when no mapping exists, so callers
+	// should treat an error as "no mapping" rather than a hard failure.
+	GetFieldMapping(ctx context.Context, ns, key string, valueDigest []byte) (TransientMap, error)
 }
 
 type EnvelopeService interface {

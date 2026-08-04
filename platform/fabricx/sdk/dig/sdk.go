@@ -15,6 +15,7 @@ import (
 	common "github.com/hyperledger-labs/fabric-smart-client/platform/common/sdk/dig"
 	digutils "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/dig"
 	fabric "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
@@ -62,6 +63,11 @@ func (p *SDK) Install() error {
 		p.Container().Provide(finality.NewListenerManagerProvider),
 		p.Container().Provide(digutils.Identity[*finality.Provider](), dig.As(new(finality.ListenerManagerProvider))),
 		p.Container().Provide(queryservice.NewProvider, dig.As(new(queryservice.Provider))),
+		// On FabricX the committer QueryService serves authoritative reads, so state
+		// inputs are certified by trusting the vault's committed read rather than by
+		// chaincode endorsement. Register the trusted-read certifier as the state
+		// Certifier; the state package resolves it per network.
+		p.Container().Provide(func() state.Certifier { return &state.TrustedReadCertifier{} }),
 	)
 	if err != nil {
 		return err
@@ -76,6 +82,7 @@ func (p *SDK) Install() error {
 		digutils.Register[finality.ListenerManagerProvider](p.Container()),
 		digutils.Register[queryservice.Provider](p.Container()),
 		digutils.Register[*ledger.Provider](p.Container()),
+		digutils.Register[state.Certifier](p.Container()),
 	)
 }
 

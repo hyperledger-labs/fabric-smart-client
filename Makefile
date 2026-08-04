@@ -187,6 +187,7 @@ HSM_INTEGRATION_TARGETS = fabric-iouhsm
 
 ## fabricx section
 INTEGRATION_TARGETS += fabricx-iou
+INTEGRATION_TARGETS += fabricx-atsa
 INTEGRATION_TARGETS += fabricx-simple
 INTEGRATION_TARGETS += fabricx-deployment
 INTEGRATION_TARGETS += fabricx-multiendorsement

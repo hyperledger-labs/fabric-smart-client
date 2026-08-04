@@ -15,6 +15,10 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	mem "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/memory"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/multiplexed"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/storage/metadata"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 )
 
 func TestMetadataService(t *testing.T) {
@@ -39,6 +43,92 @@ func TestMetadataService(t *testing.T) {
 	loaded, err := mds.LoadTransient(ctx, "txid")
 	require.NoError(t, err)
 	require.Equal(t, driver.TransientMap(tm), loaded)
+}
+
+func TestFieldMappingRoundTrip(t *testing.T) {
+	t.Parallel()
+	mockStore := &mock.MetadataStore{}
+	mds := transaction.NewMetadataService(mockStore, "net", "ch")
+	ctx := t.Context()
+
+	digestA := []byte{0xAA}
+	mappingA := driver.TransientMap{"field_mapping|x": []byte("preimage-A")}
+	mockStore.PutMetadataReturns(nil)
+	require.NoError(t, mds.PutFieldMapping(ctx, "ns", "k", digestA, mappingA))
+
+	// Put targets a (net, ch) key and stores the mapping value verbatim.
+	_, keyA, valA := mockStore.PutMetadataArgsForCall(0)
+	require.Equal(t, "net", keyA.Network)
+	require.Equal(t, "ch", keyA.Channel)
+	require.Equal(t, mappingA, valA)
+
+	// A different digest for the same (ns,key) must map to a distinct KVS key
+	// (overwrite-safe: the old preimage stays resolvable under its own digest).
+	digestB := []byte{0xBB}
+	mappingB := driver.TransientMap{"field_mapping|x": []byte("preimage-B")}
+	require.NoError(t, mds.PutFieldMapping(ctx, "ns", "k", digestB, mappingB))
+	_, keyB, _ := mockStore.PutMetadataArgsForCall(1)
+	require.NotEqual(t, keyA.TxID, keyB.TxID, "different digests must map to different KVS keys")
+
+	// GetFieldMapping returns whatever the store holds for that digest.
+	mockStore.GetMetadataReturns(mappingA, nil)
+	got, err := mds.GetFieldMapping(ctx, "ns", "k", digestA)
+	require.NoError(t, err)
+	require.Equal(t, mappingA, got)
+}
+
+// newRealMetadataStore builds a metadata store backed by the real
+// (in-memory sqlite) persistence rather than a counterfeiter mock, so that
+// miss behaviour of the actual storage stack is exercised.
+func newRealMetadataStore(t *testing.T) driver.MetadataStore {
+	t.Helper()
+	cp := multiplexed.MockTypeConfig(mem.Persistence, struct{}{})
+	d := multiplexed.NewDriver(cp, mem.NewNamedDriver(sqlite.NewDbProvider()))
+	s, err := metadata.NewStore[driver.Key, driver.TransientMap](cp, d, t.Name())
+	require.NoError(t, err)
+	return s
+}
+
+// TestGetFieldMappingHitAgainstRealStore pins the hit path through the real
+// persistence stack, so the miss assertions below cannot be blamed on a
+// mis-wired store.
+func TestGetFieldMappingHitAgainstRealStore(t *testing.T) {
+	t.Parallel()
+	mds := transaction.NewMetadataService(newRealMetadataStore(t), "net", "ch")
+	ctx := t.Context()
+
+	digest := []byte{0xDE, 0xAD}
+	mapping := driver.TransientMap{"field_mapping|x": []byte("preimage")}
+	require.NoError(t, mds.PutFieldMapping(ctx, "ns", "k", digest, mapping))
+
+	got, err := mds.GetFieldMapping(ctx, "ns", "k", digest)
+	require.NoError(t, err)
+	require.Equal(t, mapping, got)
+}
+
+// TestGetFieldMappingOnMissReturnsError documents that a lookup for a
+// (ns, key, digest) that was never stored is *not* miss-safe: the SQL store
+// returns (nil, nil) for a missing row (QueryUniqueContext swallows
+// sql.ErrNoRows), and metadata.store.GetMetadata then json.Unmarshal's those
+// nil bytes, which fails. Callers must treat the error as "no mapping".
+func TestGetFieldMappingOnMissReturnsError(t *testing.T) {
+	t.Parallel()
+	mds := transaction.NewMetadataService(newRealMetadataStore(t), "net", "ch")
+
+	got, err := mds.GetFieldMapping(t.Context(), "ns", "never-stored", []byte{0xDE, 0xAD})
+	require.ErrorContains(t, err, "unexpected end of JSON input")
+	require.Empty(t, got)
+}
+
+// TestLoadTransientOnMissReturnsError shows GetFieldMapping's miss behaviour
+// really does mirror LoadTransient's — both error rather than returning empty.
+func TestLoadTransientOnMissReturnsError(t *testing.T) {
+	t.Parallel()
+	mds := transaction.NewMetadataService(newRealMetadataStore(t), "net", "ch")
+
+	got, err := mds.LoadTransient(t.Context(), "never-stored-txid")
+	require.ErrorContains(t, err, "unexpected end of JSON input")
+	require.Empty(t, got)
 }
 
 func TestEnvelopeService(t *testing.T) {

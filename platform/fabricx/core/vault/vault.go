@@ -8,6 +8,7 @@ package vault
 
 import (
 	"context"
+	"crypto/sha256"
 
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 
@@ -24,20 +25,24 @@ import (
 // reached (which would indicate the vault was wired into a generic committer by mistake).
 type Vault struct {
 	queryService queryservice.QueryService // Remote query service for state and status queries
+	mds          fdriver.MetadataService   // Field-mapping (hash-hiding) metadata store
 	marshaller   *Marshaller               // Marshaller for RWSet serialization
 }
 
-// NewVault creates a new Vault instance with the given QueryService.
-// The vault will use the query service for all remote state queries and transaction status lookups.
+// NewVault creates a new Vault instance with the given QueryService and MetadataService.
+// The vault uses the query service for all remote state queries and transaction status
+// lookups, and the metadata service to resolve hash-hiding field mappings on a metadata miss.
 //
 // Parameters:
 //   - qs: QueryService instance for remote queries
+//   - mds: MetadataService backing the (ns,key,digest) field-mapping store (may be nil in tests)
 //
 // Returns:
 //   - *Vault: A new vault instance ready for use
-func NewVault(qs queryservice.QueryService) *Vault {
+func NewVault(qs queryservice.QueryService, mds fdriver.MetadataService) *Vault {
 	return &Vault{
 		queryService: qs,
+		mds:          mds,
 		marshaller:   NewMarshaller(),
 	}
 }
@@ -216,11 +221,32 @@ func (r *rwSetWrapper) DeleteState(namespace cdriver.Namespace, key cdriver.PKey
 // GetStateMetadata retrieves metadata for a given namespace and key.
 // It checks the local metadata writes first, returning nil if not found.
 func (r *rwSetWrapper) GetStateMetadata(namespace cdriver.Namespace, key cdriver.PKey, opts ...cdriver.GetStateOpt) (cdriver.Metadata, error) {
-	// Check meta writes first
+	// Check in-flight meta writes first.
 	if meta, exists := r.rws.MetaWrites[namespace][key]; exists {
 		return meta, nil
 	}
-	return nil, nil
+
+	opt := cdriver.FromBoth
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+	if opt == cdriver.FromIntermediate || r.v.mds == nil {
+		return nil, nil
+	}
+
+	// Fall back to the hash-hiding field-mapping store: resolve the committed on-ledger
+	// value, key by its sha256 digest, and return the stored {fieldMappingKey: mapping}
+	// so getFieldMapping finds meta[fieldMappingKey] exactly as on Fabric.
+	committed, err := r.v.queryService.GetState(namespace, key)
+	if err != nil || committed == nil || len(committed.Raw) == 0 {
+		return nil, nil
+	}
+	digest := sha256.Sum256(committed.Raw)
+	fm, err := r.v.mds.GetFieldMapping(context.Background(), string(namespace), string(key), digest[:])
+	if err != nil || len(fm) == 0 {
+		return nil, nil
+	}
+	return cdriver.Metadata(fm), nil
 }
 
 // SetStateMetadata sets metadata for a given namespace and key in the metadata write set.

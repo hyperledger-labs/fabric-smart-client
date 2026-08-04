@@ -21,6 +21,22 @@ type MetadataService struct {
 	existsReturnsOnCall map[int]struct {
 		result1 bool
 	}
+	GetFieldMappingStub        func(context.Context, string, string, []byte) (driver.TransientMap, error)
+	getFieldMappingMutex       sync.RWMutex
+	getFieldMappingArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+		arg4 []byte
+	}
+	getFieldMappingReturns struct {
+		result1 driver.TransientMap
+		result2 error
+	}
+	getFieldMappingReturnsOnCall map[int]struct {
+		result1 driver.TransientMap
+		result2 error
+	}
 	LoadTransientStub        func(context.Context, string) (driver.TransientMap, error)
 	loadTransientMutex       sync.RWMutex
 	loadTransientArgsForCall []struct {
@@ -34,6 +50,21 @@ type MetadataService struct {
 	loadTransientReturnsOnCall map[int]struct {
 		result1 driver.TransientMap
 		result2 error
+	}
+	PutFieldMappingStub        func(context.Context, string, string, []byte, driver.TransientMap) error
+	putFieldMappingMutex       sync.RWMutex
+	putFieldMappingArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+		arg4 []byte
+		arg5 driver.TransientMap
+	}
+	putFieldMappingReturns struct {
+		result1 error
+	}
+	putFieldMappingReturnsOnCall map[int]struct {
+		result1 error
 	}
 	StoreTransientStub        func(context.Context, string, driver.TransientMap) error
 	storeTransientMutex       sync.RWMutex
@@ -114,6 +145,78 @@ func (fake *MetadataService) ExistsReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
+func (fake *MetadataService) GetFieldMapping(arg1 context.Context, arg2 string, arg3 string, arg4 []byte) (driver.TransientMap, error) {
+	var arg4Copy []byte
+	if arg4 != nil {
+		arg4Copy = make([]byte, len(arg4))
+		copy(arg4Copy, arg4)
+	}
+	fake.getFieldMappingMutex.Lock()
+	ret, specificReturn := fake.getFieldMappingReturnsOnCall[len(fake.getFieldMappingArgsForCall)]
+	fake.getFieldMappingArgsForCall = append(fake.getFieldMappingArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+		arg4 []byte
+	}{arg1, arg2, arg3, arg4Copy})
+	stub := fake.GetFieldMappingStub
+	fakeReturns := fake.getFieldMappingReturns
+	fake.recordInvocation("GetFieldMapping", []interface{}{arg1, arg2, arg3, arg4Copy})
+	fake.getFieldMappingMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *MetadataService) GetFieldMappingCallCount() int {
+	fake.getFieldMappingMutex.RLock()
+	defer fake.getFieldMappingMutex.RUnlock()
+	return len(fake.getFieldMappingArgsForCall)
+}
+
+func (fake *MetadataService) GetFieldMappingCalls(stub func(context.Context, string, string, []byte) (driver.TransientMap, error)) {
+	fake.getFieldMappingMutex.Lock()
+	defer fake.getFieldMappingMutex.Unlock()
+	fake.GetFieldMappingStub = stub
+}
+
+func (fake *MetadataService) GetFieldMappingArgsForCall(i int) (context.Context, string, string, []byte) {
+	fake.getFieldMappingMutex.RLock()
+	defer fake.getFieldMappingMutex.RUnlock()
+	argsForCall := fake.getFieldMappingArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *MetadataService) GetFieldMappingReturns(result1 driver.TransientMap, result2 error) {
+	fake.getFieldMappingMutex.Lock()
+	defer fake.getFieldMappingMutex.Unlock()
+	fake.GetFieldMappingStub = nil
+	fake.getFieldMappingReturns = struct {
+		result1 driver.TransientMap
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *MetadataService) GetFieldMappingReturnsOnCall(i int, result1 driver.TransientMap, result2 error) {
+	fake.getFieldMappingMutex.Lock()
+	defer fake.getFieldMappingMutex.Unlock()
+	fake.GetFieldMappingStub = nil
+	if fake.getFieldMappingReturnsOnCall == nil {
+		fake.getFieldMappingReturnsOnCall = make(map[int]struct {
+			result1 driver.TransientMap
+			result2 error
+		})
+	}
+	fake.getFieldMappingReturnsOnCall[i] = struct {
+		result1 driver.TransientMap
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *MetadataService) LoadTransient(arg1 context.Context, arg2 string) (driver.TransientMap, error) {
 	fake.loadTransientMutex.Lock()
 	ret, specificReturn := fake.loadTransientReturnsOnCall[len(fake.loadTransientArgsForCall)]
@@ -177,6 +280,76 @@ func (fake *MetadataService) LoadTransientReturnsOnCall(i int, result1 driver.Tr
 		result1 driver.TransientMap
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *MetadataService) PutFieldMapping(arg1 context.Context, arg2 string, arg3 string, arg4 []byte, arg5 driver.TransientMap) error {
+	var arg4Copy []byte
+	if arg4 != nil {
+		arg4Copy = make([]byte, len(arg4))
+		copy(arg4Copy, arg4)
+	}
+	fake.putFieldMappingMutex.Lock()
+	ret, specificReturn := fake.putFieldMappingReturnsOnCall[len(fake.putFieldMappingArgsForCall)]
+	fake.putFieldMappingArgsForCall = append(fake.putFieldMappingArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+		arg4 []byte
+		arg5 driver.TransientMap
+	}{arg1, arg2, arg3, arg4Copy, arg5})
+	stub := fake.PutFieldMappingStub
+	fakeReturns := fake.putFieldMappingReturns
+	fake.recordInvocation("PutFieldMapping", []interface{}{arg1, arg2, arg3, arg4Copy, arg5})
+	fake.putFieldMappingMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4, arg5)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *MetadataService) PutFieldMappingCallCount() int {
+	fake.putFieldMappingMutex.RLock()
+	defer fake.putFieldMappingMutex.RUnlock()
+	return len(fake.putFieldMappingArgsForCall)
+}
+
+func (fake *MetadataService) PutFieldMappingCalls(stub func(context.Context, string, string, []byte, driver.TransientMap) error) {
+	fake.putFieldMappingMutex.Lock()
+	defer fake.putFieldMappingMutex.Unlock()
+	fake.PutFieldMappingStub = stub
+}
+
+func (fake *MetadataService) PutFieldMappingArgsForCall(i int) (context.Context, string, string, []byte, driver.TransientMap) {
+	fake.putFieldMappingMutex.RLock()
+	defer fake.putFieldMappingMutex.RUnlock()
+	argsForCall := fake.putFieldMappingArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+}
+
+func (fake *MetadataService) PutFieldMappingReturns(result1 error) {
+	fake.putFieldMappingMutex.Lock()
+	defer fake.putFieldMappingMutex.Unlock()
+	fake.PutFieldMappingStub = nil
+	fake.putFieldMappingReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *MetadataService) PutFieldMappingReturnsOnCall(i int, result1 error) {
+	fake.putFieldMappingMutex.Lock()
+	defer fake.putFieldMappingMutex.Unlock()
+	fake.PutFieldMappingStub = nil
+	if fake.putFieldMappingReturnsOnCall == nil {
+		fake.putFieldMappingReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.putFieldMappingReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *MetadataService) StoreTransient(arg1 context.Context, arg2 string, arg3 driver.TransientMap) error {

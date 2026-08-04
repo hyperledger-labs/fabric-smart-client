@@ -8,6 +8,7 @@ package vault_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"testing"
 
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
@@ -18,9 +19,57 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/vault"
 )
+
+// mockMDS implements fdriver.MetadataService for exercising the field-mapping read fallback.
+type mockMDS struct {
+	fieldMappings map[string]fdriver.TransientMap // keyed by string(valueDigest)
+}
+
+func (m *mockMDS) Exists(context.Context, string) bool                                { return false }
+func (m *mockMDS) StoreTransient(context.Context, string, fdriver.TransientMap) error { return nil }
+func (m *mockMDS) LoadTransient(context.Context, string) (fdriver.TransientMap, error) {
+	return nil, nil
+}
+
+func (m *mockMDS) PutFieldMapping(_ context.Context, _, _ string, valueDigest []byte, mapping fdriver.TransientMap) error {
+	if m.fieldMappings == nil {
+		m.fieldMappings = map[string]fdriver.TransientMap{}
+	}
+	m.fieldMappings[string(valueDigest)] = mapping
+	return nil
+}
+
+func (m *mockMDS) GetFieldMapping(_ context.Context, _, _ string, valueDigest []byte) (fdriver.TransientMap, error) {
+	return m.fieldMappings[string(valueDigest)], nil
+}
+
+func TestVaultX_GetStateMetadataServesStoreOnMiss(t *testing.T) {
+	t.Parallel()
+
+	committed := []byte("committed-on-ledger-value")
+	digest := sha256.Sum256(committed)
+	origKey, err := rwset.CreateCompositeKey("S", []string{"1234"})
+	require.NoError(t, err)
+	fmKey, err := rwset.CreateCompositeKey("field_mapping", []string{"asset_transfer", "S", "1234"})
+	require.NoError(t, err)
+	stored := fdriver.TransientMap{fmKey: []byte(`{"_root_":"cHJlaW1hZ2U="}`)}
+
+	qs := newMockQueryService()
+	qs.setState("asset_transfer", driver.PKey(origKey), committed, 1)
+	mds := &mockMDS{fieldMappings: map[string]fdriver.TransientMap{string(digest[:]): stored}}
+
+	v := vault.NewVault(qs, mds)
+	rws, err := v.NewRWSet(context.Background(), "tx1")
+	require.NoError(t, err)
+
+	meta, err := rws.GetStateMetadata("asset_transfer", driver.PKey(origKey), driver.FromBoth)
+	require.NoError(t, err)
+	require.Equal(t, stored[fmKey], meta[fmKey])
+}
 
 // mockQueryService implements queryservice.QueryService for testing
 type mockQueryService struct {
@@ -101,7 +150,7 @@ func TestVaultX_NewQueryExecutor(t *testing.T) {
 	qs := newMockQueryService()
 	qs.setState("ns1", "key1", []byte("value1"), 1)
 
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 
 	ctx := context.Background()
 	qe, err := v.NewQueryExecutor(ctx)
@@ -130,7 +179,7 @@ func TestVaultX_NewRWSet(t *testing.T) {
 	qs := newMockQueryService()
 	qs.setState("ns1", "key1", []byte("value1"), 1)
 
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	rws, err := v.NewRWSet(ctx, "tx1")
@@ -161,7 +210,7 @@ func TestVaultX_NewRWSet(t *testing.T) {
 func TestVaultX_NewRWSetFromBytes(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	// Create an RWSet and marshal it
@@ -188,7 +237,7 @@ func TestVaultX_Status(t *testing.T) {
 	qs := newMockQueryService()
 	qs.setTxStatus("tx1", 1) // COMMITTED
 
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	code, msg, err := v.Status(ctx, "tx1")
@@ -205,7 +254,7 @@ func TestVaultX_Status_Unknown(t *testing.T) {
 	qs := newMockQueryService()
 	// tx1 intentionally left unset => committer does not know it yet.
 
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	code, msg, err := v.Status(ctx, "tx1")
@@ -222,7 +271,7 @@ func TestVaultX_Statuses(t *testing.T) {
 	// tx3 is intentionally left unset: the batched query omits transactions the committer does not
 	// know, and Statuses must report those as Unknown ("not final yet") in the right position.
 
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	statuses, err := v.Statuses(ctx, "tx1", "tx3", "tx2")
@@ -247,7 +296,7 @@ func TestVaultX_Statuses(t *testing.T) {
 func TestVaultX_SetDiscarded(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	require.PanicsWithValue(t,
@@ -258,7 +307,7 @@ func TestVaultX_SetDiscarded(t *testing.T) {
 func TestVaultX_DiscardTx(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	require.PanicsWithValue(t,
@@ -269,7 +318,7 @@ func TestVaultX_DiscardTx(t *testing.T) {
 func TestVaultX_CommitTX(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	require.PanicsWithValue(t,
@@ -280,7 +329,7 @@ func TestVaultX_CommitTX(t *testing.T) {
 func TestVaultX_InspectRWSet(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	// Create an RWSet and marshal it
@@ -309,7 +358,7 @@ func TestVaultX_InspectRWSet(t *testing.T) {
 func TestVaultX_RWSExists(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	// RWSExists has no error channel, so returning a value would be a misleading answer; it panics.
@@ -321,7 +370,7 @@ func TestVaultX_RWSExists(t *testing.T) {
 func TestVaultX_Match(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	// The vault retains no RWSet to match against, and Match is unreachable in the fabricx wiring,
@@ -343,7 +392,7 @@ func TestVaultX_Match(t *testing.T) {
 func TestVaultX_Close(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	// The vault holds no per-transaction state, so Close is a no-op that always succeeds.
@@ -359,7 +408,7 @@ func TestRWSet_Operations(t *testing.T) {
 	qs := newMockQueryService()
 	qs.setState("ns1", "existing", []byte("existing_value"), 1)
 
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	rws, err := v.NewRWSet(ctx, "tx1")
@@ -412,7 +461,7 @@ func TestRWSet_GetReadAt(t *testing.T) {
 	qs.setState("ns1", "key1", []byte("value1"), 1)
 	qs.setState("ns1", "key2", []byte("value2"), 2)
 
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	rws, err := v.NewRWSet(ctx, "tx1")
@@ -438,7 +487,7 @@ func TestRWSet_GetReadAt(t *testing.T) {
 func TestRWSet_GetWriteAt(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	rws, err := v.NewRWSet(ctx, "tx1")
@@ -469,7 +518,7 @@ func TestRWSet_ConcurrentBytes(t *testing.T) {
 	qs.setState("_meta", "ns1", nil, 7)
 	qs.setState("_meta", "ns2", nil, 9)
 
-	v := vault.NewVault(qs)
+	v := vault.NewVault(qs, nil)
 	ctx := context.Background()
 
 	const goroutines = 16

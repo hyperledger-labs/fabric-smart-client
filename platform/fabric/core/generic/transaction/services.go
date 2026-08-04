@@ -8,6 +8,7 @@ package transaction
 
 import (
 	"context"
+	"encoding/hex"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 
@@ -40,6 +41,25 @@ func (s *mds) StoreTransient(ctx context.Context, txid string, transientMap driv
 
 func (s *mds) LoadTransient(ctx context.Context, txid string) (driver.TransientMap, error) {
 	return s.metadataKVS.GetMetadata(ctx, s.key(txid))
+}
+
+// fieldMappingStoreKey encodes (ns, key, valueDigest) into the TxID slot of driver.Key
+// so field-mapping entries share the metadata KVS without colliding with real txids.
+// The leading NUL-delimited "fieldmap" prefix keeps them disjoint from txid-shaped keys.
+func fieldMappingStoreKey(ns, key string, valueDigest []byte) string {
+	return "\x00fieldmap\x00" + ns + "\x00" + key + "\x00" + hex.EncodeToString(valueDigest)
+}
+
+func (s *mds) PutFieldMapping(ctx context.Context, ns, key string, valueDigest []byte, mapping driver.TransientMap) error {
+	return s.metadataKVS.PutMetadata(ctx, s.key(fieldMappingStoreKey(ns, key, valueDigest)), mapping)
+}
+
+func (s *mds) GetFieldMapping(ctx context.Context, ns, key string, valueDigest []byte) (driver.TransientMap, error) {
+	// A miss is not silent: the store reads no row, gets back nil bytes, and fails
+	// unmarshalling them ("unexpected end of JSON input"). Callers must treat an
+	// error here as "no mapping" rather than a hard failure. LoadTransient behaves
+	// identically on a miss.
+	return s.metadataKVS.GetMetadata(ctx, s.key(fieldMappingStoreKey(ns, key, valueDigest)))
 }
 
 type envs struct {

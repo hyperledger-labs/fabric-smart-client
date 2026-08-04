@@ -1014,6 +1014,14 @@ func (m *mockDriverMetadataService) LoadTransient(context.Context, string) (fdri
 	return m.transientMap, nil
 }
 
+func (m *mockDriverMetadataService) PutFieldMapping(context.Context, string, string, []byte, fdriver.TransientMap) error {
+	return nil
+}
+
+func (m *mockDriverMetadataService) GetFieldMapping(context.Context, string, string, []byte) (fdriver.TransientMap, error) {
+	return nil, nil
+}
+
 type mockDriverChannel struct {
 	name     string
 	metadata fdriver.MetadataService

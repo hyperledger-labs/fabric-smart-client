@@ -25,9 +25,11 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
+	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -491,7 +493,45 @@ func (t *Transaction) ProposalHasBeenEndorsedBy(party view.Identity) error {
 
 func (t *Transaction) StoreTransient() error {
 	logger.Debugf("Storing transient for [%s]", t.ID())
-	return t.channel.MetadataService().StoreTransient(t.ctx, t.ID(), t.TTransient)
+	if err := t.channel.MetadataService().StoreTransient(t.ctx, t.ID(), t.TTransient); err != nil {
+		return err
+	}
+	return t.persistFieldMappings()
+}
+
+// persistFieldMappings scans the transient for hash-hiding field-mapping entries and stores
+// each preimage under (ns, key, sha256(committed write value)) so a later reader can resolve
+// it from the committed value alone. This runs synchronously on the endorsement path (via
+// StoreTransient), before the node awaits finality, on both the assembling party and every
+// endorser. Best-effort per key: a key with no local write is skipped (its mapping is simply
+// not persisted); a preimage stored for a tx that later aborts is harmless because the read
+// path re-queries the committed value and re-hashes, and digest-keying makes it unreachable.
+func (t *Transaction) persistFieldMappings() error {
+	if t.rwset == nil {
+		return nil
+	}
+	for tkey, blob := range t.TTransient {
+		objectType, attrs, err := rwset.SplitCompositeKey(tkey)
+		if err != nil || objectType != "field_mapping" || len(attrs) < 2 {
+			continue
+		}
+		ns := attrs[0]
+		key, err := rwset.CreateCompositeKey(attrs[1], attrs[2:])
+		if err != nil {
+			continue
+		}
+		writeVal, err := t.rwset.GetState(cdriver.Namespace(ns), cdriver.PKey(key), cdriver.FromIntermediate)
+		if err != nil || len(writeVal) == 0 {
+			logger.Warnf("no write value for field-mapping [%s:%s]; skipping persist", ns, key)
+			continue
+		}
+		digest := sha256.Sum256(writeVal)
+		if err := t.channel.MetadataService().PutFieldMapping(
+			t.ctx, ns, key, digest[:], driver.TransientMap{tkey: blob}); err != nil {
+			return errors.Wrapf(err, "failed persisting field mapping for [%s:%s]", ns, key)
+		}
+	}
+	return nil
 }
 
 func (t *Transaction) ProposalResponses() ([]driver.ProposalResponse, error) {
