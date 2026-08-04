@@ -9,13 +9,20 @@ package ordering
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
+
+// defaultRecvHardTimeout is the default value for Connection.RecvHardTimeout, used
+// whenever a Connection is constructed without setting the field explicitly. It only
+// applies to callers that pass a context without a deadline of their own.
+const defaultRecvHardTimeout = 30 * time.Second
 
 type Connection struct {
 	lock sync.Mutex
@@ -25,6 +32,18 @@ type Connection struct {
 	Stream  Broadcast
 	Client  Client
 	Cancel  context.CancelFunc
+	// RecvHardTimeout bounds how long SendAndRecv itself waits for Stream.Recv(), so a
+	// caller that supplied a context without a deadline cannot block forever on a
+	// network-level stall that Cancel()/Client.Close() fail to unblock.
+	//
+	// It bounds the call, not the goroutine: if Stream.Recv() never returns, the
+	// background goroutine stays parked in it regardless. The `done` channel is
+	// buffered, so that goroutine does not leak on its send once nobody is left to
+	// receive; the timeout exists so the caller is not held hostage by it.
+	//
+	// It is only armed when ctx has no deadline of its own — a caller that set an
+	// explicit deadline owns the bound. Zero falls back to defaultRecvHardTimeout.
+	RecvHardTimeout time.Duration
 }
 
 func (c *Connection) Send(m *common.Envelope) error {
@@ -59,17 +78,42 @@ func (c *Connection) SendAndRecv(ctx context.Context, m *common.Envelope) (*ab.B
 		done <- recvResult{resp: resp, err: err}
 	}()
 
+	// Close()/Cancel() are expected to unblock Stream.Recv(); the hard timeout below is
+	// a defensive backstop for network-level stalls where they do not. It is only armed
+	// when the caller's context carries no deadline of its own, so an explicit caller
+	// deadline is never silently shortened to RecvHardTimeout. See the field docs on
+	// Connection.RecvHardTimeout for what this does and does not bound.
+	var hardTimeout <-chan time.Time
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		d := c.RecvHardTimeout
+		if d <= 0 {
+			d = defaultRecvHardTimeout
+		}
+		timer := time.NewTimer(d)
+		defer timer.Stop()
+		hardTimeout = timer.C
+	}
+
 	select {
 	case res := <-done:
 		return res.resp, res.err
 	case <-ctx.Done():
-		if c.Cancel != nil {
-			c.Cancel()
-		}
-		if c.Client != nil {
-			c.Client.Close()
-		}
+		c.abort()
 		return nil, ctx.Err()
+	case <-hardTimeout:
+		c.abort()
+		return nil, errors.New("timed out waiting for orderer Recv")
+	}
+}
+
+// abort tears down the connection so a stalled Stream.Recv() has the best chance of
+// returning. Safe to call on a partially populated Connection.
+func (c *Connection) abort() {
+	if c.Cancel != nil {
+		c.Cancel()
+	}
+	if c.Client != nil {
+		c.Client.Close()
 	}
 }
 

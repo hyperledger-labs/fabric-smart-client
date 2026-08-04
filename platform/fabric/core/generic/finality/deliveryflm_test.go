@@ -103,7 +103,7 @@ func TestNewDeliveryFLM(t *testing.T) {
 	ptr.Set(reflect.ValueOf(mockChannelDriver))
 
 	config := events.DeliveryListenerManagerConfig{}
-	flm, err := NewDeliveryFLM(logger, config, "test-network", fCh)
+	flm, err := NewDeliveryFLM(context.Background(), logger, config, "test-network", fCh)
 	if err == nil {
 		require.NotNil(t, flm)
 	}

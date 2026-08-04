@@ -48,6 +48,7 @@ type Notifier struct {
 	// callback
 	subscribers []driver.TriggerCallback
 	mu          sync.RWMutex
+	isClosed    bool
 }
 
 var operationMap = map[string]driver.Operation{
@@ -113,15 +114,15 @@ func (db *Notifier) dispatch(operation driver.Operation, m map[driver.ColumnKey]
 }
 
 func (db *Notifier) Subscribe(callback driver.TriggerCallback) error {
-	// register the callback
 	db.mu.Lock()
-	db.subscribers = append(db.subscribers, callback)
 	defer db.mu.Unlock()
 
-	// Note that if the db listener is already closed, we still append subscribers here.
-	// Clearly, this is not very robust. A better implementation would check if the Notifier is still open, otherwise
-	// ignore the Subscribe call or return an error.
-	// Since we deprecated this impl, there is no need improve this behavior.
+	if db.isClosed {
+		return errors.New("notifier is closed")
+	}
+
+	// register the callback
+	db.subscribers = append(db.subscribers, callback)
 
 	db.startOnce.Do(func() {
 		logger.Debugf("First subscription for notifier of [%s]. Notifier starts listening...", db.table)
@@ -139,6 +140,7 @@ func (db *Notifier) Close() error {
 	db.closeOnce.Do(func() {
 		db.cancel() // stop listener goroutine
 		db.mu.Lock()
+		db.isClosed = true
 		db.subscribers = nil
 		db.mu.Unlock()
 	})
@@ -195,7 +197,7 @@ func (db *Notifier) UnsubscribeAll() error {
 	// unregister all callbacks
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	clear(db.subscribers)
+	db.subscribers = nil
 
 	return nil
 }

@@ -213,7 +213,7 @@ func TestRunView(t *testing.T) {
 	ctx := &mock.Context{}
 	v := &mock.View{}
 
-	view.RunView(ctx, v)
+	view.RunView(context.Background(), ctx, v)
 	// it's a goroutine, hard to test easily but we call it for coverage
 }
 

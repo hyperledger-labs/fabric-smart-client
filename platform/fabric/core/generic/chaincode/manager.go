@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -30,9 +31,15 @@ type Manager struct {
 	// chaincodes
 	ChaincodesLock sync.RWMutex
 	Chaincodes     map[string]driver.Chaincode
+
+	// ctx bounds the lifetime of resources (e.g. per-chaincode discovery
+	// caches) created by this Manager. cancel is invoked by Stop.
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func NewManager(
+	ctx context.Context,
 	networkID string,
 	channelID string,
 	configService driver.ConfigService,
@@ -46,6 +53,7 @@ func NewManager(
 	finality driver.Finality,
 	MSPProvider MSPProvider,
 ) *Manager {
+	mctx, cancel := context.WithCancel(ctx)
 	return &Manager{
 		NetworkID:       networkID,
 		ChannelID:       channelID,
@@ -60,7 +68,15 @@ func NewManager(
 		Finality:        finality,
 		MSPProvider:     MSPProvider,
 		Chaincodes:      map[string]driver.Chaincode{},
+		ctx:             mctx,
+		cancel:          cancel,
 	}
+}
+
+// Stop cancels the Manager's context, stopping all per-chaincode discovery
+// caches (and any other resource whose lifetime is bound to it).
+func (c *Manager) Stop() {
+	c.cancel()
 }
 
 // Chaincode returns a chaincode handler for the passed chaincode name
@@ -79,6 +95,7 @@ func (c *Manager) Chaincode(name string) driver.Chaincode {
 		return ch
 	}
 	ch = NewChaincode(
+		c.ctx,
 		name,
 		c.ConfigService,
 		c.ChannelConfig,

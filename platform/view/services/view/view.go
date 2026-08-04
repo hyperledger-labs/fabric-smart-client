@@ -160,19 +160,26 @@ func RunViewNow(parent ParentContext, v View, opts ...view.RunViewOption) (res a
 }
 
 // RunView runs passed view within the passed context and using the passed options in a separate goroutine.
-func RunView(viewCtx view.Context, view View, opts ...view.RunViewOption) {
+// The async execution is bound to ctx; callers own its deadline/cancellation.
+//
+// ctx is applied via view.WithGoContext, not view.WithContext: the latter also sets
+// SameContext, which would make the view reuse the caller's view context and silently
+// drop options that configure a child context (notably AsResponder's session).
+// It is prepended so that an explicit option passed by the caller still wins.
+func RunView(ctx context.Context, viewCtx view.Context, v View, opts ...view.RunViewOption) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Debugf("panic in RunView: %v", r)
 		}
 	}()
+	opts = append([]view.RunViewOption{view.WithGoContext(ctx)}, opts...)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				logger.Debugf("panic in RunView: %v", r)
 			}
 		}()
-		_, err := viewCtx.RunView(view, opts...)
+		_, err := viewCtx.RunView(v, opts...)
 		if err != nil {
 			logger.Errorf("failed to run view: %s", err)
 		}

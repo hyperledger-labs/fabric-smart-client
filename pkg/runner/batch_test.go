@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package runner
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 )
@@ -23,7 +25,7 @@ func TestBatchRunner(t *testing.T) {
 	t.Parallel()
 
 	ctr := &atomic.Uint32{}
-	runner, m, locksObtained := newBatchRunner()
+	runner, m, locksObtained := newBatchRunner(t)
 
 	run(t, ctr, runner, 100)
 	require.Len(t, m, 100)
@@ -37,7 +39,7 @@ func TestBatchRunnerFewRequests(t *testing.T) {
 	t.Parallel()
 
 	ctr := &atomic.Uint32{}
-	runner, m, locksObtained := newBatchRunner()
+	runner, m, locksObtained := newBatchRunner(t)
 
 	run(t, ctr, runner, 1)
 
@@ -54,11 +56,12 @@ func TestBatchRunnerFewRequests(t *testing.T) {
 	require.LessOrEqual(t, l, 4)
 }
 
-func newBatchRunner() (BatchRunner[int], map[string]string, *uint32) {
+func newBatchRunner(t *testing.T) (BatchRunner[int], map[string]string, *uint32) {
+	t.Helper()
 	var locksObtained uint32
 	m := make(map[string]string)
 	var mu sync.RWMutex
-	runner := NewBatchRunner(func(vs []int) []error {
+	runner := NewBatchRunner(t.Context(), func(vs []int) []error {
 		mu.Lock()
 		atomic.AddUint32(&locksObtained, 1)
 		defer mu.Unlock()
@@ -96,7 +99,7 @@ func run(t *testing.T, ctr *atomic.Uint32, runner BatchRunner[int], times int) {
 func TestBatchExecutor_Success(t *testing.T) {
 	t.Parallel()
 
-	executor := NewBatchExecutor(func(inputs []string) []Output[int] {
+	executor := NewBatchExecutor(t.Context(), func(inputs []string) []Output[int] {
 		outputs := make([]Output[int], len(inputs))
 		for i, input := range inputs {
 			outputs[i] = Output[int]{Val: len(input), Err: nil}
@@ -112,7 +115,7 @@ func TestBatchExecutor_Success(t *testing.T) {
 func TestBatchExecutor_Error(t *testing.T) {
 	t.Parallel()
 
-	executor := NewBatchExecutor(func(inputs []string) []Output[int] {
+	executor := NewBatchExecutor(t.Context(), func(inputs []string) []Output[int] {
 		outputs := make([]Output[int], len(inputs))
 		for i, input := range inputs {
 			if input == "error" {
@@ -135,7 +138,7 @@ func TestBatchExecutor_Concurrent(t *testing.T) {
 	var mu sync.Mutex
 	processed := make(map[string]bool)
 
-	executor := NewBatchExecutor(func(inputs []string) []Output[int] {
+	executor := NewBatchExecutor(t.Context(), func(inputs []string) []Output[int] {
 		mu.Lock()
 		defer mu.Unlock()
 		outputs := make([]Output[int], len(inputs))
@@ -168,7 +171,7 @@ func TestBatchRunner_MultipleCycles(t *testing.T) {
 	var mu sync.Mutex
 	totalProcessed := 0
 
-	runner := NewBatchRunner(func(vals []int) []error {
+	runner := NewBatchRunner(t.Context(), func(vals []int) []error {
 		mu.Lock()
 		totalProcessed += len(vals)
 		mu.Unlock()
@@ -194,7 +197,7 @@ func TestBatchRunner_TimeoutWithNoRequests(t *testing.T) {
 
 	executionCount := atomic.Int32{}
 
-	runner := NewBatchRunner(func(vals []int) []error {
+	runner := NewBatchRunner(t.Context(), func(vals []int) []error {
 		executionCount.Add(1)
 		return make([]error, len(vals))
 	}, 5, 10*time.Millisecond)
@@ -211,4 +214,111 @@ func TestBatchRunner_TimeoutWithNoRequests(t *testing.T) {
 
 	// Should have executed once
 	require.Equal(t, int32(1), executionCount.Load())
+}
+
+// TestBatcher_StartGoroutineStopsOnCancel verifies the batcher's background goroutine
+// is bound to a context.
+//
+// newBatcher spawns `go e.start()`, whose body is an unconditional `for { select {...} }`.
+// The batcher takes a context.Context: cancelling it must make start() return (and stop
+// its ticker) so NewBatchExecutor / NewBatchRunner do not leak a goroutine per call for
+// the life of the process. The batchers below use a one-hour tick, so nothing but the
+// cancel can retire them; goleak fails the test if any survives it.
+func TestBatcher_StartGoroutineStopsOnCancel(t *testing.T) { //nolint:paralleltest // uses goleak.VerifyNone; must run serially
+	defer goleak.VerifyNone(t)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	for range 50 {
+		r := NewBatchRunner(ctx, func(vs []int) []error { return make([]error, len(vs)) }, 10, time.Hour)
+		require.NotNil(t, r)
+	}
+
+	cancel()
+}
+
+// TestBatcher_StopsOnCancelWithInflightCall verifies that cancelling ctx while start()
+// is parked on one of its INTERIOR blocking channel operations (not the top-of-loop
+// select, which was already guarded) still makes start() return.
+//
+// start() has interior receives/sends after the top-of-loop select: the ticker-branch
+// lastElement read, the drain loop that reads the rest of the batch, and the
+// output-distribution send. If any of these is not guarded with its own
+// `case <-r.ctx.Done(): return`, a cancel landing while start() is blocked there leaves
+// the goroutine parked forever, reintroducing the leak.
+//
+// A single in-flight Run() with capacity > 1 is not enough to reach these interior ops:
+// its send simply blocks in call()'s own (already-guarded) select on a slot start() isn't
+// watching yet, so start() never leaves the top-of-loop select. To genuinely park start()
+// inside the drain loop we need a "full cycle" to fire (a send to the batch's last slot)
+// while slots before it are, and forever remain, unfilled. We do this deterministically,
+// same-package white-box, by presetting the batcher's sequence counter so the single
+// in-flight call lands directly on the last slot: start()'s top select immediately sees a
+// full cycle and moves into the drain loop expecting inputs for the earlier slots — slots
+// that no call() will ever fill, since only this one call is ever made.
+func TestBatcher_StopsOnCancelWithInflightCall(t *testing.T) { //nolint:paralleltest // uses goleak.VerifyNone; must run serially
+	defer goleak.VerifyNone(t)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	const capacity = 2
+	br := NewBatchRunner(ctx, func(vs []int) []error { return make([]error, len(vs)) }, capacity, time.Hour)
+	b, ok := br.(*batchRunner[int])
+	require.True(t, ok, "expected NewBatchRunner to return *batchRunner[int]")
+
+	// Force the single call about to be made to land on the last slot of the first
+	// cycle, so start()'s top-of-loop select fires immediately on it and enters the
+	// drain loop, which then blocks forever waiting for slot 0 (nobody will ever send
+	// there) unless the interior guard is present.
+	atomic.StoreUint32(&b.idx, uint32(capacity-1))
+
+	runDone := make(chan struct{})
+	var runErr error
+	go func() {
+		defer close(runDone)
+		runErr = br.Run(1)
+	}()
+
+	// Give start() time to receive the last-slot input and genuinely park inside the
+	// drain loop, waiting on a slot with no sender.
+	time.Sleep(200 * time.Millisecond)
+
+	cancel()
+
+	select {
+	case <-runDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("in-flight Run() did not return after ctx cancel")
+	}
+
+	// A cancelled call must not look like a successful run.
+	require.ErrorIs(t, runErr, context.Canceled)
+
+	// goleak (deferred above) is what asserts start() actually exited: without the
+	// interior guard it stays parked in the drain loop on a slot with no sender.
+}
+
+// TestBatcher_CallAfterCancelReportsError asserts that once the batcher's context is
+// cancelled, both Run and Execute surface the context error rather than silently
+// returning a nil error / zero value that a caller could mistake for success.
+func TestBatcher_CallAfterCancelReportsError(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	runner := NewBatchRunner(ctx, func(vs []int) []error { return make([]error, len(vs)) }, 2, time.Hour)
+	require.ErrorIs(t, runner.Run(1), context.Canceled)
+
+	executor := NewBatchExecutor(ctx, func(in []string) []Output[int] {
+		outs := make([]Output[int], len(in))
+		for i, s := range in {
+			outs[i] = Output[int]{Val: len(s)}
+		}
+		return outs
+	}, 2, time.Hour)
+	val, err := executor.Execute("hello")
+	require.ErrorIs(t, err, context.Canceled)
+	require.Zero(t, val)
 }

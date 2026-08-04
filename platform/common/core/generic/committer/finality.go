@@ -105,7 +105,7 @@ func (c *FinalityManager[V]) runStatusListener(ctx context.Context) {
 				break
 			}
 
-			newCtx, span := c.tracer.Start(context.Background(), "committer_status_listener")
+			newCtx, span := c.tracer.Start(ctx, "committer_status_listener")
 			c.logger.DebugfContext(ctx, "check vault status for [%d] transactions", len(txIDs))
 			statuses, err := c.vault.Statuses(newCtx, txIDs...)
 			if err != nil {

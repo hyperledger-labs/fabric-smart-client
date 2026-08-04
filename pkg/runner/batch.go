@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package runner
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,6 +16,7 @@ import (
 )
 
 type batcher[I any, O any] struct {
+	ctx      context.Context
 	idx      uint32
 	inputs   []chan I
 	outputs  []chan O
@@ -24,7 +26,7 @@ type batcher[I any, O any] struct {
 	timeout  time.Duration
 }
 
-func newBatcher[I, O any](executor func([]I) []O, capacity int, timeout time.Duration) *batcher[I, O] {
+func newBatcher[I, O any](ctx context.Context, executor func([]I) []O, capacity int, timeout time.Duration) *batcher[I, O] {
 	inputs := make([]chan I, capacity)
 	outputs := make([]chan O, capacity)
 	locks := make([]sync.Mutex, capacity)
@@ -35,6 +37,7 @@ func newBatcher[I, O any](executor func([]I) []O, capacity int, timeout time.Dur
 	}
 
 	e := &batcher[I, O]{
+		ctx:      ctx,
 		inputs:   inputs,
 		outputs:  outputs,
 		locks:    locks,
@@ -49,12 +52,15 @@ func newBatcher[I, O any](executor func([]I) []O, capacity int, timeout time.Dur
 func (r *batcher[I, O]) start() {
 	var inputs []I
 	ticker := time.NewTicker(r.timeout)
+	defer ticker.Stop()
 	firstIdx := uint32(0) // Points to the first element of a new cycle
 	for {
 		// If we fill a whole cycle, the elements will be from firstIdx % r.len to lastIdx % r.len
 		var lastIdx uint32
 		var lastElement I
 		select {
+		case <-r.ctx.Done():
+			return
 		case lastElement = <-r.inputs[(firstIdx+r.len-1)%r.len]:
 			lastIdx = firstIdx + r.len
 			logger.Debugf("Execute because %d input channels are full", r.len)
@@ -64,14 +70,23 @@ func (r *batcher[I, O]) start() {
 				logger.Debugf("No new elements. Skip execution...")
 				continue
 			}
-			lastElement = <-r.inputs[(lastIdx-1)%r.len] // We read the lastElement here just to avoid code repetition
+			// We read the lastElement here just to avoid code repetition
+			select {
+			case lastElement = <-r.inputs[(lastIdx-1)%r.len]:
+			case <-r.ctx.Done():
+				return
+			}
 			logger.Debugf("Execute because timeout of %v passed", r.timeout)
 		}
 		logger.Debugf("Read batch range [%d,%d)", firstIdx, lastIdx)
 
 		inputs = make([]I, lastIdx-firstIdx)
 		for i := uint32(0); i < lastIdx-firstIdx-1; i++ {
-			inputs[i] = <-r.inputs[(i+firstIdx)%r.len]
+			select {
+			case inputs[i] = <-r.inputs[(i+firstIdx)%r.len]:
+			case <-r.ctx.Done():
+				return
+			}
 		}
 		inputs[lastIdx-firstIdx-1] = lastElement
 		ticker.Reset(r.timeout)
@@ -83,21 +98,40 @@ func (r *batcher[I, O]) start() {
 			panic(errors.Errorf("expected %d outputs, but got %d", len(inputs), len(outs)))
 		}
 		for i, err := range outs {
-			r.outputs[(firstIdx+uint32(i))%r.len] <- err
+			select {
+			case r.outputs[(firstIdx+uint32(i))%r.len] <- err:
+			case <-r.ctx.Done():
+				return
+			}
 		}
 		logger.Debugf("Results distributed for range [%d,%d)", firstIdx, lastIdx)
 		firstIdx = lastIdx
 	}
 }
 
-func (r *batcher[I, O]) call(input I) O {
+// call enqueues input and waits for the corresponding output. If the batcher's
+// context is cancelled first, it returns the zero value of O together with the
+// context error, so that callers can tell cancellation apart from a successful
+// execution that happened to produce a zero result.
+func (r *batcher[I, O]) call(input I) (O, error) {
+	var zero O
 	idx := atomic.AddUint32(&r.idx, 1) - 1
 	r.locks[idx%r.len].Lock()
 	defer r.locks[idx%r.len].Unlock()
-	r.inputs[idx%r.len] <- input
+	select {
+	case r.inputs[idx%r.len] <- input:
+	case <-r.ctx.Done():
+		return zero, r.ctx.Err()
+	}
 	logger.Debugf("Enqueued input [%d] and waiting for result", idx)
-	defer logger.Debugf("Return result of output [%d]", idx)
-	return <-r.outputs[idx%r.len]
+	select {
+	case out := <-r.outputs[idx%r.len]:
+		logger.Debugf("Return result of output [%d]", idx)
+		return out, nil
+	case <-r.ctx.Done():
+		logger.Debugf("Context cancelled while waiting for result of output [%d]", idx)
+		return zero, r.ctx.Err()
+	}
 }
 
 type batchExecutor[I any, O any] struct {
@@ -107,16 +141,23 @@ type batchExecutor[I any, O any] struct {
 // NewBatchExecutor creates a BatchExecutor that batches multiple Execute calls for efficiency.
 // Batching occurs when capacity is reached or timeout expires.
 // The executor function receives a batch of inputs and must return corresponding outputs.
+// If ctx is cancelled while a call is in flight, that call's Execute returns the zero
+// value of O and ctx.Err().
 func NewBatchExecutor[I, O any](
+	ctx context.Context,
 	executor ExecuteFunc[I, Output[O]],
 	capacity int,
 	timeout time.Duration,
 ) BatchExecutor[I, O] {
-	return &batchExecutor[I, O]{batcher: newBatcher(executor, capacity, timeout)}
+	return &batchExecutor[I, O]{batcher: newBatcher(ctx, executor, capacity, timeout)}
 }
 
 func (r *batchExecutor[I, O]) Execute(input I) (O, error) {
-	o := r.call(input)
+	o, err := r.call(input)
+	if err != nil {
+		var zero O
+		return zero, err
+	}
 	return o.Val, o.Err
 }
 
@@ -127,10 +168,15 @@ type batchRunner[V any] struct {
 // NewBatchRunner creates a BatchRunner that batches multiple Run calls for efficiency.
 // Batching occurs when capacity is reached or timeout expires.
 // The runner function receives a batch of values and must return corresponding errors.
-func NewBatchRunner[V any](runner func([]V) []error, capacity int, timeout time.Duration) BatchRunner[V] {
-	return &batchRunner[V]{batcher: newBatcher(runner, capacity, timeout)}
+// If ctx is cancelled while a call is in flight, that call's Run returns ctx.Err().
+func NewBatchRunner[V any](ctx context.Context, runner func([]V) []error, capacity int, timeout time.Duration) BatchRunner[V] {
+	return &batchRunner[V]{batcher: newBatcher(ctx, runner, capacity, timeout)}
 }
 
 func (r *batchRunner[V]) Run(val V) error {
-	return r.call(val)
+	out, err := r.call(val)
+	if err != nil {
+		return err
+	}
+	return out
 }

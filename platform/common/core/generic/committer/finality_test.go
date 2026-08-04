@@ -169,3 +169,41 @@ func TestFinalityManager_Dispatch_PanicRecovery(t *testing.T) {
 	})
 	listener.AssertExpectations(t)
 }
+
+// ctxCapturingVault records the context handed to Statuses so the test can inspect
+// whether it is linked to the runStatusListener loop context.
+type ctxCapturingVault struct {
+	called chan context.Context
+}
+
+func (v *ctxCapturingVault) Statuses(ctx context.Context, _ ...driver.TxID) ([]driver.TxValidationStatus[int], error) {
+	select {
+	case v.called <- ctx:
+	default:
+	}
+	return nil, nil
+}
+
+func TestFinalityManager_StatusListenerContextPropagates(t *testing.T) {
+	t.Parallel()
+
+	vault := &ctxCapturingVault{called: make(chan context.Context, 1)}
+	listenerManager := newFinalityListenerManager[int](logging.MustGetLogger(), &noop.Tracer{})
+	manager := NewFinalityManager[int](listenerManager, logging.MustGetLogger(), vault, noop.NewTracerProvider(), 10)
+	require.NoError(t, manager.AddListener("txID", &MockFinalityListener{}))
+
+	loopCtx, cancelLoop := context.WithCancel(t.Context())
+	go manager.runStatusListener(loopCtx)
+
+	var captured context.Context
+	select {
+	case captured = <-vault.called:
+	case <-time.After(5 * time.Second):
+		t.Fatal("vault.Statuses was never called")
+	}
+
+	cancelLoop()
+	require.Eventually(t, func() bool { return captured.Err() != nil }, 2*time.Second, 20*time.Millisecond,
+		"context passed to Statuses must be derived from the loop ctx, so that stopping the "+
+			"listener also aborts the vault query it is waiting on")
+}

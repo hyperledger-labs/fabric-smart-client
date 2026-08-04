@@ -69,9 +69,22 @@ func WithSameContext() RunViewOption {
 
 // WithContext is used to pass a different context.Context to the view.
 // It includes the effect of WithSameContext as well.
+//
+// If you only want to override the go context without also reusing the caller's
+// view context, use WithGoContext instead.
 func WithContext(ctx context.Context) RunViewOption {
 	return func(o *RunViewOptions) error {
 		o.SameContext = true
+		o.Ctx = ctx
+		return nil
+	}
+}
+
+// WithGoContext is used to pass a different context.Context to the view, without
+// the SameContext side effect of WithContext. The view still runs in a child view
+// context, so options such as AsResponder and AsInitiator keep their meaning.
+func WithGoContext(ctx context.Context) RunViewOption {
+	return func(o *RunViewOptions) error {
 		o.Ctx = ctx
 		return nil
 	}
