@@ -96,6 +96,17 @@ func (i *CreateView) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 
+	// An empty txID must be rejected: no committer notification could ever match
+	// it, so the registration would never be removed. The generic driver enforces
+	// this too (see integration/fabric/iou/views/approver.go), so this asserts the
+	// two drivers agree against a live committer. A throwaway WaitGroup is used so
+	// that an unexpected success cannot corrupt the real listener's count above.
+	var unusedWG sync.WaitGroup
+	unusedWG.Add(1)
+	if err := lm.AddFinalityListener("", utils.NewFinalityListener(tx.ID(), fdriver.Valid, &unusedWG)); err == nil {
+		return nil, errors.New("AddFinalityListener with an empty txID must fail")
+	}
+
 	// now we have a committer listener registered, we send the approved transaction to the orderer
 	logger.Infof("Submit tx (txID=%v) to ordering service", tx.ID())
 	if _, err = viewCtx.RunView(state.NewOrderingAndFinalityWithTimeoutView(tx, FinalityTimeout)); err != nil {
