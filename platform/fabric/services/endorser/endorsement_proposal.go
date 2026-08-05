@@ -38,13 +38,27 @@ type answer struct {
 	party view.Identity
 }
 
-// defaultParallelEndorsementTimeout bounds, in aggregate, how long the initiator waits for
-// all contacted parties to answer when no explicit timeout has been configured via
+// defaultParallelEndorsementTimeout is the timeout applied when none has been configured via
 // WithTimeout. It matters beyond just the final receive step: session establishment and
 // sending the proposal to each party (both done inside collectEndorsement, before its own
 // receive-timeout kicks in) are not otherwise bounded, so an unresponsive or malicious party
 // could park its goroutine indefinitely and, with it, this view's wait on answerChannel.
+// See parallelEndorsementDeadlineGrace for how the timeout maps onto the two deadlines.
 const defaultParallelEndorsementTimeout = 30 * time.Second
+
+// parallelEndorsementDeadlineGrace is how much longer the aggregate deadline runs than the
+// per-party receive timeout that collectEndorsement arms with the configured timeout. Without
+// it the two expire together and the select in Call picks between them at random, so a silent
+// party is reported as often by the generic aggregate error as by the per-party one that names
+// it. The grace lets the per-party timeout land first, leaving the aggregate deadline as what
+// it is meant to be: the backstop for the session setup and send steps, which nothing else
+// bounds.
+//
+// The practical consequence is that the configured timeout bounds each party individually,
+// and the initiator gives up after timeout+grace overall rather than at timeout exactly. The
+// grace is a fixed amount, not a fraction, so it is negligible next to the default timeout but
+// dominates a caller-configured one in the tens of milliseconds.
+const parallelEndorsementDeadlineGrace = 500 * time.Millisecond
 
 type parallelCollectEndorsementsOnProposalView struct {
 	tx      EndorsementsOnProposalTransaction
@@ -87,7 +101,7 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(viewCtx view.Context) (
 	}
 	vProviders := []fabric.VerifierProvider{&verifierProviderWrapper{m: ch.MSPManager()}}
 
-	deadline := time.NewTimer(timeout)
+	deadline := time.NewTimer(timeout + parallelEndorsementDeadlineGrace)
 	defer deadline.Stop()
 
 	for i := 0; i < len(c.parties); i++ {
@@ -100,7 +114,7 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(viewCtx view.Context) (
 		}
 		logger.DebugfContext(viewCtx.Context(), "Received endorsement")
 		if a.err != nil {
-			return nil, errors.Wrapf(a.err, "got failure [%s] from [%s]", a.party.String(), a.err)
+			return nil, errors.Wrapf(a.err, "got failure from [%s]", a.party.String())
 		}
 
 		logger.Debugf("answer from [%s] contains [%d] responses, adding them", a.party, len(a.prs))
@@ -131,13 +145,18 @@ func (c *parallelCollectEndorsementsOnProposalView) Call(viewCtx view.Context) (
 			logger.DebugfContext(viewCtx.Context(), "Appended proposal")
 			err = c.tx.AppendProposalResponse(proposalResponse)
 			if err != nil {
-				return nil, errors.Wrapf(a.err, "failed appending response from [%s]", a.party.String())
+				return nil, errors.Wrapf(err, "failed appending response from [%s]", a.party.String())
 			}
 		}
 	}
 	return c.tx, nil
 }
 
+// WithTimeout sets how long each contacted party has to answer. Call gives up on the
+// collection as a whole after timeout+parallelEndorsementDeadlineGrace, so that a party that
+// answers nothing is reported by name rather than by the generic aggregate error; see
+// parallelEndorsementDeadlineGrace. A timeout of zero or less selects
+// defaultParallelEndorsementTimeout.
 func (c *parallelCollectEndorsementsOnProposalView) WithTimeout(timeout time.Duration) *parallelCollectEndorsementsOnProposalView {
 	c.timeout = timeout
 	return c
