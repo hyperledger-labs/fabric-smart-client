@@ -132,12 +132,6 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 
 	// spawn notification dispatcher
 	g.Go(func() error {
-		type handlerCall struct {
-			handler fabric.FinalityListener
-			txID    string
-			status  int
-		}
-
 		// Sweep from this goroutine rather than a dedicated one: it is already the
 		// only goroutine that deletes entries on the notification path, so a sweep
 		// can never interleave with a dispatch and no listener can be settled twice.
@@ -148,41 +142,14 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 		ticker := time.NewTicker(sweepEvery)
 		defer ticker.Stop()
 
-		var resp *committerpb.NotificationResponse
 		for {
 			select {
 			case <-gCtx.Done():
 				return gCtx.Err()
-			case resp = <-n.responseQueue:
 			case <-ticker.C:
 				n.sweepExpired(gCtx)
-				// A tick carries no response; resp still holds the previous one, so
-				// falling through here would dispatch it a second time.
-				continue
-			}
-
-			res := parseResponse(resp)
-
-			// Collect handlers under lock, then release before spawning goroutines.
-			// This minimizes lock hold time — only map lookups and deletes happen
-			// under the lock. Goroutine scheduling happens entirely outside.
-			var calls []handlerCall
-
-			n.handlersMu.Lock()
-			for txID, status := range res {
-				entry, ok := n.handlers[txID]
-				if !ok {
-					continue
-				}
-				delete(n.handlers, txID)
-				for _, h := range entry.listeners {
-					calls = append(calls, handlerCall{handler: h, txID: txID, status: status})
-				}
-			}
-			n.handlersMu.Unlock()
-
-			for _, c := range calls {
-				n.invokeHandler(gCtx, c.handler, c.txID, c.status)
+			case resp := <-n.responseQueue:
+				n.dispatch(gCtx, resp)
 			}
 		}
 	})
@@ -371,6 +338,39 @@ func (n *notificationListenerManager) expiryFor(now time.Time) time.Time {
 		return time.Time{}
 	}
 	return now.Add(n.listenerTTL)
+}
+
+// dispatch settles the listeners named by one notification response.
+//
+// Collects under the lock and notifies outside it, so only map lookups and
+// deletes happen while handlersMu is held. Runs on the dispatcher goroutine,
+// which is what lets sweepExpired share the same map without either path being
+// able to settle a listener the other already settled.
+func (n *notificationListenerManager) dispatch(ctx context.Context, resp *committerpb.NotificationResponse) {
+	type handlerCall struct {
+		handler fabric.FinalityListener
+		txID    string
+		status  int
+	}
+
+	var calls []handlerCall
+
+	n.handlersMu.Lock()
+	for txID, status := range parseResponse(resp) {
+		entry, ok := n.handlers[txID]
+		if !ok {
+			continue
+		}
+		delete(n.handlers, txID)
+		for _, h := range entry.listeners {
+			calls = append(calls, handlerCall{handler: h, txID: txID, status: status})
+		}
+	}
+	n.handlersMu.Unlock()
+
+	for _, c := range calls {
+		n.invokeHandler(ctx, c.handler, c.txID, c.status)
+	}
 }
 
 // sweepExpired settles listeners whose local deadline has passed.
