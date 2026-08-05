@@ -524,99 +524,23 @@ func TestReceiveTransactionView(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
-	t.Parallel()
-	fakeCtx := &mock.Context{}
-	fakeCtx.ContextReturns(context.Background())
-	fakeSP := &mock.Provider{}
-	fakeCtx.GetServiceCalls(func(v any) (any, error) {
-		return fakeSP.GetService(v)
-	})
-
-	fakeFNSP := &mock.FabricNetworkServiceProvider{}
-	fakeFNS := &mock.FabricNetworkService{}
-	fakeFNS.NameReturns("net1")
-	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
-	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
-	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
-	fakeSP.GetServiceCalls(func(v any) (any, error) {
-		if v == networkServiceProviderType {
-			return fakeNSP, nil
-		}
-		return nil, nil
-	})
-
-	fakeTM := &mock.TransactionManager{}
-	fakeFNS.TransactionManagerReturns(fakeTM)
-
-	fakeCH := &mock.Channel{}
-	fakeCH.NameReturns("ch1")
-	fakeFNS.ChannelReturns(fakeCH, nil)
-	fakeCM := &mock.ChannelMembership{}
-	fakeCH.ChannelMembershipReturns(fakeCM)
-
-	fakeTx := &mock.Transaction{}
-	fakeTx.NetworkReturns("net1")
-	fakeTx.ChannelReturns("ch1")
-	fakeTx.BytesReturns([]byte("raw"), nil)
-	fakeTx.IDReturns("tx1")
-
-	ft := &Transaction{
-		Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, fakeFNS, "net1"), fakeTx),
-	}
-
-	v := NewParallelCollectEndorsementsOnProposalView(ft, []byte("bob"))
-	v.WithTimeout(1 * time.Second)
-
-	fakeSession := &mock.Session{}
-	fakeCtx.GetSessionReturns(fakeSession, nil)
-	fakeCtx.InitiatorReturns(&fakeView{})
-
-	// Case 1: Success
-	respPayload, _ := json.Marshal(&Response{
-		ProposalResponses: [][]byte{[]byte("resp1")},
-	})
-	msgCh := make(chan *view.Message, 1)
-	msgCh <- &view.Message{Payload: respPayload}
-	fakeSession.ReceiveReturns(msgCh)
-
-	fakeResp := &mock.ProposalResponse{}
-	fakeResp.EndorserReturns([]byte("bob"))
-	fakeResp.VerifyEndorsementReturns(nil)
-	fakeTM.NewProposalResponseFromBytesReturns(fakeResp, nil)
-
-	_, err := v.Call(fakeCtx)
-	require.NoError(t, err)
-	require.Equal(t, 1, fakeTx.AppendProposalResponseCallCount())
-
-	// Case 2: Session error
-	fakeCtx.GetSessionReturns(nil, fmt.Errorf("err"))
-	_, err = v.Call(fakeCtx)
-	require.Error(t, err)
-
-	// Case 3: Send error
-	fakeCtx.GetSessionReturns(fakeSession, nil)
-	fakeSession.SendWithContextReturns(fmt.Errorf("err"))
-	_, err = v.Call(fakeCtx)
-	require.Error(t, err)
-
-	// Case 4: Receive error
-	fakeSession.SendWithContextReturns(nil)
-	msgCh = make(chan *view.Message, 1)
-	msgCh <- &view.Message{Status: view.ERROR, Payload: []byte("err")}
-	fakeSession.ReceiveReturns(msgCh)
-	_, err = v.Call(fakeCtx)
-	require.Error(t, err)
+// parallelEndorsementFixture bundles the fakes that every
+// TestParallelCollectEndorsementsOnProposalView_* case needs, so each test only spells out
+// the behaviour it is actually about.
+type parallelEndorsementFixture struct {
+	ctx     *mock.Context
+	session *mock.Session
+	tx      *mock.Transaction
+	tm      *mock.TransactionManager
+	ft      *Transaction
 }
 
-// TestParallelCollectEndorsementsOnProposalView_RejectsUnverifiedResponse demonstrates
-// that parallelCollectEndorsementsOnProposalView.Call (endorsement_proposal.go) now
-// calls ProposalResponse.VerifyEndorsement, and checks that the endorser is bound to
-// the contacted party, before appending a remote-supplied proposal response to the
-// transaction - mirroring the sequential collectEndorsementsView.Call, which verifies
-// signatures against a set of VerifierProviders.
-func TestParallelCollectEndorsementsOnProposalView_RejectsUnverifiedResponse(t *testing.T) {
-	t.Parallel()
+// newParallelEndorsementFixture wires a view context whose service provider resolves the
+// network service for "net1"/"ch1", together with the transaction the view collects
+// endorsements for and the session it reaches the parties over. Pass an endpoint.Service to
+// have it resolved through the same provider - only the binding check in Call needs one, and
+// the cases that do not reach that check never look it up.
+func newParallelEndorsementFixture(endpointService *endpoint.Service) *parallelEndorsementFixture {
 	fakeCtx := &mock.Context{}
 	fakeCtx.ContextReturns(context.Background())
 	fakeSP := &mock.Provider{}
@@ -631,16 +555,11 @@ func TestParallelCollectEndorsementsOnProposalView_RejectsUnverifiedResponse(t *
 	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
 	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
 	endpointServiceType := reflect.TypeFor[*endpoint.Service]()
-
-	fakeBindingStore := &mock.BindingStore{}
-	fakeBindingStore.HaveSameBindingReturns(false, nil)
-	endpointService, _ := endpoint.NewService(fakeBindingStore)
-
 	fakeSP.GetServiceCalls(func(v any) (any, error) {
 		if v == networkServiceProviderType {
 			return fakeNSP, nil
 		}
-		if v == endpointServiceType {
+		if v == endpointServiceType && endpointService != nil {
 			return endpointService, nil
 		}
 		return nil, nil
@@ -652,8 +571,7 @@ func TestParallelCollectEndorsementsOnProposalView_RejectsUnverifiedResponse(t *
 	fakeCH := &mock.Channel{}
 	fakeCH.NameReturns("ch1")
 	fakeFNS.ChannelReturns(fakeCH, nil)
-	fakeCM := &mock.ChannelMembership{}
-	fakeCH.ChannelMembershipReturns(fakeCM)
+	fakeCH.ChannelMembershipReturns(&mock.ChannelMembership{})
 
 	fakeTx := &mock.Transaction{}
 	fakeTx.NetworkReturns("net1")
@@ -661,37 +579,102 @@ func TestParallelCollectEndorsementsOnProposalView_RejectsUnverifiedResponse(t *
 	fakeTx.BytesReturns([]byte("raw"), nil)
 	fakeTx.IDReturns("tx1")
 
-	ft := &Transaction{
-		Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, fakeFNS, "net1"), fakeTx),
-	}
-
-	// Party contacted is "bob", but the returned response claims to be endorsed by
-	// "mallory" - an identity with no relationship to "bob" whatsoever.
-	v := NewParallelCollectEndorsementsOnProposalView(ft, []byte("bob"))
-	v.WithTimeout(1 * time.Second)
-
 	fakeSession := &mock.Session{}
 	fakeCtx.GetSessionReturns(fakeSession, nil)
 	fakeCtx.InitiatorReturns(&fakeView{})
 
-	respPayload, _ := json.Marshal(&Response{
-		ProposalResponses: [][]byte{[]byte("resp-from-mallory")},
-	})
+	return &parallelEndorsementFixture{
+		ctx:     fakeCtx,
+		session: fakeSession,
+		tx:      fakeTx,
+		tm:      fakeTM,
+		ft: &Transaction{
+			Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, fakeFNS, "net1"), fakeTx),
+		},
+	}
+}
+
+// answerWith makes the fixture's session deliver a single Response carrying prs, endorsed by
+// endorser, and has the transaction manager unmarshal it into a proposal response that
+// verifies. Returns that proposal response so a test can override what it reports.
+func (f *parallelEndorsementFixture) answerWith(t *testing.T, endorser view.Identity, prs ...[]byte) *mock.ProposalResponse {
+	t.Helper()
+	respPayload, err := json.Marshal(&Response{ProposalResponses: prs})
+	require.NoError(t, err)
 	msgCh := make(chan *view.Message, 1)
 	msgCh <- &view.Message{Payload: respPayload}
-	fakeSession.ReceiveReturns(msgCh)
+	f.session.ReceiveReturns(msgCh)
+
+	fakeResp := &mock.ProposalResponse{}
+	fakeResp.EndorserReturns(endorser)
+	fakeResp.VerifyEndorsementReturns(nil)
+	f.tm.NewProposalResponseFromBytesReturns(fakeResp, nil)
+	return fakeResp
+}
+
+func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
+	t.Parallel()
+	f := newParallelEndorsementFixture(nil)
+
+	v := NewParallelCollectEndorsementsOnProposalView(f.ft, []byte("bob"))
+	v.WithTimeout(1 * time.Second)
+
+	// Case 1: Success
+	f.answerWith(t, []byte("bob"), []byte("resp1"))
+
+	_, err := v.Call(f.ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, f.tx.AppendProposalResponseCallCount())
+
+	// Case 2: Session error
+	f.ctx.GetSessionReturns(nil, fmt.Errorf("err"))
+	_, err = v.Call(f.ctx)
+	require.Error(t, err)
+
+	// Case 3: Send error
+	f.ctx.GetSessionReturns(f.session, nil)
+	f.session.SendWithContextReturns(fmt.Errorf("err"))
+	_, err = v.Call(f.ctx)
+	require.Error(t, err)
+
+	// Case 4: Receive error
+	f.session.SendWithContextReturns(nil)
+	msgCh := make(chan *view.Message, 1)
+	msgCh <- &view.Message{Status: view.ERROR, Payload: []byte("err")}
+	f.session.ReceiveReturns(msgCh)
+	_, err = v.Call(f.ctx)
+	require.Error(t, err)
+}
+
+// TestParallelCollectEndorsementsOnProposalView_RejectsUnverifiedResponse demonstrates
+// that parallelCollectEndorsementsOnProposalView.Call (endorsement_proposal.go) now
+// calls ProposalResponse.VerifyEndorsement, and checks that the endorser is bound to
+// the contacted party, before appending a remote-supplied proposal response to the
+// transaction - mirroring the sequential collectEndorsementsView.Call, which verifies
+// signatures against a set of VerifierProviders.
+func TestParallelCollectEndorsementsOnProposalView_RejectsUnverifiedResponse(t *testing.T) {
+	t.Parallel()
+	fakeBindingStore := &mock.BindingStore{}
+	fakeBindingStore.HaveSameBindingReturns(false, nil)
+	endpointService, err := endpoint.NewService(fakeBindingStore)
+	require.NoError(t, err)
+
+	f := newParallelEndorsementFixture(endpointService)
+
+	// Party contacted is "bob", but the returned response claims to be endorsed by
+	// "mallory" - an identity with no relationship to "bob" whatsoever.
+	v := NewParallelCollectEndorsementsOnProposalView(f.ft, []byte("bob"))
+	v.WithTimeout(1 * time.Second)
 
 	// This response is neither signed by "bob" nor bound to "bob", so it must be
 	// rejected regardless of what VerifyEndorsement would say.
-	fakeResp := &mock.ProposalResponse{}
-	fakeResp.EndorserReturns([]byte("mallory"))
+	fakeResp := f.answerWith(t, []byte("mallory"), []byte("resp-from-mallory"))
 	fakeResp.VerifyEndorsementReturns(errors.New("signature verification failed"))
-	fakeTM.NewProposalResponseFromBytesReturns(fakeResp, nil)
 
-	_, err := v.Call(fakeCtx)
+	_, err = v.Call(f.ctx)
 
 	require.Error(t, err, "unverified proposal response from an unrelated identity must be rejected")
-	require.Equal(t, 0, fakeTx.AppendProposalResponseCallCount())
+	require.Equal(t, 0, f.tx.AppendProposalResponseCallCount())
 }
 
 // TestParallelCollectEndorsementsOnProposalView_TimesOutOnSilentParty demonstrates that
@@ -704,60 +687,19 @@ func TestParallelCollectEndorsementsOnProposalView_RejectsUnverifiedResponse(t *
 // returns a timeout error instead of hanging indefinitely.
 func TestParallelCollectEndorsementsOnProposalView_TimesOutOnSilentParty(t *testing.T) {
 	t.Parallel()
-	fakeCtx := &mock.Context{}
-	fakeCtx.ContextReturns(context.Background())
-	fakeSP := &mock.Provider{}
-	fakeCtx.GetServiceCalls(func(v any) (any, error) {
-		return fakeSP.GetService(v)
-	})
-
-	fakeFNSP := &mock.FabricNetworkServiceProvider{}
-	fakeFNS := &mock.FabricNetworkService{}
-	fakeFNS.NameReturns("net1")
-	fakeFNSP.FabricNetworkServiceReturns(fakeFNS, nil)
-	fakeNSP := fabric.NewNetworkServiceProvider(fakeFNSP, nil)
-	networkServiceProviderType := reflect.TypeFor[*fabric.NetworkServiceProvider]()
-	fakeSP.GetServiceCalls(func(v any) (any, error) {
-		if v == networkServiceProviderType {
-			return fakeNSP, nil
-		}
-		return nil, nil
-	})
-
-	fakeTM := &mock.TransactionManager{}
-	fakeFNS.TransactionManagerReturns(fakeTM)
-
-	fakeCH := &mock.Channel{}
-	fakeCH.NameReturns("ch1")
-	fakeFNS.ChannelReturns(fakeCH, nil)
-	fakeCM := &mock.ChannelMembership{}
-	fakeCH.ChannelMembershipReturns(fakeCM)
-
-	fakeTx := &mock.Transaction{}
-	fakeTx.NetworkReturns("net1")
-	fakeTx.ChannelReturns("ch1")
-	fakeTx.BytesReturns([]byte("raw"), nil)
-	fakeTx.IDReturns("tx1")
-
-	ft := &Transaction{
-		Transaction: fabric.NewTransaction(fabric.NewNetworkService(nil, fakeFNS, "net1"), fakeTx),
-	}
+	f := newParallelEndorsementFixture(nil)
 
 	// A short timeout so the test doesn't wait out defaultParallelEndorsementTimeout; the
 	// party's session never delivers a response (empty, never-fed channel), simulating a
 	// silent/unresponsive remote peer.
-	v := NewParallelCollectEndorsementsOnProposalView(ft, []byte("bob"))
+	v := NewParallelCollectEndorsementsOnProposalView(f.ft, []byte("bob"))
 	v.WithTimeout(50 * time.Millisecond)
-
-	fakeSession := &mock.Session{}
-	fakeCtx.GetSessionReturns(fakeSession, nil)
-	fakeCtx.InitiatorReturns(&fakeView{})
-	fakeSession.ReceiveReturns(make(chan *view.Message))
+	f.session.ReceiveReturns(make(chan *view.Message))
 
 	done := make(chan struct{})
 	var err error
 	go func() {
-		_, err = v.Call(fakeCtx)
+		_, err = v.Call(f.ctx)
 		close(done)
 	}()
 
@@ -768,7 +710,70 @@ func TestParallelCollectEndorsementsOnProposalView_TimesOutOnSilentParty(t *test
 	}
 
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "timeout")
+	// The per-party ReceiveWithTimeout expires a full parallelEndorsementDeadlineGrace before
+	// the aggregate deadline, so barring a pathological scheduling stall the error reported is
+	// the per-party one, which names the party that went silent.
+	require.Contains(t, err.Error(), "time out reached on session")
+	require.Contains(t, err.Error(), "got failure from ["+view.Identity("bob").String()+"]")
+}
+
+// TestParallelCollectEndorsementsOnProposalView_TimesOutOnPartyThatNeverAcceptsTheSend covers
+// the aggregate deadline itself: collectEndorsement's own ReceiveWithTimeout bounds only the
+// receive step, so a party that parks the goroutine in session setup or SendRaw is caught by
+// nothing else. Here the send blocks forever, so the per-party timeout never arms and the
+// aggregate deadline in Call is the only thing that can return.
+func TestParallelCollectEndorsementsOnProposalView_TimesOutOnPartyThatNeverAcceptsTheSend(t *testing.T) {
+	t.Parallel()
+	f := newParallelEndorsementFixture(nil)
+
+	v := NewParallelCollectEndorsementsOnProposalView(f.ft, []byte("bob"))
+	v.WithTimeout(50 * time.Millisecond)
+
+	// Release the parked goroutine when the test ends so it does not outlive the test.
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+
+	f.session.ReceiveReturns(make(chan *view.Message))
+	f.session.SendWithContextCalls(func(context.Context, []byte) error {
+		<-release
+		return nil
+	})
+
+	done := make(chan struct{})
+	var err error
+	go func() {
+		_, err = v.Call(f.ctx)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Call did not return - it appears to be blocking forever on a party stuck in send")
+	}
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "timeout waiting for endorsement from [1] parties")
+}
+
+// TestParallelCollectEndorsementsOnProposalView_ReportsAppendFailure guards against
+// AppendProposalResponse failures being swallowed: the error must reach the caller rather than
+// Call returning a nil transaction and a nil error.
+func TestParallelCollectEndorsementsOnProposalView_ReportsAppendFailure(t *testing.T) {
+	t.Parallel()
+	f := newParallelEndorsementFixture(nil)
+	f.tx.AppendProposalResponseReturns(errors.New("cannot append"))
+
+	v := NewParallelCollectEndorsementsOnProposalView(f.ft, []byte("bob"))
+	v.WithTimeout(1 * time.Second)
+
+	f.answerWith(t, []byte("bob"), []byte("resp1"))
+
+	tx, err := v.Call(f.ctx)
+	require.Error(t, err)
+	require.Nil(t, tx)
+	require.Contains(t, err.Error(), "failed appending response from ["+view.Identity("bob").String()+"]")
+	require.Contains(t, err.Error(), "cannot append")
 }
 
 func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
