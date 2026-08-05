@@ -32,13 +32,41 @@ var logger = logging.MustGetLogger()
 // will leak goroutines, but this is preferable to blocking the dispatcher.
 const DefaultHandlerTimeout = 5 * time.Second
 
+// DefaultListenerTTL bounds how long a listener may wait for a notification that
+// may never arrive. It is deliberately much longer than the timeout we ask the
+// committer for in AddFinalityListener: that timeout is documented non-strict
+// ("it is possible to receive notifications after the timeout has passed", see
+// notify.proto), so the remote must be given ample room to answer before we give
+// up locally. Expiry is a backstop against silence, not a competitor to the
+// remote deadline.
+const DefaultListenerTTL = 2 * time.Minute
+
+// DefaultSweepInterval is how often expired entries are collected. An entry's
+// worst-case lifetime is DefaultListenerTTL + DefaultSweepInterval.
+const DefaultSweepInterval = 30 * time.Second
+
+// handlerEntry holds the listeners waiting on one transaction, together with the
+// deadline after which they are settled locally. A zero expiresAt means the entry
+// never expires, which is what a manager built with listenerTTL == 0 produces.
+type handlerEntry struct {
+	listeners []fabric.FinalityListener
+	expiresAt time.Time
+}
+
 type notificationListenerManager struct {
 	notifyClient   committerpb.NotifierClient
 	requestQueue   chan *committerpb.NotificationRequest
 	responseQueue  chan *committerpb.NotificationResponse
 	handlerTimeout time.Duration
 
-	handlers   map[driver.TxID][]fabric.FinalityListener
+	// listenerTTL is how long an entry may stay unresolved before the sweeper
+	// settles it with Unknown. Zero disables local expiry entirely.
+	listenerTTL time.Duration
+	// sweepInterval is the sweep tick period. Ignored when listenerTTL is zero;
+	// falls back to DefaultSweepInterval if unset.
+	sweepInterval time.Duration
+
+	handlers   map[driver.TxID]*handlerEntry
 	handlersMu sync.RWMutex
 
 	// streamCtx holds the errgroup context of the currently active listen()
@@ -110,12 +138,27 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 			status  int
 		}
 
+		// Sweep from this goroutine rather than a dedicated one: it is already the
+		// only goroutine that deletes entries on the notification path, so a sweep
+		// can never interleave with a dispatch and no listener can be settled twice.
+		sweepEvery := n.sweepInterval
+		if sweepEvery <= 0 {
+			sweepEvery = DefaultSweepInterval
+		}
+		ticker := time.NewTicker(sweepEvery)
+		defer ticker.Stop()
+
 		var resp *committerpb.NotificationResponse
 		for {
 			select {
 			case <-gCtx.Done():
 				return gCtx.Err()
 			case resp = <-n.responseQueue:
+			case <-ticker.C:
+				n.sweepExpired(gCtx)
+				// A tick carries no response; resp still holds the previous one, so
+				// falling through here would dispatch it a second time.
+				continue
 			}
 
 			res := parseResponse(resp)
@@ -126,39 +169,20 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 			var calls []handlerCall
 
 			n.handlersMu.Lock()
-			for txID, v := range res {
-				handlers, ok := n.handlers[txID]
+			for txID, status := range res {
+				entry, ok := n.handlers[txID]
 				if !ok {
 					continue
 				}
 				delete(n.handlers, txID)
-				for _, h := range handlers {
-					calls = append(calls, handlerCall{handler: h, txID: txID, status: v})
+				for _, h := range entry.listeners {
+					calls = append(calls, handlerCall{handler: h, txID: txID, status: status})
 				}
 			}
 			n.handlersMu.Unlock()
 
-			// Invoke each handler in its own goroutine with a timeout.
-			// If a handler ignores the context and never returns, the goroutine
-			// will leak — but the dispatcher remains unblocked.
 			for _, c := range calls {
-				go func() {
-					timeoutCtx, cancel := context.WithTimeout(gCtx, n.handlerTimeout)
-					defer cancel()
-
-					done := make(chan struct{})
-					go func() {
-						c.handler.OnStatus(timeoutCtx, c.txID, c.status, "")
-						close(done)
-					}()
-
-					select {
-					case <-done:
-						// Handler completed within timeout
-					case <-timeoutCtx.Done():
-						logger.Warnf("OnStatus handler timed out for txID=%s (timeout=%s)", c.txID, n.handlerTimeout)
-					}
-				}()
+				n.invokeHandler(gCtx, c.handler, c.txID, c.status)
 			}
 		}
 	})
@@ -223,17 +247,22 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 	n.handlersMu.Lock()
 	defer n.handlersMu.Unlock()
 
-	handlers := n.handlers[txID]
-	if slices.Contains(handlers, listener) {
-		logger.Warnf("The exact same listener is already registered for txID=%v. Skipping.", txID)
-		// Do not register the same instance twice
-		return nil
-	}
-	n.handlers[txID] = append(handlers, listener)
-
-	if len(handlers) > 0 {
+	if entry, existed := n.handlers[txID]; existed {
+		if slices.Contains(entry.listeners, listener) {
+			logger.Warnf("The exact same listener is already registered for txID=%v. Skipping.", txID)
+			// Do not register the same instance twice
+			return nil
+		}
+		// A joining listener inherits the existing deadline rather than extending
+		// it, so a busy txID cannot keep its entry alive indefinitely.
+		entry.listeners = append(entry.listeners, listener)
 		logger.Debugf("Additional listener registered for txID=%v. Request already sent.", txID)
 		return nil
+	}
+
+	n.handlers[txID] = &handlerEntry{
+		listeners: []fabric.FinalityListener{listener},
+		expiresAt: n.expiryFor(time.Now()),
 	}
 
 	// this is our first listener registered for the given txID
@@ -277,16 +306,16 @@ func (n *notificationListenerManager) RemoveFinalityListener(txID string, listen
 	n.handlersMu.Lock()
 	defer n.handlersMu.Unlock()
 
-	handlers, ok := n.handlers[txID]
-	if !ok || len(handlers) == 0 {
+	entry, ok := n.handlers[txID]
+	if !ok || len(entry.listeners) == 0 {
 		// no handlers registered for this txID, nothing to remove
 		logger.Debugf("RemoveFinalityListener called for unknown txID: %s", txID)
 		return nil
 	}
 
-	initialLength := len(handlers)
+	initialLength := len(entry.listeners)
 
-	newHandlers := slices.DeleteFunc(handlers, func(h fabric.FinalityListener) bool {
+	newHandlers := slices.DeleteFunc(entry.listeners, func(h fabric.FinalityListener) bool {
 		return h == listener
 	})
 
@@ -302,9 +331,103 @@ func (n *notificationListenerManager) RemoveFinalityListener(txID string, listen
 		logger.Debugf("Last finality listener removed for txID=%s.", txID)
 		delete(n.handlers, txID)
 	} else {
-		n.handlers[txID] = newHandlers
+		// Mutating the entry in place keeps the existing deadline: removing one
+		// listener must not extend the lifetime of the ones still waiting.
+		entry.listeners = newHandlers
 		logger.Debugf("Removed listener for txID=%s. %d listeners remaining.", txID, len(newHandlers))
 	}
 
 	return nil
+}
+
+// invokeHandler calls one listener in its own goroutine, bounded by
+// handlerTimeout. If a handler ignores context cancellation and never returns,
+// its goroutine leaks -- which is preferable to blocking the dispatcher. Shared
+// by the notification path and the expiry sweeper so both get the same isolation.
+func (n *notificationListenerManager) invokeHandler(ctx context.Context, h fabric.FinalityListener, txID string, status int) {
+	go func() {
+		timeoutCtx, cancel := context.WithTimeout(ctx, n.handlerTimeout)
+		defer cancel()
+
+		done := make(chan struct{})
+		go func() {
+			h.OnStatus(timeoutCtx, txID, status, "")
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			// Handler completed within timeout
+		case <-timeoutCtx.Done():
+			logger.Warnf("OnStatus handler timed out for txID=%s (timeout=%s)", txID, n.handlerTimeout)
+		}
+	}()
+}
+
+// expiryFor returns the local deadline for an entry created at now, or the zero
+// time when local expiry is disabled.
+func (n *notificationListenerManager) expiryFor(now time.Time) time.Time {
+	if n.listenerTTL <= 0 {
+		return time.Time{}
+	}
+	return now.Add(n.listenerTTL)
+}
+
+// sweepExpired settles listeners whose local deadline has passed.
+//
+// Without this, the only steady-state path that removes a handlers entry is an
+// inbound notification, so a committer that never reports on a transaction --
+// because it dropped the subscription, is overloaded, or has a bug -- leaves the
+// entry, and the listener closure it pins, in the map forever. The timeout we set
+// on the outbound request does not help: it asks the *committer* to give up and
+// reply, so it too depends on the stream we are no longer hearing from.
+//
+// Listeners are settled with Unknown, which is the same outcome the committer's
+// own TimeoutTxIds path produces, so callers see nothing new. Note this can
+// report Unknown for a transaction that did in fact commit, because the remote
+// timeout is documented non-strict and a notification may arrive after we have
+// given up; DefaultListenerTTL is set well above the request timeout to make that
+// unlikely. Callers needing certainty can query the transaction status directly.
+//
+// Runs on the dispatcher goroutine (see the ticker in listen): the dispatcher is
+// the only other goroutine that deletes entries on the notification path, so a
+// sweep and a dispatch can never interleave and one listener can never be settled
+// twice. Keep it that way -- moving this off the dispatcher would make
+// double-invoke merely preventable rather than impossible.
+func (n *notificationListenerManager) sweepExpired(ctx context.Context) {
+	if n.listenerTTL <= 0 {
+		return
+	}
+
+	now := time.Now()
+
+	type expired struct {
+		txID      string
+		listeners []fabric.FinalityListener
+	}
+	var batch []expired
+
+	// Collect and delete under the lock; notify outside it, mirroring how the
+	// dispatcher handles its own callbacks.
+	n.handlersMu.Lock()
+	for txID, entry := range n.handlers {
+		if entry.expiresAt.IsZero() || entry.expiresAt.After(now) {
+			continue
+		}
+		batch = append(batch, expired{txID: txID, listeners: entry.listeners})
+		delete(n.handlers, txID)
+	}
+	n.handlersMu.Unlock()
+
+	if len(batch) == 0 {
+		return
+	}
+
+	logger.Debugf("Settling %d expired finality listener(s) with Unknown", len(batch))
+
+	for _, e := range batch {
+		for _, h := range e.listeners {
+			n.invokeHandler(ctx, h, e.txID, fdriver.Unknown)
+		}
+	}
 }
