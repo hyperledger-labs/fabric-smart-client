@@ -8,6 +8,7 @@ package finality
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -37,18 +38,37 @@ const (
 
 // mockListener is a helper to verify callbacks
 type mockListener struct {
-	txID   string
-	status int
-	wg     sync.WaitGroup
-	lock   sync.RWMutex
+	txID    string
+	status  int
+	calls   int
+	wgCount int // how many callbacks wg is waiting for; see OnStatus
+	wg      sync.WaitGroup
+	lock    sync.RWMutex
 }
 
 func (m *mockListener) OnStatus(ctx context.Context, txID string, status int, errMsg string) {
 	m.lock.Lock()
 	m.txID = txID
 	m.status = status
+	m.calls++
+	expected := m.calls <= m.wgCount
 	m.lock.Unlock()
-	m.wg.Done()
+
+	// Only count down for callbacks the test asked to wait for. A listener still
+	// registered when listen() exits is now also settled with Unknown on teardown,
+	// and tests that never expected a callback must not see a negative WaitGroup
+	// counter for it. Assertions on txID/status/calls are unaffected.
+	if expected {
+		m.wg.Done()
+	}
+}
+
+// expect declares how many callbacks the test will wait on via wg.
+func (m *mockListener) expect(n int) {
+	m.lock.Lock()
+	m.wgCount += n
+	m.lock.Unlock()
+	m.wg.Add(n)
 }
 
 // getStatus is a helper to safely read the state for use in EventuallyWithT
@@ -105,14 +125,58 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_Open
 		return fakeStream, nil
 	}
 
+	// listenerTTL is deliberately left zero here, which disables local expiry, so
+	// the sweeper stays inert for every test that does not opt in.
 	nlm := &notificationListenerManager{
 		notifyClient:  fakeClient,
 		requestQueue:  make(chan *committerpb.NotificationRequest),
 		responseQueue: make(chan *committerpb.NotificationResponse),
-		handlers:      make(map[driver.TxID][]fabric.FinalityListener),
+		handlers:      make(map[driver.TxID]*handlerEntry),
 	}
 
 	return nlm, fakeStream
+}
+
+// seedHandlers registers listeners directly, bypassing AddFinalityListener, to
+// isolate dispatch and sweep logic. It keeps the map's internal shape in one
+// place. Note expiresAt is left zero, meaning "never expires": call setExpiry to
+// make an entry sweep-eligible.
+func seedHandlers(nlm *notificationListenerManager, txID string, listeners ...fabric.FinalityListener) {
+	nlm.handlersMu.Lock()
+	defer nlm.handlersMu.Unlock()
+	nlm.handlers[txID] = &handlerEntry{listeners: listeners}
+}
+
+// listenersFor returns a snapshot of the listeners registered for txID, plus
+// whether the entry exists.
+func listenersFor(nlm *notificationListenerManager, txID string) ([]fabric.FinalityListener, bool) {
+	nlm.handlersMu.RLock()
+	defer nlm.handlersMu.RUnlock()
+	entry, ok := nlm.handlers[txID]
+	if !ok {
+		return nil, false
+	}
+	return slices.Clone(entry.listeners), true
+}
+
+// expiryOf returns an entry's local deadline, plus whether the entry exists.
+func expiryOf(nlm *notificationListenerManager, txID string) (time.Time, bool) {
+	nlm.handlersMu.RLock()
+	defer nlm.handlersMu.RUnlock()
+	entry, ok := nlm.handlers[txID]
+	if !ok {
+		return time.Time{}, false
+	}
+	return entry.expiresAt, true
+}
+
+// setExpiry overrides an entry's local deadline so tests can control expiry.
+func setExpiry(nlm *notificationListenerManager, txID string, at time.Time) {
+	nlm.handlersMu.Lock()
+	defer nlm.handlersMu.Unlock()
+	if entry, ok := nlm.handlers[txID]; ok {
+		entry.expiresAt = at
+	}
 }
 
 // runManager starts the manager asynchronously and ensures cleanup on test completion.
@@ -194,10 +258,10 @@ func TestNotificationListenerManager(t *testing.T) {
 				ctx := t.Context()
 				// setup a mock listener expectation
 				ml := &mockListener{}
-				ml.wg.Add(1)
+				ml.expect(1)
 
 				// manually inject into the map to isolate the Receive/Dispatch logic
-				nlm.handlers[tc.txID] = []fabric.FinalityListener{ml}
+				seedHandlers(nlm, tc.txID, ml)
 
 				// prepare the incoming gRPC message
 				resp := &committerpb.NotificationResponse{
@@ -244,8 +308,8 @@ func TestNotificationListenerManager(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		ctx := t.Context()
 		ml := &mockListener{}
-		ml.wg.Add(1)
-		nlm.handlers[targetTxID] = []fabric.FinalityListener{ml}
+		ml.expect(1)
+		seedHandlers(nlm, targetTxID, ml)
 
 		// prepare response with a TimeoutTxId
 		resp := &committerpb.NotificationResponse{
@@ -335,9 +399,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		require.Equal(t, 1, fakeStream.SendCallCount(), "Duplicate AddFinalityListener call should NOT trigger a second Send")
 
 		// verify only one handler was registered internally.
-		nlm.handlersMu.RLock()
-		handlers, exists := nlm.handlers[targetTxID]
-		nlm.handlersMu.RUnlock()
+		handlers, exists := listenersFor(nlm, targetTxID)
 		require.True(t, exists, "Handler list should exist after first registration")
 		require.Len(t, handlers, 1, "There should be exactly ONE registered handler (the duplicate was rejected)")
 		require.Equal(t, ml, handlers[0], "The registered handler must be the original instance (ml)")
@@ -376,9 +438,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		require.Equal(t, 1, fakeStream.SendCallCount(), "Second unique listener should NOT trigger a second Send")
 
 		// verify BOTH unique listeners were registered internally.
-		nlm.handlersMu.RLock()
-		handlers, exists := nlm.handlers[targetTxID]
-		nlm.handlersMu.RUnlock()
+		handlers, exists := listenersFor(nlm, targetTxID)
 
 		require.True(t, exists, "Handler list should exist")
 		require.Len(t, handlers, 2, "There should be exactly TWO registered handlers")
@@ -394,6 +454,38 @@ func TestNotificationListenerManager(t *testing.T) {
 			}
 		}
 		require.True(t, found1 && found2, "Both unique listeners (ml1 and ml2) must be present in the handler list.")
+	})
+
+	t.Run("Joining_Listener_Inherits_The_Existing_Deadline", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_deadline_inherited"
+		nlm, fakeStream := setupTest(t)
+		nlm.listenerTTL = time.Hour // long, so nothing expires during the test
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		runManager(t, nlm)
+
+		require.NoError(t, nlm.AddFinalityListener(targetTxID, &mockListener{}))
+		first, ok := expiryOf(nlm, targetTxID)
+		require.True(t, ok, "entry should exist after the first registration")
+		require.False(t, first.IsZero(), "a deadline must be stamped when listenerTTL is set")
+
+		// Registering a second listener for the same txID must not push the deadline
+		// out. Otherwise a txID that keeps attracting listeners could stay in the map
+		// indefinitely -- the exact unbounded growth this change exists to prevent.
+		time.Sleep(2 * tick) // ensure a later Now() would produce a different deadline
+		require.NoError(t, nlm.AddFinalityListener(targetTxID, &mockListener{}))
+
+		second, ok := expiryOf(nlm, targetTxID)
+		require.True(t, ok, "entry should still exist")
+		require.Equal(t, first, second, "a joining listener must inherit the deadline, not extend it")
+
+		handlers, _ := listenersFor(nlm, targetTxID)
+		require.Len(t, handlers, 2, "both listeners should be registered")
 	})
 
 	t.Run("AddFinalityListener_Nil_Listener_Fails", func(t *testing.T) {
@@ -418,6 +510,35 @@ func TestNotificationListenerManager(t *testing.T) {
 		_, exists := nlm.handlers["tx_nil_check"]
 		nlm.handlersMu.RUnlock()
 		require.False(t, exists, "Handler should not be added to the map for a nil listener")
+	})
+
+	t.Run("AddFinalityListener_Empty_TxID_Fails", func(t *testing.T) {
+		t.Parallel()
+		nlm, fakeStream := setupTest(t)
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		runManager(t, nlm)
+
+		// an empty txID must be rejected: no notification could ever match it, so
+		// the entry would never be removed
+		err := nlm.AddFinalityListener("", &mockListener{})
+
+		require.Error(t, err)
+		require.EqualError(t, err, "tx id must be not empty",
+			"message must match the generic driver's, so both drivers agree")
+
+		nlm.handlersMu.RLock()
+		_, exists := nlm.handlers[""]
+		nlm.handlersMu.RUnlock()
+		require.False(t, exists, "No handler entry should be created for an empty txID")
+
+		// and no subscription should have been sent for it
+		time.Sleep(shortWait)
+		require.Equal(t, 0, fakeStream.SendCallCount(), "Empty txID must not trigger a Send")
 	})
 
 	t.Run("Shutdown_Graceful_Exit", func(t *testing.T) {
@@ -450,6 +571,54 @@ func TestNotificationListenerManager(t *testing.T) {
 		case <-time.After(timeout):
 			t.Fatal("listen() did not return after context cancellation within timeout")
 		}
+	})
+
+	t.Run("Shutdown_Settles_Pending_Listeners_With_Unknown", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_pending_at_shutdown"
+		nlm, fakeStream := setupTest(t)
+		// handlerTimeout must be non-zero here: invokeHandler derives the handler
+		// context from it, and a zero timeout would expire before OnStatus runs.
+		nlm.handlerTimeout = DefaultHandlerTimeout
+
+		ctx, cancel := context.WithCancel(context.Background())
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		// A delayedListener respects context cancellation, which a real listener
+		// does too. That matters here: teardown runs after the errgroup context is
+		// already cancelled, so handing listeners that context would deliver
+		// nothing. A mockListener would not notice, because it ignores ctx.
+		ml := &delayedListener{delay: tick}
+		ml.expect(1)
+		seedHandlers(nlm, targetTxID, ml)
+
+		listenErr := make(chan error, 1)
+		go func() { listenErr <- nlm.listen(ctx) }()
+		time.Sleep(shortWait)
+
+		// The stream dies with a listener still pending. Nothing can ever notify it,
+		// so teardown must settle it rather than drop it silently.
+		cancel()
+
+		select {
+		case <-listenErr:
+		case <-time.After(timeout):
+			t.Fatal("listen() did not return after context cancellation")
+		}
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			txID, status := ml.getStatus()
+			assert.Equal(collect, targetTxID, txID,
+				"a listener pending at teardown must still be invoked")
+			assert.Equal(collect, fdriver.Unknown, status,
+				"teardown cannot know the outcome, so it reports Unknown")
+		}, timeout, tick, "timeout waiting for OnStatus on stream teardown")
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.False(t, exists, "handlers map must be empty after teardown")
 	})
 
 	t.Run("Stream_Error_Handling", func(t *testing.T) {
@@ -522,17 +691,15 @@ func TestNotificationListenerManager(t *testing.T) {
 		require.NoError(t, nlm.AddFinalityListener(targetTxID, ml1), "Setup: failed to add ml1")
 		require.NoError(t, nlm.AddFinalityListener(targetTxID, ml2), "Setup: failed to add ml2")
 
-		nlm.handlersMu.RLock()
-		require.Len(t, nlm.handlers[targetTxID], 2, "Setup: Expected 2 listeners")
-		nlm.handlersMu.RUnlock()
+		setupListeners, setupExists := listenersFor(nlm, targetTxID)
+		require.True(t, setupExists, "Setup: entry should exist")
+		require.Len(t, setupListeners, 2, "Setup: Expected 2 listeners")
 
 		err := nlm.RemoveFinalityListener(targetTxID, ml1)
 		require.NoError(t, err, "RemoveFinalityListener for ml1 should succeed")
 
 		// map entry must still exist and contain only ml2
-		nlm.handlersMu.RLock()
-		handlers, exists := nlm.handlers[targetTxID]
-		nlm.handlersMu.RUnlock()
+		handlers, exists := listenersFor(nlm, targetTxID)
 
 		require.True(t, exists, "Map entry should still exist")
 		require.Len(t, handlers, 1, "Expected 1 listener remaining (ml2)")
@@ -546,6 +713,40 @@ func TestNotificationListenerManager(t *testing.T) {
 		_, exists = nlm.handlers[targetTxID]
 		nlm.handlersMu.RUnlock()
 		require.False(t, exists, "Map entry should be deleted after ml2 is removed")
+	})
+
+	t.Run("Removing_A_Listener_Preserves_The_Deadline", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_deadline_preserved"
+		nlm, fakeStream := setupTest(t)
+		nlm.listenerTTL = time.Hour // long, so nothing expires during the test
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		runManager(t, nlm)
+
+		ml1, ml2 := &mockListener{}, &mockListener{}
+		require.NoError(t, nlm.AddFinalityListener(targetTxID, ml1))
+		require.NoError(t, nlm.AddFinalityListener(targetTxID, ml2))
+
+		before, ok := expiryOf(nlm, targetTxID)
+		require.True(t, ok)
+		require.False(t, before.IsZero(), "a deadline must be stamped when listenerTTL is set")
+
+		// Removing one listener must not reset or extend the deadline for the ones
+		// still waiting: their entry should expire when it always would have.
+		require.NoError(t, nlm.RemoveFinalityListener(targetTxID, ml1))
+
+		after, ok := expiryOf(nlm, targetTxID)
+		require.True(t, ok, "entry should survive while ml2 is still registered")
+		require.Equal(t, before, after, "removing a listener must not change the deadline")
+
+		handlers, _ := listenersFor(nlm, targetTxID)
+		require.Len(t, handlers, 1)
+		require.Equal(t, ml2, handlers[0])
 	})
 
 	t.Run("Remove_NonExistent_Listener", func(t *testing.T) {
@@ -569,18 +770,16 @@ func TestNotificationListenerManager(t *testing.T) {
 		require.NoError(t, nlm.AddFinalityListener(targetTxID, ml2), "Setup: failed to add ml2")
 
 		// assert initial state
-		nlm.handlersMu.RLock()
-		require.Len(t, nlm.handlers[targetTxID], 2, "Setup: Expected 2 listeners")
-		nlm.handlersMu.RUnlock()
+		setupListeners, setupExists := listenersFor(nlm, targetTxID)
+		require.True(t, setupExists, "Setup: entry should exist")
+		require.Len(t, setupListeners, 2, "Setup: Expected 2 listeners")
 
 		// attempt to remove ml3 which was never added
 		err := nlm.RemoveFinalityListener(targetTxID, ml3Nonexistent)
 		require.NoError(t, err, "Attempt to remove non-existent listener should return nil")
 
 		// map must be unchanged (still 2 listeners)
-		nlm.handlersMu.RLock()
-		handlers, exists := nlm.handlers[targetTxID]
-		nlm.handlersMu.RUnlock()
+		handlers, exists := listenersFor(nlm, targetTxID)
 
 		require.True(t, exists, "Map entry should still exist")
 		require.Len(t, handlers, 2, "The number of handlers should not change")
@@ -645,7 +844,7 @@ func TestNotificationListenerManager(t *testing.T) {
 			onCalled: slowCalled,
 		}
 
-		nlm.handlers[targetTxID] = []fabric.FinalityListener{slowListener}
+		seedHandlers(nlm, targetTxID, slowListener)
 
 		resp := &committerpb.NotificationResponse{
 			TxStatusEvents: []*committerpb.TxStatus{
@@ -696,11 +895,11 @@ func TestNotificationListenerManager(t *testing.T) {
 
 		// fastListener completes immediately
 		fastML := &mockListener{}
-		fastML.wg.Add(1)
+		fastML.expect(1)
 
 		// slowListener completes, but takes a while (still within timeout)
 		slowML := &delayedListener{delay: 100 * time.Millisecond}
-		slowML.wg.Add(1)
+		slowML.expect(1)
 
 		// stuckListener never returns (exceeds timeout)
 		stuckCalled := make(chan struct{})
@@ -709,7 +908,7 @@ func TestNotificationListenerManager(t *testing.T) {
 			onCalled: stuckCalled,
 		}
 
-		nlm.handlers[targetTxID] = []fabric.FinalityListener{fastML, slowML, stuckListener}
+		seedHandlers(nlm, targetTxID, fastML, slowML, stuckListener)
 
 		resp := &committerpb.NotificationResponse{
 			TxStatusEvents: []*committerpb.TxStatus{
@@ -783,10 +982,10 @@ func TestNotificationListenerManager(t *testing.T) {
 
 		// normalListener completes promptly
 		normalML := &mockListener{}
-		normalML.wg.Add(1)
+		normalML.expect(1)
 
-		nlm.handlers[leakyTxID] = []fabric.FinalityListener{leakyListener}
-		nlm.handlers[normalTxID] = []fabric.FinalityListener{normalML}
+		seedHandlers(nlm, leakyTxID, leakyListener)
+		seedHandlers(nlm, normalTxID, normalML)
 
 		// First response triggers the leaky handler,
 		// second triggers the normal one.
@@ -839,5 +1038,165 @@ func TestNotificationListenerManager(t *testing.T) {
 			assert.Equal(collect, fdriver.Valid, status)
 		}, timeout, tick,
 			"normal listener must be notified despite leaky handler")
+	})
+}
+
+const (
+	testTTL   = 50 * time.Millisecond
+	testSweep = 10 * time.Millisecond
+)
+
+// setupSweepTest builds a manager with local expiry enabled and a Recv that
+// blocks, so the sweeper is the only thing touching the handlers map.
+func setupSweepTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_OpenNotificationStreamClient) {
+	tb.Helper()
+	nlm, fakeStream := setupTest(tb)
+	nlm.listenerTTL = testTTL
+	nlm.sweepInterval = testSweep
+	// setupTest leaves handlerTimeout zero, which would hand every listener an
+	// already-expired context; set it so the sweeper's callbacks are realistic.
+	nlm.handlerTimeout = DefaultHandlerTimeout
+	return nlm, fakeStream
+}
+
+// blockingRecv makes Recv park until the context is done, so no notification ever
+// arrives and only expiry can settle a listener.
+func blockingRecv(ctx context.Context, fakeStream *mock.Notifier_OpenNotificationStreamClient) {
+	fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+}
+
+func TestSweepExpired(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Deadline_Stamped_By_AddFinalityListener", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_production_deadline"
+		nlm, fakeStream := setupSweepTest(t)
+		blockingRecv(t.Context(), fakeStream)
+
+		runManager(t, nlm)
+
+		ml := &mockListener{}
+		ml.expect(1)
+		// Register through the real API and set NO deadline by hand: the entry must
+		// expire purely because AddFinalityListener stamped it. This is what proves
+		// the leak is actually fixed in production, not just in the sweeper.
+		require.NoError(t, nlm.AddFinalityListener(targetTxID, ml))
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			txID, status := ml.getStatus()
+			assert.Equal(collect, targetTxID, txID)
+			assert.Equal(collect, fdriver.Unknown, status)
+		}, timeout, tick, "listener registered via AddFinalityListener must be settled by expiry")
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.False(t, exists, "expired entry must be removed from the map")
+	})
+
+	t.Run("Expired_Entry_Is_Settled_With_Unknown", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_expired"
+		nlm, fakeStream := setupSweepTest(t)
+		blockingRecv(t.Context(), fakeStream)
+
+		ml := &mockListener{}
+		ml.expect(1)
+		seedHandlers(nlm, targetTxID, ml)
+		setExpiry(nlm, targetTxID, time.Now().Add(-time.Second)) // already overdue
+
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			txID, status := ml.getStatus()
+			assert.Equal(collect, targetTxID, txID)
+			assert.Equal(collect, fdriver.Unknown, status,
+				"expiry reports Unknown, matching the committer's own timeout path")
+		}, timeout, tick, "timeout waiting for the sweeper to settle the listener")
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.False(t, exists, "expired entry must be removed from the map")
+	})
+
+	t.Run("Unexpired_Entry_Survives", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_not_yet_due"
+		nlm, fakeStream := setupSweepTest(t)
+		blockingRecv(t.Context(), fakeStream)
+
+		ml := &mockListener{} // no wg.Add: OnStatus must NOT be called
+		seedHandlers(nlm, targetTxID, ml)
+		setExpiry(nlm, targetTxID, time.Now().Add(time.Hour))
+
+		runManager(t, nlm)
+		time.Sleep(shortWait) // many sweep intervals
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.True(t, exists, "an entry whose deadline has not passed must not be swept")
+	})
+
+	t.Run("Zero_TTL_Disables_Expiry", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_expiry_disabled"
+		nlm, fakeStream := setupTest(t) // listenerTTL stays zero
+		nlm.sweepInterval = testSweep   // but tick fast, so the guard is what stops us
+		blockingRecv(t.Context(), fakeStream)
+
+		ml := &mockListener{} // no wg.Add: OnStatus must NOT be called
+		seedHandlers(nlm, targetTxID, ml)
+		setExpiry(nlm, targetTxID, time.Now().Add(-time.Second)) // overdue on purpose
+
+		runManager(t, nlm)
+		time.Sleep(shortWait) // many sweep intervals
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.True(t, exists, "listenerTTL == 0 must disable expiry even for an overdue entry")
+	})
+
+	t.Run("Notification_Wins_Without_Double_Invoke", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_no_double_settle"
+		nlm, fakeStream := setupSweepTest(t)
+		ctx := t.Context()
+
+		resp := &committerpb.NotificationResponse{
+			TxStatusEvents: []*committerpb.TxStatus{{
+				Ref:    &committerpb.TxRef{TxId: targetTxID},
+				Status: committerpb.Status_COMMITTED,
+			}},
+		}
+		var sent atomic.Bool
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			if !sent.Swap(true) {
+				return resp, nil
+			}
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		// wg.Add(1) is the trap: a second OnStatus panics with "negative WaitGroup
+		// counter", which is exactly the double-settle we must never allow.
+		ml := &mockListener{}
+		ml.expect(1)
+		seedHandlers(nlm, targetTxID, ml)
+		// A real deadline matters here. seedHandlers leaves expiresAt zero, and the
+		// sweeper skips zero-expiry entries, so without this the sweeper would never
+		// be a contender and the trap would be armed against nothing.
+		setExpiry(nlm, targetTxID, time.Now().Add(testTTL))
+
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			_, status := ml.getStatus()
+			assert.Equal(collect, fdriver.Valid, status, "the notification should win")
+		}, timeout, tick, "timeout waiting for the notification to settle the listener")
+
+		// let several sweep intervals pass beyond the deadline
+		time.Sleep(4 * testTTL)
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.False(t, exists, "entry was removed by the notification")
 	})
 }

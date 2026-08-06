@@ -144,12 +144,19 @@ func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider) (*
 	// Create the gRPC client stub for the Notifier service
 	notifyClient := committerpb.NewNotifierClient(cc)
 
+	// TODO: make handlerTimeout, listenerTTL and sweepInterval configurable via
+	// core.yaml rather than hardcoding the defaults here. Provider already carries
+	// a ServiceConfigProvider, and committer/config.Config would be the natural
+	// home for the fields; newNotifiWithGRPC would then take the resolved config.
+	// Tracked in #1641.
 	nlm := &notificationListenerManager{
 		notifyClient:   notifyClient,
 		requestQueue:   make(chan *committerpb.NotificationRequest),  // Queue for outgoing requests to the committer
 		responseQueue:  make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
-		handlers:       make(map[string][]fabric.FinalityListener),   // Map: txID -> list of listeners
+		handlers:       make(map[driver.TxID]*handlerEntry),          // Map: txID -> listeners + local expiry deadline
 		handlerTimeout: DefaultHandlerTimeout,
+		listenerTTL:    DefaultListenerTTL,
+		sweepInterval:  DefaultSweepInterval,
 	}
 
 	return nlm, nil
