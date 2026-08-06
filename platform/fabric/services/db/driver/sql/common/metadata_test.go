@@ -13,7 +13,7 @@ import (
 	sq "github.com/Masterminds/squirrel"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/query/common/mock"
 )
 
 func TestMetadata_GetData(t *testing.T) { //nolint:paralleltest
