@@ -38,18 +38,37 @@ const (
 
 // mockListener is a helper to verify callbacks
 type mockListener struct {
-	txID   string
-	status int
-	wg     sync.WaitGroup
-	lock   sync.RWMutex
+	txID    string
+	status  int
+	calls   int
+	wgCount int // how many callbacks wg is waiting for; see OnStatus
+	wg      sync.WaitGroup
+	lock    sync.RWMutex
 }
 
 func (m *mockListener) OnStatus(ctx context.Context, txID string, status int, errMsg string) {
 	m.lock.Lock()
 	m.txID = txID
 	m.status = status
+	m.calls++
+	expected := m.calls <= m.wgCount
 	m.lock.Unlock()
-	m.wg.Done()
+
+	// Only count down for callbacks the test asked to wait for. A listener still
+	// registered when listen() exits is now also settled with Unknown on teardown,
+	// and tests that never expected a callback must not see a negative WaitGroup
+	// counter for it. Assertions on txID/status/calls are unaffected.
+	if expected {
+		m.wg.Done()
+	}
+}
+
+// expect declares how many callbacks the test will wait on via wg.
+func (m *mockListener) expect(n int) {
+	m.lock.Lock()
+	m.wgCount += n
+	m.lock.Unlock()
+	m.wg.Add(n)
 }
 
 // getStatus is a helper to safely read the state for use in EventuallyWithT
@@ -228,7 +247,7 @@ func TestNotificationListenerManager(t *testing.T) {
 				ctx := t.Context()
 				// setup a mock listener expectation
 				ml := &mockListener{}
-				ml.wg.Add(1)
+				ml.expect(1)
 
 				// manually inject into the map to isolate the Receive/Dispatch logic
 				seedHandlers(nlm, tc.txID, ml)
@@ -278,7 +297,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		ctx := t.Context()
 		ml := &mockListener{}
-		ml.wg.Add(1)
+		ml.expect(1)
 		seedHandlers(nlm, targetTxID, ml)
 
 		// prepare response with a TimeoutTxId
@@ -509,6 +528,54 @@ func TestNotificationListenerManager(t *testing.T) {
 		case <-time.After(timeout):
 			t.Fatal("listen() did not return after context cancellation within timeout")
 		}
+	})
+
+	t.Run("Shutdown_Settles_Pending_Listeners_With_Unknown", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_pending_at_shutdown"
+		nlm, fakeStream := setupTest(t)
+		// handlerTimeout must be non-zero here: invokeHandler derives the handler
+		// context from it, and a zero timeout would expire before OnStatus runs.
+		nlm.handlerTimeout = DefaultHandlerTimeout
+
+		ctx, cancel := context.WithCancel(context.Background())
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		// A delayedListener respects context cancellation, which a real listener
+		// does too. That matters here: teardown runs after the errgroup context is
+		// already cancelled, so handing listeners that context would deliver
+		// nothing. A mockListener would not notice, because it ignores ctx.
+		ml := &delayedListener{delay: tick}
+		ml.expect(1)
+		seedHandlers(nlm, targetTxID, ml)
+
+		listenErr := make(chan error, 1)
+		go func() { listenErr <- nlm.listen(ctx) }()
+		time.Sleep(shortWait)
+
+		// The stream dies with a listener still pending. Nothing can ever notify it,
+		// so teardown must settle it rather than drop it silently.
+		cancel()
+
+		select {
+		case <-listenErr:
+		case <-time.After(timeout):
+			t.Fatal("listen() did not return after context cancellation")
+		}
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			txID, status := ml.getStatus()
+			assert.Equal(collect, targetTxID, txID,
+				"a listener pending at teardown must still be invoked")
+			assert.Equal(collect, fdriver.Unknown, status,
+				"teardown cannot know the outcome, so it reports Unknown")
+		}, timeout, tick, "timeout waiting for OnStatus on stream teardown")
+
+		_, exists := listenersFor(nlm, targetTxID)
+		require.False(t, exists, "handlers map must be empty after teardown")
 	})
 
 	t.Run("Stream_Error_Handling", func(t *testing.T) {
@@ -751,11 +818,11 @@ func TestNotificationListenerManager(t *testing.T) {
 
 		// fastListener completes immediately
 		fastML := &mockListener{}
-		fastML.wg.Add(1)
+		fastML.expect(1)
 
 		// slowListener completes, but takes a while (still within timeout)
 		slowML := &delayedListener{delay: 100 * time.Millisecond}
-		slowML.wg.Add(1)
+		slowML.expect(1)
 
 		// stuckListener never returns (exceeds timeout)
 		stuckCalled := make(chan struct{})
@@ -838,7 +905,7 @@ func TestNotificationListenerManager(t *testing.T) {
 
 		// normalListener completes promptly
 		normalML := &mockListener{}
-		normalML.wg.Add(1)
+		normalML.expect(1)
 
 		seedHandlers(nlm, leakyTxID, leakyListener)
 		seedHandlers(nlm, normalTxID, normalML)
@@ -936,7 +1003,7 @@ func TestSweepExpired(t *testing.T) {
 		runManager(t, nlm)
 
 		ml := &mockListener{}
-		ml.wg.Add(1)
+		ml.expect(1)
 		// Register through the real API and set NO deadline by hand: the entry must
 		// expire purely because AddFinalityListener stamped it. This is what proves
 		// the leak is actually fixed in production, not just in the sweeper.
@@ -959,7 +1026,7 @@ func TestSweepExpired(t *testing.T) {
 		blockingRecv(t.Context(), fakeStream)
 
 		ml := &mockListener{}
-		ml.wg.Add(1)
+		ml.expect(1)
 		seedHandlers(nlm, targetTxID, ml)
 		setExpiry(nlm, targetTxID, time.Now().Add(-time.Second)) // already overdue
 
@@ -1035,7 +1102,7 @@ func TestSweepExpired(t *testing.T) {
 		// wg.Add(1) is the trap: a second OnStatus panics with "negative WaitGroup
 		// counter", which is exactly the double-settle we must never allow.
 		ml := &mockListener{}
-		ml.wg.Add(1)
+		ml.expect(1)
 		seedHandlers(nlm, targetTxID, ml)
 		// A real deadline matters here. seedHandlers leaves expiresAt zero, and the
 		// sweeper skips zero-expiry entries, so without this the sweeper would never

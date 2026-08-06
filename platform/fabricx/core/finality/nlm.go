@@ -157,13 +157,50 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	err = g.Wait()
 	logger.Debugf("Notification listener stream stopped.")
 
-	// Cleanup handlers map when listen() exits
-	n.handlersMu.Lock()
-	clear(n.handlers)
-	n.handlersMu.Unlock()
-	logger.Debugf("Cleared handlers map on listen() exit")
+	// The stream is gone, so nothing will ever notify these listeners. Settle them
+	// with Unknown instead of dropping them silently, so anyone blocked in IsFinal
+	// is released now rather than waiting out their own context.
+	//
+	// ctx, not gCtx: the errgroup context is already cancelled by the time g.Wait()
+	// returns, and invokeHandler derives its handler timeout from what we pass, so
+	// gCtx would hand every listener a dead context and deliver nothing. Strip
+	// cancellation from the parent too -- listen() is often returning *because*
+	// ctx was cancelled, and these callbacks still need to run.
+	n.settleAllAndClear(context.WithoutCancel(ctx), fdriver.Unknown)
 
 	return err
+}
+
+// settleAllAndClear empties the handlers map, invoking every listener still in it
+// with the given status. Used on stream teardown, where no notification can
+// arrive any more.
+func (n *notificationListenerManager) settleAllAndClear(ctx context.Context, status int) {
+	type pending struct {
+		txID      string
+		listeners []fabric.FinalityListener
+	}
+
+	var batch []pending
+
+	n.handlersMu.Lock()
+	for txID, entry := range n.handlers {
+		batch = append(batch, pending{txID: txID, listeners: entry.listeners})
+	}
+	clear(n.handlers)
+	n.handlersMu.Unlock()
+
+	if len(batch) == 0 {
+		logger.Debugf("Cleared handlers map on listen() exit")
+		return
+	}
+
+	logger.Debugf("Settling %d pending finality listener(s) with status %d on stream teardown", len(batch), status)
+
+	for _, p := range batch {
+		for _, h := range p.listeners {
+			n.invokeHandler(ctx, h, p.txID, status)
+		}
+	}
 }
 
 func parseResponse(resp *committerpb.NotificationResponse) map[string]int {
