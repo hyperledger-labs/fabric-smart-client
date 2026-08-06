@@ -159,6 +159,17 @@ func listenersFor(nlm *notificationListenerManager, txID string) ([]fabric.Final
 	return slices.Clone(entry.listeners), true
 }
 
+// expiryOf returns an entry's local deadline, plus whether the entry exists.
+func expiryOf(nlm *notificationListenerManager, txID string) (time.Time, bool) {
+	nlm.handlersMu.RLock()
+	defer nlm.handlersMu.RUnlock()
+	entry, ok := nlm.handlers[txID]
+	if !ok {
+		return time.Time{}, false
+	}
+	return entry.expiresAt, true
+}
+
 // setExpiry overrides an entry's local deadline so tests can control expiry.
 func setExpiry(nlm *notificationListenerManager, txID string, at time.Time) {
 	nlm.handlersMu.Lock()
@@ -445,6 +456,38 @@ func TestNotificationListenerManager(t *testing.T) {
 		require.True(t, found1 && found2, "Both unique listeners (ml1 and ml2) must be present in the handler list.")
 	})
 
+	t.Run("Joining_Listener_Inherits_The_Existing_Deadline", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_deadline_inherited"
+		nlm, fakeStream := setupTest(t)
+		nlm.listenerTTL = time.Hour // long, so nothing expires during the test
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		runManager(t, nlm)
+
+		require.NoError(t, nlm.AddFinalityListener(targetTxID, &mockListener{}))
+		first, ok := expiryOf(nlm, targetTxID)
+		require.True(t, ok, "entry should exist after the first registration")
+		require.False(t, first.IsZero(), "a deadline must be stamped when listenerTTL is set")
+
+		// Registering a second listener for the same txID must not push the deadline
+		// out. Otherwise a txID that keeps attracting listeners could stay in the map
+		// indefinitely -- the exact unbounded growth this change exists to prevent.
+		time.Sleep(2 * tick) // ensure a later Now() would produce a different deadline
+		require.NoError(t, nlm.AddFinalityListener(targetTxID, &mockListener{}))
+
+		second, ok := expiryOf(nlm, targetTxID)
+		require.True(t, ok, "entry should still exist")
+		require.Equal(t, first, second, "a joining listener must inherit the deadline, not extend it")
+
+		handlers, _ := listenersFor(nlm, targetTxID)
+		require.Len(t, handlers, 2, "both listeners should be registered")
+	})
+
 	t.Run("AddFinalityListener_Nil_Listener_Fails", func(t *testing.T) {
 		t.Parallel()
 		nlm, fakeStream := setupTest(t)
@@ -670,6 +713,40 @@ func TestNotificationListenerManager(t *testing.T) {
 		_, exists = nlm.handlers[targetTxID]
 		nlm.handlersMu.RUnlock()
 		require.False(t, exists, "Map entry should be deleted after ml2 is removed")
+	})
+
+	t.Run("Removing_A_Listener_Preserves_The_Deadline", func(t *testing.T) {
+		t.Parallel()
+		const targetTxID = "tx_deadline_preserved"
+		nlm, fakeStream := setupTest(t)
+		nlm.listenerTTL = time.Hour // long, so nothing expires during the test
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		runManager(t, nlm)
+
+		ml1, ml2 := &mockListener{}, &mockListener{}
+		require.NoError(t, nlm.AddFinalityListener(targetTxID, ml1))
+		require.NoError(t, nlm.AddFinalityListener(targetTxID, ml2))
+
+		before, ok := expiryOf(nlm, targetTxID)
+		require.True(t, ok)
+		require.False(t, before.IsZero(), "a deadline must be stamped when listenerTTL is set")
+
+		// Removing one listener must not reset or extend the deadline for the ones
+		// still waiting: their entry should expire when it always would have.
+		require.NoError(t, nlm.RemoveFinalityListener(targetTxID, ml1))
+
+		after, ok := expiryOf(nlm, targetTxID)
+		require.True(t, ok, "entry should survive while ml2 is still registered")
+		require.Equal(t, before, after, "removing a listener must not change the deadline")
+
+		handlers, _ := listenersFor(nlm, targetTxID)
+		require.Len(t, handlers, 1)
+		require.Equal(t, ml2, handlers[0])
 	})
 
 	t.Run("Remove_NonExistent_Listener", func(t *testing.T) {
