@@ -187,6 +187,148 @@ func TestCreatePeerMapAndPickPeer(t *testing.T) {
 	require.NotNil(t, p)
 }
 
+func TestNewService_orderingTLSOverridesConfiguredOrderers(t *testing.T) {
+	t.Parallel()
+
+	m := &mock.Configuration{}
+	m.GetStringReturnsOnCall(0, "")
+	m.GetBoolStub = func(key string) bool {
+		switch key {
+		case "fabric.test.tls.enabled":
+			return true
+		case "fabric.test.ordering.tlsEnabled":
+			return false
+		default:
+			return false
+		}
+	}
+	m.IsSetStub = func(key string) bool {
+		switch key {
+		case "fabric.test", "fabric.test.ordering.tlsEnabled":
+			return true
+		default:
+			return false
+		}
+	}
+	m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		switch key {
+		case "fabric.test.peers", "fabric.testpeers":
+			p := rawVal.(*[]*grpc.ConnectionConfig)
+			*p = []*grpc.ConnectionConfig{{Address: "p1", Usage: "query", TLSRootCertFile: "peer.pem"}}
+		case "fabric.test.orderers", "fabric.testorderers":
+			p := rawVal.(*[]*grpc.ConnectionConfig)
+			*p = []*grpc.ConnectionConfig{{Address: "o1", TLSRootCertFile: "orderer.pem"}}
+		case "fabric.test.channels", "fabric.testchannels":
+			p := rawVal.(*[]*cfg.Channel)
+			*p = []*cfg.Channel{{Name: "ch1"}}
+		}
+		return nil
+	}
+	m.TranslatePathStub = func(path string) string { return "TR:" + path }
+
+	svc, err := cfg.NewService(m, "test", false)
+	require.NoError(t, err)
+
+	require.False(t, svc.Orderers()[0].TLSEnabled)
+	require.Equal(t, "orderer.pem", svc.Orderers()[0].TLSRootCertFile)
+
+	peer := svc.PickPeer(driver.PeerForQuery)
+	require.NotNil(t, peer)
+	require.True(t, peer.TLSEnabled)
+	require.Equal(t, "TR:peer.pem", peer.TLSRootCertFile)
+}
+
+func TestNewService_orderingTLSClientAuthOverridesConfiguredOrderers(t *testing.T) {
+	t.Parallel()
+
+	m := &mock.Configuration{}
+	m.GetStringReturnsOnCall(0, "")
+	m.GetBoolStub = func(key string) bool {
+		switch key {
+		case "fabric.test.tls.enabled":
+			return true
+		case "fabric.test.tls.clientAuthRequired":
+			return false
+		case "fabric.test.ordering.tlsClientAuthRequired":
+			return true
+		default:
+			return false
+		}
+	}
+	m.IsSetStub = func(key string) bool {
+		switch key {
+		case "fabric.test", "fabric.test.ordering.tlsClientAuthRequired":
+			return true
+		default:
+			return false
+		}
+	}
+	m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		switch key {
+		case "fabric.test.peers", "fabric.testpeers":
+			p := rawVal.(*[]*grpc.ConnectionConfig)
+			*p = []*grpc.ConnectionConfig{{Address: "p1", Usage: "query"}}
+		case "fabric.test.orderers", "fabric.testorderers":
+			p := rawVal.(*[]*grpc.ConnectionConfig)
+			*p = []*grpc.ConnectionConfig{{Address: "o1"}}
+		case "fabric.test.channels", "fabric.testchannels":
+			p := rawVal.(*[]*cfg.Channel)
+			*p = []*cfg.Channel{{Name: "ch1"}}
+		}
+		return nil
+	}
+
+	svc, err := cfg.NewService(m, "test", false)
+	require.NoError(t, err)
+
+	require.True(t, svc.Orderers()[0].TLSClientSideAuth)
+	peer := svc.PickPeer(driver.PeerForQuery)
+	require.NotNil(t, peer)
+	require.False(t, peer.TLSClientSideAuth)
+}
+
+func TestNewService_ordererEndpointTLSAndClientAuthStillOptInWhenSharedDefaultsAreDisabled(t *testing.T) {
+	t.Parallel()
+
+	m := &mock.Configuration{}
+	m.GetStringReturnsOnCall(0, "")
+	m.GetBoolStub = func(key string) bool {
+		switch key {
+		case "fabric.test.tls.enabled":
+			return false
+		case "fabric.test.tls.clientAuthRequired":
+			return false
+		default:
+			return false
+		}
+	}
+	m.IsSetStub = func(key string) bool {
+		return key == "fabric.test"
+	}
+	m.UnmarshalKeyStub = func(key string, rawVal interface{}) error {
+		switch key {
+		case "fabric.test.peers", "fabric.testpeers":
+			p := rawVal.(*[]*grpc.ConnectionConfig)
+			*p = []*grpc.ConnectionConfig{{Address: "p1", Usage: "query"}}
+		case "fabric.test.orderers", "fabric.testorderers":
+			p := rawVal.(*[]*grpc.ConnectionConfig)
+			*p = []*grpc.ConnectionConfig{{Address: "o1", TLSEnabled: true, TLSClientSideAuth: true, TLSRootCertFile: "orderer.pem"}}
+		case "fabric.test.channels", "fabric.testchannels":
+			p := rawVal.(*[]*cfg.Channel)
+			*p = []*cfg.Channel{{Name: "ch1"}}
+		}
+		return nil
+	}
+	m.TranslatePathStub = func(path string) string { return "TR:" + path }
+
+	svc, err := cfg.NewService(m, "test", false)
+	require.NoError(t, err)
+
+	require.True(t, svc.Orderers()[0].TLSEnabled)
+	require.True(t, svc.Orderers()[0].TLSClientSideAuth)
+	require.Equal(t, "TR:orderer.pem", svc.Orderers()[0].TLSRootCertFile)
+}
+
 func TestPickOrderer_nilAndSetConfigOrderers(t *testing.T) {
 	t.Parallel()
 	m := &mock.Configuration{}
