@@ -109,11 +109,9 @@ func (s *Service) Start(ctx context.Context) error {
 			ch := session.Receive()
 			select {
 			case msg := <-ch:
-				s.wg.Add(1)
-				go func() {
-					defer s.wg.Done()
+				s.wg.Go(func() {
 					s.handleMessage(ctx, msg)
-				}()
+				})
 			case <-ctx.Done():
 				logger.DebugfContext(ctx, "received done signal, waiting for in-flight handlers")
 				s.wg.Wait()

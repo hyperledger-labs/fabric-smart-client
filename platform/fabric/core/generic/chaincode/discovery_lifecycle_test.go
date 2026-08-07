@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package chaincode_test
 
 import (
-	"context"
 	"runtime"
 	"testing"
 	"time"
@@ -22,7 +21,7 @@ import (
 // returns it, to avoid flaking on goroutines that are mid-teardown.
 func stableGoroutineCount() int {
 	var last int
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		runtime.GC()
 		time.Sleep(20 * time.Millisecond)
 		n := runtime.NumGoroutine()
@@ -42,8 +41,7 @@ func stableGoroutineCount() int {
 func TestManager_Stop_StopsDiscoveryCache(t *testing.T) { //nolint:paralleltest // measures process-wide goroutine counts; must run serially
 	before := stableGoroutineCount()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	mockCS := &mock.ConfigService{}
 	mockCS.NetworkNameReturns("test-network")

@@ -20,7 +20,7 @@ import (
 // that runtime.NumGoroutine() reflects goroutines that are genuinely still alive.
 func stableGoroutineCount() int {
 	var last int
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		runtime.GC()
 		time.Sleep(20 * time.Millisecond)
 		n := runtime.NumGoroutine()

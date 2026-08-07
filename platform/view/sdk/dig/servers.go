@@ -173,9 +173,7 @@ func Serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *ope
 func serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *operations.System, kvss *kvs.KVS, ctx context.Context) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if grpcServer == nil {
 			return
 		}
@@ -184,20 +182,16 @@ func serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *ope
 		if err := grpcServer.Start(); err != nil {
 			logger.Fatalf("grpc server stopped with err [%s]", err)
 		}
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		logger.Info("Starting WEB server...")
 		if err := webServer.Start(); err != nil {
 			logger.Fatalf("Failed starting WEB server: %v", err)
 		}
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if operationsSystem == nil {
 			return
 		}
@@ -205,7 +199,7 @@ func serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *ope
 		if err := operationsSystem.Start(); err != nil {
 			logger.Fatalf("Failed starting operations system: %v", err)
 		}
-	}()
+	})
 
 	go func() {
 		<-ctx.Done()
