@@ -7,6 +7,7 @@ package main
 import (
 	"log"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/ccaas/serve"
 	"github.com/hyperledger/fabric-contract-api-go/v2/contractapi"
 
 	chaincode "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode/events"
@@ -18,7 +19,7 @@ func main() {
 		log.Panicf("Error creating events chaincode: %v", err)
 	}
 
-	if err := eventsChaincode.Start(); err != nil {
+	if err := serve.Serve(eventsChaincode); err != nil {
 		log.Panicf("Error starting events chaincode: %v", err)
 	}
 }
