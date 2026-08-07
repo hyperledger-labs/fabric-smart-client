@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -161,7 +162,18 @@ func NewServerConfig(configProvider driver.ConfigService) (grpc2.ServerConfig, e
 }
 
 func Serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *operations.System, kvss *kvs.KVS, ctx context.Context) {
-	go func() {
+	serve(grpcServer, webServer, operationsSystem, kvss, ctx)
+}
+
+// serve starts the GRPC server, web server, and operations system in their own
+// goroutines, plus a shutdown goroutine that stops them when ctx is done. It
+// returns a *sync.WaitGroup tracking the three server goroutines so callers
+// (and tests) can confirm they have actually stopped before proceeding with
+// teardown.
+func serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *operations.System, kvss *kvs.KVS, ctx context.Context) *sync.WaitGroup {
+	var wg sync.WaitGroup
+
+	wg.Go(func() {
 		if grpcServer == nil {
 			return
 		}
@@ -170,14 +182,16 @@ func Serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *ope
 		if err := grpcServer.Start(); err != nil {
 			logger.Fatalf("grpc server stopped with err [%s]", err)
 		}
-	}()
-	go func() {
+	})
+
+	wg.Go(func() {
 		logger.Info("Starting WEB server...")
 		if err := webServer.Start(); err != nil {
 			logger.Fatalf("Failed starting WEB server: %v", err)
 		}
-	}()
-	go func() {
+	})
+
+	wg.Go(func() {
 		if operationsSystem == nil {
 			return
 		}
@@ -185,7 +199,8 @@ func Serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *ope
 		if err := operationsSystem.Start(); err != nil {
 			logger.Fatalf("Failed starting operations system: %v", err)
 		}
-	}()
+	})
+
 	go func() {
 		<-ctx.Done()
 		logger.Info("web server stopping...")
@@ -200,18 +215,23 @@ func Serve(grpcServer *grpc2.GRPCServer, webServer Server, operationsSystem *ope
 			logger.Info("grpc server stopping...done")
 		}
 
-		logger.Info("kvs stopping...")
-		kvss.Stop()
-		logger.Info("kvs stopping...done")
+		if kvss != nil {
+			logger.Info("kvs stopping...")
+			kvss.Stop()
+			logger.Info("kvs stopping...done")
+		}
 
-		logger.Infof("operations system stopping...")
-		if operationsSystem == nil {
-			return
+		if operationsSystem != nil {
+			logger.Infof("operations system stopping...")
+			if err := operationsSystem.Stop(); err != nil {
+				logger.Errorf("failed stopping operations system [%s]", err)
+			}
 		}
-		if err := operationsSystem.Stop(); err != nil {
-			logger.Errorf("failed stopping operations system [%s]", err)
-		}
+
+		wg.Wait()
 	}()
+
+	return &wg
 }
 
 // NewViewServiceServer constructs the view gRPC server for the DI container.

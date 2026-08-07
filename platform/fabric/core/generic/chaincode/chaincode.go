@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/cache"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/discovery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -50,9 +52,22 @@ type Chaincode struct {
 	Broadcaster     Broadcaster
 	Finality        driver.Finality
 	MSPProvider     MSPProvider
+
+	// discoveryResultsCache caches discovery.Response objects across the
+	// lifetime of the Chaincode. It is created once here (instead of once
+	// per NewDiscovery call) so its background eviction goroutine is bound
+	// to the Chaincode's ctx rather than leaking on every discovery.
+	discoveryResultsCache cache.Map[string, discovery.Response]
 }
 
+// NewChaincode creates a Chaincode handler.
+//
+// Discovery results are cached for the lifetime of the returned Chaincode.
+// The TTL of the cached results can be set via the `ChannelConfig.DiscoveryTimeout()`
+// of the channelConfig parameter. If not set, the default `DiscoveryCacheTimeout` is used.
+// The cache's background eviction goroutine is stopped when ctx is cancelled.
 func NewChaincode(
+	ctx context.Context,
 	name string,
 	networkConfig driver.ConfigService,
 	channelConfig driver.ChannelConfig,
@@ -63,20 +78,26 @@ func NewChaincode(
 	finality driver.Finality,
 	MSPProvider MSPProvider,
 ) *Chaincode {
+	timeout := DiscoveryCacheTimeout
+	if channelConfig != nil && channelConfig.DiscoveryTimeout() > 0 {
+		timeout = channelConfig.DiscoveryDefaultTTLS()
+	}
+
 	return &Chaincode{
-		name:            name,
-		NetworkID:       networkConfig.NetworkName(),
-		ChannelID:       channelConfig.ID(),
-		ConfigService:   networkConfig,
-		ChannelConfig:   channelConfig,
-		NumRetries:      channelConfig.GetNumRetries(),
-		RetrySleep:      channelConfig.GetRetrySleep(),
-		LocalMembership: localMembership,
-		Services:        peerManager,
-		SignerService:   signerService,
-		Broadcaster:     broadcaster,
-		Finality:        finality,
-		MSPProvider:     MSPProvider,
+		name:                  name,
+		NetworkID:             networkConfig.NetworkName(),
+		ChannelID:             channelConfig.ID(),
+		ConfigService:         networkConfig,
+		ChannelConfig:         channelConfig,
+		NumRetries:            channelConfig.GetNumRetries(),
+		RetrySleep:            channelConfig.GetRetrySleep(),
+		LocalMembership:       localMembership,
+		Services:              peerManager,
+		SignerService:         signerService,
+		Broadcaster:           broadcaster,
+		Finality:              finality,
+		MSPProvider:           MSPProvider,
+		discoveryResultsCache: cache.NewTimeoutCache[string, discovery.Response](ctx, timeout, nil),
 	}
 }
 

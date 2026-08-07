@@ -44,6 +44,17 @@ type Channel struct {
 	ChannelMembershipService driver.ChannelMembership
 	ChaincodeManagerService  driver.ChaincodeManager
 	CommitterService         CommitterService
+
+	// ctx/cancel bound the lifetime of resources owned by the channel's
+	// dependencies (e.g. the ChaincodeManagerService's per-chaincode
+	// discovery caches). cancel is invoked in Close.
+	//
+	// There is no channel-scoped context flowing from above the
+	// NewChannel/ChannelProvider construction path today, so ctx is rooted
+	// at context.Background() here; if that ever changes, this should
+	// derive from the higher-level context instead.
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func (c *Channel) Init() error {
@@ -59,6 +70,12 @@ func (c *Channel) Name() string {
 
 func (c *Channel) Close() error {
 	c.DeliveryService.Stop()
+	if stopper, ok := c.ChaincodeManagerService.(StoppableService); ok {
+		stopper.Stop()
+	}
+	if c.cancel != nil {
+		c.cancel()
+	}
 	return c.Vault().Close()
 }
 
