@@ -9,6 +9,7 @@ package ws
 import (
 	"context"
 	"io"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -257,7 +258,7 @@ func (s *stream) Write(p []byte) (int, error) {
 func (s *stream) Close() error {
 	var err error
 	s.closeOnce.Do(func() {
-		logger.Debugf("Close connection for context [%s]", s.ContextID())
+		logger.Debugf("close connection for context [%s][%s]", s.ContextID(), string(debug.Stack()))
 		s.cancel()
 		err = s.conn.Close()
 		s.mu.Lock()
