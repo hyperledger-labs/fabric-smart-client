@@ -1167,3 +1167,38 @@ func TestEndorseProposalWithIdentity(t *testing.T) {
 		})
 	}
 }
+
+func TestTransaction_DeduplicateRWSet(t *testing.T) {
+	t.Parallel()
+	tx := &Transaction{
+		RWSet: []byte("duplicate payload"),
+		TProposalResponses: []*peer.ProposalResponse{
+			{
+				Payload: []byte("duplicate payload"),
+			},
+		},
+	}
+
+	err := tx.Done()
+	require.NoError(t, err)
+
+	// Since TProposalResponses contains the exact same bytes, RWSet should be cleared
+	require.Nil(t, tx.RWSet)
+
+	// Test non-matching payload
+	tx2 := &Transaction{
+		RWSet: []byte("some payload"),
+		TProposalResponses: []*peer.ProposalResponse{
+			{
+				Payload: []byte("different payload"),
+			},
+		},
+	}
+
+	err = tx2.Done()
+	require.NoError(t, err)
+
+	// Should not be cleared
+	require.NotNil(t, tx2.RWSet)
+	require.Equal(t, []byte("some payload"), tx2.RWSet)
+}

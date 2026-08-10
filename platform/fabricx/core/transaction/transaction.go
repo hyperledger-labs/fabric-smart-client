@@ -57,7 +57,7 @@ type Transaction struct {
 	TFunction         string
 	TParameters       [][]byte
 
-	RWSet      []byte
+	RWSet      []byte `json:"RWSet,omitempty"`
 	TTransient driver.TransientMap
 
 	TProposal          *pb.Proposal
@@ -319,7 +319,19 @@ func (t *Transaction) Done() error {
 		}
 		logger.Debugf("terminated simulation with [%s][len:%d]", t.rwset.Namespaces(), len(t.RWSet))
 	}
+
+	t.dedupRWSet()
+
 	return nil
+}
+
+func (t *Transaction) dedupRWSet() {
+	// If the exact same serialized RWSet bytes are already included in the first
+	// proposal response (Payload), drop the redundant field. The receiving side will
+	// use the proposal response's Payload to reconstruct it if t.RWSet is missing.
+	if len(t.TProposalResponses) > 0 && bytes.Equal(t.TProposalResponses[0].Payload, t.RWSet) {
+		t.RWSet = nil
+	}
 }
 
 func (t *Transaction) Close() {
@@ -330,6 +342,8 @@ func (t *Transaction) Close() {
 	}
 }
 
+// Raw serializes the transaction to JSON. If the transaction has an open RWSet, it is
+// marshaled and saved to the RWSet field first, mutating the receiver in the process.
 func (t *Transaction) Raw() ([]byte, error) {
 	if t.rwset != nil {
 		var err error
@@ -338,6 +352,7 @@ func (t *Transaction) Raw() ([]byte, error) {
 			return nil, errors.Wrap(err, "marshalling rws")
 		}
 	}
+	t.dedupRWSet()
 	return json.Marshal(t)
 }
 

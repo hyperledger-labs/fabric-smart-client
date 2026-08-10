@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"maps"
+	"sync"
 
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 
@@ -17,6 +20,10 @@ import (
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
+)
+
+const (
+	metaNamespace = "_meta"
 )
 
 // Vault implements the fdriver.Vault interface for FabricX. Several interface methods
@@ -111,18 +118,29 @@ func (v *Vault) NewQueryExecutor(ctx context.Context) (cdriver.QueryExecutor, er
 // rwSetWrapper wraps a ReadWriteSet to implement the cdriver.RWSet interface.
 // It provides read/write operations with QueryService integration for state queries.
 type rwSetWrapper struct {
-	txID cdriver.TxID          // Transaction ID
-	rws  *vault.ReadWriteSet   // Underlying read-write set
-	qe   cdriver.QueryExecutor // Query executor for state queries
-	v    *Vault                // Parent vault for accessing query service
+	txID        cdriver.TxID          // Transaction ID
+	rws         *vault.ReadWriteSet   // Underlying read-write set
+	qe          cdriver.QueryExecutor // Query executor for state queries
+	v           *Vault                // Parent vault for accessing query service
+	mu          sync.Mutex            // Protects cachedBytes
+	cachedBytes []byte                // Cached serialized bytes of the rwset
 }
 
 // IsValid validates that all reads in the RWSet are still valid by checking
 // that the versions in the ledger match the versions in the read set.
 // Returns an error if any read is invalid (version mismatch or key deleted).
 func (r *rwSetWrapper) IsValid() error {
-	// Validate that all reads are still valid
+	r.mu.Lock()
+	// create a copy of the reads to validate without holding the lock during network queries
+	readsCopy := make(map[cdriver.Namespace]map[string]cdriver.RawVersion)
 	for ns, reads := range r.rws.Reads {
+		readsCopy[ns] = make(map[string]cdriver.RawVersion)
+		maps.Copy(readsCopy[ns], reads)
+	}
+	r.mu.Unlock()
+
+	// Validate that all reads are still valid
+	for ns, reads := range readsCopy {
 		for key, expectedVersion := range reads {
 			vaultValue, err := r.v.queryService.GetState(ns, key)
 			if err != nil {
@@ -149,21 +167,31 @@ func (r *rwSetWrapper) IsClosed() bool {
 
 // Clear removes all reads, writes, and metadata writes for the specified namespace.
 func (r *rwSetWrapper) Clear(ns cdriver.Namespace) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.rws.ReadSet.Clear(ns)
 	r.rws.WriteSet.Clear(ns)
 	r.rws.MetaWriteSet.Clear(ns)
+	r.cachedBytes = nil
 	return nil
 }
 
 // AddReadAt adds a read dependency for the given namespace, key, and version to the read set.
 func (r *rwSetWrapper) AddReadAt(ns cdriver.Namespace, key string, version cdriver.RawVersion) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.rws.ReadSet.Add(ns, key, version)
+	r.cachedBytes = nil
 	return nil
 }
 
 // SetState sets the value for the given namespace and key in the write set.
 func (r *rwSetWrapper) SetState(namespace cdriver.Namespace, key cdriver.PKey, value cdriver.RawValue) error {
-	return r.rws.WriteSet.Add(namespace, key, value)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	err := r.rws.WriteSet.Add(namespace, key, value)
+	r.cachedBytes = nil
+	return err
 }
 
 // GetState retrieves the state for a given namespace and key.
@@ -171,7 +199,10 @@ func (r *rwSetWrapper) SetState(namespace cdriver.Namespace, key cdriver.PKey, v
 // The behavior can be controlled with GetStateOpt options.
 func (r *rwSetWrapper) GetState(namespace cdriver.Namespace, key cdriver.PKey, opts ...cdriver.GetStateOpt) (cdriver.RawValue, error) {
 	// Check writes first
-	if val, exists := r.rws.Writes[namespace][key]; exists {
+	r.mu.Lock()
+	val, exists := r.rws.Writes[namespace][key]
+	r.mu.Unlock()
+	if exists {
 		return val, nil
 	}
 
@@ -195,7 +226,10 @@ func (r *rwSetWrapper) GetState(namespace cdriver.Namespace, key cdriver.PKey, o
 	}
 
 	// Add to read set
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.rws.ReadSet.Add(namespace, key, vaultValue.Version)
+	r.cachedBytes = nil
 
 	return vaultValue.Raw, nil
 }
@@ -215,14 +249,21 @@ func (r *rwSetWrapper) GetDirectState(namespace cdriver.Namespace, key cdriver.P
 
 // DeleteState marks a key for deletion by adding a nil value to the write set.
 func (r *rwSetWrapper) DeleteState(namespace cdriver.Namespace, key cdriver.PKey) error {
-	return r.rws.WriteSet.Add(namespace, key, nil)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	err := r.rws.WriteSet.Add(namespace, key, nil)
+	r.cachedBytes = nil
+	return err
 }
 
 // GetStateMetadata retrieves metadata for a given namespace and key.
 // It checks the local metadata writes first, returning nil if not found.
 func (r *rwSetWrapper) GetStateMetadata(namespace cdriver.Namespace, key cdriver.PKey, opts ...cdriver.GetStateOpt) (cdriver.Metadata, error) {
 	// Check in-flight meta writes first.
-	if meta, exists := r.rws.MetaWrites[namespace][key]; exists {
+	r.mu.Lock()
+	meta, exists := r.rws.MetaWrites[namespace][key]
+	r.mu.Unlock()
+	if exists {
 		return meta, nil
 	}
 
@@ -251,12 +292,18 @@ func (r *rwSetWrapper) GetStateMetadata(namespace cdriver.Namespace, key cdriver
 
 // SetStateMetadata sets metadata for a given namespace and key in the metadata write set.
 func (r *rwSetWrapper) SetStateMetadata(namespace cdriver.Namespace, key cdriver.PKey, metadata cdriver.Metadata) error {
-	return r.rws.MetaWriteSet.Add(namespace, key, metadata)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	err := r.rws.MetaWriteSet.Add(namespace, key, metadata)
+	r.cachedBytes = nil
+	return err
 }
 
 // GetReadKeyAt returns the key of the i-th read in the specified namespace.
 // Returns an error if the index is out of bounds.
 func (r *rwSetWrapper) GetReadKeyAt(ns cdriver.Namespace, i int) (cdriver.PKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	key, ok := r.rws.ReadSet.GetAt(ns, i)
 	if !ok {
 		return "", errors.Errorf("index %d out of bounds for namespace %s", i, ns)
@@ -288,6 +335,8 @@ func (r *rwSetWrapper) GetReadAt(ns cdriver.Namespace, i int) (cdriver.PKey, cdr
 // GetWriteAt returns the i-th write (key, value) in the specified namespace.
 // Returns an error if the index is out of bounds.
 func (r *rwSetWrapper) GetWriteAt(ns cdriver.Namespace, i int) (cdriver.PKey, cdriver.RawValue, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	key, ok := r.rws.WriteSet.GetAt(ns, i)
 	if !ok {
 		return "", nil, errors.Errorf("index %d out of bounds for namespace %s", i, ns)
@@ -298,16 +347,26 @@ func (r *rwSetWrapper) GetWriteAt(ns cdriver.Namespace, i int) (cdriver.PKey, cd
 
 // NumReads returns the number of reads in the specified namespace.
 func (r *rwSetWrapper) NumReads(ns cdriver.Namespace) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	return len(r.rws.Reads[ns])
 }
 
 // NumWrites returns the number of writes in the specified namespace.
 func (r *rwSetWrapper) NumWrites(ns cdriver.Namespace) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	return len(r.rws.Writes[ns])
 }
 
 // Namespaces returns all namespace labels present in this RWSet (reads, writes, or metadata).
 func (r *rwSetWrapper) Namespaces() []cdriver.Namespace {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.namespacesLocked()
+}
+
+func (r *rwSetWrapper) namespacesLocked() []cdriver.Namespace {
 	nsMap := make(map[cdriver.Namespace]bool)
 	for ns := range r.rws.Reads {
 		nsMap[ns] = true
@@ -329,34 +388,58 @@ func (r *rwSetWrapper) Namespaces() []cdriver.Namespace {
 // AppendRWSet deserializes and appends RWSet data from bytes to this RWSet.
 // If namespaces are specified, only those namespaces will be appended.
 func (r *rwSetWrapper) AppendRWSet(raw []byte, nss ...cdriver.Namespace) error {
-	return r.v.marshaller.Append(r.rws, raw, nss...)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	err := r.v.marshaller.Append(r.rws, raw, nss...)
+	r.cachedBytes = nil
+	return err
 }
 
 // Bytes serializes this RWSet to bytes in FabricX protobuf format.
 // It automatically fetches namespace versions from the _meta namespace via QueryService.
+// Note: It holds the RWSet lock across the remote GetStates network query.
+// If a cached version exists, it returns a defensive copy and skips the version lookup.
+// It assumes _meta versions are stable for the RWSet's lifetime.
 func (r *rwSetWrapper) Bytes() ([]byte, error) {
-	// Get namespace versions from the query service
-	namespaces := r.Namespaces()
-	nsInfo := make(map[cdriver.Namespace]cdriver.RawVersion)
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	for _, ns := range namespaces {
-		// Try to get namespace version from _meta namespace
-		vaultValue, err := r.v.queryService.GetState("_meta", ns)
-		if err != nil {
-			// If error, use version 0
-			nsInfo[ns] = MarshalVersion(0)
-		} else if vaultValue == nil {
-			// If not found, use version 0
-			nsInfo[ns] = MarshalVersion(0)
+	if r.cachedBytes == nil {
+		namespaces := r.namespacesLocked()
+		nsInfo := make(map[cdriver.Namespace]cdriver.RawVersion, len(namespaces))
+		if len(namespaces) == 0 {
+			raw, err := r.v.marshaller.Marshal(string(r.txID), r.rws, nsInfo)
+			if err != nil {
+				return nil, err
+			}
+			r.cachedBytes = raw
 		} else {
-			// Use the version from _meta
-			nsInfo[ns] = vaultValue.Version
+			states, err := r.v.queryService.GetStates(map[cdriver.Namespace][]cdriver.PKey{metaNamespace: namespaces})
+			if err != nil {
+				// Failed to query versions, fail the marshal instead of silently using version 0.
+				return nil, errors.Wrapf(err, "failed to query %s versions for tx %s", metaNamespace, string(r.txID))
+			}
+			metaStates := states[metaNamespace] // nil-safe
+
+			for _, ns := range namespaces {
+				if v, ok := metaStates[ns]; ok {
+					nsInfo[ns] = v.Version
+				} else {
+					nsInfo[ns] = MarshalVersion(0) // unknown namespace
+				}
+			}
+
+			// Pass nsInfo per call rather than through shared marshaller state, so concurrent
+			// Bytes() calls on different RWSets from the same vault do not race.
+			raw, err := r.v.marshaller.Marshal(string(r.txID), r.rws, nsInfo)
+			if err != nil {
+				return nil, err
+			}
+			r.cachedBytes = raw
 		}
 	}
 
-	// Pass nsInfo per call rather than through shared marshaller state, so concurrent
-	// Bytes() calls on different RWSets from the same vault do not race.
-	return r.v.marshaller.Marshal(string(r.txID), r.rws, nsInfo)
+	return bytes.Clone(r.cachedBytes), nil
 }
 
 // Done is a no-op. The vault does not retain the ReadWriteSet.
@@ -370,6 +453,13 @@ func (r *rwSetWrapper) Equals(rws any, nss ...cdriver.Namespace) error {
 	other, ok := rws.(*rwSetWrapper)
 	if !ok {
 		return errors.Errorf("expected *rwSetWrapper, got %T", rws)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r != other {
+		other.mu.Lock()
+		defer other.mu.Unlock()
 	}
 
 	if err := r.rws.Reads.Equals(other.rws.Reads, nss...); err != nil {
