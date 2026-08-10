@@ -23,13 +23,11 @@ var logger = logging.MustGetLogger()
 // PingView sends a single ping and waits for the pong over the context's session.
 type PingView struct {
 	responder view.Identity
-	session   view.Session
 }
 
 func (p *PingView) Call(viewCtx view.Context) (any, error) {
-	// session, err := viewCtx.GetSession(viewCtx.Initiator(), p.responder)
-	// assert.NoError(err)
-	session := p.session
+	session, err := viewCtx.GetSession(viewCtx.Initiator(), p.responder)
+	assert.NoError(err)
 
 	logger.Infof("send ping")
 
@@ -57,9 +55,6 @@ func (p *PingView) Call(viewCtx view.Context) (any, error) {
 }
 
 func ping(viewCtx view.Context, responder view.Identity) (any, error) {
-	session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
-	assert.NoError(err)
-
 	ctx, cancel := context.WithTimeout(viewCtx.Context(), 10*time.Minute)
 	runCtx := view2.WrapContext(viewCtx, ctx)
 	defer func() {
@@ -69,7 +64,6 @@ func ping(viewCtx view.Context, responder view.Identity) (any, error) {
 
 	return runCtx.RunView(&PingView{
 		responder: responder,
-		session:   session,
 	})
 }
 
