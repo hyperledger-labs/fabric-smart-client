@@ -25,7 +25,7 @@ func TestNewMsgConn(t *testing.T) {
 			ch: make(chan *view.Message, 10),
 		}
 
-		conn, err := NewMsgConn(0, session)
+		conn, err := NewMsgConn(t.Context(), 0, session)
 		require.NoError(t, err)
 		require.NotNil(t, conn)
 	})
@@ -39,7 +39,7 @@ func TestMsgConn_Write(t *testing.T) {
 			ch: make(chan *view.Message, 10),
 		}
 
-		conn, err := NewMsgConn(0, session)
+		conn, err := NewMsgConn(t.Context(), 0, session)
 		require.NoError(t, err)
 
 		data := []byte("test message")
@@ -56,7 +56,7 @@ func TestMsgConn_Write(t *testing.T) {
 			ch: make(chan *view.Message, 10),
 		}
 
-		conn, err := NewMsgConn(0, session)
+		conn, err := NewMsgConn(t.Context(), 0, session)
 		require.NoError(t, err)
 
 		n, err := conn.Write([]byte{})
@@ -71,7 +71,7 @@ func TestMsgConn_Write(t *testing.T) {
 			sendError: assert.AnError,
 		}
 
-		conn, err := NewMsgConn(0, session)
+		conn, err := NewMsgConn(t.Context(), 0, session)
 		require.NoError(t, err)
 
 		n, err := conn.Write([]byte("test"))
@@ -86,7 +86,7 @@ func TestMsgConn_Write(t *testing.T) {
 			ch: make(chan *view.Message, 10),
 		}
 
-		conn, err := NewMsgConn(0, session)
+		conn, err := NewMsgConn(t.Context(), 0, session)
 		require.NoError(t, err)
 
 		messages := [][]byte{
@@ -115,7 +115,7 @@ func TestMsgConn_Read(t *testing.T) {
 		ch := make(chan *view.Message, 10)
 		session := &mockSession{ch: ch}
 
-		conn, err := NewMsgConn(0, session)
+		conn, err := NewMsgConn(t.Context(), 0, session)
 		require.NoError(t, err)
 
 		expectedData := []byte("test message")
@@ -134,7 +134,7 @@ func TestMsgConn_Read(t *testing.T) {
 		ch := make(chan *view.Message, 10)
 		session := &mockSession{ch: ch}
 
-		conn, err := NewMsgConn(0, session)
+		conn, err := NewMsgConn(t.Context(), 0, session)
 		require.NoError(t, err)
 
 		messages := [][]byte{
@@ -163,7 +163,7 @@ func TestMsgConn_Read(t *testing.T) {
 		ch := make(chan *view.Message, 10)
 		session := &mockSession{ch: ch}
 
-		conn, err := NewMsgConn(0, session)
+		conn, err := NewMsgConn(t.Context(), 0, session)
 		require.NoError(t, err)
 
 		close(ch)
@@ -179,7 +179,7 @@ func TestMsgConn_Read(t *testing.T) {
 		ch := make(chan *view.Message, 10)
 		session := &mockSession{ch: ch}
 
-		conn, err := NewMsgConn(0, session)
+		conn, err := NewMsgConn(t.Context(), 0, session)
 		require.NoError(t, err)
 
 		ch <- nil
@@ -195,7 +195,7 @@ func TestMsgConn_Read(t *testing.T) {
 		ch := make(chan *view.Message, 10)
 		session := &mockSession{ch: ch}
 
-		conn, err := NewMsgConn(0, session)
+		conn, err := NewMsgConn(t.Context(), 0, session)
 		require.NoError(t, err)
 
 		ch <- &view.Message{
@@ -214,7 +214,7 @@ func TestMsgConn_Read(t *testing.T) {
 		ch := make(chan *view.Message, 10)
 		session := &mockSession{ch: ch}
 
-		conn, err := NewMsgConn(0, session)
+		conn, err := NewMsgConn(t.Context(), 0, session)
 		require.NoError(t, err)
 
 		ch <- &view.Message{
@@ -237,7 +237,7 @@ func TestMsgConn_Flush(t *testing.T) {
 			ch: make(chan *view.Message, 10),
 		}
 
-		conn, err := NewMsgConn(0, session)
+		conn, err := NewMsgConn(t.Context(), 0, session)
 		require.NoError(t, err)
 
 		err = conn.Flush()
@@ -253,7 +253,7 @@ type mockSession struct {
 	sessionID    string
 }
 
-func (m *mockSession) Send(payload []byte) error {
+func (m *mockSession) Send(_ context.Context, payload []byte) error {
 	if m.sendError != nil {
 		return m.sendError
 	}
@@ -283,20 +283,12 @@ func (m *mockSession) Context() view.Context {
 	return nil
 }
 
-func (m *mockSession) SendWithContext(ctx context.Context, payload []byte) error {
-	return m.Send(payload)
-}
-
-func (m *mockSession) SendError(payload []byte) error {
+func (m *mockSession) SendError(_ context.Context, payload []byte) error {
 	if m.sendError != nil {
 		return m.sendError
 	}
 	m.sentMessages = append(m.sentMessages, payload)
 	return nil
-}
-
-func (m *mockSession) SendErrorWithContext(ctx context.Context, payload []byte) error {
-	return m.SendError(payload)
 }
 
 func (m *mockSession) ReceiveWithTimeout(timeout time.Duration) (*view.Message, error) {

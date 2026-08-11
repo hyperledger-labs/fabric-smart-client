@@ -186,7 +186,7 @@ func (f *sendTransactionView) Call(viewCtx view.Context) (any, error) {
 		}
 
 		// Send transaction
-		err = session.Send(txRaw)
+		err = session.Send(viewCtx.Context(), txRaw)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed sending transaction content")
 		}
@@ -211,7 +211,7 @@ func (f *sendTransactionBackView) Call(viewCtx view.Context) (any, error) {
 	session := viewCtx.Session()
 
 	// Send transaction
-	err = session.Send(txRaw)
+	err = session.Send(viewCtx.Context(), txRaw)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed sending transaction content")
 	}

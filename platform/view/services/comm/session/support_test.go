@@ -23,13 +23,9 @@ type mockSession struct {
 
 func (m *mockSession) Info() view.SessionInfo { return view.SessionInfo{} }
 
-func (m *mockSession) Send([]byte) error { return nil }
+func (m *mockSession) Send(context.Context, []byte) error { return nil }
 
-func (m *mockSession) SendWithContext(context.Context, []byte) error { return nil }
-
-func (m *mockSession) SendError([]byte) error { return nil }
-
-func (m *mockSession) SendErrorWithContext(context.Context, []byte) error { return nil }
+func (m *mockSession) SendError(context.Context, []byte) error { return nil }
 
 func (m *mockSession) Receive() <-chan *view.Message { return m.ch }
 

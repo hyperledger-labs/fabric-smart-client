@@ -40,12 +40,12 @@ func (p *Responder) Call(viewCtx view.Context) (any, error) {
 	// Respond with a mock pong if a ping is received, an error otherwise
 	if m := string(payload); m != pingMessage {
 		// reply with an error
-		sendErr := session.SendErrorWithContext(ctx, fmt.Appendf(nil, "expected %s, got %s", pingMessage, m))
+		sendErr := session.SendError(ctx, fmt.Appendf(nil, "expected %s, got %s", pingMessage, m))
 		return nil, errors.Join(errors.Errorf("expected %s, got %s", pingMessage, m), sendErr)
 	}
 
 	// reply with a mock pong
-	if err := session.SendWithContext(ctx, []byte(mockPongMessage)); err != nil {
+	if err := session.Send(ctx, []byte(mockPongMessage)); err != nil {
 		return nil, errors.Wrapf(err, "failed to send %s", mockPongMessage)
 	}
 

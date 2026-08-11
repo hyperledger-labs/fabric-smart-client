@@ -66,7 +66,7 @@ func TestPingPongSessionLevel(t *testing.T) { //nolint:paralleltest
 			// For this test, we'll just use the same session and vary the message content
 			for i := range msgsPerSession {
 				msg := fmt.Sprintf("ping-%d-%d", sessionID, i)
-				err := sess.Send([]byte(msg))
+				err := sess.Send(t.Context(), []byte(msg))
 				assert.NoError(t, err, "Failed to send message")
 				atomic.AddInt64(&sentCount, 1)
 
@@ -97,7 +97,7 @@ func TestPingPongSessionLevel(t *testing.T) { //nolint:paralleltest
 
 				// Send a pong back
 				pongMsg := fmt.Sprintf("pong-%s", string(msg.Payload))
-				err := sess.Send([]byte(pongMsg))
+				err := sess.Send(t.Context(), []byte(pongMsg))
 				assert.NoError(t, err, "Failed to send pong message")
 				atomic.AddInt64(&receivedCount, 1)
 

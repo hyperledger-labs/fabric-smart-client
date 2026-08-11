@@ -31,7 +31,7 @@ func (p *Ping) Call(viewCtx view.Context) (any, error) {
 	// Open a session to the responder
 	session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
 	assert.NoError(err) // Send a ping
-	err = session.Send([]byte("ping"))
+	err = session.Send(viewCtx.Context(), []byte("ping"))
 	assert.NoError(err) // Wait for the pong
 	ch := session.Receive()
 	select {

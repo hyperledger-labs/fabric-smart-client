@@ -202,10 +202,8 @@ The View API models node-to-node communication through `view.Session`:
 ```go
 type Session interface {
     Info() SessionInfo
-    Send(payload []byte) error
-    SendWithContext(ctx context.Context, payload []byte) error
-    SendError(payload []byte) error
-    SendErrorWithContext(ctx context.Context, payload []byte) error
+    Send(ctx context.Context, payload []byte) error
+    SendError(ctx context.Context, payload []byte) error
     Receive() <-chan *Message
     Close()
 }
@@ -213,9 +211,9 @@ type Session interface {
 
 ### Send and Receive
 
-`Send` and `SendWithContext` transmit an application payload to the remote party.
+`Send` transmits an application payload to the remote party using the provided context.
 
-`SendError` and `SendErrorWithContext` transmit an error response. These methods set the message status to `view.ERROR`, allowing the recipient to distinguish protocol failures from normal payloads.
+`SendError` transmits an error response using the provided context. This method sets the message status to `view.ERROR`, allowing the recipient to distinguish protocol failures from normal payloads.
 
 The payload passed to `SendError` is transmitted as-is. When a responder view returns an error from `Call`, the P2P runtime forwards `err.Error()` verbatim to the remote caller via `SendError` — it does not inspect, wrap, or redact it. The runtime's job is only to decide *that* an error gets returned; deciding *what* information that error is allowed to contain is the application's responsibility. Since the remote party may be untrusted, responder views should return business-logic errors verbatim (callers legitimately need that detail to react, and tests rely on it), but should wrap or replace errors that could carry internal detail (stack-adjacent context, file paths, credentials) with a sanitized message before returning them.
 

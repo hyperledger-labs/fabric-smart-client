@@ -31,7 +31,7 @@ func (p *Responder) Call(viewCtx view.Context) (any, error) {
 	}
 
 	// Echo back what you received from the initiator
-	err := session.Send(payload)
+	err := session.Send(viewCtx.Context(), payload)
 	assert.NoError(err)
 
 	// Return

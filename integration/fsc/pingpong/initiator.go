@@ -51,7 +51,7 @@ func (p *PingView) Call(viewCtx view.Context) (any, error) {
 	}
 
 	logger.DebugfContext(viewCtx.Context(), "send %s", pingMessage)
-	if err := session.SendWithContext(viewCtx.Context(), []byte(pingMessage)); err != nil {
+	if err := session.Send(viewCtx.Context(), []byte(pingMessage)); err != nil {
 		return nil, errors.Wrapf(err, "failed to send %s", pingMessage)
 	}
 

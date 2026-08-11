@@ -38,7 +38,7 @@ func (p *Pong) Call(viewCtx view.Context) (any, error) {
 	switch {
 	case m != "ping":
 		// reply with an error
-		err := session.SendError(fmt.Appendf(nil, "exptectd ping, got %s", m))
+		err := session.SendError(viewCtx.Context(), fmt.Appendf(nil, "exptectd ping, got %s", m))
 		assert.NoError(err)
 		return nil, fmt.Errorf("exptectd ping, got %s", m)
 	default:
@@ -47,7 +47,7 @@ func (p *Pong) Call(viewCtx view.Context) (any, error) {
 		assert.NoError(err)
 		raw, err := json.Marshal(names)
 		assert.NoError(err)
-		assert.NoError(session.Send(raw))
+		assert.NoError(session.Send(viewCtx.Context(), raw))
 	}
 
 	// Return

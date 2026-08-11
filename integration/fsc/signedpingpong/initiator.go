@@ -63,7 +63,7 @@ func (a *AliceInitiator) Call(viewCtx view.Context) (any, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "alice: failed marshalling signed message")
 	}
-	if err := session.SendWithContext(viewCtx.Context(), raw); err != nil {
+	if err := session.Send(viewCtx.Context(), raw); err != nil {
 		return nil, errors.Wrap(err, "alice: failed sending")
 	}
 

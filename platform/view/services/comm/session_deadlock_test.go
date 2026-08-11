@@ -170,8 +170,8 @@ func TestSessionRecoverAfterClose(t *testing.T) { //nolint:paralleltest
 	require.True(t, sess.Info().Closed)
 
 	// After closing, we should not be able to send or receive.
-	require.ErrorIs(t, sess.Send([]byte("data")), ErrSessionClosed)
-	require.ErrorIs(t, sess.SendError([]byte("error")), ErrSessionClosed)
+	require.ErrorIs(t, sess.Send(t.Context(), []byte("data")), ErrSessionClosed)
+	require.ErrorIs(t, sess.SendError(t.Context(), []byte("error")), ErrSessionClosed)
 	require.False(t, s.enqueue(&view.Message{Payload: []byte("msg2")}))
 
 	// Now, create a new session with the same parameters (simulating a reconnect).

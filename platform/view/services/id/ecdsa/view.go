@@ -49,7 +49,7 @@ func (f twoPartyCollectEphemeralKeyView) Call(viewCtx view.Context) (any, error)
 	}
 
 	// send the public key
-	err = session.Send(id)
+	err = session.Send(viewCtx.Context(), id)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (s *twoPartyEphemeralKeyResponderView) Call(viewCtx view.Context) (any, err
 	}
 
 	// Step 3: send the public key back to the invoker
-	err = session.Send(id)
+	err = session.Send(viewCtx.Context(), id)
 	if err != nil {
 		return nil, err
 	}

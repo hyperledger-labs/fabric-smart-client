@@ -30,7 +30,7 @@ type mockSession struct {
 
 func (m *mockSession) Info() view.SessionInfo { return view.SessionInfo{} }
 
-func (m *mockSession) Send(payload []byte) error {
+func (m *mockSession) Send(_ context.Context, payload []byte) error {
 	if m.sendErr != nil {
 		return m.sendErr
 	}
@@ -38,16 +38,8 @@ func (m *mockSession) Send(payload []byte) error {
 	return nil
 }
 
-func (m *mockSession) SendWithContext(_ context.Context, payload []byte) error {
-	return m.Send(payload)
-}
-
-func (m *mockSession) SendError(payload []byte) error {
-	return m.Send(payload)
-}
-
-func (m *mockSession) SendErrorWithContext(_ context.Context, payload []byte) error {
-	return m.Send(payload)
+func (m *mockSession) SendError(_ context.Context, payload []byte) error {
+	return m.Send(context.Background(), payload)
 }
 
 func (m *mockSession) Receive() <-chan *view.Message { return m.recv }

@@ -17,7 +17,7 @@ The Comm layer abstracts the underlying network transport and provides a session
 1.  **P2PNode**: The central orchestrator that manages active streams, sessions, and message dispatching. It uses a **bounded worker pool** for concurrent message dispatching to prevent resource exhaustion.
 2.  **EndpointService**: The source of truth for peer identities and addresses. It manages resolvers that map PeerIDs to network endpoints and provides the public keys used for dynamic trust updates.
 3.  **P2PHost**: An interface for transport-specific implementations. FSC supports multiple transport types (e.g., Libp2p, WebSocket). The interface exposes `PeerID()`, which returns the local node's cryptographic peer identifier — the same value remote peers observe as `StreamInfo.RemotePeerID` and `SessionInfo.RemotePKID` when they connect to this node.
-4.  **NetworkStreamSession**: Implements the `view.Session` interface. It provides the high-level API (`Send`, `Receive`, `Close`) used by View developers. It includes **automatic cleanup** of dead stream references to prevent memory bloat.
+4.  **NetworkStreamSession**: Implements the `view.Session` interface. It provides the high-level API (`Send`, `SendError`, `Receive`, `Close`) used by View developers. It includes **automatic cleanup** of dead stream references to prevent memory bloat.
 
 ### Message Flow
 
@@ -110,7 +110,7 @@ if err != nil {
 }
 
 // Send a message
-err = session.Send([]byte("Hello Peer"))
+err = session.Send(context.Background(), []byte("Hello Peer"))
 
 // Receive a message
 msg := <-session.Receive()

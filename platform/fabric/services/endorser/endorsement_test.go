@@ -633,12 +633,12 @@ func TestParallelCollectEndorsementsOnProposalViewInternal(t *testing.T) {
 
 	// Case 3: Send error
 	f.ctx.GetSessionReturns(f.session, nil)
-	f.session.SendWithContextReturns(fmt.Errorf("err"))
+	f.session.SendReturns(fmt.Errorf("err"))
 	_, err = v.Call(f.ctx)
 	require.Error(t, err)
 
 	// Case 4: Receive error
-	f.session.SendWithContextReturns(nil)
+	f.session.SendReturns(nil)
 	msgCh := make(chan *view.Message, 1)
 	msgCh <- &view.Message{Status: view.ERROR, Payload: []byte("err")}
 	f.session.ReceiveReturns(msgCh)
@@ -734,7 +734,7 @@ func TestParallelCollectEndorsementsOnProposalView_TimesOutOnPartyThatNeverAccep
 	t.Cleanup(func() { close(release) })
 
 	f.session.ReceiveReturns(make(chan *view.Message))
-	f.session.SendWithContextCalls(func(context.Context, []byte) error {
+	f.session.SendCalls(func(context.Context, []byte) error {
 		<-release
 		return nil
 	})
@@ -829,12 +829,12 @@ func TestEndorsementOnProposalResponderViewInternal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Case 2: Session send failure
-	fakeSession.SendWithContextReturns(fmt.Errorf("err"))
+	fakeSession.SendReturns(fmt.Errorf("err"))
 	_, err = ev.Call(fakeCtx)
 	require.Error(t, err)
 
 	// Case 3: EndorseProposalResponseWithIdentity failure
-	fakeSession.SendWithContextReturns(nil)
+	fakeSession.SendReturns(nil)
 	fakeTx.EndorseProposalResponseWithIdentityReturns(fmt.Errorf("err"))
 	_, err = ev.Call(fakeCtx)
 	require.Error(t, err)

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package io
 
 import (
+	"context"
 	"time"
 
 	"go.uber.org/zap/zapcore"
@@ -21,6 +22,7 @@ const (
 )
 
 type commSCCMsgConn struct {
+	ctx     context.Context
 	index   int
 	session view.Session
 	ch      <-chan *view.Message
@@ -30,8 +32,9 @@ type commSCCMsgConn struct {
 	readCounter  uint64
 }
 
-func NewMsgConn(index int, session view.Session) (MsgConn, error) {
+func NewMsgConn(ctx context.Context, index int, session view.Session) (MsgConn, error) {
 	conn := &commSCCMsgConn{
+		ctx:          ctx,
 		session:      session,
 		index:        index,
 		ch:           session.Receive(),
@@ -49,7 +52,7 @@ func (c *commSCCMsgConn) Write(data []byte) (n int, err error) {
 	}
 
 	c.writeCounter++
-	err = c.session.Send(data)
+	err = c.session.Send(c.ctx, data)
 	if err != nil {
 		errMsg := errors.Errorf("failed sending message to [%s]: [%s]", c.session, err)
 		return 0, errMsg

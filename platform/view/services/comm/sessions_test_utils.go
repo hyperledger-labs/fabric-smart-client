@@ -71,7 +71,7 @@ func runInitiator(t *testing.T, ctx context.Context, bootstrapNode, targetNode *
 		assert.NotNil(t, s)
 
 		messagesToSend := messages(s.Info().ID)
-		err = s.Send(messagesToSend[0])
+		err = s.Send(ctx, messagesToSend[0])
 		if err != nil {
 			t.Errorf("Sender [%s]: failed to send first message: %v", s.Info().ID, err)
 			return
@@ -89,7 +89,7 @@ func runInitiator(t *testing.T, ctx context.Context, bootstrapNode, targetNode *
 		}
 
 		for j := 1; j < len(messagesToSend); j++ {
-			if err := s.Send(messagesToSend[j]); err != nil {
+			if err := s.Send(ctx, messagesToSend[j]); err != nil {
 				t.Errorf("Sender [%s]: failed to send message %d: %v", s.Info().ID, j, err)
 				return
 			}
@@ -155,7 +155,7 @@ func runResponder(t *testing.T, ctx context.Context, node *HostNode, msg *view.M
 	}
 	defer s.Close()
 
-	if err := s.Send([]byte("READY")); err != nil {
+	if err := s.Send(ctx, []byte("READY")); err != nil {
 		t.Errorf("Responder [%s]: failed to send READY: %v", msg.SessionID, err)
 		return
 	}
@@ -174,7 +174,7 @@ func runResponder(t *testing.T, ctx context.Context, node *HostNode, msg *view.M
 	}
 
 	time.Sleep(100 * time.Millisecond)
-	if err := s.Send([]byte("FINAL_ACK")); err != nil {
+	if err := s.Send(ctx, []byte("FINAL_ACK")); err != nil {
 		t.Errorf("Responder [%s]: failed to send FINAL_ACK: %v", msg.SessionID, err)
 	}
 }

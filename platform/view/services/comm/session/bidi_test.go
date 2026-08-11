@@ -29,7 +29,7 @@ func TestLocalBidirectionalChannel_SendReceive(t *testing.T) {
 	ch, err := NewLocalBidirectionalChannel("caller", "ctx", "endpoint", nil)
 	require.NoError(t, err)
 	payload := []byte("hello")
-	require.NoError(t, ch.LeftSession().Send(payload))
+	require.NoError(t, ch.LeftSession().Send(t.Context(), payload))
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		select {
 		case msg := <-ch.RightSession().Receive():
@@ -48,7 +48,7 @@ func TestLocalBidirectionalChannel_BidirectionalCommunication(t *testing.T) {
 	require.NoError(t, err)
 	left := ch.LeftSession()
 	right := ch.RightSession()
-	require.NoError(t, left.Send([]byte("from left")))
+	require.NoError(t, left.Send(t.Context(), []byte("from left")))
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		select {
 		case msg := <-right.Receive():
@@ -57,7 +57,7 @@ func TestLocalBidirectionalChannel_BidirectionalCommunication(t *testing.T) {
 			assert.Fail(c, "no message received yet")
 		}
 	}, time.Second, 10*time.Millisecond)
-	require.NoError(t, right.Send([]byte("from right")))
+	require.NoError(t, right.Send(t.Context(), []byte("from right")))
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		select {
 		case msg := <-left.Receive():
@@ -73,7 +73,7 @@ func TestLocalBidirectionalChannel_SendError(t *testing.T) {
 	ch, err := NewLocalBidirectionalChannel("caller", "ctx", "endpoint", nil)
 	require.NoError(t, err)
 	errPayload := []byte("something went wrong")
-	require.NoError(t, ch.LeftSession().SendError(errPayload))
+	require.NoError(t, ch.LeftSession().SendError(t.Context(), errPayload))
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		select {
 		case msg := <-ch.RightSession().Receive():
@@ -100,7 +100,7 @@ func TestLocalBidirectionalChannel_SendAfterClose(t *testing.T) {
 	require.NoError(t, err)
 	left := ch.LeftSession()
 	left.Close()
-	err = left.Send([]byte("data"))
+	err = left.Send(t.Context(), []byte("data"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "session is closed")
 }
@@ -111,7 +111,7 @@ func TestLocalBidirectionalChannel_SendErrorAfterClose(t *testing.T) {
 	require.NoError(t, err)
 	left := ch.LeftSession()
 	left.Close()
-	err = left.SendError([]byte("data"))
+	err = left.SendError(t.Context(), []byte("data"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "session is closed")
 }
@@ -135,7 +135,7 @@ func TestLocalBidirectionalChannel_SendWithContext(t *testing.T) {
 	ch, err := NewLocalBidirectionalChannel("caller", "ctx", "endpoint", nil)
 	require.NoError(t, err)
 	payload := []byte("with context")
-	require.NoError(t, ch.LeftSession().SendWithContext(t.Context(), payload))
+	require.NoError(t, ch.LeftSession().Send(t.Context(), payload))
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		select {
 		case msg := <-ch.RightSession().Receive():
@@ -152,6 +152,6 @@ func TestLocalBidirectionalChannel_SendWithCancelledContext(t *testing.T) {
 	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	err = ch.LeftSession().SendWithContext(ctx, []byte("data"))
+	err = ch.LeftSession().Send(ctx, []byte("data"))
 	require.Error(t, err)
 }

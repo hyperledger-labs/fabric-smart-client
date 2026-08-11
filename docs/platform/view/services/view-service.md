@@ -407,7 +407,7 @@ The View Service integrates with the P2P Service for handling incoming messages:
 4. **View Execution**: Runs the responder view in the context
 5. **Error Handling**: Sends error messages back to the initiator on failure
 
-The text sent is the raw error returned by the responder view (`err.Error()`), forwarded unmodified via `Session().SendError(...)`. The runtime does not inspect or filter it — deciding what information is safe to disclose to a remote, potentially untrusted caller is the responder view's responsibility, not the P2P service's. See the [View API](../view-api.md#send-and-receive) for guidance on what responder views should and shouldn't return as errors.
+The text sent is the raw error returned by the responder view (`err.Error()`), forwarded unmodified via `Session().SendError(context.WithoutCancel(viewCtx.Context()), ...)`. The runtime does not inspect or filter it — deciding what information is safe to disclose to a remote, potentially untrusted caller is the responder view's responsibility, not the P2P service's. See the [View API](../view-api.md#send-and-receive) for guidance on what responder views should and shouldn't return as errors.
 
 ### Message Flow
 
@@ -434,7 +434,7 @@ sequenceDiagram
     Context-->>P2P: Complete
     
     alt Error
-        P2P->>Context: Session().SendError(err)
+        P2P->>Context: Session().SendError(ctx, err)
     end
     
     alt New Context

@@ -78,8 +78,8 @@ func TestSessionLifecycle(t *testing.T) { //nolint:paralleltest
 
 	require.False(t, sess.Info().Closed)
 
-	require.NoError(t, sess.Send([]byte("some message")))
-	require.NoError(t, sess.SendError([]byte("some error")))
+	require.NoError(t, sess.Send(t.Context(), []byte("some message")))
+	require.NoError(t, sess.SendError(t.Context(), []byte("some error")))
 
 	msg := &view.Message{
 		Payload: []byte("some message"),
@@ -103,8 +103,8 @@ func TestSessionLifecycle(t *testing.T) { //nolint:paralleltest
 	require.True(t, sess.Info().Closed)
 
 	// sending on closed session should return an error
-	require.ErrorIs(t, sess.Send([]byte("some message")), ErrSessionClosed)
-	require.ErrorIs(t, sess.SendError([]byte("some error")), ErrSessionClosed)
+	require.ErrorIs(t, sess.Send(t.Context(), []byte("some message")), ErrSessionClosed)
+	require.ErrorIs(t, sess.SendError(t.Context(), []byte("some error")), ErrSessionClosed)
 
 	// enqueue on closed session should just drop the message
 	require.Empty(t, s.incoming)
