@@ -63,7 +63,7 @@ func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, configPro
 // Provider implements ListenerManagerProvider and manages ListenerManager instances.
 // IMPORTANT: Initialize method MUST be called once during service setup before calling NewManager method.
 type Provider struct {
-	newNotificationManager func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error)
+	newNotificationManager func(network string, gcp GRPCClientProvider, cfg *config.Config) (*notificationListenerManager, error)
 	configProvider         ServiceConfigProvider
 	grpcClientProvider     GRPCClientProvider
 	managers               map[string]ListenerManager // map: "network:channel" -> ListenerManager instance
@@ -104,16 +104,28 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 		return lm, nil
 	}
 
-	// 2. Create the concrete ListenerManager
-	lm, err := p.newNotificationManager(network, p.grpcClientProvider)
+	// 2. Resolve the notification service config for this network. configProvider
+	// is nil in some unit tests that never reach here for a real network; nil cfg
+	// is what newNotifiWithGRPC below maps to today's hardcoded defaults.
+	var cfg *config.Config
+	if p.configProvider != nil {
+		var err error
+		cfg, err = p.configProvider.NotificationServiceConfig(network)
+		if err != nil {
+			return nil, errors.Wrapf(err, "get notification service config [network=%s]", network)
+		}
+	}
+
+	// 3. Create the concrete ListenerManager
+	lm, err := p.newNotificationManager(network, p.grpcClientProvider, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Register the newly created instance
+	// 4. Register the newly created instance
 	p.managers[key] = lm
 
-	// 4. Start listening in background
+	// 5. Start listening in background
 	// lm.listen() is a blocking method that establishes and maintains a stream connection
 	// to receive finality notifications.
 	go func() {
@@ -135,7 +147,7 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 }
 
 // newNotifiWithGRPC creates and initializes a notificationListenerManager using the GRPCClientProvider.
-func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider) (*notificationListenerManager, error) {
+func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider, cfg *config.Config) (*notificationListenerManager, error) {
 	cc, err := grpcClientProvider.NotificationServiceClient(network)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)
@@ -144,19 +156,25 @@ func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider) (*
 	// Create the gRPC client stub for the Notifier service
 	notifyClient := committerpb.NewNotifierClient(cc)
 
-	// TODO: make handlerTimeout, listenerTTL and sweepInterval configurable via
-	// core.yaml rather than hardcoding the defaults here. Provider already carries
-	// a ServiceConfigProvider, and committer/config.Config would be the natural
-	// home for the fields; newNotifiWithGRPC would then take the resolved config.
-	// Tracked in #1641.
+	handlerTimeout, listenerTTL, sweepInterval := DefaultHandlerTimeout, DefaultListenerTTL, DefaultSweepInterval
+	if cfg != nil {
+		listenerTTL = cfg.ListenerTTL
+		if cfg.HandlerTimeout > 0 {
+			handlerTimeout = cfg.HandlerTimeout
+		}
+		if cfg.SweepInterval > 0 {
+			sweepInterval = cfg.SweepInterval
+		}
+	}
+
 	nlm := &notificationListenerManager{
 		notifyClient:   notifyClient,
 		requestQueue:   make(chan *committerpb.NotificationRequest),  // Queue for outgoing requests to the committer
 		responseQueue:  make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
 		handlers:       make(map[driver.TxID]*handlerEntry),          // Map: txID -> listeners + local expiry deadline
-		handlerTimeout: DefaultHandlerTimeout,
-		listenerTTL:    DefaultListenerTTL,
-		sweepInterval:  DefaultSweepInterval,
+		handlerTimeout: handlerTimeout,
+		listenerTTL:    listenerTTL,
+		sweepInterval:  sweepInterval,
 	}
 
 	return nlm, nil

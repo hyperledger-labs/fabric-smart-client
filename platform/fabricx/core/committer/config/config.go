@@ -15,12 +15,38 @@ import (
 // DefaultRequestTimeout is the default timeout for gRPC requests.
 const DefaultRequestTimeout = 30 * time.Second
 
+// DefaultHandlerTimeout is the maximum time allowed for a finality listener
+// handler to complete. See finality.DefaultHandlerTimeout for the rationale.
+const DefaultHandlerTimeout = 5 * time.Second
+
+// DefaultListenerTTL bounds how long a finality listener may wait for a
+// notification that may never arrive. See finality.DefaultListenerTTL for the
+// rationale.
+const DefaultListenerTTL = 2 * time.Minute
+
+// DefaultSweepInterval is how often expired finality listener entries are
+// collected. See finality.DefaultSweepInterval for the rationale.
+const DefaultSweepInterval = 30 * time.Second
+
 // Config holds the configuration for the gRPC client.
 type Config struct {
 	// Endpoints is a list of gRPC endpoints to connect to.
 	Endpoints []Endpoint `yaml:"endpoints,omitempty"`
 	// RequestTimeout is the timeout for gRPC requests.
 	RequestTimeout time.Duration `yaml:"requestTimeout,omitempty"`
+	// HandlerTimeout is the maximum time allowed for a single finality listener
+	// OnStatus callback to run before it is abandoned. Only meaningful for the
+	// notification service. A value of zero falls back to DefaultHandlerTimeout.
+	HandlerTimeout time.Duration `yaml:"handlerTimeout,omitempty"`
+	// ListenerTTL bounds how long a finality listener may wait locally for a
+	// notification before being settled with Unknown. Only meaningful for the
+	// notification service. Explicitly setting it to zero disables local expiry;
+	// leaving it unset falls back to DefaultListenerTTL.
+	ListenerTTL time.Duration `yaml:"listenerTTL,omitempty"`
+	// SweepInterval is how often expired finality listener entries are
+	// collected. Only meaningful for the notification service. A value of zero
+	// falls back to DefaultSweepInterval.
+	SweepInterval time.Duration `yaml:"sweepInterval,omitempty"`
 }
 
 // Endpoint describes a single gRPC endpoint.
@@ -67,9 +93,16 @@ type ServiceBackend interface {
 
 // NewNotificationServiceConfig creates a new Config instance by unmarshaling the "notificationService" key
 // from the provided ServiceBackend. It returns an error if the unmarshaling fails.
+//
+// HandlerTimeout, ListenerTTL and SweepInterval are pre-seeded with their
+// defaults before unmarshaling, so a deployment that omits them keeps today's
+// behavior.
 func NewNotificationServiceConfig(configService ServiceBackend) (*Config, error) {
 	config := &Config{
 		RequestTimeout: DefaultRequestTimeout,
+		HandlerTimeout: DefaultHandlerTimeout,
+		ListenerTTL:    DefaultListenerTTL,
+		SweepInterval:  DefaultSweepInterval,
 	}
 
 	err := configService.UnmarshalKey("notificationService", &config)

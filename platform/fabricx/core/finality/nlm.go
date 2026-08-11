@@ -15,7 +15,6 @@ import (
 
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -275,8 +274,10 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 		TxStatusRequest: &committerpb.TxIDsBatch{
 			TxIds: txIDs,
 		},
-		// TODO: set a proper timeout
-		Timeout: durationpb.New(10 * time.Second),
+		// Timeout deliberately left unset: notify.proto has the committer apply
+		// its own configured default when this field is absent.
+		// The committer operator is in a better position to know
+		// the right timeout for their network than FSC's client code is
 	}
 
 	// Guard the send against a dead stream: once listen()'s errgroup context
