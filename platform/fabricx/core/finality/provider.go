@@ -112,21 +112,23 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 
 	key := network + ":" + channel
 
-	// 1. Check if manager already exists. Locked separately from the resolve/create
-	// steps below so that config resolution -- potentially expensive -- never runs
-	// while every other network/channel's NewManager call is blocked on managersMu.
-	p.managersMu.Lock()
-	if lm, ok := p.managers[key]; ok {
-		p.managersMu.Unlock()
-		logger.Debugf("manager is already created for %s", key)
-		return lm, nil
-	}
-	p.managersMu.Unlock()
-
-	// 2. Resolve the notification service config for this network.
+	// 1. Resolve the notification service config for this network. Deliberately
+	// done before acquiring managersMu: resolving configuration can be relatively
+	// expensive (a network round-trip in some ServiceConfigProvider
+	// implementations), and it must not be done while blocking every other
+	// network/channel's NewManager call.
 	cfg, err := p.resolveConfig(network)
 	if err != nil {
 		return nil, err
+	}
+
+	p.managersMu.Lock()
+	defer p.managersMu.Unlock()
+
+	// 2. Check if manager already exists
+	if lm, ok := p.managers[key]; ok {
+		logger.Debugf("manager is already created for %s", key)
+		return lm, nil
 	}
 
 	// 3. Create the concrete ListenerManager
@@ -135,23 +137,10 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 		return nil, err
 	}
 
-	p.managersMu.Lock()
-	defer p.managersMu.Unlock()
-
-	// 4. Another caller may have created (and registered) a manager for this
-	// same key while we were resolving config / constructing lm above -- the
-	// singleton-per-key guarantee is enforced here, not by serializing the
-	// whole method. Discard ours and return theirs rather than running two
-	// managers (and two listen() streams) for the same network/channel.
-	if existing, ok := p.managers[key]; ok {
-		logger.Debugf("manager is already created for %s, discarding redundant one", key)
-		return existing, nil
-	}
-
-	// 5. Register the newly created instance
+	// 4. Register the newly created instance
 	p.managers[key] = lm
 
-	// 6. Start listening in background
+	// 5. Start listening in background
 	// lm.listen() is a blocking method that establishes and maintains a stream connection
 	// to receive finality notifications.
 	go func() {
