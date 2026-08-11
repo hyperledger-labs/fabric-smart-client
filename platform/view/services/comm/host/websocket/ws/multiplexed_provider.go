@@ -253,9 +253,9 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.
 	// a protocol), so its lifetime must not be tied to the context of the call that happened
 	// to create it: cancelling that per-call context (e.g. on successful completion) would
 	// otherwise tear down the sub-connection out from under subsequent, unrelated calls that
-	// reuse the same stream. We only propagate the span for tracing purposes, same as
-	// newServerSubConn does for the server side.
-	return NewWSStream(sc, trace.ContextWithRemoteSpanContext(context.Background(), spanContext), info), nil
+	// reuse the same stream. We only propagate the span, as a local parent, for tracing
+	// purposes.
+	return NewWSStream(sc, trace.ContextWithSpanContext(context.Background(), spanContext), info), nil
 }
 
 func (c *multiplexedClientConn) readIncoming() {

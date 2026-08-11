@@ -7,78 +7,81 @@ SPDX-License-Identifier: Apache-2.0
 package pingpong
 
 import (
-	"context"
 	"fmt"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
-	view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-// PongView waits for a single ping and answers with a pong over the context's session.
+// PongView waits for a single message and, depending on what it is, either answers with a pong
+// (and reports it as having handled a ping) or reports that the protocol is over. It returns the
+// message it handled, leaving the decision on whether to keep going to the caller.
 type PongView struct {
 	session view.Session
 }
 
 func (p *PongView) Call(viewCtx view.Context) (any, error) {
-	session := p.session
+	ch := p.session.Receive()
 
-	// Read the message from the initiator
-	ch := session.Receive()
 	var payload []byte
 	select {
-	case msg := <-ch:
+	case msg, ok := <-ch:
+		if !ok {
+			return nil, errors.Errorf("session [%s] closed while waiting for the next message", p.session.Info().ID)
+		}
+		if msg.Status == view.ERROR {
+			return nil, errors.Errorf("initiator failed: %s", string(msg.Payload))
+		}
 		payload = msg.Payload
 	case <-viewCtx.Context().Done():
-		return nil, viewCtx.Context().Err()
-	case <-time.After(5 * time.Second):
-		return nil, errors.New("time out reached")
+		return nil, errors.Wrap(viewCtx.Context().Err(), "no message received in time")
 	}
 
-	// Respond with a pong if a ping is received, an error otherwise
-	m := string(payload)
-	if m != "ping" {
-		// reply with an error
-		err := session.SendErrorWithContext(viewCtx.Context(), fmt.Appendf(nil, "expected ping, got %s", m))
-		assert.NoError(err)
-		return nil, errors.Errorf("expected ping, got %s", m)
+	switch m := string(payload); m {
+	case pingMessage:
+		logger.DebugfContext(viewCtx.Context(), "%s received, send %s", pingMessage, pongMessage)
+		if err := p.session.SendWithContext(viewCtx.Context(), []byte(pongMessage)); err != nil {
+			return nil, errors.Wrapf(err, "failed to send %s", pongMessage)
+		}
+		return m, nil
+	case finishedMessage:
+		logger.DebugfContext(viewCtx.Context(), "%s received, nothing to answer", finishedMessage)
+		return m, nil
+	default:
+		sendErr := p.session.SendErrorWithContext(viewCtx.Context(), fmt.Appendf(nil, "expected %s or %s, got %s", pingMessage, finishedMessage, m))
+		return nil, errors.Join(errors.Errorf("expected %s or %s, got %s", pingMessage, finishedMessage, m), sendErr)
 	}
-
-	logger.Infof("ping received, send pong...")
-	// reply with pong
-	err := session.SendWithContext(viewCtx.Context(), []byte("pong"))
-	assert.NoError(err)
-
-	return nil, nil
 }
 
-func pong(viewCtx view.Context, session view.Session) (any, error) {
-	ctx, cancel := context.WithTimeout(viewCtx.Context(), 10*time.Minute)
-	runCtx := view2.WrapContext(viewCtx, ctx)
-	defer func() {
-		logger.Infof("call cancel on view context [%s:%s]", runCtx.ID(), viewCtx.ID())
-		cancel()
-	}()
-
-	return runCtx.RunView(&PongView{
-		session: session,
-	})
+func pong(viewCtx view.Context, session view.Session) (string, error) {
+	res, err := runRound(viewCtx, &PongView{session: session})
+	if err != nil {
+		return "", err
+	}
+	m, ok := res.(string)
+	if !ok {
+		return "", errors.Errorf("unexpected result [%v] of type [%T] from the pong view", res, res)
+	}
+	return m, nil
 }
 
+// Responder answers pings with pongs until the initiator signals that the protocol is over.
 type Responder struct{}
 
 func (p *Responder) Call(viewCtx view.Context) (any, error) {
-	// Retrieve the session opened by the initiator
 	session := viewCtx.Session()
-
-	for range 3 {
-		if _, err := pong(viewCtx, session); err != nil {
-			return nil, err
-		}
+	if session == nil {
+		return nil, errors.New("no default session, the responder must be invoked by an initiator")
 	}
 
-	// Return
-	return "OK", nil
+	for round := 0; ; round++ {
+		m, err := pong(viewCtx, session)
+		if err != nil {
+			return nil, errors.Wrapf(err, "pong round [%d] failed", round+1)
+		}
+		if m == finishedMessage {
+			logger.DebugfContext(viewCtx.Context(), "initiator finished after [%d] rounds", round)
+			return "OK", nil
+		}
+	}
 }

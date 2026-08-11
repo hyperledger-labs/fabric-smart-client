@@ -319,10 +319,10 @@ func (cm *Manager) DeleteContext(contextID string) {
 	cm.contextsMu.Lock()
 	defer cm.contextsMu.Unlock()
 
-	logger.Debugf("deleting context [%s]\n", contextID)
+	logger.Debugf("deleting context [%s]", contextID)
 	// dispose context
 	if viewCtx, ok := cm.contexts[contextID]; ok {
-		logger.Debugf("found, dispose context [%s]\n", contextID)
+		logger.Debugf("found, dispose context [%s]", contextID)
 		viewCtx.Dispose()
 		delete(cm.contexts, contextID)
 		cm.metrics.Contexts.Set(float64(len(cm.contexts)))

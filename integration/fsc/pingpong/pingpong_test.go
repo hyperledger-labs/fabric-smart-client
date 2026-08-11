@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package pingpong_test
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 	"time"
@@ -67,14 +66,14 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			initiatorWebClient, err := client2.NewClient(webClientConfig)
 			Expect(err).NotTo(HaveOccurred())
-			res, err := initiatorWebClient.CallView("init", bytes.NewBuffer([]byte("hi")).Bytes())
+			res, err := initiatorWebClient.CallView("init", common.JSONMarshall(&pingpong.Params{Rounds: 5}))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 
 			webClientConfig.TLSCertPath = ""
 			initiatorWebClient, err = client2.NewClient(webClientConfig)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = initiatorWebClient.CallView("init", bytes.NewBuffer([]byte("hi")).Bytes())
+			_, err = initiatorWebClient.CallView("init", common.JSONMarshall(&pingpong.Params{Rounds: 5}))
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("status code [401], status [401 Unauthorized]"))
 		})

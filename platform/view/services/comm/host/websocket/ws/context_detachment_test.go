@@ -8,6 +8,7 @@ package ws
 
 import (
 	"context"
+	"crypto/tls"
 	"strings"
 	"testing"
 	"time"
@@ -55,15 +56,30 @@ func subConnCount(c *multiplexedClientConn) int {
 	return len(c.subConns)
 }
 
-// isClosedChan reports whether ch has been closed (a closed channel yields the zero value with
-// ok=false immediately; a non-empty or open channel does not).
+// isClosedChan reports whether ch has been closed. receiverChan is buffered (cap 100), so a
+// closed channel that still holds buffered items yields ok=true until drained - this drains ch
+// until it observes ok=false (closed) or would block (open). Only safe to call once nothing else
+// may still be consuming from ch, e.g. after the owning subConn has been closed; for a live
+// subConn, use subConnIsClosed instead, which doesn't consume anything.
 func isClosedChan[T any](ch <-chan T) bool {
-	select {
-	case _, ok := <-ch:
-		return !ok
-	default:
-		return false
+	for {
+		select {
+		case _, ok := <-ch:
+			if !ok {
+				return true
+			}
+		default:
+			return false
+		}
 	}
+}
+
+// subConnIsClosed non-destructively reports whether sc has been closed, without reading from its
+// channels - safe to call on a subConn that may still be in use.
+func subConnIsClosed(sc *subConn) bool {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	return sc.isClosed
 }
 
 // requireSubConnResourcesReleased asserts that a closed subConn's own resources - not just its
@@ -84,14 +100,34 @@ func requirePhysicalConnClosed(t *testing.T, conn *multiplexedClientConn) {
 	require.Error(t, err, "physical connection must be closed")
 }
 
+// requirePhysicalConnAlive proves that the physical connection underlying conn - and the server
+// on the other end of it - both survived a single sub-connection's Close(), by opening a brand
+// new sub-connection through the public API (it targets the same URL as info, so it reuses the
+// cached physical connection) and running a real ping/pong round-trip over it against the
+// existing echoPingPong callback.
+func requirePhysicalConnAlive(t *testing.T, p *MultiplexedProvider, info host.StreamInfo, srcID host.PeerID, clientTLSConfig *tls.Config) {
+	t.Helper()
+	probeInfo := info
+	probeInfo.SessionID = info.SessionID + "-probe"
+	probe, err := p.NewClientStream(probeInfo, context.Background(), srcID, clientTLSConfig)
+	require.NoError(t, err, "physical connection must stay open after a single sub-connection closes")
+	defer func() { _ = probe.Close() }()
+
+	require.NoError(t, sendMsg(probe, []byte("ping")))
+	answer, err := readMsg(probe)
+	require.NoError(t, err)
+	require.Equal(t, []byte("pong"), answer)
+}
+
 // TestMultiplexedClientSubConnSurvivesCallerContextCancellation is a regression test for the
-// pingpong integration test failure: both initiator.go's ping() and responder.go's pong() wrap
-// each protocol round in its own context.WithTimeout, cancelled via `defer cancel()` as soon as
-// that round's RunView returns. Since the client sub-connection is cached and reused across
-// rounds - including when the responder itself needs to open a fresh outgoing stream to reply
-// (e.g. after a cache miss in sendTo) - cancelling that per-call context must NOT tear down the
-// sub-connection, from either call site. Otherwise round 2 fails as soon as round 1's context is
-// cancelled. This verifies both halves of the fix in newClientSubConn:
+// pingpong integration test failure: initiator.go's ping()/finish() and responder.go's pong(),
+// all funneled through the shared runRound helper, wrap each protocol round in its own
+// context.WithTimeout, cancelled via `defer cancel()` as soon as that round's RunView returns.
+// Since the client sub-connection is cached and reused across rounds - including when the
+// responder itself needs to open a fresh outgoing stream to reply (e.g. after a cache miss in
+// sendTo) - cancelling that per-call context must NOT tear down the sub-connection, from any
+// call site. Otherwise round 2 fails as soon as round 1's context is cancelled. This verifies
+// both halves of the fix in newClientSubConn:
 //  1. the underlying stream's own context is decoupled from the caller's context (so cancelling
 //     the caller's context does not close the stream), and
 //  2. once the stream IS closed through a legitimate path (explicit Close()), everything is
@@ -144,8 +180,7 @@ func TestMultiplexedClientSubConnSurvivesCallerContextCancellation(t *testing.T)
 
 	// The stream must not have picked up the cancellation of the (now unrelated) caller context.
 	require.NoError(t, st.ctx.Err(), "stream context must be decoupled from the caller's context")
-	require.False(t, isClosedChan(sc.done), "subConn resources must not be released by caller context cancellation")
-	require.False(t, isClosedChan(sc.receiverChan), "subConn resources must not be released by caller context cancellation")
+	require.False(t, subConnIsClosed(sc), "subConn resources must not be released by caller context cancellation")
 
 	// The sub-connection must still be tracked and fully usable for a subsequent round.
 	require.Equal(t, 1, subConnCount(conn))
@@ -163,8 +198,7 @@ func TestMultiplexedClientSubConnSurvivesCallerContextCancellation(t *testing.T)
 
 	// The physical websocket/TCP connection is shared by all sub-connections, so closing just
 	// this one must NOT close it - only KillAll (or the peer/connection erroring out) may.
-	require.NoError(t, conn.write(MultiplexedMessage{ID: "still-alive-probe", Msg: []byte("x")}),
-		"physical connection must stay open after a single sub-connection closes")
+	requirePhysicalConnAlive(t, p, info, srcID, clientTLSConfig)
 
 	require.NoError(t, p.KillAll())
 	p.mu.RLock()
@@ -222,8 +256,7 @@ func TestMultiplexedClientSubConnCleanupViaKillAllAfterCallerContextCancellation
 	cancel()
 	time.Sleep(snoozeTime)
 	require.Equal(t, 1, subConnCount(conn), "sub-connection must survive caller context cancellation")
-	require.False(t, isClosedChan(sc.done), "subConn resources must not be released by caller context cancellation")
-	require.False(t, isClosedChan(sc.receiverChan), "subConn resources must not be released by caller context cancellation")
+	require.False(t, subConnIsClosed(sc), "subConn resources must not be released by caller context cancellation")
 
 	// Tear everything down top-down, without ever calling client.Close() directly.
 	require.NoError(t, p.KillAll())
