@@ -12,8 +12,6 @@ import (
 
 	"github.com/hyperledger/fabric-chaincode-go/v2/shim"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
-
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/ccaas/serve"
 )
 
 type Chaincode struct{}
@@ -30,7 +28,13 @@ func (t *Chaincode) Invoke(stub shim.ChaincodeStubInterface) *pb.Response {
 }
 
 func main() {
-	if err := serve.Serve(&Chaincode{}); err != nil {
+	server := &shim.ChaincodeServer{
+		CCID:     os.Getenv("CHAINCODE_ID"),
+		Address:  os.Getenv("CHAINCODE_SERVER_ADDRESS"),
+		CC:       &Chaincode{},
+		TLSProps: shim.TLSProperties{Disabled: true},
+	}
+	if err := server.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "Exiting chaincode: %s", err)
 		os.Exit(2)
 	}

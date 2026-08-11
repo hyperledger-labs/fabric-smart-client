@@ -8,7 +8,6 @@ package network
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/onsi/gomega"
@@ -17,39 +16,16 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 )
 
-// ChaincodeDeployer deploys a chaincode to the network. Implementations are
-// selected per chaincode (see deployerFor).
-type ChaincodeDeployer interface {
-	Deploy(n *Network, cc *topology.ChannelChaincode)
-	Cleanup() error
-}
-
-// deployerFor selects the deployer for cc: legacy when forced by env or by the
-// chaincode's Deploy field, otherwise the default CCaaS deployer.
-func (n *Network) deployerFor(cc *topology.ChannelChaincode) ChaincodeDeployer {
-	if os.Getenv("FSC_CHAINCODE_DEPLOY") == "legacy" || cc.Chaincode.Deploy == "legacy" {
-		return n.legacyDeployer
-	}
-	return n.ccaasDeployer
-}
-
-// ---- legacy deployer: today's source-packaging path, moved verbatim ----
-
-type legacyDeployer struct{}
-
-func (d *legacyDeployer) Cleanup() error { return nil }
-
-func (d *legacyDeployer) Deploy(n *Network, chaincode *topology.ChannelChaincode) {
+// deployLegacy packages the chaincode's Go source and lets the peer build it
+// in a ccenv-derived container.
+func (n *Network) deployLegacy(chaincode *topology.ChannelChaincode) {
 	orderer := n.Orderer("orderer")
 	peers := n.PeersForChaincodeByName(chaincode.Peers)
 
 	if len(chaincode.Chaincode.PackageFile) == 0 {
-		if len(chaincode.Path) != 0 {
-			chaincodePath := n.Builder.Build(chaincode.Path)
-			chaincode.Chaincode.Path = chaincodePath
-			chaincode.Chaincode.Lang = "binary"
-		}
-		chaincode.Chaincode.PackageFile = filepath.Join(n.Context.RootDir(), n.Prefix, chaincode.Chaincode.Name+chaincode.Chaincode.Version+".tar.gz")
+		chaincode.Chaincode.PackageFile = filepath.Join(
+			n.Context.RootDir(), n.Prefix,
+			chaincode.Chaincode.Name+chaincode.Chaincode.Version+".tar.gz")
 	}
 
 	PackageAndInstallChaincode(n, &chaincode.Chaincode, peers...)
@@ -65,25 +41,8 @@ func (d *legacyDeployer) Deploy(n *Network, chaincode *topology.ChannelChaincode
 	if chaincode.Chaincode.InitRequired {
 		InitChaincode(n, chaincode.Channel, orderer, &chaincode.Chaincode, peers...)
 	}
-	// add new chaincode to the topology
 	n.topology.AddChaincode(chaincode)
 }
-
-// ---- ccaas deployer: default path ----
-
-type ccaasDeployer struct {
-	containers *ccaas.ContainerManager
-}
-
-func newCCaaSDeployer() (*ccaasDeployer, error) {
-	cm, err := ccaas.NewContainerManager()
-	if err != nil {
-		return nil, err
-	}
-	return &ccaasDeployer{containers: cm}, nil
-}
-
-func (d *ccaasDeployer) Cleanup() error { return d.containers.StopAll() }
 
 // orgGroup is one organization's slice of a CCaaS deployment: the peers that
 // share a chaincode server, and the MSP ID that server declares.
@@ -113,24 +72,16 @@ func orgPeerGroups(peers []*topology.Peer, mspidOf func(org string) string) []or
 	return groups
 }
 
-func (d *ccaasDeployer) Deploy(n *Network, chaincode *topology.ChannelChaincode) {
+// deployCCaaS runs one chaincode server container per organization and hands
+// each org's peers a ccaas package pointing at its own server.
+func (n *Network) deployCCaaS(chaincode *topology.ChannelChaincode) {
 	cc := &chaincode.Chaincode
 
-	// 1. resolve extension (default = docker inspect + fail-fast)
-	ext := resolveExtension(cc)
+	gomega.Expect(ccaas.EnsureImagePresent(cc.Image)).To(gomega.Succeed())
 
-	// 2. ensure the image once, before any container is started
-	gomega.Expect(ext.EnsureImage(cc)).To(gomega.Succeed())
-
-	// 3. extra env and mounts are chaincode-level, so every org's server shares them
-	env, mounts, err := ext.ContainerEnv(cc)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	ccMounts := make([]ccaas.Mount, len(mounts))
-	copy(ccMounts, mounts)
-
-	// 4. one server per organization. Chaincode that calls shim.GetMSPID reads
-	// CORE_PEER_LOCALMSPID, an org-level fact, so peers of different orgs cannot
-	// share a server.
+	// One server per organization. Chaincode that calls shim.GetMSPID reads
+	// CORE_PEER_LOCALMSPID, an org-level fact, so peers of different orgs
+	// cannot share a server.
 	peers := n.PeersForChaincodeByName(chaincode.Peers)
 	groups := orgPeerGroups(peers, func(org string) string { return n.Organization(org).MSPID })
 	gomega.Expect(groups).NotTo(gomega.BeEmpty(), "chaincode [%s] has no peers", cc.Name)
@@ -141,11 +92,12 @@ func (d *ccaasDeployer) Deploy(n *Network, chaincode *topology.ChannelChaincode)
 		port := n.Context.ReservePort()
 		address := fmt.Sprintf("127.0.0.1:%d", port)
 
-		// each org's connection.json holds a different address, hence a different
-		// package id; fabric treats the package id as org-local.
+		// Each org's connection.json holds a different address, hence a
+		// different package id; fabric treats the package id as org-local.
 		pkgFile := filepath.Join(n.Context.RootDir(), n.Prefix, "ccaas",
 			fmt.Sprintf("%s%s-%s.tar.gz", cc.Name, cc.Version, g.Org))
-		gomega.Expect(ccaas.BuildPackage(pkgFile, cc.Label, ccaas.Connection{Address: address, DialTimeout: "10s"})).To(gomega.Succeed())
+		gomega.Expect(ccaas.BuildPackage(pkgFile, cc.Label,
+			ccaas.Connection{Address: address, DialTimeout: "10s"})).To(gomega.Succeed())
 
 		orgCC := *cc
 		orgCC.PackageFile = pkgFile
@@ -155,7 +107,7 @@ func (d *ccaasDeployer) Deploy(n *Network, chaincode *topology.ChannelChaincode)
 		if len(shortID) > 8 {
 			shortID = shortID[len(shortID)-8:]
 		}
-		gomega.Expect(d.containers.Start(ccaas.ContainerSpec{
+		gomega.Expect(n.containerManager().Start(ccaas.ContainerSpec{
 			Name:          fmt.Sprintf("%s-cc-%s-%s-%s", n.NetworkID, cc.Label, g.Org, shortID),
 			Image:         cc.Image,
 			NetworkID:     n.NetworkID,
@@ -163,8 +115,6 @@ func (d *ccaasDeployer) Deploy(n *Network, chaincode *topology.ChannelChaincode)
 			CCID:          orgCC.PackageID,
 			ServerAddress: fmt.Sprintf("0.0.0.0:%d", port),
 			MSPID:         g.MSPID,
-			Env:           env,
-			Mounts:        ccMounts,
 		})).To(gomega.Succeed())
 
 		InstallChaincode(n, &orgCC, g.Peers...)
@@ -172,30 +122,20 @@ func (d *ccaasDeployer) Deploy(n *Network, chaincode *topology.ChannelChaincode)
 		orgCCs = append(orgCCs, &orgCC)
 	}
 
-	// 5. commit is network-wide and carries no package id
+	// Commit is network-wide and carries no package id.
 	CheckCommitReadinessUntilReady(n, chaincode.Channel, cc, n.PeerOrgsByPeers(peers), peers...)
 	CommitChaincode(n, chaincode.Channel, orderer, cc, peers[0], peers...)
 	for i, g := range groups {
 		for _, peer := range g.Peers {
-			QueryInstalledReferences(n, chaincode.Channel, cc.Label, orgCCs[i].PackageID, peer, []string{cc.Name, cc.Version})
+			QueryInstalledReferences(n, chaincode.Channel, cc.Label, orgCCs[i].PackageID,
+				peer, []string{cc.Name, cc.Version})
 		}
 	}
 	if cc.InitRequired {
 		InitChaincode(n, chaincode.Channel, orderer, cc, peers...)
 	}
 
-	// there is no single package id any more; keep the first org's so the stored
-	// topology carries valid values rather than a stale or empty string.
-	cc.PackageFile = orgCCs[0].PackageFile
-	cc.PackageID = orgCCs[0].PackageID
+	// No package id is written back to cc: there is no single value under
+	// CCaaS, and nothing reads the field after deploy.
 	n.topology.AddChaincode(chaincode)
-}
-
-func resolveExtension(cc *topology.Chaincode) ccaas.ChaincodeExtension {
-	if cc.Extension != nil {
-		if ext, ok := cc.Extension.(ccaas.ChaincodeExtension); ok {
-			return ext
-		}
-	}
-	return ccaas.DefaultExtension{Inspect: ccaas.DockerImageInspector}
 }

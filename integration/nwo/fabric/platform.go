@@ -120,14 +120,22 @@ func ccaasBuilderPath() (string, bool) {
 	return p, true
 }
 
-// topologyNeedsCCEnv reports whether any chaincode uses the legacy deployer, in
-// which case peers must build source packages and need the ccenv image.
-func topologyNeedsCCEnv(t *topology.Topology) bool {
-	if os.Getenv("FSC_CHAINCODE_DEPLOY") == "legacy" {
-		return true
-	}
+// topologyHasLegacyChaincode reports whether any chaincode is packaged from
+// source, in which case peers build it themselves and need the ccenv image.
+func topologyHasLegacyChaincode(t *topology.Topology) bool {
 	for _, cc := range t.Chaincodes {
-		if cc.Chaincode.Deploy == "legacy" {
+		if !cc.Chaincode.IsCCaaS() {
+			return true
+		}
+	}
+	return false
+}
+
+// topologyHasCCaaSChaincode reports whether any chaincode is deployed as a
+// container, in which case peers need the ccaas external builder.
+func topologyHasCCaaSChaincode(t *topology.Topology) bool {
+	for _, cc := range t.Chaincodes {
+		if cc.Chaincode.IsCCaaS() {
 			return true
 		}
 	}
@@ -148,17 +156,17 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 
 	if path, ok := ccaasBuilderPath(); ok {
 		n.ExternalBuilders = append(n.ExternalBuilders, fabricconfig.ExternalBuilder{
-			Name:                 "ccaas",
-			Path:                 path,
-			PropagateEnvironment: []string{"CHAINCODE_ID"},
+			Name: "ccaas",
+			Path: path,
 		})
 	} else {
-		gomega.Expect(topologyNeedsCCEnv(t.(*topology.Topology))).To(gomega.BeTrue(),
-			"ccaas external builder not found next to FAB_BINS; set FAB_BINS to a fabric distribution that ships builders/ccaas, or force the legacy deployer")
+		gomega.Expect(topologyHasCCaaSChaincode(t.(*topology.Topology))).To(gomega.BeFalse(),
+			"ccaas external builder not found next to FAB_BINS; set FAB_BINS to a "+
+				"fabric distribution that ships builders/ccaas")
 	}
 
-	requiredImages := []string{}
-	if topologyNeedsCCEnv(t.(*topology.Topology)) {
+	var requiredImages []string
+	if topologyHasLegacyChaincode(t.(*topology.Topology)) {
 		requiredImages = append(requiredImages, CCEnvDefaultImage)
 	}
 
@@ -240,9 +248,10 @@ func (p *Platform) DeleteVault(id string) {
 	}
 }
 
-// UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
-func (p *Platform) UpdateChaincode(chaincodeId, version, path, packageFile string) {
-	p.Network.UpdateChaincode(chaincodeId, version, path, packageFile)
+// UpdateChaincode redeploys an existing namespace at a new version. Fields
+// none of opts touches carry over from the current definition.
+func (p *Platform) UpdateChaincode(name, version string, opts ...topology.NamespaceOption) {
+	p.Network.UpdateChaincode(name, version, opts...)
 }
 
 func (p *Platform) DefaultIdemixOrgMSPDir() string {

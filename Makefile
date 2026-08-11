@@ -51,6 +51,11 @@ install-fabricx-tools: ## Install fxconfig in $(FAB_BINS)
 .PHONY: install-fabric-bins
 install-fabric-bins: ## Install fabric binaries in $(FABRIC_BINARY_BASE)
 	./ci/scripts/download_fabric.sh $(FABRIC_BINARY_BASE) $(FABRIC_VERSION)
+	@test -x $(FABRIC_BINARY_BASE)/builders/ccaas/bin/build || { \
+	  echo "==> $(FABRIC_BINARY_BASE)/builders/ccaas is missing."; \
+	  echo "    Fabric $(FABRIC_VERSION) ships it; remove the directory and re-run."; \
+	  exit 1; \
+	}
 
 .PHONY: install-softhsm
 install-softhsm: ## Install softhsm
@@ -87,21 +92,12 @@ generate-mocks: ## Delete all counterfeiter mock folders and regenerate via go g
 .PHONY: pull-images-fabric fabric-baseos fabric-ccenv
 pull-images-fabric: fabric-baseos fabric-ccenv ## Pull fabric images
 
-# image-name : dockerfile-dir (build context is always the repo root)
-CHAINCODE_IMAGES := \
-	fsc-cc/base:integration/nwo/fabric/chaincode/base \
-	fsc-cc/events:integration/fabric/events/chaincode \
-	fsc-cc/events2:integration/fabric/events/chaincode2 \
-	fsc-cc/atsachaincode:integration/fabric/atsachaincode/chaincode \
-	fsc-cc/state-query:platform/fabric/services/state/cc/query
-
 .PHONY: chaincode-images
-chaincode-images: ## Build container images for the in-tree test chaincodes (CCaaS)
-	@for spec in $(CHAINCODE_IMAGES); do \
-		name=$${spec%%:*}; dir=$${spec#*:}; \
-		echo "==> building $$name:latest from $$dir/Dockerfile"; \
-		DOCKER_BUILDKIT=1 docker build -t $$name:latest -f $$dir/Dockerfile . || exit 1; \
-	done
+chaincode-images: ## Build container images for the in-tree CCaaS chaincodes
+	@grep -vE '^\s*(#|$$)' scripts/chaincode/images.txt | \
+	  while read -r image module pkg; do \
+	    scripts/chaincode/build-image.sh "$$image" "$$module" "$$pkg" || exit 1; \
+	  done
 
 .PHONY: pull-images-fabricx fabric-x-committer-test-node
 pull-images-fabricx: fabric-x-committer-test-node ## Pull fabric-x images

@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/ccaas"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/commands"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/fabricconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/packager"
@@ -82,10 +83,9 @@ type Network struct {
 	Extensions      []Extension
 	PackagerFactory PackagerFactory
 
-	colorIndex     uint
-	ccps           []ChaincodeProcessor
-	ccaasDeployer  ChaincodeDeployer
-	legacyDeployer ChaincodeDeployer
+	colorIndex uint
+	ccps       []ChaincodeProcessor
+	containers *ccaas.ContainerManager
 }
 
 func New(reg api.Context, topology *topology.Topology, builderClient BuilderClient, ccps []ChaincodeProcessor, NetworkID string) *Network {
@@ -129,12 +129,19 @@ func New(reg api.Context, topology *topology.Topology, builderClient BuilderClie
 		},
 	}
 
-	network.legacyDeployer = &legacyDeployer{}
-	cc, err := newCCaaSDeployer()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	network.ccaasDeployer = cc
-
 	return network
+}
+
+// containerManager creates the docker-backed manager on first use. It is
+// built lazily so that constructing a Network makes no assertions and
+// networks that never deploy CCaaS chaincode never create a docker client.
+func (n *Network) containerManager() *ccaas.ContainerManager {
+	if n.containers == nil {
+		cm, err := ccaas.NewContainerManager()
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		n.containers = cm
+	}
+	return n.containers
 }
 
 func (n *Network) GenerateConfigTree() {
@@ -251,62 +258,60 @@ func (n *Network) PostRun(load bool) {
 	logger.Infof("Post execution [%s]...done.", n.Prefix)
 }
 
-func (n *Network) Cleanup() {
-	if n.ccaasDeployer != nil {
-		if err := n.ccaasDeployer.Cleanup(); err != nil {
-			logger.Errorf("ccaas deployer cleanup failed: %v", err)
-		}
+func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
+	if chaincode.Chaincode.IsCCaaS() {
+		n.deployCCaaS(chaincode)
+		return
 	}
-	if n.legacyDeployer != nil {
-		_ = n.legacyDeployer.Cleanup()
-	}
+	n.deployLegacy(chaincode)
 }
 
-func (n *Network) DeployChaincode(chaincode *topology.ChannelChaincode) {
-	n.deployerFor(chaincode).Deploy(n, chaincode)
+func (n *Network) Cleanup() {
+	if n.containers == nil {
+		return
+	}
+	if err := n.containers.StopAll(); err != nil {
+		logger.Errorf("chaincode container cleanup failed: %v", err)
+	}
 }
 
 func (n *Network) AddExtension(ex Extension) {
 	n.Extensions = append(n.Extensions, ex)
 }
 
-// UpdateChaincode deploys the new version of the chaincode passed by chaincodeId
-func (n *Network) UpdateChaincode(chaincodeId, version, path, packageFile string) {
+// UpdateChaincode redeploys an existing namespace at a new version. Fields no
+// option touches carry over from the current definition.
+func (n *Network) UpdateChaincode(name, version string, opts ...topology.NamespaceOption) {
 	var cc *topology.ChannelChaincode
 	for _, chaincode := range n.topology.Chaincodes {
-		if chaincode.Chaincode.Name == chaincodeId {
+		if chaincode.Chaincode.Name == name {
 			cc = chaincode
 			break
 		}
 	}
-	gomega.Expect(cc).ToNot(gomega.BeNil(), "failed to find chaincode [%s]", chaincodeId)
+	gomega.Expect(cc).ToNot(gomega.BeNil(), "failed to find chaincode [%s]", name)
 
+	n.DeployChaincode(nextChaincode(cc, version, opts...))
+}
+
+// nextChaincode copies cc at the next sequence and version, clears the
+// package identity, then applies the options.
+func nextChaincode(
+	cc *topology.ChannelChaincode, version string, opts ...topology.NamespaceOption,
+) *topology.ChannelChaincode {
 	seq, err := strconv.Atoi(cc.Chaincode.Sequence)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "failed to parse chaincode sequence [%s]", cc.Chaincode.Sequence)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(),
+		"failed to parse chaincode sequence [%s]", cc.Chaincode.Sequence)
 
-	newCC := &topology.ChannelChaincode{
-		Chaincode: topology.Chaincode{
-			Name:            cc.Chaincode.Name,
-			Version:         version,
-			Sequence:        strconv.Itoa(seq + 1),
-			InitRequired:    cc.Chaincode.InitRequired,
-			Path:            path,
-			Lang:            cc.Chaincode.Lang,
-			Label:           cc.Chaincode.Name,
-			Ctor:            cc.Chaincode.Ctor,
-			Policy:          cc.Chaincode.Policy,
-			SignaturePolicy: cc.Chaincode.SignaturePolicy,
-			Image:           topology.ImageForPath(path),
-			Deploy:          cc.Chaincode.Deploy,
-			Extension:       cc.Chaincode.Extension,
-		},
-		Channel: cc.Channel,
-		Peers:   cc.Peers,
-	}
-	if len(packageFile) != 0 {
-		newCC.Chaincode.PackageFile = packageFile
-	}
-	n.DeployChaincode(newCC)
+	next := *cc
+	next.Chaincode.Version = version
+	next.Chaincode.Sequence = strconv.Itoa(seq + 1)
+	next.Chaincode.PackageID = ""
+	next.Chaincode.PackageFile = ""
+
+	topology.ApplyOptions(&next, opts...)
+
+	return &next
 }
 
 func (n *Network) OrdererJoinChannel(channelID string, orderer *topology.Orderer) {

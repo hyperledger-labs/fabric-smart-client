@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/twonets/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
@@ -19,12 +20,12 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 	f1Topology := fabric.NewTopologyWithName("alpha").SetDefault()
 	f1Topology.AddOrganizationsByName("Org1", "Org2")
 	f1Topology.SetNamespaceApproverOrgs("Org1")
-	f1Topology.AddNamespaceWithUnanimity("ns1", "Org1")
+	f1Topology.AddNamespace("ns1", topology.Unanimity("Org1"))
 
 	f2Topology := fabric.NewTopologyWithName("beta")
 	f2Topology.AddOrganizationsByName("Org3", "Org4")
 	f2Topology.SetNamespaceApproverOrgs("Org3")
-	f2Topology.AddNamespaceWithUnanimity("ns2", "Org3")
+	f2Topology.AddNamespace("ns2", topology.Unanimity("Org3"))
 
 	// Define an FSC topology with 2 FCS nodes.
 	fscTopology := fsc.NewTopology()

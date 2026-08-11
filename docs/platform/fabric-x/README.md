@@ -249,7 +249,7 @@ type Topology() []*api.Topology {
 	// set the namespace creation policy to Org1
 	fxTopo.SetNamespaceApproverOrgs("Org1")
 	// define a namespace named "iou" with Org1 as endorser/approver
-	fxTopo.AddNamespaceWithUnanimity("iou", "Org1")
+	fxTopo.AddNamespace("iou", topology.Unanimity("Org1"))
 	
 	fscTopo := fsc.NewTopology()
 	// register fabricx SDK

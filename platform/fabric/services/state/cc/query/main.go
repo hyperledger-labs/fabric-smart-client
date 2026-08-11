@@ -57,21 +57,8 @@ func (cc *CC) Invoke(stub shim.ChaincodeStubInterface) *pb.Response {
 }
 
 func main() {
-	cc := &CC{}
-	if ccid, addr := os.Getenv("CHAINCODE_ID"), os.Getenv("CHAINCODE_SERVER_ADDRESS"); ccid != "" && addr != "" {
-		server := &shim.ChaincodeServer{
-			CCID:     ccid,
-			Address:  addr,
-			CC:       cc,
-			TLSProps: shim.TLSProperties{Disabled: true},
-		}
-		if err := server.Start(); err != nil {
-			fmt.Fprintf(os.Stderr, "Exiting chaincode: %s", err)
-			os.Exit(2)
-		}
-		return
-	}
-	if err := shim.Start(cc); err != nil {
+	err := shim.Start(&CC{})
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Exiting chaincode: %s", err)
 		os.Exit(2)
 	}

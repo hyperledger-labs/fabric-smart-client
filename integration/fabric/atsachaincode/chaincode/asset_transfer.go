@@ -15,9 +15,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/ccaas/serve"
 	"github.com/hyperledger/fabric-chaincode-go/v2/pkg/statebased"
 	"github.com/hyperledger/fabric-chaincode-go/v2/shim"
 	"github.com/hyperledger/fabric-contract-api-go/v2/contractapi"
@@ -576,7 +576,13 @@ func main() {
 		log.Panicf("Error create transfer asset chaincode: %v", err)
 	}
 
-	if err := serve.Serve(chaincode); err != nil {
+	server := &shim.ChaincodeServer{
+		CCID:     os.Getenv("CHAINCODE_ID"),
+		Address:  os.Getenv("CHAINCODE_SERVER_ADDRESS"),
+		CC:       chaincode,
+		TLSProps: shim.TLSProperties{Disabled: true},
+	}
+	if err := server.Start(); err != nil {
 		log.Panicf("Error starting asset chaincode: %v", err)
 	}
 }

@@ -44,12 +44,15 @@ func BuildPackage(outputFile, label string, conn Connection) error {
 		return errors.Wrapf(err, "failed to create package dir")
 	}
 
-	code, err := tarGz(map[string][]byte{"connection.json": mustJSON(conn)})
+	code, err := tarGz([]tarEntry{{Name: "connection.json", Data: mustJSON(conn)}})
 	if err != nil {
 		return errors.Wrapf(err, "failed to build code.tar.gz")
 	}
 	md := mustJSON(metadata{Type: "ccaas", Label: label})
-	pkg, err := tarGz(map[string][]byte{"metadata.json": md, "code.tar.gz": code})
+	pkg, err := tarGz([]tarEntry{
+		{Name: "metadata.json", Data: md},
+		{Name: "code.tar.gz", Data: code},
+	})
 	if err != nil {
 		return errors.Wrapf(err, "failed to build package")
 	}
@@ -59,15 +62,24 @@ func BuildPackage(outputFile, label string, conn Connection) error {
 	return nil
 }
 
-func tarGz(files map[string][]byte) ([]byte, error) {
+// tarEntry is one file in a tar.gz. Entries are written in slice order:
+// the package id is the hash of these bytes, so the order must not vary.
+type tarEntry struct {
+	Name string
+	Data []byte
+}
+
+func tarGz(files []tarEntry) ([]byte, error) {
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gw)
-	for name, data := range files {
-		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(data))}); err != nil {
+	for _, f := range files {
+		if err := tw.WriteHeader(&tar.Header{
+			Name: f.Name, Mode: 0o644, Size: int64(len(f.Data)),
+		}); err != nil {
 			return nil, err
 		}
-		if _, err := tw.Write(data); err != nil {
+		if _, err := tw.Write(f.Data); err != nil {
 			return nil, err
 		}
 	}

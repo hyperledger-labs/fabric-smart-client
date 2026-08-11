@@ -10,6 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 )
 
 func TestCCaaSBuilderPath(t *testing.T) {
@@ -47,4 +51,29 @@ func TestCCaaSBuilderPath(t *testing.T) {
 	if _, ok := ccaasBuilderPath(); ok {
 		t.Fatalf("expected not found when FAB_BINS is empty")
 	}
+}
+
+func TestTopologyPredicates(t *testing.T) { //nolint:paralleltest
+	ccaasOnly := &topology.Topology{Chaincodes: []*topology.ChannelChaincode{
+		{Chaincode: topology.Chaincode{Image: "fsc-cc/base:latest"}},
+	}}
+	require.True(t, topologyHasCCaaSChaincode(ccaasOnly))
+	require.False(t, topologyHasLegacyChaincode(ccaasOnly))
+
+	legacyOnly := &topology.Topology{Chaincodes: []*topology.ChannelChaincode{
+		{Chaincode: topology.Chaincode{Path: "github.com/acme/cc"}},
+	}}
+	require.False(t, topologyHasCCaaSChaincode(legacyOnly))
+	require.True(t, topologyHasLegacyChaincode(legacyOnly))
+
+	mixed := &topology.Topology{Chaincodes: []*topology.ChannelChaincode{
+		{Chaincode: topology.Chaincode{Image: "fsc-cc/base:latest"}},
+		{Chaincode: topology.Chaincode{Path: "github.com/acme/cc"}},
+	}}
+	require.True(t, topologyHasCCaaSChaincode(mixed))
+	require.True(t, topologyHasLegacyChaincode(mixed))
+
+	empty := &topology.Topology{}
+	require.False(t, topologyHasCCaaSChaincode(empty))
+	require.False(t, topologyHasLegacyChaincode(empty))
 }

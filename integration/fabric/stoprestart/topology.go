@@ -10,6 +10,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 )
@@ -18,7 +19,7 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 	// Fabric
 	fabricTopology := fabric.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2")
-	fabricTopology.AddNamespaceWithUnanimity("asset_transfer", "Org1", "Org2")
+	fabricTopology.AddNamespace("asset_transfer", topology.Unanimity("Org1", "Org2"))
 
 	// FSC
 	fscTopology := fsc.NewTopology()

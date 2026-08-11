@@ -11,6 +11,7 @@ import (
 	simpleviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
@@ -31,7 +32,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
 
-	fabricTopology.AddNamespace(Namespace, "AND('Org1MSP.member')")
+	fabricTopology.AddNamespace(Namespace, topology.Signature("AND('Org1MSP.member')"))
 
 	fscTopology := fsc.NewTopology()
 	fscTopology.P2PCommunicationType = commType

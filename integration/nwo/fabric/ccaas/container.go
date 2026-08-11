@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/moby/moby/api/types/container"
-	"github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/api/types/network"
 	dcli "github.com/moby/moby/client"
 
@@ -33,8 +32,6 @@ type ContainerSpec struct {
 	CCID          string
 	ServerAddress string // address the server binds inside the container, e.g. 0.0.0.0:<port>
 	MSPID         string // CORE_PEER_LOCALMSPID for the org this server endorses for
-	Env           []string
-	Mounts        []Mount
 }
 
 // ContainerManager tracks started chaincode containers so they can be removed.
@@ -61,11 +58,6 @@ func (m *ContainerManager) Start(spec ContainerSpec) error {
 
 	env := containerEnv(spec)
 
-	mounts := make([]mount.Mount, 0, len(spec.Mounts))
-	for _, mt := range spec.Mounts {
-		mounts = append(mounts, mount.Mount{Type: mount.TypeBind, Source: mt.Source, Target: mt.Target, ReadOnly: true})
-	}
-
 	resp, err := m.cli.ContainerCreate(ctx, dcli.ContainerCreateOptions{
 		Name: spec.Name,
 		Config: &container.Config{
@@ -77,7 +69,6 @@ func (m *ContainerManager) Start(spec ContainerSpec) error {
 			Env:          env,
 		},
 		HostConfig: &container.HostConfig{
-			Mounts:       mounts,
 			PortBindings: docker.PortBindings(port),
 		},
 		NetworkingConfig: &network.NetworkingConfig{
@@ -102,14 +93,13 @@ func (m *ContainerManager) Start(spec ContainerSpec) error {
 // containerEnv builds the chaincode server's environment. CORE_PEER_LOCALMSPID
 // is what shim.GetMSPID reads: chaincode that checks the endorsing peer's org
 // needs it, and the peer only injects it for chaincode it launches itself.
-// Caller-supplied vars come last so a chaincode extension can override.
 func containerEnv(spec ContainerSpec) []string {
-	return append([]string{
+	return []string{
 		"CHAINCODE_ID=" + spec.CCID,
 		"CHAINCODE_SERVER_ADDRESS=" + spec.ServerAddress,
 		"CHAINCODE_TLS=false",
 		"CORE_PEER_LOCALMSPID=" + spec.MSPID,
-	}, spec.Env...)
+	}
 }
 
 // StopAll force-removes all tracked containers, best-effort.
