@@ -18,11 +18,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
 )
 
@@ -31,9 +33,10 @@ import (
 //go:generate counterfeiter -o mock/notifier_grpc_client.go --fake-name NotifierClient github.com/hyperledger/fabric-x-common/api/committerpb.NotifierClient
 
 const (
-	tick      = 10 * time.Millisecond
-	timeout   = 1 * time.Second
-	shortWait = 100 * time.Millisecond
+	tick               = 10 * time.Millisecond
+	timeout            = 1 * time.Second
+	shortWait          = 100 * time.Millisecond
+	testRequestTimeout = 30 * time.Second
 )
 
 // mockListener is a helper to verify callbacks
@@ -128,10 +131,11 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_Open
 	// listenerTTL is deliberately left zero here, which disables local expiry, so
 	// the sweeper stays inert for every test that does not opt in.
 	nlm := &notificationListenerManager{
-		notifyClient:  fakeClient,
-		requestQueue:  make(chan *committerpb.NotificationRequest),
-		responseQueue: make(chan *committerpb.NotificationResponse),
-		handlers:      make(map[driver.TxID]*handlerEntry),
+		notifyClient:   fakeClient,
+		requestQueue:   make(chan *committerpb.NotificationRequest),
+		responseQueue:  make(chan *committerpb.NotificationResponse),
+		handlers:       make(map[driver.TxID]*handlerEntry),
+		requestTimeout: testRequestTimeout,
 	}
 
 	return nlm, fakeStream
@@ -365,6 +369,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		req := fakeStream.SendArgsForCall(0)
 		require.NotNil(t, req.GetTxStatusRequest())
 		require.Contains(t, req.GetTxStatusRequest().GetTxIds(), "tx_send_check")
+		require.Equal(t, durationpb.New(testRequestTimeout), req.GetTimeout(), "outbound request must carry requestTimeout so the committer can reply early")
 	})
 
 	t.Run("AddFinalityListener_Duplicate_Is_Rejected", func(t *testing.T) {
@@ -579,7 +584,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		// handlerTimeout must be non-zero here: invokeHandler derives the handler
 		// context from it, and a zero timeout would expire before OnStatus runs.
-		nlm.handlerTimeout = DefaultHandlerTimeout
+		nlm.handlerTimeout = config.DefaultHandlerTimeout
 
 		ctx, cancel := context.WithCancel(context.Background())
 		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
@@ -1055,7 +1060,7 @@ func setupSweepTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier
 	nlm.sweepInterval = testSweep
 	// setupTest leaves handlerTimeout zero, which would hand every listener an
 	// already-expired context; set it so the sweeper's callbacks are realistic.
-	nlm.handlerTimeout = DefaultHandlerTimeout
+	nlm.handlerTimeout = config.DefaultHandlerTimeout
 	return nlm, fakeStream
 }
 

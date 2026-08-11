@@ -15,34 +15,22 @@ import (
 
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 )
 
 var logger = logging.MustGetLogger()
 
-// DefaultHandlerTimeout is the maximum time allowed for a finality listener
-// handler to complete. If a handler exceeds this timeout, a warning is logged
-// and the handler is abandoned. Note: Handlers that ignore context cancellation
-// will leak goroutines, but this is preferable to blocking the dispatcher.
-const DefaultHandlerTimeout = 5 * time.Second
-
-// DefaultListenerTTL bounds how long a listener may wait for a notification that
-// may never arrive. It is deliberately much longer than the timeout we ask the
-// committer for in AddFinalityListener: that timeout is documented non-strict
-// ("it is possible to receive notifications after the timeout has passed", see
-// notify.proto), so the remote must be given ample room to answer before we give
-// up locally. Expiry is a backstop against silence, not a competitor to the
-// remote deadline.
-const DefaultListenerTTL = 2 * time.Minute
-
-// DefaultSweepInterval is how often expired entries are collected. An entry's
-// worst-case lifetime is DefaultListenerTTL + DefaultSweepInterval.
-const DefaultSweepInterval = 30 * time.Second
+// DefaultHandlerTimeout, DefaultListenerTTL and DefaultSweepInterval live in
+// committer/config, the single source of truth for the notification service's
+// configurable defaults; this package consumes them via config.Config rather
+// than defining its own copies.
 
 // handlerEntry holds the listeners waiting on one transaction, together with the
 // deadline after which they are settled locally. A zero expiresAt means the entry
@@ -58,11 +46,17 @@ type notificationListenerManager struct {
 	responseQueue  chan *committerpb.NotificationResponse
 	handlerTimeout time.Duration
 
+	// requestTimeout is sent to the committer as the outbound NotificationRequest's
+	// Timeout, so it gives up and replies once it passes rather than us aborting the
+	// gRPC call locally and marking transactions the committer may already have an
+	// answer for as Unknown. See notify.proto's Timeout field doc.
+	requestTimeout time.Duration
+
 	// listenerTTL is how long an entry may stay unresolved before the sweeper
 	// settles it with Unknown. Zero disables local expiry entirely.
 	listenerTTL time.Duration
 	// sweepInterval is the sweep tick period. Ignored when listenerTTL is zero;
-	// falls back to DefaultSweepInterval if unset.
+	// falls back to config.DefaultSweepInterval if unset.
 	sweepInterval time.Duration
 
 	handlers   map[driver.TxID]*handlerEntry
@@ -136,7 +130,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 		// can never interleave with a dispatch and no listener can be settled twice.
 		sweepEvery := n.sweepInterval
 		if sweepEvery <= 0 {
-			sweepEvery = DefaultSweepInterval
+			sweepEvery = config.DefaultSweepInterval
 		}
 		ticker := time.NewTicker(sweepEvery)
 		defer ticker.Stop()
@@ -274,10 +268,12 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 		TxStatusRequest: &committerpb.TxIDsBatch{
 			TxIds: txIDs,
 		},
-		// Timeout deliberately left unset: notify.proto has the committer apply
-		// its own configured default when this field is absent.
-		// The committer operator is in a better position to know
-		// the right timeout for their network than FSC's client code is
+		// Timeout tells the committer to reply once it passes rather than leaving
+		// it to its own internal max-timeout. Without this, a client-side abort
+		// (e.g. our own listenerTTL firing) can mark transactions Unknown that the
+		// committer already knows the outcome of, because the committer never got
+		// a reason to answer early. See notify.proto's Timeout field doc.
+		Timeout: durationpb.New(n.requestTimeout),
 	}
 
 	// Guard the send against a dead stream: once listen()'s errgroup context
@@ -424,7 +420,7 @@ func (n *notificationListenerManager) dispatch(ctx context.Context, resp *commit
 // own TimeoutTxIds path produces, so callers see nothing new. Note this can
 // report Unknown for a transaction that did in fact commit, because the remote
 // timeout is documented non-strict and a notification may arrive after we have
-// given up; DefaultListenerTTL is set well above the request timeout to make that
+// given up; listenerTTL is configured well above requestTimeout to make that
 // unlikely. Callers needing certainty can query the transaction status directly.
 //
 // Runs on the dispatcher goroutine (see the ticker in listen): the dispatcher is

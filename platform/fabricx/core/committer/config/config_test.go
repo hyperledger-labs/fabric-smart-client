@@ -78,6 +78,23 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 		require.Zero(t, cfg.ListenerTTL, "an explicit zero must override the default, not be treated as unset")
 	})
 
+	t.Run("explicit zero handlerTimeout and sweepInterval fall back to defaults", func(t *testing.T) {
+		t.Parallel()
+		fakeConfigService := &mock.ServiceBackend{}
+		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
+			if cfg, ok := rawVal.(**config.Config); ok {
+				(*cfg).HandlerTimeout = 0
+				(*cfg).SweepInterval = 0
+			}
+			return nil
+		}
+
+		cfg, err := config.NewNotificationServiceConfig(fakeConfigService)
+		require.NoError(t, err)
+		require.Equal(t, config.DefaultHandlerTimeout, cfg.HandlerTimeout, "unlike ListenerTTL, zero has no special meaning here")
+		require.Equal(t, config.DefaultSweepInterval, cfg.SweepInterval, "unlike ListenerTTL, zero has no special meaning here")
+	})
+
 	t.Run("configured finality durations are preserved", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
@@ -107,6 +124,15 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 		require.Contains(t, err.Error(), "unmarshal-error")
 		require.NotNil(t, cfg)
 	})
+}
+
+func TestDefaultConfig(t *testing.T) {
+	t.Parallel()
+	cfg := config.DefaultConfig()
+	require.Equal(t, config.DefaultRequestTimeout, cfg.RequestTimeout)
+	require.Equal(t, config.DefaultHandlerTimeout, cfg.HandlerTimeout)
+	require.Equal(t, config.DefaultListenerTTL, cfg.ListenerTTL)
+	require.Equal(t, config.DefaultSweepInterval, cfg.SweepInterval)
 }
 
 func TestNewQueryServiceConfig(t *testing.T) {

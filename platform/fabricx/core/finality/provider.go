@@ -63,13 +63,30 @@ func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, configPro
 // Provider implements ListenerManagerProvider and manages ListenerManager instances.
 // IMPORTANT: Initialize method MUST be called once during service setup before calling NewManager method.
 type Provider struct {
-	newNotificationManager func(network string, gcp GRPCClientProvider, cfg *config.Config) (*notificationListenerManager, error)
+	newNotificationManager func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error)
 	configProvider         ServiceConfigProvider
 	grpcClientProvider     GRPCClientProvider
 	managers               map[string]ListenerManager // map: "network:channel" -> ListenerManager instance
 	managersMu             sync.Mutex
 	baseCtx                context.Context // The root context for all ListenerManager goroutines. MUST be set via Initialize().
 	initOnce               sync.Once       // Ensures the provider is initialized only once
+}
+
+// resolveConfig looks up the notification service config for network, falling
+// back to config.DefaultConfig() when the Provider has no configProvider (as in
+// unit tests that never reach a real network). Deliberately not called while
+// holding managersMu: resolving configuration can be relatively expensive
+// (a network round-trip in some ServiceConfigProvider implementations), and it
+// must not be done while blocking every other network/channel's NewManager call.
+func (p *Provider) resolveConfig(network string) (config.Config, error) {
+	if p.configProvider == nil {
+		return config.DefaultConfig(), nil
+	}
+	cfg, err := p.configProvider.NotificationServiceConfig(network)
+	if err != nil {
+		return config.Config{}, errors.Wrapf(err, "get notification service config [network=%s]", network)
+	}
+	return *cfg, nil
 }
 
 // Initialize sets the base context for the provider. This context is used as the parent
@@ -95,25 +112,21 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 
 	key := network + ":" + channel
 
+	// 1. Check if manager already exists. Locked separately from the resolve/create
+	// steps below so that config resolution -- potentially expensive -- never runs
+	// while every other network/channel's NewManager call is blocked on managersMu.
 	p.managersMu.Lock()
-	defer p.managersMu.Unlock()
-
-	// 1. Check if manager already exists
 	if lm, ok := p.managers[key]; ok {
+		p.managersMu.Unlock()
 		logger.Debugf("manager is already created for %s", key)
 		return lm, nil
 	}
+	p.managersMu.Unlock()
 
-	// 2. Resolve the notification service config for this network. configProvider
-	// is nil in some unit tests that never reach here for a real network; nil cfg
-	// is what newNotifiWithGRPC below maps to today's hardcoded defaults.
-	var cfg *config.Config
-	if p.configProvider != nil {
-		var err error
-		cfg, err = p.configProvider.NotificationServiceConfig(network)
-		if err != nil {
-			return nil, errors.Wrapf(err, "get notification service config [network=%s]", network)
-		}
+	// 2. Resolve the notification service config for this network.
+	cfg, err := p.resolveConfig(network)
+	if err != nil {
+		return nil, err
 	}
 
 	// 3. Create the concrete ListenerManager
@@ -122,10 +135,23 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 		return nil, err
 	}
 
-	// 4. Register the newly created instance
+	p.managersMu.Lock()
+	defer p.managersMu.Unlock()
+
+	// 4. Another caller may have created (and registered) a manager for this
+	// same key while we were resolving config / constructing lm above -- the
+	// singleton-per-key guarantee is enforced here, not by serializing the
+	// whole method. Discard ours and return theirs rather than running two
+	// managers (and two listen() streams) for the same network/channel.
+	if existing, ok := p.managers[key]; ok {
+		logger.Debugf("manager is already created for %s, discarding redundant one", key)
+		return existing, nil
+	}
+
+	// 5. Register the newly created instance
 	p.managers[key] = lm
 
-	// 5. Start listening in background
+	// 6. Start listening in background
 	// lm.listen() is a blocking method that establishes and maintains a stream connection
 	// to receive finality notifications.
 	go func() {
@@ -147,7 +173,9 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 }
 
 // newNotifiWithGRPC creates and initializes a notificationListenerManager using the GRPCClientProvider.
-func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider, cfg *config.Config) (*notificationListenerManager, error) {
+// cfg is expected to already be fully resolved (see config.NewNotificationServiceConfig /
+// config.DefaultConfig) -- every field is used as-is, with no further nil or zero-value handling.
+func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 	cc, err := grpcClientProvider.NotificationServiceClient(network)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)
@@ -156,25 +184,15 @@ func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider, cf
 	// Create the gRPC client stub for the Notifier service
 	notifyClient := committerpb.NewNotifierClient(cc)
 
-	handlerTimeout, listenerTTL, sweepInterval := DefaultHandlerTimeout, DefaultListenerTTL, DefaultSweepInterval
-	if cfg != nil {
-		listenerTTL = cfg.ListenerTTL
-		if cfg.HandlerTimeout > 0 {
-			handlerTimeout = cfg.HandlerTimeout
-		}
-		if cfg.SweepInterval > 0 {
-			sweepInterval = cfg.SweepInterval
-		}
-	}
-
 	nlm := &notificationListenerManager{
 		notifyClient:   notifyClient,
 		requestQueue:   make(chan *committerpb.NotificationRequest),  // Queue for outgoing requests to the committer
 		responseQueue:  make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
 		handlers:       make(map[driver.TxID]*handlerEntry),          // Map: txID -> listeners + local expiry deadline
-		handlerTimeout: handlerTimeout,
-		listenerTTL:    listenerTTL,
-		sweepInterval:  sweepInterval,
+		handlerTimeout: cfg.HandlerTimeout,
+		requestTimeout: cfg.RequestTimeout,
+		listenerTTL:    cfg.ListenerTTL,
+		sweepInterval:  cfg.SweepInterval,
 	}
 
 	return nlm, nil
