@@ -17,16 +17,21 @@ Both services support endpoint-based gRPC connectivity and optional TLS or mutua
 
 ### Notification service tuning
 
-The finality listener manager backing `notificationService` accepts various timeout configurations. They control the local expiry backstop that settles a finality listener with `Unknown` if the committer never notifies it (see `platform/fabricx/core/finality/nlm.go`):
+`notificationService` configures the client used to subscribe to transaction status updates from the committer's notification service. It is what backs, for example, the finality listeners a view application registers via `fabric.Channel().Committer().AddFinalityListener(txID, listener)`: It subscribes to the transaction on the notification stream and invokes the listener's `OnStatus` callback once the committer reports an outcome.
 
 | Key | Default | What it controls |
 |-----|---------|------------------|
-| `requestTimeout` | `30s` | Sent to the committer as the outbound notification request's timeout, so it gives up and replies once it passes rather than the client aborting locally and marking transactions the committer may already know the outcome of as `Unknown`. |
-| `handlerTimeout` | `5s` | How long a single `OnStatus` callback may run before it is abandoned. |
-| `listenerTTL` | `2m` | How long a listener may wait for a notification before being settled locally with `Unknown`. Set it comfortably above `requestTimeout` — that timeout is documented non-strict, so a late notification can still arrive after it passes. Setting `listenerTTL: 0` explicitly disables local expiry. |
-| `sweepInterval` | `30s` | How often expired entries are collected. Worst-case entry lifetime is `listenerTTL + sweepInterval`. |
+| `endpoints[].address` | — | `host:port` of a notification service endpoint. At least one is required. |
+| `endpoints[].connectionTimeout` | `30s` | Minimum timeout for establishing the gRPC connection to that endpoint. |
+| `endpoints[].tls` | disabled | TLS settings for that endpoint: `enabled`, `rootCerts` (server TLS), plus `clientKey` / `clientCert` (mutual TLS) and `serverNameOverride`. |
+| `requestTimeout` | `30s` | How long the committer waits for a subscribed transaction before answering. It is sent to the committer as the subscription's timeout, so the committer reports the outcomes it does have and flags only the still-pending transactions as timed out — rather than the client giving up locally and treating the whole batch as `Unknown`. In practice this is how long a finality listener waits before it is settled. |
+| `handlerTimeout` | `5s` | How long a single `OnStatus` callback may run before it is abandoned so it cannot block the dispatcher. Callbacks that ignore context cancellation leak a goroutine. |
+| `listenerTTL` | `2m` | Local backstop: how long a listener may wait without hearing anything at all — a dead or silent stream — before FSC settles it locally with `Unknown`. Keep it comfortably above `requestTimeout`; the committer's timeout is documented non-strict, so a late notification can still arrive after it passes. `listenerTTL: 0` disables the local backstop entirely. |
+| `sweepInterval` | `30s` | How often expired listeners are collected. A listener's worst-case lifetime is `listenerTTL + sweepInterval`. Ignored when `listenerTTL` is `0`. |
 
-Example:
+Note that `Unknown` does not mean the transaction failed — only that there is no outcome yet for it within the configured bounds. A caller that needs certainty should query the transaction status directly.
+
+Complete example:
 
 ```yaml
 fabric:
@@ -34,13 +39,28 @@ fabric:
     notificationService:
       endpoints:
         - address: 127.0.0.1:5516
+          connectionTimeout: 30s
+          tls:
+            enabled: true
+            rootCerts:
+              - /path/to/ca.crt
+            # for mutual TLS, also set:
+            # clientKey: /path/to/client.key
+            # clientCert: /path/to/client.crt
       requestTimeout: 30s
       handlerTimeout: 5s
       listenerTTL: 2m
       sweepInterval: 30s
 ```
 
-Omitting any of these keys keeps the default shown above. Only `listenerTTL: 0` is treated specially — it disables local expiry rather than falling back to the default.
+Invalid timeouts are omitted, in which case the default above applies. Two zero values are meaningful rather than "unset":
+
+- `listenerTTL: 0` disables the local expiry backstop, leaving the committer's
+  reply as the only thing that ever settles a listener.
+- `requestTimeout: 0` delegates the subscription timeout to the committer's own
+  configuration rather than to the `30s` above.
+
+`handlerTimeout: 0` and `sweepInterval: 0` have no such meaning and fall back to their defaults.
 
 ## Related Documentation
 

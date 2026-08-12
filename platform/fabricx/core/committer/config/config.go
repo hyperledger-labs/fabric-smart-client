@@ -122,12 +122,8 @@ type ServiceBackend interface {
 // would otherwise hand every listener an already-expired context. Callers can
 // use every field as-is, with no further nil or zero-value handling.
 func NewNotificationServiceConfig(configService ServiceBackend) (*Config, error) {
-	config := &Config{
-		RequestTimeout: DefaultRequestTimeout,
-		HandlerTimeout: DefaultHandlerTimeout,
-		ListenerTTL:    DefaultListenerTTL,
-		SweepInterval:  DefaultSweepInterval,
-	}
+	defaults := DefaultConfig()
+	config := &defaults
 
 	err := configService.UnmarshalKey("notificationService", &config)
 	if err != nil {
