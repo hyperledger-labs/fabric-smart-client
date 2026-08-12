@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
 )
 
@@ -40,6 +41,39 @@ func (m *mockGRPCClientProvider) NotificationServiceClient(network string) (*grp
 		return m.notificationServiceClientFunc(network)
 	}
 	return nil, nil
+}
+
+// fakeServiceConfigProvider is a hand-written stand-in for ServiceConfigProvider.
+type fakeServiceConfigProvider struct {
+	mu          sync.Mutex
+	argsForCall []string
+	returnsCfg  *config.Config
+	returnsErr  error
+}
+
+func (f *fakeServiceConfigProvider) NotificationServiceConfig(network string) (*config.Config, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.argsForCall = append(f.argsForCall, network)
+	return f.returnsCfg, f.returnsErr
+}
+
+func (f *fakeServiceConfigProvider) setReturns(cfg *config.Config, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.returnsCfg, f.returnsErr = cfg, err
+}
+
+func (f *fakeServiceConfigProvider) callCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.argsForCall)
+}
+
+func (f *fakeServiceConfigProvider) argForCall(i int) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.argsForCall[i]
 }
 
 // setupMockNotificationManager creates a notificationListenerManager with mocked gRPC components
@@ -141,7 +175,7 @@ func TestProvider_NewManager(t *testing.T) {
 		listenStarted := make(chan struct{})
 
 		// Mock with stream that blocks until context is done
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
@@ -181,7 +215,7 @@ func TestProvider_NewManager(t *testing.T) {
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 
 		// Mock with stream that blocks
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
@@ -213,7 +247,7 @@ func TestProvider_NewManager(t *testing.T) {
 		mockGRPC := &mockGRPCClientProvider{}
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
@@ -250,7 +284,7 @@ func TestProvider_NewManager(t *testing.T) {
 		listenStarted := make(chan struct{})
 
 		// Mock stream that returns error immediately
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
@@ -285,7 +319,7 @@ func TestProvider_NewManager(t *testing.T) {
 		listenStarted := make(chan struct{})
 
 		// Mock stream that blocks until context canceled
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					close(listenStarted)
@@ -324,7 +358,7 @@ func TestProvider_NewManager(t *testing.T) {
 		expectedErr := errors.New("failed to create manager")
 
 		// Mock that returns error
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 			return nil, expectedErr
 		}
 
@@ -350,7 +384,7 @@ func TestProvider_NewManager(t *testing.T) {
 		mockGRPC := &mockGRPCClientProvider{}
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
@@ -386,6 +420,91 @@ func TestProvider_NewManager(t *testing.T) {
 		// Should only create manager once
 		require.Len(t, provider.managers, 1, "Should create manager only once even with concurrent access")
 	})
+
+	t.Run("Resolves_Config_From_ConfigProvider_And_Passes_It_Through", func(t *testing.T) {
+		t.Parallel()
+		mockGRPC := &mockGRPCClientProvider{}
+		fakeConfigProvider := &fakeServiceConfigProvider{}
+		expectedCfg := &config.Config{ListenerTTL: 3 * time.Minute}
+		fakeConfigProvider.setReturns(expectedCfg, nil)
+
+		provider := NewListenerManagerProvider(mockGRPC, fakeConfigProvider)
+
+		var receivedCfg config.Config
+		provider.newNotificationManager = func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
+			receivedCfg = cfg
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+					<-ctx.Done()
+					return nil, ctx.Err()
+				}
+			}), nil
+		}
+
+		ctx := t.Context()
+		provider.Initialize(ctx)
+
+		_, err := provider.NewManager("network1", "channel1")
+		require.NoError(t, err)
+
+		require.Equal(t, 1, fakeConfigProvider.callCount())
+		require.Equal(t, "network1", fakeConfigProvider.argForCall(0))
+		require.Equal(t, *expectedCfg, receivedCfg, "resolved config must be threaded into newNotificationManager")
+	})
+
+	t.Run("Uses_Default_Config_When_ConfigProvider_Is_Nil", func(t *testing.T) {
+		t.Parallel()
+		mockGRPC := &mockGRPCClientProvider{}
+		provider := NewListenerManagerProvider(mockGRPC, nil)
+
+		var receivedCfg config.Config
+		var called bool
+		provider.newNotificationManager = func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
+			called = true
+			receivedCfg = cfg
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+					<-ctx.Done()
+					return nil, ctx.Err()
+				}
+			}), nil
+		}
+
+		ctx := t.Context()
+		provider.Initialize(ctx)
+
+		_, err := provider.NewManager("network1", "channel1")
+		require.NoError(t, err)
+		require.True(t, called)
+		require.Equal(t, config.DefaultConfig(), receivedCfg, "no configProvider means newNotificationManager must receive the fully-defaulted config")
+	})
+
+	t.Run("Returns_Error_When_ConfigProvider_Fails", func(t *testing.T) {
+		t.Parallel()
+		mockGRPC := &mockGRPCClientProvider{}
+		fakeConfigProvider := &fakeServiceConfigProvider{}
+		expectedErr := errors.New("config lookup failed")
+		fakeConfigProvider.setReturns(nil, expectedErr)
+
+		provider := NewListenerManagerProvider(mockGRPC, fakeConfigProvider)
+		provider.newNotificationManager = func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
+			t.Fatal("newNotificationManager must not be called when config resolution fails")
+			return nil, nil
+		}
+
+		ctx := t.Context()
+		provider.Initialize(ctx)
+
+		manager, err := provider.NewManager("network1", "channel1")
+		require.Error(t, err)
+		require.Nil(t, manager)
+		require.ErrorIs(t, err, expectedErr)
+
+		provider.managersMu.Lock()
+		_, exists := provider.managers["network1:channel1"]
+		provider.managersMu.Unlock()
+		require.False(t, exists, "failed manager must not be stored")
+	})
 }
 
 func TestGetListenerManager(t *testing.T) {
@@ -397,7 +516,7 @@ func TestGetListenerManager(t *testing.T) {
 
 		mockGRPC := &mockGRPCClientProvider{}
 		provider := NewListenerManagerProvider(mockGRPC, nil)
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
 				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 					<-ctx.Done()
@@ -450,7 +569,7 @@ func TestGetListenerManager(t *testing.T) {
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 		expectedErr := errors.New("creation failed")
 
-		provider.newNotificationManager = func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error) {
+		provider.newNotificationManager = func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 			return nil, expectedErr
 		}
 

@@ -63,13 +63,30 @@ func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, configPro
 // Provider implements ListenerManagerProvider and manages ListenerManager instances.
 // IMPORTANT: Initialize method MUST be called once during service setup before calling NewManager method.
 type Provider struct {
-	newNotificationManager func(network string, gcp GRPCClientProvider) (*notificationListenerManager, error)
+	newNotificationManager func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error)
 	configProvider         ServiceConfigProvider
 	grpcClientProvider     GRPCClientProvider
 	managers               map[string]ListenerManager // map: "network:channel" -> ListenerManager instance
 	managersMu             sync.Mutex
 	baseCtx                context.Context // The root context for all ListenerManager goroutines. MUST be set via Initialize().
 	initOnce               sync.Once       // Ensures the provider is initialized only once
+}
+
+// resolveConfig looks up the notification service config for network, falling
+// back to config.DefaultConfig() when the Provider has no configProvider (as in
+// unit tests that never reach a real network). Deliberately not called while
+// holding managersMu: resolving configuration can be relatively expensive
+// (a network round-trip in some ServiceConfigProvider implementations), and it
+// must not be done while blocking every other network/channel's NewManager call.
+func (p *Provider) resolveConfig(network string) (config.Config, error) {
+	if p.configProvider == nil {
+		return config.DefaultConfig(), nil
+	}
+	cfg, err := p.configProvider.NotificationServiceConfig(network)
+	if err != nil {
+		return config.Config{}, errors.Wrapf(err, "get notification service config [network=%s]", network)
+	}
+	return *cfg, nil
 }
 
 // Initialize sets the base context for the provider. This context is used as the parent
@@ -95,25 +112,35 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 
 	key := network + ":" + channel
 
+	// 1. Resolve the notification service config for this network. Deliberately
+	// done before acquiring managersMu: resolving configuration can be relatively
+	// expensive (a network round-trip in some ServiceConfigProvider
+	// implementations), and it must not be done while blocking every other
+	// network/channel's NewManager call.
+	cfg, err := p.resolveConfig(network)
+	if err != nil {
+		return nil, err
+	}
+
 	p.managersMu.Lock()
 	defer p.managersMu.Unlock()
 
-	// 1. Check if manager already exists
+	// 2. Check if manager already exists
 	if lm, ok := p.managers[key]; ok {
 		logger.Debugf("manager is already created for %s", key)
 		return lm, nil
 	}
 
-	// 2. Create the concrete ListenerManager
-	lm, err := p.newNotificationManager(network, p.grpcClientProvider)
+	// 3. Create the concrete ListenerManager
+	lm, err := p.newNotificationManager(network, p.grpcClientProvider, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. Register the newly created instance
+	// 4. Register the newly created instance
 	p.managers[key] = lm
 
-	// 4. Start listening in background
+	// 5. Start listening in background
 	// lm.listen() is a blocking method that establishes and maintains a stream connection
 	// to receive finality notifications.
 	go func() {
@@ -135,7 +162,9 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 }
 
 // newNotifiWithGRPC creates and initializes a notificationListenerManager using the GRPCClientProvider.
-func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider) (*notificationListenerManager, error) {
+// cfg is expected to already be fully resolved (see config.NewNotificationServiceConfig /
+// config.DefaultConfig) -- every field is used as-is, with no further nil or zero-value handling.
+func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 	cc, err := grpcClientProvider.NotificationServiceClient(network)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get grpc client for notification service [network=%s]", network)
@@ -144,19 +173,15 @@ func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider) (*
 	// Create the gRPC client stub for the Notifier service
 	notifyClient := committerpb.NewNotifierClient(cc)
 
-	// TODO: make handlerTimeout, listenerTTL and sweepInterval configurable via
-	// core.yaml rather than hardcoding the defaults here. Provider already carries
-	// a ServiceConfigProvider, and committer/config.Config would be the natural
-	// home for the fields; newNotifiWithGRPC would then take the resolved config.
-	// Tracked in #1641.
 	nlm := &notificationListenerManager{
 		notifyClient:   notifyClient,
 		requestQueue:   make(chan *committerpb.NotificationRequest),  // Queue for outgoing requests to the committer
 		responseQueue:  make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
 		handlers:       make(map[driver.TxID]*handlerEntry),          // Map: txID -> listeners + local expiry deadline
-		handlerTimeout: DefaultHandlerTimeout,
-		listenerTTL:    DefaultListenerTTL,
-		sweepInterval:  DefaultSweepInterval,
+		handlerTimeout: cfg.HandlerTimeout,
+		requestTimeout: cfg.RequestTimeout,
+		listenerTTL:    cfg.ListenerTTL,
+		sweepInterval:  cfg.SweepInterval,
 	}
 
 	return nlm, nil
