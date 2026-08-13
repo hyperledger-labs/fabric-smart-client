@@ -141,13 +141,12 @@ func (n *NetworkStreamSession) Info() view.SessionInfo {
 	return ret
 }
 
-// Send sends the payload to the endpoint.
-// Send sends the payload to the endpoint with the passed context.Ctx.
+// Send sends the payload to the endpoint with the passed context.Context.
 func (n *NetworkStreamSession) Send(ctx context.Context, payload []byte) error {
 	return n.sendWithStatus(ctx, payload, view.OK)
 }
 
-// SendError sends an error to the endpoint with the passed context.Ctx and payload.
+// SendError sends an error to the endpoint with the passed context.Context and payload.
 func (n *NetworkStreamSession) SendError(ctx context.Context, payload []byte) error {
 	return n.sendWithStatus(ctx, payload, view.ERROR)
 }

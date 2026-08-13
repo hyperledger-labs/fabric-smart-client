@@ -33,6 +33,9 @@ type commSCCMsgConn struct {
 }
 
 func NewMsgConn(ctx context.Context, index int, session view.Session) (MsgConn, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	conn := &commSCCMsgConn{
 		ctx:          ctx,
 		session:      session,

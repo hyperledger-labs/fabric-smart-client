@@ -371,7 +371,7 @@ func (p *Initiator) Call(viewCtx view.Context) (any, error) {
         return nil, err
     }
 
-    if err := session.Send([]byte("ping")); err != nil {
+    if err := session.Send(viewCtx.Context(), []byte("ping")); err != nil {
         return nil, err
     }
 
@@ -401,12 +401,12 @@ func (p *Responder) Call(viewCtx view.Context) (any, error) {
     select {
     case msg := <-session.Receive():
         if string(msg.Payload) != "ping" {
-            if err := session.SendError([]byte("expected ping")); err != nil {
+            if err := session.SendError(viewCtx.Context(), []byte("expected ping")); err != nil {
                 return nil, err
             }
             return nil, errors.New("expected ping")
         }
-        if err := session.Send([]byte("pong")); err != nil {
+        if err := session.Send(viewCtx.Context(), []byte("pong")); err != nil {
             return nil, err
         }
         return "OK", nil
