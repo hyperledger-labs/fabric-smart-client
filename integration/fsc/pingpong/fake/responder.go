@@ -7,41 +7,46 @@ SPDX-License-Identifier: Apache-2.0
 package fake
 
 import (
+	"context"
 	"fmt"
-	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// Responder answers a single ping with a mock pong.
 type Responder struct{}
 
 func (p *Responder) Call(viewCtx view.Context) (any, error) {
 	// Retrieve the session opened by the initiator
 	session := viewCtx.Session()
 
+	ctx, cancel := context.WithTimeout(viewCtx.Context(), responderTimeout)
+	defer cancel()
+
 	// Read the message from the initiator
 	ch := session.Receive()
 	var payload []byte
 	select {
-	case msg := <-ch:
+	case msg, ok := <-ch:
+		if !ok {
+			return nil, errors.Errorf("session [%s] closed while waiting for %s", session.Info().ID, pingMessage)
+		}
 		payload = msg.Payload
-	case <-time.After(5 * time.Second):
-		return nil, errors.New("time out reached")
+	case <-ctx.Done():
+		return nil, errors.Wrap(ctx.Err(), "time out reached")
 	}
-	// Respond with a pong if a ping is received, an error otherwise
-	m := string(payload)
-	switch {
-	case m != "ping":
+
+	// Respond with a mock pong if a ping is received, an error otherwise
+	if m := string(payload); m != pingMessage {
 		// reply with an error
-		err := session.SendError(fmt.Appendf(nil, "expected ping, got %s", m))
-		assert.NoError(err)
-		return nil, errors.Errorf("expected ping, got %s", m)
-	default:
-		// reply with pong
-		err := session.Send([]byte("mock pong"))
-		assert.NoError(err)
+		sendErr := session.SendErrorWithContext(ctx, fmt.Appendf(nil, "expected %s, got %s", pingMessage, m))
+		return nil, errors.Join(errors.Errorf("expected %s, got %s", pingMessage, m), sendErr)
+	}
+
+	// reply with a mock pong
+	if err := session.SendWithContext(ctx, []byte(mockPongMessage)); err != nil {
+		return nil, errors.Wrapf(err, "failed to send %s", mockPongMessage)
 	}
 
 	// Return
