@@ -89,7 +89,7 @@ func (f *FinishedView) Call(viewCtx view.Context) (any, error) {
 	}
 
 	logger.DebugfContext(viewCtx.Context(), "send %s", finishedMessage)
-	if err := session.SendWithContext(viewCtx.Context(), []byte(finishedMessage)); err != nil {
+	if err := session.Send(viewCtx.Context(), []byte(finishedMessage)); err != nil {
 		return nil, errors.Wrapf(err, "failed to send %s", finishedMessage)
 	}
 	return nil, nil
