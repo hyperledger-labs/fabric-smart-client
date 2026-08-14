@@ -9,7 +9,7 @@ package fake
 import (
 	"encoding/json"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -18,8 +18,11 @@ type InitiatorViewFactory struct{}
 
 // NewView returns a new instance of the Initiator view
 func (i *InitiatorViewFactory) NewView(in []byte) (view.View, error) {
-	f := &Initiator{Params: &Params{}}
-	err := json.Unmarshal(in, f.Params)
-	assert.NoError(err, "failed unmarshalling input")
-	return f, nil
+	initiator := &Initiator{Params: &Params{}}
+	if len(in) > 0 {
+		if err := json.Unmarshal(in, initiator.Params); err != nil {
+			return nil, errors.Wrapf(err, "failed unmarshalling input [%s]", string(in))
+		}
+	}
+	return initiator, nil
 }

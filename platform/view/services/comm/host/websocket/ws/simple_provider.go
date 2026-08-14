@@ -64,7 +64,13 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 		return nil, errors.Wrapf(err, "failed to send meta message")
 	}
 	logger.Debugf("Stream opened to [%s@%s]", info.RemotePeerID, info.RemotePeerAddress)
-	return NewWSStream(conn, ctx, info), nil
+	// The stream is cached and reused across multiple calls (e.g. multiple rounds of a
+	// protocol), so its lifetime must not be tied to the context of the call that happened
+	// to create it: cancelling that per-call context (e.g. on successful completion) would
+	// otherwise tear down the connection out from under subsequent, unrelated calls that
+	// reuse the same stream. We only propagate the span, as a local parent, for tracing
+	// purposes.
+	return NewWSStream(conn, trace.ContextWithSpanContext(context.Background(), spanContext), info), nil
 }
 
 func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {

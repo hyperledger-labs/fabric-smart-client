@@ -29,45 +29,114 @@ This is view describing Alice's behaviour:
 package pingpong
 
 import (
-  "fmt"
+  "context"
   "time"
 
   "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-
-  view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view"
-  "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
+  "github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+  "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/id"
+  view2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
   "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type Initiator struct{}
+var logger = logging.MustGetLogger()
 
-func (p *Initiator) Call(viewCtx view.Context) (any, error) {
-  // Retrieve responder identity
-  responder := view2.GetIdentityProvider(viewCtx).Identity("responder")
+const (
+  pingMessage     = "ping"
+  pongMessage     = "pong"
+  finishedMessage = "finished"
 
-  // Open a session to the responder
-  session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
-  assert.NoError(err)
-  // Send a ping
-  err = session.Send([]byte("ping"))
-  assert.NoError(err)
-  // Wait for the pong
+  // DefaultRounds is the number of ping/pong rounds run when Params.Rounds is not set.
+  DefaultRounds = 3
+
+  // roundTimeout bounds a single round end to end: session lookup (which may have to open a
+  // new stream), send, and wait for the peer's answer.
+  roundTimeout = 1 * time.Minute
+)
+
+// Params is the input of the Initiator view.
+type Params struct {
+  // Rounds is the number of ping/pong rounds to run; values <= 0 select DefaultRounds.
+  Rounds int `json:"rounds,omitempty"`
+}
+
+// PingView sends a single ping and waits for the pong over the context's session.
+type PingView struct {
+  responder view.Identity
+}
+
+func (p *PingView) Call(viewCtx view.Context) (any, error) {
+  session, err := viewCtx.GetSession(viewCtx.Initiator(), p.responder)
+  if err != nil {
+    return nil, errors.Wrapf(err, "failed getting session to [%s]", p.responder)
+  }
+
+  if err := session.SendWithContext(viewCtx.Context(), []byte(pingMessage)); err != nil {
+    return nil, errors.Wrapf(err, "failed to send %s", pingMessage)
+  }
+
   ch := session.Receive()
   select {
-  case msg := <-ch:
+  case msg, ok := <-ch:
+    if !ok {
+      return nil, errors.Errorf("session [%s] closed while waiting for %s", session.Info().ID, pongMessage)
+    }
     if msg.Status == view.ERROR {
       return nil, errors.New(string(msg.Payload))
     }
-    m := string(msg.Payload)
-    if m != "pong" {
-      return nil, errors.Errorf("expected pong, got %s", m)
+    if m := string(msg.Payload); m != pongMessage {
+      return nil, errors.Errorf("expected %s, got %s", pongMessage, m)
     }
-  case <-time.After(1 * time.Minute):
-    return nil, errors.New("responder didn't pong in time")
+  case <-viewCtx.Context().Done():
+    return nil, errors.Wrapf(viewCtx.Context().Err(), "no %s received in time", pongMessage)
   }
 
-  // Return
+  return nil, nil
+}
+
+// runRound runs v in a context of its own, bounded by roundTimeout and cancelled as soon as the
+// round is over, so that a stale round's cancellation can never affect a later one that happens
+// to reuse the same cached stream.
+func runRound(viewCtx view.Context, v view.View) (any, error) {
+  ctx, cancel := context.WithTimeout(viewCtx.Context(), roundTimeout)
+  defer cancel()
+
+  return view2.WrapContext(viewCtx, ctx).RunView(v)
+}
+
+func ping(viewCtx view.Context, responder view.Identity) (any, error) {
+  return runRound(viewCtx, &PingView{responder: responder})
+}
+
+// Initiator runs Rounds (or DefaultRounds, if Rounds is unset) ping/pong rounds against the
+// responder identity, then tells the responder the protocol is over.
+type Initiator struct {
+  Params
+}
+
+func (p *Initiator) Call(viewCtx view.Context) (any, error) {
+  identityProvider, err := id.GetProvider(viewCtx)
+  if err != nil {
+    return nil, errors.Wrap(err, "failed getting identity provider")
+  }
+  responder := identityProvider.Identity("responder")
+
+  rounds := p.rounds()
+  for round := range rounds {
+    if _, err := ping(viewCtx, responder); err != nil {
+      return nil, errors.Wrapf(err, "ping round [%d/%d] failed", round+1, rounds)
+    }
+  }
+  // Tell the responder the protocol is over (omitted here, see FinishedView)
+
   return "OK", nil
+}
+
+func (p *Initiator) rounds() int {
+  if p.Rounds <= 0 {
+    return DefaultRounds
+  }
+  return p.Rounds
 }
 ```
 
@@ -77,14 +146,22 @@ Let us go through the main steps:
   This can be done by using the identity service.
   If you are asking yourself: Where is defined the responder's identity?
   It is in the initiator's configuration file. More information in this [Section](#FSC node's Configuration File).
-- **Open a session to the responder**: With the responder's identity, the initiator
-  can open a session.
-  The context allows the initiator to do that.
+- **Run `Rounds` ping/pong rounds**: `Initiator.Call` loops `Rounds` times (`DefaultRounds`, i.e. 3, if
+  unset), running a `PingView` in each round. Each round gets its own context, bounded by
+  `roundTimeout` and cancelled as soon as the round is over. This matters because sessions (and,
+  underneath, the streams/sub-connections that back them) are cached and reused across rounds:
+  deriving each round's context from the caller's context and cancelling it at the end of the
+  round would otherwise tear down a stream that a later round still needs.
+- **Open a session to the responder**: Inside `PingView.Call`, with the responder's identity, the
+  initiator opens a session. The context allows the initiator to do that.
 - **Send a ping**: Using the established session, the sender sends her ping.
 - **Wait for the pong**: At this point, the responder waits for the reply.
-  The initiator timeouts if no message comes in a reasonable amount of time.
+  The round's context is done if no message comes in `roundTimeout`.
   If a reply comes, the initiator checks that it contains a pong.
   If this is not the case, the view returns an error.
+- **Signal the end of the protocol**: Once all rounds are done, the initiator runs a
+  `FinishedView` (not shown above) that sends a `finished` message, so the responder knows to
+  stop waiting for another ping instead of timing out.
 
 Let us now look at the view describing the view of the responder:
 
@@ -92,58 +169,83 @@ Let us now look at the view describing the view of the responder:
 package pingpong
 
 import (
-  "errors"
-  "fmt"
-  "time"
-
-  "github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/assert"
+  "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
   "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// PongView waits for a single message and, depending on what it is, either answers with a pong
+// (and reports it as having handled a ping) or reports that the protocol is over. It returns the
+// message it handled, leaving the decision on whether to keep going to the caller.
+type PongView struct {
+  session view.Session
+}
+
+func (p *PongView) Call(viewCtx view.Context) (any, error) {
+  ch := p.session.Receive()
+
+  var payload []byte
+  select {
+  case msg, ok := <-ch:
+    if !ok {
+      return nil, errors.Errorf("session [%s] closed while waiting for the next message", p.session.Info().ID)
+    }
+    if msg.Status == view.ERROR {
+      return nil, errors.Errorf("initiator failed: %s", string(msg.Payload))
+    }
+    payload = msg.Payload
+  case <-viewCtx.Context().Done():
+    return nil, errors.Wrap(viewCtx.Context().Err(), "no message received in time")
+  }
+
+  switch m := string(payload); m {
+  case pingMessage:
+    if err := p.session.SendWithContext(viewCtx.Context(), []byte(pongMessage)); err != nil {
+      return nil, errors.Wrapf(err, "failed to send %s", pongMessage)
+    }
+    return m, nil
+  case finishedMessage:
+    return m, nil
+  default:
+    sendErr := p.session.SendErrorWithContext(viewCtx.Context(), []byte("expected ping or finished, got "+m))
+    return nil, errors.Join(errors.Errorf("expected %s or %s, got %s", pingMessage, finishedMessage, m), sendErr)
+  }
+}
+
+// Responder answers pings with pongs until the initiator signals that the protocol is over.
 type Responder struct{}
 
 func (p *Responder) Call(viewCtx view.Context) (any, error) {
-  // Retrieve the session opened by the initiator
   session := viewCtx.Session()
-
-  // Read the message from the initiator
-  ch := session.Receive()
-  var payload []byte
-  select {
-  case msg := <-ch:
-    payload = msg.Payload
-  case <-time.After(5 * time.Second):
-    return nil, errors.New("time out reached")
+  if session == nil {
+    return nil, errors.New("no default session, the responder must be invoked by an initiator")
   }
 
-  // Respond with a pong if a ping is received, an error otherwise
-  m := string(payload)
-  switch {
-  case m != "ping":
-    // reply with an error
-    err := session.SendError([]byte(fmt.Sprintf("expected ping, got %s", m)))
-    assert.NoError(err)
-    return nil, errors.Errorf("expected ping, got %s", m)
-  default:
-    // reply with pong
-    err := session.Send([]byte("pong"))
-    assert.NoError(err)
+  for round := 0; ; round++ {
+    m, err := pong(viewCtx, session)
+    if err != nil {
+      return nil, errors.Wrapf(err, "pong round [%d] failed", round+1)
+    }
+    if m == finishedMessage {
+      return "OK", nil
+    }
   }
-
-  // Return
-  return "OK", nil
 }
 ```
 
-These are the  main steps carried on by the responder:
+These are the main steps carried on by the responder:
 - **Retrieve the session opened by the initiator**: The responder expects to
   be invoked upon the reception of a message transmitted using a session.
   The responder can access his endpoint of this session via the context.
-- **Read the message from the initiator**: The responder reads the message, the initiator sent, from
-  the session.
-- **Respond with a pong if a ping is received, an error otherwise**:
-  If the received message is a ping, then the responder replies with a pong.
-  Otherwise, the responder replies with an error.
+- **Loop until the initiator signals the end of the protocol**: `Responder.Call` keeps running
+  `PongView` rounds (each bounded by its own `roundTimeout`, via the same `runRound` helper used
+  by the initiator) until one of them reports the `finished` message, mirroring the initiator's
+  round structure.
+- **Read the message from the initiator**: Inside `PongView.Call`, the responder reads the next
+  message from the session.
+- **Respond with a pong if a ping is received, report completion if finished, an error
+  otherwise**: If the received message is a ping, the responder replies with a pong and reports
+  it handled a ping, so the caller keeps looping. If it is `finished`, it reports that value so
+  the caller stops looping. Otherwise, the responder replies with an error and returns it.
 
 ## View Management
 
@@ -160,16 +262,30 @@ Here is the View Factory for the initiator's View.
 ```go
 package pingpong
 
-import "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+import (
+  "encoding/json"
+
+  "github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+  "github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
+)
 
 // InitiatorViewFactory is the factory of Initiator views
 type InitiatorViewFactory struct{}
 
 // NewView returns a new instance of the Initiator view
 func (i *InitiatorViewFactory) NewView(in []byte) (view.View, error) {
-  return &Initiator{}, nil
+  initiator := &Initiator{}
+  if len(in) > 0 {
+    if err := json.Unmarshal(in, &initiator.Params); err != nil {
+      return nil, errors.Wrapf(err, "failed unmarshalling input [%s]", string(in))
+    }
+  }
+  return initiator, nil
 }
 ```
+The optional input, if any, is unmarshalled into `Initiator.Params`, so a caller can, for
+example, run the protocol for a specific number of rounds by passing `{"rounds": 5}` as input.
+
 To answer the second question, we need a way to tell the FSC node which view to execute
 in response to a first message from an incoming session opened by a remote party.
 

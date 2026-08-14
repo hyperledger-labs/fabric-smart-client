@@ -249,7 +249,13 @@ func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.
 		return nil, errors.Wrapf(err, "failed to send meta message")
 	}
 	logger.Debugf("Stream opened to [%s@%s]", info.RemotePeerID, info.RemotePeerAddress)
-	return NewWSStream(sc, ctx, info), nil
+	// The sub-connection is cached and reused across multiple calls (e.g. multiple rounds of
+	// a protocol), so its lifetime must not be tied to the context of the call that happened
+	// to create it: cancelling that per-call context (e.g. on successful completion) would
+	// otherwise tear down the sub-connection out from under subsequent, unrelated calls that
+	// reuse the same stream. We only propagate the span, as a local parent, for tracing
+	// purposes.
+	return NewWSStream(sc, trace.ContextWithSpanContext(context.Background(), spanContext), info), nil
 }
 
 func (c *multiplexedClientConn) readIncoming() {

@@ -48,6 +48,12 @@ type stream struct {
 	readLeftover []byte
 }
 
+// NewWSStream wraps conn into a stream. ctx only seeds the tracing parent for messages read off
+// this stream; it does not govern the stream's lifetime. All call sites deliberately pass a
+// context.Background()-derived ctx, since the underlying connection is cached and reused across
+// calls whose own contexts come and go. The stream's lifetime is instead governed by Close() (or
+// the connection erroring out); the <-ctx.Done() goroutine below is a safety net that in practice
+// is only ever triggered by Close()'s own s.cancel(), not by an external caller cancelling ctx.
 func NewWSStream(conn connection, ctx context.Context, info host2.StreamInfo) *stream {
 	ctx, cancel := context.WithCancel(ctx)
 	s := &stream{
@@ -257,7 +263,7 @@ func (s *stream) Write(p []byte) (int, error) {
 func (s *stream) Close() error {
 	var err error
 	s.closeOnce.Do(func() {
-		logger.Debugf("Close connection for context [%s]", s.ContextID())
+		logger.Debugf("close connection for context [%s]", s.ContextID())
 		s.cancel()
 		err = s.conn.Close()
 		s.mu.Lock()
