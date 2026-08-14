@@ -106,31 +106,23 @@ func (j *jsonSession) ReceiveRawWithTimeout(d time.Duration) ([]byte, error) {
 	return raw, nil
 }
 
-func (j *jsonSession) Send(state any) error {
-	return j.SendWithContext(j.ctx, state)
-}
-
-func (j *jsonSession) SendWithContext(ctx context.Context, state any) error {
+func (j *jsonSession) Send(ctx context.Context, state any) error {
 	v, err := json.Marshal(state)
 	if err != nil {
 		return err
 	}
 	logger.DebugfContext(ctx, "json session, send message [%s]", logging.SHA256Base64(v))
-	return j.s.SendWithContext(ctx, v)
+	return j.s.Send(ctx, v)
 }
 
 func (j *jsonSession) SendRaw(ctx context.Context, raw []byte) error {
 	logger.DebugfContext(ctx, "json session, send raw message [%s]", logging.SHA256Base64(raw))
-	return j.s.SendWithContext(ctx, raw)
+	return j.s.Send(ctx, raw)
 }
 
-func (j *jsonSession) SendError(err string) error {
-	return j.SendErrorWithContext(j.ctx, err)
-}
-
-func (j *jsonSession) SendErrorWithContext(ctx context.Context, err string) error {
+func (j *jsonSession) SendError(ctx context.Context, err string) error {
 	logger.ErrorfContext(ctx, "json session, send error: %w", err)
-	return j.s.SendErrorWithContext(ctx, []byte(err))
+	return j.s.SendError(ctx, []byte(err))
 }
 
 func (j *jsonSession) Session() Session {

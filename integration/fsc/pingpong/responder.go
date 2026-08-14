@@ -40,7 +40,7 @@ func (p *PongView) Call(viewCtx view.Context) (any, error) {
 	switch m := string(payload); m {
 	case pingMessage:
 		logger.DebugfContext(viewCtx.Context(), "%s received, send %s", pingMessage, pongMessage)
-		if err := p.session.SendWithContext(viewCtx.Context(), []byte(pongMessage)); err != nil {
+		if err := p.session.Send(viewCtx.Context(), []byte(pongMessage)); err != nil {
 			return nil, errors.Wrapf(err, "failed to send %s", pongMessage)
 		}
 		return m, nil
@@ -48,7 +48,7 @@ func (p *PongView) Call(viewCtx view.Context) (any, error) {
 		logger.DebugfContext(viewCtx.Context(), "%s received, nothing to answer", finishedMessage)
 		return m, nil
 	default:
-		sendErr := p.session.SendErrorWithContext(viewCtx.Context(), fmt.Appendf(nil, "expected %s or %s, got %s", pingMessage, finishedMessage, m))
+		sendErr := p.session.SendError(viewCtx.Context(), fmt.Appendf(nil, "expected %s or %s, got %s", pingMessage, finishedMessage, m))
 		return nil, errors.Join(errors.Errorf("expected %s or %s, got %s", pingMessage, finishedMessage, m), sendErr)
 	}
 }

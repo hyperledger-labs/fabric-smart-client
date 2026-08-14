@@ -31,7 +31,7 @@ func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 	session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
 	assert.NoError(err)
 	// Send your input from the client
-	err = session.Send(p.in)
+	err = session.Send(viewCtx.Context(), p.in)
 	assert.NoError(err)
 	// Wait to receive it back
 	ch := session.Receive()

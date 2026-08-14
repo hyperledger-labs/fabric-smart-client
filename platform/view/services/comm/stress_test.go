@@ -55,7 +55,7 @@ func runLargeMessageTest(t *testing.T, p *P2PNode, size int) {
 	require.NoError(t, err)
 	session.SetEnqueueTimeout(200 * time.Millisecond)
 
-	err = session.Send(payload)
+	err = session.Send(t.Context(), payload)
 	assert.NoError(t, err)
 }
 
@@ -167,7 +167,7 @@ func TestConcurrentSendAndClose(t *testing.T) { //nolint:paralleltest
 		go func(id int) {
 			defer wg.Done()
 			for j := range msgsPerSender {
-				_ = session.Send(fmt.Appendf(nil, "msg-%d-%d", id, j))
+				_ = session.Send(t.Context(), fmt.Appendf(nil, "msg-%d-%d", id, j))
 			}
 		}(i)
 	}

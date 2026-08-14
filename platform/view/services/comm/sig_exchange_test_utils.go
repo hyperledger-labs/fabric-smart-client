@@ -128,7 +128,7 @@ func SignedSessionExchangeTestRound(t *testing.T, alice, bob *SignedExchangePart
 		if !assert.NoError(t, err, "alice failed to marshal signed message") {
 			return
 		}
-		if !assert.NoError(t, session.SendWithContext(ctx, raw)) {
+		if !assert.NoError(t, session.Send(ctx, raw)) {
 			return
 		}
 
@@ -193,7 +193,7 @@ func SignedSessionExchangeTestRound(t *testing.T, alice, bob *SignedExchangePart
 	require.NoError(t, err, "bob failed to sign")
 	bobRaw, err := utils.MarshalSignedMessage([]byte(bobMsg), bobSig)
 	require.NoError(t, err, "bob failed to marshal signed message")
-	require.NoError(t, responder.SendWithContext(ctx, bobRaw))
+	require.NoError(t, responder.Send(ctx, bobRaw))
 
 	wg.Wait()
 }

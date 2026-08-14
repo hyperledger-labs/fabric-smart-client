@@ -87,14 +87,14 @@ func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 		assert.NoError(t, err)
 		assert.NotNil(t, session)
 
-		err = session.Send([]byte("ciao"))
+		err = session.Send(ctx, []byte("ciao"))
 		assert.NoError(t, err)
 
 		sessionMsgs := session.Receive()
 		msg := <-sessionMsgs
 		assert.Equal(t, []byte("ciaoback"), msg.Payload)
 
-		err = session.Send([]byte("ciao on session"))
+		err = session.Send(ctx, []byte("ciao on session"))
 		assert.NoError(t, err)
 
 		session.Close()
@@ -112,7 +112,7 @@ func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 	require.NoError(t, err)
 	require.NotNil(t, session)
 
-	require.NoError(t, session.Send([]byte("ciaoback")))
+	require.NoError(t, session.Send(ctx, []byte("ciaoback")))
 
 	sessionMsgs := session.Receive()
 	msg = <-sessionMsgs
@@ -139,7 +139,7 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 		assert.NoError(t, err)
 		assert.NotNil(t, session)
 
-		err = session.Send([]byte("ciao"))
+		err = session.Send(ctx, []byte("ciao"))
 		assert.NoError(t, err)
 
 		sessionMsgs := session.Receive()
@@ -157,7 +157,7 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 	msg := <-sessionMsgs
 	require.Equal(t, []byte("ciao"), msg.Payload)
 
-	require.NoError(t, session.Send([]byte("ciaoback")))
+	require.NoError(t, session.Send(ctx, []byte("ciaoback")))
 
 	session.Close()
 
@@ -198,7 +198,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode, node *HostNo
 
 			// Send first message to trigger master session on responder
 			messagesToSend := messages(s.Info().ID)
-			err = s.Send(messagesToSend[0])
+			err = s.Send(ctx, messagesToSend[0])
 			assert.NoError(t, err)
 
 			// Wait for READY signal from responder to ensure dedicated session is active
@@ -214,7 +214,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode, node *HostNo
 			// Send the rest of the messages
 			for j := 1; j < len(messagesToSend); j++ {
 				// logger.Infof("send message [%s] on session [%s]", string(messagesToSend[j]), s.Info().ID)
-				err = s.Send(messagesToSend[j])
+				err = s.Send(ctx, messagesToSend[j])
 				assert.NoError(t, err)
 			}
 
@@ -267,7 +267,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode, node *HostNo
 				assert.NotNil(t, s)
 
 				// Signal READY to sender
-				assert.NoError(t, s.Send([]byte("READY")))
+				assert.NoError(t, s.Send(ctx, []byte("READY")))
 
 				sessionMsgs := s.Receive()
 				for j := 1; j < len(messagesToReceive); j++ {
@@ -287,7 +287,7 @@ func SessionsMultipleMessagesTestRound(t *testing.T, bootstrapNode, node *HostNo
 
 				time.Sleep(time.Second)
 				// Send FINAL ACK
-				assert.NoError(t, s.Send([]byte("FINAL_ACK")))
+				assert.NoError(t, s.Send(ctx, []byte("FINAL_ACK")))
 
 				s.Close()
 			}(firstMsg)

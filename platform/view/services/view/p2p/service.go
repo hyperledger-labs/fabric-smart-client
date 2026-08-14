@@ -159,8 +159,8 @@ func (s *Service) respond(responder view.View, id view.Identity, msg *view.Messa
 	if err != nil {
 		logger.DebugfContext(viewCtx.Context(), "[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
 
-		// send the error back to the caller
-		if serr := viewCtx.Session().SendError([]byte(err.Error())); serr != nil {
+		// Keep error reporting uncancellable while preserving values from the responder context.
+		if serr := viewCtx.Session().SendError(context.WithoutCancel(viewCtx.Context()), []byte(err.Error())); serr != nil {
 			logger.Error(serr.Error())
 		}
 	}

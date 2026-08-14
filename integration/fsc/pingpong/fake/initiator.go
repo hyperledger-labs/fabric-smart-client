@@ -63,7 +63,7 @@ func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 	defer cancel()
 
 	// Send a ping
-	if err := session.SendWithContext(ctx, []byte(pingMessage)); err != nil {
+	if err := session.Send(ctx, []byte(pingMessage)); err != nil {
 		return nil, errors.Wrapf(err, "failed to send %s", pingMessage)
 	}
 

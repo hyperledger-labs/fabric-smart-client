@@ -72,17 +72,11 @@ func (i *SessionInfo) String() string {
 type Session interface {
 	Info() SessionInfo
 
-	// Send sends the payload to the endpoint
-	Send(payload []byte) error
+	// Send sends the payload to the endpoint with the passed context.
+	Send(ctx context.Context, payload []byte) error
 
-	// SendWithContext sends the payload to the endpoint with the passed context
-	SendWithContext(ctx context.Context, payload []byte) error
-
-	// SendError sends an error to the endpoint with the passed payload
-	SendError(payload []byte) error
-
-	// SendErrorWithContext sends an error to the endpoint with the passed payload and context
-	SendErrorWithContext(ctx context.Context, payload []byte) error
+	// SendError sends an error to the endpoint with the passed payload and context.
+	SendError(ctx context.Context, payload []byte) error
 
 	// Receive returns a channel of messages received from the endpoint
 	Receive() <-chan *Message

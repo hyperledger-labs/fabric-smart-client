@@ -87,9 +87,7 @@ func (s *localSession) Info() view.SessionInfo {
 	return info
 }
 
-func (s *localSession) Send(payload []byte) error { return s.SendWithContext(context.TODO(), payload) }
-
-func (s *localSession) SendWithContext(ctx context.Context, payload []byte) error {
+func (s *localSession) Send(ctx context.Context, payload []byte) error {
 	if s.closed.Load() {
 		return errors.New("session is closed")
 	}
@@ -116,11 +114,7 @@ func (s *localSession) SendWithContext(ctx context.Context, payload []byte) erro
 	}
 }
 
-func (s *localSession) SendError(payload []byte) error {
-	return s.SendErrorWithContext(context.TODO(), payload)
-}
-
-func (s *localSession) SendErrorWithContext(ctx context.Context, payload []byte) error {
+func (s *localSession) SendError(ctx context.Context, payload []byte) error {
 	if s.closed.Load() {
 		return errors.New("session is closed")
 	}

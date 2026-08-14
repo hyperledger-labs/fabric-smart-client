@@ -254,7 +254,7 @@ func TestStreamLeak(t *testing.T) { //nolint:paralleltest
 	session, err := p.getOrCreateSession("sess1", "addr", "ctx", "view", nil, []byte("peer1"), nil)
 	require.NoError(t, err)
 
-	err = session.Send([]byte("hello"))
+	err = session.Send(t.Context(), []byte("hello"))
 	require.NoError(t, err)
 
 	p.streamsMutex.RLock()

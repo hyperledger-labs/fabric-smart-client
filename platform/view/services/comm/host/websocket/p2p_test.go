@@ -85,7 +85,7 @@ func TestMTLSCallerIdentityBinding(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	require.NotNil(t, session)
 
-	require.NoError(t, session.Send([]byte("ping")))
+	require.NoError(t, session.Send(ctx, []byte("ping")))
 
 	masterSession, err := node.MasterSession()
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestMTLSCallerIdentityBinding(t *testing.T) { //nolint:paralleltest
 	require.Error(t, err)
 	require.True(t, responder.Info().Caller.Equal(view.Identity(msg.FromPKID)))
 
-	require.NoError(t, responder.Send([]byte("pong")))
+	require.NoError(t, responder.Send(ctx, []byte("pong")))
 	reply := <-session.Receive()
 	require.NotNil(t, reply)
 	require.Equal(t, []byte("pong"), reply.Payload)
@@ -412,7 +412,7 @@ func TestSessionInfoSecurityGuarantees(t *testing.T) { //nolint:paralleltest
 	// Alice initiates a session to Bob
 	session, err := aliceNode.NewSession("alice-view", "ctx-1", bobNode.Address, []byte(bobNode.ID))
 	require.NoError(t, err)
-	require.NoError(t, session.Send([]byte("hello bob")))
+	require.NoError(t, session.Send(ctx, []byte("hello bob")))
 
 	masterSession, err := bobNode.MasterSession()
 	require.NoError(t, err)
@@ -453,7 +453,7 @@ func TestSessionInfoSecurityGuarantees(t *testing.T) { //nolint:paralleltest
 	charlieSession, err := charlieP2PNode.NewResponderSession(msg.SessionID, msg.ContextID, bobNode.Address, []byte(bobNode.ID), nil, nil)
 	require.NoError(t, err)
 	// Charlie's Send might fail because Bob rejects the connection at the transport level (Identity Binding)
-	_ = charlieSession.Send([]byte("i am alice"))
+	_ = charlieSession.Send(ctx, []byte("i am alice"))
 
 	// Bob should NOT receive Charlie's message in Alice's session
 	select {

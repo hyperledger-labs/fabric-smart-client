@@ -81,7 +81,7 @@ func TestJSONSession_Send(t *testing.T) {
 	require.NoError(t, err)
 	js := newJSONSession(ch.LeftSession(), t.Context())
 	type payload struct{ Name string }
-	require.NoError(t, js.Send(payload{Name: "hello"}))
+	require.NoError(t, js.Send(t.Context(), payload{Name: "hello"}))
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		select {
 		case msg := <-ch.RightSession().Receive():
@@ -97,7 +97,7 @@ func TestJSONSession_SendError(t *testing.T) {
 	ch, err := NewLocalBidirectionalChannel("caller", "ctx", "endpoint", nil)
 	require.NoError(t, err)
 	js := newJSONSession(ch.LeftSession(), t.Context())
-	require.NoError(t, js.SendError("something failed"))
+	require.NoError(t, js.SendError(t.Context(), "something failed"))
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		select {
 		case msg := <-ch.RightSession().Receive():

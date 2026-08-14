@@ -149,6 +149,7 @@ func TestService_PanicIsReturnedToRemoteCaller(t *testing.T) {
 
 	respCtx := &mock.Context{}
 	respCtx.SessionReturns(respSession)
+	respCtx.ContextReturns(t.Context())
 	// The default Runner (p2p.NewDefaultRunner) just delegates to viewCtx.RunView(responder).
 	// The real implementation (viewpkg.RunViewNow) recovers any panic raised by the
 	// responder's Call and turns it into an error (wrapping ErrViewExecutionFailed with the
@@ -199,7 +200,9 @@ func TestService_PanicIsReturnedToRemoteCaller(t *testing.T) {
 		return respSession.SendErrorCallCount() > 0
 	}, 5*time.Second, 10*time.Millisecond, "SendError was never called with the panic's error text")
 
-	sentPayload := respSession.SendErrorArgsForCall(0)
+	sentCtx, sentPayload := respSession.SendErrorArgsForCall(0)
+	require.NotNil(t, sentCtx)
+	require.NoError(t, sentCtx.Err())
 	require.Contains(t, string(sentPayload), sensitivePanicText)
 }
 

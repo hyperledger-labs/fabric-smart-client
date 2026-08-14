@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package io
 
 import (
+	"context"
 	"io"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -20,8 +21,8 @@ type commSCCConn struct {
 }
 
 // NewConn creates a new connection conn backed by the comm scc
-func NewConn(index int, session view.Session) (Conn, error) {
-	msgConn, err := NewMsgConn(index, session)
+func NewConn(ctx context.Context, index int, session view.Session) (Conn, error) {
+	msgConn, err := NewMsgConn(ctx, index, session)
 	if err != nil {
 		return nil, err
 	}

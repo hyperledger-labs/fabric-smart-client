@@ -86,7 +86,7 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 
 		// Send transaction
 		logger.DebugfContext(viewCtx.Context(), "Send raw transaction to party")
-		err = session.SendWithContext(viewCtx.Context(), txRaw)
+		err = session.Send(viewCtx.Context(), txRaw)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed sending transaction content")
 		}
@@ -238,7 +238,7 @@ func (s *endorseView) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 
-	err = viewCtx.Session().SendWithContext(viewCtx.Context(), raw)
+	err = viewCtx.Session().Send(viewCtx.Context(), raw)
 	if err != nil {
 		return nil, err
 	}

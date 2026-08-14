@@ -93,7 +93,7 @@ func (f RequestRecipientIdentityView) Call(viewCtx view.Context) (any, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed marshalling recipient request")
 	}
-	err = session.Send(rrRaw)
+	err = session.Send(viewCtx.Context(), rrRaw)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func (s *RespondRequestRecipientIdentityView) Call(viewCtx view.Context) (any, e
 	}
 
 	// Step 3: send the public key back to the invoker
-	err = session.Send(recipientDataRaw)
+	err = session.Send(viewCtx.Context(), recipientDataRaw)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +253,7 @@ func (f *ExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any, error
 	if err != nil {
 		return nil, err
 	}
-	if err := session.Send(requestRaw); err != nil {
+	if err := session.Send(viewCtx.Context(), requestRaw); err != nil {
 		return nil, err
 	}
 
@@ -347,7 +347,7 @@ func (s *RespondExchangeRecipientIdentitiesView) Call(viewCtx view.Context) (any
 		return nil, err
 	}
 
-	if err := session.Send(recipientDataRaw); err != nil {
+	if err := session.Send(viewCtx.Context(), recipientDataRaw); err != nil {
 		return nil, err
 	}
 

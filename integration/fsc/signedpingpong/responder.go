@@ -94,7 +94,7 @@ func (b *BobResponder) Call(viewCtx view.Context) (any, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "bob: failed marshalling reply")
 	}
-	if err := session.SendWithContext(viewCtx.Context(), raw); err != nil {
+	if err := session.Send(viewCtx.Context(), raw); err != nil {
 		return nil, errors.Wrap(err, "bob: failed sending reply")
 	}
 

@@ -92,7 +92,7 @@ func (s *sendReceiveView) Call(viewCtx view.Context) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = session.Send(sendStateRaw)
+	err = session.Send(viewCtx.Context(), sendStateRaw)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (s *replyView) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 
-	err = session.Send(raw)
+	err = session.Send(viewCtx.Context(), raw)
 	if err != nil {
 		return nil, err
 	}

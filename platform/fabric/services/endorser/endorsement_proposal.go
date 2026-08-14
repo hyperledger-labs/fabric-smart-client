@@ -230,7 +230,7 @@ func (s *endorsementsOnProposalResponderView) Call(viewCtx view.Context) (any, e
 	}
 
 	// Send the proposal responses back
-	err = session.SendWithContext(viewCtx.Context(), &Response{ProposalResponses: prs})
+	err = session.Send(viewCtx.Context(), &Response{ProposalResponses: prs})
 	if err != nil {
 		return nil, err
 	}

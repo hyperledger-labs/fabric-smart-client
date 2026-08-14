@@ -183,7 +183,7 @@ func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 
-	if err := session.Send(p.in); err != nil {
+	if err := session.Send(viewCtx.Context(), p.in); err != nil {
 		return nil, err
 	}
 
@@ -219,7 +219,7 @@ func (p *Responder) Call(viewCtx view.Context) (any, error) {
 	session := viewCtx.Session()
 	msg := <-session.Receive()
 
-	if err := session.Send(msg.Payload); err != nil {
+	if err := session.Send(viewCtx.Context(), msg.Payload); err != nil {
 		return nil, err
 	}
 	return "OK", nil

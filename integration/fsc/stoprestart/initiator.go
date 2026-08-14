@@ -35,7 +35,7 @@ func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 	session, err := viewCtx.GetSession(viewCtx.Initiator(), responder)
 	assert.NoError(err) // Send a ping
 	logger.DebugfContext(viewCtx.Context(), "send_ping")
-	err = session.SendWithContext(viewCtx.Context(), []byte("ping"))
+	err = session.Send(viewCtx.Context(), []byte("ping"))
 	assert.NoError(err) // Wait for the pong
 	logger.DebugfContext(viewCtx.Context(), "wait_pong")
 	ch := session.Receive()
