@@ -7,19 +7,22 @@ SPDX-License-Identifier: Apache-2.0
 package cache
 
 import (
+	"context"
 	"sync"
 	"time"
 )
 
 // NewTimeoutCache creates a cache that keeps elements for evictionTimeout time.
 // An element might return even if it is marked stale.
-func NewTimeoutCache[K comparable, V any](evictionTimeout time.Duration, onEvict func(map[K]V)) *evictionCache[K, V] {
+// The background cleanup goroutine stops when ctx is cancelled.
+// A non-positive evictionTimeout disables eviction; see NewTimeoutEviction.
+func NewTimeoutCache[K comparable, V any](ctx context.Context, evictionTimeout time.Duration, onEvict func(map[K]V)) *evictionCache[K, V] {
 	m := map[K]V{}
 	l := &sync.RWMutex{}
 	return &evictionCache[K, V]{
 		m: m,
 		l: l,
-		evictionPolicy: NewTimeoutEviction(evictionTimeout, func(keys []K) {
+		evictionPolicy: NewTimeoutEviction(ctx, evictionTimeout, func(keys []K) {
 			logger.Debugf("Evicting stale keys: [%v]", keys)
 			l.Lock()
 			defer l.Unlock()
@@ -39,26 +42,39 @@ type timeoutEntry[K comparable] struct {
 	key     K
 }
 
-func NewTimeoutEviction[K comparable](timeout time.Duration, evict func([]K)) *timeoutEviction[K] {
+// NewTimeoutEviction returns an eviction policy that evicts entries older than timeout,
+// driven by a background goroutine that stops when ctx is cancelled.
+//
+// A non-positive timeout disables eviction entirely and no goroutine is started. Note
+// that time.NewTicker panics on a non-positive duration, so this guard is what keeps a
+// misconfigured timeout from taking the process down from inside the goroutine.
+func NewTimeoutEviction[K comparable](ctx context.Context, timeout time.Duration, evict func([]K)) *timeoutEviction[K] {
 	e := &timeoutEviction[K]{
 		keys:  make([]timeoutEntry[K], 0),
 		evict: evict,
 	}
-	go e.cleanup(timeout)
+	if timeout <= 0 {
+		logger.Warnf("Eviction timeout is [%v]; eviction is disabled and entries are kept until the cache is dropped", timeout)
+		return e
+	}
+	go e.cleanup(ctx, timeout)
 	return e
 }
 
-func (e *timeoutEviction[K]) cleanup(timeout time.Duration) {
+func (e *timeoutEviction[K]) cleanup(ctx context.Context, timeout time.Duration) {
 	logger.Debugf("Launch cleanup function with eviction timeout [%v]", timeout)
 
-	// TODO: the cleanup should be revisited
-	// when the cleanup is started we loop forever using the ticker; even if there are no items in the cache anymore.
-	// this might also prevent the GC from removing the cache if not needed anymore
-
 	// let's use the eviction timeout as our check interval
-	checkInterval := timeout
+	ticker := time.NewTicker(timeout)
+	defer ticker.Stop()
 
-	for range time.Tick(checkInterval) {
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Debugf("Stopping cleanup: context cancelled")
+			return
+		case <-ticker.C:
+		}
 		expiry := time.Now().Add(-timeout)
 		logger.Debugf("Cleanup invoked: evicting everything created after [%v]", expiry)
 		e.mu.RLock()

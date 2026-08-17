@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"io"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	ab "github.com/hyperledger/fabric-protos-go-apiv2/orderer"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 )
 
 // mockBroadcast is a mock implementation of the Broadcast interface
@@ -441,6 +443,133 @@ func TestConnection_SendAndRecv(t *testing.T) {
 		require.Equal(t, numGoroutines, send)
 		require.Equal(t, numGoroutines, recv)
 	})
+}
+
+// blockingStream is a Broadcast whose Recv() blocks past Connection.RecvHardTimeout,
+// simulating a network stall that Client.Close()/Cancel() fail to unblock. Recv()
+// waits on the done channel (closed by the test once RecvHardTimeout has elapsed and
+// SendAndRecv has returned) before returning, so the background Recv goroutine's
+// lifetime is controlled by the test rather than a second independent timer race.
+type blockingStream struct {
+	done       chan struct{}
+	closeCalls int
+	mu         sync.Mutex
+}
+
+func (b *blockingStream) Send(*common.Envelope) error { return nil }
+
+func (b *blockingStream) Recv() (*ab.BroadcastResponse, error) {
+	<-b.done
+	return nil, io.EOF
+}
+
+func (b *blockingStream) CloseSend() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.closeCalls++
+	return nil
+}
+
+// noopCloseClient is an OrdererClient whose Close() is a no-op and records whether it
+// was invoked, so any bound on the Recv() goroutine's lifetime must come from the
+// hard timeout, not from Close() unblocking Stream.Recv().
+type noopCloseClient struct {
+	closed chan struct{}
+}
+
+func (noopCloseClient) Address() string              { return "" }
+func (noopCloseClient) Certificate() tls.Certificate { return tls.Certificate{} }
+func (noopCloseClient) OrdererClient() (ab.AtomicBroadcastClient, error) {
+	return nil, nil
+}
+
+func (c noopCloseClient) Close() {
+	select {
+	case <-c.closed:
+	default:
+		close(c.closed)
+	}
+}
+
+// TestSendAndRecv_RecvGoroutineBounded verifies that SendAndRecv itself returns the
+// hard-timeout error (via the `case <-timer.C:` branch) when Stream.Recv() blocks
+// past Connection.RecvHardTimeout and the context supplied by the caller does NOT
+// expire first. It uses context.Background() specifically so ctx.Done() can never
+// preempt the timer branch, and it uses a short, per-Connection RecvHardTimeout
+// (instead of the old package-level var) so it cannot race with the parallel
+// sibling tests in this file that also call SendAndRecv.
+func TestSendAndRecv_RecvGoroutineBounded(t *testing.T) { //nolint:paralleltest // uses goleak.VerifyNone; must run serially
+	defer goleak.VerifyNone(t)
+
+	const hardTimeout = 50 * time.Millisecond
+
+	stream := &blockingStream{done: make(chan struct{})}
+	cancelCalled := make(chan struct{})
+	client := noopCloseClient{closed: make(chan struct{})}
+	c := &Connection{
+		Stream:          stream,
+		Client:          client,
+		Cancel:          func() { close(cancelCalled) },
+		RecvHardTimeout: hardTimeout,
+	}
+
+	start := time.Now()
+	_, err := c.SendAndRecv(context.Background(), &common.Envelope{})
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	require.Equal(t, "timed out waiting for orderer Recv", err.Error())
+	require.GreaterOrEqual(t, elapsed, hardTimeout, "SendAndRecv should not return before RecvHardTimeout elapses")
+
+	// The timeout path must invoke Cancel and Client.Close().
+	select {
+	case <-cancelCalled:
+	default:
+		t.Fatal("expected Cancel to be invoked from the timeout path")
+	}
+	select {
+	case <-client.closed:
+	default:
+		t.Fatal("expected Client.Close() to be invoked from the timeout path")
+	}
+
+	// Now let the background Recv goroutine return so goleak sees a clean exit.
+	close(stream.done)
+}
+
+// TestSendAndRecv_CallerDeadlineNotShortened asserts the hard timeout is not armed when
+// the caller supplies a context that already carries a deadline: a caller that asked for
+// more time than RecvHardTimeout must get it, and must see its own ctx error, not the
+// hard-timeout error.
+func TestSendAndRecv_CallerDeadlineNotShortened(t *testing.T) { //nolint:paralleltest // uses goleak.VerifyNone; must run serially
+	defer goleak.VerifyNone(t)
+
+	const (
+		hardTimeout    = 20 * time.Millisecond
+		callerDeadline = 200 * time.Millisecond
+	)
+
+	stream := &blockingStream{done: make(chan struct{})}
+	client := noopCloseClient{closed: make(chan struct{})}
+	c := &Connection{
+		Stream:          stream,
+		Client:          client,
+		Cancel:          func() {},
+		RecvHardTimeout: hardTimeout,
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), callerDeadline)
+	defer cancel()
+
+	start := time.Now()
+	_, err := c.SendAndRecv(ctx, &common.Envelope{})
+	elapsed := time.Since(start)
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.GreaterOrEqual(t, elapsed, callerDeadline,
+		"the caller's deadline must not be shortened to RecvHardTimeout")
+
+	close(stream.done)
 }
 
 // TestConnection_Address tests the Address field

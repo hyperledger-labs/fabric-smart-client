@@ -80,7 +80,12 @@ type invokeTestFixture struct {
 	PrpBytes       []byte
 }
 
-func setupTestChaincode(t *testing.T) *chaincodeTestFixture {
+// setupTestChaincode builds a Chaincode fixture. Since NewChaincode now reads
+// the ChannelConfig discovery-timeout stubs once, at construction time, to
+// size its (now chaincode-owned) discovery cache, any configure func must set
+// those stubs *before* construction to have an effect - hence the hook is
+// applied before chaincode.NewChaincode is called, not after.
+func setupTestChaincode(t *testing.T, configure ...func(cs *mock.ConfigService, cc *mock.ChannelConfig)) *chaincodeTestFixture {
 	t.Helper()
 	mockCS := &mock.ConfigService{}
 	mockCC := &mock.ChannelConfig{}
@@ -99,7 +104,12 @@ func setupTestChaincode(t *testing.T) *chaincodeTestFixture {
 	mockCC.DiscoveryTimeoutReturns(time.Second)
 	mockCC.DiscoveryDefaultTTLSReturns(time.Second)
 
+	for _, cfg := range configure {
+		cfg(mockCS, mockCC)
+	}
+
 	c := chaincode.NewChaincode(
+		t.Context(),
 		"test-chaincode",
 		mockCS,
 		mockCC,
@@ -141,9 +151,9 @@ func createValidProposalResponsePayload(t *testing.T) []byte {
 	return prpBytes
 }
 
-func setupDiscoveryTest(t *testing.T) *discoveryTestFixture {
+func setupDiscoveryTest(t *testing.T, configure ...func(cs *mock.ConfigService, cc *mock.ChannelConfig)) *discoveryTestFixture {
 	t.Helper()
-	fix := setupTestChaincode(t)
+	fix := setupTestChaincode(t, configure...)
 
 	fix.ConfigService.PickPeerReturns(&fscGrpc.ConnectionConfig{Address: "localhost:7051"})
 
@@ -320,6 +330,7 @@ func TestManager(t *testing.T) {
 	fix := setupTestChaincode(t)
 
 	mgr := chaincode.NewManager(
+		t.Context(),
 		"test-network",
 		"test-channel",
 		fix.ConfigService,
@@ -364,9 +375,13 @@ func TestDiscovery_NewDiscovery(t *testing.T) {
 
 	t.Run("from chaincode channel config", func(t *testing.T) {
 		t.Parallel()
-		fix := setupDiscoveryTest(t)
-		fix.ChannelConfig.DiscoveryTimeoutReturns(2 * time.Second)
-		fix.ChannelConfig.DiscoveryDefaultTTLSReturns(10 * time.Millisecond)
+		// The discovery cache's TTL is now sized once, from ChannelConfig,
+		// when the Chaincode (and its cache) is constructed - so the custom
+		// TTL must be stubbed before that construction happens.
+		fix := setupDiscoveryTest(t, func(_ *mock.ConfigService, cc *mock.ChannelConfig) {
+			cc.DiscoveryTimeoutReturns(2 * time.Second)
+			cc.DiscoveryDefaultTTLSReturns(10 * time.Millisecond)
+		})
 		fix.ChannelResponse.EndorsersReturns([]*discoveryApi.Peer{fix.Peer}, nil)
 		d := chaincode.NewDiscovery(fix.Chaincode)
 

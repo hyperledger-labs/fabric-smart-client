@@ -42,17 +42,14 @@ type Discovery struct {
 
 // NewDiscovery create a discovery client that helps to fetch peer information.
 //
-// Discovery results are cached. The TTL of the cached results can be set via the `ChannelConfig.DiscoveryTimeout()`
-// of the chaincode parameter. If not set, the default `DiscoveryCacheTimeout` is used.
+// Discovery results are cached in a cache owned by chaincode (created once in
+// NewChaincode) and shared across every Discovery instance created for that
+// chaincode, so its lifetime (and background eviction goroutine) is bound to
+// the chaincode rather than to this single Discovery instance.
 func NewDiscovery(chaincode *Chaincode) *Discovery {
-	timeout := DiscoveryCacheTimeout
-	if chaincode != nil || chaincode.ChannelConfig != nil || chaincode.ChannelConfig.DiscoveryTimeout() > 0 {
-		timeout = chaincode.ChannelConfig.DiscoveryDefaultTTLS()
-	}
-
 	return &Discovery{
 		chaincode:             chaincode,
-		discoveryResultsCache: cache.NewTimeoutCache[string, discovery.Response](timeout, nil),
+		discoveryResultsCache: chaincode.discoveryResultsCache,
 	}
 }
 

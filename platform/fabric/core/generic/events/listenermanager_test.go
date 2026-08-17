@@ -184,6 +184,7 @@ func TestNewListenerManagerStartsDeliveryAndRegistersListenersCache(t *testing.T
 
 	delivery := &recordingDelivery{called: make(chan fabric.BlockCallback, 1)}
 	manager, err := NewListenerManager[testEvent](
+		context.Background(),
 		testLogger(t),
 		DeliveryListenerManagerConfig{
 			ListenerTimeout: testListenerTimeout,
@@ -394,6 +395,7 @@ func newTestListenerManager(t *testing.T) *ListenerManager[testEvent] {
 
 	logger := testLogger(t)
 	return &ListenerManager[testEvent]{
+		ctx:                context.Background(),
 		logger:             logger,
 		mapper:             &parallelBlockMapper[testEvent]{logger: logger, cap: 1, mapper: staticMapper{}},
 		listeners:          cache.NewMapCache[EventID, []ListenerEntry[testEvent]](),

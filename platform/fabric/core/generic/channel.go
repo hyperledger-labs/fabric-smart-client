@@ -44,6 +44,16 @@ type Channel struct {
 	ChannelMembershipService driver.ChannelMembership
 	ChaincodeManagerService  driver.ChaincodeManager
 	CommitterService         CommitterService
+
+	// cancel tears down the context that bounds the lifetime of resources owned by
+	// the channel's dependencies (e.g. the ChaincodeManagerService's per-chaincode
+	// discovery caches). It is invoked in Close.
+	//
+	// There is no channel-scoped context flowing from above the
+	// NewChannel/ChannelProvider construction path today, so that context is rooted
+	// at context.Background() in the provider; if that ever changes, it should
+	// derive from the higher-level context instead.
+	cancel context.CancelFunc
 }
 
 func (c *Channel) Init() error {
@@ -59,6 +69,11 @@ func (c *Channel) Name() string {
 
 func (c *Channel) Close() error {
 	c.DeliveryService.Stop()
+	// Cancelling is enough to stop the ChaincodeManagerService: its context, and in
+	// turn every per-chaincode discovery cache, derives from the one cancel closes.
+	if c.cancel != nil {
+		c.cancel()
+	}
 	return c.Vault().Close()
 }
 

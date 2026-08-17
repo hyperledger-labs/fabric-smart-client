@@ -62,6 +62,7 @@ type DeliveryListenerManagerConfig struct {
 }
 
 type ListenerManager[T EventInfo] struct {
+	ctx    context.Context
 	logger logging.Logger
 	tracer trace.Tracer
 	mapper *parallelBlockMapper[T]
@@ -78,6 +79,7 @@ type ListenerManager[T EventInfo] struct {
 }
 
 func NewListenerManager[T EventInfo](
+	ctx context.Context,
 	logger logging.Logger,
 	config DeliveryListenerManagerConfig,
 	delivery Delivery,
@@ -85,10 +87,11 @@ func NewListenerManager[T EventInfo](
 	tracer trace.Tracer,
 	mapper EventInfoMapper[T],
 ) (*ListenerManager[T], error) {
-	return newListenerManager[T](logger, config, delivery, queryService, tracer, mapper, false)
+	return newListenerManager[T](ctx, logger, config, delivery, queryService, tracer, mapper, false)
 }
 
 func NewSequentialListenerManager[T EventInfo](
+	ctx context.Context,
 	logger logging.Logger,
 	config DeliveryListenerManagerConfig,
 	delivery Delivery,
@@ -96,10 +99,11 @@ func NewSequentialListenerManager[T EventInfo](
 	tracer trace.Tracer,
 	mapper EventInfoMapper[T],
 ) (*ListenerManager[T], error) {
-	return newListenerManager[T](logger, config, delivery, queryService, tracer, mapper, true)
+	return newListenerManager[T](ctx, logger, config, delivery, queryService, tracer, mapper, true)
 }
 
 func newListenerManager[T EventInfo](
+	ctx context.Context,
 	logger logging.Logger,
 	config DeliveryListenerManagerConfig,
 	delivery Delivery,
@@ -117,6 +121,7 @@ func newListenerManager[T EventInfo](
 		events = cache.NewMapCache[EventID, T]()
 	}
 	flm := &ListenerManager[T]{
+		ctx:                        ctx,
 		logger:                     logger,
 		mapper:                     &parallelBlockMapper[T]{logger: logger, cap: max(config.MapperParallelism, 1), mapper: mapper},
 		tracer:                     tracer,
@@ -129,7 +134,7 @@ func newListenerManager[T EventInfo](
 	}
 	var listeners cache.Map[EventID, []ListenerEntry[T]]
 	if config.ListenerTimeout > 0 {
-		listeners = cache.NewTimeoutCache(config.ListenerTimeout, func(evicted map[EventID][]ListenerEntry[T]) {
+		listeners = cache.NewTimeoutCache(ctx, config.ListenerTimeout, func(evicted map[EventID][]ListenerEntry[T]) {
 			if len(evicted) == 0 {
 				return
 			}
@@ -139,7 +144,7 @@ func newListenerManager[T EventInfo](
 				logging.Keys(evicted),
 				lastBlockNum,
 			)
-			fetchTxs(context.TODO(), logger, lastBlockNum, evicted, queryService, sequential)
+			fetchTxs(flm.ctx, logger, lastBlockNum, evicted, queryService, sequential)
 		})
 	} else {
 		listeners = cache.NewMapCache[EventID, []ListenerEntry[T]]()
@@ -154,7 +159,7 @@ func newListenerManager[T EventInfo](
 
 func (m *ListenerManager[T]) start() {
 	// In case the delivery service fails, it will try to reconnect automatically.
-	err := m.delivery.ScanBlock(context.Background(), m.newBlockCallback())
+	err := m.delivery.ScanBlock(m.ctx, m.newBlockCallback())
 	m.logger.Errorf("failed running delivery: %v", err)
 }
 
@@ -247,7 +252,7 @@ func (m *ListenerManager[T]) AddEventListener(id EventID, e ListenerEntry[T]) er
 	if event, ok := m.events.Get(id); ok {
 		defer m.mu.RUnlock()
 		m.logger.Debugf("found event [%s]. Invoking listener directly", id)
-		go e.OnStatus(context.TODO(), event)
+		go e.OnStatus(m.ctx, event)
 		return nil
 	}
 	m.mu.RUnlock()
@@ -256,7 +261,7 @@ func (m *ListenerManager[T]) AddEventListener(id EventID, e ListenerEntry[T]) er
 	defer m.mu.Unlock()
 	if event, ok := m.events.Get(id); ok {
 		m.logger.Debugf("found event [%s]! Invoking listener directly", id)
-		go e.OnStatus(context.TODO(), event)
+		go e.OnStatus(m.ctx, event)
 		return nil
 	}
 	m.logger.Debugf("value not found. Appending listener for [%s]", id)
@@ -272,7 +277,7 @@ func (m *ListenerManager[T]) AddPermanentEventListener(id EventID, e ListenerEnt
 	defer m.mu.Unlock()
 	if event, ok := m.events.Get(id); ok {
 		m.logger.Debugf("found event [%s]! Invoking listener directly", id)
-		go e.OnStatus(context.TODO(), event)
+		go e.OnStatus(m.ctx, event)
 	}
 	m.logger.Debugf("appending permanent listener for [%s]", id)
 	pListeners := m.permanentListeners[id]
@@ -313,6 +318,10 @@ func fetchTxs[T EventInfo](
 			logger.Errorf("failed scanning: %s", err.Error())
 			return
 		}
+		// Listener notifications carry no error to propagate, so a plain WaitGroup is
+		// enough; it exists only so this goroutine outlives the notifications it fans
+		// out, rather than leaving them unowned.
+		var wg sync.WaitGroup
 		for events := range ch {
 			logger.DebugfContext(ctx, "received [%d] events", len(events))
 			for _, event := range events {
@@ -321,13 +330,14 @@ func fetchTxs[T EventInfo](
 				for i, listener := range evicted[event.ID()] {
 					logger.DebugfContext(ctx, "calling listener [%d], event [%s]", i, event.ID())
 					if sequential {
-						listener.OnStatus(context.TODO(), event)
+						listener.OnStatus(ctx, event)
 					} else {
-						go listener.OnStatus(context.TODO(), event)
+						wg.Go(func() { listener.OnStatus(ctx, event) })
 					}
 				}
 			}
 		}
+		wg.Wait()
 	}()
 }
 

@@ -170,7 +170,12 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		return nil, errors.Wrapf(err, "failed creating RWSetLoader for channel [%s]", channelName)
 	}
 
+	// The channel has no higher-level context to derive from today, so its
+	// lifetime is rooted here at context.Background(); cancelled in Close().
+	channelCtx, channelCancel := context.WithCancel(context.Background())
+
 	chaincodeManagerService := chaincode.NewManager(
+		channelCtx,
 		nw.Name(),
 		channelName,
 		nw.ConfigService(),
@@ -191,6 +196,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		chaincodeManagerService,
 	)
 	if err != nil {
+		channelCancel()
 		return nil, errors.Wrapf(err, "failed creating ledger for channel [%s]", channelName)
 	}
 
@@ -206,6 +212,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		quiet,
 	)
 	if err != nil {
+		channelCancel()
 		return nil, errors.Wrapf(err, "failed creating committer for channel [%s]", channelName)
 	}
 
@@ -226,6 +233,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		},
 	)
 	if err != nil {
+		channelCancel()
 		return nil, errors.Wrapf(err, "failed creating delivery for channel [%s]", channelName)
 	}
 
@@ -242,8 +250,10 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		ChannelMembershipService: channelMembershipService,
 		ChaincodeManagerService:  chaincodeManagerService,
 		CommitterService:         committerService,
+		cancel:                   channelCancel,
 	}
 	if err := c.Init(); err != nil {
+		channelCancel()
 		return nil, errors.Wrapf(err, "failed initializing Channel [%s]", channelName)
 	}
 	return c, nil
