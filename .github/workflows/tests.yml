@@ -21,8 +21,8 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
@@ -34,8 +34,8 @@ jobs:
       - checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
@@ -44,7 +44,7 @@ jobs:
         run: |
           GO_TEST_PARAMS="-race -coverprofile=coverage.profile" make unit-tests
           ./scripts/filter-coverage.sh coverage.profile coverage.profile
-      - uses: coverallsapp/github-action@v2
+      - uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # ratchet:coverallsapp/github-action@v2.3.8
         with:
           file: coverage.profile
           flag-name: utest
@@ -56,8 +56,8 @@ jobs:
       - checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
@@ -66,7 +66,7 @@ jobs:
         run: |
           GO_TEST_PARAMS="-race -coverprofile=coverage.profile" make unit-tests-postgres
           ./scripts/filter-coverage.sh coverage.profile coverage.profile
-      - uses: coverallsapp/github-action@v2
+      - uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # ratchet:coverallsapp/github-action@v2.3.8
         with:
           file: coverage.profile
           flag-name: utest-postgres
@@ -78,7 +78,7 @@ jobs:
     outputs:
       tests: ${{ steps.set-itest-tests.outputs.tests }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
       - name: list itest targets
         id: set-itest-tests
         run: |
@@ -95,8 +95,8 @@ jobs:
         # run all test as listed via `make list-integration-tests`
         tests: ${{ fromJson(needs.itest-list.outputs.tests) }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
@@ -134,7 +134,7 @@ jobs:
           go tool covdata textfmt -i=covdata -o coverage.profile
           ./scripts/filter-coverage.sh coverage.profile coverage.profile
 
-      - uses: coverallsapp/github-action@v2
+      - uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # ratchet:coverallsapp/github-action@v2.3.8
         with:
           file: coverage.profile
           flag-name: itest-${{ matrix.tests }}
@@ -154,7 +154,7 @@ jobs:
       # previously masked missing integration-test jobs by silently reusing a
       # prior build's coverage, so an incomplete run reported a stale-but-
       # plausible number instead of an obviously low one.
-      - uses: coverallsapp/github-action@v2
+      - uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # ratchet:coverallsapp/github-action@v2.3.8
         with:
           parallel-finished: true
           fail-on-error: false

@@ -64,12 +64,12 @@ jobs:
 
       - name: Run Inactivity Bot Tests
         run: node .github/scripts/tests/test-inactivity-bot.js
-        
+
       - name: Run On-PR-Review Bot Tests
         run: node .github/scripts/tests/test-on-pr-review-bot.js
 
       - name: Run On-PR-Merged Bot Tests
-        run: node .github/scripts/tests/test-on-pr-merged-bot.js 
-         
+        run: node .github/scripts/tests/test-on-pr-merged-bot.js
+
       - name: Run On-Comment Bot Tests
         run: node .github/scripts/tests/test-on-comment-bot.js
