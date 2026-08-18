@@ -29,7 +29,7 @@ import (
 var logger = logging.MustGetLogger()
 
 const (
-	DefaultConsensusType     = "etcdraft"
+	DefaultConsensusType     = "arma"
 	defaultEventuallyTimeout = 60 * time.Second
 
 	// namespacePropagationTimeout is the maximum time to wait for deployed

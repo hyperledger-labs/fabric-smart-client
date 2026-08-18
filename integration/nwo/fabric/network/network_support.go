@@ -571,6 +571,18 @@ func (n *Network) OrdererLocalTLSDir(o *topology.Orderer) string {
 	return n.OrdererLocalCryptoDir(o, "tls")
 }
 
+// OrdererSignCert returns the path to the orderer's certificate.
+func (n *Network) OrdererSignCert(o *topology.Orderer) string {
+	org := n.Organization(o.Organization)
+	gomega.Expect(org).NotTo(gomega.BeNil())
+
+	return filepath.Join(
+		n.OrdererLocalMSPDir(o),
+		"signcerts",
+		fmt.Sprintf("%s.%s-cert.pem", o.Name, org.Domain),
+	)
+}
+
 // ProfileForChannel gets the configtxgen profile name associated with the
 // specified channel.
 func (n *Network) ProfileForChannel(channelName string) string {

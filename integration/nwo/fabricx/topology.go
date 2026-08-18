@@ -114,6 +114,16 @@ func NewTopologyWithName(name string) *Topology {
 	topo.TopologyType = PlatformName
 	topo.Driver = PlatformName
 
+	topo.Orderers = []*fabric_topology.Orderer{
+		{Name: "orderer1", Organization: "OrdererOrg", Id: 1},
+		{Name: "orderer2", Organization: "OrdererOrg", Id: 2},
+		{Name: "orderer3", Organization: "OrdererOrg", Id: 3},
+		{Name: "orderer4", Organization: "OrdererOrg", Id: 4},
+	}
+	for _, p := range topo.Profiles {
+		p.Orderers = []string{"orderer1", "orderer2", "orderer3", "orderer4"}
+	}
+
 	return &Topology{
 		Topology: topo,
 		Committer: CommitterConfig{
