@@ -86,7 +86,7 @@ func (c *DelegatedContext) GetSession(caller view.View, party view.Identity, bou
 		if responder.InitiatorView == caller && responder.ResponderID.Equal(party) {
 			responder.Lock.RLock()
 			if responder.Channel != nil {
-				responder.Lock.Unlock()
+				responder.Lock.RUnlock()
 				return responder.Channel.LeftSession(), nil
 			}
 			responder.Lock.RUnlock()
