@@ -504,6 +504,7 @@ func TestSendAndRecv_RecvGoroutineBounded(t *testing.T) { //nolint:paralleltest 
 	const hardTimeout = 50 * time.Millisecond
 
 	stream := &blockingStream{done: make(chan struct{})}
+	defer close(stream.done)
 	cancelCalled := make(chan struct{})
 	client := noopCloseClient{closed: make(chan struct{})}
 	c := &Connection{
@@ -532,9 +533,6 @@ func TestSendAndRecv_RecvGoroutineBounded(t *testing.T) { //nolint:paralleltest 
 	default:
 		t.Fatal("expected Client.Close() to be invoked from the timeout path")
 	}
-
-	// Now let the background Recv goroutine return so goleak sees a clean exit.
-	close(stream.done)
 }
 
 // TestSendAndRecv_CallerDeadlineNotShortened asserts the hard timeout is not armed when
@@ -550,6 +548,7 @@ func TestSendAndRecv_CallerDeadlineNotShortened(t *testing.T) { //nolint:paralle
 	)
 
 	stream := &blockingStream{done: make(chan struct{})}
+	defer close(stream.done)
 	client := noopCloseClient{closed: make(chan struct{})}
 	c := &Connection{
 		Stream:          stream,
@@ -558,18 +557,18 @@ func TestSendAndRecv_CallerDeadlineNotShortened(t *testing.T) { //nolint:paralle
 		RecvHardTimeout: hardTimeout,
 	}
 
+	// start is taken *before* the deadline context is created, because that is where the
+	// deadline's own clock starts.
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(t.Context(), callerDeadline)
 	defer cancel()
 
-	start := time.Now()
 	_, err := c.SendAndRecv(ctx, &common.Envelope{})
 	elapsed := time.Since(start)
 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.GreaterOrEqual(t, elapsed, callerDeadline,
 		"the caller's deadline must not be shortened to RecvHardTimeout")
-
-	close(stream.done)
 }
 
 // TestConnection_Address tests the Address field
