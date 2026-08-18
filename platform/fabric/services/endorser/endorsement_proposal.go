@@ -225,9 +225,6 @@ func (s *endorsementsOnProposalResponderView) Call(viewCtx view.Context) (any, e
 	logger.Debugf("number of endorse proposal response produced [%d], send them back", len(prs))
 
 	session := session.JSON(viewCtx)
-	if err != nil {
-		return nil, err
-	}
 
 	// Send the proposal responses back
 	err = session.Send(viewCtx.Context(), &Response{ProposalResponses: prs})
