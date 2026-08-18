@@ -12,6 +12,7 @@ import (
 	"crypto/sha256"
 	"maps"
 	"sync"
+	"unsafe"
 
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 
@@ -455,11 +456,19 @@ func (r *rwSetWrapper) Equals(rws any, nss ...cdriver.Namespace) error {
 		return errors.Errorf("expected *rwSetWrapper, got %T", rws)
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r != other {
+	if r == other {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+	} else if uintptr(unsafe.Pointer(r)) < uintptr(unsafe.Pointer(other)) {
+		r.mu.Lock()
+		defer r.mu.Unlock()
 		other.mu.Lock()
 		defer other.mu.Unlock()
+	} else {
+		other.mu.Lock()
+		defer other.mu.Unlock()
+		r.mu.Lock()
+		defer r.mu.Unlock()
 	}
 
 	if err := r.rws.Reads.Equals(other.rws.Reads, nss...); err != nil {
