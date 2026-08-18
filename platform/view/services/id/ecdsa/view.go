@@ -64,10 +64,6 @@ func (f twoPartyCollectEphemeralKeyView) Call(viewCtx view.Context) (any, error)
 		}
 		log.Printf("twoPartyCollectEphemeralKeyView [%s]\n", msg.Payload)
 
-		if msg.Status == view.ERROR {
-			return nil, errors.New(string(msg.Payload))
-		}
-
 		id2, verifier, err := NewIdentityFromBytes(msg.Payload)
 		if err != nil {
 			return nil, err
