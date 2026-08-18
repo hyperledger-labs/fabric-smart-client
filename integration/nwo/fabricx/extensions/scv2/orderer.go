@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package scv2
 
 import (
+	"fmt"
 	"os"
+	
+	fabric_topology "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 )
 
-func generateMockOrdererConfigFile(configPath string) error {
+func generateMockOrdererConfigFile(configPath string, orderers []*fabric_topology.Orderer) error {
 	configContent := `
 logging:
   logSpec: info:grpc=error
@@ -36,8 +39,16 @@ artifacts-path:
 # as they must be set via the config yaml in order to override via env vars
 genesis-block-path: /root/artifacts/config-block.pb.bin
 consenter-msp-identities:
-  - msp-id: OrdererMSP
-    msp-dir: /root/artifacts/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp
 `
+	for _, o := range orderers {
+		mspID := o.Organization
+		if mspID == "OrdererOrg" {
+			mspID = "Orderer"
+		}
+		configContent += fmt.Sprintf(`  - msp-id: %sMSP
+    msp-dir: /root/artifacts/crypto/ordererOrganizations/example.com/orderers/%s.example.com/msp
+`, mspID, o.Name)
+	}
+
 	return os.WriteFile(configPath, []byte(configContent), 0o600)
 }
