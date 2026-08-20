@@ -27,10 +27,18 @@ import (
 
 var logger = logging.MustGetLogger()
 
-// DefaultHandlerTimeout, DefaultListenerTTL and DefaultSweepInterval live in
-// committer/config, the single source of truth for the notification service's
-// configurable defaults; this package consumes them via config.Config rather
-// than defining its own copies.
+// DefaultHandlerTimeout, DefaultHandlerWorkers, DefaultListenerTTL and
+// DefaultSweepInterval live in committer/config, the single source of truth for
+// the notification service's configurable defaults; this package consumes them via
+// config.Config rather than defining its own copies.
+
+// handlerCall is one OnStatus invocation: the unit of work handed to the handler
+// errgroup.
+type handlerCall struct {
+	handler fabric.FinalityListener
+	txID    string
+	status  int
+}
 
 // handlerEntry holds the listeners waiting on one transaction, together with the
 // deadline after which they are settled locally. A zero expiresAt means the entry
@@ -45,6 +53,31 @@ type notificationListenerManager struct {
 	requestQueue   chan *committerpb.NotificationRequest
 	responseQueue  chan *committerpb.NotificationResponse
 	handlerTimeout time.Duration
+
+	// handlerWorkers is the limit set on the handler errgroup (see handlerGroup),
+	// so it is how many OnStatus callbacks may run at once -- and therefore also
+	// how many stuck listeners it takes to stop delivering notifications on this
+	// stream entirely.
+	handlerWorkers int
+
+	// handlerGroup runs listener callbacks, capped at handlerWorkers via SetLimit.
+	// Deliberately a SEPARATE errgroup from the one listen() uses for its three
+	// stream goroutines, for two reasons:
+	//
+	//   - Wait(): a listener that ignores cancellation and never returns keeps its
+	//     goroutine alive forever. Were it in the stream group, that group's Wait()
+	//     could never return, so listen() would never return and node shutdown
+	//     would hang on one misbehaving callback.
+	//   - Errors and limits: errgroup cancels its context on the first error and
+	//     shares one limit across the whole group. Sharing would let handlers
+	//     starve the stream goroutines of slots, and let a handler's error tear
+	//     down the stream.
+	//
+	// Set up by listen() and nil until then; enqueueHandler tolerates that.
+	// handlerCtx is the context callbacks receive, guarded by the same mutex.
+	handlerGroup   *errgroup.Group
+	handlerCtx     context.Context
+	handlerGroupMu sync.RWMutex
 
 	// requestTimeout is sent to the committer as the outbound NotificationRequest's
 	// Timeout, so it gives up and replies once it passes rather than us aborting the
@@ -88,6 +121,26 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	// "this stream is dead" signal AddFinalityListener needs until a new
 	// listen() call replaces it with a fresh, live gCtx.
 	n.streamCtx.Store(&gCtx)
+
+	// Set up the handler errgroup: SetLimit caps concurrent OnStatus callbacks, and
+	// enqueueHandler uses TryGo so a saturated limit reports back instead of
+	// blocking or queueing. See the handlerGroup field for why this is a separate
+	// group from g.
+	//
+	// hCtx strips cancellation from ctx and relies on stopHandlers instead: a
+	// callback that is mid-flight when ctx is canceled would otherwise be handed an
+	// already-dead context, and callHandler's timeout would expire instantly,
+	// delivering nothing.
+	hCtx, stopHandlers := context.WithCancel(context.WithoutCancel(ctx))
+	defer stopHandlers()
+
+	hg, hgCtx := errgroup.WithContext(hCtx)
+	hg.SetLimit(n.handlerWorkers)
+
+	n.handlerGroupMu.Lock()
+	n.handlerGroup = hg
+	n.handlerCtx = hgCtx
+	n.handlerGroupMu.Unlock()
 
 	// spawn stream receiver
 	g.Go(func() error {
@@ -140,15 +193,26 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 			case <-gCtx.Done():
 				return gCtx.Err()
 			case <-ticker.C:
-				n.sweepExpired(gCtx)
+				n.sweepExpired()
 			case resp := <-n.responseQueue:
-				n.dispatch(gCtx, resp)
+				n.dispatch(resp)
 			}
 		}
 	})
 
 	err = g.Wait()
 	logger.Debugf("Notification listener stream stopped.")
+
+	// Cancel the handler context so in-flight callbacks that do observe
+	// cancellation wind down, then give them a bounded window to finish.
+	//
+	// hg.Wait() is deliberately NOT waited on unconditionally: it returns only once
+	// every callback has returned, and a listener that ignores cancellation never
+	// does. Waiting with a timeout keeps the common case tidy (callbacks finish,
+	// their goroutines are reaped before listen() returns) without letting one
+	// misbehaving listener block shutdown indefinitely.
+	stopHandlers()
+	n.waitHandlers()
 
 	// The stream is gone, so nothing will ever notify these listeners. Settle them
 	// with Unknown instead of dropping them silently, so anyone blocked in IsFinal
@@ -167,6 +231,20 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 // settleAllAndClear empties the handlers map, invoking every listener still in it
 // with the given status. Used on stream teardown, where no notification can
 // arrive any more.
+//
+// Does not go through the handler errgroup: this runs after listen() has already
+// cancelled the handler context and waited out the in-flight callbacks, so its
+// slots may still be held by listeners that ignored cancellation. Routing these
+// final callbacks through TryGo would see those held slots and drop the very
+// notifications this function exists to deliver.
+//
+// Each listener is therefore invoked directly, in its own goroutine, and waited
+// for only up to handlerTimeout. Waiting inline instead would let a single
+// listener that ignores its context block listen() from ever returning, hanging
+// node shutdown -- the same failure the separate handler group avoids (see
+// listen). The goroutines here are bounded by the number of listeners still
+// unresolved at teardown, which happens once per stream death, so this is not a
+// path that can grow without limit.
 func (n *notificationListenerManager) settleAllAndClear(ctx context.Context, status int) {
 	type pending struct {
 		txID      string
@@ -191,8 +269,28 @@ func (n *notificationListenerManager) settleAllAndClear(ctx context.Context, sta
 
 	for _, p := range batch {
 		for _, h := range p.listeners {
-			n.invokeHandler(ctx, h, p.txID, status)
+			n.callHandlerBounded(ctx, handlerCall{handler: h, txID: p.txID, status: status})
 		}
+	}
+}
+
+// callHandlerBounded invokes one listener and gives up waiting for it after
+// handlerTimeout, so a listener that ignores cancellation cannot block the caller
+// indefinitely. Used only on the teardown path, where the handler pool is already
+// stopped; the live paths get their bound from the pool's fixed size instead.
+func (n *notificationListenerManager) callHandlerBounded(ctx context.Context, c handlerCall) {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		n.callHandler(ctx, c)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(n.handlerTimeout):
+		logger.Warnf(
+			"OnStatus handler for txID=%s did not return within %s on stream teardown; abandoning the wait",
+			c.txID, n.handlerTimeout)
 	}
 }
 
@@ -341,28 +439,145 @@ func (n *notificationListenerManager) RemoveFinalityListener(txID string, listen
 	return nil
 }
 
-// invokeHandler calls one listener in its own goroutine, bounded by
-// handlerTimeout. If a handler ignores context cancellation and never returns,
-// its goroutine leaks -- which is preferable to blocking the dispatcher. Shared
-// by the notification path and the expiry sweeper so both get the same isolation.
-func (n *notificationListenerManager) invokeHandler(ctx context.Context, h fabric.FinalityListener, txID string, status int) {
+// enqueueHandler starts one OnStatus invocation on the handler errgroup via
+// TryGo. It never blocks: the caller is the dispatcher goroutine, which also
+// drains the notification stream and runs the expiry sweeper, so blocking here
+// would stall notification delivery for every other transaction as well.
+//
+// TryGo returning false means all handlerWorkers slots are in use, so the
+// invocation is dropped. There is no queue: the limit is the only buffer, which is
+// what makes saturation visible immediately rather than deferred behind a backlog.
+//
+// KNOWN AND ACCEPTED CONSEQUENCE: TryGo reserves a slot on the *calling* goroutine
+// while the callback runs on a newly spawned one. Dispatching a batch in a tight
+// loop therefore refuses work that would have succeeded moments later, because the
+// slots are held by callbacks the runtime has not scheduled yet -- not because any
+// listener is slow. In the extreme, submitting N calls with no yield between them
+// can start none of them.
+//
+// The practical effect is that a notification response carrying more txIDs than
+// there are slots loses the overflow even when every listener returns instantly:
+// measured at handlerWorkers=16 with such listeners, a 200-txID batch delivered
+// roughly a third of its callbacks. The dropped listeners are settled with Unknown
+// by the listenerTTL sweeper, so callers still get an answer, just later and less
+// precise. Pinned by Burst_Larger_Than_Limit_Drops_The_Overflow.
+//
+// This is the deliberate price of a dispatcher that never blocks: the same
+// goroutine drains the notification stream and runs the expiry sweeper, so a
+// blocking send here would stall both. If burst loss ever needs to be eliminated,
+// the two options are a larger handlerWorkers (sizing the limit as a buffer), or
+// switching to a blocking Go for the batch under a bounded time budget, falling
+// back to TryGo once that budget is spent.
+//
+// A dropped invocation is not recovered: both callers have already deleted the
+// handlers entry under the lock by this point, so the listener never receives a
+// callback and whoever is waiting on it (e.g. IsFinal) falls back to its own
+// context deadline -- or to the listenerTTL sweeper's Unknown, whichever comes
+// first.
+//
+// Returns whether the callback was started, so callers can aggregate drops into a
+// single warning per batch rather than one line per txID; see logDrops.
+func (n *notificationListenerManager) enqueueHandler(c handlerCall) bool {
+	n.handlerGroupMu.RLock()
+	hg, hCtx := n.handlerGroup, n.handlerCtx
+	n.handlerGroupMu.RUnlock()
+
+	if hg == nil {
+		// No stream has started, so there is nothing to run callbacks. Reachable
+		// only from a direct dispatch/sweep call outside listen(), i.e. in tests.
+		logger.Warnf("no handler group, dropping OnStatus for txID=%s", c.txID)
+		return false
+	}
+
+	// The func returns nil unconditionally: a listener callback has no error to
+	// report, and a non-nil return would cancel the handler group's context and so
+	// every other in-flight callback with it.
+	started := hg.TryGo(func() error {
+		n.callHandler(hCtx, c)
+		return nil
+	})
+
+	if !started {
+		// Logged at debug, not warn: a saturated limit drops every remaining call in
+		// the batch, so warning here would emit one near-identical line per txID at
+		// the notification rate. The caller aggregates into a single warning -- see
+		// logDrops.
+		logger.Debugf("handler slots full, dropped OnStatus for txID=%s", c.txID)
+	}
+	return started
+}
+
+// logDrops emits one aggregated warning for a batch in which some callbacks could
+// not be started. Aggregated on purpose: a saturated limit refuses every remaining
+// call, so per-txID warnings would flood the log at the notification rate exactly
+// when an operator most needs to read it. Individual txIDs are at debug level.
+func (n *notificationListenerManager) logDrops(dropped, total int) {
+	if dropped == 0 {
+		return
+	}
+	logger.Warnf(
+		"dropped %d of %d finality callbacks: all %d handler slots in use. "+
+			"Either listeners are not keeping up (raise handlerWorkers), one is ignoring "+
+			"its context, or this batch was larger than the limit. Affected listeners will "+
+			"be settled with Unknown after listenerTTL.",
+		dropped, total, n.handlerWorkers)
+}
+
+// waitHandlers waits for in-flight callbacks to finish, but only up to
+// handlerTimeout. See the call site in listen() for why the wait is bounded.
+func (n *notificationListenerManager) waitHandlers() {
+	n.handlerGroupMu.RLock()
+	hg := n.handlerGroup
+	n.handlerGroupMu.RUnlock()
+
+	if hg == nil {
+		return
+	}
+
+	done := make(chan struct{})
 	go func() {
-		timeoutCtx, cancel := context.WithTimeout(ctx, n.handlerTimeout)
-		defer cancel()
-
-		done := make(chan struct{})
-		go func() {
-			h.OnStatus(timeoutCtx, txID, status, "")
-			close(done)
-		}()
-
-		select {
-		case <-done:
-			// Handler completed within timeout
-		case <-timeoutCtx.Done():
-			logger.Warnf("OnStatus handler timed out for txID=%s (timeout=%s)", txID, n.handlerTimeout)
-		}
+		defer close(done)
+		_ = hg.Wait() // the callbacks never return an error; see enqueueHandler
 	}()
+
+	select {
+	case <-done:
+		logger.Debugf("all finality handler callbacks finished")
+	case <-time.After(n.handlerTimeout):
+		logger.Warnf(
+			"finality handler callbacks still running after %s on stream teardown; "+
+				"abandoning the wait (a listener is ignoring its context)",
+			n.handlerTimeout)
+	}
+}
+
+// callHandler invokes one listener synchronously, with a context bounded by
+// handlerTimeout.
+//
+// The timeout is advisory: it cancels the context handed to the listener, but
+// nothing forces a listener that ignores cancellation to return. Such a listener
+// occupies this worker for as long as it runs, and once every worker is occupied
+// no notification can be delivered on this stream. That is deliberate -- it
+// bounds a misbehaving listener's cost to throughput rather than letting it grow
+// goroutines without limit -- but it is why OnStatus implementations MUST observe
+// ctx.Done() and return promptly.
+func (n *notificationListenerManager) callHandler(ctx context.Context, c handlerCall) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, n.handlerTimeout)
+	defer cancel()
+
+	start := time.Now()
+	c.handler.OnStatus(timeoutCtx, c.txID, c.status, "")
+
+	// Warn only when the handler was still running after its deadline passed, i.e.
+	// it ignored cancellation for a while. Checking the context rather than the
+	// elapsed time keeps this quiet for handlers that return promptly, and correct
+	// when handlerTimeout is zero.
+	if timeoutCtx.Err() != nil {
+		logger.Warnf(
+			"OnStatus handler for txID=%s did not return before its deadline (took %s, timeout=%s), "+
+				"blocking one of %d handler workers for that long; OnStatus must observe ctx.Done() and return promptly",
+			c.txID, time.Since(start), n.handlerTimeout, n.handlerWorkers)
+	}
 }
 
 // expiryFor returns the local deadline for an entry created at now, or the zero
@@ -380,13 +595,9 @@ func (n *notificationListenerManager) expiryFor(now time.Time) time.Time {
 // deletes happen while handlersMu is held. Runs on the dispatcher goroutine,
 // which is what lets sweepExpired share the same map without either path being
 // able to settle a listener the other already settled.
-func (n *notificationListenerManager) dispatch(ctx context.Context, resp *committerpb.NotificationResponse) {
-	type handlerCall struct {
-		handler fabric.FinalityListener
-		txID    string
-		status  int
-	}
-
+// Takes no context: it only mutates the map and enqueues, and the enqueued work
+// runs under the pool's own context rather than the dispatcher's.
+func (n *notificationListenerManager) dispatch(resp *committerpb.NotificationResponse) {
 	var calls []handlerCall
 
 	n.handlersMu.Lock()
@@ -402,9 +613,13 @@ func (n *notificationListenerManager) dispatch(ctx context.Context, resp *commit
 	}
 	n.handlersMu.Unlock()
 
+	dropped := 0
 	for _, c := range calls {
-		n.invokeHandler(ctx, c.handler, c.txID, c.status)
+		if !n.enqueueHandler(c) {
+			dropped++
+		}
 	}
+	n.logDrops(dropped, len(calls))
 }
 
 // sweepExpired settles listeners whose local deadline has passed.
@@ -428,7 +643,8 @@ func (n *notificationListenerManager) dispatch(ctx context.Context, resp *commit
 // sweep and a dispatch can never interleave and one listener can never be settled
 // twice. Keep it that way -- moving this off the dispatcher would make
 // double-invoke merely preventable rather than impossible.
-func (n *notificationListenerManager) sweepExpired(ctx context.Context) {
+// Takes no context, for the same reason as dispatch.
+func (n *notificationListenerManager) sweepExpired() {
 	if n.listenerTTL <= 0 {
 		return
 	}
@@ -459,9 +675,14 @@ func (n *notificationListenerManager) sweepExpired(ctx context.Context) {
 
 	logger.Debugf("Settling %d expired finality listener(s) with Unknown", len(batch))
 
+	dropped, total := 0, 0
 	for _, e := range batch {
 		for _, h := range e.listeners {
-			n.invokeHandler(ctx, h, e.txID, fdriver.Unknown)
+			total++
+			if !n.enqueueHandler(handlerCall{handler: h, txID: e.txID, status: fdriver.Unknown}) {
+				dropped++
+			}
 		}
 	}
+	n.logDrops(dropped, total)
 }

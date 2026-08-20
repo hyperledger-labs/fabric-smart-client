@@ -1,0 +1,441 @@
+/*
+Copyright IBM Corp. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package finality
+
+import (
+	"context"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/hyperledger/fabric-x-common/api/committerpb"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
+)
+
+// countingBlockingListener blocks forever on every call and records how many
+// calls are in flight, so a test can assert the errgroup's limit is respected.
+type countingBlockingListener struct {
+	block    chan struct{}
+	inFlight atomic.Int32
+	peak     atomic.Int32
+	// admitted counts every OnStatus entry over the listener's lifetime, i.e.
+	// how much work the manager actually let through.
+	admitted atomic.Int32
+}
+
+func newCountingBlockingListener() *countingBlockingListener {
+	return &countingBlockingListener{block: make(chan struct{})}
+}
+
+func (c *countingBlockingListener) OnStatus(_ context.Context, _ string, _ int, _ string) {
+	c.admitted.Add(1)
+	n := c.inFlight.Add(1)
+	for {
+		peak := c.peak.Load()
+		if n <= peak || c.peak.CompareAndSwap(peak, n) {
+			break
+		}
+	}
+	<-c.block
+	c.inFlight.Add(-1)
+}
+
+// funcListener adapts a function to the FinalityListener interface.
+type funcListener struct {
+	fn func(ctx context.Context, txID string, status int, statusMessage string)
+}
+
+func (f *funcListener) OnStatus(ctx context.Context, txID string, status int, statusMessage string) {
+	f.fn(ctx, txID, status, statusMessage)
+}
+
+// respFor builds a notification response marking every txID as committed.
+func respFor(txIDs ...string) *committerpb.NotificationResponse {
+	events := make([]*committerpb.TxStatus, 0, len(txIDs))
+	for _, txID := range txIDs {
+		events = append(events, &committerpb.TxStatus{
+			Ref:    &committerpb.TxRef{TxId: txID},
+			Status: committerpb.Status_COMMITTED,
+		})
+	}
+	return &committerpb.NotificationResponse{TxStatusEvents: events}
+}
+
+// feedResponses makes Recv return each response once, in order, then park until
+// the context is done.
+func feedResponses(ctx context.Context, fakeStream *mock.Notifier_OpenNotificationStreamClient, responses ...*committerpb.NotificationResponse) {
+	var idx atomic.Int32
+	fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+		i := int(idx.Add(1)) - 1
+		if i < len(responses) {
+			return responses[i], nil
+		}
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+}
+
+func TestHandlerGroup(t *testing.T) {
+	t.Parallel()
+
+	t.Run("SetLimit_Caps_Concurrent_Callbacks", func(t *testing.T) {
+		// The regression test for the unbounded-goroutine bug. Before the limit,
+		// every (txID, listener) pair got its own pair of goroutines, so concurrent
+		// OnStatus calls tracked the notification count. Now errgroup's SetLimit is
+		// the ceiling, whatever the rate.
+		t.Parallel()
+
+		const limit = 4
+		const notifications = 40
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerWorkers = limit
+
+		listener := newCountingBlockingListener()
+		t.Cleanup(func() { close(listener.block) })
+
+		txIDs := make([]string, 0, notifications)
+		for i := range notifications {
+			txID := "tx_capped_" + strconv.Itoa(i)
+			txIDs = append(txIDs, txID)
+			seedHandlers(nlm, txID, listener)
+		}
+
+		feedResponses(t.Context(), fakeStream, respFor(txIDs...))
+		runManager(t, nlm)
+
+		// Wait until the limit is saturated.
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Equal(collect, int32(limit), listener.inFlight.Load())
+		}, timeout, tick, "all handler slots should be held by the blocked listener")
+
+		// Give the dispatcher room to misbehave, then assert it did not.
+		time.Sleep(shortWait)
+		require.LessOrEqual(t, listener.peak.Load(), int32(limit),
+			"concurrent OnStatus calls must never exceed the errgroup limit")
+	})
+
+	t.Run("Blocked_Listeners_Admit_At_Most_The_Limit", func(t *testing.T) {
+		// With every slot held by a listener that never returns, TryGo must refuse
+		// the rest rather than start them. Total admitted work is therefore the
+		// limit itself -- not the notification count.
+		//
+		// Deliberately avoids runtime.NumGoroutine(): it is process-global, so
+		// parallel sibling tests running their own managers make it meaningless.
+		t.Parallel()
+
+		const limit = 2
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerWorkers = limit
+
+		listener := newCountingBlockingListener()
+		t.Cleanup(func() { close(listener.block) })
+
+		const batches = 10
+		const perBatch = 20
+		responses := make([]*committerpb.NotificationResponse, 0, batches)
+		for b := range batches {
+			txIDs := make([]string, 0, perBatch)
+			for i := range perBatch {
+				txID := "tx_flat_" + strconv.Itoa(b) + "_" + strconv.Itoa(i)
+				txIDs = append(txIDs, txID)
+				seedHandlers(nlm, txID, listener)
+			}
+			responses = append(responses, respFor(txIDs...))
+		}
+
+		feedResponses(t.Context(), fakeStream, responses...)
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Equal(collect, int32(limit), listener.inFlight.Load())
+		}, timeout, tick, "handler slots should be held")
+
+		// Give the dispatcher ample time to push all 200 notifications through.
+		time.Sleep(shortWait)
+
+		require.LessOrEqual(t, listener.peak.Load(), int32(limit),
+			"concurrent OnStatus calls must never exceed the errgroup limit")
+		require.LessOrEqual(t, listener.admitted.Load(), int32(limit),
+			"with every slot held forever, admitted work must stay at the limit (%d), not track the %d notifications delivered",
+			limit, batches*perBatch)
+	})
+
+	t.Run("TryGo_Refusal_Drops_Without_Blocking_Dispatcher", func(t *testing.T) {
+		// A saturated limit must not stall the dispatcher: it keeps draining
+		// responseQueue and keeps sweeping. Refused calls are logged and dropped
+		// rather than queued or spawned.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerWorkers = 1
+
+		blocker := newCountingBlockingListener()
+		t.Cleanup(func() { close(blocker.block) })
+
+		const floodSize = 50
+		floodTxIDs := make([]string, 0, floodSize)
+		for i := range floodSize {
+			txID := "tx_flood_" + strconv.Itoa(i)
+			floodTxIDs = append(floodTxIDs, txID)
+			seedHandlers(nlm, txID, blocker)
+		}
+
+		feedResponses(t.Context(), fakeStream, respFor(floodTxIDs...))
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Equal(collect, int32(1), blocker.inFlight.Load())
+		}, timeout, tick, "the single handler slot should be held")
+
+		// The dispatcher must have finished the whole batch (all entries removed
+		// from the map) even though almost all of it was refused by TryGo.
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			nlm.handlersMu.RLock()
+			remaining := len(nlm.handlers)
+			nlm.handlersMu.RUnlock()
+			assert.Zero(collect, remaining,
+				"dispatcher must drain the batch even when TryGo refuses")
+		}, timeout, tick)
+	})
+
+	t.Run("Slots_Are_Reused_Across_Batches", func(t *testing.T) {
+		// The limit is a ceiling on concurrency, not a lifetime quota: once a
+		// callback returns, its slot must be reusable by a later notification.
+		// Without this the manager would deliver exactly handlerWorkers callbacks
+		// and then go silent forever.
+		//
+		// Sends one txID per batch and asserts that *more callbacks run than there
+		// are slots*. That is the property worth pinning: it can only hold if slots
+		// are released back to the limit as callbacks return.
+		//
+		// It deliberately does NOT assert that every batch is delivered. TryGo
+		// reserves a slot on the calling goroutine while the callback runs on a
+		// freshly spawned one, so a submission made before the runtime has scheduled
+		// the previous callback can still be refused even at a low rate. That race is
+		// the same one Burst_Larger_Than_Limit_Drops_The_Overflow documents.
+		t.Parallel()
+
+		const limit = 2
+		const batches = 24
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerWorkers = limit
+
+		var calls atomic.Int32
+		listener := &funcListener{fn: func(context.Context, string, int, string) {
+			calls.Add(1)
+		}}
+
+		responses := make([]*committerpb.NotificationResponse, 0, batches)
+		for i := range batches {
+			txID := "tx_reuse_" + strconv.Itoa(i)
+			seedHandlers(nlm, txID, listener)
+			responses = append(responses, respFor(txID))
+		}
+
+		feedResponses(t.Context(), fakeStream, responses...)
+		runManager(t, nlm)
+
+		// Strictly more than the limit proves slots are reused; without release the
+		// total would be capped at limit forever.
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Greater(collect, calls.Load(), int32(limit))
+		}, timeout, tick,
+			"callbacks must keep running after the first %d: slots are not being returned to the limit", limit)
+	})
+
+	t.Run("Burst_Larger_Than_Limit_Drops_The_Overflow", func(t *testing.T) {
+		// Documents an accepted consequence of using TryGo with no queue in front
+		// of it: a single notification response carrying more txIDs than there are
+		// slots loses the overflow, even when every listener returns immediately.
+		//
+		// This is the deliberate trade for a dispatcher that never blocks. The
+		// dropped listeners are settled with Unknown by the listenerTTL sweeper, so
+		// callers still get an answer -- just a later and less precise one. If this
+		// ever needs to change, the options are a larger handlerWorkers or a
+		// bounded blocking Go for the batch; both are noted in enqueueHandler.
+		t.Parallel()
+
+		const limit = 4
+		const burst = 40
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerWorkers = limit
+
+		var ran atomic.Int32
+		// Returns immediately: nothing here is misbehaving.
+		listener := &funcListener{fn: func(context.Context, string, int, string) { ran.Add(1) }}
+
+		txIDs := make([]string, 0, burst)
+		for i := range burst {
+			txID := "tx_burst_" + strconv.Itoa(i)
+			txIDs = append(txIDs, txID)
+			seedHandlers(nlm, txID, listener)
+		}
+
+		feedResponses(t.Context(), fakeStream, respFor(txIDs...))
+		runManager(t, nlm)
+
+		// The dispatcher must still have drained the whole batch...
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			nlm.handlersMu.RLock()
+			remaining := len(nlm.handlers)
+			nlm.handlersMu.RUnlock()
+			assert.Zero(collect, remaining)
+		}, timeout, tick, "dispatcher must drain the batch regardless of drops")
+
+		time.Sleep(shortWait)
+
+		// ...while delivering only part of it. Asserting a range rather than an
+		// exact count: how many slots recycle mid-burst is a scheduling detail.
+		delivered := ran.Load()
+		require.Positive(t, delivered, "fast listeners should still be served")
+		require.Less(t, delivered, int32(burst),
+			"a burst of %d against a limit of %d is expected to lose the overflow; "+
+				"if this now passes, the no-queue trade-off has changed and the docs need updating",
+			burst, limit)
+	})
+
+	t.Run("Slow_Listener_Does_Not_Stall_Other_TxIDs", func(t *testing.T) {
+		// One slow-but-completing listener must not delay other txIDs, as long as
+		// a slot is free.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerWorkers = 4
+
+		slow := &delayedListener{delay: 300 * time.Millisecond}
+		slow.expect(1)
+		fast := &mockListener{}
+		fast.expect(1)
+
+		seedHandlers(nlm, "tx_slow", slow)
+		seedHandlers(nlm, "tx_fast", fast)
+
+		feedResponses(t.Context(), fakeStream, respFor("tx_slow", "tx_fast"))
+		runManager(t, nlm)
+
+		// fast must land well before slow's delay elapses.
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			txID, status := fast.getStatus()
+			assert.Equal(collect, "tx_fast", txID)
+			assert.Equal(collect, fdriver.Valid, status)
+		}, 200*time.Millisecond, tick, "fast listener must not wait behind the slow one")
+
+		// slow still completes.
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			txID, status := slow.getStatus()
+			assert.Equal(collect, "tx_slow", txID)
+			assert.Equal(collect, fdriver.Valid, status)
+		}, timeout, tick, "slow listener should still complete")
+	})
+
+	t.Run("Teardown_Not_Blocked_By_Stuck_Callback", func(t *testing.T) {
+		// This is why the handler group is separate from listen()'s stream group: a
+		// callback that ignores cancellation keeps its goroutine alive, so a Wait()
+		// on the stream group would never return. listen() must still return.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = 100 * time.Millisecond
+		nlm.handlerWorkers = 4
+
+		ctx, cancel := context.WithCancel(context.Background())
+		stuck := newCountingBlockingListener()
+		t.Cleanup(func() { close(stuck.block) })
+		seedHandlers(nlm, "tx_stuck_in_flight", stuck)
+
+		feedResponses(ctx, fakeStream, respFor("tx_stuck_in_flight"))
+
+		listenErr := make(chan error, 1)
+		go func() { listenErr <- nlm.listen(ctx) }()
+
+		// Wait until the callback is actually inside OnStatus.
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Equal(collect, int32(1), stuck.inFlight.Load())
+		}, timeout, tick, "the stuck callback should be in flight")
+
+		cancel()
+		select {
+		case <-listenErr:
+		case <-time.After(2 * time.Second):
+			t.Fatal("listen() did not return: teardown blocked on a callback that ignores its context")
+		}
+	})
+
+	t.Run("Teardown_Settles_Listeners_While_Slot_Held", func(t *testing.T) {
+		// Listeners left in the map when the stream dies must be settled, even
+		// though the handler group's slots may be held by stuck callbacks -- which
+		// is why that path invokes them directly rather than through TryGo.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = 100 * time.Millisecond
+		// One slot, and it will be held forever by the stuck callback below.
+		nlm.handlerWorkers = 1
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		stuck := newCountingBlockingListener()
+		t.Cleanup(func() { close(stuck.block) })
+		seedHandlers(nlm, "tx_holds_the_only_slot", stuck)
+
+		// These are still registered at teardown, when the only slot is held.
+		const pending = 5
+		var settled atomic.Int32
+		var wg sync.WaitGroup
+		wg.Add(pending)
+		for i := range pending {
+			seedHandlers(nlm, "tx_teardown_"+strconv.Itoa(i), &funcListener{
+				fn: func(context.Context, string, int, string) {
+					settled.Add(1)
+					wg.Done()
+				},
+			})
+		}
+
+		feedResponses(ctx, fakeStream, respFor("tx_holds_the_only_slot"))
+
+		listenErr := make(chan error, 1)
+		go func() { listenErr <- nlm.listen(ctx) }()
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Equal(collect, int32(1), stuck.inFlight.Load())
+		}, timeout, tick, "the stuck callback should hold the only slot")
+
+		cancel()
+		select {
+		case <-listenErr:
+		case <-time.After(2 * time.Second):
+			t.Fatal("listen() did not return")
+		}
+
+		finished := make(chan struct{})
+		go func() { wg.Wait(); close(finished) }()
+		select {
+		case <-finished:
+		case <-time.After(timeout):
+			t.Fatalf("teardown settled only %d of %d listeners while a callback held the only slot",
+				settled.Load(), pending)
+		}
+	})
+}

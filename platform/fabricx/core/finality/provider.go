@@ -192,7 +192,13 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 
 // newNotifiWithGRPC creates and initializes a notificationListenerManager using the GRPCClientProvider.
 // cfg is expected to already be fully resolved (see config.NewNotificationServiceConfig /
-// config.DefaultConfig) -- every field is used as-is, with no further nil or zero-value handling.
+// config.DefaultConfig) -- durations are used as-is, with no further nil or zero-value handling.
+//
+// HandlerWorkers is the exception: it is re-checked here rather than trusted. cfg
+// arrives from a ServiceConfigProvider, which is an exported interface anyone can
+// implement, and a non-positive value is not merely suboptimal -- errgroup's
+// SetLimit panics on a negative limit, and a limit of zero would build a manager
+// whose TryGo always fails, so it would silently never deliver a notification.
 func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 	cc, err := grpcClientProvider.NotificationServiceClient(network)
 	if err != nil {
@@ -202,11 +208,19 @@ func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider, cf
 	// Create the gRPC client stub for the Notifier service
 	notifyClient := committerpb.NewNotifierClient(cc)
 
+	handlerWorkers := cfg.HandlerWorkers
+	if handlerWorkers <= 0 {
+		logger.Warnf("invalid handlerWorkers=%d for network=%s, falling back to %d",
+			handlerWorkers, network, config.DefaultHandlerWorkers)
+		handlerWorkers = config.DefaultHandlerWorkers
+	}
+
 	nlm := &notificationListenerManager{
 		notifyClient:   notifyClient,
 		requestQueue:   make(chan *committerpb.NotificationRequest),  // Queue for outgoing requests to the committer
 		responseQueue:  make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
 		handlers:       make(map[driver.TxID]*handlerEntry),          // Map: txID -> listeners + local expiry deadline
+		handlerWorkers: handlerWorkers,
 		handlerTimeout: cfg.HandlerTimeout,
 		requestTimeout: cfg.RequestTimeout,
 		listenerTTL:    cfg.ListenerTTL,
