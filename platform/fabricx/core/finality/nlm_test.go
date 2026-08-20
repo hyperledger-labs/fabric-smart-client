@@ -82,7 +82,9 @@ func (m *mockListener) getStatus() (string, int) {
 }
 
 // blockingListener simulates a handler that blocks forever (ignores context).
-// Used to test timeout detection and goroutine leak resilience.
+// Used to test deadline detection and the dispatcher's resilience to a listener
+// that never returns. Such a listener permanently consumes one handler-pool
+// worker; see TestHandlerPool for the tests that pin down that bound.
 type blockingListener struct {
 	block    chan struct{} // close this to unblock; leave open to simulate a stuck handler
 	onCalled chan struct{} // closed when OnStatus is entered, so tests can synchronize
@@ -130,11 +132,18 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_Open
 
 	// listenerTTL is deliberately left zero here, which disables local expiry, so
 	// the sweeper stays inert for every test that does not opt in.
+	//
+	// handlerWorkers must be set: it becomes the handler errgroup's SetLimit, and a
+	// limit of zero would make every TryGo fail, so no callback would ever run.
+	// listen() builds the group itself; tests that care about its bounds override
+	// this. Tests that dispatch without calling listen() get the nil-group warning
+	// path in enqueueHandler, which is deliberate.
 	nlm := &notificationListenerManager{
 		notifyClient:   fakeClient,
 		requestQueue:   make(chan *committerpb.NotificationRequest),
 		responseQueue:  make(chan *committerpb.NotificationResponse),
 		handlers:       make(map[driver.TxID]*handlerEntry),
+		handlerWorkers: config.DefaultHandlerWorkers,
 		requestTimeout: testRequestTimeout,
 	}
 
@@ -880,8 +889,11 @@ func TestNotificationListenerManager(t *testing.T) {
 		}
 
 		// The handler is still blocked, but the dispatcher should have moved on.
-		// Verify the handler entry was removed from the map (dispatch cleanup
-		// happens before the goroutine timeout fires).
+		// Note what this does and does not prove now that handlers run on a
+		// bounded pool: the stuck handler holds its worker indefinitely (the
+		// timeout only cancels its context, it cannot force a return), but the
+		// dispatcher merely enqueued the call and is free. Verify the entry was
+		// removed from the map, which happens at dispatch time.
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
 			nlm.handlersMu.RLock()
 			_, exists := nlm.handlers[targetTxID]
@@ -906,7 +918,8 @@ func TestNotificationListenerManager(t *testing.T) {
 		slowML := &delayedListener{delay: 100 * time.Millisecond}
 		slowML.expect(1)
 
-		// stuckListener never returns (exceeds timeout)
+		// stuckListener never returns, so it consumes one pool worker for good;
+		// the other two listeners must still be served by the remaining workers
 		stuckCalled := make(chan struct{})
 		stuckListener := &blockingListener{
 			block:    make(chan struct{}), // never closed
@@ -970,6 +983,11 @@ func TestNotificationListenerManager(t *testing.T) {
 		// Verifies that a handler ignoring context cancellation and never
 		// returning does NOT block the dispatcher from processing subsequent
 		// notifications.
+		//
+		// The leaky handler permanently consumes one worker of the pool, so this
+		// passes because the default pool has workers to spare. See
+		// TestHandlerPool for what happens when every worker is consumed, and for
+		// the bound on how much work a stuck listener can admit.
 		t.Parallel()
 		nlm, fakeStream := setupTest(t)
 		nlm.handlerTimeout = 200 * time.Millisecond
