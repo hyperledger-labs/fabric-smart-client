@@ -86,6 +86,12 @@ func TestManager(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "result", res)
 
+	var nilCtx context.Context
+	res, err = manager.InitiateViewWithIdentity(nilCtx, v, view2.Identity("alice"))
+	require.Error(t, err)
+	require.Nil(t, res)
+	require.Contains(t, err.Error(), "context is nil")
+
 	// Test InitiateContextWithIdentity
 	c2, err := manager.InitiateContextWithIdentity(ctx, v, view2.Identity("alice"))
 	require.NoError(t, err)
