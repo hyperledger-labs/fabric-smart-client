@@ -9,6 +9,8 @@ package vault_test
 import (
 	"context"
 	"crypto/sha256"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hyperledger/fabric-x-common/api/applicationpb"
@@ -73,8 +75,15 @@ func TestVaultX_GetStateMetadataServesStoreOnMiss(t *testing.T) {
 
 // mockQueryService implements queryservice.QueryService for testing
 type mockQueryService struct {
-	states     map[driver.Namespace]map[driver.PKey]driver.VaultValue
-	txStatuses map[string]int32
+	states         map[driver.Namespace]map[driver.PKey]driver.VaultValue
+	txStatuses     map[string]int32
+	getStatesCount atomic.Int32
+	getStatesErr   error
+
+	// queryMu guards lastGetStates, which records the shape of the most recent batch so
+	// tests can assert on how a query was assembled.
+	queryMu       sync.Mutex
+	lastGetStates map[driver.Namespace][]driver.PKey
 }
 
 func newMockQueryService() *mockQueryService {
@@ -93,7 +102,21 @@ func (m *mockQueryService) GetState(ns driver.Namespace, key driver.PKey) (*driv
 	return nil, nil
 }
 
+// lastQuery returns the namespace/key map of the most recent GetStates call.
+func (m *mockQueryService) lastQuery() map[driver.Namespace][]driver.PKey {
+	m.queryMu.Lock()
+	defer m.queryMu.Unlock()
+	return m.lastGetStates
+}
+
 func (m *mockQueryService) GetStates(keys map[driver.Namespace][]driver.PKey) (map[driver.Namespace]map[driver.PKey]driver.VaultValue, error) {
+	m.getStatesCount.Add(1)
+	m.queryMu.Lock()
+	m.lastGetStates = keys
+	m.queryMu.Unlock()
+	if m.getStatesErr != nil {
+		return nil, m.getStatesErr
+	}
 	result := make(map[driver.Namespace]map[driver.PKey]driver.VaultValue)
 	for ns, keyList := range keys {
 		result[ns] = make(map[driver.PKey]driver.VaultValue)
@@ -514,7 +537,7 @@ func TestRWSet_GetWriteAt(t *testing.T) {
 func TestRWSet_ConcurrentBytes(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
-	// Give the namespaces a non-default _meta version so Bytes() builds a populated nsInfo map.
+	// Give the namespaces a non-default version so Bytes() builds a populated nsInfo map.
 	qs.setState("_meta", "ns1", nil, 7)
 	qs.setState("_meta", "ns2", nil, 9)
 
@@ -547,4 +570,147 @@ func TestRWSet_ConcurrentBytes(t *testing.T) {
 		})
 	}
 	require.NoError(t, eg.Wait())
+}
+
+func TestRWSet_ConcurrentMutation(t *testing.T) {
+	t.Parallel()
+	qs := newMockQueryService()
+	v := vault.NewVault(qs, nil)
+	ctx := context.Background()
+
+	rws, err := v.NewRWSet(ctx, driver.TxID("tx"))
+	require.NoError(t, err)
+
+	var eg errgroup.Group
+	for g := range 16 {
+		eg.Go(func() error {
+			if g%2 == 0 {
+				_ = rws.SetState("ns1", "key", []byte("value"))
+			} else {
+				_, _ = rws.Bytes()
+			}
+			return nil
+		})
+	}
+	require.NoError(t, eg.Wait())
+}
+
+// Once a namespace has been touched, serialization no longer depends on the query
+// service, so it keeps working while the query service is failing.
+func TestRWSet_Bytes_SucceedsWhenStateQueriesFail(t *testing.T) {
+	t.Parallel()
+	qs := newMockQueryService()
+	qs.setState("_meta", "ns1", nil, 7)
+	v := vault.NewVault(qs, nil)
+	rws, err := v.NewRWSet(context.Background(), "tx1")
+	require.NoError(t, err)
+
+	err = rws.SetState("ns1", "key1", []byte("val1"))
+	require.NoError(t, err)
+
+	qs.getStatesErr = errors.New("simulated error")
+
+	raw, err := rws.Bytes()
+	require.NoError(t, err)
+	require.NotEmpty(t, raw)
+}
+
+func TestRWSet_Bytes_EmptyNamespaces(t *testing.T) {
+	t.Parallel()
+	qs := newMockQueryService()
+	v := vault.NewVault(qs, nil)
+	rws, err := v.NewRWSet(context.Background(), "tx1")
+	require.NoError(t, err)
+
+	_, err = rws.Bytes()
+	require.NoError(t, err)
+}
+
+func TestRWSet_CacheInvalidation(t *testing.T) {
+	t.Parallel()
+	qs := newMockQueryService()
+	qs.setState("_meta", "ns1", nil, 1)
+	qs.setState("_meta", "ns2", nil, 1)
+	qs.setState("ns1", "key1", []byte("val1"), 1)
+	v := vault.NewVault(qs, nil)
+	rws, err := v.NewRWSet(context.Background(), "tx1")
+	require.NoError(t, err)
+
+	err = rws.SetState("ns1", "key1", []byte("val2"))
+	require.NoError(t, err)
+
+	b1, err := rws.Bytes()
+	require.NoError(t, err)
+
+	// Serializing again returns the same bytes without re-marshalling.
+	b2, err := rws.Bytes()
+	require.NoError(t, err)
+	require.Equal(t, b1, b2)
+
+	// GetState adds to the read set, mutating the RWSet and invalidating the memoized bytes.
+	qs.setState("ns2", "key2", []byte("val3"), 1)
+	_, err = rws.GetState("ns2", "key2")
+	require.NoError(t, err)
+
+	b3, err := rws.Bytes()
+	require.NoError(t, err)
+	require.NotEqual(t, b1, b3)
+}
+
+func TestRWSet_DefensiveCopy(t *testing.T) {
+	t.Parallel()
+	qs := newMockQueryService()
+	v := vault.NewVault(qs, nil)
+	rws, err := v.NewRWSet(context.Background(), "tx1")
+	require.NoError(t, err)
+
+	err = rws.SetState("ns1", "key1", []byte("val1"))
+	require.NoError(t, err)
+
+	b1, err := rws.Bytes()
+	require.NoError(t, err)
+	require.NotEmpty(t, b1)
+
+	// Modify b1
+	b1[0] ^= 0xFF
+
+	b2, err := rws.Bytes()
+	require.NoError(t, err)
+
+	// They should not share the underlying slice memory
+	require.NotEqual(t, b1, b2)
+}
+
+func BenchmarkRWSet_Bytes(b *testing.B) {
+	qs := newMockQueryService()
+	qs.setState("ns1", "key1", []byte("val1"), 1)
+	v := vault.NewVault(qs, nil)
+	rws, err := v.NewRWSet(context.Background(), "tx1")
+	require.NoError(b, err)
+
+	err = rws.SetState("ns1", "key1", []byte("val1"))
+	require.NoError(b, err)
+
+	b.Run("Uncached", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			_ = rws.SetState("ns1", "key1", []byte("val1"))
+			b.StartTimer()
+			_, _ = rws.Bytes()
+		}
+	})
+
+	b.Run("Cached", func(b *testing.B) {
+		b.ReportAllocs()
+		// Populate cache once
+		_, err := rws.Bytes()
+		require.NoError(b, err)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			// Repeated calls should hit cache and just copy slice
+			_, _ = rws.Bytes()
+		}
+	})
 }

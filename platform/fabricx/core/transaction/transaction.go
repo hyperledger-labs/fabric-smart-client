@@ -57,6 +57,8 @@ type Transaction struct {
 	TFunction         string
 	TParameters       [][]byte
 
+	// RWSet is cleared by dedupRWSet when it duplicates the first proposal response's
+	// payload, so it is frequently nil on the wire.
 	RWSet      []byte
 	TTransient driver.TransientMap
 
@@ -319,7 +321,19 @@ func (t *Transaction) Done() error {
 		}
 		logger.Debugf("terminated simulation with [%s][len:%d]", t.rwset.Namespaces(), len(t.RWSet))
 	}
+
+	t.dedupRWSet()
+
 	return nil
+}
+
+func (t *Transaction) dedupRWSet() {
+	// If the exact same serialized RWSet bytes are already included in the first
+	// proposal response (Payload), drop the redundant field. The receiving side will
+	// use the proposal response's Payload to reconstruct it if t.RWSet is missing.
+	if len(t.TProposalResponses) > 0 && bytes.Equal(t.TProposalResponses[0].Payload, t.RWSet) {
+		t.RWSet = nil
+	}
 }
 
 func (t *Transaction) Close() {
@@ -330,6 +344,13 @@ func (t *Transaction) Close() {
 	}
 }
 
+// Raw serializes the transaction to JSON.
+//
+// It mutates the receiver twice. If the transaction has an open RWSet, it is marshalled
+// into the RWSet field; then, if those bytes duplicate the first proposal response's
+// payload, the field is cleared again. A caller that inspects t.RWSet afterwards will
+// therefore find it nil whenever the transaction already carries a proposal response —
+// read the payload instead, which is what the receiving side reconstructs from.
 func (t *Transaction) Raw() ([]byte, error) {
 	if t.rwset != nil {
 		var err error
@@ -338,6 +359,7 @@ func (t *Transaction) Raw() ([]byte, error) {
 			return nil, errors.Wrap(err, "marshalling rws")
 		}
 	}
+	t.dedupRWSet()
 	return json.Marshal(t)
 }
 
