@@ -22,6 +22,8 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+var ErrChannelResourcesNotInitialized = errors.New("channel resources not initialized")
+
 type Service struct {
 	// resourcesLock is used to serialize access to channelResources
 	resourcesLock sync.RWMutex
@@ -70,7 +72,11 @@ func (c *Service) parseConfig(env *cb.Envelope) (*channelconfig.ChannelConfig, e
 }
 
 func (c *Service) IsValid(identity view.Identity) error {
-	id, err := c.resources().MSPManager().DeserializeIdentity(identity)
+	res := c.resources()
+	if res == nil {
+		return ErrChannelResourcesNotInitialized
+	}
+	id, err := res.MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
 	}
@@ -79,7 +85,11 @@ func (c *Service) IsValid(identity view.Identity) error {
 }
 
 func (c *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
-	id, err := c.resources().MSPManager().DeserializeIdentity(identity)
+	res := c.resources()
+	if res == nil {
+		return nil, ErrChannelResourcesNotInitialized
+	}
+	id, err := res.MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
 	}
@@ -89,7 +99,11 @@ func (c *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 // GetMSPIDs retrieves the MSP IDs of the organizations in the current Channel
 // configuration.
 func (c *Service) GetMSPIDs() []string {
-	ac := c.resources().ApplicationConfig()
+	res := c.resources()
+	if res == nil {
+		panic(ErrChannelResourcesNotInitialized.Error())
+	}
+	ac := res.ApplicationConfig()
 	if ac == nil || ac.Organizations() == nil {
 		return nil
 	}
@@ -104,7 +118,11 @@ func (c *Service) GetMSPIDs() []string {
 
 // IsIdemixMSP returns true if the MSP identified by mspID is of type Idemix.
 func (c *Service) IsIdemixMSP(mspID string) bool {
-	ac := c.resources().ApplicationConfig()
+	res := c.resources()
+	if res == nil {
+		panic(ErrChannelResourcesNotInitialized.Error())
+	}
+	ac := res.ApplicationConfig()
 	if ac == nil || ac.Organizations() == nil {
 		return false
 	}
@@ -119,7 +137,11 @@ func (c *Service) IsIdemixMSP(mspID string) bool {
 }
 
 func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
-	oc := c.resources().OrdererConfig()
+	res := c.resources()
+	if res == nil {
+		return "", nil, ErrChannelResourcesNotInitialized
+	}
+	oc := res.OrdererConfig()
 	if oc == nil {
 		return "", nil, fmt.Errorf("orderer config does not exist")
 	}
@@ -158,24 +180,26 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 	return oc.ConsensusType(), newOrderers, nil
 }
 
-// MSPManager returns the msp.MSPManager that reflects the current Channel
+// MSPManager returns the driver.MSPManager that reflects the current Channel
 // configuration. Users should not memoize references to this object.
 func (c *Service) MSPManager() driver.MSPManager {
-	return &mspManager{FabricMSPManager: c.resources().MSPManager()}
+	return &mspManager{service: c}
 }
 
 func (c *Service) CheckACL(signedProp driver.SignedProposal) error {
 	return driver.ErrNotImplemented
 }
 
-type FabricMSPManager interface {
-	DeserializeIdentity(serializedIdentity []byte) (msp.Identity, error)
-}
-
 type mspManager struct {
-	FabricMSPManager
+	service *Service
 }
 
+// DeserializeIdentity deserializes an identity.
+// Returns an error if the channel resources are not yet initialized.
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
-	return m.FabricMSPManager.DeserializeIdentity(serializedIdentity)
+	res := m.service.resources()
+	if res == nil {
+		return nil, errors.Errorf("cannot deserialize identity, channel resources not yet initialized for channel [%s]", m.service.channelName)
+	}
+	return res.MSPManager().DeserializeIdentity(serializedIdentity)
 }
