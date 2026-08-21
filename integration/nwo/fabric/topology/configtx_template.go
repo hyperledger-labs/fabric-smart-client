@@ -112,7 +112,12 @@ Organizations:{{ range .PeerOrgs }}
       Rule: OR('{{.MSPID}}.admin')
   {{- end }}
   OrdererEndpoints:{{ range $w.OrderersInOrg .Name }}
+  {{- if eq $w.Consensus.Type "arma" }}
+  {{- $firstOrderer := index $.Orderers 0 }}
+  - {{ $w.OrdererHost . }}:{{ $w.OrdererPort $firstOrderer "Listen" }}
+  {{- else }}
   - {{ $w.OrdererAddress . "Listen" }}
+  {{- end }}
   {{- end }}
 {{ end }}
 
@@ -198,6 +203,19 @@ Profiles:{{ range .Profiles }}
           Port: {{ $w.OrdererPort . "Cluster" }}
           ClientTLSCert: {{ $w.OrdererLocalCryptoDir . "tls" }}/server.crt
           ServerTLSCert: {{ $w.OrdererLocalCryptoDir . "tls" }}/server.crt
+        {{- end }}{{- end }}
+      {{- end }}
+      {{- if eq $w.Consensus.Type "arma" }}
+      {{- $firstOrdererName := index .Orderers 0 }}
+      {{- $firstOrderer := $w.Orderer $firstOrdererName }}
+      ConsenterMapping:{{ range $index, $orderer := .Orderers }}{{ with $w.Orderer . }}
+      - ID: {{ .Id }}
+        Host: 127.0.0.1
+        Port: {{ $w.OrdererPort $firstOrderer "Listen" }}
+        MSPID: {{ ($w.Organization .Organization).MSPID}}
+        ClientTLSCert: {{ $w.OrdererLocalCryptoDir $firstOrderer "tls" }}/server.crt
+        ServerTLSCert: {{ $w.OrdererLocalCryptoDir $firstOrderer "tls" }}/server.crt
+        Identity: {{ $w.OrdererSignCert .}}
         {{- end }}{{- end }}
       {{- end }}
       Organizations:{{ range $w.OrgsForOrderers .Orderers }}
