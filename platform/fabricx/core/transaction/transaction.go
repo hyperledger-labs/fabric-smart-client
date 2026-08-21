@@ -57,7 +57,9 @@ type Transaction struct {
 	TFunction         string
 	TParameters       [][]byte
 
-	RWSet      []byte `json:"RWSet,omitempty"`
+	// RWSet is cleared by dedupRWSet when it duplicates the first proposal response's
+	// payload, so it is frequently nil on the wire.
+	RWSet      []byte
 	TTransient driver.TransientMap
 
 	TProposal          *pb.Proposal
@@ -342,8 +344,13 @@ func (t *Transaction) Close() {
 	}
 }
 
-// Raw serializes the transaction to JSON. If the transaction has an open RWSet, it is
-// marshaled and saved to the RWSet field first, mutating the receiver in the process.
+// Raw serializes the transaction to JSON.
+//
+// It mutates the receiver twice. If the transaction has an open RWSet, it is marshalled
+// into the RWSet field; then, if those bytes duplicate the first proposal response's
+// payload, the field is cleared again. A caller that inspects t.RWSet afterwards will
+// therefore find it nil whenever the transaction already carries a proposal response —
+// read the payload instead, which is what the receiving side reconstructs from.
 func (t *Transaction) Raw() ([]byte, error) {
 	if t.rwset != nil {
 		var err error

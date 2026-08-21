@@ -183,22 +183,32 @@ func sortedKeys[V any](m map[string]V) []string {
 
 // RWSetFromBytes deserializes a ReadWriteSet from FabricX protobuf format.
 // If namespaces are specified, only those namespaces will be included in the result.
+// It also returns the namespace versions carried by the serialized transaction, so a
+// reconstructed RWSet re-serializes to the versions it arrived with.
 // Returns an error if deserialization fails.
-func (m *Marshaller) RWSetFromBytes(raw []byte, namespaces ...string) (*vault.ReadWriteSet, error) {
+func (m *Marshaller) RWSetFromBytes(raw []byte, namespaces ...string) (*vault.ReadWriteSet, map[driver.Namespace]driver.RawVersion, error) {
 	rws := vault.EmptyRWSet()
-	if err := m.Append(&rws, raw, namespaces...); err != nil {
-		return nil, err
+	nsVersions, err := m.Append(&rws, raw, namespaces...)
+	if err != nil {
+		return nil, nil, err
 	}
-	return &rws, nil
+	return &rws, nsVersions, nil
 }
 
 // Append deserializes FabricX protobuf data and appends it to an existing ReadWriteSet.
-// If namespaces are specified, only those namespaces will be processed.
+// If namespaces are specified, only those namespaces are processed and every other
+// namespace in the payload is skipped; with none specified the whole payload is appended.
+//
+// It returns the NsVersion each processed namespace was serialized with. That version is
+// part of what the endorsement signature covers, so a party that reconstructs a
+// transaction and re-serializes it must reuse the incoming version rather than resolve a
+// current one.
+//
 // Returns an error if deserialization fails or if adding reads/writes fails.
-func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespaces ...string) error {
+func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespaces ...string) (map[driver.Namespace]driver.RawVersion, error) {
 	var txIn applicationpb.Tx
 	if err := proto.Unmarshal(raw, &txIn); err != nil {
-		return errors.Wrapf(err, "unmarshal tx from [len=%d][%s]", len(raw), logging.SHA256Base64(raw))
+		return nil, errors.Wrapf(err, "unmarshal tx from [len=%d][%s]", len(raw), logging.SHA256Base64(raw))
 	}
 
 	if logger.IsEnabledFor(zap.DebugLevel) {
@@ -206,38 +216,67 @@ func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespa
 		logger.Debugf("Unmarshalled fabricx tx: %s", string(str))
 	}
 
+	// An empty filter means "every namespace"; otherwise only the listed ones are kept.
+	var wanted map[driver.Namespace]struct{}
+	if len(namespaces) > 0 {
+		wanted = make(map[driver.Namespace]struct{}, len(namespaces))
+		for _, ns := range namespaces {
+			wanted[ns] = struct{}{}
+		}
+	}
+
+	nsVersions := make(map[driver.Namespace]driver.RawVersion, len(txIn.GetNamespaces()))
 	for _, txNs := range txIn.GetNamespaces() {
+		if wanted != nil {
+			if _, ok := wanted[txNs.GetNsId()]; !ok {
+				continue
+			}
+		}
+		nsVersions[txNs.GetNsId()] = MarshalVersion(txNs.GetNsVersion())
+
 		for _, read := range txNs.GetReadsOnly() {
-			destination.ReadSet.Add(txNs.GetNsId(), string(read.GetKey()), MarshalVersion(read.GetVersion()))
+			destination.ReadSet.Add(txNs.GetNsId(), string(read.GetKey()), optionalVersion(read.Version))
 		}
 
 		for _, write := range txNs.GetBlindWrites() {
 			if err := destination.WriteSet.Add(txNs.GetNsId(), string(write.GetKey()), write.GetValue()); err != nil {
 				// TODO: ... should we really just stop here or revert all changes ... ?
-				return errors.Wrapf(err, "adding blindwrite [%s]", write.GetKey())
+				return nil, errors.Wrapf(err, "adding blindwrite [%s]", write.GetKey())
 			}
 		}
 
 		for _, readWrite := range txNs.GetReadWrites() {
-			// only add to the readset if it has a version, this is usually the case when a value is created for the first time
-			if readWrite.Version != nil {
-				destination.ReadSet.Add(txNs.GetNsId(), string(readWrite.GetKey()), MarshalVersion(readWrite.GetVersion()))
-			}
+			// A nil version means the key is expected not to exist yet — usually the case when
+			// a value is created for the first time. That is still a read dependency and has to
+			// enter the read set: a ReadWrite whose read half is dropped re-serializes as a
+			// BlindWrite, which is an unconditional write with a different meaning to the
+			// committer, and different bytes for the endorsement digest.
+			destination.ReadSet.Add(txNs.GetNsId(), string(readWrite.GetKey()), optionalVersion(readWrite.Version))
 
 			if err := destination.WriteSet.Add(txNs.GetNsId(), string(readWrite.GetKey()), readWrite.GetValue()); err != nil {
 				// TODO: ... should we really just stop here or revert all changes ... ?
-				return errors.Wrapf(err, "adding readwrite [%s]", readWrite.GetKey())
+				return nil, errors.Wrapf(err, "adding readwrite [%s]", readWrite.GetKey())
 			}
 		}
 	}
 
-	return nil
+	return nsVersions, nil
 }
 
 // MarshalVersion encodes a uint64 version number into a protobuf varint byte slice.
 // This is used for encoding version information in the FabricX format.
 func MarshalVersion(v uint64) []byte {
 	return protowire.AppendVarint(nil, v)
+}
+
+// optionalVersion encodes an optional protobuf version field. An absent version stays
+// absent rather than collapsing to version 0: Marshal emits no version for a nil
+// RawVersion and version 0 for an encoded zero, and those are different bytes on the wire.
+func optionalVersion(v *uint64) driver.RawVersion {
+	if v == nil {
+		return nil
+	}
+	return MarshalVersion(*v)
 }
 
 // UnmarshalVersion decodes a protobuf varint byte slice into a uint64 version number.

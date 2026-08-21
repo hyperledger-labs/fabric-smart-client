@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -1168,14 +1169,31 @@ func TestEndorseProposalWithIdentity(t *testing.T) {
 	}
 }
 
+// serializedRWSet builds a valid FabricX-encoded read-write set, so tests exercise the
+// dedup path with the kind of payload it actually sees rather than an opaque blob.
+func serializedRWSet(t *testing.T) []byte {
+	t.Helper()
+	raw, err := proto.Marshal(&applicationpb.Tx{
+		Namespaces: []*applicationpb.TxNamespace{{
+			NsId:      "ns1",
+			NsVersion: 7,
+			BlindWrites: []*applicationpb.Write{
+				{Key: []byte("key1"), Value: []byte("val1")},
+			},
+		}},
+	})
+	require.NoError(t, err)
+	return raw
+}
+
 func TestTransaction_DeduplicateRWSet(t *testing.T) {
 	t.Parallel()
+	rwsetBytes := serializedRWSet(t)
+
 	tx := &Transaction{
-		RWSet: []byte("duplicate payload"),
+		RWSet: rwsetBytes,
 		TProposalResponses: []*peer.ProposalResponse{
-			{
-				Payload: []byte("duplicate payload"),
-			},
+			{Payload: rwsetBytes},
 		},
 	}
 
@@ -1187,11 +1205,9 @@ func TestTransaction_DeduplicateRWSet(t *testing.T) {
 
 	// Test non-matching payload
 	tx2 := &Transaction{
-		RWSet: []byte("some payload"),
+		RWSet: rwsetBytes,
 		TProposalResponses: []*peer.ProposalResponse{
-			{
-				Payload: []byte("different payload"),
-			},
+			{Payload: []byte("different payload")},
 		},
 	}
 
@@ -1200,5 +1216,132 @@ func TestTransaction_DeduplicateRWSet(t *testing.T) {
 
 	// Should not be cleared
 	require.NotNil(t, tx2.RWSet)
-	require.Equal(t, []byte("some payload"), tx2.RWSet)
+	require.Equal(t, rwsetBytes, tx2.RWSet)
+}
+
+// Dropping the RWSet field is only safe if the receiving side can rebuild an identical
+// read-write set from the proposal response payload. This walks the full path the dedup
+// relies on: serialize with the field dropped, ship the JSON, and reconstruct.
+func TestTransaction_DeduplicatedRWSetRoundTrips(t *testing.T) {
+	t.Parallel()
+	rwsetBytes := serializedRWSet(t)
+
+	sender := &Transaction{
+		ctx:   t.Context(),
+		TTxID: "tx1",
+		RWSet: rwsetBytes,
+		TProposalResponses: []*peer.ProposalResponse{
+			{Payload: rwsetBytes},
+		},
+	}
+
+	shipped, err := sender.Bytes()
+	require.NoError(t, err)
+
+	// The redundant payload must be gone from the wire form, while the key itself stays
+	// present as an explicit null so the JSON shape is unchanged for every consumer.
+	var onTheWire map[string]any
+	require.NoError(t, json.Unmarshal(shipped, &onTheWire))
+	require.Contains(t, onTheWire, "RWSet", "the key must still be emitted")
+	require.Nil(t, onTheWire["RWSet"], "the duplicated rwset must not be carried twice")
+
+	// The receiver reconstructs from the JSON alone.
+	fakeVault := &mock.Vault{}
+	fakeVault.NewRWSetFromBytesReturns(&mock.RWSet{}, nil)
+	ch := &mock.Channel{}
+	ch.VaultReturns(fakeVault)
+
+	// Decoded directly rather than through SetFromBytes, which additionally resolves the
+	// channel through the network service; the invariant under test is only that the
+	// dropped field is recoverable from the payload.
+	receiver := &Transaction{ctx: t.Context(), channel: ch}
+	require.NoError(t, json.Unmarshal(shipped, receiver))
+	require.Nil(t, receiver.RWSet, "the field arrives absent")
+
+	require.NoError(t, receiver.SetRWSet())
+	require.Equal(t, 1, fakeVault.NewRWSetFromBytesCallCount())
+	_, _, gotBytes := fakeVault.NewRWSetFromBytesArgsForCall(0)
+	require.Equal(t, rwsetBytes, gotBytes,
+		"the reconstructed rwset must be built from the exact bytes the sender dropped")
+}
+
+// rwSetWithWrites builds a serialized RWSet carrying n blind writes of valueSize bytes
+// each, so a benchmark can vary the payload independently of the rest of the transaction.
+func rwSetWithWrites(tb testing.TB, n, valueSize int) []byte {
+	tb.Helper()
+	writes := make([]*applicationpb.Write, 0, n)
+	for i := range n {
+		value := make([]byte, valueSize)
+		for j := range value {
+			value[j] = byte(i + j)
+		}
+		writes = append(writes, &applicationpb.Write{Key: fmt.Appendf(nil, "key%08d", i), Value: value})
+	}
+	raw, err := proto.Marshal(&applicationpb.Tx{
+		Namespaces: []*applicationpb.TxNamespace{{NsId: "ns1", NsVersion: 7, BlindWrites: writes}},
+	})
+	require.NoError(tb, err)
+	return raw
+}
+
+// BenchmarkTransactionBytes measures the JSON encoding of an endorsed transaction, which
+// is what every send pays. "Duplicated" is the pre-deduplication behaviour: the rwset
+// reaches the wire twice, once as RWSet and once as the proposal response payload, each
+// base64-expanded by a third. "Deduplicated" is Transaction.Bytes() as it stands now.
+//
+// bytes/op reports the size of the encoded transaction, so the saving is readable
+// alongside the allocation cost of producing it.
+func BenchmarkTransactionBytes(b *testing.B) {
+	cases := []struct {
+		name      string
+		writes    int
+		valueSize int
+	}{
+		// The shape the PR description quotes a saving for.
+		{name: "10Writes", writes: 10, valueSize: 32},
+		// The payload size the reproducer in #1599 drives, which is what #1628 is about.
+		{name: "256KiB", writes: 2048, valueSize: 128},
+	}
+
+	for _, tc := range cases {
+		raw := rwSetWithWrites(b, tc.writes, tc.valueSize)
+		newTx := func() *Transaction {
+			return &Transaction{
+				TTxID:              "tx1",
+				TProposalResponses: []*peer.ProposalResponse{{Payload: raw}},
+			}
+		}
+
+		b.Run(tc.name, func(b *testing.B) {
+			b.Run("Duplicated", func(b *testing.B) {
+				tx := newTx()
+				b.ReportAllocs()
+				var out []byte
+				for b.Loop() {
+					tx.RWSet = raw
+					var err error
+					out, err = json.Marshal(tx)
+					if err != nil {
+						b.Fatal(err)
+					}
+				}
+				b.ReportMetric(float64(len(out)), "bytes/op")
+			})
+
+			b.Run("Deduplicated", func(b *testing.B) {
+				tx := newTx()
+				b.ReportAllocs()
+				var out []byte
+				for b.Loop() {
+					tx.RWSet = raw
+					var err error
+					out, err = tx.Bytes()
+					if err != nil {
+						b.Fatal(err)
+					}
+				}
+				b.ReportMetric(float64(len(out)), "bytes/op")
+			})
+		})
+	}
 }

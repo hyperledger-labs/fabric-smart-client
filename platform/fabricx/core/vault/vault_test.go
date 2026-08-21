@@ -9,6 +9,7 @@ package vault_test
 import (
 	"context"
 	"crypto/sha256"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -78,6 +79,11 @@ type mockQueryService struct {
 	txStatuses     map[string]int32
 	getStatesCount atomic.Int32
 	getStatesErr   error
+
+	// queryMu guards lastGetStates, which records the shape of the most recent batch so
+	// tests can assert on how a query was assembled.
+	queryMu       sync.Mutex
+	lastGetStates map[driver.Namespace][]driver.PKey
 }
 
 func newMockQueryService() *mockQueryService {
@@ -96,8 +102,18 @@ func (m *mockQueryService) GetState(ns driver.Namespace, key driver.PKey) (*driv
 	return nil, nil
 }
 
+// lastQuery returns the namespace/key map of the most recent GetStates call.
+func (m *mockQueryService) lastQuery() map[driver.Namespace][]driver.PKey {
+	m.queryMu.Lock()
+	defer m.queryMu.Unlock()
+	return m.lastGetStates
+}
+
 func (m *mockQueryService) GetStates(keys map[driver.Namespace][]driver.PKey) (map[driver.Namespace]map[driver.PKey]driver.VaultValue, error) {
 	m.getStatesCount.Add(1)
+	m.queryMu.Lock()
+	m.lastGetStates = keys
+	m.queryMu.Unlock()
 	if m.getStatesErr != nil {
 		return nil, m.getStatesErr
 	}
@@ -521,7 +537,7 @@ func TestRWSet_GetWriteAt(t *testing.T) {
 func TestRWSet_ConcurrentBytes(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
-	// Give the namespaces a non-default _meta version so Bytes() builds a populated nsInfo map.
+	// Give the namespaces a non-default version so Bytes() builds a populated nsInfo map.
 	qs.setState("_meta", "ns1", nil, 7)
 	qs.setState("_meta", "ns2", nil, 9)
 
@@ -579,9 +595,12 @@ func TestRWSet_ConcurrentMutation(t *testing.T) {
 	require.NoError(t, eg.Wait())
 }
 
-func TestRWSet_Bytes_GetStatesError(t *testing.T) {
+// Once a namespace has been touched, serialization no longer depends on the query
+// service, so it keeps working while the query service is failing.
+func TestRWSet_Bytes_SucceedsWhenStateQueriesFail(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
+	qs.setState("_meta", "ns1", nil, 7)
 	v := vault.NewVault(qs, nil)
 	rws, err := v.NewRWSet(context.Background(), "tx1")
 	require.NoError(t, err)
@@ -591,9 +610,9 @@ func TestRWSet_Bytes_GetStatesError(t *testing.T) {
 
 	qs.getStatesErr = errors.New("simulated error")
 
-	_, err = rws.Bytes()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "simulated error")
+	raw, err := rws.Bytes()
+	require.NoError(t, err)
+	require.NotEmpty(t, raw)
 }
 
 func TestRWSet_Bytes_EmptyNamespaces(t *testing.T) {
@@ -610,6 +629,8 @@ func TestRWSet_Bytes_EmptyNamespaces(t *testing.T) {
 func TestRWSet_CacheInvalidation(t *testing.T) {
 	t.Parallel()
 	qs := newMockQueryService()
+	qs.setState("_meta", "ns1", nil, 1)
+	qs.setState("_meta", "ns2", nil, 1)
 	qs.setState("ns1", "key1", []byte("val1"), 1)
 	v := vault.NewVault(qs, nil)
 	rws, err := v.NewRWSet(context.Background(), "tx1")
@@ -618,27 +639,21 @@ func TestRWSet_CacheInvalidation(t *testing.T) {
 	err = rws.SetState("ns1", "key1", []byte("val2"))
 	require.NoError(t, err)
 
-	// First Bytes() triggers GetStates and populates cache
-	initialCount := qs.getStatesCount.Load()
 	b1, err := rws.Bytes()
 	require.NoError(t, err)
-	require.Equal(t, initialCount+1, qs.getStatesCount.Load())
 
-	// Second Bytes() should hit cache and NOT trigger GetStates
+	// Serializing again returns the same bytes without re-marshalling.
 	b2, err := rws.Bytes()
 	require.NoError(t, err)
-	require.Equal(t, initialCount+1, qs.getStatesCount.Load())
 	require.Equal(t, b1, b2)
 
-	// GetState adds to read set, mutating RWSet and invalidating cache
+	// GetState adds to the read set, mutating the RWSet and invalidating the memoized bytes.
 	qs.setState("ns2", "key2", []byte("val3"), 1)
 	_, err = rws.GetState("ns2", "key2")
 	require.NoError(t, err)
 
-	// Third Bytes() should miss cache and trigger GetStates
 	b3, err := rws.Bytes()
 	require.NoError(t, err)
-	require.Equal(t, initialCount+2, qs.getStatesCount.Load())
 	require.NotEqual(t, b1, b3)
 }
 
