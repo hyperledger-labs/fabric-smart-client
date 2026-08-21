@@ -17,6 +17,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/ccaas/serve"
 	"github.com/hyperledger/fabric-chaincode-go/v2/pkg/statebased"
 	"github.com/hyperledger/fabric-chaincode-go/v2/shim"
 	"github.com/hyperledger/fabric-contract-api-go/v2/contractapi"
@@ -575,7 +576,7 @@ func main() {
 		log.Panicf("Error create transfer asset chaincode: %v", err)
 	}
 
-	if err := chaincode.Start(); err != nil {
+	if err := serve.Serve(chaincode); err != nil {
 		log.Panicf("Error starting asset chaincode: %v", err)
 	}
 }
