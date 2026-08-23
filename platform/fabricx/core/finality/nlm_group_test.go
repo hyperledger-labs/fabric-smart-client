@@ -128,9 +128,10 @@ func TestHandlerGroup(t *testing.T) {
 	})
 
 	t.Run("Blocked_Listeners_Admit_At_Most_The_Limit", func(t *testing.T) {
-		// With every slot held by a listener that never returns, TryGo must refuse
-		// the rest rather than start them. Total admitted work is therefore the
-		// limit itself -- not the notification count.
+		// With every slot held by a listener that never returns, nothing retires, so
+		// admitted work stays at the limit no matter how many notifications arrive.
+		// The queue absorbs the rest and then drops; either way OnStatus is never
+		// entered more than `limit` times.
 		//
 		// Deliberately avoids runtime.NumGoroutine(): it is process-global, so
 		// parallel sibling tests running their own managers make it meaningless.
@@ -175,15 +176,17 @@ func TestHandlerGroup(t *testing.T) {
 			limit, batches*perBatch)
 	})
 
-	t.Run("TryGo_Refusal_Drops_Without_Blocking_Dispatcher", func(t *testing.T) {
-		// A saturated limit must not stall the dispatcher: it keeps draining
-		// responseQueue and keeps sweeping. Refused calls are logged and dropped
-		// rather than queued or spawned.
+	t.Run("Saturation_Does_Not_Block_Dispatcher", func(t *testing.T) {
+		// A saturated pool must not stall the dispatcher: it keeps draining
+		// responseQueue and keeps sweeping. Once the queue fills, further calls are
+		// dropped with a warning rather than blocking.
 		t.Parallel()
 
 		nlm, fakeStream := setupTest(t)
 		nlm.handlerTimeout = config.DefaultHandlerTimeout
 		nlm.handlerWorkers = 1
+		// Tiny queue so the flood below actually saturates it.
+		nlm.callQueue = make(chan handlerCall, 2)
 
 		blocker := newCountingBlockingListener()
 		t.Cleanup(func() { close(blocker.block) })
@@ -204,13 +207,13 @@ func TestHandlerGroup(t *testing.T) {
 		}, timeout, tick, "the single handler slot should be held")
 
 		// The dispatcher must have finished the whole batch (all entries removed
-		// from the map) even though almost all of it was refused by TryGo.
+		// from the map) even though almost all of it was dropped.
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
 			nlm.handlersMu.RLock()
 			remaining := len(nlm.handlers)
 			nlm.handlersMu.RUnlock()
 			assert.Zero(collect, remaining,
-				"dispatcher must drain the batch even when TryGo refuses")
+				"dispatcher must drain the batch even when the queue is full")
 		}, timeout, tick)
 	})
 
@@ -224,11 +227,9 @@ func TestHandlerGroup(t *testing.T) {
 		// are slots*. That is the property worth pinning: it can only hold if slots
 		// are released back to the limit as callbacks return.
 		//
-		// It deliberately does NOT assert that every batch is delivered. TryGo
-		// reserves a slot on the calling goroutine while the callback runs on a
-		// freshly spawned one, so a submission made before the runtime has scheduled
-		// the previous callback can still be refused even at a low rate. That race is
-		// the same one Burst_Larger_Than_Limit_Drops_The_Overflow documents.
+		// With the queue in front of the limit, every batch should be delivered: the
+		// feeder waits for a slot rather than dropping, so a low arrival rate against
+		// a small limit loses nothing.
 		t.Parallel()
 
 		const limit = 2
@@ -253,36 +254,46 @@ func TestHandlerGroup(t *testing.T) {
 		feedResponses(t.Context(), fakeStream, responses...)
 		runManager(t, nlm)
 
-		// Strictly more than the limit proves slots are reused; without release the
-		// total would be capped at limit forever.
+		// All of them, not merely more than the limit: slots are released as callbacks
+		// return and the feeder keeps handing work over.
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
-			assert.Greater(collect, calls.Load(), int32(limit))
+			assert.Equal(collect, int32(batches), calls.Load())
 		}, timeout, tick,
-			"callbacks must keep running after the first %d: slots are not being returned to the limit", limit)
+			"every batch must be delivered; slots are not being returned to the limit")
 	})
 
-	t.Run("Burst_Larger_Than_Limit_Drops_The_Overflow", func(t *testing.T) {
-		// Documents an accepted consequence of using TryGo with no queue in front
-		// of it: a single notification response carrying more txIDs than there are
-		// slots loses the overflow, even when every listener returns immediately.
+	t.Run("Burst_Larger_Than_Limit_Is_Delivered_In_Full", func(t *testing.T) {
+		// The reason a queue sits in front of the limit. One notification response
+		// can carry far more transactions than there are handler slots, and they are
+		// dispatched in a tight loop. Without a buffer, everything past the limit is
+		// dropped even though the listeners are healthy and free their slots at once.
 		//
-		// This is the deliberate trade for a dispatcher that never blocks. The
-		// dropped listeners are settled with Unknown by the listenerTTL sweeper, so
-		// callers still get an answer -- just a later and less precise one. If this
-		// ever needs to change, the options are a larger handlerWorkers or a
-		// bounded blocking Go for the batch; both are noted in enqueueHandler.
+		// With the queue, the feeder hands work to the pool as slots free, so the
+		// whole burst lands. Concurrency is still capped -- see peak below -- so this
+		// does not reintroduce unbounded goroutine growth.
 		t.Parallel()
 
 		const limit = 4
-		const burst = 40
+		const burst = 200
 
 		nlm, fakeStream := setupTest(t)
 		nlm.handlerTimeout = config.DefaultHandlerTimeout
 		nlm.handlerWorkers = limit
 
 		var ran atomic.Int32
+		var inFlight, peak atomic.Int32
 		// Returns immediately: nothing here is misbehaving.
-		listener := &funcListener{fn: func(context.Context, string, int, string) { ran.Add(1) }}
+		listener := &funcListener{fn: func(context.Context, string, int, string) {
+			cur := inFlight.Add(1)
+			for {
+				p := peak.Load()
+				if cur <= p || peak.CompareAndSwap(p, cur) {
+					break
+				}
+			}
+			ran.Add(1)
+			inFlight.Add(-1)
+		}}
 
 		txIDs := make([]string, 0, burst)
 		for i := range burst {
@@ -294,24 +305,16 @@ func TestHandlerGroup(t *testing.T) {
 		feedResponses(t.Context(), fakeStream, respFor(txIDs...))
 		runManager(t, nlm)
 
-		// The dispatcher must still have drained the whole batch...
+		// Every callback in the burst must run -- none dropped.
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
-			nlm.handlersMu.RLock()
-			remaining := len(nlm.handlers)
-			nlm.handlersMu.RUnlock()
-			assert.Zero(collect, remaining)
-		}, timeout, tick, "dispatcher must drain the batch regardless of drops")
-
-		time.Sleep(shortWait)
-
-		// ...while delivering only part of it. Asserting a range rather than an
-		// exact count: how many slots recycle mid-burst is a scheduling detail.
-		delivered := ran.Load()
-		require.Positive(t, delivered, "fast listeners should still be served")
-		require.Less(t, delivered, int32(burst),
-			"a burst of %d against a limit of %d is expected to lose the overflow; "+
-				"if this now passes, the no-queue trade-off has changed and the docs need updating",
+			assert.Equal(collect, int32(burst), ran.Load())
+		}, timeout, tick,
+			"a burst of %d against a limit of %d must be delivered in full: the queue exists to absorb it",
 			burst, limit)
+
+		// ...and the limit must still have held throughout.
+		require.LessOrEqual(t, peak.Load(), int32(limit),
+			"delivering the burst must not exceed the concurrency limit")
 	})
 
 	t.Run("Slow_Listener_Does_Not_Stall_Other_TxIDs", func(t *testing.T) {
@@ -359,7 +362,9 @@ func TestHandlerGroup(t *testing.T) {
 		nlm.handlerTimeout = 100 * time.Millisecond
 		nlm.handlerWorkers = 4
 
-		ctx, cancel := context.WithCancel(context.Background())
+		// Derived from t.Context() so the test's own deadline or failure also
+		// tears this down; cancel() is what drives the teardown under test.
+		ctx, cancel := context.WithCancel(t.Context())
 		stuck := newCountingBlockingListener()
 		t.Cleanup(func() { close(stuck.block) })
 		seedHandlers(nlm, "tx_stuck_in_flight", stuck)
@@ -393,7 +398,9 @@ func TestHandlerGroup(t *testing.T) {
 		// One slot, and it will be held forever by the stuck callback below.
 		nlm.handlerWorkers = 1
 
-		ctx, cancel := context.WithCancel(context.Background())
+		// Derived from t.Context() so the test's own deadline or failure also
+		// tears this down; cancel() is what drives the teardown under test.
+		ctx, cancel := context.WithCancel(t.Context())
 
 		stuck := newCountingBlockingListener()
 		t.Cleanup(func() { close(stuck.block) })

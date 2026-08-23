@@ -60,6 +60,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, config.DefaultHandlerTimeout, cfg.HandlerTimeout)
 		require.Equal(t, config.DefaultHandlerWorkers, cfg.HandlerWorkers)
+		require.Equal(t, config.DefaultHandlerQueueSize, cfg.HandlerQueueSize)
 		require.Equal(t, config.DefaultListenerTTL, cfg.ListenerTTL)
 		require.Equal(t, config.DefaultSweepInterval, cfg.SweepInterval)
 	})
@@ -86,6 +87,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 			if cfg, ok := rawVal.(**config.Config); ok {
 				(*cfg).HandlerTimeout = 0
 				(*cfg).HandlerWorkers = 0
+				(*cfg).HandlerQueueSize = 0
 				(*cfg).SweepInterval = 0
 			}
 			return nil
@@ -98,6 +100,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 		// A zero limit would make every errgroup TryGo fail, so no callback would
 		// ever run: that cannot be a usable "disabled".
 		require.Equal(t, config.DefaultHandlerWorkers, cfg.HandlerWorkers, "a zero handler limit would deliver nothing")
+		require.Equal(t, config.DefaultHandlerQueueSize, cfg.HandlerQueueSize, "a zero-capacity queue would drop every burst")
 	})
 
 	t.Run("negative handlerWorkers falls back to default", func(t *testing.T) {
@@ -112,8 +115,24 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 
 		cfg, err := config.NewNotificationServiceConfig(fakeConfigService)
 		require.NoError(t, err)
-		// errgroup.SetLimit panics on a negative limit, so this must be sanitized.
 		require.Equal(t, config.DefaultHandlerWorkers, cfg.HandlerWorkers)
+	})
+
+	t.Run("negative handlerQueueSize falls back to default", func(t *testing.T) {
+		t.Parallel()
+		fakeConfigService := &mock.ServiceBackend{}
+		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
+			if cfg, ok := rawVal.(**config.Config); ok {
+				(*cfg).HandlerQueueSize = -1
+			}
+			return nil
+		}
+
+		cfg, err := config.NewNotificationServiceConfig(fakeConfigService)
+		require.NoError(t, err)
+		// make() panics on a negative buffer size, so this must never reach the
+		// manager's constructor.
+		require.Equal(t, config.DefaultHandlerQueueSize, cfg.HandlerQueueSize)
 	})
 
 	t.Run("configured finality durations are preserved", func(t *testing.T) {
@@ -123,6 +142,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 			if cfg, ok := rawVal.(**config.Config); ok {
 				(*cfg).HandlerTimeout = 7 * time.Second
 				(*cfg).HandlerWorkers = 4
+				(*cfg).HandlerQueueSize = 64
 				(*cfg).ListenerTTL = 3 * time.Minute
 				(*cfg).SweepInterval = 45 * time.Second
 			}
@@ -133,6 +153,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 7*time.Second, cfg.HandlerTimeout)
 		require.Equal(t, 4, cfg.HandlerWorkers)
+		require.Equal(t, 64, cfg.HandlerQueueSize)
 		require.Equal(t, 3*time.Minute, cfg.ListenerTTL)
 		require.Equal(t, 45*time.Second, cfg.SweepInterval)
 	})
@@ -155,6 +176,7 @@ func TestDefaultConfig(t *testing.T) {
 	require.Equal(t, config.DefaultRequestTimeout, cfg.RequestTimeout)
 	require.Equal(t, config.DefaultHandlerTimeout, cfg.HandlerTimeout)
 	require.Equal(t, config.DefaultHandlerWorkers, cfg.HandlerWorkers)
+	require.Equal(t, config.DefaultHandlerQueueSize, cfg.HandlerQueueSize)
 	require.Equal(t, config.DefaultListenerTTL, cfg.ListenerTTL)
 	require.Equal(t, config.DefaultSweepInterval, cfg.SweepInterval)
 }

@@ -24,16 +24,27 @@ const DefaultHandlerTimeout = 5 * time.Second
 // DefaultHandlerWorkers is how many finality listener OnStatus callbacks may run
 // concurrently. It is the limit set on the handler errgroup via SetLimit, so a
 // callback that blocks forever permanently holds one slot: once all slots are
-// held, TryGo can no longer start a callback and further notifications are
-// dropped with a warning. This bounds the damage a misbehaving listener can do to
-// throughput rather than letting it grow goroutines without limit, but it does
-// make "OnStatus must respect its context and return promptly" a requirement
-// rather than a suggestion.
+// held, nothing else can run and queued callbacks are eventually dropped. This
+// bounds the damage a misbehaving listener can do to throughput rather than letting
+// it grow goroutines without limit, but it does make "OnStatus must respect its
+// context and return promptly" a requirement rather than a suggestion.
 //
-// There is no queue in front of the limit: TryGo either starts the callback
-// immediately or reports that it cannot, which is what makes the drop visible
-// instead of deferred.
+// Note this is a concurrency limit, not a rate limit: healthy callbacks return
+// their slots immediately, so a batch far larger than this is delivered in full via
+// HandlerQueueSize.
 const DefaultHandlerWorkers = 16
+
+// DefaultHandlerQueueSize is how many pending OnStatus invocations may be buffered
+// while every handler slot is busy. It matches the generic committer's event queue
+// (platform/common/core/generic/committer/finality.go).
+//
+// The queue exists to absorb bursts: one notification response can carry many more
+// transactions than there are slots, and without a buffer everything past the limit
+// would be dropped even though the listeners are healthy and about to free their
+// slots. A full queue therefore signals something worse than a burst -- callbacks
+// produced faster than the pool retires them for as long as the buffer took to fill
+// -- and only then is a callback dropped, with a warning.
+const DefaultHandlerQueueSize = 1000
 
 // DefaultListenerTTL bounds how long a finality listener may wait locally for
 // a notification that may never arrive before being settled with Unknown. It
@@ -54,11 +65,12 @@ const DefaultSweepInterval = 30 * time.Second
 // Config is still required.
 func DefaultConfig() Config {
 	return Config{
-		RequestTimeout: DefaultRequestTimeout,
-		HandlerTimeout: DefaultHandlerTimeout,
-		HandlerWorkers: DefaultHandlerWorkers,
-		ListenerTTL:    DefaultListenerTTL,
-		SweepInterval:  DefaultSweepInterval,
+		RequestTimeout:   DefaultRequestTimeout,
+		HandlerTimeout:   DefaultHandlerTimeout,
+		HandlerWorkers:   DefaultHandlerWorkers,
+		HandlerQueueSize: DefaultHandlerQueueSize,
+		ListenerTTL:      DefaultListenerTTL,
+		SweepInterval:    DefaultSweepInterval,
 	}
 }
 
@@ -78,6 +90,10 @@ type Config struct {
 	// Raise it when a deployment has legitimately slow listeners; see
 	// DefaultHandlerWorkers for what happens when every slot is held.
 	HandlerWorkers int `yaml:"handlerWorkers,omitempty"`
+	// HandlerQueueSize is how many pending OnStatus invocations may be buffered
+	// while every handler slot is busy. Only meaningful for the notification
+	// service. A value of zero falls back to DefaultHandlerQueueSize.
+	HandlerQueueSize int `yaml:"handlerQueueSize,omitempty"`
 	// ListenerTTL bounds how long a finality listener may wait locally for a
 	// notification before being settled with Unknown. Only meaningful for the
 	// notification service. Explicitly setting it to zero disables local expiry;
@@ -135,7 +151,7 @@ type ServiceBackend interface {
 // from the provided ServiceBackend. It returns an error if the unmarshaling fails.
 //
 // The returned Config is fully resolved: HandlerTimeout, HandlerWorkers,
-// ListenerTTL and SweepInterval are pre-seeded with their
+// HandlerQueueSize, ListenerTTL and SweepInterval are pre-seeded with their
 // defaults before unmarshaling, so a deployment that omits them keeps today's
 // behavior. All of them except ListenerTTL also fall back to their defaults if
 // explicitly set to zero -- unlike ListenerTTL, they have no "zero disables it"
@@ -156,6 +172,9 @@ func NewNotificationServiceConfig(configService ServiceBackend) (*Config, error)
 	}
 	if config.HandlerWorkers <= 0 {
 		config.HandlerWorkers = DefaultHandlerWorkers
+	}
+	if config.HandlerQueueSize <= 0 {
+		config.HandlerQueueSize = DefaultHandlerQueueSize
 	}
 	if config.SweepInterval <= 0 {
 		config.SweepInterval = DefaultSweepInterval

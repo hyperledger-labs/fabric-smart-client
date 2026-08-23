@@ -83,8 +83,8 @@ func (m *mockListener) getStatus() (string, int) {
 
 // blockingListener simulates a handler that blocks forever (ignores context).
 // Used to test deadline detection and the dispatcher's resilience to a listener
-// that never returns. Such a listener permanently consumes one handler-pool
-// worker; see TestHandlerPool for the tests that pin down that bound.
+// that never returns. Such a listener permanently occupies one handler slot; see
+// TestHandlerGroup for the tests that pin down that bound.
 type blockingListener struct {
 	block    chan struct{} // close this to unblock; leave open to simulate a stuck handler
 	onCalled chan struct{} // closed when OnStatus is entered, so tests can synchronize
@@ -133,16 +133,16 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_Open
 	// listenerTTL is deliberately left zero here, which disables local expiry, so
 	// the sweeper stays inert for every test that does not opt in.
 	//
-	// handlerWorkers must be set: it becomes the handler errgroup's SetLimit, and a
-	// limit of zero would make every TryGo fail, so no callback would ever run.
-	// listen() builds the group itself; tests that care about its bounds override
-	// this. Tests that dispatch without calling listen() get the nil-group warning
-	// path in enqueueHandler, which is deliberate.
+	// handlerWorkers and callQueue must both be set: handlerWorkers becomes the
+	// handler errgroup's SetLimit, and a nil callQueue would make every enqueue hit
+	// the drop path in enqueueHandler. listen() builds the group itself; tests that
+	// care about the pool's bounds override these.
 	nlm := &notificationListenerManager{
 		notifyClient:   fakeClient,
 		requestQueue:   make(chan *committerpb.NotificationRequest),
 		responseQueue:  make(chan *committerpb.NotificationResponse),
 		handlers:       make(map[driver.TxID]*handlerEntry),
+		callQueue:      make(chan handlerCall, config.DefaultHandlerQueueSize),
 		handlerWorkers: config.DefaultHandlerWorkers,
 		requestTimeout: testRequestTimeout,
 	}
@@ -558,7 +558,7 @@ func TestNotificationListenerManager(t *testing.T) {
 	t.Run("Shutdown_Graceful_Exit", func(t *testing.T) {
 		t.Parallel()
 		nlm, fakeStream := setupTest(t)
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		// mock Recv to block indefinitely on context
 		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
@@ -595,7 +595,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		// context from it, and a zero timeout would expire before OnStatus runs.
 		nlm.handlerTimeout = config.DefaultHandlerTimeout
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
@@ -986,7 +986,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		//
 		// The leaky handler permanently consumes one worker of the pool, so this
 		// passes because the default pool has workers to spare. See
-		// TestHandlerPool for what happens when every worker is consumed, and for
+		// TestHandlerGroup for what happens when every slot is occupied, and for
 		// the bound on how much work a stuck listener can admit.
 		t.Parallel()
 		nlm, fakeStream := setupTest(t)

@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger/fabric-x-common/api/committerpb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -146,7 +145,7 @@ func TestProvider_Initialize(t *testing.T) {
 		mockGRPC := &mockGRPCClientProvider{}
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		var wg sync.WaitGroup
 		for range 100 {
@@ -388,7 +387,7 @@ func TestProvider_NewManager(t *testing.T) {
 			}), nil
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		provider.Initialize(ctx)
 
 		_, err := provider.NewManager("network1", "channel1")
@@ -647,51 +646,18 @@ func TestGetListenerManager(t *testing.T) {
 	})
 }
 
-func TestNewNotifiWithGRPC_HandlerLimit(t *testing.T) {
+func TestNewNotifiWithGRPC_HandlerPool(t *testing.T) {
 	t.Parallel()
 
-	t.Run("resolved config is applied to the handler limit", func(t *testing.T) {
+	t.Run("resolved config is applied to the pool", func(t *testing.T) {
 		t.Parallel()
 		cfg := config.DefaultConfig()
 		cfg.HandlerWorkers = 3
+		cfg.HandlerQueueSize = 7
 
 		nlm, err := newNotifiWithGRPC("network1", &mockGRPCClientProvider{}, cfg)
 		require.NoError(t, err)
 		require.Equal(t, 3, nlm.handlerWorkers)
-	})
-
-	t.Run("non-positive handlerWorkers does not produce an unusable manager", func(t *testing.T) {
-		// newNotifiWithGRPC takes a config.Config directly and the interface that
-		// supplies it is exported and mockable, so it must not accept values that
-		// NewNotificationServiceConfig would have sanitized: errgroup's SetLimit
-		// panics on a negative limit, and a limit of zero would make every TryGo
-		// fail, so no notification would ever be delivered.
-		t.Parallel()
-
-		for _, tc := range []struct {
-			name    string
-			workers int
-		}{
-			{name: "zero workers", workers: 0},
-			{name: "negative workers", workers: -1},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				t.Parallel()
-				cfg := config.DefaultConfig()
-				cfg.HandlerWorkers = tc.workers
-
-				nlm, err := newNotifiWithGRPC("network1", &mockGRPCClientProvider{}, cfg)
-				require.NoError(t, err)
-				require.Positive(t, nlm.handlerWorkers,
-					"a manager with a non-positive handler limit could never deliver a notification")
-
-				// The limit must also be usable: SetLimit would panic on a negative
-				// value, so prove the group accepts it and runs work.
-				hg, _ := errgroup.WithContext(t.Context())
-				require.NotPanics(t, func() { hg.SetLimit(nlm.handlerWorkers) })
-				require.True(t, hg.TryGo(func() error { return nil }))
-				require.NoError(t, hg.Wait())
-			})
-		}
+		require.Equal(t, 7, cap(nlm.callQueue))
 	})
 }

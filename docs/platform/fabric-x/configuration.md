@@ -26,23 +26,23 @@ Both services support endpoint-based gRPC connectivity and optional TLS or mutua
 | `endpoints[].tls` | disabled | TLS settings for that endpoint: `enabled`, `rootCerts` (server TLS), plus `clientKey` / `clientCert` (mutual TLS) and `serverNameOverride`. |
 | `requestTimeout` | `30s` | How long the committer waits for a subscribed transaction before answering. It is sent to the committer as the subscription's timeout, so the committer reports the outcomes it does have and flags only the still-pending transactions as timed out — rather than the client giving up locally and treating the whole batch as `Unknown`. In practice this is how long a finality listener waits before it is settled. |
 | `handlerTimeout` | `5s` | The deadline set on the context handed to a single `OnStatus` callback. Advisory: it cancels the context, but only the callback itself can decide to return. A callback still running past it is reported with a warning. |
-| `handlerWorkers` | `16` | How many `OnStatus` callbacks may run concurrently. There is no queue behind it: a callback that cannot start immediately is dropped, not buffered. See the warning below. |
+| `handlerWorkers` | `16` | How many `OnStatus` callbacks may run concurrently. A concurrency limit, not a rate limit: healthy callbacks return their slots immediately, so far more than this are delivered per second. See the warning below. |
+| `handlerQueueSize` | `1000` | How many pending `OnStatus` invocations are buffered while every slot is busy. This is what lets a notification batch larger than `handlerWorkers` be delivered in full. Beyond it, callbacks are dropped with a warning. |
 | `listenerTTL` | `2m` | Local backstop: how long a listener may wait without hearing anything at all — a dead or silent stream — before FSC settles it locally with `Unknown`. Keep it comfortably above `requestTimeout`; the committer's timeout is documented non-strict, so a late notification can still arrive after it passes. `listenerTTL: 0` disables the local backstop entirely. |
 | `sweepInterval` | `30s` | How often expired listeners are collected. A listener's worst-case lifetime is `listenerTTL + sweepInterval`. Ignored when `listenerTTL` is `0`. |
 
 Note that `Unknown` does not mean the transaction failed — only that there is no outcome yet for it within the configured bounds. A caller that needs certainty should query the transaction status directly.
 
 > [!WARNING]
-> **`OnStatus` must return promptly.** Finality listeners run on an `errgroup`
-> limited to `handlerWorkers` concurrent callbacks. A listener that blocks
-> indefinitely — on a full channel, a stalled store call, a contended lock — holds
-> its slot for as long as it runs. `handlerTimeout` cancels the context handed to
-> the callback, but nothing can force a callback to return; honoring cancellation is
-> the listener's responsibility.
+> **`OnStatus` must return promptly.** At most `handlerWorkers` callbacks run at
+> once. A listener that blocks indefinitely — on a full channel, a stalled store
+> call, a contended lock — occupies its slot for as long as it runs.
+> `handlerTimeout` cancels the context handed to the callback, but nothing can force
+> a callback to return; honoring cancellation is the listener's responsibility.
 >
-> Once all `handlerWorkers` slots are held this way, finality notifications stop
-> being delivered on that stream. Affected listeners are settled with `Unknown` by
-> the `listenerTTL` sweeper instead of receiving their real outcome.
+> Once every slot is occupied this way, the queue fills and finality notifications
+> stop being delivered on that stream. Affected listeners are settled with `Unknown`
+> by the `listenerTTL` sweeper instead of receiving their real outcome.
 >
 > This is a deliberate trade: a misbehaving listener degrades notification
 > throughput in a bounded, logged way rather than growing goroutines without limit.
@@ -53,29 +53,29 @@ Note that `Unknown` does not mean the transaction failed — only that there is 
 > Symptoms to look for in the logs:
 >
 > - `OnStatus handler for txID=… did not return before its deadline` — a listener is
->   ignoring cancellation and holding a slot.
-> - `dropped N of M finality callbacks: all … handler slots in use` — callbacks
->   could not be started and those listeners will fall back to `Unknown`.
+>   ignoring cancellation and occupying a slot.
+> - `dropped N of M finality callbacks` — the queue filled, and those listeners will
+>   fall back to `Unknown`.
 
-### Bursts and `handlerWorkers`
+### Sizing the handler pool
 
-Callbacks are started with the `errgroup`'s `TryGo`, which either starts a callback
-immediately or reports that it cannot. There is deliberately **no queue** in front of
-the limit, so that saturation is visible at once rather than hidden behind a
-backlog. The dispatcher never blocks — it shares a goroutine with the notification
-stream reader and the expiry sweeper, so blocking there would stall both.
+`handlerWorkers` and `handlerQueueSize` do different jobs, and both matter.
 
-The cost is that a burst can lose callbacks even when no listener misbehaves. A
-single notification response may carry many transactions, and they are dispatched in
-a tight loop; `TryGo` reserves a slot on the dispatching goroutine while the callback
-runs on a newly spawned one, so calls submitted before the runtime has scheduled the
-previous callbacks are refused. At the default `handlerWorkers: 16`, a 200-transaction
-response with instantly-returning listeners delivered roughly a third of its callbacks
-in testing. The remainder are settled with `Unknown` after `listenerTTL`.
+`handlerWorkers` bounds how many listeners run at once, which is what keeps a
+misbehaving listener from growing goroutines without limit. It is *not* a limit on
+throughput: a callback that returns immediately hands its slot straight back, so a
+single notification response carrying hundreds of transactions is delivered in full
+against the default limit of 16.
 
-If a deployment routinely sees `dropped N of M finality callbacks` while its listeners
-are known to be fast, raise `handlerWorkers`: sized above the largest expected
-notification batch, bursts stop being refused.
+`handlerQueueSize` is what makes that true. Notifications arrive in batches, and a
+batch is handed to the pool faster than the pool can retire it; the queue holds the
+remainder until slots free. Without it, everything past the limit would be dropped
+even though the listeners were healthy.
+
+Raise `handlerWorkers` when listeners are legitimately slow and you want more of them
+running in parallel. Raise `handlerQueueSize` when notification batches are large and
+bursty. If `dropped N of M finality callbacks` appears while listeners are known to be
+fast, the queue is the setting to increase.
 
 Complete example:
 
@@ -96,6 +96,7 @@ fabric:
       requestTimeout: 30s
       handlerTimeout: 5s
       handlerWorkers: 16
+      handlerQueueSize: 1000
       listenerTTL: 2m
       sweepInterval: 30s
 ```
@@ -107,7 +108,7 @@ Invalid timeouts are omitted, in which case the default above applies. Two zero 
 - `requestTimeout: 0` delegates the subscription timeout to the committer's own
   configuration rather than to the `30s` above.
 
-`handlerTimeout: 0`, `handlerWorkers: 0` and `sweepInterval: 0` have no such meaning and fall back to their defaults.
+`handlerTimeout: 0`, `handlerWorkers: 0`, `handlerQueueSize: 0` and `sweepInterval: 0` have no such meaning and fall back to their defaults.
 
 ## Related Documentation
 

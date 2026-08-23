@@ -29,7 +29,7 @@ type FinalityListener[V comparable] interface {
 	// Do slow or blocking work by handing it to your own queue and returning, not
 	// by blocking here. Both drivers dispatch from a bounded pool: the generic
 	// committer's eventQueueWorkers (platform/common/core/generic/committer) and
-	// the fabricx notification service's handlerWorkers
+	// the fabricx notification service's handlerWorkers / handlerQueueSize
 	// (platform/fabricx/core/finality).
 	OnStatus(ctx context.Context, txID TxID, status V, statusMessage string)
 }
