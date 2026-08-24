@@ -32,14 +32,8 @@ var logger = logging.MustGetLogger()
 // the notification service's configurable defaults; this package consumes them via
 // config.Config rather than defining its own copies.
 
-// slotPollInterval is how often the queue feeder re-checks for a free handler slot
-// while every slot is busy. Only reached when the pool is saturated, so it trades a
-// little latency in an already-degraded state for keeping cancellation observable;
-// see the feeder in listen().
-const slotPollInterval = 2 * time.Millisecond
-
-// handlerCall is one OnStatus invocation: the unit of work handed to the handler
-// errgroup.
+// handlerCall is one OnStatus invocation: the unit of work queued for the handler
+// pool.
 type handlerCall struct {
 	handler fabric.FinalityListener
 	txID    string
@@ -60,44 +54,25 @@ type notificationListenerManager struct {
 	responseQueue  chan *committerpb.NotificationResponse
 	handlerTimeout time.Duration
 
-	// handlerWorkers is the limit set on the handler errgroup (see handlerGroup),
-	// so it is how many OnStatus callbacks may run at once -- and therefore also
-	// how many stuck listeners it takes to stop delivering notifications on this
-	// stream entirely.
+	// handlerWorkers is how many worker goroutines listen() starts to drain
+	// callQueue, and so how many OnStatus callbacks may run at once -- and therefore
+	// also how many stuck listeners it takes to stop delivering notifications on
+	// this stream entirely.
 	handlerWorkers int
 
 	// callQueue buffers callbacks between the dispatcher and the handler pool.
 	//
-	// The queue and the limit do different jobs, and both are needed. The limit
-	// bounds how many listeners run at once, which is what stops a misbehaving
-	// listener from growing goroutines without end. The queue absorbs bursts: one
-	// notification response can carry far more transactions than there are slots,
-	// and without a buffer everything past the limit would be dropped even though
-	// the listeners are perfectly healthy and about to free their slots.
+	// The queue and the worker count do different jobs, and both are needed. The
+	// worker count bounds how many listeners run at once, which is what stops a
+	// misbehaving listener from growing goroutines without end. The queue absorbs
+	// bursts: one notification response can carry far more transactions than there
+	// are workers, and without a buffer everything past that would be dropped even
+	// though the listeners are perfectly healthy and about to become free again.
 	//
 	// Sends are non-blocking (see enqueueHandler): the only goroutine that enqueues
 	// is also the one draining the notification stream and running the expiry
 	// sweeper, so blocking here would stall both.
 	callQueue chan handlerCall
-
-	// handlerGroup runs listener callbacks, capped at handlerWorkers via SetLimit.
-	// Deliberately a SEPARATE errgroup from the one listen() uses for its three
-	// stream goroutines, for two reasons:
-	//
-	//   - Wait(): a listener that ignores cancellation and never returns keeps its
-	//     goroutine alive forever. Were it in the stream group, that group's Wait()
-	//     could never return, so listen() would never return and node shutdown
-	//     would hang on one misbehaving callback.
-	//   - Errors and limits: errgroup cancels its context on the first error and
-	//     shares one limit across the whole group. Sharing would let handlers
-	//     starve the stream goroutines of slots, and let a handler's error tear
-	//     down the stream.
-	//
-	// Set up by listen() and nil until then; enqueueHandler tolerates that.
-	// handlerCtx is the context callbacks receive, guarded by the same mutex.
-	handlerGroup   *errgroup.Group
-	handlerCtx     context.Context
-	handlerGroupMu sync.RWMutex
 
 	// requestTimeout is sent to the committer as the outbound NotificationRequest's
 	// Timeout, so it gives up and replies once it passes rather than us aborting the
@@ -142,52 +117,41 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	// listen() call replaces it with a fresh, live gCtx.
 	n.streamCtx.Store(&gCtx)
 
-	// Set up the handler errgroup: SetLimit caps concurrent OnStatus callbacks. See
-	// the handlerGroup field for why this is a separate group from g, and callQueue
-	// for why a queue sits in front of the limit.
+	// Start the handler pool: handlerWorkers long-lived goroutines, each pulling
+	// callbacks off callQueue. Concurrency is bounded by construction -- exactly this
+	// many goroutines exist, so at most this many callbacks run at once -- which is
+	// what keeps a misbehaving listener from growing goroutines without end.
 	//
-	// hCtx strips cancellation from ctx and relies on stopHandlers instead: a
-	// callback that is mid-flight when ctx is canceled would otherwise be handed an
-	// already-dead context, and callHandler's timeout would expire instantly,
-	// delivering nothing.
-	hCtx, stopHandlers := context.WithCancel(context.WithoutCancel(ctx))
+	// The workers are deliberately NOT in listen()'s errgroup g. A listener that
+	// ignores cancellation never returns, so its worker never returns either, and
+	// g.Wait() would then never return: one bad callback would hang listen() and node
+	// shutdown with it. They are tracked in a local WaitGroup and waited on with a
+	// timeout instead, so a stuck worker is abandoned rather than blocking teardown.
+	//
+	// The WaitGroup is a local, not a field: a second listen() call on the same
+	// manager then cannot Add to a group another call is already waiting on.
+	//
+	// poolCtx strips cancellation from ctx and relies on stopHandlers: a callback
+	// mid-flight when ctx is canceled would otherwise be handed an already-dead
+	// context, and callHandler's timeout would expire instantly, delivering nothing.
+	poolCtx, stopHandlers := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopHandlers()
 
-	hg, hgCtx := errgroup.WithContext(hCtx)
-	hg.SetLimit(n.handlerWorkers)
-
-	n.handlerGroupMu.Lock()
-	n.handlerGroup = hg
-	n.handlerCtx = hgCtx
-	n.handlerGroupMu.Unlock()
-
-	// Spawn the queue feeder: it moves buffered callbacks into the handler group,
-	// waiting for a free slot rather than dropping. Waiting is correct *here* --
-	// this is a dedicated goroutine, not the dispatcher, so it costs nothing but the
-	// feeder's own progress. It is what lets a burst larger than handlerWorkers
-	// still be delivered in full.
-	g.Go(func() error {
-		for {
-			var c handlerCall
-			select {
-			case <-gCtx.Done():
-				return gCtx.Err()
-			case c = <-n.callQueue:
-			}
-
-			for !hg.TryGo(func() error {
-				n.callHandler(hgCtx, c)
-				return nil
-			}) {
-				// All slots busy. Wait for one to free, but stay cancellable.
+	var handlerPool sync.WaitGroup
+	for range n.handlerWorkers {
+		handlerPool.Add(1)
+		go func() {
+			defer handlerPool.Done()
+			for {
 				select {
-				case <-gCtx.Done():
-					return gCtx.Err()
-				case <-time.After(slotPollInterval):
+				case <-poolCtx.Done():
+					return
+				case c := <-n.callQueue:
+					n.callHandler(poolCtx, c)
 				}
 			}
-		}
-	})
+		}()
+	}
 
 	// spawn stream receiver
 	g.Go(func() error {
@@ -259,7 +223,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	// their goroutines are reaped before listen() returns) without letting one
 	// misbehaving listener block shutdown indefinitely.
 	stopHandlers()
-	n.waitHandlers()
+	n.waitHandlers(&handlerPool)
 
 	// The stream is gone, so nothing will ever notify these listeners. Settle them
 	// with Unknown instead of dropping them silently, so anyone blocked in IsFinal
@@ -279,17 +243,16 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 // with the given status. Used on stream teardown, where no notification can
 // arrive any more.
 //
-// Does not go through the handler errgroup: this runs after listen() has already
-// cancelled the handler context and waited out the in-flight callbacks, so its
-// slots may still be held by listeners that ignored cancellation. Routing these
-// final callbacks through TryGo would see those held slots and drop the very
-// notifications this function exists to deliver.
+// Does not go through the handler pool: this runs after listen() has already
+// cancelled the pool's context and waited out the in-flight callbacks, so its
+// workers are stopped or stuck. Queueing these final callbacks would leave them
+// undrained, dropping the very notifications this function exists to deliver.
 //
 // Each listener is therefore invoked directly, in its own goroutine, and waited
 // for only up to handlerTimeout. Waiting inline instead would let a single
 // listener that ignores its context block listen() from ever returning, hanging
-// node shutdown -- the same failure the separate handler group avoids (see
-// listen). The goroutines here are bounded by the number of listeners still
+// node shutdown -- the same failure keeping the workers out of the errgroup
+// avoids (see listen). The goroutines here are bounded by the number of listeners still
 // unresolved at teardown, which happens once per stream death, so this is not a
 // path that can grow without limit.
 func (n *notificationListenerManager) settleAllAndClear(ctx context.Context, status int) {
@@ -549,19 +512,11 @@ func (n *notificationListenerManager) logDrops(dropped, total int) {
 
 // waitHandlers waits for in-flight callbacks to finish, but only up to
 // handlerTimeout. See the call site in listen() for why the wait is bounded.
-func (n *notificationListenerManager) waitHandlers() {
-	n.handlerGroupMu.RLock()
-	hg := n.handlerGroup
-	n.handlerGroupMu.RUnlock()
-
-	if hg == nil {
-		return
-	}
-
+func (n *notificationListenerManager) waitHandlers(pool *sync.WaitGroup) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = hg.Wait() // the callbacks never return an error; see enqueueHandler
+		pool.Wait()
 	}()
 
 	select {

@@ -24,7 +24,7 @@ import (
 )
 
 // countingBlockingListener blocks forever on every call and records how many
-// calls are in flight, so a test can assert the errgroup's limit is respected.
+// calls are in flight, so a test can assert the worker count is respected.
 type countingBlockingListener struct {
 	block    chan struct{}
 	inFlight atomic.Int32
@@ -89,11 +89,11 @@ func feedResponses(ctx context.Context, fakeStream *mock.Notifier_OpenNotificati
 func TestHandlerGroup(t *testing.T) {
 	t.Parallel()
 
-	t.Run("SetLimit_Caps_Concurrent_Callbacks", func(t *testing.T) {
+	t.Run("Worker_Count_Caps_Concurrent_Callbacks", func(t *testing.T) {
 		// The regression test for the unbounded-goroutine bug. Before the limit,
 		// every (txID, listener) pair got its own pair of goroutines, so concurrent
-		// OnStatus calls tracked the notification count. Now errgroup's SetLimit is
-		// the ceiling, whatever the rate.
+		// OnStatus calls tracked the notification count. Now the number of worker
+		// goroutines is the ceiling, whatever the rate.
 		t.Parallel()
 
 		const limit = 4
@@ -124,7 +124,7 @@ func TestHandlerGroup(t *testing.T) {
 		// Give the dispatcher room to misbehave, then assert it did not.
 		time.Sleep(shortWait)
 		require.LessOrEqual(t, listener.peak.Load(), int32(limit),
-			"concurrent OnStatus calls must never exceed the errgroup limit")
+			"concurrent OnStatus calls must never exceed the worker count")
 	})
 
 	t.Run("Blocked_Listeners_Admit_At_Most_The_Limit", func(t *testing.T) {
@@ -170,9 +170,9 @@ func TestHandlerGroup(t *testing.T) {
 		time.Sleep(shortWait)
 
 		require.LessOrEqual(t, listener.peak.Load(), int32(limit),
-			"concurrent OnStatus calls must never exceed the errgroup limit")
+			"concurrent OnStatus calls must never exceed the worker count")
 		require.LessOrEqual(t, listener.admitted.Load(), int32(limit),
-			"with every slot held forever, admitted work must stay at the limit (%d), not track the %d notifications delivered",
+			"with every worker held forever, admitted work must stay at the worker count (%d), not track the %d notifications delivered",
 			limit, batches*perBatch)
 	})
 
@@ -390,7 +390,7 @@ func TestHandlerGroup(t *testing.T) {
 	t.Run("Teardown_Settles_Listeners_While_Slot_Held", func(t *testing.T) {
 		// Listeners left in the map when the stream dies must be settled, even
 		// though the handler group's slots may be held by stuck callbacks -- which
-		// is why that path invokes them directly rather than through TryGo.
+		// is why that path invokes them directly rather than via the queue.
 		t.Parallel()
 
 		nlm, fakeStream := setupTest(t)
