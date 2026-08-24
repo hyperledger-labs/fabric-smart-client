@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/configstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
@@ -56,20 +57,29 @@ func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, configPro
 		configProvider:         configProvider,
 		managers:               make(map[string]ListenerManager),
 		newNotificationManager: newNotifiWithGRPC,
-		// Note: baseCtx will be initialized in the Initialize method.
+		baseCtx:                configstate.NewHolder[context.Context]("finality listener manager provider base context"),
 	}
 }
 
 // Provider implements ListenerManagerProvider and manages ListenerManager instances.
-// IMPORTANT: Initialize method MUST be called once during service setup before calling NewManager method.
+//
+// The root context for the listening goroutines is not available when the
+// Provider is built; the SDK supplies it during startup, via Initialize. Until
+// then NewManager reports fabric driver.ErrNotInitialized — the one in
+// platform/fabric/driver, not the platform/common/driver this file imports as
+// driver.
 type Provider struct {
 	newNotificationManager func(network string, gcp GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error)
 	configProvider         ServiceConfigProvider
 	grpcClientProvider     GRPCClientProvider
 	managers               map[string]ListenerManager // map: "network:channel" -> ListenerManager instance
 	managersMu             sync.Mutex
-	baseCtx                context.Context // The root context for all ListenerManager goroutines. MUST be set via Initialize().
-	initOnce               sync.Once       // Ensures the provider is initialized only once
+
+	// baseCtx holds the root context for all ListenerManager goroutines,
+	// installed by Initialize. A configstate.Holder rather than a plain field
+	// guarded by sync.Once: Once orders its write only against goroutines that
+	// call Do, and NewManager never does, so it left the read racing the write.
+	baseCtx *configstate.Holder[context.Context]
 }
 
 // resolveConfig looks up the notification service config for network, falling
@@ -92,11 +102,26 @@ func (p *Provider) resolveConfig(network string) (config.Config, error) {
 // Initialize sets the base context for the provider. This context is used as the parent
 // for the listening goroutines of each ListenerManager.
 //
+// A nil context is ignored: installing one would leave the provider looking
+// initialized while every listener goroutine ran on nil, which surfaces as a
+// panic inside gRPC with nothing pointing back here. The provider stays
+// uninitialized instead, so NewManager keeps reporting it.
+//
 // IMPORTANT: This method MUST be called once during service setup before calling NewManager.
 func (p *Provider) Initialize(ctx context.Context) {
-	p.initOnce.Do(func() {
-		p.baseCtx = ctx
+	if ctx == nil {
+		logger.Error("Finality Provider.Initialize called with a nil context, ignoring it")
+		return
+	}
+
+	// The error is discarded because the update function cannot fail; keeping
+	// the first context is expressed by returning it unchanged.
+	_ = p.baseCtx.Update(func(current context.Context, loaded bool) (context.Context, error) {
+		if loaded {
+			return current, nil
+		}
 		logger.Debug("Provider initialized with base context")
+		return ctx, nil
 	})
 }
 
@@ -106,8 +131,12 @@ func (p *Provider) Initialize(ctx context.Context) {
 // If a new manager is created, it starts the manager's blocking listening process
 // in a separate goroutine.
 func (p *Provider) NewManager(network, channel string) (ListenerManager, error) {
-	if p.baseCtx == nil {
-		panic("programming error: Provider is not initialized. The Initialize() method must be called before NewManager.")
+	// Resolved once here and passed to the listening goroutine below, so that
+	// the manager registered in this call and the context its goroutine runs on
+	// come from the same read.
+	baseCtx, err := p.baseCtx.Get()
+	if err != nil {
+		return nil, err
 	}
 
 	key := network + ":" + channel
@@ -145,7 +174,7 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 	// to receive finality notifications.
 	go func() {
 		logger.Debugf("Starting notification listener stream for %s", key)
-		if err := lm.listen(p.baseCtx); err != nil && !errors.Is(err, context.Canceled) {
+		if err := lm.listen(baseCtx); err != nil && !errors.Is(err, context.Canceled) {
 			logger.Errorf("Notification listener stream terminated unexpectedly for %s: %s", key, err)
 		}
 

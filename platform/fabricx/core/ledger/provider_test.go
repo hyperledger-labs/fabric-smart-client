@@ -10,11 +10,13 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger/mock"
 )
@@ -26,12 +28,16 @@ func TestProvider_Initialize(t *testing.T) {
 	p := ledger.NewProvider(mockGRPC, mockQS)
 	ctx := context.Background()
 	p.Initialize(ctx)
-	require.Equal(t, ctx, p.Context())
+	got, err := p.Context()
+	require.NoError(t, err)
+	require.Equal(t, ctx, got)
 
 	// Second initialization should not change anything
 	ctx2 := t.Context()
 	p.Initialize(ctx2)
-	require.Equal(t, ctx, p.Context())
+	got, err = p.Context()
+	require.NoError(t, err)
+	require.Equal(t, ctx, got)
 }
 
 func TestProvider_NewLedger(t *testing.T) {
@@ -41,10 +47,9 @@ func TestProvider_NewLedger(t *testing.T) {
 	mockGRPC.NotificationServiceClientReturns(&grpc.ClientConn{}, nil)
 	p := ledger.NewProvider(mockGRPC, mockQS)
 
-	// Should panic if not initialized
-	require.Panics(t, func() {
-		_, _ = p.NewLedger("test-net", "test-ch")
-	})
+	// Should report the startup condition if not initialized
+	_, err := p.NewLedger("test-net", "test-ch")
+	require.ErrorIs(t, err, driver.ErrNotInitialized)
 
 	ctx := context.Background()
 	p.Initialize(ctx)
@@ -111,4 +116,69 @@ func TestGetLedgerProvider_Error(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, lp)
 	require.ErrorContains(t, err, "could not find ledger provider")
+}
+
+// TestProvider_NewLedgerBeforeInitialize asserts that reaching a Provider before
+// Initialize has run reports driver.ErrNotInitialized rather than panicking, so
+// a caller racing SDK startup can detect the condition and retry.
+func TestProvider_NewLedgerBeforeInitialize(t *testing.T) {
+	t.Parallel()
+	p := ledger.NewProvider(&mock.GRPCClientProvider{}, &mock.QueryServiceProvider{})
+
+	l, err := p.NewLedger("test-net", "")
+	require.Nil(t, l)
+	require.ErrorIs(t, err, driver.ErrNotInitialized)
+}
+
+// TestProvider_ContextBeforeInitialize asserts the same for the base context
+// accessor.
+func TestProvider_ContextBeforeInitialize(t *testing.T) {
+	t.Parallel()
+	p := ledger.NewProvider(&mock.GRPCClientProvider{}, &mock.QueryServiceProvider{})
+
+	ctx, err := p.Context()
+	require.Nil(t, ctx)
+	require.ErrorIs(t, err, driver.ErrNotInitialized)
+}
+
+// TestProvider_InitializeWithNilContext asserts that a nil context is refused
+// rather than installed. Installing it would leave the Provider looking
+// initialized while handing nil to every ledger's RPC calls, which surfaces as a
+// panic inside gRPC with nothing pointing back at the Provider.
+func TestProvider_InitializeWithNilContext(t *testing.T) {
+	t.Parallel()
+	p := ledger.NewProvider(&mock.GRPCClientProvider{}, &mock.QueryServiceProvider{})
+
+	//nolint:staticcheck // passing a nil context is the mistake under test
+	p.Initialize(nil)
+
+	ctx, err := p.Context()
+	require.Nil(t, ctx)
+	require.ErrorIs(t, err, driver.ErrNotInitialized,
+		"a nil context must leave the Provider uninitialized")
+
+	l, err := p.NewLedger("test-net", "")
+	require.Nil(t, l)
+	require.ErrorIs(t, err, driver.ErrNotInitialized)
+
+	// A real context afterwards still initializes the Provider.
+	p.Initialize(context.Background())
+	ctx, err = p.Context()
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+}
+
+// TestProvider_InitializeIsRaceFreeWithNewLedger pins the synchronisation of the
+// base context. Guarding it with sync.Once alone was not enough: Once orders the
+// write only against goroutines that call Do, and NewLedger never does, so the
+// read raced the write.
+func TestProvider_InitializeIsRaceFreeWithNewLedger(t *testing.T) {
+	t.Parallel()
+	p := ledger.NewProvider(&mock.GRPCClientProvider{}, &mock.QueryServiceProvider{})
+
+	var wg sync.WaitGroup
+	wg.Go(func() { p.Initialize(context.Background()) })
+	wg.Go(func() { _, _ = p.NewLedger("test-net", "") })
+	wg.Go(func() { _, _ = p.Context() })
+	wg.Wait()
 }
