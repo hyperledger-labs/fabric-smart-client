@@ -142,7 +142,11 @@ type MSPManager struct {
 	ch driver.ChannelMembership
 }
 
-func (c *MSPManager) GetMSPIDs() []string {
+// GetMSPIDs returns the MSP IDs of the organizations in the channel's current
+// configuration. It fails while that configuration has not been loaded yet;
+// callers racing node startup can detect this with
+// errors.Is(err, driver.ErrNotInitialized).
+func (c *MSPManager) GetMSPIDs() ([]string, error) {
 	return c.ch.GetMSPIDs()
 }
 

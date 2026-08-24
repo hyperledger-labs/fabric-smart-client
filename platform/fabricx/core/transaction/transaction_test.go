@@ -501,8 +501,8 @@ func TestToMSPSignerIdentityWithCertificateID(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			id, err := toMSPSignerIdentityWithCertificateID(tc.identity, func(mspID string) bool {
-				return tc.isIdemix
+			id, err := toMSPSignerIdentityWithCertificateID(tc.identity, func(mspID string) (bool, error) {
+				return tc.isIdemix, nil
 			})
 			if tc.expectedError != "" {
 				require.Error(t, err)
@@ -525,6 +525,24 @@ func TestToMSPSignerIdentityWithCertificateID(t *testing.T) {
 			require.Empty(t, identity.GetCertificate())
 		})
 	}
+}
+
+// TestToMSPSignerIdentityWithCertificateID_IdemixLookupFails pins the reason the
+// predicate returns an error at all: an unknown answer must not fall through to
+// the X.509 encoding, which would silently mis-encode an Idemix identity.
+func TestToMSPSignerIdentityWithCertificateID_IdemixLookupFails(t *testing.T) {
+	t.Parallel()
+
+	_, serialized := mustSerializedIdentityWithRealCert(t, "Org1MSP")
+	lookupErr := errors.New("channel [ch1] configuration not loaded")
+
+	id, err := toMSPSignerIdentityWithCertificateID(serialized, func(string) (bool, error) {
+		return false, lookupErr
+	})
+
+	require.Nil(t, id, "no creator may be produced when the MSP type is unknown")
+	require.ErrorIs(t, err, lookupErr)
+	require.Contains(t, err.Error(), "Org1MSP")
 }
 
 func TestToEndorserIdentityWithCertID(t *testing.T) {

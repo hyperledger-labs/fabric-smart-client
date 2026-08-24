@@ -33,6 +33,7 @@ import (
 	storagedriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 // --- minimal mocks ---
@@ -183,6 +184,29 @@ func appChannelGenesisEnvelope(t *testing.T, channelID string) *cb.Envelope {
 	return protoutil.ExtractEnvelopeOrPanic(gb, 0)
 }
 
+// --- helpers ---
+
+// seed installs res as the service's channel configuration, standing in for the
+// first successful Update.
+func seed(t *testing.T, s *Service, res channelconfig.Resources) {
+	t.Helper()
+	require.NoError(t, s.config.Update(func(channelconfig.Resources, bool) (channelconfig.Resources, error) {
+		return res, nil
+	}))
+}
+
+func requireConfigLoaded(t *testing.T, s *Service) {
+	t.Helper()
+	_, ok := s.config.TryGet()
+	require.True(t, ok, "channel configuration should be loaded")
+}
+
+func requireConfigNotLoaded(t *testing.T, s *Service) {
+	t.Helper()
+	_, ok := s.config.TryGet()
+	require.False(t, ok, "channel configuration should not be loaded")
+}
+
 // --- tests ---
 
 func TestNewService(t *testing.T) {
@@ -190,7 +214,7 @@ func TestNewService(t *testing.T) {
 	s := NewService("mychannel")
 	require.NotNil(t, s)
 	require.Equal(t, "mychannel", s.channelID)
-	require.Nil(t, s.channelResources)
+	requireConfigNotLoaded(t, s)
 }
 
 func TestToMSPIdentity(t *testing.T) {
@@ -284,7 +308,7 @@ func TestService_Update(t *testing.T) {
 		env := appChannelGenesisEnvelope(t, "testchannel")
 		err := s.Update(env)
 		require.NoError(t, err)
-		require.NotNil(t, s.channelResources)
+		requireConfigLoaded(t, s)
 	})
 }
 
@@ -303,7 +327,7 @@ func TestService_DryUpdate(t *testing.T) {
 		env := appChannelGenesisEnvelope(t, "testchannel")
 		err := s.DryUpdate(env)
 		require.NoError(t, err)
-		require.Nil(t, s.channelResources, "DryUpdate must not mutate channelResources")
+		requireConfigNotLoaded(t, s)
 	})
 }
 
@@ -312,7 +336,7 @@ func TestService_IsValid(t *testing.T) {
 	t.Run("invalid identity bytes return error", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
-		s.channelResources = &mockResources{}
+		seed(t, s, &mockResources{})
 		err := s.IsValid([]byte{0xff})
 		require.Error(t, err)
 	})
@@ -320,9 +344,9 @@ func TestService_IsValid(t *testing.T) {
 	t.Run("deserialization error is propagated", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			mspMgr: &mockMSPManager{deserializeErr: errors.New("deserialization failed")},
-		}
+		})
 		err := s.IsValid(serializedIdentity(t, "Org1MSP"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "deserialization failed")
@@ -331,9 +355,9 @@ func TestService_IsValid(t *testing.T) {
 	t.Run("validate error is propagated", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			mspMgr: &mockMSPManager{identity: &mockMSPIdentity{validateErr: errors.New("invalid cert")}},
-		}
+		})
 		err := s.IsValid(serializedIdentity(t, "Org1MSP"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid cert")
@@ -342,9 +366,9 @@ func TestService_IsValid(t *testing.T) {
 	t.Run("valid identity returns nil", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			mspMgr: &mockMSPManager{identity: &mockMSPIdentity{}},
-		}
+		})
 		err := s.IsValid(serializedIdentity(t, "Org1MSP"))
 		require.NoError(t, err)
 	})
@@ -355,7 +379,7 @@ func TestService_GetVerifier(t *testing.T) {
 	t.Run("invalid identity bytes return error", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
-		s.channelResources = &mockResources{}
+		seed(t, s, &mockResources{})
 		_, err := s.GetVerifier([]byte{0xff})
 		require.Error(t, err)
 	})
@@ -363,9 +387,9 @@ func TestService_GetVerifier(t *testing.T) {
 	t.Run("deserialization error is propagated", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			mspMgr: &mockMSPManager{deserializeErr: errors.New("deserialization failed")},
-		}
+		})
 		_, err := s.GetVerifier(serializedIdentity(t, "Org1MSP"))
 		require.Error(t, err)
 	})
@@ -374,9 +398,9 @@ func TestService_GetVerifier(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
 		identity := &mockMSPIdentity{}
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			mspMgr: &mockMSPManager{identity: identity},
-		}
+		})
 		v, err := s.GetVerifier(serializedIdentity(t, "Org1MSP"))
 		require.NoError(t, err)
 		require.Equal(t, identity, v)
@@ -385,27 +409,39 @@ func TestService_GetVerifier(t *testing.T) {
 
 func TestService_GetMSPIDs(t *testing.T) {
 	t.Parallel()
+	t.Run("uninitialized reports ErrNotInitialized", func(t *testing.T) {
+		t.Parallel()
+		s := NewService("ch1")
+		ids, err := s.GetMSPIDs()
+		require.Nil(t, ids)
+		require.ErrorIs(t, err, fdriver.ErrNotInitialized)
+	})
+
 	t.Run("no application config returns nil", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
-		s.channelResources = &mockResources{appCfgOK: false}
-		require.Nil(t, s.GetMSPIDs())
+		seed(t, s, &mockResources{appCfgOK: false})
+		ids, err := s.GetMSPIDs()
+		require.NoError(t, err)
+		require.Nil(t, ids)
 	})
 
-	t.Run("nil organizations returns nil", func(t *testing.T) {
+	t.Run("nil organizations returns no MSP IDs", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			appCfg:   &mockApplication{orgs: nil},
 			appCfgOK: true,
-		}
-		require.Nil(t, s.GetMSPIDs())
+		})
+		ids, err := s.GetMSPIDs()
+		require.NoError(t, err)
+		require.Empty(t, ids)
 	})
 
 	t.Run("returns MSP IDs from all organizations", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			appCfg: &mockApplication{
 				orgs: map[string]channelconfig.ApplicationOrg{
 					"Org1": &mockApplicationOrg{mspID: "Org1MSP"},
@@ -413,10 +449,135 @@ func TestService_GetMSPIDs(t *testing.T) {
 				},
 			},
 			appCfgOK: true,
-		}
-		ids := s.GetMSPIDs()
+		})
+		ids, err := s.GetMSPIDs()
+		require.NoError(t, err)
 		require.Len(t, ids, 2)
 		require.ElementsMatch(t, []string{"Org1MSP", "Org2MSP"}, ids)
+	})
+}
+
+// TestAccessorsBeforeFirstUpdate is the fabricx counterpart of the generic
+// service's regression test: every accessor must report the startup condition
+// rather than dereferencing a nil channelconfig.Resources.
+func TestAccessorsBeforeFirstUpdate(t *testing.T) {
+	t.Parallel()
+
+	identity := view.Identity(serializedIdentity(t, "Org1MSP"))
+
+	for _, tc := range []struct {
+		name string
+		call func(s *Service) error
+	}{
+		{"IsValid", func(s *Service) error {
+			return s.IsValid(identity)
+		}},
+		{"GetVerifier", func(s *Service) error {
+			v, err := s.GetVerifier(identity)
+			require.Nil(t, v)
+			return err
+		}},
+		{"GetMSPIDs", func(s *Service) error {
+			ids, err := s.GetMSPIDs()
+			require.Nil(t, ids)
+			return err
+		}},
+		{"IsIdemixMSP", func(s *Service) error {
+			isIdemix, err := s.IsIdemixMSP("Org1MSP")
+			require.False(t, isIdemix)
+			return err
+		}},
+		{"OrdererConfig", func(s *Service) error {
+			ct, eps, err := s.OrdererConfig(&mockConfigService{})
+			require.Empty(t, ct)
+			require.Nil(t, eps)
+			return err
+		}},
+		{"CheckACL", func(s *Service) error {
+			return s.CheckACL(nil)
+		}},
+		{"MSPManager.DeserializeIdentity", func(s *Service) error {
+			id, err := s.MSPManager().DeserializeIdentity(identity)
+			require.Nil(t, id)
+			return err
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			s := NewService("mychannel")
+
+			var err error
+			require.NotPanics(t, func() { err = tc.call(s) })
+
+			require.Error(t, err)
+			require.ErrorIs(t, err, fdriver.ErrNotInitialized)
+			require.Contains(t, err.Error(), "mychannel")
+		})
+	}
+}
+
+// TestPolicyManagerGetterBeforeFirstUpdate covers the closure handed to
+// fabric-x-common's policy checker, which must answer nil rather than
+// dereferencing an absent configuration.
+func TestPolicyManagerGetterBeforeFirstUpdate(t *testing.T) {
+	t.Parallel()
+
+	s := NewService("ch1")
+	p := &policyManagerGetterFunc{channelID: "ch1", config: s.config}
+
+	require.NotPanics(t, func() {
+		require.Nil(t, p.Manager("ch1"), "configuration not loaded yet")
+		require.Nil(t, p.Manager("other"), "different channel")
+	})
+}
+
+// TestACLResourcesClosureBeforeFirstUpdate covers the resources closure passed
+// to aclmgmt.NewACLProvider, which must not hand a nil Resources downstream.
+func TestACLResourcesClosureBeforeFirstUpdate(t *testing.T) {
+	t.Parallel()
+
+	s := NewService("ch1")
+	p := &policyManagerGetterFunc{channelID: "ch1", config: s.config}
+	require.Nil(t, p.Manager("ch1"))
+
+	// Once a configuration is installed the same lookups resolve.
+	seed(t, s, &mockResources{})
+	require.NotNil(t, s.ACLProvider, "ACL provider is wired at construction")
+}
+
+func TestService_IsIdemixMSP(t *testing.T) {
+	t.Parallel()
+	t.Run("uninitialized reports ErrNotInitialized", func(t *testing.T) {
+		t.Parallel()
+		s := NewService("ch1")
+		isIdemix, err := s.IsIdemixMSP("Org1MSP")
+		require.False(t, isIdemix)
+		require.ErrorIs(t, err, fdriver.ErrNotInitialized)
+	})
+
+	t.Run("no application config returns false without error", func(t *testing.T) {
+		t.Parallel()
+		s := NewService("ch1")
+		seed(t, s, &mockResources{appCfgOK: false})
+		isIdemix, err := s.IsIdemixMSP("Org1MSP")
+		require.NoError(t, err)
+		require.False(t, isIdemix)
+	})
+
+	t.Run("unknown MSP returns false without error", func(t *testing.T) {
+		t.Parallel()
+		s := NewService("ch1")
+		seed(t, s, &mockResources{
+			appCfg: &mockApplication{
+				orgs: map[string]channelconfig.ApplicationOrg{
+					"Org1": &mockApplicationOrg{mspID: "Org1MSP"},
+				},
+			},
+			appCfgOK: true,
+		})
+		isIdemix, err := s.IsIdemixMSP("NoSuchMSP")
+		require.NoError(t, err)
+		require.False(t, isIdemix)
 	})
 }
 
@@ -425,7 +586,7 @@ func TestService_OrdererConfig(t *testing.T) {
 	t.Run("no orderer config returns error", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
-		s.channelResources = &mockResources{ordCfgOK: false}
+		seed(t, s, &mockResources{ordCfgOK: false})
 		_, _, err := s.OrdererConfig(&mockConfigService{})
 		require.Error(t, err)
 	})
@@ -433,10 +594,10 @@ func TestService_OrdererConfig(t *testing.T) {
 	t.Run("nil organizations returns error", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			ordCfg:   &mockOrderer{consensusType: "etcdraft", orgs: nil},
 			ordCfgOK: true,
-		}
+		})
 		_, _, err := s.OrdererConfig(&mockConfigService{})
 		require.Error(t, err)
 	})
@@ -445,7 +606,7 @@ func TestService_OrdererConfig(t *testing.T) {
 		t.Parallel()
 		mspImpl := &mockMSP{tlsRootCerts: [][]byte{[]byte("root")}}
 		s := NewService("ch1")
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			ordCfg: &mockOrderer{
 				consensusType: "etcdraft",
 				orgs: map[string]channelconfig.OrdererOrg{
@@ -453,7 +614,7 @@ func TestService_OrdererConfig(t *testing.T) {
 				},
 			},
 			ordCfgOK: true,
-		}
+		})
 		consType, conns, err := s.OrdererConfig(&mockConfigService{})
 		require.NoError(t, err)
 		require.Equal(t, "etcdraft", consType)
@@ -467,7 +628,7 @@ func TestService_OrdererConfig(t *testing.T) {
 			tlsIntCerts:  [][]byte{[]byte("int")},
 		}
 		s := NewService("ch1")
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			ordCfg: &mockOrderer{
 				consensusType: "etcdraft",
 				orgs: map[string]channelconfig.OrdererOrg{
@@ -475,7 +636,7 @@ func TestService_OrdererConfig(t *testing.T) {
 				},
 			},
 			ordCfgOK: true,
-		}
+		})
 		cs := &mockConfigService{
 			orderingTLSEnabled:      true,
 			orderingTLSEnabledIsSet: true,
@@ -499,7 +660,7 @@ func TestService_OrdererConfig(t *testing.T) {
 		t.Parallel()
 		mspImpl := &mockMSP{}
 		s := NewService("ch1")
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			ordCfg: &mockOrderer{
 				consensusType: "etcdraft",
 				orgs: map[string]channelconfig.OrdererOrg{
@@ -507,7 +668,7 @@ func TestService_OrdererConfig(t *testing.T) {
 				},
 			},
 			ordCfgOK: true,
-		}
+		})
 		cs := &mockConfigService{
 			// ordering TLS not set → fallback to TLSEnabled
 			orderingTLSEnabledIsSet: false,
@@ -530,9 +691,9 @@ func TestService_MSPManager(t *testing.T) {
 		t.Parallel()
 		identity := &mockMSPIdentity{}
 		s := NewService("ch1")
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			mspMgr: &mockMSPManager{identity: identity},
-		}
+		})
 		mgr := s.MSPManager()
 		require.NotNil(t, mgr)
 
@@ -544,9 +705,9 @@ func TestService_MSPManager(t *testing.T) {
 	t.Run("invalid bytes return error from DeserializeIdentity", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("ch1")
-		s.channelResources = &mockResources{
+		seed(t, s, &mockResources{
 			mspMgr: &mockMSPManager{},
-		}
+		})
 		mgr := s.MSPManager()
 		_, err := mgr.DeserializeIdentity([]byte{0xff})
 		require.Error(t, err)

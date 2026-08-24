@@ -735,13 +735,21 @@ func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.Propos
 //     SignatureHeader.Creator field.
 //   - When the identity's MSP is an Idemix MSP (as determined by idemixMSP),
 //     the original identity bytes are returned unchanged, because Idemix
-//     identities carry no X.509 certificate to hash.
-func toMSPSignerIdentityWithCertificateID(identity view.Identity, idemixMSP func(mspID string) bool) ([]byte, error) {
+//     identities carry no X.509 certificate to hash. If idemixMSP cannot
+//     answer, the error is propagated rather than defaulting to the X.509
+//     encoding.
+func toMSPSignerIdentityWithCertificateID(identity view.Identity, idemixMSP func(mspID string) (bool, error)) ([]byte, error) {
 	sID := &msp.SerializedIdentity{}
 	if err := proto.Unmarshal(identity, sID); err != nil {
 		return nil, errors.Wrap(err, "unmarshal serialized identity")
 	}
-	if idemixMSP(sID.GetMspid()) {
+	// Fail rather than guess: an unknown answer here would silently select the
+	// X.509 encoding below for what may be an Idemix identity.
+	isIdemix, err := idemixMSP(sID.GetMspid())
+	if err != nil {
+		return nil, errors.Wrapf(err, "determining whether MSP [%s] is idemix", sID.GetMspid())
+	}
+	if isIdemix {
 		logger.Debugf("identity [%s] is an idemix identity, return it. [%s]", identity, sID.GetMspid())
 		return identity, nil
 	}
