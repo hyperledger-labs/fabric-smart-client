@@ -601,7 +601,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		}
 
 		// A delayedListener respects context cancellation, which a real listener
-		// does too. That matters here: teardown runs after the errgroup context is
+		// does too. That matters here: teardown runs after the stream's context is
 		// already cancelled, so handing listeners that context would deliver
 		// nothing. A mockListener would not notice, because it ignores ctx.
 		ml := &delayedListener{delay: tick}

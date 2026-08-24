@@ -79,10 +79,10 @@ type notificationListenerManager struct {
 	handlers   map[driver.TxID]*handlerEntry
 	handlersMu sync.RWMutex
 
-	// streamCtx holds the errgroup context of the currently active listen()
-	// call, if any. Its Done() channel closes as soon as that stream fails
-	// (errgroup cancels it on the first goroutine error, without waiting for
-	// the others to unwind) or the parent context is canceled. AddFinalityListener
+	// streamCtx holds the context of the currently active listen() call, if any.
+	// Its Done() channel closes as soon as that stream fails (the first stream
+	// goroutine to error cancels it, without waiting for the others to unwind) or
+	// the parent context is canceled. AddFinalityListener
 	// uses it to fail fast on a dead stream instead of blocking forever on
 	// requestQueue.
 	streamCtx atomic.Pointer[context.Context]
@@ -95,7 +95,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// Use the base context for errgroup
+	// One group for the three stream goroutines: receiver, sender, dispatcher.
 	g, gCtx := errgroup.WithContext(ctx)
 
 	// Publish gCtx so AddFinalityListener can select on it instead of
@@ -106,7 +106,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	// listen() call replaces it with a fresh, live gCtx.
 	n.streamCtx.Store(&gCtx)
 
-	// The handler pool is deliberately not in g: a listener that ignores cancellation
+	// The workers are deliberately not part of g: a listener that ignores cancellation
 	// never returns, so neither does its worker, and g.Wait() would then never return
 	// -- hanging listen() and node shutdown. waitHandlers waits on the WaitGroup with
 	// a timeout instead. It is a local so a second listen() call cannot Add to a group
@@ -215,7 +215,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	// with Unknown instead of dropping them silently, so anyone blocked in IsFinal
 	// is released now rather than waiting out their own context.
 	//
-	// ctx, not gCtx: the errgroup context is already cancelled by the time g.Wait()
+	// ctx, not gCtx: the stream context is already cancelled by the time g.Wait()
 	// returns, and invokeHandler derives its handler timeout from what we pass, so
 	// gCtx would hand every listener a dead context and deliver nothing. Strip
 	// cancellation from the parent too -- listen() is often returning *because*
@@ -362,7 +362,7 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 		Timeout: durationpb.New(n.requestTimeout),
 	}
 
-	// Guard the send against a dead stream: once listen()'s errgroup context
+	// Guard the send against a dead stream: once listen()'s stream context
 	// is done (the stream failed, or listen()'s parent context was
 	// canceled), nothing will ever drain requestQueue again, so sending
 	// unconditionally would block forever -- see the streamCtx field doc.

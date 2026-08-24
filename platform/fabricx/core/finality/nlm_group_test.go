@@ -338,9 +338,9 @@ func TestHandlerGroup(t *testing.T) {
 	})
 
 	t.Run("Teardown_Not_Blocked_By_Stuck_Callback", func(t *testing.T) {
-		// This is why the workers are not in listen()'s errgroup: a
-		// callback that ignores cancellation keeps its goroutine alive, so a Wait()
-		// on the stream group would never return. listen() must still return.
+		// This is why the workers are tracked separately from the stream goroutines:
+		// a callback that ignores cancellation keeps its goroutine alive, so waiting
+		// on it would never return. listen() must still return.
 		t.Parallel()
 
 		nlm, fakeStream := setupTest(t)
