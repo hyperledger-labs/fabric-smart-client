@@ -144,10 +144,28 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 			defer handlerPool.Done()
 			for {
 				select {
-				case <-poolCtx.Done():
-					return
 				case c := <-n.callQueue:
 					n.callHandler(poolCtx, c)
+				case <-poolCtx.Done():
+					// Stopping. Drain what is already queued first: those callbacks
+					// were dispatched, so their handlers map entries are gone and
+					// settleAllAndClear will not settle them -- dropping them here
+					// would lose the notification outright. The drain is bounded by
+					// the queue's length at this instant, and each callback is still
+					// capped by handlerTimeout.
+					//
+					// Cancellation is stripped for the drain: poolCtx is already done,
+					// so passing it would hand every remaining listener an expired
+					// context and deliver nothing.
+					drainCtx := context.WithoutCancel(poolCtx)
+					for {
+						select {
+						case c := <-n.callQueue:
+							n.callHandler(drainCtx, c)
+						default:
+							return
+						}
+					}
 				}
 			}
 		}()
@@ -217,11 +235,11 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	// Cancel the handler context so in-flight callbacks that do observe
 	// cancellation wind down, then give them a bounded window to finish.
 	//
-	// hg.Wait() is deliberately NOT waited on unconditionally: it returns only once
-	// every callback has returned, and a listener that ignores cancellation never
-	// does. Waiting with a timeout keeps the common case tidy (callbacks finish,
-	// their goroutines are reaped before listen() returns) without letting one
-	// misbehaving listener block shutdown indefinitely.
+	// The wait is deliberately bounded: the workers drain whatever is still queued
+	// before exiting, and a listener that ignores cancellation never returns at all.
+	// A timeout keeps the common case tidy (callbacks finish and their goroutines are
+	// reaped before listen() returns) without letting one misbehaving listener block
+	// shutdown indefinitely.
 	stopHandlers()
 	n.waitHandlers(&handlerPool)
 
@@ -547,11 +565,12 @@ func (n *notificationListenerManager) callHandler(ctx context.Context, c handler
 	start := time.Now()
 	c.handler.OnStatus(timeoutCtx, c.txID, c.status, "")
 
-	// Warn only when the handler was still running after its deadline passed, i.e.
-	// it ignored cancellation for a while. Checking the context rather than the
-	// elapsed time keeps this quiet for handlers that return promptly, and correct
-	// when handlerTimeout is zero.
-	if timeoutCtx.Err() != nil {
+	// Warn only when this callback's own deadline passed while it was still running,
+	// i.e. it ignored cancellation. Checking DeadlineExceeded specifically, not
+	// timeoutCtx.Err() != nil: the parent is cancelled on stream teardown, which
+	// makes Err() non-nil for every callback in flight at that moment and would
+	// report healthy listeners as misbehaving.
+	if errors.Is(timeoutCtx.Err(), context.DeadlineExceeded) {
 		logger.Warnf(
 			"OnStatus handler for txID=%s did not return before its deadline (took %s, timeout=%s), "+
 				"blocking one of %d handler workers for that long; OnStatus must observe ctx.Done() and return promptly",

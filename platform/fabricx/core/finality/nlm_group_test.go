@@ -387,6 +387,58 @@ func TestHandlerGroup(t *testing.T) {
 		}
 	})
 
+	t.Run("Teardown_Drains_Queued_Callbacks", func(t *testing.T) {
+		// Callbacks already sitting in callQueue when the stream stops must still be
+		// delivered. dispatch has removed their handlers entries by then, so
+		// settleAllAndClear will not settle them: dropping them here loses the
+		// notification outright, with no Unknown fallback.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		// One slow worker, so the batch backs up in the queue rather than draining
+		// as fast as it is dispatched.
+		nlm.handlerWorkers = 1
+		nlm.callQueue = make(chan handlerCall, 200)
+
+		var ran atomic.Int32
+		slow := &funcListener{fn: func(context.Context, string, int, string) {
+			ran.Add(1)
+			time.Sleep(20 * time.Millisecond)
+		}}
+
+		const batch = 20
+		ids := make([]string, 0, batch)
+		for i := range batch {
+			id := "tx_drain_" + strconv.Itoa(i)
+			ids = append(ids, id)
+			seedHandlers(nlm, id, slow)
+		}
+
+		ctx, cancel := context.WithCancel(t.Context())
+		feedResponses(ctx, fakeStream, respFor(ids...))
+
+		listenErr := make(chan error, 1)
+		go func() { listenErr <- nlm.listen(ctx) }()
+
+		// Let the batch reach the queue, but not be drained.
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Positive(collect, len(nlm.callQueue), "batch should be buffered")
+		}, timeout, tick)
+
+		cancel()
+		select {
+		case <-listenErr:
+		case <-time.After(2 * time.Second):
+			t.Fatal("listen() did not return")
+		}
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Equal(collect, int32(batch), ran.Load())
+		}, timeout, tick,
+			"every queued callback must be delivered on teardown, not discarded with the workers")
+	})
+
 	t.Run("Teardown_Settles_Listeners_While_Slot_Held", func(t *testing.T) {
 		// Listeners left in the map when the stream dies must be settled, even
 		// though the handler group's slots may be held by stuck callbacks -- which
