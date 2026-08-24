@@ -49,7 +49,7 @@ type Service struct {
 
 func NewService(channelID string) *Service {
 	s := &Service{
-		config:    configstate.NewHolder[channelconfig.Resources](channelID),
+		config:    configstate.NewHolder[channelconfig.Resources]("channel [" + channelID + "] configuration"),
 		channelID: channelID,
 	}
 	policyChecker := policy.NewPolicyChecker(

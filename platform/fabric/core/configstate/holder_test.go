@@ -23,7 +23,7 @@ type config struct{ id string }
 func TestGetBeforeFirstUpdate(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 
 	v, err := h.Get()
 	require.Error(t, err)
@@ -37,7 +37,7 @@ func TestGetBeforeFirstUpdate(t *testing.T) {
 func TestGetAfterUpdate(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
 		return &config{id: "first"}, nil
 	}))
@@ -50,7 +50,7 @@ func TestGetAfterUpdate(t *testing.T) {
 func TestFailedUpdateLeavesPreviousValue(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
 		return &config{id: "first"}, nil
 	}))
@@ -67,7 +67,7 @@ func TestFailedUpdateLeavesPreviousValue(t *testing.T) {
 func TestFailedFirstUpdateStaysUninitialized(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 	require.Error(t, h.Update(func(*config, bool) (*config, error) {
 		return nil, errors.New("boom")
 	}))
@@ -79,7 +79,7 @@ func TestFailedFirstUpdateStaysUninitialized(t *testing.T) {
 func TestUpdateSeesCurrentValue(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 
 	require.NoError(t, h.Update(func(cur *config, loaded bool) (*config, error) {
 		require.False(t, loaded)
@@ -97,7 +97,7 @@ func TestUpdateSeesCurrentValue(t *testing.T) {
 func TestTryGet(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 
 	v, ok := h.TryGet()
 	require.False(t, ok)
@@ -117,7 +117,7 @@ func TestInterfaceValueIsNotMistakenForLoaded(t *testing.T) {
 
 	type iface interface{ ID() string }
 
-	h := configstate.NewHolder[iface]("mychannel")
+	h := configstate.NewHolder[iface]("channel [mychannel] configuration")
 	_, err := h.Get()
 	require.True(t, errors.Is(err, driver.ErrNotInitialized))
 
@@ -131,7 +131,7 @@ func TestInterfaceValueIsNotMistakenForLoaded(t *testing.T) {
 func TestConcurrentAccessIsRaceFree(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 
 	var wg sync.WaitGroup
 	for range 8 {

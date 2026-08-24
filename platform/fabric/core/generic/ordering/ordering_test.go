@@ -98,6 +98,45 @@ func (m *mockBroadcaster) broadcast(ctx context.Context, env *common.Envelope) e
 	return m.err
 }
 
+// newTestService builds a Service with fake collaborators and no consensus type
+// set, which is the state a Service is in until the channel configuration
+// arrives.
+func newTestService() *Service {
+	return NewService(
+		func(channelID string) (driver.EndorserTransactionService, error) {
+			return &mockEndorserTransactionService{}, nil
+		},
+		&mockSignerService{},
+		&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
+		&metrics.Metrics{},
+		fakeServices{},
+	)
+}
+
+// setBroadcaster registers fn under a test consensus type and selects it, which
+// is how a Service acquires a broadcaster in production too.
+func setBroadcaster(t *testing.T, s *Service, fn BroadcastFnc) {
+	t.Helper()
+	s.Broadcasters[testConsensus] = fn
+	require.NoError(t, s.SetConsensusType(testConsensus))
+}
+
+const testConsensus ConsensusType = "test-consensus"
+
+// requireBroadcaster asserts that a broadcaster has been selected.
+func requireBroadcaster(t *testing.T, s *Service) {
+	t.Helper()
+	_, err := s.broadcaster.Get()
+	require.NoError(t, err)
+}
+
+// requireNoBroadcaster asserts that no broadcaster has been selected yet.
+func requireNoBroadcaster(t *testing.T, s *Service) {
+	t.Helper()
+	_, err := s.broadcaster.Get()
+	require.ErrorIs(t, err, driver.ErrNotInitialized)
+}
+
 // TestNewService tests the Service constructor
 func TestNewService(t *testing.T) {
 	t.Parallel()
@@ -126,7 +165,7 @@ func TestNewService(t *testing.T) {
 	require.NotNil(t, service.Broadcasters[BFT])
 	require.NotNil(t, service.Broadcasters[Raft])
 	require.NotNil(t, service.Broadcasters[Solo])
-	require.Nil(t, service.Broadcaster) // Not set until SetConsensusType is called
+	requireNoBroadcaster(t, service) // Not set until SetConsensusType is called
 }
 
 // TestService_SetConsensusType tests setting the consensus type
@@ -163,15 +202,7 @@ func TestService_SetConsensusType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			service := NewService(
-				func(channelID string) (driver.EndorserTransactionService, error) {
-					return &mockEndorserTransactionService{}, nil
-				},
-				&mockSignerService{},
-				&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-				&metrics.Metrics{},
-				fakeServices{},
-			)
+			service := newTestService()
 
 			err := service.SetConsensusType(tt.consensusType)
 
@@ -180,7 +211,7 @@ func TestService_SetConsensusType(t *testing.T) {
 				require.Contains(t, err.Error(), "no broadcaster found for consensus")
 			} else {
 				require.NoError(t, err)
-				require.NotNil(t, service.Broadcaster)
+				requireBroadcaster(t, service)
 			}
 		})
 	}
@@ -210,21 +241,13 @@ func TestService_Configure(t *testing.T) {
 
 		err := service.Configure(Raft, orderers)
 		require.NoError(t, err)
-		require.NotNil(t, service.Broadcaster)
+		requireBroadcaster(t, service)
 		require.Equal(t, orderers, configService.Orderers())
 	})
 
 	t.Run("invalid consensus type", func(t *testing.T) {
 		t.Parallel()
-		service := NewService(
-			func(channelID string) (driver.EndorserTransactionService, error) {
-				return &mockEndorserTransactionService{}, nil
-			},
-			&mockSignerService{},
-			&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-			&metrics.Metrics{},
-			fakeServices{},
-		)
+		service := newTestService()
 
 		orderers := []*grpc.ConnectionConfig{
 			{Address: "orderer1:7050"},
@@ -243,16 +266,8 @@ func TestService_Broadcast(t *testing.T) {
 	t.Run("broadcast with Transaction type", func(t *testing.T) {
 		t.Parallel()
 		mockBroadcaster := &mockBroadcaster{}
-		service := NewService(
-			func(channelID string) (driver.EndorserTransactionService, error) {
-				return &mockEndorserTransactionService{}, nil
-			},
-			&mockSignerService{},
-			&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-			&metrics.Metrics{},
-			fakeServices{},
-		)
-		service.Broadcaster = mockBroadcaster.broadcast
+		service := newTestService()
+		setBroadcaster(t, service, mockBroadcaster.broadcast)
 
 		// Create a valid envelope bytes
 		validEnvelope := &common.Envelope{
@@ -279,16 +294,8 @@ func TestService_Broadcast(t *testing.T) {
 	t.Run("broadcast with TransactionWithEnvelope type", func(t *testing.T) {
 		t.Parallel()
 		mockBroadcaster := &mockBroadcaster{}
-		service := NewService(
-			func(channelID string) (driver.EndorserTransactionService, error) {
-				return &mockEndorserTransactionService{}, nil
-			},
-			&mockSignerService{},
-			&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-			&metrics.Metrics{},
-			fakeServices{},
-		)
-		service.Broadcaster = mockBroadcaster.broadcast
+		service := newTestService()
+		setBroadcaster(t, service, mockBroadcaster.broadcast)
 
 		env := &common.Envelope{
 			Payload:   []byte("payload"),
@@ -305,16 +312,8 @@ func TestService_Broadcast(t *testing.T) {
 	t.Run("broadcast with common.Envelope type", func(t *testing.T) {
 		t.Parallel()
 		mockBroadcaster := &mockBroadcaster{}
-		service := NewService(
-			func(channelID string) (driver.EndorserTransactionService, error) {
-				return &mockEndorserTransactionService{}, nil
-			},
-			&mockSignerService{},
-			&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-			&metrics.Metrics{},
-			fakeServices{},
-		)
-		service.Broadcaster = mockBroadcaster.broadcast
+		service := newTestService()
+		setBroadcaster(t, service, mockBroadcaster.broadcast)
 
 		env := &common.Envelope{
 			Payload:   []byte("payload"),
@@ -330,16 +329,8 @@ func TestService_Broadcast(t *testing.T) {
 	t.Run("broadcast with TODO context", func(t *testing.T) {
 		t.Parallel()
 		mockBroadcaster := &mockBroadcaster{}
-		service := NewService(
-			func(channelID string) (driver.EndorserTransactionService, error) {
-				return &mockEndorserTransactionService{}, nil
-			},
-			&mockSignerService{},
-			&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-			&metrics.Metrics{},
-			fakeServices{},
-		)
-		service.Broadcaster = mockBroadcaster.broadcast
+		service := newTestService()
+		setBroadcaster(t, service, mockBroadcaster.broadcast)
 
 		env := &common.Envelope{
 			Payload:   []byte("payload"),
@@ -353,18 +344,8 @@ func TestService_Broadcast(t *testing.T) {
 
 	t.Run("broadcast with invalid blob type", func(t *testing.T) {
 		t.Parallel()
-		service := NewService(
-			func(channelID string) (driver.EndorserTransactionService, error) {
-				return &mockEndorserTransactionService{}, nil
-			},
-			&mockSignerService{},
-			&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-			&metrics.Metrics{},
-			fakeServices{},
-		)
-		service.Broadcaster = func(ctx context.Context, env *common.Envelope) error {
-			return nil
-		}
+		service := newTestService()
+		setBroadcaster(t, service, func(ctx context.Context, env *common.Envelope) error { return nil })
 
 		err := service.Broadcast(t.Context(), "invalid type")
 		require.Error(t, err)
@@ -373,15 +354,7 @@ func TestService_Broadcast(t *testing.T) {
 
 	t.Run("broadcast without broadcaster set", func(t *testing.T) {
 		t.Parallel()
-		service := NewService(
-			func(channelID string) (driver.EndorserTransactionService, error) {
-				return &mockEndorserTransactionService{}, nil
-			},
-			&mockSignerService{},
-			&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-			&metrics.Metrics{},
-			fakeServices{},
-		)
+		service := newTestService()
 		// Don't set broadcaster
 
 		env := &common.Envelope{
@@ -396,18 +369,8 @@ func TestService_Broadcast(t *testing.T) {
 
 	t.Run("broadcast with transaction envelope error", func(t *testing.T) {
 		t.Parallel()
-		service := NewService(
-			func(channelID string) (driver.EndorserTransactionService, error) {
-				return &mockEndorserTransactionService{}, nil
-			},
-			&mockSignerService{},
-			&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-			&metrics.Metrics{},
-			fakeServices{},
-		)
-		service.Broadcaster = func(ctx context.Context, env *common.Envelope) error {
-			return nil
-		}
+		service := newTestService()
+		setBroadcaster(t, service, func(ctx context.Context, env *common.Envelope) error { return nil })
 
 		tx := &mockTransaction{
 			id:          "tx1",
@@ -421,18 +384,8 @@ func TestService_Broadcast(t *testing.T) {
 
 	t.Run("broadcast with transaction bytes error", func(t *testing.T) {
 		t.Parallel()
-		service := NewService(
-			func(channelID string) (driver.EndorserTransactionService, error) {
-				return &mockEndorserTransactionService{}, nil
-			},
-			&mockSignerService{},
-			&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-			&metrics.Metrics{},
-			fakeServices{},
-		)
-		service.Broadcaster = func(ctx context.Context, env *common.Envelope) error {
-			return nil
-		}
+		service := newTestService()
+		setBroadcaster(t, service, func(ctx context.Context, env *common.Envelope) error { return nil })
 
 		tx := &mockTransaction{
 			id: "tx1",
@@ -448,18 +401,8 @@ func TestService_Broadcast(t *testing.T) {
 
 	t.Run("broadcast with invalid envelope bytes", func(t *testing.T) {
 		t.Parallel()
-		service := NewService(
-			func(channelID string) (driver.EndorserTransactionService, error) {
-				return &mockEndorserTransactionService{}, nil
-			},
-			&mockSignerService{},
-			&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-			&metrics.Metrics{},
-			fakeServices{},
-		)
-		service.Broadcaster = func(ctx context.Context, env *common.Envelope) error {
-			return nil
-		}
+		service := newTestService()
+		setBroadcaster(t, service, func(ctx context.Context, env *common.Envelope) error { return nil })
 
 		tx := &mockTransaction{
 			id: "tx1",
@@ -477,16 +420,8 @@ func TestService_Broadcast(t *testing.T) {
 		t.Parallel()
 		expectedErr := errors.New("broadcast failed")
 		mockBroadcaster := &mockBroadcaster{err: expectedErr}
-		service := NewService(
-			func(channelID string) (driver.EndorserTransactionService, error) {
-				return &mockEndorserTransactionService{}, nil
-			},
-			&mockSignerService{},
-			&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-			&metrics.Metrics{},
-			fakeServices{},
-		)
-		service.Broadcaster = mockBroadcaster.broadcast
+		service := newTestService()
+		setBroadcaster(t, service, mockBroadcaster.broadcast)
 
 		env := &common.Envelope{
 			Payload:   []byte("payload"),
@@ -505,16 +440,8 @@ func TestService_ConcurrentBroadcast(t *testing.T) {
 	t.Parallel()
 
 	mockBroadcaster := &mockBroadcaster{}
-	service := NewService(
-		func(channelID string) (driver.EndorserTransactionService, error) {
-			return &mockEndorserTransactionService{}, nil
-		},
-		&mockSignerService{},
-		&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-		&metrics.Metrics{},
-		fakeServices{},
-	)
-	service.Broadcaster = mockBroadcaster.broadcast
+	service := newTestService()
+	setBroadcaster(t, service, mockBroadcaster.broadcast)
 
 	const numGoroutines = 10
 	errChan := make(chan error, numGoroutines)
@@ -542,15 +469,7 @@ func TestService_ConcurrentBroadcast(t *testing.T) {
 func TestService_ConcurrentSetConsensusType(t *testing.T) {
 	t.Parallel()
 
-	service := NewService(
-		func(channelID string) (driver.EndorserTransactionService, error) {
-			return &mockEndorserTransactionService{}, nil
-		},
-		&mockSignerService{},
-		&fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"},
-		&metrics.Metrics{},
-		fakeServices{},
-	)
+	service := newTestService()
 
 	const numGoroutines = 10
 	errChan := make(chan error, numGoroutines)
@@ -571,7 +490,7 @@ func TestService_ConcurrentSetConsensusType(t *testing.T) {
 	}
 
 	// Verify that a broadcaster is set
-	require.NotNil(t, service.Broadcaster)
+	requireBroadcaster(t, service)
 }
 
 // TestConsensusTypeConstants tests the consensus type constants
@@ -581,4 +500,34 @@ func TestConsensusTypeConstants(t *testing.T) {
 	require.Equal(t, "BFT", BFT)
 	require.Equal(t, "etcdraft", Raft)
 	require.Equal(t, "solo", Solo)
+}
+
+// TestService_BroadcastBeforeConsensusTypeIsSet asserts that broadcasting before
+// the channel configuration has told us which consensus type is in force reports
+// driver.ErrNotInitialized, so a caller racing node startup can tell the startup
+// window apart from a permanent failure.
+func TestService_BroadcastBeforeConsensusTypeIsSet(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService()
+
+	err := service.Broadcast(t.Context(), &common.Envelope{Payload: []byte("payload")})
+	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrNotInitialized)
+}
+
+// TestService_SetConsensusTypeRejectionKeepsPreviousBroadcaster asserts that a
+// rejected consensus type leaves the service able to broadcast, rather than
+// dropping it back into the uninitialized state.
+func TestService_SetConsensusTypeRejectionKeepsPreviousBroadcaster(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService()
+	mockBroadcaster := &mockBroadcaster{}
+	setBroadcaster(t, service, mockBroadcaster.broadcast)
+
+	require.Error(t, service.SetConsensusType("nope"))
+
+	require.NoError(t, service.Broadcast(t.Context(), &common.Envelope{Payload: []byte("payload")}))
+	require.True(t, mockBroadcaster.called)
 }

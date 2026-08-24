@@ -38,14 +38,17 @@ type Holder[T any] struct {
 	// interface type whose stored value is legitimately nil.
 	loaded bool
 
-	channelName string
+	// subject names what is held, as a noun phrase that reads correctly in
+	// front of "not loaded" — "channel [mychannel] configuration", say. It is
+	// only used to give the errors returned by Get somewhere to point; the
+	// service owning the holder remains the authority on identity.
+	subject string
 }
 
-// NewHolder returns an empty Holder for the named channel. The channel name is
-// only used to give the errors returned by Get somewhere to point; the service
-// owning the holder remains the authority on channel identity.
-func NewHolder[T any](channelName string) *Holder[T] {
-	return &Holder[T]{channelName: channelName}
+// NewHolder returns an empty Holder for the named subject. See the subject
+// field for how the name is used.
+func NewHolder[T any](subject string) *Holder[T] {
+	return &Holder[T]{subject: subject}
 }
 
 // Get returns the held configuration. Until the first successful Update it
@@ -57,7 +60,7 @@ func (h *Holder[T]) Get() (T, error) {
 
 	if !h.loaded {
 		var zero T
-		return zero, errors.Wrapf(driver.ErrNotInitialized, "channel [%s] configuration not loaded", h.channelName)
+		return zero, errors.Wrapf(driver.ErrNotInitialized, "%s not loaded", h.subject)
 	}
 
 	return h.value, nil

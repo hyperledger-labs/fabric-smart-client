@@ -35,7 +35,7 @@ type Service struct {
 
 func NewService(channelName string) *Service {
 	return &Service{
-		config:      configstate.NewHolder[*channelconfig.ChannelConfig](channelName),
+		config:      configstate.NewHolder[*channelconfig.ChannelConfig]("channel [" + channelName + "] configuration"),
 		channelName: channelName,
 	}
 }
