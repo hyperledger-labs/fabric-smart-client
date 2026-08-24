@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package membership
 
 import (
-	"sync"
-
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
@@ -26,6 +24,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/configstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -33,11 +32,15 @@ import (
 
 var logger = logging.MustGetLogger()
 
+// Service answers membership questions about a channel from its current
+// configuration. The configuration is not available when the service is built;
+// it arrives with the first poll of the channel config monitor, via Update.
+// Every accessor therefore reports driver.ErrNotInitialized until that happens.
 type Service struct {
-	// ResourcesLock is used to serialize access to resources
-	resourcesLock sync.RWMutex
-	// resources is used to acquire configuration bundle resources.
-	channelResources channelconfig.Resources
+	// config holds the channel configuration once it has been loaded. Reading
+	// it goes through configstate.Holder.Get, which cannot hand out a
+	// configuration that is not there.
+	config *configstate.Holder[channelconfig.Resources]
 
 	ACLProvider aclmgmt.ACLProvider
 
@@ -46,19 +49,26 @@ type Service struct {
 
 func NewService(channelID string) *Service {
 	s := &Service{
-		channelID:   channelID,
-		ACLProvider: nil,
+		config:    configstate.NewHolder[channelconfig.Resources](channelID),
+		channelID: channelID,
 	}
 	policyChecker := policy.NewPolicyChecker(
-		&policyManagerGetterFunc{channelID: channelID, resourcesGetter: s.resources},
+		&policyManagerGetterFunc{channelID: channelID, config: s.config},
 		mgmt.GetLocalMSP(factory.GetDefault()),
 	)
 	s.ACLProvider = aclmgmt.NewACLProvider(
 		func(cid string) channelconfig.Resources {
-			if cid == s.channelID {
-				return s.resources()
+			if cid != s.channelID {
+				return nil
 			}
-			return nil
+			// A channel whose configuration has not loaded yet is reported the
+			// same way as an unknown channel. CheckACL rejects that case before
+			// delegating here, so this is a backstop rather than the guard.
+			res, ok := s.config.TryGet()
+			if !ok {
+				return nil
+			}
+			return res
 		},
 		policyChecker,
 	)
@@ -66,43 +76,41 @@ func NewService(channelID string) *Service {
 	return s
 }
 
-func (s *Service) resources() channelconfig.Resources {
-	s.resourcesLock.RLock()
-	res := s.channelResources
-	s.resourcesLock.RUnlock()
-	return res
-}
-
+// Update installs the channel configuration carried by env. The previously held
+// configuration is kept if env fails validation.
 func (s *Service) Update(env *cb.Envelope) error {
-	s.resourcesLock.Lock()
-	defer s.resourcesLock.Unlock()
-
 	logger.Infof("updating channel [%s]", s.channelID)
 
-	b, err := s.validateConfig(env)
+	err := s.config.Update(func(current channelconfig.Resources, loaded bool) (channelconfig.Resources, error) {
+		return s.validateConfig(env, current, loaded)
+	})
 	if err != nil {
 		logger.Errorf("failed validating config for channel [%s]: [%s]", s.channelID, err)
 		return err
 	}
 
-	s.channelResources = b
-
 	logger.Infof("updating channel [%s], done", s.channelID)
 	return nil
 }
 
+// DryUpdate validates env against the currently held configuration without
+// installing it.
+//
+// The configuration is snapshotted rather than locked for the duration of the
+// validation: a held bundle is never mutated, only replaced wholesale, so the
+// snapshot stays consistent. The verdict is advisory either way, since an
+// Update may land the moment this returns.
 func (s *Service) DryUpdate(env *cb.Envelope) error {
-	s.resourcesLock.RLock()
-	defer s.resourcesLock.RUnlock()
+	current, loaded := s.config.TryGet()
 
-	if _, err := s.validateConfig(env); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := s.validateConfig(env, current, loaded)
+	return err
 }
 
-func (s *Service) validateConfig(env *cb.Envelope) (*channelconfig.Bundle, error) {
+// validateConfig parses env and checks it against current, the configuration in
+// force. It is called while the holder's lock is held, so it takes the current
+// configuration as an argument rather than reading it back out.
+func (s *Service) validateConfig(env *cb.Envelope, current channelconfig.Resources, loaded bool) (*channelconfig.Bundle, error) {
 	payload, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unmarshal common payload")
@@ -113,10 +121,9 @@ func (s *Service) validateConfig(env *cb.Envelope) (*channelconfig.Bundle, error
 		return nil, errors.Wrapf(err, "unmarshal config envelope")
 	}
 
-	// check if config tx is valid
-	if s.channelResources != nil {
-		v := s.channelResources.ConfigtxValidator()
-		if err := v.Validate(cenv); err != nil {
+	// The first configuration has nothing to be validated against.
+	if loaded {
+		if err := current.ConfigtxValidator().Validate(cenv); err != nil {
 			return nil, errors.Wrap(err, "validate config transaction")
 		}
 	}
@@ -169,12 +176,17 @@ func toMSPIdentity(identity view.Identity) (*msppb.Identity, error) {
 }
 
 func (s *Service) IsValid(identity view.Identity) error {
+	res, err := s.config.Get()
+	if err != nil {
+		return err
+	}
+
 	sid, err := toMSPIdentity(identity)
 	if err != nil {
 		return err
 	}
 
-	id, err := s.resources().MSPManager().DeserializeIdentity(sid)
+	id, err := res.MSPManager().DeserializeIdentity(sid)
 	if err != nil {
 		return errors.Wrapf(err, "deserializing identity [%s]", identity.String())
 	}
@@ -183,38 +195,53 @@ func (s *Service) IsValid(identity view.Identity) error {
 }
 
 func (s *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
+	res, err := s.config.Get()
+	if err != nil {
+		return nil, err
+	}
+
 	sid, err := toMSPIdentity(identity)
 	if err != nil {
 		return nil, err
 	}
 
-	id, err := s.resources().MSPManager().DeserializeIdentity(sid)
+	id, err := res.MSPManager().DeserializeIdentity(sid)
 	if err != nil {
 		return nil, errors.Wrapf(err, "deserializing identity [%s]", identity.String())
 	}
+
 	return id, nil
 }
 
 // GetMSPIDs retrieves the MSP IDs of the organizations in the current Channel
-// configuration.
-func (s *Service) GetMSPIDs() []string {
-	ac, ok := s.resources().ApplicationConfig()
-	if !ok || ac.Organizations() == nil {
-		return nil
+// configuration. An empty result means the channel has no organizations; a
+// channel whose configuration has not been loaded yet reports
+// driver.ErrNotInitialized instead.
+func (s *Service) GetMSPIDs() ([]string, error) {
+	res, err := s.config.Get()
+	if err != nil {
+		return nil, err
 	}
 
-	mspIDs := make([]string, 0, len(ac.Organizations()))
-	for _, org := range ac.Organizations() {
-		mspIDs = append(mspIDs, org.MSPID())
+	var mspIDs []string
+	if ac, ok := res.ApplicationConfig(); ok {
+		for _, org := range ac.Organizations() {
+			mspIDs = append(mspIDs, org.MSPID())
+		}
 	}
 
-	return mspIDs
+	return mspIDs, nil
 }
 
 func (s *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
-	oc, ok := s.resources().OrdererConfig()
+	res, err := s.config.Get()
+	if err != nil {
+		return "", nil, err
+	}
+
+	oc, ok := res.OrdererConfig()
 	if !ok || oc.Organizations() == nil {
-		return "", nil, errors.New("orderer config does not exist")
+		return "", nil, errors.Errorf("orderer config does not exist for channel [%s]", s.channelID)
 	}
 
 	tlsEnabled, isSet := cs.OrderingTLSEnabled()
@@ -265,55 +292,86 @@ func (s *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 	return oc.ConsensusType(), newOrderers, nil
 }
 
-// MSPManager returns the msp.MSPManager that reflects the current Channel
+// MSPManager returns the driver.MSPManager that reflects the current Channel
 // configuration. Users should not memoize references to this object.
+//
+// The manager resolves the configuration on each call rather than capturing it
+// here, so obtaining one before the channel configuration has been loaded is
+// allowed; the failure surfaces from DeserializeIdentity.
 func (s *Service) MSPManager() driver.MSPManager {
-	return &mspManager{s.resources().MSPManager()}
+	return &mspManager{config: s.config}
 }
 
-// IsIdemixMSP returns true if the MSP identified by mspID is of type Idemix.
-func (s *Service) IsIdemixMSP(mspID string) bool {
-	ac, ok := s.resources().ApplicationConfig()
-	if !ok || ac.Organizations() == nil {
-		return false
+// IsIdemixMSP reports whether the MSP identified by mspID is of type Idemix.
+// A false result means the channel has such an MSP and it is not Idemix; a
+// channel whose configuration has not been loaded yet reports
+// driver.ErrNotInitialized instead, so a caller cannot mistake the startup
+// race for a definitive answer.
+func (s *Service) IsIdemixMSP(mspID string) (bool, error) {
+	res, err := s.config.Get()
+	if err != nil {
+		return false, err
+	}
+
+	ac, ok := res.ApplicationConfig()
+	if !ok {
+		return false, nil
 	}
 
 	for _, org := range ac.Organizations() {
 		if org.MSPID() == mspID {
-			return org.MSP().GetType() == xmsp.IDEMIX
+			return org.MSP().GetType() == xmsp.IDEMIX, nil
 		}
 	}
 
-	return false
+	return false, nil
 }
 
 // CheckACL checks the ACL for the resource for the Channel using the
 // SignedProposal from which an id can be extracted for testing against a policy
 func (s *Service) CheckACL(signedProp driver.SignedProposal) error {
+	// Reject before delegating: the ACL provider expresses "no configuration"
+	// as a policy lookup failure, which would not tell the caller that the
+	// channel simply has not started up yet.
+	if _, err := s.config.Get(); err != nil {
+		return err
+	}
+
 	return s.ACLProvider.CheckACL(resources.Peer_Propose, s.channelID, signedProp.Internal())
 }
 
 type mspManager struct {
-	xmsp.MSPManager
+	config *configstate.Holder[channelconfig.Resources]
 }
 
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
+	res, err := m.config.Get()
+	if err != nil {
+		return nil, err
+	}
+
 	sid, err := toMSPIdentity(serializedIdentity)
 	if err != nil {
 		return nil, err
 	}
 
-	return m.MSPManager.DeserializeIdentity(sid)
+	return res.MSPManager().DeserializeIdentity(sid)
 }
 
 type policyManagerGetterFunc struct {
-	channelID       string
-	resourcesGetter func() channelconfig.Resources
+	channelID string
+	config    *configstate.Holder[channelconfig.Resources]
 }
 
 func (p *policyManagerGetterFunc) Manager(channelID string) policies.Manager {
-	if p.channelID == channelID {
-		return p.resourcesGetter().PolicyManager()
+	if p.channelID != channelID {
+		return nil
 	}
-	return nil
+
+	res, ok := p.config.TryGet()
+	if !ok {
+		return nil
+	}
+
+	return res.PolicyManager()
 }

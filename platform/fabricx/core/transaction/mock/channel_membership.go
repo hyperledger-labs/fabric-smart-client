@@ -20,15 +20,17 @@ type ChannelMembership struct {
 	checkACLReturnsOnCall map[int]struct {
 		result1 error
 	}
-	GetMSPIDsStub        func() []string
+	GetMSPIDsStub        func() ([]string, error)
 	getMSPIDsMutex       sync.RWMutex
 	getMSPIDsArgsForCall []struct {
 	}
 	getMSPIDsReturns struct {
 		result1 []string
+		result2 error
 	}
 	getMSPIDsReturnsOnCall map[int]struct {
 		result1 []string
+		result2 error
 	}
 	GetVerifierStub        func(view.Identity) (driver.Verifier, error)
 	getVerifierMutex       sync.RWMutex
@@ -43,16 +45,18 @@ type ChannelMembership struct {
 		result1 driver.Verifier
 		result2 error
 	}
-	IsIdemixMSPStub        func(string) bool
+	IsIdemixMSPStub        func(string) (bool, error)
 	isIdemixMSPMutex       sync.RWMutex
 	isIdemixMSPArgsForCall []struct {
 		arg1 string
 	}
 	isIdemixMSPReturns struct {
 		result1 bool
+		result2 error
 	}
 	isIdemixMSPReturnsOnCall map[int]struct {
 		result1 bool
+		result2 error
 	}
 	IsValidStub        func(view.Identity) error
 	isValidMutex       sync.RWMutex
@@ -140,7 +144,7 @@ func (fake *ChannelMembership) CheckACLReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *ChannelMembership) GetMSPIDs() []string {
+func (fake *ChannelMembership) GetMSPIDs() ([]string, error) {
 	fake.getMSPIDsMutex.Lock()
 	ret, specificReturn := fake.getMSPIDsReturnsOnCall[len(fake.getMSPIDsArgsForCall)]
 	fake.getMSPIDsArgsForCall = append(fake.getMSPIDsArgsForCall, struct {
@@ -153,9 +157,9 @@ func (fake *ChannelMembership) GetMSPIDs() []string {
 		return stub()
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *ChannelMembership) GetMSPIDsCallCount() int {
@@ -164,33 +168,36 @@ func (fake *ChannelMembership) GetMSPIDsCallCount() int {
 	return len(fake.getMSPIDsArgsForCall)
 }
 
-func (fake *ChannelMembership) GetMSPIDsCalls(stub func() []string) {
+func (fake *ChannelMembership) GetMSPIDsCalls(stub func() ([]string, error)) {
 	fake.getMSPIDsMutex.Lock()
 	defer fake.getMSPIDsMutex.Unlock()
 	fake.GetMSPIDsStub = stub
 }
 
-func (fake *ChannelMembership) GetMSPIDsReturns(result1 []string) {
+func (fake *ChannelMembership) GetMSPIDsReturns(result1 []string, result2 error) {
 	fake.getMSPIDsMutex.Lock()
 	defer fake.getMSPIDsMutex.Unlock()
 	fake.GetMSPIDsStub = nil
 	fake.getMSPIDsReturns = struct {
 		result1 []string
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *ChannelMembership) GetMSPIDsReturnsOnCall(i int, result1 []string) {
+func (fake *ChannelMembership) GetMSPIDsReturnsOnCall(i int, result1 []string, result2 error) {
 	fake.getMSPIDsMutex.Lock()
 	defer fake.getMSPIDsMutex.Unlock()
 	fake.GetMSPIDsStub = nil
 	if fake.getMSPIDsReturnsOnCall == nil {
 		fake.getMSPIDsReturnsOnCall = make(map[int]struct {
 			result1 []string
+			result2 error
 		})
 	}
 	fake.getMSPIDsReturnsOnCall[i] = struct {
 		result1 []string
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *ChannelMembership) GetVerifier(arg1 view.Identity) (driver.Verifier, error) {
@@ -257,7 +264,7 @@ func (fake *ChannelMembership) GetVerifierReturnsOnCall(i int, result1 driver.Ve
 	}{result1, result2}
 }
 
-func (fake *ChannelMembership) IsIdemixMSP(arg1 string) bool {
+func (fake *ChannelMembership) IsIdemixMSP(arg1 string) (bool, error) {
 	fake.isIdemixMSPMutex.Lock()
 	ret, specificReturn := fake.isIdemixMSPReturnsOnCall[len(fake.isIdemixMSPArgsForCall)]
 	fake.isIdemixMSPArgsForCall = append(fake.isIdemixMSPArgsForCall, struct {
@@ -271,9 +278,9 @@ func (fake *ChannelMembership) IsIdemixMSP(arg1 string) bool {
 		return stub(arg1)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *ChannelMembership) IsIdemixMSPCallCount() int {
@@ -282,7 +289,7 @@ func (fake *ChannelMembership) IsIdemixMSPCallCount() int {
 	return len(fake.isIdemixMSPArgsForCall)
 }
 
-func (fake *ChannelMembership) IsIdemixMSPCalls(stub func(string) bool) {
+func (fake *ChannelMembership) IsIdemixMSPCalls(stub func(string) (bool, error)) {
 	fake.isIdemixMSPMutex.Lock()
 	defer fake.isIdemixMSPMutex.Unlock()
 	fake.IsIdemixMSPStub = stub
@@ -295,27 +302,30 @@ func (fake *ChannelMembership) IsIdemixMSPArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *ChannelMembership) IsIdemixMSPReturns(result1 bool) {
+func (fake *ChannelMembership) IsIdemixMSPReturns(result1 bool, result2 error) {
 	fake.isIdemixMSPMutex.Lock()
 	defer fake.isIdemixMSPMutex.Unlock()
 	fake.IsIdemixMSPStub = nil
 	fake.isIdemixMSPReturns = struct {
 		result1 bool
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *ChannelMembership) IsIdemixMSPReturnsOnCall(i int, result1 bool) {
+func (fake *ChannelMembership) IsIdemixMSPReturnsOnCall(i int, result1 bool, result2 error) {
 	fake.isIdemixMSPMutex.Lock()
 	defer fake.isIdemixMSPMutex.Unlock()
 	fake.IsIdemixMSPStub = nil
 	if fake.isIdemixMSPReturnsOnCall == nil {
 		fake.isIdemixMSPReturnsOnCall = make(map[int]struct {
 			result1 bool
+			result2 error
 		})
 	}
 	fake.isIdemixMSPReturnsOnCall[i] = struct {
 		result1 bool
-	}{result1}
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *ChannelMembership) IsValid(arg1 view.Identity) error {

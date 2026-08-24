@@ -7,13 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package membership
 
 import (
-	"fmt"
-	"sync"
-
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/configstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
@@ -22,40 +20,35 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// Service answers membership questions about a channel from its current
+// configuration. The configuration is not available when the service is built;
+// it arrives with the first configuration block, via Update. Every accessor
+// therefore reports driver.ErrNotInitialized until that happens.
 type Service struct {
-	// resourcesLock is used to serialize access to channelResources
-	resourcesLock sync.RWMutex
-	// channelResources is used to acquire ChannelConfig.
-	channelResources *channelconfig.ChannelConfig
+	// config holds the channel configuration once it has been loaded. Reading
+	// it goes through configstate.Holder.Get, which cannot hand out a
+	// configuration that is not there.
+	config *configstate.Holder[*channelconfig.ChannelConfig]
 
 	channelName string
 }
 
 func NewService(channelName string) *Service {
-	return &Service{channelName: channelName}
-}
-
-func (c *Service) resources() *channelconfig.ChannelConfig {
-	c.resourcesLock.RLock()
-	res := c.channelResources
-	c.resourcesLock.RUnlock()
-	return res
-}
-
-func (c *Service) Update(env *cb.Envelope) error {
-	c.resourcesLock.Lock()
-	defer c.resourcesLock.Unlock()
-
-	b, err := c.parseConfig(env)
-	if err != nil {
-		return err
+	return &Service{
+		config:      configstate.NewHolder[*channelconfig.ChannelConfig](channelName),
+		channelName: channelName,
 	}
-
-	c.channelResources = b
-	return nil
 }
 
-func (c *Service) parseConfig(env *cb.Envelope) (*channelconfig.ChannelConfig, error) {
+// Update installs the channel configuration carried by env. The previously held
+// configuration is kept if env cannot be parsed.
+func (c *Service) Update(env *cb.Envelope) error {
+	return c.config.Update(func(*channelconfig.ChannelConfig, bool) (*channelconfig.ChannelConfig, error) {
+		return parseConfig(env)
+	})
+}
+
+func parseConfig(env *cb.Envelope) (*channelconfig.ChannelConfig, error) {
 	payload, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get payload from config transaction")
@@ -70,7 +63,12 @@ func (c *Service) parseConfig(env *cb.Envelope) (*channelconfig.ChannelConfig, e
 }
 
 func (c *Service) IsValid(identity view.Identity) error {
-	id, err := c.resources().MSPManager().DeserializeIdentity(identity)
+	res, err := c.config.Get()
+	if err != nil {
+		return err
+	}
+
+	id, err := res.MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
 	}
@@ -79,49 +77,73 @@ func (c *Service) IsValid(identity view.Identity) error {
 }
 
 func (c *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
-	id, err := c.resources().MSPManager().DeserializeIdentity(identity)
+	res, err := c.config.Get()
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := res.MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
 	}
+
 	return id, nil
 }
 
 // GetMSPIDs retrieves the MSP IDs of the organizations in the current Channel
-// configuration.
-func (c *Service) GetMSPIDs() []string {
-	ac := c.resources().ApplicationConfig()
-	if ac == nil || ac.Organizations() == nil {
-		return nil
+// configuration. An empty result means the channel has no organizations; a
+// channel whose configuration has not been loaded yet reports
+// driver.ErrNotInitialized instead.
+func (c *Service) GetMSPIDs() ([]string, error) {
+	res, err := c.config.Get()
+	if err != nil {
+		return nil, err
 	}
 
 	var mspIDs []string
-	for _, org := range ac.Organizations() {
-		mspIDs = append(mspIDs, org.MSPID())
+	if ac := res.ApplicationConfig(); ac != nil {
+		for _, org := range ac.Organizations() {
+			mspIDs = append(mspIDs, org.MSPID())
+		}
 	}
 
-	return mspIDs
+	return mspIDs, nil
 }
 
-// IsIdemixMSP returns true if the MSP identified by mspID is of type Idemix.
-func (c *Service) IsIdemixMSP(mspID string) bool {
-	ac := c.resources().ApplicationConfig()
-	if ac == nil || ac.Organizations() == nil {
-		return false
+// IsIdemixMSP reports whether the MSP identified by mspID is of type Idemix.
+// A false result means the channel has such an MSP and it is not Idemix; a
+// channel whose configuration has not been loaded yet reports
+// driver.ErrNotInitialized instead, so a caller cannot mistake the startup
+// race for a definitive answer.
+func (c *Service) IsIdemixMSP(mspID string) (bool, error) {
+	res, err := c.config.Get()
+	if err != nil {
+		return false, err
+	}
+
+	ac := res.ApplicationConfig()
+	if ac == nil {
+		return false, nil
 	}
 
 	for _, org := range ac.Organizations() {
 		if org.MSPID() == mspID {
-			return org.MSP().GetType() == msp.IDEMIX
+			return org.MSP().GetType() == msp.IDEMIX, nil
 		}
 	}
 
-	return false
+	return false, nil
 }
 
 func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.ConnectionConfig, error) {
-	oc := c.resources().OrdererConfig()
+	res, err := c.config.Get()
+	if err != nil {
+		return "", nil, err
+	}
+
+	oc := res.OrdererConfig()
 	if oc == nil {
-		return "", nil, fmt.Errorf("orderer config does not exist")
+		return "", nil, errors.Errorf("orderer config does not exist for channel [%s]", c.channelName)
 	}
 
 	tlsEnabled, isSet := cs.OrderingTLSEnabled()
@@ -158,24 +180,29 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 	return oc.ConsensusType(), newOrderers, nil
 }
 
-// MSPManager returns the msp.MSPManager that reflects the current Channel
+// MSPManager returns the driver.MSPManager that reflects the current Channel
 // configuration. Users should not memoize references to this object.
+//
+// The manager resolves the configuration on each call rather than capturing it
+// here, so obtaining one before the channel configuration has been loaded is
+// allowed; the failure surfaces from DeserializeIdentity.
 func (c *Service) MSPManager() driver.MSPManager {
-	return &mspManager{FabricMSPManager: c.resources().MSPManager()}
+	return &mspManager{config: c.config}
 }
 
 func (c *Service) CheckACL(signedProp driver.SignedProposal) error {
 	return driver.ErrNotImplemented
 }
 
-type FabricMSPManager interface {
-	DeserializeIdentity(serializedIdentity []byte) (msp.Identity, error)
-}
-
 type mspManager struct {
-	FabricMSPManager
+	config *configstate.Holder[*channelconfig.ChannelConfig]
 }
 
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
-	return m.FabricMSPManager.DeserializeIdentity(serializedIdentity)
+	res, err := m.config.Get()
+	if err != nil {
+		return nil, err
+	}
+
+	return res.MSPManager().DeserializeIdentity(serializedIdentity)
 }
