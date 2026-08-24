@@ -16,34 +16,26 @@ import (
 const DefaultRequestTimeout = 30 * time.Second
 
 // DefaultHandlerTimeout is the deadline set on the context handed to a single
-// finality listener OnStatus callback. It is advisory: it is the callback's own
-// responsibility to observe cancellation and return. A callback that ignores it
-// holds its concurrency slot for as long as it runs -- see DefaultHandlerWorkers.
+// finality listener OnStatus callback. It is advisory: nothing can stop a running
+// callback, so a listener that ignores cancellation occupies its worker for as long
+// as it runs -- see DefaultHandlerWorkers.
 const DefaultHandlerTimeout = 5 * time.Second
 
 // DefaultHandlerWorkers is how many finality listener OnStatus callbacks may run
-// concurrently. It is the limit set on the handler errgroup via SetLimit, so a
-// callback that blocks forever permanently holds one slot: once all slots are
-// held, nothing else can run and queued callbacks are eventually dropped. This
-// bounds the damage a misbehaving listener can do to throughput rather than letting
-// it grow goroutines without limit, but it does make "OnStatus must respect its
-// context and return promptly" a requirement rather than a suggestion.
-//
-// Note this is a concurrency limit, not a rate limit: healthy callbacks return
-// their slots immediately, so a batch far larger than this is delivered in full via
-// HandlerQueueSize.
+// concurrently. A callback that blocks forever occupies one worker for good, and once
+// all of them are occupied queued callbacks are dropped -- which bounds a misbehaving
+// listener's cost to throughput rather than unbounded goroutine growth, and is why
+// OnStatus must observe its context and return promptly. Note this is a concurrency
+// limit, not a rate limit: healthy callbacks return immediately, so batches far larger
+// than this are still delivered in full via HandlerQueueSize.
 const DefaultHandlerWorkers = 16
 
 // DefaultHandlerQueueSize is how many pending OnStatus invocations may be buffered
-// while every handler slot is busy. It matches the generic committer's event queue
-// (platform/common/core/generic/committer/finality.go).
-//
-// The queue exists to absorb bursts: one notification response can carry many more
-// transactions than there are slots, and without a buffer everything past the limit
-// would be dropped even though the listeners are healthy and about to free their
-// slots. A full queue therefore signals something worse than a burst -- callbacks
-// produced faster than the pool retires them for as long as the buffer took to fill
-// -- and only then is a callback dropped, with a warning.
+// while every worker is busy; it matches the generic committer's event queue
+// (platform/common/core/generic/committer/finality.go). It absorbs bursts: one
+// notification response can carry many more transactions than there are workers, and
+// without a buffer everything past that would be dropped even though the listeners
+// are healthy. A full queue therefore signals something worse than a burst.
 const DefaultHandlerQueueSize = 1000
 
 // DefaultListenerTTL bounds how long a finality listener may wait locally for
@@ -85,13 +77,13 @@ type Config struct {
 	// service. A value of zero falls back to DefaultHandlerTimeout.
 	HandlerTimeout time.Duration `yaml:"handlerTimeout,omitempty"`
 	// HandlerWorkers is how many finality listener OnStatus callbacks may run
-	// concurrently (the handler errgroup's SetLimit). Only meaningful for the
-	// notification service. A value of zero falls back to DefaultHandlerWorkers.
-	// Raise it when a deployment has legitimately slow listeners; see
-	// DefaultHandlerWorkers for what happens when every slot is held.
+	// concurrently. Only meaningful for the notification service. A value of zero
+	// falls back to DefaultHandlerWorkers. Raise it when a deployment has
+	// legitimately slow listeners; see DefaultHandlerWorkers for what happens when
+	// every worker is occupied.
 	HandlerWorkers int `yaml:"handlerWorkers,omitempty"`
 	// HandlerQueueSize is how many pending OnStatus invocations may be buffered
-	// while every handler slot is busy. Only meaningful for the notification
+	// while every worker is busy. Only meaningful for the notification
 	// service. A value of zero falls back to DefaultHandlerQueueSize.
 	HandlerQueueSize int `yaml:"handlerQueueSize,omitempty"`
 	// ListenerTTL bounds how long a finality listener may wait locally for a

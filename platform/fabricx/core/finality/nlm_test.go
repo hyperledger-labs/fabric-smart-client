@@ -133,10 +133,9 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_Open
 	// listenerTTL is deliberately left zero here, which disables local expiry, so
 	// the sweeper stays inert for every test that does not opt in.
 	//
-	// handlerWorkers and callQueue must both be set: handlerWorkers becomes the
-	// handler errgroup's SetLimit, and a nil callQueue would make every enqueue hit
-	// the drop path in enqueueHandler. listen() builds the group itself; tests that
-	// care about the pool's bounds override these.
+	// handlerWorkers and callQueue must both be set: handlerWorkers is the worker
+	// count listen() starts, and a nil callQueue would make every enqueue hit the drop
+	// path. Tests that care about the pool's bounds override these.
 	nlm := &notificationListenerManager{
 		notifyClient:   fakeClient,
 		requestQueue:   make(chan *committerpb.NotificationRequest),

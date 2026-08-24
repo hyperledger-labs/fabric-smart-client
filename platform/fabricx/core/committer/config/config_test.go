@@ -97,7 +97,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, config.DefaultHandlerTimeout, cfg.HandlerTimeout, "unlike ListenerTTL, zero has no special meaning here")
 		require.Equal(t, config.DefaultSweepInterval, cfg.SweepInterval, "unlike ListenerTTL, zero has no special meaning here")
-		// A zero limit would make every errgroup TryGo fail, so no callback would
+		// Zero workers would mean nothing ever drains the queue, so no callback would
 		// ever run: that cannot be a usable "disabled".
 		require.Equal(t, config.DefaultHandlerWorkers, cfg.HandlerWorkers, "a zero handler limit would deliver nothing")
 		require.Equal(t, config.DefaultHandlerQueueSize, cfg.HandlerQueueSize, "a zero-capacity queue would drop every burst")

@@ -27,10 +27,9 @@ import (
 
 var logger = logging.MustGetLogger()
 
-// DefaultHandlerTimeout, DefaultHandlerWorkers, DefaultListenerTTL and
-// DefaultSweepInterval live in committer/config, the single source of truth for
-// the notification service's configurable defaults; this package consumes them via
-// config.Config rather than defining its own copies.
+// The notification service's configurable defaults live in committer/config, the
+// single source of truth; this package consumes them via config.Config rather than
+// defining its own copies.
 
 // handlerCall is one OnStatus invocation: the unit of work queued for the handler
 // pool.
@@ -54,24 +53,14 @@ type notificationListenerManager struct {
 	responseQueue  chan *committerpb.NotificationResponse
 	handlerTimeout time.Duration
 
-	// handlerWorkers is how many worker goroutines listen() starts to drain
-	// callQueue, and so how many OnStatus callbacks may run at once -- and therefore
-	// also how many stuck listeners it takes to stop delivering notifications on
-	// this stream entirely.
+	// handlerWorkers is how many OnStatus callbacks may run at once, and so also how
+	// many stuck listeners it takes to stop delivering notifications on this stream.
 	handlerWorkers int
 
-	// callQueue buffers callbacks between the dispatcher and the handler pool.
-	//
-	// The queue and the worker count do different jobs, and both are needed. The
-	// worker count bounds how many listeners run at once, which is what stops a
-	// misbehaving listener from growing goroutines without end. The queue absorbs
-	// bursts: one notification response can carry far more transactions than there
-	// are workers, and without a buffer everything past that would be dropped even
-	// though the listeners are perfectly healthy and about to become free again.
-	//
-	// Sends are non-blocking (see enqueueHandler): the only goroutine that enqueues
-	// is also the one draining the notification stream and running the expiry
-	// sweeper, so blocking here would stall both.
+	// callQueue buffers callbacks for the handler pool. It absorbs bursts: one
+	// notification response can carry far more transactions than there are workers,
+	// and without a buffer everything past that would be dropped even though the
+	// listeners are healthy and about to become free again.
 	callQueue chan handlerCall
 
 	// requestTimeout is sent to the committer as the outbound NotificationRequest's
@@ -117,23 +106,15 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	// listen() call replaces it with a fresh, live gCtx.
 	n.streamCtx.Store(&gCtx)
 
-	// Start the handler pool: handlerWorkers long-lived goroutines, each pulling
-	// callbacks off callQueue. Concurrency is bounded by construction -- exactly this
-	// many goroutines exist, so at most this many callbacks run at once -- which is
-	// what keeps a misbehaving listener from growing goroutines without end.
+	// The handler pool is deliberately not in g: a listener that ignores cancellation
+	// never returns, so neither does its worker, and g.Wait() would then never return
+	// -- hanging listen() and node shutdown. waitHandlers waits on the WaitGroup with
+	// a timeout instead. It is a local so a second listen() call cannot Add to a group
+	// an earlier one is still waiting on.
 	//
-	// The workers are deliberately NOT in listen()'s errgroup g. A listener that
-	// ignores cancellation never returns, so its worker never returns either, and
-	// g.Wait() would then never return: one bad callback would hang listen() and node
-	// shutdown with it. They are tracked in a local WaitGroup and waited on with a
-	// timeout instead, so a stuck worker is abandoned rather than blocking teardown.
-	//
-	// The WaitGroup is a local, not a field: a second listen() call on the same
-	// manager then cannot Add to a group another call is already waiting on.
-	//
-	// poolCtx strips cancellation from ctx and relies on stopHandlers: a callback
-	// mid-flight when ctx is canceled would otherwise be handed an already-dead
-	// context, and callHandler's timeout would expire instantly, delivering nothing.
+	// poolCtx strips cancellation and relies on stopHandlers: an inherited cancel
+	// would hand in-flight callbacks a dead context, and callHandler's timeout would
+	// expire instantly.
 	poolCtx, stopHandlers := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopHandlers()
 
@@ -147,17 +128,11 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 				case c := <-n.callQueue:
 					n.callHandler(poolCtx, c)
 				case <-poolCtx.Done():
-					// Stopping. Drain what is already queued first: those callbacks
-					// were dispatched, so their handlers map entries are gone and
-					// settleAllAndClear will not settle them -- dropping them here
-					// would lose the notification outright. The drain is bounded by
-					// the queue's length at this instant, and each callback is still
-					// capped by handlerTimeout.
-					//
-					// Cancellation is stripped for the drain: poolCtx is already done,
-					// so passing it would hand every remaining listener an expired
-					// context and deliver nothing.
-					drainCtx := context.WithoutCancel(poolCtx)
+					// Drain before exiting. dispatch already deleted these callbacks'
+					// handlers entries, so settleAllAndClear will not settle them:
+					// returning here loses the notification outright. Bounded by the
+					// queue's length at this instant.
+					drainCtx := context.WithoutCancel(poolCtx) // poolCtx is already done
 					for {
 						select {
 						case c := <-n.callQueue:
@@ -232,14 +207,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	err = g.Wait()
 	logger.Debugf("Notification listener stream stopped.")
 
-	// Cancel the handler context so in-flight callbacks that do observe
-	// cancellation wind down, then give them a bounded window to finish.
-	//
-	// The wait is deliberately bounded: the workers drain whatever is still queued
-	// before exiting, and a listener that ignores cancellation never returns at all.
-	// A timeout keeps the common case tidy (callbacks finish and their goroutines are
-	// reaped before listen() returns) without letting one misbehaving listener block
-	// shutdown indefinitely.
+	// Stop the workers and give them a bounded window to finish.
 	stopHandlers()
 	n.waitHandlers(&handlerPool)
 
@@ -261,18 +229,10 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 // with the given status. Used on stream teardown, where no notification can
 // arrive any more.
 //
-// Does not go through the handler pool: this runs after listen() has already
-// cancelled the pool's context and waited out the in-flight callbacks, so its
-// workers are stopped or stuck. Queueing these final callbacks would leave them
-// undrained, dropping the very notifications this function exists to deliver.
-//
-// Each listener is therefore invoked directly, in its own goroutine, and waited
-// for only up to handlerTimeout. Waiting inline instead would let a single
-// listener that ignores its context block listen() from ever returning, hanging
-// node shutdown -- the same failure keeping the workers out of the errgroup
-// avoids (see listen). The goroutines here are bounded by the number of listeners still
-// unresolved at teardown, which happens once per stream death, so this is not a
-// path that can grow without limit.
+// Does not go through the handler pool: the workers are already stopped by now, so
+// queued callbacks would never be drained. Listeners are invoked directly instead,
+// each via callHandlerBounded so one that ignores its context cannot block listen()
+// from returning. Bounded by the listeners still unresolved at teardown.
 func (n *notificationListenerManager) settleAllAndClear(ctx context.Context, status int) {
 	type pending struct {
 		txID      string
@@ -468,29 +428,17 @@ func (n *notificationListenerManager) RemoveFinalityListener(txID string, listen
 }
 
 // enqueueHandler buffers one OnStatus invocation for the handler pool. It never
-// blocks: the caller is the dispatcher goroutine, which also drains the
-// notification stream and runs the expiry sweeper, so blocking here would stall
-// notification delivery for every other transaction as well.
+// blocks: the caller is the dispatcher goroutine, which also drains the notification
+// stream and runs the expiry sweeper, so blocking here would stall both.
 //
-// The queue is what makes a burst survivable. One notification response can carry
-// many more transactions than there are handler slots, and they are dispatched in a
-// tight loop; buffering them lets the feeder hand them to the pool as slots free,
-// so a batch far larger than handlerWorkers is still delivered in full as long as
-// the listeners themselves return.
+// A full queue means callbacks are being produced faster than the pool retires them
+// for as long as the buffer took to fill, i.e. listeners are slow or stuck. Only then
+// is the invocation dropped, and a drop is not recovered: callers have already deleted
+// the handlers entry, so the listener falls back to its own context deadline or to the
+// listenerTTL sweeper's Unknown.
 //
-// A full queue therefore means something worse than a burst: callbacks are being
-// produced faster than the pool can retire them for as long as the buffer took to
-// fill, which in practice means listeners are slow or stuck. Only then is the
-// invocation dropped.
-//
-// A dropped invocation is not recovered: both callers have already deleted the
-// handlers entry under the lock by this point, so the listener never receives a
-// callback and whoever is waiting on it (e.g. IsFinal) falls back to its own
-// context deadline -- or to the listenerTTL sweeper's Unknown, whichever comes
-// first.
-//
-// Returns whether the callback was queued, so callers can aggregate drops into a
-// single warning per batch rather than one line per txID; see logDrops.
+// Returns whether the callback was queued, so callers can aggregate drops into one
+// warning per batch rather than one line per txID; see logDrops.
 func (n *notificationListenerManager) enqueueHandler(c handlerCall) bool {
 	if n.callQueue == nil {
 		// No queue, so nothing will ever run this. Reachable only from a direct
@@ -529,7 +477,9 @@ func (n *notificationListenerManager) logDrops(dropped, total int) {
 }
 
 // waitHandlers waits for in-flight callbacks to finish, but only up to
-// handlerTimeout. See the call site in listen() for why the wait is bounded.
+// handlerTimeout. Bounded on purpose: a listener that ignores cancellation never
+// returns, so an unconditional wait would let one misbehaving listener block
+// shutdown forever. The timeout still reaps the common case tidily.
 func (n *notificationListenerManager) waitHandlers(pool *sync.WaitGroup) {
 	done := make(chan struct{})
 	go func() {
@@ -549,15 +499,9 @@ func (n *notificationListenerManager) waitHandlers(pool *sync.WaitGroup) {
 }
 
 // callHandler invokes one listener synchronously, with a context bounded by
-// handlerTimeout.
-//
-// The timeout is advisory: it cancels the context handed to the listener, but
-// nothing forces a listener that ignores cancellation to return. Such a listener
-// occupies this worker for as long as it runs, and once every worker is occupied
-// no notification can be delivered on this stream. That is deliberate -- it
-// bounds a misbehaving listener's cost to throughput rather than letting it grow
-// goroutines without limit -- but it is why OnStatus implementations MUST observe
-// ctx.Done() and return promptly.
+// handlerTimeout. The timeout is advisory: it cancels the listener's context but
+// cannot force a return, so a listener that ignores it occupies this worker for as
+// long as it runs. See config.DefaultHandlerWorkers.
 func (n *notificationListenerManager) callHandler(ctx context.Context, c handlerCall) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, n.handlerTimeout)
 	defer cancel()

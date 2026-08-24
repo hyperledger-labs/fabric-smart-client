@@ -128,12 +128,10 @@ func TestHandlerGroup(t *testing.T) {
 	})
 
 	t.Run("Blocked_Listeners_Admit_At_Most_The_Limit", func(t *testing.T) {
-		// With every slot held by a listener that never returns, nothing retires, so
-		// admitted work stays at the limit no matter how many notifications arrive.
-		// The queue absorbs the rest and then drops; either way OnStatus is never
-		// entered more than `limit` times.
+		// With every worker held by a listener that never returns, nothing retires, so
+		// admitted work stays at the worker count however many notifications arrive.
 		//
-		// Deliberately avoids runtime.NumGoroutine(): it is process-global, so
+		// Avoids runtime.NumGoroutine() deliberately: it is process-global, so
 		// parallel sibling tests running their own managers make it meaningless.
 		t.Parallel()
 
@@ -218,18 +216,9 @@ func TestHandlerGroup(t *testing.T) {
 	})
 
 	t.Run("Slots_Are_Reused_Across_Batches", func(t *testing.T) {
-		// The limit is a ceiling on concurrency, not a lifetime quota: once a
-		// callback returns, its slot must be reusable by a later notification.
-		// Without this the manager would deliver exactly handlerWorkers callbacks
-		// and then go silent forever.
-		//
-		// Sends one txID per batch and asserts that *more callbacks run than there
-		// are slots*. That is the property worth pinning: it can only hold if slots
-		// are released back to the limit as callbacks return.
-		//
-		// With the queue in front of the limit, every batch should be delivered: the
-		// feeder waits for a slot rather than dropping, so a low arrival rate against
-		// a small limit loses nothing.
+		// Workers are a concurrency ceiling, not a lifetime quota: without release,
+		// the manager would deliver exactly handlerWorkers callbacks and then go
+		// silent forever. One txID per batch, so the queue is never contended.
 		t.Parallel()
 
 		const limit = 2
@@ -254,23 +243,19 @@ func TestHandlerGroup(t *testing.T) {
 		feedResponses(t.Context(), fakeStream, responses...)
 		runManager(t, nlm)
 
-		// All of them, not merely more than the limit: slots are released as callbacks
-		// return and the feeder keeps handing work over.
+		// All of them, not merely more than the worker count: workers return to the
+		// queue as callbacks finish.
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
 			assert.Equal(collect, int32(batches), calls.Load())
 		}, timeout, tick,
-			"every batch must be delivered; slots are not being returned to the limit")
+			"every batch must be delivered; workers are not returning to the queue")
 	})
 
 	t.Run("Burst_Larger_Than_Limit_Is_Delivered_In_Full", func(t *testing.T) {
-		// The reason a queue sits in front of the limit. One notification response
-		// can carry far more transactions than there are handler slots, and they are
-		// dispatched in a tight loop. Without a buffer, everything past the limit is
-		// dropped even though the listeners are healthy and free their slots at once.
-		//
-		// With the queue, the feeder hands work to the pool as slots free, so the
-		// whole burst lands. Concurrency is still capped -- see peak below -- so this
-		// does not reintroduce unbounded goroutine growth.
+		// Why the queue exists. One notification response can carry far more
+		// transactions than there are workers, dispatched in a tight loop; without a
+		// buffer everything past the worker count is dropped even though the listeners
+		// are healthy. Concurrency must still be capped -- see peak below.
 		t.Parallel()
 
 		const limit = 4
@@ -353,7 +338,7 @@ func TestHandlerGroup(t *testing.T) {
 	})
 
 	t.Run("Teardown_Not_Blocked_By_Stuck_Callback", func(t *testing.T) {
-		// This is why the handler group is separate from listen()'s stream group: a
+		// This is why the workers are not in listen()'s errgroup: a
 		// callback that ignores cancellation keeps its goroutine alive, so a Wait()
 		// on the stream group would never return. listen() must still return.
 		t.Parallel()
@@ -441,7 +426,7 @@ func TestHandlerGroup(t *testing.T) {
 
 	t.Run("Teardown_Settles_Listeners_While_Slot_Held", func(t *testing.T) {
 		// Listeners left in the map when the stream dies must be settled, even
-		// though the handler group's slots may be held by stuck callbacks -- which
+		// though the pool's workers may be held by stuck callbacks -- which
 		// is why that path invokes them directly rather than via the queue.
 		t.Parallel()
 
