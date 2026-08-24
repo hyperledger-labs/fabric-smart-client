@@ -240,7 +240,7 @@ func TestNewPersistenceWithOpts_ConstructorError(t *testing.T) {
 		return nil, expectedErr
 	}
 
-	result, err := newPersistenceWithOpts(fakeProvider, "", failingConstructor)
+	result, err := newPersistenceWithOpts(fakeProvider, failingConstructor)
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -256,7 +256,7 @@ func TestNewPersistenceWithOpts_CreateSchemaError(t *testing.T) {
 		return &fakePersistence{createSchemaErr: expectedErr}, nil
 	}
 
-	result, err := newPersistenceWithOpts(fakeProvider, "", failingConstructor)
+	result, err := newPersistenceWithOpts(fakeProvider, failingConstructor)
 
 	require.Error(t, err)
 	require.Nil(t, result)
