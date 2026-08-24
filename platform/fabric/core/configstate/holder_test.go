@@ -134,7 +134,7 @@ func TestConcurrentAccessIsRaceFree(t *testing.T) {
 	h := configstate.NewHolder[*config]("mychannel")
 
 	var wg sync.WaitGroup
-	for i := 0; i < 8; i++ {
+	for range 8 {
 		wg.Add(2)
 		go func() { defer wg.Done(); _, _ = h.Get() }()
 		go func() {
