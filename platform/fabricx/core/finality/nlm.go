@@ -109,8 +109,8 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	// The workers are deliberately not part of g: a listener that ignores cancellation
 	// never returns, so neither does its worker, and g.Wait() would then never return
 	// -- hanging listen() and node shutdown. waitHandlers waits on the WaitGroup with
-	// a timeout instead. It is a local so a second listen() call cannot Add to a group
-	// an earlier one is still waiting on.
+	// a timeout instead. It is a local so a second listen() call cannot add workers to
+	// a group an earlier one is still waiting on.
 	//
 	// poolCtx strips cancellation and relies on stopHandlers: an inherited cancel
 	// would hand in-flight callbacks a dead context, and callHandler's timeout would
@@ -120,9 +120,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 
 	var handlerPool sync.WaitGroup
 	for range n.handlerWorkers {
-		handlerPool.Add(1)
-		go func() {
-			defer handlerPool.Done()
+		handlerPool.Go(func() {
 			for {
 				select {
 				case c := <-n.callQueue:
@@ -143,7 +141,7 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 					}
 				}
 			}
-		}()
+		})
 	}
 
 	// spawn stream receiver
