@@ -102,15 +102,32 @@ func TestMSPManagerIsUsableBeforeFirstUpdate(t *testing.T) {
 	require.ErrorIs(t, err, driver.ErrNotInitialized)
 }
 
-func TestUpdateWithInvalidEnvelopeLeavesServiceUninitialized(t *testing.T) {
+func TestUpdateWithInvalidEnvelopeLeavesServiceWithoutConfig(t *testing.T) {
 	t.Parallel()
 	s := NewService("mychannel")
 
 	require.Error(t, s.Update(&cb.Envelope{Payload: []byte("not-a-proto")}))
 
 	_, err := s.GetMSPIDs()
-	require.ErrorIs(t, err, driver.ErrNotInitialized,
-		"a rejected configuration must leave the service uninitialized")
+	require.ErrorIs(t, err, driver.ErrConfigRejected,
+		"a config block the service refused must be reported as a refusal")
+	require.NotErrorIs(t, err, driver.ErrNotInitialized,
+		"a refusal must not be reported as a startup race the caller can retry out of")
+	require.ErrorContains(t, err, "cannot get payload from config transaction",
+		"the reason the block was refused must survive")
+}
+
+// TestServiceRecoversFromARejectedConfig asserts that a service that refused one
+// config block still accepts the next one: a refusal is not a terminal state.
+func TestServiceRecoversFromARejectedConfig(t *testing.T) {
+	t.Parallel()
+	s := NewService("mychannel")
+
+	require.Error(t, s.Update(&cb.Envelope{Payload: []byte("not-a-proto")}))
+	seed(t, s, &channelconfig.ChannelConfig{})
+
+	_, err := s.GetMSPIDs()
+	require.NoError(t, err, "an accepted configuration must clear an earlier refusal")
 }
 
 // TestLoadedConfigIsDistinguishableFromMissingConfig is the point of the

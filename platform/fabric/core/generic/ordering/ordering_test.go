@@ -364,7 +364,7 @@ func TestService_Broadcast(t *testing.T) {
 
 		err := service.Broadcast(t.Context(), env)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "cannot broadcast yet, no consensus type set")
+		require.Contains(t, err.Error(), "cannot broadcast")
 	})
 
 	t.Run("broadcast with transaction envelope error", func(t *testing.T) {
@@ -527,6 +527,42 @@ func TestService_SetConsensusTypeRejectionKeepsPreviousBroadcaster(t *testing.T)
 	setBroadcaster(t, service, mockBroadcaster.broadcast)
 
 	require.Error(t, service.SetConsensusType("nope"))
+
+	require.NoError(t, service.Broadcast(t.Context(), &common.Envelope{Payload: []byte("payload")}))
+	require.True(t, mockBroadcaster.called)
+}
+
+// TestService_BroadcastAfterRejectedConsensusType asserts that a channel
+// configuration naming a consensus type we cannot serve is reported as a
+// rejection rather than as a startup race. Both leave the service unable to
+// broadcast, but only the startup race is worth retrying: a caller that treats
+// this one as transient retries forever against a node that will not recover on
+// its own.
+func TestService_BroadcastAfterRejectedConsensusType(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService()
+	require.Error(t, service.SetConsensusType("kafka"))
+
+	err := service.Broadcast(t.Context(), &common.Envelope{Payload: []byte("payload")})
+	require.ErrorIs(t, err, driver.ErrConfigRejected)
+	require.NotErrorIs(t, err, driver.ErrNotInitialized,
+		"a consensus type we refused must not be reported as one we are still waiting for")
+	require.ErrorContains(t, err, "no broadcaster found for consensus [kafka]",
+		"the rejected consensus type must survive into the error")
+}
+
+// TestService_RecoversFromRejectedConsensusType asserts that a rejection is not
+// terminal: a later channel configuration naming a consensus type we can serve
+// puts the service back to work.
+func TestService_RecoversFromRejectedConsensusType(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService()
+	require.Error(t, service.SetConsensusType("kafka"))
+
+	mockBroadcaster := &mockBroadcaster{}
+	setBroadcaster(t, service, mockBroadcaster.broadcast)
 
 	require.NoError(t, service.Broadcast(t.Context(), &common.Envelope{Payload: []byte("payload")}))
 	require.True(t, mockBroadcaster.called)

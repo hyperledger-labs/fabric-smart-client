@@ -143,9 +143,10 @@ type MSPManager struct {
 }
 
 // GetMSPIDs returns the MSP IDs of the organizations in the channel's current
-// configuration. It fails while that configuration has not been loaded yet;
-// callers racing node startup can detect this with
-// errors.Is(err, driver.ErrNotInitialized).
+// configuration. It fails while the channel has no configuration in force:
+// callers racing node startup can detect that with
+// errors.Is(err, driver.ErrNotInitialized), and a configuration that arrived and
+// was refused with errors.Is(err, driver.ErrConfigRejected).
 func (c *MSPManager) GetMSPIDs() ([]string, error) {
 	return c.ch.GetMSPIDs()
 }

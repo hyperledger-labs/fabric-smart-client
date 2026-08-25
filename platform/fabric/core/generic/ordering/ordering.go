@@ -55,8 +55,14 @@ type GetEndorserTransactionServiceFunc = func(channelID string) (driver.Endorser
 // Which consensus type that is comes from the channel configuration, which is
 // loaded asynchronously after the service is built: the committer feeds it to
 // MembershipService.Update, reads it back with OrdererConfig, and passes it here
-// via Configure. Until that happens the service has no broadcaster and Broadcast
-// reports driver.ErrNotInitialized.
+// via Configure.
+//
+// A service with no broadcaster cannot broadcast, and Broadcast says which of
+// the two reasons applies: driver.ErrNotInitialized while the channel
+// configuration is still on its way, and driver.ErrConfigRejected once it has
+// arrived naming a consensus type this service cannot serve. Only the first is
+// worth retrying; the second clears when the channel configuration next names a
+// consensus type we have a broadcaster for.
 type Service struct {
 	GetEndorserTransactionService GetEndorserTransactionServiceFunc
 	SigService                    driver.SignerService
@@ -69,9 +75,10 @@ type Service struct {
 
 	// broadcaster holds the broadcaster selected by SetConsensusType. It is
 	// unexported and reached only through configstate.Holder so that the
-	// "always read under the lock" rule cannot be sidestepped, and so that the
+	// "always read under the lock" rule cannot be sidestepped, so that the
 	// not-yet-selected case reaches the caller as an error rather than as a nil
-	// function value.
+	// function value, and so that a consensus type we rejected is not reported
+	// as one we have not been told about.
 	broadcaster *configstate.Holder[BroadcastFnc]
 }
 
@@ -124,17 +131,27 @@ func (o *Service) Broadcast(ctx context.Context, blob any) error {
 	}
 
 	logger.DebugfContext(ctx, "Acquire broadcaster")
+	// Deliberately not "cannot broadcast yet": the holder distinguishes waiting
+	// for the channel configuration from having rejected the one that arrived,
+	// and only the first is a "yet".
 	broadcaster, err := o.broadcaster.Get()
 	if err != nil {
-		return errors.WithMessage(err, "cannot broadcast yet, no consensus type set")
+		return errors.WithMessage(err, "cannot broadcast")
 	}
 
 	logger.DebugfContext(ctx, "Broadcast")
 	return broadcaster(ctx, env)
 }
 
-// SetConsensusType selects the broadcaster for consensusType. An unsupported
-// consensus type leaves any previously selected broadcaster in place.
+// SetConsensusType selects the broadcaster for consensusType, and fails if there
+// is none for it.
+//
+// A service already able to broadcast keeps the broadcaster it has, so a channel
+// configuration naming a consensus type we cannot serve does not take a working
+// service down; the caller learns of the rejection from the error returned here.
+// A service not yet able to broadcast records the rejection instead, so that
+// Broadcast can report driver.ErrConfigRejected rather than presenting a
+// configuration we refused as one we are still waiting for.
 func (o *Service) SetConsensusType(consensusType ConsensusType) error {
 	logger.Debugf("ordering, setting consensus type to [%s]", consensusType)
 
