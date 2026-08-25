@@ -46,7 +46,7 @@ func (p *Ping) Call(viewCtx view.Context) (any, error) {
 		assert.NoError(err)
 		sort.Strings(names2)
 		if len(names) == 0 || !reflect.DeepEqual(names, names2) {
-			return nil, fmt.Errorf("exptectd the same list of fabric networks, [%v]!=[%v]", names, names2)
+			return nil, fmt.Errorf("expected the same list of fabric networks, [%v]!=[%v]", names, names2)
 		}
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")
