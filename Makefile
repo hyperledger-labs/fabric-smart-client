@@ -134,7 +134,9 @@ postgres:
 # include the checks target
 include $(TOP)/checks.mk
 
-GO_PACKAGES = $$(go list ./... | grep -Ev '/(integration/)'; go list ./integration/nwo/...)
+# we use a multi-module repo structure here and therefore need to carefully collect packages for unit tests
+GO_PACKAGES = $$(go list ./...)
+NWO_PACKAGES = ./nwo/...
 GO_PACKAGES_SDK = $$(go list ./... | grep '/sdk/dig$$')
 GO_TEST_PARAMS ?= -race -cover
 TEST_PKGS ?= $(GO_PACKAGES)
@@ -150,7 +152,10 @@ unit-tests: ## Run unit tests
 	@echo "Running unit tests..."
 	export FABRIC_LOGGING_SPEC=error; \
 	export FAB_BINS=$(FAB_BINS); \
-	go test $(GO_TEST_PARAMS) $(GO_COVERPKG) --skip '(Postgres)' $(TEST_PKGS)
+	rc=0; \
+	go test $(GO_TEST_PARAMS) $(GO_COVERPKG) --skip '(Postgres)' $(TEST_PKGS) || rc=1; \
+	go test -C integration $(GO_TEST_PARAMS) --skip '(Postgres)' $(NWO_PACKAGES) || rc=1; \
+	exit $$rc
 
 .PHONY: unit-tests-postgres
 unit-tests-postgres: ## Run unit tests for postgres (requires container images as defined in testing-docker-images)
