@@ -20,16 +20,6 @@ type Chaincode struct {
 		result1 bool
 		result2 error
 	}
-	IsPrivateStub        func() bool
-	isPrivateMutex       sync.RWMutex
-	isPrivateArgsForCall []struct {
-	}
-	isPrivateReturns struct {
-		result1 bool
-	}
-	isPrivateReturnsOnCall map[int]struct {
-		result1 bool
-	}
 	NewDiscoverStub        func() driver.ChaincodeDiscover
 	newDiscoverMutex       sync.RWMutex
 	newDiscoverArgsForCall []struct {
@@ -122,59 +112,6 @@ func (fake *Chaincode) IsAvailableReturnsOnCall(i int, result1 bool, result2 err
 		result1 bool
 		result2 error
 	}{result1, result2}
-}
-
-func (fake *Chaincode) IsPrivate() bool {
-	fake.isPrivateMutex.Lock()
-	ret, specificReturn := fake.isPrivateReturnsOnCall[len(fake.isPrivateArgsForCall)]
-	fake.isPrivateArgsForCall = append(fake.isPrivateArgsForCall, struct {
-	}{})
-	stub := fake.IsPrivateStub
-	fakeReturns := fake.isPrivateReturns
-	fake.recordInvocation("IsPrivate", []interface{}{})
-	fake.isPrivateMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *Chaincode) IsPrivateCallCount() int {
-	fake.isPrivateMutex.RLock()
-	defer fake.isPrivateMutex.RUnlock()
-	return len(fake.isPrivateArgsForCall)
-}
-
-func (fake *Chaincode) IsPrivateCalls(stub func() bool) {
-	fake.isPrivateMutex.Lock()
-	defer fake.isPrivateMutex.Unlock()
-	fake.IsPrivateStub = stub
-}
-
-func (fake *Chaincode) IsPrivateReturns(result1 bool) {
-	fake.isPrivateMutex.Lock()
-	defer fake.isPrivateMutex.Unlock()
-	fake.IsPrivateStub = nil
-	fake.isPrivateReturns = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *Chaincode) IsPrivateReturnsOnCall(i int, result1 bool) {
-	fake.isPrivateMutex.Lock()
-	defer fake.isPrivateMutex.Unlock()
-	fake.IsPrivateStub = nil
-	if fake.isPrivateReturnsOnCall == nil {
-		fake.isPrivateReturnsOnCall = make(map[int]struct {
-			result1 bool
-		})
-	}
-	fake.isPrivateReturnsOnCall[i] = struct {
-		result1 bool
-	}{result1}
 }
 
 func (fake *Chaincode) NewDiscover() driver.ChaincodeDiscover {

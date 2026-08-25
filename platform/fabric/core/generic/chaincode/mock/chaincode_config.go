@@ -18,16 +18,6 @@ type ChaincodeConfig struct {
 	iDReturnsOnCall map[int]struct {
 		result1 string
 	}
-	IsPrivateStub        func() bool
-	isPrivateMutex       sync.RWMutex
-	isPrivateArgsForCall []struct {
-	}
-	isPrivateReturns struct {
-		result1 bool
-	}
-	isPrivateReturnsOnCall map[int]struct {
-		result1 bool
-	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -82,59 +72,6 @@ func (fake *ChaincodeConfig) IDReturnsOnCall(i int, result1 string) {
 	}
 	fake.iDReturnsOnCall[i] = struct {
 		result1 string
-	}{result1}
-}
-
-func (fake *ChaincodeConfig) IsPrivate() bool {
-	fake.isPrivateMutex.Lock()
-	ret, specificReturn := fake.isPrivateReturnsOnCall[len(fake.isPrivateArgsForCall)]
-	fake.isPrivateArgsForCall = append(fake.isPrivateArgsForCall, struct {
-	}{})
-	stub := fake.IsPrivateStub
-	fakeReturns := fake.isPrivateReturns
-	fake.recordInvocation("IsPrivate", []interface{}{})
-	fake.isPrivateMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ChaincodeConfig) IsPrivateCallCount() int {
-	fake.isPrivateMutex.RLock()
-	defer fake.isPrivateMutex.RUnlock()
-	return len(fake.isPrivateArgsForCall)
-}
-
-func (fake *ChaincodeConfig) IsPrivateCalls(stub func() bool) {
-	fake.isPrivateMutex.Lock()
-	defer fake.isPrivateMutex.Unlock()
-	fake.IsPrivateStub = stub
-}
-
-func (fake *ChaincodeConfig) IsPrivateReturns(result1 bool) {
-	fake.isPrivateMutex.Lock()
-	defer fake.isPrivateMutex.Unlock()
-	fake.IsPrivateStub = nil
-	fake.isPrivateReturns = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *ChaincodeConfig) IsPrivateReturnsOnCall(i int, result1 bool) {
-	fake.isPrivateMutex.Lock()
-	defer fake.isPrivateMutex.Unlock()
-	fake.IsPrivateStub = nil
-	if fake.isPrivateReturnsOnCall == nil {
-		fake.isPrivateReturnsOnCall = make(map[int]struct {
-			result1 bool
-		})
-	}
-	fake.isPrivateReturnsOnCall[i] = struct {
-		result1 bool
 	}{result1}
 }
 

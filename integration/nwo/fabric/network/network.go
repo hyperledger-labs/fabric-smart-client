@@ -225,9 +225,7 @@ func (n *Network) PostRun(load bool) {
 				for _, ccp := range n.ccps {
 					chaincode = ccp.Process(n, chaincode)
 				}
-				if !chaincode.Private {
-					n.DeployChaincode(chaincode)
-				}
+				n.DeployChaincode(chaincode)
 			}
 		}
 	}

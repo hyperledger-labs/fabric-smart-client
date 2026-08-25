@@ -118,20 +118,6 @@ func (c *Chaincode) IsAvailable() (bool, error) {
 	return len(ids) != 0, nil
 }
 
-func (c *Chaincode) IsPrivate() bool {
-	channel := c.ConfigService.Channel(c.ChannelID)
-	if channel == nil {
-		return false
-	}
-	for _, chaincode := range channel.ChaincodeConfigs() {
-		if chaincode.ID() == c.name {
-			return chaincode.IsPrivate()
-		}
-	}
-	// Nothing was found
-	return false
-}
-
 // Version returns the version of this chaincode.
 // It uses discovery to extract this information from the endorsers
 func (c *Chaincode) Version() (string, error) {

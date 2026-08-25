@@ -98,7 +98,6 @@ fabric:
         default: true
         chaincodes:
           - name: iou
-            private: false
     vault:
       txidstore:
         cache:
