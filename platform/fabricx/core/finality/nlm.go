@@ -118,23 +118,26 @@ func (n *notificationListenerManager) listen(ctx context.Context) error {
 	poolCtx, stopHandlers := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopHandlers()
 
+	// Callbacks run under callCtx; poolCtx is only ever selected on. select picks at
+	// random among ready cases, so once poolCtx is done with items still queued a
+	// worker can take the queue branch -- and poolCtx there would hand the listener an
+	// already-expired timeout.
+	callCtx := context.WithoutCancel(poolCtx)
+
 	var handlerPool sync.WaitGroup
 	for range n.handlerWorkers {
 		handlerPool.Go(func() {
 			for {
 				select {
 				case c := <-n.callQueue:
-					n.callHandler(poolCtx, c)
+					n.callHandler(callCtx, c)
 				case <-poolCtx.Done():
-					// Drain before exiting. dispatch already deleted these callbacks'
-					// handlers entries, so settleAllAndClear will not settle them:
-					// returning here loses the notification outright. Bounded by the
-					// queue's length at this instant.
-					drainCtx := context.WithoutCancel(poolCtx) // poolCtx is already done
+					// Drain before exiting: dispatch already deleted these callbacks'
+					// handlers entries, so nothing else will settle them.
 					for {
 						select {
 						case c := <-n.callQueue:
-							n.callHandler(drainCtx, c)
+							n.callHandler(callCtx, c)
 						default:
 							return
 						}
@@ -253,11 +256,25 @@ func (n *notificationListenerManager) settleAllAndClear(ctx context.Context, sta
 
 	logger.Debugf("Settling %d pending finality listener(s) with status %d on stream teardown", len(batch), status)
 
+	// Bounded at handlerWorkers, not serial: a listener that ignores its context costs
+	// a full handlerTimeout, and serially that is paid once per listener.
+	//
+	// Not the handler pool itself, which would avoid a second limiter: its workers may
+	// all be occupied by listeners that never return, leaving settlements undrained.
+	// See Teardown_Settles_Listeners_While_Slot_Held.
+	sem := make(chan struct{}, max(n.handlerWorkers, 1)) // 0 would admit no one
+	var wg sync.WaitGroup
 	for _, p := range batch {
 		for _, h := range p.listeners {
-			n.callHandlerBounded(ctx, handlerCall{handler: h, txID: p.txID, status: status})
+			c := handlerCall{handler: h, txID: p.txID, status: status}
+			sem <- struct{}{}
+			wg.Go(func() {
+				defer func() { <-sem }()
+				n.callHandlerBounded(ctx, c)
+			})
 		}
 	}
+	wg.Wait()
 }
 
 // callHandlerBounded invokes one listener and gives up waiting for it after

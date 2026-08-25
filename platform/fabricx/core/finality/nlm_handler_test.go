@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
 )
 
@@ -86,7 +85,30 @@ func feedResponses(ctx context.Context, fakeStream *mock.Notifier_OpenNotificati
 	}
 }
 
-func TestHandlerGroup(t *testing.T) {
+const (
+	// listenReturnTimeout bounds how long a test waits for listen() to return.
+	listenReturnTimeout = 2 * time.Second
+
+	// testHandlerTimeout stands in for config.DefaultHandlerTimeout. These tests only
+	// need it non-zero, and teardown waits it out when a listener ignores its context
+	// -- 5s per test for nothing. Short, so a slow listener costs 200ms, not 5s.
+	testHandlerTimeout = 200 * time.Millisecond
+)
+
+// requireListenReturned waits for listen() to return, also honouring the test's own
+// context so a suite-level cancellation is not ignored.
+func requireListenReturned(t *testing.T, listenErr <-chan error) {
+	t.Helper()
+	select {
+	case <-listenErr:
+	case <-t.Context().Done():
+		t.Fatal("test context cancelled before listen() returned")
+	case <-time.After(listenReturnTimeout):
+		t.Fatal("listen() did not return: teardown is blocked")
+	}
+}
+
+func TestHandlerPool(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Worker_Count_Caps_Concurrent_Callbacks", func(t *testing.T) {
@@ -100,7 +122,7 @@ func TestHandlerGroup(t *testing.T) {
 		const notifications = 40
 
 		nlm, fakeStream := setupTest(t)
-		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerTimeout = testHandlerTimeout
 		nlm.handlerWorkers = limit
 
 		listener := newCountingBlockingListener()
@@ -138,7 +160,7 @@ func TestHandlerGroup(t *testing.T) {
 		const limit = 2
 
 		nlm, fakeStream := setupTest(t)
-		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerTimeout = testHandlerTimeout
 		nlm.handlerWorkers = limit
 
 		listener := newCountingBlockingListener()
@@ -181,7 +203,7 @@ func TestHandlerGroup(t *testing.T) {
 		t.Parallel()
 
 		nlm, fakeStream := setupTest(t)
-		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerTimeout = testHandlerTimeout
 		nlm.handlerWorkers = 1
 		// Tiny queue so the flood below actually saturates it.
 		nlm.callQueue = make(chan handlerCall, 2)
@@ -225,7 +247,7 @@ func TestHandlerGroup(t *testing.T) {
 		const batches = 24
 
 		nlm, fakeStream := setupTest(t)
-		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerTimeout = testHandlerTimeout
 		nlm.handlerWorkers = limit
 
 		var calls atomic.Int32
@@ -262,7 +284,7 @@ func TestHandlerGroup(t *testing.T) {
 		const burst = 200
 
 		nlm, fakeStream := setupTest(t)
-		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerTimeout = testHandlerTimeout
 		nlm.handlerWorkers = limit
 
 		var ran atomic.Int32
@@ -308,10 +330,11 @@ func TestHandlerGroup(t *testing.T) {
 		t.Parallel()
 
 		nlm, fakeStream := setupTest(t)
-		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerTimeout = testHandlerTimeout
 		nlm.handlerWorkers = 4
 
-		slow := &delayedListener{delay: 300 * time.Millisecond}
+		// Slow relative to fast, but inside testHandlerTimeout so it still completes.
+		slow := &delayedListener{delay: 80 * time.Millisecond}
 		slow.expect(1)
 		fast := &mockListener{}
 		fast.expect(1)
@@ -327,7 +350,7 @@ func TestHandlerGroup(t *testing.T) {
 			txID, status := fast.getStatus()
 			assert.Equal(collect, "tx_fast", txID)
 			assert.Equal(collect, fdriver.Valid, status)
-		}, 200*time.Millisecond, tick, "fast listener must not wait behind the slow one")
+		}, 60*time.Millisecond, tick, "fast listener must not wait behind the slow one")
 
 		// slow still completes.
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
@@ -365,11 +388,94 @@ func TestHandlerGroup(t *testing.T) {
 		}, timeout, tick, "the stuck callback should be in flight")
 
 		cancel()
-		select {
-		case <-listenErr:
-		case <-time.After(2 * time.Second):
-			t.Fatal("listen() did not return: teardown blocked on a callback that ignores its context")
+		requireListenReturned(t, listenErr)
+	})
+
+	t.Run("Callbacks_Never_Get_A_Cancelled_Context", func(t *testing.T) {
+		// select picks at random among ready cases, so a worker can take the queue
+		// branch after cancellation; passing the cancelled context there gives the
+		// listener an already-expired timeout.
+		//
+		// Primes the queue and cancels before the workers start so their first select
+		// has both cases ready -- a normal run does not reliably hit this.
+		t.Parallel()
+
+		const queued = 60
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = testHandlerTimeout
+		nlm.handlerWorkers = 4
+		nlm.callQueue = make(chan handlerCall, queued)
+
+		var live, dead atomic.Int32
+		listener := &funcListener{fn: func(ctx context.Context, _ string, _ int, _ string) {
+			if ctx.Err() != nil {
+				dead.Add(1)
+			} else {
+				live.Add(1)
+			}
+		}}
+
+		// Work already accepted, awaiting a worker.
+		for i := range queued {
+			nlm.callQueue <- handlerCall{
+				handler: listener,
+				txID:    "tx_cancelctx_" + strconv.Itoa(i),
+				status:  fdriver.Valid,
+			}
 		}
+
+		ctx, cancel := context.WithCancel(t.Context())
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		listenErr := make(chan error, 1)
+		go func() { listenErr <- nlm.listen(ctx) }()
+		cancel() // race the workers' first select
+
+		requireListenReturned(t, listenErr)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Equal(collect, int32(queued), live.Load()+dead.Load(),
+				"every queued callback should have run")
+		}, timeout, tick)
+
+		require.Zero(t, dead.Load(),
+			"%d of %d callbacks were handed an already-cancelled context; they must never see one",
+			dead.Load(), queued)
+	})
+
+	t.Run("Teardown_Settles_At_Worker_Concurrency", func(t *testing.T) {
+		// Teardown must settle at handlerWorkers concurrency, not one at a time:
+		// serially, N stuck listeners block listen() for N*handlerTimeout.
+		t.Parallel()
+
+		const stuck = 12
+		const workers = 6
+		const hTimeout = 100 * time.Millisecond
+
+		nlm, _ := setupTest(t)
+		nlm.handlerTimeout = hTimeout
+		nlm.handlerWorkers = workers
+
+		block := make(chan struct{}) // never closed: every listener hangs
+		t.Cleanup(func() { close(block) })
+		for i := range stuck {
+			seedHandlers(nlm, "tx_settle_"+strconv.Itoa(i), &funcListener{
+				fn: func(context.Context, string, int, string) { <-block },
+			})
+		}
+
+		start := time.Now()
+		nlm.settleAllAndClear(t.Context(), fdriver.Unknown)
+		elapsed := time.Since(start)
+
+		// stuck/workers batches plus slack; serial would be ~12x hTimeout.
+		require.Less(t, elapsed, time.Duration(stuck/workers+2)*hTimeout,
+			"settling %d stuck listeners took %s: teardown is serial rather than %d at a time",
+			stuck, elapsed, workers)
 	})
 
 	t.Run("Teardown_Drains_Queued_Callbacks", func(t *testing.T) {
@@ -380,7 +486,7 @@ func TestHandlerGroup(t *testing.T) {
 		t.Parallel()
 
 		nlm, fakeStream := setupTest(t)
-		nlm.handlerTimeout = config.DefaultHandlerTimeout
+		nlm.handlerTimeout = testHandlerTimeout
 		// One slow worker, so the batch backs up in the queue rather than draining
 		// as fast as it is dispatched.
 		nlm.handlerWorkers = 1
@@ -412,11 +518,7 @@ func TestHandlerGroup(t *testing.T) {
 		}, timeout, tick)
 
 		cancel()
-		select {
-		case <-listenErr:
-		case <-time.After(2 * time.Second):
-			t.Fatal("listen() did not return")
-		}
+		requireListenReturned(t, listenErr)
 
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
 			assert.Equal(collect, int32(batch), ran.Load())
@@ -467,11 +569,7 @@ func TestHandlerGroup(t *testing.T) {
 		}, timeout, tick, "the stuck callback should hold the only slot")
 
 		cancel()
-		select {
-		case <-listenErr:
-		case <-time.After(2 * time.Second):
-			t.Fatal("listen() did not return")
-		}
+		requireListenReturned(t, listenErr)
 
 		finished := make(chan struct{})
 		go func() { wg.Wait(); close(finished) }()

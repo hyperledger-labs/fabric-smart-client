@@ -84,7 +84,7 @@ func (m *mockListener) getStatus() (string, int) {
 // blockingListener simulates a handler that blocks forever (ignores context).
 // Used to test deadline detection and the dispatcher's resilience to a listener
 // that never returns. Such a listener permanently occupies one handler slot; see
-// TestHandlerGroup for the tests that pin down that bound.
+// TestHandlerPool for the tests that pin down that bound.
 type blockingListener struct {
 	block    chan struct{} // close this to unblock; leave open to simulate a stuck handler
 	onCalled chan struct{} // closed when OnStatus is entered, so tests can synchronize
@@ -985,7 +985,7 @@ func TestNotificationListenerManager(t *testing.T) {
 		//
 		// The leaky handler permanently consumes one worker of the pool, so this
 		// passes because the default pool has workers to spare. See
-		// TestHandlerGroup for what happens when every slot is occupied, and for
+		// TestHandlerPool for what happens when every slot is occupied, and for
 		// the bound on how much work a stuck listener can admit.
 		t.Parallel()
 		nlm, fakeStream := setupTest(t)
