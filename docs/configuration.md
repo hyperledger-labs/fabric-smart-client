@@ -477,8 +477,6 @@ fabric:
         chaincodes:
             # chaincode id
           - name: mychaincode
-            # whether it is a fabric private chaincode or not
-            private: false
 
     # ----------------------- Fabric Driver Configuration ---------------------------
     # Internal vault used to keep track of the RW sets assembled by this node during in progress transactions
