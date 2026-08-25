@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	mock2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
 )
@@ -116,7 +117,9 @@ func TestProvider_Initialize(t *testing.T) {
 		ctx := t.Context()
 		provider.Initialize(ctx)
 
-		require.Same(t, ctx, provider.baseCtx, "baseCtx should match the provided context")
+		got, err := provider.baseCtx.Get()
+		require.NoError(t, err)
+		require.Same(t, ctx, got, "baseCtx should match the provided context")
 	})
 
 	t.Run("Initialize_Only_Once_Ignores_Subsequent_Calls", func(t *testing.T) {
@@ -129,10 +132,12 @@ func TestProvider_Initialize(t *testing.T) {
 		t.Cleanup(cancel)
 
 		provider.Initialize(ctx1)
-		provider.Initialize(ctx2) // Should be ignored due to sync.Once
+		provider.Initialize(ctx2) // Should be ignored: the first context wins
 
-		require.Same(t, ctx1, provider.baseCtx, "baseCtx should remain as first initialized value")
-		require.NotSame(t, ctx2, provider.baseCtx, "Second Initialize call should be ignored")
+		got, err := provider.baseCtx.Get()
+		require.NoError(t, err)
+		require.Same(t, ctx1, got, "baseCtx should remain as first initialized value")
+		require.NotSame(t, ctx2, got, "Second Initialize call should be ignored")
 	})
 
 	t.Run("Thread_Safe_Concurrent_Initialize", func(t *testing.T) {
@@ -150,21 +155,74 @@ func TestProvider_Initialize(t *testing.T) {
 		}
 		wg.Wait()
 
-		require.NotNil(t, provider.baseCtx, "baseCtx should be set after concurrent Initialize calls")
+		got, err := provider.baseCtx.Get()
+		require.NoError(t, err, "baseCtx should be set after concurrent Initialize calls")
+		require.NotNil(t, got)
+	})
+
+	t.Run("Nil_Context_Is_Ignored", func(t *testing.T) {
+		t.Parallel()
+		// Installing a nil context would leave the Provider looking initialized
+		// while every listener goroutine ran on nil, surfacing as a panic inside
+		// gRPC with nothing pointing back at the Provider.
+		provider := NewListenerManagerProvider(&mockGRPCClientProvider{}, nil)
+
+		//nolint:staticcheck // passing a nil context is the mistake under test
+		provider.Initialize(nil)
+
+		_, err := provider.baseCtx.Get()
+		require.ErrorIs(t, err, fdriver.ErrNotInitialized,
+			"a nil context must leave the Provider uninitialized")
+
+		lm, err := provider.NewManager("network1", "channel1")
+		require.Nil(t, lm)
+		require.ErrorIs(t, err, fdriver.ErrNotInitialized)
+
+		// A real context afterwards still initializes the Provider.
+		ctx := t.Context()
+		provider.Initialize(ctx)
+		got, err := provider.baseCtx.Get()
+		require.NoError(t, err)
+		require.Same(t, ctx, got)
+	})
+
+	t.Run("Is_Race_Free_With_NewManager", func(t *testing.T) {
+		t.Parallel()
+		// Guarding baseCtx with sync.Once alone was not enough: Once orders its
+		// write only against goroutines that call Do, and NewManager never
+		// does, so the read raced the write.
+		provider := NewListenerManagerProvider(&mockGRPCClientProvider{}, nil)
+		provider.newNotificationManager = func(string, GRPCClientProvider, config.Config) (*notificationListenerManager, error) {
+			return setupMockNotificationManager(t, func(ctx context.Context, stream *mock2.Notifier_OpenNotificationStreamClient) {
+				stream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+					<-ctx.Done()
+					return nil, ctx.Err()
+				}
+			}), nil
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+
+		var wg sync.WaitGroup
+		wg.Go(func() { provider.Initialize(ctx) })
+		wg.Go(func() { _, _ = provider.NewManager("network1", "channel1") })
+		wg.Wait()
 	})
 }
 
 func TestProvider_NewManager(t *testing.T) {
 	t.Parallel()
-	t.Run("Panics_If_Not_Initialized", func(t *testing.T) {
+	t.Run("Reports_Not_Initialized", func(t *testing.T) {
 		t.Parallel()
 		mockGRPC := &mockGRPCClientProvider{}
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 
 		// Don't call Initialize
-		require.Panics(t, func() {
-			_, _ = provider.NewManager("network1", "channel1")
-		}, "Should panic when Provider is not initialized")
+		lm, err := provider.NewManager("network1", "channel1")
+		require.Nil(t, lm)
+		require.ErrorIs(t, err, fdriver.ErrNotInitialized,
+			"Should report the startup condition when Provider is not initialized")
 	})
 
 	t.Run("Creates_New_Manager_And_Starts_Listen", func(t *testing.T) {
