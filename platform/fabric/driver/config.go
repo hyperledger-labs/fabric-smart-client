@@ -32,7 +32,6 @@ const (
 
 type ChaincodeConfig interface {
 	ID() string
-	IsPrivate() bool
 }
 
 type ListenerManagerProvider driver.ListenerManagerProvider[ValidationCode]

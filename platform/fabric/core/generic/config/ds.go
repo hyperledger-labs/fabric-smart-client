@@ -82,16 +82,11 @@ type TLS struct {
 type ConnectionConfig = grpc.ConnectionConfig
 
 type Chaincode struct {
-	Name    string `yaml:"Name,omitempty"`
-	Private bool   `yaml:"Private,omitempty"`
+	Name string `yaml:"Name,omitempty"`
 }
 
 func (c Chaincode) ID() string {
 	return c.Name
-}
-
-func (c Chaincode) IsPrivate() bool {
-	return c.Private
 }
 
 type Finality struct {

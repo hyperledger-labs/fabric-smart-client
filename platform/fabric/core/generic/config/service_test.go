@@ -135,7 +135,7 @@ func TestChannelHelpers(t *testing.T) {
 	require.Equal(t, time.Minute, ch.FinalityForPartiesWaitTimeout())
 
 	// ChaincodeConfigs should convert to driver.ChaincodeConfig
-	cc := &cfg.Chaincode{Name: "cc1", Private: true}
+	cc := &cfg.Chaincode{Name: "cc1"}
 	c := &cfg.Channel{Chaincodes: []*cfg.Chaincode{cc}}
 	arr := c.ChaincodeConfigs()
 	require.Len(t, arr, 1)

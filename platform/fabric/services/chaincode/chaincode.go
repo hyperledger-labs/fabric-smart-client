@@ -36,7 +36,6 @@ type Query interface {
 }
 
 type Chaincode interface {
-	IsPrivate() bool
 	Endorse(function string, args ...any) Endorse
 	Query(function string, args ...any) Query
 }
@@ -120,10 +119,6 @@ func (s *stdQuery) WithRetrySleep(duration time.Duration) {
 
 type stdChaincode struct {
 	ch *fabric.Chaincode
-}
-
-func (s *stdChaincode) IsPrivate() bool {
-	return s.ch.IsPrivate()
 }
 
 func (s *stdChaincode) Endorse(function string, args ...any) Endorse {

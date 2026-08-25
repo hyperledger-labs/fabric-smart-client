@@ -294,37 +294,6 @@ func TestNewChaincode(t *testing.T) {
 	require.NotNil(t, disc)
 }
 
-func TestChaincodeIsPrivate(t *testing.T) {
-	t.Parallel()
-	t.Run("channel nil", func(t *testing.T) {
-		t.Parallel()
-		fix := setupTestChaincode(t)
-		fix.ConfigService.ChannelReturns(nil)
-		require.False(t, fix.Chaincode.IsPrivate())
-	})
-
-	t.Run("chaincode not found", func(t *testing.T) {
-		t.Parallel()
-		fix := setupTestChaincode(t)
-		mockChan := &mock.ChannelConfig{}
-		mockChan.ChaincodeConfigsReturns(nil) // empty
-		fix.ConfigService.ChannelReturns(mockChan)
-		require.False(t, fix.Chaincode.IsPrivate())
-	})
-
-	t.Run("chaincode found", func(t *testing.T) {
-		t.Parallel()
-		fix := setupTestChaincode(t)
-		mockChan := &mock.ChannelConfig{}
-		mockCCConf := &mock.ChaincodeConfig{}
-		mockCCConf.IDReturns("test-chaincode")
-		mockCCConf.IsPrivateReturns(true)
-		mockChan.ChaincodeConfigsReturns([]driver.ChaincodeConfig{mockCCConf})
-		fix.ConfigService.ChannelReturns(mockChan)
-		require.True(t, fix.Chaincode.IsPrivate())
-	})
-}
-
 func TestManager(t *testing.T) {
 	t.Parallel()
 	fix := setupTestChaincode(t)

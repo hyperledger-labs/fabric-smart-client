@@ -318,7 +318,6 @@ fabric:
           parallelism: 5
         chaincodes: {{range Chaincodes .Name }}
           - name: {{ .Chaincode.Name }}
-            private: {{ .Private }}
         {{- end }}
     {{- end }}
     vault:

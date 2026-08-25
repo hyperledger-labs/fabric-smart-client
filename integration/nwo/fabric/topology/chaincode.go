@@ -41,13 +41,6 @@ func (c *Chaincode) SetPackageIDFromPackageFile() {
 	c.PackageID = c.Label + ":" + hashStr
 }
 
-type PrivateChaincode struct {
-	Image           string
-	SGXMode         string
-	SGXDevicesPaths []string
-	MREnclave       string
-}
-
 type namespace struct {
 	cc *ChannelChaincode
 }

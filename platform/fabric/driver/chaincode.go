@@ -83,7 +83,6 @@ type Chaincode interface {
 	NewInvocation(function string, args ...any) ChaincodeInvocation
 	NewDiscover() ChaincodeDiscover
 	IsAvailable() (bool, error)
-	IsPrivate() bool
 	// Version returns the version of this chaincode.
 	// It returns an error if a failure happens during the computation.
 	Version() (string, error)

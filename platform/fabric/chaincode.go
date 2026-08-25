@@ -79,10 +79,6 @@ func (c *Chaincode) IsAvailable() (bool, error) {
 	return c.chaincode.IsAvailable()
 }
 
-func (c *Chaincode) IsPrivate() bool {
-	return c.chaincode.IsPrivate()
-}
-
 // Version returns the version of this chaincode.
 // It returns an error if a failure happens during the computation.
 func (c *Chaincode) Version() (string, error) {
