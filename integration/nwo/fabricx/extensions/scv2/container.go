@@ -60,7 +60,7 @@ func (e *Extension) launchContainer() {
 	// orderer config file and load it into the container.
 	// This can be removed and replaced with proper configuration via env vars once the issue #567 is fixed.
 	mockOrdererConfigPath := filepath.Clean(filepath.Join(e.network.Context.RootDir(), e.network.Prefix, "mock-orderer.yaml"))
-	utils.Must(generateMockOrdererConfigFile(mockOrdererConfigPath, e.network.Orderers))
+	utils.Must(generateMockOrdererConfigFile(mockOrdererConfigPath, ordererConsenters(e.network)))
 
 	d := utils.MustGet(docker.GetInstance())
 	localIP := utils.MustGet(d.LocalIP(networkID))

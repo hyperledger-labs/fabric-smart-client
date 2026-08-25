@@ -113,8 +113,7 @@ Organizations:{{ range .PeerOrgs }}
   {{- end }}
   OrdererEndpoints:{{ range $w.OrderersInOrg .Name }}
   {{- if eq $w.Consensus.Type "arma" }}
-  {{- $firstOrderer := index $.Orderers 0 }}
-  - {{ $w.OrdererHost . }}:{{ $w.OrdererPort $firstOrderer "Listen" }}
+  - {{ $w.OrdererAddress (index $.Orderers 0) "Listen" }}
   {{- else }}
   - {{ $w.OrdererAddress . "Listen" }}
   {{- end }}
@@ -183,15 +182,6 @@ Profiles:{{ range .Profiles }}
         SyncOnStart:               false
         SpeedUpViewChange:         false
       {{- end }}
-      ConsenterMapping:{{ range $index, $orderer := .Orderers }}{{ with $w.Orderer . }}
-      - ID: {{ .Id }}
-        {{ $w.OrdererHost . }}
-        Port: {{ $w.OrdererPort . "Cluster" }}
-        MSPID: {{ ($w.Organization .Organization).MSPID}}
-        ClientTLSCert: {{ $w.OrdererLocalCryptoDir . "tls" }}/server.crt
-        ServerTLSCert: {{ $w.OrdererLocalCryptoDir . "tls" }}/server.crt
-        Identity: {{ $w.OrdererSignCert .}}
-        {{- end }}{{- end }}
       {{- end }}
       {{- if eq $w.Consensus.Type "etcdraft" }}
       EtcdRaft:
@@ -205,17 +195,22 @@ Profiles:{{ range .Profiles }}
           ServerTLSCert: {{ $w.OrdererLocalCryptoDir . "tls" }}/server.crt
         {{- end }}{{- end }}
       {{- end }}
-      {{- if eq $w.Consensus.Type "arma" }}
-      {{- $firstOrdererName := index .Orderers 0 }}
-      {{- $firstOrderer := $w.Orderer $firstOrdererName }}
-      ConsenterMapping:{{ range $index, $orderer := .Orderers }}{{ with $w.Orderer . }}
+      {{- if or (eq $w.Consensus.Type "BFT") (eq $w.Consensus.Type "arma") }}
+      ConsenterMapping:{{ range .Orderers }}{{ with $w.Orderer . }}
+      {{- $arma := eq $w.Consensus.Type "arma" }}
+      {{- $endpoint := . }}
+      {{- /* arma runs against the fabric-x committer container, which binds a single
+             ordering endpoint. Every logical consenter therefore shares the address
+             and TLS material of the network's first orderer -- the one the container
+             binds -- while keeping its own id and signing identity. */}}
+      {{- if $arma }}{{ $endpoint = index $.Orderers 0 }}{{ end }}
       - ID: {{ .Id }}
-        Host: 127.0.0.1
-        Port: {{ $w.OrdererPort $firstOrderer "Listen" }}
-        MSPID: {{ ($w.Organization .Organization).MSPID}}
-        ClientTLSCert: {{ $w.OrdererLocalCryptoDir $firstOrderer "tls" }}/server.crt
-        ServerTLSCert: {{ $w.OrdererLocalCryptoDir $firstOrderer "tls" }}/server.crt
-        Identity: {{ $w.OrdererSignCert .}}
+        Host: {{ $w.OrdererHost $endpoint }}
+        Port: {{ if $arma }}{{ $w.OrdererPort $endpoint "Listen" }}{{ else }}{{ $w.OrdererPort $endpoint "Cluster" }}{{ end }}
+        MSPID: {{ ($w.Organization .Organization).MSPID }}
+        ClientTLSCert: {{ $w.OrdererLocalCryptoDir $endpoint "tls" }}/server.crt
+        ServerTLSCert: {{ $w.OrdererLocalCryptoDir $endpoint "tls" }}/server.crt
+        Identity: {{ $w.OrdererSignCert . }}
         {{- end }}{{- end }}
       {{- end }}
       Organizations:{{ range $w.OrgsForOrderers .Orderers }}

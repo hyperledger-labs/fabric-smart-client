@@ -120,7 +120,6 @@ func (n *Network) CheckTopology() {
 
 	// cleanup chaincode
 	// TODO cleanup the chaincode
-	n.CheckTopologyOrderers()
 }
 
 func (n *Network) removePeers() {

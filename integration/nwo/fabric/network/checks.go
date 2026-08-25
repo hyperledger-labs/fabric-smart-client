@@ -35,7 +35,11 @@ func (n *Network) CheckTopology() {
 
 // CheckTopologyOrderers checks that the orderers' ports are allocated
 func (n *Network) CheckTopologyOrderers() {
-	for _, o := range n.Orderers {
+	for i, o := range n.Orderers {
+		// Set default Id if not already set (1-based indexing for BFT)
+		if o.Id == 0 {
+			o.Id = i + 1
+		}
 		ports := api.Ports{}
 		for _, portName := range OrdererPortNames() {
 			ports[portName] = n.Context.ReservePort()
