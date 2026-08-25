@@ -118,7 +118,7 @@ func (s *stateEP) addOwner(owner view.Identity) {
 func (s *stateEP) setMSPIDsFromSP(sp *common.SignaturePolicyEnvelope) error {
 	// iterate over the identities in this envelope
 	for _, identity := range sp.Identities {
-		// this imlementation only supports the ROLE type
+		// this implementation only supports the ROLE type
 		if identity.PrincipalClassification == msp.MSPPrincipal_ROLE {
 			msprole := &msp.MSPRole{}
 			err := proto.Unmarshal(identity.Principal, msprole)

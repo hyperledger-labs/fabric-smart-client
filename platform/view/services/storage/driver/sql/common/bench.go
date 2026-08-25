@@ -115,7 +115,7 @@ func WriteParallel(b *testing.B, db driver.KeyValueStore) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			i++                          // i is not unique because of paralellism but that's ok
+			i++                          // i is not unique because of parallelism but that's ok
 			k = fmt.Sprintf("key_%d", i) // this could be optimized by moving the key creation out of the benchmark
 			if i == int(mid) {
 				b.Logf("    mid (%d): %+v", int(mid), db.Stats())

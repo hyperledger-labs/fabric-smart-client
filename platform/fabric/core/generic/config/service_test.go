@@ -32,7 +32,7 @@ func TestNewService_missingConfig(t *testing.T) {
 func TestNewService_defaultsAndOrderers(t *testing.T) {
 	t.Parallel()
 	m := &mock.Configuration{}
-	// simulate fabirc.mynet present
+	// simulate fabric.mynet present
 	m.IsSetReturnsOnCall(0, true)   // called for fabric.mynet check
 	m.GetStringReturnsOnCall(0, "") // fabric.mynetdriver -> default
 	// enable TLS so TLSRootCertFile gets translated

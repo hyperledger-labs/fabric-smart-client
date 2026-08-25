@@ -39,7 +39,7 @@ type ListenerEntry[T EventInfo] interface {
 	Namespace() driver.Namespace
 	// OnStatus is the callback for the transaction
 	OnStatus(ctx context.Context, info T)
-	// Equals compares a listener entry for the delition
+	// Equals compares a listener entry for the deletion
 	Equals(other ListenerEntry[T]) bool
 }
 

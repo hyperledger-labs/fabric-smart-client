@@ -69,7 +69,7 @@ type Committer interface {
 	AddTransactionFilter(tf TransactionFilter) error
 
 	// Status returns a validation code this committer bind to the passed transaction id, plus
-	// a list of dependant transaction ids if they exist.
+	// a list of dependent transaction ids if they exist.
 	Status(ctx context.Context, txID driver.TxID) (ValidationCode, string, error)
 
 	// AddFinalityListener registers a listener for transaction status for the passed transaction id.

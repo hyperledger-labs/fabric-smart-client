@@ -15,12 +15,12 @@ const (
 	ConsortiumsGroupKey = "Consortiums"
 )
 
-// ConsortiumsConfig holds the consoritums configuration information
+// ConsortiumsConfig holds the consortiums configuration information
 type ConsortiumsConfig struct {
 	consortiums map[string]Consortium
 }
 
-// NewConsortiumsConfig creates a new instance of the consoritums config
+// NewConsortiumsConfig creates a new instance of the consortiums config
 func NewConsortiumsConfig(consortiumsGroup *cb.ConfigGroup, mspConfig *MSPConfigHandler) (*ConsortiumsConfig, error) {
 	cc := &ConsortiumsConfig{
 		consortiums: make(map[string]Consortium),

@@ -453,10 +453,10 @@ func validateMetadata(name, path string) error {
 // be obtained with `go tool dist list.
 type dist struct{ goos, goarch string }
 
-// distributions returns the list of OS and ARCH combinations that we calcluate
+// distributions returns the list of OS and ARCH combinations that we calculate
 // deps for.
 func distributions() []dist {
-	// pre-populate linux architecutures
+	// pre-populate linux architectures
 	dists := map[dist]bool{
 		{goos: "linux", goarch: "amd64"}: true,
 		{goos: "linux", goarch: "s390x"}: true,

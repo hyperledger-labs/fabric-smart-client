@@ -34,7 +34,7 @@ func (c *Committer) ProcessNamespace(nss ...driver2.Namespace) error {
 }
 
 // Status returns a validation code this committer bind to the passed transaction id, plus
-// a list of dependant transaction ids if they exist.
+// a list of dependent transaction ids if they exist.
 func (c *Committer) Status(ctx context.Context, txID driver2.TxID) (driver.ValidationCode, string, error) {
 	return c.committer.Status(ctx, txID)
 }

@@ -214,7 +214,7 @@ func (i *ChaincodeQuery) WithTxID(id TxID) *ChaincodeQuery {
 	return i
 }
 
-// WithMatchEndorsementPolicy enforces that the query is perfomed against a set of peers that satisfy the
+// WithMatchEndorsementPolicy enforces that the query is performed against a set of peers that satisfy the
 // endorsement policy of the chaincode
 func (i *ChaincodeQuery) WithMatchEndorsementPolicy() *ChaincodeQuery {
 	i.ChaincodeInvocation.WithMatchEndorsementPolicy()

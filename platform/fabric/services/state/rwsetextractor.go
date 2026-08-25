@@ -57,7 +57,7 @@ func (r *RWSetProcessor) Process(req fabric.Request, tx fabric.ProcessTransactio
 			meta = map[string][]byte{}
 		}
 
-		// extrate state info from metadata service
+		// extract state info from metadata service
 		transientMap, err := ch.MetadataService().LoadTransient(context.Background(), txID)
 		if err != nil {
 			return err

@@ -49,7 +49,7 @@ type CA struct {
 }
 
 // A Consortium is a named collection of Organizations. It is used to populate
-// the Orderer geneesis block profile.
+// the Orderer genesis block profile.
 type Consortium struct {
 	Name          string   `yaml:"name,omitempty"`
 	Organizations []string `yaml:"organizations,omitempty"`

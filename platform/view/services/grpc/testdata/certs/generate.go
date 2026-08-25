@@ -84,7 +84,7 @@ func genKeyECDSA(name string) (*ecdsa.PrivateKey, error) {
 	return priv, nil
 }
 
-// generate a signed X509 certficate using ECDSA
+// generate a signed X509 certificate using ECDSA
 func genCertificateECDSA(name string, template, parent *x509.Certificate, pub *ecdsa.PublicKey,
 	priv *ecdsa.PrivateKey) (*x509.Certificate, error) {
 

@@ -1280,7 +1280,7 @@ func (n *Network) AnchorsInOrg(orgName string) []*topology.Peer {
 	return anchors
 }
 
-// OrderersInOrg returns all Orderer instances owned by the named organaiztion.
+// OrderersInOrg returns all Orderer instances owned by the named organization.
 func (n *Network) OrderersInOrg(orgName string) []*topology.Orderer {
 	orderers := []*topology.Orderer{}
 	for _, o := range n.Orderers {
