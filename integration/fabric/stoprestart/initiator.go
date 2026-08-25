@@ -41,7 +41,7 @@ func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 			return nil, errors.New(string(msg.Payload))
 		}
 		if !bytes.Equal(msg.Payload, p.in) {
-			return nil, fmt.Errorf("exptectd %s, got %s", string(p.in), string(msg.Payload))
+			return nil, fmt.Errorf("expected %s, got %s", string(p.in), string(msg.Payload))
 		}
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")

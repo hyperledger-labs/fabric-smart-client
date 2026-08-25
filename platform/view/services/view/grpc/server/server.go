@@ -223,11 +223,11 @@ func (s *Server) RegisterStreamer(typ reflect.Type, streamer Streamer) {
 func (s *Server) streamError(err error, sc *protos.SignedCommand, commandServer protos.ViewService_StreamCommandServer) error {
 	r, err2 := s.MarshalErrorResponse(sc.Command, err)
 	if err2 != nil {
-		return errors.WithMessagef(err, "failed creating resposse [%s]", err2)
+		return errors.WithMessagef(err, "failed creating response [%s]", err2)
 	}
 	err2 = commandServer.Send(r)
 	if err2 != nil {
-		return errors.WithMessagef(err, "failed creating resposse [%s]", err2)
+		return errors.WithMessagef(err, "failed creating response [%s]", err2)
 	}
 	logger.ErrorfContext(commandServer.Context(), "stream error occurred [%s]", err.Error())
 	return err

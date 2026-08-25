@@ -117,7 +117,7 @@ func UnmarshalChaincodeHeaderExtension(hdrExtension []byte) (*peer.ChaincodeHead
 func UnmarshalChaincodeEvents(eBytes []byte) (*peer.ChaincodeEvent, error) {
 	chaincodeEvent := &peer.ChaincodeEvent{}
 	err := proto.Unmarshal(eBytes, chaincodeEvent)
-	return chaincodeEvent, errors.Wrap(err, "error unmarshalling ChaicnodeEvent")
+	return chaincodeEvent, errors.Wrap(err, "error unmarshalling ChaincodeEvent")
 }
 
 // UnmarshalBlock unmarshals bytes to a Block

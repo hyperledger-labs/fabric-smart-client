@@ -1520,7 +1520,7 @@ func TestMSPIdentityIdentifier(t *testing.T) { //nolint:paralleltest
 	idid := id.GetIdentifier()
 	require.NotNil(t, idid)
 
-	// Load and parse cacaert and signcert from folder
+	// Load and parse cacert and signcert from folder
 	pems, err := getPemMaterialFromDir("testdata/mspid/cacerts")
 	require.NoError(t, err)
 	bl, _ := pem.Decode(pems[0])

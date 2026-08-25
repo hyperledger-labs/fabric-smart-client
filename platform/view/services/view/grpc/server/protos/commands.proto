@@ -80,7 +80,7 @@ message CommandResponseHeader {
 
     // CommandHash is the hash computed on the concatenation of the SignedCommand's command and signature fields.
     // If not specified differently, SHA256 is used
-    // The hash is used to link a response with its request, both for bookeeping purposes on an
+    // The hash is used to link a response with its request, both for bookkeeping purposes on an
     // asynchronous system and for security reasons (accountability, non-repudiation)
     bytes command_hash = 2;
 
@@ -97,7 +97,7 @@ message Error {
     bytes payload = 2;
 }
 
-// A CommnandResponse is returned from a server to the command submitter.
+// A CommandResponse is returned from a server to the command submitter.
 message CommandResponse {
     // Header of the response.
     CommandResponseHeader header = 1;

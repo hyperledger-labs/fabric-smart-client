@@ -43,7 +43,7 @@ func TestBadIndexJSON(t *testing.T) {
 
 	require.Error(t, err, "Should have received an InvalidIndexContentError")
 
-	// Type requireion on InvalidIndexContentError
+	// Type assertion on InvalidIndexContentError
 	var invalidIndexContentError *InvalidIndexContentError
 	ok := errors.As(err, &invalidIndexContentError)
 	require.True(t, ok, "Should have received an InvalidIndexContentError")
@@ -62,7 +62,7 @@ func TestIndexWrongLocation(t *testing.T) {
 	err := ValidateMetadataFile(fileName, fileBytes)
 	require.Error(t, err, "Should have received an UnhandledDirectoryError")
 
-	// Type requireion on UnhandledDirectoryError
+	// Type assertion on UnhandledDirectoryError
 	var unhandledDirectoryError *UnhandledDirectoryError
 	ok := errors.As(err, &unhandledDirectoryError)
 	require.True(t, ok, "Should have received an UnhandledDirectoryError")
@@ -81,7 +81,7 @@ func TestInvalidMetadataType(t *testing.T) {
 	err := ValidateMetadataFile(fileName, fileBytes)
 	require.Error(t, err, "Should have received an UnhandledDirectoryError")
 
-	// Type requireion on UnhandledDirectoryError
+	// Type assertion on UnhandledDirectoryError
 	var unhandledDirectoryError *UnhandledDirectoryError
 	ok := errors.As(err, &unhandledDirectoryError)
 	require.True(t, ok, "Should have received an UnhandledDirectoryError")

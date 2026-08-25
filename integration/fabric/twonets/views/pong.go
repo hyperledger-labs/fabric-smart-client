@@ -38,9 +38,9 @@ func (p *Pong) Call(viewCtx view.Context) (any, error) {
 	switch {
 	case m != "ping":
 		// reply with an error
-		err := session.SendError(viewCtx.Context(), fmt.Appendf(nil, "exptectd ping, got %s", m))
+		err := session.SendError(viewCtx.Context(), fmt.Appendf(nil, "expected ping, got %s", m))
 		assert.NoError(err)
-		return nil, fmt.Errorf("exptectd ping, got %s", m)
+		return nil, fmt.Errorf("expected ping, got %s", m)
 	default:
 		// reply with pong
 		names, err := fabric.GetFabricNetworkNames(viewCtx)

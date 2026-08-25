@@ -102,7 +102,7 @@ func (s *stateEP) Policy() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed building policy")
 	}
-	logger.Debugf("StateEP Polci [\n%s\n]", spe.String())
+	logger.Debugf("StateEP Policy [\n%s\n]", spe.String())
 	spBytes, err := proto.Marshal(spe)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed marshalling policy")
@@ -118,7 +118,7 @@ func (s *stateEP) addOwner(owner view.Identity) {
 func (s *stateEP) setMSPIDsFromSP(sp *common.SignaturePolicyEnvelope) error {
 	// iterate over the identities in this envelope
 	for _, identity := range sp.Identities {
-		// this imlementation only supports the ROLE type
+		// this implementation only supports the ROLE type
 		if identity.PrincipalClassification == msp.MSPPrincipal_ROLE {
 			msprole := &msp.MSPRole{}
 			err := proto.Unmarshal(identity.Principal, msprole)

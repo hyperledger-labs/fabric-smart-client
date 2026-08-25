@@ -44,7 +44,7 @@ func (c *collectEndorsementsView) Call(viewCtx view.Context) (any, error) {
 		return nil, errors.Wrapf(err, "failed getting tx results")
 	}
 
-	// Contact sequantially all parties.
+	// Contact sequentially all parties.
 	logger.DebugfContext(viewCtx.Context(), "Collect Endorsements from [%d] parties [%v]", len(c.parties), c.parties)
 	for _, party := range c.parties {
 		logger.DebugfContext(viewCtx.Context(), "Collect Endorsements On Simulation from [%s]", party)

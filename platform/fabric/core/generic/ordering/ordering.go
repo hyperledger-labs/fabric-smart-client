@@ -169,7 +169,7 @@ func (f *Service) Configure(consensusType string, orderers []*grpc.ConnectionCon
 		return errors.WithMessagef(err, "failed to set consensus type from channel config")
 	}
 	if err := f.ConfigService.SetConfigOrderers(orderers); err != nil {
-		return errors.WithMessagef(err, "failed to set ordererss")
+		return errors.WithMessagef(err, "failed to set orderers")
 	}
 	return nil
 }

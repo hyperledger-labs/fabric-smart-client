@@ -131,7 +131,7 @@ type RespondRequestRecipientIdentityView struct {
 
 // Call does the following:
 // 1. Reads a first message from the context's session
-// 2. Unmarshall the message into rr = RecipientRequest
+// 2. Unmarshal the message into rr = RecipientRequest
 // 3. If the identity to send back is not set, it is set to fabric.GetFabricNetworkService(context, rr.Network).IdentityProvider().DefaultIdentity()
 // 4. Send back marshalled RecipientData struct
 func (s *RespondRequestRecipientIdentityView) Call(viewCtx view.Context) (any, error) {

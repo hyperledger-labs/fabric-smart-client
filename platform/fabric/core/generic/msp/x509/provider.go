@@ -53,7 +53,7 @@ func NewProviderWithBCCSPConfig(mspConfigPath, keyStorePath, mspID string, signe
 	}
 	enrollmentID, err := GetEnrollmentID(idRaw)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to extract endorllment id from msp identity at [%s]", mspConfigPath)
+		return nil, errors.WithMessagef(err, "failed to extract enrollment id from msp identity at [%s]", mspConfigPath)
 	}
 	return &Provider{id: idRaw, enrollmentID: enrollmentID}, nil
 }

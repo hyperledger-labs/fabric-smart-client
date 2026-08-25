@@ -45,7 +45,7 @@ type ChaincodeInvocation interface {
 	// discovery. Discovery is used to identify the chaincode's endorsers, if not set otherwise.
 	WithDiscoveredEndorsersByEndpoints(endpoints ...string) ChaincodeInvocation
 
-	// WithMatchEndorsementPolicy enforces that the query is perfomed against a set of peers that satisfy the
+	// WithMatchEndorsementPolicy enforces that the query is performed against a set of peers that satisfy the
 	// endorsement policy of the chaincode
 	WithMatchEndorsementPolicy() ChaincodeInvocation
 

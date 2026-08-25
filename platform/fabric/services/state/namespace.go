@@ -124,7 +124,7 @@ func (n *Namespace) AddCommand(command string, ids ...view.Identity) error {
 }
 
 // AddInputByLinearID add a reference to the state with the passed id.
-// In addition, the function pupulates the passed state with the content of state associated to the passed id and
+// In addition, the function populates the passed state with the content of state associated to the passed id and
 // stored in the vault.
 // Options can be passed to change the behaviour of the function.
 func (n *Namespace) AddInputByLinearID(id string, state any, opts ...AddInputOption) error {

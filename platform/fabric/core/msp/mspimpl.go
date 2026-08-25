@@ -760,7 +760,7 @@ var (
 // If a signing certificate contains a name constraint, the leaf certificate
 // does not include SAN extensions, and the leaf's common name looks like a
 // host name, the validation would fail with an x509.CertificateInvalidError
-// and a rason of x509.NameConstraintsWithoutSANs.
+// and a reason of x509.NameConstraintsWithoutSANs.
 func verifyLegacyNameConstraints(chain []*x509.Certificate) error {
 	if len(chain) < 2 {
 		return nil

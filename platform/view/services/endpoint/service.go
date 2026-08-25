@@ -392,7 +392,7 @@ func (r *Service) ResolveIdentities(endpoints ...string) ([]view.Identity, error
 	for _, endpoint := range endpoints {
 		id, err := r.GetIdentity(endpoint, nil)
 		if err != nil {
-			return nil, errors.Wrapf(err, "cannot find the idnetity at %s", endpoint)
+			return nil, errors.Wrapf(err, "cannot find the identity at %s", endpoint)
 		}
 		ids = append(ids, id)
 	}

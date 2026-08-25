@@ -238,7 +238,7 @@ func UpdateOrdererConfig(n *Network, orderer *topology.Orderer, channel string, 
 
 // UpdateOrdererConfigSession computes, signs, and submits a configuration
 // update which requires orderer signatures. The caller should wait on the
-// returned seession retrieve the exit code.
+// returned session retrieve the exit code.
 func UpdateOrdererConfigSession(n *Network, orderer *topology.Orderer, channel string, current, updated *common.Config, submitter *topology.Peer, additionalSigners ...*topology.Orderer) *gexec.Session {
 	tempDir, err := os.MkdirTemp(filepath.Join(n.Context.RootDir(), n.Prefix), "updateConfig")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())

@@ -99,7 +99,7 @@ func (r *ResolverService) LoadResolvers() error {
 			logger.Warnf("resolver [%s:%s] points directly to a certificate, cannot sanitize, use an msp folder instead", resolver.Identity.MSPID, path)
 			raw, err = x509.Serialize(resolver.Identity.MSPID, path)
 			if err != nil {
-				return errors.Wrapf(err, "failed to load  x509 certicate [%s:%s]", resolver.Identity.MSPID, path)
+				return errors.Wrapf(err, "failed to load x509 certificate [%s:%s]", resolver.Identity.MSPID, path)
 			}
 		}
 

@@ -2266,7 +2266,7 @@ const DashboardFabricBusinessTemplate = `{
           "refId": "A"
         }
       ],
-      "title": "Block procesing time",
+      "title": "Block processing time",
       "tooltip": {
         "show": true,
         "showHistogram": false

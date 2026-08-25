@@ -467,7 +467,7 @@ var _ = Describe("Provider", func() {
 		})
 
 		Context("when label values are not provided", func() {
-			It("it panics with a cardinaility message", func() {
+			It("it panics with a cardinality message", func() {
 				counter := p.NewCounter(counterOpts)
 				panicMessage := func() (panicMessage any) {
 					defer func() { panicMessage = recover() }()
