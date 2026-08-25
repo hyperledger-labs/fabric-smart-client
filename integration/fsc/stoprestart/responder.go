@@ -44,9 +44,9 @@ func (p *Responder) Call(viewCtx view.Context) (any, error) {
 	switch {
 	case m != "ping":
 		// reply with an error
-		err := session.SendError(rcvCtx, fmt.Appendf(nil, "exptectd ping, got %s", m))
+		err := session.SendError(rcvCtx, fmt.Appendf(nil, "expected ping, got %s", m))
 		assert.NoError(err)
-		return nil, errors.Errorf("exptectd ping, got %s", m)
+		return nil, errors.Errorf("expected ping, got %s", m)
 	default:
 		// reply with pong
 		err := session.Send(rcvCtx, []byte("pong"))

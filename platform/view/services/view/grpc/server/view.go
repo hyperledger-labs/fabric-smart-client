@@ -111,7 +111,7 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 	}
 	mutable, ok := viewCtx.(view2.MutableContext)
 	if !ok {
-		return errors.Errorf("expected a mutable contexdt")
+		return errors.Errorf("expected a mutable context")
 	}
 	if err := mutable.PutService(&Stream{scs: commandServer}); err != nil {
 		return errors.Errorf("failed registering stream command server")

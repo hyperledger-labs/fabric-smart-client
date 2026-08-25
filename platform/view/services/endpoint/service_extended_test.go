@@ -500,7 +500,7 @@ func TestResolveIdentities(t *testing.T) {
 
 		_, err = service.ResolveIdentities("non-existent")
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot find the idnetity")
+		assert.Contains(t, err.Error(), "cannot find the identity")
 	})
 
 	t.Run("error on first of multiple endpoints", func(t *testing.T) {

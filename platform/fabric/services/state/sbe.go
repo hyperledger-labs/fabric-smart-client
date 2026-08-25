@@ -102,7 +102,7 @@ func (s *stateEP) Policy() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed building policy")
 	}
-	logger.Debugf("StateEP Polci [\n%s\n]", spe.String())
+	logger.Debugf("StateEP Policy [\n%s\n]", spe.String())
 	spBytes, err := proto.Marshal(spe)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed marshalling policy")

@@ -453,7 +453,7 @@ type CommandResponseHeader struct {
 	Timestamp *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	// CommandHash is the hash computed on the concatenation of the SignedCommand's command and signature fields.
 	// If not specified differently, SHA256 is used
-	// The hash is used to link a response with its request, both for bookeeping purposes on an
+	// The hash is used to link a response with its request, both for bookkeeping purposes on an
 	// asynchronous system and for security reasons (accountability, non-repudiation)
 	CommandHash []byte `protobuf:"bytes,2,opt,name=command_hash,json=commandHash,proto3" json:"command_hash,omitempty"`
 	// Creator is the identity of the party creating this message
@@ -568,7 +568,7 @@ func (x *Error) GetPayload() []byte {
 	return nil
 }
 
-// A CommnandResponse is returned from a server to the command submitter.
+// A CommandResponse is returned from a server to the command submitter.
 type CommandResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Header of the response.

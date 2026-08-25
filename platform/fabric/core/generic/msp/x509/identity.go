@@ -58,7 +58,7 @@ func SerializeFromMSP(mspID, path string) ([]byte, error) {
 	}
 	serRaw, err := SerializeRaw(mspID, certRaw)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to generate msp serailization at [%s:%s]", mspID, path)
+		return nil, errors.WithMessagef(err, "failed to generate msp serialization at [%s:%s]", mspID, path)
 	}
 	id, err := msp.DeserializeIdentity(serRaw)
 	if err != nil {

@@ -52,7 +52,7 @@ func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 		rcvSpan.AddEvent("Read response")
 		m := string(msg.Payload)
 		if m != "pong" {
-			return nil, errors.Errorf("exptectd pong, got %s", m)
+			return nil, errors.Errorf("expected pong, got %s", m)
 		}
 	case <-time.After(1 * time.Minute):
 		return nil, errors.New("responder didn't pong in time")
