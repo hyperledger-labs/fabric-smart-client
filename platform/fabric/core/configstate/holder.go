@@ -28,8 +28,14 @@ import (
 // front of the caller at the point of use instead of surfacing as a nil
 // dereference somewhere further down. Discarding the error still compiles, so
 // this makes the mistake visible rather than impossible.
+//
+// An empty holder distinguishes two ways of being empty. One has not been
+// offered a configuration yet, and a caller racing that arrival should retry;
+// the other was offered one and refused it, and retrying will not help until a
+// later update is accepted. Get names them with driver.ErrNotInitialized and
+// driver.ErrConfigRejected respectively.
 type Holder[T any] struct {
-	// mu serializes access to value and loaded.
+	// mu serializes access to value, loaded and rejected.
 	mu sync.RWMutex
 	// value is the configuration held, meaningful only when loaded is true.
 	value T
@@ -37,27 +43,50 @@ type Holder[T any] struct {
 	// rather than by comparing value against nil so that T may be an
 	// interface type whose stored value is legitimately nil.
 	loaded bool
+	// rejected is the error from the most recent refused Update, kept only
+	// while no configuration has ever been accepted. Once loaded is true the
+	// holder can answer from value and a refusal is the updater's problem
+	// rather than the reader's, so this is cleared and not consulted.
+	rejected error
 
-	channelName string
+	// subject names what is held, as a noun phrase that reads correctly in
+	// front of "not loaded" — "channel [mychannel] configuration", say. It is
+	// only used to give the errors returned by Get somewhere to point; the
+	// service owning the holder remains the authority on identity.
+	subject string
 }
 
-// NewHolder returns an empty Holder for the named channel. The channel name is
-// only used to give the errors returned by Get somewhere to point; the service
-// owning the holder remains the authority on channel identity.
-func NewHolder[T any](channelName string) *Holder[T] {
-	return &Holder[T]{channelName: channelName}
+// NewHolder returns an empty Holder for the named subject. See the subject
+// field for how the name is used.
+func NewHolder[T any](subject string) *Holder[T] {
+	return &Holder[T]{subject: subject}
 }
 
-// Get returns the held configuration. Until the first successful Update it
-// returns an error wrapping driver.ErrNotInitialized, which callers that can
-// tolerate the startup race may test for with errors.Is.
+// Get returns the held configuration.
+//
+// Before the first successful Update it returns an error instead, naming which
+// kind of empty the holder is in so that callers can tell a startup race from a
+// configuration that was refused:
+//
+//   - driver.ErrNotInitialized, if no update has been attempted. The
+//     configuration is still on its way and a caller that can tolerate the race
+//     may test for this with errors.Is and retry.
+//   - driver.ErrConfigRejected, if every update so far was refused. The error
+//     that refused the most recent one is wrapped, and retrying will not clear
+//     it until a later update is accepted.
+//
+// Once an update has been accepted Get answers from the held value and returns
+// no error, including when a later update is refused; see Update.
 func (h *Holder[T]) Get() (T, error) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	if !h.loaded {
 		var zero T
-		return zero, errors.Wrapf(driver.ErrNotInitialized, "channel [%s] configuration not loaded", h.channelName)
+		if h.rejected != nil {
+			return zero, errors.Wrapf(driver.ErrConfigRejected, "%s rejected: %s", h.subject, h.rejected)
+		}
+		return zero, errors.Wrapf(driver.ErrNotInitialized, "%s not loaded", h.subject)
 	}
 
 	return h.value, nil
@@ -68,6 +97,10 @@ func (h *Holder[T]) Get() (T, error) {
 // rather than reported: satisfying an interface that expresses "no
 // configuration" as a nil return, or working from a snapshot of whatever is
 // held at the time of the call.
+//
+// TryGet reports only whether a configuration is held, and a refused update
+// never becomes one. Callers that need to tell a refusal apart from a startup
+// race must use Get.
 func (h *Holder[T]) TryGet() (T, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -80,6 +113,13 @@ func (h *Holder[T]) TryGet() (T, bool) {
 // value is left untouched if fn returns an error, so a rejected configuration
 // cannot leave the holder empty or stale.
 //
+// What a refusal means to readers depends on whether anything has been accepted
+// yet. With a configuration already in force the holder keeps answering from it
+// and readers see nothing; the refusal is reported to the updater alone, through
+// the error returned here. With nothing in force the holder remembers the
+// refusal, so that Get can report driver.ErrConfigRejected rather than inviting
+// a retry that cannot help. Either way an accepted update clears it.
+//
 // fn runs while the write lock is held and must not call back into this Holder;
 // doing so deadlocks.
 func (h *Holder[T]) Update(fn func(current T, loaded bool) (T, error)) error {
@@ -88,10 +128,14 @@ func (h *Holder[T]) Update(fn func(current T, loaded bool) (T, error)) error {
 
 	v, err := fn(h.value, h.loaded)
 	if err != nil {
+		if !h.loaded {
+			h.rejected = err
+		}
 		return err
 	}
 
 	h.value = v
 	h.loaded = true
+	h.rejected = nil
 	return nil
 }

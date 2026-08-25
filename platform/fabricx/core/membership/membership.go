@@ -35,7 +35,9 @@ var logger = logging.MustGetLogger()
 // Service answers membership questions about a channel from its current
 // configuration. The configuration is not available when the service is built;
 // it arrives with the first poll of the channel config monitor, via Update.
-// Every accessor therefore reports driver.ErrNotInitialized until that happens.
+// Until one is in force every accessor reports driver.ErrNotInitialized, or,
+// once a configuration has arrived and failed validation,
+// driver.ErrConfigRejected.
 type Service struct {
 	// config holds the channel configuration once it has been loaded. Reading
 	// it goes through configstate.Holder.Get, which cannot hand out a
@@ -49,7 +51,7 @@ type Service struct {
 
 func NewService(channelID string) *Service {
 	s := &Service{
-		config:    configstate.NewHolder[channelconfig.Resources](channelID),
+		config:    configstate.NewHolder[channelconfig.Resources]("channel [" + channelID + "] configuration"),
 		channelID: channelID,
 	}
 	policyChecker := policy.NewPolicyChecker(
@@ -215,8 +217,8 @@ func (s *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 
 // GetMSPIDs retrieves the MSP IDs of the organizations in the current Channel
 // configuration. An empty result means the channel has no organizations; a
-// channel whose configuration has not been loaded yet reports
-// driver.ErrNotInitialized instead.
+// channel with no configuration in force reports driver.ErrNotInitialized or
+// driver.ErrConfigRejected instead.
 func (s *Service) GetMSPIDs() ([]string, error) {
 	res, err := s.config.Get()
 	if err != nil {
@@ -304,9 +306,9 @@ func (s *Service) MSPManager() driver.MSPManager {
 
 // IsIdemixMSP reports whether the MSP identified by mspID is of type Idemix.
 // A false result means the channel has such an MSP and it is not Idemix; a
-// channel whose configuration has not been loaded yet reports
-// driver.ErrNotInitialized instead, so a caller cannot mistake the startup
-// race for a definitive answer.
+// channel with no configuration in force reports driver.ErrNotInitialized or
+// driver.ErrConfigRejected instead, so a caller cannot mistake an absent
+// configuration for a definitive answer.
 func (s *Service) IsIdemixMSP(mspID string) (bool, error) {
 	res, err := s.config.Get()
 	if err != nil {

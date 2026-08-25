@@ -23,7 +23,7 @@ type config struct{ id string }
 func TestGetBeforeFirstUpdate(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 
 	v, err := h.Get()
 	require.Error(t, err)
@@ -37,7 +37,7 @@ func TestGetBeforeFirstUpdate(t *testing.T) {
 func TestGetAfterUpdate(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
 		return &config{id: "first"}, nil
 	}))
@@ -50,7 +50,7 @@ func TestGetAfterUpdate(t *testing.T) {
 func TestFailedUpdateLeavesPreviousValue(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
 		return &config{id: "first"}, nil
 	}))
@@ -67,19 +67,91 @@ func TestFailedUpdateLeavesPreviousValue(t *testing.T) {
 func TestFailedFirstUpdateStaysUninitialized(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 	require.Error(t, h.Update(func(*config, bool) (*config, error) {
 		return nil, errors.New("boom")
 	}))
 
+	v, err := h.Get()
+	require.Nil(t, v)
+	require.Error(t, err)
+}
+
+// TestRejectedFirstUpdateIsNotReportedAsStartup asserts that a holder that was
+// offered a configuration and refused it is distinguishable from one that has
+// not been offered anything. The two are both empty, but only the second is a
+// startup race worth retrying.
+func TestRejectedFirstUpdateIsNotReportedAsStartup(t *testing.T) {
+	t.Parallel()
+
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	require.Error(t, h.Update(func(*config, bool) (*config, error) {
+		return nil, errors.New("bad consensus type")
+	}))
+
 	_, err := h.Get()
-	require.True(t, errors.Is(err, driver.ErrNotInitialized))
+	require.True(t, errors.Is(err, driver.ErrConfigRejected), "must report the rejection")
+	require.False(t, errors.Is(err, driver.ErrNotInitialized), "must not invite a retry that cannot help")
+	require.ErrorContains(t, err, "bad consensus type", "the reason the update was refused must survive")
+}
+
+// TestRejectionIsClearedByALaterSuccess asserts that a holder recovers when a
+// subsequent configuration is accepted: the earlier rejection must not keep
+// being reported once a good value is in place.
+func TestRejectionIsClearedByALaterSuccess(t *testing.T) {
+	t.Parallel()
+
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	require.Error(t, h.Update(func(*config, bool) (*config, error) {
+		return nil, errors.New("boom")
+	}))
+	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
+		return &config{id: "good"}, nil
+	}))
+
+	v, err := h.Get()
+	require.NoError(t, err)
+	require.Equal(t, "good", v.id)
+}
+
+// TestRejectionAfterASuccessIsNotReported asserts that a refused update does not
+// mask a configuration already in force. Get keeps answering from the held
+// value, and the caller learns about the refusal from Update's own error.
+func TestRejectionAfterASuccessIsNotReported(t *testing.T) {
+	t.Parallel()
+
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
+		return &config{id: "first"}, nil
+	}))
+	require.Error(t, h.Update(func(*config, bool) (*config, error) {
+		return nil, errors.New("boom")
+	}))
+
+	v, err := h.Get()
+	require.NoError(t, err, "a rejected update must not invalidate the configuration in force")
+	require.Equal(t, "first", v.id)
+}
+
+// TestTryGetIgnoresRejection asserts that TryGet keeps its two-state contract:
+// it reports whether a configuration is held, and a rejection is not one.
+func TestTryGetIgnoresRejection(t *testing.T) {
+	t.Parallel()
+
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	require.Error(t, h.Update(func(*config, bool) (*config, error) {
+		return nil, errors.New("boom")
+	}))
+
+	v, ok := h.TryGet()
+	require.False(t, ok)
+	require.Nil(t, v)
 }
 
 func TestUpdateSeesCurrentValue(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 
 	require.NoError(t, h.Update(func(cur *config, loaded bool) (*config, error) {
 		require.False(t, loaded)
@@ -97,7 +169,7 @@ func TestUpdateSeesCurrentValue(t *testing.T) {
 func TestTryGet(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 
 	v, ok := h.TryGet()
 	require.False(t, ok)
@@ -117,7 +189,7 @@ func TestInterfaceValueIsNotMistakenForLoaded(t *testing.T) {
 
 	type iface interface{ ID() string }
 
-	h := configstate.NewHolder[iface]("mychannel")
+	h := configstate.NewHolder[iface]("channel [mychannel] configuration")
 	_, err := h.Get()
 	require.True(t, errors.Is(err, driver.ErrNotInitialized))
 
@@ -131,7 +203,7 @@ func TestInterfaceValueIsNotMistakenForLoaded(t *testing.T) {
 func TestConcurrentAccessIsRaceFree(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("mychannel")
+	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
 
 	var wg sync.WaitGroup
 	for range 8 {
