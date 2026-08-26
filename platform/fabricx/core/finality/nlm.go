@@ -358,6 +358,20 @@ func (n *notificationListenerManager) AddFinalityListener(txID driver.TxID, list
 		return nil
 	}
 
+	// Refuse new transactions while the pool is congested. dispatch and sweepExpired
+	// keep listeners they could not hand off, so a saturated queue makes the map grow;
+	// admitting more work there would let it grow without bound. Failing here is an
+	// immediate, retryable error, which is a better answer than accepting the listener
+	// and settling it Unknown minutes later.
+	//
+	// Only new txIDs are checked: a listener joining an existing one adds no map entry
+	// and sends no request, so it cannot contribute to growth.
+	if congested, used, size := n.queueCongested(); congested {
+		return errors.Errorf(
+			"notification service busy: %d of %d handler queue slots in use, cannot register txID=%s, retry shortly",
+			used, size, txID)
+	}
+
 	n.handlers[txID] = &handlerEntry{
 		listeners: []fabric.FinalityListener{listener},
 		expiresAt: n.expiryFor(time.Now()),
@@ -440,6 +454,35 @@ func (n *notificationListenerManager) RemoveFinalityListener(txID string, listen
 	}
 
 	return nil
+}
+
+// queueHighWaterPct is the callQueue fill level, in percent, at which
+// AddFinalityListener starts refusing new transactions. Below 100 so registration
+// stops before the queue is completely full, leaving room for callbacks already
+// in flight.
+const queueHighWaterPct = 90
+
+// queueCongested reports whether the handler queue is past its high-water mark,
+// with the numbers for the caller's error message.
+func (n *notificationListenerManager) queueCongested() (congested bool, used, size int) {
+	size = cap(n.callQueue)
+	if size == 0 {
+		return false, 0, 0 // unbuffered or unset: no level to measure
+	}
+	used = len(n.callQueue)
+	return used*100 >= size*queueHighWaterPct, used, size
+}
+
+// keepForSweep retains the listeners whose callbacks could not be queued, and stamps
+// a past deadline so the next sweep retries them.
+//
+// The deadline is rewritten rather than preserved because sweepExpired ignores entries
+// whose expiresAt is zero -- which is what expiryFor returns when listenerTTL is 0. A
+// kept listener with no deadline would then wait for stream teardown, so it is given
+// one unconditionally: keeping a listener is a promise to retry it.
+func keepForSweep(entry *handlerEntry, kept []fabric.FinalityListener) {
+	entry.listeners = kept
+	entry.expiresAt = time.Now().Add(-time.Nanosecond)
 }
 
 // enqueueHandler buffers one OnStatus invocation for the handler pool. It never
@@ -555,28 +598,40 @@ func (n *notificationListenerManager) expiryFor(now time.Time) time.Time {
 // Takes no context: it only mutates the map and enqueues, and the enqueued work
 // runs under the pool's own context rather than the dispatcher's.
 func (n *notificationListenerManager) dispatch(resp *committerpb.NotificationResponse) {
-	var calls []handlerCall
+	dropped, total := 0, 0
 
+	// Enqueue inside the lock and delete only what was handed off. Deleting first
+	// would orphan any listener whose callback could not be queued: it would be
+	// neither in callQueue nor in handlers, and the sweeper only scans handlers, so
+	// OnStatus would never be called at all -- not even with Unknown. Keeping it
+	// leaves the sweeper as its owner, on its original expiresAt.
 	n.handlersMu.Lock()
 	for txID, status := range parseResponse(resp) {
 		entry, ok := n.handlers[txID]
 		if !ok {
 			continue
 		}
-		delete(n.handlers, txID)
+
+		var kept []fabric.FinalityListener
 		for _, h := range entry.listeners {
-			calls = append(calls, handlerCall{handler: h, txID: txID, status: status})
+			total++
+			if n.enqueueHandler(handlerCall{handler: h, txID: txID, status: status}) {
+				continue
+			}
+			dropped++
+			kept = append(kept, h)
+		}
+
+		if len(kept) == 0 {
+			delete(n.handlers, txID)
+		} else {
+			// Partially handed off: keep only the listeners still owing a callback.
+			keepForSweep(entry, kept)
 		}
 	}
 	n.handlersMu.Unlock()
 
-	dropped := 0
-	for _, c := range calls {
-		if !n.enqueueHandler(c) {
-			dropped++
-		}
-	}
-	n.logDrops(dropped, len(calls))
+	n.logDrops(dropped, total)
 }
 
 // sweepExpired settles listeners whose local deadline has passed.
@@ -608,38 +663,40 @@ func (n *notificationListenerManager) sweepExpired() {
 
 	now := time.Now()
 
-	type expired struct {
-		txID      string
-		listeners []fabric.FinalityListener
-	}
-	var batch []expired
-
-	// Collect and delete under the lock; notify outside it, mirroring how the
-	// dispatcher handles its own callbacks.
+	// Enqueue inside the lock and delete only what was handed off, for the same reason
+	// as dispatch: an entry deleted after a failed enqueue is owned by nobody, and this
+	// sweep is the very thing that would have settled it. Keeping it means the next
+	// sweep retries.
+	dropped, total, settling := 0, 0, 0
 	n.handlersMu.Lock()
 	for txID, entry := range n.handlers {
 		if entry.expiresAt.IsZero() || entry.expiresAt.After(now) {
 			continue
 		}
-		batch = append(batch, expired{txID: txID, listeners: entry.listeners})
-		delete(n.handlers, txID)
+		settling++
+
+		var kept []fabric.FinalityListener
+		for _, h := range entry.listeners {
+			total++
+			if n.enqueueHandler(handlerCall{handler: h, txID: txID, status: fdriver.Unknown}) {
+				continue
+			}
+			dropped++
+			kept = append(kept, h)
+		}
+
+		if len(kept) == 0 {
+			delete(n.handlers, txID)
+		} else {
+			keepForSweep(entry, kept)
+		}
 	}
 	n.handlersMu.Unlock()
 
-	if len(batch) == 0 {
+	if settling == 0 {
 		return
 	}
 
-	logger.Debugf("Settling %d expired finality listener(s) with Unknown", len(batch))
-
-	dropped, total := 0, 0
-	for _, e := range batch {
-		for _, h := range e.listeners {
-			total++
-			if !n.enqueueHandler(handlerCall{handler: h, txID: e.txID, status: fdriver.Unknown}) {
-				dropped++
-			}
-		}
-	}
+	logger.Debugf("Settling %d expired finality listener(s) with Unknown", settling)
 	n.logDrops(dropped, total)
 }

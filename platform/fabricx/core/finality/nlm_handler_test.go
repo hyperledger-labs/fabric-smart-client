@@ -197,16 +197,17 @@ func TestHandlerPool(t *testing.T) {
 	})
 
 	t.Run("Saturation_Does_Not_Block_Dispatcher", func(t *testing.T) {
-		// A saturated pool must not stall the dispatcher: it keeps draining
-		// responseQueue and keeps sweeping. Once the queue fills, further calls are
-		// dropped with a warning rather than blocking.
+		// A saturated pool must not stall the dispatcher. Asserted by it draining the
+		// whole batch, not by an empty handlers map: listeners it cannot hand off are
+		// deliberately kept for the sweeper, so entries legitimately remain.
 		t.Parallel()
 
 		nlm, fakeStream := setupTest(t)
-		nlm.handlerTimeout = testHandlerTimeout
-		nlm.handlerWorkers = 1
-		// Tiny queue so the flood below actually saturates it.
-		nlm.callQueue = make(chan handlerCall, 2)
+		// Short timeout and several workers so teardown does not serialise 40+ blocked
+		// listeners at handlerTimeout each: kept listeners all reach settleAllAndClear.
+		nlm.handlerTimeout = 20 * time.Millisecond
+		nlm.handlerWorkers = 8
+		nlm.callQueue = make(chan handlerCall, 2) // tiny, so the flood saturates it
 
 		blocker := newCountingBlockingListener()
 		t.Cleanup(func() { close(blocker.block) })
@@ -223,17 +224,18 @@ func TestHandlerPool(t *testing.T) {
 		runManager(t, nlm)
 
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
-			assert.Equal(collect, int32(1), blocker.inFlight.Load())
-		}, timeout, tick, "the single handler slot should be held")
+			assert.Positive(collect, blocker.inFlight.Load(), "handler slots should be held")
+		}, timeout, tick)
 
-		// The dispatcher must have finished the whole batch (all entries removed
-		// from the map) even though almost all of it was dropped.
+		// The dispatcher worked through the entire response rather than blocking on the
+		// full queue: every txID was either handed to the pool or kept for the sweeper,
+		// and none was left untouched.
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
 			nlm.handlersMu.RLock()
 			remaining := len(nlm.handlers)
 			nlm.handlersMu.RUnlock()
-			assert.Zero(collect, remaining,
-				"dispatcher must drain the batch even when the queue is full")
+			assert.Less(collect, remaining, floodSize,
+				"dispatcher must process the batch even when the queue is full")
 		}, timeout, tick)
 	})
 
@@ -445,6 +447,160 @@ func TestHandlerPool(t *testing.T) {
 		require.Zero(t, dead.Load(),
 			"%d of %d callbacks were handed an already-cancelled context; they must never see one",
 			dead.Load(), queued)
+	})
+
+	t.Run("Unqueueable_Callbacks_Stay_In_The_Map", func(t *testing.T) {
+		// dispatch must not delete a listener it could not hand to the pool: the
+		// sweeper only sees n.handlers, so an orphaned listener never gets OnStatus at
+		// all -- not even Unknown.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = testHandlerTimeout
+		nlm.handlerWorkers = 1
+		nlm.callQueue = make(chan handlerCall, 1) // fills immediately
+
+		blocker := newCountingBlockingListener()
+		t.Cleanup(func() { close(blocker.block) })
+
+		const batch = 20
+		ids := make([]string, 0, batch)
+		for i := range batch {
+			id := "tx_kept_" + strconv.Itoa(i)
+			ids = append(ids, id)
+			seedHandlers(nlm, id, blocker)
+		}
+
+		feedResponses(t.Context(), fakeStream, respFor(ids...))
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Positive(collect, blocker.inFlight.Load(), "the worker should be held")
+		}, timeout, tick)
+
+		// Whatever could not be queued must still be tracked, so the sweeper owns it.
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			nlm.handlersMu.RLock()
+			remaining := len(nlm.handlers)
+			nlm.handlersMu.RUnlock()
+			assert.Positive(collect, remaining,
+				"un-queued listeners were deleted anyway: nothing can settle them now")
+		}, timeout, tick)
+	})
+
+	t.Run("Unqueueable_Callbacks_Are_Eventually_Settled", func(t *testing.T) {
+		// The point of keeping them: the sweeper settles them with Unknown, so every
+		// registered listener still gets exactly one OnStatus.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = testHandlerTimeout
+		nlm.handlerWorkers = 1
+		nlm.callQueue = make(chan handlerCall, 1)
+		nlm.listenerTTL = 40 * time.Millisecond
+		nlm.sweepInterval = 20 * time.Millisecond
+
+		var unknown atomic.Int32
+		counter := &funcListener{fn: func(_ context.Context, _ string, status int, _ string) {
+			if status == fdriver.Unknown {
+				unknown.Add(1)
+			}
+		}}
+
+		const batch = 10
+		ids := make([]string, 0, batch)
+		for i := range batch {
+			id := "tx_settled_" + strconv.Itoa(i)
+			ids = append(ids, id)
+			seedHandlers(nlm, id, counter)
+			setExpiry(nlm, id, time.Now().Add(nlm.listenerTTL))
+		}
+
+		feedResponses(t.Context(), fakeStream, respFor(ids...))
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Positive(collect, unknown.Load(),
+				"listeners kept in the map must eventually be settled by the sweeper")
+		}, 3*time.Second, tick)
+	})
+
+	t.Run("Kept_Callbacks_Are_Retried_Even_Without_Local_Expiry", func(t *testing.T) {
+		// A kept listener must be reachable by the sweeper whatever its original
+		// deadline was. sweepExpired skips entries whose expiresAt is zero ("never
+		// expires"), which is what AddFinalityListener stamps when listenerTTL is 0 --
+		// so without a fresh deadline a kept listener would wait for stream teardown.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = testHandlerTimeout
+		nlm.handlerWorkers = 2
+		nlm.callQueue = make(chan handlerCall, 2) // tiny, so the batch overflows
+		// Sweeper on, but the entries themselves carry no deadline: seedHandlers
+		// leaves expiresAt zero, exactly as listenerTTL == 0 would.
+		nlm.listenerTTL = 40 * time.Millisecond
+		nlm.sweepInterval = 20 * time.Millisecond
+
+		var settled atomic.Int32
+		quick := &funcListener{fn: func(context.Context, string, int, string) {
+			settled.Add(1)
+		}}
+
+		const batch = 30
+		ids := make([]string, 0, batch)
+		for i := range batch {
+			id := "tx_noexpiry_" + strconv.Itoa(i)
+			ids = append(ids, id)
+			seedHandlers(nlm, id, quick) // expiresAt stays zero
+		}
+
+		feedResponses(t.Context(), fakeStream, respFor(ids...))
+		runManager(t, nlm)
+
+		// Workers are free and the queue drains, so every listener must get through --
+		// the ones kept on the first pass included.
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Equal(collect, int32(batch), settled.Load())
+		}, 3*time.Second, tick,
+			"kept listeners were never retried: they carry no deadline the sweeper will act on")
+	})
+
+	t.Run("Registration_Refused_While_Queue_Is_Congested", func(t *testing.T) {
+		// Keeping un-queued listeners means the map grows while the pool is congested.
+		// AddFinalityListener refuses new txIDs past a high-water mark so it cannot
+		// grow without bound, and succeeds again once the queue drains.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = testHandlerTimeout
+		nlm.handlerWorkers = 1
+		nlm.callQueue = make(chan handlerCall, 4)
+
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+		runManager(t, nlm)
+
+		// Fill past the high-water mark.
+		for len(nlm.callQueue) < cap(nlm.callQueue) {
+			nlm.callQueue <- handlerCall{
+				handler: &funcListener{fn: func(context.Context, string, int, string) {}},
+				txID:    "filler",
+				status:  fdriver.Valid,
+			}
+		}
+
+		err := nlm.AddFinalityListener("tx_refused", &funcListener{
+			fn: func(context.Context, string, int, string) {},
+		})
+		require.Error(t, err, "registration must be refused while the queue is congested")
+		require.Contains(t, err.Error(), "busy")
+
+		// Not tracked, so the refusal did not grow the map.
+		_, tracked := listenersFor(nlm, "tx_refused")
+		require.False(t, tracked, "a refused registration must not be recorded")
 	})
 
 	t.Run("Teardown_Settles_At_Worker_Concurrency", func(t *testing.T) {
