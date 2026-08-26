@@ -87,6 +87,14 @@ type service struct {
 	// section on the same goroutine, so AddMSP takes no lock of its own and
 	// must not start taking one — sync.RWMutex is not reentrant and it would
 	// deadlock.
+	//
+	// That is a known hole rather than a safe convention. AddMSP is on the
+	// exported driver.Manager interface and identity loaders are a
+	// dependency-injection extension point, so a loader outside this repository
+	// can retain a Manager and call AddMSP from a goroutine holding no lock of
+	// ours, racing the readers below — a concurrent map write, which is fatal
+	// rather than merely wrong. Fixing it means giving AddMSP a lock that
+	// loadLocalMSPs does not already hold, which is a change of its own.
 	mspsMutex           sync.RWMutex
 	identityLoaders     map[string]driver.IdentityLoader
 	msps                []*driver.MSP
@@ -182,8 +190,15 @@ func (s *service) SetDefaultIdentity(id string, identity view.Identity, signing 
 	// would satisfy its check and hand nil to every caller of DefaultIdentity,
 	// turning a startup failure into a signing failure much later on.
 	if err := s.defaults.Update(func(defaultIdentity, bool) (defaultIdentity, error) {
+		// Both halves are checked, because both are handed out: an identity
+		// without its signer would satisfy loadLocalMSPs and then fail at the
+		// first signature instead, in whatever component called
+		// DefaultSigningIdentity.
 		if identity.IsNone() {
 			return defaultIdentity{}, errors.Errorf("MSP [%s] supplied an empty identity", id)
+		}
+		if signing == nil {
+			return defaultIdentity{}, errors.Errorf("MSP [%s] supplied no signing identity", id)
 		}
 		return defaultIdentity{id: identity, signing: signing}, nil
 	}); err != nil {
@@ -353,23 +368,27 @@ func (s *service) RegisterX509MSP(id, path, mspID string) error {
 	return nil
 }
 
+// Refresh discards everything derived from the configured MSPs and builds it
+// again, so that identities added or removed since the last load are picked up.
+//
+// It fails, leaving the service without a default identity, if the reload cannot
+// produce one. Keeping the previous identity across a reload that dropped its
+// MSP would leave the service signing as an MSP it no longer knows about, and
+// would also hide the reason the reload produced nothing, since the holder only
+// records a refusal while nothing is held.
 func (s *service) Refresh() error {
 	s.mspsMutex.Lock()
 	defer s.mspsMutex.Unlock()
 
-	// clean cashes
+	// clean caches
 	s.msps = nil
 	s.mspsByTypeAndName = map[string]*driver.MSP{}
 	s.bccspMspsByIdentity = map[string]*driver.MSP{}
 	s.mspsByEnrollmentID = map[string]*driver.MSP{}
 	s.mspsByName = map[string]*driver.MSP{}
+	s.defaults.Reset()
 
-	// reload
-	if err := s.loadLocalMSPs(); err != nil {
-		return err
-	}
-
-	return nil
+	return s.loadLocalMSPs()
 }
 
 func (s *service) AddMSP(name, mspType, enrollmentID string, IdentityGetter fdriver.GetIdentityFunc) error {
@@ -452,11 +471,11 @@ func (s *service) loadLocalMSPs() error {
 
 	// Resolved before the loaders run, because each of them calls
 	// SetDefaultIdentity, which needs it to decide whether its MSP is the one.
-	if err := s.defaultMSP.Update(func(string, bool) (string, error) {
+	// The error is discarded because this update cannot fail: it accepts
+	// whatever was resolved above.
+	_ = s.defaultMSP.Update(func(string, bool) (string, error) {
 		return defaultMSP, nil
-	}); err != nil {
-		return errors.WithMessagef(err, "failed setting default MSP to [%s]", defaultMSP)
-	}
+	})
 
 	logger.Debugf("Local Local [%d] MSPS using default [%s]", len(configs), defaultMSP)
 	for _, config := range configs {

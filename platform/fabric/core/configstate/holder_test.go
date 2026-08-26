@@ -220,3 +220,41 @@ func TestConcurrentAccessIsRaceFree(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "x", v.id)
 }
+
+// TestResetReturnsToEmpty asserts that Reset discards both a held value and a
+// recorded refusal, so an owner that rebuilds what it holds starts from the same
+// state it was constructed in.
+func TestResetReturnsToEmpty(t *testing.T) {
+	t.Parallel()
+
+	t.Run("after a value was held", func(t *testing.T) {
+		t.Parallel()
+		h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+		require.NoError(t, h.Update(func(*config, bool) (*config, error) {
+			return &config{id: "first"}, nil
+		}))
+
+		h.Reset()
+
+		v, err := h.Get()
+		require.Nil(t, v)
+		require.True(t, errors.Is(err, driver.ErrNotInitialized))
+		_, ok := h.TryGet()
+		require.False(t, ok)
+	})
+
+	t.Run("after a refusal was recorded", func(t *testing.T) {
+		t.Parallel()
+		h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+		require.Error(t, h.Update(func(*config, bool) (*config, error) {
+			return nil, errors.New("boom")
+		}))
+
+		h.Reset()
+
+		_, err := h.Get()
+		require.True(t, errors.Is(err, driver.ErrNotInitialized),
+			"a reset holder must not keep reporting the old refusal")
+		require.False(t, errors.Is(err, driver.ErrConfigRejected))
+	})
+}

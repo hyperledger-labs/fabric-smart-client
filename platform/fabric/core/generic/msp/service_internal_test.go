@@ -10,9 +10,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -27,9 +29,19 @@ import (
 type testConfig struct {
 	driver.Config
 	networkName string
+	defaultMSP  string
+	msps        []config.MSP
 }
 
-func (c *testConfig) NetworkName() string { return c.networkName }
+func (c *testConfig) NetworkName() string           { return c.networkName }
+func (c *testConfig) DefaultMSP() string            { return c.defaultMSP }
+func (c *testConfig) MSPs() ([]config.MSP, error)   { return c.msps, nil }
+func (c *testConfig) TranslatePath(p string) string { return p }
+
+// loaderFunc turns a function into a driver.IdentityLoader.
+type loaderFunc func(manager driver.Manager, c config.MSP) error
+
+func (f loaderFunc) Load(manager driver.Manager, c config.MSP) error { return f(manager, c) }
 
 func newInternalTestService(t *testing.T, defaultMSP string) *service {
 	t.Helper()
@@ -86,6 +98,23 @@ func TestSetDefaultIdentityRefusesEmptyIdentity(t *testing.T) {
 	}
 }
 
+// TestSetDefaultIdentityRefusesMissingSigner asserts that an identity without
+// the signing identity that goes with it is refused. Installing the pair
+// half-built would pass every startup check and then fail at the first
+// signature, in whatever component called DefaultSigningIdentity.
+func TestSetDefaultIdentityRefusesMissingSigner(t *testing.T) {
+	t.Parallel()
+	s := newInternalTestService(t, "SampleOrg")
+
+	s.SetDefaultIdentity("SampleOrg", view.Identity("me"), nil)
+
+	_, err := s.defaults.Get()
+	require.ErrorIs(t, err, fdriver.ErrConfigRejected)
+	require.ErrorContains(t, err, "supplied no signing identity")
+	require.Nil(t, s.DefaultIdentity())
+	require.Nil(t, s.DefaultSigningIdentity())
+}
+
 // TestSetDefaultIdentityKeepsExistingOnEmpty asserts that a later empty identity
 // does not clear a default that was already accepted.
 func TestSetDefaultIdentityKeepsExistingOnEmpty(t *testing.T) {
@@ -127,9 +156,12 @@ func TestDefaultIdentityHalvesAreInstalledTogether(t *testing.T) {
 	for range 4 {
 		wg.Go(func() {
 			// Either both halves are present or neither is, never one alone.
+			// assert, not require: require calls t.FailNow, which is only valid
+			// on the test's own goroutine and would Goexit this one instead of
+			// failing the test.
 			if d, loaded := s.defaults.TryGet(); loaded {
-				require.Equal(t, view.Identity("me"), d.id)
-				require.Same(t, signing, d.signing)
+				assert.Equal(t, view.Identity("me"), d.id)
+				assert.Same(t, signing, d.signing)
 			}
 		})
 	}
@@ -214,4 +246,41 @@ func TestSetDefaultIdentityIsSafeWithoutHoldingMspsMutex(t *testing.T) {
 
 type fakeSigningIdentity struct {
 	driver.SigningIdentity
+}
+
+// TestRefreshWithoutAUsableDefaultIdentityFails asserts that a reload which
+// cannot re-establish a default identity is reported as a failure, rather than
+// leaving the service claiming success while it serves the identity of an MSP
+// the reload just removed.
+//
+// Refresh clears everything derived from the configured MSPs, and the default
+// identity is derived from them, so it has to be cleared too. Leaving it in
+// place would also hide the refusal: the holder only records why an update was
+// refused while nothing has been accepted.
+func TestRefreshWithoutAUsableDefaultIdentityFails(t *testing.T) {
+	t.Parallel()
+
+	identity := view.Identity("me")
+	cfg := &testConfig{
+		networkName: "testnet",
+		defaultMSP:  "SampleOrg",
+		msps:        []config.MSP{{ID: "SampleOrg", MSPType: "test"}},
+	}
+	s := NewLocalMSPManager(cfg, nil, nil, nil, nil, nil, 0)
+	s.PutIdentityLoader("test", loaderFunc(func(m driver.Manager, c config.MSP) error {
+		m.SetDefaultIdentity(c.ID, identity, &fakeSigningIdentity{})
+		return nil
+	}))
+
+	require.NoError(t, s.Load())
+	require.Equal(t, identity, s.DefaultIdentity())
+
+	// The MSP is still configured, but this time it has no usable identity.
+	s.PutIdentityLoader("test", loaderFunc(func(m driver.Manager, c config.MSP) error {
+		m.SetDefaultIdentity(c.ID, nil, nil)
+		return nil
+	}))
+
+	require.Error(t, s.Refresh(), "a reload that cannot establish a default identity must fail")
+	require.Nil(t, s.DefaultIdentity(), "the stale identity must not survive the reload")
 }
