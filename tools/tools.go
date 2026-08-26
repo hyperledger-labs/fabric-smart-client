@@ -9,12 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 package tools
 
 import (
-	_ "github.com/fzipp/gocyclo/cmd/gocyclo"
-	_ "github.com/google/addlicense"
-	_ "github.com/gordonklaus/ineffassign"
 	_ "github.com/maxbrunsfeld/counterfeiter/v6"
 	_ "github.com/onsi/ginkgo/v2/ginkgo"
 	_ "google.golang.org/grpc/cmd/protoc-gen-go-grpc"
 	_ "google.golang.org/protobuf/cmd/protoc-gen-go"
-	_ "honnef.co/go/tools/cmd/staticcheck"
 )

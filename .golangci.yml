@@ -6,10 +6,28 @@
 version: "2"
 linters:
   enable:
+    - goheader
     - misspell
     - thelper
     - tparallel
     - paralleltest
+  settings:
+    goheader:
+      # Two header forms are accepted: the SPDX form used by code written for
+      # this project, and the long-form Apache notice carried by files derived
+      # from Hyperledger Fabric, whose attribution we do not rewrite. The
+      # copyright line is optional; a license marker is not. Generated files are
+      # skipped by the default generated-file exclusion.
+      values:
+        regexp:
+          copyright: '(?:Copyright (?:IBM Corp\.? (?:\d{4} )?All Rights Reserved\.|State Street Corp\. \d{4} All Rights Reserved\.)\s*)?'
+          license: '(?s)(?:SPDX-License-Identifier: Apache-2\.0|Licensed under the Apache License.*limitations under the License\.)'
+      template: '{{ copyright }}{{ license }}'
+  exclusions:
+    paths:
+      # nwo writes generated node commands here during integration tests; the
+      # trees are gitignored build artifacts, absent from a clean checkout.
+      - (^|/)out/
 formatters:
   enable:
     - gci

@@ -20,8 +20,28 @@ permissions:
   contents: read
 
 jobs:
-  golangci:
+  # golangci-lint only ever sees a single module, so it is run once per module.
+  # The list is discovered rather than hardcoded so a new module cannot be added
+  # without being linted.
+  modules:
     runs-on: ubuntu-latest
+    outputs:
+      dirs: ${{ steps.list.outputs.dirs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - name: list go modules
+        id: list
+        run: |
+          echo "dirs=$(make list-go-modules | jq -R . | jq -s -c .)" >> $GITHUB_OUTPUT
+
+  golangci:
+    needs:
+      - modules
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.modules.outputs.dirs) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
@@ -32,4 +52,5 @@ jobs:
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # ratchet:golangci/golangci-lint-action@v9.3.0
         with:
           version: v2.12.2
+          working-directory: ${{ matrix.module }}
           args: --timeout=5m
