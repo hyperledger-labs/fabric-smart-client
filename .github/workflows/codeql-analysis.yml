@@ -18,11 +18,19 @@ on:
   schedule:
     - cron: '39 22 * * 5'
 
+# A newer push to the same PR makes the in-flight analysis obsolete, so cancel
+# it. Non-PR events (main pushes, the weekly schedule) fall back to run_id, which
+# is unique per run, so they each get their own group and are never cancelled by
+# -- or queued behind -- another run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
     name: Analyze
     runs-on: 'ubuntu-latest'
-    timeout-minutes: 60
+    timeout-minutes: 30
     permissions:
       security-events: write
       packages: read
@@ -41,14 +49,21 @@ jobs:
           languages: go
           build-mode: manual
 
-      - run: make -j2 install-fabric-bins pull-images-database
-
+      # CodeQL builds its database from what it observes being compiled, so this
+      # step only has to compile the tree -- it does not have to exercise it.
+      # Running the unit tests here duplicated the utest and utest-postgres jobs
+      # in tests.yml without extracting anything extra, so they are gone, along
+      # with the fabric binaries and database images they needed.
+      # The compiled set matches what `make unit-tests` covers: the root module
+      # plus nwo, which lives in the integration module.
       - name: Build manually
         shell: bash
         run: |
           make install-fsccli
           go build -o node ./ci/codeql/node
-          make unit-tests unit-tests-postgres
+          go build ./...
+          go test -run '^$' -count=1 ./... > /dev/null
+          go test -C integration -run '^$' -count=1 ./nwo/... > /dev/null
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@c16c0f3f2812ec4bb3750a5ed64873fe2ce0fbef # ratchet:github/codeql-action/analyze@codeql-bundle-v2.26.3
