@@ -139,3 +139,25 @@ func (h *Holder[T]) Update(fn func(current T, loaded bool) (T, error)) error {
 	h.rejected = nil
 	return nil
 }
+
+// Reset returns the holder to the state it was constructed in: nothing held,
+// and no record of a refusal.
+//
+// For an owner that rebuilds what it holds from scratch rather than replacing it
+// in one step — clearing its caches, reloading, and installing whatever the
+// reload produces. Without this, a reload that fails to produce anything would
+// leave the previous value in place and Get would keep answering with it, and
+// because a refusal is only recorded while nothing is held, the reason the
+// reload produced nothing would be discarded too.
+//
+// Callers that can replace the value in a single Update should do that instead:
+// this opens a window in which Get reports driver.ErrNotInitialized.
+func (h *Holder[T]) Reset() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	var zero T
+	h.value = zero
+	h.loaded = false
+	h.rejected = nil
+}
