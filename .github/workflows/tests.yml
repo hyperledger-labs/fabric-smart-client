@@ -17,6 +17,16 @@ on:
       - '.gitignore'
   workflow_dispatch:
 
+# A newer push to the same pull request makes the in-flight run obsolete, so
+# cancel it -- this workflow fans out to the whole itest matrix, so a superseded
+# run holds a large share of the concurrency allowance. Non-pull-request events
+# (pushes to main, manual dispatch) fall back to run_id, which is unique per run,
+# so they each get their own group and are never cancelled by -- or queued behind
+# -- another run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   utest:
     runs-on: ubuntu-latest
