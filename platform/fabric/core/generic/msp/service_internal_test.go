@@ -42,7 +42,9 @@ func newInternalTestService(t *testing.T, defaultMSP string) *service {
 		nil, // deserializerManager
 		0,   // cacheSize
 	)
-	s.defaultMSP = defaultMSP
+	require.NoError(t, s.defaultMSP.Update(func(string, bool) (string, error) {
+		return defaultMSP, nil
+	}))
 	return s
 }
 
@@ -172,6 +174,42 @@ func TestLoadLocalMSPsErrorIsNotRetryable(t *testing.T) {
 
 		require.NoError(t, s.defaultIdentityError())
 	})
+}
+
+// TestSetDefaultIdentityBeforeDefaultMSPIsResolved asserts that a caller that
+// arrives before loadLocalMSPs has resolved the default MSP installs nothing.
+// An empty identifier must not compare equal to an unresolved one: MSP
+// identifiers are nowhere validated as non-empty.
+func TestSetDefaultIdentityBeforeDefaultMSPIsResolved(t *testing.T) {
+	t.Parallel()
+	s := NewLocalMSPManager(&testConfig{networkName: "testnet"}, nil, nil, nil, nil, nil, 0)
+
+	s.SetDefaultIdentity("", view.Identity("me"), &fakeSigningIdentity{})
+
+	_, err := s.defaults.Get()
+	require.ErrorIs(t, err, fdriver.ErrNotInitialized,
+		"an empty id must not match an unresolved default MSP")
+	require.Nil(t, s.DefaultIdentity())
+}
+
+// TestSetDefaultIdentityIsSafeWithoutHoldingMspsMutex pins what the holder buys
+// over a field guarded by mspsMutex. SetDefaultIdentity is reachable through the
+// exported driver.Manager interface, and identity loaders are a
+// dependency-injection extension point, so a loader outside this repository can
+// retain a Manager and call it from a goroutine holding none of our locks -
+// concurrently with a Refresh that is re-resolving the default MSP.
+func TestSetDefaultIdentityIsSafeWithoutHoldingMspsMutex(t *testing.T) {
+	t.Parallel()
+	s := newInternalTestService(t, "SampleOrg")
+
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		// Stands in for loadLocalMSPs re-resolving the default MSP.
+		_ = s.defaultMSP.Update(func(string, bool) (string, error) { return "SampleOrg", nil })
+	})
+	wg.Go(func() { s.SetDefaultIdentity("SampleOrg", view.Identity("me"), &fakeSigningIdentity{}) })
+	wg.Go(func() { _ = s.DefaultIdentity() })
+	wg.Wait()
 }
 
 type fakeSigningIdentity struct {

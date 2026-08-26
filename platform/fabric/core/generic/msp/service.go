@@ -55,6 +55,26 @@ type service struct {
 	// it apart from a network with no default.
 	defaults *configstate.Holder[defaultIdentity]
 
+	// defaultMSP holds the identifier of the MSP whose identity becomes the
+	// network default. It is resolved by loadLocalMSPs, from the configured
+	// value or, when nothing is configured, from the first MSP in the list, so
+	// it is not the same as the configured value that Config.DefaultMSP
+	// reports.
+	//
+	// Held rather than guarded by mspsMutex because SetDefaultIdentity reads it
+	// and is reachable through the exported driver.Manager interface: identity
+	// loaders are a dependency-injection extension point, so a loader outside
+	// this repository can hold a Manager and call it from a goroutine that owns
+	// no lock of ours. A holder is safe for any caller, whereas taking
+	// mspsMutex there would deadlock the in-tree loaders, which are already
+	// inside that critical section.
+	//
+	// Get also distinguishes "not resolved yet" from a real identifier, which
+	// an empty string cannot: MSP identifiers are nowhere validated as
+	// non-empty, so before loadLocalMSPs has run an empty id would otherwise
+	// compare equal and install itself as the default.
+	defaultMSP *configstate.Holder[string]
+
 	signerService       driver.SignerService
 	binderService       driver.BinderService
 	deserializerManager driver.DeserializerManager
@@ -62,14 +82,12 @@ type service struct {
 	KVS                 KVS
 	config              driver.Config
 
-	// mspsMutex guards the fields below. defaultMSP is the one worth spelling
-	// out: it is written by loadLocalMSPs under the write lock and read by
-	// SetDefaultIdentity, which an identity loader calls from inside that same
-	// critical section, on the same goroutine. So that read takes no lock, and
+	// mspsMutex guards the fields below. They are written by loadLocalMSPs and
+	// by AddMSP, which an identity loader calls from inside that same critical
+	// section on the same goroutine, so AddMSP takes no lock of its own and
 	// must not start taking one — sync.RWMutex is not reentrant and it would
-	// deadlock. AddMSP already relies on this same calling convention.
+	// deadlock.
 	mspsMutex           sync.RWMutex
-	defaultMSP          string
 	identityLoaders     map[string]driver.IdentityLoader
 	msps                []*driver.MSP
 	mspsByName          map[string]*driver.MSP
@@ -90,6 +108,7 @@ func NewLocalMSPManager(
 ) *service {
 	s := &service{
 		defaults:            configstate.NewHolder[defaultIdentity]("default identity"),
+		defaultMSP:          configstate.NewHolder[string]("default MSP"),
 		config:              config,
 		KVS:                 KVS,
 		signerService:       signerService,
@@ -139,13 +158,22 @@ func (s *service) CacheSize() int {
 }
 
 // SetDefaultIdentity installs id's identity as the network default, if id is the
-// MSP the configuration nominates as default. Identities from any other MSP are
-// ignored, and an empty identity is refused.
+// MSP resolved as the default one. Identities from any other MSP are ignored,
+// and an empty identity is refused.
 //
-// Called by identity loaders from inside loadLocalMSPs, so mspsMutex is already
-// held and defaultMSP is read directly. See the mspsMutex comment above.
+// Identity loaders call this from inside loadLocalMSPs, but the method is also
+// reachable through driver.Manager, so it holds no assumption about which locks
+// its caller owns; see the defaultMSP field.
 func (s *service) SetDefaultIdentity(id string, identity view.Identity, signing driver.SigningIdentity) {
-	if id != s.defaultMSP {
+	defaultMSP, err := s.defaultMSP.Get()
+	if err != nil {
+		// Called before loadLocalMSPs resolved which MSP is the default, so
+		// there is nothing to compare id against yet.
+		logger.Warnf("ignoring default identity from MSP [%s]: %v", id, err)
+		return
+	}
+
+	if id != defaultMSP {
 		return
 	}
 
@@ -413,16 +441,24 @@ func (s *service) loadLocalMSPs() error {
 	if err != nil {
 		return errors.WithMessagef(err, "failed loading local MSP configs")
 	}
-	s.defaultMSP = s.config.DefaultMSP()
-	if len(s.defaultMSP) == 0 {
+	defaultMSP := s.config.DefaultMSP()
+	if len(defaultMSP) == 0 {
 		if len(configs) == 0 {
 			return errors.New("default MSP not configured and no MSPs set")
 		}
 		logger.Warnf("default MSP not configured, set it to [%s]", configs[0].ID)
-		s.defaultMSP = configs[0].ID
+		defaultMSP = configs[0].ID
 	}
 
-	logger.Debugf("Local Local [%d] MSPS using default [%s]", len(configs), s.defaultMSP)
+	// Resolved before the loaders run, because each of them calls
+	// SetDefaultIdentity, which needs it to decide whether its MSP is the one.
+	if err := s.defaultMSP.Update(func(string, bool) (string, error) {
+		return defaultMSP, nil
+	}); err != nil {
+		return errors.WithMessagef(err, "failed setting default MSP to [%s]", defaultMSP)
+	}
+
+	logger.Debugf("Local Local [%d] MSPS using default [%s]", len(configs), defaultMSP)
 	for _, config := range configs {
 		loader, ok := s.identityLoaders[config.MSPType]
 		if !ok {
