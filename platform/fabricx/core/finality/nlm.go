@@ -480,6 +480,11 @@ func (n *notificationListenerManager) queueCongested() (congested bool, used, si
 // whose expiresAt is zero -- which is what expiryFor returns when listenerTTL is 0. A
 // kept listener with no deadline would then wait for stream teardown, so it is given
 // one unconditionally: keeping a listener is a promise to retry it.
+//
+// The back-dated deadline is inherited by anything joining this txID later, so such a
+// join is settled Unknown on the next sweep rather than waiting out listenerTTL. That
+// is truthful -- this txID's outcome has already arrived and could not be delivered --
+// but it is why a join can settle far sooner than the configured TTL suggests.
 func keepForSweep(entry *handlerEntry, kept []fabric.FinalityListener) {
 	entry.listeners = kept
 	entry.expiresAt = time.Now().Add(-time.Nanosecond)
@@ -604,7 +609,7 @@ func (n *notificationListenerManager) dispatch(resp *committerpb.NotificationRes
 	// would orphan any listener whose callback could not be queued: it would be
 	// neither in callQueue nor in handlers, and the sweeper only scans handlers, so
 	// OnStatus would never be called at all -- not even with Unknown. Keeping it
-	// leaves the sweeper as its owner, on its original expiresAt.
+	// leaves the sweeper as its owner; see keepForSweep.
 	n.handlersMu.Lock()
 	for txID, status := range parseResponse(resp) {
 		entry, ok := n.handlers[txID]
