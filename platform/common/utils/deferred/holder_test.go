@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package configstate_test
+package deferred_test
 
 import (
 	"strings"
@@ -14,8 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/configstate"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/deferred"
 )
 
 type config struct{ id string }
@@ -23,12 +22,12 @@ type config struct{ id string }
 func TestGetBeforeFirstUpdate(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 
 	v, err := h.Get()
 	require.Error(t, err)
 	require.Nil(t, v)
-	require.True(t, errors.Is(err, driver.ErrNotInitialized),
+	require.True(t, errors.Is(err, deferred.ErrNotLoaded),
 		"error must be matchable with errors.Is, got [%v]", err)
 	require.True(t, strings.Contains(err.Error(), "mychannel"),
 		"error must name the channel, got [%v]", err)
@@ -37,7 +36,7 @@ func TestGetBeforeFirstUpdate(t *testing.T) {
 func TestGetAfterUpdate(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
 		return &config{id: "first"}, nil
 	}))
@@ -50,7 +49,7 @@ func TestGetAfterUpdate(t *testing.T) {
 func TestFailedUpdateLeavesPreviousValue(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
 		return &config{id: "first"}, nil
 	}))
@@ -67,7 +66,7 @@ func TestFailedUpdateLeavesPreviousValue(t *testing.T) {
 func TestFailedFirstUpdateStaysUninitialized(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 	require.Error(t, h.Update(func(*config, bool) (*config, error) {
 		return nil, errors.New("boom")
 	}))
@@ -84,14 +83,14 @@ func TestFailedFirstUpdateStaysUninitialized(t *testing.T) {
 func TestRejectedFirstUpdateIsNotReportedAsStartup(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 	require.Error(t, h.Update(func(*config, bool) (*config, error) {
 		return nil, errors.New("bad consensus type")
 	}))
 
 	_, err := h.Get()
-	require.True(t, errors.Is(err, driver.ErrConfigRejected), "must report the rejection")
-	require.False(t, errors.Is(err, driver.ErrNotInitialized), "must not invite a retry that cannot help")
+	require.True(t, errors.Is(err, deferred.ErrRejected), "must report the rejection")
+	require.False(t, errors.Is(err, deferred.ErrNotLoaded), "must not invite a retry that cannot help")
 	require.ErrorContains(t, err, "bad consensus type", "the reason the update was refused must survive")
 }
 
@@ -101,7 +100,7 @@ func TestRejectedFirstUpdateIsNotReportedAsStartup(t *testing.T) {
 func TestRejectionIsClearedByALaterSuccess(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 	require.Error(t, h.Update(func(*config, bool) (*config, error) {
 		return nil, errors.New("boom")
 	}))
@@ -120,7 +119,7 @@ func TestRejectionIsClearedByALaterSuccess(t *testing.T) {
 func TestRejectionAfterASuccessIsNotReported(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
 		return &config{id: "first"}, nil
 	}))
@@ -138,7 +137,7 @@ func TestRejectionAfterASuccessIsNotReported(t *testing.T) {
 func TestTryGetIgnoresRejection(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 	require.Error(t, h.Update(func(*config, bool) (*config, error) {
 		return nil, errors.New("boom")
 	}))
@@ -151,7 +150,7 @@ func TestTryGetIgnoresRejection(t *testing.T) {
 func TestUpdateSeesCurrentValue(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 
 	require.NoError(t, h.Update(func(cur *config, loaded bool) (*config, error) {
 		require.False(t, loaded)
@@ -169,7 +168,7 @@ func TestUpdateSeesCurrentValue(t *testing.T) {
 func TestTryGet(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 
 	v, ok := h.TryGet()
 	require.False(t, ok)
@@ -189,9 +188,9 @@ func TestInterfaceValueIsNotMistakenForLoaded(t *testing.T) {
 
 	type iface interface{ ID() string }
 
-	h := configstate.NewHolder[iface]("channel [mychannel] configuration")
+	h := deferred.NewHolder[iface]("channel [mychannel] configuration")
 	_, err := h.Get()
-	require.True(t, errors.Is(err, driver.ErrNotInitialized))
+	require.True(t, errors.Is(err, deferred.ErrNotLoaded))
 
 	require.NoError(t, h.Update(func(iface, bool) (iface, error) { return nil, nil }))
 
@@ -203,7 +202,7 @@ func TestInterfaceValueIsNotMistakenForLoaded(t *testing.T) {
 func TestConcurrentAccessIsRaceFree(t *testing.T) {
 	t.Parallel()
 
-	h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 
 	var wg sync.WaitGroup
 	for range 8 {
@@ -229,7 +228,7 @@ func TestResetReturnsToEmpty(t *testing.T) {
 
 	t.Run("after a value was held", func(t *testing.T) {
 		t.Parallel()
-		h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+		h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 		require.NoError(t, h.Update(func(*config, bool) (*config, error) {
 			return &config{id: "first"}, nil
 		}))
@@ -238,14 +237,14 @@ func TestResetReturnsToEmpty(t *testing.T) {
 
 		v, err := h.Get()
 		require.Nil(t, v)
-		require.True(t, errors.Is(err, driver.ErrNotInitialized))
+		require.True(t, errors.Is(err, deferred.ErrNotLoaded))
 		_, ok := h.TryGet()
 		require.False(t, ok)
 	})
 
 	t.Run("after a refusal was recorded", func(t *testing.T) {
 		t.Parallel()
-		h := configstate.NewHolder[*config]("channel [mychannel] configuration")
+		h := deferred.NewHolder[*config]("channel [mychannel] configuration")
 		require.Error(t, h.Update(func(*config, bool) (*config, error) {
 			return nil, errors.New("boom")
 		}))
@@ -253,8 +252,8 @@ func TestResetReturnsToEmpty(t *testing.T) {
 		h.Reset()
 
 		_, err := h.Get()
-		require.True(t, errors.Is(err, driver.ErrNotInitialized),
+		require.True(t, errors.Is(err, deferred.ErrNotLoaded),
 			"a reset holder must not keep reporting the old refusal")
-		require.False(t, errors.Is(err, driver.ErrConfigRejected))
+		require.False(t, errors.Is(err, deferred.ErrRejected))
 	})
 }
