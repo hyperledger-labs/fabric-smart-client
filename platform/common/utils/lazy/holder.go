@@ -13,6 +13,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
+// Holder computes its value on first use, from the provider it was given, and
+// keeps it until Reset.
+//
+// The push-shaped counterpart is deferred.Holder, which is handed its value from
+// outside instead of producing it. Reach for that one when the value arrives
+// later — a configuration block, a context handed over at startup — and for this
+// one when the owner can produce it itself.
 type Holder[V any] interface {
 	Get() (V, error)
 	Reset() error

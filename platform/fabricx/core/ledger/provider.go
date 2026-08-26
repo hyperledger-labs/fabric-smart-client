@@ -14,8 +14,8 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/deferred"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/lazy"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/configstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/queryservice"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
@@ -48,11 +48,11 @@ type Provider struct {
 	grpcClientProvider   GRPCClientProvider
 	ledgers              lazy.Provider[string, driver.Ledger]
 
-	// baseCtx holds the context installed by Initialize. A configstate.Holder
+	// baseCtx holds the context installed by Initialize. A deferred.Holder
 	// rather than a plain field guarded by sync.Once: Once orders its write
 	// only against goroutines that call Do, and the readers here never do, so
 	// it left them racing the write.
-	baseCtx *configstate.Holder[context.Context]
+	baseCtx *deferred.Holder[context.Context]
 }
 
 // NewProvider creates a new Provider instance with the given gRPC client provider.
@@ -61,7 +61,7 @@ func NewProvider(grpcClientProvider GRPCClientProvider, queryServiceProvider que
 	p := &Provider{
 		grpcClientProvider:   grpcClientProvider,
 		queryServiceProvider: queryServiceProvider,
-		baseCtx:              configstate.NewHolder[context.Context]("ledger provider base context"),
+		baseCtx:              deferred.NewHolder[context.Context]("ledger provider base context"),
 	}
 	p.ledgers = lazy.NewProvider[string, driver.Ledger](func(s string) (driver.Ledger, error) {
 		return p.newLedger(s)

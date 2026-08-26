@@ -8,6 +8,7 @@ package driver
 
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/deferred"
 )
 
 // ErrNotImplemented signals that a function is not implemented
@@ -24,7 +25,10 @@ var ErrNotImplemented = errors.New("not implemented")
 // A service that was offered a configuration and refused it reports
 // ErrConfigRejected instead, so that a caller acting on this one is never told
 // to retry something that retrying cannot fix.
-var ErrNotInitialized = errors.New("not initialized")
+//
+// This is deferred.ErrNotLoaded, named here for the Fabric contract that
+// documents it. The two are the same value, so errors.Is matches either.
+var ErrNotInitialized = deferred.ErrNotLoaded
 
 // ErrConfigRejected signals that a service cannot answer because the only
 // configuration it has been offered was refused: a configuration block that
@@ -38,4 +42,7 @@ var ErrNotInitialized = errors.New("not initialized")
 //
 // The error returned by the update that was refused is wrapped, so the reason
 // travels with the sentinel.
-var ErrConfigRejected = errors.New("configuration rejected")
+//
+// This is deferred.ErrRejected, named here for the Fabric contract that
+// documents it. The two are the same value, so errors.Is matches either.
+var ErrConfigRejected = deferred.ErrRejected

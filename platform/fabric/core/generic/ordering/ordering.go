@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/configstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/deferred"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/metrics"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -74,12 +74,12 @@ type Service struct {
 	Broadcasters map[ConsensusType]BroadcastFnc
 
 	// broadcaster holds the broadcaster selected by SetConsensusType. It is
-	// unexported and reached only through configstate.Holder so that the
+	// unexported and reached only through deferred.Holder so that the
 	// "always read under the lock" rule cannot be sidestepped, so that the
 	// not-yet-selected case reaches the caller as an error rather than as a nil
 	// function value, and so that a consensus type we rejected is not reported
 	// as one we have not been told about.
-	broadcaster *configstate.Holder[BroadcastFnc]
+	broadcaster *deferred.Holder[BroadcastFnc]
 }
 
 func NewService(
@@ -94,7 +94,7 @@ func NewService(
 		SigService:                    sigService,
 		Metrics:                       metrics,
 		Broadcasters:                  map[ConsensusType]BroadcastFnc{},
-		broadcaster:                   configstate.NewHolder[BroadcastFnc]("network [" + configService.NetworkName() + "] ordering configuration"),
+		broadcaster:                   deferred.NewHolder[BroadcastFnc]("network [" + configService.NetworkName() + "] ordering configuration"),
 		ConfigService:                 configService,
 	}
 	s.Broadcasters[BFT] = NewBFTBroadcaster(configService, services, metrics).Broadcast

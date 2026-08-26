@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/configstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/deferred"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -40,9 +40,9 @@ var logger = logging.MustGetLogger()
 // driver.ErrConfigRejected.
 type Service struct {
 	// config holds the channel configuration once it has been loaded. Reading
-	// it goes through configstate.Holder.Get, which cannot hand out a
+	// it goes through deferred.Holder.Get, which cannot hand out a
 	// configuration that is not there.
-	config *configstate.Holder[channelconfig.Resources]
+	config *deferred.Holder[channelconfig.Resources]
 
 	ACLProvider aclmgmt.ACLProvider
 
@@ -51,7 +51,7 @@ type Service struct {
 
 func NewService(channelID string) *Service {
 	s := &Service{
-		config:    configstate.NewHolder[channelconfig.Resources]("channel [" + channelID + "] configuration"),
+		config:    deferred.NewHolder[channelconfig.Resources]("channel [" + channelID + "] configuration"),
 		channelID: channelID,
 	}
 	policyChecker := policy.NewPolicyChecker(
@@ -343,7 +343,7 @@ func (s *Service) CheckACL(signedProp driver.SignedProposal) error {
 }
 
 type mspManager struct {
-	config *configstate.Holder[channelconfig.Resources]
+	config *deferred.Holder[channelconfig.Resources]
 }
 
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
@@ -362,7 +362,7 @@ func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPI
 
 type policyManagerGetterFunc struct {
 	channelID string
-	config    *configstate.Holder[channelconfig.Resources]
+	config    *deferred.Holder[channelconfig.Resources]
 }
 
 func (p *policyManagerGetterFunc) Manager(channelID string) policies.Manager {

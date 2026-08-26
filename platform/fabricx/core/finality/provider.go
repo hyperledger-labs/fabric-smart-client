@@ -16,8 +16,8 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/deferred"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/configstate"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
@@ -57,7 +57,7 @@ func NewListenerManagerProvider(grpcClientProvider GRPCClientProvider, configPro
 		configProvider:         configProvider,
 		managers:               make(map[string]ListenerManager),
 		newNotificationManager: newNotifiWithGRPC,
-		baseCtx:                configstate.NewHolder[context.Context]("finality listener manager provider base context"),
+		baseCtx:                deferred.NewHolder[context.Context]("finality listener manager provider base context"),
 	}
 }
 
@@ -76,10 +76,10 @@ type Provider struct {
 	managersMu             sync.Mutex
 
 	// baseCtx holds the root context for all ListenerManager goroutines,
-	// installed by Initialize. A configstate.Holder rather than a plain field
+	// installed by Initialize. A deferred.Holder rather than a plain field
 	// guarded by sync.Once: Once orders its write only against goroutines that
 	// call Do, and NewManager never does, so it left the read racing the write.
-	baseCtx *configstate.Holder[context.Context]
+	baseCtx *deferred.Holder[context.Context]
 }
 
 // resolveConfig looks up the notification service config for network, falling

@@ -12,7 +12,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/configstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/deferred"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/x509"
@@ -53,7 +53,7 @@ type service struct {
 	// or offered one and refused it. loadLocalMSPs turns either into a startup
 	// failure rather than letting a nil identity reach a caller that cannot tell
 	// it apart from a network with no default.
-	defaults *configstate.Holder[defaultIdentity]
+	defaults *deferred.Holder[defaultIdentity]
 
 	// defaultMSP holds the identifier of the MSP whose identity becomes the
 	// network default. It is resolved by loadLocalMSPs, from the configured
@@ -73,7 +73,7 @@ type service struct {
 	// an empty string cannot: MSP identifiers are nowhere validated as
 	// non-empty, so before loadLocalMSPs has run an empty id would otherwise
 	// compare equal and install itself as the default.
-	defaultMSP *configstate.Holder[string]
+	defaultMSP *deferred.Holder[string]
 
 	signerService       driver.SignerService
 	binderService       driver.BinderService
@@ -115,8 +115,8 @@ func NewLocalMSPManager(
 	cacheSize int,
 ) *service {
 	s := &service{
-		defaults:            configstate.NewHolder[defaultIdentity]("default identity"),
-		defaultMSP:          configstate.NewHolder[string]("default MSP"),
+		defaults:            deferred.NewHolder[defaultIdentity]("default identity"),
+		defaultMSP:          deferred.NewHolder[string]("default MSP"),
 		config:              config,
 		KVS:                 KVS,
 		signerService:       signerService,

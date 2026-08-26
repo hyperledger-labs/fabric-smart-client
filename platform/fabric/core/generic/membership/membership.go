@@ -11,7 +11,7 @@ import (
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/configstate"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/deferred"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
@@ -27,16 +27,16 @@ import (
 // arrived and been refused, driver.ErrConfigRejected.
 type Service struct {
 	// config holds the channel configuration once it has been loaded. Reading
-	// it goes through configstate.Holder.Get, which cannot hand out a
+	// it goes through deferred.Holder.Get, which cannot hand out a
 	// configuration that is not there.
-	config *configstate.Holder[*channelconfig.ChannelConfig]
+	config *deferred.Holder[*channelconfig.ChannelConfig]
 
 	channelName string
 }
 
 func NewService(channelName string) *Service {
 	return &Service{
-		config:      configstate.NewHolder[*channelconfig.ChannelConfig]("channel [" + channelName + "] configuration"),
+		config:      deferred.NewHolder[*channelconfig.ChannelConfig]("channel [" + channelName + "] configuration"),
 		channelName: channelName,
 	}
 }
@@ -196,7 +196,7 @@ func (c *Service) CheckACL(signedProp driver.SignedProposal) error {
 }
 
 type mspManager struct {
-	config *configstate.Holder[*channelconfig.ChannelConfig]
+	config *deferred.Holder[*channelconfig.ChannelConfig]
 }
 
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
