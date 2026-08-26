@@ -30,6 +30,8 @@ func TestContainerEnvVars(t *testing.T) {
 			name:      "no overrides returns sorted defaults",
 			overrides: nil,
 			check: func(t *testing.T, result []string) {
+				t.Helper()
+
 				require.Equal(t, defaults, result, "result should be stable across calls")
 				for i := 1; i < len(result); i++ {
 					require.Less(t, result[i-1], result[i], "env vars must be sorted")
@@ -40,6 +42,8 @@ func TestContainerEnvVars(t *testing.T) {
 			name:      "non-empty value overrides a default",
 			overrides: map[string]string{"SC_ORDERER_BLOCK_SIZE": "10"},
 			check: func(t *testing.T, result []string) {
+				t.Helper()
+
 				require.Len(t, result, defaultCount)
 				require.Contains(t, result, "SC_ORDERER_BLOCK_SIZE=10")
 				require.NotContains(t, result, "SC_ORDERER_BLOCK_SIZE=1")
@@ -49,6 +53,8 @@ func TestContainerEnvVars(t *testing.T) {
 			name:      "empty value removes a default",
 			overrides: map[string]string{"SC_VC_LOGGING_LOGSPEC": ""},
 			check: func(t *testing.T, result []string) {
+				t.Helper()
+
 				require.Len(t, result, defaultCount-1)
 				for _, entry := range result {
 					require.NotContains(t, entry, "SC_VC_LOGGING_LOGSPEC")
@@ -59,6 +65,8 @@ func TestContainerEnvVars(t *testing.T) {
 			name:      "non-empty value adds a new var",
 			overrides: map[string]string{"SC_ORDERER_BLOCK_TIMEOUT": "1s"},
 			check: func(t *testing.T, result []string) {
+				t.Helper()
+
 				require.Len(t, result, defaultCount+1)
 				require.Contains(t, result, "SC_ORDERER_BLOCK_TIMEOUT=1s")
 			},

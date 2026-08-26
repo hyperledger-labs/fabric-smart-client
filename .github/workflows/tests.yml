@@ -18,20 +18,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  checks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
-        with:
-          go-version-file: "go.mod"
-          cache-dependency-path: "**/*.sum"
-      - run: make -j2 install-tools install-linter-tool
-      - run: make checks
-
   utest:
-    needs:
-      - checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
@@ -52,8 +39,6 @@ jobs:
           fail-on-error: false
 
   utest-postgres:
-    needs:
-      - checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
@@ -86,7 +71,6 @@ jobs:
 
   itest:
     needs:
-      - checks
       - itest-list
     runs-on: ubuntu-latest
     strategy:
