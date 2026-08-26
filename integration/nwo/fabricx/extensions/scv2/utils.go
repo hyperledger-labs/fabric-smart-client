@@ -47,6 +47,22 @@ func containerSidecarTLSDir(n *network.Network, p *topology.Peer) string {
 	)
 }
 
+func containerOrdererMSPDir(n *network.Network, o *topology.Orderer) string {
+	org := n.Organization(o.Organization)
+
+	return path.Join(
+		"/",
+		"root",
+		"artifacts",
+		"crypto",
+		"ordererOrganizations",
+		org.Domain,
+		"orderers",
+		fmt.Sprintf("%s.%s", o.Name, org.Domain),
+		"msp",
+	)
+}
+
 func containerOrdererTLSDir(n *network.Network, o *topology.Orderer) string {
 	org := n.Organization(o.Organization)
 
