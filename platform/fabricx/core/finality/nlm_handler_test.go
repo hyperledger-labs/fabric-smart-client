@@ -276,10 +276,9 @@ func TestHandlerPool(t *testing.T) {
 	})
 
 	t.Run("Burst_Larger_Than_Limit_Is_Delivered_In_Full", func(t *testing.T) {
-		// Why the queue exists. One notification response can carry far more
-		// transactions than there are workers, dispatched in a tight loop; without a
-		// buffer everything past the worker count is dropped even though the listeners
-		// are healthy. Concurrency must still be capped -- see peak below.
+		// Why the queue exists: one response can carry far more transactions than there
+		// are workers, so without a buffer the surplus would fall back to the sweeper
+		// even with healthy listeners. Concurrency must still be capped -- see peak.
 		t.Parallel()
 
 		const limit = 4
@@ -489,8 +488,10 @@ func TestHandlerPool(t *testing.T) {
 	})
 
 	t.Run("Unqueueable_Callbacks_Are_Eventually_Settled", func(t *testing.T) {
-		// The point of keeping them: the sweeper settles them with Unknown, so every
-		// registered listener still gets exactly one OnStatus.
+		// The point of keeping them: every registered listener still gets exactly one
+		// OnStatus. Counts any status, not Unknown specifically -- a kept listener whose
+		// answer did arrive is settled with the real one; see
+		// Kept_Callbacks_Are_Retried_With_The_Real_Status.
 		t.Parallel()
 
 		nlm, fakeStream := setupTest(t)
@@ -500,11 +501,9 @@ func TestHandlerPool(t *testing.T) {
 		nlm.listenerTTL = 40 * time.Millisecond
 		nlm.sweepInterval = 20 * time.Millisecond
 
-		var unknown atomic.Int32
-		counter := &funcListener{fn: func(_ context.Context, _ string, status int, _ string) {
-			if status == fdriver.Unknown {
-				unknown.Add(1)
-			}
+		var settled atomic.Int32
+		counter := &funcListener{fn: func(context.Context, string, int, string) {
+			settled.Add(1)
 		}}
 
 		const batch = 10
@@ -520,9 +519,93 @@ func TestHandlerPool(t *testing.T) {
 		runManager(t, nlm)
 
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
-			assert.Positive(collect, unknown.Load(),
+			assert.Positive(collect, settled.Load(),
 				"listeners kept in the map must eventually be settled by the sweeper")
 		}, 3*time.Second, tick)
+	})
+
+	t.Run("Kept_Callbacks_Are_Retried_With_The_Real_Status", func(t *testing.T) {
+		// A committer answer that arrives but cannot be queued must not be downgraded
+		// to Unknown. The status is remembered on the entry and used when the sweep
+		// retries it, so a transaction that committed is reported Valid even though
+		// its callback was delayed.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = testHandlerTimeout
+		nlm.handlerWorkers = 2
+		nlm.callQueue = make(chan handlerCall, 2) // tiny, so most of the batch is kept
+		nlm.listenerTTL = 40 * time.Millisecond
+		nlm.sweepInterval = 20 * time.Millisecond
+
+		var valid, unknown, other atomic.Int32
+		listener := &funcListener{fn: func(_ context.Context, _ string, status int, _ string) {
+			switch status {
+			case fdriver.Valid:
+				valid.Add(1)
+			case fdriver.Unknown:
+				unknown.Add(1)
+			default:
+				other.Add(1)
+			}
+		}}
+
+		const batch = 24
+		ids := make([]string, 0, batch)
+		for i := range batch {
+			id := "tx_realstatus_" + strconv.Itoa(i)
+			ids = append(ids, id)
+			seedHandlers(nlm, id, listener)
+		}
+
+		// respFor marks every txID COMMITTED, i.e. fdriver.Valid.
+		feedResponses(t.Context(), fakeStream, respFor(ids...))
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Equal(collect, int32(batch), valid.Load()+unknown.Load()+other.Load(),
+				"every listener should have been settled")
+		}, 3*time.Second, tick)
+
+		require.Zero(t, unknown.Load(),
+			"%d listeners were settled Unknown despite the committer reporting COMMITTED",
+			unknown.Load())
+		require.Equal(t, int32(batch), valid.Load(), "all should carry the real status")
+	})
+
+	t.Run("Kept_Without_A_Response_Is_Settled_Unknown", func(t *testing.T) {
+		// The other side: a listener that expires without the committer ever answering
+		// has no remembered status, so Unknown is correct.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = testHandlerTimeout
+		nlm.handlerWorkers = 2
+		nlm.listenerTTL = 30 * time.Millisecond
+		nlm.sweepInterval = 15 * time.Millisecond
+
+		var unknown atomic.Int32
+		listener := &funcListener{fn: func(_ context.Context, _ string, status int, _ string) {
+			if status == fdriver.Unknown {
+				unknown.Add(1)
+			}
+		}}
+
+		seedHandlers(nlm, "tx_silent", listener)
+		setExpiry(nlm, "tx_silent", time.Now().Add(nlm.listenerTTL))
+
+		// Recv never returns a response: nothing is ever heard for this txID.
+		ctx := t.Context()
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Equal(collect, int32(1), unknown.Load())
+		}, 3*time.Second, tick,
+			"a listener with no committer answer must be settled Unknown")
 	})
 
 	t.Run("Kept_Callbacks_Are_Retried_Even_Without_Local_Expiry", func(t *testing.T) {
@@ -563,44 +646,6 @@ func TestHandlerPool(t *testing.T) {
 			assert.Equal(collect, int32(batch), settled.Load())
 		}, 3*time.Second, tick,
 			"kept listeners were never retried: they carry no deadline the sweeper will act on")
-	})
-
-	t.Run("Registration_Refused_While_Queue_Is_Congested", func(t *testing.T) {
-		// Keeping un-queued listeners means the map grows while the pool is congested.
-		// AddFinalityListener refuses new txIDs past a high-water mark so it cannot
-		// grow without bound, and succeeds again once the queue drains.
-		t.Parallel()
-
-		nlm, fakeStream := setupTest(t)
-		nlm.handlerTimeout = testHandlerTimeout
-		nlm.handlerWorkers = 1
-		nlm.callQueue = make(chan handlerCall, 4)
-
-		ctx := t.Context()
-		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
-			<-ctx.Done()
-			return nil, ctx.Err()
-		}
-		runManager(t, nlm)
-
-		// Fill past the high-water mark.
-		for len(nlm.callQueue) < cap(nlm.callQueue) {
-			nlm.callQueue <- handlerCall{
-				handler: &funcListener{fn: func(context.Context, string, int, string) {}},
-				txID:    "filler",
-				status:  fdriver.Valid,
-			}
-		}
-
-		err := nlm.AddFinalityListener("tx_refused", &funcListener{
-			fn: func(context.Context, string, int, string) {},
-		})
-		require.Error(t, err, "registration must be refused while the queue is congested")
-		require.Contains(t, err.Error(), "busy")
-
-		// Not tracked, so the refusal did not grow the map.
-		_, tracked := listenersFor(nlm, "tx_refused")
-		require.False(t, tracked, "a refused registration must not be recorded")
 	})
 
 	t.Run("Teardown_Settles_At_Worker_Concurrency", func(t *testing.T) {
@@ -735,5 +780,49 @@ func TestHandlerPool(t *testing.T) {
 			t.Fatalf("teardown settled only %d of %d listeners while a callback held the only slot",
 				settled.Load(), pending)
 		}
+	})
+
+	t.Run("Kept_Callbacks_Are_Retried_With_Local_Expiry_Disabled", func(t *testing.T) {
+		// listenerTTL == 0 disables the local expiry backstop -- a documented, supported
+		// configuration that leaves the committer's reply as the only thing that settles
+		// a listener. The sweeper is also the retry path for callbacks that could not be
+		// queued, so it must still run those retries with the backstop off: a deferred
+		// listener whose answer already arrived would otherwise never be delivered.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = testHandlerTimeout
+		nlm.handlerWorkers = 2
+		nlm.callQueue = make(chan handlerCall, 2) // tiny, so most of the batch is kept
+		nlm.listenerTTL = 0                       // local expiry disabled
+		nlm.sweepInterval = 20 * time.Millisecond
+
+		var valid, unknown atomic.Int32
+		listener := &funcListener{fn: func(_ context.Context, _ string, status int, _ string) {
+			switch status {
+			case fdriver.Valid:
+				valid.Add(1)
+			case fdriver.Unknown:
+				unknown.Add(1)
+			}
+		}}
+
+		const batch = 24
+		ids := make([]string, 0, batch)
+		for i := range batch {
+			id := "tx_nottl_" + strconv.Itoa(i)
+			ids = append(ids, id)
+			seedHandlers(nlm, id, listener)
+		}
+
+		feedResponses(t.Context(), fakeStream, respFor(ids...))
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Equal(collect, int32(batch), valid.Load(),
+				"every listener must get its real status even with listenerTTL disabled")
+		}, 3*time.Second, tick)
+		require.Zero(t, unknown.Load(),
+			"a committed transaction must never be reported Unknown")
 	})
 }

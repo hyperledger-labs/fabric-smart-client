@@ -590,8 +590,8 @@ func TestNotificationListenerManager(t *testing.T) {
 		t.Parallel()
 		const targetTxID = "tx_pending_at_shutdown"
 		nlm, fakeStream := setupTest(t)
-		// handlerTimeout must be non-zero here: invokeHandler derives the handler
-		// context from it, and a zero timeout would expire before OnStatus runs.
+		// Must be non-zero: callHandler derives each callback's context from it, and a
+		// zero timeout would expire before OnStatus runs.
 		nlm.handlerTimeout = config.DefaultHandlerTimeout
 
 		ctx, cancel := context.WithCancel(t.Context())

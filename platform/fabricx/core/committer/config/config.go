@@ -22,20 +22,18 @@ const DefaultRequestTimeout = 30 * time.Second
 const DefaultHandlerTimeout = 5 * time.Second
 
 // DefaultHandlerWorkers is how many finality listener OnStatus callbacks may run
-// concurrently. A callback that blocks forever occupies one worker for good, and once
-// all of them are occupied queued callbacks are dropped -- which bounds a misbehaving
-// listener's cost to throughput rather than unbounded goroutine growth, and is why
-// OnStatus must observe its context and return promptly. Note this is a concurrency
-// limit, not a rate limit: healthy callbacks return immediately, so batches far larger
-// than this are still delivered in full via HandlerQueueSize.
+// concurrently. A callback that blocks forever occupies one worker for good, so this
+// bounds a misbehaving listener's cost to throughput rather than unbounded goroutine
+// growth -- which is why OnStatus must observe its context and return promptly. It is a
+// concurrency limit, not a rate limit: healthy callbacks return at once, so far larger
+// batches are still delivered in full.
 const DefaultHandlerWorkers = 16
 
-// DefaultHandlerQueueSize is how many pending OnStatus invocations may be buffered
-// while every worker is busy; it matches the generic committer's event queue
-// (platform/common/core/generic/committer/finality.go). It absorbs bursts: one
-// notification response can carry many more transactions than there are workers, and
-// without a buffer everything past that would be dropped even though the listeners
-// are healthy. A full queue therefore signals something worse than a burst.
+// DefaultHandlerQueueSize is how many pending OnStatus invocations may be buffered while
+// every worker is busy; it matches the generic committer's event queue
+// (platform/common/core/generic/committer/finality.go). One notification response can
+// carry many more transactions than there are workers, so without a buffer the surplus
+// would wait for a sweep to retry it even with healthy listeners.
 const DefaultHandlerQueueSize = 1000
 
 // DefaultListenerTTL bounds how long a finality listener may wait locally for
