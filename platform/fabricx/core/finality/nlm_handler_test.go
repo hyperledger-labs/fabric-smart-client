@@ -825,4 +825,42 @@ func TestHandlerPool(t *testing.T) {
 		require.Zero(t, unknown.Load(),
 			"a committed transaction must never be reported Unknown")
 	})
+
+	t.Run("Teardown_Uses_The_Remembered_Status", func(t *testing.T) {
+		// A listener still deferred when the stream dies must be settled with the answer
+		// the committer already gave, not downgraded to Unknown. The sweeper does this;
+		// teardown is the other path that settles from the map and must agree.
+		t.Parallel()
+
+		nlm, _ := setupTest(t)
+		nlm.handlerTimeout = testHandlerTimeout
+		nlm.handlerWorkers = 2
+
+		var valid, unknown atomic.Int32
+		listener := &funcListener{fn: func(_ context.Context, _ string, status int, _ string) {
+			switch status {
+			case fdriver.Valid:
+				valid.Add(1)
+			case fdriver.Unknown:
+				unknown.Add(1)
+			}
+		}}
+
+		// tx_committed was answered but could not be queued; tx_silent never heard back.
+		seedHandlers(nlm, "tx_committed", listener)
+		seedHandlers(nlm, "tx_silent", listener)
+		answered := fdriver.Valid
+		nlm.handlersMu.Lock()
+		nlm.handlers["tx_committed"].deferred = true
+		nlm.handlers["tx_committed"].status = &answered
+		nlm.handlersMu.Unlock()
+
+		// The teardown call listen() makes once the stream is gone.
+		nlm.settleAllAndClear(t.Context(), fdriver.Unknown)
+
+		require.Equal(t, int32(1), valid.Load(),
+			"the listener whose answer already arrived must be settled with it, not Unknown")
+		require.Equal(t, int32(1), unknown.Load(),
+			"the listener nothing was heard for must still be settled Unknown")
+	})
 }

@@ -191,8 +191,11 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 }
 
 // newNotifiWithGRPC creates and initializes a notificationListenerManager using the GRPCClientProvider.
-// cfg is expected to already be fully resolved (see config.NewNotificationServiceConfig /
-// config.DefaultConfig)
+//
+// cfg must already be fully resolved (see config.NewNotificationServiceConfig /
+// config.DefaultConfig): every field is used as-is, with no further nil or zero-value
+// handling. HandlerQueueSize in particular reaches make() directly, which panics on a
+// negative size, so resolution is the caller's responsibility rather than a convention.
 func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 	cc, err := grpcClientProvider.NotificationServiceClient(network)
 	if err != nil {

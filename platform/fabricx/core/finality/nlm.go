@@ -253,9 +253,12 @@ func (n *notificationListenerManager) runDispatcher(gCtx context.Context) error 
 	}
 }
 
-// settleAllAndClear empties the handlers map, invoking every listener still in it
-// with the given status. Used on stream teardown, where no notification can
-// arrive any more.
+// settleAllAndClear empties the handlers map, invoking every listener still in it.
+// Used on stream teardown, where no notification can arrive any more.
+//
+// An entry carrying a remembered status is settled with it, as sweepExpired does: the
+// committer's answer arrived and only its delivery was outstanding, so teardown must not
+// downgrade it. The status argument is the fallback for entries nothing was heard for.
 //
 // Does not go through the handler pool: the workers are already stopped by now, so
 // queued callbacks would never be drained. Listeners are invoked directly instead,
@@ -265,13 +268,18 @@ func (n *notificationListenerManager) settleAllAndClear(ctx context.Context, sta
 	type pending struct {
 		txID      string
 		listeners []fabric.FinalityListener
+		status    int
 	}
 
 	var batch []pending
 
 	n.handlersMu.Lock()
 	for txID, entry := range n.handlers {
-		batch = append(batch, pending{txID: txID, listeners: entry.listeners})
+		settleWith := status
+		if entry.status != nil {
+			settleWith = *entry.status
+		}
+		batch = append(batch, pending{txID: txID, listeners: entry.listeners, status: settleWith})
 	}
 	clear(n.handlers)
 	n.handlersMu.Unlock()
@@ -281,7 +289,7 @@ func (n *notificationListenerManager) settleAllAndClear(ctx context.Context, sta
 		return
 	}
 
-	logger.Debugf("Settling %d pending finality listener(s) with status %d on stream teardown", len(batch), status)
+	logger.Debugf("Settling %d pending finality listener entr(ies) on stream teardown", len(batch))
 
 	// Bounded at handlerWorkers, not serial: a listener that ignores its context costs
 	// a full handlerTimeout, and serially that is paid once per listener.
@@ -293,7 +301,7 @@ func (n *notificationListenerManager) settleAllAndClear(ctx context.Context, sta
 	var wg sync.WaitGroup
 	for _, p := range batch {
 		for _, h := range p.listeners {
-			c := handlerCall{handler: h, txID: p.txID, status: status}
+			c := handlerCall{handler: h, txID: p.txID, status: p.status}
 			sem <- struct{}{}
 			wg.Go(func() {
 				defer func() { <-sem }()
