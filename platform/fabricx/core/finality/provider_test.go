@@ -658,6 +658,6 @@ func TestNewNotifiWithGRPC_HandlerPool(t *testing.T) {
 		nlm, err := newNotifiWithGRPC("network1", &mockGRPCClientProvider{}, cfg)
 		require.NoError(t, err)
 		require.Equal(t, 3, nlm.handlerWorkers)
-		require.Equal(t, 7, cap(nlm.callQueue))
+		require.Equal(t, 7, nlm.handlerQueueSize)
 	})
 }

@@ -133,17 +133,18 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_Open
 	// listenerTTL is deliberately left zero here, which disables local expiry, so
 	// the sweeper stays inert for every test that does not opt in.
 	//
-	// handlerWorkers and callQueue must both be set: handlerWorkers is the worker
-	// count listen() starts, and a nil callQueue would make every enqueue hit the drop
-	// path. Tests that care about the pool's bounds override these.
+	// handlerWorkers and handlerQueueSize must both be set: listen() starts that many
+	// workers and makes the callback queue that big, so a zero would leave the queue
+	// with no capacity and no one to drain it. Tests that care about the pool's bounds
+	// override these.
 	nlm := &notificationListenerManager{
-		notifyClient:   fakeClient,
-		requestQueue:   make(chan *committerpb.NotificationRequest),
-		responseQueue:  make(chan *committerpb.NotificationResponse),
-		handlers:       make(map[driver.TxID]*handlerEntry),
-		callQueue:      make(chan handlerCall, config.DefaultHandlerQueueSize),
-		handlerWorkers: config.DefaultHandlerWorkers,
-		requestTimeout: testRequestTimeout,
+		notifyClient:     fakeClient,
+		requestQueue:     make(chan *committerpb.NotificationRequest),
+		responseQueue:    make(chan *committerpb.NotificationResponse),
+		handlers:         make(map[driver.TxID]*handlerEntry),
+		handlerWorkers:   config.DefaultHandlerWorkers,
+		handlerQueueSize: config.DefaultHandlerQueueSize,
+		requestTimeout:   testRequestTimeout,
 	}
 
 	return nlm, fakeStream
@@ -157,6 +158,20 @@ func seedHandlers(nlm *notificationListenerManager, txID string, listeners ...fa
 	nlm.handlersMu.Lock()
 	defer nlm.handlersMu.Unlock()
 	nlm.handlers[txID] = &handlerEntry{listeners: listeners}
+}
+
+// seedListener appends one listener to a txID's entry, creating it if needed, so a
+// test can build an entry with several listeners without going through
+// AddFinalityListener. Like seedHandlers it leaves expiresAt zero.
+func seedListener(nlm *notificationListenerManager, txID string, listener fabric.FinalityListener) {
+	nlm.handlersMu.Lock()
+	defer nlm.handlersMu.Unlock()
+	entry, ok := nlm.handlers[txID]
+	if !ok {
+		entry = &handlerEntry{}
+		nlm.handlers[txID] = entry
+	}
+	entry.listeners = append(entry.listeners, listener)
 }
 
 // listenersFor returns a snapshot of the listeners registered for txID, plus

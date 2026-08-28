@@ -192,10 +192,9 @@ func (p *Provider) NewManager(network, channel string) (ListenerManager, error) 
 
 // newNotifiWithGRPC creates and initializes a notificationListenerManager using the GRPCClientProvider.
 //
-// cfg must already be fully resolved (see config.NewNotificationServiceConfig /
-// config.DefaultConfig): every field is used as-is, with no further nil or zero-value
-// handling. HandlerQueueSize in particular reaches make() directly, which panics on a
-// negative size, so resolution is the caller's responsibility rather than a convention.
+// cfg is expected to already be fully resolved (see config.NewNotificationServiceConfig /
+// config.DefaultConfig). The pool sizes are clamped anyway: they reach make() and the
+// worker loop directly, where zero leaves nothing to drain the queue and negative panics.
 func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider, cfg config.Config) (*notificationListenerManager, error) {
 	cc, err := grpcClientProvider.NotificationServiceClient(network)
 	if err != nil {
@@ -206,16 +205,16 @@ func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider, cf
 	notifyClient := committerpb.NewNotifierClient(cc)
 
 	nlm := &notificationListenerManager{
-		notifyClient:   notifyClient,
-		requestQueue:   make(chan *committerpb.NotificationRequest),  // Queue for outgoing requests to the committer
-		responseQueue:  make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
-		handlers:       make(map[driver.TxID]*handlerEntry),          // Map: txID -> listeners + local expiry deadline
-		callQueue:      make(chan handlerCall, cfg.HandlerQueueSize), // Buffers callbacks for the handler pool
-		handlerWorkers: cfg.HandlerWorkers,
-		handlerTimeout: cfg.HandlerTimeout,
-		requestTimeout: cfg.RequestTimeout,
-		listenerTTL:    cfg.ListenerTTL,
-		sweepInterval:  cfg.SweepInterval,
+		notifyClient:     notifyClient,
+		requestQueue:     make(chan *committerpb.NotificationRequest),  // Queue for outgoing requests to the committer
+		responseQueue:    make(chan *committerpb.NotificationResponse), // Queue for incoming responses/notifications
+		handlers:         make(map[driver.TxID]*handlerEntry),          // Map: txID -> listeners + local expiry deadline
+		handlerWorkers:   max(cfg.HandlerWorkers, 1),
+		handlerQueueSize: max(cfg.HandlerQueueSize, 1),
+		handlerTimeout:   cfg.HandlerTimeout,
+		requestTimeout:   cfg.RequestTimeout,
+		listenerTTL:      cfg.ListenerTTL,
+		sweepInterval:    cfg.SweepInterval,
 	}
 
 	return nlm, nil

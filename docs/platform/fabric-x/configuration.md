@@ -27,7 +27,7 @@ Both services support endpoint-based gRPC connectivity and optional TLS or mutua
 | `requestTimeout` | `30s` | How long the committer waits for a subscribed transaction before answering. It is sent to the committer as the subscription's timeout, so the committer reports the outcomes it does have and flags only the still-pending transactions as timed out — rather than the client giving up locally and treating the whole batch as `Unknown`. In practice this is how long a finality listener waits before it is settled. |
 | `handlerTimeout` | `5s` | The deadline set on the context handed to a single `OnStatus` callback. Advisory: it cancels the context, but only the callback itself can decide to return. A callback still running past it is reported with a warning. |
 | `handlerWorkers` | `16` | How many `OnStatus` callbacks may run concurrently. A concurrency limit, not a rate limit: healthy callbacks return their slots immediately, so far more than this are delivered per second. See the warning below. |
-| `handlerQueueSize` | `1000` | How many pending `OnStatus` invocations are buffered while every slot is busy. This is what lets a notification batch larger than `handlerWorkers` be delivered in full. Beyond it, the listener stays registered — with the status the committer sent — and is retried on the next sweep rather than being lost. |
+| `handlerQueueSize` | `1000` | How many pending `OnStatus` invocations are buffered while every worker is busy. This is what lets a notification batch larger than `handlerWorkers` be delivered in full. Beyond it, the transaction stays registered — with the status the committer sent — and is retried on the next sweep rather than being lost. Queueing happens per transaction, all of its listeners or none, so keep this comfortably above the most listeners you ever register for a single txID; one with more listeners than the whole queue can only be settled when the stream stops. |
 | `listenerTTL` | `2m` | Local backstop: how long a listener may wait without hearing anything at all — a dead or silent stream — before FSC settles it locally with `Unknown`. Keep it comfortably above `requestTimeout`; the committer's timeout is documented non-strict, so a late notification can still arrive after it passes. `listenerTTL: 0` disables the local backstop entirely. |
 | `sweepInterval` | `30s` | How often expired listeners are collected and listeners that could not be queued are retried. A listener's worst-case lifetime is `listenerTTL + sweepInterval`. |
 
@@ -53,10 +53,11 @@ Note that `Unknown` does not mean the transaction failed — only that there is 
 >
 > Symptoms to look for in the logs:
 >
-> - `OnStatus handler for txID=… did not return before its deadline` — a listener is
->   ignoring cancellation and occupying a slot.
-> - `deferred N of M finality callbacks` — the queue filled; those listeners are
->   retried on the next sweep.
+> - `OnStatus handler for txID=… has not returned within …` — a listener is ignoring
+>   cancellation and is still holding a worker. Emitted at the deadline, while the
+>   callback is running, so it appears even for one that never returns at all.
+> - `deferred N of M finality notifications` — the queue filled; those transactions
+>   keep the status the committer sent and are retried on the next sweep.
 
 ### Sizing the handler pool
 
@@ -75,7 +76,7 @@ sweep even though the listeners were healthy.
 
 Raise `handlerWorkers` when listeners are legitimately slow and you want more of them
 running in parallel. Raise `handlerQueueSize` when notification batches are large and
-bursty. If `deferred N of M finality callbacks` appears while listeners are known to be
+bursty. If `deferred N of M finality notifications` appears while listeners are known to be
 fast, the queue is the setting to increase: the notifications still arrive, but only
 after a sweep tick, so `sweepInterval` becomes the delivery latency.
 

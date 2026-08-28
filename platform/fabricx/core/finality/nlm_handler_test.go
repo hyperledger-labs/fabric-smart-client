@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality/mock"
 )
@@ -207,7 +208,7 @@ func TestHandlerPool(t *testing.T) {
 		// listeners at handlerTimeout each: kept listeners all reach settleAllAndClear.
 		nlm.handlerTimeout = 20 * time.Millisecond
 		nlm.handlerWorkers = 8
-		nlm.callQueue = make(chan handlerCall, 2) // tiny, so the flood saturates it
+		nlm.handlerQueueSize = 2 // tiny, so the flood saturates it
 
 		blocker := newCountingBlockingListener()
 		t.Cleanup(func() { close(blocker.block) })
@@ -393,20 +394,21 @@ func TestHandlerPool(t *testing.T) {
 	})
 
 	t.Run("Callbacks_Never_Get_A_Cancelled_Context", func(t *testing.T) {
-		// select picks at random among ready cases, so a worker can take the queue
-		// branch after cancellation; passing the cancelled context there gives the
-		// listener an already-expired timeout.
-		//
-		// Primes the queue and cancels before the workers start so their first select
-		// has both cases ready -- a normal run does not reliably hit this.
+		// listen() is usually returning *because* its context was cancelled, so a callback
+		// that inherited it would be handed an already-expired timeout and report an
+		// outcome nobody ever waited for. The backlog is what makes this reachable:
+		// callbacks queued before the cancel run after it.
 		t.Parallel()
 
-		const queued = 60
+		const batch = 60
 
 		nlm, fakeStream := setupTest(t)
-		nlm.handlerTimeout = testHandlerTimeout
-		nlm.handlerWorkers = 4
-		nlm.callQueue = make(chan handlerCall, queued)
+		// Generous, so the drain is never the thing under test here.
+		nlm.handlerTimeout = time.Second
+		// One worker against a queue big enough for the whole batch, so most of it is
+		// still buffered when the cancel lands.
+		nlm.handlerWorkers = 1
+		nlm.handlerQueueSize = batch
 
 		var live, dead atomic.Int32
 		listener := &funcListener{fn: func(ctx context.Context, _ string, _ int, _ string) {
@@ -415,37 +417,35 @@ func TestHandlerPool(t *testing.T) {
 			} else {
 				live.Add(1)
 			}
+			time.Sleep(time.Millisecond)
 		}}
 
-		// Work already accepted, awaiting a worker.
-		for i := range queued {
-			nlm.callQueue <- handlerCall{
-				handler: listener,
-				txID:    "tx_cancelctx_" + strconv.Itoa(i),
-				status:  fdriver.Valid,
-			}
+		ids := make([]string, 0, batch)
+		for i := range batch {
+			id := "tx_cancelctx_" + strconv.Itoa(i)
+			ids = append(ids, id)
+			seedHandlers(nlm, id, listener)
 		}
 
 		ctx, cancel := context.WithCancel(t.Context())
-		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
-			<-ctx.Done()
-			return nil, ctx.Err()
-		}
+		feedResponses(ctx, fakeStream, respFor(ids...))
 
 		listenErr := make(chan error, 1)
 		go func() { listenErr <- nlm.listen(ctx) }()
-		cancel() // race the workers' first select
+
+		// Cancel once the pool is running, with the rest of the batch still queued.
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			assert.Positive(collect, live.Load()+dead.Load(), "the pool should have started")
+		}, timeout, tick)
+		cancel()
 
 		requireListenReturned(t, listenErr)
 
-		require.EventuallyWithT(t, func(collect *assert.CollectT) {
-			assert.Equal(collect, int32(queued), live.Load()+dead.Load(),
-				"every queued callback should have run")
-		}, timeout, tick)
-
+		require.Equal(t, int32(batch), live.Load()+dead.Load(),
+			"every queued callback must run: close(q) ends the workers' range only once the buffer is empty")
 		require.Zero(t, dead.Load(),
 			"%d of %d callbacks were handed an already-cancelled context; they must never see one",
-			dead.Load(), queued)
+			dead.Load(), batch)
 	})
 
 	t.Run("Unqueueable_Callbacks_Stay_In_The_Map", func(t *testing.T) {
@@ -457,7 +457,7 @@ func TestHandlerPool(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		nlm.handlerTimeout = testHandlerTimeout
 		nlm.handlerWorkers = 1
-		nlm.callQueue = make(chan handlerCall, 1) // fills immediately
+		nlm.handlerQueueSize = 1 // fills immediately
 
 		blocker := newCountingBlockingListener()
 		t.Cleanup(func() { close(blocker.block) })
@@ -497,7 +497,7 @@ func TestHandlerPool(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		nlm.handlerTimeout = testHandlerTimeout
 		nlm.handlerWorkers = 1
-		nlm.callQueue = make(chan handlerCall, 1)
+		nlm.handlerQueueSize = 1
 		nlm.listenerTTL = 40 * time.Millisecond
 		nlm.sweepInterval = 20 * time.Millisecond
 
@@ -534,7 +534,7 @@ func TestHandlerPool(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		nlm.handlerTimeout = testHandlerTimeout
 		nlm.handlerWorkers = 2
-		nlm.callQueue = make(chan handlerCall, 2) // tiny, so most of the batch is kept
+		nlm.handlerQueueSize = 2 // tiny, so most of the batch is kept
 		nlm.listenerTTL = 40 * time.Millisecond
 		nlm.sweepInterval = 20 * time.Millisecond
 
@@ -618,7 +618,7 @@ func TestHandlerPool(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		nlm.handlerTimeout = testHandlerTimeout
 		nlm.handlerWorkers = 2
-		nlm.callQueue = make(chan handlerCall, 2) // tiny, so the batch overflows
+		nlm.handlerQueueSize = 2 // tiny, so the batch overflows
 		// Sweeper on, but the entries themselves carry no deadline: seedHandlers
 		// leaves expiresAt zero, exactly as listenerTTL == 0 would.
 		nlm.listenerTTL = 40 * time.Millisecond
@@ -648,55 +648,67 @@ func TestHandlerPool(t *testing.T) {
 			"kept listeners were never retried: they carry no deadline the sweeper will act on")
 	})
 
-	t.Run("Teardown_Settles_At_Worker_Concurrency", func(t *testing.T) {
-		// Teardown must settle at handlerWorkers concurrency, not one at a time:
-		// serially, N stuck listeners block listen() for N*handlerTimeout.
+	t.Run("Teardown_Is_Bounded_Regardless_Of_Pending_Listeners", func(t *testing.T) {
+		// Teardown costs one handlerTimeout in total, not one per listener: it settles
+		// everything into the queue, closes it, and waits once. A listener that ignores
+		// its context keeps its worker -- nothing can force it to return -- so the wait is
+		// abandoned rather than paid per stuck callback.
 		t.Parallel()
 
-		const stuck = 12
-		const workers = 6
+		const pending = 200
 		const hTimeout = 100 * time.Millisecond
 
-		nlm, _ := setupTest(t)
+		nlm, fakeStream := setupTest(t)
 		nlm.handlerTimeout = hTimeout
-		nlm.handlerWorkers = workers
+		nlm.handlerWorkers = 1
 
 		block := make(chan struct{}) // never closed: every listener hangs
 		t.Cleanup(func() { close(block) })
-		for i := range stuck {
+		for i := range pending {
 			seedHandlers(nlm, "tx_settle_"+strconv.Itoa(i), &funcListener{
 				fn: func(context.Context, string, int, string) { <-block },
 			})
 		}
 
+		ctx, cancel := context.WithCancel(t.Context())
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+
+		listenErr := make(chan error, 1)
+		go func() { listenErr <- nlm.listen(ctx) }()
+
+		cancel()
 		start := time.Now()
-		nlm.settleAllAndClear(t.Context(), fdriver.Unknown)
+		requireListenReturned(t, listenErr)
 		elapsed := time.Since(start)
 
-		// stuck/workers batches plus slack; serial would be ~12x hTimeout.
-		require.Less(t, elapsed, time.Duration(stuck/workers+2)*hTimeout,
-			"settling %d stuck listeners took %s: teardown is serial rather than %d at a time",
-			stuck, elapsed, workers)
+		require.Less(t, elapsed, 4*hTimeout,
+			"tearing down with %d stuck listeners took %s: teardown scales with the backlog instead of being bounded by handlerTimeout (%s)",
+			pending, elapsed, hTimeout)
 	})
 
 	t.Run("Teardown_Drains_Queued_Callbacks", func(t *testing.T) {
-		// Callbacks already sitting in callQueue when the stream stops must still be
-		// delivered. dispatch has removed their handlers entries by then, so
-		// settleAllAndClear will not settle them: dropping them here loses the
-		// notification outright, with no Unknown fallback.
+		// Callbacks already queued when the stream stops must still be delivered. dispatch
+		// has removed their handlers entries by then, so settleAllAndClear will not settle
+		// them: dropping them here loses the notification outright, with no Unknown
+		// fallback. close(q) is what guarantees it -- the workers' range ends only once the
+		// buffer is empty.
 		t.Parallel()
 
 		nlm, fakeStream := setupTest(t)
-		nlm.handlerTimeout = testHandlerTimeout
-		// One slow worker, so the batch backs up in the queue rather than draining
-		// as fast as it is dispatched.
+		// Generous, so a slow drain is not mistaken for a lost callback.
+		nlm.handlerTimeout = time.Second
+		// One slow worker, so the batch backs up in the queue rather than draining as
+		// fast as it is dispatched.
 		nlm.handlerWorkers = 1
-		nlm.callQueue = make(chan handlerCall, 200)
+		nlm.handlerQueueSize = 200
 
 		var ran atomic.Int32
 		slow := &funcListener{fn: func(context.Context, string, int, string) {
 			ran.Add(1)
-			time.Sleep(20 * time.Millisecond)
+			time.Sleep(5 * time.Millisecond)
 		}}
 
 		const batch = 20
@@ -713,73 +725,55 @@ func TestHandlerPool(t *testing.T) {
 		listenErr := make(chan error, 1)
 		go func() { listenErr <- nlm.listen(ctx) }()
 
-		// Let the batch reach the queue, but not be drained.
+		// Cancel with a backlog still buffered: at 5ms each the worker cannot have got
+		// through the batch yet.
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
-			assert.Positive(collect, len(nlm.callQueue), "batch should be buffered")
+			assert.Positive(collect, ran.Load(), "the batch should have reached the pool")
 		}, timeout, tick)
-
 		cancel()
+
 		requireListenReturned(t, listenErr)
 
-		require.EventuallyWithT(t, func(collect *assert.CollectT) {
-			assert.Equal(collect, int32(batch), ran.Load())
-		}, timeout, tick,
+		require.Equal(t, int32(batch), ran.Load(),
 			"every queued callback must be delivered on teardown, not discarded with the workers")
 	})
 
-	t.Run("Teardown_Settles_Listeners_While_Slot_Held", func(t *testing.T) {
-		// Listeners left in the map when the stream dies must be settled, even
-		// though the pool's workers may be held by stuck callbacks -- which
-		// is why that path invokes them directly rather than via the queue.
+	t.Run("Teardown_Settles_Listeners_Left_In_The_Map", func(t *testing.T) {
+		// Listeners still registered when the stream dies must be settled rather than
+		// dropped, so anyone blocked in IsFinal is released now instead of waiting out
+		// their own context.
+		//
+		// Note the bound: settlement goes through the same pool as delivery, so listeners
+		// that ignore their context can starve it. That is the accepted trade -- nothing
+		// can force such a callback to return -- and the teardown deadline is what keeps
+		// it from hanging shutdown. See Teardown_Is_Bounded_Regardless_Of_Pending_Listeners.
 		t.Parallel()
 
 		nlm, fakeStream := setupTest(t)
-		nlm.handlerTimeout = 100 * time.Millisecond
-		// One slot, and it will be held forever by the stuck callback below.
-		nlm.handlerWorkers = 1
+		nlm.handlerTimeout = time.Second
+		nlm.handlerWorkers = 2
 
-		// Derived from t.Context() so the test's own deadline or failure also
-		// tears this down; cancel() is what drives the teardown under test.
-		ctx, cancel := context.WithCancel(t.Context())
-
-		stuck := newCountingBlockingListener()
-		t.Cleanup(func() { close(stuck.block) })
-		seedHandlers(nlm, "tx_holds_the_only_slot", stuck)
-
-		// These are still registered at teardown, when the only slot is held.
 		const pending = 5
 		var settled atomic.Int32
-		var wg sync.WaitGroup
-		wg.Add(pending)
 		for i := range pending {
 			seedHandlers(nlm, "tx_teardown_"+strconv.Itoa(i), &funcListener{
-				fn: func(context.Context, string, int, string) {
-					settled.Add(1)
-					wg.Done()
-				},
+				fn: func(context.Context, string, int, string) { settled.Add(1) },
 			})
 		}
 
-		feedResponses(ctx, fakeStream, respFor("tx_holds_the_only_slot"))
+		ctx, cancel := context.WithCancel(t.Context())
+		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
 
 		listenErr := make(chan error, 1)
 		go func() { listenErr <- nlm.listen(ctx) }()
-
-		require.EventuallyWithT(t, func(collect *assert.CollectT) {
-			assert.Equal(collect, int32(1), stuck.inFlight.Load())
-		}, timeout, tick, "the stuck callback should hold the only slot")
-
 		cancel()
 		requireListenReturned(t, listenErr)
 
-		finished := make(chan struct{})
-		go func() { wg.Wait(); close(finished) }()
-		select {
-		case <-finished:
-		case <-time.After(timeout):
-			t.Fatalf("teardown settled only %d of %d listeners while a callback held the only slot",
-				settled.Load(), pending)
-		}
+		require.Equal(t, int32(pending), settled.Load(),
+			"teardown must settle every listener still in the map")
 	})
 
 	t.Run("Kept_Callbacks_Are_Retried_With_Local_Expiry_Disabled", func(t *testing.T) {
@@ -793,8 +787,8 @@ func TestHandlerPool(t *testing.T) {
 		nlm, fakeStream := setupTest(t)
 		nlm.handlerTimeout = testHandlerTimeout
 		nlm.handlerWorkers = 2
-		nlm.callQueue = make(chan handlerCall, 2) // tiny, so most of the batch is kept
-		nlm.listenerTTL = 0                       // local expiry disabled
+		nlm.handlerQueueSize = 2 // tiny, so most of the batch is kept
+		nlm.listenerTTL = 0      // local expiry disabled
 		nlm.sweepInterval = 20 * time.Millisecond
 
 		var valid, unknown atomic.Int32
@@ -834,7 +828,6 @@ func TestHandlerPool(t *testing.T) {
 
 		nlm, _ := setupTest(t)
 		nlm.handlerTimeout = testHandlerTimeout
-		nlm.handlerWorkers = 2
 
 		var valid, unknown atomic.Int32
 		listener := &funcListener{fn: func(_ context.Context, _ string, status int, _ string) {
@@ -846,21 +839,147 @@ func TestHandlerPool(t *testing.T) {
 			}
 		}}
 
-		// tx_committed was answered but could not be queued; tx_silent never heard back.
+		// tx_committed was answered but could not be handed off; tx_silent never heard back.
 		seedHandlers(nlm, "tx_committed", listener)
 		seedHandlers(nlm, "tx_silent", listener)
 		answered := fdriver.Valid
 		nlm.handlersMu.Lock()
-		nlm.handlers["tx_committed"].deferred = true
 		nlm.handlers["tx_committed"].status = &answered
 		nlm.handlersMu.Unlock()
 
-		// The teardown call listen() makes once the stream is gone.
-		nlm.settleAllAndClear(t.Context(), fdriver.Unknown)
+		// settleAllAndClear only queues; in listen() the pool drains it. Do that here.
+		q := make(chan handlerCall, 8)
+		nlm.settleAllAndClear(q, fdriver.Unknown)
+		close(q)
+		for c := range q {
+			nlm.callHandler(t.Context(), c)
+		}
 
 		require.Equal(t, int32(1), valid.Load(),
 			"the listener whose answer already arrived must be settled with it, not Unknown")
 		require.Equal(t, int32(1), unknown.Load(),
 			"the listener nothing was heard for must still be settled Unknown")
+	})
+
+	t.Run("Saturated_Queue_Settles_Every_Listener_Exactly_Once", func(t *testing.T) {
+		// The property the whole deferral machinery exists for: with the queue far too
+		// small for the batch, every listener is still settled, with the status the
+		// committer actually sent, and never twice.
+		//
+		// Several listeners per txID on purpose. Exactly-once needs the hand-off to be
+		// all-or-nothing: a per-listener best-effort send would queue some of an entry's
+		// listeners and defer the entry anyway, and the retry -- which only knows the
+		// entry, not which of its listeners already ran -- would settle those a second
+		// time. Pairing the hand-off with the delete is what rules that out.
+		t.Parallel()
+
+		nlm, fakeStream := setupTest(t)
+		nlm.handlerTimeout = testHandlerTimeout
+		nlm.handlerWorkers = 2
+		// Small enough to saturate, but not smaller than one entry's listener count:
+		// an entry that cannot fit even into an empty queue is never handed off at all.
+		nlm.handlerQueueSize = 4
+		nlm.listenerTTL = 0 // no local backstop: only redelivery can settle these
+		nlm.sweepInterval = 10 * time.Millisecond
+
+		const txCount = 20
+		const perTx = 3
+
+		var mu sync.Mutex
+		seen := make(map[string][]int, txCount*perTx)
+
+		ids := make([]string, 0, txCount)
+		for i := range txCount {
+			id := "tx_exactly_once_" + strconv.Itoa(i)
+			ids = append(ids, id)
+			for j := range perTx {
+				key := id + "#" + strconv.Itoa(j)
+				seedListener(nlm, id, &funcListener{
+					fn: func(_ context.Context, _ string, status int, _ string) {
+						// Slow enough that the queue genuinely saturates rather than the
+						// workers keeping pace with the dispatcher.
+						time.Sleep(200 * time.Microsecond)
+						mu.Lock()
+						defer mu.Unlock()
+						seen[key] = append(seen[key], status)
+					},
+				})
+			}
+		}
+
+		feedResponses(t.Context(), fakeStream, respFor(ids...)) // every txID COMMITTED
+		runManager(t, nlm)
+
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			mu.Lock()
+			defer mu.Unlock()
+			assert.Len(collect, seen, txCount*perTx)
+		}, 3*time.Second, tick, "not every listener was settled")
+
+		mu.Lock()
+		defer mu.Unlock()
+		for i := range txCount {
+			for j := range perTx {
+				key := "tx_exactly_once_" + strconv.Itoa(i) + "#" + strconv.Itoa(j)
+				require.Equal(t, []int{fdriver.Valid}, seen[key],
+					"listener %s must be settled exactly once, with the status the committer sent", key)
+			}
+		}
+	})
+}
+
+func TestHandOff(t *testing.T) {
+	t.Parallel()
+
+	noop := &funcListener{fn: func(context.Context, string, int, string) {}}
+	listeners := func(n int) []fabric.FinalityListener {
+		out := make([]fabric.FinalityListener, n)
+		for i := range out {
+			out[i] = noop
+		}
+		return out
+	}
+
+	t.Run("Queues_The_Whole_Entry_When_It_Fits", func(t *testing.T) {
+		t.Parallel()
+
+		q := make(chan handlerCall, 4)
+		q <- handlerCall{} // one slot already taken
+
+		require.True(t, handOff(q, "tx", listeners(3), fdriver.Valid))
+		require.Len(t, q, 4, "all three listeners should have been queued")
+	})
+
+	t.Run("Queues_Nothing_When_The_Entry_Does_Not_Fit", func(t *testing.T) {
+		// All-or-nothing is what makes exactly-once delivery possible: the retry path
+		// only knows the entry, not which of its listeners already ran, so a partial
+		// hand-off would settle those a second time on the next sweep.
+		t.Parallel()
+
+		q := make(chan handlerCall, 4)
+		q <- handlerCall{}
+		q <- handlerCall{} // two free slots, entry needs three
+
+		require.False(t, handOff(q, "tx", listeners(3), fdriver.Valid))
+		require.Len(t, q, 2, "a rejected entry must leave nothing behind in the queue")
+	})
+
+	t.Run("Never_Blocks_On_A_Full_Queue", func(t *testing.T) {
+		// The caller is the dispatcher goroutine, which also drives the sweeper:
+		// blocking here would stall both.
+		t.Parallel()
+
+		q := make(chan handlerCall, 1)
+		q <- handlerCall{}
+
+		done := make(chan bool, 1)
+		go func() { done <- handOff(q, "tx", listeners(1), fdriver.Valid) }()
+
+		select {
+		case queued := <-done:
+			require.False(t, queued)
+		case <-time.After(time.Second):
+			t.Fatal("handOff blocked on a full queue")
+		}
 	})
 }
