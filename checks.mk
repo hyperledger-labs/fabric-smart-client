@@ -6,14 +6,22 @@ checks: lint
 #########################
 
 # golangci-lint only ever sees a single module, so it has to be run once per
-# module. tools/ is excluded on purpose: it is a build-tagged dependency pin with
-# no buildable package, and golangci-lint fails there with "no go files to
+# module.
+#
+# Modules are discovered through git rather than a filesystem walk: a plain
+# `find` also descends into untracked scratch directories and into nested git
+# worktrees checked out under the repo (e.g. .claude/worktrees/<branch>), and
+# would lint code that is not part of this checkout. That needed an
+# ever-growing list of -not -path exclusions; git needs none.
+#
+# tools/ is excluded on purpose: it is a build-tagged dependency pin with no
+# buildable package, and golangci-lint fails there with "no go files to
 # analyze".
-GO_MODULE_DIRS = $(shell find $(TOP) -name go.mod \
-	-not -path '*/node_modules/*' \
-	-not -path '$(TOP)/.claude/*' \
-	-not -path '$(TOP)/tools/*' \
-	-exec dirname {} \; | sort)
+GO_MODULE_DIRS = $(shell cd $(TOP) && git ls-files \
+	| grep -E '(^|/)go\.mod$$' \
+	| xargs -n1 dirname \
+	| grep -vx tools \
+	| sort)
 
 # run golangci-lint in every module, reporting every module that fails rather
 # than stopping at the first
