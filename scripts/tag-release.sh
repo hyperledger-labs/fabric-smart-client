@@ -25,15 +25,20 @@ if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+HEAD="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 
-# Collect all module paths: root first, then submodules excluding tools
+# Collect all module paths: root first, then submodules excluding tools.
+#
+# Modules are discovered from the tree of the commit being tagged, not from the
+# working tree: that is exactly what a consumer sees at `go get <module>@<tag>`,
+# and it is immune to go.mod files that are untracked, ignored, vendored, or
+# sitting in a nested git worktree checked out under the repo (e.g. .claude/).
 MODULES=(".")
 while IFS= read -r gomod; do
     dir="${gomod%/go.mod}"
-    dir="${dir#./}"
-    [[ "$dir" == "tools" ]] && continue
+    [[ "$dir" == "go.mod" || "$dir" == "tools" ]] && continue
     MODULES+=("$dir")
-done < <(find "$REPO_ROOT" -name go.mod -not -path '*/vendor/*' -not -path "$REPO_ROOT/go.mod" | sed "s|$REPO_ROOT/||" | sort)
+done < <(git -C "$REPO_ROOT" ls-tree -r --name-only "$HEAD" | grep -E '(^|/)go\.mod$' | sort)
 
 # Build the list of tags to create
 declare -a TAGS
@@ -60,9 +65,6 @@ if [[ ${#CONFLICTS[@]} -gt 0 ]]; then
     done
     exit 1
 fi
-
-# Create all tags at HEAD
-HEAD="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 
 if $DRY; then
     echo "Dry run — would create ${#TAGS[@]} tag(s) at $HEAD:"
