@@ -111,10 +111,12 @@ func (s *viewHandler) streamCallView(sc *protos.SignedCommand, command *protos.C
 	}
 	mutable, ok := viewCtx.(view2.MutableContext)
 	if !ok {
+		s.viewManager.DeleteContext(viewCtx.ID())
 		return errors.Errorf("expected a mutable context")
 	}
 	if err := mutable.PutService(&Stream{scs: commandServer}); err != nil {
-		return errors.Errorf("failed registering stream command server")
+		s.viewManager.DeleteContext(viewCtx.ID())
+		return errors.Wrapf(err, "failed registering stream command server")
 	}
 
 	result, err := viewCtx.RunView(f)
