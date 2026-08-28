@@ -145,7 +145,7 @@ func TestProvider_Initialize(t *testing.T) {
 		mockGRPC := &mockGRPCClientProvider{}
 		provider := NewListenerManagerProvider(mockGRPC, nil)
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		var wg sync.WaitGroup
 		for range 100 {
@@ -387,7 +387,7 @@ func TestProvider_NewManager(t *testing.T) {
 			}), nil
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		provider.Initialize(ctx)
 
 		_, err := provider.NewManager("network1", "channel1")
@@ -643,5 +643,21 @@ func TestGetListenerManager(t *testing.T) {
 		require.Error(t, err, "Should return error from NewManager")
 		require.Nil(t, manager)
 		require.Equal(t, expectedErr, err)
+	})
+}
+
+func TestNewNotifiWithGRPC_HandlerPool(t *testing.T) {
+	t.Parallel()
+
+	t.Run("resolved config is applied to the pool", func(t *testing.T) {
+		t.Parallel()
+		cfg := config.DefaultConfig()
+		cfg.HandlerWorkers = 3
+		cfg.HandlerQueueSize = 7
+
+		nlm, err := newNotifiWithGRPC("network1", &mockGRPCClientProvider{}, cfg)
+		require.NoError(t, err)
+		require.Equal(t, 3, nlm.handlerWorkers)
+		require.Equal(t, 7, nlm.handlerQueueSize)
 	})
 }

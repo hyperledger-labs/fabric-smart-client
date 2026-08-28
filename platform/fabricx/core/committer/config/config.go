@@ -15,12 +15,25 @@ import (
 // DefaultRequestTimeout is the default timeout for gRPC requests.
 const DefaultRequestTimeout = 30 * time.Second
 
-// DefaultHandlerTimeout is the maximum time allowed for a single finality
-// listener OnStatus callback to run before it is abandoned. If a handler
-// exceeds this timeout, a warning is logged and the handler is abandoned.
-// Note: handlers that ignore context cancellation will leak goroutines, but
-// this is preferable to blocking the dispatcher.
+// DefaultHandlerTimeout is the deadline set on the context handed to a single
+// finality listener OnStatus callback. It is advisory: nothing can stop a running
+// callback, so a listener that ignores cancellation occupies its worker for as long
+// as it runs -- see DefaultHandlerWorkers.
 const DefaultHandlerTimeout = 5 * time.Second
+
+// DefaultHandlerWorkers is how many finality listener OnStatus callbacks may run
+// concurrently. A callback that blocks forever occupies one worker for good, bounding a
+// misbehaving listener's cost to throughput rather than unbounded goroutine growth --
+// which is why OnStatus must observe its context and return promptly. It is a
+// concurrency limit, not a rate limit: far larger batches are still delivered in full.
+const DefaultHandlerWorkers = 16
+
+// DefaultHandlerQueueSize is how many pending OnStatus invocations may be buffered while
+// every worker is busy; it matches the generic committer's event queue
+// (platform/common/core/generic/committer/finality.go). One response can carry far more
+// transactions than there are workers, and without a buffer the surplus would wait for a
+// sweep even with healthy listeners.
+const DefaultHandlerQueueSize = 1000
 
 // DefaultListenerTTL bounds how long a finality listener may wait locally for
 // a notification that may never arrive before being settled with Unknown. It
@@ -41,10 +54,12 @@ const DefaultSweepInterval = 30 * time.Second
 // Config is still required.
 func DefaultConfig() Config {
 	return Config{
-		RequestTimeout: DefaultRequestTimeout,
-		HandlerTimeout: DefaultHandlerTimeout,
-		ListenerTTL:    DefaultListenerTTL,
-		SweepInterval:  DefaultSweepInterval,
+		RequestTimeout:   DefaultRequestTimeout,
+		HandlerTimeout:   DefaultHandlerTimeout,
+		HandlerWorkers:   DefaultHandlerWorkers,
+		HandlerQueueSize: DefaultHandlerQueueSize,
+		ListenerTTL:      DefaultListenerTTL,
+		SweepInterval:    DefaultSweepInterval,
 	}
 }
 
@@ -54,10 +69,20 @@ type Config struct {
 	Endpoints []Endpoint `yaml:"endpoints,omitempty"`
 	// RequestTimeout is the timeout for gRPC requests.
 	RequestTimeout time.Duration `yaml:"requestTimeout,omitempty"`
-	// HandlerTimeout is the maximum time allowed for a single finality listener
-	// OnStatus callback to run before it is abandoned. Only meaningful for the
-	// notification service. A value of zero falls back to DefaultHandlerTimeout.
+	// HandlerTimeout is the deadline set on the context handed to a single
+	// finality listener OnStatus callback. Only meaningful for the notification
+	// service. A value of zero falls back to DefaultHandlerTimeout.
 	HandlerTimeout time.Duration `yaml:"handlerTimeout,omitempty"`
+	// HandlerWorkers is how many finality listener OnStatus callbacks may run
+	// concurrently. Only meaningful for the notification service. A value of zero
+	// falls back to DefaultHandlerWorkers. Raise it when a deployment has
+	// legitimately slow listeners; see DefaultHandlerWorkers for what happens when
+	// every worker is occupied.
+	HandlerWorkers int `yaml:"handlerWorkers,omitempty"`
+	// HandlerQueueSize is how many pending OnStatus invocations may be buffered
+	// while every worker is busy. Only meaningful for the notification
+	// service. A value of zero falls back to DefaultHandlerQueueSize.
+	HandlerQueueSize int `yaml:"handlerQueueSize,omitempty"`
 	// ListenerTTL bounds how long a finality listener may wait locally for a
 	// notification before being settled with Unknown. Only meaningful for the
 	// notification service. Explicitly setting it to zero disables local expiry;
@@ -114,13 +139,14 @@ type ServiceBackend interface {
 // NewNotificationServiceConfig creates a new Config instance by unmarshaling the "notificationService" key
 // from the provided ServiceBackend. It returns an error if the unmarshaling fails.
 //
-// The returned Config is fully resolved: HandlerTimeout, ListenerTTL and
-// SweepInterval are pre-seeded with their defaults before unmarshaling, so a
-// deployment that omits them keeps today's behavior, and HandlerTimeout /
-// SweepInterval fall back to their defaults if explicitly set to zero too --
-// unlike ListenerTTL, they have no "zero disables it" meaning, so a zero value
-// would otherwise hand every listener an already-expired context. Callers can
-// use every field as-is, with no further nil or zero-value handling.
+// The returned Config is fully resolved: HandlerTimeout, HandlerWorkers,
+// HandlerQueueSize, ListenerTTL and SweepInterval are pre-seeded with their
+// defaults before unmarshaling, so a deployment that omits them keeps today's
+// behavior. All of them except ListenerTTL also fall back to their defaults if
+// explicitly set to zero -- unlike ListenerTTL, they have no "zero disables it"
+// meaning, and a zero value would otherwise hand every listener an already-expired
+// context or a pool that can never run anything. Callers can use every field
+// as-is, with no further nil or zero-value handling.
 func NewNotificationServiceConfig(configService ServiceBackend) (*Config, error) {
 	defaults := DefaultConfig()
 	config := &defaults
@@ -132,6 +158,12 @@ func NewNotificationServiceConfig(configService ServiceBackend) (*Config, error)
 
 	if config.HandlerTimeout <= 0 {
 		config.HandlerTimeout = DefaultHandlerTimeout
+	}
+	if config.HandlerWorkers <= 0 {
+		config.HandlerWorkers = DefaultHandlerWorkers
+	}
+	if config.HandlerQueueSize <= 0 {
+		config.HandlerQueueSize = DefaultHandlerQueueSize
 	}
 	if config.SweepInterval <= 0 {
 		config.SweepInterval = DefaultSweepInterval

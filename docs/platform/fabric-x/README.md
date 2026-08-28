@@ -52,10 +52,19 @@ Obtain a `ListenerManager` via `finality.GetListenerManager(sp, network, channel
 
 The `OnStatus` callback receives one of: `fdriver.Valid` (committed), `fdriver.Invalid` (rejected), or `fdriver.Unknown` (undetermined / timeout).
 
+> [!WARNING]
+> `OnStatus` implementations MUST observe `ctx.Done()` and return promptly. At most
+> `handlerWorkers` (default 16) callbacks run at once, so one that blocks forever
+> occupies a slot indefinitely — and once all slots are occupied, finality
+> notifications stop being delivered. Hand slow work to your own queue and return.
+> See [the notification service tuning
+> guide](configuration.md#notification-service-tuning) for the full failure mode.
+
 ### Limitations
 
 - **No automatic reconnection**: if the stream breaks, the manager is removed and registered listeners are lost. A new manager is created on the next `GetListenerManager` call.
-- **Handler timeout**: callbacks that exceed 5 seconds (`DefaultHandlerTimeout`) are abandoned with a warning. Handlers that ignore context cancellation will leak a goroutine but won't block other listeners.
+- **Bounded handler concurrency**: at most `handlerWorkers` (default 16) callbacks run concurrently, buffered by a queue of `handlerQueueSize` (default 1000) so bursts larger than the limit are still delivered in full. `handlerTimeout` (default 5s) only cancels the callback's context — it cannot force a return, so a callback that ignores cancellation occupies its worker indefinitely. Once every worker is occupied and the queue fills, the transaction stays registered — together with the status the committer sent — and is retried on the next sweep, so delivery is delayed rather than lost. Queueing is all-or-nothing per transaction: either every listener waiting on it is handed to the pool, or none is, which is what keeps delivery exactly-once across a retry. The cost of never dropping a result is that the pending-listener map grows while the pool is congested; see [notification service tuning](configuration.md#notification-service-tuning).
+- **Teardown does not wait on stuck handlers**: when the stream stops, everything still registered is queued for settlement, the queue is closed so the workers finish the backlog, and the wait is abandoned after a single `handlerTimeout` — one deadline for the whole teardown, not one per listener. A callback still inside an unresponsive listener can outlive the stream, so a single bad listener cannot hang node shutdown; at most `handlerWorkers` such callbacks exist, since each occupies one worker. Listeners queued behind one are not settled — nothing can force such a callback to return.
 
 ### Configuration
 
@@ -66,6 +75,8 @@ fabric:
   <network>:
     notificationService:
       requestTimeout: 30s
+      handlerWorkers: 16
+      handlerQueueSize: 1000
       endpoints:
         - address: "committer.example.com:9090"
           connectionTimeout: 5s

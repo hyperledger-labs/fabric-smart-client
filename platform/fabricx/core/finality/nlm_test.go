@@ -82,7 +82,9 @@ func (m *mockListener) getStatus() (string, int) {
 }
 
 // blockingListener simulates a handler that blocks forever (ignores context).
-// Used to test timeout detection and goroutine leak resilience.
+// Used to test deadline detection and the dispatcher's resilience to a listener
+// that never returns. Such a listener permanently occupies one handler slot; see
+// TestHandlerPool for the tests that pin down that bound.
 type blockingListener struct {
 	block    chan struct{} // close this to unblock; leave open to simulate a stuck handler
 	onCalled chan struct{} // closed when OnStatus is entered, so tests can synchronize
@@ -130,12 +132,19 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_Open
 
 	// listenerTTL is deliberately left zero here, which disables local expiry, so
 	// the sweeper stays inert for every test that does not opt in.
+	//
+	// handlerWorkers and handlerQueueSize must both be set: listen() starts that many
+	// workers and makes the callback queue that big, so a zero would leave the queue
+	// with no capacity and no one to drain it. Tests that care about the pool's bounds
+	// override these.
 	nlm := &notificationListenerManager{
-		notifyClient:   fakeClient,
-		requestQueue:   make(chan *committerpb.NotificationRequest),
-		responseQueue:  make(chan *committerpb.NotificationResponse),
-		handlers:       make(map[driver.TxID]*handlerEntry),
-		requestTimeout: testRequestTimeout,
+		notifyClient:     fakeClient,
+		requestQueue:     make(chan *committerpb.NotificationRequest),
+		responseQueue:    make(chan *committerpb.NotificationResponse),
+		handlers:         make(map[driver.TxID]*handlerEntry),
+		handlerWorkers:   config.DefaultHandlerWorkers,
+		handlerQueueSize: config.DefaultHandlerQueueSize,
+		requestTimeout:   testRequestTimeout,
 	}
 
 	return nlm, fakeStream
@@ -149,6 +158,20 @@ func seedHandlers(nlm *notificationListenerManager, txID string, listeners ...fa
 	nlm.handlersMu.Lock()
 	defer nlm.handlersMu.Unlock()
 	nlm.handlers[txID] = &handlerEntry{listeners: listeners}
+}
+
+// seedListener appends one listener to a txID's entry, creating it if needed, so a
+// test can build an entry with several listeners without going through
+// AddFinalityListener. Like seedHandlers it leaves expiresAt zero.
+func seedListener(nlm *notificationListenerManager, txID string, listener fabric.FinalityListener) {
+	nlm.handlersMu.Lock()
+	defer nlm.handlersMu.Unlock()
+	entry, ok := nlm.handlers[txID]
+	if !ok {
+		entry = &handlerEntry{}
+		nlm.handlers[txID] = entry
+	}
+	entry.listeners = append(entry.listeners, listener)
 }
 
 // listenersFor returns a snapshot of the listeners registered for txID, plus
@@ -549,7 +572,7 @@ func TestNotificationListenerManager(t *testing.T) {
 	t.Run("Shutdown_Graceful_Exit", func(t *testing.T) {
 		t.Parallel()
 		nlm, fakeStream := setupTest(t)
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		// mock Recv to block indefinitely on context
 		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
@@ -582,18 +605,18 @@ func TestNotificationListenerManager(t *testing.T) {
 		t.Parallel()
 		const targetTxID = "tx_pending_at_shutdown"
 		nlm, fakeStream := setupTest(t)
-		// handlerTimeout must be non-zero here: invokeHandler derives the handler
-		// context from it, and a zero timeout would expire before OnStatus runs.
+		// Must be non-zero: callHandler derives each callback's context from it, and a
+		// zero timeout would expire before OnStatus runs.
 		nlm.handlerTimeout = config.DefaultHandlerTimeout
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		fakeStream.RecvStub = func() (*committerpb.NotificationResponse, error) {
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
 
 		// A delayedListener respects context cancellation, which a real listener
-		// does too. That matters here: teardown runs after the errgroup context is
+		// does too. That matters here: teardown runs after the stream's context is
 		// already cancelled, so handing listeners that context would deliver
 		// nothing. A mockListener would not notice, because it ignores ctx.
 		ml := &delayedListener{delay: tick}
@@ -880,8 +903,11 @@ func TestNotificationListenerManager(t *testing.T) {
 		}
 
 		// The handler is still blocked, but the dispatcher should have moved on.
-		// Verify the handler entry was removed from the map (dispatch cleanup
-		// happens before the goroutine timeout fires).
+		// Note what this does and does not prove now that handlers run on a
+		// bounded pool: the stuck handler holds its worker indefinitely (the
+		// timeout only cancels its context, it cannot force a return), but the
+		// dispatcher merely enqueued the call and is free. Verify the entry was
+		// removed from the map, which happens at dispatch time.
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
 			nlm.handlersMu.RLock()
 			_, exists := nlm.handlers[targetTxID]
@@ -906,7 +932,8 @@ func TestNotificationListenerManager(t *testing.T) {
 		slowML := &delayedListener{delay: 100 * time.Millisecond}
 		slowML.expect(1)
 
-		// stuckListener never returns (exceeds timeout)
+		// stuckListener never returns, so it consumes one pool worker for good;
+		// the other two listeners must still be served by the remaining workers
 		stuckCalled := make(chan struct{})
 		stuckListener := &blockingListener{
 			block:    make(chan struct{}), // never closed
@@ -970,6 +997,11 @@ func TestNotificationListenerManager(t *testing.T) {
 		// Verifies that a handler ignoring context cancellation and never
 		// returning does NOT block the dispatcher from processing subsequent
 		// notifications.
+		//
+		// The leaky handler permanently consumes one worker of the pool, so this
+		// passes because the default pool has workers to spare. See
+		// TestHandlerPool for what happens when every slot is occupied, and for
+		// the bound on how much work a stuck listener can admit.
 		t.Parallel()
 		nlm, fakeStream := setupTest(t)
 		nlm.handlerTimeout = 200 * time.Millisecond
