@@ -123,13 +123,20 @@ func NewSigner() (view.Identity, driver.Signer, driver.Verifier, error) {
 
 func NewSignerFromPEM(raw []byte) (driver.Signer, error) {
 	p, _ := pem.Decode(raw)
-	// Create ephemeral key and store it in the context
+	if p == nil {
+		return nil, errors.New("cannot pem decode")
+	}
 	sk, err := x509.ParsePKCS8PrivateKey(p.Bytes)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed unmarshalling secret key")
 	}
 
-	return &Signer{PrivateKey: sk.(*ecdsa.PrivateKey)}, nil
+	ecdsaKey, ok := sk.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, errors.New("expected *ecdsa.PrivateKey")
+	}
+
+	return &Signer{PrivateKey: ecdsaKey}, nil
 }
 
 func NewIdentityFromBytes(raw []byte) (view.Identity, driver.Verifier, error) {
@@ -148,7 +155,7 @@ func NewIdentityFromBytes(raw []byte) (view.Identity, driver.Verifier, error) {
 func NewIdentityFromPEMCert(raw []byte) (view.Identity, driver.Verifier, error) {
 	p, _ := pem.Decode(raw)
 	if p == nil {
-		return nil, nil, errors.Errorf("cannot pem decode [%v]", raw)
+		return nil, nil, errors.New("cannot pem decode")
 	}
 	cert, err := x509.ParseCertificate(p.Bytes)
 	if err != nil {
