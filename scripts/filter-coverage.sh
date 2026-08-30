@@ -49,6 +49,18 @@ awk '
   /\/tools\// { next }
   /\/docs\// { next }
 
+  # Exclude shared test helpers.
+  #
+  # Helpers imported by other packages cannot live in _test.go files, so
+  # conformance suites, benchmark bodies and node harnesses sit in plain .go
+  # files named *test_utils*.go. They are test scaffolding, not shipped code, so
+  # -- like the mocks and fakes above -- they stay out of the denominator.
+  #
+  # Naming is the whole mechanism: call a new shared helper *_test_utils.go and
+  # it is filtered. A helper that is named otherwise is counted as production
+  # code, so keep the convention when adding one.
+  /[^\/]*test_utils[^\/]*\.go:/ { next }
+
   # Keep everything else
   { print }
 ' "$INPUT" > "$tmp"
