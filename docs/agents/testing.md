@@ -52,3 +52,29 @@ never commit them (CI treats a stray focus as a failure). Prefer the
 Mocks are generated with [counterfeiter](https://github.com/maxbrunsfeld/counterfeiter)
 (pinned in `tools/tools.go`). Regenerate with `go generate ./...` after changing a
 mocked interface. See [`docs/dev/mocks.md`](../dev/mocks.md).
+
+## Shared test helpers
+
+Helpers that other packages import cannot live in a `_test.go` file, so conformance
+suites, benchmark bodies, and node harnesses sit in plain `.go` files — where they
+would otherwise be counted as production code.
+
+**Name them `*_test_utils.go`.** That single convention is the whole mechanism:
+`scripts/filter-coverage.sh` matches the pattern and keeps them out of the coverage
+denominator, exactly as it already excludes mocks and fakes. Nothing enforces the
+name, and a misnamed helper is silently counted as production code — so apply the
+convention when you add one.
+
+A file is test-only when nothing outside `_test.go` uses it. Importing `testing` or taking
+a `*testing.T/B/TB` is the clearest signal, but not the only one: a helper can build
+fixtures (certs, store handles) without touching `testing` at all. Check the callers, not
+just the signature.
+
+Do not rely on generic names either way — `platform/fabric/services/state/helpers.go` is
+production code despite the name.
+
+When a file mixes production code with a single test helper —
+`platform/common/services/logging/logger.go` (`NewTestLogger`),
+`platform/common/utils/assert/retry.go` (`EventuallyWithRetry`) — it stays in the
+report, because excluding it would drop shipped code too. Prefer splitting such a
+helper into a `*_test_utils.go` file over leaving it mixed.
