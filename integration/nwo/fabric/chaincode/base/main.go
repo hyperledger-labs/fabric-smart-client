@@ -28,8 +28,13 @@ func (t *Chaincode) Invoke(stub shim.ChaincodeStubInterface) *pb.Response {
 }
 
 func main() {
-	err := shim.Start(&Chaincode{})
-	if err != nil {
+	server := &shim.ChaincodeServer{
+		CCID:     os.Getenv("CHAINCODE_ID"),
+		Address:  os.Getenv("CHAINCODE_SERVER_ADDRESS"),
+		CC:       &Chaincode{},
+		TLSProps: shim.TLSProperties{Disabled: true},
+	}
+	if err := server.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "Exiting chaincode: %s", err)
 		os.Exit(2)
 	}

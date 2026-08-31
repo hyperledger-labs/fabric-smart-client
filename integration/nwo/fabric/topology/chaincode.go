@@ -19,7 +19,6 @@ type Chaincode struct {
 	Version             string
 	Path                string
 	Ctor                string
-	Policy              string // only used for legacy lifecycle. For new lifecycle use SignaturePolicy
 	Lang                string
 	CollectionsConfig   string // optional
 	PackageFile         string
@@ -32,30 +31,19 @@ type Chaincode struct {
 	Label               string
 	SignaturePolicy     string
 	ChannelConfigPolicy string
+	// Image is the CCaaS container image reference. When set, nwo runs one
+	// chaincode server container per organization from this image. When unset,
+	// Path names Go source that the peer packages and builds itself.
+	Image string
 }
+
+// IsCCaaS reports whether this chaincode deploys as a Chaincode-as-a-Service
+// container. Image and Path are mutually exclusive; AddNamespace enforces it.
+func (c *Chaincode) IsCCaaS() bool { return c.Image != "" }
 
 func (c *Chaincode) SetPackageIDFromPackageFile() {
 	fileBytes, err := os.ReadFile(c.PackageFile)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	hashStr := fmt.Sprintf("%x", sha256.Sum256(fileBytes))
 	c.PackageID = c.Label + ":" + hashStr
-}
-
-type namespace struct {
-	cc *ChannelChaincode
-}
-
-func (n *namespace) SetStateChaincode() *namespace {
-	n.cc.Chaincode.Path = "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state/cc/query"
-	return n
-}
-
-func (n *namespace) SetChaincodePath(path string) *namespace {
-	n.cc.Chaincode.Path = path
-	return n
-}
-
-func (n *namespace) NoInit() *namespace {
-	n.cc.Chaincode.InitRequired = false
-	return n
 }

@@ -12,6 +12,7 @@ import (
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
@@ -23,7 +24,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	fabricTopology.EnableIdemix()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
-	fabricTopology.AddNamespaceWithUnanimity("asset_transfer", "Org1")
+	fabricTopology.AddNamespace("asset_transfer", topology.Unanimity("Org1"))
 
 	// Create an FSC topology
 	fscTopology := fsc.NewTopology()

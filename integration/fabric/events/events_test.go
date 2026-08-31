@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 )
@@ -116,7 +117,8 @@ func (s *TestSuite) TestUpgradeChaincode() {
 	// Update
 	fabricNetwork := fabric.Network(s.II.NWOCtx, "default")
 	Expect(fabricNetwork).ToNot(BeNil(), "failed to find fabric network 'default'")
-	fabricNetwork.UpdateChaincode("events", "Version-1.0", "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode2", "")
+	fabricNetwork.UpdateChaincode("events", "Version-1.0",
+		topology.WithContainerImage("fsc-cc/events2:latest"))
 
 	// New chaincode
 	event, err = alice.EventsView("CreateAsset", "CreateAsset")

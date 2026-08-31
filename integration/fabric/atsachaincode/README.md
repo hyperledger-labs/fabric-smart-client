@@ -96,9 +96,10 @@ This is how the networks can be described programmatically for our `Secured asse
 
 ```go
 import (
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/chaincode/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsachaincode/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 )
 
@@ -114,12 +115,10 @@ func Topology() []nwo.Topology {
 		"Org2": {"org2_peer"},
 	})
 	// Add a chaincode or `managed namespace`
-	fabricTopology.AddManagedNamespace(
-		"asset_transfer",
-		`OR ('Org1MSP.member','Org2MSP.member')`,
-		"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsa/chaincode/chaincode",
-		"",
-		"org1_peer", "org2_peer",
+	fabricTopology.AddNamespace("asset_transfer",
+		topology.Signature(`OR ('Org1MSP.member','Org2MSP.member')`),
+		topology.WithContainerImage("fsc-cc/atsachaincode:latest"),
+		topology.WithPeers("org1_peer", "org2_peer"),
 	)
 
 	// Define a new FSC topology

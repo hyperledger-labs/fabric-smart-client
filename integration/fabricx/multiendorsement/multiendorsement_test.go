@@ -102,9 +102,9 @@ func UpdateNamespacePolicy(ii *integration.Infrastructure, name, policy string, 
 
 	c := &topology.ChannelChaincode{
 		Chaincode: topology.Chaincode{
-			Name:    name,
-			Version: strconv.Itoa(version),
-			Policy:  policy,
+			Name:            name,
+			Version:         strconv.Itoa(version),
+			SignaturePolicy: policy,
 		},
 		Channel: "testchannel",
 	}

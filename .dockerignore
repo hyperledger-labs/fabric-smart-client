@@ -1,0 +1,9 @@
+.git
+.github
+.claude
+docs
+**/testdata
+**/*_test.go
+cmd/**/bin
+*.tar.gz
+coverage.*

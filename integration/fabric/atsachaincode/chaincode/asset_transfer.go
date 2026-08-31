@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/hyperledger/fabric-chaincode-go/v2/pkg/statebased"
@@ -575,7 +576,13 @@ func main() {
 		log.Panicf("Error create transfer asset chaincode: %v", err)
 	}
 
-	if err := chaincode.Start(); err != nil {
+	server := &shim.ChaincodeServer{
+		CCID:     os.Getenv("CHAINCODE_ID"),
+		Address:  os.Getenv("CHAINCODE_SERVER_ADDRESS"),
+		CC:       chaincode,
+		TLSProps: shim.TLSProperties{Disabled: true},
+	}
+	if err := server.Start(); err != nil {
 		log.Panicf("Error starting asset chaincode: %v", err)
 	}
 }

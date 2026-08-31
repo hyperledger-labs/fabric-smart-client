@@ -1,0 +1,11 @@
+# Chaincode container images built by `make chaincode-images`.
+#
+#   image                 module        package (relative to the module)
+#
+# The state-query chaincode is absent on purpose: integration/fabric/atsa
+# deploys it through the legacy source-packaging path, so it needs no image.
+
+fsc-cc/base             integration   ./nwo/fabric/chaincode/base
+fsc-cc/events           integration   ./fabric/events/chaincode
+fsc-cc/events2          integration   ./fabric/events/chaincode2
+fsc-cc/atsachaincode    integration   ./fabric/atsachaincode/chaincode

@@ -43,6 +43,16 @@ Install the Fabric binaries and Docker images:
 make install-fabric-bins pull-images-fabric
 ```
 
+Integration tests that deploy chaincode as a container also need the chaincode
+images built once:
+
+```bash
+make chaincode-images
+```
+
+Rebuild them whenever you change a chaincode under `integration/fabric/*/chaincode*`
+or `integration/nwo/fabric/chaincode/base`.
+
 To install a specific Fabric version, set the `FABRIC_VERSION` variable:
 
 ```bash
@@ -174,6 +184,30 @@ If integration tests fail early because Fabric binaries cannot be found, confirm
 ```bash
 echo $FAB_BINS
 ls $FAB_BINS
+```
+
+### Missing chaincode image
+
+A test failing with `chaincode image "fsc-cc/..." not found` means the images
+have not been built in this environment:
+
+```bash
+make chaincode-images
+```
+
+### Missing `ccaas` external builder
+
+`ccaas external builder not found next to FAB_BINS` means `FAB_BINS` points at
+a directory whose sibling `builders/ccaas` is absent. `make install-fabric-bins`
+alone will not fix it: it skips the download whenever `bin/peer version`
+already matches `FABRIC_VERSION`, which is exactly the state you are in.
+Remove the directory and re-run the install so it re-downloads the full
+release tarball:
+
+```bash
+rm -rf $(dirname $FAB_BINS)
+make install-fabric-bins
+ls $(dirname $FAB_BINS)/builders/ccaas/bin
 ```
 
 ### PostgreSQL unit tests

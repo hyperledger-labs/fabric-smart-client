@@ -210,7 +210,7 @@ func createNSCommon(n *Network, chaincode *topology.ChannelChaincode) fxconfig.N
 			Address: notificationsEndpoint,
 		},
 		TLSConfig: tlsConfig,
-		Policy:    chaincode.Chaincode.Policy,
+		Policy:    chaincode.Chaincode.SignaturePolicy,
 	}
 }
 

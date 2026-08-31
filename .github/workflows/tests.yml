@@ -121,6 +121,10 @@ jobs:
         run: |
           make -j4 pull-images-monitoring
 
+      - name: Build chaincode images
+        if: startsWith(matrix.tests, 'fabric-')
+        run: make chaincode-images
+
       - name: Run the integration test
         run: |
           mkdir -p covdata

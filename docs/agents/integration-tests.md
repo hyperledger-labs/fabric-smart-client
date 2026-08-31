@@ -24,6 +24,40 @@ opts := &integration.Opts{
 }
 ```
 
+## Declaring a namespace
+
+A namespace is a chaincode plus its endorsement policy:
+
+```go
+fabricTopology.AddNamespace("iou", topology.Unanimity("Org1"))
+```
+
+The policy constructors are `Unanimity(orgs...)`, `OneOutOfN(orgs...)` and
+`Signature(rule)`. Peers are derived from the policy's organizations; a
+`Signature` policy names none, so it defaults to every peer on the channel.
+
+By default a namespace deploys the built-in base chaincode as a container.
+To deploy your own chaincode, name its image:
+
+```go
+fabricTopology.AddNamespace("events",
+    topology.Signature(`OR ('Org1MSP.member','Org2MSP.member')`),
+    topology.WithContainerImage("fsc-cc/events:latest"),
+    topology.WithPeers("org1_peer", "org2_peer"),
+)
+```
+
+Add the image to `scripts/chaincode/images.txt` and run `make chaincode-images`.
+The chaincode's `main` must start a `shim.ChaincodeServer` reading `CHAINCODE_ID`
+and `CHAINCODE_SERVER_ADDRESS`; copy one of the existing mains.
+
+To have the peer build your chaincode from Go source instead, use
+`WithLegacyChaincode(importPath)`. That path needs the `ccenv` image and a
+`shim.Start` main. `integration/fabric/atsa` is the in-tree example.
+
+The remaining options are `WithCtor(ctor)` (which also turns on init),
+`WithVersion(v)` and `WithPackageFile(path)` for a package you built yourself.
+
 ## Test utilities
 
 - `integration.Infrastructure` — network lifecycle management.

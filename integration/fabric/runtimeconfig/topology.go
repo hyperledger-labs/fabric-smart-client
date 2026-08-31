@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/runtimeconfig/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/monitoring"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
@@ -37,7 +38,7 @@ func Topology(opts *Opts) []api.Topology {
 	fabricTopology := fabric.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
-	fabricTopology.AddNamespaceWithUnanimity("iou", "Org1")
+	fabricTopology.AddNamespace("iou", topology.Unanimity("Org1"))
 	fabricTopology.TLSEnabled = opts.TLSEnabled
 	fabricTopology.EnableMinimalFSCFabricConfig()
 

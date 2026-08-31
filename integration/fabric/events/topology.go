@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	api2 "github.com/hyperledger-labs/fabric-smart-client/pkg/node"
 )
@@ -27,12 +28,10 @@ func Topology(sdk api2.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 		"Org2": {"org2_peer"},
 	})
 	// Add a chaincode or `managed namespace`
-	fabricTopology.AddManagedNamespace(
-		"events",
-		`OR ('Org1MSP.member','Org2MSP.member')`,
-		"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/events/chaincode",
-		"",
-		"org1_peer", "org2_peer",
+	fabricTopology.AddNamespace("events",
+		topology.Signature(`OR ('Org1MSP.member','Org2MSP.member')`),
+		topology.WithContainerImage("fsc-cc/events:latest"),
+		topology.WithPeers("org1_peer", "org2_peer"),
 	)
 
 	// Define a new FSC topology

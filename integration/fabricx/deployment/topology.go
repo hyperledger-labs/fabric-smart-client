@@ -11,6 +11,7 @@ import (
 	simpleviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	nwofabricx "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabricx"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/node"
@@ -26,7 +27,7 @@ func Topology(sdk node.SDK, commType fsc.P2PCommunicationType, replicationOpts *
 	fabricTopology := nwofabricx.NewDefaultTopology()
 	fabricTopology.AddOrganizationsByName("Org1", "Org2", "Org3")
 	fabricTopology.SetNamespaceApproverOrgs("Org1")
-	fabricTopology.AddNamespaceWithUnanimity(Namespace, "Org1")
+	fabricTopology.AddNamespace(Namespace, topology.Unanimity("Org1"))
 
 	// Note that we currently spawn a single committer used by all the nodes in the network.
 	fabricTopology.

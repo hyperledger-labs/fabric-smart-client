@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsachaincode/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	fabricsdk "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/sdk/dig"
 )
@@ -27,12 +28,10 @@ func Topology(commType fsc.P2PCommunicationType, replicationOpts *integration.Re
 		"Org2": {"org2_peer"},
 	})
 	// Add a chaincode or `managed namespace`
-	fabricTopology.AddManagedNamespace(
-		"asset_transfer",
-		`OR ('Org1MSP.member','Org2MSP.member')`,
-		"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/atsachaincode/chaincode",
-		"",
-		"org1_peer", "org2_peer",
+	fabricTopology.AddNamespace("asset_transfer",
+		topology.Signature(`OR ('Org1MSP.member','Org2MSP.member')`),
+		topology.WithContainerImage("fsc-cc/atsachaincode:latest"),
+		topology.WithPeers("org1_peer", "org2_peer"),
 	)
 
 	// Define a new FSC topology

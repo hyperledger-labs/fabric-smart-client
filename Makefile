@@ -51,6 +51,11 @@ install-fabricx-tools: ## Install fxconfig in $(FAB_BINS)
 .PHONY: install-fabric-bins
 install-fabric-bins: ## Install fabric binaries in $(FABRIC_BINARY_BASE)
 	./ci/scripts/download_fabric.sh $(FABRIC_BINARY_BASE) $(FABRIC_VERSION)
+	@test -x $(FABRIC_BINARY_BASE)/builders/ccaas/bin/build || { \
+	  echo "==> $(FABRIC_BINARY_BASE)/builders/ccaas is missing."; \
+	  echo "    Fabric $(FABRIC_VERSION) ships it; remove the directory and re-run."; \
+	  exit 1; \
+	}
 
 .PHONY: install-softhsm
 install-softhsm: ## Install softhsm
@@ -86,6 +91,13 @@ generate-mocks: ## Delete all counterfeiter mock folders and regenerate via go g
 
 .PHONY: pull-images-fabric fabric-baseos fabric-ccenv
 pull-images-fabric: fabric-baseos fabric-ccenv ## Pull fabric images
+
+.PHONY: chaincode-images
+chaincode-images: ## Build container images for the in-tree CCaaS chaincodes
+	@grep -vE '^\s*(#|$$)' scripts/chaincode/images.txt | \
+	  while read -r image module pkg; do \
+	    scripts/chaincode/build-image.sh "$$image" "$$module" "$$pkg" || exit 1; \
+	  done
 
 .PHONY: pull-images-fabricx fabric-x-committer-test-node
 pull-images-fabricx: fabric-x-committer-test-node ## Pull fabric-x images

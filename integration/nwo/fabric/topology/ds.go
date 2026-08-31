@@ -89,7 +89,6 @@ type PostRunInvocation struct {
 
 type ChannelChaincode struct {
 	Chaincode          Chaincode           `yaml:"chaincode,omitempty"`
-	Path               string              `yaml:"path,omitempty"`
 	Channel            string              `yaml:"channel,omitempty"`
 	Peers              []string            `yaml:"peers,omitempty"`
 	PostRunInvocations []PostRunInvocation `yaml:"postruninvocations,omitempty"`
@@ -159,6 +158,16 @@ func (p *Peer) ID() string {
 func (p *Peer) Anchor() bool {
 	for _, c := range p.Channels {
 		if c.Anchor {
+			return true
+		}
+	}
+	return false
+}
+
+// onChannel reports whether the peer is joined to the named channel.
+func (p *Peer) onChannel(name string) bool {
+	for _, c := range p.Channels {
+		if c.Name == name {
 			return true
 		}
 	}
