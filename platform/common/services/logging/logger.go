@@ -11,20 +11,13 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
-	"testing"
 
 	"github.com/hyperledger/fabric-lib-go/common/flogging"
-	"github.com/hyperledger/fabric-lib-go/common/flogging/floggingtest"
 	"github.com/hyperledger/fabric-lib-go/common/flogging/httpadmin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-)
-
-type (
-	Recorder = floggingtest.Recorder
-	Option   = floggingtest.Option
 )
 
 // Logger provides logging API
@@ -76,12 +69,6 @@ func (l *logger) With(args ...any) Logger {
 	return newLogger(l.Zap().Sugar().With(args...).Desugar())
 }
 
-func Named(loggerName string) Option {
-	return func(r *floggingtest.RecordingCore, l *zap.Logger) *zap.Logger {
-		return l.Named(loggerName)
-	}
-}
-
 func MustGetLogger(params ...string) Logger {
 	return utils.MustGet(GetLogger(params...))
 }
@@ -112,12 +99,6 @@ func GetPackageName() (string, error) {
 	lastSlash := strings.LastIndex(fullFuncName, "/")
 	dotAfterSlash := strings.Index(fullFuncName[lastSlash:], ".")
 	return fullFuncName[:lastSlash+dotAfterSlash], nil
-}
-
-func NewTestLogger(tb testing.TB, options ...Option) (Logger, *Recorder) {
-	tb.Helper()
-	l, r := floggingtest.NewTestLogger(tb, options...)
-	return &logger{fabricLogger: l}, r
 }
 
 func NewSpecHandler() http.Handler {
