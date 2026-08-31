@@ -8,7 +8,6 @@ package comm
 
 import (
 	"context"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -35,19 +34,13 @@ func (f *fakeHostProvider) GetNewHost() (host.P2PHost, error) {
 	return f.hostToReturn, f.errToReturn
 }
 
-type fakeEndpointService struct{}
-
-func (f *fakeEndpointService) GetIdentity(label string, pkID []byte) (view.Identity, error) {
-	return view.Identity("fake-identity"), nil
-}
-
 // --- helpers ---
 
 // newTestService creates a Service wired with fakes that will successfully initialize.
 func newTestService(t *testing.T) (*Service, *fakeHostProvider) {
 	t.Helper()
 	hp := &fakeHostProvider{hostToReturn: &mockHost{}}
-	svc, err := NewService(hp, &fakeEndpointService{}, &mockConfigService{}, &disabled.Provider{})
+	svc, err := NewService(hp, &mockEndpointService{}, &mockConfigService{}, &disabled.Provider{})
 	require.NoError(t, err)
 	return svc, hp
 }
@@ -69,7 +62,7 @@ func TestNewService(t *testing.T) {
 	t.Parallel()
 
 	hp := &fakeHostProvider{hostToReturn: &mockHost{}}
-	es := &fakeEndpointService{}
+	es := &mockEndpointService{}
 	cs := &mockConfigService{}
 	mp := &disabled.Provider{}
 
@@ -169,8 +162,26 @@ func TestService_AfterStart(t *testing.T) {
 		}
 		session, err := svc.NewResponderSession(caller, msg)
 		require.NoError(t, err)
-		require.Equal(t, "resp-sess-svc", session.Info().ID)
-		require.Equal(t, caller, session.Info().Caller)
+
+		// Service.NewResponderSession fans the message out into six positional
+		// arguments, three of them adjacent strings; assert every one of them.
+		info := session.Info()
+		require.Equal(t, "resp-sess-svc", info.ID)
+		require.Equal(t, caller, info.Caller)
+		require.Equal(t, "from-ep", info.RemoteEndpoint)
+		require.Equal(t, []byte("from-pk"), info.RemotePKID)
+		// A responder session acts on behalf of the remote caller, so it carries
+		// no local view ID.
+		require.Empty(t, info.CallerViewID)
+
+		// ContextID is not part of view.SessionInfo, so read it off the concrete
+		// type to pin the remaining argument.
+		ns, ok := session.(*NetworkStreamSession)
+		require.True(t, ok)
+		ns.mutex.RLock()
+		contextID := ns.contextID
+		ns.mutex.RUnlock()
+		require.Equal(t, "ctx-resp", contextID)
 	})
 
 	t.Run("DeleteSessions removes matching sessions", func(t *testing.T) {
@@ -183,14 +194,11 @@ func TestService_AfterStart(t *testing.T) {
 		svc.NodeSync.RLock()
 		node := svc.Node
 		svc.NodeSync.RUnlock()
+		// Internal keys are "<sessionID>.<hex sha256(pkid)>" (computeInternalSessionID),
+		// so build the key rather than guessing at the separator.
+		key := computeInternalSessionID("del-target", []byte("pk-del"))
 		node.sessionsMutex.Lock()
-		var found bool
-		for key := range node.sessions {
-			if strings.HasPrefix(key, "del-target-") {
-				found = true
-				break
-			}
-		}
+		_, found := node.sessions[key]
 		node.sessionsMutex.Unlock()
 		require.False(t, found, "session was not deleted")
 
@@ -208,7 +216,7 @@ func TestService_StartWithFailingHostProvider(t *testing.T) {
 		hostToReturn: nil,
 		errToReturn:  errors.New("host provider broken"),
 	}
-	svc, err := NewService(hp, &fakeEndpointService{}, &mockConfigService{}, &disabled.Provider{})
+	svc, err := NewService(hp, &mockEndpointService{}, &mockConfigService{}, &disabled.Provider{})
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(t.Context())
