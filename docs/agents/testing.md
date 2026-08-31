@@ -65,10 +65,13 @@ denominator, exactly as it already excludes mocks and fakes. Nothing enforces th
 name, and a misnamed helper is silently counted as production code — so apply the
 convention when you add one.
 
-A file counts as test-only when it imports `testing` and *every* exported function
-takes a `*testing.T/B/TB`. Do not rely on generic names for this —
-`platform/fabric/services/state/helpers.go` and
-`platform/fabric/services/storage/vault/helpers.go` are production code.
+A file is test-only when nothing outside `_test.go` uses it. Importing `testing` or taking
+a `*testing.T/B/TB` is the clearest signal, but not the only one: a helper can build
+fixtures (certs, store handles) without touching `testing` at all. Check the callers, not
+just the signature.
+
+Do not rely on generic names either way — `platform/fabric/services/state/helpers.go` is
+production code despite the name.
 
 When a file mixes production code with a single test helper —
 `platform/common/services/logging/logger.go` (`NewTestLogger`),
