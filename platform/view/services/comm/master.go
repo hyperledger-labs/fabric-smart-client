@@ -25,16 +25,18 @@ func (p *P2PNode) getOrCreateSession(sessionID, endpointAddress, contextID, call
 	if session, in := p.sessions[internalSessionID]; in {
 		logger.Debugf("session [%s] exists, returning it", internalSessionID)
 		session.mutex.Lock()
+		// Validate the caller identity before touching any session state: a peer
+		// presenting a mismatched identity must not be able to alter a session it
+		// is not entitled to claim.
+		if len(caller) != 0 && len(session.caller) != 0 && !session.caller.Equal(caller) {
+			session.mutex.Unlock()
+			return nil, errors.Errorf("caller identity mismatch for session [%s]", internalSessionID)
+		}
+		if len(caller) != 0 {
+			session.caller = caller
+		}
 		session.callerViewID = callerViewID
 		session.contextID = contextID
-		if len(caller) != 0 {
-			if len(session.caller) == 0 {
-				session.caller = caller
-			} else if !session.caller.Equal(caller) {
-				session.mutex.Unlock()
-				return nil, errors.Errorf("caller identity mismatch for session [%s]", internalSessionID)
-			}
-		}
 		session.endpointAddress = endpointAddress
 		session.endpointID = endpointID
 		session.mutex.Unlock()
