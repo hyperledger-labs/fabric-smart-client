@@ -193,6 +193,7 @@ INTEGRATION_TARGETS += fsc-signedpingpong
 ## fabric section
 INTEGRATION_TARGETS += fabric-atsa
 INTEGRATION_TARGETS += fabric-atsachaincode
+INTEGRATION_TARGETS += fabric-configupdate
 INTEGRATION_TARGETS += fabric-events
 INTEGRATION_TARGETS += fabric-iou
 INTEGRATION_TARGETS += fabric-runtimeconfig
