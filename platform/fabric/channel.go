@@ -42,6 +42,16 @@ func (c *Channel) MSPManager() *MSPManager {
 	return &MSPManager{ch: c.ch.ChannelMembership()}
 }
 
+// ConfigSequence returns the sequence number of the channel configuration this
+// node currently holds. It is 0 for the channel's genesis configuration and
+// increases by one for every configuration update the node has applied, so a
+// caller can tell whether a configuration change has reached this node yet. A
+// channel with no configuration in force reports driver.ErrNotInitialized or
+// driver.ErrConfigRejected instead.
+func (c *Channel) ConfigSequence() (uint64, error) {
+	return c.ch.ChannelMembership().ConfigSequence()
+}
+
 // ACLProvider returns the ACLProvider of the channel
 func (c *Channel) ACLProvider() *ACLProvider {
 	return NewACLProvider(c.ch.ChannelMembership())

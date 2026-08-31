@@ -23,7 +23,7 @@ const ConfigTXPrefix = "configtx_"
 
 func (c *Committer) HandleConfig(ctx context.Context, _ *common.BlockMetadata, tx CommitTx) (*FinalityEvent, error) {
 	logger.Debugf("[%s] Config transaction received: %s", c.ChannelConfig.ID(), tx.TxID)
-	if err := c.CommitConfig(ctx, tx.BlkNum, tx.TxNum, tx.Raw, tx.Envelope); err != nil {
+	if err := c.CommitConfig(ctx, tx.BlkNum, tx.Raw, tx.Envelope); err != nil {
 		return nil, errors.Wrapf(err, "cannot commit config envelope for channel [%s]", c.ChannelConfig.ID())
 	}
 	return &FinalityEvent{Ctx: ctx}, nil
@@ -111,8 +111,35 @@ func (c *Committer) ReloadConfigTransactions() error {
 	return nil
 }
 
+// configSequenceOf returns the sequence number carried by a channel
+// configuration transaction.
+//
+// This is the channel's own counter: 0 for the genesis configuration,
+// incremented by one by the ordering service for every accepted configuration
+// update. It is what the vault entry must be keyed on. The transaction's index
+// within its block cannot serve: a configuration block holds exactly one
+// transaction, so that index is always 0 and every configuration block would
+// collide with the genesis entry.
+func configSequenceOf(env *common.Envelope) (uint64, error) {
+	payload, err := protoutil.UnmarshalPayload(env.Payload)
+	if err != nil {
+		return 0, errors.Wrapf(err, "cannot get payload from config transaction")
+	}
+
+	cenv, err := protoutil.UnmarshalConfigEnvelope(payload.Data)
+	if err != nil {
+		return 0, errors.Wrapf(err, "cannot get config envelope from config transaction")
+	}
+
+	if cenv.Config == nil {
+		return 0, errors.New("config envelope carries no config")
+	}
+
+	return cenv.Config.Sequence, nil
+}
+
 // CommitConfig is used to validate and apply configuration transactions for a Channel.
-func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNum, txNum driver.TxNum, raw []byte, env *common.Envelope) error {
+func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNum, raw []byte, env *common.Envelope) error {
 	logger.DebugfContext(ctx, "Start commit config")
 	defer logger.DebugfContext(ctx, "End commit config")
 	commitConfigMutex.Lock()
@@ -122,8 +149,13 @@ func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNu
 		return errors.Errorf("envelope nil")
 	}
 
+	sequence, err := configSequenceOf(env)
+	if err != nil {
+		return errors.Wrapf(err, "cannot read the config sequence")
+	}
+
 	// first we check if config is already committed
-	txID := ConfigTXPrefix + strconv.FormatUint(txNum, 10)
+	txID := ConfigTXPrefix + strconv.FormatUint(sequence, 10)
 	vc, _, err := c.Vault.Status(ctx, txID)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting tx's status [%s]", txID)
@@ -140,7 +172,7 @@ func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNu
 	}
 
 	// when validation passes, we can commit the config transaction
-	if err := c.commitConfig(ctx, txID, blockNumber, txNum, raw); err != nil {
+	if err := c.commitConfig(ctx, txID, blockNumber, sequence, raw); err != nil {
 		return errors.Wrapf(err, "failed committing configtx to the vault")
 	}
 

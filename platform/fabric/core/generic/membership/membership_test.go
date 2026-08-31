@@ -15,18 +15,19 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
 var _ driver.MembershipService = (*Service)(nil)
 
-// seed installs cfg as the service's channel configuration, standing in for the
-// first successful Update.
-func seed(t *testing.T, s *Service, cfg *channelconfig.ChannelConfig) {
+// seed installs cfg as the service's channel configuration at the given
+// sequence, standing in for the first successful Update.
+func seed(t *testing.T, s *Service, cfg *channelconfig.ChannelConfig, sequence uint64) {
 	t.Helper()
-	require.NoError(t, s.config.Update(func(*channelconfig.ChannelConfig, bool) (*channelconfig.ChannelConfig, error) {
-		return cfg, nil
+	require.NoError(t, s.config.Update(func(*configuration, bool) (*configuration, error) {
+		return &configuration{channelConfig: cfg, sequence: sequence}, nil
 	}))
 }
 
@@ -69,6 +70,11 @@ func TestAccessorsBeforeFirstUpdate(t *testing.T) {
 		{"MSPManager.DeserializeIdentity", func(s *Service) error {
 			id, err := s.MSPManager().DeserializeIdentity(identity)
 			require.Nil(t, id)
+			return err
+		}},
+		{"ConfigSequence", func(s *Service) error {
+			seq, err := s.ConfigSequence()
+			require.Zero(t, seq)
 			return err
 		}},
 	} {
@@ -124,7 +130,7 @@ func TestServiceRecoversFromARejectedConfig(t *testing.T) {
 	s := NewService("mychannel")
 
 	require.Error(t, s.Update(&cb.Envelope{Payload: []byte("not-a-proto")}))
-	seed(t, s, &channelconfig.ChannelConfig{})
+	seed(t, s, &channelconfig.ChannelConfig{}, 0)
 
 	_, err := s.GetMSPIDs()
 	require.NoError(t, err, "an accepted configuration must clear an earlier refusal")
@@ -139,7 +145,7 @@ func TestLoadedConfigIsDistinguishableFromMissingConfig(t *testing.T) {
 	t.Run("GetMSPIDs on a config with no application section", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("mychannel")
-		seed(t, s, &channelconfig.ChannelConfig{})
+		seed(t, s, &channelconfig.ChannelConfig{}, 0)
 
 		ids, err := s.GetMSPIDs()
 		require.NoError(t, err, "a loaded configuration must not report ErrNotInitialized")
@@ -149,7 +155,7 @@ func TestLoadedConfigIsDistinguishableFromMissingConfig(t *testing.T) {
 	t.Run("IsIdemixMSP on a config with no application section", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("mychannel")
-		seed(t, s, &channelconfig.ChannelConfig{})
+		seed(t, s, &channelconfig.ChannelConfig{}, 0)
 
 		isIdemix, err := s.IsIdemixMSP("Org1MSP")
 		require.NoError(t, err, "a loaded configuration must not report ErrNotInitialized")
@@ -159,7 +165,7 @@ func TestLoadedConfigIsDistinguishableFromMissingConfig(t *testing.T) {
 	t.Run("OrdererConfig on a config with no orderer section", func(t *testing.T) {
 		t.Parallel()
 		s := NewService("mychannel")
-		seed(t, s, &channelconfig.ChannelConfig{})
+		seed(t, s, &channelconfig.ChannelConfig{}, 0)
 
 		_, _, err := s.OrdererConfig(nil)
 		require.Error(t, err)
@@ -172,4 +178,54 @@ func TestLoadedConfigIsDistinguishableFromMissingConfig(t *testing.T) {
 func TestCheckACLIsNotImplemented(t *testing.T) {
 	t.Parallel()
 	require.ErrorIs(t, NewService("mychannel").CheckACL(nil), driver.ErrNotImplemented)
+}
+
+// TestConfigSequenceReportsTheSequenceInForce asserts that the sequence a
+// reader sees is the one belonging to the configuration currently held, which
+// is what lets a caller tell whether a configuration update has reached this
+// node yet.
+func TestConfigSequenceReportsTheSequenceInForce(t *testing.T) {
+	t.Parallel()
+	s := NewService("mychannel")
+
+	seed(t, s, &channelconfig.ChannelConfig{}, 0)
+	seq, err := s.ConfigSequence()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), seq)
+
+	seed(t, s, &channelconfig.ChannelConfig{}, 7)
+	seq, err = s.ConfigSequence()
+	require.NoError(t, err)
+	require.Equal(t, uint64(7), seq)
+}
+
+// TestConfigSequenceSurvivesARejectedUpdate asserts that a refused update
+// leaves both halves of the held value alone: reporting the new sequence
+// beside the old configuration would tell a caller the node had applied a
+// configuration it had in fact rejected.
+func TestConfigSequenceSurvivesARejectedUpdate(t *testing.T) {
+	t.Parallel()
+	s := NewService("mychannel")
+	seed(t, s, &channelconfig.ChannelConfig{}, 3)
+
+	require.Error(t, s.Update(&cb.Envelope{Payload: []byte("not-a-proto")}))
+
+	seq, err := s.ConfigSequence()
+	require.NoError(t, err)
+	require.Equal(t, uint64(3), seq, "a rejected update must not advance the sequence")
+}
+
+// TestUpdateWithoutAConfigIsRejected covers a config envelope that unmarshals
+// but carries no Config. Before the sequence was read this dereferenced
+// cenv.Config blindly and would panic.
+func TestUpdateWithoutAConfigIsRejected(t *testing.T) {
+	t.Parallel()
+	s := NewService("mychannel")
+
+	payload := &cb.Payload{Data: protoutil.MarshalOrPanic(&cb.ConfigEnvelope{})}
+	env := &cb.Envelope{Payload: protoutil.MarshalOrPanic(payload)}
+
+	var err error
+	require.NotPanics(t, func() { err = s.Update(env) })
+	require.ErrorContains(t, err, "config envelope carries no config")
 }

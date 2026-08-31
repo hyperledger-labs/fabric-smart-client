@@ -20,6 +20,15 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
+// configuration is the channel configuration in force together with the
+// sequence number of the configuration it came from. The two are held as a
+// single value so that a reader can never observe a new configuration paired
+// with the sequence of the one it replaced.
+type configuration struct {
+	channelConfig *channelconfig.ChannelConfig
+	sequence      uint64
+}
+
 // Service answers membership questions about a channel from its current
 // configuration. The configuration is not available when the service is built;
 // it arrives with the first configuration block, via Update. Until one is in
@@ -29,14 +38,14 @@ type Service struct {
 	// config holds the channel configuration once it has been loaded. Reading
 	// it goes through deferred.Holder.Get, which cannot hand out a
 	// configuration that is not there.
-	config *deferred.Holder[*channelconfig.ChannelConfig]
+	config *deferred.Holder[*configuration]
 
 	channelName string
 }
 
 func NewService(channelName string) *Service {
 	return &Service{
-		config:      deferred.NewHolder[*channelconfig.ChannelConfig]("channel [" + channelName + "] configuration"),
+		config:      deferred.NewHolder[*configuration]("channel [" + channelName + "] configuration"),
 		channelName: channelName,
 	}
 }
@@ -44,12 +53,12 @@ func NewService(channelName string) *Service {
 // Update installs the channel configuration carried by env. The previously held
 // configuration is kept if env cannot be parsed.
 func (c *Service) Update(env *cb.Envelope) error {
-	return c.config.Update(func(*channelconfig.ChannelConfig, bool) (*channelconfig.ChannelConfig, error) {
+	return c.config.Update(func(*configuration, bool) (*configuration, error) {
 		return parseConfig(env)
 	})
 }
 
-func parseConfig(env *cb.Envelope) (*channelconfig.ChannelConfig, error) {
+func parseConfig(env *cb.Envelope) (*configuration, error) {
 	payload, err := protoutil.UnmarshalPayload(env.Payload)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get payload from config transaction")
@@ -60,7 +69,31 @@ func parseConfig(env *cb.Envelope) (*channelconfig.ChannelConfig, error) {
 		return nil, errors.Wrapf(err, "error unmarshalling config which passed initial validity checks")
 	}
 
-	return channelconfig.NewChannelConfig(cenv.Config.ChannelGroup, factory.GetDefault())
+	if cenv.Config == nil {
+		return nil, errors.New("config envelope carries no config")
+	}
+
+	cc, err := channelconfig.NewChannelConfig(cenv.Config.ChannelGroup, factory.GetDefault())
+	if err != nil {
+		return nil, err
+	}
+
+	return &configuration{channelConfig: cc, sequence: cenv.Config.Sequence}, nil
+}
+
+// ConfigSequence returns the sequence number of the channel configuration
+// currently in force. It is 0 for a channel's genesis configuration and
+// increases by one for every configuration update this node has applied, so a
+// caller can tell whether a configuration change has reached this node yet. A
+// channel with no configuration in force reports driver.ErrNotInitialized or
+// driver.ErrConfigRejected instead.
+func (c *Service) ConfigSequence() (uint64, error) {
+	res, err := c.config.Get()
+	if err != nil {
+		return 0, err
+	}
+
+	return res.sequence, nil
 }
 
 func (c *Service) IsValid(identity view.Identity) error {
@@ -69,7 +102,7 @@ func (c *Service) IsValid(identity view.Identity) error {
 		return err
 	}
 
-	id, err := res.MSPManager().DeserializeIdentity(identity)
+	id, err := res.channelConfig.MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
 	}
@@ -83,7 +116,7 @@ func (c *Service) GetVerifier(identity view.Identity) (driver.Verifier, error) {
 		return nil, err
 	}
 
-	id, err := res.MSPManager().DeserializeIdentity(identity)
+	id, err := res.channelConfig.MSPManager().DeserializeIdentity(identity)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed deserializing identity [%s]", identity.String())
 	}
@@ -102,7 +135,7 @@ func (c *Service) GetMSPIDs() ([]string, error) {
 	}
 
 	var mspIDs []string
-	if ac := res.ApplicationConfig(); ac != nil {
+	if ac := res.channelConfig.ApplicationConfig(); ac != nil {
 		for _, org := range ac.Organizations() {
 			mspIDs = append(mspIDs, org.MSPID())
 		}
@@ -122,7 +155,7 @@ func (c *Service) IsIdemixMSP(mspID string) (bool, error) {
 		return false, err
 	}
 
-	ac := res.ApplicationConfig()
+	ac := res.channelConfig.ApplicationConfig()
 	if ac == nil {
 		return false, nil
 	}
@@ -142,7 +175,7 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 		return "", nil, err
 	}
 
-	oc := res.OrdererConfig()
+	oc := res.channelConfig.OrdererConfig()
 	if oc == nil {
 		return "", nil, errors.Errorf("orderer config does not exist for channel [%s]", c.channelName)
 	}
@@ -196,7 +229,7 @@ func (c *Service) CheckACL(signedProp driver.SignedProposal) error {
 }
 
 type mspManager struct {
-	config *deferred.Holder[*channelconfig.ChannelConfig]
+	config *deferred.Holder[*configuration]
 }
 
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
@@ -205,5 +238,5 @@ func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPI
 		return nil, err
 	}
 
-	return res.MSPManager().DeserializeIdentity(serializedIdentity)
+	return res.channelConfig.MSPManager().DeserializeIdentity(serializedIdentity)
 }

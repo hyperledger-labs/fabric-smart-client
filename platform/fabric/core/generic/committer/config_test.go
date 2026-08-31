@@ -18,9 +18,24 @@ import (
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/committer/fake"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
+
+// configEnvelope builds a channel configuration transaction carrying the given
+// sequence, which is what CommitConfig keys the vault entry on.
+func configEnvelope(sequence uint64) *common.Envelope {
+	payload := &common.Payload{
+		Data: protoutil.MarshalOrPanic(&common.ConfigEnvelope{
+			Config: &common.Config{
+				Sequence:     sequence,
+				ChannelGroup: &common.ConfigGroup{},
+			},
+		}),
+	}
+	return &common.Envelope{Payload: protoutil.MarshalOrPanic(payload)}
+}
 
 func TestHandleConfigWrapsCommitError(t *testing.T) {
 	t.Parallel()
@@ -86,7 +101,7 @@ func TestCommitConfig(t *testing.T) {
 		c := &Committer{
 			logger: logger,
 		}
-		err := c.CommitConfig(t.Context(), 1, 1, []byte("raw"), nil)
+		err := c.CommitConfig(t.Context(), 1, []byte("raw"), nil)
 		require.ErrorContains(t, err, "envelope nil")
 	})
 
@@ -100,7 +115,7 @@ func TestCommitConfig(t *testing.T) {
 				},
 			},
 		}
-		err := c.CommitConfig(t.Context(), 1, 2, []byte("raw"), &common.Envelope{})
+		err := c.CommitConfig(t.Context(), 1, []byte("raw"), configEnvelope(2))
 		require.ErrorContains(t, err, "failed getting tx's status")
 	})
 
@@ -114,7 +129,7 @@ func TestCommitConfig(t *testing.T) {
 				},
 			},
 		}
-		err := c.CommitConfig(t.Context(), 1, 3, []byte("raw"), &common.Envelope{})
+		err := c.CommitConfig(t.Context(), 1, []byte("raw"), configEnvelope(3))
 		require.NoError(t, err)
 	})
 
@@ -128,7 +143,7 @@ func TestCommitConfig(t *testing.T) {
 				},
 			},
 		}
-		err := c.CommitConfig(t.Context(), 1, 4, []byte("raw"), &common.Envelope{})
+		err := c.CommitConfig(t.Context(), 1, []byte("raw"), configEnvelope(4))
 		require.ErrorContains(t, err, "invalid configtx's")
 	})
 
@@ -174,11 +189,116 @@ func TestCommitConfig(t *testing.T) {
 			},
 		}
 		require.NotPanics(t, func() {
-			err := c.CommitConfig(t.Context(), 1, 5, []byte("raw"), &common.Envelope{})
+			err := c.CommitConfig(t.Context(), 1, []byte("raw"), configEnvelope(5))
 			require.ErrorContains(t, err, "failed updating membership service for configtx")
 			require.ErrorContains(t, err, "membership-update-failed")
 		})
 	})
+}
+
+// TestCommitConfigKeysOnTheConfigSequence is the regression test for config
+// blocks being dropped after the first one.
+//
+// CommitConfig used to key the vault entry on the transaction's index within
+// its block. A configuration block holds exactly one transaction, so that index
+// is always 0 and every configuration block mapped to configtx_0. The channel's
+// genesis block committed that key during start-up catch-up, so every later
+// configuration block hit the "already committed" guard and returned before
+// MembershipService.Update and applyConfigUpdates ever ran.
+func TestCommitConfigKeysOnTheConfigSequence(t *testing.T) {
+	t.Parallel()
+
+	var committedTxID string
+	updated := false
+	// configtx_0 is already Valid, as it is on any node that has caught up with
+	// the channel's genesis block. For configtx_1 the status is consulted
+	// twice: CommitConfig's own "already committed" guard must see Unknown to
+	// proceed, then commitConfig -> Committer.CommitTX consults it again and
+	// must see Busy, because Unknown there routes to commitUnknown() instead of
+	// the commit() path that calls CommitTxFn. The existing "membership update
+	// failure" sub-test documents the same mechanics.
+	var seqOneStatusCalls int
+	c := &Committer{
+		logger:        logger,
+		ChannelConfig: &fake.ChannelConfig{IDValue: "ch-seq"},
+		Vault: &fake.Vault{
+			StatusFn: func(_ context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
+				if txID == ConfigTXPrefix+"0" {
+					return fdriver.Valid, "", nil
+				}
+				seqOneStatusCalls++
+				if seqOneStatusCalls == 1 {
+					return fdriver.Unknown, "", nil
+				}
+				return fdriver.Busy, "", nil
+			},
+			NewRWSetFn: func(context.Context, cdriver.TxID) (fdriver.RWSet, error) {
+				return &fake.RWSet{}, nil
+			},
+			CommitTxFn: func(_ context.Context, txID cdriver.TxID, _ cdriver.BlockNum, _ cdriver.TxNum) error {
+				committedTxID = txID
+				return nil
+			},
+		},
+		ProcessorManager: &fake.ProcessorManager{
+			ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
+		},
+		MembershipService: &fake.MembershipService{
+			UpdateFn: func(*common.Envelope) error {
+				updated = true
+				return nil
+			},
+		},
+		ConfigService:   &fake.ConfigService{NetworkNameValue: "net1"},
+		OrderingService: &fake.OrderingService{},
+	}
+
+	require.NoError(t, c.CommitConfig(t.Context(), 12, []byte("raw"), configEnvelope(1)))
+	require.Equal(t, ConfigTXPrefix+"1", committedTxID,
+		"a config block at sequence 1 must not be keyed on the genesis entry")
+	require.True(t, updated,
+		"the membership service must be updated for a config block that has not been seen")
+}
+
+// TestCommitConfigSkipsAConfigItAlreadyHas asserts the guard still works for a
+// genuine replay: the same sequence arriving twice is committed once.
+func TestCommitConfigSkipsAConfigItAlreadyHas(t *testing.T) {
+	t.Parallel()
+
+	updated := false
+	c := &Committer{
+		logger:        logger,
+		ChannelConfig: &fake.ChannelConfig{IDValue: "ch-replay"},
+		Vault: &fake.Vault{
+			StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+				return fdriver.Valid, "", nil
+			},
+		},
+		MembershipService: &fake.MembershipService{
+			UpdateFn: func(*common.Envelope) error {
+				updated = true
+				return nil
+			},
+		},
+	}
+
+	require.NoError(t, c.CommitConfig(t.Context(), 12, []byte("raw"), configEnvelope(4)))
+	require.False(t, updated, "a config block already in the vault must not be reapplied")
+}
+
+// TestCommitConfigRejectsAnEnvelopeWithoutASequence covers an envelope whose
+// sequence cannot be read. Keying on a guessed value would silently collide
+// with a real entry, so this must fail rather than fall back to 0.
+func TestCommitConfigRejectsAnEnvelopeWithoutASequence(t *testing.T) {
+	t.Parallel()
+
+	c := &Committer{
+		logger:        logger,
+		ChannelConfig: &fake.ChannelConfig{IDValue: "ch-bad"},
+	}
+
+	err := c.CommitConfig(t.Context(), 1, []byte("raw"), &common.Envelope{})
+	require.ErrorContains(t, err, "cannot read the config sequence")
 }
 
 func TestApplyConfigUpdates(t *testing.T) {

@@ -9,6 +9,7 @@ package configupdate
 import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	cviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/configupdate/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou"
 	iouviews "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/iou/views"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/api"
@@ -55,7 +56,8 @@ func Topology(opts *Opts) []api.Topology {
 			RegisterResponder(&iouviews.ApproverView{}, &iouviews.CreateIOUView{}).
 			RegisterResponder(&iouviews.ApproverView{}, &iouviews.UpdateIOUView{}).
 			RegisterViewFactory("init", &iouviews.ApproverInitViewFactory{}).
-			RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
+			RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
+			RegisterViewFactory("configseq", &views.ConfigSequenceViewFactory{})
 	}
 
 	fscTopology.AddNodeByName("borrower").
@@ -64,7 +66,8 @@ func Topology(opts *Opts) []api.Topology {
 		RegisterViewFactory("create", &iouviews.CreateIOUViewFactory{}).
 		RegisterViewFactory("update", &iouviews.UpdateIOUViewFactory{}).
 		RegisterViewFactory("query", &iouviews.QueryViewFactory{}).
-		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
+		RegisterViewFactory("configseq", &views.ConfigSequenceViewFactory{})
 
 	fscTopology.AddNodeByName("lender").
 		AddOptions(fabric.WithOrganization("Org3")).
@@ -72,7 +75,8 @@ func Topology(opts *Opts) []api.Topology {
 		RegisterResponder(&iouviews.CreateIOUResponderView{}, &iouviews.CreateIOUView{}).
 		RegisterResponder(&iouviews.UpdateIOUResponderView{}, &iouviews.UpdateIOUView{}).
 		RegisterViewFactory("query", &iouviews.QueryViewFactory{}).
-		RegisterViewFactory("finality", &cviews.FinalityViewFactory{})
+		RegisterViewFactory("finality", &cviews.FinalityViewFactory{}).
+		RegisterViewFactory("configseq", &views.ConfigSequenceViewFactory{})
 
 	fscTopology.AddSDKForCommType(&iou.SDK{}, opts.CommType)
 

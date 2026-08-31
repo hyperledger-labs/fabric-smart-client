@@ -112,6 +112,13 @@ type ChannelMembership interface {
 	// instead, so callers choosing an identity encoding from this cannot
 	// mistake an absent configuration for a real answer.
 	IsIdemixMSP(mspID string) (bool, error)
+	// ConfigSequence returns the sequence number of the channel configuration
+	// currently in force. It is 0 for a channel's genesis configuration and
+	// increases by one for every configuration update the node has applied, so
+	// a caller can tell whether a configuration change has reached this node
+	// yet. A channel with no configuration in force reports one of the errors
+	// above instead.
+	ConfigSequence() (uint64, error)
 }
 
 // MembershipService is the driver-side view of a channel's membership: a

@@ -329,6 +329,20 @@ func (s *Service) IsIdemixMSP(mspID string) (bool, error) {
 	return false, nil
 }
 
+// ConfigSequence returns the sequence number of the channel configuration
+// currently in force. It reflects the sequence of the configuration bundle
+// built by the config monitor and increases by one for every configuration
+// update this node has applied. A channel with no configuration in force
+// reports driver.ErrNotInitialized or driver.ErrConfigRejected instead.
+func (s *Service) ConfigSequence() (uint64, error) {
+	res, err := s.config.Get()
+	if err != nil {
+		return 0, err
+	}
+
+	return res.ConfigtxValidator().Sequence(), nil
+}
+
 // CheckACL checks the ACL for the resource for the Channel using the
 // SignedProposal from which an id can be extracted for testing against a policy
 func (s *Service) CheckACL(signedProp driver.SignedProposal) error {

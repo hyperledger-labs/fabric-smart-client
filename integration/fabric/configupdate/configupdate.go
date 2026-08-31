@@ -24,6 +24,7 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
+	nwocommon "github.com/hyperledger-labs/fabric-smart-client/integration/nwo/common"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/network"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fabric/topology"
@@ -74,14 +75,6 @@ func handles(ii *integration.Infrastructure) *channelHandles {
 	}
 }
 
-// ConfigBlockNumber returns the block number of the channel's current configuration block,
-// as reported by the ordering service. It increases by one for every configuration update
-// that is committed.
-func ConfigBlockNumber(ii *integration.Infrastructure) uint64 {
-	h := handles(ii)
-	return network.CurrentConfigBlockNumber(h.Network, h.Peer, h.Orderer, h.Channel)
-}
-
 // BatchTimeout returns the channel's current orderer BatchTimeout.
 func BatchTimeout(ii *integration.Infrastructure) time.Duration {
 	h := handles(ii)
@@ -115,6 +108,21 @@ func SetBatchTimeout(ii *integration.Infrastructure, timeout time.Duration) {
 
 	// The Orderer group's Admins policy is what gates this update, so the orderer signs it.
 	network.UpdateOrdererConfig(h.Network, h.Orderer, h.Channel, config, updated, h.Peer, h.Orderer)
+}
+
+// ConfigSequenceOn returns the sequence number of the channel configuration the
+// named FSC node currently holds, as the node itself reports it.
+//
+// A configuration update returns as soon as the *ordering service* has
+// committed it, which is strictly earlier than any FSC node observing it over
+// delivery. Callers must therefore poll this with gomega.Eventually rather than
+// asserting on it once. g asserts through the Gomega passed to the
+// gomega.Eventually poll function, so a transient view-call failure is a
+// retryable failure of that poll rather than an abort of the whole spec.
+func ConfigSequenceOn(g gomega.Gomega, ii *integration.Infrastructure, node string) int {
+	res, err := ii.Client(node).CallView("configseq", nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	return nwocommon.JSONUnmarshalInt(res)
 }
 
 // batchTimeoutOf extracts the BatchTimeout from a channel configuration.
