@@ -218,6 +218,49 @@ func TestConfigSequenceSurvivesARejectedUpdate(t *testing.T) {
 // TestUpdateWithoutAConfigIsRejected covers a config envelope that unmarshals
 // but carries no Config. Before the sequence was read this dereferenced
 // cenv.Config blindly and would panic.
+func TestTLSRootCertsByMSPIDNotInitialized(t *testing.T) {
+	t.Parallel()
+
+	s := NewService("mychannel")
+
+	certs, err := s.TLSRootCertsByMSPID("Org1MSP")
+	require.Error(t, err)
+	require.Nil(t, certs)
+	require.True(t, errors.Is(err, driver.ErrNotInitialized),
+		"error must be matchable with errors.Is, got [%v]", err)
+}
+
+// TestTLSRootCertsByMSPIDWithoutApplicationConfig asserts that a configuration
+// carrying no application section is reported as such, rather than being
+// mistaken for an organization that has no certificates configured.
+func TestTLSRootCertsByMSPIDWithoutApplicationConfig(t *testing.T) {
+	t.Parallel()
+
+	s := NewService("mychannel")
+	seed(t, s, &channelconfig.ChannelConfig{}, 0)
+
+	certs, err := s.TLSRootCertsByMSPID("Org1MSP")
+	require.Error(t, err)
+	require.Nil(t, certs)
+	require.True(t, strings.Contains(err.Error(), "mychannel"),
+		"error must name the channel, got [%v]", err)
+}
+
+// TestTLSRootCertsByMSPIDUnknownMSPNamesTheMSP asserts the error names the MSP
+// that was asked for, so an operator can tell which discovered peer's
+// organization is missing from the channel configuration.
+func TestTLSRootCertsByMSPIDUnknownMSPNamesTheMSP(t *testing.T) {
+	t.Parallel()
+
+	s := NewService("mychannel")
+	seed(t, s, &channelconfig.ChannelConfig{}, 0)
+
+	_, err := s.TLSRootCertsByMSPID("NoSuchMSP")
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "NoSuchMSP"),
+		"error must name the MSP, got [%v]", err)
+}
+
 func TestUpdateWithoutAConfigIsRejected(t *testing.T) {
 	t.Parallel()
 	s := NewService("mychannel")

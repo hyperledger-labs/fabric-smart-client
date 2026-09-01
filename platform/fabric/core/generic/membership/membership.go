@@ -214,6 +214,49 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 	return oc.ConsensusType(), newOrderers, nil
 }
 
+// TLSRootCertsByMSPID returns the TLS root and intermediate certificates of the
+// application organization with the given MSP ID, taken from the channel
+// configuration in force.
+//
+// This is the trusted counterpart to the TLS certificates carried in a
+// discovery response's ConfigResult. That response is not independently
+// verified — the peer answering a discovery query supplies both the endpoints
+// and the certificates that would authenticate them — so a client that dials a
+// discovered peer with roots from the same response gets no authentication from
+// TLS at all. Sourcing them here instead means the certificates come from the
+// channel configuration, fetched from a locally configured peer, rather than
+// from whoever answered discovery.
+//
+// It reports driver.ErrNotInitialized or driver.ErrConfigRejected while no
+// configuration is in force, and fails if the configuration has no application
+// organization with this MSP ID, so an unknown organization cannot be mistaken
+// for one that has no certificates configured.
+func (c *Service) TLSRootCertsByMSPID(mspID string) ([][]byte, error) {
+	res, err := c.config.Get()
+	if err != nil {
+		return nil, err
+	}
+
+	ac := res.channelConfig.ApplicationConfig()
+	if ac == nil {
+		return nil, errors.Errorf("no application organization with MSP ID [%s] in channel [%s]: application config does not exist", mspID, c.channelName)
+	}
+
+	for _, org := range ac.Organizations() {
+		if org.MSPID() != mspID {
+			continue
+		}
+
+		m := org.MSP()
+		var tlsRootCerts [][]byte
+		tlsRootCerts = append(tlsRootCerts, m.GetTLSRootCerts()...)
+		tlsRootCerts = append(tlsRootCerts, m.GetTLSIntermediateCerts()...)
+		return tlsRootCerts, nil
+	}
+
+	return nil, errors.Errorf("no application organization with MSP ID [%s] in channel [%s]", mspID, c.channelName)
+}
+
 // MSPManager returns the driver.MSPManager that reflects the current Channel
 // configuration. Users should not memoize references to this object.
 //
