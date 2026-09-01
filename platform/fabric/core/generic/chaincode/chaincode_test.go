@@ -46,6 +46,7 @@ import (
 //go:generate counterfeiter -o mock/response.go -fake-name Response github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/discovery.Response
 //go:generate counterfeiter -o mock/chaincode_config.go -fake-name ChaincodeConfig github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ChaincodeConfig
 //go:generate counterfeiter -o mock/msp_manager.go -fake-name MSPManager github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.MSPManager
+//go:generate counterfeiter -o mock/msp_identity.go -fake-name MSPIdentity github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.MSPIdentity
 
 type mockMSPIdentity struct {
 	mspID string
@@ -442,16 +443,6 @@ func TestDiscovery_CallAndGetEndorsers(t *testing.T) {
 		d := chaincode.NewDiscovery(fix.Chaincode)
 		_, err := d.Call()
 		require.ErrorContains(t, err, "failed getting endorsers")
-	})
-
-	t.Run("Config error", func(t *testing.T) {
-		t.Parallel()
-		fix := setupDiscoveryTest(t)
-		fix.ChannelResponse.EndorsersReturns([]*discoveryApi.Peer{fix.Peer}, nil)
-		fix.ChannelResponse.ConfigReturns(nil, errors.New("config-error"))
-		d := chaincode.NewDiscovery(fix.Chaincode)
-		_, err := d.Call()
-		require.ErrorContains(t, err, "failed getting config")
 	})
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
@@ -158,6 +159,16 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 
 	channelMembershipService := p.newMembership(channelName)
 
+	// Discovery validates discovered peer identities against the channel
+	// configuration, so the chaincode manager needs the concrete membership
+	// service rather than the driver interface. An implementation that does not
+	// provide the channel-configuration trust anchor keeps the previous
+	// behaviour rather than failing to build.
+	var chaincodeMSPProvider chaincode.MSPProvider
+	if ms, ok := channelMembershipService.(*membership.Service); ok {
+		chaincodeMSPProvider = ms
+	}
+
 	// Committers
 	rwSetLoaderService, err := p.newRWSetLoader(
 		channelName,
@@ -187,7 +198,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		nw.SignerService(),
 		nw.OrderingService(),
 		nil,
-		channelMembershipService,
+		chaincodeMSPProvider,
 	)
 
 	ledgerService, err := p.newLedger(

@@ -91,12 +91,7 @@ func (d *Discovery) GetEndorsers() ([]driver.DiscoveredPeer, error) {
 		return nil, errors.WithMessagef(err, "failed getting endorsers for [%s:%s:%s]", d.chaincode.NetworkID, d.chaincode.ChannelID, d.chaincode.name)
 	}
 
-	// prepare result
-	configResult, err := cr.Config()
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.NetworkID, d.chaincode.ChannelID, d.chaincode.name)
-	}
-	return d.toDiscoveredPeers(configResult, endorsers)
+	return d.toDiscoveredPeers(endorsers)
 }
 
 func (d *Discovery) GetPeers() ([]driver.DiscoveredPeer, error) {
@@ -123,12 +118,7 @@ func (d *Discovery) GetPeers() ([]driver.DiscoveredPeer, error) {
 		peers = (&byMSPIDs{mspIDs: d.FilterByMSPIDs}).Filter(peers)
 	}
 
-	// prepare result
-	configResult, err := cr.Config()
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed getting config for [%s:%s:%s]", d.chaincode.NetworkID, d.chaincode.ChannelID, d.chaincode.name)
-	}
-	return d.toDiscoveredPeers(configResult, peers)
+	return d.toDiscoveredPeers(peers)
 }
 
 func (d *Discovery) Response() (discovery.Response, error) {
@@ -262,8 +252,35 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 	return response, nil
 }
 
-func (d *Discovery) toDiscoveredPeers(configResult *discovery2.ConfigResult, endorsers []*discovery.Peer) ([]driver.DiscoveredPeer, error) {
+// toDiscoveredPeers turns the peers reported by a discovery response into
+// driver.DiscoveredPeer values, keeping only those whose identity the channel
+// recognises.
+//
+// A discovery response is supplied by whichever peer answered the query and is
+// not independently verified. The envelope signature checks performed while
+// parsing it (see the discovery package's verifyEnvelopeSignature) establish
+// only that each envelope was signed by the key in the identity shipped
+// alongside it — a self-consistency property that a malicious or relaying
+// responder can satisfy with an identity no CA ever issued. So both values this
+// function would otherwise take on trust are re-derived from the channel
+// configuration instead: the identity is validated against the channel's MSPs,
+// and the TLS certificates that will authenticate the connection come from the
+// configuration rather than from the response's own ConfigResult.
+//
+// A peer that fails validation is dropped rather than failing the whole
+// response, so one rogue entry cannot deny service to an otherwise satisfiable
+// endorsement set. If validation leaves nothing, that is an error naming
+// validation as the cause, so it is not mistaken for a filter that matched no
+// peers.
+//
+// The channel configuration is not itself cryptographically verified: its
+// trust comes from being fetched over TLS from a locally configured peer rather
+// than from the discovery responder. This raises the bar from "the responder
+// authorises itself" to "the operator's configured peer must be compromised";
+// it is not a cryptographic root of trust.
+func (d *Discovery) toDiscoveredPeers(endorsers []*discovery.Peer) ([]driver.DiscoveredPeer, error) {
 	var discoveredEndorsers []driver.DiscoveredPeer
+	var rejected int
 	for _, peer := range endorsers {
 		// extract peer info
 		if peer.AliveMessage == nil {
@@ -279,11 +296,19 @@ func (d *Discovery) toDiscoveredPeers(configResult *discovery2.ConfigResult, end
 			continue
 		}
 
-		var tlsRootCerts [][]byte
-		if mspInfo, ok := configResult.GetMsps()[peer.MSPID]; ok {
-			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsRootCerts()...)
-			tlsRootCerts = append(tlsRootCerts, mspInfo.GetTlsIntermediateCerts()...)
+		tlsRootCerts, err := d.validatePeer(peer)
+		if err != nil {
+			// A configuration that has not arrived, or was refused, is not a
+			// verdict on this peer: report it rather than reporting the peer as
+			// untrusted.
+			if errors.Is(err, driver.ErrNotInitialized) || errors.Is(err, driver.ErrConfigRejected) {
+				return nil, errors.WithMessagef(err, "cannot validate discovered peers for [%s:%s]", d.chaincode.NetworkID, d.chaincode.ChannelID)
+			}
+			rejected++
+			logger.Warnf("dropping discovered peer [%s:%s] at [%s]: %v", peer.MSPID, view.Identity(peer.Identity).String(), member.Endpoint, err)
+			continue
 		}
+
 		discoveredEndorsers = append(discoveredEndorsers, driver.DiscoveredPeer{
 			Identity:     peer.Identity,
 			MSPID:        peer.MSPID,
@@ -292,7 +317,36 @@ func (d *Discovery) toDiscoveredPeers(configResult *discovery2.ConfigResult, end
 		})
 	}
 
+	if len(discoveredEndorsers) == 0 && rejected > 0 {
+		return nil, errors.Errorf("all %d discovered peers for [%s:%s:%s] failed MSP validation", rejected, d.chaincode.NetworkID, d.chaincode.ChannelID, d.chaincode.name)
+	}
+
 	return discoveredEndorsers, nil
+}
+
+// validatePeer checks a discovered peer's identity against the channel's MSPs
+// and returns the TLS certificates to authenticate it with, both taken from the
+// channel configuration.
+func (d *Discovery) validatePeer(peer *discovery.Peer) ([][]byte, error) {
+	identity, err := d.chaincode.MSPProvider.MSPManager().DeserializeIdentity(peer.Identity)
+	if err != nil {
+		return nil, errors.WithMessage(err, "identity is not one the channel recognises")
+	}
+	if err := identity.Validate(); err != nil {
+		return nil, errors.WithMessage(err, "identity failed MSP validation")
+	}
+	// The MSP ID the response claimed decides which organization's TLS roots
+	// authenticate the connection, so an identity validated under one MSP must
+	// not be usable as a peer of another.
+	if actual := identity.GetMSPIdentifier(); actual != peer.MSPID {
+		return nil, errors.Errorf("identity belongs to MSP [%s] but was reported under [%s]", actual, peer.MSPID)
+	}
+
+	tlsRootCerts, err := d.chaincode.MSPProvider.TLSRootCertsByMSPID(peer.MSPID)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "no trusted TLS roots for MSP [%s]", peer.MSPID)
+	}
+	return tlsRootCerts, nil
 }
 
 func (d *Discovery) ChaincodeVersion() (string, error) {

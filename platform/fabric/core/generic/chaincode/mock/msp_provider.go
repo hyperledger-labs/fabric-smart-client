@@ -19,6 +19,19 @@ type MSPProvider struct {
 	mSPManagerReturnsOnCall map[int]struct {
 		result1 driver.MSPManager
 	}
+	TLSRootCertsByMSPIDStub        func(string) ([][]byte, error)
+	tLSRootCertsByMSPIDMutex       sync.RWMutex
+	tLSRootCertsByMSPIDArgsForCall []struct {
+		arg1 string
+	}
+	tLSRootCertsByMSPIDReturns struct {
+		result1 [][]byte
+		result2 error
+	}
+	tLSRootCertsByMSPIDReturnsOnCall map[int]struct {
+		result1 [][]byte
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -74,6 +87,70 @@ func (fake *MSPProvider) MSPManagerReturnsOnCall(i int, result1 driver.MSPManage
 	fake.mSPManagerReturnsOnCall[i] = struct {
 		result1 driver.MSPManager
 	}{result1}
+}
+
+func (fake *MSPProvider) TLSRootCertsByMSPID(arg1 string) ([][]byte, error) {
+	fake.tLSRootCertsByMSPIDMutex.Lock()
+	ret, specificReturn := fake.tLSRootCertsByMSPIDReturnsOnCall[len(fake.tLSRootCertsByMSPIDArgsForCall)]
+	fake.tLSRootCertsByMSPIDArgsForCall = append(fake.tLSRootCertsByMSPIDArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.TLSRootCertsByMSPIDStub
+	fakeReturns := fake.tLSRootCertsByMSPIDReturns
+	fake.recordInvocation("TLSRootCertsByMSPID", []interface{}{arg1})
+	fake.tLSRootCertsByMSPIDMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *MSPProvider) TLSRootCertsByMSPIDCallCount() int {
+	fake.tLSRootCertsByMSPIDMutex.RLock()
+	defer fake.tLSRootCertsByMSPIDMutex.RUnlock()
+	return len(fake.tLSRootCertsByMSPIDArgsForCall)
+}
+
+func (fake *MSPProvider) TLSRootCertsByMSPIDCalls(stub func(string) ([][]byte, error)) {
+	fake.tLSRootCertsByMSPIDMutex.Lock()
+	defer fake.tLSRootCertsByMSPIDMutex.Unlock()
+	fake.TLSRootCertsByMSPIDStub = stub
+}
+
+func (fake *MSPProvider) TLSRootCertsByMSPIDArgsForCall(i int) string {
+	fake.tLSRootCertsByMSPIDMutex.RLock()
+	defer fake.tLSRootCertsByMSPIDMutex.RUnlock()
+	argsForCall := fake.tLSRootCertsByMSPIDArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *MSPProvider) TLSRootCertsByMSPIDReturns(result1 [][]byte, result2 error) {
+	fake.tLSRootCertsByMSPIDMutex.Lock()
+	defer fake.tLSRootCertsByMSPIDMutex.Unlock()
+	fake.TLSRootCertsByMSPIDStub = nil
+	fake.tLSRootCertsByMSPIDReturns = struct {
+		result1 [][]byte
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *MSPProvider) TLSRootCertsByMSPIDReturnsOnCall(i int, result1 [][]byte, result2 error) {
+	fake.tLSRootCertsByMSPIDMutex.Lock()
+	defer fake.tLSRootCertsByMSPIDMutex.Unlock()
+	fake.TLSRootCertsByMSPIDStub = nil
+	if fake.tLSRootCertsByMSPIDReturnsOnCall == nil {
+		fake.tLSRootCertsByMSPIDReturnsOnCall = make(map[int]struct {
+			result1 [][]byte
+			result2 error
+		})
+	}
+	fake.tLSRootCertsByMSPIDReturnsOnCall[i] = struct {
+		result1 [][]byte
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *MSPProvider) Invocations() map[string][][]interface{} {
