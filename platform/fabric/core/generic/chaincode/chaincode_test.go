@@ -107,8 +107,10 @@ func setupTestChaincode(t *testing.T, configure ...func(cs *mock.ConfigService, 
 
 	// Discovery now validates discovered peer identities against the channel's
 	// MSPs, so the fixture needs a trust anchor that accepts the fixture peer
-	// (MSPID "Org1MSP", see setupDiscoveryTest's peer1). Tests that need a
-	// rejecting anchor stub fix.MSPProvider explicitly to override this.
+	// (MSPID "Org1MSP", see setupDiscoveryTest's peer1). DeserializeIdentityReturns
+	// is unconditional, so this default accepts any identity bytes, not just
+	// peer1's. Tests that need a rejecting anchor stub fix.MSPProvider explicitly
+	// to override this.
 	mockIdentity := &mock.MSPIdentity{}
 	mockIdentity.GetMSPIdentifierReturns("Org1MSP")
 	mockIdentity.ValidateReturns(nil)

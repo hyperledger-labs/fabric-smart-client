@@ -201,7 +201,13 @@ func TestToDiscoveredPeersRogueDroppedOthersKept(t *testing.T) {
 	require.Equal(t, "peer0:7051", peers[0].Endpoint)
 }
 
-func TestToDiscoveredPeersConfigRejectedFailsFast(t *testing.T) {
+// TestToDiscoveredPeersConfigRejectedPropagates asserts that a rejected
+// channel configuration is reported as a configuration problem, not as a
+// peer that failed MSP validation. Those are different operational
+// conditions: without this distinction, a node starting up during a config
+// race reports its own peers as cryptographically untrusted, sending an
+// operator hunting a CA problem that does not exist.
+func TestToDiscoveredPeersConfigRejectedPropagates(t *testing.T) {
 	t.Parallel()
 
 	fix := setupDiscoveryTest(t)
@@ -211,9 +217,42 @@ func TestToDiscoveredPeersConfigRejectedFailsFast(t *testing.T) {
 
 	fix.MSPProvider.MSPManagerReturns(mgr)
 
-	start := time.Now()
 	_, err := discoverPeers(t, fix, newPeerFixture(t, "Org1MSP", "peer0:7051", []byte("id-bytes")))
-	require.Error(t, err)
-	require.Less(t, time.Since(start), time.Second,
-		"a rejected configuration must not be waited on")
+	require.ErrorIs(t, err, driver.ErrConfigRejected)
+	require.NotContains(t, err.Error(), "failed MSP validation",
+		"a configuration that is unavailable must not be reported as peers failing validation")
+}
+
+// TestToDiscoveredPeersNotInitializedPropagates is
+// TestToDiscoveredPeersConfigRejectedPropagates's twin for the other
+// deferred-configuration error: deleting just the ErrNotInitialized disjunct
+// from toDiscoveredPeers's fail-fast check leaves the ErrConfigRejected test
+// green, so both errors need their own witness.
+func TestToDiscoveredPeersNotInitializedPropagates(t *testing.T) {
+	t.Parallel()
+
+	fix := setupDiscoveryTest(t)
+
+	mgr := &mock.MSPManager{}
+	mgr.DeserializeIdentityReturns(nil, driver.ErrNotInitialized)
+
+	fix.MSPProvider.MSPManagerReturns(mgr)
+
+	_, err := discoverPeers(t, fix, newPeerFixture(t, "Org1MSP", "peer0:7051", []byte("id-bytes")))
+	require.ErrorIs(t, err, driver.ErrNotInitialized)
+	require.NotContains(t, err.Error(), "failed MSP validation",
+		"a configuration that is unavailable must not be reported as peers failing validation")
+}
+
+// TestToDiscoveredPeersEmptySetIsNotAValidationFailure asserts the design
+// property that a legitimately-empty filter result (no peers were ever
+// discovered, so none were rejected) is not itself reported as a validation
+// failure - only rejected > 0 warrants that error.
+func TestToDiscoveredPeersEmptySetIsNotAValidationFailure(t *testing.T) {
+	t.Parallel()
+
+	fix := setupDiscoveryTest(t)
+	peers, err := discoverPeers(t, fix)
+	require.NoError(t, err, "an empty discovery result is not a validation failure")
+	require.Empty(t, peers)
 }
