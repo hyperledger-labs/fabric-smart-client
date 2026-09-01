@@ -105,6 +105,20 @@ func setupTestChaincode(t *testing.T, configure ...func(cs *mock.ConfigService, 
 	mockCC.DiscoveryTimeoutReturns(time.Second)
 	mockCC.DiscoveryDefaultTTLSReturns(time.Second)
 
+	// Discovery now validates discovered peer identities against the channel's
+	// MSPs, so the fixture needs a trust anchor that accepts the fixture peer
+	// (MSPID "Org1MSP", see setupDiscoveryTest's peer1). Tests that need a
+	// rejecting anchor stub fix.MSPProvider explicitly to override this.
+	mockIdentity := &mock.MSPIdentity{}
+	mockIdentity.GetMSPIdentifierReturns("Org1MSP")
+	mockIdentity.ValidateReturns(nil)
+
+	mockMSPManager := &mock.MSPManager{}
+	mockMSPManager.DeserializeIdentityReturns(mockIdentity, nil)
+
+	mockMSPProv.MSPManagerReturns(mockMSPManager)
+	mockMSPProv.TLSRootCertsByMSPIDReturns([][]byte{[]byte("trusted-root")}, nil)
+
 	for _, cfg := range configure {
 		cfg(mockCS, mockCC)
 	}
@@ -386,7 +400,10 @@ func TestDiscovery_CallAndGetEndorsers(t *testing.T) {
 		require.Len(t, peers, 1)
 		require.Equal(t, "peer1.org1.example.com:7051", peers[0].Endpoint)
 		require.Equal(t, "Org1MSP", peers[0].MSPID)
-		require.Equal(t, [][]byte{[]byte("root-cert-1")}, peers[0].TLSRootCerts)
+		// TLS roots now come from the channel configuration (the fixture's
+		// MSPProvider), not from the discovery response's own ConfigResult
+		// (which stubs "root-cert-1" - see setupDiscoveryTest).
+		require.Equal(t, [][]byte{[]byte("trusted-root")}, peers[0].TLSRootCerts)
 	})
 
 	t.Run("GetEndorsers Success with Implicit Collections", func(t *testing.T) {
