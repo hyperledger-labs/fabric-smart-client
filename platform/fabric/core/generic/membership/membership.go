@@ -239,9 +239,20 @@ func (c *Service) TLSRootCertsByMSPID(mspID string) ([][]byte, error) {
 
 	ac := res.channelConfig.ApplicationConfig()
 	if ac == nil {
-		return nil, errors.Errorf("no application organization with MSP ID [%s] in channel [%s]: application config does not exist", mspID, c.channelName)
+		return nil, errors.Errorf("application config does not exist for channel [%s]", c.channelName)
 	}
 
+	return tlsRootCertsByMSPID(ac, mspID, c.channelName)
+}
+
+// tlsRootCertsByMSPID finds the application organization with the given MSP ID
+// and returns its TLS root certificates followed by its intermediate ones.
+//
+// It takes the channelconfig.Application interface rather than reading the
+// configuration itself so that the lookup can be tested directly: the concrete
+// *channelconfig.ApplicationConfig cannot be built with organizations from
+// outside its own package.
+func tlsRootCertsByMSPID(ac channelconfig.Application, mspID, channelName string) ([][]byte, error) {
 	for _, org := range ac.Organizations() {
 		if org.MSPID() != mspID {
 			continue
@@ -254,7 +265,7 @@ func (c *Service) TLSRootCertsByMSPID(mspID string) ([][]byte, error) {
 		return tlsRootCerts, nil
 	}
 
-	return nil, errors.Errorf("no application organization with MSP ID [%s] in channel [%s]", mspID, c.channelName)
+	return nil, errors.Errorf("no application organization with MSP ID [%s] in channel [%s]", mspID, channelName)
 }
 
 // MSPManager returns the driver.MSPManager that reflects the current Channel

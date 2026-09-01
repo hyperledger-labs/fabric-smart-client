@@ -11,10 +11,13 @@ import (
 	"testing"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
+	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership/channelconfig"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp/fake"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
@@ -215,9 +218,6 @@ func TestConfigSequenceSurvivesARejectedUpdate(t *testing.T) {
 	require.Equal(t, uint64(3), seq, "a rejected update must not advance the sequence")
 }
 
-// TestUpdateWithoutAConfigIsRejected covers a config envelope that unmarshals
-// but carries no Config. Before the sequence was read this dereferenced
-// cenv.Config blindly and would panic.
 func TestTLSRootCertsByMSPIDNotInitialized(t *testing.T) {
 	t.Parallel()
 
@@ -244,23 +244,105 @@ func TestTLSRootCertsByMSPIDWithoutApplicationConfig(t *testing.T) {
 	require.Nil(t, certs)
 	require.True(t, strings.Contains(err.Error(), "mychannel"),
 		"error must name the channel, got [%v]", err)
+	require.True(t, strings.Contains(err.Error(), "application config does not exist"),
+		"error must be specific to the missing application section, got [%v]", err)
 }
 
-// TestTLSRootCertsByMSPIDUnknownMSPNamesTheMSP asserts the error names the MSP
-// that was asked for, so an operator can tell which discovered peer's
-// organization is missing from the channel configuration.
+// fakeApplicationOrg is a minimal channelconfig.ApplicationOrg double that a
+// test can build directly, since the concrete
+// *channelconfig.ApplicationOrgConfig cannot be constructed with organizations
+// from outside the channelconfig package.
+type fakeApplicationOrg struct {
+	name  string
+	mspID string
+	msp   msp.MSP
+}
+
+func (f *fakeApplicationOrg) Name() string                  { return f.name }
+func (f *fakeApplicationOrg) MSPID() string                 { return f.mspID }
+func (f *fakeApplicationOrg) MSP() msp.MSP                  { return f.msp }
+func (f *fakeApplicationOrg) AnchorPeers() []*pb.AnchorPeer { return nil }
+
+// fakeApplication is a minimal channelconfig.Application double.
+type fakeApplication struct {
+	orgs map[string]channelconfig.ApplicationOrg
+}
+
+func (f *fakeApplication) Organizations() map[string]channelconfig.ApplicationOrg { return f.orgs }
+
+// TestTLSRootCertsByMSPIDReturnsRootsThenIntermediates asserts that, for an
+// application organization with a matching MSP ID, the result concatenates
+// the TLS root certificates followed by the TLS intermediate certificates, in
+// that order — the ordering that Task 3's TLS dial config depends on.
+func TestTLSRootCertsByMSPIDReturnsRootsThenIntermediates(t *testing.T) {
+	t.Parallel()
+
+	m := &fake.MSP{}
+	m.On("GetTLSRootCerts").Return([][]byte{[]byte("root")})
+	m.On("GetTLSIntermediateCerts").Return([][]byte{[]byte("inter")})
+
+	ac := &fakeApplication{orgs: map[string]channelconfig.ApplicationOrg{
+		"Org1": &fakeApplicationOrg{name: "Org1", mspID: "Org1MSP", msp: m},
+	}}
+
+	certs, err := tlsRootCertsByMSPID(ac, "Org1MSP", "mychannel")
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{[]byte("root"), []byte("inter")}, certs,
+		"roots must come first, intermediates second")
+}
+
+// TestTLSRootCertsByMSPIDSelectsByMSPIDNotOrgName asserts that the lookup
+// matches organizations by their MSP ID, not by the map key under which
+// Organizations() stores them (which is the org name) — Organizations()
+// returns map[string]ApplicationOrg keyed by org name, so indexing by MSP ID
+// would silently miss.
+func TestTLSRootCertsByMSPIDSelectsByMSPIDNotOrgName(t *testing.T) {
+	t.Parallel()
+
+	m1 := &fake.MSP{}
+	m1.On("GetTLSRootCerts").Return([][]byte{[]byte("org1-root")})
+	m1.On("GetTLSIntermediateCerts").Return([][]byte{})
+
+	m2 := &fake.MSP{}
+	m2.On("GetTLSRootCerts").Return([][]byte{[]byte("org2-root")})
+	m2.On("GetTLSIntermediateCerts").Return([][]byte{})
+
+	ac := &fakeApplication{orgs: map[string]channelconfig.ApplicationOrg{
+		"Org1": &fakeApplicationOrg{name: "Org1", mspID: "Org1MSP", msp: m1},
+		"Org2": &fakeApplicationOrg{name: "Org2", mspID: "Org2MSP", msp: m2},
+	}}
+
+	certs, err := tlsRootCertsByMSPID(ac, "Org2MSP", "mychannel")
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{[]byte("org2-root")}, certs,
+		"must select the organization by MSP ID, not by the map key it is stored under")
+}
+
+// TestTLSRootCertsByMSPIDUnknownMSPNamesTheMSP asserts that when the channel
+// configuration has a populated application section but no organization with
+// the requested MSP ID, the error names both the MSP that was asked for and
+// the channel, so an operator can tell which discovered peer's organization is
+// missing from the channel configuration.
 func TestTLSRootCertsByMSPIDUnknownMSPNamesTheMSP(t *testing.T) {
 	t.Parallel()
 
-	s := NewService("mychannel")
-	seed(t, s, &channelconfig.ChannelConfig{}, 0)
+	m := &fake.MSP{}
+	ac := &fakeApplication{orgs: map[string]channelconfig.ApplicationOrg{
+		"Org1": &fakeApplicationOrg{name: "Org1", mspID: "Org1MSP", msp: m},
+	}}
 
-	_, err := s.TLSRootCertsByMSPID("NoSuchMSP")
+	certs, err := tlsRootCertsByMSPID(ac, "NoSuchMSP", "mychannel")
 	require.Error(t, err)
+	require.Nil(t, certs)
 	require.True(t, strings.Contains(err.Error(), "NoSuchMSP"),
 		"error must name the MSP, got [%v]", err)
+	require.True(t, strings.Contains(err.Error(), "mychannel"),
+		"error must name the channel, got [%v]", err)
 }
 
+// TestUpdateWithoutAConfigIsRejected covers a config envelope that unmarshals
+// but carries no Config. Before the sequence was read this dereferenced
+// cenv.Config blindly and would panic.
 func TestUpdateWithoutAConfigIsRejected(t *testing.T) {
 	t.Parallel()
 	s := NewService("mychannel")
