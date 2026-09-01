@@ -279,6 +279,16 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 // authorises itself" to "the operator's configured peer must be compromised";
 // it is not a cryptographic root of trust.
 func (d *Discovery) toDiscoveredPeers(endorsers []*discovery.Peer) ([]driver.DiscoveredPeer, error) {
+	// Obtained once for the whole call rather than once per peer: MSPManager
+	// on a waiting provider blocks up to its configured budget, and so does
+	// TLSRootCertsByMSPID below. Resolving the manager here means a stalled
+	// configuration spends that budget once for the call rather than once per
+	// peer - validatePeer still calls TLSRootCertsByMSPID per peer since that
+	// lookup is keyed by MSP ID, but a timeout there on the first peer now
+	// propagates immediately through the fail-fast branch below instead of
+	// being paid again by every remaining peer.
+	mspManager := d.chaincode.MSPProvider.MSPManager()
+
 	var discoveredEndorsers []driver.DiscoveredPeer
 	var rejected int
 	for _, peer := range endorsers {
@@ -296,7 +306,7 @@ func (d *Discovery) toDiscoveredPeers(endorsers []*discovery.Peer) ([]driver.Dis
 			continue
 		}
 
-		tlsRootCerts, err := d.validatePeer(peer)
+		tlsRootCerts, err := d.validatePeer(mspManager, peer)
 		if err != nil {
 			// A configuration that has not arrived, or was refused, is not a
 			// verdict on this peer: report it rather than reporting the peer as
@@ -326,9 +336,11 @@ func (d *Discovery) toDiscoveredPeers(endorsers []*discovery.Peer) ([]driver.Dis
 
 // validatePeer checks a discovered peer's identity against the channel's MSPs
 // and returns the TLS certificates to authenticate it with, both taken from the
-// channel configuration.
-func (d *Discovery) validatePeer(peer *discovery.Peer) ([][]byte, error) {
-	identity, err := d.chaincode.MSPProvider.MSPManager().DeserializeIdentity(peer.Identity)
+// channel configuration. mspManager is resolved once by the caller for the
+// whole batch of peers rather than once per peer here, so a wait for the
+// configuration to arrive is only paid once per toDiscoveredPeers call.
+func (d *Discovery) validatePeer(mspManager driver.MSPManager, peer *discovery.Peer) ([][]byte, error) {
+	identity, err := mspManager.DeserializeIdentity(peer.Identity)
 	if err != nil {
 		return nil, errors.WithMessage(err, "identity is not one the channel recognises")
 	}

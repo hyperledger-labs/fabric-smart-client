@@ -274,6 +274,12 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 // configuration is in force, and fails if the configuration has no application
 // organization with this MSP ID, so an unknown organization cannot be mistaken
 // for one that has no certificates configured.
+//
+// On a Service built with WithConfigWait, "while no configuration is in
+// force" includes blocking for up to that budget for one to arrive: only once
+// the wait itself runs out does the call report driver.ErrNotInitialized, so a
+// caller should expect this to take that long in the worst case rather than
+// returning the error immediately.
 func (c *Service) TLSRootCertsByMSPID(mspID string) ([][]byte, error) {
 	res, err := c.resolve()
 	if err != nil {
@@ -316,7 +322,13 @@ func tlsRootCertsByMSPID(ac channelconfig.Application, mspID, channelName string
 //
 // The manager resolves the configuration on each call rather than capturing it
 // here, so obtaining one before the channel configuration has been loaded is
-// allowed; the failure surfaces from DeserializeIdentity.
+// allowed; the failure surfaces from DeserializeIdentity, as
+// driver.ErrNotInitialized or driver.ErrConfigRejected.
+//
+// If c was built with WithConfigWait, the returned manager carries that
+// budget: a DeserializeIdentity call on it may block for up to that long
+// waiting for a configuration to arrive before it reports
+// driver.ErrNotInitialized, rather than reporting it immediately.
 func (c *Service) MSPManager() driver.MSPManager {
 	return &mspManager{config: c.config, waitFor: c.configWait}
 }

@@ -256,3 +256,54 @@ func TestToDiscoveredPeersEmptySetIsNotAValidationFailure(t *testing.T) {
 	require.NoError(t, err, "an empty discovery result is not a validation failure")
 	require.Empty(t, peers)
 }
+
+// TestToDiscoveredPeersTimedOutWaitPropagatesAsNotInitialized is
+// TestToDiscoveredPeersNotInitializedPropagates's twin for a real waiting
+// accessor's timeout rather than a mock returning the sentinel directly: it
+// asserts that a wait that ran out - reported as ErrNotLoaded wrapped with a
+// "timed out waiting" message, exactly what deferred.Holder.WaitForValue now
+// produces - is still classified as a configuration problem and not
+// misreported as every peer having failed MSP validation.
+func TestToDiscoveredPeersTimedOutWaitPropagatesAsNotInitialized(t *testing.T) {
+	t.Parallel()
+
+	fix := setupDiscoveryTest(t)
+
+	mgr := &mock.MSPManager{}
+	mgr.DeserializeIdentityReturns(nil, errors.Wrapf(driver.ErrNotInitialized,
+		"channel [test-channel] configuration not loaded: timed out waiting for channel [test-channel] configuration: context deadline exceeded"))
+
+	fix.MSPProvider.MSPManagerReturns(mgr)
+
+	_, err := discoverPeers(t, fix, newPeerFixture(t, "Org1MSP", "peer0:7051", []byte("id-bytes")))
+	require.ErrorIs(t, err, driver.ErrNotInitialized)
+	require.NotContains(t, err.Error(), "failed MSP validation",
+		"a wait that timed out must not be reported as peers failing validation")
+}
+
+// TestToDiscoveredPeersResolvesMSPManagerOncePerCall asserts that
+// toDiscoveredPeers obtains the driver.MSPManager once for the whole batch of
+// peers rather than once per peer. Without this, a waiting MSPManager pays its
+// full wait budget again for every peer instead of once per call: with N
+// peers that is N times the documented bound. Three peers whose validation
+// all fails on the same config-unavailable path (the fail-fast branch returns
+// on the first one) must still only cost a single MSPManager() call.
+func TestToDiscoveredPeersResolvesMSPManagerOncePerCall(t *testing.T) {
+	t.Parallel()
+
+	fix := setupDiscoveryTest(t)
+
+	mgr := &mock.MSPManager{}
+	mgr.DeserializeIdentityReturns(nil, driver.ErrNotInitialized)
+
+	fix.MSPProvider.MSPManagerReturns(mgr)
+
+	_, err := discoverPeers(t, fix,
+		newPeerFixture(t, "Org1MSP", "peer0:7051", []byte("id-bytes-0")),
+		newPeerFixture(t, "Org1MSP", "peer1:7051", []byte("id-bytes-1")),
+		newPeerFixture(t, "Org1MSP", "peer2:7051", []byte("id-bytes-2")),
+	)
+	require.ErrorIs(t, err, driver.ErrNotInitialized)
+	require.Equal(t, 1, fix.MSPProvider.MSPManagerCallCount(),
+		"MSPManager must be resolved once per toDiscoveredPeers call, not once per peer")
+}
