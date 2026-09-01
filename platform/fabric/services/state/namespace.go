@@ -312,6 +312,9 @@ func (n *Namespace) GetInputAt(index int, state any) error {
 		}
 		k = k2
 		raw = v
+		// TODO: certified inputs and hash hiding do not compose. flag=false returns a
+		// nil mapping without consulting the RWSet, so the `_root_` preimage is never
+		// recovered, raw stays the digest, and the Unmarshal below fails.
 		flag = false
 	}
 

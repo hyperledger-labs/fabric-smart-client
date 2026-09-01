@@ -19,6 +19,12 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/rwset"
 )
 
+// byteSliceType is []byte. Assignability to it is the precondition for hashing a
+// field: reflect.Value.Bytes needs element kind uint8 and reflect.Value.Set needs
+// assignability, and only assignability implies both. Checking the element kind alone
+// admits []MyByte, which reads fine and then panics in Set.
+var byteSliceType = reflect.TypeFor[[]byte]()
+
 func (n *Namespace) setFieldMapping(namespace, key string, mapping map[string][]byte) error {
 	logger.Debugf("setting field mapping for [%s:%s]", namespace, key)
 	if len(mapping) == 0 {
@@ -124,6 +130,10 @@ func (n *Namespace) marshalTags(set *fabric.RWSet, source any) (any, map[string]
 					// unverifiable hash. Use a []byte field for hash-hiding.
 					return nil, nil, errors.Errorf("state:\"hash\" is not supported for string field [%s]; use []byte", t.Field(i).Name)
 				case reflect.Slice:
+					// See byteSliceType: anything else panics in Bytes or in Set below.
+					if !byteSliceType.AssignableTo(field.Type()) {
+						return nil, nil, errors.Errorf("state:\"hash\" is not supported for field [%s] of type [%s]; use []byte", t.Field(i).Name, field.Type())
+					}
 					mapping[t.Field(i).Name] = field.Bytes()
 
 					hash := sha256.New()
@@ -132,6 +142,10 @@ func (n *Namespace) marshalTags(set *fabric.RWSet, source any) (any, map[string]
 					logger.Debugf("computing hash [%s] in place of [%s:%s]",
 						base64.StdEncoding.EncodeToString(h), t.Field(i).Name, string(field.Bytes()))
 					field.Set(reflect.ValueOf(h))
+				default:
+					// Anything else would be silently left unhashed, emitting the value
+					// in the clear while the caller believes it is hidden. Fail closed.
+					return nil, nil, errors.Errorf("state:\"hash\" is not supported for field [%s] of kind [%s]; use []byte", t.Field(i).Name, field.Kind())
 				}
 			}
 		}
@@ -156,6 +170,12 @@ func (n *Namespace) unmarshalTags(set *fabric.RWSet, source any, mapping map[str
 					// unverified. Use a []byte field for hash-hiding.
 					return errors.Errorf("state:\"hash\" is not supported for string field [%s]; use []byte", t.Field(i).Name)
 				case reflect.Slice:
+					// Mirror marshalTags. Rejecting outright is safe here: marshalTags
+					// panicked on these before writing anything, so no committed state can
+					// hold one.
+					if !byteSliceType.AssignableTo(field.Type()) {
+						return errors.Errorf("state:\"hash\" is not supported for field [%s] of type [%s]; use []byte", t.Field(i).Name, field.Type())
+					}
 					original, ok := mapping[t.Field(i).Name]
 					if !ok {
 						return errors.Errorf("mapping not found for [%s]", t.Field(i).Name)
@@ -178,6 +198,15 @@ func (n *Namespace) unmarshalTags(set *fabric.RWSet, source any, mapping map[str
 					}
 
 					field.Set(reflect.ValueOf(original))
+				default:
+					// A preimage means the field was hashed but cannot be verified here, so
+					// fail closed. Without one it was written in the clear by a release that
+					// skipped this kind silently: pass it through, because rejecting it would
+					// make that committed state permanently unreadable. New occurrences are
+					// stopped by the matching default in marshalTags.
+					if _, hashed := mapping[t.Field(i).Name]; hashed {
+						return errors.Errorf("state:\"hash\" is not supported for field [%s] of kind [%s]; use []byte", t.Field(i).Name, field.Kind())
+					}
 				}
 			}
 		}
