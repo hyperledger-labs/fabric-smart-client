@@ -7,9 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package deferred_test
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -256,4 +258,127 @@ func TestResetReturnsToEmpty(t *testing.T) {
 			"a reset holder must not keep reporting the old refusal")
 		require.False(t, errors.Is(err, deferred.ErrRejected))
 	})
+}
+
+func TestWaitForValueAlreadyLoaded(t *testing.T) {
+	t.Parallel()
+
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
+	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
+		return &config{id: "first"}, nil
+	}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	v, err := h.WaitForValue(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "first", v.id)
+}
+
+func TestWaitForValueReleasedByUpdate(t *testing.T) {
+	t.Parallel()
+
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Several waiters must all be released by a single Update.
+	const waiters = 4
+	var wg sync.WaitGroup
+	errs := make(chan error, waiters)
+	for range waiters {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			v, err := h.WaitForValue(ctx)
+			if err != nil {
+				errs <- err
+				return
+			}
+			if v.id != "arrived" {
+				errs <- errors.Errorf("unexpected value [%s]", v.id)
+			}
+		}()
+	}
+
+	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
+		return &config{id: "arrived"}, nil
+	}))
+
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+}
+
+func TestWaitForValueContextCancelled(t *testing.T) {
+	t.Parallel()
+
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+
+	v, err := h.WaitForValue(ctx)
+	require.Error(t, err)
+	require.Nil(t, v)
+	require.True(t, errors.Is(err, context.DeadlineExceeded),
+		"error must wrap the context error, got [%v]", err)
+	require.True(t, strings.Contains(err.Error(), "mychannel"),
+		"error must name the subject, got [%v]", err)
+}
+
+func TestWaitForValueRejectedDoesNotWait(t *testing.T) {
+	t.Parallel()
+
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
+	require.Error(t, h.Update(func(*config, bool) (*config, error) {
+		return nil, errors.New("bad config")
+	}))
+
+	// A generous deadline: the point is that WaitForValue returns without
+	// consuming it, because retrying cannot clear a rejection.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	v, err := h.WaitForValue(ctx)
+	require.Error(t, err)
+	require.Nil(t, v)
+	require.True(t, errors.Is(err, deferred.ErrRejected),
+		"error must be matchable with errors.Is, got [%v]", err)
+	require.Less(t, time.Since(start), time.Second, "must not wait on a rejected holder")
+}
+
+func TestWaitForValueAfterReset(t *testing.T) {
+	t.Parallel()
+
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
+	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
+		return &config{id: "first"}, nil
+	}))
+	h.Reset()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+
+	// Reset must re-arm the wait: a waiter after Reset blocks rather than
+	// being released by the pre-Reset update.
+	_, err := h.WaitForValue(ctx)
+	require.Error(t, err)
+	require.True(t, errors.Is(err, context.DeadlineExceeded),
+		"Reset must re-arm the wait, got [%v]", err)
+
+	// And a later update releases it again.
+	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
+		return &config{id: "second"}, nil
+	}))
+	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Second)
+	defer cancel2()
+	v, err := h.WaitForValue(ctx2)
+	require.NoError(t, err)
+	require.Equal(t, "second", v.id)
 }

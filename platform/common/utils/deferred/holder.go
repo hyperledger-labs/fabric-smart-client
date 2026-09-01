@@ -14,6 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 package deferred
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -69,6 +70,12 @@ type Holder[T any] struct {
 	// holder can answer from value and a refusal is the updater's problem
 	// rather than the reader's, so this is cleared and not consulted.
 	rejected error
+
+	// loadedCh is closed when a value is accepted, releasing WaitForValue
+	// callers. It is created lazily by waitChan and replaced by Reset, so a
+	// holder returned to its empty state makes later waiters block again
+	// rather than being released by an update that has been discarded.
+	loadedCh chan struct{}
 
 	// subject names what is held, as a noun phrase that reads correctly in
 	// front of "not loaded" — "channel [mychannel] configuration", say. It is
@@ -158,6 +165,12 @@ func (h *Holder[T]) Update(fn func(current T, loaded bool) (T, error)) error {
 	h.value = v
 	h.loaded = true
 	h.rejected = nil
+	// Release WaitForValue callers. The write lock is held here, so no waiter
+	// can be registering against this channel concurrently.
+	if h.loadedCh != nil {
+		close(h.loadedCh)
+		h.loadedCh = nil
+	}
 	return nil
 }
 
@@ -181,4 +194,78 @@ func (h *Holder[T]) Reset() {
 	h.value = zero
 	h.loaded = false
 	h.rejected = nil
+	// A channel left over from before the reset has already been closed, and
+	// would release waiters immediately; dropping it makes waitChan create a
+	// fresh one.
+	h.loadedCh = nil
+}
+
+// waitChan returns the channel that is closed when a value is accepted,
+// creating it if this is the first caller. It is separate from WaitForValue so
+// that the lock is not held while waiting.
+func (h *Holder[T]) waitChan() chan struct{} {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.loadedCh == nil {
+		h.loadedCh = make(chan struct{})
+	}
+	return h.loadedCh
+}
+
+// WaitForValue returns the held value, waiting until one is held or ctx is
+// done.
+//
+// It is the blocking counterpart to Get, for a caller that cannot answer
+// without the value and would otherwise have to poll: the value is pushed in
+// from outside after the owning service is built, so a caller racing that
+// arrival is in a normal startup state rather than an error. Prefer Get
+// wherever the absent case is something the caller can report and move on
+// from.
+//
+// A refused update is not waited on. Retrying cannot clear one until a later
+// update is accepted, so ErrRejected is returned immediately rather than
+// holding the caller until its deadline expires. If ctx is done first, its
+// error is returned wrapped with the holder's subject, so the caller can tell
+// a wait that timed out from one that was cancelled.
+func (h *Holder[T]) WaitForValue(ctx context.Context) (T, error) {
+	var zero T
+
+	// Fast path, and the rejection check: a holder that already has a value
+	// answers without allocating a channel or touching ctx.
+	h.mu.RLock()
+	loaded, rejected, value := h.loaded, h.rejected, h.value
+	h.mu.RUnlock()
+	if loaded {
+		return value, nil
+	}
+	if rejected != nil {
+		return zero, errors.Wrapf(ErrRejected, "%s rejected: %s", h.subject, rejected)
+	}
+
+	ch := h.waitChan()
+
+	// Re-check after taking the channel: an Update between the read above and
+	// waitChan would have closed the previous channel, and this caller would
+	// otherwise wait on a channel nothing closes again.
+	h.mu.RLock()
+	loaded, rejected, value = h.loaded, h.rejected, h.value
+	h.mu.RUnlock()
+	if loaded {
+		return value, nil
+	}
+	if rejected != nil {
+		return zero, errors.Wrapf(ErrRejected, "%s rejected: %s", h.subject, rejected)
+	}
+
+	select {
+	case <-ch:
+		v, err := h.Get()
+		if err != nil {
+			return zero, err
+		}
+		return v, nil
+	case <-ctx.Done():
+		return zero, errors.Wrapf(ctx.Err(), "timed out waiting for %s", h.subject)
+	}
 }
