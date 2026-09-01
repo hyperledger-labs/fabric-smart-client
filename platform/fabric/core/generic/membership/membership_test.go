@@ -478,3 +478,52 @@ func TestMSPManagerConfigWaitTimesOut(t *testing.T) {
 	require.True(t, strings.Contains(err.Error(), "mychannel"),
 		"error must name what it waited for, got [%v]", err)
 }
+
+// TestConfigWaitDoesNotWaitOnARejectedConfig asserts that a waiting accessor
+// reports a refused configuration immediately rather than holding the caller
+// for its whole budget. Waiting cannot turn a refusal into an answer - only a
+// later accepted update can - so burning the budget would leave a node with a
+// refused configuration hanging on every discovery-driven call instead of
+// surfacing the reason.
+func TestConfigWaitDoesNotWaitOnARejectedConfig(t *testing.T) {
+	t.Parallel()
+
+	s := NewService("mychannel")
+	require.Error(t, s.Update(&cb.Envelope{Payload: []byte("not-a-proto")}))
+
+	// A budget large enough that waiting it out would be unmistakable.
+	waiting := s.WithConfigWait(10 * time.Second)
+
+	start := time.Now()
+	_, err := waiting.TLSRootCertsByMSPID("Org1MSP")
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrConfigRejected)
+	require.Less(t, elapsed, time.Second,
+		"a refused configuration must be reported immediately, not after the wait budget, took [%s]", elapsed)
+	require.True(t, strings.Contains(err.Error(), "mychannel"),
+		"error must name the channel, got [%v]", err)
+}
+
+// TestMSPManagerConfigWaitDoesNotWaitOnARejectedConfig is the mspManager
+// counterpart to TestConfigWaitDoesNotWaitOnARejectedConfig: the
+// identity-validation path must not burn its wait budget on a refused
+// configuration either.
+func TestMSPManagerConfigWaitDoesNotWaitOnARejectedConfig(t *testing.T) {
+	t.Parallel()
+
+	s := NewService("mychannel")
+	require.Error(t, s.Update(&cb.Envelope{Payload: []byte("not-a-proto")}))
+
+	mgr := s.WithConfigWait(10 * time.Second).MSPManager()
+
+	start := time.Now()
+	_, err := mgr.DeserializeIdentity(view.Identity("some-identity"))
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, driver.ErrConfigRejected)
+	require.Less(t, elapsed, time.Second,
+		"a refused configuration must be reported immediately, not after the wait budget, took [%s]", elapsed)
+}
