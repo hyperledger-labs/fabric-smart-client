@@ -99,7 +99,11 @@ func CheckJaegerTraces(ii *integration.Infrastructure, nodeName, viewName string
 	it, err := cli.FindTraces(nodeName, viewName)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	spans, err := iterators.ReadAllPointers(iterators.FlattenValues(it, func(c *api_v2.SpansResponseChunk) ([]model2.Span, error) { return c.Spans, nil }))
+	// FlattenValues cannot tell a chunk with no spans from the end of the stream,
+	// and the stream may send one, so drop the empty chunks first: otherwise the
+	// spans behind them never reach the matcher below.
+	nonEmpty := iterators.Filter(it, func(c *api_v2.SpansResponseChunk) bool { return len(c.Spans) > 0 })
+	spans, err := iterators.ReadAllPointers(iterators.FlattenValues(nonEmpty, func(c *api_v2.SpansResponseChunk) ([]model2.Span, error) { return c.Spans, nil }))
 
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	logger.Infof("Received jaeger %d spans for [%s:%s]: %s", len(spans), nodeName, viewName, spans)
