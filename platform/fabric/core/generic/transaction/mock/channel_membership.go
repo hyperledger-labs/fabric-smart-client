@@ -20,6 +20,18 @@ type ChannelMembership struct {
 	checkACLReturnsOnCall map[int]struct {
 		result1 error
 	}
+	ConfigSequenceStub        func() (uint64, error)
+	configSequenceMutex       sync.RWMutex
+	configSequenceArgsForCall []struct {
+	}
+	configSequenceReturns struct {
+		result1 uint64
+		result2 error
+	}
+	configSequenceReturnsOnCall map[int]struct {
+		result1 uint64
+		result2 error
+	}
 	GetMSPIDsStub        func() ([]string, error)
 	getMSPIDsMutex       sync.RWMutex
 	getMSPIDsArgsForCall []struct {
@@ -142,6 +154,62 @@ func (fake *ChannelMembership) CheckACLReturnsOnCall(i int, result1 error) {
 	fake.checkACLReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
+}
+
+func (fake *ChannelMembership) ConfigSequence() (uint64, error) {
+	fake.configSequenceMutex.Lock()
+	ret, specificReturn := fake.configSequenceReturnsOnCall[len(fake.configSequenceArgsForCall)]
+	fake.configSequenceArgsForCall = append(fake.configSequenceArgsForCall, struct {
+	}{})
+	stub := fake.ConfigSequenceStub
+	fakeReturns := fake.configSequenceReturns
+	fake.recordInvocation("ConfigSequence", []interface{}{})
+	fake.configSequenceMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *ChannelMembership) ConfigSequenceCallCount() int {
+	fake.configSequenceMutex.RLock()
+	defer fake.configSequenceMutex.RUnlock()
+	return len(fake.configSequenceArgsForCall)
+}
+
+func (fake *ChannelMembership) ConfigSequenceCalls(stub func() (uint64, error)) {
+	fake.configSequenceMutex.Lock()
+	defer fake.configSequenceMutex.Unlock()
+	fake.ConfigSequenceStub = stub
+}
+
+func (fake *ChannelMembership) ConfigSequenceReturns(result1 uint64, result2 error) {
+	fake.configSequenceMutex.Lock()
+	defer fake.configSequenceMutex.Unlock()
+	fake.ConfigSequenceStub = nil
+	fake.configSequenceReturns = struct {
+		result1 uint64
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *ChannelMembership) ConfigSequenceReturnsOnCall(i int, result1 uint64, result2 error) {
+	fake.configSequenceMutex.Lock()
+	defer fake.configSequenceMutex.Unlock()
+	fake.ConfigSequenceStub = nil
+	if fake.configSequenceReturnsOnCall == nil {
+		fake.configSequenceReturnsOnCall = make(map[int]struct {
+			result1 uint64
+			result2 error
+		})
+	}
+	fake.configSequenceReturnsOnCall[i] = struct {
+		result1 uint64
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *ChannelMembership) GetMSPIDs() ([]string, error) {
