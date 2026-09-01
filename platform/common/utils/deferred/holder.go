@@ -184,6 +184,10 @@ func (h *Holder[T]) Update(fn func(current T, loaded bool) (T, error)) error {
 // because a refusal is only recorded while nothing is held, the reason the
 // reload produced nothing would be discarded too.
 //
+// Any WaitForValue caller parked on the previous channel is released. It will
+// find the holder unloaded and report ErrNotLoaded, not hang waiting for an
+// Update that would close a different channel.
+//
 // Callers that can replace the value in a single Update should do that instead:
 // this opens a window in which Get reports ErrNotLoaded.
 func (h *Holder[T]) Reset() {
@@ -194,10 +198,15 @@ func (h *Holder[T]) Reset() {
 	h.value = zero
 	h.loaded = false
 	h.rejected = nil
-	// A channel left over from before the reset has already been closed, and
-	// would release waiters immediately; dropping it makes waitChan create a
-	// fresh one.
-	h.loadedCh = nil
+	// Release anyone parked on the current channel before dropping it. A
+	// waiter released into a still-unloaded holder reports the holder's real
+	// state, which is what Get would tell it; leaving the channel unclosed
+	// would instead orphan that waiter, because the next Update closes a
+	// different channel.
+	if h.loadedCh != nil {
+		close(h.loadedCh)
+		h.loadedCh = nil
+	}
 }
 
 // waitChan returns the channel that is closed when a value is accepted,
@@ -245,9 +254,10 @@ func (h *Holder[T]) WaitForValue(ctx context.Context) (T, error) {
 
 	ch := h.waitChan()
 
-	// Re-check after taking the channel: an Update between the read above and
-	// waitChan would have closed the previous channel, and this caller would
-	// otherwise wait on a channel nothing closes again.
+	// Re-check after taking the channel. An Update or Reset between the read
+	// above and waitChan would have closed the previous channel, and this caller
+	// would otherwise wait on a channel nothing closes again. After a Reset, the
+	// holder is unloaded, so Get will report ErrNotLoaded when we wake.
 	h.mu.RLock()
 	loaded, rejected, value = h.loaded, h.rejected, h.value
 	h.mu.RUnlock()

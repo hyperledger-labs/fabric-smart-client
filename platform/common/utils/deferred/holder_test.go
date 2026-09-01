@@ -382,3 +382,66 @@ func TestWaitForValueAfterReset(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "second", v.id)
 }
+
+func TestWaitForValueResetReleasesParkedWaiter(t *testing.T) {
+	t.Parallel()
+
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
+
+	got := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, err := h.WaitForValue(ctx)
+		got <- err
+	}()
+
+	// Give the waiter time to park in the select, then reset underneath it.
+	time.Sleep(100 * time.Millisecond)
+	h.Reset()
+
+	select {
+	case err := <-got:
+		// Released rather than orphaned. The holder is unloaded, so it reports
+		// that instead of handing back a value.
+		require.Error(t, err)
+		require.True(t, errors.Is(err, deferred.ErrNotLoaded),
+			"a waiter released by Reset must report the unloaded holder, got [%v]", err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Reset orphaned the parked waiter: it was never released")
+	}
+}
+
+func TestWaitForValueParkedWaiterNotHungAfterResetThenUpdate(t *testing.T) {
+	t.Parallel()
+
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
+
+	returned := make(chan bool, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = h.WaitForValue(ctx)
+		returned <- true
+	}()
+
+	// Give the waiter time to park in the select. If Reset does not close the
+	// channel, the waiter stays parked even after Update closes a different
+	// channel, hanging until the context expires.
+	time.Sleep(100 * time.Millisecond)
+	h.Reset()
+
+	// Update after reset provides a new value. If the waiter is still parked on
+	// the old channel, this Update will not release it.
+	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
+		return &config{id: "arrived"}, nil
+	}))
+
+	select {
+	case <-returned:
+		// The waiter returned promptly. Reset properly released it rather than
+		// orphaning it, so the waiter did not hang.
+	case <-time.After(2 * time.Second):
+		t.Fatal("waiter timed out: Reset orphaned it, so Update's close was on a different channel")
+	}
+}
