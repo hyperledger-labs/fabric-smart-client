@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package stoprestart_test
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -74,9 +72,7 @@ func (s *TestSuite) TestSucceeded() {
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 
 	s.II.StopFSCNode("bob")
-	time.Sleep(3 * time.Second)
 	s.II.StartFSCNode("bob")
-	time.Sleep(3 * time.Second)
 
 	res, err = s.II.Client("alice").CallView("init", nil)
 	Expect(err).NotTo(HaveOccurred())
@@ -104,9 +100,7 @@ func (s *TestSuite) TestSucceededWithReplicas() {
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 
 	s.II.StopFSCNode("bob")
-	time.Sleep(3 * time.Second)
 	s.II.StartFSCNode("bob")
-	time.Sleep(3 * time.Second)
 
 	res, err = s.II.Client("fsc.alice.0").CallView("init", nil)
 	Expect(err).NotTo(HaveOccurred())

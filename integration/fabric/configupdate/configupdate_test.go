@@ -109,9 +109,7 @@ func (s *TestSuite) TestSucceeded() {
 	// configtx_0, configtx_1 and configtx_2, so this is the first time in the
 	// test suite that the loop runs over more than the genesis entry.
 	s.II.StopFSCNode("borrower")
-	time.Sleep(3 * time.Second)
 	s.II.StartFSCNode("borrower")
-	time.Sleep(3 * time.Second)
 
 	// after the borrower has been stopped and started again
 	By("checking the restarted node replayed both stored configuration transactions")

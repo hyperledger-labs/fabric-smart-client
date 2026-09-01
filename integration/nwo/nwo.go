@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
 	"github.com/tedsuo/ifrit"
 	"github.com/tedsuo/ifrit/grouper"
 
@@ -202,12 +203,23 @@ func (n *NWO) Stop() {
 	logger.Infof("Stopping...done!")
 }
 
+// StopFSCNode stops the named FSC node and returns once its process is gone.
+//
+// Waiting matters because the node holds resources a replacement cannot share:
+// its listening ports and its vault. Returning as soon as the signal was sent
+// would leave a caller that restarts the node racing the old process for them,
+// which is why callers used to follow this with a sleep long enough to hope the
+// exit had happened. StartFSCNode already waits for readiness; this is its
+// counterpart.
 func (n *NWO) StopFSCNode(id string) {
 	logger.Infof("Search FSC node [%s]...", id)
 	for _, member := range n.ViewMembers {
 		if strings.HasPrefix(member.Name, fmt.Sprintf("fsc.%s.", id)) {
 			logger.Infof("FSC node [%s] found. Stopping...", id)
-			member.Runner.(*runner.Runner).Stop()
+			r := member.Runner.(*runner.Runner)
+			r.Stop()
+			gomega.Eventually(r, n.StopEventuallyTimeout).Should(gexec.Exit(),
+				"FSC node [%s] did not exit after SIGTERM", id)
 			logger.Infof("FSC node [%s:%s] stopped", member.Name, id)
 			return
 		}

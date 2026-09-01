@@ -19,6 +19,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -33,6 +34,12 @@ import (
 )
 
 var logger = logging.MustGetLogger()
+
+// notExited is what ExitCode reports while the process is still alive. It is
+// the value gexec.Exit() treats as "not exited yet", so a Runner must hold it
+// from construction until its process is actually gone — a zero-valued
+// exitCode would read as a clean exit that never happened.
+const notExited = -1
 
 // Config defines a Runner.
 type Config struct {
@@ -54,13 +61,17 @@ type Runner struct {
 	StartCheckTimeout time.Duration
 	Cleanup           func()
 	stop              chan os.Signal
-	exitCode          int
+	// exitCode is -1 while the process is alive and its real exit code once it
+	// is not. It is written by monitorForExit's goroutine and read by callers
+	// waiting for the process to go away — nwo.StopFSCNode polls it through
+	// gexec.Exit() — so it is atomic rather than a plain int.
+	exitCode atomic.Int32
 }
 
 // New creates a Runner from a config object. Runners must be created
 // with New to properly initialize their internal state.
 func New(config Config) *Runner {
-	return &Runner{
+	r := &Runner{
 		config:            config,
 		Name:              config.Name,
 		Command:           config.Command,
@@ -69,8 +80,10 @@ func New(config Config) *Runner {
 		StartCheckTimeout: config.StartCheckTimeout,
 		Cleanup:           config.Cleanup,
 		stop:              make(chan os.Signal),
-		exitCode:          -1,
 	}
+	r.exitCode.Store(notExited)
+
+	return r
 }
 
 func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
@@ -160,11 +173,11 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 				r.Cleanup()
 			}
 
-			if r.exitCode == 0 {
-				return nil
+			if code := r.exitCode.Load(); code != 0 {
+				return errors.Errorf("exit status %d", code)
 			}
 
-			return errors.Errorf("exit status %d", r.exitCode)
+			return nil
 		case signal := <-r.stop:
 			logger.Infof("dispatch signal [%d] to process [%s]", signal, r.Name)
 			if signal != nil {
@@ -178,16 +191,20 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 }
 
 func (r *Runner) monitorForExit(exited chan<- struct{}) {
-	err := r.Command.Wait()
+	if err := r.Command.Wait(); err != nil {
+		logger.Debugf("process [%s] exited with error: %s", r.Name, err)
+	}
 	status := r.Command.ProcessState.Sys().(syscall.WaitStatus)
 	if status.Signaled() {
-		r.exitCode = 128 + int(status.Signal())
+		r.exitCode.Store(int32(128 + int(status.Signal())))
 	} else {
 		exitStatus := status.ExitStatus()
-		if exitStatus == -1 && err != nil {
-			r.exitCode = gexec.INVALID_EXIT_CODE
+		// Wait has returned, so the process is gone. ExitStatus reports -1 for
+		// anything but a normal exit, and -1 means "still running" here.
+		if exitStatus == notExited {
+			exitStatus = gexec.INVALID_EXIT_CODE
 		}
-		r.exitCode = exitStatus
+		r.exitCode.Store(int32(exitStatus))
 	}
 
 	close(exited)
@@ -207,7 +224,7 @@ func (r *Runner) Clone() *Runner {
 	c.Args = r.config.Command.Args
 	c.Env = r.config.Command.Env
 	c.Dir = r.config.Command.Dir
-	return &Runner{
+	clone := &Runner{
 		config:            r.config,
 		Name:              r.config.Name,
 		Command:           c,
@@ -216,10 +233,12 @@ func (r *Runner) Clone() *Runner {
 		StartCheckTimeout: r.config.StartCheckTimeout,
 		Cleanup:           r.config.Cleanup,
 		stop:              make(chan os.Signal),
-		exitCode:          -1,
 	}
+	clone.exitCode.Store(notExited)
+
+	return clone
 }
 
 func (r *Runner) ExitCode() int {
-	return r.exitCode
+	return int(r.exitCode.Load())
 }
