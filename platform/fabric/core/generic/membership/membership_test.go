@@ -365,38 +365,54 @@ func TestConfigWaitReleasedByUpdate(t *testing.T) {
 	s := NewService("mychannel")
 	waiting := s.WithConfigWait(5 * time.Second)
 
-	done := make(chan error, 1)
+	// Install the configuration only after a delay the accessor cannot skip.
+	// A resolve() that never waits returns before this fires, and the elapsed
+	// assertion below catches it; one that waits cannot return sooner. This is
+	// what makes the test deterministic: starting the goroutine and calling
+	// seed immediately (the earlier version of this test) left the ordering
+	// of "waiter parks" vs. "update lands" a race, so a never-waiting
+	// resolve() could still win by finding an already-loaded configuration
+	// and returning the very same error a real wait would — indistinguishable
+	// from the correct outcome. Asserting elapsed time instead of only the
+	// error's shape closes that gap: only a genuine wait can take at least
+	// delay to return.
+	const delay = 250 * time.Millisecond
+	updateErr := make(chan error, 1)
 	go func() {
-		// The assertion is about being RELEASED, not about the lookup result:
-		// an empty configuration has no application section, so this returns an
-		// error. What matters is that it returns at all instead of waiting out
-		// its 5s budget.
-		_, err := waiting.TLSRootCertsByMSPID("Org1MSP")
-		done <- err
+		time.Sleep(delay)
+		// Update is called directly rather than through seed: seed uses
+		// require, and require.NoError (and t.Fatalf under it) is not safe to
+		// call from a goroutine other than the test's own - it can return
+		// without actually stopping the test. Capture the error instead and
+		// assert it on the main goroutine below.
+		updateErr <- s.config.Update(func(*configuration, bool) (*configuration, error) {
+			return &configuration{channelConfig: &channelconfig.ChannelConfig{}, sequence: 0}, nil
+		})
 	}()
 
-	// Install the configuration while the caller is waiting. seed goes through
-	// the same Holder.Update as a real config block, so it releases waiters.
-	seed(t, s, &channelconfig.ChannelConfig{}, 0)
+	start := time.Now()
+	// The assertion is about being RELEASED, not about the lookup result: an
+	// empty configuration has no application section, so this returns an
+	// error. What matters is that it returns at all instead of waiting out
+	// its 5s budget, and that it does not return before the update lands.
+	_, err := waiting.TLSRootCertsByMSPID("Org1MSP")
+	elapsed := time.Since(start)
 
-	select {
-	case err := <-done:
-		// Released. It errors because the fixture configures no application
-		// section; a waiter that was never released would hit the timeout below.
-		require.Error(t, err)
-		// The error must be the one that comes from a LOADED configuration with
-		// no application section, not the one a non-waiting accessor would
-		// return before any configuration ever arrives. A resolve() that never
-		// waits would return ErrNotInitialized here instead, immediately,
-		// without ever observing the update — asserting only require.Error
-		// would not catch that, since both are errors.
-		require.NotErrorIs(t, err, driver.ErrNotInitialized,
-			"error must come from the installed configuration, not from never having waited for it, got [%v]", err)
-		require.True(t, strings.Contains(err.Error(), "application config does not exist"),
-			"error must be the one produced by the seeded configuration, got [%v]", err)
-	case <-time.After(10 * time.Second):
-		t.Fatal("waiter was not released by the update")
-	}
+	require.NoError(t, <-updateErr, "the seeding update itself must be accepted")
+
+	require.GreaterOrEqual(t, elapsed, delay,
+		"accessor must have waited for the configuration to arrive, returned after only [%s]", elapsed)
+	require.Error(t, err)
+	// The error must be the one that comes from a LOADED configuration with no
+	// application section, not the one a non-waiting accessor would return
+	// before any configuration ever arrives. A resolve() that never waits
+	// would return ErrNotInitialized here instead, immediately, without ever
+	// observing the update - asserting only require.Error would not catch
+	// that, since both are errors.
+	require.NotErrorIs(t, err, driver.ErrNotInitialized,
+		"error must come from the installed configuration, not from never having waited for it, got [%v]", err)
+	require.True(t, strings.Contains(err.Error(), "application config does not exist"),
+		"error must be the one produced by the seeded configuration, got [%v]", err)
 }
 
 // TestConfigWaitTimesOut asserts that a waiting accessor gives up once its
