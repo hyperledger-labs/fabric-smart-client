@@ -191,16 +191,17 @@ func (r *Runner) Run(sigChan <-chan os.Signal, ready chan<- struct{}) error {
 }
 
 func (r *Runner) monitorForExit(exited chan<- struct{}) {
-	err := r.Command.Wait()
+	if err := r.Command.Wait(); err != nil {
+		logger.Debugf("process [%s] exited with error: %s", r.Name, err)
+	}
 	status := r.Command.ProcessState.Sys().(syscall.WaitStatus)
 	if status.Signaled() {
 		r.exitCode.Store(int32(128 + int(status.Signal())))
 	} else {
 		exitStatus := status.ExitStatus()
-		// An exit status of -1 is how the OS reports "no status", and it is the
-		// same value this type uses for "still running": storing it would leave
-		// a dead process looking alive forever to anyone waiting on it.
-		if exitStatus == notExited && err != nil {
+		// Wait has returned, so the process is gone. ExitStatus reports -1 for
+		// anything but a normal exit, and -1 means "still running" here.
+		if exitStatus == notExited {
 			exitStatus = gexec.INVALID_EXIT_CODE
 		}
 		r.exitCode.Store(int32(exitStatus))
