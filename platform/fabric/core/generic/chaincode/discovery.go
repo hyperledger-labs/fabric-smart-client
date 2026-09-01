@@ -253,31 +253,18 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 }
 
 // toDiscoveredPeers turns the peers reported by a discovery response into
-// driver.DiscoveredPeer values, keeping only those whose identity the channel
-// recognises.
+// driver.DiscoveredPeer values, keeping only those the channel recognises.
 //
 // A discovery response is supplied by whichever peer answered the query and is
-// not independently verified. The envelope signature checks performed while
-// parsing it (see the discovery package's verifyEnvelopeSignature) establish
-// only that each envelope was signed by the key in the identity shipped
-// alongside it — a self-consistency property that a malicious or relaying
-// responder can satisfy with an identity no CA ever issued. So both values this
-// function would otherwise take on trust are re-derived from the channel
-// configuration instead: the identity is validated against the channel's MSPs,
-// and the TLS certificates that will authenticate the connection come from the
-// configuration rather than from the response's own ConfigResult.
+// not independently verified: the envelope signature checks made while parsing
+// it prove only that each envelope was signed by the key in the identity shipped
+// alongside it, which a malicious responder satisfies with an identity no CA
+// ever issued. So the identity is validated against the channel's MSPs and the
+// TLS certificates come from the channel configuration, not from the response.
 //
-// A peer that fails validation is dropped rather than failing the whole
-// response, so one rogue entry cannot deny service to an otherwise satisfiable
-// endorsement set. If validation leaves nothing, that is an error naming
-// validation as the cause, so it is not mistaken for a filter that matched no
-// peers.
-//
-// The channel configuration is not itself cryptographically verified: its
-// trust comes from being fetched over TLS from a locally configured peer rather
-// than from the discovery responder. This raises the bar from "the responder
-// authorises itself" to "the operator's configured peer must be compromised";
-// it is not a cryptographic root of trust.
+// The channel configuration is not itself cryptographically verified; its trust
+// comes from being fetched over TLS from a locally configured peer rather than
+// from the discovery responder. That is not a cryptographic root of trust.
 func (d *Discovery) toDiscoveredPeers(endorsers []*discovery.Peer) ([]driver.DiscoveredPeer, error) {
 	// Obtained once for the whole call rather than once per peer: MSPManager
 	// on a waiting provider blocks up to its configured budget, and so does
@@ -335,10 +322,8 @@ func (d *Discovery) toDiscoveredPeers(endorsers []*discovery.Peer) ([]driver.Dis
 }
 
 // validatePeer checks a discovered peer's identity against the channel's MSPs
-// and returns the TLS certificates to authenticate it with, both taken from the
-// channel configuration. mspManager is resolved once by the caller for the
-// whole batch of peers rather than once per peer here, so a wait for the
-// configuration to arrive is only paid once per toDiscoveredPeers call.
+// and returns the TLS certificates to authenticate it with, both from the
+// channel configuration.
 func (d *Discovery) validatePeer(mspManager driver.MSPManager, peer *discovery.Peer) ([][]byte, error) {
 	identity, err := mspManager.DeserializeIdentity(peer.Identity)
 	if err != nil {

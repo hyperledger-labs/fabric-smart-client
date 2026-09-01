@@ -289,9 +289,7 @@ func TestWaitForValueReleasedByUpdate(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make(chan error, waiters)
 	for range waiters {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			v, err := h.WaitForValue(ctx)
 			if err != nil {
 				errs <- err
@@ -300,7 +298,7 @@ func TestWaitForValueReleasedByUpdate(t *testing.T) {
 			if v.id != "arrived" {
 				errs <- errors.Errorf("unexpected value [%s]", v.id)
 			}
-		}()
+		})
 	}
 
 	require.NoError(t, h.Update(func(*config, bool) (*config, error) {

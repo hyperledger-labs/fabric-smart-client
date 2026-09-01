@@ -60,21 +60,16 @@ func NewService(channelName string) *Service {
 
 // WithConfigWait returns a copy of the service whose accessors wait up to d for
 // a channel configuration to arrive instead of reporting
-// driver.ErrNotInitialized straight away.
-//
-// A node can start and serve requests before the configuration block that
-// carries its channel configuration has been delivered: Channel.Init installs
-// nothing on a fresh node, and delivery runs detached. A caller that cannot
-// answer without the configuration — one validating discovered peer identities
-// against the channel's MSPs, say — would otherwise fail for the length of that
-// window even though the configuration is on its way.
+// driver.ErrNotInitialized straight away. A node can start and serve requests
+// before its configuration block is delivered, and a caller that cannot answer
+// without the configuration would otherwise fail for that whole window.
 //
 // A refused configuration is still reported immediately: waiting cannot turn
 // driver.ErrConfigRejected into an answer.
 //
-// The receiver is left untouched: this returns a shallow copy, so a caller that
-// must never wait on the configuration it itself installs (the committer, say)
-// can hand out a waiting view to someone else without becoming one itself.
+// The receiver is left untouched, so the committer — which installs the
+// configuration and must never wait on it — can hand out a waiting view without
+// becoming one.
 func (c *Service) WithConfigWait(d time.Duration) *Service {
 	cp := *c
 	cp.configWait = d
@@ -258,28 +253,18 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 }
 
 // TLSRootCertsByMSPID returns the TLS root and intermediate certificates of the
-// application organization with the given MSP ID, taken from the channel
+// application organization with the given MSP ID, from the channel
 // configuration in force.
 //
-// This is the trusted counterpart to the TLS certificates carried in a
-// discovery response's ConfigResult. That response is not independently
-// verified — the peer answering a discovery query supplies both the endpoints
-// and the certificates that would authenticate them — so a client that dials a
-// discovered peer with roots from the same response gets no authentication from
-// TLS at all. Sourcing them here instead means the certificates come from the
-// channel configuration, fetched from a locally configured peer, rather than
-// from whoever answered discovery.
+// This is the trusted counterpart to the certificates in a discovery response's
+// ConfigResult: that response is supplied by the peer answering the query, so a
+// client dialing a discovered peer with roots from it gets no authentication
+// from TLS at all.
 //
 // It reports driver.ErrNotInitialized or driver.ErrConfigRejected while no
-// configuration is in force, and fails if the configuration has no application
-// organization with this MSP ID, so an unknown organization cannot be mistaken
-// for one that has no certificates configured.
-//
-// On a Service built with WithConfigWait, "while no configuration is in
-// force" includes blocking for up to that budget for one to arrive: only once
-// the wait itself runs out does the call report driver.ErrNotInitialized, so a
-// caller should expect this to take that long in the worst case rather than
-// returning the error immediately.
+// configuration is in force, and fails if no application organization has this
+// MSP ID. On a Service built with WithConfigWait it blocks for up to that budget
+// before reporting driver.ErrNotInitialized.
 func (c *Service) TLSRootCertsByMSPID(mspID string) ([][]byte, error) {
 	res, err := c.resolve()
 	if err != nil {

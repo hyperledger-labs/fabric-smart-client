@@ -160,12 +160,12 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	channelMembershipService := p.newMembership(channelName)
 
 	// Discovery validates discovered peer identities against the channel
-	// configuration (discovery.go), so the chaincode manager needs the
-	// concrete membership service to supply that trust anchor, not just the
-	// driver interface. A membership implementation that cannot supply it -
-	// including one plugged in by a downstream SDK through the exported
-	// NewChannelProvider - is refused here, at construction, rather than
-	// build-succeeding and then nil-panicking on the first discovery call.
+	// configuration, so the chaincode manager needs the concrete membership
+	// service, not just the driver interface. One that cannot supply that trust
+	// anchor is refused here rather than nil-panicking on the first discovery
+	// call. The waiting view covers the window before the first configuration
+	// block arrives; the committer keeps the plain service, since it installs
+	// the configuration and must not wait on it.
 	ms, ok := channelMembershipService.(*membership.Service)
 	if !ok {
 		return nil, errors.Errorf("membership service for channel [%s] is %T, which cannot supply the channel-configuration trust anchor discovery requires", channelName, channelMembershipService)

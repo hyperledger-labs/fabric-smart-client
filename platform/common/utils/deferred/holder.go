@@ -223,27 +223,20 @@ func (h *Holder[T]) waitChan() chan struct{} {
 }
 
 // WaitForValue returns the held value, waiting until one is held or ctx is
-// done.
+// done. It is the blocking counterpart to Get, for a caller that cannot answer
+// without the value; prefer Get wherever the absent case is something the
+// caller can report and move on from.
 //
-// It is the blocking counterpart to Get, for a caller that cannot answer
-// without the value and would otherwise have to poll: the value is pushed in
-// from outside after the owning service is built, so a caller racing that
-// arrival is in a normal startup state rather than an error. Prefer Get
-// wherever the absent case is something the caller can report and move on
-// from.
-//
-// A refused update is not waited on. Retrying cannot clear one until a later
-// update is accepted, so ErrRejected is returned immediately rather than
-// holding the caller until its deadline expires. If ctx is done first, that is
-// still a holder that has nothing to show: it is reported as ErrNotLoaded, the
-// same sentinel Get uses for a value that has not arrived yet, with ctx's own
-// error kept in the message so a timeout stays distinguishable from a
-// cancellation.
+// A refused update is not waited on: retrying cannot clear one until a later
+// update is accepted, so ErrRejected is returned immediately. A ctx that is
+// done first is also reported as ErrNotLoaded — the same sentinel Get uses for
+// a value that has not arrived — with ctx's own error kept in the message so a
+// timeout stays distinguishable from a cancellation.
 func (h *Holder[T]) WaitForValue(ctx context.Context) (T, error) {
 	var zero T
 
-	// Fast path, and the rejection check: a holder that already has a value
-	// answers without allocating a channel or touching ctx.
+	// Fast path: a holder that already has a value answers without allocating a
+	// channel or touching ctx.
 	h.mu.RLock()
 	loaded, rejected, value := h.loaded, h.rejected, h.value
 	h.mu.RUnlock()
@@ -256,10 +249,9 @@ func (h *Holder[T]) WaitForValue(ctx context.Context) (T, error) {
 
 	ch := h.waitChan()
 
-	// Re-check after taking the channel. An Update or Reset between the read
-	// above and waitChan would have closed the previous channel, and this caller
-	// would otherwise wait on a channel nothing closes again. After a Reset, the
-	// holder is unloaded, so Get will report ErrNotLoaded when we wake.
+	// Re-check after taking the channel: an Update or Reset in between closed the
+	// previous one, and this caller would otherwise wait on a channel nothing
+	// closes again.
 	h.mu.RLock()
 	loaded, rejected, value = h.loaded, h.rejected, h.value
 	h.mu.RUnlock()
@@ -278,12 +270,6 @@ func (h *Holder[T]) WaitForValue(ctx context.Context) (T, error) {
 		}
 		return v, nil
 	case <-ctx.Done():
-		// A wait that ran out is still a holder that has nothing: report it
-		// as ErrNotLoaded so a caller testing for that sentinel classifies
-		// it as a value that has not arrived, rather than as a failure of
-		// whatever it was trying to do. The context's own error is kept in
-		// the message so a timeout stays distinguishable from a
-		// cancellation.
 		return zero, errors.Wrapf(ErrNotLoaded, "%s not loaded: %s", h.subject, ctx.Err())
 	}
 }

@@ -35,16 +35,11 @@ type SerializableSigner interface {
 }
 
 // MSPProvider gives the chaincode package the channel's membership as a trust
-// anchor: the MSPs the channel recognises, and the TLS certificates that
-// authenticate its organizations' peers. It is satisfied by the
-// channel-configuration-backed membership service wired in by the channel
-// provider.
-//
-// Both answers must come from the channel configuration rather than from a
-// discovery response. A discovery response is supplied by whichever peer
-// answered the query and is not independently verified, so using it as its own
-// trust anchor would let that peer authorise the identities and endpoints it
-// reports.
+// anchor: the MSPs the channel recognises and the TLS certificates that
+// authenticate its organizations' peers. Both must come from the channel
+// configuration rather than from a discovery response — that response is
+// supplied by whichever peer answered the query, so using it as its own trust
+// anchor would let that peer authorise the identities and endpoints it reports.
 type MSPProvider interface {
 	// MSPManager returns a manager that resolves serialized identities against
 	// the channel's MSPs. Callers should not memoize the result.
