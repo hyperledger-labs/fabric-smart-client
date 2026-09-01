@@ -170,7 +170,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 	if !ok {
 		return nil, errors.Errorf("membership service for channel [%s] is %T, which cannot supply the channel-configuration trust anchor discovery requires", channelName, channelMembershipService)
 	}
-	chaincodeMSPProvider := chaincode.MSPProvider(ms)
+	chaincodeMSPProvider := chaincode.MSPProvider(ms.WithConfigWait(channelConfig.DiscoveryTimeout()))
 
 	// Committers
 	rwSetLoaderService, err := p.newRWSetLoader(

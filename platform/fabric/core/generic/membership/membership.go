@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package membership
 
 import (
+	"context"
+	"time"
+
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 
@@ -41,6 +44,11 @@ type Service struct {
 	config *deferred.Holder[*configuration]
 
 	channelName string
+
+	// configWait bounds how long the accessors wait for a configuration to
+	// arrive before reporting driver.ErrNotInitialized. Zero (the default)
+	// keeps the original non-blocking behaviour. Set via WithConfigWait.
+	configWait time.Duration
 }
 
 func NewService(channelName string) *Service {
@@ -48,6 +56,41 @@ func NewService(channelName string) *Service {
 		config:      deferred.NewHolder[*configuration]("channel [" + channelName + "] configuration"),
 		channelName: channelName,
 	}
+}
+
+// WithConfigWait returns a copy of the service whose accessors wait up to d for
+// a channel configuration to arrive instead of reporting
+// driver.ErrNotInitialized straight away.
+//
+// A node can start and serve requests before the configuration block that
+// carries its channel configuration has been delivered: Channel.Init installs
+// nothing on a fresh node, and delivery runs detached. A caller that cannot
+// answer without the configuration — one validating discovered peer identities
+// against the channel's MSPs, say — would otherwise fail for the length of that
+// window even though the configuration is on its way.
+//
+// A refused configuration is still reported immediately: waiting cannot turn
+// driver.ErrConfigRejected into an answer.
+//
+// The receiver is left untouched: this returns a shallow copy, so a caller that
+// must never wait on the configuration it itself installs (the committer, say)
+// can hand out a waiting view to someone else without becoming one itself.
+func (c *Service) WithConfigWait(d time.Duration) *Service {
+	cp := *c
+	cp.configWait = d
+	return &cp
+}
+
+// resolve returns the configuration in force, waiting for one to arrive if this
+// service was built with WithConfigWait.
+func (c *Service) resolve() (*configuration, error) {
+	if c.configWait <= 0 {
+		return c.config.Get()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), c.configWait)
+	defer cancel()
+	return c.config.WaitForValue(ctx)
 }
 
 // Update installs the channel configuration carried by env. The previously held
@@ -232,7 +275,7 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 // organization with this MSP ID, so an unknown organization cannot be mistaken
 // for one that has no certificates configured.
 func (c *Service) TLSRootCertsByMSPID(mspID string) ([][]byte, error) {
-	res, err := c.config.Get()
+	res, err := c.resolve()
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +318,7 @@ func tlsRootCertsByMSPID(ac channelconfig.Application, mspID, channelName string
 // here, so obtaining one before the channel configuration has been loaded is
 // allowed; the failure surfaces from DeserializeIdentity.
 func (c *Service) MSPManager() driver.MSPManager {
-	return &mspManager{config: c.config}
+	return &mspManager{config: c.config, waitFor: c.configWait}
 }
 
 func (c *Service) CheckACL(signedProp driver.SignedProposal) error {
@@ -283,14 +326,27 @@ func (c *Service) CheckACL(signedProp driver.SignedProposal) error {
 }
 
 type mspManager struct {
-	config *deferred.Holder[*configuration]
+	config  *deferred.Holder[*configuration]
+	waitFor time.Duration
 }
 
 func (m *mspManager) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
-	res, err := m.config.Get()
+	res, err := m.resolve()
 	if err != nil {
 		return nil, err
 	}
 
 	return res.channelConfig.MSPManager().DeserializeIdentity(serializedIdentity)
+}
+
+// resolve returns the configuration in force, waiting for one to arrive if
+// waitFor is set.
+func (m *mspManager) resolve() (*configuration, error) {
+	if m.waitFor <= 0 {
+		return m.config.Get()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), m.waitFor)
+	defer cancel()
+	return m.config.WaitForValue(ctx)
 }

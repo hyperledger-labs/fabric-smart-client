@@ -9,6 +9,7 @@ package membership
 import (
 	"strings"
 	"testing"
+	"time"
 
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	pb "github.com/hyperledger/fabric-protos-go-apiv2/peer"
@@ -353,4 +354,111 @@ func TestUpdateWithoutAConfigIsRejected(t *testing.T) {
 	var err error
 	require.NotPanics(t, func() { err = s.Update(env) })
 	require.ErrorContains(t, err, "config envelope carries no config")
+}
+
+// TestConfigWaitReleasedByUpdate asserts that a waiting accessor is released as
+// soon as a configuration is installed, rather than sitting out its whole wait
+// budget.
+func TestConfigWaitReleasedByUpdate(t *testing.T) {
+	t.Parallel()
+
+	s := NewService("mychannel")
+	waiting := s.WithConfigWait(5 * time.Second)
+
+	done := make(chan error, 1)
+	go func() {
+		// The assertion is about being RELEASED, not about the lookup result:
+		// an empty configuration has no application section, so this returns an
+		// error. What matters is that it returns at all instead of waiting out
+		// its 5s budget.
+		_, err := waiting.TLSRootCertsByMSPID("Org1MSP")
+		done <- err
+	}()
+
+	// Install the configuration while the caller is waiting. seed goes through
+	// the same Holder.Update as a real config block, so it releases waiters.
+	seed(t, s, &channelconfig.ChannelConfig{}, 0)
+
+	select {
+	case err := <-done:
+		// Released. It errors because the fixture configures no application
+		// section; a waiter that was never released would hit the timeout below.
+		require.Error(t, err)
+		// The error must be the one that comes from a LOADED configuration with
+		// no application section, not the one a non-waiting accessor would
+		// return before any configuration ever arrives. A resolve() that never
+		// waits would return ErrNotInitialized here instead, immediately,
+		// without ever observing the update — asserting only require.Error
+		// would not catch that, since both are errors.
+		require.NotErrorIs(t, err, driver.ErrNotInitialized,
+			"error must come from the installed configuration, not from never having waited for it, got [%v]", err)
+		require.True(t, strings.Contains(err.Error(), "application config does not exist"),
+			"error must be the one produced by the seeded configuration, got [%v]", err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("waiter was not released by the update")
+	}
+}
+
+// TestConfigWaitTimesOut asserts that a waiting accessor gives up once its
+// budget elapses, and that the resulting error names what it was waiting for.
+func TestConfigWaitTimesOut(t *testing.T) {
+	t.Parallel()
+
+	s := NewService("mychannel").WithConfigWait(20 * time.Millisecond)
+
+	_, err := s.TLSRootCertsByMSPID("Org1MSP")
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "mychannel"),
+		"error must name what it waited for, got [%v]", err)
+}
+
+// TestNoConfigWaitStillFailsImmediately asserts that a Service without
+// WithConfigWait keeps the existing non-blocking behaviour, so callers that
+// already handle ErrNotInitialized are unaffected.
+func TestNoConfigWaitStillFailsImmediately(t *testing.T) {
+	t.Parallel()
+
+	s := NewService("mychannel")
+
+	start := time.Now()
+	_, err := s.TLSRootCertsByMSPID("Org1MSP")
+	require.Error(t, err)
+	require.True(t, errors.Is(err, driver.ErrNotInitialized))
+	require.Less(t, time.Since(start), 100*time.Millisecond)
+}
+
+// TestWithConfigWaitDoesNotMutateReceiver guards a real startup-deadlock risk:
+// the committer installs the channel configuration, so the non-waiting view it
+// holds must never become a waiting view as a side effect of a waiting view
+// being created for someone else (discovery). If WithConfigWait mutated its
+// receiver instead of returning a copy, a node could deadlock at startup
+// waiting on the very configuration it is supposed to install.
+func TestWithConfigWaitDoesNotMutateReceiver(t *testing.T) {
+	t.Parallel()
+
+	s := NewService("mychannel")
+	_ = s.WithConfigWait(5 * time.Second)
+
+	start := time.Now()
+	_, err := s.TLSRootCertsByMSPID("Org1MSP")
+	require.Error(t, err)
+	require.True(t, errors.Is(err, driver.ErrNotInitialized))
+	require.Less(t, time.Since(start), 100*time.Millisecond,
+		"the receiver of WithConfigWait must remain non-waiting")
+}
+
+// TestMSPManagerConfigWaitTimesOut asserts that the identity-validation path
+// through MSPManager also waits, bounded, since that is the path Task 3's
+// discovery validation uses. It stays before the first update so it does not
+// depend on the fixture's channelconfig.MSPManager() being usable.
+func TestMSPManagerConfigWaitTimesOut(t *testing.T) {
+	t.Parallel()
+
+	s := NewService("mychannel").WithConfigWait(20 * time.Millisecond)
+	mgr := s.MSPManager()
+
+	_, err := mgr.DeserializeIdentity(view.Identity("some-identity"))
+	require.Error(t, err)
+	require.True(t, strings.Contains(err.Error(), "mychannel"),
+		"error must name what it waited for, got [%v]", err)
 }
