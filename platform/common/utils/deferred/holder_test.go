@@ -314,7 +314,15 @@ func TestWaitForValueReleasedByUpdate(t *testing.T) {
 	}
 }
 
-func TestWaitForValueContextCancelled(t *testing.T) {
+// TestWaitForValueTimeoutReportsNotLoaded asserts that a WaitForValue call
+// whose context deadline expires before a value arrives is reported as
+// ErrNotLoaded, the same sentinel Get uses for a value that has never been
+// offered - not as a bare wrapped context error, which satisfies neither
+// ErrNotLoaded nor ErrRejected and so is misclassified by callers that
+// fail-fast on those two sentinels (see toDiscoveredPeers). The deadline
+// cause must still be visible in the message so a timeout is distinguishable
+// from a cancellation.
+func TestWaitForValueTimeoutReportsNotLoaded(t *testing.T) {
 	t.Parallel()
 
 	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
@@ -325,10 +333,34 @@ func TestWaitForValueContextCancelled(t *testing.T) {
 	v, err := h.WaitForValue(ctx)
 	require.Error(t, err)
 	require.Nil(t, v)
-	require.True(t, errors.Is(err, context.DeadlineExceeded),
-		"error must wrap the context error, got [%v]", err)
+	require.True(t, errors.Is(err, deferred.ErrNotLoaded),
+		"a timed-out wait must report ErrNotLoaded, got [%v]", err)
 	require.True(t, strings.Contains(err.Error(), "mychannel"),
 		"error must name the subject, got [%v]", err)
+	require.True(t, strings.Contains(err.Error(), context.DeadlineExceeded.Error()),
+		"error must still show the deadline-exceeded cause, got [%v]", err)
+}
+
+// TestWaitForValueContextCancelled asserts that an explicitly cancelled
+// context (as opposed to one whose deadline expired) is also reported as
+// ErrNotLoaded, with the cancellation cause visible in the message.
+func TestWaitForValueContextCancelled(t *testing.T) {
+	t.Parallel()
+
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	v, err := h.WaitForValue(ctx)
+	require.Error(t, err)
+	require.Nil(t, v)
+	require.True(t, errors.Is(err, deferred.ErrNotLoaded),
+		"a cancelled wait must report ErrNotLoaded, got [%v]", err)
+	require.True(t, strings.Contains(err.Error(), "mychannel"),
+		"error must name the subject, got [%v]", err)
+	require.True(t, strings.Contains(err.Error(), context.Canceled.Error()),
+		"error must still show the cancellation cause, got [%v]", err)
 }
 
 func TestWaitForValueRejectedDoesNotWait(t *testing.T) {
@@ -369,7 +401,7 @@ func TestWaitForValueAfterReset(t *testing.T) {
 	// being released by the pre-Reset update.
 	_, err := h.WaitForValue(ctx)
 	require.Error(t, err)
-	require.True(t, errors.Is(err, context.DeadlineExceeded),
+	require.True(t, errors.Is(err, deferred.ErrNotLoaded),
 		"Reset must re-arm the wait, got [%v]", err)
 
 	// And a later update releases it again.

@@ -234,9 +234,11 @@ func (h *Holder[T]) waitChan() chan struct{} {
 //
 // A refused update is not waited on. Retrying cannot clear one until a later
 // update is accepted, so ErrRejected is returned immediately rather than
-// holding the caller until its deadline expires. If ctx is done first, its
-// error is returned wrapped with the holder's subject, so the caller can tell
-// a wait that timed out from one that was cancelled.
+// holding the caller until its deadline expires. If ctx is done first, that is
+// still a holder that has nothing to show: it is reported as ErrNotLoaded, the
+// same sentinel Get uses for a value that has not arrived yet, with ctx's own
+// error kept in the message so a timeout stays distinguishable from a
+// cancellation.
 func (h *Holder[T]) WaitForValue(ctx context.Context) (T, error) {
 	var zero T
 
@@ -276,6 +278,12 @@ func (h *Holder[T]) WaitForValue(ctx context.Context) (T, error) {
 		}
 		return v, nil
 	case <-ctx.Done():
-		return zero, errors.Wrapf(ctx.Err(), "timed out waiting for %s", h.subject)
+		// A wait that ran out is still a holder that has nothing: report it
+		// as ErrNotLoaded so a caller testing for that sentinel classifies
+		// it as a value that has not arrived, rather than as a failure of
+		// whatever it was trying to do. The context's own error is kept in
+		// the message so a timeout stays distinguishable from a
+		// cancellation.
+		return zero, errors.Wrapf(ErrNotLoaded, "%s not loaded: %s", h.subject, ctx.Err())
 	}
 }
