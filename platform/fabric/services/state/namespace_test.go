@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/fabric-protos-go-apiv2/peer"
 	"github.com/stretchr/testify/require"
 
 	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
@@ -306,14 +305,8 @@ func TestNamespaceErrorBranches(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("add input by linear id get state error", func(t *testing.T) {
-		t.Parallel()
-		tx, rwset, _ := newTestStateTransaction("assetns")
-		require.NoError(t, rwset.SetState("assetns", "k1", []byte("v1")))
-		rwset.getStateErr = errors.New("state failed")
-		err := tx.AddInputByLinearID("k1", &House{})
-		require.Error(t, err)
-	})
+	// AddInputByLinearID's GetState error is covered by
+	// TestNamespaceAddInputByLinearIDGetStateError, which also asserts the message.
 }
 
 func TestNamespaceStateIDAndNamespaceResolution(t *testing.T) {
@@ -385,20 +378,11 @@ func TestContractAndSBEHandlers(t *testing.T) {
 		require.Equal(t, []byte("my-contract"), meta["contract"])
 	})
 
-	t.Run("sbe policy path", func(t *testing.T) {
-		t.Parallel()
-		tx, rwset, _ := newTestStateTransaction("assetns")
-		require.NoError(t, rwset.SetState("assetns", "k1", []byte("v1")))
+	// sbeMetaHandler's happy path is covered by
+	// TestSBEMetaHandlerWritesValidationParameter in sbe_test.go.
 
-		owner := &House{Owner: view.Identity("owner1")}
-		h := &sbeMetaHandler{forceSBE: true}
-		require.NoError(t, h.StoreMeta(tx.Namespace, owner, "assetns", "k1", &addOutputOptions{}))
-
-		meta, err := rwset.GetStateMetadata("assetns", "k1", cdriver.FromIntermediate)
-		require.NoError(t, err)
-		require.NotEmpty(t, meta[peer.MetaDataKeys_VALIDATION_PARAMETER.String()])
-	})
-
+	// This stays here because it is the only assertion that identities do *not*
+	// survive a policy round-trip; sbe_test.go covers the rest of stateEP.
 	t.Run("state ep helpers", func(t *testing.T) {
 		t.Parallel()
 		ep, err := newStateEP(nil)
