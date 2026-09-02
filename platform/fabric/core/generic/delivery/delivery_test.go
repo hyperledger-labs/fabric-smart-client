@@ -8,6 +8,7 @@ package delivery
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -375,7 +376,7 @@ func TestDeliveryLifecycle(t *testing.T) {
 
 		d := &Delivery{
 			bufferSize:    1,
-			stop:          make(chan error),
+			stop:          make(chan struct{}),
 			tracer:        tracerProvider.Tracer("test"),
 			channelConfig: &mockChannelConfig{},
 			ConfigService: &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peer1"}},
@@ -384,21 +385,60 @@ func TestDeliveryLifecycle(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(t.Context())
 		d.Start(ctx)
-
-		go func() {
-			time.Sleep(10 * time.Millisecond) // Give it time to start
-			cancel()
-		}()
+		// Cancelling the context is the only stop signal; runReceiver observes
+		// it on its next loop iteration regardless of how far it got, so no
+		// sleep is needed to make this deterministic.
+		cancel()
 
 		err := d.untilStop()
 		require.ErrorContains(t, err, "context done")
+		// Every reader of stop observes the same error, not just the first.
+		require.ErrorContains(t, d.untilStop(), "context done")
+	})
+
+	t.Run("Stop is idempotent and keeps the first error", func(t *testing.T) {
+		t.Parallel()
+
+		d := &Delivery{stop: make(chan struct{})}
+
+		// Concurrent Stop calls must neither panic on a double close nor block.
+		var wg sync.WaitGroup
+		for i := range 8 {
+			wg.Go(func() {
+				if i == 0 {
+					d.Stop(errors.New("first"))
+					return
+				}
+				d.Stop(errors.Errorf("later %d", i))
+			})
+		}
+		wg.Wait()
+
+		<-d.stop // closed
+		// Whichever call won, the error it reported is the one published, and a
+		// Stop after shutdown must still not block.
+		first := d.stopError()
+		require.Error(t, first)
+		d.Stop(errors.New("after shutdown"))
+		require.Equal(t, first, d.stopError())
+	})
+
+	t.Run("Stop with nil error reports a clean shutdown", func(t *testing.T) {
+		t.Parallel()
+
+		d := &Delivery{stop: make(chan struct{})}
+		d.Stop(nil)
+
+		<-d.stop
+		require.NoError(t, d.stopError())
+		require.NoError(t, d.untilStop())
 	})
 
 	t.Run("readBlocks stops on callback error", func(t *testing.T) {
 		t.Parallel()
 		d := &Delivery{
 			bufferSize: 1,
-			stop:       make(chan error, 1),
+			stop:       make(chan struct{}),
 			callback: func(ctx context.Context, block *cb.Block) (bool, error) {
 				return false, errors.New("callback error")
 			},
@@ -407,15 +447,15 @@ func TestDeliveryLifecycle(t *testing.T) {
 		ch <- blockResponse{block: &cb.Block{Header: &cb.BlockHeader{}}}
 
 		d.readBlocks(ch)
-		err := <-d.stop
-		require.ErrorContains(t, err, "callback error")
+		<-d.stop // readBlocks must have stopped the service
+		require.ErrorContains(t, d.stopError(), "callback error")
 	})
 
 	t.Run("readBlocks stops on stop true", func(t *testing.T) {
 		t.Parallel()
 		d := &Delivery{
 			bufferSize: 1,
-			stop:       make(chan error, 1),
+			stop:       make(chan struct{}),
 			callback: func(ctx context.Context, block *cb.Block) (bool, error) {
 				return true, nil
 			},
@@ -424,15 +464,17 @@ func TestDeliveryLifecycle(t *testing.T) {
 		ch <- blockResponse{block: &cb.Block{Header: &cb.BlockHeader{}}}
 
 		d.readBlocks(ch)
-		err := <-d.stop
-		require.NoError(t, err)
+		<-d.stop // readBlocks must have stopped the service
+		require.NoError(t, d.stopError())
 	})
 }
 
+// TestDeliveryRunNilCtx covers Run substituting context.Background for a nil
+// context instead of panicking.
 func TestDeliveryRunNilCtx(t *testing.T) {
 	t.Parallel()
 	d := &Delivery{
-		stop:          make(chan error, 1),
+		stop:          make(chan struct{}),
 		bufferSize:    1,
 		NetworkName:   "testNet",
 		channel:       "testChannel",
@@ -443,12 +485,14 @@ func TestDeliveryRunNilCtx(t *testing.T) {
 		Services:      &mockServices{err: errors.New("err")},
 	}
 
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		d.stop <- errors.New("done")
-		close(d.stop)
-	}()
-	err := d.Run(context.TODO())
+	// Stop may land before or after Run starts; either way Run must observe the
+	// published error rather than a nil one, so no synchronisation is needed.
+	go d.Stop(errors.New("done"))
+
+	// A literal nil would trip staticcheck's nil-context check, but a nil
+	// context value is exactly what this test exercises.
+	var nilCtx context.Context
+	err := d.Run(nilCtx)
 	require.ErrorContains(t, err, "done")
 }
 
@@ -498,7 +542,7 @@ func TestDeliveryConnect(t *testing.T) {
 			Services: &mockServices{
 				peerClient: &mockPeerClient{
 					deliverCli: &mockDeliverClientRPC{
-						stream: &mockDeliverStreamDelTest{sendErr: errors.New("send error")},
+						stream: &mockDeliverStream{sendErr: errors.New("send error")},
 					},
 				},
 			},
@@ -527,7 +571,7 @@ func TestDeliveryConnect(t *testing.T) {
 			Services: &mockServices{
 				peerClient: &mockPeerClient{
 					deliverCli: &mockDeliverClientRPC{
-						stream: &mockDeliverStreamDelTest{},
+						stream: &mockDeliverStream{},
 					},
 				},
 			},
@@ -557,7 +601,7 @@ func TestRunReceiver(t *testing.T) {
 		t.Parallel()
 		d := &Delivery{
 			tracer:        tracerProvider.Tracer("test"),
-			stop:          make(chan error, 1),
+			stop:          make(chan struct{}),
 			ConfigService: &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peer1"}},
 			Services:      &mockServices{err: errors.New("err")},
 			channelConfig: &mockChannelConfig{},
@@ -568,9 +612,11 @@ func TestRunReceiver(t *testing.T) {
 		ch := make(chan blockResponse, 1)
 
 		d.runReceiver(ctx, ch)
-		// Should exit quickly
-		// it might consume the context done error itself and leave the channel empty/closed
+
+		// runReceiver must have stopped the service before returning, and the
+		// reason must survive for every other reader of stop.
 		<-d.stop
+		require.ErrorContains(t, d.stopError(), "context done")
 	})
 
 	t.Run("nil ctx", func(t *testing.T) {
@@ -597,7 +643,7 @@ func TestRunReceiverResponses(t *testing.T) {
 		Services: &mockServices{
 			peerClient: &mockPeerClient{
 				deliverCli: &mockDeliverClientRPC{
-					stream: &mockDeliverStreamDelTest{
+					stream: &mockDeliverStream{
 						recvChan:    recvChan,
 						recvErrChan: recvErrChan,
 						readChan:    readChan,
@@ -615,7 +661,7 @@ func TestRunReceiverResponses(t *testing.T) {
 		channelConfig: &mockChannelConfig{},
 		tracer:        noop.NewTracerProvider().Tracer("test"),
 		client:        &mockPeerClient{},
-		stop:          make(chan error, 1),
+		stop:          make(chan struct{}),
 	}
 	d.Ledger = &mockLedger{blockNumber: 10}
 
@@ -658,4 +704,79 @@ func TestRunReceiverResponses(t *testing.T) {
 	close(recvChan)
 	cancel()
 	<-done
+}
+
+// TestRunReceiverReconnects covers the recovery paths runReceiver takes without
+// ever leaving the loop: a failed connection attempt, a malformed block that
+// forces the stream to be torn down and re-established, and a response type it
+// does not handle. Each step is driven to completion and observed, so nothing
+// here depends on timing.
+func TestRunReceiverReconnects(t *testing.T) {
+	t.Parallel()
+
+	recvChan := make(chan *pb.DeliverResponse, 2)
+	readChan := make(chan struct{}, 4)
+	attempts := make(chan struct{}, 8)
+
+	svcs := &mockFlakyServices{
+		peerClient: &mockPeerClient{
+			deliverCli: &mockDeliverClientRPC{
+				stream: &mockDeliverStream{recvChan: recvChan, readChan: readChan},
+			},
+		},
+		attempts: attempts,
+	}
+	svcs.failures.Store(1) // refuse the first attempt, then serve
+
+	d := &Delivery{
+		NetworkName:     "testNet",
+		channel:         "testChannel",
+		stop:            make(chan struct{}),
+		bufferSize:      1,
+		tracer:          noop.NewTracerProvider().Tracer("test"),
+		channelConfig:   &mockChannelConfig{},
+		ConfigService:   &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peer1"}},
+		Services:        svcs,
+		LocalMembership: &mockLocalMembership{id: &mockSigningIdentity{}},
+		vault:           &mockVault{},
+		Ledger:          &mockLedger{blockNumber: 10},
+		client:          &mockPeerClient{},
+	}
+
+	// A block missing its header is malformed: handleBlockResponse rejects it and
+	// runReceiver drops the stream and reconnects rather than forwarding it.
+	recvChan <- &pb.DeliverResponse{Type: &pb.DeliverResponse_Block{Block: &cb.Block{
+		Data:     &cb.BlockData{},
+		Metadata: &cb.BlockMetadata{},
+	}}}
+	// A filtered block is not something this receiver asked for, so it falls to
+	// the unhandled-response branch.
+	recvChan <- &pb.DeliverResponse{Type: &pb.DeliverResponse_FilteredBlock{
+		FilteredBlock: &pb.FilteredBlock{Number: 11},
+	}}
+
+	ch := make(chan blockResponse, 1)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		d.runReceiver(t.Context(), ch)
+	}()
+
+	// Both responses must be consumed, which means the first attempt was
+	// refused, the second connected, and the malformed block forced a third.
+	for range 2 {
+		select {
+		case <-readChan:
+		case <-time.After(10 * time.Second):
+			t.Fatal("timed out waiting for the receiver to consume a response")
+		}
+	}
+
+	close(recvChan)
+	d.Stop(nil)
+	<-done
+
+	require.NoError(t, d.stopError())
+	require.GreaterOrEqual(t, len(attempts), 3, "expected a refused attempt plus a reconnect after the malformed block")
+	require.Empty(t, ch, "neither a malformed block nor a filtered block may be forwarded")
 }

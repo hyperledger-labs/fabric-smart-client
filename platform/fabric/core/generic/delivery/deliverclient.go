@@ -27,7 +27,10 @@ import (
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
-// TxEvent contains information for token transaction commit
+// TxEvent reports the outcome of waiting for a single transaction to be
+// committed. Committed distinguishes a successful commit from a failure
+// described by Err; Block and IndexInBlock locate the transaction in the
+// ledger, and CommitPeer names the peer that reported it.
 type TxEvent struct {
 	TxID         string
 	Committed    bool
@@ -68,6 +71,9 @@ type deliverClient struct {
 	client services.PeerClient
 }
 
+// NewDeliverClient returns a DeliverClient backed by the given peer client. The
+// error is always nil today; connecting to the peer is deferred to NewDeliver
+// and NewDeliverFiltered.
 func NewDeliverClient(client services.PeerClient) (DeliverClient, error) {
 	return &deliverClient{
 		client: client,
@@ -102,12 +108,20 @@ func (d *deliverClient) NewDeliverFiltered(ctx context.Context, opts ...grpc.Cal
 	return df, nil
 }
 
+// Certificate returns the TLS certificate the underlying peer client presents.
+// The returned pointer refers to a copy, so mutating it does not affect the
+// client.
 func (d *deliverClient) Certificate() *tls.Certificate {
 	cert := d.client.Certificate()
 	return &cert
 }
 
-// CreateDeliverEnvelope creates a signed envelope with SeekPosition_Newest for block
+// CreateDeliverEnvelope creates the signed seek envelope that opens a Deliver
+// stream. It requests every block from start onwards with no upper bound, and
+// asks the peer to block until each next block is ready rather than ending the
+// stream at the current ledger height. If cert is non-nil its SHA2-256 hash is
+// bound into the envelope, as the peer requires when client TLS auth is
+// enabled.
 func CreateDeliverEnvelope(channelID string, signingIdentity driver.SigningIdentity, cert *tls.Certificate, start *ab.SeekPosition) (*common.Envelope, error) {
 	logger.Debugf("create delivery envelope starting from: [%s]", start)
 	creator, err := signingIdentity.Serialize()
@@ -153,6 +167,10 @@ func CreateDeliverEnvelope(channelID string, signingIdentity driver.SigningIdent
 	return envelope, nil
 }
 
+// DeliverSend sends the seek envelope on the stream and then half-closes it,
+// since a Deliver client only ever sends this one message. It returns the error
+// from the send; a failure to close is logged rather than returned, because the
+// stream is still usable for receiving.
 func DeliverSend(df DeliverStream, envelope *common.Envelope) error {
 	err := df.Send(envelope)
 	if err := df.CloseSend(); err != nil {
@@ -161,6 +179,10 @@ func DeliverSend(df DeliverStream, envelope *common.Envelope) error {
 	return err
 }
 
+// DeliverReceive reads from a filtered Deliver stream until it sees the
+// transaction txid, then reports the outcome on eventCh exactly once and
+// returns. A stream error, or a status response other than a block, also
+// produces an event with Err set.
 func DeliverReceive(df DeliverFiltered, address, txid string, eventCh chan<- TxEvent) error {
 	event := TxEvent{
 		TxID:       txid,
@@ -243,8 +265,10 @@ func DeliverWaitForResponse(ctx context.Context, eventCh <-chan TxEvent, txid st
 	}
 }
 
-// CreateHeader creates common.Header for a token transaction
-// tlsCertHash is for client TLS cert, only applicable when ClientAuthRequired is true
+// CreateHeader creates the common.Header for a transaction of the given type,
+// returning the freshly generated transaction ID alongside it. tlsCertHash
+// binds the client TLS certificate into the header and is only applicable when
+// the peer has ClientAuthRequired set.
 func CreateHeader(txType common.HeaderType, channelID string, creator, tlsCertHash []byte) (string, *common.Header, error) {
 	ts := timestamppb.Now()
 

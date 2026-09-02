@@ -9,7 +9,7 @@ package delivery
 import (
 	"context"
 	"crypto/tls"
-	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,6 +20,7 @@ import (
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
@@ -40,7 +41,17 @@ func (m *mockPeerClient) Certificate() tls.Certificate                       { r
 func (m *mockPeerClient) Close()                                             {}
 func (m *mockPeerClient) EndorserClient() (pb.EndorserClient, error)         { return nil, nil }
 func (m *mockPeerClient) DiscoveryClient() (services.DiscoveryClient, error) { return nil, nil }
-func (m *mockPeerClient) DeliverClient() (pb.DeliverClient, error)           { return m.deliverCli, m.deliverErr }
+
+// DeliverClient never returns a nil client with a nil error: a real peer client
+// cannot do that, and NewDeliver would dereference the nil interface and take
+// the whole test binary down with it. Tests that reach connect without
+// configuring a deliver client get a clean failure instead.
+func (m *mockPeerClient) DeliverClient() (pb.DeliverClient, error) {
+	if m.deliverCli == nil && m.deliverErr == nil {
+		return nil, errors.New("mockPeerClient: no deliver client configured")
+	}
+	return m.deliverCli, m.deliverErr
+}
 
 type mockDeliverClientRPC struct {
 	stream      pb.Deliver_DeliverClient
@@ -61,12 +72,10 @@ func (m *mockDeliverClientRPC) DeliverWithPrivateData(_ context.Context, _ ...go
 	return nil, nil
 }
 
+// mockDeliverFiltered stands in for a filtered Deliver stream. Tests only ever
+// use it as an opaque non-nil value, so the embedded interface is never called.
 type mockDeliverFiltered struct {
 	pb.Deliver_DeliverFilteredClient
-}
-
-type mockDeliverStream struct {
-	pb.Deliver_DeliverClient
 }
 
 // --- Identity mock ---
@@ -90,32 +99,39 @@ func (m *mockSigningIdentity) Sign(msg []byte) ([]byte, error) {
 	return []byte("signature"), nil
 }
 
-// --- Simple deliver stream mock (single response, for DeliverSend/Receive tests) ---
+// mockDeliverStream is a DeliverStream whose Recv works in one of two modes.
+//
+// Static mode (recvResp and/or recvErr set) returns the same result on every
+// call, which suits the single-exchange DeliverSend/DeliverReceive tests.
+// Scripted mode (recvChan set) serves queued responses in order, which suits
+// the multi-step runReceiver and Scan tests; recvErrChan injects a transport
+// error ahead of the queue, and readChan, if set, receives one value per
+// response actually delivered so a test can wait for progress instead of
+// sleeping.
+//
+// It embeds pb.Deliver_DeliverClient so it can also be assigned where a gRPC
+// stream is expected. The embedded interface is nil, so calling any method
+// beyond Send, Recv and CloseSend panics — no test does.
+type mockDeliverStream struct {
+	pb.Deliver_DeliverClient
 
-type mockDeliverStreamTest struct {
 	sendErr      error
 	closeSendErr error
-	recvErr      error
-	recvResp     *pb.DeliverResponse
-}
 
-func (m *mockDeliverStreamTest) Send(*cb.Envelope) error            { return m.sendErr }
-func (m *mockDeliverStreamTest) Recv() (*pb.DeliverResponse, error) { return m.recvResp, m.recvErr }
-func (m *mockDeliverStreamTest) CloseSend() error                   { return m.closeSendErr }
+	// static mode
+	recvResp *pb.DeliverResponse
+	recvErr  error
 
-// --- Channel-based deliver stream mock (for multi-step scenarios) ---
-
-type mockDeliverStreamDelTest struct {
-	pb.Deliver_DeliverClient
-	sendErr     error
+	// scripted mode
 	recvChan    chan *pb.DeliverResponse
 	recvErrChan chan error
 	readChan    chan struct{}
 }
 
-func (m *mockDeliverStreamDelTest) Send(*cb.Envelope) error { return m.sendErr }
-func (m *mockDeliverStreamDelTest) CloseSend() error        { return nil }
-func (m *mockDeliverStreamDelTest) Recv() (*pb.DeliverResponse, error) {
+func (m *mockDeliverStream) Send(*cb.Envelope) error { return m.sendErr }
+func (m *mockDeliverStream) CloseSend() error        { return m.closeSendErr }
+
+func (m *mockDeliverStream) Recv() (*pb.DeliverResponse, error) {
 	if m.recvErrChan != nil {
 		select {
 		case err := <-m.recvErrChan:
@@ -125,17 +141,26 @@ func (m *mockDeliverStreamDelTest) Recv() (*pb.DeliverResponse, error) {
 		default:
 		}
 	}
+
 	if m.recvChan != nil {
 		resp, ok := <-m.recvChan
-		if m.readChan != nil {
-			m.readChan <- struct{}{}
-		}
 		if !ok {
 			return nil, errors.New("closed")
 		}
+		// Signal only for responses actually delivered. Signalling on a closed
+		// recvChan too would let a caller that spins on the resulting error
+		// fill readChan and then block here forever, hanging the test that is
+		// waiting for the caller to return.
+		if m.readChan != nil {
+			m.readChan <- struct{}{}
+		}
 		return resp, nil
 	}
-	return nil, errors.New("not implemented")
+
+	if m.recvResp != nil || m.recvErr != nil {
+		return m.recvResp, m.recvErr
+	}
+	return nil, errors.New("mockDeliverStream: Recv not configured")
 }
 
 // --- Infrastructure mocks ---
@@ -156,6 +181,29 @@ type mockServices struct {
 
 func (m *mockServices) NewPeerClient(grpc.ConnectionConfig) (services.PeerClient, error) {
 	return m.peerClient, m.err
+}
+
+// mockFlakyServices refuses the first failures calls to NewPeerClient and then
+// hands out peerClient, so a test can drive the reconnect path. Every attempt is
+// announced on attempts, if set, so a test can wait for progress instead of
+// sleeping.
+type mockFlakyServices struct {
+	peerClient services.PeerClient
+	failures   atomic.Int32
+	attempts   chan struct{}
+}
+
+func (m *mockFlakyServices) NewPeerClient(grpc.ConnectionConfig) (services.PeerClient, error) {
+	if m.attempts != nil {
+		select {
+		case m.attempts <- struct{}{}:
+		default: // a test that stopped counting must not wedge the receiver
+		}
+	}
+	if m.failures.Add(-1) >= 0 {
+		return nil, errors.New("mockFlakyServices: connection refused")
+	}
+	return m.peerClient, nil
 }
 
 type mockLocalMembership struct {
@@ -263,7 +311,7 @@ func newTestService(t *testing.T, opts testServiceOpts) *Service {
 	case opts.recvChan != nil:
 		pc = &mockPeerClient{
 			deliverCli: &mockDeliverClientRPC{
-				stream: &mockDeliverStreamDelTest{
+				stream: &mockDeliverStream{
 					recvChan: opts.recvChan,
 					readChan: opts.readChan,
 				},

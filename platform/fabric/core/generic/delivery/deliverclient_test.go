@@ -281,21 +281,21 @@ func TestDeliverSend(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
-		stream := &mockDeliverStreamTest{}
+		stream := &mockDeliverStream{}
 		err := DeliverSend(stream, &cb.Envelope{})
 		require.NoError(t, err)
 	})
 
 	t.Run("send fails", func(t *testing.T) {
 		t.Parallel()
-		stream := &mockDeliverStreamTest{sendErr: errors.New("send error")}
+		stream := &mockDeliverStream{sendErr: errors.New("send error")}
 		err := DeliverSend(stream, &cb.Envelope{})
 		require.ErrorContains(t, err, "send error")
 	})
 
 	t.Run("close send fails", func(t *testing.T) {
 		t.Parallel()
-		stream := &mockDeliverStreamTest{closeSendErr: errors.New("close error")}
+		stream := &mockDeliverStream{closeSendErr: errors.New("close error")}
 		err := DeliverSend(stream, &cb.Envelope{})
 		require.NoError(t, err) // DeliverSend returns the Send error, not the CloseSend error, but logs the CloseSend error.
 	})
@@ -306,7 +306,7 @@ func TestDeliverReceive(t *testing.T) {
 
 	t.Run("Recv error", func(t *testing.T) {
 		t.Parallel()
-		df := &mockDeliverStreamTest{recvErr: errors.New("recv error")}
+		df := &mockDeliverStream{recvErr: errors.New("recv error")}
 		ch := make(chan TxEvent, 1)
 		err := DeliverReceive(df, "peer0", "tx1", ch)
 		require.ErrorContains(t, err, "recv error")
@@ -316,7 +316,7 @@ func TestDeliverReceive(t *testing.T) {
 
 	t.Run("FilteredBlock VALID", func(t *testing.T) {
 		t.Parallel()
-		df := &mockDeliverStreamTest{
+		df := &mockDeliverStream{
 			recvResp: &pb.DeliverResponse{
 				Type: &pb.DeliverResponse_FilteredBlock{
 					FilteredBlock: &pb.FilteredBlock{
@@ -339,7 +339,7 @@ func TestDeliverReceive(t *testing.T) {
 
 	t.Run("FilteredBlock INVALID", func(t *testing.T) {
 		t.Parallel()
-		df := &mockDeliverStreamTest{
+		df := &mockDeliverStream{
 			recvResp: &pb.DeliverResponse{
 				Type: &pb.DeliverResponse_FilteredBlock{
 					FilteredBlock: &pb.FilteredBlock{
@@ -358,7 +358,7 @@ func TestDeliverReceive(t *testing.T) {
 
 	t.Run("DeliverResponse_Status", func(t *testing.T) {
 		t.Parallel()
-		df := &mockDeliverStreamTest{
+		df := &mockDeliverStream{
 			recvResp: &pb.DeliverResponse{
 				Type: &pb.DeliverResponse_Status{
 					Status: cb.Status_SUCCESS,
@@ -372,7 +372,7 @@ func TestDeliverReceive(t *testing.T) {
 
 	t.Run("DeliverResponse unexpected", func(t *testing.T) {
 		t.Parallel()
-		df := &mockDeliverStreamTest{
+		df := &mockDeliverStream{
 			recvResp: &pb.DeliverResponse{
 				Type: nil,
 			},
@@ -391,7 +391,7 @@ func TestDeliverReceive(t *testing.T) {
 		env := &cb.Envelope{Payload: payloadBytes}
 		envBytes, _ := proto.Marshal(env)
 
-		df := &mockDeliverStreamTest{
+		df := &mockDeliverStream{
 			recvResp: &pb.DeliverResponse{
 				Type: &pb.DeliverResponse_Block{
 					Block: &cb.Block{
@@ -414,7 +414,7 @@ func TestDeliverReceive(t *testing.T) {
 
 	t.Run("DeliverResponse_Block invalid envelope", func(t *testing.T) {
 		t.Parallel()
-		df := &mockDeliverStreamTest{
+		df := &mockDeliverStream{
 			recvResp: &pb.DeliverResponse{
 				Type: &pb.DeliverResponse_Block{
 					Block: &cb.Block{

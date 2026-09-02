@@ -95,6 +95,8 @@ func TestValidationCodeAt(t *testing.T) {
 }
 
 func TestServiceLifecycle(t *testing.T) {
+	t.Parallel()
+
 	t.Run("NewService nil channelConfig", func(t *testing.T) {
 		t.Parallel()
 		svc, err := NewService(
@@ -116,8 +118,6 @@ func TestServiceLifecycle(t *testing.T) {
 		require.Nil(t, svc)
 	})
 
-	t.Parallel()
-
 	t.Run("NewService succeeds", func(t *testing.T) {
 		t.Parallel()
 		svc := newTestService(t, testServiceOpts{})
@@ -129,6 +129,14 @@ func TestServiceLifecycle(t *testing.T) {
 		err := svc.Start(ctx)
 		require.NoError(t, err)
 
+		svc.Stop()
+		// Stop must be observable rather than merely not panicking, and the
+		// background delivery must be finished before the subtest returns so it
+		// cannot fail a later, unrelated test.
+		<-svc.deliveryService.stop
+		require.NoError(t, svc.deliveryService.stopError())
+
+		// Stopping twice is a no-op, not a double close.
 		svc.Stop()
 	})
 }
