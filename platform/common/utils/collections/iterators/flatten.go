@@ -11,7 +11,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
-// Flatten flattens a nested iterator
+// Flatten returns a lazy [Iterator] over the elements of the slices that
+// transformer derives from the elements of iterator. Closing the returned
+// [Iterator] closes iterator.
+//
+// transformer must not return an empty slice for any but the last element: an
+// empty slice ends the iteration, so the elements after it are never yielded.
+// Remove such elements from iterator first, for example with [Filter].
 func Flatten[A, B any](iterator Iterator[A], transformer Transformer[A, []B]) Iterator[B] {
 	return &flattenedPointers[A, B]{Iterator: iterator, transformer: transformer, remaining: []B{}}
 }
@@ -41,6 +47,8 @@ func (it *flattenedPointers[A, B]) Next() (B, error) {
 	}
 }
 
+// FlattenValues behaves like [Flatten], but yields a pointer to each element of
+// the derived slices. It carries the same restriction on transformer.
 func FlattenValues[A, B any](iterator Iterator[A], transformer Transformer[A, []B]) Iterator[*B] {
 	return &flattenedValues[A, B]{Iterator: iterator, transformer: transformer, remaining: []B{}}
 }

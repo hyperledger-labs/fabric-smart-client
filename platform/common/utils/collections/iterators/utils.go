@@ -44,13 +44,18 @@ func ReadAllValues[T any](it Iterator[*T]) ([]T, error) {
 	return items, nil
 }
 
-// ReadFirst reads the first {{limit}} elements of the input Iterator
+// ReadFirst reads at most the first limit elements of the [Iterator] and closes
+// it. No element beyond limit is read, and a limit of zero or less reads none.
 func ReadFirst[T any](it Iterator[*T], limit int) ([]T, error) {
 	defer it.Close()
 	items := make([]T, 0)
-	for item, err := it.Next(); (item != nil || err != nil) && len(items) < limit; item, err = it.Next() {
+	for len(items) < limit {
+		item, err := it.Next()
 		if err != nil {
 			return nil, err
+		}
+		if item == nil {
+			return items, nil
 		}
 		items = append(items, *item)
 	}

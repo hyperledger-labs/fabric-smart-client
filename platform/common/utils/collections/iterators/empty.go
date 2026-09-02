@@ -13,8 +13,6 @@ func Empty[K any]() Iterator[K] { return &empty[K]{zero: utils.Zero[K]()} }
 
 type empty[K any] struct{ zero K }
 
-func (i *empty[K]) HasNext() bool { return false }
-
 func (i *empty[K]) Close() {}
 
 func (i *empty[K]) Next() (K, error) { return i.zero, nil }
