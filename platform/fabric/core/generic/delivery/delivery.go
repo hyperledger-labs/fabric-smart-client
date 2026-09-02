@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -79,6 +80,7 @@ type Delivery struct {
 	lastBlockReceived   uint64
 	bufferSize          int
 	stop                chan error
+	stopOnce            sync.Once
 }
 
 var ctr = atomic.Uint32{}
@@ -129,11 +131,13 @@ func (d *Delivery) Start(ctx context.Context) {
 }
 
 func (d *Delivery) Stop(err error) {
-	logger.Debugf("stop delivery with error [%v]", err)
-	if err != nil {
-		d.stop <- err
-	}
-	close(d.stop)
+	d.stopOnce.Do(func() {
+		logger.Debugf("stop delivery with error [%v]", err)
+		if err != nil {
+			d.stop <- err
+		}
+		close(d.stop)
+	})
 }
 
 func (d *Delivery) Run(ctx context.Context) error {

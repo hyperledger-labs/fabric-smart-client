@@ -71,6 +71,10 @@ func NewService(
 	metricsProvider metrics.Provider,
 	acceptedHeaderTypes []common.HeaderType,
 ) (*Service, error) {
+	if channelConfig == nil {
+		return nil, errors.New("expected channelConfig, got nil")
+	}
+
 	deliveryService, err := New(
 		networkName,
 		channelConfig,

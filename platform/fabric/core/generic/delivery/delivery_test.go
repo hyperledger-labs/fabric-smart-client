@@ -8,7 +8,6 @@ package delivery
 
 import (
 	"context"
-	"crypto/tls"
 	"testing"
 	"time"
 
@@ -20,22 +19,9 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
-
-// stubPeerClient implements services.PeerClient with just enough behavior
-// (Address) to satisfy the logging calls inside handleBlockResponse.
-type stubPeerClient struct{}
-
-func (stubPeerClient) Address() string                            { return "peer0" }
-func (stubPeerClient) Certificate() tls.Certificate               { return tls.Certificate{} }
-func (stubPeerClient) Close()                                     {}
-func (stubPeerClient) EndorserClient() (pb.EndorserClient, error) { return nil, nil }
-func (stubPeerClient) DiscoveryClient() (services.DiscoveryClient, error) {
-	return nil, nil
-}
-func (stubPeerClient) DeliverClient() (pb.DeliverClient, error) { return nil, nil }
 
 // mockVault implements Vault for testing
 type mockVault struct {
@@ -312,7 +298,7 @@ func TestHandleBlockResponse(t *testing.T) {
 
 	t.Run("nil block is rejected, not dereferenced", func(t *testing.T) {
 		t.Parallel()
-		d := &Delivery{client: stubPeerClient{}}
+		d := &Delivery{client: &mockPeerClient{}}
 		ch := make(chan blockResponse, 1)
 		ok := d.handleBlockResponse(t.Context(), newSpan(t), &pb.DeliverResponse_Block{Block: nil}, ch, time.Millisecond)
 		require.False(t, ok)
@@ -321,7 +307,7 @@ func TestHandleBlockResponse(t *testing.T) {
 
 	t.Run("block with nil header is rejected, not dereferenced", func(t *testing.T) {
 		t.Parallel()
-		d := &Delivery{client: stubPeerClient{}}
+		d := &Delivery{client: &mockPeerClient{}}
 		ch := make(chan blockResponse, 1)
 		malformed := &cb.Block{
 			Data:     &cb.BlockData{},
@@ -335,7 +321,7 @@ func TestHandleBlockResponse(t *testing.T) {
 
 	t.Run("block with nil data is rejected, not dereferenced", func(t *testing.T) {
 		t.Parallel()
-		d := &Delivery{client: stubPeerClient{}}
+		d := &Delivery{client: &mockPeerClient{}}
 		ch := make(chan blockResponse, 1)
 		malformed := &cb.Block{
 			Data:     nil,
@@ -349,7 +335,7 @@ func TestHandleBlockResponse(t *testing.T) {
 
 	t.Run("block with nil metadata is rejected, not dereferenced", func(t *testing.T) {
 		t.Parallel()
-		d := &Delivery{client: stubPeerClient{}}
+		d := &Delivery{client: &mockPeerClient{}}
 		ch := make(chan blockResponse, 1)
 		malformed := &cb.Block{
 			Data:     &cb.BlockData{},
@@ -363,7 +349,7 @@ func TestHandleBlockResponse(t *testing.T) {
 
 	t.Run("well-formed block is pushed to channel", func(t *testing.T) {
 		t.Parallel()
-		d := &Delivery{client: stubPeerClient{}}
+		d := &Delivery{client: &mockPeerClient{}}
 		ch := make(chan blockResponse, 1)
 		good := &cb.Block{
 			Data:     &cb.BlockData{},
@@ -377,4 +363,299 @@ func TestHandleBlockResponse(t *testing.T) {
 		require.Equal(t, uint64(42), received.block.Header.Number)
 		require.Equal(t, uint64(42), d.lastBlockReceived)
 	})
+}
+
+func TestDeliveryLifecycle(t *testing.T) {
+	t.Parallel()
+
+	tracerProvider := noop.NewTracerProvider()
+
+	t.Run("Start, Stop, and Run", func(t *testing.T) {
+		t.Parallel()
+
+		d := &Delivery{
+			bufferSize:    1,
+			stop:          make(chan error),
+			tracer:        tracerProvider.Tracer("test"),
+			channelConfig: &mockChannelConfig{},
+			ConfigService: &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peer1"}},
+			Services:      &mockServices{err: errors.New("err")},
+		}
+
+		ctx, cancel := context.WithCancel(t.Context())
+		d.Start(ctx)
+
+		go func() {
+			time.Sleep(10 * time.Millisecond) // Give it time to start
+			cancel()
+		}()
+
+		err := d.untilStop()
+		require.ErrorContains(t, err, "context done")
+	})
+
+	t.Run("readBlocks stops on callback error", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{
+			bufferSize: 1,
+			stop:       make(chan error, 1),
+			callback: func(ctx context.Context, block *cb.Block) (bool, error) {
+				return false, errors.New("callback error")
+			},
+		}
+		ch := make(chan blockResponse, 1)
+		ch <- blockResponse{block: &cb.Block{Header: &cb.BlockHeader{}}}
+
+		d.readBlocks(ch)
+		err := <-d.stop
+		require.ErrorContains(t, err, "callback error")
+	})
+
+	t.Run("readBlocks stops on stop true", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{
+			bufferSize: 1,
+			stop:       make(chan error, 1),
+			callback: func(ctx context.Context, block *cb.Block) (bool, error) {
+				return true, nil
+			},
+		}
+		ch := make(chan blockResponse, 1)
+		ch <- blockResponse{block: &cb.Block{Header: &cb.BlockHeader{}}}
+
+		d.readBlocks(ch)
+		err := <-d.stop
+		require.NoError(t, err)
+	})
+}
+
+func TestDeliveryRunNilCtx(t *testing.T) {
+	t.Parallel()
+	d := &Delivery{
+		stop:          make(chan error, 1),
+		bufferSize:    1,
+		NetworkName:   "testNet",
+		channel:       "testChannel",
+		client:        &mockPeerClient{},
+		tracer:        noop.NewTracerProvider().Tracer("test"),
+		channelConfig: &mockChannelConfig{},
+		ConfigService: &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peer1"}},
+		Services:      &mockServices{err: errors.New("err")},
+	}
+
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		d.stop <- errors.New("done")
+		close(d.stop)
+	}()
+	err := d.Run(context.TODO())
+	require.ErrorContains(t, err, "done")
+}
+
+func TestDeliveryConnect(t *testing.T) {
+	t.Parallel()
+
+	t.Run("NewPeerClient fails", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{
+			ConfigService: &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peer1"}},
+			Services:      &mockServices{err: errors.New("peer client error")},
+			NetworkName:   "testNet",
+			channel:       "testChannel",
+		}
+
+		stream, cancel, err := d.connect(t.Context())
+		require.ErrorContains(t, err, "failed creating peer client")
+		require.Nil(t, stream)
+		require.Nil(t, cancel)
+	})
+
+	t.Run("NewDeliverClient succeeds but NewDeliver fails", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{
+			ConfigService: &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peer1"}},
+			Services: &mockServices{
+				peerClient: &mockPeerClient{
+					deliverErr: errors.New("deliver err"),
+				},
+			},
+			NetworkName: "testNet",
+			channel:     "testChannel",
+		}
+
+		stream, cancel, err := d.connect(t.Context())
+		require.ErrorContains(t, err, "failed to get delivery stream")
+		require.Nil(t, stream)
+		if cancel != nil {
+			cancel() // though usually cancel is called inside connect when error happens
+		}
+	})
+
+	t.Run("DeliverSend fails", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{
+			ConfigService: &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peer1"}},
+			Services: &mockServices{
+				peerClient: &mockPeerClient{
+					deliverCli: &mockDeliverClientRPC{
+						stream: &mockDeliverStreamDelTest{sendErr: errors.New("send error")},
+					},
+				},
+			},
+			LocalMembership: &mockLocalMembership{
+				id: &mockSigningIdentity{},
+			},
+			vault:       &mockVault{},
+			NetworkName: "testNet",
+			channel:     "testChannel",
+		}
+
+		d.Ledger = &mockLedger{blockNumber: 10}
+
+		stream, cancel, err := d.connect(t.Context())
+		require.ErrorContains(t, err, "failed sending seek envelope")
+		require.Nil(t, stream)
+		if cancel != nil {
+			cancel()
+		}
+	})
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{
+			ConfigService: &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peer1"}},
+			Services: &mockServices{
+				peerClient: &mockPeerClient{
+					deliverCli: &mockDeliverClientRPC{
+						stream: &mockDeliverStreamDelTest{},
+					},
+				},
+			},
+			LocalMembership: &mockLocalMembership{
+				id: &mockSigningIdentity{},
+			},
+			vault:       &mockVault{},
+			NetworkName: "testNet",
+			channel:     "testChannel",
+		}
+		d.Ledger = &mockLedger{blockNumber: 10}
+
+		stream, cancel, err := d.connect(t.Context())
+		require.NoError(t, err)
+		require.NotNil(t, stream)
+		if cancel != nil {
+			cancel()
+		}
+	})
+}
+
+func TestRunReceiver(t *testing.T) {
+	t.Parallel()
+	tracerProvider := noop.NewTracerProvider()
+
+	t.Run("context already done", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{
+			tracer:        tracerProvider.Tracer("test"),
+			stop:          make(chan error, 1),
+			ConfigService: &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peer1"}},
+			Services:      &mockServices{err: errors.New("err")},
+			channelConfig: &mockChannelConfig{},
+		}
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel() // already done
+		ch := make(chan blockResponse, 1)
+
+		d.runReceiver(ctx, ch)
+		// Should exit quickly
+		// it might consume the context done error itself and leave the channel empty/closed
+		<-d.stop
+	})
+
+	t.Run("nil ctx", func(t *testing.T) {
+		t.Parallel()
+		d := &Delivery{
+			NetworkName: "testNet",
+			channel:     "testChannel",
+			client:      &mockPeerClient{},
+		}
+		require.NotPanics(t, func() {
+			d.runReceiver(context.TODO(), nil)
+		})
+	})
+}
+
+func TestRunReceiverResponses(t *testing.T) {
+	t.Parallel()
+	recvChan := make(chan *pb.DeliverResponse, 5)
+	recvErrChan := make(chan error, 5)
+	readChan := make(chan struct{}, 5)
+
+	d := &Delivery{
+		ConfigService: &mockConfigService{peerConf: &grpc.ConnectionConfig{Address: "peer1"}},
+		Services: &mockServices{
+			peerClient: &mockPeerClient{
+				deliverCli: &mockDeliverClientRPC{
+					stream: &mockDeliverStreamDelTest{
+						recvChan:    recvChan,
+						recvErrChan: recvErrChan,
+						readChan:    readChan,
+					},
+				},
+			},
+		},
+		LocalMembership: &mockLocalMembership{
+			id: &mockSigningIdentity{},
+		},
+		vault:         &mockVault{},
+		NetworkName:   "testNet",
+		channel:       "testChannel",
+		callback:      func(ctx context.Context, block *cb.Block) (bool, error) { return false, nil },
+		channelConfig: &mockChannelConfig{},
+		tracer:        noop.NewTracerProvider().Tracer("test"),
+		client:        &mockPeerClient{},
+		stop:          make(chan error, 1),
+	}
+	d.Ledger = &mockLedger{blockNumber: 10}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+
+	ch := make(chan blockResponse, 5)
+
+	recvChan <- &pb.DeliverResponse{Type: &pb.DeliverResponse_Status{Status: cb.Status_SUCCESS}}
+	recvChan <- &pb.DeliverResponse{Type: &pb.DeliverResponse_Status{Status: cb.Status_NOT_FOUND}}
+	recvChan <- &pb.DeliverResponse{Type: &pb.DeliverResponse_Block{Block: &cb.Block{
+		Header:   &cb.BlockHeader{Number: 10},
+		Data:     &cb.BlockData{},
+		Metadata: &cb.BlockMetadata{Metadata: [][]byte{nil, nil, nil}},
+	}}}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		d.runReceiver(ctx, ch)
+	}()
+
+	// wait for 3 messages to be read
+	for range 3 {
+		select {
+		case <-readChan:
+		case <-time.After(5 * time.Second):
+			t.Fatal("timeout")
+		}
+	}
+
+	// Wait for the block to be processed and sent to ch (only Block gets sent to ch)
+	select {
+	case resp := <-ch:
+		require.Equal(t, uint64(10), resp.block.Header.Number)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout")
+	}
+
+	close(recvChan)
+	cancel()
+	<-done
 }
