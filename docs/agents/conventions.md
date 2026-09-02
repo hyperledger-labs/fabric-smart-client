@@ -22,7 +22,21 @@ Permitted constructors: `errors.New`, `errors.Errorf`, `errors.Wrap`,
 
 ## Godoc
 
-Give every exported function, type, and package a Godoc comment.
+Give every exported function, type, and package a Godoc comment. Keep
+documentation short, precise, and behavior-focused.
+
+- Start the comment with the identifier's name and describe what it does or
+  represents **from the caller's perspective**.
+- Document only what an API user needs, especially non-obvious behavior: error
+  semantics, blocking or context behavior, concurrency guarantees,
+  ownership/lifecycle requirements, defaults, side effects, security properties.
+- Do **not** describe implementation details, internal call flows, or behavior
+  that cannot be verified from the code, tests, or API contract. Never invent
+  guarantees.
+- Use complete sentences, consistent FSC terminology, and Godoc links such as
+  `[Config]` when referring to other API elements.
+- Prefer one accurate sentence over several speculative or redundant ones, and
+  keep documentation stable under implementation refactoring.
 
 ## Logging & monitoring
 
