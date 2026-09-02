@@ -11,8 +11,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	sq "github.com/Masterminds/squirrel"
-
+	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -36,47 +35,45 @@ type KeyValueStore struct {
 	table   string
 
 	errorWrapper driver.SQLErrorWrapper
-	sb           sq.StatementBuilderType
 }
 
-func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *KeyValueStore {
+// NewKeyValueStore returns a key-value store over table, reading through readDB
+// and writing through writeDB. Its queries use $N placeholders, which both
+// SQLite and Postgres accept.
+func NewKeyValueStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *KeyValueStore {
 	return &KeyValueStore{
 		BaseDB:       common.NewBaseDB(func() (*sql.Tx, error) { return writeDB.Begin() }),
 		readDB:       readDB,
 		writeDB:      writeDB,
 		table:        table,
 		errorWrapper: errorWrapper,
-		sb:           sq.StatementBuilder.PlaceholderFormat(ph),
 	}
 }
 
-func hasKeysCondition(ns driver2.Namespace, keys ...driver2.PKey) sq.Sqlizer {
+func hasKeysCondition(ns driver2.Namespace, keys ...driver2.PKey) sqlbuild.Condition {
 	if len(keys) == 1 {
-		return sq.And{sq.Eq{"ns": ns}, sq.Eq{"pkey": []byte(keys[0])}}
+		return sqlbuild.And(sqlbuild.Eq("ns", ns), sqlbuild.Eq("pkey", []byte(keys[0])))
 	}
 	pkeys := make([][]byte, len(keys))
 	for i, k := range keys {
 		pkeys[i] = []byte(k)
 	}
-	return sq.And{sq.Eq{"ns": ns}, sq.Eq{"pkey": pkeys}}
+	return sqlbuild.And(sqlbuild.Eq("ns", ns), sqlbuild.In("pkey", pkeys...))
 }
 
 func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns driver2.Namespace, startKey, endKey driver2.PKey) (iterators.Iterator[*driver.UnversionedRead], error) {
-	conds := sq.And{sq.Eq{"ns": ns}}
+	conds := []sqlbuild.Condition{sqlbuild.Eq("ns", ns)}
 	if len(startKey) != 0 {
-		conds = append(conds, sq.GtOrEq{"pkey": []byte(startKey)})
+		conds = append(conds, sqlbuild.Gte("pkey", []byte(startKey)))
 	}
 	if len(endKey) != 0 {
-		conds = append(conds, sq.Lt{"pkey": []byte(endKey)})
+		conds = append(conds, sqlbuild.Lt("pkey", []byte(endKey)))
 	}
-	query, params, err := db.sb.Select("pkey", "val").
-		From(db.table).
-		Where(conds).
-		OrderBy("pkey ASC").
-		ToSql()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build query")
-	}
+	query, params := sqlbuild.New().
+		WriteString("SELECT pkey, val FROM " + db.table).
+		WriteWhere(sqlbuild.And(conds...)).
+		WriteString(" ORDER BY pkey ASC").
+		Build()
 	logger.Debug(query, params)
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
@@ -88,13 +85,10 @@ func (db *KeyValueStore) GetStateRangeScanIterator(ctx context.Context, ns drive
 }
 
 func (db *KeyValueStore) GetState(ctx context.Context, namespace driver2.Namespace, key driver2.PKey) (driver.UnversionedValue, error) {
-	query, params, err := db.sb.Select("val").
-		From(db.table).
-		Where(hasKeysCondition(namespace, key)).
-		ToSql()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build query")
-	}
+	query, params := sqlbuild.New().
+		WriteString("SELECT val FROM " + db.table).
+		WriteWhere(hasKeysCondition(namespace, key)).
+		Build()
 	return QueryUniqueContext[driver.UnversionedValue](ctx, db.readDB, query, params...)
 }
 
@@ -102,13 +96,10 @@ func (db *KeyValueStore) GetStateSetIterator(ctx context.Context, ns driver2.Nam
 	if len(keys) == 0 {
 		return collections.NewEmptyIterator[*driver.UnversionedRead](), nil
 	}
-	query, params, err := db.sb.Select("pkey", "val").
-		From(db.table).
-		Where(hasKeysCondition(ns, keys...)).
-		ToSql()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build query")
-	}
+	query, params := sqlbuild.New().
+		WriteString("SELECT pkey, val FROM " + db.table).
+		WriteWhere(hasKeysCondition(ns, keys...)).
+		Build()
 	logger.Debug(query[:min(30, len(query))] + "...")
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
@@ -152,12 +143,10 @@ func (db *KeyValueStore) DeleteStatesWithTx(ctx context.Context, tx dbTransactio
 	if len(namespace) == 0 {
 		return collections.RepeatValue(keys, errors.New("ns or key is empty"))
 	}
-	query, params, err := db.sb.Delete(db.table).
-		Where(hasKeysCondition(namespace, keys...)).
-		ToSql()
-	if err != nil {
-		return collections.RepeatValue(keys, errors.Wrapf(err, "failed to build query"))
-	}
+	query, params := sqlbuild.New().
+		WriteString("DELETE FROM " + db.table).
+		WriteWhere(hasKeysCondition(namespace, keys...)).
+		Build()
 
 	logger.Debug(query, params)
 	_, execErr := tx.ExecContext(ctx, query, params...)
@@ -215,16 +204,15 @@ func (db *KeyValueStore) SetStatesWithTx(ctx context.Context, tx dbTransaction, 
 }
 
 func (db *KeyValueStore) upsertStatesWithTx(ctx context.Context, tx dbTransaction, ns driver2.Namespace, vals map[driver2.PKey]driver.UnversionedValue) map[driver2.PKey]error {
-	insert := db.sb.Insert(db.table).Columns("ns", "pkey", "val")
+	rows := make([]sqlbuild.Tuple, 0, len(vals))
 	for pkey, val := range vals {
-		insert = insert.Values(ns, []byte(pkey), val)
+		rows = append(rows, sqlbuild.Tuple{ns, []byte(pkey), val})
 	}
-	query, params, err := insert.
-		Suffix("ON CONFLICT (ns, pkey) DO UPDATE SET val = EXCLUDED.val").
-		ToSql()
-	if err != nil {
-		return collections.RepeatValue(collections.Keys(vals), errors.Wrapf(err, "failed to build query"))
-	}
+	query, params := sqlbuild.New().
+		WriteString("INSERT INTO " + db.table + " (ns,pkey,val) VALUES ").
+		WriteTuples(rows).
+		WriteString(" ON CONFLICT (ns, pkey) DO UPDATE SET val = EXCLUDED.val").
+		Build()
 
 	logger.Debug(query, params)
 	if _, execErr := tx.ExecContext(ctx, query, params...); execErr != nil {

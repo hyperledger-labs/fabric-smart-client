@@ -12,12 +12,11 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	sq "github.com/Masterminds/squirrel"
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -164,7 +163,7 @@ func TestPutSigner_UniqueViolation(t *testing.T) { //nolint:paralleltest
 
 func mockSignerInfoStore(db *sql.DB, isdummyUniqueErrorWrapper bool) *common2.SignerInfoStore {
 	if isdummyUniqueErrorWrapper {
-		return common2.NewSignerInfoStore(db, db, "signer_info", &dummyUniqueErrorWrapper{}, sq.Dollar)
+		return common2.NewSignerInfoStore(db, db, "signer_info", &dummyUniqueErrorWrapper{})
 	}
-	return common2.NewSignerInfoStore(db, db, "signer_info", &mock.SQLErrorWrapper{}, sq.Dollar)
+	return common2.NewSignerInfoStore(db, db, "signer_info", &mock.SQLErrorWrapper{})
 }

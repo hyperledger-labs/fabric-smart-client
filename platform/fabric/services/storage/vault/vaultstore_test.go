@@ -14,11 +14,11 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
-	q "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/pagination"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
 )
 
 type vc int
@@ -35,9 +35,9 @@ type matrixItem struct {
 	pagination   driver.Pagination
 	matcher      []types.GomegaMatcher
 	sqlForward   []string
-	argsForward  []any
+	argsForward  [][]sqlbuild.Param
 	sqlBackward  []string
-	argsBackward []any
+	argsBackward [][]sqlbuild.Param
 	deserialize  func([]byte) (driver.Pagination, error)
 }
 
@@ -49,11 +49,11 @@ var matrix = []matrixItem{
 		},
 		sqlForward: []string{
 			"SELECT * FROM test",
-			"SELECT * FROM test LIMIT $1", // This makes sure that no rows are returned, so we get the same behaviour as for offset pagination
+			"SELECT * FROM test LIMIT 0", // This makes sure that no rows are returned, so we get the same behaviour as for offset pagination
 		},
-		argsForward: []any{
-			[]string{},
-			[]int{0},
+		argsForward: [][]sqlbuild.Param{
+			nil,
+			nil,
 		},
 		sqlBackward: []string{},
 		matcher: []types.GomegaMatcher{
@@ -75,19 +75,13 @@ var matrix = []matrixItem{
 			return pagination.OffsetFromRaw(data)
 		},
 		sqlForward: []string{
-			"SELECT * FROM test LIMIT $1",
-			"SELECT * FROM test LIMIT $1 OFFSET $2",
-			"SELECT * FROM test LIMIT $1 OFFSET $2",
-			"SELECT * FROM test LIMIT $1 OFFSET $2",
-			"SELECT * FROM test LIMIT $1 OFFSET $2",
+			"SELECT * FROM test LIMIT 2",
+			"SELECT * FROM test LIMIT 2 OFFSET 2",
+			"SELECT * FROM test LIMIT 2 OFFSET 4",
+			"SELECT * FROM test LIMIT 2 OFFSET 6",
+			"SELECT * FROM test LIMIT 2 OFFSET 8",
 		},
-		argsForward: []any{
-			[]int{2},
-			[]int{2, 2},
-			[]int{2, 4},
-			[]int{2, 6},
-			[]int{2, 8},
-		},
+		argsForward: [][]sqlbuild.Param{nil, nil, nil, nil, nil},
 		sqlBackward: []string{},
 		matcher: []types.GomegaMatcher{
 			ConsistOf(
@@ -114,34 +108,28 @@ var matrix = []matrixItem{
 			return pagination.KeysetFromRaw[string](data, "TxID")
 		},
 		sqlForward: []string{
-			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1",
-			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
-			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
-			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
-			"SELECT * FROM test WHERE (tx_id > $1) ORDER BY tx_id ASC LIMIT $2",
+			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test WHERE tx_id > $1 ORDER BY tx_id ASC LIMIT 2",
 		},
-		argsForward: []any{
-			[]int{2},
-			[]any{"txid10", 2},
-			[]any{"txid1025", 2},
-			[]any{"txid2", 2},
-			[]any{"txid21", 2},
+		argsForward: [][]sqlbuild.Param{
+			nil,
+			{"txid10"},
+			{"txid1025"},
+			{"txid2"},
+			{"txid21"},
 		},
 
 		sqlBackward: []string{
-			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1",
-			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1 OFFSET $2",
-			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1 OFFSET $2",
-			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1 OFFSET $2",
-			"SELECT * FROM test ORDER BY tx_id ASC LIMIT $1 OFFSET $2",
+			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2",
+			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 2",
+			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 4",
+			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 6",
+			"SELECT * FROM test ORDER BY tx_id ASC LIMIT 2 OFFSET 8",
 		},
-		argsBackward: []any{
-			[]int{2},
-			[]int{2, 2},
-			[]int{2, 4},
-			[]int{2, 6},
-			[]int{2, 8},
-		},
+		argsBackward: [][]sqlbuild.Param{nil, nil, nil, nil, nil},
 
 		matcher: []types.GomegaMatcher{
 			ConsistOf(
@@ -172,7 +160,7 @@ func NewOffsetPagination(offset, pageSize int) driver.Pagination {
 	return offsetPagination
 }
 
-func NewKeysetPagination(offset, pageSize int, sqlIdName common.FieldName, idFieldName pagination.PropertyName[string]) driver.Pagination {
+func NewKeysetPagination(offset, pageSize int, sqlIdName dbdriver.FieldName, idFieldName pagination.PropertyName[string]) driver.Pagination {
 	keysetPagination, err := pagination.KeysetWithField[string](offset, pageSize, sqlIdName, idFieldName)
 	if err != nil {
 		Expect(err).ToNot(HaveOccurred())
@@ -180,12 +168,22 @@ func NewKeysetPagination(offset, pageSize int, sqlIdName common.FieldName, idFie
 	return keysetPagination
 }
 
+// renderPaginated builds the query the store would build for this pagination.
+// The vault store does not expose its SQL, so this mirrors the shape produced
+// by vaultReader.queryStatus and asserts on it directly.
+func renderPaginated(pag driver.Pagination) (string, []sqlbuild.Param) {
+	p := pagination.Paging(pag)
+	return sqlbuild.New().
+		WriteString("SELECT * FROM test").
+		WriteWhere(p.Where).
+		WritePaging(p).
+		Build()
+}
+
 func testPagination(store driver.VaultStore) {
 	err := store.SetStatuses(context.Background(), driver.TxStatusCode(valid), "",
 		"txid1", "txid2", "txid10", "txid12", "txid21", "txid100", "txid200", "txid1025")
 	Expect(err).ToNot(HaveOccurred())
-
-	pi := pagination.NewDefaultInterpreter()
 
 	for _, item := range matrix {
 		if len(item.sqlBackward) == 0 {
@@ -196,15 +194,9 @@ func testPagination(store driver.VaultStore) {
 		page := 0
 		for ; true; page++ {
 			// We don't need to build the query here but we do it just to test that it was build correctly
-			query, args := q.Select().
-				AllFields().
-				From(q.Table("test")).
-				Paginated(pag).
-				FormatPaginated(nil, pi)
-
-			Expect(err).ToNot(HaveOccurred())
+			query, args := renderPaginated(pag)
 			Expect(query).To(Equal(item.sqlForward[page]))
-			Expect(args).To(ConsistOf(item.argsForward[page]))
+			Expect(args).To(Equal(item.argsForward[page]))
 
 			p, err := store.GetAllTxStatuses(context.Background(), pag)
 			Expect(err).ToNot(HaveOccurred())
@@ -242,11 +234,7 @@ func testPagination(store driver.VaultStore) {
 			Expect(err).ToNot(HaveOccurred())
 		}
 		for ; page >= 0; page-- {
-			query, _ := q.Select().
-				AllFields().
-				From(q.Table("test")).
-				Paginated(pag).
-				FormatPaginated(nil, pi)
+			query, _ := renderPaginated(pag)
 			Expect(query).To(Equal(item.sqlBackward[page]))
 			p, err := store.GetAllTxStatuses(context.Background(), pag)
 			Expect(err).ToNot(HaveOccurred())

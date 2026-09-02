@@ -11,21 +11,22 @@ import (
 	"database/sql"
 	"fmt"
 
-	sq "github.com/Masterminds/squirrel"
-
+	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-func NewSignerInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *SignerInfoStore {
+// NewSignerInfoStore returns a signer-info store over table, reading through
+// readDB and writing through writeDB. Its queries use $N placeholders, which
+// both SQLite and Postgres accept.
+func NewSignerInfoStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *SignerInfoStore {
 	return &SignerInfoStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
-		sb:           sq.StatementBuilder.PlaceholderFormat(ph),
 	}
 }
 
@@ -34,7 +35,6 @@ type SignerInfoStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
-	sb           sq.StatementBuilderType
 }
 
 func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...view.Identity) ([]view.Identity, error) {
@@ -46,18 +46,10 @@ func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...vie
 		inverseMap[idHash] = id
 	}
 
-	inVals := make([]any, len(idHashes))
-	for i, h := range idHashes {
-		inVals[i] = h
-	}
-
-	query, params, err := db.sb.Select("id").
-		From(db.table).
-		Where(sq.Eq{"id": inVals}).
-		ToSql()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build query")
-	}
+	query, params := sqlbuild.New().
+		WriteString("SELECT id FROM " + db.table).
+		WriteWhere(sqlbuild.In("id", idHashes...)).
+		Build()
 	logger.Debug(query, params)
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
@@ -79,13 +71,10 @@ func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...vie
 }
 
 func (db *SignerInfoStore) PutSigner(ctx context.Context, id view.Identity) error {
-	query, params, err := db.sb.Insert(db.table).
-		Columns("id").
-		Values(id.UniqueID()).
-		ToSql()
-	if err != nil {
-		return errors.Wrapf(err, "failed to build query")
-	}
+	query, params := sqlbuild.New().
+		WriteString("INSERT INTO " + db.table + " (id) VALUES ").
+		WriteTuples([]sqlbuild.Tuple{{id.UniqueID()}}).
+		Build()
 
 	logger.Debug(query, params)
 	_, execErr := db.writeDB.ExecContext(ctx, query, params...)

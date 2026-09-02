@@ -9,8 +9,6 @@ package postgres
 import (
 	"database/sql"
 
-	sq "github.com/Masterminds/squirrel"
-
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
@@ -24,5 +22,5 @@ func NewAuditInfoStore(dbs *common2.RWDB, tables common3.TableNames) (*AuditInfo
 }
 
 func newAuditInfoStore(readDB, writeDB *sql.DB, table string) *AuditInfoStore {
-	return &AuditInfoStore{AuditInfoStore: common3.NewAuditInfoStore(writeDB, readDB, table, &ErrorMapper{}, sq.Dollar)}
+	return &AuditInfoStore{AuditInfoStore: common3.NewAuditInfoStore(writeDB, readDB, table, &ErrorMapper{})}
 }

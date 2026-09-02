@@ -10,14 +10,15 @@ import (
 	"context"
 	"database/sql"
 
-	sq "github.com/Masterminds/squirrel"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
-func NewEndorseTxStore(writeDB common3.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *EndorseTxStore {
-	return &EndorseTxStore{p: common3.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper, ph)}
+// NewEndorseTxStore returns an endorsement-transaction store over table, reading
+// through readDB and writing through writeDB. Its queries use $N placeholders,
+// which both SQLite and Postgres accept.
+func NewEndorseTxStore(writeDB common3.WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *EndorseTxStore {
+	return &EndorseTxStore{p: common3.NewSimpleKeyDataStore(writeDB, readDB, table, errorWrapper)}
 }
 
 type EndorseTxStore struct {

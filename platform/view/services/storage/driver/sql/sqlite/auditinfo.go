@@ -9,8 +9,6 @@ package sqlite
 import (
 	"database/sql"
 
-	sq "github.com/Masterminds/squirrel"
-
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
@@ -24,5 +22,5 @@ func NewAuditInfoStore(dbs *common3.RWDB, tables common2.TableNames) (*AuditInfo
 }
 
 func newAuditInfoStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *AuditInfoStore {
-	return &AuditInfoStore{AuditInfoStore: common2.NewAuditInfoStore(writeDB, readDB, table, &ErrorMapper{}, sq.Question)}
+	return &AuditInfoStore{AuditInfoStore: common2.NewAuditInfoStore(writeDB, readDB, table, &ErrorMapper{})}
 }

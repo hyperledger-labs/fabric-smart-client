@@ -9,8 +9,6 @@ package sqlite
 import (
 	"database/sql"
 
-	sq "github.com/Masterminds/squirrel"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
@@ -26,5 +24,5 @@ func NewEnvelopeStore(dbs *common3.RWDB, tables common.TableNames) (*EnvelopeSto
 }
 
 func newEnvelopeStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *EnvelopeStore {
-	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(writeDB, readDB, table, &sqlite2.ErrorMapper{}, sq.Question)}
+	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(writeDB, readDB, table, &sqlite2.ErrorMapper{})}
 }
