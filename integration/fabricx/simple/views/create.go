@@ -8,16 +8,14 @@ package views
 
 import (
 	"encoding/json"
-	"sync"
 	"time"
 
-	"github.com/hyperledger-labs/fabric-smart-client/integration/fabricx/simple/views/utils"
+	views2 "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/state"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/finality"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/ledger"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
@@ -82,19 +80,21 @@ func (i *CreateView) Call(viewCtx view.Context) (any, error) {
 		return nil, err
 	}
 
-	lm, err := finality.GetListenerManager(viewCtx, network.Name(), ch.Name())
-	if err != nil {
-		return nil, err
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
+	// Through the committer, not finality.GetListenerManager: only the committer's
+	// manager answers for a transaction the committer has already reported on. See
+	// platform/fabricx/core/finality.ResolvingListenerManager.
+	lm := ch.Committer()
 
 	logger.Infof("Setup finality listener for txID=%v", tx.ID())
-	err = lm.AddFinalityListener(tx.ID(), utils.NewFinalityListener(tx.ID(), fdriver.Valid, &wg))
-	if err != nil {
+	listener := views2.NewFinalityListener(tx.ID())
+	if err = lm.AddFinalityListener(tx.ID(), listener); err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err := lm.RemoveFinalityListener(tx.ID(), listener); err != nil {
+			logger.Warnf("failed to remove finality listener for txID=%v: %v", tx.ID(), err)
+		}
+	}()
 
 	// now we have a committer listener registered, we send the approved transaction to the orderer
 	logger.Infof("Submit tx (txID=%v) to ordering service", tx.ID())
@@ -104,7 +104,9 @@ func (i *CreateView) Call(viewCtx view.Context) (any, error) {
 
 	// wait until it is committed
 	logger.Infof("Wait for txID=%v to be committed", tx.ID())
-	wg.Wait()
+	if err := listener.Expect(viewCtx.Context(), fdriver.Valid, FinalityTimeout); err != nil {
+		return nil, err
+	}
 
 	// exercise the ledger service
 	lp, err := ledger.GetLedgerProvider(viewCtx)

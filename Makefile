@@ -148,7 +148,9 @@ include $(TOP)/checks.mk
 
 # we use a multi-module repo structure here and therefore need to carefully collect packages for unit tests
 GO_PACKAGES = $$(go list ./...)
-NWO_PACKAGES = ./nwo/...
+# Unit-testable packages of the integration module: the nwo harness plus the shared
+# helpers the suites import. The suites themselves are integration tests, not unit tests.
+INTEGRATION_UNIT_PACKAGES = ./nwo/... ./fabric/common/...
 # The libp2p comm host is its own module, so the root `go list ./...` cannot see
 # it. Named here so `unit-tests` can step into it explicitly -- without this its
 # host-conformance tests (shared with the websocket host) never run.
@@ -170,7 +172,7 @@ unit-tests: ## Run unit tests
 	export FAB_BINS=$(FAB_BINS); \
 	rc=0; \
 	go test $(GO_TEST_PARAMS) $(GO_COVERPKG) --skip '(Postgres)' $(TEST_PKGS) || rc=1; \
-	go test -C integration $(GO_TEST_PARAMS) --skip '(Postgres)' $(NWO_PACKAGES) || rc=1; \
+	go test -C integration $(GO_TEST_PARAMS) --skip '(Postgres)' $(INTEGRATION_UNIT_PACKAGES) || rc=1; \
 	go test -C $(LIBP2P_HOST_MODULE) $(GO_TEST_PARAMS) ./... || rc=1; \
 	exit $$rc
 

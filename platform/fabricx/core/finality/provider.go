@@ -223,6 +223,13 @@ func newNotifiWithGRPC(network string, grpcClientProvider GRPCClientProvider, cf
 // GetListenerManager fetches the ListenerManager for the specified network and channel
 // from the view service provider. It relies on the service provider to locate
 // the registered ListenerManagerProvider and then delegates the creation/retrieval.
+//
+// This is the bare notification-stream manager: it can only report on a transaction the
+// committer has not reported on yet, and answers Unknown for one it has (see
+// [ResolvingListenerManager]). Applications should register through the channel's
+// committer instead -- ch.Committer().AddFinalityListener -- which is the same manager
+// wrapped so that an already-final transaction is resolved from the query service. Use
+// this function when you specifically want the unwrapped manager.
 func GetListenerManager(sp services.Provider, network, channel string) (ListenerManager, error) {
 	lmp, err := sp.GetService(reflect.TypeFor[*ListenerManagerProvider]())
 	if err != nil {

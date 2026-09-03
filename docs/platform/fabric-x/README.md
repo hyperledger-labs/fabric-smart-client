@@ -45,12 +45,14 @@ The notification service delivers realtime transaction finality events to FSC ap
 
 ### API
 
-Obtain a `ListenerManager` via `finality.GetListenerManager(sp, network, channel)`, then use:
+Register through the channel's committer — `ch.Committer()`, the same API every FSC driver exposes — and use:
 
-- `AddFinalityListener(txID, listener)`: registers a `FinalityListener` whose `OnStatus` callback fires once when the transaction reaches finality. Only the first listener for a given txID triggers a subscription request to the committer; subsequent listeners for the same txID piggyback on it. After dispatch, all listeners for the txID are automatically removed.
-- `RemoveFinalityListener(txID, listener)`: unregisters a listener before delivery. Safe to call for unknown txIDs or unregistered listeners.
+- `AddFinalityListener(txID, listener)`: registers a `FinalityListener` whose `OnStatus` callback fires once when the transaction reaches finality. Only the first listener for a given txID triggers a subscription request to the committer; subsequent listeners for the same txID piggyback on it. After dispatch, all listeners for the txID are automatically removed. Registering the same listener instance twice for one txID is a no-op.
+- `RemoveFinalityListener(txID, listener)`: unregisters a listener before delivery. Safe to call for unknown txIDs, unregistered listeners, and listeners already delivered to.
 
 The `OnStatus` callback receives one of: `fdriver.Valid` (committed), `fdriver.Invalid` (rejected), or `fdriver.Unknown` (undetermined / timeout).
+
+The committer's manager is the notification-stream manager wrapped in a `finality.ResolvingListenerManager`, which asks the query service before subscribing. That is what makes registering for an *already final* transaction report its status instead of `Unknown`: the notification stream reports each transaction once, so a subscription created after that point would never be answered. `finality.GetListenerManager(sp, network, channel)` returns the unwrapped manager and does not do this.
 
 > [!WARNING]
 > `OnStatus` implementations MUST observe `ctx.Done()` and return promptly. At most
@@ -62,7 +64,7 @@ The `OnStatus` callback receives one of: `fdriver.Valid` (committed), `fdriver.I
 
 ### Limitations
 
-- **No automatic reconnection**: if the stream breaks, the manager is removed and registered listeners are lost. A new manager is created on the next `GetListenerManager` call.
+- **No automatic reconnection**: if the stream breaks, everything still registered is settled with `Unknown` and the provider drops the manager, so a later `GetListenerManager` call builds a fresh one. The channel's committer, however, resolved its manager once when the channel was created and keeps using it, so on that path a broken stream is permanent for the lifetime of the channel — `Unknown` is then re-resolved from the query service, which is what keeps an already-committed transaction reported correctly, but a transaction committed later is not reported at all.
 - **Bounded handler concurrency**: at most `handlerWorkers` (default 16) callbacks run concurrently, buffered by a queue of `handlerQueueSize` (default 1000) so bursts larger than the limit are still delivered in full. `handlerTimeout` (default 5s) only cancels the callback's context — it cannot force a return, so a callback that ignores cancellation occupies its worker indefinitely. Once every worker is occupied and the queue fills, the transaction stays registered — together with the status the committer sent — and is retried on the next sweep, so delivery is delayed rather than lost. Queueing is all-or-nothing per transaction: either every listener waiting on it is handed to the pool, or none is, which is what keeps delivery exactly-once across a retry. The cost of never dropping a result is that the pending-listener map grows while the pool is congested; see [notification service tuning](configuration.md#notification-service-tuning).
 - **Teardown does not wait on stuck handlers**: when the stream stops, everything still registered is queued for settlement, the queue is closed so the workers finish the backlog, and the wait is abandoned after a single `handlerTimeout` — one deadline for the whole teardown, not one per listener. A callback still inside an unresponsive listener can outlive the stream, so a single bad listener cannot hang node shutdown; at most `handlerWorkers` such callbacks exist, since each occupies one worker. Listeners queued behind one are not settled — nothing can force such a callback to return.
 

@@ -8,6 +8,7 @@ package iou
 
 import (
 	"fmt"
+	"time"
 
 	model2 "github.com/jaegertracing/jaeger-idl/model/v1"
 	"github.com/jaegertracing/jaeger-idl/proto-gen/api_v2"
@@ -23,6 +24,11 @@ import (
 
 const (
 	ViewCallsOperationsMetric = "fsc_view_services_view_calls_operations"
+
+	// prometheusScrapeEventually bounds the wait for Prometheus to publish a scraped
+	// metric. It must comfortably exceed the 15s scrape interval configured in
+	// integration/nwo/monitoring/monitoring/monitoring.go.
+	prometheusScrapeEventually = 60 * time.Second
 )
 
 var logger = logging.MustGetLogger()
@@ -121,10 +127,15 @@ func CheckJaegerTraces(ii *integration.Infrastructure, nodeName, viewName string
 	gomega.Expect(spans).To(spanMatcher)
 }
 
+// CheckPrometheusMetrics asserts that Prometheus has scraped at least one call of
+// viewName. It polls rather than sampling once: Prometheus scrapes the FSC nodes
+// every 15s (integration/nwo/monitoring/monitoring/monitoring.go), and the IOU flow
+// finishes well inside a single scrape interval, so a single read races the first
+// scrape and sees zero even though the node is exporting the metric.
 func CheckPrometheusMetrics(ii *integration.Infrastructure, viewName string) {
 	cli, err := ii.NWO.PrometheusReporter()
 	gomega.Expect(err).To(gomega.BeNil())
-	ops, err := cli.GetViewOperations("", viewName)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Expect(ops).ToNot(gomega.BeZero())
+	gomega.Eventually(func() (int, error) {
+		return cli.GetViewOperations("", viewName)
+	}, prometheusScrapeEventually, 2*time.Second).ShouldNot(gomega.BeZero())
 }
