@@ -383,6 +383,76 @@ func TestWaitForValueRejectedDoesNotWait(t *testing.T) {
 	require.Less(t, time.Since(start), time.Second, "must not wait on a rejected holder")
 }
 
+// TestWaitForValueRejectionReleasesParkedWaiter is the regression test for a
+// waiter that was already parked when the first configuration was refused. It
+// used to sit out its whole budget and then report ErrNotLoaded — "still
+// starting up, retry" — for a holder that had in fact been given a
+// configuration and rejected it, which is the opposite conclusion. The concrete
+// cost was a node whose first config block cannot be parsed answering an
+// endorsement request 20s later with the wrong diagnosis.
+func TestWaitForValueRejectionReleasesParkedWaiter(t *testing.T) {
+	t.Parallel()
+
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
+
+	type result struct {
+		err     error
+		elapsed time.Duration
+	}
+	got := make(chan result, 1)
+	go func() {
+		// A budget far longer than the test's own patience, so that sitting it
+		// out is unmistakably a failure rather than a slow pass.
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		start := time.Now()
+		_, err := h.WaitForValue(ctx)
+		got <- result{err: err, elapsed: time.Since(start)}
+	}()
+
+	require.Eventually(t, h.HasWaiter, 5*time.Second, time.Millisecond,
+		"the waiter never registered")
+	require.Error(t, h.Update(func(*config, bool) (*config, error) {
+		return nil, errors.New("bad config")
+	}))
+
+	select {
+	case r := <-got:
+		require.Error(t, r.err)
+		require.True(t, errors.Is(r.err, deferred.ErrRejected),
+			"a waiter released by a refusal must report ErrRejected, got [%v]", r.err)
+		require.False(t, errors.Is(r.err, deferred.ErrNotLoaded),
+			"a refusal must not be reported as a startup race, got [%v]", r.err)
+		require.Less(t, r.elapsed, 5*time.Second,
+			"the waiter must be released by the refusal, not wait out its budget")
+	case <-time.After(5 * time.Second):
+		t.Fatal("a refused update left the parked waiter to wait out its budget")
+	}
+}
+
+// TestWaitForValueRejectionDoesNotDisturbAHeldValue asserts the other half of
+// Update's rule: a refusal recorded while a value is already in force is the
+// updater's business alone, so it must not release waiters with an error. There
+// are none to release once a value is held, so this pins that a later waiter
+// still gets the held value rather than the refusal.
+func TestWaitForValueRejectionDoesNotDisturbAHeldValue(t *testing.T) {
+	t.Parallel()
+
+	h := deferred.NewHolder[*config]("channel [mychannel] configuration")
+	require.NoError(t, h.Update(func(*config, bool) (*config, error) {
+		return &config{id: "first"}, nil
+	}))
+	require.Error(t, h.Update(func(*config, bool) (*config, error) {
+		return nil, errors.New("bad config")
+	}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	v, err := h.WaitForValue(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "first", v.id)
+}
+
 func TestWaitForValueAfterReset(t *testing.T) {
 	t.Parallel()
 
@@ -426,8 +496,12 @@ func TestWaitForValueResetReleasesParkedWaiter(t *testing.T) {
 		got <- err
 	}()
 
-	// Give the waiter time to park in the select, then reset underneath it.
-	time.Sleep(100 * time.Millisecond)
+	// Reset only once the waiter has registered. Approximating that with a
+	// sleep is what makes this kind of test flake: on a loaded machine the
+	// Reset lands first, the waiter then takes a fresh channel nobody closes,
+	// and the test fails on a schedule rather than on the behaviour.
+	require.Eventually(t, h.HasWaiter, 5*time.Second, time.Millisecond,
+		"the waiter never registered")
 	h.Reset()
 
 	select {
@@ -455,10 +529,12 @@ func TestWaitForValueParkedWaiterNotHungAfterResetThenUpdate(t *testing.T) {
 		returned <- true
 	}()
 
-	// Give the waiter time to park in the select. If Reset does not close the
+	// Reset only once the waiter has registered; see the note in
+	// TestWaitForValueResetReleasesParkedWaiter. If Reset does not close the
 	// channel, the waiter stays parked even after Update closes a different
 	// channel, hanging until the context expires.
-	time.Sleep(100 * time.Millisecond)
+	require.Eventually(t, h.HasWaiter, 5*time.Second, time.Millisecond,
+		"the waiter never registered")
 	h.Reset()
 
 	// Update after reset provides a new value. If the waiter is still parked on

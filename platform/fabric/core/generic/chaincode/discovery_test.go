@@ -281,13 +281,129 @@ func TestToDiscoveredPeersTimedOutWaitPropagatesAsNotInitialized(t *testing.T) {
 		"a wait that timed out must not be reported as peers failing validation")
 }
 
+// discoverEndorsersForCollections runs an endorsers-query discovery for the
+// named implicit collections, with the discovery response reporting the matching
+// entry of perCollection for each one in turn. GetEndorsers queries once per
+// collection, which is what makes every collection's endorsers a requirement
+// rather than a preference.
+func discoverEndorsersForCollections(t *testing.T, fix *discoveryTestFixture, collections []string, perCollection [][]*discoveryApi.Peer) ([]driver.DiscoveredPeer, error) {
+	t.Helper()
+	require.Len(t, perCollection, len(collections), "one peer list per collection")
+
+	for i, peers := range perCollection {
+		fix.ChannelResponse.EndorsersReturnsOnCall(i, peers, nil)
+	}
+
+	d := chaincode.NewDiscovery(fix.Chaincode)
+	d.WithImplicitCollections(collections...)
+	return d.GetEndorsers()
+}
+
+// mspManagerAcceptingOnly returns an MSPManager that validates identities of the
+// given MSP and rejects every other one the way an untrusted CA would.
+func mspManagerAcceptingOnly(mspID string) *mock.MSPManager {
+	mgr := &mock.MSPManager{}
+	mgr.DeserializeIdentityStub = func(serialized []byte) (driver.MSPIdentity, error) {
+		if !strings.HasPrefix(string(serialized), mspID) {
+			return nil, errors.New("the supplied identity is not valid: x509: certificate signed by unknown authority")
+		}
+		id := &mock.MSPIdentity{}
+		id.GetMSPIdentifierReturns(mspID)
+		id.ValidateReturns(nil)
+		return id, nil
+	}
+	return mgr
+}
+
+// TestToDiscoveredPeersEmptiedImplicitCollectionIsReported asserts that an
+// implicit collection left with no endorsers by validation fails the call, even
+// though other collections still have some.
+//
+// Dropping an unrecognized peer instead of failing rests on the survivors still
+// being able to satisfy the request, and for implicit collections they cannot:
+// every organization in the set has to endorse. Returning the truncated set
+// would trade the validation error an operator can act on for an opaque
+// endorsement-policy failure later.
+func TestToDiscoveredPeersEmptiedImplicitCollectionIsReported(t *testing.T) {
+	t.Parallel()
+
+	fix := setupDiscoveryTest(t)
+	fix.MSPProvider.MSPManagerReturns(mspManagerAcceptingOnly("Org2MSP"))
+	fix.MSPProvider.TLSRootCertsByMSPIDReturns([][]byte{[]byte("trusted-root")}, nil)
+
+	peers, err := discoverEndorsersForCollections(t, fix,
+		[]string{"Org1MSP", "Org2MSP"},
+		[][]*discoveryApi.Peer{
+			{newPeerFixture(t, "Org1MSP", "peer0.org1:7051", []byte("Org1MSP-forged"))},
+			{newPeerFixture(t, "Org2MSP", "peer0.org2:7051", []byte("Org2MSP-valid"))},
+		},
+	)
+	require.Error(t, err, "a collection with no surviving endorser cannot be endorsed")
+	require.Empty(t, peers)
+	require.Contains(t, err.Error(), "Org1MSP",
+		"the error must name the organization that was emptied, got [%v]", err)
+	require.Contains(t, err.Error(), "failed MSP validation",
+		"the error must say why the organization was emptied, got [%v]", err)
+}
+
+// TestToDiscoveredPeersImplicitCollectionKeepsGoodPeer asserts that the rule
+// above is about an organization being emptied, not about any rejection in it: a
+// collection that loses one peer and keeps another is still satisfiable, so the
+// call succeeds with the survivor.
+func TestToDiscoveredPeersImplicitCollectionKeepsGoodPeer(t *testing.T) {
+	t.Parallel()
+
+	fix := setupDiscoveryTest(t)
+	fix.MSPProvider.MSPManagerReturns(mspManagerAcceptingOnly("Org1MSP"))
+	fix.MSPProvider.TLSRootCertsByMSPIDReturns([][]byte{[]byte("trusted-root")}, nil)
+
+	peers, err := discoverEndorsersForCollections(t, fix,
+		[]string{"Org1MSP"},
+		[][]*discoveryApi.Peer{{
+			newPeerFixture(t, "Org1MSP", "evil.org1:7051", []byte("forged")),
+			newPeerFixture(t, "Org1MSP", "peer0.org1:7051", []byte("Org1MSP-valid")),
+		}},
+	)
+	require.NoError(t, err)
+	require.Len(t, peers, 1)
+	require.Equal(t, "peer0.org1:7051", peers[0].Endpoint)
+}
+
+// TestToDiscoveredPeersImplicitCollectionWithNoPeersIsNotAValidationFailure
+// asserts that a collection discovery reported no peers for at all is left as it
+// was. Nothing was rejected, so there is no validation failure to report, and
+// inventing one here would change what an unrelated empty result means.
+func TestToDiscoveredPeersImplicitCollectionWithNoPeersIsNotAValidationFailure(t *testing.T) {
+	t.Parallel()
+
+	fix := setupDiscoveryTest(t)
+	fix.MSPProvider.MSPManagerReturns(mspManagerAcceptingOnly("Org1MSP"))
+	fix.MSPProvider.TLSRootCertsByMSPIDReturns([][]byte{[]byte("trusted-root")}, nil)
+
+	// Org2MSP's query comes back empty rather than with peers that fail.
+	peers, err := discoverEndorsersForCollections(t, fix,
+		[]string{"Org1MSP", "Org2MSP"},
+		[][]*discoveryApi.Peer{
+			{newPeerFixture(t, "Org1MSP", "peer0.org1:7051", []byte("Org1MSP-valid"))},
+			nil,
+		},
+	)
+	require.NoError(t, err)
+	require.Len(t, peers, 1)
+	require.Equal(t, "Org1MSP", peers[0].MSPID)
+}
+
 // TestToDiscoveredPeersResolvesMSPManagerOncePerCall asserts that
 // toDiscoveredPeers obtains the driver.MSPManager once for the whole batch of
-// peers rather than once per peer. Without this, a waiting MSPManager pays its
-// full wait budget again for every peer instead of once per call: with N
-// peers that is N times the documented bound. Three peers whose validation
-// all fails on the same config-unavailable path (the fail-fast branch returns
-// on the first one) must still only cost a single MSPManager() call.
+// peers rather than once per peer, so that every peer in one response is
+// validated against the same membership. Resolving it per peer would let a
+// configuration update landing mid-loop split a single response's verdicts
+// across two configurations, admitting a peer the later one revokes.
+//
+// This is not what bounds the wait budget - MSPManager() only allocates, and the
+// waiting is done by the manager's own DeserializeIdentity. What keeps a stalled
+// configuration from being waited on once per peer is the fail-fast branch,
+// which TestToDiscoveredPeersNotInitializedPropagates covers.
 func TestToDiscoveredPeersResolvesMSPManagerOncePerCall(t *testing.T) {
 	t.Parallel()
 

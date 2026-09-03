@@ -35,64 +35,122 @@ func seed(t *testing.T, s *Service, cfg *channelconfig.ChannelConfig, sequence u
 	}))
 }
 
+// configReadingAccessor is one way of reading the channel configuration through
+// a Service, reduced to its error so that every accessor can be held to the same
+// rules.
+type configReadingAccessor struct {
+	name string
+	call func(t *testing.T, s *Service) error
+}
+
+// configReadingAccessors returns every Service accessor that answers from the
+// channel configuration. The tests that walk it hold all of them to the same
+// two rules - report rather than panic when no configuration is in force, and
+// honour a wait budget when one was configured - so an accessor added here is
+// covered by both.
+func configReadingAccessors() []configReadingAccessor {
+	identity := view.Identity("some-identity")
+
+	return []configReadingAccessor{
+		{"IsValid", func(t *testing.T, s *Service) error {
+			t.Helper()
+			return s.IsValid(identity)
+		}},
+		{"GetVerifier", func(t *testing.T, s *Service) error {
+			t.Helper()
+			v, err := s.GetVerifier(identity)
+			require.Nil(t, v)
+			return err
+		}},
+		{"GetMSPIDs", func(t *testing.T, s *Service) error {
+			t.Helper()
+			ids, err := s.GetMSPIDs()
+			require.Nil(t, ids)
+			return err
+		}},
+		{"OrdererConfig", func(t *testing.T, s *Service) error {
+			t.Helper()
+			ct, eps, err := s.OrdererConfig(nil)
+			require.Empty(t, ct)
+			require.Nil(t, eps)
+			return err
+		}},
+		{"IsIdemixMSP", func(t *testing.T, s *Service) error {
+			t.Helper()
+			isIdemix, err := s.IsIdemixMSP("Org1MSP")
+			require.False(t, isIdemix)
+			return err
+		}},
+		{"MSPManager.DeserializeIdentity", func(t *testing.T, s *Service) error {
+			t.Helper()
+			id, err := s.MSPManager().DeserializeIdentity(identity)
+			require.Nil(t, id)
+			return err
+		}},
+		{"ConfigSequence", func(t *testing.T, s *Service) error {
+			t.Helper()
+			seq, err := s.ConfigSequence()
+			require.Zero(t, seq)
+			return err
+		}},
+		{"TLSRootCertsByMSPID", func(t *testing.T, s *Service) error {
+			t.Helper()
+			certs, err := s.TLSRootCertsByMSPID("Org1MSP")
+			require.Nil(t, certs)
+			return err
+		}},
+	}
+}
+
 // TestAccessorsBeforeFirstUpdate is the regression test for the nil dereference
 // that crashed nodes when a channel was used before its first configuration
 // block arrived. Every accessor must report the condition instead of panicking.
 func TestAccessorsBeforeFirstUpdate(t *testing.T) {
 	t.Parallel()
 
-	identity := view.Identity("some-identity")
-
-	for _, tc := range []struct {
-		name string
-		call func(s *Service) error
-	}{
-		{"IsValid", func(s *Service) error {
-			return s.IsValid(identity)
-		}},
-		{"GetVerifier", func(s *Service) error {
-			v, err := s.GetVerifier(identity)
-			require.Nil(t, v)
-			return err
-		}},
-		{"GetMSPIDs", func(s *Service) error {
-			ids, err := s.GetMSPIDs()
-			require.Nil(t, ids)
-			return err
-		}},
-		{"OrdererConfig", func(s *Service) error {
-			ct, eps, err := s.OrdererConfig(nil)
-			require.Empty(t, ct)
-			require.Nil(t, eps)
-			return err
-		}},
-		{"IsIdemixMSP", func(s *Service) error {
-			isIdemix, err := s.IsIdemixMSP("Org1MSP")
-			require.False(t, isIdemix)
-			return err
-		}},
-		{"MSPManager.DeserializeIdentity", func(s *Service) error {
-			id, err := s.MSPManager().DeserializeIdentity(identity)
-			require.Nil(t, id)
-			return err
-		}},
-		{"ConfigSequence", func(s *Service) error {
-			seq, err := s.ConfigSequence()
-			require.Zero(t, seq)
-			return err
-		}},
-	} {
+	for _, tc := range configReadingAccessors() {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			s := NewService("mychannel")
 
 			var err error
-			require.NotPanics(t, func() { err = tc.call(s) })
+			require.NotPanics(t, func() { err = tc.call(t, s) })
 
 			require.Error(t, err)
 			require.ErrorIs(t, err, driver.ErrNotInitialized)
 			require.True(t, strings.Contains(err.Error(), "mychannel"),
 				"error should name the channel, got [%v]", err)
+		})
+	}
+}
+
+// TestEveryConfigReadingAccessorHonoursTheWaitBudget pins WithConfigWait's
+// documented scope: it says the wait applies to every accessor that reads the
+// configuration, and a converted accessor that was missed would silently give a
+// caller holding a waiting view the non-blocking behaviour instead.
+//
+// No configuration ever arrives here, so a waiting accessor cannot return before
+// its budget elapses and one that does not wait returns at once. The assertion
+// is a lower bound on elapsed time, so a slow machine can only make it more
+// certain.
+func TestEveryConfigReadingAccessorHonoursTheWaitBudget(t *testing.T) {
+	t.Parallel()
+
+	const budget = 150 * time.Millisecond
+
+	for _, tc := range configReadingAccessors() {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			waiting := NewService("mychannel").WithConfigWait(budget)
+
+			start := time.Now()
+			err := tc.call(t, waiting)
+			elapsed := time.Since(start)
+
+			require.Error(t, err)
+			require.ErrorIs(t, err, driver.ErrNotInitialized)
+			require.GreaterOrEqual(t, elapsed, budget/2,
+				"accessor did not wait for a configuration, returned after only [%s]", elapsed)
 		})
 	}
 }
@@ -365,54 +423,55 @@ func TestConfigWaitReleasedByUpdate(t *testing.T) {
 	s := NewService("mychannel")
 	waiting := s.WithConfigWait(5 * time.Second)
 
-	// Install the configuration only after a delay the accessor cannot skip.
-	// A resolve() that never waits returns before this fires, and the elapsed
-	// assertion below catches it; one that waits cannot return sooner. This is
-	// what makes the test deterministic: starting the goroutine and calling
-	// seed immediately (the earlier version of this test) left the ordering
-	// of "waiter parks" vs. "update lands" a race, so a never-waiting
-	// resolve() could still win by finding an already-loaded configuration
-	// and returning the very same error a real wait would — indistinguishable
-	// from the correct outcome. Asserting elapsed time instead of only the
-	// error's shape closes that gap: only a genuine wait can take at least
-	// delay to return.
-	const delay = 250 * time.Millisecond
-	updateErr := make(chan error, 1)
+	// The accessor runs first and must still be waiting when the configuration
+	// is installed, otherwise this proves nothing: a resolve() that never waits
+	// would find the configuration already there and return the very same error
+	// a genuine wait produces. The order is established by observing the
+	// accessor rather than by sleeping ahead of it - a sleep leaves "waiter
+	// parks" and "update lands" a race, and loses it on a loaded machine.
+	answered := make(chan error, 1)
+	running := make(chan struct{})
 	go func() {
-		time.Sleep(delay)
-		// Update is called directly rather than through seed: seed uses
-		// require, and require.NoError (and t.Fatalf under it) is not safe to
-		// call from a goroutine other than the test's own - it can return
-		// without actually stopping the test. Capture the error instead and
-		// assert it on the main goroutine below.
-		updateErr <- s.config.Update(func(*configuration, bool) (*configuration, error) {
-			return &configuration{channelConfig: &channelconfig.ChannelConfig{}, sequence: 0}, nil
-		})
+		close(running)
+		// The assertion is about being RELEASED, not about the lookup result:
+		// an empty configuration has no application section, so this returns an
+		// error either way.
+		_, err := waiting.TLSRootCertsByMSPID("Org1MSP")
+		answered <- err
 	}()
+	<-running
 
-	start := time.Now()
-	// The assertion is about being RELEASED, not about the lookup result: an
-	// empty configuration has no application section, so this returns an
-	// error. What matters is that it returns at all instead of waiting out
-	// its 5s budget, and that it does not return before the update lands.
-	_, err := waiting.TLSRootCertsByMSPID("Org1MSP")
-	elapsed := time.Since(start)
+	// No configuration exists yet, so an accessor that does not wait answers
+	// here. Time only makes this more certain, never less: a slow machine
+	// cannot turn a waiting accessor into one that answers early.
+	select {
+	case err := <-answered:
+		t.Fatalf("accessor answered before any configuration was installed: [%v]", err)
+	case <-time.After(100 * time.Millisecond):
+	}
 
-	require.NoError(t, <-updateErr, "the seeding update itself must be accepted")
+	// Update is called directly rather than through seed: seed uses require,
+	// and require.NoError (and t.Fatalf under it) is not safe to call from a
+	// goroutine other than the test's own - it can return without actually
+	// stopping the test.
+	require.NoError(t, s.config.Update(func(*configuration, bool) (*configuration, error) {
+		return &configuration{channelConfig: &channelconfig.ChannelConfig{}, sequence: 0}, nil
+	}), "the seeding update itself must be accepted")
 
-	require.GreaterOrEqual(t, elapsed, delay,
-		"accessor must have waited for the configuration to arrive, returned after only [%s]", elapsed)
-	require.Error(t, err)
-	// The error must be the one that comes from a LOADED configuration with no
-	// application section, not the one a non-waiting accessor would return
-	// before any configuration ever arrives. A resolve() that never waits
-	// would return ErrNotInitialized here instead, immediately, without ever
-	// observing the update - asserting only require.Error would not catch
-	// that, since both are errors.
-	require.NotErrorIs(t, err, driver.ErrNotInitialized,
-		"error must come from the installed configuration, not from never having waited for it, got [%v]", err)
-	require.True(t, strings.Contains(err.Error(), "application config does not exist"),
-		"error must be the one produced by the seeded configuration, got [%v]", err)
+	select {
+	case err := <-answered:
+		require.Error(t, err)
+		// The error must be the one that comes from a LOADED configuration with
+		// no application section, not the one a non-waiting accessor would
+		// return before any configuration ever arrives - asserting only
+		// require.Error would not tell them apart, since both are errors.
+		require.NotErrorIs(t, err, driver.ErrNotInitialized,
+			"error must come from the installed configuration, not from never having waited for it, got [%v]", err)
+		require.True(t, strings.Contains(err.Error(), "application config does not exist"),
+			"error must be the one produced by the seeded configuration, got [%v]", err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("the update did not release the waiting accessor; it is sitting out its budget")
+	}
 }
 
 // TestConfigWaitTimesOut asserts that a waiting accessor gives up once its

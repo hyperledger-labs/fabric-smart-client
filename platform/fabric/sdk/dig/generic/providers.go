@@ -205,7 +205,7 @@ func NewChannelProvider(in struct {
 				[]common.HeaderType{common.HeaderType_ENDORSER_TRANSACTION},
 			)
 		},
-		func(channelName string) driver.MembershipService {
+		func(channelName string) *membership.Service {
 			return membership.NewService(channelName)
 		},
 		true)

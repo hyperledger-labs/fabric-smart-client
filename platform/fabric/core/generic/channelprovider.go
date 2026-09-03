@@ -68,7 +68,17 @@ type DeliveryConstructor func(
 	callback driver.BlockCallback,
 ) (DeliveryService, error)
 
-type MembershipConstructor func(channelName string) driver.MembershipService
+// MembershipConstructor builds the membership service for a channel.
+//
+// It returns the concrete *membership.Service rather than
+// [driver.MembershipService] because this provider needs more than that
+// interface offers: discovery validates the peers it is told about against the
+// channel configuration, which takes both the channel's MSPs and its
+// organizations' TLS root certificates from the same service, and needs a view
+// of it that waits for the first configuration to arrive. Stating that here
+// keeps a service that cannot supply it a compile error rather than a channel
+// that fails to start.
+type MembershipConstructor func(channelName string) *membership.Service
 
 type ChannelProvider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
@@ -159,18 +169,12 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 
 	channelMembershipService := p.newMembership(channelName)
 
-	// Discovery validates discovered peer identities against the channel
-	// configuration, so the chaincode manager needs the concrete membership
-	// service, not just the driver interface. One that cannot supply that trust
-	// anchor is refused here rather than nil-panicking on the first discovery
-	// call. The waiting view covers the window before the first configuration
-	// block arrives; the committer keeps the plain service, since it installs
-	// the configuration and must not wait on it.
-	ms, ok := channelMembershipService.(*membership.Service)
-	if !ok {
-		return nil, errors.Errorf("membership service for channel [%s] is %T, which cannot supply the channel-configuration trust anchor discovery requires", channelName, channelMembershipService)
-	}
-	chaincodeMSPProvider := chaincode.MSPProvider(ms.WithConfigWait(channelConfig.DiscoveryTimeout()))
+	// The chaincode manager gets the waiting view, so that discovery can
+	// validate the peers it is told about during the window before the first
+	// configuration block arrives instead of failing for its duration. The
+	// committer keeps the plain service: it is what installs the configuration,
+	// and must never wait on it.
+	chaincodeMSPProvider := chaincode.MSPProvider(channelMembershipService.WithConfigWait(channelConfig.DiscoveryTimeout()))
 
 	// Committers
 	rwSetLoaderService, err := p.newRWSetLoader(

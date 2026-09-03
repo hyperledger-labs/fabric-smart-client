@@ -253,31 +253,38 @@ func (d *Discovery) query(req *discovery.Request) (discovery.Response, error) {
 }
 
 // toDiscoveredPeers turns the peers reported by a discovery response into
-// driver.DiscoveredPeer values, keeping only those the channel recognises.
+// [driver.DiscoveredPeer] values, dropping any the channel does not recognize.
 //
 // A discovery response is supplied by whichever peer answered the query and is
 // not independently verified: the envelope signature checks made while parsing
 // it prove only that each envelope was signed by the key in the identity shipped
 // alongside it, which a malicious responder satisfies with an identity no CA
-// ever issued. So the identity is validated against the channel's MSPs and the
-// TLS certificates come from the channel configuration, not from the response.
+// ever issued. Every peer is therefore checked against the channel's own
+// membership, obtained from [MSPProvider].
 //
-// The channel configuration is not itself cryptographically verified; its trust
-// comes from being fetched over TLS from a locally configured peer rather than
-// from the discovery responder. That is not a cryptographic root of trust.
+// That makes the channel configuration the trust anchor, and it is not itself
+// cryptographically verified here: it is trusted because it was fetched over TLS
+// from a locally configured peer rather than from the discovery responder.
+//
+// A peer the channel does not recognize is dropped rather than failing the call,
+// so one rogue entry in a response cannot deny service. Dropping peers can leave
+// a set that no longer satisfies the chaincode's endorsement policy; where that
+// is decidable from the request — the per-organization sets of
+// [Discovery.WithImplicitCollections] — an emptied organization is reported
+// here instead.
+//
+// It reports [driver.ErrNotInitialized] or [driver.ErrConfigRejected] unchanged
+// if the channel configuration is unavailable, since that is not a verdict on
+// any peer. A call that has to wait for a configuration pays the provider's wait
+// budget once, on top of the discovery query's own timeout.
 func (d *Discovery) toDiscoveredPeers(endorsers []*discovery.Peer) ([]driver.DiscoveredPeer, error) {
-	// Obtained once for the whole call rather than once per peer: MSPManager
-	// on a waiting provider blocks up to its configured budget, and so does
-	// TLSRootCertsByMSPID below. Resolving the manager here means a stalled
-	// configuration spends that budget once for the call rather than once per
-	// peer - validatePeer still calls TLSRootCertsByMSPID per peer since that
-	// lookup is keyed by MSP ID, but a timeout there on the first peer now
-	// propagates immediately through the fail-fast branch below instead of
-	// being paid again by every remaining peer.
+	// Obtained once for the whole call so that every peer is validated against
+	// the same membership, rather than against whatever each iteration happens
+	// to resolve.
 	mspManager := d.chaincode.MSPProvider.MSPManager()
 
 	var discoveredEndorsers []driver.DiscoveredPeer
-	var rejected int
+	rejectedByMSPID := make(map[string]int)
 	for _, peer := range endorsers {
 		// extract peer info
 		if peer.AliveMessage == nil {
@@ -301,7 +308,7 @@ func (d *Discovery) toDiscoveredPeers(endorsers []*discovery.Peer) ([]driver.Dis
 			if errors.Is(err, driver.ErrNotInitialized) || errors.Is(err, driver.ErrConfigRejected) {
 				return nil, errors.WithMessagef(err, "cannot validate discovered peers for [%s:%s]", d.chaincode.NetworkID, d.chaincode.ChannelID)
 			}
-			rejected++
+			rejectedByMSPID[peer.MSPID]++
 			logger.Warnf("dropping discovered peer [%s:%s] at [%s]: %v", peer.MSPID, view.Identity(peer.Identity).String(), member.Endpoint, err)
 			continue
 		}
@@ -314,20 +321,61 @@ func (d *Discovery) toDiscoveredPeers(endorsers []*discovery.Peer) ([]driver.Dis
 		})
 	}
 
+	var rejected int
+	for _, n := range rejectedByMSPID {
+		rejected += n
+	}
 	if len(discoveredEndorsers) == 0 && rejected > 0 {
 		return nil, errors.Errorf("all %d discovered peers for [%s:%s:%s] failed MSP validation", rejected, d.chaincode.NetworkID, d.chaincode.ChannelID, d.chaincode.name)
+	}
+	if err := d.checkRequiredMSPIDsSurvived(discoveredEndorsers, rejectedByMSPID); err != nil {
+		return nil, err
 	}
 
 	return discoveredEndorsers, nil
 }
 
+// checkRequiredMSPIDsSurvived reports an error if validation emptied an
+// organization the request cannot be satisfied without.
+//
+// Dropping an unrecognized peer is normally preferable to failing, but that
+// rests on the surviving peers still being able to satisfy the request. For the
+// implicit collections of [Discovery.WithImplicitCollections] that does not
+// hold: endorsers are gathered per organization precisely because every one of
+// them has to endorse, so an organization left with no peers makes the whole set
+// useless.
+// Reporting it here names the organization and the validation failure, where
+// returning the truncated set would surface later as an opaque endorsement or
+// collection-policy error.
+//
+// [Discovery.WithFilterByMSPIDs] is deliberately not checked: it narrows the
+// organizations a caller will accept an endorser from, and any one of them
+// satisfies it.
+func (d *Discovery) checkRequiredMSPIDsSurvived(kept []driver.DiscoveredPeer, rejectedByMSPID map[string]int) error {
+	for _, mspID := range d.ImplicitCollections {
+		rejected := rejectedByMSPID[mspID]
+		if rejected == 0 {
+			// Nothing was dropped for this organization, so an empty result is
+			// what discovery itself reported and not something validation did.
+			continue
+		}
+		if slices.ContainsFunc(kept, func(p driver.DiscoveredPeer) bool { return p.MSPID == mspID }) {
+			continue
+		}
+
+		return errors.Errorf("all %d discovered peers of MSP [%s] for [%s:%s:%s] failed MSP validation, and its implicit collection cannot be endorsed without one", rejected, mspID, d.chaincode.NetworkID, d.chaincode.ChannelID, d.chaincode.name)
+	}
+
+	return nil
+}
+
 // validatePeer checks a discovered peer's identity against the channel's MSPs
-// and returns the TLS certificates to authenticate it with, both from the
-// channel configuration.
+// and returns the TLS certificates to authenticate it with, both taken from the
+// channel configuration rather than from the response the peer came in.
 func (d *Discovery) validatePeer(mspManager driver.MSPManager, peer *discovery.Peer) ([][]byte, error) {
 	identity, err := mspManager.DeserializeIdentity(peer.Identity)
 	if err != nil {
-		return nil, errors.WithMessage(err, "identity is not one the channel recognises")
+		return nil, errors.WithMessage(err, "identity is not one the channel recognizes")
 	}
 	if err := identity.Validate(); err != nil {
 		return nil, errors.WithMessage(err, "identity failed MSP validation")

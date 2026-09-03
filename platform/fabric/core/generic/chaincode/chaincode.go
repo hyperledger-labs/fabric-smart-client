@@ -35,17 +35,29 @@ type SerializableSigner interface {
 }
 
 // MSPProvider gives the chaincode package the channel's membership as a trust
-// anchor: the MSPs the channel recognises and the TLS certificates that
+// anchor: the MSPs the channel recognizes and the TLS certificates that
 // authenticate its organizations' peers. Both must come from the channel
 // configuration rather than from a discovery response — that response is
 // supplied by whichever peer answered the query, so using it as its own trust
-// anchor would let that peer authorise the identities and endpoints it reports.
+// anchor would let that peer authorize the identities and endpoints it reports.
+//
+// A channel's configuration arrives asynchronously, so both methods report
+// [driver.ErrNotInitialized] while none has arrived and
+// [driver.ErrConfigRejected] once one has arrived and been refused. Neither is a
+// verdict on what was asked about, and a caller that treats them as one
+// misreports a node that is merely still starting up. An implementation may
+// wait a bounded time for the first configuration instead of reporting
+// [driver.ErrNotInitialized] straight away, so a call on a freshly started node
+// can block; a refusal is reported without waiting.
 type MSPProvider interface {
 	// MSPManager returns a manager that resolves serialized identities against
-	// the channel's MSPs. Callers should not memoize the result.
+	// the channel's MSPs. It never returns nil and may be called before a
+	// configuration is in force; that failure surfaces from the manager's own
+	// methods. Callers should not memoize the result.
 	MSPManager() driver.MSPManager
-	// TLSRootCertsByMSPID returns the TLS root and intermediate certificates of
-	// the application organization with the given MSP ID.
+	// TLSRootCertsByMSPID returns the TLS root and intermediate certificates, in
+	// that order, of the application organization with the given MSP ID. It
+	// fails if the channel has no such organization.
 	TLSRootCertsByMSPID(mspID string) ([][]byte, error)
 }
 
