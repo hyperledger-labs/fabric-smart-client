@@ -17,28 +17,29 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	Describe("IOU Life Cycle With LibP2P", Label("T1"), func() {
-		s := NewTestSuite(fsc.LibP2P, integration.NoReplication, true)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
-	})
+	// Both transports run the basic life cycle: this suite is the p2p-heavy
+	// end-to-end case (4 FSC nodes exchanging recipient identities and
+	// collecting endorsements), so it is where libp2p is worth its cost.
+	for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket, fsc.LibP2P} {
+		Describe("IOU Life Cycle", Label(c), func() {
+			s := NewTestSuite(c, integration.NoReplication, true)
+			BeforeEach(s.Setup)
+			AfterEach(s.TearDown)
+			It("succeeded", s.TestSucceeded)
+		})
+	}
 
-	Describe("IOU Life Cycle With Websockets", Label("T2"), func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, true)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
-	})
-
-	Describe("IOU Life Cycle With Websockets and no TLS", Label("T3"), func() {
+	// The variants below vary TLS and replication, not the transport, so they
+	// run on websocket only. They still carry the label: a --label-filter
+	// selects only labelled specs, so an unlabelled Describe would be skipped.
+	Describe("IOU Life Cycle With Websockets and no TLS", Label(fsc.WebSocket), func() {
 		s := NewTestSuite(fsc.WebSocket, integration.NoReplication, false)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("succeeded", s.TestSucceeded)
 	})
 
-	Describe("IOU Life Cycle With Websockets and replicas", Label("T4"), func() {
+	Describe("IOU Life Cycle With Websockets and replicas", Label(fsc.WebSocket), func() {
 		s := NewTestSuite(
 			fsc.WebSocket,
 			&integration.ReplicationOptions{

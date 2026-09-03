@@ -30,7 +30,13 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	Describe("Node-based Ping pong", func() {
+	// libp2p, not websocket: these specs start in-process nodes straight from the
+	// committed testdata under ./testdata, whose config is libp2p. It cannot be
+	// switched to websocket by editing the config alone -- the websocket host
+	// derives its P2P TLS material from fsc.identity.cert.file, and this fixture's
+	// signing cert carries no IP SANs, so a handshake to 127.0.0.1 cannot verify.
+	// Making it websocket means regenerating the fixture's crypto.
+	Describe("Node-based Ping pong", Label(fsc.LibP2P), func() {
 		var (
 			initiator FSCNode
 			responder FSCNode
@@ -131,19 +137,24 @@ var _ = Describe("EndToEnd", func() {
 		})
 	})
 
-	Describe("Network-based Ping pong With LibP2P", func() {
+	// libp2p keeps only the specs that put bytes on the wire. The four dropped
+	// ones vary the client API (REST, web client, artifact generate-vs-load,
+	// stream-vs-call), which is transport-agnostic and fully covered by the
+	// websocket Describe below.
+	Describe("Network-based Ping pong With LibP2P", Label(fsc.LibP2P), func() {
 		s := NewTestSuite(fsc.LibP2P, false, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("generate artifacts & successful pingpong", func() { s.TestGenerateAndPingPong("initiator") })
 		It("load artifact & successful pingpong", func() { s.TestLoadAndPingPong("initiator") })
-		It("load artifact & successful pingpong with stream", func() { s.TestLoadAndPingPongStream("initiator") })
 		It("load artifact & successful stream", func() { s.TestLoadAndStream("initiator") })
-		It("load artifact & successful stream with websocket", func() { s.TestLoadAndStreamWebsocket("initiator") })
-		It("load artifact & init clients & successful pingpong", s.TestLoadInitPingPong)
 	})
 
-	Describe("Network-based Ping pong With Websockets", func() {
+	// The label describes this Describe's first spec only. Artifacts are generated
+	// on the first Setup and loaded from ./testdata thereafter (fsc.Platform.Load
+	// is a no-op, so core.yaml is never rewritten), and that committed fixture is
+	// libp2p -- see the node-based Describe above for why it cannot be websocket.
+	// So do not split this suite by label expecting a clean transport partition.
+	Describe("Network-based Ping pong With Websockets", Label(fsc.WebSocket), func() {
 		s := NewTestSuite(fsc.WebSocket, false, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
@@ -155,7 +166,7 @@ var _ = Describe("EndToEnd", func() {
 		It("load artifact & init clients & successful pingpong", s.TestLoadInitPingPong)
 	})
 
-	Describe("Network-based Ping pong With Websockets and replication", func() {
+	Describe("Network-based Ping pong With Websockets and replication", Label(fsc.WebSocket), func() {
 		s := NewTestSuite(fsc.WebSocket, true, &integration.ReplicationOptions{
 			ReplicationFactors: map[string]int{
 				"initiator": 3,
@@ -167,17 +178,17 @@ var _ = Describe("EndToEnd", func() {
 		It("generate artifacts & successful pingpong", func() { s.TestGenerateAndPingPong(initiatorReplicas...) })
 		It("load artifact & successful pingpong", func() { s.TestLoadAndPingPong(initiatorReplicas...) })
 		It("load artifact & successful pingpong with stream", func() { s.TestLoadAndPingPongStream(initiatorReplicas...) })
-		It("load artifact & successful stream", Label("T1"), func() { s.TestLoadAndStream(initiatorReplicas...) })
+		It("load artifact & successful stream", func() { s.TestLoadAndStream(initiatorReplicas...) })
 		It("load artifact & successful stream with websocket", func() { s.TestLoadAndStreamWebsocket(initiatorReplicas...) })
 	})
 
-	Describe("Network-based Mock Ping pong With LibP2P", func() {
+	Describe("Network-based Mock Ping pong With LibP2P", Label(fsc.LibP2P), func() {
 		s := NewTestSuite(fsc.LibP2P, false, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
 		It("generate artifacts & successful mock pingpong", s.TestGenerateAndMockPingPong)
 	})
-	Describe("Network-based Mock Ping pong With Websockets", func() {
+	Describe("Network-based Mock Ping pong With Websockets", Label(fsc.WebSocket), func() {
 		s := NewTestSuite(fsc.WebSocket, false, integration.NoReplication)
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
@@ -270,13 +281,20 @@ func (s *TestSuite) TestLoadAndStream(clients ...string) {
 }
 
 func (s *TestSuite) TestLoadAndStreamWebsocket(clients ...string) {
-	time.Sleep(7 * time.Second)
 	for _, clientName := range clients {
 		// Get a client for the fsc node labelled initiator
 		initiator := s.II.WebClient(clientName)
-		// Initiate a view and check the output
-		channel, err := initiator.StreamCallView("stream", nil)
-		Expect(err).NotTo(HaveOccurred())
+		// The node's web server may still be coming up. Poll the stream call
+		// itself rather than a separate endpoint: this suite enables only the web
+		// server (topology.WebEnabled), not Prometheus metrics, so there is no
+		// /metrics route to probe. An attempt that errors yields no usable
+		// stream, so retrying is safe.
+		var channel *client2.WSStream
+		Eventually(func() error {
+			var err error
+			channel, err = initiator.StreamCallView("stream", nil)
+			return err
+		}, 30*time.Second, 250*time.Millisecond).Should(Succeed())
 		var str string
 		Expect(channel.Recv(&str)).NotTo(HaveOccurred())
 		Expect(str).To(BeEquivalentTo("hello"))

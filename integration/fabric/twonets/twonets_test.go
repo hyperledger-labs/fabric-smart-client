@@ -17,19 +17,17 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	Describe("Two Fabric Networks Life Cycle With LibP2P", func() {
-		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
-	})
-
-	Describe("Two Fabric Networks Life Cycle With Websockets", func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
-	})
+	// websocket only: the p2p exchange here is a single ping/pong that
+	// fsc/pingpong covers without a Fabric network. This suite's subject is two
+	// Fabric networks, and it pays two bootstraps per spec.
+	for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket} {
+		Describe("Two Fabric Networks Life Cycle", Label(c), func() {
+			s := NewTestSuite(c, integration.NoReplication)
+			BeforeEach(s.Setup)
+			AfterEach(s.TearDown)
+			It("succeeded", s.TestSucceeded)
+		})
+	}
 })
 
 type TestSuite struct {

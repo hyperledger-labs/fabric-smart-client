@@ -1,6 +1,6 @@
 # Libp2p Transport
 
-The Libp2p transport is the default communication stack for the Fabric Smart Client. It leverages the industry-standard `libp2p` library to provide a decentralized, robust, and highly configurable P2P networking layer.
+The Libp2p transport is an optional communication stack for the Fabric Smart Client, distributed as its own Go module; the websocket transport is the primary implementation and lives in the root module. It leverages the industry-standard `libp2p` library to provide a decentralized, robust, and highly configurable P2P networking layer.
 
 ## Overview
 

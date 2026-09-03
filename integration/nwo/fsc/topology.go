@@ -71,7 +71,7 @@ func NewTopology() *Topology {
 			MetricsType: "none",
 			TLS:         true,
 		},
-		P2PCommunicationType: LibP2P,
+		P2PCommunicationType: WebSocket,
 	}
 }
 

@@ -405,7 +405,7 @@ func (p *Platform) CheckTopology() {
 	}
 
 	for _, node := range p.Topology.Nodes {
-		if p.Topology.P2PCommunicationType != WebSocket && node.Options.ReplicationFactor() > 1 {
+		if p.P2PCommunicationType() != WebSocket && node.Options.ReplicationFactor() > 1 {
 			panic("replication only supported for websocket p2p communication")
 		}
 		for _, uniqueName := range node.ReplicaUniqueNames() {
@@ -503,7 +503,7 @@ func (p *Platform) P2PCommunicationType() P2PCommunicationType {
 	if typ := p.Topology.P2PCommunicationType; len(typ) > 0 {
 		return typ
 	}
-	return LibP2P
+	return WebSocket
 }
 
 func (p *Platform) RoutingConfigPath() string {

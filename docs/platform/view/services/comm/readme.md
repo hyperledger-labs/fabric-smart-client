@@ -128,8 +128,9 @@ Configuration is managed via the FSC configuration file (usually `core.yaml`). F
 ```yaml
 fsc:
   p2p:
-    # Transport type: "libp2p" or "websocket"
-    type: libp2p
+    # Transport type: "websocket" or "libp2p". There is no default -- an unset
+    # or unrecognised type is rejected at startup.
+    type: websocket
     listenAddress: /ip4/0.0.0.0/tcp/11511
     # Buffer size for the incoming messages channel. Default: 1024
     # This controls how many messages can be queued before blocking message dispatch.

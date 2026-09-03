@@ -15,7 +15,7 @@ Ginkgo v2 + Gomega.
 
 ```go
 opts := &integration.Opts{
-    CommType:   fsc.LibP2P, // or fsc.WebSocket
+    CommType:   fsc.WebSocket, // the default; use fsc.LibP2P only with a reason
     TLSEnabled: true,
     ReplicationOpts: &integration.ReplicationOptions{
         ReplicationFactors: map[string]int{"node": 3},
@@ -23,6 +23,24 @@ opts := &integration.Opts{
     },
 }
 ```
+
+### Choosing a p2p comm type
+
+New suites use `fsc.WebSocket`. Add a `fsc.LibP2P` variant only when the suite
+exercises something transport-specific that the host conformance tests in
+`platform/view/services/comm` cannot reach — every extra comm type costs a full
+network bootstrap per spec, because each `It` re-runs `Setup`/`TearDown`.
+
+Label each `Describe` with its comm type so a suite can be run one transport at
+a time (`ginkgo --label-filter=libp2p`) and split into parallel CI entries:
+
+    for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket} {
+        Describe("My Life Cycle", Label(c), func() { /* ... */ })
+    }
+
+Label websocket-only variants (replication, no-TLS) with `Label(fsc.WebSocket)`
+too: `--label-filter` selects only labelled specs, so an unlabelled `Describe`
+is silently skipped when a filter is in play.
 
 ## Declaring a namespace
 

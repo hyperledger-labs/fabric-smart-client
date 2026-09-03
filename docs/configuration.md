@@ -91,8 +91,11 @@ fsc:
 
   # ------------------- P2P Configuration -------------------------
   p2p:
-    # Type of p2p communication. Currently supported: libp2p (default), websocket
-    type: libp2p
+    # Type of p2p communication. Currently supported: websocket, libp2p.
+    # There is no default -- an unset or unrecognised type is rejected at
+    # startup. websocket is the primary implementation; libp2p is optional and
+    # lives in its own Go module.
+    type: websocket
     # listen address see https://github.com/libp2p/specs/blob/master/addressing/README.md
     # for information on the format
     listenAddress: /dns4/myhostname/tcp/20001

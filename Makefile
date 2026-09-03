@@ -149,6 +149,10 @@ include $(TOP)/checks.mk
 # we use a multi-module repo structure here and therefore need to carefully collect packages for unit tests
 GO_PACKAGES = $$(go list ./...)
 NWO_PACKAGES = ./nwo/...
+# The libp2p comm host is its own module, so the root `go list ./...` cannot see
+# it. Named here so `unit-tests` can step into it explicitly -- without this its
+# host-conformance tests (shared with the websocket host) never run.
+LIBP2P_HOST_MODULE = platform/view/services/comm/host/libp2p
 GO_PACKAGES_SDK = $$(go list ./... | grep '/sdk/dig$$')
 GO_TEST_PARAMS ?= -race -cover
 TEST_PKGS ?= $(GO_PACKAGES)
@@ -167,6 +171,7 @@ unit-tests: ## Run unit tests
 	rc=0; \
 	go test $(GO_TEST_PARAMS) $(GO_COVERPKG) --skip '(Postgres)' $(TEST_PKGS) || rc=1; \
 	go test -C integration $(GO_TEST_PARAMS) --skip '(Postgres)' $(NWO_PACKAGES) || rc=1; \
+	go test -C $(LIBP2P_HOST_MODULE) $(GO_TEST_PARAMS) ./... || rc=1; \
 	exit $$rc
 
 .PHONY: unit-tests-postgres
@@ -196,6 +201,9 @@ INTEGRATION_TARGETS += fabric-atsachaincode
 INTEGRATION_TARGETS += fabric-configupdate
 INTEGRATION_TARGETS += fabric-events
 INTEGRATION_TARGETS += fabric-iou
+# fabric/iou runs both comm types. They are split into two targets so CI runs
+# them as parallel matrix entries rather than serially in one job.
+INTEGRATION_TARGETS += fabric-iou-libp2p
 INTEGRATION_TARGETS += fabric-runtimeconfig
 INTEGRATION_TARGETS += fabric-stoprestart
 INTEGRATION_TARGETS += fabric-twonets
@@ -211,6 +219,21 @@ INTEGRATION_TARGETS += fabricx-deployment
 INTEGRATION_TARGETS += fabricx-multiendorsement
 INTEGRATION_TARGETS += fabricx-configupdate
 
+# Targets are normally named <platform>-<suite> and map onto
+# ./integration/<platform>/<suite>. Targets that run one suite under a
+# different name need an explicit directory.
+INTEGRATION_DIR_fabric-iou-libp2p = fabric/iou
+
+# Per-target ginkgo flags. A suite that declares more than one p2p comm type is
+# split into one target per type. The websocket target uses a negative filter
+# so a spec added later without a comm-type label still runs there, rather
+# than silently running in neither job.
+INTEGRATION_FLAGS_fabric-iou        = --label-filter='!libp2p'
+INTEGRATION_FLAGS_fabric-iou-libp2p = --label-filter=libp2p
+
+integration_default_dir = $(firstword $(subst -, ,$(1)))/$(subst $(firstword $(subst -, ,$(1)))-,,$(1))
+integration_dir = $(or $(INTEGRATION_DIR_$(1)),$(call integration_default_dir,$(1)))
+
 .PHONE: list-integration-tests
 list-integration-tests: ## List all integration tests
 	@$(foreach t,$(INTEGRATION_TARGETS) $(HSM_INTEGRATION_TARGETS),echo "$(t)";)
@@ -220,13 +243,13 @@ integration-tests: $(addprefix integration-tests-,$(INTEGRATION_TARGETS) $(HSM_I
 
 $(addprefix integration-tests-,$(HSM_INTEGRATION_TARGETS)) : integration-tests-%:
 	export FAB_BINS=$(FAB_BINS); \
-		cd ./integration/$(firstword $(subst -, ,$*))/$(subst $(firstword $(subst -, ,$*))-,,$*); \
-		GOFLAGS="-tags=pkcs11" ginkgo $(GINKGO_TEST_OPTS) .
+		cd ./integration/$(call integration_dir,$*); \
+		GOFLAGS="-tags=pkcs11" ginkgo $(GINKGO_TEST_OPTS) $(INTEGRATION_FLAGS_$*) .
 
 $(addprefix integration-tests-,$(INTEGRATION_TARGETS)) : integration-tests-%:
 	export FAB_BINS=$(FAB_BINS); \
-		cd ./integration/$(firstword $(subst -, ,$*))/$(subst $(firstword $(subst -, ,$*))-,,$*); \
-		ginkgo $(GINKGO_TEST_OPTS) .
+		cd ./integration/$(call integration_dir,$*); \
+		ginkgo $(GINKGO_TEST_OPTS) $(INTEGRATION_FLAGS_$*) .
 
 #########################
 # Release
