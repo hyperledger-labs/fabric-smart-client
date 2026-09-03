@@ -209,6 +209,7 @@ INTEGRATION_TARGETS += fabricx-atsa
 INTEGRATION_TARGETS += fabricx-simple
 INTEGRATION_TARGETS += fabricx-deployment
 INTEGRATION_TARGETS += fabricx-multiendorsement
+INTEGRATION_TARGETS += fabricx-configupdate
 
 .PHONE: list-integration-tests
 list-integration-tests: ## List all integration tests
