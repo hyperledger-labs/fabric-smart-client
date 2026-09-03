@@ -14,6 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 package deferred
 
 import (
+	"context"
 	"sync"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -69,6 +70,12 @@ type Holder[T any] struct {
 	// holder can answer from value and a refusal is the updater's problem
 	// rather than the reader's, so this is cleared and not consulted.
 	rejected error
+
+	// loadedCh is closed once the holder has an answer for the waiters parked
+	// on it, whether that answer is a value or a refusal. It is dropped at the
+	// same time, so a later waiter parks on a fresh channel rather than being
+	// released by an update it did not see.
+	loadedCh chan struct{}
 
 	// subject names what is held, as a noun phrase that reads correctly in
 	// front of "not loaded" — "channel [mychannel] configuration", say. It is
@@ -151,6 +158,11 @@ func (h *Holder[T]) Update(fn func(current T, loaded bool) (T, error)) error {
 	if err != nil {
 		if !h.loaded {
 			h.rejected = err
+			// A refusal recorded with nothing in force is an answer, so the
+			// waiters are released to collect it. Leaving them parked would
+			// make them sit out their whole budget and then report a startup
+			// race, which is the opposite of what happened.
+			h.releaseWaiters()
 		}
 		return err
 	}
@@ -158,7 +170,19 @@ func (h *Holder[T]) Update(fn func(current T, loaded bool) (T, error)) error {
 	h.value = v
 	h.loaded = true
 	h.rejected = nil
+	h.releaseWaiters()
 	return nil
+}
+
+// releaseWaiters wakes every [Holder.WaitForValue] caller parked on the current
+// channel and drops it, so the next waiter parks on a fresh one. The write lock
+// must be held: that is what keeps a waiter from registering against a channel
+// this is closing.
+func (h *Holder[T]) releaseWaiters() {
+	if h.loadedCh != nil {
+		close(h.loadedCh)
+		h.loadedCh = nil
+	}
 }
 
 // Reset returns the holder to the state it was constructed in: nothing held,
@@ -171,6 +195,9 @@ func (h *Holder[T]) Update(fn func(current T, loaded bool) (T, error)) error {
 // because a refusal is only recorded while nothing is held, the reason the
 // reload produced nothing would be discarded too.
 //
+// Any [Holder.WaitForValue] caller already parked is released and reports
+// [ErrNotLoaded], the same answer [Holder.Get] would give it.
+//
 // Callers that can replace the value in a single Update should do that instead:
 // this opens a window in which Get reports ErrNotLoaded.
 func (h *Holder[T]) Reset() {
@@ -181,4 +208,76 @@ func (h *Holder[T]) Reset() {
 	h.value = zero
 	h.loaded = false
 	h.rejected = nil
+	h.releaseWaiters()
+}
+
+// waitChan returns the channel on which to wait for the holder's next answer,
+// creating it if this is the first caller.
+func (h *Holder[T]) waitChan() chan struct{} {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.loadedCh == nil {
+		h.loadedCh = make(chan struct{})
+	}
+	return h.loadedCh
+}
+
+// WaitForValue returns the held value, waiting until one is held or ctx is
+// done. It is the blocking counterpart to [Holder.Get], for a caller that
+// cannot answer without the value; prefer [Holder.Get] wherever the absent case
+// is something the caller can report and move on from.
+//
+// A refusal ends the wait rather than being waited out, whether it was already
+// recorded when the caller arrived or arrives while it waits: retrying cannot
+// clear one until a later update is accepted, so [ErrRejected] is reported as
+// soon as it is known. [Holder.Reset] also ends the wait, with [ErrNotLoaded].
+//
+// A ctx that is done first is reported as [ErrNotLoaded] too — the same
+// sentinel [Holder.Get] uses for a value that has not arrived — with ctx's own
+// error kept in the message so a timeout stays distinguishable from a
+// cancellation.
+func (h *Holder[T]) WaitForValue(ctx context.Context) (T, error) {
+	var zero T
+
+	// Fast path: a holder that already has a value answers without allocating a
+	// channel or touching ctx.
+	h.mu.RLock()
+	loaded, rejected, value := h.loaded, h.rejected, h.value
+	h.mu.RUnlock()
+	if loaded {
+		return value, nil
+	}
+	if rejected != nil {
+		return zero, errors.Wrapf(ErrRejected, "%s rejected: %s", h.subject, rejected)
+	}
+
+	ch := h.waitChan()
+
+	// Re-check after taking the channel: an Update or Reset in between closed
+	// the previous one, and this caller would otherwise wait on a channel
+	// nothing closes again.
+	h.mu.RLock()
+	loaded, rejected, value = h.loaded, h.rejected, h.value
+	h.mu.RUnlock()
+	if loaded {
+		return value, nil
+	}
+	if rejected != nil {
+		return zero, errors.Wrapf(ErrRejected, "%s rejected: %s", h.subject, rejected)
+	}
+
+	select {
+	case <-ch:
+		return h.Get()
+	case <-ctx.Done():
+		// The holder may have answered in the same instant ctx expired, in
+		// which case select picks a branch arbitrarily. Report what the holder
+		// actually says over the deadline, so a caller is never told a
+		// configuration is merely late when it has been refused.
+		if v, err := h.Get(); err == nil || errors.Is(err, ErrRejected) {
+			return v, err
+		}
+		return zero, errors.Wrapf(ErrNotLoaded, "%s not loaded: %s", h.subject, ctx.Err())
+	}
 }

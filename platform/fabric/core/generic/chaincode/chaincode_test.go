@@ -46,6 +46,7 @@ import (
 //go:generate counterfeiter -o mock/response.go -fake-name Response github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/discovery.Response
 //go:generate counterfeiter -o mock/chaincode_config.go -fake-name ChaincodeConfig github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.ChaincodeConfig
 //go:generate counterfeiter -o mock/msp_manager.go -fake-name MSPManager github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.MSPManager
+//go:generate counterfeiter -o mock/msp_identity.go -fake-name MSPIdentity github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver.MSPIdentity
 
 type mockMSPIdentity struct {
 	mspID string
@@ -103,6 +104,22 @@ func setupTestChaincode(t *testing.T, configure ...func(cs *mock.ConfigService, 
 	mockCC.GetRetrySleepReturns(0)
 	mockCC.DiscoveryTimeoutReturns(time.Second)
 	mockCC.DiscoveryDefaultTTLSReturns(time.Second)
+
+	// Discovery now validates discovered peer identities against the channel's
+	// MSPs, so the fixture needs a trust anchor that accepts the fixture peer
+	// (MSPID "Org1MSP", see setupDiscoveryTest's peer1). DeserializeIdentityReturns
+	// is unconditional, so this default accepts any identity bytes, not just
+	// peer1's. Tests that need a rejecting anchor stub fix.MSPProvider explicitly
+	// to override this.
+	mockIdentity := &mock.MSPIdentity{}
+	mockIdentity.GetMSPIdentifierReturns("Org1MSP")
+	mockIdentity.ValidateReturns(nil)
+
+	mockMSPManager := &mock.MSPManager{}
+	mockMSPManager.DeserializeIdentityReturns(mockIdentity, nil)
+
+	mockMSPProv.MSPManagerReturns(mockMSPManager)
+	mockMSPProv.TLSRootCertsByMSPIDReturns([][]byte{[]byte("trusted-root")}, nil)
 
 	for _, cfg := range configure {
 		cfg(mockCS, mockCC)
@@ -385,7 +402,10 @@ func TestDiscovery_CallAndGetEndorsers(t *testing.T) {
 		require.Len(t, peers, 1)
 		require.Equal(t, "peer1.org1.example.com:7051", peers[0].Endpoint)
 		require.Equal(t, "Org1MSP", peers[0].MSPID)
-		require.Equal(t, [][]byte{[]byte("root-cert-1")}, peers[0].TLSRootCerts)
+		// TLS roots now come from the channel configuration (the fixture's
+		// MSPProvider), not from the discovery response's own ConfigResult
+		// (which stubs "root-cert-1" - see setupDiscoveryTest).
+		require.Equal(t, [][]byte{[]byte("trusted-root")}, peers[0].TLSRootCerts)
 	})
 
 	t.Run("GetEndorsers Success with Implicit Collections", func(t *testing.T) {
@@ -442,16 +462,6 @@ func TestDiscovery_CallAndGetEndorsers(t *testing.T) {
 		d := chaincode.NewDiscovery(fix.Chaincode)
 		_, err := d.Call()
 		require.ErrorContains(t, err, "failed getting endorsers")
-	})
-
-	t.Run("Config error", func(t *testing.T) {
-		t.Parallel()
-		fix := setupDiscoveryTest(t)
-		fix.ChannelResponse.EndorsersReturns([]*discoveryApi.Peer{fix.Peer}, nil)
-		fix.ChannelResponse.ConfigReturns(nil, errors.New("config-error"))
-		d := chaincode.NewDiscovery(fix.Chaincode)
-		_, err := d.Call()
-		require.ErrorContains(t, err, "failed getting config")
 	})
 }
 

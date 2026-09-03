@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/delivery"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/driver/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/finality"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/membership"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/services"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/transaction"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/vault"
@@ -67,7 +68,17 @@ type DeliveryConstructor func(
 	callback driver.BlockCallback,
 ) (DeliveryService, error)
 
-type MembershipConstructor func(channelName string) driver.MembershipService
+// MembershipConstructor builds the membership service for a channel.
+//
+// It returns the concrete *membership.Service rather than
+// [driver.MembershipService] because this provider needs more than that
+// interface offers: discovery validates the peers it is told about against the
+// channel configuration, which takes both the channel's MSPs and its
+// organizations' TLS root certificates from the same service, and needs a view
+// of it that waits for the first configuration to arrive. Stating that here
+// keeps a service that cannot supply it a compile error rather than a channel
+// that fails to start.
+type MembershipConstructor func(channelName string) *membership.Service
 
 type ChannelProvider interface {
 	NewChannel(nw driver.FabricNetworkService, name string, quiet bool) (driver.Channel, error)
@@ -158,6 +169,13 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 
 	channelMembershipService := p.newMembership(channelName)
 
+	// The chaincode manager gets the waiting view, so that discovery can
+	// validate the peers it is told about during the window before the first
+	// configuration block arrives instead of failing for its duration. The
+	// committer keeps the plain service: it is what installs the configuration,
+	// and must never wait on it.
+	chaincodeMSPProvider := chaincode.MSPProvider(channelMembershipService.WithConfigWait(channelConfig.DiscoveryTimeout()))
+
 	// Committers
 	rwSetLoaderService, err := p.newRWSetLoader(
 		channelName,
@@ -187,7 +205,7 @@ func (p *provider) NewChannel(nw driver.FabricNetworkService, channelName string
 		nw.SignerService(),
 		nw.OrderingService(),
 		nil,
-		channelMembershipService,
+		chaincodeMSPProvider,
 	)
 
 	ledgerService, err := p.newLedger(
