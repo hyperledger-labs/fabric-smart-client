@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -31,12 +32,18 @@ import (
 
 var logger = logging.MustGetLogger()
 
+// StartGenesis seeks the oldest block available on the ordering service, i.e.
+// the genesis block. It is the fallback start position whenever the last
+// processed block cannot be determined.
 var StartGenesis = &ab.SeekPosition{
 	Type: &ab.SeekPosition_Oldest{
 		Oldest: &ab.SeekOldest{},
 	},
 }
 
+// blockResponse pairs a block received from the peer's Deliver stream with the
+// tracing context of the span that received it, so that the callback invoked on
+// another goroutine stays attached to the same trace.
 type blockResponse struct {
 	ctx   context.Context
 	block *cb.Block
@@ -59,10 +66,16 @@ type Vault interface {
 	GetLastBlock(context.Context) (uint64, error)
 }
 
+// Services provides the peer clients that Delivery connects through.
 type Services interface {
+	// NewPeerClient returns a client for the peer described by cc.
 	NewPeerClient(cc grpc.ConnectionConfig) (services.PeerClient, error)
 }
 
+// Delivery streams blocks from a Fabric peer's Deliver service and invokes a
+// callback for each one. A Delivery is single-use: once stopped it cannot be
+// restarted, and Run must not be called more than once. Stop may be called
+// concurrently with Run and from any number of goroutines.
 type Delivery struct {
 	channel             string
 	channelConfig       driver.ChannelConfig
@@ -78,11 +91,26 @@ type Delivery struct {
 	tracer              trace.Tracer
 	lastBlockReceived   uint64
 	bufferSize          int
-	stop                chan error
+
+	// stop is closed exactly once, by Stop, to signal shutdown to every
+	// goroutine started by Run. It carries no value: untilStop, readBlocks and
+	// runReceiver all read it, so a value sent over it would be observed by
+	// exactly one of them. The cause goes in stopErr instead.
+	stop chan struct{}
+	// stopOnce guards the close of stop.
+	stopOnce sync.Once
+	// stopErr holds the error passed to the first call to Stop, if any. It is
+	// written before stop is closed, so any goroutine that observes the close
+	// also observes the error.
+	stopErr atomic.Pointer[error]
 }
 
 var ctr = atomic.Uint32{}
 
+// New creates a Delivery for the given channel. It fails if channelConfig is
+// nil. bufferSize bounds the queue of blocks awaiting the callback and is
+// raised to 1 if not positive. The returned Delivery is inert until Run or
+// Start is called.
 func New(
 	networkName string,
 	channelConfig driver.ChannelConfig,
@@ -116,26 +144,48 @@ func New(
 		callback:   callback,
 		vault:      vault,
 		bufferSize: max(bufferSize, 1),
-		stop:       make(chan error),
+		stop:       make(chan struct{}),
 	}
 	return d, nil
 }
 
-// Start runs the delivery service in a goroutine
+// Start runs the delivery service in its own goroutine and returns
+// immediately. The error returned by Run is discarded; use Run directly to
+// observe it.
 func (d *Delivery) Start(ctx context.Context) {
 	go utils.IgnoreErrorFunc(func() error {
 		return d.Run(ctx)
 	})
 }
 
+// Stop shuts the delivery service down, reporting err as the cause. A nil err
+// means a clean shutdown. Only the first call has any effect: err from later
+// calls is discarded. Stop never blocks and is safe to call concurrently and
+// after the service has already stopped.
 func (d *Delivery) Stop(err error) {
-	logger.Debugf("stop delivery with error [%v]", err)
-	if err != nil {
-		d.stop <- err
-	}
-	close(d.stop)
+	d.stopOnce.Do(func() {
+		logger.Debugf("stop delivery with error [%v]", err)
+		if err != nil {
+			d.stopErr.Store(&err)
+		}
+		close(d.stop)
+	})
 }
 
+// stopError returns the error passed to the first call to Stop, or nil if the
+// service was stopped cleanly or is still running.
+func (d *Delivery) stopError() error {
+	if err := d.stopErr.Load(); err != nil {
+		return *err
+	}
+	return nil
+}
+
+// Run streams blocks until the service is stopped, either by a call to Stop,
+// by the callback reporting an error or asking to stop, or by ctx being
+// cancelled. It blocks until then and returns the error that caused the
+// shutdown, or nil for a clean stop. A nil ctx is treated as
+// context.Background.
 func (d *Delivery) Run(ctx context.Context) error {
 	logger.Debugf("Running delivery service [%d]", ctr.Add(1))
 	if ctx == nil {
@@ -147,6 +197,9 @@ func (d *Delivery) Run(ctx context.Context) error {
 	return d.untilStop()
 }
 
+// readBlocks invokes the callback for each block arriving on ch until the
+// service is stopped. It stops the service if the callback fails or asks to
+// stop.
 func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 	for {
 		select {
@@ -163,13 +216,17 @@ func (d *Delivery) readBlocks(ch <-chan blockResponse) {
 				d.Stop(nil)
 				return
 			}
-		case err := <-d.stop:
-			logger.Debugf("stopping delivery service with err [%s]", err)
+		case <-d.stop:
+			logger.Debugf("stopping block reader with err [%v]", d.stopError())
 			return
 		}
 	}
 }
 
+// runReceiver maintains the Deliver stream to the peer, reconnecting on
+// failure, and forwards received blocks to ch. It returns once the service is
+// stopped; it stops the service itself when ctx is cancelled. It is a no-op if
+// ctx or ch is nil.
 func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 	if ctx == nil || ch == nil {
 		return
@@ -296,14 +353,18 @@ func (d *Delivery) handleBlockResponse(ctx context.Context, span trace.Span, r *
 	return true
 }
 
+// untilStop blocks until the service is stopped and returns the error that
+// caused it, or nil for a clean stop.
 func (d *Delivery) untilStop() error {
-	for err := range d.stop {
-		logger.Debugf("stopping delivery service with error [%s]", err)
-		return err
-	}
-	return nil
+	<-d.stop
+	err := d.stopError()
+	logger.Debugf("stopping delivery service with error [%v]", err)
+	return err
 }
 
+// connect opens a Deliver stream to a peer picked for delivery and sends the
+// seek envelope that positions it at the next block to process. It returns the
+// stream and a cancel function that the caller must invoke to release it.
 func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFunc, error) {
 	// first cleanup everything
 	d.cleanup()
@@ -348,6 +409,10 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 	return stream, cancel, nil
 }
 
+// GetStartPosition returns the position the Deliver stream should be seeked
+// to. It prefers the last block this Delivery received, then the vault's last
+// block, then the block holding the vault's last transaction, and falls back to
+// StartGenesis when none of those can be determined.
 func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
 	if d.lastBlockReceived != 0 {
 		logger.Debugf("restarting from the last block received [%d]", d.lastBlockReceived)
@@ -390,6 +455,7 @@ func (d *Delivery) GetStartPosition(ctx context.Context) *ab.SeekPosition {
 	return StartGenesis
 }
 
+// SeekPosition returns a seek position for the given block number.
 func SeekPosition(blockNumber uint64) *ab.SeekPosition {
 	return &ab.SeekPosition{
 		Type: &ab.SeekPosition_Specified{
@@ -400,6 +466,7 @@ func SeekPosition(blockNumber uint64) *ab.SeekPosition {
 	}
 }
 
+// cleanup closes the current peer client, if any.
 func (d *Delivery) cleanup() {
 	if d.client != nil {
 		d.client.Close()
