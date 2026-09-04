@@ -10,6 +10,7 @@ package start
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"syscall"
 	"testing"
 
@@ -86,6 +87,19 @@ func TestServe_ProfilerEnabled(t *testing.T) { //nolint:paralleltest
 	err := serve(n)
 	require.Error(t, err)
 	<-n.ch
+}
+
+// A config path that is a regular file makes the profiler's MkdirAll fail, so
+// serve() bails out on profiler.Start() before ever reaching n.Start().
+func TestServe_ProfilerStartError(t *testing.T) { //nolint:paralleltest
+	file := filepath.Join(t.TempDir(), "not-a-dir")
+	require.NoError(t, os.WriteFile(file, nil, 0o644))
+	t.Setenv("FSCNODE_PROFILER", "true")
+	t.Setenv("FSCNODE_CFG_PATH", file)
+
+	n := newMockStartNode(nil)
+	require.ErrorContains(t, serve(n), "failed to create profile directory")
+	require.Error(t, <-n.ch)
 }
 
 func TestServe_HappyPath(t *testing.T) {

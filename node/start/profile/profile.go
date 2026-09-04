@@ -132,6 +132,7 @@ func (p *Profile) startCPUProfile() error {
 		return errors.Wrap(err, "failed to create cpu profile file")
 	}
 	if err := pprof.StartCPUProfile(f); err != nil {
+		_ = f.Close()
 		return errors.Wrap(err, "failed to start cpu profile")
 	}
 	p.appendCloser(func() {
@@ -157,8 +158,14 @@ func (p *Profile) startMemProfile(memProfileType string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create memory profile file")
 	}
-	old := runtime.MemProfileRate
-	runtime.MemProfileRate = p.memProfileRate
+	if runtime.MemProfileRate != p.memProfileRate {
+		// Only the profile that actually changes the rate restores it. Otherwise
+		// the second memory profile would capture the rate the first one set and
+		// Stop would leave the process on that value.
+		old := runtime.MemProfileRate
+		runtime.MemProfileRate = p.memProfileRate
+		p.appendCloser(func() { runtime.MemProfileRate = old })
+	}
 	p.appendCloser(func() {
 		logger.Infof("Stopping memory profile")
 		defer func() {
@@ -177,7 +184,6 @@ func (p *Profile) startMemProfile(memProfileType string) error {
 		if err := f.Sync(); err != nil {
 			logger.Errorf("failed to flush memory profile data to disk: %s", err)
 		}
-		runtime.MemProfileRate = old
 	})
 
 	return nil

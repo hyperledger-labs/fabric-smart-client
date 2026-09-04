@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/pprof"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -113,6 +114,71 @@ func TestLifecycle(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, entries)
 	})
+}
+
+func TestNew_OptionError(t *testing.T) {
+	t.Parallel()
+	p, err := New(WithPath(""))
+	require.ErrorContains(t, err, "path is required")
+	require.Nil(t, p)
+}
+
+// TestStart_CreateFailure plants a *directory* where each profile file would go,
+// so os.Create fails. This covers the create-error return inside every
+// start*Profile as well as its propagation out of Start.
+func TestStart_CreateFailure(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		file    string
+		wantErr string
+		enable  func(*Profile)
+	}{
+		{"cpu", "cpu.pprof", "failed to create cpu profile file", func(p *Profile) { p.cpu = true }},
+		{"memoryHeap", "mem-heap.pprof", "failed to create memory profile file", func(p *Profile) { p.memoryHeap = true }},
+		{"memoryAllocs", "mem-allocs.pprof", "failed to create memory profile file", func(p *Profile) { p.memoryAllocs = true }},
+		{"mutex", "mutex.pprof", "failed to create mutex profile file", func(p *Profile) { p.mutex = true }},
+		{"blocker", "block.pprof", "failed to create block profile file", func(p *Profile) { p.blocker = true }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			require.NoError(t, os.Mkdir(filepath.Join(dir, tc.file), 0o755))
+			p := &Profile{path: dir}
+			tc.enable(p)
+			require.ErrorContains(t, p.Start(), tc.wantErr)
+		})
+	}
+}
+
+//nolint:paralleltest // manipulates the process-wide CPU profiler
+func TestStartCPUProfile_AlreadyRunning(t *testing.T) {
+	dir := t.TempDir()
+	f, err := os.Create(filepath.Join(dir, "other.pprof"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = f.Close() })
+	require.NoError(t, pprof.StartCPUProfile(f))
+	t.Cleanup(pprof.StopCPUProfile)
+
+	p := &Profile{path: dir}
+	require.ErrorContains(t, p.startCPUProfile(), "failed to start cpu profile")
+}
+
+// TestStopTwice re-runs the closers against the files they already closed, which
+// exercises the Sync/Close/WriteTo error branches inside them. Those errors are
+// only logged, so the assertion left is that Stop puts the process-wide memory
+// profile rate back and stays idempotent.
+//
+//nolint:paralleltest // manipulates process-wide profiling state
+func TestStopTwice(t *testing.T) {
+	before := runtime.MemProfileRate
+	p, err := New(WithPath(t.TempDir()), WithAll())
+	require.NoError(t, err)
+	require.NoError(t, p.Start())
+	p.Stop()
+	require.Equal(t, before, runtime.MemProfileRate, "Stop should restore MemProfileRate")
+	p.Stop()
+	require.Equal(t, before, runtime.MemProfileRate)
 }
 
 //nolint:paralleltest
