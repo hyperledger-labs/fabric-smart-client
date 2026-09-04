@@ -14,6 +14,11 @@ FABRIC_X_COMMITTER_VERSION ?= 1.0.4
 # need to install fabric binaries outside of fsc tree for now (due to chaincode packaging issues)
 FABRIC_BINARY_BASE ?= $(PWD)/../fabric
 FAB_BINS ?= $(FABRIC_BINARY_BASE)/bin
+# The fabric-x tools ship a configtxgen and a cryptogen of their own. Installing
+# them into $(FAB_BINS) would overwrite fabric's, so they get their own
+# subdirectory there and both toolchains can be installed at once. Keep in sync
+# with fxconfig.BinSubdir.
+FABRIC_X_BINS ?= $(FAB_BINS)/fabric-x
 
 # integration test options
 GINKGO_TEST_OPTS ?=
@@ -43,10 +48,10 @@ install-linter-tool: ## Install linter in $(go env GOPATH)/bin
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $$(go env GOPATH)/bin v2.12.2
 
 .PHONY: install-fabricx-tools
-install-fabricx-tools: ## Install fxconfig in $(FAB_BINS)
-	@env GOBIN=$(FAB_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/fxconfig@$(FABRIC_X_TOOLS_VERSION)
-	@env GOBIN=$(FAB_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/configtxgen@$(FABRIC_X_TOOLS_VERSION)
-	@env GOBIN=$(FAB_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/cryptogen@$(FABRIC_X_TOOLS_VERSION)
+install-fabricx-tools: ## Install the fabric-x tools in $(FABRIC_X_BINS)
+	@env GOBIN=$(FABRIC_X_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/fxconfig@$(FABRIC_X_TOOLS_VERSION)
+	@env GOBIN=$(FABRIC_X_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/configtxgen@$(FABRIC_X_TOOLS_VERSION)
+	@env GOBIN=$(FABRIC_X_BINS) go install $(GO_FLAGS) github.com/hyperledger/fabric-x/tools/cryptogen@$(FABRIC_X_TOOLS_VERSION)
 
 .PHONY: install-fabric-bins
 install-fabric-bins: ## Install fabric binaries in $(FABRIC_BINARY_BASE)

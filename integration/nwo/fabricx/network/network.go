@@ -49,6 +49,8 @@ type Network struct {
 func New(reg api.Context, topology *topology.Topology, builderClient fabric_network.BuilderClient, ccps []fabric_network.ChaincodeProcessor, networkID, committerOrg, committerName string) *Network {
 	fabricNetwork := fabric_network.New(reg, topology, builderClient, ccps, networkID)
 	fabricNetwork.EventuallyTimeout = defaultEventuallyTimeout
+	// The fabric-x tools live apart from the fabric ones of the same name.
+	fabricNetwork.BinSubdir = fxconfig.BinSubdir
 	n := &Network{Network: fabricNetwork, CommitterOrg: committerOrg, CommitterName: committerName}
 	return n
 }

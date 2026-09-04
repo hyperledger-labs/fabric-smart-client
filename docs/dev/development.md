@@ -70,6 +70,11 @@ Install Fabric-x configuration tools and Docker images:
 make install-fabricx-tools pull-images-fabricx
 ```
 
+Fabric-x ships a `configtxgen` and a `cryptogen` of its own, so the tools are
+installed into a `fabric-x` subdirectory of `FAB_BINS` rather than next to
+fabric's binaries of the same name. Both toolchains can be installed at the same
+time, and neither install target disturbs the other.
+
 ### Set `FAB_BINS`
 
 Most integration tests require Fabric(x) binaries to launch a local test network.
@@ -78,6 +83,10 @@ Set the `FAB_BINS` environment variable to point to the directory containing the
 ```bash
 export FAB_BINS=/home/yourusername/fabric/bin
 ```
+
+One variable covers both platforms: `fabric-*` suites read `$FAB_BINS`, and
+`fabricx-*` suites read `$FAB_BINS/fabric-x`, which is where
+`make install-fabricx-tools` puts its tools.
 
 > [!NOTE]
 > Do *not* store the Fabric binaries inside your fabric-smart-client repository.
@@ -183,7 +192,23 @@ If integration tests fail early because Fabric binaries cannot be found, confirm
 
 ```bash
 echo $FAB_BINS
-ls $FAB_BINS
+ls $FAB_BINS            # fabric binaries
+ls $FAB_BINS/fabric-x   # fabric-x tools
+```
+
+### Fabric suites failing in `configtxgen`
+
+Before the fabric-x tools moved into `$FAB_BINS/fabric-x`,
+`make install-fabricx-tools` installed its `configtxgen` and `cryptogen` on top
+of fabric's. If you ran it against an older checkout, those two binaries in
+`$FAB_BINS` are still the fabric-x ones, and every `fabric-*` suite fails while
+generating artifacts. `make install-fabric-bins` will not repair it, because it
+skips the download whenever `bin/peer version` already matches
+`FABRIC_VERSION`. Remove the directory and re-install once:
+
+```bash
+rm -rf $(dirname $FAB_BINS)
+make install-fabric-bins install-fabricx-tools
 ```
 
 ### Missing chaincode image

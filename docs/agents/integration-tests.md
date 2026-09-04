@@ -91,5 +91,11 @@ make integration-tests                                  # all targets
 GINKGO_TEST_OPTS="--focus='IOU Life Cycle'" make integration-tests-fabric-iou
 ```
 
+A target's platform prefix decides which toolchain it needs: `fabric-*` targets
+need `make install-fabric-bins` (binaries in `$FAB_BINS`), `fabricx-*` targets
+need `make install-fabricx-tools` (tools in `$FAB_BINS/fabric-x`, kept apart
+because both toolchains ship a `configtxgen`). Installing both is safe, and
+`fsc-*` targets need neither.
+
 Prerequisites (Fabric binaries, Docker images) are covered in
 [`docs/dev/development.md`](../dev/development.md).
