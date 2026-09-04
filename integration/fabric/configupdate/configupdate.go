@@ -32,11 +32,11 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/protoutil"
 )
 
-// batchTimeoutKey is the key of the BatchTimeout value in the channel config's Orderer group.
-const batchTimeoutKey = "BatchTimeout"
+// BatchTimeoutKey is the key of the BatchTimeout value in the channel config's Orderer group.
+const BatchTimeoutKey = "BatchTimeout"
 
-// ordererGroupKey is the key of the Orderer group in the channel config.
-const ordererGroupKey = "Orderer"
+// OrdererGroupKey is the key of the Orderer group in the channel config.
+const OrdererGroupKey = "Orderer"
 
 // channelHandles are the nwo handles needed to submit a configuration update: the network,
 // the channel to update, an orderer to submit through, and a Fabric peer whose local
@@ -79,7 +79,7 @@ func handles(ii *integration.Infrastructure) *channelHandles {
 func BatchTimeout(ii *integration.Infrastructure) time.Duration {
 	h := handles(ii)
 	config := network.GetConfig(h.Network, h.Peer, h.Orderer, h.Channel)
-	return batchTimeoutOf(config)
+	return BatchTimeoutOf(config)
 }
 
 // SetBatchTimeout computes, signs and submits an orderer-signed channel configuration
@@ -95,13 +95,13 @@ func SetBatchTimeout(ii *integration.Infrastructure, timeout time.Duration) {
 	h := handles(ii)
 
 	config := network.GetConfig(h.Network, h.Peer, h.Orderer, h.Channel)
-	gomega.Expect(batchTimeoutOf(config)).NotTo(gomega.Equal(timeout),
+	gomega.Expect(BatchTimeoutOf(config)).NotTo(gomega.Equal(timeout),
 		"BatchTimeout is already [%s]; an update that changes nothing cannot be computed", timeout)
 
 	updated, ok := proto.Clone(config).(*common.Config)
 	gomega.Expect(ok).To(gomega.BeTrue(), "expected the cloned config to be a *common.Config")
 
-	updated.ChannelGroup.Groups[ordererGroupKey].Values[batchTimeoutKey] = &common.ConfigValue{
+	updated.ChannelGroup.Groups[OrdererGroupKey].Values[BatchTimeoutKey] = &common.ConfigValue{
 		ModPolicy: "Admins",
 		Value:     protoutil.MarshalOrPanic(&protosorderer.BatchTimeout{Timeout: timeout.String()}),
 	}
@@ -125,13 +125,16 @@ func ConfigSequenceOn(g gomega.Gomega, ii *integration.Infrastructure, node stri
 	return nwocommon.JSONUnmarshalInt(res)
 }
 
-// batchTimeoutOf extracts the BatchTimeout from a channel configuration.
-func batchTimeoutOf(config *common.Config) time.Duration {
-	group, ok := config.ChannelGroup.Groups[ordererGroupKey]
-	gomega.Expect(ok).To(gomega.BeTrue(), "channel config has no [%s] group", ordererGroupKey)
+// BatchTimeoutOf extracts the BatchTimeout from a channel configuration. It aborts the
+// running spec through Gomega if the configuration does not carry one.
+//
+// The fabricx sibling suite shares it: the value is read the same way on both platforms.
+func BatchTimeoutOf(config *common.Config) time.Duration {
+	group, ok := config.ChannelGroup.Groups[OrdererGroupKey]
+	gomega.Expect(ok).To(gomega.BeTrue(), "channel config has no [%s] group", OrdererGroupKey)
 
-	value, ok := group.Values[batchTimeoutKey]
-	gomega.Expect(ok).To(gomega.BeTrue(), "[%s] group has no [%s] value", ordererGroupKey, batchTimeoutKey)
+	value, ok := group.Values[BatchTimeoutKey]
+	gomega.Expect(ok).To(gomega.BeTrue(), "[%s] group has no [%s] value", OrdererGroupKey, BatchTimeoutKey)
 
 	batchTimeout := &protosorderer.BatchTimeout{}
 	gomega.Expect(proto.Unmarshal(value.Value, batchTimeout)).NotTo(gomega.HaveOccurred())
