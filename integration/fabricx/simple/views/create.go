@@ -11,6 +11,7 @@ import (
 	"time"
 
 	views2 "github.com/hyperledger-labs/fabric-smart-client/integration/fabric/common/views"
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric"
@@ -124,7 +125,9 @@ func (i *CreateView) Call(viewCtx view.Context) (any, error) {
 	}
 	logger.Infof("Ledger info: height=%v", info.Height)
 
-	pt, err := l.GetTransactionByID(tx.ID())
+	// The block index lags finality -- see ledger.GetTransactionByID.
+	pt, err := utils.NewTypedRetryRunner[fdriver.ProcessedTransaction](30, 500*time.Millisecond, false).
+		Run(func() (fdriver.ProcessedTransaction, error) { return l.GetTransactionByID(tx.ID()) })
 	if err != nil {
 		return nil, err
 	}
