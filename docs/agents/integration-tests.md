@@ -9,13 +9,41 @@ Ginkgo v2 + Gomega.
 2. Define the topology in `topology.go` (via `integration.Generate()`).
 3. Implement the test logic in `<test-name>.go`.
 4. Add the Ginkgo suite entry point in `<test-name>_test.go`.
-5. Register the target in `INTEGRATION_TARGETS` in the `Makefile`.
+5. Register the target in the `Makefile` — see below.
+
+### Registering the target
+
+Appending the target to `INTEGRATION_TARGETS` in the [`Makefile`](../../Makefile) is
+enough when the name follows the `<platform>-<suite>` convention, which maps to
+`integration/<platform>/<suite>`. Otherwise:
+
+- **Name does not match the directory** → set `INTEGRATION_DIR_<target>`.
+- **The suite needs ginkgo flags** (e.g. a `--label-filter` so one suite becomes several
+  parallel CI entries) → set `INTEGRATION_FLAGS_<target>`.
+- **The suite needs `-tags pkcs11`** → add it to `HSM_INTEGRATION_TARGETS` instead of
+  `INTEGRATION_TARGETS`; that list compiles the test binary with the build tag.
 
 ## Network topology options
 
+There is no shared `integration.Opts`. Each suite declares its own `Opts` in its
+`topology.go`, carrying only the fields that suite varies; `ReplicationOptions` is the
+part the framework provides (`integration/utils.go`):
+
 ```go
-opts := &integration.Opts{
-    CommType:   fsc.WebSocket, // the default; use fsc.LibP2P only with a reason
+// integration/<platform>/<test-name>/topology.go
+type Opts struct {
+    CommType        fsc.P2PCommunicationType
+    ReplicationOpts *integration.ReplicationOptions
+    TLSEnabled      bool
+}
+```
+
+The suite's `_test.go` then fills it in. `fsc.WebSocket` is the default comm type; use
+`fsc.LibP2P` only with a reason:
+
+```go
+opts := &Opts{
+    CommType:   fsc.WebSocket,
     TLSEnabled: true,
     ReplicationOpts: &integration.ReplicationOptions{
         ReplicationFactors: map[string]int{"node": 3},
@@ -85,9 +113,8 @@ The remaining options are `WithCtor(ctor)` (which also turns on init),
 ## Running
 
 ```bash
-make list-integration-tests
-make integration-tests-fabric-iou                       # a single target
-make integration-tests                                  # all targets
+make list-integration-tests                             # every target
+make integration-tests-fabric-iou                       # one target
 GINKGO_TEST_OPTS="--focus='IOU Life Cycle'" make integration-tests-fabric-iou
 ```
 
@@ -97,5 +124,5 @@ need `make install-fabricx-tools` (tools in `$FAB_BINS/fabric-x`, kept apart
 because both toolchains ship a `configtxgen`). Installing both is safe, and
 `fsc-*` targets need neither.
 
-Prerequisites (Fabric binaries, Docker images) are covered in
-[`docs/dev/development.md`](../dev/development.md).
+Prerequisites (Fabric binaries, Docker images) and the remaining variants are in
+[`docs/dev/development.md`](../dev/development.md#integration-tests).

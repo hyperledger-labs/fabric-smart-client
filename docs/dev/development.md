@@ -43,6 +43,17 @@ Install the Fabric binaries and Docker images:
 make install-fabric-bins pull-images-fabric
 ```
 
+> [!IMPORTANT]
+> `FABRIC_BINARY_BASE` defaults to `$(PWD)/../fabric`, which assumes you are in your
+> primary checkout. Run this from a worktree under `.claude/worktrees/<name>/` and it
+> resolves to a sibling of the *worktree* — a second Fabric install, in the wrong
+> place, inside the repository, with no warning. From a worktree, either run the target
+> from the primary checkout or pass the base explicitly:
+>
+> ```bash
+> FABRIC_BINARY_BASE=$HOME/fabric make install-fabric-bins
+> ```
+
 Integration tests that deploy chaincode as a container also need the chaincode
 images built once:
 
@@ -99,17 +110,33 @@ Integration tests are powered by the NWO (Network Orchestrator), which programma
 
 ### Code Checks
 
-Run static analysis and linting:
+`make checks` runs everything CI gates on — the linter and `go fix` — across every
+module in the repository:
+
 ```bash
 make checks
-make lint
-make lint-auto-fix
-make lint-fmt
 ```
 
-Use `make lint` to run the configured linters on the changes in your branch.
-Use `make lint-auto-fix` to apply automatic fixes where `golangci-lint` supports them.
-Use `make lint-fmt` to apply the formatter configuration used by CI before pushing a branch.
+| Target               | What it does                                                          |
+|----------------------|-----------------------------------------------------------------------|
+| `make lint`          | `golangci-lint run` in every module                                   |
+| `make lint-auto-fix` | the same, with `--fix` to apply what `golangci-lint` can fix itself   |
+| `make lint-fmt`      | `golangci-lint fmt`, applying the formatter configuration CI enforces  |
+| `make fmt`           | `gofmt -s -w` over the whole tree                                     |
+| `make go-fix`        | reports the modernizations `go fix` suggests, without applying them    |
+| `make go-fix-apply`  | applies those modernizations, in every module                          |
+
+Run `make list-go-modules` to see which modules these targets cover.
+
+> [!NOTE]
+> Checking formatting by path — `gofmt -l platform integration` — also walks gitignored
+> generated files, such as everything an integration run leaves under
+> `integration/**/out/`, so your source looks unformatted when it is not. Check the
+> tracked files instead:
+>
+> ```bash
+> gofmt -l $(git ls-files '*.go')
+> ```
 
 ### Unit Tests
 
@@ -144,15 +171,6 @@ To reproduce the filtered local coverage used in CI:
 make coverage-local
 ```
 
-The CI workflow runs:
-- `make checks`
-- `make lint-fmt`
-- `make unit-tests`
-- `make unit-tests-postgres`
-- `make integration-tests-*`
-
-If you are preparing a pull request that only touches unit-tested code, running `make lint-fmt`, `make checks`, and a targeted `make unit-tests` command is usually the fastest high-signal validation pass before pushing.
-
 ### Integration Tests
 
 List all available integration tests:
@@ -171,6 +189,12 @@ Run a specific integration test (e.g., Fabric IOU test):
 make integration-tests-fabric-iou
 ```
 
+> [!IMPORTANT]
+> `go test` prints nothing for a package that passes, so a ginkgo suite whose filter
+> matched **zero specs** reports `ok ... 9.5s` — indistinguishable from real success.
+> Never take that as evidence that a focused run exercised anything. Add `-v` and read
+> the `Ran N of M Specs` line; `N == 0` means the filter matched nothing.
+
 Enable profiling for deeper analysis:
 ```bash
 export FSCNODE_PROFILER=true
@@ -184,7 +208,48 @@ GOCOVERDIR=covdata make integration-tests
 go tool covdata textfmt -i=covdata -o profile.txt
 ```
 
-## Troubleshooting Test Setup
+### What CI Gates
+
+CI gates every pull request on the following. It drives the linter through
+`golangci-lint-action` and `go fix` through its own workflow rather than through these
+targets, so the right-hand column is the local equivalent, not the literal CI command:
+
+| CI check                     | Local equivalent                  |
+|------------------------------|-----------------------------------|
+| `golangci-lint`, per module  | `make lint`                       |
+| `go fix -diff`               | `make go-fix`                     |
+| `go mod tidy` leaves no diff | `make tidy`                       |
+| unit tests                   | `make unit-tests`                 |
+| PostgreSQL unit tests        | `make unit-tests-postgres`        |
+| integration suites           | `make integration-tests-<target>` |
+
+If your pull request only touches unit-tested code, `make checks` plus a targeted
+`make unit-tests` is usually the fastest high-signal validation pass before pushing.
+Before pushing for review, read [Commit Hygiene](workflow.md#commit-hygiene).
+
+## Troubleshooting
+
+### Lint failures in files you never touched
+
+`golangci-lint` keeps one machine-wide cache — `golangci-lint cache status` prints the
+directory — shared by every checkout of the repository. Working in more than one
+checkout, a second clone or a worktree under `.claude/worktrees/`, can therefore surface
+findings against files outside the tree you are linting. The giveaway is a path that
+leaves your working directory:
+
+```
+../other-worktree/node/start/profile/profile_test.go:119:1: ...
+```
+
+Those findings are stale, not real. Clear the cache and re-run:
+
+```bash
+golangci-lint cache clean
+make checks
+```
+
+`cache clean` can take a couple of minutes. Do this before chasing a `make lint`
+failure you cannot reproduce by reading the code.
 
 ### Missing `FAB_BINS`
 
@@ -237,7 +302,7 @@ ls $(dirname $FAB_BINS)/builders/ccaas/bin
 
 ### PostgreSQL unit tests
 
-The PostgreSQL-specific unit tests expect the container image pulled by `make testing-docker-images`.
+The PostgreSQL-specific unit tests expect the container image pulled by `make pull-images-database`.
 Run that target once before `make unit-tests-postgres` on a new machine.
 
 ### Coverage for a single package

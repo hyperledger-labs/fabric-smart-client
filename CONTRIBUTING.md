@@ -33,9 +33,15 @@ If you don't meet the prerequisites, the bot will show your progress and link to
 
 Once assigned, follow the [Development Guide](docs/dev/development.md) to:
 1. Fork the repository and create a branch
-2. Make your changes
-3. Sign your commits (`-s -S`). See the [Commit Signing Guide](docs/dev/signing.md)
-4. Open a pull request
+2. Make your changes, signing every commit (`-s -S`). See the
+   [Commit Signing Guide](docs/dev/signing.md)
+3. Push the branch whenever you like — opening a **draft** pull request early gets CI
+   running and makes the work visible
+4. Before requesting review, squash the branch into a single commit whose message
+   describes the change, and write a brief, structured PR description. See
+   [Commit Hygiene](docs/dev/workflow.md#commit-hygiene) and
+   [Writing a PR Description](docs/dev/workflow.md#writing-a-pr-description)
+5. Mark the pull request ready for review
 
 ## Submitting an Issue
 

@@ -5,26 +5,30 @@
 - **Unit tests**: `github.com/stretchr/testify/require`.
 - **Integration tests**: Ginkgo v2 + Gomega.
 
+That is the project convention. Some existing unit suites still use Ginkgo/Gomega and
+will be migrated — follow the convention, not the neighbouring file.
+
 ## Running tests
 
-```bash
-make unit-tests            # all unit tests except Postgres (-race -cover)
-make unit-tests-postgres   # Postgres tests (requires Docker)
-make unit-tests-sdk        # SDK wiring tests (TestWiring)
+Scope every run to what you changed:
 
-go test -run TestMyTest ./platform/view/...   # a single unit test
+```bash
+make unit-tests                                        # all unit tests except Postgres
+go test -run TestMyTest ./platform/view/...             # one test
+TEST_PKGS=./platform/common/utils/... make unit-tests   # one package tree
 ```
 
-The full integration suite is slow and needs Fabric binaries + Docker. Run a
-focused target locally and let CI run the rest:
+Never run the whole integration suite to check a change — it is slow and needs Fabric
+binaries plus Docker. Pick one target, and let CI run the rest:
 
 ```bash
 make integration-tests-fabric-iou
 GINKGO_TEST_OPTS="--focus='IOU Life Cycle'" make integration-tests-fabric-iou
 ```
 
-See [integration-tests.md](integration-tests.md) and
-[`docs/dev/development.md`](../dev/development.md).
+[`docs/dev/development.md`](../dev/development.md#running-tests) is the source of truth
+for test commands: the remaining targets, the Postgres and coverage variants, and their
+prerequisites. See also [integration-tests.md](integration-tests.md).
 
 ## Integration test structure
 
@@ -47,10 +51,14 @@ Use `FIt`/`FDescribe` to focus a spec or `XIt` to skip one while iterating —
 never commit them (CI treats a stray focus as a failure). Prefer the
 `GINKGO_TEST_OPTS="--focus=..."` flag for anything you might commit.
 
+Check that a focused run actually ran something. `go test` prints nothing for a passing
+package, so a filter matching **zero specs** reports `ok ... 9.5s`, which reads exactly
+like success. Pass `-v` and read `Ran N of M Specs` before believing it.
+
 ## Mocks and fakes
 
 Mocks are generated with [counterfeiter](https://github.com/maxbrunsfeld/counterfeiter)
-(pinned in `tools/tools.go`). Regenerate with `go generate ./...` after changing a
+(pinned in `tools/tools.go`). Regenerate with `make generate-mocks` after changing a
 mocked interface. See [`docs/dev/mocks.md`](../dev/mocks.md).
 
 ## Shared test helpers
@@ -74,7 +82,7 @@ Do not rely on generic names either way — `platform/fabric/services/state/help
 production code despite the name.
 
 When a file mixes production code with a single test helper —
-`platform/common/services/logging/logger.go` (`NewTestLogger`),
 `platform/common/utils/assert/retry.go` (`EventuallyWithRetry`) — it stays in the
-report, because excluding it would drop shipped code too. Prefer splitting such a
-helper into a `*_test_utils.go` file over leaving it mixed.
+report, because excluding it would drop shipped code too. Prefer splitting such a helper
+out into a `*_test_utils.go` file, as `platform/common/services/logging` does with
+`logging_test_utils.go`.
