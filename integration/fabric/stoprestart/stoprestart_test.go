@@ -17,21 +17,18 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	Describe("Stop and Restart with Fabric With LibP2P", func() {
-		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("stop and restart successfully", s.TestSucceeded)
-	})
+	// websocket only: fsc/stoprestart runs the same initiator/responder restart
+	// scenario under libp2p without paying for a Fabric network.
+	for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket} {
+		Describe("Stop and Restart with Fabric", Label(c), func() {
+			s := NewTestSuite(c, integration.NoReplication)
+			BeforeEach(s.Setup)
+			AfterEach(s.TearDown)
+			It("stop and restart successfully", s.TestSucceeded)
+		})
+	}
 
-	Describe("Stop and Restart with Fabric With Websockets", func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("stop and restart successfully", s.TestSucceeded)
-	})
-
-	Describe("Stop and Restart with Fabric With Replicas many to one", func() {
+	Describe("Stop and Restart with Fabric With Replicas many to one", Label(fsc.WebSocket), func() {
 		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
 			ReplicationFactors: map[string]int{
 				"alice": 4,
@@ -43,7 +40,7 @@ var _ = Describe("EndToEnd", func() {
 		It("stop and restart successfully", s.TestSucceededWithReplicas)
 	})
 
-	Describe("Stop and Restart with Fabric With Replicas many to many", func() {
+	Describe("Stop and Restart with Fabric With Replicas many to many", Label(fsc.WebSocket), func() {
 		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
 			ReplicationFactors: map[string]int{
 				"alice": 4,

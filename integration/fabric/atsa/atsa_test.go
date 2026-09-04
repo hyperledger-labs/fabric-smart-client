@@ -21,21 +21,19 @@ import (
 type node = [2]string
 
 var _ = Describe("EndToEnd", func() {
-	Describe("Asset Transfer Secured Agreement (With Approvers) with LibP2P", func() {
-		s := NewTestSuite(nwofsc.LibP2P, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
-	})
+	// websocket only: this suite's p2p usage goes through the same
+	// platform/fabric/services/state code path that fabric/iou exercises under
+	// libp2p, so a second transport here buys a Fabric bootstrap and no coverage.
+	for _, c := range []nwofsc.P2PCommunicationType{nwofsc.WebSocket} {
+		Describe("Asset Transfer Secured Agreement (With Approvers)", Label(c), func() {
+			s := NewTestSuite(c, integration.NoReplication)
+			BeforeEach(s.Setup)
+			AfterEach(s.TearDown)
+			It("succeeded", s.TestSucceeded)
+		})
+	}
 
-	Describe("Asset Transfer Secured Agreement (With Approvers) with Websockets", func() {
-		s := NewTestSuite(nwofsc.WebSocket, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("succeeded", s.TestSucceeded)
-	})
-
-	Describe("Asset Transfer Secured Agreement (With Approvers) with Websockets with replicas", func() {
+	Describe("Asset Transfer Secured Agreement (With Approvers) with replicas", Label(nwofsc.WebSocket), func() {
 		s := NewTestSuite(
 			nwofsc.WebSocket,
 			&integration.ReplicationOptions{

@@ -17,19 +17,16 @@ import (
 )
 
 var _ = Describe("EndToEnd", func() {
-	Describe("Network-based Signed Ping Pong With LibP2P", func() {
-		s := NewTestSuite(fsc.LibP2P, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("signed exchange succeeds", func() { s.TestSignedExchange("alice") })
-	})
-
-	Describe("Network-based Signed Ping Pong With Websockets", func() {
-		s := NewTestSuite(fsc.WebSocket, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("signed exchange succeeds", func() { s.TestSignedExchange("alice") })
-	})
+	// Both transports: a signed round-trip is cheap to run twice -- this suite
+	// starts no Fabric network.
+	for _, c := range []fsc.P2PCommunicationType{fsc.WebSocket, fsc.LibP2P} {
+		Describe("Network-based Signed Ping Pong", Label(c), func() {
+			s := NewTestSuite(c, integration.NoReplication)
+			BeforeEach(s.Setup)
+			AfterEach(s.TearDown)
+			It("signed exchange succeeds", func() { s.TestSignedExchange("alice") })
+		})
+	}
 })
 
 type TestSuite struct {

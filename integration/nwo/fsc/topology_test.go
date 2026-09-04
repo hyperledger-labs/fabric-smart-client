@@ -74,3 +74,30 @@ func TestTopology_SetLogging(t *testing.T) {
 		})
 	}
 }
+
+func TestNewTopology_DefaultsToWebSocket(t *testing.T) {
+	t.Parallel()
+	// websocket is the primary comm implementation, so a topology that does not
+	// state a transport must get websocket rather than the optional libp2p host.
+	assert.Equal(t, WebSocket, NewTopology().P2PCommunicationType)
+}
+
+func TestPlatform_P2PCommunicationType(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		topology *Topology
+		want     P2PCommunicationType
+	}{
+		{name: "explicit libp2p is honoured", topology: &Topology{P2PCommunicationType: LibP2P}, want: LibP2P},
+		{name: "explicit websocket is honoured", topology: &Topology{P2PCommunicationType: WebSocket}, want: WebSocket},
+		{name: "unset falls back to websocket", topology: &Topology{}, want: WebSocket},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			p := &Platform{Topology: tt.topology}
+			assert.Equal(t, tt.want, p.P2PCommunicationType())
+		})
+	}
+}
