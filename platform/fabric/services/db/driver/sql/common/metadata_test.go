@@ -10,10 +10,8 @@ import (
 	"database/sql"
 	"testing"
 
-	sq "github.com/Masterminds/squirrel"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
 )
 
 func TestMetadata_GetData(t *testing.T) { //nolint:paralleltest
@@ -53,5 +51,5 @@ func TestMetadata_PutData_Conflict(t *testing.T) { //nolint:paralleltest
 }
 
 func mockMetadataStore(db *sql.DB) *common.MetadataStore {
-	return common.NewMetadataStore(db, db, "test_table", &mock.SQLErrorWrapper{}, sq.Dollar)
+	return common.NewMetadataStore(db, db, "test_table", &mock.SQLErrorWrapper{})
 }

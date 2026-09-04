@@ -8,12 +8,12 @@ package pagination
 
 import (
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"strings"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
+	dbdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
 // PropertyName is the name of the field in the struct that is returned from the database
@@ -26,9 +26,9 @@ func (p PropertyName[V]) ExtractField(v any) V {
 }
 
 type keyset[I comparable, V any] struct {
-	Offset    int              `json:"offset"`
-	PageSize  int              `json:"page_size"`
-	SQLIDName common.FieldName `json:"sqlid_name"`
+	Offset    int                `json:"offset"`
+	PageSize  int                `json:"page_size"`
+	SQLIDName dbdriver.FieldName `json:"sqlid_name"`
 	idGetter  func(V) I
 	// the first and last id values in the page
 	FirstID I `json:"first_id"`
@@ -36,9 +36,9 @@ type keyset[I comparable, V any] struct {
 }
 
 // KeysetWithField creates a keyset pagination where the id has field name idFieldName
-func KeysetWithField[I comparable](offset, pageSize int, sqlIdName common.FieldName, idFieldName PropertyName[I]) (*keyset[I, any], error) {
+func KeysetWithField[I comparable](offset, pageSize int, sqlIdName dbdriver.FieldName, idFieldName PropertyName[I]) (*keyset[I, any], error) {
 	if strings.ToUpper(string(idFieldName[0])) != string(idFieldName[0]) {
-		return nil, fmt.Errorf("must use exported field")
+		return nil, errors.New("must use exported field")
 	}
 	return Keyset(offset, pageSize, sqlIdName, idFieldName.ExtractField)
 }
@@ -48,7 +48,7 @@ type id[I comparable] interface {
 }
 
 // KeysetWithId creates a keyset pagination where the result object implements id[I]
-func KeysetWithId[I comparable, V id[I]](offset, pageSize int, sqlIdName common.FieldName) (*keyset[I, V], error) {
+func KeysetWithId[I comparable, V id[I]](offset, pageSize int, sqlIdName dbdriver.FieldName) (*keyset[I, V], error) {
 	return Keyset[I, V](offset, pageSize, sqlIdName, func(v V) I { return v.Id() })
 }
 
@@ -67,7 +67,7 @@ func KeysetFromRaw[I comparable](raw []byte, idFieldName PropertyName[I]) (*keys
 		return nil, err
 	}
 	if strings.ToUpper(string(idFieldName[0])) != string(idFieldName[0]) {
-		return nil, fmt.Errorf("must use exported field")
+		return nil, errors.New("must use exported field")
 	}
 	k2, err := Keyset(k.Offset, k.PageSize, k.SQLIDName, idFieldName.ExtractField)
 	if err != nil {
@@ -78,13 +78,21 @@ func KeysetFromRaw[I comparable](raw []byte, idFieldName PropertyName[I]) (*keys
 	return k2, nil
 }
 
-// Keyset creates a keyset pagination
-func Keyset[I comparable, V any](offset, pageSize int, sqlIdName common.FieldName, idGetter func(V) I) (*keyset[I, V], error) {
+// Keyset creates a keyset pagination.
+//
+// sqlIdName has to be a plain column identifier: it is written into ORDER BY and
+// into the cursor comparison verbatim, so an empty one would silently drop the
+// ORDER BY and page through rows in arbitrary order. Every other constructor in
+// this package, [KeysetFromRaw] included, goes through here.
+func Keyset[I comparable, V any](offset, pageSize int, sqlIdName dbdriver.FieldName, idGetter func(V) I) (*keyset[I, V], error) {
 	if offset < 0 {
-		return nil, fmt.Errorf("offset must be greater than zero. Offset: %d", offset)
+		return nil, errors.Errorf("offset must be greater than zero. Offset: %d", offset)
 	}
 	if pageSize < 0 {
-		return nil, fmt.Errorf("page size must be greater than zero. pageSize: %d", pageSize)
+		return nil, errors.Errorf("page size must be greater than zero. pageSize: %d", pageSize)
+	}
+	if err := sqlIdName.Validate(); err != nil {
+		return nil, errors.WithMessage(err, "invalid keyset id column")
 	}
 	return &keyset[I, V]{
 		Offset:    offset,
@@ -114,7 +122,7 @@ func (p *keyset[I, V]) nilElement() I {
 
 func (p *keyset[I, V]) GoToOffset(offset int) (driver.Pagination, error) {
 	if offset < 0 {
-		return nil, fmt.Errorf("offset must be greater than zero. pageSize: %d", p.PageSize)
+		return nil, errors.Errorf("offset must be greater than zero. pageSize: %d", p.PageSize)
 	}
 	if offset == p.Offset+p.PageSize {
 		return &keyset[I, V]{

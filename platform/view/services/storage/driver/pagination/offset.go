@@ -8,8 +8,8 @@ package pagination
 
 import (
 	"encoding/json"
-	"fmt"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
@@ -21,10 +21,10 @@ type offset struct {
 // Offset creates a pagination using OFFSET
 func Offset(os, pageSize int) (*offset, error) {
 	if os < 0 {
-		return nil, fmt.Errorf("offset shoud be grater than zero. Offset: %d", os)
+		return nil, errors.Errorf("offset should be greater than zero. Offset: %d", os)
 	}
 	if pageSize < 0 {
-		return nil, fmt.Errorf("page size shoud be grater than zero. pageSize: %d", pageSize)
+		return nil, errors.Errorf("page size should be greater than zero. pageSize: %d", pageSize)
 	}
 	return &offset{Offset: os, PageSize: pageSize}, nil
 }
@@ -44,13 +44,15 @@ func (k *offset) Serialize() ([]byte, error) {
 	return ret, err
 }
 
+// OffsetFromRaw deserializes a cursor produced by Serialize. It returns an
+// error for a malformed cursor, or one whose offset or page size is negative.
 func OffsetFromRaw(raw []byte) (*offset, error) {
 	var k offset
 	err := json.Unmarshal(raw, &k)
 	if err != nil {
 		return nil, err
 	}
-	return &k, nil
+	return Offset(k.Offset, k.PageSize)
 }
 
 func (p *offset) GoToPage(pageNum int) (driver.Pagination, error) {

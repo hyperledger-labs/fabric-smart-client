@@ -10,10 +10,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 
-	sq "github.com/Masterminds/squirrel"
-
+	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
@@ -22,13 +20,15 @@ import (
 
 const BindingStoreMaxEphemerals = 1000
 
-func NewBindingStore(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *BindingStore {
+// NewBindingStore returns an identity binding store over table, reading through
+// readDB and writing through writeDB. Its queries use $N placeholders, which
+// both SQLite and Postgres accept.
+func NewBindingStore(readDB *sql.DB, writeDB WriteDB, table string, errorWrapper driver.SQLErrorWrapper) *BindingStore {
 	return &BindingStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
-		sb:           sq.StatementBuilder.PlaceholderFormat(ph),
 	}
 }
 
@@ -37,17 +37,13 @@ type BindingStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
-	sb           sq.StatementBuilderType // squirrel builder, internal only
 }
 
 func (db *BindingStore) GetLongTerm(ctx context.Context, ephemeral view.Identity) (view.Identity, error) {
-	query, params, err := db.sb.Select("long_term_id").
-		From(db.table).
-		Where(sq.Eq{"ephemeral_hash": ephemeral.UniqueID()}).
-		ToSql()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build query")
-	}
+	query, params := sqlbuild.New().
+		WriteString("SELECT long_term_id FROM " + db.table).
+		WriteWhere(sqlbuild.Eq("ephemeral_hash", ephemeral.UniqueID())).
+		Build()
 
 	logger.Debug(query, params)
 	result, err := QueryUniqueContext[view.Identity](ctx, db.readDB, query, params...)
@@ -59,13 +55,10 @@ func (db *BindingStore) GetLongTerm(ctx context.Context, ephemeral view.Identity
 }
 
 func (db *BindingStore) HaveSameBinding(ctx context.Context, this, that view.Identity) (bool, error) {
-	query, params, err := db.sb.Select("long_term_id").
-		From(db.table).
-		Where(sq.Eq{"ephemeral_hash": []string{this.UniqueID(), that.UniqueID()}}).
-		ToSql()
-	if err != nil {
-		return false, errors.Wrapf(err, "failed to build query")
-	}
+	query, params := sqlbuild.New().
+		WriteString("SELECT long_term_id FROM " + db.table).
+		WriteWhere(sqlbuild.In("ephemeral_hash", this.UniqueID(), that.UniqueID())).
+		Build()
 
 	logger.Debug(query, params)
 	rows, err := db.readDB.QueryContext(ctx, query, params...)
@@ -120,25 +113,18 @@ func (db *BindingStore) PutBindings(ctx context.Context, longTerm view.Identity,
 		logger.DebugfContext(ctx, "Id [%s] is an unregistered long term ID", longTerm.UniqueID())
 	}
 
-	// Build single INSERT with multiple VALUES
-	// prepare query placeholder and arguments
-	placeholders := make([]string, len(ephemerals)+1)
-	args := make([]any, 0, (len(ephemerals)+1)*2)
-
-	// first item it the longTerm itself
-	i := 0
-	placeholders[i] = fmt.Sprintf("($%d,$%d)", i*2+1, i*2+2)
-	args = append(args, longTerm.UniqueID(), longTerm)
-
-	// next we go through our ephemerals
+	// One INSERT with a row per identity, the long-term id bound to itself first.
+	rows := make([]sqlbuild.Tuple, 0, len(ephemerals)+1)
+	rows = append(rows, sqlbuild.Tuple{longTerm.UniqueID(), longTerm})
 	for _, eph := range ephemerals {
-		i++
-		placeholders[i] = fmt.Sprintf("($%d,$%d)", i*2+1, i*2+2)
-		args = append(args, eph.UniqueID(), longTerm)
+		rows = append(rows, sqlbuild.Tuple{eph.UniqueID(), longTerm})
 	}
 
-	query := fmt.Sprintf(`INSERT INTO %s (ephemeral_hash, long_term_id) VALUES %s ON CONFLICT DO NOTHING;`,
-		db.table, strings.Join(placeholders, ","))
+	query, args := sqlbuild.New().
+		WriteString("INSERT INTO " + db.table + " (ephemeral_hash, long_term_id) VALUES ").
+		WriteTuples(rows).
+		WriteString(" ON CONFLICT DO NOTHING;").
+		Build()
 
 	logger.DebugfContext(ctx, "executing bulk insert: %s", query)
 

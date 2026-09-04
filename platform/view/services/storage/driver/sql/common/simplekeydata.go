@@ -11,19 +11,20 @@ import (
 	"database/sql"
 	"fmt"
 
-	sq "github.com/Masterminds/squirrel"
-
+	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 )
 
-func NewSimpleKeyDataStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper, ph sq.PlaceholderFormat) *SimpleKeyDataStore {
+// NewSimpleKeyDataStore returns a simple key-data store over table, reading
+// through readDB and writing through writeDB. Its queries use $N placeholders,
+// which both SQLite and Postgres accept.
+func NewSimpleKeyDataStore(writeDB WriteDB, readDB *sql.DB, table string, errorWrapper driver.SQLErrorWrapper) *SimpleKeyDataStore {
 	return &SimpleKeyDataStore{
 		table:        table,
 		errorWrapper: errorWrapper,
 		readDB:       readDB,
 		writeDB:      writeDB,
-		sb:           sq.StatementBuilder.PlaceholderFormat(ph),
 	}
 }
 
@@ -32,14 +33,13 @@ type SimpleKeyDataStore struct {
 	errorWrapper driver.SQLErrorWrapper
 	readDB       *sql.DB
 	writeDB      WriteDB
-	sb           sq.StatementBuilderType
 }
 
 func (db *SimpleKeyDataStore) GetData(ctx context.Context, key string) ([]byte, error) {
-	query, params, err := db.sb.Select("data").From(db.table).Where(sq.Eq{"key": key}).ToSql()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build query")
-	}
+	query, params := sqlbuild.New().
+		WriteString("SELECT data FROM " + db.table).
+		WriteWhere(sqlbuild.Eq("key", key)).
+		Build()
 	logger.Debug(query)
 	return QueryUniqueContext[[]byte](ctx, db.readDB, query, params...)
 }
@@ -50,14 +50,11 @@ func (db *SimpleKeyDataStore) ExistData(ctx context.Context, key string) (bool, 
 }
 
 func (db *SimpleKeyDataStore) PutData(ctx context.Context, key string, data []byte) error {
-	query, params, err := db.sb.Insert(db.table).
-		Columns("key", "data").
-		Values(key, data).
-		Suffix("ON CONFLICT DO NOTHING").
-		ToSql()
-	if err != nil {
-		return errors.Wrapf(err, "failed to build query")
-	}
+	query, params := sqlbuild.New().
+		WriteString("INSERT INTO " + db.table + " (key,data) VALUES ").
+		WriteTuples([]sqlbuild.Tuple{{key, data}}).
+		WriteString(" ON CONFLICT DO NOTHING").
+		Build()
 	logger.Debug(query, string(data))
 	result, err := db.writeDB.ExecContext(ctx, query, params...)
 	if err != nil {

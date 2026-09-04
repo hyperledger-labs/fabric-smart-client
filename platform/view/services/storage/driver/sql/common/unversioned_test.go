@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	sq "github.com/Masterminds/squirrel"
 	. "github.com/onsi/gomega"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
@@ -237,5 +236,5 @@ func TestClose(t *testing.T) { //nolint:paralleltest
 }
 
 func mockKeyValueStore(write, read *sql.DB) *common2.KeyValueStore {
-	return common2.NewKeyValueStore(write, read, "kv_table", &dummyErrorWrapper{}, sq.Dollar)
+	return common2.NewKeyValueStore(write, read, "kv_table", &dummyErrorWrapper{})
 }

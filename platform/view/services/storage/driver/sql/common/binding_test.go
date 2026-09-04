@@ -9,14 +9,14 @@ package common_test
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	sq "github.com/Masterminds/squirrel"
 	. "github.com/onsi/gomega"
 
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/mock"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common/mock"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -122,6 +122,55 @@ func TestHaveSameBinding_MissingEntries(t *testing.T) { //nolint:paralleltest
 	Expect(err.Error()).To(ContainSubstring("1 entries found instead of 2"))
 }
 
+// PutBindings resolves the canonical long-term id first, then writes one
+// multi-row INSERT whose first tuple is the long-term id bound to itself.
+func TestPutBindings(t *testing.T) { //nolint:paralleltest
+	RegisterTestingT(t)
+
+	expectPutBindings(t,
+		"INSERT INTO bindings (ephemeral_hash, long_term_id) "+
+			"VALUES ($1,$2),($3,$4) ON CONFLICT DO NOTHING;",
+		view.Identity("eph1"))
+}
+
+func TestPutBindings_SeveralEphemerals(t *testing.T) { //nolint:paralleltest
+	RegisterTestingT(t)
+
+	expectPutBindings(t,
+		"INSERT INTO bindings (ephemeral_hash, long_term_id) "+
+			"VALUES ($1,$2),($3,$4),($5,$6) ON CONFLICT DO NOTHING;",
+		view.Identity("eph1"), view.Identity("eph2"))
+}
+
+// expectPutBindings pins the statement PutBindings emits for ephemerals, along
+// with the arguments each placeholder stands for.
+func expectPutBindings(t *testing.T, query string, ephemerals ...view.Identity) {
+	t.Helper()
+
+	db, mockDB, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	Expect(err).ToNot(HaveOccurred())
+
+	longTerm := view.Identity("long_term")
+
+	// the canonical-id lookup returns no row, so longTerm is used as given
+	mockDB.
+		ExpectQuery("SELECT long_term_id FROM bindings WHERE ephemeral_hash = $1").
+		WithArgs(longTerm.UniqueID()).
+		WillReturnRows(mockDB.NewRows([]string{"long_term_id"}))
+
+	args := []driver.Value{longTerm.UniqueID(), []byte(longTerm)}
+	for _, eph := range ephemerals {
+		args = append(args, eph.UniqueID(), []byte(longTerm))
+	}
+	mockDB.
+		ExpectExec(query).
+		WithArgs(args...).
+		WillReturnResult(sqlmock.NewResult(1, int64(len(ephemerals)+1)))
+
+	Expect(mockBindingStore(db).PutBindings(context.Background(), longTerm, ephemerals...)).To(Succeed())
+	Expect(mockDB.ExpectationsWereMet()).To(Succeed())
+}
+
 func mockBindingStore(db *sql.DB) *common2.BindingStore {
-	return common2.NewBindingStore(db, db, "bindings", &mock.SQLErrorWrapper{}, sq.Dollar)
+	return common2.NewBindingStore(db, db, "bindings", &mock.SQLErrorWrapper{})
 }

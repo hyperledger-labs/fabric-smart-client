@@ -15,17 +15,15 @@ import (
 	"fmt"
 	"sync"
 
-	sq "github.com/Masterminds/squirrel"
-
+	"github.com/hyperledger-labs/fabric-smart-client/internal/storage/sqlbuild"
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils/collections"
 	driver2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/pagination"
 	sql2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
-	common4 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/common"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/query/pagination"
 )
 
 var logger = logging.MustGetLogger()
@@ -36,20 +34,18 @@ type VaultTables struct {
 }
 
 type Sanitizer interface {
-	EncodeAll(params []common4.Param) ([]any, error)
+	EncodeAll(params []any) ([]any, error)
 	Encode(string) (string, error)
 	Decode(string) (string, error)
 }
 
-// NewVaultStore creates a VaultStore. ph is the squirrel PlaceholderFormat (sq.Dollar or sq.Question)
-// used for all read and write queries.
-func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, ph sq.PlaceholderFormat, sanitizer sql2.Sanitizer, il common3.IsolationLevelMapper) *VaultStore {
-	sb := sq.StatementBuilder.PlaceholderFormat(ph)
+// NewVaultStore creates a VaultStore. All read and write queries use $N
+// placeholders, which both SQLite and Postgres accept.
+func NewVaultStore(writeDB common3.WriteDB, readDB *sql.DB, tables VaultTables, errorWrapper driver2.SQLErrorWrapper, sanitizer sql2.Sanitizer, il common3.IsolationLevelMapper) *VaultStore {
 	vaultSanitizer := common3.NewSanitizer(sanitizer)
 	return &VaultStore{
 		vaultReader: &vaultReader{
 			readDB:    readDB,
-			sb:        sb,
 			sanitizer: vaultSanitizer,
 			tables:    tables,
 		},
@@ -77,14 +73,11 @@ func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID
 	logger.DebugfContext(ctx, "acquire tx id lock for [%s]", txID)
 
 	// Ignore conflicts in case replicas create the same entry when receiving the envelope
-	query, params, err := db.sb.Insert(db.tables.StatusTable).
-		Columns("tx_id", "code").
-		Values(txID, driver.Busy).
-		Suffix("ON CONFLICT DO NOTHING").
-		ToSql()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build query")
-	}
+	query, params := sqlbuild.New().
+		WriteString("INSERT INTO " + db.tables.StatusTable + " (tx_id,code) VALUES ").
+		WriteTuples([]sqlbuild.Tuple{{txID, driver.Busy}}).
+		WriteString(" ON CONFLICT DO NOTHING").
+		Build()
 	logger.Debug(query, params)
 
 	if _, err := db.writeDB.ExecContext(ctx, query, params...); err != nil {
@@ -110,7 +103,6 @@ func (db *VaultStore) newTxLockVaultReader(ctx context.Context, isolationLevel d
 	}
 	return &vaultReader{
 		readDB:    tx,
-		sb:        db.sb,
 		sanitizer: db.sanitizer,
 		tables:    db.tables,
 	}, tx.Commit, nil
@@ -130,7 +122,6 @@ func (db *VaultStore) newGlobalLockVaultReader() (*vaultReader, releaseFunc, err
 	}
 	return &vaultReader{
 		readDB:    db.readDB,
-		sb:        db.sb,
 		sanitizer: db.sanitizer,
 		tables:    db.tables,
 	}, release, nil
@@ -140,18 +131,19 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 	db.GlobalLock.RLock()
 	defer db.GlobalLock.RUnlock()
 
-	ib := db.sb.Insert(db.tables.StatusTable).
-		Columns("tx_id", "code", "message")
-	for _, txID := range txIDs {
-		ib = ib.Values(txID, code, message)
+	if len(txIDs) == 0 {
+		return errors.Wrapf(sqlbuild.ErrNoValues, "failed to build query")
+	}
+	rows := make([]sqlbuild.Tuple, len(txIDs))
+	for i, txID := range txIDs {
+		rows[i] = sqlbuild.Tuple{txID, code, message}
 	}
 
-	query, params, err := ib.
-		Suffix("ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code, message = EXCLUDED.message").
-		ToSql()
-	if err != nil {
-		return errors.Wrapf(err, "failed to build query")
-	}
+	query, params := sqlbuild.New().
+		WriteString("INSERT INTO " + db.tables.StatusTable + " (tx_id,code,message) VALUES ").
+		WriteTuples(rows).
+		WriteString(" ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code, message = EXCLUDED.message").
+		Build()
 
 	logger.Debug(query, params)
 
@@ -163,18 +155,23 @@ func (db *VaultStore) SetStatuses(ctx context.Context, code driver.TxStatusCode,
 
 // SetStatusesBusy builds an INSERT ... ON CONFLICT DO UPDATE statement that marks all
 // transactions in txIDs as Busy in the status table. It returns the SQL query string
-// and the corresponding argument slice ready for execution, or an error if the query
-// cannot be built.
+// and the corresponding argument slice ready for execution, or ErrNoValues if txIDs
+// is empty.
 func (db *VaultStore) SetStatusesBusy(txIDs []driver.TxID) (string, []any, error) {
-	ib := db.sb.Insert(db.tables.StatusTable).
-		Columns("tx_id", "code")
-	for _, txID := range txIDs {
-		ib = ib.Values(txID, driver.Busy)
+	if len(txIDs) == 0 {
+		return "", nil, sqlbuild.ErrNoValues
+	}
+	rows := make([]sqlbuild.Tuple, len(txIDs))
+	for i, txID := range txIDs {
+		rows[i] = sqlbuild.Tuple{txID, driver.Busy}
 	}
 
-	return ib.
-		Suffix("ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code").
-		ToSql()
+	query, params := sqlbuild.New().
+		WriteString("INSERT INTO " + db.tables.StatusTable + " (tx_id,code) VALUES ").
+		WriteTuples(rows).
+		WriteString(" ON CONFLICT (tx_id) DO UPDATE SET code = EXCLUDED.code").
+		Build()
+	return query, params, nil
 }
 
 func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaWrites) (string, []any, error) {
@@ -182,25 +179,29 @@ func (db *VaultStore) UpsertStates(writes driver.Writes, metaWrites driver.MetaW
 	if err != nil {
 		return "", nil, err
 	}
-	ib := db.sb.Insert(db.tables.StateTable).
-		Columns("ns", "pkey", "val", "kversion", "metadata")
-	for _, s := range states {
-		ib = ib.Values(s...)
+	if len(states) == 0 {
+		return "", nil, sqlbuild.ErrNoValues
 	}
-	return ib.
-		Suffix("ON CONFLICT (ns,pkey) DO UPDATE SET val = EXCLUDED.val, kversion = EXCLUDED.kversion, metadata = EXCLUDED.metadata").
-		ToSql()
+
+	query, params := sqlbuild.New().
+		WriteString("INSERT INTO " + db.tables.StateTable + " (ns,pkey,val,kversion,metadata) VALUES ").
+		WriteTuples(states).
+		WriteString(" ON CONFLICT (ns,pkey) DO UPDATE SET val = EXCLUDED.val, kversion = EXCLUDED.kversion, metadata = EXCLUDED.metadata").
+		Build()
+	return query, params, nil
 }
 
 func (db *VaultStore) SetStatusesValid(txIDs []driver.TxID) (string, []any, error) {
-	return db.sb.Update(db.tables.StatusTable).
-		Set("code", driver.Valid).
-		Where(sq.Eq{"tx_id": txIDs}).
-		ToSql()
+	query, params := sqlbuild.New().
+		WriteString("UPDATE " + db.tables.StatusTable + " SET code = ").
+		WriteParam(driver.Valid).
+		WriteWhere(sqlbuild.In("tx_id", txIDs...)).
+		Build()
+	return query, params, nil
 }
 
-func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.MetaWrites) ([]common4.Tuple, error) {
-	states := make([]common4.Tuple, 0, len(writes))
+func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.MetaWrites) ([]sqlbuild.Tuple, error) {
+	states := make([]sqlbuild.Tuple, 0, len(writes))
 	for ns, write := range writes {
 		metaWrite, ok := metaWrites[ns]
 		if !ok {
@@ -233,7 +234,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 			if err != nil {
 				return nil, err
 			}
-			states = append(states, common4.Tuple{ns, pkey, val.Raw, val.Version, metadata})
+			states = append(states, sqlbuild.Tuple{ns, pkey, val.Raw, val.Version, metadata})
 		}
 	}
 
@@ -259,7 +260,7 @@ func (db *VaultStore) convertStateRows(writes driver.Writes, metaWrites driver.M
 			if err != nil {
 				return nil, err
 			}
-			states = append(states, common4.Tuple{ns, pkey, []byte{}, metaVal.Version, metadata})
+			states = append(states, sqlbuild.Tuple{ns, pkey, []byte{}, metaVal.Version, metadata})
 
 		}
 	}
@@ -359,10 +360,9 @@ func (db *txVaultReader) Done() error {
 	return db.release()
 }
 
-// vaultReader handles all read queries using squirrel for SELECT statements.
+// vaultReader handles all read queries.
 type vaultReader struct {
 	readDB    dbReader
-	sb        sq.StatementBuilderType
 	sanitizer Sanitizer
 	tables    VaultTables
 }
@@ -376,40 +376,38 @@ func (db *vaultReader) GetState(ctx context.Context, namespace driver.Namespace,
 }
 
 func (db *vaultReader) GetStates(ctx context.Context, namespace driver.Namespace, keys ...driver.PKey) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, sq.And{sq.Eq{"ns": namespace}, sq.Eq{"pkey": keys}})
+	return db.queryState(ctx, sqlbuild.And(sqlbuild.Eq("ns", namespace), sqlbuild.In("pkey", keys...)))
 }
 
 func (db *vaultReader) GetStateRange(ctx context.Context, namespace driver.Namespace, startKey, endKey driver.PKey) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, sq.And{sq.Eq{"ns": namespace}, betweenStrings("pkey", startKey, endKey)})
+	return db.queryState(ctx, sqlbuild.And(sqlbuild.Eq("ns", namespace), betweenStrings("pkey", startKey, endKey)))
 }
 
 func (db *vaultReader) GetAllStates(ctx context.Context, namespace driver.Namespace) (driver.TxStateIterator, error) {
-	return db.queryState(ctx, sq.Eq{"ns": namespace})
+	return db.queryState(ctx, sqlbuild.Eq("ns", namespace))
 }
 
-// betweenStrings returns a squirrel condition matching rows where col falls
-// in the half-open range [start, end). Empty start or end omits that bound.
-func betweenStrings(col, start, end string) sq.Sqlizer {
-	var parts sq.And
+// betweenStrings returns a condition matching rows where col falls in the
+// half-open range [start, end). Empty start or end omits that bound; with both
+// empty it renders the always-true (1=1), so every row matches.
+func betweenStrings(col, start, end string) sqlbuild.Condition {
+	var parts []sqlbuild.Condition
 	if start != "" {
-		parts = append(parts, sq.GtOrEq{col: start})
+		parts = append(parts, sqlbuild.Gte(col, start))
 	}
 	if end != "" {
-		parts = append(parts, sq.Lt{col: end})
+		parts = append(parts, sqlbuild.Lt(col, end))
 	}
-	return parts
+	return sqlbuild.And(parts...)
 }
 
 // queryState runs a SELECT on the state table filtered by where and returns
 // an iterator over the matching rows.
-func (db *vaultReader) queryState(ctx context.Context, where sq.Sqlizer) (driver.TxStateIterator, error) {
-	query, params, err := db.sb.Select("pkey", "kversion", "val").
-		From(db.tables.StateTable).
-		Where(where).
-		ToSql()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build query")
-	}
+func (db *vaultReader) queryState(ctx context.Context, where sqlbuild.Condition) (driver.TxStateIterator, error) {
+	query, params := sqlbuild.New().
+		WriteString("SELECT pkey, kversion, val FROM " + db.tables.StateTable).
+		WriteWhere(where).
+		Build()
 	encodedParams, err := db.sanitizer.EncodeAll(params)
 	if err != nil {
 		return nil, err
@@ -439,13 +437,10 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 		return nil, nil, err
 	}
 
-	query, params, err := db.sb.Select("metadata", "kversion").
-		From(db.tables.StateTable).
-		Where(sq.And{sq.Eq{"ns": namespace}, sq.Eq{"pkey": key}}).
-		ToSql()
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to build query")
-	}
+	query, params := sqlbuild.New().
+		WriteString("SELECT metadata, kversion FROM " + db.tables.StateTable).
+		WriteWhere(sqlbuild.And(sqlbuild.Eq("ns", namespace), sqlbuild.Eq("pkey", key))).
+		Build()
 	logger.Debug(query, params)
 
 	row := db.readDB.QueryRowContext(ctx, query, params...)
@@ -468,9 +463,11 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 
 func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
 	// Select the row with the highest pos that is not Busy
-	it, err := db.queryStatus(ctx,
-		sq.Expr(fmt.Sprintf("pos=(SELECT max(pos) FROM %s WHERE code!=?)", db.tables.StatusTable), driver.Busy),
-		pagination.None())
+	it, err := db.queryStatus(ctx, sqlbuild.CondFunc(func(b *sqlbuild.Builder) {
+		b.WriteString("pos=(SELECT max(pos) FROM " + db.tables.StatusTable + " WHERE code!=").
+			WriteParam(driver.Busy).
+			WriteString(")")
+	}), pagination.None())
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +475,7 @@ func (db *vaultReader) GetLast(ctx context.Context) (*driver.TxStatus, error) {
 }
 
 func (db *vaultReader) GetTxStatus(ctx context.Context, txID driver.TxID) (*driver.TxStatus, error) {
-	it, err := db.queryStatus(ctx, sq.Eq{"tx_id": txID}, pagination.None())
+	it, err := db.queryStatus(ctx, sqlbuild.Eq("tx_id", txID), pagination.None())
 	if err != nil {
 		return nil, err
 	}
@@ -489,7 +486,7 @@ func (db *vaultReader) GetTxStatuses(ctx context.Context, txIDs ...driver.TxID) 
 	if len(txIDs) == 0 {
 		return collections.NewEmptyIterator[*driver.TxStatus](), nil
 	}
-	return db.queryStatus(ctx, sq.Eq{"tx_id": txIDs}, pagination.None())
+	return db.queryStatus(ctx, sqlbuild.In("tx_id", txIDs...), pagination.None())
 }
 
 func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
@@ -506,17 +503,13 @@ func (db *vaultReader) GetAllTxStatuses(ctx context.Context, p driver.Pagination
 
 // queryStatus runs a SELECT on the status table filtered by the optional
 // where condition, applies pagination, and returns an iterator over the results.
-func (db *vaultReader) queryStatus(ctx context.Context, where sq.Sqlizer, p driver.Pagination) (driver.TxStatusIterator, error) {
-	sb := db.sb.Select("tx_id", "code", "message").From(db.tables.StatusTable)
-	if where != nil {
-		sb = sb.Where(where)
-	}
-	sb = pagination.ApplyToSquirrel(p, sb)
-
-	query, params, err := sb.ToSql()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to build query")
-	}
+func (db *vaultReader) queryStatus(ctx context.Context, where sqlbuild.Condition, p driver.Pagination) (driver.TxStatusIterator, error) {
+	pag := pagination.Paging(p)
+	query, params := sqlbuild.New().
+		WriteString("SELECT tx_id, code, message FROM "+db.tables.StatusTable).
+		WriteWhere(where, pag.Where).
+		WritePaging(pag).
+		Build()
 	logger.Debug(query, params)
 
 	rows, err := db.readDB.QueryContext(ctx, query, params...)

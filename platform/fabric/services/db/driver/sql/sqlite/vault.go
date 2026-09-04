@@ -11,8 +11,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	sq "github.com/Masterminds/squirrel"
-
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
@@ -38,7 +36,7 @@ func NewVaultStore(dbs *common3.RWDB, tables common.TableNames) (*VaultStore, er
 
 func newVaultStore(readDB *sql.DB, writeDB common5.WriteDB, tables common.VaultTables) *VaultStore {
 	return &VaultStore{
-		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite2.ErrorMapper{}, sq.Question, sqlite2.NewSanitizer(), sqlite2.IsolationLevels),
+		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite2.ErrorMapper{}, sqlite2.NewSanitizer(), sqlite2.IsolationLevels),
 		tables:     tables,
 		writeDB:    writeDB,
 	}

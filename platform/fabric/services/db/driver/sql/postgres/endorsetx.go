@@ -9,8 +9,6 @@ package postgres
 import (
 	"database/sql"
 
-	sq "github.com/Masterminds/squirrel"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/services/db/driver/sql/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	postgres2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/postgres"
@@ -25,5 +23,5 @@ func NewEndorseTxStore(dbs *common2.RWDB, tables common.TableNames) (*EndorseTxS
 }
 
 func newEndorseTxStore(readDB, writeDB *sql.DB, table string) *EndorseTxStore {
-	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(readDB, writeDB, table, &postgres2.ErrorMapper{}, sq.Dollar)}
+	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(readDB, writeDB, table, &postgres2.ErrorMapper{})}
 }

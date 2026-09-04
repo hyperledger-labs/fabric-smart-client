@@ -9,8 +9,6 @@ package sqlite
 import (
 	"database/sql"
 
-	sq "github.com/Masterminds/squirrel"
-
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/common"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
@@ -30,7 +28,7 @@ func NewBindingStore(dbs *common3.RWDB, tables common2.TableNames) (*BindingStor
 func newBindingStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *BindingStore {
 	errorWrapper := &ErrorMapper{}
 	return &BindingStore{
-		BindingStore: common2.NewBindingStore(readDB, writeDB, table, errorWrapper, sq.Question),
+		BindingStore: common2.NewBindingStore(readDB, writeDB, table, errorWrapper),
 		table:        table,
 		writeDB:      writeDB,
 		errorWrapper: errorWrapper,
