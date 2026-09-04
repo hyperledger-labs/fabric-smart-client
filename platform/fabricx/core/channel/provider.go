@@ -107,7 +107,12 @@ func (p *provider) NewChannel(nw fdriver.FabricNetworkService, channelName strin
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating listener manager for channel [%s]", channelName)
 	}
-	finalityService := &finalityServiceAdapter{manager: listenerManager}
+	// The committer's notification stream reports each transaction once, so the manager
+	// on its own cannot answer for one it has already reported. The vault resolves status
+	// through the query service; see finality.ResolvingListenerManager and issue #1714.
+	finalityService := &finalityServiceAdapter{
+		manager: finality.NewResolvingListenerManager(listenerManager, vault),
+	}
 
 	c := &generic.Channel{
 		ChannelName:              channelName,

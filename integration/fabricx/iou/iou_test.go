@@ -73,6 +73,15 @@ func (s *TestSuite) TestSucceeded() {
 
 	CheckState(s.II, "borrower", iouState, 10)
 	CheckState(s.II, "lender", iouState, 10)
+
+	// approver1, not approver2: the iou namespace policy is AND ('Org1MSP.member') and
+	// fabric-x checks it against the transaction's own signature set, so an update
+	// endorsed by borrower (Org2), lender (Org3) and approver2 (Org2) is rejected
+	// ABORTED_SIGNATURE_INVALID. The create-with-approver2 assertion above documents this.
+	By("updating the iou")
+	UpdateIOU(s.II, iouState, 5, "approver1")
+	CheckState(s.II, "borrower", iouState, 5)
+	CheckState(s.II, "lender", iouState, 5)
 }
 
 func CheckNamespaceExists(ii *integration.Infrastructure, name string, version int) {
