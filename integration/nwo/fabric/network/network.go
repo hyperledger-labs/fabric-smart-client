@@ -80,6 +80,14 @@ type Network struct {
 	Templates         *topology.Templates
 	Resolvers         []*Resolver
 
+	// BinSubdir is the subdirectory of $FAB_BINS the network's binaries are
+	// looked up in. Empty for fabric, whose distribution puts them directly in
+	// $FAB_BINS; the fabricx platform sets it so that the fabric-x tools do not
+	// have to overwrite the fabric ones of the same name. It is not a fallback:
+	// a network declaring a subdirectory never reads the other toolchain's
+	// binaries.
+	BinSubdir string
+
 	Extensions      []Extension
 	PackagerFactory PackagerFactory
 

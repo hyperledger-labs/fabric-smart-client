@@ -19,6 +19,13 @@ import (
 const (
 	FabricBinsPathEnvKey = "FAB_BINS"
 	fxconfigCMD          = "fxconfig"
+
+	// BinSubdir is the subdirectory of $FAB_BINS holding the fabric-x tools.
+	// They are kept apart from the fabric ones because the two toolchains ship
+	// binaries of the same name (configtxgen), and a shared directory means
+	// whichever was installed last wins. Keep in sync with FABRIC_X_BINS in the
+	// Makefile.
+	BinSubdir = "fabric-x"
 )
 
 type OrdererConfig struct {
@@ -155,7 +162,7 @@ func (n *ListNamespaces) SessionName() string {
 // CMDPath returns the full path of fxconfig at path specified via FabricBinsPathEnvKey.
 func CMDPath() string {
 	cmdPath := findCmdAtEnv(fxconfigCMD)
-	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", fxconfigCMD, FabricBinsPathEnvKey, os.Getenv(FabricBinsPathEnvKey))
+	gomega.Expect(cmdPath).NotTo(gomega.Equal(""), "could not find %s in %s directory %s", fxconfigCMD, FabricBinsPathEnvKey, path.Join(os.Getenv(FabricBinsPathEnvKey), BinSubdir))
 	return cmdPath
 }
 
@@ -166,14 +173,14 @@ func pathExists(path string) bool {
 	return true
 }
 
-// findCmdAtEnv tries to find cmd at the path specified via FabricBinsPathEnvKey
+// findCmdAtEnv tries to find cmd in the BinSubdir of the path specified via FabricBinsPathEnvKey
 // Returns the full path of cmd if exists; otherwise an empty string
 // Example:
 //
 //	export FAB_BINS=/tmp/fabric/bin/
-//	findCmdAtEnv("peer") will return "/tmp/fabric/bin/peer" if exists
+//	findCmdAtEnv("fxconfig") will return "/tmp/fabric/bin/fabric-x/fxconfig" if exists
 func findCmdAtEnv(cmd string) string {
-	cmdPath := path.Join(os.Getenv(FabricBinsPathEnvKey), cmd)
+	cmdPath := path.Join(os.Getenv(FabricBinsPathEnvKey), BinSubdir, cmd)
 	if !pathExists(cmdPath) {
 		// cmd does not exist in folder provided via FabricBinsPathEnvKey
 		return ""

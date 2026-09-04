@@ -29,8 +29,9 @@ design.
 
 ## Running
 
-Integration suites shell out to `configtxgen`/`cryptogen`/`fxconfig` from `$FAB_BINS`. The Makefile
-default is `PWD`-relative and resolves incorrectly from a git worktree, so pass an absolute path:
+Fabric-x suites shell out to `configtxgen`/`fxconfig` from `$FAB_BINS/fabric-x`, where
+`make install-fabricx-tools` installs them. The Makefile default for `FAB_BINS` is `PWD`-relative
+and resolves incorrectly from a linked worktree, so pass an absolute path:
 
 ```bash
 make integration-tests-fabricx-atsa \
