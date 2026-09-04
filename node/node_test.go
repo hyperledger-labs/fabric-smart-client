@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 package node
 
 import (
-	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -79,39 +79,56 @@ func TestCallback(t *testing.T) {
 	require.NotNil(t, ch)
 }
 
+// runListen runs listen in a goroutine, feeds err on the callback channel and
+// returns whatever listen panicked with (nil if it returned normally).
+func runListen(t *testing.T, n *Node, err error) any {
+	t.Helper()
+	got := make(chan any, 1)
+	go func() {
+		defer func() { got <- recover() }()
+		n.listen()
+	}()
+	n.callbackChannel <- err
+	select {
+	case r := <-got:
+		return r
+	case <-time.After(time.Second):
+		t.Fatal("listen did not finish")
+		return nil
+	}
+}
+
 func TestListen_NilError_NoCallback(t *testing.T) {
 	t.Parallel()
 	n := newWithFSCNode(&mockFSCNode{})
-	done := make(chan struct{})
-	go func() {
-		n.listen()
-		close(done)
-	}()
-	n.callbackChannel <- nil
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	t.Cleanup(cancel)
-	select {
-	case <-done:
-	case <-ctx.Done():
-		t.Fatal("listen did not return after nil error with no callback set")
-	}
+	require.Nil(t, runListen(t, n, nil), "listen should return without panicking")
 }
 
 func TestListen_NilError_WithCallback(t *testing.T) {
 	t.Parallel()
 	n := newWithFSCNode(&mockFSCNode{})
-	called := make(chan struct{})
+	called := false
 	n.executeCallbackFunc = func() error {
-		close(called)
+		called = true
 		return nil
 	}
-	go n.listen()
-	n.callbackChannel <- nil
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	t.Cleanup(cancel)
-	select {
-	case <-called:
-	case <-ctx.Done():
-		t.Fatal("executeCallbackFunc was not called")
-	}
+	require.Nil(t, runListen(t, n, nil), "listen should return without panicking")
+	require.True(t, called, "executeCallbackFunc was not called")
+}
+
+func TestListen_ChannelErrorPanics(t *testing.T) {
+	t.Parallel()
+	n := newWithFSCNode(&mockFSCNode{})
+	err, ok := runListen(t, n, errors.New("boom")).(error)
+	require.True(t, ok, "listen should panic with the channel error")
+	require.EqualError(t, err, "boom")
+}
+
+func TestListen_CallbackErrorPanics(t *testing.T) {
+	t.Parallel()
+	n := newWithFSCNode(&mockFSCNode{})
+	n.executeCallbackFunc = func() error { return errors.New("callback boom") }
+	err, ok := runListen(t, n, nil).(error)
+	require.True(t, ok, "listen should panic with the callback error")
+	require.EqualError(t, err, "callback boom")
 }
