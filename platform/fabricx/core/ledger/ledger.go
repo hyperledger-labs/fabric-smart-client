@@ -58,6 +58,10 @@ func (c *ledger) GetLedgerInfo() (*driver.LedgerInfo, error) {
 }
 
 // GetTransactionByID returns the processed transaction for the given transaction ID.
+//
+// The committer indexes blocks into its block store independently of the finality it
+// reports, so a caller that queries right after finality must retry on
+// finality.TxNotFound.
 func (c *ledger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
 	env, err := c.client.GetTxByID(c.baseCtx, &committerpb.TxID{TxId: txID})
 	if err != nil {
