@@ -209,12 +209,14 @@ Once the PR is approved, collapse the fixups into their target commit and force-
 the branch is a single commit again and ready to merge:
 
 ```bash
-git rebase --autosquash -S main
+git rebase -i --autosquash -S main
 git push --force-with-lease
 ```
 
-The check turns green and the final message is yours. Add `-i` to inspect the todo list
-before it runs.
+`--autosquash` alone is not reliable without `-i` — on some git versions it silently
+does nothing, leaving the fixups unsquashed and force-pushed as-is. `-i` opens your
+editor on the rebase todo list, already reordered with the fixups placed after their
+targets and marked `fixup`; save and close it as-is unless you want to change something.
 
 > [!IMPORTANT]
 > Rebasing rewrites commits, which drops their signatures unless you pass `-S`. The
