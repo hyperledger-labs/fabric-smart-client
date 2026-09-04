@@ -41,10 +41,11 @@ git rebase main -S
 > - Do NOT merge `main` into your branch
 
 ## Verify Sign Status
-Verify after the rebase operation, your n commits are still signed correctly:
+Verify after the rebase operation that your commits are still signed correctly —
+replace `3` with the number of commits on your branch:
 
 ```bash
-git log -n --pretty=format:'%h %an %G? %s'
+git log -n 3 --pretty=format:'%h %an %G? %s'
 ```
 You should see `G` (valid signature). If you experience signing issues, read [Signing Guide](signing.md).
 

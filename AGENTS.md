@@ -11,7 +11,7 @@ built with `make`. `CLAUDE.md` is a symlink to this file.
 ## Essential commands
 
 ```bash
-make checks         # license, gofmt, goimports, vet, misspell, staticcheck
+make checks         # golangci-lint + `go fix` in every module; apply fixes with `make go-fix-apply`
 make lint           # golangci-lint (use make lint-auto-fix to autofix)
 make tidy           # go mod tidy across all modules
 make generate-protos     # regenerate protobuf files
@@ -19,6 +19,15 @@ make install-tools       # install dev tools (source of truth: tools/tools.go)
 make unit-tests     # unit tests, excluding Postgres (-race -cover)
 make integration-tests   # integration tests (need Fabric binaries + Docker)
 ```
+
+If `make lint` reports a file outside your working tree, the `golangci-lint` cache is
+stale — common with several worktrees. Run `golangci-lint cache clean` and re-run; see
+[`docs/dev/development.md`](docs/dev/development.md#lint-failures-in-files-you-never-touched).
+
+The `make` defaults assume the **primary checkout**: `FABRIC_BINARY_BASE` is
+`$(PWD)/../fabric`, so `make install-fabric-bins` run from a worktree installs a second
+Fabric next to that worktree. Pass `FABRIC_BINARY_BASE` explicitly, or run it from the
+primary checkout — see [`docs/dev/development.md`](docs/dev/development.md#fabric).
 
 Run one unit test: `go test -run TestMyTest ./platform/view/...`. The full
 integration suite is slow and needs Fabric binaries + Docker — run a focused
@@ -68,9 +77,10 @@ Read these on demand — don't load them up front.
 - **Errors**: use `pkg/utils/errors` (`errors.New/Errorf/Wrap/Wrapf/WithMessage/WithMessagef/Join`); do not build or wrap errors with `fmt.Errorf`.
 - **Logging**: `platform/common/services/logging`.
 - **New code**: platform code → `platform/<name>/`; shared → `pkg/utils/` or `platform/common/`.
-- **DI**: register in `sdk/dig/sdk.go`; `Install()` must call the parent `p.SDK.Install()`.
-- **Mocks**: `counterfeiter` via `go generate ./...` (see [`docs/dev/mocks.md`](docs/dev/mocks.md)).
-- **Git**: sign off every commit (`git commit -s`, DCO); rebase, don't merge. See [`docs/dev/signing.md`](docs/dev/signing.md), [`docs/dev/rebasing.md`](docs/dev/rebasing.md).
+- **DI**: register in the platform's `sdk/dig/sdk.go` (e.g. `platform/view/sdk/dig/sdk.go`); `Install()` must call the parent `p.SDK.Install()`.
+- **Mocks**: `counterfeiter` via `make generate-mocks` (see [`docs/dev/mocks.md`](docs/dev/mocks.md)).
+- **Git**: run `make checks` before committing; sign off every commit (`git commit -s`, DCO); rebase, don't merge. Fixups during review, then autosquash: a PR merges as one commit whose message describes the PR. See [`docs/dev/workflow.md`](docs/dev/workflow.md#commit-hygiene), [`docs/dev/signing.md`](docs/dev/signing.md), [`docs/dev/rebasing.md`](docs/dev/rebasing.md).
+- **Docs**: a change that leaves [`docs/agents/`](docs/agents/) or [`docs/dev/`](docs/dev/) wrong is not finished — update the affected guide in the same commit.
 
 ## Related projects
 

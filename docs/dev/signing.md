@@ -82,11 +82,10 @@ git log --show-signature
 
 * Ensure each commit shows both **GPG verified** and **DCO signed-off**.
 
-For a quick check of recent n commits:
-Note how many commits you have added, and make n equal to that.
+For a quick check of your most recent commits — replace `3` with the number you added:
 
 ```bash
-git log -n --pretty=format:'%h %an %G? %s'
+git log -n 3 --pretty=format:'%h %an %G? %s'
 ```
 Legend:
 

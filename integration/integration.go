@@ -150,7 +150,7 @@ outer:
 // there is the standard way for a consumer to select the packages instrumented
 // in the cover-built node binaries.
 func goflagsHasCoverpkg() bool {
-	for _, f := range strings.Fields(os.Getenv("GOFLAGS")) {
+	for f := range strings.FieldsSeq(os.Getenv("GOFLAGS")) {
 		if strings.HasPrefix(f, "-coverpkg") || strings.HasPrefix(f, "--coverpkg") {
 			return true
 		}
