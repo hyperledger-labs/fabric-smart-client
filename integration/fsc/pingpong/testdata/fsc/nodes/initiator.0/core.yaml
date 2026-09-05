@@ -19,25 +19,28 @@ fsc:
   client:
     certs:
     - ./../../crypto/peerOrganizations/fsc.example.com/users/Admin@fsc.example.com/msp/signcerts/Admin@fsc.example.com-cert.pem
+  # Server-side TLS defaults, inherited field by field by every listener this node owns.
+  # A service's own tls: block overrides only the fields it sets.
+  tls:
+    # Require server-side TLS
+    enabled: true
+    # X.509 certificate used for TLS server
+    cert:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.crt
+    # Private key used for TLS server
+    key:
+      file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
+    # Require client certificates / mutual TLS for inbound connections.
+    clientAuthRequired: false
   grpc:
     enabled: true
     # This represents the endpoint to other FSC nodes in the same organization.
     address: 127.0.0.1:21000
     # TLS Settings
     # (We use here the same set of properties as Hyperledger Fabric)
-    tls:
-      # Require server-side TLS
-      enabled:  true
-      # Require client certificates / mutual TLS for inbound connections.
-      # Note that clients that are not configured to use a certificate will
-      # fail to connect to the node.
-      clientAuthRequired: false
-      # X.509 certificate used for TLS server
-      cert:
-        file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.crt
-      # Private key used for TLS server
-      key:
-        file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
+    # enabled, cert, key and clientAuthRequired are all inherited from fsc.tls above.
+    # This block is intentionally absent: a listener that overrides nothing needs no block,
+    # and this fixture exists to exercise exactly that path.
   # P2P configuration
   p2p:
     # Type of p2p communication. Currently supported: libp2p (default), rest
@@ -67,18 +70,11 @@ fsc:
     enabled: true
     # HTTPS server listener address
     address: 0.0.0.0:21002
+    # enabled, cert, key and clientAuthRequired:false all come from fsc.tls. Only the
+    # client CA pool is set here, which exercises a partial override.
     tls:
-      enabled:  true
-      cert:
-        file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.crt
-      key:
-        file: ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/server.key
-      # Require client certificates / mutual TLS for inbound connections.
-      # Note that clients that are not configured to use a certificate will
-      # fail to connect to the node.
-      clientAuthRequired: false
-      # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
-      # used for verifying certificates of client connections.
+      # clientRootCAs without clientAuthRequired means: verify a client certificate if one
+      # is offered, but do not demand one.
       clientRootCAs:
         files:
         - ./../../crypto/peerOrganizations/fsc.example.com/peers/initiator.fsc.example.com/tls/ca.crt

@@ -29,6 +29,7 @@ import (
 	idemix2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/msp/idemix"
 	fabricmsp "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/msp"
 	fdriver "github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/sig"
 	storagedriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	mem "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/memory"
@@ -149,24 +150,12 @@ func (m *mockResources) ConfigtxValidator() configtx.Validator        { return m
 
 type mockConfigService struct {
 	fdriver.ConfigService
-	orderingTLSEnabled      bool
-	orderingTLSEnabledIsSet bool
-	tlsEnabled              bool
-	orderingClientAuth      bool
-	orderingClientAuthIsSet bool
-	tlsClientAuth           bool
-	clientConnTimeout       time.Duration
+	networkTLS        grpc.SecureOptions
+	clientConnTimeout time.Duration
 }
 
-func (m *mockConfigService) OrderingTLSEnabled() (bool, bool) {
-	return m.orderingTLSEnabled, m.orderingTLSEnabledIsSet
-}
-func (m *mockConfigService) TLSEnabled() bool { return m.tlsEnabled }
-func (m *mockConfigService) OrderingTLSClientAuthRequired() (bool, bool) {
-	return m.orderingClientAuth, m.orderingClientAuthIsSet
-}
-func (m *mockConfigService) TLSClientAuthRequired() bool      { return m.tlsClientAuth }
-func (m *mockConfigService) ClientConnTimeout() time.Duration { return m.clientConnTimeout }
+func (m *mockConfigService) NetworkClientTLS() grpc.SecureOptions { return m.networkTLS }
+func (m *mockConfigService) ClientConnTimeout() time.Duration     { return m.clientConnTimeout }
 
 // --- helpers ---
 
@@ -637,51 +626,33 @@ func TestService_OrdererConfig(t *testing.T) {
 			},
 			ordCfgOK: true,
 		})
-		cs := &mockConfigService{
-			orderingTLSEnabled:      true,
-			orderingTLSEnabledIsSet: true,
-			orderingClientAuth:      true,
-			orderingClientAuthIsSet: true,
-			clientConnTimeout:       5 * time.Second,
+		configuredCA := []byte("configured-ca")
+		networkTLS := grpc.SecureOptions{
+			UseTLS:            true,
+			RequireClientCert: true,
+			ServerRootCAs:     [][]byte{configuredCA},
 		}
+		cs := &mockConfigService{networkTLS: networkTLS, clientConnTimeout: 5 * time.Second}
+
 		consType, conns, err := s.OrdererConfig(cs)
 		require.NoError(t, err)
 		require.Equal(t, "etcdraft", consType)
 		require.Len(t, conns, 1)
 		require.Equal(t, "orderer:7050", conns[0].Address)
-		require.True(t, conns[0].TLSEnabled)
-		require.True(t, conns[0].TLSClientSideAuth)
+		require.True(t, conns[0].TLS.UseTLS)
+		require.True(t, conns[0].TLS.RequireClientCert)
 		require.Equal(t, 5*time.Second, conns[0].ConnectionTimeout)
 		require.Equal(t, "broadcast", conns[0].Usage)
-		require.Len(t, conns[0].TLSRootCertBytes, 2) // root + int
-	})
 
-	t.Run("tls falls back to cs when not set in ordering config", func(t *testing.T) {
-		t.Parallel()
-		mspImpl := &mockMSP{}
-		s := NewService("ch1")
-		seed(t, s, &mockResources{
-			ordCfg: &mockOrderer{
-				consensusType: "etcdraft",
-				orgs: map[string]channelconfig.OrdererOrg{
-					"Org1": &mockOrdererOrg{endpoints: []string{"orderer:7050"}, mspImpl: mspImpl},
-				},
-			},
-			ordCfgOK: true,
-		})
-		cs := &mockConfigService{
-			// ordering TLS not set → fallback to TLSEnabled
-			orderingTLSEnabledIsSet: false,
-			tlsEnabled:              true,
-			// ordering client auth not set → fallback to TLSClientAuthRequired
-			orderingClientAuthIsSet: false,
-			tlsClientAuth:           false,
-		}
-		_, conns, err := s.OrdererConfig(cs)
-		require.NoError(t, err)
-		require.Len(t, conns, 1)
-		require.True(t, conns[0].TLSEnabled)
-		require.False(t, conns[0].TLSClientSideAuth)
+		// Discovered anchors AUGMENT the configured pool: root + intermediate from the MSP,
+		// plus the CA the network configured. The file cannot remove what the channel
+		// supplies, and discovery cannot remove the bootstrap anchor.
+		require.Len(t, conns[0].TLS.ServerRootCAs, 3)
+		require.Equal(t, configuredCA, conns[0].TLS.ServerRootCAs[0])
+
+		// And the network's own configuration is left untouched, so a second endpoint does
+		// not inherit the first one's discovered anchors.
+		require.Len(t, networkTLS.ServerRootCAs, 1)
 	})
 }
 

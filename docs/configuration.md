@@ -35,6 +35,28 @@ fsc:
     certs:
     - path/to/client-cert.pem
 
+  # ------------------- Shared server-side TLS defaults -------------------
+  # Every listener this node owns (fsc.grpc and fsc.web) inherits from this
+  # block FIELD BY FIELD: a service's own tls: block overrides only the fields it sets,
+  # and every other field falls through to here. A service that overrides nothing needs
+  # no tls: block at all.
+  #
+  # This block is server-shaped, because everything under fsc: that inherits from it is a
+  # listener. It does NOT apply to connections this node dials out: those are configured
+  # per Fabric network under fabric.<network>.tls, which has its own keys and does not
+  # inherit from here. There is also no inheritance between sibling services.
+  tls:
+    # Whether TLS is enabled
+    enabled: true
+    # TLS certificate presented by every listener
+    cert:
+      file: /path/to/tls/server.crt
+    # Private key matching that certificate
+    key:
+      file: /path/to/tls/server.key
+    # Whether clients must present a certificate. See fsc.web below for the three states.
+    clientAuthRequired: false
+
   # ------------------- GRPC Server Configuration -------------------------
   grpc:
     enabled: true
@@ -44,20 +66,25 @@ fsc:
     # If not specified or set to <=0 then it will default to 5 seconds
     connectionTimeout: 10s
 
+    # Only the fields that differ from fsc.tls need to appear here. enabled, cert and key
+    # are shown for completeness; in practice they are inherited and omitted.
     tls:
-      # Whether TLS is enabled or not
+      # Whether TLS is enabled or not. Inherited from fsc.tls when absent.
       enabled: true
-      # Whether clients are required to provide their TLS certificates for verification
+      # Whether clients are required to provide their TLS certificates for verification.
+      # Inherited from fsc.tls when absent.
       clientAuthRequired: false
-      # TLS Certificate
+      # TLS Certificate. Inherited from fsc.tls when absent.
       cert:
         file: /path/to/tls/server.crt
-      # TLS Key
+      # TLS Key. Inherited from fsc.tls when absent.
       key:
         file: /path/to/tls/server.key
 
-      # Root certificates to be able to verify client TLS certificates, only required
-      # if clientAuthRequired is set to true
+      # Root certificates used to verify client TLS certificates. REQUIRED when
+      # clientAuthRequired is true: a node configured to require client certificates with
+      # an empty pool would reject every client, so that combination fails at startup
+      # rather than at the first connection.
       clientRootCAs:
         files:
         - /path/to/client/tls/ca.crt
@@ -199,20 +226,28 @@ fsc:
   web:
     enabled: true
     address: 0.0.0.0:20002
+    # As with fsc.grpc, only the fields that differ from fsc.tls need to appear here.
     tls:
-      # If tls is enabled then all clients must use mutualTLS
+      # Whether TLS is enabled. Inherited from fsc.tls when absent.
       enabled:  true
+      # Inherited from fsc.tls when absent.
       cert:
         file: /path/to/tls/server.crt
       key:
         file: /path/to/tls/server.key
-      # Whether clients are required to provide their TLS certificates for verification
-      # Require client certificates / mutual TLS for inbound connections.
-      # Note that clients that are not configured to use a certificate will
-      # fail to connect to the node.
+      # Client authentication has THREE states on this listener:
+      #
+      #   clientAuthRequired: true                    -> a client certificate is required
+      #                                                  and verified; clientRootCAs must
+      #                                                  be non-empty.
+      #   clientAuthRequired: false + clientRootCAs   -> a client certificate is verified
+      #                                                  IF offered, but not demanded.
+      #   clientAuthRequired: false, no clientRootCAs -> client certificates are ignored.
+      #
+      # The middle state is the reason clientRootCAs may be set while clientAuthRequired
+      # is false; it is a supported configuration, not a mistake.
       clientAuthRequired: false
-      # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
-      # used for verifying certificates of client connections.
+      # Root certificates used to verify client TLS certificates.
       clientRootCAs:
         files:
         - path/to/client/tls/ca.crt
@@ -229,6 +264,25 @@ fsc:
     otlp:
       # The address of collector where we should send the traces
       address: 127.0.0.1:8125
+      # Client-side TLS for the collector connection, in the same client template as every
+      # other dialled connection. It inherits nothing: fsc.tls is server-shaped, and the
+      # collector is something this node dials.
+      #
+      # TLS here is OPT-IN. Omit the block and the exporter stays plaintext, which is what a
+      # collector reached over loopback wants and what every existing setup relies on.
+      tls:
+        enabled: false
+        rootCAs:
+          files:
+          - /path/to/collector/ca.crt
+        # Present a client certificate, if the collector requires one
+        clientAuthEnabled: false
+        clientCert:
+          file: /path/to/client.crt
+        clientKey:
+          file: /path/to/client.key
+        # if the collector's certificate does not cover the address being dialled
+        serverNameOverride: ""
     sampling:
       # The ratio of the traces to be sampled
       ratio: 0.8
@@ -237,6 +291,28 @@ fsc:
   metrics:
     # provider can be prometheus, none or disabled
     provider: prometheus
+
+    # Require a verified client certificate on /metrics and /logspec.
+    #
+    # This is NOT transport TLS, and is deliberately separate from any listener's tls block:
+    # it can be stricter than the listener. A common shape is a web listener that verifies a
+    # client certificate only if one is offered, while scraping metrics requires one.
+    # Replaces fsc.metrics.prometheus.tls, which meant this despite its name.
+    clientAuthRequired: false
+
+    # Serve the operations endpoints (/metrics, /logspec) on a listener of their own.
+    #
+    # Without an address they are served on the fsc.web listener and share its TLS, which is
+    # the historical behaviour. With one, they get their own listener and fsc.metrics.tls
+    # applies to it, inheriting from fsc.tls field by field like any other listener — so a
+    # plaintext metrics endpoint behind a TLS web listener becomes expressible.
+    #
+    # fsc.metrics.tls without fsc.metrics.address is a startup error: the shared listener
+    # cannot honour it, and the configuration would be claiming transport security it does
+    # not have.
+    # address: 0.0.0.0:20003
+    # tls:
+    #   enabled: false
 
     
   # ------------------- FSC Node endpoint resolvers -------------------------
@@ -349,18 +425,38 @@ fabric:
 
       # TBD: idemix-folder, bccsp-folder
 
-    # define the default values for the tls connections
+    # Client-side TLS for every connection this node dials on this network: orderers, peers
+    # and, for Fabric-x, the query and notification services.
+    #
+    # This block is CLIENT-shaped, unlike fsc.tls which is server-shaped. Each endpoint under
+    # orderers: and peers: inherits it FIELD BY FIELD and overrides only what it sets; there
+    # is no inheritance across the fsc/fabric boundary in either direction.
     tls:
-      # Species the fabric network requires TLS or not
+      # Whether connections to this network use TLS.
       enabled:  true
-      # Specifies whether the fabric network requires mutualTLS
-      clientAuthRequired: false
-      # The client tls certificate if mutualTLS is required
+      # Present a client certificate to the server. Replaces clientAuthRequired, which named
+      # a server-side concept for a block that is only ever a client. Defaults to true when
+      # clientCert and clientKey both resolve; set it false to suppress inherited credentials
+      # for a particular endpoint.
+      clientAuthEnabled: false
+      # The client tls certificate, if the server requires one
       clientCert:
         file: /path/to/client.crt
-      # The client tls key if mutualTLS is required
+      # The client tls key, paired with clientCert
       clientKey:
         file: /path/to/client.key
+      # Trust anchors used to verify the servers this node dials.
+      #
+      # Anchors discovered from a channel's MSPs AUGMENT this pool rather than replacing it,
+      # matching Fabric's own semantics for tls.rootcert. That is what lets a node dial an
+      # orderer before it has fetched the first configuration block, and it means the file
+      # cannot remove an anchor the channel supplies.
+      rootCAs:
+        files:
+        - /path/to/ca.crt
+      # Override the hostname verified in the server's certificate. Needed when dialling an
+      # IP address against a certificate issued for a name. Replaces serverhostoverride.
+      serverNameOverride: ""
 
     # Client keepalive settings for GRPC.
     # This section can be omitted.
@@ -382,49 +478,78 @@ fabric:
       numRetries: 3
       # retryInternal specifies the amount of time to wait before retrying a connection to the ordering service, it defaults to 500ms
       retryInterval: 500ms
-      # here is possible to disable tls just for the ordering service.
-      # if this key is not specified, then the `tls` section is used.
-      tlsEnabled: true
-      # here is possible to enable tls client-side authentication just for the ordering service
-      # if this key is not specified, then the `tls` section is used.
-      tlsClientAuthRequired: false
+      #
+      # ordering.tlsEnabled and ordering.tlsClientAuthRequired have been REMOVED. They existed
+      # to shadow the network tls block for orderer connections alone, which meant the same
+      # two settings had two homes and the narrower one silently won. The network block now
+      # applies to every connection; to differ for one orderer, set tls: on that entry under
+      # orderers: below. A stale key here is a startup error naming its replacement.
 
     # List of orderers on top of those discovered in the channel
     # This is optional and as such it should be left to those orderers discovered on the channel
-    # tls configuration is governed by the `tls` section, if not otherwise specified in the `ordering` section
+    # TLS is inherited from the `tls` section above, per field, unless an entry overrides it
     orderers:
         # address of orderer
       - address: 'orderer0:7050'
         # connection timeout
         connectionTimeout: 10s
-        # path to orderer org's ca cert if tls is enabled
-        tlsRootCertFile: /path/to/ordererorg/ca.crt
-        # server name override if tls cert SANS doesn't match address
-        serverNameOverride:
-        # it is possible to customize per orderer the TLS behaviour, by using the following attributes
-        tlsClientSideAuth: true
-        tlsDisabled: true
-        tlsEnabled: false
+        # Per-orderer TLS. Every field is inherited from the network's tls block above; set
+        # only what differs for this endpoint. Omit the block entirely to inherit all of it.
+        #
+        # This replaces the flat per-endpoint keys: tlsEnabled and tlsDisabled become
+        # enabled, tlsClientSideAuth becomes clientAuthEnabled, tlsRootCertFile becomes
+        # rootCAs.files, and serverNameOverride moves inside. A stale flat key is a startup
+        # error naming the key, not a silently ignored line.
+        tls:
+          enabled: false
+          clientAuthEnabled: true
+          rootCAs:
+            files:
+            - /path/to/ordererorg/ca.crt
+          # if the certificate's SANs do not cover the address being dialled
+          serverNameOverride: orderer0.example.com
 
     # List of trusted peers this node can connect to.
     # usually this will be the fabric peers in the same organisation as the FSC node.
-    # tls configuration is governed by the `tls` section.
     peers:
-        # address of orderer
+        # address of peer
       - address: 'peer2:7051'
         # connection timeout
         connectionTimeout: 10s
-        # path to peer org's ca cert if tls is enabled
-        tlsRootCertFile: /path/to/peerorg/ca.crt
-        serverNameOverride:
-        # it is possible to customize per peer the TLS behaviour, by using the following attributes
-        tlsClientSideAuth: true
-        tlsDisabled: true
-        tlsEnabled: false
+        # Per-peer TLS, inherited from the network's tls block exactly as for orderers above.
+        tls:
+          enabled: false
+          clientAuthEnabled: true
+          rootCAs:
+            files:
+            - /path/to/peerorg/ca.crt
+          serverNameOverride: peer2.example.com
         # `usage` allows the developer to specify the function for which this peer should be used.
         # The available functions are: delivery, discovery, finality, and query.
         # The default value is the empty string that means that the peer can be used for the supported operations.
         usage: 
+
+    # Fabric-x query and notification services (FabricX only).
+    #
+    # Each endpoint's tls: block is the same client template as orderers and peers above, and
+    # inherits from this network's tls block field by field. It replaces a block that spelled
+    # the same thing its own way: rootCerts becomes rootCAs.files, and clientKey/clientCert
+    # become nested {file:} rather than flat path strings. A stale flat key is a startup error.
+    queryService:
+      requestTimeout: 10s
+      endpoints:
+        - address: 'sidecar:4001'
+          connectionTimeout: 10s
+          tls:
+            enabled: true
+            rootCAs:
+              files:
+              - /path/to/sidecar/ca.crt
+            clientCert:
+              file: /path/to/client.crt
+            clientKey:
+              file: /path/to/client.key
+    # notificationService takes the same endpoints and tls shape.
 
      # Channel Configuration Monitor settings (FabricX only)
      # Applies to all channels in this network

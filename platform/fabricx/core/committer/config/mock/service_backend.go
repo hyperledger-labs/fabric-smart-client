@@ -8,6 +8,52 @@ import (
 )
 
 type ServiceBackend struct {
+	IsSetStub        func(string) bool
+	isSetMutex       sync.RWMutex
+	isSetArgsForCall []struct {
+		arg1 string
+	}
+	isSetReturns struct {
+		result1 bool
+	}
+	isSetReturnsOnCall map[int]struct {
+		result1 bool
+	}
+	RawSubtreeStub        func(string) (map[string]any, bool)
+	rawSubtreeMutex       sync.RWMutex
+	rawSubtreeArgsForCall []struct {
+		arg1 string
+	}
+	rawSubtreeReturns struct {
+		result1 map[string]any
+		result2 bool
+	}
+	rawSubtreeReturnsOnCall map[int]struct {
+		result1 map[string]any
+		result2 bool
+	}
+	RawSubtreesStub        func(string) []map[string]any
+	rawSubtreesMutex       sync.RWMutex
+	rawSubtreesArgsForCall []struct {
+		arg1 string
+	}
+	rawSubtreesReturns struct {
+		result1 []map[string]any
+	}
+	rawSubtreesReturnsOnCall map[int]struct {
+		result1 []map[string]any
+	}
+	TranslatePathStub        func(string) string
+	translatePathMutex       sync.RWMutex
+	translatePathArgsForCall []struct {
+		arg1 string
+	}
+	translatePathReturns struct {
+		result1 string
+	}
+	translatePathReturnsOnCall map[int]struct {
+		result1 string
+	}
 	UnmarshalKeyStub        func(string, any) error
 	unmarshalKeyMutex       sync.RWMutex
 	unmarshalKeyArgsForCall []struct {
@@ -22,6 +68,253 @@ type ServiceBackend struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *ServiceBackend) IsSet(arg1 string) bool {
+	fake.isSetMutex.Lock()
+	ret, specificReturn := fake.isSetReturnsOnCall[len(fake.isSetArgsForCall)]
+	fake.isSetArgsForCall = append(fake.isSetArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.IsSetStub
+	fakeReturns := fake.isSetReturns
+	fake.recordInvocation("IsSet", []interface{}{arg1})
+	fake.isSetMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ServiceBackend) IsSetCallCount() int {
+	fake.isSetMutex.RLock()
+	defer fake.isSetMutex.RUnlock()
+	return len(fake.isSetArgsForCall)
+}
+
+func (fake *ServiceBackend) IsSetCalls(stub func(string) bool) {
+	fake.isSetMutex.Lock()
+	defer fake.isSetMutex.Unlock()
+	fake.IsSetStub = stub
+}
+
+func (fake *ServiceBackend) IsSetArgsForCall(i int) string {
+	fake.isSetMutex.RLock()
+	defer fake.isSetMutex.RUnlock()
+	argsForCall := fake.isSetArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ServiceBackend) IsSetReturns(result1 bool) {
+	fake.isSetMutex.Lock()
+	defer fake.isSetMutex.Unlock()
+	fake.IsSetStub = nil
+	fake.isSetReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *ServiceBackend) IsSetReturnsOnCall(i int, result1 bool) {
+	fake.isSetMutex.Lock()
+	defer fake.isSetMutex.Unlock()
+	fake.IsSetStub = nil
+	if fake.isSetReturnsOnCall == nil {
+		fake.isSetReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.isSetReturnsOnCall[i] = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *ServiceBackend) RawSubtree(arg1 string) (map[string]any, bool) {
+	fake.rawSubtreeMutex.Lock()
+	ret, specificReturn := fake.rawSubtreeReturnsOnCall[len(fake.rawSubtreeArgsForCall)]
+	fake.rawSubtreeArgsForCall = append(fake.rawSubtreeArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.RawSubtreeStub
+	fakeReturns := fake.rawSubtreeReturns
+	fake.recordInvocation("RawSubtree", []interface{}{arg1})
+	fake.rawSubtreeMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *ServiceBackend) RawSubtreeCallCount() int {
+	fake.rawSubtreeMutex.RLock()
+	defer fake.rawSubtreeMutex.RUnlock()
+	return len(fake.rawSubtreeArgsForCall)
+}
+
+func (fake *ServiceBackend) RawSubtreeCalls(stub func(string) (map[string]any, bool)) {
+	fake.rawSubtreeMutex.Lock()
+	defer fake.rawSubtreeMutex.Unlock()
+	fake.RawSubtreeStub = stub
+}
+
+func (fake *ServiceBackend) RawSubtreeArgsForCall(i int) string {
+	fake.rawSubtreeMutex.RLock()
+	defer fake.rawSubtreeMutex.RUnlock()
+	argsForCall := fake.rawSubtreeArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ServiceBackend) RawSubtreeReturns(result1 map[string]any, result2 bool) {
+	fake.rawSubtreeMutex.Lock()
+	defer fake.rawSubtreeMutex.Unlock()
+	fake.RawSubtreeStub = nil
+	fake.rawSubtreeReturns = struct {
+		result1 map[string]any
+		result2 bool
+	}{result1, result2}
+}
+
+func (fake *ServiceBackend) RawSubtreeReturnsOnCall(i int, result1 map[string]any, result2 bool) {
+	fake.rawSubtreeMutex.Lock()
+	defer fake.rawSubtreeMutex.Unlock()
+	fake.RawSubtreeStub = nil
+	if fake.rawSubtreeReturnsOnCall == nil {
+		fake.rawSubtreeReturnsOnCall = make(map[int]struct {
+			result1 map[string]any
+			result2 bool
+		})
+	}
+	fake.rawSubtreeReturnsOnCall[i] = struct {
+		result1 map[string]any
+		result2 bool
+	}{result1, result2}
+}
+
+func (fake *ServiceBackend) RawSubtrees(arg1 string) []map[string]any {
+	fake.rawSubtreesMutex.Lock()
+	ret, specificReturn := fake.rawSubtreesReturnsOnCall[len(fake.rawSubtreesArgsForCall)]
+	fake.rawSubtreesArgsForCall = append(fake.rawSubtreesArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.RawSubtreesStub
+	fakeReturns := fake.rawSubtreesReturns
+	fake.recordInvocation("RawSubtrees", []interface{}{arg1})
+	fake.rawSubtreesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ServiceBackend) RawSubtreesCallCount() int {
+	fake.rawSubtreesMutex.RLock()
+	defer fake.rawSubtreesMutex.RUnlock()
+	return len(fake.rawSubtreesArgsForCall)
+}
+
+func (fake *ServiceBackend) RawSubtreesCalls(stub func(string) []map[string]any) {
+	fake.rawSubtreesMutex.Lock()
+	defer fake.rawSubtreesMutex.Unlock()
+	fake.RawSubtreesStub = stub
+}
+
+func (fake *ServiceBackend) RawSubtreesArgsForCall(i int) string {
+	fake.rawSubtreesMutex.RLock()
+	defer fake.rawSubtreesMutex.RUnlock()
+	argsForCall := fake.rawSubtreesArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ServiceBackend) RawSubtreesReturns(result1 []map[string]any) {
+	fake.rawSubtreesMutex.Lock()
+	defer fake.rawSubtreesMutex.Unlock()
+	fake.RawSubtreesStub = nil
+	fake.rawSubtreesReturns = struct {
+		result1 []map[string]any
+	}{result1}
+}
+
+func (fake *ServiceBackend) RawSubtreesReturnsOnCall(i int, result1 []map[string]any) {
+	fake.rawSubtreesMutex.Lock()
+	defer fake.rawSubtreesMutex.Unlock()
+	fake.RawSubtreesStub = nil
+	if fake.rawSubtreesReturnsOnCall == nil {
+		fake.rawSubtreesReturnsOnCall = make(map[int]struct {
+			result1 []map[string]any
+		})
+	}
+	fake.rawSubtreesReturnsOnCall[i] = struct {
+		result1 []map[string]any
+	}{result1}
+}
+
+func (fake *ServiceBackend) TranslatePath(arg1 string) string {
+	fake.translatePathMutex.Lock()
+	ret, specificReturn := fake.translatePathReturnsOnCall[len(fake.translatePathArgsForCall)]
+	fake.translatePathArgsForCall = append(fake.translatePathArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.TranslatePathStub
+	fakeReturns := fake.translatePathReturns
+	fake.recordInvocation("TranslatePath", []interface{}{arg1})
+	fake.translatePathMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ServiceBackend) TranslatePathCallCount() int {
+	fake.translatePathMutex.RLock()
+	defer fake.translatePathMutex.RUnlock()
+	return len(fake.translatePathArgsForCall)
+}
+
+func (fake *ServiceBackend) TranslatePathCalls(stub func(string) string) {
+	fake.translatePathMutex.Lock()
+	defer fake.translatePathMutex.Unlock()
+	fake.TranslatePathStub = stub
+}
+
+func (fake *ServiceBackend) TranslatePathArgsForCall(i int) string {
+	fake.translatePathMutex.RLock()
+	defer fake.translatePathMutex.RUnlock()
+	argsForCall := fake.translatePathArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ServiceBackend) TranslatePathReturns(result1 string) {
+	fake.translatePathMutex.Lock()
+	defer fake.translatePathMutex.Unlock()
+	fake.TranslatePathStub = nil
+	fake.translatePathReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *ServiceBackend) TranslatePathReturnsOnCall(i int, result1 string) {
+	fake.translatePathMutex.Lock()
+	defer fake.translatePathMutex.Unlock()
+	fake.TranslatePathStub = nil
+	if fake.translatePathReturnsOnCall == nil {
+		fake.translatePathReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.translatePathReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
 }
 
 func (fake *ServiceBackend) UnmarshalKey(arg1 string, arg2 any) error {

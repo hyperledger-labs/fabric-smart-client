@@ -7,90 +7,36 @@ SPDX-License-Identifier: Apache-2.0
 package grpc
 
 import (
-	"os"
-	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestTLSRootCert(t *testing.T) {
+// createSecOpts used to merge a CA file with CA bytes here. That behaviour now lives in two
+// places, each tested where it happens: reading the configured files is tlsconfig's
+// resolution, and combining them with anchors discovered from a channel's MSPs is the augment
+// performed by the membership and chaincode discovery paths.
+//
+// What remains worth pinning at this layer is that the augment pattern those call sites use
+// leaves the configured pool intact — every one of them clones before appending, and a shared
+// SecureOptions would otherwise accumulate one endpoint's anchors onto the next.
+func TestAugmentingRootCAsDoesNotMutateTheConfiguredPool(t *testing.T) {
 	t.Parallel()
 
-	t.Run("Merge", func(t *testing.T) {
-		t.Parallel()
-		tempDir := t.TempDir()
-		cert1 := []byte("cert1")
-		cert2 := []byte("cert2")
-		cert3 := []byte("cert3")
+	configured := []byte("configured-ca")
+	network := SecureOptions{UseTLS: true, ServerRootCAs: [][]byte{configured}}
 
-		certFile := filepath.Join(tempDir, "cert.pem")
-		err := os.WriteFile(certFile, cert1, 0o644)
-		require.NoError(t, err)
+	first := network
+	first.ServerRootCAs = append(slices.Clone(network.ServerRootCAs), []byte("discovered-1"))
+	second := network
+	second.ServerRootCAs = append(slices.Clone(network.ServerRootCAs), []byte("discovered-2"))
 
-		connConfig := ConnectionConfig{
-			TLSEnabled:       true,
-			TLSRootCertFile:  certFile,
-			TLSRootCertBytes: [][]byte{cert2, cert3},
-		}
-
-		secOpts, err := createSecOpts(connConfig, false, nil)
-		require.NoError(t, err)
-		require.NotNil(t, secOpts)
-		require.True(t, secOpts.UseTLS)
-		require.Len(t, secOpts.ServerRootCAs, 3)
-		require.Equal(t, cert1, secOpts.ServerRootCAs[0])
-		require.Equal(t, cert2, secOpts.ServerRootCAs[1])
-		require.Equal(t, cert3, secOpts.ServerRootCAs[2])
-	})
-
-	t.Run("OnlyFile", func(t *testing.T) {
-		t.Parallel()
-		tempDir := t.TempDir()
-		cert1 := []byte("cert1")
-
-		certFile := filepath.Join(tempDir, "cert.pem")
-		err := os.WriteFile(certFile, cert1, 0o644)
-		require.NoError(t, err)
-
-		connConfig := ConnectionConfig{
-			TLSEnabled:      true,
-			TLSRootCertFile: certFile,
-		}
-
-		secOpts, err := createSecOpts(connConfig, false, nil)
-		require.NoError(t, err)
-		require.NotNil(t, secOpts)
-		require.Len(t, secOpts.ServerRootCAs, 1)
-		require.Equal(t, cert1, secOpts.ServerRootCAs[0])
-	})
-
-	t.Run("OnlyBytes", func(t *testing.T) {
-		t.Parallel()
-		cert2 := []byte("cert2")
-		cert3 := []byte("cert3")
-
-		connConfig := ConnectionConfig{
-			TLSEnabled:       true,
-			TLSRootCertBytes: [][]byte{cert2, cert3},
-		}
-
-		secOpts, err := createSecOpts(connConfig, false, nil)
-		require.NoError(t, err)
-		require.NotNil(t, secOpts)
-		require.Len(t, secOpts.ServerRootCAs, 2)
-		require.Equal(t, cert2, secOpts.ServerRootCAs[0])
-		require.Equal(t, cert3, secOpts.ServerRootCAs[1])
-	})
-
-	t.Run("Missing", func(t *testing.T) {
-		t.Parallel()
-		connConfig := ConnectionConfig{
-			TLSEnabled: true,
-		}
-
-		_, err := createSecOpts(connConfig, false, nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "missing TLSRootCertFile and TLSRootCertBytes in client config")
-	})
+	require.Len(t, network.ServerRootCAs, 1, "the network's pool must be untouched")
+	require.Len(t, first.ServerRootCAs, 2)
+	require.Len(t, second.ServerRootCAs, 2)
+	require.Equal(t, configured, first.ServerRootCAs[0])
+	require.Equal(t, []byte("discovered-1"), first.ServerRootCAs[1])
+	require.Equal(t, []byte("discovered-2"), second.ServerRootCAs[1],
+		"one endpoint's discovered anchors must not leak into another's")
 }

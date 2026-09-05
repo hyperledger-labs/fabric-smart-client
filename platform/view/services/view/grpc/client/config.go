@@ -54,8 +54,11 @@ func ValidateClientConfig(config Config) error {
 	if config.ConnectionConfig.Address == "" {
 		return errors.New("missing fsc peer address")
 	}
-	if config.ConnectionConfig.TLSEnabled && (config.ConnectionConfig.TLSRootCertFile == "" || len(config.ConnectionConfig.TLSRootCertBytes) == 0) {
-		return errors.New("missing fsc peer TLSRootCertFile")
+	// A TLS-enabled connection with no trust anchor could never verify the server. The
+	// anchors are already loaded by this point, so this checks the resolved pool rather than
+	// the two config keys it used to come from.
+	if config.ConnectionConfig.TLS.UseTLS && len(config.ConnectionConfig.TLS.ServerRootCAs) == 0 {
+		return errors.New("missing fsc peer TLS root certificates")
 	}
 
 	return nil

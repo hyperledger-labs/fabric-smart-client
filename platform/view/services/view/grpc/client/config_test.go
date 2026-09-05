@@ -20,10 +20,11 @@ var _ = Describe("Config", func() {
 	BeforeEach(func() {
 		config = client.Config{
 			ConnectionConfig: &grpc.ConnectionConfig{
-				Address:          "127.0.0.1:0",
-				TLSEnabled:       true,
-				TLSRootCertFile:  "root-ca",
-				TLSRootCertBytes: [][]byte{[]byte("cert")},
+				Address: "127.0.0.1:0",
+				TLS: grpc.SecureOptions{
+					UseTLS:        true,
+					ServerRootCAs: [][]byte{[]byte("cert")},
+				},
 			},
 		}
 	})
@@ -46,14 +47,17 @@ var _ = Describe("Config", func() {
 		})
 	})
 
-	Context("when there is no fsc TLSRootCertFile", func() {
+	// Validation now checks the resolved pool rather than the two configuration keys it used
+	// to be assembled from: a TLS-enabled connection with no anchor could never verify the
+	// server, however the anchors were configured.
+	Context("when TLS is enabled with no root certificates", func() {
 		BeforeEach(func() {
-			config.ConnectionConfig.TLSRootCertFile = ""
+			config.ConnectionConfig.TLS.ServerRootCAs = nil
 		})
 
-		It("returns fsc TLSRootCertFile error", func() {
+		It("returns a missing root certificates error", func() {
 			err := client.ValidateClientConfig(config)
-			Expect(err).To(MatchError("missing fsc peer TLSRootCertFile"))
+			Expect(err).To(MatchError("missing fsc peer TLS root certificates"))
 		})
 	})
 })

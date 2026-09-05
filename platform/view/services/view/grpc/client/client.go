@@ -49,9 +49,8 @@ type ViewServiceClient interface {
 
 // ViewServiceClientImpl implements ViewServiceClient interface
 type ViewServiceClientImpl struct {
-	Address            string
-	ServerNameOverride string
-	GRPCClient         *grpc2.Client
+	Address    string
+	GRPCClient *grpc2.Client
 }
 
 func (pc *ViewServiceClientImpl) CreateViewClient() (*grpc.ClientConn, protos2.ViewServiceClient, error) {
@@ -94,9 +93,8 @@ func NewClient(config *Config, sID SigningIdentity, tracerProvider tracing.Provi
 		RandomnessReader: rand.Reader,
 		Time:             time.Now,
 		ViewServiceClient: &ViewServiceClientImpl{
-			Address:            config.ConnectionConfig.Address,
-			ServerNameOverride: config.ConnectionConfig.ServerNameOverride,
-			GRPCClient:         grpcClient,
+			Address:    config.ConnectionConfig.Address,
+			GRPCClient: grpcClient,
 		},
 		SigningIdentity: sID,
 		tracer:          tracerProvider.Tracer("client", tracing.WithMetricsOpts(tracing.MetricsOpts{})),

@@ -35,11 +35,11 @@ func TestNewService_defaultsAndOrderers(t *testing.T) {
 	// simulate fabric.mynet present
 	m.IsSetReturnsOnCall(0, true)   // called for fabric.mynet check
 	m.GetStringReturnsOnCall(0, "") // fabric.mynetdriver -> default
-	// enable TLS so TLSRootCertFile gets translated
 	m.GetBoolReturns(true)
 
-	// orderers: return a slice with one connection config
-	orderers := []*grpc.ConnectionConfig{{Address: "o:7050", TLSRootCertFile: "o.pem"}}
+	// orderers: return a slice with one connection config. Their TLS is resolved from the
+	// network block through tlsconfig now, not carried on flat fields.
+	orderers := []*grpc.ConnectionConfig{{Address: "o:7050"}}
 	m.UnmarshalKeyStub = func(key string, rawVal any) error {
 		// support both key formats used across tests
 		switch key {
@@ -74,7 +74,9 @@ func TestNewService_defaultsAndOrderers(t *testing.T) {
 	require.Equal(t, "mynet", svc.NetworkName())
 	require.Equal(t, cfg.GenericDriver, svc.DriverName())
 	require.Len(t, svc.Orderers(), 1)
-	require.Equal(t, "TRANSLATED:o.pem", svc.Orderers()[0].TLSRootCertFile)
+	// The network block is empty in this mock, so the endpoint resolves to TLS off rather
+	// than to a translated path.
+	require.False(t, svc.Orderers()[0].TLS.UseTLS)
 	require.Equal(t, "ch1", svc.DefaultChannel())
 }
 
@@ -156,7 +158,7 @@ func TestCreatePeerMapAndPickPeer(t *testing.T) {
 				return nil
 			}
 			*p = []*grpc.ConnectionConfig{
-				{Address: "p1", Usage: "query", TLSRootCertFile: "r1.pem"},
+				{Address: "p1", Usage: "query"},
 				{Address: "p2", Usage: "delivery"},
 			}
 			return nil
@@ -215,34 +217,11 @@ func TestServiceGetters(t *testing.T) {
 	m.GetBoolReturns(false)
 	m.GetStringReturns("")
 
-	// Ordering TLS settings
-	enabled, ok := svc.OrderingTLSEnabled()
-	require.True(t, enabled) // default when not set
-	require.False(t, ok)
-
-	m.IsSetReturns(true)
-	m.GetBoolReturns(true)
-	enabled, ok = svc.OrderingTLSEnabled()
-	require.True(t, enabled)
-	require.True(t, ok)
-
-	m.IsSetReturns(false)
-	required, ok := svc.OrderingTLSClientAuthRequired()
-	require.False(t, required)
-	require.False(t, ok)
-
-	m.IsSetReturns(true)
-	m.GetBoolReturns(true)
-	required, ok = svc.OrderingTLSClientAuthRequired()
-	require.True(t, required)
-	require.True(t, ok)
-
-	// TLS settings
-	m.GetBoolReturns(true)
-	require.True(t, svc.TLSClientAuthRequired())
-
-	m.GetStringReturns("server-host")
-	require.Equal(t, "server-host", svc.TLSServerHostOverride())
+	// The seven TLS accessors that used to live here — OrderingTLSEnabled,
+	// OrderingTLSClientAuthRequired, TLSEnabled, TLSClientAuthRequired,
+	// TLSServerHostOverride, TLSClientKeyFile and TLSClientCertFile — are replaced by one
+	// resolved value. With an empty network block it resolves to TLS off.
+	require.False(t, svc.NetworkClientTLS().UseTLS)
 
 	// Keepalive
 	m.IsSetReturns(false)
@@ -251,12 +230,6 @@ func TestServiceGetters(t *testing.T) {
 	m.IsSetReturns(true)
 	m.GetDurationReturns(5 * time.Second)
 	require.Equal(t, 5*time.Second, svc.ClientConnTimeout())
-
-	// TLS Files
-	m.GetPathReturnsOnCall(0, "client-key")
-	require.Equal(t, "client-key", svc.TLSClientKeyFile())
-	m.GetPathReturnsOnCall(1, "client-cert")
-	require.Equal(t, "client-cert", svc.TLSClientCertFile())
 
 	// Vault
 	m.GetStringReturns("bad-cache-size")

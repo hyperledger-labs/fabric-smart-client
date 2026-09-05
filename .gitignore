@@ -12,3 +12,6 @@ integration/nwo/cmd/fsccli/cmd
 
 # compiled cc/query chaincode binary (go build artifact)
 platform/fabric/services/state/cc/query/query
+
+# Runtime artifact written by the pingpong suite (temp binary paths and PIDs).
+integration/fsc/pingpong/testdata/pids.txt

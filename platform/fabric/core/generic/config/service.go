@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	sdriver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tlsconfig"
 )
 
 const (
@@ -50,6 +51,10 @@ type Configuration = driver.Configuration
 
 type Service struct {
 	Configuration
+	// networkTLS is the resolved client-side TLS of fabric.<network>.tls, the trust anchors
+	// and credentials every connection this network dials inherits from.
+	networkTLS grpc.SecureOptions
+
 	name   string
 	driver string
 	prefix string
@@ -78,22 +83,30 @@ func NewService(configService Configuration, name string, defaultConfig bool) (*
 		driver = GenericDriver
 	}
 
-	tlsEnabled := configService.GetBool(fmt.Sprintf("fabric.%stls.enabled", prefix))
+	networkTLSKey := fmt.Sprintf("fabric.%stls", prefix)
+	if err := tlsconfig.CheckRemovedKeys(configService, fmt.Sprintf("fabric.%s", prefix)); err != nil {
+		return nil, err
+	}
+	networkTLS, err := tlsconfig.ResolveClient(configService, networkTLSKey)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "invalid TLS configuration under %s", networkTLSKey)
+	}
+
 	orderers, err := readItems[*ConnectionConfig](configService, prefix, "orderers")
 	if err != nil {
 		return nil, err
 	}
-	for _, v := range orderers {
-		v.TLSEnabled = tlsEnabled
-		if tlsEnabled && len(v.TLSRootCertFile) > 0 {
-			v.TLSRootCertFile = configService.TranslatePath(v.TLSRootCertFile)
-		}
+	if err := resolveEndpointTLS(configService, networkTLSKey, prefix, "orderers", orderers); err != nil {
+		return nil, err
 	}
 	peers, err := readItems[*ConnectionConfig](configService, prefix, "peers")
 	if err != nil {
 		return nil, err
 	}
-	peerMapping := createPeerMap(configService, peers, tlsEnabled)
+	if err := resolveEndpointTLS(configService, networkTLSKey, prefix, "peers", peers); err != nil {
+		return nil, err
+	}
+	peerMapping := createPeerMap(peers)
 
 	channels, err := readItems[*Channel](configService, prefix, "channels")
 	if err != nil {
@@ -106,6 +119,7 @@ func NewService(configService Configuration, name string, defaultConfig bool) (*
 
 	return &Service{
 		Configuration:      configService,
+		networkTLS:         networkTLS,
 		name:               name,
 		driver:             driver,
 		prefix:             prefix,
@@ -122,18 +136,17 @@ func (s *Service) NetworkName() string {
 	return s.name
 }
 
-func (s *Service) OrderingTLSEnabled() (bool, bool) {
-	if !s.Configuration.IsSet("ordering.tlsEnabled") {
-		return true, false
-	}
-	return s.GetBool("ordering.tlsEnabled"), true
-}
-
-func (s *Service) OrderingTLSClientAuthRequired() (bool, bool) {
-	if !s.Configuration.IsSet("ordering.tlsClientAuthRequired") {
-		return false, false
-	}
-	return s.GetBool("ordering.tlsClientAuthRequired"), true
+// NetworkClientTLS returns the resolved client-side TLS of this network, which every
+// connection it dials inherits from. Trust anchors discovered from a channel's MSPs are
+// appended to a copy of ServerRootCAs by the caller that discovers them; they augment this
+// pool rather than replacing it.
+//
+// It replaces OrderingTLSEnabled, OrderingTLSClientAuthRequired, TLSEnabled,
+// TLSClientAuthRequired, TLSServerHostOverride, TLSClientKeyFile and TLSClientCertFile: seven
+// accessors that each read one field of the same block, with the ordering.* pair shadowing
+// two of them.
+func (s *Service) NetworkClientTLS() grpc.SecureOptions {
+	return s.networkTLS
 }
 
 // DriverName returns the selected driver name. When not set in the
@@ -142,33 +155,12 @@ func (s *Service) DriverName() string {
 	return s.driver
 }
 
-// TLSEnabled checks whether TLS is enabled for this network. It reads the
-// value from the underlying Configuration using the configured prefix.
-func (s *Service) TLSEnabled() bool {
-	return s.GetBool("tls.enabled")
-}
-
-func (s *Service) TLSClientAuthRequired() bool {
-	return s.GetBool("tls.clientAuthRequired")
-}
-
-func (s *Service) TLSServerHostOverride() string {
-	return s.GetString("tls.serverhostoverride")
-}
-
+// ClientConnTimeout returns how long to wait when establishing a connection to this network.
 func (s *Service) ClientConnTimeout() time.Duration {
 	if !s.Configuration.IsSet("keepalive.connectionTimeout") {
 		return defaultConnectionTimeout
 	}
 	return s.GetDuration("keepalive.connectionTimeout")
-}
-
-func (s *Service) TLSClientKeyFile() string {
-	return s.GetPath("tls.clientKey.file")
-}
-
-func (s *Service) TLSClientCertFile() string {
-	return s.GetPath("tls.clientCert.file")
 }
 
 // ClientKeepAliveConfig return the client keep alive configuration.
@@ -286,6 +278,19 @@ func (s *Service) GetPath(key string) string {
 	return s.Configuration.GetPath("fabric." + s.prefix + key)
 }
 
+// RawSubtree returns the raw map at the network-relative key. Overriding the embedded
+// Configuration matters: without it a caller would silently read the unprefixed key and get
+// another network's block, or none.
+func (s *Service) RawSubtree(key string) (map[string]any, bool) {
+	return s.Configuration.RawSubtree("fabric." + s.prefix + key)
+}
+
+// RawSubtrees returns the raw maps at the network-relative key when it holds an array of maps.
+// Prefixed for the same reason as [Service.RawSubtree].
+func (s *Service) RawSubtrees(key string) []map[string]any {
+	return s.Configuration.RawSubtrees("fabric." + s.prefix + key)
+}
+
 func (s *Service) MSPCacheSize() int {
 	if cacheSize, err := strconv.Atoi(s.GetString("mspCacheSize")); err == nil {
 		return cacheSize
@@ -359,14 +364,23 @@ func createChannelMap(channels []*Channel) (map[string]*Channel, string, error) 
 	return channelMap, defaultChannel, nil
 }
 
-func createPeerMap(configService Configuration, peers []*ConnectionConfig, tlsEnabled bool) map[driver.PeerFunctionType][]*ConnectionConfig {
+// resolveEndpointTLS resolves each endpoint's client-side TLS, inheriting per field from the
+// network's tls block.
+func resolveEndpointTLS(configService Configuration, networkTLSKey, prefix, key string, endpoints []*ConnectionConfig) error {
+	resolved, err := tlsconfig.ResolveEndpointClients(configService, networkTLSKey,
+		fmt.Sprintf("fabric.%s%s", prefix, key), len(endpoints))
+	if err != nil {
+		return err
+	}
+	for i, cc := range endpoints {
+		cc.TLS = resolved[i]
+	}
+	return nil
+}
+
+func createPeerMap(peers []*ConnectionConfig) map[driver.PeerFunctionType][]*ConnectionConfig {
 	peerMapping := map[driver.PeerFunctionType][]*ConnectionConfig{}
 	for _, peerCC := range peers {
-		peerCC.TLSEnabled = tlsEnabled && !peerCC.TLSDisabled
-		if peerCC.TLSEnabled && len(peerCC.TLSRootCertFile) > 0 {
-			peerCC.TLSRootCertFile = configService.TranslatePath(peerCC.TLSRootCertFile)
-		}
-
 		if funcType, ok := funcTypeMap[strings.ToLower(peerCC.Usage)]; ok {
 			peerMapping[funcType] = append(peerMapping[funcType], peerCC)
 		} else {
@@ -383,3 +397,8 @@ func readItems[T any](configService Configuration, prefix, key string) ([]T, err
 	}
 	return items, nil
 }
+
+// The network config service must satisfy Source, or per-network TLS resolution needs an
+// adapter. This is not automatic from the embedded Configuration: Service prefixes every key
+// with fabric.<network>., and the unprefixed accessors would read the wrong block.
+var _ tlsconfig.Source = (*Service)(nil)

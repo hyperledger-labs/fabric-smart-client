@@ -82,6 +82,13 @@ type Configuration interface {
 	GetPath(key string) string
 	// TranslatePath translates the passed path relative to the config path
 	TranslatePath(path string) string
+	// RawSubtree returns the raw map at the given key, and reports whether the key names a
+	// subtree. Used to decode a tls: block strictly, so an unknown key is an error rather
+	// than a silent discard.
+	RawSubtree(key string) (map[string]any, bool)
+	// RawSubtrees returns the raw maps at the given key when it holds an array of maps, as
+	// orderers and peers do. Array elements have no addressable key of their own.
+	RawSubtrees(key string) []map[string]any
 }
 
 type ConfigService interface {
@@ -92,12 +99,6 @@ type ConfigService interface {
 	Channel(name string) ChannelConfig
 	ChannelIDs() []string
 	Orderers() []*grpc.ConnectionConfig
-	// OrderingTLSEnabled returns true, true if TLS is enabled because the key was set.
-	// Default value is true.
-	OrderingTLSEnabled() (bool, bool)
-	// OrderingTLSClientAuthRequired returns true, true if TLS client-side authentication is enabled because the key was set.
-	// Default value is false
-	OrderingTLSClientAuthRequired() (bool, bool)
 	SetConfigOrderers([]*grpc.ConnectionConfig) error
 	PickOrderer() *grpc.ConnectionConfig
 	BroadcastNumRetries() int
@@ -107,14 +108,13 @@ type ConfigService interface {
 	IsChannelQuiet(name string) bool
 	VaultPersistenceName() driver2.PersistenceName
 	VaultTXStoreCacheSize() int
-	TLSServerHostOverride() string
 	ClientConnTimeout() time.Duration
-	TLSClientAuthRequired() bool
-	TLSClientKeyFile() string
-	TLSClientCertFile() string
 	ClientKeepAliveConfig() *grpc.ClientKeepAliveConfig
+	// NetworkClientTLS returns the resolved client-side TLS every connection this network
+	// dials inherits from. Trust anchors discovered from a channel's MSPs are appended to a
+	// copy of its ServerRootCAs; they augment the configured pool rather than replacing it.
+	NetworkClientTLS() grpc.SecureOptions
 	NewDefaultChannelConfig(name string) ChannelConfig
-	TLSEnabled() bool
 }
 
 type Resolver interface {

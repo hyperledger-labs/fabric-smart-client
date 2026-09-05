@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -105,7 +104,10 @@ func TestNewGRPCClient_BadConfig(t *testing.T) {
 	}
 	_, err := grpc3.NewGRPCClient(config)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "error adding root certificate")
+	// TLSConfig names which pool failed and why, rather than just "error adding root
+	// certificate".
+	require.Contains(t, err.Error(), "server root CAs")
+	require.Contains(t, err.Error(), "not a valid PEM block")
 
 	// missing key
 	missing := "both Key and Certificate are required when using mutual TLS"
@@ -129,7 +131,7 @@ func TestNewGRPCClient_BadConfig(t *testing.T) {
 	require.Equal(t, missing, err.Error())
 
 	// bad key
-	failed := "failed to load client certificate"
+	failed := "failed loading TLS key pair"
 	config.SecOpts = grpc3.SecureOptions{
 		Certificate:       testCerts.certPEM,
 		Key:               []byte(badPEM),
@@ -612,29 +614,6 @@ func loadCerts(t *testing.T) testCerts {
 	return certs
 }
 
-func TestServerNameOverride(t *testing.T) {
-	t.Parallel()
-	tlsOption := grpc3.ServerNameOverride("override-name")
-	testConfig := &tls.Config{}
-	tlsOption(testConfig)
-	require.Equal(t, &tls.Config{
-		ServerName: "override-name",
-	}, testConfig)
-}
-
-func TestCertPoolOverride(t *testing.T) {
-	t.Parallel()
-	tlsOption := grpc3.CertPoolOverride(&x509.CertPool{})
-	testConfig := &tls.Config{}
-	require.NotEqual(t, &tls.Config{
-		RootCAs: &x509.CertPool{},
-	}, testConfig)
-	tlsOption(testConfig)
-	require.Equal(t, &tls.Config{
-		RootCAs: &x509.CertPool{},
-	}, testConfig)
-}
-
 func TestDynamicClientTLSLoading(t *testing.T) {
 	t.Parallel()
 	ca1, err := tlsgen.NewCA()
@@ -678,13 +657,7 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 		_ = server.Start()
 	})
 
-	var dynamicRootCerts atomic.Value
-	dynamicRootCerts.Store(ca1.CertBytes())
-
-	conn, err := client.NewConnection(server.Address(), func(tlsConfig *tls.Config) {
-		tlsConfig.RootCAs = x509.NewCertPool()
-		tlsConfig.RootCAs.AppendCertsFromPEM(dynamicRootCerts.Load().([]byte))
-	})
+	conn, err := client.NewConnection(server.Address())
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 
@@ -704,8 +677,9 @@ func TestDynamicClientTLSLoading(t *testing.T) {
 	// Poll the connection state to wait for it to fail
 	waitForConnState(connectivity.TransientFailure, "fail")
 
-	// Update the TLS root CAs with the good one
-	dynamicRootCerts.Store(ca2.CertBytes())
+	// Update the TLS root CAs with the good one. DynamicClientCredentials clones the config
+	// on every handshake, so the change is picked up by the retry on an existing connection.
+	require.NoError(t, client.SetServerRootCAs([][]byte{ca2.CertBytes()}))
 
 	// Reset exponential back-off to make the test faster
 	conn.ResetConnectBackoff()

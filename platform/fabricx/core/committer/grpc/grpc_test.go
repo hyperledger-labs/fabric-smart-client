@@ -34,6 +34,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/grpc/mock"
+	grpc3 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 func TestClientProvider_NotificationServiceClient(t *testing.T) {
@@ -242,51 +243,47 @@ func TestClientConn(t *testing.T) {
 	})
 }
 
+// mustRead exists because generateCertAndKey writes files, while the TLS entry points now
+// take resolved material. Reading configured files is tlsconfig's job, which is also where
+// the "file does not exist" case is covered — it can no longer reach this layer.
+func mustRead(t *testing.T, path string) []byte {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return b
+}
+
 func TestTransportCredentials(t *testing.T) {
 	t.Parallel()
-	t.Run("nil tls config", func(t *testing.T) {
+
+	t.Run("zero value means no tls", func(t *testing.T) {
 		t.Parallel()
-		creds, err := grpc2.TransportCredentials(nil)
+		creds, err := grpc2.TransportCredentials(grpc3.SecureOptions{})
 		require.NoError(t, err)
 		require.Equal(t, "insecure", creds.Info().SecurityProtocol)
 	})
 
 	t.Run("tls disabled", func(t *testing.T) {
 		t.Parallel()
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{Enabled: false})
+		creds, err := grpc2.TransportCredentials(grpc3.SecureOptions{UseTLS: false})
 		require.NoError(t, err)
 		require.Equal(t, "insecure", creds.Info().SecurityProtocol)
 	})
 
+	// Leaving RootCAs nil makes crypto/tls fall back to the system store instead of trusting
+	// nothing, which is deliberate for a collector reached over a public CA.
 	t.Run("tls enabled no root certs uses system pool", func(t *testing.T) {
 		t.Parallel()
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
-			Enabled:       true,
-			RootCertPaths: []string{},
-		})
+		creds, err := grpc2.TransportCredentials(grpc3.SecureOptions{UseTLS: true})
 		require.NoError(t, err)
 		require.Equal(t, "tls", creds.Info().SecurityProtocol)
 	})
 
-	t.Run("tls enabled root cert not found", func(t *testing.T) {
-		t.Parallel()
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
-			Enabled:       true,
-			RootCertPaths: []string{"non-existent-file"},
-		})
-		require.Error(t, err)
-		require.Nil(t, creds)
-	})
-
 	t.Run("tls enabled root cert invalid pem", func(t *testing.T) {
 		t.Parallel()
-		tmpDir := t.TempDir()
-		certFile := filepath.Join(tmpDir, "cert.pem")
-		require.NoError(t, os.WriteFile(certFile, []byte("invalid-cert"), 0o644))
-
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
-			Enabled:       true,
-			RootCertPaths: []string{certFile},
+		creds, err := grpc2.TransportCredentials(grpc3.SecureOptions{
+			UseTLS:        true,
+			ServerRootCAs: [][]byte{[]byte("invalid-cert")},
 		})
 		require.Error(t, err)
 		require.Nil(t, creds)
@@ -296,9 +293,9 @@ func TestTransportCredentials(t *testing.T) {
 		t.Parallel()
 		certFile, _ := generateCertAndKey(t)
 
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
-			Enabled:            true,
-			RootCertPaths:      []string{certFile},
+		creds, err := grpc2.TransportCredentials(grpc3.SecureOptions{
+			UseTLS:             true,
+			ServerRootCAs:      [][]byte{mustRead(t, certFile)},
 			ServerNameOverride: "test-server",
 		})
 		require.NoError(t, err)
@@ -309,10 +306,10 @@ func TestTransportCredentials(t *testing.T) {
 		t.Parallel()
 		certFile, _ := generateCertAndKey(t)
 
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
-			Enabled:        true,
-			RootCertPaths:  []string{certFile},
-			ClientCertPath: certFile,
+		creds, err := grpc2.TransportCredentials(grpc3.SecureOptions{
+			UseTLS:        true,
+			ServerRootCAs: [][]byte{mustRead(t, certFile)},
+			Certificate:   mustRead(t, certFile),
 		})
 		require.NoError(t, err)
 		require.Equal(t, "tls", creds.Info().SecurityProtocol)
@@ -322,10 +319,10 @@ func TestTransportCredentials(t *testing.T) {
 		t.Parallel()
 		certFile, keyFile := generateCertAndKey(t)
 
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
-			Enabled:       true,
-			RootCertPaths: []string{certFile},
-			ClientKeyPath: keyFile,
+		creds, err := grpc2.TransportCredentials(grpc3.SecureOptions{
+			UseTLS:        true,
+			ServerRootCAs: [][]byte{mustRead(t, certFile)},
+			Key:           mustRead(t, keyFile),
 		})
 		require.NoError(t, err)
 		require.Equal(t, "tls", creds.Info().SecurityProtocol)
@@ -336,11 +333,11 @@ func TestTransportCredentials(t *testing.T) {
 		certFile1, _ := generateCertAndKey(t)
 		_, keyFile2 := generateCertAndKey(t)
 
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
-			Enabled:        true,
-			RootCertPaths:  []string{certFile1},
-			ClientCertPath: certFile1,
-			ClientKeyPath:  keyFile2,
+		creds, err := grpc2.TransportCredentials(grpc3.SecureOptions{
+			UseTLS:        true,
+			ServerRootCAs: [][]byte{mustRead(t, certFile1)},
+			Certificate:   mustRead(t, certFile1),
+			Key:           mustRead(t, keyFile2),
 		})
 		require.Error(t, err)
 		require.Nil(t, creds)
@@ -350,11 +347,11 @@ func TestTransportCredentials(t *testing.T) {
 		t.Parallel()
 		certFile, keyFile := generateCertAndKey(t)
 
-		creds, err := grpc2.TransportCredentials(&config.TLSConfig{
-			Enabled:        true,
-			RootCertPaths:  []string{certFile},
-			ClientCertPath: certFile,
-			ClientKeyPath:  keyFile,
+		creds, err := grpc2.TransportCredentials(grpc3.SecureOptions{
+			UseTLS:        true,
+			ServerRootCAs: [][]byte{mustRead(t, certFile)},
+			Certificate:   mustRead(t, certFile),
+			Key:           mustRead(t, keyFile),
 		})
 		require.NoError(t, err)
 		require.Equal(t, "tls", creds.Info().SecurityProtocol)
@@ -412,9 +409,9 @@ func TestClientConn_Integration(t *testing.T) {
 		cfg := &config.Config{
 			Endpoints: []config.Endpoint{{
 				Address: addr,
-				TLS: &config.TLSConfig{
-					Enabled:       true,
-					RootCertPaths: []string{certFile},
+				TLS: grpc3.SecureOptions{
+					UseTLS:        true,
+					ServerRootCAs: [][]byte{mustRead(t, certFile)},
 				},
 			}},
 		}
@@ -451,11 +448,11 @@ func TestClientConn_Integration(t *testing.T) {
 		cfg := &config.Config{
 			Endpoints: []config.Endpoint{{
 				Address: addr,
-				TLS: &config.TLSConfig{
-					Enabled:        true,
-					RootCertPaths:  []string{serverCertFile},
-					ClientCertPath: clientCertFile,
-					ClientKeyPath:  clientKeyFile,
+				TLS: grpc3.SecureOptions{
+					UseTLS:        true,
+					ServerRootCAs: [][]byte{mustRead(t, serverCertFile)},
+					Certificate:   mustRead(t, clientCertFile),
+					Key:           mustRead(t, clientKeyFile),
 				},
 			}},
 		}

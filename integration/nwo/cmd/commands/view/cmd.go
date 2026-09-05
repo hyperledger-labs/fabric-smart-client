@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -147,11 +146,34 @@ func invoke() error {
 		return err
 	}
 
+	// Flag-driven, so the material is read here rather than resolved from a node's
+	// configuration. The shape is the client template all the same.
+	caPEM, err := os.ReadFile(config.TLSConfig.PeerCACertPath)
+	if err != nil {
+		return errors.Wrapf(err, "failed reading peer CA certificate [%s]", config.TLSConfig.PeerCACertPath)
+	}
+	tlsOpts := grpc.SecureOptions{UseTLS: true, ServerRootCAs: [][]byte{caPEM}}
+
+	// --tlsCert/--tlsKey were previously collected and then never read, so a peer enforcing
+	// client authentication rejected the CLI however they were set. Both are needed: a
+	// certificate without its key cannot complete a handshake.
+	if config.TLSConfig.CertPath != "" || config.TLSConfig.KeyPath != "" {
+		if config.TLSConfig.CertPath == "" || config.TLSConfig.KeyPath == "" {
+			return errors.New("both --tlsCert and --tlsKey are required for client authentication")
+		}
+		if tlsOpts.Certificate, err = os.ReadFile(config.TLSConfig.CertPath); err != nil {
+			return errors.Wrapf(err, "failed reading client certificate [%s]", config.TLSConfig.CertPath)
+		}
+		if tlsOpts.Key, err = os.ReadFile(config.TLSConfig.KeyPath); err != nil {
+			return errors.Wrapf(err, "failed reading client key [%s]", config.TLSConfig.KeyPath)
+		}
+		tlsOpts.RequireClientCert = true
+	}
+
 	cc := &grpc.ConnectionConfig{
 		Address:           config.Address,
-		TLSEnabled:        true,
-		TLSRootCertFile:   path.Join(config.TLSConfig.PeerCACertPath),
 		ConnectionTimeout: 10 * time.Second,
+		TLS:               tlsOpts,
 	}
 
 	signer, err := client.NewX509SigningIdentity(config.SignerConfig.IdentityPath, config.SignerConfig.KeyPath)

@@ -96,6 +96,30 @@ type Configuration struct {
 	isSetReturnsOnCall map[int]struct {
 		result1 bool
 	}
+	RawSubtreeStub        func(string) (map[string]any, bool)
+	rawSubtreeMutex       sync.RWMutex
+	rawSubtreeArgsForCall []struct {
+		arg1 string
+	}
+	rawSubtreeReturns struct {
+		result1 map[string]any
+		result2 bool
+	}
+	rawSubtreeReturnsOnCall map[int]struct {
+		result1 map[string]any
+		result2 bool
+	}
+	RawSubtreesStub        func(string) []map[string]any
+	rawSubtreesMutex       sync.RWMutex
+	rawSubtreesArgsForCall []struct {
+		arg1 string
+	}
+	rawSubtreesReturns struct {
+		result1 []map[string]any
+	}
+	rawSubtreesReturnsOnCall map[int]struct {
+		result1 []map[string]any
+	}
 	TranslatePathStub        func(string) string
 	translatePathMutex       sync.RWMutex
 	translatePathArgsForCall []struct {
@@ -600,6 +624,131 @@ func (fake *Configuration) IsSetReturnsOnCall(i int, result1 bool) {
 	}
 	fake.isSetReturnsOnCall[i] = struct {
 		result1 bool
+	}{result1}
+}
+
+func (fake *Configuration) RawSubtree(arg1 string) (map[string]any, bool) {
+	fake.rawSubtreeMutex.Lock()
+	ret, specificReturn := fake.rawSubtreeReturnsOnCall[len(fake.rawSubtreeArgsForCall)]
+	fake.rawSubtreeArgsForCall = append(fake.rawSubtreeArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.RawSubtreeStub
+	fakeReturns := fake.rawSubtreeReturns
+	fake.recordInvocation("RawSubtree", []interface{}{arg1})
+	fake.rawSubtreeMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Configuration) RawSubtreeCallCount() int {
+	fake.rawSubtreeMutex.RLock()
+	defer fake.rawSubtreeMutex.RUnlock()
+	return len(fake.rawSubtreeArgsForCall)
+}
+
+func (fake *Configuration) RawSubtreeCalls(stub func(string) (map[string]any, bool)) {
+	fake.rawSubtreeMutex.Lock()
+	defer fake.rawSubtreeMutex.Unlock()
+	fake.RawSubtreeStub = stub
+}
+
+func (fake *Configuration) RawSubtreeArgsForCall(i int) string {
+	fake.rawSubtreeMutex.RLock()
+	defer fake.rawSubtreeMutex.RUnlock()
+	argsForCall := fake.rawSubtreeArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Configuration) RawSubtreeReturns(result1 map[string]any, result2 bool) {
+	fake.rawSubtreeMutex.Lock()
+	defer fake.rawSubtreeMutex.Unlock()
+	fake.RawSubtreeStub = nil
+	fake.rawSubtreeReturns = struct {
+		result1 map[string]any
+		result2 bool
+	}{result1, result2}
+}
+
+func (fake *Configuration) RawSubtreeReturnsOnCall(i int, result1 map[string]any, result2 bool) {
+	fake.rawSubtreeMutex.Lock()
+	defer fake.rawSubtreeMutex.Unlock()
+	fake.RawSubtreeStub = nil
+	if fake.rawSubtreeReturnsOnCall == nil {
+		fake.rawSubtreeReturnsOnCall = make(map[int]struct {
+			result1 map[string]any
+			result2 bool
+		})
+	}
+	fake.rawSubtreeReturnsOnCall[i] = struct {
+		result1 map[string]any
+		result2 bool
+	}{result1, result2}
+}
+
+func (fake *Configuration) RawSubtrees(arg1 string) []map[string]any {
+	fake.rawSubtreesMutex.Lock()
+	ret, specificReturn := fake.rawSubtreesReturnsOnCall[len(fake.rawSubtreesArgsForCall)]
+	fake.rawSubtreesArgsForCall = append(fake.rawSubtreesArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.RawSubtreesStub
+	fakeReturns := fake.rawSubtreesReturns
+	fake.recordInvocation("RawSubtrees", []interface{}{arg1})
+	fake.rawSubtreesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Configuration) RawSubtreesCallCount() int {
+	fake.rawSubtreesMutex.RLock()
+	defer fake.rawSubtreesMutex.RUnlock()
+	return len(fake.rawSubtreesArgsForCall)
+}
+
+func (fake *Configuration) RawSubtreesCalls(stub func(string) []map[string]any) {
+	fake.rawSubtreesMutex.Lock()
+	defer fake.rawSubtreesMutex.Unlock()
+	fake.RawSubtreesStub = stub
+}
+
+func (fake *Configuration) RawSubtreesArgsForCall(i int) string {
+	fake.rawSubtreesMutex.RLock()
+	defer fake.rawSubtreesMutex.RUnlock()
+	argsForCall := fake.rawSubtreesArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Configuration) RawSubtreesReturns(result1 []map[string]any) {
+	fake.rawSubtreesMutex.Lock()
+	defer fake.rawSubtreesMutex.Unlock()
+	fake.RawSubtreesStub = nil
+	fake.rawSubtreesReturns = struct {
+		result1 []map[string]any
+	}{result1}
+}
+
+func (fake *Configuration) RawSubtreesReturnsOnCall(i int, result1 []map[string]any) {
+	fake.rawSubtreesMutex.Lock()
+	defer fake.rawSubtreesMutex.Unlock()
+	fake.RawSubtreesStub = nil
+	if fake.rawSubtreesReturnsOnCall == nil {
+		fake.rawSubtreesReturnsOnCall = make(map[int]struct {
+			result1 []map[string]any
+		})
+	}
+	fake.rawSubtreesReturnsOnCall[i] = struct {
+		result1 []map[string]any
 	}{result1}
 }
 

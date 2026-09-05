@@ -38,10 +38,11 @@ type Config struct {
 	CACertRaw []byte
 	// CACertPath is the Certificate Authority Cert Path
 	CACertPath string
-	// TLSCertPath is the TLS client certificate path
-	TLSCertPath string
-	// TLSKeyPath is the TLS client key path
-	TLSKeyPath string
+	// TLSCertRaw is the PEM-encoded TLS client certificate. Callers resolve their TLS
+	// material through tlsconfig and pass the PEM directly, so there is no path form.
+	TLSCertRaw []byte
+	// TLSKeyRaw is the PEM-encoded TLS client key, paired with TLSCertRaw.
+	TLSKeyRaw []byte
 }
 
 func (c *Config) WsURL() string {
@@ -94,11 +95,8 @@ func NewClient(config *Config) (*Client, error) {
 			RootCAs: rootCAs,
 		}
 
-		if len(config.TLSCertPath) != 0 && len(config.TLSKeyPath) != 0 {
-			clientCert, err := tls.LoadX509KeyPair(
-				config.TLSCertPath,
-				config.TLSKeyPath,
-			)
+		if len(config.TLSCertRaw) != 0 {
+			clientCert, err := tls.X509KeyPair(config.TLSCertRaw, config.TLSKeyRaw)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to load x509 key pair")
 			}

@@ -132,16 +132,13 @@ func (sc *serverCreds) OverrideServerName(string) error {
 }
 
 type DynamicClientCredentials struct {
-	TLSConfig  *tls.Config
-	TLSOptions []TLSOption
+	TLSConfig *tls.Config
 }
 
+// latestConfig clones on every handshake so that SetServerRootCAs on the client takes effect
+// per connection.
 func (dtc *DynamicClientCredentials) latestConfig() *tls.Config {
-	tlsConfigCopy := dtc.TLSConfig.Clone()
-	for _, tlsOption := range dtc.TLSOptions {
-		tlsOption(tlsConfigCopy)
-	}
-	return tlsConfigCopy
+	return dtc.TLSConfig.Clone()
 }
 
 func (dtc *DynamicClientCredentials) ClientHandshake(ctx context.Context, authority string, rawConn net.Conn) (net.Conn, credentials.AuthInfo, error) {

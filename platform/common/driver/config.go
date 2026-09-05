@@ -32,4 +32,12 @@ type ConfigService interface {
 	GetPath(key string) string
 	// TranslatePath translates the passed path relative to the config path
 	TranslatePath(path string) string
+	// RawSubtree returns the raw map at the given key, and whether the key names a
+	// subtree. Used to decode a tls: block strictly, so an unknown key is an error
+	// rather than a silent discard.
+	RawSubtree(key string) (map[string]any, bool)
+	// RawSubtrees returns the raw maps at the given key when it holds an array of maps, as
+	// a Fabric network's orderers and peers do. Array elements have no addressable key of
+	// their own.
+	RawSubtrees(key string) []map[string]any
 }

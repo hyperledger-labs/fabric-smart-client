@@ -24,6 +24,7 @@ import (
 	"github.com/tedsuo/ifrit"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc/tlsgen"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics/operations/fakes"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
@@ -105,14 +106,23 @@ var _ = Describe("Server", func() {
 		generateCertificates(tempDir)
 		client = newHTTPClient(tempDir, true)
 
+		// Options.TLS is now the resolved grpc.SecureOptions: PEM bytes, already loaded
+		// and validated. Reading the files here is what tlsconfig does in production.
+		serverCert, err := os.ReadFile(filepath.Join(tempDir, "server-cert.pem"))
+		Expect(err).NotTo(HaveOccurred())
+		serverKey, err := os.ReadFile(filepath.Join(tempDir, "server-key.pem"))
+		Expect(err).NotTo(HaveOccurred())
+		clientCA, err := os.ReadFile(filepath.Join(tempDir, "client-ca.pem"))
+		Expect(err).NotTo(HaveOccurred())
+
 		options = server.Options{
 			ListenAddress: "127.0.0.1:0",
-			TLS: server.TLS{
-				Enabled:           true,
-				CertFile:          filepath.Join(tempDir, "server-cert.pem"),
-				KeyFile:           filepath.Join(tempDir, "server-key.pem"),
-				ClientAuth:        true,
-				ClientCACertFiles: []string{filepath.Join(tempDir, "client-ca.pem")},
+			TLS: grpc.SecureOptions{
+				UseTLS:            true,
+				Certificate:       serverCert,
+				Key:               serverKey,
+				RequireClientCert: true,
+				ClientRootCAs:     [][]byte{clientCA},
 			},
 		}
 
@@ -196,8 +206,8 @@ var _ = Describe("Server", func() {
 
 	When("TLS is enabled without client authentication", func() {
 		BeforeEach(func() {
-			options.TLS.ClientAuth = false
-			options.TLS.ClientCACertFiles = []string{} // No client CA files
+			options.TLS.RequireClientCert = false
+			options.TLS.ClientRootCAs = nil // no client CAs at all: NoClientCert
 			srv = server.NewServer(options)
 			client = newHTTPClient(tempDir, false) // Client without cert
 		})
@@ -218,7 +228,7 @@ var _ = Describe("Server", func() {
 
 	Context("when TLS is disabled", func() {
 		BeforeEach(func() {
-			options.TLS.Enabled = false
+			options.TLS.UseTLS = false
 			srv = server.NewServer(options)
 		})
 
@@ -256,15 +266,19 @@ var _ = Describe("Server", func() {
 		})
 	})
 
+	// A MISSING certificate file no longer reaches this layer: tlsconfig reads and
+	// validates every path during resolution, before a listener is built, which is the
+	// point of resolving in one place (see tlsconfig's TestValidateMissingFileIsStartupError).
+	// What can still fail here is material that loaded but does not parse.
 	Context("when a bad TLS configuration is provided", func() {
 		BeforeEach(func() {
-			options.TLS.CertFile = "cert-file-does-not-exist"
+			options.TLS.Certificate = []byte("not a certificate")
 			srv = server.NewServer(options)
 		})
 
 		It("returns an error", func() {
 			err := srv.Start()
-			Expect(err).To(MatchError("open cert-file-does-not-exist: no such file or directory"))
+			Expect(err).To(MatchError(ContainSubstring("failed loading TLS key pair")))
 		})
 	})
 
@@ -278,14 +292,15 @@ var _ = Describe("Server", func() {
 
 	Context("when start fails and ifrit is used", func() {
 		BeforeEach(func() {
-			options.TLS.CertFile = "non-existent-file"
+			options.TLS.Certificate = []byte("not a certificate")
 			srv = server.NewServer(options)
 		})
 
 		It("does not close the ready chan", func() {
 			process := ifrit.Invoke(srv)
 			Consistently(process.Ready()).ShouldNot(BeClosed())
-			Eventually(process.Wait()).Should(Receive(MatchError("open non-existent-file: no such file or directory")))
+			Eventually(process.Wait()).Should(Receive(MatchError(
+				ContainSubstring("failed loading TLS key pair"))))
 		})
 	})
 })

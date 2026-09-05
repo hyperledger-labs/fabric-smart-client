@@ -191,6 +191,16 @@ type ConfigProvider struct {
 	isSetReturnsOnCall map[int]struct {
 		result1 bool
 	}
+	NetworkClientTLSStub        func() grpc.SecureOptions
+	networkClientTLSMutex       sync.RWMutex
+	networkClientTLSArgsForCall []struct {
+	}
+	networkClientTLSReturns struct {
+		result1 grpc.SecureOptions
+	}
+	networkClientTLSReturnsOnCall map[int]struct {
+		result1 grpc.SecureOptions
+	}
 	NetworkNameStub        func() string
 	networkNameMutex       sync.RWMutex
 	networkNameArgsForCall []struct {
@@ -232,30 +242,6 @@ type ConfigProvider struct {
 	orderersReturnsOnCall map[int]struct {
 		result1 []*grpc.ConnectionConfig
 	}
-	OrderingTLSClientAuthRequiredStub        func() (bool, bool)
-	orderingTLSClientAuthRequiredMutex       sync.RWMutex
-	orderingTLSClientAuthRequiredArgsForCall []struct {
-	}
-	orderingTLSClientAuthRequiredReturns struct {
-		result1 bool
-		result2 bool
-	}
-	orderingTLSClientAuthRequiredReturnsOnCall map[int]struct {
-		result1 bool
-		result2 bool
-	}
-	OrderingTLSEnabledStub        func() (bool, bool)
-	orderingTLSEnabledMutex       sync.RWMutex
-	orderingTLSEnabledArgsForCall []struct {
-	}
-	orderingTLSEnabledReturns struct {
-		result1 bool
-		result2 bool
-	}
-	orderingTLSEnabledReturnsOnCall map[int]struct {
-		result1 bool
-		result2 bool
-	}
 	PickOrdererStub        func() *grpc.ConnectionConfig
 	pickOrdererMutex       sync.RWMutex
 	pickOrdererArgsForCall []struct {
@@ -277,6 +263,30 @@ type ConfigProvider struct {
 	pickPeerReturnsOnCall map[int]struct {
 		result1 *grpc.ConnectionConfig
 	}
+	RawSubtreeStub        func(string) (map[string]any, bool)
+	rawSubtreeMutex       sync.RWMutex
+	rawSubtreeArgsForCall []struct {
+		arg1 string
+	}
+	rawSubtreeReturns struct {
+		result1 map[string]any
+		result2 bool
+	}
+	rawSubtreeReturnsOnCall map[int]struct {
+		result1 map[string]any
+		result2 bool
+	}
+	RawSubtreesStub        func(string) []map[string]any
+	rawSubtreesMutex       sync.RWMutex
+	rawSubtreesArgsForCall []struct {
+		arg1 string
+	}
+	rawSubtreesReturns struct {
+		result1 []map[string]any
+	}
+	rawSubtreesReturnsOnCall map[int]struct {
+		result1 []map[string]any
+	}
 	SetConfigOrderersStub        func([]*grpc.ConnectionConfig) error
 	setConfigOrderersMutex       sync.RWMutex
 	setConfigOrderersArgsForCall []struct {
@@ -287,56 +297,6 @@ type ConfigProvider struct {
 	}
 	setConfigOrderersReturnsOnCall map[int]struct {
 		result1 error
-	}
-	TLSClientAuthRequiredStub        func() bool
-	tLSClientAuthRequiredMutex       sync.RWMutex
-	tLSClientAuthRequiredArgsForCall []struct {
-	}
-	tLSClientAuthRequiredReturns struct {
-		result1 bool
-	}
-	tLSClientAuthRequiredReturnsOnCall map[int]struct {
-		result1 bool
-	}
-	TLSClientCertFileStub        func() string
-	tLSClientCertFileMutex       sync.RWMutex
-	tLSClientCertFileArgsForCall []struct {
-	}
-	tLSClientCertFileReturns struct {
-		result1 string
-	}
-	tLSClientCertFileReturnsOnCall map[int]struct {
-		result1 string
-	}
-	TLSClientKeyFileStub        func() string
-	tLSClientKeyFileMutex       sync.RWMutex
-	tLSClientKeyFileArgsForCall []struct {
-	}
-	tLSClientKeyFileReturns struct {
-		result1 string
-	}
-	tLSClientKeyFileReturnsOnCall map[int]struct {
-		result1 string
-	}
-	TLSEnabledStub        func() bool
-	tLSEnabledMutex       sync.RWMutex
-	tLSEnabledArgsForCall []struct {
-	}
-	tLSEnabledReturns struct {
-		result1 bool
-	}
-	tLSEnabledReturnsOnCall map[int]struct {
-		result1 bool
-	}
-	TLSServerHostOverrideStub        func() string
-	tLSServerHostOverrideMutex       sync.RWMutex
-	tLSServerHostOverrideArgsForCall []struct {
-	}
-	tLSServerHostOverrideReturns struct {
-		result1 string
-	}
-	tLSServerHostOverrideReturnsOnCall map[int]struct {
-		result1 string
 	}
 	TranslatePathStub        func(string) string
 	translatePathMutex       sync.RWMutex
@@ -1358,6 +1318,59 @@ func (fake *ConfigProvider) IsSetReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
+func (fake *ConfigProvider) NetworkClientTLS() grpc.SecureOptions {
+	fake.networkClientTLSMutex.Lock()
+	ret, specificReturn := fake.networkClientTLSReturnsOnCall[len(fake.networkClientTLSArgsForCall)]
+	fake.networkClientTLSArgsForCall = append(fake.networkClientTLSArgsForCall, struct {
+	}{})
+	stub := fake.NetworkClientTLSStub
+	fakeReturns := fake.networkClientTLSReturns
+	fake.recordInvocation("NetworkClientTLS", []interface{}{})
+	fake.networkClientTLSMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) NetworkClientTLSCallCount() int {
+	fake.networkClientTLSMutex.RLock()
+	defer fake.networkClientTLSMutex.RUnlock()
+	return len(fake.networkClientTLSArgsForCall)
+}
+
+func (fake *ConfigProvider) NetworkClientTLSCalls(stub func() grpc.SecureOptions) {
+	fake.networkClientTLSMutex.Lock()
+	defer fake.networkClientTLSMutex.Unlock()
+	fake.NetworkClientTLSStub = stub
+}
+
+func (fake *ConfigProvider) NetworkClientTLSReturns(result1 grpc.SecureOptions) {
+	fake.networkClientTLSMutex.Lock()
+	defer fake.networkClientTLSMutex.Unlock()
+	fake.NetworkClientTLSStub = nil
+	fake.networkClientTLSReturns = struct {
+		result1 grpc.SecureOptions
+	}{result1}
+}
+
+func (fake *ConfigProvider) NetworkClientTLSReturnsOnCall(i int, result1 grpc.SecureOptions) {
+	fake.networkClientTLSMutex.Lock()
+	defer fake.networkClientTLSMutex.Unlock()
+	fake.NetworkClientTLSStub = nil
+	if fake.networkClientTLSReturnsOnCall == nil {
+		fake.networkClientTLSReturnsOnCall = make(map[int]struct {
+			result1 grpc.SecureOptions
+		})
+	}
+	fake.networkClientTLSReturnsOnCall[i] = struct {
+		result1 grpc.SecureOptions
+	}{result1}
+}
+
 func (fake *ConfigProvider) NetworkName() string {
 	fake.networkNameMutex.Lock()
 	ret, specificReturn := fake.networkNameReturnsOnCall[len(fake.networkNameArgsForCall)]
@@ -1578,118 +1591,6 @@ func (fake *ConfigProvider) OrderersReturnsOnCall(i int, result1 []*grpc.Connect
 	}{result1}
 }
 
-func (fake *ConfigProvider) OrderingTLSClientAuthRequired() (bool, bool) {
-	fake.orderingTLSClientAuthRequiredMutex.Lock()
-	ret, specificReturn := fake.orderingTLSClientAuthRequiredReturnsOnCall[len(fake.orderingTLSClientAuthRequiredArgsForCall)]
-	fake.orderingTLSClientAuthRequiredArgsForCall = append(fake.orderingTLSClientAuthRequiredArgsForCall, struct {
-	}{})
-	stub := fake.OrderingTLSClientAuthRequiredStub
-	fakeReturns := fake.orderingTLSClientAuthRequiredReturns
-	fake.recordInvocation("OrderingTLSClientAuthRequired", []interface{}{})
-	fake.orderingTLSClientAuthRequiredMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *ConfigProvider) OrderingTLSClientAuthRequiredCallCount() int {
-	fake.orderingTLSClientAuthRequiredMutex.RLock()
-	defer fake.orderingTLSClientAuthRequiredMutex.RUnlock()
-	return len(fake.orderingTLSClientAuthRequiredArgsForCall)
-}
-
-func (fake *ConfigProvider) OrderingTLSClientAuthRequiredCalls(stub func() (bool, bool)) {
-	fake.orderingTLSClientAuthRequiredMutex.Lock()
-	defer fake.orderingTLSClientAuthRequiredMutex.Unlock()
-	fake.OrderingTLSClientAuthRequiredStub = stub
-}
-
-func (fake *ConfigProvider) OrderingTLSClientAuthRequiredReturns(result1 bool, result2 bool) {
-	fake.orderingTLSClientAuthRequiredMutex.Lock()
-	defer fake.orderingTLSClientAuthRequiredMutex.Unlock()
-	fake.OrderingTLSClientAuthRequiredStub = nil
-	fake.orderingTLSClientAuthRequiredReturns = struct {
-		result1 bool
-		result2 bool
-	}{result1, result2}
-}
-
-func (fake *ConfigProvider) OrderingTLSClientAuthRequiredReturnsOnCall(i int, result1 bool, result2 bool) {
-	fake.orderingTLSClientAuthRequiredMutex.Lock()
-	defer fake.orderingTLSClientAuthRequiredMutex.Unlock()
-	fake.OrderingTLSClientAuthRequiredStub = nil
-	if fake.orderingTLSClientAuthRequiredReturnsOnCall == nil {
-		fake.orderingTLSClientAuthRequiredReturnsOnCall = make(map[int]struct {
-			result1 bool
-			result2 bool
-		})
-	}
-	fake.orderingTLSClientAuthRequiredReturnsOnCall[i] = struct {
-		result1 bool
-		result2 bool
-	}{result1, result2}
-}
-
-func (fake *ConfigProvider) OrderingTLSEnabled() (bool, bool) {
-	fake.orderingTLSEnabledMutex.Lock()
-	ret, specificReturn := fake.orderingTLSEnabledReturnsOnCall[len(fake.orderingTLSEnabledArgsForCall)]
-	fake.orderingTLSEnabledArgsForCall = append(fake.orderingTLSEnabledArgsForCall, struct {
-	}{})
-	stub := fake.OrderingTLSEnabledStub
-	fakeReturns := fake.orderingTLSEnabledReturns
-	fake.recordInvocation("OrderingTLSEnabled", []interface{}{})
-	fake.orderingTLSEnabledMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1, ret.result2
-	}
-	return fakeReturns.result1, fakeReturns.result2
-}
-
-func (fake *ConfigProvider) OrderingTLSEnabledCallCount() int {
-	fake.orderingTLSEnabledMutex.RLock()
-	defer fake.orderingTLSEnabledMutex.RUnlock()
-	return len(fake.orderingTLSEnabledArgsForCall)
-}
-
-func (fake *ConfigProvider) OrderingTLSEnabledCalls(stub func() (bool, bool)) {
-	fake.orderingTLSEnabledMutex.Lock()
-	defer fake.orderingTLSEnabledMutex.Unlock()
-	fake.OrderingTLSEnabledStub = stub
-}
-
-func (fake *ConfigProvider) OrderingTLSEnabledReturns(result1 bool, result2 bool) {
-	fake.orderingTLSEnabledMutex.Lock()
-	defer fake.orderingTLSEnabledMutex.Unlock()
-	fake.OrderingTLSEnabledStub = nil
-	fake.orderingTLSEnabledReturns = struct {
-		result1 bool
-		result2 bool
-	}{result1, result2}
-}
-
-func (fake *ConfigProvider) OrderingTLSEnabledReturnsOnCall(i int, result1 bool, result2 bool) {
-	fake.orderingTLSEnabledMutex.Lock()
-	defer fake.orderingTLSEnabledMutex.Unlock()
-	fake.OrderingTLSEnabledStub = nil
-	if fake.orderingTLSEnabledReturnsOnCall == nil {
-		fake.orderingTLSEnabledReturnsOnCall = make(map[int]struct {
-			result1 bool
-			result2 bool
-		})
-	}
-	fake.orderingTLSEnabledReturnsOnCall[i] = struct {
-		result1 bool
-		result2 bool
-	}{result1, result2}
-}
-
 func (fake *ConfigProvider) PickOrderer() *grpc.ConnectionConfig {
 	fake.pickOrdererMutex.Lock()
 	ret, specificReturn := fake.pickOrdererReturnsOnCall[len(fake.pickOrdererArgsForCall)]
@@ -1804,6 +1705,131 @@ func (fake *ConfigProvider) PickPeerReturnsOnCall(i int, result1 *grpc.Connectio
 	}{result1}
 }
 
+func (fake *ConfigProvider) RawSubtree(arg1 string) (map[string]any, bool) {
+	fake.rawSubtreeMutex.Lock()
+	ret, specificReturn := fake.rawSubtreeReturnsOnCall[len(fake.rawSubtreeArgsForCall)]
+	fake.rawSubtreeArgsForCall = append(fake.rawSubtreeArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.RawSubtreeStub
+	fakeReturns := fake.rawSubtreeReturns
+	fake.recordInvocation("RawSubtree", []interface{}{arg1})
+	fake.rawSubtreeMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *ConfigProvider) RawSubtreeCallCount() int {
+	fake.rawSubtreeMutex.RLock()
+	defer fake.rawSubtreeMutex.RUnlock()
+	return len(fake.rawSubtreeArgsForCall)
+}
+
+func (fake *ConfigProvider) RawSubtreeCalls(stub func(string) (map[string]any, bool)) {
+	fake.rawSubtreeMutex.Lock()
+	defer fake.rawSubtreeMutex.Unlock()
+	fake.RawSubtreeStub = stub
+}
+
+func (fake *ConfigProvider) RawSubtreeArgsForCall(i int) string {
+	fake.rawSubtreeMutex.RLock()
+	defer fake.rawSubtreeMutex.RUnlock()
+	argsForCall := fake.rawSubtreeArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ConfigProvider) RawSubtreeReturns(result1 map[string]any, result2 bool) {
+	fake.rawSubtreeMutex.Lock()
+	defer fake.rawSubtreeMutex.Unlock()
+	fake.RawSubtreeStub = nil
+	fake.rawSubtreeReturns = struct {
+		result1 map[string]any
+		result2 bool
+	}{result1, result2}
+}
+
+func (fake *ConfigProvider) RawSubtreeReturnsOnCall(i int, result1 map[string]any, result2 bool) {
+	fake.rawSubtreeMutex.Lock()
+	defer fake.rawSubtreeMutex.Unlock()
+	fake.RawSubtreeStub = nil
+	if fake.rawSubtreeReturnsOnCall == nil {
+		fake.rawSubtreeReturnsOnCall = make(map[int]struct {
+			result1 map[string]any
+			result2 bool
+		})
+	}
+	fake.rawSubtreeReturnsOnCall[i] = struct {
+		result1 map[string]any
+		result2 bool
+	}{result1, result2}
+}
+
+func (fake *ConfigProvider) RawSubtrees(arg1 string) []map[string]any {
+	fake.rawSubtreesMutex.Lock()
+	ret, specificReturn := fake.rawSubtreesReturnsOnCall[len(fake.rawSubtreesArgsForCall)]
+	fake.rawSubtreesArgsForCall = append(fake.rawSubtreesArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.RawSubtreesStub
+	fakeReturns := fake.rawSubtreesReturns
+	fake.recordInvocation("RawSubtrees", []interface{}{arg1})
+	fake.rawSubtreesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *ConfigProvider) RawSubtreesCallCount() int {
+	fake.rawSubtreesMutex.RLock()
+	defer fake.rawSubtreesMutex.RUnlock()
+	return len(fake.rawSubtreesArgsForCall)
+}
+
+func (fake *ConfigProvider) RawSubtreesCalls(stub func(string) []map[string]any) {
+	fake.rawSubtreesMutex.Lock()
+	defer fake.rawSubtreesMutex.Unlock()
+	fake.RawSubtreesStub = stub
+}
+
+func (fake *ConfigProvider) RawSubtreesArgsForCall(i int) string {
+	fake.rawSubtreesMutex.RLock()
+	defer fake.rawSubtreesMutex.RUnlock()
+	argsForCall := fake.rawSubtreesArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *ConfigProvider) RawSubtreesReturns(result1 []map[string]any) {
+	fake.rawSubtreesMutex.Lock()
+	defer fake.rawSubtreesMutex.Unlock()
+	fake.RawSubtreesStub = nil
+	fake.rawSubtreesReturns = struct {
+		result1 []map[string]any
+	}{result1}
+}
+
+func (fake *ConfigProvider) RawSubtreesReturnsOnCall(i int, result1 []map[string]any) {
+	fake.rawSubtreesMutex.Lock()
+	defer fake.rawSubtreesMutex.Unlock()
+	fake.RawSubtreesStub = nil
+	if fake.rawSubtreesReturnsOnCall == nil {
+		fake.rawSubtreesReturnsOnCall = make(map[int]struct {
+			result1 []map[string]any
+		})
+	}
+	fake.rawSubtreesReturnsOnCall[i] = struct {
+		result1 []map[string]any
+	}{result1}
+}
+
 func (fake *ConfigProvider) SetConfigOrderers(arg1 []*grpc.ConnectionConfig) error {
 	var arg1Copy []*grpc.ConnectionConfig
 	if arg1 != nil {
@@ -1867,271 +1893,6 @@ func (fake *ConfigProvider) SetConfigOrderersReturnsOnCall(i int, result1 error)
 	}
 	fake.setConfigOrderersReturnsOnCall[i] = struct {
 		result1 error
-	}{result1}
-}
-
-func (fake *ConfigProvider) TLSClientAuthRequired() bool {
-	fake.tLSClientAuthRequiredMutex.Lock()
-	ret, specificReturn := fake.tLSClientAuthRequiredReturnsOnCall[len(fake.tLSClientAuthRequiredArgsForCall)]
-	fake.tLSClientAuthRequiredArgsForCall = append(fake.tLSClientAuthRequiredArgsForCall, struct {
-	}{})
-	stub := fake.TLSClientAuthRequiredStub
-	fakeReturns := fake.tLSClientAuthRequiredReturns
-	fake.recordInvocation("TLSClientAuthRequired", []interface{}{})
-	fake.tLSClientAuthRequiredMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ConfigProvider) TLSClientAuthRequiredCallCount() int {
-	fake.tLSClientAuthRequiredMutex.RLock()
-	defer fake.tLSClientAuthRequiredMutex.RUnlock()
-	return len(fake.tLSClientAuthRequiredArgsForCall)
-}
-
-func (fake *ConfigProvider) TLSClientAuthRequiredCalls(stub func() bool) {
-	fake.tLSClientAuthRequiredMutex.Lock()
-	defer fake.tLSClientAuthRequiredMutex.Unlock()
-	fake.TLSClientAuthRequiredStub = stub
-}
-
-func (fake *ConfigProvider) TLSClientAuthRequiredReturns(result1 bool) {
-	fake.tLSClientAuthRequiredMutex.Lock()
-	defer fake.tLSClientAuthRequiredMutex.Unlock()
-	fake.TLSClientAuthRequiredStub = nil
-	fake.tLSClientAuthRequiredReturns = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *ConfigProvider) TLSClientAuthRequiredReturnsOnCall(i int, result1 bool) {
-	fake.tLSClientAuthRequiredMutex.Lock()
-	defer fake.tLSClientAuthRequiredMutex.Unlock()
-	fake.TLSClientAuthRequiredStub = nil
-	if fake.tLSClientAuthRequiredReturnsOnCall == nil {
-		fake.tLSClientAuthRequiredReturnsOnCall = make(map[int]struct {
-			result1 bool
-		})
-	}
-	fake.tLSClientAuthRequiredReturnsOnCall[i] = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *ConfigProvider) TLSClientCertFile() string {
-	fake.tLSClientCertFileMutex.Lock()
-	ret, specificReturn := fake.tLSClientCertFileReturnsOnCall[len(fake.tLSClientCertFileArgsForCall)]
-	fake.tLSClientCertFileArgsForCall = append(fake.tLSClientCertFileArgsForCall, struct {
-	}{})
-	stub := fake.TLSClientCertFileStub
-	fakeReturns := fake.tLSClientCertFileReturns
-	fake.recordInvocation("TLSClientCertFile", []interface{}{})
-	fake.tLSClientCertFileMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ConfigProvider) TLSClientCertFileCallCount() int {
-	fake.tLSClientCertFileMutex.RLock()
-	defer fake.tLSClientCertFileMutex.RUnlock()
-	return len(fake.tLSClientCertFileArgsForCall)
-}
-
-func (fake *ConfigProvider) TLSClientCertFileCalls(stub func() string) {
-	fake.tLSClientCertFileMutex.Lock()
-	defer fake.tLSClientCertFileMutex.Unlock()
-	fake.TLSClientCertFileStub = stub
-}
-
-func (fake *ConfigProvider) TLSClientCertFileReturns(result1 string) {
-	fake.tLSClientCertFileMutex.Lock()
-	defer fake.tLSClientCertFileMutex.Unlock()
-	fake.TLSClientCertFileStub = nil
-	fake.tLSClientCertFileReturns = struct {
-		result1 string
-	}{result1}
-}
-
-func (fake *ConfigProvider) TLSClientCertFileReturnsOnCall(i int, result1 string) {
-	fake.tLSClientCertFileMutex.Lock()
-	defer fake.tLSClientCertFileMutex.Unlock()
-	fake.TLSClientCertFileStub = nil
-	if fake.tLSClientCertFileReturnsOnCall == nil {
-		fake.tLSClientCertFileReturnsOnCall = make(map[int]struct {
-			result1 string
-		})
-	}
-	fake.tLSClientCertFileReturnsOnCall[i] = struct {
-		result1 string
-	}{result1}
-}
-
-func (fake *ConfigProvider) TLSClientKeyFile() string {
-	fake.tLSClientKeyFileMutex.Lock()
-	ret, specificReturn := fake.tLSClientKeyFileReturnsOnCall[len(fake.tLSClientKeyFileArgsForCall)]
-	fake.tLSClientKeyFileArgsForCall = append(fake.tLSClientKeyFileArgsForCall, struct {
-	}{})
-	stub := fake.TLSClientKeyFileStub
-	fakeReturns := fake.tLSClientKeyFileReturns
-	fake.recordInvocation("TLSClientKeyFile", []interface{}{})
-	fake.tLSClientKeyFileMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ConfigProvider) TLSClientKeyFileCallCount() int {
-	fake.tLSClientKeyFileMutex.RLock()
-	defer fake.tLSClientKeyFileMutex.RUnlock()
-	return len(fake.tLSClientKeyFileArgsForCall)
-}
-
-func (fake *ConfigProvider) TLSClientKeyFileCalls(stub func() string) {
-	fake.tLSClientKeyFileMutex.Lock()
-	defer fake.tLSClientKeyFileMutex.Unlock()
-	fake.TLSClientKeyFileStub = stub
-}
-
-func (fake *ConfigProvider) TLSClientKeyFileReturns(result1 string) {
-	fake.tLSClientKeyFileMutex.Lock()
-	defer fake.tLSClientKeyFileMutex.Unlock()
-	fake.TLSClientKeyFileStub = nil
-	fake.tLSClientKeyFileReturns = struct {
-		result1 string
-	}{result1}
-}
-
-func (fake *ConfigProvider) TLSClientKeyFileReturnsOnCall(i int, result1 string) {
-	fake.tLSClientKeyFileMutex.Lock()
-	defer fake.tLSClientKeyFileMutex.Unlock()
-	fake.TLSClientKeyFileStub = nil
-	if fake.tLSClientKeyFileReturnsOnCall == nil {
-		fake.tLSClientKeyFileReturnsOnCall = make(map[int]struct {
-			result1 string
-		})
-	}
-	fake.tLSClientKeyFileReturnsOnCall[i] = struct {
-		result1 string
-	}{result1}
-}
-
-func (fake *ConfigProvider) TLSEnabled() bool {
-	fake.tLSEnabledMutex.Lock()
-	ret, specificReturn := fake.tLSEnabledReturnsOnCall[len(fake.tLSEnabledArgsForCall)]
-	fake.tLSEnabledArgsForCall = append(fake.tLSEnabledArgsForCall, struct {
-	}{})
-	stub := fake.TLSEnabledStub
-	fakeReturns := fake.tLSEnabledReturns
-	fake.recordInvocation("TLSEnabled", []interface{}{})
-	fake.tLSEnabledMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ConfigProvider) TLSEnabledCallCount() int {
-	fake.tLSEnabledMutex.RLock()
-	defer fake.tLSEnabledMutex.RUnlock()
-	return len(fake.tLSEnabledArgsForCall)
-}
-
-func (fake *ConfigProvider) TLSEnabledCalls(stub func() bool) {
-	fake.tLSEnabledMutex.Lock()
-	defer fake.tLSEnabledMutex.Unlock()
-	fake.TLSEnabledStub = stub
-}
-
-func (fake *ConfigProvider) TLSEnabledReturns(result1 bool) {
-	fake.tLSEnabledMutex.Lock()
-	defer fake.tLSEnabledMutex.Unlock()
-	fake.TLSEnabledStub = nil
-	fake.tLSEnabledReturns = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *ConfigProvider) TLSEnabledReturnsOnCall(i int, result1 bool) {
-	fake.tLSEnabledMutex.Lock()
-	defer fake.tLSEnabledMutex.Unlock()
-	fake.TLSEnabledStub = nil
-	if fake.tLSEnabledReturnsOnCall == nil {
-		fake.tLSEnabledReturnsOnCall = make(map[int]struct {
-			result1 bool
-		})
-	}
-	fake.tLSEnabledReturnsOnCall[i] = struct {
-		result1 bool
-	}{result1}
-}
-
-func (fake *ConfigProvider) TLSServerHostOverride() string {
-	fake.tLSServerHostOverrideMutex.Lock()
-	ret, specificReturn := fake.tLSServerHostOverrideReturnsOnCall[len(fake.tLSServerHostOverrideArgsForCall)]
-	fake.tLSServerHostOverrideArgsForCall = append(fake.tLSServerHostOverrideArgsForCall, struct {
-	}{})
-	stub := fake.TLSServerHostOverrideStub
-	fakeReturns := fake.tLSServerHostOverrideReturns
-	fake.recordInvocation("TLSServerHostOverride", []interface{}{})
-	fake.tLSServerHostOverrideMutex.Unlock()
-	if stub != nil {
-		return stub()
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *ConfigProvider) TLSServerHostOverrideCallCount() int {
-	fake.tLSServerHostOverrideMutex.RLock()
-	defer fake.tLSServerHostOverrideMutex.RUnlock()
-	return len(fake.tLSServerHostOverrideArgsForCall)
-}
-
-func (fake *ConfigProvider) TLSServerHostOverrideCalls(stub func() string) {
-	fake.tLSServerHostOverrideMutex.Lock()
-	defer fake.tLSServerHostOverrideMutex.Unlock()
-	fake.TLSServerHostOverrideStub = stub
-}
-
-func (fake *ConfigProvider) TLSServerHostOverrideReturns(result1 string) {
-	fake.tLSServerHostOverrideMutex.Lock()
-	defer fake.tLSServerHostOverrideMutex.Unlock()
-	fake.TLSServerHostOverrideStub = nil
-	fake.tLSServerHostOverrideReturns = struct {
-		result1 string
-	}{result1}
-}
-
-func (fake *ConfigProvider) TLSServerHostOverrideReturnsOnCall(i int, result1 string) {
-	fake.tLSServerHostOverrideMutex.Lock()
-	defer fake.tLSServerHostOverrideMutex.Unlock()
-	fake.TLSServerHostOverrideStub = nil
-	if fake.tLSServerHostOverrideReturnsOnCall == nil {
-		fake.tLSServerHostOverrideReturnsOnCall = make(map[int]struct {
-			result1 string
-		})
-	}
-	fake.tLSServerHostOverrideReturnsOnCall[i] = struct {
-		result1 string
 	}{result1}
 }
 

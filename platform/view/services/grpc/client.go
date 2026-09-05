@@ -11,7 +11,6 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
-	"os"
 	"sync"
 	"time"
 
@@ -24,20 +23,6 @@ import (
 )
 
 var commLogger = logging.MustGetLogger()
-
-type TLSOption func(tlsConfig *tls.Config)
-
-func ServerNameOverride(name string) TLSOption {
-	return func(tlsConfig *tls.Config) {
-		tlsConfig.ServerName = name
-	}
-}
-
-func CertPoolOverride(pool *x509.CertPool) TLSOption {
-	return func(tlsConfig *tls.Config) {
-		tlsConfig.RootCAs = pool
-	}
-}
 
 // GetTLSCertHash computes SHA2-256 on tls certificate
 func GetTLSCertHash(cert *tls.Certificate) ([]byte, error) {
@@ -103,124 +88,30 @@ func NewGRPCClient(config ClientConfig) (*Client, error) {
 	return client, nil
 }
 
-type TLSClientConfig struct {
-	TLSClientAuthRequired bool
-	TLSClientKeyFile      string
-	TLSClientCertFile     string
-}
-
-func CreateSecOpts(connConfig ConnectionConfig, cliConfig TLSClientConfig) (*SecureOptions, error) {
-	return createSecOpts(connConfig, false, &cliConfig)
-}
-
-func createTLSSecOpts(connConfig ConnectionConfig) (*SecureOptions, error) {
-	return createSecOpts(connConfig, true, nil)
-}
-
-func createSecOpts(connConfig ConnectionConfig, forceTLS bool, cliConfig *TLSClientConfig) (*SecureOptions, error) {
-	var certs [][]byte
-	if connConfig.TLSEnabled {
-		if len(connConfig.TLSRootCertFile) != 0 {
-			caPEM, err := os.ReadFile(connConfig.TLSRootCertFile)
-			if err != nil {
-				return nil, errors.WithMessagef(err, "unable to load TLS cert from %s", connConfig.TLSRootCertFile)
-			}
-			certs = append(certs, caPEM)
-		}
-		if len(connConfig.TLSRootCertBytes) != 0 {
-			certs = append(certs, connConfig.TLSRootCertBytes...)
-		}
-		if len(certs) == 0 {
-			return nil, errors.New("missing TLSRootCertFile and TLSRootCertBytes in client config")
-		}
-	}
-
-	tlsEnabled := connConfig.TLSEnabled || forceTLS
-	secOpts := &SecureOptions{
-		UseTLS:            tlsEnabled,
-		RequireClientCert: tlsEnabled && cliConfig != nil && cliConfig.TLSClientAuthRequired,
-	}
-
-	if secOpts.RequireClientCert {
-		keyPEM, err := os.ReadFile(cliConfig.TLSClientKeyFile)
-		if err != nil {
-			return nil, errors.WithMessage(err, "unable to load fabric.tls.clientKey.file")
-		}
-		secOpts.Key = keyPEM
-		certPEM, err := os.ReadFile(cliConfig.TLSClientCertFile)
-		if err != nil {
-			return nil, errors.WithMessage(err, "unable to load fabric.tls.clientCert.file")
-		}
-		secOpts.Certificate = certPEM
-	}
-
-	if tlsEnabled {
-		secOpts.ServerRootCAs = certs
-	}
-	return secOpts, nil
-}
-
-// CreateGRPCClient returns a comm.Client based on toke client config
+// CreateGRPCClient returns a client for the given endpoint, using its already-resolved TLS.
 func CreateGRPCClient(config *ConnectionConfig) (*Client, error) {
-	secOpts, err := createTLSSecOpts(*config)
-	if err != nil {
-		return nil, err
-	}
 	timeout := config.ConnectionTimeout
 	if timeout <= 0 {
 		timeout = DefaultConnectionTimeout
 	}
 	return NewGRPCClient(ClientConfig{
 		Timeout: timeout,
-		SecOpts: *secOpts,
+		SecOpts: config.TLS,
 	})
 }
 
 func (client *Client) parseSecureOptions(opts SecureOptions) error {
-	// if TLS is not enabled, return
-	if !opts.UseTLS {
-		return nil
+	// Mutual TLS without a keypair is a configuration mistake this client cannot recover
+	// from, and it is worth naming here: SecureOptions reaching this path are not always
+	// resolved by tlsconfig, which rejects the same combination at startup.
+	if opts.RequireClientCert && (len(opts.Certificate) == 0 || len(opts.Key) == 0) {
+		return errors.New("both Key and Certificate are required when using mutual TLS")
 	}
-
-	client.tlsConfig = &tls.Config{
-		VerifyPeerCertificate: opts.VerifyCertificate,
-		MinVersion:            tls.VersionTLS12, // TLS 1.2 only
+	cfg, err := opts.TLSConfig()
+	if err != nil {
+		return err
 	}
-	if len(opts.ServerRootCAs) > 0 {
-		client.tlsConfig.RootCAs = x509.NewCertPool()
-		for _, certBytes := range opts.ServerRootCAs {
-			err := AddPemToCertPool(certBytes, client.tlsConfig.RootCAs)
-			if err != nil {
-				commLogger.Errorf("error adding root certificate: %v", err)
-				return errors.WithMessage(err,
-					"error adding root certificate")
-			}
-		}
-	}
-	if opts.RequireClientCert {
-		// make sure we have both Key and Certificate
-		if opts.Key != nil &&
-			opts.Certificate != nil {
-			cert, err := tls.X509KeyPair(opts.Certificate,
-				opts.Key)
-			if err != nil {
-				return errors.WithMessage(err, "failed to "+
-					"load client certificate")
-			}
-			client.tlsConfig.Certificates = append(
-				client.tlsConfig.Certificates, cert)
-		} else {
-			return errors.New("both Key and Certificate " +
-				"are required when using mutual TLS")
-		}
-	}
-
-	if opts.TimeShift > 0 {
-		client.tlsConfig.Time = func() time.Time {
-			return time.Now().Add((-1) * opts.TimeShift)
-		}
-	}
-
+	client.tlsConfig = cfg
 	return nil
 }
 
@@ -273,10 +164,9 @@ func (client *Client) SetServerRootCAs(serverRoots [][]byte) error {
 	return nil
 }
 
-// NewConnection returns a grpc.ClientConn for the target address and
-// overrides the server name used to verify the hostname on the
-// certificate returned by a server when using TLS
-func (client *Client) NewConnection(address string, tlsOptions ...TLSOption) (*grpc.ClientConn, error) {
+// NewConnection returns a grpc.ClientConn for the target address. The server name used to
+// verify the hostname on the server's certificate comes from SecureOptions.ServerNameOverride.
+func (client *Client) NewConnection(address string) (*grpc.ClientConn, error) {
 	if len(address) == 0 {
 		return nil, errors.New("address is empty")
 	}
@@ -290,10 +180,7 @@ func (client *Client) NewConnection(address string, tlsOptions ...TLSOption) (*g
 	//  to take effect on a per connection basis
 	if client.tlsConfig != nil {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(
-			&DynamicClientCredentials{
-				TLSConfig:  client.tlsConfig,
-				TLSOptions: tlsOptions,
-			},
+			&DynamicClientCredentials{TLSConfig: client.tlsConfig},
 		))
 	} else {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
