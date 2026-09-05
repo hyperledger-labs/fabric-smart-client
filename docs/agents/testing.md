@@ -13,9 +13,10 @@ will be migrated — follow the convention, not the neighbouring file.
 Scope every run to what you changed:
 
 ```bash
-make unit-tests                                        # all unit tests except Postgres
-go test -run TestMyTest ./platform/view/...             # one test
-TEST_PKGS=./platform/common/utils/... make unit-tests   # one package tree
+make unit-tests                                             # all unit tests except Postgres
+make unit-tests-root                                        # only the root module
+go test -run TestMyTest ./platform/view/...                  # one test
+TEST_PKGS=./platform/common/utils/... make unit-tests-root   # one package tree
 ```
 
 Never run the whole integration suite to check a change — it is slow and needs Fabric

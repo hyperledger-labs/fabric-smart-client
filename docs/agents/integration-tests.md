@@ -98,8 +98,10 @@ The chaincode's `main` must start a `shim.ChaincodeServer` reading `CHAINCODE_ID
 and `CHAINCODE_SERVER_ADDRESS`; copy one of the existing mains.
 
 To have the peer build your chaincode from Go source instead, use
-`WithLegacyChaincode(importPath)`. That path needs the `ccenv` image and a
-`shim.Start` main. `integration/fabric/atsa` is the in-tree example.
+`WithLegacyChaincode(importPath)`. That path needs a `shim.Start` main and the
+`ccenv` and `baseos` images (`make pull-images-fabric`) -- peers compile the
+chaincode in the first and run it in the second. `integration/fabric/atsa` is
+the in-tree example, and the only suite CI pulls those images for.
 
 The remaining options are `WithCtor(ctor)` (which also turns on init),
 `WithVersion(v)` and `WithPackageFile(path)` for a package you built yourself.

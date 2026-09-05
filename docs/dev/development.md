@@ -151,18 +151,30 @@ Use `make unit-tests` for the default unit-test suite.
 Use `make unit-tests-postgres` only for tests that explicitly exercise the PostgreSQL-backed storage implementations.
 Use `make unit-tests-sdk` when validating dependency-injection wiring in SDK packages.
 
-To keep the feedback loop fast while working on a single package, scope the test run with `TEST_PKGS`:
+When your change is confined to one module, run just that module's target:
 
 ```bash
-TEST_PKGS=./platform/common/utils/... make unit-tests
+make unit-tests-root           # the framework itself
+make unit-tests-integration    # the nwo harness and the helpers the suites share
+make unit-tests-extensions     # optional driver modules (today: the libp2p comm host)
+```
+
+To keep the feedback loop fast while working on a single package, scope the root-module
+run with `TEST_PKGS`:
+
+```bash
+TEST_PKGS=./platform/common/utils/... make unit-tests-root
 TEST_PKGS=./platform/common/utils/dig go test -race -cover ./platform/common/utils/dig
 ```
 
-For coverage analysis:
+For coverage analysis, `COVERAGE=1` makes any unit-test target leave a filtered
+profile (the same filter CI reports through) in `./coverage.profile`; override the
+path with `COVERAGE_PROFILE`:
+
 ```bash
-GO_TEST_PARAMS="-coverprofile=cov.out" make unit-tests
-go tool cover -func=cov.out
-go tool cover -html=cov.out
+COVERAGE=1 make unit-tests-root
+go tool cover -func=coverage.profile
+go tool cover -html=coverage.profile
 ```
 
 To reproduce the filtered local coverage used in CI:

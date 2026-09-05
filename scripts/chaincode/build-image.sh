@@ -5,10 +5,12 @@
 #
 # build-image.sh <image> <module> <pkg>
 #
-# Builds one chaincode container image tagged <image>:latest. The build context
-# is always the repo root, so a chaincode may import from sibling modules.
-# If a Dockerfile sits next to the chaincode source it is used; otherwise the
-# shared recipe in this directory is, parameterised by MODULE and PKG.
+# Builds one chaincode container image tagged <image>:latest: compiles with the
+# host toolchain, then packages the static binary into a scratch image.
+#
+# If a Dockerfile sits next to the chaincode source it is used instead, with the
+# repo root as the build context -- the escape hatch for a chaincode that needs
+# more than a static binary.
 set -euo pipefail
 
 if [ "$#" -ne 3 ]; then
@@ -23,14 +25,6 @@ PKG="$3"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-# Track the repo's Go version rather than pinning a second copy in the
-# Dockerfile: "go 1.26.5" -> "1.26".
-GO_VERSION="$(awk '/^go /{split($2,v,"."); print v[1]"."v[2]; exit}' "${ROOT}/go.mod")"
-if [ -z "${GO_VERSION}" ]; then
-    echo "==> could not read the go version from ${ROOT}/go.mod" >&2
-    exit 1
-fi
-
 OWN_DOCKERFILE="${ROOT}/${MODULE}/${PKG#./}/Dockerfile"
 if [ -f "${OWN_DOCKERFILE}" ]; then
     echo "==> building ${IMAGE}:latest from ${OWN_DOCKERFILE#"${ROOT}/"}"
@@ -41,11 +35,21 @@ if [ -f "${OWN_DOCKERFILE}" ]; then
     exit 0
 fi
 
-echo "==> building ${IMAGE}:latest from ${MODULE}/${PKG} (go ${GO_VERSION})"
-DOCKER_BUILDKIT=1 docker build \
+# Nothing in a scratch image pins its platform, so label it to match the binary.
+ARCH="$(go env GOARCH)"
+
+BUILD_DIR="$(mktemp -d)"
+trap 'rm -rf "${BUILD_DIR}"' EXIT
+
+echo "==> building ${IMAGE}:latest from ${MODULE}/${PKG} (linux/${ARCH})"
+CGO_ENABLED=0 GOOS=linux go build \
+    -C "${ROOT}/${MODULE}" \
+    -buildvcs=false \
+    -o "${BUILD_DIR}/cc" \
+    "${PKG}"
+
+docker build \
+    --platform "linux/${ARCH}" \
     -t "${IMAGE}:latest" \
     -f "${SCRIPT_DIR}/Dockerfile" \
-    --build-arg "GO_VERSION=${GO_VERSION}" \
-    --build-arg "MODULE=${MODULE}" \
-    --build-arg "PKG=${PKG}" \
-    "${ROOT}"
+    "${BUILD_DIR}"
