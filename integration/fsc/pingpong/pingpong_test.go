@@ -13,7 +13,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/atomic"
 
 	"github.com/hyperledger-labs/fabric-smart-client/integration"
 	"github.com/hyperledger-labs/fabric-smart-client/integration/fsc/pingpong"
@@ -137,62 +136,47 @@ var _ = Describe("EndToEnd", func() {
 		})
 	})
 
-	// libp2p keeps only the specs that put bytes on the wire. The four dropped
-	// ones vary the client API (REST, web client, artifact generate-vs-load,
-	// stream-vs-call), which is transport-agnostic and fully covered by the
-	// websocket Describe below.
-	Describe("Network-based Ping pong With LibP2P", Label(fsc.LibP2P), func() {
-		s := NewTestSuite(fsc.LibP2P, false, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("load artifact & successful pingpong", func() { s.TestLoadAndPingPong("initiator") })
-		It("load artifact & successful stream", func() { s.TestLoadAndStream("initiator") })
+	// Loading runs libp2p whatever transport it is handed -- the committed
+	// ./testdata fixture is type: libp2p and fsc.Platform.Load never rewrites it.
+	// Hence one loading group, labelled for what it runs; see
+	// docs/agents/integration-tests.md#choosing-a-p2p-comm-type.
+	Describe("Network-based Ping pong, loaded artifacts", Label(fsc.LibP2P), Ordered, func() {
+		s := NewTestSuite(fsc.LibP2P, doLoad, integration.NoReplication)
+		BeforeAll(s.Setup)
+		AfterAll(s.TearDown)
+		It("successful pingpong", func() { s.TestPingPong("initiator") })
+		It("successful pingpong with stream", func() { s.TestPingPongStream("initiator") })
+		It("successful stream", func() { s.TestStream("initiator") })
+		It("successful stream with websocket", func() { s.TestStreamWebsocket("initiator") })
+		It("init clients & successful pingpong", s.TestLoadInitPingPong)
 	})
 
-	// The label describes this Describe's first spec only. Artifacts are generated
-	// on the first Setup and loaded from ./testdata thereafter (fsc.Platform.Load
-	// is a no-op, so core.yaml is never rewritten), and that committed fixture is
-	// libp2p -- see the node-based Describe above for why it cannot be websocket.
-	// So do not split this suite by label expecting a clean transport partition.
-	Describe("Network-based Ping pong With Websockets", Label(fsc.WebSocket), func() {
-		s := NewTestSuite(fsc.WebSocket, false, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("generate artifacts & successful pingpong", func() { s.TestGenerateAndPingPong("initiator") })
-		It("load artifact & successful pingpong", func() { s.TestLoadAndPingPong("initiator") })
-		It("load artifact & successful pingpong with stream", func() { s.TestLoadAndPingPongStream("initiator") })
-		It("load artifact & successful stream", func() { s.TestLoadAndStream("initiator") })
-		It("load artifact & successful stream with websocket", func() { s.TestLoadAndStreamWebsocket("initiator") })
-		It("load artifact & init clients & successful pingpong", s.TestLoadInitPingPong)
-	})
+	// Generating honours the transport, so both get a group. What it adds over the
+	// loading group is config writing and node bootstrap, not client API surface.
+	for _, c := range []fsc.P2PCommunicationType{fsc.LibP2P, fsc.WebSocket} {
+		Describe("Network-based Ping pong, generated artifacts", Label(c), Ordered, func() {
+			s := NewTestSuite(c, doGenerate, integration.NoReplication)
+			BeforeAll(s.Setup)
+			AfterAll(s.TearDown)
+			It("successful pingpong", func() { s.TestPingPong("initiator") })
+			It("successful mock pingpong", s.TestMockPingPong)
+		})
+	}
 
-	Describe("Network-based Ping pong With Websockets and replication", Label(fsc.WebSocket), func() {
-		s := NewTestSuite(fsc.WebSocket, true, &integration.ReplicationOptions{
+	// Replication generates, so this group is genuinely websocket.
+	Describe("Network-based Ping pong With Websockets and replication", Label(fsc.WebSocket), Ordered, func() {
+		s := NewTestSuite(fsc.WebSocket, doGenerate, &integration.ReplicationOptions{
 			ReplicationFactors: map[string]int{
 				"initiator": 3,
 			},
 		})
 		initiatorReplicas := GetFSCReplicaNames("initiator", 3)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("generate artifacts & successful pingpong", func() { s.TestGenerateAndPingPong(initiatorReplicas...) })
-		It("load artifact & successful pingpong", func() { s.TestLoadAndPingPong(initiatorReplicas...) })
-		It("load artifact & successful pingpong with stream", func() { s.TestLoadAndPingPongStream(initiatorReplicas...) })
-		It("load artifact & successful stream", func() { s.TestLoadAndStream(initiatorReplicas...) })
-		It("load artifact & successful stream with websocket", func() { s.TestLoadAndStreamWebsocket(initiatorReplicas...) })
-	})
-
-	Describe("Network-based Mock Ping pong With LibP2P", Label(fsc.LibP2P), func() {
-		s := NewTestSuite(fsc.LibP2P, false, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("generate artifacts & successful mock pingpong", s.TestGenerateAndMockPingPong)
-	})
-	Describe("Network-based Mock Ping pong With Websockets", Label(fsc.WebSocket), func() {
-		s := NewTestSuite(fsc.WebSocket, false, integration.NoReplication)
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("generate artifacts & successful mock pingpong", s.TestGenerateAndMockPingPong)
+		BeforeAll(s.Setup)
+		AfterAll(s.TearDown)
+		It("successful pingpong", func() { s.TestPingPong(initiatorReplicas...) })
+		It("successful pingpong with stream", func() { s.TestPingPongStream(initiatorReplicas...) })
+		It("successful stream", func() { s.TestStream(initiatorReplicas...) })
+		It("successful stream with websocket", func() { s.TestStreamWebsocket(initiatorReplicas...) })
 	})
 })
 
@@ -211,31 +195,38 @@ func newNode(conf string) FSCNode {
 
 const testdataDir = "./testdata"
 
+// Named because `NewTestSuite(commType, true, opts)` reads as neither.
+const (
+	doGenerate = true
+	doLoad     = false
+)
+
 type TestSuite struct {
 	*integration.TestSuite
-	commType fsc.P2PCommunicationType
-	nodeOpts *integration.ReplicationOptions
 }
 
-func NewTestSuite(commType fsc.P2PCommunicationType, alwaysGenerate bool, nodeOpts *integration.ReplicationOptions) *TestSuite {
-	init := atomic.NewBool(false)
+func NewTestSuite(commType fsc.P2PCommunicationType, generate bool, nodeOpts *integration.ReplicationOptions) *TestSuite {
 	return &TestSuite{
 		TestSuite: integration.NewTestSuite(func() (ii *integration.Infrastructure, err error) {
 			topologies := pingpong.Topology(commType, nodeOpts)
-			if alwaysGenerate || init.CompareAndSwap(false, true) {
+			// Independent paths: Generate writes a fresh config into a temp dir,
+			// Load reads ./testdata and leaves it alone.
+			if generate {
 				ii, err = integration.Generate(StartPortWithGeneration(), integration.WithRaceDetection, topologies...)
 			} else {
 				ii, err = integration.Load(0, testdataDir, integration.WithRaceDetection, topologies...)
 			}
+			if err != nil {
+				// Both constructors return a nil Infrastructure on failure.
+				return nil, err
+			}
 			ii.DeleteOnStop = false
-			return ii, err
+			return ii, nil
 		}),
-		commType: commType,
-		nodeOpts: nodeOpts,
 	}
 }
 
-func (s *TestSuite) TestGenerateAndPingPong(clients ...string) {
+func (s *TestSuite) TestPingPong(clients ...string) {
 	// Initiate a view and check the output
 	for _, clientName := range clients {
 		res, err := s.II.Client(clientName).CallView("init", nil)
@@ -244,16 +235,7 @@ func (s *TestSuite) TestGenerateAndPingPong(clients ...string) {
 	}
 }
 
-func (s *TestSuite) TestLoadAndPingPong(clients ...string) {
-	// Initiate a view and check the output
-	for _, clientName := range clients {
-		res, err := s.II.Client(clientName).CallView("init", nil)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
-	}
-}
-
-func (s *TestSuite) TestLoadAndPingPongStream(clients ...string) {
+func (s *TestSuite) TestPingPongStream(clients ...string) {
 	// Initiate a view and check the output
 	for _, clientName := range clients {
 		channel, err := s.II.Client(clientName).StreamCallView("init", nil)
@@ -265,7 +247,7 @@ func (s *TestSuite) TestLoadAndPingPongStream(clients ...string) {
 	}
 }
 
-func (s *TestSuite) TestLoadAndStream(clients ...string) {
+func (s *TestSuite) TestStream(clients ...string) {
 	for _, clientName := range clients {
 		channel, err := s.II.Client(clientName).StreamCallView("stream", nil)
 		Expect(err).NotTo(HaveOccurred())
@@ -280,7 +262,7 @@ func (s *TestSuite) TestLoadAndStream(clients ...string) {
 	}
 }
 
-func (s *TestSuite) TestLoadAndStreamWebsocket(clients ...string) {
+func (s *TestSuite) TestStreamWebsocket(clients ...string) {
 	for _, clientName := range clients {
 		// Get a client for the fsc node labelled initiator
 		initiator := s.II.WebClient(clientName)
@@ -319,7 +301,7 @@ func (s *TestSuite) TestLoadInitPingPong() {
 	Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 }
 
-func (s *TestSuite) TestGenerateAndMockPingPong() {
+func (s *TestSuite) TestMockPingPong() {
 	// Init with mock=false, a failure must happen
 	_, err := s.II.Client("initiator").CallView("mockInit", common.JSONMarshall(&fake.Params{Mock: false}))
 	Expect(err).To(HaveOccurred())

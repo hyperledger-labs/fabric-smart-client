@@ -56,8 +56,9 @@ opts := &Opts{
 
 New suites use `fsc.WebSocket`. Add a `fsc.LibP2P` variant only when the suite
 exercises something transport-specific that the host conformance tests in
-`platform/view/services/comm` cannot reach — every extra comm type costs a full
-network bootstrap per spec, because each `It` re-runs `Setup`/`TearDown`.
+`platform/view/services/comm` cannot reach — every extra comm type costs at least
+one more network bootstrap, and one per spec unless the `Describe` is `Ordered`
+(see [one network per `Describe`](testing.md#one-network-per-describe)).
 
 Label each `Describe` with its comm type so a suite can be run one transport at
 a time (`ginkgo --label-filter=libp2p`) and split into parallel CI entries:
@@ -69,6 +70,12 @@ a time (`ginkgo --label-filter=libp2p`) and split into parallel CI entries:
 Label websocket-only variants (replication, no-TLS) with `Label(fsc.WebSocket)`
 too: `--label-filter` selects only labelled specs, so an unlabelled `Describe`
 is silently skipped when a filter is in play.
+
+Label a `Describe` for the transport it *runs*, not the one it was handed. A suite
+that loads committed artifacts runs whatever those artifacts say, because
+`fsc.Platform.Load` is a no-op and never rewrites `core.yaml` — `integration/fsc/pingpong`
+keeps its loading specs in one libp2p-labelled `Describe` for exactly this reason.
+A label that lies puts specs in the wrong CI job.
 
 ## Declaring a namespace
 
