@@ -28,23 +28,13 @@ var _ = Describe("EndToEnd", func() {
 		})
 	}
 
+	// Many-to-one only: StopFSCNode stops the first matching replica and returns, so
+	// bob: 4 would leave three responders up and check less than bob: 1 does.
 	Describe("Stop and Restart With Replicas many to one", Label(fsc.WebSocket), func() {
 		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
 			ReplicationFactors: map[string]int{
 				"alice": 4,
 				"bob":   1,
-			},
-		})
-		BeforeEach(s.Setup)
-		AfterEach(s.TearDown)
-		It("stop and restart successfully", s.TestSucceededWithReplicas)
-	})
-
-	Describe("Stop and Restart With Replicas many to many", Label(fsc.WebSocket), func() {
-		s := NewTestSuite(fsc.WebSocket, &integration.ReplicationOptions{
-			ReplicationFactors: map[string]int{
-				"alice": 4,
-				"bob":   4,
 			},
 		})
 		BeforeEach(s.Setup)

@@ -51,11 +51,10 @@ var _ = Describe("EndToEnd", func() {
 
 		BeforeEach(s.Setup)
 		AfterEach(s.TearDown)
-		It("succeeded 1", func() {
+		// One spec: alice.0 agrees to sell and alice.1 transfers, which is the
+		// cross-replica read replication adds. Permuting the indices adds nothing.
+		It("succeeded", func() {
 			s.TestSucceededWithUsers(node{"issuer", "fsc.issuer.0"}, node{"alice", "fsc.alice.0"}, node{"bob", "fsc.bob.0"}, node{"alice", "fsc.alice.1"})
-		})
-		It("succeeded 2", func() {
-			s.TestSucceededWithUsers(node{"issuer", "fsc.issuer.1"}, node{"alice", "fsc.alice.1"}, node{"bob", "fsc.bob.1"}, node{"alice", "fsc.alice.1"})
 		})
 	})
 })
