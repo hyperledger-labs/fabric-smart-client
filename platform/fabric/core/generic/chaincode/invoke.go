@@ -327,11 +327,14 @@ func (i *Invoke) prepare(query bool) (string, *pb.Proposal, []*pb.ProposalRespon
 
 	// get a peer client for all discovered peers
 	for _, peer := range discoveredPeers {
+		// A discovered peer's own TLS roots augment the network's configured pool; the file
+		// cannot remove what discovery supplies, and discovery cannot remove the bootstrap
+		// anchor.
+		peerTLS := i.Chaincode.ConfigService.NetworkClientTLS()
+		peerTLS.ServerRootCAs = append(slices.Clone(peerTLS.ServerRootCAs), peer.TLSRootCerts...)
 		peerClient, err := i.Chaincode.Services.NewPeerClient(grpc.ConnectionConfig{
-			Address:           peer.Endpoint,
-			TLSEnabled:        i.Chaincode.ConfigService.TLSEnabled(),
-			TLSClientSideAuth: i.Chaincode.ConfigService.TLSClientAuthRequired(),
-			TLSRootCertBytes:  peer.TLSRootCerts,
+			Address: peer.Endpoint,
+			TLS:     peerTLS,
 		})
 		if err != nil {
 			return "", nil, nil, nil, errors.WithMessagef(err, "error getting endorser client for %s", peer.Endpoint)

@@ -10,7 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"path"
+	"os"
 	"runtime"
 	"time"
 
@@ -89,11 +89,17 @@ func SetupClient(confPath string) (*benchmark.ViewClient, func(), error) {
 		return nil, nil, err
 	}
 
+	caPEM, err := os.ReadFile(config.TLSConfig.PeerCACertPath)
+	if err != nil {
+		return nil, nil, err
+	}
 	cc := &grpc.ConnectionConfig{
 		Address:           config.Address,
-		TLSEnabled:        true,
-		TLSRootCertFile:   path.Join(config.TLSConfig.PeerCACertPath),
 		ConnectionTimeout: 10 * time.Second,
+		TLS: grpc.SecureOptions{
+			UseTLS:        true,
+			ServerRootCAs: [][]byte{caPEM},
+		},
 	}
 
 	grpcClient, err := grpc.CreateGRPCClient(cc)

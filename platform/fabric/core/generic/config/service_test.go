@@ -8,6 +8,7 @@ package config_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,17 +30,35 @@ func TestNewService_missingConfig(t *testing.T) {
 	require.Error(t, err)
 }
 
+// NewService must reject a network still carrying ordering.tlsEnabled. This pins the call
+// site, not the check: the keys are relative to the network, so the prefix has to be prepended
+// by CheckRemovedNetworkKeys — wiring up the node-scoped CheckRemovedKeys here instead compiles
+// fine and silently matches nothing.
+func TestNewService_rejectsRemovedOrderingTLSKey(t *testing.T) {
+	t.Parallel()
+	m := &mock.Configuration{}
+	m.IsSetStub = func(key string) bool {
+		// fabric.mynet present, plus the removed key the operator left behind.
+		return key == "fabric.mynet" || key == "fabric.mynet.ordering.tlsenabled"
+	}
+
+	_, err := cfg.NewService(m, "mynet", false)
+	require.ErrorContains(t, err, "fabric.mynet.ordering.tlsenabled")
+	require.ErrorContains(t, err, "has been removed")
+	require.ErrorContains(t, err, "fabric.mynet.tls.enabled")
+}
+
 func TestNewService_defaultsAndOrderers(t *testing.T) {
 	t.Parallel()
 	m := &mock.Configuration{}
 	// simulate fabric.mynet present
 	m.IsSetReturnsOnCall(0, true)   // called for fabric.mynet check
 	m.GetStringReturnsOnCall(0, "") // fabric.mynetdriver -> default
-	// enable TLS so TLSRootCertFile gets translated
 	m.GetBoolReturns(true)
 
-	// orderers: return a slice with one connection config
-	orderers := []*grpc.ConnectionConfig{{Address: "o:7050", TLSRootCertFile: "o.pem"}}
+	// orderers: return a slice with one connection config. Their TLS is resolved from the
+	// network block through tlsconfig now, not carried on flat fields.
+	orderers := []*grpc.ConnectionConfig{{Address: "o:7050"}}
 	m.UnmarshalKeyStub = func(key string, rawVal any) error {
 		// support both key formats used across tests
 		switch key {
@@ -74,14 +93,16 @@ func TestNewService_defaultsAndOrderers(t *testing.T) {
 	require.Equal(t, "mynet", svc.NetworkName())
 	require.Equal(t, cfg.GenericDriver, svc.DriverName())
 	require.Len(t, svc.Orderers(), 1)
-	require.Equal(t, "TRANSLATED:o.pem", svc.Orderers()[0].TLSRootCertFile)
+	// The network block is empty in this mock, so the endpoint resolves to TLS off rather
+	// than to a translated path.
+	require.False(t, svc.Orderers()[0].TLS.UseTLS)
 	require.Equal(t, "ch1", svc.DefaultChannel())
 }
 
 func TestClientKeepAliveConfig_UnmarshalError(t *testing.T) {
 	t.Parallel()
 	m := &mock.Configuration{}
-	m.IsSetReturns(true) // keepalive.interval is set
+	m.IsSetStub = setsEverythingButRemovedKeys // keepalive.interval is set
 	m.UnmarshalKeyReturnsOnCall(0, errors.New("boom"))
 
 	svc := &cfg.Service{Configuration: m}
@@ -156,7 +177,7 @@ func TestCreatePeerMapAndPickPeer(t *testing.T) {
 				return nil
 			}
 			*p = []*grpc.ConnectionConfig{
-				{Address: "p1", Usage: "query", TLSRootCertFile: "r1.pem"},
+				{Address: "p1", Usage: "query"},
 				{Address: "p2", Usage: "delivery"},
 			}
 			return nil
@@ -205,7 +226,7 @@ func TestServiceGetters(t *testing.T) {
 	t.Parallel()
 	m := &mock.Configuration{}
 	// Initialize with some basic setup to avoid NewService errors
-	m.IsSetReturns(true)
+	m.IsSetStub = setsEverythingButRemovedKeys
 	m.GetStringReturns("")
 	svc, err := cfg.NewService(m, "mynet", true)
 	require.NoError(t, err)
@@ -215,48 +236,19 @@ func TestServiceGetters(t *testing.T) {
 	m.GetBoolReturns(false)
 	m.GetStringReturns("")
 
-	// Ordering TLS settings
-	enabled, ok := svc.OrderingTLSEnabled()
-	require.True(t, enabled) // default when not set
-	require.False(t, ok)
-
-	m.IsSetReturns(true)
-	m.GetBoolReturns(true)
-	enabled, ok = svc.OrderingTLSEnabled()
-	require.True(t, enabled)
-	require.True(t, ok)
-
-	m.IsSetReturns(false)
-	required, ok := svc.OrderingTLSClientAuthRequired()
-	require.False(t, required)
-	require.False(t, ok)
-
-	m.IsSetReturns(true)
-	m.GetBoolReturns(true)
-	required, ok = svc.OrderingTLSClientAuthRequired()
-	require.True(t, required)
-	require.True(t, ok)
-
-	// TLS settings
-	m.GetBoolReturns(true)
-	require.True(t, svc.TLSClientAuthRequired())
-
-	m.GetStringReturns("server-host")
-	require.Equal(t, "server-host", svc.TLSServerHostOverride())
+	// The seven TLS accessors that used to live here — OrderingTLSEnabled,
+	// OrderingTLSClientAuthRequired, TLSEnabled, TLSClientAuthRequired,
+	// TLSServerHostOverride, TLSClientKeyFile and TLSClientCertFile — are replaced by one
+	// resolved value. With an empty network block it resolves to TLS off.
+	require.False(t, svc.NetworkClientTLS().UseTLS)
 
 	// Keepalive
 	m.IsSetReturns(false)
 	require.Equal(t, 10*time.Second, svc.ClientConnTimeout())
 
-	m.IsSetReturns(true)
+	m.IsSetStub = setsEverythingButRemovedKeys
 	m.GetDurationReturns(5 * time.Second)
 	require.Equal(t, 5*time.Second, svc.ClientConnTimeout())
-
-	// TLS Files
-	m.GetPathReturnsOnCall(0, "client-key")
-	require.Equal(t, "client-key", svc.TLSClientKeyFile())
-	m.GetPathReturnsOnCall(1, "client-cert")
-	require.Equal(t, "client-cert", svc.TLSClientCertFile())
 
 	// Vault
 	m.GetStringReturns("bad-cache-size")
@@ -276,14 +268,14 @@ func TestServiceGetters(t *testing.T) {
 	m.GetIntReturnsOnCall(getIntCallsBefore+1, 0)
 	require.Equal(t, 3, svc.BroadcastNumRetries())
 
-	m.IsSetReturns(true)
+	m.IsSetStub = setsEverythingButRemovedKeys
 	m.GetDurationReturns(100 * time.Millisecond)
 	require.Equal(t, 100*time.Millisecond, svc.BroadcastRetryInterval())
 	m.IsSetReturns(false)
 	require.Equal(t, 500*time.Millisecond, svc.BroadcastRetryInterval())
 
 	// Orderer connection pool
-	m.IsSetReturns(true)
+	m.IsSetStub = setsEverythingButRemovedKeys
 	m.GetIntReturns(20)
 	poolCallIndex := m.GetIntCallCount()
 	require.Equal(t, 20, svc.OrdererConnectionPoolSize())
@@ -302,7 +294,7 @@ func TestService_MoreCases(t *testing.T) {
 	t.Run("NewService_Errors", func(t *testing.T) {
 		t.Parallel()
 		m := &mock.Configuration{}
-		m.IsSetReturns(true)
+		m.IsSetStub = setsEverythingButRemovedKeys
 		// Error in readItems (orderers)
 		m.UnmarshalKeyReturnsOnCall(0, errors.New("orderer-err"))
 		_, err := cfg.NewService(m, "mynet", false)
@@ -358,7 +350,7 @@ func TestService_MoreCases(t *testing.T) {
 	t.Run("PickPeer_Fallback", func(t *testing.T) {
 		t.Parallel()
 		m := &mock.Configuration{}
-		m.IsSetReturns(true)
+		m.IsSetStub = setsEverythingButRemovedKeys
 		m.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "fabric.mynet.peers" {
 				p := rawVal.(*[]*grpc.ConnectionConfig)
@@ -393,7 +385,7 @@ func TestService_MoreCases(t *testing.T) {
 	t.Run("Channels", func(t *testing.T) {
 		t.Parallel()
 		m := &mock.Configuration{}
-		m.IsSetReturns(true)
+		m.IsSetStub = setsEverythingButRemovedKeys
 		m.UnmarshalKeyStub = func(key string, rawVal any) error {
 			if key == "fabric.mynet.channels" {
 				p := rawVal.(*[]*cfg.Channel)
@@ -417,4 +409,18 @@ func TestService_MoreCases(t *testing.T) {
 		require.False(t, svc.IsChannelQuiet("ch1"))
 		require.False(t, svc.IsChannelQuiet("unknown"))
 	})
+}
+
+// setsEverythingButRemovedKeys answers true for any key except the ones the TLS migration
+// removed. A blanket IsSet -> true would claim fabric.<net>.ordering.tlsEnabled is configured,
+// and NewService rejects a network still carrying it — correctly, so the mock has to be
+// specific rather than the check made lenient.
+func setsEverythingButRemovedKeys(key string) bool {
+	switch strings.ToLower(key) {
+	case "fabric.mynet.ordering.tlsenabled", "fabric.mynet.ordering.tlsclientauthrequired",
+		"fabric.ordering.tlsenabled", "fabric.ordering.tlsclientauthrequired",
+		"fabric.network.ordering.tlsenabled", "fabric.network.ordering.tlsclientauthrequired":
+		return false
+	}
+	return true
 }
