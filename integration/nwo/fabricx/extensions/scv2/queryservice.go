@@ -21,19 +21,18 @@ fabric:
       endpoints:{{- range .Endpoints }}
         - address: {{ .Address }}
           connectionTimeout: {{ .ConnectionTimeout }}
-          {{- if .TLS}}
+          {{- if .TLSEnabled }}
           tls:
-            enabled: {{ .TLS.Enabled }}
-            {{- if .TLS.Enabled }}
-            rootCerts:{{- range .TLS.RootCertPaths }}
-              - {{ . }}
-            {{- end }}
-            {{- if .TLS.ClientKeyPath }}
-            clientKey: {{ .TLS.ClientKeyPath }}
-            {{- end }}
-            {{- if .TLS.ClientCertPath }}
-            clientCert: {{ .TLS.ClientCertPath }}
-            {{- end }}
+            enabled: true
+            rootCAs:
+              files:{{- range .RootCertPaths }}
+                - {{ . }}
+              {{- end }}
+            {{- if .ClientKeyPath }}
+            clientKey:
+              file: {{ .ClientKeyPath }}
+            clientCert:
+              file: {{ .ClientCertPath }}
             {{- end }}
           {{- end }}
     {{- end }}

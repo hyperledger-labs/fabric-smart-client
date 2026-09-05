@@ -46,12 +46,17 @@ var (
 	logger    = logging.MustGetLogger()
 )
 
+// OnMergeConfigEventHandler is notified after configuration is merged into a [Provider].
 type OnMergeConfigEventHandler interface {
 	OnMergeConfig()
 }
 
+// DecodeHookFuncType converts a configuration value from one type to another during
+// decoding, returning the value unchanged when it does not apply.
 type DecodeHookFuncType func(reflect.Type, reflect.Type, any) (any, error)
 
+// Provider reads FSC node configuration. Keys are matched case-insensitively, and
+// configured paths are resolved relative to the configuration file.
 type Provider struct {
 	Backend     *koanf.Koanf
 	eventSystem events.EventSystem
@@ -117,6 +122,23 @@ func (p *Provider) IsSet(key string) bool {
 	return p.Backend.Exists(strings.ToLower(key))
 }
 
+// RawSubtree returns the raw map at the given key, and reports whether the key names a
+// subtree. The key is matched case-insensitively, and a key naming a leaf value rather than
+// a subtree reports false.
+func (p *Provider) RawSubtree(key string) (map[string]any, bool) {
+	// Exists, not Cut: Cut returns an empty non-nil Koanf for an absent path, which cannot
+	// be told apart from a present empty map.
+	k := strings.ToLower(key)
+	if !p.Backend.Exists(k) {
+		return nil, false
+	}
+	m, ok := p.Backend.Get(k).(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	return m, true
+}
+
 // GetPath returns the translated path associated with the given key.
 func (p *Provider) GetPath(key string) string {
 	path := p.Backend.String(strings.ToLower(key))
@@ -142,11 +164,25 @@ func (p *Provider) GetString(key string) string {
 	return p.Backend.String(strings.ToLower(key))
 }
 
-// ConfigFileUsed returns the configuration file used.
-// Currently, this returns an empty string as koanf does not track it directly.
+// RawSubtrees returns the raw maps at the given key when it holds an array of maps, as
+// fabric.<network>.orderers and .peers do. It returns nothing for an absent key or one that
+// is not such an array.
+//
+// An indexed path like "orderers.0.tls" cannot be used instead: koanf flattens nested maps
+// but not slice elements, so no key of that shape exists.
+func (p *Provider) RawSubtrees(key string) []map[string]any {
+	subs := p.Backend.Slices(strings.ToLower(key))
+	out := make([]map[string]any, 0, len(subs))
+	for _, s := range subs {
+		out = append(out, s.Raw())
+	}
+	return out
+}
+
+// ConfigFileUsed returns the path of the configuration file that populated this provider,
+// or the empty string when the configuration was loaded from raw bytes.
 func (p *Provider) ConfigFileUsed() string {
-	// koanf does not track the config file used, so we return empty string
-	return ""
+	return p.fullPath
 }
 
 // MergeConfig merges the given raw configuration into the current configuration.
@@ -384,6 +420,7 @@ func (e *eventListener) OnReceive(event events.Event) {
 	e.handler.OnMergeConfig()
 }
 
+// MergeConfigEvent is published when configuration has been merged into a [Provider].
 type MergeConfigEvent struct{}
 
 // Topic returns the merge configuration event topic.

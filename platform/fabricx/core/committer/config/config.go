@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tlsconfig"
 )
 
 // DefaultRequestTimeout is the default timeout for gRPC requests.
@@ -100,40 +102,45 @@ type Endpoint struct {
 	Address string `yaml:"address,omitempty"`
 	// ConnectionTimeout is the timeout for establishing a connection.
 	ConnectionTimeout time.Duration `yaml:"connectionTimeout,omitempty"`
-	// TLS is the TLS configuration for the given endpoint.
-	TLS *TLSConfig `yaml:"tls,omitempty"`
+	// TLS is the resolved client-side TLS for this endpoint: inherited per field from the
+	// network's tls block, with every configured file already read and validated.
+	//
+	// It has no yaml tag. The endpoint's tls: block is resolved separately, because an array
+	// element has no addressable configuration key — see tlsconfig.ResolveEndpointClient.
+	// It replaces a bespoke block that used flat path strings and a plural rootCerts, the
+	// last surface still spelling the client template its own way.
+	TLS grpc.SecureOptions `yaml:"-"`
 }
 
-// TLSConfig specifies TLS settings for secure communication.
-// Supports three modes: no TLS, server TLS (rootCerts only), and mutual TLS (all fields).
-type TLSConfig struct {
-	// Enabled indicates whether TLS is enabled for this endpoint.
-	Enabled bool `yaml:"enabled"`
-	// ClientKeyPath is the path to TLS client private key
-	ClientKeyPath string `yaml:"clientKey,omitempty"`
-	// ClientCertPath is the path to TLS client certificate
-	ClientCertPath string `yaml:"clientCert,omitempty"`
-	// RootCertPaths are the paths to TLS root certificates.
-	RootCertPaths []string `yaml:"rootCerts,omitempty"`
-	// ServerNameOverride is the server name to use for TLS hostname verification.
-	ServerNameOverride string `yaml:"serverNameOverride,omitempty"`
-}
-
-// IsEnabled returns whether TLS is enabled for this configuration.
-// Returns false if the config is nil or the enabled flag false.
-func (c *TLSConfig) IsEnabled() bool {
-	if c == nil {
-		return false // default
-	}
-	return c.Enabled
-}
-
-// ServiceBackend defines the interface for retrieving configuration values.
+// ServiceBackend defines the interface for retrieving configuration values. It is satisfied
+// by a Fabric network's config service, which is why it can resolve TLS: the accessors below
+// are exactly tlsconfig.Source plus UnmarshalKey.
 //
 //go:generate counterfeiter -o mock/service_backend.go --fake-name ServiceBackend . ServiceBackend
 type ServiceBackend interface {
 	// UnmarshalKey takes a single key and unmarshal it into a struct.
 	UnmarshalKey(key string, rawVal any) error
+	// RawSubtree returns the raw map at the given key, and whether it names a subtree.
+	RawSubtree(key string) (map[string]any, bool)
+	// RawSubtrees returns the raw maps at the given key when it holds an array of maps.
+	RawSubtrees(key string) []map[string]any
+	// IsSet reports whether the key is present, leaf or subtree.
+	IsSet(key string) bool
+	// TranslatePath resolves a configured path relative to the configuration file.
+	TranslatePath(path string) string
+}
+
+// resolveEndpointTLS resolves each endpoint's client-side TLS, inheriting per field from the
+// network's tls block.
+func resolveEndpointTLS(backend ServiceBackend, key string, endpoints []Endpoint) error {
+	resolved, err := tlsconfig.ResolveEndpointClients(backend, "tls", key+".endpoints", len(endpoints))
+	if err != nil {
+		return err
+	}
+	for i := range endpoints {
+		endpoints[i].TLS = resolved[i]
+	}
+	return nil
 }
 
 // NewNotificationServiceConfig creates a new Config instance by unmarshaling the "notificationService" key
@@ -154,6 +161,9 @@ func NewNotificationServiceConfig(configService ServiceBackend) (*Config, error)
 	err := configService.UnmarshalKey("notificationService", &config)
 	if err != nil {
 		return config, errors.Wrap(err, "unmarshal notificationService")
+	}
+	if err := resolveEndpointTLS(configService, "notificationService", config.Endpoints); err != nil {
+		return config, err
 	}
 
 	if config.HandlerTimeout <= 0 {
@@ -182,6 +192,9 @@ func NewQueryServiceConfig(configService ServiceBackend) (*Config, error) {
 	err := configService.UnmarshalKey("queryService", &config)
 	if err != nil {
 		return config, errors.Wrap(err, "unmarshal queryService")
+	}
+	if err := resolveEndpointTLS(configService, "queryService", config.Endpoints); err != nil {
+		return config, err
 	}
 
 	return config, nil

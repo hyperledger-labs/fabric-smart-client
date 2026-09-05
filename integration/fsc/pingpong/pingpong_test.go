@@ -76,7 +76,8 @@ var _ = Describe("EndToEnd", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(common.JSONUnmarshalString(res)).To(BeEquivalentTo("OK"))
 
-			webClientConfig.TLSCertPath = ""
+			// A client presenting no certificate must be rejected.
+			webClientConfig.TLSCertRaw, webClientConfig.TLSKeyRaw = nil, nil
 			initiatorWebClient, err = client2.NewClient(webClientConfig)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = initiatorWebClient.CallView("init", common.JSONMarshall(&pingpong.Params{Rounds: 5}))

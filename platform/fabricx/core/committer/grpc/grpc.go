@@ -9,7 +9,6 @@ package grpc
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"os"
 	"sync"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
+	grpc2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
 // ErrInvalidAddress is returned when an endpoint address is empty.
@@ -122,59 +122,45 @@ func ClientConn(c *config.Config) (*grpc.ClientConn, error) {
 	return grpc.NewClient(endpoint.Address, opts...)
 }
 
-// TransportCredentials builds gRPC transport credentials from the given TLSConfig.
-// Returns insecure credentials when TLS is disabled or the config is nil.
-// Enables server TLS when RootCertPaths are provided, and mutual TLS (mTLS) when
-// both ClientCertPath and ClientKeyPath are set.
-func TransportCredentials(tlsConfig *config.TLSConfig) (credentials.TransportCredentials, error) {
-	if !tlsConfig.IsEnabled() {
+// TransportCredentials builds gRPC transport credentials from an endpoint's resolved TLS.
+// Returns insecure credentials when TLS is disabled.
+//
+// It does not use SecureOptions.TLSConfig: this transport pins TLS 1.3, where the shared
+// builder allows 1.2 for the surfaces that still need it. Only the material is shared.
+//
+// RootCAs is left nil when no anchors are configured, which makes crypto/tls fall back to
+// the system root store rather than trusting nothing.
+func TransportCredentials(opts grpc2.SecureOptions) (credentials.TransportCredentials, error) {
+	if !opts.UseTLS {
 		return insecure.NewCredentials(), nil
 	}
 
 	t := &tls.Config{
 		MinVersion: tls.VersionTLS13,
-		ServerName: tlsConfig.ServerNameOverride,
+		ServerName: opts.ServerNameOverride,
 	}
 
-	// set rootCAs — only populate when paths are provided; leaving RootCAs nil
-	// causes crypto/tls to use the system root store instead of an empty pool.
-	if len(tlsConfig.RootCertPaths) > 0 {
+	if len(opts.ServerRootCAs) > 0 {
 		t.RootCAs = x509.NewCertPool()
-		for _, rootCertPath := range tlsConfig.RootCertPaths {
-			rootCert, err := loadFile(rootCertPath)
-			if err != nil {
-				return nil, err
-			}
-
+		for _, rootCert := range opts.ServerRootCAs {
 			if !t.RootCAs.AppendCertsFromPEM(rootCert) {
-				return nil, errors.Errorf("failed to parse root certificate from %s", rootCertPath)
+				return nil, errors.New("failed to parse a root certificate: not a valid PEM block")
 			}
 		}
 	}
 
-	// mTLS: both key and cert must be provided; if either is absent, skip mTLS
-	if tlsConfig.ClientKeyPath == "" || tlsConfig.ClientCertPath == "" {
+	// mTLS: both halves of the keypair must be present, or mutual TLS is skipped.
+	if len(opts.Certificate) == 0 || len(opts.Key) == 0 {
 		return credentials.NewTLS(t), nil
 	}
 
-	// load client cert for mTLS
-	cert, err := tls.LoadX509KeyPair(tlsConfig.ClientCertPath, tlsConfig.ClientKeyPath)
+	cert, err := tls.X509KeyPair(opts.Certificate, opts.Key)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load client key pair from cert=%s key=%s", tlsConfig.ClientCertPath, tlsConfig.ClientKeyPath)
+		return nil, errors.Wrap(err, "failed to load client key pair")
 	}
-
 	t.Certificates = append(t.Certificates, cert)
 
 	return credentials.NewTLS(t), nil
-}
-
-// loadFile reads and returns the contents of the file at path.
-func loadFile(path string) ([]byte, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed opening file %s", path)
-	}
-	return b, nil
 }
 
 // WithConnectionTime returns a grpc.DialOption for setting the minimum connection timeout.

@@ -193,11 +193,16 @@ func (p *Platform) generatePostgresConfiguration() {
 }
 
 func (p *Platform) setIdentities(address string, peer *node2.Replica) {
+	caPath := path.Join(p.NodeLocalTLSDir(peer.Peer), "ca.crt")
+	caPEM, err := os.ReadFile(caPath)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed reading %s", caPath)
 	cc := &grpc.ConnectionConfig{
 		Address:           address,
-		TLSEnabled:        true,
-		TLSRootCertFile:   path.Join(p.NodeLocalTLSDir(peer.Peer), "ca.crt"),
 		ConnectionTimeout: 10 * time.Minute,
+		TLS: grpc.SecureOptions{
+			UseTLS:        true,
+			ServerRootCAs: [][]byte{caPEM},
+		},
 	}
 	p.Context.SetConnectionConfig(peer.UniqueName, cc)
 
