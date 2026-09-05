@@ -27,8 +27,8 @@ trap 'rm -f "$tmp"' EXIT
 
 # We filter some of the files for test coverage reporting.
 awk '
-  # Preserve mode line
-  /^mode:/ { print; next }
+  # Preserve the mode line, once: concatenated profiles each carry one.
+  /^mode:/ { if (!seen++) print; next }
 
   # Exclude main.go
   /main\.go/ { next }

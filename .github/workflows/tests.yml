@@ -28,43 +28,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # One entry per `make unit-tests` module, on its own runner.
   utest:
+    name: utest-${{ matrix.suite }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: root
+            target: unit-tests-root
+            coverage: true
+          - suite: postgres
+            target: unit-tests-postgres
+            coverage: true
+            database: true
+          # No coverage: filter-coverage.sh drops every path under /integration/.
+          - suite: integration
+            target: unit-tests-integration
+            fabric: true
+          - suite: extensions
+            target: unit-tests-extensions
+            coverage: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
-      - run: make install-fabric-bins
-      - name: unit-tests
-        run: |
-          GO_TEST_PARAMS="-race -coverprofile=coverage.profile" make unit-tests
-          ./scripts/filter-coverage.sh coverage.profile coverage.profile
-      - uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # ratchet:coverallsapp/github-action@v2.3.8
-        with:
-          file: coverage.profile
-          flag-name: utest
-          parallel: true
-          fail-on-error: false
 
-  utest-postgres:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
-        with:
-          go-version-file: "go.mod"
-          cache-dependency-path: "**/*.sum"
-      - run: make pull-images-database
-      - name: unit-tests-postgres
-        run: |
-          GO_TEST_PARAMS="-race -coverprofile=coverage.profile" make unit-tests-postgres
-          ./scripts/filter-coverage.sh coverage.profile coverage.profile
+      - name: Set up the database
+        if: matrix.database
+        run: make pull-images-database
+
+      - name: Set up Fabric
+        if: matrix.fabric
+        run: make install-fabric-bins
+
+      - name: Run the unit tests
+        run: GO_TEST_PARAMS=-race COVERAGE=${{ matrix.coverage }} make ${{ matrix.target }}
+
       - uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # ratchet:coverallsapp/github-action@v2.3.8
+        if: matrix.coverage
         with:
           file: coverage.profile
-          flag-name: utest-postgres
+          flag-name: utest-${{ matrix.suite }}
           parallel: true
           fail-on-error: false
 
@@ -101,7 +109,12 @@ jobs:
       - name: Set up Fabric
         if: startsWith(matrix.tests, 'fabric-')
         run: |
-          make -j4 install-fabric-bins pull-images-fabric pull-images-database
+          make -j4 install-fabric-bins pull-images-database
+
+      - name: Set up the legacy chaincode builder
+        # pull-images-fabric serve only the legacy source-packaging which is used it fabric-atsa
+        if: matrix.tests == 'fabric-atsa'
+        run: make -j4 pull-images-fabric
 
       - name: Set up Fabric-x
         if: startsWith(matrix.tests, 'fabricx-')
@@ -142,12 +155,12 @@ jobs:
   publish-coverage:
     needs:
       - utest
-      - utest-postgres
       - itest
     runs-on: ubuntu-latest
     steps:
-      # Close the parallel Coveralls build. Every test job in this run reports a
-      # flag (the itest matrix has no job-level skips), so all flags are present
+      # Close the parallel Coveralls build. Every job that reports a flag runs
+      # unconditionally (neither matrix has job-level skips; the utest
+      # integration entry reports no flag by design), so all flags are present
       # and no `carryforward` is needed. Omitting carryforward is deliberate: it
       # previously masked missing integration-test jobs by silently reusing a
       # prior build's coverage, so an incomplete run reported a stale-but-
