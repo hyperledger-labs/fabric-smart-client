@@ -10,6 +10,7 @@ import (
 	"context"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -80,16 +81,24 @@ func TestEventListener(t *testing.T) {
 	})
 
 	// Stop the consumer and close the event listener while the producer is still publishing
-	ctx, cancel := context.WithTimeout(context.Background(), waitFor)
-	defer cancel()
+	ctx, cancel := context.WithTimeout(t.Context(), waitFor)
+	t.Cleanup(cancel)
 
-	// Consumer
+	// Consumer. It records how many events it saw and whether any were nil, so
+	// the test goroutine (not this one) can assert on the outcome afterwards -
+	// testify assertions must not run off the main test goroutine.
+	var received atomic.Int64
+	var sawNil atomic.Bool
 	wg.Go(func() {
 		for {
 			select {
 			case event := <-ch:
 				// we got a new event
-				assert.NotNil(t, event)
+				if event == nil {
+					sawNil.Store(true)
+				} else {
+					received.Add(1)
+				}
 			case <-ctx.Done():
 				// our timeout is fired
 				// this should close our channel
@@ -112,6 +121,11 @@ func TestEventListener(t *testing.T) {
 	close(stopPublisher)
 	wg.Wait()
 
+	// the consumer ran on a separate goroutine, so assert its recorded outcome
+	// here on the test goroutine: it must have seen events, none of them nil.
+	require.False(t, sawNil.Load(), "consumer received a nil event")
+	require.Positive(t, received.Load(), "consumer received no events")
+
 	// check that our channel is closed
 	require.Eventually(t, func() bool {
 		return isClosed(ch)
@@ -126,12 +140,10 @@ func TestEventServiceMultipleClose(t *testing.T) {
 	msg1 := &committer.ChaincodeEvent{Payload: []byte("msg1")}
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		wg.Done()
+	wg.Go(func() {
 		subscriber.Publish("testChaincode", msg1)
 		listener.CloseChaincodeEvents()
-	}()
+	})
 
 	// Call Close multiple times safely
 	listener.CloseChaincodeEvents()
@@ -198,11 +210,12 @@ func TestEventListenerDeadlock(t *testing.T) {
 		subscriber.Publish("testChaincode", msg2)
 	})
 
-	// let's give the producer a bit time
+	// let's give the producer a chance to start
 	runtime.Gosched()
-	time.Sleep(waitFor)
 
-	// let's make sure that our producer is still waiting to complete publish msg2
+	// let's make sure that our producer is still waiting to complete publish
+	// msg2. require.Never polls for the whole timeout window, so it both gives
+	// the producer time to run and asserts it stays blocked - no sleep needed.
 	require.Never(t, func() bool {
 		// we expect to be blocked
 		wg.Wait()
