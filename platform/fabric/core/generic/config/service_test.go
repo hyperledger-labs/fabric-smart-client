@@ -123,7 +123,7 @@ func TestChannelHelpers(t *testing.T) {
 	// default values
 	require.Equal(t, time.Duration(5*time.Minute), ch.DiscoveryDefaultTTLS())
 	require.Equal(t, 1, ch.CommitParallelism())
-	require.Equal(t, 100*time.Millisecond, ch.CommitterPollingTimeout())
+	require.Equal(t, 1*time.Second, ch.CommitterPollingTimeout())
 	require.Equal(t, 10*time.Second, ch.DeliverySleepAfterFailure())
 	require.Equal(t, 20*time.Second, ch.FinalityWaitTimeout())
 	require.Equal(t, 1, ch.FinalityEventQueueWorkers())

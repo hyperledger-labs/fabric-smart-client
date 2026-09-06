@@ -157,7 +157,7 @@ func New(
 		logger:             logger.Named(fmt.Sprintf("[%s:%s]", configService.NetworkName(), channelConfig.ID())),
 		listeners:          map[string][]chan FinalityEvent{},
 		Handlers:           map[common.HeaderType]TransactionHandler{},
-		pollingTimeout:     1 * time.Second,
+		pollingTimeout:     channelConfig.CommitterPollingTimeout(),
 		events:             make(chan FinalityEvent, 2000),
 	}
 	s.Handlers[common.HeaderType_CONFIG] = s.HandleConfig
