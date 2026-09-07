@@ -79,10 +79,8 @@ func TestReloadConfigTransactions(t *testing.T) {
 			logger: logger,
 			tracer: noop.NewTracerProvider().Tracer("test"),
 			Vault: &fake.VaultWithQuery{
-				Vault: fake.Vault{
-					StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
-						return fdriver.Unknown, "", nil
-					},
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					return fdriver.Unknown, "", nil
 				},
 				QE: &fake.QueryExecutor{},
 			},
@@ -398,10 +396,8 @@ func TestReloadConfigTransactionsAdditionalBranches(t *testing.T) {
 			logger: logger,
 			tracer: noop.NewTracerProvider().Tracer("test"),
 			Vault: &fake.VaultWithQuery{
-				Vault: fake.Vault{
-					StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
-						return fdriver.Invalid, "", nil
-					},
+				StatusFn: func(context.Context, cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					return fdriver.Invalid, "", nil
 				},
 				QE: &fake.QueryExecutor{},
 			},
@@ -430,13 +426,11 @@ func TestReloadConfigTransactionsAdditionalBranches(t *testing.T) {
 			ChannelConfig: &fake.ChannelConfig{IDValue: "cfg-channel"},
 			ConfigService: &fake.ConfigService{NetworkNameValue: "cfg-net"},
 			Vault: &fake.VaultWithQuery{
-				Vault: fake.Vault{
-					StatusFn: func(_ context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
-						if txID == "configtx_0" {
-							return fdriver.Valid, "", nil
-						}
-						return fdriver.Unknown, "", nil
-					},
+				StatusFn: func(_ context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
+					if txID == "configtx_0" {
+						return fdriver.Valid, "", nil
+					}
+					return fdriver.Unknown, "", nil
 				},
 				QE: &fake.QueryExecutor{
 					GetStateFn: func(context.Context, cdriver.Namespace, cdriver.PKey) (*cdriver.VaultRead, error) {

@@ -47,7 +47,7 @@ func (bh *MSPConfigHandler) ProposeMSP(mspConfig *mspprotos.MSPConfig) (msp.MSP,
 	case int32(msp.FABRIC):
 		// create the bccsp msp instance
 		mspInst, err := msp.New(
-			&msp.BCCSPNewOpts{NewBaseOpts: msp.NewBaseOpts{Version: bh.version}},
+			&msp.BCCSPNewOpts{Version: bh.version},
 			bh.bccsp,
 		)
 		if err != nil {
@@ -62,7 +62,7 @@ func (bh *MSPConfigHandler) ProposeMSP(mspConfig *mspprotos.MSPConfig) (msp.MSP,
 	case int32(msp.IDEMIX):
 		// create the idemix msp instance
 		theMsp, err = msp.New(
-			&msp.IdemixNewOpts{NewBaseOpts: msp.NewBaseOpts{Version: bh.version}},
+			&msp.IdemixNewOpts{Version: bh.version},
 			bh.bccsp,
 		)
 		if err != nil {

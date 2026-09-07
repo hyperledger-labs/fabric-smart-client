@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/uptrace/opentelemetry-go-extra/otelsql"
+	"github.com/XSAM/otelsql"
 	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"

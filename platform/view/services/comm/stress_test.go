@@ -190,8 +190,8 @@ func TestRecipientOversizedRejection(t *testing.T) { //nolint:paralleltest
 	// Create a mock stream that sends an 11MB length prefix
 	done := make(chan struct{})
 	ms := &mockOversizedStream{
-		mockStream: mockStream{ctx: t.Context()},
-		onClose:    func() { close(done) },
+		ctx:     t.Context(),
+		onClose: func() { close(done) },
 	}
 
 	// Manually trigger the incoming stream handler

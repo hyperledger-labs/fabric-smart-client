@@ -169,7 +169,7 @@ func TestContextGetSession(t *testing.T) {
 	dv := &DummyView{}
 	// Case: create new session
 	party2 := view.Identity("party2")
-	resolver.ResolverReturns(&endpoint.Resolver{ResolverInfo: endpoint.ResolverInfo{ID: party2}}, []byte("pkid"), nil)
+	resolver.ResolverReturns(&endpoint.Resolver{ID: party2}, []byte("pkid"), nil)
 	sessionFactory.NewSessionReturns(session, nil)
 	s2, err := ctx.GetSession(dv, party2)
 	require.NoError(t, err)
@@ -196,7 +196,7 @@ func TestContextRace(t *testing.T) {
 	idProvider := &mock.IdentityProvider{}
 	idProvider.DefaultIdentityReturns([]byte("alice"))
 	resolver := &mock.EndpointService{}
-	resolver.ResolverReturns(&endpoint.Resolver{ResolverInfo: endpoint.ResolverInfo{ID: []byte("alice")}}, nil, nil)
+	resolver.ResolverReturns(&endpoint.Resolver{ID: []byte("alice")}, nil, nil)
 	resolver.GetIdentityReturns([]byte("bob"), nil)
 	defaultSession := &mock.Session{}
 	session := &mock.Session{}

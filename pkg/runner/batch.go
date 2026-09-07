@@ -17,7 +17,7 @@ import (
 
 type batcher[I any, O any] struct {
 	ctx      context.Context
-	idx      uint32
+	idx      atomic.Uint32
 	inputs   []chan I
 	outputs  []chan O
 	locks    []sync.Mutex
@@ -65,7 +65,7 @@ func (r *batcher[I, O]) start() {
 			lastIdx = firstIdx + r.len
 			logger.Debugf("Execute because %d input channels are full", r.len)
 		case <-ticker.C:
-			lastIdx = atomic.LoadUint32(&r.idx)
+			lastIdx = r.idx.Load()
 			if lastIdx == firstIdx {
 				logger.Debugf("No new elements. Skip execution...")
 				continue
@@ -115,7 +115,7 @@ func (r *batcher[I, O]) start() {
 // execution that happened to produce a zero result.
 func (r *batcher[I, O]) call(input I) (O, error) {
 	var zero O
-	idx := atomic.AddUint32(&r.idx, 1) - 1
+	idx := r.idx.Add(1) - 1
 	r.locks[idx%r.len].Lock()
 	defer r.locks[idx%r.len].Unlock()
 	select {

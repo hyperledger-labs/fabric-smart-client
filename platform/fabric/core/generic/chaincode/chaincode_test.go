@@ -828,10 +828,10 @@ func TestInvoke_EndorseQuerySubmit(t *testing.T) {
 			&fscGrpc.ConnectionConfig{Address: "localhost:7052"},
 		)
 
-		var callCount int32
+		var callCount atomic.Int32
 		fix.EndorserClient.ProcessProposalCalls(func(ctx context.Context, prop *pb.SignedProposal, opts ...grpc.CallOption) (*pb.ProposalResponse, error) {
 			payload := "payload1"
-			if atomic.AddInt32(&callCount, 1) > 1 {
+			if callCount.Add(1) > 1 {
 				payload = "payload2"
 			}
 			return &pb.ProposalResponse{

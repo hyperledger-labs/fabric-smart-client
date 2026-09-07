@@ -142,6 +142,7 @@ type mockResources struct {
 func (m *mockResources) ApplicationConfig() (channelconfig.Application, bool) {
 	return m.appCfg, m.appCfgOK
 }
+
 func (m *mockResources) OrdererConfig() (channelconfig.Orderer, bool) { return m.ordCfg, m.ordCfgOK }
 func (m *mockResources) MSPManager() fxmsp.MSPManager                 { return m.mspMgr }
 func (m *mockResources) ChannelConfig() channelconfig.Channel         { return m.chanCfg }

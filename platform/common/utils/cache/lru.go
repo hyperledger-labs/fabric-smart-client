@@ -68,7 +68,7 @@ func (c *lruEviction[K]) Push(key K) {
 		delete(c.keySet, k)
 	}
 	c.evict(evicted)
-	c.keys = (c.keys)[c.cap-c.size+1:]
+	c.keys = c.keys[c.cap-c.size+1:]
 }
 
 func (c *lruEviction[K]) String() string {

@@ -105,10 +105,13 @@ func (m *mockConfig) ServerTLSConfig(websocket.ExtraCAPoolProvider) *tls.Config 
 func (m *mockConfig) CertPath() string                                          { return "" }
 func (m *mockConfig) MaxSubConns() int                                          { return 100 }
 func (m *mockConfig) ReadHeaderTimeout() time.Duration                          { return 10 * time.Second }
-func (m *mockConfig) ReadTimeout() time.Duration                                { return 30 * time.Second }
-func (m *mockConfig) WriteTimeout() time.Duration                               { return 30 * time.Second }
-func (m *mockConfig) IdleTimeout() time.Duration                                { return 120 * time.Second }
-func (m *mockConfig) CORSAllowedOrigins() []string                              { return nil }
+
+func (m *mockConfig) ReadTimeout() time.Duration { return 30 * time.Second }
+
+func (m *mockConfig) WriteTimeout() time.Duration { return 30 * time.Second }
+
+func (m *mockConfig) IdleTimeout() time.Duration   { return 120 * time.Second }
+func (m *mockConfig) CORSAllowedOrigins() []string { return nil }
 
 // noopProvider returns a stream provider that does nothing
 func noopProvider() websocket.StreamProvider {
