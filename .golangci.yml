@@ -16,6 +16,7 @@ linters:
     - gosec
     - govet
     - ineffassign
+    - loggercheck
     - misspell
     - paralleltest
     - staticcheck
