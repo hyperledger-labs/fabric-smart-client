@@ -19,6 +19,7 @@ linters:
     - makezero
     - loggercheck
     - misspell
+    - nilnesserr
     - paralleltest
     - staticcheck
     - thelper
