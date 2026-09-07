@@ -271,7 +271,7 @@ func TestBatcher_StopsOnCancelWithInflightCall(t *testing.T) { //nolint:parallel
 	// cycle, so start()'s top-of-loop select fires immediately on it and enters the
 	// drain loop, which then blocks forever waiting for slot 0 (nobody will ever send
 	// there) unless the interior guard is present.
-	atomic.StoreUint32(&b.idx, uint32(capacity-1))
+	b.idx.Store(uint32(capacity - 1))
 
 	runDone := make(chan struct{})
 	var runErr error

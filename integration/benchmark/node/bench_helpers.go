@@ -86,9 +86,9 @@ func RunGRPCBenchmark(b *testing.B, ccs []*benchmark.ViewClient, makeCaller func
 		callers[i] = makeCaller(cc)
 	}
 
-	var rr uint64
+	var rr atomic.Uint64
 	pickCaller := func() func(ctx context.Context) error {
-		idx := atomic.AddUint64(&rr, 1)
+		idx := rr.Add(1)
 		return callers[idx%uint64(len(callers))]
 	}
 

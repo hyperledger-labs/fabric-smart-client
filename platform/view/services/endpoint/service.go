@@ -279,14 +279,12 @@ func (r *Service) AddResolver(
 	}
 
 	newResolver := &Resolver{
-		ResolverInfo: ResolverInfo{
-			Name:        name,
-			Domain:      domain,
-			Addresses:   convert(addresses),
-			AddressList: addressList,
-			Aliases:     aliases,
-			ID:          id,
-		},
+		Name:        name,
+		Domain:      domain,
+		Addresses:   convert(addresses),
+		AddressList: addressList,
+		Aliases:     aliases,
+		ID:          id,
 	}
 	pkiID := r.PkiResolve(newResolver)
 

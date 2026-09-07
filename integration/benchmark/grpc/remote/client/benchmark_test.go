@@ -45,9 +45,9 @@ func runBenchmark(b *testing.B, ccs []*grpc.ClientConn, makeCaller func(conn *gr
 		callers[i] = makeCaller(cc)
 	}
 
-	var rr uint64
+	var rr atomic.Uint64
 	pickCaller := func() workload.ClientFunc {
-		idx := atomic.AddUint64(&rr, 1)
+		idx := rr.Add(1)
 		return callers[idx%uint64(len(callers))]
 	}
 

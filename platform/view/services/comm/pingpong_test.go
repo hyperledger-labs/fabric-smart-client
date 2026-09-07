@@ -34,8 +34,8 @@ func TestPingPongSessionLevel(t *testing.T) { //nolint:paralleltest
 	wg.Add(2) // Two goroutines: one for sending, one for receiving
 
 	// Track message counts for verification
-	var sentCount int64
-	var receivedCount int64
+	var sentCount atomic.Int64
+	var receivedCount atomic.Int64
 
 	// Create a session with buffered channels to allow multiple messages in flight
 	session := &NetworkStreamSession{
@@ -68,7 +68,7 @@ func TestPingPongSessionLevel(t *testing.T) { //nolint:paralleltest
 				msg := fmt.Sprintf("ping-%d-%d", sessionID, i)
 				err := sess.Send(t.Context(), []byte(msg))
 				assert.NoError(t, err, "Failed to send message")
-				atomic.AddInt64(&sentCount, 1)
+				sentCount.Add(1)
 
 				// Small delay to simulate processing time
 				time.Sleep(5 * time.Millisecond)
@@ -99,7 +99,7 @@ func TestPingPongSessionLevel(t *testing.T) { //nolint:paralleltest
 				pongMsg := fmt.Sprintf("pong-%s", string(msg.Payload))
 				err := sess.Send(t.Context(), []byte(pongMsg))
 				assert.NoError(t, err, "Failed to send pong message")
-				atomic.AddInt64(&receivedCount, 1)
+				receivedCount.Add(1)
 
 				// Small delay to simulate processing time
 				time.Sleep(5 * time.Millisecond)
@@ -121,9 +121,9 @@ func TestPingPongSessionLevel(t *testing.T) { //nolint:paralleltest
 
 	// Verify that we sent and received the expected number of messages
 	expectedTotal := int64(numSessions * msgsPerSession)
-	require.Equal(t, expectedTotal, atomic.LoadInt64(&sentCount),
+	require.Equal(t, expectedTotal, sentCount.Load(),
 		"Should have sent expected number of ping messages")
-	require.Equal(t, expectedTotal, atomic.LoadInt64(&receivedCount),
+	require.Equal(t, expectedTotal, receivedCount.Load(),
 		"Should have received and replied with expected number of pong messages")
 }
 

@@ -290,17 +290,11 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultStore, vp artifactsProv
 	// SCENARIO 1: there is a read conflict in the proposed rwset
 	// create the read-write set
 	rwsb := &ReadWriteSet{
-		ReadSet: ReadSet{
-			Reads:        map[driver.Namespace]NamespaceReads{},
-			OrderedReads: map[string][]string{},
-		},
-		WriteSet: WriteSet{
-			Writes:        map[string]NamespaceWrites{},
-			OrderedWrites: map[string][]string{},
-		},
-		MetaWriteSet: MetaWriteSet{
-			MetaWrites: map[string]KeyedMetaWrites{},
-		},
+		Reads:         map[driver.Namespace]NamespaceReads{},
+		OrderedReads:  map[string][]string{},
+		Writes:        map[string]NamespaceWrites{},
+		OrderedWrites: map[string][]string{},
+		MetaWrites:    map[string]KeyedMetaWrites{},
 	}
 	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(35, 1))
 	rwsb.ReadSet.Add(ns, k2, versionBlockTxNumToBytes(37, 2))
@@ -336,17 +330,11 @@ func TTestShardLikeCommit(t *testing.T, ddb driver2.VaultStore, vp artifactsProv
 	// SCENARIO 2: there is no read conflict
 	// create the read-write set
 	rwsb = &ReadWriteSet{
-		ReadSet: ReadSet{
-			Reads:        map[driver.Namespace]NamespaceReads{},
-			OrderedReads: map[string][]string{},
-		},
-		WriteSet: WriteSet{
-			Writes:        map[string]NamespaceWrites{},
-			OrderedWrites: map[string][]string{},
-		},
-		MetaWriteSet: MetaWriteSet{
-			MetaWrites: map[string]KeyedMetaWrites{},
-		},
+		Reads:         map[driver.Namespace]NamespaceReads{},
+		OrderedReads:  map[string][]string{},
+		Writes:        map[string]NamespaceWrites{},
+		OrderedWrites: map[string][]string{},
+		MetaWrites:    map[string]KeyedMetaWrites{},
 	}
 	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(35, 1))
 	rwsb.ReadSet.Add(ns, k2, versionBlockTxNumToBytes(37, 3))
@@ -403,10 +391,8 @@ func TTestVaultErr(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	require.EqualError(t, err, "read-write set for txids [[non-existent]] could not be found")
 
 	rws := &ReadWriteSet{
-		ReadSet: ReadSet{
-			Reads:        map[driver.Namespace]NamespaceReads{},
-			OrderedReads: map[string][]string{},
-		},
+		Reads:        map[driver.Namespace]NamespaceReads{},
+		OrderedReads: map[string][]string{},
 	}
 	rws.ReadSet.Add("pineapple", "key", versionBlockTxNumToBytes(35, 1))
 	m := vp.NewMarshaller()
@@ -476,17 +462,11 @@ func TTestMerge(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	require.NoError(t, err)
 
 	rwsb := &ReadWriteSet{
-		ReadSet: ReadSet{
-			Reads:        map[driver.Namespace]NamespaceReads{},
-			OrderedReads: map[string][]string{},
-		},
-		WriteSet: WriteSet{
-			Writes:        map[string]NamespaceWrites{},
-			OrderedWrites: map[string][]string{},
-		},
-		MetaWriteSet: MetaWriteSet{
-			MetaWrites: map[string]KeyedMetaWrites{},
-		},
+		Reads:         map[driver.Namespace]NamespaceReads{},
+		OrderedReads:  map[string][]string{},
+		Writes:        map[string]NamespaceWrites{},
+		OrderedWrites: map[string][]string{},
+		MetaWrites:    map[string]KeyedMetaWrites{},
 	}
 	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(35, 1))
 	rwsb.ReadSet.Add(ns, ne2Key, nil)
@@ -518,10 +498,8 @@ func TTestMerge(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	}, rw.Reads)
 
 	rwsb = &ReadWriteSet{
-		ReadSet: ReadSet{
-			Reads:        map[driver.Namespace]NamespaceReads{},
-			OrderedReads: map[string][]string{},
-		},
+		Reads:        map[driver.Namespace]NamespaceReads{},
+		OrderedReads: map[string][]string{},
 	}
 	rwsb.ReadSet.Add(ns, k1, versionBlockTxNumToBytes(36, 1))
 	rwsBytes, err = m.Marshal("pineapple", rwsb)
@@ -531,10 +509,8 @@ func TTestMerge(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	require.EqualError(t, err, "invalid read [namespace:key1]: previous value returned at version [[0 0 0 36 0 0 0 1]], current value at version [[0 0 0 35 0 0 0 1]]")
 
 	rwsb = &ReadWriteSet{
-		WriteSet: WriteSet{
-			Writes:        map[string]NamespaceWrites{},
-			OrderedWrites: map[string][]string{},
-		},
+		Writes:        map[string]NamespaceWrites{},
+		OrderedWrites: map[string][]string{},
 	}
 	require.NoError(t, rwsb.WriteSet.Add(ns, k2, []byte("v2")))
 	rwsBytes, err = m.Marshal("pineapple", rwsb)
@@ -558,9 +534,7 @@ func TTestMerge(t *testing.T, ddb driver2.VaultStore, vp artifactsProvider) {
 	require.Contains(t, err.Error(), "provided invalid read-write set bytes")
 
 	rwsb = &ReadWriteSet{
-		MetaWriteSet: MetaWriteSet{
-			MetaWrites: map[string]KeyedMetaWrites{},
-		},
+		MetaWrites: map[string]KeyedMetaWrites{},
 	}
 	require.NoError(t, rwsb.MetaWriteSet.Add(ns, k3, map[string][]byte{"k": []byte("v")}))
 	rwsBytes, err = m.Marshal("pineapple", rwsb)

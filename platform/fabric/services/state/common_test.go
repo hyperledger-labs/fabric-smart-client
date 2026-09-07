@@ -258,13 +258,21 @@ func (t *testDriverTransaction) EndorseWithIdentity(view.Identity) error { retur
 func (t *testDriverTransaction) EndorseWithSigner(view.Identity, fdriver.Signer) error {
 	return nil
 }
-func (t *testDriverTransaction) EndorseProposal() error                                  { return nil }
-func (t *testDriverTransaction) EndorseProposalWithIdentity(view.Identity) error         { return nil }
-func (t *testDriverTransaction) EndorseProposalResponse() error                          { return nil }
+
+func (t *testDriverTransaction) EndorseProposal() error { return nil }
+
+func (t *testDriverTransaction) EndorseProposalWithIdentity(view.Identity) error { return nil }
+
+func (t *testDriverTransaction) EndorseProposalResponse() error { return nil }
+
 func (t *testDriverTransaction) EndorseProposalResponseWithIdentity(view.Identity) error { return nil }
-func (t *testDriverTransaction) AppendProposalResponse(fdriver.ProposalResponse) error   { return nil }
-func (t *testDriverTransaction) ProposalHasBeenEndorsedBy(view.Identity) error           { return nil }
-func (t *testDriverTransaction) StoreTransient() error                                   { return nil }
+
+func (t *testDriverTransaction) AppendProposalResponse(fdriver.ProposalResponse) error { return nil }
+
+func (t *testDriverTransaction) ProposalHasBeenEndorsedBy(view.Identity) error { return nil }
+
+func (t *testDriverTransaction) StoreTransient() error { return nil }
+
 func (t *testDriverTransaction) ProposalResponses() ([]fdriver.ProposalResponse, error) {
 	return nil, nil
 }

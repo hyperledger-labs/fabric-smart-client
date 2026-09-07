@@ -37,7 +37,7 @@ type cacheItem[T any] struct {
 	key   string
 	value T
 	// set to 1 when Get() is called. set to 0 when victim scan
-	referenced int32
+	referenced atomic.Int32
 }
 
 type secondChanceCache = typedSecondChanceCache[any]
@@ -70,7 +70,7 @@ func (cache *typedSecondChanceCache[T]) get(key string) (T, bool) {
 	}
 
 	// referenced bit is set to true to indicate that this item is recently accessed.
-	atomic.StoreInt32(&item.referenced, 1)
+	item.referenced.Store(1)
 
 	return item.value, true
 }
@@ -111,7 +111,7 @@ func (cache *typedSecondChanceCache[T]) Add(key string, value T) {
 func (cache *typedSecondChanceCache[T]) add(key string, value T) {
 	if old, ok := cache.table[key]; ok {
 		old.value = value
-		atomic.StoreInt32(&old.referenced, 1)
+		old.referenced.Store(1)
 		return
 	}
 
@@ -132,7 +132,7 @@ func (cache *typedSecondChanceCache[T]) add(key string, value T) {
 	for evicted := 0; evicted < cache.buffer; {
 		// checks whether this item is recently accessed or not
 		victim := cache.items[cache.position]
-		if atomic.LoadInt32(&victim.referenced) == 0 {
+		if victim.referenced.Load() == 0 {
 			// a victim is found. delete it, and store the new item here.
 			delete(cache.table, victim.key)
 			cache.table[key] = &item
@@ -144,7 +144,7 @@ func (cache *typedSecondChanceCache[T]) add(key string, value T) {
 
 		// referenced bit is set to false so that this item will be Get purged
 		// unless it is accessed until a next victim scan
-		atomic.StoreInt32(&victim.referenced, 0)
+		victim.referenced.Store(0)
 		cache.position = (cache.position + 1) % size
 	}
 }
@@ -155,7 +155,7 @@ func (cache *typedSecondChanceCache[T]) Delete(key string) {
 
 	if old, ok := cache.table[key]; ok {
 		old.value = zero[T]()
-		atomic.StoreInt32(&old.referenced, 1)
+		old.referenced.Store(1)
 		return
 	}
 }
@@ -185,7 +185,7 @@ type cacheItemBytes struct {
 	key   Slice
 	value any
 	// set to 1 when Get() is called. set to 0 when victim scan
-	referenced int32
+	referenced atomic.Int32
 }
 
 func NewBytes(cacheSize int) *secondChanceCacheBytes {
@@ -207,7 +207,7 @@ func (cache *secondChanceCacheBytes) Get(key []byte) (any, bool) {
 	}
 
 	// referenced bit is set to true to indicate that this item is recently accessed.
-	atomic.StoreInt32(&item.referenced, 1)
+	item.referenced.Store(1)
 
 	return item.value, true
 }
@@ -219,7 +219,7 @@ func (cache *secondChanceCacheBytes) Add(key []byte, value any) {
 	k := cache.key(key)
 	if old, ok := cache.table[k]; ok {
 		old.value = value
-		atomic.StoreInt32(&old.referenced, 1)
+		old.referenced.Store(1)
 		return
 	}
 
@@ -240,7 +240,7 @@ func (cache *secondChanceCacheBytes) Add(key []byte, value any) {
 	for {
 		// checks whether this item is recently accessed or not
 		victim := cache.items[cache.position]
-		if atomic.LoadInt32(&victim.referenced) == 0 {
+		if victim.referenced.Load() == 0 {
 			// a victim is found. delete it, and store the new item here.
 			delete(cache.table, victim.key)
 			cache.table[k] = &item
@@ -251,7 +251,7 @@ func (cache *secondChanceCacheBytes) Add(key []byte, value any) {
 
 		// referenced bit is set to false so that this item will be Get purged
 		// unless it is accessed until a next victim scan
-		atomic.StoreInt32(&victim.referenced, 0)
+		victim.referenced.Store(0)
 		cache.position = (cache.position + 1) % size
 	}
 }
@@ -262,7 +262,7 @@ func (cache *secondChanceCacheBytes) Delete(key []byte) {
 
 	if old, ok := cache.table[cache.key(key)]; ok {
 		old.value = nil
-		atomic.StoreInt32(&old.referenced, 1)
+		old.referenced.Store(1)
 		return
 	}
 }
