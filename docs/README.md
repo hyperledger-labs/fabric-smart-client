@@ -32,6 +32,7 @@ Each platform section includes a local `README.md` plus a `configuration.md` pag
 
 ## Guides and Tutorials
 
+- [Go API reference (pkg.go.dev)](https://pkg.go.dev/github.com/hyperledger-labs/fabric-smart-client)
 - [FSC CLI reference](reference/fsc-cli.md)
 - [Node CLI reference](reference/node-cli.md)
 - [Benchmark examples](../integration/benchmark/README.md)

@@ -137,6 +137,25 @@ There is no PR template; this is the convention:
 Keep it structured and short. A file-by-file walkthrough only duplicates the diff; omit
 it. The PR title should read like the final commit subject below.
 
+### Tests
+
+New functionality comes with tests, in the same PR. A change that adds or alters behaviour
+is expected to add or extend an automated test that covers it:
+
+- new or changed behaviour inside a package → a unit test in that package
+- a new user-facing capability, or anything spanning nodes and the ledger → an integration
+  test target, or a case added to an existing one
+- a bug fix → a test that fails before the fix and passes after it
+
+Changes with nothing to assert are exempt: documentation, comments, renames, dependency
+bumps, and CI or build changes that the pipeline exercises itself. A change that genuinely
+cannot be tested is fine too — say so in the PR description under *How it was verified*.
+
+Reviewers ask for the missing test rather than merging on a promise, and CI reports
+coverage on every PR, so untested new code shows up as a coverage drop.
+[`docs/agents/testing.md`](../agents/testing.md) covers the frameworks and conventions, and
+the [Development Guide](development.md#running-tests) covers the commands.
+
 ### Commit Hygiene
 
 Every PR is merged as a **single squashed commit**, and the branch reaches that state in
