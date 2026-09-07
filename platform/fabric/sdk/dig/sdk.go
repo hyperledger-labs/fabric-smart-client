@@ -170,7 +170,11 @@ func registerProcessorsForDrivers(in struct {
 
 	for _, d := range in.Drivers {
 		logger.Infof("trying to install for driver: %s", d.Name)
-		if c, err := in.CoreConfig.Config(in.CoreConfig.DefaultName()); err != nil || c.Driver != d.Name {
+		c, err := in.CoreConfig.Config(in.CoreConfig.DefaultName())
+		if err != nil {
+			return e.Wrapf(err, "failed getting config for default fabric network")
+		}
+		if c.Driver != d.Name {
 			logger.Infof("Skipping registration of default network, because its driver is %s. We are registering %s", c.Driver, d.Name)
 			return nil
 		}
