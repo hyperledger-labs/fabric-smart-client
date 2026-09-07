@@ -87,7 +87,7 @@ func TestNextChaincodeCarriesEverythingWhenNoOptionApplies(t *testing.T) { //nol
 	require.Empty(t, next.Chaincode.PackageFile)
 
 	require.Equal(t, "fsc-cc/iou:latest", next.Chaincode.Image, "Image must survive")
-	require.Equal(t, `{"Args":["init"]}`, next.Chaincode.Ctor, "Ctor must survive")
+	require.JSONEq(t, `{"Args":["init"]}`, next.Chaincode.Ctor, "Ctor must survive")
 	require.True(t, next.Chaincode.InitRequired, "InitRequired must survive")
 	require.Empty(t, next.Chaincode.Lang, "Lang must survive")
 	require.Empty(t, next.Chaincode.Path, "Path must survive")

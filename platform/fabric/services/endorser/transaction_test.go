@@ -155,7 +155,7 @@ func TestTransaction(t *testing.T) {
 
 	fakeTx.ProposalResponsesReturns([]driver.ProposalResponse{fakePR}, nil)
 	prs, _ := et.ProposalResponses()
-	require.Equal(t, 1, len(prs))
+	require.Len(t, prs, 1)
 
 	// ProposalResponses error
 	fakeTx.ProposalResponsesReturns(nil, fmt.Errorf("err"))

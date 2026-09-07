@@ -40,10 +40,10 @@ func P2PLayerTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 			SessionID:         "session",
 		}
 		err := bootstrapNode.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg1")}, nil)
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 
 		err = bootstrapNode.sendTo(t.Context(), info, &ViewPacket{Payload: []byte("msg2")}, nil)
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 
 		msg := <-messages
 		assert.NotNil(t, msg)
@@ -84,18 +84,18 @@ func SessionsTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 
 	wg.Go(func() {
 		session, err := bootstrapNode.NewSession("", "", node.Address, []byte(node.ID))
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 		assert.NotNil(t, session)
 
 		err = session.Send(ctx, []byte("ciao"))
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 
 		sessionMsgs := session.Receive()
 		msg := <-sessionMsgs
 		assert.Equal(t, []byte("ciaoback"), msg.Payload)
 
 		err = session.Send(ctx, []byte("ciao on session"))
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 
 		session.Close()
 	})
@@ -136,11 +136,11 @@ func SessionsForMPCTestRound(t *testing.T, bootstrapNode, node *HostNode) {
 
 	wg.Go(func() {
 		session, err := bootstrapNode.NewResponderSession("myawesomempcid", "", bootstrapNode.Address, []byte(node.ID), nil, nil)
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 		assert.NotNil(t, session)
 
 		err = session.Send(ctx, []byte("ciao"))
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 
 		sessionMsgs := session.Receive()
 		msg := <-sessionMsgs

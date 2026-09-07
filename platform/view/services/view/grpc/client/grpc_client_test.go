@@ -581,7 +581,7 @@ func TestLocalClient(t *testing.T) {
 	resStruct, err := lcStruct.CallView("fid", []byte("input"))
 	require.NoError(t, err)
 	expectedJSON, _ := json.Marshal(map[string]string{"status": "ok"})
-	require.Equal(t, expectedJSON, resStruct)
+	require.JSONEq(t, string(expectedJSON), string(resStruct.([]byte)))
 
 	// getTracer error
 	spErr := &fakeServiceProvider{tpErr: fmt.Errorf("tracer provider error")}

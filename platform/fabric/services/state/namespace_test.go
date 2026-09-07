@@ -395,7 +395,7 @@ func TestContractAndSBEHandlers(t *testing.T) {
 
 		ep2, err := newStateEP(policy)
 		require.NoError(t, err)
-		require.Len(t, ep2.identities, 0)
+		require.Empty(t, ep2.identities)
 	})
 }
 

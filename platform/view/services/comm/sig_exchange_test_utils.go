@@ -112,7 +112,7 @@ func SignedSessionExchangeTestRound(t *testing.T, alice, bob *SignedExchangePart
 	// Alice: initiator.
 	wg.Go(func() {
 		session, err := alice.Node.NewSession("alice-view", "ctx-1", bob.Node.Address, []byte(bob.Node.ID))
-		if !assert.NoError(t, err) || !assert.NotNil(t, session) {
+		if !assert.NoError(t, err) || !assert.NotNil(t, session) { //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 			return
 		}
 		defer session.Close()
@@ -120,7 +120,7 @@ func SignedSessionExchangeTestRound(t *testing.T, alice, bob *SignedExchangePart
 		// Alice selects her own signer from the local identity carried by the
 		// session, not from any pre-captured key.
 		sig, err := alice.Sign(session.Info().LocalPKID, []byte(aliceMsg))
-		if !assert.NoError(t, err, "alice failed to sign") {
+		if !assert.NoError(t, err, "alice failed to sign") { //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 			return
 		}
 		assert.NotEmpty(t, session.Info().LocalPKID, "alice session carries no LocalPKID")
@@ -139,13 +139,13 @@ func SignedSessionExchangeTestRound(t *testing.T, alice, bob *SignedExchangePart
 				return
 			}
 			msg, err := utils.UnmarshalSignedMessage(rcv.Payload)
-			if !assert.NoError(t, err, "alice failed to decode reply") {
+			if !assert.NoError(t, err, "alice failed to decode reply") { //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 				return
 			}
 			assert.Equal(t, bobMsg, string(msg.Payload))
 			// Alice resolves Bob from the session info and verifies.
 			bobID, err := alice.verifyFromSession(session.Info(), msg)
-			if !assert.NoError(t, err) {
+			if !assert.NoError(t, err) { //nolint:testifylint // runs inside wg.Go; require.FailNow is unsafe outside the test goroutine
 				return
 			}
 			// Binding: the resolved identity's PKID matches what the session reported.

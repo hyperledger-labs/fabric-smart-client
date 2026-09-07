@@ -320,7 +320,7 @@ func TestAddDeleteListenerAndNotifyFinality(t *testing.T) {
 	}
 
 	c.deleteListener("tx10", ch)
-	require.Len(t, c.listeners["tx10"], 0)
+	require.Empty(t, c.listeners["tx10"])
 }
 
 func TestIsFinalForKnownStatuses(t *testing.T) {
@@ -754,7 +754,7 @@ func TestCommitTxs(t *testing.T) {
 			&common.BlockMetadata{},
 		)
 		require.NoError(t, err)
-		require.Len(t, c.events, 0)
+		require.Empty(t, c.events)
 	})
 
 	t.Run("handler error is returned", func(t *testing.T) {

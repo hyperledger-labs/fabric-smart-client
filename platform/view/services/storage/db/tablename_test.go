@@ -431,7 +431,7 @@ func TestTableNameCreator_DefaultPrefix(t *testing.T) {
 		creator := NewTableNameCreator("")
 		formatter, err := creator.GetFormatter("")
 		require.NoError(t, err)
-		require.Equal(t, "", formatter.prefix)
+		require.Empty(t, formatter.prefix)
 	})
 
 	t.Run("non-empty default prefix", func(t *testing.T) {

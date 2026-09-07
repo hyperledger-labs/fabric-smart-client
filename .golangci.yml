@@ -30,6 +30,7 @@ linters:
     - rowserrcheck
     - recvcheck
     - staticcheck
+    - testifylint
     - thelper
     - tparallel
     - unused

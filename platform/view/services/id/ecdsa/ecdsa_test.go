@@ -30,7 +30,7 @@ func TestGetCurveHalfOrdersAt(t *testing.T) {
 
 	// P256 N = FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
 	// Half should be non-zero and greater than 0
-	require.True(t, halfOrder.Cmp(big.NewInt(0)) > 0)
+	require.Positive(t, halfOrder.Cmp(big.NewInt(0)))
 }
 
 func TestNewSigner(t *testing.T) {
@@ -260,7 +260,7 @@ func TestToLowS(t *testing.T) {
 	lowSig := toLowS(sk.PublicKey, sig)
 
 	// Must be updated to a value <= halfOrder
-	require.True(t, lowSig.S.Cmp(halfOrder) <= 0)
+	require.LessOrEqual(t, lowSig.S.Cmp(halfOrder), 0)
 	require.Equal(t, expectedS, lowSig.S)
 }
 

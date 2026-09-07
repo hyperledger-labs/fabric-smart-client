@@ -46,5 +46,5 @@ func TestGetRandomBytesZeroLen(t *testing.T) {
 	t.Parallel()
 	b, err := GetRandomBytes(0)
 	require.NoError(t, err)
-	require.Len(t, b, 0)
+	require.Empty(t, b)
 }

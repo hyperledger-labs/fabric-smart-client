@@ -724,6 +724,6 @@ func TestCFTBroadcaster_ConnectionLifecycle(t *testing.T) {
 		err := b.Broadcast(t.Context(), &common.Envelope{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to send transaction to orderer")
-		require.Len(t, b.connections, 0, "no connections should be pooled after all failures")
+		require.Empty(t, b.connections, "no connections should be pooled after all failures")
 	})
 }

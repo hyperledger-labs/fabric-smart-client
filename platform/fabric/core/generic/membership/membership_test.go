@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package membership
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -118,7 +117,7 @@ func TestAccessorsBeforeFirstUpdate(t *testing.T) {
 
 			require.Error(t, err)
 			require.ErrorIs(t, err, driver.ErrNotInitialized)
-			require.True(t, strings.Contains(err.Error(), "mychannel"),
+			require.Contains(t, err.Error(), "mychannel",
 				"error should name the channel, got [%v]", err)
 		})
 	}
@@ -301,9 +300,9 @@ func TestTLSRootCertsByMSPIDWithoutApplicationConfig(t *testing.T) {
 	certs, err := s.TLSRootCertsByMSPID("Org1MSP")
 	require.Error(t, err)
 	require.Nil(t, certs)
-	require.True(t, strings.Contains(err.Error(), "mychannel"),
+	require.Contains(t, err.Error(), "mychannel",
 		"error must name the channel, got [%v]", err)
-	require.True(t, strings.Contains(err.Error(), "application config does not exist"),
+	require.Contains(t, err.Error(), "application config does not exist",
 		"error must be specific to the missing application section, got [%v]", err)
 }
 
@@ -393,9 +392,9 @@ func TestTLSRootCertsByMSPIDUnknownMSPNamesTheMSP(t *testing.T) {
 	certs, err := tlsRootCertsByMSPID(ac, "NoSuchMSP", "mychannel")
 	require.Error(t, err)
 	require.Nil(t, certs)
-	require.True(t, strings.Contains(err.Error(), "NoSuchMSP"),
+	require.Contains(t, err.Error(), "NoSuchMSP",
 		"error must name the MSP, got [%v]", err)
-	require.True(t, strings.Contains(err.Error(), "mychannel"),
+	require.Contains(t, err.Error(), "mychannel",
 		"error must name the channel, got [%v]", err)
 }
 
@@ -467,7 +466,7 @@ func TestConfigWaitReleasedByUpdate(t *testing.T) {
 		// require.Error would not tell them apart, since both are errors.
 		require.NotErrorIs(t, err, driver.ErrNotInitialized,
 			"error must come from the installed configuration, not from never having waited for it, got [%v]", err)
-		require.True(t, strings.Contains(err.Error(), "application config does not exist"),
+		require.Contains(t, err.Error(), "application config does not exist",
 			"error must be the one produced by the seeded configuration, got [%v]", err)
 	case <-time.After(2 * time.Second):
 		t.Fatal("the update did not release the waiting accessor; it is sitting out its budget")
@@ -483,7 +482,7 @@ func TestConfigWaitTimesOut(t *testing.T) {
 
 	_, err := s.TLSRootCertsByMSPID("Org1MSP")
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "mychannel"),
+	require.Contains(t, err.Error(), "mychannel",
 		"error must name what it waited for, got [%v]", err)
 }
 
@@ -534,7 +533,7 @@ func TestMSPManagerConfigWaitTimesOut(t *testing.T) {
 
 	_, err := mgr.DeserializeIdentity(view.Identity("some-identity"))
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "mychannel"),
+	require.Contains(t, err.Error(), "mychannel",
 		"error must name what it waited for, got [%v]", err)
 }
 
@@ -561,7 +560,7 @@ func TestConfigWaitDoesNotWaitOnARejectedConfig(t *testing.T) {
 	require.ErrorIs(t, err, driver.ErrConfigRejected)
 	require.Less(t, elapsed, time.Second,
 		"a refused configuration must be reported immediately, not after the wait budget, took [%s]", elapsed)
-	require.True(t, strings.Contains(err.Error(), "mychannel"),
+	require.Contains(t, err.Error(), "mychannel",
 		"error must name the channel, got [%v]", err)
 }
 

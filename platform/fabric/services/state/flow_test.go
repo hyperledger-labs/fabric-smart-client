@@ -341,7 +341,7 @@ func TestSendReceiveViewCall(t *testing.T) {
 		srv.coded = &mockCodec{
 			marshalRaw: []byte("send"),
 			unmarshalFn: func(raw []byte, v any) error {
-				require.Equal(t, []byte(`{"v":"ok"}`), raw)
+				require.JSONEq(t, `{"v":"ok"}`, string(raw))
 				target := v.(*struct {
 					V string `json:"v"`
 				})
@@ -622,7 +622,7 @@ func TestSendTransactionViewCallBranches(t *testing.T) {
 		}
 		_, err := NewSendTransactionView(tx, view.Identity("me")).Call(ctx)
 		require.NoError(t, err)
-		require.Len(t, ms.sent, 0)
+		require.Empty(t, ms.sent)
 	})
 
 	t.Run("bytes error", func(t *testing.T) {
