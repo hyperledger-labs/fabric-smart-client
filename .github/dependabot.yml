@@ -1,0 +1,62 @@
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+---
+version: 2
+
+updates:
+  # FSC is a multi-module repository, and the modules are not independent: the
+  # integration module `replace`s the root, cc/query, and libp2p modules, so a
+  # dependency bumped in one go.mod usually has to move in the others' go.sum
+  # too. One `directories` list keeps all five modules in a single Dependabot
+  # job, so a shared dependency is updated across them together instead of
+  # arriving as separate PRs that each leave `make tidy` dirty.
+  #
+  # The list mirrors `make list-go-modules` plus tools/, which that target
+  # excludes because golangci-lint has nothing to analyse there -- but its
+  # dev-tool pins rot like any other dependency, so Dependabot does cover it.
+  - package-ecosystem: gomod
+    directories:
+      - "/"
+      - "/integration"
+      - "/platform/fabric/services/state/cc/query"
+      - "/platform/view/services/comm/host/libp2p"
+      - "/tools"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    commit-message:
+      # Conventional Commits, as required on main -- see docs/dev/workflow.md.
+      prefix: chore
+      include: scope
+    groups:
+      # Everything that is not a major bump travels as one PR: individually
+      # they are noise, and reviewing them together is what makes the weekly
+      # batch cheap. Majors match no group on purpose, so each one arrives
+      # alone, where a breaking change can be read on its own.
+      go-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # Actions are pinned to SHAs, so without this they never move at all.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
