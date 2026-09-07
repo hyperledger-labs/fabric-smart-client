@@ -100,7 +100,7 @@ func NewChaincode(
 	signerService driver.SignerService,
 	broadcaster Broadcaster,
 	finality driver.Finality,
-	MSPProvider MSPProvider,
+	mspProvider MSPProvider,
 ) *Chaincode {
 	timeout := DiscoveryCacheTimeout
 	if channelConfig.DiscoveryTimeout() > 0 {
@@ -120,7 +120,7 @@ func NewChaincode(
 		SignerService:         signerService,
 		Broadcaster:           broadcaster,
 		Finality:              finality,
-		MSPProvider:           MSPProvider,
+		MSPProvider:           mspProvider,
 		discoveryResultsCache: cache.NewTimeoutCache[string, discovery.Response](ctx, timeout, nil),
 	}
 }

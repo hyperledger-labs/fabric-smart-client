@@ -93,7 +93,7 @@ func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[s
 			}
 
 			identities = append(identities, NewX509PeerIdentity(label, label, "", org, "SW", false))
-			users[org.Org] = users[org.Org] + 1
+			users[org.Org]++
 			userSpecs[org.Org] = append(userSpecs[org.Org], topology.UserSpec{Name: label})
 			n.Context.AddIdentityAlias(node.Name, label)
 		}
@@ -102,7 +102,7 @@ func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[s
 				continue
 			}
 			identities = append(identities, NewX509PeerIdentity(label, label, "", org, "PKCS11", false))
-			users[org.Org] = users[org.Org] + 1
+			users[org.Org]++
 			userSpecs[org.Org] = append(userSpecs[org.Org], topology.UserSpec{Name: label, HSM: true})
 			n.Context.AddIdentityAlias(node.Name, label)
 		}
@@ -154,7 +154,7 @@ func (n *Network) CheckTopologyFSCNodes() (users map[string]int, userSpecs map[s
 func (n *Network) CheckTopologyOrgs(users map[string]int, userSpecs map[string][]topology.UserSpec) {
 	for _, organization := range n.Organizations {
 		organization.Users += users[organization.Name]
-		organization.UserSpecs = append(userSpecs[organization.Name],
+		organization.UserSpecs = append(append([]topology.UserSpec{}, userSpecs[organization.Name]...),
 			topology.UserSpec{Name: "User1"},
 			topology.UserSpec{Name: "User2"},
 		)
@@ -215,7 +215,7 @@ func NewIdemixPeerIdentity(id, eid string) *topology.PeerIdentity {
 	}
 }
 
-func NewX509PeerIdentity(id, eid, path string, org opts.Organization, bccspDefault string, Default bool) *topology.PeerIdentity {
+func NewX509PeerIdentity(id, eid, path string, org opts.Organization, bccspDefault string, isDefault bool) *topology.PeerIdentity {
 	pid := &topology.PeerIdentity{
 		ID:           id,
 		EnrollmentID: eid,
@@ -224,7 +224,7 @@ func NewX509PeerIdentity(id, eid, path string, org opts.Organization, bccspDefau
 		Org:          org.Org,
 		Opts:         BCCSPOpts(bccspDefault),
 	}
-	if Default {
+	if isDefault {
 		if len(path) != 0 {
 			gomega.Expect(bccspDefault).To(gomega.Equal("SW"))
 			pid.Path = path

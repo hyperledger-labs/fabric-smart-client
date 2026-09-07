@@ -169,9 +169,7 @@ func (n *Extension) prometheusScrape(p *Prometheus) {
 }
 
 func (n *Extension) configFileDir() string {
-	return filepath.Join(
-		n.platform.ConfigDir(),
-	)
+	return n.platform.ConfigDir()
 }
 
 func (n *Extension) grafanaDirPaths() []string {

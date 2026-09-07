@@ -60,13 +60,13 @@ func byteSizeDecodeHook(f, t reflect.Kind, data any) (any, error) {
 		unit := re.ReplaceAllString(raw, "${unit}")
 		switch strings.ToLower(unit) {
 		case "g":
-			size = size << 10
+			size <<= 10
 			fallthrough
 		case "m":
-			size = size << 10
+			size <<= 10
 			fallthrough
 		case "k":
-			size = size << 10
+			size <<= 10
 		}
 		if size > math.MaxUint32 {
 			return size, errors.Errorf("value '%s' overflows uint32", raw)

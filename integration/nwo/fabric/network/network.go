@@ -96,7 +96,7 @@ type Network struct {
 	containers *ccaas.ContainerManager
 }
 
-func New(reg api.Context, topology *topology.Topology, builderClient BuilderClient, ccps []ChaincodeProcessor, NetworkID string) *Network {
+func New(reg api.Context, topology *topology.Topology, builderClient BuilderClient, ccps []ChaincodeProcessor, networkID string) *Network {
 	if topology == nil {
 		topology = NewEmptyTopology()
 	}
@@ -108,7 +108,7 @@ func New(reg api.Context, topology *topology.Topology, builderClient BuilderClie
 		Prefix:   "fabric." + topology.Name(),
 		topology: topology,
 
-		NetworkID:         NetworkID,
+		NetworkID:         networkID,
 		EventuallyTimeout: 20 * time.Minute,
 		MetricsProvider:   "prometheus",
 
@@ -189,8 +189,7 @@ func (n *Network) GenerateArtifacts() {
 	n.ConcatenateTLSCACertificates()
 	n.GenerateResolverMap()
 	for _, p := range n.Peers {
-		switch p.Type {
-		case topology.FSCPeer:
+		if p.Type == topology.FSCPeer {
 			n.GenerateCoreConfig(p)
 		}
 	}

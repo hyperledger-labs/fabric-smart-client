@@ -112,12 +112,13 @@ func (o *KVS) GetExisting(ctx context.Context, ids ...string) []string {
 		return result
 	}
 	for v, err := it.Next(); v != nil || err != nil; v, err = it.Next() {
-		if err != nil {
+		switch {
+		case err != nil:
 			o.cache.Delete(v.Key)
-		} else if len(v.Raw) > 0 {
+		case len(v.Raw) > 0:
 			o.cache.Add(v.Key, v.Raw)
 			result = append(result, v.Key)
-		} else {
+		default:
 			o.cache.Add(v.Key, v.Raw)
 		}
 	}
@@ -156,6 +157,7 @@ func (o *KVS) Get(ctx context.Context, id string, state any) error {
 	// Try to get from cache first (read lock)
 	o.putMutex.RLock()
 	cachedRaw, ok := o.cache.Get(id)
+	//nolint:gocritic // rewriting to switch would obscure the RLock/RUnlock and Lock/Unlock pairing across mixed branches (one branch has two early error returns); the if/else-if reads clearer and is not misleading here.
 	if cachedRaw != nil && ok {
 		raw = cachedRaw.([]byte)
 		o.putMutex.RUnlock()

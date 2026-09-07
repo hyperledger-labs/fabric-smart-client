@@ -136,7 +136,7 @@ func UnpackProposal(prop *pb.Proposal) (*UnpackedProposal, error) {
 		ChaincodeName:    chaincodeHdrExt.ChaincodeId.Name,
 		ChaincodeVersion: chaincodeHdrExt.ChaincodeId.Version,
 		Input:            cis.ChaincodeSpec.Input,
-		ProposalHash:     propHash.Sum(nil)[:],
+		ProposalHash:     propHash.Sum(nil),
 	}, nil
 }
 

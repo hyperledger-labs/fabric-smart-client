@@ -78,7 +78,7 @@ func (c *Committer) ReloadConfigTransactions() error {
 				return err
 			}
 
-			sequence = sequence + 1
+			sequence++
 			continue
 		case driver.Unknown:
 			if sequence == 0 {

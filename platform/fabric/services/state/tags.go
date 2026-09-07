@@ -117,8 +117,7 @@ func (n *Namespace) marshalTags(set *fabric.RWSet, source any) (any, map[string]
 	for i := 0; i < t.NumField(); i++ {
 		tag, ok := t.Field(i).Tag.Lookup("state")
 		if ok {
-			switch tag {
-			case "hash":
+			if tag == "hash" {
 				// todo: sample a nonce and add it to the transient
 				// replace the value with the hash
 				field := v.Field(i)
@@ -159,8 +158,7 @@ func (n *Namespace) unmarshalTags(set *fabric.RWSet, source any, mapping map[str
 	for i := 0; i < t.NumField(); i++ {
 		tag, ok := t.Field(i).Tag.Lookup("state")
 		if ok {
-			switch tag {
-			case "hash":
+			if tag == "hash" {
 				// replace the value with the hash
 				field := v.Field(i)
 				switch field.Kind() {

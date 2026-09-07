@@ -35,7 +35,7 @@ func CheckRole(bitmask int, role Role) bool {
 func GetRoleMaskFromIdemixRoles(roles []Role) int {
 	mask := 0
 	for _, role := range roles {
-		mask = mask | role.getValue()
+		mask |= role.getValue()
 	}
 	return mask
 }

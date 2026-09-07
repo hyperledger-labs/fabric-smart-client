@@ -69,7 +69,7 @@ func TestNewCredentialSupport(t *testing.T) {
 		[]byte("certificate-one"),
 		[]byte("certificate-two"),
 	}
-	expected.serverRootCAs = rootCAs[:]
+	expected.serverRootCAs = rootCAs
 	require.Equal(t, expected, NewCredentialSupport(rootCAs...))
 }
 

@@ -55,7 +55,7 @@ func (c *Config) WebURL() string {
 
 func (c *Config) url(protocol string) string {
 	if c.isTlsEnabled() {
-		protocol = protocol + "s"
+		protocol += "s"
 	}
 	return fmt.Sprintf("%s://%s", protocol, c.Host)
 }

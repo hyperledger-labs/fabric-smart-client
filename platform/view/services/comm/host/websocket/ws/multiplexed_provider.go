@@ -279,18 +279,19 @@ func (c *multiplexedClientConn) readIncoming() {
 		sc, ok := c.subConns[mm.ID]
 		c.mu.RUnlock()
 
-		if !ok && mm.Err == "" {
+		switch {
+		case !ok && mm.Err == "":
 			// it might happen that we receive a message from the server after we have already closed the sub-connection
 			// in this case we just ignore the message and drop it
 			logger.Warnf("client sub-connection does not exist mmId=%v, dropping message", mm.ID)
 			logger.Debugf("dropping message: `%s`", string(mm.Msg))
-		} else if !ok && mm.Err != "" {
+		case !ok && mm.Err != "":
 			logger.Debugf("client sub-connection does not exist mmId=%v, errored: %v", mm.ID, mm.Err)
-		} else if mm.Err != "" {
+		case mm.Err != "":
 			logger.Debugf("client sub-connection mmId=%v errored: %v", mm.ID, mm.Err)
 			_ = sc.deliver(result{err: mm.ToError()})
 			_ = sc.Close()
-		} else {
+		default:
 			if !sc.deliver(result{value: mm.Msg}) {
 				logger.Warnf("failed to deliver message to sub-connection [%s], closing sub-connection", mm.ID)
 				_ = sc.Close()
@@ -336,15 +337,16 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 		sc, ok := c.subConns[mm.ID]
 		c.mu.RUnlock()
 		logger.Debugf("subconn for [%s] exists [%v]", mm.ID, ok)
-		if !ok && mm.Err == "" {
+		switch {
+		case !ok && mm.Err == "":
 			c.newServerSubConn(newStreamCallback, mm)
-		} else if !ok && mm.Err != "" {
+		case !ok && mm.Err != "":
 			logger.Debugf("server subconn errored: %v", mm.Err)
-		} else if mm.Err != "" {
+		case mm.Err != "":
 			logger.Debugf("Server subconn [%s] errored: %v", mm.ID, mm.Err)
 			_ = sc.deliver(result{err: mm.ToError()})
 			_ = sc.Close()
-		} else {
+		default:
 			if !sc.deliver(result{value: mm.Msg}) {
 				logger.Warnf("failed to deliver message to sub-connection [%s], closing sub-connection", mm.ID)
 				_ = sc.Close()

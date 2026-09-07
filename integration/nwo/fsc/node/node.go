@@ -264,8 +264,8 @@ func (n *Node) SetBootstrap() *Node {
 }
 
 // SetExecutable sets the executable path of this node
-func (n *Node) SetExecutable(ExecutablePath string) *Node {
-	n.ExecutablePath = ExecutablePath
+func (n *Node) SetExecutable(executablePath string) *Node {
+	n.ExecutablePath = executablePath
 
 	return n
 }

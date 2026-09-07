@@ -78,7 +78,7 @@ func TestProposalResponse(t *testing.T) {
 	require.Equal(t, []byte("endorser"), []byte(mockProvider.GetVerifierArgsForCall(0)))
 
 	require.Equal(t, 1, mockVerifier.VerifyCallCount())
-	expectedMsg := append(pr.Payload, []byte("endorser")...)
+	expectedMsg := append(append([]byte{}, pr.Payload...), []byte("endorser")...)
 	msg, sig := mockVerifier.VerifyArgsForCall(0)
 	require.Equal(t, expectedMsg, msg)
 	require.Equal(t, []byte("signature"), sig)

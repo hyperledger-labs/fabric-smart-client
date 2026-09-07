@@ -32,16 +32,16 @@ type MSPIdentity struct {
 	VerificationType bccsp.VerificationType
 }
 
-func NewMSPIdentityWithVerType(idemix *Idemix, NymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) (*MSPIdentity, error) {
+func NewMSPIdentityWithVerType(idemix *Idemix, nymPublicKey bccsp.Key, role *m.MSPRole, ou *m.OrganizationUnit, proof []byte, verificationType bccsp.VerificationType) (*MSPIdentity, error) {
 	id := &MSPIdentity{}
 	id.Idemix = idemix
-	id.NymPublicKey = NymPublicKey
+	id.NymPublicKey = nymPublicKey
 	id.Role = role
 	id.OU = ou
 	id.AssociationProof = proof
 	id.VerificationType = verificationType
 
-	raw, err := NymPublicKey.Bytes()
+	raw, err := nymPublicKey.Bytes()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to marshal nym public key")
 	}

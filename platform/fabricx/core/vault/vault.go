@@ -606,15 +606,16 @@ func (r *rwSetWrapper) Equals(rws any, nss ...cdriver.Namespace) error {
 		return errors.Errorf("expected *rwSetWrapper, got %T", rws)
 	}
 
-	if r == other {
+	switch {
+	case r == other:
 		r.mu.Lock()
 		defer r.mu.Unlock()
-	} else if uintptr(unsafe.Pointer(r)) < uintptr(unsafe.Pointer(other)) { //nolint:gosec // G103: pointer-address comparison for deterministic lock ordering
+	case uintptr(unsafe.Pointer(r)) < uintptr(unsafe.Pointer(other)): //nolint:gosec // G103: pointer-address comparison for deterministic lock ordering
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		other.mu.Lock()
 		defer other.mu.Unlock()
-	} else {
+	default:
 		other.mu.Lock()
 		defer other.mu.Unlock()
 		r.mu.Lock()

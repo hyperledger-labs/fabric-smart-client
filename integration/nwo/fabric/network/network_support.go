@@ -1014,8 +1014,7 @@ func (n *Network) PeerGroupRunner() ifrit.Runner {
 		if p.SkipRunning {
 			continue
 		}
-		switch p.Type {
-		case topology.FabricPeer:
+		if p.Type == topology.FabricPeer {
 			members = append(members, grouper.Member{Name: p.ID(), Runner: n.PeerRunner(p)})
 		}
 	}
@@ -1239,8 +1238,7 @@ func (n *Network) IdemixOrgs() []*topology.Organization {
 func (n *Network) PeersWithChannel(chanName string) []*topology.Peer {
 	var peers []*topology.Peer
 	for _, p := range n.Peers {
-		switch p.Type {
-		case topology.FabricPeer:
+		if p.Type == topology.FabricPeer {
 			for _, c := range p.Channels {
 				if c.Name == chanName {
 					peers = append(peers, p)
@@ -1267,8 +1265,7 @@ func (n *Network) PeersWithChannel(chanName string) []*topology.Peer {
 func (n *Network) AnchorsForChannel(chanName string) []*topology.Peer {
 	anchors := []*topology.Peer{}
 	for _, p := range n.Peers {
-		switch p.Type {
-		case topology.FabricPeer:
+		if p.Type == topology.FabricPeer {
 			for _, pc := range p.Channels {
 				if pc.Name == chanName && pc.Anchor {
 					anchors = append(anchors, p)
@@ -1539,8 +1536,8 @@ func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
 	tlsEnabled := n.topology.TLSEnabled
 	t, err := template.New("orderer").Funcs(template.FuncMap{
 		"Orderer":    func() *topology.Orderer { return o },
-		"ToLower":    func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll": func(s, old, replacement string) string { return strings.ReplaceAll(s, old, replacement) },
+		"ToLower":    strings.ToLower,
+		"ReplaceAll": strings.ReplaceAll,
 		"TLSEnabled": func() bool { return tlsEnabled },
 	}).Parse(n.Templates.OrdererTemplate())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -1566,8 +1563,8 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"Peer":                      func() *topology.Peer { return p },
 			"Orderer":                   func() *topology.Orderer { return n.Orderers[0] },
 			"PeerLocalExtraIdentityDir": func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
-			"ToLower":                   func(s string) string { return strings.ToLower(s) },
-			"ReplaceAll":                func(s, old, replacement string) string { return strings.ReplaceAll(s, old, replacement) },
+			"ToLower":                   strings.ToLower,
+			"ReplaceAll":                strings.ReplaceAll,
 		}).Parse(coreTemplate)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -1618,8 +1615,8 @@ func (n *Network) RenderFSCFabricExtension(p *topology.Peer) (string, error) {
 		"Peer":                      func() *topology.Peer { return p },
 		"Orderers":                  func() []*topology.Orderer { return n.Orderers },
 		"PeerLocalExtraIdentityDir": func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
-		"ToLower":                   func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll":                func(s, old, replacement string) string { return strings.ReplaceAll(s, old, replacement) },
+		"ToLower":                   strings.ToLower,
+		"ReplaceAll":                strings.ReplaceAll,
 		"Peers":                     func() []*topology.Peer { return refPeers },
 		"OrdererAddress":            func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
 		"PeerAddress":               func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },

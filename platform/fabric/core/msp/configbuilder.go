@@ -176,18 +176,18 @@ func cloneFactoryOpts(opts *factory.FactoryOpts) *factory.FactoryOpts {
 // GetLocalMspConfigWithType returns a local MSP
 // configuration for the MSP in the specified
 // directory, with the specified ID and type
-func GetLocalMspConfigWithType(dir string, bccspConfig *factory.FactoryOpts, ID, mspType string) (*msp.MSPConfig, error) {
+func GetLocalMspConfigWithType(dir string, bccspConfig *factory.FactoryOpts, id, mspType string) (*msp.MSPConfig, error) {
 	switch mspType {
 	case ProviderTypeToString(FABRIC):
-		return GetLocalMspConfig(dir, bccspConfig, ID)
+		return GetLocalMspConfig(dir, bccspConfig, id)
 	case ProviderTypeToString(IDEMIX):
-		return idemixmsp.GetIdemixMspConfig(dir, ID)
+		return idemixmsp.GetIdemixMspConfig(dir, id)
 	default:
 		return nil, errors.Errorf("unknown MSP type '%s'", mspType)
 	}
 }
 
-func GetLocalMspConfig(dir string, bccspConfig *factory.FactoryOpts, ID string) (*msp.MSPConfig, error) {
+func GetLocalMspConfig(dir string, bccspConfig *factory.FactoryOpts, id string) (*msp.MSPConfig, error) {
 	if _, err := os.Stat(dir); err != nil {
 		if os.IsNotExist(err) {
 			return nil, errors.Errorf("msp directory does not exist: %s", dir)
@@ -217,22 +217,22 @@ func GetLocalMspConfig(dir string, bccspConfig *factory.FactoryOpts, ID string) 
 
 	sigid := &msp.SigningIdentityInfo{PublicSigner: signcert[0], PrivateSigner: nil}
 
-	return getMspConfig(dir, ID, sigid)
+	return getMspConfig(dir, id, sigid)
 }
 
 // GetVerifyingMspConfig returns an MSP config given directory, ID and type
-func GetVerifyingMspConfig(dir, ID, mspType string) (*msp.MSPConfig, error) {
+func GetVerifyingMspConfig(dir, id, mspType string) (*msp.MSPConfig, error) {
 	switch mspType {
 	case ProviderTypeToString(FABRIC):
-		return getMspConfig(dir, ID, nil)
+		return getMspConfig(dir, id, nil)
 	case ProviderTypeToString(IDEMIX):
-		return idemixmsp.GetIdemixMspConfig(dir, ID)
+		return idemixmsp.GetIdemixMspConfig(dir, id)
 	default:
 		return nil, errors.Errorf("unknown MSP type '%s'", mspType)
 	}
 }
 
-func getMspConfig(dir, ID string, sigid *msp.SigningIdentityInfo) (*msp.MSPConfig, error) {
+func getMspConfig(dir, id string, sigid *msp.SigningIdentityInfo) (*msp.MSPConfig, error) {
 	cacertDir := filepath.Join(dir, cacerts)
 	admincertDir := filepath.Join(dir, admincerts)
 	intermediatecertsDir := filepath.Join(dir, intermediatecerts)
@@ -260,6 +260,7 @@ func getMspConfig(dir, ID string, sigid *msp.SigningIdentityInfo) (*msp.MSPConfi
 
 	tlsCACerts, err := getPemMaterialFromDir(tlscacertDir)
 	tlsIntermediateCerts := [][]byte{}
+	//nolint:gocritic // one branch reassigns tlsIntermediateCerts via a nested if/else-if with its own error return; a switch would flatten that nesting and obscure it.
 	if os.IsNotExist(err) {
 		mspLogger.Debugf("TLS CA certs folder not found at [%s]. Skipping and ignoring TLS intermediate CA folder. [%s]", tlsintermediatecertsDir, err)
 	} else if err != nil {
@@ -373,7 +374,7 @@ func getMspConfig(dir, ID string, sigid *msp.SigningIdentityInfo) (*msp.MSPConfi
 		RootCerts:                     cacerts,
 		IntermediateCerts:             intermediatecerts,
 		SigningIdentity:               sigid,
-		Name:                          ID,
+		Name:                          id,
 		OrganizationalUnitIdentifiers: ouis,
 		RevocationList:                crls,
 		CryptoConfig:                  cryptoConfig,

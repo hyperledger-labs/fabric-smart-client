@@ -1031,9 +1031,9 @@ func compare(t *testing.T, ns string, db1, db2 driver2.VaultStore) {
 
 func byKey(a, b driver.VaultRead) int { return strings.Compare(a.Key, b.Key) }
 
-func versionBlockTxNumToBytes(Block driver.BlockNum, TxNum driver.TxNum) []byte {
+func versionBlockTxNumToBytes(block driver.BlockNum, txNum driver.TxNum) []byte {
 	buf := make([]byte, 8)
-	binary.BigEndian.PutUint32(buf[:4], uint32(Block))
-	binary.BigEndian.PutUint32(buf[4:], uint32(TxNum))
+	binary.BigEndian.PutUint32(buf[:4], uint32(block))
+	binary.BigEndian.PutUint32(buf[4:], uint32(txNum))
 	return buf
 }
