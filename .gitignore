@@ -4,6 +4,7 @@
 .build
 *.iml
 .venv
+.env
 # ignoring all generated artifacts in integration tests
 integration/**/out/
 
