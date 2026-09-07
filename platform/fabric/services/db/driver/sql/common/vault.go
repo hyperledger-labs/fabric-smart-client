@@ -447,7 +447,7 @@ func (db *vaultReader) GetStateMetadata(ctx context.Context, namespace driver.Na
 	var m []byte
 	var kversion driver.RawVersion
 	err = row.Scan(&m, &kversion)
-	if err != nil && err == sql.ErrNoRows {
+	if err != nil && errors2.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil
 	}
 	if err != nil {

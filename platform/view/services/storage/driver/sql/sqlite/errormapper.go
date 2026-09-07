@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package sqlite
 
 import (
+	errors2 "errors"
+
 	"modernc.org/sqlite"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
@@ -22,8 +24,8 @@ var errorMap = map[int]error{
 type ErrorMapper struct{}
 
 func (m *ErrorMapper) WrapError(err error) error {
-	pgErr, ok := err.(*sqlite.Error)
-	if !ok {
+	var pgErr *sqlite.Error
+	if !errors2.As(err, &pgErr) {
 		return err
 	}
 	mappedErr, ok := errorMap[pgErr.Code()]
