@@ -10,5 +10,9 @@ integration/**/out/
 integration/nwo/cmd/fsccli/cmd
 /.bob/notes/pending-notes.txt
 
+# local coverage output (COVERAGE=1, make coverage-local)
+/coverage.profile
+/coverage.out
+
 # compiled cc/query chaincode binary (go build artifact)
 platform/fabric/services/state/cc/query/query
