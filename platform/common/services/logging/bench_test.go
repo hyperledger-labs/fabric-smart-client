@@ -10,7 +10,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -184,15 +183,14 @@ func BenchmarkInfowContext_Enabled_With30Fields(b *testing.B) {
 	}
 }
 
-// Baseline: raw otelzap.SugaredLogger with no ctxFieldLogger decorator at all, to isolate
-// the decorator's own overhead from otelzap's baseline cost.
-func BenchmarkInfowContext_RawOtelzap_NoDecorator(b *testing.B) {
+// Baseline: raw zap.SugaredLogger with no ctxFieldLogger decorator at all, to isolate the
+// decorator's own overhead (context-field extraction plus the span-event mirror) from the
+// cost of the zap call underneath it.
+func BenchmarkInfow_RawZap_NoDecorator(b *testing.B) {
 	core, _ := observerCore(zapcore.InfoLevel)
-	zl := zap.New(core)
-	sugared := otelzap.New(zl, otelzap.WithMinLevel(zl.Level())).Sugar()
-	ctx := context.Background()
+	sugared := zap.New(core).Sugar()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		sugared.InfowContext(ctx, "msg", "i", i)
+		sugared.Infow("msg", "i", i)
 	}
 }
