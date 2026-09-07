@@ -50,8 +50,9 @@ func TestAttack_SpoofPeerID(t *testing.T) { //nolint:paralleltest
 		TLSClientConfig: clientTLSConfig,
 	}
 	u := fmt.Sprintf("wss://%s/p2p", srvEndpoint)
-	conn, _, err := dialer.Dial(u, nil)
+	conn, resp, err := dialer.Dial(u, nil)
 	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
 	defer func() { _ = conn.Close() }()
 
 	// Send meta message claiming to be Alice
@@ -103,8 +104,9 @@ func TestAttack_HijackSessionID(t *testing.T) { //nolint:paralleltest
 		TLSClientConfig: clientTLSConfig,
 	}
 	u := fmt.Sprintf("wss://%s/p2p", srvEndpoint)
-	conn, _, err := dialer.Dial(u, nil)
+	conn, resp, err := dialer.Dial(u, nil)
 	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
 	defer func() { _ = conn.Close() }()
 
 	// Charlie connects legitimately

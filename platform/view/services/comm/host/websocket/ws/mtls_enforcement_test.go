@@ -50,8 +50,9 @@ func TestMTLSStrictness(t *testing.T) {
 	t.Run("Valid mTLS - Connection Accepted", func(t *testing.T) {
 		t.Parallel()
 		dialer := websocket.Dialer{TLSClientConfig: clientTLSConfig}
-		conn, _, err := dialer.Dial(url, nil)
+		conn, resp, err := dialer.Dial(url, nil)
 		require.NoError(t, err)
+		_ = resp.Body.Close()
 		_ = conn.Close()
 	})
 
@@ -63,7 +64,10 @@ func TestMTLSStrictness(t *testing.T) {
 			ServerName: "localhost",
 		}
 		dialer := websocket.Dialer{TLSClientConfig: invalidClientConfig}
-		_, _, err := dialer.Dial(url, nil)
+		_, resp, err := dialer.Dial(url, nil)
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 		assert.Error(t, err, "Websocket dial should have failed without client certificate")
 	})
 
@@ -73,7 +77,10 @@ func TestMTLSStrictness(t *testing.T) {
 		_, untrustedClientConfig, _ := testMutualTLSConfigs(t, false)
 
 		dialer := websocket.Dialer{TLSClientConfig: untrustedClientConfig}
-		_, _, err := dialer.Dial(url, nil)
+		_, resp, err := dialer.Dial(url, nil)
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 		assert.Error(t, err, "Websocket dial should have failed with untrusted client certificate")
 	})
 
