@@ -32,9 +32,9 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.70.1
 	github.com/spf13/cobra v1.10.2
-	github.com/stretchr/testify v1.12.0
+	github.com/stretchr/testify v1.12.1
 	github.com/tedsuo/ifrit v0.0.0-20230516164442-7862c310ad26
-	go.opentelemetry.io/otel/trace v1.45.0
+	go.opentelemetry.io/otel/trace v1.46.0
 	go.uber.org/zap v1.28.0
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/sync v0.22.0
@@ -48,6 +48,7 @@ require (
 	github.com/IBM/mathlib v0.3.0 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
+	github.com/XSAM/otelsql v0.44.0 // indirect
 	github.com/alecthomas/kingpin/v2 v2.4.0 // indirect
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
@@ -193,9 +194,6 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/spf13/viper v1.21.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
-	github.com/uptrace/opentelemetry-go-extra/otelsql v0.3.2 // indirect
-	github.com/uptrace/opentelemetry-go-extra/otelutil v0.3.2 // indirect
-	github.com/uptrace/opentelemetry-go-extra/otelzap v0.3.2 // indirect
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
@@ -205,13 +203,12 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.70.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0 // indirect
-	go.opentelemetry.io/otel v1.45.0 // indirect
+	go.opentelemetry.io/otel v1.46.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.45.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.45.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.45.0 // indirect
-	go.opentelemetry.io/otel/log v0.20.0 // indirect
-	go.opentelemetry.io/otel/metric v1.45.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.45.0 // indirect
+	go.opentelemetry.io/otel/metric v1.46.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.46.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
 	go.uber.org/dig v1.19.0 // indirect
 	go.uber.org/fx v1.24.0 // indirect
@@ -229,7 +226,6 @@ require (
 	gonum.org/v1/gonum v0.17.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260817212433-ac3dfec99bb1 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260817212433-ac3dfec99bb1 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
 	modernc.org/libc v1.74.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect

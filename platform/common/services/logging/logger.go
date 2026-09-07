@@ -57,7 +57,8 @@ type logger struct {
 func newLogger(zapLogger *zap.Logger) *logger {
 	return &logger{
 		fabricLogger: flogging.NewFabricLogger(zapLogger),
-		otelLogger:   NewOtelLogger(zapLogger.WithOptions(zap.AddCallerSkip(2))),
+		// One frame to skip: the ctxFieldLogger.*Context method that forwards to zap.
+		otelLogger: NewOtelLogger(zapLogger.WithOptions(zap.AddCallerSkip(1))),
 	}
 }
 
