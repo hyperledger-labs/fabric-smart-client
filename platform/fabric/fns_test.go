@@ -77,7 +77,8 @@ func TestNetworkServiceProvider(t *testing.T) {
 	require.Equal(t, 1, mfnsProv.FabricNetworkServiceCallCount())
 
 	// test Get functions: the service provider fails to resolve the provider
-	msp := &dummyServiceProvider{}
+	msp := &mock.Provider{}
+	msp.GetServiceReturns(nil, errors.New("failed getting fabric network service provider"))
 
 	names, err := GetFabricNetworkNames(msp)
 	require.ErrorContains(t, err, "failed getting fabric network service provider")
@@ -94,7 +95,7 @@ func TestNetworkServiceProvider(t *testing.T) {
 
 	// now the provider resolves, but the underlying fns lookup fails
 	provider := NewNetworkServiceProvider(mfnsProv, nil)
-	msp.getServiceReturn = provider
+	msp.GetServiceReturns(provider, nil)
 
 	mfnsProv.FabricNetworkServiceReturns(nil, errors.New("no fns"))
 
@@ -124,7 +125,8 @@ func TestFabricNetworkFreeFunctions(t *testing.T) {
 	// GetNetworkServiceProvider, which type-asserts *NetworkServiceProvider, so the
 	// service provider must hand back a *NetworkServiceProvider.
 	provider := NewNetworkServiceProvider(mfnsProv, nil)
-	sp := &dummyServiceProvider{getServiceReturn: provider}
+	sp := &mock.Provider{}
+	sp.GetServiceReturns(provider, nil)
 
 	defFNS, err := GetDefaultFNS(sp)
 	require.NoError(t, err)
@@ -144,19 +146,9 @@ func TestFabricNetworkFreeFunctions(t *testing.T) {
 	// type-asserts driver.FabricNetworkServiceProvider, so hand back the mock provider
 	// directly (it implements that interface).
 	mfnsProv.NamesReturns([]string{"net1", "net2"})
-	spNames := &dummyServiceProvider{getServiceReturn: mfnsProv}
+	spNames := &mock.Provider{}
+	spNames.GetServiceReturns(mfnsProv, nil)
 	names, err := GetFabricNetworkNames(spNames)
 	require.NoError(t, err)
 	require.Equal(t, []string{"net1", "net2"}, names)
-}
-
-type dummyServiceProvider struct {
-	getServiceReturn any
-}
-
-func (d *dummyServiceProvider) GetService(v any) (any, error) {
-	if d.getServiceReturn != nil {
-		return d.getServiceReturn, nil
-	}
-	return nil, errors.New("err")
 }

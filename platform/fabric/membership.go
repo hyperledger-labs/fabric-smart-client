@@ -126,6 +126,7 @@ func (s *LocalMembership) GetIdentityInfoByIdentity(mspType string, id view.Iden
 			}
 			return iInfo.GetIdentity(&driver.IdentityOptions{
 				EIDExtension: idOpts.IdemixEIDExtension,
+				AuditInfo:    idOpts.AuditInfo,
 			})
 		},
 	}

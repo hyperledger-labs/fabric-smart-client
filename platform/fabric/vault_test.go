@@ -50,14 +50,19 @@ func TestRWSet(t *testing.T) {
 	mrws := &mock.RWSet{}
 	rws := NewRWSet(mrws)
 
-	mrws.NumReadsReturns(2)
+	mrws.NumReadsReturns(3)
 	mrws.GetReadAtReturnsOnCall(0, "key1", nil, nil)
 	mrws.GetReadAtReturnsOnCall(1, "key2", nil, nil)
+	mrws.GetReadAtReturnsOnCall(2, "monkey1", nil, nil)
 
 	exists, err := rws.KeyExist("key2", "ns1")
 	require.NoError(t, err)
 	require.True(t, exists)
 	require.Equal(t, 2, mrws.GetReadAtCallCount())
+
+	exists, err = rws.KeyExist("monkey1", "ns1")
+	require.NoError(t, err)
+	require.True(t, exists)
 
 	mrws.EqualsReturns(nil)
 	other := NewRWSet(mrws)
@@ -93,6 +98,10 @@ func (m *mockEnvSvc) StoreEnvelope(ctx context.Context, id string, env any) erro
 	return nil
 }
 
+func (m *mockEnvSvc) Exists(ctx context.Context, id string) bool {
+	return true
+}
+
 type mockTxSvc struct {
 	fdriver.EndorserTransactionService
 	count int
@@ -105,12 +114,21 @@ func (m *mockTxSvc) StoreTransaction(ctx context.Context, id string, raw []byte)
 
 type mockMetaSvc struct {
 	fdriver.MetadataService
-	count int
+	count         int
+	existsReturns bool
 }
 
 func (m *mockMetaSvc) StoreTransient(ctx context.Context, id string, tm fdriver.TransientMap) error {
 	m.count++
 	return nil
+}
+
+func (m *mockMetaSvc) Exists(ctx context.Context, txid string) bool {
+	return m.existsReturns
+}
+
+func (m *mockMetaSvc) LoadTransient(ctx context.Context, txid string) (fdriver.TransientMap, error) {
+	return nil, nil
 }
 
 func TestVault(t *testing.T) {

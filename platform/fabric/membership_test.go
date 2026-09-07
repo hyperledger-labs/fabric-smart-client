@@ -174,15 +174,22 @@ func TestIdentityInfo(t *testing.T) {
 	require.Nil(t, lm.GetIdentityInfoByLabel("x", "y"))
 
 	// GetIdentityInfoByIdentity
-	mockLM.GetIdentityInfoByIdentityReturns(mockIInfo)
+	mockIInfo2 := &driver.IdentityInfo{
+		ID:           "id2",
+		EnrollmentID: "eid2",
+		GetIdentity: func(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
+			return view.Identity("ident"), opts.AuditInfo, nil
+		},
+	}
+	mockLM.GetIdentityInfoByIdentityReturns(mockIInfo2)
 	iInfo2 := lm.GetIdentityInfoByIdentity("mspType", []byte("ident"))
 	require.NotNil(t, iInfo2)
-	require.Equal(t, "id1", iInfo2.ID)
+	require.Equal(t, "id2", iInfo2.ID)
 
-	id2, audit2, err := iInfo2.GetIdentity(WithAuditInfo(nil))
+	id2, audit2, err := iInfo2.GetIdentity(WithAuditInfo([]byte("audit2")))
 	require.NoError(t, err)
 	require.Equal(t, view.Identity("ident"), id2)
-	require.Equal(t, []byte("audit"), audit2)
+	require.Equal(t, []byte("audit2"), audit2)
 
 	// nil GetIdentityInfoByIdentity
 	mockLM.GetIdentityInfoByIdentityReturns(nil)

@@ -21,23 +21,34 @@ import (
 func TestTransactionOptions(t *testing.T) {
 	t.Parallel()
 
-	opts, err := CompileTransactionOptions(
-		WithCreator([]byte("creator")),
-		WithContext(t.Context()),
-		WithChannel("mychannel"),
-		WithNonce([]byte("nonce")),
-		WithTxID("txid1"),
-		WithRawRequest([]byte("req")),
-		WithTransactionType(driver.EndorserTransaction),
-	)
-	require.NoError(t, err)
-	require.Equal(t, view.Identity("creator"), opts.Creator)
-	require.Equal(t, t.Context(), opts.Ctx)
-	require.Equal(t, "mychannel", opts.Channel)
-	require.Equal(t, []byte("nonce"), opts.Nonce)
-	require.Equal(t, "txid1", opts.TxID)
-	require.Equal(t, []byte("req"), opts.RawRequest)
-	require.Equal(t, driver.EndorserTransaction, opts.TransactionType)
+	t.Run("default type", func(t *testing.T) {
+		t.Parallel()
+		opts, err := CompileTransactionOptions(
+			WithCreator([]byte("creator")),
+			WithContext(t.Context()),
+			WithChannel("mychannel"),
+			WithNonce([]byte("nonce")),
+			WithTxID("txid1"),
+			WithRawRequest([]byte("req")),
+		)
+		require.NoError(t, err)
+		require.Equal(t, view.Identity("creator"), opts.Creator)
+		require.Equal(t, t.Context(), opts.Ctx)
+		require.Equal(t, "mychannel", opts.Channel)
+		require.Equal(t, []byte("nonce"), opts.Nonce)
+		require.Equal(t, "txid1", opts.TxID)
+		require.Equal(t, []byte("req"), opts.RawRequest)
+		require.Equal(t, driver.EndorserTransaction, opts.TransactionType)
+	})
+
+	t.Run("override type", func(t *testing.T) {
+		t.Parallel()
+		opts, err := CompileTransactionOptions(
+			WithTransactionType(driver.TransactionType(99)),
+		)
+		require.NoError(t, err)
+		require.Equal(t, driver.TransactionType(99), opts.TransactionType)
+	})
 }
 
 func TestTxID(t *testing.T) {
@@ -366,15 +377,10 @@ func TestTransactionManager(t *testing.T) {
 	require.ErrorContains(t, err, "bad opt")
 }
 
-type mockMetadataSvc struct {
-	driver.MetadataService
-	existsReturns bool
-}
-
 func TestMetadataService(t *testing.T) {
 	t.Parallel()
 
-	mms := &mockMetadataSvc{existsReturns: true}
+	mms := &mockMetaSvc{existsReturns: true}
 	ms := &MetadataService{ms: mms}
 
 	ctx := t.Context()
@@ -382,41 +388,18 @@ func TestMetadataService(t *testing.T) {
 
 	err := ms.StoreTransient(ctx, "txid", TransientMap{"k": []byte("v")})
 	require.NoError(t, err)
-}
 
-func (m *mockMetadataSvc) Exists(ctx context.Context, txid string) bool { return m.existsReturns }
-func (m *mockMetadataSvc) StoreTransient(ctx context.Context, txid string, tm driver.TransientMap) error {
-	return nil
-}
-
-func (m *mockMetadataSvc) LoadTransient(ctx context.Context, txid string) (driver.TransientMap, error) {
-	return nil, nil
-}
-
-func TestMetadataServiceMocked(t *testing.T) {
-	t.Parallel()
-	mms := &mockMetadataSvc{existsReturns: true}
-	ms := &MetadataService{ms: mms}
-	ctx := t.Context()
-	require.True(t, ms.Exists(ctx, "txid"))
-	require.NoError(t, ms.StoreTransient(ctx, "txid", TransientMap{"k": []byte("v")}))
 	tm, err := ms.LoadTransient(ctx, "txid")
 	require.NoError(t, err)
 	require.Nil(t, tm)
 }
 
-type mockTransactionEnvSvc struct {
-	driver.EnvelopeService
-}
-
 func TestEnvelopeService(t *testing.T) {
 	t.Parallel()
 
-	mes := &mockTransactionEnvSvc{}
+	mes := &mockEnvSvc{}
 	es := &EnvelopeService{ms: mes}
 
 	ctx := t.Context()
 	require.True(t, es.Exists(ctx, "txid"))
 }
-
-func (m *mockTransactionEnvSvc) Exists(ctx context.Context, txid string) bool { return true }

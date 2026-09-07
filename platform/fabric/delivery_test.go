@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/fabric-protos-go-apiv2/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 )
 
@@ -79,14 +80,15 @@ func TestDelivery(t *testing.T) {
 	delivery := &Delivery{delivery: md}
 	ctx := t.Context()
 
+	callbackInvoked := false
 	// Test ScanBlock
 	md.TriggerBlockCallback = func(cb driver.BlockCallback) {
-		_, _ = cb(ctx, &common.Block{Header: &common.BlockHeader{Number: 10}})
-	}
-	callbackInvoked := false
-	err := delivery.ScanBlock(ctx, func(ctx context.Context, block *common.Block) (bool, error) {
+		res, err := cb(ctx, &common.Block{Header: &common.BlockHeader{Number: 10}})
+		require.NoError(t, err)
+		require.True(t, res)
 		callbackInvoked = true
-		require.Equal(t, uint64(10), block.Header.Number)
+	}
+	err := delivery.ScanBlock(ctx, func(ctx context.Context, block *common.Block) (bool, error) {
 		return true, nil
 	})
 	require.NoError(t, err)
@@ -105,10 +107,13 @@ func TestDelivery(t *testing.T) {
 	require.True(t, callbackInvoked)
 
 	// Test Scan
-	md.TriggerDeliveryCallback = func(cb driver.DeliveryCallback) {
-		_, _ = cb(&mockProcessedTx{})
-	}
 	callbackInvoked = false
+	md.TriggerDeliveryCallback = func(cb driver.DeliveryCallback) {
+		res, err := cb(&mockProcessedTx{})
+		require.NoError(t, err)
+		require.True(t, res)
+		callbackInvoked = true
+	}
 	err = delivery.Scan(ctx, "txid1", func(tx *ProcessedTransaction) (bool, error) {
 		callbackInvoked = true
 		require.NotNil(t, tx)
@@ -129,5 +134,26 @@ func TestDelivery(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, md.ScanFromBlockCount)
 	require.Equal(t, uint64(30), md.LastBlockNum)
-	require.True(t, callbackInvoked)
+	md.CallbackResult = false
+	md.CallbackError = errors.New("scan error")
+
+	err = delivery.ScanBlock(ctx, func(ctx context.Context, block *common.Block) (bool, error) {
+		return true, nil
+	})
+	require.ErrorContains(t, err, "scan error")
+
+	err = delivery.ScanBlockFrom(ctx, uint64(20), func(ctx context.Context, block *common.Block) (bool, error) {
+		return true, nil
+	})
+	require.ErrorContains(t, err, "scan error")
+
+	err = delivery.Scan(ctx, "txid1", func(tx *ProcessedTransaction) (bool, error) {
+		return true, nil
+	})
+	require.ErrorContains(t, err, "scan error")
+
+	err = delivery.ScanFromBlock(ctx, uint64(30), func(tx *ProcessedTransaction) (bool, error) {
+		return true, nil
+	})
+	require.ErrorContains(t, err, "scan error")
 }

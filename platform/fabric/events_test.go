@@ -8,7 +8,6 @@ package fabric
 
 import (
 	"context"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -197,30 +196,29 @@ func TestEventListenerDeadlock(t *testing.T) {
 		require.Len(ct, ch, customBufferLen)
 	}, timeout, tick)
 
-	require.Never(t, func() bool {
-		// this should be blocking (until longTimeout is fired)
+	var published atomic.Bool
+	go func() {
 		subscriber.Publish("testChaincode", msg1)
-		return false
+		published.Store(true)
+	}()
+	require.Never(t, func() bool {
+		// this first one blocks because buffer is full (msg1 x customBufferLen)
+		return published.Load()
 	}, timeout, tick)
 
 	// we kick off our producer to publish msg2
+	var published2 atomic.Bool
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		// as msg1 is not yet consumed, our producer is blocked
 		subscriber.Publish("testChaincode", msg2)
+		published2.Store(true)
 	})
-
-	// let's give the producer a chance to start
-	runtime.Gosched()
 
 	// let's make sure that our producer is still waiting to complete publish
 	// msg2. require.Never polls for the whole timeout window, so it both gives
 	// the producer time to run and asserts it stays blocked - no sleep needed.
-	require.Never(t, func() bool {
-		// we expect to be blocked
-		wg.Wait()
-		return false
-	}, timeout, tick)
+	require.Never(t, published2.Load, timeout, tick)
 
 	// now, we close the listener, which should unblock the producer
 	listener.CloseChaincodeEvents()

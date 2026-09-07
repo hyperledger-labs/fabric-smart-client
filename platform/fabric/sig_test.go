@@ -18,32 +18,32 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
-type mockSignerService struct {
+type fakeSignerService struct {
 	GetSignerCount int
 	LastError      error
 	LastSigner     driver.Signer
 	LastID         view.Identity
 }
 
-func (m *mockSignerService) GetSigner(id view.Identity) (driver.Signer, error) {
+func (m *fakeSignerService) GetSigner(id view.Identity) (driver.Signer, error) {
 	m.GetSignerCount++
 	m.LastID = id
 	return m.LastSigner, m.LastError
 }
 
-func (m *mockSignerService) AreMe(ctx context.Context, identities ...view.Identity) []string {
+func (m *fakeSignerService) AreMe(ctx context.Context, identities ...view.Identity) []string {
 	return nil
 }
 
-func (m *mockSignerService) IsMe(ctx context.Context, id view.Identity) bool {
+func (m *fakeSignerService) IsMe(ctx context.Context, id view.Identity) bool {
 	return false
 }
 
-func (m *mockSignerService) GetSigningIdentity(id view.Identity) (driver2.SigningIdentity, error) {
+func (m *fakeSignerService) GetSigningIdentity(id view.Identity) (driver2.SigningIdentity, error) {
 	return nil, nil
 }
 
-func (m *mockSignerService) GetVerifier(id view.Identity) (driver2.Verifier, error) {
+func (m *fakeSignerService) GetVerifier(id view.Identity) (driver2.Verifier, error) {
 	return nil, nil
 }
 
@@ -56,7 +56,7 @@ func (d *dummySigner) Sign(message []byte) ([]byte, error) {
 func TestSignerService(t *testing.T) {
 	t.Parallel()
 
-	mss := &mockSignerService{}
+	mss := &fakeSignerService{}
 	ss := &SignerService{sigService: mss}
 
 	mss.LastSigner = &dummySigner{}

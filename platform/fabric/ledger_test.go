@@ -95,7 +95,10 @@ func TestLedger(t *testing.T) {
 			results:        []byte("results1"),
 			validationCode: 0,
 		},
-		mockLedgerInfo: &driver.LedgerInfo{},
+		mockLedgerInfo: &driver.LedgerInfo{
+			Height:           5,
+			CurrentBlockHash: []byte("hash"),
+		},
 	}
 	ledger := &Ledger{l: ml}
 
@@ -104,7 +107,20 @@ func TestLedger(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(10), num)
 
+	// Test GetLedgerInfo
+	info, err := ledger.GetLedgerInfo()
+	require.NoError(t, err)
+	require.NotNil(t, info)
+	require.Equal(t, uint64(5), info.Height)
+	require.Equal(t, []byte("hash"), info.CurrentBlockHash)
+
+	// Test GetLedgerInfo error
+	ml.mockLedgerErr = errors.New("ledger error")
+	_, err = ledger.GetLedgerInfo()
+	require.ErrorContains(t, err, "ledger error")
+
 	// Test GetTransactionByID
+	ml.mockLedgerErr = nil
 	pt, err := ledger.GetTransactionByID("tx1")
 	require.NoError(t, err)
 	require.Equal(t, "tx1", pt.TxID())
@@ -127,8 +143,14 @@ func TestLedger(t *testing.T) {
 	_, err = ledger.GetBlockByNumber(2)
 	require.ErrorContains(t, err, "block not found")
 
-	// Test GetLedgerInfo
-	info, err := ledger.GetLedgerInfo()
+	// Test non-zero validation code
+	ml.mockTxErr = nil
+	ml.mockTx = &mockLedgerProcessedTx{
+		txID:           "tx3",
+		results:        []byte("results3"),
+		validationCode: 1, // non-zero validation code
+	}
+	pt, err = ledger.GetTransactionByID("tx3")
 	require.NoError(t, err)
-	require.NotNil(t, info)
+	require.Equal(t, int32(1), pt.ValidationCode())
 }

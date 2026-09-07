@@ -120,21 +120,49 @@ func TestChaincodeInvocation(t *testing.T) {
 	_, err = inv.WithTransientEntry("k", "v")
 	require.NoError(t, err)
 
-	inv.WithEndorsersByMSPIDs("msp1")
-	inv.WithEndorsersFromMyOrg()
-	inv.WithInvokerIdentity([]byte("id"))
-	require.Equal(t, 1, mci.withSignerIdentityCallCount)
-	inv.WithNumRetries(5)
-	inv.WithRetrySleep(time.Second)
+	type testCase struct {
+		name  string
+		call  func()
+		check func() int
+	}
+
+	tests := []testCase{
+		{"WithSignerIdentity", func() { inv.WithInvokerIdentity([]byte("id")) }, func() int { return mci.withSignerIdentityCallCount }},
+		{"WithEndorsersByMSPIDs", func() { inv.WithEndorsersByMSPIDs("msp1") }, func() int { return mci.withEndorsersByMSPIDsCallCount }},
+		{"WithEndorsersFromMyOrg", func() { inv.WithEndorsersFromMyOrg() }, func() int { return mci.withEndorsersFromMyOrgCallCount }},
+		{"WithNumRetries", func() { inv.WithNumRetries(5) }, func() int { return mci.withNumRetriesCallCount }},
+		{"WithRetrySleep", func() { inv.WithRetrySleep(time.Second) }, func() int { return mci.withRetrySleepCallCount }},
+		{"WithDiscoveredEndorsersByEndpoints", func() { inv.WithDiscoveredEndorsersByEndpoints("ep1") }, func() int { return mci.withDiscoveredEndorsersByEndpointsCallCount }},
+		{"WithTxID", func() { inv.WithTxID(driver.TxIDComponents{Nonce: []byte("n"), Creator: []byte("c")}) }, func() int { return mci.withTxIDCallCount }},
+		{"WithMatchEndorsementPolicy", func() { inv.WithMatchEndorsementPolicy() }, func() int { return mci.withMatchEndorsementPolicyCallCount }},
+		{"WithImplicitCollections", func() { inv.WithImplicitCollections("msp1") }, func() int { return mci.withImplicitCollectionsCallCount }},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			before := tc.check()
+			tc.call()
+			require.Equal(t, before+1, tc.check())
+		})
+	}
 }
 
 type dummyChaincodeInvocation struct {
 	driver.ChaincodeInvocation
-	withSignerIdentityCallCount int
-	submitResultID              string
-	submitResult                []byte
-	queryResult                 []byte
-	endorseResult               driver.Envelope
+	withSignerIdentityCallCount                 int
+	withEndorsersByMSPIDsCallCount              int
+	withEndorsersFromMyOrgCallCount             int
+	withNumRetriesCallCount                     int
+	withRetrySleepCallCount                     int
+	withDiscoveredEndorsersByEndpointsCallCount int
+	withTxIDCallCount                           int
+	withMatchEndorsementPolicyCallCount         int
+	withImplicitCollectionsCallCount            int
+	submitResultID                              string
+	submitResult                                []byte
+	queryResult                                 []byte
+	endorseResult                               driver.Envelope
 }
 
 func (d *dummyChaincodeInvocation) Submit() (string, []byte, error) {
@@ -161,26 +189,42 @@ func (d *dummyChaincodeInvocation) WithTransientEntry(string, any) (driver.Chain
 }
 
 func (d *dummyChaincodeInvocation) WithEndorsersByMSPIDs(...string) driver.ChaincodeInvocation {
+	d.withEndorsersByMSPIDsCallCount++
 	return d
 }
 
-func (d *dummyChaincodeInvocation) WithEndorsersFromMyOrg() driver.ChaincodeInvocation { return d }
+func (d *dummyChaincodeInvocation) WithEndorsersFromMyOrg() driver.ChaincodeInvocation {
+	d.withEndorsersFromMyOrgCallCount++
+	return d
+}
 
-func (d *dummyChaincodeInvocation) WithNumRetries(uint) driver.ChaincodeInvocation { return d }
+func (d *dummyChaincodeInvocation) WithNumRetries(uint) driver.ChaincodeInvocation {
+	d.withNumRetriesCallCount++
+	return d
+}
 
-func (d *dummyChaincodeInvocation) WithRetrySleep(time.Duration) driver.ChaincodeInvocation { return d }
+func (d *dummyChaincodeInvocation) WithRetrySleep(time.Duration) driver.ChaincodeInvocation {
+	d.withRetrySleepCallCount++
+	return d
+}
 
 func (d *dummyChaincodeInvocation) WithDiscoveredEndorsersByEndpoints(...string) driver.ChaincodeInvocation {
+	d.withDiscoveredEndorsersByEndpointsCallCount++
 	return d
 }
 
 func (d *dummyChaincodeInvocation) WithTxID(driver.TxIDComponents) driver.ChaincodeInvocation {
+	d.withTxIDCallCount++
 	return d
 }
 
-func (d *dummyChaincodeInvocation) WithMatchEndorsementPolicy() driver.ChaincodeInvocation { return d }
+func (d *dummyChaincodeInvocation) WithMatchEndorsementPolicy() driver.ChaincodeInvocation {
+	d.withMatchEndorsementPolicyCallCount++
+	return d
+}
 
 func (d *dummyChaincodeInvocation) WithImplicitCollections(...string) driver.ChaincodeInvocation {
+	d.withImplicitCollectionsCallCount++
 	return d
 }
 

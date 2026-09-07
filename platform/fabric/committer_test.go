@@ -19,8 +19,19 @@ import (
 )
 
 type mockCommitter struct {
+	driver.Committer
+	StatusTxID       driver2.TxID
+	StatusCallCount  int
+	StatusValidation driver.ValidationCode
+	StatusDeps       string
+	StatusErr        error
+
+	DiscardTxID      driver2.TxID
+	DiscardMsg       string
+	DiscardCallCount int
+	DiscardErr       error
+
 	ProcessNamespaceCount       int
-	StatusCount                 int
 	AddFinalityListenerCount    int
 	RemoveFinalityListenerCount int
 	AddTransactionFilterCount   int
@@ -37,17 +48,21 @@ func (m *mockCommitter) CommitTX(ctx context.Context, txid driver2.TxID, blockNu
 	return nil
 }
 
-func (m *mockCommitter) DiscardTx(ctx context.Context, txid driver2.TxID, reason string) error {
-	return nil
+func (m *mockCommitter) Status(ctx context.Context, txID driver2.TxID) (driver.ValidationCode, string, error) {
+	m.StatusCallCount++
+	m.StatusTxID = txID
+	return m.StatusValidation, m.StatusDeps, m.StatusErr
+}
+
+func (m *mockCommitter) DiscardTx(ctx context.Context, txID driver2.TxID, message string) error {
+	m.DiscardCallCount++
+	m.DiscardTxID = txID
+	m.DiscardMsg = message
+	return m.DiscardErr
 }
 
 func (m *mockCommitter) Start(ctx context.Context) error {
 	return nil
-}
-
-func (m *mockCommitter) Status(ctx context.Context, txID driver2.TxID) (driver.ValidationCode, string, error) {
-	m.StatusCount++
-	return driver.Valid, "", nil
 }
 
 func (m *mockCommitter) AddFinalityListener(txID driver2.TxID, listener driver.FinalityListener) error {
@@ -77,9 +92,13 @@ func TestCommitter(t *testing.T) {
 	require.NoError(t, committer.ProcessNamespace("ns1"))
 	require.Equal(t, 1, mc.ProcessNamespaceCount)
 
-	_, _, err := committer.Status(t.Context(), "txid1")
+	mc.StatusValidation = driver.Valid
+	mc.StatusDeps = "deps"
+	code, msg, err := committer.Status(t.Context(), "txid1")
 	require.NoError(t, err)
-	require.Equal(t, 1, mc.StatusCount)
+	require.Equal(t, 1, mc.StatusCallCount)
+	require.Equal(t, driver.Valid, code)
+	require.Equal(t, "deps", msg)
 
 	require.NoError(t, committer.AddFinalityListener("txid1", nil))
 	require.Equal(t, 1, mc.AddFinalityListenerCount)
