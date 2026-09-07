@@ -35,7 +35,6 @@ require (
 	github.com/stretchr/testify v1.12.0
 	github.com/tedsuo/ifrit v0.0.0-20230516164442-7862c310ad26
 	go.opentelemetry.io/otel/trace v1.45.0
-	go.uber.org/atomic v1.11.0
 	go.uber.org/zap v1.28.0
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/sync v0.22.0
