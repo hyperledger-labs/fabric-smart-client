@@ -215,7 +215,7 @@ func (r *rwSetWrapper) IsValid() error {
 		}
 	}
 	for ns := range nsVersionsCopy {
-		addKey(metaNamespace, cdriver.PKey(ns))
+		addKey(metaNamespace, ns)
 	}
 
 	// A namespace with no keys makes the query service reject the whole batch.
@@ -232,7 +232,7 @@ func (r *rwSetWrapper) IsValid() error {
 
 	states, err := r.v.queryService.GetStates(query)
 	if err != nil {
-		return errors.Wrapf(err, "failed to validate rwset for tx %s", string(r.txID))
+		return errors.Wrapf(err, "failed to validate rwset for tx %s", r.txID)
 	}
 
 	for ns, reads := range readsCopy {
@@ -250,7 +250,7 @@ func (r *rwSetWrapper) IsValid() error {
 	}
 
 	for ns, pinnedVersion := range nsVersionsCopy {
-		current, found := states[metaNamespace][cdriver.PKey(ns)]
+		current, found := states[metaNamespace][ns]
 		// An unregistered namespace was pinned at version 0; it stays valid only while it
 		// remains unregistered.
 		currentVersion := MarshalVersion(0)
@@ -270,12 +270,12 @@ func (r *rwSetWrapper) IsValid() error {
 // been serialized.
 func (v *Vault) namespaceVersion(ns cdriver.Namespace) (cdriver.RawVersion, error) {
 	states, err := v.queryService.GetStates(map[cdriver.Namespace][]cdriver.PKey{
-		metaNamespace: {cdriver.PKey(ns)},
+		metaNamespace: {ns},
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to query %s version for namespace %s", metaNamespace, ns)
 	}
-	if state, ok := states[metaNamespace][cdriver.PKey(ns)]; ok {
+	if state, ok := states[metaNamespace][ns]; ok {
 		return state.Version, nil
 	}
 	return MarshalVersion(0), nil
@@ -443,7 +443,7 @@ func (r *rwSetWrapper) GetStateMetadata(namespace cdriver.Namespace, key cdriver
 	// underlying KVS read returns no row and unmarshalling the empty result fails) -
 	// see the comment on mds.GetFieldMapping. Callers must treat any error here as "no
 	// mapping", matching mds.LoadTransient's identical miss behaviour.
-	fm, err := r.v.mds.GetFieldMapping(context.Background(), string(namespace), string(key), digest[:])
+	fm, err := r.v.mds.GetFieldMapping(context.Background(), namespace, key, digest[:])
 	if err != nil {
 		logger.Debugf("no field mapping for namespace=%s, key=%s: %s", namespace, key, err)
 		return nil, nil
@@ -583,7 +583,7 @@ func (r *rwSetWrapper) Bytes() ([]byte, error) {
 	if r.cachedBytes == nil {
 		// Marshal rejects a namespace missing from nsVersions, which would mean a code path
 		// mutated the RWSet without pinning a version for it.
-		raw, err := r.v.marshaller.Marshal(string(r.txID), r.rws, r.nsVersions)
+		raw, err := r.v.marshaller.Marshal(r.txID, r.rws, r.nsVersions)
 		if err != nil {
 			return nil, err
 		}
@@ -702,9 +702,7 @@ func (v *Vault) Status(ctx context.Context, txID cdriver.TxID) (fdriver.Validati
 // ("not final yet"). The result preserves the order of the input txIDs.
 func (v *Vault) Statuses(ctx context.Context, txIDs ...cdriver.TxID) ([]cdriver.TxValidationStatus[fdriver.ValidationCode], error) {
 	ids := make([]string, len(txIDs))
-	for i, txID := range txIDs {
-		ids[i] = string(txID)
-	}
+	copy(ids, txIDs)
 
 	codes, err := v.queryService.GetTransactionStatuses(ids)
 	if err != nil {
@@ -714,7 +712,7 @@ func (v *Vault) Statuses(ctx context.Context, txIDs ...cdriver.TxID) ([]cdriver.
 	statuses := make([]cdriver.TxValidationStatus[fdriver.ValidationCode], len(txIDs))
 	for i, txID := range txIDs {
 		code := fdriver.Unknown // omitted from the batched result => not final yet
-		if statusCode, ok := codes[string(txID)]; ok {
+		if statusCode, ok := codes[txID]; ok {
 			code = v.mapStatusToValidationCode(statusCode)
 		}
 		statuses[i] = cdriver.TxValidationStatus[fdriver.ValidationCode]{

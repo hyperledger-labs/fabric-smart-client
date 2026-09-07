@@ -119,7 +119,7 @@ func TestRemoveEventListenerAfterListenerAlreadyInvoked(t *testing.T) {
 		},
 	}
 	err := manager.onBlock(context.Background(), &common.Block{
-		Header:   &common.BlockHeader{Number: uint64(testBlockNumber)},
+		Header:   &common.BlockHeader{Number: testBlockNumber},
 		Data:     &common.BlockData{Data: [][]byte{[]byte("tx-1")}},
 		Metadata: &common.BlockMetadata{},
 	})
@@ -160,7 +160,7 @@ func TestOnBlockInvokesTransientAndPermanentListenersAndCachesEvent(t *testing.T
 	}
 
 	err := manager.onBlock(context.Background(), &common.Block{
-		Header:   &common.BlockHeader{Number: uint64(testBlockNumber)},
+		Header:   &common.BlockHeader{Number: testBlockNumber},
 		Data:     &common.BlockData{Data: [][]byte{[]byte("tx-1")}},
 		Metadata: &common.BlockMetadata{},
 	})
@@ -214,7 +214,7 @@ func TestNewBlockCallbackReturnsErrorWhenBlockProcessingFails(t *testing.T) {
 	}
 
 	stop, err := manager.newBlockCallback()(context.Background(), &common.Block{
-		Header:   &common.BlockHeader{Number: uint64(testBlockNumber)},
+		Header:   &common.BlockHeader{Number: testBlockNumber},
 		Data:     &common.BlockData{Data: [][]byte{[]byte("tx-1")}},
 		Metadata: &common.BlockMetadata{},
 	})
@@ -234,7 +234,7 @@ func TestNewBlockCallbackWithParallelProcessingDoesNotBubbleErrors(t *testing.T)
 	}
 
 	stop, err := manager.newBlockCallback()(context.Background(), &common.Block{
-		Header:   &common.BlockHeader{Number: uint64(testBlockNumber)},
+		Header:   &common.BlockHeader{Number: testBlockNumber},
 		Data:     &common.BlockData{Data: [][]byte{[]byte("tx-1")}},
 		Metadata: &common.BlockMetadata{},
 	})
@@ -275,7 +275,7 @@ func TestParallelBlockMapperMapReturnsError(t *testing.T) {
 	}
 
 	_, err := mapper.Map(context.Background(), &common.Block{
-		Header:   &common.BlockHeader{Number: uint64(testBlockNumber)},
+		Header:   &common.BlockHeader{Number: testBlockNumber},
 		Data:     &common.BlockData{Data: [][]byte{[]byte("tx-1")}},
 		Metadata: &common.BlockMetadata{},
 	})

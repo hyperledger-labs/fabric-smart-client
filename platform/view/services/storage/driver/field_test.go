@@ -18,7 +18,7 @@ func TestFieldNameValidate(t *testing.T) {
 	t.Parallel()
 
 	for _, name := range []driver.FieldName{"pos", "tx_id", "col_id", "_x", "a1"} {
-		require.NoError(t, driver.FieldName(name).Validate(), name)
+		require.NoError(t, name.Validate(), name)
 	}
 }
 

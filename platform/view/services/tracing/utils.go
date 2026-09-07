@@ -36,15 +36,15 @@ func UnmarshalContext(data []byte) (trace.SpanContext, error) {
 
 	traceState, err := trace.ParseTraceState(sc.TraceState)
 	if err != nil {
-		return trace.SpanContext{}, errors.Wrapf(err, "failed unmarshalling trace state from [%s]", string(sc.TraceState))
+		return trace.SpanContext{}, errors.Wrapf(err, "failed unmarshalling trace state from [%s]", sc.TraceState)
 	}
 	spanID, err := trace.SpanIDFromHex(sc.SpanID)
 	if err != nil {
-		return trace.SpanContext{}, errors.Wrapf(err, "failed unmarshalling span ID from [%s]", string(sc.SpanID))
+		return trace.SpanContext{}, errors.Wrapf(err, "failed unmarshalling span ID from [%s]", sc.SpanID)
 	}
 	traceID, err := trace.TraceIDFromHex(sc.TraceID)
 	if err != nil {
-		return trace.SpanContext{}, errors.Wrapf(err, "failed unmarshalling trace ID from [%s]", string(sc.TraceID))
+		return trace.SpanContext{}, errors.Wrapf(err, "failed unmarshalling trace ID from [%s]", sc.TraceID)
 	}
 
 	return trace.NewSpanContext(trace.SpanContextConfig{

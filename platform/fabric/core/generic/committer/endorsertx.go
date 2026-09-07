@@ -60,7 +60,7 @@ func MapFinalityEvent(ctx context.Context, block *common.BlockMetadata, txNum dr
 	}
 
 	validationFlags := ValidationFlags(block.Metadata[common.BlockMetadataIndex_TRANSACTIONS_FILTER])
-	if uint64(txNum) >= uint64(len(validationFlags)) {
+	if txNum >= uint64(len(validationFlags)) {
 		return 0, nil, errors.Errorf("transaction number [%d] out of range for validation flags of length [%d]", txNum, len(validationFlags))
 	}
 

@@ -35,7 +35,7 @@ func TestEndorserTransactionHandlerLoad(t *testing.T) {
 		require.NoError(t, err)
 		require.Same(t, expectedRWS, rws)
 		_, txID, rwset := inspector.NewRWSetFromBytesArgsForCall(0)
-		require.Equal(t, cdriver.TxID(chdr.TxId), txID)
+		require.Equal(t, chdr.TxId, txID)
 		require.Equal(t, results, rwset)
 		require.Equal(t, chdr.TxId, tx.ID())
 		require.Equal(t, "test-network", tx.Network())
@@ -169,7 +169,7 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 			nil,
 			nil,
 		)
-		_, _, err := loader.GetRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId))
+		_, _, err := loader.GetRWSetFromEvn(t.Context(), chdr.TxId)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "header type not supported")
 	})
@@ -186,7 +186,7 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 			nil,
 			nil,
 		)
-		_, _, err := loader.GetRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId))
+		_, _, err := loader.GetRWSetFromEvn(t.Context(), chdr.TxId)
 		require.ErrorContains(t, err, "channel mismatch, expected [channel], got [mychannel]")
 	})
 
@@ -212,7 +212,7 @@ func TestLoaderGetRWSetFromEvn(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		rws, tx, err := loader.GetRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId))
+		rws, tx, err := loader.GetRWSetFromEvn(t.Context(), chdr.TxId)
 		require.NoError(t, err)
 		require.Same(t, expectedRWS, rws)
 		require.Same(t, expectedTx, tx)
@@ -330,7 +330,7 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 		t.Parallel()
 		env, _, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_CONFIG, []byte("rwset"))
 		loader := NewLoader("network", "channel", nil, nil, nil, &rwsetmock.RWSetInspector{})
-		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
+		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), chdr.TxId, mustMarshalProto(t, env))
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed unpacking envelope")
 	})
@@ -348,7 +348,7 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 			nil,
 			inspector,
 		)
-		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
+		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), chdr.TxId, mustMarshalProto(t, env))
 		require.ErrorContains(t, err, "inspect-failed")
 	})
 
@@ -356,7 +356,7 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 		t.Parallel()
 		env, _, chdr, _, _, _ := buildTestEnvelope(t, cb.HeaderType_ENDORSER_TRANSACTION, []byte("rwset"))
 		loader := NewLoader("network", "channel", nil, nil, nil, &rwsetmock.RWSetInspector{})
-		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
+		_, _, err := loader.GetInspectingRWSetFromEvn(t.Context(), chdr.TxId, mustMarshalProto(t, env))
 		require.ErrorContains(t, err, "channel mismatch, expected [channel], got [mychannel]")
 	})
 
@@ -375,7 +375,7 @@ func TestLoaderGetInspectingRWSetFromEvn(t *testing.T) {
 			nil,
 			inspector,
 		)
-		rws, tx, err := loader.GetInspectingRWSetFromEvn(t.Context(), cdriver.TxID(chdr.TxId), mustMarshalProto(t, env))
+		rws, tx, err := loader.GetInspectingRWSetFromEvn(t.Context(), chdr.TxId, mustMarshalProto(t, env))
 		require.NoError(t, err)
 		require.Same(t, expectedRWS, rws)
 		_, rwsetBytes, _ := inspector.InspectRWSetArgsForCall(0)

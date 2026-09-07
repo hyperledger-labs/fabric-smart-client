@@ -92,7 +92,7 @@ func (o *BFTBroadcaster) Broadcast(ctx context.Context, env *common2.Envelope) e
 	}
 
 	n := len(orderers)
-	f := (int(n) - 1) / 3
+	f := (n - 1) / 3
 	threshold := int(math.Ceil((float64(n) + float64(f) + 1) / 2.0))
 
 	for i := range retries {

@@ -27,7 +27,7 @@ func CreateCompositeKey(objectType string, attributes []string) (string, error) 
 	var sb strings.Builder
 	sb.WriteString(compositeKeyNamespace)
 	sb.WriteString(objectType)
-	sb.WriteRune(rune(minUnicodeRuneValue))
+	sb.WriteRune(minUnicodeRuneValue)
 	for _, att := range attributes {
 		if err := validateCompositeKeyAttribute(att); err != nil {
 			return "", err

@@ -85,8 +85,8 @@ func TestResolveCertifierUsesRegistered(t *testing.T) {
 func newCertifierNamespace(t *testing.T, ns, key string, committed []byte, mapping map[string][]byte) *Namespace {
 	t.Helper()
 	tx, rwset, driverTx := newTestStateTransaction(ns)
-	require.NoError(t, rwset.SetState(cdriver.Namespace(ns), cdriver.PKey(key), committed))
-	require.NoError(t, rwset.AddReadAt(cdriver.Namespace(ns), key, nil))
+	require.NoError(t, rwset.SetState(ns, key, committed))
+	require.NoError(t, rwset.AddReadAt(ns, key, nil))
 	if mapping != nil {
 		fmKey, err := fieldMappingKey(ns, key)
 		require.NoError(t, err)

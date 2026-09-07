@@ -392,7 +392,7 @@ func TestUnversionedPersistenceNotifier_GetState(t *testing.T) {
 
 	ctx := context.Background()
 	mockKVS := &mock.KeyValueStore{}
-	expectedValue := driver2.RawValue([]byte("value1"))
+	expectedValue := []byte("value1")
 	mockKVS.GetStateReturns(expectedValue, nil)
 
 	upn := NewUnversioned(mockKVS)

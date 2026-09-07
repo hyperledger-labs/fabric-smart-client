@@ -142,7 +142,7 @@ func TestChannelHelpers(t *testing.T) {
 	t.Parallel()
 	ch := &cfg.Channel{}
 	// default values
-	require.Equal(t, time.Duration(5*time.Minute), ch.DiscoveryDefaultTTLS())
+	require.Equal(t, 5*time.Minute, ch.DiscoveryDefaultTTLS())
 	require.Equal(t, 1, ch.CommitParallelism())
 	require.Equal(t, 1*time.Second, ch.CommitterPollingTimeout())
 	require.Equal(t, 10*time.Second, ch.DeliverySleepAfterFailure())
@@ -152,7 +152,7 @@ func TestChannelHelpers(t *testing.T) {
 	require.Equal(t, 1, ch.DeliveryBufferSize())
 	require.Equal(t, 20*time.Second, ch.DiscoveryTimeout())
 	require.Equal(t, 3, ch.CommitterFinalityNumRetries())
-	require.Equal(t, time.Duration(100*time.Millisecond), ch.CommitterFinalityUnknownTXTimeout())
+	require.Equal(t, 100*time.Millisecond, ch.CommitterFinalityUnknownTXTimeout())
 	require.Equal(t, time.Minute, ch.FinalityForPartiesWaitTimeout())
 
 	// test PollingTimeout clamping
