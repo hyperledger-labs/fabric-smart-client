@@ -16,7 +16,8 @@ make lint           # golangci-lint (use make lint-auto-fix to autofix)
 make tidy           # go mod tidy across all modules
 make generate-protos     # regenerate protobuf files
 make install-tools       # install dev tools (source of truth: tools/tools.go)
-make unit-tests     # unit tests, excluding Postgres (-race -cover)
+make unit-tests     # unit tests in every module, excluding Postgres (-race -cover)
+make unit-tests-root     # one module only: -root, -integration or -extensions
 make integration-tests   # integration tests (need Fabric binaries + Docker)
 ```
 

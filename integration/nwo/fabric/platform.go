@@ -32,7 +32,13 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 )
 
-const CCEnvDefaultImage = "hyperledger/fabric-ccenv:latest"
+// The images the legacy source-packaging path needs: peers compile the
+// chaincode in ccenv and run the result in baseos. Both are named in
+// core_template.go as $(DOCKER_NS)/... , which the peer expands to hyperledger.
+const (
+	CCEnvDefaultImage  = "hyperledger/fabric-ccenv:latest"
+	BaseOSDefaultImage = "hyperledger/fabric-baseos:latest"
+)
 
 var logger = logging.MustGetLogger()
 
@@ -142,6 +148,16 @@ func topologyHasCCaaSChaincode(t *topology.Topology) bool {
 	return false
 }
 
+// requiredImagesFor lists the images that must be present locally for the
+// topology's chaincodes to launch. A CCaaS image is checked separately, when
+// the namespace is deployed.
+func requiredImagesFor(t *topology.Topology) []string {
+	if topologyHasLegacyChaincode(t) {
+		return []string{CCEnvDefaultImage, BaseOSDefaultImage}
+	}
+	return nil
+}
+
 func NewPlatform(context api.Context, t api.Topology, components BuilderClient) *Platform {
 	// create a new network name
 	networkID := common.UniqueName()
@@ -165,14 +181,12 @@ func NewPlatform(context api.Context, t api.Topology, components BuilderClient) 
 				"fabric distribution that ships builders/ccaas")
 	}
 
-	var requiredImages []string
-	if topologyHasLegacyChaincode(t.(*topology.Topology)) {
-		requiredImages = append(requiredImages, CCEnvDefaultImage)
-	}
-
 	p := &Platform{
 		Network: n,
-		Docker:  &Docker{NetworkID: networkID, RequiredImages: requiredImages},
+		Docker: &Docker{
+			NetworkID:      networkID,
+			RequiredImages: requiredImagesFor(t.(*topology.Topology)),
+		},
 	}
 
 	return p

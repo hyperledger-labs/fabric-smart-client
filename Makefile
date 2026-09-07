@@ -30,7 +30,7 @@ GINKGO_TEST_OPTS += --keep-going
 .PHONY: help
 help: ## List all commands with documentation
 	@echo "Available commands:"
-	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 #########################
 # Install tools
@@ -156,10 +156,10 @@ GO_PACKAGES = $$(go list ./...)
 # Unit-testable packages of the integration module: the nwo harness plus the shared
 # helpers the suites import. The suites themselves are integration tests, not unit tests.
 INTEGRATION_UNIT_PACKAGES = ./nwo/... ./fabric/common/...
-# The libp2p comm host is its own module, so the root `go list ./...` cannot see
-# it. Named here so `unit-tests` can step into it explicitly -- without this its
+# Extension modules: optional drivers with their own go.mod, invisible to the root
+# `go list ./...`. Without stepping into them explicitly, the libp2p
 # host-conformance tests (shared with the websocket host) never run.
-LIBP2P_HOST_MODULE = platform/view/services/comm/host/libp2p
+EXTENSION_MODULES = platform/view/services/comm/host/libp2p
 GO_PACKAGES_SDK = $$(go list ./... | grep '/sdk/dig$$')
 GO_TEST_PARAMS ?= -race -cover
 TEST_PKGS ?= $(GO_PACKAGES)
@@ -170,27 +170,53 @@ TEST_PKGS ?= $(GO_PACKAGES)
 # Kept separate from GO_TEST_PARAMS because CI overrides GO_TEST_PARAMS wholesale.
 GO_COVERPKG ?= -coverpkg=./...
 
+# COVERAGE=1 leaves a filtered profile in COVERAGE_PROFILE, which has to be
+# absolute: `go test -C` resolves it inside the module it tested. -count=1
+# because a cached result replays its summary line but writes no profile data.
+COVERAGE_PROFILE ?= $(CURDIR)/coverage.profile
+ifdef COVERAGE
+COVER_FLAGS = -count=1 -coverprofile=$(COVERAGE_PROFILE)
+FILTER_COVERAGE = ./scripts/filter-coverage.sh $(COVERAGE_PROFILE) $(COVERAGE_PROFILE)
+else
+FILTER_COVERAGE = true
+endif
+
+UNIT_TEST_ENV = FABRIC_LOGGING_SPEC=error FAB_BINS=$(FAB_BINS)
+
 .PHONY: unit-tests
-unit-tests: ## Run unit tests
-	@echo "Running unit tests..."
-	export FABRIC_LOGGING_SPEC=error; \
-	export FAB_BINS=$(FAB_BINS); \
-	rc=0; \
-	go test $(GO_TEST_PARAMS) $(GO_COVERPKG) --skip '(Postgres)' $(TEST_PKGS) || rc=1; \
-	go test -C integration $(GO_TEST_PARAMS) --skip '(Postgres)' $(INTEGRATION_UNIT_PACKAGES) || rc=1; \
-	go test -C $(LIBP2P_HOST_MODULE) $(GO_TEST_PARAMS) ./... || rc=1; \
-	exit $$rc
+unit-tests: ## Run unit tests in every module
+	@$(MAKE) -k unit-tests-root unit-tests-integration unit-tests-extensions
+
+.PHONY: unit-tests-root
+unit-tests-root: ## Run unit tests of the root module
+	@env $(UNIT_TEST_ENV) go test $(GO_TEST_PARAMS) $(GO_COVERPKG) $(COVER_FLAGS) --skip '(Postgres)' $(TEST_PKGS)
+	@$(FILTER_COVERAGE)
+
+.PHONY: unit-tests-integration
+unit-tests-integration: ## Run unit tests of the integration module (nwo harness + shared helpers)
+	@env $(UNIT_TEST_ENV) go test -C integration $(GO_TEST_PARAMS) $(COVER_FLAGS) --skip '(Postgres)' $(INTEGRATION_UNIT_PACKAGES)
+	@$(FILTER_COVERAGE)
+
+.PHONY: unit-tests-extensions
+unit-tests-extensions: ## Run unit tests of the extension modules (optional drivers with their own go.mod)
+	@rc=0; raw=$$(mktemp -d); \
+	for m in $(EXTENSION_MODULES); do \
+		env $(UNIT_TEST_ENV) go test -C $$m $(GO_TEST_PARAMS) $(GO_COVERPKG) \
+			$(if $(COVERAGE),-count=1 -coverprofile=$$raw/$$(echo $$m | tr / _)) ./... || rc=1; \
+	done; \
+	if [ -n "$(COVERAGE)" ] && [ $$rc -eq 0 ]; then \
+		cat $$raw/* > $(COVERAGE_PROFILE) && $(FILTER_COVERAGE); \
+	fi; \
+	rm -rf $$raw; exit $$rc
 
 .PHONY: unit-tests-postgres
 unit-tests-postgres: ## Run unit tests for postgres (requires container images as defined in testing-docker-images)
-	@echo "Running unit tests..."
-	export FABRIC_LOGGING_SPEC=error; \
-	go test $(GO_TEST_PARAMS) $(GO_COVERPKG) --run '(Postgres)' $(TEST_PKGS)
+	@env $(UNIT_TEST_ENV) go test $(GO_TEST_PARAMS) $(GO_COVERPKG) $(COVER_FLAGS) --run '(Postgres)' $(TEST_PKGS)
+	@$(FILTER_COVERAGE)
 
 .PHONY: unit-tests-sdk
 unit-tests-sdk: ## Run sdk wiring tests
-	@echo "Running SDK tests..."
-	go test $(GO_TEST_PARAMS) --run "(TestWiring)" $(GO_PACKAGES_SDK)
+	@env $(UNIT_TEST_ENV) go test $(GO_TEST_PARAMS) --run "(TestWiring)" $(GO_PACKAGES_SDK)
 
 run-otlp:
 	cd platform/view/services/tracing; docker-compose up -d
@@ -296,8 +322,5 @@ clean-fabric-peer-images: ## Clean up generated fabric peer images
 
 .PHONY: coverage-local
 coverage-local: ## Run unit tests and show filtered coverage
-	@echo "Running unit tests with coverage..."
-	@env FABRIC_LOGGING_SPEC=error FAB_BINS=$(FAB_BINS) go test $(GO_TEST_PARAMS) $(GO_COVERPKG) -coverprofile=coverage.tmp $(TEST_PKGS)
-	@./scripts/filter-coverage.sh coverage.tmp coverage.out
+	@$(MAKE) unit-tests-root COVERAGE=1 COVERAGE_PROFILE=$(CURDIR)/coverage.out
 	@go tool cover -func=coverage.out | tail -n 1
-	@rm coverage.tmp

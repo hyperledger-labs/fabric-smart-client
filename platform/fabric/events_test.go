@@ -196,21 +196,24 @@ func TestEventListenerDeadlock(t *testing.T) {
 		require.Len(ct, ch, customBufferLen)
 	}, timeout, tick)
 
+	// The pipeline can hold one more event than eventCh's buffer: the forwarding
+	// goroutine pulls an event off the unbuffered middleCh and then blocks handing
+	// it to the (now full) eventCh. So this extra publish does NOT block - the
+	// middleCh handshake succeeds, the event is retained inside the listener, and
+	// Publish returns.
 	var published atomic.Bool
 	go func() {
 		subscriber.Publish("testChaincode", msg1)
 		published.Store(true)
 	}()
-	require.Never(t, func() bool {
-		// this first one blocks because buffer is full (msg1 x customBufferLen)
-		return published.Load()
-	}, timeout, tick)
+	require.Eventually(t, published.Load, timeout, tick)
 
-	// we kick off our producer to publish msg2
+	// Now the pipeline is truly full (eventCh full + one event retained in the
+	// forwarder), so the next producer blocks until the listener is closed.
 	var published2 atomic.Bool
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		// as msg1 is not yet consumed, our producer is blocked
+		// the pipeline is full, so this producer stays blocked
 		subscriber.Publish("testChaincode", msg2)
 		published2.Store(true)
 	})
