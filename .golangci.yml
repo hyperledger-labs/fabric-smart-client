@@ -6,12 +6,21 @@
 version: "2"
 linters:
   enable:
+    # errcheck, govet, ineffassign, staticcheck and unused come from
+    # golangci-lint's implicit `default: standard` set. They are named here so
+    # the config states what it enforces rather than inheriting it, and so a
+    # future `default: none` cannot silently drop them.
+    - errcheck
     - goheader
     - gosec
+    - govet
+    - ineffassign
     - misspell
+    - paralleltest
+    - staticcheck
     - thelper
     - tparallel
-    - paralleltest
+    - unused
   settings:
     goheader:
       # Two header forms are accepted: the SPDX form used by code written for
