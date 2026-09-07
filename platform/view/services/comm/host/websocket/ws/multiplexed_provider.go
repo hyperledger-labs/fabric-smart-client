@@ -394,7 +394,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 	if err != nil {
 		logger.Debugf("failed to unmarshal span context: %v", err)
 	}
-	ctx, span := c.tracer.Start(trace.ContextWithRemoteSpanContext(context.Background(), spanContext), "IncomingViewInvocation", tracing.WithAttributes(
+	ctx, span := c.tracer.Start(trace.ContextWithRemoteSpanContext(context.Background(), spanContext), "IncomingViewInvocation", tracing.WithAttributes( //nolint:spancheck // span is handed off to subConnWithSpan, whose Close() ends it (see below)
 		tracing.String(contextIDLabel, defaultContextIDLabel)))
 
 	sc := c.newSubConn(mm.ID)
@@ -409,7 +409,7 @@ func (c *multiplexedServerConn) newServerSubConn(newStreamCallback func(pStream 
 		ContextID:         meta.ContextID,
 		SessionID:         meta.SessionID,
 	}))
-}
+} //nolint:spancheck // span is handed off to subConnWithSpan, whose Close() ends it
 
 type multiplexedBaseConn struct {
 	writeMu sync.Mutex

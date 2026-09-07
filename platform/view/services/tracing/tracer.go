@@ -27,8 +27,11 @@ type tracer struct {
 	duration   metrics.Histogram
 }
 
+// Start returns the span to the caller, who owns ending it (span.End wraps
+// backingSpan.End, see span.go), so the missing-End findings here are false
+// positives.
 func (t *tracer) Start(ctx context.Context, spanName string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
-	newCtx, backingSpan := t.backingTracer.Start(ctx, spanName, append(opts, WithAttributes(String(namespaceLabel, t.namespace)))...)
+	newCtx, backingSpan := t.backingTracer.Start(ctx, spanName, append(opts, WithAttributes(String(namespaceLabel, t.namespace)))...) //nolint:spancheck // caller owns ending the span, see comment above
 
-	return newCtx, newSpan(backingSpan, t.labelNames, t.operations, t.duration, opts...)
+	return newCtx, newSpan(backingSpan, t.labelNames, t.operations, t.duration, opts...) //nolint:spancheck // caller owns ending the span, see comment above
 }

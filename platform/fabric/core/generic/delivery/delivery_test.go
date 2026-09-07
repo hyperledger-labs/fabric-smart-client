@@ -293,8 +293,8 @@ func TestHandleBlockResponse(t *testing.T) {
 
 	newSpan := func(t *testing.T) trace.Span {
 		t.Helper()
-		_, span := noop.NewTracerProvider().Tracer("test").Start(t.Context(), "span")
-		return span
+		_, span := noop.NewTracerProvider().Tracer("test").Start(t.Context(), "span") //nolint:spancheck // handleBlockResponse's callers own ending the span (see delivery.go); this is a noop span used only as a test fixture.
+		return span                                                                   //nolint:spancheck // same as above
 	}
 
 	t.Run("nil block is rejected, not dereferenced", func(t *testing.T) {

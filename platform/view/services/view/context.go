@@ -250,7 +250,7 @@ func (c *Context) StartSpan(name string, opts ...trace.SpanStartOption) trace.Sp
 
 // StartSpanFrom creates a new child span from the passed context.
 func (c *Context) StartSpanFrom(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
-	return c.tracer.Start(ctx, name, opts...)
+	return c.tracer.Start(ctx, name, opts...) //nolint:spancheck // span is returned to the caller, who owns ending it (see e.g. platform/view/services/view/view.go's `defer span.End()` after calling this)
 }
 
 // ID returns the identifier of this context.

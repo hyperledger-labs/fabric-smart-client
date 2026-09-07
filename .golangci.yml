@@ -21,6 +21,7 @@ linters:
     - misspell
     - nilnesserr
     - paralleltest
+    - spancheck
     - staticcheck
     - thelper
     - tparallel
