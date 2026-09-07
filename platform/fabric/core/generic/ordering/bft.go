@@ -187,7 +187,7 @@ func (o *BFTBroadcaster) getConnection(ctx context.Context, to *grpc.ConnectionC
 
 	select {
 	case <-state.slots:
-		return o.createConnectionWithSlot(to, state)
+		return o.createConnectionWithSlot(to, state) //nolint:contextcheck // pooled connection: its stream must use a connection-scoped context, not this request's (see comment in createConnection)
 	default:
 	}
 
@@ -195,7 +195,7 @@ func (o *BFTBroadcaster) getConnection(ctx context.Context, to *grpc.ConnectionC
 	case connection := <-state.pool:
 		return connection, nil
 	case <-state.slots:
-		return o.createConnectionWithSlot(to, state)
+		return o.createConnectionWithSlot(to, state) //nolint:contextcheck // same as above: pooled connection outlives this request
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}

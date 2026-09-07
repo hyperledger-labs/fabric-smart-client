@@ -10,6 +10,7 @@ linters:
     # golangci-lint's implicit `default: standard` set. They are named here so
     # the config states what it enforces rather than inheriting it, and so a
     # future `default: none` cannot silently drop them.
+    - contextcheck
     - durationcheck
     - errcheck
     - errorlint
@@ -72,6 +73,21 @@ linters:
       - path: (^integration/|^ci/|_test\.go$|_test_utils\.go$)
         linters:
           - gosec
+      # The p2p comm layer (sessions, stream handlers, and the multiplexed/simple
+      # websocket connections) deliberately manages resources - cached streams,
+      # sub-connections, and sessions - whose lifecycles are independent of, and
+      # routinely longer than, any single call's context: a background per-session
+      # cleanup ticker and per-stream reader goroutine, a shutdown path that must
+      # run to completion regardless of the (already-cancelling) context that
+      # triggered it, and connections cached and reused across many calls. See
+      # platform/view/services/comm/host/websocket/ws/context_detachment_test.go,
+      # which regression-tests this decoupling directly. NewMsgConn's nil-ctx
+      # fallback (io/msgconn.go) is the same defensive-default idiom used
+      # elsewhere in the codebase. 24 of the 43 contextcheck findings measured
+      # when enabling the linter came from this cluster.
+      - path: ^platform/view/services/comm/(master\.go|p2p\.go|pingpong_test\.go|sessions_test_utils\.go|sig_exchange_test_utils\.go|test_utils\.go|io/msgconn\.go|host/websocket/ws/(multiplexed_provider(_test)?\.go|simple_provider(_test)?\.go|mtls_enforcement_test\.go))$
+        linters:
+          - contextcheck
 formatters:
   enable:
     - gci

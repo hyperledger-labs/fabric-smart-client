@@ -38,8 +38,8 @@ func (m *mockSession) Send(_ context.Context, payload []byte) error {
 	return nil
 }
 
-func (m *mockSession) SendError(_ context.Context, payload []byte) error {
-	return m.Send(context.Background(), payload)
+func (m *mockSession) SendError(ctx context.Context, payload []byte) error {
+	return m.Send(ctx, payload)
 }
 
 func (m *mockSession) Receive() <-chan *view.Message { return m.recv }

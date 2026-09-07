@@ -114,7 +114,7 @@ func NewChannelConfigMonitor(
 }
 
 // Start begins monitoring for configuration changes
-func (s *ChannelConfigMonitor) Start(ctx context.Context) error {
+func (s *ChannelConfigMonitor) Start(ctx context.Context) error { //nolint:contextcheck // documented nil-ctx fallback below (nil is treated as context.Background), not an ignored inherited context
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

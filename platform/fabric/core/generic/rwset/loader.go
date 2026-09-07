@@ -107,7 +107,7 @@ func (c *Loader) GetRWSetFromETx(ctx context.Context, txID driver2.TxID) (driver
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "cannot load etx [%s]", txID)
 	}
-	tx, err := c.TransactionManager.NewTransactionFromBytes(context.TODO(), c.Channel, raw)
+	tx, err := c.TransactionManager.NewTransactionFromBytes(ctx, c.Channel, raw)
 	if err != nil {
 		return nil, nil, err
 	}

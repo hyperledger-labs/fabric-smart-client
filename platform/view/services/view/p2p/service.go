@@ -159,7 +159,7 @@ func (s *Service) respond(ctx context.Context, responder view.View, id view.Iden
 	// WithCancel resources once this responder is done (see getOrCreateContext).
 	defer cleanup()
 
-	logger.DebugfContext(viewCtx.Context(), "[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, isNew, logging.Identifier(responder))
+	logger.DebugfContext(viewCtx.Context(), "[%s] Respond [from:%s], [sessionID:%s], [contextID:%s](%v), [view:%s]", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, isNew, logging.Identifier(responder)) //nolint:contextcheck // deliberately logging against the responder's own view context (the merged ctx documented in getOrCreateContext), not this func's ctx param
 
 	// if a new context has been created to run the responder,
 	// then dispose the context when not needed anymore
@@ -170,10 +170,10 @@ func (s *Service) respond(ctx context.Context, responder view.View, id view.Iden
 	// run view
 	_, err = s.runner.RunView(viewCtx, responder)
 	if err != nil {
-		logger.DebugfContext(viewCtx.Context(), "[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err)
+		logger.DebugfContext(viewCtx.Context(), "[%s] Respond Failure [from:%s], [sessionID:%s], [contextID:%s] [%s]\n", id, msg.FromEndpoint, msg.SessionID, msg.ContextID, err) //nolint:contextcheck // same as above: logging against the responder's own view context, not this func's ctx param
 
 		// Keep error reporting uncancellable while preserving values from the responder context.
-		if serr := viewCtx.Session().SendError(context.WithoutCancel(viewCtx.Context()), []byte(err.Error())); serr != nil {
+		if serr := viewCtx.Session().SendError(context.WithoutCancel(viewCtx.Context()), []byte(err.Error())); serr != nil { //nolint:contextcheck // documented above: error reporting is deliberately made uncancellable via WithoutCancel
 			logger.Error(serr.Error())
 		}
 	}
@@ -215,7 +215,7 @@ func (s *Service) getOrCreateContext(ctx context.Context, me view.Identity, msg 
 		cancel()
 	}
 
-	viewCtx, isNew, err = s.viewManager.NewResponderContext(
+	viewCtx, isNew, err = s.viewManager.NewResponderContext( //nolint:contextcheck // documented above: mergedCtx deliberately merges msg.Ctx with this func's ctx (via context.AfterFunc), rather than passing ctx directly
 		mergedCtx,
 		msg.ContextID,
 		responderSession,

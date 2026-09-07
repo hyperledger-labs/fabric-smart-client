@@ -497,8 +497,8 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 			stop = true
 		case event := <-ch:
 			span.AddEvent("receive_channel_result")
-			span.AddLink(trace.LinkFromContext(event.Ctx))
-			c.logger.DebugfContext(event.Ctx, "Got an answer to finality of [%s]: [%s]", txID, event.Err)
+			span.AddLink(trace.LinkFromContext(event.Ctx))                                                //nolint:contextcheck // event.Ctx is the finality event's own originating context (from the block-commit pipeline that produced it), linked here only for trace correlation; listenTo's own ctx (used above for ctx.Done()) is unrelated to when/how the tx was actually committed
+			c.logger.DebugfContext(event.Ctx, "Got an answer to finality of [%s]: [%s]", txID, event.Err) //nolint:contextcheck // same as above: log against the event's originating context for correlation, not listenTo's ctx
 			timeout.Stop()
 			return event.Err
 		case <-timeout.C:

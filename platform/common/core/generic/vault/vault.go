@@ -208,7 +208,7 @@ func (db *Vault[V]) commitTXs(txs []txCommitIndex) []error {
 
 func (db *Vault[V]) commitRWs(ctx context.Context, inputs ...commitInput) error {
 	for _, input := range inputs {
-		db.logger.DebugfContext(input.ctx, "Begin update for tx [%d:%d][%s]", input.block, input.indexInBloc, input.txID)
+		db.logger.DebugfContext(input.ctx, "Begin update for tx [%d:%d][%s]", input.block, input.indexInBloc, input.txID) //nolint:contextcheck // deliberately logging against this tx's own originating context (for trace correlation), not commitRWs' batch-level ctx: this call batches transactions submitted by different, possibly-already-returned callers
 	}
 
 	db.logger.Debugf("extract txids from [%d] inputs", len(inputs))
