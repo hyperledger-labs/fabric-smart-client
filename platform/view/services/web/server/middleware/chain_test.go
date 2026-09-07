@@ -63,7 +63,7 @@ var _ = Describe("Chain", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		req = httptest.NewRequest("GET", "/", nil)
+		req = httptest.NewRequest(http.MethodGet, "/", nil)
 		resp = httptest.NewRecorder()
 	})
 
