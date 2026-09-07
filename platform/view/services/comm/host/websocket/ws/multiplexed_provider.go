@@ -264,8 +264,11 @@ func (c *multiplexedClientConn) readIncoming() {
 		err := c.Kill()
 		logger.Debugf("Client connection closed: %v", err)
 	}()
-	var mm MultiplexedMessage
 	for {
+		// Declared per iteration on purpose: mm.Msg is handed to another goroutine
+		// below, and encoding/json reuses a non-nil []byte field's backing array,
+		// so reusing mm would let the next read overwrite a payload still in flight.
+		var mm MultiplexedMessage
 		err := c.conn.ReadJSON(&mm)
 		if err != nil {
 			logger.Debugf("Client connection errored: %v", err)
@@ -318,8 +321,9 @@ func (c *multiplexedServerConn) readIncoming(newStreamCallback func(pStream host
 		err := c.Kill()
 		logger.Debugf("Server connection closed: %v", err)
 	}()
-	var mm MultiplexedMessage
 	for {
+		// Declared per iteration on purpose: see the note in the client's readIncoming.
+		var mm MultiplexedMessage
 		_ = c.conn.SetReadDeadline(time.Now().Add(readTimeout))
 		err := c.conn.ReadJSON(&mm)
 		if err != nil {

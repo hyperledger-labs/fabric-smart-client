@@ -1,6 +1,6 @@
 module tools
 
-go 1.26.5
+go 1.27.1
 
 require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.2

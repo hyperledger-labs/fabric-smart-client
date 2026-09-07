@@ -134,6 +134,10 @@ func TestChannelHelpers(t *testing.T) {
 	require.Equal(t, time.Duration(100*time.Millisecond), ch.CommitterFinalityUnknownTXTimeout())
 	require.Equal(t, time.Minute, ch.FinalityForPartiesWaitTimeout())
 
+	// test PollingTimeout clamping
+	require.Equal(t, time.Millisecond, (&cfg.Channel{Committer: cfg.Committer{PollingTimeout: -5 * time.Millisecond}}).CommitterPollingTimeout())
+	require.Equal(t, time.Millisecond, (&cfg.Channel{Committer: cfg.Committer{PollingTimeout: 500 * time.Microsecond}}).CommitterPollingTimeout())
+
 	// ChaincodeConfigs should convert to driver.ChaincodeConfig
 	cc := &cfg.Chaincode{Name: "cc1"}
 	c := &cfg.Channel{Chaincodes: []*cfg.Chaincode{cc}}

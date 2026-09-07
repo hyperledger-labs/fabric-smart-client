@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/XSAM/otelsql"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/uptrace/opentelemetry-go-extra/otelsql"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"

@@ -1,8 +1,8 @@
 # Fabric Smart Client
 
 [![License](https://img.shields.io/badge/license-Apache%202-blue)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger-labs/fabric-smart-client)](https://goreportcard.com/badge/github.com/hyperledger-labs/fabric-smart-client)
-[![Go](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/tests.yml/badge.svg)](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/go.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/hyperledger-labs/fabric-smart-client.svg)](https://pkg.go.dev/github.com/hyperledger-labs/fabric-smart-client)
+[![Tests](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/tests.yml/badge.svg)](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/codeql-analysis.yml)
 [![Coverage Status](https://coveralls.io/repos/github/hyperledger-labs/fabric-smart-client/badge.svg?branch=main)](https://coveralls.io/github/hyperledger-labs/fabric-smart-client?branch=main)
 
@@ -20,6 +20,7 @@ FSC abstracts away the complexity of a DLT network, enabling developers to build
 
 ## Quick links
 - **Documentation:** [docs/README.md](docs/README.md)
+- **API reference (Godoc):** [pkg.go.dev/github.com/hyperledger-labs/fabric-smart-client](https://pkg.go.dev/github.com/hyperledger-labs/fabric-smart-client)
 - **Examples and integration tests:** [`integration/fabric/`](integration/fabric/) and [`integration/fabricx/`](integration/fabricx/)  
 - **Token SDK:** https://github.com/hyperledger-labs/fabric-token-sdk
 

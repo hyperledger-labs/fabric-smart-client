@@ -1,5 +1,8 @@
 # Testing
 
+New functionality comes with tests in the same PR — the policy, and the few changes it
+exempts, is in [Contribution Workflow → Tests](../dev/workflow.md#tests).
+
 ## Frameworks
 
 - **Unit tests**: `github.com/stretchr/testify/require`.
@@ -13,9 +16,10 @@ will be migrated — follow the convention, not the neighbouring file.
 Scope every run to what you changed:
 
 ```bash
-make unit-tests                                        # all unit tests except Postgres
-go test -run TestMyTest ./platform/view/...             # one test
-TEST_PKGS=./platform/common/utils/... make unit-tests   # one package tree
+make unit-tests                                             # all unit tests except Postgres
+make unit-tests-root                                        # only the root module
+go test -run TestMyTest ./platform/view/...                  # one test
+TEST_PKGS=./platform/common/utils/... make unit-tests-root   # one package tree
 ```
 
 Never run the whole integration suite to check a change — it is slow and needs Fabric
@@ -33,17 +37,34 @@ prerequisites. See also [integration-tests.md](integration-tests.md).
 ## Integration test structure
 
 ```go
-var _ = Describe("Feature", func() {
+var _ = Describe("Feature", Ordered, func() {
     s := NewTestSuite(opts...)
-    BeforeEach(s.Setup)
-    AfterEach(s.TearDown)
+    BeforeAll(s.Setup)
+    AfterAll(s.TearDown)
     It("test case", s.TestFunction)
+    It("another test case", s.TestOtherFunction)
 })
 ```
 
 - Define the network topology in `<test>/topology.go` via `integration.Generate()`.
 - Put reusable test logic in `<test>/<test>.go`.
 - For multi-node scenarios, use `integration.ReplicationOptions`.
+
+### One network per `Describe`
+
+`Setup` generates or loads artifacts and starts every node; `TearDown` stops them. Under
+`BeforeEach`/`AfterEach` that cycle runs **per `It`** — roughly 90-110s for a Fabric
+topology, against 10-20s for the assertions inside it. A five-spec `Describe` then spends
+most of its runtime booting the same network five times.
+
+So default to `Ordered` with `BeforeAll`/`AfterAll` and share one network across the
+group. Reach for `BeforeEach` only when a spec genuinely needs a pristine one: it stops a
+node, or it writes state a later spec would read. A spec that needs a *different*
+topology belongs in its own `Describe` regardless — the topology is fixed when
+`NewTestSuite` is called.
+
+Specs that could share a network but would collide on fixed data (the same asset ID, say)
+either parameterise that data or stay in separate `Describe`s.
 
 ## Focused runs (never commit)
 

@@ -45,10 +45,10 @@ type ChannelHandlerProviderResult struct {
 }
 
 func NewEndorserTransactionHandlerProvider() ChannelHandlerProviderResult {
-	return ChannelHandlerProviderResult{RWSetPayloadHandlerProvider: RWSetPayloadHandlerProvider{
+	return ChannelHandlerProviderResult{
 		Type: common.HeaderType_ENDORSER_TRANSACTION,
 		New:  rwset.NewEndorserTransactionHandler,
-	}}
+	}
 }
 
 type RWSetPayloadHandlerProvider = digutils.HandlerProvider[common.HeaderType, func(network, channel string, v driver.RWSetInspector) driver.RWSetPayloadHandler]

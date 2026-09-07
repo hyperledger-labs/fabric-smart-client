@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -220,15 +221,13 @@ type Node struct {
 
 func NewNode(name string) *Node {
 	return &Node{
-		Synthesizer: Synthesizer{
-			Aliases:    map[string]Alias{},
-			Imports:    []string{},
-			Factories:  []FactoryEntry{},
-			Responders: []ResponderEntry{},
-			SDKs:       []SDKEntry{},
-		},
-		Name:    name,
-		Options: &Options{Mapping: map[string]any{}},
+		Aliases:    map[string]Alias{},
+		Imports:    []string{},
+		Factories:  []FactoryEntry{},
+		Responders: []ResponderEntry{},
+		SDKs:       []SDKEntry{},
+		Name:       name,
+		Options:    &Options{Mapping: map[string]any{}},
 	}
 }
 
@@ -304,7 +303,7 @@ func (n *Node) AddSDKWithBase(base node.SDK, sdks ...node.SDK) *Node {
 
 	// assemble the sdks recursively, starting from the last
 	current := baseConstruction
-	for i := len(sdks) - 1; i >= 0; i-- {
+	for i := range slices.Backward(sdks) {
 		current = fmt.Sprintf("%s.NewFrom(%s)", elements[i].Alias, current)
 	}
 	n.SDKs = append(n.SDKs, SDKEntry{Type: current})

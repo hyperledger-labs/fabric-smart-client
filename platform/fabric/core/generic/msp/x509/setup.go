@@ -65,9 +65,7 @@ func LoadLocalMSPAt(dir, keyStorePath, id, mspType string, bccspConfig *config.B
 	}
 
 	mspOpts := &msp.BCCSPNewOpts{
-		NewBaseOpts: msp.NewBaseOpts{
-			Version: msp.MSPv1_0,
-		},
+		Version: msp.MSPv1_0,
 	}
 	thisMSP, err := msp.New(mspOpts, cp)
 	if err != nil {
@@ -97,9 +95,7 @@ func LoadVerifyingMSPAt(dir, id, mspType string) (msp.MSP, error) {
 	}
 
 	mspOpts := &msp.BCCSPNewOpts{
-		NewBaseOpts: msp.NewBaseOpts{
-			Version: msp.MSPv1_0,
-		},
+		Version: msp.MSPv1_0,
 	}
 	thisMSP, err := msp.New(mspOpts, cp)
 	if err != nil {

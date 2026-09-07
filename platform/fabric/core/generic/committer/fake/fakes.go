@@ -53,7 +53,7 @@ type ChannelConfig struct {
 }
 
 func (c *ChannelConfig) CommitterPollingTimeout() time.Duration {
-	return max(c.PollingTimeout, time.Millisecond)
+	return c.PollingTimeout
 }
 
 func (c *ChannelConfig) ID() string {

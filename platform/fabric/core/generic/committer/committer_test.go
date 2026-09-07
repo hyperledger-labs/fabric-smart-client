@@ -462,8 +462,6 @@ func TestNewPollingTimeout(t *testing.T) {
 		want time.Duration
 	}{
 		{50 * time.Millisecond, 50 * time.Millisecond},
-		{-5 * time.Millisecond, time.Millisecond},
-		{500 * time.Microsecond, time.Millisecond}, // would divide by zero in listenTo
 	} {
 		require.Equal(t, tc.want, newTestCommitter(t, tc.cfg).pollingTimeout)
 	}

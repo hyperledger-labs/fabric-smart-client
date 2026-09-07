@@ -8,11 +8,10 @@ package logging
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/log"
-	"go.opentelemetry.io/otel/log/noop"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -35,20 +34,28 @@ type otelLogger interface {
 	PanicwContext(ctx context.Context, template string, args ...any)
 }
 
+// NewOtelLogger returns a logger whose *Context methods log through zapLogger and, when ctx
+// carries a recording span, additionally record the message as an event on that span (and set
+// the span status to Error for Error level and above).
+//
+// Span events are the only OTel signal produced here: the traces are the destination, so no
+// log-signal LoggerProvider is involved.
 func NewOtelLogger(zapLogger *zap.Logger) otelLogger {
-	sugared := otelzap.New(zapLogger,
-		otelzap.WithLoggerProvider(newLoggerProvider(zapLogger.Name(), OtelSanitize())),
-		otelzap.WithMinLevel(zapLogger.Level()),
-		otelzap.WithCallerDepth(1),
-	).Sugar()
-	return ctxFieldLogger{sugared}
+	return ctxFieldLogger{
+		SugaredLogger: zapLogger.Sugar(),
+		loggerName:    zapLogger.Name(),
+		sanitize:      OtelSanitize(),
+	}
 }
 
-// ctxFieldLogger decorates an *otelzap.SugaredLogger so that every context-aware log
-// call also picks up the registered ContextLogFields (see config.go) from ctx and adds
-// them to the zap log line.
+// ctxFieldLogger decorates a *zap.SugaredLogger so that every context-aware log call also
+// picks up the registered ContextLogFields (see config.go) from ctx and adds them to the zap
+// log line, and mirrors the message onto the span in ctx.
 type ctxFieldLogger struct {
-	*otelzap.SugaredLogger
+	*zap.SugaredLogger
+
+	loggerName string
+	sanitize   bool
 }
 
 // levelEnabled reports whether lvl would actually be written by the underlying zap core.
@@ -61,10 +68,37 @@ func (l ctxFieldLogger) levelEnabled(lvl zapcore.Level) bool {
 	return lvl >= l.Level()
 }
 
+// spanEvent records msg as an event on the span in ctx, if that span is recording. Nothing is
+// formatted or sanitized when there is no recording span, which is the common case.
+func (l ctxFieldLogger) spanEvent(ctx context.Context, lvl zapcore.Level, msg string) {
+	if span := trace.SpanFromContext(ctx); span.IsRecording() {
+		l.addEvent(span, lvl, msg)
+	}
+}
+
+// spanEventf is spanEvent for the printf-style methods: it only pays for fmt.Sprintf when
+// there is a recording span to receive the result.
+func (l ctxFieldLogger) spanEventf(ctx context.Context, lvl zapcore.Level, template string, args []any) {
+	if span := trace.SpanFromContext(ctx); span.IsRecording() {
+		l.addEvent(span, lvl, fmt.Sprintf(template, args...))
+	}
+}
+
+func (l ctxFieldLogger) addEvent(span trace.Span, lvl zapcore.Level, msg string) {
+	if lvl >= zapcore.ErrorLevel {
+		span.SetStatus(codes.Error, msg)
+	}
+	if l.sanitize {
+		// ensure it is printable
+		msg = FilterPrintableWithMarker(msg)
+	}
+	span.AddEvent(msg, trace.WithAttributes(attribute.String(loggerNameKey, l.loggerName)))
+}
+
 // withContextFields attaches the registered ContextLogFields present in ctx via With,
 // for the *f*Context (printf-style) methods which have no keysAndValues slice to append
 // to directly. Only called once levelEnabled has confirmed the entry will be written.
-func (l ctxFieldLogger) withContextFields(ctx context.Context) *otelzap.SugaredLogger {
+func (l ctxFieldLogger) withContextFields(ctx context.Context) *zap.SugaredLogger {
 	if fields := contextLogFieldArgs(ctx); len(fields) > 0 {
 		return l.With(fields...)
 	}
@@ -132,127 +166,82 @@ func contextLogFieldArgs(ctx context.Context) []any {
 
 func (l ctxFieldLogger) DebugfContext(ctx context.Context, template string, args ...any) {
 	if !l.levelEnabled(zapcore.DebugLevel) {
-		l.SugaredLogger.DebugfContext(ctx, template, args...)
+		l.Debugf(template, args...)
 		return
 	}
-	l.withContextFields(ctx).DebugfContext(ctx, template, args...)
+	l.spanEventf(ctx, zapcore.DebugLevel, template, args)
+	l.withContextFields(ctx).Debugf(template, args...)
 }
 
 func (l ctxFieldLogger) DebugwContext(ctx context.Context, msg string, keysAndValues ...any) {
 	if !l.levelEnabled(zapcore.DebugLevel) {
-		l.SugaredLogger.DebugwContext(ctx, msg, keysAndValues...)
+		l.Debugw(msg, keysAndValues...)
 		return
 	}
-	l.SugaredLogger.DebugwContext(ctx, msg, appendContextLogFields(ctx, keysAndValues)...)
+	l.spanEvent(ctx, zapcore.DebugLevel, msg)
+	l.Debugw(msg, appendContextLogFields(ctx, keysAndValues)...)
 }
 
 func (l ctxFieldLogger) InfofContext(ctx context.Context, template string, args ...any) {
 	if !l.levelEnabled(zapcore.InfoLevel) {
-		l.SugaredLogger.InfofContext(ctx, template, args...)
+		l.Infof(template, args...)
 		return
 	}
-	l.withContextFields(ctx).InfofContext(ctx, template, args...)
+	l.spanEventf(ctx, zapcore.InfoLevel, template, args)
+	l.withContextFields(ctx).Infof(template, args...)
 }
 
 func (l ctxFieldLogger) InfowContext(ctx context.Context, msg string, keysAndValues ...any) {
 	if !l.levelEnabled(zapcore.InfoLevel) {
-		l.SugaredLogger.InfowContext(ctx, msg, keysAndValues...)
+		l.Infow(msg, keysAndValues...)
 		return
 	}
-	l.SugaredLogger.InfowContext(ctx, msg, appendContextLogFields(ctx, keysAndValues)...)
+	l.spanEvent(ctx, zapcore.InfoLevel, msg)
+	l.Infow(msg, appendContextLogFields(ctx, keysAndValues)...)
 }
 
 func (l ctxFieldLogger) WarnfContext(ctx context.Context, template string, args ...any) {
 	if !l.levelEnabled(zapcore.WarnLevel) {
-		l.SugaredLogger.WarnfContext(ctx, template, args...)
+		l.Warnf(template, args...)
 		return
 	}
-	l.withContextFields(ctx).WarnfContext(ctx, template, args...)
+	l.spanEventf(ctx, zapcore.WarnLevel, template, args)
+	l.withContextFields(ctx).Warnf(template, args...)
 }
 
 func (l ctxFieldLogger) WarnwContext(ctx context.Context, msg string, keysAndValues ...any) {
 	if !l.levelEnabled(zapcore.WarnLevel) {
-		l.SugaredLogger.WarnwContext(ctx, msg, keysAndValues...)
+		l.Warnw(msg, keysAndValues...)
 		return
 	}
-	l.SugaredLogger.WarnwContext(ctx, msg, appendContextLogFields(ctx, keysAndValues)...)
+	l.spanEvent(ctx, zapcore.WarnLevel, msg)
+	l.Warnw(msg, appendContextLogFields(ctx, keysAndValues)...)
 }
 
 func (l ctxFieldLogger) ErrorfContext(ctx context.Context, template string, args ...any) {
 	if !l.levelEnabled(zapcore.ErrorLevel) {
-		l.SugaredLogger.ErrorfContext(ctx, template, args...)
+		l.Errorf(template, args...)
 		return
 	}
-	l.withContextFields(ctx).ErrorfContext(ctx, template, args...)
+	l.spanEventf(ctx, zapcore.ErrorLevel, template, args)
+	l.withContextFields(ctx).Errorf(template, args...)
 }
 
 func (l ctxFieldLogger) ErrorwContext(ctx context.Context, msg string, keysAndValues ...any) {
 	if !l.levelEnabled(zapcore.ErrorLevel) {
-		l.SugaredLogger.ErrorwContext(ctx, msg, keysAndValues...)
+		l.Errorw(msg, keysAndValues...)
 		return
 	}
-	l.SugaredLogger.ErrorwContext(ctx, msg, appendContextLogFields(ctx, keysAndValues)...)
+	l.spanEvent(ctx, zapcore.ErrorLevel, msg)
+	l.Errorw(msg, appendContextLogFields(ctx, keysAndValues)...)
 }
 
 func (l ctxFieldLogger) PanicfContext(ctx context.Context, template string, args ...any) {
-	l.withContextFields(ctx).PanicfContext(ctx, template, args...)
+	l.spanEventf(ctx, zapcore.PanicLevel, template, args)
+	l.withContextFields(ctx).Panicf(template, args...)
 }
 
 func (l ctxFieldLogger) PanicwContext(ctx context.Context, msg string, keysAndValues ...any) {
-	l.SugaredLogger.PanicwContext(ctx, msg, appendContextLogFields(ctx, keysAndValues)...)
+	l.spanEvent(ctx, zapcore.PanicLevel, msg)
+	l.Panicw(msg, appendContextLogFields(ctx, keysAndValues)...)
 }
-
-func newLoggerProvider(name string, sanitize bool) *spanLoggerProvider {
-	return &spanLoggerProvider{
-		LoggerProvider: noop.NewLoggerProvider(),
-		loggerName:     name,
-		sanitize:       sanitize,
-	}
-}
-
-type spanLoggerProvider struct {
-	log.LoggerProvider
-
-	loggerName string
-	sanitize   bool
-}
-
-func (p *spanLoggerProvider) Logger(name string, options ...log.LoggerOption) log.Logger {
-	if p.sanitize {
-		return &sanitizedSpanLogger{
-			Logger:     p.LoggerProvider.Logger(name, options...),
-			loggerName: p.loggerName,
-		}
-	}
-
-	return &spanLogger{
-		Logger:     p.LoggerProvider.Logger(name, options...),
-		loggerName: p.loggerName,
-	}
-}
-
-type spanLogger struct {
-	log.Logger
-
-	loggerName string
-}
-
-func (l *spanLogger) Emit(ctx context.Context, record log.Record) {
-	trace.SpanFromContext(ctx).AddEvent(record.Body().AsString(), trace.WithAttributes(attribute.String(loggerNameKey, l.loggerName)))
-}
-
-func (l *spanLogger) Enabled(context.Context, log.EnabledParameters) bool { return true }
-
-type sanitizedSpanLogger struct {
-	log.Logger
-
-	loggerName string
-}
-
-func (l *sanitizedSpanLogger) Emit(ctx context.Context, record log.Record) {
-	// ensure it is printable
-	str := FilterPrintableWithMarker(record.Body().AsString())
-	trace.SpanFromContext(ctx).AddEvent(str, trace.WithAttributes(attribute.String(loggerNameKey, l.loggerName)))
-}
-
-func (l *sanitizedSpanLogger) Enabled(context.Context, log.EnabledParameters) bool { return true }

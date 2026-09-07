@@ -51,7 +51,7 @@ type host struct {
 	peerID        host2.PeerID
 	finder        *routing.RoutingDiscovery
 	finderWg      sync.WaitGroup
-	stopFinder    int32
+	stopFinder    atomic.Int32
 	peersMutex    sync.RWMutex
 	peers         map[host2.PeerID]peer.AddrInfo
 	bootstrap     bool
@@ -204,7 +204,7 @@ func (h *host) StreamHash(input host2.StreamInfo) host2.StreamHash {
 func (h *host) Close() error {
 	logger.Debugf("libp2p: Closing host [%s]...", h.ID())
 	err := h.Host.Close()
-	atomic.StoreInt32(&h.stopFinder, 1)
+	h.stopFinder.Store(1)
 	logger.Debugf("libp2p: host [%s] closed with error [%v]", h.ID(), err)
 	return err
 }
@@ -282,7 +282,7 @@ func (h *host) startFinder() {
 
 	sleep:
 		for range 4 {
-			if atomic.LoadInt32(&h.stopFinder) != 0 {
+			if h.stopFinder.Load() != 0 {
 				logger.Debugf("libp2p: stopping peer finder for host [%s]", h.ID())
 				h.finderWg.Done()
 				return

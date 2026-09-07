@@ -42,6 +42,7 @@ type testMapper struct{}
 func (testMapper) MapTxData(context.Context, []byte, *common.BlockMetadata, driver.BlockNum, driver.TxNum) (map[driver.Namespace]testEvent, error) {
 	return nil, nil
 }
+
 func (testMapper) MapProcessedTx(*fabric.ProcessedTransaction) ([]testEvent, error) { return nil, nil }
 
 func TestListenerManager_StopsOnContextCancel(t *testing.T) { //nolint:paralleltest // uses goleak.VerifyNone; must run serially
