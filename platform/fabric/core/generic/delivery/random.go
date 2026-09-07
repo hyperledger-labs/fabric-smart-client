@@ -27,16 +27,16 @@ const (
 	NonceSize = 24
 )
 
-// GetRandomBytes returns len random looking bytes
-func GetRandomBytes(len int) ([]byte, error) {
-	key := make([]byte, len)
+// GetRandomBytes returns n random looking bytes
+func GetRandomBytes(n int) ([]byte, error) {
+	key := make([]byte, n)
 
-	n, err := rand.Read(key)
+	read, err := rand.Read(key)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting random bytes")
 	}
-	if n != len {
-		return nil, errors.Errorf("failed to get [%d] bytes", len)
+	if read != n {
+		return nil, errors.Errorf("failed to get [%d] bytes", n)
 	}
 
 	return key, nil

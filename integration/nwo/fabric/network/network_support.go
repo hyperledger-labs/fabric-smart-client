@@ -1540,7 +1540,7 @@ func (n *Network) GenerateOrdererConfig(o *topology.Orderer) {
 	t, err := template.New("orderer").Funcs(template.FuncMap{
 		"Orderer":    func() *topology.Orderer { return o },
 		"ToLower":    func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll": func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
+		"ReplaceAll": func(s, old, replacement string) string { return strings.ReplaceAll(s, old, replacement) },
 		"TLSEnabled": func() bool { return tlsEnabled },
 	}).Parse(n.Templates.OrdererTemplate())
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -1567,7 +1567,7 @@ func (n *Network) GenerateCoreConfig(p *topology.Peer) {
 			"Orderer":                   func() *topology.Orderer { return n.Orderers[0] },
 			"PeerLocalExtraIdentityDir": func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
 			"ToLower":                   func(s string) string { return strings.ToLower(s) },
-			"ReplaceAll":                func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
+			"ReplaceAll":                func(s, old, replacement string) string { return strings.ReplaceAll(s, old, replacement) },
 		}).Parse(coreTemplate)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -1619,7 +1619,7 @@ func (n *Network) RenderFSCFabricExtension(p *topology.Peer) (string, error) {
 		"Orderers":                  func() []*topology.Orderer { return n.Orderers },
 		"PeerLocalExtraIdentityDir": func(p *topology.Peer, id string) string { return n.PeerLocalExtraIdentityDir(p, id) },
 		"ToLower":                   func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll":                func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
+		"ReplaceAll":                func(s, old, replacement string) string { return strings.ReplaceAll(s, old, replacement) },
 		"Peers":                     func() []*topology.Peer { return refPeers },
 		"OrdererAddress":            func(o *topology.Orderer, portName api.PortName) string { return n.OrdererAddress(o, portName) },
 		"PeerAddress":               func(o *topology.Peer, portName api.PortName) string { return n.PeerAddress(o, portName) },

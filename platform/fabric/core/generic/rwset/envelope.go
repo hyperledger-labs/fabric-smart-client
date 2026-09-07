@@ -75,12 +75,12 @@ func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload
 		return nil, err
 	}
 
-	cap, err := protoutil.UnmarshalChaincodeActionPayload(tx.Actions[0].Payload)
+	actionPayload, err := protoutil.UnmarshalChaincodeActionPayload(tx.Actions[0].Payload)
 	if err != nil {
 		logger.Errorf("VSCC error: GetChaincodeActionPayload failed, err %s", err)
 		return nil, err
 	}
-	cpp, err := protoutil.UnmarshalChaincodeProposalPayload(cap.ChaincodeProposalPayload)
+	cpp, err := protoutil.UnmarshalChaincodeProposalPayload(actionPayload.ChaincodeProposalPayload)
 	if err != nil {
 		logger.Errorf("VSCC error: GetChaincodeProposalPayload failed, err %s", err)
 		return nil, err
@@ -91,7 +91,7 @@ func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload
 		return nil, err
 	}
 
-	pRespPayload, err := protoutil.UnmarshalProposalResponsePayload(cap.Action.ProposalResponsePayload)
+	pRespPayload, err := protoutil.UnmarshalProposalResponsePayload(actionPayload.Action.ProposalResponsePayload)
 	if err != nil {
 		err = errors.Errorf("GetProposalResponsePayload error %s", err)
 		return nil, err
@@ -112,10 +112,10 @@ func UnpackEnvelopeFromPayloadAndCHHeader(networkID string, payl *common.Payload
 	}
 
 	var proposalResponses []*peer.ProposalResponse
-	for _, endorsement := range cap.Action.Endorsements {
+	for _, endorsement := range actionPayload.Action.Endorsements {
 		proposalResponses = append(proposalResponses,
 			&peer.ProposalResponse{
-				Payload:     cap.Action.ProposalResponsePayload,
+				Payload:     actionPayload.Action.ProposalResponsePayload,
 				Endorsement: endorsement,
 			})
 	}

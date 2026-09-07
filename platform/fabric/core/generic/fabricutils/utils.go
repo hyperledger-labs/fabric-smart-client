@@ -177,8 +177,8 @@ func CreateEndorserTX(signer SerializableSigner, proposal driver.Proposal, resps
 	}
 
 	// serialize the chaincode action payload
-	cap := &peer.ChaincodeActionPayload{ChaincodeProposalPayload: propPayloadBytes, Action: cea}
-	capBytes, err := protoutil.GetBytesChaincodeActionPayload(cap)
+	actionPayload := &peer.ChaincodeActionPayload{ChaincodeProposalPayload: propPayloadBytes, Action: cea}
+	capBytes, err := protoutil.GetBytesChaincodeActionPayload(actionPayload)
 	if err != nil {
 		return nil, nil, err
 	}

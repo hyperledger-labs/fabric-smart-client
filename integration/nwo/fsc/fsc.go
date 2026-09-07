@@ -580,7 +580,7 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"Topology":     func() *Topology { return p.Topology },
 		"Extensions":   func() []string { return extensions },
 		"ToLower":      func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll":   func(s, old, new string) string { return strings.ReplaceAll(s, old, new) },
+		"ReplaceAll":   func(s, old, replacement string) string { return strings.ReplaceAll(s, old, replacement) },
 		"Persistences": func() map[driver.PersistenceName]node2.PersistenceOpts { return persistences },
 		"Resolvers":    func() []*Resolver { return resolvers },
 		"WebEnabled":   func() bool { return p.Topology.WebEnabled },

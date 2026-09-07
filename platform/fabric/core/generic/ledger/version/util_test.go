@@ -43,12 +43,12 @@ func TestDecodingAppendedValues(t *testing.T) {
 		appendedValues = append(appendedValues, encodeOrderPreservingVarUint64(uint64(i))...)
 	}
 
-	len := 0
+	consumed := 0
 	value := uint64(0)
 	var err error
 	for i := range 1000 {
-		appendedValues = appendedValues[len:]
-		value, len, err = decodeOrderPreservingVarUint64(appendedValues)
+		appendedValues = appendedValues[consumed:]
+		value, consumed, err = decodeOrderPreservingVarUint64(appendedValues)
 		require.NoError(t, err, "Error via calling DecodeOrderPreservingVarUint64")
 		require.Equalf(t, value, uint64(i), "expected value = [%d], decode value = [%d]", i, value)
 	}
