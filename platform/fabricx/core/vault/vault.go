@@ -598,7 +598,7 @@ func (r *rwSetWrapper) Equals(rws any, nss ...cdriver.Namespace) error {
 	if r == other {
 		r.mu.Lock()
 		defer r.mu.Unlock()
-	} else if uintptr(unsafe.Pointer(r)) < uintptr(unsafe.Pointer(other)) {
+	} else if uintptr(unsafe.Pointer(r)) < uintptr(unsafe.Pointer(other)) { //nolint:gosec // G103: pointer-address comparison for deterministic lock ordering
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		other.mu.Lock()

@@ -185,6 +185,9 @@ func (client *Client) parseSecureOptions(opts SecureOptions) error {
 	client.tlsConfig = &tls.Config{
 		VerifyPeerCertificate: opts.VerifyCertificate,
 		MinVersion:            tls.VersionTLS12, // TLS 1.2 only
+		// VerifyPeerCertificate does not run on a resumed session, so disable
+		// client-side session tickets to force a full handshake every time.
+		SessionTicketsDisabled: true,
 	}
 	if len(opts.ServerRootCAs) > 0 {
 		client.tlsConfig.RootCAs = x509.NewCertPool()
