@@ -523,9 +523,7 @@ func TestResolverMethods(t *testing.T) {
 	t.Run("GetName", func(t *testing.T) {
 		t.Parallel()
 		resolver := &endpoint.Resolver{
-			ResolverInfo: endpoint.ResolverInfo{
-				Name: "test-name",
-			},
+			Name: "test-name",
 		}
 		assert.Equal(t, "test-name", resolver.GetName())
 	})
@@ -533,11 +531,9 @@ func TestResolverMethods(t *testing.T) {
 	t.Run("GetAddress", func(t *testing.T) {
 		t.Parallel()
 		resolver := &endpoint.Resolver{
-			ResolverInfo: endpoint.ResolverInfo{
-				Addresses: map[endpoint.PortName]string{
-					endpoint.P2PPort:  "localhost:8080",
-					endpoint.ViewPort: "localhost:8081",
-				},
+			Addresses: map[endpoint.PortName]string{
+				endpoint.P2PPort:  "localhost:8080",
+				endpoint.ViewPort: "localhost:8081",
 			},
 		}
 		assert.Equal(t, "localhost:8080", resolver.GetAddress(endpoint.P2PPort))

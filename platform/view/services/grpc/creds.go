@@ -114,7 +114,7 @@ func (sc *serverCreds) ServerHandshake(rawConn net.Conn) (net.Conn, credentials.
 func (sc *serverCreds) Info() credentials.ProtocolInfo {
 	return credentials.ProtocolInfo{
 		SecurityProtocol: "tls",
-		SecurityVersion:  "1.2",
+		SecurityVersion:  "1.2", //nolint:staticcheck // SA1019: kept for callers still reading ProtocolInfo.SecurityVersion
 	}
 }
 

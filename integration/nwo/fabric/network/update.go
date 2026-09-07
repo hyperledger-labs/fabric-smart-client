@@ -171,24 +171,26 @@ func computeGroupUpdate(original, updated *cb.ConfigGroup) (readSet, writeSet *c
 			len(writeSetValues) == 0 &&
 			len(readSetGroups) == 0 &&
 			len(writeSetGroups) == 0 {
-			return &cb.ConfigGroup{
-					Version: original.Version,
-				}, &cb.ConfigGroup{
-					Version: original.Version,
-				}, false
+			readSet = &cb.ConfigGroup{Version: original.Version}
+			writeSet = &cb.ConfigGroup{Version: original.Version}
+
+			return readSet, writeSet, false
 		}
 
-		return &cb.ConfigGroup{
-				Version:  original.Version,
-				Policies: readSetPolicies,
-				Values:   readSetValues,
-				Groups:   readSetGroups,
-			}, &cb.ConfigGroup{
-				Version:  original.Version,
-				Policies: writeSetPolicies,
-				Values:   writeSetValues,
-				Groups:   writeSetGroups,
-			}, true
+		readSet = &cb.ConfigGroup{
+			Version:  original.Version,
+			Policies: readSetPolicies,
+			Values:   readSetValues,
+			Groups:   readSetGroups,
+		}
+		writeSet = &cb.ConfigGroup{
+			Version:  original.Version,
+			Policies: writeSetPolicies,
+			Values:   writeSetValues,
+			Groups:   writeSetGroups,
+		}
+
+		return readSet, writeSet, true
 	}
 
 	for k, samePolicy := range sameSetPolicies {
@@ -206,18 +208,21 @@ func computeGroupUpdate(original, updated *cb.ConfigGroup) (readSet, writeSet *c
 		writeSetGroups[k] = sameGroup
 	}
 
-	return &cb.ConfigGroup{
-			Version:  original.Version,
-			Policies: readSetPolicies,
-			Values:   readSetValues,
-			Groups:   readSetGroups,
-		}, &cb.ConfigGroup{
-			Version:   original.Version + 1,
-			Policies:  writeSetPolicies,
-			Values:    writeSetValues,
-			Groups:    writeSetGroups,
-			ModPolicy: updated.ModPolicy,
-		}, true
+	readSet = &cb.ConfigGroup{
+		Version:  original.Version,
+		Policies: readSetPolicies,
+		Values:   readSetValues,
+		Groups:   readSetGroups,
+	}
+	writeSet = &cb.ConfigGroup{
+		Version:   original.Version + 1,
+		Policies:  writeSetPolicies,
+		Values:    writeSetValues,
+		Groups:    writeSetGroups,
+		ModPolicy: updated.ModPolicy,
+	}
+
+	return readSet, writeSet, true
 }
 
 func Compute(original, updated *cb.Config) (*cb.ConfigUpdate, error) {

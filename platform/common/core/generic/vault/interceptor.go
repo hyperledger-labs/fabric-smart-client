@@ -41,17 +41,11 @@ type Interceptor[V driver.ValidationCode] struct {
 
 func EmptyRWSet() ReadWriteSet {
 	return ReadWriteSet{
-		ReadSet: ReadSet{
-			OrderedReads: map[string][]string{},
-			Reads:        Reads{},
-		},
-		WriteSet: WriteSet{
-			OrderedWrites: map[string][]string{},
-			Writes:        Writes{},
-		},
-		MetaWriteSet: MetaWriteSet{
-			MetaWrites: NamespaceKeyedMetaWrites{},
-		},
+		OrderedReads:  map[string][]string{},
+		Reads:         Reads{},
+		OrderedWrites: map[string][]string{},
+		Writes:        Writes{},
+		MetaWrites:    NamespaceKeyedMetaWrites{},
 	}
 }
 

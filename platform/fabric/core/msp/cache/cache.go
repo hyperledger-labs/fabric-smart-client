@@ -109,10 +109,8 @@ func (c *cachedMSP) DeserializeIdentity(serializedIdentity []byte) (msp.Identity
 func (c *cachedMSP) wrap(id msp.Identity) msp.Identity {
 	if sid, ok := id.(msp.SigningIdentity); ok {
 		return &cachedSigningIdentity{
-			cachedIdentity: cachedIdentity{
-				Identity: id,
-				cache:    c,
-			},
+			Identity:        id,
+			cache:           c,
 			SigningIdentity: sid,
 		}
 	}

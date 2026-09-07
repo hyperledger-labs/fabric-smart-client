@@ -88,9 +88,9 @@ func run(ccs []*grpc.ClientConn, makeCaller func(conn *grpc.ClientConn) workload
 		callers[i] = makeCaller(cc)
 	}
 
-	var rr uint64
+	var rr atomic.Uint64
 	pickCaller := func() workload.ClientFunc {
-		idx := atomic.AddUint64(&rr, 1)
+		idx := rr.Add(1)
 		return callers[idx%uint64(len(callers))]
 	}
 
@@ -133,7 +133,7 @@ var hopts = stats.HistogramOptions{
 
 func parseHist(hist *stats.Histogram, duration time.Duration) {
 	k := testing.BenchmarkResult{N: int(hist.Count), T: duration, Extra: map[string]float64{
-		"TPS":         float64(hist.Count) / (duration).Seconds(),
+		"TPS":         float64(hist.Count) / duration.Seconds(),
 		"ns/op (p5)":  float64(time.Duration(percentile(.5, hist))),
 		"ns/op (p95)": float64(time.Duration(percentile(.95, hist))),
 		"ns/op (p99)": float64(time.Duration(percentile(.99, hist))),
