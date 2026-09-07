@@ -1,0 +1,77 @@
+name: govulncheck
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+  schedule:
+    # Monday, like the Dependabot jobs in .github/dependabot.yml: a new advisory
+    # against an unchanged dependency is only found by re-scanning on a timer.
+    - cron: '17 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  # govulncheck only ever sees a single module, so it is run once per module.
+  # The list is discovered rather than hardcoded so a new module cannot be added
+  # without being scanned -- same reasoning as golangci-lint.yml.
+  #
+  # `make list-go-modules` omits tools/, which is what we want here: its packages
+  # are behind a `tools` build tag, so govulncheck matches nothing there and exits
+  # 2. Dependabot still updates that module's pins.
+  modules:
+    runs-on: ubuntu-latest
+    outputs:
+      dirs: ${{ steps.list.outputs.dirs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - name: list go modules
+        id: list
+        run: |
+          echo "dirs=$(make list-go-modules | jq -R . | jq -s -c .)" >> $GITHUB_OUTPUT
+
+  govulncheck:
+    needs:
+      - modules
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # Needed by upload-sarif.
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.modules.outputs.dirs) }}
+    steps:
+      - name: govulncheck
+        uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # ratchet:golang/govulncheck-action@v1.1.0
+        with:
+          work-dir: ${{ matrix.module }}
+          # govulncheck reports stdlib vulnerabilities against the toolchain it
+          # runs under, so that has to be the version the module declares. The
+          # action defaults go-version-input to 'stable', and setup-go ignores
+          # go-version-file whenever go-version is set, so blank it.
+          go-version-input: ''
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: "**/*.sum"
+          output-format: sarif
+          output-file: results.sarif
+
+      # govulncheck exits 0 in sarif mode even when it finds something, so the
+      # decision of what fails is left to code scanning rather than this job.
+      #
+      # Uploads are keyed by (ref, category) and replace the previous analysis for
+      # that pair, so every module needs its own category: sharing one would leave
+      # whichever matrix leg finishes last as the only module still reporting, and
+      # close every other module's alerts as fixed.
+      - name: upload results
+        uses: github/codeql-action/upload-sarif@c16c0f3f2812ec4bb3750a5ed64873fe2ce0fbef # ratchet:github/codeql-action/upload-sarif@codeql-bundle-v2.26.3
+        with:
+          sarif_file: results.sarif
+          category: govulncheck-${{ matrix.module }}
