@@ -1,5 +1,8 @@
 # Testing
 
+New functionality comes with tests in the same PR — the policy, and the few changes it
+exempts, is in [Contribution Workflow → Tests](../dev/workflow.md#tests).
+
 ## Frameworks
 
 - **Unit tests**: `github.com/stretchr/testify/require`.
