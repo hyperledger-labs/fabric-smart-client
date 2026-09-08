@@ -23,14 +23,20 @@ var (
 	// Max send and receive bytes for grpc clients and servers
 	MaxRecvMsgSize = 100 * 1024 * 1024
 	MaxSendMsgSize = 100 * 1024 * 1024
-	// DefaultTLSCipherSuites is the strong TLS cipher suites
+	// DefaultTLSCipherSuites is the strong TLS cipher suites offered by every FSC surface.
+	//
+	// ECDHE only: the TLS_RSA_WITH_AES_*_GCM_* suites this list used to carry have no
+	// forward secrecy. Go applies CipherSuites to TLS 1.2 only; TLS 1.3 peers negotiate
+	// their own fixed set regardless.
 	DefaultTLSCipherSuites = []uint16{
+		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
 		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
 		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 	}
 	// DefaultConnectionTimeout is the default connection timeout
 	DefaultConnectionTimeout = 5 * time.Second
@@ -61,15 +67,19 @@ type ClientKeepAliveConfig struct {
 
 // ConnectionConfig contains data required to establish grpc connection to a peer or orderer
 type ConnectionConfig struct {
-	Address            string        `yaml:"address,omitempty"`
-	ConnectionTimeout  time.Duration `yaml:"connectionTimeout,omitempty"`
-	TLSEnabled         bool          `yaml:"tlsEnabled,omitempty"`
-	TLSClientSideAuth  bool          `yaml:"tlsClientSideAuth,omitempty"`
-	TLSDisabled        bool          `yaml:"tlsDisabled,omitempty"`
-	TLSRootCertFile    string        `yaml:"tlsRootCertFile,omitempty"`
-	TLSRootCertBytes   [][]byte      `yaml:"tlsRootCertBytes,omitempty"`
-	ServerNameOverride string        `yaml:"serverNameOverride,omitempty"`
-	Usage              string        `yaml:"usage,omitempty"`
+	Address           string        `yaml:"address,omitempty"`
+	ConnectionTimeout time.Duration `yaml:"connectionTimeout,omitempty"`
+	Usage             string        `yaml:"usage,omitempty"`
+
+	// TLS is the resolved client-side TLS for this endpoint: already inherited per field
+	// from the network's tls block, with every configured file read and validated.
+	//
+	// It has no yaml tag. The endpoint's tls: block is resolved separately, because an array
+	// element has no addressable configuration key — see tlsconfig.ResolveEndpointClient.
+	// Trust anchors discovered at runtime, from a channel's MSPs, are appended to
+	// TLS.ServerRootCAs by whoever discovers them; they augment the configured pool rather
+	// than replacing it.
+	TLS SecureOptions `yaml:"-"`
 }
 
 // ServerConfig defines the parameters for configuring a GRPCServer instance
@@ -120,7 +130,11 @@ type SecureOptions struct {
 	// VerifyCertificate, if not nil, is called after normal
 	// certificate verification by either a TLS client or server.
 	// If it returns a non-nil error, the handshake is aborted and that error results.
-	VerifyCertificate func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
+	//
+	// Excluded from JSON: a callback is not configuration, and encoding/json rejects a func
+	// field outright — even a nil one — which would make every enclosing type
+	// unmarshalable. ConnectionConfig is persisted as JSON by the CLI, so this matters.
+	VerifyCertificate func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error `json:"-"`
 	// PEM-encoded X509 public key to be used for TLS communication
 	Certificate []byte
 	// PEM-encoded private key to be used for TLS communication
@@ -139,6 +153,10 @@ type SecureOptions struct {
 	CipherSuites []uint16
 	// TimeShift makes TLS handshakes time sampling shift to the past by a given duration
 	TimeShift time.Duration
+	// ServerNameOverride overrides the SNI name and the hostname verified in the server's
+	// certificate. Needed when dialling an IP address against a certificate issued for a
+	// hostname. Client-side only; a TLS server ignores it.
+	ServerNameOverride string
 }
 
 // ServerKeepaliveOptions returns gRPC keepalive options for server.

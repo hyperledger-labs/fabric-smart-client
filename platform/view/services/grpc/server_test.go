@@ -1147,22 +1147,20 @@ func TestUpdateTLSCert(t *testing.T) {
 func TestCipherSuites(t *testing.T) {
 	t.Parallel()
 
-	// default cipher suites
-	defaultCipherSuites := []uint16{
-		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-	}
-	// the other cipher suites supported by Go
+	// The server's default set. Referenced, not copied: this list used to be a hand-kept
+	// duplicate, and it silently went stale the moment DefaultTLSCipherSuites changed.
+	defaultCipherSuites := grpc3.DefaultTLSCipherSuites
+	// TLS 1.2 suites deliberately NOT in the default set, so a client offering only these
+	// must fail to handshake. Includes the static-RSA suites, which the default set dropped
+	// for having no forward secrecy.
 	otherCipherSuites := []uint16{
 		tls.TLS_RSA_WITH_RC4_128_SHA,
 		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
 		tls.TLS_RSA_WITH_AES_128_CBC_SHA,
 		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
 		tls.TLS_RSA_WITH_AES_128_CBC_SHA256,
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
 		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
 		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
@@ -1172,8 +1170,6 @@ func TestCipherSuites(t *testing.T) {
 		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
 		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
-		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
 	}
 	certPEM, err := os.ReadFile(filepath.Join("testdata", "certs", "Org1-server1-cert.pem"))
 	require.NoError(t, err)

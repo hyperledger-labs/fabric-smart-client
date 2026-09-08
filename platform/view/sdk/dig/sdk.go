@@ -39,6 +39,7 @@ import (
 	sqlite2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/sqlite"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/kvs"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/signerinfo"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tlsconfig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view"
 	viewgrpcserver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/view/grpc/server"
@@ -163,7 +164,10 @@ func (p *SDK) Install() error {
 
 		// Web server
 		p.Container().Provide(NewWebServer),
-		p.Container().Provide(digutils.Identity[Server](), dig.As(new(operations.Server))),
+		p.Container().Provide(NewOperationsServer),
+		// The operations endpoints are served on their own listener when fsc.metrics.address
+		// is set, and on the web listener otherwise.
+		p.Container().Provide(func(ops OperationsServer) operations.Server { return ops }, dig.As(new(operations.Server))),
 
 		// GRPC server
 		p.Container().Provide(viewgrpcserver.NewResponseMarshaler, dig.As(new(viewgrpcserver.Marshaller))),
@@ -203,6 +207,21 @@ func (p *SDK) Install() error {
 }
 
 func (p *SDK) Start(ctx context.Context) error {
+	// Reject removed configuration keys before anything else, in its own Invoke so only
+	// the config service is constructed. NewGRPCServer binds its listener during
+	// construction (grpc/server.go:55), so folding this into the Invoke below would open
+	// the port before the check ran. A configuration that does not mean what it says must
+	// fail with nothing listening.
+	//
+	// The resolvable half needs no separate pass: dig builds GRPCServer and WebServer
+	// through tlsconfig, so a bad tls: block already fails construction. Removed keys sit
+	// outside any tls: subtree, which is why they need naming explicitly.
+	if err := p.Container().Invoke(func(configService driver.ConfigService) error {
+		return tlsconfig.CheckRemovedKeys(configService, "fsc")
+	}); err != nil {
+		return err
+	}
+
 	if err := p.SDK.Start(ctx); err != nil {
 		return err
 	}
@@ -214,6 +233,7 @@ func (p *SDK) Start(ctx context.Context) error {
 		ViewService      viewgrpcserver.Service
 		CommService      *comm.Service
 		WebServer        Server
+		OperationsServer OperationsServer
 		System           *operations.System
 		KVS              *kvs.KVS
 		TracerProvider   tracing.Provider
@@ -230,7 +250,7 @@ func (p *SDK) Start(ctx context.Context) error {
 			return err
 		}
 
-		Serve(in.GRPCServer, in.WebServer, in.System, in.KVS, ctx)
+		Serve(in.GRPCServer, in.WebServer, in.OperationsServer, in.System, in.KVS, ctx)
 
 		return nil
 	})

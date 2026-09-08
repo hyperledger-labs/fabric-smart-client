@@ -8,6 +8,7 @@ package membership
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
@@ -223,14 +224,11 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 		return "", nil, errors.Errorf("orderer config does not exist for channel [%s]", c.channelName)
 	}
 
-	tlsEnabled, isSet := cs.OrderingTLSEnabled()
-	if !isSet {
-		tlsEnabled = cs.TLSEnabled()
-	}
-	tlsClientSideAuth, isSet := cs.OrderingTLSClientAuthRequired()
-	if !isSet {
-		tlsClientSideAuth = cs.TLSClientAuthRequired()
-	}
+	// The network's configured client TLS. Discovered trust anchors augment its pool rather
+	// than replacing it: a bootstrap or development setup needs an anchor before the first
+	// configuration block has been fetched, and the file cannot remove what the channel
+	// supplies.
+	networkTLS := cs.NetworkClientTLS()
 	connectionTimeout := cs.ClientConnTimeout()
 
 	var newOrderers []*grpc.ConnectionConfig
@@ -244,12 +242,13 @@ func (c *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 			if len(endpoint) == 0 {
 				continue
 			}
+			endpointTLS := networkTLS
+			endpointTLS.ServerRootCAs = append(
+				slices.Clone(networkTLS.ServerRootCAs), tlsRootCerts...)
 			newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 				Address:           endpoint,
 				ConnectionTimeout: connectionTimeout,
-				TLSEnabled:        tlsEnabled,
-				TLSClientSideAuth: tlsClientSideAuth,
-				TLSRootCertBytes:  tlsRootCerts,
+				TLS:               endpointTLS,
 			})
 		}
 	}

@@ -281,25 +281,35 @@ fabric:
                Hash: {{ .Opts.PKCS11.Hash }}
                Security: {{ .Opts.PKCS11.Security }}
     {{- end }}
+    # Client-side TLS for every connection this node dials on this network. Each orderer and
+    # peer inherits these field by field and overrides only what it sets.
     tls:
       enabled:  {{ TLSEnabled }}
-      clientAuthRequired: {{ .ClientAuthRequired }}
+      # Present a client certificate to the server. Replaces clientAuthRequired, which named
+      # a server-side concept for a block that is only ever a client.
+      clientAuthEnabled: {{ .ClientAuthRequired }}
       {{- if .ClientAuthRequired }}
       clientCert:
         file: {{ .PeerLocalTLSDir Peer }}/server.crt
       clientKey:
         file: {{ .PeerLocalTLSDir Peer }}/server.key
-      {{- end }} 
+      {{- end }}
+      # Trust anchors for the whole network, rather than repeated on every endpoint. Anchors
+      # discovered from a channel's MSPs augment this pool; they do not replace it.
+      rootCAs:
+        files:
+        - {{ CACertsBundlePath }}
     ordering:
       numRetries: 3
       retryInterval: 3s
-      tlsEnabled: {{ TLSEnabled }}
     peers: {{ range Peers }}
       - address: {{ PeerAddress . "Listen" }}
-        connectionTimeout: 10s        
-        tlsRootCertFile: {{ CACertsBundlePath }}
-        serverNameOverride:
-        {{ if .TLSDisabled }}tlsDisabled: {{ .TLSDisabled }} {{ end }}
+        connectionTimeout: 10s
+        {{- if .TLSDisabled }}
+        # This peer alone speaks plaintext.
+        tls:
+          enabled: false
+        {{- end }}
         {{ if .Usage }}usage: {{ .Usage }} {{ end }}
     {{- end }}
     # applies only to FabricX

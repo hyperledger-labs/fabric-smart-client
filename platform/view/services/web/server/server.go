@@ -9,107 +9,25 @@ package server
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"net"
 	"net/http"
 	"os"
 	"time"
 
 	utils2 "github.com/hyperledger-labs/fabric-smart-client/pkg/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	middleware2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server/middleware"
 )
 
 var logger = logging.MustGetLogger()
 
-type TLS struct {
-	Enabled           bool
-	CertFile          string
-	KeyFile           string
-	ClientAuth        bool
-	ClientCACertFiles []string
-}
-
-func (t TLS) Config() (*tls.Config, error) {
-	var tlsConfig *tls.Config
-
-	if !t.Enabled {
-		// no TLS
-		return tlsConfig, nil
-	}
-
-	// TLS setup
-	cert, err := tls.LoadX509KeyPair(t.CertFile, t.KeyFile)
-	if err != nil {
-		return nil, err
-	}
-
-	tlsConfig = &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-		},
-		MinVersion: tls.VersionTLS12,
-		MaxVersion: tls.VersionTLS13,
-	}
-
-	if !t.ClientAuth {
-		// no mTLS
-		// Optional: verify client certificates if provided, but don't require them
-		if len(t.ClientCACertFiles) > 0 {
-			caCertPool, err := loadClientCAs(t.ClientCACertFiles)
-			if err != nil {
-				return nil, err
-			}
-			tlsConfig.ClientCAs = caCertPool
-			tlsConfig.ClientAuth = tls.VerifyClientCertIfGiven
-		}
-		return tlsConfig, nil
-	}
-
-	// mTLS
-	// Require client certificates and verify them
-	if len(t.ClientCACertFiles) == 0 {
-		return nil, errors.Errorf("client TLS CA certificate pool must not be empty when clientAuthRequired is true")
-	}
-
-	// mTLS Enforcement:
-	// 1. Require client certificates: The handshake will fail if the client doesn't provide one.
-	// 2. Verify client certificates: The certificate must be signed by one of the CAs in the pool.
-	caCertPool, err := loadClientCAs(t.ClientCACertFiles)
-	if err != nil {
-		return nil, err
-	}
-	tlsConfig.ClientCAs = caCertPool
-	tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-
-	return tlsConfig, nil
-}
-
-func loadClientCAs(clientCACertFiles []string) (*x509.CertPool, error) {
-	caCertPool := x509.NewCertPool()
-	for _, caPath := range clientCACertFiles {
-		caPem, err := os.ReadFile(caPath)
-		if err != nil {
-			return nil, err
-		}
-		caCertPool.AppendCertsFromPEM(caPem)
-	}
-	return caCertPool, nil
-}
-
 type Options struct {
 	ListenAddress string
-	TLS           TLS
+	// TLS is the resolved server-side TLS for this listener. Resolution, validation and
+	// file loading all happen in platform/view/services/tlsconfig before it gets here.
+	TLS grpc.SecureOptions
 }
 
 type Server struct {
@@ -204,7 +122,7 @@ func (s *Server) listen() (net.Listener, error) {
 	if err != nil {
 		return nil, err
 	}
-	tlsConfig, err := s.options.TLS.Config()
+	tlsConfig, err := s.options.TLS.TLSConfig()
 	if err != nil {
 		return nil, err
 	}

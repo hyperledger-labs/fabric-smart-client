@@ -54,7 +54,8 @@ func (f *fakeServer) stopped() bool {
 func TestServe_WaitsForServersOnShutdown(t *testing.T) { //nolint:paralleltest // relies on server-goroutine shutdown timing; must run serially
 	ctx, cancel := context.WithCancel(context.Background())
 	ws := newFakeServer() // Start blocks until Stop
-	wg := serve(nil, ws, nil, nil, ctx)
+	// Zero OperationsServer: the endpoints share the web listener, so serve starts none.
+	wg := serve(nil, ws, OperationsServer{}, nil, nil, ctx)
 	cancel()
 	done := make(chan struct{})
 	go func() { wg.Wait(); close(done) }()
