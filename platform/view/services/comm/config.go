@@ -54,10 +54,10 @@ func NewConfig(cs configService) *config {
 	if streamReaderBufferSize <= 0 {
 		streamReaderBufferSize = DefaultStreamReaderBufferSize
 	}
-	if maxRecvMsgSize < 0 {
+	if maxRecvMsgSize <= 0 {
 		maxRecvMsgSize = DefaultMaxMessageSize
 	}
-	if maxSendMsgSize < 0 {
+	if maxSendMsgSize <= 0 {
 		maxSendMsgSize = DefaultMaxMessageSize
 	}
 

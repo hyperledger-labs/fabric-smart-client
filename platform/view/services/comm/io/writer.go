@@ -76,7 +76,12 @@ func (w *protoWriter) WriteMsg(msg proto.Message) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal the message: [%s]", msg)
 	}
-	if w.maxSendMsgSize > 0 && len(data) > w.maxSendMsgSize {
+	// A non-positive limit is a misconfiguration, not "unlimited", matching
+	// varintReader.ReadData: the limit cannot be disabled.
+	if w.maxSendMsgSize <= 0 {
+		return errors.Errorf("max send message size [%d] must be positive", w.maxSendMsgSize)
+	}
+	if len(data) > w.maxSendMsgSize {
 		return errors.Errorf("message size %d exceeds maximum send size %d", len(data), w.maxSendMsgSize)
 	}
 	return w.w.WriteData(data)

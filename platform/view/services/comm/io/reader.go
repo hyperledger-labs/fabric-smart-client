@@ -50,14 +50,67 @@ func (r *varintReader) ReadData() ([]byte, error) {
 		return nil, err
 	}
 
-	if r.maxMessageSize > 0 && l > uint64(r.maxMessageSize) {
+	// A non-positive limit is a misconfiguration, not "unlimited": treating it as
+	// unlimited would let a peer claim any length and have it allocated below.
+	if r.maxMessageSize <= 0 {
+		return nil, errors.Errorf("max message size [%d] must be positive", r.maxMessageSize)
+	}
+	if l > uint64(r.maxMessageSize) {
 		return nil, errors.Errorf("message length [%d] exceeds max message size [%d]", l, r.maxMessageSize)
 	}
 
-	buffer := make([]byte, l) // We can re-use the buffer to avoid allocations
-
-	if n, err := io.ReadFull(r.r, buffer); err != nil || n != int(l) {
+	// The claimed length is bounded but still attacker-controlled, so it is not
+	// trusted for the allocation: grow the buffer while reading so a peer must
+	// actually send the bytes it claims.
+	buffer, err := readFullGrowing(r.r, int(l))
+	if err != nil {
 		return nil, errors.Wrapf(err, "error reading message of length [%d]", l)
+	}
+	return buffer, nil
+}
+
+// initialReadBufferCap bounds the allocation made before any payload byte has
+// been read. A message larger than this grows geometrically as data arrives.
+const initialReadBufferCap = 64 * 1024
+
+// maxConsecutiveEmptyReads bounds how many (0, nil) reads are tolerated before
+// giving up. io.Reader permits them, so without this a peer holding a stream
+// open without sending data would spin its per-stream goroutine forever.
+const maxConsecutiveEmptyReads = 100
+
+// readFullGrowing reads exactly n bytes, growing the buffer as data arrives
+// rather than allocating n up front. It returns an error if the reader ends
+// before n bytes have been read.
+func readFullGrowing(r io.Reader, n int) ([]byte, error) {
+	buffer := make([]byte, 0, min(n, initialReadBufferCap))
+	empty := 0
+	for len(buffer) < n {
+		if len(buffer) == cap(buffer) {
+			// Grow geometrically, never past the message length.
+			buffer = append(buffer, 0)[:len(buffer)]
+		}
+		read, err := r.Read(buffer[len(buffer):min(cap(buffer), n)])
+		buffer = buffer[:len(buffer)+read]
+		if err != nil {
+			// Any error is forgiven once the whole message has arrived, matching
+			// io.ReadAtLeast (which io.ReadFull wraps): bufio.Reader's large-read
+			// fast path returns the final bytes together with the underlying
+			// error, so a complete message must not be rejected because of it.
+			if len(buffer) == n {
+				break
+			}
+			if errors.Is(err, io.EOF) {
+				err = io.ErrUnexpectedEOF
+			}
+			return nil, err
+		}
+		if read == 0 {
+			if empty++; empty >= maxConsecutiveEmptyReads {
+				return nil, io.ErrNoProgress
+			}
+			continue
+		}
+		empty = 0
 	}
 	return buffer, nil
 }
