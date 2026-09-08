@@ -147,10 +147,10 @@ func TestNewClient_Success_Configures_Client_Correctly(t *testing.T) {
 		{
 			name: "Mutual_TLS_Loads_Client_Certificates",
 			config: Config{
-				Host:        "localhost:8443",
-				CACertPath:  caPath,
-				TLSCertPath: certPath,
-				TLSKeyPath:  keyPath,
+				Host:       "localhost:8443",
+				CACertPath: caPath,
+				TLSCertRaw: mustRead(t, certPath),
+				TLSKeyRaw:  mustRead(t, keyPath),
 			},
 			expectTLS:           true,
 			expectURL:           "https://localhost:8443",
@@ -204,10 +204,10 @@ func TestNewClient_Error_Returns_Descriptive_Failure(t *testing.T) {
 		{
 			name: "Invalid_Client_Certificate_Fails_With_KeyPair_Error",
 			config: Config{
-				Host:        "localhost:8443",
-				CACertPath:  caPath,
-				TLSCertPath: writeTempFile(t, "bad-cert.pem", []byte("not-a-cert")),
-				TLSKeyPath:  writeTempFile(t, "bad-key.pem", []byte("not-a-key")),
+				Host:       "localhost:8443",
+				CACertPath: caPath,
+				TLSCertRaw: []byte("not-a-cert"),
+				TLSKeyRaw:  []byte("not-a-key"),
 			},
 			expectedErrMsg: "failed to load x509 key pair",
 		},
@@ -435,4 +435,11 @@ func writeTempFile(t *testing.T, name string, data []byte) string {
 	path := filepath.Join(t.TempDir(), name)
 	require.NoError(t, os.WriteFile(path, data, 0o600))
 	return path
+}
+
+func mustRead(t *testing.T, path string) []byte {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return b
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/integration/nwo/fsc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/services/logging"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
-	"github.com/hyperledger-labs/fabric-smart-client/platform/fabricx/core/committer/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 )
 
@@ -37,12 +36,14 @@ type CommitterConfig struct {
 	EnvVars      map[string]string
 }
 
+// Extension contributes the Fabric-x sidecar services to a network topology.
 type Extension struct {
 	channel *fabric_topo.Channel
 	network *network.Network
 	cfg     CommitterConfig
 }
 
+// NewExtension returns the sidecar extension for the given network.
 func NewExtension(topology *fabric_topo.Topology, network *network.Network, cfg CommitterConfig) *Extension {
 	if len(topology.Channels) != 1 {
 		panic(fmt.Sprintf("expected exactly one channel, got %d", len(topology.Channels)))
@@ -57,17 +58,21 @@ func NewExtension(topology *fabric_topo.Topology, network *network.Network, cfg 
 	}
 }
 
+// CheckTopology registers the sidecar peer and its ports on the topology.
 func (e *Extension) CheckTopology() {
 	// we add "another peer" for the committer to use its credentials
 	e.addSCPeer()
 }
 
+// GenerateArtifacts writes the query and notification service configuration into each FSC
+// node's core.yaml.
 func (e *Extension) GenerateArtifacts() {
 	// generate fsc node core yaml extensions
 	generateQSExtension(e.network, e.cfg.SidecarOrg, e.cfg.SidecarName)
 	generateNSExtension(e.network, e.cfg.SidecarOrg, e.cfg.SidecarName)
 }
 
+// PostRun starts the sidecar container once the network is up.
 func (e *Extension) PostRun(load bool) {
 	// TODO: we want to launch one SC per org
 	// run the docker container
@@ -104,6 +109,20 @@ func (e *Extension) addSCPeer() {
 	}
 }
 
+// endpointTemplate carries the CONFIGURATION of one endpoint, which is what an extension
+// writes into a node's core.yaml.
+//
+// Deliberately not config.Endpoint: that type now holds RESOLVED TLS — bytes already read
+// from disk — whereas a template has to emit the paths the node will resolve for itself.
+type endpointTemplate struct {
+	Address           string
+	ConnectionTimeout time.Duration
+	TLSEnabled        bool
+	RootCertPaths     []string
+	ClientCertPath    string
+	ClientKeyPath     string
+}
+
 func generateExtensions(n *network.Network, scAddr string, t *template.Template) {
 	context := n.Context
 
@@ -115,7 +134,7 @@ func generateExtensions(n *network.Network, scAddr string, t *template.Template)
 	type extensionData struct {
 		NetworkName    string
 		RequestTimeout time.Duration
-		Endpoints      []config.Endpoint
+		Endpoints      []endpointTemplate
 	}
 
 	topoName := n.Topology().Name()
@@ -129,25 +148,22 @@ func generateExtensions(n *network.Network, scAddr string, t *template.Template)
 		// When TLS is enabled, the sidecar query service requires mTLS.
 		// Use the fabric peer's TLS certs (signed by the fabric org CA)
 		// as client credentials so the sidecar accepts the connection.
-		var tlsConfig config.TLSConfig
-		if n.TLSEnabled {
-			tlsDir := n.PeerLocalTLSDir(fscPeer)
-			tlsConfig.Enabled = true
-			tlsConfig.ClientCertPath = filepath.Join(tlsDir, "server.crt")
-			tlsConfig.ClientKeyPath = filepath.Join(tlsDir, "server.key")
-			tlsConfig.RootCertPaths = []string{n.CACertsBundlePath()}
-		}
-
-		endpoint := config.Endpoint{
+		endpoint := endpointTemplate{
 			Address:           scAddr,
 			ConnectionTimeout: grpc.DefaultConnectionTimeout,
-			TLS:               &tlsConfig,
+		}
+		if n.TLSEnabled {
+			tlsDir := n.PeerLocalTLSDir(fscPeer)
+			endpoint.TLSEnabled = true
+			endpoint.ClientCertPath = filepath.Join(tlsDir, "server.crt")
+			endpoint.ClientKeyPath = filepath.Join(tlsDir, "server.key")
+			endpoint.RootCertPaths = []string{n.CACertsBundlePath()}
 		}
 
 		data := extensionData{
 			NetworkName:    topoName,
 			RequestTimeout: 10 * time.Second,
-			Endpoints:      []config.Endpoint{endpoint},
+			Endpoints:      []endpointTemplate{endpoint},
 		}
 
 		var extension bytes.Buffer

@@ -16,7 +16,6 @@ import (
 	sdk "github.com/hyperledger-labs/fabric-smart-client/platform/view/sdk/dig"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/tracing"
-	webserver "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/web/server"
 )
 
 // Report summarizes the checks performed during configuration validation.
@@ -58,33 +57,25 @@ func ValidateConfig(confPath string) (Report, error) {
 		report.Checks = append(report.Checks, fmt.Sprintf("validated fabric networks [%s]", strings.Join(fabricConfig.Names(), ", ")))
 	}
 
-	if configService.GetBool("fsc.grpc.enabled") {
-		if configService.GetString("fsc.grpc.address") == "" {
-			return report, errors.New("invalid fsc.grpc configuration: missing address")
-		}
-
-		if _, err := sdk.NewServerConfig(configService); err != nil {
-			return report, errors.Wrap(err, "invalid fsc.grpc configuration")
-		}
-		report.Checks = append(report.Checks, "validated fsc.grpc server configuration")
+	if configService.GetBool("fsc.grpc.enabled") && configService.GetString("fsc.grpc.address") == "" {
+		return report, errors.New("invalid fsc.grpc configuration: missing address")
+	}
+	if configService.GetBool("fsc.web.enabled") && configService.GetString("fsc.web.address") == "" {
+		return report, errors.New("invalid fsc.web configuration: missing address")
 	}
 
-	if configService.GetBool("fsc.web.enabled") {
-		if configService.GetString("fsc.web.address") == "" {
-			return report, errors.New("invalid fsc.web configuration: missing address")
+	// One call resolves and validates every fsc.* TLS surface and rejects removed keys,
+	// through exactly the code the node runs at startup. This used to hand-roll the web
+	// half, which is how the two drifted apart.
+	if err := sdk.CheckTLSConfig(configService); err != nil {
+		return report, errors.Wrap(err, "invalid TLS configuration")
+	}
+	// Reported per surface, not as one line: a disabled listener was not validated, and a
+	// report that claims otherwise is worse than no report.
+	for _, surface := range []string{"fsc.grpc", "fsc.web"} {
+		if configService.GetBool(surface + ".enabled") {
+			report.Checks = append(report.Checks, fmt.Sprintf("validated %s server configuration", surface))
 		}
-
-		tlsConfig := webserver.TLS{
-			Enabled:           configService.GetBool("fsc.web.tls.enabled"),
-			CertFile:          configService.GetPath("fsc.web.tls.cert.file"),
-			KeyFile:           configService.GetPath("fsc.web.tls.key.file"),
-			ClientAuth:        configService.GetBool("fsc.web.tls.clientAuthRequired"),
-			ClientCACertFiles: translatePaths(configService, configService.GetStringSlice("fsc.web.tls.clientRootCAs.files")),
-		}
-		if _, err := tlsConfig.Config(); err != nil {
-			return report, errors.Wrap(err, "invalid fsc.web TLS configuration")
-		}
-		report.Checks = append(report.Checks, "validated fsc.web server configuration")
 	}
 
 	if configService.IsSet("fsc.tracing") {
@@ -118,12 +109,4 @@ func validateTracingConfig(c tracing.Config) error {
 	default:
 		return errors.Errorf("unsupported provider [%s]", c.Provider)
 	}
-}
-
-func translatePaths(configService *config.Provider, paths []string) []string {
-	translated := make([]string, 0, len(paths))
-	for _, path := range paths {
-		translated = append(translated, configService.TranslatePath(path))
-	}
-	return translated
 }

@@ -80,7 +80,7 @@ func open(opts Opts) (*common.RWDB, error) {
 func openDB(dataSourceName string, maxOpenConns, maxIdleConns int, maxIdleTime time.Duration, skipPragmas bool, tracing *common2.TracingConfig) (*sql.DB, error) {
 	// Create directories if they do not exist to avoid error "out of memory (14)", see below
 	path := getDir(dataSourceName)
-	if err := os.MkdirAll(path, 0o777); err != nil {
+	if err := os.MkdirAll(path, 0o750); err != nil {
 		logger.Warnf("failed creating dir [%s]: %s", path, err)
 	}
 

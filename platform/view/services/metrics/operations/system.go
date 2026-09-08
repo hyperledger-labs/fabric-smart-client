@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 )
 
+// Logger is the subset of logging this package needs.
 type Logger interface {
 	Debugf(template string, args ...any)
 	Info(...any)
@@ -24,26 +25,28 @@ type Logger interface {
 	Warnf(template string, args ...any)
 }
 
+// MetricsOptions selects the metrics backend.
 type MetricsOptions struct {
 	Provider string
-	TLS      bool
 }
 
-type TLS struct {
-	Enabled bool
-}
-
+// Options configures the operations system.
 type Options struct {
-	TLS     TLS
 	Metrics MetricsOptions
 	Version string
 	Logger  Logger
+	// RequireClientCert makes the operations endpoints demand a verified client certificate.
+	// It follows the listener's own client authentication rather than being configured
+	// separately: an endpoint cannot require a certificate a listener never asks for.
+	RequireClientCert bool
 }
 
+// Server is the listener the operations endpoints are registered on.
 type Server interface {
 	RegisterHandler(s string, handler http.Handler, secure bool)
 }
 
+// System serves the node's operations endpoints and owns its metrics provider.
 type System struct {
 	metrics.Provider
 
@@ -55,13 +58,16 @@ type System struct {
 	versionGauge    metrics.Gauge
 }
 
+// NewOperationSystem registers the operations endpoints on server and initialises the
+// metrics provider. It returns an error if the configured provider cannot be initialised;
+// an unknown provider disables metrics with a warning rather than failing.
 func NewOperationSystem(server Server, l OperationsLogger, metricsProvider metrics.Provider, o *Options) (*System, error) {
 	system := &System{
 		Server:  server,
 		logger:  l,
 		options: *o,
 	}
-	system.initializeLoggingHandler(o.TLS.Enabled)
+	system.initializeLoggingHandler(o.RequireClientCert)
 	if err := system.initializeMetricsProvider(metricsProvider, o.Metrics); err != nil {
 		return nil, errors.Wrap(err, "failed to initialize metrics provider")
 	}
@@ -69,11 +75,13 @@ func NewOperationSystem(server Server, l OperationsLogger, metricsProvider metri
 	return system, nil
 }
 
+// Start publishes the version gauge. The endpoints are already registered by this point.
 func (s *System) Start() error {
 	s.versionGauge.With("version", s.options.Version).Set(1)
 	return nil
 }
 
+// Stop halts the collector tickers. It is safe to call when Start was never called.
 func (s *System) Stop() error {
 	if s.collectorTicker != nil {
 		s.collectorTicker.Stop()
@@ -96,7 +104,7 @@ func (s *System) initializeMetricsProvider(provider metrics.Provider, m MetricsO
 		// responses:
 		//     '200':
 		//        description: Ok.
-		s.Server.RegisterHandler("/metrics", promhttp.Handler(), m.TLS)
+		s.Server.RegisterHandler("/metrics", promhttp.Handler(), s.options.RequireClientCert)
 	case "":
 		s.logger.Info("metrics disabled")
 	default:
@@ -106,7 +114,7 @@ func (s *System) initializeMetricsProvider(provider metrics.Provider, m MetricsO
 	return nil
 }
 
-func (s *System) initializeLoggingHandler(tlsEnabled bool) {
+func (s *System) initializeLoggingHandler(requireClientCert bool) {
 	// swagger:operation GET /logspec operations logspecget
 	// ---
 	// summary: Retrieves the active logging spec for a peer or orderer.
@@ -131,5 +139,5 @@ func (s *System) initializeLoggingHandler(tlsEnabled bool) {
 	//        description: Bad request.
 	// consumes:
 	//   - multipart/form-data
-	s.Server.RegisterHandler("/logspec", logging.NewSpecHandler(), tlsEnabled)
+	s.Server.RegisterHandler("/logspec", logging.NewSpecHandler(), requireClientCert)
 }

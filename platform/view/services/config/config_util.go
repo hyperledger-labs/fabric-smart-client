@@ -196,3 +196,26 @@ func EnhancedExactUnmarshal(v *koanf.Koanf, key string, output any) error {
 		Tag:           "yaml",
 	})
 }
+
+// StrictUnmarshalSubtree decodes a raw configuration subtree into output, returning an error
+// that names any key with no corresponding field. Unlike [EnhancedExactUnmarshal] it does
+// not read files: a `{file: ...}` map decodes to the path, not to the file's contents.
+func StrictUnmarshalSubtree(raw map[string]any, output any) error {
+	// ErrorUnused is scoped here rather than set globally, which would reject every SDK
+	// extension section. The file-reading hooks are omitted because they call os.ReadFile
+	// before TranslatePath has run, which breaks relative paths.
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		ErrorUnused:      true,
+		Result:           output,
+		WeaklyTypedInput: true,
+		TagName:          "yaml",
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+			customDecodeHook,
+		),
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed building strict decoder")
+	}
+	return decoder.Decode(raw)
+}
