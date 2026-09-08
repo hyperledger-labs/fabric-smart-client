@@ -10,28 +10,62 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
-// TestNamespaceWritesEquals covers the leaf comparison every Equals chain
-// bottoms out in: matching sets, differing lengths, a key present in one side
-// only, and a value mismatch.
-func TestNamespaceWritesEquals(t *testing.T) {
+// TestEntriesEqual drives every branch of the comparison all six Equals
+// implementations funnel through — length mismatch, missing key, value
+// mismatch, match — plus the namespace filter in getKeys.
+func TestEntriesEqual(t *testing.T) {
 	t.Parallel()
 
-	base := NamespaceWrites{"k1": []byte("v1"), "k2": []byte("v2")}
+	base := Writes{
+		"ns1": NamespaceWrites{"k1": []byte("v1")},
+		"ns2": NamespaceWrites{"k2": []byte("v2")},
+	}
+	same := Writes{
+		"ns1": NamespaceWrites{"k1": []byte("v1")},
+		"ns2": NamespaceWrites{"k2": []byte("v2")},
+	}
+	changed := Writes{
+		"ns1": NamespaceWrites{"k1": []byte("v1")},
+		"ns2": NamespaceWrites{"k2": []byte("changed")},
+	}
 
-	require.NoError(t, base.Equals(NamespaceWrites{"k1": []byte("v1"), "k2": []byte("v2")}))
+	require.NoError(t, base.Equals(same))
+	require.ErrorContains(t, base.Equals(Writes{"ns1": base["ns1"]}), "number of entries do not match [2]!=[1]")
+	require.ErrorContains(t, base.Equals(Writes{"ns1": base["ns1"], "other": nil}), "key not found [ns2]")
+	require.ErrorContains(t, base.Equals(changed), "entries for [ns2] do not match")
 
-	err := base.Equals(NamespaceWrites{"k1": []byte("v1")})
-	require.ErrorContains(t, err, "number of writes do not match")
+	require.NoError(t, base.Equals(changed, "ns1"), "the filter must ignore the ns2 mismatch")
+	require.ErrorContains(t, base.Equals(Writes{"ns1": base["ns1"]}, "ns1", "ns2"),
+		"number of entries do not match [2]!=[1]", "the reported counts are the filtered ones")
+	require.NoError(t, base.Equals(same, "absent"), "a filter matching no namespace compares nothing")
+}
 
-	err = base.Equals(NamespaceWrites{"k1": []byte("v1"), "other": []byte("v2")})
-	require.ErrorContains(t, err, "read not found [k2]")
+// TestEqualsWrappers checks each remaining Equals delegates to entriesEqual,
+// matching and mismatching. KeyedMetaWrites nests it one level deeper.
+func TestEqualsWrappers(t *testing.T) {
+	t.Parallel()
 
-	err = base.Equals(NamespaceWrites{"k1": []byte("v1"), "k2": []byte("different")})
-	require.ErrorContains(t, err, "writes for [k2] do not match")
+	require.NoError(t, NamespaceWrites{"k": []byte("v")}.Equals(NamespaceWrites{"k": []byte("v")}))
+	require.Error(t, NamespaceWrites{"k": []byte("v")}.Equals(NamespaceWrites{"k": []byte("x")}))
+
+	require.NoError(t, NamespaceReads{"k": Version("v")}.Equals(NamespaceReads{"k": Version("v")}))
+	require.Error(t, NamespaceReads{"k": Version("v")}.Equals(NamespaceReads{"k": Version("x")}))
+
+	reads := Reads{"ns": NamespaceReads{"k": Version("v")}}
+	require.NoError(t, reads.Equals(Reads{"ns": NamespaceReads{"k": Version("v")}}))
+	require.Error(t, reads.Equals(Reads{"ns": NamespaceReads{"k": Version("x")}}))
+
+	meta := KeyedMetaWrites{"k": MetaWrites{"m": []byte("v")}}
+	require.NoError(t, meta.Equals(KeyedMetaWrites{"k": MetaWrites{"m": []byte("v")}}))
+	require.Error(t, meta.Equals(KeyedMetaWrites{"k": MetaWrites{"m": []byte("x")}}))
+
+	nsMeta := NamespaceKeyedMetaWrites{"ns": meta}
+	require.NoError(t, nsMeta.Equals(NamespaceKeyedMetaWrites{"ns": meta}))
+	require.Error(t, nsMeta.Equals(NamespaceKeyedMetaWrites{
+		"ns": KeyedMetaWrites{"k": MetaWrites{"m": []byte("x")}},
+	}))
 }
 
 // TestNamespaceWritesKeys checks Keys reports every key held, and nothing for
@@ -39,122 +73,8 @@ func TestNamespaceWritesEquals(t *testing.T) {
 func TestNamespaceWritesKeys(t *testing.T) {
 	t.Parallel()
 
-	w := NamespaceWrites{"k1": []byte("v1"), "k2": []byte("v2")}
-	require.ElementsMatch(t, []string{"k1", "k2"}, w.Keys())
-
+	require.ElementsMatch(t, []string{"k1", "k2"}, NamespaceWrites{"k1": []byte("v1"), "k2": []byte("v2")}.Keys())
 	require.Empty(t, NamespaceWrites{}.Keys())
-}
-
-// TestWritesEquals covers the namespace-keyed layer, including the namespace
-// filter that restricts comparison to a subset.
-func TestWritesEquals(t *testing.T) {
-	t.Parallel()
-
-	base := Writes{
-		"ns1": NamespaceWrites{"k1": []byte("v1")},
-		"ns2": NamespaceWrites{"k2": []byte("v2")},
-	}
-
-	require.NoError(t, base.Equals(Writes{
-		"ns1": NamespaceWrites{"k1": []byte("v1")},
-		"ns2": NamespaceWrites{"k2": []byte("v2")},
-	}))
-
-	err := base.Equals(Writes{
-		"ns1": NamespaceWrites{"k1": []byte("v1")},
-		"ns2": NamespaceWrites{"k2": []byte("changed")},
-	})
-	require.ErrorContains(t, err, "writes for [ns2] do not match")
-
-	// Restricting to ns1 ignores the ns2 mismatch entirely.
-	require.NoError(t, base.Equals(Writes{
-		"ns1": NamespaceWrites{"k1": []byte("v1")},
-		"ns2": NamespaceWrites{"k2": []byte("changed")},
-	}, "ns1"))
-}
-
-// TestNamespaceReadsEquals covers the read-side leaf comparison.
-func TestNamespaceReadsEquals(t *testing.T) {
-	t.Parallel()
-
-	base := NamespaceReads{"k1": Version("v1"), "k2": Version("v2")}
-
-	require.NoError(t, base.Equals(NamespaceReads{"k1": Version("v1"), "k2": Version("v2")}))
-
-	err := base.Equals(NamespaceReads{"k1": Version("v1")})
-	require.ErrorContains(t, err, "number of writes do not match")
-
-	err = base.Equals(NamespaceReads{"k1": Version("v1"), "k2": Version("changed")})
-	require.ErrorContains(t, err, "writes for [k2] do not match")
-}
-
-// TestReadsEquals covers the namespace-keyed read layer and its filter.
-func TestReadsEquals(t *testing.T) {
-	t.Parallel()
-
-	base := Reads{
-		"ns1": NamespaceReads{"k1": Version("v1")},
-		"ns2": NamespaceReads{"k2": Version("v2")},
-	}
-
-	require.NoError(t, base.Equals(Reads{
-		"ns1": NamespaceReads{"k1": Version("v1")},
-		"ns2": NamespaceReads{"k2": Version("v2")},
-	}))
-
-	err := base.Equals(Reads{
-		"ns1": NamespaceReads{"k1": Version("v1")},
-		"ns2": NamespaceReads{"k2": Version("changed")},
-	})
-	require.ErrorContains(t, err, "writes for [ns2] do not match")
-
-	require.NoError(t, base.Equals(Reads{
-		"ns1": NamespaceReads{"k1": Version("v1")},
-		"ns2": NamespaceReads{"k2": Version("changed")},
-	}, "ns1"))
-}
-
-// TestKeyedMetaWritesEquals covers metadata comparison, which nests
-// entriesEqual one level deeper than the read and write sets.
-func TestKeyedMetaWritesEquals(t *testing.T) {
-	t.Parallel()
-
-	base := KeyedMetaWrites{"k1": MetaWrites{"m1": []byte("v1")}}
-
-	require.NoError(t, base.Equals(KeyedMetaWrites{"k1": MetaWrites{"m1": []byte("v1")}}))
-
-	err := base.Equals(KeyedMetaWrites{})
-	require.ErrorContains(t, err, "number of writes do not match")
-
-	err = base.Equals(KeyedMetaWrites{"k1": MetaWrites{"m1": []byte("changed")}})
-	require.ErrorContains(t, err, "writes for [k1] do not match")
-}
-
-// TestNamespaceKeyedMetaWritesEquals covers the outermost metadata layer and
-// its namespace filter.
-func TestNamespaceKeyedMetaWritesEquals(t *testing.T) {
-	t.Parallel()
-
-	base := NamespaceKeyedMetaWrites{
-		"ns1": KeyedMetaWrites{"k1": MetaWrites{"m1": []byte("v1")}},
-		"ns2": KeyedMetaWrites{"k2": MetaWrites{"m2": []byte("v2")}},
-	}
-
-	require.NoError(t, base.Equals(NamespaceKeyedMetaWrites{
-		"ns1": KeyedMetaWrites{"k1": MetaWrites{"m1": []byte("v1")}},
-		"ns2": KeyedMetaWrites{"k2": MetaWrites{"m2": []byte("v2")}},
-	}))
-
-	err := base.Equals(NamespaceKeyedMetaWrites{
-		"ns1": KeyedMetaWrites{"k1": MetaWrites{"m1": []byte("v1")}},
-		"ns2": KeyedMetaWrites{"k2": MetaWrites{"m2": []byte("changed")}},
-	})
-	require.ErrorContains(t, err, "writes for [ns2] do not match")
-
-	require.NoError(t, base.Equals(NamespaceKeyedMetaWrites{
-		"ns1": KeyedMetaWrites{"k1": MetaWrites{"m1": []byte("v1")}},
-		"ns2": KeyedMetaWrites{"k2": MetaWrites{"m2": []byte("changed")}},
-	}, "ns1"))
 }
 
 // TestWriteSetClear checks Clear empties one namespace and leaves others
@@ -215,21 +135,6 @@ func TestMetaWriteSetClear(t *testing.T) {
 	require.True(t, rws.MetaWriteSet.In("ns2", "k2"), "other namespaces are untouched")
 }
 
-// TestGetKeysNamespaceFilter covers getKeys directly: unfiltered it returns
-// every namespace, filtered it returns the intersection.
-func TestGetKeysNamespaceFilter(t *testing.T) {
-	t.Parallel()
-
-	m := map[driver.Namespace]NamespaceWrites{
-		"ns1": {"k1": []byte("v1")},
-		"ns2": {"k2": []byte("v2")},
-	}
-
-	require.ElementsMatch(t, []string{"ns1", "ns2"}, getKeys(m))
-	require.ElementsMatch(t, []string{"ns1"}, getKeys(m, "ns1"))
-	require.Empty(t, getKeys(m, "absent"))
-}
-
 // TestAddRejectsInvalidNamespace covers the validation branch both Add
 // implementations share, which returns before touching the underlying map.
 func TestAddRejectsInvalidNamespace(t *testing.T) {
@@ -237,11 +142,38 @@ func TestAddRejectsInvalidNamespace(t *testing.T) {
 
 	rws := EmptyRWSet()
 
-	err := rws.WriteSet.Add("", "k1", []byte("v1"))
-	require.Error(t, err)
+	require.Error(t, rws.WriteSet.Add("", "k1", []byte("v1")))
 	require.Empty(t, rws.Writes, "a rejected write must not create the namespace")
 
-	err = rws.MetaWriteSet.Add("", "k1", map[string][]byte{"m1": []byte("v1")})
-	require.Error(t, err)
+	require.Error(t, rws.MetaWriteSet.Add("", "k1", map[string][]byte{"m1": []byte("v1")}))
 	require.Empty(t, rws.MetaWrites, "a rejected write must not create the namespace")
+}
+
+// TestSetAddIsIdempotent pins the ordered-key bookkeeping when the same key is
+// recorded twice. The ordered slice must stay in step with the map: callers
+// iterate 0..NumReads-1 and index the slice (KeyExist in platform/fabric/vault.go,
+// anyKeyContains in platform/fabricx/core/transaction/rwset/loader.go), so a
+// duplicate entry would hide every key recorded after it.
+func TestSetAddIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	rws := EmptyRWSet()
+	rws.ReadSet.Add("ns", "k1", Version("v1"))
+	rws.ReadSet.Add("ns", "k1", Version("v2"))
+	rws.ReadSet.Add("ns", "k2", Version("v3"))
+
+	require.Equal(t, []string{"k1", "k2"}, rws.OrderedReads["ns"])
+	require.Len(t, rws.Reads["ns"], len(rws.OrderedReads["ns"]))
+
+	version, in := rws.ReadSet.Get("ns", "k1")
+	require.True(t, in)
+	require.Equal(t, Version("v2"), version, "the later read wins")
+
+	// WriteSet.Add already behaved this way; assert it so the two stay aligned.
+	require.NoError(t, rws.WriteSet.Add("ns", "k1", []byte("v1")))
+	require.NoError(t, rws.WriteSet.Add("ns", "k1", []byte("v2")))
+	require.NoError(t, rws.WriteSet.Add("ns", "k2", []byte("v3")))
+
+	require.Equal(t, []string{"k1", "k2"}, rws.OrderedWrites["ns"])
+	require.Equal(t, []byte("v2"), rws.WriteSet.Get("ns", "k1"), "the later write wins")
 }

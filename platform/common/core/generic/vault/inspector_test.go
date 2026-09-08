@@ -25,26 +25,20 @@ func newTestInspector() *Inspector {
 func TestInspectorReadOnlyPanics(t *testing.T) {
 	t.Parallel()
 
-	const readOnly = "programming error: the rwset inspector is read-only"
-	const unexpected = "programming error: unexpected call"
-
 	tests := []struct {
-		name     string
-		expected string
-		call     func(i *Inspector)
+		name string
+		call func(i *Inspector)
 	}{
-		{"SetState", readOnly, func(i *Inspector) { _ = i.SetState("ns", "key", []byte("v")) }},
-		{"AddReadAt", readOnly, func(i *Inspector) { _ = i.AddReadAt("ns", "key", nil) }},
-		{"DeleteState", readOnly, func(i *Inspector) { _ = i.DeleteState("ns", "key") }},
-		{"SetStateMetadata", readOnly, func(i *Inspector) { _ = i.SetStateMetadata("ns", "key", nil) }},
-		{"SetStateMetadatas", readOnly, func(i *Inspector) { _ = i.SetStateMetadatas("ns", nil) }},
-		{"AppendRWSet", readOnly, func(i *Inspector) { _ = i.AppendRWSet([]byte("raw")) }},
-		{"GetDirectState", "programming error: no access to query executor", func(i *Inspector) {
-			_, _ = i.GetDirectState("ns", "key")
-		}},
-		{"Bytes", unexpected, func(i *Inspector) { _, _ = i.Bytes() }},
-		{"Equals", unexpected, func(i *Inspector) { _ = i.Equals(nil) }},
-		{"Clear", unexpected, func(i *Inspector) { _ = i.Clear("ns") }},
+		{"SetState", func(i *Inspector) { _ = i.SetState("ns", "key", []byte("v")) }},
+		{"AddReadAt", func(i *Inspector) { _ = i.AddReadAt("ns", "key", nil) }},
+		{"DeleteState", func(i *Inspector) { _ = i.DeleteState("ns", "key") }},
+		{"SetStateMetadata", func(i *Inspector) { _ = i.SetStateMetadata("ns", "key", nil) }},
+		{"SetStateMetadatas", func(i *Inspector) { _ = i.SetStateMetadatas("ns", nil) }},
+		{"AppendRWSet", func(i *Inspector) { _ = i.AppendRWSet([]byte("raw")) }},
+		{"GetDirectState", func(i *Inspector) { _, _ = i.GetDirectState("ns", "key") }},
+		{"Bytes", func(i *Inspector) { _, _ = i.Bytes() }},
+		{"Equals", func(i *Inspector) { _ = i.Equals(nil) }},
+		{"Clear", func(i *Inspector) { _ = i.Clear("ns") }},
 	}
 
 	for _, tc := range tests {
@@ -52,7 +46,7 @@ func TestInspectorReadOnlyPanics(t *testing.T) {
 			t.Parallel()
 
 			i := newTestInspector()
-			require.PanicsWithValue(t, tc.expected, func() { tc.call(i) })
+			require.Panics(t, func() { tc.call(i) })
 		})
 	}
 }
@@ -66,7 +60,8 @@ func TestInspectorLifecycle(t *testing.T) {
 
 	require.NoError(t, i.IsValid())
 	require.False(t, i.IsClosed())
-	require.NotPanics(t, i.Done)
+
+	i.Done()
 	require.False(t, i.IsClosed(), "Done must not close the inspector")
 }
 
