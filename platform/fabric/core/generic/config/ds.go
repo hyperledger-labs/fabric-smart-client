@@ -158,9 +158,9 @@ func (c *Channel) CommitParallelism() int {
 
 func (c *Channel) CommitterPollingTimeout() time.Duration {
 	if c.Committer.PollingTimeout == 0 {
-		return 100 * time.Millisecond
+		return 1 * time.Second
 	}
-	return c.Committer.PollingTimeout
+	return max(c.Committer.PollingTimeout, time.Millisecond)
 }
 
 func (c *Channel) DeliverySleepAfterFailure() time.Duration {

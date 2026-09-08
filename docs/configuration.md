@@ -589,7 +589,7 @@ fabric:
         # section about the committer service
         committer:
           waitForEventTimeout: 300s
-          pollingTimeout: 100ms
+          pollingTimeout: 1s
           finality:
             numRetries: 3
             unknownTxTimeout: 100ms

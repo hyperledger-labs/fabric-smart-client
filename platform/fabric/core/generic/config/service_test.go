@@ -144,7 +144,7 @@ func TestChannelHelpers(t *testing.T) {
 	// default values
 	require.Equal(t, time.Duration(5*time.Minute), ch.DiscoveryDefaultTTLS())
 	require.Equal(t, 1, ch.CommitParallelism())
-	require.Equal(t, 100*time.Millisecond, ch.CommitterPollingTimeout())
+	require.Equal(t, 1*time.Second, ch.CommitterPollingTimeout())
 	require.Equal(t, 10*time.Second, ch.DeliverySleepAfterFailure())
 	require.Equal(t, 20*time.Second, ch.FinalityWaitTimeout())
 	require.Equal(t, 1, ch.FinalityEventQueueWorkers())
@@ -154,6 +154,10 @@ func TestChannelHelpers(t *testing.T) {
 	require.Equal(t, 3, ch.CommitterFinalityNumRetries())
 	require.Equal(t, time.Duration(100*time.Millisecond), ch.CommitterFinalityUnknownTXTimeout())
 	require.Equal(t, time.Minute, ch.FinalityForPartiesWaitTimeout())
+
+	// test PollingTimeout clamping
+	require.Equal(t, time.Millisecond, (&cfg.Channel{Committer: cfg.Committer{PollingTimeout: -5 * time.Millisecond}}).CommitterPollingTimeout())
+	require.Equal(t, time.Millisecond, (&cfg.Channel{Committer: cfg.Committer{PollingTimeout: 500 * time.Microsecond}}).CommitterPollingTimeout())
 
 	// ChaincodeConfigs should convert to driver.ChaincodeConfig
 	cc := &cfg.Chaincode{Name: "cc1"}

@@ -49,6 +49,11 @@ type ChannelConfig struct {
 	FinalityUnknownTimeout   time.Duration
 	WaitForEventTimeout      time.Duration
 	FinalityEventQueueWorker int
+	PollingTimeout           time.Duration
+}
+
+func (c *ChannelConfig) CommitterPollingTimeout() time.Duration {
+	return c.PollingTimeout
 }
 
 func (c *ChannelConfig) ID() string {

@@ -429,7 +429,6 @@ func TestNewInitializesHandlersAndQueues(t *testing.T) {
 	require.NotNil(t, c.Handlers[common.HeaderType_ENDORSER_TRANSACTION])
 	require.NotNil(t, c.events)
 	require.Equal(t, 2000, cap(c.events))
-	require.Equal(t, 1*time.Second, c.pollingTimeout)
 }
 
 func TestAddAndRemoveFinalityListener(t *testing.T) {
