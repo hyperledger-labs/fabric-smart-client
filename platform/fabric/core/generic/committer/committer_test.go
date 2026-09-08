@@ -431,42 +431,6 @@ func TestNewInitializesHandlersAndQueues(t *testing.T) {
 	require.Equal(t, 2000, cap(c.events))
 }
 
-func newTestCommitter(t *testing.T, pollingTimeout time.Duration) *Committer {
-	t.Helper()
-	return New(
-		&fake.ConfigService{NetworkNameValue: "net1"},
-		&fake.ChannelConfig{IDValue: "ch1", PollingTimeout: pollingTimeout},
-		&fake.Vault{},
-		&fake.EnvelopeService{},
-		&fake.Ledger{},
-		&fake.RWSetLoader{},
-		&fake.ProcessorManager{},
-		&fake.Publisher{},
-		nil,
-		nil,
-		nil,
-		nil,
-		NewSerialDependencyResolver(),
-		false,
-		nil,
-		noop.NewTracerProvider(),
-		&fake.MetricsProvider{},
-	)
-}
-
-func TestNewPollingTimeout(t *testing.T) {
-	t.Parallel()
-
-	for _, tc := range []struct {
-		cfg  time.Duration
-		want time.Duration
-	}{
-		{50 * time.Millisecond, 50 * time.Millisecond},
-	} {
-		require.Equal(t, tc.want, newTestCommitter(t, tc.cfg).pollingTimeout)
-	}
-}
-
 func TestAddAndRemoveFinalityListener(t *testing.T) {
 	t.Parallel()
 

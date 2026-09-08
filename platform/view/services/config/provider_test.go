@@ -218,8 +218,11 @@ func TestProviderMore(t *testing.T) { //nolint:paralleltest
 	require.NoError(t, err)
 	assert.Equal(t, []string{"a", "b", "c"}, p.GetStringSlice("slice"))
 
-	// Test ConfigFileUsed
-	assert.Empty(t, p.ConfigFileUsed())
+	// Test ConfigFileUsed: it returned the empty string for a provider built from a file,
+	// which this pins. Nothing in-tree reads it yet — it is an exported accessor on
+	// driver.ConfigService, so downstream callers are the consumers.
+	assert.Equal(t, filepath.Join("testdata", "core.yaml"),
+		filepath.Join(filepath.Base(filepath.Dir(p.ConfigFileUsed())), filepath.Base(p.ConfigFileUsed())))
 
 	// Test String
 	assert.NotEmpty(t, p.String())

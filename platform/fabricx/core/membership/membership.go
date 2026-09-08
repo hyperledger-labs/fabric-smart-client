@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package membership
 
 import (
+	"slices"
+
 	"github.com/hyperledger/fabric-lib-go/bccsp/factory"
 	cb "github.com/hyperledger/fabric-protos-go-apiv2/common"
 	m "github.com/hyperledger/fabric-protos-go-apiv2/msp"
@@ -246,15 +248,9 @@ func (s *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 		return "", nil, errors.Errorf("orderer config does not exist for channel [%s]", s.channelID)
 	}
 
-	tlsEnabled, isSet := cs.OrderingTLSEnabled()
-	if !isSet {
-		tlsEnabled = cs.TLSEnabled()
-	}
-
-	tlsClientSideAuth, isSet := cs.OrderingTLSClientAuthRequired()
-	if !isSet {
-		tlsClientSideAuth = cs.TLSClientAuthRequired()
-	}
+	// Discovered trust anchors augment the network's configured pool rather than replacing
+	// it; see the equivalent in platform/fabric.
+	networkTLS := cs.NetworkClientTLS()
 	connectionTimeout := cs.ClientConnTimeout()
 
 	var newOrderers []*grpc.ConnectionConfig
@@ -280,12 +276,13 @@ func (s *Service) OrdererConfig(cs driver.ConfigService) (string, []*grpc.Connec
 				continue
 			}
 
+			endpointTLS := networkTLS
+			endpointTLS.ServerRootCAs = append(
+				slices.Clone(networkTLS.ServerRootCAs), tlsRootCerts...)
 			newOrderers = append(newOrderers, &grpc.ConnectionConfig{
 				Address:           ep.Endpoint,
 				ConnectionTimeout: connectionTimeout,
-				TLSEnabled:        tlsEnabled,
-				TLSClientSideAuth: tlsClientSideAuth,
-				TLSRootCertBytes:  tlsRootCerts,
+				TLS:               endpointTLS,
 				Usage:             ep.Type,
 			})
 		}

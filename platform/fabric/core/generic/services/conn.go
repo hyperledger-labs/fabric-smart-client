@@ -181,33 +181,22 @@ func (c *GRPCClientFactory) NewOrdererClient(cc grpc.ConnectionConfig) (OrdererC
 func (c *GRPCClientFactory) newClient(cc grpc.ConnectionConfig) (*GRPCClient, error) {
 	logger.Debugf("Creating new peer GRPCClient for address [%s]", cc.Address)
 
-	secOpts, err := grpc.CreateSecOpts(cc, grpc.TLSClientConfig{
-		TLSClientAuthRequired: cc.TLSClientSideAuth,
-		TLSClientKeyFile:      c.ConfigService.TLSClientKeyFile(),
-		TLSClientCertFile:     c.ConfigService.TLSClientCertFile(),
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	timeout := c.ConfigService.ClientConnTimeout()
 	if timeout <= 0 {
 		timeout = grpc.DefaultConnectionTimeout
 	}
+	// cc.TLS is already resolved: inherited per field from the network's tls block, with every
+	// configured file read and validated. The keypair and the client-auth switch used to be
+	// assembled here from three separate accessors.
 	clientConfig := grpc.ClientConfig{
-		SecOpts:         *secOpts,
+		SecOpts:         cc.TLS,
 		KeepAliveConfig: c.ConfigService.ClientKeepAliveConfig(),
 		Timeout:         timeout,
-	}
-
-	override := cc.ServerNameOverride
-	if len(override) == 0 {
-		override = c.ConfigService.TLSServerHostOverride()
 	}
 
 	gClient, err := grpc.NewGRPCClient(clientConfig)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create Client from config")
 	}
-	return NewGRPCClient(gClient, cc.Address, override, c.Signer.Sign), nil
+	return NewGRPCClient(gClient, cc.Address, c.Signer.Sign), nil
 }

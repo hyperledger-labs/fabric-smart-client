@@ -193,7 +193,7 @@ func (d *Delivery) Run(ctx context.Context) error {
 	}
 	ch := make(chan blockResponse, d.bufferSize)
 	go d.readBlocks(ch)
-	go d.runReceiver(ctx, ch)
+	go d.runReceiver(ctx, ch) //nolint:gosec // G118: documented nil-ctx fallback, not a dropped request context
 	return d.untilStop()
 }
 

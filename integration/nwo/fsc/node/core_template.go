@@ -31,25 +31,33 @@ fsc:
     {{- range Peer.Admins }}
     - {{ . }} 
     {{- end }}
+  # Server-side TLS defaults, inherited field by field by every listener this node owns
+  # (fsc.grpc and fsc.web). A service's own tls: block overrides only the fields it
+  # actually sets; everything else falls through to here.
+  tls:
+    # Require server-side TLS
+    enabled: true
+    # X.509 certificate used for TLS server
+    cert:
+      file: {{ .NodeLocalTLSDir Peer }}/server.crt
+    # Private key used for TLS server
+    key:
+      file: {{ .NodeLocalTLSDir Peer }}/server.key
+    # Require client certificates / mutual TLS for inbound connections. Overridden per
+    # listener below where a suite needs it.
+    clientAuthRequired: false
   grpc:
     enabled: true
     # This represents the endpoint to other FSC nodes in the same organization.
     address: 0.0.0.0:{{ .NodePort Replica "Listen" }}
     # TLS Settings
     # (We use here the same set of properties as Hyperledger Fabric)
+    # enabled, cert and key are inherited from fsc.tls above.
     tls:
-      # Require server-side TLS
-      enabled:  true
       # Require client certificates / mutual TLS for inbound connections.
       # Note that clients that are not configured to use a certificate will
       # fail to connect to the node.
       clientAuthRequired: {{ .ClientAuthRequired }}
-      # X.509 certificate used for TLS server
-      cert:
-        file: {{ .NodeLocalTLSDir Peer }}/server.crt
-      # Private key used for TLS server
-      key:
-        file: {{ .NodeLocalTLSDir Peer }}/server.key
       # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
       # used for verifying certificates of client connections.
       {{- if .ClientAuthRequired }}
@@ -102,18 +110,10 @@ fsc:
     enabled: {{ WebEnabled }}
     # HTTPS server listener address
     address: 0.0.0.0:{{ .NodePort Replica "Web" }}
+    # enabled, cert, key and clientAuthRequired:false are all inherited from fsc.tls.
     tls:
-      enabled:  true
-      cert:
-        file: {{ .NodeLocalTLSDir Peer }}/server.crt
-      key:
-        file: {{ .NodeLocalTLSDir Peer }}/server.key
-      # Require client certificates / mutual TLS for inbound connections.
-      # Note that clients that are not configured to use a certificate will
-      # fail to connect to the node.
-      clientAuthRequired: false
-      # If mutual TLS is enabled, clientRootCAs.files contains a list of additional root certificates
-      # used for verifying certificates of client connections.
+      # clientRootCAs without clientAuthRequired means: verify a client certificate if one
+      # is offered, but do not demand one.
       clientRootCAs:
         files:
         - {{ .NodeLocalTLSDir Peer }}/ca.crt
@@ -133,9 +133,16 @@ fsc:
   metrics:
     # metrics provider is one of prometheus, or disabled
     provider: {{ Topology.Monitoring.MetricsType }}
-    prometheus:
-      # defines whether we should use a certificate to access the metrics under /metrics
-      tls: {{ Topology.Monitoring.TLS }}
+    # Without an address the operations endpoints (/metrics, /logspec) are served on the
+    # fsc.web listener and share its TLS. Setting one gives them a listener of their own,
+    # and then fsc.metrics.tls applies to it — inheriting from fsc.tls like any other
+    # listener. NWO leaves it unset so the endpoints stay reachable on the web client.
+    #
+    # Require a verified client certificate to scrape /metrics and /logspec. Separate from
+    # any listener's TLS, and stricter than the web listener, which verifies a client
+    # certificate only if one is offered. Replaces fsc.metrics.prometheus.tls, which was
+    # never transport TLS despite the name.
+    clientAuthRequired: {{ Topology.Monitoring.TLS }}
 
   # The endpoint section tells how to reach other FSC node in the network.
   # For each node, the name, the domain, the identity of the node, and its addresses must be specified.

@@ -32,6 +32,10 @@ func (s *mockConfigService) ConfigFileUsed() string           { return "" }
 func (s *mockConfigService) GetPath(string) string            { return "" }
 func (s *mockConfigService) TranslatePath(string) string      { return "" }
 
+func (s *mockConfigService) RawSubtree(string) (map[string]any, bool) { return nil, false }
+
+func (s *mockConfigService) RawSubtrees(string) []map[string]any { return nil }
+
 type Opt = func(*mockConfigService)
 
 func WithBool(key string, value bool) Opt {

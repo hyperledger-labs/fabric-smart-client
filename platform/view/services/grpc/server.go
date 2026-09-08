@@ -45,8 +45,9 @@ type GRPCServer struct {
 // NewGRPCServer creates a new implementation of a GRPCServer given a
 // listen address
 func NewGRPCServer(address string, serverConfig ServerConfig) (*GRPCServer, error) {
-	defer commLogger.Infof("New GRPC Server at [%s], TLS [%v], RequireClientCert [%v]",
-		address, serverConfig.SecOpts.UseTLS, serverConfig.SecOpts.RequireClientCert)
+	defer commLogger.Infof("New GRPC Server at [%s], TLS [%v], RequireClientCert [%v], ClientRootCAs [%d]",
+		address, serverConfig.SecOpts.UseTLS, serverConfig.SecOpts.RequireClientCert,
+		len(serverConfig.SecOpts.ClientRootCAs))
 
 	if address == "" {
 		return nil, errors.New("missing address parameter")
