@@ -51,4 +51,4 @@ func (r *DummyVersionedIterator) Next() (*driver.UnversionedRead, error) {
 	return r.Items[r.idx-1], nil
 }
 
-func (r *DummyVersionedIterator) Close() {}
+func (*DummyVersionedIterator) Close() {}

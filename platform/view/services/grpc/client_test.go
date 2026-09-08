@@ -38,7 +38,7 @@ type echoServer struct {
 	testpb.UnimplementedEchoServiceServer
 }
 
-func (es *echoServer) EchoCall(ctx context.Context,
+func (*echoServer) EchoCall(_ context.Context,
 	echo *testpb.Echo,
 ) (*testpb.Echo, error) {
 	return echo, nil
@@ -290,7 +290,7 @@ func TestNewConnection(t *testing.T) {
 			name: "server TLS pinning success",
 			config: grpc3.ClientConfig{
 				SecOpts: grpc3.SecureOptions{
-					VerifyCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+					VerifyCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 						if bytes.Equal(rawCerts[0], testCerts.serverCert.Certificate[0]) {
 							return nil
 						}
@@ -315,7 +315,7 @@ func TestNewConnection(t *testing.T) {
 			name: "server TLS pinning failure",
 			config: grpc3.ClientConfig{
 				SecOpts: grpc3.SecureOptions{
-					VerifyCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+					VerifyCertificate: func(_ [][]byte, _ [][]*x509.Certificate) error {
 						return errors.New("TLS certificate mismatch")
 					},
 					Certificate:       testCerts.certPEM,

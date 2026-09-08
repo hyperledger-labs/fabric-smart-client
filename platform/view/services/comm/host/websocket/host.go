@@ -148,7 +148,7 @@ func (h *host) Lookup(peerID host2.PeerID) ([]host2.PeerIPAddress, bool) {
 	return h.routing.LookupAll(peerID)
 }
 
-func (h *host) StreamHash(info host2.StreamInfo) string {
+func (*host) StreamHash(info host2.StreamInfo) string {
 	return StreamHash(info)
 }
 
@@ -160,7 +160,7 @@ func (h *host) Close() error {
 	return err
 }
 
-func (h *host) Wait() {}
+func (*host) Wait() {}
 
 func StreamHash(info host2.StreamInfo) host2.StreamHash {
 	var sb strings.Builder

@@ -54,7 +54,7 @@ var (
 
 type noPriorities struct{}
 
-func (nc noPriorities) Compare(_, _ Peer) Priority {
+func (noPriorities) Compare(_, _ Peer) Priority {
 	return 0
 }
 

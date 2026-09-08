@@ -38,7 +38,7 @@ func (a *AgreeToSellView) Call(viewCtx view.Context) (any, error) {
 
 type AgreeToSellViewFactory struct{}
 
-func (p *AgreeToSellViewFactory) NewView(in []byte) (view.View, error) {
+func (*AgreeToSellViewFactory) NewView(in []byte) (view.View, error) {
 	f := &AgreeToSellView{AssetPrice: &AssetPrice{}}
 	err := json.Unmarshal(in, f.AssetPrice)
 	assert.NoError(err, "failed unmarshalling input")
@@ -117,7 +117,7 @@ func (a *TransferView) Call(viewCtx view.Context) (any, error) {
 
 type TransferViewFactory struct{}
 
-func (p *TransferViewFactory) NewView(in []byte) (view.View, error) {
+func (*TransferViewFactory) NewView(in []byte) (view.View, error) {
 	f := &TransferView{Transfer: &Transfer{}}
 	err := json.Unmarshal(in, f.Transfer)
 	assert.NoError(err, "failed unmarshalling input")

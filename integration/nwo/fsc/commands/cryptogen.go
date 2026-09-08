@@ -11,7 +11,7 @@ type Generate struct {
 	Output string
 }
 
-func (c Generate) SessionName() string {
+func (Generate) SessionName() string {
 	return "cryptogen-generate"
 }
 
@@ -29,7 +29,7 @@ type Extend struct {
 	Input  string
 }
 
-func (c Extend) SessionName() string {
+func (Extend) SessionName() string {
 	return "cryptogen-extend"
 }
 

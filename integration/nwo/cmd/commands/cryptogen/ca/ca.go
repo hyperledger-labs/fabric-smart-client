@@ -376,7 +376,7 @@ func LoadCertificateECDSA(certPath string) (*x509.Certificate, error) {
 	var cert *x509.Certificate
 	var err error
 
-	walkFunc := func(path string, info os.FileInfo, err error) error {
+	walkFunc := func(path string, _ os.FileInfo, _ error) error {
 		if strings.HasSuffix(path, ".pem") {
 			rawCert, err := os.ReadFile(path)
 			if err != nil {

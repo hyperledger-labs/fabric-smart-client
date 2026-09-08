@@ -34,7 +34,7 @@ func (c *ConfigService) BroadcastNumRetries() int {
 	return c.RetriesValue
 }
 
-func (c *ConfigService) BroadcastRetryInterval() time.Duration {
+func (*ConfigService) BroadcastRetryInterval() time.Duration {
 	return 0
 }
 

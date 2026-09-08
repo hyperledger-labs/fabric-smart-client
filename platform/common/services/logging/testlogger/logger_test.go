@@ -55,7 +55,7 @@ func TestGetPackageName(t *testing.T) {
 
 type VersionInfoHandler struct{}
 
-func (h *VersionInfoHandler) sendResponseLikeMethod() (string, error) {
+func (*VersionInfoHandler) sendResponseLikeMethod() (string, error) {
 	return level2()
 }
 

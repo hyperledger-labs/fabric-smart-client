@@ -954,7 +954,7 @@ func TestCommitAdditionalBranches(t *testing.T) {
 				},
 			},
 		}
-		err := c.commit(t.Context(), "tx-commit-parse", 1, 0, &common.Envelope{Payload: []byte("payload")})
+		err := c.commitBusyTx(t.Context(), "tx-commit-parse", 1, 0, &common.Envelope{Payload: []byte("payload")})
 		require.ErrorContains(t, err, "parse-failed")
 	})
 
@@ -982,7 +982,7 @@ func TestCommitAdditionalBranches(t *testing.T) {
 				},
 			},
 		}
-		err := c.commit(t.Context(), "tx-commit-match", 1, 0, &common.Envelope{Payload: []byte("payload")})
+		err := c.commitBusyTx(t.Context(), "tx-commit-match", 1, 0, &common.Envelope{Payload: []byte("payload")})
 		require.ErrorContains(t, err, "rwsets do not match")
 	})
 
@@ -1004,7 +1004,7 @@ func TestCommitAdditionalBranches(t *testing.T) {
 				},
 			},
 		}
-		err := c.commit(t.Context(), "tx-commit-store", 1, 0, &common.Envelope{Payload: []byte("payload")})
+		err := c.commitBusyTx(t.Context(), "tx-commit-store", 1, 0, &common.Envelope{Payload: []byte("payload")})
 		require.ErrorContains(t, err, "failed to store unknown envelope")
 	})
 
@@ -1029,7 +1029,7 @@ func TestCommitAdditionalBranches(t *testing.T) {
 				},
 			},
 		}
-		err := c.commit(t.Context(), "tx-commit-rws", 1, 0, &common.Envelope{Payload: []byte("payload")})
+		err := c.commitBusyTx(t.Context(), "tx-commit-rws", 1, 0, &common.Envelope{Payload: []byte("payload")})
 		require.ErrorContains(t, err, "failed to get rws from envelope")
 	})
 
@@ -1045,7 +1045,7 @@ func TestCommitAdditionalBranches(t *testing.T) {
 			},
 			Vault: &fake.Vault{},
 		}
-		err := c.commit(t.Context(), "tx-commit-post", 1, 0, nil)
+		err := c.commitBusyTx(t.Context(), "tx-commit-post", 1, 0, nil)
 		require.ErrorContains(t, err, "process-failed")
 	})
 
@@ -1063,7 +1063,7 @@ func TestCommitAdditionalBranches(t *testing.T) {
 				},
 			},
 		}
-		err := c.commit(t.Context(), "tx-commit-vault", 1, 0, nil)
+		err := c.commitBusyTx(t.Context(), "tx-commit-vault", 1, 0, nil)
 		require.ErrorContains(t, err, "vault-commit-failed")
 	})
 }

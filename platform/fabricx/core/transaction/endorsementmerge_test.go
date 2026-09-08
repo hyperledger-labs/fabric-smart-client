@@ -27,14 +27,14 @@ type mockProposalResponse struct {
 }
 
 func (m *mockProposalResponse) Payload() []byte           { return m.payload }
-func (m *mockProposalResponse) Results() []byte           { return nil }
-func (m *mockProposalResponse) Endorser() []byte          { return nil }
+func (*mockProposalResponse) Results() []byte             { return nil }
+func (*mockProposalResponse) Endorser() []byte            { return nil }
 func (m *mockProposalResponse) EndorserSignature() []byte { return m.endorserSignature }
-func (m *mockProposalResponse) ResponseStatus() int32     { return 200 }
-func (m *mockProposalResponse) ResponseMessage() string   { return "" }
-func (m *mockProposalResponse) Bytes() ([]byte, error)    { return nil, nil }
+func (*mockProposalResponse) ResponseStatus() int32       { return 200 }
+func (*mockProposalResponse) ResponseMessage() string     { return "" }
+func (*mockProposalResponse) Bytes() ([]byte, error)      { return nil, nil }
 
-func (m *mockProposalResponse) VerifyEndorsement(_ driver.VerifierProvider) error {
+func (*mockProposalResponse) VerifyEndorsement(_ driver.VerifierProvider) error {
 	return nil
 }
 

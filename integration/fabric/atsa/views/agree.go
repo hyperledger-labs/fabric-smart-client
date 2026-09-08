@@ -75,7 +75,7 @@ func (a *AgreeToSellView) Call(viewCtx view.Context) (any, error) {
 
 type AgreeToSellViewFactory struct{}
 
-func (a *AgreeToSellViewFactory) NewView(in []byte) (view.View, error) {
+func (*AgreeToSellViewFactory) NewView(in []byte) (view.View, error) {
 	f := &AgreeToSellView{AgreeToSell: &AgreeToSell{}}
 	err := json.Unmarshal(in, f.AgreeToSell)
 	assert.NoError(err, "failed unmarshalling input")
@@ -120,7 +120,7 @@ func (a *AgreeToBuyView) Call(viewCtx view.Context) (any, error) {
 
 type AgreeToBuyViewFactory struct{}
 
-func (a *AgreeToBuyViewFactory) NewView(in []byte) (view.View, error) {
+func (*AgreeToBuyViewFactory) NewView(in []byte) (view.View, error) {
 	f := &AgreeToBuyView{AgreeToBuy: &AgreeToBuy{}}
 	err := json.Unmarshal(in, f.AgreeToBuy)
 	assert.NoError(err, "failed unmarshalling input")

@@ -43,7 +43,7 @@ func (c *CreateAssetView) Call(viewCtx view.Context) (any, error) {
 
 type CreateAssetViewFactory struct{}
 
-func (c *CreateAssetViewFactory) NewView(in []byte) (view.View, error) {
+func (*CreateAssetViewFactory) NewView(in []byte) (view.View, error) {
 	f := &CreateAssetView{CreateAsset: &CreateAsset{}}
 	err := json.Unmarshal(in, f.CreateAsset)
 	assert.NoError(err, "failed unmarshalling input")
@@ -69,7 +69,7 @@ func (r *ReadAssetView) Call(viewCtx view.Context) (any, error) {
 
 type ReadAssetViewFactory struct{}
 
-func (p *ReadAssetViewFactory) NewView(in []byte) (view.View, error) {
+func (*ReadAssetViewFactory) NewView(in []byte) (view.View, error) {
 	f := &ReadAssetView{ReadAsset: &ReadAsset{}}
 	err := json.Unmarshal(in, f.ReadAsset)
 	assert.NoError(err, "failed unmarshalling input")
@@ -92,7 +92,7 @@ func (r *ReadAssetPrivatePropertiesView) Call(viewCtx view.Context) (any, error)
 
 type ReadAssetPrivatePropertiesViewFactory struct{}
 
-func (p *ReadAssetPrivatePropertiesViewFactory) NewView(in []byte) (view.View, error) {
+func (*ReadAssetPrivatePropertiesViewFactory) NewView(in []byte) (view.View, error) {
 	f := &ReadAssetPrivatePropertiesView{ReadAssetPrivateProperties: &ReadAssetPrivateProperties{}}
 	err := json.Unmarshal(in, f.ReadAssetPrivateProperties)
 	assert.NoError(err, "failed unmarshalling input")
@@ -123,7 +123,7 @@ func (r *ChangePublicDescriptionView) Call(viewCtx view.Context) (any, error) {
 
 type ChangePublicDescriptionViewFactory struct{}
 
-func (p *ChangePublicDescriptionViewFactory) NewView(in []byte) (view.View, error) {
+func (*ChangePublicDescriptionViewFactory) NewView(in []byte) (view.View, error) {
 	f := &ChangePublicDescriptionView{ChangePublicDescription: &ChangePublicDescription{}}
 	err := json.Unmarshal(in, f.ChangePublicDescription)
 	assert.NoError(err, "failed unmarshalling input")

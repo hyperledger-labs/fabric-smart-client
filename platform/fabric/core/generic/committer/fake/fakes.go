@@ -332,7 +332,7 @@ func (c *Counter) With(...string) metrics.Counter {
 	return c
 }
 
-func (c *Counter) Add(float64) {}
+func (*Counter) Add(float64) {}
 
 type Gauge struct{}
 
@@ -340,9 +340,9 @@ func (g *Gauge) With(...string) metrics.Gauge {
 	return g
 }
 
-func (g *Gauge) Add(float64) {}
+func (*Gauge) Add(float64) {}
 
-func (g *Gauge) Set(float64) {}
+func (*Gauge) Set(float64) {}
 
 type Histogram struct{}
 
@@ -350,19 +350,19 @@ func (h *Histogram) With(...string) metrics.Histogram {
 	return h
 }
 
-func (h *Histogram) Observe(float64) {}
+func (*Histogram) Observe(float64) {}
 
 type MetricsProvider struct{}
 
-func (p *MetricsProvider) NewCounter(metrics.CounterOpts) metrics.Counter {
+func (*MetricsProvider) NewCounter(metrics.CounterOpts) metrics.Counter {
 	return &Counter{}
 }
 
-func (p *MetricsProvider) NewGauge(metrics.GaugeOpts) metrics.Gauge {
+func (*MetricsProvider) NewGauge(metrics.GaugeOpts) metrics.Gauge {
 	return &Gauge{}
 }
 
-func (p *MetricsProvider) NewHistogram(metrics.HistogramOpts) metrics.Histogram {
+func (*MetricsProvider) NewHistogram(metrics.HistogramOpts) metrics.Histogram {
 	return &Histogram{}
 }
 
@@ -377,7 +377,7 @@ func (f *Filter) Accept(cdriver.TxID, []byte) (bool, error) {
 
 type FinalityListener struct{}
 
-func (l *FinalityListener) OnStatus(context.Context, cdriver.TxID, fdriver.ValidationCode, string) {
+func (*FinalityListener) OnStatus(context.Context, cdriver.TxID, fdriver.ValidationCode, string) {
 }
 
 type ListenerManager struct {
@@ -394,9 +394,9 @@ func (m *ListenerManager) RemoveListener(txID cdriver.TxID, _ cdriver.FinalityLi
 	m.RemovedTx = txID
 }
 
-func (m *ListenerManager) InvokeListeners(cdriver.FinalityEvent[fdriver.ValidationCode]) {}
+func (*ListenerManager) InvokeListeners(cdriver.FinalityEvent[fdriver.ValidationCode]) {}
 
-func (m *ListenerManager) TxIDs() []cdriver.TxID { return nil }
+func (*ListenerManager) TxIDs() []cdriver.TxID { return nil }
 
 type QueryExecutor struct {
 	cdriver.QueryExecutor

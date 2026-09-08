@@ -114,8 +114,8 @@ func NewOrdererOrgConfig(orgName string, orgGroup *cb.ConfigGroup, mspConfigHand
 	return ooc, nil
 }
 
-func (ooc *OrdererOrgConfig) Validate() error {
-	return ooc.OrganizationConfig.Validate()
+func (oc *OrdererOrgConfig) Validate() error {
+	return oc.OrganizationConfig.Validate()
 }
 
 // NewOrdererConfig creates a new instance of the orderer config.

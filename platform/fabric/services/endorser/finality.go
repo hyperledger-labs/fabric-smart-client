@@ -57,7 +57,7 @@ func NewFinalityWithTimeoutView(tx *Transaction, timeout time.Duration) *finalit
 
 type FinalityViewFactory struct{}
 
-func (p *FinalityViewFactory) NewView(in []byte) (view.View, error) {
+func (*FinalityViewFactory) NewView(in []byte) (view.View, error) {
 	f := &finalityView{Finality: &Finality{}}
 	if err := json.Unmarshal(in, f.Finality); err != nil {
 		return nil, errors.Wrapf(err, "failed unmarshalling input")

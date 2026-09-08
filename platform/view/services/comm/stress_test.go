@@ -210,7 +210,7 @@ type mockOversizedStream struct {
 	onClose func()
 }
 
-func (m *mockOversizedStream) Read(p []byte) (int, error) {
+func (*mockOversizedStream) Read(p []byte) (int, error) {
 	// Send a varint for 11MB (11 * 1024 * 1024 = 11534336)
 	// Varint for 11534336 is [0x80, 0x80, 0xBF, 0x05]
 	oversizedVarint := []byte{0x80, 0x80, 0xBF, 0x05}
@@ -239,6 +239,6 @@ type mockCounter struct {
 	val atomic.Int64
 }
 
-func (m *mockCounter) Inc()                                       { m.val.Add(1) }
-func (m *mockCounter) Add(delta float64)                          { m.val.Add(int64(delta)) }
-func (m *mockCounter) With(labelValues ...string) metrics.Counter { return m }
+func (m *mockCounter) Inc()                             { m.val.Add(1) }
+func (m *mockCounter) Add(delta float64)                { m.val.Add(int64(delta)) }
+func (m *mockCounter) With(_ ...string) metrics.Counter { return m }

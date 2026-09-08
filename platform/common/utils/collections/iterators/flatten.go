@@ -28,23 +28,29 @@ type flattenedPointers[A any, B any] struct {
 	remaining   []B
 }
 
+//nolint:revive // confusing-naming: flattenedPointers, flattenedValues and mapped all implement the exported Iterator interface; renaming Next is an API break; see follow-up
 func (it *flattenedPointers[A, B]) Next() (B, error) {
 	if len(it.remaining) > 0 {
 		n := it.remaining[0]
 		it.remaining = it.remaining[1:]
 		return n, nil
-	} else if next, err := it.Iterator.Next(); err != nil {
-		return utils.Zero[B](), errors.Wrapf(err, "failed fetching")
-	} else if utils.IsNil(next) {
-		return utils.Zero[B](), nil
-	} else if next, err := it.transformer(next); err != nil {
-		return utils.Zero[B](), errors.Wrapf(err, "failed transforming")
-	} else if len(next) == 0 {
-		return utils.Zero[B](), nil
-	} else {
-		it.remaining = next[1:]
-		return next[0], nil
 	}
+	next, err := it.Iterator.Next()
+	if err != nil {
+		return utils.Zero[B](), errors.Wrapf(err, "failed fetching")
+	}
+	if utils.IsNil(next) {
+		return utils.Zero[B](), nil
+	}
+	transformed, err := it.transformer(next)
+	if err != nil {
+		return utils.Zero[B](), errors.Wrapf(err, "failed transforming")
+	}
+	if len(transformed) == 0 {
+		return utils.Zero[B](), nil
+	}
+	it.remaining = transformed[1:]
+	return transformed[0], nil
 }
 
 // FlattenValues behaves like [Flatten], but yields a pointer to each element of
@@ -59,21 +65,27 @@ type flattenedValues[A any, B any] struct {
 	remaining   []B
 }
 
+//nolint:revive // confusing-naming: flattenedPointers, flattenedValues and mapped all implement the exported Iterator interface; renaming Next is an API break; see follow-up
 func (it *flattenedValues[A, B]) Next() (*B, error) {
 	if len(it.remaining) > 0 {
 		n := it.remaining[0]
 		it.remaining = it.remaining[1:]
 		return &n, nil
-	} else if next, err := it.Iterator.Next(); err != nil {
-		return nil, errors.Wrapf(err, "failed fetching")
-	} else if utils.IsNil(next) {
-		return nil, nil
-	} else if next, err := it.transformer(next); err != nil {
-		return nil, errors.Wrapf(err, "failed transforming")
-	} else if len(next) == 0 {
-		return nil, nil
-	} else {
-		it.remaining = next[1:]
-		return &next[0], nil
 	}
+	next, err := it.Iterator.Next()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed fetching")
+	}
+	if utils.IsNil(next) {
+		return nil, nil
+	}
+	transformed, err := it.transformer(next)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed transforming")
+	}
+	if len(transformed) == 0 {
+		return nil, nil
+	}
+	it.remaining = transformed[1:]
+	return &transformed[0], nil
 }

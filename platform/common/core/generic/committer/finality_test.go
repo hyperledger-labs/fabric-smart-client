@@ -161,7 +161,7 @@ func TestFinalityManager_Dispatch_PanicRecovery(t *testing.T) {
 	}
 	require.NoError(t, manager.AddListener("txID", listener))
 
-	listener.On("OnStatus", event.TxID, event.ValidationCode, event.ValidationMessage).Once().Run(func(args mock.Arguments) {
+	listener.On("OnStatus", event.TxID, event.ValidationCode, event.ValidationMessage).Once().Run(func(_ mock.Arguments) {
 		panic("listener panic")
 	})
 	require.NotPanics(t, func() {

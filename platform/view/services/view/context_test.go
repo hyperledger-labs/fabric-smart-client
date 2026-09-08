@@ -27,7 +27,7 @@ var emptyTracer = noop.NewTracerProvider().Tracer("empty")
 
 type DummyView struct{}
 
-func (d *DummyView) Call(_ view.Context) (any, error) {
+func (*DummyView) Call(_ view.Context) (any, error) {
 	return nil, nil
 }
 

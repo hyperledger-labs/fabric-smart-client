@@ -19,9 +19,9 @@ type MetadataStore struct {
 }
 
 func NewMetadataStore(dbs *common2.RWDB, tables common.TableNames) (*MetadataStore, error) {
-	return newMetadataStore(dbs.ReadDB, dbs.WriteDB, tables.Metadata), nil
+	return buildMetadataStore(dbs.ReadDB, dbs.WriteDB, tables.Metadata), nil
 }
 
-func newMetadataStore(readDB, writeDB *sql.DB, table string) *MetadataStore {
+func buildMetadataStore(readDB, writeDB *sql.DB, table string) *MetadataStore {
 	return &MetadataStore{MetadataStore: common.NewMetadataStore(readDB, writeDB, table, &postgres2.ErrorMapper{})}
 }

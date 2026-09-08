@@ -75,6 +75,8 @@ func GetFirst[T any](vs Iterator[T]) (T, error) {
 }
 
 // Reduce reduces the elements of an iterator into an aggregated structure
+//
+//nolint:revive // confusing-naming: package func Reduce and the Reducer.Reduce method are both exported public API; renaming either is an API break; see follow-up
 func Reduce[V, S any](it Iterator[*V], reducer Reducer[*V, S]) (S, error) {
 	return ReduceValue(it, reducer.Produce(), reducer.Reduce)
 }

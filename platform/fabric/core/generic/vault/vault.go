@@ -120,7 +120,7 @@ type marshaller struct {
 	versionMarshaller vault.BlockTxIndexVersionMarshaller
 }
 
-func (m *marshaller) Marshal(txID string, rws *vault.ReadWriteSet) ([]byte, error) {
+func (m *marshaller) Marshal(_ string, rws *vault.ReadWriteSet) ([]byte, error) {
 	rwsb := rwsetutil.NewRWSetBuilder()
 
 	for ns, keyMap := range rws.Reads {

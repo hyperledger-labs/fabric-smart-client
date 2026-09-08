@@ -46,7 +46,7 @@ type mockChaincode struct {
 	mcd *dummyChaincodeDiscover
 }
 
-func (m *mockChaincode) NewInvocation(function string, args ...any) driver.ChaincodeInvocation {
+func (m *mockChaincode) NewInvocation(_ string, _ ...any) driver.ChaincodeInvocation {
 	return m.mci
 }
 
@@ -54,11 +54,11 @@ func (m *mockChaincode) NewDiscover() driver.ChaincodeDiscover {
 	return m.mcd
 }
 
-func (m *mockChaincode) IsAvailable() (bool, error) {
+func (*mockChaincode) IsAvailable() (bool, error) {
 	return true, nil
 }
 
-func (m *mockChaincode) Version() (string, error) {
+func (*mockChaincode) Version() (string, error) {
 	return "v1", nil
 }
 
@@ -177,7 +177,7 @@ func (d *dummyChaincodeInvocation) Endorse() (driver.Envelope, error) {
 	return d.endorseResult, nil
 }
 
-func (d *dummyChaincodeInvocation) WithSignerIdentity(id view.Identity) driver.ChaincodeInvocation {
+func (d *dummyChaincodeInvocation) WithSignerIdentity(_ view.Identity) driver.ChaincodeInvocation {
 	d.withSignerIdentityCallCount++
 	return d
 }

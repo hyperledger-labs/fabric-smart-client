@@ -14,6 +14,6 @@ import (
 type YesPolicyChecker struct{}
 
 // Check checks if the given command is authorized. It always returns no error.
-func (y YesPolicyChecker) Check(sc *protos2.SignedCommand, c *protos2.Command) error {
+func (YesPolicyChecker) Check(_ *protos2.SignedCommand, _ *protos2.Command) error {
 	return nil
 }

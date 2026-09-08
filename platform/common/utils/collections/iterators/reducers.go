@@ -23,8 +23,10 @@ type reducer[V any, S any] struct {
 	merge   ReduceFunc[V, S]
 }
 
+//nolint:revive // confusing-naming: reducer, setReducer, flatReducer and maxByReducer all implement the exported Reducer interface, and package func Reduce shares the name; renaming Produce is an API break; see follow-up
 func (r *reducer[V, S]) Produce() S { return r.initial }
 
+//nolint:revive // confusing-naming: reducer, setReducer, flatReducer and maxByReducer all implement the exported Reducer interface, and package func Reduce shares the name; renaming Reduce is an API break; see follow-up
 func (r *reducer[V, S]) Reduce(s S, v V) (S, error) { return r.merge(s, v) }
 
 // ToSet creates a reducer that collects the comparable elements of an Iterator into a Set
@@ -32,9 +34,11 @@ func ToSet[V comparable]() Reducer[*V, sets.Set[V]] { return &setReducer[V]{} }
 
 type setReducer[V comparable] struct{}
 
-func (r *setReducer[V]) Produce() sets.Set[V] { return sets.New[V]() }
+//nolint:revive // confusing-naming: reducer, setReducer, flatReducer and maxByReducer all implement the exported Reducer interface, and package func Reduce shares the name; renaming Produce is an API break; see follow-up
+func (*setReducer[V]) Produce() sets.Set[V] { return sets.New[V]() }
 
-func (r *setReducer[V]) Reduce(s sets.Set[V], v *V) (sets.Set[V], error) {
+//nolint:revive // confusing-naming: reducer, setReducer, flatReducer and maxByReducer all implement the exported Reducer interface, and package func Reduce shares the name; renaming Reduce is an API break; see follow-up
+func (*setReducer[V]) Reduce(s sets.Set[V], v *V) (sets.Set[V], error) {
 	s.Add(*v)
 	return s, nil
 }
@@ -44,9 +48,11 @@ func ToFlattened[V any]() Reducer[*[]V, []V] { return &flatReducer[V]{} }
 
 type flatReducer[V any] struct{}
 
-func (r *flatReducer[V]) Produce() []V { return []V{} }
+//nolint:revive // confusing-naming: reducer, setReducer, flatReducer and maxByReducer all implement the exported Reducer interface, and package func Reduce shares the name; renaming Produce is an API break; see follow-up
+func (*flatReducer[V]) Produce() []V { return []V{} }
 
-func (r *flatReducer[V]) Reduce(vs []V, v *[]V) ([]V, error) { return append(vs, *v...), nil }
+//nolint:revive // confusing-naming: reducer, setReducer, flatReducer and maxByReducer all implement the exported Reducer interface, and package func Reduce shares the name; renaming Reduce is an API break; see follow-up
+func (*flatReducer[V]) Reduce(vs []V, v *[]V) ([]V, error) { return append(vs, *v...), nil }
 
 // ToMaxBy returns a [Reducer] that selects the element with the greatest key, as
 // derived by fn. Ties keep the earlier element, and an empty [Iterator] reduces
@@ -64,8 +70,10 @@ type maxByReducer[V any, K cmp.Ordered] struct {
 	seen bool
 }
 
-func (r *maxByReducer[V, K]) Produce() V { return utils.Zero[V]() }
+//nolint:revive // confusing-naming: maxByReducer implements the exported Reducer interface; renaming Produce is an API break; see follow-up
+func (*maxByReducer[V, K]) Produce() V { return utils.Zero[V]() }
 
+//nolint:revive // confusing-naming: maxByReducer implements the exported Reducer interface; renaming Reduce is an API break; see follow-up
 func (r *maxByReducer[V, K]) Reduce(maxVal, v V) (V, error) {
 	currKey, err := r.fn(v)
 	if err != nil {

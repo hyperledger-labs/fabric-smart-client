@@ -88,7 +88,7 @@ func (i *CreateIOUView) Call(viewCtx view.Context) (any, error) {
 
 type CreateIOUViewFactory struct{}
 
-func (c *CreateIOUViewFactory) NewView(in []byte) (view.View, error) {
+func (*CreateIOUViewFactory) NewView(in []byte) (view.View, error) {
 	f := &CreateIOUView{}
 	err := json.Unmarshal(in, &f.Create)
 	assert.NoError(err)
@@ -161,7 +161,7 @@ func (u UpdateIOUView) Call(viewCtx view.Context) (any, error) {
 
 type UpdateIOUViewFactory struct{}
 
-func (c *UpdateIOUViewFactory) NewView(in []byte) (view.View, error) {
+func (*UpdateIOUViewFactory) NewView(in []byte) (view.View, error) {
 	f := &UpdateIOUView{}
 	err := json.Unmarshal(in, &f.Update)
 	assert.NoError(err)

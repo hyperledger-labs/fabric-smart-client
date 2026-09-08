@@ -59,8 +59,8 @@ func (m *mockSDKWithPostStart) PostStart(_ context.Context) error {
 // panicSDK panics during Install to test panic recovery.
 type panicSDK struct{}
 
-func (p *panicSDK) Install() error                { panic("test panic") }
-func (p *panicSDK) Start(_ context.Context) error { return nil }
+func (*panicSDK) Install() error                { panic("test panic") }
+func (*panicSDK) Start(_ context.Context) error { return nil }
 
 func newTestNode() *Node {
 	return &Node{

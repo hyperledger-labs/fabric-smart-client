@@ -87,7 +87,7 @@ func NewListenerManager[T EventInfo](
 	tracer trace.Tracer,
 	mapper EventInfoMapper[T],
 ) (*ListenerManager[T], error) {
-	return newListenerManager[T](ctx, logger, config, delivery, queryService, tracer, mapper, false)
+	return buildListenerManager[T](ctx, logger, config, delivery, queryService, tracer, mapper, false)
 }
 
 func NewSequentialListenerManager[T EventInfo](
@@ -99,10 +99,10 @@ func NewSequentialListenerManager[T EventInfo](
 	tracer trace.Tracer,
 	mapper EventInfoMapper[T],
 ) (*ListenerManager[T], error) {
-	return newListenerManager[T](ctx, logger, config, delivery, queryService, tracer, mapper, true)
+	return buildListenerManager[T](ctx, logger, config, delivery, queryService, tracer, mapper, true)
 }
 
-func newListenerManager[T EventInfo](
+func buildListenerManager[T EventInfo](
 	ctx context.Context,
 	logger logging.Logger,
 	config DeliveryListenerManagerConfig,

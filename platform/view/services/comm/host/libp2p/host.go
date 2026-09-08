@@ -164,7 +164,7 @@ func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	logger.Debugf("libp2p: Starting host [%s] (bootstrap: %v, bootstrapNode: [%s])...", h.ID(), h.bootstrap, h.bootstrapNode)
 	if h.bootstrap {
 		h.Peerstore().AddAddrs(h.ID(), h.Addrs(), time.Hour)
-		if err := h.start(false, newStreamCallback); err != nil {
+		if err := h.startHost(false, newStreamCallback); err != nil {
 			logger.Errorf("libp2p: failed to start bootstrap host [%s]: %v", h.ID(), err)
 			return err
 		}
@@ -189,7 +189,7 @@ func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 		return err
 	}
 	logger.Debugf("libp2p: host [%s] connected to bootstrap node [%s]", h.ID(), h.bootstrapNode)
-	if err := h.start(false, newStreamCallback); err != nil {
+	if err := h.startHost(false, newStreamCallback); err != nil {
 		logger.Errorf("libp2p: failed to start host [%s]: %v", h.ID(), err)
 		return err
 	}
@@ -197,7 +197,7 @@ func (h *host) Start(newStreamCallback func(stream host2.P2PStream)) error {
 	return nil
 }
 
-func (h *host) StreamHash(input host2.StreamInfo) host2.StreamHash {
+func (*host) StreamHash(input host2.StreamInfo) host2.StreamHash {
 	return streamHash(input)
 }
 
@@ -292,7 +292,7 @@ func (h *host) startFinder() {
 	}
 }
 
-func (h *host) start(failAdv bool, newStreamCallback func(stream host2.P2PStream)) error {
+func (h *host) startHost(failAdv bool, newStreamCallback func(stream host2.P2PStream)) error {
 	logger.Debugf("libp2p: Advertising rendez-vous [%s]...", rendezVousString)
 	_, err := h.finder.Advertise(context.Background(), rendezVousString)
 	if err != nil {

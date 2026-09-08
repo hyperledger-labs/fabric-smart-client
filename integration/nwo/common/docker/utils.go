@@ -228,7 +228,7 @@ func PortBindings(ports ...int) network.PortMap {
 	return m
 }
 
-func StartLogs(cli dcli.APIClient, containerID, loggerName string) error {
+func StartLogs(cli dcli.APIClient, containerID, _ string) error {
 	dockerLogger := logging.MustGetLogger()
 	reader, err := cli.ContainerLogs(context.TODO(), containerID, dcli.ContainerLogsOptions{
 		ShowStdout: true,

@@ -21,10 +21,10 @@ type imageInspector func(image string) (bool, error)
 // EnsureImagePresent fails with an actionable message when ref is not present
 // locally. nwo never builds chaincode images; `make chaincode-images` does.
 func EnsureImagePresent(ref string) error {
-	return ensureImagePresent(ref, dockerImageInspector)
+	return ensureImagePresentWith(ref, dockerImageInspector)
 }
 
-func ensureImagePresent(ref string, inspect imageInspector) error {
+func ensureImagePresentWith(ref string, inspect imageInspector) error {
 	present, err := inspect(ref)
 	if err != nil {
 		return err

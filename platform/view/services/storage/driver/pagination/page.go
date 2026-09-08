@@ -20,13 +20,13 @@ func NewPage[V any](results collections.Iterator[*V], pagination driver.Paginati
 	case *keyset[string, any]:
 		return newKeysetTypedPage[string, V](results, p)
 	case *offset, *empty, *none:
-		return newPage[V](results, pagination)
+		return buildPage[V](results, pagination)
 	default:
 		panic("Unsupported pagination type")
 	}
 }
 
-func newPage[V any](results iterators.Iterator[*V], pagination driver.Pagination) (*driver.PageIterator[*V], error) {
+func buildPage[V any](results iterators.Iterator[*V], pagination driver.Pagination) (*driver.PageIterator[*V], error) {
 	return &driver.PageIterator[*V]{Items: results, Pagination: pagination}, nil
 }
 
@@ -40,9 +40,9 @@ func newKeysetTypedPage[I comparable, V any](results iterators.Iterator[*V], pag
 	if err != nil {
 		return nil, err
 	}
-	p.FirstID = p.nilElement()
+	p.FirstID = p.zeroElement()
 	if len(items) == 0 {
-		p.LastID = p.nilElement()
+		p.LastID = p.zeroElement()
 	} else {
 		p.LastID = p.idGetter(*items[len(items)-1])
 	}

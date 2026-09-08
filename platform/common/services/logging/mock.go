@@ -24,68 +24,68 @@ func (m *MockLogger) Named(name string) Logger {
 	return m
 }
 
-func (m *MockLogger) Debug(args ...any) {
+func (*MockLogger) Debug(args ...any) {
 	fmt.Println("DEBUG:", fmt.Sprint(args...))
 }
 
-func (m *MockLogger) Debugf(format string, args ...any) {
+func (*MockLogger) Debugf(format string, args ...any) {
 	fmt.Printf("DEBUG: "+format+"\n", args...)
 }
 
-func (m *MockLogger) Error(args ...any) {
+func (*MockLogger) Error(args ...any) {
 	fmt.Println("ERROR:", fmt.Sprint(args...))
 }
 
-func (m *MockLogger) Errorf(format string, args ...any) {
+func (*MockLogger) Errorf(format string, args ...any) {
 	fmt.Printf("ERROR: "+format+"\n", args...)
 }
 
-func (m *MockLogger) Fatal(args ...any) {
+func (*MockLogger) Fatal(args ...any) {
 	fmt.Println("FATAL:", fmt.Sprint(args...))
 }
 
-func (m *MockLogger) Fatalf(format string, args ...any) {
+func (*MockLogger) Fatalf(format string, args ...any) {
 	fmt.Printf("FATAL: "+format+"\n", args...)
 }
 
-func (m *MockLogger) Info(args ...any) {
+func (*MockLogger) Info(args ...any) {
 	fmt.Println("INFO:", fmt.Sprint(args...))
 }
 
-func (m *MockLogger) Infof(format string, args ...any) {
+func (*MockLogger) Infof(format string, args ...any) {
 	fmt.Printf("INFO: "+format+"\n", args...)
 }
 
-func (m *MockLogger) Panic(args ...any) {
+func (*MockLogger) Panic(args ...any) {
 	fmt.Println("PANIC:", fmt.Sprint(args...))
 }
 
-func (m *MockLogger) Panicf(format string, args ...any) {
+func (*MockLogger) Panicf(format string, args ...any) {
 	fmt.Printf("PANIC: "+format+"\n", args...)
 }
 
-func (m *MockLogger) Warn(args ...any) {
+func (*MockLogger) Warn(args ...any) {
 	fmt.Println("WARN:", fmt.Sprint(args...))
 }
 
-func (m *MockLogger) Warnf(format string, args ...any) {
+func (*MockLogger) Warnf(format string, args ...any) {
 	fmt.Printf("WARN: "+format+"\n", args...)
 }
 
-func (m *MockLogger) IsEnabledFor(level zapcore.Level) bool {
+func (*MockLogger) IsEnabledFor(_ zapcore.Level) bool {
 	// Implement logic to check if the given log level is enabled
 	return true
 }
 
-func (m *MockLogger) Warnw(format string, args ...any) {
+func (*MockLogger) Warnw(format string, args ...any) {
 	fmt.Printf("WARN: "+format+"\n", args...)
 }
 
-func (m *MockLogger) Warningf(format string, args ...any) {
+func (*MockLogger) Warningf(format string, args ...any) {
 	fmt.Printf("WARNING: "+format+"\n", args...)
 }
 
-func (m *MockLogger) Errorw(format string, args ...any) {
+func (*MockLogger) Errorw(format string, args ...any) {
 	fmt.Printf("ERROR: "+format+"\n", args...)
 }
 
@@ -134,6 +134,6 @@ func (m *MockLogger) PanicwContext(_ context.Context, template string, args ...a
 	m.Panicf(template, args...)
 }
 
-func (m *MockLogger) Zap() *zap.Logger {
+func (*MockLogger) Zap() *zap.Logger {
 	return nil
 }

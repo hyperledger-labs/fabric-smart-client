@@ -23,6 +23,7 @@ var logger = logging.MustGetLogger()
 
 type Resolver struct {
 	config.Resolver
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
 	Id             []byte
 	RootID         view.Identity
 	IdentityGetter func() (view.Identity, []byte, error)

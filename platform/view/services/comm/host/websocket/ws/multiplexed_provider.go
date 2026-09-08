@@ -41,6 +41,7 @@ const (
 	pingInterval                            = 30 * time.Second
 )
 
+//nolint:revive // var-naming: renaming this exported type alias is an API break; see follow-up
 type SubConnId = string
 
 type MultiplexedMessage struct {
@@ -217,7 +218,7 @@ func newClientConn(conn *websocket.Conn, tracer trace.Tracer, m *Metrics, maxSub
 }
 
 func (c *multiplexedClientConn) newClientSubConn(ctx context.Context, src host2.PeerID, info host2.StreamInfo) (*stream, error) {
-	id := strconv.FormatUint(c.subConnId.Add(1), 10)
+	id := strconv.FormatUint(c.subConnID.Add(1), 10)
 	spanContext := trace.SpanContextFromContext(ctx)
 	marshalledSpanContext, err := tracing.MarshalContext(spanContext)
 	if err != nil {
@@ -420,7 +421,7 @@ type multiplexedBaseConn struct {
 	// mu protects concurrent use of our subConns
 	mu        sync.RWMutex
 	subConns  map[SubConnId]*subConn
-	subConnId atomic.Uint64
+	subConnID atomic.Uint64
 
 	tracer      trace.Tracer
 	m           *Metrics

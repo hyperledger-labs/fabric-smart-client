@@ -37,7 +37,7 @@ func NewMarshaller() *Marshaller {
 // nsInfo maps each namespace to its version information and must contain an entry for every
 // namespace present in the RWSet. Returns an error if a namespace is missing from nsInfo or if
 // marshalling fails. Taking nsInfo as a parameter keeps the marshaller stateless and race-free.
-func (m *Marshaller) Marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[driver.Namespace]driver.RawVersion) ([]byte, error) {
+func (*Marshaller) Marshal(txID string, rws *vault.ReadWriteSet, nsInfo map[driver.Namespace]driver.RawVersion) ([]byte, error) {
 	logger.Debugf("Marshal rws into fabricx proto [txID=%v]", txID)
 	if logger.IsEnabledFor(zap.DebugLevel) {
 		str, _ := json.MarshalIndent(rws, "", "\t")
@@ -205,7 +205,7 @@ func (m *Marshaller) RWSetFromBytes(raw []byte, namespaces ...string) (*vault.Re
 // current one.
 //
 // Returns an error if deserialization fails or if adding reads/writes fails.
-func (m *Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespaces ...string) (map[driver.Namespace]driver.RawVersion, error) {
+func (*Marshaller) Append(destination *vault.ReadWriteSet, raw []byte, namespaces ...string) (map[driver.Namespace]driver.RawVersion, error) {
 	var txIn applicationpb.Tx
 	if err := proto.Unmarshal(raw, &txIn); err != nil {
 		return nil, errors.Wrapf(err, "unmarshal tx from [len=%d][%s]", len(raw), logging.SHA256Base64(raw))

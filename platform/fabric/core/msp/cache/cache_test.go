@@ -25,7 +25,7 @@ func TestNewCacheMsp(t *testing.T) {
 	i, err := New(nil)
 	require.Error(t, err)
 	require.Nil(t, i)
-	require.Contains(t, err.Error(), "Invalid passed MSP. It must be different from nil.")
+	require.Contains(t, err.Error(), "invalid passed MSP. It must be different from nil")
 
 	i, err = New(&fake.MSP{})
 	require.NoError(t, err)
@@ -130,7 +130,7 @@ func TestDeserializeIdentity(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(100)
 	for i := range 100 {
-		go func(m msp.MSP, i int) {
+		go func(_ msp.MSP, i int) {
 			sIdentity := serializedIdentity
 			expectedIdentity := mockIdentity
 			defer wg.Done()
@@ -359,16 +359,16 @@ func TestCachedSigningIdentity_GetPublicVersion(t *testing.T) {
 	id, err := wrappedMSP.DeserializeIdentity(serializedIdentity)
 	require.NoError(t, err)
 
-	signingId, ok := id.(msp.SigningIdentity)
+	signingID, ok := id.(msp.SigningIdentity)
 	require.True(t, ok)
 
-	publicId := signingId.GetPublicVersion()
-	require.NotNil(t, publicId)
+	publicID := signingID.GetPublicVersion()
+	require.NotNil(t, publicID)
 
 	// Verify it's a cached identity
-	_, ok = publicId.(*cachedIdentity)
+	_, ok = publicID.(*cachedIdentity)
 	require.True(t, ok)
-	require.Equal(t, mockPublicIdentity, publicId.(*cachedIdentity).Identity)
+	require.Equal(t, mockPublicIdentity, publicID.(*cachedIdentity).Identity)
 
 	mockSigningIdentity.AssertExpectations(t)
 }
@@ -390,10 +390,10 @@ func TestCachedSigningIdentity_Sign(t *testing.T) {
 	id, err := wrappedMSP.DeserializeIdentity(serializedIdentity)
 	require.NoError(t, err)
 
-	signingId, ok := id.(msp.SigningIdentity)
+	signingID, ok := id.(msp.SigningIdentity)
 	require.True(t, ok)
 
-	res, err := signingId.Sign(msg)
+	res, err := signingID.Sign(msg)
 	require.NoError(t, err)
 	require.Equal(t, sig, res)
 

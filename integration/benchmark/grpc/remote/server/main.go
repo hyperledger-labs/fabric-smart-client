@@ -76,7 +76,7 @@ func main() {
 
 // makeSelfSignedCert generates a localhost self-signed cert using ECDSA P-256.
 // It returns the tls.Certificate and the PEM-encoded cert for the client root pool.
-func makeSelfSignedCert() ([]byte, []byte, error) {
+func makeSelfSignedCert() (skPEM, crtPEM []byte, err error) {
 	// 1. generate ECDSA private key
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -122,7 +122,7 @@ type BenchmarkService struct {
 	remote.UnimplementedBenchmarkServiceServer
 }
 
-func (b *BenchmarkService) Process(ctx context.Context, in *remote.Request) (*remote.Response, error) {
+func (*BenchmarkService) Process(ctx context.Context, in *remote.Request) (*remote.Response, error) {
 	p, ok := workloadProcessors[in.Workload]
 	if !ok {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid workload: %v", in.Workload)

@@ -17,7 +17,7 @@ import (
 
 type PKIDSynthesizer struct{}
 
-func (p PKIDSynthesizer) PublicKeyID(key any) ([]byte, error) {
+func (PKIDSynthesizer) PublicKeyID(key any) ([]byte, error) {
 	switch d := key.(type) {
 	case *ecdsa.PublicKey:
 		id, err := ecdsaPubKeyID(d)

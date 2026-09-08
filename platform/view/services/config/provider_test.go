@@ -185,7 +185,7 @@ type mockProvider struct {
 	service any
 }
 
-func (m *mockProvider) GetService(v any) (any, error) {
+func (m *mockProvider) GetService(_ any) (any, error) {
 	return m.service, nil
 }
 

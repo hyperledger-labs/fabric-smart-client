@@ -205,7 +205,7 @@ func TestSessionRecoverAfterClose(t *testing.T) { //nolint:paralleltest
 // mockSenderDeadlock implements the sender interface for testing.
 type mockSenderDeadlock struct{}
 
-func (m *mockSenderDeadlock) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
+func (*mockSenderDeadlock) sendTo(_ context.Context, _ host2.StreamInfo, _ proto.Message, _ *NetworkStreamSession) error {
 	// For the purpose of this test, we just need to avoid errors.
 	return nil
 }

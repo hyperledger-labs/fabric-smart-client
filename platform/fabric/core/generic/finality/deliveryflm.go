@@ -42,7 +42,7 @@ type deliveryListenerEntry struct {
 	l fabric.FinalityListener
 }
 
-func (e *deliveryListenerEntry) Namespace() driver2.Namespace {
+func (*deliveryListenerEntry) Namespace() driver2.Namespace {
 	return ""
 }
 
@@ -113,7 +113,7 @@ func (m *txInfoMapper) MapTxData(ctx context.Context, tx []byte, block *common.B
 	return txInfos, nil
 }
 
-func (m *txInfoMapper) MapProcessedTx(tx *fabric.ProcessedTransaction) ([]txInfo, error) {
+func (*txInfoMapper) MapProcessedTx(tx *fabric.ProcessedTransaction) ([]txInfo, error) {
 	status, message := committer.MapValidationCode(tx.ValidationCode())
 	return []txInfo{{
 		txID:    tx.TxID(),

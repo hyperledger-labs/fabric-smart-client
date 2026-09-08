@@ -92,6 +92,6 @@ func (c *commSCCMsgConn) Read() ([]byte, error) {
 	return msg.Payload, nil
 }
 
-func (c *commSCCMsgConn) Flush() error {
+func (*commSCCMsgConn) Flush() error {
 	return nil
 }

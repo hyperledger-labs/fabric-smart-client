@@ -40,23 +40,23 @@ func (n *Network) GenerateResolverMap() {
 	for _, peer := range n.Peers {
 		org := n.Organization(peer.Organization)
 
+		if peer.Type != topology.FSCPeer {
+			continue
+		}
+
 		var addresses map[api.PortName]string
 		var path string
-		if peer.Type == topology.FSCPeer {
-			if n.topology.NodeOUs {
-				switch peer.Role {
-				case "":
-					path = n.PeerUserLocalMSP(peer, peer.Name)
-				case "client":
-					path = n.PeerUserLocalMSP(peer, peer.Name)
-				default:
-					path = n.PeerLocalMSP(peer)
-				}
-			} else {
+		if n.topology.NodeOUs {
+			switch peer.Role {
+			case "":
 				path = n.PeerUserLocalMSP(peer, peer.Name)
+			case "client":
+				path = n.PeerUserLocalMSP(peer, peer.Name)
+			default:
+				path = n.PeerLocalMSP(peer)
 			}
 		} else {
-			continue
+			path = n.PeerUserLocalMSP(peer, peer.Name)
 		}
 
 		var aliases []string
@@ -82,31 +82,29 @@ func (n *Network) GenerateResolverMap() {
 }
 
 func (n *Network) ViewNodeLocalCertPath(peer *topology.Peer) string {
-	if n.topology.NodeOUs {
-		switch peer.Role {
-		case "":
-			return n.PeerUserLocalMSPIdentityCert(peer, peer.Name)
-		case "client":
-			return n.PeerUserLocalMSPIdentityCert(peer, peer.Name)
-		default:
-			return n.PeerLocalMSPIdentityCert(peer)
-		}
-	} else {
+	if !n.topology.NodeOUs {
+		return n.PeerLocalMSPIdentityCert(peer)
+	}
+	switch peer.Role {
+	case "":
+		return n.PeerUserLocalMSPIdentityCert(peer, peer.Name)
+	case "client":
+		return n.PeerUserLocalMSPIdentityCert(peer, peer.Name)
+	default:
 		return n.PeerLocalMSPIdentityCert(peer)
 	}
 }
 
 func (n *Network) ViewNodeLocalPrivateKeyPath(peer *topology.Peer) string {
-	if n.topology.NodeOUs {
-		switch peer.Role {
-		case "":
-			return n.PeerUserKey(peer, peer.Name)
-		case "client":
-			return n.PeerUserKey(peer, peer.Name)
-		default:
-			return n.PeerKey(peer)
-		}
-	} else {
+	if !n.topology.NodeOUs {
+		return n.PeerKey(peer)
+	}
+	switch peer.Role {
+	case "":
+		return n.PeerUserKey(peer, peer.Name)
+	case "client":
+		return n.PeerUserKey(peer, peer.Name)
+	default:
 		return n.PeerKey(peer)
 	}
 }

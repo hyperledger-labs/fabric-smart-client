@@ -175,7 +175,7 @@ type bccspNoKeyLookupKS struct {
 	bccsp.BCCSP
 }
 
-func (*bccspNoKeyLookupKS) GetKey(ski []byte) (k bccsp.Key, err error) {
+func (*bccspNoKeyLookupKS) GetKey(_ []byte) (k bccsp.Key, err error) {
 	return nil, errors.New("not found")
 }
 
@@ -466,13 +466,13 @@ func TestIsWellFormed(t *testing.T) { //nolint:paralleltest
 		return
 	}
 
-	sId := &msp.SerializedIdentity{}
-	err = proto.Unmarshal(serializedID, sId)
+	sID := &msp.SerializedIdentity{}
+	err = proto.Unmarshal(serializedID, sID)
 	require.NoError(t, err)
 
 	// An MSP Manager without any MSPs should not recognize the identity since
 	// not providers are registered
-	err = mspMgr.IsWellFormed(sId)
+	err = mspMgr.IsWellFormed(sID)
 	require.Error(t, err)
 	require.Equal(t, "no MSP provider recognizes the identity", err.Error())
 
@@ -480,44 +480,44 @@ func TestIsWellFormed(t *testing.T) { //nolint:paralleltest
 	err = mspMgr.Setup([]MSP{localMsp})
 	require.NoError(t, err)
 
-	err = localMsp.IsWellFormed(sId)
+	err = localMsp.IsWellFormed(sID)
 	require.NoError(t, err)
-	err = mspMgr.IsWellFormed(sId)
+	err = mspMgr.IsWellFormed(sID)
 	require.NoError(t, err)
 
-	bl, _ := pem.Decode(sId.IdBytes)
+	bl, _ := pem.Decode(sID.IdBytes)
 	require.Equal(t, "CERTIFICATE", bl.Type)
 
 	// Now, strip off the type from the PEM block. It should still be valid
 	bl.Type = ""
-	sId.IdBytes = pem.EncodeToMemory(bl)
+	sID.IdBytes = pem.EncodeToMemory(bl)
 
-	err = localMsp.IsWellFormed(sId)
+	err = localMsp.IsWellFormed(sID)
 	require.NoError(t, err)
 
 	// Now, corrupt the type of the PEM block.
 	// make sure it isn't considered well formed by both an MSP and an MSP Manager
 	bl.Type = "foo"
-	sId.IdBytes = pem.EncodeToMemory(bl)
-	err = localMsp.IsWellFormed(sId)
+	sID.IdBytes = pem.EncodeToMemory(bl)
+	err = localMsp.IsWellFormed(sID)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "pem type is")
 	require.Contains(t, err.Error(), "should be 'CERTIFICATE' or missing")
 
-	err = mspMgr.IsWellFormed(sId)
+	err = mspMgr.IsWellFormed(sID)
 	require.Error(t, err)
 	require.Equal(t, "no MSP provider recognizes the identity", err.Error())
 
 	// Restore the identity to what it was
-	sId = &msp.SerializedIdentity{}
-	err = proto.Unmarshal(serializedID, sId)
+	sID = &msp.SerializedIdentity{}
+	err = proto.Unmarshal(serializedID, sID)
 	require.NoError(t, err)
 
 	// Append some trailing junk at the end
-	sId.IdBytes = append(sId.IdBytes, []byte{1, 2, 3}...)
+	sID.IdBytes = append(sID.IdBytes, []byte{1, 2, 3}...)
 	// And ensure it is deemed invalid
-	err = localMsp.IsWellFormed(sId)
+	err = localMsp.IsWellFormed(sID)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "for MSP SampleOrg has trailing bytes")
 
@@ -543,9 +543,9 @@ func TestIsWellFormed(t *testing.T) { //nolint:paralleltest
 	// Pour it back into the identity
 	rawCert, err := asn1.Marshal(newCert)
 	require.NoError(t, err)
-	sId.IdBytes = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rawCert})
+	sID.IdBytes = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rawCert})
 	// Ensure it is invalid now and the signature modification is detected
-	err = localMsp.IsWellFormed(sId)
+	err = localMsp.IsWellFormed(sID)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "for MSP SampleOrg has a non canonical signature")
 }

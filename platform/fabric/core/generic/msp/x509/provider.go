@@ -41,7 +41,7 @@ func NewProvider(mspConfigPath, keyStorePath, mspID string, signerService Signer
 // If the configuration path contains the secret key,
 // then the provider can generate also signatures, otherwise it cannot.
 func NewProviderWithBCCSPConfig(mspConfigPath, keyStorePath, mspID string, signerService SignerService, bccspConfig *config.BCCSP) (*Provider, error) {
-	p, err := newProvider(mspConfigPath, keyStorePath, mspID, signerService, bccspConfig)
+	p, err := buildProvider(mspConfigPath, keyStorePath, mspID, signerService, bccspConfig)
 	if err == nil {
 		return p, nil
 	}
@@ -58,7 +58,7 @@ func NewProviderWithBCCSPConfig(mspConfigPath, keyStorePath, mspID string, signe
 	return &Provider{id: idRaw, enrollmentID: enrollmentID}, nil
 }
 
-func newProvider(mspConfigPath, keyStorePath, mspID string, signerService SignerService, bccspConfig *config.BCCSP) (*Provider, error) {
+func buildProvider(mspConfigPath, keyStorePath, mspID string, signerService SignerService, bccspConfig *config.BCCSP) (*Provider, error) {
 	sID, err := GetSigningIdentity(mspConfigPath, keyStorePath, mspID, bccspConfig)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (p *Provider) IsRemote() bool {
 	return p.sID == nil
 }
 
-func (p *Provider) Identity(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
+func (p *Provider) Identity(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
 	revocationHandle, err := GetRevocationHandle(p.id)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed getting revocation handle")
@@ -119,7 +119,7 @@ func (p *Provider) EnrollmentID() string {
 // must not be treated as an authorization decision on its own - callers
 // must check the resulting identity against an explicit allow-list (e.g.
 // the configured Admins/Clients/DefaultIdentity) before trusting it.
-func (p *Provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
+func (*Provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	si := &msp.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {
@@ -137,11 +137,11 @@ func (p *Provider) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	return NewVerifier(publicKey), nil
 }
 
-func (p *Provider) DeserializeSigner(raw []byte) (driver.Signer, error) {
+func (*Provider) DeserializeSigner(_ []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 
-func (p *Provider) Info(raw, auditInfo []byte) (string, error) {
+func (*Provider) Info(raw, _ []byte) (string, error) {
 	si := &msp.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {

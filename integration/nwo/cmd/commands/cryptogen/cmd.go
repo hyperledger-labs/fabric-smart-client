@@ -45,7 +45,7 @@ func newGenCmd() *cobra.Command {
 		Use:   "generate",
 		Short: "Gen crypto artifacts.",
 		Long:  `Generate crypto material.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			generate()
 			return nil
 		},
@@ -62,7 +62,7 @@ func newShowTemplateCmd() *cobra.Command {
 		Use:   "showtemplate",
 		Short: "Show the default configuration template",
 		Long:  `Show the default configuration template`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			fmt.Print(defaultConfig)
 			return nil
 		},

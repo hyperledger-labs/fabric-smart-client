@@ -25,7 +25,7 @@ type Deserializer struct{}
 // deserializer used by sig.Service, so its output must not be treated as an
 // authorization decision on its own - callers must check the resulting
 // identity against an explicit allow-list before trusting it.
-func (x *Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
+func (*Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	genericPublicKey, err := PemDecodeKey(raw)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed parsing received public key")
@@ -38,11 +38,11 @@ func (x *Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) 
 	return NewVerifier(publicKey), nil
 }
 
-func (x *Deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
+func (*Deserializer) DeserializeSigner(_ []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 
-func (x *Deserializer) Info(raw, auditInfo []byte) (string, error) {
+func (*Deserializer) Info(raw, _ []byte) (string, error) {
 	cert, err := PemDecodeCert(raw)
 	if err != nil {
 		return "", err

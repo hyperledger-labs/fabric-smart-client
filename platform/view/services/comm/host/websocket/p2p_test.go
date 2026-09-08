@@ -109,7 +109,7 @@ func TestMTLSCallerIdentityBinding(t *testing.T) { //nolint:paralleltest
 	require.Equal(t, []byte("pong"), reply.Payload)
 }
 
-func setupTwoNodes(t *testing.T) (*comm.HostNode, *comm.HostNode) {
+func setupTwoNodes(t *testing.T) (node1, node2 *comm.HostNode) {
 	t.Helper()
 	tlsFiles := generateTLSFiles(t)
 
@@ -162,7 +162,7 @@ func TestSessionsTwoNodesTestRound(t *testing.T) { //nolint:paralleltest
 	comm.SessionsNodesTestRound(t, bootstrapNode, []*comm.HostNode{node1, node2}, 50)
 }
 
-func setupThreeNodes(t *testing.T) (*comm.HostNode, *comm.HostNode, *comm.HostNode) {
+func setupThreeNodes(t *testing.T) (bootstrap, node1, node2 *comm.HostNode) {
 	t.Helper()
 	// Create TLS certificates for three nodes: bootstrap, node1, node2
 	dir := t.TempDir()
@@ -402,8 +402,8 @@ func generateTLSFiles(t *testing.T) generatedTLSFiles {
 func TestSessionInfoSecurityGuarantees(t *testing.T) { //nolint:paralleltest
 	ctx := t.Context()
 	// Simpler: Alice, Bob and Charlie all share the same CA.
-	allTlsFiles := generateThreeNodesTLSFiles(t)
-	aliceNode, bobNode := setupTwoNodesFromTLS(t, allTlsFiles.alice, allTlsFiles.bob, allTlsFiles.caCert)
+	allTLSFiles := generateThreeNodesTLSFiles(t)
+	aliceNode, bobNode := setupTwoNodesFromTLS(t, allTLSFiles.alice, allTLSFiles.bob, allTLSFiles.caCert)
 	aliceNode.Start(ctx)
 	bobNode.Start(ctx)
 	defer aliceNode.Stop()
@@ -429,17 +429,17 @@ func TestSessionInfoSecurityGuarantees(t *testing.T) { //nolint:paralleltest
 	// Claim 2: RemotePKID is cryptographically verified and bound to transport identity
 	require.Equal(t, []byte(aliceNode.ID), info.RemotePKID, "RemotePKID mismatch")
 
-	charlieID := mustPeerIDFromCert(t, allTlsFiles.charlie.cert)
+	charlieID := mustPeerIDFromCert(t, allTLSFiles.charlie.cert)
 	charlieAddresses := freeTCPAddresses(t, 2)
 	charlieHost, _ := newStaticRouteHostProvider(&routing.StaticIDRouter{
 		charlieID:  []host2.PeerIPAddress{charlieAddresses[0]},
 		bobNode.ID: []host2.PeerIPAddress{bobNode.Address},
 	}, websocket.NewConfigFromProperties(
 		charlieAddresses[1],
-		allTlsFiles.charlie.key,
-		allTlsFiles.charlie.cert,
-		[]string{allTlsFiles.caCert},
-		[]string{allTlsFiles.caCert},
+		allTLSFiles.charlie.key,
+		allTLSFiles.charlie.cert,
+		[]string{allTLSFiles.caCert},
+		[]string{allTLSFiles.caCert},
 		true,
 		100, nil,
 	)).GetNewHost()
@@ -528,7 +528,7 @@ func generateThreeNodesTLSFiles(t *testing.T) threeNodesTLSFiles {
 	}
 }
 
-func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) (*comm.HostNode, *comm.HostNode) {
+func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) (aliceNode, bobNode *comm.HostNode) {
 	t.Helper()
 	addrs := freeTCPAddresses(t, 2)
 	aliceAddr := addrs[0]
@@ -540,11 +540,11 @@ func setupTwoNodesFromTLS(t *testing.T, alice, bob nodeTLSFiles, caCert string) 
 		bobID:   []host2.PeerIPAddress{bobAddr},
 	}
 	aliceH, _ := newStaticRouteHostProvider(routes, websocket.NewConfigFromProperties(aliceAddr, alice.key, alice.cert, []string{caCert}, []string{caCert}, true, 100, nil)).GetNewHost()
-	aliceNode, _ := comm.NewNode(t.Context(), aliceH, &disabled.Provider{})
+	aliceP2P, _ := comm.NewNode(t.Context(), aliceH, &disabled.Provider{})
 	bobH, _ := newStaticRouteHostProvider(routes, websocket.NewConfigFromProperties(bobAddr, bob.key, bob.cert, []string{caCert}, []string{caCert}, true, 100, nil)).GetNewHost()
-	bobNode, _ := comm.NewNode(t.Context(), bobH, &disabled.Provider{})
-	return &comm.HostNode{P2PNode: aliceNode, ID: aliceID, Address: aliceAddr},
-		&comm.HostNode{P2PNode: bobNode, ID: bobID, Address: bobAddr}
+	bobP2P, _ := comm.NewNode(t.Context(), bobH, &disabled.Provider{})
+	return &comm.HostNode{P2PNode: aliceP2P, ID: aliceID, Address: aliceAddr},
+		&comm.HostNode{P2PNode: bobP2P, ID: bobID, Address: bobAddr}
 }
 
 func writePEM(t *testing.T, path, typ string, raw []byte) {
@@ -559,7 +559,7 @@ func newStaticRouteHostProvider(routes *routing.StaticIDRouter, config websocket
 	return &staticRoutHostProvider{routes: routes, config: config}
 }
 
-func (p *staticRoutHostProvider) ExtraCAs() [][]byte {
+func (*staticRoutHostProvider) ExtraCAs() [][]byte {
 	return nil
 }
 

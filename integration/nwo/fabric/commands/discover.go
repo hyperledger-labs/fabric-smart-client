@@ -49,7 +49,7 @@ type Config struct {
 	ClientKey  string
 }
 
-func (c Config) SessionName() string {
+func (Config) SessionName() string {
 	return "discover-config"
 }
 
@@ -85,7 +85,7 @@ type Endorsers struct {
 	ClientKey   string
 }
 
-func (e Endorsers) SessionName() string {
+func (Endorsers) SessionName() string {
 	return "discover-endorsers"
 }
 

@@ -21,31 +21,31 @@ func TestEnvelope_GetData(t *testing.T) { //nolint:paralleltest
 }
 
 func TestEnvelope_GetData_NoData(t *testing.T) { //nolint:paralleltest
-	GetData_NoData(t, func(db *sql.DB, key string) ([]byte, error) {
+	GetDataNoData(t, func(db *sql.DB, key string) ([]byte, error) {
 		return mockEnvelopeStore(db).GetEnvelope(context.Background(), key)
 	})
 }
 
 func TestEnvelope_ExistData_True(t *testing.T) { //nolint:paralleltest
-	ExistData_True(t, func(db *sql.DB, key string) (bool, error) {
+	ExistDataTrue(t, func(db *sql.DB, key string) (bool, error) {
 		return mockEnvelopeStore(db).ExistsEnvelope(context.Background(), key)
 	})
 }
 
 func TestEnvelope_ExistData_False(t *testing.T) { //nolint:paralleltest
-	ExistData_False(t, func(db *sql.DB, key string) (bool, error) {
+	ExistDataFalse(t, func(db *sql.DB, key string) (bool, error) {
 		return mockEnvelopeStore(db).ExistsEnvelope(context.Background(), key)
 	})
 }
 
 func TestEnvelope_PutData_Success(t *testing.T) { //nolint:paralleltest
-	PutData_Success(t, func(db *sql.DB, key string, data []byte) error {
+	PutDataSuccess(t, func(db *sql.DB, key string, data []byte) error {
 		return mockEnvelopeStore(db).PutEnvelope(context.Background(), key, data)
 	})
 }
 
 func TestEnvelope_PutData_Conflict(t *testing.T) { //nolint:paralleltest
-	PutData_Conflict(t, func(db *sql.DB, key string, data []byte) error {
+	PutDataConflict(t, func(db *sql.DB, key string, data []byte) error {
 		return mockEnvelopeStore(db).PutEnvelope(context.Background(), key, data)
 	})
 }

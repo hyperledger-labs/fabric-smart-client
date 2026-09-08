@@ -33,13 +33,13 @@ func (p *testArtifactProvider) RemoveNils(items []driver2.VaultRead) []driver2.V
 	return p.removeNils(items)
 }
 
-func (p *testArtifactProvider) NewCachedVault(ddb driver.VaultStore) (*Vault[ValidationCode], error) {
+func (*testArtifactProvider) NewCachedVault(ddb driver.VaultStore) (*Vault[ValidationCode], error) {
 	vaultLogger := logging.MustGetLogger()
 	return New[ValidationCode](
 		vaultLogger,
 		vault2.NewCachedVault(ddb, 100),
 		VCProvider,
-		newInterceptor,
+		newVaultInterceptor,
 		&populator{},
 		&disabled.Provider{},
 		&noop.TracerProvider{},
@@ -47,12 +47,12 @@ func (p *testArtifactProvider) NewCachedVault(ddb driver.VaultStore) (*Vault[Val
 	), nil
 }
 
-func (p *testArtifactProvider) NewNonCachedVault(ddb driver.VaultStore) (*Vault[ValidationCode], error) {
+func (*testArtifactProvider) NewNonCachedVault(ddb driver.VaultStore) (*Vault[ValidationCode], error) {
 	return New[ValidationCode](
 		logging.MustGetLogger(),
 		vault2.NewCachedVault(ddb, 0),
 		VCProvider,
-		newInterceptor,
+		newVaultInterceptor,
 		&populator{},
 		&disabled.Provider{},
 		&noop.TracerProvider{},
@@ -60,11 +60,11 @@ func (p *testArtifactProvider) NewNonCachedVault(ddb driver.VaultStore) (*Vault[
 	), nil
 }
 
-func (p *testArtifactProvider) NewMarshaller() Marshaller {
+func (*testArtifactProvider) NewMarshaller() Marshaller {
 	return &marshaller{}
 }
 
-func newInterceptor(
+func newVaultInterceptor(
 	logger Logger,
 	ctx context.Context,
 	rwSet ReadWriteSet,
@@ -99,11 +99,11 @@ func (p *populator) Populate(rwsetBytes []byte, namespaces ...driver2.Namespace)
 
 type marshaller struct{}
 
-func (m *marshaller) Marshal(txID string, rws *ReadWriteSet) ([]byte, error) {
+func (*marshaller) Marshal(_ string, rws *ReadWriteSet) ([]byte, error) {
 	return json.Marshal(rws)
 }
 
-func (m *marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string) error {
+func (*marshaller) Append(destination *ReadWriteSet, raw []byte, nss ...string) error {
 	source := &ReadWriteSet{}
 	err := json.Unmarshal(raw, source)
 	if err != nil {

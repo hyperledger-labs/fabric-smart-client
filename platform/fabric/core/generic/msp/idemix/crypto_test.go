@@ -15,8 +15,8 @@ import (
 
 type dummyKVS struct{}
 
-func (d *dummyKVS) Put(key string, value any) error { return nil }
-func (d *dummyKVS) Get(key string, value any) error { return nil }
+func (*dummyKVS) Put(_ string, _ any) error { return nil }
+func (*dummyKVS) Get(_ string, _ any) error { return nil }
 
 func TestNewBCCSP(t *testing.T) { //nolint:paralleltest
 

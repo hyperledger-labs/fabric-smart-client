@@ -17,6 +17,7 @@ type Connection struct {
 }
 
 type AdminCredential struct {
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
 	Id       string `json:"id"`
 	Password string `json:"password"`
 }
@@ -25,8 +26,9 @@ type Client struct {
 	AdminCredential      AdminCredential `json:"adminCredential"`
 	Organization         string          `json:"organization"`
 	EnableAuthentication bool            `json:"enableAuthentication"`
-	TlsEnable            bool            `json:"tlsEnable"`
-	Connection           Connection      `json:"connection"`
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
+	TlsEnable  bool       `json:"tlsEnable"`
+	Connection Connection `json:"connection"`
 }
 
 type Organization struct {
@@ -43,15 +45,18 @@ type Peer struct {
 	GrpcOptions map[string]any `json:"grpcOptions"`
 }
 
+//nolint:revive // var-naming: renaming this exported type is an API break; see follow-up
 type HttpOptions struct {
 	Verify bool `json:"verify"`
 }
 
 type CertificationAuthority struct {
-	Url         string            `json:"url"`
-	CaName      string            `json:"caName"`
-	TLSCACerts  map[string]string `json:"tlsCACerts"`
-	HttpOptions HttpOptions       `json:"httpOptions"`
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
+	Url        string            `json:"url"`
+	CaName     string            `json:"caName"`
+	TLSCACerts map[string]string `json:"tlsCACerts"`
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
+	HttpOptions HttpOptions `json:"httpOptions"`
 }
 
 type ChannelPeer struct {

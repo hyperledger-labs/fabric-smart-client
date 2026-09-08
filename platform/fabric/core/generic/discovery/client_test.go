@@ -394,7 +394,7 @@ func computeSHA256(bytes []byte) []byte {
 
 func TestUnableToSign(t *testing.T) {
 	t.Parallel()
-	signer := func(msg []byte) ([]byte, error) {
+	signer := func(_ []byte) ([]byte, error) {
 		return nil, errors.New("not enough entropy")
 	}
 	failToConnect := func() (*grpc.ClientConn, error) {

@@ -178,7 +178,7 @@ func (s *Service) ClientKeepAliveConfig() *grpc.ClientKeepAliveConfig {
 	return c
 }
 
-func (s *Service) NewDefaultChannelConfig(name string) driver.ChannelConfig {
+func (*Service) NewDefaultChannelConfig(name string) driver.ChannelConfig {
 	return &Channel{
 		Name:       name,
 		Default:    false,

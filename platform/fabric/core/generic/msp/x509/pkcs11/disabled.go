@@ -33,10 +33,10 @@ type PKCS11Opts struct {
 	SessionCacheSize uint           `yaml:"SessionCacheSize,omitempty"`
 }
 
-func NewProvider(opts any, ks bccsp.KeyStore, mapper func(ski []byte) []byte) (bccsp.BCCSP, error) {
+func NewProvider(_ any, _ bccsp.KeyStore, _ func(ski []byte) []byte) (bccsp.BCCSP, error) {
 	panic("pkcs11 not included in build. Use: go build -tags pkcs11")
 }
 
-func ToPKCS11OptsOpts(o any) *PKCS11Opts {
+func ToPKCS11OptsOpts(_ any) *PKCS11Opts {
 	panic("pkcs11 not included in build. Use: go build -tags pkcs11")
 }

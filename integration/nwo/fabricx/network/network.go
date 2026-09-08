@@ -96,7 +96,7 @@ func (n *Network) GenerateArtifacts() {
 	}
 }
 
-func (n *Network) Members() []grouper.Member {
+func (*Network) Members() []grouper.Member {
 	// note that we do not start any peers or orderers here
 	// the committer all-in-one image takes care of this
 	return grouper.Members{}

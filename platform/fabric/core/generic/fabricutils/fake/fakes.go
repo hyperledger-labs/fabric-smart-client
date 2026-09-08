@@ -55,7 +55,7 @@ func (r *ProposalResponse) EndorserSignature() []byte { return r.EndorserSignatu
 func (r *ProposalResponse) Results() []byte           { return r.ResultsBytes }
 func (r *ProposalResponse) ResponseStatus() int32     { return r.Status }
 func (r *ProposalResponse) ResponseMessage() string   { return r.Message }
-func (r *ProposalResponse) Bytes() ([]byte, error)    { return nil, nil }
-func (r *ProposalResponse) VerifyEndorsement(driver.VerifierProvider) error {
+func (*ProposalResponse) Bytes() ([]byte, error)      { return nil, nil }
+func (*ProposalResponse) VerifyEndorsement(driver.VerifierProvider) error {
 	return nil
 }

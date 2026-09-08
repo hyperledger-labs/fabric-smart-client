@@ -34,11 +34,11 @@ func (m *MockIdentityProvider) DefaultIdentity() view.Identity {
 	return m.DefaultSigner
 }
 
-func (m *MockIdentityProvider) Admins() []view.Identity {
+func (*MockIdentityProvider) Admins() []view.Identity {
 	panic("implement me")
 }
 
-func (m *MockIdentityProvider) Clients() []view.Identity {
+func (*MockIdentityProvider) Clients() []view.Identity {
 	panic("implement me")
 }
 
@@ -46,7 +46,7 @@ type MockSignerProvider struct {
 	DefaultSigner sig.Signer
 }
 
-func (m *MockSignerProvider) GetSigner(identity view.Identity) (sig.Signer, error) {
+func (m *MockSignerProvider) GetSigner(_ view.Identity) (sig.Signer, error) {
 	return m.DefaultSigner, nil
 }
 
@@ -55,17 +55,17 @@ type MockViewManager struct {
 	Identity    view.Identity
 }
 
-func (m *MockViewManager) NewView(id string, in []byte) (view.View, error) {
+func (m *MockViewManager) NewView(_ string, _ []byte) (view.View, error) {
 	return m.Constructor(), nil
 }
 
-func (m *MockViewManager) InitiateView(ctx context.Context, view view.View) (any, error) {
+func (*MockViewManager) InitiateView(_ context.Context, view view.View) (any, error) {
 	return view.Call(nil)
 }
 
-func (m *MockViewManager) InitiateContext(ctx context.Context, view view.View) (view.Context, error) {
+func (*MockViewManager) InitiateContext(_ context.Context, _ view.View) (view.Context, error) {
 	panic("implement me")
 }
 
-func (m *MockViewManager) DeleteContext(contextID string) {
+func (*MockViewManager) DeleteContext(_ string) {
 }

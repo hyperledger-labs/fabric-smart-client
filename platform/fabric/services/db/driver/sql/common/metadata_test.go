@@ -21,31 +21,31 @@ func TestMetadata_GetData(t *testing.T) { //nolint:paralleltest
 }
 
 func TestMetadata_GetData_NoData(t *testing.T) { //nolint:paralleltest
-	GetData_NoData(t, func(db *sql.DB, key string) ([]byte, error) {
+	GetDataNoData(t, func(db *sql.DB, key string) ([]byte, error) {
 		return mockMetadataStore(db).GetMetadata(context.Background(), key)
 	})
 }
 
 func TestMetadata_ExistData_True(t *testing.T) { //nolint:paralleltest
-	ExistData_True(t, func(db *sql.DB, key string) (bool, error) {
+	ExistDataTrue(t, func(db *sql.DB, key string) (bool, error) {
 		return mockMetadataStore(db).ExistMetadata(context.Background(), key)
 	})
 }
 
 func TestMetadata_ExistData_False(t *testing.T) { //nolint:paralleltest
-	ExistData_False(t, func(db *sql.DB, key string) (bool, error) {
+	ExistDataFalse(t, func(db *sql.DB, key string) (bool, error) {
 		return mockMetadataStore(db).ExistMetadata(context.Background(), key)
 	})
 }
 
 func TestMetadata_PutData_Success(t *testing.T) { //nolint:paralleltest
-	PutData_Success(t, func(db *sql.DB, key string, data []byte) error {
+	PutDataSuccess(t, func(db *sql.DB, key string, data []byte) error {
 		return mockMetadataStore(db).PutMetadata(context.Background(), key, data)
 	})
 }
 
 func TestMetadata_PutData_Conflict(t *testing.T) { //nolint:paralleltest
-	PutData_Conflict(t, func(db *sql.DB, key string, data []byte) error {
+	PutDataConflict(t, func(db *sql.DB, key string, data []byte) error {
 		return mockMetadataStore(db).PutMetadata(context.Background(), key, data)
 	})
 }

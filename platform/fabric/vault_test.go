@@ -93,12 +93,12 @@ type mockEnvSvc struct {
 	count int
 }
 
-func (m *mockEnvSvc) StoreEnvelope(ctx context.Context, id string, env any) error {
+func (m *mockEnvSvc) StoreEnvelope(_ context.Context, _ string, _ any) error {
 	m.count++
 	return nil
 }
 
-func (m *mockEnvSvc) Exists(ctx context.Context, id string) bool {
+func (*mockEnvSvc) Exists(_ context.Context, _ string) bool {
 	return true
 }
 
@@ -107,7 +107,7 @@ type mockTxSvc struct {
 	count int
 }
 
-func (m *mockTxSvc) StoreTransaction(ctx context.Context, id string, raw []byte) error {
+func (m *mockTxSvc) StoreTransaction(_ context.Context, _ string, _ []byte) error {
 	m.count++
 	return nil
 }
@@ -118,16 +118,16 @@ type mockMetaSvc struct {
 	existsReturns bool
 }
 
-func (m *mockMetaSvc) StoreTransient(ctx context.Context, id string, tm fdriver.TransientMap) error {
+func (m *mockMetaSvc) StoreTransient(_ context.Context, _ string, _ fdriver.TransientMap) error {
 	m.count++
 	return nil
 }
 
-func (m *mockMetaSvc) Exists(ctx context.Context, txid string) bool {
+func (m *mockMetaSvc) Exists(_ context.Context, _ string) bool {
 	return m.existsReturns
 }
 
-func (m *mockMetaSvc) LoadTransient(ctx context.Context, txid string) (fdriver.TransientMap, error) {
+func (*mockMetaSvc) LoadTransient(_ context.Context, _ string) (fdriver.TransientMap, error) {
 	return nil, nil
 }
 

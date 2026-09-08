@@ -20,7 +20,7 @@ import (
 
 type Responder struct{}
 
-func (p *Responder) Call(viewCtx view.Context) (any, error) {
+func (*Responder) Call(viewCtx view.Context) (any, error) {
 	// Retrieve the session opened by the initiator
 	session := viewCtx.Session()
 

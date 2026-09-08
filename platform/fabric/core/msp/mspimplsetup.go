@@ -289,11 +289,11 @@ func (msp *bccspmsp) setupNodeOUs(config *m.FabricMSPConfig) error {
 		msp.ouEnforcement = config.FabricNodeOus.Enable
 
 		if config.FabricNodeOus.ClientOuIdentifier == nil || len(config.FabricNodeOus.ClientOuIdentifier.OrganizationalUnitIdentifier) == 0 {
-			return errors.New("Failed setting up NodeOUs. ClientOU must be different from nil.")
+			return errors.New("failed setting up NodeOUs. ClientOU must be different from nil")
 		}
 
 		if config.FabricNodeOus.PeerOuIdentifier == nil || len(config.FabricNodeOus.PeerOuIdentifier.OrganizationalUnitIdentifier) == 0 {
-			return errors.New("Failed setting up NodeOUs. PeerOU must be different from nil.")
+			return errors.New("failed setting up NodeOUs. PeerOU must be different from nil")
 		}
 
 		// ClientOU
@@ -615,7 +615,7 @@ func (msp *bccspmsp) preSetupV142(conf *m.FabricMSPConfig) error {
 	return nil
 }
 
-func (msp *bccspmsp) postSetupV1(conf *m.FabricMSPConfig) error {
+func (msp *bccspmsp) postSetupV1(_ *m.FabricMSPConfig) error {
 	// make sure that admins are valid members as well
 	// this way, when we validate an admin MSP principal
 	// we can simply check for exact match of certs

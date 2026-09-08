@@ -28,7 +28,7 @@ func TestRunView_CancelStopsAsyncRun(t *testing.T) { //nolint:paralleltest // us
 	done := make(chan struct{})
 
 	fake := &mock.Context{}
-	fake.RunViewStub = func(v view.View, opts ...view.RunViewOption) (any, error) {
+	fake.RunViewStub = func(_ view.View, opts ...view.RunViewOption) (any, error) {
 		options, err := view.CompileRunViewOptions(opts...)
 		if err != nil {
 			t.Errorf("failed compiling options: %v", err)
@@ -69,7 +69,7 @@ func TestRunView_PreservesChildContextOptions(t *testing.T) { //nolint:parallelt
 	compiled := make(chan *view.RunViewOptions, 1)
 
 	fake := &mock.Context{}
-	fake.RunViewStub = func(v view.View, opts ...view.RunViewOption) (any, error) {
+	fake.RunViewStub = func(_ view.View, opts ...view.RunViewOption) (any, error) {
 		options, err := view.CompileRunViewOptions(opts...)
 		if err != nil {
 			return nil, err
@@ -116,7 +116,7 @@ func TestRunView_CallerOptionWins(t *testing.T) { //nolint:paralleltest // uses 
 	compiled := make(chan *view.RunViewOptions, 1)
 
 	fake := &mock.Context{}
-	fake.RunViewStub = func(v view.View, opts ...view.RunViewOption) (any, error) {
+	fake.RunViewStub = func(_ view.View, opts ...view.RunViewOption) (any, error) {
 		options, err := view.CompileRunViewOptions(opts...)
 		if err != nil {
 			return nil, err

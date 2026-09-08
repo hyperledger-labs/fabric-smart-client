@@ -43,7 +43,7 @@ func NewDriver(in struct {
 	ConfigProvider  config.Provider
 	MetricsProvider metrics.Provider
 	EndpointService identity.EndpointService
-	IdProvider      identity.ViewIdentityProvider
+	IDProvider      identity.ViewIdentityProvider
 	KVS             *kvs.KVS
 	SignerInfoStore driver.SignerInfoStore
 	AuditInfoStore  driver.AuditInfoStore
@@ -58,7 +58,7 @@ func NewDriver(in struct {
 			in.MetricsProvider,
 			in.EndpointService,
 			in.ChannelProvider,
-			in.IdProvider,
+			in.IDProvider,
 			in.IdentityLoaders,
 			in.KVS,
 			in.SignerInfoStore,
@@ -82,7 +82,7 @@ func NewChannelProvider(in struct {
 	ListenerManagerProvider finality.ListenerManagerProvider
 	IdentityLoaders         []identity.NamedIdentityLoader `group:"identity-loaders"`
 	EndpointService         identity.EndpointService
-	IdProvider              identity.ViewIdentityProvider
+	IDProvider              identity.ViewIdentityProvider
 	EnvelopeStore           fdriver.EnvelopeStore
 	MetadataStore           fdriver.MetadataStore
 	EndorseTxStore          fdriver.EndorseTxStore
@@ -100,7 +100,7 @@ func NewChannelProvider(in struct {
 			return vault.New(configService, channelName, in.QueryServiceProvider, in.MetadataStore)
 		},
 		channelConfigProvider,
-		func(channelName string, nw fdriver.FabricNetworkService, chaincodeManager fdriver.ChaincodeManager) (fdriver.Ledger, error) {
+		func(channelName string, nw fdriver.FabricNetworkService, _ fdriver.ChaincodeManager) (fdriver.Ledger, error) {
 			return in.LedgerProvider.NewLedger(nw.Name(), channelName)
 		},
 		func(channel string, nw fdriver.FabricNetworkService, envelopeService fdriver.EnvelopeService, transactionService fdriver.EndorserTransactionService, vault fdriver.RWSetInspector) (fdriver.RWSetLoader, error) {

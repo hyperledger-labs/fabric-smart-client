@@ -73,7 +73,8 @@ type Channel struct {
 type Orderer struct {
 	Name         string `yaml:"name,omitempty"`
 	Organization string `yaml:"organization,omitempty"`
-	Id           int    `yaml:"id,omitempty"`
+	//nolint:revive // var-naming: renaming this exported struct field would collide with the ID() method below; an API break either way; see follow-up
+	Id int `yaml:"id,omitempty"`
 }
 
 // ID provides a unique identifier for an orderer instance.

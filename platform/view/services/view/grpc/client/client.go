@@ -131,7 +131,7 @@ func (s *client) CallViewWithContext(ctx context.Context, fid string, input []by
 	return commandResp.GetCallViewResponse().GetResult(), nil
 }
 
-func (s *client) Initiate(fid string, in []byte) (string, error) {
+func (*client) Initiate(_ string, _ []byte) (string, error) {
 	panic("implement me")
 }
 

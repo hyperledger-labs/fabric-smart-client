@@ -65,7 +65,7 @@ func NewApplicationProvider(capabilities map[string]*cb.Capability) *Application
 }
 
 // Type returns a descriptive string for logging purposes.
-func (ap *ApplicationProvider) Type() string {
+func (*ApplicationProvider) Type() string {
 	return applicationTypeName
 }
 
@@ -128,7 +128,7 @@ func (ap *ApplicationProvider) LifecycleV20() bool {
 }
 
 // MetadataLifecycle always returns false
-func (ap *ApplicationProvider) MetadataLifecycle() bool {
+func (*ApplicationProvider) MetadataLifecycle() bool {
 	return false
 }
 
@@ -150,7 +150,7 @@ func (ap *ApplicationProvider) PurgePvtData() bool {
 }
 
 // HasCapability returns true if the capability is supported by this binary.
-func (ap *ApplicationProvider) HasCapability(capability string) bool {
+func (*ApplicationProvider) HasCapability(capability string) bool {
 	switch capability {
 	// Add new capability names here
 	case ApplicationV1_1:

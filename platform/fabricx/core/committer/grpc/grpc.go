@@ -66,7 +66,7 @@ func (c *ClientProvider) QueryServiceClient(network string) (*grpc.ClientConn, e
 // getOrCreate returns the cached *grpc.ClientConn for the given network, or
 // dials a new one via loadCfg and caches it. Under a benign race two callers
 // may both dial; the loser closes its connection and returns the winner's.
-func (c *ClientProvider) getOrCreate(
+func (*ClientProvider) getOrCreate(
 	cache *sync.Map,
 	network string,
 	loadCfg func(string) (*config.Config, error),

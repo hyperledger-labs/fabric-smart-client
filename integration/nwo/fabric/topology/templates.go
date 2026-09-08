@@ -28,7 +28,7 @@ func (t *Templates) CoreTemplate() string {
 	return DefaultCoreTemplate
 }
 
-func (t *Templates) FSCFabricExtensionTemplate() string {
+func (*Templates) FSCFabricExtensionTemplate() string {
 	return DefaultFSCFabricExtensionTemplate
 }
 

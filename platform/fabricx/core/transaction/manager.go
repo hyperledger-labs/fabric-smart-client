@@ -30,15 +30,15 @@ func NewManager() *Manager {
 	return &Manager{}
 }
 
-func (m *Manager) ComputeTxID(id *driver.TxIDComponents) string {
+func (*Manager) ComputeTxID(id *driver.TxIDComponents) string {
 	return transaction.ComputeTxID(id)
 }
 
-func (m *Manager) NewEnvelope() driver.Envelope {
+func (*Manager) NewEnvelope() driver.Envelope {
 	return NewEmptyEnvelope()
 }
 
-func (m *Manager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalResponse, error) {
+func (*Manager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalResponse, error) {
 	return NewProposalResponseFromBytes(raw)
 }
 
@@ -85,7 +85,7 @@ func (m *Manager) NewTransactionFromBytes(ctx context.Context, channel string, r
 	return tx, nil
 }
 
-func (m *Manager) NewTransactionFromEnvelopeBytes(context.Context, string, []byte) (driver.Transaction, error) {
+func (*Manager) NewTransactionFromEnvelopeBytes(context.Context, string, []byte) (driver.Transaction, error) {
 	// TODO: implement me
 	panic("NewTransactionFromEnvelopeBytes >> implement me")
 }
@@ -94,15 +94,15 @@ func (m *Manager) AddTransactionFactory(transactionType driver.TransactionType, 
 	m.transactionFactories.Store(transactionType, factory)
 }
 
-func (m *Manager) NewProcessedTransactionFromEnvelopePayload(envelopePayload []byte) (driver.ProcessedTransaction, int32, error) {
+func (*Manager) NewProcessedTransactionFromEnvelopePayload(envelopePayload []byte) (driver.ProcessedTransaction, int32, error) {
 	return NewProcessedTransactionFromEnvelopePayload(envelopePayload)
 }
 
-func (m *Manager) NewProcessedTransactionFromEnvelopeRaw(envelope []byte) (driver.ProcessedTransaction, error) {
+func (*Manager) NewProcessedTransactionFromEnvelopeRaw(envelope []byte) (driver.ProcessedTransaction, error) {
 	return NewProcessedTransactionFromEnvelopeRaw(envelope)
 }
 
-func (m *Manager) NewProcessedTransaction(pt []byte) (driver.ProcessedTransaction, error) {
+func (*Manager) NewProcessedTransaction(pt []byte) (driver.ProcessedTransaction, error) {
 	return NewProcessedTransaction(pt)
 }
 

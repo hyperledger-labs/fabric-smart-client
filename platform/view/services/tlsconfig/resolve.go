@@ -70,16 +70,15 @@ func ResolveClient(src Source, key string) (grpc.SecureOptions, error) {
 // identityCert and identityKey are the fsc.identity keypair the block falls back to: the peer
 // ID a host announces is derived from the public key of the certificate it presents, so the
 // transport keypair has to be the node's identity.
-func ResolveWebsocketP2P(src Source, key string, identityCert, identityKey *File) (grpc.SecureOptions, grpc.SecureOptions, error) {
-	var zero grpc.SecureOptions
+func ResolveWebsocketP2P(src Source, key string, identityCert, identityKey *File) (server, client grpc.SecureOptions, err error) {
 	raw, _ := src.RawSubtree(key)
 	t, err := decode[TLS](key, raw)
 	if err != nil {
-		return zero, zero, err
+		return server, client, err
 	}
 	cert, keyFile := cmp.Or(t.Cert, identityCert), cmp.Or(t.Key, identityKey)
 
-	server, err := buildServer(src, key, ServerTLS{
+	server, err = buildServer(src, key, ServerTLS{
 		Enabled:            t.Enabled,
 		Cert:               cert,
 		Key:                keyFile,
@@ -87,10 +86,10 @@ func ResolveWebsocketP2P(src Source, key string, identityCert, identityKey *File
 		ClientRootCAs:      t.ClientRootCAs,
 	}, true, true)
 	if err != nil {
-		return zero, zero, err
+		return server, client, err
 	}
 	// The client half falls back to the server half's keypair, identity default included.
-	client, err := buildClient(src, key, ClientTLS{
+	client, err = buildClient(src, key, ClientTLS{
 		Enabled:            t.Enabled,
 		RootCAs:            t.RootCAs,
 		ClientAuthEnabled:  t.ClientAuthEnabled,
@@ -99,7 +98,7 @@ func ResolveWebsocketP2P(src Source, key string, identityCert, identityKey *File
 		ServerNameOverride: t.ServerNameOverride,
 	}, cert, keyFile)
 	if err != nil {
-		return zero, zero, err
+		return server, client, err
 	}
 	return server, client, nil
 }

@@ -19,7 +19,7 @@ import (
 
 func TestIdentityCache(t *testing.T) { //nolint:paralleltest
 	var counter atomic.Int32
-	c := NewIdentityCache(func(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
+	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
 		counter.Add(1)
 		return []byte("hello world"), []byte("audit"), nil
 	}, 100, nil, nil)
@@ -53,7 +53,7 @@ func TestIdentityCache(t *testing.T) { //nolint:paralleltest
 
 func TestIdentityCacheClose(t *testing.T) { //nolint:paralleltest
 	var counter atomic.Int32
-	c := NewIdentityCache(func(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
+	c := NewIdentityCache(func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
 		counter.Add(1)
 		return []byte("hello world"), []byte("audit"), nil
 	}, 10, nil, nil)

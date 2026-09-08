@@ -78,7 +78,7 @@ func Init(c Config) {
 	configMutex.Unlock()
 
 	for _, f := range c.ContextLogFields {
-		registerContextLogField(f.Name, f.Key, true)
+		doRegisterContextLogField(f.Name, f.Key, true)
 	}
 }
 
@@ -130,10 +130,10 @@ var (
 // given field name, on every context-aware log call. Panics if name is already
 // registered.
 func RegisterContextLogField(name string, key any) {
-	registerContextLogField(name, key, false)
+	doRegisterContextLogField(name, key, false)
 }
 
-func registerContextLogField(name string, key any, overwrite bool) {
+func doRegisterContextLogField(name string, key any, overwrite bool) {
 	ctxFieldsMutex.Lock()
 	defer ctxFieldsMutex.Unlock()
 

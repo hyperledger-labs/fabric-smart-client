@@ -10,6 +10,6 @@ func NewSanitizer() *stringSanitizer { return &stringSanitizer{} }
 
 type stringSanitizer struct{}
 
-func (s *stringSanitizer) Encode(str string) (string, error) { return str, nil }
+func (*stringSanitizer) Encode(str string) (string, error) { return str, nil }
 
-func (s *stringSanitizer) Decode(str string) (string, error) { return str, nil }
+func (*stringSanitizer) Decode(str string) (string, error) { return str, nil }

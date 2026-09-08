@@ -67,6 +67,6 @@ func (aog *ApplicationOrgConfig) AnchorPeers() []*pb.AnchorPeer {
 	return aog.protos.AnchorPeers.AnchorPeers
 }
 
-func (aoc *ApplicationOrgConfig) Validate() error {
-	return aoc.OrganizationConfig.Validate()
+func (aog *ApplicationOrgConfig) Validate() error {
+	return aog.OrganizationConfig.Validate()
 }

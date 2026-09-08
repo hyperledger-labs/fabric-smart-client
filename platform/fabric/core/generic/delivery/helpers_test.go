@@ -36,11 +36,11 @@ type mockPeerClient struct {
 	cert       tls.Certificate
 }
 
-func (m *mockPeerClient) Address() string                                    { return m.addr }
-func (m *mockPeerClient) Certificate() tls.Certificate                       { return m.cert }
-func (m *mockPeerClient) Close()                                             {}
-func (m *mockPeerClient) EndorserClient() (pb.EndorserClient, error)         { return nil, nil }
-func (m *mockPeerClient) DiscoveryClient() (services.DiscoveryClient, error) { return nil, nil }
+func (m *mockPeerClient) Address() string                                  { return m.addr }
+func (m *mockPeerClient) Certificate() tls.Certificate                     { return m.cert }
+func (*mockPeerClient) Close()                                             {}
+func (*mockPeerClient) EndorserClient() (pb.EndorserClient, error)         { return nil, nil }
+func (*mockPeerClient) DiscoveryClient() (services.DiscoveryClient, error) { return nil, nil }
 
 // DeliverClient never returns a nil client with a nil error: a real peer client
 // cannot do that, and NewDeliver would dereference the nil interface and take
@@ -68,7 +68,7 @@ func (m *mockDeliverClientRPC) DeliverFiltered(_ context.Context, _ ...googlegrp
 	return m.filtered, m.filteredErr
 }
 
-func (m *mockDeliverClientRPC) DeliverWithPrivateData(_ context.Context, _ ...googlegrpc.CallOption) (pb.Deliver_DeliverWithPrivateDataClient, error) {
+func (*mockDeliverClientRPC) DeliverWithPrivateData(_ context.Context, _ ...googlegrpc.CallOption) (pb.Deliver_DeliverWithPrivateDataClient, error) {
 	return nil, nil
 }
 
@@ -92,7 +92,7 @@ func (m *mockSigningIdentity) Serialize() ([]byte, error) {
 	return []byte("serialized"), nil
 }
 
-func (m *mockSigningIdentity) Sign(msg []byte) ([]byte, error) {
+func (m *mockSigningIdentity) Sign(_ []byte) ([]byte, error) {
 	if m.signErr != nil {
 		return nil, m.signErr
 	}
@@ -219,13 +219,13 @@ type mockChannelConfig struct {
 	driver.ChannelConfig
 }
 
-func (m *mockChannelConfig) DeliverySleepAfterFailure() time.Duration { return 10 * time.Millisecond }
+func (*mockChannelConfig) DeliverySleepAfterFailure() time.Duration { return 10 * time.Millisecond }
 
-func (m *mockChannelConfig) CommitterWaitForEventTimeout() time.Duration {
+func (*mockChannelConfig) CommitterWaitForEventTimeout() time.Duration {
 	return 10 * time.Millisecond
 }
-func (m *mockChannelConfig) DeliveryBufferSize() int { return 1 }
-func (m *mockChannelConfig) ID() string              { return "testChannel" }
+func (*mockChannelConfig) DeliveryBufferSize() int { return 1 }
+func (*mockChannelConfig) ID() string              { return "testChannel" }
 
 // --- Transaction mocks ---
 
@@ -234,32 +234,32 @@ type mockTransactionManager struct {
 	err error
 }
 
-func (m *mockTransactionManager) ComputeTxID(*driver.TxIDComponents) string { return "" }
-func (m *mockTransactionManager) NewEnvelope() driver.Envelope              { return nil }
-func (m *mockTransactionManager) NewProposalResponseFromBytes([]byte) (driver.ProposalResponse, error) {
+func (*mockTransactionManager) ComputeTxID(*driver.TxIDComponents) string { return "" }
+func (*mockTransactionManager) NewEnvelope() driver.Envelope              { return nil }
+func (*mockTransactionManager) NewProposalResponseFromBytes([]byte) (driver.ProposalResponse, error) {
 	return nil, nil
 }
 
-func (m *mockTransactionManager) NewTransaction(context.Context, driver.TransactionType, view.Identity, []byte, string, string, []byte) (driver.Transaction, error) {
+func (*mockTransactionManager) NewTransaction(context.Context, driver.TransactionType, view.Identity, []byte, string, string, []byte) (driver.Transaction, error) {
 	return nil, nil
 }
 
-func (m *mockTransactionManager) NewTransactionFromBytes(context.Context, string, []byte) (driver.Transaction, error) {
+func (*mockTransactionManager) NewTransactionFromBytes(context.Context, string, []byte) (driver.Transaction, error) {
 	return nil, nil
 }
 
-func (m *mockTransactionManager) NewTransactionFromEnvelopeBytes(context.Context, string, []byte) (driver.Transaction, error) {
+func (*mockTransactionManager) NewTransactionFromEnvelopeBytes(context.Context, string, []byte) (driver.Transaction, error) {
 	return nil, nil
 }
 
-func (m *mockTransactionManager) AddTransactionFactory(driver.TransactionType, driver.TransactionFactory) {
+func (*mockTransactionManager) AddTransactionFactory(driver.TransactionType, driver.TransactionFactory) {
 }
 
-func (m *mockTransactionManager) NewProcessedTransactionFromEnvelopePayload([]byte) (driver.ProcessedTransaction, int32, error) {
+func (*mockTransactionManager) NewProcessedTransactionFromEnvelopePayload([]byte) (driver.ProcessedTransaction, int32, error) {
 	return nil, 0, nil
 }
 
-func (m *mockTransactionManager) NewProcessedTransaction([]byte) (driver.ProcessedTransaction, error) {
+func (*mockTransactionManager) NewProcessedTransaction([]byte) (driver.ProcessedTransaction, error) {
 	return nil, nil
 }
 
@@ -273,11 +273,11 @@ type mockProcessedTx struct {
 	env     []byte
 }
 
-func (m *mockProcessedTx) TxID() string          { return m.txID }
-func (m *mockProcessedTx) Results() []byte       { return m.results }
-func (m *mockProcessedTx) Envelope() []byte      { return m.env }
-func (m *mockProcessedTx) ValidationCode() int32 { return 0 }
-func (m *mockProcessedTx) IsValid() bool         { return true }
+func (m *mockProcessedTx) TxID() string        { return m.txID }
+func (m *mockProcessedTx) Results() []byte     { return m.results }
+func (m *mockProcessedTx) Envelope() []byte    { return m.env }
+func (*mockProcessedTx) ValidationCode() int32 { return 0 }
+func (*mockProcessedTx) IsValid() bool         { return true }
 
 // --- Test helpers ---
 

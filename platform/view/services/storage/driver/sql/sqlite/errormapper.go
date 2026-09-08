@@ -23,7 +23,7 @@ var errorMap = map[int]error{
 
 type ErrorMapper struct{}
 
-func (m *ErrorMapper) WrapError(err error) error {
+func (*ErrorMapper) WrapError(err error) error {
 	var pgErr *sqlite.Error
 	if !errors2.As(err, &pgErr) {
 		return err

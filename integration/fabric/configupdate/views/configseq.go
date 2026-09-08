@@ -21,7 +21,7 @@ import (
 // started from.
 type ConfigSequenceView struct{}
 
-func (v *ConfigSequenceView) Call(viewCtx view.Context) (any, error) {
+func (*ConfigSequenceView) Call(viewCtx view.Context) (any, error) {
 	_, ch, err := fabric.GetDefaultChannel(viewCtx)
 	assert.NoError(err, "failed getting the default channel")
 
@@ -33,6 +33,6 @@ func (v *ConfigSequenceView) Call(viewCtx view.Context) (any, error) {
 
 type ConfigSequenceViewFactory struct{}
 
-func (f *ConfigSequenceViewFactory) NewView([]byte) (view.View, error) {
+func (*ConfigSequenceViewFactory) NewView([]byte) (view.View, error) {
 	return &ConfigSequenceView{}, nil
 }

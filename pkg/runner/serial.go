@@ -30,6 +30,7 @@ type serialExecutor[I any, O any] struct {
 	executor ExecuteFunc[I, Output[O]]
 }
 
+//nolint:revive // confusing-naming: serialExecutor and batchExecutor both implement the exported BatchExecutor interface; renaming Execute is an API break; see follow-up
 func (r *serialExecutor[I, O]) Execute(input I) (O, error) {
 	res := r.executor([]I{input})[0]
 	return res.Val, res.Err

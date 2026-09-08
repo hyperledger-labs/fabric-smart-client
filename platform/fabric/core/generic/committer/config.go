@@ -172,7 +172,7 @@ func (c *Committer) CommitConfig(ctx context.Context, blockNumber driver.BlockNu
 	}
 
 	// when validation passes, we can commit the config transaction
-	if err := c.commitConfig(ctx, txID, blockNumber, sequence, raw); err != nil {
+	if err := c.applyConfigCommit(ctx, txID, blockNumber, sequence, raw); err != nil {
 		return errors.Wrapf(err, "failed committing configtx to the vault")
 	}
 

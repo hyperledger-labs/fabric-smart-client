@@ -14,7 +14,7 @@ func (n NodeStart) SessionName() string {
 	return n.NodeID
 }
 
-func (n NodeStart) Args() []string {
+func (NodeStart) Args() []string {
 	return []string{
 		"node", "start",
 	}

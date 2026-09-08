@@ -44,7 +44,7 @@ func GetData(t *testing.T, get getFunc) {
 	Expect(result).To(Equal(data))
 }
 
-func GetData_NoData(t *testing.T, get getFunc) {
+func GetDataNoData(t *testing.T, get getFunc) {
 	t.Helper()
 	RegisterTestingT(t)
 
@@ -66,7 +66,7 @@ func GetData_NoData(t *testing.T, get getFunc) {
 	Expect(result).To(BeNil())
 }
 
-func ExistData_True(t *testing.T, exists existsFunc) {
+func ExistDataTrue(t *testing.T, exists existsFunc) {
 	t.Helper()
 	RegisterTestingT(t)
 
@@ -89,7 +89,7 @@ func ExistData_True(t *testing.T, exists existsFunc) {
 	Expect(result).To(BeTrue())
 }
 
-func ExistData_False(t *testing.T, exist existsFunc) {
+func ExistDataFalse(t *testing.T, exist existsFunc) {
 	t.Helper()
 	RegisterTestingT(t)
 
@@ -111,7 +111,7 @@ func ExistData_False(t *testing.T, exist existsFunc) {
 	Expect(result).To(BeFalse())
 }
 
-func PutData_Success(t *testing.T, put putFunc) {
+func PutDataSuccess(t *testing.T, put putFunc) {
 	t.Helper()
 	RegisterTestingT(t)
 
@@ -133,7 +133,7 @@ func PutData_Success(t *testing.T, put putFunc) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func PutData_Conflict(t *testing.T, put putFunc) {
+func PutDataConflict(t *testing.T, put putFunc) {
 	t.Helper()
 	RegisterTestingT(t)
 

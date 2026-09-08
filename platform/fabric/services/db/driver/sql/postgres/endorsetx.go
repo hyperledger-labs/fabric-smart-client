@@ -19,9 +19,9 @@ type EndorseTxStore struct {
 }
 
 func NewEndorseTxStore(dbs *common2.RWDB, tables common.TableNames) (*EndorseTxStore, error) {
-	return newEndorseTxStore(dbs.ReadDB, dbs.WriteDB, tables.EndorseTx), nil
+	return buildEndorseTxStore(dbs.ReadDB, dbs.WriteDB, tables.EndorseTx), nil
 }
 
-func newEndorseTxStore(readDB, writeDB *sql.DB, table string) *EndorseTxStore {
+func buildEndorseTxStore(readDB, writeDB *sql.DB, table string) *EndorseTxStore {
 	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(readDB, writeDB, table, &postgres2.ErrorMapper{})}
 }

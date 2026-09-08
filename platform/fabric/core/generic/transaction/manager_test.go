@@ -55,10 +55,10 @@ func TestManager_NewTransactionFromBytes(t *testing.T) {
 	require.Error(t, err)
 
 	// Error when factory not found
-	validJson, err := json.Marshal(&transaction.SerializedTransaction{Type: driver.EndorserTransaction, Raw: []byte("raw tx")})
+	validJSON, err := json.Marshal(&transaction.SerializedTransaction{Type: driver.EndorserTransaction, Raw: []byte("raw tx")})
 	require.NoError(t, err)
 
-	_, err = m.NewTransactionFromBytes(ctx, "testchannel", validJson)
+	_, err = m.NewTransactionFromBytes(ctx, "testchannel", validJSON)
 	require.ErrorContains(t, err, "transaction type [3] not recognized")
 
 	// Add factory and test success
@@ -69,7 +69,7 @@ func TestManager_NewTransactionFromBytes(t *testing.T) {
 
 	m.AddTransactionFactory(driver.EndorserTransaction, mockFactory)
 
-	tx, err := m.NewTransactionFromBytes(ctx, "testchannel", validJson)
+	tx, err := m.NewTransactionFromBytes(ctx, "testchannel", validJSON)
 	require.NoError(t, err)
 	require.NotNil(t, tx)
 }

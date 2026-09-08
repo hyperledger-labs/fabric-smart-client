@@ -73,7 +73,7 @@ func NewProvider(
 	}
 }
 
-func (p *provider) NewChannel(nw fdriver.FabricNetworkService, channelName string, quiet bool) (fdriver.Channel, error) {
+func (p *provider) NewChannel(nw fdriver.FabricNetworkService, channelName string, _ bool) (fdriver.Channel, error) {
 	vault, err := p.newVault(channelName, nw.ConfigService(), nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating vault for channel [%s]", channelName)

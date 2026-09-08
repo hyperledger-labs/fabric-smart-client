@@ -60,10 +60,10 @@ func (cache *typedSecondChanceCache[T]) Get(key string) (T, bool) {
 	cache.rwlock.RLock()
 	defer cache.rwlock.RUnlock()
 
-	return cache.get(key)
+	return cache.getLocked(key)
 }
 
-func (cache *typedSecondChanceCache[T]) get(key string) (T, bool) {
+func (cache *typedSecondChanceCache[T]) getLocked(key string) (T, bool) {
 	item, ok := cache.table[key]
 	if !ok {
 		return zero[T](), false
@@ -78,7 +78,7 @@ func (cache *typedSecondChanceCache[T]) get(key string) (T, bool) {
 func (cache *typedSecondChanceCache[T]) GetOrLoad(key string, loader func() (T, error)) (T, bool, error) {
 	cache.rwlock.RLock()
 
-	if value, ok := cache.get(key); ok {
+	if value, ok := cache.getLocked(key); ok {
 		cache.rwlock.RUnlock()
 		return value, true, nil
 	}
@@ -87,7 +87,7 @@ func (cache *typedSecondChanceCache[T]) GetOrLoad(key string, loader func() (T, 
 	cache.rwlock.Lock()
 	defer cache.rwlock.Unlock()
 
-	if value, ok := cache.get(key); ok {
+	if value, ok := cache.getLocked(key); ok {
 		return value, true, nil
 	}
 
@@ -96,7 +96,7 @@ func (cache *typedSecondChanceCache[T]) GetOrLoad(key string, loader func() (T, 
 		return zero[T](), false, err
 	}
 
-	cache.add(key, value)
+	cache.addLocked(key, value)
 
 	return value, false, nil
 }
@@ -105,10 +105,10 @@ func (cache *typedSecondChanceCache[T]) Add(key string, value T) {
 	cache.rwlock.Lock()
 	defer cache.rwlock.Unlock()
 
-	cache.add(key, value)
+	cache.addLocked(key, value)
 }
 
-func (cache *typedSecondChanceCache[T]) add(key string, value T) {
+func (cache *typedSecondChanceCache[T]) addLocked(key string, value T) {
 	if old, ok := cache.table[key]; ok {
 		old.value = value
 		old.referenced.Store(1)
@@ -267,7 +267,7 @@ func (cache *secondChanceCacheBytes) Delete(key []byte) {
 	}
 }
 
-func (cache *secondChanceCacheBytes) key(k []byte) Slice {
+func (*secondChanceCacheBytes) key(k []byte) Slice {
 	// hash k using sha256
 	var key Slice
 	copy(key[:], k)

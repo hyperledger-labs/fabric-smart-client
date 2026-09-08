@@ -82,11 +82,11 @@ func (r *RWSet) KeyExist(key, ns string) (bool, error) {
 }
 
 func (r *RWSet) Equals(rws any, nss ...string) error {
-	if rw, ok := rws.(*RWSet); !ok {
+	rw, ok := rws.(*RWSet)
+	if !ok {
 		return errors.Errorf("expected instance of *RWSet, got [%t]", rws)
-	} else {
-		return r.RWSet.Equals(rw.RWSet, nss...)
 	}
+	return r.RWSet.Equals(rw.RWSet, nss...)
 }
 
 // Vault models a key-value store that can be updated by committing rwsets

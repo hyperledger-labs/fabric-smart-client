@@ -89,7 +89,7 @@ func NewProviderFromConfigService(confService driver.ConfigService) (Provider, e
 		return nil, errors.WithMessagef(err, "failed resolving %s", otlpTLSKey)
 	}
 	c.Otlp.TLS = tlsOpts
-	return newProviderFromConfig(c, confService.GetString("fsc.id"))
+	return buildProviderFromConfig(c, confService.GetString("fsc.id"))
 }
 
 // otlpTLSKey is the configuration subtree holding the OTLP collector connection's TLS.
@@ -98,10 +98,10 @@ const otlpTLSKey = "fsc.tracing.otlp.tls"
 // NewProviderFromConfig returns a tracing provider from an already-populated [Config],
 // including any resolved TLS it carries.
 func NewProviderFromConfig(c Config) (Provider, error) {
-	return newProviderFromConfig(c, ServiceName)
+	return buildProviderFromConfig(c, ServiceName)
 }
 
-func newProviderFromConfig(c Config, serviceName string) (Provider, error) {
+func buildProviderFromConfig(c Config, serviceName string) (Provider, error) {
 	var exporter sdktrace.SpanExporter
 	var err error
 	switch c.Provider {

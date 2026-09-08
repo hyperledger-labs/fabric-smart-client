@@ -54,7 +54,7 @@ func NewPayloadReceiveView() *payloadReceiveView {
 	return &payloadReceiveView{}
 }
 
-func (s payloadReceiveView) Call(viewCtx view.Context) (any, error) {
+func (payloadReceiveView) Call(viewCtx view.Context) (any, error) {
 	// Wait to receive a state
 	ch := viewCtx.Session().Receive()
 

@@ -9,6 +9,7 @@ package x509
 import "encoding/json"
 
 type AuditInfo struct {
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
 	EnrollmentId     string
 	RevocationHandle []byte
 }

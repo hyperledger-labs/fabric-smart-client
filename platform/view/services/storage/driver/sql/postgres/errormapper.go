@@ -22,7 +22,7 @@ var errorMap = map[string]error{
 
 type ErrorMapper struct{}
 
-func (m *ErrorMapper) WrapError(err error) error {
+func (*ErrorMapper) WrapError(err error) error {
 	var pgErr *pgconn.PgError
 	if !errors2.As(err, &pgErr) {
 		logger.Warnf("error of type [%T] not pgError", err)

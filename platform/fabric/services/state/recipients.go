@@ -202,7 +202,7 @@ type ExchangeRecipientIdentitiesView struct {
 
 // ExchangeRecipientIdentities runs the ExchangeRecipientIdentitiesView against the passed receiver.
 // The function returns, the recipient identity of the sender, the recipient identity of the receiver.
-func ExchangeRecipientIdentities(viewCtx view.Context, recipient view.Identity, opts ...ServiceOption) (view.Identity, view.Identity, error) {
+func ExchangeRecipientIdentities(viewCtx view.Context, recipient view.Identity, opts ...ServiceOption) (sender, receiver view.Identity, err error) {
 	opt, err := CompileServiceOptions(opts...)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to compile service options")
@@ -292,7 +292,7 @@ type RespondExchangeRecipientIdentitiesView struct {
 }
 
 // RespondExchangeRecipientIdentities runs the RespondExchangeRecipientIdentitiesView
-func RespondExchangeRecipientIdentities(viewCtx view.Context, opts ...ServiceOption) (view.Identity, view.Identity, error) {
+func RespondExchangeRecipientIdentities(viewCtx view.Context, opts ...ServiceOption) (sender, receiver view.Identity, err error) {
 	opt, err := CompileServiceOptions(opts...)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to compile service options")

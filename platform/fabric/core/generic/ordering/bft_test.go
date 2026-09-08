@@ -39,7 +39,7 @@ func (f *fakeBroadcastStream) Recv() (*ab.BroadcastResponse, error) {
 	return &ab.BroadcastResponse{Status: f.status}, nil
 }
 
-func (f *fakeBroadcastStream) CloseSend() error { return nil }
+func (*fakeBroadcastStream) CloseSend() error { return nil }
 
 // fakeServices hands out orderer clients whose stream creation is instant, so
 // tests exercise the acquire/pool machinery without real network I/O.
@@ -553,7 +553,7 @@ func TestBFTBroadcaster_DiscardConnection(t *testing.T) {
 		},
 		{
 			name: "handles nil connection",
-			setupConn: func(t *testing.T, b *BFTBroadcaster) *Connection {
+			setupConn: func(t *testing.T, _ *BFTBroadcaster) *Connection {
 				t.Helper()
 				return nil
 			},

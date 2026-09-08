@@ -36,24 +36,26 @@ type keyset[I comparable, V any] struct {
 }
 
 // KeysetWithField creates a keyset pagination where the id has field name idFieldName
-func KeysetWithField[I comparable](offset, pageSize int, sqlIdName dbdriver.FieldName, idFieldName PropertyName[I]) (*keyset[I, any], error) {
+func KeysetWithField[I comparable](offset, pageSize int, sqlIDName dbdriver.FieldName, idFieldName PropertyName[I]) (*keyset[I, any], error) {
 	if strings.ToUpper(string(idFieldName[0])) != string(idFieldName[0]) {
 		return nil, errors.New("must use exported field")
 	}
-	return Keyset(offset, pageSize, sqlIdName, idFieldName.ExtractField)
+	return Keyset(offset, pageSize, sqlIDName, idFieldName.ExtractField)
 }
 
 type id[I comparable] interface {
-	Id() I
+	ID() I
 }
 
 // KeysetWithId creates a keyset pagination where the result object implements id[I]
-func KeysetWithId[I comparable, V id[I]](offset, pageSize int, sqlIdName dbdriver.FieldName) (*keyset[I, V], error) {
-	return Keyset[I, V](offset, pageSize, sqlIdName, func(v V) I { return v.Id() })
+//
+//nolint:revive // var-naming: renaming this exported func is an API break; see follow-up
+func KeysetWithId[I comparable, V id[I]](offset, pageSize int, sqlIDName dbdriver.FieldName) (*keyset[I, V], error) {
+	return Keyset[I, V](offset, pageSize, sqlIDName, func(v V) I { return v.ID() })
 }
 
-func (k *keyset[I, any]) Serialize() ([]byte, error) {
-	ret, err := json.Marshal(k)
+func (p *keyset[I, any]) Serialize() ([]byte, error) {
+	ret, err := json.Marshal(p)
 	return ret, err
 }
 
@@ -80,24 +82,24 @@ func KeysetFromRaw[I comparable](raw []byte, idFieldName PropertyName[I]) (*keys
 
 // Keyset creates a keyset pagination.
 //
-// sqlIdName has to be a plain column identifier: it is written into ORDER BY and
+// sqlIDName has to be a plain column identifier: it is written into ORDER BY and
 // into the cursor comparison verbatim, so an empty one would silently drop the
 // ORDER BY and page through rows in arbitrary order. Every other constructor in
 // this package, [KeysetFromRaw] included, goes through here.
-func Keyset[I comparable, V any](offset, pageSize int, sqlIdName dbdriver.FieldName, idGetter func(V) I) (*keyset[I, V], error) {
+func Keyset[I comparable, V any](offset, pageSize int, sqlIDName dbdriver.FieldName, idGetter func(V) I) (*keyset[I, V], error) {
 	if offset < 0 {
 		return nil, errors.Errorf("offset must be greater than zero. Offset: %d", offset)
 	}
 	if pageSize < 0 {
 		return nil, errors.Errorf("page size must be greater than zero. pageSize: %d", pageSize)
 	}
-	if err := sqlIdName.Validate(); err != nil {
+	if err := sqlIDName.Validate(); err != nil {
 		return nil, errors.WithMessage(err, "invalid keyset id column")
 	}
 	return &keyset[I, V]{
 		Offset:    offset,
 		PageSize:  pageSize,
-		SQLIDName: sqlIdName,
+		SQLIDName: sqlIDName,
 		idGetter:  idGetter,
 		FirstID:   nilElement[I](),
 		LastID:    nilElement[I](),
@@ -116,7 +118,7 @@ func nilElement[I any]() I {
 	}
 }
 
-func (p *keyset[I, V]) nilElement() I {
+func (*keyset[I, V]) zeroElement() I {
 	return nilElement[I]()
 }
 
@@ -131,7 +133,7 @@ func (p *keyset[I, V]) GoToOffset(offset int) (driver.Pagination, error) {
 			SQLIDName: p.SQLIDName,
 			idGetter:  p.idGetter,
 			FirstID:   p.LastID,
-			LastID:    p.nilElement(),
+			LastID:    p.zeroElement(),
 		}, nil
 	}
 	return &keyset[I, V]{
@@ -139,8 +141,8 @@ func (p *keyset[I, V]) GoToOffset(offset int) (driver.Pagination, error) {
 		PageSize:  p.PageSize,
 		SQLIDName: p.SQLIDName,
 		idGetter:  p.idGetter,
-		FirstID:   p.nilElement(),
-		LastID:    p.nilElement(),
+		FirstID:   p.zeroElement(),
+		LastID:    p.zeroElement(),
 	}, nil
 }
 
@@ -160,16 +162,16 @@ func (p *keyset[I, V]) Prev() (driver.Pagination, error) { return p.GoBack(1) }
 
 func (p *keyset[I, V]) Next() (driver.Pagination, error) { return p.GoForward(1) }
 
-func (k *keyset[I, V]) Equal(other driver.Pagination) bool {
+func (p *keyset[I, V]) Equal(other driver.Pagination) bool {
 	otherKeyset, ok := other.(*keyset[I, V])
 	if !ok {
 		return false
 	}
 
-	return k.Offset == otherKeyset.Offset &&
-		k.PageSize == otherKeyset.PageSize &&
-		k.SQLIDName == otherKeyset.SQLIDName &&
-		k.FirstID == otherKeyset.FirstID &&
-		k.LastID == otherKeyset.LastID
+	return p.Offset == otherKeyset.Offset &&
+		p.PageSize == otherKeyset.PageSize &&
+		p.SQLIDName == otherKeyset.SQLIDName &&
+		p.FirstID == otherKeyset.FirstID &&
+		p.LastID == otherKeyset.LastID
 	// Note: idGetter is not comparable and is intentionally skipped
 }

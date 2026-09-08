@@ -28,7 +28,7 @@ import (
 func LoadPrivateKey(keystorePath string) (*ecdsa.PrivateKey, error) {
 	var priv *ecdsa.PrivateKey
 
-	walkFunc := func(path string, info os.FileInfo, pathErr error) error {
+	walkFunc := func(path string, _ os.FileInfo, _ error) error {
 		if !strings.HasSuffix(path, "_sk") {
 			return nil
 		}
@@ -114,7 +114,7 @@ func (e *ECDSASigner) Public() crypto.PublicKey {
 }
 
 // Sign signs the digest and ensures that signatures use the Low S value.
-func (e *ECDSASigner) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+func (e *ECDSASigner) Sign(rand io.Reader, digest []byte, _ crypto.SignerOpts) ([]byte, error) {
 	r, s, err := ecdsa.Sign(rand, e.PrivateKey, digest)
 	if err != nil {
 		return nil, err

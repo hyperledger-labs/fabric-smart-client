@@ -9,7 +9,9 @@ package libp2p
 import metrics2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/metrics"
 
 const (
-	PeerId     = "peer"
+	//nolint:revive // var-naming: renaming this exported const is an API break; see follow-up
+	PeerId = "peer"
+	//nolint:revive // var-naming: renaming this exported const is an API break; see follow-up
 	ProtocolId = "protocol"
 )
 

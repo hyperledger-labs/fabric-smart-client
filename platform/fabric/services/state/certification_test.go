@@ -58,8 +58,8 @@ func TestResolveCertifierDefaultsToChaincode(t *testing.T) {
 
 type stubCertifier struct{}
 
-func (s *stubCertifier) CertifyInput(*Namespace, string) error                    { return nil }
-func (s *stubCertifier) VerifyInputCertificationAt(*Namespace, int, string) error { return nil }
+func (*stubCertifier) CertifyInput(*Namespace, string) error                    { return nil }
+func (*stubCertifier) VerifyInputCertificationAt(*Namespace, int, string) error { return nil }
 
 func TestResolveCertifierUsesRegistered(t *testing.T) {
 	t.Parallel()
@@ -297,7 +297,7 @@ func TestNamespaceVerifyInputCertificationAtBranches(t *testing.T) {
 		tx, rwset, driverTx := newTestStateTransaction("assetns")
 		driverTx.transient[CertificationType] = []byte(ChaincodeCertification)
 		tx.Provider = &mockServiceProvider{
-			getFn: func(v any) (any, error) {
+			getFn: func(_ any) (any, error) {
 				return nil, errors.New("service missing")
 			},
 		}
@@ -315,7 +315,7 @@ func TestNamespaceVerifyInputCertificationAtBranches(t *testing.T) {
 		tx, rwset, driverTx := newTestStateTransaction("assetns")
 		driverTx.transient[CertificationType] = []byte(ChaincodeCertification)
 		tx.Provider = &mockServiceProvider{
-			getFn: func(v any) (any, error) {
+			getFn: func(_ any) (any, error) {
 				return nil, errors.New("service missing")
 			},
 		}
@@ -355,7 +355,7 @@ func TestNamespaceCertifyInputBranches(t *testing.T) {
 		tx, _, driverTx := newTestStateTransaction("assetns")
 		driverTx.transient[CertificationType] = []byte(ChaincodeCertification)
 		tx.Provider = &mockServiceProvider{
-			getFn: func(v any) (any, error) {
+			getFn: func(_ any) (any, error) {
 				return nil, errors.New("service missing")
 			},
 		}
@@ -373,7 +373,7 @@ type testCertificationVault struct {
 	keyCalled cdriver.PKey
 }
 
-func (t *testCertificationVault) GetState(context.Context, cdriver.Namespace, cdriver.PKey, any) error {
+func (*testCertificationVault) GetState(context.Context, cdriver.Namespace, cdriver.PKey, any) error {
 	return nil
 }
 

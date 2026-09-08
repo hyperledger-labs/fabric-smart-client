@@ -98,7 +98,7 @@ func (n *Namespace) getFieldMapping(namespace, key string, flag bool) (map[strin
 	return mapping, nil
 }
 
-func (n *Namespace) marshalTags(set *fabric.RWSet, source any) (any, map[string][]byte, error) {
+func (*Namespace) marshalTags(_ *fabric.RWSet, source any) (any, map[string][]byte, error) {
 	// dest: source -> dest
 	t := reflect.TypeOf(source).Elem()
 	dest := reflect.New(t).Interface()
@@ -152,7 +152,7 @@ func (n *Namespace) marshalTags(set *fabric.RWSet, source any) (any, map[string]
 	return dest, mapping, nil
 }
 
-func (n *Namespace) unmarshalTags(set *fabric.RWSet, source any, mapping map[string][]byte) error {
+func (*Namespace) unmarshalTags(_ *fabric.RWSet, source any, mapping map[string][]byte) error {
 	t := reflect.TypeOf(source).Elem()
 	v := reflect.ValueOf(source).Elem()
 	for i := 0; i < t.NumField(); i++ {

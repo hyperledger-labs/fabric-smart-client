@@ -293,7 +293,7 @@ func TestClientStreamCallView(t *testing.T) {
 
 func TestViewCallFunc(t *testing.T) {
 	t.Parallel()
-	f := viewCallFunc(func(context *server2.ReqContext, vid string, input []byte) (any, error) {
+	f := viewCallFunc(func(_ *server2.ReqContext, _ string, _ []byte) (any, error) {
 		return "result", nil
 	})
 	res, err := f.CallView(nil, "vid", nil)
@@ -305,7 +305,7 @@ type fakeViewCaller struct {
 	err error
 }
 
-func (f *fakeViewCaller) CallView(context *server2.ReqContext, vid string, input []byte) (any, error) {
+func (f *fakeViewCaller) CallView(_ *server2.ReqContext, _ string, _ []byte) (any, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -323,14 +323,14 @@ type fakeViewManager struct {
 	nonMutableCtx bool
 }
 
-func (f *fakeViewManager) NewView(id string, in []byte) (view2.View, error) {
+func (f *fakeViewManager) NewView(_ string, _ []byte) (view2.View, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 	return &fakeView{}, nil
 }
 
-func (f *fakeViewManager) InitiateView(ctx context.Context, v view2.View) (any, error) {
+func (f *fakeViewManager) InitiateView(_ context.Context, _ view2.View) (any, error) {
 	if f.initErr != nil {
 		return nil, f.initErr
 	}
@@ -340,7 +340,7 @@ func (f *fakeViewManager) InitiateView(ctx context.Context, v view2.View) (any, 
 	return []byte("result"), nil
 }
 
-func (f *fakeViewManager) InitiateContext(ctx context.Context, v view2.View) (view2.Context, error) {
+func (f *fakeViewManager) InitiateContext(_ context.Context, _ view2.View) (view2.Context, error) {
 	if f.initCtxErr != nil {
 		return nil, f.initCtxErr
 	}
@@ -354,19 +354,19 @@ func (f *fakeViewManager) InitiateContext(ctx context.Context, v view2.View) (vi
 	return &fakeViewContext{runErr: f.ctxRunErr, putServiceErr: f.putServiceErr, result: res}, nil
 }
 
-func (f *fakeViewManager) DeleteContext(contextID string) {}
+func (*fakeViewManager) DeleteContext(_ string) {}
 
 type fakeView struct{}
 
-func (f *fakeView) Call(context view2.Context) (any, error) {
+func (*fakeView) Call(_ view2.Context) (any, error) {
 	return nil, nil
 }
 
 type fakeIdentityProvider struct{}
 
-func (f *fakeIdentityProvider) DefaultIdentity() view2.Identity { return nil }
-func (f *fakeIdentityProvider) Admins() []view2.Identity        { return nil }
-func (f *fakeIdentityProvider) Clients() []view2.Identity       { return nil }
+func (*fakeIdentityProvider) DefaultIdentity() view2.Identity { return nil }
+func (*fakeIdentityProvider) Admins() []view2.Identity        { return nil }
+func (*fakeIdentityProvider) Clients() []view2.Identity       { return nil }
 
 type fakeViewContext struct {
 	runErr        error
@@ -374,52 +374,52 @@ type fakeViewContext struct {
 	result        any
 }
 
-func (f *fakeViewContext) ID() string { return "ctx-id" }
-func (f *fakeViewContext) RunView(v view2.View, opts ...view2.RunViewOption) (any, error) {
+func (*fakeViewContext) ID() string { return "ctx-id" }
+func (f *fakeViewContext) RunView(_ view2.View, _ ...view2.RunViewOption) (any, error) {
 	return f.result, f.runErr
 }
-func (f *fakeViewContext) Context() context.Context      { return context.Background() }
-func (f *fakeViewContext) GetService(v any) (any, error) { return nil, nil }
-func (f *fakeViewContext) Me() view2.Identity            { return nil }
-func (f *fakeViewContext) IsMe(id view2.Identity) bool   { return false }
-func (f *fakeViewContext) Initiator() view2.View         { return nil }
-func (f *fakeViewContext) GetSession(c view2.View, p view2.Identity, b ...view2.View) (view2.Session, error) {
+func (*fakeViewContext) Context() context.Context      { return context.Background() }
+func (*fakeViewContext) GetService(_ any) (any, error) { return nil, nil }
+func (*fakeViewContext) Me() view2.Identity            { return nil }
+func (*fakeViewContext) IsMe(_ view2.Identity) bool    { return false }
+func (*fakeViewContext) Initiator() view2.View         { return nil }
+func (*fakeViewContext) GetSession(_ view2.View, _ view2.Identity, _ ...view2.View) (view2.Session, error) {
 	return nil, nil
 }
 
-func (f *fakeViewContext) GetSessionByID(id string, p view2.Identity) (view2.Session, error) {
+func (*fakeViewContext) GetSessionByID(_ string, _ view2.Identity) (view2.Session, error) {
 	return nil, nil
 }
-func (f *fakeViewContext) Session() view2.Session  { return nil }
-func (f *fakeViewContext) OnError(callback func()) {}
-func (f *fakeViewContext) StartSpanFrom(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+func (*fakeViewContext) Session() view2.Session { return nil }
+func (*fakeViewContext) OnError(_ func())       {}
+func (*fakeViewContext) StartSpanFrom(ctx context.Context, _ string, _ ...trace.SpanStartOption) (context.Context, trace.Span) {
 	return ctx, trace.SpanFromContext(ctx)
 }
-func (f *fakeViewContext) ResetSessions() error { return nil }
-func (f *fakeViewContext) PutService(v any) error {
+func (*fakeViewContext) ResetSessions() error { return nil }
+func (f *fakeViewContext) PutService(_ any) error {
 	return f.putServiceErr
 }
 
 type fakeNonMutableViewContext struct{}
 
-func (f *fakeNonMutableViewContext) ID() string { return "ctx-id" }
-func (f *fakeNonMutableViewContext) RunView(v view2.View, opts ...view2.RunViewOption) (any, error) {
+func (*fakeNonMutableViewContext) ID() string { return "ctx-id" }
+func (*fakeNonMutableViewContext) RunView(_ view2.View, _ ...view2.RunViewOption) (any, error) {
 	return []byte("result"), nil
 }
-func (f *fakeNonMutableViewContext) Context() context.Context      { return context.Background() }
-func (f *fakeNonMutableViewContext) GetService(v any) (any, error) { return nil, nil }
-func (f *fakeNonMutableViewContext) Me() view2.Identity            { return nil }
-func (f *fakeNonMutableViewContext) IsMe(id view2.Identity) bool   { return false }
-func (f *fakeNonMutableViewContext) Initiator() view2.View         { return nil }
-func (f *fakeNonMutableViewContext) GetSession(c view2.View, p view2.Identity, b ...view2.View) (view2.Session, error) {
+func (*fakeNonMutableViewContext) Context() context.Context      { return context.Background() }
+func (*fakeNonMutableViewContext) GetService(_ any) (any, error) { return nil, nil }
+func (*fakeNonMutableViewContext) Me() view2.Identity            { return nil }
+func (*fakeNonMutableViewContext) IsMe(_ view2.Identity) bool    { return false }
+func (*fakeNonMutableViewContext) Initiator() view2.View         { return nil }
+func (*fakeNonMutableViewContext) GetSession(_ view2.View, _ view2.Identity, _ ...view2.View) (view2.Session, error) {
 	return nil, nil
 }
 
-func (f *fakeNonMutableViewContext) GetSessionByID(id string, p view2.Identity) (view2.Session, error) {
+func (*fakeNonMutableViewContext) GetSessionByID(_ string, _ view2.Identity) (view2.Session, error) {
 	return nil, nil
 }
-func (f *fakeNonMutableViewContext) Session() view2.Session  { return nil }
-func (f *fakeNonMutableViewContext) OnError(callback func()) {}
-func (f *fakeNonMutableViewContext) StartSpanFrom(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+func (*fakeNonMutableViewContext) Session() view2.Session { return nil }
+func (*fakeNonMutableViewContext) OnError(_ func())       {}
+func (*fakeNonMutableViewContext) StartSpanFrom(ctx context.Context, _ string, _ ...trace.SpanStartOption) (context.Context, trace.Span) {
 	return ctx, trace.SpanFromContext(ctx)
 }

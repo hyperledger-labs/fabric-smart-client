@@ -28,8 +28,8 @@ type fakeDeliverFiltered struct {
 	pos       int
 }
 
-func (f *fakeDeliverFiltered) Send(*cb.Envelope) error { return nil }
-func (f *fakeDeliverFiltered) CloseSend() error        { return nil }
+func (*fakeDeliverFiltered) Send(*cb.Envelope) error { return nil }
+func (*fakeDeliverFiltered) CloseSend() error        { return nil }
 
 func (f *fakeDeliverFiltered) Recv() (*pb.DeliverResponse, error) {
 	if f.pos >= len(f.responses) {

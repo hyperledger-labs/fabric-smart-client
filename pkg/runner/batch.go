@@ -152,6 +152,7 @@ func NewBatchExecutor[I, O any](
 	return &batchExecutor[I, O]{batcher: newBatcher(ctx, executor, capacity, timeout)}
 }
 
+//nolint:revive // confusing-naming: batchExecutor and serialExecutor both implement the exported BatchExecutor interface; renaming Execute is an API break; see follow-up
 func (r *batchExecutor[I, O]) Execute(input I) (O, error) {
 	o, err := r.call(input)
 	if err != nil {

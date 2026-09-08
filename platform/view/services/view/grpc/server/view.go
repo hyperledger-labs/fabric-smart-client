@@ -155,12 +155,12 @@ func (s *viewHandler) RunView(ctx context.Context, manager ViewManager, view vie
 	}
 
 	// Run the view
-	go s.runView(view, context)
+	go s.runViewAsync(view, context)
 
 	return context.ID(), nil
 }
 
-func (s *viewHandler) runView(view view2.View, viewCtx view2.Context) {
+func (s *viewHandler) runViewAsync(view view2.View, viewCtx view2.Context) {
 	defer s.viewManager.DeleteContext(viewCtx.ID())
 	result, err := viewCtx.RunView(view)
 	if err != nil {

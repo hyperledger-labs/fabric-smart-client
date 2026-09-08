@@ -82,7 +82,7 @@ type Transaction struct {
 	ctx              context.Context
 	channelProvider  ChannelProvider
 	sigService       driver.SignerService
-	rwset            driver.RWSet
+	rwSetHandle      driver.RWSet
 	channel          driver.Channel
 	signedProposal   *SignedProposal
 	proposalResponse *pb.ProposalResponse
@@ -317,21 +317,21 @@ func (t *Transaction) SetRWSet() error {
 		if err != nil {
 			return errors.WithMessagef(err, "failed to get rws from proposal response")
 		}
-		t.rwset, err = t.channel.Vault().NewRWSetFromBytes(t.ctx, t.ID(), results)
+		t.rwSetHandle, err = t.channel.Vault().NewRWSetFromBytes(t.ctx, t.ID(), results)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to populate rws from proposal response")
 		}
 	case len(t.RWSet) != 0:
-		logger.DebugfContext(t.ctx, "populate rws from rwset")
+		logger.DebugfContext(t.ctx, "populate rws from rwSetHandle")
 		var err error
-		t.rwset, err = t.channel.Vault().NewRWSetFromBytes(t.ctx, t.ID(), t.RWSet)
+		t.rwSetHandle, err = t.channel.Vault().NewRWSetFromBytes(t.ctx, t.ID(), t.RWSet)
 		if err != nil {
 			return errors.WithMessagef(err, "failed to populate rws from existing rws")
 		}
 	default:
 		logger.DebugfContext(t.ctx, "populate rws from scratch")
 		var err error
-		t.rwset, err = t.channel.Vault().NewRWSet(t.ctx, t.ID())
+		t.rwSetHandle, err = t.channel.Vault().NewRWSet(t.ctx, t.ID())
 		if err != nil {
 			return errors.WithMessagef(err, "failed to create fresh rws")
 		}
@@ -341,37 +341,37 @@ func (t *Transaction) SetRWSet() error {
 }
 
 func (t *Transaction) RWS() driver.RWSet {
-	return t.rwset
+	return t.rwSetHandle
 }
 
 func (t *Transaction) Done() error {
-	if t.rwset != nil {
+	if t.rwSetHandle != nil {
 		// There is a simulation in progress:
 		// 1. terminate it
 		// 2. append it to the payload
-		t.rwset.Done()
+		t.rwSetHandle.Done()
 		var err error
-		t.RWSet, err = t.rwset.Bytes()
+		t.RWSet, err = t.rwSetHandle.Bytes()
 		if err != nil {
 			return errors.Wrapf(err, "failed marshalling rws")
 		}
-		logger.Debugf("terminated simulation with [%s][len:%d]", logging.Eval(t.rwset.Namespaces), len(t.RWSet))
+		logger.Debugf("terminated simulation with [%s][len:%d]", logging.Eval(t.rwSetHandle.Namespaces), len(t.RWSet))
 	}
 	return nil
 }
 
 func (t *Transaction) Close() {
-	logger.Debugf("closing transaction [%s,%v]", t.ID(), t.rwset != nil)
-	if t.rwset != nil {
-		t.rwset.Done()
-		t.rwset = nil
+	logger.Debugf("closing transaction [%s,%v]", t.ID(), t.rwSetHandle != nil)
+	if t.rwSetHandle != nil {
+		t.rwSetHandle.Done()
+		t.rwSetHandle = nil
 	}
 }
 
 func (t *Transaction) Raw() ([]byte, error) {
-	if t.rwset != nil {
+	if t.rwSetHandle != nil {
 		var err error
-		t.RWSet, err = t.rwset.Bytes()
+		t.RWSet, err = t.rwSetHandle.Bytes()
 		if err != nil {
 			return nil, err
 		}
@@ -380,13 +380,13 @@ func (t *Transaction) Raw() ([]byte, error) {
 }
 
 func (t *Transaction) GetRWSet() (driver.RWSet, error) {
-	if t.rwset == nil {
+	if t.rwSetHandle == nil {
 		err := t.SetRWSet()
 		if err != nil {
 			return nil, err
 		}
 	}
-	return t.rwset, nil
+	return t.rwSetHandle, nil
 }
 
 func (t *Transaction) Bytes() ([]byte, error) {
@@ -441,7 +441,7 @@ func (t *Transaction) EndorseWithIdentity(identity view.Identity) error {
 		if err != nil {
 			return errors.Wrapf(err, "failed getting proposal response")
 		}
-		err = t.appendProposalResponse(t.proposalResponse)
+		err = t.recordProposalResponse(t.proposalResponse)
 		if err != nil {
 			return errors.Wrapf(err, "failed appending proposal response")
 		}
@@ -476,7 +476,7 @@ func (t *Transaction) EndorseWithSigner(identity view.Identity, s driver.Signer)
 		if err != nil {
 			return errors.Wrapf(err, "failed getting proposal response")
 		}
-		err = t.appendProposalResponse(t.proposalResponse)
+		err = t.recordProposalResponse(t.proposalResponse)
 		if err != nil {
 			return errors.Wrapf(err, "failed appending proposal response")
 		}
@@ -527,11 +527,11 @@ func (t *Transaction) EndorseProposalResponseWithIdentity(identity view.Identity
 	if err != nil {
 		return err
 	}
-	return t.appendProposalResponse(t.proposalResponse)
+	return t.recordProposalResponse(t.proposalResponse)
 }
 
 func (t *Transaction) AppendProposalResponse(response driver.ProposalResponse) error {
-	return t.appendProposalResponse(response.(*ProposalResponse).pr)
+	return t.recordProposalResponse(response.(*ProposalResponse).pr)
 }
 
 func (t *Transaction) ProposalHasBeenEndorsedBy(party view.Identity) error {
@@ -625,7 +625,7 @@ func (t *Transaction) generateProposal(signer SerializableSigner) error {
 	return nil
 }
 
-func (t *Transaction) appendProposalResponse(response *pb.ProposalResponse) error {
+func (t *Transaction) recordProposalResponse(response *pb.ProposalResponse) error {
 	for _, r := range t.TProposalResponses {
 		if bytes.Equal(r.Endorsement.Endorser, response.Endorsement.Endorser) {
 			logger.Debugf("an endorsement from [%s] found, skip it", view.Identity(r.Endorsement.Endorser))
@@ -638,11 +638,11 @@ func (t *Transaction) appendProposalResponse(response *pb.ProposalResponse) erro
 }
 
 func (t *Transaction) getProposalResponse(signer SerializableSigner) (*pb.ProposalResponse, error) {
-	rwset, err := t.GetRWSet()
+	rwSetHandle, err := t.GetRWSet()
 	if err != nil {
 		return nil, err
 	}
-	pubSimResBytes, err := rwset.Bytes()
+	pubSimResBytes, err := rwSetHandle.Bytes()
 	if err != nil {
 		return nil, err
 	}

@@ -104,8 +104,8 @@ func TestLoadCertificateECDSA_empty_DER_cert(t *testing.T) {
 	defer utils.IgnoreErrorWithOneArg(os.RemoveAll, testDir)
 
 	filename := filepath.Join(testDir, "empty.pem")
-	empty_cert := "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----"
-	err = os.WriteFile(filename, []byte(empty_cert), 0o644)
+	emptyCert := "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----"
+	err = os.WriteFile(filename, []byte(emptyCert), 0o644)
 	require.NoErrorf(t, err, "failed to create file %s", filename)
 
 	cert, err := ca.LoadCertificateECDSA(testDir)

@@ -21,20 +21,20 @@ type mockConfigService struct {
 	bools   map[string]bool
 }
 
-func (s *mockConfigService) GetString(key string) string      { return s.strings[key] }
-func (s *mockConfigService) GetInt(string) int                { return 0 }
-func (s *mockConfigService) GetDuration(string) time.Duration { return 0 }
-func (s *mockConfigService) GetBool(key string) bool          { return s.bools[key] }
-func (s *mockConfigService) GetStringSlice(string) []string   { return nil }
-func (s *mockConfigService) IsSet(string) bool                { return false }
-func (s *mockConfigService) UnmarshalKey(string, any) error   { return nil }
-func (s *mockConfigService) ConfigFileUsed() string           { return "" }
-func (s *mockConfigService) GetPath(string) string            { return "" }
-func (s *mockConfigService) TranslatePath(string) string      { return "" }
+func (s *mockConfigService) GetString(key string) string    { return s.strings[key] }
+func (*mockConfigService) GetInt(string) int                { return 0 }
+func (*mockConfigService) GetDuration(string) time.Duration { return 0 }
+func (s *mockConfigService) GetBool(key string) bool        { return s.bools[key] }
+func (*mockConfigService) GetStringSlice(string) []string   { return nil }
+func (*mockConfigService) IsSet(string) bool                { return false }
+func (*mockConfigService) UnmarshalKey(string, any) error   { return nil }
+func (*mockConfigService) ConfigFileUsed() string           { return "" }
+func (*mockConfigService) GetPath(string) string            { return "" }
+func (*mockConfigService) TranslatePath(string) string      { return "" }
 
-func (s *mockConfigService) RawSubtree(string) (map[string]any, bool) { return nil, false }
+func (*mockConfigService) RawSubtree(string) (map[string]any, bool) { return nil, false }
 
-func (s *mockConfigService) RawSubtrees(string) []map[string]any { return nil }
+func (*mockConfigService) RawSubtrees(string) []map[string]any { return nil }
 
 type Opt = func(*mockConfigService)
 

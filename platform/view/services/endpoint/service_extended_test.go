@@ -336,7 +336,7 @@ type mockPublicKeyIDSynthesizer struct {
 	called bool
 }
 
-func (m *mockPublicKeyIDSynthesizer) PublicKeyID(key any) ([]byte, error) {
+func (m *mockPublicKeyIDSynthesizer) PublicKeyID(_ any) ([]byte, error) {
 	m.called = true
 	return m.id, nil
 }
@@ -442,7 +442,7 @@ type mockPublicKeyExtractor struct {
 	called bool
 }
 
-func (m *mockPublicKeyExtractor) ExtractPublicKey(id view.Identity) (any, error) {
+func (m *mockPublicKeyExtractor) ExtractPublicKey(_ view.Identity) (any, error) {
 	m.called = true
 	return m.key, m.err
 }
@@ -645,7 +645,7 @@ func TestConcurrency(t *testing.T) {
 
 		wg.Add(numGoroutines)
 		for i := range numGoroutines {
-			go func(idx int) {
+			go func(_ int) {
 				defer wg.Done()
 				_, err := service.UpdateResolver(
 					"test",

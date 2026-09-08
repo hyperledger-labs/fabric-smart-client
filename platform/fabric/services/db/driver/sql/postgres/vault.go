@@ -29,14 +29,14 @@ type VaultStore struct {
 // NewVaultStore creates a postgres-backed VaultStore for the given
 // read/write database and table names.
 func NewVaultStore(dbs *common3.RWDB, tables common4.TableNames) (*VaultStore, error) {
-	return newVaultStore(dbs.ReadDB, dbs.WriteDB, common4.VaultTables{
+	return buildVaultStore(dbs.ReadDB, dbs.WriteDB, common4.VaultTables{
 		StateTable:  tables.State,
 		StatusTable: tables.Status,
 	}), nil
 }
 
-// newVaultStore is the internal constructor.
-func newVaultStore(readDB, writeDB *sql.DB, tables common4.VaultTables) *VaultStore {
+// buildVaultStore is the internal constructor.
+func buildVaultStore(readDB, writeDB *sql.DB, tables common4.VaultTables) *VaultStore {
 	return &VaultStore{
 		VaultStore: common4.NewVaultStore(writeDB, readDB, tables, &postgres2.ErrorMapper{}, postgres2.NewSanitizer(), postgres2.IsolationLevels),
 		tables:     tables,

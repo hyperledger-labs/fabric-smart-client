@@ -17,7 +17,7 @@ import (
 // through a method rather than a type switch keeps the pagination types
 // unexported while covering every instantiation of the generic keyset.
 type pageable interface {
-	paging() sqlbuild.Paging
+	toPaging() sqlbuild.Paging
 }
 
 // Paging translates p into the SQL fragment a SELECT needs. A nil pagination
@@ -33,26 +33,26 @@ func Paging(p driver.Pagination) sqlbuild.Paging {
 	if !ok {
 		panic(fmt.Sprintf("invalid pagination option %+v", p))
 	}
-	return pg.paging()
+	return pg.toPaging()
 }
 
-func (p *none) paging() sqlbuild.Paging {
+func (*none) toPaging() sqlbuild.Paging {
 	return sqlbuild.Paging{}
 }
 
-func (p *empty) paging() sqlbuild.Paging {
+func (*empty) toPaging() sqlbuild.Paging {
 	// LIMIT 0: an empty pagination returns no rows, rather than every row.
 	return sqlbuild.Paging{Limit: new(0)}
 }
 
-func (p *offset) paging() sqlbuild.Paging {
+func (p *offset) toPaging() sqlbuild.Paging {
 	return sqlbuild.Paging{Limit: new(p.PageSize), Offset: p.Offset}
 }
 
-func (k *keyset[I, V]) paging() sqlbuild.Paging {
+func (k *keyset[I, V]) toPaging() sqlbuild.Paging {
 	col := string(k.SQLIDName)
 	pag := sqlbuild.Paging{OrderBy: col, Limit: new(k.PageSize)}
-	if k.FirstID != k.nilElement() {
+	if k.FirstID != k.zeroElement() {
 		pag.Where = sqlbuild.Gt(col, k.FirstID)
 	} else {
 		pag.Offset = k.Offset

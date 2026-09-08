@@ -78,23 +78,23 @@ func (mgr *mspManagerImpl) DeserializeIdentity(serializedID []byte) (Identity, e
 		return nil, errors.New("channel doesn't exist")
 	}
 	// We first deserialize to a SerializedIdentity to get the MSP ID
-	sId := &msp.SerializedIdentity{}
-	err := proto.Unmarshal(serializedID, sId)
+	sID := &msp.SerializedIdentity{}
+	err := proto.Unmarshal(serializedID, sID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not deserialize a SerializedIdentity")
 	}
 
 	// we can now attempt to obtain the MSP
-	msp := mgr.mspsMap[sId.Mspid]
+	msp := mgr.mspsMap[sID.Mspid]
 	if msp == nil {
-		return nil, errors.Errorf("MSP %s is not defined on channel", sId.Mspid)
+		return nil, errors.Errorf("MSP %s is not defined on channel", sID.Mspid)
 	}
 
 	switch t := msp.(type) {
 	case *bccspmsp:
-		return t.deserializeIdentityInternal(sId.IdBytes)
+		return t.deserializeIdentityInternal(sID.IdBytes)
 	case *idemixMSPWrapper:
-		return t.deserializeIdentityInternal(sId.IdBytes)
+		return t.deserializeIdentityInternal(sID.IdBytes)
 	default:
 		return t.DeserializeIdentity(serializedID)
 	}

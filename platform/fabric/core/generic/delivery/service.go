@@ -134,10 +134,10 @@ func (c *Service) Stop() {
 	c.deliveryService.Stop(nil)
 }
 
-// scanBlock runs a throwaway Delivery over this channel, starting from the
+// runBlockScan runs a throwaway Delivery over this channel, starting from the
 // position implied by vault, and invokes callback for each block. It blocks
 // until the callback asks to stop, the callback fails, or ctx is cancelled.
-func (c *Service) scanBlock(ctx context.Context, vault Vault, callback driver.BlockCallback) error {
+func (c *Service) runBlockScan(ctx context.Context, vault Vault, callback driver.BlockCallback) error {
 	deliveryService, err := New(
 		c.NetworkName,
 		c.channelConfig,
@@ -161,13 +161,13 @@ func (c *Service) scanBlock(ctx context.Context, vault Vault, callback driver.Bl
 
 // ScanBlock delivers whole blocks to callback, starting from the genesis block.
 func (c *Service) ScanBlock(ctx context.Context, callback driver.BlockCallback) error {
-	return c.scanBlock(ctx, &fakeVault{}, callback)
+	return c.runBlockScan(ctx, &fakeVault{}, callback)
 }
 
 // ScanBlockFrom delivers whole blocks to callback, starting from the given
 // block number.
 func (c *Service) ScanBlockFrom(ctx context.Context, block driver.BlockNum, callback driver.BlockCallback) error {
-	return c.scanBlock(ctx, &fakeVault{block: block}, callback)
+	return c.runBlockScan(ctx, &fakeVault{block: block}, callback)
 }
 
 // Scan delivers the transactions committed after txID to callback, one at a
@@ -175,7 +175,7 @@ func (c *Service) ScanBlockFrom(ctx context.Context, block driver.BlockNum, call
 // configured to accept. Passing an empty txID starts from the genesis block.
 func (c *Service) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
 	vault := &fakeVault{txID: txID}
-	return c.scanBlock(ctx, vault,
+	return c.runBlockScan(ctx, vault,
 		func(_ context.Context, block *common.Block) (bool, error) {
 			for i, tx := range block.Data.Data {
 				validationCode, err := validationCodeAt(block, i)
@@ -225,7 +225,7 @@ func (c *Service) Scan(ctx context.Context, txID string, callback driver.Deliver
 // instead of from a transaction ID.
 func (c *Service) ScanFromBlock(ctx context.Context, block driver.BlockNum, callback driver.DeliveryCallback) error {
 	vault := &fakeVault{block: block}
-	return c.scanBlock(ctx, vault,
+	return c.runBlockScan(ctx, vault,
 		func(_ context.Context, block *common.Block) (bool, error) {
 			for i, tx := range block.Data.Data {
 				validationCode, err := validationCodeAt(block, i)

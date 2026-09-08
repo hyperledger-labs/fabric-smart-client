@@ -22,9 +22,9 @@ type mockStartNode struct {
 	ch       chan error
 }
 
-func (m *mockStartNode) ID() string             { return "test-id" }
+func (*mockStartNode) ID() string               { return "test-id" }
 func (m *mockStartNode) Start() error           { return m.startErr }
-func (m *mockStartNode) Stop()                  {}
+func (*mockStartNode) Stop()                    {}
 func (m *mockStartNode) Callback() chan<- error { return m.ch }
 
 func newMockStartNode(startErr error) *mockStartNode {

@@ -26,7 +26,7 @@ func NewRWSetProcessor(network Network) *RWSetProcessor {
 	return &RWSetProcessor{network: network}
 }
 
-func (r *RWSetProcessor) Process(req fabric.Request, tx fabric.ProcessTransaction, rws *fabric.RWSet, ns string) error {
+func (r *RWSetProcessor) Process(_ fabric.Request, tx fabric.ProcessTransaction, rws *fabric.RWSet, ns string) error {
 	txID := tx.ID()
 
 	ch, err := r.network.Channel(tx.Channel())
@@ -66,11 +66,10 @@ func (r *RWSetProcessor) Process(req fabric.Request, tx fabric.ProcessTransactio
 		if err != nil {
 			panic("filed creating mapping key")
 		}
-		if len(transientMap[k]) != 0 {
-			meta[k] = transientMap[k]
-		} else {
+		if len(transientMap[k]) == 0 {
 			continue
 		}
+		meta[k] = transientMap[k]
 
 		logger.Debugf("Set metadata for key [%s][%v]", key, string(meta[k]))
 		err = rws.SetStateMetadata(ns, key, meta)

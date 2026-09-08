@@ -531,7 +531,7 @@ func (resp response) mapEndorsersOfChannel(ccRs *discovery.ChaincodeQueryResult,
 	return nil
 }
 
-func (resp response) createEndorsementDescriptor(desc *discovery.EndorsementDescriptor, channel string) (*endorsementDescriptor, error) {
+func (response) createEndorsementDescriptor(desc *discovery.EndorsementDescriptor, channel string) (*endorsementDescriptor, error) {
 	descriptor := &endorsementDescriptor{
 		layouts:           []map[string]int{},
 		endorsersByGroups: make(map[string][]*Peer),

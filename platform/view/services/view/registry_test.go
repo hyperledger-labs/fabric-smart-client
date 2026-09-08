@@ -39,7 +39,7 @@ func TestRegistry(t *testing.T) {
 	require.Contains(t, err.Error(), "no factory found")
 
 	// NewView - panic in factory
-	factory.NewViewStub = func(in []byte) (view2.View, error) {
+	factory.NewViewStub = func(_ []byte) (view2.View, error) {
 		panic("factory-panic")
 	}
 	_, err = registry.NewView("v1", nil)

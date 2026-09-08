@@ -19,7 +19,7 @@ type MSP struct {
 	tmock.Mock
 }
 
-func (m *MSP) IsWellFormed(_ *pmsp.SerializedIdentity) error {
+func (*MSP) IsWellFormed(_ *pmsp.SerializedIdentity) error {
 	return nil
 }
 
@@ -79,11 +79,11 @@ type Identity struct {
 	ID string
 }
 
-func (m *Identity) Anonymous() bool {
+func (*Identity) Anonymous() bool {
 	panic("implement me")
 }
 
-func (m *Identity) ExpiresAt() time.Time {
+func (*Identity) ExpiresAt() time.Time {
 	panic("implement me")
 }
 
@@ -104,7 +104,7 @@ func (*Identity) GetOrganizationalUnits() []*msp.OUIdentifier {
 	panic("implement me")
 }
 
-func (*Identity) Verify(msg, sig []byte) error {
+func (*Identity) Verify(_, _ []byte) error {
 	return nil
 }
 

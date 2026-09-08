@@ -16,7 +16,7 @@ type MultiplexStateValidator struct {
 	OutputStateValidators map[string]api.StateValidator
 }
 
-func (m MultiplexStateValidator) Validate(tx api.Transaction, index uint32) error {
+func (m MultiplexStateValidator) Validate(tx api.Transaction, _ uint32) error {
 	for index := range tx.Inputs() {
 		scripts, err := tx.GetInputScriptsAt(index)
 		if err != nil {

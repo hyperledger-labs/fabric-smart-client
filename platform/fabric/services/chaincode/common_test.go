@@ -18,8 +18,8 @@ import (
 
 type dummySubscriber struct{}
 
-func (d *dummySubscriber) Subscribe(topic string, listener events.Listener)   {}
-func (d *dummySubscriber) Unsubscribe(topic string, listener events.Listener) {}
+func (*dummySubscriber) Subscribe(_ string, _ events.Listener)   {}
+func (*dummySubscriber) Unsubscribe(_ string, _ events.Listener) {}
 
 func setupMockContext(t *testing.T) (*mock.Context, *ledgermock.ChaincodeInvocation, *endorsermock.Envelope) {
 	t.Helper()

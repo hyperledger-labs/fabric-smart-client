@@ -26,15 +26,15 @@ type mockHost struct {
 	host2.P2PHost
 }
 
-func (m *mockHost) PeerID() host2.PeerID {
+func (*mockHost) PeerID() host2.PeerID {
 	return "mock-peer"
 }
 
-func (m *mockHost) Start(newStreamCallback func(stream host2.P2PStream)) error {
+func (*mockHost) Start(_ func(stream host2.P2PStream)) error {
 	return nil
 }
 
-func (m *mockHost) Close() error {
+func (*mockHost) Close() error {
 	return nil
 }
 
@@ -43,9 +43,9 @@ type mockStream struct {
 	ctx context.Context
 }
 
-func (m *mockStream) Hash() host2.StreamHash            { return "hash" }
-func (m *mockStream) Write(p []byte) (n int, err error) { return len(p), nil }
-func (m *mockStream) Read(p []byte) (n int, err error) {
+func (*mockStream) Hash() host2.StreamHash            { return "hash" }
+func (*mockStream) Write(p []byte) (n int, err error) { return len(p), nil }
+func (m *mockStream) Read(_ []byte) (n int, err error) {
 	select {
 	case <-m.ctx.Done():
 		return 0, io.EOF
@@ -53,14 +53,14 @@ func (m *mockStream) Read(p []byte) (n int, err error) {
 		return 0, io.EOF
 	}
 }
-func (m *mockStream) Close() error             { return nil }
+func (*mockStream) Close() error               { return nil }
 func (m *mockStream) Context() context.Context { return m.ctx }
 
-func (m *mockHost) NewStream(ctx context.Context, info host2.StreamInfo) (host2.P2PStream, error) {
+func (*mockHost) NewStream(ctx context.Context, _ host2.StreamInfo) (host2.P2PStream, error) {
 	return &mockStream{ctx: ctx}, nil
 }
 
-func (m *mockHost) StreamHash(info host2.StreamInfo) host2.StreamHash {
+func (*mockHost) StreamHash(_ host2.StreamInfo) host2.StreamHash {
 	return "hash"
 }
 

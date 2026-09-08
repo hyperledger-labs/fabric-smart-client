@@ -13,7 +13,7 @@ import (
 )
 
 func TestEnsureImagePresentMissing(t *testing.T) { //nolint:paralleltest
-	err := ensureImagePresent("fsc-cc/base:latest",
+	err := ensureImagePresentWith("fsc-cc/base:latest",
 		func(string) (bool, error) { return false, nil })
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fsc-cc/base:latest")
@@ -21,6 +21,6 @@ func TestEnsureImagePresentMissing(t *testing.T) { //nolint:paralleltest
 }
 
 func TestEnsureImagePresentFound(t *testing.T) { //nolint:paralleltest
-	require.NoError(t, ensureImagePresent("fsc-cc/base:latest",
+	require.NoError(t, ensureImagePresentWith("fsc-cc/base:latest",
 		func(string) (bool, error) { return true, nil }))
 }

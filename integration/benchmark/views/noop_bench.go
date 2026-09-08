@@ -12,12 +12,12 @@ import (
 
 type NoopView struct{}
 
-func (q *NoopView) Call(viewCtx view.Context) (any, error) {
+func (*NoopView) Call(_ view.Context) (any, error) {
 	return "OK", nil
 }
 
 type NoopViewFactory struct{}
 
-func (c *NoopViewFactory) NewView(_ []byte) (view.View, error) {
+func (*NoopViewFactory) NewView(_ []byte) (view.View, error) {
 	return &NoopView{}, nil
 }

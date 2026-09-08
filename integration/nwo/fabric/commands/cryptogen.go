@@ -30,7 +30,7 @@ type Extend struct {
 	Input  string
 }
 
-func (c Extend) SessionName() string {
+func (Extend) SessionName() string {
 	return "cryptogen-extend"
 }
 

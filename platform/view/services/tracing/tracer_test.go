@@ -33,7 +33,7 @@ func (c *recordingCounter) With(labelValues ...string) metrics.Counter {
 	return c
 }
 
-func (c *recordingCounter) Add(delta float64) {
+func (c *recordingCounter) Add(_ float64) {
 	c.addCalls++
 }
 
@@ -48,7 +48,7 @@ func (h *recordingHistogram) With(labelValues ...string) metrics.Histogram {
 	return h
 }
 
-func (h *recordingHistogram) Observe(value float64) {
+func (h *recordingHistogram) Observe(_ float64) {
 	h.observeCalls++
 }
 
@@ -70,7 +70,7 @@ func (p *recordingMetricsProvider) NewCounter(_ metrics.CounterOpts) metrics.Cou
 	return p.counter
 }
 
-func (p *recordingMetricsProvider) NewGauge(_ metrics.GaugeOpts) metrics.Gauge {
+func (*recordingMetricsProvider) NewGauge(_ metrics.GaugeOpts) metrics.Gauge {
 	// Not used by the tracer; return nil so a nil-deref surfaces if that changes.
 	return nil
 }
@@ -90,20 +90,20 @@ type recordingSpan struct {
 	ended      bool
 }
 
-func (s *recordingSpan) End(options ...trace.SpanEndOption) { s.ended = true }
-func (s *recordingSpan) AddEvent(name string, options ...trace.EventOption) {
+func (s *recordingSpan) End(_ ...trace.SpanEndOption) { s.ended = true }
+func (s *recordingSpan) AddEvent(name string, _ ...trace.EventOption) {
 	s.events = append(s.events, name)
 }
-func (s *recordingSpan) AddLink(link trace.Link)                             {}
-func (s *recordingSpan) IsRecording() bool                                   { return true }
-func (s *recordingSpan) RecordError(err error, options ...trace.EventOption) {}
-func (s *recordingSpan) SpanContext() trace.SpanContext                      { return trace.SpanContext{} }
-func (s *recordingSpan) SetStatus(code codes.Code, description string)       {}
-func (s *recordingSpan) SetName(name string)                                 { s.name = name }
+func (*recordingSpan) AddLink(_ trace.Link)                        {}
+func (*recordingSpan) IsRecording() bool                           { return true }
+func (*recordingSpan) RecordError(_ error, _ ...trace.EventOption) {}
+func (*recordingSpan) SpanContext() trace.SpanContext              { return trace.SpanContext{} }
+func (*recordingSpan) SetStatus(_ codes.Code, _ string)            {}
+func (s *recordingSpan) SetName(name string)                       { s.name = name }
 func (s *recordingSpan) SetAttributes(kv ...attribute.KeyValue) {
 	s.attributes = append(s.attributes, kv...)
 }
-func (s *recordingSpan) TracerProvider() trace.TracerProvider { return nil }
+func (*recordingSpan) TracerProvider() trace.TracerProvider { return nil }
 
 // recordingTracer creates recordingSpan instances and keeps a reference to each
 // one so tests can inspect what happened after Start returned.
@@ -116,7 +116,7 @@ type recordingTracer struct {
 func newRecordingTracer() *recordingTracer { return &recordingTracer{} }
 
 func (t *recordingTracer) Start(
-	ctx context.Context, name string, opts ...trace.SpanStartOption,
+	ctx context.Context, name string, _ ...trace.SpanStartOption,
 ) (context.Context, trace.Span) {
 	s := &recordingSpan{name: name}
 	t.spans = append(t.spans, s)
@@ -135,7 +135,7 @@ func newRecordingTracerProvider(rt *recordingTracer) *recordingTracerProvider {
 	return &recordingTracerProvider{tracer: rt}
 }
 
-func (p *recordingTracerProvider) Tracer(name string, opts ...trace.TracerOption) trace.Tracer {
+func (p *recordingTracerProvider) Tracer(_ string, _ ...trace.TracerOption) trace.Tracer {
 	return p.tracer
 }
 

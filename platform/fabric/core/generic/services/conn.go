@@ -116,7 +116,7 @@ func (c *ClientWrapper) Address() string {
 	return c.client.Address()
 }
 
-func (c *ClientWrapper) Close() {
+func (*ClientWrapper) Close() {
 	// Don't do anything
 }
 

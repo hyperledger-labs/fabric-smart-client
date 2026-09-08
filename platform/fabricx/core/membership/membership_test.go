@@ -115,9 +115,9 @@ type mockMSPIdentity struct {
 	validateErr error
 }
 
-func (m *mockMSPIdentity) Validate() error              { return m.validateErr }
-func (m *mockMSPIdentity) Verify(msg, sig []byte) error { return nil }
-func (m *mockMSPIdentity) GetMSPIdentifier() string     { return "Org1MSP" }
+func (m *mockMSPIdentity) Validate() error        { return m.validateErr }
+func (*mockMSPIdentity) Verify(_, _ []byte) error { return nil }
+func (*mockMSPIdentity) GetMSPIdentifier() string { return "Org1MSP" }
 
 type mockMSPManager struct {
 	fxmsp.MSPManager
@@ -125,7 +125,7 @@ type mockMSPManager struct {
 	deserializeErr error
 }
 
-func (m *mockMSPManager) DeserializeIdentity(identity *msppb.Identity) (fxmsp.Identity, error) {
+func (m *mockMSPManager) DeserializeIdentity(_ *msppb.Identity) (fxmsp.Identity, error) {
 	return m.identity, m.deserializeErr
 }
 
@@ -799,12 +799,12 @@ type rawSignedProposal struct {
 	sp *pb.SignedProposal
 }
 
-func (r *rawSignedProposal) ProposalBytes() []byte    { return r.sp.ProposalBytes }
-func (r *rawSignedProposal) Signature() []byte        { return r.sp.Signature }
-func (r *rawSignedProposal) ProposalHash() []byte     { return nil }
-func (r *rawSignedProposal) ChaincodeName() string    { return "" }
-func (r *rawSignedProposal) ChaincodeVersion() string { return "" }
-func (r *rawSignedProposal) Internal() any            { return r.sp }
+func (r *rawSignedProposal) ProposalBytes() []byte  { return r.sp.ProposalBytes }
+func (r *rawSignedProposal) Signature() []byte      { return r.sp.Signature }
+func (*rawSignedProposal) ProposalHash() []byte     { return nil }
+func (*rawSignedProposal) ChaincodeName() string    { return "" }
+func (*rawSignedProposal) ChaincodeVersion() string { return "" }
+func (r *rawSignedProposal) Internal() any          { return r.sp }
 
 // idemixSignerSerializer adapts an Idemix driver.Signer and pre-serialised
 // identity bytes to the identity.SignerSerializer interface expected by

@@ -30,11 +30,11 @@ type mockDelivery struct {
 	TriggerDeliveryCallback func(callback driver.DeliveryCallback)
 }
 
-func (m *mockDelivery) Start(ctx context.Context) error {
+func (*mockDelivery) Start(_ context.Context) error {
 	return nil
 }
 
-func (m *mockDelivery) ScanBlock(ctx context.Context, callback driver.BlockCallback) error {
+func (m *mockDelivery) ScanBlock(_ context.Context, callback driver.BlockCallback) error {
 	m.ScanBlockCount++
 	if m.TriggerBlockCallback != nil {
 		m.TriggerBlockCallback(callback)
@@ -42,7 +42,7 @@ func (m *mockDelivery) ScanBlock(ctx context.Context, callback driver.BlockCallb
 	return m.CallbackError
 }
 
-func (m *mockDelivery) ScanBlockFrom(ctx context.Context, block uint64, callback driver.BlockCallback) error {
+func (m *mockDelivery) ScanBlockFrom(_ context.Context, block uint64, callback driver.BlockCallback) error {
 	m.ScanBlockFromCount++
 	m.LastBlockNum = block
 	if m.TriggerBlockCallback != nil {
@@ -51,7 +51,7 @@ func (m *mockDelivery) ScanBlockFrom(ctx context.Context, block uint64, callback
 	return m.CallbackError
 }
 
-func (m *mockDelivery) Scan(ctx context.Context, txID string, callback driver.DeliveryCallback) error {
+func (m *mockDelivery) Scan(_ context.Context, txID string, callback driver.DeliveryCallback) error {
 	m.ScanCount++
 	m.LastTxID = txID
 	if m.TriggerDeliveryCallback != nil {
@@ -60,7 +60,7 @@ func (m *mockDelivery) Scan(ctx context.Context, txID string, callback driver.De
 	return m.CallbackError
 }
 
-func (m *mockDelivery) ScanFromBlock(ctx context.Context, block uint64, callback driver.DeliveryCallback) error {
+func (m *mockDelivery) ScanFromBlock(_ context.Context, block uint64, callback driver.DeliveryCallback) error {
 	m.ScanFromBlockCount++
 	m.LastBlockNum = block
 	if m.TriggerDeliveryCallback != nil {
@@ -88,7 +88,7 @@ func TestDelivery(t *testing.T) {
 		require.True(t, res)
 		callbackInvoked = true
 	}
-	err := delivery.ScanBlock(ctx, func(ctx context.Context, block *common.Block) (bool, error) {
+	err := delivery.ScanBlock(ctx, func(_ context.Context, _ *common.Block) (bool, error) {
 		return true, nil
 	})
 	require.NoError(t, err)
@@ -97,7 +97,7 @@ func TestDelivery(t *testing.T) {
 
 	// Test ScanBlockFrom
 	callbackInvoked = false
-	err = delivery.ScanBlockFrom(ctx, uint64(20), func(ctx context.Context, block *common.Block) (bool, error) {
+	err = delivery.ScanBlockFrom(ctx, uint64(20), func(_ context.Context, _ *common.Block) (bool, error) {
 		callbackInvoked = true
 		return true, nil
 	})
@@ -137,22 +137,22 @@ func TestDelivery(t *testing.T) {
 	md.CallbackResult = false
 	md.CallbackError = errors.New("scan error")
 
-	err = delivery.ScanBlock(ctx, func(ctx context.Context, block *common.Block) (bool, error) {
+	err = delivery.ScanBlock(ctx, func(_ context.Context, _ *common.Block) (bool, error) {
 		return true, nil
 	})
 	require.ErrorContains(t, err, "scan error")
 
-	err = delivery.ScanBlockFrom(ctx, uint64(20), func(ctx context.Context, block *common.Block) (bool, error) {
+	err = delivery.ScanBlockFrom(ctx, uint64(20), func(_ context.Context, _ *common.Block) (bool, error) {
 		return true, nil
 	})
 	require.ErrorContains(t, err, "scan error")
 
-	err = delivery.Scan(ctx, "txid1", func(tx *ProcessedTransaction) (bool, error) {
+	err = delivery.Scan(ctx, "txid1", func(_ *ProcessedTransaction) (bool, error) {
 		return true, nil
 	})
 	require.ErrorContains(t, err, "scan error")
 
-	err = delivery.ScanFromBlock(ctx, uint64(30), func(tx *ProcessedTransaction) (bool, error) {
+	err = delivery.ScanFromBlock(ctx, uint64(30), func(_ *ProcessedTransaction) (bool, error) {
 		return true, nil
 	})
 	require.ErrorContains(t, err, "scan error")

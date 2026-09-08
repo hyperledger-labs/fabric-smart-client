@@ -15,7 +15,7 @@ import (
 const NOOP = "noop"
 
 func CreateClientFuncNoop(_ *grpc.ClientConn) ClientFunc {
-	return func(ctx context.Context) error {
+	return func(_ context.Context) error {
 		return nil
 	}
 }

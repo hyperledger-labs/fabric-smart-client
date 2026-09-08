@@ -64,7 +64,7 @@ func NewProvider(grpcClientProvider GRPCClientProvider, queryServiceProvider que
 		baseCtx:              deferred.NewHolder[context.Context]("ledger provider base context"),
 	}
 	p.ledgers = lazy.NewProvider[string, driver.Ledger](func(s string) (driver.Ledger, error) {
-		return p.newLedger(s)
+		return p.buildLedger(s)
 	})
 	return p
 }
@@ -96,16 +96,16 @@ func (p *Provider) Initialize(ctx context.Context) {
 // NewLedger returns a ledger instance for the specified network.
 // The channel parameter must be empty as FabricX does not support channels.
 // It returns an error wrapping driver.ErrNotInitialized if Initialize has not
-// run yet; newLedger reports that, before it opens any connection, on the first
+// run yet; buildLedger reports that, before it opens any connection, on the first
 // call for a network. Later calls are served from the cache, which cannot hold a
 // ledger unless one was built — so unless Initialize had run.
-func (p *Provider) NewLedger(network, channel string) (driver.Ledger, error) {
+func (p *Provider) NewLedger(network, _ string) (driver.Ledger, error) {
 	return p.ledgers.Get(network)
 }
 
-// newLedger creates a new ledger instance for the specified network.
+// buildLedger creates a new ledger instance for the specified network.
 // It establishes a gRPC connection and creates the necessary client stubs.
-func (p *Provider) newLedger(network string) (driver.Ledger, error) {
+func (p *Provider) buildLedger(network string) (driver.Ledger, error) {
 	baseCtx, err := p.baseCtx.Get()
 	if err != nil {
 		return nil, err

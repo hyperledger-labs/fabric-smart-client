@@ -19,7 +19,7 @@ import (
 )
 
 // GenerateTestCert generates a self-signed certificate for testing purposes.
-func GenerateTestCert(cn string) ([]byte, []byte, error) {
+func GenerateTestCert(cn string) (cert, key []byte, err error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, err

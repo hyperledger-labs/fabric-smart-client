@@ -32,7 +32,7 @@ const (
 
 type mockSender struct{}
 
-func (m *mockSender) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
+func (*mockSender) sendTo(_ context.Context, _ host2.StreamInfo, _ proto.Message, _ *NetworkStreamSession) error {
 	return nil
 }
 

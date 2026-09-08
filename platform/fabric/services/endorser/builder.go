@@ -55,7 +55,7 @@ func (t *Builder) NewTransaction(ctx context.Context, opts ...fabric.Transaction
 }
 
 func (t *Builder) NewTransactionFromBytes(bytes []byte) (*Transaction, error) {
-	tx, err := t.newTransaction(context.Background(), nil, "", "", nil, bytes, false)
+	tx, err := t.buildTransaction(context.Background(), nil, "", "", nil, bytes, false)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (t *Builder) NewTransactionFromBytes(bytes []byte) (*Transaction, error) {
 }
 
 func (t *Builder) NewTransactionFromEnvelopeBytes(ctx context.Context, bytes []byte) (*Transaction, error) {
-	tx, err := t.newTransaction(ctx, nil, "", "", nil, bytes, true)
+	tx, err := t.buildTransaction(ctx, nil, "", "", nil, bytes, true)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (t *Builder) NewTransactionFromEnvelopeBytes(ctx context.Context, bytes []b
 func (t *Builder) NewTransactionWithIdentity(id view.Identity) (*Transaction, error) {
 	logger.Debugf("NewTransactionWithIdentity with identity %s\n", id.UniqueID())
 
-	tx, err := t.newTransaction(context.Background(), id, "", "", nil, nil, false)
+	tx, err := t.buildTransaction(context.Background(), id, "", "", nil, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (t *Builder) NewTransactionWithIdentity(id view.Identity) (*Transaction, er
 	return tx, nil
 }
 
-func (t *Builder) newTransaction(ctx context.Context, creator []byte, network, channel string, nonce, raw []byte, envelope bool) (*Transaction, error) {
+func (t *Builder) buildTransaction(ctx context.Context, creator []byte, network, channel string, nonce, raw []byte, envelope bool) (*Transaction, error) {
 	return t.newTransactionWithType(ctx, creator, network, channel, nonce, raw, envelope, nil, nil)
 }
 
@@ -153,7 +153,7 @@ func NewTransactionFromBytes(viewCtx view.Context, bytes []byte) (*Builder, *Tra
 
 func NewTransactionWithSigner(viewCtx view.Context, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
 	txBuilder := NewBuilderWithServiceProvider(viewCtx)
-	tx, err := txBuilder.newTransaction(viewCtx.Context(), id, network, channel, nil, nil, false)
+	tx, err := txBuilder.buildTransaction(viewCtx.Context(), id, network, channel, nil, nil, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -163,7 +163,7 @@ func NewTransactionWithSigner(viewCtx view.Context, network, channel string, id 
 
 func NewTransactionWith(ctx context.Context, sp services.Provider, network, channel string, id view.Identity) (*Builder, *Transaction, error) {
 	txBuilder := NewBuilderWithServiceProvider(sp)
-	tx, err := txBuilder.newTransaction(ctx, id, network, channel, nil, nil, false)
+	tx, err := txBuilder.buildTransaction(ctx, id, network, channel, nil, nil, false)
 	if err != nil {
 		return nil, nil, err
 	}

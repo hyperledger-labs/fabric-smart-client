@@ -154,9 +154,9 @@ func TestCommitConfig(t *testing.T) {
 	t.Run("membership update failure is returned as error, not a panic", func(t *testing.T) {
 		t.Parallel()
 		// CommitConfig checks Status once itself (must be Unknown to proceed
-		// past the "already committed" guard), then commitConfig->CommitTX
+		// past the "already committed" guard), then applyConfigCommit->CommitTX
 		// checks Status again internally (must be Busy to take the
-		// already-exercised c.commit()->CommitTxFn path instead of the
+		// already-exercised c.commitBusyTx()->CommitTxFn path instead of the
 		// unrelated commitUnknown() path). A stateful fake mirrors that.
 		var statusCalls int
 		c := &Committer{
@@ -211,7 +211,7 @@ func TestCommitConfigKeysOnTheConfigSequence(t *testing.T) {
 	// configtx_0 is already Valid, as it is on any node that has caught up with
 	// the channel's genesis block. For configtx_1 the status is consulted
 	// twice: CommitConfig's own "already committed" guard must see Unknown to
-	// proceed, then commitConfig -> Committer.CommitTX consults it again and
+	// proceed, then applyConfigCommit -> Committer.CommitTX consults it again and
 	// must see Busy, because Unknown there routes to commitUnknown() instead of
 	// the commit() path that calls CommitTxFn. The existing "membership update
 	// failure" sub-test documents the same mechanics.
@@ -381,7 +381,7 @@ func TestCommitConfigInternalSuccessPath(t *testing.T) {
 		},
 	}
 
-	err := c.commitConfig(t.Context(), "configtx_1", 8, 1, []byte("env"))
+	err := c.applyConfigCommit(t.Context(), "configtx_1", 8, 1, []byte("env"))
 	require.NoError(t, err)
 	require.True(t, committed)
 	require.GreaterOrEqual(t, rws.DoneCount, 1)
@@ -471,7 +471,7 @@ func TestCommitConfigInternalErrorPaths(t *testing.T) {
 				},
 			},
 		}
-		err := c.commitConfig(t.Context(), "configtx_2", 3, 2, []byte("env"))
+		err := c.applyConfigCommit(t.Context(), "configtx_2", 3, 2, []byte("env"))
 		require.ErrorContains(t, err, "cannot create rws for configtx")
 	})
 
@@ -490,7 +490,7 @@ func TestCommitConfigInternalErrorPaths(t *testing.T) {
 				},
 			},
 		}
-		err := c.commitConfig(t.Context(), "configtx_3", 3, 3, []byte("env"))
+		err := c.applyConfigCommit(t.Context(), "configtx_3", 3, 3, []byte("env"))
 		require.ErrorContains(t, err, "failed setting configtx state in rws")
 	})
 
@@ -517,7 +517,7 @@ func TestCommitConfigInternalErrorPaths(t *testing.T) {
 				ProcessByIDFn: func(context.Context, string, cdriver.TxID) error { return nil },
 			},
 		}
-		err := c.commitConfig(t.Context(), "configtx_4", 4, 4, []byte("env"))
+		err := c.applyConfigCommit(t.Context(), "configtx_4", 4, 4, []byte("env"))
 		require.ErrorContains(t, err, "failed committing configtx rws")
 	})
 }

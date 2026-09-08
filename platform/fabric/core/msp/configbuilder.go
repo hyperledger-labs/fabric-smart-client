@@ -399,11 +399,10 @@ func loadCertificateAt(dir, certificatePath, ouType string) []byte {
 
 	f := filepath.Join(dir, certificatePath)
 	raw, err := readFile(f)
-	if err != nil {
-		mspLogger.Warnf("Failed loading %s certificate at [%s]: [%s]", ouType, f, err)
-	} else {
+	if err == nil {
 		return raw
 	}
+	mspLogger.Warnf("Failed loading %s certificate at [%s]: [%s]", ouType, f, err)
 
 	return nil
 }

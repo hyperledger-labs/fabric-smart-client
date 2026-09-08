@@ -18,13 +18,13 @@ var zeroVersion = []byte{0, 0, 0, 0, 0, 0, 0, 0}
 
 type BlockTxIndexVersionComparator struct{}
 
-func (b *BlockTxIndexVersionComparator) Equal(a, c driver2.RawVersion) bool {
+func (*BlockTxIndexVersionComparator) Equal(a, c driver2.RawVersion) bool {
 	return Equal(a, c)
 }
 
 type BlockTxIndexVersionBuilder struct{}
 
-func (b *BlockTxIndexVersionBuilder) VersionedValues(_ *ReadWriteSet, _ driver2.Namespace, writes NamespaceWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) (map[driver2.PKey]driver2.VaultValue, error) {
+func (*BlockTxIndexVersionBuilder) VersionedValues(_ *ReadWriteSet, _ driver2.Namespace, writes NamespaceWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) (map[driver2.PKey]driver2.VaultValue, error) {
 	vals := make(map[driver2.PKey]driver2.VaultValue, len(writes))
 	for pkey, val := range writes {
 		vals[pkey] = driver2.VaultValue{Raw: val, Version: BlockTxIndexToBytes(block, indexInBloc)}
@@ -32,7 +32,7 @@ func (b *BlockTxIndexVersionBuilder) VersionedValues(_ *ReadWriteSet, _ driver2.
 	return vals, nil
 }
 
-func (b *BlockTxIndexVersionBuilder) VersionedMetaValues(rws *ReadWriteSet, ns driver2.Namespace, writes KeyedMetaWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) (map[driver2.PKey]driver2.VaultMetadataValue, error) {
+func (*BlockTxIndexVersionBuilder) VersionedMetaValues(_ *ReadWriteSet, _ driver2.Namespace, writes KeyedMetaWrites, block driver2.BlockNum, indexInBloc driver2.TxNum) (map[driver2.PKey]driver2.VaultMetadataValue, error) {
 	vals := make(map[driver2.PKey]driver2.VaultMetadataValue, len(writes))
 	for pkey, val := range writes {
 		vals[pkey] = driver2.VaultMetadataValue{Metadata: val, Version: BlockTxIndexToBytes(block, indexInBloc)}
@@ -42,7 +42,7 @@ func (b *BlockTxIndexVersionBuilder) VersionedMetaValues(rws *ReadWriteSet, ns d
 
 type BlockTxIndexVersionMarshaller struct{}
 
-func (m BlockTxIndexVersionMarshaller) FromBytes(data Version) (driver2.BlockNum, driver2.TxNum, error) {
+func (BlockTxIndexVersionMarshaller) FromBytes(data Version) (driver2.BlockNum, driver2.TxNum, error) {
 	if len(data) == 0 {
 		return 0, 0, nil
 	}
@@ -54,7 +54,7 @@ func (m BlockTxIndexVersionMarshaller) FromBytes(data Version) (driver2.BlockNum
 	return Block, TxNum, nil
 }
 
-func (m BlockTxIndexVersionMarshaller) ToBytes(bn driver2.BlockNum, txn driver2.TxNum) Version {
+func (BlockTxIndexVersionMarshaller) ToBytes(bn driver2.BlockNum, txn driver2.TxNum) Version {
 	return BlockTxIndexToBytes(bn, txn)
 }
 

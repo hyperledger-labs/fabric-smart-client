@@ -22,7 +22,8 @@ import (
 
 // QueryResult structure used for handling result of query
 type QueryResult struct {
-	Record    *Asset
+	Record *Asset
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
 	TxId      string    `json:"txId"`
 	Timestamp time.Time `json:"timestamp"`
 }
@@ -34,7 +35,7 @@ type Agreement struct {
 }
 
 // ReadAsset returns the public asset data
-func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, assetID string) (*Asset, error) {
+func (*SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, assetID string) (*Asset, error) {
 	// Since only public data is accessed in this function, no access control is required
 	assetJSON, err := ctx.GetStub().GetState(assetID)
 	if err != nil {
@@ -53,7 +54,7 @@ func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, a
 }
 
 // GetAssetPrivateProperties returns the immutable asset properties from owner's private data collection
-func (s *SmartContract) GetAssetPrivateProperties(ctx contractapi.TransactionContextInterface, assetID string) (string, error) {
+func (*SmartContract) GetAssetPrivateProperties(ctx contractapi.TransactionContextInterface, assetID string) (string, error) {
 	// In this scenario, client is only authorized to read/write private data from its own peer.
 	collection, err := getClientImplicitCollectionName(ctx)
 	if err != nil {
@@ -72,12 +73,12 @@ func (s *SmartContract) GetAssetPrivateProperties(ctx contractapi.TransactionCon
 }
 
 // GetAssetSalesPrice returns the sales price
-func (s *SmartContract) GetAssetSalesPrice(ctx contractapi.TransactionContextInterface, assetID string) (string, error) {
+func (*SmartContract) GetAssetSalesPrice(ctx contractapi.TransactionContextInterface, assetID string) (string, error) {
 	return getAssetPrice(ctx, assetID, typeAssetForSale)
 }
 
 // GetAssetBidPrice returns the bid price
-func (s *SmartContract) GetAssetBidPrice(ctx contractapi.TransactionContextInterface, assetID string) (string, error) {
+func (*SmartContract) GetAssetBidPrice(ctx contractapi.TransactionContextInterface, assetID string) (string, error) {
 	return getAssetPrice(ctx, assetID, typeAssetBid)
 }
 
@@ -105,12 +106,12 @@ func getAssetPrice(ctx contractapi.TransactionContextInterface, assetID, priceTy
 }
 
 // QueryAssetSaleAgreements returns all of an organization's proposed sales
-func (s *SmartContract) QueryAssetSaleAgreements(ctx contractapi.TransactionContextInterface) ([]Agreement, error) {
+func (*SmartContract) QueryAssetSaleAgreements(ctx contractapi.TransactionContextInterface) ([]Agreement, error) {
 	return queryAgreementsByType(ctx, typeAssetForSale)
 }
 
 // QueryAssetBuyAgreements returns all of an organization's proposed bids
-func (s *SmartContract) QueryAssetBuyAgreements(ctx contractapi.TransactionContextInterface) ([]Agreement, error) {
+func (*SmartContract) QueryAssetBuyAgreements(ctx contractapi.TransactionContextInterface) ([]Agreement, error) {
 	return queryAgreementsByType(ctx, typeAssetBid)
 }
 
@@ -147,7 +148,7 @@ func queryAgreementsByType(ctx contractapi.TransactionContextInterface, agreeTyp
 }
 
 // QueryAssetHistory returns the chain of custody for a asset since issuance
-func (s *SmartContract) QueryAssetHistory(ctx contractapi.TransactionContextInterface, assetID string) ([]QueryResult, error) {
+func (*SmartContract) QueryAssetHistory(ctx contractapi.TransactionContextInterface, assetID string) ([]QueryResult, error) {
 	resultsIterator, err := ctx.GetStub().GetHistoryForKey(assetID)
 	if err != nil {
 		return nil, err

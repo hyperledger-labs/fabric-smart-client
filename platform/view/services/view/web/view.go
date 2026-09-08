@@ -53,7 +53,7 @@ func (s *viewHandler) CallView(context *server2.ReqContext, vid string, input []
 	}}, nil
 }
 
-func (s *viewHandler) StreamCallView(context *server2.ReqContext, vid string, input []byte) (any, error) {
+func (s *viewHandler) StreamCallView(context *server2.ReqContext, vid string, _ []byte) (any, error) {
 	return nil, s.c.StreamCallView(vid, context.ResponseWriter, context.Req)
 }
 

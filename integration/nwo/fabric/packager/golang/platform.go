@@ -34,7 +34,7 @@ import (
 type Platform struct{}
 
 // Name returns the name of this platform.
-func (p *Platform) Name() string {
+func (*Platform) Name() string {
 	return pb.ChaincodeSpec_GOLANG.String()
 }
 
@@ -42,7 +42,7 @@ func (p *Platform) Name() string {
 // looks like go chainccode.
 //
 // NOTE: this is only used at the _client_ side by the peer CLI.
-func (p *Platform) ValidatePath(rawPath string) error {
+func (*Platform) ValidatePath(rawPath string) error {
 	_, err := DescribeCode(rawPath)
 	if err != nil {
 		return err
@@ -55,7 +55,7 @@ func (p *Platform) ValidatePath(rawPath string) error {
 // This should not impact legacy GOPATH chaincode.
 //
 // NOTE: this is only used at the _client_ side by the peer CLI.
-func (p *Platform) NormalizePath(rawPath string) (string, error) {
+func (*Platform) NormalizePath(rawPath string) (string, error) {
 	modInfo, err := moduleInfo(rawPath)
 	if err != nil {
 		return "", err
@@ -73,7 +73,7 @@ func (p *Platform) NormalizePath(rawPath string) (string, error) {
 //
 // NOTE: this code is used in some transaction validation paths but can be changed
 // post 2.0.
-func (p *Platform) ValidateCodePackage(code []byte) error {
+func (*Platform) ValidateCodePackage(code []byte) error {
 	is := bytes.NewReader(code)
 	gr, err := gzip.NewReader(is)
 	if err != nil {
@@ -107,7 +107,7 @@ func (p *Platform) ValidateCodePackage(code []byte) error {
 }
 
 // Directory constant copied from tar package.
-const c_ISDIR = 0o40000
+const cISDIR = 0o40000
 
 // Default compression to use for production. Test packages disable compression.
 var gzipCompressionLevel = gzip.DefaultCompression
@@ -116,7 +116,7 @@ var gzipCompressionLevel = gzip.DefaultCompression
 // required assets to build and run go chaincode.
 //
 // NOTE: this is only used at the _client_ side by the peer CLI.
-func (p *Platform) GetDeploymentPayload(codepath string, replacer replacer.Func) ([]byte, error) {
+func (*Platform) GetDeploymentPayload(codepath string, replacer replacer.Func) ([]byte, error) {
 	codeDescriptor, err := DescribeCode(codepath)
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func (p *Platform) GetDeploymentPayload(codepath string, replacer replacer.Func)
 		err := tw.WriteHeader(&tar.Header{
 			Typeflag: tar.TypeDir,
 			Name:     dirname + "/",
-			Mode:     c_ISDIR | 0o755,
+			Mode:     cISDIR | 0o755,
 			Uid:      500,
 			Gid:      500,
 		})

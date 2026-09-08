@@ -19,17 +19,17 @@ type ServerStatsHandler struct {
 	ClosedConnCounter metrics.Counter
 }
 
-func (h *ServerStatsHandler) TagRPC(ctx context.Context, info *stats.RPCTagInfo) context.Context {
+func (*ServerStatsHandler) TagRPC(ctx context.Context, _ *stats.RPCTagInfo) context.Context {
 	return ctx
 }
 
-func (h *ServerStatsHandler) HandleRPC(ctx context.Context, s stats.RPCStats) {}
+func (*ServerStatsHandler) HandleRPC(_ context.Context, _ stats.RPCStats) {}
 
-func (h *ServerStatsHandler) TagConn(ctx context.Context, info *stats.ConnTagInfo) context.Context {
+func (*ServerStatsHandler) TagConn(ctx context.Context, _ *stats.ConnTagInfo) context.Context {
 	return ctx
 }
 
-func (h *ServerStatsHandler) HandleConn(ctx context.Context, s stats.ConnStats) {
+func (h *ServerStatsHandler) HandleConn(_ context.Context, s stats.ConnStats) {
 	switch s.(type) {
 	case *stats.ConnBegin:
 		h.OpenConnCounter.Add(1)

@@ -21,42 +21,42 @@ type mockSession struct {
 	ch <-chan *view.Message
 }
 
-func (m *mockSession) Info() view.SessionInfo { return view.SessionInfo{} }
+func (*mockSession) Info() view.SessionInfo { return view.SessionInfo{} }
 
-func (m *mockSession) Send(context.Context, []byte) error { return nil }
+func (*mockSession) Send(context.Context, []byte) error { return nil }
 
-func (m *mockSession) SendError(context.Context, []byte) error { return nil }
+func (*mockSession) SendError(context.Context, []byte) error { return nil }
 
 func (m *mockSession) Receive() <-chan *view.Message { return m.ch }
 
-func (m *mockSession) Close() {}
+func (*mockSession) Close() {}
 
 type mockContext struct {
 	s view.Session
 }
 
-func (m *mockContext) ID() string              { return "" }
-func (m *mockContext) Me() view.Identity       { return nil }
-func (m *mockContext) IsMe(view.Identity) bool { return false }
-func (m *mockContext) Initiator() view.View    { return nil }
-func (m *mockContext) GetSession(view.View, view.Identity, ...view.View) (view.Session, error) {
+func (*mockContext) ID() string              { return "" }
+func (*mockContext) Me() view.Identity       { return nil }
+func (*mockContext) IsMe(view.Identity) bool { return false }
+func (*mockContext) Initiator() view.View    { return nil }
+func (*mockContext) GetSession(view.View, view.Identity, ...view.View) (view.Session, error) {
 	return nil, nil
 }
 
-func (m *mockContext) GetSessionByID(string, view.Identity) (view.Session, error) {
+func (*mockContext) GetSessionByID(string, view.Identity) (view.Session, error) {
 	return nil, nil
 }
-func (m *mockContext) Context() context.Context { return context.Background() }
-func (m *mockContext) Session() view.Session    { return m.s }
-func (m *mockContext) RunView(view.View, ...view.RunViewOption) (any, error) {
+func (*mockContext) Context() context.Context { return context.Background() }
+func (m *mockContext) Session() view.Session  { return m.s }
+func (*mockContext) RunView(view.View, ...view.RunViewOption) (any, error) {
 	return nil, nil
 }
-func (m *mockContext) OnError(func()) {}
-func (m *mockContext) GetService(any) (any, error) {
+func (*mockContext) OnError(func()) {}
+func (*mockContext) GetService(any) (any, error) {
 	return nil, nil
 }
 
-func (m *mockContext) StartSpanFrom(ctx context.Context, _ string, _ ...trace.SpanStartOption) (context.Context, trace.Span) {
+func (*mockContext) StartSpanFrom(ctx context.Context, _ string, _ ...trace.SpanStartOption) (context.Context, trace.Span) {
 	return ctx, trace.SpanFromContext(ctx)
 }
 

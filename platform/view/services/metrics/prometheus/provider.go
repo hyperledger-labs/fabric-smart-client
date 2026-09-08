@@ -67,7 +67,7 @@ func Replacers() map[string]string {
 	return replacers
 }
 
-func (p *Provider) applyNamespaceSubsystem(namespace, subsystem *string) {
+func (*Provider) applyNamespaceSubsystem(namespace, subsystem *string) {
 	ns, ss := parseFullPkgName(GetPackageName(), Replacers())
 	if len(*namespace) == 0 {
 		*namespace = ns
@@ -148,11 +148,11 @@ func GetPackageName() string {
 	return fullFuncName[:lastSlash+dotAfterSlash]
 }
 
-func parseFullPkgName(fullPkgName string, replacements map[string]string, params ...string) (string, string) {
+func parseFullPkgName(fullPkgName string, replacements map[string]string, params ...string) (namespace, subsystem string) {
 	parts := append(strings.Split(fullPkgName, "/"), params...)
-	subsystem := parts[len(parts)-1]
+	subsystem = parts[len(parts)-1]
 	namespaceParts := parts[:len(parts)-1]
-	namespace := strings.Join(namespaceParts, "_")
+	namespace = strings.Join(namespaceParts, "_")
 
 	for old, newVal := range replacements {
 		namespace = strings.ReplaceAll(namespace, old, newVal)

@@ -14,7 +14,7 @@ import (
 
 type StreamerView struct{}
 
-func (s *StreamerView) Call(viewCtx view.Context) (any, error) {
+func (*StreamerView) Call(viewCtx view.Context) (any, error) {
 	stream := view2.GetStream(viewCtx)
 	assert.NoError(stream.Send("hello"), "failed to send hello")
 	var msg string
@@ -28,6 +28,6 @@ func (s *StreamerView) Call(viewCtx view.Context) (any, error) {
 type StreamerViewFactory struct{}
 
 // NewView returns a new instance of the Initiator view
-func (i *StreamerViewFactory) NewView(in []byte) (view.View, error) {
+func (*StreamerViewFactory) NewView(_ []byte) (view.View, error) {
 	return &StreamerView{}, nil
 }

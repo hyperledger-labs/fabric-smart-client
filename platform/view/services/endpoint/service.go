@@ -78,6 +78,8 @@ type Resolver struct {
 func (r *Resolver) GetName() string { return r.Name }
 
 // GetId returns the identity associated with this resolver.
+//
+//nolint:revive // var-naming: renaming this exported method is an API break; see follow-up
 func (r *Resolver) GetId() view.Identity { return r.ID }
 
 // GetAddress returns the address for the specified port name.
@@ -159,7 +161,7 @@ func (r *Service) Resolve(ctx context.Context, id view.Identity) (view.Identity,
 
 // GetResolver returns the resolver associated with the given identity.
 func (r *Service) GetResolver(ctx context.Context, id view.Identity) (*Resolver, error) {
-	return r.resolver(ctx, id)
+	return r.lookupResolver(ctx, id)
 }
 
 // Bind associates ephemeral identities with a long-term identity in the binding store.
@@ -367,17 +369,18 @@ func (r *Service) ExtractPKI(id []byte) []byte {
 	defer r.pkiExtractorsLock.RUnlock()
 
 	for _, extractor := range r.publicKeyExtractors {
-		if pk, err := extractor.ExtractPublicKey(id); pk != nil {
-			logger.Debugf("pki resolved for [%s]", id)
-			pkiID, err := r.publicKeyIDSynthesizer.PublicKeyID(pk)
-			if err != nil {
-				logger.Errorf("failed to synthesize public key ID for [%s]: %v", id, err)
-				continue
-			}
-			return pkiID
-		} else {
+		pk, err := extractor.ExtractPublicKey(id)
+		if pk == nil {
 			logger.Debugf("pki not resolved by [%s] for [%s]: [%s]", logging.Identifier(extractor), id, err)
+			continue
 		}
+		logger.Debugf("pki resolved for [%s]", id)
+		pkiID, err := r.publicKeyIDSynthesizer.PublicKeyID(pk)
+		if err != nil {
+			logger.Errorf("failed to synthesize public key ID for [%s]: %v", id, err)
+			continue
+		}
+		return pkiID
 	}
 	logger.Warnf("cannot resolve pki for [%s]", id)
 	return nil
@@ -400,7 +403,7 @@ func (r *Service) ResolveIdentities(endpoints ...string) ([]view.Identity, error
 
 // Resolver returns the resolver and PKI ID for the given identity.
 func (r *Service) Resolver(ctx context.Context, id view.Identity) (*Resolver, []byte, error) {
-	resolver, err := r.resolver(ctx, id)
+	resolver, err := r.lookupResolver(ctx, id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -481,7 +484,7 @@ func (r *Service) PkiResolve(resolver *Resolver) []byte {
 
 // resolver attempts to find a resolver for the given identity, checking both
 // direct lookups and binding store lookups for long-term identities.
-func (r *Service) resolver(ctx context.Context, party view.Identity) (*Resolver, error) {
+func (r *Service) lookupResolver(ctx context.Context, party view.Identity) (*Resolver, error) {
 	// We can skip this check, but in case the long term was passed directly, this is going to spare us a DB lookup
 	resolver, err := r.resolverByIdentity(party)
 	if err == nil {

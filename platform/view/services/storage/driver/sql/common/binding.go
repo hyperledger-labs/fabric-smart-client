@@ -67,22 +67,22 @@ func (db *BindingStore) HaveSameBinding(ctx context.Context, this, that view.Ide
 	}
 	defer utils.IgnoreErrorFunc(rows.Close)
 
-	longTermIds := make([]view.Identity, 0, 2)
+	longTermIDs := make([]view.Identity, 0, 2)
 	for rows.Next() {
 		var longTerm view.Identity
 		if err := rows.Scan(&longTerm); err != nil {
 			return false, err
 		}
-		longTermIds = append(longTermIds, longTerm)
+		longTermIDs = append(longTermIDs, longTerm)
 	}
 	if err := rows.Err(); err != nil {
 		return false, errors.Wrapf(err, "error iterating rows")
 	}
-	if len(longTermIds) != 2 {
-		return false, errors.Errorf("%d entries found instead of 2", len(longTermIds))
+	if len(longTermIDs) != 2 {
+		return false, errors.Errorf("%d entries found instead of 2", len(longTermIDs))
 	}
 
-	return longTermIds[0].Equal(longTermIds[1]), nil
+	return longTermIDs[0].Equal(longTermIDs[1]), nil
 }
 
 func (db *BindingStore) CreateSchema() error {

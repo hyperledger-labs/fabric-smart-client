@@ -70,7 +70,7 @@ func (f *IssueView) Call(viewCtx view.Context) (any, error) {
 
 type IssueViewFactory struct{}
 
-func (p *IssueViewFactory) NewView(in []byte) (view.View, error) {
+func (*IssueViewFactory) NewView(in []byte) (view.View, error) {
 	f := &IssueView{Issue: &Issue{}}
 	err := json.Unmarshal(in, f.Issue)
 	assert.NoError(err, "failed unmarshalling input")

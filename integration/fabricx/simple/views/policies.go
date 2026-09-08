@@ -24,7 +24,7 @@ type NamespacePoliciesResult struct {
 // by namespace.
 type NamespacePoliciesView struct{}
 
-func (v *NamespacePoliciesView) Call(viewCtx view.Context) (any, error) {
+func (*NamespacePoliciesView) Call(viewCtx view.Context) (any, error) {
 	network, ch, err := fabric.GetDefaultChannel(viewCtx)
 	if err != nil {
 		return nil, err
@@ -50,6 +50,6 @@ func (v *NamespacePoliciesView) Call(viewCtx view.Context) (any, error) {
 
 type NamespacePoliciesViewFactory struct{}
 
-func (c *NamespacePoliciesViewFactory) NewView([]byte) (view.View, error) {
+func (*NamespacePoliciesViewFactory) NewView([]byte) (view.View, error) {
 	return &NamespacePoliciesView{}, nil
 }

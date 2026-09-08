@@ -117,7 +117,7 @@ func getObjectsViaMultiGet(qs queryservice.QueryService, ns driver.Namespace, ke
 
 type QueryViewFactory struct{}
 
-func (c *QueryViewFactory) NewView(in []byte) (view.View, error) {
+func (*QueryViewFactory) NewView(in []byte) (view.View, error) {
 	f := &QueryView{}
 	if err := json.Unmarshal(in, &f.params); err != nil {
 		return nil, err

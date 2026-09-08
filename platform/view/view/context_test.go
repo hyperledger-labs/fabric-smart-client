@@ -120,7 +120,7 @@ func TestCompileRunViewOptions(t *testing.T) {
 		},
 		{
 			name:        "Stops_On_First_Error",
-			opts:        []RunViewOption{WithSameContext(), func(o *RunViewOptions) error { return errors.New("option failed") }, AsInitiator()},
+			opts:        []RunViewOption{WithSameContext(), func(_ *RunViewOptions) error { return errors.New("option failed") }, AsInitiator()},
 			expectedErr: "option failed",
 		},
 	}

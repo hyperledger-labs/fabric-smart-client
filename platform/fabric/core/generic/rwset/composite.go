@@ -34,13 +34,13 @@ func CreateCompositeKey(objectType string, attributes []string) (string, error) 
 	return ck.String(), nil
 }
 
-func CreateRangeKeysForPartialCompositeKey(objectType string, attributes []string) (string, string, error) {
+func CreateRangeKeysForPartialCompositeKey(objectType string, attributes []string) (startKey, endKey string, err error) {
 	partialCompositeKey, err := CreateCompositeKey(objectType, attributes)
 	if err != nil {
 		return "", "", err
 	}
-	startKey := partialCompositeKey
-	endKey := partialCompositeKey + string(maxUnicodeRuneValue)
+	startKey = partialCompositeKey
+	endKey = partialCompositeKey + string(maxUnicodeRuneValue)
 
 	return startKey, endKey, nil
 }

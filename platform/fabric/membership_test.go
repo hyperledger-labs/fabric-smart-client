@@ -19,11 +19,11 @@ import (
 
 type mockSigningIdentity struct{}
 
-func (m *mockSigningIdentity) Serialize() ([]byte, error) {
+func (*mockSigningIdentity) Serialize() ([]byte, error) {
 	return []byte("serialized"), nil
 }
 
-func (m *mockSigningIdentity) Sign(msg []byte) ([]byte, error) {
+func (*mockSigningIdentity) Sign(_ []byte) ([]byte, error) {
 	return []byte("sig"), nil
 }
 
@@ -86,7 +86,7 @@ type mockMSPManagerInner struct {
 	deserializeIdentity driver.MSPIdentity
 }
 
-func (m *mockMSPManagerInner) DeserializeIdentity(serializedIdentity []byte) (driver.MSPIdentity, error) {
+func (m *mockMSPManagerInner) DeserializeIdentity(_ []byte) (driver.MSPIdentity, error) {
 	return m.deserializeIdentity, m.deserializeErr
 }
 
@@ -153,7 +153,7 @@ func TestIdentityInfo(t *testing.T) {
 	mockIInfo := &driver.IdentityInfo{
 		ID:           "id1",
 		EnrollmentID: "eid1",
-		GetIdentity: func(opts *driver.IdentityOptions) (view.Identity, []byte, error) {
+		GetIdentity: func(_ *driver.IdentityOptions) (view.Identity, []byte, error) {
 			return view.Identity("ident"), []byte("audit"), nil
 		},
 	}

@@ -420,9 +420,9 @@ func TestProvider_IdentityManagerMethods(t *testing.T) { //nolint:paralleltest
 	id, _, err := p.Identity(nil)
 	require.NoError(t, err)
 
-	sigId, err := p.DeserializeSigningIdentity(id)
+	sigID, err := p.DeserializeSigningIdentity(id)
 	require.NoError(t, err)
-	require.NotNil(t, sigId)
+	require.NotNil(t, sigID)
 
 	_, err = p.DeserializeVerifier(id)
 	require.NoError(t, err)

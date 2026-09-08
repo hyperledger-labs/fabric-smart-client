@@ -54,13 +54,13 @@ func (c *Config) WebURL() string {
 }
 
 func (c *Config) url(protocol string) string {
-	if c.isTlsEnabled() {
+	if c.isTLSEnabled() {
 		protocol += "s"
 	}
 	return fmt.Sprintf("%s://%s", protocol, c.Host)
 }
 
-func (c *Config) isTlsEnabled() bool {
+func (c *Config) isTLSEnabled() bool {
 	return c.CACertPath != "" || len(c.CACertRaw) != 0
 }
 
@@ -68,7 +68,7 @@ func (c *Config) isTlsEnabled() bool {
 type Client struct {
 	c             *http.Client
 	url           string
-	wsUrl         string
+	wsURL         string
 	tlsConfig     *tls.Config
 	metricsParser expfmt.TextParser
 }
@@ -111,7 +111,7 @@ func NewClient(config *Config) (*Client, error) {
 			}),
 		},
 		url:           config.WebURL(),
-		wsUrl:         config.WsURL(),
+		wsURL:         config.WsURL(),
 		tlsConfig:     tlsClientConfig,
 		metricsParser: expfmt.NewTextParser(model.LegacyValidation),
 	}, nil
@@ -128,7 +128,7 @@ func (c *Client) Metrics() (map[string]*dto.MetricFamily, error) {
 
 func (c *Client) StreamCallView(fid string, in []byte) (*WSStream, error) {
 	urlSuffix := fmt.Sprintf("/v1/Views/Stream/%s", fid)
-	stream, err := NewWSStream(c.wsUrl+urlSuffix, c.tlsConfig)
+	stream, err := NewWSStream(c.wsURL+urlSuffix, c.tlsConfig)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to init web socket stream")
 	}
@@ -190,6 +190,6 @@ func (c *Client) CallViewWithContext(ctx context.Context, fid string, in []byte)
 	return response.CallViewResponse.Result, nil
 }
 
-func (c *Client) Initiate(fid string, in []byte) (string, error) {
+func (*Client) Initiate(_ string, _ []byte) (string, error) {
 	panic("implement me")
 }

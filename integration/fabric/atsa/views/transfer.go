@@ -18,9 +18,11 @@ import (
 )
 
 type Transfer struct {
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
 	AgreementId string
-	AssetId     string
-	Recipient   view.Identity
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
+	AssetId   string
+	Recipient view.Identity
 
 	Approver view.Identity
 }
@@ -81,7 +83,7 @@ func (f *TransferView) Call(viewCtx view.Context) (any, error) {
 
 type TransferViewFactory struct{}
 
-func (p *TransferViewFactory) NewView(in []byte) (view.View, error) {
+func (*TransferViewFactory) NewView(in []byte) (view.View, error) {
 	f := &TransferView{Transfer: &Transfer{}}
 	err := json.Unmarshal(in, f.Transfer)
 	assert.NoError(err, "failed unmarshalling input")
@@ -90,7 +92,7 @@ func (p *TransferViewFactory) NewView(in []byte) (view.View, error) {
 
 type TransferResponderView struct{}
 
-func (t *TransferResponderView) Call(viewCtx view.Context) (any, error) {
+func (*TransferResponderView) Call(viewCtx view.Context) (any, error) {
 	// First, respond to a request for an identity
 	id, err := state.RespondRequestRecipientIdentity(viewCtx)
 	assert.NoError(err, "failed to respond to identity request")

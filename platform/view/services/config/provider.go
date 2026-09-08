@@ -223,7 +223,7 @@ func (p *Provider) String() string {
 
 // ProvideFromRaw returns a new Provider whose configuration is loaded from the given byte representation.
 // The function expects a valid `yaml` representation.
-func (p *Provider) ProvideFromRaw(raw []byte) (*Provider, error) {
+func (*Provider) ProvideFromRaw(raw []byte) (*Provider, error) {
 	newProvider := &Provider{
 		eventSystem: simple.NewEventBus(),
 	}
@@ -349,7 +349,7 @@ func (p *Provider) setupEnv() error {
 // the configuration we need.  If Backend == nil, we will initialize the global
 // koanf instance
 // ----------------------------------------------------------------------------------
-func (p *Provider) initConfigPaths(confPath string) ([]string, error) {
+func (*Provider) initConfigPaths(confPath string) ([]string, error) {
 	var paths []string
 
 	if len(confPath) != 0 {
@@ -416,7 +416,7 @@ type eventListener struct {
 }
 
 // OnReceive is called when a merge configuration event is received.
-func (e *eventListener) OnReceive(event events.Event) {
+func (e *eventListener) OnReceive(_ events.Event) {
 	e.handler.OnMergeConfig()
 }
 
@@ -424,12 +424,12 @@ func (e *eventListener) OnReceive(event events.Event) {
 type MergeConfigEvent struct{}
 
 // Topic returns the merge configuration event topic.
-func (m *MergeConfigEvent) Topic() string {
+func (*MergeConfigEvent) Topic() string {
 	return MergeConfigEventTopic
 }
 
 // Message returns the merge configuration event message.
-func (m *MergeConfigEvent) Message() any {
+func (*MergeConfigEvent) Message() any {
 	return nil
 }
 

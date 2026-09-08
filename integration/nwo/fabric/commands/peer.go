@@ -34,7 +34,7 @@ func (n NodeReset) SessionName() string {
 	return n.NetworkPrefix + "-peer-node-reset"
 }
 
-func (n NodeReset) Args() []string {
+func (NodeReset) Args() []string {
 	return []string{
 		"node", "reset",
 	}

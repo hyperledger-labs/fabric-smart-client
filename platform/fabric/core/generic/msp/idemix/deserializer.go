@@ -92,7 +92,7 @@ func (i *Deserializer) DeserializeVerifierAgainstNymEID(raw, nymEID []byte) (dri
 	}, nil
 }
 
-func (i *Deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
+func (*Deserializer) DeserializeSigner(_ []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 

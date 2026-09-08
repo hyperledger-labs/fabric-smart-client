@@ -86,9 +86,9 @@ func (cm *Registry) RegisterResponder(responder view.View, initiatedBy any) erro
 func (cm *Registry) RegisterResponderWithIdentity(responder view.View, id view.Identity, initiatedBy any) error {
 	switch t := initiatedBy.(type) {
 	case view.View:
-		cm.registerResponderWithIdentity(responder, id, cm.GetIdentifier(t))
+		cm.registerResponderForInitiatorID(responder, id, cm.GetIdentifier(t))
 	case string:
-		cm.registerResponderWithIdentity(responder, id, t)
+		cm.registerResponderForInitiatorID(responder, id, t)
 	default:
 		return errors.Errorf("initiatedBy must be a view or a string")
 	}
@@ -129,11 +129,11 @@ func (cm *Registry) GetResponder(initiatedBy any) (view.View, error) {
 }
 
 // GetIdentifier returns the identifier for the given view.
-func (cm *Registry) GetIdentifier(f view.View) string {
+func (*Registry) GetIdentifier(f view.View) string {
 	return GetIdentifier(f)
 }
 
-func (cm *Registry) registerResponderWithIdentity(responder view.View, id view.Identity, initiatedByID string) {
+func (cm *Registry) registerResponderForInitiatorID(responder view.View, id view.Identity, initiatedByID string) {
 	cm.viewsSync.Lock()
 	defer cm.viewsSync.Unlock()
 

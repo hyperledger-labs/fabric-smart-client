@@ -27,7 +27,7 @@ var logger = logging.MustGetLogger()
 
 type IdentityLoader struct{}
 
-func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
+func (*IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 	var bccspOpts *config.BCCSP
 	if c.Opts != nil {
 		logger.Debugf("Options [%v]", c.Opts)

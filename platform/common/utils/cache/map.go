@@ -20,6 +20,7 @@ type mapCache[K comparable, V any] struct {
 	l rwLock
 }
 
+//nolint:revive // confusing-naming: mapCache and evictionCache both implement the exported Map interface; renaming either is an API break; see follow-up
 func (c *mapCache[K, V]) Get(key K) (V, bool) {
 	c.l.RLock()
 	defer c.l.RUnlock()
@@ -27,12 +28,14 @@ func (c *mapCache[K, V]) Get(key K) (V, bool) {
 	return v, ok
 }
 
+//nolint:revive // confusing-naming: mapCache and evictionCache both implement the exported Map interface; renaming either is an API break; see follow-up
 func (c *mapCache[K, V]) Put(key K, value V) {
 	c.l.Lock()
 	defer c.l.Unlock()
 	c.m[key] = value
 }
 
+//nolint:revive // confusing-naming: mapCache and evictionCache both implement the exported Map interface; renaming either is an API break; see follow-up
 func (c *mapCache[K, V]) Delete(keys ...K) {
 	c.l.Lock()
 	defer c.l.Unlock()
@@ -41,6 +44,7 @@ func (c *mapCache[K, V]) Delete(keys ...K) {
 	}
 }
 
+//nolint:revive // confusing-naming: mapCache and evictionCache both implement the exported Map interface; renaming either is an API break; see follow-up
 func (c *mapCache[K, V]) Update(key K, f func(bool, V) (bool, V)) bool {
 	c.l.Lock()
 	defer c.l.Unlock()
@@ -54,6 +58,7 @@ func (c *mapCache[K, V]) Update(key K, f func(bool, V) (bool, V)) bool {
 	return ok
 }
 
+//nolint:revive // confusing-naming: mapCache and evictionCache both implement the exported Map interface; renaming either is an API break; see follow-up
 func (c *mapCache[K, V]) Len() int {
 	return len(c.m)
 }

@@ -19,9 +19,9 @@ type EnvelopeStore struct {
 }
 
 func NewEnvelopeStore(dbs *common2.RWDB, tables common.TableNames) (*EnvelopeStore, error) {
-	return newEnvelopeStore(dbs.ReadDB, dbs.WriteDB, tables.Envelope), nil
+	return buildEnvelopeStore(dbs.ReadDB, dbs.WriteDB, tables.Envelope), nil
 }
 
-func newEnvelopeStore(readDB, writeDB *sql.DB, table string) *EnvelopeStore {
+func buildEnvelopeStore(readDB, writeDB *sql.DB, table string) *EnvelopeStore {
 	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(readDB, writeDB, table, &postgres2.ErrorMapper{})}
 }

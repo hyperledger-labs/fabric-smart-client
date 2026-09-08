@@ -40,10 +40,10 @@ func (s *Sessions) PutDefault(party view.Identity, session view.Session) {
 }
 
 // Get returns the session for the given view ID and party.
-func (s *Sessions) Get(viewId string, party view.Identity) view.Session {
+func (s *Sessions) Get(viewID string, party view.Identity) view.Session {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	key := lookupKey(viewId, party)
+	key := lookupKey(viewID, party)
 	session := s.s[key]
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Sessions.Get [%s] found [%t]", key, session != nil)
@@ -52,34 +52,34 @@ func (s *Sessions) Get(viewId string, party view.Identity) view.Session {
 }
 
 // GetFirstOpen returns the first open session for the given view ID and list of parties.
-func (s *Sessions) GetFirstOpen(viewId string, parties iterators.Iterator[view.Identity]) (view.Session, view.Identity) {
+func (s *Sessions) GetFirstOpen(viewID string, parties iterators.Iterator[view.Identity]) (view.Session, view.Identity) {
 	defer parties.Close()
-	var targetId view.Identity
+	var targetID view.Identity
 	for party, err := parties.Next(); !errors.Is(err, io.EOF); party, err = parties.Next() {
 		if err != nil {
 			continue
 		}
 
-		session := s.Get(viewId, party)
+		session := s.Get(viewID, party)
 		if session != nil {
 			if session.Info().Closed {
-				logger.Debugf("removing session [%s:%s], it is closed", viewId, party)
-				s.Delete(viewId, party)
+				logger.Debugf("removing session [%s:%s], it is closed", viewID, party)
+				s.Delete(viewID, party)
 				return nil, party
 			}
-			logger.Debugf("session for [%s] found with identifier [%s]", party, viewId)
+			logger.Debugf("session for [%s] found with identifier [%s]", party, viewID)
 			return session, party
 		}
-		targetId = party
+		targetID = party
 	}
-	return nil, targetId
+	return nil, targetID
 }
 
 // Put registers a session for the given view ID and party.
-func (s *Sessions) Put(viewId string, party view.Identity, session view.Session) {
+func (s *Sessions) Put(viewID string, party view.Identity, session view.Session) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	key := lookupKey(viewId, party)
+	key := lookupKey(viewID, party)
 	if logger.IsEnabledFor(zapcore.DebugLevel) {
 		logger.Debugf("Sessions.Put [%s] found [%t]", key, session != nil)
 	}
@@ -87,10 +87,10 @@ func (s *Sessions) Put(viewId string, party view.Identity, session view.Session)
 }
 
 // Delete removes the session for the given view ID and party.
-func (s *Sessions) Delete(viewId string, party view.Identity) {
+func (s *Sessions) Delete(viewID string, party view.Identity) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.s, lookupKey(viewId, party))
+	delete(s.s, lookupKey(viewID, party))
 }
 
 // Reset removes all registered sessions.
@@ -111,6 +111,6 @@ func (s *Sessions) GetSessionIDs() []string {
 	return ids
 }
 
-func lookupKey(viewId string, party view.Identity) string {
-	return viewId + party.UniqueID()
+func lookupKey(viewID string, party view.Identity) string {
+	return viewID + party.UniqueID()
 }

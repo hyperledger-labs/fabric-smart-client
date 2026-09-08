@@ -33,7 +33,7 @@ func (q *QueryView) Call(viewCtx view.Context) (any, error) {
 
 type QueryViewFactory struct{}
 
-func (c *QueryViewFactory) NewView(in []byte) (view.View, error) {
+func (*QueryViewFactory) NewView(in []byte) (view.View, error) {
 	f := &QueryView{}
 	err := json.Unmarshal(in, &f.Query)
 	assert.NoError(err)

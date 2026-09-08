@@ -70,7 +70,7 @@ func NewCmd() *cobra.Command {
 }
 
 // gen read topology and generates artifacts
-func gen(args []string) error {
+func gen(_ []string) error {
 	if len(topologyFile) == 0 {
 		return errors.Errorf("expecting topology file path")
 	}

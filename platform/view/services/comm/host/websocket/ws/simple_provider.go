@@ -27,11 +27,11 @@ func NewSimpleProvider() *SimpleProvider {
 
 type SimpleProvider struct{}
 
-func (p *SimpleProvider) Close() error {
+func (*SimpleProvider) Close() error {
 	return nil
 }
 
-func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error) {
+func (*SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error) {
 	logger.Debugf("Creating new stream from [%s] to [%s@%s]...", src, info.RemotePeerID, info.RemotePeerAddress)
 	tlsEnabled := config != nil
 	url := url.URL{Scheme: schemes[tlsEnabled], Host: info.RemotePeerAddress, Path: "/p2p"}
@@ -73,7 +73,7 @@ func (p *SimpleProvider) NewClientStream(info host2.StreamInfo, ctx context.Cont
 	return NewWSStream(conn, trace.ContextWithSpanContext(context.Background(), spanContext), info), nil
 }
 
-func (p *SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
+func (*SimpleProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
 	expectedPeerID, err := expectedPeerIDFromRequest(request)
 	if err != nil {
 		return errors.Wrapf(err, "failed extracting expected peerID from TLS certificate")

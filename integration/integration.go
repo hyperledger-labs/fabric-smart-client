@@ -258,7 +258,7 @@ func (i *Infrastructure) Stop() {
 	i.NWO.Stop()
 }
 
-func (i *Infrastructure) Serve() error {
+func (*Infrastructure) Serve() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -393,16 +393,16 @@ func (i *Infrastructure) storeAdditionalConfigurations() {
 	}
 }
 
-func failMe(message string, callerSkip ...int) {
+func failMe(message string, _ ...int) {
 	panic(message)
 }
 
 type fscDefaultPlatformFactory struct{}
 
-func (p *fscDefaultPlatformFactory) Name() string {
+func (*fscDefaultPlatformFactory) Name() string {
 	return "fsc"
 }
 
-func (p *fscDefaultPlatformFactory) New(registry api.Context, t api.Topology, builder api.Builder) api.Platform {
+func (*fscDefaultPlatformFactory) New(registry api.Context, t api.Topology, builder api.Builder) api.Platform {
 	return fsc.NewPlatform(registry, t, builder)
 }

@@ -32,7 +32,7 @@ type TxTransientStore interface {
 	GetTransient(key string) []byte
 }
 
-func SetCertificationType(tx TxTransientStore, typ string, value []byte) error {
+func SetCertificationType(tx TxTransientStore, typ string, _ []byte) error {
 	switch typ {
 	case ChaincodeCertification:
 		if err := tx.SetTransient(CertificationType, []byte(ChaincodeCertification)); err != nil {
@@ -130,7 +130,7 @@ func (n *Namespace) certifyInput(id string) error {
 // by invoking the generic state query chaincode and verifying peer endorsements.
 type ChaincodeCertifier struct{}
 
-func (c *ChaincodeCertifier) VerifyInputCertificationAt(n *Namespace, index int, key string) error {
+func (*ChaincodeCertifier) VerifyInputCertificationAt(n *Namespace, index int, key string) error {
 	typ, _, err := GetCertificationType(n.tx)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting certification type")
@@ -201,7 +201,7 @@ func (c *ChaincodeCertifier) VerifyInputCertificationAt(n *Namespace, index int,
 	}
 }
 
-func (c *ChaincodeCertifier) CertifyInput(n *Namespace, id string) error {
+func (*ChaincodeCertifier) CertifyInput(n *Namespace, id string) error {
 	typ, _, err := GetCertificationType(n.tx)
 	if err != nil {
 		return errors.Wrapf(err, "failed getting certification type")
@@ -245,11 +245,11 @@ func (c *ChaincodeCertifier) CertifyInput(n *Namespace, id string) error {
 // cert. Verification re-reads the committed value and branches on the hiding mode.
 type TrustedReadCertifier struct{}
 
-func (c *TrustedReadCertifier) CertifyInput(n *Namespace, id string) error {
+func (*TrustedReadCertifier) CertifyInput(_ *Namespace, _ string) error {
 	return nil
 }
 
-func (c *TrustedReadCertifier) VerifyInputCertificationAt(n *Namespace, index int, key string) error {
+func (*TrustedReadCertifier) VerifyInputCertificationAt(n *Namespace, index int, key string) error {
 	rwSet, err := n.tx.RWSet()
 	if err != nil {
 		return errors.Wrap(err, "failed getting rw set")
@@ -310,7 +310,7 @@ func (c *CertificationView) Call(viewCtx view.Context) (any, error) {
 
 type CertificationViewFactory struct{}
 
-func (c *CertificationViewFactory) NewView(in []byte) (view.View, error) {
+func (*CertificationViewFactory) NewView(in []byte) (view.View, error) {
 	f := &CertificationView{CertificationRequest: &CertificationRequest{}}
 	err := json.Unmarshal(in, f.CertificationRequest)
 	if err != nil {

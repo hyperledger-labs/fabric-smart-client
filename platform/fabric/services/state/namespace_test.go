@@ -346,7 +346,7 @@ func TestNamespaceGetService(t *testing.T) {
 	tx, _, _ := newTestStateTransaction("assetns")
 	expected := &mockVaultService{}
 	tx.Provider = &mockServiceProvider{
-		getFn: func(v any) (any, error) {
+		getFn: func(_ any) (any, error) {
 			return expected, nil
 		},
 	}
@@ -406,7 +406,7 @@ func TestHelperErrorPathsAndStreamMethods(t *testing.T) {
 		t.Parallel()
 		expected := errors.New("service missing")
 		p := &mockServiceProvider{
-			getFn: func(v any) (any, error) {
+			getFn: func(_ any) (any, error) {
 				return nil, expected
 			},
 		}

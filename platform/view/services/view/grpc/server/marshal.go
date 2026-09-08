@@ -97,7 +97,7 @@ func (s *ResponseMarshaler) createSignedCommandResponse(cr *protos.CommandRespon
 	}, nil
 }
 
-func (s *ResponseMarshaler) computeHash(data []byte) (hash []byte) {
+func (*ResponseMarshaler) computeHash(data []byte) (hash []byte) {
 	h := sha256.Sum256(data)
 	return h[:]
 }
