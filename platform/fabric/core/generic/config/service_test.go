@@ -144,7 +144,7 @@ func TestChannelHelpers(t *testing.T) {
 	// default values
 	require.Equal(t, time.Duration(5*time.Minute), ch.DiscoveryDefaultTTLS())
 	require.Equal(t, 1, ch.CommitParallelism())
-	require.Equal(t, 100*time.Millisecond, ch.CommitterPollingTimeout())
+	require.Equal(t, 1*time.Second, ch.CommitterPollingTimeout())
 	require.Equal(t, 10*time.Second, ch.DeliverySleepAfterFailure())
 	require.Equal(t, 20*time.Second, ch.FinalityWaitTimeout())
 	require.Equal(t, 1, ch.FinalityEventQueueWorkers())
@@ -155,12 +155,50 @@ func TestChannelHelpers(t *testing.T) {
 	require.Equal(t, time.Duration(100*time.Millisecond), ch.CommitterFinalityUnknownTXTimeout())
 	require.Equal(t, time.Minute, ch.FinalityForPartiesWaitTimeout())
 
+	// test PollingTimeout clamping
+	require.Equal(t, time.Millisecond, (&cfg.Channel{Committer: cfg.Committer{PollingTimeout: -5 * time.Millisecond}}).CommitterPollingTimeout())
+	require.Equal(t, time.Millisecond, (&cfg.Channel{Committer: cfg.Committer{PollingTimeout: 500 * time.Microsecond}}).CommitterPollingTimeout())
+
 	// ChaincodeConfigs should convert to driver.ChaincodeConfig
 	cc := &cfg.Chaincode{Name: "cc1"}
 	c := &cfg.Channel{Chaincodes: []*cfg.Chaincode{cc}}
 	arr := c.ChaincodeConfigs()
 	require.Len(t, arr, 1)
 	require.Equal(t, "cc1", arr[0].ID())
+}
+
+// CommitterFinalityUnknownTXTimeout must return its own configured field and
+// never Discovery.Timeout. The two are set to different non-zero values below so
+// that returning the wrong field cannot pass, and so that neither value can be
+// mistaken for the other's default.
+func TestCommitterFinalityUnknownTXTimeout(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns the configured value, not the discovery timeout", func(t *testing.T) {
+		t.Parallel()
+		ch := &cfg.Channel{}
+		ch.Committer.Finality.UnknownTxTimeout = 1 * time.Second
+		ch.Discovery.Timeout = 5 * time.Minute
+
+		require.Equal(t, 1*time.Second, ch.CommitterFinalityUnknownTXTimeout())
+	})
+
+	t.Run("does not fall back to an unset discovery timeout", func(t *testing.T) {
+		t.Parallel()
+		ch := &cfg.Channel{}
+		ch.Committer.Finality.UnknownTxTimeout = 1 * time.Second
+		// Discovery.Timeout deliberately left unset.
+
+		require.Equal(t, 1*time.Second, ch.CommitterFinalityUnknownTXTimeout())
+	})
+
+	t.Run("defaults to 100ms when unset, whatever the discovery timeout", func(t *testing.T) {
+		t.Parallel()
+		ch := &cfg.Channel{}
+		ch.Discovery.Timeout = 5 * time.Minute
+
+		require.Equal(t, 100*time.Millisecond, ch.CommitterFinalityUnknownTXTimeout())
+	})
 }
 
 func TestCreatePeerMapAndPickPeer(t *testing.T) {

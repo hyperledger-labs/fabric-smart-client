@@ -158,9 +158,9 @@ func (c *Channel) CommitParallelism() int {
 
 func (c *Channel) CommitterPollingTimeout() time.Duration {
 	if c.Committer.PollingTimeout == 0 {
-		return 100 * time.Millisecond
+		return 1 * time.Second
 	}
-	return c.Committer.PollingTimeout
+	return max(c.Committer.PollingTimeout, time.Millisecond)
 }
 
 func (c *Channel) DeliverySleepAfterFailure() time.Duration {
@@ -224,7 +224,7 @@ func (c *Channel) CommitterFinalityUnknownTXTimeout() time.Duration {
 	if c.Committer.Finality.UnknownTxTimeout == 0 {
 		return 100 * time.Millisecond
 	}
-	return c.Discovery.Timeout
+	return c.Committer.Finality.UnknownTxTimeout
 }
 
 func (c *Channel) FinalityForPartiesWaitTimeout() time.Duration {
