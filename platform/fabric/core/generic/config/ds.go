@@ -224,7 +224,7 @@ func (c *Channel) CommitterFinalityUnknownTXTimeout() time.Duration {
 	if c.Committer.Finality.UnknownTxTimeout == 0 {
 		return 100 * time.Millisecond
 	}
-	return c.Discovery.Timeout
+	return c.Committer.Finality.UnknownTxTimeout
 }
 
 func (c *Channel) FinalityForPartiesWaitTimeout() time.Duration {
