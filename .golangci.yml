@@ -7,6 +7,7 @@ version: "2"
 linters:
   enable:
     - goheader
+    - gosec
     - misspell
     - thelper
     - tparallel
@@ -23,11 +24,34 @@ linters:
           copyright: '(?:Copyright (?:IBM Corp\.? (?:\d{4} )?All Rights Reserved\.|State Street Corp\. \d{4} All Rights Reserved\.)\s*)?'
           license: '(?s)(?:SPDX-License-Identifier: Apache-2\.0|Licensed under the Apache License.*limitations under the License\.)'
       template: '{{ copyright }}{{ license }}'
+    gosec:
+      excludes:
+        # G304/G703: file paths here come from operator-supplied core.yaml or
+        # MSP directory configuration, not from untrusted input; wrapping them
+        # in filepath.Clean would silence the finding without adding security.
+        - G304
+        - G703
+        # G404: math/rand is used for retry jitter and peer/orderer
+        # load-balancing, never for a secret, nonce or identifier.
+        - G404
+        # G115: the flagged conversions are vault block/tx version encoding
+        # (uint64->uint32) and proto int32 fields; truncation is only
+        # reachable past 2^32 blocks. Revisit if the vault gains a 64-bit
+        # version format.
+        - G115
   exclusions:
     paths:
       # nwo writes generated node commands here during integration tests; the
       # trees are gitignored build artifacts, absent from a clean checkout.
       - (^|/)out/
+    rules:
+      # Test fixtures and the nwo integration harness: 0644 fixture certs,
+      # 0755 scratch dirs, subprocess launches with generated paths and
+      # deliberately-weak TLS in benchmarks are what that code is for, not
+      # defects.
+      - path: (^integration/|^ci/|_test\.go$|_test_utils\.go$)
+        linters:
+          - gosec
 formatters:
   enable:
     - gci
