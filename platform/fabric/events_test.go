@@ -8,8 +8,8 @@ package fabric
 
 import (
 	"context"
-	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -80,16 +80,24 @@ func TestEventListener(t *testing.T) {
 	})
 
 	// Stop the consumer and close the event listener while the producer is still publishing
-	ctx, cancel := context.WithTimeout(context.Background(), waitFor)
-	defer cancel()
+	ctx, cancel := context.WithTimeout(t.Context(), waitFor)
+	t.Cleanup(cancel)
 
-	// Consumer
+	// Consumer. It records how many events it saw and whether any were nil, so
+	// the test goroutine (not this one) can assert on the outcome afterwards -
+	// testify assertions must not run off the main test goroutine.
+	var received atomic.Int64
+	var sawNil atomic.Bool
 	wg.Go(func() {
 		for {
 			select {
 			case event := <-ch:
 				// we got a new event
-				assert.NotNil(t, event)
+				if event == nil {
+					sawNil.Store(true)
+				} else {
+					received.Add(1)
+				}
 			case <-ctx.Done():
 				// our timeout is fired
 				// this should close our channel
@@ -112,6 +120,11 @@ func TestEventListener(t *testing.T) {
 	close(stopPublisher)
 	wg.Wait()
 
+	// the consumer ran on a separate goroutine, so assert its recorded outcome
+	// here on the test goroutine: it must have seen events, none of them nil.
+	require.False(t, sawNil.Load(), "consumer received a nil event")
+	require.Positive(t, received.Load(), "consumer received no events")
+
 	// check that our channel is closed
 	require.Eventually(t, func() bool {
 		return isClosed(ch)
@@ -126,12 +139,10 @@ func TestEventServiceMultipleClose(t *testing.T) {
 	msg1 := &committer.ChaincodeEvent{Payload: []byte("msg1")}
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		wg.Done()
+	wg.Go(func() {
 		subscriber.Publish("testChaincode", msg1)
 		listener.CloseChaincodeEvents()
-	}()
+	})
 
 	// Call Close multiple times safely
 	listener.CloseChaincodeEvents()
@@ -185,29 +196,32 @@ func TestEventListenerDeadlock(t *testing.T) {
 		require.Len(ct, ch, customBufferLen)
 	}, timeout, tick)
 
-	require.Never(t, func() bool {
-		// this should be blocking (until longTimeout is fired)
+	// The pipeline can hold one more event than eventCh's buffer: the forwarding
+	// goroutine pulls an event off the unbuffered middleCh and then blocks handing
+	// it to the (now full) eventCh. So this extra publish does NOT block - the
+	// middleCh handshake succeeds, the event is retained inside the listener, and
+	// Publish returns.
+	var published atomic.Bool
+	go func() {
 		subscriber.Publish("testChaincode", msg1)
-		return false
-	}, timeout, tick)
+		published.Store(true)
+	}()
+	require.Eventually(t, published.Load, timeout, tick)
 
-	// we kick off our producer to publish msg2
+	// Now the pipeline is truly full (eventCh full + one event retained in the
+	// forwarder), so the next producer blocks until the listener is closed.
+	var published2 atomic.Bool
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		// as msg1 is not yet consumed, our producer is blocked
+		// the pipeline is full, so this producer stays blocked
 		subscriber.Publish("testChaincode", msg2)
+		published2.Store(true)
 	})
 
-	// let's give the producer a bit time
-	runtime.Gosched()
-	time.Sleep(waitFor)
-
-	// let's make sure that our producer is still waiting to complete publish msg2
-	require.Never(t, func() bool {
-		// we expect to be blocked
-		wg.Wait()
-		return false
-	}, timeout, tick)
+	// let's make sure that our producer is still waiting to complete publish
+	// msg2. require.Never polls for the whole timeout window, so it both gives
+	// the producer time to run and asserts it stays blocked - no sleep needed.
+	require.Never(t, published2.Load, timeout, tick)
 
 	// now, we close the listener, which should unblock the producer
 	listener.CloseChaincodeEvents()
