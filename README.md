@@ -52,7 +52,7 @@ These examples demonstrate common FSC patterns, transaction flows, and how to wi
 We welcome contributions from everyone. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines. 
 
 Join our community on the LFDT Discord [#fabric-smart-client](https://discord.com/channels/905194001349627914/945691888348967012).
-We also have a community meeting every Wednesday at 1300 CET on [Zoom](https://zoom-lfx.platform.linuxfoundation.org/meeting/96953495257?password=0517864f-e5ef-4ef5-89fa-8638e15fddec). Please see the [Hyperledger Fabric community calendar](https://zoom-lfx.platform.linuxfoundation.org/meetings/lf-decentralized-trust?view=week) for details.
+We also have a community meeting every Wednesday at 1400 CET on [Zoom](https://zoom-lfx.platform.linuxfoundation.org/meeting/96953495257?password=0517864f-e5ef-4ef5-89fa-8638e15fddec). Please see the [Hyperledger Fabric community calendar](https://zoom-lfx.platform.linuxfoundation.org/meetings/lf-decentralized-trust?view=week) for details.
 Meeting notes are available [here](https://docs.google.com/document/d/13t5-9tfA-7L0Ok4DaK3da_3TpAz5CCd5h5_LryhJyRM/edit?usp=sharing).
 
 ## Versioning
