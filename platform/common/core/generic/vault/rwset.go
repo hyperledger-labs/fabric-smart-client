@@ -168,8 +168,11 @@ func (r *ReadSet) Add(ns driver.Namespace, key string, version Version) {
 		r.OrderedReads[ns] = make([]string, 0, 8)
 	}
 
+	_, exists := nsMap[key]
 	nsMap[key] = version
-	r.OrderedReads[ns] = append(r.OrderedReads[ns], key)
+	if !exists {
+		r.OrderedReads[ns] = append(r.OrderedReads[ns], key)
+	}
 }
 
 func (r *ReadSet) Get(ns driver.Namespace, key string) (Version, bool) {
@@ -198,17 +201,17 @@ func entriesEqual[T any](r, o map[string]T, compare func(T, T) bool, nss ...driv
 	sort.Strings(oKeys)
 
 	if len(rKeys) != len(oKeys) {
-		return errors.Errorf("number of writes do not match [%d]!=[%d], [%v]!=[%v]", len(r), len(o), rKeys, oKeys)
+		return errors.Errorf("number of entries do not match [%d]!=[%d], [%v]!=[%v]", len(rKeys), len(oKeys), rKeys, oKeys)
 	}
 
 	for _, rKey := range rKeys {
 		oValue, ok := o[rKey]
 		if !ok {
-			return errors.Errorf("read not found [%s]", rKey)
+			return errors.Errorf("key not found [%s]", rKey)
 		}
 		rValue := r[rKey]
 		if !compare(rValue, oValue) {
-			return errors.Errorf("writes for [%s] do not match [%v]!=[%v]", rKey, rValue, oValue)
+			return errors.Errorf("entries for [%s] do not match [%v]!=[%v]", rKey, rValue, oValue)
 		}
 	}
 	return nil
