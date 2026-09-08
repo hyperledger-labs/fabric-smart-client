@@ -10,6 +10,7 @@ linters:
     # golangci-lint's implicit `default: standard` set. They are named here so
     # the config states what it enforces rather than inheriting it, and so a
     # future `default: none` cannot silently drop them.
+    - durationcheck
     - errcheck
     - goheader
     - gosec
