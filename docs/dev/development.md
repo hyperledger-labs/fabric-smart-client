@@ -234,6 +234,12 @@ targets, so the right-hand column is the local equivalent, not the literal CI co
 | unit tests                   | `make unit-tests`                 |
 | PostgreSQL unit tests        | `make unit-tests-postgres`        |
 | integration suites           | `make integration-tests-<target>` |
+| `govulncheck`, per module    | `make govulncheck`                |
+
+`make govulncheck` needs the tool from `make install-tools`. Unlike CI, it exits
+non-zero on any finding, including one already dismissed in code scanning, so a
+failure here does not mean the pull request is red: CI reports to code scanning,
+which gates only on findings new to the branch.
 
 If your pull request only touches unit-tested code, `make checks` plus a targeted
 `make unit-tests` is usually the fastest high-signal validation pass before pushing.

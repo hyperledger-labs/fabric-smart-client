@@ -73,3 +73,14 @@ go-fix: ## Report go fix modernizations (dry run)
 go-fix-apply: ## Apply go fix modernizations in every module
 	@echo "Applying go fix..."
 	@$(call in_all_modules,go fix ./...)
+
+#########################
+# Vulnerabilities
+#########################
+
+# Not part of `checks`: it needs the tool installed (`make install-tools`) and
+# queries the Go vulnerability database over the network. CI runs it per module
+# in .github/workflows/govulncheck.yml.
+.PHONY: govulncheck
+govulncheck: ## Scan every module for known vulnerabilities
+	@$(call in_all_modules,govulncheck ./...)

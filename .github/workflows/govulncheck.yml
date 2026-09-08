@@ -8,10 +8,25 @@ on:
       - 'docs/**'
       - 'LICENSE'
       - '.gitignore'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
   schedule:
     # Monday, like the Dependabot jobs in .github/dependabot.yml: a new advisory
     # against an unchanged dependency is only found by re-scanning on a timer.
     - cron: '17 6 * * 1'
+
+# A newer push to the same PR makes the in-flight scan obsolete, so cancel it.
+# Non-PR events (main pushes, the weekly schedule) fall back to run_id, which is
+# unique per run, so they each get their own group and are never cancelled by --
+# or queued behind -- another run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
