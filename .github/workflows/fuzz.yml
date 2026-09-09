@@ -2,9 +2,9 @@ name: Fuzz
 
 on:
   schedule:
-    # Sunday night UTC. Off the round hour/minute so this doesn't land in the
-    # same instant as every other repo's midnight cron -- see govulncheck.yml.
-    - cron: '11 23 * * 0'
+    # Nightly at 3am UTC. Off the round minute so this doesn't land in the
+    # same instant as every other repo's 3am cron.
+    - cron: '13 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -29,8 +29,8 @@ jobs:
           - FuzzTransactionSetFromBytes
           - FuzzTransactionSetFromEnvelopeBytes
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # ratchet:actions/checkout@v5
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # ratchet:actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # ratchet:actions/setup-go@v7.0.0
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "**/*.sum"
