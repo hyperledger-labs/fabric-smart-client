@@ -2,6 +2,8 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202-blue)](LICENSE)
 [![Go Reference](https://pkg.go.dev/badge/github.com/hyperledger-labs/fabric-smart-client.svg)](https://pkg.go.dev/github.com/hyperledger-labs/fabric-smart-client)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/hyperledger-labs/fabric-smart-client/badge)](https://scorecard.dev/viewer/?uri=github.com/hyperledger-labs/fabric-smart-client)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/4960/badge)](https://www.bestpractices.dev/projects/4960)
 [![Tests](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/tests.yml/badge.svg)](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/tests.yml)
 [![CodeQL](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/hyperledger-labs/fabric-smart-client/actions/workflows/codeql-analysis.yml)
 [![Coverage Status](https://coveralls.io/repos/github/hyperledger-labs/fabric-smart-client/badge.svg?branch=main)](https://coveralls.io/github/hyperledger-labs/fabric-smart-client?branch=main)
