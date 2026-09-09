@@ -55,7 +55,7 @@ func byteSizeDecodeHook(f, t reflect.Kind, data any) (any, error) {
 	if re.MatchString(raw) {
 		size, err := strconv.ParseUint(re.ReplaceAllString(raw, "${size}"), 0, 64)
 		if err != nil {
-			return data, nil
+			return data, errors.Wrapf(err, "invalid byte size value '%s'", raw)
 		}
 		unit := re.ReplaceAllString(raw, "${unit}")
 		switch strings.ToLower(unit) {

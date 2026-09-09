@@ -30,7 +30,7 @@ func TestDispatcher(t *testing.T) {
 	d := newDispatcher(h)
 
 	// vc is nil
-	req, _ := http.NewRequest("PUT", "/v1/Views/fid", nil)
+	req, _ := http.NewRequest(http.MethodPut, "/v1/Views/fid", nil)
 	req.SetPathValue("View", "fid")
 	reqctx := &server2.ReqContext{
 		Req:   req,
@@ -75,7 +75,7 @@ func TestViewHandler(t *testing.T) {
 	vh := &viewHandler{c: c}
 
 	// CallView success: byte slice
-	req, _ := http.NewRequest("PUT", "/v1/Views/fid", nil)
+	req, _ := http.NewRequest(http.MethodPut, "/v1/Views/fid", nil)
 	reqctx := &server2.ReqContext{Req: req}
 	resp, err := vh.CallView(reqctx, "fid", []byte("input"))
 	require.NoError(t, err)

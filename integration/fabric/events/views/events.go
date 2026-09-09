@@ -44,9 +44,10 @@ func (c *EventsView) Call(viewCtx view.Context) (any, error) {
 	callBack := func(event *chaincode.Event) (bool, error) {
 		logger.Debugf("Chaincode Event Received in callback %s", event.EventName)
 		if event.Err != nil {
+			logger.Debugf("chaincode event callback received error [%s]", event.Err)
 			eventError = event.Err
 			wg.Done()
-			return true, nil
+			return true, nil //nolint:nilerr // event.Err is captured in eventError for the test's own assertions below; the callback's error return only makes the listener goroutine log it (see RegisterChaincodeEvents), so returning it here would just duplicate that log, not change test behaviour.
 		}
 
 		if event.EventName == c.EventName {

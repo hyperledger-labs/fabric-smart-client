@@ -89,7 +89,7 @@ func (ap *ApplicationProvider) PrivateChannelData() bool {
 
 // CollectionUpgrade returns true if this channel is configured to allow updates to
 // existing collection or add new collections through chaincode upgrade (as introduced in v1.2)
-func (ap ApplicationProvider) CollectionUpgrade() bool {
+func (ap *ApplicationProvider) CollectionUpgrade() bool {
 	return ap.v12 || ap.v13 || ap.v142 || ap.v20 || ap.v25
 }
 
