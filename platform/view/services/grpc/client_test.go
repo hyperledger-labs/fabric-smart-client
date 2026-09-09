@@ -500,7 +500,7 @@ func TestSetServerRootCAs(t *testing.T) {
 
 	// good root cert
 	t.Log("running good config")
-	err = client.SetServerRootCAs([][]byte{[]byte(testCerts.caPEM)})
+	err = client.SetServerRootCAs([][]byte{testCerts.caPEM})
 	require.NoError(t, err)
 	// now connection should succeed again
 	conn, err = client.NewConnection(address)

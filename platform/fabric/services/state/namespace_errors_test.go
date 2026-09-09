@@ -14,8 +14,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	cdriver "github.com/hyperledger-labs/fabric-smart-client/platform/common/driver"
 )
 
 const errNS = "assetns"
@@ -47,7 +45,7 @@ func requirePanicsContaining(tb testing.TB, want string, f func()) {
 // seedRead registers a read entry for key with the given raw value.
 func seedRead(tb testing.TB, rwset *testRWSet, key string, raw []byte) {
 	tb.Helper()
-	require.NoError(tb, rwset.SetState(errNS, cdriver.PKey(key), raw))
+	require.NoError(tb, rwset.SetState(errNS, key, raw))
 	rwset.writes[errNS] = nil // keep the write list clean; we only want a read
 	require.NoError(tb, rwset.AddReadAt(errNS, key, nil))
 }
@@ -505,7 +503,7 @@ func TestNamespaceAddOutputEmbeddingStateDerivesInnerID(t *testing.T) {
 	require.Equal(t, 1, tx.NumOutputs())
 	key, _, err := rwset.GetWriteAt(errNS, 0)
 	require.NoError(t, err)
-	require.Equal(t, "inner-id", string(key))
+	require.Equal(t, "inner-id", key)
 }
 
 type embeddingHouse struct {

@@ -76,7 +76,7 @@ func TestInspectorGetStateMetadata(t *testing.T) {
 
 	got, err := i.GetStateMetadata("ns", "k1")
 	require.NoError(t, err)
-	require.Equal(t, driver.Metadata(meta), got)
+	require.Equal(t, meta, got)
 
 	missing, err := i.GetStateMetadata("ns", "absent")
 	require.NoError(t, err)

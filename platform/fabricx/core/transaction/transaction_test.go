@@ -401,7 +401,7 @@ func TestStoreTransientPersistsFieldMappings(t *testing.T) {
 	require.Equal(t, 1, fakeRWSet.GetStateCallCount())
 	gotNs, gotKey, gotOpts := fakeRWSet.GetStateArgsForCall(0)
 	require.Equal(t, commondriver.Namespace("asset_transfer"), gotNs)
-	require.Equal(t, commondriver.PKey(origKey), gotKey)
+	require.Equal(t, origKey, gotKey)
 	require.Equal(t, []commondriver.GetStateOpt{commondriver.FromIntermediate}, gotOpts)
 }
 
@@ -745,11 +745,11 @@ func TestTransactionSetRWSet(t *testing.T) {
 			require.Equal(t, tc.expectedFromBytesCalls, fakeVault.NewRWSetFromBytesCallCount())
 			if tc.expectedNewRWSetCalls == 1 {
 				_, gotTxID := fakeVault.NewRWSetArgsForCall(0)
-				require.Equal(t, commondriver.TxID(tc.tx.TTxID), gotTxID)
+				require.Equal(t, tc.tx.TTxID, gotTxID)
 			}
 			if tc.expectedFromBytesCalls == 1 {
 				_, gotTxID, gotBytes := fakeVault.NewRWSetFromBytesArgsForCall(0)
-				require.Equal(t, commondriver.TxID(tc.tx.TTxID), gotTxID)
+				require.Equal(t, tc.tx.TTxID, gotTxID)
 				require.Equal(t, tc.expectedFromBytesArg, gotBytes)
 			}
 			require.Same(t, fakeRWSet, tc.tx.RWS())

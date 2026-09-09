@@ -102,8 +102,8 @@ func TestTLSConfig(t *testing.T) {
 		check: func(t *testing.T, cfg *tls.Config) {
 			t.Helper()
 			require.NotEmpty(t, cfg.CipherSuites)
-			require.NotContains(t, cfg.CipherSuites, uint16(tls.TLS_RSA_WITH_AES_128_GCM_SHA256))
-			require.NotContains(t, cfg.CipherSuites, uint16(tls.TLS_RSA_WITH_AES_256_GCM_SHA384))
+			require.NotContains(t, cfg.CipherSuites, tls.TLS_RSA_WITH_AES_128_GCM_SHA256)
+			require.NotContains(t, cfg.CipherSuites, tls.TLS_RSA_WITH_AES_256_GCM_SHA384)
 			require.Equal(t, uint16(tls.VersionTLS12), cfg.MinVersion)
 		},
 	}, {

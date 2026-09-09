@@ -26,7 +26,7 @@ func nsVersionOf(t *testing.T, raw []byte, ns driver.Namespace) uint64 {
 	var tx applicationpb.Tx
 	require.NoError(t, proto.Unmarshal(raw, &tx))
 	for _, txNs := range tx.GetNamespaces() {
-		if txNs.GetNsId() == string(ns) {
+		if txNs.GetNsId() == ns {
 			return txNs.GetNsVersion()
 		}
 	}
@@ -143,7 +143,7 @@ func TestRWSet_NamespaceVersionResolvedOncePerNamespace(t *testing.T) {
 
 	before := qs.getStatesCount.Load()
 	for i := range 5 {
-		require.NoError(t, rws.SetState("ns1", driver.PKey(string(rune('a'+i))), []byte("val")))
+		require.NoError(t, rws.SetState("ns1", string(rune('a'+i)), []byte("val")))
 	}
 	require.Equal(t, before+1, qs.getStatesCount.Load(),
 		"only the first touch of a namespace resolves its version")
@@ -287,7 +287,7 @@ func TestRWSet_ConcurrentFirstTouchPinsSingleVersion(t *testing.T) {
 	var eg errgroup.Group
 	for g := range 16 {
 		eg.Go(func() error {
-			return rws.SetState("ns1", driver.PKey(string(rune('a'+g))), []byte("value"))
+			return rws.SetState("ns1", string(rune('a'+g)), []byte("value"))
 		})
 	}
 	require.NoError(t, eg.Wait())

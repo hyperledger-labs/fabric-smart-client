@@ -31,7 +31,7 @@ func TestHostStartupTimeout(t *testing.T) { //nolint:paralleltest
 
 	// Create a mock config with invalid address
 	cfg := &mockConfig{
-		listenAddress: host2.PeerIPAddress(invalidAddress),
+		listenAddress: invalidAddress,
 	}
 
 	// Create a host with the invalid address
@@ -63,7 +63,7 @@ func TestHostStartupReadinessTimeout(t *testing.T) { //nolint:paralleltest
 
 	// Create a mock config
 	cfg := &mockConfig{
-		listenAddress: host2.PeerIPAddress(addr),
+		listenAddress: addr,
 	}
 
 	// Create a host

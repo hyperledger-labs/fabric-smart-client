@@ -61,14 +61,14 @@ func TestVaultX_GetStateMetadataServesStoreOnMiss(t *testing.T) {
 	stored := fdriver.TransientMap{fmKey: []byte(`{"_root_":"cHJlaW1hZ2U="}`)}
 
 	qs := newMockQueryService()
-	qs.setState("asset_transfer", driver.PKey(origKey), committed, 1)
+	qs.setState("asset_transfer", origKey, committed, 1)
 	mds := &mockMDS{fieldMappings: map[string]fdriver.TransientMap{string(digest[:]): stored}}
 
 	v := vault.NewVault(qs, mds)
 	rws, err := v.NewRWSet(context.Background(), "tx1")
 	require.NoError(t, err)
 
-	meta, err := rws.GetStateMetadata("asset_transfer", driver.PKey(origKey), driver.FromBoth)
+	meta, err := rws.GetStateMetadata("asset_transfer", origKey, driver.FromBoth)
 	require.NoError(t, err)
 	require.Equal(t, stored[fmKey], meta[fmKey])
 }

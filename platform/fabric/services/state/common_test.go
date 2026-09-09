@@ -70,7 +70,7 @@ func (t *testRWSet) Clear(ns cdriver.Namespace) error {
 
 func (t *testRWSet) AddReadAt(ns cdriver.Namespace, key string, _ cdriver.RawVersion) error {
 	v, _ := t.GetState(ns, key)
-	t.reads[ns] = append(t.reads[ns], testRead{key: cdriver.PKey(key), value: cloneRaw(v)})
+	t.reads[ns] = append(t.reads[ns], testRead{key: key, value: cloneRaw(v)})
 	return nil
 }
 

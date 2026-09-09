@@ -131,7 +131,7 @@ func TestAttack_HijackSessionID(t *testing.T) { //nolint:paralleltest
 	}
 
 	// Verify that the RemotePeerID of the stream is indeed Charlie
-	assert.Equal(t, string(charlieID), srvStream.RemotePeerID())
+	assert.Equal(t, charlieID, srvStream.RemotePeerID())
 
 	// Note: In a full system, P2PNode uses internalSessionID = SessionID + "." + hash(FromPKID).
 	// Since FromPKID is verified by the host (Charlie), Charlie's internal session ID

@@ -542,7 +542,7 @@ func (t *Transaction) persistFieldMappings() error {
 		if err != nil {
 			continue
 		}
-		writeVal, err := t.rwset.GetState(cdriver.Namespace(ns), cdriver.PKey(key), cdriver.FromIntermediate)
+		writeVal, err := t.rwset.GetState(ns, key, cdriver.FromIntermediate)
 		if err != nil || len(writeVal) == 0 {
 			logger.Warnf("no write value for field-mapping [%s:%s]; skipping persist", ns, key)
 			continue

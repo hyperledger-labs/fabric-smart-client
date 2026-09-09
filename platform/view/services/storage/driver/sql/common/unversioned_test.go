@@ -15,7 +15,6 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	. "github.com/onsi/gomega"
 
-	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
 	common2 "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver/sql/common"
 )
 
@@ -46,7 +45,7 @@ func TestGetState(t *testing.T) { //nolint:paralleltest
 
 	Expect(mock.ExpectationsWereMet()).To(Succeed())
 	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(driver.UnversionedValue(value)))
+	Expect(result).To(Equal(value))
 }
 
 func TestGetState_QueryError(t *testing.T) { //nolint:paralleltest

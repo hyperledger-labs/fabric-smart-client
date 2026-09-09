@@ -85,7 +85,7 @@ func NewContextFactory(
 		identityProvider: identityProvider,
 		registry:         registry,
 		tracer: tracerProvider.Tracer("calls", tracing.WithMetricsOpts(tracing.MetricsOpts{
-			LabelNames: []string{string(SuccessLabel), string(ViewLabel), string(InitiatorViewLabel)},
+			LabelNames: []string{SuccessLabel, ViewLabel, InitiatorViewLabel},
 		})),
 		metrics:              metrics,
 		localIdentityChecker: localIdentityChecker,

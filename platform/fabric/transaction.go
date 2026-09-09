@@ -407,7 +407,7 @@ func (t *TransactionManager) NewTransaction(opts ...TransactionOption) (*Transac
 		return nil, err
 	}
 
-	tx, err := t.fns.fns.TransactionManager().NewTransaction(options.Ctx, driver.TransactionType(options.TransactionType), options.Creator, options.Nonce, options.TxID, ch.Name(), options.RawRequest)
+	tx, err := t.fns.fns.TransactionManager().NewTransaction(options.Ctx, options.TransactionType, options.Creator, options.Nonce, options.TxID, ch.Name(), options.RawRequest)
 	if err != nil {
 		return nil, err
 	}
