@@ -1,0 +1,73 @@
+name: Fuzz
+
+on:
+  schedule:
+    # Sunday night UTC. Off the round hour/minute so this doesn't land in the
+    # same instant as every other repo's midnight cron -- see govulncheck.yml.
+    - cron: '11 23 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: fuzz-${{ matrix.target }}
+    runs-on: ubuntu-latest
+    # -fuzztime below is 2h; this leaves headroom for checkout/setup/upload.
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        # One entry per `func Fuzz...(f *testing.F)` in
+        # platform/fabric/core/generic/transaction/fuzz_test.go. `go test -fuzz`
+        # only fuzzes a single target per invocation, so each gets its own job
+        # and its own full 2h budget. Add new targets here as they land (see #1787).
+        target:
+          - FuzzUnpackSignedProposal
+          - FuzzUnpackEnvelopeFromBytes
+          - FuzzTransactionSetFromBytes
+          - FuzzTransactionSetFromEnvelopeBytes
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # ratchet:actions/checkout@v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # ratchet:actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          cache-dependency-path: "**/*.sum"
+
+      - name: Locate the fuzz corpus cache dir
+        id: fuzz-cache-dir
+        run: echo "path=$(go env GOCACHE)/fuzz" >> "$GITHUB_OUTPUT"
+
+      # The generated corpus (interesting inputs the fuzzer discovers) lives
+      # under GOCACHE, separate from the checked-in seed corpus in
+      # testdata/fuzz/. Restoring it lets each run continue mutating from
+      # where the last one left off instead of restarting cold every week.
+      #
+      # The cache key always includes run_id so this step's post-job save
+      # never no-ops on a hit; restore-keys falls back to the most recent
+      # previous run's corpus for this target.
+      - name: Cache fuzz corpus
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # ratchet:actions/cache@v4
+        with:
+          path: ${{ steps.fuzz-cache-dir.outputs.path }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: |
+            fuzz-corpus-${{ matrix.target }}-
+
+      - name: Fuzz ${{ matrix.target }}
+        run: |
+          go test ./platform/fabric/core/generic/transaction \
+            -run='^$' -fuzz="^${{ matrix.target }}\$" -fuzztime=2h
+
+      # A failing run means the fuzzer found a crasher; it's written under
+      # testdata/fuzz/<target> in the checkout. Upload it so it can be pulled
+      # into the seed corpus via a regular PR instead of being lost with the
+      # runner.
+      - name: Upload crashing input
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # ratchet:actions/upload-artifact@v4
+        with:
+          name: fuzz-crash-${{ matrix.target }}
+          path: platform/fabric/core/generic/transaction/testdata/fuzz/${{ matrix.target }}
+          if-no-files-found: ignore
