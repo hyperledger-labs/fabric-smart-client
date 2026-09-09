@@ -96,8 +96,9 @@ func TestValidBoundaryMessage(t *testing.T) {
 
 	dialer := gorilla_websocket.Dialer{TLSClientConfig: clientTLSConfig}
 	u := fmt.Sprintf("wss://%s/p2p", srvEndpoint)
-	conn, _, err := dialer.Dial(u, nil)
+	conn, resp, err := dialer.Dial(u, nil)
 	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
 	defer func() { _ = conn.Close() }()
 
 	// Send meta
@@ -174,8 +175,9 @@ func TestMultipleMessagesOrderAndContent(t *testing.T) {
 
 	dialer := gorilla_websocket.Dialer{TLSClientConfig: clientTLSConfig}
 	u := fmt.Sprintf("wss://%s/p2p", srvEndpoint)
-	conn, _, err := dialer.Dial(u, nil)
+	conn, resp, err := dialer.Dial(u, nil)
 	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
 	defer func() { _ = conn.Close() }()
 
 	// Send meta

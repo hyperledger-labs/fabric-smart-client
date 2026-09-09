@@ -71,8 +71,9 @@ func TestSimpleProvider_Security(t *testing.T) { //nolint:paralleltest
 					TLSClientConfig: clientTLSConfig,
 				}
 				u := fmt.Sprintf("wss://%s/p2p", srvEndpoint)
-				conn, _, err := dialer.Dial(u, nil)
+				conn, resp, err := dialer.Dial(u, nil)
 				require.NoError(t, err)
+				defer func() { _ = resp.Body.Close() }()
 				defer func() { _ = conn.Close() }()
 
 				meta := StreamMeta{
