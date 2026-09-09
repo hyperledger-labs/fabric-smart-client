@@ -22,6 +22,7 @@ linters:
     - nilnesserr
     - paralleltest
     - rowserrcheck
+    - recvcheck
     - staticcheck
     - thelper
     - tparallel
