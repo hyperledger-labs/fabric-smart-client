@@ -105,7 +105,7 @@ func NewService(
 	return s
 }
 
-func (o *Service) Broadcast(ctx context.Context, blob any) error {
+func (o *Service) Broadcast(ctx context.Context, blob any) error { //nolint:contextcheck // documented nil-ctx fallback below (nil is treated as context.Background), not an ignored inherited context
 	if ctx == nil {
 		ctx = context.Background()
 	}

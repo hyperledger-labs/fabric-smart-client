@@ -186,7 +186,7 @@ func (d *Delivery) stopError() error {
 // cancelled. It blocks until then and returns the error that caused the
 // shutdown, or nil for a clean stop. A nil ctx is treated as
 // context.Background.
-func (d *Delivery) Run(ctx context.Context) error {
+func (d *Delivery) Run(ctx context.Context) error { //nolint:contextcheck // documented nil-ctx fallback above (nil is treated as context.Background), not an ignored inherited context
 	logger.Debugf("Running delivery service [%d]", ctr.Add(1))
 	if ctx == nil {
 		ctx = context.Background()
@@ -293,7 +293,7 @@ func (d *Delivery) runReceiver(ctx context.Context, ch chan<- blockResponse) {
 				switch r := resp.Type.(type) {
 				case *pb.DeliverResponse_Block:
 					span.SetAttributes(tracing.String(messageTypeLabel, block))
-					if !d.handleBlockResponse(deliveryCtx, span, r, ch, waitTime) {
+					if !d.handleBlockResponse(deliveryCtx, span, r, ch, waitTime) { //nolint:contextcheck // deliveryCtx is a fresh root span per block-delivery attempt (context.Background(), see above), by design: block traces are independent per-attempt spans, not children of one span spanning the receiver's whole reconnect-loop lifetime
 						if dfCancel != nil {
 							dfCancel()
 						}

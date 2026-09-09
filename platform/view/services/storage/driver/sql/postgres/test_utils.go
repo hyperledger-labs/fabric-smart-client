@@ -249,7 +249,7 @@ func StartPostgres(ctx context.Context, c *ContainerConfig, logger Logger) (func
 	}
 
 	// define our close function that is returned to the caller
-	closeFunc := func() {
+	closeFunc := func() { //nolint:contextcheck // documented below: a fresh context is used deliberately since the provided ctx may already be cancelled by the time t.Cleanup runs this
 		// we use a fresh context here as the provided ctx may be canceled already.
 		// this is particularly the case if ctx is provided by a test harness and closeFunc is called via t.Cleanup.
 		cctx := context.Background()

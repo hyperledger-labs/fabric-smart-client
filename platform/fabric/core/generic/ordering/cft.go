@@ -139,7 +139,7 @@ func (o *CFTBroadcaster) getConnection(ctx context.Context) (*Connection, error)
 
 			// Get the broadcast stream to receive a reply of Acknowledgement for each common.Envelope in order, indicating success or type of failure.
 			// Notice that this stream is shared, therefore its context must be something different from the context of the current broadcast request
-			stream, err := oClient.Broadcast(context.Background())
+			stream, err := oClient.Broadcast(context.Background()) //nolint:contextcheck // documented above: this stream is shared across broadcasts, so it deliberately does not use the current request's context
 			if err != nil {
 				client.Close()
 				return nil, errors.Wrapf(err, "failed creating orderer stream for %s", to.Address)

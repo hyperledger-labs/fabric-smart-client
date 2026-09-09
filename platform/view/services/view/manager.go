@@ -276,7 +276,7 @@ func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, se
 		return c, false, nil
 	}
 	if ok {
-		logger.DebugfContext(viewContext.Context(), "[%s] No new context to respond, reuse [contextID:%s]\n", me, contextID)
+		logger.DebugfContext(viewContext.Context(), "[%s] No new context to respond, reuse [contextID:%s]\n", me, contextID) //nolint:contextcheck // deliberately logging against the reused, longer-lived viewContext being returned, not this call's transient ctx
 		return viewContext, false, nil
 	}
 
@@ -297,7 +297,7 @@ func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, se
 	cm.contexts[contextID] = c
 	cm.metrics.Contexts.Set(float64(len(cm.contexts)))
 
-	context.AfterFunc(c.Context(), func() {
+	context.AfterFunc(c.Context(), func() { //nolint:contextcheck // deliberately watching the new child context c's own lifetime (the tracked view context), not this call's ctx, to know when to evict the map entry
 		cm.DeleteContext(contextID)
 	})
 
