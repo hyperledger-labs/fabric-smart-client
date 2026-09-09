@@ -8,6 +8,7 @@ package core
 
 import (
 	"context"
+	"maps"
 	"os"
 	"reflect"
 	"sync"
@@ -142,6 +143,11 @@ func (p *FSNProvider) Names() []string {
 // DefaultName returns the name of the default Fabric network.
 func (p *FSNProvider) DefaultName() string {
 	return p.config.DefaultName()
+}
+
+// Drivers returns a copy of the registered drivers map.
+func (p *FSNProvider) Drivers() map[string]driver.Driver {
+	return maps.Clone(p.drivers)
 }
 
 // FabricNetworkService returns the driver.FabricNetworkService for the given network name,

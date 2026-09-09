@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/driver"
 	viewconfig "github.com/hyperledger-labs/fabric-smart-client/platform/view/services/config"
 )
 
@@ -357,4 +358,19 @@ fabric:
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "rejected by policy")
 	assert.ElementsMatch(t, []string{"default"}, provider.Names())
+}
+
+type fakeDriver struct{}
+
+func (*fakeDriver) New(string, bool) (driver.FabricNetworkService, error) {
+	return nil, nil
+}
+
+func TestFSNProvider_Drivers(t *testing.T) {
+	t.Parallel()
+	p := newTestProvider(t, baseYAML)
+	d := &fakeDriver{}
+	provider, err := NewFabricNetworkServiceProvider(p, []NamedDriver{{Name: "generic", Driver: d}}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]driver.Driver{"generic": NamedDriver{Name: "generic", Driver: d}}, provider.Drivers())
 }

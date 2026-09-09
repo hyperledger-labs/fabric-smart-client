@@ -176,7 +176,7 @@ func registerProcessorsForDrivers(in struct {
 		}
 		if c.Driver != d.Name {
 			logger.Infof("Skipping registration of default network, because its driver is %s. We are registering %s", c.Driver, d.Name)
-			return nil
+			continue
 		}
 		defaultFns, err := in.NetworkServiceProvider.FabricNetworkService("")
 		if err != nil {
