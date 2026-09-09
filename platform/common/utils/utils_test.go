@@ -111,7 +111,7 @@ func TestIgnoreErrorWithOneArg(t *testing.T) {
 func TestZero(t *testing.T) {
 	t.Parallel()
 	require.Equal(t, 0, Zero[int]())
-	require.Equal(t, "", Zero[string]())
+	require.Empty(t, Zero[string]())
 	require.Nil(t, Zero[*int]())
 }
 

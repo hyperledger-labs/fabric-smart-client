@@ -55,7 +55,7 @@ fabric:
 	cfg, err := NewConfig(p)
 	require.NoError(t, err)
 	assert.Empty(t, cfg.Names())
-	assert.Equal(t, "", cfg.DefaultName())
+	assert.Empty(t, cfg.DefaultName())
 }
 
 func TestAddNetwork_IntoEmptyConfig(t *testing.T) {

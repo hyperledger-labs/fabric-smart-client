@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -95,7 +96,7 @@ func TestViewHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	expectedJSON, _ := json.Marshal(map[string]string{"foo": "bar"})
-	require.Equal(t, expectedJSON, resp.(*protos.CommandResponse_CallViewResponse).CallViewResponse.Result)
+	require.JSONEq(t, string(expectedJSON), string(resp.(*protos.CommandResponse_CallViewResponse).CallViewResponse.Result))
 
 	// StreamCallView error path without real websocket
 	w := httptest.NewRecorder()
@@ -167,7 +168,9 @@ func TestClientStreamCallView(t *testing.T) {
 		cErr := newViewClient(vmErr, ip, tp)
 		tsErr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			err := cErr.StreamCallView("fid", w, r)
-			require.ErrorContains(t, err, "new view error")
+			// require.FailNow is unsafe from an http.Handler goroutine; this
+			// is the handler's last statement, so assert changes nothing.
+			assert.ErrorContains(t, err, "new view error")
 		}))
 		t.Cleanup(tsErr.Close)
 		wsErr, resp, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
@@ -186,7 +189,9 @@ func TestClientStreamCallView(t *testing.T) {
 		cErr := newViewClient(vmErr, ip, tp)
 		tsErr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			err := cErr.StreamCallView("fid", w, r)
-			require.ErrorContains(t, err, "init context error")
+			// require.FailNow is unsafe from an http.Handler goroutine; this
+			// is the handler's last statement, so assert changes nothing.
+			assert.ErrorContains(t, err, "init context error")
 		}))
 		t.Cleanup(tsErr.Close)
 		wsErr, resp, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
@@ -205,7 +210,9 @@ func TestClientStreamCallView(t *testing.T) {
 		cErr := newViewClient(vmErr, ip, tp)
 		tsErr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			err := cErr.StreamCallView("fid", w, r)
-			require.ErrorContains(t, err, "run view error")
+			// require.FailNow is unsafe from an http.Handler goroutine; this
+			// is the handler's last statement, so assert changes nothing.
+			assert.ErrorContains(t, err, "run view error")
 		}))
 		t.Cleanup(tsErr.Close)
 		wsErr, resp, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
@@ -224,7 +231,9 @@ func TestClientStreamCallView(t *testing.T) {
 		cErr := newViewClient(vmErr, ip, tp)
 		tsErr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			err := cErr.StreamCallView("fid", w, r)
-			require.ErrorContains(t, err, "registering stream command server")
+			// require.FailNow is unsafe from an http.Handler goroutine; this
+			// is the handler's last statement, so assert changes nothing.
+			assert.ErrorContains(t, err, "registering stream command server")
 		}))
 		t.Cleanup(tsErr.Close)
 		wsErr, resp, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
@@ -257,7 +266,7 @@ func TestClientStreamCallView(t *testing.T) {
 		var outStruct server2.Output
 		_ = json.Unmarshal(respMsg, &outStruct)
 		expectedJSON, _ := json.Marshal(map[string]string{"status": "ok"})
-		require.Equal(t, expectedJSON, outStruct.Raw)
+		require.JSONEq(t, string(expectedJSON), string(outStruct.Raw))
 	})
 
 	t.Run("Non-mutable context error", func(t *testing.T) {
@@ -266,7 +275,9 @@ func TestClientStreamCallView(t *testing.T) {
 		cNonMutable := newViewClient(vmNonMutable, ip, tp)
 		tsNonMutable := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			err := cNonMutable.StreamCallView("fid", w, r)
-			require.ErrorContains(t, err, "expected a mutable context")
+			// require.FailNow is unsafe from an http.Handler goroutine; this
+			// is the handler's last statement, so assert changes nothing.
+			assert.ErrorContains(t, err, "expected a mutable context")
 		}))
 		t.Cleanup(tsNonMutable.Close)
 		wsNM, resp, _ := websocket.DefaultDialer.Dial("ws"+tsNonMutable.URL[4:], nil)

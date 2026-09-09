@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/storage/driver"
@@ -335,7 +336,10 @@ func TestNotifier_ConcurrentSubscribe(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			err := n.Subscribe(func(driver.Operation, map[driver.ColumnKey]string) {})
-			require.NoError(t, err)
+			// require.FailNow is unsafe from a goroutine other than the one
+			// running the test; assert here, the outer require.Len below
+			// still catches any subscription failure via listener count.
+			assert.NoError(t, err)
 		}()
 	}
 

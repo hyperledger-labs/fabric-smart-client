@@ -46,7 +46,7 @@ func TestAddNamespaceDefaults(t *testing.T) { //nolint:paralleltest
 	require.True(t, cc.Chaincode.IsCCaaS())
 	require.Empty(t, cc.Chaincode.Path)
 
-	require.Equal(t, `{"Args":["init"]}`, cc.Chaincode.Ctor)
+	require.JSONEq(t, `{"Args":["init"]}`, cc.Chaincode.Ctor)
 	require.True(t, cc.Chaincode.InitRequired)
 
 	require.Equal(t, []string{"Org1_peer_0"}, cc.Peers)
@@ -110,7 +110,7 @@ func TestWithCtorEnablesInit(t *testing.T) { //nolint:paralleltest
 	ns := top.AddNamespace("ns", Unanimity("Org1"),
 		WithContainerImage("fsc-cc/events:latest"),
 		WithCtor(`{"Args":["init","x"]}`))
-	require.Equal(t, `{"Args":["init","x"]}`, ns.cc.Chaincode.Ctor)
+	require.JSONEq(t, `{"Args":["init","x"]}`, ns.cc.Chaincode.Ctor)
 	require.True(t, ns.cc.Chaincode.InitRequired)
 }
 
@@ -127,7 +127,7 @@ func TestOptionsAreOrderIndependent(t *testing.T) { //nolint:paralleltest
 		WithCtor(`{"Args":["init"]}`))
 
 	require.Equal(t, *imageFirst.cc, *ctorFirst.cc)
-	require.Equal(t, `{"Args":["init"]}`, ctorFirst.cc.Chaincode.Ctor)
+	require.JSONEq(t, `{"Args":["init"]}`, ctorFirst.cc.Chaincode.Ctor)
 	require.True(t, ctorFirst.cc.Chaincode.InitRequired)
 }
 
@@ -150,7 +150,7 @@ func TestWithCtorSurvivesLegacyChaincode(t *testing.T) { //nolint:paralleltest
 	ns := top.AddNamespace("asset_transfer", Unanimity("Org1"),
 		WithLegacyChaincode(StateQueryChaincodePath),
 		WithCtor(`{"Args":["init"]}`))
-	require.Equal(t, `{"Args":["init"]}`, ns.cc.Chaincode.Ctor)
+	require.JSONEq(t, `{"Args":["init"]}`, ns.cc.Chaincode.Ctor)
 	require.True(t, ns.cc.Chaincode.InitRequired,
 		"a legacy namespace with an explicit ctor must still require init")
 }

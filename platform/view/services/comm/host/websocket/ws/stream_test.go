@@ -135,7 +135,7 @@ func TestReader(t *testing.T) { //nolint:paralleltest
 	wg.Go(func() {
 		for _, in := range input {
 			read := &comm.ViewPacket{}
-			assert.NoError(t, r.ReadMsg(read))
+			assert.NoError(t, r.ReadMsg(read)) //nolint:testifylint // runs inside wg.Go and a loop; require.FailNow is unsafe outside the test goroutine
 			assert.True(t, proto.Equal(in, read))
 		}
 	})

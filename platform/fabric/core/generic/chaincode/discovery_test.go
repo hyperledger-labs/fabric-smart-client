@@ -131,7 +131,7 @@ func TestToDiscoveredPeersUntrustedCADropped(t *testing.T) {
 	peers, err := discoverPeers(t, fix, newPeerFixture(t, "Org1MSP", "evil:7051", []byte("forged")))
 	require.Error(t, err, "a response whose only peer fails validation must not succeed")
 	require.Empty(t, peers)
-	require.True(t, strings.Contains(err.Error(), "validation"),
+	require.Contains(t, err.Error(), "validation",
 		"error must attribute the empty result to validation, got [%v]", err)
 }
 

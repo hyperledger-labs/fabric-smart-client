@@ -216,8 +216,8 @@ func TestInstallViewHandler(t *testing.T) {
 
 	InstallViewHandler(vm, srv, tp)
 
-	require.Equal(t, 2, len(srv.processors))
-	require.Equal(t, 1, len(srv.streamers))
+	require.Len(t, srv.processors, 2)
+	require.Len(t, srv.streamers, 1)
 
 	// Each handler is invoked rather than only checked for non-nil: asserting
 	// NotNil alone still passes if the registrations are swapped.
@@ -263,7 +263,7 @@ func TestInstallViewHandler(t *testing.T) {
 		marshaller,
 	))
 	require.Equal(t, "stream_fid", vm.lastNewViewID)
-	require.Equal(t, 1, len(scs.sentMsgs))
+	require.Len(t, scs.sentMsgs, 1)
 }
 
 func TestInitiateView(t *testing.T) {
@@ -437,11 +437,11 @@ func TestStreamCallView(t *testing.T) {
 
 	require.Equal(t, 1, vm.newViewCallCount)
 	require.Equal(t, 1, vm.initiateContextCallCount)
-	require.Equal(t, 1, len(mockCtx.services))
+	require.Len(t, mockCtx.services, 1)
 	require.Equal(t, 1, marshaller.marshalCommandResponseCallCount)
 	require.Equal(t, sc.Command, marshaller.lastCommand)
 	require.Equal(t, []byte("test_result"), marshaller.lastCallViewResult(t))
-	require.Equal(t, 1, len(scs.sentMsgs))
+	require.Len(t, scs.sentMsgs, 1)
 }
 
 func TestStreamCallView_Error(t *testing.T) {

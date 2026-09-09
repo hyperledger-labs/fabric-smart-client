@@ -538,7 +538,7 @@ func TestResolverMethods(t *testing.T) {
 		}
 		assert.Equal(t, "localhost:8080", resolver.GetAddress(endpoint.P2PPort))
 		assert.Equal(t, "localhost:8081", resolver.GetAddress(endpoint.ViewPort))
-		assert.Equal(t, "", resolver.GetAddress(endpoint.ListenPort))
+		assert.Empty(t, resolver.GetAddress(endpoint.ListenPort))
 	})
 }
 

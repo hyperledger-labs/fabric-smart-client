@@ -8,7 +8,6 @@ package deferred_test
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -31,7 +30,7 @@ func TestGetBeforeFirstUpdate(t *testing.T) {
 	require.Nil(t, v)
 	require.True(t, errors.Is(err, deferred.ErrNotLoaded),
 		"error must be matchable with errors.Is, got [%v]", err)
-	require.True(t, strings.Contains(err.Error(), "mychannel"),
+	require.Contains(t, err.Error(), "mychannel",
 		"error must name the channel, got [%v]", err)
 }
 
@@ -333,9 +332,9 @@ func TestWaitForValueTimeoutReportsNotLoaded(t *testing.T) {
 	require.Nil(t, v)
 	require.True(t, errors.Is(err, deferred.ErrNotLoaded),
 		"a timed-out wait must report ErrNotLoaded, got [%v]", err)
-	require.True(t, strings.Contains(err.Error(), "mychannel"),
+	require.Contains(t, err.Error(), "mychannel",
 		"error must name the subject, got [%v]", err)
-	require.True(t, strings.Contains(err.Error(), context.DeadlineExceeded.Error()),
+	require.Contains(t, err.Error(), context.DeadlineExceeded.Error(),
 		"error must still show the deadline-exceeded cause, got [%v]", err)
 }
 
@@ -355,9 +354,9 @@ func TestWaitForValueContextCancelled(t *testing.T) {
 	require.Nil(t, v)
 	require.True(t, errors.Is(err, deferred.ErrNotLoaded),
 		"a cancelled wait must report ErrNotLoaded, got [%v]", err)
-	require.True(t, strings.Contains(err.Error(), "mychannel"),
+	require.Contains(t, err.Error(), "mychannel",
 		"error must name the subject, got [%v]", err)
-	require.True(t, strings.Contains(err.Error(), context.Canceled.Error()),
+	require.Contains(t, err.Error(), context.Canceled.Error(),
 		"error must still show the cancellation cause, got [%v]", err)
 }
 

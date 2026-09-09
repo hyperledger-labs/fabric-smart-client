@@ -64,7 +64,7 @@ func TestLoad(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, idProvider.Clients(), 1)
 	require.Equal(t, raw, []byte(idProvider.Clients()[0]))
-	require.Len(t, idProvider.Admins(), 0)
+	require.Empty(t, idProvider.Admins())
 }
 
 func TestNewProviderFailurePaths(t *testing.T) {
