@@ -35,7 +35,7 @@ func (a *AgreeToBuyView) Call(viewCtx view.Context) (any, error) {
 
 type AgreeToBuyViewFactory struct{}
 
-func (p *AgreeToBuyViewFactory) NewView(in []byte) (view.View, error) {
+func (*AgreeToBuyViewFactory) NewView(in []byte) (view.View, error) {
 	f := &AgreeToBuyView{AssetPrice: &AssetPrice{}}
 	err := json.Unmarshal(in, f.AssetPrice)
 	assert.NoError(err, "failed unmarshalling input")

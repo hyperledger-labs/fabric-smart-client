@@ -302,7 +302,7 @@ func TestAppendProposalResponse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			tx := &Transaction{TProposalResponses: tc.existing}
-			err := tx.appendProposalResponse(tc.response)
+			err := tx.recordProposalResponse(tc.response)
 			require.NoError(t, err)
 			require.Len(t, tx.TProposalResponses, tc.expectedCount)
 			if tc.assert != nil {
@@ -373,10 +373,10 @@ func TestStoreTransientPersistsFieldMappings(t *testing.T) {
 	ch.MetadataServiceReturns(fakeMDS)
 
 	tx := &Transaction{
-		ctx:     t.Context(),
-		TTxID:   "tx1",
-		channel: ch,
-		rwset:   fakeRWSet,
+		ctx:         t.Context(),
+		TTxID:       "tx1",
+		channel:     ch,
+		rwSetHandle: fakeRWSet,
 		TTransient: driver.TransientMap{
 			fmKey:               blob,
 			"CertificationType": []byte("ChaincodesCertification"), // must be ignored
@@ -414,11 +414,11 @@ func TestStoreTransientNoFieldMappingsIsNoop(t *testing.T) {
 	ch.MetadataServiceReturns(fakeMDS)
 
 	tx := &Transaction{
-		ctx:        t.Context(),
-		TTxID:      "tx1",
-		channel:    ch,
-		rwset:      fakeRWSet,
-		TTransient: driver.TransientMap{"CertificationType": []byte("x")},
+		ctx:         t.Context(),
+		TTxID:       "tx1",
+		channel:     ch,
+		rwSetHandle: fakeRWSet,
+		TTransient:  driver.TransientMap{"CertificationType": []byte("x")},
 	}
 
 	require.NoError(t, tx.StoreTransient())
@@ -501,7 +501,7 @@ func TestToMSPSignerIdentityWithCertificateID(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			id, err := toMSPSignerIdentityWithCertificateID(tc.identity, func(mspID string) (bool, error) {
+			id, err := toMSPSignerIdentityWithCertificateID(tc.identity, func(_ string) (bool, error) {
 				return tc.isIdemix, nil
 			})
 			if tc.expectedError != "" {
@@ -668,8 +668,8 @@ type testSerializableSigner struct {
 	signErr error
 }
 
-func (s *testSerializableSigner) Sign(message []byte) ([]byte, error) { return s.signRes, s.signErr }
-func (s *testSerializableSigner) Serialize() ([]byte, error)          { return s.creator, nil }
+func (s *testSerializableSigner) Sign(_ []byte) ([]byte, error) { return s.signRes, s.signErr }
+func (s *testSerializableSigner) Serialize() ([]byte, error)    { return s.creator, nil }
 
 func testSignedProposalBytes(t *testing.T) *peer.SignedProposal {
 	t.Helper()
@@ -766,7 +766,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 		fakeRWSet.BytesReturns([]byte("rwset-bytes"), nil)
 		fakeRWSet.NamespacesReturns([]commondriver.Namespace{"ns1"})
 
-		tx := &Transaction{TTxID: "tx1", rwset: fakeRWSet}
+		tx := &Transaction{TTxID: "tx1", rwSetHandle: fakeRWSet}
 		err := tx.Done()
 		require.NoError(t, err)
 		require.Equal(t, 1, fakeRWSet.DoneCallCount())
@@ -778,7 +778,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 		fakeRWSet := &mock.RWSet{}
 		fakeRWSet.BytesReturns(nil, errors.New("boom"))
 
-		tx := &Transaction{TTxID: "tx1", rwset: fakeRWSet}
+		tx := &Transaction{TTxID: "tx1", rwSetHandle: fakeRWSet}
 		err := tx.Done()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "marshalling rws")
@@ -789,7 +789,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 		fakeRWSet := &mock.RWSet{}
 		fakeRWSet.BytesReturns([]byte("raw-rwset"), nil)
 
-		tx := &Transaction{TTxID: "tx1", rwset: fakeRWSet}
+		tx := &Transaction{TTxID: "tx1", rwSetHandle: fakeRWSet}
 		raw, err := tx.Raw()
 		require.NoError(t, err)
 		require.Contains(t, string(raw), `"RWSet":"cmF3LXJ3c2V0"`)
@@ -800,7 +800,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 		fakeRWSet := &mock.RWSet{}
 		fakeRWSet.BytesReturns(nil, errors.New("boom"))
 
-		tx := &Transaction{TTxID: "tx1", rwset: fakeRWSet}
+		tx := &Transaction{TTxID: "tx1", rwSetHandle: fakeRWSet}
 		_, err := tx.Raw()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "marshalling rws")
@@ -809,7 +809,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 	t.Run("get rwset returns existing one", func(t *testing.T) {
 		t.Parallel()
 		fakeRWSet := &mock.RWSet{}
-		tx := &Transaction{rwset: fakeRWSet}
+		tx := &Transaction{rwSetHandle: fakeRWSet}
 		got, err := tx.GetRWSet()
 		require.NoError(t, err)
 		require.Same(t, fakeRWSet, got)
@@ -831,7 +831,7 @@ func TestTransactionDoneRawGetRWSetAndClose(t *testing.T) {
 	t.Run("close terminates and clears rwset", func(t *testing.T) {
 		t.Parallel()
 		fakeRWSet := &mock.RWSet{}
-		tx := &Transaction{TTxID: "tx3", rwset: fakeRWSet}
+		tx := &Transaction{TTxID: "tx3", rwSetHandle: fakeRWSet}
 		tx.Close()
 		require.Equal(t, 1, fakeRWSet.DoneCallCount())
 		require.Nil(t, tx.RWS())
@@ -845,7 +845,7 @@ func TestTransactionBytesNoTransient(t *testing.T) {
 	fakeRWSet.BytesReturns([]byte("rwset-bytes"), nil)
 	fakeRWSet.NamespacesReturns([]commondriver.Namespace{"ns1"})
 
-	tx := &Transaction{TTxID: "tx1", TTransient: driver.TransientMap{"secret": []byte("value")}, rwset: fakeRWSet}
+	tx := &Transaction{TTxID: "tx1", TTransient: driver.TransientMap{"secret": []byte("value")}, rwSetHandle: fakeRWSet}
 	raw, err := tx.BytesNoTransient()
 	require.NoError(t, err)
 
@@ -987,7 +987,7 @@ func TestGetProposalResponse(t *testing.T) {
 		sp, err := newSignedProposal(signedProposal)
 		require.NoError(t, err)
 
-		tx := &Transaction{TTxID: "tx1", signedProposal: sp, rwset: fakeRWSet}
+		tx := &Transaction{TTxID: "tx1", signedProposal: sp, rwSetHandle: fakeRWSet}
 		resp, err := tx.getProposalResponse(fakeSigner)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -1015,7 +1015,7 @@ func TestGetProposalResponse(t *testing.T) {
 		fakeRWSet := &mock.RWSet{}
 		fakeRWSet.BytesReturns(rwsetBytes, nil)
 
-		tx := &Transaction{TTxID: "tx1", signedProposal: &SignedProposal{}, rwset: fakeRWSet}
+		tx := &Transaction{TTxID: "tx1", signedProposal: &SignedProposal{}, rwSetHandle: fakeRWSet}
 		resp, err := tx.getProposalResponse(&testSerializableSigner{})
 		require.Error(t, err)
 		require.Nil(t, resp)
@@ -1093,10 +1093,10 @@ func TestEndorseProposalResponseWithIdentity(t *testing.T) {
 			fakeRWSet.BytesReturns(tc.rwsetPayload, nil)
 
 			tx := &Transaction{
-				ctx:   t.Context(),
-				TTxID: "tx1",
-				fns:   fakeFNS,
-				rwset: fakeRWSet,
+				ctx:         t.Context(),
+				TTxID:       "tx1",
+				fns:         fakeFNS,
+				rwSetHandle: fakeRWSet,
 				channel: func() *mock.Channel {
 					ch := &mock.Channel{}
 					ch.MetadataServiceReturns(&mock.MetadataService{})

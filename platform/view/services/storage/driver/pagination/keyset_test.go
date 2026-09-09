@@ -37,7 +37,7 @@ func render(p driver.Pagination) (string, []sqlbuild.Param) {
 		Build()
 }
 
-func setupPaginationWithLastId() *driver.PageIterator[*any] {
+func setupPaginationWithLastID() *driver.PageIterator[*any] {
 	p := utils.MustGet(pagination.KeysetWithField[string](200, 10, "col_id", "StringField"))
 	query, args := render(p)
 	Expect(query).To(Equal("SELECT field1, col_id FROM test ORDER BY col_id ASC LIMIT 10 OFFSET 200"))
@@ -65,7 +65,7 @@ func setupPaginationWithLastId() *driver.PageIterator[*any] {
 func TestKeysetSimple(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
-	page := setupPaginationWithLastId()
+	page := setupPaginationWithLastID()
 
 	nextPagination, err := page.Pagination.Next()
 	Expect(err).ToNot(HaveOccurred())
@@ -80,7 +80,7 @@ func TestKeysetSimple(t *testing.T) { //nolint:paralleltest
 func TestKeysetSkippingPage(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
-	page := setupPaginationWithLastId()
+	page := setupPaginationWithLastID()
 
 	nextPagination, err := page.Pagination.Next()
 	Expect(err).ToNot(HaveOccurred())
@@ -98,7 +98,7 @@ func TestKeysetSkippingPage(t *testing.T) { //nolint:paralleltest
 func TestKeysetGoingBack(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
-	page := setupPaginationWithLastId()
+	page := setupPaginationWithLastID()
 
 	nextPagination, err := page.Pagination.Prev()
 	page.Pagination = nextPagination
@@ -112,7 +112,7 @@ func TestKeysetGoingBack(t *testing.T) { //nolint:paralleltest
 func TestKeysetGoingNextBack(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
-	page := setupPaginationWithLastId()
+	page := setupPaginationWithLastID()
 
 	nextPagination, err := page.Pagination.Next()
 	page.Pagination = nextPagination
@@ -210,7 +210,7 @@ func TestKeysetInt(t *testing.T) { //nolint:paralleltest
 func TestKeysetSeriliazation(t *testing.T) { //nolint:paralleltest
 	RegisterTestingT(t)
 
-	page := setupPaginationWithLastId()
+	page := setupPaginationWithLastID()
 
 	buf, err := page.Pagination.Serialize()
 	Expect(err).ToNot(HaveOccurred())

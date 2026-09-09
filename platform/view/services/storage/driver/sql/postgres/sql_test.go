@@ -49,7 +49,7 @@ func TestPostgres(t *testing.T) {
 	}, func(string) (driver.UnversionedNotifier, error) {
 		return NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables common3.TableNames) (*KeyValueStoreNotifier, error) {
 			return &KeyValueStoreNotifier{
-				KeyValueStore: newKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
+				KeyValueStore: buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
 				Notifier:      NewNotifier(dbs.WriteDB, tables.KVS, pgConnStr, AllOperations, *NewSimplePrimaryKey("ns"), *NewBytePrimaryKey("pkey")),
 			}, nil
 		})
@@ -58,7 +58,7 @@ func TestPostgres(t *testing.T) {
 	})
 }
 
-func setupDBWithTLS(tb testing.TB) (string, string) {
+func setupDBWithTLS(tb testing.TB) (pgConnStr, caPath string) {
 	tb.Helper()
 
 	tempDir := tb.TempDir()
@@ -96,14 +96,15 @@ echo "ssl_key_file = '/var/lib/postgresql/server.key'" >> "$PGDATA/postgresql.co
 	)(cfg)
 
 	logger := &testLogger{tb}
-	terminate, pgConnStr, err := StartPostgres(tb.Context(), cfg, logger)
+	var terminate func()
+	terminate, pgConnStr, err = StartPostgres(tb.Context(), cfg, logger)
 	if err != nil {
 		tb.Fatal(err)
 	}
 	tb.Cleanup(terminate)
 
 	// Since we are creating a CA from scratch, write it for the client to use.
-	caPath := filepath.Join(tempDir, "ca.crt")
+	caPath = filepath.Join(tempDir, "ca.crt")
 	err = os.WriteFile(caPath, ca.CertBytes(), 0o644)
 	require.NoError(tb, err)
 
@@ -128,7 +129,7 @@ func TestPostgresWithTLS(t *testing.T) {
 	}, func(string) (driver.UnversionedNotifier, error) {
 		return NewPersistenceWithOpts(cp, NewDbProvider(), "", func(dbs *common.RWDB, tables common3.TableNames) (*KeyValueStoreNotifier, error) {
 			return &KeyValueStoreNotifier{
-				KeyValueStore: newKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
+				KeyValueStore: buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS),
 				Notifier:      NewNotifier(dbs.WriteDB, tables.KVS, pgConnStr, AllOperations, *NewSimplePrimaryKey("ns"), *NewBytePrimaryKey("pkey")),
 			}, nil
 		})

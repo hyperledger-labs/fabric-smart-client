@@ -22,7 +22,7 @@ import (
 
 type Ping struct{}
 
-func (p *Ping) Call(viewCtx view.Context) (any, error) {
+func (*Ping) Call(viewCtx view.Context) (any, error) {
 	// Retrieve responder identity
 	identityProvider, err := id.GetProvider(viewCtx)
 	assert.NoError(err, "failed getting identity provider")
@@ -58,6 +58,6 @@ func (p *Ping) Call(viewCtx view.Context) (any, error) {
 
 type PingFactory struct{}
 
-func (p *PingFactory) NewView(in []byte) (view.View, error) {
+func (*PingFactory) NewView(_ []byte) (view.View, error) {
 	return &Ping{}, nil
 }

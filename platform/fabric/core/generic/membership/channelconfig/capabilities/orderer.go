@@ -42,12 +42,12 @@ func NewOrdererProvider(capabilities map[string]*cb.Capability) *OrdererProvider
 }
 
 // Type returns a descriptive string for logging purposes.
-func (cp *OrdererProvider) Type() string {
+func (*OrdererProvider) Type() string {
 	return ordererTypeName
 }
 
 // HasCapability returns true if the capability is supported by this binary.
-func (cp *OrdererProvider) HasCapability(capability string) bool {
+func (*OrdererProvider) HasCapability(capability string) bool {
 	switch capability {
 	// Add new capability names here
 	case OrdererV1_1:

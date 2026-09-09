@@ -182,6 +182,7 @@ type IdentityIdentifier struct {
 	Mspid string
 
 	// The identifier for an identity within a provider
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
 	Id string
 }
 

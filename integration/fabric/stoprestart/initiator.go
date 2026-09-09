@@ -53,6 +53,6 @@ func (p *Initiator) Call(viewCtx view.Context) (any, error) {
 
 type InitiatorViewFactory struct{}
 
-func (i *InitiatorViewFactory) NewView(in []byte) (view.View, error) {
+func (*InitiatorViewFactory) NewView(in []byte) (view.View, error) {
 	return &Initiator{in: in}, nil
 }

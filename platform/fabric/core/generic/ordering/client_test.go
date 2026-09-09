@@ -82,11 +82,11 @@ func (m *mockClient) Address() string {
 	return m.address
 }
 
-func (m *mockClient) Certificate() tls.Certificate {
+func (*mockClient) Certificate() tls.Certificate {
 	return tls.Certificate{}
 }
 
-func (m *mockClient) OrdererClient() (ab.AtomicBroadcastClient, error) {
+func (*mockClient) OrdererClient() (ab.AtomicBroadcastClient, error) {
 	return nil, nil
 }
 
@@ -456,7 +456,7 @@ type blockingStream struct {
 	mu         sync.Mutex
 }
 
-func (b *blockingStream) Send(*common.Envelope) error { return nil }
+func (*blockingStream) Send(*common.Envelope) error { return nil }
 
 func (b *blockingStream) Recv() (*ab.BroadcastResponse, error) {
 	<-b.done

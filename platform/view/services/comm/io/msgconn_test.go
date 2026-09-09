@@ -265,7 +265,7 @@ func (m *mockSession) Receive() <-chan *view.Message {
 	return m.ch
 }
 
-func (m *mockSession) Info() view.SessionInfo {
+func (*mockSession) Info() view.SessionInfo {
 	return view.SessionInfo{}
 }
 
@@ -279,7 +279,7 @@ func (m *mockSession) SessionID() string {
 	return m.sessionID
 }
 
-func (m *mockSession) Context() view.Context {
+func (*mockSession) Context() view.Context {
 	return nil
 }
 
@@ -300,6 +300,6 @@ func (m *mockSession) ReceiveWithTimeout(timeout time.Duration) (*view.Message, 
 	}
 }
 
-func (m *mockSession) String() string {
+func (*mockSession) String() string {
 	return "mock-session"
 }

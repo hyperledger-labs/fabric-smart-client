@@ -65,7 +65,7 @@ type queryExecutor struct {
 
 // GetState retrieves the state for a specific namespace and key from the remote QueryService.
 // Returns nil if the key does not exist.
-func (qe *queryExecutor) GetState(ctx context.Context, namespace cdriver.Namespace, key cdriver.PKey) (*cdriver.VaultRead, error) {
+func (qe *queryExecutor) GetState(_ context.Context, namespace cdriver.Namespace, key cdriver.PKey) (*cdriver.VaultRead, error) {
 	vaultValue, err := qe.qs.GetState(namespace, key)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get state for namespace=%s, key=%s", namespace, key)
@@ -83,7 +83,7 @@ func (qe *queryExecutor) GetState(ctx context.Context, namespace cdriver.Namespa
 // GetStateMetadata retrieves metadata for a specific namespace and key.
 // Since QueryService doesn't support direct metadata queries, this returns empty metadata
 // and the version from the state value.
-func (qe *queryExecutor) GetStateMetadata(ctx context.Context, namespace cdriver.Namespace, key cdriver.PKey) (cdriver.Metadata, cdriver.RawVersion, error) {
+func (qe *queryExecutor) GetStateMetadata(_ context.Context, namespace cdriver.Namespace, key cdriver.PKey) (cdriver.Metadata, cdriver.RawVersion, error) {
 	// QueryService doesn't support metadata queries directly
 	// Return empty metadata and version from state
 	vaultValue, err := qe.qs.GetState(namespace, key)
@@ -97,13 +97,13 @@ func (qe *queryExecutor) GetStateMetadata(ctx context.Context, namespace cdriver
 }
 
 // GetStateRange returns an error as range queries are not supported by the QueryService.
-func (qe *queryExecutor) GetStateRange(ctx context.Context, namespace cdriver.Namespace, startKey, endKey cdriver.PKey) (cdriver.VersionedResultsIterator, error) {
+func (*queryExecutor) GetStateRange(_ context.Context, _ cdriver.Namespace, _, _ cdriver.PKey) (cdriver.VersionedResultsIterator, error) {
 	// QueryService doesn't support range queries
 	return nil, errors.New("GetStateRange not supported by VaultX QueryService")
 }
 
 // Done performs cleanup for the query executor. Currently a no-op as no cleanup is needed.
-func (qe *queryExecutor) Done() error {
+func (*queryExecutor) Done() error {
 	// No cleanup needed for query executor
 	return nil
 }
@@ -283,7 +283,7 @@ func (v *Vault) namespaceVersion(ns cdriver.Namespace) (cdriver.RawVersion, erro
 
 // IsClosed returns whether this RWSet has been closed. Always returns false
 // as RWSets in this implementation are not explicitly closed.
-func (r *rwSetWrapper) IsClosed() bool {
+func (*rwSetWrapper) IsClosed() bool {
 	return false
 }
 
@@ -594,7 +594,7 @@ func (r *rwSetWrapper) Bytes() ([]byte, error) {
 }
 
 // Done is a no-op. The vault does not retain the ReadWriteSet.
-func (r *rwSetWrapper) Done() {
+func (*rwSetWrapper) Done() {
 }
 
 // Equals compares this RWSet with another RWSet for equality.
@@ -681,7 +681,7 @@ func (v *Vault) NewRWSetFromBytes(ctx context.Context, txID cdriver.TxID, rwset 
 // SetDiscarded is not supported: the fabricx wiring has no local commit pipeline
 // (see platform/fabricx/core/channel/provider.go). Reaching this method means the
 // vault was wired into a generic committer, which is a programming error.
-func (v *Vault) SetDiscarded(context.Context, cdriver.TxID, string) error {
+func (*Vault) SetDiscarded(context.Context, cdriver.TxID, string) error {
 	panic("fabricx vault: SetDiscarded called; fabricx has no local commit pipeline")
 }
 
@@ -701,7 +701,7 @@ func (v *Vault) Status(ctx context.Context, txID cdriver.TxID) (fdriver.Validati
 // remote QueryService in a single batched query. A txID that the committer does not know
 // is omitted from the batched result and is reported here as Unknown
 // ("not final yet"). The result preserves the order of the input txIDs.
-func (v *Vault) Statuses(ctx context.Context, txIDs ...cdriver.TxID) ([]cdriver.TxValidationStatus[fdriver.ValidationCode], error) {
+func (v *Vault) Statuses(_ context.Context, txIDs ...cdriver.TxID) ([]cdriver.TxValidationStatus[fdriver.ValidationCode], error) {
 	ids := make([]string, len(txIDs))
 	copy(ids, txIDs)
 
@@ -727,14 +727,14 @@ func (v *Vault) Statuses(ctx context.Context, txIDs ...cdriver.TxID) ([]cdriver.
 // DiscardTx is not supported: the fabricx wiring has no local commit pipeline
 // (see platform/fabricx/core/channel/provider.go). Reaching this method means the
 // vault was wired into a generic committer, which is a programming error.
-func (v *Vault) DiscardTx(context.Context, cdriver.TxID, string) error {
+func (*Vault) DiscardTx(context.Context, cdriver.TxID, string) error {
 	panic("fabricx vault: DiscardTx called; fabricx has no local commit pipeline")
 }
 
 // CommitTX is not supported: the fabricx wiring has no local commit pipeline
 // (see platform/fabricx/core/channel/provider.go). Reaching this method means the
 // vault was wired into a generic committer, which is a programming error.
-func (v *Vault) CommitTX(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error {
+func (*Vault) CommitTX(context.Context, cdriver.TxID, cdriver.BlockNum, cdriver.TxNum) error {
 	panic("fabricx vault: CommitTX called; fabricx has no local commit pipeline")
 }
 
@@ -765,24 +765,24 @@ func (v *Vault) InspectRWSet(ctx context.Context, rwset []byte, namespaces ...cd
 // RWSExists is not supported: the fabricx wiring has no local commit pipeline
 // (see platform/fabricx/core/channel/provider.go). Reaching this method means the
 // vault was wired into a generic committer, which is a programming error.
-func (v *Vault) RWSExists(context.Context, cdriver.TxID) bool {
+func (*Vault) RWSExists(context.Context, cdriver.TxID) bool {
 	panic("fabricx vault: RWSExists called; fabricx has no local commit pipeline")
 }
 
 // Match is not supported: the fabricx wiring has no local commit pipeline
 // (see platform/fabricx/core/channel/provider.go). Reaching this method means the
 // vault was wired into a generic committer, which is a programming error.
-func (v *Vault) Match(context.Context, cdriver.TxID, []byte) error {
+func (*Vault) Match(context.Context, cdriver.TxID, []byte) error {
 	panic("fabricx vault: Match called; fabricx has no local commit pipeline")
 }
 
 // Close is a no-op. The vault holds no per-transaction state to release.
-func (v *Vault) Close() error {
+func (*Vault) Close() error {
 	return nil
 }
 
 // versionEqual compares two version byte slices for equality.
-func (v *Vault) versionEqual(v1, v2 cdriver.RawVersion) bool {
+func (*Vault) versionEqual(v1, v2 cdriver.RawVersion) bool {
 	if len(v1) != len(v2) {
 		return false
 	}
@@ -796,7 +796,7 @@ func (v *Vault) versionEqual(v1, v2 cdriver.RawVersion) bool {
 
 // mapStatusToValidationCode converts a committerpb.Status code to a fdriver.ValidationCode.
 // Maps COMMITTED to Valid, STATUS_UNSPECIFIED to Unknown, and all others to Invalid.
-func (v *Vault) mapStatusToValidationCode(statusCode int32) fdriver.ValidationCode {
+func (*Vault) mapStatusToValidationCode(statusCode int32) fdriver.ValidationCode {
 	// Map committerpb.Status to fdriver.ValidationCode
 	switch committerpb.Status(statusCode) {
 	case committerpb.Status_COMMITTED:

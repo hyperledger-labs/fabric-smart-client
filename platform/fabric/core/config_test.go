@@ -341,7 +341,7 @@ fabric:
 func TestFSNProvider_AddNetwork_RunsConfiguredValidators(t *testing.T) {
 	t.Parallel()
 	p := newTestProvider(t, baseYAML)
-	reject := NetworkConfigValidatorFunc(func(networkName string, configProvider ConfigProvider) error {
+	reject := NetworkConfigValidatorFunc(func(networkName string, _ ConfigProvider) error {
 		return errors.Errorf("network [%s] rejected by policy", networkName)
 	})
 	provider, err := NewFabricNetworkServiceProvider(p, nil, []NetworkConfigValidator{reject})

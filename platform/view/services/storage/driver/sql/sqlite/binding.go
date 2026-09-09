@@ -22,10 +22,10 @@ type BindingStore struct {
 }
 
 func NewBindingStore(dbs *common3.RWDB, tables common2.TableNames) (*BindingStore, error) {
-	return newBindingStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.Binding), nil
+	return buildBindingStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.Binding), nil
 }
 
-func newBindingStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *BindingStore {
+func buildBindingStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *BindingStore {
 	errorWrapper := &ErrorMapper{}
 	return &BindingStore{
 		BindingStore: common2.NewBindingStore(readDB, writeDB, table, errorWrapper),

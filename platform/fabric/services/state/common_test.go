@@ -52,11 +52,11 @@ func newTestRWSet() *testRWSet {
 	}
 }
 
-func (t *testRWSet) IsValid() error {
+func (*testRWSet) IsValid() error {
 	return nil
 }
 
-func (t *testRWSet) IsClosed() bool {
+func (*testRWSet) IsClosed() bool {
 	return false
 }
 
@@ -184,17 +184,17 @@ func (t *testRWSet) Namespaces() []cdriver.Namespace {
 	return namespaces
 }
 
-func (t *testRWSet) AppendRWSet(_ []byte, _ ...cdriver.Namespace) error {
+func (*testRWSet) AppendRWSet(_ []byte, _ ...cdriver.Namespace) error {
 	return nil
 }
 
-func (t *testRWSet) Bytes() ([]byte, error) {
+func (*testRWSet) Bytes() ([]byte, error) {
 	return []byte("rwset"), nil
 }
 
-func (t *testRWSet) Done() {}
+func (*testRWSet) Done() {}
 
-func (t *testRWSet) Equals(_ any, _ ...cdriver.Namespace) error {
+func (*testRWSet) Equals(_ any, _ ...cdriver.Namespace) error {
 	return nil
 }
 
@@ -232,51 +232,51 @@ func newTestDriverTransaction(rwset fdriver.RWSet) *testDriverTransaction {
 	}
 }
 
-func (t *testDriverTransaction) Creator() view.Identity                  { return view.Identity("creator") }
-func (t *testDriverTransaction) Nonce() []byte                           { return []byte("nonce") }
-func (t *testDriverTransaction) ID() string                              { return t.id }
-func (t *testDriverTransaction) Network() string                         { return t.network }
-func (t *testDriverTransaction) Channel() string                         { return t.channel }
-func (t *testDriverTransaction) Function() string                        { return t.function }
-func (t *testDriverTransaction) Parameters() [][]byte                    { return cloneRawSlices(t.params) }
-func (t *testDriverTransaction) Chaincode() string                       { return t.chaincode }
-func (t *testDriverTransaction) ChaincodeVersion() string                { return t.chaincodeVersion }
-func (t *testDriverTransaction) Results() ([]byte, error)                { return nil, nil }
-func (t *testDriverTransaction) From(fdriver.Transaction) error          { return nil }
-func (t *testDriverTransaction) SetFromBytes([]byte) error               { return nil }
-func (t *testDriverTransaction) SetFromEnvelopeBytes([]byte) error       { return nil }
-func (t *testDriverTransaction) Proposal() fdriver.Proposal              { return nil }
-func (t *testDriverTransaction) SignedProposal() fdriver.SignedProposal  { return nil }
-func (t *testDriverTransaction) ResetTransient()                         { t.transient = fdriver.TransientMap{} }
-func (t *testDriverTransaction) SetRWSet() error                         { return nil }
-func (t *testDriverTransaction) RWS() fdriver.RWSet                      { return t.rwset }
-func (t *testDriverTransaction) Done() error                             { return nil }
-func (t *testDriverTransaction) Close()                                  {}
-func (t *testDriverTransaction) Raw() ([]byte, error)                    { return []byte("raw"), nil }
-func (t *testDriverTransaction) Endorse() error                          { return nil }
-func (t *testDriverTransaction) EndorseWithIdentity(view.Identity) error { return nil }
-func (t *testDriverTransaction) EndorseWithSigner(view.Identity, fdriver.Signer) error {
+func (*testDriverTransaction) Creator() view.Identity                  { return view.Identity("creator") }
+func (*testDriverTransaction) Nonce() []byte                           { return []byte("nonce") }
+func (t *testDriverTransaction) ID() string                            { return t.id }
+func (t *testDriverTransaction) Network() string                       { return t.network }
+func (t *testDriverTransaction) Channel() string                       { return t.channel }
+func (t *testDriverTransaction) Function() string                      { return t.function }
+func (t *testDriverTransaction) Parameters() [][]byte                  { return cloneRawSlices(t.params) }
+func (t *testDriverTransaction) Chaincode() string                     { return t.chaincode }
+func (t *testDriverTransaction) ChaincodeVersion() string              { return t.chaincodeVersion }
+func (*testDriverTransaction) Results() ([]byte, error)                { return nil, nil }
+func (*testDriverTransaction) From(fdriver.Transaction) error          { return nil }
+func (*testDriverTransaction) SetFromBytes([]byte) error               { return nil }
+func (*testDriverTransaction) SetFromEnvelopeBytes([]byte) error       { return nil }
+func (*testDriverTransaction) Proposal() fdriver.Proposal              { return nil }
+func (*testDriverTransaction) SignedProposal() fdriver.SignedProposal  { return nil }
+func (t *testDriverTransaction) ResetTransient()                       { t.transient = fdriver.TransientMap{} }
+func (*testDriverTransaction) SetRWSet() error                         { return nil }
+func (t *testDriverTransaction) RWS() fdriver.RWSet                    { return t.rwset }
+func (*testDriverTransaction) Done() error                             { return nil }
+func (*testDriverTransaction) Close()                                  {}
+func (*testDriverTransaction) Raw() ([]byte, error)                    { return []byte("raw"), nil }
+func (*testDriverTransaction) Endorse() error                          { return nil }
+func (*testDriverTransaction) EndorseWithIdentity(view.Identity) error { return nil }
+func (*testDriverTransaction) EndorseWithSigner(view.Identity, fdriver.Signer) error {
 	return nil
 }
 
-func (t *testDriverTransaction) EndorseProposal() error { return nil }
+func (*testDriverTransaction) EndorseProposal() error { return nil }
 
-func (t *testDriverTransaction) EndorseProposalWithIdentity(view.Identity) error { return nil }
+func (*testDriverTransaction) EndorseProposalWithIdentity(view.Identity) error { return nil }
 
-func (t *testDriverTransaction) EndorseProposalResponse() error { return nil }
+func (*testDriverTransaction) EndorseProposalResponse() error { return nil }
 
-func (t *testDriverTransaction) EndorseProposalResponseWithIdentity(view.Identity) error { return nil }
+func (*testDriverTransaction) EndorseProposalResponseWithIdentity(view.Identity) error { return nil }
 
-func (t *testDriverTransaction) AppendProposalResponse(fdriver.ProposalResponse) error { return nil }
+func (*testDriverTransaction) AppendProposalResponse(fdriver.ProposalResponse) error { return nil }
 
-func (t *testDriverTransaction) ProposalHasBeenEndorsedBy(view.Identity) error { return nil }
+func (*testDriverTransaction) ProposalHasBeenEndorsedBy(view.Identity) error { return nil }
 
-func (t *testDriverTransaction) StoreTransient() error { return nil }
+func (*testDriverTransaction) StoreTransient() error { return nil }
 
-func (t *testDriverTransaction) ProposalResponses() ([]fdriver.ProposalResponse, error) {
+func (*testDriverTransaction) ProposalResponses() ([]fdriver.ProposalResponse, error) {
 	return nil, nil
 }
-func (t *testDriverTransaction) Envelope() (fdriver.Envelope, error) { return nil, nil }
+func (*testDriverTransaction) Envelope() (fdriver.Envelope, error) { return nil, nil }
 
 func (t *testDriverTransaction) FunctionAndParameters() (string, []string) {
 	res := make([]string, 0, len(t.params))
@@ -427,15 +427,15 @@ func (t *testLocalMembership) IsMe(_ context.Context, id view.Identity) bool {
 	return t.defaultIdentity.Equal(id)
 }
 
-func (t *testLocalMembership) DefaultSigningIdentity() fdriver.SigningIdentity {
+func (*testLocalMembership) DefaultSigningIdentity() fdriver.SigningIdentity {
 	return nil
 }
 
-func (t *testLocalMembership) RegisterX509MSP(string, string, string) error {
+func (*testLocalMembership) RegisterX509MSP(string, string, string) error {
 	return nil
 }
 
-func (t *testLocalMembership) RegisterIdemixMSP(string, string, string) error {
+func (*testLocalMembership) RegisterIdemixMSP(string, string, string) error {
 	return nil
 }
 
@@ -448,15 +448,15 @@ func (t *testLocalMembership) GetIdentityByID(id string) (view.Identity, error) 
 	return nil, fmt.Errorf("identity [%s] not found", id)
 }
 
-func (t *testLocalMembership) GetIdentityInfoByLabel(string, string) *fdriver.IdentityInfo {
+func (*testLocalMembership) GetIdentityInfoByLabel(string, string) *fdriver.IdentityInfo {
 	return nil
 }
 
-func (t *testLocalMembership) GetIdentityInfoByIdentity(string, view.Identity) *fdriver.IdentityInfo {
+func (*testLocalMembership) GetIdentityInfoByIdentity(string, view.Identity) *fdriver.IdentityInfo {
 	return nil
 }
 
-func (t *testLocalMembership) Refresh() error {
+func (*testLocalMembership) Refresh() error {
 	return nil
 }
 
@@ -489,15 +489,15 @@ func (t *testFabricDriverFNS) Name() string {
 	return t.name
 }
 
-func (t *testFabricDriverFNS) OrderingService() fdriver.Ordering {
+func (*testFabricDriverFNS) OrderingService() fdriver.Ordering {
 	return nil
 }
 
-func (t *testFabricDriverFNS) TransactionManager() fdriver.TransactionManager {
+func (*testFabricDriverFNS) TransactionManager() fdriver.TransactionManager {
 	return nil
 }
 
-func (t *testFabricDriverFNS) ProcessorManager() fdriver.ProcessorManager {
+func (*testFabricDriverFNS) ProcessorManager() fdriver.ProcessorManager {
 	return nil
 }
 
@@ -516,19 +516,19 @@ func (t *testFabricDriverFNS) Channel(string) (fdriver.Channel, error) {
 	return t.channel, nil
 }
 
-func (t *testFabricDriverFNS) Ledger(string) (fdriver.Ledger, error) {
+func (*testFabricDriverFNS) Ledger(string) (fdriver.Ledger, error) {
 	return nil, nil
 }
 
-func (t *testFabricDriverFNS) Committer(string) (fdriver.Committer, error) {
+func (*testFabricDriverFNS) Committer(string) (fdriver.Committer, error) {
 	return nil, nil
 }
 
-func (t *testFabricDriverFNS) SignerService() fdriver.SignerService {
+func (*testFabricDriverFNS) SignerService() fdriver.SignerService {
 	return nil
 }
 
-func (t *testFabricDriverFNS) ConfigService() fdriver.ConfigService {
+func (*testFabricDriverFNS) ConfigService() fdriver.ConfigService {
 	return nil
 }
 
@@ -537,11 +537,11 @@ type testFabricDriverFNSProvider struct {
 	err error
 }
 
-func (t *testFabricDriverFNSProvider) Names() []string {
+func (*testFabricDriverFNSProvider) Names() []string {
 	return []string{""}
 }
 
-func (t *testFabricDriverFNSProvider) DefaultName() string {
+func (*testFabricDriverFNSProvider) DefaultName() string {
 	return ""
 }
 

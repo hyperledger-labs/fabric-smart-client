@@ -14,10 +14,10 @@ func NewSDK() *SDK {
 	return &SDK{}
 }
 
-func (d *SDK) Install() error {
+func (*SDK) Install() error {
 	panic("implement me")
 }
 
-func (d *SDK) Start(ctx context.Context) error {
+func (*SDK) Start(_ context.Context) error {
 	panic("implement me")
 }

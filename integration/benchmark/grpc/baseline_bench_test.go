@@ -73,7 +73,7 @@ func init() {
 
 // makeSelfSignedCert generates a localhost self-signed cert using ECDSA P-256.
 // It returns the tls.Certificate and the PEM-encoded cert for the client root pool.
-func makeSelfSignedCert() ([]byte, []byte, error) {
+func makeSelfSignedCert() (skPEM, crtPEM []byte, err error) {
 	// 1. generate ECDSA private key
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -121,7 +121,7 @@ type serverImpl struct {
 	workload view.View
 }
 
-func (s *serverImpl) ProcessCommand(ctx context.Context, command *protos.SignedCommand) (*protos.SignedCommandResponse, error) {
+func (s *serverImpl) ProcessCommand(_ context.Context, _ *protos.SignedCommand) (*protos.SignedCommandResponse, error) {
 	resp, err := s.workload.Call(nil)
 	if err != nil {
 		return nil, err
@@ -133,7 +133,7 @@ func (s *serverImpl) ProcessCommand(ctx context.Context, command *protos.SignedC
 	return &protos.SignedCommandResponse{}, nil
 }
 
-func (s *serverImpl) StreamCommand(g grpc.BidiStreamingServer[protos.SignedCommand, protos.SignedCommandResponse]) error {
+func (*serverImpl) StreamCommand(_ grpc.BidiStreamingServer[protos.SignedCommand, protos.SignedCommandResponse]) error {
 	panic("Not needed")
 }
 

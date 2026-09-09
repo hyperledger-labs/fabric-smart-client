@@ -111,7 +111,7 @@ func (t *Topology) AddNodeByName(name string) *node.Node {
 	return t.addNode(n)
 }
 
-func (t *Topology) NewTemplate(name string) *node.Node {
+func (*Topology) NewTemplate(name string) *node.Node {
 	n := node.NewNode(name)
 	return n
 }

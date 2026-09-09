@@ -315,7 +315,7 @@ func (c *Service) MSPManager() driver.MSPManager {
 	return &mspManager{config: c.config, waitFor: c.configWait}
 }
 
-func (c *Service) CheckACL(signedProp driver.SignedProposal) error {
+func (*Service) CheckACL(_ driver.SignedProposal) error {
 	return driver.ErrNotImplemented
 }
 

@@ -31,7 +31,7 @@ func (d *blockingDelivery) ScanBlock(ctx context.Context, _ fabric.BlockCallback
 
 type nopQuery struct{}
 
-func (nopQuery) QueryByID(ctx context.Context, _ driver.BlockNum, _ map[EventID][]ListenerEntry[testEvent]) (<-chan []testEvent, error) {
+func (nopQuery) QueryByID(_ context.Context, _ driver.BlockNum, _ map[EventID][]ListenerEntry[testEvent]) (<-chan []testEvent, error) {
 	ch := make(chan []testEvent)
 	close(ch)
 	return ch, nil

@@ -173,7 +173,7 @@ func NewBccspMspWithKeyStore(version MSPVersion, keyStore bccsp.KeyStore, bccsp 
 	return thisMSP, nil
 }
 
-func (msp *bccspmsp) getCertFromPem(idBytes []byte) (*x509.Certificate, error) {
+func (*bccspmsp) getCertFromPem(idBytes []byte) (*x509.Certificate, error) {
 	if idBytes == nil {
 		return nil, errors.New("getCertFromPem error: nil idBytes")
 	}
@@ -207,12 +207,12 @@ func (msp *bccspmsp) getIdentityFromConf(idBytes []byte) (Identity, bccsp.Key, e
 		return nil, nil, err
 	}
 
-	mspId, err := newIdentity(cert, certPubK, msp)
+	mspID, err := newIdentity(cert, certPubK, msp)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return mspId, certPubK, nil
+	return mspID, certPubK, nil
 }
 
 func (msp *bccspmsp) getSigningIdentityFromConf(sidInfo *m.SigningIdentityInfo) (SigningIdentity, error) {
@@ -283,7 +283,7 @@ func (msp *bccspmsp) GetVersion() MSPVersion {
 }
 
 // GetType returns the type for this MSP
-func (msp *bccspmsp) GetType() ProviderType {
+func (*bccspmsp) GetType() ProviderType {
 	return FABRIC
 }
 
@@ -340,7 +340,7 @@ func (msp *bccspmsp) Validate(id Identity) error {
 func (msp *bccspmsp) hasOURole(id Identity, mspRole m.MSPRole_MSPRoleType) error {
 	// Check NodeOUs
 	if !msp.ouEnforcement {
-		return errors.New("NodeOUs not activated. Cannot tell apart identities.")
+		return errors.New("nodeOUs not activated. Cannot tell apart identities")
 	}
 
 	mspLogger.Debugf("MSP %s checking if the identity is a client", msp.name)
@@ -390,17 +390,17 @@ func (msp *bccspmsp) DeserializeIdentity(serializedID []byte) (Identity, error) 
 	mspLogger.Debug("Obtaining identity")
 
 	// We first deserialize to a SerializedIdentity to get the MSP ID
-	sId := &m.SerializedIdentity{}
-	err := proto.Unmarshal(serializedID, sId)
+	sID := &m.SerializedIdentity{}
+	err := proto.Unmarshal(serializedID, sID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not deserialize a SerializedIdentity")
 	}
 
-	if sId.Mspid != msp.name {
-		return nil, errors.Errorf("expected MSP ID %s, received %s", msp.name, sId.Mspid)
+	if sID.Mspid != msp.name {
+		return nil, errors.Errorf("expected MSP ID %s, received %s", msp.name, sID.Mspid)
 	}
 
-	return msp.deserializeIdentityInternal(sId.IdBytes)
+	return msp.deserializeIdentityInternal(sID.IdBytes)
 }
 
 // deserializeIdentityInternal returns an identity given its byte-level representation
@@ -534,13 +534,13 @@ func (msp *bccspmsp) satisfiesPrincipalInternalPreV13(id Identity, principal *m.
 	case m.MSPPrincipal_IDENTITY:
 		// in this case we have to deserialize the principal's identity
 		// and compare it byte-by-byte with our cert
-		principalId, err := msp.DeserializeIdentity(principal.Principal)
+		principalID, err := msp.DeserializeIdentity(principal.Principal)
 		if err != nil {
 			return errors.WithMessage(err, "invalid identity principal, not a certificate")
 		}
 
-		if bytes.Equal(id.(*identity).cert.Raw, principalId.(*identity).cert.Raw) {
-			return principalId.Validate()
+		if bytes.Equal(id.(*identity).cert.Raw, principalID.(*identity).cert.Raw) {
+			return principalID.Validate()
 		}
 
 		return errors.New("The identities do not match")
@@ -619,56 +619,54 @@ func (msp *bccspmsp) satisfiesPrincipalInternalV142(id Identity, principal *m.MS
 		return errors.New("invalid identity type, expected *identity")
 	}
 
-	switch principal.PrincipalClassification {
-	case m.MSPPrincipal_ROLE:
-		if !msp.ouEnforcement {
-			break
-		}
+	if principal.PrincipalClassification == m.MSPPrincipal_ROLE {
+		if msp.ouEnforcement {
 
-		// Principal contains the msp role
-		mspRole := &m.MSPRole{}
-		err := proto.Unmarshal(principal.Principal, mspRole)
-		if err != nil {
-			return errors.Wrap(err, "could not unmarshal MSPRole from principal")
-		}
+			// Principal contains the msp role
+			mspRole := &m.MSPRole{}
+			err := proto.Unmarshal(principal.Principal, mspRole)
+			if err != nil {
+				return errors.Wrap(err, "could not unmarshal MSPRole from principal")
+			}
 
-		// at first, we check whether the MSP
-		// identifier is the same as that of the identity
-		if mspRole.MspIdentifier != msp.name {
-			return errors.Errorf("the identity is a member of a different MSP (expected %s, got %s)", mspRole.MspIdentifier, id.GetMSPIdentifier())
-		}
+			// at first, we check whether the MSP
+			// identifier is the same as that of the identity
+			if mspRole.MspIdentifier != msp.name {
+				return errors.Errorf("the identity is a member of a different MSP (expected %s, got %s)", mspRole.MspIdentifier, id.GetMSPIdentifier())
+			}
 
-		// now we validate the admin role only, the other roles are left to the v1.3 function
-		switch mspRole.Role {
-		case m.MSPRole_ADMIN:
-			mspLogger.Debugf("Checking if identity has been named explicitly as an admin for %s", msp.name)
-			// in the case of admin, we check that the
-			// id is exactly one of our admins
-			if msp.isInAdmins(id.(*identity)) {
+			// now we validate the admin role only, the other roles are left to the v1.3 function
+			switch mspRole.Role {
+			case m.MSPRole_ADMIN:
+				mspLogger.Debugf("Checking if identity has been named explicitly as an admin for %s", msp.name)
+				// in the case of admin, we check that the
+				// id is exactly one of our admins
+				if msp.isInAdmins(id.(*identity)) {
+					return nil
+				}
+
+				// or it carries the Admin OU, in this case check that the identity is valid as well.
+				mspLogger.Debugf("Checking if identity carries the admin ou for %s", msp.name)
+				if err := msp.Validate(id); err != nil {
+					return errors.Wrapf(err, "The identity is not valid under this MSP [%s]", msp.name)
+				}
+
+				if err := msp.hasOURole(id, m.MSPRole_ADMIN); err != nil {
+					return errors.Wrapf(err, "The identity is not an admin under this MSP [%s]", msp.name)
+				}
+
+				return nil
+			case m.MSPRole_ORDERER:
+				mspLogger.Debugf("Checking if identity satisfies role [%s] for %s", m.MSPRole_MSPRoleType_name[int32(mspRole.Role)], msp.name)
+				if err := msp.Validate(id); err != nil {
+					return errors.Wrapf(err, "The identity is not valid under this MSP [%s]", msp.name)
+				}
+
+				if err := msp.hasOURole(id, mspRole.Role); err != nil {
+					return errors.Wrapf(err, "The identity is not a [%s] under this MSP [%s]", m.MSPRole_MSPRoleType_name[int32(mspRole.Role)], msp.name)
+				}
 				return nil
 			}
-
-			// or it carries the Admin OU, in this case check that the identity is valid as well.
-			mspLogger.Debugf("Checking if identity carries the admin ou for %s", msp.name)
-			if err := msp.Validate(id); err != nil {
-				return errors.Wrapf(err, "The identity is not valid under this MSP [%s]", msp.name)
-			}
-
-			if err := msp.hasOURole(id, m.MSPRole_ADMIN); err != nil {
-				return errors.Wrapf(err, "The identity is not an admin under this MSP [%s]", msp.name)
-			}
-
-			return nil
-		case m.MSPRole_ORDERER:
-			mspLogger.Debugf("Checking if identity satisfies role [%s] for %s", m.MSPRole_MSPRoleType_name[int32(mspRole.Role)], msp.name)
-			if err := msp.Validate(id); err != nil {
-				return errors.Wrapf(err, "The identity is not valid under this MSP [%s]", msp.name)
-			}
-
-			if err := msp.hasOURole(id, mspRole.Role); err != nil {
-				return errors.Wrapf(err, "The identity is not a [%s] under this MSP [%s]", m.MSPRole_MSPRoleType_name[int32(mspRole.Role)], msp.name)
-			}
-			return nil
 		}
 	}
 
@@ -706,7 +704,7 @@ func (msp *bccspmsp) getCertificationChain(id Identity) ([]*x509.Certificate, er
 // getCertificationChainForBCCSPIdentity returns the certification chain of the passed bccsp identity within this msp
 func (msp *bccspmsp) getCertificationChainForBCCSPIdentity(id *identity) ([]*x509.Certificate, error) {
 	if id == nil {
-		return nil, errors.New("Invalid bccsp identity. Must be different from nil.")
+		return nil, errors.New("invalid bccsp identity. Must be different from nil")
 	}
 
 	// we expect to have a valid VerifyOptions instance
@@ -947,7 +945,7 @@ func (msp *bccspmsp) sanitizeCert(cert *x509.Certificate) (*x509.Certificate, er
 // IsWellFormed checks if the given identity can be deserialized into its provider-specific form.
 // In this MSP implementation, well formed means that the PEM has a Type which is either
 // the string 'CERTIFICATE' or the Type is missing altogether.
-func (msp *bccspmsp) IsWellFormed(identity *m.SerializedIdentity) error {
+func (*bccspmsp) IsWellFormed(identity *m.SerializedIdentity) error {
 	bl, rest := pem.Decode(identity.IdBytes)
 	if bl == nil {
 		return errors.New("PEM decoding resulted in an empty block")

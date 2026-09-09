@@ -53,11 +53,11 @@ func NewMSPIdentityWithVerType(idemix *Idemix, nymPublicKey bccsp.Key, role *m.M
 	return id, nil
 }
 
-func (id *MSPIdentity) Anonymous() bool {
+func (*MSPIdentity) Anonymous() bool {
 	return true
 }
 
-func (id *MSPIdentity) ExpiresAt() time.Time {
+func (*MSPIdentity) ExpiresAt() time.Time {
 	// Idemix MSP currently does not use expiration dates or revocation,
 	// so we return the zero time to indicate this.
 	return time.Time{}
@@ -102,7 +102,7 @@ func (id *MSPIdentity) Verify(msg, sig []byte) error {
 	return err
 }
 
-func (id *MSPIdentity) SatisfiesPrincipal(principal *m.MSPPrincipal) error {
+func (*MSPIdentity) SatisfiesPrincipal(_ *m.MSPPrincipal) error {
 	return errors.Errorf("not supported")
 }
 
@@ -186,6 +186,7 @@ type MSPSigningIdentity struct {
 	Cred         []byte
 	UserKey      bccsp.Key `json:"-"`
 	NymKey       bccsp.Key `json:"-"`
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
 	EnrollmentId string
 }
 

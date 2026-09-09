@@ -36,8 +36,8 @@ func (c *raceConn) ReadMessage() (int, []byte, error) {
 	return r.msgType, r.msg, r.err
 }
 
-func (c *raceConn) WriteMessage(messageType int, data []byte) error { return nil }
-func (c *raceConn) Close() error {
+func (*raceConn) WriteMessage(_ int, _ []byte) error { return nil }
+func (*raceConn) Close() error {
 	return nil
 }
 

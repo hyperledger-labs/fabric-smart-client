@@ -50,7 +50,7 @@ type receipt struct {
 }
 
 // CreateAsset creates an asset and sets it as owned by the client's org
-func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, assetID, publicDescription string) error {
+func (*SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, assetID, publicDescription string) error {
 	transientMap, err := ctx.GetStub().GetTransient()
 	if err != nil {
 		return errors.WithMessagef(err, "error getting transient: %v", err)
@@ -153,7 +153,7 @@ func (s *SmartContract) AgreeToSell(ctx contractapi.TransactionContextInterface,
 }
 
 // AgreeToBuy adds buyer's bid price to buyer's implicit private data collection
-func (s *SmartContract) AgreeToBuy(ctx contractapi.TransactionContextInterface, assetID string) error {
+func (*SmartContract) AgreeToBuy(ctx contractapi.TransactionContextInterface, assetID string) error {
 	return agreeToPrice(ctx, assetID, typeAssetBid)
 }
 

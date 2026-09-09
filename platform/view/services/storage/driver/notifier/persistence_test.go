@@ -24,11 +24,11 @@ import (
 // fakeIterator is a simple fake for testing
 type fakeIterator struct{}
 
-func (f *fakeIterator) Next() (*driver.UnversionedRead, error) {
+func (*fakeIterator) Next() (*driver.UnversionedRead, error) {
 	return nil, nil
 }
 
-func (f *fakeIterator) Close() {
+func (*fakeIterator) Close() {
 }
 
 var _ iterators.Iterator[*driver.UnversionedRead] = (*fakeIterator)(nil)

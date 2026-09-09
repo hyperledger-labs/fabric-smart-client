@@ -38,44 +38,44 @@ type mockCommitter struct {
 	CommitTXCount               int
 }
 
-func (m *mockCommitter) ProcessNamespace(nss ...driver2.Namespace) error {
+func (m *mockCommitter) ProcessNamespace(_ ...driver2.Namespace) error {
 	m.ProcessNamespaceCount++
 	return nil
 }
 
-func (m *mockCommitter) CommitTX(ctx context.Context, txid driver2.TxID, blockNum driver2.BlockNum, txNum driver2.TxNum, env *common.Envelope) error {
+func (m *mockCommitter) CommitTX(_ context.Context, _ driver2.TxID, _ driver2.BlockNum, _ driver2.TxNum, _ *common.Envelope) error {
 	m.CommitTXCount++
 	return nil
 }
 
-func (m *mockCommitter) Status(ctx context.Context, txID driver2.TxID) (driver.ValidationCode, string, error) {
+func (m *mockCommitter) Status(_ context.Context, txID driver2.TxID) (driver.ValidationCode, string, error) {
 	m.StatusCallCount++
 	m.StatusTxID = txID
 	return m.StatusValidation, m.StatusDeps, m.StatusErr
 }
 
-func (m *mockCommitter) DiscardTx(ctx context.Context, txID driver2.TxID, message string) error {
+func (m *mockCommitter) DiscardTx(_ context.Context, txID driver2.TxID, message string) error {
 	m.DiscardCallCount++
 	m.DiscardTxID = txID
 	m.DiscardMsg = message
 	return m.DiscardErr
 }
 
-func (m *mockCommitter) Start(ctx context.Context) error {
+func (*mockCommitter) Start(_ context.Context) error {
 	return nil
 }
 
-func (m *mockCommitter) AddFinalityListener(txID driver2.TxID, listener driver.FinalityListener) error {
+func (m *mockCommitter) AddFinalityListener(_ driver2.TxID, _ driver.FinalityListener) error {
 	m.AddFinalityListenerCount++
 	return nil
 }
 
-func (m *mockCommitter) RemoveFinalityListener(txID driver2.TxID, listener driver.FinalityListener) error {
+func (m *mockCommitter) RemoveFinalityListener(_ driver2.TxID, _ driver.FinalityListener) error {
 	m.RemoveFinalityListenerCount++
 	return nil
 }
 
-func (m *mockCommitter) AddTransactionFilter(tf driver.TransactionFilter) error {
+func (m *mockCommitter) AddTransactionFilter(_ driver.TransactionFilter) error {
 	m.AddTransactionFilterCount++
 	return nil
 }

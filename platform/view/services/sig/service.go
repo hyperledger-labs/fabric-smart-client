@@ -314,7 +314,7 @@ type si struct {
 	signer driver2.Signer
 }
 
-func (s *si) Verify(message, signature []byte) error {
+func (*si) Verify(_, _ []byte) error {
 	panic("implement me")
 }
 

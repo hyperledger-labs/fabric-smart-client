@@ -18,9 +18,9 @@ type AuditInfoStore struct {
 }
 
 func NewAuditInfoStore(dbs *common3.RWDB, tables common2.TableNames) (*AuditInfoStore, error) {
-	return newAuditInfoStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.AuditInfo), nil
+	return buildAuditInfoStore(dbs.ReadDB, NewRetryWriteDB(dbs.WriteDB), tables.AuditInfo), nil
 }
 
-func newAuditInfoStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *AuditInfoStore {
+func buildAuditInfoStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *AuditInfoStore {
 	return &AuditInfoStore{AuditInfoStore: common2.NewAuditInfoStore(writeDB, readDB, table, &ErrorMapper{})}
 }

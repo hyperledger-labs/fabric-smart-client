@@ -75,63 +75,62 @@ func NewGRPCServerFromListener(listener net.Listener, serverConfig ServerConfig)
 	secureConfig := serverConfig.SecOpts
 	if secureConfig.UseTLS {
 		// both key and cert are required
-		if secureConfig.Key != nil && secureConfig.Certificate != nil {
-			// load server public and private keys
-			commLogger.Debugf("Load server public and private keys")
-			cert, err := tls.X509KeyPair(secureConfig.Certificate, secureConfig.Key)
-			if err != nil {
-				return nil, err
+		if secureConfig.Key == nil || secureConfig.Certificate == nil {
+			return nil, errors.New("serverConfig.SecOpts must contain both Key and Certificate when UseTLS is true")
+		}
+		// load server public and private keys
+		commLogger.Debugf("Load server public and private keys")
+		cert, err := tls.X509KeyPair(secureConfig.Certificate, secureConfig.Key)
+		if err != nil {
+			return nil, err
+		}
+
+		grpcServer.serverCertificate.Store(cert)
+
+		// set up our TLS config
+		if len(secureConfig.CipherSuites) == 0 {
+			secureConfig.CipherSuites = DefaultTLSCipherSuites
+		}
+		getCert := func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			cert := grpcServer.serverCertificate.Load().(tls.Certificate)
+			return &cert, nil
+		}
+
+		grpcServer.tls = NewTLSConfig(&tls.Config{
+			VerifyPeerCertificate:  secureConfig.VerifyCertificate,
+			GetCertificate:         getCert,
+			SessionTicketsDisabled: true,
+			CipherSuites:           secureConfig.CipherSuites,
+		})
+
+		if serverConfig.SecOpts.TimeShift > 0 {
+			timeShift := serverConfig.SecOpts.TimeShift
+			grpcServer.tls.config.Time = func() time.Time {
+				return time.Now().Add((-1) * timeShift)
 			}
+		}
+		grpcServer.tls.config.ClientAuth = tls.RequestClientCert
+		// check if client authentication is required
+		if secureConfig.RequireClientCert {
+			// require TLS client auth
+			grpcServer.tls.config.ClientAuth = tls.RequireAndVerifyClientCert
+			// if we have client root CAs, create a certPool
+			if len(secureConfig.ClientRootCAs) > 0 {
+				grpcServer.clientRootCAs = make(map[string]*x509.Certificate)
 
-			grpcServer.serverCertificate.Store(cert)
-
-			// set up our TLS config
-			if len(secureConfig.CipherSuites) == 0 {
-				secureConfig.CipherSuites = DefaultTLSCipherSuites
-			}
-			getCert := func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				cert := grpcServer.serverCertificate.Load().(tls.Certificate)
-				return &cert, nil
-			}
-
-			grpcServer.tls = NewTLSConfig(&tls.Config{
-				VerifyPeerCertificate:  secureConfig.VerifyCertificate,
-				GetCertificate:         getCert,
-				SessionTicketsDisabled: true,
-				CipherSuites:           secureConfig.CipherSuites,
-			})
-
-			if serverConfig.SecOpts.TimeShift > 0 {
-				timeShift := serverConfig.SecOpts.TimeShift
-				grpcServer.tls.config.Time = func() time.Time {
-					return time.Now().Add((-1) * timeShift)
-				}
-			}
-			grpcServer.tls.config.ClientAuth = tls.RequestClientCert
-			// check if client authentication is required
-			if secureConfig.RequireClientCert {
-				// require TLS client auth
-				grpcServer.tls.config.ClientAuth = tls.RequireAndVerifyClientCert
-				// if we have client root CAs, create a certPool
-				if len(secureConfig.ClientRootCAs) > 0 {
-					grpcServer.clientRootCAs = make(map[string]*x509.Certificate)
-
-					grpcServer.tls.config.ClientCAs = x509.NewCertPool()
-					for _, clientRootCA := range secureConfig.ClientRootCAs {
-						err = grpcServer.appendClientRootCA(clientRootCA)
-						if err != nil {
-							return nil, err
-						}
+				grpcServer.tls.config.ClientCAs = x509.NewCertPool()
+				for _, clientRootCA := range secureConfig.ClientRootCAs {
+					err = grpcServer.appendClientRootCA(clientRootCA)
+					if err != nil {
+						return nil, err
 					}
 				}
 			}
-
-			// create credentials and add to server options
-			creds := NewServerTransportCredentials(grpcServer.tls, serverConfig.Logger)
-			serverOpts = append(serverOpts, grpc.Creds(creds))
-		} else {
-			return nil, errors.New("serverConfig.SecOpts must contain both Key and Certificate when UseTLS is true")
 		}
+
+		// create credentials and add to server options
+		creds := NewServerTransportCredentials(grpcServer.tls, serverConfig.Logger)
+		serverOpts = append(serverOpts, grpc.Creds(creds))
 	}
 	// set max send and recv msg sizes
 	serverOpts = append(serverOpts, grpc.MaxSendMsgSize(MaxSendMsgSize))

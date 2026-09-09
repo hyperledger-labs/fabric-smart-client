@@ -31,9 +31,9 @@ type mockMDS struct {
 	fieldMappings map[string]fdriver.TransientMap // keyed by string(valueDigest)
 }
 
-func (m *mockMDS) Exists(context.Context, string) bool                                { return false }
-func (m *mockMDS) StoreTransient(context.Context, string, fdriver.TransientMap) error { return nil }
-func (m *mockMDS) LoadTransient(context.Context, string) (fdriver.TransientMap, error) {
+func (*mockMDS) Exists(context.Context, string) bool                                { return false }
+func (*mockMDS) StoreTransient(context.Context, string, fdriver.TransientMap) error { return nil }
+func (*mockMDS) LoadTransient(context.Context, string) (fdriver.TransientMap, error) {
 	return nil, nil
 }
 
@@ -146,11 +146,11 @@ func (m *mockQueryService) GetTransactionStatuses(txIDs []string) (map[string]in
 	return out, nil
 }
 
-func (m *mockQueryService) GetConfigTransaction() (*queryservice.ConfigTransactionInfo, error) {
+func (*mockQueryService) GetConfigTransaction() (*queryservice.ConfigTransactionInfo, error) {
 	return nil, nil
 }
 
-func (m *mockQueryService) GetNamespacePolicies() (*applicationpb.NamespacePolicies, error) {
+func (*mockQueryService) GetNamespacePolicies() (*applicationpb.NamespacePolicies, error) {
 	return nil, nil
 }
 

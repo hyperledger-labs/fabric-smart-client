@@ -25,7 +25,7 @@ func TestBatchRunner(t *testing.T) {
 	t.Parallel()
 
 	ctr := &atomic.Uint32{}
-	runner, m, locksObtained := newBatchRunner(t)
+	runner, m, locksObtained := newTestBatchRunner(t)
 
 	run(t, ctr, runner, 100)
 	require.Len(t, m, 100)
@@ -39,7 +39,7 @@ func TestBatchRunnerFewRequests(t *testing.T) {
 	t.Parallel()
 
 	ctr := &atomic.Uint32{}
-	runner, m, locksObtained := newBatchRunner(t)
+	runner, m, locksObtained := newTestBatchRunner(t)
 
 	run(t, ctr, runner, 1)
 
@@ -56,7 +56,7 @@ func TestBatchRunnerFewRequests(t *testing.T) {
 	require.LessOrEqual(t, l, 4)
 }
 
-func newBatchRunner(t *testing.T) (BatchRunner[int], map[string]string, *uint32) {
+func newTestBatchRunner(t *testing.T) (BatchRunner[int], map[string]string, *uint32) {
 	t.Helper()
 	var locksObtained uint32
 	m := make(map[string]string)

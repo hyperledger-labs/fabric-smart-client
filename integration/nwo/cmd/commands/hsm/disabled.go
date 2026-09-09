@@ -18,7 +18,7 @@ func NewCmd() *cobra.Command {
 		Use:   "hsm",
 		Short: "HSM related utils (not available; rebuild with -tags pkcs11).",
 		Long:  "HSM related utilities are not available in this build. Rebuild with: go build -tags pkcs11",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Help()
 		},
 	}

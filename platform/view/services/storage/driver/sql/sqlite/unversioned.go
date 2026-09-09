@@ -20,14 +20,14 @@ type KeyValueStore struct {
 }
 
 func NewKeyValueStore(dbs *common3.RWDB, tables common2.TableNames) (*KeyValueStore, error) {
-	return newKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS), nil
+	return buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS), nil
 }
 
 func NewKeyValueStoreNotifier(dbs *common3.RWDB, table string) (*notifier.UnversionedPersistenceNotifier, error) {
-	return notifier.NewUnversioned(newKeyValueStore(dbs.ReadDB, dbs.WriteDB, table)), nil
+	return notifier.NewUnversioned(buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, table)), nil
 }
 
-func newKeyValueStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *KeyValueStore {
+func buildKeyValueStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *KeyValueStore {
 	var wrapper driver.SQLErrorWrapper = &ErrorMapper{}
 	return &KeyValueStore{
 		KeyValueStore: common2.NewKeyValueStore(writeDB, readDB, table, wrapper),

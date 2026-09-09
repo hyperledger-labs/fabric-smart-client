@@ -30,15 +30,15 @@ func (p *artifactsProvider) RemoveNils(items []driver2.VaultRead) []driver2.Vaul
 	return p.removeNils(items)
 }
 
-func (p *artifactsProvider) NewCachedVault(ddb dbdriver.VaultStore) (*vault.Vault[fdriver.ValidationCode], error) {
+func (*artifactsProvider) NewCachedVault(ddb dbdriver.VaultStore) (*vault.Vault[fdriver.ValidationCode], error) {
 	return NewVault(vault2.NewCachedVault(ddb, 100), &disabled.Provider{}, &noop.TracerProvider{}), nil
 }
 
-func (p *artifactsProvider) NewNonCachedVault(ddb dbdriver.VaultStore) (*vault.Vault[fdriver.ValidationCode], error) {
+func (*artifactsProvider) NewNonCachedVault(ddb dbdriver.VaultStore) (*vault.Vault[fdriver.ValidationCode], error) {
 	return NewVault(vault2.NewCachedVault(ddb, 0), &disabled.Provider{}, &noop.TracerProvider{}), nil
 }
 
-func (p *artifactsProvider) NewMarshaller() vault.Marshaller {
+func (*artifactsProvider) NewMarshaller() vault.Marshaller {
 	return &marshaller{}
 }
 

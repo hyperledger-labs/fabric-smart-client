@@ -42,7 +42,7 @@ func TestClientProvider_NotificationServiceClient(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigProvider := &mock.ServiceConfigProvider{}
-		fakeConfigProvider.NotificationServiceConfigStub = func(network string) (*config.Config, error) {
+		fakeConfigProvider.NotificationServiceConfigStub = func(_ string) (*config.Config, error) {
 			return &config.Config{
 				Endpoints: []config.Endpoint{{Address: "localhost:1234"}},
 			}, nil
@@ -82,7 +82,7 @@ func TestClientProvider_NotificationServiceClient(t *testing.T) {
 	t.Run("client conn error (multiple endpoints)", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigProvider := &mock.ServiceConfigProvider{}
-		fakeConfigProvider.NotificationServiceConfigStub = func(network string) (*config.Config, error) {
+		fakeConfigProvider.NotificationServiceConfigStub = func(_ string) (*config.Config, error) {
 			return &config.Config{
 				Endpoints: []config.Endpoint{{Address: "localhost:1234"}, {Address: "localhost:5678"}},
 			}, nil
@@ -98,7 +98,7 @@ func TestClientProvider_NotificationServiceClient(t *testing.T) {
 	t.Run("caches per network", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigProvider := &mock.ServiceConfigProvider{}
-		fakeConfigProvider.NotificationServiceConfigStub = func(network string) (*config.Config, error) {
+		fakeConfigProvider.NotificationServiceConfigStub = func(_ string) (*config.Config, error) {
 			return &config.Config{
 				Endpoints: []config.Endpoint{{Address: "localhost:1234"}},
 			}, nil
@@ -124,7 +124,7 @@ func TestClientProvider_QueryServiceClient(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigProvider := &mock.ServiceConfigProvider{}
-		fakeConfigProvider.QueryServiceConfigStub = func(network string) (*config.Config, error) {
+		fakeConfigProvider.QueryServiceConfigStub = func(_ string) (*config.Config, error) {
 			return &config.Config{
 				Endpoints: []config.Endpoint{{Address: "localhost:5678"}},
 			}, nil
@@ -152,7 +152,7 @@ func TestClientProvider_QueryServiceClient(t *testing.T) {
 	t.Run("client conn error (multiple endpoints)", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigProvider := &mock.ServiceConfigProvider{}
-		fakeConfigProvider.QueryServiceConfigStub = func(network string) (*config.Config, error) {
+		fakeConfigProvider.QueryServiceConfigStub = func(_ string) (*config.Config, error) {
 			return &config.Config{
 				Endpoints: []config.Endpoint{{Address: "localhost:5678"}, {Address: "localhost:9999"}},
 			}, nil
@@ -168,7 +168,7 @@ func TestClientProvider_QueryServiceClient(t *testing.T) {
 	t.Run("caches per network", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigProvider := &mock.ServiceConfigProvider{}
-		fakeConfigProvider.QueryServiceConfigStub = func(network string) (*config.Config, error) {
+		fakeConfigProvider.QueryServiceConfigStub = func(_ string) (*config.Config, error) {
 			return &config.Config{
 				Endpoints: []config.Endpoint{{Address: "localhost:5678"}},
 			}, nil
@@ -191,12 +191,12 @@ func TestClientProvider_QueryServiceClient(t *testing.T) {
 	t.Run("notification and query caches are independent", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigProvider := &mock.ServiceConfigProvider{}
-		fakeConfigProvider.NotificationServiceConfigStub = func(network string) (*config.Config, error) {
+		fakeConfigProvider.NotificationServiceConfigStub = func(_ string) (*config.Config, error) {
 			return &config.Config{
 				Endpoints: []config.Endpoint{{Address: "localhost:1111"}},
 			}, nil
 		}
-		fakeConfigProvider.QueryServiceConfigStub = func(network string) (*config.Config, error) {
+		fakeConfigProvider.QueryServiceConfigStub = func(_ string) (*config.Config, error) {
 			return &config.Config{
 				Endpoints: []config.Endpoint{{Address: "localhost:2222"}},
 			}, nil

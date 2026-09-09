@@ -36,7 +36,7 @@ func (c *DelegatedContext) StartSpanFrom(context.Context, string, ...trace.SpanS
 	return c.Context(), noop.Span{}
 }
 
-func (c *DelegatedContext) StartSpan(string, ...trace.SpanStartOption) trace.Span {
+func (*DelegatedContext) StartSpan(string, ...trace.SpanStartOption) trace.Span {
 	return noop.Span{}
 }
 
@@ -81,7 +81,7 @@ func (c *DelegatedContext) OnError(callback func()) {
 	c.ViewCtx.OnError(callback)
 }
 
-func (c *DelegatedContext) GetSession(caller view.View, party view.Identity, boundToViews ...view.View) (view.Session, error) {
+func (c *DelegatedContext) GetSession(caller view.View, party view.Identity, _ ...view.View) (view.Session, error) {
 	for _, responder := range c.responders {
 		if responder.InitiatorView == caller && responder.ResponderID.Equal(party) {
 			responder.Lock.RLock()

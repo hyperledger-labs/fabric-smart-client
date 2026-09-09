@@ -68,7 +68,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 	t.Run("explicit zero listenerTTL overrides default to disable expiry", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
-		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
+		fakeConfigService.UnmarshalKeyStub = func(_ string, rawVal any) error {
 			if cfg, ok := rawVal.(**config.Config); ok {
 				(*cfg).ListenerTTL = 0
 			}
@@ -83,7 +83,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 	t.Run("explicit zero handler and interval settings fall back to defaults", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
-		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
+		fakeConfigService.UnmarshalKeyStub = func(_ string, rawVal any) error {
 			if cfg, ok := rawVal.(**config.Config); ok {
 				(*cfg).HandlerTimeout = 0
 				(*cfg).HandlerWorkers = 0
@@ -106,7 +106,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 	t.Run("negative handlerWorkers falls back to default", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
-		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
+		fakeConfigService.UnmarshalKeyStub = func(_ string, rawVal any) error {
 			if cfg, ok := rawVal.(**config.Config); ok {
 				(*cfg).HandlerWorkers = -1
 			}
@@ -121,7 +121,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 	t.Run("negative handlerQueueSize falls back to default", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
-		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
+		fakeConfigService.UnmarshalKeyStub = func(_ string, rawVal any) error {
 			if cfg, ok := rawVal.(**config.Config); ok {
 				(*cfg).HandlerQueueSize = -1
 			}
@@ -138,7 +138,7 @@ func TestNewNotificationServiceConfig(t *testing.T) {
 	t.Run("configured finality durations are preserved", func(t *testing.T) {
 		t.Parallel()
 		fakeConfigService := &mock.ServiceBackend{}
-		fakeConfigService.UnmarshalKeyStub = func(key string, rawVal any) error {
+		fakeConfigService.UnmarshalKeyStub = func(_ string, rawVal any) error {
 			if cfg, ok := rawVal.(**config.Config); ok {
 				(*cfg).HandlerTimeout = 7 * time.Second
 				(*cfg).HandlerWorkers = 4

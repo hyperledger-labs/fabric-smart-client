@@ -38,11 +38,11 @@ func NewPlatformFactory() *platformFactory {
 	return &platformFactory{}
 }
 
-func (f platformFactory) Name() string {
+func (platformFactory) Name() string {
 	return TopologyName
 }
 
-func (f platformFactory) New(registry api.Context, t api.Topology, builder api.Builder) api.Platform {
+func (platformFactory) New(registry api.Context, t api.Topology, _ api.Builder) api.Platform {
 	return New(registry, t.(*Topology))
 }
 
@@ -89,7 +89,7 @@ func (p *Platform) Type() string {
 	return p.topology.Type()
 }
 
-func (p *Platform) GenerateConfigTree() {
+func (*Platform) GenerateConfigTree() {
 }
 
 func (p *Platform) GenerateArtifacts() {
@@ -99,10 +99,10 @@ func (p *Platform) GenerateArtifacts() {
 	}
 }
 
-func (p *Platform) Load() {
+func (*Platform) Load() {
 }
 
-func (p *Platform) Members() []grouper.Member {
+func (*Platform) Members() []grouper.Member {
 	return nil
 }
 

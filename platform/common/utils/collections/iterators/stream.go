@@ -27,13 +27,14 @@ type streamIterator[T any] struct {
 }
 
 func (it *streamIterator[T]) Next() (T, error) {
-	if n, err := it.cli.Recv(); err == nil {
+	n, err := it.cli.Recv()
+	if err == nil {
 		return n, nil
-	} else if errors.Is(err, io.EOF) {
-		return utils.Zero[T](), nil
-	} else {
-		return utils.Zero[T](), err
 	}
+	if errors.Is(err, io.EOF) {
+		return utils.Zero[T](), nil
+	}
+	return utils.Zero[T](), err
 }
 
 func (it *streamIterator[T]) Close() {

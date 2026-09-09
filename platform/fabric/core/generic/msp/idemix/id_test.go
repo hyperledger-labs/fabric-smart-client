@@ -43,10 +43,10 @@ func TestMSPIdentityMethods(t *testing.T) { //nolint:paralleltest
 	err := id.SatisfiesPrincipal(nil)
 	require.ErrorContains(t, err, "not supported")
 
-	sigId := &idemix.MSPSigningIdentity{
+	sigID := &idemix.MSPSigningIdentity{
 		MSPIdentity: id,
 	}
-	publicVersion := sigId.GetPublicVersion()
+	publicVersion := sigID.GetPublicVersion()
 	require.Equal(t, id, publicVersion)
 }
 

@@ -39,8 +39,8 @@ func (p *offset) GoToOffset(os int) (driver.Pagination, error) {
 	}, nil
 }
 
-func (k *offset) Serialize() ([]byte, error) {
-	ret, err := json.Marshal(k)
+func (p *offset) Serialize() ([]byte, error) {
+	ret, err := json.Marshal(p)
 	return ret, err
 }
 
@@ -70,12 +70,12 @@ func (p *offset) GoBack(numOfpages int) (driver.Pagination, error) {
 func (p *offset) Prev() (driver.Pagination, error) { return p.GoBack(1) }
 func (p *offset) Next() (driver.Pagination, error) { return p.GoForward(1) }
 
-func (o *offset) Equal(other driver.Pagination) bool {
+func (p *offset) Equal(other driver.Pagination) bool {
 	otherOffset, ok := other.(*offset)
 	if !ok {
 		return false
 	}
 
-	return o.Offset == otherOffset.Offset &&
-		o.PageSize == otherOffset.PageSize
+	return p.Offset == otherOffset.Offset &&
+		p.PageSize == otherOffset.PageSize
 }

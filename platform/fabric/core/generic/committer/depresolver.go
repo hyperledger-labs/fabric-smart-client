@@ -31,7 +31,7 @@ func NewSerialDependencyResolver() *serialDependencyResolver {
 	return &serialDependencyResolver{}
 }
 
-func (r *serialDependencyResolver) Resolve(txs []CommitTx) ParallelExecutable[SerialExecutable[CommitTx]] {
+func (*serialDependencyResolver) Resolve(txs []CommitTx) ParallelExecutable[SerialExecutable[CommitTx]] {
 	return ParallelExecutable[SerialExecutable[CommitTx]]{txs}
 }
 
@@ -43,7 +43,7 @@ func NewParallelDependencyResolver() *parallelDependencyResolver {
 	return &parallelDependencyResolver{}
 }
 
-func (r *parallelDependencyResolver) Resolve(txs []CommitTx) ParallelExecutable[SerialExecutable[CommitTx]] {
+func (*parallelDependencyResolver) Resolve(txs []CommitTx) ParallelExecutable[SerialExecutable[CommitTx]] {
 	s := make(ParallelExecutable[SerialExecutable[CommitTx]], len(txs))
 	for i, tx := range txs {
 		s[i] = SerialExecutable[CommitTx]{tx}

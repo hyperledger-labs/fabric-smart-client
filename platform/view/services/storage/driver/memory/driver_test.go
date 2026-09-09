@@ -39,23 +39,23 @@ func (f *fakePersistence) CreateSchema() error {
 	return f.createSchemaErr
 }
 
-func (f *fakePersistence) Close() error {
+func (*fakePersistence) Close() error {
 	return nil
 }
 
-func (f *fakePersistence) BeginUpdate() error {
+func (*fakePersistence) BeginUpdate() error {
 	return nil
 }
 
-func (f *fakePersistence) Commit() error {
+func (*fakePersistence) Commit() error {
 	return nil
 }
 
-func (f *fakePersistence) Discard() error {
+func (*fakePersistence) Discard() error {
 	return nil
 }
 
-func (f *fakePersistence) Stats() any {
+func (*fakePersistence) Stats() any {
 	return nil
 }
 

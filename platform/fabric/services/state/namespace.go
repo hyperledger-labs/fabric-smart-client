@@ -34,6 +34,7 @@ type Command struct {
 	// Name of the commands
 	Name string
 	// Ids contains the identities that the command involves
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
 	Ids Identities
 }
 

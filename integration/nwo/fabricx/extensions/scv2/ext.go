@@ -73,7 +73,7 @@ func (e *Extension) GenerateArtifacts() {
 }
 
 // PostRun starts the sidecar container once the network is up.
-func (e *Extension) PostRun(load bool) {
+func (e *Extension) PostRun(_ bool) {
 	// TODO: we want to launch one SC per org
 	// run the docker container
 	e.launchContainer()

@@ -72,7 +72,7 @@ func (f *finalityServiceAdapter) IsFinal(ctx context.Context, txID string) error
 
 	// Create a listener that will be called when the transaction reaches finality
 	listener := &finalityListener{
-		onStatusFunc: func(ctx context.Context, txID string, status int, statusMessage string) {
+		onStatusFunc: func(_ context.Context, txID string, status int, statusMessage string) {
 			var err error
 			switch status {
 			case fdriver.Valid:
@@ -132,11 +132,11 @@ func (l *finalityListener) OnStatus(ctx context.Context, txID string, status int
 
 type fakeVault struct{}
 
-func (f *fakeVault) GetLastTxID(ctx context.Context) (string, error) {
+func (*fakeVault) GetLastTxID(_ context.Context) (string, error) {
 	return "", nil
 }
 
-func (f *fakeVault) GetLastBlock(context.Context) (uint64, error) {
+func (*fakeVault) GetLastBlock(context.Context) (uint64, error) {
 	return 0, nil
 }
 
@@ -210,27 +210,27 @@ func (n *committerService) IsFinal(ctx context.Context, txID string) error {
 	return nil
 }
 
-func (n *committerService) ReloadConfigTransactions() error {
+func (*committerService) ReloadConfigTransactions() error {
 	return nil
 }
 
-func (n *committerService) Commit(_ context.Context, block *common.Block) error {
+func (*committerService) Commit(_ context.Context, _ *common.Block) error {
 	return nil
 }
 
-func (n *committerService) Start(_ context.Context) error {
+func (*committerService) Start(_ context.Context) error {
 	return nil
 }
 
-func (n *committerService) ProcessNamespace(nss ...cdriver.Namespace) error {
+func (*committerService) ProcessNamespace(_ ...cdriver.Namespace) error {
 	return nil
 }
 
-func (n *committerService) AddTransactionFilter(tf fdriver.TransactionFilter) error {
+func (*committerService) AddTransactionFilter(_ fdriver.TransactionFilter) error {
 	return nil
 }
 
-func (n *committerService) Status(_ context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
+func (*committerService) Status(_ context.Context, _ cdriver.TxID) (fdriver.ValidationCode, string, error) {
 	return 0, "", nil
 }
 
@@ -252,11 +252,11 @@ func (n *committerService) RemoveFinalityListener(txID string, listener fdriver.
 	return nil
 }
 
-func (n *committerService) DiscardTx(_ context.Context, txID cdriver.TxID, message string) error {
+func (*committerService) DiscardTx(_ context.Context, _ cdriver.TxID, _ string) error {
 	return nil
 }
 
-func (n *committerService) CommitTX(_ context.Context, txID cdriver.TxID, block cdriver.BlockNum, indexInBlock cdriver.TxNum, envelope *common.Envelope) error {
+func (*committerService) CommitTX(_ context.Context, _ cdriver.TxID, _ cdriver.BlockNum, _ cdriver.TxNum, _ *common.Envelope) error {
 	return nil
 }
 
@@ -264,6 +264,6 @@ type noopDeliveryService struct {
 	generic.DeliveryService
 }
 
-func (n *noopDeliveryService) Start(_ context.Context) error {
+func (*noopDeliveryService) Start(_ context.Context) error {
 	return nil
 }

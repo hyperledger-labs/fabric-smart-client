@@ -104,11 +104,11 @@ func NewPlatform(registry api.Context, t api.Topology, builderClient BuilderClie
 	return p
 }
 
-func (p *Platform) Name() string {
+func (*Platform) Name() string {
 	return TopologyName
 }
 
-func (p *Platform) Type() string {
+func (*Platform) Type() string {
 	return TopologyName
 }
 
@@ -219,10 +219,10 @@ func (p *Platform) setIdentities(address string, peer *node2.Replica) {
 	p.Context.SetViewIdentity(peer.Name, cert)
 }
 
-func (p *Platform) Load() {
+func (*Platform) Load() {
 }
 
-func (p *Platform) members(bootstrap bool) []grouper.Member {
+func (p *Platform) membersFiltered(bootstrap bool) []grouper.Member {
 	members := grouper.Members{}
 	for _, node := range p.Peers {
 		if node.Bootstrap == bootstrap {
@@ -233,7 +233,7 @@ func (p *Platform) members(bootstrap bool) []grouper.Member {
 }
 
 func (p *Platform) Members() []grouper.Member {
-	return append(p.members(true), p.members(false)...)
+	return append(p.membersFiltered(true), p.membersFiltered(false)...)
 }
 
 func (p *Platform) PreRun() {
@@ -647,11 +647,11 @@ func sqliteName(prefix node2.PersistenceKey) driver.PersistenceName {
 }
 
 func (p *Platform) BootstrapViewNodeGroupRunner() ifrit.Runner {
-	return grouper.NewParallel(syscall.SIGTERM, p.members(true))
+	return grouper.NewParallel(syscall.SIGTERM, p.membersFiltered(true))
 }
 
 func (p *Platform) FSCNodeGroupRunner() ifrit.Runner {
-	return grouper.NewParallel(syscall.SIGTERM, p.members(false))
+	return grouper.NewParallel(syscall.SIGTERM, p.membersFiltered(false))
 }
 
 func (p *Platform) FSCNodeRunner(node *node2.Replica, env ...string) *runner2.Runner {
@@ -769,14 +769,14 @@ func (p *Platform) NodeConfigPath(peer *node2.Replica) string {
 	return filepath.Join(p.NodeDir(peer), "core.yaml")
 }
 
-func (p *Platform) NodeCmdDir(peer *node2.Replica) string {
+func (*Platform) NodeCmdDir(peer *node2.Replica) string {
 	wd, err := os.Getwd()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	return filepath.Join(wd, "out", "cmd", peer.Name)
 }
 
-func (p *Platform) NodeCmdPackage(peer *node2.Replica) string {
+func (*Platform) NodeCmdPackage(peer *node2.Replica) string {
 	wd, err := os.Getwd()
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "Failed to get working directory: %s", err)
 
@@ -842,7 +842,7 @@ func (p *Platform) BootstrapNode(me *node2.Peer) string {
 	return ""
 }
 
-func (p *Platform) ClientAuthRequired() bool {
+func (*Platform) ClientAuthRequired() bool {
 	return false
 }
 
@@ -955,7 +955,7 @@ func (p *Platform) PeerHost(peer *node2.Replica) string {
 	return p.Context.HostByPeerID("fsc", peer.ID())
 }
 
-func (p *Platform) GetReplicas(peer *node2.Peer) []*node2.Replica {
+func (*Platform) GetReplicas(peer *node2.Peer) []*node2.Replica {
 	uniqueNames := peer.ReplicaUniqueNames()
 	replicas := make([]*node2.Replica, len(uniqueNames))
 	for i, uniqueName := range uniqueNames {

@@ -22,7 +22,7 @@ import (
 
 type dummyUniqueErrorWrapper struct{}
 
-func (d *dummyUniqueErrorWrapper) WrapError(err error) error {
+func (*dummyUniqueErrorWrapper) WrapError(_ error) error {
 	return driver.UniqueKeyViolation
 }
 

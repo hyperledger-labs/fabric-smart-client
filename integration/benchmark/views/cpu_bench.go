@@ -20,7 +20,7 @@ type CPUView struct {
 	params CPUParams
 }
 
-func (q *CPUView) Call(viewCtx view.Context) (any, error) {
+func (q *CPUView) Call(_ view.Context) (any, error) {
 	k := doWork(q.params.N)
 	_ = k
 	return "OK", nil
@@ -37,7 +37,7 @@ func doWork(n int) uint64 {
 
 type CPUViewFactory struct{}
 
-func (c *CPUViewFactory) NewView(in []byte) (view.View, error) {
+func (*CPUViewFactory) NewView(in []byte) (view.View, error) {
 	f := &CPUView{}
 	if err := json.Unmarshal(in, &f.params); err != nil {
 		return nil, err

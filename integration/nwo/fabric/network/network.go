@@ -210,7 +210,7 @@ func (n *Network) createChannelBlock(c *topology.Channel) common.Command {
 	}
 }
 
-func (n *Network) Load() {
+func (*Network) Load() {
 }
 
 func (n *Network) Members() []grouper.Member {

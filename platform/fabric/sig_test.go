@@ -31,25 +31,25 @@ func (m *fakeSignerService) GetSigner(id view.Identity) (driver.Signer, error) {
 	return m.LastSigner, m.LastError
 }
 
-func (m *fakeSignerService) AreMe(ctx context.Context, identities ...view.Identity) []string {
+func (*fakeSignerService) AreMe(_ context.Context, _ ...view.Identity) []string {
 	return nil
 }
 
-func (m *fakeSignerService) IsMe(ctx context.Context, id view.Identity) bool {
+func (*fakeSignerService) IsMe(_ context.Context, _ view.Identity) bool {
 	return false
 }
 
-func (m *fakeSignerService) GetSigningIdentity(id view.Identity) (driver2.SigningIdentity, error) {
+func (*fakeSignerService) GetSigningIdentity(_ view.Identity) (driver2.SigningIdentity, error) {
 	return nil, nil
 }
 
-func (m *fakeSignerService) GetVerifier(id view.Identity) (driver2.Verifier, error) {
+func (*fakeSignerService) GetVerifier(_ view.Identity) (driver2.Verifier, error) {
 	return nil, nil
 }
 
 type dummySigner struct{}
 
-func (d *dummySigner) Sign(message []byte) ([]byte, error) {
+func (*dummySigner) Sign(_ []byte) ([]byte, error) {
 	return nil, nil
 }
 

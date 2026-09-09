@@ -27,6 +27,7 @@ type Config struct {
 	MaxReqSize uint16
 }
 
+//nolint:revive // var-naming: renaming this exported type is an API break; see follow-up
 type HttpHandler struct {
 	mux *http.ServeMux
 }
@@ -48,6 +49,7 @@ type RequestHandler interface {
 	ParsePayload([]byte) (any, error)
 }
 
+//nolint:revive // var-naming: renaming this exported func is an API break; see follow-up
 func NewHttpHandler() *HttpHandler {
 	return &HttpHandler{mux: http.NewServeMux()}
 }
@@ -63,7 +65,7 @@ func (h *HttpHandler) RegisterURI(uri, method string, rh RequestHandler) {
 	h.mux.HandleFunc(method+" "+apiVersion+uri, f)
 }
 
-func (h *HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request, rh RequestHandler) {
+func (*HttpHandler) handle(backToClient http.ResponseWriter, req *http.Request, rh RequestHandler) {
 	if _, err := negotiateContentType(req); err != nil {
 		sendErr(backToClient, http.StatusBadRequest, "bad content type", err)
 		return

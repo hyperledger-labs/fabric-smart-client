@@ -18,9 +18,9 @@ type SignerInfoStore struct {
 }
 
 func NewSignerInfoStore(dbs *common2.RWDB, tables common3.TableNames) (*SignerInfoStore, error) {
-	return newSignerInfoStore(dbs.ReadDB, dbs.WriteDB, tables.SignerInfo), nil
+	return buildSignerInfoStore(dbs.ReadDB, dbs.WriteDB, tables.SignerInfo), nil
 }
 
-func newSignerInfoStore(readDB, writeDB *sql.DB, table string) *SignerInfoStore {
+func buildSignerInfoStore(readDB, writeDB *sql.DB, table string) *SignerInfoStore {
 	return &SignerInfoStore{SignerInfoStore: common3.NewSignerInfoStore(readDB, writeDB, table, &ErrorMapper{})}
 }

@@ -158,7 +158,7 @@ func (w *ChildContext) Cleanup() {
 	}
 }
 
-func (w *ChildContext) safeInvoke(f func()) {
+func (*ChildContext) safeInvoke(f func()) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Debugf("function [%s] panicked [%s]", f, r)

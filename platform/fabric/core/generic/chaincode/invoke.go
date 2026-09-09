@@ -62,7 +62,7 @@ func NewInvoke(chaincode *Chaincode, function string, args ...any) *Invoke {
 
 func (i *Invoke) Endorse() (driver.Envelope, error) {
 	for j := 0; j < i.NumRetries; j++ {
-		res, err := i.endorse()
+		res, err := i.doEndorse()
 		if err != nil {
 			if j+1 >= i.NumRetries {
 				return nil, err
@@ -75,7 +75,7 @@ func (i *Invoke) Endorse() (driver.Envelope, error) {
 	return nil, errors.Errorf("failed to perform endorse")
 }
 
-func (i *Invoke) endorse() (driver.Envelope, error) {
+func (i *Invoke) doEndorse() (driver.Envelope, error) {
 	_, prop, responses, signer, err := i.prepare(false)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func (i *Invoke) endorse() (driver.Envelope, error) {
 
 func (i *Invoke) Query() ([]byte, error) {
 	for j := 0; j < i.NumRetries; j++ {
-		res, err := i.query()
+		res, err := i.doQuery()
 		if err != nil {
 			if j+1 >= i.NumRetries {
 				return nil, err
@@ -110,7 +110,7 @@ func (i *Invoke) Query() ([]byte, error) {
 	return nil, errors.Errorf("failed to perform query")
 }
 
-func (i *Invoke) query() ([]byte, error) {
+func (i *Invoke) doQuery() ([]byte, error) {
 	_, _, responses, _, err := i.prepare(!i.MatchEndorsementPolicy)
 	if err != nil {
 		return nil, err
@@ -150,7 +150,7 @@ func (i *Invoke) query() ([]byte, error) {
 
 func (i *Invoke) Submit() (string, []byte, error) {
 	for j := 0; j < i.NumRetries; j++ {
-		txID, res, err := i.submit()
+		txID, res, err := i.doSubmit()
 		if err != nil {
 			if j+1 >= i.NumRetries {
 				return "", nil, err
@@ -163,7 +163,7 @@ func (i *Invoke) Submit() (string, []byte, error) {
 	return "", nil, errors.Errorf("failed to perform submit")
 }
 
-func (i *Invoke) submit() (string, []byte, error) {
+func (i *Invoke) doSubmit() (string, []byte, error) {
 	txID, prop, responses, signer, err := i.prepare(false)
 	if err != nil {
 		return "", nil, err
@@ -505,7 +505,7 @@ func (i *Invoke) prepareArgs() ([][]byte, error) {
 	return args, nil
 }
 
-func (i *Invoke) toBytes(arg any) ([]byte, error) {
+func (*Invoke) toBytes(arg any) ([]byte, error) {
 	switch v := arg.(type) {
 	case []byte:
 		return v, nil
@@ -518,7 +518,7 @@ func (i *Invoke) toBytes(arg any) ([]byte, error) {
 	case uint64:
 		return []byte(strconv.FormatUint(v, 10)), nil
 	default:
-		return nil, errors.Errorf("arg type [%T] not recognized.", v)
+		return nil, errors.Errorf("arg type [%T] not recognized", v)
 	}
 }
 

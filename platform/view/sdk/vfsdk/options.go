@@ -8,6 +8,7 @@ package vfsdk
 
 type FactoryOption func(*factoryEntry)
 
+//nolint:revive // var-naming: renaming this exported func is an API break; see follow-up
 func WithFactoryId(fid string) FactoryOption {
 	return func(f *factoryEntry) {
 		f.fids = append(f.fids, fid)

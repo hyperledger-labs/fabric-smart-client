@@ -20,7 +20,7 @@ import (
 
 type Deserializer struct{}
 
-func (i *Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
+func (*Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) {
 	si := &msp.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {
@@ -38,11 +38,11 @@ func (i *Deserializer) DeserializeVerifier(raw []byte) (driver.Verifier, error) 
 	return NewVerifier(publicKey), nil
 }
 
-func (i *Deserializer) DeserializeSigner(raw []byte) (driver.Signer, error) {
+func (*Deserializer) DeserializeSigner(_ []byte) (driver.Signer, error) {
 	return nil, errors.New("not supported")
 }
 
-func (i *Deserializer) Info(raw, auditInfo []byte) (string, error) {
+func (*Deserializer) Info(raw, _ []byte) (string, error) {
 	si := &msp.SerializedIdentity{}
 	err := proto.Unmarshal(raw, si)
 	if err != nil {
@@ -55,6 +55,6 @@ func (i *Deserializer) Info(raw, auditInfo []byte) (string, error) {
 	return fmt.Sprintf("MSP.x509: [%s][%s][%s]", view.Identity(raw).UniqueID(), si.Mspid, cert.Subject.CommonName), nil
 }
 
-func (i *Deserializer) String() string {
+func (*Deserializer) String() string {
 	return "Generic X509 Verifier Deserializer"
 }

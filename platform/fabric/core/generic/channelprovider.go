@@ -294,6 +294,6 @@ func (f *vaultDeliveryWrapper) GetLastTxID(ctx context.Context) (string, error) 
 	return tx.TxID, nil
 }
 
-func (f *vaultDeliveryWrapper) GetLastBlock(context.Context) (uint64, error) {
+func (*vaultDeliveryWrapper) GetLastBlock(context.Context) (uint64, error) {
 	return 0, driver.ErrNotImplemented
 }

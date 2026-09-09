@@ -49,7 +49,7 @@ func NewCachedVault(backed driver2.VaultStore, cacheSize int) CachedVaultStore {
 	}
 }
 
-func (s *notCachedStore) Invalidate(...driver.TxID) {}
+func (*notCachedStore) Invalidate(...driver.TxID) {}
 
 type cachedStore struct {
 	driver.VaultStore

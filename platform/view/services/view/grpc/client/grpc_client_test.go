@@ -634,7 +634,7 @@ func (f *fakeStreamClient) CreateViewClient() (*grpc.ClientConn, protos.ViewServ
 	return nil, f.vsc, nil
 }
 
-func (f *fakeStreamClient) Certificate() *tls.Certificate {
+func (*fakeStreamClient) Certificate() *tls.Certificate {
 	return nil
 }
 
@@ -650,7 +650,7 @@ type fakeProtosVSC struct {
 	cmdRespErr *protos.Error
 }
 
-func (f *fakeProtosVSC) ProcessCommand(ctx context.Context, in *protos.SignedCommand, opts ...grpc.CallOption) (*protos.SignedCommandResponse, error) {
+func (f *fakeProtosVSC) ProcessCommand(ctx context.Context, _ *protos.SignedCommand, _ ...grpc.CallOption) (*protos.SignedCommandResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -674,7 +674,7 @@ func (f *fakeProtosVSC) ProcessCommand(ctx context.Context, in *protos.SignedCom
 	return &protos.SignedCommandResponse{Response: b}, nil
 }
 
-func (f *fakeProtosVSC) StreamCommand(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[protos.SignedCommand, protos.SignedCommandResponse], error) {
+func (f *fakeProtosVSC) StreamCommand(ctx context.Context, _ ...grpc.CallOption) (grpc.BidiStreamingClient[protos.SignedCommand, protos.SignedCommandResponse], error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -691,7 +691,7 @@ type fakeBidiStream struct {
 	grpc.ClientStream
 }
 
-func (s *fakeBidiStream) Send(m *protos.SignedCommand) error {
+func (s *fakeBidiStream) Send(_ *protos.SignedCommand) error {
 	return s.f.sendErr
 }
 
@@ -714,9 +714,9 @@ func (s *fakeBidiStream) Recv() (*protos.SignedCommandResponse, error) {
 	return &protos.SignedCommandResponse{Response: b}, nil
 }
 
-func (s *fakeBidiStream) CloseSend() error { return nil }
+func (*fakeBidiStream) CloseSend() error { return nil }
 
-func (s *fakeBidiStream) SendMsg(m any) error {
+func (s *fakeBidiStream) SendMsg(_ any) error {
 	return s.f.sendMsgErr
 }
 
@@ -741,17 +741,17 @@ func (f *fakeSigningIdentity) Serialize() ([]byte, error) {
 	return f.serialized, f.serializeErr
 }
 
-func (f *fakeSigningIdentity) Sign(msg []byte) ([]byte, error) {
+func (f *fakeSigningIdentity) Sign(_ []byte) ([]byte, error) {
 	return f.signature, f.signErr
 }
 
 type failingReader struct{}
 
-func (r *failingReader) Read(p []byte) (n int, err error) {
+func (*failingReader) Read(_ []byte) (n int, err error) {
 	return 0, fmt.Errorf("read error")
 }
 
-func createTempIdentityFiles() (string, string, error) {
+func createTempIdentityFiles() (certPath, skPath string, err error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return "", "", err
@@ -777,8 +777,8 @@ func createTempIdentityFiles() (string, string, error) {
 
 	dir := filepath.Join(os.TempDir(), fmt.Sprintf("id-%d", time.Now().UnixNano()))
 	_ = os.MkdirAll(dir, 0o755)
-	certPath := filepath.Join(dir, "cert.pem")
-	skPath := filepath.Join(dir, "sk.pem")
+	certPath = filepath.Join(dir, "cert.pem")
+	skPath = filepath.Join(dir, "sk.pem")
 	_ = os.WriteFile(certPath, certPEM, 0o644)
 	_ = os.WriteFile(skPath, skPEM, 0o644)
 	return certPath, skPath, nil
@@ -816,40 +816,40 @@ func (f *fakeServiceProvider) GetService(v any) (any, error) {
 
 type fakeFactory struct{}
 
-func (f *fakeFactory) NewView(in []byte) (view2.View, error) {
+func (*fakeFactory) NewView(_ []byte) (view2.View, error) {
 	return &fakeView{}, nil
 }
 
 type fakeView struct{}
 
-func (f *fakeView) Call(context view2.Context) (any, error) {
+func (*fakeView) Call(_ view2.Context) (any, error) {
 	return nil, nil
 }
 
 type fakeIdentityProvider struct{}
 
-func (f *fakeIdentityProvider) Identity(s string) view2.Identity { return nil }
-func (f *fakeIdentityProvider) DefaultIdentity() view2.Identity  { return nil }
+func (*fakeIdentityProvider) Identity(_ string) view2.Identity { return nil }
+func (*fakeIdentityProvider) DefaultIdentity() view2.Identity  { return nil }
 
 type fakeGauge struct{}
 
-func (f *fakeGauge) With(labelValues ...string) metrics.Gauge { return f }
-func (f *fakeGauge) Add(delta float64)                        {}
-func (f *fakeGauge) Set(value float64)                        {}
+func (f *fakeGauge) With(_ ...string) metrics.Gauge { return f }
+func (*fakeGauge) Add(_ float64)                    {}
+func (*fakeGauge) Set(_ float64)                    {}
 
 type fakeContextFactory struct {
 	err error
 	ctx view.ParentContext
 }
 
-func (f *fakeContextFactory) NewForInitiator(ctx context.Context, contextID string, id view2.Identity, v view2.View) (view.ParentContext, error) {
+func (f *fakeContextFactory) NewForInitiator(_ context.Context, _ string, _ view2.Identity, _ view2.View) (view.ParentContext, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 	return f.ctx, nil
 }
 
-func (f *fakeContextFactory) NewForResponder(ctx context.Context, contextID string, me view2.Identity, session view2.Session, party view2.Identity) (view.ParentContext, error) {
+func (*fakeContextFactory) NewForResponder(_ context.Context, _ string, _ view2.Identity, _ view2.Session, _ view2.Identity) (view.ParentContext, error) {
 	return nil, nil
 }
 
@@ -858,32 +858,32 @@ type fakeParentContext struct {
 }
 
 func (f *fakeParentContext) ID() string { return f.id }
-func (f *fakeParentContext) StartSpanFrom(c context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+func (*fakeParentContext) StartSpanFrom(c context.Context, _ string, _ ...trace.SpanStartOption) (context.Context, trace.Span) {
 	return c, trace.SpanFromContext(c)
 }
-func (f *fakeParentContext) GetService(v any) (any, error) { return nil, nil }
-func (f *fakeParentContext) RunView(v view2.View, opts ...view2.RunViewOption) (any, error) {
+func (*fakeParentContext) GetService(_ any) (any, error) { return nil, nil }
+func (*fakeParentContext) RunView(_ view2.View, _ ...view2.RunViewOption) (any, error) {
 	return nil, nil
 }
-func (f *fakeParentContext) Me() view2.Identity          { return nil }
-func (f *fakeParentContext) IsMe(id view2.Identity) bool { return false }
-func (f *fakeParentContext) Initiator() view2.View       { return nil }
-func (f *fakeParentContext) GetSession(c view2.View, p view2.Identity, b ...view2.View) (view2.Session, error) {
+func (*fakeParentContext) Me() view2.Identity         { return nil }
+func (*fakeParentContext) IsMe(_ view2.Identity) bool { return false }
+func (*fakeParentContext) Initiator() view2.View      { return nil }
+func (*fakeParentContext) GetSession(_ view2.View, _ view2.Identity, _ ...view2.View) (view2.Session, error) {
 	return nil, nil
 }
 
-func (f *fakeParentContext) GetSessionByID(id string, p view2.Identity) (view2.Session, error) {
+func (*fakeParentContext) GetSessionByID(_ string, _ view2.Identity) (view2.Session, error) {
 	return nil, nil
 }
-func (f *fakeParentContext) Session() view2.Session   { return nil }
-func (f *fakeParentContext) Context() context.Context { return context.Background() }
-func (f *fakeParentContext) OnError(cb func())        {}
-func (f *fakeParentContext) Dispose()                 {}
-func (f *fakeParentContext) PutSessionByID(viewID string, party view2.Identity, session view2.Session) error {
+func (*fakeParentContext) Session() view2.Session   { return nil }
+func (*fakeParentContext) Context() context.Context { return context.Background() }
+func (*fakeParentContext) OnError(_ func())         {}
+func (*fakeParentContext) Dispose()                 {}
+func (*fakeParentContext) PutSessionByID(_ string, _ view2.Identity, _ view2.Session) error {
 	return nil
 }
-func (f *fakeParentContext) Cleanup() {}
-func (f *fakeParentContext) PutSession(caller view2.View, party view2.Identity, session view2.Session) error {
+func (*fakeParentContext) Cleanup() {}
+func (*fakeParentContext) PutSession(_ view2.View, _ view2.Identity, _ view2.Session) error {
 	return nil
 }
 
@@ -892,6 +892,6 @@ type fakeRunner struct {
 	err error
 }
 
-func (f *fakeRunner) RunView(viewCtx view2.Context, responder view2.View) (any, error) {
+func (f *fakeRunner) RunView(_ view2.Context, _ view2.View) (any, error) {
 	return f.res, f.err
 }

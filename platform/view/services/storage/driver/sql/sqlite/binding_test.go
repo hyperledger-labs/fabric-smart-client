@@ -26,7 +26,7 @@ func newBindingStoreForTests(tb testing.TB) *BindingStore {
 	}
 	dbs := utils.MustGet(open(o))
 	tables := common.GetTableNames(o.TablePrefix, o.TableNameParams...)
-	db := newBindingStore(dbs.ReadDB, dbs.WriteDB, tables.Binding)
+	db := buildBindingStore(dbs.ReadDB, dbs.WriteDB, tables.Binding)
 	assert.NoError(tb, db.CreateSchema())
 	return db
 }

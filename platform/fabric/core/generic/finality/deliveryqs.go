@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/events"
 )
 
+//nolint:revive // error-naming: renaming this exported error var to the ErrFoo form is an API break; see follow-up
 var TxNotFound = errors.New("tx not found")
 
 type DeliveryScanQueryByID[T events.EventInfo] struct {
@@ -29,11 +30,11 @@ func (q *DeliveryScanQueryByID[T]) QueryByID(ctx context.Context, lastBlock driv
 	txIDs := collections.Keys(evicted)
 	results := collections.NewSet(txIDs...)
 	ch := make(chan []T, len(txIDs))
-	go q.queryByID(ctx, results, ch, lastBlock)
+	go q.runQueryByID(ctx, results, ch, lastBlock)
 	return ch, nil
 }
 
-func (q *DeliveryScanQueryByID[T]) queryByID(ctx context.Context, results collections.Set[string], ch chan []T, lastBlock uint64) {
+func (q *DeliveryScanQueryByID[T]) runQueryByID(ctx context.Context, results collections.Set[string], ch chan []T, lastBlock uint64) {
 	defer close(ch)
 
 	startingBlock := max(1, lastBlock-10)

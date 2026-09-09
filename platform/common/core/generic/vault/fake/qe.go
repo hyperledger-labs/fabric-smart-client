@@ -42,13 +42,13 @@ func (qe QE) GetState(_ context.Context, _ driver.Namespace, pkey driver.PKey) (
 	}, nil
 }
 
-func (qe QE) Done() error {
+func (QE) Done() error {
 	return nil
 }
 
 type TxStatusStore struct{}
 
-func (m TxStatusStore) GetTxStatus(_ context.Context, txID driver.TxID) (*driver.TxStatus, error) {
+func (TxStatusStore) GetTxStatus(_ context.Context, txID driver.TxID) (*driver.TxStatus, error) {
 	return &driver.TxStatus{TxID: txID, Code: 1}, nil
 }
 

@@ -134,15 +134,15 @@ func (s *Server) StreamCommand(server protos.ViewService_StreamCommandServer) er
 	if err := server.RecvMsg(sc); err != nil {
 		return err
 	}
-	return s.streamCommand(sc, server)
+	return s.handleStreamCommand(sc, server)
 }
 
-func (s *Server) streamCommand(sc *protos.SignedCommand, commandServer protos.ViewService_StreamCommandServer) (err error) {
+func (s *Server) handleStreamCommand(sc *protos.SignedCommand, commandServer protos.ViewService_StreamCommandServer) (err error) {
 	ctx := commandServer.Context()
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("processCommand triggered panic: %s\n%s\n", r, debug.Stack())
-			err = errors.Errorf("processCommand triggered panic: %s\n%s\n", r, debug.Stack())
+			err = errors.Errorf("processCommand triggered panic: %s\n%s", r, debug.Stack())
 		}
 	}()
 
@@ -185,7 +185,7 @@ func (s *Server) streamCommand(sc *protos.SignedCommand, commandServer protos.Vi
 }
 
 // ValidateHeader validates the given command header.
-func (s *Server) ValidateHeader(header *protos.Header) error {
+func (*Server) ValidateHeader(header *protos.Header) error {
 	if header == nil {
 		return errors.WithMessage(view.ErrCommandHeaderInvalid, "command header is required")
 	}

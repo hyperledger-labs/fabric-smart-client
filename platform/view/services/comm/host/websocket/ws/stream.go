@@ -75,7 +75,7 @@ func NewWSStream(conn connection, ctx context.Context, info host2.StreamInfo) *s
 	// Start ping sender if the underlying connection is a websocket.Conn
 	if c, ok := s.conn.(*gwebsocket.Conn); ok {
 		// Set pong handler to reset read deadline
-		c.SetPongHandler(func(appData string) error {
+		c.SetPongHandler(func(_ string) error {
 			_ = c.SetReadDeadline(time.Now().Add(readTimeout))
 			return nil
 		})

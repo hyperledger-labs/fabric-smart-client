@@ -66,7 +66,7 @@ func buildSignedCommand(t *testing.T, tlsCertHash []byte) *protos.SignedCommand 
 // stubMarshaller always returns a non-nil response and never errors.
 type stubMarshaller struct{}
 
-func (s *stubMarshaller) MarshalCommandResponse(_ []byte, payload any) (*protos.SignedCommandResponse, error) {
+func (*stubMarshaller) MarshalCommandResponse(_ []byte, _ any) (*protos.SignedCommandResponse, error) {
 	return &protos.SignedCommandResponse{}, nil
 }
 
@@ -92,10 +92,10 @@ func (f *fakeStreamServer) RecvMsg(m any) error {
 	return nil
 }
 
-func (f *fakeStreamServer) SendMsg(m any) error                  { return nil }
-func (f *fakeStreamServer) SetHeader(metadata.MD) error          { return nil }
-func (f *fakeStreamServer) SendHeader(metadata.MD) error         { return nil }
-func (f *fakeStreamServer) SetTrailer(metadata.MD)               {}
+func (*fakeStreamServer) SendMsg(_ any) error                    { return nil }
+func (*fakeStreamServer) SetHeader(metadata.MD) error            { return nil }
+func (*fakeStreamServer) SendHeader(metadata.MD) error           { return nil }
+func (*fakeStreamServer) SetTrailer(metadata.MD)                 {}
 func (f *fakeStreamServer) Recv() (*protos.SignedCommand, error) { return f.sc, nil }
 
 // newTestServer creates a Server wired with a noop tracing provider, YesPolicyChecker,

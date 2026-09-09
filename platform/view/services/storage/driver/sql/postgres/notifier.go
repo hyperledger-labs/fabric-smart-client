@@ -86,7 +86,7 @@ func NewNotifier(writeDB *sql.DB, table, dataSource string, notifyOperations []d
 		primaryKeys:      primaryKeys,
 		listener: &pgxlisten.Listener{
 			Connect: func(ctx context.Context) (*pgx.Conn, error) { return pgx.Connect(ctx, dataSource) },
-			LogError: func(ctx context.Context, err error) {
+			LogError: func(_ context.Context, err error) {
 				logger.Errorf("error encountered in [%s]: %s", dataSource, err.Error())
 			},
 			ReconnectDelay: reconnectInterval,

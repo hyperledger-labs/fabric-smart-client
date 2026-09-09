@@ -305,7 +305,7 @@ func (cm *Manager) NewResponderContext(ctx context.Context, contextID string, se
 }
 
 // GetIdentifier returns the identifier for the given view.
-func (cm *Manager) GetIdentifier(f view.View) string {
+func (*Manager) GetIdentifier(f view.View) string {
 	return GetIdentifier(f)
 }
 
@@ -337,7 +337,7 @@ type Runner interface {
 
 type defaultRunner struct{}
 
-func (r *defaultRunner) RunView(viewCtx view.Context, responder view.View) (any, error) {
+func (*defaultRunner) RunView(viewCtx view.Context, responder view.View) (any, error) {
 	return viewCtx.RunView(responder)
 }
 

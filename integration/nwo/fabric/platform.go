@@ -98,11 +98,11 @@ func NewPlatformFactory() *platformFactory {
 	return &platformFactory{}
 }
 
-func (f platformFactory) Name() string {
+func (platformFactory) Name() string {
 	return "fabric"
 }
 
-func (f platformFactory) New(registry api.Context, t api.Topology, builder api.Builder) api.Platform {
+func (platformFactory) New(registry api.Context, t api.Topology, builder api.Builder) api.Platform {
 	return NewPlatform(registry, t, builder)
 }
 

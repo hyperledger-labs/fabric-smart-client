@@ -470,7 +470,7 @@ func (s *streamHandler) handleIncoming() {
 	}
 }
 
-func (s *streamHandler) close(ctx context.Context) {
+func (s *streamHandler) close(_ context.Context) {
 	if s.closed.Swap(true) {
 		return
 	}

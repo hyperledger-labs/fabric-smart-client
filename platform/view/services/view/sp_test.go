@@ -21,7 +21,7 @@ type MyInterface interface {
 
 type MyImpl struct{}
 
-func (m *MyImpl) Foo() {}
+func (*MyImpl) Foo() {}
 
 func TestSP(t *testing.T) {
 	t.Parallel()

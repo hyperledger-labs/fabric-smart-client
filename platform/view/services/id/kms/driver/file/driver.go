@@ -24,7 +24,7 @@ func NewDriver() driver.NamedDriver {
 
 type Driver struct{}
 
-func (d *Driver) Load(configProvider driver.ConfigProvider) (view.Identity, driver.Signer, driver.Verifier, error) {
+func (*Driver) Load(configProvider driver.ConfigProvider) (view.Identity, driver.Signer, driver.Verifier, error) {
 	idPEM, err := os.ReadFile(configProvider.GetPath("fsc.identity.cert.file"))
 	if err != nil {
 		return nil, nil, nil, errors.Wrapf(err, "failed loading SFC Node Identity")

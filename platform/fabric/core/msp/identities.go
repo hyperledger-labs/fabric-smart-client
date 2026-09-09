@@ -146,7 +146,7 @@ func (id *identity) GetOrganizationalUnits() []*OUIdentifier {
 }
 
 // Anonymous returns true if this identity provides anonymity
-func (id *identity) Anonymous() bool {
+func (*identity) Anonymous() bool {
 	return false
 }
 
@@ -157,8 +157,8 @@ func (id *identity) Anonymous() bool {
 func NewSerializedIdentity(mspID string, certPEM []byte) ([]byte, error) {
 	// We serialize identities by prepending the MSPID
 	// and appending the x509 cert in PEM format
-	sId := &msp.SerializedIdentity{Mspid: mspID, IdBytes: certPEM}
-	raw, err := proto.Marshal(sId)
+	sID := &msp.SerializedIdentity{Mspid: mspID, IdBytes: certPEM}
+	raw, err := proto.Marshal(sID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed serializing identity [%s][%X]", mspID, certPEM)
 	}
@@ -215,8 +215,8 @@ func (id *identity) Serialize() ([]byte, error) {
 	}
 
 	// We serialize identities by prepending the MSPID and appending the ASN.1 DER content of the cert
-	sId := &msp.SerializedIdentity{Mspid: id.id.Mspid, IdBytes: pemBytes}
-	idBytes, err := proto.Marshal(sId)
+	sID := &msp.SerializedIdentity{Mspid: id.id.Mspid, IdBytes: pemBytes}
+	idBytes, err := proto.Marshal(sID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not marshal a SerializedIdentity structure for identity %s", id.id)
 	}
@@ -224,7 +224,7 @@ func (id *identity) Serialize() ([]byte, error) {
 	return idBytes, nil
 }
 
-func (id *identity) getHashOpt(hashFamily string) (bccsp.HashOpts, error) {
+func (*identity) getHashOpt(hashFamily string) (bccsp.HashOpts, error) {
 	switch hashFamily {
 	case bccsp.SHA2:
 		return bccsp.GetHashOpt(bccsp.SHA256)
@@ -244,15 +244,15 @@ type signingidentity struct {
 
 func newSigningIdentity(cert *x509.Certificate, pk bccsp.Key, signer crypto.Signer, msp *bccspmsp) (SigningIdentity, error) {
 	// mspIdentityLogger.Infof("Creating signing identity instance for ID %s", id)
-	mspId, err := newIdentity(cert, pk, msp)
+	mspID, err := newIdentity(cert, pk, msp)
 	if err != nil {
 		return nil, err
 	}
 	return &signingidentity{
-		id:     mspId.(*identity).id,
-		cert:   mspId.(*identity).cert,
-		msp:    mspId.(*identity).msp,
-		pk:     mspId.(*identity).pk,
+		id:     mspID.(*identity).id,
+		cert:   mspID.(*identity).cert,
+		msp:    mspID.(*identity).msp,
+		pk:     mspID.(*identity).pk,
 		signer: signer,
 	}, nil
 }

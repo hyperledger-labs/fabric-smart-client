@@ -19,7 +19,7 @@ import (
 
 // wsUpgrader is a shared test upgrader with permissive origin checking.
 var wsUpgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
+	CheckOrigin: func(_ *http.Request) bool { return true },
 }
 
 // toWsURL converts an httptest.Server URL from "http://..." to "ws://...".
@@ -91,7 +91,7 @@ func TestNewWSStream_Returns_Connected_Stream(t *testing.T) {
 func TestNewWSStream_Fails_When_Server_Does_Not_Upgrade(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()

@@ -27,7 +27,7 @@ type myDependentFactory struct {
 
 type myFactory struct{}
 
-func (o *myFactory) NewView([]byte) (view.View, error) { return nil, nil }
+func (*myFactory) NewView([]byte) (view.View, error) { return nil, nil }
 
 func TestInvalidFactory(t *testing.T) {
 	t.Parallel()

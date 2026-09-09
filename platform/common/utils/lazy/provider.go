@@ -41,7 +41,7 @@ type lazyProvider[I any, K comparable, V any] struct {
 	zero      V
 }
 
-func (v *lazyProvider[I, K, V]) Update(input I) (V, V, error) {
+func (v *lazyProvider[I, K, V]) Update(input I) (old, updated V, err error) {
 	key := v.keyMapper(input)
 
 	v.cacheLock.Lock()
@@ -62,7 +62,7 @@ func (v *lazyProvider[I, K, V]) Update(input I) (V, V, error) {
 
 func (v *lazyProvider[I, K, V]) Get(input I) (V, error) {
 	key := v.keyMapper(input)
-	if res, ok := v.peek(key); ok {
+	if res, ok := v.peekValue(key); ok {
 		return res, nil
 	}
 
@@ -86,10 +86,10 @@ func (v *lazyProvider[I, K, V]) Get(input I) (V, error) {
 }
 
 func (v *lazyProvider[I, K, V]) Peek(input I) (V, bool) {
-	return v.peek(v.keyMapper(input))
+	return v.peekValue(v.keyMapper(input))
 }
 
-func (v *lazyProvider[I, K, V]) peek(key K) (V, bool) {
+func (v *lazyProvider[I, K, V]) peekValue(key K) (V, bool) {
 	// Check cache
 	v.cacheLock.RLock()
 	defer v.cacheLock.RUnlock()

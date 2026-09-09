@@ -196,7 +196,7 @@ type recordingT struct {
 	message string
 }
 
-func (r *recordingT) Helper() {}
+func (*recordingT) Helper() {}
 
 func (r *recordingT) Fatalf(format string, args ...any) {
 	r.failed = true

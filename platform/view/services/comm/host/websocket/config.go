@@ -187,16 +187,16 @@ func (c *config) CertPath() string { return c.identityCertPath }
 func (c *config) MaxSubConns() int { return c.maxSubConns }
 
 // ReadHeaderTimeout returns how long the server waits for request headers.
-func (c *config) ReadHeaderTimeout() time.Duration { return 10 * time.Second }
+func (*config) ReadHeaderTimeout() time.Duration { return 10 * time.Second }
 
 // ReadTimeout returns how long the server waits to read a request.
-func (c *config) ReadTimeout() time.Duration { return 30 * time.Second }
+func (*config) ReadTimeout() time.Duration { return 30 * time.Second }
 
 // WriteTimeout returns how long the server allows for writing a response.
-func (c *config) WriteTimeout() time.Duration { return 30 * time.Second }
+func (*config) WriteTimeout() time.Duration { return 30 * time.Second }
 
 // IdleTimeout returns how long an idle connection is kept open.
-func (c *config) IdleTimeout() time.Duration { return 120 * time.Second }
+func (*config) IdleTimeout() time.Duration { return 120 * time.Second }
 
 // CORSAllowedOrigins returns the origins permitted to open a websocket connection. An empty
 // result disables CORS.
@@ -338,7 +338,7 @@ func newServerTLSConfig(clientRootCAPool *x509.CertPool, opts grpc.SecureOptions
 
 	tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 	if caPoolProvider != nil {
-		tlsConfig.GetConfigForClient = func(chi *tls.ClientHelloInfo) (*tls.Config, error) {
+		tlsConfig.GetConfigForClient = func(_ *tls.ClientHelloInfo) (*tls.Config, error) {
 			extraCAs := caPoolProvider.ExtraCAs()
 			if len(extraCAs) == 0 {
 				return tlsConfig, nil

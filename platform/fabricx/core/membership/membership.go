@@ -163,16 +163,16 @@ func capabilitiesSupported(res channelconfig.Resources) error {
 }
 
 func toMSPIdentity(identity view.Identity) (*msppb.Identity, error) {
-	sId := &m.SerializedIdentity{}
-	err := proto.Unmarshal(identity, sId)
+	sID := &m.SerializedIdentity{}
+	err := proto.Unmarshal(identity, sID)
 	if err != nil {
 		return nil, err
 	}
 
 	sid := &msppb.Identity{
-		MspId: sId.GetMspid(),
+		MspId: sID.GetMspid(),
 		Creator: &msppb.Identity_Certificate{
-			Certificate: sId.GetIdBytes(),
+			Certificate: sID.GetIdBytes(),
 		},
 	}
 

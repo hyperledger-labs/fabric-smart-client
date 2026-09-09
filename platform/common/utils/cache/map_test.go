@@ -37,7 +37,7 @@ func TestMapCache(t *testing.T) {
 	require.Equal(t, "v1-updated", v)
 
 	// Test Update (delete key)
-	c.Update("k1", func(exists bool, val string) (bool, string) {
+	c.Update("k1", func(_ bool, _ string) (bool, string) {
 		return false, ""
 	})
 	_, ok = c.Get("k1")
@@ -45,7 +45,7 @@ func TestMapCache(t *testing.T) {
 	require.Equal(t, 0, c.Len())
 
 	// Test Update (new key)
-	ok = c.Update("k2", func(exists bool, val string) (bool, string) {
+	ok = c.Update("k2", func(exists bool, _ string) (bool, string) {
 		require.False(t, exists)
 		return true, "v2"
 	})

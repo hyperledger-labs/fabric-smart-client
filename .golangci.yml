@@ -27,6 +27,7 @@ linters:
     - nilnesserr
     - paralleltest
     - predeclared
+    - revive
     - spancheck
     - rowserrcheck
     - recvcheck
@@ -64,6 +65,42 @@ linters:
         # reachable past 2^32 blocks. Revisit if the vault gains a 64-bit
         # version format.
         - G115
+    revive:
+      # `exported` and `package-comments` are deliberately omitted from this
+      # rule list, not suppressed after the fact: golangci-lint runs only the
+      # rules named here, so leaving these two out of the list IS how they are
+      # disabled. Both are public-API documentation work, not a lint-commit
+      # fix: `exported` measured 3672 findings (3672 distinct exported symbols
+      # needing a doc comment) and `package-comments` measured 268 findings
+      # (268 distinct packages missing a package doc comment); the union of
+      # packages needing either fix is 273. That documentation effort is
+      # tracked as a follow-up rather than done here.
+      severity: warning
+      confidence: 0.8
+      rules:
+        # Correctness / maintainability
+        - name: unreachable-code
+        - name: redefines-builtin-id
+        - name: var-naming
+        - name: receiver-naming
+        - name: error-naming
+        - name: error-strings
+        - name: errorf
+        - name: indent-error-flow
+        - name: superfluous-else
+        - name: early-return
+        - name: unnecessary-stmt
+        # API / code quality
+        - name: bare-return
+        - name: bool-literal-in-expr
+        - name: confusing-naming
+        - name: confusing-results
+        - name: modifies-parameter
+        - name: string-of-int
+        - name: time-naming
+        - name: unexported-return
+        - name: unused-parameter
+        - name: unused-receiver
   exclusions:
     paths:
       # nwo writes generated node commands here during integration tests; the
@@ -92,6 +129,21 @@ linters:
       - path: ^platform/view/services/comm/(master\.go|p2p\.go|pingpong_test\.go|sessions_test_utils\.go|sig_exchange_test_utils\.go|test_utils\.go|io/msgconn\.go|host/websocket/ws/(multiplexed_provider(_test)?\.go|simple_provider(_test)?\.go|mtls_enforcement_test\.go))$
         linters:
           - contextcheck
+      # unexported-return findings are deferred rather than fixed here, for the
+      # same reason exported/package-comments are omitted above: each finding is
+      # a public-API design decision (export the concrete type, or return an
+      # already-exported interface instead), not a lint-commit-sized fix, and a
+      # constructor returning an unexported concrete type that satisfies an
+      # exported interface is itself a common, deliberate Go idiom for hiding
+      # implementation details, not a bug. 121 findings across 68 files were
+      # measured when enabling the rule in the root module, plus 9 more across
+      # 7 files in the integration module and 2 more in the libp2p comm-host
+      # module; that redesign work is tracked as a follow-up rather than done
+      # here.
+      - path: ^(pkg/utils/retry\.go|integration/nwo/common/runner/buffer\.go|integration/nwo/fabric/platform\.go|integration/nwo/fabric/topology/idemix\.go|integration/nwo/fabric/topology/topology\.go|integration/nwo/monitoring/platform\.go|integration/reporting/jaeger/client\.go|integration/reporting/prometheus/client\.go|platform/view/services/comm/host/libp2p/config\.go|platform/view/services/comm/host/libp2p/provider\.go|platform/common/core/generic/committer/listenermgr\.go|platform/common/services/logging/types\.go|platform/common/utils/cache/lru\.go|platform/common/utils/cache/map\.go|platform/common/utils/cache/secondcache/second_chance\.go|platform/common/utils/cache/timeout\.go|platform/common/utils/lazy/getter\.go|platform/common/utils/lazy/holder\.go|platform/common/utils/lazy/provider\.go|platform/fabric/core/generic/channelprovider\.go|platform/fabric/core/generic/committer/depresolver\.go|platform/fabric/core/generic/driver/identity/msp\.go|platform/fabric/core/generic/endpoint/endpoint\.go|platform/fabric/core/generic/finality/committerflm\.go|platform/fabric/core/generic/finality/deliveryflm\.go|platform/fabric/core/generic/id/provider\.go|platform/fabric/core/generic/msp/service\.go|platform/fabric/core/generic/msp/x509/ecdsa\.go|platform/fabric/core/generic/rwset/handler\.go|platform/fabric/core/generic/rwset/processor\.go|platform/fabric/core/generic/services/grpc\.go|platform/fabric/core/generic/transaction/services\.go|platform/fabric/core/generic/transaction/transaction\.go|platform/fabric/core/generic/vault/vault\.go|platform/fabric/services/chaincode/endorse\.go|platform/fabric/services/chaincode/invoke\.go|platform/fabric/services/chaincode/query\.go|platform/fabric/services/crypto/provider\.go|platform/fabric/services/endorser/endorsement_proposal\.go|platform/fabric/services/endorser/endorsement\.go|platform/fabric/services/endorser/finality\.go|platform/fabric/services/endorser/ordering\.go|platform/fabric/services/state/flow\.go|platform/fabric/services/state/namespace\.go|platform/fabric/services/state/transaction\.go|platform/fabric/services/state/vault/vault\.go|platform/fabric/services/storage/endorsetx/store\.go|platform/fabric/services/storage/envelope/store\.go|platform/fabric/services/storage/metadata/store\.go|platform/fabricx/core/channel/provider\.go|platform/fabricx/core/committer/txhandler\.go|platform/fabricx/core/ledger/ledger\.go|platform/fabricx/core/transaction/manager\.go|platform/view/sdk/dig/container\.go|platform/view/sdk/vfsdk/container\.go|platform/view/services/comm/config\.go|platform/view/services/comm/host/websocket/config\.go|platform/view/services/comm/host/websocket/host\.go|platform/view/services/comm/host/websocket/provider\.go|platform/view/services/comm/host/websocket/routing/servicediscovery\.go|platform/view/services/comm/host/websocket/ws/stream\.go|platform/view/services/comm/session/json\.go|platform/view/services/metrics/operations/logger\.go|platform/view/services/metrics/operations/metrics\.go|platform/view/services/storage/db/tablename\.go|platform/view/services/storage/driver/pagination/keyset\.go|platform/view/services/storage/driver/pagination/none\.go|platform/view/services/storage/driver/pagination/offset\.go|platform/view/services/storage/driver/sql/common/utils\.go|platform/view/services/storage/driver/sql/postgres/notifier\.go|platform/view/services/storage/driver/sql/postgres/sanitizer\.go|platform/view/services/storage/driver/sql/postgres/test_utils\.go|platform/view/services/storage/driver/sql/sqlite/retrywritedb\.go|platform/view/services/storage/driver/sql/sqlite/sanitizer\.go|platform/view/services/tracing/span\.go|platform/view/services/view/grpc/client/client\.go|platform/view/services/view/grpc/client/si/ecdsa\.go)$
+        linters:
+          - revive
+        text: unexported-return
 formatters:
   enable:
     - gci

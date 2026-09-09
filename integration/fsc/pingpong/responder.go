@@ -68,7 +68,7 @@ func pong(viewCtx view.Context, session view.Session) (string, error) {
 // Responder answers pings with pongs until the initiator signals that the protocol is over.
 type Responder struct{}
 
-func (p *Responder) Call(viewCtx view.Context) (any, error) {
+func (*Responder) Call(viewCtx view.Context) (any, error) {
 	session := viewCtx.Session()
 	if session == nil {
 		return nil, errors.New("no default session, the responder must be invoked by an initiator")

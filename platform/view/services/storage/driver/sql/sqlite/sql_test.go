@@ -25,12 +25,12 @@ func TestSqlite(t *testing.T) {
 	o := Opts{
 		DataSource: fmt.Sprintf("file:%s.sqlite?_pragma=busy_timeout(1000)", path.Join(tempDir, "benchmark")),
 	}
-	common.TestCases(t, func(name string) (driver.KeyValueStore, error) {
+	common.TestCases(t, func(_ string) (driver.KeyValueStore, error) {
 		p, err := NewKeyValueStore(utils.MustGet(open(o)), common.GetTableNames(o.TablePrefix, o.TableNameParams...))
 		assert.NoError(t, err)
 		assert.NoError(t, p.CreateSchema())
 		return p, nil
-	}, func(name string) (driver.UnversionedNotifier, error) {
+	}, func(_ string) (driver.UnversionedNotifier, error) {
 		p, err := NewKeyValueStoreNotifier(utils.MustGet(open(o)), "test")
 		assert.NoError(t, err)
 		assert.NoError(t, p.Persistence.(*KeyValueStore).CreateSchema())

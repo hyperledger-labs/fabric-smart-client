@@ -12,28 +12,28 @@ import (
 
 type Provider struct{}
 
-func (p *Provider) NewCounter(o metrics.CounterOpts) metrics.Counter       { return &Counter{} }
-func (p *Provider) NewGauge(o metrics.GaugeOpts) metrics.Gauge             { return &Gauge{} }
-func (p *Provider) NewHistogram(o metrics.HistogramOpts) metrics.Histogram { return &Histogram{} }
+func (*Provider) NewCounter(_ metrics.CounterOpts) metrics.Counter       { return &Counter{} }
+func (*Provider) NewGauge(_ metrics.GaugeOpts) metrics.Gauge             { return &Gauge{} }
+func (*Provider) NewHistogram(_ metrics.HistogramOpts) metrics.Histogram { return &Histogram{} }
 
 type Counter struct{}
 
-func (c *Counter) Add(delta float64) {}
-func (c *Counter) With(labelValues ...string) metrics.Counter {
+func (*Counter) Add(_ float64) {}
+func (c *Counter) With(_ ...string) metrics.Counter {
 	return c
 }
 
 type Gauge struct{}
 
-func (g *Gauge) Add(delta float64) {}
-func (g *Gauge) Set(delta float64) {}
-func (g *Gauge) With(labelValues ...string) metrics.Gauge {
+func (*Gauge) Add(_ float64) {}
+func (*Gauge) Set(_ float64) {}
+func (g *Gauge) With(_ ...string) metrics.Gauge {
 	return g
 }
 
 type Histogram struct{}
 
-func (h *Histogram) Observe(value float64) {}
-func (h *Histogram) With(labelValues ...string) metrics.Histogram {
+func (*Histogram) Observe(_ float64) {}
+func (h *Histogram) With(_ ...string) metrics.Histogram {
 	return h
 }

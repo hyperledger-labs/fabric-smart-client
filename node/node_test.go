@@ -21,12 +21,12 @@ import (
 
 type mockFSCNode struct{}
 
-func (m *mockFSCNode) ID() string                        { return "test-id" }
-func (m *mockFSCNode) Start() error                      { return nil }
-func (m *mockFSCNode) Stop()                             {}
-func (m *mockFSCNode) InstallSDK(p pkgnode.SDK) error    { return nil }
-func (m *mockFSCNode) GetService(v any) (any, error)     { return nil, nil }
-func (m *mockFSCNode) RegisterService(service any) error { return nil }
+func (*mockFSCNode) ID() string                     { return "test-id" }
+func (*mockFSCNode) Start() error                   { return nil }
+func (*mockFSCNode) Stop()                          {}
+func (*mockFSCNode) InstallSDK(_ pkgnode.SDK) error { return nil }
+func (*mockFSCNode) GetService(_ any) (any, error)  { return nil, nil }
+func (*mockFSCNode) RegisterService(_ any) error    { return nil }
 
 func writeCoreYAML(t *testing.T) string {
 	t.Helper()

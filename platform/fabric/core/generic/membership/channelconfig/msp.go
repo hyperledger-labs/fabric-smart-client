@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package channelconfig
 
 import (
-	"fmt"
-
 	"github.com/hyperledger/fabric-lib-go/bccsp"
 	mspprotos "github.com/hyperledger/fabric-protos-go-apiv2/msp"
 
@@ -69,7 +67,7 @@ func (bh *MSPConfigHandler) ProposeMSP(mspConfig *mspprotos.MSPConfig) (msp.MSP,
 			return nil, errors.WithMessage(err, "creating the MSP manager failed")
 		}
 	default:
-		return nil, errors.New(fmt.Sprintf("Setup error: unsupported msp type %d", mspConfig.Type))
+		return nil, errors.Errorf("Setup error: unsupported msp type %d", mspConfig.Type)
 	}
 
 	// set it up
@@ -83,7 +81,7 @@ func (bh *MSPConfigHandler) ProposeMSP(mspConfig *mspprotos.MSPConfig) (msp.MSP,
 
 	existingPendingMSPConfig, ok := bh.idMap[mspID]
 	if ok && !proto.Equal(existingPendingMSPConfig.mspConfig, mspConfig) {
-		return nil, errors.New(fmt.Sprintf("Attempted to define two different versions of MSP: %s", mspID))
+		return nil, errors.Errorf("Attempted to define two different versions of MSP: %s", mspID)
 	}
 
 	if !ok {

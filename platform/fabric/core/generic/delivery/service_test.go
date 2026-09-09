@@ -109,7 +109,7 @@ func TestServiceLifecycle(t *testing.T) {
 			&mockLedger{},
 			&mockVault{},
 			&mockTransactionManager{},
-			func(ctx context.Context, block *cb.Block) (bool, error) { return false, nil },
+			func(_ context.Context, _ *cb.Block) (bool, error) { return false, nil },
 			noop.NewTracerProvider(),
 			nil,
 			[]cb.HeaderType{cb.HeaderType_ENDORSER_TRANSACTION},
@@ -158,7 +158,7 @@ func TestScanBlockVariants(t *testing.T) {
 			Metadata: &cb.BlockMetadata{Metadata: [][]byte{nil, nil, {uint8(pb.TxValidationCode_VALID), uint8(pb.TxValidationCode_VALID)}}},
 		}}}
 
-		err := svc.Scan(ctx, "txid", func(tx driver.ProcessedTransaction) (bool, error) {
+		err := svc.Scan(ctx, "txid", func(_ driver.ProcessedTransaction) (bool, error) {
 			return false, errors.New("callback err")
 		})
 		require.ErrorContains(t, err, "callback err")
@@ -179,7 +179,7 @@ func TestScanBlockVariants(t *testing.T) {
 			Metadata: &cb.BlockMetadata{Metadata: [][]byte{nil, nil, {uint8(pb.TxValidationCode_VALID)}}},
 		}}}
 
-		err := svc.Scan(ctx, "txid", func(tx driver.ProcessedTransaction) (bool, error) {
+		err := svc.Scan(ctx, "txid", func(_ driver.ProcessedTransaction) (bool, error) {
 			return true, nil
 		})
 		require.NoError(t, err)
@@ -223,7 +223,7 @@ func TestScanBlockVariants(t *testing.T) {
 		cancel()
 		t.Cleanup(cancel)
 
-		err := svc.Scan(ctx, "tx1", func(tx driver.ProcessedTransaction) (bool, error) { return false, nil })
+		err := svc.Scan(ctx, "tx1", func(_ driver.ProcessedTransaction) (bool, error) { return false, nil })
 		if err != nil {
 			require.ErrorContains(t, err, "context done")
 		}
@@ -248,7 +248,7 @@ func TestScanBlockVariants(t *testing.T) {
 			Metadata: &cb.BlockMetadata{Metadata: [][]byte{nil, nil, {uint8(pb.TxValidationCode_VALID)}}},
 		}}}
 
-		err := svc.Scan(ctx, "tx1", func(tx driver.ProcessedTransaction) (bool, error) { return false, nil })
+		err := svc.Scan(ctx, "tx1", func(_ driver.ProcessedTransaction) (bool, error) { return false, nil })
 		require.ErrorContains(t, err, "error unmarshalling")
 	})
 
@@ -275,7 +275,7 @@ func TestScanBlockVariants(t *testing.T) {
 			Metadata: &cb.BlockMetadata{Metadata: [][]byte{nil, nil, {uint8(pb.TxValidationCode_VALID)}}},
 		}}}
 
-		err := svc.Scan(ctx, "tx1", func(tx driver.ProcessedTransaction) (bool, error) {
+		err := svc.Scan(ctx, "tx1", func(_ driver.ProcessedTransaction) (bool, error) {
 			close(processed)
 			return false, nil // return stop = false to reach the end of the loop
 		})
@@ -300,7 +300,7 @@ func TestScanBlockVariants(t *testing.T) {
 			Metadata: &cb.BlockMetadata{Metadata: [][]byte{nil, nil, {uint8(pb.TxValidationCode_VALID)}}},
 		}}}
 
-		err := svc.ScanFromBlock(ctx, 10, func(tx driver.ProcessedTransaction) (bool, error) {
+		err := svc.ScanFromBlock(ctx, 10, func(_ driver.ProcessedTransaction) (bool, error) {
 			return true, nil // return stop = true
 		})
 		require.NoError(t, err)
@@ -323,7 +323,7 @@ func TestScanBlockVariants(t *testing.T) {
 		}}}
 		recvChan <- &pb.DeliverResponse{Type: &pb.DeliverResponse_Status{Status: cb.Status_SUCCESS}}
 
-		err := svc.ScanFromBlock(ctx, 10, func(tx driver.ProcessedTransaction) (bool, error) {
+		err := svc.ScanFromBlock(ctx, 10, func(_ driver.ProcessedTransaction) (bool, error) {
 			return false, errors.New("callback error")
 		})
 		require.ErrorContains(t, err, "callback error")
@@ -349,7 +349,7 @@ func TestScanBlockVariants(t *testing.T) {
 			Metadata: &cb.BlockMetadata{Metadata: [][]byte{nil, nil, {uint8(pb.TxValidationCode_VALID), uint8(pb.TxValidationCode_VALID)}}},
 		}}}
 
-		err := svc.ScanFromBlock(ctx, 10, func(tx driver.ProcessedTransaction) (bool, error) {
+		err := svc.ScanFromBlock(ctx, 10, func(_ driver.ProcessedTransaction) (bool, error) {
 			return false, nil
 		})
 		require.ErrorContains(t, err, "tx mgr error")
@@ -369,7 +369,7 @@ func TestScanBlockVariants(t *testing.T) {
 			Metadata: &cb.BlockMetadata{Metadata: [][]byte{nil, nil, {uint8(pb.TxValidationCode_VALID)}}},
 		}}}
 
-		err := svc.ScanFromBlock(ctx, 10, func(tx driver.ProcessedTransaction) (bool, error) { return false, nil })
+		err := svc.ScanFromBlock(ctx, 10, func(_ driver.ProcessedTransaction) (bool, error) { return false, nil })
 		require.ErrorContains(t, err, "error unmarshalling Envelope")
 	})
 
@@ -387,7 +387,7 @@ func TestScanBlockVariants(t *testing.T) {
 			Metadata: &cb.BlockMetadata{Metadata: [][]byte{}},
 		}}}
 
-		err := svc.ScanFromBlock(ctx, 10, func(tx driver.ProcessedTransaction) (bool, error) { return false, nil })
+		err := svc.ScanFromBlock(ctx, 10, func(_ driver.ProcessedTransaction) (bool, error) { return false, nil })
 		require.ErrorContains(t, err, "metadata lacks transaction filter")
 	})
 
@@ -400,7 +400,7 @@ func TestScanBlockVariants(t *testing.T) {
 		// cancel synchronously so it fails when trying to sleep before reconnecting
 		cancel()
 
-		err := svc.ScanFromBlock(ctx, 10, func(tx driver.ProcessedTransaction) (bool, error) { return false, nil })
+		err := svc.ScanFromBlock(ctx, 10, func(_ driver.ProcessedTransaction) (bool, error) { return false, nil })
 		if err != nil {
 			require.ErrorContains(t, err, "context done")
 		}

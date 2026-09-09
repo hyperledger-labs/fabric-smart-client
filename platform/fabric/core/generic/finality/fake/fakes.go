@@ -26,12 +26,12 @@ type Committer struct {
 	mock.Mock
 }
 
-func (m *Committer) Start(ctx context.Context) error { return nil }
-func (m *Committer) ProcessNamespace(nss ...cdriver.Namespace) error {
+func (*Committer) Start(_ context.Context) error { return nil }
+func (*Committer) ProcessNamespace(_ ...cdriver.Namespace) error {
 	return nil
 }
-func (m *Committer) AddTransactionFilter(tf fdriver.TransactionFilter) error { return nil }
-func (m *Committer) Status(ctx context.Context, txID cdriver.TxID) (fdriver.ValidationCode, string, error) {
+func (*Committer) AddTransactionFilter(_ fdriver.TransactionFilter) error { return nil }
+func (*Committer) Status(_ context.Context, _ cdriver.TxID) (fdriver.ValidationCode, string, error) {
 	return 0, "", nil
 }
 
@@ -45,11 +45,11 @@ func (m *Committer) RemoveFinalityListener(txID string, listener fdriver.Finalit
 	return args.Error(0)
 }
 
-func (m *Committer) DiscardTx(ctx context.Context, txID cdriver.TxID, message string) error {
+func (*Committer) DiscardTx(_ context.Context, _ cdriver.TxID, _ string) error {
 	return nil
 }
 
-func (m *Committer) CommitTX(ctx context.Context, txID cdriver.TxID, block cdriver.BlockNum, indexInBlock cdriver.TxNum, envelope *common.Envelope) error {
+func (*Committer) CommitTX(_ context.Context, _ cdriver.TxID, _ cdriver.BlockNum, _ cdriver.TxNum, _ *common.Envelope) error {
 	return nil
 }
 
@@ -73,7 +73,7 @@ func (m *Channel) Ledger() fdriver.Ledger {
 	return args.Get(0).(fdriver.Ledger)
 }
 
-func (m *Channel) Name() string {
+func (*Channel) Name() string {
 	return "test"
 }
 
@@ -89,13 +89,13 @@ type Delivery struct {
 	mock.Mock
 }
 
-func (m *Delivery) Start(ctx context.Context) error { return nil }
+func (*Delivery) Start(_ context.Context) error { return nil }
 
-func (m *Delivery) ScanBlock(ctx context.Context, callback fdriver.BlockCallback) error {
+func (*Delivery) ScanBlock(_ context.Context, _ fdriver.BlockCallback) error {
 	return nil
 }
 
-func (m *Delivery) ScanBlockFrom(ctx context.Context, block fdriver.BlockNum, callback fdriver.BlockCallback) error {
+func (*Delivery) ScanBlockFrom(_ context.Context, _ fdriver.BlockNum, _ fdriver.BlockCallback) error {
 	return nil
 }
 
@@ -144,11 +144,11 @@ func (m *PeerClient) DeliverClient() (pb.DeliverClient, error) {
 	return args.Get(0).(pb.DeliverClient), args.Error(1)
 }
 
-func (m *PeerClient) EndorserClient() (pb.EndorserClient, error) {
+func (*PeerClient) EndorserClient() (pb.EndorserClient, error) {
 	return nil, nil
 }
 
-func (m *PeerClient) DiscoveryClient() (services.DiscoveryClient, error) {
+func (*PeerClient) DiscoveryClient() (services.DiscoveryClient, error) {
 	return nil, nil
 }
 
@@ -190,13 +190,13 @@ func (m *DeliverFilteredStream) Recv() (*pb.DeliverResponse, error) {
 	}
 	return args.Get(0).(*pb.DeliverResponse), args.Error(1)
 }
-func (m *DeliverFilteredStream) CloseSend() error             { return m.Called().Error(0) }
-func (m *DeliverFilteredStream) Header() (metadata.MD, error) { return nil, nil }
-func (m *DeliverFilteredStream) Trailer() metadata.MD         { return nil }
-func (m *DeliverFilteredStream) CloseRead() error             { return nil }
-func (m *DeliverFilteredStream) Context() context.Context     { return context.Background() }
-func (m *DeliverFilteredStream) SendMsg(m_ any) error         { return nil }
-func (m *DeliverFilteredStream) RecvMsg(m_ any) error         { return nil }
+func (m *DeliverFilteredStream) CloseSend() error           { return m.Called().Error(0) }
+func (*DeliverFilteredStream) Header() (metadata.MD, error) { return nil, nil }
+func (*DeliverFilteredStream) Trailer() metadata.MD         { return nil }
+func (*DeliverFilteredStream) CloseRead() error             { return nil }
+func (*DeliverFilteredStream) Context() context.Context     { return context.Background() }
+func (*DeliverFilteredStream) SendMsg(_ any) error          { return nil }
+func (*DeliverFilteredStream) RecvMsg(_ any) error          { return nil }
 
 type SigningIdentity struct {
 	mock.Mock

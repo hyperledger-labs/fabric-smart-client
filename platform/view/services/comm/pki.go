@@ -16,7 +16,7 @@ import (
 
 type PKExtractor struct{}
 
-func (p *PKExtractor) ExtractPublicKey(id view.Identity) (any, error) {
+func (*PKExtractor) ExtractPublicKey(id view.Identity) (any, error) {
 	certRaw, _ := pem.Decode(id)
 	if certRaw == nil {
 		return nil, errors.Errorf("pem decoding returned nil")

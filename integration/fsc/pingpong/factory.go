@@ -17,7 +17,7 @@ import (
 type InitiatorViewFactory struct{}
 
 // NewView returns a new instance of the Initiator view
-func (i *InitiatorViewFactory) NewView(in []byte) (view.View, error) {
+func (*InitiatorViewFactory) NewView(in []byte) (view.View, error) {
 	initiator := &Initiator{}
 	if len(in) > 0 {
 		if err := json.Unmarshal(in, &initiator.Params); err != nil {

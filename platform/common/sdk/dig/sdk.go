@@ -45,14 +45,14 @@ type BaseSDK struct {
 	cfg driver.ConfigService
 }
 
-func (s *BaseSDK) Install() error { return nil }
+func (*BaseSDK) Install() error { return nil }
 
-func (s *BaseSDK) Start(context.Context) error { return nil }
+func (*BaseSDK) Start(context.Context) error { return nil }
 
 func (s *BaseSDK) ConfigService() driver.ConfigService { return s.cfg }
 
 func (s *BaseSDK) Container() Container { return s.c }
 
-func (s *BaseSDK) PostStart(context.Context) error { return nil }
+func (*BaseSDK) PostStart(context.Context) error { return nil }
 
-func (s *BaseSDK) Stop() error { return nil }
+func (*BaseSDK) Stop() error { return nil }

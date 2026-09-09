@@ -35,7 +35,7 @@ type mockEndpointService struct {
 	resolvers []endpoint.ResolverInfo
 }
 
-func (m *mockEndpointService) ExtractPKI(id []byte) []byte {
+func (*mockEndpointService) ExtractPKI(id []byte) []byte {
 	return id
 }
 
@@ -51,7 +51,7 @@ func (m *mockEndpointService) AddResolver(id []byte) {
 	m.resolvers = append(m.resolvers, endpoint.ResolverInfo{ID: id})
 }
 
-func (m *mockEndpointService) UpdateResolver(name, domain string, addresses map[string]string, aliases []string, id []byte) (view.Identity, error) {
+func (m *mockEndpointService) UpdateResolver(name, domain string, addresses map[string]string, _ []string, id []byte) (view.Identity, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	found := false
@@ -81,11 +81,11 @@ func convert(o map[string]string) map[endpoint.PortName]string {
 	return r
 }
 
-func (m *mockEndpointService) GetIdentity(label string, pkID []byte) (view.Identity, error) {
+func (*mockEndpointService) GetIdentity(_ string, _ []byte) (view.Identity, error) {
 	return nil, nil
 }
 
-func (m *mockEndpointService) GetResolver(ctx context.Context, id view.Identity) (*endpoint.Resolver, error) {
+func (m *mockEndpointService) GetResolver(_ context.Context, id view.Identity) (*endpoint.Resolver, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	for _, r := range m.resolvers {

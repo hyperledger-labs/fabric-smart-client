@@ -46,7 +46,7 @@ func (m *viewManagerMock) GetIdentity(endpoint string, pkID []byte) (view.Identi
 	return view.Identity("caller"), nil
 }
 
-func (m *viewManagerMock) NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, bool, error) {
+func (m *viewManagerMock) NewResponderContext(ctx context.Context, contextID string, session view.Session, me, _ view.Identity) (view.Context, bool, error) {
 	if m.NewSessionContextFunc != nil {
 		return m.NewSessionContextFunc(ctx, contextID, session, me)
 	}
@@ -95,7 +95,7 @@ func TestService(t *testing.T) {
 		require.Equal(t, "caller1", caller)
 		return &mock.View{}, nil, nil
 	}
-	vm.NewSessionContextFunc = func(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error) {
+	vm.NewSessionContextFunc = func(_ context.Context, contextID string, _ view.Session, _ view.Identity) (view.Context, bool, error) {
 		require.Equal(t, "ctx1", contextID)
 		vm.HandleResponderCalled <- struct{}{}
 		return &mock.Context{}, true, nil
@@ -141,7 +141,7 @@ func TestService_PanicIsReturnedToRemoteCaller(t *testing.T) {
 	vm := &viewManagerMock{
 		HandleResponderCalled: make(chan struct{}, 10),
 	}
-	vm.ExistResponderForCallerFunc = func(caller string) (view.View, view.Identity, error) {
+	vm.ExistResponderForCallerFunc = func(_ string) (view.View, view.Identity, error) {
 		return panicView, nil, nil
 	}
 
@@ -163,7 +163,7 @@ func TestService_PanicIsReturnedToRemoteCaller(t *testing.T) {
 		}()
 		return v.Call(respCtx)
 	}
-	vm.NewSessionContextFunc = func(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error) {
+	vm.NewSessionContextFunc = func(_ context.Context, _ string, _ view.Session, _ view.Identity) (view.Context, bool, error) {
 		vm.HandleResponderCalled <- struct{}{}
 		return respCtx, true, nil
 	}
@@ -212,7 +212,7 @@ func TestService_HandleResponderError(t *testing.T) {
 	vm := &viewManagerMock{
 		HandleResponderCalled: make(chan struct{}, 10),
 	}
-	vm.NewSessionContextFunc = func(ctx context.Context, contextID string, session view.Session, party view.Identity) (view.Context, bool, error) {
+	vm.NewSessionContextFunc = func(_ context.Context, _ string, _ view.Session, _ view.Identity) (view.Context, bool, error) {
 		vm.HandleResponderCalled <- struct{}{}
 		return &mock.Context{}, true, nil
 	}
@@ -263,20 +263,20 @@ type leakTestDeps struct {
 	respCtx   *mock.Context
 }
 
-func (d *leakTestDeps) ExistResponderForCaller(caller string) (view.View, view.Identity, error) {
+func (d *leakTestDeps) ExistResponderForCaller(_ string) (view.View, view.Identity, error) {
 	return d.responder, nil, nil
 }
 
-func (d *leakTestDeps) NewResponderContext(ctx context.Context, contextID string, session view.Session, me, remote view.Identity) (view.Context, bool, error) {
+func (d *leakTestDeps) NewResponderContext(ctx context.Context, _ string, _ view.Session, _, _ view.Identity) (view.Context, bool, error) {
 	d.respCtx.ContextReturns(ctx)
 	return d.respCtx, true, nil
 }
 
-func (d *leakTestDeps) DeleteContext(contextID string) {}
+func (*leakTestDeps) DeleteContext(_ string) {}
 
-func (d *leakTestDeps) DefaultIdentity() view.Identity { return view.Identity("me") }
+func (*leakTestDeps) DefaultIdentity() view.Identity { return view.Identity("me") }
 
-func (d *leakTestDeps) GetIdentity(endpoint string, pkID []byte) (view.Identity, error) {
+func (*leakTestDeps) GetIdentity(_ string, _ []byte) (view.Identity, error) {
 	return view.Identity("caller"), nil
 }
 

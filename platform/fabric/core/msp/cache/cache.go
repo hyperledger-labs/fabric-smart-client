@@ -26,7 +26,7 @@ var mspLogger = logging.MustGetLogger("msp")
 func New(o msp.MSP) (msp.MSP, error) {
 	mspLogger.Debugf("Creating Cache-MSP instance")
 	if o == nil {
-		return nil, errors.Errorf("Invalid passed MSP. It must be different from nil.")
+		return nil, errors.Errorf("invalid passed MSP. It must be different from nil")
 	}
 
 	theMsp := &cachedMSP{MSP: o}

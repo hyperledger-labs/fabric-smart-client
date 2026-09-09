@@ -128,7 +128,7 @@ func TestProviderHashPanicsOnHasherError(t *testing.T) {
 				require.Equal(t, []byte("hello world"), msg)
 				return nil, errors.New("hash failed")
 			},
-			getHashFunc: func(opts bccsp.HashOpts) (hash.Hash, error) {
+			getHashFunc: func(_ bccsp.HashOpts) (hash.Hash, error) {
 				t.Fatal("GetHash should not be called")
 				return nil, nil
 			},
@@ -145,7 +145,7 @@ func TestProviderGetHashPanicsOnHasherError(t *testing.T) {
 
 	p := &provider{
 		hasher: &fakeHasher{
-			hashFunc: func(msg []byte, opts bccsp.HashOpts) ([]byte, error) {
+			hashFunc: func(_ []byte, _ bccsp.HashOpts) ([]byte, error) {
 				t.Fatal("Hash should not be called")
 				return nil, nil
 			},

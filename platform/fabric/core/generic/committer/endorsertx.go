@@ -26,25 +26,23 @@ func (c *Committer) HandleEndorserTransaction(ctx context.Context, block *common
 		return nil, err
 	}
 
-	switch pb.TxValidationCode(fabricValidationCode) {
-	case pb.TxValidationCode_VALID:
+	if pb.TxValidationCode(fabricValidationCode) == pb.TxValidationCode_VALID {
 		processed, err := c.CommitEndorserTransaction(ctx, event.TxID, tx.BlkNum, tx.TxNum, tx.Envelope, event)
-		if err != nil {
-			if errors.HasCause(err, ErrDiscardTX) {
-				// in this case, we will discard the transaction
-				event.ValidationCode = convertValidationCode(int32(pb.TxValidationCode_INVALID_OTHER_REASON))
-				event.ValidationMessage = err.Error()
-				break
+		if err == nil {
+			if !processed {
+				if err := c.GetChaincodeEvents(tx.Envelope, tx.BlkNum); err != nil {
+					return nil, errors.Wrapf(err, "failed to publish chaincode events [%s]", event.TxID)
+				}
 			}
+			c.logger.DebugfContext(ctx, "Processed transaction")
+			return event, nil
+		}
+		if !errors.HasCause(err, ErrDiscardTX) {
 			return nil, errors.Wrapf(err, "failed committing transaction [%s]", event.TxID)
 		}
-		if !processed {
-			if err := c.GetChaincodeEvents(tx.Envelope, tx.BlkNum); err != nil {
-				return nil, errors.Wrapf(err, "failed to publish chaincode events [%s]", event.TxID)
-			}
-		}
-		c.logger.DebugfContext(ctx, "Processed transaction")
-		return event, nil
+		// in this case, we will discard the transaction
+		event.ValidationCode = convertValidationCode(int32(pb.TxValidationCode_INVALID_OTHER_REASON))
+		event.ValidationMessage = err.Error()
 	}
 
 	if err := c.DiscardEndorserTransaction(ctx, event.TxID, tx.BlkNum, tx.Raw, event); err != nil {

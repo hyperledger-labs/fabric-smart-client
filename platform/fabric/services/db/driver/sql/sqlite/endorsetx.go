@@ -20,9 +20,9 @@ type EndorseTxStore struct {
 }
 
 func NewEndorseTxStore(dbs *common3.RWDB, tables common.TableNames) (*EndorseTxStore, error) {
-	return newEndorseTxStore(dbs.ReadDB, sqlite2.NewRetryWriteDB(dbs.WriteDB), tables.EndorseTx), nil
+	return buildEndorseTxStore(dbs.ReadDB, sqlite2.NewRetryWriteDB(dbs.WriteDB), tables.EndorseTx), nil
 }
 
-func newEndorseTxStore(readDB *sql.DB, writeDB common4.WriteDB, table string) *EndorseTxStore {
+func buildEndorseTxStore(readDB *sql.DB, writeDB common4.WriteDB, table string) *EndorseTxStore {
 	return &EndorseTxStore{EndorseTxStore: common.NewEndorseTxStore(writeDB, readDB, table, &sqlite2.ErrorMapper{})}
 }

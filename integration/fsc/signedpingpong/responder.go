@@ -21,7 +21,7 @@ import (
 // its own signed message.
 type BobResponder struct{}
 
-func (b *BobResponder) Call(viewCtx view.Context) (any, error) {
+func (*BobResponder) Call(viewCtx view.Context) (any, error) {
 	session := viewCtx.Session()
 
 	sigSvc, err := sig.GetService(viewCtx)

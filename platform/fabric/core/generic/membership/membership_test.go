@@ -316,10 +316,10 @@ type fakeApplicationOrg struct {
 	msp   msp.MSP
 }
 
-func (f *fakeApplicationOrg) Name() string                  { return f.name }
-func (f *fakeApplicationOrg) MSPID() string                 { return f.mspID }
-func (f *fakeApplicationOrg) MSP() msp.MSP                  { return f.msp }
-func (f *fakeApplicationOrg) AnchorPeers() []*pb.AnchorPeer { return nil }
+func (f *fakeApplicationOrg) Name() string                { return f.name }
+func (f *fakeApplicationOrg) MSPID() string               { return f.mspID }
+func (f *fakeApplicationOrg) MSP() msp.MSP                { return f.msp }
+func (*fakeApplicationOrg) AnchorPeers() []*pb.AnchorPeer { return nil }
 
 // fakeApplication is a minimal channelconfig.Application double.
 type fakeApplication struct {

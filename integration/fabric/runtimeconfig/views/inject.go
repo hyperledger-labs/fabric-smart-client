@@ -84,7 +84,7 @@ func (v *InjectNetworkView) Call(viewCtx view.Context) (any, error) {
 
 type InjectNetworkViewFactory struct{}
 
-func (f *InjectNetworkViewFactory) NewView(in []byte) (view.View, error) {
+func (*InjectNetworkViewFactory) NewView(in []byte) (view.View, error) {
 	v := &InjectNetworkView{}
 	assert.NoError(json.Unmarshal(in, &v.InjectNetwork))
 	return v, nil

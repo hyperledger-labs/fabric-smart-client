@@ -67,7 +67,7 @@ func decodeYAML(input, output any) error {
 	return dec.Decode(input)
 }
 
-func generateSelfSignedCert(t *testing.T, tempDir string) (string, string) {
+func generateSelfSignedCert(t *testing.T, tempDir string) (certPath, keyPath string) {
 	t.Helper()
 
 	ca, err := tlsgen.NewCA()
@@ -76,11 +76,11 @@ func generateSelfSignedCert(t *testing.T, tempDir string) (string, string) {
 	serverKeyPair, err := ca.NewServerCertKeyPair("127.0.0.1")
 	require.NoError(t, err)
 
-	certPath := filepath.Join(tempDir, "cert.pem")
+	certPath = filepath.Join(tempDir, "cert.pem")
 	err = os.WriteFile(certPath, serverKeyPair.Cert, 0o644)
 	require.NoError(t, err)
 
-	keyPath := filepath.Join(tempDir, "key.pem")
+	keyPath = filepath.Join(tempDir, "key.pem")
 	err = os.WriteFile(keyPath, serverKeyPair.Key, 0o600)
 	require.NoError(t, err)
 
@@ -226,7 +226,7 @@ func TestCreateTLSConnConfig(t *testing.T) {
 			tlsCfg: TLSConfig{
 				SSLMode: "invalid-mode",
 			},
-			verify: func(t *testing.T, connConfig *pgx.ConnConfig, err error) {
+			verify: func(t *testing.T, _ *pgx.ConnConfig, err error) {
 				t.Helper()
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "unsupported ssl mode")
@@ -239,7 +239,7 @@ func TestCreateTLSConnConfig(t *testing.T) {
 				SSLMode:      "verify-full",
 				RootCertPath: filepath.Join(tempDir, "nonexistent.pem"),
 			},
-			verify: func(t *testing.T, connConfig *pgx.ConnConfig, err error) {
+			verify: func(t *testing.T, _ *pgx.ConnConfig, err error) {
 				t.Helper()
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "failed to read root certificate")
@@ -253,7 +253,7 @@ func TestCreateTLSConnConfig(t *testing.T) {
 				CertPath: certPath,
 				KeyPath:  filepath.Join(tempDir, "nonexistent.pem"),
 			},
-			verify: func(t *testing.T, connConfig *pgx.ConnConfig, err error) {
+			verify: func(t *testing.T, _ *pgx.ConnConfig, err error) {
 				t.Helper()
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "failed to load client key pair")

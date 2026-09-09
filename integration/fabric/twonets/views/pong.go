@@ -19,7 +19,7 @@ import (
 
 type Pong struct{}
 
-func (p *Pong) Call(viewCtx view.Context) (any, error) {
+func (*Pong) Call(viewCtx view.Context) (any, error) {
 	// Retrieve the session opened by the initiator
 	session := viewCtx.Session()
 

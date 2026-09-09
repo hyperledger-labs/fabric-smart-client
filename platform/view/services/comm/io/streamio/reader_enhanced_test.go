@@ -183,6 +183,6 @@ func (e *errorMsgReader) Read() ([]byte, error) {
 
 type nilMsgReader struct{}
 
-func (n *nilMsgReader) Read() ([]byte, error) {
+func (*nilMsgReader) Read() ([]byte, error) {
 	return nil, nil
 }

@@ -20,13 +20,13 @@ const (
 
 type CC struct{}
 
-func (cc *CC) Init(stub shim.ChaincodeStubInterface) *pb.Response {
+func (*CC) Init(_ shim.ChaincodeStubInterface) *pb.Response {
 	fmt.Println("Init...")
 
 	return shim.Success(nil)
 }
 
-func (cc *CC) Invoke(stub shim.ChaincodeStubInterface) *pb.Response {
+func (*CC) Invoke(stub shim.ChaincodeStubInterface) *pb.Response {
 	fn, _ := stub.GetFunctionAndParameters()
 
 	fmt.Printf("Invoke function [%s]...\n", fn)

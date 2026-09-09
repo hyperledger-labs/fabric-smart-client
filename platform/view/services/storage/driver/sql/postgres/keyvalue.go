@@ -15,7 +15,7 @@ import (
 )
 
 func NewKeyValueStore(dbs *common3.RWDB, tables common4.TableNames) (*common4.KeyValueStore, error) {
-	return newKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS), nil
+	return buildKeyValueStore(dbs.ReadDB, dbs.WriteDB, tables.KVS), nil
 }
 
 type KeyValueStoreNotifier struct {
@@ -37,7 +37,7 @@ func (db *KeyValueStoreNotifier) CreateSchema() error {
 	return db.Notifier.CreateSchema()
 }
 
-func newKeyValueStore(readDB, writeDB *sql.DB, table string) *common4.KeyValueStore {
+func buildKeyValueStore(readDB, writeDB *sql.DB, table string) *common4.KeyValueStore {
 	errorWrapper := &ErrorMapper{}
 
 	return common4.NewKeyValueStore(readDB, writeDB, table, errorWrapper)

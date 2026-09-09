@@ -20,9 +20,9 @@ type EnvelopeStore struct {
 }
 
 func NewEnvelopeStore(dbs *common3.RWDB, tables common.TableNames) (*EnvelopeStore, error) {
-	return newEnvelopeStore(dbs.ReadDB, sqlite2.NewRetryWriteDB(dbs.WriteDB), tables.Envelope), nil
+	return buildEnvelopeStore(dbs.ReadDB, sqlite2.NewRetryWriteDB(dbs.WriteDB), tables.Envelope), nil
 }
 
-func newEnvelopeStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *EnvelopeStore {
+func buildEnvelopeStore(readDB *sql.DB, writeDB common2.WriteDB, table string) *EnvelopeStore {
 	return &EnvelopeStore{EnvelopeStore: common.NewEnvelopeStore(writeDB, readDB, table, &sqlite2.ErrorMapper{})}
 }

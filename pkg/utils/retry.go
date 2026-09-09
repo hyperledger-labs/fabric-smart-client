@@ -35,12 +35,12 @@ func NewTypedRetryRunner[V any](maxTimes int, delay time.Duration, expBackoff bo
 func (r *typedRetryRunner[V]) Run(runner func() (V, error)) (V, error) {
 	var result V
 	err := r.retryRunner.Run(func() error {
-		if v, e := runner(); e != nil {
+		v, e := runner()
+		if e != nil {
 			return e
-		} else {
-			result = v
-			return nil
 		}
+		result = v
+		return nil
 	})
 	return result, err
 }

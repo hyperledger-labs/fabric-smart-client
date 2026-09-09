@@ -49,7 +49,7 @@ type mockListener struct {
 	lock    sync.RWMutex
 }
 
-func (m *mockListener) OnStatus(ctx context.Context, txID string, status int, errMsg string) {
+func (m *mockListener) OnStatus(_ context.Context, txID string, status int, _ string) {
 	m.lock.Lock()
 	m.txID = txID
 	m.status = status
@@ -125,7 +125,7 @@ func setupTest(tb testing.TB) (*notificationListenerManager, *mock.Notifier_Open
 	fakeClient := &mock.NotifierClient{}
 
 	// Configure the client to return our fake stream
-	fakeClient.OpenNotificationStreamStub = func(c context.Context, opts ...grpc.CallOption) (committerpb.Notifier_OpenNotificationStreamClient, error) {
+	fakeClient.OpenNotificationStreamStub = func(c context.Context, _ ...grpc.CallOption) (committerpb.Notifier_OpenNotificationStreamClient, error) {
 		fakeStream.ContextReturns(c)
 		return fakeStream, nil
 	}

@@ -28,13 +28,13 @@ type VaultStore struct {
 }
 
 func NewVaultStore(dbs *common3.RWDB, tables common.TableNames) (*VaultStore, error) {
-	return newVaultStore(dbs.ReadDB, sqlite2.NewRetryWriteDB(dbs.WriteDB), common.VaultTables{
+	return buildVaultStore(dbs.ReadDB, sqlite2.NewRetryWriteDB(dbs.WriteDB), common.VaultTables{
 		StateTable:  tables.State,
 		StatusTable: tables.Status,
 	}), nil
 }
 
-func newVaultStore(readDB *sql.DB, writeDB common5.WriteDB, tables common.VaultTables) *VaultStore {
+func buildVaultStore(readDB *sql.DB, writeDB common5.WriteDB, tables common.VaultTables) *VaultStore {
 	return &VaultStore{
 		VaultStore: common.NewVaultStore(writeDB, readDB, tables, &sqlite2.ErrorMapper{}, sqlite2.NewSanitizer(), sqlite2.IsolationLevels),
 		tables:     tables,

@@ -310,7 +310,7 @@ func newTestListener(id string) *testListener {
 
 // Namespace implements ListenerEntry and returns an empty namespace, meaning
 // the listener applies to all namespaces.
-func (l *testListener) Namespace() driver.Namespace {
+func (*testListener) Namespace() driver.Namespace {
 	return ""
 }
 
@@ -345,7 +345,7 @@ func (m staticMapper) MapTxData(_ context.Context, _ []byte, _ *common.BlockMeta
 }
 
 // MapProcessedTx satisfies the EventInfoMapper interface and always returns nil.
-func (m staticMapper) MapProcessedTx(_ *fabric.ProcessedTransaction) ([]testEvent, error) {
+func (staticMapper) MapProcessedTx(_ *fabric.ProcessedTransaction) ([]testEvent, error) {
 	return nil, nil
 }
 

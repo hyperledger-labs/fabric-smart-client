@@ -164,17 +164,17 @@ func (o *Service) SetConsensusType(consensusType ConsensusType) error {
 	})
 }
 
-func (f *Service) Configure(consensusType string, orderers []*grpc.ConnectionConfig) error {
-	if err := f.SetConsensusType(consensusType); err != nil {
+func (o *Service) Configure(consensusType string, orderers []*grpc.ConnectionConfig) error {
+	if err := o.SetConsensusType(consensusType); err != nil {
 		return errors.WithMessagef(err, "failed to set consensus type from channel config")
 	}
-	if err := f.ConfigService.SetConfigOrderers(orderers); err != nil {
+	if err := o.ConfigService.SetConfigOrderers(orderers); err != nil {
 		return errors.WithMessagef(err, "failed to set orderers")
 	}
 	return nil
 }
 
-func (o *Service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common2.Envelope, error) {
+func (*Service) createFabricEndorseTransactionEnvelope(tx Transaction) (*common2.Envelope, error) {
 	env, err := tx.Envelope()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed creating envelope for transaction [%s]", tx.ID())

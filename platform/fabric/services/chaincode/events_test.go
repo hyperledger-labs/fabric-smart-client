@@ -22,7 +22,7 @@ import (
 func TestEventsView(t *testing.T) {
 	t.Parallel()
 
-	mockCallback := func(event *chaincode.Event) (bool, error) {
+	mockCallback := func(_ *chaincode.Event) (bool, error) {
 		return true, nil
 	}
 
@@ -97,11 +97,11 @@ type mockSubscriber struct {
 	listener events.Listener
 }
 
-func (m *mockSubscriber) Subscribe(topic string, listener events.Listener) {
+func (m *mockSubscriber) Subscribe(_ string, listener events.Listener) {
 	m.listener = listener
 }
 
-func (m *mockSubscriber) Unsubscribe(topic string, listener events.Listener) {}
+func (*mockSubscriber) Unsubscribe(_ string, _ events.Listener) {}
 
 type mockEvent struct {
 	topic string

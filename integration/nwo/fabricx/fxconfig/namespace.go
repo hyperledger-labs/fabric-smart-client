@@ -106,7 +106,7 @@ func (n *NamespaceCommon) Env() []string {
 	return env
 }
 
-func (n *CreateNamespace) SessionName() string {
+func (*CreateNamespace) SessionName() string {
 	return fmt.Sprintf("%s-createnamespace", fxconfigCMD)
 }
 
@@ -127,7 +127,7 @@ func (n *UpdateNamespace) Args() []string {
 	}
 }
 
-func (n *UpdateNamespace) SessionName() string {
+func (*UpdateNamespace) SessionName() string {
 	return fmt.Sprintf("%s-updatenamespace", fxconfigCMD)
 }
 
@@ -136,7 +136,7 @@ type ListNamespaces struct {
 	TLSConfig   TLSConfig
 }
 
-func (n *ListNamespaces) Args() []string {
+func (*ListNamespaces) Args() []string {
 	return []string{"namespace", "list"}
 }
 
@@ -155,7 +155,7 @@ func (n *ListNamespaces) Env() []string {
 	return env
 }
 
-func (n *ListNamespaces) SessionName() string {
+func (*ListNamespaces) SessionName() string {
 	return fmt.Sprintf("%s-listnamespaces", fxconfigCMD)
 }
 

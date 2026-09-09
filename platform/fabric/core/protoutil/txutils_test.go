@@ -221,7 +221,7 @@ func TestCreateSignedTx(t *testing.T) {
 		{Payload: []byte("payload2"), Response: &pb.Response{Status: int32(200)}},
 	}
 	_, err = protoutil.CreateSignedTx(prop, signID, responses...)
-	if err == nil || strings.HasPrefix(err.Error(), "ProposalResponsePayloads do not match (base64):") == false {
+	if err == nil || !strings.HasPrefix(err.Error(), "ProposalResponsePayloads do not match (base64):") {
 		require.FailNow(t, "Error is expected when response payloads do not match")
 	}
 

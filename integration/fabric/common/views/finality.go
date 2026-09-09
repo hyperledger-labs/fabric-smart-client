@@ -33,7 +33,7 @@ func (a *FinalityView) Call(viewCtx view.Context) (any, error) {
 
 type FinalityViewFactory struct{}
 
-func (c *FinalityViewFactory) NewView(in []byte) (view.View, error) {
+func (*FinalityViewFactory) NewView(in []byte) (view.View, error) {
 	f := &FinalityView{Finality: &Finality{}}
 	err := json.Unmarshal(in, f.Finality)
 	assert.NoError(err, "failed unmarshalling input")

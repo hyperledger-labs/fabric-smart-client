@@ -425,7 +425,7 @@ func TestValidMSPWithNodeOUMissingClassification(t *testing.T) { //nolint:parall
 	// the configuration enables NodeOUs but client ou identifier is missing
 	_, err := getLocalMSPWithVersionAndError(t, "testdata/nodeousbadconf1", MSPv1_3)
 	require.Error(t, err)
-	require.Equal(t, "Failed setting up NodeOUs. ClientOU must be different from nil.", err.Error())
+	require.Equal(t, "failed setting up NodeOUs. ClientOU must be different from nil", err.Error())
 
 	_, err = getLocalMSPWithVersionAndError(t, "testdata/nodeousbadconf1", MSPv1_4_3)
 	require.Error(t, err)
@@ -435,7 +435,7 @@ func TestValidMSPWithNodeOUMissingClassification(t *testing.T) { //nolint:parall
 	// the configuration enables NodeOUs but peer ou identifier is missing
 	_, err = getLocalMSPWithVersionAndError(t, "testdata/nodeousbadconf2", MSPv1_3)
 	require.Error(t, err)
-	require.Equal(t, "Failed setting up NodeOUs. PeerOU must be different from nil.", err.Error())
+	require.Equal(t, "failed setting up NodeOUs. PeerOU must be different from nil", err.Error())
 
 	_, err = getLocalMSPWithVersionAndError(t, "testdata/nodeousbadconf2", MSPv1_4_3)
 	require.NoError(t, err)

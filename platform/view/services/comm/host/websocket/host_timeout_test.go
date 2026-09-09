@@ -99,19 +99,19 @@ type mockConfig struct {
 	listenAddress host2.PeerIPAddress
 }
 
-func (m *mockConfig) ListenAddress() host2.PeerIPAddress                        { return m.listenAddress }
-func (m *mockConfig) ClientTLSConfig(websocket.ExtraCAPoolProvider) *tls.Config { return nil }
-func (m *mockConfig) ServerTLSConfig(websocket.ExtraCAPoolProvider) *tls.Config { return nil }
-func (m *mockConfig) CertPath() string                                          { return "" }
-func (m *mockConfig) MaxSubConns() int                                          { return 100 }
-func (m *mockConfig) ReadHeaderTimeout() time.Duration                          { return 10 * time.Second }
+func (m *mockConfig) ListenAddress() host2.PeerIPAddress                      { return m.listenAddress }
+func (*mockConfig) ClientTLSConfig(websocket.ExtraCAPoolProvider) *tls.Config { return nil }
+func (*mockConfig) ServerTLSConfig(websocket.ExtraCAPoolProvider) *tls.Config { return nil }
+func (*mockConfig) CertPath() string                                          { return "" }
+func (*mockConfig) MaxSubConns() int                                          { return 100 }
+func (*mockConfig) ReadHeaderTimeout() time.Duration                          { return 10 * time.Second }
 
-func (m *mockConfig) ReadTimeout() time.Duration { return 30 * time.Second }
+func (*mockConfig) ReadTimeout() time.Duration { return 30 * time.Second }
 
-func (m *mockConfig) WriteTimeout() time.Duration { return 30 * time.Second }
+func (*mockConfig) WriteTimeout() time.Duration { return 30 * time.Second }
 
-func (m *mockConfig) IdleTimeout() time.Duration   { return 120 * time.Second }
-func (m *mockConfig) CORSAllowedOrigins() []string { return nil }
+func (*mockConfig) IdleTimeout() time.Duration   { return 120 * time.Second }
+func (*mockConfig) CORSAllowedOrigins() []string { return nil }
 
 // noopProvider returns a stream provider that does nothing
 func noopProvider() websocket.StreamProvider {
@@ -120,14 +120,14 @@ func noopProvider() websocket.StreamProvider {
 
 type noopStreamProvider struct{}
 
-func (n *noopStreamProvider) NewClientStream(info host2.StreamInfo, ctx context.Context, src host2.PeerID, config *tls.Config) (host2.P2PStream, error) {
+func (*noopStreamProvider) NewClientStream(_ host2.StreamInfo, _ context.Context, _ host2.PeerID, _ *tls.Config) (host2.P2PStream, error) {
 	return nil, nil
 }
 
-func (n *noopStreamProvider) NewServerStream(writer http.ResponseWriter, request *http.Request, newStreamCallback func(host2.P2PStream)) error {
+func (*noopStreamProvider) NewServerStream(_ http.ResponseWriter, _ *http.Request, _ func(host2.P2PStream)) error {
 	return nil
 }
 
-func (n *noopStreamProvider) Close() error {
+func (*noopStreamProvider) Close() error {
 	return nil
 }

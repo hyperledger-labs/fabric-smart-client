@@ -29,7 +29,7 @@ func TestCompile(t *testing.T) {
 }
 
 func TestArtifactsGen(t *testing.T) { //nolint:paralleltest
-	RegisterFailHandler(func(message string, callerSkip ...int) {
+	RegisterFailHandler(func(message string, _ ...int) {
 		panic(message)
 	})
 

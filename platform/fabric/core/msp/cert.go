@@ -58,8 +58,8 @@ type tbsCertificate struct {
 	Validity           validity
 	Subject            asn1.RawValue
 	PublicKey          publicKeyInfo
-	UniqueId           asn1.BitString   `asn1:"optional,tag:1"`
-	SubjectUniqueId    asn1.BitString   `asn1:"optional,tag:2"`
+	UniqueID           asn1.BitString   `asn1:"optional,tag:1"`
+	SubjectUniqueID    asn1.BitString   `asn1:"optional,tag:2"`
 	Extensions         []pkix.Extension `asn1:"optional,explicit,tag:3"`
 }
 

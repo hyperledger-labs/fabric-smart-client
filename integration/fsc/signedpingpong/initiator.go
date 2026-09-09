@@ -27,7 +27,7 @@ const (
 // Bob's signed reply using the endpoint and sig services.
 type AliceInitiator struct{}
 
-func (a *AliceInitiator) Call(viewCtx view.Context) (any, error) {
+func (*AliceInitiator) Call(viewCtx view.Context) (any, error) {
 	identityProvider, err := id.GetProvider(viewCtx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting identity provider")

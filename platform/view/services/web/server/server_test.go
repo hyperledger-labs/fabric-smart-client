@@ -145,7 +145,7 @@ var _ = Describe("Server", func() {
 
 			rh := &mock.RequestHandler{}
 
-			rh.HandleRequestStub = func(ctx *server.ReqContext) (any, int) {
+			rh.HandleRequestStub = func(_ *server.ReqContext) (any, int) {
 				m := make(map[string]any)
 				m["status"] = "OK"
 				return m, 200
@@ -193,8 +193,8 @@ var _ = Describe("Server", func() {
 		err := srv.Start()
 		Expect(err).NotTo(HaveOccurred())
 
-		addApiURL := fmt.Sprintf("https://%s%s", srv.Addr(), someURL)
-		resp, err := client.Get(addApiURL)
+		addAPIURL := fmt.Sprintf("https://%s%s", srv.Addr(), someURL)
+		resp, err := client.Get(addAPIURL)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(resp.Header.Get("Content-Type")).To(Equal("text/plain; charset=utf-8"))
@@ -236,8 +236,8 @@ var _ = Describe("Server", func() {
 			err := srv.Start()
 			Expect(err).NotTo(HaveOccurred())
 
-			addApiURL := fmt.Sprintf("http://%s%s", srv.Addr(), someURL)
-			resp, err := client.Get(addApiURL)
+			addAPIURL := fmt.Sprintf("http://%s%s", srv.Addr(), someURL)
+			resp, err := client.Get(addAPIURL)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 			utils.IgnoreErrorFunc(resp.Body.Close)

@@ -25,10 +25,11 @@ type mapped[A any, B any] struct {
 	transformer func(A) (B, error)
 }
 
+//nolint:revive // confusing-naming: mapped, flattenedPointers and flattenedValues all implement the exported Iterator interface; renaming Next is an API break; see follow-up
 func (it *mapped[A, B]) Next() (B, error) {
-	if next, err := it.Iterator.Next(); err != nil {
+	next, err := it.Iterator.Next()
+	if err != nil {
 		return utils.Zero[B](), err
-	} else {
-		return it.transformer(next)
 	}
+	return it.transformer(next)
 }

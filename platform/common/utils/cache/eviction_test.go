@@ -21,7 +21,7 @@ func (m *mockEvictionPolicy) Push(key string) {
 	m.pushedKeys = append(m.pushedKeys, key)
 }
 
-func (m *mockEvictionPolicy) String() string {
+func (*mockEvictionPolicy) String() string {
 	return "mockPolicy"
 }
 
@@ -46,7 +46,7 @@ func TestEvictionCache(t *testing.T) {
 	require.Equal(t, 1, c.Len())
 
 	// Test Update (existing key)
-	ok = c.Update("k1", func(exists bool, val string) (bool, string) {
+	ok = c.Update("k1", func(_ bool, _ string) (bool, string) {
 		return true, "v1-updated"
 	})
 	require.True(t, ok)
@@ -55,7 +55,7 @@ func TestEvictionCache(t *testing.T) {
 	require.Equal(t, "v1-updated", v)
 
 	// Test Update (delete key)
-	c.Update("k1", func(exists bool, val string) (bool, string) {
+	c.Update("k1", func(_ bool, _ string) (bool, string) {
 		return false, ""
 	})
 	_, ok = c.Get("k1")
@@ -64,7 +64,7 @@ func TestEvictionCache(t *testing.T) {
 
 	// Test Update (new key)
 	policy.pushedKeys = nil
-	ok = c.Update("k2", func(exists bool, val string) (bool, string) {
+	ok = c.Update("k2", func(_ bool, _ string) (bool, string) {
 		return true, "v2"
 	})
 	require.False(t, ok)

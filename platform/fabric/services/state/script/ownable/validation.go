@@ -13,7 +13,7 @@ import (
 
 type InputStateValidator struct{}
 
-func (s InputStateValidator) Validate(tx api.Transaction, index uint32) error {
+func (InputStateValidator) Validate(tx api.Transaction, index uint32) error {
 	ownableState := &State{}
 
 	_, scripts, err := tx.GetInputAt(int(index), ownableState)
@@ -39,7 +39,7 @@ func (s InputStateValidator) Validate(tx api.Transaction, index uint32) error {
 
 type OutputStateValidator struct{}
 
-func (s OutputStateValidator) Validate(tx api.Transaction, index uint32) error {
+func (OutputStateValidator) Validate(tx api.Transaction, index uint32) error {
 	ownableState := &State{}
 
 	scripts, err := tx.GetOutputAt(int(index), ownableState)

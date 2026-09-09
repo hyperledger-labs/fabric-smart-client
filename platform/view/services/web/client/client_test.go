@@ -168,7 +168,7 @@ func TestNewClient_Success_Configures_Client_Correctly(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, client)
 			require.Equal(t, tc.expectURL, client.url)
-			require.Equal(t, tc.expectWsURL, client.wsUrl)
+			require.Equal(t, tc.expectWsURL, client.wsURL)
 
 			if tc.expectTLS {
 				require.NotNil(t, client.tlsConfig)
@@ -267,14 +267,14 @@ func TestCallView_Error_Returns_Descriptive_Failure(t *testing.T) {
 	}{
 		{
 			name: "Non_200_Status_Code_Returns_Status_Error",
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 			},
 			expectedErrMsg: "status code",
 		},
 		{
 			name: "Invalid_JSON_Body_Returns_Unmarshal_Error",
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte("not-json"))
 			},
@@ -282,7 +282,7 @@ func TestCallView_Error_Returns_Descriptive_Failure(t *testing.T) {
 		},
 		{
 			name: "Null_CallViewResponse_Returns_Invalid_Response_Error",
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				resp := &protos.CommandResponse_CallViewResponse{}
 				w.WriteHeader(http.StatusOK)
 				_ = json.NewEncoder(w).Encode(resp)
@@ -313,7 +313,7 @@ func TestCallView_Error_Returns_Descriptive_Failure(t *testing.T) {
 func TestCallViewWithContext_Cancelled_Context_Returns_Error(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		<-r.Context().Done()
 	}))
 	defer server.Close()
@@ -396,7 +396,7 @@ func newTestClient(t *testing.T, server *httptest.Server) *Client {
 	return &Client{
 		c:             server.Client(),
 		url:           server.URL,
-		wsUrl:         "ws" + server.URL[4:],
+		wsURL:         "ws" + server.URL[4:],
 		metricsParser: expfmt.NewTextParser(model.LegacyValidation),
 	}
 }

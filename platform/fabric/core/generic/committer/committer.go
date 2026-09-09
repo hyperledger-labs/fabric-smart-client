@@ -236,16 +236,15 @@ func (c *Committer) DiscardTx(ctx context.Context, txID, message string) error {
 	}
 	if vc == driver.Unknown {
 		// give it a second chance
-		if c.EnvelopeService.Exists(ctx, txID) {
-			if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
-				return errors.WithMessagef(err, "failed to extract stored envelope for [%s]", txID)
-			}
-		} else {
+		if !c.EnvelopeService.Exists(ctx, txID) {
 			c.logger.Debugf("Discarding transaction [%s] skipped, tx is unknown", txID)
 			if err := c.Vault.SetDiscarded(ctx, txID, message); err != nil {
 				c.logger.Errorf("failed setting tx discarded [%s] in vault: %s", txID, err)
 			}
 			return nil
+		}
+		if err := c.extractStoredEnvelopeToVault(ctx, txID); err != nil {
+			return errors.WithMessagef(err, "failed to extract stored envelope for [%s]", txID)
 		}
 	}
 
@@ -275,7 +274,7 @@ func (c *Committer) CommitTX(ctx context.Context, txID string, block driver.Bloc
 	case driver.Unknown:
 		return c.commitUnknown(ctx, txID, block, indexInBlock, envelope)
 	case driver.Busy:
-		return c.commit(ctx, txID, block, indexInBlock, envelope)
+		return c.commitBusyTx(ctx, txID, block, indexInBlock, envelope)
 	default:
 		return errors.Errorf("invalid status code [%d] for [%s]", vc, txID)
 	}
@@ -526,7 +525,7 @@ func (c *Committer) listenTo(ctx context.Context, txID string, timeout time.Dura
 	return errors.Errorf("failed to listen to transaction [%s] for timeout", txID)
 }
 
-func (c *Committer) commitConfig(ctx context.Context, txID driver2.TxID, blockNumber driver2.BlockNum, seq driver2.TxNum, envelope []byte) error {
+func (c *Committer) applyConfigCommit(ctx context.Context, txID driver2.TxID, blockNumber driver2.BlockNum, seq driver2.TxNum, envelope []byte) error {
 	c.logger.Debugf("[Channel: %s] commit config transaction number [bn:%d][seq:%d]", c.ChannelConfig.ID(), blockNumber, seq)
 
 	rws, err := c.Vault.NewRWSet(ctx, txID)
@@ -552,7 +551,7 @@ func (c *Committer) commitConfig(ctx context.Context, txID driver2.TxID, blockNu
 	return nil
 }
 
-func (c *Committer) commit(ctx context.Context, txID string, block, indexInBlock uint64, envelope *common.Envelope) error {
+func (c *Committer) commitBusyTx(ctx context.Context, txID string, block, indexInBlock uint64, envelope *common.Envelope) error {
 	// This is a normal transaction, validated by Fabric.
 	// Commit it cause Fabric says it is valid.
 	c.logger.DebugfContext(ctx, "[%s] committing", txID)
@@ -650,7 +649,7 @@ func (c *Committer) commitUnknown(ctx context.Context, txID string, block, index
 		return errors.WithMessagef(err, "failed to get rws from envelope [%s]", txID)
 	}
 	rws.Done()
-	return c.commit(ctx, txID, block, indexInBlock, envelope)
+	return c.commitBusyTx(ctx, txID, block, indexInBlock, envelope)
 }
 
 func (c *Committer) commitStoredEnvelope(ctx context.Context, txID string, block, indexInBlock uint64) error {
@@ -659,7 +658,7 @@ func (c *Committer) commitStoredEnvelope(ctx context.Context, txID string, block
 		return err
 	}
 	// commit
-	return c.commit(ctx, txID, block, indexInBlock, nil)
+	return c.commitBusyTx(ctx, txID, block, indexInBlock, nil)
 }
 
 func (c *Committer) fetchEnvelope(txID string) ([]byte, error) {

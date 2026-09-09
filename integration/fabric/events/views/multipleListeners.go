@@ -148,7 +148,7 @@ func (c *MultipleListenersView) Call(viewCtx view.Context) (any, error) {
 
 type MultipleListenersViewFactory struct{}
 
-func (c *MultipleListenersViewFactory) NewView(in []byte) (view.View, error) {
+func (*MultipleListenersViewFactory) NewView(in []byte) (view.View, error) {
 	f := &MultipleListenersView{MultipleListeners: &MultipleListeners{}}
 	err := json.Unmarshal(in, f)
 	assert.NoError(err, "failed unmarshalling input")

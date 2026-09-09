@@ -134,7 +134,7 @@ type pingPongMockNode struct {
 	latency time.Duration
 }
 
-func (m *pingPongMockNode) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
+func (m *pingPongMockNode) sendTo(_ context.Context, _ host2.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
 	// In a real implementation, this would send the message over the network
 	// For our test, we'll simulate network latency by sending the message back
 	// after a short delay

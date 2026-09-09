@@ -15,19 +15,19 @@ type Inspector struct {
 	Rws ReadWriteSet
 }
 
-func (i *Inspector) IsValid() error {
+func (*Inspector) IsValid() error {
 	return nil
 }
 
-func (i *Inspector) IsClosed() bool {
+func (*Inspector) IsClosed() bool {
 	return false
 }
 
-func (i *Inspector) SetState(driver.Namespace, driver.PKey, driver.RawValue) error {
+func (*Inspector) SetState(driver.Namespace, driver.PKey, driver.RawValue) error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
-func (i *Inspector) AddReadAt(ns driver.Namespace, key string, version Version) error {
+func (*Inspector) AddReadAt(_ driver.Namespace, _ string, _ Version) error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
@@ -35,11 +35,11 @@ func (i *Inspector) GetState(namespace driver.Namespace, key driver.PKey, _ ...d
 	return i.Rws.WriteSet.Get(namespace, key), nil
 }
 
-func (i *Inspector) GetDirectState(driver.Namespace, driver.PKey) ([]byte, error) {
+func (*Inspector) GetDirectState(driver.Namespace, driver.PKey) ([]byte, error) {
 	panic("programming error: no access to query executor")
 }
 
-func (i *Inspector) DeleteState(driver.Namespace, driver.PKey) error {
+func (*Inspector) DeleteState(driver.Namespace, driver.PKey) error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
@@ -47,11 +47,11 @@ func (i *Inspector) GetStateMetadata(namespace driver.Namespace, key driver.PKey
 	return i.Rws.MetaWriteSet.Get(namespace, key), nil
 }
 
-func (i *Inspector) SetStateMetadata(driver.Namespace, driver.PKey, driver.Metadata) error {
+func (*Inspector) SetStateMetadata(driver.Namespace, driver.PKey, driver.Metadata) error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
-func (i *Inspector) SetStateMetadatas(ns driver.Namespace, kvs map[driver.PKey]driver.VaultMetadataValue) map[driver.PKey]error {
+func (*Inspector) SetStateMetadatas(_ driver.Namespace, _ map[driver.PKey]driver.VaultMetadataValue) map[driver.PKey]error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
@@ -112,21 +112,21 @@ func (i *Inspector) Namespaces() []driver.Namespace {
 	return namespaces
 }
 
-func (i *Inspector) AppendRWSet(driver.RawValue, ...driver.Namespace) error {
+func (*Inspector) AppendRWSet(driver.RawValue, ...driver.Namespace) error {
 	panic("programming error: the rwset inspector is read-only")
 }
 
-func (i *Inspector) Bytes() ([]byte, error) {
+func (*Inspector) Bytes() ([]byte, error) {
 	panic("programming error: unexpected call")
 }
 
-func (i *Inspector) Equals(other any, nss ...driver.Namespace) error {
+func (*Inspector) Equals(_ any, _ ...driver.Namespace) error {
 	panic("programming error: unexpected call")
 }
 
-func (i *Inspector) Done() {
+func (*Inspector) Done() {
 }
 
-func (i *Inspector) Clear(driver.Namespace) error {
+func (*Inspector) Clear(driver.Namespace) error {
 	panic("programming error: unexpected call")
 }

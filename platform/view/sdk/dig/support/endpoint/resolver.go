@@ -30,7 +30,7 @@ type entry struct {
 	Identity       Identity          `yaml:"identity,omitempty"`
 	Addresses      map[string]string `yaml:"addresses,omitempty"`
 	Aliases        []string          `yaml:"aliases,omitempty"`
-	Id             []byte
+	ID             []byte
 	IdentityGetter func() (view.Identity, []byte, error)
 }
 
@@ -40,7 +40,7 @@ func (r *entry) GetIdentity() (view.Identity, error) {
 		return id, err
 	}
 
-	return r.Id, nil
+	return r.ID, nil
 }
 
 type ConfigService interface {
@@ -114,21 +114,21 @@ func (r *ResolversLoader) LoadResolvers() error {
 			if err != nil {
 				return err
 			}
-			resolver.Id = raw
+			resolver.ID = raw
 			logger.Debugf("resolver [%s,%s][%s] %s",
 				resolver.Name, resolver.Domain, resolver.Addresses,
-				view.Identity(resolver.Id).UniqueID(),
+				view.Identity(resolver.ID).UniqueID(),
 			)
 
 			// Add entry
-			if _, err := r.backend.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.Id); err != nil {
+			if _, err := r.backend.AddResolver(resolver.Name, resolver.Domain, resolver.Addresses, resolver.Aliases, resolver.ID); err != nil {
 				return errors.Wrapf(err, "failed adding resolver")
 			}
 
 			// Bind Aliases
 			for _, alias := range resolver.Aliases {
 				logger.Debugf("binding [%s] to [%s]", resolver.Name, alias)
-				if err := r.backend.Bind(context.Background(), resolver.Id, []byte(alias)); err != nil {
+				if err := r.backend.Bind(context.Background(), resolver.ID, []byte(alias)); err != nil {
 					return errors.WithMessagef(err, "failed binding identity [%s] to alias [%s]", resolver.Name, alias)
 				}
 			}

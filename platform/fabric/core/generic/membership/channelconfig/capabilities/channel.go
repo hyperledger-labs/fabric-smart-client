@@ -59,12 +59,12 @@ func NewChannelProvider(capabilities map[string]*cb.Capability) *ChannelProvider
 }
 
 // Type returns a descriptive string for logging purposes.
-func (cp *ChannelProvider) Type() string {
+func (*ChannelProvider) Type() string {
 	return channelTypeName
 }
 
 // HasCapability returns true if the capability is supported by this binary.
-func (cp *ChannelProvider) HasCapability(capability string) bool {
+func (*ChannelProvider) HasCapability(capability string) bool {
 	switch capability {
 	// Add new capability names here
 	case ChannelV3_0:

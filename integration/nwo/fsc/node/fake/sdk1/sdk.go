@@ -10,10 +10,10 @@ import "context"
 
 type DummySDK struct{}
 
-func (d *DummySDK) Install() error {
+func (*DummySDK) Install() error {
 	panic("implement me")
 }
 
-func (d *DummySDK) Start(ctx context.Context) error {
+func (*DummySDK) Start(_ context.Context) error {
 	panic("implement me")
 }

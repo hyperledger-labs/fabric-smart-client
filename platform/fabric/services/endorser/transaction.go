@@ -48,7 +48,7 @@ func (t *Transaction) SetProposal(chaincode, version, function string, params ..
 	t.Transaction.SetProposal(chaincode, version, function, params...)
 }
 
-func (t *Transaction) Chaincode() (string, string) {
+func (t *Transaction) Chaincode() (name, version string) {
 	return t.Transaction.Chaincode(), t.Transaction.ChaincodeVersion()
 }
 

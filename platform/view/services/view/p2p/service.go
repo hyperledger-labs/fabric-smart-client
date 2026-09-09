@@ -59,7 +59,7 @@ type Runner interface {
 
 type defaultRunner struct{}
 
-func (r *defaultRunner) RunView(viewCtx view.Context, responder view.View) (any, error) {
+func (*defaultRunner) RunView(viewCtx view.Context, responder view.View) (any, error) {
 	return viewCtx.RunView(responder)
 }
 

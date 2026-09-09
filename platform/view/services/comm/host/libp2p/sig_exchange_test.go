@@ -72,11 +72,11 @@ func (ecdsaSigDeserializer) DeserializeVerifier(raw []byte) (cdriver.Verifier, e
 	return v, err
 }
 
-func (ecdsaSigDeserializer) DeserializeSigner(raw []byte) (cdriver.Signer, error) {
+func (ecdsaSigDeserializer) DeserializeSigner(_ []byte) (cdriver.Signer, error) {
 	return nil, nil
 }
 
-func (ecdsaSigDeserializer) Info(raw, auditInfo []byte) (string, error) {
+func (ecdsaSigDeserializer) Info(raw, _ []byte) (string, error) {
 	return view.Identity(raw).UniqueID(), nil
 }
 

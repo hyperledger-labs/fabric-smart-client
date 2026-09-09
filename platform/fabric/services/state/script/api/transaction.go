@@ -30,7 +30,7 @@ type Output struct {
 	Death     Script // Death script descriptor
 }
 
-func (o1 *Output) Equals(o2 *Output) bool {
+func (*Output) Equals(_ *Output) bool {
 	panic("implement me")
 }
 

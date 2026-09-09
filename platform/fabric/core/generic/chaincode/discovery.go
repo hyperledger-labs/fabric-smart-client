@@ -465,6 +465,6 @@ func (f *byMSPIDs) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
 
 type noFilter struct{}
 
-func (f *noFilter) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
+func (*noFilter) Filter(endorsers discovery.Endorsers) discovery.Endorsers {
 	return endorsers
 }

@@ -26,7 +26,7 @@ var (
 
 type dummyErrorWrapper struct{}
 
-func (d *dummyErrorWrapper) WrapError(err error) error {
+func (*dummyErrorWrapper) WrapError(err error) error {
 	return err
 }
 

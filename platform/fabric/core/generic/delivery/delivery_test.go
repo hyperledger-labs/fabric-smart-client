@@ -46,15 +46,15 @@ type mockLedger struct {
 	blockErr    error
 }
 
-func (m *mockLedger) GetLedgerInfo() (*driver.LedgerInfo, error) { return nil, nil }
-func (m *mockLedger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
+func (*mockLedger) GetLedgerInfo() (*driver.LedgerInfo, error) { return nil, nil }
+func (*mockLedger) GetTransactionByID(_ string) (driver.ProcessedTransaction, error) {
 	return nil, nil
 }
 
-func (m *mockLedger) GetBlockNumberByTxID(txID string) (uint64, error) {
+func (m *mockLedger) GetBlockNumberByTxID(_ string) (uint64, error) {
 	return m.blockNumber, m.blockErr
 }
-func (m *mockLedger) GetBlockByNumber(number uint64) (driver.Block, error) { return nil, nil }
+func (*mockLedger) GetBlockByNumber(_ uint64) (driver.Block, error) { return nil, nil }
 
 // --- Tests for random.go ---
 
@@ -439,7 +439,7 @@ func TestDeliveryLifecycle(t *testing.T) {
 		d := &Delivery{
 			bufferSize: 1,
 			stop:       make(chan struct{}),
-			callback: func(ctx context.Context, block *cb.Block) (bool, error) {
+			callback: func(_ context.Context, _ *cb.Block) (bool, error) {
 				return false, errors.New("callback error")
 			},
 		}
@@ -456,7 +456,7 @@ func TestDeliveryLifecycle(t *testing.T) {
 		d := &Delivery{
 			bufferSize: 1,
 			stop:       make(chan struct{}),
-			callback: func(ctx context.Context, block *cb.Block) (bool, error) {
+			callback: func(_ context.Context, _ *cb.Block) (bool, error) {
 				return true, nil
 			},
 		}
@@ -657,7 +657,7 @@ func TestRunReceiverResponses(t *testing.T) {
 		vault:         &mockVault{},
 		NetworkName:   "testNet",
 		channel:       "testChannel",
-		callback:      func(ctx context.Context, block *cb.Block) (bool, error) { return false, nil },
+		callback:      func(_ context.Context, _ *cb.Block) (bool, error) { return false, nil },
 		channelConfig: &mockChannelConfig{},
 		tracer:        noop.NewTracerProvider().Tracer("test"),
 		client:        &mockPeerClient{},

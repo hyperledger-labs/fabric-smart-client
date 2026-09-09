@@ -87,11 +87,11 @@ type emptyServiceServer struct {
 	testpb.UnsafeEmptyServiceServer
 }
 
-func (ess *emptyServiceServer) EmptyCall(context.Context, *testpb.Empty) (*testpb.Empty, error) {
+func (*emptyServiceServer) EmptyCall(context.Context, *testpb.Empty) (*testpb.Empty, error) {
 	return new(testpb.Empty), nil
 }
 
-func (esss *emptyServiceServer) EmptyStream(stream testpb.EmptyService_EmptyStreamServer) error {
+func (*emptyServiceServer) EmptyStream(stream testpb.EmptyService_EmptyStreamServer) error {
 	for {
 		_, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
@@ -704,7 +704,7 @@ func TestVerifyCertificateCallback(t *testing.T) {
 	serverKeyPair, err := ca.NewServerCertKeyPair("127.0.0.1")
 	require.NoError(t, err)
 
-	verifyFunc := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	verifyFunc := func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 		if bytes.Equal(rawCerts[0], authorizedClientKeyPair.TLSCert.Raw) {
 			return nil
 		}
@@ -917,9 +917,8 @@ func runMutualAuth(t *testing.T, servers []testServer, trustedClients, unTrusted
 			// we expect success from trusted clients
 			if err != nil {
 				return err
-			} else {
-				t.Logf("Trusted client%d successfully connected to %s", j, srvAddr)
 			}
+			t.Logf("Trusted client%d successfully connected to %s", j, srvAddr)
 		}
 
 		// loop through all the untrusted clients
@@ -930,11 +929,10 @@ func runMutualAuth(t *testing.T, servers []testServer, trustedClients, unTrusted
 				grpc.WithTransportCredentials(credentials.NewTLS(unTrustedClients[k])),
 			)
 			// we expect failure from untrusted clients
-			if err != nil {
-				t.Logf("Untrusted client%d was correctly rejected by %s", k, srvAddr)
-			} else {
+			if err == nil {
 				return errors.Errorf("Untrusted client %d should not have been able to connect to %s", k, srvAddr)
 			}
+			t.Logf("Untrusted client%d was correctly rejected by %s", k, srvAddr)
 		}
 	}
 
@@ -1244,19 +1242,19 @@ func TestServerInterceptors(t *testing.T) {
 	// set up interceptors
 	usiCount := uint32(0)
 	ssiCount := uint32(0)
-	usi1 := func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+	usi1 := func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 		atomic.AddUint32(&usiCount, 1)
 		return handler(ctx, req)
 	}
-	usi2 := func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+	usi2 := func(_ context.Context, _ any, _ *grpc.UnaryServerInfo, _ grpc.UnaryHandler) (resp any, err error) {
 		atomic.AddUint32(&usiCount, 1)
 		return nil, status.Error(codes.Aborted, msg)
 	}
-	ssi1 := func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	ssi1 := func(srv any, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		atomic.AddUint32(&ssiCount, 1)
 		return handler(srv, ss)
 	}
-	ssi2 := func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	ssi2 := func(_ any, _ grpc.ServerStream, _ *grpc.StreamServerInfo, _ grpc.StreamHandler) error {
 		atomic.AddUint32(&ssiCount, 1)
 		return status.Error(codes.Aborted, msg)
 	}

@@ -19,7 +19,7 @@ import (
 
 type PublicKeyExtractor struct{}
 
-func (p PublicKeyExtractor) ExtractPublicKey(id view.Identity) (any, error) {
+func (PublicKeyExtractor) ExtractPublicKey(id view.Identity) (any, error) {
 	si := &msp.SerializedIdentity{}
 	err := proto.Unmarshal(id, si)
 	if err != nil {

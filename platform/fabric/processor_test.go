@@ -44,7 +44,7 @@ type mockProcessorManagerInner struct {
 	LastProcessor driver.Processor
 }
 
-func (m *mockProcessorManagerInner) AddProcessor(ns string, p driver.Processor) error {
+func (m *mockProcessorManagerInner) AddProcessor(_ string, p driver.Processor) error {
 	m.AddProcessorCount++
 	m.LastProcessor = p
 	return m.LastError
@@ -56,7 +56,7 @@ func (m *mockProcessorManagerInner) SetDefaultProcessor(p driver.Processor) erro
 	return m.LastError
 }
 
-func (m *mockProcessorManagerInner) AddChannelProcessor(channel, ns string, p driver.Processor) error {
+func (m *mockProcessorManagerInner) AddChannelProcessor(_, _ string, p driver.Processor) error {
 	m.AddChannelProcessorCount++
 	m.LastProcessor = p
 	return m.LastError

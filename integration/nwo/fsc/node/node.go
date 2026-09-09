@@ -178,6 +178,7 @@ func (o *Options) AddAlias(alias string) {
 type Option func(*Options) error
 
 type FactoryEntry struct {
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
 	Id   string
 	Type string
 }
@@ -188,6 +189,7 @@ type ResponderEntry struct {
 }
 
 type SDKEntry struct {
+	//nolint:revive // var-naming: renaming this exported struct field is an API break; see follow-up
 	Id   string
 	Type string
 }

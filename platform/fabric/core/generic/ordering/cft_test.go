@@ -111,7 +111,7 @@ func (f *fakeCFTStream) Recv() (*ab.BroadcastResponse, error) {
 	return &ab.BroadcastResponse{Status: f.status}, nil
 }
 
-func (f *fakeCFTStream) CloseSend() error {
+func (*fakeCFTStream) CloseSend() error {
 	return nil
 }
 

@@ -47,7 +47,7 @@ func NewCmd() *cobra.Command {
 		Use:   "view",
 		Short: "Invoke a view.",
 		Long:  `Invoke a view.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return invoke()
 		},
 	}

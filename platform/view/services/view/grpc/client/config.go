@@ -27,6 +27,8 @@ type Config struct {
 }
 
 // ToJSon returns the JSON representation of the config.
+//
+//nolint:revive // var-naming: renaming this exported method is an API break; see follow-up
 func (config *Config) ToJSon() ([]byte, error) {
 	return json.Marshal(config)
 }
@@ -35,6 +37,8 @@ func (config *Config) ToJSon() ([]byte, error) {
 type Configs []Config
 
 // ToJSon returns the JSON representation of the list of configs.
+//
+//nolint:revive // var-naming: renaming this exported method is an API break; see follow-up
 func (configs *Configs) ToJSon() ([]byte, error) {
 	return json.MarshalIndent(configs, "", " ")
 }

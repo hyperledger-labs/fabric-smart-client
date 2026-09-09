@@ -53,7 +53,7 @@ func (rd *Dispatcher) HandleRequest(reqctx *server.ReqContext) (response any, st
 }
 
 // ParsePayload parses the incoming payload.
-func (rd *Dispatcher) ParsePayload(bytes []byte) (any, error) {
+func (*Dispatcher) ParsePayload(bytes []byte) (any, error) {
 	return bytes, nil
 }
 

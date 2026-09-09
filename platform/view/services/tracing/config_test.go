@@ -29,7 +29,7 @@ func TestGetPackageName(t *testing.T) {
 
 type ConfigHandler struct{}
 
-func (h *ConfigHandler) sendResponseLikeMethod() string {
+func (*ConfigHandler) sendResponseLikeMethod() string {
 	return callGetPackageName()
 }
 

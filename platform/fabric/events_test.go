@@ -33,19 +33,19 @@ type mockSubscriber struct {
 	m        sync.RWMutex
 }
 
-func (m *mockSubscriber) Subscribe(chaincodeName string, listener events.Listener) {
+func (m *mockSubscriber) Subscribe(_ string, listener events.Listener) {
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.listener = listener
 }
 
-func (m *mockSubscriber) Unsubscribe(chaincodeName string, listener events.Listener) {
+func (m *mockSubscriber) Unsubscribe(_ string, _ events.Listener) {
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.listener = nil
 }
 
-func (m *mockSubscriber) Publish(chaincodeName string, event *committer.ChaincodeEvent) {
+func (m *mockSubscriber) Publish(_ string, event *committer.ChaincodeEvent) {
 	m.m.RLock()
 	l := m.listener
 	m.m.RUnlock()

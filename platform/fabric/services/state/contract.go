@@ -13,7 +13,7 @@ import (
 
 type contractMetaHandler struct{}
 
-func (s2 *contractMetaHandler) StoreMeta(ns *Namespace, s any, namespace, key string, options *addOutputOptions) error {
+func (*contractMetaHandler) StoreMeta(ns *Namespace, _ any, namespace, key string, options *addOutputOptions) error {
 	if len(options.contract) == 0 {
 		return nil
 	}

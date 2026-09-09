@@ -33,10 +33,10 @@ type testConfig struct {
 	msps        []config.MSP
 }
 
-func (c *testConfig) NetworkName() string           { return c.networkName }
-func (c *testConfig) DefaultMSP() string            { return c.defaultMSP }
-func (c *testConfig) MSPs() ([]config.MSP, error)   { return c.msps, nil }
-func (c *testConfig) TranslatePath(p string) string { return p }
+func (c *testConfig) NetworkName() string         { return c.networkName }
+func (c *testConfig) DefaultMSP() string          { return c.defaultMSP }
+func (c *testConfig) MSPs() ([]config.MSP, error) { return c.msps, nil }
+func (*testConfig) TranslatePath(p string) string { return p }
 
 // loaderFunc turns a function into a driver.IdentityLoader.
 type loaderFunc func(manager driver.Manager, c config.MSP) error

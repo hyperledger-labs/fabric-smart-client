@@ -24,7 +24,7 @@ import (
 // customDecodeHook adds the additional functions of parsing durations from strings
 // as well as parsing strings of the format "[thing1, thing2, thing3]" into string slices
 // Note that whitespace around slice elements is removed
-func customDecodeHook(f, t reflect.Type, data any) (any, error) {
+func customDecodeHook(f, _ reflect.Type, data any) (any, error) {
 	if f.Kind() != reflect.String {
 		return data, nil
 	}

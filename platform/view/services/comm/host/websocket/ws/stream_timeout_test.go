@@ -204,7 +204,7 @@ func (m *mockWebSocketConn) ReadMessage() (int, []byte, error) {
 }
 
 // WriteMessage implements the websocket.Conn interface
-func (m *mockWebSocketConn) WriteMessage(messageType int, data []byte) error {
+func (m *mockWebSocketConn) WriteMessage(_ int, data []byte) error {
 	// Simulate writing by sending to writeCh
 	select {
 	case m.writeCh <- data:

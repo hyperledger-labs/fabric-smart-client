@@ -441,7 +441,7 @@ func clientRun(p *MultiplexedProvider, srvEndpoint, sessionID string, src host.P
 	}
 }
 
-func testMutualTLSConfigs(t *testing.T, insecureSkipVerify bool) (*tls.Config, *tls.Config, host.PeerID) {
+func testMutualTLSConfigs(t *testing.T, insecureSkipVerify bool) (serverConfig, clientConfig *tls.Config, clientID host.PeerID) {
 	t.Helper()
 
 	caPriv, err := ecdsa.GenerateKey(elliptic.P256(), crand.Reader)

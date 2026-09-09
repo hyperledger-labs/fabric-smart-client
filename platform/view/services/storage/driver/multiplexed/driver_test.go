@@ -93,7 +93,7 @@ func TestDriver_NewKVS(t *testing.T) {
 		mockDriver.NewKVSReturns(&mock.KeyValueStore{}, nil)
 
 		config := &mock.Config{}
-		config.UnmarshalKeyStub = func(key string, v any) error {
+		config.UnmarshalKeyStub = func(_ string, v any) error {
 			if ptr, ok := v.(*driver.PersistenceType); ok {
 				*ptr = "postgres"
 			}
@@ -114,7 +114,7 @@ func TestDriver_NewKVS(t *testing.T) {
 		mockDriver.NewKVSReturns(&mock.KeyValueStore{}, nil)
 
 		config := &mock.Config{}
-		config.UnmarshalKeyStub = func(key string, v any) error {
+		config.UnmarshalKeyStub = func(_ string, v any) error {
 			if ptr, ok := v.(*driver.PersistenceType); ok {
 				*ptr = "postgres"
 			}
@@ -135,7 +135,7 @@ func TestDriver_NewKVS(t *testing.T) {
 		mockDriver.NewKVSReturns(&mock.KeyValueStore{}, nil)
 
 		config := &mock.Config{}
-		config.UnmarshalKeyStub = func(key string, v any) error {
+		config.UnmarshalKeyStub = func(_ string, v any) error {
 			if ptr, ok := v.(*driver.PersistenceType); ok {
 				*ptr = ""
 			}
@@ -167,7 +167,7 @@ func TestDriver_NewKVS(t *testing.T) {
 		t.Parallel()
 
 		config := &mock.Config{}
-		config.UnmarshalKeyStub = func(key string, v any) error {
+		config.UnmarshalKeyStub = func(_ string, v any) error {
 			if ptr, ok := v.(*driver.PersistenceType); ok {
 				*ptr = "postgres"
 			}
@@ -190,7 +190,7 @@ func TestDriver_NewKVS(t *testing.T) {
 		mockDriver.NewKVSReturns(nil, errors.New("driver error"))
 
 		config := &mock.Config{}
-		config.UnmarshalKeyStub = func(key string, v any) error {
+		config.UnmarshalKeyStub = func(_ string, v any) error {
 			if ptr, ok := v.(*driver.PersistenceType); ok {
 				*ptr = "postgres"
 			}
@@ -213,7 +213,7 @@ func TestDriver_NewBinding(t *testing.T) {
 	mockDriver.NewBindingReturns(&mock.BindingStore{}, nil)
 
 	config := &mock.Config{}
-	config.UnmarshalKeyStub = func(key string, v any) error {
+	config.UnmarshalKeyStub = func(_ string, v any) error {
 		if ptr, ok := v.(*driver.PersistenceType); ok {
 			*ptr = "sqlite"
 		}
@@ -251,7 +251,7 @@ func TestDriver_NewSignerInfo(t *testing.T) {
 	t.Parallel()
 
 	config := &mock.Config{}
-	config.UnmarshalKeyStub = func(key string, v any) error {
+	config.UnmarshalKeyStub = func(_ string, v any) error {
 		if ptr, ok := v.(*driver.PersistenceType); ok {
 			*ptr = "postgres"
 		}
@@ -289,7 +289,7 @@ func TestDriver_NewAuditInfo(t *testing.T) {
 	t.Parallel()
 
 	config := &mock.Config{}
-	config.UnmarshalKeyStub = func(key string, v any) error {
+	config.UnmarshalKeyStub = func(_ string, v any) error {
 		if ptr, ok := v.(*driver.PersistenceType); ok {
 			*ptr = "memory"
 		}
@@ -367,7 +367,7 @@ func TestDriver_getDriver(t *testing.T) {
 			if tt.configErr != nil {
 				config.UnmarshalKeyReturns(tt.configErr)
 			} else {
-				config.UnmarshalKeyStub = func(key string, v any) error {
+				config.UnmarshalKeyStub = func(_ string, v any) error {
 					if ptr, ok := v.(*driver.PersistenceType); ok {
 						*ptr = tt.driverType
 					}

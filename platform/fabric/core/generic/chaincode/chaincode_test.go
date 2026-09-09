@@ -52,9 +52,9 @@ type mockMSPIdentity struct {
 	mspID string
 }
 
-func (m *mockMSPIdentity) GetMSPIdentifier() string           { return m.mspID }
-func (m *mockMSPIdentity) Validate() error                    { return nil }
-func (m *mockMSPIdentity) Verify(message, sigma []byte) error { return nil }
+func (m *mockMSPIdentity) GetMSPIdentifier() string { return m.mspID }
+func (*mockMSPIdentity) Validate() error            { return nil }
+func (*mockMSPIdentity) Verify(_, _ []byte) error   { return nil }
 
 type chaincodeTestFixture struct {
 	Chaincode       *chaincode.Chaincode
@@ -829,7 +829,7 @@ func TestInvoke_EndorseQuerySubmit(t *testing.T) {
 		)
 
 		var callCount atomic.Int32
-		fix.EndorserClient.ProcessProposalCalls(func(ctx context.Context, prop *pb.SignedProposal, opts ...grpc.CallOption) (*pb.ProposalResponse, error) {
+		fix.EndorserClient.ProcessProposalCalls(func(_ context.Context, _ *pb.SignedProposal, _ ...grpc.CallOption) (*pb.ProposalResponse, error) {
 			payload := "payload1"
 			if callCount.Add(1) > 1 {
 				payload = "payload2"

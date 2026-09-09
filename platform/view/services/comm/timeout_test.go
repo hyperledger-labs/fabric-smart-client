@@ -196,13 +196,13 @@ func TestServiceStartRetryDelay(t *testing.T) { //nolint:paralleltest
 // Mock implementations for timeout tests
 type mockSenderTimeout struct{}
 
-func (m *mockSenderTimeout) sendTo(ctx context.Context, info host2.StreamInfo, msg proto.Message, session *NetworkStreamSession) error {
+func (*mockSenderTimeout) sendTo(_ context.Context, _ host2.StreamInfo, _ proto.Message, _ *NetworkStreamSession) error {
 	return nil
 }
 
 type mockFailingHostProvider struct{}
 
-func (m *mockFailingHostProvider) GetNewHost() (host2.P2PHost, error) {
+func (*mockFailingHostProvider) GetNewHost() (host2.P2PHost, error) {
 	return &mockHostForTimeout{}, errors.New("simulated host creation failure")
 }
 
@@ -210,38 +210,38 @@ type mockHostForTimeout struct {
 	host2.P2PHost
 }
 
-func (m *mockHostForTimeout) PeerID() host2.PeerID {
+func (*mockHostForTimeout) PeerID() host2.PeerID {
 	return "mock-peer"
 }
 
-func (m *mockHostForTimeout) Start(newStreamCallback func(stream host2.P2PStream)) error {
+func (*mockHostForTimeout) Start(_ func(stream host2.P2PStream)) error {
 	return nil
 }
 
-func (m *mockHostForTimeout) Close() error {
+func (*mockHostForTimeout) Close() error {
 	return nil
 }
 
 type mockEndpointService struct{}
 
-func (m *mockEndpointService) GetIdentity(label string, pkID []byte) (view.Identity, error) {
+func (*mockEndpointService) GetIdentity(_ string, _ []byte) (view.Identity, error) {
 	return nil, nil
 }
 
 type mockConfigService struct{}
 
-func (m *mockConfigService) GetString(key string) string {
+func (*mockConfigService) GetString(_ string) string {
 	return ""
 }
 
-func (m *mockConfigService) GetPath(key string) string {
+func (*mockConfigService) GetPath(_ string) string {
 	return ""
 }
 
-func (m *mockConfigService) GetInt(key string) int {
+func (*mockConfigService) GetInt(_ string) int {
 	return 4 // default numWorkers
 }
 
-func (m *mockConfigService) IsSet(key string) bool {
+func (*mockConfigService) IsSet(_ string) bool {
 	return false
 }

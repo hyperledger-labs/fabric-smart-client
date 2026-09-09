@@ -28,7 +28,7 @@ type mockSession struct {
 	sent    [][]byte
 }
 
-func (m *mockSession) Info() view.SessionInfo { return view.SessionInfo{} }
+func (*mockSession) Info() view.SessionInfo { return view.SessionInfo{} }
 
 func (m *mockSession) Send(_ context.Context, payload []byte) error {
 	if m.sendErr != nil {
@@ -44,7 +44,7 @@ func (m *mockSession) SendError(ctx context.Context, payload []byte) error {
 
 func (m *mockSession) Receive() <-chan *view.Message { return m.recv }
 
-func (m *mockSession) Close() {}
+func (*mockSession) Close() {}
 
 type mockViewContext struct {
 	session      view.Session
@@ -54,15 +54,15 @@ type mockViewContext struct {
 	isMeFn       func(id view.Identity) bool
 }
 
-func (m *mockViewContext) ID() string        { return "ctx" }
-func (m *mockViewContext) Me() view.Identity { return view.Identity("me") }
+func (*mockViewContext) ID() string        { return "ctx" }
+func (*mockViewContext) Me() view.Identity { return view.Identity("me") }
 func (m *mockViewContext) IsMe(id view.Identity) bool {
 	if m.isMeFn != nil {
 		return m.isMeFn(id)
 	}
 	return false
 }
-func (m *mockViewContext) Initiator() view.View { return nil }
+func (*mockViewContext) Initiator() view.View { return nil }
 func (m *mockViewContext) GetSession(caller view.View, party view.Identity, boundToViews ...view.View) (view.Session, error) {
 	if m.getSessionFn != nil {
 		return m.getSessionFn(caller, party, boundToViews...)
@@ -70,18 +70,18 @@ func (m *mockViewContext) GetSession(caller view.View, party view.Identity, boun
 	return nil, nil
 }
 
-func (m *mockViewContext) GetSessionByID(string, view.Identity) (view.Session, error) {
+func (*mockViewContext) GetSessionByID(string, view.Identity) (view.Session, error) {
 	return nil, nil
 }
-func (m *mockViewContext) Session() view.Session    { return m.session }
-func (m *mockViewContext) Context() context.Context { return context.Background() }
+func (m *mockViewContext) Session() view.Session  { return m.session }
+func (*mockViewContext) Context() context.Context { return context.Background() }
 func (m *mockViewContext) RunView(v view.View, opts ...view.RunViewOption) (any, error) {
 	if m.runViewFn != nil {
 		return m.runViewFn(v, opts...)
 	}
 	return nil, nil
 }
-func (m *mockViewContext) OnError(func()) {}
+func (*mockViewContext) OnError(func()) {}
 func (m *mockViewContext) GetService(v any) (any, error) {
 	if m.getServiceFn != nil {
 		return m.getServiceFn(v)
@@ -89,7 +89,7 @@ func (m *mockViewContext) GetService(v any) (any, error) {
 	return nil, nil
 }
 
-func (m *mockViewContext) StartSpanFrom(ctx context.Context, _ string, _ ...trace.SpanStartOption) (context.Context, trace.Span) {
+func (*mockViewContext) StartSpanFrom(ctx context.Context, _ string, _ ...trace.SpanStartOption) (context.Context, trace.Span) {
 	return ctx, trace.SpanFromContext(ctx)
 }
 
@@ -101,7 +101,7 @@ type mockCodec struct {
 	unmarshalFn   func(raw []byte, v any) error
 }
 
-func (m *mockCodec) Marshal(v any) ([]byte, error) {
+func (m *mockCodec) Marshal(_ any) ([]byte, error) {
 	if m.marshalErr != nil {
 		return nil, m.marshalErr
 	}
@@ -121,7 +121,7 @@ type mockMarshaller struct {
 	err error
 }
 
-func (m *mockMarshaller) Marshal(v any) ([]byte, error) {
+func (m *mockMarshaller) Marshal(_ any) ([]byte, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -130,7 +130,7 @@ func (m *mockMarshaller) Marshal(v any) ([]byte, error) {
 
 type mockVaultService struct{}
 
-func (m *mockVaultService) Vault(string, string) (Vault, error) {
+func (*mockVaultService) Vault(string, string) (Vault, error) {
 	return nil, nil
 }
 
@@ -148,7 +148,7 @@ func TestGetVaultService(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 		p := &mockServiceProvider{
-			getFn: func(v any) (any, error) {
+			getFn: func(_ any) (any, error) {
 				return &mockVaultService{}, nil
 			},
 		}
@@ -161,7 +161,7 @@ func TestGetVaultService(t *testing.T) {
 		t.Parallel()
 		expected := errors.New("get service failed")
 		p := &mockServiceProvider{
-			getFn: func(v any) (any, error) {
+			getFn: func(_ any) (any, error) {
 				return nil, expected
 			},
 		}
@@ -450,7 +450,7 @@ func TestRunViewWrappers(t *testing.T) {
 	t.Run("RequestRecipientIdentity wrapper", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
+			runViewFn: func(_ view.View, _ ...view.RunViewOption) (any, error) {
 				return view.Identity("recipient"), nil
 			},
 		}
@@ -462,7 +462,7 @@ func TestRunViewWrappers(t *testing.T) {
 	t.Run("ReceiveTransaction wrapper error", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
+			runViewFn: func(_ view.View, _ ...view.RunViewOption) (any, error) {
 				return nil, errors.New("run failed")
 			},
 		}
@@ -474,7 +474,7 @@ func TestRunViewWrappers(t *testing.T) {
 		t.Parallel()
 		expected := &Transaction{}
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
+			runViewFn: func(_ view.View, _ ...view.RunViewOption) (any, error) {
 				return expected, nil
 			},
 		}
@@ -487,7 +487,7 @@ func TestRunViewWrappers(t *testing.T) {
 		t.Parallel()
 		expected := &Transaction{}
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
+			runViewFn: func(_ view.View, _ ...view.RunViewOption) (any, error) {
 				return expected, nil
 			},
 		}
@@ -499,7 +499,7 @@ func TestRunViewWrappers(t *testing.T) {
 	t.Run("SendAndReceiveTransaction wrapper error on send", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
+			runViewFn: func(_ view.View, _ ...view.RunViewOption) (any, error) {
 				return nil, errors.New("send failed")
 			},
 		}
@@ -512,7 +512,7 @@ func TestRunViewWrappers(t *testing.T) {
 		expected := &Transaction{}
 		callCount := 0
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
+			runViewFn: func(_ view.View, _ ...view.RunViewOption) (any, error) {
 				callCount++
 				if callCount == 1 {
 					return nil, nil
@@ -529,7 +529,7 @@ func TestRunViewWrappers(t *testing.T) {
 	t.Run("SendBackAndReceiveTransaction wrapper error on send", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
+			runViewFn: func(_ view.View, _ ...view.RunViewOption) (any, error) {
 				return nil, errors.New("send back failed")
 			},
 		}
@@ -542,7 +542,7 @@ func TestRunViewWrappers(t *testing.T) {
 		expected := &Transaction{}
 		callCount := 0
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
+			runViewFn: func(_ view.View, _ ...view.RunViewOption) (any, error) {
 				callCount++
 				if callCount == 1 {
 					return nil, nil
@@ -574,7 +574,7 @@ func TestTransactionConstructorsErrorAndWrap(t *testing.T) {
 	t.Run("new transaction error paths", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			getServiceFn: func(v any) (any, error) {
+			getServiceFn: func(_ any) (any, error) {
 				return nil, errors.New("service missing")
 			},
 		}
@@ -787,7 +787,7 @@ func TestRecipientViewsAndWrappers(t *testing.T) {
 	t.Run("recipient wrappers", func(t *testing.T) {
 		t.Parallel()
 		ctx := &mockViewContext{
-			runViewFn: func(v view.View, opts ...view.RunViewOption) (any, error) {
+			runViewFn: func(v view.View, _ ...view.RunViewOption) (any, error) {
 				switch v.(type) {
 				case *RespondRequestRecipientIdentityView:
 					return view.Identity("me"), nil
@@ -953,7 +953,7 @@ type mockProcessTransactionForRWSetProcessor struct {
 	id      string
 }
 
-func (m *mockProcessTransactionForRWSetProcessor) Network() string { return "net" }
+func (*mockProcessTransactionForRWSetProcessor) Network() string { return "net" }
 func (m *mockProcessTransactionForRWSetProcessor) Channel() string {
 	if m.channel == "" {
 		return "ch"
@@ -968,13 +968,13 @@ func (m *mockProcessTransactionForRWSetProcessor) ID() string {
 	return m.id
 }
 
-func (m *mockProcessTransactionForRWSetProcessor) FunctionAndParameters() (string, []string) {
+func (*mockProcessTransactionForRWSetProcessor) FunctionAndParameters() (string, []string) {
 	return "fn", nil
 }
 
 type mockRequestForRWSetProcessor struct{}
 
-func (m *mockRequestForRWSetProcessor) ID() string { return "req-id" }
+func (*mockRequestForRWSetProcessor) ID() string { return "req-id" }
 
 func TestRWSetProcessorProcessChannelError(t *testing.T) {
 	t.Parallel()
@@ -995,7 +995,7 @@ func (m *mockDriverMetadataService) Exists(context.Context, string) bool {
 	return m.exists
 }
 
-func (m *mockDriverMetadataService) StoreTransient(context.Context, string, fdriver.TransientMap) error {
+func (*mockDriverMetadataService) StoreTransient(context.Context, string, fdriver.TransientMap) error {
 	return nil
 }
 
@@ -1006,11 +1006,11 @@ func (m *mockDriverMetadataService) LoadTransient(context.Context, string) (fdri
 	return m.transientMap, nil
 }
 
-func (m *mockDriverMetadataService) PutFieldMapping(context.Context, string, string, []byte, fdriver.TransientMap) error {
+func (*mockDriverMetadataService) PutFieldMapping(context.Context, string, string, []byte, fdriver.TransientMap) error {
 	return nil
 }
 
-func (m *mockDriverMetadataService) GetFieldMapping(context.Context, string, string, []byte) (fdriver.TransientMap, error) {
+func (*mockDriverMetadataService) GetFieldMapping(context.Context, string, string, []byte) (fdriver.TransientMap, error) {
 	return nil, nil
 }
 
@@ -1026,18 +1026,18 @@ func (m *mockDriverChannel) Name() string {
 	return m.name
 }
 
-func (m *mockDriverChannel) Committer() fdriver.Committer                           { return nil }
-func (m *mockDriverChannel) Vault() fdriver.Vault                                   { return nil }
-func (m *mockDriverChannel) Delivery() fdriver.Delivery                             { return nil }
-func (m *mockDriverChannel) Ledger() fdriver.Ledger                                 { return nil }
-func (m *mockDriverChannel) Finality() fdriver.Finality                             { return nil }
-func (m *mockDriverChannel) ChannelMembership() fdriver.ChannelMembership           { return nil }
-func (m *mockDriverChannel) ChaincodeManager() fdriver.ChaincodeManager             { return nil }
-func (m *mockDriverChannel) RWSetLoader() fdriver.RWSetLoader                       { return nil }
-func (m *mockDriverChannel) EnvelopeService() fdriver.EnvelopeService               { return nil }
-func (m *mockDriverChannel) TransactionService() fdriver.EndorserTransactionService { return nil }
-func (m *mockDriverChannel) MetadataService() fdriver.MetadataService               { return m.metadata }
-func (m *mockDriverChannel) Close() error                                           { return nil }
+func (*mockDriverChannel) Committer() fdriver.Committer                           { return nil }
+func (*mockDriverChannel) Vault() fdriver.Vault                                   { return nil }
+func (*mockDriverChannel) Delivery() fdriver.Delivery                             { return nil }
+func (*mockDriverChannel) Ledger() fdriver.Ledger                                 { return nil }
+func (*mockDriverChannel) Finality() fdriver.Finality                             { return nil }
+func (*mockDriverChannel) ChannelMembership() fdriver.ChannelMembership           { return nil }
+func (*mockDriverChannel) ChaincodeManager() fdriver.ChaincodeManager             { return nil }
+func (*mockDriverChannel) RWSetLoader() fdriver.RWSetLoader                       { return nil }
+func (*mockDriverChannel) EnvelopeService() fdriver.EnvelopeService               { return nil }
+func (*mockDriverChannel) TransactionService() fdriver.EndorserTransactionService { return nil }
+func (m *mockDriverChannel) MetadataService() fdriver.MetadataService             { return m.metadata }
+func (*mockDriverChannel) Close() error                                           { return nil }
 
 func TestRWSetProcessorProcessKnownTransaction(t *testing.T) {
 	t.Parallel()

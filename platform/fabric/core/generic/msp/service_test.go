@@ -251,17 +251,17 @@ func TestService_SetDefaultIdentity(t *testing.T) {
 		_ = mspService.Load()
 
 		// Set initial identity
-		initialId := view.Identity("initial_id")
+		initialID := view.Identity("initial_id")
 		initialSid := &mock.SigningIdentity{}
-		mspService.SetDefaultIdentity("default_msp", initialId, initialSid)
+		mspService.SetDefaultIdentity("default_msp", initialID, initialSid)
 
 		// Try to set with non-matching id - should be no-op
-		newId := view.Identity("new_id")
+		newID := view.Identity("new_id")
 		newSid := &mock.SigningIdentity{}
-		mspService.SetDefaultIdentity("non_matching_msp", newId, newSid)
+		mspService.SetDefaultIdentity("non_matching_msp", newID, newSid)
 
 		// Verify identity remains unchanged
-		require.Equal(t, initialId, mspService.DefaultIdentity())
+		require.Equal(t, initialID, mspService.DefaultIdentity())
 		require.Equal(t, initialSid, mspService.DefaultSigningIdentity())
 	})
 }
@@ -290,31 +290,31 @@ func TestService_GetIdentityByID(t *testing.T) {
 	mspService, _, binderService, _ := setup(t)
 	id := view.Identity("id1")
 
-	require.NoError(t, mspService.AddMSP("apple", msp.BccspMSP, "enrollment1", func(opts *fdriver.IdentityOptions) (view.Identity, []byte, error) {
+	require.NoError(t, mspService.AddMSP("apple", msp.BccspMSP, "enrollment1", func(_ *fdriver.IdentityOptions) (view.Identity, []byte, error) {
 		return id, nil, nil
 	}))
 
 	t.Run("ByMSPName", func(t *testing.T) {
 		t.Parallel()
-		resId, err := mspService.GetIdentityByID("apple")
+		resID, err := mspService.GetIdentityByID("apple")
 		require.NoError(t, err)
-		require.Equal(t, id, resId)
+		require.Equal(t, id, resID)
 	})
 
 	t.Run("ByEnrollmentID", func(t *testing.T) {
 		t.Parallel()
-		resId, err := mspService.GetIdentityByID("enrollment1")
+		resID, err := mspService.GetIdentityByID("enrollment1")
 		require.NoError(t, err)
-		require.Equal(t, id, resId)
+		require.Equal(t, id, resID)
 	})
 
 	t.Run("ViaBinderService", func(t *testing.T) {
 		t.Parallel()
-		binderId := view.Identity("binder_id")
-		binderService.GetIdentityReturns(binderId, nil)
-		resId, err := mspService.GetIdentityByID("non_existent")
+		binderID := view.Identity("binder_id")
+		binderService.GetIdentityReturns(binderID, nil)
+		resID, err := mspService.GetIdentityByID("non_existent")
 		require.NoError(t, err)
-		require.Equal(t, binderId, resId)
+		require.Equal(t, binderID, resID)
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
@@ -331,22 +331,22 @@ func TestService_Identity(t *testing.T) {
 	t.Parallel()
 	mspService, _, _, _ := setup(t)
 	id := view.Identity("id1")
-	require.NoError(t, mspService.AddMSP("apple", msp.BccspMSP, "enrollment1", func(opts *fdriver.IdentityOptions) (view.Identity, []byte, error) {
+	require.NoError(t, mspService.AddMSP("apple", msp.BccspMSP, "enrollment1", func(_ *fdriver.IdentityOptions) (view.Identity, []byte, error) {
 		return id, nil, nil
 	}))
 
 	t.Run("Success", func(t *testing.T) {
 		t.Parallel()
-		resId, err := mspService.Identity("apple")
+		resID, err := mspService.Identity("apple")
 		require.NoError(t, err)
-		require.Equal(t, id, resId)
+		require.Equal(t, id, resID)
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
 		t.Parallel()
-		resId, err := mspService.Identity("unknown")
+		resID, err := mspService.Identity("unknown")
 		require.Error(t, err)
-		require.Nil(t, resId)
+		require.Nil(t, resID)
 	})
 }
 
@@ -355,7 +355,7 @@ func TestService_GetIdentityInfoByIdentity_BCCSP(t *testing.T) {
 	mspService, _, _, _ := setup(t)
 	id := view.Identity("id1")
 
-	require.NoError(t, mspService.AddMSP("apple", msp.BccspMSP, "enrollment1", func(opts *fdriver.IdentityOptions) (view.Identity, []byte, error) {
+	require.NoError(t, mspService.AddMSP("apple", msp.BccspMSP, "enrollment1", func(_ *fdriver.IdentityOptions) (view.Identity, []byte, error) {
 		return id, nil, nil
 	}))
 
@@ -375,14 +375,14 @@ func TestService_GetIdentityInfoByIdentity_BCCSP(t *testing.T) {
 func TestService_GetIdentityInfoByIdentity_Idemix(t *testing.T) {
 	t.Parallel()
 	mspService, _, _, _ := setup(t)
-	idemixId := view.Identity("idemix_id")
-	require.NoError(t, mspService.AddMSP("orange", msp.IdemixMSP, "enrollment2", func(opts *fdriver.IdentityOptions) (view.Identity, []byte, error) {
-		return idemixId, nil, nil
+	idemixID := view.Identity("idemix_id")
+	require.NoError(t, mspService.AddMSP("orange", msp.IdemixMSP, "enrollment2", func(_ *fdriver.IdentityOptions) (view.Identity, []byte, error) {
+		return idemixID, nil, nil
 	}))
 
 	t.Run("Success", func(t *testing.T) {
 		t.Parallel()
-		info := mspService.GetIdentityInfoByIdentity(msp.IdemixMSP, idemixId)
+		info := mspService.GetIdentityInfoByIdentity(msp.IdemixMSP, idemixID)
 		require.NotNil(t, info)
 		require.Equal(t, "orange", info.ID)
 	})
@@ -399,40 +399,40 @@ func TestService_AnonymousIdentity(t *testing.T) {
 	t.Run("BindsDefaultViewIdentity", func(t *testing.T) {
 		t.Parallel()
 		mspService, _, binderService, _ := setup(t)
-		idemixId := view.Identity("idemix_id")
+		idemixID := view.Identity("idemix_id")
 
 		initialCount := binderService.BindCallCount()
 
-		require.NoError(t, mspService.AddMSP("idemix", msp.IdemixMSP, "idemix_enrollment", func(opts *fdriver.IdentityOptions) (view.Identity, []byte, error) {
-			return idemixId, nil, nil
+		require.NoError(t, mspService.AddMSP("idemix", msp.IdemixMSP, "idemix_enrollment", func(_ *fdriver.IdentityOptions) (view.Identity, []byte, error) {
+			return idemixID, nil, nil
 		}))
 
-		anonId, err := mspService.AnonymousIdentity()
+		anonID, err := mspService.AnonymousIdentity()
 		require.NoError(t, err)
-		require.Equal(t, idemixId, anonId)
+		require.Equal(t, idemixID, anonID)
 		require.Equal(t, initialCount+1, binderService.BindCallCount())
 	})
 
 	t.Run("IdentityNotFound", func(t *testing.T) {
 		t.Parallel()
 		mspService, _, _, _ := setup(t)
-		anonId, err := mspService.AnonymousIdentity()
+		anonID, err := mspService.AnonymousIdentity()
 		require.Error(t, err)
-		require.Nil(t, anonId)
+		require.Nil(t, anonID)
 	})
 
 	t.Run("BindFails", func(t *testing.T) {
 		t.Parallel()
 		mspService, _, binderService, _ := setup(t)
-		idemixId := view.Identity("idemix_id")
+		idemixID := view.Identity("idemix_id")
 		binderService.BindReturns(errors.New("bind failed"))
 
-		require.NoError(t, mspService.AddMSP("idemix", msp.IdemixMSP, "idemix_enrollment", func(opts *fdriver.IdentityOptions) (view.Identity, []byte, error) {
-			return idemixId, nil, nil
+		require.NoError(t, mspService.AddMSP("idemix", msp.IdemixMSP, "idemix_enrollment", func(_ *fdriver.IdentityOptions) (view.Identity, []byte, error) {
+			return idemixID, nil, nil
 		}))
 
-		anonId, err := mspService.AnonymousIdentity()
+		anonID, err := mspService.AnonymousIdentity()
 		require.Error(t, err)
-		require.Nil(t, anonId)
+		require.Nil(t, anonID)
 	})
 }

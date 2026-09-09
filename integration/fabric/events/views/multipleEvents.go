@@ -63,7 +63,7 @@ func (c *MultipleEventsView) Call(viewCtx view.Context) (any, error) {
 
 type MultipleEventsViewFactory struct{}
 
-func (c *MultipleEventsViewFactory) NewView(in []byte) (view.View, error) {
+func (*MultipleEventsViewFactory) NewView(in []byte) (view.View, error) {
 	f := &MultipleEventsView{MultipleEvents: &MultipleEvents{}}
 	err := json.Unmarshal(in, f)
 	assert.NoError(err, "failed unmarshalling input")

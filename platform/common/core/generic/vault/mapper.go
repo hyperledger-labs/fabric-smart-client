@@ -22,7 +22,7 @@ type rwSetMapper struct {
 	vb     VersionBuilder
 }
 
-func (m *rwSetMapper) mapTxIDs(inputs []commitInput) []driver.TxID {
+func (*rwSetMapper) mapTxIDs(inputs []commitInput) []driver.TxID {
 	txIDs := make([]driver.TxID, len(inputs))
 	for i, input := range inputs {
 		txIDs[i] = input.txID

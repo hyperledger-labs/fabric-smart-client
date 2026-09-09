@@ -54,12 +54,12 @@ type mockEnvelope struct {
 }
 
 func (m *mockEnvelope) Bytes() ([]byte, error) { return m.bytes, m.bytesErr }
-func (m *mockEnvelope) FromBytes([]byte) error { return nil }
-func (m *mockEnvelope) Results() []byte        { return nil }
-func (m *mockEnvelope) TxID() string           { return "" }
-func (m *mockEnvelope) Nonce() []byte          { return nil }
-func (m *mockEnvelope) Creator() []byte        { return nil }
-func (m *mockEnvelope) String() string         { return "" }
+func (*mockEnvelope) FromBytes([]byte) error   { return nil }
+func (*mockEnvelope) Results() []byte          { return nil }
+func (*mockEnvelope) TxID() string             { return "" }
+func (*mockEnvelope) Nonce() []byte            { return nil }
+func (*mockEnvelope) Creator() []byte          { return nil }
+func (*mockEnvelope) String() string           { return "" }
 
 // mockTransactionWithEnvelope implements TransactionWithEnvelope for testing
 type mockTransactionWithEnvelope struct {
@@ -89,7 +89,7 @@ type mockBroadcaster struct {
 	env       *common.Envelope
 }
 
-func (m *mockBroadcaster) broadcast(ctx context.Context, env *common.Envelope) error {
+func (m *mockBroadcaster) broadcast(_ context.Context, env *common.Envelope) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.called = true
@@ -103,7 +103,7 @@ func (m *mockBroadcaster) broadcast(ctx context.Context, env *common.Envelope) e
 // arrives.
 func newTestService() *Service {
 	return NewService(
-		func(channelID string) (driver.EndorserTransactionService, error) {
+		func(_ string) (driver.EndorserTransactionService, error) {
 			return &mockEndorserTransactionService{}, nil
 		},
 		&mockSignerService{},
@@ -141,7 +141,7 @@ func requireNoBroadcaster(t *testing.T, s *Service) {
 func TestNewService(t *testing.T) {
 	t.Parallel()
 
-	getEndorserTxService := func(channelID string) (driver.EndorserTransactionService, error) {
+	getEndorserTxService := func(_ string) (driver.EndorserTransactionService, error) {
 		return &mockEndorserTransactionService{}, nil
 	}
 	sigService := &mockSignerService{}
@@ -225,7 +225,7 @@ func TestService_Configure(t *testing.T) {
 		t.Parallel()
 		configService := &fake.ConfigService{PoolSizeValue: 4, RetriesValue: 3, NetworkNameValue: "test-network"}
 		service := NewService(
-			func(channelID string) (driver.EndorserTransactionService, error) {
+			func(_ string) (driver.EndorserTransactionService, error) {
 				return &mockEndorserTransactionService{}, nil
 			},
 			&mockSignerService{},
@@ -345,7 +345,7 @@ func TestService_Broadcast(t *testing.T) {
 	t.Run("broadcast with invalid blob type", func(t *testing.T) {
 		t.Parallel()
 		service := newTestService()
-		setBroadcaster(t, service, func(ctx context.Context, env *common.Envelope) error { return nil })
+		setBroadcaster(t, service, func(_ context.Context, _ *common.Envelope) error { return nil })
 
 		err := service.Broadcast(t.Context(), "invalid type")
 		require.Error(t, err)
@@ -370,7 +370,7 @@ func TestService_Broadcast(t *testing.T) {
 	t.Run("broadcast with transaction envelope error", func(t *testing.T) {
 		t.Parallel()
 		service := newTestService()
-		setBroadcaster(t, service, func(ctx context.Context, env *common.Envelope) error { return nil })
+		setBroadcaster(t, service, func(_ context.Context, _ *common.Envelope) error { return nil })
 
 		tx := &mockTransaction{
 			id:          "tx1",
@@ -385,7 +385,7 @@ func TestService_Broadcast(t *testing.T) {
 	t.Run("broadcast with transaction bytes error", func(t *testing.T) {
 		t.Parallel()
 		service := newTestService()
-		setBroadcaster(t, service, func(ctx context.Context, env *common.Envelope) error { return nil })
+		setBroadcaster(t, service, func(_ context.Context, _ *common.Envelope) error { return nil })
 
 		tx := &mockTransaction{
 			id: "tx1",
@@ -402,7 +402,7 @@ func TestService_Broadcast(t *testing.T) {
 	t.Run("broadcast with invalid envelope bytes", func(t *testing.T) {
 		t.Parallel()
 		service := newTestService()
-		setBroadcaster(t, service, func(ctx context.Context, env *common.Envelope) error { return nil })
+		setBroadcaster(t, service, func(_ context.Context, _ *common.Envelope) error { return nil })
 
 		tx := &mockTransaction{
 			id: "tx1",

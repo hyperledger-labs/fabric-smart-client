@@ -207,15 +207,15 @@ func NewServerConfig(configProvider driver.ConfigService) (grpc2.ServerConfig, e
 // is done. It returns immediately; each server runs in its own goroutine. A nil server is
 // skipped.
 func Serve(grpcServer *grpc2.GRPCServer, webServer Server, ops OperationsServer, operationsSystem *operations.System, kvss *kvs.KVS, ctx context.Context) {
-	serve(grpcServer, webServer, ops, operationsSystem, kvss, ctx)
+	startServe(grpcServer, webServer, ops, operationsSystem, kvss, ctx)
 }
 
-// serve starts the GRPC server, web server, and operations system in their own
+// startServe starts the GRPC server, web server, and operations system in their own
 // goroutines, plus a shutdown goroutine that stops them when ctx is done. It
 // returns a *sync.WaitGroup tracking the three server goroutines so callers
 // (and tests) can confirm they have actually stopped before proceeding with
 // teardown.
-func serve(grpcServer *grpc2.GRPCServer, webServer Server, ops OperationsServer, operationsSystem *operations.System, kvss *kvs.KVS, ctx context.Context) *sync.WaitGroup {
+func startServe(grpcServer *grpc2.GRPCServer, webServer Server, ops OperationsServer, operationsSystem *operations.System, kvss *kvs.KVS, ctx context.Context) *sync.WaitGroup {
 	var wg sync.WaitGroup
 
 	wg.Go(func() {

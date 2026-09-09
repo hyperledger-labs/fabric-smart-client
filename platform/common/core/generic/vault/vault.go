@@ -240,13 +240,13 @@ func (db *Vault[V]) SetDiscarded(ctx context.Context, txID driver.TxID, message 
 func (db *Vault[V]) NewRWSet(ctx context.Context, txID driver.TxID) (api2.RWSet, error) {
 	db.logger.Debugf("NewRWSet[%s]", txID)
 
-	return db.newRWSet(ctx, txID, EmptyRWSet(), driver.LevelDefault)
+	return db.buildRWSet(ctx, txID, EmptyRWSet(), driver.LevelDefault)
 }
 
 func (db *Vault[V]) NewRWSetWithIsolationLevel(ctx context.Context, txID driver.TxID, isolationLevel driver.IsolationLevel) (api2.RWSet, error) {
 	db.logger.Debugf("NewRWSet[%s]", txID)
 
-	return db.newRWSet(ctx, txID, EmptyRWSet(), isolationLevel)
+	return db.buildRWSet(ctx, txID, EmptyRWSet(), isolationLevel)
 }
 
 func (db *Vault[V]) NewRWSetFromBytes(ctx context.Context, txID driver.TxID, rwsetBytes []byte) (driver.RWSet, error) {
@@ -256,10 +256,10 @@ func (db *Vault[V]) NewRWSetFromBytes(ctx context.Context, txID driver.TxID, rws
 		return nil, errors.Wrapf(err, "failed populating tx [%s]", txID)
 	}
 
-	return db.newRWSet(ctx, txID, rwSet, driver.LevelDefault)
+	return db.buildRWSet(ctx, txID, rwSet, driver.LevelDefault)
 }
 
-func (db *Vault[V]) newRWSet(ctx context.Context, txID driver.TxID, rws ReadWriteSet, isolationLevel driver.IsolationLevel) (driver.RWSet, error) {
+func (db *Vault[V]) buildRWSet(ctx context.Context, txID driver.TxID, rws ReadWriteSet, isolationLevel driver.IsolationLevel) (driver.RWSet, error) {
 	qe, err := db.vaultStore.NewTxLockVaultReader(ctx, txID, isolationLevel)
 	if err != nil {
 		return nil, err

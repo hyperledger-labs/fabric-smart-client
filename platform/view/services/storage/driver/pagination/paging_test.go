@@ -163,7 +163,7 @@ func TestKeysetRejectsEmptyColumnName(t *testing.T) {
 
 type keysetID struct{ TxID string }
 
-func (k keysetID) Id() string { return k.TxID }
+func (k keysetID) ID() string { return k.TxID }
 
 // The column name is interpolated straight into ORDER BY and into the cursor
 // comparison, and a deserialized cursor is untrusted input.

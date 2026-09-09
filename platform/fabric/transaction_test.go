@@ -286,27 +286,27 @@ type mockTxManager struct {
 	mtx *mock.Transaction
 }
 
-func (m *mockTxManager) NewTransaction(ctx context.Context, txType driver.TransactionType, creator view.Identity, nonce []byte, txID, channel string, rawRequest []byte) (driver.Transaction, error) {
+func (m *mockTxManager) NewTransaction(_ context.Context, _ driver.TransactionType, _ view.Identity, _ []byte, _, _ string, _ []byte) (driver.Transaction, error) {
 	return m.mtx, nil
 }
 
-func (m *mockTxManager) NewTransactionFromBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
+func (m *mockTxManager) NewTransactionFromBytes(_ context.Context, _ string, _ []byte) (driver.Transaction, error) {
 	return m.mtx, nil
 }
 
-func (m *mockTxManager) NewTransactionFromEnvelopeBytes(ctx context.Context, channel string, raw []byte) (driver.Transaction, error) {
+func (m *mockTxManager) NewTransactionFromEnvelopeBytes(_ context.Context, _ string, _ []byte) (driver.Transaction, error) {
 	return m.mtx, nil
 }
 
-func (m *mockTxManager) NewEnvelope() driver.Envelope {
+func (*mockTxManager) NewEnvelope() driver.Envelope {
 	return &mock.Envelope{}
 }
 
-func (m *mockTxManager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalResponse, error) {
+func (*mockTxManager) NewProposalResponseFromBytes(_ []byte) (driver.ProposalResponse, error) {
 	return &mock.ProposalResponse{}, nil
 }
 
-func (m *mockTxManager) ComputeTxID(id *driver.TxIDComponents) string {
+func (*mockTxManager) ComputeTxID(id *driver.TxIDComponents) string {
 	id.Nonce = []byte("nonce")
 	id.Creator = []byte("creator")
 	return "computed_txid"

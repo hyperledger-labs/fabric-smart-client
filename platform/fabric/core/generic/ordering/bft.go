@@ -272,7 +272,7 @@ func (o *BFTBroadcaster) releaseConnection(connection *Connection, to *grpc.Conn
 	}
 }
 
-func (o *BFTBroadcaster) releaseSlot(state *bftOrdererState) {
+func (*BFTBroadcaster) releaseSlot(state *bftOrdererState) {
 	select {
 	case state.slots <- struct{}{}:
 	default:

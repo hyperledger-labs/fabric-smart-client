@@ -61,7 +61,7 @@ func TestService_RegisterSigner(t *testing.T) {
 		{
 			name:   "nil signer returns error",
 			signer: nil,
-			setupStore: func(store *mock.SignerInfoStore) {
+			setupStore: func(_ *mock.SignerInfoStore) {
 				// no setup needed
 			},
 			expectedErr:    "invalid signer",
@@ -103,7 +103,7 @@ func TestService_RegisterSigner(t *testing.T) {
 				existingSigner := &mock.Signer{}
 				s.signers[identity.UniqueID()] = driver2.SignerEntry{Signer: existingSigner}
 			},
-			setupStore: func(store *mock.SignerInfoStore) {
+			setupStore: func(_ *mock.SignerInfoStore) {
 				// should not be called
 			},
 			expectInCache:  true,
@@ -332,7 +332,7 @@ func TestService_IsMe(t *testing.T) {
 			preRegister: func(s *Service) {
 				s.signers[identity.UniqueID()] = driver2.SignerEntry{Signer: &mock.Signer{}}
 			},
-			setupStore: func(store *mock.SignerInfoStore) {
+			setupStore: func(_ *mock.SignerInfoStore) {
 				// should not be called
 			},
 			expected: true,
@@ -396,7 +396,7 @@ func TestService_AreMe(t *testing.T) {
 				s.signers[id1.UniqueID()] = driver2.SignerEntry{Signer: &mock.Signer{}}
 				s.signers[id2.UniqueID()] = driver2.SignerEntry{Signer: &mock.Signer{}}
 			},
-			setupStore: func(store *mock.SignerInfoStore) {
+			setupStore: func(_ *mock.SignerInfoStore) {
 				// should not be called
 			},
 			expectedCount:  2,
@@ -490,7 +490,7 @@ func TestService_Info(t *testing.T) {
 			setupAuditStore: func(store *mock.AuditInfoStore) {
 				store.GetAuditInfoReturns(nil, errors.New("not found"))
 			},
-			setupDeserializer: func(des *mock.Deserializer) {
+			setupDeserializer: func(_ *mock.Deserializer) {
 				// should not be called
 			},
 			expectedContains: "unable to identify identity",
@@ -544,7 +544,7 @@ func TestService_GetSigner(t *testing.T) {
 			preRegister: func(s *Service) {
 				s.signers[identity.UniqueID()] = driver2.SignerEntry{Signer: &mock.Signer{}}
 			},
-			setupDeserializer: func(des *mock.Deserializer) {
+			setupDeserializer: func(_ *mock.Deserializer) {
 				// should not be called
 			},
 			expectSigner:     true,
@@ -618,7 +618,7 @@ func TestService_GetVerifier(t *testing.T) {
 			preRegister: func(s *Service) {
 				s.verifiers[identity.UniqueID()] = VerifierEntry{Verifier: &mock.Verifier{}}
 			},
-			setupDeserializer: func(des *mock.Deserializer) {
+			setupDeserializer: func(_ *mock.Deserializer) {
 				// should not be called
 			},
 			expectVerifier:   true,
@@ -711,7 +711,7 @@ func TestService_GetSigningIdentity(t *testing.T) {
 			setupSigner: func() driver2.Signer {
 				return nil
 			},
-			preRegister: func(s *Service, signer driver2.Signer) {
+			preRegister: func(_ *Service, _ driver2.Signer) {
 				// don't register
 			},
 			expectedErr: "cannot find signer",

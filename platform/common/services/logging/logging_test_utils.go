@@ -24,7 +24,7 @@ type (
 
 // Named returns an Option that names the logger under test.
 func Named(loggerName string) Option {
-	return func(r *floggingtest.RecordingCore, l *zap.Logger) *zap.Logger {
+	return func(_ *floggingtest.RecordingCore, l *zap.Logger) *zap.Logger {
 		return l.Named(loggerName)
 	}
 }

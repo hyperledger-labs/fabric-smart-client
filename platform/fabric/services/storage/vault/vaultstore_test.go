@@ -160,8 +160,8 @@ func NewOffsetPagination(offset, pageSize int) driver.Pagination {
 	return offsetPagination
 }
 
-func NewKeysetPagination(offset, pageSize int, sqlIdName dbdriver.FieldName, idFieldName pagination.PropertyName[string]) driver.Pagination {
-	keysetPagination, err := pagination.KeysetWithField[string](offset, pageSize, sqlIdName, idFieldName)
+func NewKeysetPagination(offset, pageSize int, sqlIDName dbdriver.FieldName, idFieldName pagination.PropertyName[string]) driver.Pagination {
+	keysetPagination, err := pagination.KeysetWithField[string](offset, pageSize, sqlIDName, idFieldName)
 	if err != nil {
 		Expect(err).ToNot(HaveOccurred())
 	}

@@ -18,7 +18,7 @@ type DefaultPublicKeyIDSynthesizer struct{}
 // PublicKeyID generates a unique identifier for a public key by marshaling it to
 // PKIX format and computing its SHA-256 hash.
 // Returns an error if the key cannot be marshaled (e.g., unsupported key type).
-func (d DefaultPublicKeyIDSynthesizer) PublicKeyID(key any) ([]byte, error) {
+func (DefaultPublicKeyIDSynthesizer) PublicKeyID(key any) ([]byte, error) {
 	raw, err := x509.MarshalPKIXPublicKey(key)
 	if err != nil {
 		return nil, err

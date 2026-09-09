@@ -16,13 +16,13 @@ func NewDummyServer() *DummyServer {
 	return &DummyServer{}
 }
 
-func (d *DummyServer) RegisterHandler(s string, handler http.Handler, secure bool) {
+func (*DummyServer) RegisterHandler(_ string, _ http.Handler, _ bool) {
 }
 
-func (d *DummyServer) Start() error {
+func (*DummyServer) Start() error {
 	return nil
 }
 
-func (d *DummyServer) Stop() error {
+func (*DummyServer) Stop() error {
 	return nil
 }

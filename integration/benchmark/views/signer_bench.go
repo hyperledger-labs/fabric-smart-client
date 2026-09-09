@@ -30,7 +30,7 @@ type ECDSASignView struct {
 
 var msgBytes = []byte("hello, world")
 
-func (q *ECDSASignView) Call(viewCtx view.Context) (any, error) {
+func (q *ECDSASignView) Call(_ view.Context) (any, error) {
 	hash := sha256.Sum256(msgBytes)
 
 	sig, err := ecdsa.SignASN1(q.r, q.pr, hash[:])
@@ -43,7 +43,7 @@ func (q *ECDSASignView) Call(viewCtx view.Context) (any, error) {
 
 type ECDSASignViewFactory struct{}
 
-func (c *ECDSASignViewFactory) NewView(in []byte) (view.View, error) {
+func (*ECDSASignViewFactory) NewView(in []byte) (view.View, error) {
 	f := &ECDSASignView{}
 	if err := json.Unmarshal(in, &f.params); err != nil {
 		return nil, err

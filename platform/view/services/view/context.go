@@ -295,13 +295,13 @@ func (c *Context) Caller() view.Identity {
 // Sessions are scoped by the caller view and cached.
 // The session can be bound to other caller views by passing them as additional parameters.
 func (c *Context) GetSession(caller view.View, party view.Identity, boundToViews ...view.View) (view.Session, error) {
-	viewId := getViewIdentifier(caller)
-	logger.DebugfContext(c.Context(), "[%s] GetSession [%s:%s]", c.me, viewId, party)
+	viewID := getViewIdentifier(caller)
+	logger.DebugfContext(c.Context(), "[%s] GetSession [%s:%s]", c.me, viewID, party)
 	// TODO: we need a mechanism to close all the sessions opened in this ctx,
 	// when the ctx goes out of scope
 
 	// is there already a session?
-	s, targetIdentity := c.sessions.GetFirstOpen(viewId, lazy.NewIterator(
+	s, targetIdentity := c.sessions.GetFirstOpen(viewID, lazy.NewIterator(
 		func() (view.Identity, error) { return party, nil },
 		func() (view.Identity, error) { return c.resolve(party) },
 		func() (view.Identity, error) { return c.resolve(c.idProvider.Identity(string(party))) },
@@ -309,10 +309,10 @@ func (c *Context) GetSession(caller view.View, party view.Identity, boundToViews
 
 	// a session is available, return it
 	if s != nil {
-		logger.DebugfContext(c.Context(), "[%s] Reusing session [%s:%s]", c.me, viewId, party)
+		logger.DebugfContext(c.Context(), "[%s] Reusing session [%s:%s]", c.me, viewID, party)
 		return s, nil
 	}
-	logger.DebugfContext(c.Context(), "[%s] No session found for [%s:%s], target [%s]", c.me, viewId, party, targetIdentity)
+	logger.DebugfContext(c.Context(), "[%s] No session found for [%s:%s], target [%s]", c.me, viewID, party, targetIdentity)
 
 	// create a session
 	if caller == nil {

@@ -27,7 +27,7 @@ type rwLock interface {
 
 type noLock struct{}
 
-func (l *noLock) Lock()    {}
-func (l *noLock) Unlock()  {}
-func (l *noLock) RLock()   {}
-func (l *noLock) RUnlock() {}
+func (*noLock) Lock()    {}
+func (*noLock) Unlock()  {}
+func (*noLock) RLock()   {}
+func (*noLock) RUnlock() {}

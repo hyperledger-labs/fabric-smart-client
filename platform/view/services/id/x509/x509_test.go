@@ -161,7 +161,7 @@ func TestVerifyRejectsInvalidEncodings(t *testing.T) {
 	require.EqualError(t, err, "signature not valid")
 }
 
-func newTestMaterial(t *testing.T, commonName string) (*ecdsa.PrivateKey, []byte, []byte, []byte) {
+func newTestMaterial(t *testing.T, commonName string) (key *ecdsa.PrivateKey, cert, pubKeyPEM, privKeyPEM []byte) {
 	t.Helper()
 
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

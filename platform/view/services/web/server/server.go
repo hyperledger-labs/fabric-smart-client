@@ -90,7 +90,7 @@ func (s *Server) initializeServer() {
 	}
 }
 
-func (s *Server) HandlerChain(h http.Handler, secure bool) http.Handler {
+func (*Server) HandlerChain(h http.Handler, secure bool) http.Handler {
 	if secure {
 		return middleware2.NewChain(middleware2.RequireCert(), middleware2.WithRequestID(utils2.GenerateUUID)).Handler(h)
 	}

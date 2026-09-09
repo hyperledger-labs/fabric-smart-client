@@ -156,7 +156,7 @@ func testParallelWrites(t *testing.T, drv driver2.Driver) {
 	k1, err := createCompositeKey("parallel_key_2_", []string{"1"})
 	require.NoError(t, err)
 	for i := range n {
-		go func(i int) {
+		go func(_ int) {
 			err := kvstore.Put(context.Background(), k1, &stuff{"santa", 1})
 			assert.NoError(t, err) // assert: in goroutine
 			defer wg.Done()
@@ -320,7 +320,7 @@ func TestKVS_Put(t *testing.T) {
 			name:  "unmarshalable state",
 			id:    "key3",
 			state: make(chan int), // channels cannot be marshaled
-			setupMock: func(m *mock.KeyValueStore) {
+			setupMock: func(_ *mock.KeyValueStore) {
 				// SetState should not be called
 			},
 			wantErr: true,

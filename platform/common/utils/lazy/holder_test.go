@@ -76,7 +76,7 @@ func TestHolderBasic(t *testing.T) {
 		return 42, nil
 	}
 
-	h := NewHolder(provider, func(v int) error { return nil })
+	h := NewHolder(provider, func(_ int) error { return nil })
 
 	// Test Get
 	v, err := h.Get()
@@ -98,7 +98,7 @@ func TestHolderErrors(t *testing.T) {
 		return 0, errors.New("provider error")
 	}
 
-	h := NewHolder(provider, func(v int) error { return nil })
+	h := NewHolder(provider, func(_ int) error { return nil })
 
 	v, err := h.Get()
 	require.Error(t, err)

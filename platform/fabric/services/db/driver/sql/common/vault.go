@@ -85,11 +85,11 @@ func (db *VaultStore) NewTxLockVaultReader(ctx context.Context, txID driver.TxID
 	}
 
 	return newTxVaultReader(func() (*vaultReader, releaseFunc, error) {
-		return db.newTxLockVaultReader(ctx, isolationLevel)
+		return db.buildTxLockVaultReader(ctx, isolationLevel)
 	}), nil
 }
 
-func (db *VaultStore) newTxLockVaultReader(ctx context.Context, isolationLevel driver.IsolationLevel) (*vaultReader, releaseFunc, error) {
+func (db *VaultStore) buildTxLockVaultReader(ctx context.Context, isolationLevel driver.IsolationLevel) (*vaultReader, releaseFunc, error) {
 	il, err := db.il.Map(isolationLevel)
 	if err != nil {
 		return nil, nil, err
@@ -111,10 +111,10 @@ func (db *VaultStore) newTxLockVaultReader(ctx context.Context, isolationLevel d
 func (db *VaultStore) NewGlobalLockVaultReader(ctx context.Context) (driver.LockedVaultReader, error) {
 	logger.DebugfContext(ctx, "start acquire global lock")
 	defer logger.DebugfContext(ctx, "end acquire global lock")
-	return newTxVaultReader(db.newGlobalLockVaultReader), nil
+	return newTxVaultReader(db.buildGlobalLockVaultReader), nil
 }
 
-func (db *VaultStore) newGlobalLockVaultReader() (*vaultReader, releaseFunc, error) {
+func (db *VaultStore) buildGlobalLockVaultReader() (*vaultReader, releaseFunc, error) {
 	db.GlobalLock.Lock()
 	release := func() error {
 		db.GlobalLock.Unlock()

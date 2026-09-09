@@ -27,7 +27,7 @@ var gzipCompressionLevel = gzip.DefaultCompression
 type Platform struct{}
 
 // Name returns the name of this platform.
-func (p *Platform) Name() string {
+func (*Platform) Name() string {
 	return "EXTERNAL"
 }
 
@@ -35,7 +35,7 @@ func (p *Platform) Name() string {
 // looks like go chainccode.
 //
 // NOTE: this is only used at the _client_ side by the peer CLI.
-func (p *Platform) ValidatePath(rawPath string) error {
+func (*Platform) ValidatePath(_ string) error {
 	return nil
 }
 
@@ -43,7 +43,7 @@ func (p *Platform) ValidatePath(rawPath string) error {
 // This should not impact legacy GOPATH chaincode.
 //
 // NOTE: this is only used at the _client_ side by the peer CLI.
-func (p *Platform) NormalizePath(rawPath string) (string, error) {
+func (*Platform) NormalizePath(rawPath string) (string, error) {
 	return rawPath, nil
 }
 
@@ -51,7 +51,7 @@ func (p *Platform) NormalizePath(rawPath string) (string, error) {
 //
 // NOTE: this code is used in some transaction validation paths but can be changed
 // post 2.0.
-func (p *Platform) ValidateCodePackage(code []byte) error {
+func (*Platform) ValidateCodePackage(code []byte) error {
 	is := bytes.NewReader(code)
 	gr, err := gzip.NewReader(is)
 	if err != nil {
@@ -88,7 +88,7 @@ func (p *Platform) ValidateCodePackage(code []byte) error {
 // required assets to build and run go chaincode.
 //
 // NOTE: this is only used at the _client_ side by the peer CLI.
-func (p *Platform) GetDeploymentPayload(codepath string, replacer replacer.Func) ([]byte, error) {
+func (*Platform) GetDeploymentPayload(_ string, replacer replacer.Func) ([]byte, error) {
 	payload := bytes.NewBuffer(nil)
 	gw, err := gzip.NewWriterLevel(payload, gzipCompressionLevel)
 	if err != nil {

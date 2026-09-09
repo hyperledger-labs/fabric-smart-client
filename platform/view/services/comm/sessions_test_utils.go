@@ -132,7 +132,7 @@ func RunResponder(t *testing.T, ctx context.Context, node *HostNode) {
 			wg.Add(1)
 			go func(msg *view.Message) {
 				defer wg.Done()
-				runResponder(t, ctx, node, msg)
+				respondToSession(t, ctx, node, msg)
 			}(firstMsg)
 		}
 	}()
@@ -140,7 +140,7 @@ func RunResponder(t *testing.T, ctx context.Context, node *HostNode) {
 	wg.Wait()
 }
 
-func runResponder(t *testing.T, ctx context.Context, node *HostNode, msg *view.Message) {
+func respondToSession(t *testing.T, ctx context.Context, node *HostNode, msg *view.Message) {
 	t.Helper()
 	messagesToReceive := messages(msg.SessionID)
 	if string(messagesToReceive[0]) != string(msg.Payload) {

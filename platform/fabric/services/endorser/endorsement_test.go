@@ -853,4 +853,4 @@ func TestVerifierProviderWrapper(t *testing.T) {
 
 type fakeView struct{}
 
-func (v *fakeView) Call(context view.Context) (any, error) { return nil, nil }
+func (*fakeView) Call(_ view.Context) (any, error) { return nil, nil }

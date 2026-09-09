@@ -13,7 +13,7 @@ type Handler struct {
 	Text string
 }
 
-func (h *Handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+func (h *Handler) ServeHTTP(resp http.ResponseWriter, _ *http.Request) {
 	resp.WriteHeader(h.Code)
 	_, _ = resp.Write([]byte(h.Text))
 }

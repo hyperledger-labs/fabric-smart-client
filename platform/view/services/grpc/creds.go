@@ -89,7 +89,7 @@ func (t *TLSConfig) SetClientCAs(certPool *x509.CertPool) {
 }
 
 // ClientHandshake is not implemented for `serverCreds`.
-func (sc *serverCreds) ClientHandshake(context.Context,
+func (*serverCreds) ClientHandshake(context.Context,
 	string, net.Conn,
 ) (net.Conn, credentials.AuthInfo, error) {
 	return nil, nil, ErrClientHandshakeNotImplemented
@@ -111,7 +111,7 @@ func (sc *serverCreds) ServerHandshake(rawConn net.Conn) (net.Conn, credentials.
 }
 
 // Info provides the ProtocolInfo of this TransportCredentials.
-func (sc *serverCreds) Info() credentials.ProtocolInfo {
+func (*serverCreds) Info() credentials.ProtocolInfo {
 	return credentials.ProtocolInfo{
 		SecurityProtocol: "tls",
 		SecurityVersion:  "1.2", //nolint:staticcheck // SA1019: kept for callers still reading ProtocolInfo.SecurityVersion
@@ -127,7 +127,7 @@ func (sc *serverCreds) Clone() credentials.TransportCredentials {
 
 // OverrideServerName overrides the server name used to verify the hostname
 // on the returned certificates from the server.
-func (sc *serverCreds) OverrideServerName(string) error {
+func (*serverCreds) OverrideServerName(string) error {
 	return ErrOverrideHostnameNotSupported
 }
 
@@ -145,7 +145,7 @@ func (dtc *DynamicClientCredentials) ClientHandshake(ctx context.Context, author
 	return credentials.NewTLS(dtc.latestConfig()).ClientHandshake(ctx, authority, rawConn)
 }
 
-func (dtc *DynamicClientCredentials) ServerHandshake(rawConn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+func (*DynamicClientCredentials) ServerHandshake(_ net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	return nil, nil, ErrServerHandshakeNotImplemented
 }
 

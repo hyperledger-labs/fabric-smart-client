@@ -70,42 +70,42 @@ func (m *mockVaultStore) SetStatuses(_ context.Context, code driver.TxStatusCode
 }
 
 // Stub implementations to satisfy driver.VaultStore (embeds VaultReader).
-func (m *mockVaultStore) GetStateMetadata(_ context.Context, _ driver.Namespace, _ driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+func (*mockVaultStore) GetStateMetadata(_ context.Context, _ driver.Namespace, _ driver.PKey) (driver.Metadata, driver.RawVersion, error) {
 	return nil, nil, nil
 }
 
-func (m *mockVaultStore) GetState(_ context.Context, _ driver.Namespace, _ driver.PKey) (*driver.VaultRead, error) {
+func (*mockVaultStore) GetState(_ context.Context, _ driver.Namespace, _ driver.PKey) (*driver.VaultRead, error) {
 	return nil, nil
 }
 
-func (m *mockVaultStore) GetStates(_ context.Context, _ driver.Namespace, _ ...driver.PKey) (driver.TxStateIterator, error) {
+func (*mockVaultStore) GetStates(_ context.Context, _ driver.Namespace, _ ...driver.PKey) (driver.TxStateIterator, error) {
 	return nil, nil
 }
 
-func (m *mockVaultStore) GetStateRange(_ context.Context, _ driver.Namespace, _, _ driver.PKey) (driver.TxStateIterator, error) {
+func (*mockVaultStore) GetStateRange(_ context.Context, _ driver.Namespace, _, _ driver.PKey) (driver.TxStateIterator, error) {
 	return nil, nil
 }
 
-func (m *mockVaultStore) GetAllStates(_ context.Context, _ driver.Namespace) (driver.TxStateIterator, error) {
+func (*mockVaultStore) GetAllStates(_ context.Context, _ driver.Namespace) (driver.TxStateIterator, error) {
 	return nil, nil
 }
-func (m *mockVaultStore) GetLast(_ context.Context) (*driver.TxStatus, error) { return nil, nil }
-func (m *mockVaultStore) GetTxStatuses(_ context.Context, _ ...driver.TxID) (driver.TxStatusIterator, error) {
-	return nil, nil
-}
-
-func (m *mockVaultStore) GetAllTxStatuses(_ context.Context, _ driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
+func (*mockVaultStore) GetLast(_ context.Context) (*driver.TxStatus, error) { return nil, nil }
+func (*mockVaultStore) GetTxStatuses(_ context.Context, _ ...driver.TxID) (driver.TxStatusIterator, error) {
 	return nil, nil
 }
 
-func (m *mockVaultStore) NewTxLockVaultReader(_ context.Context, _ driver.TxID, _ driver.IsolationLevel) (driver.LockedVaultReader, error) {
+func (*mockVaultStore) GetAllTxStatuses(_ context.Context, _ driver.Pagination) (*driver.PageIterator[*driver.TxStatus], error) {
 	return nil, nil
 }
 
-func (m *mockVaultStore) NewGlobalLockVaultReader(_ context.Context) (driver.LockedVaultReader, error) {
+func (*mockVaultStore) NewTxLockVaultReader(_ context.Context, _ driver.TxID, _ driver.IsolationLevel) (driver.LockedVaultReader, error) {
 	return nil, nil
 }
-func (m *mockVaultStore) Close() error { return nil }
+
+func (*mockVaultStore) NewGlobalLockVaultReader(_ context.Context) (driver.LockedVaultReader, error) {
+	return nil, nil
+}
+func (*mockVaultStore) Close() error { return nil }
 
 // --- notCachedStore tests ---
 

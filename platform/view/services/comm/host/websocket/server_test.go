@@ -19,7 +19,7 @@ import (
 func TestWithRecovery(t *testing.T) {
 	t.Parallel()
 
-	panicking := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	panicking := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		panic("something went wrong")
 	})
 
@@ -35,7 +35,7 @@ func TestWithLogging(t *testing.T) {
 
 	t.Run("2xx does not log error", func(t *testing.T) {
 		t.Parallel()
-		ok := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		})
 		h := withLogging(ok)
@@ -47,7 +47,7 @@ func TestWithLogging(t *testing.T) {
 
 	t.Run("4xx still completes the request", func(t *testing.T) {
 		t.Parallel()
-		notFound := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		notFound := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 		})
 		h := withLogging(notFound)
@@ -59,7 +59,7 @@ func TestWithLogging(t *testing.T) {
 
 	t.Run("implicit 200 when WriteHeader is never called", func(t *testing.T) {
 		t.Parallel()
-		silent := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+		silent := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {})
 		h := withLogging(silent)
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/p2p", nil)
@@ -72,7 +72,7 @@ func TestWithCORS(t *testing.T) {
 	t.Parallel()
 
 	allowed := []string{"https://example.com"}
-	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -125,7 +125,7 @@ func TestNewHandler_Routing(t *testing.T) {
 	t.Parallel()
 
 	var called bool
-	provider := &fakeStreamProvider{fn: func(w http.ResponseWriter, r *http.Request) {
+	provider := &fakeStreamProvider{fn: func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusSwitchingProtocols)
 	}}

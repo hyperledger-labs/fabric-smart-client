@@ -52,7 +52,7 @@ func (f *ExtendedPlatformFactory) WithExtensions(exts ...ExtensionFactory) *Exte
 
 func NewPlatformFactory() *ExtendedPlatformFactory {
 	return NewFabricxPlatformFactory().WithExtensions(
-		func(platform *Platform, registry api.Context, t api.Topology, builder api.Builder) fabric_network.Extension {
+		func(platform *Platform, _ api.Context, t api.Topology, _ api.Builder) fabric_network.Extension {
 			fxTopo, ok := t.(*Topology)
 			if !ok {
 				panic(fmt.Sprintf("expected *fabricx.Topology, got %T", t))
@@ -149,7 +149,7 @@ func (p *Platform) Members() []grouper.Member {
 	return p.Network.Members()
 }
 
-func (p *Platform) DeleteVault(id string) {
+func (*Platform) DeleteVault(id string) {
 	logger.Warnf("Deleting vault for [%s]", id)
 }
 

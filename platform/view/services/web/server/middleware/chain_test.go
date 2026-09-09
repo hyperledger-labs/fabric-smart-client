@@ -57,7 +57,7 @@ var _ = Describe("Chain", func() {
 		}
 		chain = middleware.NewChain(one, two, three)
 
-		hello = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hello = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte("Hello!,"))
 			Expect(err).ToNot(HaveOccurred())

@@ -28,15 +28,15 @@ func NewManager() *Manager {
 	return &Manager{factories: map[driver.TransactionType]driver.TransactionFactory{}}
 }
 
-func (m *Manager) ComputeTxID(id *driver.TxIDComponents) string {
+func (*Manager) ComputeTxID(id *driver.TxIDComponents) string {
 	return ComputeTxID(id)
 }
 
-func (m *Manager) NewEnvelope() driver.Envelope {
+func (*Manager) NewEnvelope() driver.Envelope {
 	return NewEnvelope()
 }
 
-func (m *Manager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalResponse, error) {
+func (*Manager) NewProposalResponseFromBytes(raw []byte) (driver.ProposalResponse, error) {
 	return NewProposalResponseFromBytes(raw)
 }
 
@@ -97,15 +97,15 @@ func (m *Manager) AddTransactionFactory(tt driver.TransactionType, factory drive
 	m.factories[tt] = factory
 }
 
-func (m *Manager) NewProcessedTransactionFromEnvelopePayload(envelopePayload []byte) (driver.ProcessedTransaction, int32, error) {
+func (*Manager) NewProcessedTransactionFromEnvelopePayload(envelopePayload []byte) (driver.ProcessedTransaction, int32, error) {
 	return NewProcessedTransactionFromEnvelopePayload(envelopePayload)
 }
 
-func (m *Manager) NewProcessedTransactionFromEnvelopeRaw(envelope []byte) (driver.ProcessedTransaction, error) {
+func (*Manager) NewProcessedTransactionFromEnvelopeRaw(envelope []byte) (driver.ProcessedTransaction, error) {
 	return NewProcessedTransactionFromEnvelopeRaw(envelope)
 }
 
-func (m *Manager) NewProcessedTransaction(pt []byte) (driver.ProcessedTransaction, error) {
+func (*Manager) NewProcessedTransaction(pt []byte) (driver.ProcessedTransaction, error) {
 	return NewProcessedTransaction(pt)
 }
 
@@ -119,7 +119,7 @@ func NewEndorserTransactionFactory(networkName string, channelProvider ChannelPr
 	return &EndorserTransactionFactory{networkName: networkName, channelProvider: channelProvider, sigService: sigService}
 }
 
-func (e *EndorserTransactionFactory) NewTransaction(ctx context.Context, channel string, nonce, creator []byte, txid string, rawRequest []byte) (driver.Transaction, error) {
+func (e *EndorserTransactionFactory) NewTransaction(ctx context.Context, channel string, nonce, creator []byte, txid string, _ []byte) (driver.Transaction, error) {
 	ch, err := e.channelProvider.Channel(channel)
 	if err != nil {
 		return nil, err

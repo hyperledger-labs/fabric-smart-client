@@ -23,7 +23,7 @@ func (m *mockBlock) DataAt(i int) []byte {
 	return m.data[i]
 }
 
-func (m *mockBlock) ProcessedTransaction(i int) (driver.ProcessedTransaction, error) {
+func (*mockBlock) ProcessedTransaction(_ int) (driver.ProcessedTransaction, error) {
 	return nil, nil
 }
 
@@ -56,21 +56,21 @@ type mockLedger struct {
 	mockLedgerErr  error
 }
 
-func (m *mockLedger) GetBlockNumberByTxID(txID string) (uint64, error) {
+func (m *mockLedger) GetBlockNumberByTxID(_ string) (uint64, error) {
 	if m.mockBlockErr != nil {
 		return 0, m.mockBlockErr
 	}
 	return m.mockBlockNum, nil
 }
 
-func (m *mockLedger) GetTransactionByID(txID string) (driver.ProcessedTransaction, error) {
+func (m *mockLedger) GetTransactionByID(_ string) (driver.ProcessedTransaction, error) {
 	if m.mockTxErr != nil {
 		return nil, m.mockTxErr
 	}
 	return m.mockTx, nil
 }
 
-func (m *mockLedger) GetBlockByNumber(number uint64) (driver.Block, error) {
+func (m *mockLedger) GetBlockByNumber(_ uint64) (driver.Block, error) {
 	if m.mockBlockErr != nil {
 		return nil, m.mockBlockErr
 	}

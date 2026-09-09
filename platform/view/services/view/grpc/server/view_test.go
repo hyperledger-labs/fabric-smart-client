@@ -51,17 +51,17 @@ func (f *fakeViewManager) NewView(id string, in []byte) (view2.View, error) {
 	return f.newViewReturns, f.newViewErr
 }
 
-func (f *fakeViewManager) InitiateView(ctx context.Context, view view2.View) (any, error) {
+func (f *fakeViewManager) InitiateView(_ context.Context, _ view2.View) (any, error) {
 	f.initiateViewCallCount++
 	return f.initiateViewReturns, f.initiateViewErr
 }
 
-func (f *fakeViewManager) InitiateContext(ctx context.Context, view view2.View) (view2.Context, error) {
+func (f *fakeViewManager) InitiateContext(_ context.Context, _ view2.View) (view2.Context, error) {
 	f.initiateContextCallCount++
 	return f.initiateContextReturns, f.initiateContextErr
 }
 
-func (f *fakeViewManager) DeleteContext(contextID string) {
+func (f *fakeViewManager) DeleteContext(_ string) {
 	f.deleteContextCallCount++
 	if f.deleteContextCh != nil {
 		select {
@@ -92,28 +92,28 @@ func (f *fakeContext) PutService(v any) error {
 	return nil
 }
 
-func (f *fakeContext) ResetSessions() error     { return nil }
-func (f *fakeContext) Context() context.Context { return context.Background() }
-func (f *fakeContext) StartSpanFrom(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+func (*fakeContext) ResetSessions() error     { return nil }
+func (*fakeContext) Context() context.Context { return context.Background() }
+func (*fakeContext) StartSpanFrom(ctx context.Context, _ string, _ ...trace.SpanStartOption) (context.Context, trace.Span) {
 	return ctx, trace.SpanFromContext(ctx)
 }
-func (f *fakeContext) Initiator() view2.View         { return nil }
-func (f *fakeContext) Me() view2.Identity            { return nil }
-func (f *fakeContext) IsMe(view2.Identity) bool      { return false }
-func (f *fakeContext) Session() view2.Session        { return nil }
-func (f *fakeContext) GetService(v any) (any, error) { return nil, nil }
-func (f *fakeContext) GetSession(caller view2.View, p view2.Identity, views ...view2.View) (view2.Session, error) {
+func (*fakeContext) Initiator() view2.View         { return nil }
+func (*fakeContext) Me() view2.Identity            { return nil }
+func (*fakeContext) IsMe(view2.Identity) bool      { return false }
+func (*fakeContext) Session() view2.Session        { return nil }
+func (*fakeContext) GetService(_ any) (any, error) { return nil, nil }
+func (*fakeContext) GetSession(_ view2.View, _ view2.Identity, _ ...view2.View) (view2.Session, error) {
 	return nil, nil
 }
 
-func (f *fakeContext) GetSessionByID(id string, p view2.Identity) (view2.Session, error) {
+func (*fakeContext) GetSessionByID(_ string, _ view2.Identity) (view2.Session, error) {
 	return nil, nil
 }
 
-func (f *fakeContext) StartSession(view2.View, view2.Identity) (view2.Session, error) {
+func (*fakeContext) StartSession(view2.View, view2.Identity) (view2.Session, error) {
 	return nil, nil
 }
-func (f *fakeContext) OnError(func()) {}
+func (*fakeContext) OnError(func()) {}
 
 // fakeNonMutableContext implements view2.Context but deliberately not
 // view2.MutableContext, to exercise the mutable-context guard.
@@ -202,7 +202,7 @@ type fakeTracerProvider struct {
 	trace.TracerProvider
 }
 
-func (f *fakeTracerProvider) Tracer(name string, opts ...trace.TracerOption) trace.Tracer {
+func (*fakeTracerProvider) Tracer(name string, _ ...trace.TracerOption) trace.Tracer {
 	return noop.NewTracerProvider().Tracer(name)
 }
 

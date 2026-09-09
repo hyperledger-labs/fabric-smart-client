@@ -24,7 +24,7 @@ func TestConcurrency(t *testing.T) {
 	qe := fake.NewQE()
 	idsr := fake.TxStatusStore{}
 
-	i := newInterceptor(logging.MustGetLogger(), context.Background(), EmptyRWSet(), qe, idsr, "1")
+	i := newVaultInterceptor(logging.MustGetLogger(), context.Background(), EmptyRWSet(), qe, idsr, "1")
 	s, err := i.GetState("ns", "key")
 	require.NoError(t, err)
 	require.Equal(t, qe.State.Raw, s, "with no opts, getstate should return the FromStorage value (query executor)")
@@ -69,7 +69,7 @@ func TestAddReadAt(t *testing.T) {
 	t.Parallel()
 	qe := fake.QE{}
 	idsr := fake.TxStatusStore{}
-	i := newInterceptor(logging.MustGetLogger(), context.Background(), EmptyRWSet(), qe, idsr, "1")
+	i := newVaultInterceptor(logging.MustGetLogger(), context.Background(), EmptyRWSet(), qe, idsr, "1")
 
 	require.NoError(t, i.AddReadAt("ns", "key", []byte("version")))
 	require.Len(t, i.RWs().Reads, 1)
@@ -82,11 +82,11 @@ type failingQE struct {
 	doneErr bool
 }
 
-func (q failingQE) GetStateMetadata(context.Context, driver.Namespace, driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+func (failingQE) GetStateMetadata(context.Context, driver.Namespace, driver.PKey) (driver.Metadata, driver.RawVersion, error) {
 	return nil, nil, errors.New("query executor unavailable")
 }
 
-func (q failingQE) GetState(context.Context, driver.Namespace, driver.PKey) (*driver.VaultRead, error) {
+func (failingQE) GetState(context.Context, driver.Namespace, driver.PKey) (*driver.VaultRead, error) {
 	return nil, errors.New("query executor unavailable")
 }
 
@@ -101,28 +101,28 @@ func (q failingQE) Done() error {
 // the version-comparison branches are reachable.
 type staleQE struct{}
 
-func (q staleQE) GetStateMetadata(context.Context, driver.Namespace, driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+func (staleQE) GetStateMetadata(context.Context, driver.Namespace, driver.PKey) (driver.Metadata, driver.RawVersion, error) {
 	return map[string][]byte{"md": []byte("meta")}, []byte("stale-version"), nil
 }
 
-func (q staleQE) GetState(_ context.Context, _ driver.Namespace, pkey driver.PKey) (*driver.VaultRead, error) {
+func (staleQE) GetState(_ context.Context, _ driver.Namespace, pkey driver.PKey) (*driver.VaultRead, error) {
 	return &driver.VaultRead{Key: pkey, Raw: []byte("raw"), Version: []byte("stale-version")}, nil
 }
 
-func (q staleQE) Done() error { return nil }
+func (staleQE) Done() error { return nil }
 
 // nilStateQE reports a key that is absent from storage.
 type nilStateQE struct{}
 
-func (q nilStateQE) GetStateMetadata(context.Context, driver.Namespace, driver.PKey) (driver.Metadata, driver.RawVersion, error) {
+func (nilStateQE) GetStateMetadata(context.Context, driver.Namespace, driver.PKey) (driver.Metadata, driver.RawVersion, error) {
 	return nil, nil, nil
 }
 
-func (q nilStateQE) GetState(context.Context, driver.Namespace, driver.PKey) (*driver.VaultRead, error) {
+func (nilStateQE) GetState(context.Context, driver.Namespace, driver.PKey) (*driver.VaultRead, error) {
 	return nil, nil
 }
 
-func (q nilStateQE) Done() error { return nil }
+func (nilStateQE) Done() error { return nil }
 
 func newTestInterceptor(qe VersionedQueryExecutor) *Interceptor[ValidationCode] {
 	return NewInterceptor[ValidationCode](

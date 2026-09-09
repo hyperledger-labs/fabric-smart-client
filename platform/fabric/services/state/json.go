@@ -12,7 +12,7 @@ import (
 
 type JSONCodec struct{}
 
-func (j *JSONCodec) Marshal(v any) ([]byte, error) {
+func (*JSONCodec) Marshal(v any) ([]byte, error) {
 	s, ok := v.(Serializable)
 	if ok {
 		return s.Bytes()
@@ -20,7 +20,7 @@ func (j *JSONCodec) Marshal(v any) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-func (j *JSONCodec) Unmarshal(data []byte, v any) error {
+func (*JSONCodec) Unmarshal(data []byte, v any) error {
 	s, ok := v.(State)
 	if ok {
 		return s.SetFromBytes(data)
