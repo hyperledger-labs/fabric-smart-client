@@ -8,12 +8,13 @@ package utils
 
 import (
 	"bytes"
-	"errors"
+	errors2 "errors"
 	"fmt"
 	"runtime/debug"
 
 	"go.uber.org/dig"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services"
 )
 
@@ -36,7 +37,7 @@ func Register[T any](c invoker) error {
 	})
 	if err != nil {
 		debug.PrintStack()
-		return fmt.Errorf("failed registering type %T: %+v", *new(T), err)
+		return errors.Wrapf(err, "failed registering type %T", *new(T))
 	}
 	return nil
 }
@@ -46,7 +47,7 @@ func ProvideAll(c *dig.Container, constructors ...any) error {
 	for i, constructor := range constructors {
 		errs[i] = c.Provide(constructor)
 	}
-	return errors.Join(errs...)
+	return errors2.Join(errs...)
 }
 
 func Identity[T any]() func(T) T {

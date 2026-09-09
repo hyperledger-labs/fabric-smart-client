@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package iterators
 
 import (
+	"errors"
 	"io"
 
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
@@ -28,7 +29,7 @@ type streamIterator[T any] struct {
 func (it *streamIterator[T]) Next() (T, error) {
 	if n, err := it.cli.Recv(); err == nil {
 		return n, nil
-	} else if err == io.EOF {
+	} else if errors.Is(err, io.EOF) {
 		return utils.Zero[T](), nil
 	} else {
 		return utils.Zero[T](), err

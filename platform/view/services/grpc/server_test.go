@@ -94,7 +94,7 @@ func (ess *emptyServiceServer) EmptyCall(context.Context, *testpb.Empty) (*testp
 func (esss *emptyServiceServer) EmptyStream(stream testpb.EmptyService_EmptyStreamServer) error {
 	for {
 		_, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		if err != nil {
@@ -152,7 +152,7 @@ func invokeEmptyStream(address string, dialOptions ...grpc.DialOption) (*testpb.
 	go func() {
 		for {
 			in, err := stream.Recv()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				close(waitc)
 				return
 			}
@@ -170,7 +170,7 @@ func invokeEmptyStream(address string, dialOptions ...grpc.DialOption) (*testpb.
 	// the server side has already terminated. Whether or not we get an error
 	// depends on timing.
 	err = stream.Send(&testpb.Empty{})
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, errors.Errorf("stream send failed: %s", err)
 	}
 

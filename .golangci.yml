@@ -12,6 +12,7 @@ linters:
     # future `default: none` cannot silently drop them.
     - durationcheck
     - errcheck
+    - errorlint
     - goheader
     - gosec
     - govet

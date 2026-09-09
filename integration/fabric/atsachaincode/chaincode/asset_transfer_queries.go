@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger/fabric-contract-api-go/v2/contractapi"
 
+	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/errors"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/common/utils"
 )
 
@@ -37,7 +38,7 @@ func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, a
 	// Since only public data is accessed in this function, no access control is required
 	assetJSON, err := ctx.GetStub().GetState(assetID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read from world state: %v", err)
+		return nil, errors.Wrapf(err, "failed to read from world state")
 	}
 	if assetJSON == nil {
 		return nil, fmt.Errorf("%s does not exist", assetID)
@@ -61,7 +62,7 @@ func (s *SmartContract) GetAssetPrivateProperties(ctx contractapi.TransactionCon
 
 	immutableProperties, err := ctx.GetStub().GetPrivateData(collection, assetID)
 	if err != nil {
-		return "", fmt.Errorf("failed to read asset private properties from client org's collection: %v", err)
+		return "", errors.Wrapf(err, "failed to read asset private properties from client org's collection")
 	}
 	if immutableProperties == nil {
 		return "", fmt.Errorf("asset private details does not exist in client org's collection: %s", assetID)
@@ -89,12 +90,12 @@ func getAssetPrice(ctx contractapi.TransactionContextInterface, assetID, priceTy
 
 	assetPriceKey, err := ctx.GetStub().CreateCompositeKey(priceType, []string{assetID})
 	if err != nil {
-		return "", fmt.Errorf("failed to create composite key: %v", err)
+		return "", errors.Wrapf(err, "failed to create composite key")
 	}
 
 	price, err := ctx.GetStub().GetPrivateData(collection, assetPriceKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to read asset price from implicit private data collection: %v", err)
+		return "", errors.Wrapf(err, "failed to read asset price from implicit private data collection")
 	}
 	if price == nil {
 		return "", fmt.Errorf("asset price does not exist: %s", assetID)
@@ -122,7 +123,7 @@ func queryAgreementsByType(ctx contractapi.TransactionContextInterface, agreeTyp
 	// Query for any object type starting with `agreeType`
 	agreementsIterator, err := ctx.GetStub().GetPrivateDataByPartialCompositeKey(collection, agreeType, []string{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to read from private data collection: %v", err)
+		return nil, errors.Wrapf(err, "failed to read from private data collection")
 	}
 	defer utils.IgnoreErrorFunc(agreementsIterator.Close)
 

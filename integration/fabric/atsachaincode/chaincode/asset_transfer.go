@@ -66,7 +66,7 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 	// In this scenario, client is only authorized to read/write private data from its own peer.
 	clientOrgID, err := getClientOrgID(ctx, true)
 	if err != nil {
-		return fmt.Errorf("failed to get verified OrgID: %v", err)
+		return errors.Wrapf(err, "failed to get verified OrgID")
 	}
 
 	asset := Asset{
@@ -77,25 +77,25 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 	}
 	assetBytes, err := json.Marshal(asset)
 	if err != nil {
-		return fmt.Errorf("failed to create asset JSON: %v", err)
+		return errors.Wrapf(err, "failed to create asset JSON")
 	}
 
 	err = ctx.GetStub().PutState(asset.ID, assetBytes)
 	if err != nil {
-		return fmt.Errorf("failed to put asset in public data: %v", err)
+		return errors.Wrapf(err, "failed to put asset in public data")
 	}
 
 	// Set the endorsement policy such that an owner org peer is required to endorse future updates
 	err = setAssetStateBasedEndorsement(ctx, asset.ID, clientOrgID)
 	if err != nil {
-		return fmt.Errorf("failed setting state based endorsement for owner: %v", err)
+		return errors.Wrapf(err, "failed setting state based endorsement for owner")
 	}
 
 	// Persist private immutable asset properties to owner's private data collection
 	collection := buildCollectionName(clientOrgID)
 	err = ctx.GetStub().PutPrivateData(collection, asset.ID, immutablePropertiesJSON)
 	if err != nil {
-		return fmt.Errorf("failed to put Asset private details: %v", err)
+		return errors.Wrapf(err, "failed to put Asset private details")
 	}
 
 	return nil
@@ -107,13 +107,13 @@ func (s *SmartContract) ChangePublicDescription(ctx contractapi.TransactionConte
 	fmt.Println("get client org id")
 	clientOrgID, err := getClientOrgID(ctx, false)
 	if err != nil {
-		return fmt.Errorf("failed to get verified OrgID: %v", err)
+		return errors.Wrapf(err, "failed to get verified OrgID")
 	}
 
 	fmt.Println("read asset")
 	asset, err := s.ReadAsset(ctx, assetID)
 	if err != nil {
-		return fmt.Errorf("failed to get asset: %v", err)
+		return errors.Wrapf(err, "failed to get asset")
 	}
 
 	fmt.Println("check org")
@@ -126,7 +126,7 @@ func (s *SmartContract) ChangePublicDescription(ctx contractapi.TransactionConte
 	asset.PublicDescription = newDescription
 	updatedAssetJSON, err := json.Marshal(asset)
 	if err != nil {
-		return fmt.Errorf("failed to marshal asset: %v", err)
+		return errors.Wrapf(err, "failed to marshal asset")
 	}
 
 	return ctx.GetStub().PutState(assetID, updatedAssetJSON)
@@ -141,7 +141,7 @@ func (s *SmartContract) AgreeToSell(ctx contractapi.TransactionContextInterface,
 
 	clientOrgID, err := getClientOrgID(ctx, true)
 	if err != nil {
-		return fmt.Errorf("failed to get verified OrgID: %v", err)
+		return errors.Wrapf(err, "failed to get verified OrgID")
 	}
 
 	// Verify that this clientOrgId actually owns the asset.
@@ -162,12 +162,12 @@ func agreeToPrice(ctx contractapi.TransactionContextInterface, assetID, priceTyp
 	// In this scenario, client is only authorized to read/write private data from its own peer.
 	clientOrgID, err := getClientOrgID(ctx, true)
 	if err != nil {
-		return fmt.Errorf("failed to get verified OrgID: %v", err)
+		return errors.Wrapf(err, "failed to get verified OrgID")
 	}
 
 	transMap, err := ctx.GetStub().GetTransient()
 	if err != nil {
-		return fmt.Errorf("error getting transient: %v", err)
+		return errors.Wrapf(err, "error getting transient")
 	}
 
 	// Asset price must be retrieved from the transient field as they are private
@@ -182,14 +182,14 @@ func agreeToPrice(ctx contractapi.TransactionContextInterface, assetID, priceTyp
 	// to avoid collisions between private asset properties, sell price, and buy price
 	assetPriceKey, err := ctx.GetStub().CreateCompositeKey(priceType, []string{assetID})
 	if err != nil {
-		return fmt.Errorf("failed to create composite key: %v", err)
+		return errors.Wrapf(err, "failed to create composite key")
 	}
 
 	// The Price hash will be verified later, therefore always pass and persist price bytes as is,
 	// so that there is no risk of nondeterministic marshaling.
 	err = ctx.GetStub().PutPrivateData(collection, assetPriceKey, price)
 	if err != nil {
-		return fmt.Errorf("failed to put asset bid: %v", err)
+		return errors.Wrapf(err, "failed to put asset bid")
 	}
 
 	return nil
@@ -200,7 +200,7 @@ func agreeToPrice(ctx contractapi.TransactionContextInterface, assetID, priceTyp
 func (s *SmartContract) VerifyAssetProperties(ctx contractapi.TransactionContextInterface, assetID string) (bool, error) {
 	transMap, err := ctx.GetStub().GetTransient()
 	if err != nil {
-		return false, fmt.Errorf("error getting transient: %v", err)
+		return false, errors.Wrapf(err, "error getting transient")
 	}
 
 	// / Asset properties must be retrieved from the transient field as they are private
@@ -211,13 +211,13 @@ func (s *SmartContract) VerifyAssetProperties(ctx contractapi.TransactionContext
 
 	asset, err := s.ReadAsset(ctx, assetID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get asset: %v", err)
+		return false, errors.Wrapf(err, "failed to get asset")
 	}
 
 	collectionOwner := buildCollectionName(asset.OwnerOrg)
 	immutablePropertiesOnChainHash, err := ctx.GetStub().GetPrivateDataHash(collectionOwner, assetID)
 	if err != nil {
-		return false, fmt.Errorf("failed to read asset private properties hash from seller's collection: %v", err)
+		return false, errors.Wrapf(err, "failed to read asset private properties hash from seller's collection")
 	}
 	if immutablePropertiesOnChainHash == nil {
 		return false, fmt.Errorf("asset private properties hash does not exist: %s", assetID)
@@ -243,12 +243,12 @@ func (s *SmartContract) VerifyAssetProperties(ctx contractapi.TransactionContext
 func (s *SmartContract) TransferAsset(ctx contractapi.TransactionContextInterface, assetID, buyerOrgID string) error {
 	clientOrgID, err := getClientOrgID(ctx, false)
 	if err != nil {
-		return fmt.Errorf("failed to get verified OrgID: %v", err)
+		return errors.Wrapf(err, "failed to get verified OrgID")
 	}
 
 	transMap, err := ctx.GetStub().GetTransient()
 	if err != nil {
-		return fmt.Errorf("error getting transient data: %v", err)
+		return errors.Wrapf(err, "error getting transient data")
 	}
 
 	immutablePropertiesJSON, ok := transMap["asset_properties"]
@@ -264,22 +264,22 @@ func (s *SmartContract) TransferAsset(ctx contractapi.TransactionContextInterfac
 	var agreement Agreement
 	err = json.Unmarshal(priceJSON, &agreement)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal price JSON: %v", err)
+		return errors.Wrapf(err, "failed to unmarshal price JSON")
 	}
 
 	asset, err := s.ReadAsset(ctx, assetID)
 	if err != nil {
-		return fmt.Errorf("failed to get asset: %v", err)
+		return errors.Wrapf(err, "failed to get asset")
 	}
 
 	err = verifyTransferConditions(ctx, asset, immutablePropertiesJSON, clientOrgID, buyerOrgID, priceJSON)
 	if err != nil {
-		return fmt.Errorf("failed transfer verification: %v", err)
+		return errors.Wrapf(err, "failed transfer verification")
 	}
 
 	err = transferAssetState(ctx, asset, immutablePropertiesJSON, clientOrgID, buyerOrgID, agreement.Price)
 	if err != nil {
-		return fmt.Errorf("failed asset transfer: %v", err)
+		return errors.Wrapf(err, "failed asset transfer")
 	}
 
 	return nil
@@ -304,7 +304,7 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 	collectionSeller := buildCollectionName(clientOrgID)
 	immutablePropertiesOnChainHash, err := ctx.GetStub().GetPrivateDataHash(collectionSeller, asset.ID)
 	if err != nil {
-		return fmt.Errorf("failed to read asset private properties hash from seller's collection: %v", err)
+		return errors.Wrapf(err, "failed to read asset private properties hash from seller's collection")
 	}
 	if immutablePropertiesOnChainHash == nil {
 		return fmt.Errorf("asset private properties hash does not exist: %s", asset.ID)
@@ -328,11 +328,11 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 	// Get sellers asking price
 	assetForSaleKey, err := ctx.GetStub().CreateCompositeKey(typeAssetForSale, []string{asset.ID})
 	if err != nil {
-		return fmt.Errorf("failed to create composite key: %v", err)
+		return errors.Wrapf(err, "failed to create composite key")
 	}
 	sellerPriceHash, err := ctx.GetStub().GetPrivateDataHash(collectionSeller, assetForSaleKey)
 	if err != nil {
-		return fmt.Errorf("failed to get seller price hash: %v", err)
+		return errors.Wrapf(err, "failed to get seller price hash")
 	}
 	if sellerPriceHash == nil {
 		return fmt.Errorf("seller price for %s does not exist", asset.ID)
@@ -342,11 +342,11 @@ func verifyTransferConditions(ctx contractapi.TransactionContextInterface,
 	collectionBuyer := buildCollectionName(buyerOrgID)
 	assetBidKey, err := ctx.GetStub().CreateCompositeKey(typeAssetBid, []string{asset.ID})
 	if err != nil {
-		return fmt.Errorf("failed to create composite key: %v", err)
+		return errors.Wrapf(err, "failed to create composite key")
 	}
 	buyerPriceHash, err := ctx.GetStub().GetPrivateDataHash(collectionBuyer, assetBidKey)
 	if err != nil {
-		return fmt.Errorf("failed to get buyer price hash: %v", err)
+		return errors.Wrapf(err, "failed to get buyer price hash")
 	}
 	if buyerPriceHash == nil {
 		return fmt.Errorf("buyer price for %s does not exist", asset.ID)
@@ -409,21 +409,21 @@ func updateAssetState(ctx contractapi.TransactionContextInterface, asset *Asset)
 		return err
 	}
 	if err := ctx.GetStub().PutState(asset.ID, updatedAsset); err != nil {
-		return fmt.Errorf("failed to write asset for buyer: %v", err)
+		return errors.Wrapf(err, "failed to write asset for buyer")
 	}
 	if err := setAssetStateBasedEndorsement(ctx, asset.ID, asset.OwnerOrg); err != nil {
-		return fmt.Errorf("failed setting state based endorsement for new owner: %v", err)
+		return errors.Wrapf(err, "failed setting state based endorsement for new owner")
 	}
 	return nil
 }
 
 func updatePrivateDataCollections(ctx contractapi.TransactionContextInterface, assetID string, data []byte, collectionSeller, collectionBuyer string) error {
 	if err := ctx.GetStub().DelPrivateData(collectionSeller, assetID); err != nil {
-		return fmt.Errorf("failed to delete Asset private details from seller: %v", err)
+		return errors.Wrapf(err, "failed to delete Asset private details from seller")
 	}
 
 	if err := ctx.GetStub().PutPrivateData(collectionBuyer, assetID, data); err != nil {
-		return fmt.Errorf("failed to put Asset private properties for buyer: %v", err)
+		return errors.Wrapf(err, "failed to put Asset private properties for buyer")
 	}
 	return nil
 }
@@ -431,18 +431,18 @@ func updatePrivateDataCollections(ctx contractapi.TransactionContextInterface, a
 func deleteAssetPrices(ctx contractapi.TransactionContextInterface, assetID, collectionSeller, collectionBuyer string) error {
 	assetPriceKey, err := ctx.GetStub().CreateCompositeKey(typeAssetForSale, []string{assetID})
 	if err != nil {
-		return fmt.Errorf("failed to create composite key for seller: %v", err)
+		return errors.Wrapf(err, "failed to create composite key for seller")
 	}
 	if err := ctx.GetStub().DelPrivateData(collectionSeller, assetPriceKey); err != nil {
-		return fmt.Errorf("failed to delete asset price from implicit private data collection for seller: %v", err)
+		return errors.Wrapf(err, "failed to delete asset price from implicit private data collection for seller")
 	}
 
 	assetPriceKey, err = ctx.GetStub().CreateCompositeKey(typeAssetBid, []string{assetID})
 	if err != nil {
-		return fmt.Errorf("failed to create composite key for buyer: %v", err)
+		return errors.Wrapf(err, "failed to create composite key for buyer")
 	}
 	if err := ctx.GetStub().DelPrivateData(collectionBuyer, assetPriceKey); err != nil {
-		return fmt.Errorf("failed to delete asset price from implicit private data collection for buyer: %v", err)
+		return errors.Wrapf(err, "failed to delete asset price from implicit private data collection for buyer")
 	}
 	return nil
 }
@@ -450,12 +450,12 @@ func deleteAssetPrices(ctx contractapi.TransactionContextInterface, assetID, col
 func recordReceipts(ctx contractapi.TransactionContextInterface, assetID, collectionSeller, collectionBuyer string, price int) error {
 	receiptBuyKey, err := ctx.GetStub().CreateCompositeKey(typeAssetBuyReceipt, []string{assetID, ctx.GetStub().GetTxID()})
 	if err != nil {
-		return fmt.Errorf("failed to create composite key for receipt: %v", err)
+		return errors.Wrapf(err, "failed to create composite key for receipt")
 	}
 
 	txTimestamp, err := ctx.GetStub().GetTxTimestamp()
 	if err != nil {
-		return fmt.Errorf("failed to create timestamp for receipt: %v", err)
+		return errors.Wrapf(err, "failed to create timestamp for receipt")
 	}
 
 	if err := txTimestamp.CheckValid(); err != nil {
@@ -469,22 +469,22 @@ func recordReceipts(ctx contractapi.TransactionContextInterface, assetID, collec
 	}
 	receipt, err := json.Marshal(assetReceipt)
 	if err != nil {
-		return fmt.Errorf("failed to marshal receipt: %v", err)
+		return errors.Wrapf(err, "failed to marshal receipt")
 	}
 
 	err = ctx.GetStub().PutPrivateData(collectionBuyer, receiptBuyKey, receipt)
 	if err != nil {
-		return fmt.Errorf("failed to put private asset receipt for buyer: %v", err)
+		return errors.Wrapf(err, "failed to put private asset receipt for buyer")
 	}
 
 	receiptSaleKey, err := ctx.GetStub().CreateCompositeKey(typeAssetSaleReceipt, []string{ctx.GetStub().GetTxID(), assetID})
 	if err != nil {
-		return fmt.Errorf("failed to create composite key for receipt: %v", err)
+		return errors.Wrapf(err, "failed to create composite key for receipt")
 	}
 
 	err = ctx.GetStub().PutPrivateData(collectionSeller, receiptSaleKey, receipt)
 	if err != nil {
-		return fmt.Errorf("failed to put private asset receipt for seller: %v", err)
+		return errors.Wrapf(err, "failed to put private asset receipt for seller")
 	}
 
 	return nil
@@ -498,7 +498,7 @@ func recordReceipts(ctx contractapi.TransactionContextInterface, assetID, collec
 func getClientOrgID(ctx contractapi.TransactionContextInterface, verifyOrg bool) (string, error) {
 	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
 	if err != nil {
-		return "", fmt.Errorf("failed getting client's orgID: %v", err)
+		return "", errors.Wrapf(err, "failed getting client's orgID")
 	}
 
 	if verifyOrg {
@@ -515,7 +515,7 @@ func getClientOrgID(ctx contractapi.TransactionContextInterface, verifyOrg bool)
 func verifyClientOrgMatchesPeerOrg(clientOrgID string) error {
 	peerOrgID, err := shim.GetMSPID()
 	if err != nil {
-		return fmt.Errorf("failed getting peer's orgID: %v", err)
+		return errors.Wrapf(err, "failed getting peer's orgID")
 	}
 
 	if clientOrgID != peerOrgID {
@@ -538,15 +538,15 @@ func setAssetStateBasedEndorsement(ctx contractapi.TransactionContextInterface, 
 	fmt.Printf("orgToEndorse [%s]\n", orgToEndorse)
 	err = endorsementPolicy.AddOrgs(statebased.RoleTypePeer, orgToEndorse)
 	if err != nil {
-		return fmt.Errorf("failed to add org to endorsement policy: %v", err)
+		return errors.Wrapf(err, "failed to add org to endorsement policy")
 	}
 	policy, err := endorsementPolicy.Policy()
 	if err != nil {
-		return fmt.Errorf("failed to create endorsement policy bytes from org: %v", err)
+		return errors.Wrapf(err, "failed to create endorsement policy bytes from org")
 	}
 	err = ctx.GetStub().SetStateValidationParameter(assetID, policy)
 	if err != nil {
-		return fmt.Errorf("failed to set validation parameter on asset: %v", err)
+		return errors.Wrapf(err, "failed to set validation parameter on asset")
 	}
 
 	return nil
@@ -559,7 +559,7 @@ func buildCollectionName(clientOrgID string) string {
 func getClientImplicitCollectionName(ctx contractapi.TransactionContextInterface) (string, error) {
 	clientOrgID, err := getClientOrgID(ctx, true)
 	if err != nil {
-		return "", fmt.Errorf("failed to get verified OrgID: %v", err)
+		return "", errors.Wrapf(err, "failed to get verified OrgID")
 	}
 
 	err = verifyClientOrgMatchesPeerOrg(clientOrgID)
