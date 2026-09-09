@@ -19,13 +19,17 @@ linters:
     - makezero
     - loggercheck
     - misspell
+    - nilerr
     - nilnesserr
     - paralleltest
     - spancheck
+    - rowserrcheck
+    - recvcheck
     - staticcheck
     - thelper
     - tparallel
     - unused
+    - usestdlibvars
   settings:
     goheader:
       # Two header forms are accepted: the SPDX form used by code written for
