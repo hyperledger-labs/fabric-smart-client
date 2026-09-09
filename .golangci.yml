@@ -11,6 +11,7 @@ linters:
     # the config states what it enforces rather than inheriting it, and so a
     # future `default: none` cannot silently drop them.
     - contextcheck
+    - bodyclose
     - durationcheck
     - errcheck
     - errorlint

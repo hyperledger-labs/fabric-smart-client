@@ -142,8 +142,9 @@ func TestClientStreamCallView(t *testing.T) {
 	t.Cleanup(ts.Close)
 
 	wsURL := "ws" + ts.URL[4:]
-	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	ws, resp, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = resp.Body.Close() })
 	t.Cleanup(func() { _ = ws.Close() })
 
 	// Send input payload conforming to server.Input format
@@ -169,7 +170,10 @@ func TestClientStreamCallView(t *testing.T) {
 			require.ErrorContains(t, err, "new view error")
 		}))
 		t.Cleanup(tsErr.Close)
-		wsErr, _, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
+		wsErr, resp, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
+		if resp != nil {
+			t.Cleanup(func() { _ = resp.Body.Close() })
+		}
 		if wsErr != nil {
 			t.Cleanup(func() { _ = wsErr.Close() })
 			_ = wsErr.WriteMessage(websocket.TextMessage, inputMsg)
@@ -185,7 +189,10 @@ func TestClientStreamCallView(t *testing.T) {
 			require.ErrorContains(t, err, "init context error")
 		}))
 		t.Cleanup(tsErr.Close)
-		wsErr, _, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
+		wsErr, resp, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
+		if resp != nil {
+			t.Cleanup(func() { _ = resp.Body.Close() })
+		}
 		if wsErr != nil {
 			t.Cleanup(func() { _ = wsErr.Close() })
 			_ = wsErr.WriteMessage(websocket.TextMessage, inputMsg)
@@ -201,7 +208,10 @@ func TestClientStreamCallView(t *testing.T) {
 			require.ErrorContains(t, err, "run view error")
 		}))
 		t.Cleanup(tsErr.Close)
-		wsErr, _, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
+		wsErr, resp, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
+		if resp != nil {
+			t.Cleanup(func() { _ = resp.Body.Close() })
+		}
 		if wsErr != nil {
 			t.Cleanup(func() { _ = wsErr.Close() })
 			_ = wsErr.WriteMessage(websocket.TextMessage, inputMsg)
@@ -217,7 +227,10 @@ func TestClientStreamCallView(t *testing.T) {
 			require.ErrorContains(t, err, "registering stream command server")
 		}))
 		t.Cleanup(tsErr.Close)
-		wsErr, _, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
+		wsErr, resp, _ := websocket.DefaultDialer.Dial("ws"+tsErr.URL[4:], nil)
+		if resp != nil {
+			t.Cleanup(func() { _ = resp.Body.Close() })
+		}
 		if wsErr != nil {
 			t.Cleanup(func() { _ = wsErr.Close() })
 			_ = wsErr.WriteMessage(websocket.TextMessage, inputMsg)
@@ -232,7 +245,10 @@ func TestClientStreamCallView(t *testing.T) {
 			_ = cStruct.StreamCallView("fid", w, r)
 		}))
 		t.Cleanup(tsStruct.Close)
-		wsStruct, _, _ := websocket.DefaultDialer.Dial("ws"+tsStruct.URL[4:], nil)
+		wsStruct, resp, _ := websocket.DefaultDialer.Dial("ws"+tsStruct.URL[4:], nil)
+		if resp != nil {
+			t.Cleanup(func() { _ = resp.Body.Close() })
+		}
 		require.NotNil(t, wsStruct)
 		t.Cleanup(func() { _ = wsStruct.Close() })
 		_ = wsStruct.WriteMessage(websocket.TextMessage, inputMsg)
@@ -253,7 +269,10 @@ func TestClientStreamCallView(t *testing.T) {
 			require.ErrorContains(t, err, "expected a mutable context")
 		}))
 		t.Cleanup(tsNonMutable.Close)
-		wsNM, _, _ := websocket.DefaultDialer.Dial("ws"+tsNonMutable.URL[4:], nil)
+		wsNM, resp, _ := websocket.DefaultDialer.Dial("ws"+tsNonMutable.URL[4:], nil)
+		if resp != nil {
+			t.Cleanup(func() { _ = resp.Body.Close() })
+		}
 		if wsNM != nil {
 			t.Cleanup(func() { _ = wsNM.Close() })
 			_ = wsNM.WriteMessage(websocket.TextMessage, inputMsg)

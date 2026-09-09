@@ -163,7 +163,10 @@ func TestDynamicCA(t *testing.T) {
 	url := fmt.Sprintf("wss://%s/p2p", serverAddr)
 
 	dialer := &gorilla_websocket.Dialer{TLSClientConfig: clientTLSConfig}
-	_, _, err = dialer.DialContext(t.Context(), url, nil)
+	_, resp, err := dialer.DialContext(t.Context(), url, nil)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	require.Error(t, err, "should fail as client cert is not trusted")
 
 	// 2. Add client cert to EndpointService (runtime change)

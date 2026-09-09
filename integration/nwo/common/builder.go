@@ -34,6 +34,7 @@ func (c *BuilderClient) Build(path string) string {
 
 	resp, err := http.Get(fmt.Sprintf("http://%s/%s", c.ServerAddress, path))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())

@@ -42,6 +42,18 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # Fabric, Fabric-x, and IBM's crypto libs are updated by hand on a
+      # regular cadence instead -- see "Dependency Management" in
+      # docs/dev/development.md. `applies-to: version-updates` (the default
+      # is both) keeps Dependabot's security-update path active, so a GHSA
+      # against any of them still opens a PR outside the weekly schedule.
+      - dependency-name: "github.com/hyperledger/fabric*"
+        applies-to: version-updates
+      - dependency-name: "github.com/IBM/idemix"
+        applies-to: version-updates
+      - dependency-name: "github.com/IBM/mathlib"
+        applies-to: version-updates
 
   # Actions are pinned to SHAs, so without this they never move at all.
   - package-ecosystem: github-actions
