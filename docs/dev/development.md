@@ -372,9 +372,11 @@ These track the Fabric/Fabric-x network binaries and the crypto stack, and bumpi
 often needs matching non-dependency changes across modules, so they're updated by hand
 with `gomate.sh update` on a regular cadence instead of arriving as unreviewed weekly noise.
 
-The exclusion only applies to version updates: it's scoped with `applies-to: version-updates`,
-so Dependabot's security-update path stays active and still opens a PR if a GHSA lands
-against any of them.
+Dependabot's `ignore` suppresses both the weekly version-update PRs and the
+auto-generated security-update PRs for these deps -- there's no config to scope it to
+one or the other. A GHSA against any of them still shows up as a Dependabot alert (the
+repo's Security tab), it just won't arrive as a ready-made PR; treat that alert the
+same as a routine bump and patch it by hand.
 
 ## Write Your Own Integration Test
 
