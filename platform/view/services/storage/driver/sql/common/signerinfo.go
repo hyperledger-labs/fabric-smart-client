@@ -66,6 +66,9 @@ func (db *SignerInfoStore) FilterExistingSigners(ctx context.Context, ids ...vie
 		}
 		existingSigners = append(existingSigners, inverseMap[idHash])
 	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Wrapf(err, "error iterating rows")
+	}
 	logger.DebugfContext(ctx, "Found %d out of %d signers", len(existingSigners), len(ids))
 	return existingSigners, nil
 }

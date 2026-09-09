@@ -75,6 +75,9 @@ func (db *BindingStore) HaveSameBinding(ctx context.Context, this, that view.Ide
 		}
 		longTermIds = append(longTermIds, longTerm)
 	}
+	if err := rows.Err(); err != nil {
+		return false, errors.Wrapf(err, "error iterating rows")
+	}
 	if len(longTermIds) != 2 {
 		return false, errors.Errorf("%d entries found instead of 2", len(longTermIds))
 	}
