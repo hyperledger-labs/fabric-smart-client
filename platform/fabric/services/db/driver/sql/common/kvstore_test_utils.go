@@ -882,10 +882,10 @@ func subscribe(db notifier) (chan notifyEvent, error) {
 	return ch, nil
 }
 
-func ToBytes(Block driver3.BlockNum, TxNum driver3.TxNum) []byte {
+func ToBytes(block driver3.BlockNum, txNum driver3.TxNum) []byte {
 	buf := make([]byte, 8)
-	binary.BigEndian.PutUint32(buf[:4], uint32(Block))
-	binary.BigEndian.PutUint32(buf[4:], uint32(TxNum))
+	binary.BigEndian.PutUint32(buf[:4], uint32(block))
+	binary.BigEndian.PutUint32(buf[4:], uint32(txNum))
 	return buf
 }
 

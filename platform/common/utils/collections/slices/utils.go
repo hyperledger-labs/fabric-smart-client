@@ -33,7 +33,7 @@ func Difference[V comparable](a, b []V) []V {
 
 // Intersection returns a slice that contains all elements that are contained in both slices
 func Intersection[V comparable](a, b []V) []V {
-	//if len(a) > len(b) {
+	// if len(a) > len(b) {
 	//	a, b = b, a
 	//}
 	aSet := sets.New(a...)

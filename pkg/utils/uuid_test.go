@@ -21,7 +21,7 @@ func BenchmarkUUID(b *testing.B) {
 	oldGenerateUUID := func() string {
 		uuid := make([]byte, 16)
 
-		_, err := io.ReadFull(rand.Reader, uuid[:])
+		_, err := io.ReadFull(rand.Reader, uuid)
 		require.NoError(b, err, "Error generating UUID: %v", err)
 
 		// variant bits; see section 4.1.1

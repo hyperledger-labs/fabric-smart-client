@@ -38,7 +38,7 @@ type FabricFinality struct {
 func NewFabricFinality(
 	logger logging.Logger,
 	channel string,
-	ConfigService driver.ConfigService,
+	configService driver.ConfigService,
 	peerService Services,
 	defaultSigningIdentity driver.SigningIdentity,
 	waitForEventTimeout time.Duration,
@@ -51,7 +51,7 @@ func NewFabricFinality(
 	d := &FabricFinality{
 		Logger:                 logger,
 		Channel:                channel,
-		ConfigService:          ConfigService,
+		ConfigService:          configService,
 		Services:               peerService,
 		DefaultSigningIdentity: defaultSigningIdentity,
 		WaitForEventTimeout:    waitForEventTimeout,

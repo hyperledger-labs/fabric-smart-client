@@ -100,7 +100,7 @@ func newSpan(backingSpan trace.Span, labelNames []LabelName, operations metrics.
 }
 
 func defaultNow(t time.Time) time.Time {
-	//if t.IsZero() {
+	// if t.IsZero() {
 	//	return time.Now()
 	//}
 	return time.Now()

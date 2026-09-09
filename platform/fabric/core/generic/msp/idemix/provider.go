@@ -64,36 +64,36 @@ type Provider struct {
 	verType bccsp.VerificationType
 }
 
-func NewProviderWithEidRhNymPolicy(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService) (*Provider, error) {
-	return NewProviderWithSigType(conf1, KVS, sp, bccsp.EidNymRhNym)
+func NewProviderWithEidRhNymPolicy(conf1 *m.MSPConfig, kvs KVS, sp mspdriver.SignerService) (*Provider, error) {
+	return NewProviderWithSigType(conf1, kvs, sp, bccsp.EidNymRhNym)
 }
 
-func NewProviderWithStandardPolicy(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService) (*Provider, error) {
-	return NewProviderWithSigType(conf1, KVS, sp, bccsp.Standard)
+func NewProviderWithStandardPolicy(conf1 *m.MSPConfig, kvs KVS, sp mspdriver.SignerService) (*Provider, error) {
+	return NewProviderWithSigType(conf1, kvs, sp, bccsp.Standard)
 }
 
-func NewProviderWithAnyPolicy(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService) (*Provider, error) {
-	return NewProviderWithSigType(conf1, KVS, sp, Any)
+func NewProviderWithAnyPolicy(conf1 *m.MSPConfig, kvs KVS, sp mspdriver.SignerService) (*Provider, error) {
+	return NewProviderWithSigType(conf1, kvs, sp, Any)
 }
 
-func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService, curveID math.CurveID) (*Provider, error) {
-	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{KVS}, curveID, false)
+func NewProviderWithAnyPolicyAndCurve(conf1 *m.MSPConfig, kvs KVS, sp mspdriver.SignerService, curveID math.CurveID) (*Provider, error) {
+	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{kvs}, curveID, false)
 	if err != nil {
 		return nil, err
 	}
 	return NewProvider(conf1, sp, Any, cryptoProvider)
 }
 
-func NewProviderWithSigType(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService, sigType bccsp.SignatureType) (*Provider, error) {
-	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{KVS}, math.FP256BN_AMCL, false)
+func NewProviderWithSigType(conf1 *m.MSPConfig, kvs KVS, sp mspdriver.SignerService, sigType bccsp.SignatureType) (*Provider, error) {
+	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{kvs}, math.FP256BN_AMCL, false)
 	if err != nil {
 		return nil, err
 	}
 	return NewProvider(conf1, sp, sigType, cryptoProvider)
 }
 
-func NewProviderWithSigTypeAncCurve(conf1 *m.MSPConfig, KVS KVS, sp mspdriver.SignerService, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {
-	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{KVS}, curveID, false)
+func NewProviderWithSigTypeAncCurve(conf1 *m.MSPConfig, kvs KVS, sp mspdriver.SignerService, sigType bccsp.SignatureType, curveID math.CurveID) (*Provider, error) {
+	cryptoProvider, err := NewKSVBCCSP(&kvsAdapter{kvs}, curveID, false)
 	if err != nil {
 		return nil, err
 	}

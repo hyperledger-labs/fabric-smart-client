@@ -50,23 +50,23 @@ func WithPeerRole() node.Option {
 	}
 }
 
-func WithOrganization(Organization string) node.Option {
+func WithOrganization(organization string) node.Option {
 	return func(o *node.Options) error {
-		Options(o).AddOrganization(Organization)
+		Options(o).AddOrganization(organization)
 		return nil
 	}
 }
 
-func WithNetworkOrganization(Network, Organization string) node.Option {
+func WithNetworkOrganization(network, organization string) node.Option {
 	return func(o *node.Options) error {
-		Options(o).AddNetworkOrganization(Network, Organization)
+		Options(o).AddNetworkOrganization(network, organization)
 		return nil
 	}
 }
 
-func WithDefaultNetwork(Network string) node.Option {
+func WithDefaultNetwork(network string) node.Option {
 	return func(o *node.Options) error {
-		Options(o).SetDefaultNetwork(Network)
+		Options(o).SetDefaultNetwork(network)
 		return nil
 	}
 }

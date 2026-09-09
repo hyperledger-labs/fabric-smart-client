@@ -107,7 +107,7 @@ type service struct {
 
 func NewLocalMSPManager(
 	config driver.Config,
-	KVS KVS,
+	kvs KVS,
 	signerService driver.SignerService,
 	binderService driver.BinderService,
 	defaultViewIdentity view.Identity,
@@ -118,7 +118,7 @@ func NewLocalMSPManager(
 		defaults:            deferred.NewHolder[defaultIdentity]("default identity"),
 		defaultMSP:          deferred.NewHolder[string]("default MSP"),
 		config:              config,
-		KVS:                 KVS,
+		KVS:                 kvs,
 		signerService:       signerService,
 		binderService:       binderService,
 		deserializerManager: deserializerManager,
@@ -133,12 +133,12 @@ func NewLocalMSPManager(
 	s.PutIdentityLoader(BccspMSP, &x509.IdentityLoader{})
 	s.PutIdentityLoader(BccspMSPFolder, &x509.FolderIdentityLoader{})
 	s.PutIdentityLoader(IdemixMSP, &idemix.IdentityLoader{
-		KVS:           KVS,
+		KVS:           kvs,
 		SignerService: signerService,
 	})
 	s.PutIdentityLoader(IdemixMSPFolder, &idemix.FolderIdentityLoader{
 		IdentityLoader: &idemix.IdentityLoader{
-			KVS:           KVS,
+			KVS:           kvs,
 			SignerService: signerService,
 		},
 	})
@@ -391,9 +391,9 @@ func (s *service) Refresh() error {
 	return s.loadLocalMSPs()
 }
 
-func (s *service) AddMSP(name, mspType, enrollmentID string, IdentityGetter fdriver.GetIdentityFunc) error {
+func (s *service) AddMSP(name, mspType, enrollmentID string, identityGetter fdriver.GetIdentityFunc) error {
 	if mspType == BccspMSP && s.binderService != nil {
-		id, _, err := IdentityGetter(nil)
+		id, _, err := identityGetter(nil)
 		if err != nil {
 			return errors.Wrapf(err, "cannot get identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err)
 		}
@@ -406,10 +406,10 @@ func (s *service) AddMSP(name, mspType, enrollmentID string, IdentityGetter fdri
 		Name:         name,
 		Type:         mspType,
 		EnrollmentID: enrollmentID,
-		GetIdentity:  IdentityGetter,
+		GetIdentity:  identityGetter,
 	}
 	if mspType == BccspMSP {
-		id, _, err := IdentityGetter(nil)
+		id, _, err := identityGetter(nil)
 		if err != nil {
 			return errors.Wrapf(err, "cannot get identity for [%s,%s,%s][%s]", name, mspType, enrollmentID, err)
 		}

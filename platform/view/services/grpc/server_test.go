@@ -1081,7 +1081,7 @@ func TestUpdateTLSCert(t *testing.T) {
 	loadBytes := func(prefix string) (key, cert, caCert []byte) {
 		cert = readFile(filepath.Join(prefix, "server.crt"))
 		key = readFile(filepath.Join(prefix, "server.key"))
-		caCert = readFile(filepath.Join("ca.crt"))
+		caCert = readFile("ca.crt")
 		return key, cert, caCert
 	}
 

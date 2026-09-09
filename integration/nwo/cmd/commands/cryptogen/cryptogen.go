@@ -208,21 +208,22 @@ PeerOrgs:
 func getConfig() (*Config, error) {
 	var configData string
 
-	if genConfigFile != "" {
+	switch {
+	case genConfigFile != "":
 		data, err := os.ReadFile(genConfigFile)
 		if err != nil {
 			return nil, errors.Errorf("error reading configuration: %s", err)
 		}
 
 		configData = string(data)
-	} else if extConfigFile != "" {
+	case extConfigFile != "":
 		data, err := os.ReadFile(extConfigFile)
 		if err != nil {
 			return nil, errors.Errorf("error reading configuration: %s", err)
 		}
 
 		configData = string(data)
-	} else {
+	default:
 		configData = defaultConfig
 	}
 

@@ -15,6 +15,7 @@ linters:
     - durationcheck
     - errcheck
     - errorlint
+    - gocritic
     - goheader
     - gosec
     - govet

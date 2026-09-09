@@ -138,8 +138,8 @@ func parseHist(hist *stats.Histogram, duration time.Duration) {
 		"ns/op (p95)": float64(time.Duration(percentile(.95, hist))),
 		"ns/op (p99)": float64(time.Duration(percentile(.99, hist))),
 		"ns/op":       0,
-		//"ns/op (_min)": float64(time.Duration(hist.Min)),
-		//"ns/op (_max)": float64(time.Duration(hist.Max)),
+		// "ns/op (_min)": float64(time.Duration(hist.Min)),
+		// "ns/op (_max)": float64(time.Duration(hist.Max)),
 	}}
 	fmt.Println(k.String())
 }

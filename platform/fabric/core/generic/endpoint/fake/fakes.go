@@ -84,6 +84,7 @@ func (f *ResolverServiceBackend) AddResolver(name, domain string, addresses map[
 	}
 
 	var rootID view.Identity
+	//nolint:gocritic // first branch declares its own err and returns early; rewriting to switch would bury that early return among plain assignment branches.
 	if f.AddResolverFn != nil {
 		var err error
 		rootID, err = f.AddResolverFn(name, domain, addresses, aliases, id)

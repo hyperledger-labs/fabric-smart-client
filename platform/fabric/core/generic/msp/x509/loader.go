@@ -43,7 +43,7 @@ func (i *IdentityLoader) Load(manager driver.Manager, c config.MSP) error {
 	}
 
 	// Try without "msp"
-	rootPath := filepath.Join(manager.Config().TranslatePath(c.Path))
+	rootPath := filepath.Join(manager.Config().TranslatePath(c.Path)) //nolint:gocritic // single-arg Join is intentional here to normalize the translated path (e.g. drop a trailing separator); filepath.Clean would differ from Join on an empty c.Path.
 	provider, err := NewProviderWithBCCSPConfig(rootPath, "", c.MSPID, manager.SignerService(), bccspOpts)
 	if err != nil {
 		logger.Warnf("failed reading bccsp msp configuration from [%s]: [%s]", rootPath, err)

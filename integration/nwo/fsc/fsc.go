@@ -92,9 +92,9 @@ type Platform struct {
 	cleanDB                  func()
 }
 
-func NewPlatform(Registry api.Context, t api.Topology, builderClient BuilderClient) *Platform {
+func NewPlatform(registry api.Context, t api.Topology, builderClient BuilderClient) *Platform {
 	p := &Platform{
-		Context:           Registry,
+		Context:           registry,
 		NetworkID:         common.UniqueName(),
 		Builder:           &Builder{client: builderClient},
 		Topology:          t.(*Topology),
@@ -434,7 +434,7 @@ func (p *Platform) CheckTopology() {
 			p.Context.SetPortsByPeerID("fsc", peer.ID(), ports)
 			p.Context.SetHostByPeerID("fsc", peer.ID(), "127.0.0.1")
 			p.Peers = append(p.Peers, peer)
-			users[orgName] = users[orgName] + 1
+			users[orgName]++
 			userNames[orgName] = append(userNames[orgName], node.Name)
 
 			// Is this a bootstrap node/
@@ -446,7 +446,7 @@ func (p *Platform) CheckTopology() {
 
 	for _, organization := range p.Organizations {
 		organization.Users += users[organization.Name]
-		organization.UserNames = append(userNames[organization.Name], "User1", "User2")
+		organization.UserNames = append(append([]string{}, userNames[organization.Name]...), "User1", "User2")
 	}
 
 	if !bootstrapNodeFound {
@@ -579,8 +579,8 @@ func (p *Platform) GenerateCoreConfig(peer *node2.Replica) {
 		"NetworkID":    func() string { return p.NetworkID },
 		"Topology":     func() *Topology { return p.Topology },
 		"Extensions":   func() []string { return extensions },
-		"ToLower":      func(s string) string { return strings.ToLower(s) },
-		"ReplaceAll":   func(s, old, replacement string) string { return strings.ReplaceAll(s, old, replacement) },
+		"ToLower":      strings.ToLower,
+		"ReplaceAll":   strings.ReplaceAll,
 		"Persistences": func() map[driver.PersistenceName]node2.PersistenceOpts { return persistences },
 		"Resolvers":    func() []*Resolver { return resolvers },
 		"WebEnabled":   func() bool { return p.Topology.WebEnabled },

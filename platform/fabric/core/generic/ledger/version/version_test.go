@@ -54,7 +54,7 @@ func TestVersionExtraBytes(t *testing.T) {
 	extraBytes := []byte("junk")
 	h1 := NewHeight(10, 100)
 	b := h1.ToBytes()
-	b1 := append(b, extraBytes...)
+	b1 := append(append([]byte{}, b...), extraBytes...)
 	h2, n, err := NewHeightFromBytes(b1)
 	require.NoError(t, err)
 	require.Equal(t, h1, h2)

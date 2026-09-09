@@ -113,11 +113,12 @@ func (t *Builder) newTransactionWithType(ctx context.Context, creator []byte, ne
 	}
 
 	var fabricTransaction *fabric.Transaction
-	if len(raw) == 0 {
+	switch {
+	case len(raw) == 0:
 		fabricTransaction, err = fNetwork.TransactionManager().NewTransaction(options...)
-	} else if envelope {
+	case envelope:
 		fabricTransaction, err = fNetwork.TransactionManager().NewTransactionFromEnvelopeBytes(raw, options...)
-	} else {
+	default:
 		fabricTransaction, err = fNetwork.TransactionManager().NewTransactionFromBytes(raw, options...)
 	}
 

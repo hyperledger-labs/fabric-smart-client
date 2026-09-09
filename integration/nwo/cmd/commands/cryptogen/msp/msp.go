@@ -151,7 +151,7 @@ func GenerateLocalMSP(baseDir, name string, sans []string, signCA, tlsCA *ca.CA,
 	}
 
 	// generate X509 certificate using TLS CA
-	_, err = tlsCA.SignCertificate(filepath.Join(tlsDir), name, nil, sans, &tlsPrivKey.PublicKey, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment, []x509.ExtKeyUsage{
+	_, err = tlsCA.SignCertificate(tlsDir, name, nil, sans, &tlsPrivKey.PublicKey, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment, []x509.ExtKeyUsage{
 		x509.ExtKeyUsageServerAuth,
 		x509.ExtKeyUsageClientAuth,
 	}, 0)

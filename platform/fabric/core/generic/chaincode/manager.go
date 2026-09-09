@@ -51,7 +51,7 @@ func NewManager(
 	signerService driver.SignerService,
 	broadcaster Broadcaster,
 	finality driver.Finality,
-	MSPProvider MSPProvider,
+	mspProvider MSPProvider,
 ) *Manager {
 	mctx, cancel := context.WithCancel(ctx)
 	return &Manager{
@@ -66,7 +66,7 @@ func NewManager(
 		SignerService:   signerService,
 		Broadcaster:     broadcaster,
 		Finality:        finality,
-		MSPProvider:     MSPProvider,
+		MSPProvider:     mspProvider,
 		Chaincodes:      map[string]driver.Chaincode{},
 		ctx:             mctx,
 		cancel:          cancel,

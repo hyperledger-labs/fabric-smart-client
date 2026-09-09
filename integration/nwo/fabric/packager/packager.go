@@ -75,9 +75,9 @@ func New() *Packager {
 	}
 }
 
-func NewWithRegistry(PlatformRegistry PlatformRegistry) *Packager {
+func NewWithRegistry(pr PlatformRegistry) *Packager {
 	return &Packager{
-		PlatformRegistry: PlatformRegistry,
+		PlatformRegistry: pr,
 		WriterFile:       WriteFile,
 	}
 }

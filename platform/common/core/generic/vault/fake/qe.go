@@ -52,9 +52,9 @@ func (m TxStatusStore) GetTxStatus(_ context.Context, txID driver.TxID) (*driver
 	return &driver.TxStatus{TxID: txID, Code: 1}, nil
 }
 
-func blockTxIndexToBytes(Block driver.BlockNum, TxNum driver.TxNum) []byte {
+func blockTxIndexToBytes(block driver.BlockNum, txNum driver.TxNum) []byte {
 	buf := make([]byte, 8)
-	binary.BigEndian.PutUint32(buf[:4], uint32(Block))
-	binary.BigEndian.PutUint32(buf[4:], uint32(TxNum))
+	binary.BigEndian.PutUint32(buf[:4], uint32(block))
+	binary.BigEndian.PutUint32(buf[4:], uint32(txNum))
 	return buf
 }

@@ -58,10 +58,10 @@ func (m BlockTxIndexVersionMarshaller) ToBytes(bn driver2.BlockNum, txn driver2.
 	return BlockTxIndexToBytes(bn, txn)
 }
 
-func BlockTxIndexToBytes(Block driver2.BlockNum, TxNum driver2.TxNum) []byte {
+func BlockTxIndexToBytes(block driver2.BlockNum, txNum driver2.TxNum) []byte {
 	buf := make([]byte, 8)
-	binary.BigEndian.PutUint32(buf[:4], uint32(Block))
-	binary.BigEndian.PutUint32(buf[4:], uint32(TxNum))
+	binary.BigEndian.PutUint32(buf[:4], uint32(block))
+	binary.BigEndian.PutUint32(buf[4:], uint32(txNum))
 	return buf
 }
 
