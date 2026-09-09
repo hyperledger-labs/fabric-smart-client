@@ -382,5 +382,3 @@ func TestVaultClose(t *testing.T) { //nolint:paralleltest
 
 	require.NoError(t, v.Close())
 }
-
-var _ = context.Background
