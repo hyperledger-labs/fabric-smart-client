@@ -364,6 +364,18 @@ Be careful with updating all dependencies at once. This may easily break somethi
 Note that `gomate.sh tidy` can also be invoked via `make tidy`. 
 After updating, run `make tidy` and `make checks` to verify the result.
 
+### Fabric and IBM crypto dependencies
+
+[`dependabot.yml`](../../.github/dependabot.yml) excludes `github.com/hyperledger/fabric*`,
+`github.com/IBM/idemix`, and `github.com/IBM/mathlib` from the weekly version-update PRs.
+These track the Fabric/Fabric-x network binaries and the crypto stack, and bumping them
+often needs matching non-dependency changes across modules, so they're updated by hand
+with `gomate.sh update` on a regular cadence instead of arriving as unreviewed weekly noise.
+
+The exclusion only applies to version updates: it's scoped with `applies-to: version-updates`,
+so Dependabot's security-update path stays active and still opens a PR if a GHSA lands
+against any of them.
+
 ## Write Your Own Integration Test
 
 Creating a new integration test is straightforward.
