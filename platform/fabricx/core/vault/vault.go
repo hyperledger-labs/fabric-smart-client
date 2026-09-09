@@ -432,12 +432,23 @@ func (r *rwSetWrapper) GetStateMetadata(namespace cdriver.Namespace, key cdriver
 	// value, key by its sha256 digest, and return the stored {fieldMappingKey: mapping}
 	// so getFieldMapping finds meta[fieldMappingKey] exactly as on Fabric.
 	committed, err := r.v.queryService.GetState(namespace, key)
-	if err != nil || committed == nil || len(committed.Raw) == 0 {
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed getting committed state for namespace=%s, key=%s", namespace, key)
+	}
+	if committed == nil || len(committed.Raw) == 0 {
 		return nil, nil
 	}
 	digest := sha256.Sum256(committed.Raw)
+	// GetFieldMapping returns an error both on a genuine failure and on a miss (the
+	// underlying KVS read returns no row and unmarshalling the empty result fails) -
+	// see the comment on mds.GetFieldMapping. Callers must treat any error here as "no
+	// mapping", matching mds.LoadTransient's identical miss behaviour.
 	fm, err := r.v.mds.GetFieldMapping(context.Background(), string(namespace), string(key), digest[:])
-	if err != nil || len(fm) == 0 {
+	if err != nil {
+		logger.Debugf("no field mapping for namespace=%s, key=%s: %s", namespace, key, err)
+		return nil, nil
+	}
+	if len(fm) == 0 {
 		return nil, nil
 	}
 	return cdriver.Metadata(fm), nil
