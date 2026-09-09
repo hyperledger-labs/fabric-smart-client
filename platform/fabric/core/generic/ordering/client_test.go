@@ -65,7 +65,7 @@ func (m *mockBroadcast) CloseSend() error {
 	return nil
 }
 
-func (m *mockBroadcast) getCalls() (send, recv, close int) {
+func (m *mockBroadcast) getCalls() (send, recv, closeCalls int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.sendCalls, m.recvCalls, m.closeCalls

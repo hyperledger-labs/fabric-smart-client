@@ -28,11 +28,11 @@ func GetBytesChaincodeProposalPayload(cpp *peer.ChaincodeProposalPayload) ([]byt
 
 // GetBytesChaincodeActionPayload get the bytes of ChaincodeActionPayload from
 // the message
-func GetBytesChaincodeActionPayload(cap *peer.ChaincodeActionPayload) ([]byte, error) {
-	if cap == nil {
+func GetBytesChaincodeActionPayload(actionPayload *peer.ChaincodeActionPayload) ([]byte, error) {
+	if actionPayload == nil {
 		return nil, errors.New("error marshaling ChaincodeActionPayload: proto: Marshal called with nil")
 	}
-	capBytes, err := Marshal(cap)
+	capBytes, err := Marshal(actionPayload)
 	return capBytes, errors.Wrap(err, "error marshaling ChaincodeActionPayload")
 }
 

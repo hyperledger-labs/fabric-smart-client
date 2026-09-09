@@ -75,7 +75,7 @@ func createEnvelopeWithArgs(tb testing.TB, args [][]byte) *common.Envelope {
 	cppBytes, err := proto.Marshal(cpp)
 	require.NoError(tb, err)
 
-	cap := &peer.ChaincodeActionPayload{
+	actionPayload := &peer.ChaincodeActionPayload{
 		ChaincodeProposalPayload: cppBytes,
 		Action: &peer.ChaincodeEndorsedAction{
 			ProposalResponsePayload: prpBytes,
@@ -84,7 +84,7 @@ func createEnvelopeWithArgs(tb testing.TB, args [][]byte) *common.Envelope {
 			},
 		},
 	}
-	capBytes, err := proto.Marshal(cap)
+	capBytes, err := proto.Marshal(actionPayload)
 	require.NoError(tb, err)
 
 	txAction := &peer.TransactionAction{

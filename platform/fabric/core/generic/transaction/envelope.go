@@ -163,11 +163,11 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 	if len(tx.Actions) == 0 {
 		return nil, chdr.Type, errors.Errorf("VSCC error: transaction has no actions")
 	}
-	cap, err := protoutil.UnmarshalChaincodeActionPayload(tx.Actions[0].Payload)
+	actionPayload, err := protoutil.UnmarshalChaincodeActionPayload(tx.Actions[0].Payload)
 	if err != nil {
 		return nil, chdr.Type, errors.Wrap(err, "VSCC error: GetChaincodeActionPayload failed")
 	}
-	cpp, err := protoutil.UnmarshalChaincodeProposalPayload(cap.ChaincodeProposalPayload)
+	cpp, err := protoutil.UnmarshalChaincodeProposalPayload(actionPayload.ChaincodeProposalPayload)
 	if err != nil {
 		return nil, chdr.Type, errors.Wrap(err, "VSCC error: GetChaincodeProposalPayload failed")
 	}
@@ -188,10 +188,10 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 		return nil, chdr.Type, errors.Errorf("chaincode invocation spec did not contain chaincode id")
 	}
 
-	if cap.Action == nil {
+	if actionPayload.Action == nil {
 		return nil, chdr.Type, errors.Errorf("VSCC error: chaincode action payload has no action")
 	}
-	pRespPayload, err := protoutil.UnmarshalProposalResponsePayload(cap.Action.ProposalResponsePayload)
+	pRespPayload, err := protoutil.UnmarshalProposalResponsePayload(actionPayload.Action.ProposalResponsePayload)
 	if err != nil {
 		return nil, chdr.Type, errors.Wrap(err, "failed to unmarshal proposal response payload")
 	}
@@ -209,18 +209,18 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 		"len(payl.Header.SignatureHeader) [%d] - "+
 		"len(payl.Data) [%d] - "+
 		"len(tx.Actions[0].Payload) [%d] - "+
-		"len(cap.ChaincodeProposalPayload) [%d] - "+
+		"len(actionPayload.ChaincodeProposalPayload) [%d] - "+
 		"len(cpp.Input) [%d] - "+
-		"len(cap.Action.ProposalResponsePayload) [%d] - "+
+		"len(actionPayload.Action.ProposalResponsePayload) [%d] - "+
 		"len(pRespPayload.Extension) [%d]",
 		len(payloadRaw),
 		len(payl.Header.ChannelHeader),
 		len(payl.Header.SignatureHeader),
 		len(payl.Data),
 		len(tx.Actions[0].Payload),
-		len(cap.ChaincodeProposalPayload),
+		len(actionPayload.ChaincodeProposalPayload),
 		len(cpp.Input),
-		len(cap.Action.ProposalResponsePayload),
+		len(actionPayload.Action.ProposalResponsePayload),
 		len(pRespPayload.Extension),
 	)
 
@@ -230,10 +230,10 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 	}
 
 	var proposalResponses []*peer.ProposalResponse
-	for _, endorsement := range cap.Action.Endorsements {
+	for _, endorsement := range actionPayload.Action.Endorsements {
 		proposalResponses = append(proposalResponses,
 			&peer.ProposalResponse{
-				Payload:     cap.Action.ProposalResponsePayload,
+				Payload:     actionPayload.Action.ProposalResponsePayload,
 				Endorsement: endorsement,
 			})
 	}

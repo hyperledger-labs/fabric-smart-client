@@ -22,6 +22,7 @@ linters:
     - nilerr
     - nilnesserr
     - paralleltest
+    - predeclared
     - spancheck
     - rowserrcheck
     - recvcheck
