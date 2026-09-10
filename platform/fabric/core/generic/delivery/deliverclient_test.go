@@ -384,22 +384,10 @@ func TestDeliverReceive(t *testing.T) {
 
 	t.Run("DeliverResponse_Block VALID", func(t *testing.T) {
 		t.Parallel()
-		chdr := &cb.ChannelHeader{TxId: "tx1"}
-		chdrBytes, _ := proto.Marshal(chdr)
-		payload := &cb.Payload{Header: &cb.Header{ChannelHeader: chdrBytes}}
-		payloadBytes, _ := proto.Marshal(payload)
-		env := &cb.Envelope{Payload: payloadBytes}
-		envBytes, _ := proto.Marshal(env)
-
 		df := &mockDeliverStream{
 			recvResp: &pb.DeliverResponse{
 				Type: &pb.DeliverResponse_Block{
-					Block: &cb.Block{
-						Header: &cb.BlockHeader{Number: 11},
-						Data: &cb.BlockData{
-							Data: [][]byte{envBytes},
-						},
-					},
+					Block: blockWithTx(11, []string{"tx1"}, pb.TxValidationCode_VALID),
 				},
 			},
 		}
@@ -410,6 +398,97 @@ func TestDeliverReceive(t *testing.T) {
 		require.True(t, event.Committed)
 		require.Equal(t, uint64(11), event.Block)
 		require.Equal(t, 0, event.IndexInBlock)
+	})
+
+	// A full block carries its verdicts in TRANSACTIONS_FILTER metadata rather
+	// than inline, so matching the transaction ID only proves the transaction was
+	// included in the block - Fabric includes rejected transactions too. The
+	// verdict must be read before reporting the transaction as committed,
+	// matching the FilteredBlock branch.
+	t.Run("DeliverResponse_Block INVALID", func(t *testing.T) {
+		t.Parallel()
+		df := &mockDeliverStream{
+			recvResp: &pb.DeliverResponse{
+				Type: &pb.DeliverResponse_Block{
+					Block: blockWithTx(11, []string{"tx1"}, pb.TxValidationCode_MVCC_READ_CONFLICT),
+				},
+			},
+		}
+		ch := make(chan TxEvent, 1)
+		err := DeliverReceive(df, "peer0", "tx1", ch)
+		require.ErrorContains(t, err, "status is not valid: MVCC_READ_CONFLICT")
+		require.False(t, (<-ch).Committed, "an invalid transaction must not be reported as committed")
+	})
+
+	// Fail closed: a block whose validity information is absent or too short to
+	// cover the matched transaction must not be reported as committed. Matches
+	// how Service.Scan and Service.ScanFromBlock already treat validationCodeAt
+	// errors. A malicious peer can send either shape.
+	t.Run("DeliverResponse_Block missing validation metadata", func(t *testing.T) {
+		t.Parallel()
+		block := blockWithTx(11, []string{"tx1"}, pb.TxValidationCode_VALID)
+		block.Metadata = nil
+
+		df := &mockDeliverStream{
+			recvResp: &pb.DeliverResponse{
+				Type: &pb.DeliverResponse_Block{Block: block},
+			},
+		}
+		ch := make(chan TxEvent, 1)
+		err := DeliverReceive(df, "peer0", "tx1", ch)
+		require.ErrorContains(t, err, "metadata lacks transaction filter")
+		require.False(t, (<-ch).Committed, "a block without validity information must not be reported as committed")
+	})
+
+	t.Run("DeliverResponse_Block truncated validation metadata", func(t *testing.T) {
+		t.Parallel()
+		// Two transactions, but validity flags cover only the first, so the
+		// matched transaction at index 1 has no verdict.
+		block := blockWithTx(11, []string{"tx0", "tx1"}, pb.TxValidationCode_VALID)
+		block.Metadata.Metadata[cb.BlockMetadataIndex_TRANSACTIONS_FILTER] = []byte{uint8(pb.TxValidationCode_VALID)}
+
+		df := &mockDeliverStream{
+			recvResp: &pb.DeliverResponse{
+				Type: &pb.DeliverResponse_Block{Block: block},
+			},
+		}
+		ch := make(chan TxEvent, 1)
+		err := DeliverReceive(df, "peer0", "tx1", ch)
+		require.ErrorContains(t, err, "out of range")
+		require.False(t, (<-ch).Committed, "a transaction with no verdict must not be reported as committed")
+	})
+
+	// The issue's stated expectation is that both branches agree. An invalid
+	// transaction must produce the same error regardless of stream type.
+	t.Run("both branches report an invalid transaction alike", func(t *testing.T) {
+		t.Parallel()
+		filtered := &mockDeliverStream{
+			recvResp: &pb.DeliverResponse{
+				Type: &pb.DeliverResponse_FilteredBlock{
+					FilteredBlock: &pb.FilteredBlock{
+						Number: 11,
+						FilteredTransactions: []*pb.FilteredTransaction{
+							{Txid: "tx1", TxValidationCode: pb.TxValidationCode_MVCC_READ_CONFLICT},
+						},
+					},
+				},
+			},
+		}
+		full := &mockDeliverStream{
+			recvResp: &pb.DeliverResponse{
+				Type: &pb.DeliverResponse_Block{
+					Block: blockWithTx(11, []string{"tx1"}, pb.TxValidationCode_MVCC_READ_CONFLICT),
+				},
+			},
+		}
+
+		filteredErr := DeliverReceive(filtered, "peer0", "tx1", make(chan TxEvent, 1))
+		fullErr := DeliverReceive(full, "peer0", "tx1", make(chan TxEvent, 1))
+
+		require.Error(t, filteredErr)
+		require.Error(t, fullErr)
+		require.Equal(t, filteredErr.Error(), fullErr.Error(),
+			"the two stream types must report an invalid transaction identically")
 	})
 
 	t.Run("DeliverResponse_Block invalid envelope", func(t *testing.T) {
@@ -430,4 +509,38 @@ func TestDeliverReceive(t *testing.T) {
 		err := DeliverReceive(df, "peer0", "tx1", ch)
 		require.ErrorContains(t, err, "error parsing transaction")
 	})
+}
+
+// blockWithTx builds a full block containing the given transaction IDs, with a
+// TRANSACTIONS_FILTER metadata entry marking every one of them with code. The
+// filter lives at index BlockMetadataIndex_TRANSACTIONS_FILTER (2), so the
+// earlier entries are padding.
+func blockWithTx(number uint64, txIDs []string, code pb.TxValidationCode) *cb.Block {
+	data := make([][]byte, 0, len(txIDs))
+	flags := make([]byte, 0, len(txIDs))
+	for _, txID := range txIDs {
+		chdrBytes, err := proto.Marshal(&cb.ChannelHeader{TxId: txID})
+		if err != nil {
+			panic(err)
+		}
+		payloadBytes, err := proto.Marshal(&cb.Payload{Header: &cb.Header{ChannelHeader: chdrBytes}})
+		if err != nil {
+			panic(err)
+		}
+		envBytes, err := proto.Marshal(&cb.Envelope{Payload: payloadBytes})
+		if err != nil {
+			panic(err)
+		}
+		data = append(data, envBytes)
+		flags = append(flags, uint8(code))
+	}
+
+	metadata := make([][]byte, cb.BlockMetadataIndex_TRANSACTIONS_FILTER+1)
+	metadata[cb.BlockMetadataIndex_TRANSACTIONS_FILTER] = flags
+
+	return &cb.Block{
+		Header:   &cb.BlockHeader{Number: number},
+		Data:     &cb.BlockData{Data: data},
+		Metadata: &cb.BlockMetadata{Metadata: metadata},
+	}
 }

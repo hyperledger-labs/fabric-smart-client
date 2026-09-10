@@ -226,6 +226,21 @@ read:
 					event.Err = errors.Wrapf(err, "error parsing transaction [%d,%d]", r.Block.Header.Number, i)
 					break read
 				} else if chdr.TxId == txid {
+					// A full block carries its verdicts in TRANSACTIONS_FILTER metadata
+					// rather than inline, so matching the transaction ID only proves the
+					// transaction was included in the block - Fabric includes rejected
+					// transactions too. Read the verdict before reporting it committed,
+					// matching the FilteredBlock branch above.
+					code, err := validationCodeAt(r.Block, i)
+					if err != nil {
+						event.Err = err
+						break read
+					}
+					if pb.TxValidationCode(code) != pb.TxValidationCode_VALID {
+						logger.Debugf("transaction [%s] in block [%d] is not valid [%s]", txid, r.Block.Header.Number, pb.TxValidationCode(code))
+						event.Err = errors.Errorf("transaction [%s] status is not valid: %s", txid, pb.TxValidationCode(code))
+						break read
+					}
 					event.Committed = true
 					event.Block = r.Block.Header.Number
 					event.IndexInBlock = i
