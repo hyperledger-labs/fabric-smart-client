@@ -370,6 +370,9 @@ func (d *Delivery) connect(ctx context.Context) (DeliverStream, context.CancelFu
 	d.cleanup()
 
 	peerConnConf := d.ConfigService.PickPeer(driver.PeerForDelivery)
+	if peerConnConf == nil {
+		return nil, nil, errors.New("no peer configured for delivery")
+	}
 
 	address := peerConnConf.Address
 	logger.Debugf("connecting to deliver service at [%s] for [%s:%s]", address, d.NetworkName, d.channel)

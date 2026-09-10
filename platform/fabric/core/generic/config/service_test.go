@@ -244,6 +244,9 @@ func TestCreatePeerMapAndPickPeer(t *testing.T) {
 	// pick a peer for query — ensure non-nil
 	p := svc.PickPeer(driver.PeerForQuery)
 	require.NotNil(t, p)
+
+	// No peer declares usage: finality, and PeerForAnything is empty too.
+	require.Nil(t, svc.PickPeer(driver.PeerForFinality))
 }
 
 func TestPickOrderer_nilAndSetConfigOrderers(t *testing.T) {

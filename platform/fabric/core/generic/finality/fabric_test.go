@@ -247,7 +247,7 @@ func TestFabricFinality_IsFinal(t *testing.T) {
 				}
 			}
 
-			err = f.IsFinal("tx1", "peer1")
+			err = f.IsFinal("tx1")
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.expectedError != "" {
@@ -258,4 +258,31 @@ func TestFabricFinality_IsFinal(t *testing.T) {
 			}
 		})
 	}
+}
+
+// PickPeer returns nil when no peer is configured for finality. FabricFinality
+// dereferenced it to build the peer client, panicking the node; it must report
+// an error instead. DeliverReceive runs from a bare goroutine with no panic
+// recovery, so this is a crash rather than a failed call.
+func TestFabricFinality_IsFinal_noPeerConfigured(t *testing.T) {
+	t.Parallel()
+
+	mockConfig := &fake.ConfigService{}
+	mockConfig.On("PickPeer", mock.Anything).Return(nil)
+
+	f, err := NewFabricFinality(
+		logging.MustGetLogger("test"),
+		"testchannel",
+		mockConfig,
+		&fake.Services{},
+		&fake.SigningIdentity{},
+		5*time.Second,
+		true,
+	)
+	require.NoError(t, err)
+
+	require.NotPanics(t, func() {
+		err := f.IsFinal("tx1")
+		require.ErrorContains(t, err, "no peer configured for finality")
+	})
 }

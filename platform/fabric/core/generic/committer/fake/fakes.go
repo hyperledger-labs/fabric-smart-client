@@ -310,7 +310,7 @@ type FabricFinality struct {
 	Err error
 }
 
-func (f *FabricFinality) IsFinal(string, string) error {
+func (f *FabricFinality) IsFinal(string) error {
 	return f.Err
 }
 
