@@ -56,7 +56,7 @@ type (
 )
 
 type FabricFinality interface {
-	IsFinal(txID string) error
+	IsFinal(ctx context.Context, txID string) error
 }
 
 type CommitTx struct {
@@ -395,7 +395,7 @@ func (c *Committer) IsFinal(ctx context.Context, txID string) error {
 			if logger.IsEnabledFor(zapcore.DebugLevel) {
 				c.logger.Debugf("Tx [%s] is unknown with no deps, remote check [%d][%s]", txID, iter, debug.Stack())
 			}
-			err := c.FabricFinality.IsFinal(txID)
+			err := c.FabricFinality.IsFinal(ctx, txID)
 			if err == nil {
 				c.logger.Debugf("Tx [%s] is final, remote check succeeded", txID)
 				return nil
