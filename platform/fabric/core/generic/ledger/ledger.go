@@ -102,10 +102,14 @@ func (c *Ledger) queryChaincode(function string, param any) ([]byte, error) {
 	if param != nil {
 		params = append(params, param)
 	}
+	peerConnConf := c.ConfigService.PickPeer(driver.PeerForQuery)
+	if peerConnConf == nil {
+		return nil, errors.New("no peer configured for query")
+	}
 	return c.ChaincodeManager.Chaincode(QuerySystemChaincode).
 		NewInvocation(function, params...).
 		WithSignerIdentity(c.LocalMembership.DefaultIdentity()).
-		WithEndorsersByConnConfig(c.ConfigService.PickPeer(driver.PeerForQuery)).
+		WithEndorsersByConnConfig(peerConnConf).
 		Query()
 }
 

@@ -61,9 +61,8 @@ func NewFabricFinality(
 	return d, nil
 }
 
-// IsFinal probes a peer configured for finality for the given transaction. The
-// peer is chosen here rather than supplied by the caller, so that the address
-// reported in errors and events is always the peer actually probed.
+// IsFinal probes a peer configured for finality for the given transaction,
+// returning an error if no peer is configured for that role.
 func (d *FabricFinality) IsFinal(txID string) error {
 	d.Logger.Debugf("remote checking if transaction [%s] is final in channel [%s]", txID, d.Channel)
 	var eventCh chan delivery.TxEvent

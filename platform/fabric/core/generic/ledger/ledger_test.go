@@ -24,6 +24,7 @@ import (
 
 	"github.com/hyperledger-labs/fabric-smart-client/pkg/utils/proto"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/fabric/core/generic/ledger/mock"
+	"github.com/hyperledger-labs/fabric-smart-client/platform/view/services/grpc"
 	"github.com/hyperledger-labs/fabric-smart-client/platform/view/view"
 )
 
@@ -91,7 +92,7 @@ func TestGetLedgerInfo(t *testing.T) {
 
 			mockCM.ChaincodeReturns(mockCC)
 			mockLM.DefaultIdentityReturns(view.Identity("alice"))
-			mockCS.PickPeerReturns(nil)
+			mockCS.PickPeerReturns(&grpc.ConnectionConfig{Address: "peer0:7051"})
 
 			info, err := l.GetLedgerInfo()
 			if tt.wantErr {
@@ -144,7 +145,7 @@ func TestGetTransactionByID(t *testing.T) {
 
 			mockCM.ChaincodeReturns(mockCC)
 			mockLM.DefaultIdentityReturns(view.Identity("alice"))
-			mockCS.PickPeerReturns(nil)
+			mockCS.PickPeerReturns(&grpc.ConnectionConfig{Address: "peer0:7051"})
 
 			mockPT := &mock.ProcessedTransaction{}
 			mockTM.NewProcessedTransactionReturns(mockPT, nil)
@@ -205,7 +206,7 @@ func TestGetBlockNumberByTxID(t *testing.T) {
 
 			mockCM.ChaincodeReturns(mockCC)
 			mockLM.DefaultIdentityReturns(view.Identity("alice"))
-			mockCS.PickPeerReturns(nil)
+			mockCS.PickPeerReturns(&grpc.ConnectionConfig{Address: "peer0:7051"})
 
 			res, err := l.GetBlockNumberByTxID("tx1")
 			if tt.wantErr {
@@ -269,7 +270,7 @@ func TestGetBlockByNumber(t *testing.T) {
 
 			mockCM.ChaincodeReturns(mockCC)
 			mockLM.DefaultIdentityReturns(view.Identity("alice"))
-			mockCS.PickPeerReturns(nil)
+			mockCS.PickPeerReturns(&grpc.ConnectionConfig{Address: "peer0:7051"})
 
 			res, err := l.GetBlockByNumber(10)
 			if tt.wantErr {
@@ -451,4 +452,46 @@ func TestBlock(t *testing.T) {
 			require.Nil(t, b.DataAt(5))
 		})
 	})
+}
+
+// PickPeer returns nil when no peer is configured for queries. The nil used to
+// be handed to WithEndorsersByConnConfig, where it survives the
+// len(EndorsersByConnConfig) != 0 guard - one nil passed to a variadic is a
+// slice of length one - and is dereferenced at chaincode/invoke.go:283. Every
+// query entry point must report the misconfiguration instead.
+func TestQueryChaincode_noPeerConfiguredForQuery(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		call func(l *Ledger) error
+	}{
+		{"GetLedgerInfo", func(l *Ledger) error { _, err := l.GetLedgerInfo(); return err }},
+		{"GetTransactionByID", func(l *Ledger) error { _, err := l.GetTransactionByID("tx1"); return err }},
+		{"GetBlockNumberByTxID", func(l *Ledger) error { _, err := l.GetBlockNumberByTxID("tx1"); return err }},
+		{"GetBlockByNumber", func(l *Ledger) error { _, err := l.GetBlockByNumber(1); return err }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			l, mockCM, mockLM, mockCS, _ := setupTestLedger(t)
+
+			// A real invocation dereferences each config; the mock would not, so
+			// assert on the error rather than merely on the absence of a panic.
+			mockInvocation := &mock.ChaincodeInvocation{}
+			mockInvocation.WithSignerIdentityReturns(mockInvocation)
+			mockInvocation.WithEndorsersByConnConfigReturns(mockInvocation)
+			mockInvocation.QueryReturns([]byte("unused"), nil)
+
+			mockCC := &mock.Chaincode{}
+			mockCC.NewInvocationReturns(mockInvocation)
+			mockCM.ChaincodeReturns(mockCC)
+			mockLM.DefaultIdentityReturns(view.Identity("alice"))
+			mockCS.PickPeerReturns(nil)
+
+			err := tc.call(l)
+			require.ErrorContains(t, err, "no peer configured for query")
+			require.Equal(t, 0, mockInvocation.QueryCallCount(),
+				"must fail before invoking the chaincode")
+		})
+	}
 }
