@@ -34,6 +34,10 @@ GINKGO_TEST_OPTS="--focus='IOU Life Cycle'" make integration-tests-fabric-iou
 for test commands: the remaining targets, the Postgres and coverage variants, and their
 prerequisites. See also [integration-tests.md](integration-tests.md).
 
+## Fuzzing
+
+See [`docs/dev/testing.md`](../dev/testing.md).
+
 ## Integration test structure
 
 ```go
