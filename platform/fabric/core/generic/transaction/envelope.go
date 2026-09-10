@@ -196,7 +196,7 @@ func UnpackEnvelopePayload(payloadRaw []byte) (*UnpackedEnvelope, int32, error) 
 		return nil, chdr.Type, errors.Wrap(err, "failed to unmarshal proposal response payload")
 	}
 	if pRespPayload.Extension == nil {
-		return nil, chdr.Type, errors.Wrap(err, "nil pRespPayload.Extension")
+		return nil, chdr.Type, errors.New("nil pRespPayload.Extension")
 	}
 	respPayload, err := protoutil.UnmarshalChaincodeAction(pRespPayload.Extension)
 	if err != nil {

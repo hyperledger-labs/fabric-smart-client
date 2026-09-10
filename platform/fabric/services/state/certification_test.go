@@ -296,18 +296,13 @@ func TestNamespaceVerifyInputCertificationAtBranches(t *testing.T) {
 		t.Parallel()
 		tx, rwset, driverTx := newTestStateTransaction("assetns")
 		driverTx.transient[CertificationType] = []byte(ChaincodeCertification)
-		tx.Provider = &mockServiceProvider{
-			getFn: func(_ any) (any, error) {
-				return nil, errors.New("service missing")
-			},
-		}
 		key, err := CreateCompositeKey("asset", []string{"1"})
 		require.NoError(t, err)
 		require.NoError(t, rwset.AddReadAt("assetns", key, nil))
 
 		err = tx.VerifyInputCertificationAt(0, key)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "failed getting channel")
+		require.ErrorContains(t, err, "no certification found")
 	})
 
 	t.Run("channel lookup failure", func(t *testing.T) {
